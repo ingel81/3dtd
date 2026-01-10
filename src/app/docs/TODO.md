@@ -14,15 +14,9 @@ Performance:
      [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
      [ ] ist aber nicht so dramatisch wie es sich anhört.
 
- [ ] **Straßen-Overlay verursacht massiven FPS-Drop** (144 FPS → 35 FPS)
-     - Ursache: 200-600 separate THREE.Line Objekte mit je eigenem geklonten Material
-     - Jede Straße = 1 Draw Call → 200-600 Draw Calls statt 1
-     - `frustumCulled: false` verhindert Culling-Optimierung
-     - Während Height-Sync wird alles alle 500ms komplett neu erstellt
-     - **Empfohlener Fix:** Merged Geometry - alle Straßen in EINE BufferGeometry
-       → Erwartete Verbesserung: 10-15x Performance (1 Draw Call statt 600)
-     - Alternativ: THREE.LineSegments oder InstancedMesh
-     - Datei: tower-defense.component.ts, renderStreets() (Zeilen 2057-2154)
+ [x] **Straßen-Overlay verursacht massiven FPS-Drop** (144 FPS → 35 FPS) - FIXED
+     - Fix: Merged Geometry mit THREE.LineSegments (1 Draw Call statt 600+)
+     - Siehe DONE.md für Details
 
  [ ] **Animationen laufen langsamer bei niedrigen FPS** (frame-abhängig statt zeit-abhängig)
      - Ursache: Hardcoded `this.update(16)` in three-tiles-engine.ts Zeile 962

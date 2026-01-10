@@ -1729,8 +1729,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
 
-  // Three.js objects for streets (markers and routes now in services)
-  private streetLines: THREE.Line[] = [];
+  // Three.js object for streets (merged geometry for performance - 1 draw call instead of 600)
+  private streetLinesMesh: THREE.LineSegments | null = null;
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -2134,26 +2134,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     const overlayGroup = engine.getOverlayGroup();
 
-    // Remove existing street lines
-    for (const line of this.streetLines) {
-      overlayGroup.remove(line);
-      line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
+    // Remove existing street mesh (single object now instead of 600+ separate lines)
+    if (this.streetLinesMesh) {
+      overlayGroup.remove(this.streetLinesMesh);
+      this.streetLinesMesh.geometry.dispose();
+      (this.streetLinesMesh.material as THREE.Material).dispose();
+      this.streetLinesMesh = null;
     }
-    this.streetLines = [];
 
     // Clear height debug markers
     this.markerViz.clearHeightDebugMarkers();
-
-    // Street overlay material - depthTest: true for correct occlusion
-    const material = new THREE.LineBasicMaterial({
-      color: 0xffd700,
-      linewidth: 2,
-      depthTest: true,
-      depthWrite: false,
-      transparent: true,
-      opacity: 0.9
-    });
 
     // Height offset above terrain (0 = directly on terrain)
     const HEIGHT_ABOVE_GROUND = 0.5;
@@ -2174,6 +2164,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Always create debug markers (hidden by default) so toggleHeightDebug doesn't need to re-render
     const debugMarkerInterval = 10; // Only show every Nth marker to reduce clutter
     let debugMarkerCount = 0;
+
+    // Collect all line segments for merged geometry (PERFORMANCE: 1 draw call instead of 600+)
+    // LineSegments interprets vertices pairwise: [v0-v1], [v2-v3], [v4-v5]...
+    const allSegmentVertices: number[] = [];
+    let streetCount = 0;
 
     for (const street of this.streetNetwork.streets) {
       if (street.nodes.length < 2) continue;
@@ -2214,16 +2209,41 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Smooth out height anomalies (e.g., hitting buildings instead of ground)
       const smoothedPoints = this.pathRoute.smoothPathHeights(points);
 
-      const geometry = new THREE.BufferGeometry().setFromPoints(smoothedPoints);
-      const line = new THREE.Line(geometry, material.clone());
-      line.visible = this.streetsVisible();
-      line.renderOrder = 1;
-      line.frustumCulled = false;  // Prevent disappearing at certain angles
-      overlayGroup.add(line);
-      this.streetLines.push(line);
+      // Convert connected points to line segments for LineSegments geometry
+      // [A, B, C, D] -> segments: [A-B, B-C, C-D] -> vertices: [A, B, B, C, C, D]
+      for (let i = 0; i < smoothedPoints.length - 1; i++) {
+        const p1 = smoothedPoints[i];
+        const p2 = smoothedPoints[i + 1];
+        allSegmentVertices.push(p1.x, p1.y, p1.z);
+        allSegmentVertices.push(p2.x, p2.y, p2.z);
+      }
+      streetCount++;
     }
 
-    console.log(`[Streets] Rendered with ECEF raycast: ${hits} hits, ${misses} misses, ${this.streetLines.length} lines`);
+    // Create single merged geometry with all street segments
+    if (allSegmentVertices.length > 0) {
+      const geometry = new THREE.BufferGeometry();
+      geometry.setAttribute('position', new THREE.Float32BufferAttribute(allSegmentVertices, 3));
+
+      // Single material for all streets (no more cloning per street!)
+      const material = new THREE.LineBasicMaterial({
+        color: 0xffd700,
+        linewidth: 2,
+        depthTest: true,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0.9
+      });
+
+      this.streetLinesMesh = new THREE.LineSegments(geometry, material);
+      this.streetLinesMesh.visible = this.streetsVisible();
+      this.streetLinesMesh.renderOrder = 1;
+      this.streetLinesMesh.frustumCulled = false;  // Prevent disappearing at certain angles
+      overlayGroup.add(this.streetLinesMesh);
+    }
+
+    const segmentCount = allSegmentVertices.length / 6; // 6 floats per segment (2 vertices * 3 components)
+    console.log(`[Streets] Rendered with merged geometry: ${hits} hits, ${misses} misses, ${streetCount} streets, ${segmentCount} segments, 1 draw call`);
   }
 
 
@@ -2593,8 +2613,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.uiState.toggleStreets();
     const visible = this.uiState.streetsVisible();
 
-    for (const line of this.streetLines) {
-      line.visible = visible;
+    // Single mesh now instead of iterating over 600+ lines
+    if (this.streetLinesMesh) {
+      this.streetLinesMesh.visible = visible;
     }
   }
 
@@ -3079,13 +3100,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear routes via service
     this.pathRoute.clearAllRoutes();
 
-    // Clear street lines
-    for (const line of this.streetLines) {
-      overlayGroup.remove(line);
-      line.geometry.dispose();
-      (line.material as THREE.Material).dispose();
+    // Clear street mesh (single object now)
+    if (this.streetLinesMesh) {
+      overlayGroup.remove(this.streetLinesMesh);
+      this.streetLinesMesh.geometry.dispose();
+      (this.streetLinesMesh.material as THREE.Material).dispose();
+      this.streetLinesMesh = null;
     }
-    this.streetLines = [];
 
     // Clear spawn points signal
     this.spawnPoints.set([]);

@@ -8,6 +8,14 @@ Bug:
      - Fix: Frischen THREE.Raycaster() pro Aufruf erstellen
      - Grund: LoS-Raycasting korrumpierte den geteilten Raycaster-Zustand
 
+Performance:
+ [x] **Straßen-Overlay FPS-Drop gefixt** (35 FPS → 144 FPS)
+     - Problem: 200-600 separate THREE.Line Objekte mit je geklontem Material
+     - Jede Straße = 1 Draw Call → 200-600 Draw Calls
+     - Fix: Alle Straßensegmente in ein THREE.LineSegments mit Merged BufferGeometry
+     - Ergebnis: 1 Draw Call statt 600+, ~10x bessere Performance
+     - Datei: tower-defense.component.ts, renderStreets()
+
 Allgemein:
  [x] Soundlaustärke abhängig von Kamerentfernung (kein cutoff - natürliches Verhalten)
      - SpatialAudioManager mit Three.js PositionalAudio implementiert
