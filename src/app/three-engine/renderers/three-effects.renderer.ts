@@ -405,6 +405,97 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * Spawn fire effect ON TERRAIN at given geo coordinates
+   * Automatically raycasts to find terrain/roof height - no manual height calculation needed!
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param getTerrainHeight - Function to get terrain height (engine.getTerrainHeightAtGeo)
+   * @param intensity - Fire intensity
+   * @param heightOffset - Optional offset above terrain (default: 0)
+   */
+  spawnFireOnTerrain(
+    lat: number,
+    lon: number,
+    getTerrainHeight: (lat: number, lon: number) => number | null,
+    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium',
+    heightOffset: number = 0
+  ): string {
+    const localY = getTerrainHeight(lat, lon) ?? 0;
+    return this.spawnFireAtLocalY(lat, lon, localY + heightOffset, intensity);
+  }
+
+  /**
+   * Spawn fire effect using local Y coordinate directly
+   * Use this when you have a local terrain Y from getTerrainHeightAtGeo()
+   *
+   * @param lat - Latitude (for X/Z positioning)
+   * @param lon - Longitude (for X/Z positioning)
+   * @param localY - Local Y coordinate (from getTerrainHeightAtGeo)
+   * @param intensity - Fire intensity
+   */
+  spawnFireAtLocalY(
+    lat: number,
+    lon: number,
+    localY: number,
+    intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium'
+  ): string {
+    // Get X/Z from geo, but use provided localY directly
+    const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
+    const localPos = new THREE.Vector3(localXZ.x, localY, localXZ.z);
+
+    const id = `fire_${this.effectIdCounter++}`;
+
+    const intensityConfig = {
+      tiny: { count: 10, radius: 1, duration: 3000 },
+      small: { count: 30, radius: 2, duration: 5000 },
+      medium: { count: 60, radius: 3, duration: 8000 },
+      large: { count: 100, radius: 5, duration: 10000 },
+      inferno: { count: 200, radius: 8, duration: -1 },
+    };
+
+    const config = intensityConfig[intensity];
+
+    const effect: EffectInstance = {
+      id,
+      type: 'fire',
+      particles: [],
+      startTime: performance.now(),
+      duration: config.duration,
+      localPosition: localPos.clone(),
+    };
+
+    for (let i = 0; i < config.count && effect.particles.length < this.MAX_FIRE_PARTICLES; i++) {
+      const particle = this.getInactiveParticle(this.firePool);
+      if (!particle) break;
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * config.radius;
+
+      particle.position.copy(localPos);
+      particle.position.x += Math.cos(angle) * radius;
+      particle.position.z += Math.sin(angle) * radius;
+
+      particle.velocity.set(
+        (Math.random() - 0.5) * 2,
+        2 + Math.random() * 4,
+        (Math.random() - 0.5) * 2
+      );
+      particle.life = 1.0;
+      particle.maxLife = 0.5 + Math.random() * 1.0;
+      particle.size = 0.5 + Math.random() * 1.5;
+
+      const t = Math.random();
+      particle.color.setRGB(1, 0.3 + t * 0.5, t * 0.2);
+
+      effect.particles.push(particle);
+    }
+
+    this.activeEffects.set(id, effect);
+    return id;
+  }
+
+  /**
    * Stop a fire effect
    */
   stopFire(id: string): void {
@@ -749,6 +840,58 @@ export class ThreeEffectsRenderer {
     return null;
   }
 
+  // Debug spheres for visualization
+  private debugSpheres: THREE.Mesh[] = [];
+
+  /**
+   * Spawn a debug sphere at a position (for debugging fire placement etc.)
+   * Uses localY directly (not geo height)
+   */
+  spawnDebugSphere(
+    lat: number,
+    lon: number,
+    localY: number,
+    radius: number = 2,
+    color: number = 0x00ff00
+  ): void {
+    const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
+
+    const geometry = new THREE.SphereGeometry(radius, 16, 16);
+    const material = new THREE.MeshBasicMaterial({
+      color,
+      transparent: true,
+      opacity: 0.8,
+      depthTest: true,
+    });
+    const sphere = new THREE.Mesh(geometry, material);
+    sphere.position.set(localXZ.x, localY, localXZ.z);
+    sphere.renderOrder = 100;
+
+    this.scene.add(sphere);
+    this.debugSpheres.push(sphere);
+  }
+
+  /**
+   * Set visibility of all debug spheres
+   */
+  setDebugSpheresVisible(visible: boolean): void {
+    for (const sphere of this.debugSpheres) {
+      sphere.visible = visible;
+    }
+  }
+
+  /**
+   * Clear all debug spheres
+   */
+  clearDebugSpheres(): void {
+    for (const sphere of this.debugSpheres) {
+      this.scene.remove(sphere);
+      sphere.geometry.dispose();
+      (sphere.material as THREE.Material).dispose();
+    }
+    this.debugSpheres = [];
+  }
+
   /**
    * Clear all effects
    */
@@ -773,6 +916,9 @@ export class ThreeEffectsRenderer {
       textInstance.active = false;
       textInstance.sprite.visible = false;
     }
+
+    // Clear debug spheres
+    this.clearDebugSpheres();
   }
 
   /**

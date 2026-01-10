@@ -82,7 +82,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     baseHp: 300, // Doppelt so viel wie Zombie
     baseSpeed: 3,
     damage: 25,
-    reward: 30,
+    reward: 5,
     hasAnimations: false,
     movingSound: '/assets/sounds/tank-moving-143104.mp3',
     movingSoundVolume: 0.3,

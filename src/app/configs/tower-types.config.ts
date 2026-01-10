@@ -47,14 +47,14 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 60,
     fireRate: 1, // 1 shot/sec
     projectileType: 'arrow',
-    cost: 50,
-    sellValue: 30,
+    cost: 20,
+    sellValue: 12,
     upgrades: [
       {
         id: 'speed',
         name: 'Schnellfeuer',
         description: 'Verdoppelt die Feuerrate',
-        cost: 50,
+        cost: 25,
         maxLevel: 1,
         effect: {
           stat: 'fireRate',

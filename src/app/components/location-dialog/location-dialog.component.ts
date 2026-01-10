@@ -14,6 +14,7 @@ import {
   LocationInfo,
   SpawnLocationConfig,
 } from '../../models/location.types';
+import { TD_CSS_VARS } from '../../styles/td-theme';
 
 type SpawnMode = 'random' | 'manual';
 
@@ -171,40 +172,51 @@ type SpawnMode = 'random' | 'manual';
     </div>
   `,
   styles: `
+    :host {
+      ${TD_CSS_VARS}
+    }
+
     .location-dialog {
       width: 400px;
       max-width: 90vw;
-      background: linear-gradient(180deg, #1a1b1f 0%, #0d0d0f 100%);
-      color: #fff;
-      font-family: 'Inter', sans-serif;
+      background: var(--td-bg-dark);
+      border-top: 1px solid var(--td-frame-light);
+      border-left: 1px solid var(--td-frame-mid);
+      border-right: 1px solid var(--td-frame-dark);
+      border-bottom: 2px solid var(--td-frame-dark);
+      color: var(--td-text-primary);
+      font-family: 'JetBrains Mono', monospace;
     }
 
     .dialog-header {
       display: flex;
       align-items: center;
       gap: 10px;
-      padding: 16px 20px;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 16px;
+      background: var(--td-panel-main);
+      border-bottom: 2px solid var(--td-frame-dark);
+      border-top: 1px solid var(--td-frame-light);
     }
 
     .header-icon {
-      color: #9333ea;
-      font-size: 24px;
-      width: 24px;
-      height: 24px;
+      color: var(--td-gold);
+      font-size: 20px;
+      width: 20px;
+      height: 20px;
     }
 
     h2 {
       margin: 0;
-      font-size: 16px;
+      font-size: 14px;
       font-weight: 600;
+      color: var(--td-gold);
     }
 
     .dialog-content {
-      padding: 16px 20px;
+      padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 16px;
+      gap: 14px;
     }
 
     .current-location {
@@ -215,8 +227,8 @@ type SpawnMode = 'random' | 'manual';
 
     .label,
     .section-label {
-      font-size: 11px;
-      color: rgba(255, 255, 255, 0.5);
+      font-size: 10px;
+      color: var(--td-text-muted);
       text-transform: uppercase;
       letter-spacing: 0.5px;
     }
@@ -226,48 +238,50 @@ type SpawnMode = 'random' | 'manual';
       align-items: center;
       gap: 8px;
       padding: 8px 12px;
-      background: rgba(147, 51, 234, 0.15);
-      border: 1px solid rgba(147, 51, 234, 0.3);
-      border-radius: 4px;
-      font-size: 13px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-mid);
+      border-top-color: var(--td-frame-dark);
+      border-left-color: var(--td-frame-dark);
+      font-size: 11px;
     }
 
     .location-display mat-icon {
-      color: #9333ea;
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      color: var(--td-teal);
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
     }
 
     .warning-box {
       display: flex;
       gap: 10px;
-      padding: 12px;
-      background: rgba(249, 115, 22, 0.15);
-      border: 1px solid rgba(249, 115, 22, 0.4);
-      border-radius: 4px;
+      padding: 10px 12px;
+      background: var(--td-health-bg);
+      border: 1px solid var(--td-warn-orange);
+      border-top-color: rgba(201, 106, 58, 0.6);
+      border-bottom-width: 2px;
     }
 
     .warning-box mat-icon {
-      color: #f97316;
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
+      color: var(--td-warn-orange);
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
       flex-shrink: 0;
     }
 
     .warning-text {
-      font-size: 12px;
+      font-size: 11px;
       line-height: 1.4;
     }
 
     .warning-text strong {
-      color: #f97316;
+      color: var(--td-warn-orange);
     }
 
     .warning-text p {
       margin: 4px 0 0;
-      color: rgba(255, 255, 255, 0.7);
+      color: var(--td-text-secondary);
     }
 
     .section {
@@ -283,28 +297,29 @@ type SpawnMode = 'random' | 'manual';
       padding: 6px 0;
       background: transparent;
       border: none;
-      color: rgba(255, 255, 255, 0.5);
-      font-size: 11px;
+      color: var(--td-text-muted);
+      font-size: 10px;
+      font-family: 'JetBrains Mono', monospace;
       cursor: pointer;
       transition: color 0.15s ease;
     }
 
     .expand-header:hover {
-      color: rgba(255, 255, 255, 0.8);
+      color: var(--td-text-secondary);
     }
 
     .expand-header mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
     }
 
     .coords-input {
       display: flex;
       gap: 8px;
       padding: 8px;
-      background: rgba(0, 0, 0, 0.3);
-      border-radius: 4px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
     }
 
     .coord-field {
@@ -316,55 +331,62 @@ type SpawnMode = 'random' | 'manual';
 
     .coord-field label {
       font-size: 9px;
-      color: rgba(255, 255, 255, 0.4);
+      color: var(--td-text-muted);
       text-transform: uppercase;
     }
 
     .coord-field input {
       width: 100%;
       padding: 6px 8px;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 3px;
-      color: #fff;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-dark);
+      color: var(--td-text-primary);
       font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
+      font-size: 10px;
     }
 
     .coord-field input:focus {
       outline: none;
-      border-color: #9333ea;
+      border-color: var(--td-gold);
     }
 
     .apply-coords-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 32px;
-      height: 32px;
+      width: 28px;
+      height: 28px;
       margin-top: auto;
-      background: #9333ea;
+      background: var(--td-gold);
       border: none;
-      border-radius: 4px;
-      color: #fff;
+      border-top: 1px solid var(--td-edge-highlight);
+      border-bottom: 2px solid var(--td-gold-dark);
+      color: var(--td-bg-dark);
       cursor: pointer;
-      transition: background 0.15s ease;
+      transition: all 0.15s ease;
     }
 
     .apply-coords-btn:hover:not(:disabled) {
-      background: #7c22d6;
+      background: #D4B05A;
+      transform: translateY(-1px);
+    }
+
+    .apply-coords-btn:active:not(:disabled) {
+      background: var(--td-gold-dark);
+      transform: translateY(1px);
     }
 
     .apply-coords-btn:disabled {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.3);
+      background: var(--td-disabled);
+      color: var(--td-text-disabled);
       cursor: not-allowed;
+      border-color: var(--td-frame-dark);
     }
 
     .apply-coords-btn mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
     }
 
     .spawn-options {
@@ -378,25 +400,28 @@ type SpawnMode = 'random' | 'manual';
       align-items: flex-start;
       gap: 8px;
       padding: 10px 12px;
-      background: rgba(0, 0, 0, 0.3);
-      border: 1px solid rgba(255, 255, 255, 0.1);
-      border-radius: 4px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-mid);
+      border-top-color: var(--td-frame-dark);
+      border-left-color: var(--td-frame-dark);
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
     .radio-option:hover {
-      border-color: rgba(255, 255, 255, 0.2);
+      border-color: var(--td-frame-light);
+      background: var(--td-panel-main);
     }
 
     .radio-option.selected {
-      border-color: #9333ea;
-      background: rgba(147, 51, 234, 0.1);
+      border-color: var(--td-gold);
+      background: rgba(201, 164, 76, 0.1);
+      box-shadow: inset 0 0 8px rgba(201, 164, 76, 0.15);
     }
 
     .radio-option input[type='radio'] {
       margin-top: 2px;
-      accent-color: #9333ea;
+      accent-color: var(--td-gold);
     }
 
     .radio-content {
@@ -406,13 +431,14 @@ type SpawnMode = 'random' | 'manual';
     }
 
     .radio-label {
-      font-size: 12px;
+      font-size: 11px;
       font-weight: 500;
+      color: var(--td-text-primary);
     }
 
     .radio-desc {
-      font-size: 10px;
-      color: rgba(255, 255, 255, 0.5);
+      font-size: 9px;
+      color: var(--td-text-muted);
     }
 
     .manual-spawn-input {
@@ -423,8 +449,9 @@ type SpawnMode = 'random' | 'manual';
       display: flex;
       justify-content: flex-end;
       gap: 10px;
-      padding: 12px 20px;
-      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      padding: 12px 16px;
+      background: var(--td-panel-main);
+      border-top: 1px solid var(--td-frame-light);
     }
 
     .cancel-btn,
@@ -432,45 +459,56 @@ type SpawnMode = 'random' | 'manual';
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 8px 16px;
-      border: none;
-      border-radius: 4px;
-      font-size: 12px;
+      padding: 8px 14px;
+      font-size: 11px;
       font-weight: 500;
+      font-family: 'JetBrains Mono', monospace;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
     .cancel-btn {
       background: transparent;
-      color: rgba(255, 255, 255, 0.6);
-      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--td-text-secondary);
+      border: 1px solid var(--td-frame-mid);
+      border-top-color: var(--td-frame-light);
+      border-bottom: 2px solid var(--td-frame-dark);
     }
 
     .cancel-btn:hover {
-      background: rgba(255, 255, 255, 0.05);
-      color: #fff;
+      background: var(--td-panel-secondary);
+      color: var(--td-text-primary);
     }
 
     .confirm-btn {
-      background: #9333ea;
-      color: #fff;
+      background: var(--td-gold);
+      color: var(--td-bg-dark);
+      border: none;
+      border-top: 1px solid var(--td-edge-highlight);
+      border-bottom: 2px solid var(--td-gold-dark);
     }
 
     .confirm-btn:hover:not(:disabled) {
-      background: #7c22d6;
+      background: #D4B05A;
+      transform: translateY(-1px);
+    }
+
+    .confirm-btn:active:not(:disabled) {
+      background: var(--td-gold-dark);
+      transform: translateY(1px);
     }
 
     .confirm-btn:disabled {
-      background: rgba(255, 255, 255, 0.1);
-      color: rgba(255, 255, 255, 0.3);
+      background: var(--td-disabled);
+      color: var(--td-text-disabled);
       cursor: not-allowed;
+      border-color: var(--td-frame-dark);
     }
 
     .confirm-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
+      font-size: 12px;
+      width: 12px;
+      height: 12px;
     }
   `,
 })

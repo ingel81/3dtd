@@ -5,6 +5,7 @@ import * as THREE from 'three';
  */
 export interface CoordinateSync {
   geoToLocal(lat: number, lon: number, height: number): THREE.Vector3;
+  geoToLocalSimple(lat: number, lon: number, height: number): THREE.Vector3;
   localToGeo?(vec: THREE.Vector3): { lat: number; lon: number; height: number };
 }
 

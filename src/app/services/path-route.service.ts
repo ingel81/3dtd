@@ -288,15 +288,34 @@ export class PathAndRouteService {
     const smoothedPoints = this.smoothPathHeights(points);
 
     // Convert smoothed heights back to geo heights and update cached path
+    // For the last point (HQ), always use the terrain height of the second-to-last point
+    // so enemies stay on ground level instead of climbing to the beacon
+    let lastValidGeoHeight = origin.height;
+    let secondToLastGeoHeight = origin.height;
+
     const pathWithHeights: GeoPosition[] = geoPath.map((pos, i) => {
+      const isLastPoint = i === geoPath.length - 1;
       const smoothedIdx = validIndices.indexOf(i);
+
       if (smoothedIdx !== -1 && smoothedIdx < smoothedPoints.length) {
         const smoothedLocalY = smoothedPoints[smoothedIdx].y;
         const localTerrainY = smoothedLocalY - HEIGHT_ABOVE_GROUND + originTerrainY;
         const geoHeight = localTerrainY + origin.height;
+
+        // Track heights for HQ fallback
+        secondToLastGeoHeight = lastValidGeoHeight;
+        lastValidGeoHeight = geoHeight;
+
+        // For the last point (HQ), use the previous point's height
+        // to ensure enemies walk on ground level into the building
+        if (isLastPoint) {
+          return { ...pos, height: secondToLastGeoHeight };
+        }
         return { ...pos, height: geoHeight };
       } else {
-        return { ...pos, height: origin.height };
+        // For points without valid terrain (like HQ on a building),
+        // use the last valid terrain height so enemies stay on ground
+        return { ...pos, height: lastValidGeoHeight };
       }
     });
     this.cachedPaths.set(spawn.id, pathWithHeights);

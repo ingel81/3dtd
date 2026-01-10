@@ -134,6 +134,81 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
 
+### Koordinatensystem (WICHTIG!)
+
+Das Projekt verwendet zwei Koordinatensysteme. **Häufige Fehlerquelle!**
+
+#### 1. Geographic Coordinates (WGS84)
+- `lat`, `lon`: Geografische Koordinaten in Grad
+- `height`: Absolute Höhe über WGS84-Ellipsoid in Metern (z.B. 235m)
+
+#### 2. Local Coordinates (Three.js Scene)
+- `x`, `z`: Horizontale Position relativ zum Origin (HQ)
+- `y`: Vertikale Position relativ zum Origin (0 = Origin-Höhe)
+
+#### Transformation
+
+| Methode | Input | Output | Verwendung |
+|---------|-------|--------|------------|
+| `geoToLocal(lat, lon, height)` | Geo + WGS84-Höhe | Local X/Y/Z | Objekte mit bekannter geo-Höhe |
+| `geoToLocalSimple(lat, lon, 0)` | Geo | Local X/Z (Y=0) | Nur X/Z Position, Y separat setzen |
+| `getTerrainHeightAtGeo(lat, lon)` | Geo | **Local Y** | Raycast → Terrain/Dach-Höhe |
+
+#### WICHTIG: getTerrainHeightAtGeo gibt LOCAL Y zurück!
+
+```typescript
+// FALSCH - localY ist keine geo-Höhe!
+const localY = engine.getTerrainHeightAtGeo(lat, lon);
+const pos = engine.sync.geoToLocal(lat, lon, localY); // ❌ Doppelte Transformation!
+
+// RICHTIG - localY direkt verwenden
+const localY = engine.getTerrainHeightAtGeo(lat, lon);
+const localXZ = engine.sync.geoToLocalSimple(lat, lon, 0);
+object.position.set(localXZ.x, localY, localXZ.z); // ✅
+```
+
+#### Convenience-Methoden
+
+Für häufige Operationen gibt es Convenience-Methoden, die das automatisch richtig machen:
+
+```typescript
+// Feuer auf Terrain spawnen - macht Raycast intern
+engine.effects.spawnFireOnTerrain(lat, lon, engine.getTerrainHeightAtGeo, 'medium');
+
+// Oder mit lokalem Y direkt
+engine.effects.spawnFireAtLocalY(lat, lon, localY, 'medium');
+```
+
+#### WICHTIG: Terrain-Höhe LIVE ermitteln!
+
+Terrain-Höhen sollten **zum Zeitpunkt der Verwendung** ermittelt werden, nicht beim Initialisieren:
+
+```typescript
+// FALSCH - Tiles sind beim Init möglicherweise noch nicht geladen!
+initialize() {
+  this.cachedHeight = engine.getTerrainHeightAtGeo(lat, lon); // ❌ Kann falsch sein!
+}
+
+useHeight() {
+  doSomething(this.cachedHeight); // ❌ Veralteter/falscher Wert
+}
+
+// RICHTIG - Live ermitteln wenn benötigt
+useHeight() {
+  const localY = engine.getTerrainHeightAtGeo(lat, lon); // ✅ Tiles sind jetzt geladen
+
+  // Sanity check für Werte am Origin (sollten nahe 0 sein)
+  if (localY === null || Math.abs(localY) > 50) {
+    console.warn('Invalid terrain height:', localY);
+    localY = 0;
+  }
+
+  doSomething(localY);
+}
+```
+
+**Grund:** 3D Tiles werden asynchron geladen. Beim Spielstart sind oft noch keine Tiles vorhanden, sodass Raycasts ins Leere gehen oder falsche Werte liefern.
+
 ### Terrain-Höhenermittlung
 
 Raycast gegen geladene 3D Tiles in lokalen Koordinaten:

@@ -127,3 +127,56 @@ export const TD_SLOT_STYLES = `
   border-top-color: var(--td-frame-dark);
   border-left-color: var(--td-frame-dark);
 `;
+
+/**
+ * Secondary Button (Border-only, für Abbrechen etc.)
+ */
+export const TD_BUTTON_SECONDARY_STYLES = `
+  background: transparent;
+  color: var(--td-text-secondary);
+  border: 1px solid var(--td-frame-mid);
+  border-top-color: var(--td-frame-light);
+  border-bottom-color: var(--td-frame-dark);
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.15s ease;
+`;
+
+/**
+ * Dialog Container Styles
+ */
+export const TD_DIALOG_STYLES = `
+  background: var(--td-bg-dark);
+  border-top: 1px solid var(--td-frame-light);
+  border-left: 1px solid var(--td-frame-mid);
+  border-right: 1px solid var(--td-frame-dark);
+  border-bottom: 2px solid var(--td-frame-dark);
+  color: var(--td-text-primary);
+  font-family: 'JetBrains Mono', monospace;
+`;
+
+/**
+ * Input Field Styles
+ */
+export const TD_INPUT_STYLES = `
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  border-top-color: var(--td-frame-dark);
+  border-bottom-color: var(--td-frame-mid);
+  color: var(--td-text-primary);
+  font-family: 'JetBrains Mono', monospace;
+  transition: border-color 0.15s ease;
+`;
+
+/**
+ * Radio/Checkbox Option Styles (Slot-like)
+ */
+export const TD_OPTION_STYLES = `
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-mid);
+  border-top-color: var(--td-frame-dark);
+  border-left-color: var(--td-frame-dark);
+  cursor: pointer;
+  transition: all 0.15s ease;
+`;

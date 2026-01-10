@@ -37,6 +37,9 @@ export class GameUIStateService {
   /** Height debug markers visibility */
   readonly heightDebugVisible = signal(false);
 
+  /** Special points debug visibility (fire position, etc.) */
+  readonly specialPointsDebugVisible = signal(false);
+
   // ========================================
   // PERFORMANCE STATS
   // ========================================
@@ -113,6 +116,13 @@ export class GameUIStateService {
   }
 
   /**
+   * Toggle special points debug visibility (fire position, etc.)
+   */
+  toggleSpecialPointsDebug(): void {
+    this.specialPointsDebugVisible.update((v) => !v);
+  }
+
+  /**
    * Update FPS counter
    * @param fps Current frames per second
    */
@@ -162,6 +172,7 @@ export class GameUIStateService {
     this.routesVisible.set(false);
     this.towerDebugVisible.set(false);
     this.heightDebugVisible.set(false);
+    this.specialPointsDebugVisible.set(false);
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
     this.debugLog.set('');

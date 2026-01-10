@@ -1,6 +1,7 @@
 import { Injectable, signal } from '@angular/core';
 
 export interface GeocodingResult {
+  placeId: number;
   displayName: string;
   lat: number;
   lon: number;
@@ -119,6 +120,7 @@ export class GeocodingService {
 
       const results: GeocodingResult[] = data.map(
         (item: {
+          place_id: number;
           display_name: string;
           lat: string;
           lon: string;
@@ -126,6 +128,7 @@ export class GeocodingService {
           importance: number;
           address?: NominatimAddress;
         }) => ({
+          placeId: item.place_id,
           displayName: item.display_name,
           lat: parseFloat(item.lat),
           lon: parseFloat(item.lon),

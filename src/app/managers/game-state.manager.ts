@@ -3,6 +3,7 @@ import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
+import { GameUIStateService } from '../services/game-ui-state.service';
 import { StreetNetwork } from '../services/osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
@@ -29,10 +30,11 @@ export class GameStateManager {
   readonly towerManager = inject(TowerManager);
   readonly projectileManager = inject(ProjectileManager);
   readonly waveManager = inject(WaveManager);
+  private readonly uiState = inject(GameUIStateService);
 
   // Game state signals
   readonly baseHealth = signal(100);
-  readonly credits = signal(100);
+  readonly credits = signal(70);
   readonly showGameOverScreen = signal(false);
 
   // Computed signals for UI bindings
@@ -54,6 +56,12 @@ export class GameStateManager {
 
   // Track active fire effect ID
   private activeFireId: string | null = null;
+
+  // Cached HQ terrain height (calculated when tiles load)
+  private hqTerrainHeight: number | null = null;
+
+  // Sound IDs
+  private static readonly HQ_DAMAGE_SOUND = 'hq_damage';
 
   /**
    * Initialize game state with ThreeTilesEngine
@@ -91,6 +99,22 @@ export class GameStateManager {
     );
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
+
+    // Register HQ damage sound
+    if (tilesEngine.spatialAudio) {
+      tilesEngine.spatialAudio.registerSound(
+        GameStateManager.HQ_DAMAGE_SOUND,
+        '/assets/sounds/small_hq_explosion.mp3',
+        {
+          refDistance: 40,
+          rolloffFactor: 1,
+          volume: 1.4,
+        }
+      );
+    }
+
+    // NOTE: Terrain height for fire is determined LIVE in updateFireIntensity()
+    // because tiles may not be loaded yet at initialization time
   }
 
   /**
@@ -141,9 +165,19 @@ export class GameStateManager {
   /**
    * Handle enemy reaching the base
    */
-  private onEnemyReachedBase(enemy: Enemy): void {
+  private onEnemyReachedBase(_enemy: Enemy): void {
     this.baseHealth.update((h) => Math.max(0, h - 10));
     this.updateFireIntensity();
+
+    // Play HQ damage sound at base position
+    if (this.basePosition && this.tilesEngine?.spatialAudio) {
+      this.tilesEngine.spatialAudio.playAtGeo(
+        GameStateManager.HQ_DAMAGE_SOUND,
+        this.basePosition.lat,
+        this.basePosition.lon,
+        this.basePosition.height ?? 0
+      );
+    }
   }
 
   /**
@@ -242,10 +276,19 @@ export class GameStateManager {
       this.tilesEngine.effects.stopFire(this.activeFireId);
     }
 
-    this.activeFireId = this.tilesEngine.effects.spawnFire(
+    // Use cached terrain height, or calculate live as fallback
+    let fireY = this.hqTerrainHeight;
+    if (fireY === null) {
+      fireY = this.tilesEngine.getTerrainHeightAtGeo(
+        this.basePosition.lat,
+        this.basePosition.lon
+      ) ?? 0;
+    }
+
+    this.activeFireId = this.tilesEngine.effects.spawnFireAtLocalY(
       this.basePosition.lat,
       this.basePosition.lon,
-      this.basePosition.height || 235,
+      fireY,
       intensity
     );
   }
@@ -257,15 +300,26 @@ export class GameStateManager {
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
 
-    // Show inferno fire at base
+    // Show inferno fire at base (on terrain/roof, not at beacon)
     if (this.basePosition && this.tilesEngine) {
       if (this.activeFireId) {
         this.tilesEngine.effects.stopFire(this.activeFireId);
       }
-      this.activeFireId = this.tilesEngine.effects.spawnFire(
+
+      // Get terrain height LIVE
+      let localY = this.tilesEngine.getTerrainHeightAtGeo(
+        this.basePosition.lat,
+        this.basePosition.lon
+      );
+
+      if (localY === null || Math.abs(localY) > 50) {
+        localY = 0;
+      }
+
+      this.activeFireId = this.tilesEngine.effects.spawnFireAtLocalY(
         this.basePosition.lat,
         this.basePosition.lon,
-        this.basePosition.height || 235,
+        localY,
         'inferno'
       );
     }
@@ -321,7 +375,7 @@ export class GameStateManager {
     }
 
     this.baseHealth.set(100);
-    this.credits.set(100);
+    this.credits.set(70);
     this.showGameOverScreen.set(false);
     this.lastUpdateTime = 0;
 
@@ -442,5 +496,62 @@ export class GameStateManager {
    */
   debugLog(msg: string): void {
     this.onDebugLogCallback?.(msg);
+  }
+
+  /**
+   * Called when tiles are loaded - calculates HQ terrain height
+   * and spawns debug point if debug option is enabled
+   */
+  onTilesLoaded(): void {
+    if (!this.basePosition || !this.tilesEngine) return;
+
+    // Calculate and cache HQ terrain height
+    const terrainHeight = this.tilesEngine.getTerrainHeightAtGeo(
+      this.basePosition.lat,
+      this.basePosition.lon
+    );
+
+    if (terrainHeight !== null) {
+      this.hqTerrainHeight = terrainHeight;
+
+      // Spawn debug point if debug option is enabled
+      if (this.uiState.specialPointsDebugVisible()) {
+        this.spawnHQDebugPoint();
+      }
+    }
+  }
+
+  /**
+   * Spawn or update HQ debug point at cached terrain height
+   */
+  spawnHQDebugPoint(): void {
+    if (!this.basePosition || !this.tilesEngine) return;
+
+    if (this.hqTerrainHeight === null) {
+      // Try to calculate it now
+      this.hqTerrainHeight = this.tilesEngine.getTerrainHeightAtGeo(
+        this.basePosition.lat,
+        this.basePosition.lon
+      );
+      if (this.hqTerrainHeight === null) return;
+    }
+
+    this.tilesEngine.effects.spawnDebugSphere(
+      this.basePosition.lat,
+      this.basePosition.lon,
+      this.hqTerrainHeight,
+      1, // radius
+      0xff0000 // red
+    );
+  }
+
+  /**
+   * Update debug sphere visibility based on UI state
+   */
+  updateDebugSpheresVisibility(): void {
+    if (!this.tilesEngine) return;
+    this.tilesEngine.effects.setDebugSpheresVisible(
+      this.uiState.specialPointsDebugVisible()
+    );
   }
 }

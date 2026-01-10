@@ -11,11 +11,11 @@ export class WaveDebugService {
   private readonly uiState = inject(GameUIStateService);
 
   // Spawn settings
-  readonly enemyCount = signal(2);
+  readonly enemyCount = signal(10);
   readonly enemySpeed = signal(5);
   readonly enemyType = signal<EnemyTypeId>('zombie');
   readonly spawnMode = signal<'each' | 'random'>('each');
-  readonly spawnDelay = signal(300);
+  readonly spawnDelay = signal(1500);
   readonly useGathering = signal(false);
 
   // Available enemy types

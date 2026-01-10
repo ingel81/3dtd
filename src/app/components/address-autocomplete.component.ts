@@ -4,6 +4,7 @@ import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/geocoding.service';
+import { TD_CSS_VARS } from '../styles/td-theme';
 
 type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results' | 'error' | 'selected';
 
@@ -79,13 +80,10 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       <!-- Results dropdown -->
       @if (showDropdown() && geocoding.results().length > 0) {
         <div class="dropdown">
-          @for (result of geocoding.results().slice(0, 5); track result.displayName) {
+          @for (result of geocoding.results().slice(0, 5); track result.placeId) {
             <div class="result-item" (mousedown)="selectResult(result)">
               <mat-icon class="result-icon">place</mat-icon>
-              <div class="result-text">
-                <span class="result-name">{{ formatName(result.displayName) }}</span>
-                <span class="result-detail">{{ formatDetail(result.displayName) }}</span>
-              </div>
+              <span class="result-text">{{ formatResultLine(result) }}</span>
             </div>
           }
         </div>
@@ -93,6 +91,10 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
     </div>
   `,
   styles: `
+    :host {
+      ${TD_CSS_VARS}
+    }
+
     .autocomplete-container {
       position: relative;
       width: 100%;
@@ -102,33 +104,32 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       display: flex;
       align-items: center;
       gap: 6px;
-      background: rgba(0, 0, 0, 0.5);
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 4px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
       padding: 0 8px;
       transition: all 0.15s ease;
     }
 
     .autocomplete-container.has-focus .input-wrapper {
-      border-color: #9333ea;
-      background: rgba(0, 0, 0, 0.7);
+      border-color: var(--td-gold);
+      background: var(--td-panel-secondary);
     }
 
     .input-wrapper.has-value {
-      border-color: rgba(34, 197, 94, 0.5);
-      background: rgba(34, 197, 94, 0.1);
+      border-color: var(--td-green-dark);
+      background: rgba(158, 214, 160, 0.08);
     }
 
     .input-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
-      color: rgba(255, 255, 255, 0.4);
+      color: var(--td-text-muted);
       transition: color 0.15s ease;
     }
 
     .input-wrapper.has-value .input-icon {
-      color: #22c55e;
+      color: var(--td-green);
     }
 
     input {
@@ -136,7 +137,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       background: transparent;
       border: none;
       outline: none;
-      color: #fff;
+      color: var(--td-text-primary);
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
       padding: 6px 0;
@@ -144,16 +145,16 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
     }
 
     input::placeholder {
-      color: rgba(255, 255, 255, 0.3);
+      color: var(--td-text-disabled);
     }
 
     input.selected {
-      color: #22c55e;
+      color: var(--td-green);
       font-weight: 500;
     }
 
     .loading-spinner {
-      --mdc-circular-progress-active-indicator-color: #9333ea;
+      --mdc-circular-progress-active-indicator-color: var(--td-gold);
     }
 
     .clear-btn {
@@ -163,13 +164,13 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       padding: 2px;
       background: transparent;
       border: none;
-      color: rgba(255, 255, 255, 0.4);
+      color: var(--td-text-muted);
       cursor: pointer;
       transition: color 0.15s ease;
     }
 
     .clear-btn:hover {
-      color: #ef4444;
+      color: var(--td-health-red);
     }
 
     .clear-btn mat-icon {
@@ -183,16 +184,14 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       display: flex;
       align-items: center;
       padding: 4px 8px;
-      background: rgba(20, 20, 20, 0.95);
-      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
       border-top: none;
-      border-radius: 0 0 4px 4px;
       margin-top: -1px;
     }
 
     .status-bar.expanded {
-      border-color: #9333ea;
-      border-radius: 0;
+      border-color: var(--td-gold);
     }
 
     .hint {
@@ -200,7 +199,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       align-items: center;
       gap: 4px;
       font-size: 9px;
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--td-text-muted);
     }
 
     .hint mat-icon {
@@ -210,7 +209,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
     }
 
     .hint.searching {
-      color: #9333ea;
+      color: var(--td-gold);
     }
 
     .hint.searching mat-icon {
@@ -223,15 +222,15 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
     }
 
     .hint.success {
-      color: #22c55e;
+      color: var(--td-green);
     }
 
     .hint.warning {
-      color: #f97316;
+      color: var(--td-warn-orange);
     }
 
     .hint.error {
-      color: #ef4444;
+      color: var(--td-health-red);
     }
 
     /* Dropdown */
@@ -240,24 +239,22 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
       top: 100%;
       left: 0;
       right: 0;
-      background: rgba(10, 10, 10, 0.98);
-      border: 1px solid #9333ea;
+      background: var(--td-bg-dark);
+      border: 1px solid var(--td-gold);
       border-top: none;
-      border-bottom-left-radius: 4px;
-      border-bottom-right-radius: 4px;
-      max-height: 180px;
+      max-height: 160px;
       overflow-y: auto;
       z-index: 100;
     }
 
     .result-item {
       display: flex;
-      align-items: flex-start;
+      align-items: center;
       gap: 8px;
       padding: 8px 10px;
       cursor: pointer;
       transition: background 0.1s ease;
-      border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      border-bottom: 1px solid var(--td-frame-dark);
     }
 
     .result-item:last-child {
@@ -265,38 +262,25 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
     }
 
     .result-item:hover {
-      background: rgba(147, 51, 234, 0.25);
+      background: var(--td-panel-main);
     }
 
     .result-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: #9333ea;
+      font-size: 12px;
+      width: 12px;
+      height: 12px;
+      color: var(--td-teal);
       flex-shrink: 0;
-      margin-top: 1px;
     }
 
     .result-text {
-      display: flex;
-      flex-direction: column;
-      gap: 2px;
-      min-width: 0;
-      flex: 1;
-    }
-
-    .result-name {
       font-size: 10px;
-      color: #fff;
-      font-weight: 500;
-    }
-
-    .result-detail {
-      font-size: 8px;
-      color: rgba(255, 255, 255, 0.5);
+      color: var(--td-text-primary);
       white-space: nowrap;
       overflow: hidden;
       text-overflow: ellipsis;
+      flex: 1;
+      min-width: 0;
     }
   `,
 })
@@ -438,16 +422,44 @@ export class AddressAutocompleteComponent {
     setTimeout(() => this.inputElement?.nativeElement?.focus(), 0);
   }
 
-  formatName(displayName: string): string {
-    // Return first part (street + number or POI name)
-    const parts = displayName.split(',');
-    return parts[0]?.trim() || displayName;
-  }
+  /**
+   * Format result as single line for dropdown display
+   * Uses structured address if available for better formatting
+   */
+  formatResultLine(result: GeocodingResult): string {
+    if (result.address) {
+      const addr = result.address;
+      const parts: string[] = [];
 
-  formatDetail(displayName: string): string {
-    // Return all remaining parts (city, region, country, etc.)
-    const parts = displayName.split(',');
-    if (parts.length <= 1) return '';
-    return parts.slice(1).map(p => p.trim()).join(', ');
+      // Street + house number (combined)
+      if (addr.road) {
+        parts.push(addr.house_number ? `${addr.road} ${addr.house_number}` : addr.road);
+      }
+
+      // City (prefer city > town > village > municipality)
+      const city = addr.city || addr.town || addr.village || addr.municipality;
+      if (city) {
+        parts.push(city);
+      }
+
+      // Suburb/District if different from city and adds context
+      if (addr.suburb && addr.suburb !== city) {
+        // Insert suburb after street if we have one
+        if (parts.length >= 2) {
+          parts.splice(1, 0, addr.suburb);
+        } else if (parts.length === 1) {
+          parts.push(addr.suburb);
+        }
+      }
+
+      if (parts.length > 0) {
+        return parts.join(', ');
+      }
+    }
+
+    // Fall back to displayName, but truncate country/postcode parts
+    const parts = result.displayName.split(',');
+    // Keep first 3-4 meaningful parts
+    return parts.slice(0, 4).map(p => p.trim()).join(', ');
   }
 }
