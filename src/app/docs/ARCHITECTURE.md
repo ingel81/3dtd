@@ -742,3 +742,93 @@ tower-defense/
 - Keine Abhängigkeit von Cesium.js
 - Nur `3d-tiles-renderer` (NASA JPL) für Google 3D Tiles
 - Cesium Ion nur als Hosting-Service (Token-basiert)
+
+---
+
+## 11. Gotchas & Lessons Learned
+
+### Async Methods + Component Lifecycle = Race Condition
+
+**Problem:** Async Methoden können NACH `onDestroy()` weiterlaufen und Ressourcen erstellen, die nie aufgeräumt werden.
+
+```typescript
+// ❌ FALSCH - Sound wird nach destroy erstellt
+async playLoop() {
+  await loadBuffer();      // <-- onDestroy() kann hier aufgerufen werden
+  this.activeLoops.set();  // <-- läuft trotzdem weiter!
+  audio.play();            // <-- Sound spielt ewig
+}
+
+// ✅ RICHTIG - destroyed Flag nach jedem await prüfen
+private destroyed = false;
+
+async playLoop() {
+  await loadBuffer();
+  if (this.destroyed) return;  // Abbruch nach jedem await!
+  this.activeLoops.set();
+  audio.play();
+}
+
+onDestroy() {
+  this.destroyed = true;  // ZUERST Flag setzen
+  this.stopAll();         // DANN cleanup
+}
+```
+
+**Regel:** Bei async Component-Methoden immer ein `destroyed` Flag führen und nach jedem `await` prüfen.
+
+### `alive` vs `active` bei GameObjects
+
+| Property | Prüft | Wann false |
+|----------|-------|------------|
+| `alive` | `!health.isDead` | Enemy wurde getötet (HP = 0) |
+| `active` | GameObject._active | `destroy()` wurde aufgerufen |
+
+**Problem:** Bei setTimeout-Callbacks auf bereits zerstörte Objekte.
+
+```typescript
+// ❌ FALSCH - Enemy könnte destroyed sein aber health > 0
+setTimeout(() => {
+  if (enemy.alive) {
+    enemy.startMoving();  // Crash oder Zombie-Sound!
+  }
+}, delay);
+
+// ✅ RICHTIG - Beides prüfen
+setTimeout(() => {
+  if (enemy.alive && enemy.active) {
+    enemy.startMoving();
+  }
+}, delay);
+```
+
+### setTimeout-Loops bei Game State Changes
+
+**Problem:** Rekursive setTimeout-Loops (z.B. für Spawning) laufen weiter, auch wenn der Game State sich ändert.
+
+```typescript
+// ❌ FALSCH - Spawnt weiter nach Game Over
+const spawnNext = () => {
+  spawnEnemy();
+  setTimeout(spawnNext, delay);  // Loop läuft ewig
+};
+
+// ✅ RICHTIG - State prüfen
+const spawnNext = () => {
+  if (this.gameOver || this.waveAborted) return;  // Abbruch!
+  spawnEnemy();
+  setTimeout(spawnNext, delay);
+};
+
+onGameOver() {
+  this.waveAborted = true;  // Loop wird beim nächsten Tick gestoppt
+}
+```
+
+### Duplizierte Logik vermeiden
+
+**Problem:** Gleiche Funktionalität an mehreren Stellen implementiert → Fixes werden inkonsistent.
+
+**Beispiel:** `spawnNext()` war sowohl in `WaveManager` als auch in `TowerDefenseComponent` implementiert. Fix in WaveManager wurde nie benutzt.
+
+**Regel:** Spawn-Logik, Game-State-Änderungen etc. gehören in die Manager, nicht in Components.
