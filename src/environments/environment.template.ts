@@ -3,5 +3,5 @@
 
 export const environment = {
   production: false, // Set to true for environment.prod.ts
-  googleMapsApiKey: 'AIzaSyAL-GnyV7mhDCUrYSt3XtcEOHhUQiHLwKg',
+  googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
 };
