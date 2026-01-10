@@ -194,6 +194,14 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
 
           <canvas #gameCanvas class="td-canvas" [class.hidden]="error()"></canvas>
 
+          <!-- Google Attribution (required) -->
+          @if (!loading() && !error()) {
+            <div class="td-google-logo-container">
+              <img src="/assets/images/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
+            </div>
+            <div class="td-map-attribution">{{ mapAttribution() }}</div>
+          }
+
           <!-- Controls Hint -->
           @if (!loading() && !error()) {
             <div class="td-controls-hint">LMB: Pan | RMB: Rotate | Scroll: Zoom</div>
@@ -445,6 +453,14 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
               </div>
             </section>
           }
+          <!-- Footer -->
+          <div class="td-sidebar-footer">
+            <span class="td-version">v0.1.0</span>
+            <a href="https://github.com/ingel81/3dtd" target="_blank" class="td-repo-link" title="GitHub">
+              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+            </a>
+            <span class="td-author">@ingel81</span>
+          </div>
           </div><!-- /td-sidebar-content -->
         </aside>
       </div>
@@ -657,8 +673,8 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
 
     .td-controls-hint {
       position: absolute;
-      bottom: 8px;
-      left: 8px;
+      bottom: 5px;
+      left: 120px;
       font-size: 11px;
       color: var(--td-text-secondary);
       background: rgba(20, 24, 21, 0.85);
@@ -668,10 +684,41 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       z-index: 5;
     }
 
-    /* Quick Actions (bottom right over canvas) */
+    /* Google Logo (bottom left) */
+    .td-google-logo-container {
+      position: absolute;
+      bottom: 5px;
+      left: 10px;
+      z-index: 5;
+    }
+
+    .td-google-logo {
+      height: 16px;
+      width: auto;
+      display: block;
+    }
+
+    /* Map Attribution (bottom right) */
+    .td-map-attribution {
+      position: absolute;
+      bottom: 5px;
+      right: 10px;
+      padding: 0 6px;
+      background: rgba(255, 255, 255, 0.7);
+      border-radius: 2px;
+      font-size: 9px;
+      color: #444;
+      z-index: 5;
+      max-width: 500px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    /* Quick Actions (right side, above attribution) */
     .td-quick-actions {
       position: absolute;
-      bottom: 8px;
+      bottom: 36px;
       right: 8px;
       display: flex;
       align-items: flex-end;
@@ -859,6 +906,33 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
         -6px 0 12px rgba(0, 0, 0, 0.5),
         -3px 0 6px rgba(0, 0, 0, 0.3),
         inset 4px 0 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .td-sidebar-footer {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 6px 8px;
+      margin-top: auto;
+      font-size: 10px;
+      color: var(--td-text-muted);
+      opacity: 0.6;
+    }
+
+    .td-sidebar-footer:hover {
+      opacity: 1;
+    }
+
+    .td-sidebar-footer a {
+      color: var(--td-text-secondary);
+      text-decoration: none;
+      display: flex;
+      align-items: center;
+    }
+
+    .td-sidebar-footer a:hover {
+      color: var(--td-text-primary);
     }
 
     /* === Panel (WC3 Style) === */
@@ -1676,6 +1750,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly devMenuExpanded = this.uiState.devMenuExpanded;
   readonly fps = this.uiState.fps;
   readonly tileStats = this.uiState.tileStats;
+  readonly mapAttribution = signal('Map data ©2024 Google');
   readonly debugLog = this.uiState.debugLog;
   readonly buildMode = this.towerPlacement.buildMode;
   readonly selectedTowerType = this.towerPlacement.selectedTowerType;
@@ -2191,10 +2266,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Called each frame for animations
    */
   private onEngineUpdate(deltaTime: number): void {
-    // Update FPS and tile stats display
+    // Update FPS, tile stats, and attributions
     if (this.engine) {
       this.fps.set(this.engine.getFPS());
       this.tileStats.set(this.engine.getTileStats());
+
+      // Update attributions (throttled - only when tiles change)
+      const attr = this.engine.getAttributions();
+      if (attr && attr !== this.mapAttribution()) {
+        this.mapAttribution.set(attr || 'Map data ©2024 Google');
+      }
     }
 
     // Animate markers (HQ rotation, spawn pulse)

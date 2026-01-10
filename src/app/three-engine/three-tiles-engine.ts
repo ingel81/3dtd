@@ -1211,6 +1211,24 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Get map data attributions from visible tiles
+   * Returns aggregated copyright string for display
+   */
+  getAttributions(): string {
+    if (!this.tilesRenderer) return '';
+
+    const attributions = this.tilesRenderer.getAttributions();
+    if (!attributions || attributions.length === 0) return '';
+
+    // Filter string attributions and join with semicolon
+    const strings = attributions
+      .filter((a: { type: string; value: string }) => a.type === 'string')
+      .map((a: { type: string; value: string }) => a.value);
+
+    return strings.join('; ');
+  }
+
+  /**
    * Get the last recorded camera movement distance (for debugging click vs pan)
    */
   getLastCameraMovement(): number {
