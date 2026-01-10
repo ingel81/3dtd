@@ -217,16 +217,22 @@ export class EngineInitializationService {
       const spawnCoords = callbacks.getSpawnCoordinates();
       const hqCoord: GeoPoint = { lat: this.baseCoords.lat, lon: this.baseCoords.lon };
 
-      // Compute initial camera frame (without terrain height - will be corrected later)
+      // Compute initial camera frame using actual canvas aspect ratio
+      const canvasAspect = rect.width / rect.height;
       let initialFrame = null;
       if (spawnCoords.length > 0) {
         initialFrame = this.cameraFraming.computeInitialFrame(hqCoord, spawnCoords, {
-          padding: 0.2,
+          padding: 0.1, // 10% margin around bounding box
           angle: 70,
           markerRadius: 8,
           estimatedTerrainY: 0, // Will be corrected after terrain loads
+          aspectRatio: canvasAspect, // Use actual canvas aspect ratio
+          fov: 60, // Must match THREE.PerspectiveCamera FOV in three-tiles-engine.ts!
         });
-        console.log('[EngineInit] Pre-computed camera frame for', spawnCoords.length, 'spawns');
+        console.log('[EngineInit] Pre-computed camera frame for', spawnCoords.length, 'spawns', {
+          canvasSize: { width: rect.width.toFixed(0), height: rect.height.toFixed(0) },
+          aspectRatio: canvasAspect.toFixed(2),
+        });
       }
 
       this.engine = new ThreeTilesEngine(

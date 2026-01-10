@@ -294,59 +294,56 @@ export class CameraFramingService {
 
     const angleRad = angle * THREE.MathUtils.DEG2RAD;
     const fovRad = fov * THREE.MathUtils.DEG2RAD;
+    const halfFov = fovRad / 2;
 
     // Calculate horizontal FOV from vertical FOV and aspect ratio
-    const hFovRad = 2 * Math.atan(aspectRatio * Math.tan(fovRad / 2));
+    const hFovRad = 2 * Math.atan(aspectRatio * Math.tan(halfFov));
     const tanHalfHFov = Math.tan(hFovRad / 2);
 
     // Distance to fit X span horizontally
     const distanceForX = (paddedSpanX / 2) / tanHalfHFov;
 
-    // Distance to fit Z span vertically (accounting for camera tilt)
-    // When camera is tilted, the Z span appears foreshortened
+    // Distance to fit Z span vertically
+    // The Z span on the ground projects to spanZ * sin(angle) when viewed from angle
     const projectedZHeight = paddedSpanZ * Math.sin(angleRad);
-    const distanceForZ = (projectedZHeight / 2) / Math.tan(fovRad / 2);
+    const distanceForZ = (projectedZHeight / 2) / Math.tan(halfFov);
 
-    // Use the larger of X or Z distance requirements, with 25% margin
+    // Use the larger of X or Z requirements, with 25% safety margin
     const cameraDistance = Math.max(distanceForX, distanceForZ) * 1.25;
 
     // ========================================
     // 3. CAMERA POSITION
     // ========================================
 
-    // Split distance into height and horizontal offset
     const cameraHeight = cameraDistance * Math.sin(angleRad);
     const horizontalOffset = cameraDistance * Math.cos(angleRad);
 
-    // Camera direction: perpendicular to the main axis of points
-    // For simplicity, use south direction (negative Z)
-    // This minimizes horizon visibility in most cases
-    const camX = center.x;
-    const camZ = center.z - horizontalOffset; // South of center
-    const camY = estimatedTerrainY + cameraHeight;
-
+    // Simple: lookAt at bounding box center, camera south of it
+    const lookAtZ = center.z;
     const lookAtY = estimatedTerrainY;
+
+    const camX = center.x;
+    const camZ = center.z - horizontalOffset; // Camera south of center
+    const camY = estimatedTerrainY + cameraHeight;
 
     console.log('[CameraFraming] Frame computed:', {
       boundingBox: {
         center: { x: center.x.toFixed(1), z: center.z.toFixed(1) },
         span: { x: paddedSpanX.toFixed(0), z: paddedSpanZ.toFixed(0) },
-        raw: { minX: boundingBox.minX.toFixed(0), maxX: boundingBox.maxX.toFixed(0), minZ: boundingBox.minZ.toFixed(0), maxZ: boundingBox.maxZ.toFixed(0) },
       },
       distances: {
         forX: distanceForX.toFixed(0),
         forZ: distanceForZ.toFixed(0),
         used: cameraDistance.toFixed(0),
-        limiting: cameraDistance === distanceForX ? 'X-span' : 'Z-span',
+        limiting: distanceForZ >= distanceForX ? 'Z-span' : 'X-span',
       },
       camera: {
         pos: { x: camX.toFixed(1), y: camY.toFixed(1), z: camZ.toFixed(1) },
-        lookAt: { x: center.x.toFixed(1), y: lookAtY.toFixed(1), z: center.z.toFixed(1) },
+        lookAt: { x: center.x.toFixed(1), y: lookAtY.toFixed(1), z: lookAtZ.toFixed(1) },
         height: cameraHeight.toFixed(0),
-        horizontalOffset: horizontalOffset.toFixed(0),
         angle,
       },
-      fov: { vertical: fov, horizontal: (hFovRad * 180 / Math.PI).toFixed(0) },
+      fov: { vertical: fov, horizontal: (hFovRad * 180 / Math.PI).toFixed(0), aspect: aspectRatio.toFixed(2) },
     });
 
     const frame: CameraFrame = {
@@ -355,7 +352,7 @@ export class CameraFramingService {
       camZ,
       lookAtX: center.x,
       lookAtY,
-      lookAtZ: center.z,
+      lookAtZ,
       boundingBox,
       cameraDistance,
       cameraAngle: angle,
