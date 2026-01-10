@@ -1,10 +1,9 @@
 # Offene TODOs
 
-[ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbechnung der Route)
-[ ] Kein Feuer AM HQ bei Damage
-[ ] bei anderen gegner stimmen die vorschaumodelle nicht (z.b. Panzer)
-[ ] Siddebar zu lange bei zu vielen inhalten zerschießt das layout (auch vom main content) - ggfs sidebar scrolling.
-
+[ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
+[ ] Manchmal kein Feuer am HQ bei Damage durch Gegner.
+[ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
+[ ] Siddebar zu lange, bei zu vielen inhalten zerschießt das layout (auch vom main content) - ggfs sidebar scrolling.
 
 Bug:
  [x] gegner laufen am HQ angekommen die letzte etappe in der luft bis sie exakt am HQ Marker sind. liegt der in der Luft? Die sollten am boden bleiben und eher in das Gebäude  reinlaufen

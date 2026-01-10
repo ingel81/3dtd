@@ -173,8 +173,8 @@ export class CameraControlService {
     const paddedSpanX = spanX * (1 + padding);
     const paddedSpanZ = spanZ * (1 + padding);
 
-    // Camera angle: 60° from horizontal (steep top-down view)
-    const cameraAngle = 60 * Math.PI / 180; // 60 degrees
+    // Camera angle: 70° from horizontal (steep top-down view, minimal horizon)
+    const cameraAngle = 70 * Math.PI / 180; // 70 degrees
 
     // Get camera properties for optimal fitting
     const camera = this.engine.getCamera();
@@ -254,7 +254,7 @@ export class CameraControlService {
   }
 
   /**
-   * Get current camera heading (azimuth) in degrees
+   * Get current camera heading (azimuth) in degrees relative to GEOGRAPHIC north
    * 0° = North, 90° = East, 180° = South, 270° = West
    */
   getCameraHeading(): number {
@@ -269,12 +269,32 @@ export class CameraControlService {
 
     // Project onto XZ plane (ignore Y component for heading)
     direction.y = 0;
+    if (direction.lengthSq() < 0.001) {
+      // Camera looking straight up or down - heading undefined
+      return 0;
+    }
     direction.normalize();
 
-    // Calculate heading from direction
-    // In Three.js with our setup: +Z = North, +X = East (after ReorientationPlugin)
-    // atan2(x, z) gives angle from +Z axis (North)
-    const heading = Math.atan2(direction.x, direction.z) * (180 / Math.PI);
+    // Calculate TRUE GEOGRAPHIC NORTH direction in local coordinates
+    // by finding where a point slightly north of the origin maps to
+    const origin = this.engine.sync.getOrigin();
+    const northPoint = this.engine.sync.geoToLocalSimple(
+      origin.lat + 0.001, // ~111 meters north
+      origin.lon,
+      0
+    );
+
+    // True north direction in local space (from origin to north point)
+    const trueNorth = new THREE.Vector2(northPoint.x, northPoint.z).normalize();
+
+    // Camera direction in XZ plane
+    const camDir = new THREE.Vector2(direction.x, direction.z);
+
+    // Calculate angle between camera direction and true north
+    // Using atan2 of cross product and dot product for signed angle
+    const cross = trueNorth.x * camDir.y - trueNorth.y * camDir.x;
+    const dot = trueNorth.x * camDir.x + trueNorth.y * camDir.y;
+    const heading = Math.atan2(cross, dot) * (180 / Math.PI);
 
     // Normalize to 0-360
     return (heading + 360) % 360;

@@ -1,6 +1,7 @@
-import { Injectable, signal, WritableSignal } from '@angular/core';
+import { inject, Injectable, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
+import { CameraFramingService, GeoPoint } from './camera-framing.service';
 
 /**
  * Loading step status
@@ -25,6 +26,12 @@ export interface LoadingStep {
  */
 @Injectable({ providedIn: 'root' })
 export class EngineInitializationService {
+  // ========================================
+  // INJECTED SERVICES
+  // ========================================
+
+  private readonly cameraFraming = inject(CameraFramingService);
+
   // ========================================
   // SIGNALS
   // ========================================
@@ -184,6 +191,8 @@ export class EngineInitializationService {
     onCreateBuildPreview: () => void;
     onSaveInitialCameraPosition: () => void;
     onCheckAllLoaded: () => void;
+    /** NEW: Get spawn coordinates BEFORE engine init for optimal initial framing */
+    getSpawnCoordinates: () => GeoPoint[];
   }): Promise<void> {
     try {
       // Reset loading steps for fresh start
@@ -203,6 +212,23 @@ export class EngineInitializationService {
 
       // Step 1: Initialize Engine
       await this.setStepActive('init');
+
+      // Get spawn coordinates BEFORE engine init for optimal initial camera framing
+      const spawnCoords = callbacks.getSpawnCoordinates();
+      const hqCoord: GeoPoint = { lat: this.baseCoords.lat, lon: this.baseCoords.lon };
+
+      // Compute initial camera frame (without terrain height - will be corrected later)
+      let initialFrame = null;
+      if (spawnCoords.length > 0) {
+        initialFrame = this.cameraFraming.computeInitialFrame(hqCoord, spawnCoords, {
+          padding: 0.2,
+          angle: 70,
+          markerRadius: 8,
+          estimatedTerrainY: 0, // Will be corrected after terrain loads
+        });
+        console.log('[EngineInit] Pre-computed camera frame for', spawnCoords.length, 'spawns');
+      }
+
       this.engine = new ThreeTilesEngine(
         this.canvas,
         this.apiKey,
@@ -210,9 +236,22 @@ export class EngineInitializationService {
         this.baseCoords.lon,
         0
       );
+
+      // Set pre-computed camera position BEFORE initialize() for optimal initial view
+      if (initialFrame) {
+        this.engine.setInitialCameraPosition({
+          x: initialFrame.camX,
+          y: initialFrame.camY,
+          z: initialFrame.camZ,
+          lookAtX: initialFrame.lookAtX,
+          lookAtY: initialFrame.lookAtY,
+          lookAtZ: initialFrame.lookAtZ,
+        });
+      }
+
       await this.setStepDone('init');
 
-      // Initialize 3D Tiles (runs in background)
+      // Initialize 3D Tiles (camera position is now set optimally)
       await this.engine.initialize();
       this.engine.resize(rect.width, rect.height);
 
@@ -267,8 +306,22 @@ export class EngineInitializationService {
       await this.setStepActive('finalize');
       await callbacks.onScheduleHeightUpdate();
 
-      // Capture initial camera position after tiles stabilize (2 seconds)
+      // After tiles stabilize: correct camera Y based on actual terrain height
+      // and save the corrected position as initial
       setTimeout(() => {
+        // Set engine reference for terrain height queries
+        this.cameraFraming.setEngine(this.engine);
+
+        // Correct Y position based on actual terrain height
+        if (initialFrame && this.engine) {
+          const realTerrainY = this.engine.getTerrainHeightAtGeo(hqCoord.lat, hqCoord.lon) ?? 0;
+          if (Math.abs(realTerrainY) > 1) {
+            this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
+            console.log('[EngineInit] Corrected camera Y for terrain height:', realTerrainY.toFixed(1));
+          }
+        }
+
+        // Save the corrected position
         callbacks.onSaveInitialCameraPosition();
       }, 2000);
 

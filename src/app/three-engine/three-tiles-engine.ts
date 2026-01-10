@@ -28,6 +28,18 @@ import {
 import { SpatialAudioManager } from '../managers/spatial-audio.manager';
 
 /**
+ * Initial camera position for pre-computed framing
+ */
+export interface InitialCameraPosition {
+  x: number;
+  y: number;
+  z: number;
+  lookAtX: number;
+  lookAtY: number;
+  lookAtZ: number;
+}
+
+/**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
  *
  * Uses 3DTilesRendererJS (NASA JPL) to render Google Photorealistic 3D Tiles
@@ -58,6 +70,9 @@ export class ThreeTilesEngine {
 
   // Debug flag: reset when tiles are loaded so we get debug output
   private tilesWereLoaded = false;
+
+  // Pre-computed initial camera position (set before initialize())
+  private initialCameraPosition: InitialCameraPosition | null = null;
 
   // Entity renderers
   readonly enemies: ThreeEnemyRenderer;
@@ -185,6 +200,21 @@ export class ThreeTilesEngine {
     );
 
     console.log('[ThreeTilesEngine] Initialized with origin:', originLat, originLon);
+  }
+
+  /**
+   * Set initial camera position before initialize().
+   * This allows pre-computed framing to be applied immediately,
+   * avoiding camera jumps and unnecessary tile loading.
+   *
+   * @param position Pre-computed camera position from CameraFramingService
+   */
+  setInitialCameraPosition(position: InitialCameraPosition): void {
+    this.initialCameraPosition = position;
+    console.log('[ThreeTilesEngine] Initial camera position set:', {
+      pos: { x: position.x.toFixed(1), y: position.y.toFixed(1), z: position.z.toFixed(1) },
+      lookAt: { x: position.lookAtX.toFixed(1), y: position.lookAtY.toFixed(1), z: position.lookAtZ.toFixed(1) },
+    });
   }
 
   /**
@@ -424,11 +454,24 @@ export class ThreeTilesEngine {
     // With ReorientationPlugin (recenter: true) and tiles.group.rotation.x = -PI/2:
     // - Origin (HQ) is at (0,0,0) in local space
     // - Y is up, -Z is South, +Z is North
-    // Position camera south of origin, above ground, looking north toward origin
-    // 45° tilt angle: height = zDistance (tan(45°) = 1)
-    this.camera.position.set(0, 400, -400); // 400m up, 400m south = 45° angle, looking north
-    this.camera.lookAt(0, 0, 0);
-    console.log('[ThreeTilesEngine] Initial camera position:', this.camera.position.toArray());
+
+    if (this.initialCameraPosition) {
+      // Use pre-computed framing position (optimal for game area)
+      const pos = this.initialCameraPosition;
+      this.camera.position.set(pos.x, pos.y, pos.z);
+      this.camera.lookAt(pos.lookAtX, pos.lookAtY, pos.lookAtZ);
+      console.log('[ThreeTilesEngine] Using pre-computed camera position:', {
+        pos: this.camera.position.toArray().map(v => v.toFixed(1)),
+        lookAt: [pos.lookAtX.toFixed(1), pos.lookAtY.toFixed(1), pos.lookAtZ.toFixed(1)],
+      });
+    } else {
+      // Fallback: steep 70° view over origin (minimal horizon, fewer tiles)
+      // 70° angle: height = tan(70°) * distance ≈ 2.75 * distance
+      // For 150m horizontal offset: height ≈ 412m
+      this.camera.position.set(0, 400, -145); // ~70° angle, looking north
+      this.camera.lookAt(0, 0, 0);
+      console.log('[ThreeTilesEngine] Using fallback camera position (70°):', this.camera.position.toArray());
+    }
   }
 
   /**
