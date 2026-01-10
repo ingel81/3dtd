@@ -4,11 +4,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
-export interface TileStats {
-  visible: number;
-  total: number;
-}
-
 @Component({
   selector: 'app-game-header',
   standalone: true,
@@ -42,12 +37,6 @@ export interface TileStats {
             <span>{{ enemiesAlive() }}</span>
           </div>
         }
-        <div class="stat fps">
-          <span>{{ fps() }} FPS</span>
-        </div>
-        <div class="stat tiles">
-          <span>{{ tileStats().visible }}/{{ tileStats().total }} Tiles</span>
-        </div>
       </div>
       @if (isDialog()) {
         <button class="close-btn" (click)="closeClick.emit()" matTooltip="Schliessen">
@@ -175,7 +164,6 @@ export interface TileStats {
     .stat.credits { color: var(--td-gold); }
     .stat.wave { color: var(--td-teal); }
     .stat.enemies { color: var(--td-warn-orange); }
-    .stat.fps, .stat.tiles { color: var(--td-text-secondary); font-size: 10px; min-width: auto; }
 
     .close-btn {
       display: flex;
@@ -212,8 +200,6 @@ export class GameHeaderComponent {
   readonly waveNumber = input.required<number>();
   readonly enemiesAlive = input.required<number>();
   readonly waveActive = input.required<boolean>();
-  readonly fps = input.required<number>();
-  readonly tileStats = input.required<TileStats>();
   readonly isDialog = input<boolean>(false);
 
   // Outputs

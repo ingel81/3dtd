@@ -28,6 +28,7 @@ import { GameHeaderComponent } from './components/game-header/game-header.compon
 import { CameraDebuggerComponent } from './components/debug-window/camera-debugger.component';
 import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
+import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, SpawnLocationConfig } from './models/location.types';
@@ -42,6 +43,7 @@ import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS } 
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
+import { RouteAnimationService } from './services/route-animation.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 import { EnemyManager } from './managers/enemy.manager';
@@ -80,6 +82,7 @@ const DEFAULT_CENTER_COORDS = {
     CameraDebuggerComponent,
     WaveDebuggerComponent,
     QuickActionsComponent,
+    InfoOverlayComponent,
   ],
   providers: [
     GameStateManager,
@@ -100,8 +103,6 @@ const DEFAULT_CENTER_COORDS = {
         [waveNumber]="gameState.waveNumber()"
         [enemiesAlive]="gameState.enemiesAlive()"
         [waveActive]="waveActive()"
-        [fps]="fps()"
-        [tileStats]="tileStats()"
         [isDialog]="isDialog"
         (locationClick)="openLocationDialog()"
         (closeClick)="close()"
@@ -169,7 +170,15 @@ const DEFAULT_CENTER_COORDS = {
             <app-wave-debugger
               (killAll)="killAllEnemies()"
               (healHq)="healHq()"
-              (logCamera)="logCameraPosition()"
+            />
+
+            <!-- Info Overlay (top left) -->
+            <app-info-overlay
+              [fps]="fps()"
+              [tileStats]="tileStats()"
+              [enemiesAlive]="gameState.enemiesAlive()"
+              [activeSounds]="activeSounds()"
+              [streetCount]="streetCount()"
             />
           }
 
@@ -188,6 +197,7 @@ const DEFAULT_CENTER_COORDS = {
               (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
               (resetToDefaultLocation)="resetToDefaultLocation()"
               (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
+              (playRouteAnimation)="onPlayRouteAnimation()"
             />
           }
 
@@ -615,6 +625,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraFraming = inject(CameraFramingService);
+  private readonly routeAnimation = inject(RouteAnimationService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -717,6 +728,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     return `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
   });
   readonly gatheringPhase = signal(false);
+  readonly activeSounds = signal(0);
   private waveAborted = false;
   readonly gatheringCountdown = signal(0);
 
@@ -729,6 +741,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       for (const enemy of this.gameState.enemies()) {
         enemy.movement.speedMps = speed;
       }
+    });
+
+    // Effect: Sync wave debug state with game state
+    effect(() => {
+      const waveActive = this.waveActive();
+      const baseHealth = this.gameState.baseHealth();
+      const enemiesAlive = this.gameState.enemiesAlive();
+      this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
     });
   }
 
@@ -761,6 +781,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     }
     this.entityPool.destroy();
     this.modelPreview.dispose();
+    this.routeAnimation.dispose();
     if (this.engine) {
       this.engine.dispose();
       this.engine = null;
@@ -821,7 +842,18 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Check if all loading is complete - delegates to EngineInitializationService
    */
   private checkAllLoaded(): void {
+    const wasLoading = this.loading();
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
+    const isNowLoading = this.loading();
+
+    // Start route animation when loading completes (transition from true to false)
+    if (wasLoading && !isNowLoading && !this.routeAnimation.isRunning()) {
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      console.log('[TD] Loading complete, starting route animation. Paths:', cachedPaths.size);
+      if (cachedPaths.size > 0) {
+        this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
+      }
+    }
   }
 
   /**
@@ -853,6 +885,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Initialize camera control service
     this.cameraControl.initialize(engine, { lat: baseCoords.lat, lon: baseCoords.lon });
+
+    // Initialize route animation service
+    this.routeAnimation.initialize(engine);
   }
 
   /**
@@ -1040,8 +1075,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, 0.2);
     }
 
-    // Save current position as the initial position (DO NOT re-frame!)
-    this.cameraControl.saveInitialPosition();
+    // Get target from last computed frame
+    const lastFrame = this.cameraFraming.getLastFrame();
+    const target = lastFrame
+      ? { x: lastFrame.lookAtX, y: lastFrame.lookAtY, z: lastFrame.lookAtZ }
+      : undefined;
+
+    // Save current position and target as the initial position
+    this.cameraControl.saveInitialPosition(target);
   }
 
   private renderStreets(): void {
@@ -1200,10 +1241,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Called each frame for animations
    */
   private onEngineUpdate(deltaTime: number): void {
-    // Update FPS, tile stats, and attributions
+    // Update FPS, tile stats, sounds, and attributions
     if (this.engine) {
       this.fps.set(this.engine.getFPS());
       this.tileStats.set(this.engine.getTileStats());
+      this.activeSounds.set(this.engine.spatialAudio.getActiveSoundCount());
 
       // Update attributions (throttled - only when tiles change)
       const attr = this.engine.getAttributions();
@@ -1234,6 +1276,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Animate markers (HQ rotation, spawn pulse)
     this.markerViz.animateMarkers(deltaTime);
+
+    // Animate route visualization (Knight Rider effect)
+    this.routeAnimation.update(deltaTime);
   }
 
 
@@ -1491,6 +1536,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Manually trigger route animation playback
+   */
+  onPlayRouteAnimation(): void {
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    if (cachedPaths.size > 0) {
+      this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
+      console.log('[TowerDefense] Route animation manually triggered');
+    } else {
+      console.warn('[TowerDefense] No cached paths available for route animation');
+    }
+  }
+
+  /**
    * Toggle camera framing debug visualization
    * Shows bounding boxes for HQ+spawns framing algorithm
    */
@@ -1651,6 +1709,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // STEP 2: Initialize (stop height updates, reset game)
       await this.engineInit.setStepActive('init');
       this.heightUpdate.stopHeightUpdates();
+      this.routeAnimation.stopAnimation();
       this.gameState.reset();
       this.appendDebugLog('Spielstand zurückgesetzt');
       this.clearMapEntities();

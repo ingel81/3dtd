@@ -28,20 +28,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 matTooltipPosition="left">
           <mat-icon>timeline</mat-icon>
         </button>
-        <button class="td-layer-btn"
-                [class.active]="uiState.towerDebugVisible()"
-                (click)="uiState.toggleTowerDebug(); towerDebugToggled.emit()"
-                matTooltip="Tower-Schusshoehe anzeigen"
-                matTooltipPosition="left">
-          <mat-icon>gps_fixed</mat-icon>
-        </button>
-        <button class="td-layer-btn"
-                [class.active]="uiState.heightDebugVisible()"
-                (click)="heightDebugToggled.emit()"
-                matTooltip="Terrain-Hoehen debuggen"
-                matTooltipPosition="left">
-          <mat-icon>terrain</mat-icon>
-        </button>
       </div>
       <button class="td-quick-btn td-layer-toggle-btn"
               [class.active]="uiState.layerMenuExpanded()"
@@ -53,9 +39,30 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Kamera zuruecksetzen" matTooltipPosition="left">
         <mat-icon>my_location</mat-icon>
       </button>
+      <button class="td-quick-btn"
+              [class.active]="uiState.infoOverlayVisible()"
+              (click)="uiState.toggleInfoOverlay()"
+              matTooltip="Info-Overlay"
+              matTooltipPosition="left">
+        <mat-icon>info</mat-icon>
+      </button>
       <!-- Dev Menu (expands right and up) -->
       <div class="td-dev-menu-wrapper">
         <div class="td-dev-menu" [class.expanded]="uiState.devMenuExpanded()">
+          <button class="td-dev-btn"
+                  [class.active]="uiState.towerDebugVisible()"
+                  (click)="uiState.toggleTowerDebug(); towerDebugToggled.emit()"
+                  matTooltip="Tower-Schusshoehe anzeigen"
+                  matTooltipPosition="left">
+            <mat-icon>gps_fixed</mat-icon>
+          </button>
+          <button class="td-dev-btn"
+                  [class.active]="uiState.heightDebugVisible()"
+                  (click)="heightDebugToggled.emit()"
+                  matTooltip="Terrain-Hoehen debuggen"
+                  matTooltipPosition="left">
+            <mat-icon>terrain</mat-icon>
+          </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.waveWindow().isOpen"
                   (click)="debugWindows.toggle('wave')"
@@ -89,6 +96,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltip="Spezial-Punkte debuggen (Feuer, etc.)"
                   matTooltipPosition="left">
             <mat-icon>location_on</mat-icon>
+          </button>
+          <button class="td-dev-btn route-anim-btn"
+                  (click)="playRouteAnimation.emit()"
+                  matTooltip="Route Animation abspielen"
+                  matTooltipPosition="left">
+            <mat-icon>moving</mat-icon>
           </button>
         </div>
         <button class="td-quick-btn td-dev-toggle-btn"
@@ -132,7 +145,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-layer-toggles.expanded {
-      max-height: 160px;
+      max-height: 80px;
       opacity: 1;
     }
 
@@ -269,6 +282,16 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       background: var(--td-gold-dark);
       color: var(--td-text-primary);
     }
+
+    .route-anim-btn {
+      border-color: var(--td-warn-orange);
+      color: var(--td-warn-orange);
+    }
+
+    .route-anim-btn:hover {
+      background: var(--td-warn-orange);
+      color: var(--td-bg-dark);
+    }
   `,
 })
 export class QuickActionsComponent {
@@ -287,4 +310,5 @@ export class QuickActionsComponent {
   readonly cameraFramingDebugToggled = output<void>();
   readonly resetToDefaultLocation = output<void>();
   readonly specialPointsDebugToggled = output<void>();
+  readonly playRouteAnimation = output<void>();
 }

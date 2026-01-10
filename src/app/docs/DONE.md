@@ -13,6 +13,8 @@ Allgemein:
 
 Bug:
  [x] Feuer am HQ bei Damage durch Gegner funktioniert jetzt zuverlässig
+ [x] Gegner laufen am HQ angekommen die letzte Etappe in der Luft
+     - Fix: Gegner bleiben am Boden und laufen ins Gebäude rein
  [x] ist ein turm selektiert und man macht mit der LMB ein Pan und lässt los, wird der turm deselektiert. das soll nicht sein
      - Fix: Pointerdown mit capture tracken, Pixel-Distanz prüfen (> 5px = Pan)
      - Direkte Mesh-Raycasting für Tower-Selektion (statt Terrain-basiert)
@@ -35,6 +37,10 @@ Allgemein:
      - Siehe docs/SPATIAL_AUDIO.md
 
 Gegner:
+ [x] **Spawn-Verhalten optimiert**
+     - Gegner spawnen verzögert (konfigurierbar via Slider)
+     - "Gegner sammeln sich..." Phase optional (Gathering Mode)
+     - Verzögerter Start: Gegner laufen nacheinander los statt im Pulk
  [x] Blutsystem (Gegner hinterlassen Blutflecken bei Treffer und Tod)
      - ThreeEffectsRenderer.spawnBloodSplatter() für Partikel-Effekte
      - ThreeEffectsRenderer.spawnBloodDecal() für persistente Blutflecken am Boden
@@ -67,6 +73,17 @@ Türme:
      - Gebäude-Verdeckung funktioniert via 3D-Tiles Mesh-Intersection
 
 UI:
+ [x] **Info Overlay** als transparente Angular Component oben links
+     - Zuschaltbar über neuen Button in Quick Actions (ℹ️ Icon)
+     - Zeigt: FPS, Tiles, Aktive Gegner, Aktive Sounds, Straßen-Count
+     - Multi-Layer Text-Shadow für Lesbarkeit auf allen Untergründen
+     - Kein Background - komplett transparent
+     - FPS/Tiles aus Header entfernt (nur noch im Overlay)
+ [x] **Wave Debug Component optimiert**
+     - Kamera Debug und Log Textarea entfernt
+     - Heal HQ und Kill Wave Buttons repariert
+     - Slider erweitert: Anzahl bis 5000, Speed bis 100 m/s + Number Inputs
+     - Straßeninfo entfernt, Layer-Menü aufgeräumt
  [x] Sidebar rechts mit den Optionen wie "Start Welle" und "Tower platzieren" sowie Debug
      alles in eine einheitliche Sidebar bringen (WC3/Ancient Command Style)
  [x] Sidebar neu strukturiert in Sections:
@@ -86,6 +103,9 @@ UI:
      - Siehe docs/MODEL_PREVIEW.md
 
 Kamera:
+ [x] **Kamera zurücksetzen Button repariert**
+     - Verwendet gespeicherte Position + LookAt-Target
+     - Stellt exakt die initiale Kameraposition wieder her
  [x] Initiale Position optimiert
      - 45 Grad Blickwinkel, Blickrichtung Norden, HQ im Zentrum
      - Initiale Position wird nach 2s gespeichert (wenn Tiles geladen)

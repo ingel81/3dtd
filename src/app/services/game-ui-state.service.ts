@@ -40,6 +40,9 @@ export class GameUIStateService {
   /** Special points debug visibility (fire position, etc.) */
   readonly specialPointsDebugVisible = signal(false);
 
+  /** Info overlay visibility (FPS, tiles, enemies, sounds) */
+  readonly infoOverlayVisible = signal(false);
+
   // ========================================
   // PERFORMANCE STATS
   // ========================================
@@ -123,6 +126,13 @@ export class GameUIStateService {
   }
 
   /**
+   * Toggle info overlay visibility
+   */
+  toggleInfoOverlay(): void {
+    this.infoOverlayVisible.update((v) => !v);
+  }
+
+  /**
    * Update FPS counter
    * @param fps Current frames per second
    */
@@ -173,6 +183,7 @@ export class GameUIStateService {
     this.towerDebugVisible.set(false);
     this.heightDebugVisible.set(false);
     this.specialPointsDebugVisible.set(false);
+    this.infoOverlayVisible.set(false);
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
     this.debugLog.set('');
