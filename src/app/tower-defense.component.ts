@@ -5,11 +5,10 @@ import {
   AfterViewInit,
   ElementRef,
   ViewChild,
-  ViewChildren,
-  QueryList,
   signal,
   inject,
   computed,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MatDialog } from '@angular/material/dialog';
@@ -18,15 +17,19 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { ConfigService } from './core/services/config.service';
-import { OsmStreetService, Street, StreetNetwork } from './services/osm-street.service';
+import { OsmStreetService, StreetNetwork } from './services/osm-street.service';
 import { EntityPoolService } from './services/entity-pool.service';
 import { ModelPreviewService } from './services/model-preview.service';
-import { GeoPosition } from './models/game.types';
-import { EnemyTypeId, getAllEnemyTypes, getEnemyType, EnemyTypeConfig } from './models/enemy-types';
-import { DebugPanelComponent } from './components/debug-panel.component';
+import { getAllEnemyTypes } from './models/enemy-types';
 import { LocationDialogComponent } from './components/location-dialog/location-dialog.component';
+import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
+import { CompassComponent } from './components/compass/compass.component';
+import { GameHeaderComponent } from './components/game-header/game-header.component';
+import { CameraDebuggerComponent } from './components/debug-window/camera-debugger.component';
+import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
+import { DebugWindowService } from './services/debug-window.service';
+import { WaveDebugService } from './services/wave-debug.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, SpawnLocationConfig } from './models/location.types';
-import { GeocodingService } from './services/geocoding.service';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
 import { CameraControlService } from './services/camera-control.service';
@@ -34,7 +37,7 @@ import { MarkerVisualizationService, SpawnPoint } from './services/marker-visual
 import { PathAndRouteService } from './services/path-route.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
-import { LocationManagementService } from './services/location-management.service';
+import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS } from './services/location-management.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
@@ -50,37 +53,15 @@ import * as THREE from 'three';
 // Theme
 import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
-import { TOWER_TYPES, getAllTowerTypes, TowerTypeConfig, TowerTypeId, UpgradeId } from './configs/tower-types.config';
+import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 
-// Default locations - can be overridden via debug settings
+// Camera center coords (slightly different from HQ location for better view)
 const DEFAULT_CENTER_COORDS = {
   latitude: 49.1726836,
   longitude: 9.2703122,
   height: 400,
 };
-
-const DEFAULT_BASE_COORDS = {
-  latitude: 49.17326887448299,
-  longitude: 9.268588397188681,
-};
-
-const DEFAULT_SPAWN_POINTS = [
-  {
-    id: 'spawn-north',
-    name: 'Nord',
-    latitude: 49.17554723547113,
-    longitude: 9.263870533891945,
-  },
-  // {
-  //   id: 'spawn-south',
-  //   name: 'Sued',
-  //   latitude: 49.17000237788718,
-  //   longitude: 9.266037019764674,
-  // },
-];
-
-const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
 
 @Component({
   selector: 'app-tower-defense',
@@ -92,7 +73,11 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
     MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
-    DebugPanelComponent,
+    GameSidebarComponent,
+    CompassComponent,
+    GameHeaderComponent,
+    CameraDebuggerComponent,
+    WaveDebuggerComponent,
   ],
   providers: [
     GameStateManager,
@@ -106,47 +91,19 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
   template: `
     <div class="td-container" [class.td-fullscreen]="!isDialog">
       <!-- Info Header -->
-      <header class="td-header">
-        <div class="td-header-left">
-          <mat-icon class="td-title-icon">cell_tower</mat-icon>
-          <h2 class="td-title">3DTD</h2>
-          <button class="td-location-btn" (click)="openLocationDialog()" matTooltip="Spielort ändern">
-            <span class="td-location-name">{{ currentLocationName() }}</span>
-            <mat-icon class="td-location-edit">edit</mat-icon>
-          </button>
-        </div>
-        <div class="td-header-stats">
-          <div class="td-stat hp">
-            <mat-icon>favorite</mat-icon>
-            <span>{{ gameState.baseHealth() }}</span>
-          </div>
-          <div class="td-stat credits">
-            <mat-icon>paid</mat-icon>
-            <span>{{ gameState.credits() }}</span>
-          </div>
-          <div class="td-stat wave">
-            <mat-icon>waves</mat-icon>
-            <span>{{ gameState.waveNumber() }}</span>
-          </div>
-          @if (waveActive()) {
-            <div class="td-stat enemies">
-              <mat-icon>pest_control</mat-icon>
-              <span>{{ gameState.enemiesAlive() }}</span>
-            </div>
-          }
-          <div class="td-stat fps">
-            <span>{{ fps() }} FPS</span>
-          </div>
-          <div class="td-stat tiles">
-            <span>{{ tileStats().visible }}/{{ tileStats().total }} Tiles</span>
-          </div>
-        </div>
-        @if (isDialog) {
-          <button class="td-close-btn" (click)="close()" matTooltip="Schliessen">
-            <mat-icon>close</mat-icon>
-          </button>
-        }
-      </header>
+      <app-game-header
+        [locationName]="currentLocationName()"
+        [baseHealth]="gameState.baseHealth()"
+        [credits]="gameState.credits()"
+        [waveNumber]="gameState.waveNumber()"
+        [enemiesAlive]="gameState.enemiesAlive()"
+        [waveActive]="waveActive()"
+        [fps]="fps()"
+        [tileStats]="tileStats()"
+        [isDialog]="isDialog"
+        (locationClick)="openLocationDialog()"
+        (closeClick)="close()"
+      />
 
       <!-- Main Content: Canvas + Sidebar -->
       <div class="td-main">
@@ -203,100 +160,15 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
             <div class="td-map-attribution">{{ mapAttribution() }}</div>
 
             <!-- Compass Overlay -->
-            <div class="td-compass-container">
-              <div class="td-compass" [style.transform]="'rotate(' + (-compassRotation()) + 'deg)'">
-                <svg class="td-compass-svg" viewBox="0 0 64 64">
-                  <!-- Background -->
-                  <circle cx="32" cy="32" r="30" class="td-compass-bg"/>
-                  <!-- Outer ring -->
-                  <circle cx="32" cy="32" r="30" class="td-compass-ring"/>
-                  <!-- Inner ring -->
-                  <circle cx="32" cy="32" r="22" class="td-compass-inner-ring"/>
-                  <!-- Major tick marks (N, E, S, W) -->
-                  <line x1="32" y1="3" x2="32" y2="10" class="td-compass-tick major" transform="rotate(0 32 32)"/>
-                  <line x1="32" y1="3" x2="32" y2="10" class="td-compass-tick major" transform="rotate(90 32 32)"/>
-                  <line x1="32" y1="3" x2="32" y2="10" class="td-compass-tick major" transform="rotate(180 32 32)"/>
-                  <line x1="32" y1="3" x2="32" y2="10" class="td-compass-tick major" transform="rotate(270 32 32)"/>
-                  <!-- Minor tick marks (NE, SE, SW, NW) -->
-                  <line x1="32" y1="4" x2="32" y2="8" class="td-compass-tick minor" transform="rotate(45 32 32)"/>
-                  <line x1="32" y1="4" x2="32" y2="8" class="td-compass-tick minor" transform="rotate(135 32 32)"/>
-                  <line x1="32" y1="4" x2="32" y2="8" class="td-compass-tick minor" transform="rotate(225 32 32)"/>
-                  <line x1="32" y1="4" x2="32" y2="8" class="td-compass-tick minor" transform="rotate(315 32 32)"/>
-                  <!-- North needle (red) -->
-                  <path d="M32 10 L28 32 L32 28 L36 32 Z" class="td-compass-needle-n"/>
-                  <!-- South needle (dark) -->
-                  <path d="M32 54 L28 32 L32 36 L36 32 Z" class="td-compass-needle-s"/>
-                  <!-- Center pivot -->
-                  <circle cx="32" cy="32" r="5" class="td-compass-pivot"/>
-                  <circle cx="32" cy="32" r="3" class="td-compass-pivot-inner"/>
-                </svg>
-                <!-- Cardinal direction labels -->
-                <span class="td-compass-label td-compass-n">N</span>
-                <span class="td-compass-label td-compass-e">O</span>
-                <span class="td-compass-label td-compass-s">S</span>
-                <span class="td-compass-label td-compass-w">W</span>
-              </div>
-              <!-- Debug: show heading value -->
-              <div class="td-compass-heading-debug">{{ cameraHeading() }}°</div>
-            </div>
+            <app-compass [rotation]="compassRotation()" [heading]="cameraHeading()" />
 
-            <!-- Camera Debug Overlay -->
-            @if (cameraDebugEnabled() && cameraDebugInfo(); as cam) {
-              <div class="td-camera-debug">
-                <div class="td-camera-debug-title">
-                  <mat-icon>videocam</mat-icon>
-                  <span>Kamera</span>
-                </div>
-                <div class="td-camera-debug-section">
-                  <span class="td-camera-debug-label">Position</span>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">X:</span>
-                    <span class="td-camera-debug-value">{{ cam.posX | number:'1.0-0' }}m</span>
-                  </div>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Y:</span>
-                    <span class="td-camera-debug-value">{{ cam.posY | number:'1.0-0' }}m</span>
-                  </div>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Z:</span>
-                    <span class="td-camera-debug-value">{{ cam.posZ | number:'1.0-0' }}m</span>
-                  </div>
-                </div>
-                <div class="td-camera-debug-section">
-                  <span class="td-camera-debug-label">Winkel</span>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Heading:</span>
-                    <span class="td-camera-debug-value">{{ cam.heading | number:'1.0-0' }}°</span>
-                  </div>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Pitch:</span>
-                    <span class="td-camera-debug-value">{{ cam.pitch | number:'1.1-1' }}°</span>
-                  </div>
-                </div>
-                <div class="td-camera-debug-section">
-                  <span class="td-camera-debug-label">Abstand</span>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Höhe:</span>
-                    <span class="td-camera-debug-value">{{ cam.altitude | number:'1.0-0' }}m</span>
-                  </div>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Distanz:</span>
-                    <span class="td-camera-debug-value">{{ cam.distanceToCenter | number:'1.0-0' }}m</span>
-                  </div>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">Terrain:</span>
-                    <span class="td-camera-debug-value">{{ cam.terrainHeight | number:'1.0-0' }}m</span>
-                  </div>
-                </div>
-                <div class="td-camera-debug-section">
-                  <span class="td-camera-debug-label">Optik</span>
-                  <div class="td-camera-debug-row">
-                    <span class="td-camera-debug-key">FOV:</span>
-                    <span class="td-camera-debug-value">{{ cam.fov | number:'1.0-0' }}°</span>
-                  </div>
-                </div>
-              </div>
-            }
+            <!-- Debug Windows (draggable) -->
+            <app-camera-debugger />
+            <app-wave-debugger
+              (killAll)="killAllEnemies()"
+              (healHq)="healHq()"
+              (logCamera)="logCameraPosition()"
+            />
           }
 
           <!-- Controls Hint -->
@@ -350,15 +222,15 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
               <div class="td-dev-menu-wrapper">
                 <div class="td-dev-menu" [class.expanded]="devMenuExpanded()">
                   <button class="td-dev-btn"
-                          [class.active]="debugMode()"
-                          (click)="toggleDebug()"
+                          [class.active]="debugWindows.waveWindow().isOpen"
+                          (click)="debugWindows.toggle('wave')"
                           matTooltip="Wave-Debug-Panel"
                           matTooltipPosition="left">
-                    <mat-icon>timeline</mat-icon>
+                    <mat-icon>pest_control</mat-icon>
                   </button>
                   <button class="td-dev-btn"
-                          [class.active]="cameraDebugEnabled()"
-                          (click)="toggleCameraDebug()"
+                          [class.active]="debugWindows.cameraWindow().isOpen"
+                          (click)="debugWindows.toggle('camera')"
                           matTooltip="Kamera-Debug-Overlay"
                           matTooltipPosition="left">
                     <mat-icon>videocam</mat-icon>
@@ -411,169 +283,19 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
           }
         </div>
 
-        <!-- Right Sidebar with WC3 Frame -->
-        <aside class="td-sidebar">
-          <div class="td-sidebar-frame-top"></div>
-          <div class="td-sidebar-frame-middle"></div>
-          <div class="td-sidebar-frame-bottom"></div>
-          <div class="td-sidebar-content">
-
-          <!-- WAVE Section -->
-          <section class="td-panel">
-            <div class="td-panel-header">WELLE {{ gameState.waveNumber() }}</div>
-            <div class="td-panel-content td-wave-section">
-              <div class="td-wave-info">
-                <div class="td-enemy-preview-container">
-                  <canvas #enemyPreviewCanvas class="td-enemy-preview-canvas" width="72" height="72"></canvas>
-                </div>
-                <div class="td-wave-stats">
-                  <div class="td-enemy-name">{{ currentEnemyConfig().name }}</div>
-                  <div class="td-stat-row">
-                    <span class="td-stat-label">HP</span>
-                    <span class="td-stat-value">{{ currentEnemyConfig().baseHp }}</span>
-                  </div>
-                  <div class="td-stat-row">
-                    <span class="td-stat-label">Gegner</span>
-                    <span class="td-stat-value">{{ gameState.enemiesAlive() }}</span>
-                  </div>
-                </div>
-              </div>
-              <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave()"
-                      [disabled]="waveActive() || buildMode() || isGameOver()">
-                <mat-icon>{{ waveActive() ? 'hourglass_empty' : 'play_arrow' }}</mat-icon>
-                <span>{{ waveActive() ? 'Welle laeuft...' : 'Naechste Welle' }}</span>
-              </button>
-            </div>
-          </section>
-
-          <!-- BUILD Section -->
-          <section class="td-panel">
-            <div class="td-panel-header">BAUEN</div>
-            <div class="td-panel-content td-build-section">
-              @if (buildMode()) {
-                <div class="td-build-hint">Klicke neben Strasse</div>
-                <button class="td-action-btn td-cancel-btn" (click)="toggleBuildMode()">
-                  <mat-icon>close</mat-icon>
-                  <span>Abbrechen</span>
-                </button>
-              } @else {
-                <div class="td-tower-grid">
-                  @for (tower of towerTypes; track tower.id) {
-                    <button class="td-tower-card"
-                            [class.disabled]="gameState.credits() < tower.cost"
-                            [disabled]="isGameOver() || gameState.credits() < tower.cost"
-                            (click)="selectTowerType(tower.id)"
-                            [matTooltip]="tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'">
-                      <canvas #towerPreviewCanvas
-                              class="td-tower-preview-canvas"
-                              [attr.data-tower-id]="tower.id"
-                              width="120"
-                              height="70"></canvas>
-                      <span class="td-tower-card-name">{{ tower.name }}</span>
-                      <span class="td-tower-card-cost">{{ tower.cost }}</span>
-                    </button>
-                  }
-                </div>
-              }
-            </div>
-          </section>
-
-          <!-- TOWER Section (only when tower selected) -->
-          @if (gameState.selectedTower(); as tower) {
-            <section class="td-panel td-tower-panel">
-              <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
-              <div class="td-panel-content td-tower-section">
-                <div class="td-tower-stats">
-                  <div class="td-stat-row">
-                    <span class="td-stat-label">Schaden</span>
-                    <span class="td-stat-value td-damage">{{ tower.combat.damage }}</span>
-                  </div>
-                  <div class="td-stat-row">
-                    <span class="td-stat-label">Reichweite</span>
-                    <span class="td-stat-value">{{ tower.combat.range }}m</span>
-                  </div>
-                  <div class="td-stat-row">
-                    <span class="td-stat-label">Feuerrate</span>
-                    <span class="td-stat-value">{{ tower.combat.fireRate }}/s</span>
-                  </div>
-                  <div class="td-stat-row">
-                    <span class="td-stat-label">Kills</span>
-                    <span class="td-stat-value td-kills">{{ tower.combat.kills }}</span>
-                  </div>
-                </div>
-
-                <!-- Upgrades Section -->
-                @if (tower.getAvailableUpgrades().length > 0) {
-                  <div class="td-upgrades-section">
-                    <div class="td-upgrades-title">UPGRADES</div>
-                    @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
-                      <button
-                        class="td-upgrade-btn"
-                        [class.td-upgrade-affordable]="gameState.credits() >= upgrade.cost"
-                        [disabled]="gameState.credits() < upgrade.cost"
-                        (click)="upgradeTower(tower, upgrade.id)"
-                        [matTooltip]="upgrade.description"
-                      >
-                        <mat-icon>bolt</mat-icon>
-                        <span class="td-upgrade-name">{{ upgrade.name }}</span>
-                        <span class="td-upgrade-cost">{{ upgrade.cost }}</span>
-                      </button>
-                    }
-                  </div>
-                }
-
-                <div class="td-tower-actions">
-                  <button class="td-action-btn td-btn-sell" (click)="sellSelectedTower()">
-                    <mat-icon>sell</mat-icon>
-                    <span>Verkaufen</span>
-                    <span class="td-cost td-refund">+{{ tower.typeConfig.sellValue }}</span>
-                  </button>
-                </div>
-              </div>
-            </section>
-          }
-
-          <!-- Debug Section (collapsible) -->
-          @if (debugMode()) {
-            <section class="td-panel td-debug-panel">
-              <div class="td-panel-header">DEBUG</div>
-              <div class="td-panel-content">
-                <app-td-debug-panel
-                  [streetCount]="streetCount()"
-                  [enemyCount]="enemyCount()"
-                  [enemySpeed]="enemySpeed()"
-                  [enemyType]="enemyType()"
-                  [enemyTypes]="enemyTypes"
-                  [spawnMode]="spawnMode()"
-                  [spawnDelay]="spawnDelay()"
-                  [useGathering]="useGathering()"
-                  [waveActive]="waveActive()"
-                  [baseHealth]="gameState.baseHealth()"
-                  [debugLog]="debugLog()"
-                  (enemyCountChange)="onEnemyCountChange($event)"
-                  (enemySpeedChange)="onSpeedChange($event)"
-                  (enemyTypeChange)="onEnemyTypeChange($event)"
-                  (toggleSpawnMode)="toggleSpawnMode()"
-                  (spawnDelayChange)="onSpawnDelayChange($event)"
-                  (toggleGathering)="toggleGathering()"
-                  (killAll)="killAllEnemies()"
-                  (healHq)="healHq()"
-                  (clearLog)="clearDebugLog()"
-                  (logCamera)="logCameraPosition()"
-                />
-              </div>
-            </section>
-          }
-          <!-- Footer -->
-          <div class="td-sidebar-footer">
-            <span class="td-version">v0.1.0</span>
-            <a href="https://github.com/ingel81/3dtd" target="_blank" class="td-repo-link" title="GitHub">
-              <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-            </a>
-            <span class="td-author">@ingel81</span>
-          </div>
-          </div><!-- /td-sidebar-content -->
-        </aside>
+        <!-- Right Sidebar -->
+        <app-game-sidebar
+          [gameState]="gameState"
+          [towerTypes]="towerTypes"
+          [buildMode]="buildMode()"
+          [waveActive]="waveActive()"
+          [isGameOver]="isGameOver()"
+          (startWave)="startWave()"
+          (cancelBuild)="toggleBuildMode()"
+          (selectTower)="selectTowerType($event)"
+          (sellTower)="sellSelectedTower()"
+          (upgradeTower)="upgradeTower($event.tower, $event.upgradeId)"
+        />
       </div>
     </div>
   `,
@@ -606,156 +328,6 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       max-height: 100vh;
       border-radius: 0;
       border: none;
-    }
-
-    /* === Header === */
-    .td-header {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      padding: 4px 12px;
-      background:
-        linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
-        url('/assets/images/425.jpg') repeat;
-      background-size: auto, 64px 64px;
-      border-bottom: 3px solid var(--td-panel-shadow);
-      border-top: 1px solid var(--td-frame-light);
-      box-shadow:
-        0 4px 8px rgba(0, 0, 0, 0.5),
-        0 2px 4px rgba(0, 0, 0, 0.3),
-        inset 0 -2px 4px rgba(0, 0, 0, 0.3);
-    }
-
-    /* Textured Background Overlay - fuer Lesbarkeit auf Stein-Textur */
-    .td-text-badge {
-      background: var(--td-panel-shadow);
-      padding: 4px 10px;
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
-    }
-
-    .td-header-left {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      background: var(--td-panel-shadow);
-      padding: 4px 10px;
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
-    }
-
-    .td-title-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      color: var(--td-gold);
-    }
-
-    .td-title {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--td-gold);
-      text-transform: uppercase;
-    }
-
-    .td-location-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 4px 10px;
-      margin-left: 8px;
-      background: transparent;
-      border: 1px solid transparent;
-      border-left: 1px solid var(--td-frame-mid);
-      color: var(--td-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      border-radius: 0 3px 3px 0;
-      font-family: inherit;
-      font-size: 10px;
-    }
-
-    .td-location-btn:hover {
-      border-color: var(--td-gold-dark);
-      background: rgba(255, 215, 0, 0.1);
-      color: var(--td-gold);
-    }
-
-    .td-location-name {
-      font-weight: 500;
-    }
-
-    .td-location-edit {
-      font-size: 12px;
-      width: 12px;
-      height: 12px;
-      opacity: 0.5;
-    }
-
-    .td-location-btn:hover .td-location-edit {
-      opacity: 1;
-    }
-
-    .td-header-stats {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-left: auto;
-      margin-right: 8px;
-    }
-
-    .td-stat {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 4px;
-      font-size: 11px;
-      font-weight: 600;
-      background: var(--td-panel-shadow);
-      padding: 4px 10px;
-      min-width: 50px;
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
-    }
-
-    .td-stat mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .td-stat.hp { color: var(--td-health-red); }
-    .td-stat.credits { color: var(--td-gold); }
-    .td-stat.wave { color: var(--td-teal); }
-    .td-stat.enemies { color: var(--td-warn-orange); }
-    .td-stat.fps, .td-stat.tiles { color: var(--td-text-secondary); font-size: 10px; min-width: auto; }
-
-    .td-close-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 24px;
-      height: 24px;
-      background: var(--td-panel-shadow);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-close-btn mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-
-    .td-close-btn:hover {
-      background: var(--td-health-red);
-      color: var(--td-text-primary);
     }
 
     /* === Main Layout === */
@@ -824,193 +396,6 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
-    }
-
-    /* Compass (top right) - SVG-based */
-    .td-compass-container {
-      position: absolute;
-      top: 12px;
-      right: 12px;
-      z-index: 5;
-      pointer-events: none;
-    }
-
-    .td-compass {
-      position: relative;
-      width: 64px;
-      height: 64px;
-      transition: transform 0.15s ease-out;
-      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
-    }
-
-    .td-compass-svg {
-      width: 100%;
-      height: 100%;
-    }
-
-    .td-compass-bg {
-      fill: radial-gradient(circle, rgba(20, 24, 21, 0.95) 0%, rgba(15, 18, 16, 0.9) 100%);
-      fill: rgba(20, 24, 21, 0.92);
-    }
-
-    .td-compass-ring {
-      fill: none;
-      stroke: var(--td-gold);
-      stroke-width: 2;
-    }
-
-    .td-compass-inner-ring {
-      fill: none;
-      stroke: rgba(212, 175, 55, 0.3);
-      stroke-width: 1;
-    }
-
-    .td-compass-tick {
-      stroke: var(--td-text-secondary);
-      stroke-width: 1.5;
-      stroke-linecap: round;
-    }
-
-    .td-compass-tick.major {
-      stroke: var(--td-gold);
-      stroke-width: 2;
-    }
-
-    .td-compass-tick.minor {
-      stroke: rgba(212, 175, 55, 0.5);
-      stroke-width: 1;
-    }
-
-    .td-compass-needle-n {
-      fill: var(--td-health-red);
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-    }
-
-    .td-compass-needle-s {
-      fill: rgba(180, 180, 180, 0.6);
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
-    }
-
-    .td-compass-pivot {
-      fill: var(--td-gold);
-    }
-
-    .td-compass-pivot-inner {
-      fill: rgba(20, 24, 21, 0.9);
-    }
-
-    /* Cardinal direction labels */
-    .td-compass-label {
-      position: absolute;
-      font-size: 9px;
-      font-weight: 700;
-      color: var(--td-text-secondary);
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
-      pointer-events: none;
-    }
-
-    .td-compass-label.td-compass-n {
-      top: 11px;
-      left: 50%;
-      transform: translateX(-50%);
-      color: var(--td-health-red);
-      font-size: 10px;
-    }
-
-    .td-compass-label.td-compass-e {
-      top: 50%;
-      right: 10px;
-      transform: translateY(-50%);
-    }
-
-    .td-compass-label.td-compass-s {
-      bottom: 11px;
-      left: 50%;
-      transform: translateX(-50%);
-    }
-
-    .td-compass-label.td-compass-w {
-      top: 50%;
-      left: 10px;
-      transform: translateY(-50%);
-    }
-
-    .td-compass-heading-debug {
-      font-size: 10px;
-      color: var(--td-gold);
-      background: rgba(20, 24, 21, 0.85);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 4px;
-      text-align: center;
-    }
-
-    /* Camera Debug Overlay (top right, below compass) */
-    .td-camera-debug {
-      position: absolute;
-      top: 88px;
-      right: 12px;
-      z-index: 5;
-      background: rgba(20, 24, 21, 0.92);
-      border: 1px solid var(--td-frame-mid);
-      border-radius: 6px;
-      padding: 8px 10px;
-      font-family: 'JetBrains Mono', monospace;
-      font-size: 11px;
-      min-width: 140px;
-      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
-    }
-
-    .td-camera-debug-title {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      color: var(--td-gold);
-      font-weight: 600;
-      font-size: 12px;
-      margin-bottom: 8px;
-      padding-bottom: 6px;
-      border-bottom: 1px solid var(--td-frame-dark);
-    }
-
-    .td-camera-debug-title mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-    }
-
-    .td-camera-debug-section {
-      margin-bottom: 6px;
-    }
-
-    .td-camera-debug-section:last-child {
-      margin-bottom: 0;
-    }
-
-    .td-camera-debug-label {
-      display: block;
-      color: var(--td-text-muted);
-      font-size: 9px;
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-      margin-bottom: 2px;
-    }
-
-    .td-camera-debug-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: baseline;
-      padding: 1px 0;
-    }
-
-    .td-camera-debug-key {
-      color: var(--td-text-secondary);
-    }
-
-    .td-camera-debug-value {
-      color: var(--td-text-primary);
-      font-weight: 500;
     }
 
     /* Quick Actions (right side, above attribution) */
@@ -1176,558 +561,6 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
     .td-dev-toggle-btn.active {
       background: var(--td-gold-dark);
       color: var(--td-text-primary);
-    }
-
-    /* === Sidebar === */
-    .td-sidebar {
-      width: 300px;
-      position: relative;
-      display: flex;
-      flex-direction: column;
-    }
-
-    .td-sidebar-content {
-      flex: 1;
-      background:
-        linear-gradient(rgba(15, 19, 15, 0.75), rgba(15, 19, 15, 0.75)),
-        url('/assets/images/425.jpg') repeat;
-      background-size: auto, 100px 100px;
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-      padding: 8px;
-      overflow-y: auto;
-      position: relative;
-      z-index: 1;
-      border-left: 4px solid var(--td-panel-shadow);
-      box-shadow:
-        -6px 0 12px rgba(0, 0, 0, 0.5),
-        -3px 0 6px rgba(0, 0, 0, 0.3),
-        inset 4px 0 8px rgba(0, 0, 0, 0.4);
-    }
-
-    .td-sidebar-footer {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-      padding: 6px 8px;
-      margin-top: auto;
-      font-size: 10px;
-      color: var(--td-text-muted);
-      opacity: 0.6;
-    }
-
-    .td-sidebar-footer:hover {
-      opacity: 1;
-    }
-
-    .td-sidebar-footer a {
-      color: var(--td-text-secondary);
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-    }
-
-    .td-sidebar-footer a:hover {
-      color: var(--td-text-primary);
-    }
-
-    /* === Panel (WC3 Style) === */
-    .td-panel {
-      background: var(--td-panel-main);
-      border-top: 1px solid var(--td-frame-light);
-      border-left: 1px solid var(--td-frame-mid);
-      border-right: 1px solid var(--td-frame-dark);
-      border-bottom: 2px solid var(--td-frame-dark);
-    }
-
-    .td-panel-header {
-      padding: 6px 10px;
-      background: var(--td-panel-secondary);
-      border-bottom: 1px solid var(--td-frame-dark);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--td-gold);
-      text-transform: uppercase;
-    }
-
-    .td-panel-content {
-      padding: 8px;
-    }
-
-    /* === Status Panel === */
-    .td-stat-row {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      margin-bottom: 6px;
-    }
-
-    .td-stat-row:last-child {
-      margin-bottom: 0;
-    }
-
-    .td-stat-label {
-      font-size: 10px;
-      color: var(--td-text-muted);
-      width: 50px;
-    }
-
-    .td-stat-value {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--td-text-primary);
-    }
-
-    .td-stat-value.td-gold { color: var(--td-gold); }
-    .td-stat-value.td-orange { color: var(--td-warn-orange); }
-
-    /* HP Bar */
-    .td-hp-bar {
-      flex: 1;
-      height: 10px;
-      background: var(--td-hp-bg);
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
-    }
-
-    .td-hp-fill {
-      height: 100%;
-      background: var(--td-hp-fill);
-      transition: width 0.3s ease;
-    }
-
-    /* === Actions Panel === */
-    .td-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .td-action-btn {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      width: 100%;
-      padding: 8px 10px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-primary);
-      font-family: inherit;
-      font-size: 11px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-action-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      color: var(--td-teal);
-    }
-
-    .td-action-btn:hover:not(:disabled) {
-      background: var(--td-frame-mid);
-    }
-
-    .td-action-btn.active {
-      background: var(--td-gold-dark);
-      color: var(--td-bg-dark);
-    }
-
-    .td-action-btn.active mat-icon {
-      color: var(--td-bg-dark);
-    }
-
-    .td-action-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .td-action-btn.td-btn-green:not(:disabled) {
-      background: var(--td-green);
-      color: var(--td-bg-dark);
-    }
-
-    .td-action-btn.td-btn-green mat-icon {
-      color: var(--td-bg-dark);
-    }
-
-    .td-action-btn.td-btn-green:hover:not(:disabled) {
-      filter: brightness(1.1);
-    }
-
-    .td-build-hint {
-      padding: 4px 8px;
-      background: var(--td-warn-orange);
-      color: var(--td-bg-dark);
-      font-size: 10px;
-      font-weight: 600;
-      text-align: center;
-      animation: td-pulse 1.5s ease-in-out infinite;
-    }
-
-    @keyframes td-pulse {
-      0%, 100% { opacity: 1; }
-      50% { opacity: 0.7; }
-    }
-
-    /* === Wave Section === */
-    .td-wave-section {
-      display: flex;
-      flex-direction: column;
-      gap: 8px;
-    }
-
-    .td-wave-info {
-      display: flex;
-      gap: 12px;
-      align-items: center;
-    }
-
-    .td-enemy-preview-container {
-      flex-shrink: 0;
-      width: 72px;
-      height: 72px;
-      background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
-      border: 1px solid var(--td-frame-dark);
-      border-radius: 4px;
-      overflow: hidden;
-    }
-
-    .td-enemy-preview-canvas {
-      width: 100%;
-      height: 100%;
-      display: block;
-    }
-
-    .td-enemy-name {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--td-warn-orange);
-      margin-bottom: 4px;
-    }
-
-    .td-wave-stats {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
-    }
-
-    .td-stat-row {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-      padding: 2px 0;
-    }
-
-    .td-stat-label {
-      color: var(--td-text-secondary);
-      font-size: 10px;
-      text-transform: uppercase;
-    }
-
-    .td-stat-value {
-      color: var(--td-text-primary);
-      font-size: 12px;
-      font-weight: 600;
-    }
-
-    .td-wave-btn {
-      margin-top: 4px;
-    }
-
-    /* === Build Section === */
-    .td-build-section {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .td-tower-grid {
-      display: grid;
-      grid-template-columns: repeat(2, 1fr);
-      gap: 6px;
-    }
-
-    .td-tower-card {
-      position: relative;
-      display: flex;
-      flex-direction: column;
-      padding: 0;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      cursor: pointer;
-      transition: all 0.15s ease;
-      font-family: inherit;
-      border-radius: 3px;
-      overflow: hidden;
-    }
-
-    .td-tower-card:hover:not(:disabled) {
-      border-color: var(--td-gold-dark);
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-    }
-
-    .td-tower-card:disabled,
-    .td-tower-card.disabled {
-      opacity: 0.4;
-      cursor: not-allowed;
-    }
-
-    .td-tower-preview-canvas {
-      width: 100%;
-      height: 70px;
-      display: block;
-      background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%);
-    }
-
-    .td-tower-card-name {
-      display: block;
-      padding: 4px 6px;
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--td-text-secondary);
-      text-align: center;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      background: var(--td-panel-main);
-      border-top: 1px solid var(--td-frame-dark);
-    }
-
-    .td-tower-card-cost {
-      position: absolute;
-      top: 4px;
-      right: 4px;
-      padding: 2px 6px;
-      background: var(--td-gold-dark);
-      color: var(--td-bg-dark);
-      font-size: 9px;
-      font-weight: 700;
-      border-radius: 2px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
-    }
-
-    .td-tower-card:hover:not(:disabled) .td-tower-card-name {
-      color: var(--td-gold);
-    }
-
-    .td-cancel-btn {
-      background: var(--td-panel-secondary);
-    }
-
-    .td-cancel-btn mat-icon {
-      color: var(--td-red);
-    }
-
-    .td-cancel-btn:hover {
-      background: rgba(244, 67, 54, 0.2);
-    }
-
-    .td-cost {
-      margin-left: auto;
-      padding: 2px 6px;
-      background: var(--td-gold-dark);
-      color: var(--td-bg-dark);
-      font-size: 10px;
-      font-weight: 700;
-      border-radius: 2px;
-    }
-
-    /* === Tower Section === */
-    .td-tower-panel {
-      border-color: var(--td-teal);
-    }
-
-    .td-tower-panel .td-panel-header {
-      background: linear-gradient(180deg, var(--td-teal) 0%, rgba(0, 188, 212, 0.3) 100%);
-      color: var(--td-bg-dark);
-    }
-
-    .td-tower-section {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-    }
-
-    .td-tower-stats {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--td-frame-dark);
-    }
-
-    .td-stat-value.td-damage {
-      color: var(--td-red);
-    }
-
-    .td-stat-value.td-kills {
-      color: var(--td-gold);
-    }
-
-    .td-tower-actions {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .td-btn-upgrade {
-      background: var(--td-panel-secondary);
-    }
-
-    .td-btn-upgrade mat-icon {
-      color: var(--td-teal);
-    }
-
-    .td-btn-sell {
-      background: var(--td-panel-secondary);
-    }
-
-    .td-btn-sell mat-icon {
-      color: var(--td-red);
-    }
-
-    .td-btn-sell:hover:not(:disabled) {
-      background: rgba(244, 67, 54, 0.2);
-    }
-
-    .td-refund {
-      background: var(--td-green);
-    }
-
-    /* === Upgrade Section === */
-    .td-upgrades-section {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin: 8px 0;
-      padding-top: 8px;
-      border-top: 1px solid var(--td-frame-dark);
-    }
-
-    .td-upgrades-title {
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--td-text-muted);
-      letter-spacing: 0.5px;
-    }
-
-    .td-upgrade-btn {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      font-size: 11px;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-upgrade-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: var(--td-gold);
-    }
-
-    .td-upgrade-btn:hover:not(:disabled) {
-      background: rgba(255, 193, 7, 0.15);
-      border-color: var(--td-gold-dark);
-    }
-
-    .td-upgrade-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .td-upgrade-btn.td-upgrade-affordable {
-      border-color: var(--td-gold-dark);
-    }
-
-    .td-upgrade-name {
-      flex: 1;
-      text-align: left;
-    }
-
-    .td-upgrade-cost {
-      padding: 2px 6px;
-      background: var(--td-gold);
-      color: var(--td-bg-dark);
-      font-size: 10px;
-      font-weight: 600;
-      border-radius: 2px;
-    }
-
-    .td-upgrade-cost::before {
-      content: '';
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      margin-right: 2px;
-      background: url('/assets/images/gold.svg') center/contain no-repeat;
-      vertical-align: middle;
-    }
-
-    /* === Camera Buttons === */
-    .td-camera-btns {
-      display: flex;
-      gap: 4px;
-    }
-
-    .td-icon-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 36px;
-      height: 36px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-icon-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .td-icon-btn:hover {
-      background: var(--td-frame-mid);
-      color: var(--td-text-primary);
-    }
-
-    .td-icon-btn.active {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
-    }
-
-    /* === Debug Panel === */
-    .td-debug-panel {
-      flex: 1;
-      overflow: hidden;
-    }
-
-    .td-debug-panel .td-panel-content {
-      padding: 0;
-      height: 100%;
     }
 
     /* === Overlays === */
@@ -1996,14 +829,11 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
 })
 export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('gameCanvas') gameCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChild('enemyPreviewCanvas') enemyPreviewCanvas!: ElementRef<HTMLCanvasElement>;
-  @ViewChildren('towerPreviewCanvas') towerPreviewCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   private readonly dialog = inject(MatDialog);
   private readonly osmService = inject(OsmStreetService);
   private readonly configService = inject(ConfigService);
-  private readonly geocodingService = inject(GeocodingService);
   readonly gameState = inject(GameStateManager);
   private readonly entityPool = inject(EntityPoolService);
   private readonly modelPreview = inject(ModelPreviewService);
@@ -2019,6 +849,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraFraming = inject(CameraFramingService);
+
+  // Debug services
+  readonly debugWindows = inject(DebugWindowService);
+  readonly waveDebug = inject(WaveDebugService);
 
   // Expose Math and tower config for template
   readonly Math = Math;
@@ -2067,21 +901,22 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     heading: number; pitch: number; altitude: number;
     distanceToCenter: number; fov: number; terrainHeight: number;
   } | null>(null);
-  readonly enemySpeed = signal(5);
-  readonly streetCount = signal(0);
-  readonly enemyCount = signal(2);
-  readonly enemyType = signal<EnemyTypeId>('zombie');
+  // Wave debug settings (proxied from WaveDebugService for backwards compatibility)
+  readonly enemySpeed = this.waveDebug.enemySpeed;
+  readonly streetCount = this.waveDebug.streetCount;
+  readonly enemyCount = this.waveDebug.enemyCount;
+  readonly enemyType = this.waveDebug.enemyType;
   readonly enemyTypes = getAllEnemyTypes();
-  readonly spawnMode = signal<'each' | 'random'>('each');
-  readonly spawnDelay = signal(300);
-  readonly useGathering = signal(false);
+  readonly spawnMode = this.waveDebug.spawnMode;
+  readonly spawnDelay = this.waveDebug.spawnDelay;
+  readonly useGathering = this.waveDebug.useGathering;
   readonly spawnPoints = signal<SpawnPoint[]>([]);
   readonly baseCoords = signal(DEFAULT_BASE_COORDS);
   readonly centerCoords = signal(DEFAULT_CENTER_COORDS);
 
   readonly waveActive = computed(() => this.gameState.phase() === 'wave');
   readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
-  readonly currentEnemyConfig = computed(() => getEnemyType(this.enemyType()));
+  readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
   // Location name for header display - smart extraction from address
   readonly currentLocationName = computed(() => {
@@ -2123,6 +958,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private animationFrameId: number | null = null;
 
+  constructor() {
+    // Effect: Update all existing enemies when speed changes
+    effect(() => {
+      const speed = this.enemySpeed();
+      for (const enemy of this.gameState.enemies()) {
+        enemy.movement.speedMps = speed;
+      }
+    });
+  }
+
   ngOnInit(): void {
     // Initialize location management (loads from localStorage if available)
     this.locationMgmt.initializeEditableLocations();
@@ -2144,13 +989,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initEngine();
-    // Initialize 3D previews after a short delay to ensure DOM is ready
-    setTimeout(() => this.initPreviews(), 100);
-
-    // Re-initialize tower previews when the list changes (e.g., after exiting build mode)
-    this.towerPreviewCanvases.changes.subscribe(() => {
-      setTimeout(() => this.initTowerPreviews(), 50);
-    });
   }
 
   ngOnDestroy(): void {
@@ -2686,35 +1524,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Place tower at specific geo position with known height
-   * Height should come from localToGeo(raycastHit) for accuracy
-   */
-  private placeTowerAt(lat: number, lon: number, height: number): void {
-    if (!this.engine) return;
-
-    const position: GeoPosition = { lat, lon, height };
-    const typeId = this.selectedTowerType();
-
-    this.gameState.placeTower(position, typeId);
-  }
-
-  /**
-   * @deprecated Use placeTowerAt with raycast Y instead
-   */
-  private async placeTower(lat: number, lon: number): Promise<void> {
-    if (!this.engine) return;
-
-    // Sample terrain height at placement position
-    const terrainHeight = await this.engine.getTerrainHeight(lat, lon);
-
-    const position: GeoPosition = { lat, lon, height: terrainHeight };
-    const typeId = this.selectedTowerType();
-
-    // Use the new manager API - it handles rendering automatically
-    this.gameState.placeTower(position, typeId);
-  }
-
-  /**
    * Toggle build mode - delegates to TowerPlacementService
    */
   toggleBuildMode(): void {
@@ -2726,68 +1535,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   selectTowerType(typeId: TowerTypeId): void {
     this.towerPlacement.selectTowerType(typeId);
-  }
-
-  /**
-   * Initialize all 3D model previews
-   */
-  private initPreviews(): void {
-    this.modelPreview.initialize();
-    this.initEnemyPreview();
-    this.initTowerPreviews();
-  }
-
-  /**
-   * Initialize the enemy preview in the wave section
-   */
-  private initEnemyPreview(): void {
-    if (!this.enemyPreviewCanvas?.nativeElement) return;
-
-    const enemyConfig = this.currentEnemyConfig();
-    this.modelPreview.createPreview(
-      'enemy-preview',
-      this.enemyPreviewCanvas.nativeElement,
-      {
-        modelUrl: enemyConfig.modelUrl,
-        scale: enemyConfig.scale * 0.5,
-        rotationSpeed: 0.4,
-        cameraDistance: 7,
-        cameraAngle: Math.PI / 12,
-        animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
-        animationTimeScale: 0.7,
-        lightIntensity: 1.3,
-        groundModel: true,
-      }
-    );
-  }
-
-  /**
-   * Initialize tower previews in the build menu
-   */
-  private initTowerPreviews(): void {
-    if (!this.towerPreviewCanvases) return;
-
-    this.towerPreviewCanvases.forEach((canvasRef) => {
-      const canvas = canvasRef.nativeElement;
-      const towerId = canvas.getAttribute('data-tower-id') as TowerTypeId;
-      if (!towerId) return;
-
-      const towerConfig = TOWER_TYPES[towerId];
-      if (!towerConfig) return;
-
-      this.modelPreview.createPreview(
-        `tower-preview-${towerId}`,
-        canvas,
-        {
-          modelUrl: towerConfig.modelUrl,
-          scale: towerConfig.scale * 0.4,
-          rotationSpeed: 0.4,
-          cameraDistance: 20,
-          cameraAngle: Math.PI / 5,
-          lightIntensity: 1.2,
-        }
-      );
-    });
   }
 
   /**
@@ -3055,33 +1802,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.appendDebugLog('=== CAMERA ===\n' + output);
   }
 
-  onSpeedChange(value: number): void {
-    this.enemySpeed.set(value);
-    // Update all existing enemies live (m/s)
-    for (const enemy of this.gameState.enemies()) {
-      enemy.movement.speedMps = value;
-    }
-  }
-
-  onEnemyCountChange(value: number): void {
-    this.enemyCount.set(value);
-  }
-
-  onEnemyTypeChange(typeId: EnemyTypeId): void {
-    this.enemyType.set(typeId);
-  }
-
-  toggleSpawnMode(): void {
-    this.spawnMode.update((mode) => (mode === 'each' ? 'random' : 'each'));
-  }
-
-  onSpawnDelayChange(value: number): void {
-    this.spawnDelay.set(value);
-  }
-
-  toggleGathering(): void {
-    this.useGathering.update((v) => !v);
-  }
 
   killAllEnemies(): void {
     // Stop spawning new enemies
@@ -3147,47 +1867,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   // ==================== Location Settings Methods ====================
-
-  /**
-   * Initialize editable locations from current values or localStorage
-   */
-  private initializeEditableLocations(): void {
-    // Try to load from localStorage
-    const savedLocations = this.loadLocationsFromStorage();
-
-    if (savedLocations && savedLocations.hq) {
-      this.editableHqLocation.set(savedLocations.hq);
-      this.editableSpawnLocations.set(savedLocations.spawns);
-
-      // Apply saved locations
-      this.baseCoords.set({
-        latitude: savedLocations.hq.lat,
-        longitude: savedLocations.hq.lon,
-      });
-      this.centerCoords.set({
-        latitude: savedLocations.hq.lat,
-        longitude: savedLocations.hq.lon,
-        height: 400,
-      });
-    } else {
-      // Initialize from defaults
-      const base = this.baseCoords();
-      this.editableHqLocation.set({
-        lat: base.latitude,
-        lon: base.longitude,
-        name: 'Erlenbach (Default)',
-      });
-
-      // Convert spawn points to editable format
-      const editableSpawns: SpawnLocationConfig[] = DEFAULT_SPAWN_POINTS.map((sp) => ({
-        id: sp.id,
-        lat: sp.latitude,
-        lon: sp.longitude,
-        name: sp.name,
-      }));
-      this.editableSpawnLocations.set(editableSpawns);
-    }
-  }
 
   /**
    * Apply new location - full reset like initial load
@@ -3332,7 +2011,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.scheduleOverlayHeightUpdate();
 
       // STEP 18: Save to localStorage
-      this.saveLocationsToStorage();
+      this.locationMgmt.saveLocationsToStorage();
 
       // STEP 19: Correct camera Y and save position (after tiles stabilize)
       // Note: flyToCenter() removed - we already applied optimal framing above
@@ -3451,7 +2130,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       hq: { lat: DEFAULT_BASE_COORDS.latitude, lon: DEFAULT_BASE_COORDS.longitude, name: 'Erlenbach (Default)' },
       spawn: { lat: DEFAULT_SPAWN_POINTS[0].latitude, lon: DEFAULT_SPAWN_POINTS[0].longitude, name: DEFAULT_SPAWN_POINTS[0].name },
     });
-    localStorage.removeItem(LOCATION_STORAGE_KEY);
+    this.locationMgmt.clearLocationsFromStorage();
   }
 
   private clearMapEntities(): void {
@@ -3478,30 +2157,5 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Clear cached paths via service
     this.pathRoute.clearCachedPaths();
-  }
-
-  private flyToCenter(): void {
-    if (!this.engine) return;
-
-    // Use resetCamera for consistent positioning
-    this.resetCamera();
-  }
-
-  private saveLocationsToStorage(): void {
-    const data = {
-      hq: this.editableHqLocation(),
-      spawns: this.editableSpawnLocations(),
-    };
-    localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(data));
-  }
-
-  private loadLocationsFromStorage(): { hq: LocationConfig | null; spawns: SpawnLocationConfig[] } | null {
-    try {
-      const data = localStorage.getItem(LOCATION_STORAGE_KEY);
-      if (!data) return null;
-      return JSON.parse(data);
-    } catch {
-      return null;
-    }
   }
 }

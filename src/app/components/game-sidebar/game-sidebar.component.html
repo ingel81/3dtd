@@ -1,0 +1,127 @@
+<aside class="td-sidebar">
+  <div class="td-sidebar-content">
+    <!-- WAVE Section -->
+    <section class="td-panel">
+      <div class="td-panel-header">WELLE {{ gameState().waveNumber() }}</div>
+      <div class="td-panel-content td-wave-section">
+        <div class="td-wave-info">
+          <div class="td-enemy-preview-container">
+            <canvas #enemyPreviewCanvas class="td-enemy-preview-canvas" width="72" height="72"></canvas>
+          </div>
+          <div class="td-wave-stats">
+            <div class="td-enemy-name">{{ currentEnemyConfig().name }}</div>
+            <div class="td-stat-row">
+              <span class="td-stat-label">HP</span>
+              <span class="td-stat-value">{{ currentEnemyConfig().baseHp }}</span>
+            </div>
+            <div class="td-stat-row">
+              <span class="td-stat-label">Gegner</span>
+              <span class="td-stat-value">{{ gameState().enemiesAlive() }}</span>
+            </div>
+          </div>
+        </div>
+        <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave.emit()"
+                [disabled]="waveActive() || buildMode() || isGameOver()">
+          <mat-icon>{{ waveActive() ? 'hourglass_empty' : 'play_arrow' }}</mat-icon>
+          <span>{{ waveActive() ? 'Welle laeuft...' : 'Naechste Welle' }}</span>
+        </button>
+      </div>
+    </section>
+
+    <!-- BUILD Section -->
+    <section class="td-panel">
+      <div class="td-panel-header">BAUEN</div>
+      <div class="td-panel-content td-build-section">
+        @if (buildMode()) {
+          <div class="td-build-hint">Klicke neben Strasse</div>
+          <button class="td-action-btn td-cancel-btn" (click)="cancelBuild.emit()">
+            <mat-icon>close</mat-icon>
+            <span>Abbrechen</span>
+          </button>
+        } @else {
+          <div class="td-tower-grid">
+            @for (tower of towerTypes(); track tower.id) {
+              <button class="td-tower-card"
+                      [class.disabled]="gameState().credits() < tower.cost"
+                      [disabled]="isGameOver() || gameState().credits() < tower.cost"
+                      (click)="selectTower.emit(tower.id)"
+                      [matTooltip]="tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'">
+                <canvas #towerPreviewCanvas
+                        class="td-tower-preview-canvas"
+                        [attr.data-tower-id]="tower.id"
+                        width="120"
+                        height="70"></canvas>
+                <span class="td-tower-card-name">{{ tower.name }}</span>
+                <span class="td-tower-card-cost">{{ tower.cost }}</span>
+              </button>
+            }
+          </div>
+        }
+      </div>
+    </section>
+
+    <!-- TOWER Section (only when tower selected) -->
+    @if (gameState().selectedTower(); as tower) {
+      <section class="td-panel td-tower-panel">
+        <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
+        <div class="td-panel-content td-tower-section">
+          <div class="td-tower-stats">
+            <div class="td-stat-row">
+              <span class="td-stat-label">Schaden</span>
+              <span class="td-stat-value td-damage">{{ tower.combat.damage }}</span>
+            </div>
+            <div class="td-stat-row">
+              <span class="td-stat-label">Reichweite</span>
+              <span class="td-stat-value">{{ tower.combat.range }}m</span>
+            </div>
+            <div class="td-stat-row">
+              <span class="td-stat-label">Feuerrate</span>
+              <span class="td-stat-value">{{ tower.combat.fireRate }}/s</span>
+            </div>
+            <div class="td-stat-row">
+              <span class="td-stat-label">Kills</span>
+              <span class="td-stat-value td-kills">{{ tower.combat.kills }}</span>
+            </div>
+          </div>
+
+          <!-- Upgrades Section -->
+          @if (tower.getAvailableUpgrades().length > 0) {
+            <div class="td-upgrades-section">
+              <div class="td-upgrades-title">UPGRADES</div>
+              @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
+                <button
+                  class="td-upgrade-btn"
+                  [class.td-upgrade-affordable]="gameState().credits() >= upgrade.cost"
+                  [disabled]="gameState().credits() < upgrade.cost"
+                  (click)="onUpgradeTower(tower, upgrade.id)"
+                  [matTooltip]="upgrade.description"
+                >
+                  <mat-icon>bolt</mat-icon>
+                  <span class="td-upgrade-name">{{ upgrade.name }}</span>
+                  <span class="td-upgrade-cost">{{ upgrade.cost }}</span>
+                </button>
+              }
+            </div>
+          }
+
+          <div class="td-tower-actions">
+            <button class="td-action-btn td-btn-sell" (click)="sellTower.emit()">
+              <mat-icon>sell</mat-icon>
+              <span>Verkaufen</span>
+              <span class="td-cost td-refund">+{{ tower.typeConfig.sellValue }}</span>
+            </button>
+          </div>
+        </div>
+      </section>
+    }
+
+    <!-- Footer -->
+    <div class="td-sidebar-footer">
+      <span class="td-version">v0.1.0</span>
+      <a href="https://github.com/ingel81/3dtd" target="_blank" class="td-repo-link" title="GitHub">
+        <svg viewBox="0 0 16 16" width="14" height="14" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+      <span class="td-author">@ingel81</span>
+    </div>
+  </div>
+</aside>
