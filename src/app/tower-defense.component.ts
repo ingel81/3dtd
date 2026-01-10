@@ -1609,6 +1609,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onGameOver(): void {
+    // Stop spawning new enemies
+    this.waveAborted = true;
+    this.gatheringPhase.set(false);
+
     // Stop game loop
     if (this.animationFrameId) {
       cancelAnimationFrame(this.animationFrameId);

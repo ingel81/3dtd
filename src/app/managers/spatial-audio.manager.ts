@@ -75,6 +75,9 @@ export class SpatialAudioManager {
   // Registered sounds (id -> buffer + config)
   private sounds = new Map<string, RegisteredSound>();
 
+  // URL to buffer cache (shared across all sound IDs with same URL)
+  private bufferCache = new Map<string, { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null }>();
+
   // Active sound instances
   private activeSounds: ActiveSound[] = [];
 
@@ -139,6 +142,24 @@ export class SpatialAudioManager {
   }
 
   /**
+   * Get count of active sounds for debugging
+   */
+  getActiveSoundCount(): number {
+    return this.activeSounds.length;
+  }
+
+  /**
+   * Debug: Log all active sounds
+   */
+  debugLogActiveSounds(): void {
+    console.log('[SpatialAudio] Active sounds:', this.activeSounds.length);
+    console.log('[SpatialAudio] Enemy sound count:', this.enemySoundCount);
+    for (const sound of this.activeSounds) {
+      console.log('  -', sound.soundId, 'playing:', sound.audio.isPlaying);
+    }
+  }
+
+  /**
    * Register an enemy sound (called when AudioComponent starts a loop)
    * Returns false if budget exceeded
    */
@@ -181,6 +202,7 @@ export class SpatialAudioManager {
 
   /**
    * Register a sound for later playback
+   * Uses URL-based caching to avoid reloading the same audio file
    */
   registerSound(id: string, url: string, config: SpatialSoundConfig = {}): void {
     const fullConfig = { ...DEFAULT_CONFIG, ...config };
@@ -193,12 +215,32 @@ export class SpatialAudioManager {
 
     this.sounds.set(id, sound);
 
-    // Start loading immediately
-    sound.loading = this.loadBuffer(url).then((buffer) => {
-      sound.buffer = buffer;
-      sound.loading = null;
-      return buffer;
-    });
+    // Check if buffer is already cached or loading for this URL
+    let cached = this.bufferCache.get(url);
+
+    if (!cached) {
+      // First time loading this URL - start loading and cache it
+      cached = { buffer: null, loading: null };
+      cached.loading = this.loadBuffer(url).then((buffer) => {
+        cached!.buffer = buffer;
+        cached!.loading = null;
+        return buffer;
+      });
+      this.bufferCache.set(url, cached);
+    }
+
+    // Link this sound to the cached buffer
+    if (cached.buffer) {
+      // Already loaded
+      sound.buffer = cached.buffer;
+    } else if (cached.loading) {
+      // Still loading - wait for it
+      sound.loading = cached.loading.then((buffer) => {
+        sound.buffer = buffer;
+        sound.loading = null;
+        return buffer;
+      });
+    }
   }
 
   /**
@@ -216,6 +258,29 @@ export class SpatialAudioManager {
         }
       );
     });
+  }
+
+  /**
+   * Get cached buffer for a registered sound
+   * Returns null if not registered or not yet loaded
+   */
+  async getBuffer(soundId: string): Promise<AudioBuffer | null> {
+    const sound = this.sounds.get(soundId);
+    if (!sound) return null;
+
+    // Wait for loading to complete if in progress
+    if (sound.loading) {
+      await sound.loading;
+    }
+
+    return sound.buffer;
+  }
+
+  /**
+   * Get sound config for a registered sound
+   */
+  getSoundConfig(soundId: string): Required<SpatialSoundConfig> | null {
+    return this.sounds.get(soundId)?.config ?? null;
   }
 
   /**

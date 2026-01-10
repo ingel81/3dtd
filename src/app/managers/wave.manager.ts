@@ -65,10 +65,20 @@ export class WaveManager {
     let spawnedCount = 0;
 
     const spawnNext = () => {
+      const currentPhase = this.phase();
+      console.log(`[WaveManager] spawnNext called, phase: ${currentPhase}, spawned: ${spawnedCount}/${config.enemyCount}`);
+
+      // Stop spawning if game over
+      if (currentPhase === 'gameover') {
+        console.log('[WaveManager] spawnNext aborted - game over');
+        return;
+      }
+
       if (spawnedCount >= config.enemyCount) {
         if (useGathering) {
           // Gathering mode: Start all enemies together after short delay
           setTimeout(() => {
+            if (this.phase() === 'gameover') return; // Also check here
             this.gatheringPhase.set(false);
             this.enemyManager.startAll(300);
           }, 500);

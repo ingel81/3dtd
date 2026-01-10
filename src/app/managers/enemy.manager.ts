@@ -187,7 +187,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     paused.forEach((enemy) => {
       const delay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
       setTimeout(() => {
-        if (enemy.alive) {
+        // Check both alive (health) AND active (not destroyed)
+        if (enemy.alive && enemy.active) {
           enemy.startMoving();
           this.tilesEngine?.enemies.startWalkAnimation(enemy.id);
         }
@@ -208,9 +209,11 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Clear all enemies and cleanup resources
    */
   override clear(): void {
+    console.log('[EnemyManager] clear() called, enemies:', this.getAll().length);
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
     super.clear();
+    console.log('[EnemyManager] clear() done, enemies:', this.getAll().length);
   }
 
   /**

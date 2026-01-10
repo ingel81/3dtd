@@ -297,6 +297,7 @@ export class GameStateManager {
    * Trigger game over state
    */
   private triggerGameOver(): void {
+    console.log('[GameState] triggerGameOver() called');
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
 

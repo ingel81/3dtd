@@ -41,6 +41,7 @@ export class AudioComponent extends Component {
   private spatialAudio: SpatialAudioManager | null = null;
   private sounds = new Map<string, { url: string; config: AudioConfig }>();
   private activeLoops = new Map<string, ActiveLoop>();
+  private destroyed = false;
 
   constructor(gameObject: GameObject) {
     super(gameObject);
@@ -109,11 +110,14 @@ export class AudioComponent extends Component {
   /**
    * Play a looping sound that follows the GameObject
    */
-  private async playLoop(id: string, url: string, config: AudioConfig): Promise<void> {
-    if (!this.spatialAudio) return;
+  private async playLoop(id: string, _url: string, config: AudioConfig): Promise<void> {
+    if (this.destroyed || !this.spatialAudio) return;
+
+    // Get the global sound ID (registered earlier)
+    const globalId = this.getGlobalId(id);
 
     // Check if this is an enemy sound and if we have budget
-    const isEnemySound = this.isEnemySound(url);
+    const isEnemySound = this.isEnemySound(globalId);
     if (isEnemySound && !this.spatialAudio.canPlayEnemySound()) {
       // Budget exceeded - skip this sound silently
       return;
@@ -124,6 +128,9 @@ export class AudioComponent extends Component {
 
     await this.spatialAudio.resumeContext();
 
+    // Check if destroyed during await
+    if (this.destroyed) return;
+
     // Register enemy sound BEFORE creating audio
     if (isEnemySound) {
       if (!this.spatialAudio.registerEnemySound()) {
@@ -131,27 +138,29 @@ export class AudioComponent extends Component {
       }
     }
 
-    const listener = this.spatialAudio.getListener();
-    const scene = this.spatialAudio.getScene();
+    // Get cached buffer from SpatialAudioManager (already loaded at registration)
+    const buffer = await this.spatialAudio.getBuffer(globalId);
 
-    // Load audio buffer
-    const loader = new THREE.AudioLoader();
-    let buffer: AudioBuffer;
+    // Check if destroyed during await - cleanup enemy budget if needed
+    if (this.destroyed) {
+      if (isEnemySound && this.spatialAudio) {
+        this.spatialAudio.unregisterEnemySound();
+      }
+      return;
+    }
 
-    try {
-      buffer = await new Promise<AudioBuffer>((resolve, reject) => {
-        loader.load(url, resolve, undefined, reject);
-      });
-    } catch {
-      console.error(`[AudioComponent] Failed to load: ${url}`);
-      // Unregister if we registered
+    if (!buffer) {
+      console.error(`[AudioComponent] No cached buffer for: ${globalId}`);
       if (isEnemySound) {
         this.spatialAudio.unregisterEnemySound();
       }
       return;
     }
 
-    // Create positional audio
+    const listener = this.spatialAudio.getListener();
+    const scene = this.spatialAudio.getScene();
+
+    // Create positional audio using cached buffer
     const audio = new THREE.PositionalAudio(listener);
     audio.setBuffer(buffer);
     audio.setRefDistance(config.refDistance ?? 30);
@@ -174,16 +183,28 @@ export class AudioComponent extends Component {
     container.add(audio);
     scene.add(container);
 
+    // Final check before starting - if destroyed during sync setup, cleanup and abort
+    if (this.destroyed) {
+      console.log(`[AudioComponent] playLoop('${id}') - destroyed during setup, aborting`);
+      audio.disconnect();
+      scene.remove(container);
+      if (isEnemySound && this.spatialAudio) {
+        this.spatialAudio.unregisterEnemySound();
+      }
+      return;
+    }
+
     this.activeLoops.set(id, { audio, container, isEnemySound });
+    console.log(`[AudioComponent] playLoop('${id}') - starting audio for ${this.gameObject.id}`);
     audio.play();
   }
 
   /**
-   * Check if a URL is an enemy sound
+   * Check if a sound ID represents an enemy sound
    */
-  private isEnemySound(url: string): boolean {
-    const lowerUrl = url.toLowerCase();
-    return lowerUrl.includes('zombie') || lowerUrl.includes('tank') || lowerUrl.includes('enemy');
+  private isEnemySound(soundId: string): boolean {
+    const lowerId = soundId.toLowerCase();
+    return lowerId.includes('zombie') || lowerId.includes('tank') || lowerId.includes('enemy');
   }
 
   /**
@@ -192,13 +213,18 @@ export class AudioComponent extends Component {
   stop(id: string): void {
     const loop = this.activeLoops.get(id);
     if (loop) {
+      console.log(`[AudioComponent] stop('${id}') - isPlaying:`, loop.audio.isPlaying);
+
       // Unregister enemy sound from budget
       if (loop.isEnemySound && this.spatialAudio) {
         this.spatialAudio.unregisterEnemySound();
       }
 
-      if (loop.audio.isPlaying) {
+      // Always try to stop, regardless of isPlaying state
+      try {
         loop.audio.stop();
+      } catch (e) {
+        console.warn(`[AudioComponent] stop('${id}') failed:`, e);
       }
       loop.audio.disconnect();
       this.spatialAudio?.getScene().remove(loop.container);
@@ -210,7 +236,10 @@ export class AudioComponent extends Component {
    * Stop all sounds
    */
   stopAll(): void {
-    for (const id of this.activeLoops.keys()) {
+    console.log('[AudioComponent] stopAll() called, activeLoops:', this.activeLoops.size);
+    // Copy keys to array to avoid iteration issues during deletion
+    const ids = Array.from(this.activeLoops.keys());
+    for (const id of ids) {
       this.stop(id);
     }
   }
@@ -255,6 +284,8 @@ export class AudioComponent extends Component {
   }
 
   override onDestroy(): void {
+    console.log('[AudioComponent] onDestroy() called for', this.gameObject.id);
+    this.destroyed = true; // Prevent any pending async playLoop from adding new sounds
     this.stopAll();
   }
 }
