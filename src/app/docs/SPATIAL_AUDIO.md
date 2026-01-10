@@ -30,7 +30,7 @@ this.spatialAudio.setGeoToLocal((lat, lon, h) => sync.geoToLocalSimple(lat, lon,
 
 **Sound registrieren:**
 ```typescript
-spatialAudio.registerSound('arrow', '/assets/sounds/arrow.mp3', {
+spatialAudio.registerSound('arrow', '/assets/sounds/arrow_01.mp3', {
   refDistance: 50,    // Volle Lautstärke bei 50m
   rolloffFactor: 1,   // Wie schnell der Sound abklingt
   volume: 0.5,        // Basis-Lautstärke
@@ -57,8 +57,8 @@ Thin wrapper für GameObjects (Enemy, Tower, etc.). Verwaltet Sounds pro Entity.
 ```typescript
 // In Entity-Konstruktor
 this._audio = this.addComponent(new AudioComponent(this), ComponentType.AUDIO);
-this._audio.registerSound('moving', '/sounds/footsteps.mp3', {
-  volume: 0.3,
+this._audio.registerSound('moving', '/assets/sounds/zombie-sound-2-357976.mp3', {
+  volume: 0.4,
   loop: true,
   refDistance: 30,
   randomStart: true,
@@ -72,10 +72,48 @@ enemy.audio.play('moving', true);  // Loop
 enemy.audio.stop('moving');
 ```
 
+**Methoden:**
+- `registerSound(id, url, options)` - Sound registrieren (vor initialize)
+- `initialize(spatialAudio)` - SpatialAudioManager setzen
+- `play(id, loop?)` - Sound abspielen
+- `stop(id)` - Sound stoppen
+- `setVolume(id, volume)` - Lautstärke anpassen
+- `stopAll()` - Alle Sounds stoppen
+- `destroy()` - Cleanup aller Sounds
+
 **Features:**
 - Sounds werden im Konstruktor registriert, später initialisiert
 - Loop-Sounds folgen automatisch der GameObject-Position
 - Cleanup bei destroy()
+
+## Sound Budget System
+
+Um Performance zu gewährleisten, begrenzt das System die Anzahl gleichzeitiger Enemy-Sounds.
+
+**Konstanten:**
+```typescript
+const MAX_ENEMY_SOUNDS = 12;  // Max concurrent enemy movement sounds
+const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy'];
+```
+
+**Methoden in SpatialAudioManager:**
+```typescript
+// Prüfen ob ein Sound abgespielt werden kann
+canPlayEnemySound(): boolean
+
+// Sound registrieren (erhöht Zähler)
+registerEnemySound(): void
+
+// Sound abmelden (verringert Zähler)
+unregisterEnemySound(): void
+
+// Debug-Statistiken
+getEnemySoundStats(): { current: number, max: number }
+```
+
+**Verwendung:**
+Das Budget wird automatisch bei Enemy-Sounds geprüft. Wenn das Maximum erreicht ist,
+werden neue Enemy-Sounds nicht abgespielt, bis andere Enemies zerstört werden.
 
 ## Distanz-Modelle
 
@@ -112,7 +150,7 @@ Der `ProjectileManager` spielt Sounds direkt über SpatialAudioManager:
 // In projectile.manager.ts
 const PROJECTILE_SOUNDS = {
   arrow: {
-    url: '/assets/games/tower-defense/sounds/arrow_01.mp3',
+    url: '/assets/sounds/arrow_01.mp3',
     refDistance: 50,
     volume: 0.5,
   },
@@ -131,13 +169,37 @@ enemy.audio.initialize(this.tilesEngine.spatialAudio);
 
 // Sound-Definition in enemy-types.ts
 zombie: {
-  movingSound: '/assets/sounds/zombie-sound.mp3',
+  movingSound: '/assets/sounds/zombie-sound-2-357976.mp3',
   movingSoundVolume: 0.4,
+  movingSoundRefDistance: 30,
+  randomSoundStart: true,
+}
+
+tank: {
+  movingSound: '/assets/sounds/tank-moving-143104.mp3',
+  movingSoundVolume: 0.3,
+  movingSoundRefDistance: 50,
   randomSoundStart: true,
 }
 
 // Abspielen in Enemy.startMoving()
 this.audio.play('moving', true);
+```
+
+### HQ Damage Sound
+Der `GameStateManager` spielt einen Sound wenn das HQ Schaden nimmt:
+
+```typescript
+// In game-state.manager.ts
+// Sound-Registration
+spatialAudio.registerSound('hq-damage', '/assets/sounds/small_hq_explosion.mp3', {
+  refDistance: 40,
+  rolloffFactor: 1,
+  volume: 1.4,
+});
+
+// Abspielen bei HQ-Schaden
+spatialAudio.playAtGeo('hq-damage', hqLat, hqLon, hqHeight);
 ```
 
 ## Wichtige Hinweise
@@ -151,21 +213,26 @@ this.audio.play('moving', true);
 3. **Stereo-Panning**: Three.js AudioListener sorgt automatisch für Stereo-Effekte
    basierend auf der Position relativ zur Kamera.
 
+4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds zur Performance-Optimierung.
+
 ## Assets
 
+Alle Sound-Dateien befinden sich in:
 ```
-public/assets/games/tower-defense/
-└── sounds/
-    └── arrow_01.mp3      # Pfeil-Schuss-Sound
+public/assets/sounds/
+├── arrow_01.mp3                    # Pfeil-Schuss-Sound
+├── zombie-sound-2-357976.mp3       # Zombie-Bewegungs-Sound
+├── tank-moving-143104.mp3          # Tank-Bewegungs-Sound
+└── small_hq_explosion.mp3          # HQ-Schadens-Sound
 ```
 
 ## Beispiel: Neuen Sound hinzufügen
 
-1. Sound-Datei in `public/assets/games/tower-defense/sounds/` ablegen
+1. Sound-Datei in `public/assets/sounds/` ablegen
 
 2. Sound registrieren (z.B. in einem Manager):
 ```typescript
-engine.spatialAudio.registerSound('explosion', '/assets/games/tower-defense/sounds/explosion.mp3', {
+engine.spatialAudio.registerSound('explosion', '/assets/sounds/explosion.mp3', {
   refDistance: 100,
   rolloffFactor: 0.5,
   volume: 0.8,

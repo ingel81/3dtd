@@ -1,8 +1,6 @@
 # Offene TODOs
 
-[ ] Nach dem Laden einer Karte, sobald die Route feststeht und die Kamera und alles final ist, soll die Laufroute der Gegner animiert werden ein paar Mal. Irgendwie ein roter Strich, der so im Knight Rider Effekt durchläuft, aber nur in eine Richtung. Und andeutet, wie die Mobs laufen. Animiert.
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
-[ ] Manchmal kein Feuer am HQ bei Damage durch Gegner.
 [ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
 
 Bug:

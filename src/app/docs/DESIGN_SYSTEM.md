@@ -1,12 +1,12 @@
 # Tower Defense - Design System
 
-**Stand:** 2026-01-08
+**Stand:** 2026-01-10
 
 ## Uebersicht
 
 Das Tower Defense UI basiert auf einem **WC3/Ancient Command** inspirierten Design mit Stein-, Metall- und Magie-Aesthetik. Das System verwendet CSS Custom Properties fuer zentrale Farbverwaltung.
 
-**Inspiration:** Warcraft III UI (siehe `public/assets/games/tower-defense/mocks/ui_mock.png`)
+**Inspiration:** Warcraft III UI (siehe `public/assets/mocks/ui_mock.png`)
 
 ---
 
@@ -43,6 +43,7 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
 | `--td-bg-dark` | `#141815` | Haupt-Sidebar, dunkler Stein |
+| `--td-bg-surface` | `#1A201C` | Allgemeine Oberflaeche (Overlay, Loading) |
 | `--td-panel-main` | `#232B25` | Primaere Panel-Flaeche |
 | `--td-panel-secondary` | `#1C221E` | Unterpanels, Slots |
 | `--td-panel-shadow` | `#0F130F` | Inset-Schatten, Tiefe |
@@ -88,7 +89,14 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 | `--td-text-primary` | `#ECEFE9` | Haupttext |
 | `--td-text-secondary` | `#B2BCAF` | Sekundaertext |
 | `--td-text-muted` | `#8B948A` | Gedaempfter Text |
+| `--td-text-tertiary` | `#7A837A` | Zwischen muted/disabled, fuer pending/inactive Elemente |
 | `--td-text-disabled` | `#6A726A` | Deaktivierter Text |
+
+### Bekannte Probleme
+
+| Problem | Beschreibung |
+|---------|--------------|
+| `--td-red` undefiniert | Wird in game-sidebar.component.ts verwendet (`.td-stat-value.td-damage`, `.td-cancel-btn mat-icon`), ist aber nicht definiert. Sollte `--td-health-red` sein. |
 
 ### Bars (HP, Mana, Progress)
 
@@ -212,7 +220,7 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 
 ```css
 .td-header {
-  background: url('/assets/games/tower-defense/images/425.jpg') repeat;
+  background: url('/assets/images/425.jpg') repeat;
   background-size: 64px 64px;
   border-bottom: 2px solid var(--td-frame-dark);
   border-top: 1px solid var(--td-frame-light);
@@ -260,16 +268,24 @@ Verwendung fuer: Header-Titel, Stats, Buttons auf texturiertem Hintergrund.
 |-------|--------------|
 | `styles/td-theme.ts` | Zentrale Theme-Definition |
 | `tower-defense.component.ts` | Haupt-UI mit Layout |
-| `components/debug-panel.component.ts` | Debug-Panel (nutzt Theme) |
+| `components/game-header/game-header.component.ts` | Info-Header mit Spielstatus |
+| `components/game-sidebar/game-sidebar.component.ts` | Rechte Sidebar mit Aktionen |
+| `components/compass/compass.component.ts` | Kompass-Anzeige |
+| `components/quick-actions/quick-actions.component.ts` | Icon-Buttons (Kamera-Reset, Debug) |
+| `components/debug-window/draggable-debug-panel.component.ts` | Ziehbares Debug-Panel Container |
+| `components/debug-window/wave-debugger.component.ts` | Wave/Enemy Debug-Informationen |
+| `components/debug-window/camera-debugger.component.ts` | Kamera Debug-Informationen |
 
 ---
 
 ## Erweiterung
 
-### Neues Theme erstellen
+### Neues Theme erstellen (Beispiel fuer zukuenftige Erweiterung)
+
+**Hinweis:** Diese Datei existiert noch nicht, dient als Vorlage fuer zukuenftige Theme-Varianten.
 
 ```typescript
-// styles/td-theme-dark.ts
+// styles/td-theme-dark.ts (noch nicht implementiert)
 export const TD_THEME_DARK = {
   ...TD_THEME,
   bgDark: '#0a0a0a',
@@ -283,13 +299,13 @@ export const TD_THEME_DARK = {
 ```typescript
 // In Komponente
 import { TD_CSS_VARS } from '../styles/td-theme';
-// oder
-import { TD_CSS_VARS } from '../styles/td-theme-dark';
+// Zukuenftig moeglich:
+// import { TD_CSS_VARS } from '../styles/td-theme-dark';
 ```
 
 ---
 
 ## Referenzmaterial
 
-- `public/assets/games/tower-defense/mocks/ui_mock.png` - WC3-Style Mockup
-- `public/assets/games/tower-defense/mocks/ui_mock.txt` - Farbpalette Spezifikation
+- `public/assets/mocks/ui_mock.png` - WC3-Style Mockup
+- `public/assets/mocks/ui_mock.txt` - Farbpalette Spezifikation

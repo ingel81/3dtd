@@ -9,7 +9,6 @@
 ```bash
 npm start       # Development Server (http://localhost:4200)
 npm run build   # Production Build
-npm run lint    # Linting
 ```
 
 ## Architektur
@@ -23,20 +22,22 @@ npm run lint    # Linting
 
 ```
 src/app/
-├── app.component.ts       # Root Component
-├── app.config.ts          # Provider Config
-├── app.routes.ts          # Routing (lädt TD lazy)
-├── core/
-│   └── services/
-│       └── config.service.ts  # API Key Provider
-└── game/
-    └── tower-defense/     # TD Game Code
-        ├── tower-defense.component.ts
-        ├── services/      # 9 Angular Services
-        ├── managers/      # Game Manager
-        ├── entities/      # Enemy, Tower, Projectile
-        ├── three-engine/  # 3D Engine
-        └── ...
+├── app.ts                      # Root Component (AppComponent)
+├── app.config.ts               # Provider Config
+├── app.routes.ts               # Routing
+├── tower-defense.component.ts  # Haupt-Spielkomponente
+├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
+├── configs/                    # Tower & Projectile Type Configs
+├── core/services/              # Config Service
+├── docs/                       # Dokumentation
+├── entities/                   # Enemy, Tower, Projectile
+├── game/tower-defense/shaders/ # Shader Code
+├── game-components/            # ECS Components (transform, health, etc.)
+├── managers/                   # 8 Manager (enemy, tower, projectile, wave, etc.)
+├── models/                     # Type Definitions
+├── services/                   # 17 Angular Services
+├── styles/                     # Theme & Global Styles
+└── three-engine/               # 3D Rendering (renderers/)
 ```
 
 ## Wichtig

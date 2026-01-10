@@ -54,22 +54,32 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 
 ## Services (2026-01 Refactoring)
 
-Die Komponente wurde durch Extraktion von **9 spezialisierten Services** modularisiert.
-Die Komponente selbst ist von 4098 auf ~3150 Zeilen reduziert worden.
+Die Komponente wurde durch Extraktion von **17 spezialisierten Services** modularisiert.
+Die Komponente selbst ist von 4098 auf ~1950 Zeilen reduziert worden.
+
+**Hinweis:** Services liegen in `/src/app/services/`, nicht im tower-defense Subfolder.
 
 ### Service-Übersicht
 
-| Service | Zeilen | Verantwortung |
-|---------|--------|---------------|
-| **GameUIStateService** | 180 | UI State Signals, Layer Toggles, Debug Log |
-| **CameraControlService** | 160 | Kamera Position, Reset, Fly-To Animationen |
-| **MarkerVisualizationService** | 490 | 3D Marker (HQ, Spawn, Debug), Animation |
-| **PathAndRouteService** | 580 | Pfad-Caching, Route-Visualisierung, Height Smoothing |
-| **InputHandlerService** | 200 | Click/Pan Detection, Terrain Raycasting |
-| **TowerPlacementService** | 400 | Build Mode, Placement Validation, Preview Mesh |
-| **LocationManagementService** | 250 | Location CRUD, LocalStorage Persistence |
-| **HeightUpdateService** | 300 | Terrain Height Sync, Stabilization Loop |
-| **EngineInitializationService** | 350 | 6-Step Loading Sequence, Progress Tracking |
+| Service | Verantwortung |
+|---------|---------------|
+| **GameUIStateService** | UI State Signals, Layer Toggles, Debug Log |
+| **CameraControlService** | Kamera Position, Reset, Fly-To Animationen |
+| **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
+| **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
+| **PathAndRouteService** | Pfad-Caching, Route-Visualisierung, Height Smoothing |
+| **InputHandlerService** | Click/Pan Detection, Terrain Raycasting |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
+| **LocationManagementService** | Location CRUD, LocalStorage Persistence |
+| **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
+| **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
+| **RouteAnimationService** | Knight Rider Routen-Animation |
+| **WaveDebugService** | Wave-Debugging Utilities |
+| **DebugWindowService** | Debug-Window Verwaltung |
+| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
+| **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
+| **ModelPreviewService** | 3D Model Previews für Sidebar |
+| **EntityPoolService** | Object Pooling (Placeholder) |
 
 ### Service-Architektur
 
@@ -80,22 +90,17 @@ tower-defense.component.ts (Orchestrierung)
     ├── EngineInitializationService ─ Loading Sequence
     │       └── verwendet alle anderen Services
     ├── CameraControlService ────── Kamera-Steuerung
+    ├── CameraFramingService ────── Viewport-Framing
     ├── InputHandlerService ─────── Click/Pan Events
     ├── MarkerVisualizationService ─ 3D Marker
     ├── PathAndRouteService ─────── Pfade & Routen
+    ├── RouteAnimationService ───── Route-Animation
     ├── TowerPlacementService ───── Build Mode
     ├── HeightUpdateService ─────── Terrain Sync
-    └── LocationManagementService ─ Location Management
+    ├── LocationManagementService ─ Location Management
+    ├── WaveDebugService ────────── Wave Debugging
+    └── DebugWindowService ──────── Debug Windows
 ```
-
-### Existierende Services (vor Refactoring)
-
-| Service | Beschreibung |
-|---------|--------------|
-| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
-| **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
-| **ModelPreviewService** | 3D Model Previews für Sidebar |
-| **EntityPoolService** | Object Pooling (Placeholder) |
 
 ---
 
@@ -456,9 +461,49 @@ class WaveManager {
 }
 ```
 
+### 4.6 SpatialAudioManager
+
+```typescript
+@Injectable()
+class SpatialAudioManager {
+  private readonly MAX_ENEMY_SOUNDS = 12;  // Sound Budget
+
+  // 3D Audio mit Sound-Budget-Verwaltung
+  playEnemySound(enemyId: string, soundType: string, position: Vector3): void;
+  stopEnemySound(enemyId: string): void;
+  stopAllSounds(): void;
+}
+```
+
+**Sound Budget:** Maximal 12 gleichzeitige Enemy-Sounds, um Performance zu schonen.
+
 ---
 
-## 5. Renderer System
+## 5. Event-Koordination
+
+**Wichtig:** Das Projekt verwendet **kein** klassisches EventEmitter/Subject-System (wie RxJS).
+
+Stattdessen werden **Callback-basierte Events** verwendet:
+
+```typescript
+// In GameStateManager
+onGameOverCallback?: () => void;
+onDebugLogCallback?: (msg: string) => void;
+onEnemyReachedBase?: (enemy: Enemy) => void;
+
+// Verwendung
+this.onGameOverCallback?.();
+this.onEnemyReachedBase?.(enemy);
+```
+
+**Warum Callbacks statt Subjects?**
+- Einfachere Lifecycle-Verwaltung
+- Keine Subscription-Leaks
+- Direktere Kommunikation zwischen Managern und Component
+
+---
+
+## 6. Renderer System
 
 Alle Renderer verwenden das `CoordinateSync` Interface für Geo-zu-Lokal Transformation:
 
@@ -469,7 +514,7 @@ interface CoordinateSync {
 }
 ```
 
-### 5.1 ThreeEnemyRenderer
+### 6.1 ThreeEnemyRenderer
 
 ```typescript
 class ThreeEnemyRenderer {
@@ -484,7 +529,7 @@ class ThreeEnemyRenderer {
 }
 ```
 
-### 5.2 ThreeTowerRenderer
+### 6.2 ThreeTowerRenderer
 
 ```typescript
 class ThreeTowerRenderer {
@@ -498,7 +543,7 @@ class ThreeTowerRenderer {
 }
 ```
 
-### 5.3 ThreeProjectileRenderer
+### 6.3 ThreeProjectileRenderer
 
 ```typescript
 class ThreeProjectileRenderer {
@@ -510,7 +555,7 @@ class ThreeProjectileRenderer {
 }
 ```
 
-### 5.4 ThreeEffectsRenderer
+### 6.4 ThreeEffectsRenderer
 
 ```typescript
 class ThreeEffectsRenderer {
@@ -533,7 +578,7 @@ class ThreeEffectsRenderer {
 
 ---
 
-## 6. Type Configuration
+## 7. Type Configuration
 
 ### Tower Types
 
@@ -577,7 +622,7 @@ const ENEMY_TYPES: Record<EnemyTypeId, EnemyTypeConfig> = {
 
 ---
 
-## 7. Koordinatensystem
+## 8. Koordinatensystem
 
 ### Mit ReorientationPlugin (recenter: true)
 
@@ -610,7 +655,7 @@ class EllipsoidSync {
 
 ---
 
-## 8. Render Pipeline
+## 9. Render Pipeline
 
 ```typescript
 // Game Loop (requestAnimationFrame)
@@ -633,72 +678,78 @@ function gameLoop(currentTime: number) {
 
 ---
 
-## 9. Dateistruktur
+## 10. Dateistruktur
 
 ```
-tower-defense/
-├── tower-defense.component.ts    # Haupt-Component (~3150 Zeilen)
+src/app/
+├── tower-defense.component.ts    # Haupt-Component (~1950 Zeilen)
 │
-├── services/                     # 13 Services
+├── services/                     # 17 Services
 │   ├── game-ui-state.service.ts        # UI State & Toggles
 │   ├── camera-control.service.ts       # Kamera-Steuerung
+│   ├── camera-framing.service.ts       # Viewport-Framing
 │   ├── marker-visualization.service.ts # 3D Marker
 │   ├── path-route.service.ts           # Pfade & Routen
+│   ├── route-animation.service.ts      # Knight Rider Animation
 │   ├── input-handler.service.ts        # Click/Pan Events
 │   ├── tower-placement.service.ts      # Build Mode
 │   ├── location-management.service.ts  # Location CRUD
 │   ├── height-update.service.ts        # Terrain Sync
 │   ├── engine-initialization.service.ts# Loading Sequence
+│   ├── wave-debug.service.ts           # Wave Debugging
+│   ├── debug-window.service.ts         # Debug Windows
 │   ├── osm-street.service.ts           # OSM Straßen-Loading
 │   ├── geocoding.service.ts            # Nominatim Geocoding
 │   ├── model-preview.service.ts        # 3D Previews
 │   └── entity-pool.service.ts          # Object Pooling
 │
-├── three-engine/
-│   ├── three-tiles-engine.ts     # Haupt-Engine
-│   ├── ellipsoid-sync.ts         # Koordinaten
-│   ├── index.ts                  # Exports
-│   └── renderers/
-│       ├── index.ts              # CoordinateSync Interface
-│       ├── three-enemy.renderer.ts
-│       ├── three-tower.renderer.ts
-│       ├── three-projectile.renderer.ts
-│       └── three-effects.renderer.ts
-│
-├── managers/
+├── managers/                     # 8 Manager-Dateien
+│   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts
-│   ├── enemy.manager.ts
-│   ├── tower.manager.ts
-│   ├── projectile.manager.ts
-│   ├── wave.manager.ts
-│   └── spatial-audio.manager.ts
+│   ├── game-state.manager.ts     # Orchestrator
+│   ├── enemy.manager.ts          # Enemy Lifecycle
+│   ├── tower.manager.ts          # Tower Lifecycle
+│   ├── projectile.manager.ts     # Projectile Lifecycle
+│   ├── wave.manager.ts           # Wave Management
+│   └── spatial-audio.manager.ts  # 3D Audio (Sound Budget)
 │
-├── entities/
-│   ├── enemy.entity.ts
-│   ├── tower.entity.ts
-│   └── projectile.entity.ts
-│
-├── game-components/
-│   ├── transform.component.ts
-│   ├── health.component.ts
-│   ├── movement.component.ts
-│   ├── combat.component.ts
-│   ├── render.component.ts
-│   └── audio.component.ts
-│
-├── core/
-│   ├── game-object.ts
-│   └── component.ts
-│
-├── configs/
-│   ├── tower-types.config.ts
-│   └── projectile-types.config.ts
-│
-├── models/
-│   ├── enemy-types.ts
-│   ├── game.types.ts
-│   └── location.types.ts
+├── game/                         # Game Subsystem
+│   ├── three-engine/
+│   │   ├── three-tiles-engine.ts     # Haupt-Engine
+│   │   ├── ellipsoid-sync.ts         # Koordinaten
+│   │   ├── index.ts                  # Exports
+│   │   └── renderers/
+│   │       ├── index.ts              # CoordinateSync Interface
+│   │       ├── three-enemy.renderer.ts
+│   │       ├── three-tower.renderer.ts
+│   │       ├── three-projectile.renderer.ts
+│   │       └── three-effects.renderer.ts
+│   │
+│   ├── entities/
+│   │   ├── enemy.entity.ts
+│   │   ├── tower.entity.ts
+│   │   └── projectile.entity.ts
+│   │
+│   ├── game-components/
+│   │   ├── transform.component.ts
+│   │   ├── health.component.ts
+│   │   ├── movement.component.ts
+│   │   ├── combat.component.ts
+│   │   ├── render.component.ts
+│   │   └── audio.component.ts
+│   │
+│   ├── core/
+│   │   ├── game-object.ts
+│   │   └── component.ts
+│   │
+│   ├── configs/
+│   │   ├── tower-types.config.ts
+│   │   └── projectile-types.config.ts
+│   │
+│   └── models/
+│       ├── enemy-types.ts
+│       ├── game.types.ts
+│       └── location.types.ts
 │
 ├── components/
 │   ├── location-dialog/          # Location-Auswahl Dialog
@@ -718,7 +769,61 @@ tower-defense/
 
 ---
 
-## 10. Vorteile der Architektur
+## 11. Visual Effects & Features
+
+### Blood Decal System
+
+Persistente Blutflecken auf dem Boden nach Enemy-Deaths:
+
+```typescript
+// ThreeEffectsRenderer
+spawnBloodDecal(lat, lon, height, size?): string;
+```
+
+- Decals bleiben bestehen bis zum Game Reset
+- Verwendet Alpha-Blending für realistische Erscheinung
+- Automatische Terrain-Ausrichtung
+
+### Fire Effects
+
+Feuer-Effekte bei HQ-Damage und Game Over:
+
+```typescript
+// ThreeEffectsRenderer
+spawnFire(lat, lon, height, intensity): string;  // 'small' | 'medium' | 'large'
+spawnFireOnTerrain(lat, lon, getHeight, intensity): string;
+spawnFireAtLocalY(lat, lon, localY, intensity): string;
+```
+
+- Particle-basierte Feuer-Simulation
+- Drei Intensitätsstufen
+- Automatischer Sound bei Spawn
+
+### Route Animation (Knight Rider Effekt)
+
+Animierte Routen-Visualisierung:
+
+```typescript
+// RouteAnimationService
+startAnimation(routes: RouteData[]): void;
+stopAnimation(): void;
+```
+
+- Lauflichter entlang der Routen
+- Konfigurierbare Geschwindigkeit und Farbe
+- Aktiviert während Setup-Phase
+
+### Hex-Grid LoS-Visualisierung
+
+Line-of-Sight Visualisierung im TowerRenderer:
+
+- Zeigt Sichtlinien vom ausgewählten Tower zu Gegnern
+- Hex-Grid basierte Darstellung der Tower-Range
+- Aktiviert bei Tower-Selektion
+
+---
+
+## 12. Vorteile der Architektur
 
 ### Modularität
 - Components sind wiederverwendbar
@@ -745,7 +850,7 @@ tower-defense/
 
 ---
 
-## 11. Gotchas & Lessons Learned
+## 13. Gotchas & Lessons Learned
 
 ### Async Methods + Component Lifecycle = Race Condition
 

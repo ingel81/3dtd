@@ -1,6 +1,18 @@
 # Erledigte Features & Fixes
 
+Allgemein:
+ [x] **Route-Animation (Knight Rider Effekt)**
+     - Animierte Visualisierung der Gegner-Route beim Spielstart
+     - Leuchtende rote/orange Dashes laufen von Spawn → HQ
+     - 3 Durchläufe, dann Fade-Out
+     - Line2 + LineMaterial für dicke Linien (5px)
+     - dashOffset-Animation für Bewegungseffekt
+     - Pulsierender Glow + Farbshift für Eyecatcher-Effekt
+     - Debug-Button im Dev-Menü zum manuellen Auslösen
+     - RouteAnimationService in services/route-animation.service.ts
+
 Bug:
+ [x] Feuer am HQ bei Damage durch Gegner funktioniert jetzt zuverlässig
  [x] ist ein turm selektiert und man macht mit der LMB ein Pan und lässt los, wird der turm deselektiert. das soll nicht sein
      - Fix: Pointerdown mit capture tracken, Pixel-Distanz prüfen (> 5px = Pan)
      - Direkte Mesh-Raycasting für Tower-Selektion (statt Terrain-basiert)
