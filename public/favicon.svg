@@ -1,0 +1,25 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64">
+  <!-- Tower base -->
+  <rect x="16" y="44" width="32" height="16" rx="2" fill="#4a5568"/>
+
+  <!-- Tower middle section -->
+  <rect x="20" y="28" width="24" height="18" fill="#718096"/>
+
+  <!-- Tower top section -->
+  <rect x="22" y="16" width="20" height="14" fill="#a0aec0"/>
+
+  <!-- Battlements (Zinnen) -->
+  <rect x="18" y="10" width="6" height="8" fill="#cbd5e0"/>
+  <rect x="29" y="10" width="6" height="8" fill="#cbd5e0"/>
+  <rect x="40" y="10" width="6" height="8" fill="#cbd5e0"/>
+
+  <!-- Window/Arrow slit -->
+  <rect x="29" y="32" width="6" height="10" rx="3" fill="#2d3748"/>
+
+  <!-- Door -->
+  <rect x="26" y="48" width="12" height="12" rx="6" fill="#2d3748"/>
+
+  <!-- Highlights -->
+  <rect x="18" y="44" width="2" height="16" fill="#a0aec0" opacity="0.5"/>
+  <rect x="22" y="28" width="2" height="18" fill="#a0aec0" opacity="0.3"/>
+</svg>

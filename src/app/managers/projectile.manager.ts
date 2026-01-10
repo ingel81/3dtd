@@ -9,7 +9,7 @@ import { ThreeTilesEngine } from '../three-engine';
 // Sound configuration for projectiles
 const PROJECTILE_SOUNDS = {
   arrow: {
-    url: '/assets/games/tower-defense/sounds/arrow_01.mp3',
+    url: '/assets/sounds/arrow_01.mp3',
     refDistance: 50, // Full volume at 50m
     rolloffFactor: 1,
     volume: 0.5,

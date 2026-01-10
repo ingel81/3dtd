@@ -49,7 +49,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
-    modelUrl: '/assets/games/tower-defense/models/zombie_alternative.glb',
+    modelUrl: '/assets/models/zombie_alternative.glb',
     scale: 2.0,
     minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping beim Zoomen
     baseHp: 100,
@@ -76,7 +76,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   tank: {
     id: 'tank',
     name: 'Panzer',
-    modelUrl: '/assets/games/tower-defense/models/tank.glb',
+    modelUrl: '/assets/models/tank.glb',
     scale: 2.5,
     minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping
     baseHp: 300, // Doppelt so viel wie Zombie

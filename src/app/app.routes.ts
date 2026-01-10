@@ -4,7 +4,7 @@ export const routes: Routes = [
   {
     path: '',
     loadComponent: () =>
-      import('./game/tower-defense/tower-defense.component').then(
+      import('./tower-defense.component').then(
         m => m.TowerDefenseComponent
       ),
   },

@@ -17,7 +17,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { ConfigService } from '../../core/services/config.service';
+import { ConfigService } from './core/services/config.service';
 import { OsmStreetService, Street, StreetNetwork } from './services/osm-street.service';
 import { EntityPoolService } from './services/entity-pool.service';
 import { ModelPreviewService } from './services/model-preview.service';
@@ -108,7 +108,7 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       <header class="td-header">
         <div class="td-header-left">
           <mat-icon class="td-title-icon">cell_tower</mat-icon>
-          <h2 class="td-title">TOWER DEFENSE</h2>
+          <h2 class="td-title">3DTD</h2>
           <button class="td-location-btn" (click)="openLocationDialog()" matTooltip="Spielort ändern">
             <span class="td-location-name">{{ currentLocationName() }}</span>
             <mat-icon class="td-location-edit">edit</mat-icon>
@@ -154,7 +154,7 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
           @if (loading()) {
             <div class="td-loading-overlay">
               <mat-spinner diameter="48"></mat-spinner>
-              <div class="td-loading-title">Lade Tower Defense</div>
+              <div class="td-loading-title">Lade 3DTD</div>
               <div class="td-loading-steps">
                 @for (step of loadingSteps(); track step.id) {
                   <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">
@@ -489,7 +489,7 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       padding: 4px 12px;
       background:
         linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
-        url('/assets/games/tower-defense/images/425.jpg') repeat;
+        url('/assets/images/425.jpg') repeat;
       background-size: auto, 64px 64px;
       border-bottom: 3px solid var(--td-panel-shadow);
       border-top: 1px solid var(--td-frame-light);
@@ -603,7 +603,7 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
     .td-stat.credits { color: var(--td-gold); }
     .td-stat.wave { color: var(--td-teal); }
     .td-stat.enemies { color: var(--td-warn-orange); }
-    .td-stat.fps { color: var(--td-text-muted); font-size: 10px; min-width: auto; }
+    .td-stat.fps, .td-stat.tiles { color: var(--td-text-secondary); font-size: 10px; min-width: auto; }
 
     .td-close-btn {
       display: flex;
@@ -845,7 +845,7 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       flex: 1;
       background:
         linear-gradient(rgba(15, 19, 15, 0.75), rgba(15, 19, 15, 0.75)),
-        url('/assets/games/tower-defense/images/425.jpg') repeat;
+        url('/assets/images/425.jpg') repeat;
       background-size: auto, 100px 100px;
       display: flex;
       flex-direction: column;
@@ -1306,7 +1306,7 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       width: 8px;
       height: 8px;
       margin-right: 2px;
-      background: url('/assets/games/tower-defense/images/gold.svg') center/contain no-repeat;
+      background: url('/assets/images/gold.svg') center/contain no-repeat;
       vertical-align: middle;
     }
 

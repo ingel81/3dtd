@@ -173,7 +173,7 @@ export class ThreeProjectileRenderer {
    * Load arrow GLB model and create instanced mesh
    */
   private async loadArrowModel(): Promise<void> {
-    const modelPath = '/assets/games/tower-defense/models/arrow_01.glb';
+    const modelPath = '/assets/models/arrow_01.glb';
     console.log('[ThreeProjectileRenderer] Loading arrow model from:', modelPath);
 
     try {

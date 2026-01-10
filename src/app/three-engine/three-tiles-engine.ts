@@ -372,7 +372,7 @@ export class ThreeTilesEngine {
     const loader = new THREE.TextureLoader();
 
     loader.load(
-      '/assets/games/tower-defense/images/kloppenheim_06_puresky.jpg',
+      '/assets/images/kloppenheim_06_puresky.jpg',
       (texture) => {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         texture.colorSpace = THREE.SRGBColorSpace;
