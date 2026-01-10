@@ -200,6 +200,77 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
               <img src="/assets/images/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
             </div>
             <div class="td-map-attribution">{{ mapAttribution() }}</div>
+
+            <!-- Compass Overlay -->
+            <div class="td-compass-container">
+              <div class="td-compass" [style.transform]="'rotate(' + (-cameraHeading()) + 'deg)'">
+                <div class="td-compass-ring">
+                  <span class="td-compass-n">N</span>
+                  <span class="td-compass-e">O</span>
+                  <span class="td-compass-s">S</span>
+                  <span class="td-compass-w">W</span>
+                </div>
+                <div class="td-compass-needle"></div>
+              </div>
+            </div>
+
+            <!-- Camera Debug Overlay -->
+            @if (cameraDebugEnabled() && cameraDebugInfo(); as cam) {
+              <div class="td-camera-debug">
+                <div class="td-camera-debug-title">
+                  <mat-icon>videocam</mat-icon>
+                  <span>Kamera</span>
+                </div>
+                <div class="td-camera-debug-section">
+                  <span class="td-camera-debug-label">Position</span>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">X:</span>
+                    <span class="td-camera-debug-value">{{ cam.posX | number:'1.0-0' }}m</span>
+                  </div>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Y:</span>
+                    <span class="td-camera-debug-value">{{ cam.posY | number:'1.0-0' }}m</span>
+                  </div>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Z:</span>
+                    <span class="td-camera-debug-value">{{ cam.posZ | number:'1.0-0' }}m</span>
+                  </div>
+                </div>
+                <div class="td-camera-debug-section">
+                  <span class="td-camera-debug-label">Winkel</span>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Heading:</span>
+                    <span class="td-camera-debug-value">{{ cam.heading | number:'1.0-0' }}°</span>
+                  </div>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Pitch:</span>
+                    <span class="td-camera-debug-value">{{ cam.pitch | number:'1.1-1' }}°</span>
+                  </div>
+                </div>
+                <div class="td-camera-debug-section">
+                  <span class="td-camera-debug-label">Abstand</span>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Höhe:</span>
+                    <span class="td-camera-debug-value">{{ cam.altitude | number:'1.0-0' }}m</span>
+                  </div>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Distanz:</span>
+                    <span class="td-camera-debug-value">{{ cam.distanceToCenter | number:'1.0-0' }}m</span>
+                  </div>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">Terrain:</span>
+                    <span class="td-camera-debug-value">{{ cam.terrainHeight | number:'1.0-0' }}m</span>
+                  </div>
+                </div>
+                <div class="td-camera-debug-section">
+                  <span class="td-camera-debug-label">Optik</span>
+                  <div class="td-camera-debug-row">
+                    <span class="td-camera-debug-key">FOV:</span>
+                    <span class="td-camera-debug-value">{{ cam.fov | number:'1.0-0' }}°</span>
+                  </div>
+                </div>
+              </div>
+            }
           }
 
           <!-- Controls Hint -->
@@ -258,6 +329,20 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
                           matTooltip="Wave-Debug-Panel"
                           matTooltipPosition="left">
                     <mat-icon>timeline</mat-icon>
+                  </button>
+                  <button class="td-dev-btn"
+                          [class.active]="cameraDebugEnabled()"
+                          (click)="toggleCameraDebug()"
+                          matTooltip="Kamera-Debug-Overlay"
+                          matTooltipPosition="left">
+                    <mat-icon>videocam</mat-icon>
+                  </button>
+                  <button class="td-dev-btn"
+                          [class.active]="cameraFramingDebug()"
+                          (click)="toggleCameraFramingDebug()"
+                          matTooltip="Kamera-Framing Debug"
+                          matTooltipPosition="left">
+                    <mat-icon>crop_free</mat-icon>
                   </button>
                   <button class="td-dev-btn"
                           (click)="resetToDefaultLocation()"
@@ -713,6 +798,170 @@ const LOCATION_STORAGE_KEY = 'td_custom_locations_v1';
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
+    }
+
+    /* Compass (top right) */
+    .td-compass-container {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 5;
+      pointer-events: none;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .td-compass {
+      position: relative;
+      width: 56px;
+      height: 56px;
+      transition: transform 0.1s ease-out;
+    }
+
+    .td-compass-debug {
+      font-size: 10px;
+      color: var(--td-gold);
+      background: rgba(20, 24, 21, 0.8);
+      padding: 2px 6px;
+      border-radius: 3px;
+      font-family: monospace;
+    }
+
+    .td-compass-ring {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border: 2px solid var(--td-gold);
+      border-radius: 50%;
+      background: radial-gradient(circle, rgba(20, 24, 21, 0.9) 0%, rgba(20, 24, 21, 0.7) 100%);
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5), inset 0 0 10px rgba(0, 0, 0, 0.3);
+    }
+
+    .td-compass-ring span {
+      position: absolute;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--td-text-secondary);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    }
+
+    .td-compass-n {
+      top: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: var(--td-health-red) !important;
+    }
+
+    .td-compass-e {
+      top: 50%;
+      right: 5px;
+      transform: translateY(-50%);
+    }
+
+    .td-compass-s {
+      bottom: 4px;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .td-compass-w {
+      top: 50%;
+      left: 5px;
+      transform: translateY(-50%);
+    }
+
+    .td-compass-needle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: 4px;
+      height: 20px;
+      transform: translate(-50%, -100%);
+      background: linear-gradient(to bottom, var(--td-health-red) 0%, var(--td-health-red) 50%, var(--td-text-secondary) 50%, var(--td-text-secondary) 100%);
+      border-radius: 2px;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
+    }
+
+    .td-compass-needle::after {
+      content: '';
+      position: absolute;
+      bottom: -4px;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 8px;
+      height: 8px;
+      background: var(--td-gold);
+      border-radius: 50%;
+      box-shadow: 0 0 4px var(--td-gold);
+    }
+
+    /* Camera Debug Overlay (top right, below compass) */
+    .td-camera-debug {
+      position: absolute;
+      top: 80px;
+      right: 12px;
+      z-index: 5;
+      background: rgba(20, 24, 21, 0.92);
+      border: 1px solid var(--td-frame-mid);
+      border-radius: 6px;
+      padding: 8px 10px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      min-width: 140px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+    }
+
+    .td-camera-debug-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: var(--td-gold);
+      font-weight: 600;
+      font-size: 12px;
+      margin-bottom: 8px;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--td-frame-dark);
+    }
+
+    .td-camera-debug-title mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
+    .td-camera-debug-section {
+      margin-bottom: 6px;
+    }
+
+    .td-camera-debug-section:last-child {
+      margin-bottom: 0;
+    }
+
+    .td-camera-debug-label {
+      display: block;
+      color: var(--td-text-muted);
+      font-size: 9px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin-bottom: 2px;
+    }
+
+    .td-camera-debug-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+      padding: 1px 0;
+    }
+
+    .td-camera-debug-key {
+      color: var(--td-text-secondary);
+    }
+
+    .td-camera-debug-value {
+      color: var(--td-text-primary);
+      font-weight: 500;
     }
 
     /* Quick Actions (right side, above attribution) */
@@ -1758,6 +2007,15 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly editableSpawnLocations = this.locationMgmt.editableSpawnLocations;
   readonly isApplyingLocation = this.locationMgmt.isApplyingLocation;
   // Component-local signals (not moved to services)
+  readonly cameraHeading = signal(0); // Compass heading: 0=N, 90=E, 180=S, 270=W
+  readonly cameraFramingDebug = signal(false); // Debug visualization for camera framing
+  readonly cameraDebugEnabled = signal(false); // Camera debug overlay
+  readonly cameraDebugInfo = signal<{
+    posX: number; posY: number; posZ: number;
+    rotX: number; rotY: number; rotZ: number;
+    heading: number; pitch: number; altitude: number;
+    distanceToCenter: number; fov: number; terrainHeight: number;
+  } | null>(null);
   readonly enemySpeed = signal(5);
   readonly streetCount = signal(0);
   readonly enemyCount = signal(2);
@@ -1938,6 +2196,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.osmService,
       this.markerViz.getSpawnMarkers()
     );
+
+    // Initialize camera control service
+    this.cameraControl.initialize(engine, { lat: baseCoords.lat, lon: baseCoords.lon });
 
     console.log('[TD] Visualization services initialized');
   }
@@ -2121,9 +2382,26 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Save initial camera position for reset
+   * Frame HQ and spawns, then save initial camera position for reset
+   * This ensures the initial view shows all important game elements
    */
   private saveInitialCameraPosition(): void {
+    // Frame HQ and all spawn points before saving position
+    const hq = this.baseCoords();
+    const spawns = this.spawnPoints();
+
+    if (spawns.length > 0) {
+      const hqCoord = { lat: hq.latitude, lon: hq.longitude };
+      const spawnCoords = spawns.map(s => ({ lat: s.latitude, lon: s.longitude }));
+      const padding = 0.2; // 20% padding
+
+      this.cameraControl.frameHqAndSpawns(hqCoord, spawnCoords, padding);
+
+      // Show debug visualization if enabled
+      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, padding);
+    }
+
+    // Save this framed position as the initial position
     this.cameraControl.saveInitialPosition();
   }
 
@@ -2295,6 +2573,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const attr = this.engine.getAttributions();
       if (attr && attr !== this.mapAttribution()) {
         this.mapAttribution.set(attr || 'Map data ©2024 Google');
+      }
+
+      // Update compass heading (rounded to avoid excessive updates)
+      const heading = Math.round(this.cameraControl.getCameraHeading());
+      if (heading !== this.cameraHeading()) {
+        this.cameraHeading.set(heading);
+      }
+
+      // Update camera debug info (only when debug overlay is enabled)
+      if (this.cameraDebugEnabled()) {
+        this.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
       }
     }
 
@@ -2649,6 +2938,44 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Toggle camera framing debug visualization
+   * Shows bounding boxes for HQ+spawns framing algorithm
+   */
+  toggleCameraFramingDebug(): void {
+    const enabled = this.cameraControl.toggleDebugFraming();
+    this.cameraFramingDebug.set(enabled);
+
+    if (enabled) {
+      // Show current framing visualization
+      const hq = this.baseCoords();
+      const spawns = this.spawnPoints();
+      if (spawns.length > 0) {
+        this.cameraControl.showDebugVisualization(
+          { lat: hq.latitude, lon: hq.longitude },
+          spawns.map(s => ({ lat: s.latitude, lon: s.longitude })),
+          0.2
+        );
+      }
+    }
+  }
+
+  /**
+   * Toggle camera debug overlay
+   * Shows real-time camera position, angles, and other stats
+   */
+  toggleCameraDebug(): void {
+    const enabled = !this.cameraDebugEnabled();
+    this.cameraDebugEnabled.set(enabled);
+
+    if (enabled) {
+      // Immediately update debug info
+      this.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
+    } else {
+      this.cameraDebugInfo.set(null);
+    }
+  }
+
+  /**
    * Toggle layer menu - delegates to GameUIStateService
    */
   toggleLayerMenu(): void {
@@ -2930,6 +3257,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         this.osmService,
         this.markerViz.getSpawnMarkers()
       );
+      this.cameraControl.initialize(this.engine, { lat: data.hq.lat, lon: data.hq.lon });
       this.markerViz.addBaseMarker();
       await this.engineInit.setStepDone('hq');
 
@@ -2975,9 +3303,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // STEP 19: Fly to new location
       this.flyToCenter();
 
-      // STEP 20: Capture new initial camera position (after tiles stabilize)
+      // STEP 20: Frame HQ+spawns and capture camera position (after tiles stabilize)
       setTimeout(() => {
-        this.cameraControl.saveInitialPosition();
+        this.saveInitialCameraPosition();
       }, 2000);
 
       this.appendDebugLog(`Geladen: ${this.streetCount()} Strassen`);

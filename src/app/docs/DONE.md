@@ -78,6 +78,18 @@ Kamera:
      - 45 Grad Blickwinkel, Blickrichtung Norden, HQ im Zentrum
      - Initiale Position wird nach 2s gespeichert (wenn Tiles geladen)
      - Reset-Button stellt exakt diese gespeicherte Position wieder her
+ [x] **Automatisches Framing von HQ + Spawns**
+     - Initiale Kamera zeigt HQ und alle Spawn-Punkte im Bild
+     - Dynamische Kamera-Positionierung seitlich zur HQ-Spawn-Achse
+     - 20% Padding um die Punkte für gute Sichtbarkeit
+     - 45° Iso-Perspektive beibehalten
+     - CameraControlService.frameHqAndSpawns() Methode
+ [x] **Kompass-Overlay**
+     - Oben rechts im Spielfeld
+     - Zeigt N/O/S/W Himmelsrichtungen
+     - Rotiert mit Kamera-Heading
+     - Nadel zeigt immer nach Norden
+     - Dezentes Design passend zum TD-Style
 
 Gameplay:
  [x] User soll sich eine eigene Location durch Eingabe seines Ortes wählen können

@@ -3,6 +3,7 @@
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbechnung der Route)
 [ ] Kein Feuer AM HQ bei Damage
 [ ] bei anderen gegner stimmen die vorschaumodelle nicht (z.b. Panzer)
+[ ] Siddebar zu lange bei zu vielen inhalten zerschießt das layout (auch vom main content) - ggfs sidebar scrolling.
 
 
 Bug:

@@ -6,6 +6,7 @@
 export const TD_THEME = {
   // === Basisflächen (Sidebar & Panels) ===
   bgDark: '#141815', // Haupt-Sidebar, dunkler Stein
+  bgSurface: '#1A201C', // Allgemeine Oberfläche (Overlay, Loading)
   panelMain: '#232B25', // Primäre Panel-Fläche
   panelSecondary: '#1C221E', // Unterpanels, Slots
   panelShadow: '#0F130F', // Inset-Schatten, Tiefe
@@ -36,6 +37,7 @@ export const TD_THEME = {
   textPrimary: '#ECEFE9',
   textSecondary: '#B2BCAF',
   textMuted: '#8B948A',
+  textTertiary: '#7A837A', // Zwischen muted und disabled, für pending/inactive Elemente
   textDisabled: '#6A726A',
 
   // === Bars (HP, Mana, Progress) ===
@@ -54,6 +56,7 @@ export type TdThemeKey = keyof typeof TD_THEME;
  */
 export const TD_CSS_VARS = `
   --td-bg-dark: ${TD_THEME.bgDark};
+  --td-bg-surface: ${TD_THEME.bgSurface};
   --td-panel-main: ${TD_THEME.panelMain};
   --td-panel-secondary: ${TD_THEME.panelSecondary};
   --td-panel-shadow: ${TD_THEME.panelShadow};
@@ -77,6 +80,7 @@ export const TD_CSS_VARS = `
   --td-text-primary: ${TD_THEME.textPrimary};
   --td-text-secondary: ${TD_THEME.textSecondary};
   --td-text-muted: ${TD_THEME.textMuted};
+  --td-text-tertiary: ${TD_THEME.textTertiary};
   --td-text-disabled: ${TD_THEME.textDisabled};
 
   --td-hp-fill: ${TD_THEME.hpFill};
