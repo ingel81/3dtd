@@ -43,7 +43,26 @@ src/app/
 
 - **Kein `npm start` ohne Befehl**
 - **Keine Commits ohne Befehl**
+- **Keine Co-Authored-By Zeile in Commits**
 - **API Keys nie committen** (environment.ts ist in .gitignore)
+
+## Dokumentation
+
+**Pflichtlektüre je nach Aufgabe!** Detaillierte Dokumentation befindet sich in `src/app/docs/`:
+
+| Dokument | Beschreibung |
+|----------|--------------|
+| [INDEX.md](src/app/docs/INDEX.md) | Übersicht aller Dokumentationen |
+| [ARCHITECTURE.md](src/app/docs/ARCHITECTURE.md) | System-Architektur & Design |
+| [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
+| [LOCATION_SYSTEM.md](src/app/docs/LOCATION_SYSTEM.md) | Standort-System |
+| [SPATIAL_AUDIO.md](src/app/docs/SPATIAL_AUDIO.md) | 3D Audio System |
+| [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
+| [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
+| [TODO.md](src/app/docs/TODO.md) | Offene Aufgaben |
+| [DONE.md](src/app/docs/DONE.md) | Erledigte Aufgaben |
+
+**Hinweis zu TODO/DONE:** Diese Listen werden automatisch gepflegt. Einträge werden jedoch **nur auf menschlichen Zuruf** von TODO nach DONE verschoben.
 
 ## Tech Stack
 
