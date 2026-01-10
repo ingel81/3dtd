@@ -1,0 +1,422 @@
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { CoordinateSync } from './index';
+import {
+  ProjectileTypeId,
+  ProjectileVisualType,
+  PROJECTILE_TYPES,
+} from '../../configs/projectile-types.config';
+
+/**
+ * Projectile render data
+ */
+export interface ProjectileRenderData {
+  id: string;
+  visualType: ProjectileVisualType;
+}
+
+/**
+ * Simple instanced entity manager for projectiles
+ */
+class ProjectileInstanceManager {
+  readonly instancedMesh: THREE.InstancedMesh;
+  private entities = new Map<string, number>(); // id -> instanceIndex
+  private freeIndices: number[] = [];
+  private activeCount = 0;
+  private readonly matrix = new THREE.Matrix4();
+
+  constructor(
+    geometry: THREE.BufferGeometry,
+    material: THREE.Material,
+    maxCount: number
+  ) {
+    this.instancedMesh = new THREE.InstancedMesh(geometry, material, maxCount);
+    this.instancedMesh.count = 0;
+    this.instancedMesh.frustumCulled = false;
+  }
+
+  add(
+    id: string,
+    position: THREE.Vector3,
+    rotation: THREE.Euler,
+    scale: THREE.Vector3
+  ): void {
+    if (this.entities.has(id)) return;
+
+    let index: number;
+    if (this.freeIndices.length > 0) {
+      index = this.freeIndices.pop()!;
+    } else {
+      index = this.activeCount;
+    }
+
+    this.entities.set(id, index);
+    this.activeCount = Math.max(this.activeCount, index + 1);
+    this.instancedMesh.count = this.activeCount;
+
+    this.matrix.compose(
+      position,
+      new THREE.Quaternion().setFromEuler(rotation),
+      scale
+    );
+    this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  update(id: string, position: THREE.Vector3, rotation: THREE.Euler): void {
+    const index = this.entities.get(id);
+    if (index === undefined) return;
+
+    this.instancedMesh.getMatrixAt(index, this.matrix);
+    const scale = new THREE.Vector3();
+    this.matrix.decompose(new THREE.Vector3(), new THREE.Quaternion(), scale);
+
+    this.matrix.compose(
+      position,
+      new THREE.Quaternion().setFromEuler(rotation),
+      scale
+    );
+    this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Update position only, keeping existing rotation and scale
+   */
+  updatePosition(id: string, position: THREE.Vector3): void {
+    const index = this.entities.get(id);
+    if (index === undefined) return;
+
+    this.instancedMesh.getMatrixAt(index, this.matrix);
+    const oldPos = new THREE.Vector3();
+    const oldRot = new THREE.Quaternion();
+    const oldScale = new THREE.Vector3();
+    this.matrix.decompose(oldPos, oldRot, oldScale);
+
+    this.matrix.compose(position, oldRot, oldScale);
+    this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.instancedMesh.instanceMatrix.needsUpdate = true;
+  }
+
+  remove(id: string): void {
+    const index = this.entities.get(id);
+    if (index === undefined) return;
+
+    // Move to infinity (hide)
+    this.matrix.makeTranslation(0, -10000, 0);
+    this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.instancedMesh.instanceMatrix.needsUpdate = true;
+
+    this.entities.delete(id);
+    this.freeIndices.push(index);
+  }
+
+  get count(): number {
+    return this.entities.size;
+  }
+
+  clear(): void {
+    for (const id of this.entities.keys()) {
+      this.remove(id);
+    }
+    this.entities.clear();
+    this.freeIndices = [];
+    this.activeCount = 0;
+    this.instancedMesh.count = 0;
+  }
+
+  dispose(): void {
+    this.clear();
+    this.instancedMesh.geometry.dispose();
+    (this.instancedMesh.material as THREE.Material).dispose();
+  }
+}
+
+/**
+ * ThreeProjectileRenderer - Renders projectiles using GPU instancing
+ */
+export class ThreeProjectileRenderer {
+  private scene: THREE.Scene;
+  private sync: CoordinateSync;
+  private loader: GLTFLoader;
+
+  // Instanced managers per visual type
+  private arrowManager: ProjectileInstanceManager | null = null;
+  private cannonballManager: ProjectileInstanceManager;
+  private magicManager: ProjectileInstanceManager;
+
+  // Track which manager owns each projectile
+  private projectileTypes = new Map<string, ProjectileVisualType>();
+
+  // Model loading state
+  private arrowModelLoaded = false;
+
+  constructor(scene: THREE.Scene, sync: CoordinateSync) {
+    this.scene = scene;
+    this.sync = sync;
+    this.loader = new GLTFLoader();
+
+    // Create instanced managers for each visual type
+    this.cannonballManager = this.createCannonballManager();
+    this.magicManager = this.createMagicManager();
+
+    // Load arrow model async
+    this.loadArrowModel();
+
+    // Add meshes to scene
+    // Arrow will be added when model loads
+    scene.add(this.cannonballManager.instancedMesh);
+    scene.add(this.magicManager.instancedMesh);
+  }
+
+  /**
+   * Load arrow GLB model and create instanced mesh
+   */
+  private async loadArrowModel(): Promise<void> {
+    const modelPath = '/assets/games/tower-defense/models/arrow_01.glb';
+    console.log('[ThreeProjectileRenderer] Loading arrow model from:', modelPath);
+
+    try {
+      const gltf = await this.loader.loadAsync(modelPath);
+      console.log('[ThreeProjectileRenderer] GLTF loaded, scene children:', gltf.scene.children.length);
+
+      // Extract geometry and material from model
+      let arrowGeometry: THREE.BufferGeometry | null = null;
+      let arrowMaterial: THREE.Material | null = null;
+
+      gltf.scene.traverse((child) => {
+        console.log('[ThreeProjectileRenderer] Found child:', child.type, child.name);
+        if ((child as THREE.Mesh).isMesh && !arrowGeometry) {
+          const mesh = child as THREE.Mesh;
+          arrowGeometry = mesh.geometry.clone();
+
+          // Log bounding box to understand model size
+          arrowGeometry.computeBoundingBox();
+          const box = arrowGeometry.boundingBox!;
+          console.log('[ThreeProjectileRenderer] Arrow geometry bounding box:',
+            `min: (${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)})`,
+            `max: (${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)})`
+          );
+
+          if (mesh.material) {
+            arrowMaterial = Array.isArray(mesh.material)
+              ? (mesh.material[0] as THREE.Material).clone()
+              : (mesh.material as THREE.Material).clone();
+          }
+        }
+      });
+
+      if (arrowGeometry) {
+        const material = arrowMaterial || new THREE.MeshStandardMaterial({
+          color: 0x8b4513,
+          metalness: 0.3,
+          roughness: 0.7,
+        });
+
+        this.arrowManager = new ProjectileInstanceManager(arrowGeometry, material, 500);
+        this.scene.add(this.arrowManager.instancedMesh);
+        this.arrowModelLoaded = true;
+
+        console.log('[ThreeProjectileRenderer] Arrow model loaded successfully');
+      } else {
+        console.warn('[ThreeProjectileRenderer] No mesh in arrow model, using fallback');
+        this.createFallbackArrow();
+      }
+    } catch (error) {
+      console.error('[ThreeProjectileRenderer] Failed to load arrow model:', error);
+      this.createFallbackArrow();
+    }
+  }
+
+  /**
+   * Create fallback arrow geometry if model fails to load
+   */
+  private createFallbackArrow(): void {
+    const geometry = new THREE.ConeGeometry(0.1, 1.5, 6);
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x8b4513,
+      metalness: 0.1,
+      roughness: 0.8,
+    });
+    this.arrowManager = new ProjectileInstanceManager(geometry, material, 500);
+    this.scene.add(this.arrowManager.instancedMesh);
+    this.arrowModelLoaded = true;
+  }
+
+  private createCannonballManager(): ProjectileInstanceManager {
+    // Cannonball: sphere - size increased for visibility
+    const geometry = new THREE.SphereGeometry(1.5, 16, 16);
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0x333333,
+      metalness: 0.8,
+      roughness: 0.3,
+      emissive: 0x111111,
+      emissiveIntensity: 0.2,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 200);
+  }
+
+  private createMagicManager(): ProjectileInstanceManager {
+    // Magic projectile: glowing sphere - size increased for visibility
+    const geometry = new THREE.SphereGeometry(1.2, 16, 16);
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xff6600,
+      emissive: 0xff3300,
+      emissiveIntensity: 3.0,
+      metalness: 0.0,
+      roughness: 0.0,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 500);
+  }
+
+  private getManager(visualType: ProjectileVisualType): ProjectileInstanceManager | null {
+    switch (visualType) {
+      case 'arrow':
+        return this.arrowManager;
+      case 'cannonball':
+        return this.cannonballManager;
+      case 'magic':
+        return this.magicManager;
+    }
+  }
+
+  // Temporary vectors for quaternion calculations
+  private static readonly UP = new THREE.Vector3(0, 1, 0);
+  private static readonly tempQuat = new THREE.Quaternion();
+  private static readonly tempDir = new THREE.Vector3();
+
+  /**
+   * Create a new projectile with direction vector
+   */
+  create(
+    id: string,
+    typeId: ProjectileTypeId,
+    startLat: number,
+    startLon: number,
+    startHeight: number,
+    direction: { dx: number; dy: number; dz: number }
+  ): void {
+    const config = PROJECTILE_TYPES[typeId];
+    if (!config) {
+      console.error(`[ThreeProjectileRenderer] Unknown type: ${typeId}`);
+      return;
+    }
+
+    const visualType = config.visualType;
+    const manager = this.getManager(visualType);
+
+    if (!manager) {
+      // Model not loaded yet, skip
+      console.warn(`[ThreeProjectileRenderer] Manager for ${visualType} not ready`);
+      return;
+    }
+
+    const localPos = this.sync.geoToLocal(startLat, startLon, startHeight);
+
+    // Calculate rotation quaternion from direction vector
+    // Model should point +Y by default, we rotate to match direction
+    const rotation = this.directionToEuler(direction);
+
+    const scale = new THREE.Vector3(config.scale, config.scale, config.scale);
+
+    console.log(
+      `[ThreeProjectileRenderer] Creating ${typeId} at (${localPos.x.toFixed(1)}, ${localPos.y.toFixed(1)}, ${localPos.z.toFixed(1)}), dir: (${direction.dx.toFixed(2)}, ${direction.dy.toFixed(2)}, ${direction.dz.toFixed(2)})`
+    );
+
+    manager.add(id, localPos, rotation, scale);
+    this.projectileTypes.set(id, visualType);
+  }
+
+  /**
+   * Convert direction vector to Euler rotation
+   * The cone geometry points +Y by default, this rotates it to match direction
+   */
+  private directionToEuler(dir: { dx: number; dy: number; dz: number }): THREE.Euler {
+    // Set target direction
+    ThreeProjectileRenderer.tempDir.set(dir.dx, dir.dy, dir.dz).normalize();
+
+    // Calculate quaternion that rotates +Y to target direction
+    ThreeProjectileRenderer.tempQuat.setFromUnitVectors(
+      ThreeProjectileRenderer.UP,
+      ThreeProjectileRenderer.tempDir
+    );
+
+    // Convert to Euler
+    const euler = new THREE.Euler();
+    euler.setFromQuaternion(ThreeProjectileRenderer.tempQuat);
+
+    return euler;
+  }
+
+  /**
+   * Update projectile position (rotation stays fixed)
+   */
+  update(
+    id: string,
+    lat: number,
+    lon: number,
+    height: number
+  ): void {
+    const visualType = this.projectileTypes.get(id);
+    if (!visualType) return;
+
+    const manager = this.getManager(visualType);
+    if (!manager) return;
+
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    manager.updatePosition(id, localPos);
+  }
+
+  /**
+   * Remove projectile
+   */
+  remove(id: string): void {
+    const visualType = this.projectileTypes.get(id);
+    if (!visualType) return;
+
+    const manager = this.getManager(visualType);
+    if (manager) {
+      manager.remove(id);
+    }
+    this.projectileTypes.delete(id);
+  }
+
+  get count(): number {
+    return (
+      (this.arrowManager?.count ?? 0) +
+      this.cannonballManager.count +
+      this.magicManager.count
+    );
+  }
+
+  /**
+   * Commit all changes to GPU (no-op in simplified implementation)
+   */
+  commitToGPU(): void {
+    // Instance matrix updates are done automatically in add/update/remove
+  }
+
+  clear(): void {
+    this.arrowManager?.clear();
+    this.cannonballManager.clear();
+    this.magicManager.clear();
+    this.projectileTypes.clear();
+  }
+
+  dispose(): void {
+    if (this.arrowManager) {
+      this.scene.remove(this.arrowManager.instancedMesh);
+      this.arrowManager.dispose();
+    }
+    this.scene.remove(this.cannonballManager.instancedMesh);
+    this.scene.remove(this.magicManager.instancedMesh);
+
+    this.cannonballManager.dispose();
+    this.magicManager.dispose();
+    this.projectileTypes.clear();
+  }
+}

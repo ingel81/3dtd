@@ -1,0 +1,464 @@
+import * as THREE from 'three';
+import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
+import { CoordinateSync } from './index';
+import { EnemyTypeConfig, ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
+
+/**
+ * Enemy render data - stored per enemy
+ */
+export interface EnemyRenderData {
+  id: string;
+  mesh: THREE.Object3D;
+  mixer: THREE.AnimationMixer | null;
+  animations: Map<string, THREE.AnimationClip>;
+  currentAction: THREE.AnimationAction | null;
+  healthBar: THREE.Sprite | null;
+  typeConfig: EnemyTypeConfig;
+  isDestroyed: boolean;
+}
+
+/**
+ * ThreeEnemyRenderer - Renders enemies using Three.js
+ *
+ * For animated models (zombies), we clone SkinnedMesh per entity.
+ * For non-animated models (tanks), we could use instancing in the future.
+ *
+ * Health bars are rendered as sprites above each enemy.
+ */
+export class ThreeEnemyRenderer {
+  private scene: THREE.Scene;
+  private sync: CoordinateSync;
+  private loader: GLTFLoader;
+
+  // Cached model templates per enemy type
+  private modelTemplates = new Map<string, GLTF>();
+  private loadingPromises = new Map<string, Promise<GLTF>>();
+
+  // Active enemy renders
+  private enemies = new Map<string, EnemyRenderData>();
+
+  // Health bar texture
+  private healthBarTextures = new Map<number, THREE.CanvasTexture>();
+
+  constructor(scene: THREE.Scene, sync: CoordinateSync) {
+    this.scene = scene;
+    this.sync = sync;
+    this.loader = new GLTFLoader();
+  }
+
+  /**
+   * Preload model template for an enemy type
+   */
+  async preloadModel(typeId: EnemyTypeId): Promise<void> {
+    const config = ENEMY_TYPES[typeId];
+    if (!config) {
+      console.warn(`[ThreeEnemyRenderer] Unknown enemy type for preload: ${typeId}`);
+      return;
+    }
+
+    if (this.modelTemplates.has(typeId) || this.loadingPromises.has(typeId)) {
+      return;
+    }
+
+    console.log(`[ThreeEnemyRenderer] Loading model for ${typeId} from ${config.modelUrl}`);
+    const promise = this.loader.loadAsync(config.modelUrl);
+    this.loadingPromises.set(typeId, promise);
+
+    try {
+      const gltf = await promise;
+      this.modelTemplates.set(typeId, gltf);
+      // Log model info
+      const childCount = gltf.scene.children.length;
+      const animCount = gltf.animations?.length || 0;
+      console.log(`[ThreeEnemyRenderer] Preloaded model: ${typeId}, children: ${childCount}, animations: ${animCount}`);
+    } catch (err) {
+      console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
+    } finally {
+      this.loadingPromises.delete(typeId);
+    }
+  }
+
+  /**
+   * Preload all enemy type models
+   */
+  async preloadAllModels(): Promise<void> {
+    const types = Object.keys(ENEMY_TYPES) as EnemyTypeId[];
+    await Promise.all(types.map((t) => this.preloadModel(t)));
+  }
+
+  /**
+   * Create enemy render - spawns mesh in scene
+   *
+   * @param id - Unique enemy ID
+   * @param typeId - Enemy type
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Terrain height
+   */
+  async create(
+    id: string,
+    typeId: EnemyTypeId,
+    lat: number,
+    lon: number,
+    height: number
+  ): Promise<EnemyRenderData | null> {
+    const config = ENEMY_TYPES[typeId];
+    if (!config) {
+      console.error(`[ThreeEnemyRenderer] Unknown enemy type: ${typeId}`);
+      return null;
+    }
+
+    // Ensure model is loaded
+    let gltf = this.modelTemplates.get(typeId);
+    if (!gltf) {
+      // Load on-demand
+      const promise = this.loadingPromises.get(typeId) || this.loader.loadAsync(config.modelUrl);
+      if (!this.loadingPromises.has(typeId)) {
+        this.loadingPromises.set(typeId, promise);
+      }
+      try {
+        gltf = await promise;
+        this.modelTemplates.set(typeId, gltf);
+      } catch (err) {
+        console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
+        return null;
+      } finally {
+        this.loadingPromises.delete(typeId);
+      }
+    }
+
+    // Clone the model using SkeletonUtils for proper SkinnedMesh support
+    // Regular .clone() breaks skeleton bindings for animated models
+    const mesh = SkeletonUtils.clone(gltf.scene) as THREE.Object3D;
+    mesh.scale.setScalar(config.scale);
+    console.log(`[ThreeEnemyRenderer] Cloned model for ${id} using SkeletonUtils`);
+
+    // Enable shadows
+    mesh.traverse((node) => {
+      if ((node as THREE.Mesh).isMesh) {
+        node.castShadow = true;
+        node.receiveShadow = true;
+      }
+    });
+
+    // Position in local coordinates
+    const localPos = this.sync.geoToLocal(lat, lon, height + config.heightOffset);
+    mesh.position.copy(localPos);
+
+    console.log(`[ThreeEnemyRenderer] Created enemy ${id} at y=${localPos.y.toFixed(1)}m`);
+
+    // Ensure all meshes are visible and disable frustum culling for small objects
+    mesh.visible = true;
+    mesh.traverse((node) => {
+      node.visible = true;
+      node.frustumCulled = false; // Disable culling - entities are small and might be culled incorrectly
+    });
+
+    // Add to scene
+    this.scene.add(mesh);
+
+    // Setup animation mixer if model has animations
+    let mixer: THREE.AnimationMixer | null = null;
+    const animations = new Map<string, THREE.AnimationClip>();
+
+    if (gltf.animations && gltf.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(mesh);
+      for (const clip of gltf.animations) {
+        animations.set(clip.name, clip);
+      }
+    }
+
+    // Create health bar sprite
+    const healthBar = this.createHealthBarSprite(1.0);
+    healthBar.position.copy(localPos);
+    healthBar.position.y += config.healthBarOffset;
+    this.scene.add(healthBar);
+
+    const renderData: EnemyRenderData = {
+      id,
+      mesh,
+      mixer,
+      animations,
+      currentAction: null,
+      healthBar,
+      typeConfig: config,
+      isDestroyed: false,
+    };
+
+    this.enemies.set(id, renderData);
+    return renderData;
+  }
+
+  /**
+   * Update enemy position and rotation
+   */
+  update(
+    id: string,
+    lat: number,
+    lon: number,
+    height: number,
+    heading: number,
+    healthPercent: number
+  ): void {
+    const data = this.enemies.get(id);
+    if (!data || data.isDestroyed) return;
+
+    // Update position
+    const localPos = this.sync.geoToLocal(lat, lon, height + data.typeConfig.heightOffset);
+    data.mesh.position.copy(localPos);
+
+    // Update rotation (heading + offset)
+    const totalHeading = heading + (data.typeConfig.headingOffset ?? 0);
+    data.mesh.rotation.y = totalHeading;
+
+    // Update health bar position and value
+    if (data.healthBar) {
+      data.healthBar.position.copy(localPos);
+      data.healthBar.position.y += data.typeConfig.healthBarOffset;
+      this.updateHealthBarTexture(data.healthBar, healthPercent);
+    }
+  }
+
+  /**
+   * Start walk animation
+   */
+  startWalkAnimation(id: string): void {
+    const data = this.enemies.get(id);
+    if (!data || !data.mixer || !data.typeConfig.walkAnimation) return;
+
+    const clip = data.animations.get(data.typeConfig.walkAnimation);
+    if (!clip) return;
+
+    // Stop current action
+    if (data.currentAction) {
+      data.currentAction.stop();
+    }
+
+    const action = data.mixer.clipAction(clip);
+    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.timeScale = data.typeConfig.animationSpeed ?? 1.0;
+
+    // Random start time for variety
+    if (data.typeConfig.randomAnimationStart) {
+      action.time = Math.random() * clip.duration;
+    }
+
+    action.play();
+    data.currentAction = action;
+  }
+
+  /**
+   * Play death animation
+   */
+  playDeathAnimation(id: string): void {
+    const data = this.enemies.get(id);
+    if (!data || !data.mixer || !data.typeConfig.deathAnimation) return;
+
+    const clip = data.animations.get(data.typeConfig.deathAnimation);
+    if (!clip) return;
+
+    // Stop current action
+    if (data.currentAction) {
+      data.currentAction.fadeOut(0.2);
+    }
+
+    const action = data.mixer.clipAction(clip);
+    action.setLoop(THREE.LoopOnce, 1);
+    action.clampWhenFinished = true;
+    action.play();
+    data.currentAction = action;
+
+    // Hide health bar
+    if (data.healthBar) {
+      data.healthBar.visible = false;
+    }
+  }
+
+  /**
+   * Remove enemy from scene
+   */
+  remove(id: string): void {
+    const data = this.enemies.get(id);
+    if (!data) return;
+
+    data.isDestroyed = true;
+
+    // Remove mesh
+    this.scene.remove(data.mesh);
+    this.disposeObject(data.mesh);
+
+    // Remove health bar
+    if (data.healthBar) {
+      this.scene.remove(data.healthBar);
+      data.healthBar.material.dispose();
+    }
+
+    // Stop animations
+    if (data.mixer) {
+      data.mixer.stopAllAction();
+    }
+
+    this.enemies.delete(id);
+  }
+
+  /**
+   * Update all animation mixers
+   * Call this every frame with delta time in seconds
+   */
+  updateAnimations(deltaTime: number): void {
+    for (const data of this.enemies.values()) {
+      if (data.mixer && !data.isDestroyed) {
+        data.mixer.update(deltaTime);
+      }
+    }
+  }
+
+  /**
+   * Get enemy render data
+   */
+  get(id: string): EnemyRenderData | undefined {
+    return this.enemies.get(id);
+  }
+
+  /**
+   * Get all enemy IDs
+   */
+  getAllIds(): string[] {
+    return Array.from(this.enemies.keys());
+  }
+
+  /**
+   * Get count of active enemies
+   */
+  get count(): number {
+    return this.enemies.size;
+  }
+
+  /**
+   * Clear all enemies
+   */
+  clear(): void {
+    for (const id of this.enemies.keys()) {
+      this.remove(id);
+    }
+  }
+
+  /**
+   * Create health bar sprite
+   */
+  private createHealthBarSprite(healthPercent: number): THREE.Sprite {
+    const texture = this.getHealthBarTexture(healthPercent);
+    const material = new THREE.SpriteMaterial({
+      map: texture,
+      transparent: true,
+      depthTest: false, // Always visible
+    });
+    const sprite = new THREE.Sprite(material);
+    sprite.scale.set(6, 1, 1); // Width x Height
+    return sprite;
+  }
+
+  /**
+   * Update health bar sprite texture
+   */
+  private updateHealthBarTexture(sprite: THREE.Sprite, healthPercent: number): void {
+    const texture = this.getHealthBarTexture(healthPercent);
+    (sprite.material as THREE.SpriteMaterial).map = texture;
+    (sprite.material as THREE.SpriteMaterial).needsUpdate = true;
+  }
+
+  /**
+   * Get or create health bar texture for a health percentage
+   * Uses 10% buckets to reduce texture count
+   */
+  private getHealthBarTexture(healthPercent: number): THREE.CanvasTexture {
+    // Round to 10% bucket
+    const bucket = Math.round(healthPercent * 10) * 10;
+    const key = Math.max(0, Math.min(100, bucket));
+
+    let texture = this.healthBarTextures.get(key);
+    if (!texture) {
+      texture = this.createHealthBarTexture(key / 100);
+      this.healthBarTextures.set(key, texture);
+    }
+    return texture;
+  }
+
+  /**
+   * Create health bar canvas texture
+   */
+  private createHealthBarTexture(healthPercent: number): THREE.CanvasTexture {
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d')!;
+
+    const width = 64;
+    const height = 12;
+    canvas.width = width;
+    canvas.height = height;
+
+    // Background
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.8)';
+    ctx.fillRect(0, 0, width, height);
+
+    // Border
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.8)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
+
+    // Health fill
+    const healthWidth = (width - 4) * Math.max(0, Math.min(1, healthPercent));
+    let fillColor: string;
+    if (healthPercent > 0.6) {
+      fillColor = '#22c55e'; // Green
+    } else if (healthPercent > 0.3) {
+      fillColor = '#eab308'; // Yellow
+    } else {
+      fillColor = '#ef4444'; // Red
+    }
+
+    ctx.fillStyle = fillColor;
+    ctx.fillRect(2, 2, healthWidth, height - 4);
+
+    const texture = new THREE.CanvasTexture(canvas);
+    texture.needsUpdate = true;
+    return texture;
+  }
+
+  /**
+   * Recursively dispose Three.js object
+   */
+  private disposeObject(obj: THREE.Object3D): void {
+    obj.traverse((node) => {
+      const mesh = node as THREE.Mesh;
+      if (mesh.geometry) {
+        mesh.geometry.dispose();
+      }
+      if (mesh.material) {
+        const materials: THREE.Material[] = Array.isArray(mesh.material)
+          ? mesh.material
+          : [mesh.material];
+        for (const mat of materials) {
+          const stdMat = mat as THREE.MeshStandardMaterial;
+          if (stdMat.map) stdMat.map.dispose();
+          if (stdMat.normalMap) stdMat.normalMap.dispose();
+          if (stdMat.roughnessMap) stdMat.roughnessMap.dispose();
+          if (stdMat.metalnessMap) stdMat.metalnessMap.dispose();
+          mat.dispose();
+        }
+      }
+    });
+  }
+
+  /**
+   * Dispose all resources
+   */
+  dispose(): void {
+    this.clear();
+    this.modelTemplates.clear();
+    for (const texture of this.healthBarTextures.values()) {
+      texture.dispose();
+    }
+    this.healthBarTextures.clear();
+  }
+}

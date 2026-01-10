@@ -1,0 +1,38 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="coinTop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#fef08a"/>
+      <stop offset="50%" stop-color="#fbbf24"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="coinSide" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#d97706"/>
+      <stop offset="50%" stop-color="#b45309"/>
+      <stop offset="100%" stop-color="#78350f"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Münze 5 (ganz unten) -->
+  <ellipse cx="16" cy="24" rx="9" ry="3" fill="#78350f"/>
+  <path d="M7 22.5 v1.5 a9 3 0 0 0 18 0 v-1.5" fill="url(#coinSide)"/>
+  <ellipse cx="16" cy="22.5" rx="9" ry="3" fill="url(#coinTop)"/>
+
+  <!-- Münze 4 -->
+  <path d="M7 19 v1.5 a9 3 0 0 0 18 0 v-1.5" fill="url(#coinSide)"/>
+  <ellipse cx="16" cy="19" rx="9" ry="3" fill="url(#coinTop)"/>
+
+  <!-- Münze 3 -->
+  <path d="M7 15.5 v1.5 a9 3 0 0 0 18 0 v-1.5" fill="url(#coinSide)"/>
+  <ellipse cx="16" cy="15.5" rx="9" ry="3" fill="url(#coinTop)"/>
+
+  <!-- Münze 2 -->
+  <path d="M7 12 v1.5 a9 3 0 0 0 18 0 v-1.5" fill="url(#coinSide)"/>
+  <ellipse cx="16" cy="12" rx="9" ry="3" fill="url(#coinTop)"/>
+
+  <!-- Münze 1 (oben) -->
+  <path d="M7 8.5 v1.5 a9 3 0 0 0 18 0 v-1.5" fill="url(#coinSide)"/>
+  <ellipse cx="16" cy="8.5" rx="9" ry="3" fill="url(#coinTop)"/>
+
+  <!-- Glanz auf oberster Münze -->
+  <ellipse cx="12" cy="7.5" rx="3" ry="1" fill="#fef9c3" opacity="0.6"/>
+</svg>

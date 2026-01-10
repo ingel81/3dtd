@@ -1,0 +1,93 @@
+// Custom Nervbox Dark Theme with Purple/Pink accents
+@use '@angular/material' as mat;
+
+// Define custom palettes for nervbox purple and pink
+$nervbox-purple-palette: (
+  50: #f5f3ff,
+  100: #ede9fe,
+  200: #ddd6fe,
+  300: #c4b5fd,
+  400: #a78bfa,
+  500: #9333ea,
+  600: #7c3aed,
+  700: #6d28d9,
+  800: #5b21b6,
+  900: #4c1d95,
+  A100: #c4b5fd,
+  A200: #a78bfa,
+  A400: #9333ea,
+  A700: #6d28d9,
+  contrast: (
+    50: rgba(0, 0, 0, 0.87),
+    100: rgba(0, 0, 0, 0.87),
+    200: rgba(0, 0, 0, 0.87),
+    300: rgba(0, 0, 0, 0.87),
+    400: rgba(0, 0, 0, 0.87),
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+    A100: rgba(0, 0, 0, 0.87),
+    A200: rgba(0, 0, 0, 0.87),
+    A400: white,
+    A700: white,
+  )
+);
+
+$nervbox-pink-palette: (
+  50: #fdf2f8,
+  100: #fce7f3,
+  200: #fbcfe8,
+  300: #f9a8d4,
+  400: #f472b6,
+  500: #ec4899,
+  600: #db2777,
+  700: #be185d,
+  800: #9d174d,
+  900: #831843,
+  A100: #f9a8d4,
+  A200: #f472b6,
+  A400: #ec4899,
+  A700: #be185d,
+  contrast: (
+    50: rgba(0, 0, 0, 0.87),
+    100: rgba(0, 0, 0, 0.87),
+    200: rgba(0, 0, 0, 0.87),
+    300: rgba(0, 0, 0, 0.87),
+    400: rgba(0, 0, 0, 0.87),
+    500: white,
+    600: white,
+    700: white,
+    800: white,
+    900: white,
+    A100: rgba(0, 0, 0, 0.87),
+    A200: rgba(0, 0, 0, 0.87),
+    A400: white,
+    A700: white,
+  )
+);
+
+html {
+  @include mat.theme((
+    color: (
+      primary: $nervbox-purple-palette,
+      tertiary: $nervbox-pink-palette,
+    ),
+    typography: Inter,
+    density: 0,
+  ));
+}
+
+body {
+  // Dark color theme
+  color-scheme: dark;
+
+  // Dark background
+  background-color: #0a0a0a;
+  color: rgba(255, 255, 255, 0.95);
+  font-family: Inter, system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+
+  // Reset margin
+  margin: 0;
+}

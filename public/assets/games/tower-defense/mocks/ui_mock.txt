@@ -1,0 +1,96 @@
+# 🎨 WC3-HOMAGE UI PALETTE  
+**Name:** Ancient Command  
+**Stil:** Warcraft III inspiriert – Stein, Metall, Magie  
+**Scope:** UI only (Sidebar, Panels, Buttons, Bars)
+
+---
+
+## 🌑 Basisflächen (Sidebar & Panels)
+Diese Farben bilden die Hauptmasse der UI.
+
+- **UI Background Dark:** `#141815`  
+  *Haupt-Sidebar, dunkler Stein*
+
+- **UI Panel Main:** `#232B25`  
+  *Primäre Panel-Fläche*
+
+- **UI Panel Secondary:** `#1C221E`  
+  *Unterpanels, Slots*
+
+- **UI Panel Inner Shadow:** `#0F130F`  
+  *Inset-Schatten, Tiefe*
+
+---
+
+## 🪨 Rahmen & Material (WC3-DNA)
+Für Frames, Slots, Trennlinien.
+
+- **Frame Dark:** `#3A423C`  
+  *Unterkante, Schatten*
+
+- **Frame Mid:** `#4F5A53`  
+  *Haupt-Rahmenfarbe*
+
+- **Frame Light:** `#6B756D`  
+  *Oberkante / Licht*
+
+- **Edge Highlight:** `#8E9A90`  
+  *Fokus, Selektion*
+
+> Regel: **hell oben, dunkel unten** (klassischer WC3-Look)
+
+---
+
+## ✨ Akzentfarben (Magie & Autorität)
+Sparsam einsetzen!
+
+- **Primary Gold:** `#C9A44C`  
+  *Wichtiges, Buttons, Titel*
+
+- **Dark Gold:** `#9E7E32`  
+  *Gedrückt / Inaktiv*
+
+- **Rune Teal:** `#6FB7A5`  
+  *Magische Akzente*
+
+- **Energy Green:** `#9ED6A0`  
+  *Buffs, Positiv*
+
+---
+
+## 🩸 Status- & Feedbackfarben
+
+- **Health / Danger Red:** `#B14436`
+- **Warning Orange:** `#C96A3A`
+- **Disabled:** `#5B625C`
+
+---
+
+## 📝 Textfarben
+Nie reines Weiß verwenden.
+
+- **Text Primary:** `#ECEFE9`
+- **Text Secondary:** `#B2BCAF`
+- **Text Muted:** `#8B948A`
+- **Text Disabled:** `#6A726A`
+
+---
+
+## 📊 Bars (HP, Mana, Progress)
+
+- **HP Fill:** `#B14436`
+- **HP Background:** `#3A1B18`
+
+- **Mana / Energy Fill:** `#4FB3C2`
+- **Mana Background:** `#1A2B30`
+
+- **XP / Progress Fill:** `#9ED6A0`
+
+---
+
+## 🎮 WC3-Farbregeln
+- Max. **3 Akzentfarben gleichzeitig sichtbar**
+- Gold nur für **wichtige Elemente**
+- **Keine weichen Gradients** – Farbstufen bevorzugen
+- Kontrast über **Material & Rahmen**, nicht über Sättigung
+- UI immer **dunkler & schwerer** als das Spielfeld
