@@ -16,6 +16,9 @@ export interface EnemyRenderData {
   healthBar: THREE.Sprite | null;
   typeConfig: EnemyTypeConfig;
   isDestroyed: boolean;
+  // Animation variation
+  isWalking: boolean; // true = Walk, false = Run
+  animationVariationTimer: ReturnType<typeof setTimeout> | null;
 }
 
 /**
@@ -128,11 +131,21 @@ export class ThreeEnemyRenderer {
     const mesh = SkeletonUtils.clone(gltf.scene) as THREE.Object3D;
     mesh.scale.setScalar(config.scale);
 
-    // Enable shadows
+    // Enable shadows and apply material adjustments
     mesh.traverse((node) => {
       if ((node as THREE.Mesh).isMesh) {
         node.castShadow = true;
         node.receiveShadow = true;
+
+        const material = (node as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        if (material && material.isMeshStandardMaterial) {
+          // Apply emissive effect if configured
+          if (config.emissiveIntensity && config.emissiveIntensity > 0) {
+            const emissiveColor = config.emissiveColor || '#ffffff';
+            material.emissive = new THREE.Color(emissiveColor);
+            material.emissiveIntensity = config.emissiveIntensity;
+          }
+        }
       }
     });
 
@@ -150,11 +163,11 @@ export class ThreeEnemyRenderer {
     // Add to scene
     this.scene.add(mesh);
 
-    // Setup animation mixer if model has animations
+    // Setup animation mixer if model has animations AND config allows it
     let mixer: THREE.AnimationMixer | null = null;
     const animations = new Map<string, THREE.AnimationClip>();
 
-    if (gltf.animations && gltf.animations.length > 0) {
+    if (config.hasAnimations && gltf.animations && gltf.animations.length > 0) {
       mixer = new THREE.AnimationMixer(mesh);
       for (const clip of gltf.animations) {
         animations.set(clip.name, clip);
@@ -176,6 +189,8 @@ export class ThreeEnemyRenderer {
       healthBar,
       typeConfig: config,
       isDestroyed: false,
+      isWalking: true,
+      animationVariationTimer: null,
     };
 
     this.enemies.set(id, renderData);
@@ -219,25 +234,70 @@ export class ThreeEnemyRenderer {
     const data = this.enemies.get(id);
     if (!data || !data.mixer || !data.typeConfig.walkAnimation) return;
 
-    const clip = data.animations.get(data.typeConfig.walkAnimation);
+    // Start with walk animation
+    this.playMovementAnimation(data, true);
+
+    // Start animation variation timer if enabled
+    if (data.typeConfig.animationVariation && data.typeConfig.runAnimation) {
+      this.scheduleAnimationVariation(data);
+    }
+  }
+
+  /**
+   * Play walk or run animation
+   */
+  private playMovementAnimation(data: EnemyRenderData, isWalk: boolean): void {
+    if (!data.mixer || data.isDestroyed) return;
+
+    const animName = isWalk ? data.typeConfig.walkAnimation : data.typeConfig.runAnimation;
+    if (!animName) return;
+
+    const clip = data.animations.get(animName);
     if (!clip) return;
 
-    // Stop current action
+    // Stop previous action completely to prevent accumulation
     if (data.currentAction) {
       data.currentAction.stop();
     }
 
     const action = data.mixer.clipAction(clip);
+    action.reset();
     action.setLoop(THREE.LoopRepeat, Infinity);
     action.timeScale = data.typeConfig.animationSpeed ?? 1.0;
 
-    // Random start time for variety
-    if (data.typeConfig.randomAnimationStart) {
+    // Random start time for variety (only on first play, not on variation switch)
+    if (data.typeConfig.randomAnimationStart && !data.currentAction) {
       action.time = Math.random() * clip.duration;
     }
 
     action.play();
     data.currentAction = action;
+    data.isWalking = isWalk;
+  }
+
+  /**
+   * Schedule next animation variation (walk <-> run switch)
+   */
+  private scheduleAnimationVariation(data: EnemyRenderData): void {
+    if (data.isDestroyed) return;
+
+    // Clear any existing timer first to prevent accumulation
+    if (data.animationVariationTimer) {
+      clearTimeout(data.animationVariationTimer);
+      data.animationVariationTimer = null;
+    }
+
+    // Random interval between 3-8 seconds
+    const delay = 3000 + Math.random() * 5000;
+
+    data.animationVariationTimer = setTimeout(() => {
+      if (!data.isDestroyed && data.mixer) {
+        // Switch animation
+        this.playMovementAnimation(data, !data.isWalking);
+        // Schedule next switch
+        this.scheduleAnimationVariation(data);
+      }
+    }, delay);
   }
 
   /**
@@ -246,6 +306,12 @@ export class ThreeEnemyRenderer {
   playDeathAnimation(id: string): void {
     const data = this.enemies.get(id);
     if (!data || !data.mixer || !data.typeConfig.deathAnimation) return;
+
+    // Stop animation variation timer
+    if (data.animationVariationTimer) {
+      clearTimeout(data.animationVariationTimer);
+      data.animationVariationTimer = null;
+    }
 
     const clip = data.animations.get(data.typeConfig.deathAnimation);
     if (!clip) return;
@@ -275,6 +341,12 @@ export class ThreeEnemyRenderer {
     if (!data) return;
 
     data.isDestroyed = true;
+
+    // Clear animation variation timer
+    if (data.animationVariationTimer) {
+      clearTimeout(data.animationVariationTimer);
+      data.animationVariationTimer = null;
+    }
 
     // Remove mesh
     this.scene.remove(data.mesh);

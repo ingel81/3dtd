@@ -86,8 +86,11 @@ export class AudioComponent extends Component {
 
   /**
    * Play a sound at GameObject's current position
+   * @param id Sound ID
+   * @param forceLoop Force loop mode
+   * @param volumeMultiplier Volume multiplier for one-shot sounds (0.0-1.0)
    */
-  async play(id: string, forceLoop?: boolean): Promise<void> {
+  async play(id: string, forceLoop?: boolean, volumeMultiplier?: number): Promise<void> {
     const sound = this.sounds.get(id);
     if (!sound || !this.spatialAudio) return;
 
@@ -103,7 +106,7 @@ export class AudioComponent extends Component {
     } else {
       // One-shot: fire and forget
       const globalId = this.getGlobalId(id);
-      await this.spatialAudio.playAtGeo(globalId, pos.lat, pos.lon, pos.height ?? 0);
+      await this.spatialAudio.playAtGeo(globalId, pos.lat, pos.lon, pos.height ?? 0, volumeMultiplier ?? 1.0);
     }
   }
 
@@ -204,7 +207,13 @@ export class AudioComponent extends Component {
    */
   private isEnemySound(soundId: string): boolean {
     const lowerId = soundId.toLowerCase();
-    return lowerId.includes('zombie') || lowerId.includes('tank') || lowerId.includes('enemy');
+    return (
+      lowerId.includes('zombie') ||
+      lowerId.includes('tank') ||
+      lowerId.includes('enemy') ||
+      lowerId.includes('wallsmasher') ||
+      lowerId.includes('big_arm')
+    );
   }
 
   /**

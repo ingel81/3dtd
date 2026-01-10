@@ -25,6 +25,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | [PROJECTILES.md](PROJECTILES.md) | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | 3D Audio System, Positionsabhängige Sounds |
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | 3D Model Previews in der Sidebar |
+| [FRAME_TIMING_FIXES.md](FRAME_TIMING_FIXES.md) | Frame-Timing Probleme und Lösungen |
 
 ---
 
@@ -43,6 +44,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...Sounds hinzufügen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |
 | ...Model Previews anpassen | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) |
+| ...Frame-Timing Bugs fixen | [FRAME_TIMING_FIXES.md](FRAME_TIMING_FIXES.md) |
 
 ---
 

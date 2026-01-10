@@ -23,6 +23,10 @@ export class Enemy extends GameObject {
   private _movement!: MovementComponent;
   private _audio!: AudioComponent;
 
+  // Random sound timer
+  private randomSoundTimer: ReturnType<typeof setTimeout> | null = null;
+  private isMoving = false;
+
   constructor(typeId: EnemyTypeId, path: GeoPosition[], speedOverride?: number) {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
@@ -62,6 +66,33 @@ export class Enemy extends GameObject {
         randomStart: this.typeConfig.randomSoundStart ?? false,
       });
     }
+
+    // Register random sound (nicht geloopt, wird per Timer abgespielt)
+    if (this.typeConfig.randomSound) {
+      this._audio.registerSound('randomSound', this.typeConfig.randomSound, {
+        volume: this.typeConfig.randomSoundVolumeMax ?? 0.5,
+        refDistance: this.typeConfig.randomSoundRefDistance ?? 30,
+        loop: false,
+      });
+    }
+
+    // Register spawn sound (einmalig beim Spawn)
+    if (this.typeConfig.spawnSound) {
+      this._audio.registerSound('spawn', this.typeConfig.spawnSound, {
+        volume: this.typeConfig.spawnSoundVolume ?? 0.5,
+        refDistance: this.typeConfig.spawnSoundRefDistance ?? 30,
+        loop: false,
+      });
+    }
+  }
+
+  /**
+   * Play spawn sound (call once when enemy spawns)
+   */
+  playSpawnSound(): void {
+    if (this.typeConfig.spawnSound) {
+      this.audio.play('spawn', false);
+    }
   }
 
   // Convenience getters
@@ -93,7 +124,17 @@ export class Enemy extends GameObject {
    */
   startMoving(): void {
     this.movement.resume();
-    this.audio.play('moving', true);
+    this.isMoving = true;
+
+    // Loop-Sound für normale Gegner
+    if (this.typeConfig.movingSound) {
+      this.audio.play('moving', true);
+    }
+
+    // Random Sound Timer für Gegner mit randomSound
+    if (this.typeConfig.randomSound) {
+      this.scheduleNextRandomSound();
+    }
   }
 
   /**
@@ -101,6 +142,58 @@ export class Enemy extends GameObject {
    */
   stopMoving(): void {
     this.movement.pause();
+    this.isMoving = false;
     this.audio.stop('moving');
+    this.clearRandomSoundTimer();
+  }
+
+  /**
+   * Schedule next random sound playback
+   */
+  private scheduleNextRandomSound(): void {
+    if (!this.isMoving || !this.active) return;
+
+    // Clear any existing timer first to prevent accumulation
+    this.clearRandomSoundTimer();
+
+    const minInterval = this.typeConfig.randomSoundMinInterval ?? 2000;
+    const maxInterval = this.typeConfig.randomSoundMaxInterval ?? 5000;
+    const delay = minInterval + Math.random() * (maxInterval - minInterval);
+
+    this.randomSoundTimer = setTimeout(() => {
+      if (this.isMoving && this.active && this.alive) {
+        this.playRandomSound();
+        this.scheduleNextRandomSound();
+      }
+    }, delay);
+  }
+
+  /**
+   * Play random sound with varying volume
+   */
+  private playRandomSound(): void {
+    const minVol = this.typeConfig.randomSoundVolumeMin ?? 0.2;
+    const maxVol = this.typeConfig.randomSoundVolumeMax ?? 0.6;
+    const volumeMultiplier = minVol + Math.random() * (maxVol - minVol);
+
+    this.audio.play('randomSound', false, volumeMultiplier);
+  }
+
+  /**
+   * Clear random sound timer
+   */
+  private clearRandomSoundTimer(): void {
+    if (this.randomSoundTimer) {
+      clearTimeout(this.randomSoundTimer);
+      this.randomSoundTimer = null;
+    }
+  }
+
+  /**
+   * Cleanup on destroy
+   */
+  override destroy(): void {
+    this.clearRandomSoundTimer();
+    super.destroy();
   }
 }

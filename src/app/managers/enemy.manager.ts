@@ -86,9 +86,12 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (paused) {
       enemy.movement.pause();
     } else {
-      // Start moving sound immediately if not paused
-      enemy.audio.play('moving', true);
+      // Start moving and sounds immediately if not paused
+      enemy.startMoving();
     }
+
+    // Play spawn sound (always, even if paused)
+    enemy.playSpawnSound();
 
     this.add(enemy);
     return enemy;

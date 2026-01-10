@@ -22,19 +22,36 @@ export interface EnemyTypeConfig {
   hasAnimations: boolean;
   idleAnimation?: string;
   walkAnimation?: string;
+  runAnimation?: string; // Alternative zur Walk-Animation (Variation)
   deathAnimation?: string;
   animationSpeed?: number;
+  animationVariation?: boolean; // Wechselt zwischen Walk und Run Animation
 
   // Audio (Spatial)
   movingSound?: string; // Loop-Sound während Bewegung (Asset-Pfad)
   movingSoundVolume?: number; // 0.0 - 1.0
   movingSoundRefDistance?: number; // Distanz für volle Lautstärke (default: 30m)
 
+  // Random Sound (statt Loop)
+  randomSound?: string; // Sound der random abgespielt wird
+  randomSoundMinInterval?: number; // Min. Zeit zwischen Sounds (ms)
+  randomSoundMaxInterval?: number; // Max. Zeit zwischen Sounds (ms)
+  randomSoundVolumeMin?: number; // Min. Lautstärke (0.0 - 1.0)
+  randomSoundVolumeMax?: number; // Max. Lautstärke (0.0 - 1.0)
+  randomSoundRefDistance?: number; // Distanz für volle Lautstärke
+
+  // Spawn Sound (einmalig beim Spawn)
+  spawnSound?: string; // Sound beim Spawn
+  spawnSoundVolume?: number; // Lautstärke (0.0 - 1.0)
+  spawnSoundRefDistance?: number; // Distanz für volle Lautstärke
+
   // Visual
   heightOffset: number; // Model-Höhe über Boden
   healthBarOffset: number; // Health-Bar Höhe über Model
   canBleed: boolean; // Ob Bluteffekte angezeigt werden
   headingOffset?: number; // Rotations-Offset in Radians (Model-Ausrichtung korrigieren)
+  emissiveIntensity?: number; // Leuchteffekt-Stärke (0 = aus, 0.1-0.5 = subtil, 1+ = stark)
+  emissiveColor?: string; // Leuchtfarbe als Hex (default: '#ffffff')
 
   // Randomness
   randomAnimationStart?: boolean; // Animation bei zufälligem Frame starten
@@ -93,6 +110,42 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true, // Sound bei zufälliger Position starten
     lateralOffset: 2.5, // Max. 2.5m seitlicher Versatz
     spawnStartDelay: 800, // Größerer Abstand zwischen Panzern (800ms statt 300ms)
+  },
+
+  wallsmasher: {
+    id: 'wallsmasher',
+    name: 'Wallsmasher',
+    modelUrl: '/assets/models/warrior.glb',
+    scale: 2.5,
+    minimumPixelSize: 0,
+    baseHp: 500,
+    baseSpeed: 7,
+    damage: 30,
+    reward: 20,
+    hasAnimations: false,
+    walkAnimation: '',
+    runAnimation: '',
+    deathAnimation: '',
+    animationSpeed: 1.5,
+    animationVariation: true,
+    // Spawn Sound
+    spawnSound: '/assets/sounds/big_arm_spawn.mp3',
+    spawnSoundVolume: 0.7,
+    spawnSoundRefDistance: 40,
+    // Random Sound während Bewegung
+    randomSound: '/assets/sounds/big_arm_01.mp3',
+    randomSoundMinInterval: 8000,
+    randomSoundMaxInterval: 25000,
+    randomSoundVolumeMin: 0.2,
+    randomSoundVolumeMax: 0.6,
+    randomSoundRefDistance: 35,
+    heightOffset: 0,
+    healthBarOffset: 12,
+    canBleed: true,
+    headingOffset: 0,
+    randomAnimationStart: true,
+    lateralOffset: 2.0,
+    spawnStartDelay: 500,
   },
 };
 
