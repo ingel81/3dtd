@@ -80,7 +80,7 @@ export class CameraFramingService {
   private static readonly DEFAULT_ANGLE = 70;
 
   /** Default padding factor */
-  private static readonly DEFAULT_PADDING = 0.2;
+  private static readonly DEFAULT_PADDING = 0.1;
 
   /** Default marker radius in meters */
   private static readonly DEFAULT_MARKER_RADIUS = 8;
@@ -307,15 +307,8 @@ export class CameraFramingService {
     const projectedZHeight = paddedSpanZ * Math.sin(angleRad);
     const distanceForZ = (projectedZHeight / 2) / Math.tan(fovRad / 2);
 
-    // Ensure camera is south of all points with buffer
-    const minHorizontalOffsetForPosition = (center.z - boundingBox.minZ) + 20;
-    const distanceForPosition = minHorizontalOffsetForPosition / Math.cos(angleRad);
-
-    // Use the largest base distance
-    const baseDistance = Math.max(distanceForX, distanceForZ, distanceForPosition);
-
-    // Add small margin (5%) for safety
-    const cameraDistance = baseDistance * 1.05;
+    // Use the larger of X or Z distance requirements, with 25% margin
+    const cameraDistance = Math.max(distanceForX, distanceForZ) * 1.25;
 
     // ========================================
     // 3. CAMERA POSITION
@@ -343,11 +336,8 @@ export class CameraFramingService {
       distances: {
         forX: distanceForX.toFixed(0),
         forZ: distanceForZ.toFixed(0),
-        forPosition: distanceForPosition.toFixed(0),
-        base: baseDistance.toFixed(0),
-        final: cameraDistance.toFixed(0),
-        limiting: baseDistance === distanceForX ? 'X-span' :
-                  baseDistance === distanceForZ ? 'Z-span' : 'position',
+        used: cameraDistance.toFixed(0),
+        limiting: cameraDistance === distanceForX ? 'X-span' : 'Z-span',
       },
       camera: {
         pos: { x: camX.toFixed(1), y: camY.toFixed(1), z: camZ.toFixed(1) },
