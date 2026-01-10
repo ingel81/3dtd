@@ -51,30 +51,21 @@ export class EllipsoidSync {
     this.originLonRad = lon * MathUtils.DEG2RAD;
     this.originHeight = height;
     this.updateOriginMatrix();
-    console.log(`[EllipsoidSync] Origin updated to lat=${lat}, lon=${lon}, height=${height}`);
   }
 
   private updateOriginMatrix(): void {
-    // Get the ENU (East-North-Up) frame at origin
-    WGS84_ELLIPSOID.getRotationMatrixFromAzElRoll(
+    // Get the ENU (East-North-Up) frame at origin using getObjectFrame
+    // This combines rotation and position in one call (replaces deprecated getRotationMatrixFromAzElRoll)
+    WGS84_ELLIPSOID.getObjectFrame(
       this.originLatRad,
       this.originLonRad,
+      this.originHeight,
       0, // azimuth
       0, // elevation
       0, // roll
       this.originMatrix,
       ENU_FRAME
     );
-
-    // Get position and add to matrix
-    const originPos = new THREE.Vector3();
-    WGS84_ELLIPSOID.getCartographicToPosition(
-      this.originLatRad,
-      this.originLonRad,
-      this.originHeight,
-      originPos
-    );
-    this.originMatrix.setPosition(originPos);
 
     // Compute inverse for world-to-local transformations
     this.inverseOriginMatrix.copy(this.originMatrix).invert();

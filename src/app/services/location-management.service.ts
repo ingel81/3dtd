@@ -55,13 +55,9 @@ export class LocationManagementService {
     const savedLocations = this.loadLocationsFromStorage();
 
     if (savedLocations && savedLocations.hq) {
-      console.log('[LocationMgmt] Loaded saved location from localStorage:', savedLocations.hq.name);
-      console.log('[LocationMgmt] HQ coords:', savedLocations.hq.lat, savedLocations.hq.lon);
-
       this.editableHqLocation.set(savedLocations.hq);
       this.editableSpawnLocations.set(savedLocations.spawns);
     } else {
-      console.log('[LocationMgmt] Using default location: Erlenbach');
       // Initialize from defaults
       this.editableHqLocation.set({
         lat: DEFAULT_BASE_COORDS.latitude,
@@ -131,7 +127,6 @@ export class LocationManagementService {
       spawns: this.editableSpawnLocations(),
     };
     localStorage.setItem(LOCATION_STORAGE_KEY, JSON.stringify(data));
-    console.log('[LocationMgmt] Saved locations to localStorage');
   }
 
   /**
@@ -143,7 +138,6 @@ export class LocationManagementService {
       const data = localStorage.getItem(LOCATION_STORAGE_KEY);
       if (!data) return null;
       const parsed = JSON.parse(data);
-      console.log('[LocationMgmt] Loaded locations from localStorage:', parsed);
       return parsed;
     } catch (err) {
       console.error('[LocationMgmt] Failed to load locations from localStorage:', err);
@@ -156,7 +150,6 @@ export class LocationManagementService {
    */
   clearLocationsFromStorage(): void {
     localStorage.removeItem(LOCATION_STORAGE_KEY);
-    console.log('[LocationMgmt] Cleared locations from localStorage');
   }
 
   /**
@@ -178,7 +171,6 @@ export class LocationManagementService {
     this.editableSpawnLocations.set(editableSpawns);
 
     this.clearLocationsFromStorage();
-    console.log('[LocationMgmt] Reset to default locations');
   }
 
   /**

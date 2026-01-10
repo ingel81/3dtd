@@ -98,7 +98,6 @@ export class PathAndRouteService {
    */
   cachePath(spawnId: string, path: GeoPosition[]): void {
     this.cachedPaths.set(spawnId, path);
-    console.log(`[Path] Cached ${path.length} points for ${spawnId}`);
   }
 
   /**
@@ -259,7 +258,6 @@ export class PathAndRouteService {
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
 
     if (originTerrainY === null) {
-      console.log(`[Path] Cannot render route for ${spawn.name} - origin terrain not available`);
       // Cache path with default heights (fallback)
       const pathWithHeights: GeoPosition[] = geoPath.map((pos) => ({
         ...pos,
@@ -302,8 +300,6 @@ export class PathAndRouteService {
       }
     });
     this.cachedPaths.set(spawn.id, pathWithHeights);
-
-    console.log(`[Path] Cached ${pathWithHeights.length} points with smoothed heights for ${spawn.name}`);
 
     const geometry = new THREE.BufferGeometry().setFromPoints(smoothedPoints);
     const material = new THREE.LineBasicMaterial({

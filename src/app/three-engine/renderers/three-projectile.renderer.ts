@@ -174,29 +174,18 @@ export class ThreeProjectileRenderer {
    */
   private async loadArrowModel(): Promise<void> {
     const modelPath = '/assets/models/arrow_01.glb';
-    console.log('[ThreeProjectileRenderer] Loading arrow model from:', modelPath);
 
     try {
       const gltf = await this.loader.loadAsync(modelPath);
-      console.log('[ThreeProjectileRenderer] GLTF loaded, scene children:', gltf.scene.children.length);
 
       // Extract geometry and material from model
       let arrowGeometry: THREE.BufferGeometry | null = null;
       let arrowMaterial: THREE.Material | null = null;
 
       gltf.scene.traverse((child) => {
-        console.log('[ThreeProjectileRenderer] Found child:', child.type, child.name);
         if ((child as THREE.Mesh).isMesh && !arrowGeometry) {
           const mesh = child as THREE.Mesh;
           arrowGeometry = mesh.geometry.clone();
-
-          // Log bounding box to understand model size
-          arrowGeometry.computeBoundingBox();
-          const box = arrowGeometry.boundingBox!;
-          console.log('[ThreeProjectileRenderer] Arrow geometry bounding box:',
-            `min: (${box.min.x.toFixed(2)}, ${box.min.y.toFixed(2)}, ${box.min.z.toFixed(2)})`,
-            `max: (${box.max.x.toFixed(2)}, ${box.max.y.toFixed(2)}, ${box.max.z.toFixed(2)})`
-          );
 
           if (mesh.material) {
             arrowMaterial = Array.isArray(mesh.material)
@@ -216,8 +205,6 @@ export class ThreeProjectileRenderer {
         this.arrowManager = new ProjectileInstanceManager(arrowGeometry, material, 500);
         this.scene.add(this.arrowManager.instancedMesh);
         this.arrowModelLoaded = true;
-
-        console.log('[ThreeProjectileRenderer] Arrow model loaded successfully');
       } else {
         console.warn('[ThreeProjectileRenderer] No mesh in arrow model, using fallback');
         this.createFallbackArrow();
@@ -322,10 +309,6 @@ export class ThreeProjectileRenderer {
     const rotation = this.directionToEuler(direction);
 
     const scale = new THREE.Vector3(config.scale, config.scale, config.scale);
-
-    console.log(
-      `[ThreeProjectileRenderer] Creating ${typeId} at (${localPos.x.toFixed(1)}, ${localPos.y.toFixed(1)}, ${localPos.z.toFixed(1)}), dir: (${direction.dx.toFixed(2)}, ${direction.dy.toFixed(2)}, ${direction.dz.toFixed(2)})`
-    );
 
     manager.add(id, localPos, rotation, scale);
     this.projectileTypes.set(id, visualType);

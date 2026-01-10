@@ -199,7 +199,6 @@ export class ThreeTilesEngine {
       this.sync.geoToLocalSimple(lat, lon, height)
     );
 
-    console.log('[ThreeTilesEngine] Initialized with origin:', originLat, originLon);
   }
 
   /**
@@ -211,10 +210,6 @@ export class ThreeTilesEngine {
    */
   setInitialCameraPosition(position: InitialCameraPosition): void {
     this.initialCameraPosition = position;
-    console.log('[ThreeTilesEngine] Initial camera position set:', {
-      pos: { x: position.x.toFixed(1), y: position.y.toFixed(1), z: position.z.toFixed(1) },
-      lookAt: { x: position.lookAtX.toFixed(1), y: position.lookAtY.toFixed(1), z: position.lookAtZ.toFixed(1) },
-    });
   }
 
   /**
@@ -293,7 +288,6 @@ export class ThreeTilesEngine {
       this.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
     );
 
-    console.log('[ThreeTilesEngine] 3D Tiles initialized');
   }
 
   /**
@@ -316,7 +310,6 @@ export class ThreeTilesEngine {
         // Fire first tiles loaded callback (only once)
         if (!this.firstTilesLoaded) {
           this.firstTilesLoaded = true;
-          console.log('[ThreeTilesEngine] First tiles loaded');
           if (this.onFirstTilesLoadedCallback) {
             this.onFirstTilesLoadedCallback();
           }
@@ -327,7 +320,6 @@ export class ThreeTilesEngine {
           : Infinity; // First load always triggers refresh
 
         if (heightDelta > this.HEIGHT_CHANGE_THRESHOLD) {
-          console.log(`[ThreeTilesEngine] Terrain changed: ${this.lastOriginHeight?.toFixed(1) ?? 'null'} -> ${freshOriginHeight.toFixed(1)} (delta: ${heightDelta.toFixed(1)}m)`);
           this.lastOriginHeight = freshOriginHeight;
 
           // Clear cache and notify for full refresh
@@ -336,9 +328,6 @@ export class ThreeTilesEngine {
           if (this.onTilesLoadCallback) {
             this.onTilesLoadCallback();
           }
-        } else {
-          // Heights stable - no refresh needed
-          console.log(`[ThreeTilesEngine] Terrain stable (delta: ${heightDelta.toFixed(2)}m < ${this.HEIGHT_CHANGE_THRESHOLD}m)`);
         }
       }
     }, this.TILES_LOAD_DEBOUNCE_MS);
@@ -407,7 +396,6 @@ export class ThreeTilesEngine {
         texture.mapping = THREE.EquirectangularReflectionMapping;
         texture.colorSpace = THREE.SRGBColorSpace;
         this.scene.background = texture;
-        console.log('[ThreeTilesEngine] Sky texture loaded');
       },
       undefined,
       (error) => {
@@ -421,15 +409,16 @@ export class ThreeTilesEngine {
     if (!this.tilesRenderer) return;
 
     // GlobeControls for earth-like navigation
+    // Don't pass tilesRenderer to constructor (deprecated), use setScene/setEllipsoid instead
     this.controls = new GlobeControls(
       this.scene,
       this.camera,
-      this.renderer.domElement,
-      this.tilesRenderer
+      this.renderer.domElement
     );
     this.controls.enableDamping = true;
 
-    // Set ellipsoid for controls (using deprecated method for now)
+    // Set scene and ellipsoid for controls (new API)
+    this.controls.setScene(this.scene);
     this.controls.setEllipsoid(this.tilesRenderer.ellipsoid, this.tilesRenderer.group);
 
     // Listen for drag start/end to distinguish clicks from pans
@@ -460,17 +449,12 @@ export class ThreeTilesEngine {
       const pos = this.initialCameraPosition;
       this.camera.position.set(pos.x, pos.y, pos.z);
       this.camera.lookAt(pos.lookAtX, pos.lookAtY, pos.lookAtZ);
-      console.log('[ThreeTilesEngine] Using pre-computed camera position:', {
-        pos: this.camera.position.toArray().map(v => v.toFixed(1)),
-        lookAt: [pos.lookAtX.toFixed(1), pos.lookAtY.toFixed(1), pos.lookAtZ.toFixed(1)],
-      });
     } else {
       // Fallback: steep 70° view over origin (minimal horizon, fewer tiles)
       // 70° angle: height = tan(70°) * distance ≈ 2.75 * distance
       // For 150m horizontal offset: height ≈ 412m
       this.camera.position.set(0, 400, -145); // ~70° angle, looking north
       this.camera.lookAt(0, 0, 0);
-      console.log('[ThreeTilesEngine] Using fallback camera position (70°):', this.camera.position.toArray());
     }
   }
 
@@ -510,10 +494,6 @@ export class ThreeTilesEngine {
       this.camera.scale
     );
 
-    console.log('[ThreeTilesEngine] Camera set to:', {
-      position: this.camera.position.toArray(),
-      lat, lon, height
-    });
   }
 
   /**
@@ -537,7 +517,6 @@ export class ThreeTilesEngine {
   ): void {
     this.camera.position.set(x, y, z);
     this.camera.lookAt(targetX, targetY, targetZ);
-    console.log('[ThreeTilesEngine] Camera set to local position:', { x, y, z });
   }
 
   /**
@@ -587,7 +566,6 @@ export class ThreeTilesEngine {
     this.tilesPosInitialized = false;
     this.initialTilesPos.set(0, 0, 0);
 
-    console.log('[ThreeTilesEngine] Origin updated to:', lat, lon, '(all tiles state reset)');
   }
 
   /**
@@ -708,7 +686,6 @@ export class ThreeTilesEngine {
 
       this.tilesWereLoaded = true;
       this.raycastDebugCount = 0;
-      console.log(`[Terrain] Tiles loaded (${meshCount} meshes)`);
     }
 
     // Raycast from high above straight down
@@ -945,7 +922,6 @@ export class ThreeTilesEngine {
       if (Math.abs(pos.y) > 1000000) {
         this.initialTilesPos.copy(pos);
         this.tilesPosInitialized = true;
-        console.log('[ThreeTilesEngine] Initial tiles pos captured:', this.initialTilesPos.toArray().map(v => v.toFixed(1)));
       }
     }
 
@@ -1041,7 +1017,6 @@ export class ThreeTilesEngine {
     this.scene.add(cube);
     this.testCube = cube;
 
-    console.log('[ThreeTilesEngine] Test cube added at:', lat, lon, 'local:', localPos);
     return cube;
   }
 
@@ -1077,8 +1052,6 @@ export class ThreeTilesEngine {
 
     this.overlayGroup.add(cube);
     this.testCube = cube;
-
-    console.log('[ThreeTilesEngine] Test cube added to overlayGroup at Y=' + height);
 
     return cube;
   }
@@ -1187,7 +1160,6 @@ export class ThreeTilesEngine {
    */
   setOverlayBaseY(y: number): void {
     this.overlayBaseY = y;
-    console.log(`[ThreeTilesEngine] Overlay base Y set to: ${y.toFixed(1)}`);
   }
 
   /**
@@ -1305,7 +1277,6 @@ export class ThreeTilesEngine {
       this.enemies.preloadAllModels(),
       this.towers.preloadAllModels(),
     ]);
-    console.log('[ThreeTilesEngine] All models preloaded');
   }
 
   /**
@@ -1358,7 +1329,5 @@ export class ThreeTilesEngine {
 
     // Dispose renderer
     this.renderer.dispose();
-
-    console.log('[ThreeTilesEngine] Disposed');
   }
 }

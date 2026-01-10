@@ -215,11 +215,6 @@ export class MarkerVisualizationService {
     this.baseMarker.position.set(local.x, HEIGHT_ABOVE_GROUND, local.z);
 
     overlayGroup.add(this.baseMarker);
-
-    console.log(
-      `[addBaseMarker] HQ at geo: ${this.baseCoords.lat.toFixed(6)}, ${this.baseCoords.lon.toFixed(6)}`
-    );
-    console.log(`[addBaseMarker] HQ at local: (${local.x.toFixed(1)}, ${HEIGHT_ABOVE_GROUND}, ${local.z.toFixed(1)})`);
   }
 
   /**
@@ -276,8 +271,6 @@ export class MarkerVisualizationService {
 
     overlayGroup.add(marker);
     this.spawnMarkers.push(marker);
-
-    console.log('[addSpawnMarker]', name, 'at:', local.x.toFixed(1), markerY.toFixed(1), local.z.toFixed(1));
 
     return marker;
   }

@@ -2130,7 +2130,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Sync baseCoords and centerCoords with loaded location from localStorage
     const hq = this.locationMgmt.getCurrentHqLocation();
     if (hq) {
-      console.log('[TD] Applying saved location to baseCoords:', hq.name, hq.lat, hq.lon);
       this.baseCoords.set({
         latitude: hq.lat,
         longitude: hq.lon,
@@ -2252,8 +2251,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Initialize camera control service
     this.cameraControl.initialize(engine, { lat: baseCoords.lat, lon: baseCoords.lon });
-
-    console.log('[TD] Visualization services initialized');
   }
 
   /**
@@ -2329,8 +2326,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       spawnPointsForPlacement,
       this.gameState
     );
-
-    console.log('[TD] TowerPlacement service initialized');
   }
 
   /**
@@ -2340,16 +2335,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private async loadStreets(): Promise<number> {
     try {
       const center = this.centerCoords();
-      console.log(`[Streets] Loading for center: ${center.latitude.toFixed(6)}, ${center.longitude.toFixed(6)}`);
 
       this.streetNetwork = await this.osmService.loadStreets(
         center.latitude,
         center.longitude,
         2000 // 2km radius
       );
-
-      console.log(`[Streets] Loaded ${this.streetNetwork.streets.length} streets`);
-      console.log(`[Streets] Bounds: ${this.streetNetwork.bounds.minLat.toFixed(6)}-${this.streetNetwork.bounds.maxLat.toFixed(6)}, ${this.streetNetwork.bounds.minLon.toFixed(6)}-${this.streetNetwork.bounds.maxLon.toFixed(6)}`);
 
       this.streetCount.set(this.streetNetwork.streets.length);
       this.renderStreets();
@@ -2398,8 +2389,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Schedule overlay height updates
    */
   private async scheduleOverlayHeightUpdate(): Promise<void> {
-    console.log('[TD] scheduleOverlayHeightUpdate called');
-
     // Get engine from service (this.engine may not be set yet during init)
     const engine = this.engineInit.getEngine();
     if (!engine) {
@@ -2451,7 +2440,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Save current position as the initial position (DO NOT re-frame!)
     this.cameraControl.saveInitialPosition();
-    console.log('[Camera] Saved initial position (framing was done earlier)');
   }
 
   private renderStreets(): void {
@@ -2479,10 +2467,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const base = this.baseCoords();
     const originTerrainY = engine.getTerrainHeightAtGeo(base.latitude, base.longitude);
     if (originTerrainY === null) {
-      console.log('[Streets] Cannot render - origin terrain height not available');
       return;
     }
-    console.log(`[Streets] Origin terrain Y: ${originTerrainY.toFixed(1)}`);
 
     // Set overlay base Y so overlayGroup is positioned at terrain surface
     engine.setOverlayBaseY(originTerrainY);
@@ -2569,8 +2555,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       overlayGroup.add(this.streetLinesMesh);
     }
 
-    const segmentCount = allSegmentVertices.length / 6; // 6 floats per segment (2 vertices * 3 components)
-    console.log(`[Streets] Rendered with merged geometry: ${hits} hits, ${misses} misses, ${streetCount} streets, ${segmentCount} segments, 1 draw call`);
   }
 
 
@@ -2589,8 +2573,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private onTilesLoaded(): void {
     if (!this.engine || !this.streetNetwork) return;
-
-    console.log('[TD] Tiles loaded - refreshing terrain heights');
 
     // Re-render streets with new terrain data
     this.renderStreets();
@@ -2713,10 +2695,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const position: GeoPosition = { lat, lon, height };
     const typeId = this.selectedTowerType();
 
-    const tower = this.gameState.placeTower(position, typeId);
-    if (tower) {
-      console.log('[TD] Tower placed at:', lat.toFixed(6), lon.toFixed(6), 'height:', height.toFixed(1), 'type:', typeId);
-    }
+    this.gameState.placeTower(position, typeId);
   }
 
   /**
@@ -2732,10 +2711,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const typeId = this.selectedTowerType();
 
     // Use the new manager API - it handles rendering automatically
-    const tower = this.gameState.placeTower(position, typeId);
-    if (tower) {
-      console.log('[TD] Tower placed at:', lat, lon, 'type:', typeId);
-    }
+    this.gameState.placeTower(position, typeId);
   }
 
   /**
@@ -2820,8 +2796,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   sellSelectedTower(): void {
     const tower = this.gameState.selectedTower();
     if (tower) {
-      const refund = this.gameState.sellTower(tower);
-      console.log(`[TD] Tower sold for ${refund} credits`);
+      this.gameState.sellTower(tower);
     }
   }
 
@@ -2834,23 +2809,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Check if we can afford it
     if (this.gameState.credits() < upgrade.cost) {
-      console.log(`[TD] Cannot afford upgrade: ${upgrade.cost} credits needed`);
       return;
     }
 
     // Check if upgrade can be applied
     if (!tower.canUpgrade(upgradeId)) {
-      console.log(`[TD] Upgrade already at max level`);
       return;
     }
 
     // Deduct credits and apply upgrade
     this.gameState.spendCredits(upgrade.cost);
-    const success = tower.applyUpgrade(upgradeId);
-
-    if (success) {
-      console.log(`[TD] Applied ${upgrade.name} upgrade to tower. New fireRate: ${tower.combat.fireRate}/s`);
-    }
+    tower.applyUpgrade(upgradeId);
   }
 
   /**
@@ -2993,8 +2962,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.uiState.toggleTowerDebug();
     const visible = this.uiState.towerDebugVisible();
 
-    console.log('[TowerDefense] toggleTowerDebug:', visible, 'engine:', !!this.engine);
-
     if (this.engine) {
       this.engine.towers.setDebugMode(visible);
     }
@@ -3060,8 +3027,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   resetToDefaultLocation(): void {
-    console.log('[TowerDefense] Resetting to default location: Erlenbach');
-
     // Use the existing reset method
     this.onResetLocations();
 
@@ -3085,11 +3050,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     const output = JSON.stringify(data, null, 2);
-
-    // Log to console
-    console.log('=== CAMERA SETTINGS ===');
-    console.log(output);
-    console.log('=======================');
 
     // Log to debug textarea
     this.appendDebugLog('=== CAMERA ===\n' + output);
@@ -3196,9 +3156,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const savedLocations = this.loadLocationsFromStorage();
 
     if (savedLocations && savedLocations.hq) {
-      console.log('[Init] Loaded saved location from localStorage:', savedLocations.hq.name);
-      console.log('[Init] HQ coords:', savedLocations.hq.lat, savedLocations.hq.lon);
-
       this.editableHqLocation.set(savedLocations.hq);
       this.editableSpawnLocations.set(savedLocations.spawns);
 
@@ -3213,7 +3170,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         height: 400,
       });
     } else {
-      console.log('[Init] Using default location: Erlenbach');
       // Initialize from defaults
       const base = this.baseCoords();
       this.editableHqLocation.set({
@@ -3252,7 +3208,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.isApplyingLocation.set(true);
     this.heightProgress.set(0);
     this.engineInit.resetLoadingSteps();
-    console.log(`[Location] Starting location change to: ${data.hq.name?.split(',')[0]}...`);
 
     try {
       // STEP 2: Initialize (stop height updates, reset game)
@@ -3265,7 +3220,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.spawnPoints.set([]);
 
       // Update engine origin
-      console.log(`[Location] Setting new origin: ${data.hq.lat.toFixed(6)}, ${data.hq.lon.toFixed(6)}`);
       this.engine.setOrigin(data.hq.lat, data.hq.lon);
       this.engine.clearDebugHelpers();
 
@@ -3289,7 +3243,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       });
       this.cameraFraming.setEngine(this.engine);
       this.cameraFraming.applyFrame(initialFrame);
-      console.log('[Location] Applied initial camera framing');
 
       await this.engineInit.setStepDone('init');
 
@@ -3297,7 +3250,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const tilesLoadedPromise = new Promise<void>((resolve) => {
         this.engine!.setOnFirstTilesLoadedCallback(() => {
           this.tilesLoading.set(false);
-          console.log('[Location] First tiles loaded at new location');
           this.checkAllLoaded();
           resolve();
         });
@@ -3313,14 +3265,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.osmLoading.set(false);
       const streetCnt = this.streetCount();
       await this.engineInit.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Straßen` : undefined);
-      console.log(`[Location] Streets loaded: ${streetCnt}`);
       this.checkAllLoaded();
 
       // Wait for tiles to load (with timeout fallback)
       await Promise.race([
         tilesLoadedPromise,
         new Promise<void>((resolve) => setTimeout(() => {
-          console.log('[Location] Tiles loading timeout - continuing anyway');
           this.tilesLoading.set(false);
           resolve();
         }, 10000)) // 10 second timeout
@@ -3391,14 +3341,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         const realTerrainY = this.engine!.getTerrainHeightAtGeo(data.hq.lat, data.hq.lon) ?? 0;
         if (Math.abs(realTerrainY) > 1) {
           this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
-          console.log('[Location] Corrected camera Y for terrain height:', realTerrainY.toFixed(1));
         }
         // Save the corrected position as initial
         this.saveInitialCameraPosition();
       }, 2000);
 
       this.appendDebugLog(`Geladen: ${this.streetCount()} Strassen`);
-      console.log('[Location] Location change complete - waiting for heights to stabilize...');
 
       // Loading overlay will be hidden by checkAllLoaded() when heights stabilize
       this.isApplyingLocation.set(false);

@@ -122,8 +122,6 @@ export class HeightUpdateService {
    * @returns Promise that resolves when heights are stable
    */
   scheduleOverlayHeightUpdate(): Promise<void> {
-    console.log('[Heights] scheduleOverlayHeightUpdate called');
-
     // Reset counters for fresh location
     this.heightUpdateAttempts = 0;
     this.overlayHeightsUpdated = false;
@@ -134,8 +132,6 @@ export class HeightUpdateService {
     if (this.loadingStatusSignal) {
       this.loadingStatusSignal.set('Synchronisiere mit Terrain...');
     }
-
-    console.log('[Heights] Starting interval...');
 
     return new Promise((resolve) => {
       this.heightStableResolve = resolve;
@@ -191,13 +187,9 @@ export class HeightUpdateService {
   private checkStabilityAndStop(): void {
     // Only stop after minimum attempts
     if (this.heightUpdateAttempts >= this.MIN_ATTEMPTS) {
-      console.log(`[Heights] Streets stable after ${this.heightUpdateAttempts} attempts`);
       this.stopHeightUpdates();
     } else if (this.heightUpdateAttempts >= this.MAX_ATTEMPTS) {
-      console.log(`[Heights] Max attempts reached`);
       this.stopHeightUpdates();
-    } else {
-      console.log(`[Heights] Attempt ${this.heightUpdateAttempts}/${this.MAX_ATTEMPTS}`);
     }
   }
 
@@ -208,26 +200,18 @@ export class HeightUpdateService {
     if (this.heightUpdateIntervalId) {
       clearInterval(this.heightUpdateIntervalId);
       this.heightUpdateIntervalId = null;
-      console.log('[Heights] Overlays stable - height updates complete');
     }
     this.overlayHeightsUpdated = true;
     this.heightsLoading.set(false);
-    console.log('[Heights] heightsLoading set to false');
 
     // Mark finalize step as done
     if (this.onFinalizeCallback) {
-      console.log('[Heights] Calling onFinalizeCallback');
       this.onFinalizeCallback(`${this.heightUpdateAttempts} Sync-Zyklen`);
-    } else {
-      console.warn('[Heights] onFinalizeCallback is null!');
     }
 
     // Check if all loading is complete
     if (this.onCheckAllLoadedCallback) {
-      console.log('[Heights] Calling onCheckAllLoadedCallback');
       this.onCheckAllLoadedCallback();
-    } else {
-      console.warn('[Heights] onCheckAllLoadedCallback is null!');
     }
 
     // Resolve the promise to signal completion
@@ -251,10 +235,8 @@ export class HeightUpdateService {
     // Get origin terrain height as reference
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
     if (originTerrainY === null) {
-      console.log('[Heights] Cannot update markers - origin terrain not available');
       return;
     }
-    console.log(`[Heights] Origin terrain Y: ${originTerrainY.toFixed(1)}`);
 
     // Set the overlay base Y so overlayGroup is positioned at terrain surface
     this.engine.setOverlayBaseY(originTerrainY);
@@ -263,7 +245,6 @@ export class HeightUpdateService {
     if (baseMarker) {
       const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
       baseMarker.position.set(local.x, HQ_MARKER_HEIGHT, local.z);
-      console.log(`[Heights] Base marker at relative Y=${HQ_MARKER_HEIGHT}`);
     }
 
     // Update spawn markers - use relative heights
@@ -282,7 +263,6 @@ export class HeightUpdateService {
         // Calculate relative Y (height difference from origin + marker height)
         const relativeY = spawnTerrainY - originTerrainY + SPAWN_MARKER_HEIGHT;
         marker.position.y = relativeY;
-        console.log(`[Heights] Spawn ${spawnId} at relative Y=${relativeY.toFixed(1)}`);
       }
     }
   }

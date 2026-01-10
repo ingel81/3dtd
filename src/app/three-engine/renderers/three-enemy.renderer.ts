@@ -61,17 +61,12 @@ export class ThreeEnemyRenderer {
       return;
     }
 
-    console.log(`[ThreeEnemyRenderer] Loading model for ${typeId} from ${config.modelUrl}`);
     const promise = this.loader.loadAsync(config.modelUrl);
     this.loadingPromises.set(typeId, promise);
 
     try {
       const gltf = await promise;
       this.modelTemplates.set(typeId, gltf);
-      // Log model info
-      const childCount = gltf.scene.children.length;
-      const animCount = gltf.animations?.length || 0;
-      console.log(`[ThreeEnemyRenderer] Preloaded model: ${typeId}, children: ${childCount}, animations: ${animCount}`);
     } catch (err) {
       console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
     } finally {
@@ -132,7 +127,6 @@ export class ThreeEnemyRenderer {
     // Regular .clone() breaks skeleton bindings for animated models
     const mesh = SkeletonUtils.clone(gltf.scene) as THREE.Object3D;
     mesh.scale.setScalar(config.scale);
-    console.log(`[ThreeEnemyRenderer] Cloned model for ${id} using SkeletonUtils`);
 
     // Enable shadows
     mesh.traverse((node) => {
@@ -145,8 +139,6 @@ export class ThreeEnemyRenderer {
     // Position in local coordinates
     const localPos = this.sync.geoToLocal(lat, lon, height + config.heightOffset);
     mesh.position.copy(localPos);
-
-    console.log(`[ThreeEnemyRenderer] Created enemy ${id} at y=${localPos.y.toFixed(1)}m`);
 
     // Ensure all meshes are visible and disable frustum culling for small objects
     mesh.visible = true;

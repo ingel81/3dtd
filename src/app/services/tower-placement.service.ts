@@ -269,12 +269,10 @@ export class TowerPlacementService {
    */
   validateTowerPosition(lat: number, lon: number): { valid: boolean; reason?: string } {
     if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
-      console.log('[Validate] Service not fully initialized!');
       return { valid: false, reason: 'Service nicht initialisiert' };
     }
 
     if (this.streetNetwork.streets.length === 0) {
-      console.log('[Validate] Street network is empty!');
       return { valid: false, reason: 'Keine Strassen geladen' };
     }
 
@@ -283,11 +281,6 @@ export class TowerPlacementService {
     const inBounds =
       lat >= bounds.minLat && lat <= bounds.maxLat && lon >= bounds.minLon && lon <= bounds.maxLon;
     if (!inBounds) {
-      console.log('[Validate] Click OUTSIDE street network bounds!');
-      console.log(`  Click: ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
-      console.log(
-        `  Bounds: ${bounds.minLat.toFixed(6)}-${bounds.maxLat.toFixed(6)}, ${bounds.minLon.toFixed(6)}-${bounds.maxLon.toFixed(6)}`
-      );
       return { valid: false, reason: 'Ausserhalb Spielbereich' };
     }
 
@@ -318,16 +311,7 @@ export class TowerPlacementService {
     // Check distance to nearest street
     const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
     if (!nearest) {
-      console.log('[Validate] No street found - network bounds:', this.streetNetwork.bounds);
-      console.log('[Validate] Click position:', lat, lon);
       return { valid: false, reason: 'Keine Strasse gefunden' };
-    }
-
-    // Log occasionally (not every frame)
-    if (Math.random() < 0.1) {
-      console.log(
-        `[Validate] Street dist: ${nearest.distance.toFixed(1)}m (max: ${this.MAX_DISTANCE_TO_STREET}m)`
-      );
     }
 
     if (nearest.distance > this.MAX_DISTANCE_TO_STREET) {
@@ -361,7 +345,6 @@ export class TowerPlacementService {
     const validation = this.validateTowerPosition(lat, lon);
 
     if (!validation.valid) {
-      console.log('Invalid tower position:', validation.reason);
       return false;
     }
 
@@ -370,15 +353,6 @@ export class TowerPlacementService {
 
     const tower = this.gameState.placeTower(position, typeId);
     if (tower) {
-      console.log(
-        '[TowerPlacement] Tower placed at:',
-        lat.toFixed(6),
-        lon.toFixed(6),
-        'height:',
-        height.toFixed(1),
-        'type:',
-        typeId
-      );
       return true;
     }
 

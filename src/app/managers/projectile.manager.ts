@@ -45,7 +45,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
         });
       }
       this.soundsRegistered = true;
-      console.log('[ProjectileManager] Spatial sounds registered');
     }
   }
 
@@ -68,10 +67,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
       tower.combat.damage,
       spawnHeight,
       tower.id
-    );
-
-    console.log(
-      `[ProjectileManager] Spawning ${projectile.typeConfig.id} from tower at height ${terrainHeight.toFixed(1)} -> spawn height ${spawnHeight.toFixed(1)}, dir: (${projectile.direction.dx.toFixed(2)}, ${projectile.direction.dy.toFixed(2)}, ${projectile.direction.dz.toFixed(2)})`
     );
 
     this.tilesEngine.projectiles.create(

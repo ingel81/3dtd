@@ -229,10 +229,6 @@ export class EngineInitializationService {
           aspectRatio: canvasAspect, // Use actual canvas aspect ratio
           fov: 60, // Must match THREE.PerspectiveCamera FOV in three-tiles-engine.ts!
         });
-        console.log('[EngineInit] Pre-computed camera frame for', spawnCoords.length, 'spawns', {
-          canvasSize: { width: rect.width.toFixed(0), height: rect.height.toFixed(0) },
-          aspectRatio: canvasAspect.toFixed(2),
-        });
       }
 
       this.engine = new ThreeTilesEngine(
@@ -264,14 +260,11 @@ export class EngineInitializationService {
       // Register callback for first tiles loaded
       this.engine.setOnFirstTilesLoadedCallback(() => {
         this.tilesLoading.set(false);
-        console.log('[EngineInit] First tiles loaded');
         callbacks.onCheckAllLoaded();
       });
 
       // Preload 3D models in background
-      this.engine.preloadModels().then(() => {
-        console.log('[EngineInit] All Three.js models preloaded');
-      });
+      this.engine.preloadModels();
 
       // Setup click handler and build preview
       callbacks.onSetupClickHandler();
@@ -306,7 +299,6 @@ export class EngineInitializationService {
 
       // OSM loading done (streets + routes calculated)
       this.osmLoading.set(false);
-      console.log('[EngineInit] OSM streets loaded');
 
       // Step 6: Finalize 3D view (waits for tiles + height sync)
       await this.setStepActive('finalize');
@@ -323,7 +315,6 @@ export class EngineInitializationService {
           const realTerrainY = this.engine.getTerrainHeightAtGeo(hqCoord.lat, hqCoord.lon) ?? 0;
           if (Math.abs(realTerrainY) > 1) {
             this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
-            console.log('[EngineInit] Corrected camera Y for terrain height:', realTerrainY.toFixed(1));
           }
         }
 
@@ -353,11 +344,8 @@ export class EngineInitializationService {
     const osm = this.osmLoading();
     const heights = heightsLoading();
 
-    console.log(`[EngineInit] Check: tiles=${tiles}, osm=${osm}, heights=${heights}`);
-
     if (!tiles && !osm && !heights) {
       this.loading.set(false);
-      console.log('[EngineInit] ✓ All resources loaded - hiding overlay');
     }
   }
 

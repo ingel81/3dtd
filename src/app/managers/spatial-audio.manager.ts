@@ -96,8 +96,6 @@ export class SpatialAudioManager {
 
     // Create audio loader
     this.loader = new THREE.AudioLoader();
-
-    console.log('[SpatialAudio] Initialized - listener attached to camera');
   }
 
   /**
@@ -177,7 +175,6 @@ export class SpatialAudioManager {
     const context = this.listener.context;
     if (context.state === 'suspended') {
       await context.resume();
-      console.log('[SpatialAudio] AudioContext resumed');
     }
     this.contextResumed = true;
   }
@@ -200,7 +197,6 @@ export class SpatialAudioManager {
     sound.loading = this.loadBuffer(url).then((buffer) => {
       sound.buffer = buffer;
       sound.loading = null;
-      console.log(`[SpatialAudio] Loaded: ${id}`);
       return buffer;
     });
   }
@@ -402,6 +398,5 @@ export class SpatialAudioManager {
     }
 
     this.sounds.clear();
-    console.log('[SpatialAudio] Disposed');
   }
 }

@@ -84,7 +84,6 @@ export class CameraControlService {
       z: camera.position.z,
     };
 
-    console.log('[Camera] Initial position captured:', this.initialCameraPosition);
   }
 
   /**
@@ -130,10 +129,7 @@ export class CameraControlService {
     spawns: { lat: number; lon: number }[],
     padding: number = 0.2
   ): void {
-    console.log('[Camera Framing] START', { hq, spawns, padding });
-
     if (!this.engine || spawns.length === 0) {
-      console.log('[Camera Framing] ABORT - no engine or spawns', { engine: !!this.engine, spawnsLength: spawns.length });
       return;
     }
 
@@ -142,11 +138,6 @@ export class CameraControlService {
     // Convert all points to local coordinates (HQ is at origin 0,0,0)
     const hqLocal = sync.geoToLocalSimple(hq.lat, hq.lon, 0);
     const spawnLocals = spawns.map(s => sync.geoToLocalSimple(s.lat, s.lon, 0));
-
-    console.log('[Camera Framing] Local coords:', {
-      hqLocal: { x: hqLocal.x.toFixed(1), y: hqLocal.y.toFixed(1), z: hqLocal.z.toFixed(1) },
-      spawnLocals: spawnLocals.map(s => ({ x: s.x.toFixed(1), y: s.y.toFixed(1), z: s.z.toFixed(1) }))
-    });
 
     // All points including HQ
     const allPoints = [hqLocal, ...spawnLocals];
@@ -240,14 +231,6 @@ export class CameraControlService {
     const terrainY = this.engine.getTerrainHeightAtGeo(hq.lat, hq.lon) ?? 0;
     const camY = terrainY + cameraHeight;
     const lookAtY = terrainY;
-
-    console.log(`[Camera] Framing HQ + ${spawns.length} spawns:`, {
-      center: { x: centerX.toFixed(1), z: centerZ.toFixed(1) },
-      spans: { x: paddedSpanX.toFixed(0), z: paddedSpanZ.toFixed(0) },
-      distances: { forX: distanceForX.toFixed(0), forZ: distanceForZ.toFixed(0), used: cameraDistance.toFixed(0) },
-      viewport: { aspect: aspect.toFixed(2), vFov: (vFov * 180 / Math.PI).toFixed(0), hFov: (hFov * 180 / Math.PI).toFixed(0) },
-      camera: { x: camX.toFixed(1), y: camY.toFixed(1), z: camZ.toFixed(1), angle: (cameraAngle * 180 / Math.PI).toFixed(0) }
-    });
 
     // Set camera position looking at center of all points
     this.engine.setLocalCameraPosition(camX, camY, camZ, centerX, lookAtY, centerZ);
@@ -399,7 +382,6 @@ export class CameraControlService {
     if (!this.debugFramingEnabled) {
       this.clearDebugVisualization();
     }
-    console.log(`[Camera] Debug framing: ${this.debugFramingEnabled ? 'ON' : 'OFF'}`);
     return this.debugFramingEnabled;
   }
 
@@ -577,13 +559,6 @@ export class CameraControlService {
       this.debugMeshes.push(centroidSphere);
     }
 
-    console.log('[Camera Debug] Visualization created:', {
-      innerBox: { minX: minX.toFixed(0), maxX: maxX.toFixed(0), minZ: minZ.toFixed(0), maxZ: maxZ.toFixed(0) },
-      paddedBox: { minX: padMinX.toFixed(0), maxX: padMaxX.toFixed(0), minZ: padMinZ.toFixed(0), maxZ: padMaxZ.toFixed(0) },
-      spans: { x: paddedSpanX.toFixed(0), z: paddedSpanZ.toFixed(0) },
-      center: { x: centerX.toFixed(0), z: centerZ.toFixed(0) },
-      meshCount: this.debugMeshes.length
-    });
   }
 
   /**

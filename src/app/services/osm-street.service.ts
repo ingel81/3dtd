@@ -57,7 +57,6 @@ export class OsmStreetService {
     const cacheKey = this.getCacheKey(centerLat, centerLon, radiusMeters);
     const cached = this.loadFromCache(cacheKey);
     if (cached) {
-      console.log('[OSM] Loaded street network from cache');
       return cached;
     }
 
@@ -89,7 +88,6 @@ export class OsmStreetService {
 
     for (const server of this.OVERPASS_SERVERS) {
       try {
-        console.log(`[OSM] Trying Overpass server: ${server}`);
 
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 15000); // 15s timeout
@@ -110,7 +108,6 @@ export class OsmStreetService {
         }
 
         const data = await response.json();
-        console.log(`[OSM] Successfully loaded from ${server}`);
         const network = this.parseOverpassResponse(data, bounds);
 
         // Cache the result
@@ -118,7 +115,6 @@ export class OsmStreetService {
 
         return network;
       } catch (error) {
-        console.warn(`[OSM] Failed with ${server}:`, error);
         lastError = error instanceof Error ? error : new Error(String(error));
         // Continue to next server
       }
@@ -153,8 +149,7 @@ export class OsmStreetService {
         nodes,
         bounds: data.bounds,
       };
-    } catch (e) {
-      console.warn('[OSM] Failed to load from cache:', e);
+    } catch {
       return null;
     }
   }
@@ -179,10 +174,8 @@ export class OsmStreetService {
         localStorage.setItem(key, jsonData);
       }
 
-      console.log(`[OSM] Cached street network (${(jsonData.length / 1024).toFixed(1)} KB)`);
-    } catch (e) {
+    } catch {
       // Silent fail - caching is optional
-      console.log('[OSM] Cache skipped (quota exceeded)');
     }
   }
 
@@ -198,7 +191,6 @@ export class OsmStreetService {
       }
     }
     keysToRemove.forEach((key) => localStorage.removeItem(key));
-    console.log(`[OSM] Cleared ${keysToRemove.length} old cache entries`);
   }
 
   private parseOverpassResponse(
@@ -250,8 +242,6 @@ export class OsmStreetService {
         }
       }
     }
-
-    console.log(`Loaded ${streets.length} streets with ${nodes.size} nodes`);
 
     return { streets, nodes, bounds };
   }
@@ -490,7 +480,6 @@ export class OsmStreetService {
       // Clear specific cache
       const cacheKey = this.getCacheKey(centerLat, centerLon, radiusMeters);
       localStorage.removeItem(cacheKey);
-      console.log(`[OSM] Cleared cache for ${centerLat}, ${centerLon}`);
     } else {
       // Clear all street caches
       const keysToRemove: string[] = [];
@@ -501,7 +490,6 @@ export class OsmStreetService {
         }
       }
       keysToRemove.forEach((key) => localStorage.removeItem(key));
-      console.log(`[OSM] Cleared ${keysToRemove.length} cached street networks`);
     }
   }
 
@@ -551,8 +539,6 @@ export class OsmStreetService {
       return null;
     }
 
-    console.log(`[OSM] Found ${candidates.length} street nodes in ${minDistance}-${maxDistance}m range`);
-
     // 2. Shuffle candidates
     const shuffled = candidates.sort(() => Math.random() - 0.5);
 
@@ -564,11 +550,6 @@ export class OsmStreetService {
 
       // Path must exist (length > 0) and have at least 2 nodes
       if (path.length >= 2) {
-        console.log(
-          `[OSM] Found valid spawn point at ${candidate.lat.toFixed(5)}, ${candidate.lon.toFixed(5)} ` +
-            `(${Math.round(candidate.distance)}m from HQ, on ${candidate.streetName || 'unnamed street'}, ` +
-            `path has ${path.length} nodes, tested ${testedCount} candidates)`
-        );
         return candidate;
       }
     }

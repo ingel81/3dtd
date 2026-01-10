@@ -91,8 +91,6 @@ export class GameStateManager {
     );
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
-
-    console.log('[GameStateManager] Initialized');
   }
 
   /**
@@ -407,7 +405,6 @@ export class GameStateManager {
 
     // Check if player has enough credits
     if (this.credits() < config.cost) {
-      console.log(`[GameState] Not enough credits: have ${this.credits()}, need ${config.cost}`);
       return null;
     }
 

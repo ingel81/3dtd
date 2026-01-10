@@ -201,7 +201,6 @@ export class ThreeTowerRenderer {
     try {
       const gltf = await promise;
       this.modelTemplates.set(typeId, gltf);
-      console.log(`[ThreeTowerRenderer] Preloaded model: ${typeId}`);
     } catch (err) {
       console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
     } finally {
@@ -431,7 +430,6 @@ export class ThreeTowerRenderer {
       }
     }
 
-    console.log(`[ThreeTowerRenderer] Debug mode: ${enabled ? 'ON' : 'OFF'}, towers: ${this.towers.size}, updated: ${updatedCount}`);
   }
 
   /**
@@ -1044,7 +1042,6 @@ export class ThreeTowerRenderer {
       }
     }
 
-    console.log(`[ThreeTowerRenderer] Created hex grid with ${hexCells.length} cells`);
 
     return { hexGrid, hexCells };
   }
@@ -1080,7 +1077,6 @@ export class ThreeTowerRenderer {
       if (isBlocked) blockedCount++;
     }
 
-    console.log(`[ThreeTowerRenderer] LoS update: ${blockedCount}/${data.hexCells.length} cells blocked`);
   }
 
   /**

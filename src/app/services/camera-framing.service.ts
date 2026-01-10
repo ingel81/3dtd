@@ -148,21 +148,9 @@ export class CameraFramingService {
       fov = 75,
     } = config;
 
-    console.log('[CameraFraming] Computing initial frame', {
-      hq,
-      spawns,
-      config: { padding, angle, markerRadius, fov, aspectRatio },
-    });
-
     // Convert geo coordinates to approximate local coordinates
     // HQ is at origin (0, 0, 0)
     const localPoints = this.geoToLocalApproximate(hq, spawns);
-
-    console.log('[CameraFraming] Local points:', localPoints.map(p => ({
-      x: p.x.toFixed(1),
-      y: p.y.toFixed(1),
-      z: p.z.toFixed(1),
-    })));
 
     // Compute frame from local points
     return this.computeFrameFromLocalPoints(
@@ -194,7 +182,6 @@ export class CameraFramingService {
     config: FrameConfig = {}
   ): CameraFrame | null {
     if (!this.engine) {
-      console.warn('[CameraFraming] No engine available, using approximate conversion');
       return this.computeInitialFrame(hq, spawns, config);
     }
 
@@ -326,26 +313,6 @@ export class CameraFramingService {
     const camZ = center.z - horizontalOffset; // Camera south of center
     const camY = estimatedTerrainY + cameraHeight;
 
-    console.log('[CameraFraming] Frame computed:', {
-      boundingBox: {
-        center: { x: center.x.toFixed(1), z: center.z.toFixed(1) },
-        span: { x: paddedSpanX.toFixed(0), z: paddedSpanZ.toFixed(0) },
-      },
-      distances: {
-        forX: distanceForX.toFixed(0),
-        forZ: distanceForZ.toFixed(0),
-        used: cameraDistance.toFixed(0),
-        limiting: distanceForZ >= distanceForX ? 'Z-span' : 'X-span',
-      },
-      camera: {
-        pos: { x: camX.toFixed(1), y: camY.toFixed(1), z: camZ.toFixed(1) },
-        lookAt: { x: center.x.toFixed(1), y: lookAtY.toFixed(1), z: lookAtZ.toFixed(1) },
-        height: cameraHeight.toFixed(0),
-        angle,
-      },
-      fov: { vertical: fov, horizontal: (hFovRad * 180 / Math.PI).toFixed(0), aspect: aspectRatio.toFixed(2) },
-    });
-
     const frame: CameraFrame = {
       camX,
       camY,
@@ -404,10 +371,7 @@ export class CameraFramingService {
    * Apply a computed frame to the engine's camera
    */
   applyFrame(frame: CameraFrame): void {
-    if (!this.engine) {
-      console.warn('[CameraFraming] Cannot apply frame - no engine');
-      return;
-    }
+    if (!this.engine) return;
 
     this.engine.setLocalCameraPosition(
       frame.camX,
@@ -417,8 +381,6 @@ export class CameraFramingService {
       frame.lookAtY,
       frame.lookAtZ
     );
-
-    console.log('[CameraFraming] Frame applied');
   }
 
   /**
@@ -429,25 +391,14 @@ export class CameraFramingService {
    * @param originalEstimate Original estimated terrain height used in frame
    */
   correctTerrainHeight(realTerrainY: number, originalEstimate: number = 0): void {
-    if (!this.engine || !this.lastFrame) {
-      console.warn('[CameraFraming] Cannot correct height - no engine or frame');
-      return;
-    }
+    if (!this.engine || !this.lastFrame) return;
 
     const deltaY = realTerrainY - originalEstimate;
 
-    if (Math.abs(deltaY) < 1) {
-      console.log('[CameraFraming] Terrain height correction negligible, skipping');
-      return;
-    }
+    if (Math.abs(deltaY) < 1) return;
 
     const newCamY = this.lastFrame.camY + deltaY;
     const newLookAtY = this.lastFrame.lookAtY + deltaY;
-
-    console.log('[CameraFraming] Correcting terrain height:', {
-      delta: deltaY.toFixed(1),
-      newCamY: newCamY.toFixed(1),
-    });
 
     this.engine.setLocalCameraPosition(
       this.lastFrame.camX,
