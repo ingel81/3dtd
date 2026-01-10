@@ -23,14 +23,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
         (focused)="windowService.bringToFront('wave')"
       >
         <div class="wave-debug-content">
-          <!-- Street Info -->
-          <div class="section">
-            <div class="row">
-              <span class="label">Strassen</span>
-              <span class="value">{{ waveDebug.streetCount() }}</span>
-            </div>
-          </div>
-
           <!-- Spawn Settings -->
           <div class="section">
             <div class="section-title">Spawn</div>
@@ -53,18 +45,23 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
             <div class="slider-row">
               <span class="label">Anzahl</span>
-              <input type="range" min="1" max="1000" step="1"
+              <input type="range" min="1" max="5000" step="1"
                      [value]="waveDebug.enemyCount()"
                      (input)="onEnemyCountChange($event)" />
-              <span class="value">{{ waveDebug.enemyCount() }}</span>
+              <input type="number" class="number-input" min="1" max="5000"
+                     [value]="waveDebug.enemyCount()"
+                     (change)="onEnemyCountChange($event)" />
             </div>
 
             <div class="slider-row">
               <span class="label">Speed</span>
-              <input type="range" min="1" max="50" step="1"
+              <input type="range" min="1" max="100" step="1"
                      [value]="waveDebug.enemySpeed()"
                      (input)="onSpeedChange($event)" />
-              <span class="value">{{ waveDebug.enemySpeed() }}m/s</span>
+              <input type="number" class="number-input" min="1" max="100"
+                     [value]="waveDebug.enemySpeed()"
+                     (change)="onSpeedChange($event)" />
+              <span class="unit">m/s</span>
             </div>
 
             <div class="toggle-row">
@@ -96,9 +93,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <div class="section">
             <div class="section-title">Aktionen</div>
             <div class="btn-row">
-              <button class="icon-btn" (click)="logCamera.emit()" title="Kamera loggen">
-                <mat-icon>videocam</mat-icon>
-              </button>
               <button class="icon-btn heal" [disabled]="waveDebug.baseHealth() >= 100" (click)="healHq.emit()" title="HQ heilen">
                 <mat-icon>healing</mat-icon>
               </button>
@@ -106,17 +100,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 <mat-icon>skull</mat-icon>
               </button>
             </div>
-          </div>
-
-          <!-- Log -->
-          <div class="section log-section">
-            <div class="log-header">
-              <span class="section-title">Log</span>
-              <button class="clear-btn" (click)="waveDebug.clearLog()">
-                <mat-icon>delete</mat-icon>
-              </button>
-            </div>
-            <textarea class="log" readonly [value]="waveDebug.debugLog()"></textarea>
           </div>
         </div>
       </app-draggable-debug-panel>
@@ -177,7 +160,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       display: flex;
       align-items: center;
       gap: 6px;
-      margin-bottom: 6px;
+      margin-bottom: 10px;
     }
 
     .slider-row:last-of-type {
@@ -196,15 +179,45 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       cursor: pointer;
     }
 
-    .slider-row .value {
-      min-width: 50px;
+    .slider-row .number-input {
+      width: 50px;
+      padding: 2px 4px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-mid);
+      color: var(--td-teal);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 600;
+      text-align: right;
+      -moz-appearance: textfield;
+    }
+
+    .slider-row .number-input::-webkit-outer-spin-button,
+    .slider-row .number-input::-webkit-inner-spin-button {
+      -webkit-appearance: none;
+      margin: 0;
+    }
+
+    .slider-row .number-input:focus {
+      outline: none;
+      border-color: var(--td-teal);
+    }
+
+    .slider-row .unit {
+      color: var(--td-text-muted);
+      font-size: 9px;
+      min-width: 20px;
     }
 
     .toggle-row {
       display: flex;
       align-items: center;
       gap: 8px;
-      margin-top: 6px;
+      margin-bottom: 10px;
+    }
+
+    .toggle-row:last-of-type {
+      margin-bottom: 0;
     }
 
     .toggle-row .label {
@@ -328,63 +341,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       background: var(--td-green);
       color: var(--td-bg-dark);
     }
-
-    .log-section {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-    }
-
-    .log-header {
-      display: flex;
-      justify-content: space-between;
-      align-items: center;
-    }
-
-    .log-header .section-title {
-      margin-bottom: 0;
-    }
-
-    .clear-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      padding: 2px;
-      background: transparent;
-      border: none;
-      color: var(--td-text-muted);
-      cursor: pointer;
-      transition: color 0.15s ease;
-    }
-
-    .clear-btn:hover {
-      color: var(--td-health-red);
-    }
-
-    .clear-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .log {
-      width: 100%;
-      min-height: 60px;
-      max-height: 120px;
-      background: var(--td-panel-shadow);
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
-      color: var(--td-green);
-      font-family: inherit;
-      font-size: 8px;
-      padding: 4px 6px;
-      resize: none;
-      white-space: pre;
-      overflow-x: scroll;
-      overflow-y: auto;
-      word-wrap: normal;
-      box-sizing: border-box;
-    }
   `,
 })
 export class WaveDebuggerComponent {
@@ -394,7 +350,6 @@ export class WaveDebuggerComponent {
   // Actions that need to be handled by the parent
   readonly killAll = output<void>();
   readonly healHq = output<void>();
-  readonly logCamera = output<void>();
 
   onEnemyCountChange(event: Event): void {
     const value = parseInt((event.target as HTMLInputElement).value, 10);

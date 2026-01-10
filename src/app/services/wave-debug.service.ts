@@ -39,11 +39,11 @@ export class WaveDebugService {
   readonly enemiesAlive = signal(0);
 
   setEnemyCount(value: number): void {
-    this.enemyCount.set(Math.max(1, Math.min(1000, value)));
+    this.enemyCount.set(Math.max(1, Math.min(5000, value)));
   }
 
   setEnemySpeed(value: number): void {
-    this.enemySpeed.set(Math.max(1, Math.min(50, value)));
+    this.enemySpeed.set(Math.max(1, Math.min(100, value)));
   }
 
   setEnemyType(typeId: EnemyTypeId): void {

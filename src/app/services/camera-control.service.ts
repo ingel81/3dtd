@@ -37,8 +37,9 @@ export class CameraControlService {
   // STATE
   // ========================================
 
-  /** Stored initial camera position for reset functionality */
+  /** Stored initial camera position and target for reset functionality */
   private initialCameraPosition: { x: number; y: number; z: number } | null = null;
+  private initialCameraTarget: { x: number; y: number; z: number } | null = null;
 
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
@@ -71,10 +72,11 @@ export class CameraControlService {
   // ========================================
 
   /**
-   * Save current camera position as initial position
+   * Save current camera position and target as initial position
    * This is called after engine initialization to store the default view
+   * @param target Optional explicit target coordinates (if not provided, defaults to origin at terrain level)
    */
-  saveInitialPosition(): void {
+  saveInitialPosition(target?: { x: number; y: number; z: number }): void {
     if (!this.engine) return;
 
     const camera = this.engine.getCamera();
@@ -84,6 +86,16 @@ export class CameraControlService {
       z: camera.position.z,
     };
 
+    // Save target (use provided target or calculate from terrain)
+    if (target) {
+      this.initialCameraTarget = { ...target };
+    } else {
+      // Default: look at origin (HQ position) at terrain level
+      const terrainY = this.baseCoords
+        ? (this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0)
+        : 0;
+      this.initialCameraTarget = { x: 0, y: terrainY, z: 0 };
+    }
   }
 
   /**
@@ -92,12 +104,11 @@ export class CameraControlService {
   resetCamera(): void {
     if (!this.engine) return;
 
-    // Use stored initial camera position if available
-    if (this.initialCameraPosition) {
+    // Use stored initial camera position and target if available
+    if (this.initialCameraPosition && this.initialCameraTarget) {
       const pos = this.initialCameraPosition;
-      // Look at terrain level (Y - 400 since camera is 400m above ground)
-      const lookAtY = pos.y - 400;
-      this.engine.setLocalCameraPosition(pos.x, pos.y, pos.z, 0, lookAtY, 0);
+      const target = this.initialCameraTarget;
+      this.engine.setLocalCameraPosition(pos.x, pos.y, pos.z, target.x, target.y, target.z);
     } else {
       // Fallback: calculate from terrain (less accurate before tiles fully load)
       if (!this.baseCoords) {
@@ -619,6 +630,7 @@ export class CameraControlService {
     this.engine = null;
     this.baseCoords = null;
     this.initialCameraPosition = null;
+    this.initialCameraTarget = null;
     this.debugFramingEnabled = false;
   }
 }
