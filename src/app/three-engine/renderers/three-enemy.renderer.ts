@@ -1,8 +1,17 @@
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CoordinateSync } from './index';
 import { EnemyTypeConfig, ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
+
+/**
+ * Unified model data structure for both GLTF and FBX
+ */
+interface LoadedModel {
+  scene: THREE.Object3D;
+  animations: THREE.AnimationClip[];
+}
 
 /**
  * Enemy render data - stored per enemy
@@ -32,11 +41,12 @@ export interface EnemyRenderData {
 export class ThreeEnemyRenderer {
   private scene: THREE.Scene;
   private sync: CoordinateSync;
-  private loader: GLTFLoader;
+  private gltfLoader: GLTFLoader;
+  private fbxLoader: FBXLoader;
 
   // Cached model templates per enemy type
-  private modelTemplates = new Map<string, GLTF>();
-  private loadingPromises = new Map<string, Promise<GLTF>>();
+  private modelTemplates = new Map<string, LoadedModel>();
+  private loadingPromises = new Map<string, Promise<LoadedModel>>();
 
   // Active enemy renders
   private enemies = new Map<string, EnemyRenderData>();
@@ -47,7 +57,30 @@ export class ThreeEnemyRenderer {
   constructor(scene: THREE.Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
-    this.loader = new GLTFLoader();
+    this.gltfLoader = new GLTFLoader();
+    this.fbxLoader = new FBXLoader();
+  }
+
+  /**
+   * Load model based on file extension (supports .glb, .gltf, .fbx)
+   */
+  private async loadModel(url: string): Promise<LoadedModel> {
+    const extension = url.split('.').pop()?.toLowerCase();
+
+    if (extension === 'fbx') {
+      const fbx = await this.fbxLoader.loadAsync(url);
+      return {
+        scene: fbx,
+        animations: fbx.animations || [],
+      };
+    } else {
+      // Default to GLTF/GLB
+      const gltf = await this.gltfLoader.loadAsync(url);
+      return {
+        scene: gltf.scene,
+        animations: gltf.animations || [],
+      };
+    }
   }
 
   /**
@@ -64,12 +97,12 @@ export class ThreeEnemyRenderer {
       return;
     }
 
-    const promise = this.loader.loadAsync(config.modelUrl);
+    const promise = this.loadModel(config.modelUrl);
     this.loadingPromises.set(typeId, promise);
 
     try {
-      const gltf = await promise;
-      this.modelTemplates.set(typeId, gltf);
+      const model = await promise;
+      this.modelTemplates.set(typeId, model);
     } catch (err) {
       console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
     } finally {
@@ -108,16 +141,16 @@ export class ThreeEnemyRenderer {
     }
 
     // Ensure model is loaded
-    let gltf = this.modelTemplates.get(typeId);
-    if (!gltf) {
+    let model = this.modelTemplates.get(typeId);
+    if (!model) {
       // Load on-demand
-      const promise = this.loadingPromises.get(typeId) || this.loader.loadAsync(config.modelUrl);
+      const promise = this.loadingPromises.get(typeId) || this.loadModel(config.modelUrl);
       if (!this.loadingPromises.has(typeId)) {
         this.loadingPromises.set(typeId, promise);
       }
       try {
-        gltf = await promise;
-        this.modelTemplates.set(typeId, gltf);
+        model = await promise;
+        this.modelTemplates.set(typeId, model);
       } catch (err) {
         console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
         return null;
@@ -128,22 +161,65 @@ export class ThreeEnemyRenderer {
 
     // Clone the model using SkeletonUtils for proper SkinnedMesh support
     // Regular .clone() breaks skeleton bindings for animated models
-    const mesh = SkeletonUtils.clone(gltf.scene) as THREE.Object3D;
+    const mesh = SkeletonUtils.clone(model.scene) as THREE.Object3D;
     mesh.scale.setScalar(config.scale);
 
     // Enable shadows and apply material adjustments
     mesh.traverse((node) => {
       if ((node as THREE.Mesh).isMesh) {
-        node.castShadow = true;
-        node.receiveShadow = true;
+        const meshNode = node as THREE.Mesh;
+        meshNode.castShadow = true;
+        meshNode.receiveShadow = true;
 
-        const material = (node as THREE.Mesh).material as THREE.MeshStandardMaterial;
-        if (material && material.isMeshStandardMaterial) {
-          // Apply emissive effect if configured
-          if (config.emissiveIntensity && config.emissiveIntensity > 0) {
-            const emissiveColor = config.emissiveColor || '#ffffff';
-            material.emissive = new THREE.Color(emissiveColor);
-            material.emissiveIntensity = config.emissiveIntensity;
+        // Convert to unlit material for cartoon models
+        if (config.unlit) {
+          const oldMaterial = meshNode.material as THREE.MeshStandardMaterial;
+          if (oldMaterial) {
+            // Fix texture colorspace for correct colors
+            if (oldMaterial.map) {
+              oldMaterial.map.colorSpace = THREE.SRGBColorSpace;
+            }
+            const basicMaterial = new THREE.MeshBasicMaterial({
+              map: oldMaterial.map,
+              color: 0xffffff, // White to show texture colors unchanged
+              transparent: oldMaterial.transparent,
+              opacity: oldMaterial.opacity,
+              side: oldMaterial.side,
+            });
+            meshNode.material = basicMaterial;
+            oldMaterial.dispose();
+          }
+        } else {
+          // Handle any material type (FBX often uses MeshPhongMaterial)
+          const material = meshNode.material as THREE.Material & {
+            map?: THREE.Texture;
+            metalness?: number;
+            roughness?: number;
+            emissive?: THREE.Color;
+            emissiveIntensity?: number;
+          };
+
+          if (material) {
+            // Fix texture colorspace for correct colors
+            if (material.map) {
+              material.map.colorSpace = THREE.SRGBColorSpace;
+              material.map.needsUpdate = true;
+            }
+
+            // For MeshStandardMaterial: reduce metalness for vibrant colors
+            if ('metalness' in material) {
+              material.metalness = 0;
+              material.roughness = 0.8;
+            }
+
+            // Apply emissive effect if configured
+            if (config.emissiveIntensity && config.emissiveIntensity > 0) {
+              if ('emissive' in material && 'emissiveIntensity' in material) {
+                const emissiveColor = config.emissiveColor || '#ffffff';
+                material.emissive = new THREE.Color(emissiveColor);
+                material.emissiveIntensity = config.emissiveIntensity;
+              }
+            }
           }
         }
       }
@@ -167,9 +243,9 @@ export class ThreeEnemyRenderer {
     let mixer: THREE.AnimationMixer | null = null;
     const animations = new Map<string, THREE.AnimationClip>();
 
-    if (config.hasAnimations && gltf.animations && gltf.animations.length > 0) {
+    if (config.hasAnimations && model.animations && model.animations.length > 0) {
       mixer = new THREE.AnimationMixer(mesh);
-      for (const clip of gltf.animations) {
+      for (const clip of model.animations) {
         animations.set(clip.name, clip);
       }
     }

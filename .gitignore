@@ -45,3 +45,7 @@ Thumbs.db
 # Environment files (contain API keys)
 /src/environments/environment.ts
 /src/environments/environment.prod.ts
+
+# Untracked model folders (work in progress / candidates)
+/public/assets/models/_new/
+/public/assets/models/_candidates/

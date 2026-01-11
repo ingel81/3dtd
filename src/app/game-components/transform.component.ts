@@ -73,11 +73,13 @@ export class TransformComponent extends Component {
       while (diff > Math.PI) diff -= 2 * Math.PI;
       while (diff < -Math.PI) diff += 2 * Math.PI;
 
-      // Lerp towards target
+      // Lerp towards target (frame-independent smoothing)
       if (Math.abs(diff) < 0.001) {
         this.rotation = this.targetRotation;
       } else {
-        this.rotation += diff * this.rotationSmoothingFactor;
+        // Frame-independent exponential smoothing: t = 1 - (1 - factor)^(dt/16.67)
+        const t = 1 - Math.pow(1 - this.rotationSmoothingFactor, deltaTime / 16.67);
+        this.rotation += diff * t;
         // Normalize rotation
         while (this.rotation > Math.PI) this.rotation -= 2 * Math.PI;
         while (this.rotation < -Math.PI) this.rotation += 2 * Math.PI;

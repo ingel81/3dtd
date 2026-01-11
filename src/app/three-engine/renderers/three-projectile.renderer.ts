@@ -173,7 +173,7 @@ export class ThreeProjectileRenderer {
    * Load arrow GLB model and create instanced mesh
    */
   private async loadArrowModel(): Promise<void> {
-    const modelPath = '/assets/models/arrow_01.glb';
+    const modelPath = '/assets/models/misc/arrow_01.glb';
 
     try {
       const gltf = await this.loader.loadAsync(modelPath);

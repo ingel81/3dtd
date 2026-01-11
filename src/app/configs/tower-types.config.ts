@@ -33,7 +33,7 @@ export interface TowerTypeConfig {
 }
 
 // NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
-const ARCHER_MODEL_URL = '/assets/models/tower_archer.glb';
+const ARCHER_MODEL_URL = '/assets/models/towers/tower_archer.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {

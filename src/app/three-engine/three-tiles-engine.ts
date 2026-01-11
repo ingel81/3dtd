@@ -153,6 +153,7 @@ export class ThreeTilesEngine {
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x151c1f);
+    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
 
     // Distance limits - keep in sync!
     const VIEW_DISTANCE = 8000; // Max tile loading distance
@@ -362,26 +363,26 @@ export class ThreeTilesEngine {
   }
 
   private setupLighting(): void {
-    // Hemisphere light - natural sky/ground gradient (replaces pure ambient)
+    // Hemisphere light - warm sky/ground gradient
     const hemi = new THREE.HemisphereLight(
-      0x87ceeb, // Sky color (light blue)
-      0x3d5c35, // Ground color (earthy green)
-      1.0
+      0xffeedd, // Warm sky color
+      0x806040, // Warm ground color
+      1.5
     );
     this.scene.add(hemi);
 
-    // Main sun light (key light) - warm afternoon sun from south-west
-    const sun = new THREE.DirectionalLight(0xfffaf0, 1.5);
+    // Main sun light (key light) - warm bright sun
+    const sun = new THREE.DirectionalLight(0xffeecc, 3.0); // Warm and bright
     sun.position.set(-50, 100, -30); // SW direction, high angle
     this.scene.add(sun);
 
-    // Fill light - softer, from opposite side to reduce harsh shadows
-    const fill = new THREE.DirectionalLight(0xb0c4de, 0.4);
+    // Fill light - warm from opposite side
+    const fill = new THREE.DirectionalLight(0xfff0e0, 1.5); // Warm
     fill.position.set(50, 50, 30); // NE direction
     this.scene.add(fill);
 
-    // Subtle ambient for shadow areas (prevents pure black)
-    const ambient = new THREE.AmbientLight(0x404040, 0.3);
+    // Warm ambient for overall brightness
+    const ambient = new THREE.AmbientLight(0xffe8d0, 0.8); // Warm tint
     this.scene.add(ambient);
   }
 
@@ -976,10 +977,14 @@ export class ThreeTilesEngine {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    const animate = () => {
+    let lastTime = performance.now();
+    const animate = (currentTime: number) => {
       if (!this.isRunning) return;
 
-      this.update(16); // ~60fps
+      const deltaTime = currentTime - lastTime;
+      lastTime = currentTime;
+
+      this.update(deltaTime);
       this.render();
 
       this.animationFrameId = requestAnimationFrame(animate);

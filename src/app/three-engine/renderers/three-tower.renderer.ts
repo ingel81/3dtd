@@ -97,6 +97,9 @@ export class ThreeTowerRenderer {
   // Debug mode - shows tip markers for all towers
   private debugMode = false;
 
+  // Animation time accumulator for frame-independent animations
+  private animationTime = 0;
+
   // Configuration for terrain-conforming range indicator
   private readonly RANGE_SEGMENTS = 48; // Number of segments around the circle
   private readonly RANGE_RINGS = 8; // Number of concentric rings
@@ -492,12 +495,13 @@ export class ThreeTowerRenderer {
    * Call each frame for pulse effect
    */
   updateAnimations(deltaTime: number): void {
-    const time = performance.now() * 0.003;
+    // Accumulate time for frame-independent animation
+    this.animationTime += deltaTime * 0.003;
 
     for (const data of this.towers.values()) {
       if (data.isSelected && data.selectionRing) {
-        // Pulse scale
-        const scale = 1 + Math.sin(time) * 0.1;
+        // Pulse scale (using accumulated time for consistent speed)
+        const scale = 1 + Math.sin(this.animationTime) * 0.1;
         data.selectionRing.scale.setScalar(scale);
 
         // Rotate slowly

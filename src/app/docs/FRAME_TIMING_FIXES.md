@@ -13,17 +13,17 @@ Mehrere Animationen im Spiel sind frameabhängig statt zeitabhängig. Das führt
 
 | # | Datei | Zeile | Problem | Status |
 |---|-------|-------|---------|--------|
-| 1 | `three-tiles-engine.ts` | 982 | Hardcoded `this.update(16)` statt echtes deltaTime | ⬜ Offen |
-| 2 | `transform.component.ts` | 80 | `this.rotation += diff * rotationSmoothingFactor` ohne deltaTime | ⬜ Offen |
-| 3 | `three-tower.renderer.ts` | 495 | Pulse nutzt `performance.now()` statt übergebenes deltaTime | ⬜ Offen |
-| 4 | `tower-defense.component.ts` | 1474-1475 | Game Loop übergibt Timestamp statt deltaTime | ⬜ Offen |
-| 5 | `tower-defense.component.ts` | 1268 | Compass-Rotation ohne Zeitfaktor | ⬜ Offen |
+| 1 | `three-tiles-engine.ts` | 980 | Hardcoded `this.update(16)` statt echtes deltaTime | ✅ Behoben |
+| 2 | `transform.component.ts` | 80 | `this.rotation += diff * rotationSmoothingFactor` ohne deltaTime | ✅ Behoben |
+| 3 | `three-tower.renderer.ts` | 497 | Pulse nutzt `performance.now()` statt übergebenes deltaTime | ✅ Behoben |
+| 4 | `tower-defense.component.ts` | 1475 | Game Loop übergibt Timestamp statt deltaTime | ❌ Kein Problem (GameStateManager berechnet deltaTime intern) |
+| 5 | `tower-defense.component.ts` | 1268 | Compass-Rotation ohne Zeitfaktor | ❌ Kein Problem (ereignisgesteuert, nicht frame-basiert) |
 
 ### MITTEL
 
 | # | Datei | Zeile | Problem | Status |
 |---|-------|-------|---------|--------|
-| 6 | `three-effects.renderer.ts` | 761 | Magische Konstante `floatSpeed * 3` | ⬜ Offen |
+| 6 | `three-effects.renderer.ts` | 761 | Magische Konstante `floatSpeed * 3` | ❌ Kein Problem (nutzt bereits zeitbasierten `progress`) |
 
 ## Lösungsansätze
 
@@ -90,11 +90,22 @@ const scale = 1 + Math.sin(this.animationTime) * 0.1;
 
 ### 4. tower-defense.component.ts - Game Loop
 
-Die `gameState.update()` Methode sollte deltaTime erhalten, nicht den aktuellen Timestamp.
+~~Die `gameState.update()` Methode sollte deltaTime erhalten, nicht den aktuellen Timestamp.~~
+
+**Kein Problem:** `GameStateManager.update()` empfängt den Timestamp und berechnet intern das deltaTime:
+```typescript
+update(currentTime: number): void {
+  const deltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
+  this.lastUpdateTime = currentTime;
+  // ...
+}
+```
 
 ### 5. tower-defense.component.ts - Compass Rotation
 
-Compass-Rotation muss mit deltaTime multipliziert werden für konsistente Drehgeschwindigkeit.
+~~Compass-Rotation muss mit deltaTime multipliziert werden für konsistente Drehgeschwindigkeit.~~
+
+**Kein Problem:** Die Compass-Rotation ist ereignisgesteuert, nicht frame-basiert. Sie akkumuliert nur die Heading-Änderung wenn sich die Kamera dreht, und die CSS-Animation macht den Rest.
 
 ## Testplan
 

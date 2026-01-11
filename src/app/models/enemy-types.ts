@@ -52,6 +52,7 @@ export interface EnemyTypeConfig {
   headingOffset?: number; // Rotations-Offset in Radians (Model-Ausrichtung korrigieren)
   emissiveIntensity?: number; // Leuchteffekt-Stärke (0 = aus, 0.1-0.5 = subtil, 1+ = stark)
   emissiveColor?: string; // Leuchtfarbe als Hex (default: '#ffffff')
+  unlit?: boolean; // Keine Beleuchtung - zeigt Originalfarben (für Cartoon-Modelle)
 
   // Randomness
   randomAnimationStart?: boolean; // Animation bei zufälligem Frame starten
@@ -66,7 +67,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
-    modelUrl: '/assets/models/zombie_alternative.glb',
+    modelUrl: '/assets/models/enemies/zombie_01.glb',
     scale: 2.0,
     minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping beim Zoomen
     baseHp: 100,
@@ -93,7 +94,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   tank: {
     id: 'tank',
     name: 'Panzer',
-    modelUrl: '/assets/models/tank.glb',
+    modelUrl: '/assets/models/enemies/tank.glb',
     scale: 2.5,
     minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping
     baseHp: 300, // Doppelt so viel wie Zombie
@@ -115,17 +116,17 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wallsmasher: {
     id: 'wallsmasher',
     name: 'Wallsmasher',
-    modelUrl: '/assets/models/warrior.glb',
-    scale: 2.5,
+    modelUrl: '/assets/models/enemies/wallsmasher_01.fbx',
+    scale: 0.05,
     minimumPixelSize: 0,
     baseHp: 500,
     baseSpeed: 7,
     damage: 30,
     reward: 20,
-    hasAnimations: false,
-    walkAnimation: '',
-    runAnimation: '',
-    deathAnimation: '',
+    hasAnimations: true,
+    walkAnimation: 'CharacterArmature|Walk',
+    runAnimation: 'CharacterArmature|Run',
+    deathAnimation: 'CharacterArmature|Death',
     animationSpeed: 1.5,
     animationVariation: true,
     // Spawn Sound
