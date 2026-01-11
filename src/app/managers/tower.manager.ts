@@ -43,8 +43,11 @@ export class TowerManager extends EntityManager<Tower> {
 
   /**
    * Place a new tower
+   * @param position Geo position
+   * @param typeId Tower type ID
+   * @param customRotation Custom rotation set by user (radians)
    */
-  placeTower(position: GeoPosition, typeId: TowerTypeId): Tower | null {
+  placeTower(position: GeoPosition, typeId: TowerTypeId, customRotation = 0): Tower | null {
     if (!this.tilesEngine) {
       throw new Error('TowerManager not initialized');
     }
@@ -55,7 +58,7 @@ export class TowerManager extends EntityManager<Tower> {
       return null;
     }
 
-    const tower = new Tower(position, typeId);
+    const tower = new Tower(position, typeId, customRotation);
 
     if (position.height === undefined) {
       console.error('[TowerManager] position.height is undefined! Terrain height must be sampled before placing tower.');
@@ -67,7 +70,8 @@ export class TowerManager extends EntityManager<Tower> {
       typeId,
       position.lat,
       position.lon,
-      terrainHeight
+      terrainHeight,
+      customRotation
     );
 
     this.add(tower);

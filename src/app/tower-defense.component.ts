@@ -916,19 +916,32 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Handle terrain click in build mode
+   * First click enters rotation mode, second click confirms placement
    */
   private onTerrainClick(lat: number, lon: number, height: number): void {
-    if (this.towerPlacement.placeTower(lat, lon, height)) {
-      this.towerPlacement.toggleBuildMode();
+    const wasInRotationMode = this.towerPlacement.isInRotationMode();
+
+    if (this.towerPlacement.handleBuildClick(lat, lon, height)) {
+      // If we were in rotation mode and successfully placed, exit build mode
+      if (wasInRotationMode) {
+        this.towerPlacement.toggleBuildMode();
+      }
+      // If we just entered rotation mode, stay in build mode
     }
   }
 
   /**
-   * Handle mouse move in build mode (for build preview)
+   * Handle mouse move in build mode (for build preview and rotation)
    */
-  private onMouseMove(lat: number, lon: number, _hitPoint: THREE.Vector3): void {
-    this.towerPlacement.updatePreviewPosition(lat, lon);
-    this.towerPlacement.updatePreviewValidation(lat, lon);
+  private onMouseMove(lat: number, lon: number, hitPoint: THREE.Vector3): void {
+    // In rotation mode, update rotation from mouse position
+    if (this.towerPlacement.isInRotationMode()) {
+      this.towerPlacement.updateRotationFromMouse(hitPoint.x, hitPoint.z);
+    } else {
+      // Normal build mode - update preview position
+      this.towerPlacement.updatePreviewPosition(lat, lon);
+      this.towerPlacement.updatePreviewValidation(lat, lon);
+    }
   }
 
   /**

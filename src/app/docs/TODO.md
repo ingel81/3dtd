@@ -4,8 +4,8 @@
     [ ] CesiumIonAuthPlugin: Plugin has been moved to "3d-tiles-renderer/core/plugins". (anonymous)	@	three-tiles-engine.ts:229
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
 [ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
-[ ] Compass eine nuance weniger aufdringlich und subtiler machen
-[ ] Die Routenanimation hört auf sich zu bewegen und blendet dann aus, besser wäre wenn dass erst nach dem Ausblende aufhört zu animieren.
+[x] Compass eine nuance weniger aufdringlich und subtiler machen
+[x] Die Routenanimation hört auf sich zu bewegen und blendet dann aus, besser wäre wenn dass erst nach dem Ausblende aufhört zu animieren.
     Sollte auch noch optisch etwas feiner und hochwertiger aussehen
 
 Performance:

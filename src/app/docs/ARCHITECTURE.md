@@ -937,3 +937,47 @@ onGameOver() {
 **Beispiel:** `spawnNext()` war sowohl in `WaveManager` als auch in `TowerDefenseComponent` implementiert. Fix in WaveManager wurde nie benutzt.
 
 **Regel:** Spawn-Logik, Game-State-Änderungen etc. gehören in die Manager, nicht in Components.
+
+### THREE.Raycaster State-Korruption
+
+**Problem:** Ein geteilter `THREE.Raycaster` behält internen State, der nachfolgende Raycasts kaputt macht.
+
+**Symptom:** Nach Line-of-Sight (LoS) Checks mit custom Origin/Direction gibt `raycastTerrain()` plötzlich `null` zurück, obwohl Tiles geladen sind und die Mausposition gültig ist.
+
+```typescript
+// ❌ FALSCH - Geteilter Raycaster wird durch LoS-Checks korrumpiert
+class ThreeTilesEngine {
+  private raycaster = new THREE.Raycaster();  // Geteilt!
+
+  hasLineOfSight(from, to) {
+    this.raycaster.set(customOrigin, customDirection);  // Modifiziert State
+    return this.raycaster.intersectObject(...);
+  }
+
+  raycastTerrain(screenX, screenY) {
+    this.raycaster.setFromCamera(mouse, camera);  // State ist korrumpiert!
+    return this.raycaster.intersectObject(...);   // → null obwohl Hit erwartet
+  }
+}
+```
+
+**Lösung:** Für Screen-zu-Terrain Raycasts immer einen **frischen Raycaster** erstellen:
+
+```typescript
+// ✅ RICHTIG - Frischer Raycaster pro Aufruf
+raycastTerrain(screenX: number, screenY: number): THREE.Vector3 | null {
+  const mouse = new THREE.Vector2(/* NDC coords */);
+
+  // Frische Instanz - wird nicht durch LoS-Checks beeinflusst
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(mouse, this.camera);
+
+  const results = raycaster.intersectObject(this.tilesRenderer.group, true);
+  return results.length > 0 ? results[0].point.clone() : null;
+}
+```
+
+**Wo angewandt:**
+- `three-tiles-engine.ts`: `raycastTerrain()` und `raycastTowers()`
+
+**Regel:** Raycaster, die mit `setFromCamera()` arbeiten, sollten nie denselben Instance verwenden wie Raycaster mit manuellem `set(origin, direction)`.

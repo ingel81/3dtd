@@ -26,6 +26,8 @@ export interface TowerRenderData {
   height: number;
   // Tower tip position for LoS calculations
   tipY: number;
+  // Custom rotation set by user during placement (radians)
+  customRotation: number;
 }
 
 /**
@@ -283,13 +285,20 @@ export class ThreeTowerRenderer {
 
   /**
    * Create tower render - spawns mesh in scene
+   * @param id Tower ID
+   * @param typeId Tower type
+   * @param lat Latitude
+   * @param lon Longitude
+   * @param height Terrain height
+   * @param customRotation Custom rotation set by user during placement (radians)
    */
   async create(
     id: string,
     typeId: TowerTypeId,
     lat: number,
     lon: number,
-    height: number
+    height: number,
+    customRotation = 0
   ): Promise<TowerRenderData | null> {
     const config = TOWER_TYPES[typeId];
     if (!config) {
@@ -319,10 +328,9 @@ export class ThreeTowerRenderer {
     const mesh = modelTemplate.clone();
     mesh.scale.setScalar(config.scale);
 
-    // Apply initial rotation if configured
-    if (config.rotationY !== undefined) {
-      mesh.rotation.y = config.rotationY;
-    }
+    // Apply rotation: custom rotation + config rotation
+    const baseRotation = config.rotationY ?? 0;
+    mesh.rotation.y = baseRotation + customRotation;
 
     // Enable shadows
     mesh.traverse((node) => {
@@ -418,6 +426,7 @@ export class ThreeTowerRenderer {
       lon,
       height,
       tipY,
+      customRotation,
     };
 
     this.towers.set(id, renderData);

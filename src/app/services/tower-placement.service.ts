@@ -1,11 +1,13 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { GameStateManager } from '../managers/game-state.manager';
-import { TowerTypeId } from '../configs/tower-types.config';
+import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 
 /**
  * SpawnPoint interface
@@ -52,12 +54,31 @@ export class TowerPlacementService {
   /** Selected tower type for placement */
   readonly selectedTowerType = signal<TowerTypeId>('archer');
 
+  /** Rotation mode active state (after first click, before confirming rotation) */
+  readonly rotationMode = signal(false);
+
   // ========================================
   // STATE
   // ========================================
 
   /** Build preview mesh (green/red circle on terrain) */
   private buildPreviewMesh: THREE.Mesh | null = null;
+
+  /** Preview tower mesh (ghost model showing placement) */
+  private previewTowerMesh: THREE.Object3D | null = null;
+
+  /** Pending tower position (set on first click, before rotation confirmation) */
+  private pendingPosition: { lat: number; lon: number; height: number } | null = null;
+
+  /** Current rotation for pending tower (radians) */
+  private pendingRotation = 0;
+
+  /** Model loaders */
+  private gltfLoader = new GLTFLoader();
+  private fbxLoader = new FBXLoader();
+
+  /** Cached preview models per tower type */
+  private previewModelCache = new Map<TowerTypeId, THREE.Object3D>();
 
   /** Last validation result (cached to avoid redundant material updates) */
   private lastPreviewValidation: boolean | null = null;
@@ -149,6 +170,8 @@ export class TowerPlacementService {
     if (this.buildMode()) {
       this.gameState?.deselectAll();
     } else {
+      // Cancel rotation mode if active
+      this.cancelRotationMode();
       // Hide build preview when exiting build mode
       if (this.buildPreviewMesh) {
         this.buildPreviewMesh.visible = false;
@@ -162,6 +185,9 @@ export class TowerPlacementService {
    * @param typeId Tower type ID
    */
   selectTowerType(typeId: TowerTypeId): void {
+    // Cancel any existing rotation mode
+    this.cancelRotationMode();
+
     this.selectedTowerType.set(typeId);
     this.buildMode.set(true);
     this.gameState?.deselectAll();
@@ -205,6 +231,9 @@ export class TowerPlacementService {
       this.buildPreviewMesh = null;
     }
 
+    // Clean up existing preview tower
+    this.cleanupPreviewTower();
+
     // Create a simple circle mesh for preview
     const geometry = new THREE.CircleGeometry(8, 32);
     const material = new THREE.MeshBasicMaterial({
@@ -222,6 +251,113 @@ export class TowerPlacementService {
 
     // Add to overlay group (synced with tiles movement), not scene root
     this.engine.getOverlayGroup().add(this.buildPreviewMesh);
+  }
+
+  /**
+   * Clean up preview tower mesh
+   */
+  private cleanupPreviewTower(): void {
+    if (this.previewTowerMesh && this.engine) {
+      this.engine.getOverlayGroup().remove(this.previewTowerMesh);
+      // Don't dispose - it's from cache
+      this.previewTowerMesh = null;
+    }
+  }
+
+  /**
+   * Load and cache preview model for a tower type
+   */
+  private async loadPreviewModel(typeId: TowerTypeId): Promise<THREE.Object3D | null> {
+    // Check cache first
+    if (this.previewModelCache.has(typeId)) {
+      return this.previewModelCache.get(typeId)!.clone();
+    }
+
+    const config = TOWER_TYPES[typeId];
+    if (!config) return null;
+
+    try {
+      let model: THREE.Object3D;
+      const url = config.modelUrl.toLowerCase();
+
+      if (url.endsWith('.fbx')) {
+        model = await this.fbxLoader.loadAsync(config.modelUrl);
+        this.applyFbxMaterials(model);
+      } else {
+        const gltf = await this.gltfLoader.loadAsync(config.modelUrl);
+        model = gltf.scene;
+      }
+
+      // Apply scale
+      model.scale.setScalar(config.scale);
+
+      // Make semi-transparent (ghost effect)
+      this.makeModelTransparent(model, 0.6);
+
+      // Cache the model
+      this.previewModelCache.set(typeId, model);
+
+      return model.clone();
+    } catch (err) {
+      console.error(`[TowerPlacement] Failed to load preview model: ${typeId}`, err);
+      return null;
+    }
+  }
+
+  /**
+   * Apply colors to FBX materials
+   */
+  private applyFbxMaterials(model: THREE.Object3D): void {
+    const materialColors: Record<string, number> = {
+      'lightwood': 0xc4a574,
+      'wood': 0xa0784a,
+      'darkwood': 0x6b4423,
+      'celing': 0xcd5c5c,
+      'ceiling': 0xcd5c5c,
+      'roof': 0xcd5c5c,
+      'stone': 0x808080,
+      'metal': 0x707070,
+    };
+
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+        materials.forEach((mat) => {
+          const matWithColor = mat as THREE.MeshStandardMaterial;
+          if (matWithColor.color) {
+            const matName = mat.name.toLowerCase();
+            let color: number | undefined;
+            for (const [key, value] of Object.entries(materialColors)) {
+              if (matName.includes(key)) {
+                color = value;
+                break;
+              }
+            }
+            matWithColor.color.setHex(color ?? 0xb8956e);
+          }
+        });
+      }
+    });
+  }
+
+  /**
+   * Make model semi-transparent for preview
+   */
+  private makeModelTransparent(model: THREE.Object3D, opacity: number): void {
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+        materials.forEach((mat) => {
+          mat.transparent = true;
+          (mat as THREE.MeshStandardMaterial).opacity = opacity;
+          mat.depthWrite = false;
+        });
+      }
+    });
   }
 
   /**
@@ -365,30 +501,171 @@ export class TowerPlacementService {
   // ========================================
 
   /**
-   * Place tower at specific geo position with validation
+   * Handle click in build mode - starts rotation mode or places tower
    * @param lat Latitude
    * @param lon Longitude
    * @param height Height (from raycast)
-   * @returns True if tower was placed successfully
+   * @returns True if rotation mode was started or tower was placed
    */
-  placeTower(lat: number, lon: number, height: number): boolean {
+  handleBuildClick(lat: number, lon: number, height: number): boolean {
     if (!this.gameState) return false;
 
-    const validation = this.validateTowerPosition(lat, lon);
+    // If already in rotation mode, confirm placement
+    if (this.rotationMode()) {
+      return this.confirmRotation();
+    }
 
+    // Validate position before entering rotation mode
+    const validation = this.validateTowerPosition(lat, lon);
     if (!validation.valid) {
       return false;
     }
 
-    const position: GeoPosition = { lat, lon, height };
-    const typeId = this.selectedTowerType();
+    // Enter rotation mode
+    this.enterRotationMode(lat, lon, height);
+    return true;
+  }
 
-    const tower = this.gameState.placeTower(position, typeId);
-    if (tower) {
-      return true;
+  /**
+   * Enter rotation mode - position is fixed, waiting for rotation
+   */
+  private async enterRotationMode(lat: number, lon: number, height: number): Promise<void> {
+    this.pendingPosition = { lat, lon, height };
+    this.pendingRotation = 0;
+    this.rotationMode.set(true);
+
+    if (!this.engine) return;
+
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+    const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
+    const baseTerrainY = this.baseCoords
+      ? this.engine.getTerrainHeightAtGeo(this.baseCoords.latitude, this.baseCoords.longitude)
+      : 0;
+    const yOffset = (terrainY ?? 0) - (baseTerrainY ?? 0);
+
+    // Update preview circle to show at fixed position with gold color
+    if (this.buildPreviewMesh) {
+      this.buildPreviewMesh.position.set(local.x, yOffset + 1, local.z);
+      const material = this.buildPreviewMesh.material as THREE.MeshBasicMaterial;
+      material.color.setHex(0xc9a44c);
     }
 
-    return false;
+    // Load and show preview tower model
+    const typeId = this.selectedTowerType();
+    const config = TOWER_TYPES[typeId];
+    const previewModel = await this.loadPreviewModel(typeId);
+
+    if (previewModel && this.engine) {
+      this.previewTowerMesh = previewModel;
+      this.previewTowerMesh.position.set(
+        local.x,
+        yOffset + (config?.heightOffset ?? 0),
+        local.z
+      );
+      this.previewTowerMesh.rotation.y = config?.rotationY ?? 0;
+      this.engine.getOverlayGroup().add(this.previewTowerMesh);
+    }
+  }
+
+  /**
+   * Update rotation based on mouse position (call during mouse move in rotation mode)
+   * @param mouseX Mouse X in local coordinates
+   * @param mouseZ Mouse Z in local coordinates
+   */
+  updateRotationFromMouse(mouseX: number, mouseZ: number): void {
+    if (!this.rotationMode() || !this.pendingPosition || !this.engine) {
+      return;
+    }
+
+    // Get tower position in local coordinates
+    const towerLocal = this.engine.sync.geoToLocalSimple(
+      this.pendingPosition.lat,
+      this.pendingPosition.lon,
+      0
+    );
+
+    // Calculate angle from tower to mouse
+    const dx = mouseX - towerLocal.x;
+    const dz = mouseZ - towerLocal.z;
+
+    // Calculate rotation: atan2 for angle, adjusted so tower "faces" the mouse
+    // In Three.js Y-up coordinate system, rotation.y = 0 points along +X
+    // We want the tower to face the mouse position
+    this.pendingRotation = Math.atan2(dx, -dz);
+
+    // Update preview tower rotation
+    if (this.previewTowerMesh) {
+      const typeId = this.selectedTowerType();
+      const config = TOWER_TYPES[typeId];
+      const baseRotation = config?.rotationY ?? 0;
+      this.previewTowerMesh.rotation.y = baseRotation + this.pendingRotation;
+    }
+  }
+
+  /**
+   * Confirm tower placement with current rotation
+   * @returns True if tower was placed successfully
+   */
+  confirmRotation(): boolean {
+    if (!this.gameState || !this.pendingPosition) {
+      this.cancelRotationMode();
+      return false;
+    }
+
+    const position: GeoPosition = {
+      lat: this.pendingPosition.lat,
+      lon: this.pendingPosition.lon,
+      height: this.pendingPosition.height,
+    };
+    const typeId = this.selectedTowerType();
+
+    const tower = this.gameState.placeTower(position, typeId, this.pendingRotation);
+    const success = tower !== null;
+
+    // Exit rotation mode
+    this.cancelRotationMode();
+
+    return success;
+  }
+
+  /**
+   * Cancel rotation mode without placing tower
+   */
+  cancelRotationMode(): void {
+    this.rotationMode.set(false);
+    this.pendingPosition = null;
+    this.pendingRotation = 0;
+
+    // Hide preview tower
+    this.cleanupPreviewTower();
+
+    // Reset preview color to green
+    if (this.buildPreviewMesh) {
+      const material = this.buildPreviewMesh.material as THREE.MeshBasicMaterial;
+      material.color.setHex(0x22c55e);
+    }
+  }
+
+  /**
+   * Get current pending rotation (radians)
+   */
+  getPendingRotation(): number {
+    return this.pendingRotation;
+  }
+
+  /**
+   * Check if in rotation mode
+   */
+  isInRotationMode(): boolean {
+    return this.rotationMode();
+  }
+
+  /**
+   * Legacy method - now redirects to handleBuildClick
+   * @deprecated Use handleBuildClick instead
+   */
+  placeTower(lat: number, lon: number, height: number): boolean {
+    return this.handleBuildClick(lat, lon, height);
   }
 
   // ========================================
@@ -406,6 +683,22 @@ export class TowerPlacementService {
       this.buildPreviewMesh = null;
     }
 
+    // Clean up preview tower
+    this.cleanupPreviewTower();
+
+    // Dispose cached preview models
+    for (const model of this.previewModelCache.values()) {
+      model.traverse((child) => {
+        if ((child as THREE.Mesh).geometry) {
+          (child as THREE.Mesh).geometry.dispose();
+        }
+        if ((child as THREE.Mesh).material) {
+          ((child as THREE.Mesh).material as THREE.Material).dispose();
+        }
+      });
+    }
+    this.previewModelCache.clear();
+
     if (this.previewThrottleId !== null) {
       clearTimeout(this.previewThrottleId);
       this.previewThrottleId = null;
@@ -418,5 +711,8 @@ export class TowerPlacementService {
     this.spawnPoints = [];
     this.gameState = null;
     this.lastPreviewValidation = null;
+    this.pendingPosition = null;
+    this.pendingRotation = 0;
+    this.rotationMode.set(false);
   }
 }

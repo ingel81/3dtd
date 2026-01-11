@@ -24,9 +24,13 @@ export class Tower extends GameObject {
 
   selected = false;
 
-  constructor(position: GeoPosition, typeId: TowerTypeId) {
+  /** Custom rotation set by user during placement (radians) */
+  customRotation = 0;
+
+  constructor(position: GeoPosition, typeId: TowerTypeId, customRotation = 0) {
     super('tower');
     this.typeConfig = getTowerType(typeId);
+    this.customRotation = customRotation;
 
     // Add components
     this._transform = this.addComponent(

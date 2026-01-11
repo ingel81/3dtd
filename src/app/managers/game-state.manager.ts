@@ -472,8 +472,11 @@ export class GameStateManager {
 
   /**
    * Place a new tower
+   * @param position Geo position
+   * @param typeId Tower type ID
+   * @param customRotation Custom rotation set by user (radians)
    */
-  placeTower(position: GeoPosition, typeId: TowerTypeId = 'archer'): Tower | null {
+  placeTower(position: GeoPosition, typeId: TowerTypeId = 'archer', customRotation = 0): Tower | null {
     const config = TOWER_TYPES[typeId];
     if (!config) return null;
 
@@ -482,7 +485,7 @@ export class GameStateManager {
       return null;
     }
 
-    const tower = this.towerManager.placeTower(position, typeId);
+    const tower = this.towerManager.placeTower(position, typeId, customRotation);
     if (tower) {
       // Deduct cost
       this.credits.update((c) => c - config.cost);
