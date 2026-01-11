@@ -16,6 +16,7 @@ export interface TowerRenderData {
   hexCells: HexCell[]; // Hex cell data for LoS calculations
   tipMarker: THREE.Mesh | null; // Debug marker showing LoS origin point
   losRing: THREE.LineLoop | null; // Debug ring showing LOS origin circle
+  losRays: THREE.Group | null; // Debug raycast lines
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
   // Geo coordinates for terrain sampling
@@ -337,6 +338,7 @@ export class ThreeTowerRenderer {
       hexCells,
       tipMarker,
       losRing,
+      losRays: null, // Created on demand in debug mode
       typeConfig: config,
       isSelected: false,
       lat,
@@ -426,6 +428,8 @@ export class ThreeTowerRenderer {
     // Keep debug markers visible in debug mode
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
     if (data.losRing) data.losRing.visible = this.debugMode;
+    // Clear debug rays when deselected
+    this.clearLosRays(data);
   }
 
   /**
@@ -438,7 +442,7 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Set debug mode - shows tip markers and LOS rings for all towers
+   * Set debug mode - shows tip markers, LOS rings, and raycast lines for all towers
    */
   setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
@@ -449,6 +453,10 @@ export class ThreeTowerRenderer {
       }
       if (data.losRing) {
         data.losRing.visible = enabled;
+      }
+      // Recalculate LOS for selected towers to show/hide debug rays
+      if (data.isSelected && data.hexGrid) {
+        this.updateHexGridLoS(data);
       }
     }
   }
@@ -508,6 +516,9 @@ export class ThreeTowerRenderer {
       data.losRing.geometry.dispose();
       (data.losRing.material as THREE.Material).dispose();
     }
+
+    // Remove debug rays
+    this.clearLosRays(data);
 
     this.towers.delete(id);
   }
@@ -1112,6 +1123,15 @@ export class ThreeTowerRenderer {
     const isBlockedAttr = data.hexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
     const isBlockedArray = isBlockedAttr.array as Float32Array;
 
+    // Clear old debug rays
+    this.clearLosRays(data);
+
+    // Create debug ray visualization if in debug mode
+    if (this.debugMode) {
+      data.losRays = new THREE.Group();
+      data.losRays.renderOrder = 998;
+    }
+
     for (const cell of data.hexCells) {
       // Calculate direction from tower to target (XZ plane only)
       const dirX = cell.centerX - towerX;
@@ -1130,10 +1150,50 @@ export class ThreeTowerRenderer {
 
       cell.isBlocked = isBlocked;
       isBlockedArray[cell.index] = isBlocked ? 1.0 : 0.0;
+
+      // Create debug ray line if in debug mode
+      if (this.debugMode && data.losRays) {
+        const points = [
+          new THREE.Vector3(originX, data.tipY, originZ),
+          new THREE.Vector3(cell.centerX, targetY, cell.centerZ)
+        ];
+        const geometry = new THREE.BufferGeometry().setFromPoints(points);
+        const material = new THREE.LineBasicMaterial({
+          color: isBlocked ? 0xff0000 : 0x00ff00, // Red if blocked, green if clear
+          transparent: true,
+          opacity: 0.6,
+          depthTest: false,
+        });
+        const line = new THREE.Line(geometry, material);
+        line.renderOrder = 998;
+        data.losRays.add(line);
+      }
+    }
+
+    // Add debug rays to scene
+    if (data.losRays) {
+      this.scene.add(data.losRays);
     }
 
     // Mark attribute as needing update
     isBlockedAttr.needsUpdate = true;
+  }
+
+  /**
+   * Clear debug raycast lines for a tower
+   */
+  private clearLosRays(data: TowerRenderData): void {
+    if (data.losRays) {
+      // Dispose all line geometries and materials
+      data.losRays.traverse((child) => {
+        if (child instanceof THREE.Line) {
+          child.geometry.dispose();
+          (child.material as THREE.Material).dispose();
+        }
+      });
+      this.scene.remove(data.losRays);
+      data.losRays = null;
+    }
   }
 
   /**
