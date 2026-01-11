@@ -13,7 +13,7 @@ import {
   UpdateOnChangePlugin,
   UnloadTilesPlugin,
   GLTFExtensionsPlugin,
-  GoogleCloudAuthPlugin,
+  CesiumIonAuthPlugin,
   ReorientationPlugin,
 } from '3d-tiles-renderer/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -42,8 +42,8 @@ export interface InitialCameraPosition {
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
  *
- * Uses 3DTilesRendererJS (NASA JPL) to render Google Photorealistic 3D Tiles
- * directly in Three.js, eliminating the need for Cesium.
+ * Uses 3DTilesRendererJS (NASA JPL) to render Cesium Ion 3D Tiles
+ * directly in Three.js.
  *
  * Key advantages:
  * - Single WebGL context - automatic depth occlusion for all objects
@@ -127,17 +127,20 @@ export class ThreeTilesEngine {
   private animationFrameId: number | null = null;
   private isRunning = false;
 
-  // Google Maps API Key
-  private googleMapsApiKey: string;
+  // Cesium Ion credentials
+  private cesiumIonToken: string;
+  private cesiumAssetId: string;
 
   constructor(
     canvas: HTMLCanvasElement,
-    googleMapsApiKey: string,
+    cesiumIonToken: string,
+    cesiumAssetId: string,
     originLat: number,
     originLon: number,
     originHeight: number = 0
   ) {
-    this.googleMapsApiKey = googleMapsApiKey;
+    this.cesiumIonToken = cesiumIonToken;
+    this.cesiumAssetId = cesiumAssetId;
 
     // Initialize coordinate sync
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
@@ -221,10 +224,11 @@ export class ThreeTilesEngine {
     // Create TilesRenderer
     this.tilesRenderer = new TilesRenderer();
 
-    // Register plugins - Google Maps 3D Tiles direct access
+    // Register plugins - Cesium Ion 3D Tiles
     this.tilesRenderer.registerPlugin(
-      new GoogleCloudAuthPlugin({
-        apiToken: this.googleMapsApiKey,
+      new CesiumIonAuthPlugin({
+        apiToken: this.cesiumIonToken,
+        assetId: this.cesiumAssetId,
       })
     );
     this.tilesRenderer.registerPlugin(new TileCompressionPlugin());

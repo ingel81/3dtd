@@ -793,10 +793,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private async initEngine(): Promise<void> {
     try {
-      // Get Google Maps API Key
-      const apiKey = this.configService.googleMapsApiKey();
-      if (!apiKey) {
-        this.engineInit.setError('Bitte konfiguriere deinen Google Maps API Key in appsettings.json.');
+      // Get Cesium Ion credentials
+      const cesiumToken = this.configService.cesiumIonToken();
+      const cesiumAssetId = this.configService.cesiumAssetId();
+      if (!cesiumToken) {
+        this.engineInit.setError('Bitte konfiguriere deinen Cesium Ion Token in environment.ts.');
         this.engineInit.setLoading(false);
         return;
       }
@@ -804,7 +805,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Configure engine initialization service
       const canvas = this.gameCanvas.nativeElement;
       const base = this.baseCoords();
-      this.engineInit.configure(canvas, apiKey, { lat: base.latitude, lon: base.longitude });
+      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.latitude, lon: base.longitude });
 
       // Initialize engine via service
       await this.engineInit.initEngine({

@@ -74,8 +74,11 @@ export class EngineInitializationService {
   /** Canvas element reference */
   private canvas: HTMLCanvasElement | null = null;
 
-  /** Google Maps API key */
-  private apiKey: string | null = null;
+  /** Cesium Ion token */
+  private cesiumToken: string | null = null;
+
+  /** Cesium Ion asset ID */
+  private cesiumAssetId: string | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -84,12 +87,14 @@ export class EngineInitializationService {
   /**
    * Initialize the service with configuration
    * @param canvas Canvas element for rendering
-   * @param apiKey Google Maps API key
+   * @param cesiumToken Cesium Ion access token
+   * @param cesiumAssetId Cesium Ion asset ID
    * @param baseCoords Base/HQ coordinates for engine origin
    */
-  configure(canvas: HTMLCanvasElement, apiKey: string, baseCoords: GeoPosition): void {
+  configure(canvas: HTMLCanvasElement, cesiumToken: string, cesiumAssetId: string, baseCoords: GeoPosition): void {
     this.canvas = canvas;
-    this.apiKey = apiKey;
+    this.cesiumToken = cesiumToken;
+    this.cesiumAssetId = cesiumAssetId;
     this.baseCoords = baseCoords;
   }
 
@@ -198,7 +203,7 @@ export class EngineInitializationService {
       // Reset loading steps for fresh start
       this.resetLoadingSteps();
 
-      if (!this.canvas || !this.apiKey || !this.baseCoords) {
+      if (!this.canvas || !this.cesiumToken || !this.cesiumAssetId || !this.baseCoords) {
         this.error.set('Engine nicht konfiguriert. Bitte configure() zuerst aufrufen.');
         this.loading.set(false);
         return;
@@ -233,7 +238,8 @@ export class EngineInitializationService {
 
       this.engine = new ThreeTilesEngine(
         this.canvas,
-        this.apiKey,
+        this.cesiumToken,
+        this.cesiumAssetId,
         this.baseCoords.lat,
         this.baseCoords.lon,
         0
@@ -392,7 +398,8 @@ export class EngineInitializationService {
     this.engine = null;
     this.baseCoords = null;
     this.canvas = null;
-    this.apiKey = null;
+    this.cesiumToken = null;
+    this.cesiumAssetId = null;
   }
 
   /**

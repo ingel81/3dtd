@@ -27,10 +27,14 @@ jobs:
           echo "export const environment = {
             production: false,
             googleMapsApiKey: '${{ secrets.GOOGLE_MAPS_API_KEY }}',
+            cesiumIonToken: '${{ secrets.CESIUM_ION_TOKEN }}',
+            cesiumAssetId: '2275207',
           };" > src/environments/environment.ts
           echo "export const environment = {
             production: true,
             googleMapsApiKey: '${{ secrets.GOOGLE_MAPS_API_KEY }}',
+            cesiumIonToken: '${{ secrets.CESIUM_ION_TOKEN }}',
+            cesiumAssetId: '2275207',
           };" > src/environments/environment.prod.ts
 
       - name: Build
