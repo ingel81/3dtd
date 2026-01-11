@@ -23,6 +23,7 @@ export interface EnemyRenderData {
   animations: Map<string, THREE.AnimationClip>;
   currentAction: THREE.AnimationAction | null;
   healthBar: THREE.Sprite | null;
+  healthBarBucket: number; // Cached bucket (0-100 in 10% steps) to avoid unnecessary updates
   typeConfig: EnemyTypeConfig;
   isDestroyed: boolean;
   // Animation variation
@@ -263,6 +264,7 @@ export class ThreeEnemyRenderer {
       animations,
       currentAction: null,
       healthBar,
+      healthBarBucket: 100, // Initial: full health
       typeConfig: config,
       isDestroyed: false,
       isWalking: true,
@@ -299,7 +301,7 @@ export class ThreeEnemyRenderer {
     if (data.healthBar) {
       data.healthBar.position.copy(localPos);
       data.healthBar.position.y += data.typeConfig.healthBarOffset;
-      this.updateHealthBarTexture(data.healthBar, healthPercent);
+      this.updateHealthBarTexture(data, healthPercent);
     }
   }
 
@@ -500,12 +502,29 @@ export class ThreeEnemyRenderer {
   }
 
   /**
-   * Update health bar sprite texture
+   * Update health bar sprite texture (only if bucket changed)
    */
-  private updateHealthBarTexture(sprite: THREE.Sprite, healthPercent: number): void {
-    const texture = this.getHealthBarTexture(healthPercent);
-    (sprite.material as THREE.SpriteMaterial).map = texture;
-    (sprite.material as THREE.SpriteMaterial).needsUpdate = true;
+  private updateHealthBarTexture(data: EnemyRenderData, healthPercent: number): void {
+    // Calculate bucket (0-100 in 10% steps)
+    const bucket = Math.max(0, Math.min(100, Math.round(healthPercent * 10) * 10));
+
+    // Skip update if bucket hasn't changed
+    if (bucket === data.healthBarBucket) return;
+
+    data.healthBarBucket = bucket;
+    const texture = this.healthBarTextures.get(bucket) ?? this.createAndCacheTexture(bucket);
+    const material = data.healthBar!.material as THREE.SpriteMaterial;
+    material.map = texture;
+    material.needsUpdate = true;
+  }
+
+  /**
+   * Create and cache health bar texture for a bucket
+   */
+  private createAndCacheTexture(bucket: number): THREE.CanvasTexture {
+    const texture = this.createHealthBarTexture(bucket / 100);
+    this.healthBarTextures.set(bucket, texture);
+    return texture;
   }
 
   /**
