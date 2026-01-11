@@ -15,6 +15,7 @@ export interface TowerRenderData {
   hexGrid: THREE.InstancedMesh | null; // Instanced mesh for hex visualization
   hexCells: HexCell[]; // Hex cell data for LoS calculations
   tipMarker: THREE.Mesh | null; // Debug marker showing LoS origin point
+  losRing: THREE.LineLoop | null; // Debug ring showing LOS origin circle
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
   // Geo coordinates for terrain sampling
@@ -106,6 +107,9 @@ export class ThreeTowerRenderer {
   // Hex grid configuration
   private readonly HEX_SIZE = 8; // Size of each hex cell in meters (flat-to-flat)
   private readonly HEX_GAP = 0.5; // Small gap between hexes for visual clarity
+
+  // LOS offset configuration - raycast starts from tower edge, not center
+  private readonly LOS_OFFSET_BASE = 4.0; // Base offset in meters, multiplied by tower scale
 
   constructor(scene: THREE.Scene, sync: CoordinateSync) {
     this.scene = scene;
@@ -301,6 +305,29 @@ export class ThreeTowerRenderer {
     tipMarker.visible = this.debugMode; // Visible in debug mode, or when tower is selected
     this.scene.add(tipMarker);
 
+    // Create LOS ring (cyan circle showing where LOS raycasts originate)
+    const losOffset = this.LOS_OFFSET_BASE * config.scale;
+    const losRingPoints: THREE.Vector3[] = [];
+    const losRingSegments = 32;
+    for (let i = 0; i <= losRingSegments; i++) {
+      const angle = (i / losRingSegments) * Math.PI * 2;
+      losRingPoints.push(new THREE.Vector3(
+        Math.cos(angle) * losOffset,
+        0,
+        Math.sin(angle) * losOffset
+      ));
+    }
+    const losRingGeometry = new THREE.BufferGeometry().setFromPoints(losRingPoints);
+    const losRingMaterial = new THREE.LineBasicMaterial({
+      color: 0x00ffff, // Cyan
+      depthTest: false,
+    });
+    const losRing = new THREE.LineLoop(losRingGeometry, losRingMaterial);
+    losRing.position.set(terrainPos.x, tipY, terrainPos.z);
+    losRing.renderOrder = 999;
+    losRing.visible = this.debugMode;
+    this.scene.add(losRing);
+
     const renderData: TowerRenderData = {
       id,
       mesh,
@@ -309,6 +336,7 @@ export class ThreeTowerRenderer {
       hexGrid,
       hexCells,
       tipMarker,
+      losRing,
       typeConfig: config,
       isSelected: false,
       lat,
@@ -381,6 +409,7 @@ export class ThreeTowerRenderer {
       this.updateHexGridLoS(data);
     }
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
+    if (data.losRing) data.losRing.visible = this.debugMode;
   }
 
   /**
@@ -394,8 +423,9 @@ export class ThreeTowerRenderer {
     if (data.rangeIndicator) data.rangeIndicator.visible = false;
     if (data.selectionRing) data.selectionRing.visible = false;
     if (data.hexGrid) data.hexGrid.visible = false;
-    // Keep tip marker visible in debug mode
+    // Keep debug markers visible in debug mode
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
+    if (data.losRing) data.losRing.visible = this.debugMode;
   }
 
   /**
@@ -408,20 +438,19 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Set debug mode - shows tip markers (shoot height indicators) for all towers
+   * Set debug mode - shows tip markers and LOS rings for all towers
    */
   setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
 
-    let updatedCount = 0;
     for (const data of this.towers.values()) {
       if (data.tipMarker) {
-        // Only show in debug mode (Tower-Schusshoehe option)
         data.tipMarker.visible = enabled;
-        updatedCount++;
+      }
+      if (data.losRing) {
+        data.losRing.visible = enabled;
       }
     }
-
   }
 
   /**
@@ -471,6 +500,13 @@ export class ThreeTowerRenderer {
       this.scene.remove(data.tipMarker);
       data.tipMarker.geometry.dispose();
       (data.tipMarker.material as THREE.Material).dispose();
+    }
+
+    // Remove LOS ring
+    if (data.losRing) {
+      this.scene.remove(data.losRing);
+      data.losRing.geometry.dispose();
+      (data.losRing.material as THREE.Material).dispose();
     }
 
     this.towers.delete(id);
@@ -1055,7 +1091,7 @@ export class ThreeTowerRenderer {
 
   /**
    * Update Line-of-Sight visualization for all hex cells in a tower's grid
-   * Raycasts from tower tip to each hex cell center, updates aIsBlocked attribute
+   * Raycasts from tower edge (not center) to each hex cell center, updates aIsBlocked attribute
    */
   private updateHexGridLoS(data: TowerRenderData): void {
     if (!data.hexCells || data.hexCells.length === 0) return;
@@ -1069,14 +1105,26 @@ export class ThreeTowerRenderer {
     const towerX = terrainPos.x;
     const towerZ = terrainPos.z;
 
+    // Calculate LOS offset based on tower scale (raycast from edge, not center)
+    const losOffset = this.LOS_OFFSET_BASE * data.typeConfig.scale;
+
     // Get the aIsBlocked attribute array
     const isBlockedAttr = data.hexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
     const isBlockedArray = isBlockedAttr.array as Float32Array;
 
     for (const cell of data.hexCells) {
+      // Calculate direction from tower to target (XZ plane only)
+      const dirX = cell.centerX - towerX;
+      const dirZ = cell.centerZ - towerZ;
+      const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+      // Offset origin point towards target (on tower edge)
+      const originX = towerX + (dirX / dist) * losOffset;
+      const originZ = towerZ + (dirZ / dist) * losOffset;
+
       const targetY = cell.terrainY + 1.0;
       const isBlocked = this.losRaycaster(
-        towerX, data.tipY, towerZ,
+        originX, data.tipY, originZ,
         cell.centerX, targetY, cell.centerZ
       );
 
@@ -1090,16 +1138,30 @@ export class ThreeTowerRenderer {
 
   /**
    * Check if there's line of sight from a tower to a specific position
-   * Used for actual targeting decisions
+   * Uses edge offset - raycast starts from tower edge, not center
    */
   hasLineOfSight(towerId: string, targetX: number, targetY: number, targetZ: number): boolean {
     const data = this.towers.get(towerId);
     if (!data || !this.losRaycaster) return true; // Assume clear if can't check
 
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
+    const towerX = terrainPos.x;
+    const towerZ = terrainPos.z;
+
+    // Calculate LOS offset based on tower scale (raycast from edge, not center)
+    const losOffset = this.LOS_OFFSET_BASE * data.typeConfig.scale;
+
+    // Calculate direction from tower to target (XZ plane only)
+    const dirX = targetX - towerX;
+    const dirZ = targetZ - towerZ;
+    const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+    // Offset origin point towards target (on tower edge)
+    const originX = towerX + (dirX / dist) * losOffset;
+    const originZ = towerZ + (dirZ / dist) * losOffset;
 
     return !this.losRaycaster(
-      terrainPos.x, data.tipY, terrainPos.z,
+      originX, data.tipY, originZ,
       targetX, targetY, targetZ
     );
   }
