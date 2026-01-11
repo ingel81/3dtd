@@ -13,7 +13,7 @@ Performance:
      da läuft jeweils irgendwas langlaufendes. da sollten wir feedback geben was gerade gemacht wird und das ggfs. auch noch optimeren. parallalsieren.
      [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
      [ ] ist aber nicht so dramatisch wie es sich anhört.
-
+Vielen Dank. 
 LOS:
  [x] Tower Prüfen ab dem Punkt in ihrer Mitte innen..streng genommen müssten sie ab außen an der Hülle prüfen. Relevant wenn der Tower auf einem gebäude steht z.b.
 
