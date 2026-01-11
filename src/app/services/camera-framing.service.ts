@@ -47,6 +47,8 @@ export interface FrameConfig {
   aspectRatio?: number;
   /** Vertical FOV in degrees (default: 75) */
   fov?: number;
+  /** Additional route points to include in bounding box (optional) */
+  routePoints?: GeoPoint[];
 }
 
 /**
@@ -146,11 +148,12 @@ export class CameraFramingService {
       estimatedTerrainY = 0,
       aspectRatio = 16 / 9,
       fov = 75,
+      routePoints = [],
     } = config;
 
     // Convert geo coordinates to approximate local coordinates
     // HQ is at origin (0, 0, 0)
-    const localPoints = this.geoToLocalApproximate(hq, spawns);
+    const localPoints = this.geoToLocalApproximate(hq, spawns, routePoints);
 
     // Compute frame from local points
     return this.computeFrameFromLocalPoints(
@@ -192,6 +195,7 @@ export class CameraFramingService {
       markerRadius = CameraFramingService.DEFAULT_MARKER_RADIUS,
       aspectRatio = 16 / 9,
       fov = 75,
+      routePoints = [],
     } = config;
 
     // Get terrain height at HQ
@@ -201,12 +205,18 @@ export class CameraFramingService {
     const sync = this.engine.sync;
     const hqLocal = sync.geoToLocalSimple(hq.lat, hq.lon, 0);
     const spawnLocals = spawns.map(s => sync.geoToLocalSimple(s.lat, s.lon, 0));
+    const routeLocals = routePoints.map(r => sync.geoToLocalSimple(r.lat, r.lon, 0));
 
-    // All points including HQ
+    console.log('[CameraFraming] computeFrameWithEngine - routePoints:', routePoints.length, 'routeLocals:', routeLocals.length);
+
+    // All points including HQ, spawns, and route waypoints
     const allPoints = [
       new THREE.Vector3(hqLocal.x, 0, hqLocal.z),
       ...spawnLocals.map(s => new THREE.Vector3(s.x, 0, s.z)),
+      ...routeLocals.map(r => new THREE.Vector3(r.x, 0, r.z)),
     ];
+
+    console.log('[CameraFraming] Total points for bounding box:', allPoints.length);
 
     // Get camera properties if available
     const camera = this.engine.getCamera();
@@ -232,7 +242,7 @@ export class CameraFramingService {
    */
   private computeFrameFromLocalPoints(
     points: THREE.Vector3[],
-    config: Required<Omit<FrameConfig, 'estimatedTerrainY'>> & { estimatedTerrainY: number }
+    config: Required<Omit<FrameConfig, 'estimatedTerrainY' | 'routePoints'>> & { estimatedTerrainY: number }
   ): CameraFrame {
     const {
       padding,
@@ -293,10 +303,18 @@ export class CameraFramingService {
     // Distance to fit Z span vertically
     // The Z span on the ground projects to spanZ * sin(angle) when viewed from angle
     const projectedZHeight = paddedSpanZ * Math.sin(angleRad);
-    const distanceForZ = (projectedZHeight / 2) / Math.tan(halfFov);
+    const distanceForZFov = (projectedZHeight / 2) / Math.tan(halfFov);
 
-    // Use the larger of X or Z requirements, with 25% safety margin
-    const cameraDistance = Math.max(distanceForX, distanceForZ) * 1.25;
+    // CRITICAL: Minimum distance so that the entire Z span is IN FRONT of the camera
+    // The camera is positioned south of center by horizontalOffset = distance * cos(angle)
+    // The southern edge of the box must not be behind the camera
+    // Condition: horizontalOffset >= paddedSpanZ / 2
+    // => distance * cos(angle) >= paddedSpanZ / 2
+    // => distance >= paddedSpanZ / (2 * cos(angle))
+    const minDistForZCoverage = paddedSpanZ / (2 * Math.cos(angleRad));
+
+    // Use the largest requirement with safety margin
+    const cameraDistance = Math.max(distanceForX, distanceForZFov, minDistForZCoverage) * 1.15;
 
     // ========================================
     // 3. CAMERA POSITION
@@ -336,8 +354,11 @@ export class CameraFramingService {
   /**
    * Approximate geo-to-local conversion (works without engine)
    * HQ is placed at origin (0, 0, 0)
+   * @param hq HQ coordinates (origin)
+   * @param spawns Spawn point coordinates
+   * @param routePoints Optional route waypoints to include in bounding box
    */
-  private geoToLocalApproximate(hq: GeoPoint, spawns: GeoPoint[]): THREE.Vector3[] {
+  private geoToLocalApproximate(hq: GeoPoint, spawns: GeoPoint[], routePoints: GeoPoint[] = []): THREE.Vector3[] {
     const metersPerDegLat = CameraFramingService.METERS_PER_DEG_LAT;
     const metersPerDegLon = metersPerDegLat * Math.cos(hq.lat * THREE.MathUtils.DEG2RAD);
 
@@ -354,6 +375,17 @@ export class CameraFramingService {
       // Match EllipsoidSync convention:
       // -X = East, +X = West (negate longitude delta)
       // +Z = North, -Z = South (positive latitude delta = positive Z)
+      const x = -deltaLon * metersPerDegLon;
+      const z = deltaLat * metersPerDegLat;
+
+      points.push(new THREE.Vector3(x, 0, z));
+    }
+
+    // Route waypoints relative to HQ (ensures routes that curve away are included)
+    for (const route of routePoints) {
+      const deltaLat = route.lat - hq.lat;
+      const deltaLon = route.lon - hq.lon;
+
       const x = -deltaLon * metersPerDegLon;
       const z = deltaLat * metersPerDegLat;
 
@@ -423,6 +455,48 @@ export class CameraFramingService {
       camY: newCamY,
       lookAtY: newLookAtY,
     };
+  }
+
+  // ========================================
+  // ROUTE-INCLUSIVE REFRAMING
+  // ========================================
+
+  /**
+   * Reframe camera to include all routes in the view.
+   * Call this AFTER routes have been calculated to ensure all waypoints are visible.
+   *
+   * @param hq HQ/base geographic coordinates
+   * @param spawns Array of spawn point coordinates
+   * @param routePoints All route waypoints to include in frame
+   * @param config Frame configuration (optional)
+   * @returns true if reframing was applied, false otherwise
+   */
+  reframeWithRoutes(
+    hq: GeoPoint,
+    spawns: GeoPoint[],
+    routePoints: GeoPoint[],
+    config: Omit<FrameConfig, 'routePoints'> = {}
+  ): boolean {
+    console.log('[CameraFraming] reframeWithRoutes called with', routePoints.length, 'route points');
+
+    if (routePoints.length === 0) {
+      console.log('[CameraFraming] No route points, skipping reframe');
+      return false;
+    }
+
+    const frame = this.computeFrameWithEngine(hq, spawns, {
+      ...config,
+      routePoints,
+    });
+
+    if (frame) {
+      console.log('[CameraFraming] New frame bounding box:', frame.boundingBox);
+      this.applyFrame(frame);
+      return true;
+    }
+
+    console.log('[CameraFraming] No frame computed');
+    return false;
   }
 
   // ========================================

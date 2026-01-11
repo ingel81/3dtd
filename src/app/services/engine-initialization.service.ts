@@ -196,8 +196,6 @@ export class EngineInitializationService {
     onCreateBuildPreview: () => void;
     onSaveInitialCameraPosition: () => void;
     onCheckAllLoaded: () => void;
-    /** NEW: Get spawn coordinates BEFORE engine init for optimal initial framing */
-    getSpawnCoordinates: () => GeoPoint[];
   }): Promise<void> {
     try {
       // Reset loading steps for fresh start
@@ -218,24 +216,7 @@ export class EngineInitializationService {
       // Step 1: Initialize Engine
       await this.setStepActive('init');
 
-      // Get spawn coordinates BEFORE engine init for optimal initial camera framing
-      const spawnCoords = callbacks.getSpawnCoordinates();
-      const hqCoord: GeoPoint = { lat: this.baseCoords.lat, lon: this.baseCoords.lon };
-
-      // Compute initial camera frame using actual canvas aspect ratio
-      const canvasAspect = rect.width / rect.height;
-      let initialFrame = null;
-      if (spawnCoords.length > 0) {
-        initialFrame = this.cameraFraming.computeInitialFrame(hqCoord, spawnCoords, {
-          padding: 0.1, // 10% margin around bounding box
-          angle: 70,
-          markerRadius: 8,
-          estimatedTerrainY: 0, // Will be corrected after terrain loads
-          aspectRatio: canvasAspect, // Use actual canvas aspect ratio
-          fov: 60, // Must match THREE.PerspectiveCamera FOV in three-tiles-engine.ts!
-        });
-      }
-
+      // Engine starts with default camera on HQ - final framing happens after routes are calculated
       this.engine = new ThreeTilesEngine(
         this.canvas,
         this.cesiumToken,
@@ -244,18 +225,6 @@ export class EngineInitializationService {
         this.baseCoords.lon,
         0
       );
-
-      // Set pre-computed camera position BEFORE initialize() for optimal initial view
-      if (initialFrame) {
-        this.engine.setInitialCameraPosition({
-          x: initialFrame.camX,
-          y: initialFrame.camY,
-          z: initialFrame.camZ,
-          lookAtX: initialFrame.lookAtX,
-          lookAtY: initialFrame.lookAtY,
-          lookAtZ: initialFrame.lookAtZ,
-        });
-      }
 
       await this.setStepDone('init');
 

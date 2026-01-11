@@ -406,11 +406,16 @@ export class CameraControlService {
   /**
    * Show debug visualization for camera framing
    * Call this after frameHqAndSpawns to see the bounding boxes
+   * @param hq HQ coordinates
+   * @param spawns Spawn point coordinates
+   * @param padding Padding factor (default 0.2)
+   * @param routePoints Optional route waypoints to include in bounding box
    */
   showDebugVisualization(
     hq: { lat: number; lon: number },
     spawns: { lat: number; lon: number }[],
-    padding: number = 0.2
+    padding: number = 0.2,
+    routePoints: { lat: number; lon: number }[] = []
   ): void {
     if (!this.engine || !this.debugFramingEnabled) return;
 
@@ -420,10 +425,11 @@ export class CameraControlService {
     const sync = this.engine.sync;
     const scene = this.engine.getScene();
 
-    // Convert all points to local coordinates
+    // Convert all points to local coordinates (HQ + spawns + routes)
     const hqLocal = sync.geoToLocalSimple(hq.lat, hq.lon, 0);
     const spawnLocals = spawns.map(s => sync.geoToLocalSimple(s.lat, s.lon, 0));
-    const allPoints = [hqLocal, ...spawnLocals];
+    const routeLocals = routePoints.map(r => sync.geoToLocalSimple(r.lat, r.lon, 0));
+    const allPoints = [hqLocal, ...spawnLocals, ...routeLocals];
 
     // Calculate bounding box
     let minX = Infinity, maxX = -Infinity;

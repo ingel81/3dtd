@@ -819,8 +819,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         onCreateBuildPreview: () => this.createBuildPreview(),
         onSaveInitialCameraPosition: () => this.saveInitialCameraPosition(),
         onCheckAllLoaded: () => this.checkAllLoaded(),
-        // NEW: Get spawn coordinates BEFORE engine init for optimal initial framing
-        getSpawnCoordinates: () => this.getSpawnCoordinatesForFraming(),
       });
 
       // Get engine reference
@@ -1027,6 +1025,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize tower placement service (now that all dependencies are ready)
     this.initializeTowerPlacement();
 
+    // Reframe camera to include all route waypoints (routes may curve away from spawn-HQ line)
+    this.reframeCameraWithRoutes();
+
     return this.pathRoute.getRouteDetail();
   }
 
@@ -1081,17 +1082,27 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Save current camera position as initial position for reset
-   * NOTE: Framing is now done by CameraFramingService BEFORE engine init
+   * NOTE: Framing is now done by CameraFramingService after routes are calculated
    * This method only saves the (already correct) position, no re-framing
    */
   private saveInitialCameraPosition(): void {
-    // Show debug visualization if enabled (using old service for now)
+    // Show debug visualization if enabled (including routes)
     const hq = this.baseCoords();
     const spawns = this.spawnPoints();
+
+    // Extract all route waypoints from cached paths
+    const routePoints: { lat: number; lon: number }[] = [];
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    cachedPaths.forEach((path) => {
+      for (const pos of path) {
+        routePoints.push({ lat: pos.lat, lon: pos.lon });
+      }
+    });
+
     if (spawns.length > 0) {
       const hqCoord = { lat: hq.latitude, lon: hq.longitude };
       const spawnCoords = spawns.map(s => ({ lat: s.latitude, lon: s.longitude }));
-      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, 0.2);
+      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, 0.1, routePoints);
     }
 
     // Get target from last computed frame
@@ -1302,15 +1313,48 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   /**
-   * Get spawn coordinates for initial camera framing (BEFORE engine init)
-   * Returns coordinates without adding them to the scene
+   * Reframe camera to include all calculated routes.
+   * Routes may curve significantly due to rivers, bridges, or street layout,
+   * so the initial frame (based only on spawns + HQ) may not show all waypoints.
    */
-  private getSpawnCoordinatesForFraming(): GeoPoint[] {
-    const spawns = this.editableSpawnLocations();
-    if (spawns.length > 0 && spawns.every(s => s.lat !== 0 && s.lon !== 0)) {
-      return spawns.map(s => ({ lat: s.lat, lon: s.lon }));
+  private reframeCameraWithRoutes(): void {
+    const base = this.baseCoords();
+    const hq: GeoPoint = { lat: base.latitude, lon: base.longitude };
+
+    // Get spawn coordinates
+    const spawns: GeoPoint[] = this.spawnPoints().map(sp => ({
+      lat: sp.latitude,
+      lon: sp.longitude,
+    }));
+
+    // Extract all route waypoints from cached paths
+    const routePoints: GeoPoint[] = [];
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    console.log('[Reframe] Cached paths count:', cachedPaths.size);
+    cachedPaths.forEach((path, spawnId) => {
+      console.log(`[Reframe] Path for ${spawnId}: ${path.length} points`);
+      for (const pos of path) {
+        routePoints.push({ lat: pos.lat, lon: pos.lon });
+      }
+    });
+
+    console.log('[Reframe] Total route points:', routePoints.length);
+    if (routePoints.length > 0) {
+      // Log min/max lat/lon to see the extent
+      const lats = routePoints.map(p => p.lat);
+      const lons = routePoints.map(p => p.lon);
+      console.log('[Reframe] Lat range:', Math.min(...lats), '-', Math.max(...lats));
+      console.log('[Reframe] Lon range:', Math.min(...lons), '-', Math.max(...lons));
     }
-    return DEFAULT_SPAWN_POINTS.map(s => ({ lat: s.latitude, lon: s.longitude }));
+
+    // Only reframe if we have route points
+    if (routePoints.length > 0) {
+      this.cameraFraming.reframeWithRoutes(hq, spawns, routePoints, {
+        padding: 0.1,
+        angle: 70,
+        markerRadius: 8,
+      });
+    }
   }
 
   private addPredefinedSpawns(): number {
@@ -1569,21 +1613,32 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Toggle camera framing debug visualization
-   * Shows bounding boxes for HQ+spawns framing algorithm
+   * Shows bounding boxes for HQ+spawns+routes framing algorithm
    */
   toggleCameraFramingDebug(): void {
     const enabled = this.cameraControl.toggleDebugFraming();
     this.cameraFramingDebug.set(enabled);
 
     if (enabled) {
-      // Show current framing visualization
+      // Show current framing visualization (including routes)
       const hq = this.baseCoords();
       const spawns = this.spawnPoints();
+
+      // Extract all route waypoints from cached paths
+      const routePoints: { lat: number; lon: number }[] = [];
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      cachedPaths.forEach((path) => {
+        for (const pos of path) {
+          routePoints.push({ lat: pos.lat, lon: pos.lon });
+        }
+      });
+
       if (spawns.length > 0) {
         this.cameraControl.showDebugVisualization(
           { lat: hq.latitude, lon: hq.longitude },
           spawns.map(s => ({ lat: s.latitude, lon: s.longitude })),
-          0.2
+          0.1,
+          routePoints
         );
       }
     }
