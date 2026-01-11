@@ -6,27 +6,30 @@ import { GameUIStateService } from '../../services/game-ui-state.service';
  * InfoOverlayComponent
  *
  * Transparentes Text-Overlay oben links auf dem Spielfeld.
- * Zeigt FPS, Tiles, aktive Gegner, aktive Sounds, Straßen-Count.
+ * Zeigt FPS (immer sichtbar), sowie Tiles, aktive Gegner, Sounds, Straßen-Count (zuschaltbar).
  *
  * Features:
+ * - FPS-Anzeige ist dauerhaft sichtbar
+ * - Rest (Tiles, Gegner, Sounds, Strassen) zuschaltbar über Quick Actions Button
  * - Kein Background - komplett transparent
  * - Multi-Layer Text-Shadow für Lesbarkeit auf allen Untergründen
- * - Zuschaltbar über Quick Actions Button
  */
 @Component({
   selector: 'app-info-overlay',
   standalone: true,
   imports: [CommonModule],
   template: `
-    @if (uiState.infoOverlayVisible()) {
-      <div class="info-overlay">
-        <div class="info-line">FPS: {{ fps() }}</div>
+    <div class="info-overlay">
+      <!-- FPS always visible -->
+      <div class="info-line">FPS: {{ fps() }}</div>
+      <!-- Rest only visible when info overlay is toggled -->
+      @if (uiState.infoOverlayVisible()) {
         <div class="info-line">Tiles: {{ tileStats().visible }}/{{ tileStats().total }}</div>
         <div class="info-line">Gegner: {{ enemiesAlive() }}</div>
         <div class="info-line">Sounds: {{ activeSounds() }}</div>
         <div class="info-line">Strassen: {{ streetCount() }}</div>
-      </div>
-    }
+      }
+    </div>
   `,
   styles: `
     .info-overlay {

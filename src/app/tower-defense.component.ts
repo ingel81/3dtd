@@ -844,13 +844,20 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private checkAllLoaded(): void {
     const wasLoading = this.loading();
+    const isApplying = this.isApplyingLocation();
+
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
     const isNowLoading = this.loading();
 
+    // console.log('[TD] checkAllLoaded - was:', wasLoading, 'now:', isNowLoading,
+    //   'tiles:', this.tilesLoading(), 'osm:', this.osmLoading(),
+    //   'heights:', this.heightUpdate.heightsLoading(), 'applying:', isApplying);
+
     // Start route animation when loading completes (transition from true to false)
-    if (wasLoading && !isNowLoading && !this.routeAnimation.isRunning()) {
+    // BUT NOT if we're in the middle of applying a new location!
+    if (wasLoading && !isNowLoading && !this.routeAnimation.isRunning() && !isApplying) {
       const cachedPaths = this.pathRoute.getCachedPaths();
-      console.log('[TD] Loading complete, starting route animation. Paths:', cachedPaths.size);
+      // console.log('[TD] Loading complete, starting route animation. Paths:', cachedPaths.size);
       if (cachedPaths.size > 0) {
         this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
       }
@@ -1055,7 +1062,18 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       () => this.renderStreets(),
       (detail: string) => this.engineInit.setStepDone('finalize', detail),
       (detail: string) => this.engineInit.updateStepDetail('finalize', detail),
-      () => this.checkAllLoaded()
+      () => this.checkAllLoaded(),
+      // Camera correction callback - runs BEFORE overlay hides
+      () => {
+        // console.log('[TD] Camera correction callback - BEFORE overlay hides');
+        this.cameraFraming.setEngine(engine);
+        const realTerrainY = engine.getTerrainHeightAtGeo(base.latitude, base.longitude) ?? 0;
+        // console.log('[TD] Terrain height at base:', realTerrainY);
+        if (Math.abs(realTerrainY) > 1) {
+          this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
+        }
+        this.saveInitialCameraPosition();
+      }
     );
 
     await this.heightUpdate.scheduleOverlayHeightUpdate();
@@ -1805,7 +1823,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // STEP 5: Place spawn point
       await this.engineInit.setStepActive('spawn');
+      // console.log('[Location] Adding spawn point, cached paths before:', this.pathRoute.getCachedPaths().size);
       this.addSpawnPoint('spawn-1', data.spawn.name?.split(',')[0] || 'Spawn', data.spawn.lat, data.spawn.lon, 0xef4444);
+      // console.log('[Location] Spawn added, cached paths after:', this.pathRoute.getCachedPaths().size);
       await this.engineInit.setStepDone('spawn', '1 Punkt');
 
       // STEP 6: Calculate route
@@ -1836,34 +1856,28 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.engineInit.setStepDone('route', routeDetail);
 
       // STEP 7: Finalize 3D view (waits for tiles + height sync)
+      // CRITICAL: Must await to ensure height updates complete, camera correction runs,
+      // and overlay hides AFTER everything is ready (same as F5-reload path)
       await this.engineInit.setStepActive('finalize');
-      this.scheduleOverlayHeightUpdate();
+      await this.scheduleOverlayHeightUpdate();
 
-      // STEP 18: Save to localStorage
+      // Save to localStorage (after heights are stable)
       this.locationMgmt.saveLocationsToStorage();
-
-      // STEP 19: Correct camera Y and save position (after tiles stabilize)
-      // Note: flyToCenter() removed - we already applied optimal framing above
-      setTimeout(() => {
-        // Correct Y position based on actual terrain height
-        const realTerrainY = this.engine!.getTerrainHeightAtGeo(data.hq.lat, data.hq.lon) ?? 0;
-        if (Math.abs(realTerrainY) > 1) {
-          this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
-        }
-        // Save the corrected position as initial
-        this.saveInitialCameraPosition();
-      }, 2000);
 
       this.appendDebugLog(`Geladen: ${this.streetCount()} Strassen`);
 
-      // Start route animation (same as after initial load in checkAllLoaded)
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
-      }
-
-      // Loading overlay will be hidden by checkAllLoaded() when heights stabilize
+      // Mark location change as complete
       this.isApplyingLocation.set(false);
+
+      // Start route animation NOW (after everything is ready)
+      // We do this manually because checkAllLoaded() skips animation while isApplyingLocation is true
+      if (!this.routeAnimation.isRunning()) {
+        const cachedPaths = this.pathRoute.getCachedPaths();
+        // console.log('[Location] Location change complete, starting route animation. Paths:', cachedPaths.size);
+        if (cachedPaths.size > 0) {
+          this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
+        }
+      }
 
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);

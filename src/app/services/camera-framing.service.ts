@@ -391,11 +391,19 @@ export class CameraFramingService {
    * @param originalEstimate Original estimated terrain height used in frame
    */
   correctTerrainHeight(realTerrainY: number, originalEstimate: number = 0): void {
-    if (!this.engine || !this.lastFrame) return;
+    if (!this.engine || !this.lastFrame) {
+      // console.log('[CameraFraming] correctTerrainHeight - no engine or lastFrame');
+      return;
+    }
 
     const deltaY = realTerrainY - originalEstimate;
 
-    if (Math.abs(deltaY) < 1) return;
+    if (Math.abs(deltaY) < 1) {
+      // console.log('[CameraFraming] correctTerrainHeight - deltaY too small:', deltaY);
+      return;
+    }
+
+    // console.log('[CameraFraming] correctTerrainHeight - deltaY:', deltaY, 'realTerrainY:', realTerrainY);
 
     const newCamY = this.lastFrame.camY + deltaY;
     const newLookAtY = this.lastFrame.lookAtY + deltaY;

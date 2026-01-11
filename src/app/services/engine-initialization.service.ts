@@ -307,26 +307,10 @@ export class EngineInitializationService {
       this.osmLoading.set(false);
 
       // Step 6: Finalize 3D view (waits for tiles + height sync)
+      // Camera correction and saveInitialCameraPosition are now handled by
+      // HeightUpdateService callback (runs BEFORE overlay hides)
       await this.setStepActive('finalize');
       await callbacks.onScheduleHeightUpdate();
-
-      // After tiles stabilize: correct camera Y based on actual terrain height
-      // and save the corrected position as initial
-      setTimeout(() => {
-        // Set engine reference for terrain height queries
-        this.cameraFraming.setEngine(this.engine);
-
-        // Correct Y position based on actual terrain height
-        if (initialFrame && this.engine) {
-          const realTerrainY = this.engine.getTerrainHeightAtGeo(hqCoord.lat, hqCoord.lon) ?? 0;
-          if (Math.abs(realTerrainY) > 1) {
-            this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
-          }
-        }
-
-        // Save the corrected position
-        callbacks.onSaveInitialCameraPosition();
-      }, 2000);
 
       // Final check (heights should trigger hiding overlay)
       callbacks.onCheckAllLoaded();

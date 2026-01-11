@@ -104,6 +104,7 @@ export class PathAndRouteService {
    * Clear all cached paths
    */
   clearCache(): void {
+    // console.log('[PathRoute] clearCache - clearing', this.cachedPaths.size, 'cached paths');
     this.cachedPaths.clear();
   }
 
@@ -179,7 +180,15 @@ export class PathAndRouteService {
    * @param spawn Spawn point
    */
   showPathFromSpawn(spawn: SpawnPoint): void {
-    if (!this.engine || !this.streetNetwork || !this.osmService || !this.baseCoords) return;
+    if (!this.engine || !this.streetNetwork || !this.osmService || !this.baseCoords) {
+      // console.warn('[PathRoute] showPathFromSpawn early return - missing:', {
+      //   engine: !!this.engine,
+      //   streetNetwork: !!this.streetNetwork,
+      //   osmService: !!this.osmService,
+      //   baseCoords: !!this.baseCoords,
+      // });
+      return;
+    }
 
     const path = this.osmService.findPath(
       this.streetNetwork,
@@ -189,7 +198,12 @@ export class PathAndRouteService {
       this.baseCoords.lon
     );
 
-    if (path.length < 2) return;
+    if (path.length < 2) {
+      // console.warn('[PathRoute] showPathFromSpawn - path too short:', path.length);
+      return;
+    }
+
+    // console.log('[PathRoute] showPathFromSpawn - caching path for', spawn.id, 'length:', path.length);
 
     // Snap spawn marker to actual path start
     const pathStart = path[0];
