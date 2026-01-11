@@ -5,6 +5,7 @@ import {
   AfterViewInit,
   ElementRef,
   ViewChild,
+  NgZone,
   signal,
   inject,
   computed,
@@ -608,6 +609,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   private readonly dialog = inject(MatDialog);
+  private readonly ngZone = inject(NgZone);
   private readonly osmService = inject(OsmStreetService);
   private readonly configService = inject(ConfigService);
   readonly gameState = inject(GameStateManager);
@@ -733,6 +735,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly gatheringCountdown = signal(0);
 
   private animationFrameId: number | null = null;
+
+  // UI update throttling (avoid updating signals every frame)
+  private lastUIUpdateTime = 0;
+  private readonly UI_UPDATE_INTERVAL = 100; // ms - update UI stats ~10x per second instead of 60x
+  private lastFps = 0;
+  private lastActiveSounds = 0;
 
   constructor() {
     // Effect: Update all existing enemies when speed changes
@@ -1281,47 +1289,70 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Called each frame for animations
+   * Called each frame for animations (runs outside Angular zone)
    */
   private onEngineUpdate(deltaTime: number): void {
-    // Update FPS, tile stats, sounds, and attributions
-    if (this.engine) {
-      this.fps.set(this.engine.getFPS());
-      this.tileStats.set(this.engine.getTileStats());
-      this.activeSounds.set(this.engine.spatialAudio.getActiveSoundCount());
-
-      // Update attributions (throttled - only when tiles change)
-      const attr = this.engine.getAttributions();
-      if (attr && attr !== this.mapAttribution()) {
-        this.mapAttribution.set(attr || 'Map data ©2024 Google');
-      }
-
-      // Update compass heading with smooth rotation (avoids 0°/360° flip)
-      const heading = Math.round(this.cameraControl.getCameraHeading());
-      if (heading !== this.cameraHeading()) {
-        const oldHeading = this.cameraHeading();
-        this.cameraHeading.set(heading);
-
-        // Calculate shortest rotation delta (handles 0°/360° wrap-around)
-        let delta = heading - oldHeading;
-        if (delta > 180) delta -= 360;
-        if (delta < -180) delta += 360;
-
-        // Accumulate rotation for smooth compass animation
-        this.compassRotation.update(rot => rot + delta);
-      }
-
-      // Update camera debug info (only when debug overlay is enabled)
-      if (this.cameraDebugEnabled()) {
-        this.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
-      }
-    }
-
-    // Animate markers (HQ rotation, spawn pulse)
+    // Animate markers (HQ rotation, spawn pulse) - no signals, pure Three.js
     this.markerViz.animateMarkers(deltaTime);
 
-    // Animate route visualization (Knight Rider effect)
+    // Animate route visualization (Knight Rider effect) - no signals, pure Three.js
     this.routeAnimation.update(deltaTime);
+
+    // Throttle UI signal updates to reduce Angular change detection overhead
+    const now = performance.now();
+    if (now - this.lastUIUpdateTime < this.UI_UPDATE_INTERVAL) {
+      return; // Skip UI updates this frame
+    }
+    this.lastUIUpdateTime = now;
+
+    // Update UI signals only when values changed (runs inside Angular zone for change detection)
+    if (this.engine) {
+      this.ngZone.run(() => {
+        // FPS - only update if changed
+        const newFps = this.engine!.getFPS();
+        if (newFps !== this.lastFps) {
+          this.lastFps = newFps;
+          this.fps.set(newFps);
+        }
+
+        // Tile stats - only update if changed (compare by reference is fine, engine returns same object if unchanged)
+        const newTileStats = this.engine!.getTileStats();
+        this.tileStats.set(newTileStats);
+
+        // Active sounds - only update if changed
+        const newActiveSounds = this.engine!.spatialAudio.getActiveSoundCount();
+        if (newActiveSounds !== this.lastActiveSounds) {
+          this.lastActiveSounds = newActiveSounds;
+          this.activeSounds.set(newActiveSounds);
+        }
+
+        // Attributions - only update if changed
+        const attr = this.engine!.getAttributions();
+        if (attr && attr !== this.mapAttribution()) {
+          this.mapAttribution.set(attr || 'Map data ©2024 Google');
+        }
+
+        // Compass heading - only update if changed
+        const heading = Math.round(this.cameraControl.getCameraHeading());
+        if (heading !== this.cameraHeading()) {
+          const oldHeading = this.cameraHeading();
+          this.cameraHeading.set(heading);
+
+          // Calculate shortest rotation delta (handles 0°/360° wrap-around)
+          let delta = heading - oldHeading;
+          if (delta > 180) delta -= 360;
+          if (delta < -180) delta += 360;
+
+          // Accumulate rotation for smooth compass animation
+          this.compassRotation.update(rot => rot + delta);
+        }
+
+        // Camera debug info - only when debug overlay is enabled
+        if (this.cameraDebugEnabled()) {
+          this.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
+        }
+      });
+    }
   }
 
 
@@ -1541,25 +1572,31 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private startGameLoop(): void {
-    const animate = () => {
-      if (!this.engine || this.gameState.phase() === 'gameover') {
-        this.animationFrameId = null;
-        return;
-      }
+    // Run game loop outside Angular zone to avoid triggering change detection every frame
+    this.ngZone.runOutsideAngular(() => {
+      const animate = () => {
+        if (!this.engine || this.gameState.phase() === 'gameover') {
+          this.animationFrameId = null;
+          return;
+        }
 
-      const currentTime = performance.now();
-      this.gameState.update(currentTime);
+        const currentTime = performance.now();
+        this.gameState.update(currentTime);
 
-      if (this.gameState.checkWaveComplete()) {
-        this.gameState.endWave();
-        this.animationFrameId = null;
-        return;
-      }
+        if (this.gameState.checkWaveComplete()) {
+          // End wave inside Angular zone to trigger UI updates
+          this.ngZone.run(() => {
+            this.gameState.endWave();
+          });
+          this.animationFrameId = null;
+          return;
+        }
+
+        this.animationFrameId = requestAnimationFrame(animate);
+      };
 
       this.animationFrameId = requestAnimationFrame(animate);
-    };
-
-    this.animationFrameId = requestAnimationFrame(animate);
+    });
   }
 
   /**

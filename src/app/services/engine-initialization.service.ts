@@ -1,4 +1,4 @@
-import { inject, Injectable, signal, WritableSignal } from '@angular/core';
+import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { CameraFramingService, GeoPoint } from './camera-framing.service';
@@ -30,6 +30,7 @@ export class EngineInitializationService {
   // INJECTED SERVICES
   // ========================================
 
+  private readonly ngZone = inject(NgZone);
   private readonly cameraFraming = inject(CameraFramingService);
 
   // ========================================
@@ -245,8 +246,11 @@ export class EngineInitializationService {
       callbacks.onSetupClickHandler();
       callbacks.onCreateBuildPreview();
 
-      // Start render loop immediately (tiles load progressively in background)
-      this.engine.startRenderLoop();
+      // Start render loop outside Angular zone to avoid triggering change detection on every frame
+      const engine = this.engine;
+      this.ngZone.runOutsideAngular(() => {
+        engine.startRenderLoop();
+      });
 
       // Step 2: Load OSM streets
       await this.setStepActive('streets');
