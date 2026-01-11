@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
+import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-defense/shaders/los-hatching.shaders';
 
 /**
  * Tower render data - stored per tower
@@ -11,7 +12,7 @@ export interface TowerRenderData {
   mesh: THREE.Object3D;
   rangeIndicator: THREE.Mesh | null;
   selectionRing: THREE.Mesh | null;
-  hexGrid: THREE.Group | null; // Container for hex visualization
+  hexGrid: THREE.InstancedMesh | null; // Instanced mesh for hex visualization
   hexCells: HexCell[]; // Hex cell data for LoS calculations
   tipMarker: THREE.Mesh | null; // Debug marker showing LoS origin point
   typeConfig: TowerTypeConfig;
@@ -49,7 +50,7 @@ export type LineOfSightRaycaster = (
  * Data for a single hex cell in the range indicator
  */
 interface HexCell {
-  mesh: THREE.Mesh;
+  index: number; // Index in the InstancedMesh
   centerX: number; // World X
   centerZ: number; // World Z
   terrainY: number;
@@ -89,10 +90,8 @@ export class ThreeTowerRenderer {
   // Line-of-Sight raycaster for visibility checks
   private losRaycaster: LineOfSightRaycaster | null = null;
 
-  // Hex grid materials - both use hatching shaders
-  private hexVisibleMaterial: THREE.ShaderMaterial; // Green hatching for visible areas
-  private hexBlockedMaterial: THREE.ShaderMaterial; // Red hatching for blocked areas
-  private hexOutlineMaterial: THREE.LineBasicMaterial; // White outline for hex cells
+  // Hex grid material - unified shader for both visible and blocked areas
+  private hexMaterial: THREE.ShaderMaterial;
 
   // Debug mode - shows tip markers for all towers
   private debugMode = false;
@@ -133,31 +132,21 @@ export class ThreeTowerRenderer {
       depthTest: false, // Always render on top
     });
 
-    // Hex cell material for visible areas - disabled (only show blocked)
-    this.hexVisibleMaterial = new THREE.MeshBasicMaterial({
-      color: 0x22c55e,
+    // Unified hex material with animated hatching shader
+    const hexRadius = (this.HEX_SIZE - this.HEX_GAP) / 2;
+    this.hexMaterial = new THREE.ShaderMaterial({
+      vertexShader: LOS_HATCHING_VERTEX,
+      fragmentShader: LOS_HATCHING_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0 },
+        uVisibleColor: { value: new THREE.Color(0x22c55e) }, // Green
+        uBlockedColor: { value: new THREE.Color(0xdc2626) }, // Red
+        uVisibleOpacity: { value: 0.35 }, // Clearly visible
+        uBlockedOpacity: { value: 0.30 }, // More visible for blocked
+        uHexRadius: { value: hexRadius },
+      },
       transparent: true,
-      opacity: 0, // Disabled
       side: THREE.DoubleSide,
-      depthWrite: false,
-      depthTest: false,
-    }) as unknown as THREE.ShaderMaterial;
-
-    // Hex cell material for blocked areas - simple red fill
-    this.hexBlockedMaterial = new THREE.MeshBasicMaterial({
-      color: 0xdc2626,
-      transparent: true,
-      opacity: 0.5,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      depthTest: false,
-    }) as unknown as THREE.ShaderMaterial;
-
-    // Hex cell outline material (white lines around each hex)
-    this.hexOutlineMaterial = new THREE.LineBasicMaterial({
-      color: 0xffffff,
-      transparent: true,
-      opacity: 0, // Disabled for now
       depthWrite: false,
       depthTest: false,
     });
@@ -470,14 +459,11 @@ export class ThreeTowerRenderer {
       }
     }
 
-    // Remove hex grid
+    // Remove hex grid (InstancedMesh)
     if (data.hexGrid) {
       this.scene.remove(data.hexGrid);
-      // Dispose all hex cell geometries
-      for (const cell of data.hexCells) {
-        cell.mesh.geometry.dispose();
-        // Materials are shared, don't dispose them
-      }
+      data.hexGrid.geometry.dispose();
+      // Material is shared (hexMaterial), don't dispose it
     }
 
     // Remove tip marker
@@ -491,12 +477,15 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update selection ring animation
-   * Call each frame for pulse effect
+   * Update selection ring animation and hex grid shader
+   * Call each frame for pulse effect and hatching animation
    */
   updateAnimations(deltaTime: number): void {
     // Accumulate time for frame-independent animation
     this.animationTime += deltaTime * 0.003;
+
+    // Update hex material shader time uniform
+    this.hexMaterial.uniforms['uTime'].value = this.animationTime;
 
     for (const data of this.towers.values()) {
       if (data.isSelected && data.selectionRing) {
@@ -943,16 +932,15 @@ export class ThreeTowerRenderer {
 
   /**
    * Create a hex grid for Line-of-Sight visualization
-   * Uses flat-top hexagons arranged in a circular pattern within the tower's range
-   * Creates mesh objects for each cell that can be styled with hatching
+   * Uses InstancedMesh for optimal performance (single draw call)
+   * Per-instance aIsBlocked attribute controls hatching pattern per cell
    */
   private createHexGrid(
     centerX: number,
     centerZ: number,
     range: number,
-    towerTipY: number
-  ): { hexGrid: THREE.Group; hexCells: HexCell[] } {
-    const hexGrid = new THREE.Group();
+    _towerTipY: number
+  ): { hexGrid: THREE.InstancedMesh; hexCells: HexCell[] } {
     const hexCells: HexCell[] = [];
 
     // Hex dimensions (flat-top)
@@ -967,6 +955,40 @@ export class ThreeTowerRenderer {
     // Calculate how many hexes we need in each direction
     const maxHexesX = Math.ceil(range / horizSpacing) + 1;
     const maxHexesZ = Math.ceil(range / vertSpacing) + 1;
+
+    // First pass: collect all valid hex positions
+    interface HexPosition {
+      worldX: number;
+      worldZ: number;
+      terrainY: number;
+    }
+    const hexPositions: HexPosition[] = [];
+
+    for (let qx = -maxHexesX; qx <= maxHexesX; qx++) {
+      for (let qz = -maxHexesZ; qz <= maxHexesZ; qz++) {
+        // Offset every other row (offset coordinates)
+        const xOffset = qz % 2 === 0 ? 0 : horizSpacing / 2;
+        const localX = qx * horizSpacing + xOffset;
+        const localZ = qz * vertSpacing * 0.75;
+
+        // Check if hex center is within range
+        const distFromCenter = Math.sqrt(localX * localX + localZ * localZ);
+        if (distFromCenter > range - hexRadius * 0.5) {
+          continue;
+        }
+
+        // World position
+        const worldX = centerX + localX;
+        const worldZ = centerZ - localZ;
+
+        // Get terrain height
+        if (!this.terrainRaycaster) continue;
+        const terrainY = this.terrainRaycaster(worldX, worldZ);
+        if (terrainY === null) continue;
+
+        hexPositions.push({ worldX, worldZ, terrainY });
+      }
+    }
 
     // Create hex geometry template (flat-top hexagon)
     const hexShape = new THREE.Shape();
@@ -983,79 +1005,61 @@ export class ThreeTowerRenderer {
     hexShape.closePath();
     const hexGeometry = new THREE.ShapeGeometry(hexShape);
 
-    // Create hex outline points for LineLoop (in XZ plane)
-    const hexOutlinePoints: THREE.Vector3[] = [];
-    for (let i = 0; i < 6; i++) {
-      const angle = (i * Math.PI) / 3;
-      const x = hexRadius * Math.cos(angle);
-      const z = hexRadius * Math.sin(angle);
-      hexOutlinePoints.push(new THREE.Vector3(x, 0, z));
+    // Create InstancedMesh with collected positions
+    const instanceCount = hexPositions.length;
+    const hexGrid = new THREE.InstancedMesh(hexGeometry, this.hexMaterial, instanceCount);
+    hexGrid.renderOrder = 3;
+
+    // Create instance matrices and aIsBlocked attribute
+    const isBlockedArray = new Float32Array(instanceCount);
+    const matrix = new THREE.Matrix4();
+    const rotation = new THREE.Euler(-Math.PI / 2, 0, 0); // Lay flat
+    const quaternion = new THREE.Quaternion().setFromEuler(rotation);
+    const scale = new THREE.Vector3(1, 1, 1);
+
+    for (let i = 0; i < instanceCount; i++) {
+      const pos = hexPositions[i];
+
+      // Set instance matrix (position + rotation)
+      matrix.compose(
+        new THREE.Vector3(pos.worldX, pos.terrainY + 1.0, pos.worldZ),
+        quaternion,
+        scale
+      );
+      hexGrid.setMatrixAt(i, matrix);
+
+      // Initialize as not blocked
+      isBlockedArray[i] = 0;
+
+      // Store cell data
+      hexCells.push({
+        index: i,
+        centerX: pos.worldX,
+        centerZ: pos.worldZ,
+        terrainY: pos.terrainY,
+        isBlocked: false,
+      });
     }
 
-    // Generate hexes in an offset grid pattern
-    for (let qx = -maxHexesX; qx <= maxHexesX; qx++) {
-      for (let qz = -maxHexesZ; qz <= maxHexesZ; qz++) {
-        // Offset every other row (offset coordinates)
-        const xOffset = qz % 2 === 0 ? 0 : horizSpacing / 2;
-        const localX = qx * horizSpacing + xOffset;
-        const localZ = qz * vertSpacing * 0.75; // 0.75 for hex row overlap
+    // Add aIsBlocked as instanced attribute
+    hexGrid.geometry.setAttribute(
+      'aIsBlocked',
+      new THREE.InstancedBufferAttribute(isBlockedArray, 1)
+    );
 
-        // Check if hex center is within range (with some margin for hex size)
-        const distFromCenter = Math.sqrt(localX * localX + localZ * localZ);
-        if (distFromCenter > range - hexRadius * 0.5) {
-          continue; // Skip hexes outside the circular range
-        }
-
-        // World position (Z is flipped in local coords)
-        const worldX = centerX + localX;
-        const worldZ = centerZ - localZ;
-
-        // Get terrain height at hex center - skip if no terrain hit
-        if (!this.terrainRaycaster) {
-          continue; // No raycaster available, skip this cell
-        }
-        const terrainY = this.terrainRaycaster(worldX, worldZ);
-        if (terrainY === null) {
-          continue; // No terrain at this position, skip cell
-        }
-
-        // Create hex mesh (starts with visible material)
-        const hexMesh = new THREE.Mesh(hexGeometry.clone(), this.hexVisibleMaterial);
-        hexMesh.rotation.x = -Math.PI / 2; // Lay flat on ground
-        hexMesh.position.set(worldX, terrainY + 1.0, worldZ); // Slightly above terrain
-        hexMesh.renderOrder = 3;
-
-        hexGrid.add(hexMesh);
-
-        // Create hex outline (LineLoop)
-        const outlineGeometry = new THREE.BufferGeometry().setFromPoints(hexOutlinePoints);
-        const hexOutline = new THREE.LineLoop(outlineGeometry, this.hexOutlineMaterial);
-        hexOutline.position.set(worldX, terrainY + 1.1, worldZ); // Slightly above the fill
-        hexOutline.renderOrder = 4;
-
-        hexGrid.add(hexOutline);
-
-        // Store cell data
-        hexCells.push({
-          mesh: hexMesh,
-          centerX: worldX,
-          centerZ: worldZ,
-          terrainY: terrainY,
-          isBlocked: false,
-        });
-      }
-    }
-
+    hexGrid.instanceMatrix.needsUpdate = true;
+    hexGrid.visible = false; // Hidden until tower is selected
 
     return { hexGrid, hexCells };
   }
 
   /**
    * Update Line-of-Sight visualization for all hex cells in a tower's grid
-   * Raycasts from tower tip to each hex cell center, applies hatching material to blocked cells
+   * Raycasts from tower tip to each hex cell center, updates aIsBlocked attribute
    */
   private updateHexGridLoS(data: TowerRenderData): void {
     if (!data.hexCells || data.hexCells.length === 0) return;
+    if (!data.hexGrid) return;
     if (!this.losRaycaster) {
       console.warn('[ThreeTowerRenderer] No LoS raycaster set, skipping LoS update');
       return;
@@ -1065,7 +1069,9 @@ export class ThreeTowerRenderer {
     const towerX = terrainPos.x;
     const towerZ = terrainPos.z;
 
-    let blockedCount = 0;
+    // Get the aIsBlocked attribute array
+    const isBlockedAttr = data.hexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
+    const isBlockedArray = isBlockedAttr.array as Float32Array;
 
     for (const cell of data.hexCells) {
       const targetY = cell.terrainY + 1.0;
@@ -1075,12 +1081,11 @@ export class ThreeTowerRenderer {
       );
 
       cell.isBlocked = isBlocked;
-      // Apply hatched material to blocked cells, invisible material to visible cells
-      cell.mesh.material = isBlocked ? this.hexBlockedMaterial : this.hexVisibleMaterial;
-
-      if (isBlocked) blockedCount++;
+      isBlockedArray[cell.index] = isBlocked ? 1.0 : 0.0;
     }
 
+    // Mark attribute as needing update
+    isBlockedAttr.needsUpdate = true;
   }
 
   /**
@@ -1130,8 +1135,6 @@ export class ThreeTowerRenderer {
     this.modelTemplates.clear();
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();
-    this.hexVisibleMaterial.dispose();
-    this.hexBlockedMaterial.dispose();
-    this.hexOutlineMaterial.dispose();
+    this.hexMaterial.dispose();
   }
 }
