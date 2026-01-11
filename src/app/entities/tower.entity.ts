@@ -64,23 +64,32 @@ export class Tower extends GameObject {
   }
 
   /**
-   * Find the closest enemy within range
+   * Find target enemy within range using "lowest HP" strategy
+   * @param enemies List of potential targets
+   * @param losCheck Optional line-of-sight check function
+   * @returns Enemy with lowest HP that is in range and visible, or null
    */
-  findTarget(enemies: Enemy[]): Enemy | null {
-    let closest: Enemy | null = null;
-    let closestDist = Infinity;
+  findTarget(enemies: Enemy[], losCheck?: (enemy: Enemy) => boolean): Enemy | null {
+    let bestTarget: Enemy | null = null;
+    let lowestHp = Infinity;
 
     for (const enemy of enemies) {
       if (!enemy.alive) continue;
 
       const dist = this.calculateDistance(this.position, enemy.position);
-      if (dist <= this.combat.range && dist < closestDist) {
-        closestDist = dist;
-        closest = enemy;
+      if (dist > this.combat.range) continue;
+
+      // Optional LOS check - skip enemies we can't see
+      if (losCheck && !losCheck(enemy)) continue;
+
+      // Find enemy with lowest HP
+      if (enemy.health.hp < lowestHp) {
+        lowestHp = enemy.health.hp;
+        bestTarget = enemy;
       }
     }
 
-    return closest;
+    return bestTarget;
   }
 
   /**

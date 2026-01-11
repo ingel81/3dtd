@@ -1,8 +1,12 @@
 # Offene TODOs
 
+[ ] Warning in Console:
+    [ ] CesiumIonAuthPlugin: Plugin has been moved to "3d-tiles-renderer/core/plugins". (anonymous)	@	three-tiles-engine.ts:229
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
 [ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
 [ ] Compass eine nuance weniger aufdringlich und subtiler machen
+[ ] Die Routenanimation hört auf sich zu bewegen und blendet dann aus, besser wäre wenn dass erst nach dem Ausblende aufhört zu animieren.
+    Sollte auch noch optisch etwas feiner und hochwertiger aussehen
 
 Performance:
  [ ] spielt man das in einer größeren Stadt mit vielen 3d Gebäuden und straßen, kommt es beim zoomen oder panen und auch beim laden kurz zu aussetzern.
@@ -11,7 +15,6 @@ Performance:
      [ ] ist aber nicht so dramatisch wie es sich anhört.
 
 LOS:
-
  [ ] Tower Prüfen ab dem Punkt in ihrer Mitte innen..streng genommen müssten sie ab außen an der Hülle prüfen. Relevant wenn der Tower auf einem gebäude steht z.b.
 
 Projektile:

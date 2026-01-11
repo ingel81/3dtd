@@ -147,6 +147,7 @@ export class GameStateManager {
 
   /**
    * Update tower shooting - find targets and spawn projectiles
+   * Uses line-of-sight checks to ensure towers can see their targets
    */
   private updateTowerShooting(currentTime: number): void {
     const enemies = this.enemyManager.getAlive();
@@ -154,7 +155,25 @@ export class GameStateManager {
     for (const tower of this.towerManager.getAllActive()) {
       if (!tower.combat.canFire(currentTime)) continue;
 
-      const target = tower.findTarget(enemies);
+      // Create LOS check function for this tower
+      const losCheck = this.tilesEngine
+        ? (enemy: Enemy) => {
+            const pos = this.tilesEngine!.sync.geoToLocalSimple(
+              enemy.position.lat,
+              enemy.position.lon,
+              enemy.transform.terrainHeight
+            );
+            // Check LOS at enemy center height (roughly 1.5m above terrain)
+            return this.tilesEngine!.towers.hasLineOfSight(
+              tower.id,
+              pos.x,
+              pos.y + 1.5,
+              pos.z
+            );
+          }
+        : undefined;
+
+      const target = tower.findTarget(enemies, losCheck);
       if (target) {
         tower.combat.fire(currentTime);
         this.projectileManager.spawn(tower, target);
