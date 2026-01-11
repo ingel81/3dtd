@@ -43,6 +43,11 @@ export class InputHandlerService {
   /** Mouse move callback for build preview updates */
   private onMouseMoveCallback: ((lat: number, lon: number, hitPoint: THREE.Vector3) => void) | null = null;
 
+  /** Stored event listeners for cleanup */
+  private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
+  private clickHandler: ((event: MouseEvent) => void) | null = null;
+  private mouseMoveHandler: ((event: MouseEvent) => void) | null = null;
+
   // ========================================
   // INITIALIZATION
   // ========================================
@@ -88,25 +93,24 @@ export class InputHandlerService {
     const canvas = this.canvas;
 
     // Track pointerdown position - use document with capture to intercept before GlobeControls
-    document.addEventListener(
-      'pointerdown',
-      (event: PointerEvent) => {
-        if (event.target === canvas || canvas.contains(event.target as Node)) {
-          this.mouseDownPos = { x: event.clientX, y: event.clientY };
-        }
-      },
-      { capture: true }
-    );
+    this.pointerDownHandler = (event: PointerEvent) => {
+      if (event.target === canvas || canvas.contains(event.target as Node)) {
+        this.mouseDownPos = { x: event.clientX, y: event.clientY };
+      }
+    };
+    document.addEventListener('pointerdown', this.pointerDownHandler, { capture: true });
 
     // Click handler
-    canvas.addEventListener('click', (event: MouseEvent) => {
+    this.clickHandler = (event: MouseEvent) => {
       this.handleClick(event);
-    });
+    };
+    canvas.addEventListener('click', this.clickHandler);
 
     // Mouse move handler for build preview
-    canvas.addEventListener('mousemove', (event: MouseEvent) => {
+    this.mouseMoveHandler = (event: MouseEvent) => {
       this.handleMouseMove(event);
-    });
+    };
+    canvas.addEventListener('mousemove', this.mouseMoveHandler);
   }
 
   /**
@@ -188,6 +192,20 @@ export class InputHandlerService {
    * Cleanup input handlers
    */
   dispose(): void {
+    // Remove event listeners
+    if (this.pointerDownHandler) {
+      document.removeEventListener('pointerdown', this.pointerDownHandler, { capture: true });
+      this.pointerDownHandler = null;
+    }
+    if (this.canvas && this.clickHandler) {
+      this.canvas.removeEventListener('click', this.clickHandler);
+      this.clickHandler = null;
+    }
+    if (this.canvas && this.mouseMoveHandler) {
+      this.canvas.removeEventListener('mousemove', this.mouseMoveHandler);
+      this.mouseMoveHandler = null;
+    }
+
     this.engine = null;
     this.gameState = null;
     this.buildModeSignal = null;

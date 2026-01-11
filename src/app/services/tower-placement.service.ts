@@ -65,6 +65,10 @@ export class TowerPlacementService {
   /** Throttle ID for preview validation updates */
   private previewThrottleId: number | null = null;
 
+  /** Last known mouse position for preview (used for throttle and buildMode activation) */
+  private lastMouseLat: number | null = null;
+  private lastMouseLon: number | null = null;
+
   /** Debug counter for preview logging */
   private previewDebugCount = 0;
 
@@ -161,6 +165,20 @@ export class TowerPlacementService {
     this.selectedTowerType.set(typeId);
     this.buildMode.set(true);
     this.gameState?.deselectAll();
+
+    // Immediately show preview at last known mouse position
+    this.showPreviewAtLastPosition();
+  }
+
+  /**
+   * Show preview at the last known mouse position (if available)
+   * Called when buildMode is activated to avoid waiting for mouse move
+   */
+  private showPreviewAtLastPosition(): void {
+    if (this.lastMouseLat !== null && this.lastMouseLon !== null) {
+      this.updatePreviewPosition(this.lastMouseLat, this.lastMouseLon);
+      this.updatePreviewValidation(this.lastMouseLat, this.lastMouseLon);
+    }
   }
 
   // ========================================
@@ -236,17 +254,25 @@ export class TowerPlacementService {
 
   /**
    * Update preview validation color (green = valid, red = invalid)
+   * Stores latest coordinates and uses them in throttled validation
    * @param lat Latitude
    * @param lon Longitude
    */
   updatePreviewValidation(lat: number, lon: number): void {
-    // Throttle validation - only every 30ms
+    // Always store the latest coordinates
+    this.lastMouseLat = lat;
+    this.lastMouseLon = lon;
+
+    // Throttle validation - only every 30ms, but always use latest coordinates
     if (this.previewThrottleId === null) {
       this.previewThrottleId = window.setTimeout(() => {
         this.previewThrottleId = null;
         if (!this.buildPreviewMesh) return;
 
-        const validation = this.validateTowerPosition(lat, lon);
+        // Use the LATEST stored coordinates, not closure-captured values
+        if (this.lastMouseLat === null || this.lastMouseLon === null) return;
+
+        const validation = this.validateTowerPosition(this.lastMouseLat, this.lastMouseLon);
         if (this.lastPreviewValidation !== validation.valid) {
           this.lastPreviewValidation = validation.valid;
           // Update material color
