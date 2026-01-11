@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId } from '../models/enemy-types';
@@ -16,6 +16,9 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Track enemies being killed to prevent double-kill
   private killingEnemies = new Set<string>();
+
+  // Reactive signal for alive count (for UI bindings)
+  readonly aliveCount = signal(0);
 
   /**
    * Initialize enemy manager with ThreeTilesEngine
@@ -94,6 +97,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     enemy.playSpawnSound();
 
     this.add(enemy);
+    this.aliveCount.update(c => c + 1);
     return enemy;
   }
 
@@ -105,8 +109,9 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (this.killingEnemies.has(enemy.id)) return;
     this.killingEnemies.add(enemy.id);
 
-    // Ensure enemy is marked as dead
+    // Decrement alive count when enemy dies
     if (enemy.alive) {
+      this.aliveCount.update(c => Math.max(0, c - 1));
       enemy.health.takeDamage(enemy.health.hp);
     }
     enemy.stopMoving();
@@ -204,6 +209,10 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Remove enemy and cleanup resources
    */
   override remove(entity: Enemy): void {
+    // Decrement alive count if enemy was still alive (e.g., reached base)
+    if (entity.alive) {
+      this.aliveCount.update(c => Math.max(0, c - 1));
+    }
     this.tilesEngine?.enemies.remove(entity.id);
     super.remove(entity);
   }
@@ -216,6 +225,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
     super.clear();
+    this.aliveCount.set(0);
     console.log('[EnemyManager] clear() done, enemies:', this.getAll().length);
   }
 

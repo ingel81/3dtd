@@ -41,7 +41,7 @@ export class GameStateManager {
   readonly phase = computed(() => this.waveManager.phase());
   readonly waveNumber = computed(() => this.waveManager.waveNumber());
   readonly towerCount = computed(() => this.towerManager.getAll().length);
-  readonly enemiesAlive = computed(() => this.enemyManager.getAliveCount());
+  get enemiesAlive() { return this.enemyManager.aliveCount; }
   readonly selectedTowerId = computed(() => this.towerManager.getSelectedId());
   readonly selectedTower = computed(() => this.towerManager.getSelected());
 

@@ -10,6 +10,10 @@ Performance:
      [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
      [ ] ist aber nicht so dramatisch wie es sich anhört.
 
+LOS:
+
+ [ ] Tower Prüfen ab dem Punkt in ihrer Mitte innen..streng genommen müssten sie ab außen an der Hülle prüfen. Relevant wenn der Tower auf einem gebäude steht z.b.
+
 Projektile:
  [ ] Sollen nur ihr Ziel erreichen können wenn wirklich eine Sichtverbindung zum Gegner besteht (Line-of-Sight)
 
@@ -17,3 +21,7 @@ Location-System Bekannte Einschränkungen:
  [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
      - Workaround: Manuelle Koordinaten-Eingabe nutzen
      - Mögliche Verbesserung: Alternative Geocoding-API (Photon, Google)
+
+Ideen:
+- coole locations irgendwie sharebar machen
+
