@@ -1731,13 +1731,22 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.editableSpawnLocations.set([spawnConfig]);
 
       // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
+      // Use same parameters as initEngine for consistent framing
       const hqCoord: GeoPoint = { lat: data.hq.lat, lon: data.hq.lon };
       const spawnCoords: GeoPoint[] = [{ lat: data.spawn.lat, lon: data.spawn.lon }];
+
+      // Get camera properties from existing engine for accurate framing
+      const camera = this.engine.getCamera();
+      const aspectRatio = camera.aspect;
+      const fov = camera.fov;
+
       const initialFrame = this.cameraFraming.computeInitialFrame(hqCoord, spawnCoords, {
-        padding: 0.2,
+        padding: 0.1, // Same as initEngine (was 0.2)
         angle: 70,
         markerRadius: 8,
         estimatedTerrainY: 0,
+        aspectRatio, // Use actual camera aspect ratio
+        fov, // Use actual camera FOV
       });
       this.cameraFraming.setEngine(this.engine);
       this.cameraFraming.applyFrame(initialFrame);
@@ -1790,6 +1799,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         this.markerViz.getSpawnMarkers()
       );
       this.cameraControl.initialize(this.engine, { lat: data.hq.lat, lon: data.hq.lon });
+      this.routeAnimation.initialize(this.engine);
       this.markerViz.addBaseMarker();
       await this.engineInit.setStepDone('hq');
 
@@ -1845,6 +1855,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       }, 2000);
 
       this.appendDebugLog(`Geladen: ${this.streetCount()} Strassen`);
+
+      // Start route animation (same as after initial load in checkAllLoaded)
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
+      }
 
       // Loading overlay will be hidden by checkAllLoaded() when heights stabilize
       this.isApplyingLocation.set(false);
