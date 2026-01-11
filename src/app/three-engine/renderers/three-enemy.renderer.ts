@@ -55,6 +55,10 @@ export class ThreeEnemyRenderer {
   // Health bar texture
   private healthBarTextures = new Map<number, THREE.CanvasTexture>();
 
+  // Frustum culling for animations (reused to avoid allocations)
+  private frustum = new THREE.Frustum();
+  private projScreenMatrix = new THREE.Matrix4();
+
   constructor(scene: THREE.Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
@@ -433,24 +437,46 @@ export class ThreeEnemyRenderer {
     // Remove health bar
     if (data.healthBar) {
       this.scene.remove(data.healthBar);
+      // Note: texture is cached in healthBarTextures and reused, don't dispose it
       data.healthBar.material.dispose();
     }
 
-    // Stop animations
+    // Clean up animation mixer completely
     if (data.mixer) {
       data.mixer.stopAllAction();
+      // Uncache all clips to free internal references
+      for (const clip of data.animations.values()) {
+        data.mixer.uncacheClip(clip);
+      }
+      // Uncache root object to remove all cached data for this mesh
+      data.mixer.uncacheRoot(data.mesh);
     }
+
+    // Clear animation references
+    data.animations.clear();
+    data.currentAction = null;
+    data.mixer = null;
 
     this.enemies.delete(id);
   }
 
   /**
-   * Update all animation mixers
-   * Call this every frame with delta time in seconds
+   * Update all animation mixers with frustum culling
+   * Only animates enemies visible to the camera
    */
-  updateAnimations(deltaTime: number): void {
+  updateAnimations(deltaTime: number, camera: THREE.Camera): void {
+    // Update frustum from camera
+    this.projScreenMatrix.multiplyMatrices(
+      camera.projectionMatrix,
+      camera.matrixWorldInverse
+    );
+    this.frustum.setFromProjectionMatrix(this.projScreenMatrix);
+
     for (const data of this.enemies.values()) {
-      if (data.mixer && !data.isDestroyed) {
+      if (!data.mixer || data.isDestroyed) continue;
+
+      // Check if enemy mesh is in camera frustum
+      if (this.frustum.containsPoint(data.mesh.position)) {
         data.mixer.update(deltaTime);
       }
     }

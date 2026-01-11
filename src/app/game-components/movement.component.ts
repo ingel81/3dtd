@@ -184,6 +184,17 @@ export class MovementComponent extends Component {
   }
 
   /**
+   * Check if current segment has valid heights (no object allocation)
+   */
+  hasCurrentSegmentHeights(): boolean {
+    if (this.currentIndex >= this.path.length - 1) return false;
+    const from = this.path[this.currentIndex];
+    const to = this.path[this.currentIndex + 1];
+    return from.height !== undefined && from.height !== 0 &&
+           to.height !== undefined && to.height !== 0;
+  }
+
+  /**
    * Get next waypoint
    */
   getNextWaypoint(): GeoPosition | null {

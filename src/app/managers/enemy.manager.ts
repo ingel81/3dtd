@@ -17,6 +17,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies being killed to prevent double-kill
   private killingEnemies = new Set<string>();
 
+  // Reusable array to avoid allocations in update loop
+  private toRemove: Enemy[] = [];
+
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
 
@@ -130,7 +133,8 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Update all enemies - movement and rendering
    */
   override update(deltaTime: number): void {
-    const toRemove: Enemy[] = [];
+    // Clear reusable array (no allocation)
+    this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
 
     for (const enemy of this.getAllActive()) {
@@ -143,17 +147,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       const moveResult = enemy.movement.move(deltaTime);
       if (moveResult === 'reached_end') {
         this.onEnemyReachedBase?.(enemy);
-        toRemove.push(enemy);
+        this.toRemove.push(enemy);
         continue;
       }
 
-      // Check if path has valid heights (set by MovementComponent during interpolation)
-      // If the path segment has defined heights, MovementComponent already set terrainHeight
-      // via interpolation - we should use that instead of sampling terrain live
-      const segment = enemy.movement.getCurrentSegment();
-      const pathHasHeights = segment &&
-        segment.from.height !== undefined && segment.from.height !== 0 &&
-        segment.to.height !== undefined && segment.to.height !== 0;
+      // Check if path has valid heights (no object allocation)
+      const pathHasHeights = enemy.movement.hasCurrentSegmentHeights();
 
       let geoHeight: number;
       if (pathHasHeights) {
@@ -182,7 +181,10 @@ export class EnemyManager extends EntityManager<Enemy> {
       );
     }
 
-    toRemove.forEach((e) => this.remove(e));
+    // Remove enemies that reached base
+    for (let i = 0; i < this.toRemove.length; i++) {
+      this.remove(this.toRemove[i]);
+    }
   }
 
   /**

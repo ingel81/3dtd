@@ -957,8 +957,8 @@ export class ThreeTilesEngine {
   update(deltaTime: number): void {
     const deltaSeconds = deltaTime / 1000;
 
-    // Update enemy animations
-    this.enemies.updateAnimations(deltaSeconds);
+    // Update enemy animations (with frustum culling)
+    this.enemies.updateAnimations(deltaSeconds, this.camera);
 
     // Update tower selection animations
     this.towers.updateAnimations(deltaTime);
