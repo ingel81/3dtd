@@ -166,8 +166,14 @@ export class TowerPlacementService {
     this.buildMode.set(true);
     this.gameState?.deselectAll();
 
-    // Immediately show preview at last known mouse position
-    this.showPreviewAtLastPosition();
+    // Reset stored position to avoid showing preview at stale location
+    // Preview will appear once user moves mouse over terrain
+    this.lastMouseLat = null;
+    this.lastMouseLon = null;
+    this.lastPreviewValidation = null;
+    if (this.buildPreviewMesh) {
+      this.buildPreviewMesh.visible = false;
+    }
   }
 
   /**

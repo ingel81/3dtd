@@ -21,6 +21,7 @@ export interface TowerTypeConfig {
   scale: number;
   heightOffset: number; // Vertical offset to place model above ground
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
+  rotationY?: number; // Initial Y rotation in radians (default: 0)
 
   damage: number;
   range: number;
@@ -34,15 +35,17 @@ export interface TowerTypeConfig {
 
 // NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
 const ARCHER_MODEL_URL = '/assets/models/towers/tower_archer.glb';
+const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
     id: 'archer',
     name: 'Archer Tower',
-    modelUrl: ARCHER_MODEL_URL,
-    scale: 1.8,
-    heightOffset: 2.0,
-    shootHeight: 12, // Window level where archers shoot from
+    modelUrl: WATCHTOWER_MODEL_URL,
+    scale: 0.027, // 1/3 of original size
+    heightOffset: 0,
+    shootHeight: 7, // Shooting position height
+    rotationY: 0,
     damage: 25,
     range: 60,
     fireRate: 1, // 1 shot/sec

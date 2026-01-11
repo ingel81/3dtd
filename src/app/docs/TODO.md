@@ -15,10 +15,10 @@ Performance:
      [ ] ist aber nicht so dramatisch wie es sich anhört.
 
 LOS:
- [ ] Tower Prüfen ab dem Punkt in ihrer Mitte innen..streng genommen müssten sie ab außen an der Hülle prüfen. Relevant wenn der Tower auf einem gebäude steht z.b.
+ [x] Tower Prüfen ab dem Punkt in ihrer Mitte innen..streng genommen müssten sie ab außen an der Hülle prüfen. Relevant wenn der Tower auf einem gebäude steht z.b.
 
 Projektile:
- [ ] Sollen nur ihr Ziel erreichen können wenn wirklich eine Sichtverbindung zum Gegner besteht (Line-of-Sight)
+ [x] Sollen nur ihr Ziel erreichen können wenn wirklich eine Sichtverbindung zum Gegner besteht (Line-of-Sight)
 
 Location-System Bekannte Einschränkungen:
  [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten

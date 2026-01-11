@@ -60,10 +60,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .compass {
       position: relative;
-      width: 64px;
-      height: 64px;
+      width: 52px;
+      height: 52px;
       transition: transform 0.15s ease-out;
-      filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+      filter: drop-shadow(0 1px 3px rgba(0, 0, 0, 0.35));
     }
 
     .compass-svg {
@@ -72,100 +72,92 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .compass-bg {
-      fill: rgba(20, 24, 21, 0.92);
+      fill: rgba(20, 24, 21, 0.7);
     }
 
     .compass-ring {
       fill: none;
-      stroke: var(--td-gold);
-      stroke-width: 2;
+      stroke: rgba(212, 175, 55, 0.6);
+      stroke-width: 1.5;
     }
 
     .compass-inner-ring {
       fill: none;
-      stroke: rgba(212, 175, 55, 0.3);
-      stroke-width: 1;
+      stroke: rgba(212, 175, 55, 0.15);
+      stroke-width: 0.75;
     }
 
     .compass-tick {
       stroke: var(--td-text-secondary);
-      stroke-width: 1.5;
+      stroke-width: 1;
       stroke-linecap: round;
     }
 
     .compass-tick.major {
-      stroke: var(--td-gold);
-      stroke-width: 2;
+      stroke: rgba(212, 175, 55, 0.7);
+      stroke-width: 1.5;
     }
 
     .compass-tick.minor {
-      stroke: rgba(212, 175, 55, 0.5);
-      stroke-width: 1;
+      stroke: rgba(212, 175, 55, 0.3);
+      stroke-width: 0.75;
     }
 
     .compass-needle-n {
-      fill: var(--td-health-red);
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.5));
-    }
-
-    .compass-needle-s {
-      fill: rgba(180, 180, 180, 0.6);
+      fill: rgba(220, 80, 60, 0.85);
       filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.3));
     }
 
+    .compass-needle-s {
+      fill: rgba(160, 160, 160, 0.45);
+    }
+
     .compass-pivot {
-      fill: var(--td-gold);
+      fill: rgba(212, 175, 55, 0.7);
     }
 
     .compass-pivot-inner {
-      fill: rgba(20, 24, 21, 0.9);
+      fill: rgba(20, 24, 21, 0.8);
     }
 
     /* Cardinal direction labels */
     .compass-label {
       position: absolute;
-      font-size: 9px;
-      font-weight: 700;
-      color: var(--td-text-secondary);
-      text-shadow: 0 1px 3px rgba(0, 0, 0, 0.9);
+      font-size: 8px;
+      font-weight: 600;
+      color: rgba(180, 180, 180, 0.6);
+      text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
       pointer-events: none;
     }
 
     .compass-label.compass-n {
-      top: 11px;
+      top: 9px;
       left: 50%;
       transform: translateX(-50%);
-      color: var(--td-health-red);
-      font-size: 10px;
+      color: rgba(220, 80, 60, 0.8);
+      font-size: 9px;
     }
 
     .compass-label.compass-e {
       top: 50%;
-      right: 10px;
+      right: 8px;
       transform: translateY(-50%);
     }
 
     .compass-label.compass-s {
-      bottom: 11px;
+      bottom: 9px;
       left: 50%;
       transform: translateX(-50%);
     }
 
     .compass-label.compass-w {
       top: 50%;
-      left: 10px;
+      left: 8px;
       transform: translateY(-50%);
     }
 
     .compass-heading-debug {
-      font-size: 10px;
-      color: var(--td-gold);
-      background: rgba(20, 24, 21, 0.85);
-      padding: 2px 6px;
-      border-radius: 3px;
-      font-family: 'JetBrains Mono', monospace;
-      margin-top: 4px;
-      text-align: center;
+      display: none;
     }
   `,
 })

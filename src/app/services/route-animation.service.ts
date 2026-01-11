@@ -12,8 +12,12 @@ import { SpawnPoint } from './marker-visualization.service';
  */
 interface AnimatedRoute {
   id: string;
-  animatedLine: Line2;       // Animated dashed line
-  animatedMaterial: LineMaterial;
+  // Glow layer (wider, white/pink, behind)
+  glowLine: Line2;
+  glowMaterial: LineMaterial;
+  // Main line (narrower, bright red, in front)
+  mainLine: Line2;
+  mainMaterial: LineMaterial;
   totalLength: number;
   pointCount: number;
 }
@@ -32,29 +36,35 @@ export class RouteAnimationService {
   // CONFIGURATION
   // ========================================
 
-  /** Speed of the animated dashes in meters per second */
-  private readonly ANIMATION_SPEED = 250;
+  /** Speed of the animated pattern in meters per second */
+  private readonly ANIMATION_SPEED = 60;
 
   /** Number of animation cycles before fade-out */
   private readonly MAX_CYCLES = 3;
 
   /** Duration of fade-out in milliseconds */
-  private readonly FADE_DURATION = 1500;
+  private readonly FADE_DURATION = 2500;
 
   /** Height offset above terrain for the animated line */
   private readonly HEIGHT_OFFSET = 1.5;
 
-  /** Animated line color (bright red-orange) */
-  private readonly ANIM_COLOR = new THREE.Color(0xff4422);
+  // --- MAIN LINE (flowing red dashes) ---
+  /** Main line color (vivid red) */
+  private readonly MAIN_COLOR = new THREE.Color(0xff2020);
+  /** Main line width */
+  private readonly MAIN_LINE_WIDTH = 3;
+  /** Longer dashes for elongated look */
+  private readonly MAIN_DASH_SIZE = 12;
+  /** Gaps between dashes */
+  private readonly MAIN_GAP_SIZE = 8;
 
-  /** Animated line width in pixels */
-  private readonly ANIM_LINE_WIDTH = 5;
-
-  /** Dash size for animated line */
-  private readonly DASH_SIZE = 15;
-
-  /** Gap size for animated line */
-  private readonly GAP_SIZE = 25;
+  // --- GLOW LINE (thin soft halo) ---
+  /** Glow line color (soft pink-red) */
+  private readonly GLOW_COLOR = new THREE.Color(0xff8888);
+  /** Glow line width (thinner) */
+  private readonly GLOW_LINE_WIDTH = 6;
+  /** Continuous glow - no dashes */
+  private readonly GLOW_DASHED = false;
 
   // ========================================
   // STATE
@@ -104,7 +114,7 @@ export class RouteAnimationService {
     for (const [spawnId, path] of cachedPaths) {
       if (path.length < 2) continue;
 
-      const animatedRoute = this.createAnimatedRoute(spawnId, path, this.ANIM_COLOR);
+      const animatedRoute = this.createAnimatedRoute(spawnId, path, this.MAIN_COLOR);
       if (animatedRoute) {
         this.animatedRoutes.push(animatedRoute);
         console.log('[RouteAnimation] Created route', spawnId, '- length:', animatedRoute.totalLength.toFixed(0), 'm');
@@ -134,31 +144,35 @@ export class RouteAnimationService {
       const cycleDuration = (route.totalLength / this.ANIMATION_SPEED) * 1000;
       const totalDuration = cycleDuration * this.MAX_CYCLES;
 
+      // Animation continues running throughout (including during fade-out)
+      const offset = (elapsedTime / 1000) * this.ANIMATION_SPEED;
+      route.mainMaterial.dashOffset = -offset;
+
+      // Subtle pulsing for main line (stays red)
+      const intensity = 0.5 + Math.sin(elapsedTime * 0.003) * 0.08;
+      route.mainMaterial.color.setHSL(0.0, 1.0, intensity);
+
+      // Glow stays steady pink-red
+      route.glowMaterial.color.setHSL(0.0, 0.6, 0.55);
+
       if (elapsedTime >= totalDuration) {
-        // Animation complete - start fade out
+        // Fade out phase - animation still runs but opacity decreases smoothly
         const fadeElapsed = elapsedTime - totalDuration;
         const fadeProgress = Math.min(fadeElapsed / this.FADE_DURATION, 1);
+        // Ease-out curve for smoother fade
+        const easedFade = 1 - Math.pow(1 - fadeProgress, 2.5);
 
-        route.animatedMaterial.opacity = 1 - fadeProgress;
+        route.mainMaterial.opacity = 1.0 * (1 - easedFade);
+        route.glowMaterial.opacity = 0.6 * (1 - easedFade);
 
         if (fadeProgress >= 1) {
           this.stopAnimation();
           return;
         }
       } else {
-        // Animate dashes moving along the line (Knight Rider style!)
-        // dashOffset moves the dashes - negative = forward direction
-        const dashPeriod = this.DASH_SIZE + this.GAP_SIZE;
-        const offset = (elapsedTime / 1000) * this.ANIMATION_SPEED;
-        route.animatedMaterial.dashOffset = -offset;
-
-        // Pulsing glow effect on brightness
-        const pulse = 0.7 + Math.sin(elapsedTime * 0.008) * 0.3;
-        route.animatedMaterial.opacity = pulse;
-
-        // Subtle color shift for extra effect
-        const hue = 0.02 + Math.sin(elapsedTime * 0.003) * 0.02; // Red to orange shift
-        route.animatedMaterial.color.setHSL(hue, 1.0, 0.5);
+        // Normal animation phase - steady opacity
+        route.mainMaterial.opacity = 0.9;
+        route.glowMaterial.opacity = 0.35;
       }
     }
   }
@@ -170,9 +184,14 @@ export class RouteAnimationService {
     if (!this.overlayGroup) return;
 
     for (const route of this.animatedRoutes) {
-      this.overlayGroup.remove(route.animatedLine);
-      if (route.animatedLine.geometry) route.animatedLine.geometry.dispose();
-      if (route.animatedMaterial) route.animatedMaterial.dispose();
+      // Remove and dispose glow line
+      this.overlayGroup.remove(route.glowLine);
+      if (route.glowLine.geometry) route.glowLine.geometry.dispose();
+      if (route.glowMaterial) route.glowMaterial.dispose();
+      // Remove and dispose main line
+      this.overlayGroup.remove(route.mainLine);
+      if (route.mainLine.geometry) route.mainLine.geometry.dispose();
+      if (route.mainMaterial) route.mainMaterial.dispose();
     }
 
     this.animatedRoutes = [];
@@ -194,7 +213,7 @@ export class RouteAnimationService {
    * Create an animated route from path data
    * @param id Route identifier
    * @param path Path as GeoPosition array
-   * @param color Route color
+   * @param color Route color (unused, using configured colors)
    * @returns AnimatedRoute or null if creation failed
    */
   private createAnimatedRoute(
@@ -224,21 +243,32 @@ export class RouteAnimationService {
       positions.push(p.x, p.y, p.z);
     }
 
-    // === ANIMATED LINE (bright, dashed, moving) ===
-    const animGeometry = new LineGeometry();
-    animGeometry.setPositions(positions);
-    const animatedMaterial = this.createAnimatedMaterial(totalLength);
-    const animatedLine = new Line2(animGeometry, animatedMaterial);
-    animatedLine.computeLineDistances();
-    animatedLine.renderOrder = 3;
-    animatedLine.frustumCulled = false;
+    // === GLOW LINE (wider, behind, creates halo effect) ===
+    const glowGeometry = new LineGeometry();
+    glowGeometry.setPositions(positions);
+    const glowMaterial = this.createGlowMaterial();
+    const glowLine = new Line2(glowGeometry, glowMaterial);
+    glowLine.computeLineDistances();
+    glowLine.renderOrder = 2; // Behind main line
+    glowLine.frustumCulled = false;
+    this.overlayGroup.add(glowLine);
 
-    this.overlayGroup.add(animatedLine);
+    // === MAIN LINE (bright red, in front) ===
+    const mainGeometry = new LineGeometry();
+    mainGeometry.setPositions(positions);
+    const mainMaterial = this.createMainMaterial();
+    const mainLine = new Line2(mainGeometry, mainMaterial);
+    mainLine.computeLineDistances();
+    mainLine.renderOrder = 3; // In front of glow
+    mainLine.frustumCulled = false;
+    this.overlayGroup.add(mainLine);
 
     return {
       id,
-      animatedLine,
-      animatedMaterial,
+      glowLine,
+      glowMaterial,
+      mainLine,
+      mainMaterial,
       totalLength,
       pointCount: points.length,
     };
@@ -307,21 +337,44 @@ export class RouteAnimationService {
   }
 
   /**
-   * Create animated line material (bright, dashed, will move)
+   * Create main line material (bright red, dashed)
    */
-  private createAnimatedMaterial(totalLength: number): LineMaterial {
+  private createMainMaterial(): LineMaterial {
     const mat = new LineMaterial({
-      color: this.ANIM_COLOR.getHex(),
-      linewidth: this.ANIM_LINE_WIDTH,
+      color: this.MAIN_COLOR.getHex(),
+      linewidth: this.MAIN_LINE_WIDTH,
       transparent: true,
       opacity: 1.0,
       depthTest: true,
       depthWrite: false,
       dashed: true,
-      dashSize: this.DASH_SIZE,
-      gapSize: this.GAP_SIZE,
+      dashSize: this.MAIN_DASH_SIZE,
+      gapSize: this.MAIN_GAP_SIZE,
       dashOffset: 0,
-      worldUnits: true, // Use world units for consistent dash size
+      worldUnits: true,
+    });
+
+    if (this.engine) {
+      const size = this.engine.getRenderer().getSize(new THREE.Vector2());
+      mat.resolution.set(size.x, size.y);
+    }
+
+    return mat;
+  }
+
+  /**
+   * Create glow line material (soft continuous halo, behind main)
+   */
+  private createGlowMaterial(): LineMaterial {
+    const mat = new LineMaterial({
+      color: this.GLOW_COLOR.getHex(),
+      linewidth: this.GLOW_LINE_WIDTH,
+      transparent: true,
+      opacity: 0.4,
+      depthTest: true,
+      depthWrite: false,
+      dashed: this.GLOW_DASHED,
+      worldUnits: true,
     });
 
     if (this.engine) {

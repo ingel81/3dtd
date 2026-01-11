@@ -46,7 +46,7 @@ export class InputHandlerService {
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
   private clickHandler: ((event: MouseEvent) => void) | null = null;
-  private mouseMoveHandler: ((event: MouseEvent) => void) | null = null;
+  private pointerMoveHandler: ((event: PointerEvent) => void) | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -106,11 +106,13 @@ export class InputHandlerService {
     };
     canvas.addEventListener('click', this.clickHandler);
 
-    // Mouse move handler for build preview
-    this.mouseMoveHandler = (event: MouseEvent) => {
-      this.handleMouseMove(event);
+    // Pointer move handler for build preview - use document with capture to intercept before GlobeControls
+    this.pointerMoveHandler = (event: PointerEvent) => {
+      if (event.target === canvas || canvas.contains(event.target as Node)) {
+        this.handlePointerMove(event);
+      }
     };
-    canvas.addEventListener('mousemove', this.mouseMoveHandler);
+    document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
   }
 
   /**
@@ -165,10 +167,12 @@ export class InputHandlerService {
   }
 
   /**
-   * Handle mouse move event (for build preview)
-   * @param event Mouse event
+   * Handle pointer move event (for build preview)
+   * Only tracks when in build mode to avoid expensive raycasts
+   * Uses document-level capture to ensure events aren't blocked by GlobeControls
+   * @param event Pointer event
    */
-  private handleMouseMove(event: MouseEvent): void {
+  private handlePointerMove(event: PointerEvent): void {
     if (!this.engine || !this.buildModeSignal || !this.buildModeSignal() || !this.onMouseMoveCallback) return;
 
     const hitPoint = this.engine.raycastTerrain(event.clientX, event.clientY);
@@ -201,9 +205,9 @@ export class InputHandlerService {
       this.canvas.removeEventListener('click', this.clickHandler);
       this.clickHandler = null;
     }
-    if (this.canvas && this.mouseMoveHandler) {
-      this.canvas.removeEventListener('mousemove', this.mouseMoveHandler);
-      this.mouseMoveHandler = null;
+    if (this.pointerMoveHandler) {
+      document.removeEventListener('pointermove', this.pointerMoveHandler, { capture: true });
+      this.pointerMoveHandler = null;
     }
 
     this.engine = null;

@@ -875,6 +875,9 @@ export class ThreeTilesEngine {
 
   /**
    * Raycast against terrain at screen coordinates
+   *
+   * IMPORTANT: Uses a fresh Raycaster instance each call.
+   * See ARCHITECTURE.md "Raycaster Corruption Issue" for details.
    */
   raycastTerrain(screenX: number, screenY: number): THREE.Vector3 | null {
     if (!this.tilesRenderer) return null;
@@ -886,9 +889,12 @@ export class ThreeTilesEngine {
       -((screenY - rect.top) / rect.height) * 2 + 1
     );
 
-    this.raycaster.setFromCamera(mouse, this.camera);
+    // Create a FRESH raycaster - reusing this.raycaster causes issues after LoS checks
+    // The shared raycaster gets corrupted state from LOS raycasting with custom origins
+    const raycaster = new THREE.Raycaster();
+    raycaster.setFromCamera(mouse, this.camera);
 
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
+    const results = raycaster.intersectObject(this.tilesRenderer.group, true);
 
     if (results.length > 0) {
       return results[0].point.clone();

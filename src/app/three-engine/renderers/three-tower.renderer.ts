@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-defense/shaders/los-hatching.shaders';
@@ -70,11 +71,12 @@ interface HexCell {
 export class ThreeTowerRenderer {
   private scene: THREE.Scene;
   private sync: CoordinateSync;
-  private loader: GLTFLoader;
+  private gltfLoader: GLTFLoader;
+  private fbxLoader: FBXLoader;
 
-  // Cached model templates per tower type
-  private modelTemplates = new Map<string, GLTF>();
-  private loadingPromises = new Map<string, Promise<GLTF>>();
+  // Cached model templates per tower type (stores the scene/group from GLTF or FBX)
+  private modelTemplates = new Map<string, THREE.Object3D>();
+  private loadingPromises = new Map<string, Promise<THREE.Object3D>>();
 
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
@@ -110,12 +112,13 @@ export class ThreeTowerRenderer {
   private readonly HEX_GAP = 0.5; // Small gap between hexes for visual clarity
 
   // LOS offset configuration - raycast starts from tower edge, not center
-  private readonly LOS_OFFSET_BASE = 4.0; // Base offset in meters, multiplied by tower scale
+  private readonly LOS_OFFSET_MIN = 2.4; // Offset in meters from tower center
 
   constructor(scene: THREE.Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
-    this.loader = new GLTFLoader();
+    this.gltfLoader = new GLTFLoader();
+    this.fbxLoader = new FBXLoader();
 
     // Range indicator material (invisible - hex cells show visibility now)
     this.rangeMaterial = new THREE.MeshBasicMaterial({
@@ -182,6 +185,71 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Load a model from URL, supporting both GLTF/GLB and FBX formats
+   */
+  private async loadModelFromUrl(url: string): Promise<THREE.Object3D> {
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.endsWith('.fbx')) {
+      const model = await this.fbxLoader.loadAsync(url);
+      this.applyFbxMaterials(model);
+      return model;
+    } else {
+      const gltf = await this.gltfLoader.loadAsync(url);
+      return gltf.scene;
+    }
+  }
+
+  /**
+   * Apply colors to FBX materials that may not have proper textures
+   * Maps material names to appropriate colors
+   */
+  private applyFbxMaterials(model: THREE.Object3D): void {
+    // Color mapping for known material names
+    const materialColors: Record<string, number> = {
+      'lightwood': 0xc4a574,      // Light wood brown
+      'wood': 0xa0784a,           // Medium wood
+      'darkwood': 0x6b4423,       // Dark wood
+      'celing': 0xcd5c5c,         // Ceiling/roof - indian red (roof tiles)
+      'ceiling': 0xcd5c5c,        // Alternative spelling
+      'roof': 0xcd5c5c,           // Roof tiles
+      'stone': 0x808080,          // Stone gray
+      'metal': 0x707070,          // Metal gray
+    };
+
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+        materials.forEach((mat) => {
+          // Handle any material type with a color property
+          const matWithColor = mat as THREE.MeshStandardMaterial;
+          if (matWithColor.color) {
+            const matName = mat.name.toLowerCase();
+
+            // Find matching color
+            let color: number | undefined;
+            for (const [key, value] of Object.entries(materialColors)) {
+              if (matName.includes(key)) {
+                color = value;
+                break;
+              }
+            }
+
+            // Apply color - always override for FBX
+            const finalColor = color ?? 0xb8956e; // Default wood color
+            matWithColor.color.setHex(finalColor);
+
+            // Ensure material is visible
+            if ('transparent' in mat) mat.transparent = false;
+            if ('opacity' in mat) (mat as THREE.MeshStandardMaterial).opacity = 1.0;
+          }
+        });
+      }
+    });
+  }
+
+  /**
    * Preload model template for a tower type
    */
   async preloadModel(typeId: TowerTypeId): Promise<void> {
@@ -192,12 +260,12 @@ export class ThreeTowerRenderer {
       return;
     }
 
-    const promise = this.loader.loadAsync(config.modelUrl);
+    const promise = this.loadModelFromUrl(config.modelUrl);
     this.loadingPromises.set(typeId, promise);
 
     try {
-      const gltf = await promise;
-      this.modelTemplates.set(typeId, gltf);
+      const model = await promise;
+      this.modelTemplates.set(typeId, model);
     } catch (err) {
       console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
     } finally {
@@ -230,15 +298,15 @@ export class ThreeTowerRenderer {
     }
 
     // Ensure model is loaded
-    let gltf = this.modelTemplates.get(typeId);
-    if (!gltf) {
-      const promise = this.loadingPromises.get(typeId) || this.loader.loadAsync(config.modelUrl);
+    let modelTemplate = this.modelTemplates.get(typeId);
+    if (!modelTemplate) {
+      const promise = this.loadingPromises.get(typeId) || this.loadModelFromUrl(config.modelUrl);
       if (!this.loadingPromises.has(typeId)) {
         this.loadingPromises.set(typeId, promise);
       }
       try {
-        gltf = await promise;
-        this.modelTemplates.set(typeId, gltf);
+        modelTemplate = await promise;
+        this.modelTemplates.set(typeId, modelTemplate);
       } catch (err) {
         console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
         return null;
@@ -248,8 +316,13 @@ export class ThreeTowerRenderer {
     }
 
     // Clone the model
-    const mesh = gltf.scene.clone();
+    const mesh = modelTemplate.clone();
     mesh.scale.setScalar(config.scale);
+
+    // Apply initial rotation if configured
+    if (config.rotationY !== undefined) {
+      mesh.rotation.y = config.rotationY;
+    }
 
     // Enable shadows
     mesh.traverse((node) => {
@@ -307,7 +380,7 @@ export class ThreeTowerRenderer {
     this.scene.add(tipMarker);
 
     // Create LOS ring (cyan circle showing where LOS raycasts originate)
-    const losOffset = this.LOS_OFFSET_BASE * config.scale;
+    const losOffset = this.LOS_OFFSET_MIN;
     const losRingPoints: THREE.Vector3[] = [];
     const losRingSegments = 32;
     for (let i = 0; i <= losRingSegments; i++) {
@@ -1116,8 +1189,8 @@ export class ThreeTowerRenderer {
     const towerX = terrainPos.x;
     const towerZ = terrainPos.z;
 
-    // Calculate LOS offset based on tower scale (raycast from edge, not center)
-    const losOffset = this.LOS_OFFSET_BASE * data.typeConfig.scale;
+    // Fixed LOS offset (raycast from tower edge, not center)
+    const losOffset = this.LOS_OFFSET_MIN;
 
     // Get the aIsBlocked attribute array
     const isBlockedAttr = data.hexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
@@ -1208,8 +1281,8 @@ export class ThreeTowerRenderer {
     const towerX = terrainPos.x;
     const towerZ = terrainPos.z;
 
-    // Calculate LOS offset based on tower scale (raycast from edge, not center)
-    const losOffset = this.LOS_OFFSET_BASE * data.typeConfig.scale;
+    // Fixed LOS offset (raycast from tower edge, not center)
+    const losOffset = this.LOS_OFFSET_MIN;
 
     // Calculate direction from tower to target (XZ plane only)
     const dirX = targetX - towerX;

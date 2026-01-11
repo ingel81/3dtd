@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
 import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 
 export interface PreviewConfig {
   modelUrl: string;
@@ -32,17 +33,88 @@ interface PreviewInstance {
  * Uses a single shared WebGL renderer to render multiple preview canvases
  * sequentially. This is more performant than creating multiple WebGL contexts.
  */
+/**
+ * Cached model data - unified for GLTF and FBX
+ */
+interface CachedModel {
+  scene: THREE.Group;
+  animations: THREE.AnimationClip[];
+}
+
 @Injectable()
 export class ModelPreviewService {
   private renderer: THREE.WebGLRenderer | null = null;
-  private loader: GLTFLoader;
+  private gltfLoader: GLTFLoader;
+  private fbxLoader: FBXLoader;
   private previews = new Map<string, PreviewInstance>();
-  private modelCache = new Map<string, GLTF>();
+  private modelCache = new Map<string, CachedModel>();
   private animationFrameId: number | null = null;
   private lastTime = 0;
 
   constructor() {
-    this.loader = new GLTFLoader();
+    this.gltfLoader = new GLTFLoader();
+    this.fbxLoader = new FBXLoader();
+  }
+
+  /**
+   * Load a model from URL, supporting both GLTF/GLB and FBX formats
+   */
+  private async loadModelFromUrl(modelUrl: string): Promise<CachedModel> {
+    const lowerUrl = modelUrl.toLowerCase();
+    if (lowerUrl.endsWith('.fbx')) {
+      const group = await this.fbxLoader.loadAsync(modelUrl);
+      this.applyFbxMaterials(group);
+      return {
+        scene: group,
+        animations: group.animations || [],
+      };
+    } else {
+      const gltf = await this.gltfLoader.loadAsync(modelUrl);
+      return {
+        scene: gltf.scene,
+        animations: gltf.animations || [],
+      };
+    }
+  }
+
+  /**
+   * Apply colors to FBX materials that may not have proper textures
+   */
+  private applyFbxMaterials(model: THREE.Object3D): void {
+    const materialColors: Record<string, number> = {
+      'lightwood': 0xc4a574,
+      'wood': 0xa0784a,
+      'darkwood': 0x6b4423,
+      'celing': 0xcd5c5c,
+      'ceiling': 0xcd5c5c,
+      'roof': 0xcd5c5c,
+      'stone': 0x808080,
+      'metal': 0x707070,
+    };
+
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+        materials.forEach((mat) => {
+          const matWithColor = mat as THREE.MeshStandardMaterial;
+          if (matWithColor.color) {
+            const matName = mat.name.toLowerCase();
+            let color: number | undefined;
+            for (const [key, value] of Object.entries(materialColors)) {
+              if (matName.includes(key)) {
+                color = value;
+                break;
+              }
+            }
+            matWithColor.color.setHex(color ?? 0xb8956e);
+            if ('transparent' in mat) mat.transparent = false;
+            if ('opacity' in mat) (mat as THREE.MeshStandardMaterial).opacity = 1.0;
+          }
+        });
+      }
+    });
   }
 
   /**
@@ -144,17 +216,17 @@ export class ModelPreviewService {
     try {
       // Always load fresh for animated models (cloning breaks skeleton references)
       const needsAnimation = !!preview.config.animationName;
-      let gltf = needsAnimation ? null : this.modelCache.get(modelUrl);
+      let cachedModel = needsAnimation ? null : this.modelCache.get(modelUrl);
 
-      if (!gltf) {
-        gltf = await this.loader.loadAsync(modelUrl);
+      if (!cachedModel) {
+        cachedModel = await this.loadModelFromUrl(modelUrl);
         if (!needsAnimation) {
-          this.modelCache.set(modelUrl, gltf);
+          this.modelCache.set(modelUrl, cachedModel);
         }
       }
 
       // Use scene directly for animated models, clone for static
-      const model = needsAnimation ? gltf.scene : gltf.scene.clone();
+      const model = needsAnimation ? cachedModel.scene : cachedModel.scene.clone();
       const scale = preview.config.scale ?? 1;
       model.scale.set(scale, scale, scale);
 
@@ -199,17 +271,17 @@ export class ModelPreviewService {
       preview.camera.lookAt(0, lookAtY, 0);
 
       // Setup animation if specified
-      if (preview.config.animationName && gltf.animations.length > 0) {
+      if (preview.config.animationName && cachedModel.animations.length > 0) {
         preview.mixer = new THREE.AnimationMixer(model);
 
         // Find the requested animation
-        let clip = gltf.animations.find(
+        let clip = cachedModel.animations.find(
           (a) => a.name === preview.config.animationName
         );
 
         // Fallback to first animation if not found
-        if (!clip && gltf.animations.length > 0) {
-          clip = gltf.animations[0];
+        if (!clip && cachedModel.animations.length > 0) {
+          clip = cachedModel.animations[0];
         }
 
         if (clip) {
@@ -350,8 +422,8 @@ export class ModelPreviewService {
     }
 
     // Clear model cache
-    for (const gltf of this.modelCache.values()) {
-      this.disposeObject(gltf.scene);
+    for (const cachedModel of this.modelCache.values()) {
+      this.disposeObject(cachedModel.scene);
     }
     this.modelCache.clear();
 
