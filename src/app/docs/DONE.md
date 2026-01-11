@@ -23,6 +23,9 @@ Bug:
      - Grund: LoS-Raycasting korrumpierte den geteilten Raycaster-Zustand
 
 Performance:
+ [x] **Animationen laufen langsamer bei niedrigen FPS** - Gefixt
+     - Ursache war hardcoded 16ms statt echter deltaTime
+     - Fix: Echte deltaTime Berechnung in three-tiles-engine.ts
  [x] **Straßen-Overlay FPS-Drop gefixt** (35 FPS → 144 FPS)
      - Problem: 200-600 separate THREE.Line Objekte mit je geklontem Material
      - Jede Straße = 1 Draw Call → 200-600 Draw Calls
@@ -73,6 +76,9 @@ Türme:
      - Gebäude-Verdeckung funktioniert via 3D-Tiles Mesh-Intersection
 
 UI:
+ [x] **Location Dialog Styling** - An TD-Style angepasst
+     - Gleicher Background und Schatten wie Sidebar
+     - Kein Purple mehr
  [x] **Info Overlay** als transparente Angular Component oben links
      - Zuschaltbar über neuen Button in Quick Actions (ℹ️ Icon)
      - Zeigt: FPS, Tiles, Aktive Gegner, Aktive Sounds, Straßen-Count
