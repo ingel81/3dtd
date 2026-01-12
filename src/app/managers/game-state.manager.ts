@@ -153,8 +153,6 @@ export class GameStateManager {
     const enemies = this.enemyManager.getAlive();
 
     for (const tower of this.towerManager.getAllActive()) {
-      if (!tower.combat.canFire(currentTime)) continue;
-
       // Create LOS check function for this tower
       const losCheck = this.tilesEngine
         ? (enemy: Enemy) => {
@@ -175,12 +173,16 @@ export class GameStateManager {
 
       const target = tower.findTarget(enemies, losCheck);
       if (target) {
-        // Rotate turret towards target
+        // Always rotate turret towards target (even if can't fire yet)
         const heading = this.calculateHeading(tower.position, target.position);
         this.tilesEngine?.towers.updateRotation(tower.id, heading);
 
-        tower.combat.fire(currentTime);
-        this.projectileManager.spawn(tower, target);
+        // Only fire if cooldown is ready AND turret is aligned with target
+        const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
+        if (tower.combat.canFire(currentTime) && turretAligned) {
+          tower.combat.fire(currentTime);
+          this.projectileManager.spawn(tower, target);
+        }
       } else {
         // No target - reset turret to base position
         this.tilesEngine?.towers.resetRotation(tower.id);

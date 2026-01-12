@@ -85,14 +85,14 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     sellValue: 60,
     upgrades: [
       {
-        id: 'range',
-        name: 'Erweiterter Radius',
-        description: 'Erhöht die Reichweite um 50%',
+        id: 'speed',
+        name: 'Schnellfeuer',
+        description: 'Verdoppelt die Feuerrate',
         cost: 50,
-        maxLevel: 1,
+        maxLevel: 10,
         effect: {
-          stat: 'range',
-          multiplier: 1.5,
+          stat: 'fireRate',
+          multiplier: 2.0,
         },
       },
     ],

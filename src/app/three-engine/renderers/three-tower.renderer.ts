@@ -30,6 +30,9 @@ export interface TowerRenderData {
   tipY: number;
   // Custom rotation set by user during placement (radians)
   customRotation: number;
+  // Turret rotation animation
+  currentLocalRotation: number; // Current turret rotation (local space)
+  targetLocalRotation: number; // Target turret rotation (local space)
 }
 
 /**
@@ -456,6 +459,8 @@ export class ThreeTowerRenderer {
       height,
       tipY,
       customRotation,
+      currentLocalRotation: 0, // Start at base position
+      targetLocalRotation: 0, // Target at base position
     };
 
     this.towers.set(id, renderData);
@@ -497,9 +502,8 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update tower rotation (for aiming at target)
-   * Only rotates if tower has a turret part (turret_top).
-   * Static towers (without turret part) don't rotate.
+   * Update tower rotation target (for aiming at target)
+   * Only affects turrets (turret_top). Actual rotation is interpolated in updateTurretAnimations().
    *
    * Coordinate system mapping:
    * - Geo: North (+lat), East (+lon)
@@ -526,32 +530,21 @@ export class ThreeTowerRenderer {
     const parentRotation = data.mesh.rotation.y;
 
     // Convert to local space: subtract parent's rotation
-    const localRotation = threeJsTargetRotation - parentRotation;
-    data.turretPart.rotation.y = localRotation;
-
-    // Update debug arrow direction (world space)
-    if (data.aimArrow) {
-      // Arrow should show where barrels are pointing in world space
-      const worldRot = localRotation + parentRotation;
-      const dir = new THREE.Vector3(
-        Math.sin(worldRot),
-        0,
-        Math.cos(worldRot)
-      );
-      data.aimArrow.setDirection(dir);
-    }
+    // Set as target - actual rotation is interpolated in updateTurretAnimations()
+    data.targetLocalRotation = threeJsTargetRotation - parentRotation;
   }
 
   /**
    * Reset turret rotation to base position (facing forward relative to tower base)
-   * Called when tower has no targets in range
+   * Called when tower has no targets in range - sets target for smooth return animation
    */
   resetRotation(id: string): void {
     const data = this.towers.get(id);
     if (!data || !data.turretPart) return;
 
-    // Reset to 0 = turret faces same direction as tower base
-    data.turretPart.rotation.y = 0;
+    // Set target to 0 = turret faces same direction as tower base
+    // Actual rotation is interpolated in updateTurretAnimations()
+    data.targetLocalRotation = 0;
   }
 
   /**
@@ -692,8 +685,8 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update selection ring animation and hex grid shader
-   * Call each frame for pulse effect and hatching animation
+   * Update selection ring animation, hex grid shader, and turret rotations
+   * Call each frame for pulse effect, hatching animation, and smooth turret movement
    */
   updateAnimations(deltaTime: number): void {
     // Accumulate time for frame-independent animation
@@ -702,7 +695,13 @@ export class ThreeTowerRenderer {
     // Update hex material shader time uniform
     this.hexMaterial.uniforms['uTime'].value = this.animationTime;
 
+    // Turret rotation speed: ~180 degrees per second (PI radians/s)
+    // Scale deltaTime from ms to seconds
+    const turretRotationSpeed = Math.PI; // radians per second
+    const maxRotationThisFrame = turretRotationSpeed * (deltaTime / 1000);
+
     for (const data of this.towers.values()) {
+      // Selection ring animation
       if (data.isSelected && data.selectionRing) {
         // Pulse scale (using accumulated time for consistent speed)
         const scale = 1 + Math.sin(this.animationTime) * 0.1;
@@ -710,6 +709,43 @@ export class ThreeTowerRenderer {
 
         // Rotate slowly
         data.selectionRing.rotation.z += deltaTime * 0.001;
+      }
+
+      // Turret rotation interpolation (smooth tracking and return-to-base)
+      if (data.turretPart) {
+        const current = data.currentLocalRotation;
+        const target = data.targetLocalRotation;
+
+        // Calculate shortest rotation path (handle wraparound at ±π)
+        let diff = target - current;
+
+        // Normalize to [-π, π] for shortest path
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+
+        // If close enough, snap to target
+        if (Math.abs(diff) < 0.01) {
+          data.currentLocalRotation = target;
+        } else {
+          // Move towards target, clamped to max rotation speed
+          const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisFrame);
+          data.currentLocalRotation += rotation;
+        }
+
+        // Apply current rotation to turret
+        data.turretPart.rotation.y = data.currentLocalRotation;
+
+        // Update debug arrow direction (world space)
+        if (data.aimArrow) {
+          const parentRotation = data.mesh.rotation.y;
+          const worldRot = data.currentLocalRotation + parentRotation;
+          const dir = new THREE.Vector3(
+            Math.sin(worldRot),
+            0,
+            Math.cos(worldRot)
+          );
+          data.aimArrow.setDirection(dir);
+        }
       }
     }
   }
@@ -719,6 +755,27 @@ export class ThreeTowerRenderer {
    */
   get(id: string): TowerRenderData | undefined {
     return this.towers.get(id);
+  }
+
+  /**
+   * Check if tower's turret is aligned with its target (within tolerance)
+   * Returns true if:
+   * - Tower has no turret part (static tower, always aligned)
+   * - Turret rotation is within tolerance of target rotation
+   * @param id Tower ID
+   * @param toleranceRadians Maximum allowed deviation in radians (default: ~15°)
+   */
+  isTurretAligned(id: string, toleranceRadians = Math.PI / 12): boolean {
+    const data = this.towers.get(id);
+    if (!data) return true; // Unknown tower, assume aligned
+    if (!data.turretPart) return true; // No turret, always aligned
+
+    // Calculate shortest angle difference
+    let diff = data.targetLocalRotation - data.currentLocalRotation;
+    while (diff > Math.PI) diff -= Math.PI * 2;
+    while (diff < -Math.PI) diff += Math.PI * 2;
+
+    return Math.abs(diff) <= toleranceRadians;
   }
 
   /**

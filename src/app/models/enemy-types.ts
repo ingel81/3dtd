@@ -97,7 +97,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/tank.glb',
     scale: 2.5,
     minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping
-    baseHp: 300, // Doppelt so viel wie Zombie
+    baseHp: 500, // Schwer gepanzert
     baseSpeed: 3,
     damage: 25,
     reward: 5,

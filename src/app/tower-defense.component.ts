@@ -175,6 +175,7 @@ const DEFAULT_CENTER_COORDS = {
               (killAll)="killAllEnemies()"
               (healHq)="healHq()"
               (addCredits)="addDebugCredits()"
+              (addHealth)="addDebugHealth()"
             />
 
             <!-- Info Overlay (top left) -->
@@ -1813,6 +1814,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   addDebugCredits(): void {
     this.gameState.credits.update((c) => c + 1000);
     this.appendDebugLog('+1000 Credits (Debug)');
+  }
+
+  addDebugHealth(): void {
+    this.gameState.baseHealth.update((h) => h + 1000);
+    this.appendDebugLog('+1000 HP (Debug)');
   }
 
   clearDebugLog(): void {

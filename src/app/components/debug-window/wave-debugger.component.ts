@@ -102,6 +102,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">
                 <mat-icon>attach_money</mat-icon>
               </button>
+              <button class="icon-btn health" (click)="addHealth.emit()" title="+1000 HP">
+                <mat-icon>favorite</mat-icon>
+              </button>
             </div>
           </div>
         </div>
@@ -354,6 +357,16 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       background: var(--td-gold);
       color: var(--td-bg-dark);
     }
+
+    .icon-btn.health {
+      border-color: var(--td-health-red);
+      color: var(--td-health-red);
+    }
+
+    .icon-btn.health:hover:not(:disabled) {
+      background: var(--td-health-red);
+      color: var(--td-text-primary);
+    }
   `,
 })
 export class WaveDebuggerComponent {
@@ -364,6 +377,7 @@ export class WaveDebuggerComponent {
   readonly killAll = output<void>();
   readonly healHq = output<void>();
   readonly addCredits = output<void>();
+  readonly addHealth = output<void>();
 
   onEnemyCountChange(event: Event): void {
     const value = parseInt((event.target as HTMLInputElement).value, 10);
