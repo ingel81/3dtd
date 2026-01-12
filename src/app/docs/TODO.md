@@ -30,5 +30,10 @@ Location-System Bekannte Einschränkungen:
      - Mögliche Verbesserung: Alternative Geocoding-API (Photon, Google)
 
 Ideen:
-- coole locations irgendwie sharebar machen
+- [~] coole locations irgendwie sharebar machen (URL-Parameter implementiert, aber noch nicht perfekt)
+
+Stashed Features:
+- [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")
+      Wikidata SPARQL für zufällige Stadt + Overpass API für Straße
+      Würfel-Button in Header + Location-Dialog
 
