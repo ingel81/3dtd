@@ -75,7 +75,7 @@ export class OsmStreetService {
     const query = `
       [out:json][timeout:25];
       (
-        way["highway"~"^(residential|primary|secondary|tertiary|unclassified|living_street|service|pedestrian|footway|path)$"]
+        way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|pedestrian|footway|path|cycleway|track|steps)$"]
           (${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon});
       );
       out body;

@@ -85,20 +85,20 @@ type SpawnMode = 'random' | 'manual';
               <div class="coord-field">
                 <label>Lat</label>
                 <input
-                  type="number"
-                  step="0.0001"
+                  type="text"
                   [value]="coordLat()"
                   (input)="onCoordLatChange($event)"
+                  (paste)="onCoordPaste($event)"
                   placeholder="z.B. 49.5432"
                 />
               </div>
               <div class="coord-field">
                 <label>Lon</label>
                 <input
-                  type="number"
-                  step="0.0001"
+                  type="text"
                   [value]="coordLon()"
                   (input)="onCoordLonChange($event)"
+                  (paste)="onCoordPaste($event)"
                   placeholder="z.B. 9.1234"
                 />
               </div>
@@ -560,6 +560,96 @@ export class LocationDialogComponent {
   onCoordLonChange(event: Event): void {
     const value = (event.target as HTMLInputElement).value;
     this.coordLon.set(value ? parseFloat(value) : null);
+  }
+
+  onCoordPaste(event: ClipboardEvent): void {
+    const pastedText = event.clipboardData?.getData('text')?.trim();
+    if (!pastedText) return;
+
+    const coords = this.parseCoordinates(pastedText);
+    if (coords) {
+      event.preventDefault();
+      this.coordLat.set(coords.lat);
+      this.coordLon.set(coords.lon);
+    }
+  }
+
+  private parseCoordinates(text: string): { lat: number; lon: number } | null {
+    // Normalize whitespace and common separators
+    const normalized = text.trim().replace(/\s+/g, ' ');
+
+    // Try various formats
+
+    // Format: "49.5432, 9.1234" or "49.5432,9.1234" or "49.5432 9.1234"
+    const decimalPattern = /^(-?\d+\.?\d*)[,\s]+(-?\d+\.?\d*)$/;
+    let match = normalized.match(decimalPattern);
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lon = parseFloat(match[2]);
+      if (this.isValidLatLon(lat, lon)) {
+        return { lat, lon };
+      }
+    }
+
+    // Format with cardinal directions: "49.5432°N, 9.1234°E" or "49.5432N 9.1234E"
+    const cardinalPattern = /^(-?\d+\.?\d*)\s*°?\s*([NSns])[,\s]+(-?\d+\.?\d*)\s*°?\s*([EWew])$/;
+    match = normalized.match(cardinalPattern);
+    if (match) {
+      let lat = parseFloat(match[1]);
+      let lon = parseFloat(match[3]);
+      if (match[2].toUpperCase() === 'S') lat = -lat;
+      if (match[4].toUpperCase() === 'W') lon = -lon;
+      if (this.isValidLatLon(lat, lon)) {
+        return { lat, lon };
+      }
+    }
+
+    // Format: "N 49.5432, E 9.1234" or "N49.5432 E9.1234"
+    const prefixCardinalPattern = /^([NSns])\s*(-?\d+\.?\d*)[,\s]+([EWew])\s*(-?\d+\.?\d*)$/;
+    match = normalized.match(prefixCardinalPattern);
+    if (match) {
+      let lat = parseFloat(match[2]);
+      let lon = parseFloat(match[4]);
+      if (match[1].toUpperCase() === 'S') lat = -lat;
+      if (match[3].toUpperCase() === 'W') lon = -lon;
+      if (this.isValidLatLon(lat, lon)) {
+        return { lat, lon };
+      }
+    }
+
+    // DMS Format: "49°32'35.5\"N 9°7'24.2\"E" or similar
+    const dmsPattern = /^(\d+)\s*°\s*(\d+)\s*['′]\s*(\d+\.?\d*)\s*["″]?\s*([NSns])[,\s]+(\d+)\s*°\s*(\d+)\s*['′]\s*(\d+\.?\d*)\s*["″]?\s*([EWew])$/;
+    match = normalized.match(dmsPattern);
+    if (match) {
+      let lat = this.dmsToDecimal(parseFloat(match[1]), parseFloat(match[2]), parseFloat(match[3]));
+      let lon = this.dmsToDecimal(parseFloat(match[5]), parseFloat(match[6]), parseFloat(match[7]));
+      if (match[4].toUpperCase() === 'S') lat = -lat;
+      if (match[8].toUpperCase() === 'W') lon = -lon;
+      if (this.isValidLatLon(lat, lon)) {
+        return { lat, lon };
+      }
+    }
+
+    // Google Maps URL format: "@49.5432,9.1234" or "/@49.5432,9.1234,"
+    const googleMapsPattern = /@(-?\d+\.?\d*),(-?\d+\.?\d*)/;
+    match = text.match(googleMapsPattern);
+    if (match) {
+      const lat = parseFloat(match[1]);
+      const lon = parseFloat(match[2]);
+      if (this.isValidLatLon(lat, lon)) {
+        return { lat, lon };
+      }
+    }
+
+    return null;
+  }
+
+  private dmsToDecimal(degrees: number, minutes: number, seconds: number): number {
+    return degrees + minutes / 60 + seconds / 3600;
+  }
+
+  private isValidLatLon(lat: number, lon: number): boolean {
+    return !isNaN(lat) && !isNaN(lon) && Math.abs(lat) <= 90 && Math.abs(lon) <= 180;
   }
 
   async applyCoordinates(): Promise<void> {
