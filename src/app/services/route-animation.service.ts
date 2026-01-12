@@ -37,13 +37,13 @@ export class RouteAnimationService {
   // ========================================
 
   /** Speed of the animated pattern in meters per second */
-  private readonly ANIMATION_SPEED = 60;
+  private readonly ANIMATION_SPEED = 90; // 1.5x faster than original
 
   /** Number of animation cycles before fade-out */
-  private readonly MAX_CYCLES = 3;
+  private readonly MAX_CYCLES = 1; // Single pass
 
   /** Duration of fade-out in milliseconds */
-  private readonly FADE_DURATION = 2500;
+  private readonly FADE_DURATION = 800; // Quick fade
 
   /** Height offset above terrain for the animated line */
   private readonly HEIGHT_OFFSET = 1.5;
@@ -148,22 +148,24 @@ export class RouteAnimationService {
       const offset = (elapsedTime / 1000) * this.ANIMATION_SPEED;
       route.mainMaterial.dashOffset = -offset;
 
-      // Subtle pulsing for main line (stays red)
-      const intensity = 0.5 + Math.sin(elapsedTime * 0.003) * 0.08;
+      // Very subtle pulsing for main line (minimal brightness variation)
+      const intensity = 0.5 + Math.sin(elapsedTime * 0.004) * 0.03;
       route.mainMaterial.color.setHSL(0.0, 1.0, intensity);
 
       // Glow stays steady pink-red
       route.glowMaterial.color.setHSL(0.0, 0.6, 0.55);
 
       if (elapsedTime >= totalDuration) {
-        // Fade out phase - animation still runs but opacity decreases smoothly
+        // Fade out phase - subtle fade, stays visible
         const fadeElapsed = elapsedTime - totalDuration;
         const fadeProgress = Math.min(fadeElapsed / this.FADE_DURATION, 1);
         // Ease-out curve for smoother fade
-        const easedFade = 1 - Math.pow(1 - fadeProgress, 2.5);
+        const easedFade = 1 - Math.pow(1 - fadeProgress, 2);
 
-        route.mainMaterial.opacity = 1.0 * (1 - easedFade);
-        route.glowMaterial.opacity = 0.6 * (1 - easedFade);
+        // Only fade to 70% of original (subtle reduction, not full fade-out)
+        const fadeAmount = easedFade * 0.7; // Max 70% reduction
+        route.mainMaterial.opacity = 0.9 * (1 - fadeAmount);
+        route.glowMaterial.opacity = 0.35 * (1 - fadeAmount);
 
         if (fadeProgress >= 1) {
           this.stopAnimation();

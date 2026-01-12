@@ -7,8 +7,8 @@
 [x] Compass eine nuance weniger aufdringlich und subtiler machen
 [x] Die Routenanimation hört auf sich zu bewegen und blendet dann aus, besser wäre wenn dass erst nach dem Ausblende aufhört zu animieren.
     Sollte auch noch optisch etwas feiner und hochwertiger aussehen
-[ ] Routevorschau Animation dauert viel zu lange... 1/3 der Zeit nehmen
-    [ ] schnelles ein uns ausfaden schwächer machen...nicht so viel ausfaden..nur minimal unterschiede in rottönung.
+[x] Routevorschau Animation dauert viel zu lange... 1/3 der Zeit nehmen
+    [x] schnelles ein uns ausfaden schwächer machen...nicht so viel ausfaden..nur minimal unterschiede in rottönung.
 
 Performance:
  [ ] spielt man das in einer größeren Stadt mit vielen 3d Gebäuden und straßen, kommt es beim zoomen oder panen und auch beim laden kurz zu aussetzern.
