@@ -10,6 +10,10 @@ Allgemein:
      - Pulsierender Glow + Farbshift für Eyecatcher-Effekt
      - Debug-Button im Dev-Menü zum manuellen Auslösen
      - RouteAnimationService in services/route-animation.service.ts
+ [x] **Route-Animation Timing & Optik optimiert**
+     - Animation auf 1/3 der Zeit verkürzt
+     - Sanfteres Ein-/Ausfaden mit minimalen Unterschieden in der Rottönung
+     - Animation stoppt erst nach dem Ausblenden (nicht vorher)
 
 Bug:
  [x] Feuer am HQ bei Damage durch Gegner funktioniert jetzt zuverlässig
@@ -53,6 +57,8 @@ Gegner:
 
 Projektile:
  [x] Sichtbarkeit (erledigt)
+ [x] **Line-of-Sight für Projektile**
+     - Projektile erreichen Ziel nur bei bestehender Sichtverbindung zum Gegner
 
 Türme:
  [x] Sollen selektiert werden können
@@ -74,6 +80,9 @@ Türme:
      - LineOfSightRaycaster raycastet von Turm-Spitze zu Hex-Zellen
      - hasLineOfSight() API für Targeting-Entscheidungen
      - Gebäude-Verdeckung funktioniert via 3D-Tiles Mesh-Intersection
+ [x] **Tower LOS-Prüfung von Hülle statt Mitte**
+     - Tower prüfen LOS ab ihrer äußeren Hülle, nicht vom Mittelpunkt
+     - Relevant wenn Tower auf Gebäuden steht
 
 UI:
  [x] **Location Dialog Styling** - An TD-Style angepasst
@@ -128,6 +137,8 @@ Kamera:
      - Rotiert mit Kamera-Heading
      - Nadel zeigt immer nach Norden
      - Dezentes Design passend zum TD-Style
+ [x] **Kompass-Styling optimiert**
+     - Subtileres, weniger aufdringliches Design
 
 Gameplay:
  [x] User soll sich eine eigene Location durch Eingabe seines Ortes wählen können

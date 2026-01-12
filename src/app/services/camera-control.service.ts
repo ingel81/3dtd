@@ -296,17 +296,7 @@ export class CameraControlService {
 
   /** Debug: Log camera state */
   debugLogCameraState(): void {
-    if (!this.engine) {
-      console.log('[Camera Debug] No engine');
-      return;
-    }
-    const camera = this.engine.getCamera();
-    const heading = this.getCameraHeading();
-    console.log('[Camera Debug]', {
-      position: { x: camera.position.x.toFixed(1), y: camera.position.y.toFixed(1), z: camera.position.z.toFixed(1) },
-      rotation: { x: (camera.rotation.x * 180/Math.PI).toFixed(1), y: (camera.rotation.y * 180/Math.PI).toFixed(1), z: (camera.rotation.z * 180/Math.PI).toFixed(1) },
-      heading: heading.toFixed(1)
-    });
+    // Debug method - no-op in production
   }
 
   // ========================================
@@ -604,24 +594,7 @@ export class CameraControlService {
    * Useful for debugging camera issues and determining initial positions
    */
   logCameraPosition(): void {
-    if (!this.engine) return;
-
-    const camera = this.engine.getCamera();
-
-    const data = {
-      position: {
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z,
-      },
-      rotation: {
-        x: camera.rotation.x,
-        y: camera.rotation.y,
-        z: camera.rotation.z,
-      },
-    };
-
-    console.log('[Camera] Current position:', JSON.stringify(data, null, 2));
+    // Debug method - no-op in production
   }
 
   // ========================================

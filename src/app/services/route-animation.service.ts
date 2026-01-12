@@ -117,7 +117,6 @@ export class RouteAnimationService {
       const animatedRoute = this.createAnimatedRoute(spawnId, path, this.MAIN_COLOR);
       if (animatedRoute) {
         this.animatedRoutes.push(animatedRoute);
-        console.log('[RouteAnimation] Created route', spawnId, '- length:', animatedRoute.totalLength.toFixed(0), 'm');
       }
     }
 
@@ -126,8 +125,6 @@ export class RouteAnimationService {
     // Start animation
     this.isAnimating = true;
     this.startTime = performance.now();
-
-    console.log('[RouteAnimation] Started animation with', this.animatedRoutes.length, 'routes');
   }
 
   /**

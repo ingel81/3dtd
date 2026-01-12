@@ -205,7 +205,6 @@ export class HeightUpdateService {
   stopHeightUpdates(): void {
     // Only run callbacks if there was an active height update cycle
     const hadActiveInterval = this.heightUpdateIntervalId !== null;
-    // console.log('[HeightUpdate] stopHeightUpdates called, intervalId:', this.heightUpdateIntervalId);
 
     if (this.heightUpdateIntervalId) {
       clearInterval(this.heightUpdateIntervalId);
@@ -216,19 +215,16 @@ export class HeightUpdateService {
     // Only call callbacks if we had an active interval
     // This prevents stale callbacks from being called during location change init
     if (!hadActiveInterval) {
-      // console.log('[HeightUpdate] No active interval - skipping callbacks');
       return;
     }
 
     // IMPORTANT: Camera correction BEFORE overlay hides!
     // This ensures the camera jump happens while loading overlay is still visible
     if (this.onCameraCorrectionCallback) {
-      // console.log('[HeightUpdate] Calling camera correction callback');
       this.onCameraCorrectionCallback();
     }
 
     // NOW hide the loading overlay
-    // console.log('[HeightUpdate] Setting heightsLoading to false');
     this.heightsLoading.set(false);
 
     // Mark finalize step as done

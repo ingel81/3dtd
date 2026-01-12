@@ -66,11 +66,9 @@ export class WaveManager {
 
     const spawnNext = () => {
       const currentPhase = this.phase();
-      console.log(`[WaveManager] spawnNext called, phase: ${currentPhase}, spawned: ${spawnedCount}/${config.enemyCount}`);
 
       // Stop spawning if game over
       if (currentPhase === 'gameover') {
-        console.log('[WaveManager] spawnNext aborted - game over');
         return;
       }
 

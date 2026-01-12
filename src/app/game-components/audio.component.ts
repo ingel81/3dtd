@@ -188,7 +188,6 @@ export class AudioComponent extends Component {
 
     // Final check before starting - if destroyed during sync setup, cleanup and abort
     if (this.destroyed) {
-      console.log(`[AudioComponent] playLoop('${id}') - destroyed during setup, aborting`);
       audio.disconnect();
       scene.remove(container);
       if (isEnemySound && this.spatialAudio) {
@@ -198,7 +197,6 @@ export class AudioComponent extends Component {
     }
 
     this.activeLoops.set(id, { audio, container, isEnemySound });
-    console.log(`[AudioComponent] playLoop('${id}') - starting audio for ${this.gameObject.id}`);
     audio.play();
   }
 
@@ -222,8 +220,6 @@ export class AudioComponent extends Component {
   stop(id: string): void {
     const loop = this.activeLoops.get(id);
     if (loop) {
-      console.log(`[AudioComponent] stop('${id}') - isPlaying:`, loop.audio.isPlaying);
-
       // Unregister enemy sound from budget
       if (loop.isEnemySound && this.spatialAudio) {
         this.spatialAudio.unregisterEnemySound();
@@ -245,7 +241,6 @@ export class AudioComponent extends Component {
    * Stop all sounds
    */
   stopAll(): void {
-    console.log('[AudioComponent] stopAll() called, activeLoops:', this.activeLoops.size);
     // Copy keys to array to avoid iteration issues during deletion
     const ids = Array.from(this.activeLoops.keys());
     for (const id of ids) {
@@ -293,7 +288,6 @@ export class AudioComponent extends Component {
   }
 
   override onDestroy(): void {
-    console.log('[AudioComponent] onDestroy() called for', this.gameObject.id);
     this.destroyed = true; // Prevent any pending async playLoop from adding new sounds
     this.stopAll();
   }

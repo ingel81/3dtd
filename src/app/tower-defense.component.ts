@@ -910,15 +910,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
     const isNowLoading = this.loading();
 
-    // console.log('[TD] checkAllLoaded - was:', wasLoading, 'now:', isNowLoading,
-    //   'tiles:', this.tilesLoading(), 'osm:', this.osmLoading(),
-    //   'heights:', this.heightUpdate.heightsLoading(), 'applying:', isApplying);
-
     // Start route animation when loading completes (transition from true to false)
     // BUT NOT if we're in the middle of applying a new location!
     if (wasLoading && !isNowLoading && !this.routeAnimation.isRunning() && !isApplying) {
       const cachedPaths = this.pathRoute.getCachedPaths();
-      // console.log('[TD] Loading complete, starting route animation. Paths:', cachedPaths.size);
       if (cachedPaths.size > 0) {
         this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
       }
@@ -1128,10 +1123,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       () => this.checkAllLoaded(),
       // Camera correction callback - runs BEFORE overlay hides
       () => {
-        // console.log('[TD] Camera correction callback - BEFORE overlay hides');
         this.cameraFraming.setEngine(engine);
         const realTerrainY = engine.getTerrainHeightAtGeo(base.latitude, base.longitude) ?? 0;
-        // console.log('[TD] Terrain height at base:', realTerrainY);
         if (Math.abs(realTerrainY) > 1) {
           this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
         }
@@ -1418,22 +1411,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Extract all route waypoints from cached paths
     const routePoints: GeoPoint[] = [];
     const cachedPaths = this.pathRoute.getCachedPaths();
-    console.log('[Reframe] Cached paths count:', cachedPaths.size);
-    cachedPaths.forEach((path, spawnId) => {
-      console.log(`[Reframe] Path for ${spawnId}: ${path.length} points`);
+    cachedPaths.forEach((path) => {
       for (const pos of path) {
         routePoints.push({ lat: pos.lat, lon: pos.lon });
       }
     });
-
-    console.log('[Reframe] Total route points:', routePoints.length);
-    if (routePoints.length > 0) {
-      // Log min/max lat/lon to see the extent
-      const lats = routePoints.map(p => p.lat);
-      const lons = routePoints.map(p => p.lon);
-      console.log('[Reframe] Lat range:', Math.min(...lats), '-', Math.max(...lats));
-      console.log('[Reframe] Lon range:', Math.min(...lons), '-', Math.max(...lons));
-    }
 
     // Only reframe if we have route points
     if (routePoints.length > 0) {
@@ -1699,9 +1681,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
       this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
-      console.log('[TowerDefense] Route animation manually triggered');
-    } else {
-      console.warn('[TowerDefense] No cached paths available for route animation');
     }
   }
 
@@ -1982,9 +1961,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // STEP 5: Place spawn point
       await this.engineInit.setStepActive('spawn');
-      // console.log('[Location] Adding spawn point, cached paths before:', this.pathRoute.getCachedPaths().size);
       this.addSpawnPoint('spawn-1', data.spawn.name?.split(',')[0] || 'Spawn', data.spawn.lat, data.spawn.lon, 0xef4444);
-      // console.log('[Location] Spawn added, cached paths after:', this.pathRoute.getCachedPaths().size);
       await this.engineInit.setStepDone('spawn', '1 Punkt');
 
       // STEP 6: Calculate route
@@ -2032,7 +2009,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // We do this manually because checkAllLoaded() skips animation while isApplyingLocation is true
       if (!this.routeAnimation.isRunning()) {
         const cachedPaths = this.pathRoute.getCachedPaths();
-        // console.log('[Location] Location change complete, starting route animation. Paths:', cachedPaths.size);
         if (cachedPaths.size > 0) {
           this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
         }

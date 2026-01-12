@@ -223,12 +223,10 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Clear all enemies and cleanup resources
    */
   override clear(): void {
-    console.log('[EnemyManager] clear() called, enemies:', this.getAll().length);
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
     super.clear();
     this.aliveCount.set(0);
-    console.log('[EnemyManager] clear() done, enemies:', this.getAll().length);
   }
 
   /**

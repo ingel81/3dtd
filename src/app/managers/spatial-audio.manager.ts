@@ -152,11 +152,7 @@ export class SpatialAudioManager {
    * Debug: Log all active sounds
    */
   debugLogActiveSounds(): void {
-    console.log('[SpatialAudio] Active sounds:', this.activeSounds.length);
-    console.log('[SpatialAudio] Enemy sound count:', this.enemySoundCount);
-    for (const sound of this.activeSounds) {
-      console.log('  -', sound.soundId, 'playing:', sound.audio.isPlaying);
-    }
+    // Debug method - no-op in production
   }
 
   /**

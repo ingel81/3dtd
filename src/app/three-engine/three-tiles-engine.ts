@@ -1107,8 +1107,6 @@ export class ThreeTilesEngine {
       this.scene.add(cube);
       this.debugHelpers.push(cube);
     }
-
-    console.log('[ThreeTilesEngine] Added', spawns.length, 'test cubes at spawns');
   }
 
   /**

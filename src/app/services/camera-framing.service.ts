@@ -207,16 +207,12 @@ export class CameraFramingService {
     const spawnLocals = spawns.map(s => sync.geoToLocalSimple(s.lat, s.lon, 0));
     const routeLocals = routePoints.map(r => sync.geoToLocalSimple(r.lat, r.lon, 0));
 
-    console.log('[CameraFraming] computeFrameWithEngine - routePoints:', routePoints.length, 'routeLocals:', routeLocals.length);
-
     // All points including HQ, spawns, and route waypoints
     const allPoints = [
       new THREE.Vector3(hqLocal.x, 0, hqLocal.z),
       ...spawnLocals.map(s => new THREE.Vector3(s.x, 0, s.z)),
       ...routeLocals.map(r => new THREE.Vector3(r.x, 0, r.z)),
     ];
-
-    console.log('[CameraFraming] Total points for bounding box:', allPoints.length);
 
     // Get camera properties if available
     const camera = this.engine.getCamera();
@@ -424,18 +420,14 @@ export class CameraFramingService {
    */
   correctTerrainHeight(realTerrainY: number, originalEstimate: number = 0): void {
     if (!this.engine || !this.lastFrame) {
-      // console.log('[CameraFraming] correctTerrainHeight - no engine or lastFrame');
       return;
     }
 
     const deltaY = realTerrainY - originalEstimate;
 
     if (Math.abs(deltaY) < 1) {
-      // console.log('[CameraFraming] correctTerrainHeight - deltaY too small:', deltaY);
       return;
     }
-
-    // console.log('[CameraFraming] correctTerrainHeight - deltaY:', deltaY, 'realTerrainY:', realTerrainY);
 
     const newCamY = this.lastFrame.camY + deltaY;
     const newLookAtY = this.lastFrame.lookAtY + deltaY;
@@ -477,10 +469,7 @@ export class CameraFramingService {
     routePoints: GeoPoint[],
     config: Omit<FrameConfig, 'routePoints'> = {}
   ): boolean {
-    console.log('[CameraFraming] reframeWithRoutes called with', routePoints.length, 'route points');
-
     if (routePoints.length === 0) {
-      console.log('[CameraFraming] No route points, skipping reframe');
       return false;
     }
 
@@ -490,12 +479,10 @@ export class CameraFramingService {
     });
 
     if (frame) {
-      console.log('[CameraFraming] New frame bounding box:', frame.boundingBox);
       this.applyFrame(frame);
       return true;
     }
 
-    console.log('[CameraFraming] No frame computed');
     return false;
   }
 
