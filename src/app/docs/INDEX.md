@@ -1,6 +1,6 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-01-10
+**Stand:** 2026-01-12
 
 Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense Minispiel.
 
@@ -21,6 +21,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 
 | Dokument | Beschreibung |
 |----------|--------------|
+| [TOWER_CREATION.md](TOWER_CREATION.md) | Neue Tower erstellen, rotierende Turrets, Sound-Integration |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Location Dialog, Geocoding, Spawn-Generierung |
 | [PROJECTILES.md](PROJECTILES.md) | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | 3D Audio System, Positionsabhängige Sounds |
@@ -40,6 +41,8 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | ...einen Bug fixen | [TODO.md](TODO.md) |
 | ...wissen was schon fertig ist | [DONE.md](DONE.md) |
+| ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
+| ...rotierende Turrets bauen | [TOWER_CREATION.md](TOWER_CREATION.md) → Rotierende Tower-Teile |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...Sounds hinzufügen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |

@@ -56,6 +56,7 @@ src/app/
 | [INDEX.md](src/app/docs/INDEX.md) | Übersicht aller Dokumentationen |
 | [ARCHITECTURE.md](src/app/docs/ARCHITECTURE.md) | System-Architektur & Design |
 | [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
+| [TOWER_CREATION.md](src/app/docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
 | [LOCATION_SYSTEM.md](src/app/docs/LOCATION_SYSTEM.md) | Standort-System |
 | [SPATIAL_AUDIO.md](src/app/docs/SPATIAL_AUDIO.md) | 3D Audio System |
 | [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
