@@ -3,7 +3,7 @@ import { ProjectileTypeId } from './tower-types.config';
 // Re-export ProjectileTypeId for convenience
 export type { ProjectileTypeId } from './tower-types.config';
 
-export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic';
+export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'bullet';
 
 export interface ProjectileTypeConfig {
   id: ProjectileTypeId;
@@ -36,6 +36,12 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 90,
     visualType: 'magic',
     scale: 0.4,
+  },
+  bullet: {
+    id: 'bullet',
+    speed: 150, // Very fast - bullet speed
+    visualType: 'bullet',
+    scale: 0.15, // Small projectile
   },
 };
 

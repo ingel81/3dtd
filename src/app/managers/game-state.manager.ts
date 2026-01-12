@@ -175,10 +175,29 @@ export class GameStateManager {
 
       const target = tower.findTarget(enemies, losCheck);
       if (target) {
+        // Rotate turret towards target
+        const heading = this.calculateHeading(tower.position, target.position);
+        this.tilesEngine?.towers.updateRotation(tower.id, heading);
+
         tower.combat.fire(currentTime);
         this.projectileManager.spawn(tower, target);
+      } else {
+        // No target - reset turret to base position
+        this.tilesEngine?.towers.resetRotation(tower.id);
       }
     }
+  }
+
+  /**
+   * Calculate heading angle from one geo position to another
+   */
+  private calculateHeading(
+    from: { lat: number; lon: number },
+    to: { lat: number; lon: number }
+  ): number {
+    const dLon = to.lon - from.lon;
+    const dLat = to.lat - from.lat;
+    return Math.atan2(dLon, dLat);
   }
 
   /**

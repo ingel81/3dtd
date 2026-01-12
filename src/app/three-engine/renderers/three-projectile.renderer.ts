@@ -144,6 +144,7 @@ export class ThreeProjectileRenderer {
   private arrowManager: ProjectileInstanceManager | null = null;
   private cannonballManager: ProjectileInstanceManager;
   private magicManager: ProjectileInstanceManager;
+  private bulletManager: ProjectileInstanceManager;
 
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
@@ -159,6 +160,7 @@ export class ThreeProjectileRenderer {
     // Create instanced managers for each visual type
     this.cannonballManager = this.createCannonballManager();
     this.magicManager = this.createMagicManager();
+    this.bulletManager = this.createBulletManager();
 
     // Load arrow model async
     this.loadArrowModel();
@@ -167,6 +169,7 @@ export class ThreeProjectileRenderer {
     // Arrow will be added when model loads
     scene.add(this.cannonballManager.instancedMesh);
     scene.add(this.magicManager.instancedMesh);
+    scene.add(this.bulletManager.instancedMesh);
   }
 
   /**
@@ -260,6 +263,21 @@ export class ThreeProjectileRenderer {
     return new ProjectileInstanceManager(geometry, material, 500);
   }
 
+  private createBulletManager(): ProjectileInstanceManager {
+    // Bullet: small yellow/golden tracer - elongated cylinder for "bullet trail" effect
+    const geometry = new THREE.CylinderGeometry(0.3, 0.3, 2.0, 8);
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xffcc00,
+      emissive: 0xff9900,
+      emissiveIntensity: 2.0,
+      metalness: 0.8,
+      roughness: 0.2,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 1000);
+  }
+
   private getManager(visualType: ProjectileVisualType): ProjectileInstanceManager | null {
     switch (visualType) {
       case 'arrow':
@@ -268,6 +286,8 @@ export class ThreeProjectileRenderer {
         return this.cannonballManager;
       case 'magic':
         return this.magicManager;
+      case 'bullet':
+        return this.bulletManager;
     }
   }
 
@@ -372,7 +392,8 @@ export class ThreeProjectileRenderer {
     return (
       (this.arrowManager?.count ?? 0) +
       this.cannonballManager.count +
-      this.magicManager.count
+      this.magicManager.count +
+      this.bulletManager.count
     );
   }
 
@@ -387,6 +408,7 @@ export class ThreeProjectileRenderer {
     this.arrowManager?.clear();
     this.cannonballManager.clear();
     this.magicManager.clear();
+    this.bulletManager.clear();
     this.projectileTypes.clear();
   }
 
@@ -397,9 +419,11 @@ export class ThreeProjectileRenderer {
     }
     this.scene.remove(this.cannonballManager.instancedMesh);
     this.scene.remove(this.magicManager.instancedMesh);
+    this.scene.remove(this.bulletManager.instancedMesh);
 
     this.cannonballManager.dispose();
     this.magicManager.dispose();
+    this.bulletManager.dispose();
     this.projectileTypes.clear();
   }
 }

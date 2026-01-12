@@ -550,7 +550,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       if (!towerConfig) return;
 
       // Use fixed preview scale (independent of game world scale)
-      const previewScale = towerConfig.modelUrl.endsWith('.fbx') ? 0.032 : towerConfig.scale * 0.4;
+      // Use previewScale if defined, otherwise calculate from scale
+      const previewScale = towerConfig.previewScale
+        ?? (towerConfig.modelUrl.endsWith('.fbx') ? 0.032 : towerConfig.scale * 0.4);
 
       this.modelPreview.createPreview(
         `tower-preview-${towerId}`,

@@ -99,6 +99,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               <button class="icon-btn danger" [disabled]="!waveDebug.waveActive()" (click)="killAll.emit()" title="Alle toeten">
                 <mat-icon>skull</mat-icon>
               </button>
+              <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">
+                <mat-icon>attach_money</mat-icon>
+              </button>
             </div>
           </div>
         </div>
@@ -341,6 +344,16 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       background: var(--td-green);
       color: var(--td-bg-dark);
     }
+
+    .icon-btn.credits {
+      border-color: var(--td-gold);
+      color: var(--td-gold);
+    }
+
+    .icon-btn.credits:hover:not(:disabled) {
+      background: var(--td-gold);
+      color: var(--td-bg-dark);
+    }
   `,
 })
 export class WaveDebuggerComponent {
@@ -350,6 +363,7 @@ export class WaveDebuggerComponent {
   // Actions that need to be handled by the parent
   readonly killAll = output<void>();
   readonly healHq = output<void>();
+  readonly addCredits = output<void>();
 
   onEnemyCountChange(event: Event): void {
     const value = parseInt((event.target as HTMLInputElement).value, 10);

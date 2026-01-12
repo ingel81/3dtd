@@ -11,6 +11,8 @@ import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-def
 export interface TowerRenderData {
   id: string;
   mesh: THREE.Object3D;
+  turretPart: THREE.Object3D | null; // Rotating turret part (e.g., turret_top)
+  aimArrow: THREE.ArrowHelper | null; // Debug arrow showing aim direction
   rangeIndicator: THREE.Mesh | null;
   selectionRing: THREE.Mesh | null;
   hexGrid: THREE.InstancedMesh | null; // Instanced mesh for hex visualization
@@ -332,6 +334,14 @@ export class ThreeTowerRenderer {
     const baseRotation = config.rotationY ?? 0;
     mesh.rotation.y = baseRotation + customRotation;
 
+    // Find turret_top part if it exists (for turret rotation)
+    let turretPart: THREE.Object3D | null = null;
+    mesh.traverse((node) => {
+      if (node.name === 'turret_top' && !turretPart) {
+        turretPart = node;
+      }
+    });
+
     // Enable shadows
     mesh.traverse((node) => {
       if ((node as THREE.Mesh).isMesh) {
@@ -410,9 +420,24 @@ export class ThreeTowerRenderer {
     losRing.visible = this.debugMode;
     this.scene.add(losRing);
 
+    // Create aim direction arrow for turrets (debug visualization)
+    // DISABLED: Causing NaN errors in render loop
+    const aimArrow: THREE.ArrowHelper | null = null;
+    // if (turretPart) {
+    //   const arrowDir = new THREE.Vector3(0, 0, -1);
+    //   const arrowOrigin = new THREE.Vector3(terrainPos.x, tipY, terrainPos.z);
+    //   const arrowLength = 15;
+    //   const arrowColor = 0x00ff00;
+    //   aimArrow = new THREE.ArrowHelper(arrowDir, arrowOrigin, arrowLength, arrowColor, 3, 2);
+    //   aimArrow.visible = this.debugMode;
+    //   this.scene.add(aimArrow);
+    // }
+
     const renderData: TowerRenderData = {
       id,
       mesh,
+      turretPart,
+      aimArrow,
       rangeIndicator,
       selectionRing,
       hexGrid,
@@ -469,12 +494,60 @@ export class ThreeTowerRenderer {
 
   /**
    * Update tower rotation (for aiming at target)
+   * Only rotates if tower has a turret part (turret_top).
+   * Static towers (without turret part) don't rotate.
+   *
+   * Coordinate system mapping:
+   * - Geo: North (+lat), East (+lon)
+   * - Three.js local: North → -Z, East → +X
+   * - geoHeading = atan2(dLon, dLat): 0=North, π/2=East
+   * - Three.js rotation.y: 0 faces -Z (North), -π/2 faces +X (East)
+   * - Conversion: threeJsRotation = -geoHeading
    */
   updateRotation(id: string, heading: number): void {
     const data = this.towers.get(id);
-    if (!data) return;
+    if (!data || !data.turretPart) return;
 
-    data.mesh.rotation.y = heading;
+    // Turret model offset: if barrels don't point -Z in model space, we need to compensate
+    // For dual-gatling: barrels point +X, so offset = π/2 (90° from -Z)
+    // The config.rotationY is set to align the model, so -rotationY gives us the model offset
+    const turretModelOffset = -(data.typeConfig.rotationY ?? 0);
+
+    // Convert geo heading to Three.js target rotation for the turret
+    // geoHeading 0 = North = -Z = Three.js rotation 0
+    // But if model barrels are offset, add that offset
+    const threeJsTargetRotation = -heading + turretModelOffset;
+
+    // Parent mesh rotation (includes config.rotationY + customRotation)
+    const parentRotation = data.mesh.rotation.y;
+
+    // Convert to local space: subtract parent's rotation
+    const localRotation = threeJsTargetRotation - parentRotation;
+    data.turretPart.rotation.y = localRotation;
+
+    // Update debug arrow direction (world space)
+    if (data.aimArrow) {
+      // Arrow should show where barrels are pointing in world space
+      const worldRot = localRotation + parentRotation;
+      const dir = new THREE.Vector3(
+        Math.sin(worldRot),
+        0,
+        Math.cos(worldRot)
+      );
+      data.aimArrow.setDirection(dir);
+    }
+  }
+
+  /**
+   * Reset turret rotation to base position (facing forward relative to tower base)
+   * Called when tower has no targets in range
+   */
+  resetRotation(id: string): void {
+    const data = this.towers.get(id);
+    if (!data || !data.turretPart) return;
+
+    // Reset to 0 = turret faces same direction as tower base
+    data.turretPart.rotation.y = 0;
   }
 
   /**
@@ -535,6 +608,9 @@ export class ThreeTowerRenderer {
       }
       if (data.losRing) {
         data.losRing.visible = enabled;
+      }
+      if (data.aimArrow) {
+        data.aimArrow.visible = enabled;
       }
       // Recalculate LOS for selected towers to show/hide debug rays
       if (data.isSelected && data.hexGrid) {
@@ -597,6 +673,12 @@ export class ThreeTowerRenderer {
       this.scene.remove(data.losRing);
       data.losRing.geometry.dispose();
       (data.losRing.material as THREE.Material).dispose();
+    }
+
+    // Remove aim arrow
+    if (data.aimArrow) {
+      this.scene.remove(data.aimArrow);
+      data.aimArrow.dispose();
     }
 
     // Remove debug rays

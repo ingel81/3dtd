@@ -1,5 +1,5 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper';
-export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper' | 'dual-gatling';
+export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet';
 export type UpgradeId = 'speed' | 'damage' | 'range';
 
 export interface TowerUpgrade {
@@ -19,6 +19,7 @@ export interface TowerTypeConfig {
   name: string;
   modelUrl: string;
   scale: number;
+  previewScale?: number; // Optional separate scale for UI preview (defaults to scale * 0.4)
   heightOffset: number; // Vertical offset to place model above ground
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
   rotationY?: number; // Initial Y rotation in radians (default: 0)
@@ -36,6 +37,7 @@ export interface TowerTypeConfig {
 // NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
 const ARCHER_MODEL_URL = '/assets/models/towers/tower_archer.glb';
 const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
+const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -62,6 +64,35 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         effect: {
           stat: 'fireRate',
           multiplier: 2.0,
+        },
+      },
+    ],
+  },
+  'dual-gatling': {
+    id: 'dual-gatling',
+    name: 'Dual-Gatling Tower',
+    modelUrl: TURRET_MODEL_URL,
+    scale: 2.5, // World scale
+    previewScale: 4.0, // Larger preview in UI
+    heightOffset: 2.5, // Ground level
+    shootHeight: 2.5, // Barrel height at scale 2.5
+    rotationY: -Math.PI / 2, // -90° to align turret with aim direction
+    damage: 10,
+    range: 50,
+    fireRate: 5.0, // 5 shots/sec - rapid fire
+    projectileType: 'bullet',
+    cost: 100,
+    sellValue: 60,
+    upgrades: [
+      {
+        id: 'range',
+        name: 'Erweiterter Radius',
+        description: 'Erhöht die Reichweite um 50%',
+        cost: 50,
+        maxLevel: 1,
+        effect: {
+          stat: 'range',
+          multiplier: 1.5,
         },
       },
     ],

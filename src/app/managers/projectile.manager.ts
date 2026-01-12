@@ -14,6 +14,12 @@ const PROJECTILE_SOUNDS = {
     rolloffFactor: 1,
     volume: 0.5,
   },
+  bullet: {
+    url: '/assets/sounds/gatling_0.mp3',
+    refDistance: 40, // Shorter range for rapid fire
+    rolloffFactor: 1.2,
+    volume: 0.25, // Lower volume due to high fire rate (5/sec)
+  },
 } as const;
 
 /**
@@ -56,9 +62,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
       throw new Error('ProjectileManager not initialized');
     }
 
-    // Calculate spawn height: tower terrain height + tower model offset + firing position offset
+    // Calculate spawn height: tower terrain height + tower model offset + shooting position
     const terrainHeight = tower.position.height ?? 0;
-    const spawnHeight = terrainHeight + tower.typeConfig.heightOffset + 8;
+    const spawnHeight = terrainHeight + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
 
     const projectile = new Projectile(
       tower.position,
@@ -121,9 +127,11 @@ export class ProjectileManager extends EntityManager<Projectile> {
   private playProjectileSound(tower: Tower, projectileType: string): void {
     if (!this.tilesEngine?.spatialAudio) return;
 
-    // Use 'arrow' sound for all projectile types for now
-    // TODO: Add different sounds for different projectile types
-    const soundId = 'arrow';
+    // Map projectile types to sound IDs
+    const soundId = projectileType in PROJECTILE_SOUNDS
+      ? projectileType
+      : 'arrow'; // Fallback to arrow sound
+
     const pos = tower.position;
     const height = (pos.height ?? 0) + tower.typeConfig.heightOffset;
 

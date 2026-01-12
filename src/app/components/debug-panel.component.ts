@@ -84,6 +84,9 @@ import { TD_CSS_VARS } from '../styles/td-theme';
           <button class="icon-btn danger" [disabled]="!waveActive()" (click)="killAll.emit()" title="Alle töten">
             <mat-icon>skull</mat-icon>
           </button>
+          <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">
+            <mat-icon>attach_money</mat-icon>
+          </button>
         </div>
       </div>
 
@@ -312,6 +315,16 @@ import { TD_CSS_VARS } from '../styles/td-theme';
 
     .icon-btn.heal:hover:not(:disabled) {
       background: var(--td-green);
+      color: var(--td-bg-dark);
+    }
+
+    .icon-btn.credits {
+      border-color: var(--td-gold);
+      color: var(--td-gold);
+    }
+
+    .icon-btn.credits:hover:not(:disabled) {
+      background: var(--td-gold);
       color: var(--td-bg-dark);
     }
 
@@ -590,6 +603,7 @@ export class DebugPanelComponent {
   healHq = output<void>();
   clearLog = output<void>();
   logCamera = output<void>();
+  addCredits = output<void>();
 
   onEnemyCountChange(event: Event): void {
     const value = parseInt((event.target as HTMLInputElement).value, 10);

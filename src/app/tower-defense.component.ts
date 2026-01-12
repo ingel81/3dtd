@@ -171,6 +171,7 @@ const DEFAULT_CENTER_COORDS = {
             <app-wave-debugger
               (killAll)="killAllEnemies()"
               (healHq)="healHq()"
+              (addCredits)="addDebugCredits()"
             />
 
             <!-- Info Overlay (top left) -->
@@ -1765,6 +1766,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // HQ auf 100 HP heilen und Feuer stoppen
     this.gameState.healBase();
     this.appendDebugLog('HQ geheilt (100 HP)');
+  }
+
+  addDebugCredits(): void {
+    this.gameState.credits.update((c) => c + 1000);
+    this.appendDebugLog('+1000 Credits (Debug)');
   }
 
   clearDebugLog(): void {
