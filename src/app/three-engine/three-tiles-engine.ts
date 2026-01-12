@@ -272,8 +272,21 @@ export class ThreeTilesEngine {
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
     this.tilesRenderer.setCamera(this.camera);
 
-    // Performance settings
-    this.tilesRenderer.errorTarget = 20;
+    // === QUALITY SETTINGS (keep high - critical for raycasting!) ===
+    this.tilesRenderer.errorTarget = 20; // High quality for accurate terrain raycasting
+
+    // === ASYNC LOADING STRATEGY ===
+    // Limit concurrent downloads to prevent network congestion
+    this.tilesRenderer.downloadQueue.maxJobs = 4; // Reduced from 6
+
+    // Reduce concurrent parsing to prevent main thread blocking
+    // Tiles parse asynchronously but still block on finalization
+    this.tilesRenderer.parseQueue.maxJobs = 1; // Process one at a time for smoother frames
+
+    // === CACHE OPTIMIZATION ===
+    // Increase LRU cache to reduce re-loading when camera returns to previous area
+    this.tilesRenderer.lruCache.minSize = 1000; // Default is much lower
+    this.tilesRenderer.lruCache.maxSize = 2000; // Keep more tiles in memory
 
     // Listen for tile loading events to refresh terrain heights
     // 'tiles-load-end' fires when ALL currently visible tiles have finished loading
