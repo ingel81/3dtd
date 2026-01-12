@@ -24,7 +24,7 @@ export class TowerManager extends EntityManager<Tower> {
   private readonly MAX_DISTANCE_TO_STREET = 50;
   private readonly MIN_DISTANCE_TO_BASE = 30;
   private readonly MIN_DISTANCE_TO_SPAWN = 30;
-  private readonly MIN_DISTANCE_TO_OTHER_TOWER = 20;
+  private readonly MIN_DISTANCE_TO_OTHER_TOWER = 8;
 
   /**
    * Initialize with ThreeTilesEngine and street network context
@@ -52,11 +52,8 @@ export class TowerManager extends EntityManager<Tower> {
       throw new Error('TowerManager not initialized');
     }
 
-    const validation = this.validatePosition(position);
-    if (!validation.valid) {
-      console.warn('Invalid tower position:', validation.reason);
-      return null;
-    }
+    // Note: Validation is done by TowerPlacementService (with 3D distance calculation)
+    // We skip redundant validation here to allow rooftop placements etc.
 
     const tower = new Tower(position, typeId, customRotation);
 

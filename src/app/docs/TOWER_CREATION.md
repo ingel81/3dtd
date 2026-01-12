@@ -263,3 +263,67 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
 Model-Anforderungen:
 - Mesh `turret_base`: Statische Basis
 - Mesh `turret_top`: Rotierender Turret (wird automatisch erkannt)
+
+---
+
+## Tower-Placement-System
+
+Das Platzieren von Türmen wird durch den `TowerPlacementService` gesteuert.
+
+### Features
+
+- **3D-Model-Preview:** Zeigt das echte Tower-Model als Vorschau
+- **Grün/Rot-Färbung:** Je nach Gültigkeit der Position
+- **R-Taste Rotation:** Kontinuierliche Drehung bei gehaltenem R
+- **Line-of-Sight Preview:** Zeigt Sichtfeld nach 300ms Stillstand
+- **3D-Distanz-Berechnung:** Berücksichtigt Höhenunterschied zur Straße
+
+### Platzierungsregeln
+
+| Regel | Wert | Beschreibung |
+|-------|------|--------------|
+| `MIN_DISTANCE_TO_STREET` | 10m | Mindestabstand zur Straße (3D!) |
+| `MAX_DISTANCE_TO_STREET` | 50m | Maximaler Abstand zur Straße |
+| `MIN_DISTANCE_TO_BASE` | 30m | Mindestabstand zur Basis |
+| `MIN_DISTANCE_TO_SPAWN` | 30m | Mindestabstand zu Spawns |
+| `MIN_DISTANCE_TO_OTHER_TOWER` | 8m | Mindestabstand zu anderen Türmen |
+
+### 3D-Distanz zur Straße
+
+Die Distanz zur Straße wird in 3D berechnet, nicht nur horizontal:
+
+```
+3D-Distanz = sqrt(horizontalDist² + höhenDiff²)
+```
+
+**Beispiel:** Ein Tower auf einem 8m hohen Dach direkt neben der Straße:
+- Horizontal: 5m (normalerweise zu nah!)
+- Höhendifferenz: 8m
+- 3D-Distanz: sqrt(25 + 64) ≈ 9.4m → **Immer noch zu nah**
+
+Aber bei 6m horizontal und 8m hoch:
+- 3D-Distanz: sqrt(36 + 64) = 10m → **Erlaubt!**
+
+### Keyboard-Shortcuts im Build-Modus
+
+| Taste | Aktion |
+|-------|--------|
+| R (gehalten) | Tower kontinuierlich drehen (180°/s) |
+| ESC | Build-Modus abbrechen |
+| Klick | Tower platzieren (wenn grün) |
+
+### Context-Hint-Box
+
+Im Build-Modus erscheint eine Hinweis-Box am unteren Bildschirmrand:
+- Zeigt verfügbare Aktionen (R, Klick, ESC, Warten)
+- Zeigt Fehlermeldung bei ungültiger Position
+- WC3-Style Design mit Gold-Akzenten
+
+Die `ContextHintComponent` ist wiederverwendbar:
+
+```typescript
+<app-context-hint
+  [hints]="[{key: 'R', description: 'Drehen'}]"
+  [warning]="'Zu nah an Straße'"
+/>
+```

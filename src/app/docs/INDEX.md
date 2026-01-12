@@ -43,6 +43,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...wissen was schon fertig ist | [DONE.md](DONE.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
 | ...rotierende Turrets bauen | [TOWER_CREATION.md](TOWER_CREATION.md) → Rotierende Tower-Teile |
+| ...das Tower-Placement verstehen | [TOWER_CREATION.md](TOWER_CREATION.md) → Tower-Placement-System |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...Sounds hinzufügen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |

@@ -10,6 +10,7 @@ import {
   inject,
   computed,
   effect,
+  HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MatDialog } from '@angular/material/dialog';
@@ -30,6 +31,7 @@ import { CameraDebuggerComponent } from './components/debug-window/camera-debugg
 import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
+import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, SpawnLocationConfig } from './models/location.types';
@@ -84,6 +86,7 @@ const DEFAULT_CENTER_COORDS = {
     WaveDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
+    ContextHintComponent,
   ],
   providers: [
     GameStateManager,
@@ -200,6 +203,14 @@ const DEFAULT_CENTER_COORDS = {
               (resetToDefaultLocation)="resetToDefaultLocation()"
               (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
               (playRouteAnimation)="onPlayRouteAnimation()"
+            />
+          }
+
+          <!-- Build Mode Context Hints -->
+          @if (buildMode()) {
+            <app-context-hint
+              [hints]="buildModeHints"
+              [warning]="buildModeWarning()"
             />
           }
 
@@ -696,6 +707,15 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
   readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
+  // Build mode hints for context hint box
+  readonly buildModeHints: HintItem[] = [
+    { key: 'R', description: 'Drehen' },
+    { key: 'Klick', description: 'Bauen' },
+    { key: 'ESC', description: 'Abbruch' },
+    { key: 'Warten', description: 'Sichtfeld' },
+  ];
+  readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
+
   // Location name for header display - smart extraction from address
   readonly currentLocationName = computed(() => {
     const hq = this.editableHqLocation();
@@ -782,6 +802,39 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   ngAfterViewInit(): void {
     this.initEngine();
+  }
+
+  /**
+   * Handle keyboard events for build mode
+   * R (hold) = Rotate tower preview continuously
+   * Escape = Cancel build mode
+   */
+  @HostListener('window:keydown', ['$event'])
+  onKeyDown(event: KeyboardEvent): void {
+    // Only handle keys in build mode
+    if (!this.towerPlacement.buildMode()) return;
+
+    if (event.key === 'r' || event.key === 'R') {
+      event.preventDefault();
+      this.towerPlacement.startRotating();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.exitBuildMode();
+    }
+  }
+
+  @HostListener('window:keyup', ['$event'])
+  onKeyUp(event: KeyboardEvent): void {
+    if (event.key === 'r' || event.key === 'R') {
+      this.towerPlacement.stopRotating();
+    }
+  }
+
+  /**
+   * Exit build mode cleanly - calls service method that handles all cleanup
+   */
+  private exitBuildMode(): void {
+    this.towerPlacement.exitBuildMode();
   }
 
   ngOnDestroy(): void {
@@ -924,33 +977,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Handle terrain click in build mode
-   * First click enters rotation mode, second click confirms placement
+   * Handle terrain click in build mode - directly places tower
    */
-  private onTerrainClick(lat: number, lon: number, height: number): void {
-    const wasInRotationMode = this.towerPlacement.isInRotationMode();
-
-    if (this.towerPlacement.handleBuildClick(lat, lon, height)) {
-      // If we were in rotation mode and successfully placed, exit build mode
-      if (wasInRotationMode) {
-        this.towerPlacement.toggleBuildMode();
-      }
-      // If we just entered rotation mode, stay in build mode
-    }
+  private onTerrainClick(_lat: number, _lon: number, _height: number): void {
+    // Position is already tracked internally by towerPlacement
+    this.towerPlacement.handleBuildClick();
   }
 
   /**
-   * Handle mouse move in build mode (for build preview and rotation)
+   * Handle mouse move in build mode (for build preview)
    */
   private onMouseMove(lat: number, lon: number, hitPoint: THREE.Vector3): void {
-    // In rotation mode, update rotation from mouse position
-    if (this.towerPlacement.isInRotationMode()) {
-      this.towerPlacement.updateRotationFromMouse(hitPoint.x, hitPoint.z);
-    } else {
-      // Normal build mode - update preview position
-      this.towerPlacement.updatePreviewPosition(lat, lon);
-      this.towerPlacement.updatePreviewValidation(lat, lon);
-    }
+    const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? hitPoint.y;
+    this.towerPlacement.updatePreviewPosition(lat, lon, terrainHeight);
   }
 
   /**
@@ -1293,6 +1332,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Called each frame for animations (runs outside Angular zone)
    */
   private onEngineUpdate(deltaTime: number): void {
+    // Update tower placement rotation (R key held) - deltaTime is in ms, convert to seconds
+    this.towerPlacement.updateRotation(deltaTime / 1000);
+
     // Animate markers (HQ rotation, spawn pulse) - no signals, pure Three.js
     this.markerViz.animateMarkers(deltaTime);
 

@@ -249,6 +249,51 @@ Elemente auf der Stein-Textur benoetigen einen dunklen Hintergrund fuer Lesbarke
 
 Verwendung fuer: Header-Titel, Stats, Buttons auf texturiertem Hintergrund.
 
+### Context-Hint-Box
+
+Wiederverwendbare Hinweis-Box fuer kontextabhaengige Aktionen (z.B. Build-Modus):
+
+```css
+.context-hint-container {
+  position: fixed;
+  bottom: 20px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: var(--td-panel-main);
+  padding: 10px 16px;
+
+  /* WC3-Frame */
+  border: 1px solid var(--td-frame-mid);
+  border-top-color: var(--td-frame-light);
+  border-bottom-color: var(--td-frame-dark);
+}
+
+.hint-key {
+  background: var(--td-panel-secondary);
+  color: var(--td-gold);
+  padding: 3px 8px;
+  font-size: 11px;
+  text-transform: uppercase;
+
+  /* Inset-Effekt */
+  border: 1px solid var(--td-frame-dark);
+  border-top-color: var(--td-panel-shadow);
+}
+
+.warning-text {
+  color: var(--td-health-red);
+  text-transform: uppercase;
+}
+```
+
+Verwendung:
+```html
+<app-context-hint
+  [hints]="[{key: 'R', description: 'Drehen'}]"
+  [warning]="validationError"
+/>
+```
+
 ---
 
 ## WC3-Design-Regeln
@@ -275,6 +320,7 @@ Verwendung fuer: Header-Titel, Stats, Buttons auf texturiertem Hintergrund.
 | `components/debug-window/draggable-debug-panel.component.ts` | Ziehbares Debug-Panel Container |
 | `components/debug-window/wave-debugger.component.ts` | Wave/Enemy Debug-Informationen |
 | `components/debug-window/camera-debugger.component.ts` | Kamera Debug-Informationen |
+| `components/context-hint/context-hint.component.ts` | Wiederverwendbare Kontext-Hinweis-Box |
 
 ---
 

@@ -104,6 +104,10 @@ export class ThreeTowerRenderer {
   // Debug mode - shows tip markers for all towers
   private debugMode = false;
 
+  // Preview hex grid for placement mode LoS visualization
+  private previewHexGrid: THREE.InstancedMesh | null = null;
+  private previewHexCells: HexCell[] = [];
+
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
 
@@ -1414,10 +1418,99 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Show Line-of-Sight preview hex grid for tower placement
+   * Call this when entering rotation mode to show LoS before confirming placement
+   */
+  showPreviewLoS(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
+    // Dispose existing preview if any
+    this.hidePreviewLoS();
+
+    if (!this.terrainRaycaster || !this.losRaycaster) return;
+
+    const config = TOWER_TYPES[typeId];
+    if (!config) return;
+
+    // Get local coordinates
+    const terrainPos = this.sync.geoToLocal(lat, lon, height);
+
+    // Calculate tower tip height (for LoS raycast origin)
+    const tipY = terrainPos.y + (config.shootHeight ?? config.heightOffset + 5);
+
+    // Create hex grid
+    const { hexGrid, hexCells } = this.createHexGrid(
+      terrainPos.x,
+      terrainPos.z,
+      config.range,
+      tipY
+    );
+
+    this.previewHexGrid = hexGrid;
+    this.previewHexCells = hexCells;
+
+    // Calculate LoS for each cell
+    this.updatePreviewHexGridLoS(terrainPos.x, terrainPos.z, tipY);
+
+    // Show the grid
+    this.previewHexGrid.visible = true;
+    this.scene.add(this.previewHexGrid);
+  }
+
+  /**
+   * Update LoS calculation for preview hex grid
+   */
+  private updatePreviewHexGridLoS(towerX: number, towerZ: number, tipY: number): void {
+    if (!this.previewHexGrid || this.previewHexCells.length === 0) return;
+    if (!this.losRaycaster) return;
+
+    const losOffset = this.LOS_OFFSET_MIN;
+
+    const isBlockedAttr = this.previewHexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
+    const isBlockedArray = isBlockedAttr.array as Float32Array;
+
+    for (const cell of this.previewHexCells) {
+      const dirX = cell.centerX - towerX;
+      const dirZ = cell.centerZ - towerZ;
+      const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+      if (dist < 0.1) {
+        isBlockedArray[cell.index] = 0;
+        continue;
+      }
+
+      const originX = towerX + (dirX / dist) * losOffset;
+      const originZ = towerZ + (dirZ / dist) * losOffset;
+      const targetY = cell.terrainY + 1.0;
+
+      const isBlocked = this.losRaycaster(
+        originX, tipY, originZ,
+        cell.centerX, targetY, cell.centerZ
+      );
+
+      cell.isBlocked = isBlocked;
+      isBlockedArray[cell.index] = isBlocked ? 1.0 : 0.0;
+    }
+
+    isBlockedAttr.needsUpdate = true;
+  }
+
+  /**
+   * Hide and dispose preview LoS hex grid
+   */
+  hidePreviewLoS(): void {
+    if (this.previewHexGrid) {
+      this.scene.remove(this.previewHexGrid);
+      this.previewHexGrid.geometry.dispose();
+      this.previewHexGrid = null;
+    }
+    this.previewHexCells = [];
+  }
+
+  /**
    * Dispose all resources
    */
   dispose(): void {
     this.clear();
+    this.hidePreviewLoS();
     this.modelTemplates.clear();
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();
