@@ -27,6 +27,15 @@ export class Tower extends GameObject {
   /** Custom rotation set by user during placement (radians) */
   customRotation = 0;
 
+  /** Cached current target - avoid re-searching every frame */
+  private _currentTarget: Enemy | null = null;
+
+  /** Last time LOS was verified for current target */
+  private _lastLosCheckTime = 0;
+
+  /** Minimum interval between LOS rechecks (ms) */
+  private readonly LOS_RECHECK_INTERVAL = 300;
+
   constructor(position: GeoPosition, typeId: TowerTypeId, customRotation = 0) {
     super('tower');
     this.typeConfig = getTowerType(typeId);
@@ -68,22 +77,69 @@ export class Tower extends GameObject {
   }
 
   /**
+   * Get current target (for rotation tracking)
+   */
+  get currentTarget(): Enemy | null {
+    return this._currentTarget;
+  }
+
+  /**
+   * Clear current target (call when target dies or leaves range)
+   */
+  clearTarget(): void {
+    this._currentTarget = null;
+    this._lastLosCheckTime = 0;
+  }
+
+  /**
+   * Check if LOS recheck is needed (time-based throttling)
+   * @param currentTime Current timestamp in ms
+   * @returns true if LOS should be rechecked
+   */
+  needsLosRecheck(currentTime: number): boolean {
+    return currentTime - this._lastLosCheckTime >= this.LOS_RECHECK_INTERVAL;
+  }
+
+  /**
+   * Mark that LOS was just checked
+   * @param currentTime Current timestamp in ms
+   */
+  markLosChecked(currentTime: number): void {
+    this._lastLosCheckTime = currentTime;
+  }
+
+  /**
    * Find target enemy within range using "lowest HP" strategy
+   * OPTIMIZED: Caches target to avoid expensive LOS checks every frame
    * @param enemies List of potential targets
-   * @param losCheck Optional line-of-sight check function
+   * @param losCheck Optional line-of-sight check function (only called on target change)
    * @returns Enemy with lowest HP that is in range and visible, or null
    */
   findTarget(enemies: Enemy[], losCheck?: (enemy: Enemy) => boolean): Enemy | null {
+    // Fast path: Check if current target is still valid (no LOS check needed)
+    if (this._currentTarget) {
+      if (this._currentTarget.alive) {
+        const dist = this.calculateDistanceFast(this.position, this._currentTarget.position);
+        if (dist <= this.combat.range) {
+          // Target still valid - keep it without expensive LOS recheck
+          return this._currentTarget;
+        }
+      }
+      // Target invalid - clear and search for new one
+      this._currentTarget = null;
+    }
+
+    // Slow path: Search for new target (with LOS checks)
     let bestTarget: Enemy | null = null;
     let lowestHp = Infinity;
 
     for (const enemy of enemies) {
       if (!enemy.alive) continue;
 
-      const dist = this.calculateDistance(this.position, enemy.position);
+      const dist = this.calculateDistanceFast(this.position, enemy.position);
       if (dist > this.combat.range) continue;
 
-      // Optional LOS check - skip enemies we can't see
+      // LOS check only when selecting NEW target
       if (losCheck && !losCheck(enemy)) continue;
 
       // Find enemy with lowest HP
@@ -93,6 +149,8 @@ export class Tower extends GameObject {
       }
     }
 
+    // Cache the new target
+    this._currentTarget = bestTarget;
     return bestTarget;
   }
 
@@ -179,19 +237,17 @@ export class Tower extends GameObject {
   }
 
   /**
-   * Calculate distance between two positions
+   * Fast distance calculation using flat-earth approximation
+   * Accurate enough for tower range checks (< 200m)
    */
-  private calculateDistance(pos1: GeoPosition, pos2: GeoPosition): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
-    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((pos1.lat * Math.PI) / 180) *
-        Math.cos((pos2.lat * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+  private calculateDistanceFast(pos1: GeoPosition, pos2: GeoPosition): number {
+    const dLat = pos2.lat - pos1.lat;
+    const dLon = pos2.lon - pos1.lon;
+    // Approximate meters per degree at mid-latitudes
+    const metersPerDegreeLat = 111320;
+    const metersPerDegreeLon = 111320 * Math.cos(pos1.lat * 0.0174533); // 0.0174533 = PI/180
+    const dx = dLon * metersPerDegreeLon;
+    const dy = dLat * metersPerDegreeLat;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 }

@@ -153,7 +153,7 @@ export class GameStateManager {
     const enemies = this.enemyManager.getAlive();
 
     for (const tower of this.towerManager.getAllActive()) {
-      // Create LOS check function for this tower
+      // Create LOS check function for this tower (used only when searching for NEW target)
       const losCheck = this.tilesEngine
         ? (enemy: Enemy) => {
             const pos = this.tilesEngine!.sync.geoToLocalSimple(
@@ -161,7 +161,6 @@ export class GameStateManager {
               enemy.position.lon,
               enemy.transform.terrainHeight
             );
-            // Check LOS at enemy center height (roughly 1.5m above terrain)
             return this.tilesEngine!.towers.hasLineOfSight(
               tower.id,
               pos.x,
@@ -171,15 +170,35 @@ export class GameStateManager {
           }
         : undefined;
 
-      const target = tower.findTarget(enemies, losCheck);
+      // Fast path: get cached target or find new one
+      let target = tower.findTarget(enemies, losCheck);
+
       if (target) {
-        // Always rotate turret towards target (even if can't fire yet)
+        // Always rotate turret towards target
         const heading = this.calculateHeading(tower.position, target.position);
         this.tilesEngine?.towers.updateRotation(tower.id, heading);
 
-        // Only fire if cooldown is ready AND turret is aligned with target
+        // Only fire if cooldown is ready AND turret is aligned
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
         if (tower.combat.canFire(currentTime) && turretAligned) {
+          // Periodic LOS recheck (throttled to max ~3/sec per tower)
+          if (losCheck && tower.needsLosRecheck(currentTime)) {
+            tower.markLosChecked(currentTime);
+            if (!losCheck(target)) {
+              // Target no longer visible - find new target
+              tower.clearTarget();
+              target = tower.findTarget(enemies, losCheck);
+              if (!target) {
+                this.tilesEngine?.towers.resetRotation(tower.id);
+                continue;
+              }
+              // Update rotation to new target, don't fire this frame
+              const newHeading = this.calculateHeading(tower.position, target.position);
+              this.tilesEngine?.towers.updateRotation(tower.id, newHeading);
+              continue;
+            }
+          }
+
           tower.combat.fire(currentTime);
           this.projectileManager.spawn(tower, target);
         }

@@ -18,6 +18,15 @@ Performance:
 Vielen Dank. 
 LOS:
  [x] Tower Prüfen ab dem Punkt in ihrer Mitte innen..streng genommen müssten sie ab außen an der Hülle prüfen. Relevant wenn der Tower auf einem gebäude steht z.b.
+ [ ] **Optimierung: Statisches Pfad-LOS-Grid**
+     Aktuell: LOS-Raycasts zur Laufzeit (auch mit Caching ~3/s pro Tower)
+     Idee: Separates feines Hex-Grid (2m) nur entlang der Gegner-Route vorberechnen
+     - Bei Tower-Platzierung einmalig ~100-150 Raycasts (nur Route ±3m im Range)
+     - Zur Laufzeit: Nur "ist Gegner-Position in sichtbarer Zelle?" → O(1) Lookup
+     - Visualisierung bleibt separat (grobes 8m Grid für ganzen Bereich)
+     - Zwei Systeme: Grob+vollständig für User-Feedback, Fein+Route für Schieß-Logik
+     - Vorteil: LOS-Checks zur Laufzeit komplett eliminiert (nur simple Math)
+     - Nachteil: Statisch (nur Gebäude, keine dynamischen Blocker)
 
 Projektile:
  [x] Sollen nur ihr Ziel erreichen können wenn wirklich eine Sichtverbindung zum Gegner besteht (Line-of-Sight)
