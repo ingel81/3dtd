@@ -27,6 +27,10 @@ export class Enemy extends GameObject {
   private randomSoundTimer: ReturnType<typeof setTimeout> | null = null;
   private isMoving = false;
 
+  // Random sounds pool (shuffle ohne Wiederholung)
+  private randomSoundsQueue: number[] = [];
+  private randomSoundsPlaying = false;
+
   constructor(typeId: EnemyTypeId, path: GeoPosition[], speedOverride?: number) {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
@@ -84,6 +88,19 @@ export class Enemy extends GameObject {
         loop: false,
       });
     }
+
+    // Register random sounds pool (mehrere Sounds ohne Wiederholung)
+    if (this.typeConfig.randomSounds && this.typeConfig.randomSounds.length > 0) {
+      const volume = this.typeConfig.randomSoundsVolume ?? 0.5;
+      const refDistance = this.typeConfig.randomSoundsRefDistance ?? 30;
+      this.typeConfig.randomSounds.forEach((sound, index) => {
+        this._audio.registerSound(`randomSounds_${index}`, sound, {
+          volume,
+          refDistance,
+          loop: false,
+        });
+      });
+    }
   }
 
   /**
@@ -134,6 +151,11 @@ export class Enemy extends GameObject {
     // Random Sound Timer für Gegner mit randomSound
     if (this.typeConfig.randomSound) {
       this.scheduleNextRandomSound();
+    }
+
+    // Random Sounds Pool (shuffle ohne Wiederholung)
+    if (this.typeConfig.randomSounds && this.typeConfig.randomSounds.length > 0) {
+      this.startRandomSoundsPool();
     }
   }
 
@@ -187,6 +209,69 @@ export class Enemy extends GameObject {
       clearTimeout(this.randomSoundTimer);
       this.randomSoundTimer = null;
     }
+  }
+
+  /**
+   * Start random sounds pool playback (shuffle ohne Wiederholung)
+   */
+  private startRandomSoundsPool(): void {
+    if (!this.typeConfig.randomSounds || this.randomSoundsPlaying) return;
+    this.randomSoundsPlaying = true;
+    this.scheduleNextPoolSound();
+  }
+
+  /**
+   * Shuffle and refill the random sounds queue
+   */
+  private refillRandomSoundsQueue(): void {
+    const count = this.typeConfig.randomSounds?.length ?? 0;
+    // Create array [0, 1, 2, ..., count-1]
+    this.randomSoundsQueue = Array.from({ length: count }, (_, i) => i);
+    // Fisher-Yates shuffle
+    for (let i = this.randomSoundsQueue.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [this.randomSoundsQueue[i], this.randomSoundsQueue[j]] =
+        [this.randomSoundsQueue[j], this.randomSoundsQueue[i]];
+    }
+  }
+
+  /**
+   * Schedule next sound from the pool
+   */
+  private scheduleNextPoolSound(): void {
+    if (!this.isMoving || !this.active || !this.alive) {
+      this.randomSoundsPlaying = false;
+      return;
+    }
+
+    // Refill queue if empty
+    if (this.randomSoundsQueue.length === 0) {
+      this.refillRandomSoundsQueue();
+    }
+
+    const minInterval = this.typeConfig.randomSoundsMinInterval ?? 3000;
+    const maxInterval = this.typeConfig.randomSoundsMaxInterval ?? 8000;
+    const delay = minInterval + Math.random() * (maxInterval - minInterval);
+
+    this.randomSoundTimer = setTimeout(() => {
+      if (this.isMoving && this.active && this.alive) {
+        this.playNextPoolSound();
+        this.scheduleNextPoolSound();
+      } else {
+        this.randomSoundsPlaying = false;
+      }
+    }, delay);
+  }
+
+  /**
+   * Play next sound from the shuffled queue
+   */
+  private playNextPoolSound(): void {
+    if (this.randomSoundsQueue.length === 0) {
+      this.refillRandomSoundsQueue();
+    }
+    const index = this.randomSoundsQueue.pop()!;
+    this.audio.play(`randomSounds_${index}`, false);
   }
 
   /**

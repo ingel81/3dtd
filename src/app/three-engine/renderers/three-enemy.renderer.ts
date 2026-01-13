@@ -52,8 +52,8 @@ export class ThreeEnemyRenderer {
   // Active enemy renders
   private enemies = new Map<string, EnemyRenderData>();
 
-  // Health bar texture
-  private healthBarTextures = new Map<number, THREE.CanvasTexture>();
+  // Health bar texture - key format: "color_bucket" (e.g. "default_80" or "#ff0000_60")
+  private healthBarTextures = new Map<string, THREE.CanvasTexture>();
 
   // Frustum culling for animations (reused to avoid allocations)
   private frustum = new THREE.Frustum();
@@ -256,7 +256,7 @@ export class ThreeEnemyRenderer {
     }
 
     // Create health bar sprite
-    const healthBar = this.createHealthBarSprite(1.0);
+    const healthBar = this.createHealthBarSprite(config);
     healthBar.position.copy(localPos);
     healthBar.position.y += config.healthBarOffset;
     this.scene.add(healthBar);
@@ -515,15 +515,17 @@ export class ThreeEnemyRenderer {
   /**
    * Create health bar sprite
    */
-  private createHealthBarSprite(healthPercent: number): THREE.Sprite {
-    const texture = this.getHealthBarTexture(healthPercent);
+  private createHealthBarSprite(config: EnemyTypeConfig): THREE.Sprite {
+    const isBoss = !!config.bossName;
+    const texture = this.getHealthBarTexture(1.0, config);
     const material = new THREE.SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: false, // Always visible
     });
     const sprite = new THREE.Sprite(material);
-    sprite.scale.set(6, 1, 1); // Width x Height
+    // Boss healthbar is larger to accommodate text
+    sprite.scale.set(isBoss ? 10 : 6, isBoss ? 2.5 : 1, 1);
     return sprite;
   }
 
@@ -538,18 +540,36 @@ export class ThreeEnemyRenderer {
     if (bucket === data.healthBarBucket) return;
 
     data.healthBarBucket = bucket;
-    const texture = this.healthBarTextures.get(bucket) ?? this.createAndCacheTexture(bucket);
+    const config = data.typeConfig;
+    const cacheKey = this.getHealthBarCacheKey(config, bucket);
+    const texture =
+      this.healthBarTextures.get(cacheKey) ??
+      this.createAndCacheTexture(bucket / 100, config, cacheKey);
     const material = data.healthBar!.material as THREE.SpriteMaterial;
     material.map = texture;
     material.needsUpdate = true;
   }
 
   /**
+   * Generate cache key for health bar texture
+   */
+  private getHealthBarCacheKey(config: EnemyTypeConfig, bucket: number): string {
+    const color = config.healthBarColor ?? 'default';
+    const boss = config.bossName ?? '';
+    const immune = config.immunityPercent ?? 0;
+    return `${color}_${boss}_${immune}_${bucket}`;
+  }
+
+  /**
    * Create and cache health bar texture for a bucket
    */
-  private createAndCacheTexture(bucket: number): THREE.CanvasTexture {
-    const texture = this.createHealthBarTexture(bucket / 100);
-    this.healthBarTextures.set(bucket, texture);
+  private createAndCacheTexture(
+    healthPercent: number,
+    config: EnemyTypeConfig,
+    cacheKey: string
+  ): THREE.CanvasTexture {
+    const texture = this.createHealthBarTexture(healthPercent, config);
+    this.healthBarTextures.set(cacheKey, texture);
     return texture;
   }
 
@@ -557,28 +577,38 @@ export class ThreeEnemyRenderer {
    * Get or create health bar texture for a health percentage
    * Uses 10% buckets to reduce texture count
    */
-  private getHealthBarTexture(healthPercent: number): THREE.CanvasTexture {
+  private getHealthBarTexture(
+    healthPercent: number,
+    config: EnemyTypeConfig
+  ): THREE.CanvasTexture {
     // Round to 10% bucket
     const bucket = Math.round(healthPercent * 10) * 10;
-    const key = Math.max(0, Math.min(100, bucket));
+    const bucketClamped = Math.max(0, Math.min(100, bucket));
+    const cacheKey = this.getHealthBarCacheKey(config, bucketClamped);
 
-    let texture = this.healthBarTextures.get(key);
+    let texture = this.healthBarTextures.get(cacheKey);
     if (!texture) {
-      texture = this.createHealthBarTexture(key / 100);
-      this.healthBarTextures.set(key, texture);
+      texture = this.createHealthBarTexture(bucketClamped / 100, config);
+      this.healthBarTextures.set(cacheKey, texture);
     }
     return texture;
   }
 
   /**
    * Create health bar canvas texture
+   * @param healthPercent - Health percentage (0-1)
+   * @param config - Enemy type config for boss styling
    */
-  private createHealthBarTexture(healthPercent: number): THREE.CanvasTexture {
+  private createHealthBarTexture(
+    healthPercent: number,
+    config: EnemyTypeConfig
+  ): THREE.CanvasTexture {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
-    const width = 64;
-    const height = 12;
+    const isBoss = !!config.bossName;
+    const width = isBoss ? 128 : 64;
+    const height = isBoss ? 32 : 12;
     canvas.width = width;
     canvas.height = height;
 
@@ -591,10 +621,30 @@ export class ThreeEnemyRenderer {
     ctx.lineWidth = 1;
     ctx.strokeRect(0.5, 0.5, width - 1, height - 1);
 
+    // Boss text labels
+    if (isBoss) {
+      ctx.fillStyle = '#ffffff';
+      ctx.font = 'bold 10px Arial';
+      ctx.textAlign = 'left';
+      ctx.fillText(config.bossName!, 4, 11);
+
+      if (config.immunityPercent !== undefined && config.immunityPercent > 0) {
+        ctx.textAlign = 'right';
+        ctx.fillText(`Immune ${config.immunityPercent}%`, width - 4, 11);
+      }
+    }
+
+    // Health bar position (below text for boss, full height for normal)
+    const barY = isBoss ? 16 : 2;
+    const barHeight = isBoss ? 12 : height - 4;
+    const barWidth = width - 4;
+
     // Health fill
-    const healthWidth = (width - 4) * Math.max(0, Math.min(1, healthPercent));
+    const healthWidth = barWidth * Math.max(0, Math.min(1, healthPercent));
     let fillColor: string;
-    if (healthPercent > 0.6) {
+    if (config.healthBarColor) {
+      fillColor = config.healthBarColor;
+    } else if (healthPercent > 0.6) {
       fillColor = '#22c55e'; // Green
     } else if (healthPercent > 0.3) {
       fillColor = '#eab308'; // Yellow
@@ -603,7 +653,7 @@ export class ThreeEnemyRenderer {
     }
 
     ctx.fillStyle = fillColor;
-    ctx.fillRect(2, 2, healthWidth, height - 4);
+    ctx.fillRect(2, barY, healthWidth, barHeight);
 
     const texture = new THREE.CanvasTexture(canvas);
     texture.needsUpdate = true;

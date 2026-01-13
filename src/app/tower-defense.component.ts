@@ -13,7 +13,6 @@ import {
   HostListener,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { ActivatedRoute, Router } from '@angular/router';
 import { MatDialogModule, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
@@ -44,7 +43,6 @@ import { PathAndRouteService } from './services/path-route.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS } from './services/location-management.service';
-import { GeocodingService } from './services/geocoding.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
@@ -111,7 +109,6 @@ const DEFAULT_CENTER_COORDS = {
         [waveActive]="waveActive()"
         [isDialog]="isDialog"
         (locationClick)="openLocationDialog()"
-        (shareClick)="copyShareLink()"
         (closeClick)="close()"
       />
 
@@ -644,9 +641,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
-  private readonly route = inject(ActivatedRoute);
-  private readonly router = inject(Router);
-  private readonly geocoding = inject(GeocodingService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -659,6 +653,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
+  private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
 
   // Three.js object for streets (merged geometry for performance - 1 draw call instead of 600)
   private streetLinesMesh: THREE.LineSegments | null = null;
@@ -789,45 +784,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Check for URL parameters FIRST (shared location link)
-    const urlLocation = this.parseUrlLocationParams();
-
     // Initialize location management (loads from localStorage if available)
     this.locationMgmt.initializeEditableLocations();
-
-    // If URL parameters present, override with shared location
-    if (urlLocation) {
-      // Set coordinates immediately with temporary name
-      this.locationMgmt.updateHqLocation({
-        lat: urlLocation.lat,
-        lon: urlLocation.lon,
-        name: `${urlLocation.lat.toFixed(4)}, ${urlLocation.lon.toFixed(4)}`,
-      });
-
-      // Fetch real address name asynchronously
-      this.geocoding.reverseGeocodeDetailed(urlLocation.lat, urlLocation.lon).then(result => {
-        if (result) {
-          const name = this.geocoding.extractLocationName(result.address);
-          this.locationMgmt.updateHqLocation({
-            lat: urlLocation.lat,
-            lon: urlLocation.lon,
-            name: name || result.displayName,
-            address: result.address,
-          });
-        }
-      });
-
-      // If spawn coordinates in URL, set manual spawn
-      if (urlLocation.spawnLat !== undefined && urlLocation.spawnLon !== undefined) {
-        this.locationMgmt.updateSpawnLocations([{
-          id: 'spawn-url',
-          lat: urlLocation.spawnLat,
-          lon: urlLocation.spawnLon,
-          name: 'Spawn',
-          isRandom: false,
-        }]);
-      }
-    }
 
     // Sync baseCoords and centerCoords with loaded location
     const hq = this.locationMgmt.getCurrentHqLocation();
@@ -842,76 +800,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         height: 400,
       });
     }
-
-    // Update URL to reflect current location (for bookmarking)
-    this.updateUrlWithLocation();
-  }
-
-  /**
-   * Parse location parameters from URL query string
-   * Supports: ?lat=49.17&lon=9.27&slat=49.18&slon=9.26
-   */
-  private parseUrlLocationParams(): { lat: number; lon: number; spawnLat?: number; spawnLon?: number } | null {
-    const params = this.route.snapshot.queryParams;
-
-    const lat = parseFloat(params['lat']);
-    const lon = parseFloat(params['lon']);
-
-    // Validate HQ coordinates
-    if (isNaN(lat) || isNaN(lon) || Math.abs(lat) > 90 || Math.abs(lon) > 180) {
-      return null;
-    }
-
-    const result: { lat: number; lon: number; spawnLat?: number; spawnLon?: number } = { lat, lon };
-
-    // Optional spawn coordinates
-    const spawnLat = parseFloat(params['slat']);
-    const spawnLon = parseFloat(params['slon']);
-
-    if (!isNaN(spawnLat) && !isNaN(spawnLon) && Math.abs(spawnLat) <= 90 && Math.abs(spawnLon) <= 180) {
-      result.spawnLat = spawnLat;
-      result.spawnLon = spawnLon;
-    }
-
-    return result;
-  }
-
-  /**
-   * Update browser URL with current location coordinates (without reload)
-   */
-  private updateUrlWithLocation(): void {
-    const hq = this.locationMgmt.getCurrentHqLocation();
-    if (!hq) return;
-
-    const queryParams: Record<string, string> = {
-      lat: hq.lat.toFixed(6),
-      lon: hq.lon.toFixed(6),
-    };
-
-    // Add spawn if not random
-    const spawns = this.locationMgmt.editableSpawnLocations();
-    if (spawns.length > 0 && !spawns[0].isRandom) {
-      queryParams['slat'] = spawns[0].lat.toFixed(6);
-      queryParams['slon'] = spawns[0].lon.toFixed(6);
-    }
-
-    this.router.navigate([], {
-      relativeTo: this.route,
-      queryParams,
-      replaceUrl: true, // Don't add to history on initial load
-    });
-  }
-
-  /**
-   * Copy current location as shareable link to clipboard
-   */
-  copyShareLink(): void {
-    const url = window.location.href;
-    navigator.clipboard.writeText(url).then(() => {
-      this.appendDebugLog('Link kopiert!');
-    }).catch(() => {
-      this.appendDebugLog('Fehler beim Kopieren');
-    });
   }
 
   ngAfterViewInit(): void {
@@ -1195,10 +1083,43 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize tower placement service (now that all dependencies are ready)
     this.initializeTowerPlacement();
 
+    // Filter street network to only include streets near the calculated routes
+    // This dramatically reduces rendering time in dense cities (Berlin: 50k → 500 nodes)
+    this.filterStreetNetworkToRoutes();
+
     // Reframe camera to include all route waypoints (routes may curve away from spawn-HQ line)
     this.reframeCameraWithRoutes();
 
     return this.pathRoute.getRouteDetail();
+  }
+
+  /**
+   * Filter street network to only include streets near calculated routes.
+   * This reduces rendering time dramatically in dense cities.
+   */
+  private filterStreetNetworkToRoutes(): void {
+    if (!this.streetNetwork) return;
+
+    // Collect all route paths
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    const routes: Array<Array<{ lat: number; lon: number }>> = [];
+
+    cachedPaths.forEach((path) => {
+      routes.push(path.map(p => ({ lat: p.lat, lon: p.lon })));
+    });
+
+    if (routes.length === 0) {
+      // No routes calculated, use full network
+      this.filteredStreetNetwork = this.streetNetwork;
+      return;
+    }
+
+    // Filter to 100m corridor around routes
+    this.filteredStreetNetwork = this.osmService.filterStreetsNearRoutes(
+      this.streetNetwork,
+      routes,
+      100 // 100m corridor width
+    );
   }
 
   /**
@@ -1284,9 +1205,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private renderStreets(): void {
+    console.time('[TD] renderStreets');
     // Get engine from service (this.engine may not be set yet during init)
     const engine = this.engine || this.engineInit.getEngine();
     if (!engine || !this.streetNetwork) return;
+
+    // Use filtered network if available (much faster), otherwise full network
+    const networkToRender = this.filteredStreetNetwork || this.streetNetwork;
 
     const overlayGroup = engine.getOverlayGroup();
 
@@ -1324,7 +1249,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const allSegmentVertices: number[] = [];
     let streetCount = 0;
 
-    for (const street of this.streetNetwork.streets) {
+    for (const street of networkToRender.streets) {
       if (street.nodes.length < 2) continue;
 
       const points: THREE.Vector3[] = [];
@@ -1395,7 +1320,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.streetLinesMesh.frustumCulled = false;  // Prevent disappearing at certain angles
       overlayGroup.add(this.streetLinesMesh);
     }
-
+    console.timeEnd('[TD] renderStreets');
   }
 
 
@@ -2100,6 +2025,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Re-initialize TowerPlacementService with new location data
       this.initializeTowerPlacement();
 
+      // Filter street network to route corridor (dramatically speeds up rendering)
+      this.filterStreetNetworkToRoutes();
+
       // Get route details for display
       const routeDetail = this.pathRoute.getRouteDetail();
       await this.engineInit.setStepDone('route', routeDetail);
@@ -2112,9 +2040,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Save to localStorage (after heights are stable)
       this.locationMgmt.saveLocationsToStorage();
-
-      // Update URL for sharing/bookmarking
-      this.updateUrlWithLocation();
 
       this.appendDebugLog(`Geladen: ${this.streetCount()} Strassen`);
 
@@ -2257,5 +2182,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Clear cached paths via service
     this.pathRoute.clearCachedPaths();
+
+    // Clear filtered street network
+    this.filteredStreetNetwork = null;
   }
 }

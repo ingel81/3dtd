@@ -1,6 +1,10 @@
 # Erledigte Features & Fixes
 
 Allgemein:
+ [x] **Koordinaten-Paste im Location-Dialog**
+     - Eingabefelder für HQ-Koordinaten akzeptieren kombinierte lat/lon beim Paste
+     - Unterstützte Formate: Dezimal (49.123, 9.456), DMS, Cardinal (N/S/E/W), Google Maps URLs
+     - Automatisches Parsen und Aufspliten in Lat/Lon-Felder
  [x] **Route-Animation (Knight Rider Effekt)**
      - Animierte Visualisierung der Gegner-Route beim Spielstart
      - Leuchtende rote/orange Dashes laufen von Spawn → HQ
@@ -36,6 +40,21 @@ Performance:
      - Fix: Alle Straßensegmente in ein THREE.LineSegments mit Merged BufferGeometry
      - Ergebnis: 1 Draw Call statt 600+, ~10x bessere Performance
      - Datei: tower-defense.component.ts, renderStreets()
+ [x] **Straßen-Rendering in großen Städten optimiert** (Berlin: 14s → <1s)
+     - Problem: renderStreets() rief getTerrainHeightAtGeo() für jeden Node auf
+     - Bei Berlin: 12 MB Straßendaten = ~50.000 Nodes = 50.000 Raycasts pro Render
+     - renderStreets wurde 5x aufgerufen (onTilesLoaded) = ~75 Sekunden total
+     - Fix: Route-Korridor-Filterung
+       1. Volle Straßendaten laden (für A* Pathfinding)
+       2. Route berechnen
+       3. Nur Straßen im 100m-Korridor um Route behalten
+       4. Rest verwerfen vor dem Rendering
+     - Ergebnis: 5000 → 150 Straßen, 50.000 → 1.500 Nodes
+     - Dateien: osm-street.service.ts (filterStreetsNearRoutes), tower-defense.component.ts
+ [x] **A* Graph-Caching**
+     - Problem: buildGraph() wurde bei jedem findPath() Aufruf neu erstellt
+     - Fix: Graph einmal bauen und cachen (getOrBuildGraph)
+     - Datei: osm-street.service.ts
 
 Allgemein:
  [x] Soundlaustärke abhängig von Kamerentfernung (kein cutoff - natürliches Verhalten)

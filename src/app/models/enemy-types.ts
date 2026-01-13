@@ -40,6 +40,13 @@ export interface EnemyTypeConfig {
   randomSoundVolumeMax?: number; // Max. Lautstärke (0.0 - 1.0)
   randomSoundRefDistance?: number; // Distanz für volle Lautstärke
 
+  // Random Sounds Pool (shuffle ohne Wiederholung)
+  randomSounds?: string[]; // Array von Sounds die zufällig abgespielt werden
+  randomSoundsMinInterval?: number; // Min. Zeit zwischen Sounds (ms)
+  randomSoundsMaxInterval?: number; // Max. Zeit zwischen Sounds (ms)
+  randomSoundsVolume?: number; // Lautstärke (0.0 - 1.0)
+  randomSoundsRefDistance?: number; // Distanz für volle Lautstärke
+
   // Spawn Sound (einmalig beim Spawn)
   spawnSound?: string; // Sound beim Spawn
   spawnSoundVolume?: number; // Lautstärke (0.0 - 1.0)
@@ -53,6 +60,11 @@ export interface EnemyTypeConfig {
   emissiveIntensity?: number; // Leuchteffekt-Stärke (0 = aus, 0.1-0.5 = subtil, 1+ = stark)
   emissiveColor?: string; // Leuchtfarbe als Hex (default: '#ffffff')
   unlit?: boolean; // Keine Beleuchtung - zeigt Originalfarben (für Cartoon-Modelle)
+
+  // Boss / Special
+  healthBarColor?: string; // Feste Healthbar-Farbe als Hex (z.B. '#ff0000' für Boss)
+  bossName?: string; // Name über der Healthbar (z.B. 'Boss')
+  immunityPercent?: number; // Schadensimmunität in % (0-100, wird als "Immun X%" angezeigt)
 
   // Randomness
   randomAnimationStart?: boolean; // Animation bei zufälligem Frame starten
@@ -147,6 +159,53 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.0,
     spawnStartDelay: 500,
+  },
+
+  herbert: {
+    id: 'herbert',
+    name: 'Herbert',
+    modelUrl: '/assets/models/enemies/herbert_walking.glb',
+    scale: 4.0,
+    minimumPixelSize: 0,
+    baseHp: 1000,
+    baseSpeed: 4,
+    damage: 20,
+    reward: 8,
+    hasAnimations: true,
+    walkAnimation: 'Armature|walking_man|baselayer',
+    animationSpeed: 1.0,
+    // Spawn Sound (einmalig)
+    spawnSound: '/assets/sounds/herbert_01.mp3',
+    spawnSoundVolume: 0.6,
+    spawnSoundRefDistance: 40,
+    // Random Sounds Pool (shuffle ohne Wiederholung)
+    randomSounds: [
+      '/assets/sounds/herbert_02.mp3',
+      '/assets/sounds/herbert_03.mp3',
+      '/assets/sounds/herbert_04.mp3',
+      '/assets/sounds/herbert_05.mp3',
+      '/assets/sounds/herbert_06.mp3',
+      '/assets/sounds/herbert_07.mp3',
+      '/assets/sounds/herbert_08.mp3',
+      '/assets/sounds/herbert_09.mp3',
+      '/assets/sounds/herbert_10.mp3',
+      '/assets/sounds/herbert_11.mp3',
+      '/assets/sounds/herbert_12.mp3',
+      '/assets/sounds/herbert_13.mp3',
+      '/assets/sounds/herbert_14.mp3',
+    ],
+    randomSoundsMinInterval: 4000,
+    randomSoundsMaxInterval: 10000,
+    randomSoundsVolume: 0.6,
+    randomSoundsRefDistance: 40,
+    heightOffset: 0,
+    healthBarOffset: 12,
+    healthBarColor: '#ef4444', // Rote Boss-Healthbar
+    bossName: 'Boss',
+    immunityPercent: 100,
+    canBleed: true,
+    randomAnimationStart: true,
+    lateralOffset: 2.0,
   },
 };
 

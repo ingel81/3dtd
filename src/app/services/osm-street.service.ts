@@ -44,6 +44,10 @@ export class OsmStreetService {
   private readonly CACHE_PREFIX = 'td_streets_';
   private readonly CACHE_VERSION = 1;
 
+  // Cached graph for pathfinding (avoid rebuilding on every findPath call)
+  private cachedGraph: Map<number, { node: StreetNode; neighbors: number[] }> | null = null;
+  private cachedGraphNetworkId: string | null = null;
+
   /**
    * Load street network for a given bounding box around coordinates
    * Uses localStorage cache to avoid repeated API calls
@@ -72,8 +76,9 @@ export class OsmStreetService {
     };
 
     // Overpass QL query for streets
+    // maxsize limits response to 4MB to prevent huge downloads in dense cities
     const query = `
-      [out:json][timeout:25];
+      [out:json][timeout:25][maxsize:4194304];
       (
         way["highway"~"^(motorway|motorway_link|trunk|trunk_link|primary|primary_link|secondary|secondary_link|tertiary|tertiary_link|unclassified|residential|living_street|service|pedestrian|footway|path|cycleway|track|steps)$"]
           (${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon});
@@ -107,8 +112,13 @@ export class OsmStreetService {
           throw new Error(`OSM API error: ${response.status}`);
         }
 
+        console.time('[OSM] JSON parse');
         const data = await response.json();
+        console.timeEnd('[OSM] JSON parse');
+
+        console.time('[OSM] parseOverpassResponse');
         const network = this.parseOverpassResponse(data, bounds);
+        console.timeEnd('[OSM] parseOverpassResponse');
 
         // Cache the result
         this.saveToCache(cacheKey, network);
@@ -326,10 +336,11 @@ export class OsmStreetService {
       return [];
     }
 
-    // Build adjacency graph from street network
-    const graph = this.buildGraph(network);
+    // Get or build adjacency graph (cached for performance)
+    const graph = this.getOrBuildGraph(network);
 
     // A* pathfinding
+    console.time('[OSM] astar');
     const path = this.astar(
       graph,
       startPoint.street.nodes[startPoint.nodeIndex],
@@ -337,8 +348,136 @@ export class OsmStreetService {
       endLat,
       endLon
     );
+    console.timeEnd('[OSM] astar');
 
     return path;
+  }
+
+  /**
+   * Get cached graph or build new one if network changed
+   */
+  private getOrBuildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: number[] }> {
+    // Create unique ID for this network based on bounds
+    const networkId = `${network.bounds.minLat}_${network.bounds.maxLat}_${network.bounds.minLon}_${network.bounds.maxLon}_${network.streets.length}`;
+
+    // Return cached graph if same network
+    if (this.cachedGraph && this.cachedGraphNetworkId === networkId) {
+      return this.cachedGraph;
+    }
+
+    // Build and cache new graph
+    console.time('[OSM] buildGraph');
+    this.cachedGraph = this.buildGraph(network);
+    this.cachedGraphNetworkId = networkId;
+    console.timeEnd('[OSM] buildGraph');
+
+    return this.cachedGraph;
+  }
+
+  /**
+   * Clear cached graph (call when switching locations)
+   */
+  clearGraphCache(): void {
+    this.cachedGraph = null;
+    this.cachedGraphNetworkId = null;
+  }
+
+  /**
+   * Filter street network to only include streets near the given routes.
+   * This dramatically reduces data for rendering in dense cities.
+   *
+   * @param network Full street network
+   * @param routes Array of route paths (each route is array of {lat, lon})
+   * @param corridorWidth Width of corridor around routes in meters (default 100m)
+   * @returns Filtered street network with only nearby streets
+   */
+  filterStreetsNearRoutes(
+    network: StreetNetwork,
+    routes: Array<Array<{ lat: number; lon: number }>>,
+    corridorWidth: number = 100
+  ): StreetNetwork {
+    console.time('[OSM] filterStreetsNearRoutes');
+
+    // Collect all route points
+    const routePoints: Array<{ lat: number; lon: number }> = [];
+    for (const route of routes) {
+      routePoints.push(...route);
+    }
+
+    if (routePoints.length === 0) {
+      console.timeEnd('[OSM] filterStreetsNearRoutes');
+      return network; // No routes, return full network
+    }
+
+    // Filter streets: keep only those with at least one node near any route point
+    const filteredStreets: Street[] = [];
+    const usedNodeIds = new Set<number>();
+
+    for (const street of network.streets) {
+      let streetNearRoute = false;
+
+      // Check if any node of this street is near the route
+      for (const node of street.nodes) {
+        if (this.isPointNearRoute(node.lat, node.lon, routePoints, corridorWidth)) {
+          streetNearRoute = true;
+          break;
+        }
+      }
+
+      if (streetNearRoute) {
+        filteredStreets.push(street);
+        for (const node of street.nodes) {
+          usedNodeIds.add(node.id);
+        }
+      }
+    }
+
+    // Build filtered nodes map
+    const filteredNodes = new Map<number, StreetNode>();
+    for (const nodeId of usedNodeIds) {
+      const node = network.nodes.get(nodeId);
+      if (node) {
+        filteredNodes.set(nodeId, node);
+      }
+    }
+
+    console.timeEnd('[OSM] filterStreetsNearRoutes');
+    console.log(`[OSM] Filtered: ${network.streets.length} → ${filteredStreets.length} streets, ${network.nodes.size} → ${filteredNodes.size} nodes`);
+
+    return {
+      streets: filteredStreets,
+      nodes: filteredNodes,
+      bounds: network.bounds,
+    };
+  }
+
+  /**
+   * Check if a point is within distance of any route point
+   */
+  private isPointNearRoute(
+    lat: number,
+    lon: number,
+    routePoints: Array<{ lat: number; lon: number }>,
+    maxDistance: number
+  ): boolean {
+    // Quick bounding box check first (rough filter)
+    // ~0.001 degrees ≈ 111m at equator
+    const roughDelta = maxDistance / 111000 * 1.5; // Add 50% margin
+
+    for (const rp of routePoints) {
+      // Quick rejection based on lat/lon difference
+      if (Math.abs(lat - rp.lat) > roughDelta || Math.abs(lon - rp.lon) > roughDelta) {
+        continue;
+      }
+
+      // Precise distance check
+      const dist = this.haversineDistance(lat, lon, rp.lat, rp.lon);
+      if (dist <= maxDistance) {
+        return true;
+      }
+    }
+
+    return false;
   }
 
   private buildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: number[] }> {

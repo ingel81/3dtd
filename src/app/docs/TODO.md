@@ -4,7 +4,6 @@
     [ ] CesiumIonAuthPlugin: Plugin has been moved to "3d-tiles-renderer/core/plugins". (anonymous)	@	three-tiles-engine.ts:229
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
 [ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
-[x] Im dialog für hq Location die eingabefelder empfänglich machen für kombnierte lat & longs im clipboard die man reinpasted und geparsed werden sollen
 
 Performance:
  [~] spielt man das in einer größeren Stadt mit vielen 3d Gebäuden und straßen, kommt es beim zoomen oder panen und auch beim laden kurz zu aussetzern.
@@ -30,7 +29,7 @@ Location-System Bekannte Einschränkungen:
      - Mögliche Verbesserung: Alternative Geocoding-API (Photon, Google)
 
 Ideen:
-- [~] coole locations irgendwie sharebar machen (URL-Parameter implementiert, aber noch nicht perfekt)
+- [ ] coole locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
 
 Stashed Features:
 - [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")

@@ -17,9 +17,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <span class="location-name">{{ locationName() }}</span>
           <mat-icon class="location-edit">edit</mat-icon>
         </button>
-        <button class="share-btn" (click)="shareClick.emit()" matTooltip="Link kopieren">
-          <mat-icon>link</mat-icon>
-        </button>
       </div>
       <div class="header-stats">
         <div class="stat hp">
@@ -135,32 +132,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       opacity: 1;
     }
 
-    .share-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 26px;
-      height: 26px;
-      margin-left: 4px;
-      background: transparent;
-      border: 1px solid var(--td-frame-mid);
-      color: var(--td-text-muted);
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .share-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
-    .share-btn:hover {
-      border-color: var(--td-teal);
-      background: rgba(74, 158, 147, 0.15);
-      color: var(--td-teal);
-    }
-
     .header-stats {
       display: flex;
       align-items: center;
@@ -233,6 +204,5 @@ export class GameHeaderComponent {
 
   // Outputs
   readonly locationClick = output<void>();
-  readonly shareClick = output<void>();
   readonly closeClick = output<void>();
 }
