@@ -145,6 +145,7 @@ export class ThreeProjectileRenderer {
   private cannonballManager: ProjectileInstanceManager;
   private magicManager: ProjectileInstanceManager;
   private bulletManager: ProjectileInstanceManager;
+  private rocketManager: ProjectileInstanceManager;
 
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
@@ -161,6 +162,7 @@ export class ThreeProjectileRenderer {
     this.cannonballManager = this.createCannonballManager();
     this.magicManager = this.createMagicManager();
     this.bulletManager = this.createBulletManager();
+    this.rocketManager = this.createRocketManager();
 
     // Load arrow model async
     this.loadArrowModel();
@@ -170,6 +172,7 @@ export class ThreeProjectileRenderer {
     scene.add(this.cannonballManager.instancedMesh);
     scene.add(this.magicManager.instancedMesh);
     scene.add(this.bulletManager.instancedMesh);
+    scene.add(this.rocketManager.instancedMesh);
   }
 
   /**
@@ -278,6 +281,21 @@ export class ThreeProjectileRenderer {
     return new ProjectileInstanceManager(geometry, material, 1000);
   }
 
+  private createRocketManager(): ProjectileInstanceManager {
+    // Rocket: sleek missile shape - white/light grey
+    const bodyGeometry = new THREE.CylinderGeometry(0.3, 0.4, 3.0, 8);
+
+    const material = new THREE.MeshStandardMaterial({
+      color: 0xeeeeee, // Light grey/white
+      emissive: 0xffffff, // White glow
+      emissiveIntensity: 0.3,
+      metalness: 0.5,
+      roughness: 0.4,
+    });
+
+    return new ProjectileInstanceManager(bodyGeometry, material, 100);
+  }
+
   private getManager(visualType: ProjectileVisualType): ProjectileInstanceManager | null {
     switch (visualType) {
       case 'arrow':
@@ -288,6 +306,8 @@ export class ThreeProjectileRenderer {
         return this.magicManager;
       case 'bullet':
         return this.bulletManager;
+      case 'rocket':
+        return this.rocketManager;
     }
   }
 
@@ -375,6 +395,27 @@ export class ThreeProjectileRenderer {
   }
 
   /**
+   * Update projectile position AND rotation (for homing projectiles like rockets)
+   */
+  updateWithRotation(
+    id: string,
+    lat: number,
+    lon: number,
+    height: number,
+    direction: { dx: number; dy: number; dz: number }
+  ): void {
+    const visualType = this.projectileTypes.get(id);
+    if (!visualType) return;
+
+    const manager = this.getManager(visualType);
+    if (!manager) return;
+
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    const rotation = this.directionToEuler(direction);
+    manager.update(id, localPos, rotation);
+  }
+
+  /**
    * Remove projectile
    */
   remove(id: string): void {
@@ -393,7 +434,8 @@ export class ThreeProjectileRenderer {
       (this.arrowManager?.count ?? 0) +
       this.cannonballManager.count +
       this.magicManager.count +
-      this.bulletManager.count
+      this.bulletManager.count +
+      this.rocketManager.count
     );
   }
 
@@ -409,6 +451,7 @@ export class ThreeProjectileRenderer {
     this.cannonballManager.clear();
     this.magicManager.clear();
     this.bulletManager.clear();
+    this.rocketManager.clear();
     this.projectileTypes.clear();
   }
 
@@ -420,10 +463,12 @@ export class ThreeProjectileRenderer {
     this.scene.remove(this.cannonballManager.instancedMesh);
     this.scene.remove(this.magicManager.instancedMesh);
     this.scene.remove(this.bulletManager.instancedMesh);
+    this.scene.remove(this.rocketManager.instancedMesh);
 
     this.cannonballManager.dispose();
     this.magicManager.dispose();
     this.bulletManager.dispose();
+    this.rocketManager.dispose();
     this.projectileTypes.clear();
   }
 }

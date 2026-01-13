@@ -119,10 +119,18 @@ export class Tower extends GameObject {
     // Fast path: Check if current target is still valid (no LOS check needed)
     if (this._currentTarget) {
       if (this._currentTarget.alive) {
-        const dist = this.calculateDistanceFast(this.position, this._currentTarget.position);
-        if (dist <= this.combat.range) {
-          // Target still valid - keep it without expensive LOS recheck
-          return this._currentTarget;
+        // Verify target type is still compatible (air/ground)
+        const isAirEnemy = this._currentTarget.typeConfig.isAirUnit ?? false;
+        const canTargetAir = this.typeConfig.canTargetAir ?? false;
+        const canTargetGround = this.typeConfig.canTargetGround ?? true;
+        const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
+
+        if (typeValid) {
+          const dist = this.calculateDistanceFast(this.position, this._currentTarget.position);
+          if (dist <= this.combat.range) {
+            // Target still valid - keep it without expensive LOS recheck
+            return this._currentTarget;
+          }
         }
       }
       // Target invalid - clear and search for new one
@@ -133,14 +141,24 @@ export class Tower extends GameObject {
     let bestTarget: Enemy | null = null;
     let lowestHp = Infinity;
 
+    // Get targeting capabilities (defaults: canTargetGround=true, canTargetAir=false)
+    const canTargetAir = this.typeConfig.canTargetAir ?? false;
+    const canTargetGround = this.typeConfig.canTargetGround ?? true;
+
     for (const enemy of enemies) {
       if (!enemy.alive) continue;
+
+      // Air/Ground targeting filter
+      const isAirEnemy = enemy.typeConfig.isAirUnit ?? false;
+      if (isAirEnemy && !canTargetAir) continue;
+      if (!isAirEnemy && !canTargetGround) continue;
 
       const dist = this.calculateDistanceFast(this.position, enemy.position);
       if (dist > this.combat.range) continue;
 
       // LOS check only when selecting NEW target
-      if (losCheck && !losCheck(enemy)) continue;
+      // Skip LOS for air enemies - they fly high enough to always be visible
+      if (losCheck && !isAirEnemy && !losCheck(enemy)) continue;
 
       // Find enemy with lowest HP
       if (enemy.health.hp < lowestHp) {

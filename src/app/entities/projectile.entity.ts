@@ -36,6 +36,9 @@ export class Projectile extends GameObject {
   private _totalDistance: number = 0;
   private _traveledDistance: number = 0;
 
+  // Homing projectiles (rockets) continuously update their direction
+  private _isHoming: boolean = false;
+
   constructor(
     startPosition: GeoPosition,
     targetEnemy: Enemy,
@@ -79,9 +82,11 @@ export class Projectile extends GameObject {
     // Calculate total distance to target for progress tracking
     this._totalDistance = this.calculateDistance(startPosition, targetEnemy.position);
 
-    // Calculate fixed direction vector (once, at spawn)
-    // This direction never changes during flight
+    // Calculate initial direction vector
     this._direction = this.calculateDirectionVector(startPosition, startHeight);
+
+    // Rockets are homing projectiles - they continuously update their direction
+    this._isHoming = this.typeConfig.visualType === 'rocket';
   }
 
   /**
@@ -93,7 +98,7 @@ export class Projectile extends GameObject {
     startHeight: number
   ): { dx: number; dy: number; dz: number } {
     const targetPos = this.targetEnemy.position;
-    const targetHeight = this.targetEnemy.transform.terrainHeight + 3; // Head height
+    const targetHeight = this.getTargetHeight(); // Includes heightOffset for air units
 
     // Calculate horizontal deltas (in geo coords, convert to local direction)
     // +lon = East = -X in local, +lat = North = +Z in local
@@ -164,6 +169,13 @@ export class Projectile extends GameObject {
   private _direction: { dx: number; dy: number; dz: number } = { dx: 0, dy: 0, dz: 1 };
 
   /**
+   * Check if this is a homing projectile (rockets)
+   */
+  get isHoming(): boolean {
+    return this._isHoming;
+  }
+
+  /**
    * Move towards target enemy
    * @returns true if hit target, false otherwise
    */
@@ -196,14 +208,21 @@ export class Projectile extends GameObject {
     // Calculate flight height along trajectory
     this._flightHeight = this.calculateFlightHeight();
 
-    // Note: Direction is fixed at spawn, no rotation updates needed
+    // Update direction for homing projectiles (rockets)
+    if (this._isHoming) {
+      this._direction = this.calculateDirectionVector(
+        { lat: newLat, lon: newLon },
+        this._flightHeight
+      );
+    }
 
     return false;
   }
 
   /**
    * Calculate flight height at current position
-   * Creates a slight arc trajectory from start to target
+   * Creates a slight arc trajectory for non-homing projectiles
+   * Homing projectiles (rockets) fly straight to target
    */
   private calculateFlightHeight(): number {
     const targetHeight = this.getTargetHeight();
@@ -212,7 +231,12 @@ export class Projectile extends GameObject {
     // Linear interpolation between start and target height
     const baseHeight = this._startHeight + (targetHeight - this._startHeight) * progress;
 
-    // Add arc: parabolic curve that peaks at midpoint
+    // Homing projectiles fly straight - no arc
+    if (this._isHoming) {
+      return baseHeight;
+    }
+
+    // Add arc for non-homing projectiles: parabolic curve that peaks at midpoint
     // arcHeight = maxArc * 4 * progress * (1 - progress)
     // This gives 0 at progress=0, maxArc at progress=0.5, 0 at progress=1
     const maxArcHeight = Math.min(this._totalDistance * 0.05, 10); // Arc height proportional to distance, max 10m
@@ -222,12 +246,14 @@ export class Projectile extends GameObject {
   }
 
   /**
-   * Get target height (enemy position + offset for head height)
+   * Get target height (enemy position + model offset + head height)
    */
   private getTargetHeight(): number {
     const enemyTerrainHeight = this.targetEnemy.transform.terrainHeight ?? 0;
-    // Target head height (approximately 2-3m above terrain for humanoid enemies)
-    return enemyTerrainHeight + 3;
+    // Include enemy's heightOffset (e.g., 15m for flying units like bats)
+    const heightOffset = this.targetEnemy.typeConfig.heightOffset ?? 0;
+    // Target head height (approximately 2-3m above model base)
+    return enemyTerrainHeight + heightOffset + 3;
   }
 
   /**

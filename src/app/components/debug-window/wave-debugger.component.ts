@@ -119,7 +119,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .wave-debug-content {
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
-      min-width: 280px;
+      min-width: 340px;
     }
 
     .section {
@@ -266,12 +266,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .type-buttons {
       display: flex;
+      flex-wrap: wrap;
       gap: 4px;
       flex: 1;
     }
 
     .type-btn {
-      flex: 1;
+      flex: 1 1 auto;
+      min-width: 60px;
       padding: 4px 6px;
       background: var(--td-panel-secondary);
       border: 1px solid var(--td-frame-mid);

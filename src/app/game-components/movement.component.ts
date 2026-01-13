@@ -18,6 +18,9 @@ export class MovementComponent extends Component {
   // Lateral offset for path variety (perpendicular to movement direction)
   private lateralOffsetMeters = 0;
 
+  // Height variation for air units (persistent offset per enemy)
+  private heightVariationMeters = 0;
+
   // Track previous position for direction-based heading calculation
   private previousLat = 0;
   private previousLon = 0;
@@ -32,6 +35,20 @@ export class MovementComponent extends Component {
    */
   setLateralOffset(offsetMeters: number): void {
     this.lateralOffsetMeters = offsetMeters;
+  }
+
+  /**
+   * Set height variation in meters (for air units)
+   */
+  setHeightVariation(variationMeters: number): void {
+    this.heightVariationMeters = variationMeters;
+  }
+
+  /**
+   * Get height variation in meters
+   */
+  getHeightVariation(): number {
+    return this.heightVariationMeters;
   }
 
   /**
@@ -146,6 +163,11 @@ export class MovementComponent extends Component {
       // Interpolate height if available
       if (current.height !== undefined && next.height !== undefined) {
         transform.terrainHeight = current.height + (next.height - current.height) * this.progress;
+      }
+
+      // Apply height variation for air units
+      if (this.heightVariationMeters !== 0) {
+        transform.terrainHeight += this.heightVariationMeters;
       }
 
       // Update rotation based on actual movement direction (not next waypoint)

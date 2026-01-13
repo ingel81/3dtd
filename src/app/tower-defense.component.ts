@@ -47,6 +47,7 @@ import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
+import { KeyboardPanService } from './services/keyboard-pan.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 import { EnemyManager } from './managers/enemy.manager';
@@ -190,7 +191,7 @@ const DEFAULT_CENTER_COORDS = {
 
           <!-- Controls Hint -->
           @if (!loading() && !error()) {
-            <div class="td-controls-hint">LMB: Pan | RMB: Rotate | Scroll: Zoom</div>
+            <div class="td-controls-hint">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
 
             <!-- Quick Actions (bottom right) -->
             <app-quick-actions
@@ -641,6 +642,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
+  private readonly keyboardPan = inject(KeyboardPanService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -807,13 +809,20 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Handle keyboard events for build mode
+   * Handle keyboard events for build mode and camera panning
    * R (hold) = Rotate tower preview continuously
    * Escape = Cancel build mode
+   * WASD / Arrow keys = Pan camera
    */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
-    // Only handle keys in build mode
+    // Camera panning (WASD / Arrow keys) - works always
+    if (this.keyboardPan.onKeyDown(event)) {
+      event.preventDefault();
+      return;
+    }
+
+    // Build mode keys
     if (!this.towerPlacement.buildMode()) return;
 
     if (event.key === 'r' || event.key === 'R') {
@@ -827,9 +836,18 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
+    // Camera panning key release
+    this.keyboardPan.onKeyUp(event);
+
     if (event.key === 'r' || event.key === 'R') {
       this.towerPlacement.stopRotating();
     }
+  }
+
+  @HostListener('window:blur')
+  onWindowBlur(): void {
+    // Clear pan keys when window loses focus
+    this.keyboardPan.clearKeys();
   }
 
   /**
@@ -953,6 +971,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Initialize route animation service
     this.routeAnimation.initialize(engine);
+
+    // Initialize keyboard panning service
+    this.keyboardPan.initialize(engine);
   }
 
   /**
@@ -1366,6 +1387,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private onEngineUpdate(deltaTime: number): void {
     // Update tower placement rotation (R key held) - deltaTime is in ms, convert to seconds
     this.towerPlacement.updateRotation(deltaTime / 1000);
+
+    // Update keyboard panning - deltaTime is in ms, convert to seconds
+    this.keyboardPan.update(deltaTime / 1000);
 
     // Animate markers (HQ rotation, spawn pulse) - no signals, pure Three.js
     this.markerViz.animateMarkers(deltaTime);
@@ -1994,6 +2018,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       );
       this.cameraControl.initialize(this.engine, { lat: data.hq.lat, lon: data.hq.lon });
       this.routeAnimation.initialize(this.engine);
+      this.keyboardPan.initialize(this.engine);
       this.markerViz.addBaseMarker();
       await this.engineInit.setStepDone('hq');
 

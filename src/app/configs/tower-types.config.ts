@@ -1,5 +1,5 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper' | 'dual-gatling';
-export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper' | 'dual-gatling' | 'rocket';
+export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
 export type UpgradeId = 'speed' | 'damage' | 'range';
 
 export interface TowerUpgrade {
@@ -32,12 +32,17 @@ export interface TowerTypeConfig {
   cost: number;
   sellValue: number; // Credits returned when selling
   upgrades: TowerUpgrade[]; // Available upgrades for this tower type
+
+  // Targeting capabilities
+  canTargetAir?: boolean; // Can target air units (default: false)
+  canTargetGround?: boolean; // Can target ground units (default: true)
 }
 
 // NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
 const ARCHER_MODEL_URL = '/assets/models/towers/tower_archer.glb';
 const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
 const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
+const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -141,6 +146,37 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 300,
     sellValue: 180,
     upgrades: [],
+  },
+  rocket: {
+    id: 'rocket',
+    name: 'Rocket Tower',
+    modelUrl: ROCKET_MODEL_URL,
+    scale: 2.5,
+    previewScale: 4.0,
+    heightOffset: 2.5,
+    shootHeight: 1.0,
+    rotationY: 0,
+    damage: 40,
+    range: 100,
+    fireRate: 0.5,
+    projectileType: 'rocket',
+    cost: 200,
+    sellValue: 120,
+    canTargetAir: true, // Can only target air units
+    canTargetGround: false, // Cannot target ground units
+    upgrades: [
+      {
+        id: 'speed',
+        name: 'Schnellfeuer',
+        description: 'Verdoppelt die Feuerrate',
+        cost: 100,
+        maxLevel: 2,
+        effect: {
+          stat: 'fireRate',
+          multiplier: 2.0,
+        },
+      },
+    ],
   },
 };
 

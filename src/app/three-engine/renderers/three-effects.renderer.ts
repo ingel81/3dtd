@@ -100,6 +100,12 @@ export class ThreeEffectsRenderer {
   private firePool: Particle[] = [];
   private readonly MAX_FIRE_PARTICLES = 2000;
 
+  // Rocket trail particle pool
+  private trailPool: Particle[] = [];
+  private readonly MAX_TRAIL_PARTICLES = 2000;
+  private trailParticles: THREE.Points | null = null;
+  private trailMaterial: THREE.PointsMaterial | null = null;
+
   // Blood decal pool (persistent ground stains)
   private bloodDecals: BloodDecal[] = [];
   private readonly MAX_BLOOD_DECALS = 100;
@@ -138,6 +144,17 @@ export class ThreeEffectsRenderer {
       size: 1.0,
       transparent: true,
       opacity: 0.7,
+      sizeAttenuation: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+    });
+
+    // Create rocket trail material (orange/yellow glow)
+    this.trailMaterial = new THREE.PointsMaterial({
+      color: 0xff8800,
+      size: 1.5,
+      transparent: true,
+      opacity: 0.9,
       sizeAttenuation: true,
       depthWrite: false,
       blending: THREE.AdditiveBlending,
@@ -205,6 +222,30 @@ export class ThreeEffectsRenderer {
         maxLife: 0,
         size: 1.0,
         color: new THREE.Color(0xff6600),
+      });
+    }
+
+    // Rocket trail particles
+    const trailGeometry = new THREE.BufferGeometry();
+    const trailPositions = new Float32Array(this.MAX_TRAIL_PARTICLES * 3);
+    const trailSizes = new Float32Array(this.MAX_TRAIL_PARTICLES);
+
+    trailGeometry.setAttribute('position', new THREE.BufferAttribute(trailPositions, 3));
+    trailGeometry.setAttribute('size', new THREE.BufferAttribute(trailSizes, 1));
+
+    this.trailParticles = new THREE.Points(trailGeometry, this.trailMaterial!);
+    this.trailParticles.frustumCulled = false;
+    this.scene.add(this.trailParticles);
+
+    // Initialize trail pool
+    for (let i = 0; i < this.MAX_TRAIL_PARTICLES; i++) {
+      this.trailPool.push({
+        position: new THREE.Vector3(),
+        velocity: new THREE.Vector3(),
+        life: 0,
+        maxLife: 0.5, // Short lifetime for trail
+        size: 1.5,
+        color: new THREE.Color(0xff8800),
       });
     }
   }
@@ -520,6 +561,120 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * Spawn rocket trail particles at a local position
+   * Call this each frame for each active rocket to create a continuous trail
+   *
+   * @param localX - Local X coordinate
+   * @param localY - Local Y coordinate (height)
+   * @param localZ - Local Z coordinate
+   * @param count - Number of particles to spawn (default 3)
+   */
+  spawnRocketTrail(localX: number, localY: number, localZ: number, count: number = 3): void {
+    for (let i = 0; i < count; i++) {
+      const particle = this.getInactiveParticle(this.trailPool);
+      if (!particle) break;
+
+      // Spawn at rocket position with small random offset
+      particle.position.set(
+        localX + (Math.random() - 0.5) * 0.5,
+        localY + (Math.random() - 0.5) * 0.5,
+        localZ + (Math.random() - 0.5) * 0.5
+      );
+
+      // Small random velocity (mostly stays in place, drifts slightly)
+      particle.velocity.set(
+        (Math.random() - 0.5) * 2,
+        (Math.random() - 0.5) * 2 - 1, // Slight downward drift
+        (Math.random() - 0.5) * 2
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.3 + Math.random() * 0.3; // 0.3-0.6 seconds
+      particle.size = 1.0 + Math.random() * 1.0; // 1-2 size
+
+      // Orange/yellow color with variation
+      const t = Math.random();
+      particle.color.setRGB(1, 0.4 + t * 0.4, t * 0.2);
+    }
+  }
+
+  /**
+   * Spawn rocket trail at geo coordinates
+   * Convenience method that converts geo to local coordinates
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Height above ground
+   * @param count - Number of particles (default 3)
+   */
+  spawnRocketTrailAtGeo(lat: number, lon: number, height: number, count: number = 3): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnRocketTrail(localPos.x, localPos.y, localPos.z, count);
+  }
+
+  /**
+   * Spawn explosion effect at local position
+   * Used for rocket impacts and other explosions
+   *
+   * @param localX - Local X coordinate
+   * @param localY - Local Y coordinate (height)
+   * @param localZ - Local Z coordinate
+   * @param count - Number of particles (default 25)
+   * @param radius - Explosion radius in meters (default 5)
+   */
+  spawnExplosion(localX: number, localY: number, localZ: number, count: number = 25, radius: number = 5): void {
+    for (let i = 0; i < count; i++) {
+      const particle = this.getInactiveParticle(this.trailPool);
+      if (!particle) break;
+
+      // Spawn at impact position
+      particle.position.set(localX, localY, localZ);
+
+      // Random direction outward (spherical distribution)
+      const theta = Math.random() * Math.PI * 2; // Horizontal angle
+      const phi = Math.random() * Math.PI; // Vertical angle
+      const speed = 5 + Math.random() * 15; // 5-20 m/s outward
+
+      particle.velocity.set(
+        Math.sin(phi) * Math.cos(theta) * speed,
+        Math.cos(phi) * speed * 0.5 + 2, // Bias upward slightly
+        Math.sin(phi) * Math.sin(theta) * speed
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.2 + Math.random() * 0.3; // 0.2-0.5 seconds (fast explosion)
+      particle.size = 1.5 + Math.random() * 2.0; // 1.5-3.5 size (bigger than trail)
+
+      // Orange/red/yellow explosion colors
+      const t = Math.random();
+      if (t < 0.3) {
+        // Yellow core
+        particle.color.setRGB(1, 0.9, 0.3);
+      } else if (t < 0.7) {
+        // Orange
+        particle.color.setRGB(1, 0.5, 0.1);
+      } else {
+        // Red edges
+        particle.color.setRGB(1, 0.2, 0.05);
+      }
+    }
+  }
+
+  /**
+   * Spawn explosion at geo coordinates
+   * Convenience method that converts geo to local coordinates
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Height above ground
+   * @param count - Number of particles (default 25)
+   */
+  spawnExplosionAtGeo(lat: number, lon: number, height: number, count: number = 25): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnExplosion(localPos.x, localPos.y, localPos.z, count);
+  }
+
+  /**
    * Spawn floating text at a position (e.g., for rewards, damage numbers, status messages)
    *
    * @param text - The text to display
@@ -779,6 +934,17 @@ export class ThreeEffectsRenderer {
       }
     }
 
+    // Update trail particles (independent of effects system)
+    for (const particle of this.trailPool) {
+      if (particle.life <= 0) continue;
+
+      // Update position
+      particle.position.add(particle.velocity.clone().multiplyScalar(dt));
+
+      // Decay life
+      particle.life -= dt / particle.maxLife;
+    }
+
     // Update GPU buffers
     this.updateParticleBuffers();
   }
@@ -825,6 +991,31 @@ export class ThreeEffectsRenderer {
 
       positions.needsUpdate = true;
       this.fireParticles.geometry.setDrawRange(0, activeCount);
+    }
+
+    // Update trail particles
+    if (this.trailParticles) {
+      const positions = this.trailParticles.geometry.attributes['position'] as THREE.BufferAttribute;
+      const sizes = this.trailParticles.geometry.attributes['size'] as THREE.BufferAttribute;
+      const posArray = positions.array as Float32Array;
+      const sizeArray = sizes.array as Float32Array;
+
+      let activeCount = 0;
+      for (let i = 0; i < this.trailPool.length; i++) {
+        const p = this.trailPool[i];
+        if (p.life > 0) {
+          posArray[activeCount * 3] = p.position.x;
+          posArray[activeCount * 3 + 1] = p.position.y;
+          posArray[activeCount * 3 + 2] = p.position.z;
+          // Size decreases as particle fades
+          sizeArray[activeCount] = p.size * p.life;
+          activeCount++;
+        }
+      }
+
+      positions.needsUpdate = true;
+      sizes.needsUpdate = true;
+      this.trailParticles.geometry.setDrawRange(0, activeCount);
     }
   }
 
@@ -903,6 +1094,9 @@ export class ThreeEffectsRenderer {
     for (const p of this.firePool) {
       p.life = 0;
     }
+    for (const p of this.trailPool) {
+      p.life = 0;
+    }
     this.activeEffects.clear();
 
     // Hide all blood decals
@@ -935,6 +1129,10 @@ export class ThreeEffectsRenderer {
       this.scene.remove(this.fireParticles);
       this.fireParticles.geometry.dispose();
     }
+    if (this.trailParticles) {
+      this.scene.remove(this.trailParticles);
+      this.trailParticles.geometry.dispose();
+    }
 
     // Dispose blood decals
     for (const decal of this.bloodDecals) {
@@ -956,6 +1154,7 @@ export class ThreeEffectsRenderer {
 
     this.bloodMaterial.dispose();
     this.fireMaterial.dispose();
+    this.trailMaterial?.dispose();
     this.bloodDecalGeometry.dispose();
     this.bloodDecalMaterial.dispose();
   }

@@ -61,6 +61,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.movement.setLateralOffset(randomOffset);
     }
 
+    // Apply random height variation for air units
+    if (enemy.typeConfig.heightVariation && enemy.typeConfig.heightVariation > 0) {
+      const maxVar = enemy.typeConfig.heightVariation;
+      const randomVar = (Math.random() * 2 - 1) * maxVar;
+      enemy.movement.setHeightVariation(randomVar);
+    }
+
     // Get height at spawn position - prefer path height (smoothed) over live sampling
     const startPos = path[0];
     const origin = this.tilesEngine.sync.getOrigin();
@@ -79,6 +86,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
 
     enemy.transform.terrainHeight = geoHeight;
+
+    // Apply height variation to initial spawn height (for air units)
+    const heightVar = enemy.movement.getHeightVariation();
+    if (heightVar !== 0) {
+      geoHeight += heightVar;
+      enemy.transform.terrainHeight = geoHeight;
+    }
 
     // Create 3D model and start animation
     this.tilesEngine.enemies

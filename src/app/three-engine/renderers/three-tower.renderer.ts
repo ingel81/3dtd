@@ -341,10 +341,11 @@ export class ThreeTowerRenderer {
     const baseRotation = config.rotationY ?? 0;
     mesh.rotation.y = baseRotation + customRotation;
 
-    // Find turret_top part if it exists (for turret rotation)
+    // Find turret part if it exists (for turret rotation)
+    // Supports both 'turret_top' and 'top' naming conventions
     let turretPart: THREE.Object3D | null = null;
     mesh.traverse((node) => {
-      if (node.name === 'turret_top' && !turretPart) {
+      if ((node.name === 'turret_top' || node.name === 'top') && !turretPart) {
         turretPart = node;
       }
     });
@@ -387,45 +388,64 @@ export class ThreeTowerRenderer {
     // Uses configurable shootHeight per tower type
     const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
 
+    // Check if this is a pure air tower (only targets air, not ground)
+    // Pure air towers don't need LOS visualization since air enemies are always visible
+    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+
     // Create hex grid for LoS visualization (initially hidden)
-    const { hexGrid, hexCells } = this.createHexGrid(terrainPos.x, terrainPos.z, config.range, tipY);
-    hexGrid.visible = false;
-    this.scene.add(hexGrid);
+    // Skip for pure air towers - they don't need LOS checks
+    let hexGrid: THREE.InstancedMesh | null = null;
+    let hexCells: HexCell[] = [];
+    if (!isPureAirTower) {
+      const hexData = this.createHexGrid(terrainPos.x, terrainPos.z, config.range, tipY);
+      hexGrid = hexData.hexGrid;
+      hexCells = hexData.hexCells;
+      hexGrid.visible = false;
+      this.scene.add(hexGrid);
+    }
 
     // Create tip marker (magenta sphere showing LoS origin point)
-    const tipMarkerGeometry = new THREE.SphereGeometry(2, 16, 16);
-    const tipMarkerMaterial = new THREE.MeshBasicMaterial({
-      color: 0xff00ff, // Magenta
-      depthTest: false, // Always visible, even inside tower mesh
-    });
-    const tipMarker = new THREE.Mesh(tipMarkerGeometry, tipMarkerMaterial);
-    tipMarker.position.set(terrainPos.x, tipY, terrainPos.z);
-    tipMarker.renderOrder = 999; // Render on top
-    tipMarker.visible = this.debugMode; // Visible in debug mode, or when tower is selected
-    this.scene.add(tipMarker);
+    // Skip for pure air towers
+    let tipMarker: THREE.Mesh | null = null;
+    if (!isPureAirTower) {
+      const tipMarkerGeometry = new THREE.SphereGeometry(2, 16, 16);
+      const tipMarkerMaterial = new THREE.MeshBasicMaterial({
+        color: 0xff00ff, // Magenta
+        depthTest: false, // Always visible, even inside tower mesh
+      });
+      tipMarker = new THREE.Mesh(tipMarkerGeometry, tipMarkerMaterial);
+      tipMarker.position.set(terrainPos.x, tipY, terrainPos.z);
+      tipMarker.renderOrder = 999; // Render on top
+      tipMarker.visible = this.debugMode; // Visible in debug mode, or when tower is selected
+      this.scene.add(tipMarker);
+    }
 
     // Create LOS ring (cyan circle showing where LOS raycasts originate)
-    const losOffset = this.LOS_OFFSET_MIN;
-    const losRingPoints: THREE.Vector3[] = [];
-    const losRingSegments = 32;
-    for (let i = 0; i <= losRingSegments; i++) {
-      const angle = (i / losRingSegments) * Math.PI * 2;
-      losRingPoints.push(new THREE.Vector3(
-        Math.cos(angle) * losOffset,
-        0,
-        Math.sin(angle) * losOffset
-      ));
+    // Skip for pure air towers
+    let losRing: THREE.LineLoop | null = null;
+    if (!isPureAirTower) {
+      const losOffset = this.LOS_OFFSET_MIN;
+      const losRingPoints: THREE.Vector3[] = [];
+      const losRingSegments = 32;
+      for (let i = 0; i <= losRingSegments; i++) {
+        const angle = (i / losRingSegments) * Math.PI * 2;
+        losRingPoints.push(new THREE.Vector3(
+          Math.cos(angle) * losOffset,
+          0,
+          Math.sin(angle) * losOffset
+        ));
+      }
+      const losRingGeometry = new THREE.BufferGeometry().setFromPoints(losRingPoints);
+      const losRingMaterial = new THREE.LineBasicMaterial({
+        color: 0x00ffff, // Cyan
+        depthTest: false,
+      });
+      losRing = new THREE.LineLoop(losRingGeometry, losRingMaterial);
+      losRing.position.set(terrainPos.x, tipY, terrainPos.z);
+      losRing.renderOrder = 999;
+      losRing.visible = this.debugMode;
+      this.scene.add(losRing);
     }
-    const losRingGeometry = new THREE.BufferGeometry().setFromPoints(losRingPoints);
-    const losRingMaterial = new THREE.LineBasicMaterial({
-      color: 0x00ffff, // Cyan
-      depthTest: false,
-    });
-    const losRing = new THREE.LineLoop(losRingGeometry, losRingMaterial);
-    losRing.position.set(terrainPos.x, tipY, terrainPos.z);
-    losRing.renderOrder = 999;
-    losRing.visible = this.debugMode;
-    this.scene.add(losRing);
 
     // Create aim direction arrow for turrets (debug visualization)
     // DISABLED: Causing NaN errors in render loop
@@ -1477,6 +1497,7 @@ export class ThreeTowerRenderer {
   /**
    * Show Line-of-Sight preview hex grid for tower placement
    * Call this when entering rotation mode to show LoS before confirming placement
+   * Skipped for pure air towers (canTargetAir && !canTargetGround) - they don't need LOS
    */
   showPreviewLoS(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
     // Dispose existing preview if any
@@ -1486,6 +1507,10 @@ export class ThreeTowerRenderer {
 
     const config = TOWER_TYPES[typeId];
     if (!config) return;
+
+    // Skip LOS preview for pure air towers - they don't need LOS checks
+    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+    if (isPureAirTower) return;
 
     // Get local coordinates
     const terrainPos = this.sync.geoToLocal(lat, lon, height);

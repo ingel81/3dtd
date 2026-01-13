@@ -70,6 +70,10 @@ export interface EnemyTypeConfig {
   randomAnimationStart?: boolean; // Animation bei zufälligem Frame starten
   randomSoundStart?: boolean; // Sound bei zufälliger Position starten
   lateralOffset?: number; // Max. seitlicher Versatz in Metern (0 = keine Abweichung)
+  heightVariation?: number; // Max. zufällige Höhenabweichung in Metern (für Wellen)
+
+  // Air Unit
+  isAirUnit?: boolean; // true = Lufteinheit, nur von Air-Towern angreifbar
 
   // Spawning
   spawnStartDelay?: number; // Delay in ms zwischen Start von Enemies dieses Typs (default: 300)
@@ -161,13 +165,36 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     spawnStartDelay: 500,
   },
 
+  bat: {
+    id: 'bat',
+    name: 'Fledermaus',
+    modelUrl: '/assets/models/enemies/bat.glb',
+    scale: 1.5,
+    minimumPixelSize: 0,
+    baseHp: 80,
+    baseSpeed: 8,
+    damage: 5,
+    reward: 3,
+    hasAnimations: true,
+    walkAnimation: 'BatArmature|Bat_Flying',
+    deathAnimation: 'BatArmature|Bat_Death',
+    animationSpeed: 1.5,
+    heightOffset: 15, // 15m über Terrain
+    healthBarOffset: 4,
+    canBleed: false,
+    isAirUnit: true, // Nur von Air-Towern angreifbar
+    heightVariation: 3, // ±3m Variation zwischen Enemies
+    lateralOffset: 2.0,
+    randomAnimationStart: true,
+  },
+
   herbert: {
     id: 'herbert',
     name: 'Herbert',
     modelUrl: '/assets/models/enemies/herbert_walking.glb',
     scale: 4.0,
     minimumPixelSize: 0,
-    baseHp: 1000,
+    baseHp: 5000,
     baseSpeed: 4,
     damage: 20,
     reward: 8,
@@ -194,8 +221,8 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
       '/assets/sounds/herbert_13.mp3',
       '/assets/sounds/herbert_14.mp3',
     ],
-    randomSoundsMinInterval: 4000,
-    randomSoundsMaxInterval: 10000,
+    randomSoundsMinInterval: 10000,
+    randomSoundsMaxInterval: 25000,
     randomSoundsVolume: 0.6,
     randomSoundsRefDistance: 40,
     heightOffset: 0,

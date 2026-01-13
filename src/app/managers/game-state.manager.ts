@@ -182,7 +182,9 @@ export class GameStateManager {
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
         if (tower.combat.canFire(currentTime) && turretAligned) {
           // Periodic LOS recheck (throttled to max ~3/sec per tower)
-          if (losCheck && tower.needsLosRecheck(currentTime)) {
+          // Skip LOS recheck for air enemies - they fly high enough to always be visible
+          const isAirTarget = target.typeConfig.isAirUnit ?? false;
+          if (losCheck && !isAirTarget && tower.needsLosRecheck(currentTime)) {
             tower.markLosChecked(currentTime);
             if (!losCheck(target)) {
               // Target no longer visible - find new target

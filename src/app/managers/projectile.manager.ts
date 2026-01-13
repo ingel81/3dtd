@@ -20,6 +20,12 @@ const PROJECTILE_SOUNDS = {
     rolloffFactor: 1.2,
     volume: 0.25, // Lower volume due to high fire rate (5/sec)
   },
+  rocket: {
+    url: '/assets/sounds/rocket_launch.mp3',
+    refDistance: 60, // Rockets are loud
+    rolloffFactor: 1,
+    volume: 0.7,
+  },
 } as const;
 
 /**
@@ -103,18 +109,49 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
       if (hit) {
         this.onProjectileHit?.(projectile, projectile.targetEnemy);
+
+        // Spawn explosion effect for rockets
+        if (projectile.isHoming) {
+          this.tilesEngine?.effects.spawnExplosionAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            50 // 50 particles for bigger explosion
+          );
+        }
+
         toRemove.push(projectile);
       } else if (!projectile.targetEnemy.alive) {
         // Target died, remove projectile
         toRemove.push(projectile);
       } else {
-        // Update visual position (rotation is fixed at spawn)
-        this.tilesEngine?.projectiles.update(
-          projectile.id,
-          projectile.position.lat,
-          projectile.position.lon,
-          projectile.flightHeight
-        );
+        // Update visual position
+        if (projectile.isHoming) {
+          // Homing projectiles (rockets) update rotation continuously
+          this.tilesEngine?.projectiles.updateWithRotation(
+            projectile.id,
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            projectile.direction
+          );
+
+          // Spawn rocket trail particles
+          this.tilesEngine?.effects.spawnRocketTrailAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            2 // 2 particles per frame
+          );
+        } else {
+          // Regular projectiles keep fixed rotation
+          this.tilesEngine?.projectiles.update(
+            projectile.id,
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight
+          );
+        }
       }
     }
 

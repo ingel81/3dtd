@@ -50,7 +50,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .debug-panel {
       position: absolute;
       min-width: 200px;
-      max-width: 320px;
+      max-width: 400px;
       background: rgba(20, 24, 21, 0.95);
       border: 1px solid var(--td-frame-mid);
       border-top-color: var(--td-frame-light);
@@ -123,6 +123,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       padding: 8px;
       max-height: 400px;
       overflow-y: auto;
+      overflow-x: hidden;
     }
   `,
 })
