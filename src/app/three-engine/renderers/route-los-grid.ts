@@ -23,8 +23,8 @@ export class RouteLosGrid {
   /** Grid cell size in meters */
   private readonly CELL_SIZE = 2;
 
-  /** Corridor width from route center in meters (covers lateralOffset ±2m + safety) */
-  private readonly CORRIDOR_WIDTH = 5;
+  /** Corridor width from route center in meters (covers lateralOffset ±2m + generous safety) */
+  private readonly CORRIDOR_WIDTH = 7;
 
   /** LOS offset from tower center (same as in three-tower.renderer.ts) */
   private readonly LOS_OFFSET = 2.4;
@@ -97,92 +97,87 @@ export class RouteLosGrid {
   }
 
   /**
-   * Generate cells in the corridor around a route sample point
+   * Generate cells in a circular area around a route sample point
+   * Uses radial pattern to avoid gaps at route curves
    */
   private generateCorridorCells(
     centerX: number,
     centerZ: number,
-    segStart: { x: number; z: number },
-    segEnd: { x: number; z: number },
+    _segStart: { x: number; z: number },
+    _segEnd: { x: number; z: number },
     processedCells: Set<string>,
     rangeSquared: number
   ): void {
-    // Calculate perpendicular direction to segment
-    const dx = segEnd.x - segStart.x;
-    const dz = segEnd.z - segStart.z;
-    const len = Math.sqrt(dx * dx + dz * dz);
+    // Generate cells in a square area around the sample point, then filter by corridor width
+    const corridorWidthSq = this.CORRIDOR_WIDTH * this.CORRIDOR_WIDTH;
+    const numCells = Math.ceil(this.CORRIDOR_WIDTH / this.CELL_SIZE);
 
-    if (len < 0.001) return;
+    for (let dx = -numCells; dx <= numCells; dx++) {
+      for (let dz = -numCells; dz <= numCells; dz++) {
+        const cellX = centerX + dx * this.CELL_SIZE;
+        const cellZ = centerZ + dz * this.CELL_SIZE;
 
-    // Perpendicular vector (rotated 90 degrees)
-    const perpX = -dz / len;
-    const perpZ = dx / len;
+        // Check if within corridor width (circular, not square)
+        const distToRouteSq = dx * dx + dz * dz;
+        if (distToRouteSq * this.CELL_SIZE * this.CELL_SIZE > corridorWidthSq) continue;
 
-    // Generate cells across the corridor width
-    const numCellsAcross = Math.ceil(this.CORRIDOR_WIDTH / this.CELL_SIZE) * 2 + 1;
-    const halfWidth = this.CORRIDOR_WIDTH;
+        // Check if within tower range
+        const distToTowerSq =
+          Math.pow(cellX - this.towerX, 2) + Math.pow(cellZ - this.towerZ, 2);
+        if (distToTowerSq > rangeSquared) continue;
 
-    for (let c = 0; c < numCellsAcross; c++) {
-      const offset = -halfWidth + (c * this.CELL_SIZE);
-      const cellX = centerX + perpX * offset;
-      const cellZ = centerZ + perpZ * offset;
+        // Create cell key (quantized to grid)
+        const cellKeyX = Math.floor(cellX / this.CELL_SIZE);
+        const cellKeyZ = Math.floor(cellZ / this.CELL_SIZE);
+        const key = `${cellKeyX}_${cellKeyZ}`;
 
-      // Check if within tower range
-      const distToTowerSq =
-        Math.pow(cellX - this.towerX, 2) + Math.pow(cellZ - this.towerZ, 2);
-      if (distToTowerSq > rangeSquared) continue;
+        // Skip if already processed
+        if (processedCells.has(key)) continue;
+        processedCells.add(key);
 
-      // Create cell key (quantized to grid)
-      const cellKeyX = Math.floor(cellX / this.CELL_SIZE);
-      const cellKeyZ = Math.floor(cellZ / this.CELL_SIZE);
-      const key = `${cellKeyX}_${cellKeyZ}`;
+        // Get terrain height at cell center
+        const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
+        const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
+        const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
 
-      // Skip if already processed
-      if (processedCells.has(key)) continue;
-      processedCells.add(key);
+        if (terrainY === null) continue;
 
-      // Get terrain height at cell center
-      const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
-      const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
-      const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
+        // Calculate LOS origin (offset from tower center towards cell)
+        const dirX = cellCenterX - this.towerX;
+        const dirZ = cellCenterZ - this.towerZ;
+        const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
 
-      if (terrainY === null) continue;
+        if (dirLen < 0.1) {
+          // Cell is at tower center, always visible
+          this.cells.set(key, true);
+          this.stats.totalCells++;
+          this.stats.visibleCells++;
+          continue;
+        }
 
-      // Calculate LOS origin (offset from tower center towards cell)
-      const dirX = cellCenterX - this.towerX;
-      const dirZ = cellCenterZ - this.towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
+        const originX = this.towerX + (dirX / dirLen) * this.LOS_OFFSET;
+        const originZ = this.towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
 
-      if (dirLen < 0.1) {
-        // Cell is at tower center, always visible
-        this.cells.set(key, true);
+        // Target Y is slightly above terrain (enemy eye height ~1.5m)
+        const targetY = terrainY + 1.5;
+
+        // Raycast to check visibility
+        const isBlocked = this.losRaycaster(
+          originX,
+          this.towerTipY,
+          originZ,
+          cellCenterX,
+          targetY,
+          cellCenterZ
+        );
+
+        this.cells.set(key, !isBlocked);
         this.stats.totalCells++;
-        this.stats.visibleCells++;
-        continue;
-      }
-
-      const originX = this.towerX + (dirX / dirLen) * this.LOS_OFFSET;
-      const originZ = this.towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
-
-      // Target Y is slightly above terrain (enemy eye height ~1.5m)
-      const targetY = terrainY + 1.5;
-
-      // Raycast to check visibility
-      const isBlocked = this.losRaycaster(
-        originX,
-        this.towerTipY,
-        originZ,
-        cellCenterX,
-        targetY,
-        cellCenterZ
-      );
-
-      this.cells.set(key, !isBlocked);
-      this.stats.totalCells++;
-      if (isBlocked) {
-        this.stats.blockedCells++;
-      } else {
-        this.stats.visibleCells++;
+        if (isBlocked) {
+          this.stats.blockedCells++;
+        } else {
+          this.stats.visibleCells++;
+        }
       }
     }
   }

@@ -1,0 +1,25 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run build:*)",
+      "Bash(npx tsc:*)",
+      "Bash(npx ng build:*)",
+      "Bash(git add:*)",
+      "Bash(GIT_AUTHOR_DATE=\"2026-01-14 20:01:00\" GIT_COMMITTER_DATE=\"2026-01-14 20:01:00\" git commit:*)",
+      "Bash(git config:*)",
+      "Bash(GIT_AUTHOR_NAME=\"ingel81\" GIT_AUTHOR_EMAIL=\"ingel81@sgeht.net\" GIT_COMMITTER_NAME=\"ingel81\" GIT_COMMITTER_EMAIL=\"ingel81@sgeht.net\" GIT_AUTHOR_DATE=\"2026-01-14 20:01:00\" GIT_COMMITTER_DATE=\"2026-01-14 20:01:00\" git commit:*)",
+      "Bash(dir \"D:\\\\Source\"\" /B)",
+      "Bash(for repo in nervbox b3ttybot geckopanel)",
+      "Bash(do echo \"=== $repo ===\")",
+      "Bash(git -C:*)",
+      "Bash(git -C \"D:/Source/$repo\" log -1 --format=\"%an <%ae>\")",
+      "Bash(done)",
+      "Bash(git push:*)",
+      "Bash(git restore:*)",
+      "Bash(cd:*)",
+      "Bash(find:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor: consolidate LOS visualization to route-based grid\n\n- Remove old 8m hex-grid LOS visualization \\(~300 lines\\)\n- Add InstancedMesh visualization to RouteLosGrid \\(green=visible, red=blocked\\)\n- Show LOS overlay during build preview \\(throttled 200ms\\) and tower selection\n- Add getCachedRoutes\\(\\) to GameStateManager for route access\n- Keep shader-based visualization as experimental fallback\nEOF\n\\)\")",
+      "Bash(git commit:*)"
+    ]
+  }
+}
