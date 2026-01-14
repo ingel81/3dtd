@@ -274,8 +274,8 @@ export class RouteLosGrid {
         USE_INSTANCING: '',
       },
       transparent: true,
-      depthTest: false,   // Don't test against depth buffer - always render
-      depthWrite: false,  // Don't write to depth buffer
+      depthTest: false,
+      depthWrite: false,
       side: THREE.DoubleSide,
     });
 
@@ -297,7 +297,7 @@ export class RouteLosGrid {
       const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
 
       const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
-      const y = terrainY !== null ? terrainY + 0.3 : this.towerTipY;
+      const y = terrainY !== null ? terrainY + 0.5 : this.towerTipY;
 
       matrix.setPosition(cellCenterX, y, cellCenterZ);
       mesh.setMatrixAt(index, matrix);
@@ -369,7 +369,7 @@ export class RouteLosGrid {
       const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
 
       const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
-      const y = terrainY !== null ? terrainY + 0.3 : this.towerTipY;
+      const y = terrainY !== null ? terrainY + 0.5 : this.towerTipY;
 
       matrix.setPosition(cellCenterX, y, cellCenterZ);
       mesh.setMatrixAt(index, matrix);

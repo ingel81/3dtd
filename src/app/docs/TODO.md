@@ -11,16 +11,11 @@ Performance:
      [ ] ist aber nicht so dramatisch wie es sich anhört.
 
 LOS:
- [ ] **Optimierung: Statisches Pfad-LOS-Grid**
-     Aktuell: LOS-Raycasts zur Laufzeit (auch mit Caching ~3/s pro Tower)
-     Idee: Separates feines Hex-Grid (2m) nur entlang der Gegner-Route vorberechnen + aureichend Puffer um die route wirklich sicher abzudecken
-     - Bei Tower-Platzierung einmalig ~100-150 Raycasts (nur Route ±3m im Range)
-     - Zur Laufzeit: Nur "ist Gegner-Position in sichtbarer Zelle?" → O(1) Lookup
-     - Visualisierung bleibt separat (grobes 8m Grid für ganzen Bereich)
-     - Zwei Systeme: Grob+vollständig für User-Feedback, Fein+Route für Schieß-Logik
-     - Vorteil: LOS-Checks zur Laufzeit komplett eliminiert (nur simple Math)
-     - Nachteil: Statisch (nur Gebäude, keine dynamischen Blocker)
-     - Wichtig: zuschaltbare Visualisierung für die interne "feine" LOS zu debugging zwecken.
+ [x] **Statisches Pfad-LOS-Grid** ✓ Implementiert
+     - 2m Grid entlang Route (±7m Korridor)
+     - Bei Tower-Platzierung vorberechnet
+     - O(1) Lookup zur Laufzeit
+     - Shader-basierte Visualisierung mit Pulsing-Animation
 
 Location-System Bekannte Einschränkungen:
  [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
@@ -34,4 +29,10 @@ Stashed Features:
 - [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")
       Wikidata SPARQL für zufällige Stadt + Overpass API für Straße
       Würfel-Button in Header + Location-Dialog
+
+Z-Kategorie (Nice-to-have Optimierungen):
+- [ ] LOS-Visualisierung: Gebäude-Verdeckung
+      Aktuell: depthTest=false (Zellen immer sichtbar, auch durch Gebäude)
+      Ideal: Zellen von Gebäuden verdeckt aber nicht vom Terrain
+      Mögliche Ansätze: Stencil Buffer, Decal-Rendering, Custom Depth Pass
 
