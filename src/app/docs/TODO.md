@@ -1,7 +1,5 @@
 # Offene TODOs
 
-[ ] Warning in Console:
-    [ ] CesiumIonAuthPlugin: Plugin has been moved to "3d-tiles-renderer/core/plugins". (anonymous)	@	three-tiles-engine.ts:229
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
 [ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
 

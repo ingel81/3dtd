@@ -1,5 +1,10 @@
 # Erledigte Features & Fixes
 
+Fixes:
+ [x] **CesiumIonAuthPlugin Import-Pfad aktualisiert**
+     - Warning: "Plugin has been moved to 3d-tiles-renderer/core/plugins"
+     - Fix: Import-Pfad in three-tiles-engine.ts von `'3d-tiles-renderer/plugins'` auf `'3d-tiles-renderer/core/plugins'` geändert
+
 Allgemein:
  [x] **Koordinaten-Paste im Location-Dialog**
      - Eingabefelder für HQ-Koordinaten akzeptieren kombinierte lat/lon beim Paste

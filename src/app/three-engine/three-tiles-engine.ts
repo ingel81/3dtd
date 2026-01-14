@@ -13,9 +13,9 @@ import {
   UpdateOnChangePlugin,
   UnloadTilesPlugin,
   GLTFExtensionsPlugin,
-  CesiumIonAuthPlugin,
   ReorientationPlugin,
 } from '3d-tiles-renderer/plugins';
+import { CesiumIonAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { EllipsoidSync } from './ellipsoid-sync';
 import {
@@ -731,6 +731,9 @@ export class ThreeTilesEngine {
    * @param targetX, targetY, targetZ - End point (e.g., hex cell or enemy position)
    * @returns true if blocked, false if clear line of sight
    */
+  // Debug counter for LOS raycasts
+  private losDebugCounter = 0;
+
   private raycastLineOfSight(
     originX: number, originY: number, originZ: number,
     targetX: number, targetY: number, targetZ: number
@@ -750,6 +753,12 @@ export class ThreeTilesEngine {
 
     // Check for intersections
     const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
+
+    // Debug: log first few raycasts
+    if (this.losDebugCounter < 5) {
+      console.log(`[LOS Raycast #${this.losDebugCounter}] origin=(${originX.toFixed(1)}, ${originY.toFixed(1)}, ${originZ.toFixed(1)}) → target=(${targetX.toFixed(1)}, ${targetY.toFixed(1)}, ${targetZ.toFixed(1)}) dist=${distance.toFixed(1)} hits=${results.length}`);
+      this.losDebugCounter++;
+    }
 
     // If we hit something before reaching the target, LoS is blocked
     return results.length > 0;

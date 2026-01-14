@@ -626,4 +626,11 @@ export class GameStateManager {
       this.uiState.specialPointsDebugVisible()
     );
   }
+
+  /**
+   * Get cached enemy routes for LOS preview during tower placement
+   */
+  getCachedRoutes(): GeoPosition[][] {
+    return Array.from(this.pathRouteService.getCachedPaths().values());
+  }
 }

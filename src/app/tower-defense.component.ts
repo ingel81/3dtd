@@ -204,7 +204,6 @@ const DEFAULT_CENTER_COORDS = {
               (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
               (resetToDefaultLocation)="resetToDefaultLocation()"
               (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
-              (routeLosDebugToggled)="onRouteLosDebugToggled()"
               (playRouteAnimation)="onPlayRouteAnimation()"
             />
           }
@@ -1226,11 +1225,24 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cameraControl.saveInitialPosition(target);
   }
 
+  /** Flag to prevent concurrent renderStreets calls */
+  private isRenderingStreets = false;
+
   private renderStreets(): void {
+    // Prevent concurrent calls (can happen during loading sequence)
+    if (this.isRenderingStreets) {
+      return;
+    }
+    this.isRenderingStreets = true;
     console.time('[TD] renderStreets');
+
     // Get engine from service (this.engine may not be set yet during init)
     const engine = this.engine || this.engineInit.getEngine();
-    if (!engine || !this.streetNetwork) return;
+    if (!engine || !this.streetNetwork) {
+      console.timeEnd('[TD] renderStreets');
+      this.isRenderingStreets = false;
+      return;
+    }
 
     // Use filtered network if available (much faster), otherwise full network
     const networkToRender = this.filteredStreetNetwork || this.streetNetwork;
@@ -1255,6 +1267,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const base = this.baseCoords();
     const originTerrainY = engine.getTerrainHeightAtGeo(base.latitude, base.longitude);
     if (originTerrainY === null) {
+      console.timeEnd('[TD] renderStreets');
+      this.isRenderingStreets = false;
       return;
     }
 
@@ -1343,6 +1357,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       overlayGroup.add(this.streetLinesMesh);
     }
     console.timeEnd('[TD] renderStreets');
+    this.isRenderingStreets = false;
   }
 
 
@@ -1734,18 +1749,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (visible) {
         this.gameState.spawnHQDebugPoint();
       }
-    }
-  }
-
-  /**
-   * Toggle route LOS grid debug visualization
-   */
-  onRouteLosDebugToggled(): void {
-    this.uiState.toggleRouteLosDebug();
-    const visible = this.uiState.routeLosDebugVisible();
-
-    if (this.engine) {
-      this.engine.towers.setRouteLosDebugMode(visible);
     }
   }
 

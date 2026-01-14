@@ -3,7 +3,6 @@ import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
-import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-defense/shaders/los-hatching.shaders';
 import { RouteLosGrid } from './route-los-grid';
 import { GeoPosition } from '../../models/game.types';
 
@@ -17,11 +16,8 @@ export interface TowerRenderData {
   aimArrow: THREE.ArrowHelper | null; // Debug arrow showing aim direction
   rangeIndicator: THREE.Mesh | null;
   selectionRing: THREE.Mesh | null;
-  hexGrid: THREE.InstancedMesh | null; // Instanced mesh for hex visualization
-  hexCells: HexCell[]; // Hex cell data for LoS calculations
   tipMarker: THREE.Mesh | null; // Debug marker showing LoS origin point
   losRing: THREE.LineLoop | null; // Debug ring showing LOS origin circle
-  losRays: THREE.Group | null; // Debug raycast lines
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
   // Geo coordinates for terrain sampling
@@ -35,9 +31,9 @@ export interface TowerRenderData {
   // Turret rotation animation
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
-  // Route-based LOS grid for fast O(1) lookups
+  // Route-based LOS grid for fast O(1) lookups and visualization
   routeLosGrid: RouteLosGrid | null;
-  routeLosDebugViz: THREE.Group | null;
+  routeLosViz: THREE.InstancedMesh | null; // Animated LOS visualization
 }
 
 /**
@@ -60,17 +56,6 @@ export type LineOfSightRaycaster = (
   originX: number, originY: number, originZ: number,
   targetX: number, targetY: number, targetZ: number
 ) => boolean;
-
-/**
- * Data for a single hex cell in the range indicator
- */
-interface HexCell {
-  index: number; // Index in the InstancedMesh
-  centerX: number; // World X
-  centerZ: number; // World Z
-  terrainY: number;
-  isBlocked: boolean;
-}
 
 /**
  * ThreeTowerRenderer - Renders towers using Three.js
@@ -106,15 +91,12 @@ export class ThreeTowerRenderer {
   // Line-of-Sight raycaster for visibility checks
   private losRaycaster: LineOfSightRaycaster | null = null;
 
-  // Hex grid material - unified shader for both visible and blocked areas
-  private hexMaterial: THREE.ShaderMaterial;
-
   // Debug mode - shows tip markers for all towers
   private debugMode = false;
 
-  // Preview hex grid for placement mode LoS visualization
-  private previewHexGrid: THREE.InstancedMesh | null = null;
-  private previewHexCells: HexCell[] = [];
+  // Preview LOS grid for placement mode visualization
+  private previewLosGrid: RouteLosGrid | null = null;
+  private previewLosViz: THREE.InstancedMesh | null = null;
 
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
@@ -122,10 +104,6 @@ export class ThreeTowerRenderer {
   // Configuration for terrain-conforming range indicator
   private readonly RANGE_SEGMENTS = 48; // Number of segments around the circle
   private readonly RANGE_RINGS = 8; // Number of concentric rings
-
-  // Hex grid configuration
-  private readonly HEX_SIZE = 8; // Size of each hex cell in meters (flat-to-flat)
-  private readonly HEX_GAP = 0.5; // Small gap between hexes for visual clarity
 
   // LOS offset configuration - raycast starts from tower edge, not center
   private readonly LOS_OFFSET_MIN = 2.4; // Offset in meters from tower center
@@ -154,25 +132,6 @@ export class ThreeTowerRenderer {
       side: THREE.DoubleSide,
       depthWrite: false,
       depthTest: false, // Always render on top
-    });
-
-    // Unified hex material with animated hatching shader
-    const hexRadius = (this.HEX_SIZE - this.HEX_GAP) / 2;
-    this.hexMaterial = new THREE.ShaderMaterial({
-      vertexShader: LOS_HATCHING_VERTEX,
-      fragmentShader: LOS_HATCHING_FRAGMENT,
-      uniforms: {
-        uTime: { value: 0 },
-        uVisibleColor: { value: new THREE.Color(0x22c55e) }, // Green
-        uBlockedColor: { value: new THREE.Color(0xdc2626) }, // Red
-        uVisibleOpacity: { value: 0.35 }, // Clearly visible
-        uBlockedOpacity: { value: 0.30 }, // More visible for blocked
-        uHexRadius: { value: hexRadius },
-      },
-      transparent: true,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-      depthTest: false,
     });
   }
 
@@ -397,18 +356,6 @@ export class ThreeTowerRenderer {
     // Pure air towers don't need LOS visualization since air enemies are always visible
     const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
 
-    // Create hex grid for LoS visualization (initially hidden)
-    // Skip for pure air towers - they don't need LOS checks
-    let hexGrid: THREE.InstancedMesh | null = null;
-    let hexCells: HexCell[] = [];
-    if (!isPureAirTower) {
-      const hexData = this.createHexGrid(terrainPos.x, terrainPos.z, config.range, tipY);
-      hexGrid = hexData.hexGrid;
-      hexCells = hexData.hexCells;
-      hexGrid.visible = false;
-      this.scene.add(hexGrid);
-    }
-
     // Create tip marker (magenta sphere showing LoS origin point)
     // Skip for pure air towers
     let tipMarker: THREE.Mesh | null = null;
@@ -472,11 +419,8 @@ export class ThreeTowerRenderer {
       aimArrow,
       rangeIndicator,
       selectionRing,
-      hexGrid,
-      hexCells,
       tipMarker,
       losRing,
-      losRays: null, // Created on demand in debug mode
       typeConfig: config,
       isSelected: false,
       lat,
@@ -487,7 +431,7 @@ export class ThreeTowerRenderer {
       currentLocalRotation: 0, // Start at base position
       targetLocalRotation: 0, // Target at base position
       routeLosGrid: null, // Populated via generateRouteLosGrid()
-      routeLosDebugViz: null,
+      routeLosViz: null, // Created when grid is generated
     };
 
     this.towers.set(id, renderData);
@@ -529,6 +473,14 @@ export class ThreeTowerRenderer {
     );
 
     data.routeLosGrid.generateFromRoutes(routes, this.sync);
+
+    // Create visualization (hidden by default, shown on selection)
+    const viz = data.routeLosGrid.createVisualization();
+    if (viz) {
+      viz.visible = false;
+      this.scene.add(viz);
+      data.routeLosViz = viz;
+    }
 
     const stats = data.routeLosGrid.getStats();
     console.log(
@@ -618,7 +570,7 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Select tower (show range indicator, selection ring, and hex grid)
+   * Select tower (show range indicator, selection ring, and LOS visualization)
    */
   select(id: string): void {
     const data = this.towers.get(id);
@@ -627,10 +579,12 @@ export class ThreeTowerRenderer {
     data.isSelected = true;
     if (data.rangeIndicator) data.rangeIndicator.visible = true;
     if (data.selectionRing) data.selectionRing.visible = true;
-    if (data.hexGrid) {
-      data.hexGrid.visible = true;
-      // Recalculate LoS when tower is selected
-      this.updateHexGridLoS(data);
+    // Show route LOS visualization
+    if (data.routeLosViz) {
+      data.routeLosViz.visible = true;
+      console.log(`[ThreeTowerRenderer] select: showing routeLosViz for ${id}, count=${data.routeLosViz.count}`);
+    } else {
+      console.log(`[ThreeTowerRenderer] select: NO routeLosViz for ${id}`);
     }
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
     if (data.losRing) data.losRing.visible = this.debugMode;
@@ -646,12 +600,13 @@ export class ThreeTowerRenderer {
     data.isSelected = false;
     if (data.rangeIndicator) data.rangeIndicator.visible = false;
     if (data.selectionRing) data.selectionRing.visible = false;
-    if (data.hexGrid) data.hexGrid.visible = false;
+    // Hide route LOS visualization
+    if (data.routeLosViz) {
+      data.routeLosViz.visible = false;
+    }
     // Keep debug markers visible in debug mode
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
     if (data.losRing) data.losRing.visible = this.debugMode;
-    // Clear debug rays when deselected
-    this.clearLosRays(data);
   }
 
   /**
@@ -664,7 +619,8 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Set debug mode - shows tip markers, LOS rings, and raycast lines for all towers
+   * Set debug mode - shows tip markers and LOS rings for all towers
+   * (Raycast lines removed - visualization is now via routeLosViz)
    */
   setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
@@ -679,10 +635,6 @@ export class ThreeTowerRenderer {
       if (data.aimArrow) {
         data.aimArrow.visible = enabled;
       }
-      // Recalculate LOS for selected towers to show/hide debug rays
-      if (data.isSelected && data.hexGrid) {
-        this.updateHexGridLoS(data);
-      }
     }
   }
 
@@ -691,30 +643,6 @@ export class ThreeTowerRenderer {
    */
   isDebugMode(): boolean {
     return this.debugMode;
-  }
-
-  /**
-   * Set route LOS debug mode - shows/hides pre-computed route LOS grid visualization
-   * @param enabled Whether to show route LOS debug visualization
-   */
-  setRouteLosDebugMode(enabled: boolean): void {
-    for (const data of this.towers.values()) {
-      if (enabled) {
-        // Create debug visualization if not exists
-        if (!data.routeLosDebugViz && data.routeLosGrid) {
-          data.routeLosDebugViz = data.routeLosGrid.createDebugVisualization();
-          this.scene.add(data.routeLosDebugViz);
-        }
-        if (data.routeLosDebugViz) {
-          data.routeLosDebugViz.visible = true;
-        }
-      } else {
-        // Hide debug visualization
-        if (data.routeLosDebugViz) {
-          data.routeLosDebugViz.visible = false;
-        }
-      }
-    }
   }
 
   /**
@@ -745,13 +673,6 @@ export class ThreeTowerRenderer {
       }
     }
 
-    // Remove hex grid (InstancedMesh)
-    if (data.hexGrid) {
-      this.scene.remove(data.hexGrid);
-      data.hexGrid.geometry.dispose();
-      // Material is shared (hexMaterial), don't dispose it
-    }
-
     // Remove tip marker
     if (data.tipMarker) {
       this.scene.remove(data.tipMarker);
@@ -772,31 +693,38 @@ export class ThreeTowerRenderer {
       data.aimArrow.dispose();
     }
 
-    // Remove debug rays
-    this.clearLosRays(data);
-
-    // Remove route LOS grid and debug visualization
+    // Remove route LOS grid and visualization
+    if (data.routeLosViz) {
+      this.scene.remove(data.routeLosViz);
+      data.routeLosViz.geometry.dispose();
+      (data.routeLosViz.material as THREE.Material).dispose();
+    }
     if (data.routeLosGrid) {
       data.routeLosGrid.dispose();
-    }
-    if (data.routeLosDebugViz) {
-      this.scene.remove(data.routeLosDebugViz);
-      this.disposeObject(data.routeLosDebugViz);
     }
 
     this.towers.delete(id);
   }
 
   /**
-   * Update selection ring animation, hex grid shader, and turret rotations
-   * Call each frame for pulse effect, hatching animation, and smooth turret movement
+   * Update selection ring animation, LOS grid shaders, and turret rotations
+   * Call each frame for pulse effect, LOS animation, and smooth turret movement
    */
   updateAnimations(deltaTime: number): void {
-    // Accumulate time for frame-independent animation
-    this.animationTime += deltaTime * 0.003;
+    // Accumulate time for frame-independent animation (in seconds)
+    this.animationTime += deltaTime * 0.001;
 
-    // Update hex material shader time uniform
-    this.hexMaterial.uniforms['uTime'].value = this.animationTime;
+    // Update all route LOS grid animations
+    for (const data of this.towers.values()) {
+      if (data.routeLosGrid) {
+        data.routeLosGrid.updateAnimation(this.animationTime);
+      }
+    }
+
+    // Update preview LOS grid animation
+    if (this.previewLosGrid) {
+      this.previewLosGrid.updateAnimation(this.animationTime);
+    }
 
     // Turret rotation speed: ~180 degrees per second (PI radians/s)
     // Scale deltaTime from ms to seconds
@@ -1306,225 +1234,6 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Create a hex grid for Line-of-Sight visualization
-   * Uses InstancedMesh for optimal performance (single draw call)
-   * Per-instance aIsBlocked attribute controls hatching pattern per cell
-   */
-  private createHexGrid(
-    centerX: number,
-    centerZ: number,
-    range: number,
-    _towerTipY: number
-  ): { hexGrid: THREE.InstancedMesh; hexCells: HexCell[] } {
-    const hexCells: HexCell[] = [];
-
-    // Hex dimensions (flat-top)
-    const hexRadius = (this.HEX_SIZE - this.HEX_GAP) / 2;
-    const hexWidth = hexRadius * 2;
-    const hexHeight = hexRadius * Math.sqrt(3);
-
-    // Horizontal and vertical spacing
-    const horizSpacing = hexWidth * 0.75;
-    const vertSpacing = hexHeight;
-
-    // Calculate how many hexes we need in each direction
-    const maxHexesX = Math.ceil(range / horizSpacing) + 1;
-    const maxHexesZ = Math.ceil(range / vertSpacing) + 1;
-
-    // First pass: collect all valid hex positions
-    interface HexPosition {
-      worldX: number;
-      worldZ: number;
-      terrainY: number;
-    }
-    const hexPositions: HexPosition[] = [];
-
-    for (let qx = -maxHexesX; qx <= maxHexesX; qx++) {
-      for (let qz = -maxHexesZ; qz <= maxHexesZ; qz++) {
-        // Offset every other row (offset coordinates)
-        const xOffset = qz % 2 === 0 ? 0 : horizSpacing / 2;
-        const localX = qx * horizSpacing + xOffset;
-        const localZ = qz * vertSpacing * 0.75;
-
-        // Check if hex center is within range
-        const distFromCenter = Math.sqrt(localX * localX + localZ * localZ);
-        if (distFromCenter > range - hexRadius * 0.5) {
-          continue;
-        }
-
-        // World position
-        const worldX = centerX + localX;
-        const worldZ = centerZ - localZ;
-
-        // Get terrain height
-        if (!this.terrainRaycaster) continue;
-        const terrainY = this.terrainRaycaster(worldX, worldZ);
-        if (terrainY === null) continue;
-
-        hexPositions.push({ worldX, worldZ, terrainY });
-      }
-    }
-
-    // Create hex geometry template (flat-top hexagon)
-    const hexShape = new THREE.Shape();
-    for (let i = 0; i < 6; i++) {
-      const angle = (i * Math.PI) / 3;
-      const x = hexRadius * Math.cos(angle);
-      const y = hexRadius * Math.sin(angle);
-      if (i === 0) {
-        hexShape.moveTo(x, y);
-      } else {
-        hexShape.lineTo(x, y);
-      }
-    }
-    hexShape.closePath();
-    const hexGeometry = new THREE.ShapeGeometry(hexShape);
-
-    // Create InstancedMesh with collected positions
-    const instanceCount = hexPositions.length;
-    const hexGrid = new THREE.InstancedMesh(hexGeometry, this.hexMaterial, instanceCount);
-    hexGrid.renderOrder = 3;
-
-    // Create instance matrices and aIsBlocked attribute
-    const isBlockedArray = new Float32Array(instanceCount);
-    const matrix = new THREE.Matrix4();
-    const rotation = new THREE.Euler(-Math.PI / 2, 0, 0); // Lay flat
-    const quaternion = new THREE.Quaternion().setFromEuler(rotation);
-    const scale = new THREE.Vector3(1, 1, 1);
-
-    for (let i = 0; i < instanceCount; i++) {
-      const pos = hexPositions[i];
-
-      // Set instance matrix (position + rotation)
-      matrix.compose(
-        new THREE.Vector3(pos.worldX, pos.terrainY + 1.0, pos.worldZ),
-        quaternion,
-        scale
-      );
-      hexGrid.setMatrixAt(i, matrix);
-
-      // Initialize as not blocked
-      isBlockedArray[i] = 0;
-
-      // Store cell data
-      hexCells.push({
-        index: i,
-        centerX: pos.worldX,
-        centerZ: pos.worldZ,
-        terrainY: pos.terrainY,
-        isBlocked: false,
-      });
-    }
-
-    // Add aIsBlocked as instanced attribute
-    hexGrid.geometry.setAttribute(
-      'aIsBlocked',
-      new THREE.InstancedBufferAttribute(isBlockedArray, 1)
-    );
-
-    hexGrid.instanceMatrix.needsUpdate = true;
-    hexGrid.visible = false; // Hidden until tower is selected
-
-    return { hexGrid, hexCells };
-  }
-
-  /**
-   * Update Line-of-Sight visualization for all hex cells in a tower's grid
-   * Raycasts from tower edge (not center) to each hex cell center, updates aIsBlocked attribute
-   */
-  private updateHexGridLoS(data: TowerRenderData): void {
-    if (!data.hexCells || data.hexCells.length === 0) return;
-    if (!data.hexGrid) return;
-    if (!this.losRaycaster) {
-      console.warn('[ThreeTowerRenderer] No LoS raycaster set, skipping LoS update');
-      return;
-    }
-
-    const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
-    const towerX = terrainPos.x;
-    const towerZ = terrainPos.z;
-
-    // Fixed LOS offset (raycast from tower edge, not center)
-    const losOffset = this.LOS_OFFSET_MIN;
-
-    // Get the aIsBlocked attribute array
-    const isBlockedAttr = data.hexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
-    const isBlockedArray = isBlockedAttr.array as Float32Array;
-
-    // Clear old debug rays
-    this.clearLosRays(data);
-
-    // Create debug ray visualization if in debug mode
-    if (this.debugMode) {
-      data.losRays = new THREE.Group();
-      data.losRays.renderOrder = 998;
-    }
-
-    for (const cell of data.hexCells) {
-      // Calculate direction from tower to target (XZ plane only)
-      const dirX = cell.centerX - towerX;
-      const dirZ = cell.centerZ - towerZ;
-      const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-      // Offset origin point towards target (on tower edge)
-      const originX = towerX + (dirX / dist) * losOffset;
-      const originZ = towerZ + (dirZ / dist) * losOffset;
-
-      const targetY = cell.terrainY + 1.0;
-      const isBlocked = this.losRaycaster(
-        originX, data.tipY, originZ,
-        cell.centerX, targetY, cell.centerZ
-      );
-
-      cell.isBlocked = isBlocked;
-      isBlockedArray[cell.index] = isBlocked ? 1.0 : 0.0;
-
-      // Create debug ray line if in debug mode
-      if (this.debugMode && data.losRays) {
-        const points = [
-          new THREE.Vector3(originX, data.tipY, originZ),
-          new THREE.Vector3(cell.centerX, targetY, cell.centerZ)
-        ];
-        const geometry = new THREE.BufferGeometry().setFromPoints(points);
-        const material = new THREE.LineBasicMaterial({
-          color: isBlocked ? 0xff0000 : 0x00ff00, // Red if blocked, green if clear
-          transparent: true,
-          opacity: 0.6,
-          depthTest: false,
-        });
-        const line = new THREE.Line(geometry, material);
-        line.renderOrder = 998;
-        data.losRays.add(line);
-      }
-    }
-
-    // Add debug rays to scene
-    if (data.losRays) {
-      this.scene.add(data.losRays);
-    }
-
-    // Mark attribute as needing update
-    isBlockedAttr.needsUpdate = true;
-  }
-
-  /**
-   * Clear debug raycast lines for a tower
-   */
-  private clearLosRays(data: TowerRenderData): void {
-    if (data.losRays) {
-      // Dispose all line geometries and materials
-      data.losRays.traverse((child) => {
-        if (child instanceof THREE.Line) {
-          child.geometry.dispose();
-          (child.material as THREE.Material).dispose();
-        }
-      });
-      this.scene.remove(data.losRays);
-      data.losRays = null;
-    }
-  }
-
-  /**
    * Check if there's line of sight from a tower to a specific position
    * Uses route-based LOS grid for O(1) lookup if available, falls back to raycast
    */
@@ -1590,13 +1299,26 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Show Line-of-Sight preview hex grid for tower placement
-   * Call this when entering rotation mode to show LoS before confirming placement
+   * Show Line-of-Sight preview for tower placement
+   * Uses route-based LOS grid for consistent visualization
    * Skipped for pure air towers (canTargetAir && !canTargetGround) - they don't need LOS
+   * @param lat Tower latitude
+   * @param lon Tower longitude
+   * @param height Tower height
+   * @param typeId Tower type
+   * @param routes Enemy routes for LOS calculation
    */
-  showPreviewLoS(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
+  showPreviewLoS(
+    lat: number,
+    lon: number,
+    height: number,
+    typeId: TowerTypeId,
+    routes: GeoPosition[][]
+  ): void {
     // Dispose existing preview if any
     this.hidePreviewLoS();
+
+    console.log(`[ThreeTowerRenderer] showPreviewLoS: routes.length=${routes.length}`);
 
     if (!this.terrainRaycaster || !this.losRaycaster) return;
 
@@ -1613,73 +1335,47 @@ export class ThreeTowerRenderer {
     // Calculate tower tip height (for LoS raycast origin)
     const tipY = terrainPos.y + (config.shootHeight ?? config.heightOffset + 5);
 
-    // Create hex grid
-    const { hexGrid, hexCells } = this.createHexGrid(
+    // Create route LOS grid for preview
+    this.previewLosGrid = new RouteLosGrid(
       terrainPos.x,
       terrainPos.z,
+      tipY,
       config.range,
-      tipY
+      this.losRaycaster,
+      this.terrainRaycaster
     );
 
-    this.previewHexGrid = hexGrid;
-    this.previewHexCells = hexCells;
+    this.previewLosGrid.generateFromRoutes(routes, this.sync);
 
-    // Calculate LoS for each cell
-    this.updatePreviewHexGridLoS(terrainPos.x, terrainPos.z, tipY);
+    const stats = this.previewLosGrid.getStats();
+    console.log(`[ThreeTowerRenderer] showPreviewLoS: grid has ${stats.totalCells} cells`);
 
-    // Show the grid
-    this.previewHexGrid.visible = true;
-    this.scene.add(this.previewHexGrid);
-  }
-
-  /**
-   * Update LoS calculation for preview hex grid
-   */
-  private updatePreviewHexGridLoS(towerX: number, towerZ: number, tipY: number): void {
-    if (!this.previewHexGrid || this.previewHexCells.length === 0) return;
-    if (!this.losRaycaster) return;
-
-    const losOffset = this.LOS_OFFSET_MIN;
-
-    const isBlockedAttr = this.previewHexGrid.geometry.getAttribute('aIsBlocked') as THREE.InstancedBufferAttribute;
-    const isBlockedArray = isBlockedAttr.array as Float32Array;
-
-    for (const cell of this.previewHexCells) {
-      const dirX = cell.centerX - towerX;
-      const dirZ = cell.centerZ - towerZ;
-      const dist = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-      if (dist < 0.1) {
-        isBlockedArray[cell.index] = 0;
-        continue;
-      }
-
-      const originX = towerX + (dirX / dist) * losOffset;
-      const originZ = towerZ + (dirZ / dist) * losOffset;
-      const targetY = cell.terrainY + 1.0;
-
-      const isBlocked = this.losRaycaster(
-        originX, tipY, originZ,
-        cell.centerX, targetY, cell.centerZ
-      );
-
-      cell.isBlocked = isBlocked;
-      isBlockedArray[cell.index] = isBlocked ? 1.0 : 0.0;
+    // Create and show visualization
+    const viz = this.previewLosGrid.createVisualization();
+    if (viz) {
+      viz.visible = true;
+      this.scene.add(viz);
+      this.previewLosViz = viz;
+      console.log(`[ThreeTowerRenderer] showPreviewLoS: viz created with ${viz.count} instances`);
+    } else {
+      console.log(`[ThreeTowerRenderer] showPreviewLoS: createVisualization returned null`);
     }
-
-    isBlockedAttr.needsUpdate = true;
   }
 
   /**
-   * Hide and dispose preview LoS hex grid
+   * Hide and dispose preview LoS visualization
    */
   hidePreviewLoS(): void {
-    if (this.previewHexGrid) {
-      this.scene.remove(this.previewHexGrid);
-      this.previewHexGrid.geometry.dispose();
-      this.previewHexGrid = null;
+    if (this.previewLosViz) {
+      this.scene.remove(this.previewLosViz);
+      this.previewLosViz.geometry.dispose();
+      (this.previewLosViz.material as THREE.Material).dispose();
+      this.previewLosViz = null;
     }
-    this.previewHexCells = [];
+    if (this.previewLosGrid) {
+      this.previewLosGrid.dispose();
+      this.previewLosGrid = null;
+    }
   }
 
   /**
@@ -1691,6 +1387,5 @@ export class ThreeTowerRenderer {
     this.modelTemplates.clear();
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();
-    this.hexMaterial.dispose();
   }
 }

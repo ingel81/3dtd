@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { CoordinateSync } from './index';
 import { GeoPosition } from '../../models/game.types';
 import { LineOfSightRaycaster, TerrainRaycaster } from './three-tower.renderer';
+import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-defense/shaders/los-hatching.shaders';
 
 /**
  * RouteLosGrid - Pre-computed Line-of-Sight grid along enemy routes
@@ -31,6 +32,10 @@ export class RouteLosGrid {
   /** Debug statistics */
   private stats = { totalCells: 0, visibleCells: 0, blockedCells: 0 };
 
+  /** Visualization mesh (InstancedMesh) */
+  private visualization: THREE.InstancedMesh | null = null;
+  private visualizationMaterial: THREE.ShaderMaterial | null = null;
+
   constructor(
     private towerX: number,
     private towerZ: number,
@@ -48,6 +53,8 @@ export class RouteLosGrid {
   generateFromRoutes(routes: GeoPosition[][], sync: CoordinateSync): void {
     this.cells.clear();
     this.stats = { totalCells: 0, visibleCells: 0, blockedCells: 0 };
+
+    console.log(`[RouteLosGrid] generateFromRoutes: tower at (${this.towerX.toFixed(1)}, ${this.towerTipY.toFixed(1)}, ${this.towerZ.toFixed(1)}), range=${this.towerRange}`);
 
     const processedCells = new Set<string>();
     const rangeSquared = this.towerRange * this.towerRange;
@@ -209,8 +216,149 @@ export class RouteLosGrid {
   }
 
   /**
+   * Create performant visualization using InstancedMesh
+   * Used for tower selection and build preview
+   *
+   * NOTE: Non-shader version (MeshBasicMaterial) - reliable fallback
+   * For shader version with animation, see createVisualizationWithShader()
+   */
+  createVisualization(): THREE.InstancedMesh | null {
+    if (this.cells.size === 0) return null;
+
+    const cellCount = this.cells.size;
+    const cellSize = this.CELL_SIZE * 0.85; // Slight gap between cells
+
+    // Flat box geometry
+    const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
+
+    // Simple material - colors set per instance
+    const material = new THREE.MeshBasicMaterial({
+      transparent: true,
+      opacity: 0.6,
+      depthWrite: false,
+    });
+
+    // Create instanced mesh
+    const mesh = new THREE.InstancedMesh(geometry, material, cellCount);
+    mesh.renderOrder = 3;
+
+    // Build instance matrices and colors
+    const matrix = new THREE.Matrix4();
+    const greenColor = new THREE.Color(0x22c55e);
+    const redColor = new THREE.Color(0xdc2626);
+
+    let index = 0;
+    for (const [key, visible] of this.cells) {
+      const parts = key.split('_');
+      const cellKeyX = parseInt(parts[0], 10);
+      const cellKeyZ = parseInt(parts[1], 10);
+
+      const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
+      const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
+
+      const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
+      const y = terrainY !== null ? terrainY + 0.3 : this.towerTipY;
+
+      matrix.setPosition(cellCenterX, y, cellCenterZ);
+      mesh.setMatrixAt(index, matrix);
+      mesh.setColorAt(index, visible ? greenColor : redColor);
+      index++;
+    }
+
+    mesh.instanceMatrix.needsUpdate = true;
+    if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+
+    this.visualization = mesh;
+    return mesh;
+  }
+
+  /**
+   * Create visualization with animated shader (experimental)
+   * Falls back to createVisualization() if shader fails
+   */
+  createVisualizationWithShader(): THREE.InstancedMesh | null {
+    if (this.cells.size === 0) return null;
+
+    const cellCount = this.cells.size;
+    const cellSize = this.CELL_SIZE * 0.85;
+
+    // PlaneGeometry is flat in XY - shader expects position.xy for local coords
+    const geometry = new THREE.PlaneGeometry(cellSize, cellSize);
+
+    const hexRadius = cellSize / 2;
+    this.visualizationMaterial = new THREE.ShaderMaterial({
+      vertexShader: LOS_HATCHING_VERTEX,
+      fragmentShader: LOS_HATCHING_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0 },
+        uVisibleColor: { value: new THREE.Color(0x22c55e) },
+        uBlockedColor: { value: new THREE.Color(0xdc2626) },
+        uVisibleOpacity: { value: 0.5 },
+        uBlockedOpacity: { value: 0.5 },
+        uHexRadius: { value: hexRadius },
+      },
+      transparent: true,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const mesh = new THREE.InstancedMesh(geometry, this.visualizationMaterial, cellCount);
+    mesh.renderOrder = 3;
+
+    const isBlockedArray = new Float32Array(cellCount);
+    const matrix = new THREE.Matrix4();
+    const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
+    const scale = new THREE.Vector3(1, 1, 1);
+
+    let index = 0;
+    for (const [key, visible] of this.cells) {
+      const parts = key.split('_');
+      const cellKeyX = parseInt(parts[0], 10);
+      const cellKeyZ = parseInt(parts[1], 10);
+
+      const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
+      const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
+
+      const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
+      const y = terrainY !== null ? terrainY + 0.3 : this.towerTipY;
+
+      matrix.compose(new THREE.Vector3(cellCenterX, y, cellCenterZ), quaternion, scale);
+      mesh.setMatrixAt(index, matrix);
+      isBlockedArray[index] = visible ? 0 : 1;
+      index++;
+    }
+
+    mesh.geometry.setAttribute(
+      'aIsBlocked',
+      new THREE.InstancedBufferAttribute(isBlockedArray, 1)
+    );
+    mesh.instanceMatrix.needsUpdate = true;
+
+    this.visualization = mesh;
+    return mesh;
+  }
+
+  /**
+   * Update animation time (call each frame)
+   * @param time Time in seconds
+   */
+  updateAnimation(time: number): void {
+    if (this.visualizationMaterial?.uniforms?.['uTime']) {
+      this.visualizationMaterial.uniforms['uTime'].value = time;
+    }
+  }
+
+  /**
+   * Get the visualization mesh
+   */
+  getVisualization(): THREE.InstancedMesh | null {
+    return this.visualization;
+  }
+
+  /**
    * Create debug visualization showing all grid cells
    * Green cubes = visible, Red cubes = blocked
+   * @deprecated Use createVisualization() instead
    */
   createDebugVisualization(): THREE.Group {
     const group = new THREE.Group();
@@ -260,5 +408,14 @@ export class RouteLosGrid {
    */
   dispose(): void {
     this.cells.clear();
+
+    if (this.visualization) {
+      this.visualization.geometry.dispose();
+      if (this.visualizationMaterial) {
+        this.visualizationMaterial.dispose();
+      }
+      this.visualization = null;
+      this.visualizationMaterial = null;
+    }
   }
 }

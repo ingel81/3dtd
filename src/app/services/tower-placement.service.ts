@@ -366,17 +366,17 @@ export class TowerPlacementService {
       this.lastValidation = { lat, lon, valid: validation.valid };
     }
 
-    // Update LoS preview (debounced - shows after 300ms of no movement)
+    // Update LoS preview (throttled - shows after 200ms of no movement)
     this.updateLoSPreviewDebounced(lat, lon, terrainHeight, typeId);
   }
 
   /**
-   * Update LoS preview with debounce
+   * Update LoS preview with throttle
    * - Hides LoS immediately on ANY movement
-   * - Shows LoS after mouse stays still for 300ms
+   * - Shows LoS after mouse stays still for 200ms
    */
   private updateLoSPreviewDebounced(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
-    if (!this.engine) return;
+    if (!this.engine || !this.gameState) return;
 
     // Hide LoS immediately on any movement
     this.engine.towers.hidePreviewLoS();
@@ -386,13 +386,15 @@ export class TowerPlacementService {
       clearTimeout(this.losDebounceTimer);
     }
 
-    // Schedule new LoS calculation after 300ms of no movement
+    // Schedule new LoS calculation after 200ms of no movement
     this.losDebounceTimer = window.setTimeout(() => {
       this.losDebounceTimer = null;
-      if (!this.engine || !this.buildMode()) return;
+      if (!this.engine || !this.buildMode() || !this.gameState) return;
 
-      this.engine.towers.showPreviewLoS(lat, lon, height, typeId);
-    }, 300);
+      // Get cached routes for LOS preview
+      const routes = this.gameState.getCachedRoutes();
+      this.engine.towers.showPreviewLoS(lat, lon, height, typeId, routes);
+    }, 200);
   }
 
   // ========================================

@@ -40,9 +40,6 @@ export class GameUIStateService {
   /** Special points debug visibility (fire position, etc.) */
   readonly specialPointsDebugVisible = signal(false);
 
-  /** Route LOS grid debug visibility (pre-computed LOS cells) */
-  readonly routeLosDebugVisible = signal(false);
-
   /** Info overlay visibility (FPS, tiles, enemies, sounds) */
   readonly infoOverlayVisible = signal(false);
 
@@ -129,13 +126,6 @@ export class GameUIStateService {
   }
 
   /**
-   * Toggle route LOS grid debug visibility
-   */
-  toggleRouteLosDebug(): void {
-    this.routeLosDebugVisible.update((v) => !v);
-  }
-
-  /**
    * Toggle info overlay visibility
    */
   toggleInfoOverlay(): void {
@@ -193,7 +183,6 @@ export class GameUIStateService {
     this.towerDebugVisible.set(false);
     this.heightDebugVisible.set(false);
     this.specialPointsDebugVisible.set(false);
-    this.routeLosDebugVisible.set(false);
     this.infoOverlayVisible.set(false);
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
