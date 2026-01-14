@@ -49,3 +49,4 @@ Thumbs.db
 # Untracked model folders (work in progress / candidates)
 /public/assets/models/_new/
 /public/assets/models/_candidates/
+.claude/settings.local.json

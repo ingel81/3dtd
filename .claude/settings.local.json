@@ -25,7 +25,9 @@
       "Bash(python3:*)",
       "Bash(.venv/bin/pip install:*)",
       "WebSearch",
-      "WebFetch(domain:github.com)"
+      "WebFetch(domain:github.com)",
+      "Bash(git branch:*)",
+      "Bash(git stash:*)"
     ]
   }
 }
