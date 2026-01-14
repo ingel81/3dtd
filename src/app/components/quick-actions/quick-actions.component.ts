@@ -97,6 +97,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltipPosition="left">
             <mat-icon>location_on</mat-icon>
           </button>
+          <button class="td-dev-btn"
+                  [class.active]="uiState.routeLosDebugVisible()"
+                  (click)="routeLosDebugToggled.emit()"
+                  matTooltip="Route-LOS-Grid debuggen"
+                  matTooltipPosition="left">
+            <mat-icon>grid_on</mat-icon>
+          </button>
           <button class="td-dev-btn route-anim-btn"
                   (click)="playRouteAnimation.emit()"
                   matTooltip="Route Animation abspielen"
@@ -310,5 +317,6 @@ export class QuickActionsComponent {
   readonly cameraFramingDebugToggled = output<void>();
   readonly resetToDefaultLocation = output<void>();
   readonly specialPointsDebugToggled = output<void>();
+  readonly routeLosDebugToggled = output<void>();
   readonly playRouteAnimation = output<void>();
 }

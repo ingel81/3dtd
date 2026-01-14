@@ -4,6 +4,8 @@ import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-defense/shaders/los-hatching.shaders';
+import { RouteLosGrid } from './route-los-grid';
+import { GeoPosition } from '../../models/game.types';
 
 /**
  * Tower render data - stored per tower
@@ -33,6 +35,9 @@ export interface TowerRenderData {
   // Turret rotation animation
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
+  // Route-based LOS grid for fast O(1) lookups
+  routeLosGrid: RouteLosGrid | null;
+  routeLosDebugViz: THREE.Group | null;
 }
 
 /**
@@ -481,10 +486,55 @@ export class ThreeTowerRenderer {
       customRotation,
       currentLocalRotation: 0, // Start at base position
       targetLocalRotation: 0, // Target at base position
+      routeLosGrid: null, // Populated via generateRouteLosGrid()
+      routeLosDebugViz: null,
     };
 
     this.towers.set(id, renderData);
     return renderData;
+  }
+
+  /**
+   * Generate route-based LOS grid for a tower
+   * Called after tower placement to pre-compute LOS along enemy routes
+   * @param towerId Tower ID
+   * @param routes Array of enemy routes (each route is GeoPosition[])
+   */
+  generateRouteLosGrid(towerId: string, routes: GeoPosition[][]): void {
+    const data = this.towers.get(towerId);
+    if (!data) return;
+
+    // Skip for pure air towers (they don't need LOS)
+    const isPureAirTower =
+      (data.typeConfig.canTargetAir ?? false) && !(data.typeConfig.canTargetGround ?? true);
+    if (isPureAirTower) return;
+
+    // Need both raycasters
+    if (!this.losRaycaster || !this.terrainRaycaster) {
+      console.warn('[ThreeTowerRenderer] Cannot generate route LOS grid - missing raycasters');
+      return;
+    }
+
+    // Get tower local position
+    const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
+
+    // Create and populate the grid
+    data.routeLosGrid = new RouteLosGrid(
+      terrainPos.x,
+      terrainPos.z,
+      data.tipY,
+      data.typeConfig.range,
+      this.losRaycaster,
+      this.terrainRaycaster
+    );
+
+    data.routeLosGrid.generateFromRoutes(routes, this.sync);
+
+    const stats = data.routeLosGrid.getStats();
+    console.log(
+      `[ThreeTowerRenderer] Route LOS grid for ${towerId}: ${stats.totalCells} cells ` +
+        `(${stats.visibleCells} visible, ${stats.blockedCells} blocked)`
+    );
   }
 
   /**
@@ -644,6 +694,30 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Set route LOS debug mode - shows/hides pre-computed route LOS grid visualization
+   * @param enabled Whether to show route LOS debug visualization
+   */
+  setRouteLosDebugMode(enabled: boolean): void {
+    for (const data of this.towers.values()) {
+      if (enabled) {
+        // Create debug visualization if not exists
+        if (!data.routeLosDebugViz && data.routeLosGrid) {
+          data.routeLosDebugViz = data.routeLosGrid.createDebugVisualization();
+          this.scene.add(data.routeLosDebugViz);
+        }
+        if (data.routeLosDebugViz) {
+          data.routeLosDebugViz.visible = true;
+        }
+      } else {
+        // Hide debug visualization
+        if (data.routeLosDebugViz) {
+          data.routeLosDebugViz.visible = false;
+        }
+      }
+    }
+  }
+
+  /**
    * Remove tower from scene
    */
   remove(id: string): void {
@@ -700,6 +774,15 @@ export class ThreeTowerRenderer {
 
     // Remove debug rays
     this.clearLosRays(data);
+
+    // Remove route LOS grid and debug visualization
+    if (data.routeLosGrid) {
+      data.routeLosGrid.dispose();
+    }
+    if (data.routeLosDebugViz) {
+      this.scene.remove(data.routeLosDebugViz);
+      this.disposeObject(data.routeLosDebugViz);
+    }
 
     this.towers.delete(id);
   }
@@ -1443,11 +1526,23 @@ export class ThreeTowerRenderer {
 
   /**
    * Check if there's line of sight from a tower to a specific position
-   * Uses edge offset - raycast starts from tower edge, not center
+   * Uses route-based LOS grid for O(1) lookup if available, falls back to raycast
    */
   hasLineOfSight(towerId: string, targetX: number, targetY: number, targetZ: number): boolean {
     const data = this.towers.get(towerId);
-    if (!data || !this.losRaycaster) return true; // Assume clear if can't check
+    if (!data) return true; // Assume clear if can't check
+
+    // Fast path: Use pre-computed route LOS grid if available
+    if (data.routeLosGrid) {
+      const gridResult = data.routeLosGrid.isPositionVisible(targetX, targetZ);
+      if (gridResult !== undefined) {
+        return gridResult;
+      }
+      // Position not in grid - fall through to raycast
+    }
+
+    // Slow path: Fall back to runtime raycast
+    if (!this.losRaycaster) return true;
 
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
     const towerX = terrainPos.x;

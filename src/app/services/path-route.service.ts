@@ -1,5 +1,8 @@
 import { Injectable, WritableSignal } from '@angular/core';
 import * as THREE from 'three';
+import { Line2 } from 'three/examples/jsm/lines/Line2.js';
+import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
+import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { OsmStreetService, Street, StreetNetwork } from './osm-street.service';
@@ -20,8 +23,8 @@ export class PathAndRouteService {
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, GeoPosition[]>();
 
-  /** 3D route lines for visualization */
-  private routeLines: THREE.Line[] = [];
+  /** 3D route lines for visualization (using Line2 for proper line width) */
+  private routeLines: Line2[] = [];
 
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
@@ -330,16 +333,28 @@ export class PathAndRouteService {
     });
     this.cachedPaths.set(spawn.id, pathWithHeights);
 
-    const geometry = new THREE.BufferGeometry().setFromPoints(smoothedPoints);
-    const material = new THREE.LineBasicMaterial({
+    // Convert points to flat array for LineGeometry
+    const positions: number[] = [];
+    for (const pt of smoothedPoints) {
+      positions.push(pt.x, pt.y, pt.z);
+    }
+
+    const geometry = new LineGeometry();
+    geometry.setPositions(positions);
+
+    const material = new LineMaterial({
       color: spawn.color,
-      linewidth: 3,
+      linewidth: 2, // In pixels (actually works with Line2!)
+      transparent: true,
+      opacity: 0.85,
       depthTest: true,
       depthWrite: false,
-      transparent: true,
-      opacity: 0.9,
+      worldUnits: false, // Use screen pixels, not world units
+      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
     });
-    const routeLine = new THREE.Line(geometry, material);
+
+    const routeLine = new Line2(geometry, material);
+    routeLine.computeLineDistances(); // Required for Line2
     routeLine.visible = this.routesVisible?.() ?? false;
     routeLine.renderOrder = 1;
     routeLine.frustumCulled = false; // Prevent disappearing at certain angles
@@ -389,7 +404,7 @@ export class PathAndRouteService {
   /**
    * Get all route lines
    */
-  getRouteLines(): THREE.Line[] {
+  getRouteLines(): Line2[] {
     return this.routeLines;
   }
 

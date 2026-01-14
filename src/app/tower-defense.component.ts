@@ -204,6 +204,7 @@ const DEFAULT_CENTER_COORDS = {
               (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
               (resetToDefaultLocation)="resetToDefaultLocation()"
               (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
+              (routeLosDebugToggled)="onRouteLosDebugToggled()"
               (playRouteAnimation)="onPlayRouteAnimation()"
             />
           }
@@ -1733,6 +1734,18 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (visible) {
         this.gameState.spawnHQDebugPoint();
       }
+    }
+  }
+
+  /**
+   * Toggle route LOS grid debug visualization
+   */
+  onRouteLosDebugToggled(): void {
+    this.uiState.toggleRouteLosDebug();
+    const visible = this.uiState.routeLosDebugVisible();
+
+    if (this.engine) {
+      this.engine.towers.setRouteLosDebugMode(visible);
     }
   }
 

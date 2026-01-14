@@ -4,6 +4,7 @@ import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
 import { GameUIStateService } from '../services/game-ui-state.service';
+import { PathAndRouteService } from '../services/path-route.service';
 import { StreetNetwork } from '../services/osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
@@ -31,6 +32,7 @@ export class GameStateManager {
   readonly projectileManager = inject(ProjectileManager);
   readonly waveManager = inject(WaveManager);
   private readonly uiState = inject(GameUIStateService);
+  private readonly pathRouteService = inject(PathAndRouteService);
 
   // Game state signals
   readonly baseHealth = signal(100);
@@ -530,6 +532,12 @@ export class GameStateManager {
     if (tower) {
       // Deduct cost
       this.credits.update((c) => c - config.cost);
+
+      // Generate route-based LOS grid for fast O(1) lookups
+      const routes = Array.from(this.pathRouteService.getCachedPaths().values());
+      if (routes.length > 0 && this.tilesEngine) {
+        this.tilesEngine.towers.generateRouteLosGrid(tower.id, routes);
+      }
     }
     return tower;
   }

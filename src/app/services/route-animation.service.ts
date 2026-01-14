@@ -51,18 +51,18 @@ export class RouteAnimationService {
   // --- MAIN LINE (flowing red dashes) ---
   /** Main line color (vivid red) */
   private readonly MAIN_COLOR = new THREE.Color(0xff2020);
-  /** Main line width */
-  private readonly MAIN_LINE_WIDTH = 3;
+  /** Main line width in meters (slim elegant look) */
+  private readonly MAIN_LINE_WIDTH = 1.0;
   /** Longer dashes for elongated look */
-  private readonly MAIN_DASH_SIZE = 12;
+  private readonly MAIN_DASH_SIZE = 8;
   /** Gaps between dashes */
-  private readonly MAIN_GAP_SIZE = 8;
+  private readonly MAIN_GAP_SIZE = 4;
 
   // --- GLOW LINE (thin soft halo) ---
   /** Glow line color (soft pink-red) */
-  private readonly GLOW_COLOR = new THREE.Color(0xff8888);
-  /** Glow line width (thinner) */
-  private readonly GLOW_LINE_WIDTH = 6;
+  private readonly GLOW_COLOR = new THREE.Color(0xff6666);
+  /** Glow line width in meters (subtle halo) */
+  private readonly GLOW_LINE_WIDTH = 1.8;
   /** Continuous glow - no dashes */
   private readonly GLOW_DASHED = false;
 
