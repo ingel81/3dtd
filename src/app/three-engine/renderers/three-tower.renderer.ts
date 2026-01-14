@@ -1357,6 +1357,7 @@ export class ThreeTowerRenderer {
       this.scene.add(viz);
       this.previewLosViz = viz;
       console.log(`[ThreeTowerRenderer] showPreviewLoS: viz created with ${viz.count} instances`);
+
     } else {
       console.log(`[ThreeTowerRenderer] showPreviewLoS: createVisualization returned null`);
     }

@@ -2,7 +2,46 @@ import * as THREE from 'three';
 import { CoordinateSync } from './index';
 import { GeoPosition } from '../../models/game.types';
 import { LineOfSightRaycaster, TerrainRaycaster } from './three-tower.renderer';
-import { LOS_HATCHING_VERTEX, LOS_HATCHING_FRAGMENT } from '../../game/tower-defense/shaders/los-hatching.shaders';
+
+/**
+ * ShaderMaterial vertex shader with Three.js instancing support
+ * KEY: Must use #ifdef USE_INSTANCING pattern like Three.js internal shaders
+ */
+const LOS_CELL_VERTEX = /* glsl */ `
+attribute float aIsBlocked;
+varying float vIsBlocked;
+
+void main() {
+  vIsBlocked = aIsBlocked;
+
+  vec4 mvPosition = vec4(position, 1.0);
+
+  #ifdef USE_INSTANCING
+    mvPosition = instanceMatrix * mvPosition;
+  #endif
+
+  mvPosition = modelViewMatrix * mvPosition;
+  gl_Position = projectionMatrix * mvPosition;
+}
+`;
+
+/**
+ * ShaderMaterial fragment shader
+ */
+const LOS_CELL_FRAGMENT = /* glsl */ `
+uniform float uTime;
+varying float vIsBlocked;
+
+void main() {
+  vec3 greenColor = vec3(0.133, 0.773, 0.369);
+  vec3 redColor = vec3(0.863, 0.149, 0.149);
+  vec3 color = mix(greenColor, redColor, vIsBlocked);
+
+  float pulse = sin(uTime * 3.0) * 0.15 + 0.6;
+
+  gl_FragColor = vec4(color, pulse);
+}
+`;
 
 /**
  * RouteLosGrid - Pre-computed Line-of-Sight grid along enemy routes
@@ -211,11 +250,9 @@ export class RouteLosGrid {
   }
 
   /**
-   * Create performant visualization using InstancedMesh
+   * Create performant visualization using InstancedMesh with custom shader
    * Used for tower selection and build preview
-   *
-   * NOTE: Non-shader version (MeshBasicMaterial) - reliable fallback
-   * For shader version with animation, see createVisualizationWithShader()
+   * Features animated pulsing opacity
    */
   createVisualization(): THREE.InstancedMesh | null {
     if (this.cells.size === 0) return null;
@@ -223,21 +260,101 @@ export class RouteLosGrid {
     const cellCount = this.cells.size;
     const cellSize = this.CELL_SIZE * 0.85; // Slight gap between cells
 
-    // Flat box geometry
+    // Flat box geometry - same as BasicMaterial version
     const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
 
-    // Simple material - colors set per instance
+    // ShaderMaterial with explicit USE_INSTANCING define
+    this.visualizationMaterial = new THREE.ShaderMaterial({
+      vertexShader: LOS_CELL_VERTEX,
+      fragmentShader: LOS_CELL_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0 },
+      },
+      defines: {
+        USE_INSTANCING: '',
+      },
+      transparent: true,
+      depthTest: false,   // Don't test against depth buffer - always render
+      depthWrite: false,  // Don't write to depth buffer
+      side: THREE.DoubleSide,
+    });
+
+    // Create instanced mesh
+    const mesh = new THREE.InstancedMesh(geometry, this.visualizationMaterial, cellCount);
+    mesh.renderOrder = 3;
+
+    // Build instance matrices and blocked state attribute
+    const isBlockedArray = new Float32Array(cellCount);
+    const matrix = new THREE.Matrix4();
+
+    let index = 0;
+    for (const [key, visible] of this.cells) {
+      const parts = key.split('_');
+      const cellKeyX = parseInt(parts[0], 10);
+      const cellKeyZ = parseInt(parts[1], 10);
+
+      const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
+      const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
+
+      const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
+      const y = terrainY !== null ? terrainY + 0.3 : this.towerTipY;
+
+      matrix.setPosition(cellCenterX, y, cellCenterZ);
+      mesh.setMatrixAt(index, matrix);
+
+      // 0 = visible (green), 1 = blocked (red)
+      isBlockedArray[index] = visible ? 0 : 1;
+      index++;
+    }
+
+    // Add aIsBlocked as instanced attribute BEFORE setting needsUpdate
+    geometry.setAttribute(
+      'aIsBlocked',
+      new THREE.InstancedBufferAttribute(isBlockedArray, 1)
+    );
+
+    mesh.instanceMatrix.needsUpdate = true;
+
+    // CRITICAL: Disable frustum culling - instances can be culled incorrectly
+    mesh.frustumCulled = false;
+
+    // DEBUG: Log shader creation
+    console.log('[RouteLosGrid] Shader visualization created:', {
+      cellCount,
+      hasGeometry: !!geometry,
+      hasAttribute: !!geometry.getAttribute('aIsBlocked'),
+      attributeCount: (geometry.getAttribute('aIsBlocked') as THREE.BufferAttribute)?.count,
+      material: this.visualizationMaterial?.type,
+      uniforms: Object.keys(this.visualizationMaterial?.uniforms || {}),
+      frustumCulled: mesh.frustumCulled,
+      visible: mesh.visible,
+      renderOrder: mesh.renderOrder,
+    });
+
+    this.visualization = mesh;
+    return mesh;
+  }
+
+  /**
+   * Fallback: Non-shader version using MeshBasicMaterial
+   * Use this if shader version has issues
+   */
+  createVisualizationBasic(): THREE.InstancedMesh | null {
+    if (this.cells.size === 0) return null;
+
+    const cellCount = this.cells.size;
+    const cellSize = this.CELL_SIZE * 0.85;
+
+    const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
     const material = new THREE.MeshBasicMaterial({
       transparent: true,
       opacity: 0.6,
       depthWrite: false,
     });
 
-    // Create instanced mesh
     const mesh = new THREE.InstancedMesh(geometry, material, cellCount);
     mesh.renderOrder = 3;
 
-    // Build instance matrices and colors
     const matrix = new THREE.Matrix4();
     const greenColor = new THREE.Color(0x22c55e);
     const redColor = new THREE.Color(0xdc2626);
@@ -262,72 +379,6 @@ export class RouteLosGrid {
 
     mesh.instanceMatrix.needsUpdate = true;
     if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
-
-    this.visualization = mesh;
-    return mesh;
-  }
-
-  /**
-   * Create visualization with animated shader (experimental)
-   * Falls back to createVisualization() if shader fails
-   */
-  createVisualizationWithShader(): THREE.InstancedMesh | null {
-    if (this.cells.size === 0) return null;
-
-    const cellCount = this.cells.size;
-    const cellSize = this.CELL_SIZE * 0.85;
-
-    // PlaneGeometry is flat in XY - shader expects position.xy for local coords
-    const geometry = new THREE.PlaneGeometry(cellSize, cellSize);
-
-    const hexRadius = cellSize / 2;
-    this.visualizationMaterial = new THREE.ShaderMaterial({
-      vertexShader: LOS_HATCHING_VERTEX,
-      fragmentShader: LOS_HATCHING_FRAGMENT,
-      uniforms: {
-        uTime: { value: 0 },
-        uVisibleColor: { value: new THREE.Color(0x22c55e) },
-        uBlockedColor: { value: new THREE.Color(0xdc2626) },
-        uVisibleOpacity: { value: 0.5 },
-        uBlockedOpacity: { value: 0.5 },
-        uHexRadius: { value: hexRadius },
-      },
-      transparent: true,
-      depthWrite: false,
-      side: THREE.DoubleSide,
-    });
-
-    const mesh = new THREE.InstancedMesh(geometry, this.visualizationMaterial, cellCount);
-    mesh.renderOrder = 3;
-
-    const isBlockedArray = new Float32Array(cellCount);
-    const matrix = new THREE.Matrix4();
-    const quaternion = new THREE.Quaternion().setFromEuler(new THREE.Euler(-Math.PI / 2, 0, 0));
-    const scale = new THREE.Vector3(1, 1, 1);
-
-    let index = 0;
-    for (const [key, visible] of this.cells) {
-      const parts = key.split('_');
-      const cellKeyX = parseInt(parts[0], 10);
-      const cellKeyZ = parseInt(parts[1], 10);
-
-      const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
-      const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
-
-      const terrainY = this.terrainRaycaster(cellCenterX, cellCenterZ);
-      const y = terrainY !== null ? terrainY + 0.3 : this.towerTipY;
-
-      matrix.compose(new THREE.Vector3(cellCenterX, y, cellCenterZ), quaternion, scale);
-      mesh.setMatrixAt(index, matrix);
-      isBlockedArray[index] = visible ? 0 : 1;
-      index++;
-    }
-
-    mesh.geometry.setAttribute(
-      'aIsBlocked',
-      new THREE.InstancedBufferAttribute(isBlockedArray, 1)
-    );
-    mesh.instanceMatrix.needsUpdate = true;
 
     this.visualization = mesh;
     return mesh;

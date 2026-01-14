@@ -1128,6 +1128,41 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * DEBUG: Test ShaderMaterial with a simple cube
+   * Call this to verify if ShaderMaterial renders at all
+   */
+  addShaderTestCube(x: number, y: number, z: number): void {
+    const geometry = new THREE.BoxGeometry(5, 5, 5);
+
+    const vertexShader = `
+      void main() {
+        gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+      }
+    `;
+
+    const fragmentShader = `
+      void main() {
+        gl_FragColor = vec4(1.0, 0.0, 1.0, 0.8);
+      }
+    `;
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader,
+      transparent: true,
+      side: THREE.DoubleSide,
+    });
+
+    const cube = new THREE.Mesh(geometry, material);
+    cube.position.set(x, y, z);
+    cube.frustumCulled = false;
+    this.scene.add(cube);
+    this.debugHelpers.push(cube);
+
+    console.log('[ThreeTilesEngine] Shader test cube added at', x, y, z);
+  }
+
+  /**
    * Clear debug helpers
    */
   clearDebugHelpers(): void {
