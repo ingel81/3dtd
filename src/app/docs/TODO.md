@@ -2,21 +2,25 @@
 
 WaveDebugger:
     [ ] Anzahl Slider auf 500 limitieren
-    [ ] Wenn Gegner gewählt wird seinen Speed im Slider setzen den er eigentlich in der Config hat
-    [ ] Dito für einen neuen hinzuzufügenden Slider mit seiner Health
+    [ ] Wenn Gegnertyp im Debugger gewählt wird seinen Speed im Slider setzen den er eigentlich in der Config hat, danach natürlich wieder per slider anpassbar
+    [ ] Dito für einen neuen hinzuzufügenden Slider mit seiner Health. Bei Anwahl von gegnertyp die Health im slider setzen die er in der config stehen hat
+    [ ] bei anwahl eines neuen gegnertyp daas Vorschaumodell korrekt setzen in der Wavevorschau ("td-enemy-preview-canvas")
 
 Allgemein:
-[ ] Partikeleffekte für Schüsse (Raketen also Air ist bereits gut, bei normalen Schüssen aber kleinere Partikel und keine Explosion beim Auftreffen), Archer Tower nicht
 [ ] Rocket Tower muss noch etwas heller werden...gibt es da unterschiede zum Dual Gatling Tower was rendering angeht? kann auch sein dass er einfach dunklere texturiert ist.
+[ ] Partikeleffekte für Schüsse (Raketen also Air ist bereits gut, bei normalen Schüssen != Rakten aber kleinere Partikel und keine Explosion beim Auftreffen), Archer Tower nicht
 [ ] ICE Tower mit Slow Effekt implementieren, Splash Damage Type (gegner im kleinen Radius betroffen) 
+    [ ] Debuff System mit Statuseffekten die auf gegner wirken können (abhängig von zeit und ort denkbar)
     [ ] Air auch treffbar durch ihn
     [ ] model und sound liegen bereits da
     [ ] Soll kurzeitig rein optisch beim splashen von ice auf die route helllblaue Eisflächen auf dem Boden hinterlassen (ob die einen Effekt haben müssen wenn gegner reinlaufen steht noch aus ob das gut umsetzbar ist nicht zuvie Perf. kostet)
 [ ] Dual Gatling Tower schießt in einem Bogen...das sollte nicht sein, Bogen nur für Archer.
+[ ] Dual Gatling Tower soll eine Art Leuchtspurmunition bekommen (dezent und klein).
 [ ] Cannon, Magic und Snipertower mal komplett inaktiv nehmen.
 
+Beobachten bis Testcase wieder da:
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
-[ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
+
 
 Performance:
  [~] spielt man das in einer größeren Stadt mit vielen 3d Gebäuden und straßen, kommt es beim zoomen oder panen und auch beim laden kurz zu aussetzern.
