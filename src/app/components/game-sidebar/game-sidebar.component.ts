@@ -9,6 +9,7 @@ import {
   AfterViewInit,
   OnDestroy,
   inject,
+  effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -475,6 +476,17 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
+
+  constructor() {
+    // Update enemy preview when enemy type changes
+    effect(() => {
+      const enemyConfig = this.currentEnemyConfig();
+      // Wait for the preview to be initialized
+      if (this.enemyPreviewCanvas?.nativeElement) {
+        this.initEnemyPreview();
+      }
+    });
+  }
 
   // Inputs
   readonly gameState = input.required<GameStateManager>();

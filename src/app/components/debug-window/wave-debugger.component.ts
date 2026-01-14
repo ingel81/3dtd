@@ -45,10 +45,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
             <div class="slider-row">
               <span class="label">Anzahl</span>
-              <input type="range" min="1" max="5000" step="1"
+              <input type="range" min="1" max="500" step="1"
                      [value]="waveDebug.enemyCount()"
                      (input)="onEnemyCountChange($event)" />
-              <input type="number" class="number-input" min="1" max="5000"
+              <input type="number" class="number-input" min="1" max="500"
                      [value]="waveDebug.enemyCount()"
                      (change)="onEnemyCountChange($event)" />
             </div>
@@ -62,6 +62,17 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                      [value]="waveDebug.enemySpeed()"
                      (change)="onSpeedChange($event)" />
               <span class="unit">m/s</span>
+            </div>
+
+            <div class="slider-row">
+              <span class="label">Health</span>
+              <input type="range" min="1" max="10000" step="1"
+                     [value]="waveDebug.enemyHealth()"
+                     (input)="onHealthChange($event)" />
+              <input type="number" class="number-input" min="1" max="10000"
+                     [value]="waveDebug.enemyHealth()"
+                     (change)="onHealthChange($event)" />
+              <span class="unit">HP</span>
             </div>
 
             <div class="toggle-row">
@@ -389,6 +400,11 @@ export class WaveDebuggerComponent {
   onSpeedChange(event: Event): void {
     const value = parseInt((event.target as HTMLInputElement).value, 10);
     this.waveDebug.setEnemySpeed(value);
+  }
+
+  onHealthChange(event: Event): void {
+    const value = parseInt((event.target as HTMLInputElement).value, 10);
+    this.waveDebug.setEnemyHealth(value);
   }
 
   onSpawnDelayChange(event: Event): void {

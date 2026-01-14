@@ -13,6 +13,7 @@ export class WaveDebugService {
   // Spawn settings
   readonly enemyCount = signal(10);
   readonly enemySpeed = signal(5);
+  readonly enemyHealth = signal(100);
   readonly enemyType = signal<EnemyTypeId>('zombie');
   readonly spawnMode = signal<'each' | 'random'>('each');
   readonly spawnDelay = signal(1500);
@@ -39,15 +40,24 @@ export class WaveDebugService {
   readonly enemiesAlive = signal(0);
 
   setEnemyCount(value: number): void {
-    this.enemyCount.set(Math.max(1, Math.min(5000, value)));
+    this.enemyCount.set(Math.max(1, Math.min(500, value)));
   }
 
   setEnemySpeed(value: number): void {
     this.enemySpeed.set(Math.max(1, Math.min(100, value)));
   }
 
+  setEnemyHealth(value: number): void {
+    this.enemyHealth.set(Math.max(1, Math.min(10000, value)));
+  }
+
   setEnemyType(typeId: EnemyTypeId): void {
     this.enemyType.set(typeId);
+
+    // Set speed and health from enemy config
+    const config = this.currentEnemyConfig();
+    this.setEnemySpeed(config.baseSpeed);
+    this.setEnemyHealth(config.baseHp);
   }
 
   toggleSpawnMode(): void {

@@ -221,8 +221,8 @@ export class Projectile extends GameObject {
 
   /**
    * Calculate flight height at current position
-   * Creates a slight arc trajectory for non-homing projectiles
-   * Homing projectiles (rockets) fly straight to target
+   * Creates a slight arc trajectory for arrow projectiles
+   * Homing projectiles (rockets) and bullets fly straight to target
    */
   private calculateFlightHeight(): number {
     const targetHeight = this.getTargetHeight();
@@ -236,7 +236,12 @@ export class Projectile extends GameObject {
       return baseHeight;
     }
 
-    // Add arc for non-homing projectiles: parabolic curve that peaks at midpoint
+    // Only arrows have arc trajectory - bullets and other projectiles fly straight
+    if (this.typeConfig.id !== 'arrow') {
+      return baseHeight;
+    }
+
+    // Add arc for arrow projectiles: parabolic curve that peaks at midpoint
     // arcHeight = maxArc * 4 * progress * (1 - progress)
     // This gives 0 at progress=0, maxArc at progress=0.5, 0 at progress=1
     const maxArcHeight = Math.min(this._totalDistance * 0.05, 10); // Arc height proportional to distance, max 10m

@@ -1,22 +1,24 @@
 # Offene TODOs
 
 WaveDebugger:
-    [ ] Anzahl Slider auf 500 limitieren
-    [ ] Wenn Gegnertyp im Debugger gewählt wird seinen Speed im Slider setzen den er eigentlich in der Config hat, danach natürlich wieder per slider anpassbar
-    [ ] Dito für einen neuen hinzuzufügenden Slider mit seiner Health. Bei Anwahl von gegnertyp die Health im slider setzen die er in der config stehen hat
-    [ ] bei anwahl eines neuen gegnertyp daas Vorschaumodell korrekt setzen in der Wavevorschau ("td-enemy-preview-canvas")
+    [x] Anzahl Slider auf 500 limitieren
+    [x] Wenn Gegnertyp im Debugger gewählt wird seinen Speed im Slider setzen den er eigentlich in der Config hat, danach natürlich wieder per slider anpassbar
+    [x] Dito für einen neuen hinzuzufügenden Slider mit seiner Health. Bei Anwahl von gegnertyp die Health im slider setzen die er in der config stehen hat
+    [x] bei anwahl eines neuen gegnertyp daas Vorschaumodell korrekt setzen in der Wavevorschau ("td-enemy-preview-canvas")
 
 Allgemein:
-[ ] Rocket Tower muss noch etwas heller werden...gibt es da unterschiede zum Dual Gatling Tower was rendering angeht? kann auch sein dass er einfach dunklere texturiert ist.
-[ ] Partikeleffekte für Schüsse (Raketen also Air ist bereits gut, bei normalen Schüssen != Rakten aber kleinere Partikel und keine Explosion beim Auftreffen), Archer Tower nicht
+[x] Rocket Tower muss noch etwas heller werden...gibt es da unterschiede zum Dual Gatling Tower was rendering angeht? kann auch sein dass er einfach dunklere texturiert ist.
+[X] Partikeleffekte für Schüsse (Raketen also Air ist bereits gut, bei normalen Schüssen != Rakten aber kleinere Partikel und keine Explosion beim Auftreffen), Archer Tower nicht
+
 [ ] ICE Tower mit Slow Effekt implementieren, Splash Damage Type (gegner im kleinen Radius betroffen) 
     [ ] Debuff System mit Statuseffekten die auf gegner wirken können (abhängig von zeit und ort denkbar)
-    [ ] Air auch treffbar durch ihn
-    [ ] model und sound liegen bereits da
+    [ ] Air targets kann er auch treffen
+    [ ] Model und sound liegen bereits da
     [ ] Soll kurzeitig rein optisch beim splashen von ice auf die route helllblaue Eisflächen auf dem Boden hinterlassen (ob die einen Effekt haben müssen wenn gegner reinlaufen steht noch aus ob das gut umsetzbar ist nicht zuvie Perf. kostet)
-[ ] Dual Gatling Tower schießt in einem Bogen...das sollte nicht sein, Bogen nur für Archer.
-[ ] Dual Gatling Tower soll eine Art Leuchtspurmunition bekommen (dezent und klein).
-[ ] Cannon, Magic und Snipertower mal komplett inaktiv nehmen.
+
+[X] Dual Gatling Tower schießt in einem Bogen...das sollte nicht sein, Bogen nur für Archer.
+[X] Dual Gatling Tower soll eine Art Leuchtspurmunition bekommen (dezent und klein).
+[X] Cannon, Magic und Snipertower mal komplett inaktiv nehmen.
 
 Beobachten bis Testcase wieder da:
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
@@ -28,6 +30,17 @@ Performance:
      [~] Tile-Loading optimiert (downloadQueue.maxJobs=4, parseQueue.maxJobs=1, größerer lruCache) → deutlich flüssiger
      [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
      [ ] ist aber nicht so dramatisch wie es sich anhört.
+
+ [ ] **VAT (Vertex Animation Textures)** für animierte Enemies wie Fledermaus
+     - Problem: SkinnedMesh ist 10x langsamer als Static Mesh (40 Fledermäuse = Diashow, 500 Panzer = flüssig)
+     - Lösung: Animation in Textur "backen", GPU Instancing nutzen
+     - Ergebnis: ~10.000 animierte Einheiten statt ~1.000 möglich
+     - Tools: Blender VAT-Addon → Three.js Custom Shader
+     - Einschränkung: Kein Animation-Blending, aber Zeit-Offset pro Instanz möglich
+     - Lohnt sich ab ~50+ gleichzeitigen animierten Einheiten
+     - Links:
+       - Blender Addon: https://github.com/flanb/VAT-blender-addon
+       - Three.js Beispiel: https://github.com/mikelyndon/r3f-webgl-vertex-animation-textures
 
 LOS:
  [x] **Statisches Pfad-LOS-Grid** ✓ Implementiert

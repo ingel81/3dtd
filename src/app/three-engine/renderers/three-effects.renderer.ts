@@ -613,6 +613,46 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * Spawn bullet tracer effect at local position
+   * Much smaller and faster-fading than rocket trails
+   */
+  spawnBulletTracer(localX: number, localY: number, localZ: number, count: number = 1): void {
+    for (let i = 0; i < count; i++) {
+      const particle = this.getInactiveParticle(this.trailPool);
+      if (!particle) break;
+
+      // Spawn at bullet position with tiny random offset
+      particle.position.set(
+        localX + (Math.random() - 0.5) * 0.1,
+        localY + (Math.random() - 0.5) * 0.1,
+        localZ + (Math.random() - 0.5) * 0.1
+      );
+
+      // Minimal velocity - tracer stays mostly in place
+      particle.velocity.set(
+        (Math.random() - 0.5) * 0.5,
+        (Math.random() - 0.5) * 0.5,
+        (Math.random() - 0.5) * 0.5
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.01 + Math.random() * 0.01; // 0.01-0.02 seconds (instant fade)
+      particle.size = 0.03 + Math.random() * 0.02; // 0.03-0.05 size (barely visible)
+
+      // Bright yellow/white tracer color
+      particle.color.setRGB(1, 0.95, 0.6);
+    }
+  }
+
+  /**
+   * Spawn bullet tracer at geo coordinates
+   */
+  spawnBulletTracerAtGeo(lat: number, lon: number, height: number, count: number = 1): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnBulletTracer(localPos.x, localPos.y, localPos.z, count);
+  }
+
+  /**
    * Spawn explosion effect at local position
    * Used for rocket impacts and other explosions
    *

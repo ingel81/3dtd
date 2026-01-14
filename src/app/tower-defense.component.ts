@@ -651,7 +651,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   // Expose Math and tower config for template
   readonly Math = Math;
   readonly archerTowerConfig = TOWER_TYPES.archer;
-  readonly towerTypes = getAllTowerTypes();
+  // Filter out inactive tower types (cannon, magic, sniper)
+  readonly towerTypes = getAllTowerTypes().filter(
+    t => t.id !== 'cannon' && t.id !== 'magic' && t.id !== 'sniper'
+  );
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
@@ -696,6 +699,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   } | null>(null);
   // Wave debug settings (proxied from WaveDebugService for backwards compatibility)
   readonly enemySpeed = this.waveDebug.enemySpeed;
+  readonly enemyHealth = this.waveDebug.enemyHealth;
   readonly streetCount = this.waveDebug.streetCount;
   readonly enemyCount = this.waveDebug.enemyCount;
   readonly enemyType = this.waveDebug.enemyType;
@@ -1651,6 +1655,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Read current settings live (allows changing during wave)
       const mode = this.spawnMode();
       const speed = this.enemySpeed();
+      const health = this.enemyHealth();
 
       // Spawn-Punkt auswählen (Verteilt oder Zufällig)
       let currentSpawn: SpawnPoint;
@@ -1664,7 +1669,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (spawnPath && spawnPath.length > 1) {
         // In gathering mode: spawn paused, otherwise spawn and start immediately
-        this.gameState.spawnEnemy(spawnPath, this.enemyType(), speed, gathering);
+        this.gameState.spawnEnemy(spawnPath, this.enemyType(), speed, gathering, health);
         spawnedCount++;
       }
 

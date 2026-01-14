@@ -225,6 +225,32 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Make tower model brighter by increasing emissive intensity
+   * Used to enhance visibility of darker models like the rocket tower
+   */
+  private makeTowerBrighter(model: THREE.Object3D, intensityFactor = 2.0): void {
+    model.traverse((child) => {
+      if ((child as THREE.Mesh).isMesh) {
+        const mesh = child as THREE.Mesh;
+        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
+
+        materials.forEach((mat) => {
+          const stdMat = mat as THREE.MeshStandardMaterial;
+          if (stdMat.color) {
+            // Increase emissive intensity for better visibility
+            if ('emissive' in stdMat) {
+              stdMat.emissive = stdMat.color.clone();
+              stdMat.emissiveIntensity = intensityFactor;
+            }
+            // Also brighten the base color slightly
+            stdMat.color.multiplyScalar(1.3);
+          }
+        });
+      }
+    });
+  }
+
+  /**
    * Preload model template for a tower type
    */
   async preloadModel(typeId: TowerTypeId): Promise<void> {

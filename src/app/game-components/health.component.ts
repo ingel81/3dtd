@@ -6,11 +6,11 @@ import { GameObject } from '../core/game-object';
  */
 export class HealthComponent extends Component {
   private _hp: number;
-  readonly maxHp: number;
+  private _maxHp: number;
 
   constructor(gameObject: GameObject, maxHp: number) {
     super(gameObject);
-    this.maxHp = maxHp;
+    this._maxHp = maxHp;
     this._hp = maxHp;
   }
 
@@ -27,29 +27,41 @@ export class HealthComponent extends Component {
    * Heal this entity
    */
   heal(amount: number): void {
-    this._hp = Math.min(this.maxHp, this._hp + amount);
+    this._hp = Math.min(this._maxHp, this._hp + amount);
   }
 
   /**
    * Set HP directly (for initialization)
    */
   setHp(hp: number): void {
-    this._hp = Math.max(0, Math.min(this.maxHp, hp));
+    this._hp = Math.max(0, Math.min(this._maxHp, hp));
+  }
+
+  /**
+   * Reset health with new max HP (for debug/override purposes)
+   */
+  resetMaxHp(newMaxHp: number): void {
+    this._maxHp = newMaxHp;
+    this._hp = newMaxHp;
   }
 
   get hp(): number {
     return this._hp;
   }
 
+  get maxHp(): number {
+    return this._maxHp;
+  }
+
   get healthPercent(): number {
-    return this._hp / this.maxHp;
+    return this._hp / this._maxHp;
   }
 
   get isDead(): boolean {
     return this._hp === 0;
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // Health doesn't need per-frame updates
   }
 }

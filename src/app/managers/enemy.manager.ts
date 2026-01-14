@@ -41,13 +41,19 @@ export class EnemyManager extends EntityManager<Enemy> {
     path: GeoPosition[],
     typeId: EnemyTypeId,
     speedOverride?: number,
-    paused = false
+    paused = false,
+    healthOverride?: number
   ): Enemy {
     if (!this.tilesEngine) {
       throw new Error('EnemyManager not initialized');
     }
 
     const enemy = new Enemy(typeId, path, speedOverride);
+
+    // Override health if specified
+    if (healthOverride !== undefined) {
+      enemy.health.resetMaxHp(healthOverride);
+    }
 
     // Initialize audio with spatial audio manager
     if (this.tilesEngine.spatialAudio) {

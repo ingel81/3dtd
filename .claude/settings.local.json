@@ -19,7 +19,13 @@
       "Bash(cd:*)",
       "Bash(find:*)",
       "Bash(git commit -m \"$\\(cat <<''EOF''\nrefactor: consolidate LOS visualization to route-based grid\n\n- Remove old 8m hex-grid LOS visualization \\(~300 lines\\)\n- Add InstancedMesh visualization to RouteLosGrid \\(green=visible, red=blocked\\)\n- Show LOS overlay during build preview \\(throttled 200ms\\) and tower selection\n- Add getCachedRoutes\\(\\) to GameStateManager for route access\n- Keep shader-based visualization as experimental fallback\nEOF\n\\)\")",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(pip show:*)",
+      "Bash(pip install:*)",
+      "Bash(python3:*)",
+      "Bash(.venv/bin/pip install:*)",
+      "WebSearch",
+      "WebFetch(domain:github.com)"
     ]
   }
 }

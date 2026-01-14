@@ -118,6 +118,22 @@ export class ProjectileManager extends EntityManager<Projectile> {
             projectile.flightHeight,
             50 // 50 particles for bigger explosion
           );
+        } else if (projectile.typeConfig.id === 'bullet') {
+          // Minimal impact effect for bullets - just 2 tiny particles
+          this.tilesEngine?.effects.spawnExplosionAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            2 // 2 particles for minimal bullet impact
+          );
+        } else if (projectile.typeConfig.id !== 'arrow') {
+          // Spawn smaller impact effect for other non-arrow, non-rocket projectiles
+          this.tilesEngine?.effects.spawnExplosionAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            8 // 8 particles for small impact effect
+          );
         }
 
         toRemove.push(projectile);
@@ -151,6 +167,16 @@ export class ProjectileManager extends EntityManager<Projectile> {
             projectile.position.lon,
             projectile.flightHeight
           );
+
+          // Spawn tracer trail for bullets (Dual Gatling) - subtle effect
+          if (projectile.typeConfig.id === 'bullet') {
+            this.tilesEngine?.effects.spawnBulletTracerAtGeo(
+              projectile.position.lat,
+              projectile.position.lon,
+              projectile.flightHeight,
+              1 // 1 small particle per frame for subtle tracer
+            );
+          }
         }
       }
     }

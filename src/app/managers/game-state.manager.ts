@@ -466,9 +466,10 @@ export class GameStateManager {
     path: GeoPosition[],
     typeId: EnemyTypeId,
     speed?: number,
-    paused = false
+    paused = false,
+    health?: number
   ): Enemy {
-    return this.enemyManager.spawn(path, typeId, speed, paused);
+    return this.enemyManager.spawn(path, typeId, speed, paused, health);
   }
 
   /**
