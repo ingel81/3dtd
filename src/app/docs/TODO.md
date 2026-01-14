@@ -15,13 +15,14 @@ Performance:
 LOS:
  [ ] **Optimierung: Statisches Pfad-LOS-Grid**
      Aktuell: LOS-Raycasts zur Laufzeit (auch mit Caching ~3/s pro Tower)
-     Idee: Separates feines Hex-Grid (2m) nur entlang der Gegner-Route vorberechnen
+     Idee: Separates feines Hex-Grid (2m) nur entlang der Gegner-Route vorberechnen + aureichend Puffer um die route wirklich sicher abzudecken
      - Bei Tower-Platzierung einmalig ~100-150 Raycasts (nur Route ±3m im Range)
      - Zur Laufzeit: Nur "ist Gegner-Position in sichtbarer Zelle?" → O(1) Lookup
      - Visualisierung bleibt separat (grobes 8m Grid für ganzen Bereich)
      - Zwei Systeme: Grob+vollständig für User-Feedback, Fein+Route für Schieß-Logik
      - Vorteil: LOS-Checks zur Laufzeit komplett eliminiert (nur simple Math)
      - Nachteil: Statisch (nur Gebäude, keine dynamischen Blocker)
+     - Wichtig: zuschaltbare Visualisierung für die interne "feine" LOS zu debugging zwecken.
 
 Location-System Bekannte Einschränkungen:
  [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
