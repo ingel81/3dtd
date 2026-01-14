@@ -97,7 +97,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 <mat-icon>healing</mat-icon>
               </button>
               <button class="icon-btn danger" [disabled]="!waveDebug.waveActive()" (click)="killAll.emit()" title="Alle toeten">
-                <mat-icon>skull</mat-icon>
+                <mat-icon>delete_forever</mat-icon>
               </button>
               <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">
                 <mat-icon>attach_money</mat-icon>

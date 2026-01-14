@@ -7,7 +7,8 @@ import { TransformComponent } from './transform.component';
  * MovementComponent handles path-following movement
  */
 export class MovementComponent extends Component {
-  speedMps = 0; // Meters per second
+  speedMps = 0; // Base meters per second
+  speedMultiplier = 1.0; // Multiplier for run animation etc.
   path: GeoPosition[] = [];
   currentIndex = 0;
   progress = 0; // 0-1 within current segment
@@ -101,6 +102,13 @@ export class MovementComponent extends Component {
   }
 
   /**
+   * Get effective speed (base speed × multiplier)
+   */
+  get effectiveSpeed(): number {
+    return this.speedMps * this.speedMultiplier;
+  }
+
+  /**
    * Move along path
    * @returns 'moving' if still moving, 'reached_end' if path complete
    */
@@ -114,8 +122,8 @@ export class MovementComponent extends Component {
     const cappedDelta = Math.min(deltaTime, 100);
     const deltaSeconds = cappedDelta / 1000;
 
-    // Movement in meters per frame
-    const metersThisFrame = this.speedMps * deltaSeconds;
+    // Movement in meters per frame (with multiplier for run animation etc.)
+    const metersThisFrame = this.speedMps * this.speedMultiplier * deltaSeconds;
 
     // Current segment length
     const segmentLength = this.segmentLengths[this.currentIndex] || 1;

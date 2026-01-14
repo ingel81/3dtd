@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-01-10
+**Stand:** 2026-01-14
 
 ## Übersicht
 
@@ -13,9 +13,10 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 - [x] Tower-Platzierung (mit Terrain-Höhe)
 - [x] Tower-Rendering (GLB Modelle)
 - [x] Tower-Selektion (Range-Anzeige mit Terrain-Raycasting)
-- [x] Hex-Grid Line-of-Sight Visualisierung
+- [x] Route LOS Grid (2m Zellenauflösung, Shader-Visualisierung)
 - [x] Enemy-Spawning und Rendering
-- [x] Enemy-Animationen (Walk, Death)
+- [x] Enemy-Animationen (Walk, Death, Run mit Speed-Multiplier)
+- [x] Animation Speed Coupling (Animation-Geschwindigkeit an Bewegung gekoppelt)
 - [x] Enemy-Heading (folgt Bewegungsrichtung)
 - [x] Pfad-Smoothing (Gegner folgen geglätteten Routen)
 - [x] Projektile (Instanced Rendering mit GLB-Modell)
@@ -23,6 +24,7 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 - [x] Blut-Effekte (Partikel + Decals)
 - [x] Feuer-Effekte (bei Basis-Schaden + Game Over)
 - [x] Location-System (Dialog, Random Spawn, Reset-Fix)
+- [x] Air Units (Fledermaus mit heightOffset + heightVariation)
 - [ ] Projektil-LoS (nur bei Sichtverbindung treffen)
 
 ## Design Prinzipien
@@ -320,7 +322,7 @@ abstract class GameObject {
 |-----------|--------------|
 | `TransformComponent` | Position (GeoPosition), Rotation, Scale |
 | `HealthComponent` | HP, maxHp, takeDamage(), heal() |
-| `MovementComponent` | Path-Following, speedMps, currentIndex |
+| `MovementComponent` | Path-Following, speedMps, speedMultiplier, effectiveSpeed |
 | `CombatComponent` | damage, range, fireRate, canFire() |
 | `RenderComponent` | Placeholder (Rendering via ThreeTilesEngine) |
 | `AudioComponent` | Sound-Verwaltung |
@@ -522,12 +524,55 @@ class ThreeEnemyRenderer {
 
   preloadModel(typeId: EnemyTypeId): Promise<void>;
   create(id, typeId, lat, lon, height): Promise<EnemyRenderData>;
-  update(id, lat, lon, height, rotation, healthPercent): void;
+  update(id, lat, lon, height, rotation, healthPercent, currentSpeed?): void;
   startWalkAnimation(id: string): void;
   playDeathAnimation(id: string): void;
+  getSpeedMultiplier(id: string): number;  // 1.0 for walk, runSpeedMultiplier for run
   remove(id: string): void;
 }
 ```
+
+#### Animation Speed Coupling
+
+Gegner-Animationen sind an ihre Bewegungsgeschwindigkeit gekoppelt:
+
+```typescript
+// In update(): Animation timeScale basiert auf Geschwindigkeitsverhältnis
+if (currentSpeed !== undefined && data.typeConfig.baseSpeed > 0) {
+  const baseAnimSpeed = data.typeConfig.animationSpeed ?? 1.0;
+
+  // Bei Run-Animation: effectiveBaseSpeed = baseSpeed × runSpeedMultiplier
+  // (Run-Animation ist im Modell bereits schneller, daher kein zusätzlicher Speed-Faktor)
+  let effectiveBaseSpeed = data.typeConfig.baseSpeed;
+  if (!data.isWalking && data.typeConfig.runSpeedMultiplier) {
+    effectiveBaseSpeed = data.typeConfig.baseSpeed * data.typeConfig.runSpeedMultiplier;
+  }
+
+  const speedRatio = currentSpeed / effectiveBaseSpeed;
+  data.currentAction.timeScale = baseAnimSpeed * speedRatio;
+}
+```
+
+#### Run Animation System
+
+Manche Gegner (z.B. Wallsmasher) wechseln zwischen Walk- und Run-Animation:
+
+```typescript
+// EnemyTypeConfig
+animationVariation?: boolean;      // Wechselt zwischen Walk und Run Animation
+runSpeedMultiplier?: number;       // Speed-Multiplikator bei Run (z.B. 2.5)
+
+// MovementComponent
+speedMps = 0;                      // Basis m/s
+speedMultiplier = 1.0;             // Multiplier von Animation-State (1.0 oder runSpeedMultiplier)
+get effectiveSpeed(): number {     // speedMps × speedMultiplier
+  return this.speedMps * this.speedMultiplier;
+}
+```
+
+**Wichtig:** Der `runSpeedMultiplier` beeinflusst:
+- ✅ Bewegungsgeschwindigkeit (Gegner bewegt sich schneller)
+- ❌ NICHT die Animation-Geschwindigkeit (Run-Animation ist bereits schneller im Modell)
 
 ### 6.2 ThreeTowerRenderer
 
@@ -813,13 +858,46 @@ stopAnimation(): void;
 - Konfigurierbare Geschwindigkeit und Farbe
 - Aktiviert während Setup-Phase
 
-### Hex-Grid LoS-Visualisierung
+### Route LOS Grid System
 
-Line-of-Sight Visualisierung im TowerRenderer:
+Feingranulare Line-of-Sight Visualisierung entlang der Gegner-Routen:
 
-- Zeigt Sichtlinien vom ausgewählten Tower zu Gegnern
-- Hex-Grid basierte Darstellung der Tower-Range
-- Aktiviert bei Tower-Selektion
+```typescript
+// RouteLosGrid (route-los-grid.ts)
+class RouteLosGrid {
+  // 2m Zellenauflösung entlang aller Routen
+  generateFromRoutes(routes: GeoPosition[][], sync: CoordinateSync): void;
+
+  // Shader-basierte Visualisierung mit InstancedMesh
+  createVisualization(): THREE.InstancedMesh;
+
+  // O(1) LOS-Lookup
+  canSeeCell(worldX: number, worldZ: number): boolean;
+}
+```
+
+**Zellengenerierung:**
+- Radiale/flächen-basierte Generierung (nicht perpendikular zur Route)
+- 7m Korridor-Breite um jede Route
+- 2m Zellenauflösung für präzise LOS-Prüfung
+
+**Shader-Visualisierung:**
+```typescript
+// USE_INSTANCING define erforderlich für InstancedMesh
+const material = new THREE.ShaderMaterial({
+  defines: { USE_INSTANCING: '' },
+  transparent: true,
+  depthTest: false,  // WICHTIG: Über 3D Tiles rendern
+  depthWrite: false,
+  side: THREE.DoubleSide,
+  // ...
+});
+```
+
+**Farben:**
+- Grün (`vec3(0.2, 0.8, 0.4)`): Tower hat Sichtlinie
+- Rot (`vec3(0.9, 0.2, 0.2)`): Blockiert durch Terrain/Gebäude
+- Pulsing Animation: Opacity 0.6-0.8
 
 ---
 
@@ -981,3 +1059,61 @@ raycastTerrain(screenX: number, screenY: number): THREE.Vector3 | null {
 - `three-tiles-engine.ts`: `raycastTerrain()` und `raycastTowers()`
 
 **Regel:** Raycaster, die mit `setFromCamera()` arbeiten, sollten nie denselben Instance verwenden wie Raycaster mit manuellem `set(origin, direction)`.
+
+### ShaderMaterial + InstancedMesh = USE_INSTANCING
+
+**Problem:** Custom ShaderMaterial mit `THREE.InstancedMesh` rendert nichts - keine Fehler, einfach unsichtbar.
+
+**Ursache:** Three.js injiziert automatisch `#ifdef USE_INSTANCING` Code in Built-in Materials. Bei Custom ShaderMaterial muss man das Define selbst setzen.
+
+```typescript
+// ❌ FALSCH - Instancing funktioniert nicht
+const material = new THREE.ShaderMaterial({
+  vertexShader: `
+    void main() {
+      vec4 mvPosition = vec4(position, 1.0);
+      mvPosition = instanceMatrix * mvPosition;  // instanceMatrix ist undefined!
+      gl_Position = projectionMatrix * modelViewMatrix * mvPosition;
+    }
+  `,
+});
+
+// ✅ RICHTIG - USE_INSTANCING Define setzen
+const material = new THREE.ShaderMaterial({
+  defines: { USE_INSTANCING: '' },  // Aktiviert instanceMatrix
+  vertexShader: `
+    void main() {
+      vec4 mvPosition = vec4(position, 1.0);
+      #ifdef USE_INSTANCING
+        mvPosition = instanceMatrix * mvPosition;
+      #endif
+      gl_Position = projectionMatrix * modelViewMatrix * mvPosition;
+    }
+  `,
+});
+```
+
+**Regel:** Bei Custom ShaderMaterial mit InstancedMesh immer `defines: { USE_INSTANCING: '' }` und `#ifdef USE_INSTANCING` im Vertex Shader.
+
+### depthTest: false für Overlays auf 3D Tiles
+
+**Problem:** Shader-basierte Overlays sind nur sichtbar wenn man gegen den Himmel schaut, verschwinden aber über 3D Tiles.
+
+**Ursache:** 3D Tiles haben komplexe Z-Werte die Standard-Depth-Testing beeinflussen.
+
+```typescript
+// ❌ FALSCH - Overlay wird von Tiles verdeckt
+const material = new THREE.ShaderMaterial({
+  transparent: true,
+  // depthTest default = true
+});
+
+// ✅ RICHTIG - Overlay rendert über Tiles
+const material = new THREE.ShaderMaterial({
+  transparent: true,
+  depthTest: false,   // Ignoriert Depth Buffer
+  depthWrite: false,  // Schreibt nicht in Depth Buffer
+});
+```
+
+**Regel:** Für flache Overlays auf Terrain (LOS-Grid, Markers, etc.) immer `depthTest: false` und `depthWrite: false` setzen.

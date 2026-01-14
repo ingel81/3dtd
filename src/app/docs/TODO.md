@@ -1,5 +1,20 @@
 # Offene TODOs
 
+WaveDebugger:
+    [ ] Anzahl Slider auf 500 limitieren
+    [ ] Wenn Gegner gewählt wird seinen Speed im Slider setzen den er eigentlich in der Config hat
+    [ ] Dito für einen neuen hinzuzufügenden Slider mit seiner Health
+
+Allgemein:
+[ ] Partikeleffekte für Schüsse (Raketen also Air ist bereits gut, bei normalen Schüssen aber kleinere Partikel und keine Explosion beim Auftreffen), Archer Tower nicht
+[ ] Rocket Tower muss noch etwas heller werden...gibt es da unterschiede zum Dual Gatling Tower was rendering angeht? kann auch sein dass er einfach dunklere texturiert ist.
+[ ] ICE Tower mit Slow Effekt implementieren, Splash Damage Type (gegner im kleinen Radius betroffen) 
+    [ ] Air auch treffbar durch ihn
+    [ ] model und sound liegen bereits da
+    [ ] Soll kurzeitig rein optisch beim splashen von ice auf die route helllblaue Eisflächen auf dem Boden hinterlassen (ob die einen Effekt haben müssen wenn gegner reinlaufen steht noch aus ob das gut umsetzbar ist nicht zuvie Perf. kostet)
+[ ] Dual Gatling Tower schießt in einem Bogen...das sollte nicht sein, Bogen nur für Archer.
+[ ] Cannon, Magic und Snipertower mal komplett inaktiv nehmen.
+
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
 [ ] bei anderen Gegner stimmen die Vorschaumodelle nicht (z.b. Panzer) - was machen wir aber bei späteren gemischten Waves.
 

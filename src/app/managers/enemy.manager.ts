@@ -184,14 +184,19 @@ export class EnemyManager extends EntityManager<Enemy> {
         enemy.transform.terrainHeight = geoHeight;
       }
 
-      // Update visual representation
+      // Get speed multiplier from animation state (walk vs run)
+      const speedMultiplier = this.tilesEngine?.enemies.getSpeedMultiplier(enemy.id) ?? 1.0;
+      enemy.movement.speedMultiplier = speedMultiplier;
+
+      // Update visual representation (including animation speed based on effective speed)
       this.tilesEngine?.enemies.update(
         enemy.id,
         enemy.position.lat,
         enemy.position.lon,
         geoHeight,
         enemy.transform.rotation,
-        enemy.health.healthPercent
+        enemy.health.healthPercent,
+        enemy.movement.effectiveSpeed
       );
     }
 

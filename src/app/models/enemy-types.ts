@@ -26,6 +26,7 @@ export interface EnemyTypeConfig {
   deathAnimation?: string;
   animationSpeed?: number;
   animationVariation?: boolean; // Wechselt zwischen Walk und Run Animation
+  runSpeedMultiplier?: number; // Speed-Multiplikator bei Run-Animation (default: 1.0)
 
   // Audio (Spatial)
   movingSound?: string; // Loop-Sound während Bewegung (Asset-Pfad)
@@ -145,6 +146,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     deathAnimation: 'CharacterArmature|Death',
     animationSpeed: 1.5,
     animationVariation: true,
+    runSpeedMultiplier: 2.5, // 2.5x Geschwindigkeit bei Run
     // Spawn Sound
     spawnSound: '/assets/sounds/big_arm_spawn.mp3',
     spawnSoundVolume: 0.7,

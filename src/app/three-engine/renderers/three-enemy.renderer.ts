@@ -280,7 +280,7 @@ export class ThreeEnemyRenderer {
   }
 
   /**
-   * Update enemy position and rotation
+   * Update enemy position, rotation, and animation speed
    */
   update(
     id: string,
@@ -288,7 +288,8 @@ export class ThreeEnemyRenderer {
     lon: number,
     height: number,
     heading: number,
-    healthPercent: number
+    healthPercent: number,
+    currentSpeed?: number
   ): void {
     const data = this.enemies.get(id);
     if (!data || data.isDestroyed) return;
@@ -306,6 +307,22 @@ export class ThreeEnemyRenderer {
       data.healthBar.position.copy(localPos);
       data.healthBar.position.y += data.typeConfig.healthBarOffset;
       this.updateHealthBarTexture(data, healthPercent);
+    }
+
+    // Update animation speed based on movement speed
+    if (currentSpeed !== undefined && data.currentAction && data.typeConfig.baseSpeed > 0) {
+      const baseAnimSpeed = data.typeConfig.animationSpeed ?? 1.0;
+
+      // For run animation: use effective base speed (baseSpeed × runSpeedMultiplier)
+      // This prevents the run animation from being sped up by the multiplier
+      // (the run animation is already inherently faster in the model)
+      let effectiveBaseSpeed = data.typeConfig.baseSpeed;
+      if (!data.isWalking && data.typeConfig.runSpeedMultiplier) {
+        effectiveBaseSpeed = data.typeConfig.baseSpeed * data.typeConfig.runSpeedMultiplier;
+      }
+
+      const speedRatio = currentSpeed / effectiveBaseSpeed;
+      data.currentAction.timeScale = baseAnimSpeed * speedRatio;
     }
   }
 
@@ -487,6 +504,22 @@ export class ThreeEnemyRenderer {
    */
   get(id: string): EnemyRenderData | undefined {
     return this.enemies.get(id);
+  }
+
+  /**
+   * Get current speed multiplier based on animation state (walk vs run)
+   * Returns 1.0 for walk, runSpeedMultiplier for run
+   */
+  getSpeedMultiplier(id: string): number {
+    const data = this.enemies.get(id);
+    if (!data) return 1.0;
+
+    // If running and has runSpeedMultiplier, return it
+    if (!data.isWalking && data.typeConfig.runSpeedMultiplier) {
+      return data.typeConfig.runSpeedMultiplier;
+    }
+
+    return 1.0;
   }
 
   /**
