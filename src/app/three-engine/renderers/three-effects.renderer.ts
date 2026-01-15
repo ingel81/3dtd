@@ -110,6 +110,11 @@ export class ThreeEffectsRenderer {
   private trailMaterialAdditive: THREE.PointsMaterial | null = null;
   private trailMaterialNormal: THREE.PointsMaterial | null = null;
 
+  // ShaderMaterial alternatives with per-particle size and log depth support
+  private trailShaderMaterialAdditive: THREE.ShaderMaterial | null = null;
+  private trailShaderMaterialNormal: THREE.ShaderMaterial | null = null;
+  private useShaderMaterial = true; // Default to ShaderMaterial (per-particle sizes, soft edges)
+
   // Blood decal pool (persistent ground stains)
   private bloodDecals: BloodDecal[] = [];
   private readonly MAX_BLOOD_DECALS = 100;
@@ -175,6 +180,10 @@ export class ThreeEffectsRenderer {
       blending: THREE.NormalBlending,
       vertexColors: true,
     });
+
+    // ShaderMaterial with logarithmic depth buffer support and per-particle sizes
+    // This is required for custom shaders to work with 3D Tiles (which use log depth)
+    this.initShaderMaterials();
 
     // Create blood decal geometry and material (for persistent ground stains)
     this.bloodDecalGeometry = new THREE.CircleGeometry(1, 16);
@@ -253,7 +262,11 @@ export class ThreeEffectsRenderer {
     trailGeometryAdditive.setAttribute('size', new THREE.BufferAttribute(trailSizesAdditive, 1));
     trailGeometryAdditive.setAttribute('color', new THREE.BufferAttribute(trailColorsAdditive, 3));
 
-    this.trailParticlesAdditive = new THREE.Points(trailGeometryAdditive, this.trailMaterialAdditive!);
+    // Use ShaderMaterial by default for per-particle sizes and soft edges
+    const additiveMaterial = this.useShaderMaterial
+      ? this.trailShaderMaterialAdditive!
+      : this.trailMaterialAdditive!;
+    this.trailParticlesAdditive = new THREE.Points(trailGeometryAdditive, additiveMaterial);
     this.trailParticlesAdditive.frustumCulled = false;
     this.trailParticlesAdditive.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.trailParticlesAdditive);
@@ -280,7 +293,11 @@ export class ThreeEffectsRenderer {
     trailGeometryNormal.setAttribute('size', new THREE.BufferAttribute(trailSizesNormal, 1));
     trailGeometryNormal.setAttribute('color', new THREE.BufferAttribute(trailColorsNormal, 3));
 
-    this.trailParticlesNormal = new THREE.Points(trailGeometryNormal, this.trailMaterialNormal!);
+    // Use ShaderMaterial by default for per-particle sizes and soft edges
+    const normalMaterial = this.useShaderMaterial
+      ? this.trailShaderMaterialNormal!
+      : this.trailMaterialNormal!;
+    this.trailParticlesNormal = new THREE.Points(trailGeometryNormal, normalMaterial);
     this.trailParticlesNormal.frustumCulled = false;
     this.trailParticlesNormal.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.trailParticlesNormal);
@@ -296,6 +313,135 @@ export class ThreeEffectsRenderer {
         color: new THREE.Color(0x888888),
       });
     }
+  }
+
+  /**
+   * Initialize ShaderMaterials with logarithmic depth buffer support.
+   * These work correctly with 3D Tiles and support per-particle sizes.
+   *
+   * The key insight: When `logarithmicDepthBuffer: true` is set on the WebGLRenderer,
+   * custom ShaderMaterials must include the log depth shader chunks to write correct
+   * depth values. Built-in materials (PointsMaterial, etc.) get this automatically.
+   */
+  private initShaderMaterials(): void {
+    // Vertex shader with per-particle size and log depth support
+    const vertexShader = /* glsl */ `
+      attribute float size;
+      varying vec3 vColor;
+
+      #include <common>
+      #include <logdepthbuf_pars_vertex>
+
+      void main() {
+        vColor = color;
+        vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
+
+        // Size attenuation: larger particles when closer
+        gl_PointSize = size * (3000.0 / -mvPosition.z);
+        gl_Position = projectionMatrix * mvPosition;
+
+        #include <logdepthbuf_vertex>
+      }
+    `;
+
+    // Fragment shader for additive blending (fire, tracers, glow)
+    const fragmentShaderAdditive = /* glsl */ `
+      varying vec3 vColor;
+
+      #include <logdepthbuf_pars_fragment>
+
+      void main() {
+        // Circular particle with soft edges
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+        if (dist > 0.5) discard;
+
+        // Soft falloff from center
+        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+
+        // Additive: color * alpha, alpha for blending
+        gl_FragColor = vec4(vColor * alpha, alpha);
+
+        #include <logdepthbuf_fragment>
+      }
+    `;
+
+    // Fragment shader for normal blending (smoke, dust)
+    const fragmentShaderNormal = /* glsl */ `
+      varying vec3 vColor;
+
+      #include <logdepthbuf_pars_fragment>
+
+      void main() {
+        // Circular particle with soft edges
+        vec2 center = gl_PointCoord - vec2(0.5);
+        float dist = length(center);
+        if (dist > 0.5) discard;
+
+        // Soft falloff from center
+        float alpha = 0.7 * (1.0 - smoothstep(0.3, 0.5, dist));
+
+        // Normal blending: opaque color with alpha
+        gl_FragColor = vec4(vColor, alpha);
+
+        #include <logdepthbuf_fragment>
+      }
+    `;
+
+    // Create additive ShaderMaterial
+    this.trailShaderMaterialAdditive = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader: fragmentShaderAdditive,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.AdditiveBlending,
+      vertexColors: true,
+    });
+
+    // Create normal ShaderMaterial
+    this.trailShaderMaterialNormal = new THREE.ShaderMaterial({
+      vertexShader,
+      fragmentShader: fragmentShaderNormal,
+      transparent: true,
+      depthWrite: false,
+      blending: THREE.NormalBlending,
+      vertexColors: true,
+    });
+
+    console.log('[ThreeEffectsRenderer] ShaderMaterials with log depth support initialized');
+  }
+
+  /**
+   * Toggle between PointsMaterial and ShaderMaterial for trail particles.
+   * Use this to test shader-based particles with per-particle sizes.
+   *
+   * @param useShader - true to use ShaderMaterial, false for PointsMaterial
+   */
+  setUseShaderMaterial(useShader: boolean): void {
+    if (this.useShaderMaterial === useShader) return;
+
+    this.useShaderMaterial = useShader;
+
+    if (this.trailParticlesAdditive) {
+      this.trailParticlesAdditive.material = useShader
+        ? this.trailShaderMaterialAdditive!
+        : this.trailMaterialAdditive!;
+    }
+
+    if (this.trailParticlesNormal) {
+      this.trailParticlesNormal.material = useShader
+        ? this.trailShaderMaterialNormal!
+        : this.trailMaterialNormal!;
+    }
+
+    console.log(`[ThreeEffectsRenderer] Switched to ${useShader ? 'ShaderMaterial' : 'PointsMaterial'}`);
+  }
+
+  /**
+   * Check if ShaderMaterial is currently active
+   */
+  isUsingShaderMaterial(): boolean {
+    return this.useShaderMaterial;
   }
 
   /**

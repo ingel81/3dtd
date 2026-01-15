@@ -820,6 +820,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
+    // Don't intercept keyboard events when user is typing in an input field
+    if (this.isTypingInInputField(event)) {
+      return;
+    }
+
     // Camera panning (WASD / Arrow keys) - works always
     if (this.keyboardPan.onKeyDown(event)) {
       event.preventDefault();
@@ -831,6 +836,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.engine) {
         const currentlyVisible = this.engine.areTilesVisible();
         this.engine.setTilesVisible(!currentlyVisible);
+        event.preventDefault();
+        return;
+      }
+    }
+
+    // Debug: Toggle ShaderMaterial for particles with 'P' key
+    // Tests per-particle size support with logarithmic depth buffer
+    if (event.key === 'p' || event.key === 'P') {
+      if (this.engine) {
+        const currentlyUsingShader = this.engine.effects.isUsingShaderMaterial();
+        this.engine.effects.setUseShaderMaterial(!currentlyUsingShader);
         event.preventDefault();
         return;
       }
@@ -850,6 +866,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
+    // Don't intercept keyboard events when user is typing in an input field
+    if (this.isTypingInInputField(event)) {
+      return;
+    }
+
     // Camera panning key release
     this.keyboardPan.onKeyUp(event);
 
@@ -862,6 +883,21 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   onWindowBlur(): void {
     // Clear pan keys when window loses focus
     this.keyboardPan.clearKeys();
+  }
+
+  /**
+   * Check if the user is typing in an input field (input, textarea, select, contenteditable).
+   * Game keyboard shortcuts should not interfere with text input.
+   */
+  private isTypingInInputField(event: KeyboardEvent): boolean {
+    const target = event.target as HTMLElement;
+    if (!target) return false;
+
+    const tagName = target.tagName.toLowerCase();
+    const isInputField = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+    const isContentEditable = target.isContentEditable;
+
+    return isInputField || isContentEditable;
   }
 
   /**

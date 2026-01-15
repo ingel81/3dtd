@@ -37,7 +37,8 @@
       "Bash(gltf-transform flatten:*)",
       "Bash(gltf-transform weld:*)",
       "Bash(node:*)",
-      "WebFetch(domain:raw.githubusercontent.com)"
+      "WebFetch(domain:raw.githubusercontent.com)",
+      "WebFetch(domain:discourse.threejs.org)"
     ]
   }
 }
