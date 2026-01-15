@@ -27,7 +27,17 @@
       "WebSearch",
       "WebFetch(domain:github.com)",
       "Bash(git branch:*)",
-      "Bash(git stash:*)"
+      "Bash(git stash:*)",
+      "Bash(dir:*)",
+      "Bash(ls:*)",
+      "Bash(npx gltf-transform:*)",
+      "Bash(npm install:*)",
+      "Bash(gltf-transform inspect:*)",
+      "Bash(gltf-transform join:*)",
+      "Bash(gltf-transform flatten:*)",
+      "Bash(gltf-transform weld:*)",
+      "Bash(node:*)",
+      "WebFetch(domain:raw.githubusercontent.com)"
     ]
   }
 }

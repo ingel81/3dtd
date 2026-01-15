@@ -1,4 +1,7 @@
 # Offene TODOs
+Bewerten:
+    [ ] wenn man im Einagebfeldern ist kann man kein WASD Tasten für die Buchstaben mehr tippen
+
 
 WaveDebugger:
     [x] Anzahl Slider auf 500 limitieren
@@ -31,17 +34,6 @@ Performance:
      [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
      [ ] ist aber nicht so dramatisch wie es sich anhört.
 
- [ ] **VAT (Vertex Animation Textures)** für animierte Enemies wie Fledermaus
-     - Problem: SkinnedMesh ist 10x langsamer als Static Mesh (40 Fledermäuse = Diashow, 500 Panzer = flüssig)
-     - Lösung: Animation in Textur "backen", GPU Instancing nutzen
-     - Ergebnis: ~10.000 animierte Einheiten statt ~1.000 möglich
-     - Tools: Blender VAT-Addon → Three.js Custom Shader
-     - Einschränkung: Kein Animation-Blending, aber Zeit-Offset pro Instanz möglich
-     - Lohnt sich ab ~50+ gleichzeitigen animierten Einheiten
-     - Links:
-       - Blender Addon: https://github.com/flanb/VAT-blender-addon
-       - Three.js Beispiel: https://github.com/mikelyndon/r3f-webgl-vertex-animation-textures
-
 LOS:
  [x] **Statisches Pfad-LOS-Grid** ✓ Implementiert
      - 2m Grid entlang Route (±7m Korridor)
@@ -61,10 +53,4 @@ Stashed Features:
 - [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")
       Wikidata SPARQL für zufällige Stadt + Overpass API für Straße
       Würfel-Button in Header + Location-Dialog
-
-Z-Kategorie (Nice-to-have Optimierungen):
-- [ ] LOS-Visualisierung: Gebäude-Verdeckung
-      Aktuell: depthTest=false (Zellen immer sichtbar, auch durch Gebäude)
-      Ideal: Zellen von Gebäuden verdeckt aber nicht vom Terrain
-      Mögliche Ansätze: Stencil Buffer, Decal-Rendering, Custom Depth Pass
 
