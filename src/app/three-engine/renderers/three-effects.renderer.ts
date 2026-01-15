@@ -39,6 +39,18 @@ interface BloodDecal {
 }
 
 /**
+ * Ice decal instance (temporary ground frost)
+ */
+interface IceDecal {
+  id: string;
+  mesh: THREE.Mesh;
+  spawnTime: number;
+  fadeStartTime: number;
+  fadeDuration: number;
+  active: boolean;
+}
+
+/**
  * Floating text configuration
  */
 export interface FloatingTextConfig {
@@ -124,6 +136,15 @@ export class ThreeEffectsRenderer {
   private bloodDecalGeometry: THREE.CircleGeometry;
   private bloodDecalMaterial: THREE.MeshBasicMaterial;
 
+  // Ice decal pool (temporary frost patches)
+  private iceDecals: IceDecal[] = [];
+  private readonly MAX_ICE_DECALS = 150; // More ice decals allowed
+  private readonly ICE_DECAL_FADE_DELAY = 4000; // Start fading after 4 seconds
+  private readonly ICE_DECAL_FADE_DURATION = 3000; // Fade out over 3 seconds
+  private iceDecalIdCounter = 0;
+  private iceDecalGeometry!: THREE.CircleGeometry;
+  private iceDecalMaterial!: THREE.MeshBasicMaterial;
+
   // Floating text pool
   private floatingTexts: FloatingTextInstance[] = [];
   private readonly MAX_FLOATING_TEXTS = 50;
@@ -189,6 +210,16 @@ export class ThreeEffectsRenderer {
     this.bloodDecalGeometry = new THREE.CircleGeometry(1, 16);
     this.bloodDecalMaterial = new THREE.MeshBasicMaterial({
       color: 0x8b0000, // Dark red
+      transparent: true,
+      opacity: 0.7,
+      side: THREE.DoubleSide,
+      depthWrite: false,
+    });
+
+    // Create ice decal geometry and material (for temporary frost patches)
+    this.iceDecalGeometry = new THREE.CircleGeometry(1, 16);
+    this.iceDecalMaterial = new THREE.MeshBasicMaterial({
+      color: 0xc0f0ff, // Very light cyan/almost white ice
       transparent: true,
       opacity: 0.7,
       side: THREE.DoubleSide,
@@ -547,14 +578,15 @@ export class ThreeEffectsRenderer {
 
     // Set position and size
     decal.mesh.position.copy(localPos);
-    decal.mesh.position.y += 0.05; // Slightly above ground to avoid z-fighting
+    decal.mesh.position.y += 0.12; // Above ground to avoid z-fighting
 
     // Random rotation around Y axis for variety
     decal.mesh.rotation.z = Math.random() * Math.PI * 2;
 
-    // Apply size with some randomness
-    const finalSize = size * (0.8 + Math.random() * 0.4);
-    decal.mesh.scale.set(finalSize, finalSize, 1);
+    // Apply size with randomness - ellipse shape for puddle effect
+    const baseSize = size * (0.8 + Math.random() * 0.4);
+    const stretchFactor = 0.6 + Math.random() * 0.8; // 0.6 to 1.4 ratio
+    decal.mesh.scale.set(baseSize * stretchFactor, baseSize / stretchFactor, 1);
 
     // Reset opacity
     (decal.mesh.material as THREE.MeshBasicMaterial).opacity = 0.7;
@@ -1017,6 +1049,147 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * Spawn ice explosion effect at local position
+   * Used for ice tower impacts - cyan/blue particles
+   *
+   * @param localX - Local X coordinate
+   * @param localY - Local Y coordinate (height)
+   * @param localZ - Local Z coordinate
+   * @param count - Number of particles (default 20)
+   */
+  spawnIceExplosion(localX: number, localY: number, localZ: number, count: number = 20): void {
+    for (let i = 0; i < count; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) break;
+
+      // Spawn at impact position
+      particle.position.set(localX, localY, localZ);
+
+      // Random direction outward (spherical distribution)
+      const theta = Math.random() * Math.PI * 2; // Horizontal angle
+      const phi = Math.random() * Math.PI; // Vertical angle
+      const speed = 5 + Math.random() * 15;
+
+      particle.velocity.set(
+        Math.sin(phi) * Math.cos(theta) * speed,
+        Math.cos(phi) * speed * 0.5 + 2, // Bias upward
+        Math.sin(phi) * Math.sin(theta) * speed
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.4 + Math.random() * 0.5; // 0.4-0.9 seconds (longer visible)
+      particle.size = 1.5 + Math.random() * 2.0; // Larger particles
+
+      // Very bright ice colors (more white/cyan)
+      const t = Math.random();
+      if (t < 0.4) {
+        // Pure white core
+        particle.color.setRGB(1.0, 1.0, 1.0);
+      } else if (t < 0.7) {
+        // Very light cyan
+        particle.color.setRGB(0.9, 0.98, 1.0);
+      } else {
+        // Light ice blue
+        particle.color.setRGB(0.8, 0.95, 1.0);
+      }
+    }
+  }
+
+  /**
+   * Spawn ice explosion at geo coordinates
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Height above ground
+   * @param count - Number of particles (default 20)
+   */
+  spawnIceExplosionAtGeo(lat: number, lon: number, height: number, count: number = 20): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnIceExplosion(localPos.x, localPos.y, localPos.z, count);
+  }
+
+  /**
+   * Spawn ice decal on ground (frost patch)
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Terrain height
+   * @param size - Size of the decal (1.0-4.0 meters, default 2.0)
+   * @returns Decal ID
+   */
+  spawnIceDecal(lat: number, lon: number, height: number, size: number = 2.0): string {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    const id = `ice_decal_${this.iceDecalIdCounter++}`;
+
+    // Check if we have room for more decals
+    let decal = this.iceDecals.find((d) => !d.active);
+
+    if (!decal) {
+      // Pool is full - either reuse oldest or create new if under limit
+      if (this.iceDecals.length >= this.MAX_ICE_DECALS) {
+        // Find and reuse the oldest decal
+        let oldest = this.iceDecals[0];
+        for (const d of this.iceDecals) {
+          if (d.spawnTime < oldest.spawnTime) {
+            oldest = d;
+          }
+        }
+        decal = oldest;
+      } else {
+        // Create new decal mesh
+        const mesh = new THREE.Mesh(
+          this.iceDecalGeometry,
+          this.iceDecalMaterial.clone() // Clone material for individual opacity
+        );
+        mesh.rotation.x = -Math.PI / 2; // Lay flat on ground
+        this.scene.add(mesh);
+
+        decal = {
+          id: '',
+          mesh,
+          spawnTime: 0,
+          fadeStartTime: 0,
+          fadeDuration: this.ICE_DECAL_FADE_DURATION,
+          active: false,
+        };
+        this.iceDecals.push(decal);
+      }
+    }
+
+    // Configure decal
+    decal.id = id;
+    decal.active = true;
+    decal.spawnTime = performance.now();
+    decal.fadeStartTime = decal.spawnTime + this.ICE_DECAL_FADE_DELAY;
+
+    // Set position and size
+    decal.mesh.position.copy(localPos);
+    decal.mesh.position.y += 0.12; // Above ground to avoid z-fighting
+
+    // Random rotation around Y axis for variety
+    decal.mesh.rotation.z = Math.random() * Math.PI * 2;
+
+    // Apply size with randomness - ellipse shape for puddle effect
+    const baseSize = size * (0.8 + Math.random() * 0.4);
+    const stretchFactor = 0.6 + Math.random() * 0.8; // 0.6 to 1.4 ratio
+    decal.mesh.scale.set(baseSize * stretchFactor, baseSize / stretchFactor, 1);
+
+    // Reset opacity
+    (decal.mesh.material as THREE.MeshBasicMaterial).opacity = 0.7;
+    decal.mesh.visible = true;
+
+    // Randomize color slightly (very light cyan/white variations)
+    const colorVariation = Math.random() * 0.1;
+    (decal.mesh.material as THREE.MeshBasicMaterial).color.setRGB(
+      0.75 + colorVariation, // More white
+      0.94 + colorVariation * 0.5,
+      1.0
+    );
+
+    return id;
+  }
+
+  /**
    * Spawn floating text at a position (e.g., for rewards, damage numbers, status messages)
    *
    * @param text - The text to display
@@ -1236,6 +1409,27 @@ export class ThreeEffectsRenderer {
         // Calculate fade progress (0-1)
         const fadeProgress = Math.min(elapsed / decal.fadeDuration, 1);
         const opacity = 0.7 * (1 - fadeProgress);
+
+        (decal.mesh.material as THREE.MeshBasicMaterial).opacity = opacity;
+
+        // Mark as inactive when fully faded
+        if (fadeProgress >= 1) {
+          decal.active = false;
+          decal.mesh.visible = false;
+        }
+      }
+    }
+
+    // Update ice decals (faster fading)
+    for (const decal of this.iceDecals) {
+      if (!decal.active) continue;
+
+      const elapsed = now - decal.fadeStartTime;
+
+      if (elapsed > 0) {
+        // Calculate fade progress (0-1)
+        const fadeProgress = Math.min(elapsed / decal.fadeDuration, 1);
+        const opacity = 0.6 * (1 - fadeProgress);
 
         (decal.mesh.material as THREE.MeshBasicMaterial).opacity = opacity;
 
@@ -1500,6 +1694,12 @@ export class ThreeEffectsRenderer {
       decal.mesh.visible = false;
     }
 
+    // Hide all ice decals
+    for (const decal of this.iceDecals) {
+      decal.active = false;
+      decal.mesh.visible = false;
+    }
+
     // Hide all floating texts
     for (const textInstance of this.floatingTexts) {
       textInstance.active = false;
@@ -1540,6 +1740,13 @@ export class ThreeEffectsRenderer {
     }
     this.bloodDecals = [];
 
+    // Dispose ice decals
+    for (const decal of this.iceDecals) {
+      this.scene.remove(decal.mesh);
+      (decal.mesh.material as THREE.Material).dispose();
+    }
+    this.iceDecals = [];
+
     // Dispose floating texts
     for (const textInstance of this.floatingTexts) {
       this.scene.remove(textInstance.sprite);
@@ -1557,5 +1764,7 @@ export class ThreeEffectsRenderer {
     this.trailMaterialNormal?.dispose();
     this.bloodDecalGeometry.dispose();
     this.bloodDecalMaterial.dispose();
+    this.iceDecalGeometry.dispose();
+    this.iceDecalMaterial.dispose();
   }
 }

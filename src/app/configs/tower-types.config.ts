@@ -1,4 +1,4 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper' | 'dual-gatling' | 'rocket';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper' | 'dual-gatling' | 'rocket' | 'ice';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
 export type UpgradeId = 'speed' | 'damage' | 'range';
 
@@ -44,6 +44,7 @@ const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
 const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
 const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
 const CANNON_MODEL_URL = '/assets/models/towers/cannon_tower.glb';
+const ICE_MODEL_URL = '/assets/models/towers/turret_ice1.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -118,7 +119,30 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'cannonball',
     cost: 200,
     sellValue: 120,
-    upgrades: [],
+    upgrades: [
+      {
+        id: 'speed',
+        name: 'Schnellfeuer',
+        description: 'Erhöht die Feuerrate um 50%',
+        cost: 100,
+        maxLevel: 2,
+        effect: {
+          stat: 'fireRate',
+          multiplier: 1.5,
+        },
+      },
+      {
+        id: 'damage',
+        name: 'Verstärkte Ladung',
+        description: 'Erhöht den Schaden um 50%',
+        cost: 120,
+        maxLevel: 3,
+        effect: {
+          stat: 'damage',
+          multiplier: 1.5,
+        },
+      },
+    ],
   },
   magic: {
     id: 'magic',
@@ -180,6 +204,25 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         },
       },
     ],
+  },
+  ice: {
+    id: 'ice',
+    name: 'Ice Tower',
+    modelUrl: ICE_MODEL_URL,
+    scale: 8.0,
+    previewScale: 24.0,
+    heightOffset: 1,
+    shootHeight: 2.5,
+    rotationY: Math.PI / 2,
+    damage: 15, // Low damage - mainly for slow effect
+    range: 60,
+    fireRate: 0.8,
+    projectileType: 'ice-shard',
+    cost: 120,
+    sellValue: 72,
+    canTargetAir: true,
+    canTargetGround: true,
+    upgrades: [],
   },
 };
 

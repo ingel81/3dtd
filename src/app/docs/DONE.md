@@ -175,3 +175,48 @@ Gameplay:
      - Pfad-Validierung: Nur erreichbare Punkte werden akzeptiert
      - Marker wird automatisch an Pfad-Start gesnapped
  [x] Während Development unsere aktuelle Location als Default (Erlenbach)
+
+Input:
+ [x] **WASD in Eingabefeldern blockiert** - Gefixt
+     - Problem: WASD-Tasten für Kamera-Steuerung wurden auch in Eingabefeldern abgefangen
+     - Fix: Keyboard-Events werden in Input-Feldern nicht mehr abgefangen
+
+WaveDebugger:
+ [x] **Anzahl-Slider auf 500 limitiert**
+ [x] **Gegnertyp-Auswahl setzt Speed aus Config**
+     - Bei Auswahl eines Gegnertyps wird dessen Config-Speed im Slider gesetzt
+ [x] **Gegnertyp-Auswahl setzt Health aus Config**
+     - Bei Auswahl eines Gegnertyps wird dessen Config-Health im Slider gesetzt
+ [x] **Vorschaumodell bei Gegnertyp-Auswahl aktualisiert**
+     - Preview-Canvas zeigt korrektes Modell bei Typwechsel
+
+Rendering:
+ [x] **Rocket Tower Helligkeit angepasst**
+     - War dunkler texturiert als andere Tower
+ [x] **Partikeleffekte für Projektile**
+     - Raketen: große Partikel + Explosion
+     - Normale Projektile: kleinere Partikel, keine Explosion
+     - Archer: keine Partikel
+ [x] **Dual Gatling Bogen-Bug gefixt**
+     - Schoss fälschlicherweise im Bogen statt geradeaus
+ [x] **Leuchtspurmunition für Dual Gatling**
+     - Dezente, kleine Leuchtspureffekte implementiert
+ [x] **Cannon, Magic, Sniper Tower deaktiviert**
+     - Vorübergehend aus dem Spiel genommen
+
+LOS:
+ [x] **Statisches Pfad-LOS-Grid** ✓ Implementiert
+     - 2m Grid entlang Route (±7m Korridor)
+     - Bei Tower-Platzierung vorberechnet
+     - O(1) Lookup zur Laufzeit
+     - Shader-basierte Visualisierung mit Pulsing-Animation
+
+Tower:
+ [x] **ICE Tower mit Slow Effekt** ✓ Implementiert
+     - Splash Damage Type (Gegner im Radius betroffen)
+     - Generelles Debuff-System mit Statuseffekten
+     - Kann Air und Ground Targets treffen
+     - Wenig Schaden, primär für Slow-Effekt
+     - Blauer Ice Partikel-Effekt für Projektil-Trail
+     - Eis-Explosion beim Auftreffen
+     - Hellblaue Eis-Decals auf dem Boden (analog Blutflecken)

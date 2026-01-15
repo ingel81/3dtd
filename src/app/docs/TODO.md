@@ -1,27 +1,10 @@
 # Offene TODOs
 Bewerten:
-    [ ] wenn man im Einagebfeldern ist kann man kein WASD Tasten für die Buchstaben mehr tippen
-
-
-WaveDebugger:
-    [x] Anzahl Slider auf 500 limitieren
-    [x] Wenn Gegnertyp im Debugger gewählt wird seinen Speed im Slider setzen den er eigentlich in der Config hat, danach natürlich wieder per slider anpassbar
-    [x] Dito für einen neuen hinzuzufügenden Slider mit seiner Health. Bei Anwahl von gegnertyp die Health im slider setzen die er in der config stehen hat
-    [x] bei anwahl eines neuen gegnertyp daas Vorschaumodell korrekt setzen in der Wavevorschau ("td-enemy-preview-canvas")
-
-Allgemein:
-[x] Rocket Tower muss noch etwas heller werden...gibt es da unterschiede zum Dual Gatling Tower was rendering angeht? kann auch sein dass er einfach dunklere texturiert ist.
-[X] Partikeleffekte für Schüsse (Raketen also Air ist bereits gut, bei normalen Schüssen != Rakten aber kleinere Partikel und keine Explosion beim Auftreffen), Archer Tower nicht
-
-[ ] ICE Tower mit Slow Effekt implementieren, Splash Damage Type (gegner im kleinen Radius betroffen) 
-    [ ] Debuff System mit Statuseffekten die auf gegner wirken können (abhängig von zeit und ort denkbar)
-    [ ] Air targets kann er auch treffen
-    [ ] Model und sound liegen bereits da
-    [ ] Soll kurzeitig rein optisch beim splashen von ice auf die route helllblaue Eisflächen auf dem Boden hinterlassen (ob die einen Effekt haben müssen wenn gegner reinlaufen steht noch aus ob das gut umsetzbar ist nicht zuvie Perf. kostet)
-
-[X] Dual Gatling Tower schießt in einem Bogen...das sollte nicht sein, Bogen nur für Archer.
-[X] Dual Gatling Tower soll eine Art Leuchtspurmunition bekommen (dezent und klein).
-[X] Cannon, Magic und Snipertower mal komplett inaktiv nehmen.
+    [ ] FPS LIMIT auf 60 sinnvoll?
+    [ ] Explosionen bei Rocket Treffern und Cannon Treffern
+    [ ] Keine LOS Berechnung wenn Tower nicht gebaut werden kann
+    [ ] LOS Berechnung performanter machen (Vielleicht gedrosselt machen und stück für Stück einblenden was er berechnet hat)
+    [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
 
 Beobachten bis Testcase wieder da:
 [ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
@@ -33,13 +16,11 @@ Performance:
      [~] Tile-Loading optimiert (downloadQueue.maxJobs=4, parseQueue.maxJobs=1, größerer lruCache) → deutlich flüssiger
      [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
      [ ] ist aber nicht so dramatisch wie es sich anhört.
-
-LOS:
- [x] **Statisches Pfad-LOS-Grid** ✓ Implementiert
-     - 2m Grid entlang Route (±7m Korridor)
-     - Bei Tower-Platzierung vorberechnet
-     - O(1) Lookup zur Laufzeit
-     - Shader-basierte Visualisierung mit Pulsing-Animation
+ [ ] Instanced Decal Rendering - Blood/Ice Decals auf InstancedMesh umstellen
+     - Aktuell: ~250 Draw Calls für separate Meshes
+     - Mit Instancing: 2 Draw Calls (1 Blood-Pool, 1 Ice-Pool)
+     - Pro Instance nur Transform-Matrix updaten statt ganzes Mesh
+     - Könnte bei vielen Decals (500+) spürbar sein, aktuell nicht kritisch
 
 Location-System Bekannte Einschränkungen:
  [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
@@ -47,7 +28,11 @@ Location-System Bekannte Einschränkungen:
      - Mögliche Verbesserung: Alternative Geocoding-API (Photon, Google)
 
 Ideen:
+- [ ] Fette Explosion wenn HQ final kaputt
 - [ ] coole locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
+- [ ] Poison Tower
+- [ ] Magic Tower
+- [ ] Flame Tower
 
 Stashed Features:
 - [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")

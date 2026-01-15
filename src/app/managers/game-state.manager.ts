@@ -7,6 +7,7 @@ import { GameUIStateService } from '../services/game-ui-state.service';
 import { PathAndRouteService } from '../services/path-route.service';
 import { StreetNetwork } from '../services/osm-street.service';
 import { GeoPosition } from '../models/game.types';
+import { StatusEffect } from '../models/status-effects';
 import { GameObject } from '../core/game-object';
 import { Enemy } from '../entities/enemy.entity';
 import { Projectile } from '../entities/projectile.entity';
@@ -43,7 +44,7 @@ export class GameStateManager {
   readonly phase = computed(() => this.waveManager.phase());
   readonly waveNumber = computed(() => this.waveManager.waveNumber());
   readonly towerCount = computed(() => this.towerManager.getAll().length);
-  get enemiesAlive() { return this.enemyManager.aliveCount; }
+  readonly enemiesAlive = computed(() => this.enemyManager.aliveCount());
   readonly selectedTowerId = computed(() => this.towerManager.getSelectedId());
   readonly selectedTower = computed(() => this.towerManager.getSelected());
 
@@ -249,19 +250,70 @@ export class GameStateManager {
   private onProjectileHit(projectile: Projectile, enemy: Enemy): void {
     const splashRadius = projectile.typeConfig.splashRadius;
     const hasSplash = splashRadius && splashRadius > 0;
+    const isIceShard = projectile.typeConfig.id === 'ice-shard';
 
     // Spawn explosion effect for splash damage projectiles
     if (hasSplash && this.tilesEngine) {
-      this.tilesEngine.effects.spawnExplosionAtGeo(
-        enemy.position.lat,
-        enemy.position.lon,
-        enemy.transform.terrainHeight + 2,
-        30 // More particles for explosion
-      );
+      if (isIceShard) {
+        // Ice explosion (cyan particles) - more particles
+        this.tilesEngine.effects.spawnIceExplosionAtGeo(
+          enemy.position.lat,
+          enemy.position.lon,
+          enemy.transform.terrainHeight + 2,
+          35
+        );
+
+        // Multiple ice decals on ground (only for ground units)
+        if (!enemy.typeConfig.isAirUnit) {
+          // Main impact decal (large) - use raycast for accurate height
+          const mainDecalHeight = this.getTerrainHeightForDecal(
+            enemy.position.lat,
+            enemy.position.lon,
+            enemy.transform.terrainHeight
+          );
+          this.tilesEngine.effects.spawnIceDecal(
+            enemy.position.lat,
+            enemy.position.lon,
+            mainDecalHeight,
+            3.5
+          );
+          // Additional smaller decals around impact
+          for (let i = 0; i < 3; i++) {
+            const offsetLat = (Math.random() - 0.5) * 0.00008;
+            const offsetLon = (Math.random() - 0.5) * 0.00008;
+            const decalLat = enemy.position.lat + offsetLat;
+            const decalLon = enemy.position.lon + offsetLon;
+            const decalHeight = this.getTerrainHeightForDecal(
+              decalLat,
+              decalLon,
+              enemy.transform.terrainHeight
+            );
+            this.tilesEngine.effects.spawnIceDecal(
+              decalLat,
+              decalLon,
+              decalHeight,
+              1.5 + Math.random() * 1.5
+            );
+          }
+        }
+      } else {
+        // Normal fire explosion
+        this.tilesEngine.effects.spawnExplosionAtGeo(
+          enemy.position.lat,
+          enemy.position.lon,
+          enemy.transform.terrainHeight + 2,
+          30
+        );
+      }
     }
 
-    // Apply damage to primary target
-    this.applyDamageToEnemy(enemy, projectile.damage, projectile.sourceTowerId);
+    // Apply damage to primary target (skip blood for ice damage)
+    this.applyDamageToEnemy(enemy, projectile.damage, projectile.sourceTowerId, false, isIceShard);
+
+    // Apply slow effect for ice-shard
+    if (isIceShard) {
+      this.applySlowEffect(enemy, 0.5, 3000, projectile.sourceTowerId);
+    }
 
     // Apply splash damage to nearby enemies
     if (hasSplash) {
@@ -284,10 +336,61 @@ export class GameStateManager {
         }
 
         if (splashDamage > 0) {
-          this.applyDamageToEnemy(nearbyEnemy, splashDamage, projectile.sourceTowerId, true);
+          this.applyDamageToEnemy(nearbyEnemy, splashDamage, projectile.sourceTowerId, true, isIceShard);
+        }
+
+        // Apply slow effect and ice decal to splash targets for ice-shard
+        if (isIceShard) {
+          this.applySlowEffect(nearbyEnemy, 0.5, 3000, projectile.sourceTowerId);
+          // Ice decal at each splash target position
+          if (!nearbyEnemy.typeConfig.isAirUnit && this.tilesEngine) {
+            const splashDecalHeight = this.getTerrainHeightForDecal(
+              nearbyEnemy.position.lat,
+              nearbyEnemy.position.lon,
+              nearbyEnemy.transform.terrainHeight
+            );
+            this.tilesEngine.effects.spawnIceDecal(
+              nearbyEnemy.position.lat,
+              nearbyEnemy.position.lon,
+              splashDecalHeight,
+              2.0 + Math.random()
+            );
+          }
         }
       }
     }
+  }
+
+  /**
+   * Get terrain height at geo position with raycast (for accurate decal placement)
+   */
+  private getTerrainHeightForDecal(lat: number, lon: number, fallbackHeight: number): number {
+    if (!this.tilesEngine) return fallbackHeight + 0.15;
+
+    const terrainY = this.tilesEngine.getTerrainHeightAtGeo(lat, lon);
+    if (terrainY === null) return fallbackHeight + 0.15;
+
+    const origin = this.tilesEngine.sync.getOrigin();
+    return terrainY + origin.height + 0.15; // Add small offset to stay above terrain
+  }
+
+  /**
+   * Apply slow effect to an enemy
+   */
+  private applySlowEffect(
+    enemy: Enemy,
+    slowAmount: number,
+    duration: number,
+    sourceId: string
+  ): void {
+    const effect: StatusEffect = {
+      type: 'slow',
+      value: slowAmount,
+      duration,
+      startTime: performance.now(),
+      sourceId,
+    };
+    enemy.movement.applyStatusEffect(effect);
   }
 
   /**
@@ -297,10 +400,11 @@ export class GameStateManager {
     enemy: Enemy,
     damage: number,
     sourceTowerId: string,
-    isSplashDamage = false
+    isSplashDamage = false,
+    skipBloodEffects = false
   ): void {
-    // Spawn blood effects for enemies that can bleed
-    if (enemy.typeConfig.canBleed && this.tilesEngine) {
+    // Spawn blood effects for enemies that can bleed (skip for ice damage)
+    if (enemy.typeConfig.canBleed && this.tilesEngine && !skipBloodEffects) {
       // Blood particle splatter (fewer for splash)
       this.tilesEngine.effects.spawnBloodSplatter(
         enemy.position.lat,
@@ -309,12 +413,17 @@ export class GameStateManager {
         isSplashDamage ? 8 : 15
       );
 
-      // Blood decal on ground (smaller for splash)
+      // Blood decal on ground (smaller for splash) - use raycast for accurate height
       if (!isSplashDamage) {
+        const bloodDecalHeight = this.getTerrainHeightForDecal(
+          enemy.position.lat,
+          enemy.position.lon,
+          enemy.transform.terrainHeight
+        );
         this.tilesEngine.effects.spawnBloodDecal(
           enemy.position.lat,
           enemy.position.lon,
-          enemy.transform.terrainHeight,
+          bloodDecalHeight,
           0.8
         );
       }
@@ -322,7 +431,9 @@ export class GameStateManager {
 
     const killed = enemy.health.takeDamage(damage);
     if (killed) {
-      this.spawnDeathBloodEffect(enemy);
+      if (!skipBloodEffects) {
+        this.spawnDeathBloodEffect(enemy);
+      }
       this.enemyManager.kill(enemy);
 
       const reward = enemy.typeConfig.reward;
@@ -386,11 +497,16 @@ export class GameStateManager {
       40 // More particles for death
     );
 
-    // Large blood decal on ground
+    // Large blood decal on ground - use raycast for accurate height
+    const deathDecalHeight = this.getTerrainHeightForDecal(
+      enemy.position.lat,
+      enemy.position.lon,
+      enemy.transform.terrainHeight
+    );
     this.tilesEngine.effects.spawnBloodDecal(
       enemy.position.lat,
       enemy.position.lon,
-      enemy.transform.terrainHeight,
+      deathDecalHeight,
       2.0 // Larger decal for death
     );
   }

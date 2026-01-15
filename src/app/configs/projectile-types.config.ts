@@ -93,6 +93,24 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 90,
     visualType: 'magic',
     scale: 0.4,
+    splashRadius: 12,
+    splashDamageFalloff: true,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.8,
+      countPerSpawn: 2,
+      colorMin: { r: 0.85, g: 0.95, b: 1.0 }, // Sehr hellblau/weiß
+      colorMax: { r: 1.0, g: 1.0, b: 1.0 }, // Reines Weiß
+      sizeMin: 0.4,
+      sizeMax: 0.8,
+      lifetimeMin: 0.3,
+      lifetimeMax: 0.6,
+      velocityX: { min: -1.5, max: 1.5 },
+      velocityY: { min: -0.5, max: 1.0 },
+      velocityZ: { min: -1.5, max: 1.5 },
+      spawnOffset: 0.3,
+      blending: 'additive',
+    },
   },
   bullet: {
     id: 'bullet',

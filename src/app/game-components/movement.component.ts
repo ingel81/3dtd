@@ -1,6 +1,7 @@
 import { Component, ComponentType } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { GeoPosition } from '../models/game.types';
+import { StatusEffect } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
 
 /**
@@ -15,6 +16,9 @@ export class MovementComponent extends Component {
 
   private segmentLengths: number[] = [];
   paused = false;
+
+  // Status effects (slow, freeze, etc.)
+  statusEffects: StatusEffect[] = [];
 
   // Lateral offset for path variety (perpendicular to movement direction)
   private lateralOffsetMeters = 0;
@@ -102,10 +106,65 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Get effective speed (base speed × multiplier)
+   * Get effective speed (base speed × multiplier × slow effects)
    */
   get effectiveSpeed(): number {
-    return this.speedMps * this.speedMultiplier;
+    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier();
+  }
+
+  /**
+   * Apply a status effect to this entity
+   */
+  applyStatusEffect(effect: StatusEffect): void {
+    // Check if same effect type from same source exists - refresh it
+    const existingIndex = this.statusEffects.findIndex(
+      (e) => e.type === effect.type && e.sourceId === effect.sourceId
+    );
+
+    if (existingIndex >= 0) {
+      // Refresh existing effect
+      this.statusEffects[existingIndex] = effect;
+    } else {
+      this.statusEffects.push(effect);
+    }
+  }
+
+  /**
+   * Remove expired status effects
+   */
+  removeExpiredEffects(): void {
+    const now = performance.now();
+    this.statusEffects = this.statusEffects.filter(
+      (effect) => now - effect.startTime < effect.duration
+    );
+  }
+
+  /**
+   * Calculate combined slow multiplier from all active slow effects
+   * Returns 1.0 if no slow effects, lower values mean slower movement
+   */
+  getSlowMultiplier(): number {
+    const now = performance.now();
+    let slowMultiplier = 1.0;
+
+    for (const effect of this.statusEffects) {
+      if (effect.type === 'slow' && now - effect.startTime < effect.duration) {
+        // Stack slow effects multiplicatively (0.5 * 0.5 = 0.25 = 75% slow)
+        slowMultiplier *= 1 - effect.value;
+      }
+    }
+
+    return slowMultiplier;
+  }
+
+  /**
+   * Check if entity has any active slow effects
+   */
+  isSlowed(): boolean {
+    const now = performance.now();
+    return this.statusEffects.some(
+      (effect) => effect.type === 'slow' && now - effect.startTime < effect.duration
+    );
   }
 
   /**
@@ -122,8 +181,8 @@ export class MovementComponent extends Component {
     const cappedDelta = Math.min(deltaTime, 100);
     const deltaSeconds = cappedDelta / 1000;
 
-    // Movement in meters per frame (with multiplier for run animation etc.)
-    const metersThisFrame = this.speedMps * this.speedMultiplier * deltaSeconds;
+    // Movement in meters per frame (includes slow effects via effectiveSpeed)
+    const metersThisFrame = this.effectiveSpeed * deltaSeconds;
 
     // Current segment length
     const segmentLength = this.segmentLengths[this.currentIndex] || 1;

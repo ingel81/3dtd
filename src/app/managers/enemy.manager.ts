@@ -167,6 +167,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Update components
       enemy.update(deltaTime);
 
+      // Remove expired status effects
+      enemy.movement.removeExpiredEffects();
+
       // Move enemy along path
       const moveResult = enemy.movement.move(deltaTime);
       if (moveResult === 'reached_end') {

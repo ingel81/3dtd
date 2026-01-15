@@ -32,6 +32,12 @@ const PROJECTILE_SOUNDS = {
     rolloffFactor: 1,
     volume: 0.6,
   },
+  'ice-shard': {
+    url: '/assets/sounds/ice_cast.mp3',
+    refDistance: 50,
+    rolloffFactor: 1,
+    volume: 0.4,
+  },
 } as const;
 
 /**
