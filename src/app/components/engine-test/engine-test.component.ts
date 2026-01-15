@@ -4,18 +4,24 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 /**
- * Standalone particle test component for experimenting with particle systems
- * Route: /particle-test
+ * Engine Test Component - Sandbox for testing Three.js features
+ * Route: /engine-test
+ *
+ * Use this for:
+ * - Particle system experiments (ShaderMaterial vs PointsMaterial)
+ * - Shader development without 3D tiles interference
+ * - Performance testing
+ * - New effect prototyping
  */
 @Component({
-  selector: 'app-particle-test',
+  selector: 'app-engine-test',
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="particle-test-container">
+    <div class="engine-test-container">
       <div #canvasContainer class="canvas-container"></div>
       <div class="controls">
-        <h2>Particle System Test</h2>
+        <h2>Engine Test Sandbox</h2>
 
         <div class="control-group">
           <h3>Spawn Particles</h3>
@@ -57,7 +63,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     </div>
   `,
   styles: [`
-    .particle-test-container {
+    .engine-test-container {
       display: flex;
       width: 100vw;
       height: 100vh;
@@ -110,7 +116,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     .stats p { margin: 5px 0; }
   `]
 })
-export class ParticleTestComponent implements OnInit, OnDestroy {
+export class EngineTestComponent implements OnInit, OnDestroy {
   @ViewChild('canvasContainer', { static: true }) canvasContainer!: ElementRef;
 
   // Three.js objects

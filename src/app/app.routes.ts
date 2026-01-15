@@ -9,10 +9,10 @@ export const routes: Routes = [
       ),
   },
   {
-    path: 'particle-test',
+    path: 'engine-test',
     loadComponent: () =>
-      import('./components/particle-test/particle-test.component').then(
-        m => m.ParticleTestComponent
+      import('./components/engine-test/engine-test.component').then(
+        m => m.EngineTestComponent
       ),
   },
 ];

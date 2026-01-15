@@ -153,11 +153,10 @@ export class ThreeEffectsRenderer {
       blending: THREE.AdditiveBlending,
     });
 
-    // Simple PointsMaterial for additive blending (fire, tracers, glow effects)
-    // Note: PointsMaterial with vertexColors supports per-particle colors
-    // Size is uniform for all particles (limitation of PointsMaterial)
+    // PointsMaterial for additive blending (fire, tracers, glow effects)
+    // Note: PointsMaterial works correctly with 3D tiles, ShaderMaterial has depth issues
     this.trailMaterialAdditive = new THREE.PointsMaterial({
-      size: 0.8, // Smaller for bullet tracers
+      size: 1.5,
       transparent: true,
       opacity: 0.9,
       sizeAttenuation: true,
@@ -166,7 +165,7 @@ export class ThreeEffectsRenderer {
       vertexColors: true,
     });
 
-    // Simple PointsMaterial for normal blending (smoke, opaque particles)
+    // PointsMaterial for normal blending (smoke, opaque particles)
     this.trailMaterialNormal = new THREE.PointsMaterial({
       size: 2.0,
       transparent: true,
@@ -204,6 +203,7 @@ export class ThreeEffectsRenderer {
 
     this.bloodParticles = new THREE.Points(bloodGeometry, this.bloodMaterial);
     this.bloodParticles.frustumCulled = false;
+    this.bloodParticles.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.bloodParticles);
 
     // Initialize blood pool
@@ -228,6 +228,7 @@ export class ThreeEffectsRenderer {
 
     this.fireParticles = new THREE.Points(fireGeometry, this.fireMaterial);
     this.fireParticles.frustumCulled = false;
+    this.fireParticles.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.fireParticles);
 
     // Initialize fire pool
@@ -254,6 +255,7 @@ export class ThreeEffectsRenderer {
 
     this.trailParticlesAdditive = new THREE.Points(trailGeometryAdditive, this.trailMaterialAdditive!);
     this.trailParticlesAdditive.frustumCulled = false;
+    this.trailParticlesAdditive.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.trailParticlesAdditive);
 
     // Initialize additive trail pool
@@ -280,6 +282,7 @@ export class ThreeEffectsRenderer {
 
     this.trailParticlesNormal = new THREE.Points(trailGeometryNormal, this.trailMaterialNormal!);
     this.trailParticlesNormal.frustumCulled = false;
+    this.trailParticlesNormal.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.trailParticlesNormal);
 
     // Initialize normal trail pool
