@@ -176,6 +176,13 @@ export class Projectile extends GameObject {
   }
 
   /**
+   * Check if this projectile has arc trajectory (arrows, cannonballs)
+   */
+  get hasArcTrajectory(): boolean {
+    return this.typeConfig.id === 'arrow' || this.typeConfig.id === 'cannonball';
+  }
+
+  /**
    * Move towards target enemy
    * @returns true if hit target, false otherwise
    */
@@ -216,12 +223,70 @@ export class Projectile extends GameObject {
       );
     }
 
+    // Update direction for arc trajectory projectiles (tangent to parabola)
+    if (this.hasArcTrajectory) {
+      this._direction = this.calculateArcTangentDirection();
+    }
+
     return false;
   }
 
   /**
+   * Calculate tangent direction for arc trajectory projectiles
+   * Returns normalized direction vector tangent to the parabolic arc
+   */
+  private calculateArcTangentDirection(): { dx: number; dy: number; dz: number } {
+    const targetPos = this.targetEnemy.position;
+    const progress = this.flightProgress;
+
+    // Horizontal direction (unchanged - always points towards target)
+    const dLon = targetPos.lon - this.position.lon;
+    const dLat = targetPos.lat - this.position.lat;
+    const dx = -dLon * 100000;
+    const dz = dLat * 100000;
+
+    // Calculate horizontal magnitude for proper scaling
+    const horizontalMag = Math.sqrt(dx * dx + dz * dz);
+
+    // Calculate vertical tangent slope based on arc type
+    // Derivative of arc: d(arcOffset)/d(progress) = maxArc * 4 * (1 - 2*progress)
+    let arcSlope = 0;
+
+    if (this.typeConfig.id === 'arrow') {
+      const maxArcHeight = Math.min(this._totalDistance * 0.05, 10);
+      arcSlope = maxArcHeight * 4 * (1 - 2 * progress);
+    } else if (this.typeConfig.id === 'cannonball') {
+      const maxArcHeight = Math.min(this._totalDistance * 0.15, 25);
+      arcSlope = maxArcHeight * 4 * (1 - 2 * progress);
+    }
+
+    // Scale vertical component relative to horizontal travel
+    // arcSlope is in meters per unit progress, convert to match horizontal scale
+    const dy = arcSlope * (horizontalMag / this._totalDistance);
+
+    // Also add the base height change (linear from start to target)
+    const targetHeight = this.getTargetHeight();
+    const baseHeightSlope = (targetHeight - this._startHeight) / this._totalDistance;
+    const dyBase = baseHeightSlope * horizontalMag;
+
+    const totalDy = dy + dyBase;
+
+    // Normalize
+    const length = Math.sqrt(dx * dx + totalDy * totalDy + dz * dz);
+    if (length < 0.001) {
+      return { dx: 0, dy: 0, dz: 1 };
+    }
+
+    return {
+      dx: dx / length,
+      dy: totalDy / length,
+      dz: dz / length,
+    };
+  }
+
+  /**
    * Calculate flight height at current position
-   * Creates a slight arc trajectory for arrow projectiles
+   * Creates arc trajectories for arrow and cannonball projectiles
    * Homing projectiles (rockets) and bullets fly straight to target
    */
   private calculateFlightHeight(): number {
@@ -236,18 +301,23 @@ export class Projectile extends GameObject {
       return baseHeight;
     }
 
-    // Only arrows have arc trajectory - bullets and other projectiles fly straight
-    if (this.typeConfig.id !== 'arrow') {
-      return baseHeight;
+    // Arc trajectory for arrows: slight arc
+    if (this.typeConfig.id === 'arrow') {
+      const maxArcHeight = Math.min(this._totalDistance * 0.05, 10);
+      const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
+      return baseHeight + arcOffset;
     }
 
-    // Add arc for arrow projectiles: parabolic curve that peaks at midpoint
-    // arcHeight = maxArc * 4 * progress * (1 - progress)
-    // This gives 0 at progress=0, maxArc at progress=0.5, 0 at progress=1
-    const maxArcHeight = Math.min(this._totalDistance * 0.05, 10); // Arc height proportional to distance, max 10m
-    const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
+    // Arc trajectory for cannonballs: higher parabolic arc (~20° launch angle)
+    if (this.typeConfig.id === 'cannonball') {
+      // Higher arc for cannonballs - proportional to distance
+      const maxArcHeight = Math.min(this._totalDistance * 0.15, 25);
+      const arcOffset = maxArcHeight * 4 * progress * (1 - progress);
+      return baseHeight + arcOffset;
+    }
 
-    return baseHeight + arcOffset;
+    // All other projectiles (bullets, etc.) fly straight
+    return baseHeight;
   }
 
   /**

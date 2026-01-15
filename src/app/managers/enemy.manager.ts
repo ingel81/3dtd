@@ -139,14 +139,18 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     enemy.stopMoving();
 
-    // Play death animation
-    this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
-
-    // Remove after death animation completes
-    setTimeout(() => {
+    // If enemy has death animation, play it and wait before removing
+    if (enemy.typeConfig.deathAnimation) {
+      this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
+      setTimeout(() => {
+        this.killingEnemies.delete(enemy.id);
+        this.remove(enemy);
+      }, 2000);
+    } else {
+      // No death animation - remove immediately
       this.killingEnemies.delete(enemy.id);
       this.remove(enemy);
-    }, 2000);
+    }
   }
 
   /**

@@ -26,6 +26,12 @@ const PROJECTILE_SOUNDS = {
     rolloffFactor: 1,
     volume: 0.7,
   },
+  cannonball: {
+    url: '/assets/sounds/cannon_01.mp3',
+    refDistance: 70, // Cannons are loud
+    rolloffFactor: 1,
+    volume: 0.6,
+  },
 } as const;
 
 /**
@@ -142,8 +148,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
         toRemove.push(projectile);
       } else {
         // Update visual position
-        if (projectile.isHoming) {
-          // Homing projectiles (rockets) update rotation continuously
+        if (projectile.isHoming || projectile.hasArcTrajectory) {
+          // Homing and arc projectiles update rotation continuously
           this.tilesEngine?.projectiles.updateWithRotation(
             projectile.id,
             projectile.position.lat,
@@ -153,12 +159,24 @@ export class ProjectileManager extends EntityManager<Projectile> {
           );
 
           // Spawn rocket trail particles
-          this.tilesEngine?.effects.spawnRocketTrailAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            2 // 2 particles per frame
-          );
+          if (projectile.isHoming) {
+            this.tilesEngine?.effects.spawnRocketTrailAtGeo(
+              projectile.position.lat,
+              projectile.position.lon,
+              projectile.flightHeight,
+              2 // 2 particles per frame
+            );
+          }
+
+          // Spawn subtle smoke trail for cannonballs - very sparse
+          if (projectile.typeConfig.id === 'cannonball' && Math.random() < 0.3) {
+            this.tilesEngine?.effects.spawnCannonSmokeAtGeo(
+              projectile.position.lat,
+              projectile.position.lon,
+              projectile.flightHeight,
+              1 // 1 particle, only 30% of frames
+            );
+          }
         } else {
           // Regular projectiles keep fixed rotation
           this.tilesEngine?.projectiles.update(

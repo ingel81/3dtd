@@ -43,6 +43,7 @@ const ARCHER_MODEL_URL = '/assets/models/towers/tower_archer.glb';
 const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
 const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
 const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
+const CANNON_MODEL_URL = '/assets/models/towers/cannon_tower.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -105,10 +106,12 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   cannon: {
     id: 'cannon',
     name: 'Cannon Tower',
-    modelUrl: ARCHER_MODEL_URL, // TODO: Replace with tower_cannon.glb when available
-    scale: 2.0,
-    heightOffset: 2.0,
-    shootHeight: 10, // Cannon position
+    modelUrl: CANNON_MODEL_URL,
+    scale: 3.0,
+    previewScale: 7.0,
+    heightOffset: 2.5,
+    shootHeight: 3, // Cannon barrel height
+    rotationY: 0,
     damage: 75,
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)

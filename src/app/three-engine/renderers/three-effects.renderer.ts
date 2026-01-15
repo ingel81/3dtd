@@ -653,6 +653,47 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * Spawn subtle cannon smoke at local position
+   * Very subtle black/dark grey particles for cannonball trails
+   */
+  spawnCannonSmoke(localX: number, localY: number, localZ: number, count: number = 1): void {
+    for (let i = 0; i < count; i++) {
+      const particle = this.getInactiveParticle(this.trailPool);
+      if (!particle) break;
+
+      // Spawn at cannonball position with small random offset
+      particle.position.set(
+        localX + (Math.random() - 0.5) * 0.3,
+        localY + (Math.random() - 0.5) * 0.3,
+        localZ + (Math.random() - 0.5) * 0.3
+      );
+
+      // Slow drift upward and outward
+      particle.velocity.set(
+        (Math.random() - 0.5) * 1.5,
+        0.5 + Math.random() * 1.0, // Drift upward
+        (Math.random() - 0.5) * 1.5
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.3 + Math.random() * 0.4; // 0.3-0.7 seconds
+      particle.size = 0.4 + Math.random() * 0.4; // Small particles
+
+      // Dark grey/black smoke color
+      const grey = 0.1 + Math.random() * 0.15; // 0.1-0.25 (very dark)
+      particle.color.setRGB(grey, grey, grey);
+    }
+  }
+
+  /**
+   * Spawn cannon smoke at geo coordinates
+   */
+  spawnCannonSmokeAtGeo(lat: number, lon: number, height: number, count: number = 1): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnCannonSmoke(localPos.x, localPos.y, localPos.z, count);
+  }
+
+  /**
    * Spawn explosion effect at local position
    * Used for rocket impacts and other explosions
    *
