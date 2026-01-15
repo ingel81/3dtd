@@ -8,4 +8,11 @@ export const routes: Routes = [
         m => m.TowerDefenseComponent
       ),
   },
+  {
+    path: 'particle-test',
+    loadComponent: () =>
+      import('./components/particle-test/particle-test.component').then(
+        m => m.ParticleTestComponent
+      ),
+  },
 ];

@@ -271,4 +271,42 @@ export class EnemyManager extends EntityManager<Enemy> {
   getAliveCount(): number {
     return this.getAlive().length;
   }
+
+  /**
+   * Get all alive enemies within a radius of a geo position
+   * @param center - Center point (lat, lon)
+   * @param radiusMeters - Radius in meters
+   * @param excludeId - Optional enemy ID to exclude (e.g., the primary target)
+   */
+  getEnemiesInRadius(
+    center: { lat: number; lon: number },
+    radiusMeters: number,
+    excludeId?: string
+  ): Enemy[] {
+    return this.getAlive().filter((enemy) => {
+      if (excludeId && enemy.id === excludeId) return false;
+      const dist = this.calculateDistance(center, enemy.position);
+      return dist <= radiusMeters;
+    });
+  }
+
+  /**
+   * Calculate distance between two geo positions in meters
+   */
+  private calculateDistance(
+    pos1: { lat: number; lon: number },
+    pos2: { lat: number; lon: number }
+  ): number {
+    const R = 6371000; // Earth radius in meters
+    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
+    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((pos1.lat * Math.PI) / 180) *
+        Math.cos((pos2.lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
+  }
 }

@@ -826,6 +826,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
+    // Debug: Toggle 3D tiles visibility with 'T' key
+    if (event.key === 't' || event.key === 'T') {
+      if (this.engine) {
+        const currentlyVisible = this.engine.areTilesVisible();
+        this.engine.setTilesVisible(!currentlyVisible);
+        event.preventDefault();
+        return;
+      }
+    }
+
     // Build mode keys
     if (!this.towerPlacement.buildMode()) return;
 

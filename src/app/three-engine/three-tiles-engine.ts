@@ -1241,6 +1241,33 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Toggle 3D tiles visibility (for debugging particle rendering issues)
+   * When hidden, tiles are removed from scene but still update in background
+   */
+  setTilesVisible(visible: boolean): void {
+    if (!this.tilesRenderer) return;
+
+    if (visible) {
+      if (!this.tilesRenderer.group.parent) {
+        this.scene.add(this.tilesRenderer.group);
+        console.log('[ThreeTilesEngine] 3D Tiles visible');
+      }
+    } else {
+      if (this.tilesRenderer.group.parent) {
+        this.scene.remove(this.tilesRenderer.group);
+        console.log('[ThreeTilesEngine] 3D Tiles hidden');
+      }
+    }
+  }
+
+  /**
+   * Check if 3D tiles are currently visible
+   */
+  areTilesVisible(): boolean {
+    return this.tilesRenderer?.group.parent !== null;
+  }
+
+  /**
    * Get Three.js renderer
    */
   getRenderer(): THREE.WebGLRenderer {

@@ -247,26 +247,80 @@ export class GameStateManager {
    * Handle projectile hitting an enemy
    */
   private onProjectileHit(projectile: Projectile, enemy: Enemy): void {
+    const splashRadius = projectile.typeConfig.splashRadius;
+    const hasSplash = splashRadius && splashRadius > 0;
+
+    // Spawn explosion effect for splash damage projectiles
+    if (hasSplash && this.tilesEngine) {
+      this.tilesEngine.effects.spawnExplosionAtGeo(
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight + 2,
+        30 // More particles for explosion
+      );
+    }
+
+    // Apply damage to primary target
+    this.applyDamageToEnemy(enemy, projectile.damage, projectile.sourceTowerId);
+
+    // Apply splash damage to nearby enemies
+    if (hasSplash) {
+      const nearbyEnemies = this.enemyManager.getEnemiesInRadius(
+        enemy.position,
+        splashRadius,
+        enemy.id // Exclude primary target
+      );
+
+      const useFalloff = projectile.typeConfig.splashDamageFalloff !== false;
+
+      for (const nearbyEnemy of nearbyEnemies) {
+        let splashDamage = projectile.damage;
+
+        if (useFalloff) {
+          // Calculate distance-based falloff
+          const dist = this.calculateGeoDistance(enemy.position, nearbyEnemy.position);
+          const falloff = 1 - (dist / splashRadius); // 1.0 at center, 0.0 at edge
+          splashDamage = Math.floor(projectile.damage * falloff);
+        }
+
+        if (splashDamage > 0) {
+          this.applyDamageToEnemy(nearbyEnemy, splashDamage, projectile.sourceTowerId, true);
+        }
+      }
+    }
+  }
+
+  /**
+   * Apply damage to an enemy and handle death
+   */
+  private applyDamageToEnemy(
+    enemy: Enemy,
+    damage: number,
+    sourceTowerId: string,
+    isSplashDamage = false
+  ): void {
     // Spawn blood effects for enemies that can bleed
     if (enemy.typeConfig.canBleed && this.tilesEngine) {
-      // Blood particle splatter
+      // Blood particle splatter (fewer for splash)
       this.tilesEngine.effects.spawnBloodSplatter(
         enemy.position.lat,
         enemy.position.lon,
         enemy.transform.terrainHeight + 1,
-        15 // Fewer particles for hits
+        isSplashDamage ? 8 : 15
       );
 
-      // Blood decal on ground (small)
-      this.tilesEngine.effects.spawnBloodDecal(
-        enemy.position.lat,
-        enemy.position.lon,
-        enemy.transform.terrainHeight,
-        0.8 // Small decal for hit
-      );
+      // Blood decal on ground (smaller for splash)
+      if (!isSplashDamage) {
+        this.tilesEngine.effects.spawnBloodDecal(
+          enemy.position.lat,
+          enemy.position.lon,
+          enemy.transform.terrainHeight,
+          0.8
+        );
+      }
     }
 
-    const killed = enemy.health.takeDamage(projectile.damage);
+    const killed = enemy.health.takeDamage(damage);
     if (killed) {
       this.spawnDeathBloodEffect(enemy);
       this.enemyManager.kill(enemy);
@@ -282,7 +336,7 @@ export class GameStateManager {
           enemy.position.lon,
           enemy.transform.terrainHeight + 5,
           {
-            color: '#FFD700', // Gold
+            color: '#FFD700',
             duration: 1200,
             floatSpeed: 1.5,
             scale: 2.5,
@@ -291,11 +345,31 @@ export class GameStateManager {
       }
 
       // Track kill on the source tower
-      const sourceTower = this.towerManager.getById(projectile.sourceTowerId);
+      const sourceTower = this.towerManager.getById(sourceTowerId);
       if (sourceTower) {
         sourceTower.combat.kills++;
       }
     }
+  }
+
+  /**
+   * Calculate distance between two geo positions in meters
+   */
+  private calculateGeoDistance(
+    pos1: { lat: number; lon: number },
+    pos2: { lat: number; lon: number }
+  ): number {
+    const R = 6371000;
+    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
+    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((pos1.lat * Math.PI) / 180) *
+        Math.cos((pos2.lat * Math.PI) / 180) *
+        Math.sin(dLon / 2) *
+        Math.sin(dLon / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+    return R * c;
   }
 
   /**

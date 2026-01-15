@@ -157,26 +157,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
             projectile.flightHeight,
             projectile.direction
           );
-
-          // Spawn rocket trail particles
-          if (projectile.isHoming) {
-            this.tilesEngine?.effects.spawnRocketTrailAtGeo(
-              projectile.position.lat,
-              projectile.position.lon,
-              projectile.flightHeight,
-              2 // 2 particles per frame
-            );
-          }
-
-          // Spawn subtle smoke trail for cannonballs - very sparse
-          if (projectile.typeConfig.id === 'cannonball' && Math.random() < 0.3) {
-            this.tilesEngine?.effects.spawnCannonSmokeAtGeo(
-              projectile.position.lat,
-              projectile.position.lon,
-              projectile.flightHeight,
-              1 // 1 particle, only 30% of frames
-            );
-          }
         } else {
           // Regular projectiles keep fixed rotation
           this.tilesEngine?.projectiles.update(
@@ -185,16 +165,17 @@ export class ProjectileManager extends EntityManager<Projectile> {
             projectile.position.lon,
             projectile.flightHeight
           );
+        }
 
-          // Spawn tracer trail for bullets (Dual Gatling) - subtle effect
-          if (projectile.typeConfig.id === 'bullet') {
-            this.tilesEngine?.effects.spawnBulletTracerAtGeo(
-              projectile.position.lat,
-              projectile.position.lon,
-              projectile.flightHeight,
-              1 // 1 small particle per frame for subtle tracer
-            );
-          }
+        // Spawn trail particles if configured
+        const trailConfig = projectile.typeConfig.trailParticles;
+        if (trailConfig?.enabled && this.tilesEngine) {
+          this.tilesEngine.effects.spawnConfigurableTrailAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            trailConfig
+          );
         }
       }
     }
