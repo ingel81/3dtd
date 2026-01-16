@@ -65,9 +65,13 @@ src/app/
 | [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
 | [FRAME_TIMING_FIXES.md](src/app/docs/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme & Lösungen |
 | [TODO.md](src/app/docs/TODO.md) | Offene Aufgaben |
-| [DONE.md](src/app/docs/DONE.md) | Erledigte Aufgaben |
+| [DONE.md](src/app/docs/DONE.md) | Changelog (chronologisch, neueste zuerst) |
 
-**Hinweis zu TODO/DONE:** Diese Listen werden automatisch gepflegt. Einträge werden jedoch **nur auf menschlichen Zuruf** von TODO nach DONE verschoben.
+**Hinweis zu TODO/DONE:**
+- **TODO.md** enthält offene Aufgaben, gruppiert nach Priorität und Bereich
+- **DONE.md** ist ein chronologischer Changelog mit Datumsabschnitten (neueste zuerst)
+- Einträge werden **nur auf menschlichen Zuruf** von TODO nach DONE verschoben
+- Bei neuen Einträgen in DONE.md immer das aktuelle Datum als Section verwenden
 
 ## Tech Stack
 

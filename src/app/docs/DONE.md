@@ -1,239 +1,188 @@
-# Erledigte Features & Fixes
+# Changelog
 
-Fixes:
- [x] **CesiumIonAuthPlugin Import-Pfad aktualisiert**
-     - Warning: "Plugin has been moved to 3d-tiles-renderer/core/plugins"
-     - Fix: Import-Pfad in three-tiles-engine.ts von `'3d-tiles-renderer/plugins'` auf `'3d-tiles-renderer/core/plugins'` geändert
+Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
-Allgemein:
- [x] **Koordinaten-Paste im Location-Dialog**
-     - Eingabefelder für HQ-Koordinaten akzeptieren kombinierte lat/lon beim Paste
-     - Unterstützte Formate: Dezimal (49.123, 9.456), DMS, Cardinal (N/S/E/W), Google Maps URLs
-     - Automatisches Parsen und Aufspliten in Lat/Lon-Felder
- [x] **Route-Animation (Knight Rider Effekt)**
-     - Animierte Visualisierung der Gegner-Route beim Spielstart
-     - Leuchtende rote/orange Dashes laufen von Spawn → HQ
-     - 3 Durchläufe, dann Fade-Out
-     - Line2 + LineMaterial für dicke Linien (5px)
-     - dashOffset-Animation für Bewegungseffekt
-     - Pulsierender Glow + Farbshift für Eyecatcher-Effekt
-     - Debug-Button im Dev-Menü zum manuellen Auslösen
-     - RouteAnimationService in services/route-animation.service.ts
- [x] **Route-Animation Timing & Optik optimiert**
-     - Animation auf 1/3 der Zeit verkürzt
-     - Sanfteres Ein-/Ausfaden mit minimalen Unterschieden in der Rottönung
-     - Animation stoppt erst nach dem Ausblenden (nicht vorher)
+---
 
-Bug:
- [x] Feuer am HQ bei Damage durch Gegner funktioniert jetzt zuverlässig
- [x] Gegner laufen am HQ angekommen die letzte Etappe in der Luft
-     - Fix: Gegner bleiben am Boden und laufen ins Gebäude rein
- [x] ist ein turm selektiert und man macht mit der LMB ein Pan und lässt los, wird der turm deselektiert. das soll nicht sein
-     - Fix: Pointerdown mit capture tracken, Pixel-Distanz prüfen (> 5px = Pan)
-     - Direkte Mesh-Raycasting für Tower-Selektion (statt Terrain-basiert)
- [x] Tower Selektion/Deselektion funktionierte nicht zuverlässig nach erstem Select
-     - Fix: Frischen THREE.Raycaster() pro Aufruf erstellen
-     - Grund: LoS-Raycasting korrumpierte den geteilten Raycaster-Zustand
+## 2026-01-16
 
-Performance:
- [x] **Animationen laufen langsamer bei niedrigen FPS** - Gefixt
-     - Ursache war hardcoded 16ms statt echter deltaTime
-     - Fix: Echte deltaTime Berechnung in three-tiles-engine.ts
- [x] **Straßen-Overlay FPS-Drop gefixt** (35 FPS → 144 FPS)
-     - Problem: 200-600 separate THREE.Line Objekte mit je geklontem Material
-     - Jede Straße = 1 Draw Call → 200-600 Draw Calls
-     - Fix: Alle Straßensegmente in ein THREE.LineSegments mit Merged BufferGeometry
-     - Ergebnis: 1 Draw Call statt 600+, ~10x bessere Performance
-     - Datei: tower-defense.component.ts, renderStreets()
- [x] **Straßen-Rendering in großen Städten optimiert** (Berlin: 14s → <1s)
-     - Problem: renderStreets() rief getTerrainHeightAtGeo() für jeden Node auf
-     - Bei Berlin: 12 MB Straßendaten = ~50.000 Nodes = 50.000 Raycasts pro Render
-     - renderStreets wurde 5x aufgerufen (onTilesLoaded) = ~75 Sekunden total
-     - Fix: Route-Korridor-Filterung
-       1. Volle Straßendaten laden (für A* Pathfinding)
-       2. Route berechnen
-       3. Nur Straßen im 100m-Korridor um Route behalten
-       4. Rest verwerfen vor dem Rendering
-     - Ergebnis: 5000 → 150 Straßen, 50.000 → 1.500 Nodes
-     - Dateien: osm-street.service.ts (filterStreetsNearRoutes), tower-defense.component.ts
- [x] **A* Graph-Caching**
-     - Problem: buildGraph() wurde bei jedem findPath() Aufruf neu erstellt
-     - Fix: Graph einmal bauen und cachen (getOrBuildGraph)
-     - Datei: osm-street.service.ts
+### Dokumentation
+- [x] **DONE.md zu Changelog umstrukturiert**
+  - Chronologische Sortierung (neueste zuerst)
+  - Datumsabschnitte für bessere Übersicht
+- [x] **CLAUDE.md aktualisiert**
+  - TODO/DONE Beschreibung erweitert (Changelog-Format erklärt)
+  - Service/Manager-Anzahl war bereits korrekt (19/7)
+  - Dokumentations-Tabelle bereits vollständig
+- [x] **src/app/README.md gelöscht**
+  - Komplett veraltet (POC-Status, falsche Tower-Liste, alte APIs)
+  - Ersetzt durch CLAUDE.md und docs/
 
-Allgemein:
- [x] Soundlaustärke abhängig von Kamerentfernung (kein cutoff - natürliches Verhalten)
-     - SpatialAudioManager mit Three.js PositionalAudio implementiert
-     - Sounds werden automatisch leiser bei Entfernung (inverse distance model)
-     - Siehe docs/SPATIAL_AUDIO.md
+### Effects & Explosions
+- [x] **Projektile fliegen weiter wenn Ziel stirbt**
+  - Projektil speichert letzte Zielposition wenn Gegner mid-flight stirbt
+  - Flugbahn wird fortgesetzt zur letzten bekannten Position
+  - Explosion am Boden (terrainHeight + 1)
+  - Kein Damage-Handler bei Ground-Impact (nur visueller Effekt)
+  - Betrifft alle Projektiltypen (Cannon, Rocket, Ice, etc.)
+- [x] **Explosionshöhe für Air Units korrigiert**
+  - Ice/Fire Explosionen erscheinen jetzt auf korrekter Höhe bei Luftgegnern
+  - Berechnung: terrainHeight + heightOffset (+ 2 nur für Bodeneinheiten)
+  - Fledermäuse: Explosion auf 15m Flughöhe statt am Boden
+- [x] **HQ Explosion bei Zerstörung**
+  - Massive 3-Phasen-Explosion (1350 Partikel total)
+  - Phase 1: 450 Partikel zentrale Explosion
+  - Phase 2: 600 Partikel Ring-Expansion
+  - Phase 3: 300 Partikel aufsteigende Glut
+  - Bestehendes Feuer wird zu Inferno skaliert (nicht ersetzt)
+  - Feuer bleibt permanent (auch während Game Over Screen)
+  - Game Over Screen nach 3 Sekunden
+- [x] **Explosionen bei Rocket/Cannon Treffern**
+  - Rocket: 50 Partikel, Radius 8
+  - Cannon: 35 Partikel, Radius 6
+  - Konfigurierbar via EXPLOSION_PRESETS in visual-effects.config.ts
 
-Gegner:
- [x] **Spawn-Verhalten optimiert**
-     - Gegner spawnen verzögert (konfigurierbar via Slider)
-     - "Gegner sammeln sich..." Phase optional (Gathering Mode)
-     - Verzögerter Start: Gegner laufen nacheinander los statt im Pulk
- [x] Blutsystem (Gegner hinterlassen Blutflecken bei Treffer und Tod)
-     - ThreeEffectsRenderer.spawnBloodSplatter() für Partikel-Effekte
-     - ThreeEffectsRenderer.spawnBloodDecal() für persistente Blutflecken am Boden
-     - Bei Treffer: kleine Blut-Partikel (15) + kleiner Decal (0.8m)
-     - Bei Tod: große Blut-Partikel (40) + großer Decal (2.0m)
-     - Decals faden nach 20s aus (über 10s)
+### Code Quality (Expert Review Quick Wins)
+- [x] **visual-effects.config.ts erstellen** - Partikel/Decal-Configs zentralisiert
+  - Neues `configs/visual-effects.config.ts` mit PARTICLE_LIMITS, DECAL_CONFIG, FIRE_INTENSITY, EXPLOSION_PRESETS, EFFECT_COLORS
+  - Entfernt hardcoded Werte aus three-effects.renderer.ts
+- [x] **audio.config.ts erstellen** - Sound-Configs zentralisiert
+  - Neues `configs/audio.config.ts` mit AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, SPATIAL_AUDIO_DEFAULTS, GAME_SOUNDS
+  - Entfernt aus: spatial-audio.manager.ts, game-state.manager.ts
+- [x] **game-balance.config.ts erstellen** - Game Balance Werte zentralisiert
+  - Neues `configs/game-balance.config.ts` mit player, waves, combat, effects, fire
+  - Entfernt hardcoded Werte aus game-state.manager.ts
+- [x] **PROJECTILE_SOUNDS in Config verschoben**
+  - Sound-Konfiguration von projectile.manager.ts nach projectile-types.config.ts
+  - Saubere Config-Struktur mit Interface `ProjectileSoundConfig`
+- [x] **placement.config.ts erstellen** - Placement-Constraints dedupliziert
+  - Neues `configs/placement.config.ts` mit MIN/MAX_DISTANCE Konstanten
+  - Entfernt aus: tower.manager.ts, tower-placement.service.ts
+- [x] **Reusable Vectors in ProjectileRenderer** - Object Allocation in Update-Loop eliminiert
+  - Statische `_tempPos`, `_tempRot`, `_tempScale` in ProjectileInstanceManager
+  - Keine `new Vector3()`/`new Quaternion()` mehr pro Frame
+- [x] **GeoUtilsService erstellen** - Haversine-Distanzberechnung 5x dedupliziert
+  - Neues `utils/geo-utils.ts` mit `haversineDistance()`, `fastDistance()`, `geoDistance()`
+  - Entfernt aus: enemy.manager.ts, tower.manager.ts, game-state.manager.ts, projectile.entity.ts, movement.component.ts
 
-Projektile:
- [x] Sichtbarkeit (erledigt)
- [x] **Line-of-Sight für Projektile**
-     - Projektile erreichen Ziel nur bei bestehender Sichtverbindung zum Gegner
+---
 
-Türme:
- [x] Sollen selektiert werden können
-     - Klick auf Tower selektiert ihn (15m Click-Radius)
-     - Selection Ring Animation mit Pulse-Effekt
-     - Radius-Anzeige wird eingeblendet
-     - Bug-Fix: geoToLocalSimple statt geoToLocal für korrekte Distanzberechnung
- [x] Tower-Details in Sidebar bei Selektion
-     - TOWER Section zeigt: Name, Schaden, Reichweite, Feuerrate, Kills
-     - Verkaufen-Button (50% Erstattung)
-     - Upgrade-Button (disabled, "Bald verfuegbar")
- [x] Benötigen eine Radius-Anzeige wenn selektiert (diese soll wirklich satt auf dem Terrain liegen)
-     - TerrainRaycaster: Direktes Raycasting für lokale X,Z Koordinaten
-     - createTerrainDiscGeometryRaycast() + createTerrainEdgePointsRaycast()
-     - Passt sich automatisch an Terrain-Höhen an
- [x] Hex-Grid Line-of-Sight Visualisierung
-     - Flat-Top Hexagon-Grid über Turm-Reichweite
-     - Grün = sichtbar, Rot = blockiert (durch Gebäude)
-     - LineOfSightRaycaster raycastet von Turm-Spitze zu Hex-Zellen
-     - hasLineOfSight() API für Targeting-Entscheidungen
-     - Gebäude-Verdeckung funktioniert via 3D-Tiles Mesh-Intersection
- [x] **Tower LOS-Prüfung von Hülle statt Mitte**
-     - Tower prüfen LOS ab ihrer äußeren Hülle, nicht vom Mittelpunkt
-     - Relevant wenn Tower auf Gebäuden steht
+## Frühere Änderungen (undatiert)
 
-UI:
- [x] **Location Dialog Styling** - An TD-Style angepasst
-     - Gleicher Background und Schatten wie Sidebar
-     - Kein Purple mehr
- [x] **Info Overlay** als transparente Angular Component oben links
-     - Zuschaltbar über neuen Button in Quick Actions (ℹ️ Icon)
-     - Zeigt: FPS, Tiles, Aktive Gegner, Aktive Sounds, Straßen-Count
-     - Multi-Layer Text-Shadow für Lesbarkeit auf allen Untergründen
-     - Kein Background - komplett transparent
-     - FPS/Tiles aus Header entfernt (nur noch im Overlay)
- [x] **Wave Debug Component optimiert**
-     - Kamera Debug und Log Textarea entfernt
-     - Heal HQ und Kill Wave Buttons repariert
-     - Slider erweitert: Anzahl bis 5000, Speed bis 100 m/s + Number Inputs
-     - Straßeninfo entfernt, Layer-Menü aufgeräumt
- [x] Sidebar rechts mit den Optionen wie "Start Welle" und "Tower platzieren" sowie Debug
-     alles in eine einheitliche Sidebar bringen (WC3/Ancient Command Style)
- [x] Sidebar neu strukturiert in Sections:
-     - WELLE Section: Wave-Nummer, Gegner-Count, "Naechste Welle" Button
-     - BAUEN Section: Tower-Buttons mit Kosten
-     - TOWER Section: Details bei Selektion (Name, Stats, Upgrade/Verkaufen)
-     - DEBUG Section: wie bisher
- [x] FPS Anzeige
-     - Im Header rechts neben den Stats
-     - Aktualisiert jedes Frame vom Engine
- [x] 3D Model Previews in Sidebar
-     - ModelPreviewService mit geteiltem WebGL-Renderer
-     - Tower-Grid: 2x2 Kacheln mit rotierenden 3D-Modellen
-     - Enemy-Preview: Animierter Gegner (Walk-Animation) in Wave-Section
-     - Kosten-Badge als Overlay oben rechts
-     - groundModel-Option fuer korrekte Charakter-Zentrierung
-     - Siehe docs/MODEL_PREVIEW.md
+### Tower
+- [x] **ICE Tower mit Slow Effekt**
+  - Splash Damage Type (Gegner im Radius betroffen)
+  - Generelles Debuff-System mit Statuseffekten
+  - Kann Air und Ground Targets treffen
+  - Wenig Schaden, primär für Slow-Effekt
+  - Blauer Ice Partikel-Effekt für Projektil-Trail
+  - Eis-Explosion beim Auftreffen
+  - Hellblaue Eis-Decals auf dem Boden (analog Blutflecken)
 
-Kamera:
- [x] **Kamera zurücksetzen Button repariert**
-     - Verwendet gespeicherte Position + LookAt-Target
-     - Stellt exakt die initiale Kameraposition wieder her
- [x] Initiale Position optimiert
-     - 45 Grad Blickwinkel, Blickrichtung Norden, HQ im Zentrum
-     - Initiale Position wird nach 2s gespeichert (wenn Tiles geladen)
-     - Reset-Button stellt exakt diese gespeicherte Position wieder her
- [x] **Automatisches Framing von HQ + Spawns**
-     - Initiale Kamera zeigt HQ und alle Spawn-Punkte im Bild
-     - Dynamische Kamera-Positionierung seitlich zur HQ-Spawn-Achse
-     - 20% Padding um die Punkte für gute Sichtbarkeit
-     - 45° Iso-Perspektive beibehalten
-     - CameraControlService.frameHqAndSpawns() Methode
- [x] **Kompass-Overlay**
-     - Oben rechts im Spielfeld
-     - Zeigt N/O/S/W Himmelsrichtungen
-     - Rotiert mit Kamera-Heading
-     - Nadel zeigt immer nach Norden
-     - Dezentes Design passend zum TD-Style
- [x] **Kompass-Styling optimiert**
-     - Subtileres, weniger aufdringliches Design
+### LOS (Line of Sight)
+- [x] **Statisches Pfad-LOS-Grid**
+  - 2m Grid entlang Route (±7m Korridor)
+  - Bei Tower-Platzierung vorberechnet
+  - O(1) Lookup zur Laufzeit
+  - Shader-basierte Visualisierung mit Pulsing-Animation
+- [x] **Tower LOS-Prüfung von Hülle statt Mitte**
+  - Tower prüfen LOS ab ihrer äußeren Hülle, nicht vom Mittelpunkt
+  - Relevant wenn Tower auf Gebäuden steht
+- [x] **Hex-Grid Line-of-Sight Visualisierung**
+  - Flat-Top Hexagon-Grid über Turm-Reichweite
+  - Grün = sichtbar, Rot = blockiert (durch Gebäude)
+  - LineOfSightRaycaster raycastet von Turm-Spitze zu Hex-Zellen
+  - hasLineOfSight() API für Targeting-Entscheidungen
+  - Gebäude-Verdeckung funktioniert via 3D-Tiles Mesh-Intersection
 
-Gameplay:
- [x] User soll sich eine eigene Location durch Eingabe seines Ortes wählen können
-     - Location-Dialog im Header (klickbarer Ortsname + Edit-Icon)
-     - Autocomplete-Suche via Nominatim
-     - Manuelle Koordinaten-Eingabe (Erweitert-Sektion)
-     - Siehe docs/LOCATION_SYSTEM.md
- [x] Spawn-Punkte sollen in der Nähe gewürfelt werden
-     - Random Spawn: 500m-1km vom HQ, muss auf Straße liegen
-     - Pfad-Validierung: Nur erreichbare Punkte werden akzeptiert
-     - Marker wird automatisch an Pfad-Start gesnapped
- [x] Während Development unsere aktuelle Location als Default (Erlenbach)
+### Rendering
+- [x] **Rocket Tower Helligkeit angepasst** - War dunkler texturiert als andere Tower
+- [x] **Partikeleffekte für Projektile**
+  - Raketen: große Partikel + Explosion
+  - Normale Projektile: kleinere Partikel, keine Explosion
+  - Archer: keine Partikel
+- [x] **Dual Gatling Bogen-Bug gefixt** - Schoss fälschlicherweise im Bogen statt geradeaus
+- [x] **Leuchtspurmunition für Dual Gatling** - Dezente, kleine Leuchtspureffekte
+- [x] **Cannon, Magic, Sniper Tower deaktiviert** - Vorübergehend aus dem Spiel genommen
 
-Input:
- [x] **WASD in Eingabefeldern blockiert** - Gefixt
-     - Problem: WASD-Tasten für Kamera-Steuerung wurden auch in Eingabefeldern abgefangen
-     - Fix: Keyboard-Events werden in Input-Feldern nicht mehr abgefangen
+### Performance
+- [x] **Animationen laufen langsamer bei niedrigen FPS** - Gefixt
+  - Ursache war hardcoded 16ms statt echter deltaTime
+  - Fix: Echte deltaTime Berechnung in three-tiles-engine.ts
+- [x] **Straßen-Overlay FPS-Drop gefixt** (35 FPS → 144 FPS)
+  - Problem: 200-600 separate THREE.Line Objekte mit je geklontem Material
+  - Fix: Alle Straßensegmente in ein THREE.LineSegments mit Merged BufferGeometry
+  - Ergebnis: 1 Draw Call statt 600+, ~10x bessere Performance
+- [x] **Straßen-Rendering in großen Städten optimiert** (Berlin: 14s → <1s)
+  - Problem: renderStreets() rief getTerrainHeightAtGeo() für jeden Node auf
+  - Fix: Route-Korridor-Filterung (nur Straßen im 100m-Korridor um Route)
+  - Ergebnis: 5000 → 150 Straßen, 50.000 → 1.500 Nodes
+- [x] **A* Graph-Caching**
+  - Problem: buildGraph() wurde bei jedem findPath() Aufruf neu erstellt
+  - Fix: Graph einmal bauen und cachen (getOrBuildGraph)
 
-WaveDebugger:
- [x] **Anzahl-Slider auf 500 limitiert**
- [x] **Gegnertyp-Auswahl setzt Speed aus Config**
-     - Bei Auswahl eines Gegnertyps wird dessen Config-Speed im Slider gesetzt
- [x] **Gegnertyp-Auswahl setzt Health aus Config**
-     - Bei Auswahl eines Gegnertyps wird dessen Config-Health im Slider gesetzt
- [x] **Vorschaumodell bei Gegnertyp-Auswahl aktualisiert**
-     - Preview-Canvas zeigt korrektes Modell bei Typwechsel
+### UI
+- [x] **Location Dialog Styling** - An TD-Style angepasst (gleicher Background, kein Purple)
+- [x] **Info Overlay** als transparente Angular Component oben links
+  - Zuschaltbar über Button in Quick Actions
+  - Zeigt: FPS, Tiles, Aktive Gegner, Aktive Sounds, Straßen-Count
+- [x] **Wave Debug Component optimiert**
+  - Kamera Debug und Log Textarea entfernt
+  - Heal HQ und Kill Wave Buttons repariert
+  - Slider erweitert: Anzahl bis 5000, Speed bis 100 m/s
+- [x] **Sidebar neu strukturiert** (WC3/Ancient Command Style)
+  - WELLE Section: Wave-Nummer, Gegner-Count, "Naechste Welle" Button
+  - BAUEN Section: Tower-Buttons mit Kosten
+  - TOWER Section: Details bei Selektion (Name, Stats, Upgrade/Verkaufen)
+  - DEBUG Section
+- [x] **3D Model Previews in Sidebar**
+  - ModelPreviewService mit geteiltem WebGL-Renderer
+  - Tower-Grid: 2x2 Kacheln mit rotierenden 3D-Modellen
+  - Enemy-Preview: Animierter Gegner (Walk-Animation)
+  - Siehe docs/MODEL_PREVIEW.md
 
-Rendering:
- [x] **Rocket Tower Helligkeit angepasst**
-     - War dunkler texturiert als andere Tower
- [x] **Partikeleffekte für Projektile**
-     - Raketen: große Partikel + Explosion
-     - Normale Projektile: kleinere Partikel, keine Explosion
-     - Archer: keine Partikel
- [x] **Dual Gatling Bogen-Bug gefixt**
-     - Schoss fälschlicherweise im Bogen statt geradeaus
- [x] **Leuchtspurmunition für Dual Gatling**
-     - Dezente, kleine Leuchtspureffekte implementiert
- [x] **Cannon, Magic, Sniper Tower deaktiviert**
-     - Vorübergehend aus dem Spiel genommen
+### Kamera
+- [x] **Kamera zurücksetzen Button repariert**
+- [x] **Initiale Position optimiert** - 45° Blickwinkel, Blickrichtung Norden, HQ im Zentrum
+- [x] **Automatisches Framing von HQ + Spawns**
+  - Initiale Kamera zeigt HQ und alle Spawn-Punkte im Bild
+  - Dynamische Kamera-Positionierung seitlich zur HQ-Spawn-Achse
+- [x] **Kompass-Overlay** - Oben rechts, rotiert mit Kamera-Heading
 
-LOS:
- [x] **Statisches Pfad-LOS-Grid** ✓ Implementiert
-     - 2m Grid entlang Route (±7m Korridor)
-     - Bei Tower-Platzierung vorberechnet
-     - O(1) Lookup zur Laufzeit
-     - Shader-basierte Visualisierung mit Pulsing-Animation
+### Gegner
+- [x] **Spawn-Verhalten optimiert**
+  - Gegner spawnen verzögert (konfigurierbar via Slider)
+  - "Gegner sammeln sich..." Phase optional (Gathering Mode)
+- [x] **Blutsystem**
+  - Blutflecken bei Treffer und Tod
+  - Decals faden nach 20s aus
 
-Tower:
- [x] **ICE Tower mit Slow Effekt** ✓ Implementiert
-     - Splash Damage Type (Gegner im Radius betroffen)
-     - Generelles Debuff-System mit Statuseffekten
-     - Kann Air und Ground Targets treffen
-     - Wenig Schaden, primär für Slow-Effekt
-     - Blauer Ice Partikel-Effekt für Projektil-Trail
-     - Eis-Explosion beim Auftreffen
-     - Hellblaue Eis-Decals auf dem Boden (analog Blutflecken)
+### Projektile
+- [x] **Line-of-Sight für Projektile** - Projektile erreichen Ziel nur bei bestehender Sichtverbindung
 
-Code Quality (Expert Review Quick Wins - 2026-01-16):
- [x] **GeoUtilsService erstellen** - Haversine-Distanzberechnung 5x dedupliziert
-     - Neues `utils/geo-utils.ts` mit `haversineDistance()`, `fastDistance()`, `geoDistance()`
-     - Entfernt aus: enemy.manager.ts, tower.manager.ts, game-state.manager.ts, projectile.entity.ts, movement.component.ts
- [x] **Reusable Vectors in ProjectileRenderer** - Object Allocation in Update-Loop eliminiert
-     - Statische `_tempPos`, `_tempRot`, `_tempScale` in ProjectileInstanceManager
-     - Keine `new Vector3()`/`new Quaternion()` mehr pro Frame
- [x] **placement.config.ts erstellen** - Placement-Constraints dedupliziert
-     - Neues `configs/placement.config.ts` mit MIN/MAX_DISTANCE Konstanten
-     - Entfernt aus: tower.manager.ts, tower-placement.service.ts
- [x] **PROJECTILE_SOUNDS in Config verschoben**
-     - Sound-Konfiguration von projectile.manager.ts nach projectile-types.config.ts
-     - Saubere Config-Struktur mit Interface `ProjectileSoundConfig`
- [x] **game-balance.config.ts erstellen** - Game Balance Werte zentralisiert
-     - Neues `configs/game-balance.config.ts` mit player, waves, combat, effects, fireIntensity
-     - Entfernt hardcoded Werte aus game-state.manager.ts
+### Türme
+- [x] **Tower Selektion** - Klick auf Tower selektiert ihn, Selection Ring Animation
+- [x] **Tower-Details in Sidebar** - Name, Schaden, Reichweite, Feuerrate, Kills, Verkaufen-Button
+- [x] **Radius-Anzeige** - Terrain-konform via TerrainRaycaster
+
+### Gameplay
+- [x] **Location-System** - User kann eigene Location wählen (siehe docs/LOCATION_SYSTEM.md)
+- [x] **Spawn-Punkte** - Zufällig 500m-1km vom HQ, muss auf Straße liegen
+
+### Audio
+- [x] **Spatial Audio** - Soundlautstärke abhängig von Kameraentfernung (siehe docs/SPATIAL_AUDIO.md)
+
+### Allgemein
+- [x] **Route-Animation (Knight Rider Effekt)**
+  - Animierte Visualisierung der Gegner-Route beim Spielstart
+  - Leuchtende rote/orange Dashes laufen von Spawn → HQ
+- [x] **Koordinaten-Paste im Location-Dialog**
+  - Unterstützte Formate: Dezimal, DMS, Cardinal, Google Maps URLs
+
+### Bug Fixes
+- [x] **CesiumIonAuthPlugin Import-Pfad aktualisiert**
+- [x] **Feuer am HQ bei Damage** funktioniert jetzt zuverlässig
+- [x] **Gegner laufen nicht mehr in der Luft** am HQ
+- [x] **Tower Selektion bei Pan** - Kein Deselect mehr bei Mausbewegung
+- [x] **Tower Selektion/Deselektion** - Frischer Raycaster pro Aufruf (LoS korrumpierte Zustand)
+- [x] **WASD in Eingabefeldern** - Keyboard-Events werden in Input-Feldern nicht mehr abgefangen

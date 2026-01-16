@@ -63,18 +63,8 @@
 
 ## Dokumentation (aus Expert Review)
 
-- [ ] **CLAUDE.md aktualisieren** - Service/Manager-Anzahl falsch
-      "17 Services" -> 19, "8 Manager" -> 7
-      Siehe: [EXPERT_REVIEW_2026.md#71-inkonsistenzen](EXPERT_REVIEW_2026.md#71-inkonsistenzen-docs-vs-code)
-
-- [ ] **CLAUDE.md Dokumentations-Tabelle ergaenzen**
-      Fehlend: FRAME_TIMING_FIXES.md, PARTICLE_SYSTEM.md, tasks/FPS_LIMIT.md, EXPERT_REVIEW_2026.md
-
 - [ ] **ARCHITECTURE.md Dateistruktur korrigieren**
       `game/` Subfolder-Fehler (Zeilen 728-813)
-
-- [ ] **src/app/README.md ueberarbeiten oder entfernen**
-      Komplett veraltet: falsche Pfade, falsche Tower-Anzahl, veraltete APIs
 
 - [ ] **ENEMY_CREATION.md erstellen** - Analog zu TOWER_CREATION.md
       Enemy-System ist nicht dokumentiert
@@ -102,12 +92,6 @@
 
 ## Config-System erweitern
 
-- [ ] **audio.config.ts erstellen** - Sound-Configs zentralisieren
-      Aktuell: `projectile.manager.ts`, `spatial-audio.manager.ts`
-
-- [ ] **visual-effects.config.ts erstellen** - Partikel/Decal-Configs
-      Aktuell: `three-effects.renderer.ts:110-150` (MAX_PARTICLES, DECAL_FADE etc.)
-
 - [ ] **timing.config.ts erstellen** - Animation/Game Timings
       Aktuell: Death-Animation (2000ms), LOS-Recheck (300ms), Spawn-Delays etc.
 
@@ -117,7 +101,6 @@
 
 ### Bewerten
 - [ ] FPS LIMIT auf 60 sinnvoll?
-- [ ] Explosionen bei Rocket Treffern und Cannon Treffern
 - [ ] Keine LOS Berechnung wenn Tower nicht gebaut werden kann
 - [ ] LOS Berechnung performanter machen (gedrosselt und stueckweise einblenden)
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
@@ -131,7 +114,6 @@
       - Moegliche Verbesserung: Alternative Geocoding-API (Photon, Google)
 
 ### Ideen
-- [ ] Fette Explosion wenn HQ final kaputt
 - [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
 - [ ] Poison Tower
 - [ ] Magic Tower
