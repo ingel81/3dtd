@@ -13,8 +13,10 @@ import { Enemy } from '../entities/enemy.entity';
 import { Projectile } from '../entities/projectile.entity';
 import { EnemyTypeId } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
+import { geoDistance } from '../utils/geo-utils';
 
 /** Fire intensity levels for visual effects */
 type FireIntensity = 'tiny' | 'small' | 'medium' | 'large' | 'inferno';
@@ -36,8 +38,8 @@ export class GameStateManager {
   private readonly pathRouteService = inject(PathAndRouteService);
 
   // Game state signals
-  readonly baseHealth = signal(100);
-  readonly credits = signal(70);
+  readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
+  readonly credits = signal<number>(GAME_BALANCE.player.startCredits);
   readonly showGameOverScreen = signal(false);
 
   // Computed signals for UI bindings
@@ -137,7 +139,7 @@ export class GameStateManager {
     // Check wave completion
     if (this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
-      this.credits.update((c) => c + 50);
+      this.credits.update((c) => c + GAME_BALANCE.waves.completionBonus);
     }
 
     // Check game over
@@ -230,7 +232,7 @@ export class GameStateManager {
    * Handle enemy reaching the base
    */
   private onEnemyReachedBase(_enemy: Enemy): void {
-    this.baseHealth.update((h) => Math.max(0, h - 10));
+    this.baseHealth.update((h) => Math.max(0, h - GAME_BALANCE.combat.enemyBaseDamage));
     this.updateFireIntensity();
 
     // Play HQ damage sound at base position
@@ -312,7 +314,12 @@ export class GameStateManager {
 
     // Apply slow effect for ice-shard
     if (isIceShard) {
-      this.applySlowEffect(enemy, 0.5, 3000, projectile.sourceTowerId);
+      this.applySlowEffect(
+        enemy,
+        GAME_BALANCE.effects.ice.slowAmount,
+        GAME_BALANCE.effects.ice.duration,
+        projectile.sourceTowerId
+      );
     }
 
     // Apply splash damage to nearby enemies
@@ -330,7 +337,7 @@ export class GameStateManager {
 
         if (useFalloff) {
           // Calculate distance-based falloff
-          const dist = this.calculateGeoDistance(enemy.position, nearbyEnemy.position);
+          const dist = geoDistance(enemy.position, nearbyEnemy.position);
           const falloff = 1 - (dist / splashRadius); // 1.0 at center, 0.0 at edge
           splashDamage = Math.floor(projectile.damage * falloff);
         }
@@ -341,7 +348,12 @@ export class GameStateManager {
 
         // Apply slow effect and ice decal to splash targets for ice-shard
         if (isIceShard) {
-          this.applySlowEffect(nearbyEnemy, 0.5, 3000, projectile.sourceTowerId);
+          this.applySlowEffect(
+            nearbyEnemy,
+            GAME_BALANCE.effects.ice.slowAmount,
+            GAME_BALANCE.effects.ice.duration,
+            projectile.sourceTowerId
+          );
           // Ice decal at each splash target position
           if (!nearbyEnemy.typeConfig.isAirUnit && this.tilesEngine) {
             const splashDecalHeight = this.getTerrainHeightForDecal(
@@ -464,26 +476,6 @@ export class GameStateManager {
   }
 
   /**
-   * Calculate distance between two geo positions in meters
-   */
-  private calculateGeoDistance(
-    pos1: { lat: number; lon: number },
-    pos2: { lat: number; lon: number }
-  ): number {
-    const R = 6371000;
-    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
-    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((pos1.lat * Math.PI) / 180) *
-        Math.cos((pos2.lat * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  /**
    * Spawn large blood effect when enemy dies
    */
   private spawnDeathBloodEffect(enemy: Enemy): void {
@@ -520,9 +512,9 @@ export class GameStateManager {
     const health = this.baseHealth();
     let intensity: FireIntensity;
 
-    if (health < 20) intensity = 'large';
-    else if (health < 40) intensity = 'medium';
-    else if (health < 60) intensity = 'small';
+    if (health < GAME_BALANCE.fireIntensity.large) intensity = 'large';
+    else if (health < GAME_BALANCE.fireIntensity.medium) intensity = 'medium';
+    else if (health < GAME_BALANCE.fireIntensity.small) intensity = 'small';
     else intensity = 'tiny';
 
     if (this.activeFireId) {
@@ -627,8 +619,8 @@ export class GameStateManager {
       this.activeFireId = null;
     }
 
-    this.baseHealth.set(100);
-    this.credits.set(70);
+    this.baseHealth.set(GAME_BALANCE.player.startHealth);
+    this.credits.set(GAME_BALANCE.player.startCredits);
     this.showGameOverScreen.set(false);
     this.lastUpdateTime = 0;
 

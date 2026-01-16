@@ -5,40 +5,7 @@ import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { ThreeTilesEngine } from '../three-engine';
-
-// Sound configuration for projectiles
-const PROJECTILE_SOUNDS = {
-  arrow: {
-    url: '/assets/sounds/arrow_01.mp3',
-    refDistance: 50, // Full volume at 50m
-    rolloffFactor: 1,
-    volume: 0.5,
-  },
-  bullet: {
-    url: '/assets/sounds/gatling_0.mp3',
-    refDistance: 40, // Shorter range for rapid fire
-    rolloffFactor: 1.2,
-    volume: 0.25, // Lower volume due to high fire rate (5/sec)
-  },
-  rocket: {
-    url: '/assets/sounds/rocket_launch.mp3',
-    refDistance: 60, // Rockets are loud
-    rolloffFactor: 1,
-    volume: 0.7,
-  },
-  cannonball: {
-    url: '/assets/sounds/cannon_01.mp3',
-    refDistance: 70, // Cannons are loud
-    rolloffFactor: 1,
-    volume: 0.6,
-  },
-  'ice-shard': {
-    url: '/assets/sounds/ice_cast.mp3',
-    refDistance: 50,
-    rolloffFactor: 1,
-    volume: 0.4,
-  },
-} as const;
+import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision

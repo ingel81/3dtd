@@ -13,6 +13,7 @@ import {
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
 import { Enemy } from './enemy.entity';
+import { geoDistance } from '../utils/geo-utils';
 
 /**
  * Projectile entity - combines Transform, Combat, Movement, and Render components
@@ -80,7 +81,7 @@ export class Projectile extends GameObject {
     this._movement.speedMps = this.typeConfig.speed;
 
     // Calculate total distance to target for progress tracking
-    this._totalDistance = this.calculateDistance(startPosition, targetEnemy.position);
+    this._totalDistance = geoDistance(startPosition, targetEnemy.position);
 
     // Calculate initial direction vector
     this._direction = this.calculateDirectionVector(startPosition, startHeight);
@@ -192,7 +193,7 @@ export class Projectile extends GameObject {
     }
 
     const targetPos = this.targetEnemy.position;
-    const dist = this.calculateDistance(this.position, targetPos);
+    const dist = geoDistance(this.position, targetPos);
     const moveDistance = (this.movement.speedMps * deltaTime) / 1000;
 
     // Track traveled distance for progress calculation
@@ -329,22 +330,5 @@ export class Projectile extends GameObject {
     const heightOffset = this.targetEnemy.typeConfig.heightOffset ?? 0;
     // Target head height (approximately 2-3m above model base)
     return enemyTerrainHeight + heightOffset + 3;
-  }
-
-  /**
-   * Calculate distance between two positions
-   */
-  private calculateDistance(pos1: GeoPosition, pos2: GeoPosition): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
-    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((pos1.lat * Math.PI) / 180) *
-        Math.cos((pos2.lat * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
   }
 }

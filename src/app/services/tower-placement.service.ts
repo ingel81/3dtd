@@ -8,6 +8,7 @@ import { OsmStreetService } from './osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
+import { PLACEMENT_CONFIG } from '../configs/placement.config';
 
 /**
  * SpawnPoint interface
@@ -31,16 +32,6 @@ export interface SpawnPoint {
  */
 @Injectable({ providedIn: 'root' })
 export class TowerPlacementService {
-  // ========================================
-  // CONSTANTS
-  // ========================================
-
-  private readonly MIN_DISTANCE_TO_STREET = 10;
-  private readonly MAX_DISTANCE_TO_STREET = 50;
-  private readonly MIN_DISTANCE_TO_BASE = 30;
-  private readonly MIN_DISTANCE_TO_SPAWN = 30;
-  private readonly MIN_DISTANCE_TO_OTHER_TOWER = 8;
-
   // ========================================
   // SIGNALS
   // ========================================
@@ -497,14 +488,14 @@ export class TowerPlacementService {
 
     // Check distance to base
     const distToBase = this.osmService.haversineDistance(lat, lon, this.baseCoords.latitude, this.baseCoords.longitude);
-    if (distToBase < this.MIN_DISTANCE_TO_BASE) {
+    if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
       return { valid: false, reason: `Zu nah an Basis` };
     }
 
     // Check distance to spawns
     for (const spawn of this.spawnPoints) {
       const distToSpawn = this.osmService.haversineDistance(lat, lon, spawn.latitude, spawn.longitude);
-      if (distToSpawn < this.MIN_DISTANCE_TO_SPAWN) {
+      if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
         return { valid: false, reason: `Zu nah am Spawn` };
       }
     }
@@ -513,7 +504,7 @@ export class TowerPlacementService {
     if (this.gameState) {
       for (const tower of this.gameState.towers()) {
         const distToTower = this.osmService.haversineDistance(lat, lon, tower.position.lat, tower.position.lon);
-        if (distToTower < this.MIN_DISTANCE_TO_OTHER_TOWER) {
+        if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
           return { valid: false, reason: `Zu nah an Tower` };
         }
       }
@@ -544,11 +535,11 @@ export class TowerPlacementService {
       }
     }
 
-    if (nearest.distance > this.MAX_DISTANCE_TO_STREET) {
+    if (nearest.distance > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) {
       return { valid: false, reason: 'Zu weit von Strasse' };
     }
 
-    if (effectiveDistance < this.MIN_DISTANCE_TO_STREET) {
+    if (effectiveDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) {
       return { valid: false, reason: 'Zu nah an Strasse' };
     }
 

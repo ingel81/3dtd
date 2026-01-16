@@ -3,6 +3,7 @@ import { GameObject } from '../core/game-object';
 import { GeoPosition } from '../models/game.types';
 import { StatusEffect } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
+import { haversineDistance } from '../utils/geo-utils';
 
 /**
  * MovementComponent handles path-following movement
@@ -81,7 +82,7 @@ export class MovementComponent extends Component {
   private precomputeSegmentLengths(): void {
     this.segmentLengths = [];
     for (let i = 0; i < this.path.length - 1; i++) {
-      const dist = this.haversineDistance(
+      const dist = haversineDistance(
         this.path[i].lat,
         this.path[i].lon,
         this.path[i + 1].lat,
@@ -289,23 +290,6 @@ export class MovementComponent extends Component {
   getNextWaypoint(): GeoPosition | null {
     if (this.currentIndex + 1 >= this.path.length) return null;
     return this.path[this.currentIndex + 1];
-  }
-
-  /**
-   * Haversine distance calculation
-   */
-  private haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((lat2 - lat1) * Math.PI) / 180;
-    const dLon = ((lon2 - lon1) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((lat1 * Math.PI) / 180) *
-        Math.cos((lat2 * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
   }
 
   update(deltaTime: number): void {

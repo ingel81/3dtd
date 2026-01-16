@@ -25,6 +25,11 @@ class ProjectileInstanceManager {
   private activeCount = 0;
   private readonly matrix = new THREE.Matrix4();
 
+  // Reusable vectors to avoid allocations in update loop
+  private static readonly _tempPos = new THREE.Vector3();
+  private static readonly _tempRot = new THREE.Quaternion();
+  private static readonly _tempScale = new THREE.Vector3();
+
   constructor(
     geometry: THREE.BufferGeometry,
     material: THREE.Material,
@@ -56,7 +61,7 @@ class ProjectileInstanceManager {
 
     this.matrix.compose(
       position,
-      new THREE.Quaternion().setFromEuler(rotation),
+      ProjectileInstanceManager._tempRot.setFromEuler(rotation),
       scale
     );
     this.instancedMesh.setMatrixAt(index, this.matrix);
@@ -68,13 +73,16 @@ class ProjectileInstanceManager {
     if (index === undefined) return;
 
     this.instancedMesh.getMatrixAt(index, this.matrix);
-    const scale = new THREE.Vector3();
-    this.matrix.decompose(new THREE.Vector3(), new THREE.Quaternion(), scale);
+    this.matrix.decompose(
+      ProjectileInstanceManager._tempPos,
+      ProjectileInstanceManager._tempRot,
+      ProjectileInstanceManager._tempScale
+    );
 
     this.matrix.compose(
       position,
-      new THREE.Quaternion().setFromEuler(rotation),
-      scale
+      ProjectileInstanceManager._tempRot.setFromEuler(rotation),
+      ProjectileInstanceManager._tempScale
     );
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
@@ -88,12 +96,17 @@ class ProjectileInstanceManager {
     if (index === undefined) return;
 
     this.instancedMesh.getMatrixAt(index, this.matrix);
-    const oldPos = new THREE.Vector3();
-    const oldRot = new THREE.Quaternion();
-    const oldScale = new THREE.Vector3();
-    this.matrix.decompose(oldPos, oldRot, oldScale);
+    this.matrix.decompose(
+      ProjectileInstanceManager._tempPos,
+      ProjectileInstanceManager._tempRot,
+      ProjectileInstanceManager._tempScale
+    );
 
-    this.matrix.compose(position, oldRot, oldScale);
+    this.matrix.compose(
+      position,
+      ProjectileInstanceManager._tempRot,
+      ProjectileInstanceManager._tempScale
+    );
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
   }

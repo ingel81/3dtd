@@ -163,3 +163,47 @@ export function getProjectileType(id: ProjectileTypeId): ProjectileTypeConfig {
 export function getAllProjectileTypes(): ProjectileTypeConfig[] {
   return Object.values(PROJECTILE_TYPES);
 }
+
+/**
+ * Sound configuration for projectile types
+ * Used by ProjectileManager for spatial audio
+ */
+export interface ProjectileSoundConfig {
+  url: string;
+  refDistance: number;
+  rolloffFactor: number;
+  volume: number;
+}
+
+export const PROJECTILE_SOUNDS: Record<string, ProjectileSoundConfig> = {
+  arrow: {
+    url: '/assets/sounds/arrow_01.mp3',
+    refDistance: 50,
+    rolloffFactor: 1,
+    volume: 0.5,
+  },
+  bullet: {
+    url: '/assets/sounds/gatling_0.mp3',
+    refDistance: 40,
+    rolloffFactor: 1.2,
+    volume: 0.25,
+  },
+  rocket: {
+    url: '/assets/sounds/rocket_launch.mp3',
+    refDistance: 60,
+    rolloffFactor: 1,
+    volume: 0.7,
+  },
+  cannonball: {
+    url: '/assets/sounds/cannon_01.mp3',
+    refDistance: 70,
+    rolloffFactor: 1,
+    volume: 0.6,
+  },
+  'ice-shard': {
+    url: '/assets/sounds/ice_cast.mp3',
+    refDistance: 50,
+    rolloffFactor: 1,
+    volume: 0.4,
+  },
+} as const;

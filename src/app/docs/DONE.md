@@ -220,3 +220,20 @@ Tower:
      - Blauer Ice Partikel-Effekt für Projektil-Trail
      - Eis-Explosion beim Auftreffen
      - Hellblaue Eis-Decals auf dem Boden (analog Blutflecken)
+
+Code Quality (Expert Review Quick Wins - 2026-01-16):
+ [x] **GeoUtilsService erstellen** - Haversine-Distanzberechnung 5x dedupliziert
+     - Neues `utils/geo-utils.ts` mit `haversineDistance()`, `fastDistance()`, `geoDistance()`
+     - Entfernt aus: enemy.manager.ts, tower.manager.ts, game-state.manager.ts, projectile.entity.ts, movement.component.ts
+ [x] **Reusable Vectors in ProjectileRenderer** - Object Allocation in Update-Loop eliminiert
+     - Statische `_tempPos`, `_tempRot`, `_tempScale` in ProjectileInstanceManager
+     - Keine `new Vector3()`/`new Quaternion()` mehr pro Frame
+ [x] **placement.config.ts erstellen** - Placement-Constraints dedupliziert
+     - Neues `configs/placement.config.ts` mit MIN/MAX_DISTANCE Konstanten
+     - Entfernt aus: tower.manager.ts, tower-placement.service.ts
+ [x] **PROJECTILE_SOUNDS in Config verschoben**
+     - Sound-Konfiguration von projectile.manager.ts nach projectile-types.config.ts
+     - Saubere Config-Struktur mit Interface `ProjectileSoundConfig`
+ [x] **game-balance.config.ts erstellen** - Game Balance Werte zentralisiert
+     - Neues `configs/game-balance.config.ts` mit player, waves, combat, effects, fireIntensity
+     - Entfernt hardcoded Werte aus game-state.manager.ts

@@ -5,6 +5,7 @@ import { EnemyTypeId } from '../models/enemy-types';
 import { GeoPosition } from '../models/game.types';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { ThreeTilesEngine } from '../three-engine';
+import { geoDistance } from '../utils/geo-utils';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
@@ -288,28 +289,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   ): Enemy[] {
     return this.getAlive().filter((enemy) => {
       if (excludeId && enemy.id === excludeId) return false;
-      const dist = this.calculateDistance(center, enemy.position);
+      const dist = geoDistance(center, enemy.position);
       return dist <= radiusMeters;
     });
   }
 
-  /**
-   * Calculate distance between two geo positions in meters
-   */
-  private calculateDistance(
-    pos1: { lat: number; lon: number },
-    pos2: { lat: number; lon: number }
-  ): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
-    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((pos1.lat * Math.PI) / 180) *
-        Math.cos((pos2.lat * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
 }

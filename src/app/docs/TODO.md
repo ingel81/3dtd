@@ -6,27 +6,6 @@
 
 ## Code Quality & Architektur (aus Expert Review)
 
-### Prioritaet 1: Quick Wins
-- [ ] **GeoUtilsService erstellen** - Haversine-Distanzberechnung ist 5x dupliziert
-      Betroffene Dateien: `enemy.manager.ts:299`, `tower.manager.ts:180`, `game-state.manager.ts:469`, `projectile.entity.ts:337`, `movement.component.ts:297`
-      Siehe: [EXPERT_REVIEW_2026.md#21-haversine-distanzberechnung](EXPERT_REVIEW_2026.md#21-haversine-distanzberechnung-5x-dupliziert)
-
-- [ ] **Reusable Vectors in ProjectileRenderer** - Object Allocation in jedem Frame
-      Datei: `three-projectile.renderer.ts:71-94`
-      Siehe: [EXPERT_REVIEW_2026.md#42-loesung-reusable-vectors](EXPERT_REVIEW_2026.md#42-loesung-reusable-vectors)
-
-- [ ] **game-balance.config.ts erstellen** - Game Balance Werte verstreut im Code
-      Betroffene Stellen: `game-state.manager.ts:39-40` (baseHealth, credits), `:140` (waveBonus), `:233` (enemyDamage), `:315` (iceEffect)
-      Siehe: [EXPERT_REVIEW_2026.md#35-beispiel-game-balanceconfigts](EXPERT_REVIEW_2026.md#35-beispiel-game-balanceconfigts)
-
-- [ ] **placement.config.ts erstellen** - Placement-Constraints 2x dupliziert
-      Dateien: `tower.manager.ts:23-27`, `tower-placement.service.ts:38-42`
-      Siehe: [EXPERT_REVIEW_2026.md#22-placement-constraints](EXPERT_REVIEW_2026.md#22-placement-constraints-2x-dupliziert)
-
-- [ ] **PROJECTILE_SOUNDS in projectile-types.config.ts verschieben**
-      Datei: `projectile.manager.ts:10-41`
-      Siehe: [EXPERT_REVIEW_2026.md#32-audio](EXPERT_REVIEW_2026.md#32-audio-mittel)
-
 ### Prioritaet 2: Mittelfristig
 - [ ] **GameStateManager aufteilen** (~800 Zeilen, God-Object)
       Vorschlag: combat.manager.ts, effects.manager.ts, fire-intensity.manager.ts
@@ -109,9 +88,6 @@
 ---
 
 ## Three.js & Rendering (aus Expert Review)
-
-- [ ] **Raycaster Instanz wiederverwenden**
-      Datei: `three-tiles-engine.ts:882` - wird pro Call neu erstellt
 
 - [ ] **Selection Ring Geometry teilen**
       Datei: `three-tower.renderer.ts:389` - jeder Tower erstellt eigene Geometry
