@@ -7,6 +7,14 @@ import { RouteLosGrid } from './route-los-grid';
 import { GeoPosition } from '../../models/game.types';
 
 /**
+ * Unified model data structure for both GLTF and FBX
+ */
+interface LoadedTowerModel {
+  scene: THREE.Object3D;
+  animations: THREE.AnimationClip[];
+}
+
+/**
  * Tower render data - stored per tower
  */
 export interface TowerRenderData {
@@ -34,6 +42,10 @@ export interface TowerRenderData {
   // Route-based LOS grid for fast O(1) lookups and visualization
   routeLosGrid: RouteLosGrid | null;
   routeLosViz: THREE.InstancedMesh | null; // Animated LOS visualization
+  // GLTF animation support
+  mixer: THREE.AnimationMixer | null;
+  animations: Map<string, THREE.AnimationClip>;
+  currentAction: THREE.AnimationAction | null;
 }
 
 /**
@@ -72,8 +84,8 @@ export class ThreeTowerRenderer {
   private fbxLoader: FBXLoader;
 
   // Cached model templates per tower type (stores the scene/group from GLTF or FBX)
-  private modelTemplates = new Map<string, THREE.Object3D>();
-  private loadingPromises = new Map<string, Promise<THREE.Object3D>>();
+  private modelTemplates = new Map<string, LoadedTowerModel>();
+  private loadingPromises = new Map<string, Promise<LoadedTowerModel>>();
 
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
@@ -162,15 +174,21 @@ export class ThreeTowerRenderer {
   /**
    * Load a model from URL, supporting both GLTF/GLB and FBX formats
    */
-  private async loadModelFromUrl(url: string): Promise<THREE.Object3D> {
+  private async loadModelFromUrl(url: string): Promise<LoadedTowerModel> {
     const lowerUrl = url.toLowerCase();
     if (lowerUrl.endsWith('.fbx')) {
       const model = await this.fbxLoader.loadAsync(url);
       this.applyFbxMaterials(model);
-      return model;
+      return {
+        scene: model,
+        animations: model.animations || [],
+      };
     } else {
       const gltf = await this.gltfLoader.loadAsync(url);
-      return gltf.scene;
+      return {
+        scene: gltf.scene,
+        animations: gltf.animations || [],
+      };
     }
   }
 
@@ -265,8 +283,11 @@ export class ThreeTowerRenderer {
     this.loadingPromises.set(typeId, promise);
 
     try {
-      const model = await promise;
-      this.modelTemplates.set(typeId, model);
+      const loadedModel = await promise;
+      this.modelTemplates.set(typeId, loadedModel);
+      if (loadedModel.animations.length > 0) {
+        console.log(`[ThreeTowerRenderer] Loaded ${typeId} with ${loadedModel.animations.length} animation(s): ${loadedModel.animations.map(a => a.name).join(', ')}`);
+      }
     } catch (err) {
       console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
     } finally {
@@ -306,15 +327,15 @@ export class ThreeTowerRenderer {
     }
 
     // Ensure model is loaded
-    let modelTemplate = this.modelTemplates.get(typeId);
-    if (!modelTemplate) {
+    let loadedModel = this.modelTemplates.get(typeId);
+    if (!loadedModel) {
       const promise = this.loadingPromises.get(typeId) || this.loadModelFromUrl(config.modelUrl);
       if (!this.loadingPromises.has(typeId)) {
         this.loadingPromises.set(typeId, promise);
       }
       try {
-        modelTemplate = await promise;
-        this.modelTemplates.set(typeId, modelTemplate);
+        loadedModel = await promise;
+        this.modelTemplates.set(typeId, loadedModel);
       } catch (err) {
         console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
         return null;
@@ -324,7 +345,7 @@ export class ThreeTowerRenderer {
     }
 
     // Clone the model
-    const mesh = modelTemplate.clone();
+    const mesh = loadedModel.scene.clone();
     mesh.scale.setScalar(config.scale);
 
     // Apply rotation: custom rotation + config rotation
@@ -438,6 +459,33 @@ export class ThreeTowerRenderer {
     //   this.scene.add(aimArrow);
     // }
 
+    // Setup animation mixer if model has animations AND config allows it
+    let mixer: THREE.AnimationMixer | null = null;
+    const animations = new Map<string, THREE.AnimationClip>();
+    let currentAction: THREE.AnimationAction | null = null;
+
+    if (config.hasAnimations && loadedModel.animations && loadedModel.animations.length > 0) {
+      mixer = new THREE.AnimationMixer(mesh);
+      for (const clip of loadedModel.animations) {
+        animations.set(clip.name, clip);
+      }
+
+      // Auto-play first animation (typically the idle/base animation)
+      const firstClip = loadedModel.animations[0];
+      if (firstClip) {
+        const action = mixer.clipAction(firstClip);
+        // Use PingPong for smooth back-and-forth animation if configured
+        if (config.animationPingPong) {
+          action.setLoop(THREE.LoopPingPong, Infinity);
+        } else {
+          action.setLoop(THREE.LoopRepeat, Infinity);
+        }
+        action.play();
+        currentAction = action;
+        console.log(`[ThreeTowerRenderer] Started animation '${firstClip.name}' for tower ${id} (pingPong: ${config.animationPingPong ?? false})`);
+      }
+    }
+
     const renderData: TowerRenderData = {
       id,
       mesh,
@@ -458,6 +506,9 @@ export class ThreeTowerRenderer {
       targetLocalRotation: 0, // Target at base position
       routeLosGrid: null, // Populated via generateRouteLosGrid()
       routeLosViz: null, // Created when grid is generated
+      mixer,
+      animations,
+      currentAction,
     };
 
     this.towers.set(id, renderData);
@@ -729,21 +780,40 @@ export class ThreeTowerRenderer {
       data.routeLosGrid.dispose();
     }
 
+    // Clean up animation mixer
+    if (data.mixer) {
+      data.mixer.stopAllAction();
+      for (const clip of data.animations.values()) {
+        data.mixer.uncacheClip(clip);
+      }
+      data.mixer.uncacheRoot(data.mesh);
+    }
+    data.animations.clear();
+    data.currentAction = null;
+
     this.towers.delete(id);
   }
 
   /**
-   * Update selection ring animation, LOS grid shaders, and turret rotations
-   * Call each frame for pulse effect, LOS animation, and smooth turret movement
+   * Update selection ring animation, LOS grid shaders, turret rotations, and GLTF animations
+   * Call each frame for pulse effect, LOS animation, smooth turret movement, and model animations
    */
   updateAnimations(deltaTime: number): void {
     // Accumulate time for frame-independent animation (in seconds)
     this.animationTime += deltaTime * 0.001;
 
+    // Convert deltaTime from ms to seconds for animation mixer
+    const deltaSeconds = deltaTime * 0.001;
+
     // Update all route LOS grid animations
     for (const data of this.towers.values()) {
       if (data.routeLosGrid) {
         data.routeLosGrid.updateAnimation(this.animationTime);
+      }
+
+      // Update GLTF animation mixer (time-based, not frame-based)
+      if (data.mixer) {
+        data.mixer.update(deltaSeconds);
       }
     }
 

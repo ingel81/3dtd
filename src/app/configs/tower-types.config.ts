@@ -36,10 +36,14 @@ export interface TowerTypeConfig {
   // Targeting capabilities
   canTargetAir?: boolean; // Can target air units (default: false)
   canTargetGround?: boolean; // Can target ground units (default: true)
+
+  // Animation settings
+  hasAnimations?: boolean; // Whether this tower has GLTF animations (default: false)
+  animationPingPong?: boolean; // Play animation forward then backward (smooth loop, default: false)
 }
 
 // NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
-const ARCHER_MODEL_URL = '/assets/models/towers/tower_archer.glb';
+const ARCHER_MODEL_URL = '/assets/models/towers/archer_tower.glb';
 const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
 const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
 const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
@@ -50,10 +54,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
     id: 'archer',
     name: 'Archer Tower',
-    modelUrl: WATCHTOWER_MODEL_URL,
-    scale: 0.027, // 1/3 of original size
-    heightOffset: 0,
-    shootHeight: 7, // Shooting position height
+    modelUrl: ARCHER_MODEL_URL,
+    scale: 15.0,
+    previewScale: 14.0,
+    heightOffset: 7,
+    shootHeight: 1.0, // Shooting position height
     rotationY: 0,
     damage: 25,
     range: 60,
@@ -61,6 +66,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'arrow',
     cost: 20,
     sellValue: 12,
+    hasAnimations: true, // archer_tower.glb has base animation
+    animationPingPong: true, // Smooth loop: forward then backward
     upgrades: [
       {
         id: 'speed',
