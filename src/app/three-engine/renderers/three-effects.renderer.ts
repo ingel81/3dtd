@@ -1,6 +1,11 @@
 import * as THREE from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
+import {
+  PARTICLE_LIMITS,
+  BLOOD_DECAL_CONFIG,
+  ICE_DECAL_CONFIG,
+} from '../../configs/visual-effects.config';
 
 /**
  * Particle data for GPU
@@ -107,16 +112,16 @@ export class ThreeEffectsRenderer {
 
   // Blood particle pool
   private bloodPool: Particle[] = [];
-  private readonly MAX_BLOOD_PARTICLES = 1000;
+  private readonly MAX_BLOOD_PARTICLES = PARTICLE_LIMITS.maxBloodParticles;
 
   // Fire particle pool
   private firePool: Particle[] = [];
-  private readonly MAX_FIRE_PARTICLES = 2000;
+  private readonly MAX_FIRE_PARTICLES = PARTICLE_LIMITS.maxFireParticles;
 
   // Trail particle pools (additive for fire/glow, normal for smoke)
   private trailPoolAdditive: Particle[] = [];
   private trailPoolNormal: Particle[] = [];
-  private readonly MAX_TRAIL_PARTICLES_PER_POOL = 1000;
+  private readonly MAX_TRAIL_PARTICLES_PER_POOL = PARTICLE_LIMITS.maxTrailParticlesPerPool;
   private trailParticlesAdditive: THREE.Points | null = null;
   private trailParticlesNormal: THREE.Points | null = null;
   private trailMaterialAdditive: THREE.PointsMaterial | null = null;
@@ -129,25 +134,25 @@ export class ThreeEffectsRenderer {
 
   // Blood decal pool (persistent ground stains)
   private bloodDecals: BloodDecal[] = [];
-  private readonly MAX_BLOOD_DECALS = 100;
-  private readonly DECAL_FADE_DELAY = 20000; // Start fading after 20 seconds
-  private readonly DECAL_FADE_DURATION = 10000; // Fade out over 10 seconds
+  private readonly MAX_BLOOD_DECALS = BLOOD_DECAL_CONFIG.maxDecals;
+  private readonly DECAL_FADE_DELAY = BLOOD_DECAL_CONFIG.fadeDelay;
+  private readonly DECAL_FADE_DURATION = BLOOD_DECAL_CONFIG.fadeDuration;
   private decalIdCounter = 0;
   private bloodDecalGeometry: THREE.CircleGeometry;
   private bloodDecalMaterial: THREE.MeshBasicMaterial;
 
   // Ice decal pool (temporary frost patches)
   private iceDecals: IceDecal[] = [];
-  private readonly MAX_ICE_DECALS = 150; // More ice decals allowed
-  private readonly ICE_DECAL_FADE_DELAY = 4000; // Start fading after 4 seconds
-  private readonly ICE_DECAL_FADE_DURATION = 3000; // Fade out over 3 seconds
+  private readonly MAX_ICE_DECALS = ICE_DECAL_CONFIG.maxDecals;
+  private readonly ICE_DECAL_FADE_DELAY = ICE_DECAL_CONFIG.fadeDelay;
+  private readonly ICE_DECAL_FADE_DURATION = ICE_DECAL_CONFIG.fadeDuration;
   private iceDecalIdCounter = 0;
   private iceDecalGeometry!: THREE.CircleGeometry;
   private iceDecalMaterial!: THREE.MeshBasicMaterial;
 
   // Floating text pool
   private floatingTexts: FloatingTextInstance[] = [];
-  private readonly MAX_FLOATING_TEXTS = 50;
+  private readonly MAX_FLOATING_TEXTS = PARTICLE_LIMITS.maxFloatingTexts;
   private floatingTextIdCounter = 0;
 
   // Shared materials
@@ -620,12 +625,13 @@ export class ThreeEffectsRenderer {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `fire_${this.effectIdCounter++}`;
 
+    // Fire intensity config - all use duration: -1 for persistent fire
     const intensityConfig = {
-      tiny: { count: 10, radius: 1, duration: 3000 },
-      small: { count: 30, radius: 2, duration: 5000 },
-      medium: { count: 60, radius: 3, duration: 8000 },
-      large: { count: 100, radius: 5, duration: 10000 },
-      inferno: { count: 200, radius: 8, duration: -1 }, // -1 = infinite
+      tiny: { count: 15, radius: 1.5 },
+      small: { count: 40, radius: 2.5 },
+      medium: { count: 80, radius: 4 },
+      large: { count: 120, radius: 6 },
+      inferno: { count: 200, radius: 10 },
     };
 
     const config = intensityConfig[intensity];
@@ -635,13 +641,16 @@ export class ThreeEffectsRenderer {
       type: 'fire',
       particles: [],
       startTime: performance.now(),
-      duration: config.duration,
+      duration: -1, // All fires are now persistent until stopped
       localPosition: localPos.clone(),
     };
 
-    // Spawn particles
-    for (let i = 0; i < config.count && effect.particles.length < this.MAX_FIRE_PARTICLES; i++) {
-      const particle = this.getInactiveParticle(this.firePool);
+    // Store radius in effect for respawning
+    (effect as EffectInstance & { radius: number }).radius = config.radius;
+
+    // Use trailPoolAdditive for better visuals (per-particle colors, shader support)
+    for (let i = 0; i < config.count; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -653,16 +662,22 @@ export class ThreeEffectsRenderer {
 
       particle.velocity.set(
         (Math.random() - 0.5) * 2,
-        2 + Math.random() * 4, // Upward
+        3 + Math.random() * 5, // Upward
         (Math.random() - 0.5) * 2
       );
       particle.life = 1.0;
-      particle.maxLife = 0.5 + Math.random() * 1.0;
-      particle.size = 0.5 + Math.random() * 1.5;
+      particle.maxLife = 0.4 + Math.random() * 0.8;
+      particle.size = 1.5 + Math.random() * 2.5; // Bigger particles
 
-      // Fire colors (yellow to red)
+      // Fire colors - yellow core, orange mid, red edges
       const t = Math.random();
-      particle.color.setRGB(1, 0.3 + t * 0.5, t * 0.2);
+      if (t < 0.3) {
+        particle.color.setRGB(1, 0.9, 0.3); // Yellow core
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.5, 0.1); // Orange
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05); // Red edges
+      }
 
       effect.particles.push(particle);
     }
@@ -713,12 +728,13 @@ export class ThreeEffectsRenderer {
 
     const id = `fire_${this.effectIdCounter++}`;
 
+    // Fire intensity config - all use duration: -1 for persistent fire
     const intensityConfig = {
-      tiny: { count: 10, radius: 1, duration: 3000 },
-      small: { count: 30, radius: 2, duration: 5000 },
-      medium: { count: 60, radius: 3, duration: 8000 },
-      large: { count: 100, radius: 5, duration: 10000 },
-      inferno: { count: 200, radius: 8, duration: -1 },
+      tiny: { count: 15, radius: 1.5 },
+      small: { count: 40, radius: 2.5 },
+      medium: { count: 80, radius: 4 },
+      large: { count: 120, radius: 6 },
+      inferno: { count: 200, radius: 10 },
     };
 
     const config = intensityConfig[intensity];
@@ -728,12 +744,16 @@ export class ThreeEffectsRenderer {
       type: 'fire',
       particles: [],
       startTime: performance.now(),
-      duration: config.duration,
+      duration: -1, // All fires are now persistent until stopped
       localPosition: localPos.clone(),
     };
 
-    for (let i = 0; i < config.count && effect.particles.length < this.MAX_FIRE_PARTICLES; i++) {
-      const particle = this.getInactiveParticle(this.firePool);
+    // Store radius in effect for respawning (using a custom property)
+    (effect as EffectInstance & { radius: number }).radius = config.radius;
+
+    // Use trailPoolAdditive for better visuals (per-particle colors, shader support)
+    for (let i = 0; i < config.count; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -745,15 +765,22 @@ export class ThreeEffectsRenderer {
 
       particle.velocity.set(
         (Math.random() - 0.5) * 2,
-        2 + Math.random() * 4,
+        3 + Math.random() * 5, // Upward
         (Math.random() - 0.5) * 2
       );
       particle.life = 1.0;
-      particle.maxLife = 0.5 + Math.random() * 1.0;
-      particle.size = 0.5 + Math.random() * 1.5;
+      particle.maxLife = 0.4 + Math.random() * 0.8;
+      particle.size = 1.5 + Math.random() * 2.5; // Bigger particles
 
+      // Fire colors - yellow core, orange mid, red edges
       const t = Math.random();
-      particle.color.setRGB(1, 0.3 + t * 0.5, t * 0.2);
+      if (t < 0.3) {
+        particle.color.setRGB(1, 0.9, 0.3); // Yellow core
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.5, 0.1); // Orange
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05); // Red edges
+      }
 
       effect.particles.push(particle);
     }
@@ -784,6 +811,319 @@ export class ThreeEffectsRenderer {
         effect.startTime = performance.now();
       }
     }
+  }
+
+  /**
+   * Stop a fire effect immediately (no fade)
+   */
+  stopFireImmediate(id: string): void {
+    const effect = this.activeEffects.get(id);
+    if (effect && effect.type === 'fire') {
+      // Kill all particles immediately
+      for (const p of effect.particles) {
+        p.life = 0;
+      }
+      this.activeEffects.delete(id);
+    }
+  }
+
+  /**
+   * Spawn a brief fire flash that fades away
+   * Used for damage indication when HP > 50%
+   */
+  spawnFireFlash(lat: number, lon: number, localY: number): void {
+    const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
+    const localPos = new THREE.Vector3(localXZ.x, localY, localXZ.z);
+
+    // Spawn 30 particles that fade quickly
+    for (let i = 0; i < 30; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) break;
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 2;
+
+      particle.position.copy(localPos);
+      particle.position.x += Math.cos(angle) * radius;
+      particle.position.z += Math.sin(angle) * radius;
+
+      particle.velocity.set(
+        (Math.random() - 0.5) * 3,
+        4 + Math.random() * 6,
+        (Math.random() - 0.5) * 3
+      );
+      particle.life = 1.0;
+      particle.maxLife = 0.8 + Math.random() * 0.6; // 0.8-1.4 seconds
+      particle.size = 1.5 + Math.random() * 2.0;
+
+      // Fire colors
+      const t = Math.random();
+      if (t < 0.3) {
+        particle.color.setRGB(1, 0.9, 0.3);
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.5, 0.1);
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05);
+      }
+    }
+    // No effect tracking - particles just fade naturally
+  }
+
+  /**
+   * Spawn scaled permanent fire (for HP 1-50%)
+   * @param scale - 0.0 (small) to 1.0 (maximum inferno)
+   */
+  spawnScaledFire(lat: number, lon: number, localY: number, scale: number): string {
+    const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
+    const localPos = new THREE.Vector3(localXZ.x, localY, localXZ.z);
+
+    const id = `fire_${this.effectIdCounter++}`;
+
+    // Scale parameters: small fire at scale=0, massive inferno at scale=1
+    const clampedScale = Math.max(0, Math.min(1, scale));
+    const particleCount = Math.floor(30 + clampedScale * 200); // 30-230 particles
+    const fireRadius = 1.5 + clampedScale * 10; // 1.5-11.5 meters
+
+    const effect: EffectInstance = {
+      id,
+      type: 'fire',
+      particles: [],
+      startTime: performance.now(),
+      duration: -1, // Persistent
+      localPosition: localPos.clone(),
+    };
+
+    (effect as EffectInstance & { radius: number }).radius = fireRadius;
+
+    for (let i = 0; i < particleCount; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) break;
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * fireRadius;
+
+      particle.position.copy(localPos);
+      particle.position.x += Math.cos(angle) * radius;
+      particle.position.z += Math.sin(angle) * radius;
+
+      particle.velocity.set(
+        (Math.random() - 0.5) * 2,
+        3 + Math.random() * 5,
+        (Math.random() - 0.5) * 2
+      );
+      particle.life = 1.0;
+      particle.maxLife = 0.4 + Math.random() * 0.8;
+      particle.size = 1.5 + Math.random() * 2.5 + clampedScale * 1.5; // Bigger at higher scale
+
+      // Fire colors
+      const t = Math.random();
+      if (t < 0.3) {
+        particle.color.setRGB(1, 0.9, 0.3);
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.5, 0.1);
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05);
+      }
+
+      effect.particles.push(particle);
+    }
+
+    this.activeEffects.set(id, effect);
+    return id;
+  }
+
+  /**
+   * Scale up an existing fire to inferno level
+   * Adds more particles to the existing fire effect
+   */
+  scaleFireToInferno(fireId: string): void {
+    const effect = this.activeEffects.get(fireId);
+    if (!effect || effect.type !== 'fire') {
+      console.warn('[Effects] Cannot scale fire - not found:', fireId);
+      return;
+    }
+
+    const localPos = effect.localPosition;
+    const currentRadius = (effect as EffectInstance & { radius: number }).radius || 5;
+
+    // Increase radius to inferno level
+    const infernoRadius = Math.max(currentRadius, 15);
+    (effect as EffectInstance & { radius: number }).radius = infernoRadius;
+
+    // Add more particles to reach inferno level (~300 total)
+    const currentCount = effect.particles.length;
+    const targetCount = 300;
+    const toAdd = Math.max(0, targetCount - currentCount);
+
+    for (let i = 0; i < toAdd; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) break;
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * infernoRadius;
+
+      particle.position.copy(localPos);
+      particle.position.x += Math.cos(angle) * radius;
+      particle.position.z += Math.sin(angle) * radius;
+
+      particle.velocity.set(
+        (Math.random() - 0.5) * 3,
+        4 + Math.random() * 8,
+        (Math.random() - 0.5) * 3
+      );
+      particle.life = 1.0;
+      particle.maxLife = 0.5 + Math.random() * 1.0;
+      particle.size = 2.5 + Math.random() * 4.0;
+
+      const t = Math.random();
+      if (t < 0.3) {
+        particle.color.setRGB(1, 0.9, 0.3);
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.5, 0.1);
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05);
+      }
+
+      effect.particles.push(particle);
+    }
+
+    console.log('[Effects] Scaled fire to inferno:', fireId, '| Particles:', effect.particles.length);
+  }
+
+  /**
+   * Spawn massive HQ destruction explosion
+   * 3x scale - very dramatic final explosion
+   */
+  spawnHQExplosion(lat: number, lon: number, localY: number): void {
+    const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
+    const centerX = localXZ.x;
+    const centerY = localY + 8; // Above ground (raised for larger explosion)
+    const centerZ = localXZ.z;
+
+    // Count available particles
+    let availableParticles = 0;
+    for (const p of this.trailPoolAdditive) {
+      if (p.life <= 0) availableParticles++;
+    }
+
+    console.log('[HQ Explosion] Spawning at local:', centerX.toFixed(1), centerY.toFixed(1), centerZ.toFixed(1));
+    console.log('[HQ Explosion] Input localY:', localY, '| Available particles:', availableParticles, '/', this.trailPoolAdditive.length);
+
+    // Phase 1: Central bright flash - massive initial burst (3x: 150 → 450)
+    for (let i = 0; i < 450; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) {
+        console.warn('[HQ Explosion] Pool exhausted at phase 1, particle', i);
+        break;
+      }
+
+      particle.position.set(centerX, centerY, centerZ);
+
+      // Spherical outward burst (3x speed and reach)
+      const theta = Math.random() * Math.PI * 2;
+      const phi = Math.random() * Math.PI;
+      const speed = 40 + Math.random() * 60; // 3x faster burst
+
+      particle.velocity.set(
+        Math.sin(phi) * Math.cos(theta) * speed,
+        Math.cos(phi) * speed * 0.8 + 15, // Strong upward bias
+        Math.sin(phi) * Math.sin(theta) * speed
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 1.5 + Math.random() * 1.5; // Longer duration
+      particle.size = 8.0 + Math.random() * 12.0; // 3x larger particles
+
+      // Bright yellow/white core
+      const t = Math.random();
+      if (t < 0.4) {
+        particle.color.setRGB(1, 1, 0.9); // White-yellow
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.95, 0.4); // Yellow
+      } else {
+        particle.color.setRGB(1, 0.7, 0.2); // Orange
+      }
+    }
+
+    // Phase 2: Secondary fire/debris ring - expanding outward (3x: 200 → 600)
+    for (let i = 0; i < 600; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) {
+        console.warn('[HQ Explosion] Pool exhausted at phase 2, particle', i);
+        break;
+      }
+
+      // Spawn in a ring around center (3x radius)
+      const angle = Math.random() * Math.PI * 2;
+      const ringRadius = 8 + Math.random() * 18;
+
+      particle.position.set(
+        centerX + Math.cos(angle) * ringRadius,
+        centerY + Math.random() * 8,
+        centerZ + Math.sin(angle) * ringRadius
+      );
+
+      // Outward and upward (3x speed)
+      const speed = 25 + Math.random() * 50;
+      particle.velocity.set(
+        Math.cos(angle) * speed * 0.6,
+        10 + Math.random() * 25,
+        Math.sin(angle) * speed * 0.6
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 2.0 + Math.random() * 2.0; // Longer duration
+      particle.size = 6.0 + Math.random() * 10.0; // 3x larger
+
+      // Orange/red fire colors
+      const t = Math.random();
+      if (t < 0.3) {
+        particle.color.setRGB(1, 0.8, 0.3);
+      } else if (t < 0.7) {
+        particle.color.setRGB(1, 0.5, 0.15);
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05);
+      }
+    }
+
+    // Phase 3: Rising embers and sparks - long duration (3x: 100 → 300)
+    for (let i = 0; i < 300; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      if (!particle) {
+        console.warn('[HQ Explosion] Pool exhausted at phase 3, particle', i);
+        break;
+      }
+
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * 30; // 3x radius
+
+      particle.position.set(
+        centerX + Math.cos(angle) * radius,
+        centerY,
+        centerZ + Math.sin(angle) * radius
+      );
+
+      // Slow rising embers
+      particle.velocity.set(
+        (Math.random() - 0.5) * 10,
+        5 + Math.random() * 12,
+        (Math.random() - 0.5) * 10
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 2.0 + Math.random() * 2.0; // 2-4 seconds
+      particle.size = 1.5 + Math.random() * 2.5;
+
+      // Darker red/orange embers
+      const t = Math.random();
+      if (t < 0.5) {
+        particle.color.setRGB(1, 0.4, 0.1);
+      } else {
+        particle.color.setRGB(1, 0.2, 0.05);
+      }
+    }
+
+    console.log('[HQ Explosion] Spawned ~450 particles');
   }
 
   /**
@@ -1379,11 +1719,12 @@ export class ThreeEffectsRenderer {
         // Decay life
         particle.life -= dt / particle.maxLife;
 
-        // Respawn fire particles
+        // Respawn fire particles (all fires are now persistent with duration: -1)
         if (effect.type === 'fire' && particle.life <= 0 && effect.duration < 0) {
-          // Infinite fire - respawn
+          // Use stored radius or default to 5
+          const fireRadius = (effect as EffectInstance & { radius?: number }).radius ?? 5;
           const angle = Math.random() * Math.PI * 2;
-          const radius = Math.random() * 5;
+          const radius = Math.random() * fireRadius;
 
           particle.position.copy(effect.localPosition);
           particle.position.x += Math.cos(angle) * radius;
@@ -1391,10 +1732,22 @@ export class ThreeEffectsRenderer {
 
           particle.velocity.set(
             (Math.random() - 0.5) * 2,
-            2 + Math.random() * 4,
+            3 + Math.random() * 5,
             (Math.random() - 0.5) * 2
           );
           particle.life = 1.0;
+          particle.maxLife = 0.4 + Math.random() * 0.8;
+          particle.size = 1.5 + Math.random() * 2.5;
+
+          // Fire colors on respawn
+          const t = Math.random();
+          if (t < 0.3) {
+            particle.color.setRGB(1, 0.9, 0.3);
+          } else if (t < 0.7) {
+            particle.color.setRGB(1, 0.5, 0.1);
+          } else {
+            particle.color.setRGB(1, 0.2, 0.05);
+          }
         }
       }
     }
