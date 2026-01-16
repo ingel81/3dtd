@@ -33,9 +33,9 @@ src/app/
 ├── entities/                   # Enemy, Tower, Projectile
 ├── game/tower-defense/shaders/ # Shader Code
 ├── game-components/            # ECS Components (transform, health, etc.)
-├── managers/                   # 8 Manager (enemy, tower, projectile, wave, etc.)
+├── managers/                   # 7 Manager (enemy, tower, projectile, wave, game-state, entity, spatial-audio)
 ├── models/                     # Type Definitions
-├── services/                   # 17 Angular Services
+├── services/                   # 19 Angular Services
 ├── styles/                     # Theme & Global Styles
 └── three-engine/               # 3D Rendering (renderers/)
 ```
@@ -56,11 +56,14 @@ src/app/
 | [INDEX.md](src/app/docs/INDEX.md) | Übersicht aller Dokumentationen |
 | [ARCHITECTURE.md](src/app/docs/ARCHITECTURE.md) | System-Architektur & Design |
 | [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
+| [EXPERT_REVIEW_2026.md](src/app/docs/EXPERT_REVIEW_2026.md) | Code-Analyse & Massnahmenkatalog |
 | [TOWER_CREATION.md](src/app/docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
 | [LOCATION_SYSTEM.md](src/app/docs/LOCATION_SYSTEM.md) | Standort-System |
 | [SPATIAL_AUDIO.md](src/app/docs/SPATIAL_AUDIO.md) | 3D Audio System |
 | [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
 | [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
+| [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
+| [FRAME_TIMING_FIXES.md](src/app/docs/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme & Lösungen |
 | [TODO.md](src/app/docs/TODO.md) | Offene Aufgaben |
 | [DONE.md](src/app/docs/DONE.md) | Erledigte Aufgaben |
 

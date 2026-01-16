@@ -1,6 +1,6 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-01-12
+**Stand:** 2026-01-16
 
 Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense Minispiel.
 
@@ -14,6 +14,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 |----------|--------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System-Architektur, Component-System, Renderer, Services |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
+| [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) | **NEU** Umfassende Code-Analyse (7 KI-Experten) |
 | [TODO.md](TODO.md) | Offene Aufgaben und bekannte Bugs |
 | [DONE.md](DONE.md) | Abgeschlossene Features und Fixes |
 
@@ -27,6 +28,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | 3D Audio System, Positionsabhängige Sounds |
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | 3D Model Previews in der Sidebar |
 | [FRAME_TIMING_FIXES.md](FRAME_TIMING_FIXES.md) | Frame-Timing Probleme und Lösungen |
+| [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Partikel-System, Blut, Feuer, Trail-Effekte |
 
 ---
 
@@ -49,6 +51,9 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |
 | ...Model Previews anpassen | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) |
 | ...Frame-Timing Bugs fixen | [FRAME_TIMING_FIXES.md](FRAME_TIMING_FIXES.md) |
+| ...Partikel-Effekte anpassen | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
+| ...technische Schulden verstehen | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) |
+| ...Code-Qualitaet verbessern | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) → Massnahmenkatalog |
 
 ---
 

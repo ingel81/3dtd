@@ -1,41 +1,167 @@
 # Offene TODOs
-Bewerten:
-    [ ] FPS LIMIT auf 60 sinnvoll?
-    [ ] Explosionen bei Rocket Treffern und Cannon Treffern
-    [ ] Keine LOS Berechnung wenn Tower nicht gebaut werden kann
-    [ ] LOS Berechnung performanter machen (Vielleicht gedrosselt machen und stück für Stück einblenden was er berechnet hat)
-    [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
 
-Beobachten bis Testcase wieder da:
-[ ] Mobs laufen z.t. unterirdisch an bestimmten Stellen (Vermutung: unterbrechung der Route)
+> Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
+---
 
-Performance:
- [~] spielt man das in einer größeren Stadt mit vielen 3d Gebäuden und straßen, kommt es beim zoomen oder panen und auch beim laden kurz zu aussetzern.
-     da läuft jeweils irgendwas langlaufendes. da sollten wir feedback geben was gerade gemacht wird und das ggfs. auch noch optimeren. parallalsieren.
-     [~] Tile-Loading optimiert (downloadQueue.maxJobs=4, parseQueue.maxJobs=1, größerer lruCache) → deutlich flüssiger
-     [ ] Viele gegner sind erfreulicherweiße überhaupt kein problem...nur ein problem mit paning und zooming wenn tiles dazu kommen, etc.
-     [ ] ist aber nicht so dramatisch wie es sich anhört.
- [ ] Instanced Decal Rendering - Blood/Ice Decals auf InstancedMesh umstellen
-     - Aktuell: ~250 Draw Calls für separate Meshes
-     - Mit Instancing: 2 Draw Calls (1 Blood-Pool, 1 Ice-Pool)
-     - Pro Instance nur Transform-Matrix updaten statt ganzes Mesh
-     - Könnte bei vielen Decals (500+) spürbar sein, aktuell nicht kritisch
+## Code Quality & Architektur (aus Expert Review)
 
-Location-System Bekannte Einschränkungen:
- [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
-     - Workaround: Manuelle Koordinaten-Eingabe nutzen
-     - Mögliche Verbesserung: Alternative Geocoding-API (Photon, Google)
+### Prioritaet 1: Quick Wins
+- [ ] **GeoUtilsService erstellen** - Haversine-Distanzberechnung ist 5x dupliziert
+      Betroffene Dateien: `enemy.manager.ts:299`, `tower.manager.ts:180`, `game-state.manager.ts:469`, `projectile.entity.ts:337`, `movement.component.ts:297`
+      Siehe: [EXPERT_REVIEW_2026.md#21-haversine-distanzberechnung](EXPERT_REVIEW_2026.md#21-haversine-distanzberechnung-5x-dupliziert)
 
-Ideen:
+- [ ] **Reusable Vectors in ProjectileRenderer** - Object Allocation in jedem Frame
+      Datei: `three-projectile.renderer.ts:71-94`
+      Siehe: [EXPERT_REVIEW_2026.md#42-loesung-reusable-vectors](EXPERT_REVIEW_2026.md#42-loesung-reusable-vectors)
+
+- [ ] **game-balance.config.ts erstellen** - Game Balance Werte verstreut im Code
+      Betroffene Stellen: `game-state.manager.ts:39-40` (baseHealth, credits), `:140` (waveBonus), `:233` (enemyDamage), `:315` (iceEffect)
+      Siehe: [EXPERT_REVIEW_2026.md#35-beispiel-game-balanceconfigts](EXPERT_REVIEW_2026.md#35-beispiel-game-balanceconfigts)
+
+- [ ] **placement.config.ts erstellen** - Placement-Constraints 2x dupliziert
+      Dateien: `tower.manager.ts:23-27`, `tower-placement.service.ts:38-42`
+      Siehe: [EXPERT_REVIEW_2026.md#22-placement-constraints](EXPERT_REVIEW_2026.md#22-placement-constraints-2x-dupliziert)
+
+- [ ] **PROJECTILE_SOUNDS in projectile-types.config.ts verschieben**
+      Datei: `projectile.manager.ts:10-41`
+      Siehe: [EXPERT_REVIEW_2026.md#32-audio](EXPERT_REVIEW_2026.md#32-audio-mittel)
+
+### Prioritaet 2: Mittelfristig
+- [ ] **GameStateManager aufteilen** (~800 Zeilen, God-Object)
+      Vorschlag: combat.manager.ts, effects.manager.ts, fire-intensity.manager.ts
+      Siehe: [EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen](EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen)
+
+- [ ] **Entity Object Pooling implementieren** - EntityPoolService ist nur Placeholder
+      Datei: `entity-pool.service.ts`
+      Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](EXPERT_REVIEW_2026.md)
+
+- [ ] **Spatial Partitioning (Grid)** - Range-Checks sind O(n)
+      Datei: `enemy.manager.ts:284-294` (getEnemiesInRadius)
+      Siehe: [EXPERT_REVIEW_2026.md#43-loesung-spatial-partitioning](EXPERT_REVIEW_2026.md#43-loesung-spatial-partitioning)
+
+- [ ] **Globaler Asset Manager** - 3 separate Model-Caches konsolidieren
+      Betroffene: ThreeTowerRenderer, ThreeEnemyRenderer, ModelPreviewService
+      Siehe: [EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager](EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager)
+
+### Prioritaet 3: Langfristig
+- [ ] **TowerDefenseComponent aufteilen** (~2280 Zeilen)
+      Vorschlag: StreetRenderingService, WaveOrchestrationService, LocationChangeService
+
+- [ ] **Event-System einfuehren** - Aktuell nur Callbacks
+      Vorschlag: Typisierter EventBus mit emit<T>() und on<T>()
+
+- [ ] **LOD-System fuer Entities** - Aktuell nicht vorhanden
+
+- [ ] **Koordinaten-Typen vereinheitlichen** - 3 verschiedene Formate im Code
+      `GeoPosition` vs `{latitude, longitude}` vs `{lat, lon}`
+      Siehe: [EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz](EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz)
+
+---
+
+## Performance (aus Expert Review)
+
+- [ ] **Reusable Vectors in ThreeEffectsRenderer**
+      Datei: `three-effects.renderer.ts:1372, 1478, 1489` - `velocity.clone()` pro Partikel
+      Siehe: [EXPERT_REVIEW_2026.md#41-kritische-hotspots](EXPERT_REVIEW_2026.md#41-kritische-hotspots)
+
+- [ ] **Cached getAlive() Result** - Erstellt Array jeden Frame
+      Datei: `enemy.manager.ts:267-269`
+
+- [ ] **Fast-Distance statt Haversine** fuer lokale Berechnungen (<200m)
+      Math.sin/cos in jedem Frame vermeiden
+
+- [~] Tile-Loading optimiert (downloadQueue.maxJobs=4, parseQueue.maxJobs=1, groesserer lruCache)
+      [~] Deutlich fluessiger
+
+- [ ] Viele Gegner sind erfreulicherweise kein Problem...nur beim Panning/Zooming wenn Tiles dazu kommen
+
+- [ ] Instanced Decal Rendering - Blood/Ice Decals auf InstancedMesh umstellen
+      - Aktuell: ~250 Draw Calls fuer separate Meshes
+      - Mit Instancing: 2 Draw Calls (1 Blood-Pool, 1 Ice-Pool)
+
+---
+
+## Dokumentation (aus Expert Review)
+
+- [ ] **CLAUDE.md aktualisieren** - Service/Manager-Anzahl falsch
+      "17 Services" -> 19, "8 Manager" -> 7
+      Siehe: [EXPERT_REVIEW_2026.md#71-inkonsistenzen](EXPERT_REVIEW_2026.md#71-inkonsistenzen-docs-vs-code)
+
+- [ ] **CLAUDE.md Dokumentations-Tabelle ergaenzen**
+      Fehlend: FRAME_TIMING_FIXES.md, PARTICLE_SYSTEM.md, tasks/FPS_LIMIT.md, EXPERT_REVIEW_2026.md
+
+- [ ] **ARCHITECTURE.md Dateistruktur korrigieren**
+      `game/` Subfolder-Fehler (Zeilen 728-813)
+
+- [ ] **src/app/README.md ueberarbeiten oder entfernen**
+      Komplett veraltet: falsche Pfade, falsche Tower-Anzahl, veraltete APIs
+
+- [ ] **ENEMY_CREATION.md erstellen** - Analog zu TOWER_CREATION.md
+      Enemy-System ist nicht dokumentiert
+
+- [ ] **Status-Effekt-System dokumentieren**
+      Datei: `models/status-effects.ts`
+
+- [ ] **Wave-System dokumentieren**
+      WaveManager und Wave-Konfiguration
+
+---
+
+## Three.js & Rendering (aus Expert Review)
+
+- [ ] **Raycaster Instanz wiederverwenden**
+      Datei: `three-tiles-engine.ts:882` - wird pro Call neu erstellt
+
+- [ ] **Selection Ring Geometry teilen**
+      Datei: `three-tower.renderer.ts:389` - jeder Tower erstellt eigene Geometry
+
+- [ ] **Model Templates korrekt disposen**
+      Datei: `three-tower.renderer.ts:1479` - Geometry/Material nicht disposed
+
+- [ ] **Tiles Update throttlen wenn Kamera statisch**
+      Datei: `three-tiles-engine.ts:948` - Update jeden Frame auch ohne Bewegung
+
+---
+
+## Config-System erweitern
+
+- [ ] **audio.config.ts erstellen** - Sound-Configs zentralisieren
+      Aktuell: `projectile.manager.ts`, `spatial-audio.manager.ts`
+
+- [ ] **visual-effects.config.ts erstellen** - Partikel/Decal-Configs
+      Aktuell: `three-effects.renderer.ts:110-150` (MAX_PARTICLES, DECAL_FADE etc.)
+
+- [ ] **timing.config.ts erstellen** - Animation/Game Timings
+      Aktuell: Death-Animation (2000ms), LOS-Recheck (300ms), Spawn-Delays etc.
+
+---
+
+## Bestehende TODOs
+
+### Bewerten
+- [ ] FPS LIMIT auf 60 sinnvoll?
+- [ ] Explosionen bei Rocket Treffern und Cannon Treffern
+- [ ] Keine LOS Berechnung wenn Tower nicht gebaut werden kann
+- [ ] LOS Berechnung performanter machen (gedrosselt und stueckweise einblenden)
+- [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
+
+### Beobachten bis Testcase wieder da
+- [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
+
+### Location-System Bekannte Einschraenkungen
+- [ ] Nominatim-Geocoding gibt oft Strassen-Koordinaten statt Gebaeude-Koordinaten
+      - Workaround: Manuelle Koordinaten-Eingabe nutzen
+      - Moegliche Verbesserung: Alternative Geocoding-API (Photon, Google)
+
+### Ideen
 - [ ] Fette Explosion wenn HQ final kaputt
-- [ ] coole locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
+- [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
 - [ ] Poison Tower
 - [ ] Magic Tower
 - [ ] Flame Tower
 
-Stashed Features:
+### Stashed Features
 - [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")
-      Wikidata SPARQL für zufällige Stadt + Overpass API für Straße
-      Würfel-Button in Header + Location-Dialog
-
+      Wikidata SPARQL fuer zufaellige Stadt + Overpass API fuer Strasse
+      Wuerfel-Button in Header + Location-Dialog
