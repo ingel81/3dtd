@@ -40,6 +40,11 @@ export class Projectile extends GameObject {
   // Homing projectiles (rockets) continuously update their direction
   private _isHoming: boolean = false;
 
+  // Target lost tracking - projectile continues to last known position
+  private _targetLost: boolean = false;
+  private _lastTargetPosition: GeoPosition | null = null;
+  private _lastTargetTerrainHeight: number = 0;
+
   constructor(
     startPosition: GeoPosition,
     targetEnemy: Enemy,
@@ -184,15 +189,29 @@ export class Projectile extends GameObject {
   }
 
   /**
+   * Check if target was lost (enemy died mid-flight)
+   * Projectile continues to last known position and explodes on ground
+   */
+  get targetLost(): boolean {
+    return this._targetLost;
+  }
+
+  /**
    * Move towards target enemy
-   * @returns true if hit target, false otherwise
+   * @returns true if hit target (or ground if target lost), false otherwise
    */
   updateTowardsTarget(deltaTime: number): boolean {
-    if (!this.targetEnemy.alive) {
-      return false; // Target dead
+    // Check if target just died - capture last position
+    if (!this.targetEnemy.alive && !this._targetLost) {
+      this._targetLost = true;
+      this._lastTargetPosition = { ...this.targetEnemy.position };
+      this._lastTargetTerrainHeight = this.targetEnemy.transform.terrainHeight;
     }
 
-    const targetPos = this.targetEnemy.position;
+    // Determine target position (live enemy or last known position)
+    const targetPos = this._targetLost
+      ? this._lastTargetPosition!
+      : this.targetEnemy.position;
     const dist = geoDistance(this.position, targetPos);
     const moveDistance = (this.movement.speedMps * deltaTime) / 1000;
 
@@ -200,9 +219,12 @@ export class Projectile extends GameObject {
     this._traveledDistance += moveDistance;
 
     if (dist <= moveDistance) {
-      // Hit target
+      // Hit target (or ground if target was lost)
       this.transform.setPosition(targetPos.lat, targetPos.lon);
-      this._flightHeight = this.getTargetHeight();
+      // If target lost, hit ground level; otherwise hit enemy height
+      this._flightHeight = this._targetLost
+        ? this._lastTargetTerrainHeight + 1 // Ground impact
+        : this.getTargetHeight();
       return true;
     }
 
@@ -237,7 +259,10 @@ export class Projectile extends GameObject {
    * Returns normalized direction vector tangent to the parabolic arc
    */
   private calculateArcTangentDirection(): { dx: number; dy: number; dz: number } {
-    const targetPos = this.targetEnemy.position;
+    // Use last known position if target was lost
+    const targetPos = this._targetLost
+      ? this._lastTargetPosition!
+      : this.targetEnemy.position;
     const progress = this.flightProgress;
 
     // Horizontal direction (unchanged - always points towards target)
