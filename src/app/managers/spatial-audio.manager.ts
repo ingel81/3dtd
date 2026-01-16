@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, SPATIAL_AUDIO_DEFAULTS } from '../configs/audio.config';
 
 /**
  * Sound configuration
@@ -19,12 +20,12 @@ export interface SpatialSoundConfig {
 }
 
 const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
-  refDistance: 50,
-  rolloffFactor: 1,
-  maxDistance: 0, // No maximum (natural falloff)
-  distanceModel: 'inverse',
-  volume: 1.0,
-  loop: false,
+  refDistance: SPATIAL_AUDIO_DEFAULTS.refDistance,
+  rolloffFactor: SPATIAL_AUDIO_DEFAULTS.rolloffFactor,
+  maxDistance: SPATIAL_AUDIO_DEFAULTS.maxDistance,
+  distanceModel: SPATIAL_AUDIO_DEFAULTS.distanceModel,
+  volume: SPATIAL_AUDIO_DEFAULTS.volume,
+  loop: SPATIAL_AUDIO_DEFAULTS.loop,
 };
 
 /**
@@ -46,12 +47,7 @@ interface ActiveSound {
   ownerId?: string; // ID of the owner (e.g., enemy ID)
 }
 
-/**
- * Sound budget configuration
- * Enemy sounds have a strict limit to leave room for tower/projectile sounds
- */
-const MAX_ENEMY_SOUNDS = 12; // Max concurrent enemy movement sounds
-const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy']; // Sound IDs containing these are enemy sounds
+// Sound budget uses centralized config from audio.config.ts
 
 /**
  * SpatialAudioManager - 3D positioned audio using Three.js Audio system
@@ -131,14 +127,14 @@ export class SpatialAudioManager {
    * Call this before creating a new enemy loop sound
    */
   canPlayEnemySound(): boolean {
-    return this.enemySoundCount < MAX_ENEMY_SOUNDS;
+    return this.enemySoundCount < AUDIO_LIMITS.maxEnemySounds;
   }
 
   /**
    * Get current enemy sound count and limit for debugging
    */
   getEnemySoundStats(): { current: number; max: number } {
-    return { current: this.enemySoundCount, max: MAX_ENEMY_SOUNDS };
+    return { current: this.enemySoundCount, max: AUDIO_LIMITS.maxEnemySounds };
   }
 
   /**
@@ -160,7 +156,7 @@ export class SpatialAudioManager {
    * Returns false if budget exceeded
    */
   registerEnemySound(): boolean {
-    if (this.enemySoundCount >= MAX_ENEMY_SOUNDS) {
+    if (this.enemySoundCount >= AUDIO_LIMITS.maxEnemySounds) {
       return false;
     }
     this.enemySoundCount++;

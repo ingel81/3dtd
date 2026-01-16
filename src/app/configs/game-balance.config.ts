@@ -35,14 +35,10 @@ export const GAME_BALANCE = {
     },
   },
 
-  /** Fire intensity thresholds (health percentage) */
-  fireIntensity: {
-    /** Below this health: large fire */
-    large: 20,
-    /** Below this health: medium fire */
-    medium: 40,
-    /** Below this health: small fire */
-    small: 60,
+  /** Fire behavior thresholds */
+  fire: {
+    /** HP threshold - above this: brief flash, below: permanent fire */
+    permanentThreshold: 50,
   },
 } as const;
 

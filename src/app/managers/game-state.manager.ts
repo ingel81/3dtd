@@ -14,12 +14,11 @@ import { Projectile } from '../entities/projectile.entity';
 import { EnemyTypeId } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
+import { GAME_SOUNDS } from '../configs/audio.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
 import { geoDistance } from '../utils/geo-utils';
-
-/** Fire intensity levels for visual effects */
-type FireIntensity = 'tiny' | 'small' | 'medium' | 'large' | 'inferno';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -65,8 +64,7 @@ export class GameStateManager {
   // Cached HQ terrain height (calculated when tiles load)
   private hqTerrainHeight: number | null = null;
 
-  // Sound IDs
-  private static readonly HQ_DAMAGE_SOUND = 'hq_damage';
+  // Sound IDs use centralized config from audio.config.ts
 
   /**
    * Initialize game state with ThreeTilesEngine
@@ -108,12 +106,12 @@ export class GameStateManager {
     // Register HQ damage sound
     if (tilesEngine.spatialAudio) {
       tilesEngine.spatialAudio.registerSound(
-        GameStateManager.HQ_DAMAGE_SOUND,
-        '/assets/sounds/small_hq_explosion.mp3',
+        GAME_SOUNDS.hqDamage.id,
+        GAME_SOUNDS.hqDamage.url,
         {
-          refDistance: 40,
-          rolloffFactor: 1,
-          volume: 1.4,
+          refDistance: GAME_SOUNDS.hqDamage.refDistance,
+          rolloffFactor: GAME_SOUNDS.hqDamage.rolloffFactor,
+          volume: GAME_SOUNDS.hqDamage.volume,
         }
       );
     }
@@ -238,7 +236,7 @@ export class GameStateManager {
     // Play HQ damage sound at base position
     if (this.basePosition && this.tilesEngine?.spatialAudio) {
       this.tilesEngine.spatialAudio.playAtGeo(
-        GameStateManager.HQ_DAMAGE_SOUND,
+        GAME_SOUNDS.hqDamage.id,
         this.basePosition.lat,
         this.basePosition.lon,
         this.basePosition.height ?? 0
@@ -256,12 +254,18 @@ export class GameStateManager {
 
     // Spawn explosion effect for splash damage projectiles
     if (hasSplash && this.tilesEngine) {
+      // Calculate explosion height: terrain + enemy heightOffset
+      // Ground units get +2 offset to lift explosion slightly above ground
+      // Air units don't need offset since they're already elevated
+      const groundOffset = enemy.typeConfig.isAirUnit ? 0 : 2;
+      const explosionHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + groundOffset;
+
       if (isIceShard) {
         // Ice explosion (cyan particles) - more particles
         this.tilesEngine.effects.spawnIceExplosionAtGeo(
           enemy.position.lat,
           enemy.position.lon,
-          enemy.transform.terrainHeight + 2,
+          explosionHeight,
           35
         );
 
@@ -299,11 +303,11 @@ export class GameStateManager {
           }
         }
       } else {
-        // Normal fire explosion
+        // Normal fire explosion (uses explosionHeight for air unit support)
         this.tilesEngine.effects.spawnExplosionAtGeo(
           enemy.position.lat,
           enemy.position.lon,
-          enemy.transform.terrainHeight + 2,
+          explosionHeight,
           30
         );
       }
@@ -505,20 +509,24 @@ export class GameStateManager {
 
   /**
    * Update fire intensity based on base health
+   *
+   * Fire behavior:
+   * - HP 51-100%: Brief fire flash that fades away (temporary damage indicator)
+   * - HP 1-50%: Permanent fire that scales with damage (bigger as HP decreases)
+   * - HP 0%: Handled by triggerGameOver (explosion + inferno)
    */
   private updateFireIntensity(): void {
     if (!this.basePosition || !this.tilesEngine) return;
 
     const health = this.baseHealth();
-    let intensity: FireIntensity;
 
-    if (health < GAME_BALANCE.fireIntensity.large) intensity = 'large';
-    else if (health < GAME_BALANCE.fireIntensity.medium) intensity = 'medium';
-    else if (health < GAME_BALANCE.fireIntensity.small) intensity = 'small';
-    else intensity = 'tiny';
-
-    if (this.activeFireId) {
-      this.tilesEngine.effects.stopFire(this.activeFireId);
+    // No fire at full health
+    if (health >= 100) {
+      if (this.activeFireId) {
+        this.tilesEngine.effects.stopFire(this.activeFireId);
+        this.activeFireId = null;
+      }
+      return;
     }
 
     // Use cached terrain height, or calculate live as fallback
@@ -530,11 +538,38 @@ export class GameStateManager {
       ) ?? 0;
     }
 
-    this.activeFireId = this.tilesEngine.effects.spawnFireAtLocalY(
+    // HP above threshold: Brief fire flash (temporary)
+    if (health > GAME_BALANCE.fire.permanentThreshold) {
+      // Stop any existing permanent fire
+      if (this.activeFireId) {
+        this.tilesEngine.effects.stopFire(this.activeFireId);
+        this.activeFireId = null;
+      }
+      // Spawn brief fire flash (will auto-fade)
+      this.tilesEngine.effects.spawnFireFlash(
+        this.basePosition.lat,
+        this.basePosition.lon,
+        fireY
+      );
+      return;
+    }
+
+    // HP below threshold: Permanent fire that scales with damage
+    // Stop existing fire to respawn with new intensity
+    if (this.activeFireId) {
+      this.tilesEngine.effects.stopFire(this.activeFireId);
+    }
+
+    // Calculate fire scale: at threshold = small (0), at 1% HP = maximum (≈1)
+    // Linear interpolation: scale = 1 - (health / threshold)
+    const threshold = GAME_BALANCE.fire.permanentThreshold;
+    const scale = 1 - (health / threshold);
+
+    this.activeFireId = this.tilesEngine.effects.spawnScaledFire(
       this.basePosition.lat,
       this.basePosition.lon,
       fireY,
-      intensity
+      scale
     );
   }
 
@@ -545,35 +580,45 @@ export class GameStateManager {
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
 
-    // Show inferno fire at base (on terrain/roof, not at beacon)
+    // Show HQ explosion and inferno fire at base
     if (this.basePosition && this.tilesEngine) {
-      if (this.activeFireId) {
-        this.tilesEngine.effects.stopFire(this.activeFireId);
+      // Use cached terrain height (set when tiles loaded), fallback to live calculation
+      let localY = this.hqTerrainHeight;
+      if (localY === null) {
+        localY = this.tilesEngine.getTerrainHeightAtGeo(
+          this.basePosition.lat,
+          this.basePosition.lon
+        ) ?? 0;
       }
 
-      // Get terrain height LIVE
-      let localY = this.tilesEngine.getTerrainHeightAtGeo(
-        this.basePosition.lat,
-        this.basePosition.lon
-      );
-
-      if (localY === null || Math.abs(localY) > 50) {
-        localY = 0;
-      }
-
-      this.activeFireId = this.tilesEngine.effects.spawnFireAtLocalY(
+      // Spawn massive HQ destruction explosion
+      this.tilesEngine.effects.spawnHQExplosion(
         this.basePosition.lat,
         this.basePosition.lon,
-        localY,
-        'inferno'
+        localY
       );
+
+      // Scale existing fire to inferno (or spawn new one if none exists)
+      if (this.activeFireId) {
+        this.tilesEngine.effects.scaleFireToInferno(this.activeFireId);
+      } else {
+        // Spawn inferno fire if no fire was active
+        this.activeFireId = this.tilesEngine.effects.spawnScaledFire(
+          this.basePosition.lat,
+          this.basePosition.lon,
+          localY,
+          1.0 // Maximum intensity
+        );
+      }
+      // Fire stays permanently - no cleanup
     }
 
     this.onGameOverCallback?.();
 
+    // Game over screen appears 3 seconds after destruction
     setTimeout(() => {
       this.showGameOverScreen.set(true);
-    }, 5000);
+    }, 3000);
   }
 
   // ============================================

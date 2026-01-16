@@ -6,6 +6,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
+import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -87,39 +88,50 @@ export class ProjectileManager extends EntityManager<Projectile> {
       const hit = projectile.updateTowardsTarget(deltaTime);
 
       if (hit) {
-        this.onProjectileHit?.(projectile, projectile.targetEnemy);
+        // Only call hit handler if target is still alive (not for ground impacts)
+        if (!projectile.targetLost) {
+          this.onProjectileHit?.(projectile, projectile.targetEnemy);
+        }
 
-        // Spawn explosion effect for rockets
+        // Spawn explosion effects based on projectile type (always, even on ground impact)
+        const projectileId = projectile.typeConfig.id;
         if (projectile.isHoming) {
+          // Rocket explosion - large fire effect
           this.tilesEngine?.effects.spawnExplosionAtGeo(
             projectile.position.lat,
             projectile.position.lon,
             projectile.flightHeight,
-            50 // 50 particles for bigger explosion
+            EXPLOSION_PRESETS.rocket.particles
           );
-        } else if (projectile.typeConfig.id === 'bullet') {
-          // Minimal impact effect for bullets - just 2 tiny particles
+        } else if (projectileId === 'cannonball') {
+          // Cannonball explosion - medium fire effect
           this.tilesEngine?.effects.spawnExplosionAtGeo(
             projectile.position.lat,
             projectile.position.lon,
             projectile.flightHeight,
-            2 // 2 particles for minimal bullet impact
+            EXPLOSION_PRESETS.cannon.particles
           );
-        } else if (projectile.typeConfig.id !== 'arrow') {
-          // Spawn smaller impact effect for other non-arrow, non-rocket projectiles
+        } else if (projectileId === 'bullet') {
+          // Minimal impact effect for bullets
           this.tilesEngine?.effects.spawnExplosionAtGeo(
             projectile.position.lat,
             projectile.position.lon,
             projectile.flightHeight,
-            8 // 8 particles for small impact effect
+            EXPLOSION_PRESETS.bullet.particles
+          );
+        } else if (projectileId !== 'arrow') {
+          // Small impact effect for other projectiles (ice, etc.)
+          this.tilesEngine?.effects.spawnExplosionAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            EXPLOSION_PRESETS.small.particles
           );
         }
 
         toRemove.push(projectile);
-      } else if (!projectile.targetEnemy.alive) {
-        // Target died, remove projectile
-        toRemove.push(projectile);
       } else {
+        // Projectile still in flight (including when target died - continues to last position)
         // Update visual position
         if (projectile.isHoming || projectile.hasArcTrajectory) {
           // Homing and arc projectiles update rotation continuously
