@@ -1,0 +1,1 @@
+FÜge das übergebene TODO in der richtigen Kategorie in die TODO.md ein und prüfe auf Dubletten.
