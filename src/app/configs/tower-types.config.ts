@@ -44,7 +44,6 @@ export interface TowerTypeConfig {
 
 // NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
 const ARCHER_MODEL_URL = '/assets/models/towers/archer_tower.glb';
-const WATCHTOWER_MODEL_URL = '/assets/models/towers/WatchTowerWRoof.fbx';
 const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
 const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
 const CANNON_MODEL_URL = '/assets/models/towers/cannon_tower.glb';

@@ -1146,7 +1146,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.streetNetwork,
       { lat: base.latitude, lon: base.longitude },
       waveSpawnPoints,
-      this.pathRoute.getCachedPath.bind(this.pathRoute) as any, // Use pathRoute's cache
+      this.pathRoute.getCachedPaths(),
       (msg: string) => this.uiState.appendDebugLog(msg),
       () => this.onGameOver()
     );
@@ -1173,7 +1173,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Collect all route paths
     const cachedPaths = this.pathRoute.getCachedPaths();
-    const routes: Array<Array<{ lat: number; lon: number }>> = [];
+    const routes: { lat: number; lon: number }[][] = [];
 
     cachedPaths.forEach((path) => {
       routes.push(path.map(p => ({ lat: p.lat, lon: p.lon })));
@@ -1325,7 +1325,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Set overlay base Y so overlayGroup is positioned at terrain surface
     engine.setOverlayBaseY(originTerrainY);
 
-    let hits = 0, misses = 0;
     // Always create debug markers (hidden by default) so toggleHeightDebug doesn't need to re-render
     const debugMarkerInterval = 10; // Only show every Nth marker to reduce clutter
     let debugMarkerCount = 0;
@@ -1333,7 +1332,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Collect all line segments for merged geometry (PERFORMANCE: 1 draw call instead of 600+)
     // LineSegments interprets vertices pairwise: [v0-v1], [v2-v3], [v4-v5]...
     const allSegmentVertices: number[] = [];
-    let streetCount = 0;
 
     for (const street of networkToRender.streets) {
       if (street.nodes.length < 2) continue;
@@ -1345,7 +1343,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         const terrainY = engine.getTerrainHeightAtGeo(node.lat, node.lon);
 
         if (terrainY !== null) {
-          hits++;
           // Use geoToLocalSimple for X/Z
           const local = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
           // Y = height difference from origin + offset above ground
@@ -1358,7 +1355,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
           }
           debugMarkerCount++;
         } else {
-          misses++;
           // Add red debug marker for misses (only every Nth point)
           if (debugMarkerCount % debugMarkerInterval === 0) {
             const localMiss = engine.sync.geoToLocalSimple(node.lat, node.lon, 5);
@@ -1382,7 +1378,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         allSegmentVertices.push(p1.x, p1.y, p1.z);
         allSegmentVertices.push(p2.x, p2.y, p2.z);
       }
-      streetCount++;
     }
 
     // Create single merged geometry with all street segments

@@ -14,7 +14,6 @@ import { Projectile } from '../entities/projectile.entity';
 import { EnemyTypeId } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
 import { GAME_SOUNDS } from '../configs/audio.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';

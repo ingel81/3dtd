@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CoordinateSync } from './index';

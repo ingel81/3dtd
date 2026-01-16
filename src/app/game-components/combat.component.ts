@@ -72,7 +72,7 @@ export class CombatComponent extends Component {
     return R * c;
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // Combat logic is handled explicitly (tower shooting, etc.)
   }
 }

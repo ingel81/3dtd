@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { EnemyTypeId, getAllEnemyTypes, EnemyTypeConfig } from '../models/enemy-types';
+import { EnemyTypeId, getAllEnemyTypes } from '../models/enemy-types';
 import { GameUIStateService } from './game-ui-state.service';
 
 /**

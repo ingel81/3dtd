@@ -418,7 +418,7 @@ export class CameraFramingService {
    * @param realTerrainY Actual terrain height from engine
    * @param originalEstimate Original estimated terrain height used in frame
    */
-  correctTerrainHeight(realTerrainY: number, originalEstimate: number = 0): void {
+  correctTerrainHeight(realTerrainY: number, originalEstimate = 0): void {
     if (!this.engine || !this.lastFrame) {
       return;
     }

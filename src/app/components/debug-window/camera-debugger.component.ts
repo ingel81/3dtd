@@ -1,4 +1,4 @@
-import { Component, inject, computed, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnDestroy } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';

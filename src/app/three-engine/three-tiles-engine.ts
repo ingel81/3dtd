@@ -137,7 +137,7 @@ export class ThreeTilesEngine {
     cesiumAssetId: string,
     originLat: number,
     originLon: number,
-    originHeight: number = 0
+    originHeight = 0
   ) {
     this.cesiumIonToken = cesiumIonToken;
     this.cesiumAssetId = cesiumAssetId;
@@ -484,9 +484,9 @@ export class ThreeTilesEngine {
     lat: number,
     lon: number,
     height: number,
-    azimuth: number = 0,
-    elevation: number = -45,
-    roll: number = 0
+    azimuth = 0,
+    elevation = -45,
+    roll = 0
   ): void {
     if (!this.tilesRenderer) return;
 
@@ -530,9 +530,9 @@ export class ThreeTilesEngine {
     x: number,
     y: number,
     z: number,
-    targetX: number = 0,
-    targetY: number = 0,
-    targetZ: number = 0
+    targetX = 0,
+    targetY = 0,
+    targetZ = 0
   ): void {
     this.camera.position.set(x, y, z);
     this.camera.lookAt(targetX, targetY, targetZ);
@@ -541,7 +541,7 @@ export class ThreeTilesEngine {
   /**
    * Fly camera to a position (animated)
    */
-  flyTo(lat: number, lon: number, height: number, duration: number = 1.5): void {
+  flyTo(lat: number, lon: number, height: number, _duration = 1.5): void {
     // For now, just set position directly
     // TODO: Implement smooth animation
     this.setCameraPosition(lat, lon, height, 0, -45);
@@ -551,7 +551,7 @@ export class ThreeTilesEngine {
    * Update origin (when game location changes)
    * Also resets firstTilesLoaded so the callback fires again for the new location
    */
-  setOrigin(lat: number, lon: number, height: number = 0): void {
+  setOrigin(lat: number, lon: number, height = 0): void {
     this.sync.setOrigin(lat, lon, height);
 
     // Update ReorientationPlugin
@@ -767,7 +767,7 @@ export class ThreeTilesEngine {
   /**
    * @deprecated Use getTerrainHeightAtGeo() instead - this method uses incorrect local raycast
    */
-  getOverlayTerrainHeight(localX: number, localZ: number): number | null {
+  getOverlayTerrainHeight(_localX: number, _localZ: number): number | null {
     console.warn('[Terrain] getOverlayTerrainHeight is deprecated - use getTerrainHeightAtGeo');
     return null;
   }
@@ -781,7 +781,7 @@ export class ThreeTilesEngine {
    * @param heightAboveGround - Additional height above terrain (default 0)
    * @returns Height above ellipsoid + offset, or null if tiles not loaded
    */
-  getOverlayTerrainHeightAtGeo(lat: number, lon: number, heightAboveGround: number = 0): number | null {
+  getOverlayTerrainHeightAtGeo(lat: number, lon: number, heightAboveGround = 0): number | null {
     const terrainHeight = this.getTerrainHeightAtGeo(lat, lon);
 
     if (terrainHeight !== null) {
@@ -1065,7 +1065,7 @@ export class ThreeTilesEngine {
    * @param height - Height above ground in meters (in group's local Y-up coordinates)
    * @returns The created mesh or null if no tiles renderer
    */
-  addTestCubeAtOrigin(height: number = 50): THREE.Mesh | null {
+  addTestCubeAtOrigin(height = 50): THREE.Mesh | null {
     if (!this.tilesRenderer) {
       console.error('[ThreeTilesEngine] Cannot add test cube: tilesRenderer not initialized');
       return null;

@@ -273,7 +273,7 @@ export class HeightUpdateService {
     // Update spawn markers - use relative heights
     for (const marker of spawnMarkers) {
       // Extract spawn point info from marker name (format: "spawnMarker_spawn-1")
-      const spawnId = marker.name.replace('spawnMarker_', '');
+      // spawnId available for future use: marker.name.replace('spawnMarker_', '')
 
       // Get spawn position from marker's current world position
       const worldPos = new THREE.Vector3();

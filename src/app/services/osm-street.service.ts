@@ -55,7 +55,7 @@ export class OsmStreetService {
   async loadStreets(
     centerLat: number,
     centerLon: number,
-    radiusMeters: number = 500
+    radiusMeters = 500
   ): Promise<StreetNetwork> {
     // Try to load from cache first
     const cacheKey = this.getCacheKey(centerLat, centerLon, radiusMeters);
@@ -178,8 +178,8 @@ export class OsmStreetService {
       // Try to save, and if quota exceeded, clear old caches first
       try {
         localStorage.setItem(key, jsonData);
-      } catch (quotaError) {
-        // Clear all street caches and try again
+      } catch {
+        // Quota exceeded - clear all street caches and try again
         this.clearOldCaches();
         localStorage.setItem(key, jsonData);
       }
@@ -205,14 +205,14 @@ export class OsmStreetService {
 
   private parseOverpassResponse(
     data: {
-      elements: Array<{
+      elements: {
         type: string;
         id: number;
         lat?: number;
         lon?: number;
         nodes?: number[];
         tags?: { name?: string; highway?: string };
-      }>;
+      }[];
     },
     bounds: StreetNetwork['bounds']
   ): StreetNetwork {
@@ -393,13 +393,13 @@ export class OsmStreetService {
    */
   filterStreetsNearRoutes(
     network: StreetNetwork,
-    routes: Array<Array<{ lat: number; lon: number }>>,
-    corridorWidth: number = 100
+    routes: { lat: number; lon: number }[][],
+    corridorWidth = 100
   ): StreetNetwork {
     console.time('[OSM] filterStreetsNearRoutes');
 
     // Collect all route points
-    const routePoints: Array<{ lat: number; lon: number }> = [];
+    const routePoints: { lat: number; lon: number }[] = [];
     for (const route of routes) {
       routePoints.push(...route);
     }
@@ -457,7 +457,7 @@ export class OsmStreetService {
   private isPointNearRoute(
     lat: number,
     lon: number,
-    routePoints: Array<{ lat: number; lon: number }>,
+    routePoints: { lat: number; lon: number }[],
     maxDistance: number
   ): boolean {
     // Quick bounding box check first (rough filter)
@@ -647,8 +647,8 @@ export class OsmStreetService {
     network: StreetNetwork,
     centerLat: number,
     centerLon: number,
-    minDistance: number = 500,
-    maxDistance: number = 1000
+    minDistance = 500,
+    maxDistance = 1000
   ): RandomSpawnCandidate | null {
     // 1. Collect all street nodes in distance range (excluding footpaths)
     const candidates: RandomSpawnCandidate[] = [];

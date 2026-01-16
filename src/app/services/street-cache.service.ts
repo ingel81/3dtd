@@ -177,7 +177,7 @@ export class StreetCacheService {
       const db = await this.getDB();
 
       // Get all LRU entries
-      const entries = await new Promise<Array<{ id: string; timestamp: number }>>((resolve) => {
+      const entries = await new Promise<{ id: string; timestamp: number }[]>((resolve) => {
         const transaction = db.transaction(this.INDEX_STORE, 'readonly');
         const store = transaction.objectStore(this.INDEX_STORE);
         const request = store.getAll();

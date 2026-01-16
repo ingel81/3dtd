@@ -488,7 +488,7 @@ export class ThreeEffectsRenderer {
    * @param height - Height above ground
    * @param count - Number of particles (default 20)
    */
-  spawnBloodSplatter(lat: number, lon: number, height: number, count: number = 20): string {
+  spawnBloodSplatter(lat: number, lon: number, height: number, count = 20): string {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `blood_${this.effectIdCounter++}`;
 
@@ -536,7 +536,7 @@ export class ThreeEffectsRenderer {
    * @param size - Size of the decal (0.5-3.0 meters, default 1.0)
    * @returns Decal ID
    */
-  spawnBloodDecal(lat: number, lon: number, height: number, size: number = 1.0): string {
+  spawnBloodDecal(lat: number, lon: number, height: number, size = 1.0): string {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `decal_${this.decalIdCounter++}`;
 
@@ -701,7 +701,7 @@ export class ThreeEffectsRenderer {
     lon: number,
     getTerrainHeight: (lat: number, lon: number) => number | null,
     intensity: 'tiny' | 'small' | 'medium' | 'large' | 'inferno' = 'medium',
-    heightOffset: number = 0
+    heightOffset = 0
   ): string {
     const localY = getTerrainHeight(lat, lon) ?? 0;
     return this.spawnFireAtLocalY(lat, lon, localY + heightOffset, intensity);
@@ -805,7 +805,7 @@ export class ThreeEffectsRenderer {
    * Stop all fire effects
    */
   stopAllFires(): void {
-    for (const [id, effect] of this.activeEffects) {
+    for (const [, effect] of this.activeEffects) {
       if (effect.type === 'fire') {
         effect.duration = 500;
         effect.startTime = performance.now();
@@ -1136,7 +1136,7 @@ export class ThreeEffectsRenderer {
    * @param localZ - Local Z coordinate
    * @param count - Number of particles to spawn (default 3)
    */
-  spawnRocketTrail(localX: number, localY: number, localZ: number, count: number = 3): void {
+  spawnRocketTrail(localX: number, localY: number, localZ: number, count = 3): void {
     for (let i = 0; i < count; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive);
       if (!particle) break;
@@ -1174,7 +1174,7 @@ export class ThreeEffectsRenderer {
    * @param height - Height above ground
    * @param count - Number of particles (default 3)
    */
-  spawnRocketTrailAtGeo(lat: number, lon: number, height: number, count: number = 3): void {
+  spawnRocketTrailAtGeo(lat: number, lon: number, height: number, count = 3): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     this.spawnRocketTrail(localPos.x, localPos.y, localPos.z, count);
   }
@@ -1184,7 +1184,7 @@ export class ThreeEffectsRenderer {
    * Much smaller and faster-fading than rocket trails
    * Uses ADDITIVE blending (bright tracer effect)
    */
-  spawnBulletTracer(localX: number, localY: number, localZ: number, count: number = 1): void {
+  spawnBulletTracer(localX: number, localY: number, localZ: number, count = 1): void {
     for (let i = 0; i < count; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive);
       if (!particle) break;
@@ -1215,7 +1215,7 @@ export class ThreeEffectsRenderer {
   /**
    * Spawn bullet tracer at geo coordinates
    */
-  spawnBulletTracerAtGeo(lat: number, lon: number, height: number, count: number = 1): void {
+  spawnBulletTracerAtGeo(lat: number, lon: number, height: number, count = 1): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     this.spawnBulletTracer(localPos.x, localPos.y, localPos.z, count);
   }
@@ -1225,7 +1225,7 @@ export class ThreeEffectsRenderer {
    * Very subtle black/dark grey particles for cannonball trails
    * Uses NORMAL blending (opaque smoke effect)
    */
-  spawnCannonSmoke(localX: number, localY: number, localZ: number, count: number = 1): void {
+  spawnCannonSmoke(localX: number, localY: number, localZ: number, count = 1): void {
     for (let i = 0; i < count; i++) {
       const particle = this.getInactiveParticle(this.trailPoolNormal);
       if (!particle) break;
@@ -1257,7 +1257,7 @@ export class ThreeEffectsRenderer {
   /**
    * Spawn cannon smoke at geo coordinates
    */
-  spawnCannonSmokeAtGeo(lat: number, lon: number, height: number, count: number = 1): void {
+  spawnCannonSmokeAtGeo(lat: number, lon: number, height: number, count = 1): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     this.spawnCannonSmoke(localPos.x, localPos.y, localPos.z, count);
   }
@@ -1336,7 +1336,7 @@ export class ThreeEffectsRenderer {
    * @param count - Number of particles (default 25)
    * @param radius - Explosion radius in meters (default 5)
    */
-  spawnExplosion(localX: number, localY: number, localZ: number, count: number = 25, radius: number = 5): void {
+  spawnExplosion(localX: number, localY: number, localZ: number, count = 25, _radius = 5): void {
     for (let i = 0; i < count; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive);
       if (!particle) break;
@@ -1383,7 +1383,7 @@ export class ThreeEffectsRenderer {
    * @param height - Height above ground
    * @param count - Number of particles (default 25)
    */
-  spawnExplosionAtGeo(lat: number, lon: number, height: number, count: number = 25): void {
+  spawnExplosionAtGeo(lat: number, lon: number, height: number, count = 25): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     this.spawnExplosion(localPos.x, localPos.y, localPos.z, count);
   }
@@ -1397,7 +1397,7 @@ export class ThreeEffectsRenderer {
    * @param localZ - Local Z coordinate
    * @param count - Number of particles (default 20)
    */
-  spawnIceExplosion(localX: number, localY: number, localZ: number, count: number = 20): void {
+  spawnIceExplosion(localX: number, localY: number, localZ: number, count = 20): void {
     for (let i = 0; i < count; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive);
       if (!particle) break;
@@ -1443,7 +1443,7 @@ export class ThreeEffectsRenderer {
    * @param height - Height above ground
    * @param count - Number of particles (default 20)
    */
-  spawnIceExplosionAtGeo(lat: number, lon: number, height: number, count: number = 20): void {
+  spawnIceExplosionAtGeo(lat: number, lon: number, height: number, count = 20): void {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     this.spawnIceExplosion(localPos.x, localPos.y, localPos.z, count);
   }
@@ -1457,7 +1457,7 @@ export class ThreeEffectsRenderer {
    * @param size - Size of the decal (1.0-4.0 meters, default 2.0)
    * @returns Decal ID
    */
-  spawnIceDecal(lat: number, lon: number, height: number, size: number = 2.0): string {
+  spawnIceDecal(lat: number, lon: number, height: number, size = 2.0): string {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `ice_decal_${this.iceDecalIdCounter++}`;
 
@@ -1859,8 +1859,7 @@ export class ThreeEffectsRenderer {
       const posArray = positions.array as Float32Array;
 
       let activeCount = 0;
-      for (let i = 0; i < this.bloodPool.length; i++) {
-        const p = this.bloodPool[i];
+      for (const p of this.bloodPool) {
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -1879,8 +1878,7 @@ export class ThreeEffectsRenderer {
       const posArray = positions.array as Float32Array;
 
       let activeCount = 0;
-      for (let i = 0; i < this.firePool.length; i++) {
-        const p = this.firePool[i];
+      for (const p of this.firePool) {
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -1903,8 +1901,7 @@ export class ThreeEffectsRenderer {
       const colorArray = colors.array as Float32Array;
 
       let activeCount = 0;
-      for (let i = 0; i < this.trailPoolAdditive.length; i++) {
-        const p = this.trailPoolAdditive[i];
+      for (const p of this.trailPoolAdditive) {
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -1935,8 +1932,7 @@ export class ThreeEffectsRenderer {
       const colorArray = colors.array as Float32Array;
 
       let activeCount = 0;
-      for (let i = 0; i < this.trailPoolNormal.length; i++) {
-        const p = this.trailPoolNormal[i];
+      for (const p of this.trailPoolNormal) {
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -1981,8 +1977,8 @@ export class ThreeEffectsRenderer {
     lat: number,
     lon: number,
     localY: number,
-    radius: number = 2,
-    color: number = 0x00ff00
+    radius = 2,
+    color = 0x00ff00
   ): void {
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
 

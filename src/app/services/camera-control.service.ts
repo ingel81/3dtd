@@ -138,7 +138,7 @@ export class CameraControlService {
   frameHqAndSpawns(
     hq: { lat: number; lon: number },
     spawns: { lat: number; lon: number }[],
-    padding: number = 0.2
+    padding = 0.2
   ): void {
     if (!this.engine || spawns.length === 0) {
       return;
@@ -317,7 +317,7 @@ export class CameraControlService {
    * @param height Optional height above terrain (default: 400m)
    * @param duration Optional animation duration in ms (default: instant)
    */
-  flyToLocation(lat: number, lon: number, height: number = 400, duration: number = 0): void {
+  flyToLocation(lat: number, lon: number, height = 400, _duration = 0): void {
     if (!this.engine) return;
 
     const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
@@ -404,7 +404,7 @@ export class CameraControlService {
   showDebugVisualization(
     hq: { lat: number; lon: number },
     spawns: { lat: number; lon: number }[],
-    padding: number = 0.2,
+    padding = 0.2,
     routePoints: { lat: number; lon: number }[] = []
   ): void {
     if (!this.engine || !this.debugFramingEnabled) return;

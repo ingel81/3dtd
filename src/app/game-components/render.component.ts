@@ -12,7 +12,7 @@ export class RenderComponent extends Component {
     super(gameObject);
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // Rendering handled by ThreeTilesEngine
   }
 

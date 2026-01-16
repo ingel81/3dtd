@@ -83,8 +83,9 @@ type SpawnMode = 'random' | 'manual';
           @if (showCoordinates()) {
             <div class="coords-input">
               <div class="coord-field">
-                <label>Lat</label>
+                <label for="coord-lat">Lat</label>
                 <input
+                  id="coord-lat"
                   type="text"
                   [value]="coordLat()"
                   (input)="onCoordLatChange($event)"
@@ -93,8 +94,9 @@ type SpawnMode = 'random' | 'manual';
                 />
               </div>
               <div class="coord-field">
-                <label>Lon</label>
+                <label for="coord-lon">Lon</label>
                 <input
+                  id="coord-lon"
                   type="text"
                   [value]="coordLon()"
                   (input)="onCoordLonChange($event)"

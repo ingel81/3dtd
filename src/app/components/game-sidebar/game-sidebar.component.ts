@@ -16,7 +16,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES } from '../../configs/tower-types.config';
-import { EnemyTypeConfig } from '../../models/enemy-types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
@@ -480,7 +479,8 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   constructor() {
     // Update enemy preview when enemy type changes
     effect(() => {
-      const enemyConfig = this.currentEnemyConfig();
+      // Track currentEnemyConfig to trigger effect when it changes
+      this.currentEnemyConfig();
       // Wait for the preview to be initialized
       if (this.enemyPreviewCanvas?.nativeElement) {
         this.initEnemyPreview();

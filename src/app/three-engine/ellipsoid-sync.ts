@@ -29,7 +29,7 @@ export class EllipsoidSync {
   private tempVec3 = new THREE.Vector3();
   private tempMatrix = new THREE.Matrix4();
 
-  constructor(originLat: number, originLon: number, originHeight: number = 0) {
+  constructor(originLat: number, originLon: number, originHeight = 0) {
     this.originLatRad = originLat * MathUtils.DEG2RAD;
     this.originLonRad = originLon * MathUtils.DEG2RAD;
     this.originHeight = originHeight;
@@ -46,7 +46,7 @@ export class EllipsoidSync {
   /**
    * Update origin point (e.g., when game location changes)
    */
-  setOrigin(lat: number, lon: number, height: number = 0): void {
+  setOrigin(lat: number, lon: number, height = 0): void {
     this.originLatRad = lat * MathUtils.DEG2RAD;
     this.originLonRad = lon * MathUtils.DEG2RAD;
     this.originHeight = height;

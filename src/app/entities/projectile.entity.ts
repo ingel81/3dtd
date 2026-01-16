@@ -34,16 +34,16 @@ export class Projectile extends GameObject {
   // Flight path properties
   private _startHeight: number;
   private _flightHeight: number;
-  private _totalDistance: number = 0;
-  private _traveledDistance: number = 0;
+  private _totalDistance = 0;
+  private _traveledDistance = 0;
 
   // Homing projectiles (rockets) continuously update their direction
-  private _isHoming: boolean = false;
+  private _isHoming = false;
 
   // Target lost tracking - projectile continues to last known position
-  private _targetLost: boolean = false;
+  private _targetLost = false;
   private _lastTargetPosition: GeoPosition | null = null;
-  private _lastTargetTerrainHeight: number = 0;
+  private _lastTargetTerrainHeight = 0;
 
   constructor(
     startPosition: GeoPosition,

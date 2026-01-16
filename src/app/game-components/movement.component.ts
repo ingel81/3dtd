@@ -292,7 +292,7 @@ export class MovementComponent extends Component {
     return this.path[this.currentIndex + 1];
   }
 
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     // Movement is triggered explicitly via move() method
   }
 }

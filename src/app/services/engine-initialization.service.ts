@@ -1,7 +1,7 @@
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
-import { CameraFramingService, GeoPoint } from './camera-framing.service';
+import { CameraFramingService } from './camera-framing.service';
 
 /**
  * Loading step status

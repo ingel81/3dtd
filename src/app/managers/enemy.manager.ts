@@ -215,8 +215,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
 
     // Remove enemies that reached base
-    for (let i = 0; i < this.toRemove.length; i++) {
-      this.remove(this.toRemove[i]);
+    for (const enemy of this.toRemove) {
+      this.remove(enemy);
     }
   }
 

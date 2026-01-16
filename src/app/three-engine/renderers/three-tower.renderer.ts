@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
@@ -916,8 +916,8 @@ export class ThreeTowerRenderer {
    * Get all tower meshes for raycasting
    * Returns array of { id, mesh } for intersection testing
    */
-  getAllMeshes(): Array<{ id: string; mesh: THREE.Object3D }> {
-    const result: Array<{ id: string; mesh: THREE.Object3D }> = [];
+  getAllMeshes(): { id: string; mesh: THREE.Object3D }[] {
+    const result: { id: string; mesh: THREE.Object3D }[] = [];
     for (const [id, data] of this.towers) {
       result.push({ id, mesh: data.mesh });
     }

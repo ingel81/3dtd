@@ -20,7 +20,7 @@ export class Tower extends GameObject {
   private _render!: RenderComponent;
 
   /** Track upgrade levels for each upgrade type */
-  private upgradeLevels: Map<UpgradeId, number> = new Map();
+  private upgradeLevels = new Map<UpgradeId, number>();
 
   selected = false;
 

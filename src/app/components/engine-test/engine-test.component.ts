@@ -124,7 +124,7 @@ export class EngineTestComponent implements OnInit, OnDestroy {
   private scene!: THREE.Scene;
   private camera!: THREE.PerspectiveCamera;
   private controls!: OrbitControls;
-  private animationId: number = 0;
+  private animationId = 0;
 
   // Particle systems
   private additiveParticles!: THREE.Points;

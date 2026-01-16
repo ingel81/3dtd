@@ -281,7 +281,7 @@ export class SpatialAudioManager {
   async playAt(
     soundId: string,
     position: THREE.Vector3,
-    volumeMultiplier: number = 1.0
+    volumeMultiplier = 1.0
   ): Promise<THREE.PositionalAudio | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
@@ -349,7 +349,7 @@ export class SpatialAudioManager {
     lat: number,
     lon: number,
     height: number,
-    volumeMultiplier: number = 1.0
+    volumeMultiplier = 1.0
   ): Promise<THREE.PositionalAudio | null> {
     if (!this.geoToLocal) {
       console.warn('[SpatialAudio] geoToLocal not set - use setGeoToLocal() first');
@@ -364,7 +364,7 @@ export class SpatialAudioManager {
    * Play a non-positional (global) sound
    * Uses regular THREE.Audio instead of PositionalAudio
    */
-  async playGlobal(soundId: string, volumeMultiplier: number = 1.0): Promise<THREE.Audio | null> {
+  async playGlobal(soundId: string, volumeMultiplier = 1.0): Promise<THREE.Audio | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);

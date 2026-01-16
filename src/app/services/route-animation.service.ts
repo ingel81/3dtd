@@ -102,7 +102,7 @@ export class RouteAnimationService {
    */
   startAnimation(
     cachedPaths: Map<string, GeoPosition[]>,
-    spawnPoints: SpawnPoint[]
+    _spawnPoints: SpawnPoint[]
   ): void {
     if (!this.engine || !this.overlayGroup || this.disposed) return;
     if (cachedPaths.size === 0) return;
@@ -131,7 +131,7 @@ export class RouteAnimationService {
    * Update animation (called every frame)
    * @param deltaTime Time since last frame in milliseconds
    */
-  update(deltaTime: number): void {
+  update(_deltaTime: number): void {
     if (!this.isAnimating || this.animatedRoutes.length === 0) return;
 
     const elapsedTime = performance.now() - this.startTime;
@@ -218,7 +218,7 @@ export class RouteAnimationService {
   private createAnimatedRoute(
     id: string,
     path: GeoPosition[],
-    color: THREE.Color
+    _color: THREE.Color
   ): AnimatedRoute | null {
     if (!this.engine || !this.overlayGroup) return null;
 

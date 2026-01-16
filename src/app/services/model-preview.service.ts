@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
 import * as THREE from 'three';
-import { GLTFLoader, GLTF } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 
 export interface PreviewConfig {
