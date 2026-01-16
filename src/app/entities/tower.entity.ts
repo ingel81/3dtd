@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { GameObject } from '../core/game-object';
 import { ComponentType } from '../core/component';
 import {
@@ -8,6 +9,7 @@ import {
 import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade } from '../configs/tower-types.config';
 import { Enemy } from './enemy.entity';
+import { RouteCell } from '../utils/global-route-grid';
 
 /**
  * Tower entity - combines Transform, Combat, and Render components
@@ -26,6 +28,12 @@ export class Tower extends GameObject {
 
   /** Custom rotation set by user during placement (radians) */
   customRotation = 0;
+
+  /** References to visible cells from GlobalRouteGrid (for targeting) */
+  visibleCells: RouteCell[] = [];
+
+  /** LOS visualization mesh (shown when tower is selected) */
+  losVisualization: THREE.InstancedMesh | null = null;
 
   /** Cached current target - avoid re-searching every frame */
   private _currentTarget: Enemy | null = null;

@@ -3,8 +3,6 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
-import { RouteLosGrid } from './route-los-grid';
-import { GeoPosition } from '../../models/game.types';
 
 /**
  * Unified model data structure for both GLTF and FBX
@@ -39,9 +37,6 @@ export interface TowerRenderData {
   // Turret rotation animation
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
-  // Route-based LOS grid for fast O(1) lookups and visualization
-  routeLosGrid: RouteLosGrid | null;
-  routeLosViz: THREE.InstancedMesh | null; // Animated LOS visualization
   // GLTF animation support
   mixer: THREE.AnimationMixer | null;
   animations: Map<string, THREE.AnimationClip>;
@@ -106,10 +101,6 @@ export class ThreeTowerRenderer {
   // Debug mode - shows tip markers for all towers
   private debugMode = false;
 
-  // Preview LOS grid for placement mode visualization
-  private previewLosGrid: RouteLosGrid | null = null;
-  private previewLosViz: THREE.InstancedMesh | null = null;
-
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
 
@@ -169,6 +160,13 @@ export class ThreeTowerRenderer {
    */
   setLineOfSightRaycaster(raycaster: LineOfSightRaycaster): void {
     this.losRaycaster = raycaster;
+  }
+
+  /**
+   * Get Line-of-Sight raycaster (for GlobalRouteGrid registration)
+   */
+  getLosRaycaster(): LineOfSightRaycaster | null {
+    return this.losRaycaster;
   }
 
   /**
@@ -504,8 +502,6 @@ export class ThreeTowerRenderer {
       customRotation,
       currentLocalRotation: 0, // Start at base position
       targetLocalRotation: 0, // Target at base position
-      routeLosGrid: null, // Populated via generateRouteLosGrid()
-      routeLosViz: null, // Created when grid is generated
       mixer,
       animations,
       currentAction,
@@ -513,57 +509,6 @@ export class ThreeTowerRenderer {
 
     this.towers.set(id, renderData);
     return renderData;
-  }
-
-  /**
-   * Generate route-based LOS grid for a tower
-   * Called after tower placement to pre-compute LOS along enemy routes
-   * @param towerId Tower ID
-   * @param routes Array of enemy routes (each route is GeoPosition[])
-   */
-  generateRouteLosGrid(towerId: string, routes: GeoPosition[][]): void {
-    const data = this.towers.get(towerId);
-    if (!data) return;
-
-    // Skip for pure air towers (they don't need LOS)
-    const isPureAirTower =
-      (data.typeConfig.canTargetAir ?? false) && !(data.typeConfig.canTargetGround ?? true);
-    if (isPureAirTower) return;
-
-    // Need both raycasters
-    if (!this.losRaycaster || !this.terrainRaycaster) {
-      console.warn('[ThreeTowerRenderer] Cannot generate route LOS grid - missing raycasters');
-      return;
-    }
-
-    // Get tower local position
-    const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
-
-    // Create and populate the grid
-    data.routeLosGrid = new RouteLosGrid(
-      terrainPos.x,
-      terrainPos.z,
-      data.tipY,
-      data.typeConfig.range,
-      this.losRaycaster,
-      this.terrainRaycaster
-    );
-
-    data.routeLosGrid.generateFromRoutes(routes, this.sync);
-
-    // Create visualization (hidden by default, shown on selection)
-    const viz = data.routeLosGrid.createVisualization();
-    if (viz) {
-      viz.visible = false;
-      this.scene.add(viz);
-      data.routeLosViz = viz;
-    }
-
-    const stats = data.routeLosGrid.getStats();
-    console.log(
-      `[ThreeTowerRenderer] Route LOS grid for ${towerId}: ${stats.totalCells} cells ` +
-        `(${stats.visibleCells} visible, ${stats.blockedCells} blocked)`
-    );
   }
 
   /**
@@ -647,7 +592,8 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Select tower (show range indicator, selection ring, and LOS visualization)
+   * Select tower (show range indicator and selection ring)
+   * Note: LOS visualization is now handled by GlobalRouteGrid
    */
   select(id: string): void {
     const data = this.towers.get(id);
@@ -656,13 +602,6 @@ export class ThreeTowerRenderer {
     data.isSelected = true;
     if (data.rangeIndicator) data.rangeIndicator.visible = true;
     if (data.selectionRing) data.selectionRing.visible = true;
-    // Show route LOS visualization
-    if (data.routeLosViz) {
-      data.routeLosViz.visible = true;
-      console.log(`[ThreeTowerRenderer] select: showing routeLosViz for ${id}, count=${data.routeLosViz.count}`);
-    } else {
-      console.log(`[ThreeTowerRenderer] select: NO routeLosViz for ${id}`);
-    }
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
     if (data.losRing) data.losRing.visible = this.debugMode;
   }
@@ -677,10 +616,6 @@ export class ThreeTowerRenderer {
     data.isSelected = false;
     if (data.rangeIndicator) data.rangeIndicator.visible = false;
     if (data.selectionRing) data.selectionRing.visible = false;
-    // Hide route LOS visualization
-    if (data.routeLosViz) {
-      data.routeLosViz.visible = false;
-    }
     // Keep debug markers visible in debug mode
     if (data.tipMarker) data.tipMarker.visible = this.debugMode;
     if (data.losRing) data.losRing.visible = this.debugMode;
@@ -770,16 +705,6 @@ export class ThreeTowerRenderer {
       data.aimArrow.dispose();
     }
 
-    // Remove route LOS grid and visualization
-    if (data.routeLosViz) {
-      this.scene.remove(data.routeLosViz);
-      data.routeLosViz.geometry.dispose();
-      (data.routeLosViz.material as THREE.Material).dispose();
-    }
-    if (data.routeLosGrid) {
-      data.routeLosGrid.dispose();
-    }
-
     // Clean up animation mixer
     if (data.mixer) {
       data.mixer.stopAllAction();
@@ -795,8 +720,8 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update selection ring animation, LOS grid shaders, turret rotations, and GLTF animations
-   * Call each frame for pulse effect, LOS animation, smooth turret movement, and model animations
+   * Update selection ring animation, turret rotations, and GLTF animations
+   * Call each frame for pulse effect, smooth turret movement, and model animations
    */
   updateAnimations(deltaTime: number): void {
     // Accumulate time for frame-independent animation (in seconds)
@@ -805,21 +730,11 @@ export class ThreeTowerRenderer {
     // Convert deltaTime from ms to seconds for animation mixer
     const deltaSeconds = deltaTime * 0.001;
 
-    // Update all route LOS grid animations
+    // Update GLTF animation mixers
     for (const data of this.towers.values()) {
-      if (data.routeLosGrid) {
-        data.routeLosGrid.updateAnimation(this.animationTime);
-      }
-
-      // Update GLTF animation mixer (time-based, not frame-based)
       if (data.mixer) {
         data.mixer.update(deltaSeconds);
       }
-    }
-
-    // Update preview LOS grid animation
-    if (this.previewLosGrid) {
-      this.previewLosGrid.updateAnimation(this.animationTime);
     }
 
     // Turret rotation speed: ~180 degrees per second (PI radians/s)
@@ -1331,22 +1246,12 @@ export class ThreeTowerRenderer {
 
   /**
    * Check if there's line of sight from a tower to a specific position
-   * Uses route-based LOS grid for O(1) lookup if available, falls back to raycast
+   * Uses runtime raycast (GlobalRouteGrid handles pre-computed LOS)
    */
   hasLineOfSight(towerId: string, targetX: number, targetY: number, targetZ: number): boolean {
     const data = this.towers.get(towerId);
     if (!data) return true; // Assume clear if can't check
 
-    // Fast path: Use pre-computed route LOS grid if available
-    if (data.routeLosGrid) {
-      const gridResult = data.routeLosGrid.isPositionVisible(targetX, targetZ);
-      if (gridResult !== undefined) {
-        return gridResult;
-      }
-      // Position not in grid - fall through to raycast
-    }
-
-    // Slow path: Fall back to runtime raycast
     if (!this.losRaycaster) return true;
 
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
@@ -1395,92 +1300,10 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Show Line-of-Sight preview for tower placement
-   * Uses route-based LOS grid for consistent visualization
-   * Skipped for pure air towers (canTargetAir && !canTargetGround) - they don't need LOS
-   * @param lat Tower latitude
-   * @param lon Tower longitude
-   * @param height Tower height
-   * @param typeId Tower type
-   * @param routes Enemy routes for LOS calculation
-   */
-  showPreviewLoS(
-    lat: number,
-    lon: number,
-    height: number,
-    typeId: TowerTypeId,
-    routes: GeoPosition[][]
-  ): void {
-    // Dispose existing preview if any
-    this.hidePreviewLoS();
-
-    console.log(`[ThreeTowerRenderer] showPreviewLoS: routes.length=${routes.length}`);
-
-    if (!this.terrainRaycaster || !this.losRaycaster) return;
-
-    const config = TOWER_TYPES[typeId];
-    if (!config) return;
-
-    // Skip LOS preview for pure air towers - they don't need LOS checks
-    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
-    if (isPureAirTower) return;
-
-    // Get local coordinates
-    const terrainPos = this.sync.geoToLocal(lat, lon, height);
-
-    // Calculate tower tip height (for LoS raycast origin)
-    const tipY = terrainPos.y + (config.shootHeight ?? config.heightOffset + 5);
-
-    // Create route LOS grid for preview
-    this.previewLosGrid = new RouteLosGrid(
-      terrainPos.x,
-      terrainPos.z,
-      tipY,
-      config.range,
-      this.losRaycaster,
-      this.terrainRaycaster
-    );
-
-    this.previewLosGrid.generateFromRoutes(routes, this.sync);
-
-    const stats = this.previewLosGrid.getStats();
-    console.log(`[ThreeTowerRenderer] showPreviewLoS: grid has ${stats.totalCells} cells`);
-
-    // Create and show visualization
-    const viz = this.previewLosGrid.createVisualization();
-    if (viz) {
-      viz.visible = true;
-      this.scene.add(viz);
-      this.previewLosViz = viz;
-      console.log(`[ThreeTowerRenderer] showPreviewLoS: viz created with ${viz.count} instances`);
-
-    } else {
-      console.log(`[ThreeTowerRenderer] showPreviewLoS: createVisualization returned null`);
-    }
-  }
-
-  /**
-   * Hide and dispose preview LoS visualization
-   */
-  hidePreviewLoS(): void {
-    if (this.previewLosViz) {
-      this.scene.remove(this.previewLosViz);
-      this.previewLosViz.geometry.dispose();
-      (this.previewLosViz.material as THREE.Material).dispose();
-      this.previewLosViz = null;
-    }
-    if (this.previewLosGrid) {
-      this.previewLosGrid.dispose();
-      this.previewLosGrid = null;
-    }
-  }
-
-  /**
    * Dispose all resources
    */
   dispose(): void {
     this.clear();
-    this.hidePreviewLoS();
     this.modelTemplates.clear();
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();

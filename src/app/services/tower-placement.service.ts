@@ -147,9 +147,6 @@ export class TowerPlacementService {
     this.validationReason.set(null);
     this.isRotating = false;
 
-    // Hide LoS preview
-    this.engine?.towers.hidePreviewLoS();
-
     // Clean up preview tower
     this.cleanupPreviewTower();
 
@@ -363,29 +360,12 @@ export class TowerPlacementService {
 
   /**
    * Update LoS preview with throttle
-   * - Hides LoS immediately on ANY movement
-   * - Shows LoS after mouse stays still for 200ms
+   * Note: LOS preview is now handled by GlobalRouteGrid visualization
+   * This method is kept for potential future per-placement preview
    */
-  private updateLoSPreviewDebounced(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
-    if (!this.engine || !this.gameState) return;
-
-    // Hide LoS immediately on any movement
-    this.engine.towers.hidePreviewLoS();
-
-    // Cancel any pending LoS calculation
-    if (this.losDebounceTimer !== null) {
-      clearTimeout(this.losDebounceTimer);
-    }
-
-    // Schedule new LoS calculation after 200ms of no movement
-    this.losDebounceTimer = window.setTimeout(() => {
-      this.losDebounceTimer = null;
-      if (!this.engine || !this.buildMode() || !this.gameState) return;
-
-      // Get cached routes for LOS preview
-      const routes = this.gameState.getCachedRoutes();
-      this.engine.towers.showPreviewLoS(lat, lon, height, typeId, routes);
-    }, 200);
+  private updateLoSPreviewDebounced(_lat: number, _lon: number, _height: number, _typeId: TowerTypeId): void {
+    // LOS visualization is now global via GlobalRouteGrid
+    // Can be toggled via debug menu
   }
 
   // ========================================
@@ -427,7 +407,6 @@ export class TowerPlacementService {
     if (this.previewTowerMesh) {
       this.previewTowerMesh.visible = false;
     }
-    this.engine?.towers.hidePreviewLoS();
   }
 
   // ========================================

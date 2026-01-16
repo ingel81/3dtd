@@ -204,6 +204,7 @@ const DEFAULT_CENTER_COORDS = {
               (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
               (resetToDefaultLocation)="resetToDefaultLocation()"
               (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
+              (spatialGridDebugToggled)="onSpatialGridDebugToggled()"
               (playRouteAnimation)="onPlayRouteAnimation()"
             />
           }
@@ -662,6 +663,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Three.js object for streets (merged geometry for performance - 1 draw call instead of 600)
   private streetLinesMesh: THREE.LineSegments | null = null;
+  private spatialGridVizMesh: THREE.InstancedMesh | null = null;
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -677,6 +679,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly towerDebugVisible = this.uiState.towerDebugVisible;
   readonly debugMode = this.uiState.debugMode;
   readonly heightDebugVisible = this.uiState.heightDebugVisible;
+  readonly spatialGridDebugVisible = this.uiState.spatialGridDebugVisible;
   readonly fps = this.uiState.fps;
   readonly tileStats = this.uiState.tileStats;
   readonly mapAttribution = signal('Map data ©2024 Google');
@@ -914,6 +917,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.entityPool.destroy();
     this.modelPreview.dispose();
     this.routeAnimation.dispose();
+
+    // Cleanup global route grid visualization
+    if (this.spatialGridVizMesh) {
+      this.engine?.getScene().remove(this.spatialGridVizMesh);
+      this.gameState.getGlobalRouteGrid().disposeVisualization();
+      this.spatialGridVizMesh = null;
+    }
+
     if (this.engine) {
       this.engine.dispose();
       this.engine = null;
@@ -1151,6 +1162,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       () => this.onGameOver()
     );
 
+    // Initialize GlobalRouteGrid after routes are computed
+    // (setStepActive/Done are async but we fire-and-forget for UI update)
+    void this.engineInit.setStepActive('grid');
+    this.gameState.initializeGlobalRouteGrid();
+    void this.engineInit.setStepDone('grid');
+
     // Initialize tower placement service (now that all dependencies are ready)
     this.initializeTowerPlacement();
 
@@ -1221,6 +1238,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
           color: sp.color,
         }));
         this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
+
+        // Update GlobalRouteGrid terrain heights now that terrain is loaded
+        this.gameState.getGlobalRouteGrid().updateTerrainHeights();
       },
       () => this.renderStreets(),
       (detail: string) => this.engineInit.setStepDone('finalize', detail),
@@ -1733,6 +1753,21 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         const currentTime = performance.now();
         this.gameState.update(currentTime);
 
+        // Update global route grid debug visualization if enabled
+        const grid = this.gameState.getGlobalRouteGrid();
+        if (this.spatialGridDebugVisible() && this.spatialGridVizMesh) {
+          grid.updateVisualization();
+        }
+
+        // Update animation time for grid (needed for both debug and per-tower visualization)
+        grid.updateAnimation(16.67); // ~60fps frame time
+
+        // Update selected tower's LOS visualization animation
+        const selectedTower = this.gameState.towerManager.getSelected();
+        if (selectedTower?.losVisualization?.visible) {
+          grid.updateTowerVisualizationTime(selectedTower.losVisualization);
+        }
+
         if (this.gameState.checkWaveComplete()) {
           // End wave inside Angular zone to trigger UI updates
           this.ngZone.run(() => {
@@ -1794,6 +1829,32 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Spawn HQ debug point if enabled and not yet spawned
       if (visible) {
         this.gameState.spawnHQDebugPoint();
+      }
+    }
+  }
+
+  /**
+   * Toggle global route grid debug visualization
+   * Shows cells along routes with color-coded LOS and enemy presence
+   */
+  onSpatialGridDebugToggled(): void {
+    this.uiState.toggleSpatialGridDebug();
+    const visible = this.uiState.spatialGridDebugVisible();
+    const grid = this.gameState.getGlobalRouteGrid();
+
+    if (visible) {
+      // Create and add visualization mesh to scene
+      if (!this.spatialGridVizMesh && this.engine && grid.isInitialized()) {
+        this.spatialGridVizMesh = grid.createVisualization();
+        this.engine.getScene().add(this.spatialGridVizMesh);
+      }
+      if (this.spatialGridVizMesh) {
+        this.spatialGridVizMesh.visible = true;
+      }
+    } else {
+      // Hide visualization (don't dispose - may toggle again)
+      if (this.spatialGridVizMesh) {
+        this.spatialGridVizMesh.visible = false;
       }
     }
   }
@@ -2107,6 +2168,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         (msg: string) => this.appendDebugLog(msg),
         () => this.onGameOver()
       );
+
+      // Initialize GlobalRouteGrid after routes are computed
+      await this.engineInit.setStepActive('grid');
+      this.gameState.initializeGlobalRouteGrid();
+      await this.engineInit.setStepDone('grid');
 
       // Re-initialize TowerPlacementService with new location data
       this.initializeTowerPlacement();

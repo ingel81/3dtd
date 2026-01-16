@@ -43,6 +43,9 @@ export class GameUIStateService {
   /** Info overlay visibility (FPS, tiles, enemies, sounds) */
   readonly infoOverlayVisible = signal(false);
 
+  /** Enemy spatial grid debug visualization */
+  readonly spatialGridDebugVisible = signal(false);
+
   // ========================================
   // PERFORMANCE STATS
   // ========================================
@@ -133,6 +136,13 @@ export class GameUIStateService {
   }
 
   /**
+   * Toggle enemy spatial grid debug visualization
+   */
+  toggleSpatialGridDebug(): void {
+    this.spatialGridDebugVisible.update((v) => !v);
+  }
+
+  /**
    * Update FPS counter
    * @param fps Current frames per second
    */
@@ -184,6 +194,7 @@ export class GameUIStateService {
     this.heightDebugVisible.set(false);
     this.specialPointsDebugVisible.set(false);
     this.infoOverlayVisible.set(false);
+    this.spatialGridDebugVisible.set(false);
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
     this.debugLog.set('');

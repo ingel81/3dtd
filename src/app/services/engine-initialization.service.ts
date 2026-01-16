@@ -59,6 +59,7 @@ export class EngineInitializationService {
     { id: 'hq', label: 'Platziere Hauptquartier', status: 'pending' },
     { id: 'spawn', label: 'Platziere Spawns', status: 'pending' },
     { id: 'route', label: 'Berechne Routen', status: 'pending' },
+    { id: 'grid', label: 'Generiere Routen-Grid', status: 'pending' },
     { id: 'finalize', label: 'Finalisiere 3D-Ansicht', status: 'pending' },
   ]);
 

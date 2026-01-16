@@ -4,6 +4,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId } from '../models/enemy-types';
 import { GeoPosition } from '../models/game.types';
 import { EntityPoolService } from '../services/entity-pool.service';
+import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { geoDistance } from '../utils/geo-utils';
 
@@ -13,6 +14,7 @@ import { geoDistance } from '../utils/geo-utils';
 @Injectable()
 export class EnemyManager extends EntityManager<Enemy> {
   private entityPool = inject(EntityPoolService);
+  private globalRouteGrid = inject(GlobalRouteGridService);
   private onEnemyReachedBase?: (enemy: Enemy) => void;
 
   // Track enemies being killed to prevent double-kill
@@ -179,6 +181,16 @@ export class EnemyManager extends EntityManager<Enemy> {
         continue;
       }
 
+      // Update global route grid position for O(1) tower targeting
+      if (this.tilesEngine && this.globalRouteGrid.isInitialized()) {
+        const localPos = this.tilesEngine.sync.geoToLocalSimple(
+          enemy.position.lat,
+          enemy.position.lon,
+          0 // Height not needed for X/Z cell lookup
+        );
+        this.globalRouteGrid.updateEnemyPosition(enemy, localPos.x, localPos.z);
+      }
+
       // Check if path has valid heights (no object allocation)
       const pathHasHeights = enemy.movement.hasCurrentSegmentHeights();
 
@@ -248,6 +260,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (entity.alive) {
       this.aliveCount.update(c => Math.max(0, c - 1));
     }
+    // Remove from global route grid
+    this.globalRouteGrid.removeEnemy(entity);
     this.tilesEngine?.enemies.remove(entity.id);
     super.remove(entity);
   }
@@ -258,6 +272,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   override clear(): void {
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
+    // Note: Don't clear globalRouteGrid here - it's shared and managed by GameStateManager
     super.clear();
     this.aliveCount.set(0);
   }
@@ -274,6 +289,17 @@ export class EnemyManager extends EntityManager<Enemy> {
    */
   getAliveCount(): number {
     return this.getAlive().length;
+  }
+
+  /**
+   * Get grid stats for debugging
+   */
+  getGridStats(): { trackedEnemies: number; occupiedCells: number } {
+    const stats = this.globalRouteGrid.getStats();
+    return {
+      trackedEnemies: stats.trackedEnemies,
+      occupiedCells: stats.occupiedCells,
+    };
   }
 
   /**

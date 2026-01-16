@@ -134,6 +134,10 @@ export class TowerManager extends EntityManager<Tower> {
       if (prev) {
         prev.deselect();
         this.tilesEngine?.towers.deselect(currentId);
+        // Hide LOS visualization
+        if (prev.losVisualization) {
+          prev.losVisualization.visible = false;
+        }
       }
     }
 
@@ -144,6 +148,12 @@ export class TowerManager extends EntityManager<Tower> {
       if (tower) {
         tower.select();
         this.tilesEngine?.towers.select(id);
+        // Show LOS visualization
+        console.log(`[TowerManager] selectTower: id=${id}, hasLosViz=${!!tower.losVisualization}`);
+        if (tower.losVisualization) {
+          tower.losVisualization.visible = true;
+          console.log(`[TowerManager] selectTower: showing losVisualization, count=${tower.losVisualization.count}`);
+        }
       }
     }
   }

@@ -1,10 +1,12 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
+import * as THREE from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
 import { GameUIStateService } from '../services/game-ui-state.service';
 import { PathAndRouteService } from '../services/path-route.service';
+import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { StreetNetwork } from '../services/osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { StatusEffect } from '../models/status-effects';
@@ -34,6 +36,7 @@ export class GameStateManager {
   readonly waveManager = inject(WaveManager);
   private readonly uiState = inject(GameUIStateService);
   private readonly pathRouteService = inject(PathAndRouteService);
+  private readonly globalRouteGrid = inject(GlobalRouteGridService);
 
   // Game state signals
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
@@ -149,31 +152,85 @@ export class GameStateManager {
 
   /**
    * Update tower shooting - find targets and spawn projectiles
-   * Uses line-of-sight checks to ensure towers can see their targets
+   * Uses GlobalRouteGrid for O(cells) instead of O(n) enemy checks
+   *
+   * Optimization strategy:
+   * - Ground towers with visibleCells: Query only enemies in visible cells (LOS implicit)
+   * - Air towers: Query all enemies (no LOS needed for air units)
+   * - Fallback: Full enemy list with runtime LOS check
    */
   private updateTowerShooting(currentTime: number): void {
-    const enemies = this.enemyManager.getAlive();
+    // Fallback: full enemy list (used when spatial optimization isn't available)
+    const allEnemies = this.enemyManager.getAlive();
 
     for (const tower of this.towerManager.getAllActive()) {
-      // Create LOS check function for this tower (used only when searching for NEW target)
-      const losCheck = this.tilesEngine
-        ? (enemy: Enemy) => {
-            const pos = this.tilesEngine!.sync.geoToLocalSimple(
-              enemy.position.lat,
-              enemy.position.lon,
-              enemy.transform.terrainHeight
-            );
-            return this.tilesEngine!.towers.hasLineOfSight(
-              tower.id,
-              pos.x,
-              pos.y + 1.5,
-              pos.z
-            );
-          }
-        : undefined;
+      // Determine if we can use GlobalRouteGrid optimization
+      const hasVisibleCells = tower.visibleCells.length > 0;
+      const isPureAirTower =
+        (tower.typeConfig.canTargetAir ?? false) &&
+        !(tower.typeConfig.canTargetGround ?? true);
+
+      // Get candidate enemies based on tower type and available data
+      let candidates: Enemy[];
+      let losCheck: ((enemy: Enemy) => boolean) | undefined;
+
+      if (hasVisibleCells && !isPureAirTower) {
+        // FAST PATH: Use GlobalRouteGrid for ground towers with visibleCells
+        // Enemies from visible cells already passed LOS check implicitly
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+
+        // LOS check still needed for enemies outside the grid (edge cases)
+        // but should be rare since grid covers the route corridor
+        losCheck = this.tilesEngine
+          ? (enemy: Enemy) => {
+              const pos = this.tilesEngine!.sync.geoToLocalSimple(
+                enemy.position.lat,
+                enemy.position.lon,
+                enemy.transform.terrainHeight
+              );
+              const visibility = this.globalRouteGrid.isPositionVisibleFromTower(
+                tower.id,
+                pos.x,
+                pos.z
+              );
+              // If position is in grid, use pre-computed result; otherwise fall back to raycast
+              if (visibility !== undefined) {
+                return visibility;
+              }
+              return this.tilesEngine!.towers.hasLineOfSight(
+                tower.id,
+                pos.x,
+                pos.y + 1.5,
+                pos.z
+              );
+            }
+          : undefined;
+      } else if (isPureAirTower) {
+        // Air towers target all enemies (air units are always visible)
+        candidates = allEnemies;
+        losCheck = undefined; // No LOS needed for air targets
+      } else {
+        // FALLBACK: Full enemy list with runtime LOS check
+        candidates = allEnemies;
+        losCheck = this.tilesEngine
+          ? (enemy: Enemy) => {
+              const pos = this.tilesEngine!.sync.geoToLocalSimple(
+                enemy.position.lat,
+                enemy.position.lon,
+                enemy.transform.terrainHeight
+              );
+              return this.tilesEngine!.towers.hasLineOfSight(
+                tower.id,
+                pos.x,
+                pos.y + 1.5,
+                pos.z
+              );
+            }
+          : undefined;
+      }
 
       // Fast path: get cached target or find new one
-      let target = tower.findTarget(enemies, losCheck);
+      let target = tower.findTarget(candidates, losCheck);
 
       if (target) {
         // Always rotate turret towards target
@@ -191,7 +248,7 @@ export class GameStateManager {
             if (!losCheck(target)) {
               // Target no longer visible - find new target
               tower.clearTarget();
-              target = tower.findTarget(enemies, losCheck);
+              target = tower.findTarget(candidates, losCheck);
               if (!target) {
                 this.tilesEngine?.towers.resetRotation(tower.id);
                 continue;
@@ -658,6 +715,9 @@ export class GameStateManager {
     this.projectileManager.clear();
     this.waveManager.reset();
 
+    // Clear GlobalRouteGrid (will be re-initialized on location change)
+    this.globalRouteGrid.clear();
+
     if (this.tilesEngine) {
       this.tilesEngine.effects.clear();
       this.activeFireId = null;
@@ -724,6 +784,19 @@ export class GameStateManager {
    */
   sellTower(tower: Tower): number {
     const refund = tower.typeConfig.sellValue;
+
+    // Dispose LOS visualization
+    if (tower.losVisualization && this.tilesEngine) {
+      this.tilesEngine.getScene().remove(tower.losVisualization);
+      tower.losVisualization.geometry.dispose();
+      (tower.losVisualization.material as THREE.Material).dispose();
+      tower.losVisualization = null;
+    }
+
+    // Unregister from GlobalRouteGrid
+    this.globalRouteGrid.unregisterTower(tower.id);
+    tower.visibleCells = []; // Clear references
+
     this.towerManager.selectTower(null);
     this.towerManager.remove(tower);
     this.credits.update((c) => c + refund);
@@ -756,15 +829,47 @@ export class GameStateManager {
     }
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation);
-    if (tower) {
+    if (tower && this.tilesEngine && this.globalRouteGrid.isInitialized()) {
       // Deduct cost
       this.credits.update((c) => c - config.cost);
 
-      // Generate route-based LOS grid for fast O(1) lookups
-      const routes = Array.from(this.pathRouteService.getCachedPaths().values());
-      if (routes.length > 0 && this.tilesEngine) {
-        this.tilesEngine.towers.generateRouteLosGrid(tower.id, routes);
+      // Register tower with GlobalRouteGrid for LOS pre-computation
+      // IMPORTANT: Use geoToLocalSimple for consistency with grid cell coordinates
+      const terrainPos = this.tilesEngine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+      const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
+
+      // Get LOS raycaster from tower renderer
+      const losRaycaster = this.tilesEngine.towers.getLosRaycaster();
+
+      if (losRaycaster) {
+        // Register tower and store visible cells reference
+        tower.visibleCells = this.globalRouteGrid.registerTower(
+          tower.id,
+          terrainPos.x,
+          terrainPos.z,
+          tipY,
+          config.range,
+          losRaycaster
+        );
+
+        // Create LOS visualization (hidden by default, shown on selection)
+        tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
+          tower.id,
+          terrainPos.x,
+          terrainPos.z,
+          config.range
+        );
+
+        if (tower.losVisualization) {
+          tower.losVisualization.visible = false;
+          this.tilesEngine.getScene().add(tower.losVisualization);
+        }
+      } else {
+        console.warn('[GameStateManager] placeTower: no losRaycaster!');
       }
+    } else if (tower) {
+      // Still deduct cost even if grid not initialized
+      this.credits.update((c) => c - config.cost);
     }
     return tower;
   }
@@ -859,5 +964,33 @@ export class GameStateManager {
    */
   getCachedRoutes(): GeoPosition[][] {
     return Array.from(this.pathRouteService.getCachedPaths().values());
+  }
+
+  /**
+   * Initialize GlobalRouteGrid after routes are computed
+   * Should be called after engine and routes are ready
+   */
+  initializeGlobalRouteGrid(): void {
+    if (!this.tilesEngine) {
+      console.warn('[GameStateManager] Cannot initialize GlobalRouteGrid - no engine');
+      return;
+    }
+
+    // Initialize with terrain raycaster and coordinate sync
+    const terrainRaycaster = (x: number, z: number) => this.tilesEngine!.getTerrainHeightAtLocal(x, z);
+    this.globalRouteGrid.initialize(terrainRaycaster, this.tilesEngine.sync);
+
+    // Generate cells from routes
+    const routes = this.getCachedRoutes();
+    if (routes.length > 0) {
+      this.globalRouteGrid.generateFromRoutes(routes);
+    }
+  }
+
+  /**
+   * Get GlobalRouteGrid service (for visualization access)
+   */
+  getGlobalRouteGrid(): GlobalRouteGridService {
+    return this.globalRouteGrid;
   }
 }

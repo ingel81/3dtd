@@ -765,6 +765,18 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Get terrain height at local coordinates (public wrapper for raycastTerrainHeight)
+   * Used for debug visualizations that work in local coordinate space.
+   *
+   * @param localX - Local X coordinate (meters from origin)
+   * @param localZ - Local Z coordinate (meters from origin)
+   * @returns Height in local Y coordinates, or null if no hit
+   */
+  getTerrainHeightAtLocal(localX: number, localZ: number): number | null {
+    return this.raycastTerrainHeight(localX, localZ);
+  }
+
+  /**
    * @deprecated Use getTerrainHeightAtGeo() instead - this method uses incorrect local raycast
    */
   getOverlayTerrainHeight(_localX: number, _localZ: number): number | null {
