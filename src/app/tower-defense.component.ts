@@ -1957,11 +1957,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.waveAborted = true;
     this.gatheringPhase.set(false);
 
-    // Stop game loop
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-      this.animationFrameId = null;
-    }
+    // NOTE: Do NOT stop the game loop here!
+    // The engine's render loop continues independently and needs to
+    // keep running to show the HQ explosion and fire effects.
+    // The game loop will stop naturally when it sees phase === 'gameover'
   }
 
   restartGame(): void {
