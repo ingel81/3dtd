@@ -220,7 +220,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 1,
     shootHeight: 2.5,
     rotationY: Math.PI / 2,
-    damage: 15, // Low damage - mainly for slow effect
+    damage: 5, // Low damage - mainly for slow effect
     range: 60,
     fireRate: 0.8,
     projectileType: 'ice-shard',

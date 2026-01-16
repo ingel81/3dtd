@@ -498,9 +498,12 @@ export class GlobalRouteGrid {
   // VISUALIZATION
   // ========================================
 
+  /** Map cell key to instance index for fast state updates */
+  private cellIndexMap = new Map<string, number>();
+
   /**
    * Create visualization mesh (InstancedMesh with shader)
-   * Call once, then use updateVisualization() each frame
+   * Call once, then use updateVisualization() each frame for color updates only
    */
   createVisualization(): THREE.InstancedMesh {
     this.disposeVisualization();
@@ -527,42 +530,65 @@ export class GlobalRouteGrid {
     this.visualization = new THREE.InstancedMesh(geometry, this.visualizationMaterial, maxCells);
     this.visualization.frustumCulled = false;
     this.visualization.renderOrder = 3;
-    this.visualization.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    // Static usage - positions set once and don't change
+    this.visualization.instanceMatrix.setUsage(THREE.StaticDrawUsage);
 
-    // Create cell state attribute (will be updated in updateVisualization)
+    // Create cell state attribute (updated each frame for colors)
     const stateArray = new Float32Array(maxCells);
     this.cellStateAttribute = new THREE.InstancedBufferAttribute(stateArray, 1);
     this.cellStateAttribute.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute('aCellState', this.cellStateAttribute);
 
-    // Initial population
+    // Initialize positions ONCE with live terrain sampling
+    this.initializePositions();
+
+    // Initial state update
     this.updateVisualization();
 
     return this.visualization;
   }
 
   /**
-   * Update visualization (call each frame when visible)
-   * Updates instance matrices and colors based on current state
-   * Samples terrain heights LIVE for accurate positioning
+   * Initialize cell positions (called once when visualization is created)
+   * Samples terrain heights live for accurate positioning
    */
-  updateVisualization(): void {
-    if (!this.visualization || !this.cellStateAttribute) return;
+  private initializePositions(): void {
+    if (!this.visualization) return;
 
     const matrix = new THREE.Matrix4();
     let index = 0;
+    this.cellIndexMap.clear();
 
     for (const cell of this.cells.values()) {
       if (index >= this.visualization.count) break;
 
-      // Sample terrain height LIVE for accurate visualization positioning
-      // (stored cell.terrainHeight might be stale from earlier tile LOD)
+      // Sample terrain height LIVE for accurate positioning
       const liveTerrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
       const y = (liveTerrainY ?? cell.terrainHeight) + 0.5;
       matrix.setPosition(cell.x, y, cell.z);
       this.visualization.setMatrixAt(index, matrix);
 
-      // Determine cell state for coloring
+      // Store mapping for fast state updates
+      this.cellIndexMap.set(cell.key, index);
+      index++;
+    }
+
+    this.visualization.count = index;
+    this.visualization.instanceMatrix.needsUpdate = true;
+  }
+
+  /**
+   * Update visualization colors only (call each frame when visible)
+   * FAST: Only updates state attribute, no terrain sampling or matrix updates
+   */
+  updateVisualization(): void {
+    if (!this.visualization || !this.cellStateAttribute) return;
+
+    let index = 0;
+    for (const cell of this.cells.values()) {
+      if (index >= this.visualization.count) break;
+
+      // Determine cell state for coloring (no expensive operations)
       let state: number;
       const hasEnemies = cell.enemies.size > 0;
       const visibleByAnyTower = this.isVisibleByAnyTower(cell);
@@ -583,8 +609,6 @@ export class GlobalRouteGrid {
       index++;
     }
 
-    this.visualization.count = index;
-    this.visualization.instanceMatrix.needsUpdate = true;
     this.cellStateAttribute.needsUpdate = true;
   }
 
@@ -629,6 +653,7 @@ export class GlobalRouteGrid {
       this.visualizationMaterial = null;
     }
     this.cellStateAttribute = null;
+    this.cellIndexMap.clear();
   }
 
   // ========================================

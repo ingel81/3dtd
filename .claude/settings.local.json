@@ -7,11 +7,8 @@
       "Bash(git add:*)",
       "Bash(GIT_AUTHOR_DATE=\"2026-01-14 20:01:00\" GIT_COMMITTER_DATE=\"2026-01-14 20:01:00\" git commit:*)",
       "Bash(git config:*)",
-
-
       "Bash(do echo \"=== $repo ===\")",
       "Bash(git -C:*)",
-
       "Bash(done)",
       "Bash(git push:*)",
       "Bash(git restore:*)",
@@ -41,7 +38,8 @@
       "Bash(ng add:*)",
       "Bash(npx ng add:*)",
       "Bash(npm run lint)",
-      "Bash(npm run lint:*)"
+      "Bash(npm run lint:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }
