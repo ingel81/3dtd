@@ -533,7 +533,7 @@ export class ThreeEffectsRenderer {
     }
 
     const localPos = this.sync.geoToLocal(lat, lon, height);
-    localPos.y += 0.12; // Above ground to avoid z-fighting
+    localPos.y += BLOOD_DECAL_CONFIG.heightOffset;
 
     const id = `blood_decal_${this.decalIdCounter++}`;
     const now = performance.now();
@@ -544,9 +544,13 @@ export class ThreeEffectsRenderer {
     // Apply size with randomness - ellipse shape for puddle effect
     const baseSize = size * (0.8 + Math.random() * 0.4);
 
-    // Randomize color slightly (dark red variations)
-    const colorVariation = Math.random() * 0.2;
-    const color = new THREE.Color(0.55 + colorVariation, 0, 0);
+    // Randomize color slightly (dark red variations) - from config
+    const colorVariation = Math.random() * BLOOD_DECAL_CONFIG.colorVariation;
+    const color = new THREE.Color(
+      BLOOD_DECAL_CONFIG.baseColor.r + colorVariation,
+      BLOOD_DECAL_CONFIG.baseColor.g,
+      BLOOD_DECAL_CONFIG.baseColor.b
+    );
 
     // If pool is full, remove oldest decal
     if (this.bloodDecalManager.count >= this.MAX_BLOOD_DECALS) {
@@ -569,7 +573,7 @@ export class ThreeEffectsRenderer {
       baseSize,
       rotation,
       color,
-      0.7, // Initial opacity
+      BLOOD_DECAL_CONFIG.baseOpacity,
       now,
       this.DECAL_FADE_DELAY,
       this.DECAL_FADE_DURATION
@@ -1435,7 +1439,7 @@ export class ThreeEffectsRenderer {
     }
 
     const localPos = this.sync.geoToLocal(lat, lon, height);
-    localPos.y += 0.12; // Above ground to avoid z-fighting
+    localPos.y += ICE_DECAL_CONFIG.heightOffset;
 
     const id = `ice_decal_${this.decalIdCounter++}`;
     const now = performance.now();
@@ -1446,12 +1450,12 @@ export class ThreeEffectsRenderer {
     // Apply size with randomness
     const baseSize = size * (0.8 + Math.random() * 0.4);
 
-    // Randomize color slightly (very light cyan/white variations)
-    const colorVariation = Math.random() * 0.1;
+    // Randomize color slightly (very light cyan/white variations) - from config
+    const colorVariation = Math.random() * ICE_DECAL_CONFIG.colorVariation;
     const color = new THREE.Color(
-      0.75 + colorVariation,
-      0.94 + colorVariation * 0.5,
-      1.0
+      ICE_DECAL_CONFIG.baseColor.r + colorVariation,
+      ICE_DECAL_CONFIG.baseColor.g + colorVariation * 0.5,
+      ICE_DECAL_CONFIG.baseColor.b
     );
 
     // If pool is full, remove oldest decal
@@ -1475,7 +1479,7 @@ export class ThreeEffectsRenderer {
       baseSize,
       rotation,
       color,
-      0.6, // Initial opacity (ice is slightly more transparent)
+      ICE_DECAL_CONFIG.baseOpacity,
       now,
       this.ICE_DECAL_FADE_DELAY,
       this.ICE_DECAL_FADE_DURATION
@@ -1718,7 +1722,7 @@ export class ThreeEffectsRenderer {
         if (elapsed > 0) {
           // Calculate fade progress (0-1)
           const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
-          const opacity = 0.7 * (1 - fadeProgress);
+          const opacity = BLOOD_DECAL_CONFIG.baseOpacity * (1 - fadeProgress);
 
           this.bloodDecalManager.updateOpacity(instance.id, opacity);
 
@@ -1741,7 +1745,7 @@ export class ThreeEffectsRenderer {
         if (elapsed > 0) {
           // Calculate fade progress (0-1)
           const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
-          const opacity = 0.6 * (1 - fadeProgress);
+          const opacity = ICE_DECAL_CONFIG.baseOpacity * (1 - fadeProgress);
 
           this.iceDecalManager.updateOpacity(instance.id, opacity);
 

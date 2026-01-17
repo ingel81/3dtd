@@ -20,6 +20,9 @@ export const BLOOD_DECAL_CONFIG = {
   fadeDelay: 20000,    // ms before fade starts
   fadeDuration: 10000, // ms fade duration
   baseOpacity: 0.7,
+  baseColor: { r: 0.55, g: 0, b: 0 },  // Dark red
+  colorVariation: 0.2,  // Random variation range for r channel
+  heightOffset: 0.12,   // Above ground to avoid z-fighting
 } as const;
 
 /** Ice decal configuration */
@@ -28,6 +31,9 @@ export const ICE_DECAL_CONFIG = {
   fadeDelay: 4000,
   fadeDuration: 3000,
   baseOpacity: 0.6,
+  baseColor: { r: 0.75, g: 0.94, b: 1.0 },  // Light cyan/white
+  colorVariation: 0.1,  // Random variation range
+  heightOffset: 0.12,   // Above ground to avoid z-fighting
 } as const;
 
 /** Fire intensity presets */
