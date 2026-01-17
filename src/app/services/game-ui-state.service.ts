@@ -1,10 +1,22 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, effect } from '@angular/core';
+
+/** LocalStorage key for persisted UI state */
+const STORAGE_KEY = 'td-ui-state';
+
+/** Shape of persisted UI state */
+interface PersistedUIState {
+  infoOverlayVisible: boolean;
+  streetsVisible: boolean;
+  routesVisible: boolean;
+  spatialGridDebugVisible: boolean;
+}
 
 /**
  * GameUIStateService
  *
  * Manages UI state signals for the Tower Defense game.
  * Handles debug flags, layer toggles, menu states, and performance stats.
+ * Persists layer and overlay visibility to localStorage.
  */
 @Injectable({ providedIn: 'root' })
 export class GameUIStateService {
@@ -22,7 +34,7 @@ export class GameUIStateService {
   readonly devMenuExpanded = signal(false);
 
   // ========================================
-  // LAYER VISIBILITY
+  // LAYER VISIBILITY (persisted)
   // ========================================
 
   /** Street network layer visibility */
@@ -45,6 +57,44 @@ export class GameUIStateService {
 
   /** Enemy spatial grid debug visualization */
   readonly spatialGridDebugVisible = signal(false);
+
+  constructor() {
+    this.loadPersistedState();
+    this.setupPersistence();
+  }
+
+  /**
+   * Load persisted state from localStorage
+   */
+  private loadPersistedState(): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const state: PersistedUIState = JSON.parse(stored);
+        if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
+        if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
+        if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
+        if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  /**
+   * Setup effect to persist state changes to localStorage
+   */
+  private setupPersistence(): void {
+    effect(() => {
+      const state: PersistedUIState = {
+        infoOverlayVisible: this.infoOverlayVisible(),
+        streetsVisible: this.streetsVisible(),
+        routesVisible: this.routesVisible(),
+        spatialGridDebugVisible: this.spatialGridDebugVisible(),
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    });
+  }
 
   // ========================================
   // PERFORMANCE STATS

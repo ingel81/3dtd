@@ -12,30 +12,46 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   imports: [CommonModule, MatIconModule, MatTooltipModule],
   template: `
     <div class="td-quick-actions">
-      <!-- Layer Toggles (collapsible) -->
-      <div class="td-layer-toggles" [class.expanded]="uiState.layerMenuExpanded()">
-        <button class="td-layer-btn"
-                [class.active]="uiState.streetsVisible()"
-                (click)="uiState.toggleStreets(); streetsToggled.emit()"
-                matTooltip="Strassen anzeigen"
+      <!-- Route Animation Button -->
+      <button class="td-quick-btn route-anim-btn"
+              (click)="playRouteAnimation.emit()"
+              matTooltip="Route Animation abspielen"
+              matTooltipPosition="left">
+        <mat-icon>moving</mat-icon>
+      </button>
+      <!-- Layer Menu (collapsible, expands upward) -->
+      <div class="td-layer-menu-wrapper">
+        <div class="td-layer-toggles" [class.expanded]="uiState.layerMenuExpanded()">
+          <button class="td-layer-btn"
+                  [class.active]="uiState.spatialGridDebugVisible()"
+                  (click)="spatialGridDebugToggled.emit()"
+                  matTooltip="Route Grid Overlay"
+                  matTooltipPosition="left">
+            <mat-icon>grid_on</mat-icon>
+          </button>
+          <button class="td-layer-btn"
+                  [class.active]="uiState.streetsVisible()"
+                  (click)="uiState.toggleStreets(); streetsToggled.emit()"
+                  matTooltip="Strassen anzeigen"
+                  matTooltipPosition="left">
+            <mat-icon>route</mat-icon>
+          </button>
+          <button class="td-layer-btn"
+                  [class.active]="uiState.routesVisible()"
+                  (click)="uiState.toggleRoutes(); routesToggled.emit()"
+                  matTooltip="Routen anzeigen"
+                  matTooltipPosition="left">
+            <mat-icon>timeline</mat-icon>
+          </button>
+        </div>
+        <button class="td-quick-btn td-layer-toggle-btn"
+                [class.active]="uiState.layerMenuExpanded()"
+                (click)="uiState.toggleLayerMenu()"
+                matTooltip="Ebenen"
                 matTooltipPosition="left">
-          <mat-icon>route</mat-icon>
-        </button>
-        <button class="td-layer-btn"
-                [class.active]="uiState.routesVisible()"
-                (click)="uiState.toggleRoutes(); routesToggled.emit()"
-                matTooltip="Routen anzeigen"
-                matTooltipPosition="left">
-          <mat-icon>timeline</mat-icon>
+          <mat-icon>{{ uiState.layerMenuExpanded() ? 'layers_clear' : 'layers' }}</mat-icon>
         </button>
       </div>
-      <button class="td-quick-btn td-layer-toggle-btn"
-              [class.active]="uiState.layerMenuExpanded()"
-              (click)="uiState.toggleLayerMenu()"
-              matTooltip="Ebenen"
-              matTooltipPosition="left">
-        <mat-icon>{{ uiState.layerMenuExpanded() ? 'layers_clear' : 'layers' }}</mat-icon>
-      </button>
       <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Kamera zuruecksetzen" matTooltipPosition="left">
         <mat-icon>my_location</mat-icon>
       </button>
@@ -46,7 +62,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               matTooltipPosition="left">
         <mat-icon>info</mat-icon>
       </button>
-      <!-- Dev Menu (expands right and up) -->
+      <!-- Dev Menu (expands upward) -->
       <div class="td-dev-menu-wrapper">
         <div class="td-dev-menu" [class.expanded]="uiState.devMenuExpanded()">
           <button class="td-dev-btn"
@@ -97,19 +113,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltipPosition="left">
             <mat-icon>location_on</mat-icon>
           </button>
-          <button class="td-dev-btn"
-                  [class.active]="uiState.spatialGridDebugVisible()"
-                  (click)="spatialGridDebugToggled.emit()"
-                  matTooltip="Enemy Spatial Grid anzeigen"
-                  matTooltipPosition="left">
-            <mat-icon>grid_on</mat-icon>
-          </button>
-          <button class="td-dev-btn route-anim-btn"
-                  (click)="playRouteAnimation.emit()"
-                  matTooltip="Route Animation abspielen"
-                  matTooltipPosition="left">
-            <mat-icon>moving</mat-icon>
-          </button>
         </div>
         <button class="td-quick-btn td-dev-toggle-btn"
                 [class.active]="uiState.devMenuExpanded()"
@@ -141,6 +144,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       flex-shrink: 0;
     }
 
+    .td-layer-menu-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
     .td-layer-toggles {
       display: flex;
       flex-direction: column;
@@ -152,7 +162,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-layer-toggles.expanded {
-      max-height: 80px;
+      max-height: 112px;
       opacity: 1;
     }
 
@@ -231,23 +241,23 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .td-dev-menu-wrapper {
       display: flex;
-      flex-direction: row-reverse;
+      flex-direction: column;
       align-items: flex-end;
+      gap: 4px;
     }
 
     .td-dev-menu {
       display: flex;
       flex-direction: column;
       gap: 4px;
-      max-width: 0;
       overflow: hidden;
+      max-height: 0;
       opacity: 0;
-      transition: all 0.2s ease;
+      transition: max-height 0.2s ease, opacity 0.15s ease;
     }
 
     .td-dev-menu.expanded {
-      max-width: 40px;
-      margin-left: 4px;
+      max-height: 260px;
       opacity: 1;
     }
 
