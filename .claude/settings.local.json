@@ -39,7 +39,8 @@
       "Bash(npx ng add:*)",
       "Bash(npm run lint)",
       "Bash(npm run lint:*)",
-      "Bash(npx eslint:*)"
+      "Bash(npx eslint:*)",
+      "mcp__ide__getDiagnostics"
     ]
   }
 }
