@@ -1,4 +1,4 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import * as THREE from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
@@ -9,6 +9,7 @@ import { GeoPosition } from '../models/game.types';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
+import { GlobalRouteGridService } from './global-route-grid.service';
 
 /**
  * SpawnPoint interface
@@ -32,6 +33,8 @@ export interface SpawnPoint {
  */
 @Injectable({ providedIn: 'root' })
 export class TowerPlacementService {
+  private globalRouteGrid = inject(GlobalRouteGridService);
+
   // ========================================
   // SIGNALS
   // ========================================
@@ -47,6 +50,9 @@ export class TowerPlacementService {
 
   /** Single preview tower mesh - used throughout placement */
   private previewTowerMesh: THREE.Object3D | null = null;
+
+  /** LOS preview mesh for placement */
+  private losPreviewMesh: THREE.InstancedMesh | null = null;
 
   /** Flag indicating model is being loaded */
   private modelLoading = false;
@@ -130,6 +136,8 @@ export class TowerPlacementService {
 
     this.selectedTowerType.set(typeId);
     this.buildMode.set(true);
+
+    // Deselect any previously selected tower (hides its LOS visualization)
     this.gameState?.deselectAll();
 
     // Pre-load the preview model
@@ -150,6 +158,9 @@ export class TowerPlacementService {
     // Clean up preview tower
     this.cleanupPreviewTower();
 
+    // Clean up LOS preview
+    this.cleanupLosPreview();
+
     // Clear debounce timer
     if (this.losDebounceTimer !== null) {
       clearTimeout(this.losDebounceTimer);
@@ -157,6 +168,17 @@ export class TowerPlacementService {
     }
 
     this.buildMode.set(false);
+  }
+
+  /**
+   * Clean up LOS preview mesh
+   */
+  private cleanupLosPreview(): void {
+    if (this.losPreviewMesh && this.engine) {
+      this.engine.getScene().remove(this.losPreviewMesh);
+      this.globalRouteGrid.disposePlacementPreview(this.losPreviewMesh);
+      this.losPreviewMesh = null;
+    }
   }
 
   // ========================================
@@ -359,13 +381,57 @@ export class TowerPlacementService {
   }
 
   /**
-   * Update LoS preview with throttle
-   * Note: LOS preview is now handled by GlobalRouteGrid visualization
-   * This method is kept for potential future per-placement preview
+   * Update LoS preview with debounce (shows after mouse stops moving)
    */
-  private updateLoSPreviewDebounced(_lat: number, _lon: number, _height: number, _typeId: TowerTypeId): void {
-    // LOS visualization is now global via GlobalRouteGrid
-    // Can be toggled via debug menu
+  private updateLoSPreviewDebounced(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
+    // Clear existing timer
+    if (this.losDebounceTimer !== null) {
+      clearTimeout(this.losDebounceTimer);
+    }
+
+    // Hide preview immediately when moving
+    if (this.losPreviewMesh) {
+      this.losPreviewMesh.visible = false;
+    }
+
+    // Debounce: wait 150ms before showing preview at new position
+    this.losDebounceTimer = window.setTimeout(() => {
+      this.createLosPreview(lat, lon, height, typeId);
+      this.losDebounceTimer = null;
+    }, 150);
+  }
+
+  /**
+   * Create LOS preview at position
+   */
+  private createLosPreview(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
+    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
+
+    const config = TOWER_TYPES[typeId];
+    if (!config) return;
+
+    const losRaycaster = this.engine.towers.getLosRaycaster();
+    if (!losRaycaster) return;
+
+    // Calculate tower position in local coordinates
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, height);
+    const tipY = local.y + config.heightOffset + config.shootHeight;
+
+    // Clean up old preview
+    this.cleanupLosPreview();
+
+    // Create new preview
+    this.losPreviewMesh = this.globalRouteGrid.createPlacementPreview(
+      local.x,
+      local.z,
+      tipY,
+      config.range,
+      losRaycaster
+    );
+
+    if (this.losPreviewMesh) {
+      this.engine.getScene().add(this.losPreviewMesh);
+    }
   }
 
   // ========================================

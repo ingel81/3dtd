@@ -149,10 +149,8 @@ export class TowerManager extends EntityManager<Tower> {
         tower.select();
         this.tilesEngine?.towers.select(id);
         // Show LOS visualization
-        console.log(`[TowerManager] selectTower: id=${id}, hasLosViz=${!!tower.losVisualization}`);
         if (tower.losVisualization) {
           tower.losVisualization.visible = true;
-          console.log(`[TowerManager] selectTower: showing losVisualization, count=${tower.losVisualization.count}`);
         }
       }
     }

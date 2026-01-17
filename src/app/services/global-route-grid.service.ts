@@ -190,6 +190,27 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Create placement preview visualization (for build mode)
+   * Computes LOS on-the-fly WITHOUT storing in cells
+   */
+  createPlacementPreview(
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    losRaycaster: LineOfSightRaycaster
+  ): THREE.InstancedMesh | null {
+    return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster);
+  }
+
+  /**
+   * Dispose a placement preview mesh
+   */
+  disposePlacementPreview(mesh: THREE.InstancedMesh): void {
+    this.grid.disposePlacementPreview(mesh);
+  }
+
+  /**
    * Update terrain heights for all cells
    * Call this after terrain tiles have loaded
    */

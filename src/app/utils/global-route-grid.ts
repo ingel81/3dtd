@@ -755,6 +755,107 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Create placement preview visualization (for build mode)
+   * Computes LOS on-the-fly WITHOUT storing in cells
+   * Use disposePlacementPreview() when done
+   *
+   * @param towerX Tower X position (local coordinates)
+   * @param towerZ Tower Z position (local coordinates)
+   * @param tipY Tower tip Y position (for LOS origin)
+   * @param range Tower targeting range
+   * @param losRaycaster LOS raycaster function
+   * @returns InstancedMesh visualization or null if no cells
+   */
+  createPlacementPreview(
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    losRaycaster: LineOfSightRaycaster
+  ): THREE.InstancedMesh | null {
+    const rangeSq = range * range;
+    const cellsInRange: { cell: RouteCell; isVisible: boolean }[] = [];
+
+    // Compute LOS for all cells in range (without storing)
+    for (const cell of this.cells.values()) {
+      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
+      if (distSq > rangeSq) continue;
+
+      // Sample terrain height live
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
+      if (terrainY === null) continue;
+
+      // Calculate LOS
+      const dirX = cell.x - towerX;
+      const dirZ = cell.z - towerZ;
+      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+      let isVisible: boolean;
+      if (dirLen < 0.1) {
+        isVisible = true;
+      } else {
+        const originX = towerX + (dirX / dirLen) * this.LOS_OFFSET;
+        const originZ = towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+        const targetY = terrainY + 1.5;
+
+        const isBlocked = losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+        isVisible = !isBlocked;
+      }
+
+      cellsInRange.push({ cell, isVisible });
+    }
+
+    if (cellsInRange.length === 0) return null;
+
+    const cellSize = this.CELL_SIZE * 0.85;
+    const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
+
+    const material = new THREE.ShaderMaterial({
+      vertexShader: TOWER_LOS_VERTEX,
+      fragmentShader: TOWER_LOS_FRAGMENT,
+      uniforms: {
+        uTime: { value: this.animationTime },
+      },
+      defines: {
+        USE_INSTANCING: '',
+      },
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      side: THREE.DoubleSide,
+    });
+
+    const mesh = new THREE.InstancedMesh(geometry, material, cellsInRange.length);
+    mesh.frustumCulled = false;
+    mesh.renderOrder = 3;
+
+    const isBlockedArray = new Float32Array(cellsInRange.length);
+    const matrix = new THREE.Matrix4();
+
+    for (let i = 0; i < cellsInRange.length; i++) {
+      const { cell, isVisible } = cellsInRange[i];
+      // Sample terrain live for accurate positioning
+      const y = (this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : cell.terrainHeight) ?? cell.terrainHeight;
+      matrix.setPosition(cell.x, y + 0.5, cell.z);
+      mesh.setMatrixAt(i, matrix);
+      isBlockedArray[i] = isVisible ? 0 : 1;
+    }
+
+    geometry.setAttribute('aIsBlocked', new THREE.InstancedBufferAttribute(isBlockedArray, 1));
+    mesh.instanceMatrix.needsUpdate = true;
+
+    return mesh;
+  }
+
+  /**
+   * Dispose a placement preview mesh
+   */
+  disposePlacementPreview(mesh: THREE.InstancedMesh): void {
+    mesh.geometry.dispose();
+    (mesh.material as THREE.ShaderMaterial).dispose();
+  }
+
+  /**
    * Clear all data
    */
   clear(): void {
