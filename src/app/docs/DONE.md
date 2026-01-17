@@ -6,6 +6,21 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Neue Features
+- [x] **Magic Tower mit animiertem Orb**
+  - Neues `magic_tower.glb` Model mit `tower_top` Orb-Teil
+  - Hover-Animation: sanftes Auf/Ab-Schweben (Amplitude 0.006, Speed 0.6 Hz)
+  - Idle-Rotation: langsame kontinuierliche Drehung wenn kein Ziel (0.3 rad/s)
+  - Zufälliger Phasen-Offset pro Tower für desynchronisierte Animationen
+  - `tower_top` zu erkannten Turret-Part-Namen hinzugefügt
+  - Sound bereits konfiguriert (`magic_cast.mp3` für fireball)
+
+### Bugfixes
+- [x] **Platzierte Tower bleiben grün nach Build-Preview**
+  - `cloneModel()` im AssetManager klont jetzt alle Materialien tief
+  - Verhindert Shared-State zwischen Model-Instanzen
+  - Betrifft: Build-Preview, platzierte Tower, Baumenü-Previews
+
 ### Code Quality & Architektur
 - [x] **Globaler Asset Manager** - 4 separate Model-Caches konsolidiert
   - Neuer `AssetManagerService` mit zentralem GLTFLoader/FBXLoader
