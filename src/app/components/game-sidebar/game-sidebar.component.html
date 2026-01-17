@@ -28,8 +28,8 @@
       </div>
     </section>
 
-    <!-- BUILD Section -->
-    <section class="td-panel">
+    <!-- BUILD Section (hidden when tower selected) -->
+    <section class="td-panel" [class.td-hidden]="gameState().selectedTower()">
       <div class="td-panel-header">BAUEN</div>
       <div class="td-panel-content td-build-section">
         @if (buildMode()) {
@@ -65,52 +65,58 @@
       <section class="td-panel td-tower-panel">
         <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
         <div class="td-panel-content td-tower-section">
-          <div class="td-tower-stats">
-            <div class="td-stat-row">
+          <!-- Stats as tile grid -->
+          <div class="td-stats-grid">
+            <div class="td-stat-tile">
+              <mat-icon class="td-stat-icon td-icon-damage">local_fire_department</mat-icon>
+              <span class="td-stat-value td-val-damage">{{ tower.combat.damage }}</span>
               <span class="td-stat-label">Schaden</span>
-              <span class="td-stat-value td-damage">{{ tower.combat.damage }}</span>
             </div>
-            <div class="td-stat-row">
-              <span class="td-stat-label">Reichweite</span>
+            <div class="td-stat-tile">
+              <mat-icon class="td-stat-icon td-icon-range">radar</mat-icon>
               <span class="td-stat-value">{{ tower.combat.range }}m</span>
+              <span class="td-stat-label">Reichweite</span>
             </div>
-            <div class="td-stat-row">
-              <span class="td-stat-label">Feuerrate</span>
+            <div class="td-stat-tile">
+              <mat-icon class="td-stat-icon td-icon-firerate">speed</mat-icon>
               <span class="td-stat-value">{{ tower.combat.fireRate }}/s</span>
+              <span class="td-stat-label">Feuerrate</span>
             </div>
-            <div class="td-stat-row">
+            <div class="td-stat-tile">
+              <mat-icon class="td-stat-icon td-icon-kills">military_tech</mat-icon>
+              <span class="td-stat-value td-val-kills">{{ tower.combat.kills }}</span>
               <span class="td-stat-label">Kills</span>
-              <span class="td-stat-value td-kills">{{ tower.combat.kills }}</span>
             </div>
           </div>
 
           <!-- Upgrades Section -->
           @if (tower.getAvailableUpgrades().length > 0) {
             <div class="td-upgrades-section">
-              <div class="td-upgrades-title">UPGRADES</div>
               @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
                 <button
-                  class="td-upgrade-btn"
+                  class="td-upgrade-tile"
                   [class.td-upgrade-affordable]="gameState().credits() >= upgrade.cost"
                   [disabled]="gameState().credits() < upgrade.cost"
                   (click)="onUpgradeTower(tower, upgrade.id)"
                   [matTooltip]="upgrade.description"
                 >
-                  <mat-icon>bolt</mat-icon>
-                  <span class="td-upgrade-name">{{ upgrade.name }}</span>
+                  <mat-icon class="td-upgrade-icon">bolt</mat-icon>
+                  <div class="td-upgrade-info">
+                    <span class="td-upgrade-name">{{ upgrade.name }}</span>
+                    <span class="td-upgrade-desc">Upgrade verfügbar</span>
+                  </div>
                   <span class="td-upgrade-cost">{{ upgrade.cost }}</span>
                 </button>
               }
             </div>
           }
 
-          <div class="td-tower-actions">
-            <button class="td-action-btn td-btn-sell" (click)="sellTower.emit()">
-              <mat-icon>sell</mat-icon>
-              <span>Verkaufen</span>
-              <span class="td-cost td-refund">+{{ tower.typeConfig.sellValue }}</span>
-            </button>
-          </div>
+          <!-- Sell button (subtle) -->
+          <button class="td-sell-tile" (click)="sellTower.emit()">
+            <mat-icon>sell</mat-icon>
+            <span>Verkaufen</span>
+            <span class="td-sell-value">+{{ tower.typeConfig.sellValue }}</span>
+          </button>
         </div>
       </section>
     }

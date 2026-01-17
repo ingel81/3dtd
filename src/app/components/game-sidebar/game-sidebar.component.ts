@@ -326,6 +326,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-gold);
     }
 
+    .td-hidden {
+      display: none;
+    }
+
     .td-cancel-btn {
       background: var(--td-panel-secondary);
     }
@@ -364,34 +368,50 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       gap: 10px;
     }
 
-    .td-tower-stats {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      padding-bottom: 8px;
-      border-bottom: 1px solid var(--td-frame-dark);
-    }
-
-    .td-tower-actions {
-      display: flex;
-      flex-direction: column;
+    /* Stats Grid - 2x2 tiles */
+    .td-stats-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
       gap: 6px;
     }
 
-    .td-btn-sell {
+    .td-stat-tile {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 2px;
+      padding: 8px 6px;
       background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-dark);
+      border-radius: 3px;
     }
 
-    .td-btn-sell mat-icon {
-      color: var(--td-red);
+    .td-stat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      opacity: 0.7;
     }
 
-    .td-btn-sell:hover:not(:disabled) {
-      background: rgba(244, 67, 54, 0.2);
+    .td-icon-damage { color: #ff6b4a; }
+    .td-icon-range { color: var(--td-teal); }
+    .td-icon-firerate { color: #ffc107; }
+    .td-icon-kills { color: var(--td-gold); }
+
+    .td-stat-tile .td-stat-value {
+      font-size: 16px;
+      font-weight: 700;
+      color: var(--td-text-primary);
     }
 
-    .td-refund {
-      background: var(--td-green);
+    .td-stat-tile .td-val-damage { color: #ff6b4a; }
+    .td-stat-tile .td-val-kills { color: var(--td-gold); }
+
+    .td-stat-tile .td-stat-label {
+      font-size: 8px;
+      color: var(--td-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
     }
 
     /* === Upgrade Section === */
@@ -399,76 +419,112 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       display: flex;
       flex-direction: column;
       gap: 6px;
-      margin: 8px 0;
-      padding-top: 8px;
-      border-top: 1px solid var(--td-frame-dark);
     }
 
-    .td-upgrades-title {
-      font-size: 9px;
-      font-weight: 600;
-      color: var(--td-text-muted);
-      letter-spacing: 0.5px;
-    }
-
-    .td-upgrade-btn {
+    .td-upgrade-tile {
       display: flex;
       align-items: center;
-      gap: 6px;
-      padding: 6px 10px;
+      gap: 10px;
+      padding: 12px;
+      background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.05) 100%);
+      border: 2px solid var(--td-gold-dark);
+      border-radius: 4px;
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .td-upgrade-tile:hover:not(:disabled) {
+      background: linear-gradient(135deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 193, 7, 0.1) 100%);
+      border-color: var(--td-gold);
+      box-shadow: 0 0 12px rgba(255, 193, 7, 0.3);
+    }
+
+    .td-upgrade-tile:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      border-color: var(--td-frame-mid);
       background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
+    }
+
+    .td-upgrade-icon {
+      font-size: 28px;
+      width: 28px;
+      height: 28px;
+      color: var(--td-gold);
+    }
+
+    .td-upgrade-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 2px;
+    }
+
+    .td-upgrade-name {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--td-text-primary);
+    }
+
+    .td-upgrade-desc {
+      font-size: 9px;
+      color: var(--td-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.3px;
+    }
+
+    .td-upgrade-cost {
+      padding: 4px 10px;
+      background: var(--td-gold);
+      color: var(--td-bg-dark);
+      font-size: 12px;
+      font-weight: 700;
+      border-radius: 3px;
+    }
+
+    /* === Sell Button (subtle) === */
+    .td-sell-tile {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      background: transparent;
+      border: 1px solid var(--td-frame-dark);
+      border-radius: 3px;
+      color: var(--td-text-muted);
+      font-family: inherit;
       font-size: 11px;
       cursor: pointer;
       transition: all 0.15s;
     }
 
-    .td-upgrade-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-      color: var(--td-gold);
+    .td-sell-tile mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+      color: var(--td-text-muted);
     }
 
-    .td-upgrade-btn:hover:not(:disabled) {
-      background: rgba(255, 193, 7, 0.15);
-      border-color: var(--td-gold-dark);
+    .td-sell-tile:hover {
+      background: rgba(244, 67, 54, 0.1);
+      border-color: var(--td-red);
+      color: var(--td-text-secondary);
     }
 
-    .td-upgrade-btn:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
+    .td-sell-tile:hover mat-icon {
+      color: var(--td-red);
     }
 
-    .td-upgrade-btn.td-upgrade-affordable {
-      border-color: var(--td-gold-dark);
-    }
-
-    .td-upgrade-name {
-      flex: 1;
-      text-align: left;
-    }
-
-    .td-upgrade-cost {
+    .td-sell-value {
+      margin-left: auto;
       padding: 2px 6px;
-      background: var(--td-gold);
+      background: var(--td-green);
       color: var(--td-bg-dark);
       font-size: 10px;
       font-weight: 600;
       border-radius: 2px;
-    }
-
-    .td-upgrade-cost::before {
-      content: '';
-      display: inline-block;
-      width: 8px;
-      height: 8px;
-      margin-right: 2px;
-      background: url('/assets/images/gold.svg') center/contain no-repeat;
-      vertical-align: middle;
     }
   `,
 })
