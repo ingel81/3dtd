@@ -534,45 +534,30 @@ class ThreeEnemyRenderer {
 
 #### Animation Speed Coupling
 
-Gegner-Animationen sind an ihre Bewegungsgeschwindigkeit gekoppelt:
+Gegner-Animationen sind automatisch an ihre Bewegungsgeschwindigkeit gekoppelt:
 
 ```typescript
-// In update(): Animation timeScale basiert auf Geschwindigkeitsverhältnis
-if (currentSpeed !== undefined && data.typeConfig.baseSpeed > 0) {
-  const baseAnimSpeed = data.typeConfig.animationSpeed ?? 1.0;
-
-  // Bei Run-Animation: effectiveBaseSpeed = baseSpeed × runSpeedMultiplier
-  // (Run-Animation ist im Modell bereits schneller, daher kein zusätzlicher Speed-Faktor)
-  let effectiveBaseSpeed = data.typeConfig.baseSpeed;
-  if (!data.isWalking && data.typeConfig.runSpeedMultiplier) {
-    effectiveBaseSpeed = data.typeConfig.baseSpeed * data.typeConfig.runSpeedMultiplier;
-  }
-
-  const speedRatio = currentSpeed / effectiveBaseSpeed;
-  data.currentAction.timeScale = baseAnimSpeed * speedRatio;
-}
+// In ThreeEnemyRenderer.update()
+const speedRatio = currentSpeed / effectiveBaseSpeed;
+animationAction.timeScale = baseAnimSpeed * speedRatio;
 ```
+
+**Effekt:** Schnellere Bewegung → Schnellere Animation (natürliche Laufbewegung)
+
+**Details:** Siehe [ENEMY_CREATION.md → Animation Speed Coupling](ENEMY_CREATION.md#animation-speed-coupling)
 
 #### Run Animation System
 
-Manche Gegner (z.B. Wallsmasher) wechseln zwischen Walk- und Run-Animation:
+Manche Enemies wechseln zwischen Walk- und Run-Animation:
 
 ```typescript
-// EnemyTypeConfig
-animationVariation?: boolean;      // Wechselt zwischen Walk und Run Animation
-runSpeedMultiplier?: number;       // Speed-Multiplikator bei Run (z.B. 2.5)
-
-// MovementComponent
-speedMps = 0;                      // Basis m/s
-speedMultiplier = 1.0;             // Multiplier von Animation-State (1.0 oder runSpeedMultiplier)
-get effectiveSpeed(): number {     // speedMps × speedMultiplier
-  return this.speedMps * this.speedMultiplier;
-}
+animationVariation: true,     // Walk/Run Variation aktiviert
+runSpeedMultiplier: 2.5,      // 2.5× Speed bei Run-Animation
 ```
 
-**Wichtig:** Der `runSpeedMultiplier` beeinflusst:
-- ✅ Bewegungsgeschwindigkeit (Gegner bewegt sich schneller)
-- ❌ NICHT die Animation-Geschwindigkeit (Run-Animation ist bereits schneller im Modell)
+**Effekt:** Run-Animation → Enemy bewegt sich 2.5× schneller (Animation bleibt gleich schnell, da Run-Animation bereits schneller im Modell ist)
+
+**Details:** Siehe [ENEMY_CREATION.md → Run-Animation-System](ENEMY_CREATION.md#run-animation-system-animation-variation)
 
 ### 6.2 ThreeTowerRenderer
 
@@ -697,6 +682,109 @@ class EllipsoidSync {
   calculateHeading(fromLat, fromLon, toLat, toLon): number;
 }
 ```
+
+### 8.1 Geo-Distance Utilities
+
+**Datei:** `utils/geo-utils.ts`
+
+Zentralisierte Distanzberechnungen zwischen geografischen Koordinaten. Früher 5x dupliziert in enemy.manager, tower.manager, game-state.manager, projectile.entity, movement.component.
+
+#### haversineDistance() - Präzise, teuer
+
+```typescript
+haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number
+```
+
+**Verwendung:**
+- Präzise Berechnung für **beliebige Distanzen** auf der Erdkugel
+- Verwendet Trigonometrie (sin, cos, atan2)
+- **Performance:** ~100-200 ns pro Aufruf (langsam)
+
+**Wann verwenden:**
+- Initialberechnung (Spawn-Point zu Base)
+- Einmalige Operationen (Location-Validierung)
+- Große Distanzen (>200m)
+
+**Beispiel:**
+```typescript
+// Spawn-Point 500m von Base entfernt?
+const distance = haversineDistance(
+  spawnLat, spawnLon,
+  baseLat, baseLon
+);
+if (distance < 500) {
+  console.warn('Spawn zu nah an Base');
+}
+```
+
+#### fastDistance() - Schnell, ungenau bei Distanz
+
+```typescript
+fastDistance(lat1: number, lon1: number, lat2: number, lon2: number): number
+```
+
+**Verwendung:**
+- **Flat-Earth Approximation** (kein Haversine)
+- Nur Multiplikation und sqrt, kein sin/cos
+- **Performance:** ~20-30 ns pro Aufruf (10x schneller!)
+- **Genauigkeit:** <1% Fehler bei Distanzen <200m
+
+**Wann verwenden:**
+- **Hot-Path:** In Update-Loops (jeden Frame)
+- Lokale Berechnungen (<200m)
+- Range-Checks (Enemy in Reichweite?)
+
+**Beispiel:**
+```typescript
+// Enemy-Manager Update Loop (JEDEN FRAME!)
+for (const enemy of enemies) {
+  const dist = fastDistance(
+    enemy.position.lat, enemy.position.lon,
+    tower.position.lat, tower.position.lon
+  );
+  if (dist < tower.combat.range) {
+    // In Reichweite!
+  }
+}
+```
+
+#### geoDistance() - Convenience Wrapper
+
+```typescript
+geoDistance(
+  pos1: { lat: number; lon: number },
+  pos2: { lat: number; lon: number }
+): number
+```
+
+Wrapper für `haversineDistance` mit Objekt-Syntax statt 4 Parametern.
+
+**Beispiel:**
+```typescript
+const dist = geoDistance(enemy.position, tower.position);
+```
+
+#### Performance-Vergleich
+
+| Methode | Ns/Aufruf | Relativ | Use Case |
+|---------|-----------|---------|----------|
+| `fastDistance()` | ~25 ns | 1x (Basis) | Hot-Path, <200m |
+| `haversineDistance()` | ~180 ns | 7x langsamer | Einmalig, >200m |
+
+**WICHTIG:** In einem Frame mit 100 Enemies × 10 Towers = 1000 Distanzberechnungen:
+- `fastDistance`: 1000 × 25ns = **25 µs**
+- `haversineDistance`: 1000 × 180ns = **180 µs** (7x langsamer!)
+
+#### TODO: Migration zu fastDistance
+
+**Status:** Viele Stellen verwenden noch Haversine in Hot-Paths
+
+**Betroffene Dateien:**
+- `enemy.manager.ts:284-294` - getEnemiesInRadius (Range-Checks)
+- `tower.manager.ts` - Tower-Placement-Validierung
+- `game-state.manager.ts` - Combat Update Loop
+
+**Siehe:** [TODO.md - Fast-Distance statt Haversine](TODO.md)
 
 ---
 
@@ -832,31 +920,154 @@ src/app/
 
 ### Blood Decal System
 
-Persistente Blutflecken auf dem Boden nach Enemy-Deaths:
+**Datei:** `three-engine/renderers/three-effects.renderer.ts`
+
+Persistente Blutflecken auf dem Boden nach Enemy-Deaths. Verwendet **Instanced Rendering** für Performance.
+
+#### Technische Implementierung
 
 ```typescript
-// ThreeEffectsRenderer
-spawnBloodDecal(lat, lon, height, size?): string;
+// InstancedMesh mit Custom Shader
+private bloodDecalMesh: THREE.InstancedMesh;
+private iceDecalMesh: THREE.InstancedMesh;
+
+spawnBloodDecal(lat: number, lon: number, height: number, size?: number): string;
+spawnIceDecal(lat: number, lon: number, height: number, size?: number): string;
 ```
 
+**Rendering:**
+- **InstancedMesh** statt einzelne Meshes → 250 Draw Calls → **2 Draw Calls**
+- Ein Pool für Blood (rot), ein Pool für Ice (blau)
+- Custom Shader für Fade-Out und Color Tinting
 - Decals bleiben bestehen bis zum Game Reset
-- Verwendet Alpha-Blending für realistische Erscheinung
-- Automatische Terrain-Ausrichtung
+
+**Shader-Features:**
+```typescript
+// Vertex Shader: USE_INSTANCING für Matrix-Transformation
+// Fragment Shader: Color Tint + Alpha Fade
+uniform vec3 uColor;      // Decal-Farbe (rot/blau)
+uniform float uAlpha;     // Transparenz
+```
+
+**Konfiguration:** `configs/visual-effects.config.ts`
+
+```typescript
+export const BLOOD_DECAL_CONFIG = {
+  color: 0x8b0000,      // Dunkelrot
+  size: 2.0,            // 2m Durchmesser
+  maxDecals: 500,       // Pool-Größe
+  fadeOutTime: 0,       // Kein Fade (bleibt sichtbar)
+};
+
+export const ICE_DECAL_CONFIG = {
+  color: 0x00bfff,      // Hellblau
+  size: 3.0,            // 3m Durchmesser
+  maxDecals: 200,
+  fadeOutTime: 5000,    // 5s Fade-Out
+};
+```
+
+**Automatisches Spawning:**
+- Blood: Bei Enemy-Death mit `canBleed: true`
+- Ice: Bei Ice Tower Hit (Splash-Effekt)
+
+**Performance:**
+- 500 Blood + 200 Ice Decals = **2 Draw Calls** (statt 700!)
+- Keine Performance-Impact bei vielen Decals
 
 ### Fire Effects
 
-Feuer-Effekte bei HQ-Damage und Game Over:
+**Datei:** `three-engine/renderers/three-effects.renderer.ts`
+
+Feuer-Effekte bei HQ-Damage und Game Over. Kombiniert **Partikel + Geometrie + Sound**.
+
+#### Technische Implementierung
 
 ```typescript
-// ThreeEffectsRenderer
-spawnFire(lat, lon, height, intensity): string;  // 'small' | 'medium' | 'large'
-spawnFireOnTerrain(lat, lon, getHeight, intensity): string;
-spawnFireAtLocalY(lat, lon, localY, intensity): string;
+spawnFire(lat: number, lon: number, height: number, intensity: FireIntensity): string;
+spawnFireOnTerrain(lat: number, lon: number, getHeight: Function, intensity: FireIntensity): string;
+spawnFireAtLocalY(lat: number, lon: number, localY: number, intensity: FireIntensity): string;
+
+type FireIntensity = 'small' | 'medium' | 'large';
 ```
 
-- Particle-basierte Feuer-Simulation
-- Drei Intensitätsstufen
-- Automatischer Sound bei Spawn
+**Intensitätsstufen:**
+
+| Intensity | Partikel/Sekunde | Radius | Use Case |
+|-----------|------------------|--------|----------|
+| `small` | 20 | 2m | Einzelner Treffer |
+| `medium` | 50 | 4m | HQ Schaden (pro Hit) |
+| `large` | 100 | 8m | Game Over Explosion |
+
+**Komponenten:**
+
+1. **Partikel-Emitter** (Additive Blending)
+   - Flammen-Partikel (orange/gelb)
+   - Rauch-Partikel (grau)
+   - Aufwärtsbewegung mit Turbulenz
+
+2. **Licht-Effekt** (optional)
+   - Point Light mit flackernder Intensität
+   - Orange Farbe
+
+3. **Sound-Effekt**
+   - Loop-Sound (`fire_loop.mp3`)
+   - Spatial Audio (3D Position)
+   - Automatisch gestoppt wenn Feuer erlischt
+
+**Lifecycle:**
+
+```typescript
+// 1. Spawn
+const fireId = engine.effects.spawnFire(lat, lon, height, 'large');
+
+// 2. Update Loop (intern)
+// - Partikel bewegen sich nach oben
+// - Neue Partikel spawnen
+// - Alte Partikel faden out
+
+// 3. Cleanup
+engine.effects.stopFire(fireId);     // Einzelnes Feuer
+engine.effects.stopAllFires();       // Alle Feuer
+```
+
+**Automatisches Spawning:**
+- Medium Fire: Jedes Mal wenn Enemy HQ erreicht (1 Fire pro Hit)
+- Large Fire: Bei Game Over (3-5 Fires um HQ herum)
+
+**Convenience-Methoden:**
+
+```typescript
+// Mit automatischem Terrain-Raycast
+spawnFireOnTerrain(lat, lon, getTerrainHeight, 'medium');
+
+// Mit bekannter Local-Y
+spawnFireAtLocalY(lat, lon, localY, 'medium');
+```
+
+**WICHTIG:** `spawnFireOnTerrain` nutzt die übergebene `getTerrainHeight` Funktion. Grund: ThreeEffectsRenderer hat keinen direkten Zugriff auf TilesRenderer.
+
+**Konfiguration:** `configs/visual-effects.config.ts`
+
+```typescript
+export const FIRE_CONFIG = {
+  small: {
+    particlesPerSecond: 20,
+    particleLifetime: 2000,
+    emitterRadius: 2,
+  },
+  medium: {
+    particlesPerSecond: 50,
+    particleLifetime: 3000,
+    emitterRadius: 4,
+  },
+  large: {
+    particlesPerSecond: 100,
+    particleLifetime: 4000,
+    emitterRadius: 8,
+  },
+};
+```
 
 ### Route Animation (Knight Rider Effekt)
 
