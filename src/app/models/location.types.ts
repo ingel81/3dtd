@@ -69,3 +69,14 @@ export interface RandomSpawnCandidate {
   streetName?: string;
   nodeId?: number;
 }
+
+/**
+ * Favorite location for quick access
+ * Only stores coordinates - names are resolved via geocoding cache
+ */
+export interface FavoriteLocation {
+  id: string;
+  hq: { lat: number; lon: number };
+  spawns: Array<{ lat: number; lon: number }>;
+  createdAt: number;
+}
