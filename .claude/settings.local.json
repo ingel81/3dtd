@@ -40,7 +40,10 @@
       "Bash(npm run lint)",
       "Bash(npm run lint:*)",
       "Bash(npx eslint:*)",
-      "mcp__ide__getDiagnostics"
+      "mcp__ide__getDiagnostics",
+      "Bash(git checkout:*)",
+      "Bash(git pull:*)",
+      "Bash(git merge:*)"
     ]
   }
 }
