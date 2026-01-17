@@ -6,6 +6,10 @@ import {
   ProjectileVisualType,
   PROJECTILE_TYPES,
 } from '../../configs/projectile-types.config';
+import {
+  MAGIC_ORB_VERTEX,
+  MAGIC_ORB_FRAGMENT,
+} from '../../game/tower-defense/shaders/magic-orb.shaders';
 
 /**
  * Projectile render data
@@ -265,15 +269,23 @@ export class ThreeProjectileRenderer {
   }
 
   private createMagicManager(): ProjectileInstanceManager {
-    // Magic projectile: glowing sphere - size increased for visibility
-    const geometry = new THREE.SphereGeometry(1.2, 16, 16);
+    // Magic projectile: glowing sphere with custom shader
+    const geometry = new THREE.SphereGeometry(1.2, 32, 32); // Higher segments for smooth shader
 
-    const material = new THREE.MeshStandardMaterial({
-      color: 0xff6600,
-      emissive: 0xff3300,
-      emissiveIntensity: 3.0,
-      metalness: 0.0,
-      roughness: 0.0,
+    const material = new THREE.ShaderMaterial({
+      vertexShader: MAGIC_ORB_VERTEX,
+      fragmentShader: MAGIC_ORB_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0.0 },
+        uColor1: { value: new THREE.Color(0x6600cc) }, // Deep purple
+        uColor2: { value: new THREE.Color(0x00ccff) }, // Cyan
+        uColor3: { value: new THREE.Color(0xffffff) }, // White highlights
+        uIntensity: { value: 2.5 },
+      },
+      transparent: true,
+      blending: THREE.AdditiveBlending,
+      depthWrite: false,
+      side: THREE.DoubleSide,
     });
 
     return new ProjectileInstanceManager(geometry, material, 500);
@@ -466,6 +478,17 @@ export class ThreeProjectileRenderer {
     this.bulletManager.clear();
     this.rocketManager.clear();
     this.projectileTypes.clear();
+  }
+
+  /**
+   * Update shader uniforms (call once per frame)
+   */
+  updateShaderUniforms(time: number): void {
+    // Update magic orb shader time uniform
+    const magicMaterial = this.magicManager.instancedMesh.material as THREE.ShaderMaterial;
+    if (magicMaterial.uniforms?.uTime) {
+      magicMaterial.uniforms.uTime.value = time;
+    }
   }
 
   dispose(): void {
