@@ -48,6 +48,7 @@ const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
 const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
 const CANNON_MODEL_URL = '/assets/models/towers/cannon_tower.glb';
 const ICE_MODEL_URL = '/assets/models/towers/turret_ice1.glb';
+const MAGIC_MODEL_URL = '/assets/models/towers/magic_tower.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -86,7 +87,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     name: 'Dual-Gatling Tower',
     modelUrl: TURRET_MODEL_URL,
     scale: 2.5, // World scale
-    previewScale: 4.0, // Larger preview in UI
+    previewScale: 5.5, // Larger preview in UI
     heightOffset: 2.5, // Ground level
     shootHeight: 2.5, // Barrel height at scale 2.5
     rotationY: -Math.PI / 2, // -90° to align turret with aim direction
@@ -115,7 +116,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     name: 'Cannon Tower',
     modelUrl: CANNON_MODEL_URL,
     scale: 3.0,
-    previewScale: 7.0,
+    previewScale: 5.5,
     heightOffset: 2.5,
     shootHeight: 3, // Cannon barrel height
     rotationY: 0,
@@ -153,11 +154,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   magic: {
     id: 'magic',
     name: 'Magic Tower',
-    modelUrl: ARCHER_MODEL_URL, // TODO: Replace with tower_magic.glb when available
-    scale: 15.0,
+    modelUrl: MAGIC_MODEL_URL,
+    scale: 12.0,
     previewScale: 14.0,
-    heightOffset: 7.0,
-    shootHeight: 1.0, // Magic orb position
+    heightOffset: 0.0,
+    shootHeight: 10.0, // Magic orb position at tower top
     rotationY: 0,
     damage: 40,
     range: 70,
@@ -199,7 +200,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     name: 'Rocket Tower',
     modelUrl: ROCKET_MODEL_URL,
     scale: 2.5,
-    previewScale: 4.0,
+    previewScale: 5.5,
     heightOffset: 2.5,
     shootHeight: 1.0,
     rotationY: 0,
@@ -230,7 +231,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     name: 'Ice Tower',
     modelUrl: ICE_MODEL_URL,
     scale: 8.0,
-    previewScale: 24.0,
+    previewScale: 27.0,
     heightOffset: 1,
     shootHeight: 2.5,
     rotationY: Math.PI / 2,

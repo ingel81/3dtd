@@ -28,6 +28,10 @@ export interface TowerRenderData {
   // Turret rotation animation
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
+  // Turret hover animation (e.g., magic tower orb)
+  turretBaseY: number; // Original Y position of turret part
+  hoverPhaseOffset: number; // Random phase offset for desynchronized hover
+  hasTarget: boolean; // Whether tower is currently targeting an enemy
   // GLTF animation support
   mixer: THREE.AnimationMixer | null;
   animations: Map<string, THREE.AnimationClip>;
@@ -266,13 +270,22 @@ export class ThreeTowerRenderer {
     mesh.rotation.y = baseRotation + customRotation;
 
     // Find turret part if it exists (for turret rotation)
-    // Supports both 'turret_top' and 'top' naming conventions
+    // Supports 'turret_top', 'tower_top', and 'top' naming conventions
     let turretPart: THREE.Object3D | null = null;
+    let turretBaseY = 0;
     mesh.traverse((node) => {
-      if ((node.name === 'turret_top' || node.name === 'top') && !turretPart) {
+      if ((node.name === 'turret_top' || node.name === 'tower_top' || node.name === 'top') && !turretPart) {
         turretPart = node;
+        turretBaseY = node.position.y;
+        console.log(`[TowerRenderer] Found turret part '${node.name}' for ${typeId}, baseY: ${turretBaseY}`);
       }
     });
+    // Debug: list all node names if no turret found
+    if (!turretPart) {
+      const names: string[] = [];
+      mesh.traverse((node) => names.push(node.name));
+      console.log(`[TowerRenderer] No turret found for ${typeId}. Nodes:`, names);
+    }
 
     // Enable shadows
     mesh.traverse((node) => {
@@ -417,6 +430,9 @@ export class ThreeTowerRenderer {
       customRotation,
       currentLocalRotation: 0, // Start at base position
       targetLocalRotation: 0, // Target at base position
+      turretBaseY, // Store original Y for hover animation
+      hoverPhaseOffset: Math.random() * Math.PI * 2, // Random start phase
+      hasTarget: false, // Start without target
       mixer,
       animations,
       currentAction,
@@ -491,6 +507,7 @@ export class ThreeTowerRenderer {
     // Convert to local space: subtract parent's rotation
     // Set as target - actual rotation is interpolated in updateTurretAnimations()
     data.targetLocalRotation = threeJsTargetRotation - parentRotation;
+    data.hasTarget = true;
   }
 
   /**
@@ -504,6 +521,7 @@ export class ThreeTowerRenderer {
     // Set target to 0 = turret faces same direction as tower base
     // Actual rotation is interpolated in updateTurretAnimations()
     data.targetLocalRotation = 0;
+    data.hasTarget = false;
   }
 
   /**
@@ -670,27 +688,46 @@ export class ThreeTowerRenderer {
 
       // Turret rotation interpolation (smooth tracking and return-to-base)
       if (data.turretPart) {
-        const current = data.currentLocalRotation;
-        const target = data.targetLocalRotation;
+        // Magic tower orb: special idle behavior (continuous spin when no target)
+        const isMagicIdle = data.typeConfig.id === 'magic' && !data.hasTarget;
 
-        // Calculate shortest rotation path (handle wraparound at ±π)
-        let diff = target - current;
-
-        // Normalize to [-π, π] for shortest path
-        while (diff > Math.PI) diff -= Math.PI * 2;
-        while (diff < -Math.PI) diff += Math.PI * 2;
-
-        // If close enough, snap to target
-        if (Math.abs(diff) < 0.01) {
-          data.currentLocalRotation = target;
+        if (isMagicIdle) {
+          // Idle spin: slow continuous rotation
+          const idleRotationSpeed = 0.3; // Radians per second
+          data.currentLocalRotation += idleRotationSpeed * (deltaTime / 1000);
+          data.turretPart.rotation.y = data.currentLocalRotation;
         } else {
-          // Move towards target, clamped to max rotation speed
-          const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisFrame);
-          data.currentLocalRotation += rotation;
+          // Normal turret behavior: interpolate towards target
+          const current = data.currentLocalRotation;
+          const target = data.targetLocalRotation;
+
+          // Calculate shortest rotation path (handle wraparound at ±π)
+          let diff = target - current;
+
+          // Normalize to [-π, π] for shortest path
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+
+          // If close enough, snap to target
+          if (Math.abs(diff) < 0.01) {
+            data.currentLocalRotation = target;
+          } else {
+            // Move towards target, clamped to max rotation speed
+            const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisFrame);
+            data.currentLocalRotation += rotation;
+          }
+
+          // Apply current rotation to turret
+          data.turretPart.rotation.y = data.currentLocalRotation;
         }
 
-        // Apply current rotation to turret
-        data.turretPart.rotation.y = data.currentLocalRotation;
+        // Magic tower orb: hover animation (always active)
+        if (data.typeConfig.id === 'magic') {
+          const hoverAmplitude = 0.006;
+          const hoverSpeed = 0.6;
+          const phase = this.animationTime * hoverSpeed * Math.PI * 2 + data.hoverPhaseOffset;
+          data.turretPart.position.y = data.turretBaseY + Math.sin(phase) * hoverAmplitude;
+        }
 
         // Update debug arrow direction (world space)
         if (data.aimArrow) {
