@@ -34,7 +34,7 @@ import { InfoOverlayComponent } from './components/info-overlay/info-overlay.com
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
-import { LocationDialogData, LocationDialogResult, LocationConfig, SpawnLocationConfig } from './models/location.types';
+import { LocationDialogData, LocationDialogResult, LocationConfig, SpawnLocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
 import { CameraControlService } from './services/camera-control.service';
@@ -42,7 +42,8 @@ import { MarkerVisualizationService, SpawnPoint } from './services/marker-visual
 import { PathAndRouteService } from './services/path-route.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
-import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS } from './services/location-management.service';
+import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS, DEFAULT_HQ, DEFAULT_SPAWN } from './services/location-management.service';
+import { UrlLocationService } from './services/url-location.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
@@ -109,8 +110,16 @@ const DEFAULT_CENTER_COORDS = {
         [enemiesAlive]="gameState.enemiesAlive()"
         [waveActive]="waveActive()"
         [isDialog]="isDialog"
+        [favorites]="favorites()"
+        [favoriteNames]="favoriteNamesMap()"
+        [canAddFavorite]="favorites().length < 10"
         (locationClick)="openLocationDialog()"
         (closeClick)="close()"
+        (shareClick)="onShareLocation()"
+        (homeClick)="onHomeClick()"
+        (addFavoriteClick)="onAddFavorite()"
+        (selectFavoriteClick)="onSelectFavorite($event)"
+        (deleteFavoriteClick)="onDeleteFavorite($event)"
       />
 
       <!-- Main Content: Canvas + Sidebar -->
@@ -639,6 +648,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly inputHandler = inject(InputHandlerService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly locationMgmt = inject(LocationManagementService);
+  private readonly urlLocation = inject(UrlLocationService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly cameraFraming = inject(CameraFramingService);
@@ -689,6 +699,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly editableHqLocation = this.locationMgmt.editableHqLocation;
   readonly editableSpawnLocations = this.locationMgmt.editableSpawnLocations;
   readonly isApplyingLocation = this.locationMgmt.isApplyingLocation;
+  readonly favorites = this.locationMgmt.favorites;
+  readonly favoriteNamesMap = signal<Record<string, string>>({});
   // Component-local signals (not moved to services)
   readonly cameraHeading = signal(0); // Compass heading: 0=N, 90=E, 180=S, 270=W
   readonly compassRotation = signal(0); // Accumulated rotation for smooth compass (avoids 0°/360° flip)
@@ -727,40 +739,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   ];
   readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
 
-  // Location name for header display - smart extraction from address
-  readonly currentLocationName = computed(() => {
-    const hq = this.editableHqLocation();
-    if (!hq) return 'Erlenbach';
-
-    // Try to build smart name from structured address
-    if (hq.address) {
-      const addr = hq.address;
-      const parts: string[] = [];
-
-      // Street + house number
-      if (addr.road) {
-        parts.push(addr.house_number ? `${addr.road} ${addr.house_number}` : addr.road);
-      }
-
-      // City (prefer city > town > village > municipality)
-      const city = addr.city || addr.town || addr.village || addr.municipality;
-      if (city) {
-        parts.push(city);
-      }
-
-      if (parts.length > 0) {
-        return parts.join(', ');
-      }
-    }
-
-    // Fall back to displayName
-    if (hq.name) {
-      return hq.name;
-    }
-
-    // Last resort: coordinates
-    return `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`;
-  });
+  // Location name for header display - delegates to service for consistent formatting
+  readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
   readonly gatheringPhase = signal(false);
   readonly activeSounds = signal(0);
   private waveAborted = false;
@@ -793,22 +773,50 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Initialize location management (loads from localStorage if available)
-    this.locationMgmt.initializeEditableLocations();
+    // URL is source of truth
+    const urlData = this.urlLocation.parseFromUrl();
 
-    // Sync baseCoords and centerCoords with loaded location
-    const hq = this.locationMgmt.getCurrentHqLocation();
-    if (hq) {
-      this.baseCoords.set({
-        latitude: hq.lat,
-        longitude: hq.lon,
-      });
-      this.centerCoords.set({
-        latitude: hq.lat,
-        longitude: hq.lon,
-        height: 400,
-      });
+    if (urlData) {
+      // URL has location → use it
+      this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
+    } else {
+      // No URL params → use defaults and update URL
+      this.locationMgmt.setLocation(DEFAULT_HQ, [DEFAULT_SPAWN]);
     }
+
+    // Always sync URL with current location
+    this.syncUrlWithLocation();
+
+    // Resolve favorite names (async)
+    this.resolveFavoriteNames();
+
+    // Sync baseCoords and centerCoords
+    const hq = this.locationMgmt.hq();
+    this.baseCoords.set({ latitude: hq.lat, longitude: hq.lon });
+    this.centerCoords.set({ latitude: hq.lat, longitude: hq.lon, height: 400 });
+  }
+
+  /**
+   * Sync URL with current location (without reload)
+   */
+  private syncUrlWithLocation(): void {
+    const hq = this.locationMgmt.hq();
+    const spawns = this.locationMgmt.spawns();
+    this.urlLocation.updateUrl(hq, spawns);
+  }
+
+  /**
+   * Resolve display names for all favorites
+   */
+  private async resolveFavoriteNames(): Promise<void> {
+    const favs = this.locationMgmt.favorites();
+    const names: Record<string, string> = {};
+
+    for (const fav of favs) {
+      names[fav.id] = await this.locationMgmt.getFavoriteDisplayName(fav);
+    }
+
+    this.favoriteNamesMap.set(names);
   }
 
   ngAfterViewInit(): void {
@@ -2101,10 +2109,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.baseCoords.set({ latitude: data.hq.lat, longitude: data.hq.lon });
       this.centerCoords.set({ latitude: data.hq.lat, longitude: data.hq.lon, height: 400 });
 
-      // Update editable state
-      this.editableHqLocation.set(data.hq);
-      const spawnConfig: SpawnLocationConfig = { id: 'spawn-1', ...data.spawn };
-      this.editableSpawnLocations.set([spawnConfig]);
+      // Update location service and URL
+      this.locationMgmt.setLocation(
+        { lat: data.hq.lat, lon: data.hq.lon },
+        [{ lat: data.spawn.lat, lon: data.spawn.lon }]
+      );
+      this.syncUrlWithLocation();
 
       // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
       // Use same parameters as initEngine for consistent framing
@@ -2344,6 +2354,68 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       spawn: { lat: DEFAULT_SPAWN_POINTS[0].latitude, lon: DEFAULT_SPAWN_POINTS[0].longitude, name: DEFAULT_SPAWN_POINTS[0].name },
     });
     this.locationMgmt.clearLocationsFromStorage();
+  }
+
+  // ==================== Location Sharing & Favorites ====================
+
+  /**
+   * Copy shareable URL to clipboard (URL already reflects current location)
+   */
+  onShareLocation(): void {
+    const url = this.urlLocation.getShareUrl();
+    navigator.clipboard.writeText(url);
+    this.appendDebugLog('Link kopiert: ' + url);
+  }
+
+  /**
+   * Reset to default Erlenbach location
+   */
+  onHomeClick(): void {
+    this.locationMgmt.setLocation(DEFAULT_HQ, [DEFAULT_SPAWN]);
+    this.syncUrlWithLocation();
+    this.onApplyNewLocation({
+      hq: { lat: DEFAULT_HQ.lat, lon: DEFAULT_HQ.lon, name: 'Erlenbach' },
+      spawn: { lat: DEFAULT_SPAWN.lat, lon: DEFAULT_SPAWN.lon, name: 'Spawn' },
+    });
+  }
+
+  /**
+   * Save current location as favorite
+   */
+  onAddFavorite(): void {
+    this.locationMgmt.saveFavorite();
+    this.resolveFavoriteNames(); // Refresh names
+    this.appendDebugLog('Favorit gespeichert');
+  }
+
+  /**
+   * Apply a favorite location
+   */
+  async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
+    const spawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
+
+    // Update service and URL
+    this.locationMgmt.setLocation(fav.hq, fav.spawns);
+    this.syncUrlWithLocation();
+
+    // Apply to game
+    await this.onApplyNewLocation({
+      hq: { lat: fav.hq.lat, lon: fav.hq.lon, name: 'Laden...' },
+      spawn: { lat: spawn.lat, lon: spawn.lon, name: 'Spawn' },
+    });
+  }
+
+  /**
+   * Delete a favorite
+   */
+  onDeleteFavorite(id: string): void {
+    this.locationMgmt.deleteFavorite(id);
+    this.favoriteNamesMap.update(m => {
+      const copy = { ...m };
+      delete copy[id];
+      return copy;
+    });
+    this.appendDebugLog('Favorit gelöscht');
   }
 
   private clearMapEntities(): void {
