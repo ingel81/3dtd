@@ -6,7 +6,29 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
-### Dokumentation
+### Dokumentation (Phase 2 - Lücken schließen)
+- [x] **Geo-Utils vollständig dokumentiert** (ARCHITECTURE.md Sektion 8.1)
+  - haversineDistance vs fastDistance erklärt
+  - Wann welche Funktion verwenden (Hot-Path vs Einmalig)
+  - Performance-Vergleich (7x schneller bei fastDistance)
+  - Beispiele und Migration-Guide
+  - "Jedes Mal ein Thema" → Jetzt klar dokumentiert
+- [x] **Blood & Fire Effects ausführlich dokumentiert** (ARCHITECTURE.md Sektion 11)
+  - Blood Decal System: Instanced Rendering, Custom Shader, Config
+  - Fire Effects: Intensitätsstufen, Partikel+Sound+Licht, Lifecycle
+  - Performance-Details (500 Decals = 2 Draw Calls statt 700)
+  - Konfiguration in visual-effects.config.ts
+- [x] **Tower Upgrade System dokumentiert** (TOWER_CREATION.md)
+  - Upgrade-Konfiguration (Stats, Multi-Level, Kosten)
+  - Code-Beispiele für applyUpgrade()
+  - Range-Upgrade Spezialfall (LOS-Grid Neuberechnung)
+  - Praktische Beispiele (Archer Single, Magic Multi-Level)
+- [x] **ARCHITECTURE.md Animation-Sektion gekürzt**
+  - Von 40 auf 25 Zeilen reduziert
+  - Verweise auf ENEMY_CREATION.md für Details
+  - Fokus auf Architektur-Übersicht
+
+### Dokumentation (Phase 1 - Neue Docs)
 - [x] **ENEMY_CREATION.md erstellt**
   - Analog zu TOWER_CREATION.md
   - Enemy-Typen erstellen mit Animationen, Audio, Visual Effects

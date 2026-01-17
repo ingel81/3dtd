@@ -213,6 +213,184 @@ export const TOWER_TYPES = {
 
 ---
 
+## Tower Upgrade System
+
+Towers können Upgrades haben, die ihre Stats verbessern (Feuerrate, Schaden, Reichweite).
+
+### Upgrade-Konfiguration
+
+```typescript
+// In TowerTypeConfig
+upgrades: [
+  {
+    id: 'speed',                  // Eindeutige ID (verwendet für UI)
+    name: 'Schnellfeuer',         // Display-Name
+    description: 'Verdoppelt die Feuerrate',  // Beschreibung für Tooltip
+    cost: 25,                     // Upgrade-Kosten in Credits
+    maxLevel: 1,                  // Max. Stufe (1 = einmalig, 3 = 3x upgradebar)
+    effect: {
+      stat: 'fireRate',           // Welcher Stat wird verbessert
+      multiplier: 2.0,            // Multiplikator (2.0 = verdoppelt)
+    },
+  },
+  {
+    id: 'damage',
+    name: 'Verstärkte Munition',
+    description: '+50% Schaden',
+    cost: 30,
+    maxLevel: 3,                  // 3 Stufen möglich
+    effect: {
+      stat: 'damage',
+      multiplier: 1.5,            // +50% pro Stufe
+    },
+  },
+],
+```
+
+### Verfügbare Stats
+
+```typescript
+stat: 'fireRate' | 'damage' | 'range'
+```
+
+| Stat | Beschreibung | Multiplier-Beispiel |
+|------|--------------|---------------------|
+| `fireRate` | Schüsse pro Sekunde | 2.0 = doppelt so schnell |
+| `damage` | Schaden pro Schuss | 1.5 = +50% Schaden |
+| `range` | Reichweite in Metern | 1.3 = +30% Reichweite |
+
+### Multi-Level Upgrades
+
+Upgrades mit `maxLevel > 1` können mehrfach gekauft werden:
+
+```typescript
+{
+  id: 'damage',
+  maxLevel: 3,
+  cost: 30,
+  effect: { stat: 'damage', multiplier: 1.5 },
+}
+```
+
+**Effekt:**
+- Level 1: Schaden × 1.5 (Kosten: 30)
+- Level 2: Schaden × 1.5 × 1.5 = 2.25 (Kosten: 30)
+- Level 3: Schaden × 1.5³ = 3.375 (Kosten: 30)
+
+**Hinweis:** Multiplier werden multipliziert, nicht addiert!
+
+### Upgrade anwenden (UI)
+
+**Aktuell:** Upgrade-System ist im Code vorbereitet, aber **UI fehlt noch**.
+
+**Geplant:**
+- Tower Selection Panel zeigt verfügbare Upgrades
+- Button "Upgrade kaufen" (wenn genug Credits)
+- Visuelles Feedback (Tower-Level-Anzeige)
+
+**TODO:** Siehe [TODO.md - Range-Upgrade System](TODO.md)
+
+### Upgrade anwenden (Code)
+
+```typescript
+// In TowerManager oder GameStateManager
+applyUpgrade(tower: Tower, upgradeId: UpgradeId): boolean {
+  const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
+  if (!upgrade) return false;
+
+  // Check Credits
+  if (this.credits() < upgrade.cost) return false;
+
+  // Check Max Level
+  const currentLevel = tower.upgradeLevel[upgradeId] ?? 0;
+  if (currentLevel >= upgrade.maxLevel) return false;
+
+  // Apply Upgrade
+  tower.upgradeLevel[upgradeId] = currentLevel + 1;
+  this.credits.update(c => c - upgrade.cost);
+
+  // Update Stats
+  switch (upgrade.effect.stat) {
+    case 'fireRate':
+      tower.combat.fireRate *= upgrade.effect.multiplier;
+      break;
+    case 'damage':
+      tower.combat.damage *= upgrade.effect.multiplier;
+      break;
+    case 'range':
+      tower.combat.range *= upgrade.effect.multiplier;
+      // TODO: LOS-Grid neu berechnen bei Range-Upgrade
+      break;
+  }
+
+  return true;
+}
+```
+
+### Range-Upgrade Spezialfall
+
+**Problem:** Range-Upgrades erfordern **LOS-Grid Neuberechnung**.
+
+**Warum:**
+- LOS-Grid speichert Sichtbarkeits-Zellen basierend auf aktueller Range
+- Bei Range-Upgrade müssen neue Zellen berechnet werden
+
+**Lösung (geplant):**
+```typescript
+case 'range':
+  const oldRange = tower.combat.range;
+  tower.combat.range *= upgrade.effect.multiplier;
+
+  // LOS-Grid für diesen Tower neu berechnen
+  this.towerPlacementService.recalculateLosGrid(tower.id, tower.combat.range);
+  break;
+```
+
+**Siehe:** [TODO.md - Range-Upgrade System implementieren](TODO.md)
+
+### Beispiele
+
+#### Archer Tower (Single Upgrade)
+
+```typescript
+upgrades: [
+  {
+    id: 'speed',
+    name: 'Schnellfeuer',
+    description: 'Verdoppelt die Feuerrate',
+    cost: 25,
+    maxLevel: 1,
+    effect: { stat: 'fireRate', multiplier: 2.0 },
+  },
+],
+```
+
+- **Effekt:** Archer schießt 2× pro Sekunde statt 1×
+- **Kosten:** 25 Credits (einmalig)
+
+#### Magic Tower (Multi-Level)
+
+```typescript
+upgrades: [
+  {
+    id: 'damage',
+    name: 'Arkane Macht',
+    description: 'Erhöht magischen Schaden',
+    cost: 50,
+    maxLevel: 3,
+    effect: { stat: 'damage', multiplier: 1.5 },
+  },
+],
+```
+
+- **Level 1:** 40 → 60 Schaden (+50%)
+- **Level 2:** 60 → 90 Schaden (+50%)
+- **Level 3:** 90 → 135 Schaden (+50%)
+- **Total:** 40 → 135 Schaden (+237.5%)
+- **Kosten:** 150 Credits (3× 50)
+
+---
+
 ## Checkliste: Neuer Tower
 
 - [ ] TowerTypeId erweitert
