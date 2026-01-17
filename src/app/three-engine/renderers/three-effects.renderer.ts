@@ -6,6 +6,8 @@ import {
   BLOOD_DECAL_CONFIG,
   ICE_DECAL_CONFIG,
 } from '../../configs/visual-effects.config';
+import { DecalInstanceManager } from './decal-instance.manager';
+import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
 
 /**
  * Particle data for GPU
@@ -31,29 +33,8 @@ interface EffectInstance {
   localPosition: THREE.Vector3;
 }
 
-/**
- * Blood decal instance (persistent ground stain)
- */
-interface BloodDecal {
-  id: string;
-  mesh: THREE.Mesh;
-  spawnTime: number;
-  fadeStartTime: number;
-  fadeDuration: number;
-  active: boolean;
-}
-
-/**
- * Ice decal instance (temporary ground frost)
- */
-interface IceDecal {
-  id: string;
-  mesh: THREE.Mesh;
-  spawnTime: number;
-  fadeStartTime: number;
-  fadeDuration: number;
-  active: boolean;
-}
+// Note: Blood and Ice decal instances are now managed by DecalInstanceManager
+// See decal-instance.manager.ts for DecalInstance interface
 
 /**
  * Floating text configuration
@@ -132,23 +113,16 @@ export class ThreeEffectsRenderer {
   private trailShaderMaterialNormal: THREE.ShaderMaterial | null = null;
   private useShaderMaterial = true; // Default to ShaderMaterial (per-particle sizes, soft edges)
 
-  // Blood decal pool (persistent ground stains)
-  private bloodDecals: BloodDecal[] = [];
+  // Instanced decal managers (GPU instancing for performance)
+  private bloodDecalManager: DecalInstanceManager | null = null;
+  private iceDecalManager: DecalInstanceManager | null = null;
   private readonly MAX_BLOOD_DECALS = BLOOD_DECAL_CONFIG.maxDecals;
   private readonly DECAL_FADE_DELAY = BLOOD_DECAL_CONFIG.fadeDelay;
   private readonly DECAL_FADE_DURATION = BLOOD_DECAL_CONFIG.fadeDuration;
-  private decalIdCounter = 0;
-  private bloodDecalGeometry: THREE.CircleGeometry;
-  private bloodDecalMaterial: THREE.MeshBasicMaterial;
-
-  // Ice decal pool (temporary frost patches)
-  private iceDecals: IceDecal[] = [];
   private readonly MAX_ICE_DECALS = ICE_DECAL_CONFIG.maxDecals;
   private readonly ICE_DECAL_FADE_DELAY = ICE_DECAL_CONFIG.fadeDelay;
   private readonly ICE_DECAL_FADE_DURATION = ICE_DECAL_CONFIG.fadeDuration;
-  private iceDecalIdCounter = 0;
-  private iceDecalGeometry!: THREE.CircleGeometry;
-  private iceDecalMaterial!: THREE.MeshBasicMaterial;
+  private decalIdCounter = 0;
 
   // Floating text pool
   private floatingTexts: FloatingTextInstance[] = [];
@@ -211,25 +185,8 @@ export class ThreeEffectsRenderer {
     // This is required for custom shaders to work with 3D Tiles (which use log depth)
     this.initShaderMaterials();
 
-    // Create blood decal geometry and material (for persistent ground stains)
-    this.bloodDecalGeometry = new THREE.CircleGeometry(1, 16);
-    this.bloodDecalMaterial = new THREE.MeshBasicMaterial({
-      color: 0x8b0000, // Dark red
-      transparent: true,
-      opacity: 0.7,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
-
-    // Create ice decal geometry and material (for temporary frost patches)
-    this.iceDecalGeometry = new THREE.CircleGeometry(1, 16);
-    this.iceDecalMaterial = new THREE.MeshBasicMaterial({
-      color: 0xc0f0ff, // Very light cyan/almost white ice
-      transparent: true,
-      opacity: 0.7,
-      side: THREE.DoubleSide,
-      depthWrite: false,
-    });
+    // Initialize instanced decal managers with custom shaders
+    this.initDecalManagers();
 
     this.initParticleSystems();
   }
@@ -481,6 +438,38 @@ export class ThreeEffectsRenderer {
   }
 
   /**
+   * Initialize instanced decal managers with custom shaders
+   * Replaces old per-decal mesh system with GPU instancing (2 draw calls instead of 250!)
+   */
+  private initDecalManagers(): void {
+    // Create shared plane geometry for all decals (rotated to lay flat)
+    const decalGeometry = new THREE.PlaneGeometry(2, 2);
+    decalGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat on ground (XZ plane)
+
+    // Create blood decal manager with custom shader
+    const bloodShader = createBloodDecalShader();
+    this.bloodDecalManager = new DecalInstanceManager(
+      decalGeometry.clone(),
+      bloodShader,
+      this.MAX_BLOOD_DECALS
+    );
+    this.scene.add(this.bloodDecalManager.instancedMesh);
+
+    // Create ice decal manager with custom shader
+    const iceShader = createIceDecalShader();
+    this.iceDecalManager = new DecalInstanceManager(
+      decalGeometry.clone(),
+      iceShader,
+      this.MAX_ICE_DECALS
+    );
+    this.scene.add(this.iceDecalManager.instancedMesh);
+
+    console.log('[ThreeEffectsRenderer] Instanced decal managers initialized');
+    console.log(`  Blood decals: max ${this.MAX_BLOOD_DECALS} instances (1 draw call)`);
+    console.log(`  Ice decals: max ${this.MAX_ICE_DECALS} instances (1 draw call)`);
+  }
+
+  /**
    * Spawn blood splatter effect at a position
    *
    * @param lat - Latitude
@@ -529,6 +518,7 @@ export class ThreeEffectsRenderer {
 
   /**
    * Spawn a persistent blood decal on the ground
+   * NOW USES GPU INSTANCING - much better performance!
    *
    * @param lat - Latitude
    * @param lon - Longitude
@@ -537,72 +527,52 @@ export class ThreeEffectsRenderer {
    * @returns Decal ID
    */
   spawnBloodDecal(lat: number, lon: number, height: number, size = 1.0): string {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    const id = `decal_${this.decalIdCounter++}`;
-
-    // Check if we have room for more decals
-    let decal = this.bloodDecals.find((d) => !d.active);
-
-    if (!decal) {
-      // Pool is full - either reuse oldest or create new if under limit
-      if (this.bloodDecals.length >= this.MAX_BLOOD_DECALS) {
-        // Find and reuse the oldest decal
-        let oldest = this.bloodDecals[0];
-        for (const d of this.bloodDecals) {
-          if (d.spawnTime < oldest.spawnTime) {
-            oldest = d;
-          }
-        }
-        decal = oldest;
-      } else {
-        // Create new decal mesh
-        const mesh = new THREE.Mesh(
-          this.bloodDecalGeometry,
-          this.bloodDecalMaterial.clone() // Clone material for individual opacity
-        );
-        mesh.rotation.x = -Math.PI / 2; // Lay flat on ground
-        this.scene.add(mesh);
-
-        decal = {
-          id: '',
-          mesh,
-          spawnTime: 0,
-          fadeStartTime: 0,
-          fadeDuration: this.DECAL_FADE_DURATION,
-          active: false,
-        };
-        this.bloodDecals.push(decal);
-      }
+    if (!this.bloodDecalManager) {
+      console.warn('[ThreeEffectsRenderer] Blood decal manager not initialized');
+      return '';
     }
 
-    // Configure decal
-    decal.id = id;
-    decal.active = true;
-    decal.spawnTime = performance.now();
-    decal.fadeStartTime = decal.spawnTime + this.DECAL_FADE_DELAY;
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    localPos.y += 0.12; // Above ground to avoid z-fighting
 
-    // Set position and size
-    decal.mesh.position.copy(localPos);
-    decal.mesh.position.y += 0.12; // Above ground to avoid z-fighting
+    const id = `blood_decal_${this.decalIdCounter++}`;
+    const now = performance.now();
 
-    // Random rotation around Y axis for variety
-    decal.mesh.rotation.z = Math.random() * Math.PI * 2;
+    // Random rotation for variety
+    const rotation = Math.random() * Math.PI * 2;
 
     // Apply size with randomness - ellipse shape for puddle effect
     const baseSize = size * (0.8 + Math.random() * 0.4);
-    const stretchFactor = 0.6 + Math.random() * 0.8; // 0.6 to 1.4 ratio
-    decal.mesh.scale.set(baseSize * stretchFactor, baseSize / stretchFactor, 1);
-
-    // Reset opacity
-    (decal.mesh.material as THREE.MeshBasicMaterial).opacity = 0.7;
-    decal.mesh.visible = true;
 
     // Randomize color slightly (dark red variations)
     const colorVariation = Math.random() * 0.2;
-    (decal.mesh.material as THREE.MeshBasicMaterial).color.setRGB(
-      0.55 + colorVariation,
-      0,
-      0
+    const color = new THREE.Color(0.55 + colorVariation, 0, 0);
+
+    // If pool is full, remove oldest decal
+    if (this.bloodDecalManager.count >= this.MAX_BLOOD_DECALS) {
+      const instances = this.bloodDecalManager.getAllInstances();
+      if (instances.length > 0) {
+        let oldest = instances[0];
+        for (const inst of instances) {
+          if (inst.spawnTime < oldest.spawnTime) {
+            oldest = inst;
+          }
+        }
+        this.bloodDecalManager.remove(oldest.id);
+      }
+    }
+
+    // Add new decal instance
+    this.bloodDecalManager.add(
+      id,
+      localPos,
+      baseSize,
+      rotation,
+      color,
+      0.7, // Initial opacity
+      now,
+      this.DECAL_FADE_DELAY,
+      this.DECAL_FADE_DURATION
     );
 
     return id;
@@ -1450,6 +1420,7 @@ export class ThreeEffectsRenderer {
 
   /**
    * Spawn ice decal on ground (frost patch)
+   * NOW USES GPU INSTANCING - much better performance!
    *
    * @param lat - Latitude
    * @param lon - Longitude
@@ -1458,72 +1429,56 @@ export class ThreeEffectsRenderer {
    * @returns Decal ID
    */
   spawnIceDecal(lat: number, lon: number, height: number, size = 2.0): string {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    const id = `ice_decal_${this.iceDecalIdCounter++}`;
-
-    // Check if we have room for more decals
-    let decal = this.iceDecals.find((d) => !d.active);
-
-    if (!decal) {
-      // Pool is full - either reuse oldest or create new if under limit
-      if (this.iceDecals.length >= this.MAX_ICE_DECALS) {
-        // Find and reuse the oldest decal
-        let oldest = this.iceDecals[0];
-        for (const d of this.iceDecals) {
-          if (d.spawnTime < oldest.spawnTime) {
-            oldest = d;
-          }
-        }
-        decal = oldest;
-      } else {
-        // Create new decal mesh
-        const mesh = new THREE.Mesh(
-          this.iceDecalGeometry,
-          this.iceDecalMaterial.clone() // Clone material for individual opacity
-        );
-        mesh.rotation.x = -Math.PI / 2; // Lay flat on ground
-        this.scene.add(mesh);
-
-        decal = {
-          id: '',
-          mesh,
-          spawnTime: 0,
-          fadeStartTime: 0,
-          fadeDuration: this.ICE_DECAL_FADE_DURATION,
-          active: false,
-        };
-        this.iceDecals.push(decal);
-      }
+    if (!this.iceDecalManager) {
+      console.warn('[ThreeEffectsRenderer] Ice decal manager not initialized');
+      return '';
     }
 
-    // Configure decal
-    decal.id = id;
-    decal.active = true;
-    decal.spawnTime = performance.now();
-    decal.fadeStartTime = decal.spawnTime + this.ICE_DECAL_FADE_DELAY;
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    localPos.y += 0.12; // Above ground to avoid z-fighting
 
-    // Set position and size
-    decal.mesh.position.copy(localPos);
-    decal.mesh.position.y += 0.12; // Above ground to avoid z-fighting
+    const id = `ice_decal_${this.decalIdCounter++}`;
+    const now = performance.now();
 
-    // Random rotation around Y axis for variety
-    decal.mesh.rotation.z = Math.random() * Math.PI * 2;
+    // Random rotation for variety
+    const rotation = Math.random() * Math.PI * 2;
 
-    // Apply size with randomness - ellipse shape for puddle effect
+    // Apply size with randomness
     const baseSize = size * (0.8 + Math.random() * 0.4);
-    const stretchFactor = 0.6 + Math.random() * 0.8; // 0.6 to 1.4 ratio
-    decal.mesh.scale.set(baseSize * stretchFactor, baseSize / stretchFactor, 1);
-
-    // Reset opacity
-    (decal.mesh.material as THREE.MeshBasicMaterial).opacity = 0.7;
-    decal.mesh.visible = true;
 
     // Randomize color slightly (very light cyan/white variations)
     const colorVariation = Math.random() * 0.1;
-    (decal.mesh.material as THREE.MeshBasicMaterial).color.setRGB(
-      0.75 + colorVariation, // More white
+    const color = new THREE.Color(
+      0.75 + colorVariation,
       0.94 + colorVariation * 0.5,
       1.0
+    );
+
+    // If pool is full, remove oldest decal
+    if (this.iceDecalManager.count >= this.MAX_ICE_DECALS) {
+      const instances = this.iceDecalManager.getAllInstances();
+      if (instances.length > 0) {
+        let oldest = instances[0];
+        for (const inst of instances) {
+          if (inst.spawnTime < oldest.spawnTime) {
+            oldest = inst;
+          }
+        }
+        this.iceDecalManager.remove(oldest.id);
+      }
+    }
+
+    // Add new decal instance
+    this.iceDecalManager.add(
+      id,
+      localPos,
+      baseSize,
+      rotation,
+      color,
+      0.6, // Initial opacity (ice is slightly more transparent)
+      now,
+      this.ICE_DECAL_FADE_DELAY,
+      this.ICE_DECAL_FADE_DURATION
     );
 
     return id;
@@ -1752,44 +1707,48 @@ export class ThreeEffectsRenderer {
       }
     }
 
-    // Update blood decals (fading)
-    for (const decal of this.bloodDecals) {
-      if (!decal.active) continue;
+    // Update blood decals (fading) - INSTANCED
+    if (this.bloodDecalManager) {
+      const instances = this.bloodDecalManager.getAllInstances();
+      for (const instance of instances) {
+        if (!instance.active) continue;
 
-      const elapsed = now - decal.fadeStartTime;
+        const elapsed = now - instance.fadeStartTime;
 
-      if (elapsed > 0) {
-        // Calculate fade progress (0-1)
-        const fadeProgress = Math.min(elapsed / decal.fadeDuration, 1);
-        const opacity = 0.7 * (1 - fadeProgress);
+        if (elapsed > 0) {
+          // Calculate fade progress (0-1)
+          const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
+          const opacity = 0.7 * (1 - fadeProgress);
 
-        (decal.mesh.material as THREE.MeshBasicMaterial).opacity = opacity;
+          this.bloodDecalManager.updateOpacity(instance.id, opacity);
 
-        // Mark as inactive when fully faded
-        if (fadeProgress >= 1) {
-          decal.active = false;
-          decal.mesh.visible = false;
+          // Remove when fully faded
+          if (fadeProgress >= 1) {
+            this.bloodDecalManager.remove(instance.id);
+          }
         }
       }
     }
 
-    // Update ice decals (faster fading)
-    for (const decal of this.iceDecals) {
-      if (!decal.active) continue;
+    // Update ice decals (faster fading) - INSTANCED
+    if (this.iceDecalManager) {
+      const instances = this.iceDecalManager.getAllInstances();
+      for (const instance of instances) {
+        if (!instance.active) continue;
 
-      const elapsed = now - decal.fadeStartTime;
+        const elapsed = now - instance.fadeStartTime;
 
-      if (elapsed > 0) {
-        // Calculate fade progress (0-1)
-        const fadeProgress = Math.min(elapsed / decal.fadeDuration, 1);
-        const opacity = 0.6 * (1 - fadeProgress);
+        if (elapsed > 0) {
+          // Calculate fade progress (0-1)
+          const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
+          const opacity = 0.6 * (1 - fadeProgress);
 
-        (decal.mesh.material as THREE.MeshBasicMaterial).opacity = opacity;
+          this.iceDecalManager.updateOpacity(instance.id, opacity);
 
-        // Mark as inactive when fully faded
-        if (fadeProgress >= 1) {
-          decal.active = false;
-          decal.mesh.visible = false;
+          // Remove when fully faded
+          if (fadeProgress >= 1) {
+            this.iceDecalManager.remove(instance.id);
+          }
         }
       }
     }
@@ -2037,16 +1996,12 @@ export class ThreeEffectsRenderer {
     }
     this.activeEffects.clear();
 
-    // Hide all blood decals
-    for (const decal of this.bloodDecals) {
-      decal.active = false;
-      decal.mesh.visible = false;
+    // Clear instanced decals
+    if (this.bloodDecalManager) {
+      this.bloodDecalManager.clear();
     }
-
-    // Hide all ice decals
-    for (const decal of this.iceDecals) {
-      decal.active = false;
-      decal.mesh.visible = false;
+    if (this.iceDecalManager) {
+      this.iceDecalManager.clear();
     }
 
     // Hide all floating texts
@@ -2082,19 +2037,15 @@ export class ThreeEffectsRenderer {
       this.trailParticlesNormal.geometry.dispose();
     }
 
-    // Dispose blood decals
-    for (const decal of this.bloodDecals) {
-      this.scene.remove(decal.mesh);
-      (decal.mesh.material as THREE.Material).dispose();
+    // Dispose instanced decal managers
+    if (this.bloodDecalManager) {
+      this.scene.remove(this.bloodDecalManager.instancedMesh);
+      this.bloodDecalManager.dispose();
     }
-    this.bloodDecals = [];
-
-    // Dispose ice decals
-    for (const decal of this.iceDecals) {
-      this.scene.remove(decal.mesh);
-      (decal.mesh.material as THREE.Material).dispose();
+    if (this.iceDecalManager) {
+      this.scene.remove(this.iceDecalManager.instancedMesh);
+      this.iceDecalManager.dispose();
     }
-    this.iceDecals = [];
 
     // Dispose floating texts
     for (const textInstance of this.floatingTexts) {
@@ -2111,9 +2062,7 @@ export class ThreeEffectsRenderer {
     this.fireMaterial.dispose();
     this.trailMaterialAdditive?.dispose();
     this.trailMaterialNormal?.dispose();
-    this.bloodDecalGeometry.dispose();
-    this.bloodDecalMaterial.dispose();
-    this.iceDecalGeometry.dispose();
-    this.iceDecalMaterial.dispose();
+    this.trailShaderMaterialAdditive?.dispose();
+    this.trailShaderMaterialNormal?.dispose();
   }
 }
