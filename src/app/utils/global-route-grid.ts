@@ -201,7 +201,6 @@ export class GlobalRouteGrid {
     this.enemyCellKeys.clear();
 
     const processedCells = new Set<string>();
-    let totalCells = 0;
 
     for (const route of routes) {
       if (route.length < 2) continue;
@@ -227,7 +226,7 @@ export class GlobalRouteGrid {
           const sampleZ = startLocal.z + (endLocal.z - startLocal.z) * t;
 
           // Generate cells in corridor around this sample point
-          totalCells += this.generateCorridorCells(sampleX, sampleZ, processedCells);
+          this.generateCorridorCells(sampleX, sampleZ, processedCells);
         }
       }
     }
@@ -865,8 +864,7 @@ export class GlobalRouteGrid {
   continuePreviewBuild(): boolean {
     if (!this.previewState) return true;
 
-    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize } = this.previewState;
-    let { currentIndex } = this.previewState;
+    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize, currentIndex } = this.previewState;
 
     const matrix = new THREE.Matrix4();
     const endIndex = Math.min(currentIndex + batchSize, cells.length);
