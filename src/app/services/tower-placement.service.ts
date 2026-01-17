@@ -1,7 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
@@ -10,6 +8,7 @@ import { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './global-route-grid.service';
+import { AssetManagerService } from './asset-manager.service';
 
 /**
  * SpawnPoint interface
@@ -34,6 +33,7 @@ export interface SpawnPoint {
 @Injectable({ providedIn: 'root' })
 export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
+  private assetManager = inject(AssetManagerService);
 
   // ========================================
   // SIGNALS
@@ -78,12 +78,8 @@ export class TowerPlacementService {
   /** Debounce timer for LoS updates */
   private losDebounceTimer: number | null = null;
 
-  /** Model loaders */
-  private gltfLoader = new GLTFLoader();
-  private fbxLoader = new FBXLoader();
-
-  /** Cached preview models per tower type */
-  private previewModelCache = new Map<TowerTypeId, THREE.Object3D>();
+  /** Track loaded model URLs for reference counting */
+  private loadedModelUrls = new Set<string>();
 
   /** Dependencies */
   private engine: ThreeTilesEngine | null = null;
@@ -205,35 +201,35 @@ export class TowerPlacementService {
       return;
     }
 
-    let model: THREE.Object3D;
+    try {
+      // Load via AssetManager (cached)
+      await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
 
-    // Check cache
-    if (this.previewModelCache.has(typeId)) {
-      model = this.previewModelCache.get(typeId)!.clone();
-    } else {
-      try {
-        const url = config.modelUrl.toLowerCase();
-        if (url.endsWith('.fbx')) {
-          model = await this.fbxLoader.loadAsync(config.modelUrl);
-          this.applyFbxMaterials(model);
-        } else {
-          const gltf = await this.gltfLoader.loadAsync(config.modelUrl);
-          model = gltf.scene;
-        }
-        model.scale.setScalar(config.scale);
-        this.makeModelTransparent(model, 0.7);
-        this.previewModelCache.set(typeId, model.clone());
-      } catch (err) {
-        console.error(`[TowerPlacement] Failed to load preview model: ${typeId}`, err);
+      // Clone the model for preview
+      const model = this.assetManager.cloneModel(config.modelUrl);
+      if (!model) {
+        console.error(`[TowerPlacement] Failed to clone model: ${typeId}`);
         this.modelLoading = false;
         return;
       }
-    }
 
-    this.previewTowerMesh = model;
-    this.previewTowerMesh.visible = false;
-    this.engine.getOverlayGroup().add(this.previewTowerMesh);
-    this.modelLoading = false;
+      // Apply FBX materials if needed
+      if (this.assetManager.isFbxModel(config.modelUrl)) {
+        this.assetManager.applyFbxMaterials(model);
+      }
+
+      model.scale.setScalar(config.scale);
+      this.makeModelTransparent(model, 0.7);
+
+      this.previewTowerMesh = model;
+      this.previewTowerMesh.visible = false;
+      this.engine.getOverlayGroup().add(this.previewTowerMesh);
+    } catch (err) {
+      console.error(`[TowerPlacement] Failed to load preview model: ${typeId}`, err);
+    } finally {
+      this.modelLoading = false;
+    }
 
     // Process queued position if any
     if (this.queuedPosition && this.buildMode()) {
@@ -251,40 +247,6 @@ export class TowerPlacementService {
       this.engine.getOverlayGroup().remove(this.previewTowerMesh);
       this.previewTowerMesh = null;
     }
-  }
-
-  private applyFbxMaterials(model: THREE.Object3D): void {
-    const materialColors: Record<string, number> = {
-      'lightwood': 0xc4a574,
-      'wood': 0xa0784a,
-      'darkwood': 0x6b4423,
-      'celing': 0xcd5c5c,
-      'ceiling': 0xcd5c5c,
-      'roof': 0xcd5c5c,
-      'stone': 0x808080,
-      'metal': 0x707070,
-    };
-
-    model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-        materials.forEach((mat) => {
-          const matWithColor = mat as THREE.MeshStandardMaterial;
-          if (matWithColor.color) {
-            const matName = mat.name.toLowerCase();
-            let color: number | undefined;
-            for (const [key, value] of Object.entries(materialColors)) {
-              if (matName.includes(key)) {
-                color = value;
-                break;
-              }
-            }
-            matWithColor.color.setHex(color ?? 0xb8956e);
-          }
-        });
-      }
-    });
   }
 
   private makeModelTransparent(model: THREE.Object3D, opacity: number): void {
@@ -655,18 +617,11 @@ export class TowerPlacementService {
   dispose(): void {
     this.exitBuildMode();
 
-    // Dispose cached models
-    for (const model of this.previewModelCache.values()) {
-      model.traverse((child) => {
-        if ((child as THREE.Mesh).geometry) {
-          (child as THREE.Mesh).geometry.dispose();
-        }
-        if ((child as THREE.Mesh).material) {
-          ((child as THREE.Mesh).material as THREE.Material).dispose();
-        }
-      });
+    // Release model references from AssetManager
+    for (const url of this.loadedModelUrls) {
+      this.assetManager.releaseModel(url);
     }
-    this.previewModelCache.clear();
+    this.loadedModelUrls.clear();
 
     this.engine = null;
     this.streetNetwork = null;

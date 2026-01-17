@@ -26,6 +26,7 @@ import {
   ThreeEffectsRenderer,
 } from './renderers';
 import { SpatialAudioManager } from '../managers/spatial-audio.manager';
+import { AssetManagerService } from '../services/asset-manager.service';
 
 /**
  * Initial camera position for pre-computed framing
@@ -137,7 +138,8 @@ export class ThreeTilesEngine {
     cesiumAssetId: string,
     originLat: number,
     originLon: number,
-    originHeight = 0
+    originHeight = 0,
+    private assetManager?: AssetManagerService
   ) {
     this.cesiumIonToken = cesiumIonToken;
     this.cesiumAssetId = cesiumAssetId;
@@ -193,8 +195,13 @@ export class ThreeTilesEngine {
       localToGeo: (vec: THREE.Vector3) => this.sync.localToGeo(vec),
     };
 
-    this.enemies = new ThreeEnemyRenderer(this.scene, coordinateSync);
-    this.towers = new ThreeTowerRenderer(this.scene, coordinateSync);
+    // AssetManager is required for enemy and tower renderers
+    if (!this.assetManager) {
+      throw new Error('[ThreeTilesEngine] AssetManagerService is required');
+    }
+
+    this.enemies = new ThreeEnemyRenderer(this.scene, coordinateSync, this.assetManager);
+    this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
 

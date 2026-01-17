@@ -1,7 +1,6 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
+import { AssetManagerService } from './asset-manager.service';
 
 export interface PreviewConfig {
   modelUrl: string;
@@ -33,89 +32,19 @@ interface PreviewInstance {
  * Uses a single shared WebGL renderer to render multiple preview canvases
  * sequentially. This is more performant than creating multiple WebGL contexts.
  */
-/**
- * Cached model data - unified for GLTF and FBX
- */
-interface CachedModel {
-  scene: THREE.Group;
-  animations: THREE.AnimationClip[];
-}
-
 @Injectable()
 export class ModelPreviewService {
+  private readonly assetManager = inject(AssetManagerService);
+
   private renderer: THREE.WebGLRenderer | null = null;
-  private gltfLoader: GLTFLoader;
-  private fbxLoader: FBXLoader;
   private previews = new Map<string, PreviewInstance>();
-  private modelCache = new Map<string, CachedModel>();
   private animationFrameId: number | null = null;
   private lastTime = 0;
 
-  constructor() {
-    this.gltfLoader = new GLTFLoader();
-    this.fbxLoader = new FBXLoader();
-  }
+  // Track loaded model URLs for this service
+  private loadedModelUrls = new Set<string>();
 
-  /**
-   * Load a model from URL, supporting both GLTF/GLB and FBX formats
-   */
-  private async loadModelFromUrl(modelUrl: string): Promise<CachedModel> {
-    const lowerUrl = modelUrl.toLowerCase();
-    if (lowerUrl.endsWith('.fbx')) {
-      const group = await this.fbxLoader.loadAsync(modelUrl);
-      this.applyFbxMaterials(group);
-      return {
-        scene: group,
-        animations: group.animations || [],
-      };
-    } else {
-      const gltf = await this.gltfLoader.loadAsync(modelUrl);
-      return {
-        scene: gltf.scene,
-        animations: gltf.animations || [],
-      };
-    }
-  }
-
-  /**
-   * Apply colors to FBX materials that may not have proper textures
-   */
-  private applyFbxMaterials(model: THREE.Object3D): void {
-    const materialColors: Record<string, number> = {
-      'lightwood': 0xc4a574,
-      'wood': 0xa0784a,
-      'darkwood': 0x6b4423,
-      'celing': 0xcd5c5c,
-      'ceiling': 0xcd5c5c,
-      'roof': 0xcd5c5c,
-      'stone': 0x808080,
-      'metal': 0x707070,
-    };
-
-    model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-        materials.forEach((mat) => {
-          const matWithColor = mat as THREE.MeshStandardMaterial;
-          if (matWithColor.color) {
-            const matName = mat.name.toLowerCase();
-            let color: number | undefined;
-            for (const [key, value] of Object.entries(materialColors)) {
-              if (matName.includes(key)) {
-                color = value;
-                break;
-              }
-            }
-            matWithColor.color.setHex(color ?? 0xb8956e);
-            if ('transparent' in mat) mat.transparent = false;
-            if ('opacity' in mat) (mat as THREE.MeshStandardMaterial).opacity = 1.0;
-          }
-        });
-      }
-    });
-  }
+  constructor() {}
 
   /**
    * Initialize the shared renderer.
@@ -214,19 +143,24 @@ export class ModelPreviewService {
    */
   private async loadModel(preview: PreviewInstance, modelUrl: string): Promise<void> {
     try {
-      // Always load fresh for animated models (cloning breaks skeleton references)
+      // Load via AssetManager (cached)
       const needsAnimation = !!preview.config.animationName;
-      let cachedModel = needsAnimation ? null : this.modelCache.get(modelUrl);
+      const cachedModel = await this.assetManager.loadModel(modelUrl);
+      this.loadedModelUrls.add(modelUrl);
 
-      if (!cachedModel) {
-        cachedModel = await this.loadModelFromUrl(modelUrl);
-        if (!needsAnimation) {
-          this.modelCache.set(modelUrl, cachedModel);
-        }
+      // Clone the model - use preserveSkeleton for animated models
+      const model = this.assetManager.cloneModel(modelUrl, {
+        preserveSkeleton: needsAnimation,
+      });
+      if (!model) {
+        console.error(`[ModelPreview] Failed to clone model: ${modelUrl}`);
+        return;
       }
 
-      // Use scene directly for animated models, clone for static
-      const model = needsAnimation ? cachedModel.scene : cachedModel.scene.clone();
+      // Apply FBX materials if needed
+      if (this.assetManager.isFbxModel(modelUrl)) {
+        this.assetManager.applyFbxMaterials(model);
+      }
       const scale = preview.config.scale ?? 1;
       model.scale.set(scale, scale, scale);
 
@@ -421,11 +355,11 @@ export class ModelPreviewService {
       this.destroyPreview(id);
     }
 
-    // Clear model cache
-    for (const cachedModel of this.modelCache.values()) {
-      this.disposeObject(cachedModel.scene);
+    // Release model references from AssetManager
+    for (const url of this.loadedModelUrls) {
+      this.assetManager.releaseModel(url);
     }
-    this.modelCache.clear();
+    this.loadedModelUrls.clear();
 
     // Dispose renderer
     if (this.renderer) {
