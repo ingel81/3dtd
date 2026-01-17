@@ -10,6 +10,7 @@ import {
   OnDestroy,
   inject,
   effect,
+  computed,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -19,6 +20,7 @@ import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES } from '../../conf
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
+import { AdBannerComponent } from '../ad-banner/ad-banner.component';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 @Component({
@@ -28,6 +30,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     CommonModule,
     MatIconModule,
     MatTooltipModule,
+    AdBannerComponent,
   ],
   templateUrl: './game-sidebar.component.html',
   styles: `
@@ -553,6 +556,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   // Current enemy config from wave debug service
   readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
+
+  // Ad banner should be compact during active wave
+  readonly adCompact = computed(() => this.waveActive());
 
   // Outputs
   readonly startWave = output<void>();
