@@ -1,16 +1,7 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
-
-/**
- * Unified model data structure for both GLTF and FBX
- */
-interface LoadedTowerModel {
-  scene: THREE.Object3D;
-  animations: THREE.AnimationClip[];
-}
+import { AssetManagerService } from '../../services/asset-manager.service';
 
 /**
  * Tower render data - stored per tower
@@ -75,12 +66,10 @@ export type LineOfSightRaycaster = (
 export class ThreeTowerRenderer {
   private scene: THREE.Scene;
   private sync: CoordinateSync;
-  private gltfLoader: GLTFLoader;
-  private fbxLoader: FBXLoader;
+  private assetManager: AssetManagerService;
 
-  // Cached model templates per tower type (stores the scene/group from GLTF or FBX)
-  private modelTemplates = new Map<string, LoadedTowerModel>();
-  private loadingPromises = new Map<string, Promise<LoadedTowerModel>>();
+  // Loaded model URLs for reference counting
+  private loadedModelUrls = new Set<string>();
 
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
@@ -111,11 +100,10 @@ export class ThreeTowerRenderer {
   // LOS offset configuration - raycast starts from tower edge, not center
   private readonly LOS_OFFSET_MIN = 2.4; // Offset in meters from tower center
 
-  constructor(scene: THREE.Scene, sync: CoordinateSync) {
+  constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
     this.sync = sync;
-    this.gltfLoader = new GLTFLoader();
-    this.fbxLoader = new FBXLoader();
+    this.assetManager = assetManager;
 
     // Range indicator material (invisible - hex cells show visibility now)
     this.rangeMaterial = new THREE.MeshBasicMaterial({
@@ -170,77 +158,6 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Load a model from URL, supporting both GLTF/GLB and FBX formats
-   */
-  private async loadModelFromUrl(url: string): Promise<LoadedTowerModel> {
-    const lowerUrl = url.toLowerCase();
-    if (lowerUrl.endsWith('.fbx')) {
-      const model = await this.fbxLoader.loadAsync(url);
-      this.applyFbxMaterials(model);
-      return {
-        scene: model,
-        animations: model.animations || [],
-      };
-    } else {
-      const gltf = await this.gltfLoader.loadAsync(url);
-      return {
-        scene: gltf.scene,
-        animations: gltf.animations || [],
-      };
-    }
-  }
-
-  /**
-   * Apply colors to FBX materials that may not have proper textures
-   * Maps material names to appropriate colors
-   */
-  private applyFbxMaterials(model: THREE.Object3D): void {
-    // Color mapping for known material names
-    const materialColors: Record<string, number> = {
-      'lightwood': 0xc4a574,      // Light wood brown
-      'wood': 0xa0784a,           // Medium wood
-      'darkwood': 0x6b4423,       // Dark wood
-      'celing': 0xcd5c5c,         // Ceiling/roof - indian red (roof tiles)
-      'ceiling': 0xcd5c5c,        // Alternative spelling
-      'roof': 0xcd5c5c,           // Roof tiles
-      'stone': 0x808080,          // Stone gray
-      'metal': 0x707070,          // Metal gray
-    };
-
-    model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-        materials.forEach((mat) => {
-          // Handle any material type with a color property
-          const matWithColor = mat as THREE.MeshStandardMaterial;
-          if (matWithColor.color) {
-            const matName = mat.name.toLowerCase();
-
-            // Find matching color
-            let color: number | undefined;
-            for (const [key, value] of Object.entries(materialColors)) {
-              if (matName.includes(key)) {
-                color = value;
-                break;
-              }
-            }
-
-            // Apply color - always override for FBX
-            const finalColor = color ?? 0xb8956e; // Default wood color
-            matWithColor.color.setHex(finalColor);
-
-            // Ensure material is visible
-            if ('transparent' in mat) mat.transparent = false;
-            if ('opacity' in mat) (mat as THREE.MeshStandardMaterial).opacity = 1.0;
-          }
-        });
-      }
-    });
-  }
-
-  /**
    * Make tower model brighter by increasing emissive intensity
    * Used to enhance visibility of darker models like the rocket tower
    */
@@ -273,23 +190,20 @@ export class ThreeTowerRenderer {
     const config = TOWER_TYPES[typeId];
     if (!config) return;
 
-    if (this.modelTemplates.has(typeId) || this.loadingPromises.has(typeId)) {
+    // Skip if already loaded
+    if (this.loadedModelUrls.has(config.modelUrl)) {
       return;
     }
 
-    const promise = this.loadModelFromUrl(config.modelUrl);
-    this.loadingPromises.set(typeId, promise);
-
     try {
-      const loadedModel = await promise;
-      this.modelTemplates.set(typeId, loadedModel);
-      if (loadedModel.animations.length > 0) {
-        console.log(`[ThreeTowerRenderer] Loaded ${typeId} with ${loadedModel.animations.length} animation(s): ${loadedModel.animations.map(a => a.name).join(', ')}`);
+      const cachedModel = await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
+
+      if (cachedModel.animations.length > 0) {
+        console.log(`[ThreeTowerRenderer] Loaded ${typeId} with ${cachedModel.animations.length} animation(s): ${cachedModel.animations.map(a => a.name).join(', ')}`);
       }
     } catch (err) {
       console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
-    } finally {
-      this.loadingPromises.delete(typeId);
     }
   }
 
@@ -324,26 +238,27 @@ export class ThreeTowerRenderer {
       return null;
     }
 
-    // Ensure model is loaded
-    let loadedModel = this.modelTemplates.get(typeId);
-    if (!loadedModel) {
-      const promise = this.loadingPromises.get(typeId) || this.loadModelFromUrl(config.modelUrl);
-      if (!this.loadingPromises.has(typeId)) {
-        this.loadingPromises.set(typeId, promise);
-      }
-      try {
-        loadedModel = await promise;
-        this.modelTemplates.set(typeId, loadedModel);
-      } catch (err) {
-        console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
-        return null;
-      } finally {
-        this.loadingPromises.delete(typeId);
-      }
+    // Load model via AssetManager (cached)
+    let cachedModel;
+    try {
+      cachedModel = await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
+    } catch (err) {
+      console.error(`[ThreeTowerRenderer] Failed to load model: ${typeId}`, err);
+      return null;
     }
 
     // Clone the model
-    const mesh = loadedModel.scene.clone();
+    const mesh = this.assetManager.cloneModel(config.modelUrl);
+    if (!mesh) {
+      console.error(`[ThreeTowerRenderer] Failed to clone model: ${typeId}`);
+      return null;
+    }
+
+    // Apply FBX materials if needed
+    if (this.assetManager.isFbxModel(config.modelUrl)) {
+      this.assetManager.applyFbxMaterials(mesh);
+    }
     mesh.scale.setScalar(config.scale);
 
     // Apply rotation: custom rotation + config rotation
@@ -462,14 +377,14 @@ export class ThreeTowerRenderer {
     const animations = new Map<string, THREE.AnimationClip>();
     let currentAction: THREE.AnimationAction | null = null;
 
-    if (config.hasAnimations && loadedModel.animations && loadedModel.animations.length > 0) {
+    if (config.hasAnimations && cachedModel.animations && cachedModel.animations.length > 0) {
       mixer = new THREE.AnimationMixer(mesh);
-      for (const clip of loadedModel.animations) {
+      for (const clip of cachedModel.animations) {
         animations.set(clip.name, clip);
       }
 
       // Auto-play first animation (typically the idle/base animation)
-      const firstClip = loadedModel.animations[0];
+      const firstClip = cachedModel.animations[0];
       if (firstClip) {
         const action = mixer.clipAction(firstClip);
         // Use PingPong for smooth back-and-forth animation if configured
@@ -1287,7 +1202,13 @@ export class ThreeTowerRenderer {
    */
   dispose(): void {
     this.clear();
-    this.modelTemplates.clear();
+
+    // Release model references from AssetManager
+    for (const url of this.loadedModelUrls) {
+      this.assetManager.releaseModel(url);
+    }
+    this.loadedModelUrls.clear();
+
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();
   }

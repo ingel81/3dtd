@@ -1,17 +1,7 @@
 import * as THREE from 'three';
-import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
-import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { CoordinateSync } from './index';
 import { EnemyTypeConfig, ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
-
-/**
- * Unified model data structure for both GLTF and FBX
- */
-interface LoadedModel {
-  scene: THREE.Object3D;
-  animations: THREE.AnimationClip[];
-}
+import { AssetManagerService } from '../../services/asset-manager.service';
 
 /**
  * Enemy render data - stored per enemy
@@ -42,12 +32,10 @@ export interface EnemyRenderData {
 export class ThreeEnemyRenderer {
   private scene: THREE.Scene;
   private sync: CoordinateSync;
-  private gltfLoader: GLTFLoader;
-  private fbxLoader: FBXLoader;
+  private assetManager: AssetManagerService;
 
-  // Cached model templates per enemy type
-  private modelTemplates = new Map<string, LoadedModel>();
-  private loadingPromises = new Map<string, Promise<LoadedModel>>();
+  // Loaded model URLs for reference counting
+  private loadedModelUrls = new Set<string>();
 
   // Active enemy renders
   private enemies = new Map<string, EnemyRenderData>();
@@ -59,33 +47,10 @@ export class ThreeEnemyRenderer {
   private frustum = new THREE.Frustum();
   private projScreenMatrix = new THREE.Matrix4();
 
-  constructor(scene: THREE.Scene, sync: CoordinateSync) {
+  constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
     this.sync = sync;
-    this.gltfLoader = new GLTFLoader();
-    this.fbxLoader = new FBXLoader();
-  }
-
-  /**
-   * Load model based on file extension (supports .glb, .gltf, .fbx)
-   */
-  private async loadModel(url: string): Promise<LoadedModel> {
-    const extension = url.split('.').pop()?.toLowerCase();
-
-    if (extension === 'fbx') {
-      const fbx = await this.fbxLoader.loadAsync(url);
-      return {
-        scene: fbx,
-        animations: fbx.animations || [],
-      };
-    } else {
-      // Default to GLTF/GLB
-      const gltf = await this.gltfLoader.loadAsync(url);
-      return {
-        scene: gltf.scene,
-        animations: gltf.animations || [],
-      };
-    }
+    this.assetManager = assetManager;
   }
 
   /**
@@ -98,20 +63,16 @@ export class ThreeEnemyRenderer {
       return;
     }
 
-    if (this.modelTemplates.has(typeId) || this.loadingPromises.has(typeId)) {
+    // Skip if already loaded
+    if (this.loadedModelUrls.has(config.modelUrl)) {
       return;
     }
 
-    const promise = this.loadModel(config.modelUrl);
-    this.loadingPromises.set(typeId, promise);
-
     try {
-      const model = await promise;
-      this.modelTemplates.set(typeId, model);
+      await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
     } catch (err) {
       console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
-    } finally {
-      this.loadingPromises.delete(typeId);
     }
   }
 
@@ -145,28 +106,23 @@ export class ThreeEnemyRenderer {
       return null;
     }
 
-    // Ensure model is loaded
-    let model = this.modelTemplates.get(typeId);
-    if (!model) {
-      // Load on-demand
-      const promise = this.loadingPromises.get(typeId) || this.loadModel(config.modelUrl);
-      if (!this.loadingPromises.has(typeId)) {
-        this.loadingPromises.set(typeId, promise);
-      }
-      try {
-        model = await promise;
-        this.modelTemplates.set(typeId, model);
-      } catch (err) {
-        console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
-        return null;
-      } finally {
-        this.loadingPromises.delete(typeId);
-      }
+    // Load model via AssetManager (cached)
+    let cachedModel;
+    try {
+      cachedModel = await this.assetManager.loadModel(config.modelUrl);
+      this.loadedModelUrls.add(config.modelUrl);
+    } catch (err) {
+      console.error(`[ThreeEnemyRenderer] Failed to load model: ${typeId}`, err);
+      return null;
     }
 
     // Clone the model using SkeletonUtils for proper SkinnedMesh support
     // Regular .clone() breaks skeleton bindings for animated models
-    const mesh = SkeletonUtils.clone(model.scene) as THREE.Object3D;
+    const mesh = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
+    if (!mesh) {
+      console.error(`[ThreeEnemyRenderer] Failed to clone model: ${typeId}`);
+      return null;
+    }
     mesh.scale.setScalar(config.scale);
 
     // Enable shadows and apply material adjustments
@@ -248,9 +204,9 @@ export class ThreeEnemyRenderer {
     let mixer: THREE.AnimationMixer | null = null;
     const animations = new Map<string, THREE.AnimationClip>();
 
-    if (config.hasAnimations && model.animations && model.animations.length > 0) {
+    if (config.hasAnimations && cachedModel.animations && cachedModel.animations.length > 0) {
       mixer = new THREE.AnimationMixer(mesh);
-      for (const clip of model.animations) {
+      for (const clip of cachedModel.animations) {
         animations.set(clip.name, clip);
       }
     }
@@ -723,7 +679,13 @@ export class ThreeEnemyRenderer {
    */
   dispose(): void {
     this.clear();
-    this.modelTemplates.clear();
+
+    // Release model references from AssetManager
+    for (const url of this.loadedModelUrls) {
+      this.assetManager.releaseModel(url);
+    }
+    this.loadedModelUrls.clear();
+
     for (const texture of this.healthBarTextures.values()) {
       texture.dispose();
     }

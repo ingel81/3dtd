@@ -2,6 +2,7 @@ import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/cor
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { CameraFramingService } from './camera-framing.service';
+import { AssetManagerService } from './asset-manager.service';
 
 /**
  * Loading step status
@@ -32,6 +33,7 @@ export class EngineInitializationService {
 
   private readonly ngZone = inject(NgZone);
   private readonly cameraFraming = inject(CameraFramingService);
+  private readonly assetManager = inject(AssetManagerService);
 
   // ========================================
   // SIGNALS
@@ -225,7 +227,8 @@ export class EngineInitializationService {
         this.cesiumAssetId,
         this.baseCoords.lat,
         this.baseCoords.lon,
-        0
+        0,
+        this.assetManager
       );
 
       await this.setStepDone('init');
