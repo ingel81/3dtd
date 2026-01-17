@@ -6,6 +6,33 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Dokumentation
+- [x] **ENEMY_CREATION.md erstellt**
+  - Analog zu TOWER_CREATION.md
+  - Enemy-Typen erstellen mit Animationen, Audio, Visual Effects
+  - Run-Animation-System, Air Units, Boss Enemies dokumentiert
+  - Checkliste und Troubleshooting
+- [x] **STATUS_EFFECTS.md erstellt**
+  - Status-Effekt-System vollständig dokumentiert
+  - Slow-Effect Stacking-Verhalten erklärt
+  - Freeze und Burn (geplant) beschrieben
+  - Performance-Optimierungen dokumentiert
+- [x] **WAVE_SYSTEM.md erstellt**
+  - Wave-Management und Spawning-System dokumentiert
+  - Gathering-Phase, Spawn-Modi (each/random)
+  - Progressive Difficulty, Boss Waves
+  - Testing und Debugging
+- [x] **ARCHITECTURE.md Dateistruktur korrigiert**
+  - `game/` Subfolder-Fehler behoben (Zeilen 728-813)
+  - Korrekte Ordnerstruktur (kein game/ Subfolder)
+  - Config-Dateien und Utils ergänzt
+  - Docs-Liste aktualisiert
+- [x] **INDEX.md aktualisiert**
+  - Drei neue Dokumentationen hinzugefügt
+  - Schnellnavigation erweitert
+- [x] **TODO.md aktualisiert**
+  - Erledigte Dokumentations-Tasks entfernt
+
 ### Magic Tower
 - [x] **Magic Tower implementiert**
   - Grundgerüst mit Stats: 40 DMG, 70 Range, 1.5 Feuerrate, 150 Credits

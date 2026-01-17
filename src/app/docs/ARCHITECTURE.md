@@ -748,53 +748,60 @@ src/app/
 │   ├── model-preview.service.ts        # 3D Previews
 │   └── entity-pool.service.ts          # Object Pooling
 │
-├── managers/                     # 8 Manager-Dateien
+├── managers/                     # 7 Manager-Dateien
 │   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts     # Orchestrator
+│   ├── game-state.manager.ts     # Orchestrator (~800 Zeilen)
 │   ├── enemy.manager.ts          # Enemy Lifecycle
 │   ├── tower.manager.ts          # Tower Lifecycle
 │   ├── projectile.manager.ts     # Projectile Lifecycle
 │   ├── wave.manager.ts           # Wave Management
 │   └── spatial-audio.manager.ts  # 3D Audio (Sound Budget)
 │
-├── game/                         # Game Subsystem
-│   ├── three-engine/
-│   │   ├── three-tiles-engine.ts     # Haupt-Engine
-│   │   ├── ellipsoid-sync.ts         # Koordinaten
-│   │   ├── index.ts                  # Exports
-│   │   └── renderers/
-│   │       ├── index.ts              # CoordinateSync Interface
-│   │       ├── three-enemy.renderer.ts
-│   │       ├── three-tower.renderer.ts
-│   │       ├── three-projectile.renderer.ts
-│   │       └── three-effects.renderer.ts
-│   │
-│   ├── entities/
-│   │   ├── enemy.entity.ts
-│   │   ├── tower.entity.ts
-│   │   └── projectile.entity.ts
-│   │
-│   ├── game-components/
-│   │   ├── transform.component.ts
-│   │   ├── health.component.ts
-│   │   ├── movement.component.ts
-│   │   ├── combat.component.ts
-│   │   ├── render.component.ts
-│   │   └── audio.component.ts
-│   │
-│   ├── core/
-│   │   ├── game-object.ts
-│   │   └── component.ts
-│   │
-│   ├── configs/
-│   │   ├── tower-types.config.ts
-│   │   └── projectile-types.config.ts
-│   │
-│   └── models/
-│       ├── enemy-types.ts
-│       ├── game.types.ts
-│       └── location.types.ts
+├── three-engine/                 # Three.js Engine
+│   ├── three-tiles-engine.ts     # Haupt-Engine
+│   ├── ellipsoid-sync.ts         # Koordinaten
+│   ├── index.ts                  # Exports
+│   └── renderers/
+│       ├── index.ts              # CoordinateSync Interface
+│       ├── three-enemy.renderer.ts
+│       ├── three-tower.renderer.ts
+│       ├── three-projectile.renderer.ts
+│       └── three-effects.renderer.ts
+│
+├── entities/
+│   ├── enemy.entity.ts
+│   ├── tower.entity.ts
+│   └── projectile.entity.ts
+│
+├── game-components/
+│   ├── transform.component.ts
+│   ├── health.component.ts
+│   ├── movement.component.ts
+│   ├── combat.component.ts
+│   ├── render.component.ts
+│   └── audio.component.ts
+│
+├── core/
+│   ├── game-object.ts
+│   └── component.ts
+│
+├── configs/
+│   ├── tower-types.config.ts
+│   ├── projectile-types.config.ts
+│   ├── visual-effects.config.ts
+│   ├── audio.config.ts
+│   ├── game-balance.config.ts
+│   └── placement.config.ts
+│
+├── models/
+│   ├── enemy-types.ts
+│   ├── game.types.ts
+│   ├── location.types.ts
+│   └── status-effects.ts
+│
+├── utils/
+│   └── geo-utils.ts              # Haversine, Fast Distance
 │
 ├── components/
 │   ├── location-dialog/          # Location-Auswahl Dialog
@@ -804,12 +811,19 @@ src/app/
     ├── INDEX.md                  # Dokumentations-Index
     ├── ARCHITECTURE.md           # Dieses Dokument
     ├── DESIGN_SYSTEM.md          # UI/UX Guidelines
+    ├── EXPERT_REVIEW_2026.md     # Code-Analyse & Massnahmenkatalog
     ├── TODO.md                   # Offene Aufgaben
-    ├── DONE.md                   # Abgeschlossene Features
-    ├── LOCATION_SYSTEM.md        # Location-Feature Doku
-    ├── PROJECTILES.md            # Projektil-System Doku
-    ├── SPATIAL_AUDIO.md          # 3D Audio Doku
-    └── MODEL_PREVIEW.md          # Model Preview Doku
+    ├── DONE.md                   # Changelog (chronologisch)
+    ├── TOWER_CREATION.md         # Tower erstellen
+    ├── ENEMY_CREATION.md         # Enemy erstellen
+    ├── STATUS_EFFECTS.md         # Status-Effekt-System
+    ├── WAVE_SYSTEM.md            # Wave-System
+    ├── LOCATION_SYSTEM.md        # Location-System
+    ├── PROJECTILES.md            # Projektil-System
+    ├── SPATIAL_AUDIO.md          # 3D Audio System
+    ├── MODEL_PREVIEW.md          # Model Previews
+    ├── PARTICLE_SYSTEM.md        # Partikel-System
+    └── FRAME_TIMING_FIXES.md     # Frame-Timing Probleme
 ```
 
 ---

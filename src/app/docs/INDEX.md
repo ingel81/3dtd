@@ -23,6 +23,9 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | Dokument | Beschreibung |
 |----------|--------------|
 | [TOWER_CREATION.md](TOWER_CREATION.md) | Neue Tower erstellen, rotierende Turrets, Sound-Integration |
+| [ENEMY_CREATION.md](ENEMY_CREATION.md) | **NEU** Neue Enemies erstellen, Animationen, Audio-System |
+| [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | **NEU** Status-Effekt-System (Slow, Freeze, Burn) |
+| [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | **NEU** Wave-Management, Spawning, Game Phases |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Location Dialog, Geocoding, Spawn-Generierung |
 | [PROJECTILES.md](PROJECTILES.md) | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | 3D Audio System, Positionsabhängige Sounds |
@@ -44,8 +47,12 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...einen Bug fixen | [TODO.md](TODO.md) |
 | ...wissen was schon fertig ist | [DONE.md](DONE.md) |
 | ...einen neuen Tower erstellen | [TOWER_CREATION.md](TOWER_CREATION.md) |
+| ...einen neuen Enemy erstellen | [ENEMY_CREATION.md](ENEMY_CREATION.md) |
 | ...rotierende Turrets bauen | [TOWER_CREATION.md](TOWER_CREATION.md) → Rotierende Tower-Teile |
 | ...das Tower-Placement verstehen | [TOWER_CREATION.md](TOWER_CREATION.md) → Tower-Placement-System |
+| ...Enemy-Animationen konfigurieren | [ENEMY_CREATION.md](ENEMY_CREATION.md) → Animation-System |
+| ...Status-Effekte verstehen | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
+| ...Waves konfigurieren | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...Sounds hinzufügen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |
