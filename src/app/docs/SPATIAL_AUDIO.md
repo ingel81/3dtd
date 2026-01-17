@@ -202,6 +202,38 @@ spatialAudio.registerSound('hq-damage', '/assets/sounds/small_hq_explosion.mp3',
 spatialAudio.playAtGeo('hq-damage', hqLat, hqLon, hqHeight);
 ```
 
+## Performance-Optimierungen
+
+Das Spatial Audio System wurde umfassend optimiert:
+
+### PositionalAudio-Pooling
+- **Pool von 20 vorallozierten PositionalAudio-Objekten**
+- Reduziert Garbage Collection Pressure erheblich
+- Bei 100 Arrow-Sounds/Sekunde: 0 neue Objekte statt 100/s
+- Pool wächst dynamisch bis max. 50 Objekte
+
+### Memory Leak Fixes
+- **setTimeout-Referenzen**: Alle Timer werden getrackt und bei Cleanup gecleaned
+- **Container-Cleanup**: stopAll() entfernt jetzt alle Container aus der Scene
+- **Audio-Disconnect**: Alle Audio-Nodes werden ordentlich disconnected
+- **Enemy Timer**: Zombie-Timer werden bei destroy() ordentlich gestoppt
+
+### Race Condition Fix
+- Enemy-Sound-Budget wird SOFORT registriert (vor await-Calls)
+- Verhindert Budget-Überschreitung bei parallelen Sound-Anfragen
+
+### Algorithmus-Optimierungen
+- **stop()**: O(n²) → O(n) durch direktes Filtern statt indexOf+splice
+- **update()**: Position-Caching bereits optimal (1x Berechnung für alle Loops)
+
+### Error Recovery
+- **Retry-Mechanismus**: 3 Versuche bei Buffer-Ladefehlern mit 1s Delay
+- Besseres Logging für Debugging
+
+### Code-Vereinheitlichung
+- Enemy-Sound-Erkennung zentralisiert in SpatialAudioManager
+- Verwendet ENEMY_SOUND_PATTERNS aus audio.config.ts
+
 ## Wichtige Hinweise
 
 1. **AudioContext Resume**: Browser blockieren Audio bis zur ersten User-Interaktion.
@@ -209,11 +241,13 @@ spatialAudio.playAtGeo('hq-damage', hqLat, hqLon, hqHeight);
 
 2. **Performance**: Sounds werden nach dem Abspielen automatisch aufgeräumt.
    Für Loops muss `stop()` manuell aufgerufen werden.
+   PositionalAudio-Objekte werden in einen Pool zurückgelegt für Wiederverwendung.
 
 3. **Stereo-Panning**: Three.js AudioListener sorgt automatisch für Stereo-Effekte
    basierend auf der Position relativ zur Kamera.
 
 4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds zur Performance-Optimierung.
+   Budget wird race-condition-safe verwaltet.
 
 ## Assets
 

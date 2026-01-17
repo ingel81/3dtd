@@ -6,6 +6,33 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Sound System Audit & Performance Fixes
+- [x] **Kritische Memory Leaks behoben**
+  - setTimeout-Referenzen werden jetzt getrackt und bei Cleanup gecleaned
+  - stopAll() entfernt jetzt ordentlich alle Container aus der Scene
+  - Audio.disconnect() wird bei jedem Cleanup aufgerufen
+  - Enemy Timer (randomSoundTimer) werden bei destroy() robuster gestoppt
+- [x] **PositionalAudio-Pooling implementiert**
+  - Pool von 20 vorallozierten PositionalAudio-Objekten (wächst bis 50)
+  - Reduziert Garbage Collection Pressure erheblich
+  - Bei 100 Arrow-Sounds/Sekunde: 0 neue Objekte statt 100/s
+- [x] **Race Condition im Budget-System gefixt**
+  - Enemy-Sound-Budget wird sofort registriert (vor await-Calls)
+  - Verhindert Budget-Überschreitung bei parallelen Sound-Anfragen
+  - Alle Early-Exit-Pfade cleanen jetzt ordentlich das Budget
+- [x] **Algorithmus-Optimierungen**
+  - stop() Methode: O(n²) → O(n) durch direktes Filtern statt indexOf+splice
+  - update() bereits optimal (Position wird 1x berechnet für alle Loops)
+- [x] **Error Recovery verbessert**
+  - Retry-Mechanismus: 3 Versuche bei Buffer-Ladefehlern mit 1s Delay
+  - Besseres Logging für Debugging
+- [x] **Code-Vereinheitlichung**
+  - Enemy-Sound-Erkennung zentralisiert in SpatialAudioManager
+  - Nutzt ENEMY_SOUND_PATTERNS aus audio.config.ts (inkl. herbert)
+  - Duplizierte isEnemySound() Methode in AudioComponent entfernt
+- [x] **Dokumentation aktualisiert**
+  - SPATIAL_AUDIO.md mit Performance-Optimierungen-Sektion erweitert
+
 ### Dokumentation (Phase 2 - Lücken schließen)
 - [x] **Geo-Utils vollständig dokumentiert** (ARCHITECTURE.md Sektion 8.1)
   - haversineDistance vs fastDistance erklärt

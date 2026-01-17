@@ -45,6 +45,7 @@ interface ActiveSound {
   soundId: string;
   container?: THREE.Object3D;
   ownerId?: string; // ID of the owner (e.g., enemy ID)
+  timer?: ReturnType<typeof setTimeout>; // Cleanup timer for non-looping sounds
 }
 
 // Sound budget uses centralized config from audio.config.ts
@@ -86,6 +87,11 @@ export class SpatialAudioManager {
   // Coordinate converter (set by engine)
   private geoToLocal: ((lat: number, lon: number, height: number) => THREE.Vector3) | null = null;
 
+  // PositionalAudio pool for performance
+  private audioPool: THREE.PositionalAudio[] = [];
+  private readonly INITIAL_POOL_SIZE = 20;
+  private readonly MAX_POOL_SIZE = 50;
+
   constructor(scene: THREE.Scene, camera: THREE.Camera) {
     this.scene = scene;
 
@@ -95,6 +101,39 @@ export class SpatialAudioManager {
 
     // Create audio loader
     this.loader = new THREE.AudioLoader();
+
+    // Pre-create initial pool of PositionalAudio objects
+    for (let i = 0; i < this.INITIAL_POOL_SIZE; i++) {
+      this.audioPool.push(new THREE.PositionalAudio(this.listener));
+    }
+  }
+
+  /**
+   * Get a PositionalAudio object from the pool (or create new if pool is empty)
+   */
+  private getAudioFromPool(): THREE.PositionalAudio {
+    if (this.audioPool.length > 0) {
+      return this.audioPool.pop()!;
+    }
+    // Pool exhausted - create new audio object
+    return new THREE.PositionalAudio(this.listener);
+  }
+
+  /**
+   * Return a PositionalAudio object to the pool for reuse
+   */
+  private returnAudioToPool(audio: THREE.PositionalAudio): void {
+    // Reset audio state before returning to pool
+    if (audio.isPlaying) {
+      audio.stop();
+    }
+    audio.disconnect();
+
+    // Only return to pool if we haven't exceeded max size
+    if (this.audioPool.length < this.MAX_POOL_SIZE) {
+      this.audioPool.push(audio);
+    }
+    // If pool is full, let it be garbage collected
   }
 
   /**
@@ -116,8 +155,9 @@ export class SpatialAudioManager {
 
   /**
    * Check if a sound ID is an enemy sound (subject to budget limits)
+   * Public method for use by AudioComponent
    */
-  private isEnemySound(soundId: string): boolean {
+  isEnemySound(soundId: string): boolean {
     const lowerSoundId = soundId.toLowerCase();
     return ENEMY_SOUND_PATTERNS.some((pattern) => lowerSoundId.includes(pattern));
   }
@@ -236,19 +276,27 @@ export class SpatialAudioManager {
   }
 
   /**
-   * Load an audio buffer
+   * Load an audio buffer with retry logic
    */
-  private loadBuffer(url: string): Promise<AudioBuffer> {
+  private loadBuffer(url: string, retries = 3): Promise<AudioBuffer> {
     return new Promise((resolve, reject) => {
-      this.loader.load(
-        url,
-        (buffer) => resolve(buffer),
-        undefined,
-        (error) => {
-          console.error('[SpatialAudio] Failed to load:', url, error);
-          reject(error);
-        }
-      );
+      const attemptLoad = (attemptsLeft: number) => {
+        this.loader.load(
+          url,
+          (buffer) => resolve(buffer),
+          undefined,
+          (error) => {
+            if (attemptsLeft > 0) {
+              console.warn(`[SpatialAudio] Failed to load ${url}, retrying... (${attemptsLeft} attempts left)`);
+              setTimeout(() => attemptLoad(attemptsLeft - 1), 1000);
+            } else {
+              console.error('[SpatialAudio] Failed to load after all retries:', url, error);
+              reject(error);
+            }
+          }
+        );
+      };
+      attemptLoad(retries);
     });
   }
 
@@ -302,8 +350,8 @@ export class SpatialAudioManager {
       return null;
     }
 
-    // Create positional audio
-    const audio = new THREE.PositionalAudio(this.listener);
+    // Get positional audio from pool (or create new if pool exhausted)
+    const audio = this.getAudioFromPool();
     audio.setBuffer(sound.buffer);
     audio.setRefDistance(sound.config.refDistance);
     audio.setRolloffFactor(sound.config.rolloffFactor);
@@ -321,8 +369,8 @@ export class SpatialAudioManager {
     container.add(audio);
     this.scene.add(container);
 
-    // Track active sound
-    const activeSound: ActiveSound = { audio, soundId };
+    // Track active sound (with container reference)
+    const activeSound: ActiveSound = { audio, soundId, container };
     this.activeSounds.push(activeSound);
 
     // Play
@@ -331,11 +379,10 @@ export class SpatialAudioManager {
     // Cleanup after playback (if not looping)
     if (!sound.config.loop) {
       const duration = sound.buffer.duration * 1000;
-      setTimeout(() => {
-        this.removeActiveSound(activeSound);
-        this.scene.remove(container);
-        audio.disconnect();
+      const timer = setTimeout(() => {
+        this.cleanupActiveSound(activeSound);
       }, duration + 100);
+      activeSound.timer = timer;
     }
 
     return audio;
@@ -387,6 +434,8 @@ export class SpatialAudioManager {
     audio.setLoop(sound.config.loop);
     audio.play();
 
+    // Note: Global sounds are not tracked in activeSounds since they don't have containers
+    // They auto-cleanup after playback
     if (!sound.config.loop) {
       const duration = sound.buffer.duration * 1000;
       setTimeout(() => {
@@ -401,23 +450,25 @@ export class SpatialAudioManager {
    * Stop all instances of a sound
    */
   stop(soundId: string): void {
-    const toRemove = this.activeSounds.filter((s) => s.soundId === soundId);
-    for (const active of toRemove) {
-      if (active.audio.isPlaying) {
-        active.audio.stop();
+    // Filter out matching sounds and cleanup remaining sounds (O(n) instead of O(n²))
+    const remaining: ActiveSound[] = [];
+    for (const active of this.activeSounds) {
+      if (active.soundId === soundId) {
+        this.cleanupActiveSound(active);
+      } else {
+        remaining.push(active);
       }
-      this.removeActiveSound(active);
     }
+    this.activeSounds = remaining;
   }
 
   /**
    * Stop all sounds
    */
   stopAll(): void {
+    // Cleanup all active sounds properly
     for (const active of this.activeSounds) {
-      if (active.audio.isPlaying) {
-        active.audio.stop();
-      }
+      this.cleanupActiveSound(active);
     }
     this.activeSounds = [];
   }
@@ -436,10 +487,22 @@ export class SpatialAudioManager {
     return this.listener;
   }
 
-  private removeActiveSound(active: ActiveSound): void {
-    const index = this.activeSounds.indexOf(active);
-    if (index !== -1) {
-      this.activeSounds.splice(index, 1);
+  /**
+   * Cleanup an active sound (stop, disconnect, remove from scene, clear timer, return to pool)
+   */
+  private cleanupActiveSound(active: ActiveSound): void {
+    // Clear timer if exists
+    if (active.timer) {
+      clearTimeout(active.timer);
+      active.timer = undefined;
+    }
+
+    // Return audio to pool (handles stop and disconnect internally)
+    this.returnAudioToPool(active.audio);
+
+    // Remove container from scene
+    if (active.container) {
+      this.scene.remove(active.container);
     }
   }
 
