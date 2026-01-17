@@ -2,11 +2,13 @@ import {
   Component,
   input,
   signal,
-  computed,
   OnInit,
   OnDestroy,
+  AfterViewInit,
   PLATFORM_ID,
   inject,
+  ElementRef,
+  ViewChild,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CommonModule } from '@angular/common';
@@ -14,42 +16,48 @@ import { MatIconModule } from '@angular/material/icon';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
- * Ad Banner Component with Adblocker Detection and Fallback
+ * Ad Banner Component with Monetag Integration and Adblocker Fallback
  *
  * Features:
+ * - Monetag ad network integration (better for gaming traffic)
  * - Context-aware sizing (large during pause, small during wave)
  * - Adblocker detection with graceful fallback
  * - Fallback shows donation/support options
  * - WC3-inspired design style
+ *
+ * Setup:
+ * 1. Create account at https://monetag.com
+ * 2. Add your website and get approved
+ * 3. Create a "Banner" ad unit (300x250 for large, 300x100 for compact)
+ * 4. Replace MONETAG_ZONE_ID below with your zone ID
  */
+
+// ============================================================================
+// MONETAG CONFIGURATION - Replace with your actual zone IDs after signup
+// ============================================================================
+const MONETAG_CONFIG = {
+  // Get these from your Monetag dashboard after creating ad units
+  zoneIdLarge: 'XXXXXXXX',   // 300x250 Medium Rectangle
+  zoneIdCompact: 'XXXXXXXX', // 300x100 Small Banner (or use same as large)
+  // Set to true once you have valid zone IDs
+  enabled: false,
+};
+
 @Component({
   selector: 'app-ad-banner',
   standalone: true,
   imports: [CommonModule, MatIconModule],
   template: `
     <div class="td-ad-container" [class.td-ad-compact]="compact()">
-      <!-- Ad Slot (hidden if blocked) -->
-      @if (!adBlocked()) {
+      <!-- Monetag Ad Slot (hidden if blocked or not configured) -->
+      @if (!adBlocked() && monetagEnabled) {
         <div class="td-ad-slot" [class.td-ad-slot-compact]="compact()">
-          <!-- AdSense/Monetag placeholder - replace with actual ad code -->
-          <div class="td-ad-placeholder" #adSlot>
-            <ins class="adsbygoogle"
-                 [style.display]="'block'"
-                 [style.width.px]="compact() ? 300 : 300"
-                 [style.height.px]="compact() ? 100 : 250"
-                 data-ad-client="ca-pub-XXXXXXXXXXXXXXXX"
-                 data-ad-slot="XXXXXXXXXX"
-                 data-ad-format="auto"
-                 data-full-width-responsive="false">
-            </ins>
-            <!-- Detection element for adblocker check -->
-            <div class="td-ad-detect" #adDetect></div>
-          </div>
+          <div #adContainer class="td-ad-monetag"></div>
         </div>
       }
 
-      <!-- Fallback: Donation Panel (shown if ad blocked) -->
-      @if (adBlocked()) {
+      <!-- Fallback: Donation Panel (shown if ad blocked or Monetag not configured) -->
+      @if (adBlocked() || !monetagEnabled) {
         <div class="td-fallback-panel" [class.td-fallback-compact]="compact()">
           <div class="td-fallback-header">
             <mat-icon>favorite</mat-icon>
@@ -129,23 +137,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       height: 100px;
     }
 
-    .td-ad-placeholder {
+    .td-ad-monetag {
       width: 100%;
       height: 100%;
       display: flex;
       align-items: center;
       justify-content: center;
-      position: relative;
-    }
-
-    /* Hidden detection element */
-    .td-ad-detect {
-      position: absolute;
-      width: 1px;
-      height: 1px;
-      top: 0;
-      left: 0;
-      background: transparent;
     }
 
     /* === Fallback Panel (WC3 Style) === */
@@ -286,8 +283,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
   `,
 })
-export class AdBannerComponent implements OnInit, OnDestroy {
+export class AdBannerComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
+
+  @ViewChild('adContainer') adContainer!: ElementRef<HTMLDivElement>;
 
   /** Whether the ad should be compact (during active wave) */
   readonly compact = input<boolean>(false);
@@ -295,15 +294,26 @@ export class AdBannerComponent implements OnInit, OnDestroy {
   /** Whether an adblocker is detected */
   readonly adBlocked = signal(false);
 
+  /** Whether Monetag is configured and enabled */
+  readonly monetagEnabled = MONETAG_CONFIG.enabled;
+
   /** Check interval for adblocker detection */
   private checkInterval: ReturnType<typeof setInterval> | null = null;
 
-  ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId)) {
-      // Initial check after a short delay (let ads load)
-      setTimeout(() => this.checkForAdBlocker(), 1000);
+  /** Track if Monetag script is loaded */
+  private monetagLoaded = false;
 
-      // Periodic re-check (ads might load late)
+  ngOnInit(): void {
+    if (isPlatformBrowser(this.platformId) && this.monetagEnabled) {
+      // Load Monetag script
+      this.loadMonetag();
+    }
+  }
+
+  ngAfterViewInit(): void {
+    if (isPlatformBrowser(this.platformId) && this.monetagEnabled) {
+      // Start adblocker detection after view init
+      setTimeout(() => this.checkForAdBlocker(), 2000);
       this.checkInterval = setInterval(() => this.checkForAdBlocker(), 5000);
     }
   }
@@ -315,42 +325,73 @@ export class AdBannerComponent implements OnInit, OnDestroy {
   }
 
   /**
+   * Load Monetag ad script dynamically
+   */
+  private loadMonetag(): void {
+    if (this.monetagLoaded) return;
+
+    const zoneId = this.compact()
+      ? MONETAG_CONFIG.zoneIdCompact
+      : MONETAG_CONFIG.zoneIdLarge;
+
+    // Monetag uses a specific script pattern
+    const script = document.createElement('script');
+    script.async = true;
+    script.setAttribute('data-cfasync', 'false');
+    script.src = `//pl${zoneId}.profitabledisplaynetwork.com/${zoneId}/invoke.js`;
+
+    script.onerror = () => {
+      console.warn('[AdBanner] Monetag script blocked or failed to load');
+      this.adBlocked.set(true);
+    };
+
+    script.onload = () => {
+      this.monetagLoaded = true;
+      // Monetag will automatically fill the container
+    };
+
+    document.head.appendChild(script);
+  }
+
+  /**
    * Detect if an adblocker is active
    * Uses multiple detection methods for reliability
    */
   private checkForAdBlocker(): void {
-    // Method 1: Check if AdSense script loaded
-    const adsenseLoaded = !!(window as any).adsbygoogle;
+    // Method 1: Check if Monetag container has content
+    if (this.adContainer?.nativeElement) {
+      const container = this.adContainer.nativeElement;
+      const hasContent = container.children.length > 0 ||
+                         container.innerHTML.trim().length > 0;
 
-    // Method 2: Check if our ad element was hidden/removed
-    const adElement = document.querySelector('.adsbygoogle');
-    const adHidden = adElement
-      ? window.getComputedStyle(adElement).display === 'none' ||
-        window.getComputedStyle(adElement).visibility === 'hidden' ||
-        (adElement as HTMLElement).offsetHeight === 0
-      : true;
+      if (!hasContent && this.monetagLoaded) {
+        // Script loaded but no ad content = blocked
+        this.adBlocked.set(true);
+        this.stopChecking();
+        return;
+      }
+    }
 
-    // Method 3: Create a bait element that adblockers typically hide
+    // Method 2: Create a bait element that adblockers typically hide
     const bait = document.createElement('div');
-    bait.className = 'adsbox ad-banner textads banner-ads';
-    bait.style.cssText = 'position:absolute;left:-9999px;width:1px;height:1px;';
+    bait.className = 'adsbox ad-banner textads banner-ads pub_300x250';
+    bait.style.cssText = 'position:absolute;left:-9999px;width:300px;height:250px;';
     document.body.appendChild(bait);
 
     const baitBlocked = bait.offsetHeight === 0 ||
+                        bait.offsetWidth === 0 ||
                         window.getComputedStyle(bait).display === 'none';
 
     document.body.removeChild(bait);
 
-    // If AdSense not loaded OR ad element hidden OR bait blocked → adblocker detected
-    const blocked = !adsenseLoaded || adHidden || baitBlocked;
-
-    // Only update if changed (avoid unnecessary re-renders)
-    if (blocked !== this.adBlocked()) {
-      this.adBlocked.set(blocked);
+    if (baitBlocked) {
+      this.adBlocked.set(true);
+      this.stopChecking();
     }
+  }
 
-    // Stop checking once we've determined ads are blocked
-    if (blocked && this.checkInterval) {
+  private stopChecking(): void {
+    if (this.checkInterval) {
       clearInterval(this.checkInterval);
       this.checkInterval = null;
     }
