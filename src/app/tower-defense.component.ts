@@ -2023,7 +2023,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   restartGame(): void {
+    // Cleanup old debug visualization before reset (grid will be cleared)
+    if (this.spatialGridVizMesh) {
+      this.engine?.getScene().remove(this.spatialGridVizMesh);
+      this.gameState.getGlobalRouteGrid().disposeVisualization();
+      this.spatialGridVizMesh = null;
+    }
+
     this.gameState.reset();
+
+    // Re-initialize GlobalRouteGrid (was cleared in reset)
+    this.gameState.initializeGlobalRouteGrid();
+
+    // Debug visualization will be recreated on-demand when toggled
   }
 
 

@@ -270,9 +270,13 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Clear all enemies and cleanup resources
    */
   override clear(): void {
+    // Remove all enemies from global route grid before clearing
+    for (const enemy of this.getAll()) {
+      this.globalRouteGrid.removeEnemy(enemy);
+    }
+
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
-    // Note: Don't clear globalRouteGrid here - it's shared and managed by GameStateManager
     super.clear();
     this.aliveCount.set(0);
   }

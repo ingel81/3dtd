@@ -636,8 +636,10 @@ export class GameStateManager {
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
 
-    // Cleanup all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
-    this.clearAllTowerOverlays();
+    // NOTE: Don't clear tower overlays here - the game stays in gameover state
+    // and towers remain visible. Only clear them in reset() when changing location.
+    // Just deselect any selected tower.
+    this.towerManager.selectTower(null);
 
     // Show HQ explosion and inferno fire at base
     if (this.basePosition && this.tilesEngine) {
@@ -719,6 +721,9 @@ export class GameStateManager {
    * Reset game to initial state
    */
   reset(): void {
+    // Clear tower overlays before clearing towers
+    this.clearAllTowerOverlays();
+
     this.enemyManager.clear();
     this.towerManager.clear();
     this.projectileManager.clear();
@@ -790,12 +795,17 @@ export class GameStateManager {
 
   /**
    * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
-   * Called on game over to cleanup visual artifacts
+   * Called on reset to cleanup before starting fresh
    */
   private clearAllTowerOverlays(): void {
+    // First deselect any selected tower (hides its LOS visualization)
+    this.towerManager.selectTower(null);
+
+    // Then dispose all LOS visualizations
     for (const tower of this.towerManager.getAll()) {
       // Dispose LOS visualization
       if (tower.losVisualization && this.tilesEngine) {
+        tower.losVisualization.visible = false; // Ensure hidden
         this.tilesEngine.getScene().remove(tower.losVisualization);
         tower.losVisualization.geometry.dispose();
         (tower.losVisualization.material as THREE.Material).dispose();
@@ -806,9 +816,6 @@ export class GameStateManager {
       this.globalRouteGrid.unregisterTower(tower.id);
       tower.visibleCells = [];
     }
-
-    // Also deselect any selected tower
-    this.towerManager.selectTower(null);
   }
 
   /**
