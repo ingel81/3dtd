@@ -119,26 +119,32 @@ export class AudioComponent extends Component {
     // Get the global sound ID (registered earlier)
     const globalId = this.getGlobalId(id);
 
-    // Check if this is an enemy sound and if we have budget
-    const isEnemySound = this.isEnemySound(globalId);
-    if (isEnemySound && !this.spatialAudio.canPlayEnemySound()) {
-      // Budget exceeded - skip this sound silently
-      return;
+    // Check if this is an enemy sound and register IMMEDIATELY to prevent race conditions
+    const isEnemySound = this.spatialAudio.isEnemySound(globalId);
+    if (isEnemySound) {
+      if (!this.spatialAudio.registerEnemySound()) {
+        // Budget exceeded - skip this sound silently
+        return;
+      }
     }
 
     const pos = this.getPosition();
-    if (!pos) return;
+    if (!pos) {
+      // Cleanup on early exit
+      if (isEnemySound) {
+        this.spatialAudio.unregisterEnemySound();
+      }
+      return;
+    }
 
     await this.spatialAudio.resumeContext();
 
     // Check if destroyed during await
-    if (this.destroyed) return;
-
-    // Register enemy sound BEFORE creating audio
-    if (isEnemySound) {
-      if (!this.spatialAudio.registerEnemySound()) {
-        return; // Race condition - budget filled while we were waiting
+    if (this.destroyed) {
+      if (isEnemySound) {
+        this.spatialAudio.unregisterEnemySound();
       }
+      return;
     }
 
     // Get cached buffer from SpatialAudioManager (already loaded at registration)
@@ -146,7 +152,7 @@ export class AudioComponent extends Component {
 
     // Check if destroyed during await - cleanup enemy budget if needed
     if (this.destroyed) {
-      if (isEnemySound && this.spatialAudio) {
+      if (isEnemySound) {
         this.spatialAudio.unregisterEnemySound();
       }
       return;
@@ -198,20 +204,6 @@ export class AudioComponent extends Component {
 
     this.activeLoops.set(id, { audio, container, isEnemySound });
     audio.play();
-  }
-
-  /**
-   * Check if a sound ID represents an enemy sound
-   */
-  private isEnemySound(soundId: string): boolean {
-    const lowerId = soundId.toLowerCase();
-    return (
-      lowerId.includes('zombie') ||
-      lowerId.includes('tank') ||
-      lowerId.includes('enemy') ||
-      lowerId.includes('wallsmasher') ||
-      lowerId.includes('big_arm')
-    );
   }
 
   /**
