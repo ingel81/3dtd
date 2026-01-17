@@ -81,3 +81,14 @@ export function geoDistance(
 ): number {
   return haversineDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
 }
+
+/**
+ * Fast distance calculation with GeoPosition-like objects
+ * Uses flat-earth approximation - accurate for distances <200m
+ */
+export function geoDistanceFast(
+  pos1: { lat: number; lon: number },
+  pos2: { lat: number; lon: number }
+): number {
+  return fastDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+}

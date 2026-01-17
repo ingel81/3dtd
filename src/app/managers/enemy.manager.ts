@@ -26,6 +26,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
 
+  // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
+  private cachedAliveEnemies: Enemy[] | null = null;
+
   /**
    * Initialize enemy manager with ThreeTilesEngine
    */
@@ -124,6 +127,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     this.add(enemy);
     this.aliveCount.update(c => c + 1);
+    this.cachedAliveEnemies = null; // Invalidate cache
     return enemy;
   }
 
@@ -138,6 +142,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Decrement alive count when enemy dies
     if (enemy.alive) {
       this.aliveCount.update(c => Math.max(0, c - 1));
+      this.cachedAliveEnemies = null; // Invalidate cache
       enemy.health.takeDamage(enemy.health.hp);
     }
     enemy.stopMoving();
@@ -259,6 +264,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Decrement alive count if enemy was still alive (e.g., reached base)
     if (entity.alive) {
       this.aliveCount.update(c => Math.max(0, c - 1));
+      this.cachedAliveEnemies = null; // Invalidate cache
     }
     // Remove from global route grid
     this.globalRouteGrid.removeEnemy(entity);
@@ -279,20 +285,24 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.killingEnemies.clear();
     super.clear();
     this.aliveCount.set(0);
+    this.cachedAliveEnemies = null; // Invalidate cache
   }
 
   /**
-   * Get all alive enemies
+   * Get all alive enemies (cached per frame)
    */
   getAlive(): Enemy[] {
-    return this.getAll().filter((e) => e.alive);
+    if (this.cachedAliveEnemies === null) {
+      this.cachedAliveEnemies = this.getAll().filter((e) => e.alive);
+    }
+    return this.cachedAliveEnemies;
   }
 
   /**
-   * Get count of alive enemies
+   * Get count of alive enemies (uses signal, no array allocation)
    */
   getAliveCount(): number {
-    return this.getAlive().length;
+    return this.aliveCount();
   }
 
   /**

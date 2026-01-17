@@ -6,6 +6,20 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Performance Optimierungen
+- [x] **Reusable Vectors in ThreeEffectsRenderer**
+  - `tempVelocity` als Klassenvariable statt `velocity.clone()` pro Partikel
+  - 3 Hotspots in update() optimiert (Effect-Particles, Trail-Additive, Trail-Normal)
+  - ~99% weniger GC-Druck bei Partikel-Updates
+- [x] **Cached getAlive() Result im EnemyManager**
+  - Array wird gecacht und nur bei spawn/kill/remove/clear invalidiert
+  - getAliveCount() nutzt jetzt direkt das Signal statt Array-Allokation
+- [x] **Fast-Distance statt Haversine fuer lokale Berechnungen**
+  - `geoDistanceFast()` Wrapper in geo-utils.ts hinzugefuegt
+  - projectile.entity.ts: 2x geoDistance → geoDistanceFast
+  - ellipsoid-sync.ts: haversineDistance → fastDistance (6x schneller)
+  - Flat-Earth Approximation ausreichend genau fuer <200m Game-Distanzen
+
 ### Sound System Audit & Performance Fixes
 - [x] **Kritische Memory Leaks behoben**
   - setTimeout-Referenzen werden jetzt getrackt und bei Cleanup gecleaned

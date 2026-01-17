@@ -133,6 +133,9 @@ export class ThreeEffectsRenderer {
   private bloodMaterial: THREE.PointsMaterial;
   private fireMaterial: THREE.PointsMaterial;
 
+  // Reusable temp vector for particle updates (avoids GC pressure)
+  private readonly tempVelocity = new THREE.Vector3();
+
   constructor(scene: THREE.Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
@@ -1667,8 +1670,8 @@ export class ThreeEffectsRenderer {
       for (const particle of effect.particles) {
         if (particle.life <= 0) continue;
 
-        // Update position
-        particle.position.add(particle.velocity.clone().multiplyScalar(dt));
+        // Update position (reuse temp vector to avoid GC)
+        particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
 
         // Apply gravity (blood falls, fire rises)
         if (effect.type === 'blood') {
@@ -1790,8 +1793,8 @@ export class ThreeEffectsRenderer {
     for (const particle of this.trailPoolAdditive) {
       if (particle.life <= 0) continue;
 
-      // Update position
-      particle.position.add(particle.velocity.clone().multiplyScalar(dt));
+      // Update position (reuse temp vector to avoid GC)
+      particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
 
       // Decay life
       particle.life -= dt / particle.maxLife;
@@ -1801,8 +1804,8 @@ export class ThreeEffectsRenderer {
     for (const particle of this.trailPoolNormal) {
       if (particle.life <= 0) continue;
 
-      // Update position
-      particle.position.add(particle.velocity.clone().multiplyScalar(dt));
+      // Update position (reuse temp vector to avoid GC)
+      particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
 
       // Decay life
       particle.life -= dt / particle.maxLife;

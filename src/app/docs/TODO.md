@@ -1,5 +1,7 @@
 # Offene TODOs
 
+[ ] wenn alle gegner tot sind endet die Welle nicht mehr korrekt...erst ein klick auf den Button Kill All im den Wave Debug Panel beendet
+
 > Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
 ---
@@ -40,22 +42,9 @@
 
 ## Performance (aus Expert Review)
 
-- [ ] **Reusable Vectors in ThreeEffectsRenderer**
-      Datei: `three-effects.renderer.ts:1372, 1478, 1489` - `velocity.clone()` pro Partikel
-      Siehe: [EXPERT_REVIEW_2026.md#41-kritische-hotspots](EXPERT_REVIEW_2026.md#41-kritische-hotspots)
-
-- [ ] **Cached getAlive() Result** - Erstellt Array jeden Frame
-      Datei: `enemy.manager.ts:267-269`
-
-- [ ] **Fast-Distance statt Haversine** fuer lokale Berechnungen (<200m)
-      Math.sin/cos in jedem Frame vermeiden
-
 - [~] Tile-Loading optimiert (downloadQueue.maxJobs=4, parseQueue.maxJobs=1, groesserer lruCache)
       [~] Deutlich fluessiger
 
-- [ ] Viele Gegner sind erfreulicherweise kein Problem...nur beim Panning/Zooming wenn Tiles dazu kommen
-
----
 
 ---
 
