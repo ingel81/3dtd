@@ -245,13 +245,13 @@ export class EllipsoidSync {
 
     // Calculate East offset (X)
     // With ReorientationPlugin: -X = East, +X = West
-    const eastDist = this.haversineDistance(originLat, originLon, originLat, lon);
+    const eastDist = this.fastDistance(originLat, originLon, originLat, lon);
     const eastSign = lon > originLon ? -1 : 1; // Inverted: East is negative X
 
     // Calculate North offset (Z)
     // With ReorientationPlugin + tiles.group.rotation.x = -PI/2:
     // +Z = North, -Z = South
-    const northDist = this.haversineDistance(originLat, originLon, lat, originLon);
+    const northDist = this.fastDistance(originLat, originLon, lat, originLon);
     const northSign = lat > originLat ? 1 : -1;
 
     return new THREE.Vector3(
@@ -275,19 +275,16 @@ export class EllipsoidSync {
   }
 
   /**
-   * Haversine distance between two points in meters
+   * Fast distance between two points in meters
+   * Uses flat-earth approximation - accurate for <200m (game distances)
    */
-  private haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = (lat2 - lat1) * MathUtils.DEG2RAD;
-    const dLon = (lon2 - lon1) * MathUtils.DEG2RAD;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos(lat1 * MathUtils.DEG2RAD) *
-        Math.cos(lat2 * MathUtils.DEG2RAD) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
+  private fastDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
+    const METERS_PER_DEGREE_LAT = 111320;
+    const dLat = lat2 - lat1;
+    const dLon = lon2 - lon1;
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(lat1 * MathUtils.DEG2RAD);
+    const dx = dLon * metersPerDegreeLon;
+    const dy = dLat * METERS_PER_DEGREE_LAT;
+    return Math.sqrt(dx * dx + dy * dy);
   }
 }

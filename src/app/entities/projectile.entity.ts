@@ -13,7 +13,7 @@ import {
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
 import { Enemy } from './enemy.entity';
-import { geoDistance } from '../utils/geo-utils';
+import { geoDistanceFast } from '../utils/geo-utils';
 
 /**
  * Projectile entity - combines Transform, Combat, Movement, and Render components
@@ -85,8 +85,8 @@ export class Projectile extends GameObject {
     this._transform.setPosition(startPosition.lat, startPosition.lon, startHeight);
     this._movement.speedMps = this.typeConfig.speed;
 
-    // Calculate total distance to target for progress tracking
-    this._totalDistance = geoDistance(startPosition, targetEnemy.position);
+    // Calculate total distance to target for progress tracking (fast approx, <200m)
+    this._totalDistance = geoDistanceFast(startPosition, targetEnemy.position);
 
     // Calculate initial direction vector
     this._direction = this.calculateDirectionVector(startPosition, startHeight);
@@ -212,7 +212,7 @@ export class Projectile extends GameObject {
     const targetPos = this._targetLost
       ? this._lastTargetPosition!
       : this.targetEnemy.position;
-    const dist = geoDistance(this.position, targetPos);
+    const dist = geoDistanceFast(this.position, targetPos);
     const moveDistance = (this.movement.speedMps * deltaTime) / 1000;
 
     // Track traveled distance for progress calculation
