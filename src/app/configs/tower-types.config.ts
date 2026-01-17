@@ -154,16 +154,41 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'magic',
     name: 'Magic Tower',
     modelUrl: ARCHER_MODEL_URL, // TODO: Replace with tower_magic.glb when available
-    scale: 1.5,
-    heightOffset: 2.0,
-    shootHeight: 10, // Magic orb position
+    scale: 15.0,
+    previewScale: 14.0,
+    heightOffset: 7.0,
+    shootHeight: 1.0, // Magic orb position
+    rotationY: 0,
     damage: 40,
     range: 70,
-    fireRate: 1.5, // 1.5 shots/sec (faster)
+    fireRate: 1.5, // 1.5 shots/sec
     projectileType: 'fireball',
     cost: 150,
     sellValue: 90,
-    upgrades: [],
+    upgrades: [
+      {
+        id: 'damage',
+        name: 'Arkane Macht',
+        description: 'Erhöht den magischen Schaden um 50%',
+        cost: 80,
+        maxLevel: 3,
+        effect: {
+          stat: 'damage',
+          multiplier: 1.5,
+        },
+      },
+      {
+        id: 'range',
+        name: 'Erweiterte Aura',
+        description: 'Erhöht die Reichweite um 50%',
+        cost: 60,
+        maxLevel: 2,
+        effect: {
+          stat: 'range',
+          multiplier: 1.5,
+        },
+      },
+    ],
   },
   sniper: {
     id: 'sniper',
