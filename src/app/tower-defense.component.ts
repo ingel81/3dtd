@@ -652,9 +652,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   // Expose Math and tower config for template
   readonly Math = Math;
   readonly archerTowerConfig = TOWER_TYPES.archer;
-  // Filter out inactive tower types (magic, sniper)
+  // Filter out inactive tower types (sniper)
   readonly towerTypes = getAllTowerTypes().filter(
-    t => t.id !== 'magic' && t.id !== 'sniper'
+    t => t.id !== 'sniper'
   );
 
   private engine: ThreeTilesEngine | null = null;
