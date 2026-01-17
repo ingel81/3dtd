@@ -1000,6 +1000,9 @@ export class ThreeTilesEngine {
     // Commit projectile instance changes to GPU
     this.projectiles.commitToGPU();
 
+    // Update projectile shader uniforms (for animated shaders like magic orb)
+    this.projectiles.updateShaderUniforms(performance.now() / 1000);
+
     // Update particle effects
     this.effects.update(deltaTime);
 
