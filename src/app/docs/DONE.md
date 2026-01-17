@@ -39,6 +39,11 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
   - Fix behebt beide Bugs gleichzeitig
 
 ### Performance Optimierungen
+- [x] **Splash-Damage via Grid-Lookup optimiert**
+  - `GlobalRouteGrid.getEnemiesInRadius()` nutzt Zellen-basierte Suche
+  - O(cells_in_radius) statt O(all_enemies) mit Haversine-Distanz
+  - Betrifft: Cannon (16m), Ice-Shard (12m) Splash-Damage
+  - `EnemyManager.getEnemiesInRadius()` als @deprecated markiert
 - [x] **Reusable Vectors in ThreeEffectsRenderer**
   - `tempVelocity` als Klassenvariable statt `velocity.clone()` pro Partikel
   - 3 Hotspots in update() optimiert (Effect-Particles, Trail-Additive, Trail-Normal)

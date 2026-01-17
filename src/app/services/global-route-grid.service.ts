@@ -119,6 +119,33 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Get all alive enemies within a radius of a local position
+   * Optimized: O(cells_in_radius) instead of O(all_enemies)
+   *
+   * @param localX Center X position (local coordinates)
+   * @param localZ Center Z position (local coordinates)
+   * @param radiusMeters Radius in meters
+   * @param excludeId Optional enemy ID to exclude (e.g., the primary target)
+   * @returns Array of alive enemies within radius
+   */
+  getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string): Enemy[] {
+    return this.grid.getEnemiesInRadius(localX, localZ, radiusMeters, excludeId);
+  }
+
+  /**
+   * Get all alive enemies within a radius of a geo position
+   * Convenience method that converts geo to local coordinates
+   *
+   * @param center Center point (lat, lon)
+   * @param radiusMeters Radius in meters
+   * @param excludeId Optional enemy ID to exclude
+   * @returns Array of alive enemies within radius
+   */
+  getEnemiesInRadiusGeo(center: GeoPosition, radiusMeters: number, excludeId?: string): Enemy[] {
+    return this.grid.getEnemiesInRadiusGeo(center, radiusMeters, excludeId);
+  }
+
+  /**
    * Get grid statistics
    */
   getStats(): { totalCells: number; trackedEnemies: number; occupiedCells: number } {
