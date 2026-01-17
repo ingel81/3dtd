@@ -6,6 +6,14 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Code Quality & Architektur
+- [x] **Globaler Asset Manager** - 4 separate Model-Caches konsolidiert
+  - Neuer `AssetManagerService` mit zentralem GLTFLoader/FBXLoader
+  - Reference Counting fuer korrekte GPU-Resource Disposal (Memory Leak gefixt!)
+  - Betroffene: ThreeTowerRenderer, ThreeEnemyRenderer, ModelPreviewService, TowerPlacementService
+  - ~218 Zeilen duplizierter Code entfernt
+  - Siehe: [EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager](EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager)
+
 ### Bugfixes
 - [x] **Wave endet nicht wenn alle Gegner tot sind**
   - Root Cause: `kill()` dekrementierte `aliveCount` nur wenn `enemy.alive` true war

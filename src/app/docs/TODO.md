@@ -19,10 +19,6 @@
       Datei: `enemy.manager.ts:284-294` (getEnemiesInRadius)
       Siehe: [EXPERT_REVIEW_2026.md#43-loesung-spatial-partitioning](EXPERT_REVIEW_2026.md#43-loesung-spatial-partitioning)
 
-- [ ] **Globaler Asset Manager** - 3 separate Model-Caches konsolidieren
-      Betroffene: ThreeTowerRenderer, ThreeEnemyRenderer, ModelPreviewService
-      Siehe: [EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager](EXPERT_REVIEW_2026.md#62-empfehlung-globaler-asset-manager)
-
 ### Prioritaet 3: Langfristig
 - [ ] **TowerDefenseComponent aufteilen** (~2280 Zeilen)
       Vorschlag: StreetRenderingService, WaveOrchestrationService, LocationChangeService
