@@ -95,6 +95,12 @@
 - [ ] **timing.config.ts erstellen** - Animation/Game Timings
       Aktuell: Death-Animation (2000ms), LOS-Recheck (300ms), Spawn-Delays etc.
 
+- [ ] **Range-Upgrade System implementieren**
+      Ermoegliche Tower-Upgrades die Range erhoehen
+      - LOS-Zellen muessen bei Upgrade neu berechnet werden
+      - Visualisierung muss aktualisiert werden (Radius-Anzeige)
+      - Grundsystem bauen, konkreter Tower-Einsatz spaeter
+
 ---
 
 ## Bestehende TODOs
@@ -114,7 +120,6 @@
 ### Ideen
 - [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
 - [ ] Poison Tower
-- [ ] Magic Tower
 - [ ] Flame Tower
 
 ### Stashed Features
