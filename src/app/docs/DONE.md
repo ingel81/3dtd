@@ -6,6 +6,18 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Magic Tower
+- [x] **Magic Tower implementiert**
+  - Grundgerüst mit Stats: 40 DMG, 70 Range, 1.5 Feuerrate, 150 Credits
+  - Upgrade: "Arkane Macht" (+50% Schaden, 3 Stufen)
+  - Custom GLSL Shader für magische Projektile:
+    - Pulsierender Glow-Effekt (wirbelnde Voronoi + FBM Patterns)
+    - Farbverlauf: Violett → Cyan → Weiß
+    - Fresnel Edge-Glow, Additive Blending
+  - Trail-Partikel (violett-cyan, additive)
+  - Sound-Config vorbereitet (magic_cast.mp3)
+  - Verwendet Archer-Model als Placeholder
+
 ### LOS & Tower Placement
 - [x] **LOS Berechnung performanter machen**
   - Progressive LOS Preview: 25 Zellen pro Frame statt alle auf einmal
