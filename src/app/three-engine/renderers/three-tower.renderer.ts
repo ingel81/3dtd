@@ -902,36 +902,19 @@ export class ThreeTowerRenderer {
     const edgePoints = this.createTerrainEdgePointsRaycast(localCenter.x, localCenter.z, range);
 
     if (edgePoints.length > 0) {
-      // Gold inner edge (slightly inside the range)
-      const goldEdgePoints = this.createTerrainEdgePointsRaycast(localCenter.x, localCenter.z, range - 1.5);
-      if (goldEdgePoints.length > 0) {
-        const goldGeometry = new THREE.BufferGeometry().setFromPoints([...goldEdgePoints, goldEdgePoints[0]]);
-        const goldMaterial = new THREE.LineBasicMaterial({
-          color: 0xc9a44c,
-          linewidth: 2,
-          transparent: true,
-          opacity: 0.9,
-          depthTest: false,
-          depthWrite: false,
-        });
-        const goldLine = new THREE.Line(goldGeometry, goldMaterial);
-        goldLine.renderOrder = 2;
-        group.add(goldLine);
-      }
-
-      // White outer edge (at the range boundary)
-      const whiteGeometry = new THREE.BufferGeometry().setFromPoints([...edgePoints, edgePoints[0]]);
-      const whiteMaterial = new THREE.LineBasicMaterial({
-        color: 0xffffff,
-        linewidth: 3,
+      // Gold edge at the range boundary
+      const edgeGeometry = new THREE.BufferGeometry().setFromPoints([...edgePoints, edgePoints[0]]);
+      const edgeMaterial = new THREE.LineBasicMaterial({
+        color: 0xc9a44c, // TD gold
+        linewidth: 2,
         transparent: true,
-        opacity: 0.95,
+        opacity: 0.9,
         depthTest: false,
         depthWrite: false,
       });
-      const whiteLine = new THREE.Line(whiteGeometry, whiteMaterial);
-      whiteLine.renderOrder = 3;
-      group.add(whiteLine);
+      const edgeLine = new THREE.Line(edgeGeometry, edgeMaterial);
+      edgeLine.renderOrder = 2;
+      group.add(edgeLine);
     }
 
     return group;
