@@ -159,6 +159,7 @@ export class AssetManagerService {
 
   /**
    * Clone a cached model for instantiation
+   * Materials are deep-cloned to prevent shared state issues (e.g., preview tinting)
    * @param url Model URL (must be loaded first)
    * @param options Clone options (preserveSkeleton for animated models)
    */
@@ -170,11 +171,35 @@ export class AssetManagerService {
     }
 
     // Use SkeletonUtils.clone for animated models to preserve skeleton bindings
+    let clone: THREE.Object3D;
     if (options.preserveSkeleton) {
-      return SkeletonUtils.clone(cached.scene) as THREE.Object3D;
+      clone = SkeletonUtils.clone(cached.scene) as THREE.Object3D;
+    } else {
+      clone = cached.scene.clone();
     }
 
-    return cached.scene.clone();
+    // Deep-clone materials to prevent shared state issues
+    // (e.g., build preview tinting affecting placed towers)
+    this.cloneMaterials(clone);
+
+    return clone;
+  }
+
+  /**
+   * Deep-clone all materials in a model
+   * Prevents shared material state between instances
+   */
+  private cloneMaterials(object: THREE.Object3D): void {
+    object.traverse((node) => {
+      if ((node as THREE.Mesh).isMesh) {
+        const mesh = node as THREE.Mesh;
+        if (Array.isArray(mesh.material)) {
+          mesh.material = mesh.material.map((mat) => mat.clone());
+        } else if (mesh.material) {
+          mesh.material = mesh.material.clone();
+        }
+      }
+    });
   }
 
   /**
