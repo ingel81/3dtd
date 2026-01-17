@@ -101,8 +101,6 @@
 
 ### Bewerten
 - [ ] FPS LIMIT auf 60 sinnvoll?
-- [x] Keine LOS Berechnung wenn Tower nicht gebaut werden kann
-- [x] LOS Berechnung performanter machen (gedrosselt und stueckweise einblenden)
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
 
 ### Beobachten bis Testcase wieder da

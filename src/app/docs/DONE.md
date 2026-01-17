@@ -4,6 +4,37 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-17
+
+### LOS & Tower Placement
+- [x] **LOS Berechnung performanter machen**
+  - Progressive LOS Preview: 25 Zellen pro Frame statt alle auf einmal
+  - Radiiert vom Turm-Zentrum nach außen (visuell ansprechend)
+  - Debounced bei 150ms um FPS-Drops zu vermeiden
+- [x] **Keine LOS Berechnung bei ungültiger Position**
+  - LOS Preview wird nur berechnet wenn Turm-Position valid ist
+  - Bei "zu nah an Straße" etc. wird Preview übersprungen
+
+### UI Improvements
+- [x] **Tower Info Panel redesigned**
+  - Stats als 2x2 Kacheln mit Icons (Schaden, Reichweite, Feuerrate, Kills)
+  - Upgrade-Button größer und prominenter mit Gold-Gradient
+  - Verkaufen-Button subtiler (transparent, rot bei Hover)
+  - Baumenü versteckt wenn Tower selektiert (CSS display:none)
+- [x] **Range Indicator vereinfacht**
+  - Doppelter Ring (weiß + gold) durch einzelnen Gold-Ring ersetzt
+
+### Fixes
+- [x] **Game Over Cleanup**
+  - Tower-Overlays und LOS-Visualisierungen korrekt bei Game Over
+  - Particle Pool Exhaustion bei HQ Explosion gefixt (stopFireImmediate)
+- [x] **Game Restart nach Game Over**
+  - GlobalRouteGrid wird bei Restart neu initialisiert
+  - Debug-Visualisierung wird korrekt neu erstellt
+  - Enemies werden aus Grid entfernt bei clear()
+
+---
+
 ## 2026-01-16
 
 ### Dokumentation
