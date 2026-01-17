@@ -15,10 +15,6 @@
       Datei: `entity-pool.service.ts`
       Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](EXPERT_REVIEW_2026.md)
 
-- [ ] **Spatial Partitioning (Grid)** - Range-Checks sind O(n)
-      Datei: `enemy.manager.ts:284-294` (getEnemiesInRadius)
-      Siehe: [EXPERT_REVIEW_2026.md#43-loesung-spatial-partitioning](EXPERT_REVIEW_2026.md#43-loesung-spatial-partitioning)
-
 ### Prioritaet 3: Langfristig
 - [ ] **TowerDefenseComponent aufteilen** (~2280 Zeilen)
       Vorschlag: StreetRenderingService, WaveOrchestrationService, LocationChangeService

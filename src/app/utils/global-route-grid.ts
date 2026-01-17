@@ -466,6 +466,84 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Get all alive enemies within a radius of a local position
+   * Optimized: O(cells_in_radius) instead of O(all_enemies)
+   *
+   * @param localX Center X position (local coordinates)
+   * @param localZ Center Z position (local coordinates)
+   * @param radiusMeters Radius in meters
+   * @param excludeId Optional enemy ID to exclude (e.g., the primary target)
+   * @returns Array of alive enemies within radius
+   */
+  getEnemiesInRadius(
+    localX: number,
+    localZ: number,
+    radiusMeters: number,
+    excludeId?: string
+  ): Enemy[] {
+    if (!this.coordinateSync) return [];
+
+    const enemies: Enemy[] = [];
+    const radiusSq = radiusMeters * radiusMeters;
+
+    // Calculate cell range to check
+    const cellRadius = Math.ceil(radiusMeters / this.CELL_SIZE);
+    const centerCellX = Math.floor(localX / this.CELL_SIZE);
+    const centerCellZ = Math.floor(localZ / this.CELL_SIZE);
+
+    // Iterate only over cells within radius
+    for (let dx = -cellRadius; dx <= cellRadius; dx++) {
+      for (let dz = -cellRadius; dz <= cellRadius; dz++) {
+        const cellKey = `${centerCellX + dx}_${centerCellZ + dz}`;
+        const cell = this.cells.get(cellKey);
+        if (!cell) continue;
+
+        // Check each enemy in cell
+        for (const enemy of cell.enemies) {
+          if (!enemy.alive) continue;
+          if (excludeId && enemy.id === excludeId) continue;
+
+          // Convert enemy geo position to local for precise distance check
+          const enemyLocal = this.coordinateSync.geoToLocalSimple(
+            enemy.position.lat,
+            enemy.position.lon,
+            0
+          );
+          const distSq = (enemyLocal.x - localX) ** 2 + (enemyLocal.z - localZ) ** 2;
+          if (distSq <= radiusSq) {
+            enemies.push(enemy);
+          }
+        }
+      }
+    }
+
+    return enemies;
+  }
+
+  /**
+   * Get all alive enemies within a radius of a geo position
+   * Convenience method that converts geo to local coordinates
+   *
+   * @param center Center point (lat, lon)
+   * @param radiusMeters Radius in meters
+   * @param excludeId Optional enemy ID to exclude
+   * @returns Array of alive enemies within radius
+   */
+  getEnemiesInRadiusGeo(
+    center: GeoPosition,
+    radiusMeters: number,
+    excludeId?: string
+  ): Enemy[] {
+    if (!this.coordinateSync) {
+      console.warn('[GlobalRouteGrid] getEnemiesInRadiusGeo called before initialization');
+      return [];
+    }
+
+    const local = this.coordinateSync.geoToLocalSimple(center.lat, center.lon, center.height ?? 0);
+    return this.getEnemiesInRadius(local.x, local.z, radiusMeters, excludeId);
+  }
+
+  /**
    * Check if position is visible from tower (uses pre-computed LOS)
    * @param towerId Tower ID
    * @param localX Target X (local coordinates)

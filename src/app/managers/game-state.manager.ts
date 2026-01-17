@@ -383,8 +383,9 @@ export class GameStateManager {
     }
 
     // Apply splash damage to nearby enemies
+    // Uses grid-based lookup: O(cells_in_radius) instead of O(all_enemies)
     if (hasSplash) {
-      const nearbyEnemies = this.enemyManager.getEnemiesInRadius(
+      const nearbyEnemies = this.globalRouteGrid.getEnemiesInRadiusGeo(
         enemy.position,
         splashRadius,
         enemy.id // Exclude primary target

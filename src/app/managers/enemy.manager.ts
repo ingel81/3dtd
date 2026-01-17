@@ -324,6 +324,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * @param center - Center point (lat, lon)
    * @param radiusMeters - Radius in meters
    * @param excludeId - Optional enemy ID to exclude (e.g., the primary target)
+   * @deprecated Use GlobalRouteGridService.getEnemiesInRadiusGeo() instead for O(cells) performance
    */
   getEnemiesInRadius(
     center: { lat: number; lon: number },
