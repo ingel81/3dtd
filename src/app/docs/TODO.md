@@ -1,5 +1,7 @@
 # Offene TODOs
 
+[ ] cache der straßen wegen größe besser in indexdb statt localstorage wegen limits?
+
 > Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
 ---
