@@ -486,8 +486,8 @@ export class ThreeProjectileRenderer {
   updateShaderUniforms(time: number): void {
     // Update magic orb shader time uniform
     const magicMaterial = this.magicManager.instancedMesh.material as THREE.ShaderMaterial;
-    if (magicMaterial.uniforms?.uTime) {
-      magicMaterial.uniforms.uTime.value = time;
+    if (magicMaterial.uniforms?.['uTime']) {
+      magicMaterial.uniforms['uTime'].value = time;
     }
   }
 
