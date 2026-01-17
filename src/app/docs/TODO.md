@@ -57,20 +57,6 @@
 
 ---
 
-## Dokumentation (aus Expert Review)
-
-- [ ] **ARCHITECTURE.md Dateistruktur korrigieren**
-      `game/` Subfolder-Fehler (Zeilen 728-813)
-
-- [ ] **ENEMY_CREATION.md erstellen** - Analog zu TOWER_CREATION.md
-      Enemy-System ist nicht dokumentiert
-
-- [ ] **Status-Effekt-System dokumentieren**
-      Datei: `models/status-effects.ts`
-
-- [ ] **Wave-System dokumentieren**
-      WaveManager und Wave-Konfiguration
-
 ---
 
 ## Three.js & Rendering (aus Expert Review)
