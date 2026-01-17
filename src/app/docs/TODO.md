@@ -55,10 +55,6 @@
 
 - [ ] Viele Gegner sind erfreulicherweise kein Problem...nur beim Panning/Zooming wenn Tiles dazu kommen
 
-- [ ] Instanced Decal Rendering - Blood/Ice Decals auf InstancedMesh umstellen
-      - Aktuell: ~250 Draw Calls fuer separate Meshes
-      - Mit Instancing: 2 Draw Calls (1 Blood-Pool, 1 Ice-Pool)
-
 ---
 
 ## Dokumentation (aus Expert Review)
