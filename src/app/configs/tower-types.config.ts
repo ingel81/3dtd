@@ -177,17 +177,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
           multiplier: 1.5,
         },
       },
-      {
-        id: 'range',
-        name: 'Erweiterte Aura',
-        description: 'Erhöht die Reichweite um 50%',
-        cost: 60,
-        maxLevel: 2,
-        effect: {
-          stat: 'range',
-          multiplier: 1.5,
-        },
-      },
     ],
   },
   sniper: {
