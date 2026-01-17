@@ -139,10 +139,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (this.killingEnemies.has(enemy.id)) return;
     this.killingEnemies.add(enemy.id);
 
-    // Decrement alive count when enemy dies
-    if (enemy.alive) {
-      this.aliveCount.update(c => Math.max(0, c - 1));
-      this.cachedAliveEnemies = null; // Invalidate cache
+    // Decrement alive count (killingEnemies set prevents double-counting)
+    // Note: enemy.alive may already be false if killed via takeDamage() before kill() is called
+    this.aliveCount.update(c => Math.max(0, c - 1));
+    this.cachedAliveEnemies = null; // Invalidate cache
+
+    // Ensure enemy is marked dead if not already
+    if (!enemy.health.isDead) {
       enemy.health.takeDamage(enemy.health.hp);
     }
     enemy.stopMoving();
