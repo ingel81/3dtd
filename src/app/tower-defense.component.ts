@@ -1469,6 +1469,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Update tower placement rotation (R key held) - deltaTime is in ms, convert to seconds
     this.towerPlacement.updateRotation(deltaTime / 1000);
 
+    // Continue progressive LOS preview building (spreads work across frames)
+    this.towerPlacement.updatePreviewBuild();
+
     // Update keyboard panning - deltaTime is in ms, convert to seconds
     this.keyboardPan.update(deltaTime / 1000);
 

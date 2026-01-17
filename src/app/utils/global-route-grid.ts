@@ -754,17 +754,33 @@ export class GlobalRouteGrid {
     }
   }
 
+  // ========================================
+  // PROGRESSIVE PLACEMENT PREVIEW
+  // ========================================
+
+  /** State for progressive preview building */
+  private previewState: {
+    mesh: THREE.InstancedMesh;
+    cells: RouteCell[];
+    towerX: number;
+    towerZ: number;
+    tipY: number;
+    losRaycaster: LineOfSightRaycaster;
+    isBlockedArray: Float32Array;
+    currentIndex: number;
+    batchSize: number;
+  } | null = null;
+
   /**
-   * Create placement preview visualization (for build mode)
-   * Computes LOS on-the-fly WITHOUT storing in cells
-   * Use disposePlacementPreview() when done
+   * Start progressive placement preview (for build mode)
+   * Returns mesh immediately, call continuePreviewBuild() each frame to populate
    *
    * @param towerX Tower X position (local coordinates)
    * @param towerZ Tower Z position (local coordinates)
    * @param tipY Tower tip Y position (for LOS origin)
    * @param range Tower targeting range
    * @param losRaycaster LOS raycaster function
-   * @returns InstancedMesh visualization or null if no cells
+   * @returns InstancedMesh (empty initially) or null if no cells
    */
   createPlacementPreview(
     towerX: number,
@@ -773,40 +789,30 @@ export class GlobalRouteGrid {
     range: number,
     losRaycaster: LineOfSightRaycaster
   ): THREE.InstancedMesh | null {
-    const rangeSq = range * range;
-    const cellsInRange: { cell: RouteCell; isVisible: boolean }[] = [];
+    // Cancel any ongoing preview build
+    this.previewState = null;
 
-    // Compute LOS for all cells in range (without storing)
+    const rangeSq = range * range;
+    const cellsInRange: RouteCell[] = [];
+
+    // Collect cells in range (no LOS computation yet)
     for (const cell of this.cells.values()) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-      if (distSq > rangeSq) continue;
-
-      // Sample terrain height live
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
-      if (terrainY === null) continue;
-
-      // Calculate LOS
-      const dirX = cell.x - towerX;
-      const dirZ = cell.z - towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-      let isVisible: boolean;
-      if (dirLen < 0.1) {
-        isVisible = true;
-      } else {
-        const originX = towerX + (dirX / dirLen) * this.LOS_OFFSET;
-        const originZ = towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
-        const targetY = terrainY + 1.5;
-
-        const isBlocked = losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
-        isVisible = !isBlocked;
+      if (distSq <= rangeSq) {
+        cellsInRange.push(cell);
       }
-
-      cellsInRange.push({ cell, isVisible });
     }
 
     if (cellsInRange.length === 0) return null;
 
+    // Sort by distance from tower (radiates outward from center)
+    cellsInRange.sort((a, b) => {
+      const distA = (a.x - towerX) ** 2 + (a.z - towerZ) ** 2;
+      const distB = (b.x - towerX) ** 2 + (b.z - towerZ) ** 2;
+      return distA - distB;
+    });
+
+    // Create mesh with full capacity but count=0
     const cellSize = this.CELL_SIZE * 0.85;
     const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
 
@@ -828,29 +834,99 @@ export class GlobalRouteGrid {
     const mesh = new THREE.InstancedMesh(geometry, material, cellsInRange.length);
     mesh.frustumCulled = false;
     mesh.renderOrder = 3;
+    mesh.count = 0; // Start empty
 
+    // Pre-allocate attribute array
     const isBlockedArray = new Float32Array(cellsInRange.length);
-    const matrix = new THREE.Matrix4();
+    geometry.setAttribute('aIsBlocked', new THREE.InstancedBufferAttribute(isBlockedArray, 1));
+    (geometry.getAttribute('aIsBlocked') as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
 
-    for (let i = 0; i < cellsInRange.length; i++) {
-      const { cell, isVisible } = cellsInRange[i];
-      // Sample terrain live for accurate positioning
-      const y = (this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : cell.terrainHeight) ?? cell.terrainHeight;
-      matrix.setPosition(cell.x, y + 0.5, cell.z);
+    // Store state for progressive building
+    this.previewState = {
+      mesh,
+      cells: cellsInRange,
+      towerX,
+      towerZ,
+      tipY,
+      losRaycaster,
+      isBlockedArray,
+      currentIndex: 0,
+      batchSize: 25, // Process 25 cells per frame (~60fps = ~400 cells/sec)
+    };
+
+    return mesh;
+  }
+
+  /**
+   * Continue building the placement preview
+   * Call each frame until it returns true (complete)
+   * @returns true when preview is fully built
+   */
+  continuePreviewBuild(): boolean {
+    if (!this.previewState) return true;
+
+    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize } = this.previewState;
+    let { currentIndex } = this.previewState;
+
+    const matrix = new THREE.Matrix4();
+    const endIndex = Math.min(currentIndex + batchSize, cells.length);
+
+    for (let i = currentIndex; i < endIndex; i++) {
+      const cell = cells[i];
+
+      // Sample terrain height
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
+      if (terrainY === null) continue;
+
+      // Calculate LOS
+      const dirX = cell.x - towerX;
+      const dirZ = cell.z - towerZ;
+      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+      let isVisible: boolean;
+      if (dirLen < 0.1) {
+        isVisible = true;
+      } else {
+        const originX = towerX + (dirX / dirLen) * this.LOS_OFFSET;
+        const originZ = towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+        const targetY = terrainY + 1.5;
+        isVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+      }
+
+      // Set matrix and attribute
+      matrix.setPosition(cell.x, terrainY + 0.5, cell.z);
       mesh.setMatrixAt(i, matrix);
       isBlockedArray[i] = isVisible ? 0 : 1;
     }
 
-    geometry.setAttribute('aIsBlocked', new THREE.InstancedBufferAttribute(isBlockedArray, 1));
+    // Update mesh
+    mesh.count = endIndex;
     mesh.instanceMatrix.needsUpdate = true;
+    (mesh.geometry.getAttribute('aIsBlocked') as THREE.BufferAttribute).needsUpdate = true;
 
-    return mesh;
+    this.previewState.currentIndex = endIndex;
+
+    // Check if complete
+    if (endIndex >= cells.length) {
+      this.previewState = null;
+      return true;
+    }
+
+    return false;
+  }
+
+  /**
+   * Cancel ongoing preview build
+   */
+  cancelPreviewBuild(): void {
+    this.previewState = null;
   }
 
   /**
    * Dispose a placement preview mesh
    */
   disposePlacementPreview(mesh: THREE.InstancedMesh): void {
+    this.previewState = null;
     mesh.geometry.dispose();
     (mesh.material as THREE.ShaderMaterial).dispose();
   }

@@ -31,6 +31,11 @@ export interface HintItem {
   imports: [CommonModule],
   template: `
     <div class="context-hint-container" [class.has-warning]="warning()">
+      <!-- Warning message (above hints) -->
+      <div class="warning-row" [class.visible]="warning()">
+        <span class="warning-text">{{ warning() }}</span>
+      </div>
+
       <!-- Hints -->
       <div class="hints-row">
         @for (hint of hints(); track hint.key) {
@@ -40,13 +45,6 @@ export interface HintItem {
           </div>
         }
       </div>
-
-      <!-- Warning message -->
-      @if (warning()) {
-        <div class="warning-row">
-          <span class="warning-text">{{ warning() }}</span>
-        </div>
-      }
     </div>
   `,
   styles: [`
@@ -131,8 +129,21 @@ export interface HintItem {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding-top: 6px;
-      border-top: 1px solid var(--td-frame-dark);
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--td-frame-dark);
+      height: 0;
+      overflow: hidden;
+      opacity: 0;
+      padding-bottom: 0;
+      border-bottom: none;
+      transition: height 0.15s ease, opacity 0.15s ease, padding 0.15s ease;
+    }
+
+    .warning-row.visible {
+      height: auto;
+      opacity: 1;
+      padding-bottom: 6px;
+      border-bottom: 1px solid var(--td-frame-dark);
     }
 
     .warning-text {

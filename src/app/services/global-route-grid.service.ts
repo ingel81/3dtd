@@ -191,7 +191,7 @@ export class GlobalRouteGridService {
 
   /**
    * Create placement preview visualization (for build mode)
-   * Computes LOS on-the-fly WITHOUT storing in cells
+   * Returns mesh immediately, call continuePreviewBuild() each frame
    */
   createPlacementPreview(
     towerX: number,
@@ -201,6 +201,21 @@ export class GlobalRouteGridService {
     losRaycaster: LineOfSightRaycaster
   ): THREE.InstancedMesh | null {
     return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster);
+  }
+
+  /**
+   * Continue building preview (call each frame)
+   * @returns true when complete
+   */
+  continuePreviewBuild(): boolean {
+    return this.grid.continuePreviewBuild();
+  }
+
+  /**
+   * Cancel ongoing preview build
+   */
+  cancelPreviewBuild(): void {
+    this.grid.cancelPreviewBuild();
   }
 
   /**

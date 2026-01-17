@@ -54,6 +54,9 @@ export class TowerPlacementService {
   /** LOS preview mesh for placement */
   private losPreviewMesh: THREE.InstancedMesh | null = null;
 
+  /** Is LOS preview currently building progressively */
+  private losPreviewBuilding = false;
+
   /** Flag indicating model is being loaded */
   private modelLoading = false;
 
@@ -174,6 +177,12 @@ export class TowerPlacementService {
    * Clean up LOS preview mesh
    */
   private cleanupLosPreview(): void {
+    // Cancel any ongoing progressive build
+    if (this.losPreviewBuilding) {
+      this.globalRouteGrid.cancelPreviewBuild();
+      this.losPreviewBuilding = false;
+    }
+
     if (this.losPreviewMesh && this.engine) {
       this.engine.getScene().remove(this.losPreviewMesh);
       this.globalRouteGrid.disposePlacementPreview(this.losPreviewMesh);
@@ -376,8 +385,30 @@ export class TowerPlacementService {
       this.lastValidation = { lat, lon, valid: validation.valid };
     }
 
-    // Update LoS preview (throttled - shows after 200ms of no movement)
-    this.updateLoSPreviewDebounced(lat, lon, terrainHeight, typeId);
+    // Update LoS preview only for valid positions (skip calculation for invalid spots)
+    if (validation.valid) {
+      this.updateLoSPreviewDebounced(lat, lon, terrainHeight, typeId);
+    } else {
+      // Invalid position - cancel any ongoing preview and hide
+      this.cancelAndHideLosPreview();
+    }
+  }
+
+  /**
+   * Cancel and hide LOS preview (for invalid positions)
+   */
+  private cancelAndHideLosPreview(): void {
+    if (this.losDebounceTimer !== null) {
+      clearTimeout(this.losDebounceTimer);
+      this.losDebounceTimer = null;
+    }
+    if (this.losPreviewBuilding) {
+      this.globalRouteGrid.cancelPreviewBuild();
+      this.losPreviewBuilding = false;
+    }
+    if (this.losPreviewMesh) {
+      this.losPreviewMesh.visible = false;
+    }
   }
 
   /**
@@ -389,12 +420,16 @@ export class TowerPlacementService {
       clearTimeout(this.losDebounceTimer);
     }
 
-    // Hide preview immediately when moving
+    // Cancel ongoing preview build and hide when moving
+    if (this.losPreviewBuilding) {
+      this.globalRouteGrid.cancelPreviewBuild();
+      this.losPreviewBuilding = false;
+    }
     if (this.losPreviewMesh) {
       this.losPreviewMesh.visible = false;
     }
 
-    // Debounce: wait 150ms before showing preview at new position
+    // Debounce: wait 150ms before starting preview build at new position
     this.losDebounceTimer = window.setTimeout(() => {
       this.createLosPreview(lat, lon, height, typeId);
       this.losDebounceTimer = null;
@@ -402,7 +437,7 @@ export class TowerPlacementService {
   }
 
   /**
-   * Create LOS preview at position
+   * Create LOS preview at position (starts progressive build)
    */
   private createLosPreview(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
     if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
@@ -420,7 +455,7 @@ export class TowerPlacementService {
     // Clean up old preview
     this.cleanupLosPreview();
 
-    // Create new preview
+    // Start progressive preview build (mesh starts empty, fills progressively)
     this.losPreviewMesh = this.globalRouteGrid.createPlacementPreview(
       local.x,
       local.z,
@@ -431,6 +466,20 @@ export class TowerPlacementService {
 
     if (this.losPreviewMesh) {
       this.engine.getScene().add(this.losPreviewMesh);
+      this.losPreviewBuilding = true;
+    }
+  }
+
+  /**
+   * Update method - call each frame during build mode
+   * Continues progressive LOS preview building
+   */
+  updatePreviewBuild(): void {
+    if (this.losPreviewBuilding && this.losPreviewMesh) {
+      const complete = this.globalRouteGrid.continuePreviewBuild();
+      if (complete) {
+        this.losPreviewBuilding = false;
+      }
     }
   }
 
