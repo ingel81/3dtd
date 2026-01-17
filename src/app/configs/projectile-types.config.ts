@@ -87,6 +87,22 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 100,
     visualType: 'magic',
     scale: 0.4,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 1.0, // Every frame for dense magic trail
+      countPerSpawn: 3,
+      colorMin: { r: 0.4, g: 0.0, b: 0.8 }, // Deep purple
+      colorMax: { r: 0.0, g: 0.8, b: 1.0 }, // Cyan
+      sizeMin: 0.6,
+      sizeMax: 1.2,
+      lifetimeMin: 0.4,
+      lifetimeMax: 0.8,
+      velocityX: { min: -1.0, max: 1.0 },
+      velocityY: { min: -1.0, max: 1.0 },
+      velocityZ: { min: -1.0, max: 1.0 },
+      spawnOffset: 0.4,
+      blending: 'additive', // Glowing magic particles
+    },
   },
   'ice-shard': {
     id: 'ice-shard',
@@ -205,5 +221,11 @@ export const PROJECTILE_SOUNDS: Record<string, ProjectileSoundConfig> = {
     refDistance: 50,
     rolloffFactor: 1,
     volume: 0.4,
+  },
+  fireball: {
+    url: '/assets/sounds/magic_cast.mp3',
+    refDistance: 55,
+    rolloffFactor: 1.1,
+    volume: 0.45,
   },
 } as const;
