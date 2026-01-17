@@ -611,9 +611,9 @@ export class GameStateManager {
     }
 
     // HP below threshold: Permanent fire that scales with damage
-    // Stop existing fire to respawn with new intensity
+    // Stop existing fire IMMEDIATELY to free particles before spawning new one
     if (this.activeFireId) {
-      this.tilesEngine.effects.stopFire(this.activeFireId);
+      this.tilesEngine.effects.stopFireImmediate(this.activeFireId);
     }
 
     // Calculate fire scale: at threshold = small (0), at 1% HP = maximum (≈1)
@@ -636,8 +636,17 @@ export class GameStateManager {
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
 
+    // Cleanup all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
+    this.clearAllTowerOverlays();
+
     // Show HQ explosion and inferno fire at base
     if (this.basePosition && this.tilesEngine) {
+      // Stop existing fire IMMEDIATELY to free particles for HQ explosion
+      if (this.activeFireId) {
+        this.tilesEngine.effects.stopFireImmediate(this.activeFireId);
+        this.activeFireId = null;
+      }
+
       // Use cached terrain height (set when tiles loaded), fallback to live calculation
       let localY = this.hqTerrainHeight;
       if (localY === null) {
@@ -776,6 +785,29 @@ export class GameStateManager {
    * Deselect all towers
    */
   deselectAll(): void {
+    this.towerManager.selectTower(null);
+  }
+
+  /**
+   * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
+   * Called on game over to cleanup visual artifacts
+   */
+  private clearAllTowerOverlays(): void {
+    for (const tower of this.towerManager.getAll()) {
+      // Dispose LOS visualization
+      if (tower.losVisualization && this.tilesEngine) {
+        this.tilesEngine.getScene().remove(tower.losVisualization);
+        tower.losVisualization.geometry.dispose();
+        (tower.losVisualization.material as THREE.Material).dispose();
+        tower.losVisualization = null;
+      }
+
+      // Unregister from GlobalRouteGrid
+      this.globalRouteGrid.unregisterTower(tower.id);
+      tower.visibleCells = [];
+    }
+
+    // Also deselect any selected tower
     this.towerManager.selectTower(null);
   }
 
