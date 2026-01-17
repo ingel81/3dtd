@@ -18,6 +18,13 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
   - Sound-Config vorbereitet (magic_cast.mp3)
   - Verwendet Archer-Model als Placeholder
 
+### Performance
+- [x] **Instanced Decal Rendering**
+  - Blood/Ice Decals auf InstancedMesh umgestellt
+  - Custom Shader für Decals (fade-out, color tinting)
+  - ~250 Draw Calls → 2 Draw Calls (1 Blood-Pool, 1 Ice-Pool)
+  - Decal-Farben und Settings in visual-effects.config.ts ausgelagert
+
 ### LOS & Tower Placement
 - [x] **LOS Berechnung performanter machen**
   - Progressive LOS Preview: 25 Zellen pro Frame statt alle auf einmal
