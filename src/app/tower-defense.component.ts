@@ -1460,6 +1460,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Update HQ terrain height and debug points in game state
     this.gameState.onTilesLoaded();
+
+    // Initialize spatial grid visualization if persisted state was enabled
+    // Must be done after tiles loaded so terrain heights are correct
+    this.initSpatialGridVisualizationIfEnabled();
   }
 
   /**
@@ -1842,14 +1846,33 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   onSpatialGridDebugToggled(): void {
     this.uiState.toggleSpatialGridDebug();
+    this.updateSpatialGridVisualization();
+  }
+
+  /**
+   * Initialize spatial grid visualization if persisted state was enabled
+   * Called after grid is initialized to restore persisted visibility
+   */
+  private initSpatialGridVisualizationIfEnabled(): void {
+    if (this.uiState.spatialGridDebugVisible()) {
+      this.updateSpatialGridVisualization();
+    }
+  }
+
+  /**
+   * Update spatial grid visualization based on current state
+   */
+  private updateSpatialGridVisualization(): void {
     const visible = this.uiState.spatialGridDebugVisible();
     const grid = this.gameState.getGlobalRouteGrid();
+    // Use engine from service if component's engine reference not yet set
+    const engine = this.engine || this.engineInit.getEngine();
 
     if (visible) {
       // Create and add visualization mesh to scene
-      if (!this.spatialGridVizMesh && this.engine && grid.isInitialized()) {
+      if (!this.spatialGridVizMesh && engine && grid.isInitialized()) {
         this.spatialGridVizMesh = grid.createVisualization();
-        this.engine.getScene().add(this.spatialGridVizMesh);
+        engine.getScene().add(this.spatialGridVizMesh);
       }
       if (this.spatialGridVizMesh) {
         this.spatialGridVizMesh.visible = true;
@@ -2034,8 +2057,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Re-initialize GlobalRouteGrid (was cleared in reset)
     this.gameState.initializeGlobalRouteGrid();
-
-    // Debug visualization will be recreated on-demand when toggled
   }
 
 
