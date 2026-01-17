@@ -4,8 +4,8 @@ import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
 import { MatIconModule } from '@angular/material/icon';
-import { MatRadioModule } from '@angular/material/radio';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
+import { MatTooltipModule } from '@angular/material/tooltip';
 import { AddressAutocompleteComponent } from '../address-autocomplete.component';
 import { GeocodingService, NominatimAddress } from '../../services/geocoding.service';
 import {
@@ -15,8 +15,10 @@ import {
   SpawnLocationConfig,
 } from '../../models/location.types';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { haversineDistance } from '../../utils/geo-utils';
 
 type SpawnMode = 'random' | 'manual';
+type EditMode = 'full' | 'spawn-only';
 
 @Component({
   selector: 'app-td-location-dialog',
@@ -27,8 +29,8 @@ type SpawnMode = 'random' | 'manual';
     MatDialogModule,
     MatButtonModule,
     MatIconModule,
-    MatRadioModule,
     MatProgressSpinnerModule,
+    MatTooltipModule,
     AddressAutocompleteComponent,
   ],
   template: `
@@ -39,128 +41,196 @@ type SpawnMode = 'random' | 'manual';
         <h2>Spielort ändern</h2>
       </div>
 
+      <!-- Mode Tabs -->
+      <div class="mode-tabs">
+        <button
+          class="mode-tab"
+          [class.active]="editMode() === 'full'"
+          (click)="setEditMode('full')"
+        >
+          <mat-icon>swap_horiz</mat-icon>
+          <span>Neuer Ort</span>
+        </button>
+        <button
+          class="mode-tab"
+          [class.active]="editMode() === 'spawn-only'"
+          (click)="setEditMode('spawn-only')"
+          [disabled]="!data.currentLocation"
+        >
+          <mat-icon>flag</mat-icon>
+          <span>Nur Spawn</span>
+        </button>
+      </div>
+
       <!-- Content -->
       <div class="dialog-content">
-        <!-- Current location info -->
-        @if (data.currentLocation) {
-          <div class="current-location">
-            <span class="label">Aktueller Ort</span>
-            <div class="location-display">
-              <mat-icon>place</mat-icon>
-              <span>{{ data.currentLocation.name }}</span>
-            </div>
-          </div>
-        }
-
-        <!-- Warning box -->
-        @if (data.isGameInProgress) {
+        <!-- Warning box (only for full mode with game in progress) -->
+        @if (data.isGameInProgress && editMode() === 'full') {
           <div class="warning-box">
             <mat-icon>warning</mat-icon>
             <div class="warning-text">
-              <strong>Achtung!</strong>
-              <p>Das aktuelle Spiel wird beendet. Alle Türme werden ohne Rückerstattung gelöscht.</p>
+              <strong>Achtung!</strong> Das aktuelle Spiel wird beendet.
             </div>
           </div>
         }
 
-        <!-- New HQ Location -->
-        <div class="section">
-          <span class="section-label">Neuer Ort (HQ)</span>
-          <app-td-address-autocomplete
-            [placeholder]="'Adresse oder Ort suchen...'"
-            [currentValue]="selectedHQ()"
-            (locationSelected)="onHQSelected($event)"
-            (locationCleared)="onHQCleared()"
-          />
-        </div>
-
-        <!-- Expandable coordinates section -->
-        <div class="section expandable">
-          <button class="expand-header" (click)="toggleCoordinates()">
-            <mat-icon>{{ showCoordinates() ? 'expand_less' : 'expand_more' }}</mat-icon>
-            <span>Erweitert: Koordinaten</span>
-          </button>
-          @if (showCoordinates()) {
-            <div class="coords-input">
-              <div class="coord-field">
-                <label for="coord-lat">Lat</label>
-                <input
-                  id="coord-lat"
-                  type="text"
-                  [value]="coordLat()"
-                  (input)="onCoordLatChange($event)"
-                  (paste)="onCoordPaste($event)"
-                  placeholder="z.B. 49.5432"
-                />
-              </div>
-              <div class="coord-field">
-                <label for="coord-lon">Lon</label>
-                <input
-                  id="coord-lon"
-                  type="text"
-                  [value]="coordLon()"
-                  (input)="onCoordLonChange($event)"
-                  (paste)="onCoordPaste($event)"
-                  placeholder="z.B. 9.1234"
-                />
-              </div>
-              <button
-                class="apply-coords-btn"
-                [disabled]="!canApplyCoords()"
-                (click)="applyCoordinates()"
-              >
-                @if (isLoadingCoords()) {
-                  <mat-spinner diameter="14"></mat-spinner>
-                } @else {
-                  <mat-icon>check</mat-icon>
-                }
-              </button>
+        <!-- FULL MODE: New HQ + Spawn -->
+        @if (editMode() === 'full') {
+          <!-- HQ Section -->
+          <div class="section hq-section">
+            <div class="section-header">
+              <mat-icon>home</mat-icon>
+              <span class="section-title">Hauptquartier (HQ)</span>
             </div>
-          }
-        </div>
-
-        <!-- Spawn Point Section -->
-        <div class="section">
-          <span class="section-label">Spawn-Punkt (Gegner-Start)</span>
-          <div class="spawn-options">
-            <label class="radio-option" [class.selected]="spawnMode() === 'random'">
-              <input
-                type="radio"
-                name="spawnMode"
-                value="random"
-                [checked]="spawnMode() === 'random'"
-                (change)="setSpawnMode('random')"
+            <div class="section-body">
+              <app-td-address-autocomplete
+                [placeholder]="'Stadt, Straße oder Adresse...'"
+                [currentValue]="selectedHQ()"
+                (locationSelected)="onHQSelected($event)"
+                (locationCleared)="onHQCleared()"
               />
-              <div class="radio-content">
-                <span class="radio-label">Zufällig generieren</span>
-                <span class="radio-desc">500m-1km vom HQ, auf einer Straße</span>
-              </div>
-            </label>
-            <label class="radio-option" [class.selected]="spawnMode() === 'manual'">
-              <input
-                type="radio"
-                name="spawnMode"
-                value="manual"
-                [checked]="spawnMode() === 'manual'"
-                (change)="setSpawnMode('manual')"
-              />
-              <div class="radio-content">
-                <span class="radio-label">Manuell festlegen</span>
-              </div>
-            </label>
+              <!-- Coordinates toggle -->
+              <button class="coords-toggle" (click)="toggleCoordinates()">
+                <mat-icon>{{ showCoordinates() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                <span>Koordinaten eingeben</span>
+              </button>
+              @if (showCoordinates()) {
+                <div class="coords-input">
+                  <div class="coord-field">
+                    <label for="coord-lat">Lat</label>
+                    <input
+                      id="coord-lat"
+                      type="text"
+                      [value]="coordLat()"
+                      (input)="onCoordLatChange($event)"
+                      (paste)="onCoordPaste($event)"
+                      placeholder="49.5432"
+                    />
+                  </div>
+                  <div class="coord-field">
+                    <label for="coord-lon">Lon</label>
+                    <input
+                      id="coord-lon"
+                      type="text"
+                      [value]="coordLon()"
+                      (input)="onCoordLonChange($event)"
+                      (paste)="onCoordPaste($event)"
+                      placeholder="9.1234"
+                    />
+                  </div>
+                  <button
+                    class="apply-coords-btn"
+                    [disabled]="!canApplyCoords()"
+                    (click)="applyCoordinates()"
+                    matTooltip="Koordinaten übernehmen"
+                  >
+                    @if (isLoadingCoords()) {
+                      <mat-spinner diameter="14"></mat-spinner>
+                    } @else {
+                      <mat-icon>check</mat-icon>
+                    }
+                  </button>
+                </div>
+              }
+            </div>
           </div>
 
-          @if (spawnMode() === 'manual') {
-            <div class="manual-spawn-input">
+          <!-- Spawn Section (full mode) -->
+          <div class="section spawn-section">
+            <div class="section-header">
+              <mat-icon>flag</mat-icon>
+              <span class="section-title">Spawn-Punkt</span>
+              <span class="section-hint">Gegner erscheinen hier</span>
+            </div>
+            <div class="section-body">
+              <div class="spawn-mode-toggle">
+                <button
+                  class="spawn-mode-btn"
+                  [class.active]="spawnMode() === 'random'"
+                  (click)="setSpawnMode('random')"
+                >
+                  <mat-icon>casino</mat-icon>
+                  <span>Zufällig</span>
+                </button>
+                <button
+                  class="spawn-mode-btn"
+                  [class.active]="spawnMode() === 'manual'"
+                  (click)="setSpawnMode('manual')"
+                >
+                  <mat-icon>edit_location_alt</mat-icon>
+                  <span>Manuell</span>
+                </button>
+              </div>
+              @if (spawnMode() === 'random') {
+                <div class="spawn-info">
+                  <mat-icon>info_outline</mat-icon>
+                  <span>Automatisch 500m-1km vom HQ auf einer Straße</span>
+                </div>
+              } @else {
+                <div class="manual-spawn-input">
+                  <app-td-address-autocomplete
+                    [placeholder]="'Spawn-Adresse suchen...'"
+                    [currentValue]="selectedSpawn()"
+                    (locationSelected)="onSpawnSelected($event)"
+                    (locationCleared)="onSpawnCleared()"
+                  />
+                  @if (spawnDistance() !== null) {
+                    <div class="distance-badge" [class.error]="isSpawnTooFar()">
+                      <mat-icon>{{ isSpawnTooFar() ? 'error' : 'straighten' }}</mat-icon>
+                      <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km</span>
+                      @if (isSpawnTooFar()) {
+                        <span class="limit">(max 1.5 km)</span>
+                      }
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- SPAWN-ONLY MODE -->
+        @if (editMode() === 'spawn-only') {
+          <!-- Current HQ (readonly) -->
+          @if (data.currentLocation) {
+            <div class="current-hq-info">
+              <mat-icon>home</mat-icon>
+              <div class="hq-details">
+                <span class="hq-label">HQ bleibt</span>
+                <span class="hq-name">{{ data.currentLocation.name }}</span>
+              </div>
+            </div>
+          }
+
+          <!-- Spawn Section (spawn-only mode) -->
+          <div class="section spawn-section">
+            <div class="section-header">
+              <mat-icon>flag</mat-icon>
+              <span class="section-title">Neuer Spawn-Punkt</span>
+            </div>
+            <div class="section-body">
               <app-td-address-autocomplete
-                [placeholder]="'Spawn-Punkt suchen...'"
+                [placeholder]="'Neuen Spawn-Punkt suchen...'"
                 [currentValue]="selectedSpawn()"
                 (locationSelected)="onSpawnSelected($event)"
                 (locationCleared)="onSpawnCleared()"
               />
+              @if (spawnDistance() !== null) {
+                <div class="distance-badge" [class.error]="isSpawnTooFar()">
+                  <mat-icon>{{ isSpawnTooFar() ? 'error' : 'straighten' }}</mat-icon>
+                  <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km vom HQ</span>
+                  @if (isSpawnTooFar()) {
+                    <span class="limit">(max 1.5 km)</span>
+                  }
+                </div>
+              }
+              <div class="spawn-info">
+                <mat-icon>info_outline</mat-icon>
+                <span>Spawn muss max. 1.5 km vom HQ entfernt sein</span>
+              </div>
             </div>
-          }
-        </div>
+          </div>
+        }
       </div>
 
       <!-- Actions -->
@@ -168,7 +238,7 @@ type SpawnMode = 'random' | 'manual';
         <button class="cancel-btn" (click)="cancel()">Abbrechen</button>
         <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
           <mat-icon>check</mat-icon>
-          Ort wechseln
+          {{ editMode() === 'spawn-only' ? 'Spawn ändern' : 'Ort wechseln' }}
         </button>
       </div>
     </div>
@@ -179,7 +249,7 @@ type SpawnMode = 'random' | 'manual';
     }
 
     .location-dialog {
-      width: 400px;
+      width: 420px;
       max-width: 90vw;
       background: var(--td-bg-dark);
       border-top: 1px solid var(--td-frame-light);
@@ -196,8 +266,7 @@ type SpawnMode = 'random' | 'manual';
       gap: 10px;
       padding: 12px 16px;
       background: var(--td-panel-main);
-      border-bottom: 2px solid var(--td-frame-dark);
-      border-top: 1px solid var(--td-frame-light);
+      border-bottom: 1px solid var(--td-frame-dark);
     }
 
     .header-icon {
@@ -214,85 +283,139 @@ type SpawnMode = 'random' | 'manual';
       color: var(--td-gold);
     }
 
+    /* Mode Tabs */
+    .mode-tabs {
+      display: flex;
+      background: var(--td-panel-shadow);
+      border-bottom: 2px solid var(--td-frame-dark);
+    }
+
+    .mode-tab {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 10px 16px;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      margin-bottom: -2px;
+      color: var(--td-text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      font-weight: 500;
+      cursor: pointer;
+      transition: all 0.15s ease;
+    }
+
+    .mode-tab:hover:not(:disabled) {
+      color: var(--td-text-secondary);
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .mode-tab.active {
+      color: var(--td-gold);
+      border-bottom-color: var(--td-gold);
+      background: rgba(201, 164, 76, 0.05);
+    }
+
+    .mode-tab:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+    }
+
+    .mode-tab mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
+    }
+
     .dialog-content {
       padding: 16px;
       display: flex;
       flex-direction: column;
-      gap: 14px;
+      gap: 16px;
     }
 
-    .current-location {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-    }
-
-    .label,
-    .section-label {
-      font-size: 10px;
-      color: var(--td-text-muted);
-      text-transform: uppercase;
-      letter-spacing: 0.5px;
-    }
-
-    .location-display {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 12px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-dark);
-      border-left-color: var(--td-frame-dark);
-      font-size: 11px;
-    }
-
-    .location-display mat-icon {
-      color: var(--td-teal);
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
-
+    /* Warning Box */
     .warning-box {
       display: flex;
+      align-items: center;
       gap: 10px;
       padding: 10px 12px;
       background: var(--td-health-bg);
       border: 1px solid var(--td-warn-orange);
-      border-top-color: rgba(201, 106, 58, 0.6);
       border-bottom-width: 2px;
     }
 
     .warning-box mat-icon {
       color: var(--td-warn-orange);
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
       flex-shrink: 0;
     }
 
     .warning-text {
-      font-size: 11px;
-      line-height: 1.4;
+      font-size: 10px;
+      color: var(--td-text-secondary);
     }
 
     .warning-text strong {
       color: var(--td-warn-orange);
     }
 
-    .warning-text p {
-      margin: 4px 0 0;
-      color: var(--td-text-secondary);
+    /* Sections */
+    .section {
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-mid);
+      border-top-color: var(--td-frame-dark);
+      border-left-color: var(--td-frame-dark);
     }
 
-    .section {
+    .section-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 10px 12px;
+      background: var(--td-panel-main);
+      border-bottom: 1px solid var(--td-frame-dark);
+    }
+
+    .section-header mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      color: var(--td-teal);
+    }
+
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--td-text-primary);
+    }
+
+    .section-hint {
+      margin-left: auto;
+      font-size: 9px;
+      color: var(--td-text-muted);
+    }
+
+    .section-body {
+      padding: 12px;
       display: flex;
       flex-direction: column;
-      gap: 8px;
+      gap: 10px;
     }
 
-    .expandable .expand-header {
+    /* HQ Section specific */
+    .hq-section .section-header mat-icon {
+      color: var(--td-gold);
+    }
+
+    /* Coordinates toggle & input */
+    .coords-toggle {
       display: flex;
       align-items: center;
       gap: 4px;
@@ -306,11 +429,11 @@ type SpawnMode = 'random' | 'manual';
       transition: color 0.15s ease;
     }
 
-    .expand-header:hover {
+    .coords-toggle:hover {
       color: var(--td-text-secondary);
     }
 
-    .expand-header mat-icon {
+    .coords-toggle mat-icon {
       font-size: 14px;
       width: 14px;
       height: 14px;
@@ -319,7 +442,7 @@ type SpawnMode = 'random' | 'manual';
     .coords-input {
       display: flex;
       gap: 8px;
-      padding: 8px;
+      padding: 10px;
       background: var(--td-panel-shadow);
       border: 1px solid var(--td-frame-dark);
     }
@@ -370,12 +493,6 @@ type SpawnMode = 'random' | 'manual';
 
     .apply-coords-btn:hover:not(:disabled) {
       background: #D4B05A;
-      transform: translateY(-1px);
-    }
-
-    .apply-coords-btn:active:not(:disabled) {
-      background: var(--td-gold-dark);
-      transform: translateY(1px);
     }
 
     .apply-coords-btn:disabled {
@@ -391,69 +508,150 @@ type SpawnMode = 'random' | 'manual';
       height: 14px;
     }
 
-    .spawn-options {
+    /* Spawn Mode Toggle */
+    .spawn-mode-toggle {
       display: flex;
-      flex-direction: column;
       gap: 6px;
     }
 
-    .radio-option {
+    .spawn-mode-btn {
+      flex: 1;
       display: flex;
-      align-items: flex-start;
-      gap: 8px;
-      padding: 10px 12px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-dark);
-      border-left-color: var(--td-frame-dark);
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 8px 12px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
+      color: var(--td-text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
-    .radio-option:hover {
-      border-color: var(--td-frame-light);
-      background: var(--td-panel-main);
+    .spawn-mode-btn:hover {
+      border-color: var(--td-frame-mid);
+      color: var(--td-text-secondary);
     }
 
-    .radio-option.selected {
-      border-color: var(--td-gold);
+    .spawn-mode-btn.active {
       background: rgba(201, 164, 76, 0.1);
-      box-shadow: inset 0 0 8px rgba(201, 164, 76, 0.15);
+      border-color: var(--td-gold);
+      color: var(--td-gold);
     }
 
-    .radio-option input[type='radio'] {
-      margin-top: 2px;
-      accent-color: var(--td-gold);
+    .spawn-mode-btn mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
     }
 
-    .radio-content {
+    /* Spawn Info */
+    .spawn-info {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
+      font-size: 9px;
+      color: var(--td-text-muted);
+    }
+
+    .spawn-info mat-icon {
+      font-size: 12px;
+      width: 12px;
+      height: 12px;
+      color: var(--td-teal);
+      opacity: 0.7;
+    }
+
+    /* Manual Spawn Input */
+    .manual-spawn-input {
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    /* Distance Badge */
+    .distance-badge {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 10px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-mid);
+      font-size: 10px;
+      color: var(--td-text-secondary);
+    }
+
+    .distance-badge mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      color: var(--td-teal);
+    }
+
+    .distance-badge.error {
+      border-color: var(--td-health-red);
+      background: var(--td-health-bg);
+    }
+
+    .distance-badge.error mat-icon {
+      color: var(--td-health-red);
+    }
+
+    .distance-badge .limit {
+      color: var(--td-health-red);
+      font-weight: 500;
+    }
+
+    /* Current HQ Info (spawn-only mode) */
+    .current-hq-info {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 12px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-mid);
+      border-left: 3px solid var(--td-gold);
+    }
+
+    .current-hq-info mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+      color: var(--td-gold);
+    }
+
+    .hq-details {
       display: flex;
       flex-direction: column;
       gap: 2px;
     }
 
-    .radio-label {
+    .hq-label {
+      font-size: 9px;
+      color: var(--td-text-muted);
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .hq-name {
       font-size: 11px;
       font-weight: 500;
       color: var(--td-text-primary);
     }
 
-    .radio-desc {
-      font-size: 9px;
-      color: var(--td-text-muted);
-    }
-
-    .manual-spawn-input {
-      margin-top: 8px;
-    }
-
+    /* Dialog Actions */
     .dialog-actions {
       display: flex;
       justify-content: flex-end;
       gap: 10px;
       padding: 12px 16px;
       background: var(--td-panel-main);
-      border-top: 1px solid var(--td-frame-light);
+      border-top: 1px solid var(--td-frame-mid);
     }
 
     .cancel-btn,
@@ -492,12 +690,6 @@ type SpawnMode = 'random' | 'manual';
 
     .confirm-btn:hover:not(:disabled) {
       background: #D4B05A;
-      transform: translateY(-1px);
-    }
-
-    .confirm-btn:active:not(:disabled) {
-      background: var(--td-gold-dark);
-      transform: translateY(1px);
     }
 
     .confirm-btn:disabled {
@@ -520,6 +712,7 @@ export class LocationDialogComponent {
   readonly data: LocationDialogData = inject(MAT_DIALOG_DATA);
 
   // State
+  readonly editMode = signal<EditMode>('full');
   readonly selectedHQ = signal<{ lat: number; lon: number; name?: string; address?: NominatimAddress } | null>(null);
   readonly selectedSpawn = signal<{ lat: number; lon: number; name?: string } | null>(null);
   readonly spawnMode = signal<SpawnMode>('random');
@@ -544,11 +737,52 @@ export class LocationDialogComponent {
     );
   });
 
+  // Spawn distance from HQ
+  readonly spawnDistance = computed(() => {
+    const spawn = this.selectedSpawn();
+    if (!spawn) return null;
+
+    let hqLat: number, hqLon: number;
+    if (this.editMode() === 'spawn-only' && this.data.currentLocation) {
+      hqLat = this.data.currentLocation.lat;
+      hqLon = this.data.currentLocation.lon;
+    } else if (this.selectedHQ()) {
+      hqLat = this.selectedHQ()!.lat;
+      hqLon = this.selectedHQ()!.lon;
+    } else {
+      return null;
+    }
+
+    return haversineDistance(hqLat, hqLon, spawn.lat, spawn.lon);
+  });
+
+  readonly isSpawnTooFar = computed(() => {
+    const dist = this.spawnDistance();
+    return dist !== null && dist > 1500;
+  });
+
   readonly canConfirm = computed(() => {
+    // Check spawn distance
+    if (this.spawnMode() === 'manual' && this.isSpawnTooFar()) {
+      return false;
+    }
+
+    if (this.editMode() === 'spawn-only') {
+      return this.data.currentLocation !== null &&
+             (this.spawnMode() === 'random' || this.selectedSpawn() !== null);
+    }
     const hasHQ = this.selectedHQ() !== null;
     const hasSpawn = this.spawnMode() === 'random' || this.selectedSpawn() !== null;
     return hasHQ && hasSpawn;
   });
+
+  setEditMode(mode: EditMode): void {
+    this.editMode.set(mode);
+    if (mode === 'spawn-only') {
+      // In spawn-only mode, default to manual spawn selection
+      this.spawnMode.set('manual');
+    }
+  }
 
   toggleCoordinates(): void {
     this.showCoordinates.update((v) => !v);
@@ -714,29 +948,43 @@ export class LocationDialogComponent {
   }
 
   confirm(): void {
-    const hq = this.selectedHQ();
-    if (!hq) return;
+    let hqInfo: LocationInfo;
 
-    // Use structured address for name extraction, fall back to displayName
-    const extractedName = hq.address
-      ? this.geocodingService.extractLocationName(hq.address)
-      : 'Unbekannter Ort';
+    if (this.editMode() === 'spawn-only') {
+      // Use current HQ
+      const current = this.data.currentLocation;
+      if (!current) return;
 
-    const hqInfo: LocationInfo = {
-      lat: hq.lat,
-      lon: hq.lon,
-      name: extractedName !== 'Unbekannter Ort' ? extractedName : (hq.name || `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`),
-      displayName: hq.name || '',
-      address: hq.address,
-    };
+      hqInfo = {
+        lat: current.lat,
+        lon: current.lon,
+        name: current.name || `${current.lat.toFixed(4)}, ${current.lon.toFixed(4)}`,
+        displayName: current.name || `${current.lat.toFixed(4)}, ${current.lon.toFixed(4)}`,
+      };
+    } else {
+      // Use selected HQ
+      const hq = this.selectedHQ();
+      if (!hq) return;
+
+      const extractedName = hq.address
+        ? this.geocodingService.extractLocationName(hq.address)
+        : 'Unbekannter Ort';
+
+      hqInfo = {
+        lat: hq.lat,
+        lon: hq.lon,
+        name: extractedName !== 'Unbekannter Ort' ? extractedName : (hq.name || `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`),
+        displayName: hq.name || '',
+        address: hq.address,
+      };
+    }
 
     let spawnConfig: SpawnLocationConfig;
 
     if (this.spawnMode() === 'random') {
-      // Random spawn will be generated by the caller
       spawnConfig = {
         id: 'spawn_random',
-        lat: 0, // Will be set by caller
+        lat: 0,
         lon: 0,
         isRandom: true,
       };
