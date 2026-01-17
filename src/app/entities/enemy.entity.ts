@@ -278,7 +278,11 @@ export class Enemy extends GameObject {
    * Cleanup on destroy
    */
   override destroy(): void {
+    // Stop all sound scheduling
     this.clearRandomSoundTimer();
+    this.randomSoundsPlaying = false;
+    this.isMoving = false;
+
     super.destroy();
   }
 }
