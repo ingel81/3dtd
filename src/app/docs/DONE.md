@@ -6,6 +6,15 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-17
 
+### Bugfixes
+- [x] **Wave endet nicht wenn alle Gegner tot sind**
+  - Root Cause: `kill()` dekrementierte `aliveCount` nur wenn `enemy.alive` true war
+  - Problem: `takeDamage()` setzte bereits `alive=false` bevor `kill()` aufgerufen wurde
+  - Fix: `aliveCount` wird jetzt immer in `kill()` dekrementiert (killingEnemies Set verhindert doppelte Zählung)
+- [x] **Gegneranzahl zeigte gespawnte statt lebende Gegner**
+  - Gleiche Ursache wie oben - `aliveCount` wurde bei Kills nicht reduziert
+  - Fix behebt beide Bugs gleichzeitig
+
 ### Performance Optimierungen
 - [x] **Reusable Vectors in ThreeEffectsRenderer**
   - `tempVelocity` als Klassenvariable statt `velocity.clone()` pro Partikel
