@@ -51,13 +51,57 @@ export class GeocodingService {
   private readonly DEBOUNCE_MS = 300;
   private readonly MIN_QUERY_LENGTH = 3;
   private readonly MAX_RESULTS = 8;
+  private readonly REVERSE_CACHE_KEY = 'td_geocode_cache_v1';
 
   private debounceTimer: ReturnType<typeof setTimeout> | null = null;
   private abortController: AbortController | null = null;
 
+  // Reverse geocoding cache (memory + localStorage)
+  private reverseCache = new Map<string, string>();
+
   readonly isLoading = signal(false);
   readonly results = signal<GeocodingResult[]>([]);
   readonly error = signal<string | null>(null);
+
+  constructor() {
+    this.loadCacheFromStorage();
+  }
+
+  /**
+   * Load reverse geocode cache from localStorage
+   */
+  private loadCacheFromStorage(): void {
+    try {
+      const cached = localStorage.getItem(this.REVERSE_CACHE_KEY);
+      if (cached) {
+        const entries = JSON.parse(cached) as [string, string][];
+        this.reverseCache = new Map(entries);
+      }
+    } catch {
+      // Ignore parse errors, start with empty cache
+    }
+  }
+
+  /**
+   * Save reverse geocode cache to localStorage
+   */
+  private saveCacheToStorage(): void {
+    try {
+      const entries = Array.from(this.reverseCache.entries());
+      // Limit to 100 entries to prevent localStorage bloat
+      const limited = entries.slice(-100);
+      localStorage.setItem(this.REVERSE_CACHE_KEY, JSON.stringify(limited));
+    } catch {
+      // Ignore storage errors
+    }
+  }
+
+  /**
+   * Get cache key for reverse geocoding (4 decimal places for ~11m precision)
+   */
+  private getReverseCacheKey(lat: number, lon: number): string {
+    return `${lat.toFixed(4)},${lon.toFixed(4)}`;
+  }
 
   /**
    * Search for addresses with autocomplete
@@ -223,6 +267,88 @@ export class GeocodingService {
     }
 
     return 'Unbekannter Ort';
+  }
+
+  /**
+   * Reverse geocoding with cache and retry logic
+   * Returns cached name or fetches from API with retry on rate limit
+   * @param lat Latitude
+   * @param lon Longitude
+   * @returns Location name as "Street, City" or coordinate string as fallback
+   */
+  async reverseGeocodeWithCache(lat: number, lon: number): Promise<string> {
+    const cacheKey = this.getReverseCacheKey(lat, lon);
+
+    // Check memory cache first
+    const cached = this.reverseCache.get(cacheKey);
+    if (cached) {
+      return cached;
+    }
+
+    // Fetch with retry
+    try {
+      const result = await this.reverseGeocodeDetailed(lat, lon);
+      if (result?.address) {
+        const name = this.formatAddressShort(result.address);
+        this.reverseCache.set(cacheKey, name);
+        this.saveCacheToStorage();
+        return name;
+      }
+    } catch {
+      // Fall through to fallback
+    }
+
+    // Fallback: return coordinates as string
+    const fallback = `${lat.toFixed(4)}, ${lon.toFixed(4)}`;
+    return fallback;
+  }
+
+  /**
+   * Format address as "Street 123, City" (same format everywhere)
+   */
+  formatAddressShort(addr: NominatimAddress): string {
+    const parts: string[] = [];
+
+    // Street + house number
+    if (addr.road) {
+      parts.push(addr.house_number ? `${addr.road} ${addr.house_number}` : addr.road);
+    }
+
+    // City (prefer city > town > village > municipality)
+    const city = addr.city || addr.town || addr.village || addr.municipality;
+    if (city) {
+      parts.push(city);
+    }
+
+    return parts.length > 0 ? parts.join(', ') : 'Unbekannter Ort';
+  }
+
+  /**
+   * Fetch with exponential backoff retry on rate limit (HTTP 429)
+   * @param url URL to fetch
+   * @param retries Number of retry attempts
+   * @returns Response
+   */
+  private async fetchWithRetry(url: string, retries = 3): Promise<Response> {
+    const delays = [1000, 2000, 4000];
+
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Nervbox-TowerDefense/1.0',
+        },
+      });
+
+      if (response.status === 429 && attempt < retries) {
+        // Rate limited, wait and retry
+        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+        continue;
+      }
+
+      return response;
+    }
+
+    throw new Error('Max retries exceeded');
   }
 
   /**
