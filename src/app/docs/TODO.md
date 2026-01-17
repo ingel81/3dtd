@@ -1,7 +1,5 @@
 # Offene TODOs
 
-[ ] wenn alle gegner tot sind endet die Welle nicht mehr korrekt...erst ein klick auf den Button Kill All im den Wave Debug Panel beendet
-
 > Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
 ---
