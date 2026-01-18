@@ -6,6 +6,18 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-18
 
+### Audio System Refactoring
+- [x] **Sound-Systeme konsolidiert** - Zentrale Loop-Verwaltung im SpatialAudioManager
+      - `AudioComponent.activeLoops` → `SpatialAudioManager.activeLoops`
+      - Neue API: `createLoop()`, `updateLoopPosition()`, `pauseLoop()`, `resumeLoop()`, `stopLoop()`
+      - AudioComponent ist jetzt dünner Wrapper mit `loopHandles` Map
+      - Distance-Culling und Enemy-Budget zentral verwaltet
+      - Audio-Pool wird jetzt auch für Loops genutzt (vorher nur One-Shots)
+- [x] **LRU Audio Buffer Cache** - Begrenzt auf 20 Buffers
+      - `bufferAccessOrder[]` für LRU-Tracking
+      - `evictOldestBuffers()` entfernt älteste Einträge bei Überschreitung
+      - Verhindert unbegrenztes Wachstum (~30MB decoded Audio)
+
 ### 🔴 Performance Prio 1: Kritisch (alle erledigt)
 
 - [x] **Shadow Flags entfernen** - GPU-Zyklen verschwendet für nie gerenderte Shadows

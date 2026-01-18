@@ -10,16 +10,20 @@ Sounds werden leiser je weiter die Kamera entfernt ist - ohne harten Cutoff.
 ```
 ThreeTilesEngine
     └── spatialAudio: SpatialAudioManager
-            └── AudioListener (an Kamera)
+            ├── AudioListener (an Kamera)
+            ├── activeSounds[] (One-Shots)
+            ├── activeLoops Map (Loops)
+            ├── audioPool[] (PositionalAudio Pool)
+            └── bufferCache Map (LRU Cache)
 
 GameObject (Enemy, Tower, ...)
-    └── AudioComponent
-            └── verwendet SpatialAudioManager
+    └── AudioComponent (dünner Wrapper)
+            └── loopHandles Map → delegiert an SpatialAudioManager
 ```
 
 ### SpatialAudioManager (`managers/spatial-audio.manager.ts`)
 
-Hauptklasse für 3D-Audio. Nutzt Three.js `AudioListener` und `PositionalAudio`.
+Zentrale Klasse für 3D-Audio. Verwaltet sowohl One-Shot-Sounds als auch Loops.
 
 **Initialisierung:**
 ```typescript
@@ -37,7 +41,7 @@ spatialAudio.registerSound('arrow', '/assets/sounds/arrow_01.mp3', {
 });
 ```
 
-**Sound abspielen:**
+**One-Shot Sounds abspielen:**
 ```typescript
 // Mit lokalen Koordinaten (THREE.Vector3)
 spatialAudio.playAt('arrow', position);
@@ -49,9 +53,31 @@ spatialAudio.playAtGeo('arrow', lat, lon, height);
 spatialAudio.playGlobal('music');
 ```
 
+**Loop Sounds (zentral verwaltet):**
+```typescript
+// Loop erstellen - gibt Handle zurück
+const handle = await spatialAudio.createLoop('zombie_walk', position, {
+  volumeMultiplier: 1.0,
+  randomStart: true,
+});
+
+// Position aktualisieren (inkl. automatisches Distance-Culling)
+spatialAudio.updateLoopPosition(handle, newPosition);
+
+// Manuell pausieren/fortsetzen
+spatialAudio.pauseLoop(handle);
+spatialAudio.resumeLoop(handle);  // false wenn Budget erschöpft
+
+// Loop stoppen
+spatialAudio.stopLoop(handle);
+
+// Status abfragen
+spatialAudio.isLoopPaused(handle);
+```
+
 ### AudioComponent (`game-components/audio.component.ts`)
 
-Thin wrapper für GameObjects (Enemy, Tower, etc.). Verwaltet Sounds pro Entity.
+Dünner Wrapper für GameObjects (Enemy, Tower, etc.). Delegiert Loop-Verwaltung an SpatialAudioManager.
 
 **Verwendung in Entities:**
 ```typescript
@@ -75,45 +101,58 @@ enemy.audio.stop('moving');
 **Methoden:**
 - `registerSound(id, url, options)` - Sound registrieren (vor initialize)
 - `initialize(spatialAudio)` - SpatialAudioManager setzen
-- `play(id, loop?)` - Sound abspielen
+- `play(id, loop?, volumeMultiplier?)` - Sound abspielen
 - `stop(id)` - Sound stoppen
-- `setVolume(id, volume)` - Lautstärke anpassen
 - `stopAll()` - Alle Sounds stoppen
-- `destroy()` - Cleanup aller Sounds
+- `update(deltaTime)` - Positionen updaten (automatisch via GameObject)
 
-**Features:**
-- Sounds werden im Konstruktor registriert, später initialisiert
-- Loop-Sounds folgen automatisch der GameObject-Position
-- Cleanup bei destroy()
+**Interne Struktur:**
+- `loopHandles: Map<string, string>` - Mapping localId → SpatialAudioManager Handle
+- Delegiert alle Loop-Operationen an SpatialAudioManager
+- Distance-Culling und Enemy-Budget werden zentral verwaltet
 
 ## Sound Budget System
 
 Um Performance zu gewährleisten, begrenzt das System die Anzahl gleichzeitiger Enemy-Sounds.
 
-**Konstanten:**
+**Konstanten (audio.config.ts):**
 ```typescript
-const MAX_ENEMY_SOUNDS = 12;  // Max concurrent enemy movement sounds
-const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy'];
+const AUDIO_LIMITS = {
+  maxEnemySounds: 12,
+  maxAudibleDistance: 500,  // Sounds pausieren jenseits dieser Distanz
+};
+const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy', 'wallsmasher', ...];
 ```
 
 **Methoden in SpatialAudioManager:**
 ```typescript
-// Prüfen ob ein Sound abgespielt werden kann
-canPlayEnemySound(): boolean
-
-// Sound registrieren (erhöht Zähler)
-registerEnemySound(): void
-
-// Sound abmelden (verringert Zähler)
-unregisterEnemySound(): void
-
-// Debug-Statistiken
-getEnemySoundStats(): { current: number, max: number }
+canPlayEnemySound(): boolean      // Prüfen ob Budget verfügbar
+registerEnemySound(): boolean     // Budget reservieren (false wenn voll)
+unregisterEnemySound(): void      // Budget freigeben
+getEnemySoundStats(): { current, max }
+isEnemySound(soundId): boolean    // Pattern-Matching
 ```
 
-**Verwendung:**
-Das Budget wird automatisch bei Enemy-Sounds geprüft. Wenn das Maximum erreicht ist,
-werden neue Enemy-Sounds nicht abgespielt, bis andere Enemies zerstört werden.
+**Automatisches Budget-Management:**
+- Bei `createLoop()`: Budget wird sofort reserviert (Race-Condition-sicher)
+- Bei Distance-Culling Pause: Budget wird freigegeben
+- Bei Resume: Budget wird erneut angefragt (kann fehlschlagen)
+- Bei `stopLoop()`: Budget wird freigegeben
+
+## LRU Buffer Cache
+
+Der Buffer-Cache verhindert unbegrenztes Wachstum des Audio-Speichers.
+
+**Konstanten:**
+```typescript
+private readonly MAX_CACHED_BUFFERS = 20;  // ~20 Sounds max in Memory
+```
+
+**Funktionsweise:**
+- `bufferAccessOrder[]` trackt Zugriffs-Reihenfolge (älteste zuerst)
+- Bei jedem `registerSound()`: URL wird "touched" (ans Ende verschoben)
+- Nach dem Laden: `evictOldestBuffers()` entfernt älteste Einträge
+- Buffers die gerade laden werden nicht evicted
 
 ## Distanz-Modelle
 
@@ -133,7 +172,7 @@ volume = refDistance / (refDistance + rolloffFactor * (distance - refDistance))
 ```typescript
 interface SpatialSoundConfig {
   refDistance?: number;      // Default: 50m
-  rolloffFactor?: number;    // Default: 1
+  rolloffFactor?: number;    // Default: 1.5
   maxDistance?: number;      // Default: 0 (kein Limit)
   distanceModel?: 'linear' | 'inverse' | 'exponential';
   volume?: number;           // Default: 1.0
@@ -149,11 +188,9 @@ Der `ProjectileManager` spielt Sounds direkt über SpatialAudioManager:
 ```typescript
 // In projectile.manager.ts
 const PROJECTILE_SOUNDS = {
-  arrow: {
-    url: '/assets/sounds/arrow_01.mp3',
-    refDistance: 50,
-    volume: 0.5,
-  },
+  arrow: { url: '/assets/sounds/arrow_01.mp3', refDistance: 50, volume: 0.5 },
+  bullet: { url: '/assets/sounds/gatling_0.mp3', refDistance: 40, volume: 0.25 },
+  rocket: { url: '/assets/sounds/rocket_launch.mp3', refDistance: 60, ... },
 };
 
 // Sound wird bei spawn() automatisch abgespielt
@@ -175,79 +212,64 @@ zombie: {
   randomSoundStart: true,
 }
 
-tank: {
-  movingSound: '/assets/sounds/tank-moving-143104.mp3',
-  movingSoundVolume: 0.3,
-  movingSoundRefDistance: 50,
-  randomSoundStart: true,
-}
-
 // Abspielen in Enemy.startMoving()
 this.audio.play('moving', true);
 ```
 
 ### HQ Damage Sound
-Der `GameStateManager` spielt einen Sound wenn das HQ Schaden nimmt:
-
 ```typescript
-// In game-state.manager.ts
-// Sound-Registration
 spatialAudio.registerSound('hq-damage', '/assets/sounds/small_hq_explosion.mp3', {
-  refDistance: 40,
-  rolloffFactor: 1,
-  volume: 1.4,
+  refDistance: 40, rolloffFactor: 1, volume: 1.4,
 });
-
-// Abspielen bei HQ-Schaden
 spatialAudio.playAtGeo('hq-damage', hqLat, hqLon, hqHeight);
 ```
 
 ## Performance-Optimierungen
 
-Das Spatial Audio System wurde umfassend optimiert:
-
 ### PositionalAudio-Pooling
-- **Pool von 20 vorallozierten PositionalAudio-Objekten**
+- **Pool von 20 vorallozierten PositionalAudio-Objekten** (wächst bis max. 50)
+- Sowohl One-Shots als auch Loops nutzen den Pool
+- Bei Rückgabe: `buffer` und `source` werden auf null gesetzt für sauberen Zustand
 - Reduziert Garbage Collection Pressure erheblich
-- Bei 100 Arrow-Sounds/Sekunde: 0 neue Objekte statt 100/s
-- Pool wächst dynamisch bis max. 50 Objekte
 
-### Memory Leak Fixes
+### Zentrale Loop-Verwaltung
+- Alle Loops in `SpatialAudioManager.activeLoops` Map
+- Distance-Culling zentral in `updateLoopPosition()`
+- Enemy-Budget zentral verwaltet (keine doppelte Buchführung)
+
+### LRU Buffer Cache
+- Maximal 20 Audio-Buffers im Speicher (~30MB Limit)
+- Älteste Buffers werden automatisch evicted
+- Verhindert Memory-Wachstum bei vielen verschiedenen Sounds
+
+### Distance-based Culling
+- Sounds jenseits von 500m werden automatisch pausiert
+- Bei Pause: Enemy-Budget wird freigegeben
+- Bei Resume: Budget wird erneut angefragt
+
+### Memory Leak Prevention
 - **setTimeout-Referenzen**: Alle Timer werden getrackt und bei Cleanup gecleaned
-- **Container-Cleanup**: stopAll() entfernt jetzt alle Container aus der Scene
+- **Container-Cleanup**: `stopAll()` entfernt alle Container aus der Scene
 - **Audio-Disconnect**: Alle Audio-Nodes werden ordentlich disconnected
-- **Enemy Timer**: Zombie-Timer werden bei destroy() ordentlich gestoppt
+- **Pool-Reset**: Buffer/Source werden bei Rückgabe genullt
 
 ### Race Condition Fix
-- Enemy-Sound-Budget wird SOFORT registriert (vor await-Calls)
+- Enemy-Sound-Budget wird SOFORT in `createLoop()` reserviert (vor await-Calls)
 - Verhindert Budget-Überschreitung bei parallelen Sound-Anfragen
-
-### Algorithmus-Optimierungen
-- **stop()**: O(n²) → O(n) durch direktes Filtern statt indexOf+splice
-- **update()**: Position-Caching bereits optimal (1x Berechnung für alle Loops)
-
-### Error Recovery
-- **Retry-Mechanismus**: 3 Versuche bei Buffer-Ladefehlern mit 1s Delay
-- Besseres Logging für Debugging
-
-### Code-Vereinheitlichung
-- Enemy-Sound-Erkennung zentralisiert in SpatialAudioManager
-- Verwendet ENEMY_SOUND_PATTERNS aus audio.config.ts
 
 ## Wichtige Hinweise
 
 1. **AudioContext Resume**: Browser blockieren Audio bis zur ersten User-Interaktion.
    Der Manager ruft `resumeContext()` automatisch auf.
 
-2. **Performance**: Sounds werden nach dem Abspielen automatisch aufgeräumt.
-   Für Loops muss `stop()` manuell aufgerufen werden.
-   PositionalAudio-Objekte werden in einen Pool zurückgelegt für Wiederverwendung.
+2. **Performance**: One-Shots werden nach dem Abspielen automatisch aufgeräumt.
+   Loops müssen explizit via `stop()` oder `stopLoop()` beendet werden.
 
 3. **Stereo-Panning**: Three.js AudioListener sorgt automatisch für Stereo-Effekte
    basierend auf der Position relativ zur Kamera.
 
-4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds zur Performance-Optimierung.
-   Budget wird race-condition-safe verwaltet.
+4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds. Budget wird bei
+   Distance-Culling temporär freigegeben.
 
 ## Assets
 
@@ -255,6 +277,8 @@ Alle Sound-Dateien befinden sich in:
 ```
 public/assets/sounds/
 ├── arrow_01.mp3                    # Pfeil-Schuss-Sound
+├── gatling_0.mp3                   # Gatling-Schuss-Sound
+├── rocket_launch.mp3               # Raketen-Start-Sound
 ├── zombie-sound-2-357976.mp3       # Zombie-Bewegungs-Sound
 ├── tank-moving-143104.mp3          # Tank-Bewegungs-Sound
 └── small_hq_explosion.mp3          # HQ-Schadens-Sound
@@ -275,5 +299,10 @@ engine.spatialAudio.registerSound('explosion', '/assets/sounds/explosion.mp3', {
 
 3. Sound abspielen:
 ```typescript
-engine.spatialAudio.playAtGeo('explosion', enemy.position.lat, enemy.position.lon, height);
+// One-Shot
+engine.spatialAudio.playAtGeo('explosion', lat, lon, height);
+
+// Loop (über AudioComponent)
+this.audio.registerSound('engine', '/assets/sounds/engine.mp3', { loop: true });
+this.audio.play('engine', true);
 ```

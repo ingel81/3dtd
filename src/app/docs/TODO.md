@@ -84,10 +84,6 @@
       `tower.manager.ts` - Sleep/Wake System für Towers ohne Target
       → [Teil 2.4](PERFORMANCE_REPORT.md#24-sleeping-towers--fehlt)
 
-- [ ] **LRU Audio Buffer Cache** - 30MB decoded Audio nie evicted
-      `spatial-audio.manager.ts` - LRU Cache statt unbounded Map
-      → [Teil 12.3](PERFORMANCE_REPORT.md#123-unbounded-buffer-cache)
-
 - [ ] **Progressive Asset Loading** - 3-8s → 0.5-1s TTI
       Nur Critical Assets upfront, Rest im Background
       → [Teil 10.4](PERFORMANCE_REPORT.md#104-fehlende-progressive-loading)

@@ -1,8 +1,8 @@
-import { PositionalAudio, Object3D } from 'three';
-import { Component, ComponentType } from '../core/component';
+import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { SpatialAudioManager } from '../managers/spatial-audio.manager';
 import { TransformComponent } from './transform.component';
+import { ComponentType } from '../core/component';
 
 /**
  * Configuration for a spatial sound
@@ -21,27 +21,20 @@ export interface AudioConfig {
 }
 
 /**
- * Active looping sound
- */
-interface ActiveLoop {
-  audio: PositionalAudio;
-  container: Object3D;
-  isEnemySound: boolean; // Track if this counts against enemy sound budget
-  paused: boolean; // Track if loop is paused due to distance culling
-}
-
-/**
  * AudioComponent - Manages 3D positioned sounds for a GameObject
  *
  * Thin wrapper around SpatialAudioManager that:
  * - Tracks sounds per GameObject
  * - Updates loop positions to follow the GameObject
  * - Cleans up on destroy
+ *
+ * All loop management (audio pooling, distance culling, enemy budget)
+ * is delegated to SpatialAudioManager.
  */
 export class AudioComponent extends Component {
   private spatialAudio: SpatialAudioManager | null = null;
   private sounds = new Map<string, { url: string; config: AudioConfig }>();
-  private activeLoops = new Map<string, ActiveLoop>();
+  private loopHandles = new Map<string, string>(); // localId → SpatialAudioManager handle
   private destroyed = false;
 
   constructor(gameObject: GameObject) {
@@ -89,156 +82,49 @@ export class AudioComponent extends Component {
    * Play a sound at GameObject's current position
    * @param id Sound ID
    * @param forceLoop Force loop mode
-   * @param volumeMultiplier Volume multiplier for one-shot sounds (0.0-1.0)
+   * @param volumeMultiplier Volume multiplier (0.0-1.0)
    */
   async play(id: string, forceLoop?: boolean, volumeMultiplier?: number): Promise<void> {
     const sound = this.sounds.get(id);
-    if (!sound || !this.spatialAudio) return;
+    if (!sound || !this.spatialAudio || this.destroyed) return;
 
     const pos = this.getPosition();
     if (!pos) return;
 
     const isLoop = forceLoop ?? sound.config.loop ?? false;
-
-    if (isLoop) {
-      // Stop existing loop
-      this.stop(id);
-      await this.playLoop(id, sound.url, sound.config);
-    } else {
-      // One-shot: fire and forget
-      const globalId = this.getGlobalId(id);
-      await this.spatialAudio.playAtGeo(globalId, pos.lat, pos.lon, pos.height ?? 0, volumeMultiplier ?? 1.0);
-    }
-  }
-
-  /**
-   * Play a looping sound that follows the GameObject
-   */
-  private async playLoop(id: string, _url: string, config: AudioConfig): Promise<void> {
-    if (this.destroyed || !this.spatialAudio) return;
-
-    // Get the global sound ID (registered earlier)
     const globalId = this.getGlobalId(id);
 
-    // Check if this is an enemy sound and register IMMEDIATELY to prevent race conditions
-    const isEnemySound = this.spatialAudio.isEnemySound(globalId);
-    if (isEnemySound) {
-      if (!this.spatialAudio.registerEnemySound()) {
-        // Budget exceeded - skip this sound silently
-        return;
+    if (isLoop) {
+      // Stop existing loop for this sound
+      this.stop(id);
+
+      // Get local position
+      const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
+      if (!localPos) return;
+
+      // Create loop via SpatialAudioManager
+      const handle = await this.spatialAudio.createLoop(globalId, localPos, {
+        volumeMultiplier: volumeMultiplier ?? 1.0,
+        randomStart: sound.config.randomStart,
+      });
+
+      if (handle) {
+        this.loopHandles.set(id, handle);
       }
+    } else {
+      // One-shot: fire and forget
+      await this.spatialAudio.playAtGeo(globalId, pos.lat, pos.lon, pos.height ?? 0, volumeMultiplier ?? 1.0);
     }
-
-    const pos = this.getPosition();
-
-    // Distance culling check before starting loop
-    if (pos) {
-      const cullCheckPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
-      if (cullCheckPos && !this.spatialAudio.isWithinAudibleDistance(cullCheckPos)) {
-        // Too far away - don't start the loop
-        if (isEnemySound) {
-          this.spatialAudio.unregisterEnemySound();
-        }
-        return;
-      }
-    }
-    if (!pos) {
-      // Cleanup on early exit
-      if (isEnemySound) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-      return;
-    }
-
-    await this.spatialAudio.resumeContext();
-
-    // Check if destroyed during await
-    if (this.destroyed) {
-      if (isEnemySound) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-      return;
-    }
-
-    // Get cached buffer from SpatialAudioManager (already loaded at registration)
-    const buffer = await this.spatialAudio.getBuffer(globalId);
-
-    // Check if destroyed during await - cleanup enemy budget if needed
-    if (this.destroyed) {
-      if (isEnemySound) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-      return;
-    }
-
-    if (!buffer) {
-      console.error(`[AudioComponent] No cached buffer for: ${globalId}`);
-      if (isEnemySound) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-      return;
-    }
-
-    const listener = this.spatialAudio.getListener();
-    const scene = this.spatialAudio.getScene();
-
-    // Create positional audio using cached buffer
-    const audio = new PositionalAudio(listener);
-    audio.setBuffer(buffer);
-    audio.setRefDistance(config.refDistance ?? 30);
-    audio.setRolloffFactor(config.rolloffFactor ?? 1);
-    audio.setVolume(config.volume ?? 0.5);
-    audio.setLoop(true);
-
-    // Random start for variety
-    if (config.randomStart && buffer.duration > 0) {
-      audio.offset = Math.random() * buffer.duration;
-    }
-
-    // Create container at position
-    const container = new Object3D();
-    const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
-    if (localPos) {
-      container.position.copy(localPos);
-    }
-
-    container.add(audio);
-    scene.add(container);
-
-    // Final check before starting - if destroyed during sync setup, cleanup and abort
-    if (this.destroyed) {
-      audio.disconnect();
-      scene.remove(container);
-      if (isEnemySound && this.spatialAudio) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-      return;
-    }
-
-    this.activeLoops.set(id, { audio, container, isEnemySound, paused: false });
-    audio.play();
   }
 
   /**
    * Stop a sound
    */
   stop(id: string): void {
-    const loop = this.activeLoops.get(id);
-    if (loop) {
-      // Unregister enemy sound from budget
-      if (loop.isEnemySound && this.spatialAudio) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-
-      // Always try to stop, regardless of isPlaying state
-      try {
-        loop.audio.stop();
-      } catch (e) {
-        console.warn(`[AudioComponent] stop('${id}') failed:`, e);
-      }
-      loop.audio.disconnect();
-      this.spatialAudio?.getScene().remove(loop.container);
-      this.activeLoops.delete(id);
+    const handle = this.loopHandles.get(id);
+    if (handle && this.spatialAudio) {
+      this.spatialAudio.stopLoop(handle);
+      this.loopHandles.delete(id);
     }
   }
 
@@ -246,25 +132,30 @@ export class AudioComponent extends Component {
    * Stop all sounds
    */
   stopAll(): void {
-    // Copy keys to array to avoid iteration issues during deletion
-    const ids = Array.from(this.activeLoops.keys());
-    for (const id of ids) {
-      this.stop(id);
+    if (!this.spatialAudio) return;
+
+    for (const handle of this.loopHandles.values()) {
+      this.spatialAudio.stopLoop(handle);
     }
+    this.loopHandles.clear();
   }
 
   /**
    * Set volume for a playing loop
+   * Note: Volume changes for loops must be done through the handle
+   * This is a no-op in the new architecture (loops use initial volume only)
    */
-  setVolume(id: string, volume: number): void {
-    this.activeLoops.get(id)?.audio.setVolume(volume);
+  setVolume(_id: string, _volume: number): void {
+    // No-op: Volume is set at loop creation time
+    // Future enhancement: Add setLoopVolume to SpatialAudioManager if needed
   }
 
   /**
-   * Update loop positions and check distance culling
+   * Update loop positions to follow the GameObject
+   * Distance culling is handled by SpatialAudioManager.updateLoopPosition()
    */
   update(_deltaTime: number): void {
-    if (this.activeLoops.size === 0 || !this.spatialAudio) return;
+    if (this.loopHandles.size === 0 || !this.spatialAudio) return;
 
     const pos = this.getPosition();
     if (!pos) return;
@@ -272,63 +163,9 @@ export class AudioComponent extends Component {
     const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
     if (!localPos) return;
 
-    const isInRange = this.spatialAudio.isWithinAudibleDistance(localPos);
-
-    for (const [id, loop] of this.activeLoops) {
-      loop.container.position.copy(localPos);
-
-      if (!isInRange && !loop.paused) {
-        // Out of range and playing -> pause
-        this.pauseLoop(id, loop);
-      } else if (isInRange && loop.paused) {
-        // Back in range and paused -> resume
-        this.resumeLoop(id, loop);
-      }
-    }
-  }
-
-  /**
-   * Pause a loop due to distance culling
-   */
-  private pauseLoop(id: string, loop: ActiveLoop): void {
-    if (!this.spatialAudio) return;
-
-    try {
-      loop.audio.pause();
-      loop.paused = true;
-
-      // Release enemy sound budget while paused
-      if (loop.isEnemySound) {
-        this.spatialAudio.unregisterEnemySound();
-      }
-    } catch (e) {
-      console.warn(`[AudioComponent] pauseLoop('${id}') failed:`, e);
-    }
-  }
-
-  /**
-   * Resume a paused loop when back in audible range
-   */
-  private resumeLoop(id: string, loop: ActiveLoop): void {
-    if (!this.spatialAudio) return;
-
-    // Re-acquire enemy sound budget before resuming
-    if (loop.isEnemySound) {
-      if (!this.spatialAudio.registerEnemySound()) {
-        // Budget exceeded - stay paused
-        return;
-      }
-    }
-
-    try {
-      loop.audio.play();
-      loop.paused = false;
-    } catch (e) {
-      console.warn(`[AudioComponent] resumeLoop('${id}') failed:`, e);
-      // If resume failed, release the budget we just acquired
-      if (loop.isEnemySound) {
-        this.spatialAudio.unregisterEnemySound();
-      }
+    // Update position for all active loops (SpatialAudioManager handles pause/resume)
+    for (const handle of this.loopHandles.values()) {
+      this.spatialAudio.updateLoopPosition(handle, localPos);
     }
   }
 
@@ -348,7 +185,7 @@ export class AudioComponent extends Component {
   }
 
   override onDestroy(): void {
-    this.destroyed = true; // Prevent any pending async playLoop from adding new sounds
+    this.destroyed = true; // Prevent any pending async play from adding new sounds
     this.stopAll();
   }
 }

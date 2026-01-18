@@ -50,7 +50,7 @@ interface RegisteredSound {
 }
 
 /**
- * Active sound instance
+ * Active sound instance (one-shot)
  */
 interface ActiveSound {
   audio: PositionalAudio;
@@ -58,6 +58,18 @@ interface ActiveSound {
   container?: Object3D;
   ownerId?: string; // ID of the owner (e.g., enemy ID)
   timer?: ReturnType<typeof setTimeout>; // Cleanup timer for non-looping sounds
+}
+
+/**
+ * Active looping sound (managed centrally)
+ */
+interface ActiveLoop {
+  handle: string;           // Unique ID for this loop instance
+  soundId: string;          // Registered sound ID
+  audio: PositionalAudio;
+  container: Object3D;
+  isEnemySound: boolean;
+  paused: boolean;
 }
 
 // Sound budget uses centralized config from audio.config.ts
@@ -85,11 +97,17 @@ export class SpatialAudioManager {
   // Registered sounds (id -> buffer + config)
   private sounds = new Map<string, RegisteredSound>();
 
-  // URL to buffer cache (shared across all sound IDs with same URL)
+  // URL to buffer cache with LRU eviction (shared across all sound IDs with same URL)
   private bufferCache = new Map<string, { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null }>();
+  private bufferAccessOrder: string[] = []; // LRU tracking: oldest first
+  private readonly MAX_CACHED_BUFFERS = 20;  // ~20 sounds max in memory
 
-  // Active sound instances
+  // Active sound instances (one-shots)
   private activeSounds: ActiveSound[] = [];
+
+  // Active looping sounds (managed centrally)
+  private activeLoops = new Map<string, ActiveLoop>();
+  private loopHandleCounter = 0;
 
   // Track enemy sounds separately for budget management
   private enemySoundCount = 0;
@@ -142,6 +160,11 @@ export class SpatialAudioManager {
       audio.stop();
     }
     audio.disconnect();
+
+    // Clear the buffer to ensure clean state for next use
+    // This forces Three.js to properly reconnect audio nodes on next setBuffer()
+    (audio as any).buffer = null;
+    (audio as any).source = null;
 
     // Only return to pool if we haven't exceeded max size
     if (this.audioPool.length < this.MAX_POOL_SIZE) {
@@ -210,10 +233,10 @@ export class SpatialAudioManager {
   }
 
   /**
-   * Get count of active sounds for debugging
+   * Get count of active sounds (one-shots + loops)
    */
   getActiveSoundCount(): number {
-    return this.activeSounds.length;
+    return this.activeSounds.length + this.activeLoops.size;
   }
 
   /**
@@ -288,9 +311,16 @@ export class SpatialAudioManager {
       cached.loading = this.loadBuffer(url).then((buffer) => {
         cached!.buffer = buffer;
         cached!.loading = null;
+        // LRU: Evict old buffers after loading completes
+        this.evictOldestBuffers();
         return buffer;
       });
       this.bufferCache.set(url, cached);
+      // LRU: Track new URL in access order
+      this.touchBuffer(url);
+    } else {
+      // LRU: Touch existing buffer (move to end)
+      this.touchBuffer(url);
     }
 
     // Link this sound to the cached buffer
@@ -330,6 +360,37 @@ export class SpatialAudioManager {
       };
       attemptLoad(retries);
     });
+  }
+
+  /**
+   * LRU: Touch a buffer (move to end of access order)
+   */
+  private touchBuffer(url: string): void {
+    const idx = this.bufferAccessOrder.indexOf(url);
+    if (idx !== -1) {
+      this.bufferAccessOrder.splice(idx, 1);
+    }
+    this.bufferAccessOrder.push(url);
+  }
+
+  /**
+   * LRU: Evict oldest buffers if cache exceeds limit
+   */
+  private evictOldestBuffers(): void {
+    while (this.bufferAccessOrder.length > this.MAX_CACHED_BUFFERS) {
+      const oldest = this.bufferAccessOrder.shift();
+      if (oldest) {
+        const cached = this.bufferCache.get(oldest);
+        // Only evict if not currently loading
+        if (cached && !cached.loading) {
+          this.bufferCache.delete(oldest);
+        } else if (cached?.loading) {
+          // Put it back at the end - can't evict while loading
+          this.bufferAccessOrder.push(oldest);
+          break; // Avoid infinite loop
+        }
+      }
+    }
   }
 
   /**
@@ -420,6 +481,11 @@ export class SpatialAudioManager {
       const duration = sound.buffer.duration * 1000;
       const timer = setTimeout(() => {
         this.cleanupActiveSound(activeSound);
+        // Remove from activeSounds array
+        const index = this.activeSounds.indexOf(activeSound);
+        if (index !== -1) {
+          this.activeSounds.splice(index, 1);
+        }
       }, duration + 100);
       activeSound.timer = timer;
     }
@@ -486,6 +552,213 @@ export class SpatialAudioManager {
   }
 
   /**
+   * Create a looping sound at a position
+   * Returns a handle to control the loop, or null if creation failed
+   */
+  async createLoop(
+    soundId: string,
+    position: Vector3,
+    config?: { volumeMultiplier?: number; randomStart?: boolean }
+  ): Promise<string | null> {
+    const sound = this.sounds.get(soundId);
+    if (!sound) {
+      console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
+      return null;
+    }
+
+    // Check if this is an enemy sound and register IMMEDIATELY to prevent race conditions
+    const isEnemySound = this.isEnemySound(soundId);
+    if (isEnemySound) {
+      if (!this.registerEnemySound()) {
+        // Budget exceeded - skip this sound silently
+        return null;
+      }
+    }
+
+    // Distance culling check before starting loop
+    if (!this.isWithinAudibleDistance(position)) {
+      if (isEnemySound) {
+        this.unregisterEnemySound();
+      }
+      return null;
+    }
+
+    // Ensure context is resumed
+    await this.resumeContext();
+
+    // Wait for buffer if still loading
+    if (sound.loading) {
+      await sound.loading;
+    }
+
+    if (!sound.buffer) {
+      console.warn(`[SpatialAudio] No buffer for: ${soundId}`);
+      if (isEnemySound) {
+        this.unregisterEnemySound();
+      }
+      return null;
+    }
+
+    // Get positional audio from pool
+    const audio = this.getAudioFromPool();
+    audio.setBuffer(sound.buffer);
+    audio.setRefDistance(sound.config.refDistance);
+    audio.setRolloffFactor(sound.config.rolloffFactor);
+    audio.setDistanceModel(sound.config.distanceModel);
+    audio.setVolume(sound.config.volume * (config?.volumeMultiplier ?? 1.0));
+    audio.setLoop(true);
+
+    if (sound.config.maxDistance > 0) {
+      audio.setMaxDistance(sound.config.maxDistance);
+    }
+
+    // Random start for variety
+    if (config?.randomStart && sound.buffer.duration > 0) {
+      audio.offset = Math.random() * sound.buffer.duration;
+    }
+
+    // Create a container object at the position
+    const container = new Object3D();
+    container.position.copy(position);
+    container.add(audio);
+    this.scene.add(container);
+
+    // Generate unique handle
+    const handle = `loop_${++this.loopHandleCounter}`;
+
+    // Track active loop
+    const activeLoop: ActiveLoop = {
+      handle,
+      soundId,
+      audio,
+      container,
+      isEnemySound,
+      paused: false,
+    };
+    this.activeLoops.set(handle, activeLoop);
+
+    // Play
+    audio.play();
+
+    return handle;
+  }
+
+  /**
+   * Update position of a looping sound
+   * Also handles distance-based pause/resume
+   */
+  updateLoopPosition(handle: string, position: Vector3): void {
+    const loop = this.activeLoops.get(handle);
+    if (!loop) return;
+
+    loop.container.position.copy(position);
+
+    const isInRange = this.isWithinAudibleDistance(position);
+
+    if (!isInRange && !loop.paused) {
+      // Out of range and playing -> pause
+      this.pauseLoopInternal(loop);
+    } else if (isInRange && loop.paused) {
+      // Back in range and paused -> resume
+      this.resumeLoopInternal(loop);
+    }
+  }
+
+  /**
+   * Pause a loop by handle
+   */
+  pauseLoop(handle: string): void {
+    const loop = this.activeLoops.get(handle);
+    if (loop && !loop.paused) {
+      this.pauseLoopInternal(loop);
+    }
+  }
+
+  /**
+   * Resume a paused loop by handle
+   * Returns false if budget exceeded (loop stays paused)
+   */
+  resumeLoop(handle: string): boolean {
+    const loop = this.activeLoops.get(handle);
+    if (!loop || !loop.paused) return true;
+
+    return this.resumeLoopInternal(loop);
+  }
+
+  /**
+   * Stop and remove a loop by handle
+   */
+  stopLoop(handle: string): void {
+    const loop = this.activeLoops.get(handle);
+    if (!loop) return;
+
+    // Unregister enemy sound from budget (only if not paused, as paused loops already released budget)
+    if (loop.isEnemySound && !loop.paused) {
+      this.unregisterEnemySound();
+    }
+
+    // Return audio to pool (handles stop and disconnect internally)
+    this.returnAudioToPool(loop.audio);
+
+    // Remove container from scene
+    this.scene.remove(loop.container);
+
+    // Remove from tracking
+    this.activeLoops.delete(handle);
+  }
+
+  /**
+   * Check if a loop is paused
+   */
+  isLoopPaused(handle: string): boolean {
+    return this.activeLoops.get(handle)?.paused ?? false;
+  }
+
+  /**
+   * Internal: Pause a loop
+   */
+  private pauseLoopInternal(loop: ActiveLoop): void {
+    try {
+      loop.audio.pause();
+      loop.paused = true;
+
+      // Release enemy sound budget while paused
+      if (loop.isEnemySound) {
+        this.unregisterEnemySound();
+      }
+    } catch (e) {
+      console.warn(`[SpatialAudio] pauseLoop failed:`, e);
+    }
+  }
+
+  /**
+   * Internal: Resume a loop
+   * Returns true if successful, false if budget exceeded
+   */
+  private resumeLoopInternal(loop: ActiveLoop): boolean {
+    // Re-acquire enemy sound budget before resuming
+    if (loop.isEnemySound) {
+      if (!this.registerEnemySound()) {
+        // Budget exceeded - stay paused
+        return false;
+      }
+    }
+
+    try {
+      loop.audio.play();
+      loop.paused = false;
+      return true;
+    } catch (e) {
+      console.warn(`[SpatialAudio] resumeLoop failed:`, e);
+      // If resume failed, release the budget we just acquired
+      if (loop.isEnemySound) {
+        this.unregisterEnemySound();
+      }
+      return false;
+    }
+  }
+
+  /**
    * Stop all instances of a sound
    */
   stop(soundId: string): void {
@@ -502,14 +775,20 @@ export class SpatialAudioManager {
   }
 
   /**
-   * Stop all sounds
+   * Stop all sounds (one-shots and loops)
    */
   stopAll(): void {
-    // Cleanup all active sounds properly
+    // Cleanup all active one-shot sounds
     for (const active of this.activeSounds) {
       this.cleanupActiveSound(active);
     }
     this.activeSounds = [];
+
+    // Cleanup all active loops (copy keys to avoid mutation during iteration)
+    const loopHandles = Array.from(this.activeLoops.keys());
+    for (const handle of loopHandles) {
+      this.stopLoop(handle);
+    }
   }
 
   /**
