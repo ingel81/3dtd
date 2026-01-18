@@ -60,6 +60,11 @@ import { FavoriteLocation } from '../../models/location.types';
             </div>
           </div>
 
+          <!-- World Dice -->
+          <button class="action-btn" (click)="diceClick.emit()" matTooltip="Zufälliger Ort">
+            <mat-icon>casino</mat-icon>
+          </button>
+
           <!-- Home Link -->
           <a class="action-btn" href="/?l=49.17327,9.26859&s=49.17555,9.26387" matTooltip="Erlenbach">
             <mat-icon>home</mat-icon>
@@ -423,6 +428,7 @@ export class GameHeaderComponent {
   readonly locationClick = output<void>();
   readonly closeClick = output<void>();
   readonly shareClick = output<void>();
+  readonly diceClick = output<void>();
   readonly addFavoriteClick = output<void>();
   readonly selectFavoriteClick = output<FavoriteLocation>();
   readonly deleteFavoriteClick = output<string>();

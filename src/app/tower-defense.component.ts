@@ -50,6 +50,7 @@ import { UrlLocationService } from './services/url-location.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { GeolocationService } from './services/geolocation.service';
+import { WorldDiceService } from './services/world-dice.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
@@ -134,6 +135,7 @@ const EMPTY_CENTER_COORDS = {
         (locationClick)="openLocationDialog()"
         (closeClick)="close()"
         (shareClick)="onShareLocation()"
+        (diceClick)="onWorldDice()"
         (addFavoriteClick)="onAddFavorite()"
         (selectFavoriteClick)="onSelectFavorite($event)"
         (deleteFavoriteClick)="onDeleteFavorite($event)"
@@ -704,6 +706,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly geolocation = inject(GeolocationService);
+  private readonly worldDice = inject(WorldDiceService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -2601,6 +2604,30 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const url = this.urlLocation.getShareUrl();
     navigator.clipboard.writeText(url);
     this.appendDebugLog('Link kopiert: ' + url);
+  }
+
+  /**
+   * Roll for a random city from Wikidata and navigate there
+   */
+  async onWorldDice(): Promise<void> {
+    this.appendDebugLog('World Dice: Wuerfel zufaellige Stadt...');
+
+    const city = await this.worldDice.rollRandomCity();
+    if (!city) {
+      this.appendDebugLog('World Dice: Fehlgeschlagen - ' + (this.worldDice.error() || 'Unbekannter Fehler'));
+      return;
+    }
+
+    const displayName = city.country ? `${city.name}, ${city.country}` : city.name;
+    this.appendDebugLog(`World Dice: ${displayName} (${city.lat.toFixed(4)}, ${city.lon.toFixed(4)})`);
+
+    // Update URL with only HQ (l=), no spawn (s=) -> randomizer will create spawn
+    const url = new URL(window.location.href);
+    url.searchParams.set('l', `${city.lat.toFixed(5)},${city.lon.toFixed(5)}`);
+    url.searchParams.delete('s'); // Remove spawn so randomizer kicks in
+
+    // Navigate to new location (full reload for clean state)
+    window.location.href = url.toString();
   }
 
   /**
