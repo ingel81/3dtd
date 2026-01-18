@@ -162,6 +162,7 @@
 
 ### Ideen
 - [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
+- [ ] Stats zu "Warte auf 3D-Tiles" im Loading Screen anzeigen (geladene/ausstehende Tiles)
 - [ ] Poison Tower
 - [ ] Flame Tower
 
