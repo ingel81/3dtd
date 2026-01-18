@@ -189,12 +189,16 @@ export class ThreeTilesEngine {
     // Raycaster for terrain queries
     this.raycaster = new Raycaster();
 
-    // Create WebGL renderer
-    this.renderer = new WebGLRenderer({
-      canvas,
-      antialias: true,
-      logarithmicDepthBuffer: true,
-    });
+    // Create WebGL renderer with error handling
+    try {
+      this.renderer = new WebGLRenderer({
+        canvas,
+        antialias: true,
+        logarithmicDepthBuffer: true,
+      });
+    } catch (e) {
+      throw new Error('WebGL wird nicht unterstützt. Aktiviere Hardware-Beschleunigung im Browser.');
+    }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x151c1f);
     this.renderer.outputColorSpace = SRGBColorSpace;
