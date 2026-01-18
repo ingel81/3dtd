@@ -1,5 +1,13 @@
 # Offene TODOs
 
+[ ] wenn eine Wave endet (egal op gewonnen oder kill all button) bleiben Projektile in der Luft (Partikel verschwinden) stehen und Türme werden nicht mehr animiert (zurückdrehen auf Idle pos z.b.). Bei der nächsten Wave fliegen die Projektile dann weiter. Da wird etwas global pausiert
+
+[ ] wenn mehrere Türme am selben Streckenabschnitt stehen wird die animation der grünen Kacheln dieses Routes Grids im debug Modus ("Route Grid Overlay) oder in der Ansicht die man bekommt wenn der Tower selektiert ist und die Strecke visualisiert wird sehr stark flakernd. Vermutlich liegen da mehrere übereinander dann oder da mehrere für die Selbe Zellen registriert sind verschnellert sich da eine Animation? Bug oder Feature? Sieht auf jedenfall nicht gut aus.
+
+[ ] der komplette Text in der UI sollte CSS technisch verboten werden selektiertbar sein
+
+[ ] 
+
 > Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
 ---
