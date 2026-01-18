@@ -62,6 +62,13 @@ export class LocationManagementService {
    * Set current location and resolve display name
    */
   setLocation(hq: { lat: number; lon: number }, spawns: { lat: number; lon: number }[]): void {
+    console.log('\n' + '='.repeat(60));
+    console.log('📍 LOCATION CHANGE');
+    console.log('='.repeat(60));
+    console.log(`HQ: ${hq.lat.toFixed(6)}, ${hq.lon.toFixed(6)}`);
+    console.log(`Spawns: ${spawns.length || 1}`);
+    console.log('='.repeat(60) + '\n');
+
     this.hq.set(hq);
     this.spawns.set(spawns.length > 0 ? spawns : [{ lat: hq.lat + 0.005, lon: hq.lon }]);
     this.resolveDisplayName(hq.lat, hq.lon);
