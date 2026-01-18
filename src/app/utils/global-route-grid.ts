@@ -315,6 +315,7 @@ export class GlobalRouteGrid {
    * @param tipY Tower tip Y position (for LOS origin)
    * @param range Tower targeting range
    * @param losRaycaster LOS raycaster function
+   * @param isPureAirTower If true, skip LOS checks (air enemies are always visible)
    * @returns Array of cells visible from this tower
    */
   registerTower(
@@ -323,7 +324,8 @@ export class GlobalRouteGrid {
     towerZ: number,
     tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster
+    losRaycaster: LineOfSightRaycaster,
+    isPureAirTower = false
   ): RouteCell[] {
     const visibleCells: RouteCell[] = [];
     const rangeSq = range * range;
@@ -346,7 +348,10 @@ export class GlobalRouteGrid {
       const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
 
       let isVisible: boolean;
-      if (dirLen < 0.1) {
+      if (isPureAirTower) {
+        // Air towers can always see all cells in range (no LOS needed)
+        isVisible = true;
+      } else if (dirLen < 0.1) {
         // Cell is at tower center, always visible
         isVisible = true;
       } else {
@@ -705,6 +710,11 @@ export class GlobalRouteGrid {
    */
   updateAnimation(deltaTime: number): void {
     this.animationTime += deltaTime * 0.001;
+    // Wrap animation time to avoid floating point precision issues over time
+    // 2*PI ensures seamless looping of sin() based animations
+    if (this.animationTime > Math.PI * 2000) {
+      this.animationTime = this.animationTime % (Math.PI * 2);
+    }
     if (this.visualizationMaterial?.uniforms?.['uTime']) {
       this.visualizationMaterial.uniforms['uTime'].value = this.animationTime;
     }
@@ -846,6 +856,7 @@ export class GlobalRouteGrid {
     isBlockedArray: Float32Array;
     currentIndex: number;
     batchSize: number;
+    isPureAirTower: boolean;
   } | null = null;
 
   /**
@@ -857,6 +868,7 @@ export class GlobalRouteGrid {
    * @param tipY Tower tip Y position (for LOS origin)
    * @param range Tower targeting range
    * @param losRaycaster LOS raycaster function
+   * @param isPureAirTower If true, skip LOS checks (all cells visible)
    * @returns InstancedMesh (empty initially) or null if no cells
    */
   createPlacementPreview(
@@ -864,7 +876,8 @@ export class GlobalRouteGrid {
     towerZ: number,
     tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster
+    losRaycaster: LineOfSightRaycaster,
+    isPureAirTower = false
   ): THREE.InstancedMesh | null {
     // Cancel any ongoing preview build
     this.previewState = null;
@@ -929,6 +942,7 @@ export class GlobalRouteGrid {
       isBlockedArray,
       currentIndex: 0,
       batchSize: 25, // Process 25 cells per frame (~60fps = ~400 cells/sec)
+      isPureAirTower,
     };
 
     return mesh;
@@ -942,7 +956,7 @@ export class GlobalRouteGrid {
   continuePreviewBuild(): boolean {
     if (!this.previewState) return true;
 
-    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize, currentIndex } = this.previewState;
+    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize, currentIndex, isPureAirTower } = this.previewState;
 
     const matrix = new THREE.Matrix4();
     const endIndex = Math.min(currentIndex + batchSize, cells.length);
@@ -954,19 +968,23 @@ export class GlobalRouteGrid {
       const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
       if (terrainY === null) continue;
 
-      // Calculate LOS
-      const dirX = cell.x - towerX;
-      const dirZ = cell.z - towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
+      // Calculate LOS (skip for air towers - they can see everything)
       let isVisible: boolean;
-      if (dirLen < 0.1) {
+      if (isPureAirTower) {
         isVisible = true;
       } else {
-        const originX = towerX + (dirX / dirLen) * this.LOS_OFFSET;
-        const originZ = towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
-        const targetY = terrainY + 1.5;
-        isVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+        const dirX = cell.x - towerX;
+        const dirZ = cell.z - towerZ;
+        const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (dirLen < 0.1) {
+          isVisible = true;
+        } else {
+          const originX = towerX + (dirX / dirLen) * this.LOS_OFFSET;
+          const originZ = towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+          const targetY = terrainY + 1.5;
+          isVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+        }
       }
 
       // Set matrix and attribute

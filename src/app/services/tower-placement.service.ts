@@ -414,16 +414,21 @@ export class TowerPlacementService {
     const local = this.engine.sync.geoToLocalSimple(lat, lon, height);
     const tipY = local.y + config.heightOffset + config.shootHeight;
 
+    // Check if this is a pure air tower (only targets air, not ground)
+    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+
     // Clean up old preview
     this.cleanupLosPreview();
 
     // Start progressive preview build (mesh starts empty, fills progressively)
+    // Air towers skip LOS checks and show all cells as visible (green)
     this.losPreviewMesh = this.globalRouteGrid.createPlacementPreview(
       local.x,
       local.z,
       tipY,
       config.range,
-      losRaycaster
+      losRaycaster,
+      isPureAirTower
     );
 
     if (this.losPreviewMesh) {
