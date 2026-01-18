@@ -29,6 +29,9 @@ export class LocationManagementService {
   readonly hq = signal<{ lat: number; lon: number }>(DEFAULT_HQ);
   readonly spawns = signal<{ lat: number; lon: number }[]>([DEFAULT_SPAWN]);
 
+  // Flag: true if no spawn was provided and random spawn should be generated
+  readonly needsRandomSpawn = signal<boolean>(false);
+
   // Display name - resolved async via geocoding
   readonly displayName = signal<string>('Laden...');
 
@@ -66,11 +69,20 @@ export class LocationManagementService {
     console.log('📍 LOCATION CHANGE');
     console.log('='.repeat(60));
     console.log(`HQ: ${hq.lat.toFixed(6)}, ${hq.lon.toFixed(6)}`);
-    console.log(`Spawns: ${spawns.length || 1}`);
+    console.log(`Spawns: ${spawns.length} (needsRandom: ${spawns.length === 0})`);
     console.log('='.repeat(60) + '\n');
 
     this.hq.set(hq);
-    this.spawns.set(spawns.length > 0 ? spawns : [{ lat: hq.lat + 0.005, lon: hq.lon }]);
+
+    if (spawns.length > 0) {
+      this.spawns.set(spawns);
+      this.needsRandomSpawn.set(false);
+    } else {
+      // No spawns provided - will be generated randomly after streets are loaded
+      this.spawns.set([]);
+      this.needsRandomSpawn.set(true);
+    }
+
     this.resolveDisplayName(hq.lat, hq.lon);
   }
 
@@ -177,9 +189,18 @@ export class LocationManagementService {
   saveLocationsToStorage() { /* no-op, URL is source of truth */ }
   clearLocationsFromStorage() { /* no-op */ }
 
+  /**
+   * Set spawns after random generation (clears needsRandomSpawn flag)
+   */
+  setGeneratedSpawns(spawns: { lat: number; lon: number }[]): void {
+    this.spawns.set(spawns);
+    this.needsRandomSpawn.set(false);
+  }
+
   reset(): void {
     this.hq.set(DEFAULT_HQ);
     this.spawns.set([DEFAULT_SPAWN]);
+    this.needsRandomSpawn.set(false);
     this.displayName.set('Erlenbach');
     this.isApplyingLocation.set(false);
   }
