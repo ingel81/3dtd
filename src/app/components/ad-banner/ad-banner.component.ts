@@ -13,6 +13,9 @@ import { MatIconModule } from '@angular/material/icon';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { environment } from '../../../environments/environment';
 
+// Toggle to enable/disable ads (set to true when ready to monetize)
+const ADS_ENABLED = false;
+
 /**
  * Ad Banner Component with Monetag Vignette Ads (Production only)
  *
@@ -242,8 +245,8 @@ export class AdBannerComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
-      // Only load Monetag ads in production
-      if (environment.production) {
+      // Only load Monetag ads in production and when enabled
+      if (ADS_ENABLED && environment.production) {
         this.loadMonetag();
         // Check for adblocker after a delay (let Monetag script load)
         setTimeout(() => this.checkForAdBlocker(), 3000);
