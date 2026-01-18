@@ -1,6 +1,6 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-01-18
+**Stand:** 2026-01-18 (aktualisiert)
 
 Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense Minispiel.
 
@@ -24,15 +24,16 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | Dokument | Beschreibung |
 |----------|--------------|
 | [TOWER_CREATION.md](TOWER_CREATION.md) | Neue Tower erstellen, rotierende Turrets, Sound-Integration |
-| [ENEMY_CREATION.md](ENEMY_CREATION.md) | **NEU** Neue Enemies erstellen, Animationen, Audio-System |
-| [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | **NEU** Status-Effekt-System (Slow, Freeze, Burn) |
-| [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | **NEU** Wave-Management, Spawning, Game Phases |
+| [ENEMY_CREATION.md](ENEMY_CREATION.md) | Enemies erstellen, Animationen, Audio-System |
+| [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | Status-Effekt-System (Slow, Freeze, Burn) |
+| [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Wave-Management, Spawning, Game Phases |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Location Dialog, Geocoding, Spawn-Generierung |
 | [PROJECTILES.md](PROJECTILES.md) | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | 3D Audio System, Positionsabhängige Sounds |
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | 3D Model Previews in der Sidebar |
 | [FRAME_TIMING_FIXES.md](FRAME_TIMING_FIXES.md) | Frame-Timing Probleme und Lösungen |
 | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Partikel-System, Blut, Feuer, Trail-Effekte |
+| [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse & Workarounds |
 
 ---
 
@@ -72,25 +73,15 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 ## Dateistruktur (Kurzübersicht)
 
 ```
-tower-defense/
-├── tower-defense.component.ts   # Haupt-Komponente (~3150 Zeilen)
-├── services/                    # 13 Services (4 existierend + 9 neu)
-│   ├── game-ui-state.service.ts
-│   ├── camera-control.service.ts
-│   ├── marker-visualization.service.ts
-│   ├── path-route.service.ts
-│   ├── input-handler.service.ts
-│   ├── tower-placement.service.ts
-│   ├── location-management.service.ts
-│   ├── height-update.service.ts
-│   ├── engine-initialization.service.ts
-│   └── ... (existierende Services)
-├── three-engine/                # Three.js Engine + Renderer
-├── managers/                    # Game State, Enemy, Tower, Projectile, Wave
+src/app/
+├── tower-defense.component.ts   # Haupt-Spielkomponente
+├── services/                    # 23 Angular Services
+├── managers/                    # 7 Manager (Enemy, Tower, Wave, etc.)
 ├── entities/                    # Enemy, Tower, Projectile Entities
 ├── game-components/             # Transform, Health, Movement, Combat, etc.
-├── configs/                     # Tower/Projectile Type Configs
+├── configs/                     # Tower/Projectile/Audio/Visual Configs
 ├── components/                  # UI Sub-Components
+├── three-engine/                # Three.js Engine + Renderer
 └── docs/                        # Diese Dokumentation
 ```
 

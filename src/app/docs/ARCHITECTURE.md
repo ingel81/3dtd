@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-01-14
+**Stand:** 2026-01-18
 
 ## Übersicht
 
@@ -56,7 +56,7 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 
 ## Services (2026-01 Refactoring)
 
-Die Komponente wurde durch Extraktion von **17 spezialisierten Services** modularisiert.
+Die Komponente wurde durch Extraktion von **23 spezialisierten Services** modularisiert.
 Die Komponente selbst ist von 4098 auf ~1950 Zeilen reduziert worden.
 
 **Hinweis:** Services liegen in `/src/app/services/`, nicht im tower-defense Subfolder.
@@ -65,43 +65,72 @@ Die Komponente selbst ist von 4098 auf ~1950 Zeilen reduziert worden.
 
 | Service | Verantwortung |
 |---------|---------------|
-| **GameUIStateService** | UI State Signals, Layer Toggles, Debug Log |
+| **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
 | **CameraControlService** | Kamera Position, Reset, Fly-To Animationen |
 | **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
-| **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
-| **PathAndRouteService** | Pfad-Caching, Route-Visualisierung, Height Smoothing |
-| **InputHandlerService** | Click/Pan Detection, Terrain Raycasting |
-| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
-| **LocationManagementService** | Location CRUD, LocalStorage Persistence |
-| **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
-| **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
-| **RouteAnimationService** | Knight Rider Routen-Animation |
-| **WaveDebugService** | Wave-Debugging Utilities |
 | **DebugWindowService** | Debug-Window Verwaltung |
-| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
-| **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
-| **ModelPreviewService** | 3D Model Previews für Sidebar |
+| **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
 | **EntityPoolService** | Object Pooling (Placeholder) |
+| **GameUIStateService** | UI State Signals, Layer Toggles, Debug Log |
+| **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
+| **GeolocationService** | Browser Geolocation API Wrapper |
+| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup |
+| **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
+| **InputHandlerService** | Click/Pan Detection, Terrain Raycasting |
+| **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
+| **LocationManagementService** | Location CRUD, LocalStorage Persistence |
+| **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
+| **ModelPreviewService** | 3D Model Previews für Sidebar |
+| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
+| **PathAndRouteService** | Pfad-Caching, Route-Visualisierung, Height Smoothing |
+| **RouteAnimationService** | Knight Rider Routen-Animation |
+| **StreetCacheService** | IndexedDB Cache für Straßendaten |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
+| **UrlLocationService** | URL-Parameter für Location-Sharing |
+| **WaveDebugService** | Wave-Debugging Utilities |
 
 ### Service-Architektur
 
 ```
 tower-defense.component.ts (Orchestrierung)
     │
-    ├── GameUIStateService ──────── UI State & Toggles
     ├── EngineInitializationService ─ Loading Sequence
-    │       └── verwendet alle anderen Services
-    ├── CameraControlService ────── Kamera-Steuerung
-    ├── CameraFramingService ────── Viewport-Framing
-    ├── InputHandlerService ─────── Click/Pan Events
-    ├── MarkerVisualizationService ─ 3D Marker
-    ├── PathAndRouteService ─────── Pfade & Routen
-    ├── RouteAnimationService ───── Route-Animation
-    ├── TowerPlacementService ───── Build Mode
-    ├── HeightUpdateService ─────── Terrain Sync
-    ├── LocationManagementService ─ Location Management
-    ├── WaveDebugService ────────── Wave Debugging
-    └── DebugWindowService ──────── Debug Windows
+    │       └── AssetManagerService ─ Zentrales Asset Loading
+    │
+    ├── UI Services
+    │   ├── GameUIStateService ───── UI State & Toggles
+    │   └── DebugWindowService ───── Debug Windows
+    │
+    ├── Camera Services
+    │   ├── CameraControlService ─── Kamera-Steuerung
+    │   ├── CameraFramingService ─── Viewport-Framing
+    │   └── KeyboardPanService ───── WASD Steuerung
+    │
+    ├── Input & Interaction
+    │   ├── InputHandlerService ──── Click/Pan Events
+    │   └── TowerPlacementService ── Build Mode
+    │
+    ├── World Services
+    │   ├── MarkerVisualizationService ─ 3D Marker
+    │   ├── PathAndRouteService ──── Pfade & Routen
+    │   ├── RouteAnimationService ── Route-Animation
+    │   ├── GlobalRouteGridService ─ LOS Grid
+    │   └── HeightUpdateService ──── Terrain Sync
+    │
+    ├── Location Services
+    │   ├── LocationManagementService ─ Location CRUD
+    │   ├── UrlLocationService ──── URL Sharing
+    │   ├── GeocodingService ─────── Nominatim
+    │   └── GeolocationService ───── Browser GPS
+    │
+    ├── Data Services
+    │   ├── OsmStreetService ──────── OSM + A* Pathfinding
+    │   ├── StreetCacheService ────── IndexedDB Cache
+    │   └── ModelPreviewService ───── 3D Previews
+    │
+    └── Debug Services
+        ├── WaveDebugService ──────── Wave Debugging
+        └── EntityPoolService ─────── Object Pooling
 ```
 
 ---
