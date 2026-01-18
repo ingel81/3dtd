@@ -44,10 +44,6 @@
 
 ### 🟡 Priorität 2: Hoher Impact
 
-- [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (100× schneller)
-      `three-tiles-engine.ts:670` - Brute-Force ohne BVH, benötigt `three-mesh-bvh`
-      → [Teil 14.1](PERFORMANCE_REPORT.md#141-bvh-acceleration--kritisch-fehlt)
-
 - [ ] **Tiles Update Throttling** - 5-10% FPS bei statischer Kamera
       `three-tiles-engine.ts:965-969` - Nur bei Kamera-Bewegung updaten
       → [Teil 1.2](PERFORMANCE_REPORT.md#12-kritisches-problem-tiles-update-ohne-throttling)
@@ -111,6 +107,15 @@
       → [Teil 5.3](PERFORMANCE_REPORT.md#53-fehlende-precision-qualifiers)
 
 ### ⚪ Priorität 4: Langfristig (Architektur)
+
+- [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (100× schneller)
+      `three-tiles-engine.ts:721` - Brute-Force ohne BVH, benötigt `three-mesh-bvh`
+      → [Teil 14.1](PERFORMANCE_REPORT.md#141-bvh-acceleration--kritisch-fehlt)
+      **Hinweis:** Weniger kritisch als im Report dargestellt:
+      - Raycasts passieren hauptsächlich **einmalig** beim Setup (Route-Höhen, Tower-Platzierung)
+      - Der Fallback in `enemy.manager.ts:211` greift nur wenn Routen keine Heights haben
+      - Es gibt bereits einen Height-Cache (`heightCache` in three-tiles-engine.ts)
+      - Verbesserung würde sich vor allem bei initialer Route-Berechnung bemerkbar machen
 
 - [ ] **Web Worker Pathfinding** - 200-600ms → 0ms Main Thread
       A* in Worker auslagern für non-blocking Location Changes
