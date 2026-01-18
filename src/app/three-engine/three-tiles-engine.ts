@@ -94,6 +94,19 @@ export class ThreeTilesEngine {
   private testCube: THREE.Mesh | null = null;
   private debugHelpers: THREE.Object3D[] = [];
 
+  // Event handlers (stored for cleanup in dispose)
+  private tilesLoadEndHandler = () => this.onTilesLoadEnd();
+  private controlsStartHandler = () => {
+    this.controlsStartTime = performance.now();
+    this.controlsStartCameraPos.copy(this.camera.position);
+  };
+  private controlsEndHandler = () => {
+    this.lastCameraMovement = this.camera.position.distanceTo(this.controlsStartCameraPos);
+    if (this.onControlsDragEnd && this.lastCameraMovement > 5) {
+      this.onControlsDragEnd();
+    }
+  };
+
 
   // Overlay group for markers, streets, routes
   // Added to scene root, but synced with tiles movement each frame
@@ -297,9 +310,7 @@ export class ThreeTilesEngine {
 
     // Listen for tile loading events to refresh terrain heights
     // 'tiles-load-end' fires when ALL currently visible tiles have finished loading
-    this.tilesRenderer.addEventListener('tiles-load-end', () => {
-      this.onTilesLoadEnd();
-    });
+    this.tilesRenderer.addEventListener('tiles-load-end', this.tilesLoadEndHandler);
 
     // Set up terrain height sampler for tower range indicators (legacy)
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
@@ -448,23 +459,8 @@ export class ThreeTilesEngine {
     this.controls.setEllipsoid(this.tilesRenderer.ellipsoid, this.tilesRenderer.group);
 
     // Listen for drag start/end to distinguish clicks from pans
-    this.controls.addEventListener('start', () => {
-      this.controlsStartTime = performance.now();
-      this.controlsStartCameraPos.copy(this.camera.position);
-    });
-
-    this.controls.addEventListener('end', () => {
-      // Record camera movement for debugging
-      this.lastCameraMovement = this.camera.position.distanceTo(this.controlsStartCameraPos);
-
-      if (this.onControlsDragEnd) {
-        // Only consider it a drag if camera actually moved significantly
-        // Threshold of 5 units to ignore tiny jitter during normal clicks
-        if (this.lastCameraMovement > 5) {
-          this.onControlsDragEnd();
-        }
-      }
-    });
+    this.controls.addEventListener('start', this.controlsStartHandler);
+    this.controls.addEventListener('end', this.controlsEndHandler);
 
     // With ReorientationPlugin (recenter: true) and tiles.group.rotation.x = -PI/2:
     // - Origin (HQ) is at (0,0,0) in local space
@@ -1415,6 +1411,15 @@ export class ThreeTilesEngine {
   dispose(): void {
     this.stopRenderLoop();
     this.clearDebugHelpers();
+
+    // Remove event listeners to prevent memory leaks
+    if (this.tilesRenderer) {
+      this.tilesRenderer.removeEventListener('tiles-load-end', this.tilesLoadEndHandler);
+    }
+    if (this.controls) {
+      this.controls.removeEventListener('start', this.controlsStartHandler);
+      this.controls.removeEventListener('end', this.controlsEndHandler);
+    }
 
     // Dispose entity renderers
     this.enemies.dispose();

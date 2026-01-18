@@ -287,14 +287,6 @@ export class ThreeTowerRenderer {
       console.log(`[TowerRenderer] No turret found for ${typeId}. Nodes:`, names);
     }
 
-    // Enable shadows
-    mesh.traverse((node) => {
-      if ((node as THREE.Mesh).isMesh) {
-        node.castShadow = true;
-        node.receiveShadow = true;
-      }
-    });
-
     // Position in local coordinates - terrain level (without height offset)
     const terrainPos = this.sync.geoToLocal(lat, lon, height);
 

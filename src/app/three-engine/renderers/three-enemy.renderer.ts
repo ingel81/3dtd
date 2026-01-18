@@ -125,12 +125,10 @@ export class ThreeEnemyRenderer {
     }
     mesh.scale.setScalar(config.scale);
 
-    // Enable shadows and apply material adjustments
+    // Apply material adjustments
     mesh.traverse((node) => {
       if ((node as THREE.Mesh).isMesh) {
         const meshNode = node as THREE.Mesh;
-        meshNode.castShadow = true;
-        meshNode.receiveShadow = true;
 
         // Convert to unlit material for cartoon models
         if (config.unlit) {
