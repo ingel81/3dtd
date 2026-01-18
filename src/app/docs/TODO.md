@@ -32,14 +32,6 @@
 
 ---
 
-## Performance (aus Expert Review)
-
-- [~] Tile-Loading optimiert (downloadQueue.maxJobs=4, parseQueue.maxJobs=1, groesserer lruCache)
-      [~] Deutlich fluessiger
-
-
----
-
 ## Three.js & Rendering (aus Expert Review)
 
 - [ ] **Selection Ring Geometry teilen**
