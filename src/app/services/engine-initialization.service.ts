@@ -169,6 +169,7 @@ export class EngineInitializationService {
       { id: 'hq', label: 'Platziere Hauptquartier', status: 'pending' },
       { id: 'spawn', label: 'Platziere Spawns', status: 'pending' },
       { id: 'route', label: 'Berechne Routen', status: 'pending' },
+      { id: 'grid', label: 'Generiere Routen-Grid', status: 'pending' },
       { id: 'finalize', label: 'Finalisiere 3D-Ansicht', status: 'pending' },
     ]);
   }
@@ -219,6 +220,7 @@ export class EngineInitializationService {
 
       // Step 1: Initialize Engine
       await this.setStepActive('init');
+      this.updateStepDetail('init', 'Three.js Engine...');
 
       // Engine starts with default camera on HQ - final framing happens after routes are calculated
       this.engine = new ThreeTilesEngine(
@@ -231,11 +233,13 @@ export class EngineInitializationService {
         this.assetManager
       );
 
-      await this.setStepDone('init');
+      this.updateStepDetail('init', '3D-Tiles Renderer...');
 
       // Initialize 3D Tiles (camera position is now set optimally)
       await this.engine.initialize();
       this.engine.resize(rect.width, rect.height);
+
+      await this.setStepDone('init');
 
       // Register callback for first tiles loaded
       this.engine.setOnFirstTilesLoadedCallback(() => {
@@ -258,6 +262,7 @@ export class EngineInitializationService {
 
       // Step 2: Load OSM streets
       await this.setStepActive('streets');
+      this.updateStepDetail('streets', 'Lade OSM-Daten...');
       const streetCnt = await callbacks.onLoadStreets();
       await this.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Straßen` : undefined);
 
@@ -277,6 +282,7 @@ export class EngineInitializationService {
 
       // Step 5: Calculate routes
       await this.setStepActive('route');
+      this.updateStepDetail('route', 'A* Pathfinding...');
       const routeDetail = callbacks.onInitializeGameState();
       await this.setStepDone('route', routeDetail);
 
