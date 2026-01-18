@@ -1721,6 +1721,26 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private addPredefinedSpawns(): number {
     const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]; // red, orange, cyan, magenta
 
+    // Check if we need to generate a random spawn (URL had no spawn parameter)
+    if (this.locationMgmt.needsRandomSpawn() && this.streetNetwork) {
+      const hq = this.locationMgmt.hq();
+      const randomSpawn = this.osmService.findRandomStreetPoint(this.streetNetwork, hq.lat, hq.lon, 500, 1000);
+
+      if (randomSpawn) {
+        console.log(`[addPredefinedSpawns] Generated random spawn: ${randomSpawn.streetName || 'Unknown'} (${Math.round(randomSpawn.distance)}m)`);
+        // Update location service with generated spawn
+        this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
+        // Sync to URL so it can be shared
+        this.syncUrlWithLocation();
+        // Add the spawn point
+        this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, colors[0]);
+        return 1;
+      } else {
+        console.warn('[addPredefinedSpawns] No valid random spawn found, using default');
+        // Fall through to default spawn
+      }
+    }
+
     // Use editable spawn locations if available, otherwise defaults
     const spawns = this.editableSpawnLocations();
     let count = 0;
