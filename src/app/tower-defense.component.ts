@@ -140,31 +140,38 @@ const DEFAULT_CENTER_COORDS = {
         <div class="td-canvas-area">
           @if (loading()) {
             <div class="td-loading-overlay">
-              <mat-spinner diameter="48"></mat-spinner>
-              <div class="td-loading-title">Lade 3DTD</div>
-              <div class="td-loading-steps">
-                @for (step of loadingSteps(); track step.id) {
-                  <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">
-                    <mat-icon class="td-step-icon">
-                      @if (step.status === 'done') {
-                        check_circle
-                      } @else if (step.status === 'active') {
-                        sync
-                      } @else {
-                        radio_button_unchecked
+              @if (!error()) {
+                <mat-spinner diameter="48"></mat-spinner>
+                <div class="td-loading-title">Lade 3DTD</div>
+                <div class="td-loading-steps">
+                  @for (step of loadingSteps(); track step.id) {
+                    <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">
+                      <mat-icon class="td-step-icon">
+                        @if (step.status === 'done') {
+                          check_circle
+                        } @else if (step.status === 'active') {
+                          sync
+                        } @else {
+                          radio_button_unchecked
+                        }
+                      </mat-icon>
+                      <span class="td-step-label">{{ step.label }}</span>
+                      @if (step.detail) {
+                        <span class="td-step-detail">({{ step.detail }})</span>
                       }
-                    </mat-icon>
-                    <span class="td-step-label">{{ step.label }}</span>
-                    @if (step.detail) {
-                      <span class="td-step-detail">({{ step.detail }})</span>
-                    }
-                  </div>
-                }
-              </div>
+                    </div>
+                  }
+                </div>
+              } @else {
+                <mat-icon class="td-loading-error-icon">warning</mat-icon>
+                <div class="td-loading-title">Laden fehlgeschlagen</div>
+                <p class="td-loading-error-msg">{{ error() }}</p>
+                <button class="td-btn td-btn-gold" (click)="retryLoading()">Erneut versuchen</button>
+              }
             </div>
           }
 
-          @if (error()) {
+          @if (error() && !loading()) {
             <div class="td-error-overlay">
               <mat-icon class="td-error-icon">error_outline</mat-icon>
               <h3>Fehler</h3>
@@ -467,6 +474,22 @@ const DEFAULT_CENTER_COORDS = {
       to { transform: rotate(360deg); }
     }
 
+    /* Loading Error State */
+    .td-loading-error-icon {
+      font-size: 48px;
+      width: 48px;
+      height: 48px;
+      color: var(--td-warn-orange);
+    }
+
+    .td-loading-error-msg {
+      color: var(--td-text-secondary);
+      max-width: 300px;
+      text-align: center;
+      margin: 8px 0 16px 0;
+      font-size: 14px;
+    }
+
     .td-error-overlay {
       position: absolute;
       top: 0;
@@ -691,6 +714,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
   private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
+  private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
+  private readonly COORD_EPSILON = 0.0001; // ~11m tolerance for coordinate comparison
 
   // Three.js object for streets (merged geometry for performance - 1 draw call instead of 600)
   private streetLinesMesh: LineSegments | null = null;
@@ -768,6 +793,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly gatheringCountdown = signal(0);
 
   private animationFrameId: number | null = null;
+  private tileStatsIntervalId: number | null = null; // Polling for tile stats during loading
 
   // UI update throttling (avoid updating signals every frame)
   private lastUIUpdateTime = 0;
@@ -1016,6 +1042,20 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const wasLoading = this.loading();
     const isApplying = this.isApplyingLocation();
 
+    // Check if we need to start/stop tile stats polling
+    const tiles = this.tilesLoading();
+    const heights = this.heightsLoading();
+
+    // Start polling when heights done but tiles still loading
+    if (!heights && tiles && !this.tileStatsIntervalId && this.engine) {
+      this.startTileStatsPolling();
+    }
+
+    // Stop polling when tiles are done
+    if (!tiles && this.tileStatsIntervalId) {
+      this.stopTileStatsPolling();
+    }
+
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
     const isNowLoading = this.loading();
 
@@ -1026,6 +1066,31 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (cachedPaths.size > 0) {
         this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
       }
+    }
+  }
+
+  /**
+   * Start polling tile stats to show loading progress
+   */
+  private startTileStatsPolling(): void {
+    if (this.tileStatsIntervalId) return;
+
+    this.tileStatsIntervalId = window.setInterval(() => {
+      if (!this.engine) return;
+
+      const stats = this.engine.getTileStats();
+      const detail = `${stats.visible} Kacheln geladen`;
+      this.engineInit.updateStepDetail('tiles', detail);
+    }, 500);
+  }
+
+  /**
+   * Stop polling tile stats
+   */
+  private stopTileStatsPolling(): void {
+    if (this.tileStatsIntervalId) {
+      clearInterval(this.tileStatsIntervalId);
+      this.tileStatsIntervalId = null;
     }
   }
 
@@ -1191,6 +1256,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       () => this.onGameOver()
     );
 
+    // Validate that routes were found
+    const paths = this.pathRoute.getCachedPaths();
+    if (paths.size === 0) {
+      console.error('[TD] No routes found - spawn and HQ may not be connected by streets');
+      // Don't throw here as this is initial load - game will still be playable but enemies can't reach HQ
+    }
+
     // Initialize GlobalRouteGrid after routes are computed
     // (setStepActive/Done are async but we fire-and-forget for UI update)
     void this.engineInit.setStepActive('grid');
@@ -1329,6 +1401,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private isRenderingStreets = false;
 
   private renderStreets(): void {
+    // Guard: Only render when filtered (prevents 16s raycast on unfiltered streets)
+    if (!this.filteredStreetNetwork) {
+      console.log('[TD] renderStreets: Skipped - not filtered yet');
+      return;
+    }
+
     // Prevent concurrent calls (can happen during loading sequence)
     if (this.isRenderingStreets) {
       return;
@@ -1470,7 +1548,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Re-renders terrain-following elements with updated geometry
    */
   private onTilesLoaded(): void {
-    if (!this.engine || !this.streetNetwork) return;
+    if (!this.engine || !this.filteredStreetNetwork) return;
 
     // Re-render streets with new terrain data
     this.renderStreets();
@@ -2089,6 +2167,33 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.gameState.initializeGlobalRouteGrid();
   }
 
+  /**
+   * Retry loading after an error during location change
+   * Resets error state and retries with current coordinates
+   */
+  retryLoading(): void {
+    // Clear error state
+    this.engineInit.setError(null);
+
+    // Clear cached network to force reload
+    this.streetNetworkLocation = null;
+
+    // Get current location from service
+    const hq = this.editableHqLocation();
+    const spawn = this.editableSpawnLocations()[0];
+
+    if (hq && spawn) {
+      // Retry with current location
+      this.onApplyNewLocation({
+        hq: { lat: hq.lat, lon: hq.lon, name: hq.name },
+        spawn: { lat: spawn.lat, lon: spawn.lon, name: spawn.name },
+      });
+    } else {
+      // Fall back to default location
+      this.onResetLocations();
+    }
+  }
+
 
   // ==================== Location Settings Methods ====================
 
@@ -2177,27 +2282,36 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         });
       });
 
-      // STEP 3: Load streets in parallel with tiles
+      // STEP 3: Load streets in parallel with tiles (skip if already loaded for this location)
       await this.engineInit.setStepActive('streets');
-      this.engineInit.updateStepDetail('streets', 'Lade OSM-Daten...');
-      const streetsPromise = this.osmService.loadStreets(data.hq.lat, data.hq.lon, 2000);
-
-      // Wait for streets to load
-      this.streetNetwork = await streetsPromise;
-      this.streetCount.set(this.streetNetwork.streets.length);
+      if (!this.isSameStreetNetworkLocation(data.hq.lat, data.hq.lon)) {
+        this.engineInit.updateStepDetail('streets', 'Lade OSM-Daten...');
+        this.streetNetwork = await this.osmService.loadStreets(data.hq.lat, data.hq.lon, 2000);
+        this.streetNetworkLocation = { lat: data.hq.lat, lon: data.hq.lon };
+      } else {
+        this.engineInit.updateStepDetail('streets', 'Verwende Cache...');
+      }
+      this.streetCount.set(this.streetNetwork!.streets.length);
       this.osmLoading.set(false);
       const streetCnt = this.streetCount();
       await this.engineInit.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Straßen` : undefined);
       this.checkAllLoaded();
 
-      // Wait for tiles to load (with timeout fallback)
-      await Promise.race([
-        tilesLoadedPromise,
-        new Promise<void>((resolve) => setTimeout(() => {
+      // Wait for tiles to load (with timeout fallback - game continues even if tiles are slow)
+      let tilesLoaded = false;
+      const timeoutId = setTimeout(() => {
+        if (!tilesLoaded) {
+          console.warn('[TD] Tiles loading timed out after 15s - continuing with available tiles');
           this.tilesLoading.set(false);
-          resolve();
-        }, 10000)) // 10 second timeout
+        }
+      }, 15000);
+
+      await Promise.race([
+        tilesLoadedPromise.then(() => { tilesLoaded = true; }),
+        new Promise<void>(resolve => setTimeout(resolve, 15000))
       ]);
+
+      clearTimeout(timeoutId);
 
       // NOTE: renderStreets() is called later in Height-Update-Loop AFTER filterStreetNetworkToRoutes()
       // This avoids 16+ second raycast overhead with unfiltered streets (21786 → 410)
@@ -2246,6 +2360,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         () => this.onGameOver()
       );
 
+      // Validate that routes were found
+      const paths = this.pathRoute.getCachedPaths();
+      if (paths.size === 0) {
+        throw new Error('Keine Route zwischen HQ und Spawn möglich. Die Straßen sind nicht verbunden.');
+      }
+
       // Initialize GlobalRouteGrid after routes are computed
       await this.engineInit.setStepActive('grid');
       this.engineInit.updateStepDetail('grid', 'Berechne Grid...');
@@ -2288,10 +2408,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);
       this.appendDebugLog(`Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
-      this.error.set(err instanceof Error ? err.message : 'Fehler beim Standortwechsel');
+      this.engineInit.setError(err instanceof Error ? err.message : 'Fehler beim Standortwechsel');
 
-      // On error, force hide overlay and reset states
-      this.loading.set(false);
+      // Keep loading overlay visible with error (user can retry)
+      // loading stays true, error is set → shows error UI in loading overlay
       this.tilesLoading.set(false);
       this.osmLoading.set(false);
       this.heightsLoading.set(false);
@@ -2346,9 +2466,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       let spawnName = result.spawn.name;
 
       // Generate random spawn if requested
-      if (result.spawn.isRandom && this.streetNetwork) {
-        // First load streets for the new location to find spawn
+      if (result.spawn.isRandom) {
+        // Load streets for the new location to find spawn (reused in onApplyNewLocation)
         const newNetwork = await this.osmService.loadStreets(result.hq.lat, result.hq.lon, 2000);
+        // Store for reuse in onApplyNewLocation to avoid double-loading
+        this.streetNetwork = newNetwork;
+        this.streetNetworkLocation = { lat: result.hq.lat, lon: result.hq.lon };
+
         const randomSpawn = this.osmService.findRandomStreetPoint(newNetwork, result.hq.lat, result.hq.lon, 500, 1000);
 
         if (randomSpawn) {
@@ -2452,6 +2576,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.appendDebugLog('Favorit gelöscht');
   }
 
+  /**
+   * Check if street network is already loaded for the given coordinates
+   * Used to avoid double-loading when random spawn uses same location
+   */
+  private isSameStreetNetworkLocation(lat: number, lon: number): boolean {
+    if (!this.streetNetworkLocation || !this.streetNetwork) return false;
+    return Math.abs(this.streetNetworkLocation.lat - lat) < this.COORD_EPSILON &&
+           Math.abs(this.streetNetworkLocation.lon - lon) < this.COORD_EPSILON;
+  }
+
   private clearMapEntities(): void {
     if (!this.engine) return;
 
@@ -2477,7 +2611,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear cached paths via service
     this.pathRoute.clearCachedPaths();
 
-    // Clear filtered street network
+    // Clear filtered street network and location tracking
     this.filteredStreetNetwork = null;
+    this.streetNetworkLocation = null;
+
+    // Stop tile stats polling if running
+    this.stopTileStatsPolling();
   }
 }
