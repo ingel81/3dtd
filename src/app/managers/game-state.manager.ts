@@ -882,14 +882,19 @@ export class GameStateManager {
       const losRaycaster = this.tilesEngine.towers.getLosRaycaster();
 
       if (losRaycaster) {
+        // Check if this is a pure air tower (only targets air, not ground)
+        const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+
         // Register tower and store visible cells reference
+        // Air towers skip LOS checks (air enemies are always visible)
         tower.visibleCells = this.globalRouteGrid.registerTower(
           tower.id,
           terrainPos.x,
           terrainPos.z,
           tipY,
           config.range,
-          losRaycaster
+          losRaycaster,
+          isPureAirTower
         );
 
         // Create LOS visualization (hidden by default, shown on selection)
