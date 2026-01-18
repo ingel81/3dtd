@@ -122,6 +122,11 @@ export class OsmStreetService {
         const network = this.parseOverpassResponse(data, bounds);
         console.timeEnd('[OSM] parseOverpassResponse');
 
+        // Check if any streets were found
+        if (network.streets.length === 0) {
+          throw new Error('Keine Straßen in diesem Bereich gefunden. Wähle einen anderen Standort.');
+        }
+
         // Cache the result to IndexedDB (async, fire-and-forget)
         this.streetCache.save(cacheKey, network).catch((err) => {
           console.warn('[OSM] Failed to cache to IndexedDB:', err);
@@ -135,7 +140,11 @@ export class OsmStreetService {
     }
 
     console.error('[OSM] All Overpass servers failed');
-    throw lastError || new Error('All Overpass servers failed');
+    // Provide user-friendly error message
+    const userMessage = 'OSM-Server nicht erreichbar. Prüfe deine Internetverbindung.';
+    throw lastError?.message?.includes('Keine Straßen')
+      ? lastError
+      : new Error(userMessage);
   }
 
   private parseOverpassResponse(
