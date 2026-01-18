@@ -12,6 +12,7 @@ import {
   effect,
   HostListener,
   DestroyRef,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -109,6 +110,7 @@ const DEFAULT_CENTER_COORDS = {
     EntityPoolService,
     ModelPreviewService,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="td-container" [class.td-fullscreen]="!isDialog">
       <!-- Info Header -->

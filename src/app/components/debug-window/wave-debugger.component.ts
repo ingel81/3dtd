@@ -1,4 +1,4 @@
-import { Component, inject, output } from '@angular/core';
+import { Component, inject, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
@@ -10,6 +10,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   selector: 'app-wave-debugger',
   standalone: true,
   imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.waveWindow().isOpen) {
       <app-draggable-debug-panel

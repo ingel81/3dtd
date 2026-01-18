@@ -12,6 +12,7 @@ import {
   effect,
   computed,
   DestroyRef,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
@@ -34,6 +35,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     MatTooltipModule,
     AdBannerComponent,
   ],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
   styles: `
     :host {

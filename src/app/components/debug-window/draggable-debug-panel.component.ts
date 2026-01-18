@@ -8,6 +8,7 @@ import {
   OnDestroy,
   inject,
   HostListener,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
@@ -18,6 +19,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   selector: 'app-draggable-debug-panel',
   standalone: true,
   imports: [CommonModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
       #panel

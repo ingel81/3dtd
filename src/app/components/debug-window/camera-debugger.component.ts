@@ -1,4 +1,4 @@
-import { Component, inject, signal, OnDestroy } from '@angular/core';
+import { Component, inject, signal, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule, DecimalPipe } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
@@ -9,6 +9,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   selector: 'app-camera-debugger',
   standalone: true,
   imports: [CommonModule, DecimalPipe, DraggableDebugPanelComponent],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.cameraWindow().isOpen) {
       <app-draggable-debug-panel

@@ -1,6 +1,6 @@
-import { Component, ElementRef, OnDestroy, OnInit, ViewChild } from '@angular/core';
+import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import * as THREE from 'three';
+import { Scene, PerspectiveCamera, WebGLRenderer, Color, PointsMaterial, Points, BufferGeometry, BufferAttribute, Vector3, GridHelper, AxesHelper, AdditiveBlending, NormalBlending, ShaderMaterial } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 
 /**
@@ -17,6 +17,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
   selector: 'app-engine-test',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="engine-test-container">
       <div #canvasContainer class="canvas-container"></div>
@@ -120,17 +121,17 @@ export class EngineTestComponent implements OnInit, OnDestroy {
   @ViewChild('canvasContainer', { static: true }) canvasContainer!: ElementRef;
 
   // Three.js objects
-  private renderer!: THREE.WebGLRenderer;
-  private scene!: THREE.Scene;
-  private camera!: THREE.PerspectiveCamera;
+  private renderer!: WebGLRenderer;
+  private scene!: Scene;
+  private camera!: PerspectiveCamera;
   private controls!: OrbitControls;
   private animationId = 0;
 
   // Particle systems
-  private additiveParticles!: THREE.Points;
-  private normalParticles!: THREE.Points;
-  private additiveMaterial!: THREE.PointsMaterial | THREE.ShaderMaterial;
-  private normalMaterial!: THREE.PointsMaterial | THREE.ShaderMaterial;
+  private additiveParticles!: Points;
+  private normalParticles!: Points;
+  private additiveMaterial!: PointsMaterial | ShaderMaterial;
+  private normalMaterial!: PointsMaterial | ShaderMaterial;
 
   // Particle pools
   private readonly MAX_PARTICLES = 1000;
@@ -165,17 +166,17 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     const height = container.clientHeight;
 
     // Renderer
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    this.renderer = new WebGLRenderer({ antialias: true });
     this.renderer.setSize(width, height);
     this.renderer.setPixelRatio(window.devicePixelRatio);
     this.renderer.setClearColor(0x1a1a2e);
     container.appendChild(this.renderer.domElement);
 
     // Scene
-    this.scene = new THREE.Scene();
+    this.scene = new Scene();
 
     // Camera
-    this.camera = new THREE.PerspectiveCamera(60, width / height, 0.1, 1000);
+    this.camera = new PerspectiveCamera(60, width / height, 0.1, 1000);
     this.camera.position.set(0, 5, 15);
 
     // Controls
@@ -183,11 +184,11 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     this.controls.enableDamping = true;
 
     // Grid helper
-    const grid = new THREE.GridHelper(20, 20, 0x444444, 0x222222);
+    const grid = new GridHelper(20, 20, 0x444444, 0x222222);
     this.scene.add(grid);
 
     // Axes helper
-    const axes = new THREE.AxesHelper(5);
+    const axes = new AxesHelper(5);
     this.scene.add(axes);
 
     // Handle resize
@@ -207,9 +208,9 @@ export class EngineTestComponent implements OnInit, OnDestroy {
 
   private createParticleData(): ParticleData {
     return {
-      position: new THREE.Vector3(),
-      velocity: new THREE.Vector3(),
-      color: new THREE.Color(),
+      position: new Vector3(),
+      velocity: new Vector3(),
+      color: new Color(),
       size: 1,
       life: 0,
       maxLife: 1,
@@ -225,23 +226,23 @@ export class EngineTestComponent implements OnInit, OnDestroy {
   }
 
   private createPointsMaterials(): void {
-    this.additiveMaterial = new THREE.PointsMaterial({
+    this.additiveMaterial = new PointsMaterial({
       size: this.additiveSize,
       transparent: true,
       opacity: 0.9,
       sizeAttenuation: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       vertexColors: true,
     });
 
-    this.normalMaterial = new THREE.PointsMaterial({
+    this.normalMaterial = new PointsMaterial({
       size: this.normalSize,
       transparent: true,
       opacity: 0.7,
       sizeAttenuation: true,
       depthWrite: false,
-      blending: THREE.NormalBlending,
+      blending: NormalBlending,
       vertexColors: true,
     });
   }
@@ -280,21 +281,21 @@ export class EngineTestComponent implements OnInit, OnDestroy {
       }
     `;
 
-    this.additiveMaterial = new THREE.ShaderMaterial({
+    this.additiveMaterial = new ShaderMaterial({
       vertexShader,
       fragmentShader: fragmentShaderAdditive,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       vertexColors: true,
     });
 
-    this.normalMaterial = new THREE.ShaderMaterial({
+    this.normalMaterial = new ShaderMaterial({
       vertexShader,
       fragmentShader: fragmentShaderNormal,
       transparent: true,
       depthWrite: false,
-      blending: THREE.NormalBlending,
+      blending: NormalBlending,
       vertexColors: true,
     });
   }
@@ -311,30 +312,30 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     }
 
     // Additive geometry
-    const additiveGeometry = new THREE.BufferGeometry();
+    const additiveGeometry = new BufferGeometry();
     const additivePositions = new Float32Array(this.MAX_PARTICLES * 3);
     const additiveColors = new Float32Array(this.MAX_PARTICLES * 3);
     const additiveSizes = new Float32Array(this.MAX_PARTICLES);
 
-    additiveGeometry.setAttribute('position', new THREE.BufferAttribute(additivePositions, 3));
-    additiveGeometry.setAttribute('color', new THREE.BufferAttribute(additiveColors, 3));
-    additiveGeometry.setAttribute('size', new THREE.BufferAttribute(additiveSizes, 1));
+    additiveGeometry.setAttribute('position', new BufferAttribute(additivePositions, 3));
+    additiveGeometry.setAttribute('color', new BufferAttribute(additiveColors, 3));
+    additiveGeometry.setAttribute('size', new BufferAttribute(additiveSizes, 1));
 
-    this.additiveParticles = new THREE.Points(additiveGeometry, this.additiveMaterial);
+    this.additiveParticles = new Points(additiveGeometry, this.additiveMaterial);
     this.additiveParticles.frustumCulled = false;
     this.scene.add(this.additiveParticles);
 
     // Normal geometry
-    const normalGeometry = new THREE.BufferGeometry();
+    const normalGeometry = new BufferGeometry();
     const normalPositions = new Float32Array(this.MAX_PARTICLES * 3);
     const normalColors = new Float32Array(this.MAX_PARTICLES * 3);
     const normalSizes = new Float32Array(this.MAX_PARTICLES);
 
-    normalGeometry.setAttribute('position', new THREE.BufferAttribute(normalPositions, 3));
-    normalGeometry.setAttribute('color', new THREE.BufferAttribute(normalColors, 3));
-    normalGeometry.setAttribute('size', new THREE.BufferAttribute(normalSizes, 1));
+    normalGeometry.setAttribute('position', new BufferAttribute(normalPositions, 3));
+    normalGeometry.setAttribute('color', new BufferAttribute(normalColors, 3));
+    normalGeometry.setAttribute('size', new BufferAttribute(normalSizes, 1));
 
-    this.normalParticles = new THREE.Points(normalGeometry, this.normalMaterial);
+    this.normalParticles = new Points(normalGeometry, this.normalMaterial);
     this.normalParticles.frustumCulled = false;
     this.scene.add(this.normalParticles);
   }
@@ -379,9 +380,9 @@ export class EngineTestComponent implements OnInit, OnDestroy {
 
   private updateBuffers(): void {
     // Additive buffer
-    const addPos = this.additiveParticles.geometry.attributes['position'] as THREE.BufferAttribute;
-    const addCol = this.additiveParticles.geometry.attributes['color'] as THREE.BufferAttribute;
-    const addSize = this.additiveParticles.geometry.attributes['size'] as THREE.BufferAttribute;
+    const addPos = this.additiveParticles.geometry.attributes['position'] as BufferAttribute;
+    const addCol = this.additiveParticles.geometry.attributes['color'] as BufferAttribute;
+    const addSize = this.additiveParticles.geometry.attributes['size'] as BufferAttribute;
 
     let addCount = 0;
     for (const p of this.additivePool) {
@@ -403,9 +404,9 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     this.additiveCount = addCount;
 
     // Normal buffer
-    const normPos = this.normalParticles.geometry.attributes['position'] as THREE.BufferAttribute;
-    const normCol = this.normalParticles.geometry.attributes['color'] as THREE.BufferAttribute;
-    const normSize = this.normalParticles.geometry.attributes['size'] as THREE.BufferAttribute;
+    const normPos = this.normalParticles.geometry.attributes['position'] as BufferAttribute;
+    const normCol = this.normalParticles.geometry.attributes['color'] as BufferAttribute;
+    const normSize = this.normalParticles.geometry.attributes['size'] as BufferAttribute;
 
     let normCount = 0;
     for (const p of this.normalPool) {
@@ -496,14 +497,14 @@ export class EngineTestComponent implements OnInit, OnDestroy {
 
   updateAdditiveSize(event: Event): void {
     this.additiveSize = parseFloat((event.target as HTMLInputElement).value);
-    if (this.additiveMaterial instanceof THREE.PointsMaterial) {
+    if (this.additiveMaterial instanceof PointsMaterial) {
       this.additiveMaterial.size = this.additiveSize;
     }
   }
 
   updateNormalSize(event: Event): void {
     this.normalSize = parseFloat((event.target as HTMLInputElement).value);
-    if (this.normalMaterial instanceof THREE.PointsMaterial) {
+    if (this.normalMaterial instanceof PointsMaterial) {
       this.normalMaterial.size = this.normalSize;
     }
   }
@@ -516,9 +517,9 @@ export class EngineTestComponent implements OnInit, OnDestroy {
 }
 
 interface ParticleData {
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
-  color: THREE.Color;
+  position: Vector3;
+  velocity: Vector3;
+  color: Color;
   size: number;
   life: number;
   maxLife: number;

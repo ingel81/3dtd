@@ -1,4 +1,4 @@
-import { Component, inject, input, output, signal, effect, ElementRef, ViewChild, computed } from '@angular/core';
+import { Component, inject, input, output, signal, effect, ElementRef, ViewChild, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatIconModule } from '@angular/material/icon';
@@ -12,6 +12,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
   selector: 'app-td-address-autocomplete',
   standalone: true,
   imports: [CommonModule, FormsModule, MatIconModule, MatProgressSpinnerModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="autocomplete-container" [class.has-focus]="hasFocus()">
       <div class="input-wrapper" [class.has-value]="currentValue()">

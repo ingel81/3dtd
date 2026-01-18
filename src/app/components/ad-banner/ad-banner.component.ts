@@ -6,6 +6,7 @@ import {
   OnDestroy,
   PLATFORM_ID,
   inject,
+  ChangeDetectionStrategy,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CommonModule } from '@angular/common';
@@ -29,6 +30,7 @@ const ADS_ENABLED = false;
   selector: 'app-ad-banner',
   standalone: true,
   imports: [CommonModule, MatIconModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="td-ad-container" [class.td-ad-compact]="compact()">
       <!-- Fallback: Donation Panel (shown if ad blocked) -->

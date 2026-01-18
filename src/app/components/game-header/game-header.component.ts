@@ -1,4 +1,4 @@
-import { Component, input, output, signal, HostListener, ElementRef, inject } from '@angular/core';
+import { Component, input, output, signal, HostListener, ElementRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -9,6 +9,7 @@ import { FavoriteLocation } from '../../models/location.types';
   selector: 'app-game-header',
   standalone: true,
   imports: [CommonModule, MatIconModule, MatTooltipModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="header">
       <div class="header-left">

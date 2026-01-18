@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
@@ -6,6 +6,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   selector: 'app-compass',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="compass-container">
       <div class="compass" [style.transform]="'rotate(' + (-rotation()) + 'deg)'">
