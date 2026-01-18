@@ -5,8 +5,8 @@
 ## Executive Summary
 
 Das Projekt zeigt eine **solide Grundarchitektur** mit guter Trennung von Concerns. Die verbleibenden Hauptprobleme:
-- **God-Objects** - GameStateManager und TowerDefenseComponent zu groß
-- **Fehlendes Event-System** - Überall Callbacks
+- **God-Objects** - GameStateManager und TowerDefenseComponent zu gross
+- **Fehlendes Event-System** - Ueberall Callbacks
 - **Three.js Optimierungen** - Shared Geometry, Memory Management
 
 **Gesamtbewertung: 6.5/10** - Funktional und gut strukturiert, aber mit technischen Schulden.
@@ -68,7 +68,7 @@ Drei verschiedene Formate im Code:
 interface GeoPosition { lat: number; lon: number; height?: number; }
 
 // Format 2: latitude/longitude (location-management.service.ts)
-interface { latitude: number; longitude: number; }
+interface LatLng { latitude: number; longitude: number; }
 
 // Format 3: Inline Objects
 { lat: number, lon: number }
