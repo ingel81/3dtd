@@ -15,6 +15,12 @@
       Datei: `entity-pool.service.ts`
       Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](EXPERT_REVIEW_2026.md)
 
+### Prioritaet 2: Mittelfristig
+- [ ] **Spawn-Logik in WaveManager konsolidieren**
+      `tower-defense.component.ts:1711+` hat eigene spawnNext() Logik
+      Sollte `waveManager.startWave(config)` verwenden statt eigener Implementierung
+      Doppelter Code, doppelte Wartung, Bug-Risiko
+
 ### Prioritaet 3: Langfristig
 - [ ] **TowerDefenseComponent aufteilen** (~2280 Zeilen)
       Vorschlag: StreetRenderingService, WaveOrchestrationService, LocationChangeService
