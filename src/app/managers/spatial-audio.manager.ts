@@ -10,6 +10,9 @@ import {
 } from 'three';
 import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, SPATIAL_AUDIO_DEFAULTS } from '../configs/audio.config';
 
+/** Reusable Vector3 for distance calculations (avoid GC pressure) */
+const _tempVec3 = new Vector3();
+
 /**
  * Sound configuration
  */
@@ -77,6 +80,7 @@ export class SpatialAudioManager {
   private listener: AudioListener;
   private loader: AudioLoader;
   private scene: Scene;
+  private camera: Camera;
 
   // Registered sounds (id -> buffer + config)
   private sounds = new Map<string, RegisteredSound>();
@@ -103,6 +107,7 @@ export class SpatialAudioManager {
 
   constructor(scene: Scene, camera: Camera) {
     this.scene = scene;
+    this.camera = camera;
 
     // Create audio listener and attach to camera
     this.listener = new AudioListener();
@@ -160,6 +165,24 @@ export class SpatialAudioManager {
   geoToLocalPosition(lat: number, lon: number, height: number): Vector3 | null {
     if (!this.geoToLocal) return null;
     return this.geoToLocal(lat, lon, height);
+  }
+
+  /**
+   * Check if a position is within audible distance from camera
+   * Used for distance-based audio culling to save CPU
+   */
+  isWithinAudibleDistance(position: Vector3): boolean {
+    this.camera.getWorldPosition(_tempVec3);
+    const distance = _tempVec3.distanceTo(position);
+    return distance <= AUDIO_LIMITS.maxAudibleDistance;
+  }
+
+  /**
+   * Get distance from camera to a position
+   */
+  getDistanceToCamera(position: Vector3): number {
+    this.camera.getWorldPosition(_tempVec3);
+    return _tempVec3.distanceTo(position);
   }
 
   /**
@@ -356,6 +379,13 @@ export class SpatialAudioManager {
 
     if (!sound.buffer) {
       console.warn(`[SpatialAudio] No buffer for: ${soundId}`);
+      return null;
+    }
+
+    // Distance-based culling: skip sounds that are too far away
+    if (!this.isWithinAudibleDistance(position)) {
+      const distance = this.getDistanceToCamera(position);
+      console.log(`[SpatialAudio] Culled one-shot '${soundId}' - distance ${distance.toFixed(0)}m exceeds max ${AUDIO_LIMITS.maxAudibleDistance}m`);
       return null;
     }
 

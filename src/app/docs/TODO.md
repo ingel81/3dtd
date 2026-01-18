@@ -75,8 +75,8 @@
       Alle 16 Components auf OnPush umgestellt (Signals bereits vorhanden)
       → [Teil 11.1](PERFORMANCE_REPORT.md#111-change-detection-strategy--kritisch)
 
-- [ ] **Distance Audio Culling** - Sounds spielen bei 500m+ Entfernung
-      `spatial-audio.manager.ts:329` - Distance Check vor playAt()
+- [x] **Distance Audio Culling** - Sounds pausieren bei 500m+ Entfernung
+      `audio.component.ts` - Pause/Resume statt Stop, rolloffFactor 1.5
       → [Teil 12.1](PERFORMANCE_REPORT.md#121-distance-based-audio-culling--fehlt)
 
 - [ ] **Material Pooling** - Jeder Enemy klont Materials (50× State Changes)
