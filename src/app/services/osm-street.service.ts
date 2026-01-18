@@ -31,6 +31,42 @@ export interface StreetNetwork {
  */
 const SPAWNABLE_STREET_TYPES = ['residential', 'primary', 'secondary', 'tertiary', 'unclassified', 'living_street'];
 
+/**
+ * Cost multipliers for pathfinding by street type.
+ * Lower = preferred, Higher = avoided.
+ * Footpaths get multiplier 3.0 = only used if route is >66% shorter
+ */
+const ROAD_TYPE_WEIGHTS: Record<string, number> = {
+  // Hauptstraßen - bevorzugt
+  motorway: 0.8,
+  motorway_link: 0.85,
+  trunk: 0.85,
+  trunk_link: 0.9,
+  primary: 0.9,
+  primary_link: 0.95,
+  secondary: 0.95,
+  secondary_link: 1.0,
+  tertiary: 1.0,
+  tertiary_link: 1.0,
+
+  // Normale Straßen - Standard
+  residential: 1.0,
+  living_street: 1.1,
+  unclassified: 1.0,
+  service: 1.2,
+
+  // Fußwege/Radwege - stark bestraft (nur bei großer Ersparnis)
+  pedestrian: 2.5,
+  cycleway: 2.0,
+  footway: 3.0,
+  path: 3.0,
+  track: 2.5,
+  steps: 5.0, // Treppen stark vermeiden
+};
+
+/** Default weight for unknown street types */
+const DEFAULT_ROAD_WEIGHT = 1.5;
+
 @Injectable({
   providedIn: 'root',
 })
@@ -46,7 +82,8 @@ export class OsmStreetService {
   ];
 
   // Cached graph for pathfinding (avoid rebuilding on every findPath call)
-  private cachedGraph: Map<number, { node: StreetNode; neighbors: number[] }> | null = null;
+  // neighbors now include streetType for weighted pathfinding
+  private cachedGraph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> | null = null;
   private cachedGraphNetworkId: string | null = null;
 
   /**
@@ -300,7 +337,7 @@ export class OsmStreetService {
   /**
    * Get cached graph or build new one if network changed
    */
-  private getOrBuildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: number[] }> {
+  private getOrBuildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> {
     // Create unique ID for this network based on bounds
     const networkId = `${network.bounds.minLat}_${network.bounds.maxLat}_${network.bounds.minLon}_${network.bounds.maxLon}_${network.streets.length}`;
 
@@ -424,11 +461,13 @@ export class OsmStreetService {
     return false;
   }
 
-  private buildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: number[] }> {
-    const graph = new Map<number, { node: StreetNode; neighbors: number[] }>();
+  private buildGraph(network: StreetNetwork): Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }> {
+    const graph = new Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }>();
 
     // Add all nodes from streets
     for (const street of network.streets) {
+      const streetType = street.type;
+
       for (let i = 0; i < street.nodes.length; i++) {
         const node = street.nodes[i];
 
@@ -436,20 +475,22 @@ export class OsmStreetService {
           graph.set(node.id, { node, neighbors: [] });
         }
 
-        // Connect to previous and next node in street
+        const entry = graph.get(node.id)!;
+
+        // Connect to previous node in street
         if (i > 0) {
           const prevNode = street.nodes[i - 1];
-          const entry = graph.get(node.id)!;
-          if (!entry.neighbors.includes(prevNode.id)) {
-            entry.neighbors.push(prevNode.id);
+          // Check if neighbor already exists (avoid duplicates)
+          if (!entry.neighbors.some(n => n.nodeId === prevNode.id)) {
+            entry.neighbors.push({ nodeId: prevNode.id, streetType });
           }
         }
 
+        // Connect to next node in street
         if (i < street.nodes.length - 1) {
           const nextNode = street.nodes[i + 1];
-          const entry = graph.get(node.id)!;
-          if (!entry.neighbors.includes(nextNode.id)) {
-            entry.neighbors.push(nextNode.id);
+          if (!entry.neighbors.some(n => n.nodeId === nextNode.id)) {
+            entry.neighbors.push({ nodeId: nextNode.id, streetType });
           }
         }
       }
@@ -459,7 +500,7 @@ export class OsmStreetService {
   }
 
   private astar(
-    graph: Map<number, { node: StreetNode; neighbors: number[] }>,
+    graph: Map<number, { node: StreetNode; neighbors: { nodeId: number; streetType: string }[] }>,
     start: StreetNode,
     end: StreetNode,
     endLat: number,
@@ -507,28 +548,32 @@ export class OsmStreetService {
 
       if (!currentEntry) continue;
 
-      for (const neighborId of currentEntry.neighbors) {
-        const neighborEntry = graph.get(neighborId);
+      for (const neighbor of currentEntry.neighbors) {
+        const neighborEntry = graph.get(neighbor.nodeId);
         if (!neighborEntry) continue;
 
-        const tentativeG =
-          (gScore.get(current) ?? Infinity) +
-          this.haversineDistance(
-            currentEntry.node.lat,
-            currentEntry.node.lon,
-            neighborEntry.node.lat,
-            neighborEntry.node.lon
-          );
+        // Calculate distance with road type weight
+        const distance = this.haversineDistance(
+          currentEntry.node.lat,
+          currentEntry.node.lon,
+          neighborEntry.node.lat,
+          neighborEntry.node.lon
+        );
+        const weight = ROAD_TYPE_WEIGHTS[neighbor.streetType] ?? DEFAULT_ROAD_WEIGHT;
+        const weightedDistance = distance * weight;
 
-        if (tentativeG < (gScore.get(neighborId) ?? Infinity)) {
-          cameFrom.set(neighborId, current);
-          gScore.set(neighborId, tentativeG);
+        const tentativeG = (gScore.get(current) ?? Infinity) + weightedDistance;
+
+        if (tentativeG < (gScore.get(neighbor.nodeId) ?? Infinity)) {
+          cameFrom.set(neighbor.nodeId, current);
+          gScore.set(neighbor.nodeId, tentativeG);
+          // Heuristic uses unweighted distance (admissible heuristic)
           fScore.set(
-            neighborId,
+            neighbor.nodeId,
             tentativeG + this.haversineDistance(neighborEntry.node.lat, neighborEntry.node.lon, endLat, endLon)
           );
 
-          openSet.add(neighborId);
+          openSet.add(neighbor.nodeId);
         }
       }
     }
