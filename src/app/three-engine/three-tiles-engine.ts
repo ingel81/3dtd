@@ -149,11 +149,18 @@ export class ThreeTilesEngine {
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
   private tilesLoadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
+  private firstTilesRetryTimer: ReturnType<typeof setTimeout> | null = null;
+  private firstTilesRetryCount = 0;
   private readonly TILES_LOAD_DEBOUNCE_MS = 500; // Wait 500ms after last tile load
+  private readonly FIRST_TILES_RETRY_MS = 200; // Retry interval when meshes not ready
+  private readonly FIRST_TILES_MAX_RETRIES = 50; // Max 10 seconds of retries
 
   // Callback when first tiles are loaded (for loading indicator)
   private onFirstTilesLoadedCallback: (() => void) | null = null;
   private firstTilesLoaded = false;
+  private tilesetLoadCount = 0; // Track how many tilesets have been loaded
+  private cameraNudgeCount = 0; // Track camera nudges to prevent infinite loop
+  private readonly MAX_CAMERA_NUDGES = 3;
 
   // Callback for per-frame updates (animations)
   private onUpdateCallback: ((deltaTime: number) => void) | null = null;
@@ -342,6 +349,16 @@ export class ThreeTilesEngine {
     // 'tiles-load-end' fires when ALL currently visible tiles have finished loading
     this.tilesRenderer.addEventListener('tiles-load-end', this.tilesLoadEndHandler);
 
+    // Track tileset loading count (for debugging)
+    this.tilesRenderer.addEventListener('load-tile-set', () => {
+      this.tilesetLoadCount++;
+    });
+
+    // Debug: Listen for errors
+    this.tilesRenderer.addEventListener('load-error', (event: unknown) => {
+      console.error('[TilesEngine] load-error event:', event);
+    });
+
     // Set up terrain height sampler for tower range indicators (legacy)
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
 
@@ -363,6 +380,7 @@ export class ThreeTilesEngine {
    * Only triggers refresh if terrain height actually changed significantly
    */
   private onTilesLoadEnd(): void {
+
     // Clear existing debounce timer
     if (this.tilesLoadDebounceTimer) {
       clearTimeout(this.tilesLoadDebounceTimer);
@@ -372,16 +390,32 @@ export class ThreeTilesEngine {
     this.tilesLoadDebounceTimer = setTimeout(() => {
       // Check if origin height changed significantly (bypass cache for this check)
       const freshOriginHeight = this.raycastTerrainHeight(0, 0);
+      const stats = this.getTileStats();
 
-      if (freshOriginHeight !== null) {
-        // Fire first tiles loaded callback (only once)
-        if (!this.firstTilesLoaded) {
+
+      // FIRST TILES LOADED - primarily wait for raycast success
+      // Raycast hitting terrain means tiles are loaded AND stable (not mid-LOD-transition)
+      // Fallback: 50+ visible tiles without raycast (e.g., origin over water/gap)
+      const MIN_VISIBLE_TILES = 50;
+      if (!this.firstTilesLoaded) {
+        if (freshOriginHeight !== null) {
           this.firstTilesLoaded = true;
           if (this.onFirstTilesLoadedCallback) {
             this.onFirstTilesLoadedCallback();
           }
+        } else if (stats.visible >= MIN_VISIBLE_TILES) {
+          this.firstTilesLoaded = true;
+          if (this.onFirstTilesLoadedCallback) {
+            this.onFirstTilesLoadedCallback();
+          }
+        } else {
+          // Not ready yet - schedule retry
+          this.scheduleFirstTilesRetry();
         }
+      }
 
+      // HEIGHT REFRESH - only if raycast succeeded
+      if (freshOriginHeight !== null) {
         const heightDelta = this.lastOriginHeight !== null
           ? Math.abs(freshOriginHeight - this.lastOriginHeight)
           : Infinity; // First load always triggers refresh
@@ -398,6 +432,74 @@ export class ThreeTilesEngine {
         }
       }
     }, this.TILES_LOAD_DEBOUNCE_MS);
+  }
+
+  /**
+   * Retry checking for first tiles when tiles-load-end fired but meshes weren't ready.
+   * This handles the race condition where 3DTilesRenderer fires event before meshes are in scene.
+   */
+  private scheduleFirstTilesRetry(): void {
+    // Clear any existing retry timer
+    if (this.firstTilesRetryTimer) {
+      clearTimeout(this.firstTilesRetryTimer);
+    }
+
+    // Don't retry forever - but try camera nudge first
+    if (this.firstTilesRetryCount >= this.FIRST_TILES_MAX_RETRIES) {
+      const stats = this.getTileStats();
+      if (stats.visible === 0 && this.cameraNudgeCount < this.MAX_CAMERA_NUDGES) {
+        // No tiles after max retries - try forcing tile update
+        this.cameraNudgeCount++;
+        console.warn(`[TilesEngine] Max retries reached with 0 tiles - forcing update #${this.cameraNudgeCount}`);
+
+        // Force camera matrix update and tile refresh
+        this.camera.updateMatrixWorld(true);
+        if (this.tilesRenderer) {
+          this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
+          this.tilesRenderer.setCamera(this.camera);
+          this.tilesRenderer.update();
+        }
+
+        // Reset retry counter and try again
+        this.firstTilesRetryCount = 0;
+        this.scheduleFirstTilesRetry();
+        return;
+      }
+      // Either some tiles loaded, or we've exhausted nudges - accept current state
+      console.warn(`[TilesEngine] Max retries reached (visible=${stats.visible}, nudges=${this.cameraNudgeCount}), marking as loaded`);
+      this.firstTilesLoaded = true;
+      if (this.onFirstTilesLoadedCallback) {
+        this.onFirstTilesLoadedCallback();
+      }
+      return;
+    }
+
+    this.firstTilesRetryCount++;
+
+    this.firstTilesRetryTimer = setTimeout(() => {
+      if (this.firstTilesLoaded) return; // Already loaded via another path
+
+      const freshOriginHeight = this.raycastTerrainHeight(0, 0);
+      const stats = this.getTileStats();
+
+      // Primarily wait for raycast success - means tiles are stable
+      // Fallback: 50+ visible tiles (e.g., origin over water/gap)
+      const MIN_VISIBLE_TILES = 50;
+      if (freshOriginHeight !== null) {
+        this.firstTilesLoaded = true;
+        if (this.onFirstTilesLoadedCallback) {
+          this.onFirstTilesLoadedCallback();
+        }
+      } else if (stats.visible >= MIN_VISIBLE_TILES) {
+        this.firstTilesLoaded = true;
+        if (this.onFirstTilesLoadedCallback) {
+          this.onFirstTilesLoadedCallback();
+        }
+      } else {
+        // Not ready yet - continue retrying
+        this.scheduleFirstTilesRetry();
+      }
+    }, this.FIRST_TILES_RETRY_MS);
   }
 
   /**
@@ -607,6 +709,13 @@ export class ThreeTilesEngine {
 
     // Reset ALL tiles-related flags so everything recalculates for new location
     this.firstTilesLoaded = false;
+    this.firstTilesRetryCount = 0;
+    this.tilesetLoadCount = 0;
+    this.cameraNudgeCount = 0;
+    if (this.firstTilesRetryTimer) {
+      clearTimeout(this.firstTilesRetryTimer);
+      this.firstTilesRetryTimer = null;
+    }
     this.tilesWereLoaded = false;
     this.lastOriginHeight = null;
     this.tilesLoadedForRaycast = false;
