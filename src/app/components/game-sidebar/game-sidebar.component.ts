@@ -55,7 +55,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       flex: 1;
       background:
         linear-gradient(rgba(15, 19, 15, 0.75), rgba(15, 19, 15, 0.75)),
-        url('/assets/images/425.jpg') repeat;
+        url('/assets/images/backgrounds/stone-wall.jpg') repeat;
       background-size: auto, 100px 100px;
       display: flex;
       flex-direction: column;

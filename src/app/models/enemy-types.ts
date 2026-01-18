@@ -84,7 +84,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
-    modelUrl: '/assets/models/enemies/zombie_01.glb',
+    modelUrl: '/assets/models/enemies/zombie.glb',
     scale: 2.0,
     minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping beim Zoomen
     baseHp: 100,
@@ -96,7 +96,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
     animationSpeed: 2.0,
-    movingSound: '/assets/sounds/zombie-sound-2-357976.mp3',
+    movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25, // Zombies sind leiser aus der Ferne
     heightOffset: 0,
@@ -119,7 +119,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     damage: 25,
     reward: 5,
     hasAnimations: false,
-    movingSound: '/assets/sounds/tank-moving-143104.mp3',
+    movingSound: '/assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
     movingSoundRefDistance: 50, // Panzer sind lauter (größerer refDistance-Bereich)
     heightOffset: 0,
@@ -133,7 +133,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wallsmasher: {
     id: 'wallsmasher',
     name: 'Wallsmasher',
-    modelUrl: '/assets/models/enemies/wallsmasher_01.fbx',
+    modelUrl: '/assets/models/enemies/wallsmasher.fbx',
     scale: 0.05,
     minimumPixelSize: 0,
     baseHp: 500,
@@ -148,11 +148,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationVariation: true,
     runSpeedMultiplier: 2.5, // 2.5x Geschwindigkeit bei Run
     // Spawn Sound
-    spawnSound: '/assets/sounds/big_arm_spawn.mp3',
+    spawnSound: '/assets/sounds/enemies/wallsmasher/spawn.mp3',
     spawnSoundVolume: 0.7,
     spawnSoundRefDistance: 40,
     // Random Sound während Bewegung
-    randomSound: '/assets/sounds/big_arm_01.mp3',
+    randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
     randomSoundMinInterval: 8000,
     randomSoundMaxInterval: 25000,
     randomSoundVolumeMin: 0.2,
@@ -170,7 +170,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   bat: {
     id: 'bat',
     name: 'Fledermaus',
-    modelUrl: '/assets/models/enemies/bat_new.glb',
+    modelUrl: '/assets/models/enemies/bat.glb',
     scale: 7,
     minimumPixelSize: 0,
     baseHp: 80,
@@ -192,7 +192,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   herbert: {
     id: 'herbert',
     name: 'Herbert',
-    modelUrl: '/assets/models/enemies/herbert_walking.glb',
+    modelUrl: '/assets/models/enemies/herbert.glb',
     scale: 4.0,
     minimumPixelSize: 0,
     baseHp: 5000,
@@ -203,24 +203,24 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Armature|walking_man|baselayer',
     animationSpeed: 1.0,
     // Spawn Sound (einmalig)
-    spawnSound: '/assets/sounds/herbert_01.mp3',
+    spawnSound: '/assets/sounds/enemies/herbert/spawn.mp3',
     spawnSoundVolume: 0.6,
     spawnSoundRefDistance: 40,
     // Random Sounds Pool (shuffle ohne Wiederholung)
     randomSounds: [
-      '/assets/sounds/herbert_02.mp3',
-      '/assets/sounds/herbert_03.mp3',
-      '/assets/sounds/herbert_04.mp3',
-      '/assets/sounds/herbert_05.mp3',
-      '/assets/sounds/herbert_06.mp3',
-      '/assets/sounds/herbert_07.mp3',
-      '/assets/sounds/herbert_08.mp3',
-      '/assets/sounds/herbert_09.mp3',
-      '/assets/sounds/herbert_10.mp3',
-      '/assets/sounds/herbert_11.mp3',
-      '/assets/sounds/herbert_12.mp3',
-      '/assets/sounds/herbert_13.mp3',
-      '/assets/sounds/herbert_14.mp3',
+      '/assets/sounds/enemies/herbert/random-01.mp3',
+      '/assets/sounds/enemies/herbert/random-02.mp3',
+      '/assets/sounds/enemies/herbert/random-03.mp3',
+      '/assets/sounds/enemies/herbert/random-04.mp3',
+      '/assets/sounds/enemies/herbert/random-05.mp3',
+      '/assets/sounds/enemies/herbert/random-06.mp3',
+      '/assets/sounds/enemies/herbert/random-07.mp3',
+      '/assets/sounds/enemies/herbert/random-08.mp3',
+      '/assets/sounds/enemies/herbert/random-09.mp3',
+      '/assets/sounds/enemies/herbert/random-10.mp3',
+      '/assets/sounds/enemies/herbert/random-11.mp3',
+      '/assets/sounds/enemies/herbert/random-12.mp3',
+      '/assets/sounds/enemies/herbert/random-13.mp3',
     ],
     randomSoundsMinInterval: 10000,
     randomSoundsMaxInterval: 25000,

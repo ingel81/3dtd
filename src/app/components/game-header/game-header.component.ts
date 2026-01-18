@@ -106,7 +106,7 @@ import { FavoriteLocation } from '../../models/location.types';
       padding: 4px 12px;
       background:
         linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
-        url('/assets/images/425.jpg') repeat;
+        url('/assets/images/backgrounds/stone-wall.jpg') repeat;
       background-size: auto, 64px 64px;
       border-bottom: 3px solid var(--td-panel-shadow);
       border-top: 1px solid var(--td-frame-light);

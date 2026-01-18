@@ -42,13 +42,13 @@ export interface TowerTypeConfig {
   animationPingPong?: boolean; // Play animation forward then backward (smooth loop, default: false)
 }
 
-// NOTE: Currently only tower_archer.glb exists. Using it for all tower types until more models are created.
-const ARCHER_MODEL_URL = '/assets/models/towers/archer_tower.glb';
-const TURRET_MODEL_URL = '/assets/models/towers/turret_test.glb';
-const ROCKET_MODEL_URL = '/assets/models/towers/rocket_tower.glb';
-const CANNON_MODEL_URL = '/assets/models/towers/cannon_tower.glb';
-const ICE_MODEL_URL = '/assets/models/towers/turret_ice1.glb';
-const MAGIC_MODEL_URL = '/assets/models/towers/magic_tower.glb';
+// Tower model URLs
+const ARCHER_MODEL_URL = '/assets/models/towers/archer.glb';
+const TURRET_MODEL_URL = '/assets/models/towers/gatling.glb';
+const ROCKET_MODEL_URL = '/assets/models/towers/rocket.glb';
+const CANNON_MODEL_URL = '/assets/models/towers/cannon.glb';
+const ICE_MODEL_URL = '/assets/models/towers/ice.glb';
+const MAGIC_MODEL_URL = '/assets/models/towers/magic.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
