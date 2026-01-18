@@ -67,16 +67,12 @@
 - [x] **herbert_talk.mp3 löschen** - 1.6MB nie benutzt, 15MB decoded Memory
       → [Teil 10.3](PERFORMANCE_REPORT.md#103-herbert_talkmp3---verschwendung-)
 
-- [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (100× schneller)
-      `three-tiles-engine.ts:670` - Brute-Force ohne BVH
-      → [Teil 14.1](PERFORMANCE_REPORT.md#141-bvh-acceleration--kritisch-fehlt)
-
-- [ ] **localStorage → IndexedDB** - 100-400ms Blocking bei JSON Parse
-      `osm-street.service.ts:144-164` - StreetCacheService existiert, wird nicht genutzt
+- [x] **localStorage → IndexedDB** - 100-400ms Blocking bei JSON Parse
+      `osm-street.service.ts` - StreetCacheService bereits implementiert und genutzt
       → [Teil 9.3](PERFORMANCE_REPORT.md#93-json-serialization-100-500ms-)
 
-- [ ] **OnPush ChangeDetection** - 40-60% CD-Overhead verschwendet
-      Alle 21 Components auf OnPush umstellen (Signals bereits vorhanden)
+- [x] **OnPush ChangeDetection** - 40-60% CD-Overhead verschwendet
+      Alle 16 Components auf OnPush umgestellt (Signals bereits vorhanden)
       → [Teil 11.1](PERFORMANCE_REPORT.md#111-change-detection-strategy--kritisch)
 
 - [ ] **Distance Audio Culling** - Sounds spielen bei 500m+ Entfernung
@@ -88,6 +84,10 @@
       → [Teil 4.2](PERFORMANCE_REPORT.md#42-material-state-changes--kritisch)
 
 ### 🟡 Priorität 2: Hoher Impact
+
+- [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (100× schneller)
+      `three-tiles-engine.ts:670` - Brute-Force ohne BVH, benötigt `three-mesh-bvh`
+      → [Teil 14.1](PERFORMANCE_REPORT.md#141-bvh-acceleration--kritisch-fehlt)
 
 - [ ] **Tiles Update Throttling** - 5-10% FPS bei statischer Kamera
       `three-tiles-engine.ts:965-969` - Nur bei Kamera-Bewegung updaten

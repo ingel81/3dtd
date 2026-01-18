@@ -1,4 +1,4 @@
-import { Component, input } from '@angular/core';
+import { Component, input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
@@ -29,6 +29,7 @@ export interface HintItem {
   selector: 'app-context-hint',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="context-hint-container" [class.has-warning]="warning()">
       <!-- Warning message (above hints) -->

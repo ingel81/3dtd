@@ -1,4 +1,4 @@
-import { Component, inject, input } from '@angular/core';
+import { Component, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { GameUIStateService } from '../../services/game-ui-state.service';
 
@@ -18,6 +18,7 @@ import { GameUIStateService } from '../../services/game-ui-state.service';
   selector: 'app-info-overlay',
   standalone: true,
   imports: [CommonModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="info-overlay">
       <!-- FPS always visible -->

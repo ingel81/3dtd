@@ -1,4 +1,4 @@
-import { Component, inject, input, output } from '@angular/core';
+import { Component, inject, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -10,6 +10,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   selector: 'app-quick-actions',
   standalone: true,
   imports: [CommonModule, MatIconModule, MatTooltipModule],
+  changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="td-quick-actions">
       <!-- Route Animation Button -->
