@@ -1,5 +1,11 @@
 @use './custom-theme' as theme;
 
+// Self-hosted fonts (no Google Fonts CDN)
+@import '@fontsource/roboto/300.css';
+@import '@fontsource/roboto/400.css';
+@import '@fontsource/roboto/500.css';
+@import 'material-icons/iconfont/material-icons.css';
+
 // Include theming for Angular Material with `mat.theme()`.
 // This Sass mixin will define CSS variables that are used for styling Angular Material
 // components according to the Material 3 design spec.
