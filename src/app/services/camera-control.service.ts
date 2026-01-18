@@ -1,5 +1,20 @@
 import { Injectable } from '@angular/core';
-import * as THREE from 'three';
+import {
+  Vector3,
+  Vector2,
+  PerspectiveCamera,
+  Object3D,
+  Mesh,
+  Line,
+  LineSegments,
+  BufferGeometry,
+  BufferAttribute,
+  SphereGeometry,
+  ConeGeometry,
+  MeshBasicMaterial,
+  LineBasicMaterial,
+  LineDashedMaterial,
+} from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 
@@ -51,7 +66,7 @@ export class CameraControlService {
   private debugFramingEnabled = false;
 
   /** Debug meshes for cleanup */
-  private debugMeshes: THREE.Object3D[] = [];
+  private debugMeshes: Object3D[] = [];
 
   // ========================================
   // INITIALIZATION
@@ -180,8 +195,8 @@ export class CameraControlService {
 
     // Get camera properties for optimal fitting
     const camera = this.engine.getCamera();
-    const vFov = camera instanceof THREE.PerspectiveCamera ? camera.fov * Math.PI / 180 : 60 * Math.PI / 180;
-    const aspect = camera instanceof THREE.PerspectiveCamera ? camera.aspect : 16 / 9;
+    const vFov = camera instanceof PerspectiveCamera ? camera.fov * Math.PI / 180 : 60 * Math.PI / 180;
+    const aspect = camera instanceof PerspectiveCamera ? camera.aspect : 16 / 9;
 
     // Calculate horizontal FOV from vertical FOV and aspect ratio
     const hFov = 2 * Math.atan(aspect * Math.tan(vFov / 2));
@@ -258,7 +273,7 @@ export class CameraControlService {
 
     // Get camera's forward direction (where it's looking)
     // Camera looks down -Z in its local space
-    const direction = new THREE.Vector3(0, 0, -1);
+    const direction = new Vector3(0, 0, -1);
     direction.applyQuaternion(camera.quaternion);
 
     // Project onto XZ plane (ignore Y component for heading)
@@ -279,10 +294,10 @@ export class CameraControlService {
     );
 
     // True north direction in local space (from origin to north point)
-    const trueNorth = new THREE.Vector2(northPoint.x, northPoint.z).normalize();
+    const trueNorth = new Vector2(northPoint.x, northPoint.z).normalize();
 
     // Camera direction in XZ plane
-    const camDir = new THREE.Vector2(direction.x, direction.z);
+    const camDir = new Vector2(direction.x, direction.z);
 
     // Calculate angle between camera direction and true north
     // Using atan2 of cross product and dot product for signed angle
@@ -370,7 +385,7 @@ export class CameraControlService {
       pitch: pitch,
       altitude: altitude,
       distanceToCenter: distanceToCenter,
-      fov: camera instanceof THREE.PerspectiveCamera ? camera.fov : 60,
+      fov: camera instanceof PerspectiveCamera ? camera.fov : 60,
       terrainHeight: terrainHeight,
     };
   }
@@ -448,7 +463,7 @@ export class CameraControlService {
     const boxY = terrainY + 5; // Slightly above terrain
 
     // === Create inner bounding box (cyan) - actual bounds ===
-    const innerBoxGeometry = new THREE.BufferGeometry();
+    const innerBoxGeometry = new BufferGeometry();
     const innerBoxVertices = new Float32Array([
       // Bottom rectangle
       minX, boxY, minZ,  maxX, boxY, minZ,
@@ -456,9 +471,9 @@ export class CameraControlService {
       maxX, boxY, maxZ,  minX, boxY, maxZ,
       minX, boxY, maxZ,  minX, boxY, minZ,
     ]);
-    innerBoxGeometry.setAttribute('position', new THREE.BufferAttribute(innerBoxVertices, 3));
-    const innerBoxMaterial = new THREE.LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true });
-    const innerBox = new THREE.LineSegments(innerBoxGeometry, innerBoxMaterial);
+    innerBoxGeometry.setAttribute('position', new BufferAttribute(innerBoxVertices, 3));
+    const innerBoxMaterial = new LineBasicMaterial({ color: 0x00ffff, depthTest: false, transparent: true });
+    const innerBox = new LineSegments(innerBoxGeometry, innerBoxMaterial);
     innerBox.renderOrder = 999;
     scene.add(innerBox);
     this.debugMeshes.push(innerBox);
@@ -471,7 +486,7 @@ export class CameraControlService {
     const padMinZ = centerZ - halfPaddedZ;
     const padMaxZ = centerZ + halfPaddedZ;
 
-    const outerBoxGeometry = new THREE.BufferGeometry();
+    const outerBoxGeometry = new BufferGeometry();
     const outerBoxVertices = new Float32Array([
       // Bottom rectangle
       padMinX, boxY, padMinZ,  padMaxX, boxY, padMinZ,
@@ -479,28 +494,28 @@ export class CameraControlService {
       padMaxX, boxY, padMaxZ,  padMinX, boxY, padMaxZ,
       padMinX, boxY, padMaxZ,  padMinX, boxY, padMinZ,
     ]);
-    outerBoxGeometry.setAttribute('position', new THREE.BufferAttribute(outerBoxVertices, 3));
-    const outerBoxMaterial = new THREE.LineBasicMaterial({ color: 0xffff00, depthTest: false, transparent: true });
-    const outerBox = new THREE.LineSegments(outerBoxGeometry, outerBoxMaterial);
+    outerBoxGeometry.setAttribute('position', new BufferAttribute(outerBoxVertices, 3));
+    const outerBoxMaterial = new LineBasicMaterial({ color: 0xffff00, depthTest: false, transparent: true });
+    const outerBox = new LineSegments(outerBoxGeometry, outerBoxMaterial);
     outerBox.renderOrder = 999;
     scene.add(outerBox);
     this.debugMeshes.push(outerBox);
 
     // === Create point markers ===
-    const sphereGeometry = new THREE.SphereGeometry(8, 16, 16);
+    const sphereGeometry = new SphereGeometry(8, 16, 16);
 
     // HQ marker (green)
-    const hqMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00, depthTest: false, transparent: true });
-    const hqSphere = new THREE.Mesh(sphereGeometry, hqMaterial);
+    const hqMaterial = new MeshBasicMaterial({ color: 0x00ff00, depthTest: false, transparent: true });
+    const hqSphere = new Mesh(sphereGeometry, hqMaterial);
     hqSphere.position.set(hqLocal.x, boxY + 10, hqLocal.z);
     hqSphere.renderOrder = 999;
     scene.add(hqSphere);
     this.debugMeshes.push(hqSphere);
 
     // Spawn markers (red)
-    const spawnMaterial = new THREE.MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true });
+    const spawnMaterial = new MeshBasicMaterial({ color: 0xff0000, depthTest: false, transparent: true });
     for (const spawn of spawnLocals) {
-      const spawnSphere = new THREE.Mesh(sphereGeometry, spawnMaterial);
+      const spawnSphere = new Mesh(sphereGeometry, spawnMaterial);
       spawnSphere.position.set(spawn.x, boxY + 10, spawn.z);
       spawnSphere.renderOrder = 999;
       scene.add(spawnSphere);
@@ -508,8 +523,8 @@ export class CameraControlService {
     }
 
     // === Center point (white) ===
-    const centerMaterial = new THREE.MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true });
-    const centerSphere = new THREE.Mesh(sphereGeometry, centerMaterial);
+    const centerMaterial = new MeshBasicMaterial({ color: 0xffffff, depthTest: false, transparent: true });
+    const centerSphere = new Mesh(sphereGeometry, centerMaterial);
     centerSphere.position.set(centerX, boxY + 10, centerZ);
     centerSphere.renderOrder = 999;
     scene.add(centerSphere);
@@ -517,9 +532,9 @@ export class CameraControlService {
 
     // === Camera position indicator (magenta) ===
     const camera = this.engine.getCamera();
-    const camMarkerGeometry = new THREE.ConeGeometry(15, 30, 4);
-    const camMaterial = new THREE.MeshBasicMaterial({ color: 0xff00ff, wireframe: true, depthTest: false, transparent: true });
-    const camMarker = new THREE.Mesh(camMarkerGeometry, camMaterial);
+    const camMarkerGeometry = new ConeGeometry(15, 30, 4);
+    const camMaterial = new MeshBasicMaterial({ color: 0xff00ff, wireframe: true, depthTest: false, transparent: true });
+    const camMarker = new Mesh(camMarkerGeometry, camMaterial);
     camMarker.position.copy(camera.position);
     camMarker.rotation.x = Math.PI; // Point down
     camMarker.renderOrder = 999;
@@ -527,14 +542,14 @@ export class CameraControlService {
     this.debugMeshes.push(camMarker);
 
     // === Line from camera to lookAt (magenta dashed) ===
-    const lookAtLineGeometry = new THREE.BufferGeometry();
+    const lookAtLineGeometry = new BufferGeometry();
     const lookAtLineVertices = new Float32Array([
       camera.position.x, camera.position.y, camera.position.z,
       centerX, terrainY, centerZ
     ]);
-    lookAtLineGeometry.setAttribute('position', new THREE.BufferAttribute(lookAtLineVertices, 3));
-    const lookAtLineMaterial = new THREE.LineDashedMaterial({ color: 0xff00ff, dashSize: 20, gapSize: 10, depthTest: false, transparent: true });
-    const lookAtLine = new THREE.Line(lookAtLineGeometry, lookAtLineMaterial);
+    lookAtLineGeometry.setAttribute('position', new BufferAttribute(lookAtLineVertices, 3));
+    const lookAtLineMaterial = new LineDashedMaterial({ color: 0xff00ff, dashSize: 20, gapSize: 10, depthTest: false, transparent: true });
+    const lookAtLine = new Line(lookAtLineGeometry, lookAtLineMaterial);
     lookAtLine.computeLineDistances();
     lookAtLine.renderOrder = 999;
     scene.add(lookAtLine);
@@ -545,21 +560,21 @@ export class CameraControlService {
       const spawnCentroidX = spawnLocals.reduce((sum, p) => sum + p.x, 0) / spawnLocals.length;
       const spawnCentroidZ = spawnLocals.reduce((sum, p) => sum + p.z, 0) / spawnLocals.length;
 
-      const axisLineGeometry = new THREE.BufferGeometry();
+      const axisLineGeometry = new BufferGeometry();
       const axisLineVertices = new Float32Array([
         hqLocal.x, boxY + 15, hqLocal.z,
         spawnCentroidX, boxY + 15, spawnCentroidZ
       ]);
-      axisLineGeometry.setAttribute('position', new THREE.BufferAttribute(axisLineVertices, 3));
-      const axisLineMaterial = new THREE.LineBasicMaterial({ color: 0xff8800, depthTest: false, transparent: true });
-      const axisLine = new THREE.Line(axisLineGeometry, axisLineMaterial);
+      axisLineGeometry.setAttribute('position', new BufferAttribute(axisLineVertices, 3));
+      const axisLineMaterial = new LineBasicMaterial({ color: 0xff8800, depthTest: false, transparent: true });
+      const axisLine = new Line(axisLineGeometry, axisLineMaterial);
       axisLine.renderOrder = 999;
       scene.add(axisLine);
       this.debugMeshes.push(axisLine);
 
       // Spawn centroid marker (orange)
-      const centroidMaterial = new THREE.MeshBasicMaterial({ color: 0xff8800, depthTest: false, transparent: true });
-      const centroidSphere = new THREE.Mesh(sphereGeometry, centroidMaterial);
+      const centroidMaterial = new MeshBasicMaterial({ color: 0xff8800, depthTest: false, transparent: true });
+      const centroidSphere = new Mesh(sphereGeometry, centroidMaterial);
       centroidSphere.position.set(spawnCentroidX, boxY + 15, spawnCentroidZ);
       centroidSphere.renderOrder = 999;
       scene.add(centroidSphere);
@@ -577,7 +592,7 @@ export class CameraControlService {
     const scene = this.engine.getScene();
     for (const mesh of this.debugMeshes) {
       scene.remove(mesh);
-      if (mesh instanceof THREE.Mesh || mesh instanceof THREE.Line || mesh instanceof THREE.LineSegments) {
+      if (mesh instanceof Mesh || mesh instanceof Line || mesh instanceof LineSegments) {
         mesh.geometry.dispose();
         if (Array.isArray(mesh.material)) {
           mesh.material.forEach(m => m.dispose());

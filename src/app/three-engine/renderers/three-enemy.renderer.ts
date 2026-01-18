@@ -1,4 +1,25 @@
-import * as THREE from 'three';
+import {
+  Scene,
+  Object3D,
+  AnimationMixer,
+  AnimationClip,
+  AnimationAction,
+  Sprite,
+  Mesh,
+  MeshStandardMaterial,
+  MeshBasicMaterial,
+  SRGBColorSpace,
+  Color,
+  LoopRepeat,
+  LoopOnce,
+  SpriteMaterial,
+  CanvasTexture,
+  Material,
+  Camera,
+  Frustum,
+  Matrix4,
+  Texture,
+} from 'three';
 import { CoordinateSync } from './index';
 import { EnemyTypeConfig, ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
 import { AssetManagerService } from '../../services/asset-manager.service';
@@ -8,11 +29,11 @@ import { AssetManagerService } from '../../services/asset-manager.service';
  */
 export interface EnemyRenderData {
   id: string;
-  mesh: THREE.Object3D;
-  mixer: THREE.AnimationMixer | null;
-  animations: Map<string, THREE.AnimationClip>;
-  currentAction: THREE.AnimationAction | null;
-  healthBar: THREE.Sprite | null;
+  mesh: Object3D;
+  mixer: AnimationMixer | null;
+  animations: Map<string, AnimationClip>;
+  currentAction: AnimationAction | null;
+  healthBar: Sprite | null;
   healthBarBucket: number; // Cached bucket (0-100 in 10% steps) to avoid unnecessary updates
   typeConfig: EnemyTypeConfig;
   isDestroyed: boolean;
@@ -30,7 +51,7 @@ export interface EnemyRenderData {
  * Health bars are rendered as sprites above each enemy.
  */
 export class ThreeEnemyRenderer {
-  private scene: THREE.Scene;
+  private scene: Scene;
   private sync: CoordinateSync;
   private assetManager: AssetManagerService;
 
@@ -41,13 +62,13 @@ export class ThreeEnemyRenderer {
   private enemies = new Map<string, EnemyRenderData>();
 
   // Health bar texture - key format: "color_bucket" (e.g. "default_80" or "#ff0000_60")
-  private healthBarTextures = new Map<string, THREE.CanvasTexture>();
+  private healthBarTextures = new Map<string, CanvasTexture>();
 
   // Frustum culling for animations (reused to avoid allocations)
-  private frustum = new THREE.Frustum();
-  private projScreenMatrix = new THREE.Matrix4();
+  private frustum = new Frustum();
+  private projScreenMatrix = new Matrix4();
 
-  constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
+  constructor(scene: Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
     this.sync = sync;
     this.assetManager = assetManager;
@@ -127,18 +148,18 @@ export class ThreeEnemyRenderer {
 
     // Apply material adjustments
     mesh.traverse((node) => {
-      if ((node as THREE.Mesh).isMesh) {
-        const meshNode = node as THREE.Mesh;
+      if ((node as Mesh).isMesh) {
+        const meshNode = node as Mesh;
 
         // Convert to unlit material for cartoon models
         if (config.unlit) {
-          const oldMaterial = meshNode.material as THREE.MeshStandardMaterial;
+          const oldMaterial = meshNode.material as MeshStandardMaterial;
           if (oldMaterial) {
             // Fix texture colorspace for correct colors
             if (oldMaterial.map) {
-              oldMaterial.map.colorSpace = THREE.SRGBColorSpace;
+              oldMaterial.map.colorSpace = SRGBColorSpace;
             }
-            const basicMaterial = new THREE.MeshBasicMaterial({
+            const basicMaterial = new MeshBasicMaterial({
               map: oldMaterial.map,
               color: 0xffffff, // White to show texture colors unchanged
               transparent: oldMaterial.transparent,
@@ -150,18 +171,18 @@ export class ThreeEnemyRenderer {
           }
         } else {
           // Handle any material type (FBX often uses MeshPhongMaterial)
-          const material = meshNode.material as THREE.Material & {
-            map?: THREE.Texture;
+          const material = meshNode.material as Material & {
+            map?: Texture;
             metalness?: number;
             roughness?: number;
-            emissive?: THREE.Color;
+            emissive?: Color;
             emissiveIntensity?: number;
           };
 
           if (material) {
             // Fix texture colorspace for correct colors
             if (material.map) {
-              material.map.colorSpace = THREE.SRGBColorSpace;
+              material.map.colorSpace = SRGBColorSpace;
               material.map.needsUpdate = true;
             }
 
@@ -175,7 +196,7 @@ export class ThreeEnemyRenderer {
             if (config.emissiveIntensity && config.emissiveIntensity > 0) {
               if ('emissive' in material && 'emissiveIntensity' in material) {
                 const emissiveColor = config.emissiveColor || '#ffffff';
-                material.emissive = new THREE.Color(emissiveColor);
+                material.emissive = new Color(emissiveColor);
                 material.emissiveIntensity = config.emissiveIntensity;
               }
             }
@@ -199,11 +220,11 @@ export class ThreeEnemyRenderer {
     this.scene.add(mesh);
 
     // Setup animation mixer if model has animations AND config allows it
-    let mixer: THREE.AnimationMixer | null = null;
-    const animations = new Map<string, THREE.AnimationClip>();
+    let mixer: AnimationMixer | null = null;
+    const animations = new Map<string, AnimationClip>();
 
     if (config.hasAnimations && cachedModel.animations && cachedModel.animations.length > 0) {
-      mixer = new THREE.AnimationMixer(mesh);
+      mixer = new AnimationMixer(mesh);
       for (const clip of cachedModel.animations) {
         animations.set(clip.name, clip);
       }
@@ -315,7 +336,7 @@ export class ThreeEnemyRenderer {
 
     const action = data.mixer.clipAction(clip);
     action.reset();
-    action.setLoop(THREE.LoopRepeat, Infinity);
+    action.setLoop(LoopRepeat, Infinity);
     action.timeScale = data.typeConfig.animationSpeed ?? 1.0;
 
     // Random start time for variety (only on first play, not on variation switch)
@@ -375,7 +396,7 @@ export class ThreeEnemyRenderer {
     }
 
     const action = data.mixer.clipAction(clip);
-    action.setLoop(THREE.LoopOnce, 1);
+    action.setLoop(LoopOnce, 1);
     action.clampWhenFinished = true;
     action.play();
     data.currentAction = action;
@@ -435,7 +456,7 @@ export class ThreeEnemyRenderer {
    * Update all animation mixers with frustum culling
    * Only animates enemies visible to the camera
    */
-  updateAnimations(deltaTime: number, camera: THREE.Camera): void {
+  updateAnimations(deltaTime: number, camera: Camera): void {
     // Update frustum from camera
     this.projScreenMatrix.multiplyMatrices(
       camera.projectionMatrix,
@@ -502,15 +523,15 @@ export class ThreeEnemyRenderer {
   /**
    * Create health bar sprite
    */
-  private createHealthBarSprite(config: EnemyTypeConfig): THREE.Sprite {
+  private createHealthBarSprite(config: EnemyTypeConfig): Sprite {
     const isBoss = !!config.bossName;
     const texture = this.getHealthBarTexture(1.0, config);
-    const material = new THREE.SpriteMaterial({
+    const material = new SpriteMaterial({
       map: texture,
       transparent: true,
       depthTest: false, // Always visible
     });
-    const sprite = new THREE.Sprite(material);
+    const sprite = new Sprite(material);
     // Boss healthbar is larger to accommodate text
     sprite.scale.set(isBoss ? 10 : 6, isBoss ? 2.5 : 1, 1);
     return sprite;
@@ -532,7 +553,7 @@ export class ThreeEnemyRenderer {
     const texture =
       this.healthBarTextures.get(cacheKey) ??
       this.createAndCacheTexture(bucket / 100, config, cacheKey);
-    const material = data.healthBar!.material as THREE.SpriteMaterial;
+    const material = data.healthBar!.material as SpriteMaterial;
     material.map = texture;
     material.needsUpdate = true;
   }
@@ -554,7 +575,7 @@ export class ThreeEnemyRenderer {
     healthPercent: number,
     config: EnemyTypeConfig,
     cacheKey: string
-  ): THREE.CanvasTexture {
+  ): CanvasTexture {
     const texture = this.createHealthBarTexture(healthPercent, config);
     this.healthBarTextures.set(cacheKey, texture);
     return texture;
@@ -567,7 +588,7 @@ export class ThreeEnemyRenderer {
   private getHealthBarTexture(
     healthPercent: number,
     config: EnemyTypeConfig
-  ): THREE.CanvasTexture {
+  ): CanvasTexture {
     // Round to 10% bucket
     const bucket = Math.round(healthPercent * 10) * 10;
     const bucketClamped = Math.max(0, Math.min(100, bucket));
@@ -589,7 +610,7 @@ export class ThreeEnemyRenderer {
   private createHealthBarTexture(
     healthPercent: number,
     config: EnemyTypeConfig
-  ): THREE.CanvasTexture {
+  ): CanvasTexture {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
@@ -642,7 +663,7 @@ export class ThreeEnemyRenderer {
     ctx.fillStyle = fillColor;
     ctx.fillRect(2, barY, healthWidth, barHeight);
 
-    const texture = new THREE.CanvasTexture(canvas);
+    const texture = new CanvasTexture(canvas);
     texture.needsUpdate = true;
     return texture;
   }
@@ -650,18 +671,18 @@ export class ThreeEnemyRenderer {
   /**
    * Recursively dispose Three.js object
    */
-  private disposeObject(obj: THREE.Object3D): void {
+  private disposeObject(obj: Object3D): void {
     obj.traverse((node) => {
-      const mesh = node as THREE.Mesh;
+      const mesh = node as Mesh;
       if (mesh.geometry) {
         mesh.geometry.dispose();
       }
       if (mesh.material) {
-        const materials: THREE.Material[] = Array.isArray(mesh.material)
+        const materials: Material[] = Array.isArray(mesh.material)
           ? mesh.material
           : [mesh.material];
         for (const mat of materials) {
-          const stdMat = mat as THREE.MeshStandardMaterial;
+          const stdMat = mat as MeshStandardMaterial;
           if (stdMat.map) stdMat.map.dispose();
           if (stdMat.normalMap) stdMat.normalMap.dispose();
           if (stdMat.roughnessMap) stdMat.roughnessMap.dispose();

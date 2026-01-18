@@ -59,7 +59,15 @@ import { ProjectileManager } from './managers/projectile.manager';
 import { WaveManager, SpawnPoint as WaveSpawnPoint } from './managers/wave.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
-import * as THREE from 'three';
+import {
+  Vector3,
+  Material,
+  LineSegments,
+  InstancedMesh,
+  BufferGeometry,
+  Float32BufferAttribute,
+  LineBasicMaterial,
+} from 'three';
 // Theme
 import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
@@ -677,8 +685,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
 
   // Three.js object for streets (merged geometry for performance - 1 draw call instead of 600)
-  private streetLinesMesh: THREE.LineSegments | null = null;
-  private spatialGridVizMesh: THREE.InstancedMesh | null = null;
+  private streetLinesMesh: LineSegments | null = null;
+  private spatialGridVizMesh: InstancedMesh | null = null;
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -1064,7 +1072,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.gameState,
       this.towerPlacement.buildMode,
       (lat: number, lon: number, height: number) => this.onTerrainClick(lat, lon, height),
-      (lat: number, lon: number, hitPoint: THREE.Vector3) => this.onMouseMove(lat, lon, hitPoint)
+      (lat: number, lon: number, hitPoint: Vector3) => this.onMouseMove(lat, lon, hitPoint)
     );
   }
 
@@ -1079,7 +1087,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Handle mouse move in build mode (for build preview)
    */
-  private onMouseMove(lat: number, lon: number, hitPoint: THREE.Vector3): void {
+  private onMouseMove(lat: number, lon: number, hitPoint: Vector3): void {
     const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? hitPoint.y;
     this.towerPlacement.updatePreviewPosition(lat, lon, terrainHeight);
   }
@@ -1336,7 +1344,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.streetLinesMesh) {
       overlayGroup.remove(this.streetLinesMesh);
       this.streetLinesMesh.geometry.dispose();
-      (this.streetLinesMesh.material as THREE.Material).dispose();
+      (this.streetLinesMesh.material as Material).dispose();
       this.streetLinesMesh = null;
     }
 
@@ -1369,7 +1377,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     for (const street of networkToRender.streets) {
       if (street.nodes.length < 2) continue;
 
-      const points: THREE.Vector3[] = [];
+      const points: Vector3[] = [];
 
       for (const node of street.nodes) {
         // Get terrain height at this position using local raycast
@@ -1415,11 +1423,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Create single merged geometry with all street segments
     if (allSegmentVertices.length > 0) {
-      const geometry = new THREE.BufferGeometry();
-      geometry.setAttribute('position', new THREE.Float32BufferAttribute(allSegmentVertices, 3));
+      const geometry = new BufferGeometry();
+      geometry.setAttribute('position', new Float32BufferAttribute(allSegmentVertices, 3));
 
       // Single material for all streets (no more cloning per street!)
-      const material = new THREE.LineBasicMaterial({
+      const material = new LineBasicMaterial({
         color: 0xffd700,
         linewidth: 2,
         depthTest: true,
@@ -1428,7 +1436,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         opacity: 0.9
       });
 
-      this.streetLinesMesh = new THREE.LineSegments(geometry, material);
+      this.streetLinesMesh = new LineSegments(geometry, material);
       this.streetLinesMesh.visible = this.streetsVisible();
       this.streetLinesMesh.renderOrder = 1;
       this.streetLinesMesh.frustumCulled = false;  // Prevent disappearing at certain angles
@@ -2445,7 +2453,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.streetLinesMesh) {
       overlayGroup.remove(this.streetLinesMesh);
       this.streetLinesMesh.geometry.dispose();
-      (this.streetLinesMesh.material as THREE.Material).dispose();
+      (this.streetLinesMesh.material as Material).dispose();
       this.streetLinesMesh = null;
     }
 

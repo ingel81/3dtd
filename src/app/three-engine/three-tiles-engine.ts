@@ -1,5 +1,31 @@
-import * as THREE from 'three';
-import { MathUtils } from 'three';
+import {
+  WebGLRenderer,
+  Scene,
+  PerspectiveCamera,
+  Raycaster,
+  Vector3,
+  Vector2,
+  Matrix4,
+  Mesh,
+  Object3D,
+  Group,
+  SRGBColorSpace,
+  Fog,
+  HemisphereLight,
+  DirectionalLight,
+  AmbientLight,
+  TextureLoader,
+  EquirectangularReflectionMapping,
+  Color,
+  BoxGeometry,
+  MeshStandardMaterial,
+  MeshBasicMaterial,
+  DoubleSide,
+  ShaderMaterial,
+  AxesHelper,
+  Material,
+  MathUtils,
+} from 'three';
 import {
   TilesRenderer,
   GlobeControls,
@@ -52,9 +78,9 @@ export interface InitialCameraPosition {
  * - Simpler coordinate transformations
  */
 export class ThreeTilesEngine {
-  private renderer: THREE.WebGLRenderer;
-  private scene: THREE.Scene;
-  private camera: THREE.PerspectiveCamera;
+  private renderer: WebGLRenderer;
+  private scene: Scene;
+  private camera: PerspectiveCamera;
   private controls: GlobeControls | null = null;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
@@ -63,7 +89,7 @@ export class ThreeTilesEngine {
   readonly sync: EllipsoidSync;
 
   // Raycaster for terrain height queries
-  private raycaster: THREE.Raycaster;
+  private raycaster: Raycaster;
   private heightCache = new Map<string, number>();
   private readonly CACHE_PRECISION = 5;
   private readonly HEIGHT_CHANGE_THRESHOLD = 2.0; // Only refresh if height changed by >2m
@@ -87,12 +113,12 @@ export class ThreeTilesEngine {
   // Callback for when camera controls drag ends (for distinguishing clicks from pans)
   onControlsDragEnd: (() => void) | null = null;
   private controlsStartTime = 0;
-  private controlsStartCameraPos = new THREE.Vector3();
+  private controlsStartCameraPos = new Vector3();
   private lastCameraMovement = 0;
 
   // Test entities (for debugging)
-  private testCube: THREE.Mesh | null = null;
-  private debugHelpers: THREE.Object3D[] = [];
+  private testCube: Mesh | null = null;
+  private debugHelpers: Object3D[] = [];
 
   // Event handlers (stored for cleanup in dispose)
   private tilesLoadEndHandler = () => this.onTilesLoadEnd();
@@ -110,10 +136,10 @@ export class ThreeTilesEngine {
 
   // Overlay group for markers, streets, routes
   // Added to scene root, but synced with tiles movement each frame
-  private overlayGroup: THREE.Group;
+  private overlayGroup: Group;
 
   // Track initial tiles position to calculate movement delta
-  private initialTilesPos = new THREE.Vector3();
+  private initialTilesPos = new Vector3();
   private tilesPosInitialized = false;
 
   // Base Y position for overlay group (terrain height at origin)
@@ -161,17 +187,17 @@ export class ThreeTilesEngine {
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
 
     // Raycaster for terrain queries
-    this.raycaster = new THREE.Raycaster();
+    this.raycaster = new Raycaster();
 
     // Create WebGL renderer
-    this.renderer = new THREE.WebGLRenderer({
+    this.renderer = new WebGLRenderer({
       canvas,
       antialias: true,
       logarithmicDepthBuffer: true,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x151c1f);
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.outputColorSpace = SRGBColorSpace;
 
     // Distance limits - keep in sync!
     const VIEW_DISTANCE = 8000; // Max tile loading distance
@@ -179,17 +205,17 @@ export class ThreeTilesEngine {
     const FOG_END = VIEW_DISTANCE * 0.75; // 6000m - fully in fog
 
     // Create scene with distance fog
-    this.scene = new THREE.Scene();
+    this.scene = new Scene();
     const fogColor = 0x1a1f25; // Slightly lighter than background for depth
-    this.scene.fog = new THREE.Fog(fogColor, FOG_START, FOG_END);
+    this.scene.fog = new Fog(fogColor, FOG_START, FOG_END);
 
     // Create overlay group for markers, streets, routes
     // Will be added to SCENE (not tilesGroup) and synced each frame
-    this.overlayGroup = new THREE.Group();
+    this.overlayGroup = new Group();
     this.scene.add(this.overlayGroup);
 
     // Create camera - far plane limits tile loading distance
-    this.camera = new THREE.PerspectiveCamera(
+    this.camera = new PerspectiveCamera(
       60,
       canvas.width / canvas.height,
       1,
@@ -205,7 +231,7 @@ export class ThreeTilesEngine {
     const coordinateSync: CoordinateSync = {
       geoToLocal: (lat: number, lon: number, height: number) => this.sync.geoToLocalSimple(lat, lon, height),
       geoToLocalSimple: (lat: number, lon: number, height: number) => this.sync.geoToLocalSimple(lat, lon, height),
-      localToGeo: (vec: THREE.Vector3) => this.sync.localToGeo(vec),
+      localToGeo: (vec: Vector3) => this.sync.localToGeo(vec),
     };
 
     // AssetManager is required for enemy and tower renderers
@@ -399,7 +425,7 @@ export class ThreeTilesEngine {
 
   private setupLighting(): void {
     // Hemisphere light - warm sky/ground gradient
-    const hemi = new THREE.HemisphereLight(
+    const hemi = new HemisphereLight(
       0xffeedd, // Warm sky color
       0x806040, // Warm ground color
       1.5
@@ -407,17 +433,17 @@ export class ThreeTilesEngine {
     this.scene.add(hemi);
 
     // Main sun light (key light) - warm bright sun
-    const sun = new THREE.DirectionalLight(0xffeecc, 3.0); // Warm and bright
+    const sun = new DirectionalLight(0xffeecc, 3.0); // Warm and bright
     sun.position.set(-50, 100, -30); // SW direction, high angle
     this.scene.add(sun);
 
     // Fill light - warm from opposite side
-    const fill = new THREE.DirectionalLight(0xfff0e0, 1.5); // Warm
+    const fill = new DirectionalLight(0xfff0e0, 1.5); // Warm
     fill.position.set(50, 50, 30); // NE direction
     this.scene.add(fill);
 
     // Warm ambient for overall brightness
-    const ambient = new THREE.AmbientLight(0xffe8d0, 0.8); // Warm tint
+    const ambient = new AmbientLight(0xffe8d0, 0.8); // Warm tint
     this.scene.add(ambient);
   }
 
@@ -425,19 +451,19 @@ export class ThreeTilesEngine {
    * Setup sky background from equirectangular texture
    */
   private setupSky(): void {
-    const loader = new THREE.TextureLoader();
+    const loader = new TextureLoader();
 
     loader.load(
       '/assets/images/kloppenheim_06_puresky.jpg',
       (texture) => {
-        texture.mapping = THREE.EquirectangularReflectionMapping;
-        texture.colorSpace = THREE.SRGBColorSpace;
+        texture.mapping = EquirectangularReflectionMapping;
+        texture.colorSpace = SRGBColorSpace;
         this.scene.background = texture;
       },
       undefined,
       (error) => {
         console.warn('[ThreeTilesEngine] Failed to load sky texture, using fallback color', error);
-        this.scene.background = new THREE.Color(0x87ceeb); // Light blue fallback
+        this.scene.background = new Color(0x87ceeb); // Light blue fallback
       }
     );
   }
@@ -496,7 +522,7 @@ export class ThreeTilesEngine {
     this.tilesRenderer.group.updateMatrixWorld();
 
     // Use getObjectFrame for proper camera positioning in globe view
-    const tempMatrix = new THREE.Matrix4();
+    const tempMatrix = new Matrix4();
     WGS84_ELLIPSOID.getObjectFrame(
       lat * MathUtils.DEG2RAD,
       lon * MathUtils.DEG2RAD,
@@ -607,8 +633,8 @@ export class ThreeTilesEngine {
     if (!this.tilesRenderer) return null;
 
     // Cast ray from high above straight down
-    const rayOrigin = new THREE.Vector3(x, 5000, z);
-    const rayDir = new THREE.Vector3(0, -1, 0);
+    const rayOrigin = new Vector3(x, 5000, z);
+    const rayDir = new Vector3(0, -1, 0);
 
     this.raycaster.set(rayOrigin, rayDir);
     const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
@@ -642,7 +668,7 @@ export class ThreeTilesEngine {
 
     // Cast from camera toward origin
     const camPos = this.camera.position.clone();
-    const direction = new THREE.Vector3(0, 0, 0).sub(camPos).normalize();
+    const direction = new Vector3(0, 0, 0).sub(camPos).normalize();
     this.raycaster.set(camPos, direction);
 
     const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
@@ -699,7 +725,7 @@ export class ThreeTilesEngine {
     if (!this.tilesWereLoaded) {
       let meshCount = 0;
       this.tilesRenderer.group.traverse((obj) => {
-        if ((obj as THREE.Mesh).isMesh) meshCount++;
+        if ((obj as Mesh).isMesh) meshCount++;
       });
 
       if (meshCount === 0) {
@@ -711,8 +737,8 @@ export class ThreeTilesEngine {
     }
 
     // Raycast from high above straight down
-    const rayOrigin = new THREE.Vector3(localX, 10000, localZ);
-    const direction = new THREE.Vector3(0, -1, 0);
+    const rayOrigin = new Vector3(localX, 10000, localZ);
+    const direction = new Vector3(0, -1, 0);
 
     this.raycaster.set(rayOrigin, direction);
     this.raycaster.far = 20000;
@@ -744,8 +770,8 @@ export class ThreeTilesEngine {
     if (!this.tilesRenderer) return false;
 
     // Calculate direction and distance
-    const origin = new THREE.Vector3(originX, originY, originZ);
-    const target = new THREE.Vector3(targetX, targetY, targetZ);
+    const origin = new Vector3(originX, originY, originZ);
+    const target = new Vector3(targetX, targetY, targetZ);
     const direction = target.clone().sub(origin);
     const distance = direction.length();
     direction.normalize();
@@ -819,7 +845,7 @@ export class ThreeTilesEngine {
     if (!this.tilesRenderer) return 0;
 
     // Position 10km above the point
-    const position = new THREE.Vector3();
+    const position = new Vector3();
     WGS84_ELLIPSOID.getCartographicToPosition(
       lat * MathUtils.DEG2RAD,
       lon * MathUtils.DEG2RAD,
@@ -889,13 +915,13 @@ export class ThreeTilesEngine {
   raycastTowers(screenX: number, screenY: number): string | null {
     // Convert screen coords to NDC
     const rect = this.renderer.domElement.getBoundingClientRect();
-    const mouse = new THREE.Vector2(
+    const mouse = new Vector2(
       ((screenX - rect.left) / rect.width) * 2 - 1,
       -((screenY - rect.top) / rect.height) * 2 + 1
     );
 
     // Create a FRESH raycaster - reusing this.raycaster causes issues after LoS checks
-    const raycaster = new THREE.Raycaster();
+    const raycaster = new Raycaster();
     raycaster.setFromCamera(mouse, this.camera);
 
     // Test each tower mesh
@@ -916,19 +942,19 @@ export class ThreeTilesEngine {
    * IMPORTANT: Uses a fresh Raycaster instance each call.
    * See ARCHITECTURE.md "Raycaster Corruption Issue" for details.
    */
-  raycastTerrain(screenX: number, screenY: number): THREE.Vector3 | null {
+  raycastTerrain(screenX: number, screenY: number): Vector3 | null {
     if (!this.tilesRenderer) return null;
 
     // Convert screen coords to NDC
     const rect = this.renderer.domElement.getBoundingClientRect();
-    const mouse = new THREE.Vector2(
+    const mouse = new Vector2(
       ((screenX - rect.left) / rect.width) * 2 - 1,
       -((screenY - rect.top) / rect.height) * 2 + 1
     );
 
     // Create a FRESH raycaster - reusing this.raycaster causes issues after LoS checks
     // The shared raycaster gets corrupted state from LOS raycasting with custom origins
-    const raycaster = new THREE.Raycaster();
+    const raycaster = new Raycaster();
     raycaster.setFromCamera(mouse, this.camera);
 
     const results = raycaster.intersectObject(this.tilesRenderer.group, true);
@@ -1057,17 +1083,17 @@ export class ThreeTilesEngine {
   /**
    * Add a test cube at a geo position (for debugging)
    */
-  async addTestCube(lat: number, lon: number): Promise<THREE.Mesh> {
+  async addTestCube(lat: number, lon: number): Promise<Mesh> {
     const height = await this.getTerrainHeight(lat, lon);
     const localPos = this.sync.geoToLocal(lat, lon, height + 5);
 
-    const geometry = new THREE.BoxGeometry(10, 10, 10);
-    const material = new THREE.MeshStandardMaterial({
+    const geometry = new BoxGeometry(10, 10, 10);
+    const material = new MeshStandardMaterial({
       color: 0x22c55e,
       metalness: 0.3,
       roughness: 0.7,
     });
-    const cube = new THREE.Mesh(geometry, material);
+    const cube = new Mesh(geometry, material);
     cube.position.copy(localPos);
 
     this.scene.add(cube);
@@ -1083,24 +1109,24 @@ export class ThreeTilesEngine {
    * @param height - Height above ground in meters (in group's local Y-up coordinates)
    * @returns The created mesh or null if no tiles renderer
    */
-  addTestCubeAtOrigin(height = 50): THREE.Mesh | null {
+  addTestCubeAtOrigin(height = 50): Mesh | null {
     if (!this.tilesRenderer) {
       console.error('[ThreeTilesEngine] Cannot add test cube: tilesRenderer not initialized');
       return null;
     }
 
     // Create cube with overlay-friendly material
-    const geometry = new THREE.BoxGeometry(20, 20, 20);
-    const material = new THREE.MeshBasicMaterial({
+    const geometry = new BoxGeometry(20, 20, 20);
+    const material = new MeshBasicMaterial({
       color: 0xff0000,
       depthTest: false, // Ignore depth - always draw
       depthWrite: false, // Don't affect depth buffer
       transparent: true,
       opacity: 0.9,
-      side: THREE.DoubleSide, // Visible from all angles
+      side: DoubleSide, // Visible from all angles
     });
 
-    const cube = new THREE.Mesh(geometry, material);
+    const cube = new Mesh(geometry, material);
 
     // Add to overlayGroup (which is synced with tiles movement)
     cube.position.set(0, height, 0);
@@ -1123,13 +1149,13 @@ export class ThreeTilesEngine {
       const height = await this.getTerrainHeight(spawn.lat, spawn.lon);
       const localPos = this.sync.geoToLocal(spawn.lat, spawn.lon, height + 5);
 
-      const geometry = new THREE.BoxGeometry(8, 8, 8);
-      const material = new THREE.MeshStandardMaterial({
+      const geometry = new BoxGeometry(8, 8, 8);
+      const material = new MeshStandardMaterial({
         color: colors[i % colors.length],
         metalness: 0.3,
         roughness: 0.7,
       });
-      const cube = new THREE.Mesh(geometry, material);
+      const cube = new Mesh(geometry, material);
       cube.position.copy(localPos);
       this.scene.add(cube);
       this.debugHelpers.push(cube);
@@ -1140,7 +1166,7 @@ export class ThreeTilesEngine {
    * Add axis helper at origin
    */
   addAxisHelper(): void {
-    const axisHelper = new THREE.AxesHelper(50);
+    const axisHelper = new AxesHelper(50);
     this.scene.add(axisHelper);
     this.debugHelpers.push(axisHelper);
   }
@@ -1150,7 +1176,7 @@ export class ThreeTilesEngine {
    * Call this to verify if ShaderMaterial renders at all
    */
   addShaderTestCube(x: number, y: number, z: number): void {
-    const geometry = new THREE.BoxGeometry(5, 5, 5);
+    const geometry = new BoxGeometry(5, 5, 5);
 
     const vertexShader = `
       void main() {
@@ -1164,14 +1190,14 @@ export class ThreeTilesEngine {
       }
     `;
 
-    const material = new THREE.ShaderMaterial({
+    const material = new ShaderMaterial({
       vertexShader,
       fragmentShader,
       transparent: true,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
 
-    const cube = new THREE.Mesh(geometry, material);
+    const cube = new Mesh(geometry, material);
     cube.position.set(x, y, z);
     cube.frustumCulled = false;
     this.scene.add(cube);
@@ -1186,11 +1212,11 @@ export class ThreeTilesEngine {
   clearDebugHelpers(): void {
     for (const helper of this.debugHelpers) {
       this.scene.remove(helper);
-      if ((helper as THREE.Mesh).geometry) {
-        (helper as THREE.Mesh).geometry.dispose();
+      if ((helper as Mesh).geometry) {
+        (helper as Mesh).geometry.dispose();
       }
-      if ((helper as THREE.Mesh).material) {
-        const mat = (helper as THREE.Mesh).material;
+      if ((helper as Mesh).material) {
+        const mat = (helper as Mesh).material;
         if (Array.isArray(mat)) {
           mat.forEach((m) => m.dispose());
         } else {
@@ -1203,7 +1229,7 @@ export class ThreeTilesEngine {
     if (this.testCube) {
       this.scene.remove(this.testCube);
       this.testCube.geometry.dispose();
-      (this.testCube.material as THREE.Material).dispose();
+      (this.testCube.material as Material).dispose();
       this.testCube = null;
     }
   }
@@ -1228,7 +1254,7 @@ export class ThreeTilesEngine {
   /**
    * Get Three.js scene
    */
-  getScene(): THREE.Scene {
+  getScene(): Scene {
     return this.scene;
   }
 
@@ -1236,7 +1262,7 @@ export class ThreeTilesEngine {
    * Get overlay group for markers, streets, routes
    * Objects added here use local coordinates (X=East, Y=Up, Z=-North)
    */
-  getOverlayGroup(): THREE.Group {
+  getOverlayGroup(): Group {
     return this.overlayGroup;
   }
 
@@ -1254,7 +1280,7 @@ export class ThreeTilesEngine {
   /**
    * Get tiles renderer group (for debugging)
    */
-  getTilesGroup(): THREE.Group | null {
+  getTilesGroup(): Group | null {
     return this.tilesRenderer?.group ?? null;
   }
 
@@ -1288,14 +1314,14 @@ export class ThreeTilesEngine {
   /**
    * Get Three.js renderer
    */
-  getRenderer(): THREE.WebGLRenderer {
+  getRenderer(): WebGLRenderer {
     return this.renderer;
   }
 
   /**
    * Get camera
    */
-  getCamera(): THREE.PerspectiveCamera {
+  getCamera(): PerspectiveCamera {
     return this.camera;
   }
 
@@ -1322,7 +1348,7 @@ export class ThreeTilesEngine {
     let totalMeshes = 0;
 
     this.tilesRenderer.group.traverse((obj) => {
-      if (obj instanceof THREE.Mesh) {
+      if (obj instanceof Mesh) {
         totalMeshes++;
         if (obj.visible) {
           visibleMeshes++;
@@ -1369,7 +1395,7 @@ export class ThreeTilesEngine {
   /**
    * Convert world position to screen coordinates
    */
-  worldToScreen(worldPos: THREE.Vector3): { x: number; y: number } | null {
+  worldToScreen(worldPos: Vector3): { x: number; y: number } | null {
     const vector = worldPos.clone();
     vector.project(this.camera);
 
@@ -1439,11 +1465,11 @@ export class ThreeTilesEngine {
 
     // Dispose scene contents
     this.scene.traverse((obj) => {
-      if ((obj as THREE.Mesh).geometry) {
-        (obj as THREE.Mesh).geometry.dispose();
+      if ((obj as Mesh).geometry) {
+        (obj as Mesh).geometry.dispose();
       }
-      if ((obj as THREE.Mesh).material) {
-        const mat = (obj as THREE.Mesh).material;
+      if ((obj as Mesh).material) {
+        const mat = (obj as Mesh).material;
         if (Array.isArray(mat)) {
           mat.forEach((m) => m.dispose());
         } else {

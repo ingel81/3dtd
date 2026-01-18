@@ -1,4 +1,13 @@
-import * as THREE from 'three';
+import {
+  PositionalAudio,
+  AudioListener,
+  AudioLoader,
+  Scene,
+  Camera,
+  Object3D,
+  Vector3,
+  Audio,
+} from 'three';
 import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, SPATIAL_AUDIO_DEFAULTS } from '../configs/audio.config';
 
 /**
@@ -41,9 +50,9 @@ interface RegisteredSound {
  * Active sound instance
  */
 interface ActiveSound {
-  audio: THREE.PositionalAudio;
+  audio: PositionalAudio;
   soundId: string;
-  container?: THREE.Object3D;
+  container?: Object3D;
   ownerId?: string; // ID of the owner (e.g., enemy ID)
   timer?: ReturnType<typeof setTimeout>; // Cleanup timer for non-looping sounds
 }
@@ -61,13 +70,13 @@ interface ActiveSound {
  *
  * Usage:
  *   manager.registerSound('arrow', '/assets/sounds/arrow.mp3', { refDistance: 30 });
- *   manager.playAt('arrow', position); // THREE.Vector3
+ *   manager.playAt('arrow', position); // Vector3
  *   manager.playAtGeo('arrow', lat, lon, height); // Geographic coords
  */
 export class SpatialAudioManager {
-  private listener: THREE.AudioListener;
-  private loader: THREE.AudioLoader;
-  private scene: THREE.Scene;
+  private listener: AudioListener;
+  private loader: AudioLoader;
+  private scene: Scene;
 
   // Registered sounds (id -> buffer + config)
   private sounds = new Map<string, RegisteredSound>();
@@ -85,44 +94,44 @@ export class SpatialAudioManager {
   private contextResumed = false;
 
   // Coordinate converter (set by engine)
-  private geoToLocal: ((lat: number, lon: number, height: number) => THREE.Vector3) | null = null;
+  private geoToLocal: ((lat: number, lon: number, height: number) => Vector3) | null = null;
 
   // PositionalAudio pool for performance
-  private audioPool: THREE.PositionalAudio[] = [];
+  private audioPool: PositionalAudio[] = [];
   private readonly INITIAL_POOL_SIZE = 20;
   private readonly MAX_POOL_SIZE = 50;
 
-  constructor(scene: THREE.Scene, camera: THREE.Camera) {
+  constructor(scene: Scene, camera: Camera) {
     this.scene = scene;
 
     // Create audio listener and attach to camera
-    this.listener = new THREE.AudioListener();
+    this.listener = new AudioListener();
     camera.add(this.listener);
 
     // Create audio loader
-    this.loader = new THREE.AudioLoader();
+    this.loader = new AudioLoader();
 
     // Pre-create initial pool of PositionalAudio objects
     for (let i = 0; i < this.INITIAL_POOL_SIZE; i++) {
-      this.audioPool.push(new THREE.PositionalAudio(this.listener));
+      this.audioPool.push(new PositionalAudio(this.listener));
     }
   }
 
   /**
    * Get a PositionalAudio object from the pool (or create new if pool is empty)
    */
-  private getAudioFromPool(): THREE.PositionalAudio {
+  private getAudioFromPool(): PositionalAudio {
     if (this.audioPool.length > 0) {
       return this.audioPool.pop()!;
     }
     // Pool exhausted - create new audio object
-    return new THREE.PositionalAudio(this.listener);
+    return new PositionalAudio(this.listener);
   }
 
   /**
    * Return a PositionalAudio object to the pool for reuse
    */
-  private returnAudioToPool(audio: THREE.PositionalAudio): void {
+  private returnAudioToPool(audio: PositionalAudio): void {
     // Reset audio state before returning to pool
     if (audio.isPlaying) {
       audio.stop();
@@ -140,15 +149,15 @@ export class SpatialAudioManager {
    * Set the geo-to-local coordinate converter
    * Must be called before using playAtGeo()
    */
-  setGeoToLocal(fn: (lat: number, lon: number, height: number) => THREE.Vector3): void {
+  setGeoToLocal(fn: (lat: number, lon: number, height: number) => Vector3): void {
     this.geoToLocal = fn;
   }
 
   /**
-   * Convert geo coordinates to local THREE.Vector3
+   * Convert geo coordinates to local Vector3
    * Public method for use by AudioComponent
    */
-  geoToLocalPosition(lat: number, lon: number, height: number): THREE.Vector3 | null {
+  geoToLocalPosition(lat: number, lon: number, height: number): Vector3 | null {
     if (!this.geoToLocal) return null;
     return this.geoToLocal(lat, lon, height);
   }
@@ -215,7 +224,7 @@ export class SpatialAudioManager {
   /**
    * Get the Three.js scene
    */
-  getScene(): THREE.Scene {
+  getScene(): Scene {
     return this.scene;
   }
 
@@ -328,9 +337,9 @@ export class SpatialAudioManager {
    */
   async playAt(
     soundId: string,
-    position: THREE.Vector3,
+    position: Vector3,
     volumeMultiplier = 1.0
-  ): Promise<THREE.PositionalAudio | null> {
+  ): Promise<PositionalAudio | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
@@ -364,7 +373,7 @@ export class SpatialAudioManager {
     }
 
     // Create a container object at the position
-    const container = new THREE.Object3D();
+    const container = new Object3D();
     container.position.copy(position);
     container.add(audio);
     this.scene.add(container);
@@ -397,7 +406,7 @@ export class SpatialAudioManager {
     lon: number,
     height: number,
     volumeMultiplier = 1.0
-  ): Promise<THREE.PositionalAudio | null> {
+  ): Promise<PositionalAudio | null> {
     if (!this.geoToLocal) {
       console.warn('[SpatialAudio] geoToLocal not set - use setGeoToLocal() first');
       return null;
@@ -409,9 +418,9 @@ export class SpatialAudioManager {
 
   /**
    * Play a non-positional (global) sound
-   * Uses regular THREE.Audio instead of PositionalAudio
+   * Uses regular Audio instead of PositionalAudio
    */
-  async playGlobal(soundId: string, volumeMultiplier = 1.0): Promise<THREE.Audio | null> {
+  async playGlobal(soundId: string, volumeMultiplier = 1.0): Promise<Audio | null> {
     const sound = this.sounds.get(soundId);
     if (!sound) {
       console.warn(`[SpatialAudio] Sound not registered: ${soundId}`);
@@ -428,7 +437,7 @@ export class SpatialAudioManager {
       return null;
     }
 
-    const audio = new THREE.Audio(this.listener);
+    const audio = new Audio(this.listener);
     audio.setBuffer(sound.buffer);
     audio.setVolume(sound.config.volume * volumeMultiplier);
     audio.setLoop(sound.config.loop);
@@ -483,7 +492,7 @@ export class SpatialAudioManager {
   /**
    * Get listener for external access
    */
-  getListener(): THREE.AudioListener {
+  getListener(): AudioListener {
     return this.listener;
   }
 

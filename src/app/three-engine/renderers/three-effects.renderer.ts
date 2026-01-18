@@ -1,4 +1,23 @@
-import * as THREE from 'three';
+import {
+  Vector3,
+  Color,
+  Scene,
+  Points,
+  PointsMaterial,
+  ShaderMaterial,
+  BufferGeometry,
+  BufferAttribute,
+  AdditiveBlending,
+  NormalBlending,
+  Sprite,
+  SpriteMaterial,
+  Mesh,
+  MeshBasicMaterial,
+  SphereGeometry,
+  PlaneGeometry,
+  CanvasTexture,
+  Material,
+} from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
 import {
@@ -13,12 +32,12 @@ import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
  * Particle data for GPU
  */
 interface Particle {
-  position: THREE.Vector3;
-  velocity: THREE.Vector3;
+  position: Vector3;
+  velocity: Vector3;
   life: number;
   maxLife: number;
   size: number;
-  color: THREE.Color;
+  color: Color;
 }
 
 /**
@@ -30,7 +49,7 @@ interface EffectInstance {
   particles: Particle[];
   startTime: number;
   duration: number;
-  localPosition: THREE.Vector3;
+  localPosition: Vector3;
 }
 
 // Note: Blood and Ice decal instances are now managed by DecalInstanceManager
@@ -61,7 +80,7 @@ export interface FloatingTextConfig {
  */
 interface FloatingTextInstance {
   id: string;
-  sprite: THREE.Sprite;
+  sprite: Sprite;
   startTime: number;
   duration: number;
   floatSpeed: number;
@@ -77,15 +96,15 @@ interface FloatingTextInstance {
  * - Fire/smoke (on base damage)
  * - Explosions (on projectile impact)
  *
- * Uses THREE.Points with custom shader for GPU-accelerated particles.
+ * Uses Points with custom shader for GPU-accelerated particles.
  */
 export class ThreeEffectsRenderer {
-  private scene: THREE.Scene;
+  private scene: Scene;
   private sync: CoordinateSync;
 
   // Particle systems
-  private bloodParticles: THREE.Points | null = null;
-  private fireParticles: THREE.Points | null = null;
+  private bloodParticles: Points | null = null;
+  private fireParticles: Points | null = null;
 
   // Active effects
   private activeEffects = new Map<string, EffectInstance>();
@@ -103,14 +122,14 @@ export class ThreeEffectsRenderer {
   private trailPoolAdditive: Particle[] = [];
   private trailPoolNormal: Particle[] = [];
   private readonly MAX_TRAIL_PARTICLES_PER_POOL = PARTICLE_LIMITS.maxTrailParticlesPerPool;
-  private trailParticlesAdditive: THREE.Points | null = null;
-  private trailParticlesNormal: THREE.Points | null = null;
-  private trailMaterialAdditive: THREE.PointsMaterial | null = null;
-  private trailMaterialNormal: THREE.PointsMaterial | null = null;
+  private trailParticlesAdditive: Points | null = null;
+  private trailParticlesNormal: Points | null = null;
+  private trailMaterialAdditive: PointsMaterial | null = null;
+  private trailMaterialNormal: PointsMaterial | null = null;
 
   // ShaderMaterial alternatives with per-particle size and log depth support
-  private trailShaderMaterialAdditive: THREE.ShaderMaterial | null = null;
-  private trailShaderMaterialNormal: THREE.ShaderMaterial | null = null;
+  private trailShaderMaterialAdditive: ShaderMaterial | null = null;
+  private trailShaderMaterialNormal: ShaderMaterial | null = null;
   private useShaderMaterial = true; // Default to ShaderMaterial (per-particle sizes, soft edges)
 
   // Instanced decal managers (GPU instancing for performance)
@@ -130,18 +149,18 @@ export class ThreeEffectsRenderer {
   private floatingTextIdCounter = 0;
 
   // Shared materials
-  private bloodMaterial: THREE.PointsMaterial;
-  private fireMaterial: THREE.PointsMaterial;
+  private bloodMaterial: PointsMaterial;
+  private fireMaterial: PointsMaterial;
 
   // Reusable temp vector for particle updates (avoids GC pressure)
-  private readonly tempVelocity = new THREE.Vector3();
+  private readonly tempVelocity = new Vector3();
 
-  constructor(scene: THREE.Scene, sync: CoordinateSync) {
+  constructor(scene: Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
 
     // Create blood material
-    this.bloodMaterial = new THREE.PointsMaterial({
+    this.bloodMaterial = new PointsMaterial({
       color: 0xcc0000,
       size: 0.5,
       transparent: true,
@@ -151,36 +170,36 @@ export class ThreeEffectsRenderer {
     });
 
     // Create fire material
-    this.fireMaterial = new THREE.PointsMaterial({
+    this.fireMaterial = new PointsMaterial({
       color: 0xff6600,
       size: 1.0,
       transparent: true,
       opacity: 0.7,
       sizeAttenuation: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
     });
 
     // PointsMaterial for additive blending (fire, tracers, glow effects)
     // Note: PointsMaterial works correctly with 3D tiles, ShaderMaterial has depth issues
-    this.trailMaterialAdditive = new THREE.PointsMaterial({
+    this.trailMaterialAdditive = new PointsMaterial({
       size: 1.5,
       transparent: true,
       opacity: 0.9,
       sizeAttenuation: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       vertexColors: true,
     });
 
     // PointsMaterial for normal blending (smoke, opaque particles)
-    this.trailMaterialNormal = new THREE.PointsMaterial({
+    this.trailMaterialNormal = new PointsMaterial({
       size: 2.0,
       transparent: true,
       opacity: 0.7,
       sizeAttenuation: true,
       depthWrite: false,
-      blending: THREE.NormalBlending,
+      blending: NormalBlending,
       vertexColors: true,
     });
 
@@ -199,14 +218,14 @@ export class ThreeEffectsRenderer {
    */
   private initParticleSystems(): void {
     // Blood particles
-    const bloodGeometry = new THREE.BufferGeometry();
+    const bloodGeometry = new BufferGeometry();
     const bloodPositions = new Float32Array(this.MAX_BLOOD_PARTICLES * 3);
     const bloodColors = new Float32Array(this.MAX_BLOOD_PARTICLES * 3);
 
-    bloodGeometry.setAttribute('position', new THREE.BufferAttribute(bloodPositions, 3));
-    bloodGeometry.setAttribute('color', new THREE.BufferAttribute(bloodColors, 3));
+    bloodGeometry.setAttribute('position', new BufferAttribute(bloodPositions, 3));
+    bloodGeometry.setAttribute('color', new BufferAttribute(bloodColors, 3));
 
-    this.bloodParticles = new THREE.Points(bloodGeometry, this.bloodMaterial);
+    this.bloodParticles = new Points(bloodGeometry, this.bloodMaterial);
     this.bloodParticles.frustumCulled = false;
     this.bloodParticles.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.bloodParticles);
@@ -214,24 +233,24 @@ export class ThreeEffectsRenderer {
     // Initialize blood pool
     for (let i = 0; i < this.MAX_BLOOD_PARTICLES; i++) {
       this.bloodPool.push({
-        position: new THREE.Vector3(),
-        velocity: new THREE.Vector3(),
+        position: new Vector3(),
+        velocity: new Vector3(),
         life: 0,
         maxLife: 0,
         size: 0.3,
-        color: new THREE.Color(0xcc0000),
+        color: new Color(0xcc0000),
       });
     }
 
     // Fire particles
-    const fireGeometry = new THREE.BufferGeometry();
+    const fireGeometry = new BufferGeometry();
     const firePositions = new Float32Array(this.MAX_FIRE_PARTICLES * 3);
     const fireColors = new Float32Array(this.MAX_FIRE_PARTICLES * 3);
 
-    fireGeometry.setAttribute('position', new THREE.BufferAttribute(firePositions, 3));
-    fireGeometry.setAttribute('color', new THREE.BufferAttribute(fireColors, 3));
+    fireGeometry.setAttribute('position', new BufferAttribute(firePositions, 3));
+    fireGeometry.setAttribute('color', new BufferAttribute(fireColors, 3));
 
-    this.fireParticles = new THREE.Points(fireGeometry, this.fireMaterial);
+    this.fireParticles = new Points(fireGeometry, this.fireMaterial);
     this.fireParticles.frustumCulled = false;
     this.fireParticles.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.fireParticles);
@@ -239,30 +258,30 @@ export class ThreeEffectsRenderer {
     // Initialize fire pool
     for (let i = 0; i < this.MAX_FIRE_PARTICLES; i++) {
       this.firePool.push({
-        position: new THREE.Vector3(),
-        velocity: new THREE.Vector3(),
+        position: new Vector3(),
+        velocity: new Vector3(),
         life: 0,
         maxLife: 0,
         size: 1.0,
-        color: new THREE.Color(0xff6600),
+        color: new Color(0xff6600),
       });
     }
 
     // Trail particles - ADDITIVE pool (for fire, tracers, glow effects)
-    const trailGeometryAdditive = new THREE.BufferGeometry();
+    const trailGeometryAdditive = new BufferGeometry();
     const trailPositionsAdditive = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
     const trailSizesAdditive = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL);
     const trailColorsAdditive = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
 
-    trailGeometryAdditive.setAttribute('position', new THREE.BufferAttribute(trailPositionsAdditive, 3));
-    trailGeometryAdditive.setAttribute('size', new THREE.BufferAttribute(trailSizesAdditive, 1));
-    trailGeometryAdditive.setAttribute('color', new THREE.BufferAttribute(trailColorsAdditive, 3));
+    trailGeometryAdditive.setAttribute('position', new BufferAttribute(trailPositionsAdditive, 3));
+    trailGeometryAdditive.setAttribute('size', new BufferAttribute(trailSizesAdditive, 1));
+    trailGeometryAdditive.setAttribute('color', new BufferAttribute(trailColorsAdditive, 3));
 
     // Use ShaderMaterial by default for per-particle sizes and soft edges
     const additiveMaterial = this.useShaderMaterial
       ? this.trailShaderMaterialAdditive!
       : this.trailMaterialAdditive!;
-    this.trailParticlesAdditive = new THREE.Points(trailGeometryAdditive, additiveMaterial);
+    this.trailParticlesAdditive = new Points(trailGeometryAdditive, additiveMaterial);
     this.trailParticlesAdditive.frustumCulled = false;
     this.trailParticlesAdditive.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.trailParticlesAdditive);
@@ -270,30 +289,30 @@ export class ThreeEffectsRenderer {
     // Initialize additive trail pool
     for (let i = 0; i < this.MAX_TRAIL_PARTICLES_PER_POOL; i++) {
       this.trailPoolAdditive.push({
-        position: new THREE.Vector3(),
-        velocity: new THREE.Vector3(),
+        position: new Vector3(),
+        velocity: new Vector3(),
         life: 0,
         maxLife: 0.5,
         size: 1.5,
-        color: new THREE.Color(0xff8800),
+        color: new Color(0xff8800),
       });
     }
 
     // Trail particles - NORMAL pool (for smoke, dust effects)
-    const trailGeometryNormal = new THREE.BufferGeometry();
+    const trailGeometryNormal = new BufferGeometry();
     const trailPositionsNormal = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
     const trailSizesNormal = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL);
     const trailColorsNormal = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
 
-    trailGeometryNormal.setAttribute('position', new THREE.BufferAttribute(trailPositionsNormal, 3));
-    trailGeometryNormal.setAttribute('size', new THREE.BufferAttribute(trailSizesNormal, 1));
-    trailGeometryNormal.setAttribute('color', new THREE.BufferAttribute(trailColorsNormal, 3));
+    trailGeometryNormal.setAttribute('position', new BufferAttribute(trailPositionsNormal, 3));
+    trailGeometryNormal.setAttribute('size', new BufferAttribute(trailSizesNormal, 1));
+    trailGeometryNormal.setAttribute('color', new BufferAttribute(trailColorsNormal, 3));
 
     // Use ShaderMaterial by default for per-particle sizes and soft edges
     const normalMaterial = this.useShaderMaterial
       ? this.trailShaderMaterialNormal!
       : this.trailMaterialNormal!;
-    this.trailParticlesNormal = new THREE.Points(trailGeometryNormal, normalMaterial);
+    this.trailParticlesNormal = new Points(trailGeometryNormal, normalMaterial);
     this.trailParticlesNormal.frustumCulled = false;
     this.trailParticlesNormal.renderOrder = 999; // Render after 3D tiles
     this.scene.add(this.trailParticlesNormal);
@@ -301,12 +320,12 @@ export class ThreeEffectsRenderer {
     // Initialize normal trail pool
     for (let i = 0; i < this.MAX_TRAIL_PARTICLES_PER_POOL; i++) {
       this.trailPoolNormal.push({
-        position: new THREE.Vector3(),
-        velocity: new THREE.Vector3(),
+        position: new Vector3(),
+        velocity: new Vector3(),
         life: 0,
         maxLife: 0.5,
         size: 1.5,
-        color: new THREE.Color(0x888888),
+        color: new Color(0x888888),
       });
     }
   }
@@ -385,22 +404,22 @@ export class ThreeEffectsRenderer {
     `;
 
     // Create additive ShaderMaterial
-    this.trailShaderMaterialAdditive = new THREE.ShaderMaterial({
+    this.trailShaderMaterialAdditive = new ShaderMaterial({
       vertexShader,
       fragmentShader: fragmentShaderAdditive,
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       vertexColors: true,
     });
 
     // Create normal ShaderMaterial
-    this.trailShaderMaterialNormal = new THREE.ShaderMaterial({
+    this.trailShaderMaterialNormal = new ShaderMaterial({
       vertexShader,
       fragmentShader: fragmentShaderNormal,
       transparent: true,
       depthWrite: false,
-      blending: THREE.NormalBlending,
+      blending: NormalBlending,
       vertexColors: true,
     });
 
@@ -446,7 +465,7 @@ export class ThreeEffectsRenderer {
    */
   private initDecalManagers(): void {
     // Create shared plane geometry for all decals (rotated to lay flat)
-    const decalGeometry = new THREE.PlaneGeometry(2, 2);
+    const decalGeometry = new PlaneGeometry(2, 2);
     decalGeometry.rotateX(-Math.PI / 2); // Rotate to lie flat on ground (XZ plane)
 
     // Create blood decal manager with custom shader
@@ -549,7 +568,7 @@ export class ThreeEffectsRenderer {
 
     // Randomize color slightly (dark red variations) - from config
     const colorVariation = Math.random() * BLOOD_DECAL_CONFIG.colorVariation;
-    const color = new THREE.Color(
+    const color = new Color(
       BLOOD_DECAL_CONFIG.baseColor.r + colorVariation,
       BLOOD_DECAL_CONFIG.baseColor.g,
       BLOOD_DECAL_CONFIG.baseColor.b
@@ -701,7 +720,7 @@ export class ThreeEffectsRenderer {
   ): string {
     // Get X/Z from geo, but use provided localY directly
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
-    const localPos = new THREE.Vector3(localXZ.x, localY, localXZ.z);
+    const localPos = new Vector3(localXZ.x, localY, localXZ.z);
 
     const id = `fire_${this.effectIdCounter++}`;
 
@@ -810,7 +829,7 @@ export class ThreeEffectsRenderer {
    */
   spawnFireFlash(lat: number, lon: number, localY: number): void {
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
-    const localPos = new THREE.Vector3(localXZ.x, localY, localXZ.z);
+    const localPos = new Vector3(localXZ.x, localY, localXZ.z);
 
     // Spawn 30 particles that fade quickly
     for (let i = 0; i < 30; i++) {
@@ -852,7 +871,7 @@ export class ThreeEffectsRenderer {
    */
   spawnScaledFire(lat: number, lon: number, localY: number, scale: number): string {
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
-    const localPos = new THREE.Vector3(localXZ.x, localY, localXZ.z);
+    const localPos = new Vector3(localXZ.x, localY, localXZ.z);
 
     const id = `fire_${this.effectIdCounter++}`;
 
@@ -1455,7 +1474,7 @@ export class ThreeEffectsRenderer {
 
     // Randomize color slightly (very light cyan/white variations) - from config
     const colorVariation = Math.random() * ICE_DECAL_CONFIG.colorVariation;
-    const color = new THREE.Color(
+    const color = new Color(
       ICE_DECAL_CONFIG.baseColor.r + colorVariation,
       ICE_DECAL_CONFIG.baseColor.g + colorVariation * 0.5,
       ICE_DECAL_CONFIG.baseColor.b
@@ -1536,12 +1555,12 @@ export class ThreeEffectsRenderer {
         instance = oldest;
       } else {
         // Create new sprite
-        const spriteMaterial = new THREE.SpriteMaterial({
+        const spriteMaterial = new SpriteMaterial({
           transparent: true,
           depthTest: false,
           depthWrite: false,
         });
-        const sprite = new THREE.Sprite(spriteMaterial);
+        const sprite = new Sprite(spriteMaterial);
         this.scene.add(sprite);
 
         instance = {
@@ -1559,7 +1578,7 @@ export class ThreeEffectsRenderer {
 
     // Create text texture
     const texture = this.createTextTexture(text, color, fontSize, outlineColor, outlineWidth);
-    const material = instance.sprite.material as THREE.SpriteMaterial;
+    const material = instance.sprite.material as SpriteMaterial;
 
     // Dispose old texture if exists
     if (material.map) {
@@ -1599,7 +1618,7 @@ export class ThreeEffectsRenderer {
     fontSize: number,
     outlineColor: string,
     outlineWidth: number
-  ): THREE.CanvasTexture {
+  ): CanvasTexture {
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d')!;
 
@@ -1636,7 +1655,7 @@ export class ThreeEffectsRenderer {
     ctx.fillStyle = color;
     ctx.fillText(text, centerX, centerY);
 
-    const texture = new THREE.CanvasTexture(canvas);
+    const texture = new CanvasTexture(canvas);
     texture.needsUpdate = true;
 
     return texture;
@@ -1772,7 +1791,7 @@ export class ThreeEffectsRenderer {
 
       // Fade out (start fading at 50% progress)
       const fadeProgress = Math.max(0, (progress - 0.5) * 2);
-      (textInstance.sprite.material as THREE.SpriteMaterial).opacity = 1 - fadeProgress;
+      (textInstance.sprite.material as SpriteMaterial).opacity = 1 - fadeProgress;
 
       // Scale up slightly as it rises
       const scaleMultiplier = 1 + progress * 0.3;
@@ -1821,7 +1840,7 @@ export class ThreeEffectsRenderer {
   private updateParticleBuffers(): void {
     // Update blood particles
     if (this.bloodParticles) {
-      const positions = this.bloodParticles.geometry.attributes['position'] as THREE.BufferAttribute;
+      const positions = this.bloodParticles.geometry.attributes['position'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
 
       let activeCount = 0;
@@ -1840,7 +1859,7 @@ export class ThreeEffectsRenderer {
 
     // Update fire particles
     if (this.fireParticles) {
-      const positions = this.fireParticles.geometry.attributes['position'] as THREE.BufferAttribute;
+      const positions = this.fireParticles.geometry.attributes['position'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
 
       let activeCount = 0;
@@ -1859,9 +1878,9 @@ export class ThreeEffectsRenderer {
 
     // Update trail particles - ADDITIVE pool
     if (this.trailParticlesAdditive) {
-      const positions = this.trailParticlesAdditive.geometry.attributes['position'] as THREE.BufferAttribute;
-      const sizes = this.trailParticlesAdditive.geometry.attributes['size'] as THREE.BufferAttribute;
-      const colors = this.trailParticlesAdditive.geometry.attributes['color'] as THREE.BufferAttribute;
+      const positions = this.trailParticlesAdditive.geometry.attributes['position'] as BufferAttribute;
+      const sizes = this.trailParticlesAdditive.geometry.attributes['size'] as BufferAttribute;
+      const colors = this.trailParticlesAdditive.geometry.attributes['color'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
@@ -1890,9 +1909,9 @@ export class ThreeEffectsRenderer {
 
     // Update trail particles - NORMAL pool
     if (this.trailParticlesNormal) {
-      const positions = this.trailParticlesNormal.geometry.attributes['position'] as THREE.BufferAttribute;
-      const sizes = this.trailParticlesNormal.geometry.attributes['size'] as THREE.BufferAttribute;
-      const colors = this.trailParticlesNormal.geometry.attributes['color'] as THREE.BufferAttribute;
+      const positions = this.trailParticlesNormal.geometry.attributes['position'] as BufferAttribute;
+      const sizes = this.trailParticlesNormal.geometry.attributes['size'] as BufferAttribute;
+      const colors = this.trailParticlesNormal.geometry.attributes['color'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
@@ -1933,7 +1952,7 @@ export class ThreeEffectsRenderer {
   }
 
   // Debug spheres for visualization
-  private debugSpheres: THREE.Mesh[] = [];
+  private debugSpheres: Mesh[] = [];
 
   /**
    * Spawn a debug sphere at a position (for debugging fire placement etc.)
@@ -1948,14 +1967,14 @@ export class ThreeEffectsRenderer {
   ): void {
     const localXZ = this.sync.geoToLocalSimple(lat, lon, 0);
 
-    const geometry = new THREE.SphereGeometry(radius, 16, 16);
-    const material = new THREE.MeshBasicMaterial({
+    const geometry = new SphereGeometry(radius, 16, 16);
+    const material = new MeshBasicMaterial({
       color,
       transparent: true,
       opacity: 0.8,
       depthTest: true,
     });
-    const sphere = new THREE.Mesh(geometry, material);
+    const sphere = new Mesh(geometry, material);
     sphere.position.set(localXZ.x, localY, localXZ.z);
     sphere.renderOrder = 100;
 
@@ -1979,7 +1998,7 @@ export class ThreeEffectsRenderer {
     for (const sphere of this.debugSpheres) {
       this.scene.remove(sphere);
       sphere.geometry.dispose();
-      (sphere.material as THREE.Material).dispose();
+      (sphere.material as Material).dispose();
     }
     this.debugSpheres = [];
   }
@@ -2057,7 +2076,7 @@ export class ThreeEffectsRenderer {
     // Dispose floating texts
     for (const textInstance of this.floatingTexts) {
       this.scene.remove(textInstance.sprite);
-      const material = textInstance.sprite.material as THREE.SpriteMaterial;
+      const material = textInstance.sprite.material as SpriteMaterial;
       if (material.map) {
         material.map.dispose();
       }

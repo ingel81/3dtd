@@ -4,7 +4,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
-import * as THREE from 'three';
+import { InstancedMesh } from 'three';
 
 /**
  * GlobalRouteGridService - Angular service wrapper for GlobalRouteGrid
@@ -157,7 +157,7 @@ export class GlobalRouteGridService {
   /**
    * Create visualization mesh
    */
-  createVisualization(): THREE.InstancedMesh {
+  createVisualization(): InstancedMesh {
     return this.grid.createVisualization();
   }
 
@@ -178,7 +178,7 @@ export class GlobalRouteGridService {
   /**
    * Get visualization mesh
    */
-  getVisualization(): THREE.InstancedMesh | null {
+  getVisualization(): InstancedMesh | null {
     return this.grid.getVisualization();
   }
 
@@ -207,14 +207,14 @@ export class GlobalRouteGridService {
     towerX: number,
     towerZ: number,
     range: number
-  ): THREE.InstancedMesh | null {
+  ): InstancedMesh | null {
     return this.grid.createTowerVisualization(towerId, towerX, towerZ, range);
   }
 
   /**
    * Update tower visualization animation time
    */
-  updateTowerVisualizationTime(mesh: THREE.InstancedMesh): void {
+  updateTowerVisualizationTime(mesh: InstancedMesh): void {
     this.grid.updateTowerVisualizationTime(mesh);
   }
 
@@ -230,7 +230,7 @@ export class GlobalRouteGridService {
     range: number,
     losRaycaster: LineOfSightRaycaster,
     isPureAirTower = false
-  ): THREE.InstancedMesh | null {
+  ): InstancedMesh | null {
     return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster, isPureAirTower);
   }
 
@@ -252,7 +252,7 @@ export class GlobalRouteGridService {
   /**
    * Dispose a placement preview mesh
    */
-  disposePlacementPreview(mesh: THREE.InstancedMesh): void {
+  disposePlacementPreview(mesh: InstancedMesh): void {
     this.grid.disposePlacementPreview(mesh);
   }
 

@@ -1,5 +1,5 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
-import * as THREE from 'three';
+import { Group, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 
@@ -249,7 +249,7 @@ export class HeightUpdateService {
    * @param baseMarker Base marker reference
    * @param spawnMarkers Spawn marker references
    */
-  updateMarkerHeights(baseMarker: THREE.Group | null, spawnMarkers: THREE.Group[]): void {
+  updateMarkerHeights(baseMarker: Group | null, spawnMarkers: Group[]): void {
     if (!this.engine || !this.baseCoords) return;
 
     const HQ_MARKER_HEIGHT = 30; // HQ marker floats higher (animated diamond)
@@ -276,7 +276,7 @@ export class HeightUpdateService {
       // spawnId available for future use: marker.name.replace('spawnMarker_', '')
 
       // Get spawn position from marker's current world position
-      const worldPos = new THREE.Vector3();
+      const worldPos = new Vector3();
       marker.getWorldPosition(worldPos);
       const geoPos = this.engine.sync.localToGeo(worldPos);
 

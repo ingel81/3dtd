@@ -1,4 +1,15 @@
-import * as THREE from 'three';
+import {
+  InstancedMesh,
+  ShaderMaterial,
+  InstancedBufferAttribute,
+  BufferAttribute,
+  BoxGeometry,
+  Matrix4,
+  Object3D,
+  DoubleSide,
+  StaticDrawUsage,
+  DynamicDrawUsage,
+} from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
@@ -166,9 +177,9 @@ export class GlobalRouteGrid {
   private coordinateSync: CoordinateSync | null = null;
 
   /** Visualization mesh */
-  private visualization: THREE.InstancedMesh | null = null;
-  private visualizationMaterial: THREE.ShaderMaterial | null = null;
-  private cellStateAttribute: THREE.InstancedBufferAttribute | null = null;
+  private visualization: InstancedMesh | null = null;
+  private visualizationMaterial: ShaderMaterial | null = null;
+  private cellStateAttribute: InstancedBufferAttribute | null = null;
 
   /** Animation time accumulator */
   private animationTime = 0;
@@ -587,13 +598,13 @@ export class GlobalRouteGrid {
    * Create visualization mesh (InstancedMesh with shader)
    * Call once, then use updateVisualization() each frame for color updates only
    */
-  createVisualization(): THREE.InstancedMesh {
+  createVisualization(): InstancedMesh {
     this.disposeVisualization();
 
     const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
+    const geometry = new BoxGeometry(cellSize, 0.15, cellSize);
 
-    this.visualizationMaterial = new THREE.ShaderMaterial({
+    this.visualizationMaterial = new ShaderMaterial({
       vertexShader: LOS_CELL_VERTEX,
       fragmentShader: LOS_CELL_FRAGMENT,
       uniforms: {
@@ -605,20 +616,20 @@ export class GlobalRouteGrid {
       transparent: true,
       depthTest: false,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
 
     const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS);
-    this.visualization = new THREE.InstancedMesh(geometry, this.visualizationMaterial, maxCells);
+    this.visualization = new InstancedMesh(geometry, this.visualizationMaterial, maxCells);
     this.visualization.frustumCulled = false;
     this.visualization.renderOrder = 3;
     // Static usage - positions set once and don't change
-    this.visualization.instanceMatrix.setUsage(THREE.StaticDrawUsage);
+    this.visualization.instanceMatrix.setUsage(StaticDrawUsage);
 
     // Create cell state attribute (updated each frame for colors)
     const stateArray = new Float32Array(maxCells);
-    this.cellStateAttribute = new THREE.InstancedBufferAttribute(stateArray, 1);
-    this.cellStateAttribute.setUsage(THREE.DynamicDrawUsage);
+    this.cellStateAttribute = new InstancedBufferAttribute(stateArray, 1);
+    this.cellStateAttribute.setUsage(DynamicDrawUsage);
     geometry.setAttribute('aCellState', this.cellStateAttribute);
 
     // Initialize positions ONCE with live terrain sampling
@@ -637,7 +648,7 @@ export class GlobalRouteGrid {
   private initializePositions(): void {
     if (!this.visualization) return;
 
-    const matrix = new THREE.Matrix4();
+    const matrix = new Matrix4();
     let index = 0;
     this.cellIndexMap.clear();
 
@@ -723,7 +734,7 @@ export class GlobalRouteGrid {
   /**
    * Get visualization mesh
    */
-  getVisualization(): THREE.InstancedMesh | null {
+  getVisualization(): InstancedMesh | null {
     return this.visualization;
   }
 
@@ -763,7 +774,7 @@ export class GlobalRouteGrid {
     towerX: number,
     towerZ: number,
     range: number
-  ): THREE.InstancedMesh | null {
+  ): InstancedMesh | null {
     const rangeSq = range * range;
     const cellsInRange: { cell: RouteCell; isVisible: boolean }[] = [];
 
@@ -784,9 +795,9 @@ export class GlobalRouteGrid {
     if (cellsInRange.length === 0) return null;
 
     const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
+    const geometry = new BoxGeometry(cellSize, 0.15, cellSize);
 
-    const material = new THREE.ShaderMaterial({
+    const material = new ShaderMaterial({
       vertexShader: TOWER_LOS_VERTEX,
       fragmentShader: TOWER_LOS_FRAGMENT,
       uniforms: {
@@ -798,16 +809,16 @@ export class GlobalRouteGrid {
       transparent: true,
       depthTest: false,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
 
-    const mesh = new THREE.InstancedMesh(geometry, material, cellsInRange.length);
+    const mesh = new InstancedMesh(geometry, material, cellsInRange.length);
     mesh.frustumCulled = false;
     mesh.renderOrder = 3;
 
     // Build instance matrices and blocked state attribute
     const isBlockedArray = new Float32Array(cellsInRange.length);
-    const matrix = new THREE.Matrix4();
+    const matrix = new Matrix4();
 
     for (let i = 0; i < cellsInRange.length; i++) {
       const { cell, isVisible } = cellsInRange[i];
@@ -822,7 +833,7 @@ export class GlobalRouteGrid {
     // Add aIsBlocked as instanced attribute
     geometry.setAttribute(
       'aIsBlocked',
-      new THREE.InstancedBufferAttribute(isBlockedArray, 1)
+      new InstancedBufferAttribute(isBlockedArray, 1)
     );
 
     mesh.instanceMatrix.needsUpdate = true;
@@ -834,8 +845,8 @@ export class GlobalRouteGrid {
    * Update tower visualization animation time
    * Call this each frame for selected tower's visualization
    */
-  updateTowerVisualizationTime(mesh: THREE.InstancedMesh): void {
-    const material = mesh.material as THREE.ShaderMaterial;
+  updateTowerVisualizationTime(mesh: InstancedMesh): void {
+    const material = mesh.material as ShaderMaterial;
     if (material?.uniforms?.['uTime']) {
       material.uniforms['uTime'].value = this.animationTime;
     }
@@ -847,7 +858,7 @@ export class GlobalRouteGrid {
 
   /** State for progressive preview building */
   private previewState: {
-    mesh: THREE.InstancedMesh;
+    mesh: InstancedMesh;
     cells: RouteCell[];
     towerX: number;
     towerZ: number;
@@ -878,7 +889,7 @@ export class GlobalRouteGrid {
     range: number,
     losRaycaster: LineOfSightRaycaster,
     isPureAirTower = false
-  ): THREE.InstancedMesh | null {
+  ): InstancedMesh | null {
     // Cancel any ongoing preview build
     this.previewState = null;
 
@@ -904,9 +915,9 @@ export class GlobalRouteGrid {
 
     // Create mesh with full capacity but count=0
     const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new THREE.BoxGeometry(cellSize, 0.15, cellSize);
+    const geometry = new BoxGeometry(cellSize, 0.15, cellSize);
 
-    const material = new THREE.ShaderMaterial({
+    const material = new ShaderMaterial({
       vertexShader: TOWER_LOS_VERTEX,
       fragmentShader: TOWER_LOS_FRAGMENT,
       uniforms: {
@@ -918,18 +929,18 @@ export class GlobalRouteGrid {
       transparent: true,
       depthTest: false,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
 
-    const mesh = new THREE.InstancedMesh(geometry, material, cellsInRange.length);
+    const mesh = new InstancedMesh(geometry, material, cellsInRange.length);
     mesh.frustumCulled = false;
     mesh.renderOrder = 3;
     mesh.count = 0; // Start empty
 
     // Pre-allocate attribute array
     const isBlockedArray = new Float32Array(cellsInRange.length);
-    geometry.setAttribute('aIsBlocked', new THREE.InstancedBufferAttribute(isBlockedArray, 1));
-    (geometry.getAttribute('aIsBlocked') as THREE.BufferAttribute).setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute('aIsBlocked', new InstancedBufferAttribute(isBlockedArray, 1));
+    (geometry.getAttribute('aIsBlocked') as BufferAttribute).setUsage(DynamicDrawUsage);
 
     // Store state for progressive building
     this.previewState = {
@@ -958,7 +969,7 @@ export class GlobalRouteGrid {
 
     const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize, currentIndex, isPureAirTower } = this.previewState;
 
-    const matrix = new THREE.Matrix4();
+    const matrix = new Matrix4();
     const endIndex = Math.min(currentIndex + batchSize, cells.length);
 
     for (let i = currentIndex; i < endIndex; i++) {
@@ -996,7 +1007,7 @@ export class GlobalRouteGrid {
     // Update mesh
     mesh.count = endIndex;
     mesh.instanceMatrix.needsUpdate = true;
-    (mesh.geometry.getAttribute('aIsBlocked') as THREE.BufferAttribute).needsUpdate = true;
+    (mesh.geometry.getAttribute('aIsBlocked') as BufferAttribute).needsUpdate = true;
 
     this.previewState.currentIndex = endIndex;
 
@@ -1019,10 +1030,10 @@ export class GlobalRouteGrid {
   /**
    * Dispose a placement preview mesh
    */
-  disposePlacementPreview(mesh: THREE.InstancedMesh): void {
+  disposePlacementPreview(mesh: InstancedMesh): void {
     this.previewState = null;
     mesh.geometry.dispose();
-    (mesh.material as THREE.ShaderMaterial).dispose();
+    (mesh.material as ShaderMaterial).dispose();
   }
 
   /**

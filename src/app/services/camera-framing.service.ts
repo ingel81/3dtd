@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import * as THREE from 'three';
+import { Vector3, Box3, MathUtils, PerspectiveCamera } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 
 /**
@@ -67,7 +67,7 @@ export interface GeoPoint {
  *
  * Key features:
  * - Pre-render framing computation (no engine needed)
- * - THREE.Box3 based bounding box calculation
+ * - Box3 based bounding box calculation
  * - Marker radius consideration
  * - 70° default angle for minimal horizon/tile loading
  * - Perspective-aware viewport fitting
@@ -209,15 +209,15 @@ export class CameraFramingService {
 
     // All points including HQ, spawns, and route waypoints
     const allPoints = [
-      new THREE.Vector3(hqLocal.x, 0, hqLocal.z),
-      ...spawnLocals.map(s => new THREE.Vector3(s.x, 0, s.z)),
-      ...routeLocals.map(r => new THREE.Vector3(r.x, 0, r.z)),
+      new Vector3(hqLocal.x, 0, hqLocal.z),
+      ...spawnLocals.map(s => new Vector3(s.x, 0, s.z)),
+      ...routeLocals.map(r => new Vector3(r.x, 0, r.z)),
     ];
 
     // Get camera properties if available
     const camera = this.engine.getCamera();
-    const actualFov = camera instanceof THREE.PerspectiveCamera ? camera.fov : fov;
-    const actualAspect = camera instanceof THREE.PerspectiveCamera ? camera.aspect : aspectRatio;
+    const actualFov = camera instanceof PerspectiveCamera ? camera.fov : fov;
+    const actualAspect = camera instanceof PerspectiveCamera ? camera.aspect : aspectRatio;
 
     return this.computeFrameFromLocalPoints(
       allPoints,
@@ -237,7 +237,7 @@ export class CameraFramingService {
    * Compute frame from local 3D points (core algorithm)
    */
   private computeFrameFromLocalPoints(
-    points: THREE.Vector3[],
+    points: Vector3[],
     config: Required<Omit<FrameConfig, 'estimatedTerrainY' | 'routePoints'>> & { estimatedTerrainY: number }
   ): CameraFrame {
     const {
@@ -251,16 +251,16 @@ export class CameraFramingService {
     } = config;
 
     // ========================================
-    // 1. BOUNDING BOX with THREE.Box3
+    // 1. BOUNDING BOX with Box3
     // ========================================
 
-    const box = new THREE.Box3().setFromPoints(points);
+    const box = new Box3().setFromPoints(points);
 
     // Expand by marker radius so markers are never cut off
     box.expandByScalar(markerRadius);
 
-    const center = box.getCenter(new THREE.Vector3());
-    const size = box.getSize(new THREE.Vector3());
+    const center = box.getCenter(new Vector3());
+    const size = box.getSize(new Vector3());
 
     // Ensure minimum span
     const spanX = Math.max(size.x, minSpan);
@@ -285,8 +285,8 @@ export class CameraFramingService {
     // 2. CAMERA DISTANCE CALCULATION
     // ========================================
 
-    const angleRad = angle * THREE.MathUtils.DEG2RAD;
-    const fovRad = fov * THREE.MathUtils.DEG2RAD;
+    const angleRad = angle * MathUtils.DEG2RAD;
+    const fovRad = fov * MathUtils.DEG2RAD;
     const halfFov = fovRad / 2;
 
     // Calculate horizontal FOV from vertical FOV and aspect ratio
@@ -354,14 +354,14 @@ export class CameraFramingService {
    * @param spawns Spawn point coordinates
    * @param routePoints Optional route waypoints to include in bounding box
    */
-  private geoToLocalApproximate(hq: GeoPoint, spawns: GeoPoint[], routePoints: GeoPoint[] = []): THREE.Vector3[] {
+  private geoToLocalApproximate(hq: GeoPoint, spawns: GeoPoint[], routePoints: GeoPoint[] = []): Vector3[] {
     const metersPerDegLat = CameraFramingService.METERS_PER_DEG_LAT;
-    const metersPerDegLon = metersPerDegLat * Math.cos(hq.lat * THREE.MathUtils.DEG2RAD);
+    const metersPerDegLon = metersPerDegLat * Math.cos(hq.lat * MathUtils.DEG2RAD);
 
-    const points: THREE.Vector3[] = [];
+    const points: Vector3[] = [];
 
     // HQ at origin
-    points.push(new THREE.Vector3(0, 0, 0));
+    points.push(new Vector3(0, 0, 0));
 
     // Spawns relative to HQ
     for (const spawn of spawns) {
@@ -374,7 +374,7 @@ export class CameraFramingService {
       const x = -deltaLon * metersPerDegLon;
       const z = deltaLat * metersPerDegLat;
 
-      points.push(new THREE.Vector3(x, 0, z));
+      points.push(new Vector3(x, 0, z));
     }
 
     // Route waypoints relative to HQ (ensures routes that curve away are included)
@@ -385,7 +385,7 @@ export class CameraFramingService {
       const x = -deltaLon * metersPerDegLon;
       const z = deltaLat * metersPerDegLat;
 
-      points.push(new THREE.Vector3(x, 0, z));
+      points.push(new Vector3(x, 0, z));
     }
 
     return points;

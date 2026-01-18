@@ -1,4 +1,28 @@
-import * as THREE from 'three';
+import {
+  Scene,
+  Object3D,
+  ArrowHelper,
+  Mesh,
+  LineLoop,
+  Line,
+  AnimationMixer,
+  AnimationClip,
+  AnimationAction,
+  MeshBasicMaterial,
+  RingGeometry,
+  SphereGeometry,
+  BufferGeometry,
+  LineBasicMaterial,
+  Vector3,
+  Float32BufferAttribute,
+  DoubleSide,
+  LoopPingPong,
+  LoopRepeat,
+  Material,
+  MeshStandardMaterial,
+  CircleGeometry,
+  Group,
+} from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/asset-manager.service';
@@ -8,13 +32,13 @@ import { AssetManagerService } from '../../services/asset-manager.service';
  */
 export interface TowerRenderData {
   id: string;
-  mesh: THREE.Object3D;
-  turretPart: THREE.Object3D | null; // Rotating turret part (e.g., turret_top)
-  aimArrow: THREE.ArrowHelper | null; // Debug arrow showing aim direction
-  rangeIndicator: THREE.Mesh | null;
-  selectionRing: THREE.Mesh | null;
-  tipMarker: THREE.Mesh | null; // Debug marker showing LoS origin point
-  losRing: THREE.LineLoop | null; // Debug ring showing LOS origin circle
+  mesh: Object3D;
+  turretPart: Object3D | null; // Rotating turret part (e.g., turret_top)
+  aimArrow: ArrowHelper | null; // Debug arrow showing aim direction
+  rangeIndicator: Mesh | null;
+  selectionRing: Mesh | null;
+  tipMarker: Mesh | null; // Debug marker showing LoS origin point
+  losRing: LineLoop | null; // Debug ring showing LOS origin circle
   typeConfig: TowerTypeConfig;
   isSelected: boolean;
   // Geo coordinates for terrain sampling
@@ -33,9 +57,9 @@ export interface TowerRenderData {
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
   hasTarget: boolean; // Whether tower is currently targeting an enemy
   // GLTF animation support
-  mixer: THREE.AnimationMixer | null;
-  animations: Map<string, THREE.AnimationClip>;
-  currentAction: THREE.AnimationAction | null;
+  mixer: AnimationMixer | null;
+  animations: Map<string, AnimationClip>;
+  currentAction: AnimationAction | null;
 }
 
 /**
@@ -68,7 +92,7 @@ export type LineOfSightRaycaster = (
  * - Selection highlight ring
  */
 export class ThreeTowerRenderer {
-  private scene: THREE.Scene;
+  private scene: Scene;
   private sync: CoordinateSync;
   private assetManager: AssetManagerService;
 
@@ -79,8 +103,8 @@ export class ThreeTowerRenderer {
   private towers = new Map<string, TowerRenderData>();
 
   // Shared materials
-  private rangeMaterial: THREE.MeshBasicMaterial;
-  private selectionMaterial: THREE.MeshBasicMaterial;
+  private rangeMaterial: MeshBasicMaterial;
+  private selectionMaterial: MeshBasicMaterial;
 
   // Terrain height sampler (optional - for terrain-conforming range indicators)
   private terrainHeightSampler: TerrainHeightSampler | null = null;
@@ -104,27 +128,27 @@ export class ThreeTowerRenderer {
   // LOS offset configuration - raycast starts from tower edge, not center
   private readonly LOS_OFFSET_MIN = 2.4; // Offset in meters from tower center
 
-  constructor(scene: THREE.Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
+  constructor(scene: Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
     this.sync = sync;
     this.assetManager = assetManager;
 
     // Range indicator material (invisible - hex cells show visibility now)
-    this.rangeMaterial = new THREE.MeshBasicMaterial({
+    this.rangeMaterial = new MeshBasicMaterial({
       color: 0x22c55e,
       transparent: true,
       opacity: 0, // Hidden - green/red hex hatching shows visibility instead
-      side: THREE.DoubleSide,
+      side: DoubleSide,
       depthWrite: false,
       depthTest: false,
     });
 
     // Selection ring material (gold for WC3 style, high visibility)
-    this.selectionMaterial = new THREE.MeshBasicMaterial({
+    this.selectionMaterial = new MeshBasicMaterial({
       color: 0xc9a44c, // TD gold from design system
       transparent: true,
       opacity: 0.85,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
       depthWrite: false,
       depthTest: false, // Always render on top
     });
@@ -165,14 +189,14 @@ export class ThreeTowerRenderer {
    * Make tower model brighter by increasing emissive intensity
    * Used to enhance visibility of darker models like the rocket tower
    */
-  private makeTowerBrighter(model: THREE.Object3D, intensityFactor = 2.0): void {
+  private makeTowerBrighter(model: Object3D, intensityFactor = 2.0): void {
     model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
+      if ((child as Mesh).isMesh) {
+        const mesh = child as Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
         materials.forEach((mat) => {
-          const stdMat = mat as THREE.MeshStandardMaterial;
+          const stdMat = mat as MeshStandardMaterial;
           if (stdMat.color) {
             // Increase emissive intensity for better visibility
             if ('emissive' in stdMat) {
@@ -271,7 +295,7 @@ export class ThreeTowerRenderer {
 
     // Find turret part if it exists (for turret rotation)
     // Supports 'turret_top', 'tower_top', and 'top' naming conventions
-    let turretPart: THREE.Object3D | null = null;
+    let turretPart: Object3D | null = null;
     let turretBaseY = 0;
     mesh.traverse((node) => {
       if ((node.name === 'turret_top' || node.name === 'tower_top' || node.name === 'top') && !turretPart) {
@@ -304,8 +328,8 @@ export class ThreeTowerRenderer {
     this.scene.add(rangeIndicator);
 
     // Create selection ring at terrain level
-    const selectionGeometry = new THREE.RingGeometry(8, 12, 48);
-    const selectionRing = new THREE.Mesh(selectionGeometry, this.selectionMaterial.clone());
+    const selectionGeometry = new RingGeometry(8, 12, 48);
+    const selectionRing = new Mesh(selectionGeometry, this.selectionMaterial.clone());
     selectionRing.rotation.x = -Math.PI / 2;
     selectionRing.position.copy(terrainPos);
     selectionRing.position.y += 1.5; // Slightly above terrain
@@ -323,14 +347,14 @@ export class ThreeTowerRenderer {
 
     // Create tip marker (magenta sphere showing LoS origin point)
     // Skip for pure air towers
-    let tipMarker: THREE.Mesh | null = null;
+    let tipMarker: Mesh | null = null;
     if (!isPureAirTower) {
-      const tipMarkerGeometry = new THREE.SphereGeometry(2, 16, 16);
-      const tipMarkerMaterial = new THREE.MeshBasicMaterial({
+      const tipMarkerGeometry = new SphereGeometry(2, 16, 16);
+      const tipMarkerMaterial = new MeshBasicMaterial({
         color: 0xff00ff, // Magenta
         depthTest: false, // Always visible, even inside tower mesh
       });
-      tipMarker = new THREE.Mesh(tipMarkerGeometry, tipMarkerMaterial);
+      tipMarker = new Mesh(tipMarkerGeometry, tipMarkerMaterial);
       tipMarker.position.set(terrainPos.x, tipY, terrainPos.z);
       tipMarker.renderOrder = 999; // Render on top
       tipMarker.visible = this.debugMode; // Visible in debug mode, or when tower is selected
@@ -339,25 +363,25 @@ export class ThreeTowerRenderer {
 
     // Create LOS ring (cyan circle showing where LOS raycasts originate)
     // Skip for pure air towers
-    let losRing: THREE.LineLoop | null = null;
+    let losRing: LineLoop | null = null;
     if (!isPureAirTower) {
       const losOffset = this.LOS_OFFSET_MIN;
-      const losRingPoints: THREE.Vector3[] = [];
+      const losRingPoints: Vector3[] = [];
       const losRingSegments = 32;
       for (let i = 0; i <= losRingSegments; i++) {
         const angle = (i / losRingSegments) * Math.PI * 2;
-        losRingPoints.push(new THREE.Vector3(
+        losRingPoints.push(new Vector3(
           Math.cos(angle) * losOffset,
           0,
           Math.sin(angle) * losOffset
         ));
       }
-      const losRingGeometry = new THREE.BufferGeometry().setFromPoints(losRingPoints);
-      const losRingMaterial = new THREE.LineBasicMaterial({
+      const losRingGeometry = new BufferGeometry().setFromPoints(losRingPoints);
+      const losRingMaterial = new LineBasicMaterial({
         color: 0x00ffff, // Cyan
         depthTest: false,
       });
-      losRing = new THREE.LineLoop(losRingGeometry, losRingMaterial);
+      losRing = new LineLoop(losRingGeometry, losRingMaterial);
       losRing.position.set(terrainPos.x, tipY, terrainPos.z);
       losRing.renderOrder = 999;
       losRing.visible = this.debugMode;
@@ -366,24 +390,24 @@ export class ThreeTowerRenderer {
 
     // Create aim direction arrow for turrets (debug visualization)
     // DISABLED: Causing NaN errors in render loop
-    const aimArrow: THREE.ArrowHelper | null = null;
+    const aimArrow: ArrowHelper | null = null;
     // if (turretPart) {
-    //   const arrowDir = new THREE.Vector3(0, 0, -1);
-    //   const arrowOrigin = new THREE.Vector3(terrainPos.x, tipY, terrainPos.z);
+    //   const arrowDir = new Vector3(0, 0, -1);
+    //   const arrowOrigin = new Vector3(terrainPos.x, tipY, terrainPos.z);
     //   const arrowLength = 15;
     //   const arrowColor = 0x00ff00;
-    //   aimArrow = new THREE.ArrowHelper(arrowDir, arrowOrigin, arrowLength, arrowColor, 3, 2);
+    //   aimArrow = new ArrowHelper(arrowDir, arrowOrigin, arrowLength, arrowColor, 3, 2);
     //   aimArrow.visible = this.debugMode;
     //   this.scene.add(aimArrow);
     // }
 
     // Setup animation mixer if model has animations AND config allows it
-    let mixer: THREE.AnimationMixer | null = null;
-    const animations = new Map<string, THREE.AnimationClip>();
-    let currentAction: THREE.AnimationAction | null = null;
+    let mixer: AnimationMixer | null = null;
+    const animations = new Map<string, AnimationClip>();
+    let currentAction: AnimationAction | null = null;
 
     if (config.hasAnimations && cachedModel.animations && cachedModel.animations.length > 0) {
-      mixer = new THREE.AnimationMixer(mesh);
+      mixer = new AnimationMixer(mesh);
       for (const clip of cachedModel.animations) {
         animations.set(clip.name, clip);
       }
@@ -394,9 +418,9 @@ export class ThreeTowerRenderer {
         const action = mixer.clipAction(firstClip);
         // Use PingPong for smooth back-and-forth animation if configured
         if (config.animationPingPong) {
-          action.setLoop(THREE.LoopPingPong, Infinity);
+          action.setLoop(LoopPingPong, Infinity);
         } else {
-          action.setLoop(THREE.LoopRepeat, Infinity);
+          action.setLoop(LoopRepeat, Infinity);
         }
         action.play();
         currentAction = action;
@@ -606,7 +630,7 @@ export class ThreeTowerRenderer {
         data.selectionRing.geometry.dispose();
       }
       if (data.selectionRing.material) {
-        (data.selectionRing.material as THREE.Material).dispose();
+        (data.selectionRing.material as Material).dispose();
       }
     }
 
@@ -614,14 +638,14 @@ export class ThreeTowerRenderer {
     if (data.tipMarker) {
       this.scene.remove(data.tipMarker);
       data.tipMarker.geometry.dispose();
-      (data.tipMarker.material as THREE.Material).dispose();
+      (data.tipMarker.material as Material).dispose();
     }
 
     // Remove LOS ring
     if (data.losRing) {
       this.scene.remove(data.losRing);
       data.losRing.geometry.dispose();
-      (data.losRing.material as THREE.Material).dispose();
+      (data.losRing.material as Material).dispose();
     }
 
     // Remove aim arrow
@@ -725,7 +749,7 @@ export class ThreeTowerRenderer {
         if (data.aimArrow) {
           const parentRotation = data.mesh.rotation.y;
           const worldRot = data.currentLocalRotation + parentRotation;
-          const dir = new THREE.Vector3(
+          const dir = new Vector3(
             Math.sin(worldRot),
             0,
             Math.cos(worldRot)
@@ -775,8 +799,8 @@ export class ThreeTowerRenderer {
    * Get all tower meshes for raycasting
    * Returns array of { id, mesh } for intersection testing
    */
-  getAllMeshes(): { id: string; mesh: THREE.Object3D }[] {
-    const result: { id: string; mesh: THREE.Object3D }[] = [];
+  getAllMeshes(): { id: string; mesh: Object3D }[] {
+    const result: { id: string; mesh: Object3D }[] = [];
     for (const [id, data] of this.towers) {
       result.push({ id, mesh: data.mesh });
     }
@@ -801,28 +825,28 @@ export class ThreeTowerRenderer {
     centerLon: number,
     centerHeight: number,
     range: number,
-    localCenter: THREE.Vector3
-  ): THREE.Mesh {
+    localCenter: Vector3
+  ): Mesh {
     // If no raycaster available, use simple flat circle with edge
     if (!this.terrainRaycaster) {
-      const group = new THREE.Group() as unknown as THREE.Mesh;
+      const group = new Group() as unknown as Mesh;
 
       // Filled disc
-      const discGeometry = new THREE.CircleGeometry(range, this.RANGE_SEGMENTS);
-      const discMesh = new THREE.Mesh(discGeometry, this.rangeMaterial.clone());
+      const discGeometry = new CircleGeometry(range, this.RANGE_SEGMENTS);
+      const discMesh = new Mesh(discGeometry, this.rangeMaterial.clone());
       discMesh.rotation.x = -Math.PI / 2;
       group.add(discMesh);
 
       // Edge ring (gold border)
-      const edgeGeometry = new THREE.RingGeometry(range - 2, range, this.RANGE_SEGMENTS);
-      const edgeMaterial = new THREE.MeshBasicMaterial({
+      const edgeGeometry = new RingGeometry(range - 2, range, this.RANGE_SEGMENTS);
+      const edgeMaterial = new MeshBasicMaterial({
         color: 0xc9a44c, // TD gold
         transparent: true,
         opacity: 0.7,
-        side: THREE.DoubleSide,
+        side: DoubleSide,
         depthWrite: false,
       });
-      const edgeMesh = new THREE.Mesh(edgeGeometry, edgeMaterial);
+      const edgeMesh = new Mesh(edgeGeometry, edgeMaterial);
       edgeMesh.rotation.x = -Math.PI / 2;
       edgeMesh.position.y = 0.1; // Slightly above disc
       group.add(edgeMesh);
@@ -833,12 +857,12 @@ export class ThreeTowerRenderer {
     }
 
     // Create terrain-conforming group with disc and edge rings using raycasting
-    const group = new THREE.Group() as unknown as THREE.Mesh;
+    const group = new Group() as unknown as Mesh;
 
     // Create terrain-conforming disc geometry using direct raycasts
     const geometry = this.createTerrainDiscGeometryRaycast(localCenter.x, localCenter.z, range);
 
-    const discMesh = new THREE.Mesh(geometry, this.rangeMaterial.clone());
+    const discMesh = new Mesh(geometry, this.rangeMaterial.clone());
     discMesh.renderOrder = 1;
     group.add(discMesh);
 
@@ -847,8 +871,8 @@ export class ThreeTowerRenderer {
 
     if (edgePoints.length > 0) {
       // Gold edge at the range boundary
-      const edgeGeometry = new THREE.BufferGeometry().setFromPoints([...edgePoints, edgePoints[0]]);
-      const edgeMaterial = new THREE.LineBasicMaterial({
+      const edgeGeometry = new BufferGeometry().setFromPoints([...edgePoints, edgePoints[0]]);
+      const edgeMaterial = new LineBasicMaterial({
         color: 0xc9a44c, // TD gold
         linewidth: 2,
         transparent: true,
@@ -856,7 +880,7 @@ export class ThreeTowerRenderer {
         depthTest: false,
         depthWrite: false,
       });
-      const edgeLine = new THREE.Line(edgeGeometry, edgeMaterial);
+      const edgeLine = new Line(edgeGeometry, edgeMaterial);
       edgeLine.renderOrder = 2;
       group.add(edgeLine);
     }
@@ -872,13 +896,13 @@ export class ThreeTowerRenderer {
     centerLon: number,
     centerHeight: number,
     radius: number,
-    localCenter: THREE.Vector3
-  ): THREE.Vector3[] {
+    localCenter: Vector3
+  ): Vector3[] {
     if (!this.terrainHeightSampler) return [];
 
     const EDGE_OFFSET = 2.0; // Slightly higher than disc for visibility
 
-    const points: THREE.Vector3[] = [];
+    const points: Vector3[] = [];
     const metersPerDegreeLat = 111320;
     const metersPerDegreeLon = 111320 * Math.cos((centerLat * Math.PI) / 180);
 
@@ -901,7 +925,7 @@ export class ThreeTowerRenderer {
       const worldZ = localCenter.z - localZ;
       const worldY = (sampleY - baseCenterY) + localCenter.y + EDGE_OFFSET;
 
-      points.push(new THREE.Vector3(worldX, worldY, worldZ));
+      points.push(new Vector3(worldX, worldY, worldZ));
     }
 
     return points;
@@ -916,10 +940,10 @@ export class ThreeTowerRenderer {
     centerLon: number,
     centerHeight: number,
     range: number,
-    localCenter: THREE.Vector3
-  ): THREE.BufferGeometry {
+    localCenter: Vector3
+  ): BufferGeometry {
     if (!this.terrainHeightSampler) {
-      return new THREE.CircleGeometry(range, this.RANGE_SEGMENTS);
+      return new CircleGeometry(range, this.RANGE_SEGMENTS);
     }
 
     const vertices: number[] = [];
@@ -997,8 +1021,8 @@ export class ThreeTowerRenderer {
       }
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
@@ -1013,11 +1037,11 @@ export class ThreeTowerRenderer {
     centerX: number,
     centerZ: number,
     radius: number
-  ): THREE.Vector3[] {
+  ): Vector3[] {
     if (!this.terrainRaycaster) return [];
 
     const EDGE_OFFSET = 2.0; // Height above terrain for visibility
-    const points: THREE.Vector3[] = [];
+    const points: Vector3[] = [];
 
     for (let seg = 0; seg < this.RANGE_SEGMENTS; seg++) {
       const angle = (seg / this.RANGE_SEGMENTS) * Math.PI * 2;
@@ -1034,7 +1058,7 @@ export class ThreeTowerRenderer {
       const terrainY = this.terrainRaycaster(worldX, worldZ);
 
       if (terrainY !== null) {
-        points.push(new THREE.Vector3(worldX, terrainY + EDGE_OFFSET, worldZ));
+        points.push(new Vector3(worldX, terrainY + EDGE_OFFSET, worldZ));
       }
     }
 
@@ -1049,9 +1073,9 @@ export class ThreeTowerRenderer {
     centerX: number,
     centerZ: number,
     range: number
-  ): THREE.BufferGeometry {
+  ): BufferGeometry {
     if (!this.terrainRaycaster) {
-      return new THREE.CircleGeometry(range, this.RANGE_SEGMENTS);
+      return new CircleGeometry(range, this.RANGE_SEGMENTS);
     }
 
     const vertices: number[] = [];
@@ -1064,7 +1088,7 @@ export class ThreeTowerRenderer {
     const centerY = this.terrainRaycaster(centerX, centerZ);
     if (centerY === null) {
       // Fallback to flat circle if center raycast fails
-      return new THREE.CircleGeometry(range, this.RANGE_SEGMENTS);
+      return new CircleGeometry(range, this.RANGE_SEGMENTS);
     }
 
     // Add center vertex
@@ -1122,8 +1146,8 @@ export class ThreeTowerRenderer {
       }
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(vertices, 3));
     geometry.setIndex(indices);
     geometry.computeVertexNormals();
 
@@ -1145,7 +1169,7 @@ export class ThreeTowerRenderer {
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
 
     // Create new geometry using raycaster if available, otherwise fall back to height sampler
-    let newGeometry: THREE.BufferGeometry;
+    let newGeometry: BufferGeometry;
     if (this.terrainRaycaster) {
       newGeometry = this.createTerrainDiscGeometryRaycast(
         terrainPos.x,
@@ -1206,18 +1230,18 @@ export class ThreeTowerRenderer {
   /**
    * Recursively dispose Three.js object
    */
-  private disposeObject(obj: THREE.Object3D): void {
+  private disposeObject(obj: Object3D): void {
     obj.traverse((node) => {
-      const mesh = node as THREE.Mesh;
+      const mesh = node as Mesh;
       if (mesh.geometry) {
         mesh.geometry.dispose();
       }
       if (mesh.material) {
-        const materials: THREE.Material[] = Array.isArray(mesh.material)
+        const materials: Material[] = Array.isArray(mesh.material)
           ? mesh.material
           : [mesh.material];
         for (const mat of materials) {
-          const stdMat = mat as THREE.MeshStandardMaterial;
+          const stdMat = mat as MeshStandardMaterial;
           if (stdMat.map) stdMat.map.dispose();
           if (stdMat.normalMap) stdMat.normalMap.dispose();
           mat.dispose();

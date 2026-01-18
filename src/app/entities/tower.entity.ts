@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { InstancedMesh } from 'three';
 import { GameObject } from '../core/game-object';
 import { ComponentType } from '../core/component';
 import {
@@ -33,7 +33,7 @@ export class Tower extends GameObject {
   visibleCells: RouteCell[] = [];
 
   /** LOS visualization mesh (shown when tower is selected) */
-  losVisualization: THREE.InstancedMesh | null = null;
+  losVisualization: InstancedMesh | null = null;
 
   /** Cached current target - avoid re-searching every frame */
   private _currentTarget: Enemy | null = null;

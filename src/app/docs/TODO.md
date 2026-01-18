@@ -60,7 +60,7 @@
       `tower-defense.component.ts:2303`, `game-sidebar.component.ts:579`
       → [Teil 7.3](PERFORMANCE_REPORT.md#73-rxjs-subscription-leaks)
 
-- [ ] **Three.js Named Imports** - Kompletter Import +400KB Bundle
+- [x] **Three.js Named Imports** - Kompletter Import +400KB Bundle
       28 Files mit `import * as THREE` → Named Imports
       → [Teil 13.1](PERFORMANCE_REPORT.md#131-threejs-tree-shaking--kritisch)
 

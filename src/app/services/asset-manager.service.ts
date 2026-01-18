@@ -1,5 +1,5 @@
 import { Injectable, signal, computed } from '@angular/core';
-import * as THREE from 'three';
+import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
@@ -9,9 +9,9 @@ import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
  */
 export interface CachedModel {
   /** Original scene (template - do NOT modify directly) */
-  scene: THREE.Object3D;
+  scene: Object3D;
   /** Animation clips from model */
-  animations: THREE.AnimationClip[];
+  animations: AnimationClip[];
   /** Reference count for cleanup */
   refCount: number;
   /** Model URL for debugging */
@@ -126,8 +126,8 @@ export class AssetManagerService {
 
     try {
       const extension = url.split('.').pop()?.toLowerCase();
-      let scene: THREE.Object3D;
-      let animations: THREE.AnimationClip[];
+      let scene: Object3D;
+      let animations: AnimationClip[];
 
       if (extension === 'fbx') {
         // FBX loading
@@ -163,7 +163,7 @@ export class AssetManagerService {
    * @param url Model URL (must be loaded first)
    * @param options Clone options (preserveSkeleton for animated models)
    */
-  cloneModel(url: string, options: CloneOptions = {}): THREE.Object3D | null {
+  cloneModel(url: string, options: CloneOptions = {}): Object3D | null {
     const cached = this.modelCache.get(url);
     if (!cached) {
       console.warn(`[AssetManager] Model not cached: ${url}`);
@@ -171,9 +171,9 @@ export class AssetManagerService {
     }
 
     // Use SkeletonUtils.clone for animated models to preserve skeleton bindings
-    let clone: THREE.Object3D;
+    let clone: Object3D;
     if (options.preserveSkeleton) {
-      clone = SkeletonUtils.clone(cached.scene) as THREE.Object3D;
+      clone = SkeletonUtils.clone(cached.scene) as Object3D;
     } else {
       clone = cached.scene.clone();
     }
@@ -189,10 +189,10 @@ export class AssetManagerService {
    * Deep-clone all materials in a model
    * Prevents shared material state between instances
    */
-  private cloneMaterials(object: THREE.Object3D): void {
+  private cloneMaterials(object: Object3D): void {
     object.traverse((node) => {
-      if ((node as THREE.Mesh).isMesh) {
-        const mesh = node as THREE.Mesh;
+      if ((node as Mesh).isMesh) {
+        const mesh = node as Mesh;
         if (Array.isArray(mesh.material)) {
           mesh.material = mesh.material.map((mat) => mat.clone());
         } else if (mesh.material) {
@@ -252,7 +252,7 @@ export class AssetManagerService {
    * Apply standard FBX material colors
    * Call this after cloning an FBX model
    */
-  applyFbxMaterials(model: THREE.Object3D): void {
+  applyFbxMaterials(model: Object3D): void {
     const materialColors: Record<string, number> = {
       lightwood: 0xc4a574,
       wood: 0xa0784a,
@@ -265,12 +265,12 @@ export class AssetManagerService {
     };
 
     model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
+      if ((child as Mesh).isMesh) {
+        const mesh = child as Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
 
         materials.forEach((mat) => {
-          const matWithColor = mat as THREE.MeshStandardMaterial;
+          const matWithColor = mat as MeshStandardMaterial;
           if (matWithColor.color) {
             const matName = mat.name.toLowerCase();
 
@@ -284,7 +284,7 @@ export class AssetManagerService {
 
             matWithColor.color.setHex(color ?? 0xb8956e); // Default wood color
             if ('transparent' in mat) mat.transparent = false;
-            if ('opacity' in mat) (mat as THREE.MeshStandardMaterial).opacity = 1.0;
+            if ('opacity' in mat) (mat as MeshStandardMaterial).opacity = 1.0;
           }
         });
       }
@@ -348,14 +348,14 @@ export class AssetManagerService {
     this.disposeObject(cached.scene);
   }
 
-  private disposeObject(obj: THREE.Object3D): void {
+  private disposeObject(obj: Object3D): void {
     obj.traverse((node) => {
-      const mesh = node as THREE.Mesh;
+      const mesh = node as Mesh;
       if (mesh.geometry) {
         mesh.geometry.dispose();
       }
       if (mesh.material) {
-        const materials: THREE.Material[] = Array.isArray(mesh.material)
+        const materials: Material[] = Array.isArray(mesh.material)
           ? mesh.material
           : [mesh.material];
         for (const mat of materials) {
@@ -365,8 +365,8 @@ export class AssetManagerService {
     });
   }
 
-  private disposeMaterial(mat: THREE.Material): void {
-    const stdMat = mat as THREE.MeshStandardMaterial;
+  private disposeMaterial(mat: Material): void {
+    const stdMat = mat as MeshStandardMaterial;
 
     // Dispose textures
     if (stdMat.map) stdMat.map.dispose();

@@ -1,5 +1,5 @@
 import { Injectable, WritableSignal } from '@angular/core';
-import * as THREE from 'three';
+import { Group, Vector3, Vector2 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
@@ -42,7 +42,7 @@ export class PathAndRouteService {
   private osmService: OsmStreetService | null = null;
 
   /** Spawn markers for snap-to-path functionality */
-  private spawnMarkers: THREE.Group[] = [];
+  private spawnMarkers: Group[] = [];
 
   // ========================================
   // INITIALIZATION
@@ -63,7 +63,7 @@ export class PathAndRouteService {
     baseCoords: GeoPosition,
     routesVisible: WritableSignal<boolean>,
     osmService: OsmStreetService,
-    spawnMarkers: THREE.Group[]
+    spawnMarkers: Group[]
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
@@ -77,7 +77,7 @@ export class PathAndRouteService {
    * Update spawn markers reference
    * @param spawnMarkers Updated spawn markers array
    */
-  updateSpawnMarkers(spawnMarkers: THREE.Group[]): void {
+  updateSpawnMarkers(spawnMarkers: Group[]): void {
     this.spawnMarkers = spawnMarkers;
   }
 
@@ -264,7 +264,7 @@ export class PathAndRouteService {
     // Create route line in Three.js - on terrain with RELATIVE heights
     const HEIGHT_ABOVE_GROUND = 1;
     const overlayGroup = this.engine.getOverlayGroup();
-    const points: THREE.Vector3[] = [];
+    const points: Vector3[] = [];
 
     // Get origin terrain height as reference
     const origin = this.engine.sync.getOrigin();
@@ -350,7 +350,7 @@ export class PathAndRouteService {
       depthTest: true,
       depthWrite: false,
       worldUnits: false, // Use screen pixels, not world units
-      resolution: new THREE.Vector2(window.innerWidth, window.innerHeight),
+      resolution: new Vector2(window.innerWidth, window.innerHeight),
     });
 
     const routeLine = new Line2(geometry, material);
@@ -417,13 +417,13 @@ export class PathAndRouteService {
    * @param points Path points with potentially noisy heights
    * @returns Smoothed path points
    */
-  smoothPathHeights(points: THREE.Vector3[]): THREE.Vector3[] {
+  smoothPathHeights(points: Vector3[]): Vector3[] {
     if (points.length < 3) return points;
 
     const MAX_SLOPE = 0.5; // Max 50% grade (rise/run)
     const MAX_HEIGHT_DIFF = 10; // Max 10m sudden jump
 
-    const result: THREE.Vector3[] = [];
+    const result: Vector3[] = [];
 
     for (let i = 0; i < points.length; i++) {
       const current = points[i];
@@ -462,7 +462,7 @@ export class PathAndRouteService {
 
       if (isAnomaly) {
         // Replace with interpolated value
-        result.push(new THREE.Vector3(current.x, interpolatedY, current.z));
+        result.push(new Vector3(current.x, interpolatedY, current.z));
       } else {
         result.push(current.clone());
       }

@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import * as THREE from 'three';
+import { Color, Group, Vector3, Vector2, BufferGeometry, Float32BufferAttribute } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
@@ -50,7 +50,7 @@ export class RouteAnimationService {
 
   // --- MAIN LINE (flowing red dashes) ---
   /** Main line color (vivid red) */
-  private readonly MAIN_COLOR = new THREE.Color(0xff2020);
+  private readonly MAIN_COLOR = new Color(0xff2020);
   /** Main line width in meters (slim elegant look) */
   private readonly MAIN_LINE_WIDTH = 1.0;
   /** Longer dashes for elongated look */
@@ -60,7 +60,7 @@ export class RouteAnimationService {
 
   // --- GLOW LINE (thin soft halo) ---
   /** Glow line color (soft pink-red) */
-  private readonly GLOW_COLOR = new THREE.Color(0xff6666);
+  private readonly GLOW_COLOR = new Color(0xff6666);
   /** Glow line width in meters (subtle halo) */
   private readonly GLOW_LINE_WIDTH = 1.8;
   /** Continuous glow - no dashes */
@@ -71,7 +71,7 @@ export class RouteAnimationService {
   // ========================================
 
   private engine: ThreeTilesEngine | null = null;
-  private overlayGroup: THREE.Group | null = null;
+  private overlayGroup: Group | null = null;
   private animatedRoutes: AnimatedRoute[] = [];
   private isAnimating = false;
   private startTime = 0;
@@ -218,11 +218,11 @@ export class RouteAnimationService {
   private createAnimatedRoute(
     id: string,
     path: GeoPosition[],
-    _color: THREE.Color
+    _color: Color
   ): AnimatedRoute | null {
     if (!this.engine || !this.overlayGroup) return null;
 
-    // Convert GeoPosition[] to local THREE.Vector3[]
+    // Convert GeoPosition[] to local Vector3[]
     const rawPoints = this.convertPathToLocalPoints(path);
     if (rawPoints.length < 2) return null;
 
@@ -274,14 +274,14 @@ export class RouteAnimationService {
   }
 
   /**
-   * Convert GeoPosition path to local THREE.Vector3 points
+   * Convert GeoPosition path to local Vector3 points
    * @param path Path as GeoPosition array
    * @returns Array of local Vector3 points
    */
-  private convertPathToLocalPoints(path: GeoPosition[]): THREE.Vector3[] {
+  private convertPathToLocalPoints(path: GeoPosition[]): Vector3[] {
     if (!this.engine) return [];
 
-    const points: THREE.Vector3[] = [];
+    const points: Vector3[] = [];
     const origin = this.engine.sync.getOrigin();
     const originTerrainY = this.engine.getTerrainHeightAtGeo(origin.lat, origin.lon) ?? 0;
 
@@ -307,8 +307,8 @@ export class RouteAnimationService {
    * @param points Array of Vector3 points
    * @returns Geometry and total length
    */
-  private createLineGeometryWithDistances(points: THREE.Vector3[]): {
-    geometry: THREE.BufferGeometry;
+  private createLineGeometryWithDistances(points: Vector3[]): {
+    geometry: BufferGeometry;
     totalLength: number;
   } {
     const positions: number[] = [];
@@ -328,9 +328,9 @@ export class RouteAnimationService {
       distances.push(cumulativeDistance);
     }
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
-    geometry.setAttribute('aLineDistance', new THREE.Float32BufferAttribute(distances, 1));
+    const geometry = new BufferGeometry();
+    geometry.setAttribute('position', new Float32BufferAttribute(positions, 3));
+    geometry.setAttribute('aLineDistance', new Float32BufferAttribute(distances, 1));
 
     return { geometry, totalLength: cumulativeDistance };
   }
@@ -354,7 +354,7 @@ export class RouteAnimationService {
     });
 
     if (this.engine) {
-      const size = this.engine.getRenderer().getSize(new THREE.Vector2());
+      const size = this.engine.getRenderer().getSize(new Vector2());
       mat.resolution.set(size.x, size.y);
     }
 
@@ -377,7 +377,7 @@ export class RouteAnimationService {
     });
 
     if (this.engine) {
-      const size = this.engine.getRenderer().getSize(new THREE.Vector2());
+      const size = this.engine.getRenderer().getSize(new Vector2());
       mat.resolution.set(size.x, size.y);
     }
 
@@ -394,10 +394,10 @@ export class RouteAnimationService {
    * @param segmentLength Target distance between points in meters
    * @returns Interpolated points array
    */
-  private interpolatePoints(points: THREE.Vector3[], segmentLength: number): THREE.Vector3[] {
+  private interpolatePoints(points: Vector3[], segmentLength: number): Vector3[] {
     if (points.length < 2) return points;
 
-    const result: THREE.Vector3[] = [points[0].clone()];
+    const result: Vector3[] = [points[0].clone()];
 
     for (let i = 1; i < points.length; i++) {
       const prev = points[i - 1];
@@ -409,7 +409,7 @@ export class RouteAnimationService {
         const segments = Math.ceil(distance / segmentLength);
         for (let j = 1; j <= segments; j++) {
           const t = j / segments;
-          result.push(new THREE.Vector3().lerpVectors(prev, curr, t));
+          result.push(new Vector3().lerpVectors(prev, curr, t));
         }
       } else {
         result.push(curr.clone());

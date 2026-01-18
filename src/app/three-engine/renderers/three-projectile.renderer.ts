@@ -1,4 +1,22 @@
-import * as THREE from 'three';
+import {
+  InstancedMesh,
+  Matrix4,
+  Vector3,
+  Quaternion,
+  BufferGeometry,
+  Material,
+  Mesh,
+  MeshStandardMaterial,
+  SphereGeometry,
+  ShaderMaterial,
+  Color,
+  AdditiveBlending,
+  DoubleSide,
+  CylinderGeometry,
+  ConeGeometry,
+  Euler,
+  Scene,
+} from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { CoordinateSync } from './index';
 import {
@@ -23,32 +41,32 @@ export interface ProjectileRenderData {
  * Simple instanced entity manager for projectiles
  */
 class ProjectileInstanceManager {
-  readonly instancedMesh: THREE.InstancedMesh;
+  readonly instancedMesh: InstancedMesh;
   private entities = new Map<string, number>(); // id -> instanceIndex
   private freeIndices: number[] = [];
   private activeCount = 0;
-  private readonly matrix = new THREE.Matrix4();
+  private readonly matrix = new Matrix4();
 
   // Reusable vectors to avoid allocations in update loop
-  private static readonly _tempPos = new THREE.Vector3();
-  private static readonly _tempRot = new THREE.Quaternion();
-  private static readonly _tempScale = new THREE.Vector3();
+  private static readonly _tempPos = new Vector3();
+  private static readonly _tempRot = new Quaternion();
+  private static readonly _tempScale = new Vector3();
 
   constructor(
-    geometry: THREE.BufferGeometry,
-    material: THREE.Material,
+    geometry: BufferGeometry,
+    material: Material,
     maxCount: number
   ) {
-    this.instancedMesh = new THREE.InstancedMesh(geometry, material, maxCount);
+    this.instancedMesh = new InstancedMesh(geometry, material, maxCount);
     this.instancedMesh.count = 0;
     this.instancedMesh.frustumCulled = false;
   }
 
   add(
     id: string,
-    position: THREE.Vector3,
-    rotation: THREE.Euler,
-    scale: THREE.Vector3
+    position: Vector3,
+    rotation: Euler,
+    scale: Vector3
   ): void {
     if (this.entities.has(id)) return;
 
@@ -72,7 +90,7 @@ class ProjectileInstanceManager {
     this.instancedMesh.instanceMatrix.needsUpdate = true;
   }
 
-  update(id: string, position: THREE.Vector3, rotation: THREE.Euler): void {
+  update(id: string, position: Vector3, rotation: Euler): void {
     const index = this.entities.get(id);
     if (index === undefined) return;
 
@@ -95,7 +113,7 @@ class ProjectileInstanceManager {
   /**
    * Update position only, keeping existing rotation and scale
    */
-  updatePosition(id: string, position: THREE.Vector3): void {
+  updatePosition(id: string, position: Vector3): void {
     const index = this.entities.get(id);
     if (index === undefined) return;
 
@@ -145,7 +163,7 @@ class ProjectileInstanceManager {
   dispose(): void {
     this.clear();
     this.instancedMesh.geometry.dispose();
-    (this.instancedMesh.material as THREE.Material).dispose();
+    (this.instancedMesh.material as Material).dispose();
   }
 }
 
@@ -153,7 +171,7 @@ class ProjectileInstanceManager {
  * ThreeProjectileRenderer - Renders projectiles using GPU instancing
  */
 export class ThreeProjectileRenderer {
-  private scene: THREE.Scene;
+  private scene: Scene;
   private sync: CoordinateSync;
   private loader: GLTFLoader;
 
@@ -170,7 +188,7 @@ export class ThreeProjectileRenderer {
   // Model loading state
   private arrowModelLoaded = false;
 
-  constructor(scene: THREE.Scene, sync: CoordinateSync) {
+  constructor(scene: Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
     this.loader = new GLTFLoader();
@@ -202,24 +220,24 @@ export class ThreeProjectileRenderer {
       const gltf = await this.loader.loadAsync(modelPath);
 
       // Extract geometry and material from model
-      let arrowGeometry: THREE.BufferGeometry | null = null;
-      let arrowMaterial: THREE.Material | null = null;
+      let arrowGeometry: BufferGeometry | null = null;
+      let arrowMaterial: Material | null = null;
 
       gltf.scene.traverse((child) => {
-        if ((child as THREE.Mesh).isMesh && !arrowGeometry) {
-          const mesh = child as THREE.Mesh;
+        if ((child as Mesh).isMesh && !arrowGeometry) {
+          const mesh = child as Mesh;
           arrowGeometry = mesh.geometry.clone();
 
           if (mesh.material) {
             arrowMaterial = Array.isArray(mesh.material)
-              ? (mesh.material[0] as THREE.Material).clone()
-              : (mesh.material as THREE.Material).clone();
+              ? (mesh.material[0] as Material).clone()
+              : (mesh.material as Material).clone();
           }
         }
       });
 
       if (arrowGeometry) {
-        const material = arrowMaterial || new THREE.MeshStandardMaterial({
+        const material = arrowMaterial || new MeshStandardMaterial({
           color: 0x8b4513,
           metalness: 0.3,
           roughness: 0.7,
@@ -242,8 +260,8 @@ export class ThreeProjectileRenderer {
    * Create fallback arrow geometry if model fails to load
    */
   private createFallbackArrow(): void {
-    const geometry = new THREE.ConeGeometry(0.1, 1.5, 6);
-    const material = new THREE.MeshStandardMaterial({
+    const geometry = new ConeGeometry(0.1, 1.5, 6);
+    const material = new MeshStandardMaterial({
       color: 0x8b4513,
       metalness: 0.1,
       roughness: 0.8,
@@ -255,9 +273,9 @@ export class ThreeProjectileRenderer {
 
   private createCannonballManager(): ProjectileInstanceManager {
     // Cannonball: sphere - size increased for visibility
-    const geometry = new THREE.SphereGeometry(1.5, 16, 16);
+    const geometry = new SphereGeometry(1.5, 16, 16);
 
-    const material = new THREE.MeshStandardMaterial({
+    const material = new MeshStandardMaterial({
       color: 0x333333,
       metalness: 0.8,
       roughness: 0.3,
@@ -270,22 +288,22 @@ export class ThreeProjectileRenderer {
 
   private createMagicManager(): ProjectileInstanceManager {
     // Magic projectile: glowing sphere with custom shader
-    const geometry = new THREE.SphereGeometry(1.2, 32, 32); // Higher segments for smooth shader
+    const geometry = new SphereGeometry(1.2, 32, 32); // Higher segments for smooth shader
 
-    const material = new THREE.ShaderMaterial({
+    const material = new ShaderMaterial({
       vertexShader: MAGIC_ORB_VERTEX,
       fragmentShader: MAGIC_ORB_FRAGMENT,
       uniforms: {
         uTime: { value: 0.0 },
-        uColor1: { value: new THREE.Color(0x6600cc) }, // Deep purple
-        uColor2: { value: new THREE.Color(0x00ccff) }, // Cyan
-        uColor3: { value: new THREE.Color(0xffffff) }, // White highlights
+        uColor1: { value: new Color(0x6600cc) }, // Deep purple
+        uColor2: { value: new Color(0x00ccff) }, // Cyan
+        uColor3: { value: new Color(0xffffff) }, // White highlights
         uIntensity: { value: 2.5 },
       },
       transparent: true,
-      blending: THREE.AdditiveBlending,
+      blending: AdditiveBlending,
       depthWrite: false,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
 
     return new ProjectileInstanceManager(geometry, material, 500);
@@ -293,9 +311,9 @@ export class ThreeProjectileRenderer {
 
   private createBulletManager(): ProjectileInstanceManager {
     // Bullet: small yellow/golden tracer - elongated cylinder for "bullet trail" effect
-    const geometry = new THREE.CylinderGeometry(0.3, 0.3, 2.0, 8);
+    const geometry = new CylinderGeometry(0.3, 0.3, 2.0, 8);
 
-    const material = new THREE.MeshStandardMaterial({
+    const material = new MeshStandardMaterial({
       color: 0xffcc00,
       emissive: 0xff9900,
       emissiveIntensity: 2.0,
@@ -308,9 +326,9 @@ export class ThreeProjectileRenderer {
 
   private createRocketManager(): ProjectileInstanceManager {
     // Rocket: sleek missile shape - white/light grey
-    const bodyGeometry = new THREE.CylinderGeometry(0.3, 0.4, 3.0, 8);
+    const bodyGeometry = new CylinderGeometry(0.3, 0.4, 3.0, 8);
 
-    const material = new THREE.MeshStandardMaterial({
+    const material = new MeshStandardMaterial({
       color: 0xeeeeee, // Light grey/white
       emissive: 0xffffff, // White glow
       emissiveIntensity: 0.3,
@@ -337,9 +355,9 @@ export class ThreeProjectileRenderer {
   }
 
   // Temporary vectors for quaternion calculations
-  private static readonly UP = new THREE.Vector3(0, 1, 0);
-  private static readonly tempQuat = new THREE.Quaternion();
-  private static readonly tempDir = new THREE.Vector3();
+  private static readonly UP = new Vector3(0, 1, 0);
+  private static readonly tempQuat = new Quaternion();
+  private static readonly tempDir = new Vector3();
 
   /**
    * Create a new projectile with direction vector
@@ -373,7 +391,7 @@ export class ThreeProjectileRenderer {
     // Model should point +Y by default, we rotate to match direction
     const rotation = this.directionToEuler(direction);
 
-    const scale = new THREE.Vector3(config.scale, config.scale, config.scale);
+    const scale = new Vector3(config.scale, config.scale, config.scale);
 
     manager.add(id, localPos, rotation, scale);
     this.projectileTypes.set(id, visualType);
@@ -383,7 +401,7 @@ export class ThreeProjectileRenderer {
    * Convert direction vector to Euler rotation
    * The cone geometry points +Y by default, this rotates it to match direction
    */
-  private directionToEuler(dir: { dx: number; dy: number; dz: number }): THREE.Euler {
+  private directionToEuler(dir: { dx: number; dy: number; dz: number }): Euler {
     // Set target direction
     ThreeProjectileRenderer.tempDir.set(dir.dx, dir.dy, dir.dz).normalize();
 
@@ -394,7 +412,7 @@ export class ThreeProjectileRenderer {
     );
 
     // Convert to Euler
-    const euler = new THREE.Euler();
+    const euler = new Euler();
     euler.setFromQuaternion(ThreeProjectileRenderer.tempQuat);
 
     return euler;
@@ -485,7 +503,7 @@ export class ThreeProjectileRenderer {
    */
   updateShaderUniforms(time: number): void {
     // Update magic orb shader time uniform
-    const magicMaterial = this.magicManager.instancedMesh.material as THREE.ShaderMaterial;
+    const magicMaterial = this.magicManager.instancedMesh.material as ShaderMaterial;
     if (magicMaterial.uniforms?.['uTime']) {
       magicMaterial.uniforms['uTime'].value = time;
     }
