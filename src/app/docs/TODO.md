@@ -30,6 +30,9 @@
       `GeoPosition` vs `{latitude, longitude}` vs `{lat, lon}`
       Siehe: [EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz](EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz)
 
+- [ ] **Codebase komplett auf Englisch umstellen** - Strings, Kommentare, Variablen, UI
+      Aktuell: Deutsche Tower-Namen ('Schnellfeuer'), Enemy-Namen ('Fledermaus'), UI-Texte, Tooltips
+
 ---
 
 ## Three.js & Rendering (aus Expert Review)
