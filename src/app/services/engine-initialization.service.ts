@@ -63,6 +63,7 @@ export class EngineInitializationService {
     { id: 'route', label: 'Berechne Routen', status: 'pending' },
     { id: 'grid', label: 'Generiere Routen-Grid', status: 'pending' },
     { id: 'finalize', label: 'Finalisiere 3D-Ansicht', status: 'pending' },
+    { id: 'tiles', label: 'Warte auf 3D-Kacheln', status: 'pending' },
   ]);
 
   // ========================================
@@ -171,6 +172,7 @@ export class EngineInitializationService {
       { id: 'route', label: 'Berechne Routen', status: 'pending' },
       { id: 'grid', label: 'Generiere Routen-Grid', status: 'pending' },
       { id: 'finalize', label: 'Finalisiere 3D-Ansicht', status: 'pending' },
+      { id: 'tiles', label: 'Warte auf 3D-Kacheln', status: 'pending' },
     ]);
   }
 
@@ -313,12 +315,27 @@ export class EngineInitializationService {
    * @param heightsLoading Heights loading signal
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
+    const now = performance.now();
     const tiles = this.tilesLoading();
     const osm = this.osmLoading();
     const heights = heightsLoading();
 
+    console.log(`[EngineInit ${now.toFixed(0)}ms] checkAllLoaded: tiles=${tiles}, osm=${osm}, heights=${heights}`);
+
+    // If heights are done but tiles still loading, show the tiles step
+    if (!heights && !osm && tiles) {
+      console.log(`[EngineInit ${now.toFixed(0)}ms] Heights done, waiting for tiles → activating tiles step`);
+      void this.setStepActive('tiles');
+    }
+
     if (!tiles && !osm && !heights) {
+      console.log(`[EngineInit ${now.toFixed(0)}ms] ✓ All loaded → hiding overlay`);
+      // Mark tiles step as done before hiding
+      void this.setStepDone('tiles');
       this.loading.set(false);
+    } else {
+      const waiting = [tiles && 'tiles', osm && 'osm', heights && 'heights'].filter(Boolean);
+      console.log(`[EngineInit ${now.toFixed(0)}ms] ⏳ Still waiting for: ${waiting.join(', ')}`);
     }
   }
 

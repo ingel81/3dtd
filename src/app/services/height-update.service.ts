@@ -213,6 +213,9 @@ export class HeightUpdateService {
    * Stop height update interval
    */
   stopHeightUpdates(): void {
+    const now = performance.now();
+    console.log(`[HeightUpdate ${now.toFixed(0)}ms] stopHeightUpdates called`);
+
     // Only run callbacks if there was an active height update cycle
     const hadActiveInterval = this.heightUpdateIntervalId !== null;
 
@@ -225,30 +228,37 @@ export class HeightUpdateService {
     // Only call callbacks if we had an active interval
     // This prevents stale callbacks from being called during location change init
     if (!hadActiveInterval) {
+      console.log(`[HeightUpdate ${now.toFixed(0)}ms] No active interval, skipping callbacks`);
       return;
     }
 
     // IMPORTANT: Camera correction BEFORE overlay hides!
     // This ensures the camera jump happens while loading overlay is still visible
     if (this.onCameraCorrectionCallback) {
+      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Running camera correction...`);
       this.onCameraCorrectionCallback();
+      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Camera correction done`);
     }
 
     // NOW hide the loading overlay
+    console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Setting heightsLoading=false`);
     this.heightsLoading.set(false);
 
     // Mark finalize step as done
     if (this.onFinalizeCallback) {
+      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Setting finalize step to "Bereit"`);
       this.onFinalizeCallback('Bereit');
     }
 
     // Check if all loading is complete
     if (this.onCheckAllLoadedCallback) {
+      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Calling checkAllLoaded`);
       this.onCheckAllLoadedCallback();
     }
 
     // Resolve the promise to signal completion
     if (this.heightStableResolve) {
+      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Resolving height stable promise`);
       this.heightStableResolve();
       this.heightStableResolve = null;
     }
