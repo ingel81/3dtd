@@ -14,7 +14,8 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 |----------|--------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System-Architektur, Component-System, Renderer, Services |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
-| [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) | **NEU** Performance-Analyse & Optimierungs-Maßnahmenkatalog (8 Experten) |
+| [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) | Performance-Analyse & Optimierungs-Maßnahmenkatalog (8 Experten) |
+| [PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md](PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md) | **NEU** Games-Industry Deep Dive (8 Production-Experten) |
 | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) | Umfassende Code-Analyse (7 KI-Experten) |
 | [TODO.md](TODO.md) | Offene Aufgaben und bekannte Bugs |
 | [DONE.md](DONE.md) | Abgeschlossene Features und Fixes |
@@ -64,6 +65,8 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...Code-Qualitaet verbessern | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) → Massnahmenkatalog |
 | ...Performance optimieren | [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) |
 | ...mehr FPS rausholen | [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) → Maßnahmenkatalog |
+| ...Production-Ready werden | [PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md](PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md) |
+| ...AAA-Level Performance | [PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md](PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md) → Games-Industry |
 
 ---
 
