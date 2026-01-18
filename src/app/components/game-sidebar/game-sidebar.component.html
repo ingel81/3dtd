@@ -45,7 +45,8 @@
                       [class.disabled]="gameState().credits() < tower.cost"
                       [disabled]="isGameOver() || gameState().credits() < tower.cost"
                       (click)="selectTower.emit(tower.id)"
-                      [matTooltip]="tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'">
+                      [matTooltip]="tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'"
+                      matTooltipPosition="left">
                 <canvas #towerPreviewCanvas
                         class="td-tower-preview-canvas"
                         [attr.data-tower-id]="tower.id"
@@ -99,6 +100,7 @@
                   [disabled]="gameState().credits() < upgrade.cost"
                   (click)="onUpgradeTower(tower, upgrade.id)"
                   [matTooltip]="upgrade.description"
+                  matTooltipPosition="left"
                 >
                   <mat-icon class="td-upgrade-icon">bolt</mat-icon>
                   <div class="td-upgrade-info">
