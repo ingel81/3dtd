@@ -46,7 +46,7 @@
       `three-tiles-engine.ts:324-360` - dispose() räumt nicht auf
       → [Teil 7.1](PERFORMANCE_REPORT.md#71-event-listener-leaks--kritisch)
 
-- [ ] **Timeout Cleanup bei Reset** - Timeouts feuern nach Game-Reset weiter
+- [x] **Timeout Cleanup bei Reset** - Timeouts feuern nach Game-Reset weiter
       `wave.manager.ts:78,96`, `game-state.manager.ts:687`
       → [Teil 7.2](PERFORMANCE_REPORT.md#72-timeout-leaks-bei-reset)
 

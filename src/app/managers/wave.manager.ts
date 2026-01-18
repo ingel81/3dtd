@@ -35,6 +35,9 @@ export class WaveManager {
   private spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
 
+  // Track active timeouts for cleanup on reset
+  private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
     this.spawnPoints = spawnPoints;
     this.cachedPaths = cachedPaths;
@@ -64,22 +67,33 @@ export class WaveManager {
 
     let spawnedCount = 0;
 
+    // Capture wave number at start to detect reset
+    const waveId = this.waveNumber();
+
     const spawnNext = () => {
       const currentPhase = this.phase();
+      const currentWave = this.waveNumber();
 
-      // Stop spawning if game over
-      if (currentPhase === 'gameover') {
+      // Stop spawning if not in wave phase (reset or game over)
+      if (currentPhase !== 'wave') {
+        return;
+      }
+
+      // Stop if wave was reset (new wave started or game reset)
+      if (currentWave !== waveId) {
         return;
       }
 
       if (spawnedCount >= config.enemyCount) {
         if (useGathering) {
           // Gathering mode: Start all enemies together after short delay
-          setTimeout(() => {
-            if (this.phase() === 'gameover') return; // Also check here
+          const timeoutId = setTimeout(() => {
+            this.activeTimeouts.delete(timeoutId);
+            if (this.phase() !== 'wave') return; // Stop if reset/game over
             this.gatheringPhase.set(false);
             this.enemyManager.startAll(300);
           }, 500);
+          this.activeTimeouts.add(timeoutId);
         }
         return;
       }
@@ -93,7 +107,15 @@ export class WaveManager {
         spawnedCount++;
       }
 
-      setTimeout(spawnNext, spawnDelay);
+      // Check phase again before scheduling next spawn (could have been reset during spawn)
+      if (this.phase() !== 'wave') return;
+
+      const timeoutId = setTimeout(() => {
+        this.activeTimeouts.delete(timeoutId);
+        if (this.phase() !== 'wave') return; // Stop if reset/game over
+        spawnNext();
+      }, spawnDelay);
+      this.activeTimeouts.add(timeoutId);
     };
 
     spawnNext();
@@ -129,6 +151,12 @@ export class WaveManager {
    * Reset wave manager
    */
   reset(): void {
+    // Clear all pending timeouts to prevent spawning after reset
+    for (const timeoutId of this.activeTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.activeTimeouts.clear();
+
     this.enemyManager.clear();
     this.phase.set('setup');
     this.waveNumber.set(0);
