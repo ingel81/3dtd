@@ -48,4 +48,11 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/3DTD/browser/
           server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
-          dangerous-clean-slate: true
+          # Sync-Modus: nur geänderte Dateien hochladen, alte löschen
+          # State wird in .ftp-deploy-sync-state.json auf Server gespeichert
+          dangerous-clean-slate: false
+          # Alte JS/CSS Dateien mit alten Hashes entfernen
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
