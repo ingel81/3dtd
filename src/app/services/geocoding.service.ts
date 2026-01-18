@@ -144,8 +144,6 @@ export class GeocodingService {
         format: 'json',
         addressdetails: '1',
         limit: this.MAX_RESULTS.toString(),
-        // Prefer results in Germany/Europe
-        countrycodes: 'de,at,ch',
       });
 
       const response = await fetch(`${this.NOMINATIM_URL}/search?${params}`, {
