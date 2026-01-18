@@ -1,5 +1,6 @@
-import { Injectable } from '@angular/core';
+import { inject, Injectable } from '@angular/core';
 import { RandomSpawnCandidate } from '../models/location.types';
+import { StreetCacheService } from './street-cache.service';
 
 export interface StreetNode {
   id: number;
@@ -34,6 +35,9 @@ const SPAWNABLE_STREET_TYPES = ['residential', 'primary', 'secondary', 'tertiary
   providedIn: 'root',
 })
 export class OsmStreetService {
+  // IndexedDB cache service (replaces localStorage)
+  private readonly streetCache = inject(StreetCacheService);
+
   // Multiple Overpass API servers for fallback
   private readonly OVERPASS_SERVERS = [
     'https://overpass.kumi.systems/api/interpreter',
@@ -41,26 +45,24 @@ export class OsmStreetService {
     'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
   ];
 
-  private readonly CACHE_PREFIX = 'td_streets_';
-  private readonly CACHE_VERSION = 1;
-
   // Cached graph for pathfinding (avoid rebuilding on every findPath call)
   private cachedGraph: Map<number, { node: StreetNode; neighbors: number[] }> | null = null;
   private cachedGraphNetworkId: string | null = null;
 
   /**
    * Load street network for a given bounding box around coordinates
-   * Uses localStorage cache to avoid repeated API calls
+   * Uses IndexedDB cache to avoid repeated API calls (supports larger data than localStorage)
    */
   async loadStreets(
     centerLat: number,
     centerLon: number,
     radiusMeters = 500
   ): Promise<StreetNetwork> {
-    // Try to load from cache first
-    const cacheKey = this.getCacheKey(centerLat, centerLon, radiusMeters);
-    const cached = this.loadFromCache(cacheKey);
+    // Try to load from IndexedDB cache first
+    const cacheKey = this.streetCache.getCacheKey(centerLat, centerLon, radiusMeters);
+    const cached = await this.streetCache.load(cacheKey);
     if (cached) {
+      console.log('[OSM] Loaded from IndexedDB cache');
       return cached;
     }
 
@@ -120,8 +122,10 @@ export class OsmStreetService {
         const network = this.parseOverpassResponse(data, bounds);
         console.timeEnd('[OSM] parseOverpassResponse');
 
-        // Cache the result
-        this.saveToCache(cacheKey, network);
+        // Cache the result to IndexedDB (async, fire-and-forget)
+        this.streetCache.save(cacheKey, network).catch((err) => {
+          console.warn('[OSM] Failed to cache to IndexedDB:', err);
+        });
 
         return network;
       } catch (error) {
@@ -132,75 +136,6 @@ export class OsmStreetService {
 
     console.error('[OSM] All Overpass servers failed');
     throw lastError || new Error('All Overpass servers failed');
-  }
-
-  private getCacheKey(lat: number, lon: number, radius: number): string {
-    // Round coordinates to avoid floating point issues
-    const roundedLat = Math.round(lat * 10000) / 10000;
-    const roundedLon = Math.round(lon * 10000) / 10000;
-    return `${this.CACHE_PREFIX}v${this.CACHE_VERSION}_${roundedLat}_${roundedLon}_${radius}`;
-  }
-
-  private loadFromCache(key: string): StreetNetwork | null {
-    try {
-      const cached = localStorage.getItem(key);
-      if (!cached) return null;
-
-      const data = JSON.parse(cached);
-
-      // Reconstruct the Map from the cached array
-      const nodes = new Map<number, StreetNode>();
-      for (const [id, node] of data.nodesArray) {
-        nodes.set(id, node);
-      }
-
-      return {
-        streets: data.streets,
-        nodes,
-        bounds: data.bounds,
-      };
-    } catch {
-      return null;
-    }
-  }
-
-  private saveToCache(key: string, network: StreetNetwork): void {
-    try {
-      // Convert Map to array for JSON serialization
-      const data = {
-        streets: network.streets,
-        nodesArray: Array.from(network.nodes.entries()),
-        bounds: network.bounds,
-      };
-
-      const jsonData = JSON.stringify(data);
-
-      // Try to save, and if quota exceeded, clear old caches first
-      try {
-        localStorage.setItem(key, jsonData);
-      } catch {
-        // Quota exceeded - clear all street caches and try again
-        this.clearOldCaches();
-        localStorage.setItem(key, jsonData);
-      }
-
-    } catch {
-      // Silent fail - caching is optional
-    }
-  }
-
-  /**
-   * Clear all street network caches from localStorage
-   */
-  private clearOldCaches(): void {
-    const keysToRemove: string[] = [];
-    for (let i = 0; i < localStorage.length; i++) {
-      const key = localStorage.key(i);
-      if (key && key.startsWith(this.CACHE_PREFIX)) {
-        keysToRemove.push(key);
-      }
-    }
-    keysToRemove.forEach((key) => localStorage.removeItem(key));
   }
 
   private parseOverpassResponse(
@@ -612,23 +547,16 @@ export class OsmStreetService {
   }
 
   /**
-   * Clear cache for specific coordinates or all street caches
+   * Clear cache for specific coordinates or all street caches (IndexedDB)
    */
-  clearCache(centerLat?: number, centerLon?: number, radiusMeters?: number): void {
+  async clearCache(centerLat?: number, centerLon?: number, radiusMeters?: number): Promise<void> {
     if (centerLat !== undefined && centerLon !== undefined && radiusMeters !== undefined) {
       // Clear specific cache
-      const cacheKey = this.getCacheKey(centerLat, centerLon, radiusMeters);
-      localStorage.removeItem(cacheKey);
+      const cacheKey = this.streetCache.getCacheKey(centerLat, centerLon, radiusMeters);
+      await this.streetCache.clear(cacheKey);
     } else {
       // Clear all street caches
-      const keysToRemove: string[] = [];
-      for (let i = 0; i < localStorage.length; i++) {
-        const key = localStorage.key(i);
-        if (key?.startsWith(this.CACHE_PREFIX)) {
-          keysToRemove.push(key);
-        }
-      }
-      keysToRemove.forEach((key) => localStorage.removeItem(key));
+      await this.streetCache.clearAll();
     }
   }
 
