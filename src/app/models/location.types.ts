@@ -77,6 +77,6 @@ export interface RandomSpawnCandidate {
 export interface FavoriteLocation {
   id: string;
   hq: { lat: number; lon: number };
-  spawns: Array<{ lat: number; lon: number }>;
+  spawns: { lat: number; lon: number }[];
   createdAt: number;
 }
