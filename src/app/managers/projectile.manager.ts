@@ -72,7 +72,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
     this.add(projectile);
 
-    // Play spatial sound at tower position
+    // Play spatial sound at tower position (fire-and-forget, errors logged)
     this.playProjectileSound(tower, projectile.typeConfig.id);
 
     return projectile;
@@ -170,8 +170,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
   /**
    * Play spatial sound for a projectile at the tower's position
+   * Fire-and-forget async - errors are logged but don't block gameplay
    */
-  private playProjectileSound(tower: Tower, projectileType: string): void {
+  private async playProjectileSound(tower: Tower, projectileType: string): Promise<void> {
     if (!this.tilesEngine?.spatialAudio) return;
 
     // Map projectile types to sound IDs
@@ -182,7 +183,11 @@ export class ProjectileManager extends EntityManager<Projectile> {
     const pos = tower.position;
     const height = (pos.height ?? 0) + tower.typeConfig.heightOffset;
 
-    this.tilesEngine.spatialAudio.playAtGeo(soundId, pos.lat, pos.lon, height);
+    try {
+      await this.tilesEngine.spatialAudio.playAtGeo(soundId, pos.lat, pos.lon, height);
+    } catch (err) {
+      console.warn(`[ProjectileManager] Failed to play sound '${soundId}':`, err);
+    }
   }
 
   /**

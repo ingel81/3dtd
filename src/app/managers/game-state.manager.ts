@@ -292,14 +292,14 @@ export class GameStateManager {
     this.baseHealth.update((h) => Math.max(0, h - GAME_BALANCE.combat.enemyBaseDamage));
     this.updateFireIntensity();
 
-    // Play HQ damage sound at base position
+    // Play HQ damage sound at base position (fire-and-forget)
     if (this.basePosition && this.tilesEngine?.spatialAudio) {
       this.tilesEngine.spatialAudio.playAtGeo(
         GAME_SOUNDS.hqDamage.id,
         this.basePosition.lat,
         this.basePosition.lon,
         this.basePosition.height ?? 0
-      );
+      ).catch(err => console.warn('[GameState] HQ damage sound failed:', err));
     }
   }
 
