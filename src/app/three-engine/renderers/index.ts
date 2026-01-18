@@ -1,12 +1,12 @@
-import * as THREE from 'three';
+import { Vector3 } from 'three';
 
 /**
  * Coordinate sync interface for geo to local coordinate transformation
  */
 export interface CoordinateSync {
-  geoToLocal(lat: number, lon: number, height: number): THREE.Vector3;
-  geoToLocalSimple(lat: number, lon: number, height: number): THREE.Vector3;
-  localToGeo?(vec: THREE.Vector3): { lat: number; lon: number; height: number };
+  geoToLocal(lat: number, lon: number, height: number): Vector3;
+  geoToLocalSimple(lat: number, lon: number, height: number): Vector3;
+  localToGeo?(vec: Vector3): { lat: number; lon: number; height: number };
 }
 
 export { ThreeEnemyRenderer, type EnemyRenderData } from './three-enemy.renderer';

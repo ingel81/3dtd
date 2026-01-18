@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { Vector3, Matrix4 } from 'three';
 import { MathUtils } from 'three';
 import { WGS84_ELLIPSOID } from '3d-tiles-renderer';
 import { ENU_FRAME } from '3d-tiles-renderer/src/three/renderer/math/Ellipsoid.js';
@@ -22,12 +22,12 @@ export class EllipsoidSync {
   private originHeight: number;
 
   // Cached transformation matrices
-  private originMatrix = new THREE.Matrix4();
-  private inverseOriginMatrix = new THREE.Matrix4();
+  private originMatrix = new Matrix4();
+  private inverseOriginMatrix = new Matrix4();
 
   // Temporary vectors for calculations (avoid allocations)
-  private tempVec3 = new THREE.Vector3();
-  private tempMatrix = new THREE.Matrix4();
+  private tempVec3 = new Vector3();
+  private tempMatrix = new Matrix4();
 
   constructor(originLat: number, originLon: number, originHeight = 0) {
     this.originLatRad = originLat * MathUtils.DEG2RAD;
@@ -82,12 +82,12 @@ export class EllipsoidSync {
    * @param height - Height in meters (above WGS84 ellipsoid)
    * @returns Three.js Vector3 in local coordinates (meters, relative to origin)
    */
-  geoToLocal(lat: number, lon: number, height: number): THREE.Vector3 {
+  geoToLocal(lat: number, lon: number, height: number): Vector3 {
     const latRad = lat * MathUtils.DEG2RAD;
     const lonRad = lon * MathUtils.DEG2RAD;
 
     // Get ECEF position for target point
-    const targetPos = new THREE.Vector3();
+    const targetPos = new Vector3();
     WGS84_ELLIPSOID.getCartographicToPosition(latRad, lonRad, height, targetPos);
 
     // If we have tiles renderer with group transform, apply it
@@ -115,7 +115,7 @@ export class EllipsoidSync {
    * @param vec - Three.js Vector3 in local coordinates
    * @returns Object with lat, lon (degrees), height (meters)
    */
-  localToGeo(vec: THREE.Vector3): { lat: number; lon: number; height: number } {
+  localToGeo(vec: Vector3): { lat: number; lon: number; height: number } {
     const originLat = this.originLatRad * MathUtils.RAD2DEG;
     const originLon = this.originLonRad * MathUtils.RAD2DEG;
 
@@ -239,7 +239,7 @@ export class EllipsoidSync {
    * @param height - Height in meters (above ground/ellipsoid)
    * @returns Three.js Vector3 in local coordinates
    */
-  geoToLocalSimple(lat: number, lon: number, height: number): THREE.Vector3 {
+  geoToLocalSimple(lat: number, lon: number, height: number): Vector3 {
     const originLat = this.originLatRad * MathUtils.RAD2DEG;
     const originLon = this.originLonRad * MathUtils.RAD2DEG;
 
@@ -254,7 +254,7 @@ export class EllipsoidSync {
     const northDist = this.fastDistance(originLat, originLon, lat, originLon);
     const northSign = lat > originLat ? 1 : -1;
 
-    return new THREE.Vector3(
+    return new Vector3(
       eastDist * eastSign, // -X = East
       height - this.originHeight,
       northDist * northSign // +Z = North
@@ -268,10 +268,10 @@ export class EllipsoidSync {
    * but that approach doesn't work well due to ECEF coordinates.
    * Use overlayGroup (in scene root) with delta synchronization instead.
    */
-  geoToGroupLocal(lat: number, lon: number, height: number): THREE.Vector3 {
+  geoToGroupLocal(lat: number, lon: number, height: number): Vector3 {
     const simple = this.geoToLocalSimple(lat, lon, height);
     // Legacy transform - no longer needed with overlayGroup approach
-    return new THREE.Vector3(simple.x, -simple.z, -simple.y);
+    return new Vector3(simple.x, -simple.z, -simple.y);
   }
 
   /**

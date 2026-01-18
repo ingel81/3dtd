@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import * as THREE from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
@@ -49,10 +49,10 @@ export class TowerPlacementService {
   // ========================================
 
   /** Single preview tower mesh - used throughout placement */
-  private previewTowerMesh: THREE.Object3D | null = null;
+  private previewTowerMesh: Object3D | null = null;
 
   /** LOS preview mesh for placement */
-  private losPreviewMesh: THREE.InstancedMesh | null = null;
+  private losPreviewMesh: InstancedMesh | null = null;
 
   /** Is LOS preview currently building progressively */
   private losPreviewBuilding = false;
@@ -249,14 +249,14 @@ export class TowerPlacementService {
     }
   }
 
-  private makeModelTransparent(model: THREE.Object3D, opacity: number): void {
+  private makeModelTransparent(model: Object3D, opacity: number): void {
     model.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
+      if ((child as Mesh).isMesh) {
+        const mesh = child as Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         materials.forEach((mat) => {
           mat.transparent = true;
-          (mat as THREE.MeshStandardMaterial).opacity = opacity;
+          (mat as MeshStandardMaterial).opacity = opacity;
           mat.depthWrite = false;
         });
       }
@@ -267,15 +267,15 @@ export class TowerPlacementService {
     if (!this.previewTowerMesh) return;
 
     const tintColor = valid
-      ? new THREE.Color(0.15, 0.8, 0.15)  // Green tint
-      : new THREE.Color(0.9, 0.15, 0.15); // Red tint
+      ? new Color(0.15, 0.8, 0.15)  // Green tint
+      : new Color(0.9, 0.15, 0.15); // Red tint
 
     this.previewTowerMesh.traverse((child) => {
-      if ((child as THREE.Mesh).isMesh) {
-        const mesh = child as THREE.Mesh;
+      if ((child as Mesh).isMesh) {
+        const mesh = child as Mesh;
         const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
         materials.forEach((mat) => {
-          const stdMat = mat as THREE.MeshStandardMaterial;
+          const stdMat = mat as MeshStandardMaterial;
           if (stdMat.emissive) {
             stdMat.emissive.copy(tintColor);
             stdMat.emissiveIntensity = 0.5;

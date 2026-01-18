@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import * as THREE from 'three';
+import { Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 
 /**
@@ -28,9 +28,9 @@ export class KeyboardPanService {
   private readonly PAN_SPEED_SHIFT = 200; // Faster speed when holding Shift
 
   // Reusable vectors for calculations
-  private readonly forward = new THREE.Vector3();
-  private readonly right = new THREE.Vector3();
-  private readonly movement = new THREE.Vector3();
+  private readonly forward = new Vector3();
+  private readonly right = new Vector3();
+  private readonly movement = new Vector3();
 
   /**
    * Initialize with engine reference

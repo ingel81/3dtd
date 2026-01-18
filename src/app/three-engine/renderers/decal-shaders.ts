@@ -8,7 +8,7 @@
  * - Organic shapes for blood splatters
  */
 
-import * as THREE from 'three';
+import { ShaderMaterial, DoubleSide } from 'three';
 
 /**
  * Blood Decal Shader
@@ -19,7 +19,7 @@ import * as THREE from 'three';
  * - Soft edges with alpha falloff
  * - Random variation via instanceVariation attribute
  */
-export function createBloodDecalShader(): THREE.ShaderMaterial {
+export function createBloodDecalShader(): ShaderMaterial {
   const vertexShader = /* glsl */ `
     attribute vec3 instanceColor;
     attribute float instanceOpacity;
@@ -108,12 +108,12 @@ export function createBloodDecalShader(): THREE.ShaderMaterial {
     }
   `;
 
-  return new THREE.ShaderMaterial({
+  return new ShaderMaterial({
     vertexShader,
     fragmentShader,
     transparent: true,
     depthWrite: false,
-    side: THREE.DoubleSide,
+    side: DoubleSide,
   });
 }
 
@@ -126,7 +126,7 @@ export function createBloodDecalShader(): THREE.ShaderMaterial {
  * - Soft edges with radial gradient
  * - Subtle sparkle effect
  */
-export function createIceDecalShader(): THREE.ShaderMaterial {
+export function createIceDecalShader(): ShaderMaterial {
   const vertexShader = /* glsl */ `
     attribute vec3 instanceColor;
     attribute float instanceOpacity;
@@ -214,11 +214,11 @@ export function createIceDecalShader(): THREE.ShaderMaterial {
     }
   `;
 
-  return new THREE.ShaderMaterial({
+  return new ShaderMaterial({
     vertexShader,
     fragmentShader,
     transparent: true,
     depthWrite: false,
-    side: THREE.DoubleSide,
+    side: DoubleSide,
   });
 }

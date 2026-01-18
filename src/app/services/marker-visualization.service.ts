@@ -1,5 +1,17 @@
 import { Injectable, WritableSignal } from '@angular/core';
-import * as THREE from 'three';
+import {
+  Group,
+  Color,
+  OctahedronGeometry,
+  MeshPhongMaterial,
+  DoubleSide,
+  BackSide,
+  Mesh,
+  MeshBasicMaterial,
+  TorusGeometry,
+  Vector3,
+  SphereGeometry,
+} from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 
@@ -37,13 +49,13 @@ export class MarkerVisualizationService {
   // ========================================
 
   /** Spawn markers (diamond markers at spawn points) */
-  private spawnMarkers: THREE.Group[] = [];
+  private spawnMarkers: Group[] = [];
 
   /** Base/HQ marker (diamond marker at base location) */
-  private baseMarker: THREE.Group | null = null;
+  private baseMarker: Group | null = null;
 
   /** Height debug markers group (small spheres for terrain height debugging) */
-  private heightDebugGroup: THREE.Group | null = null;
+  private heightDebugGroup: Group | null = null;
 
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
@@ -81,80 +93,80 @@ export class MarkerVisualizationService {
   /**
    * Create a diamond marker with glow effect and optional rings
    * @param options Marker configuration
-   * @returns THREE.Group containing the marker meshes
+   * @returns Group containing the marker meshes
    */
-  createDiamondMarker(options: DiamondMarkerOptions): THREE.Group {
+  createDiamondMarker(options: DiamondMarkerOptions): Group {
     const { color, size = 1, glowIntensity = 1, showRings = true } = options;
 
-    const group = new THREE.Group();
+    const group = new Group();
 
     // Derive colors from base color
-    const baseColor = new THREE.Color(color);
-    const lighterColor = baseColor.clone().lerp(new THREE.Color(0xffffff), 0.4);
+    const baseColor = new Color(color);
+    const lighterColor = baseColor.clone().lerp(new Color(0xffffff), 0.4);
     const emissiveColor = baseColor.clone().multiplyScalar(0.3);
 
     // === MAIN DIAMOND (inner core) ===
-    const coreGeom = new THREE.OctahedronGeometry(8 * size, 0);
+    const coreGeom = new OctahedronGeometry(8 * size, 0);
     coreGeom.scale(1, 1.8, 1);
-    const coreMat = new THREE.MeshPhongMaterial({
+    const coreMat = new MeshPhongMaterial({
       color: color,
       emissive: emissiveColor,
       shininess: 100,
       transparent: true,
       opacity: 0.9,
-      side: THREE.DoubleSide,
+      side: DoubleSide,
     });
-    const coreMesh = new THREE.Mesh(coreGeom, coreMat);
+    const coreMesh = new Mesh(coreGeom, coreMat);
     coreMesh.renderOrder = 3;
     group.add(coreMesh);
 
     // === OUTER WIREFRAME (edge glow) ===
-    const wireGeom = new THREE.OctahedronGeometry(9 * size, 0);
+    const wireGeom = new OctahedronGeometry(9 * size, 0);
     wireGeom.scale(1, 1.8, 1);
-    const wireMat = new THREE.MeshBasicMaterial({
+    const wireMat = new MeshBasicMaterial({
       color: lighterColor,
       wireframe: true,
       transparent: true,
       opacity: 0.6 * glowIntensity,
     });
-    const wireMesh = new THREE.Mesh(wireGeom, wireMat);
+    const wireMesh = new Mesh(wireGeom, wireMat);
     wireMesh.renderOrder = 4;
     group.add(wireMesh);
 
     // === OUTER GLOW SHELL ===
-    const glowGeom = new THREE.OctahedronGeometry(12 * size, 0);
+    const glowGeom = new OctahedronGeometry(12 * size, 0);
     glowGeom.scale(1, 1.8, 1);
-    const glowMat = new THREE.MeshBasicMaterial({
+    const glowMat = new MeshBasicMaterial({
       color: color,
       transparent: true,
       opacity: 0.15 * glowIntensity,
-      side: THREE.BackSide,
+      side: BackSide,
     });
-    const glowMesh = new THREE.Mesh(glowGeom, glowMat);
+    const glowMesh = new Mesh(glowGeom, glowMat);
     glowMesh.renderOrder = 2;
     group.add(glowMesh);
 
     if (showRings) {
       // === HORIZONTAL RING ===
-      const ringGeom = new THREE.TorusGeometry(14 * size, 0.8 * size, 8, 32);
-      const ringMat = new THREE.MeshBasicMaterial({
+      const ringGeom = new TorusGeometry(14 * size, 0.8 * size, 8, 32);
+      const ringMat = new MeshBasicMaterial({
         color: lighterColor,
         transparent: true,
         opacity: 0.7 * glowIntensity,
       });
-      const ringMesh = new THREE.Mesh(ringGeom, ringMat);
+      const ringMesh = new Mesh(ringGeom, ringMat);
       ringMesh.rotation.x = Math.PI / 2;
       ringMesh.renderOrder = 2;
       group.add(ringMesh);
 
       // === SECOND RING (tilted) ===
-      const ring2Geom = new THREE.TorusGeometry(16 * size, 0.5 * size, 8, 32);
-      const ring2Mat = new THREE.MeshBasicMaterial({
+      const ring2Geom = new TorusGeometry(16 * size, 0.5 * size, 8, 32);
+      const ring2Mat = new MeshBasicMaterial({
         color: lighterColor,
         transparent: true,
         opacity: 0.4 * glowIntensity,
       });
-      const ring2Mesh = new THREE.Mesh(ring2Geom, ring2Mat);
+      const ring2Mesh = new Mesh(ring2Geom, ring2Mat);
       ring2Mesh.rotation.x = Math.PI / 2;
       ring2Mesh.rotation.z = Math.PI / 6;
       ring2Mesh.renderOrder = 2;
@@ -168,11 +180,11 @@ export class MarkerVisualizationService {
    * Dispose a diamond marker group properly
    * @param marker Marker group to dispose
    */
-  disposeDiamondMarker(marker: THREE.Group): void {
+  disposeDiamondMarker(marker: Group): void {
     marker.traverse((obj) => {
-      if ((obj as THREE.Mesh).isMesh) {
-        (obj as THREE.Mesh).geometry.dispose();
-        const mat = (obj as THREE.Mesh).material;
+      if ((obj as Mesh).isMesh) {
+        (obj as Mesh).geometry.dispose();
+        const mat = (obj as Mesh).material;
         if (Array.isArray(mat)) {
           mat.forEach((m) => m.dispose());
         } else {
@@ -239,10 +251,10 @@ export class MarkerVisualizationService {
    * @param name Spawn point name
    * @param lat Latitude
    * @param lon Longitude
-   * @param color Marker color (THREE.js hex)
+   * @param color Marker color (js hex)
    * @returns Created marker group
    */
-  addSpawnMarker(id: string, name: string, lat: number, lon: number, color: number): THREE.Group | null {
+  addSpawnMarker(id: string, name: string, lat: number, lon: number, color: number): Group | null {
     if (!this.engine || !this.baseCoords) return null;
 
     const overlayGroup = this.engine.getOverlayGroup();
@@ -312,14 +324,14 @@ export class MarkerVisualizationService {
   /**
    * Get all spawn markers
    */
-  getSpawnMarkers(): THREE.Group[] {
+  getSpawnMarkers(): Group[] {
     return this.spawnMarkers;
   }
 
   /**
    * Get base marker
    */
-  getBaseMarker(): THREE.Group | null {
+  getBaseMarker(): Group | null {
     return this.baseMarker;
   }
 
@@ -333,29 +345,29 @@ export class MarkerVisualizationService {
    * @param height Terrain height (null if raycast miss)
    * @param isHit Whether raycast hit terrain
    */
-  addHeightDebugMarker(position: THREE.Vector3, height: number | null, isHit: boolean): void {
+  addHeightDebugMarker(position: Vector3, height: number | null, isHit: boolean): void {
     if (!this.engine) return;
 
     const overlayGroup = this.engine.getOverlayGroup();
 
     // Create debug group if not exists (hidden by default)
     if (!this.heightDebugGroup) {
-      this.heightDebugGroup = new THREE.Group();
+      this.heightDebugGroup = new Group();
       this.heightDebugGroup.name = 'heightDebugGroup';
       this.heightDebugGroup.visible = this.heightDebugVisible?.() ?? false;
       overlayGroup.add(this.heightDebugGroup);
     }
 
     // Create small sphere marker
-    const geometry = new THREE.SphereGeometry(1, 8, 8);
-    const material = new THREE.MeshBasicMaterial({
+    const geometry = new SphereGeometry(1, 8, 8);
+    const material = new MeshBasicMaterial({
       color: isHit ? 0x00ff00 : 0xff0000, // Green for hits, red for misses
       transparent: true,
       opacity: 0.7,
       depthTest: true,
     });
 
-    const marker = new THREE.Mesh(geometry, material);
+    const marker = new Mesh(geometry, material);
     marker.position.copy(position);
     marker.position.y += 2; // Slightly above the street
     marker.renderOrder = 10;
@@ -373,9 +385,9 @@ export class MarkerVisualizationService {
 
     // Dispose all markers
     this.heightDebugGroup.traverse((obj) => {
-      if ((obj as THREE.Mesh).isMesh) {
-        (obj as THREE.Mesh).geometry.dispose();
-        const mat = (obj as THREE.Mesh).material;
+      if ((obj as Mesh).isMesh) {
+        (obj as Mesh).geometry.dispose();
+        const mat = (obj as Mesh).material;
         if (Array.isArray(mat)) {
           mat.forEach((m) => m.dispose());
         } else {

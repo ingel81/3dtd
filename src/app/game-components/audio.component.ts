@@ -1,4 +1,4 @@
-import * as THREE from 'three';
+import { PositionalAudio, Object3D } from 'three';
 import { Component, ComponentType } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { SpatialAudioManager } from '../managers/spatial-audio.manager';
@@ -24,8 +24,8 @@ export interface AudioConfig {
  * Active looping sound
  */
 interface ActiveLoop {
-  audio: THREE.PositionalAudio;
-  container: THREE.Object3D;
+  audio: PositionalAudio;
+  container: Object3D;
   isEnemySound: boolean; // Track if this counts against enemy sound budget
 }
 
@@ -170,7 +170,7 @@ export class AudioComponent extends Component {
     const scene = this.spatialAudio.getScene();
 
     // Create positional audio using cached buffer
-    const audio = new THREE.PositionalAudio(listener);
+    const audio = new PositionalAudio(listener);
     audio.setBuffer(buffer);
     audio.setRefDistance(config.refDistance ?? 30);
     audio.setRolloffFactor(config.rolloffFactor ?? 1);
@@ -183,7 +183,7 @@ export class AudioComponent extends Component {
     }
 
     // Create container at position
-    const container = new THREE.Object3D();
+    const container = new Object3D();
     const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
     if (localPos) {
       container.position.copy(localPos);

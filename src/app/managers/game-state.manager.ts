@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import * as THREE from 'three';
+import { Material } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
@@ -819,7 +819,7 @@ export class GameStateManager {
         tower.losVisualization.visible = false; // Ensure hidden
         this.tilesEngine.getScene().remove(tower.losVisualization);
         tower.losVisualization.geometry.dispose();
-        (tower.losVisualization.material as THREE.Material).dispose();
+        (tower.losVisualization.material as Material).dispose();
         tower.losVisualization = null;
       }
 
@@ -839,7 +839,7 @@ export class GameStateManager {
     if (tower.losVisualization && this.tilesEngine) {
       this.tilesEngine.getScene().remove(tower.losVisualization);
       tower.losVisualization.geometry.dispose();
-      (tower.losVisualization.material as THREE.Material).dispose();
+      (tower.losVisualization.material as Material).dispose();
       tower.losVisualization = null;
     }
 

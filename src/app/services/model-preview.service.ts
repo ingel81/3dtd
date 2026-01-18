@@ -1,5 +1,20 @@
 import { Injectable, inject } from '@angular/core';
-import * as THREE from 'three';
+import {
+  Scene,
+  PerspectiveCamera,
+  Group,
+  AnimationMixer,
+  WebGLRenderer,
+  SRGBColorSpace,
+  Color,
+  AmbientLight,
+  DirectionalLight,
+  Box3,
+  Vector3,
+  Light,
+  Object3D,
+  Mesh,
+} from 'three';
 import { AssetManagerService } from './asset-manager.service';
 
 export interface PreviewConfig {
@@ -18,10 +33,10 @@ export interface PreviewConfig {
 interface PreviewInstance {
   id: string;
   canvas: HTMLCanvasElement;
-  scene: THREE.Scene;
-  camera: THREE.PerspectiveCamera;
-  model: THREE.Group | null;
-  mixer: THREE.AnimationMixer | null;
+  scene: Scene;
+  camera: PerspectiveCamera;
+  model: Group | null;
+  mixer: AnimationMixer | null;
   config: PreviewConfig;
   animating: boolean;
 }
@@ -36,7 +51,7 @@ interface PreviewInstance {
 export class ModelPreviewService {
   private readonly assetManager = inject(AssetManagerService);
 
-  private renderer: THREE.WebGLRenderer | null = null;
+  private renderer: WebGLRenderer | null = null;
   private previews = new Map<string, PreviewInstance>();
   private animationFrameId: number | null = null;
   private lastTime = 0;
@@ -56,14 +71,14 @@ export class ModelPreviewService {
     canvas.width = 128;
     canvas.height = 128;
 
-    this.renderer = new THREE.WebGLRenderer({
+    this.renderer = new WebGLRenderer({
       canvas,
       alpha: true,
       antialias: true,
       preserveDrawingBuffer: true,
     });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    this.renderer.outputColorSpace = THREE.SRGBColorSpace;
+    this.renderer.outputColorSpace = SRGBColorSpace;
 
     // Start animation loop
     this.startAnimationLoop();
@@ -87,24 +102,24 @@ export class ModelPreviewService {
     }
 
     // Create scene
-    const scene = new THREE.Scene();
+    const scene = new Scene();
     if (config.backgroundColor !== undefined) {
-      scene.background = new THREE.Color(config.backgroundColor);
+      scene.background = new Color(config.backgroundColor);
     }
 
     // Create camera
     const aspect = targetCanvas.width / targetCanvas.height;
-    const camera = new THREE.PerspectiveCamera(45, aspect, 0.1, 100);
+    const camera = new PerspectiveCamera(45, aspect, 0.1, 100);
     const distance = config.cameraDistance ?? 5;
     const angle = config.cameraAngle ?? Math.PI / 6; // 30 degrees default
     camera.position.set(0, Math.sin(angle) * distance, Math.cos(angle) * distance);
     camera.lookAt(0, 0, 0);
 
     // Add lights
-    const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+    const ambientLight = new AmbientLight(0xffffff, 0.6);
     scene.add(ambientLight);
 
-    const directionalLight = new THREE.DirectionalLight(
+    const directionalLight = new DirectionalLight(
       0xffffff,
       config.lightIntensity ?? 1.0
     );
@@ -112,7 +127,7 @@ export class ModelPreviewService {
     scene.add(directionalLight);
 
     // Add rim light for better definition
-    const rimLight = new THREE.DirectionalLight(0x88ccff, 0.3);
+    const rimLight = new DirectionalLight(0x88ccff, 0.3);
     rimLight.position.set(-2, 1, -2);
     scene.add(rimLight);
 
@@ -163,9 +178,9 @@ export class ModelPreviewService {
       model.scale.set(scale, scale, scale);
 
       // Calculate bounding box after scaling
-      const box = new THREE.Box3().setFromObject(model);
-      const center = box.getCenter(new THREE.Vector3());
-      const size = box.getSize(new THREE.Vector3());
+      const box = new Box3().setFromObject(model);
+      const center = box.getCenter(new Vector3());
+      const size = box.getSize(new Vector3());
 
       // Center the model horizontally, optionally ground it
       model.position.x = -center.x;
@@ -183,7 +198,7 @@ export class ModelPreviewService {
       }
 
       // Wrap in a pivot group for rotation around center
-      const pivot = new THREE.Group();
+      const pivot = new Group();
       pivot.add(model);
       preview.scene.add(pivot);
       preview.model = pivot; // Rotate the pivot, not the model
@@ -204,7 +219,7 @@ export class ModelPreviewService {
 
       // Setup animation if specified
       if (preview.config.animationName && cachedModel.animations.length > 0) {
-        preview.mixer = new THREE.AnimationMixer(model);
+        preview.mixer = new AnimationMixer(model);
 
         // Find the requested animation
         let clip = cachedModel.animations.find(
@@ -331,7 +346,7 @@ export class ModelPreviewService {
 
     // Dispose scene lights
     preview.scene.traverse((obj) => {
-      if (obj instanceof THREE.Light) {
+      if (obj instanceof Light) {
         obj.dispose?.();
       }
     });
@@ -369,9 +384,9 @@ export class ModelPreviewService {
   /**
    * Recursively dispose Three.js object.
    */
-  private disposeObject(obj: THREE.Object3D): void {
+  private disposeObject(obj: Object3D): void {
     obj.traverse((child) => {
-      if (child instanceof THREE.Mesh) {
+      if (child instanceof Mesh) {
         child.geometry?.dispose();
         if (Array.isArray(child.material)) {
           child.material.forEach((m) => m.dispose());
