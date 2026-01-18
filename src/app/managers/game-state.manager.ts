@@ -58,6 +58,9 @@ export class GameStateManager {
 
   // Callbacks
   private onGameOverCallback?: () => void;
+
+  // Track game over timeout for cleanup on reset
+  private gameOverTimeout: ReturnType<typeof setTimeout> | null = null;
   private onDebugLogCallback?: (msg: string) => void;
 
   // Track active fire effect ID
@@ -684,7 +687,8 @@ export class GameStateManager {
     this.onGameOverCallback?.();
 
     // Game over screen appears 3 seconds after destruction
-    setTimeout(() => {
+    this.gameOverTimeout = setTimeout(() => {
+      this.gameOverTimeout = null;
       this.showGameOverScreen.set(true);
     }, 3000);
   }
@@ -722,6 +726,12 @@ export class GameStateManager {
    * Reset game to initial state
    */
   reset(): void {
+    // Clear game over timeout to prevent showing screen after reset
+    if (this.gameOverTimeout) {
+      clearTimeout(this.gameOverTimeout);
+      this.gameOverTimeout = null;
+    }
+
     // Clear tower overlays before clearing towers
     this.clearAllTowerOverlays();
 

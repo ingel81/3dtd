@@ -2095,6 +2095,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.engineInit.setStepActive('init');
       this.heightUpdate.stopHeightUpdates();
       this.routeAnimation.stopAnimation();
+
+      // Stop spawning new enemies before reset
+      this.waveAborted = true;
+      this.gatheringPhase.set(false);
+
       this.gameState.reset();
       this.appendDebugLog('Spielstand zurückgesetzt');
       this.clearMapEntities();
