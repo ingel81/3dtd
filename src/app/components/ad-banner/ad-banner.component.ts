@@ -11,18 +11,16 @@ import { isPlatformBrowser } from '@angular/common';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { environment } from '../../../environments/environment';
 
 /**
- * Ad Banner Component with Monetag Multitag Integration and Adblocker Fallback
+ * Ad Banner Component with Monetag Vignette Ads (Production only)
  *
  * Features:
- * - Monetag Multitag integration (automatic ad format selection)
+ * - Monetag Vignette Banner integration (only in production)
  * - Adblocker detection with graceful fallback
  * - Fallback shows donation/support options
  * - WC3-inspired design style
- *
- * Note: Multitag script is loaded globally in index.html
- * This component only shows fallback content for adblocker users
  */
 @Component({
   selector: 'app-ad-banner',
@@ -244,12 +242,26 @@ export class AdBannerComponent implements OnInit, OnDestroy {
 
   ngOnInit(): void {
     if (isPlatformBrowser(this.platformId)) {
-      // Check for adblocker after a delay (let Monetag script load)
-      setTimeout(() => this.checkForAdBlocker(), 3000);
-
-      // Periodic re-check
-      this.checkInterval = setInterval(() => this.checkForAdBlocker(), 10000);
+      // Only load Monetag ads in production
+      if (environment.production) {
+        this.loadMonetag();
+        // Check for adblocker after a delay (let Monetag script load)
+        setTimeout(() => this.checkForAdBlocker(), 3000);
+        // Periodic re-check
+        this.checkInterval = setInterval(() => this.checkForAdBlocker(), 10000);
+      }
     }
+  }
+
+  /**
+   * Dynamically load Monetag Vignette Banner script (production only)
+   */
+  private loadMonetag(): void {
+    const script = document.createElement('script');
+    script.dataset['zone'] = '10479931';
+    script.src = 'https://gizokraijaw.net/vignette.min.js';
+    const target = [document.documentElement, document.body].filter(Boolean).pop();
+    target?.appendChild(script);
   }
 
   ngOnDestroy(): void {
@@ -260,15 +272,9 @@ export class AdBannerComponent implements OnInit, OnDestroy {
 
   /**
    * Detect if an adblocker is active
-   * Uses multiple detection methods for reliability
+   * Uses bait element that adblockers typically hide
    */
   private checkForAdBlocker(): void {
-    // Method 1: Check if Monetag script was blocked
-    // The script sets window variables when loaded successfully
-    const monetagLoaded = !!(window as any).__monetag ||
-                          document.querySelector('script[data-zone="203085"]') !== null;
-
-    // Method 2: Create a bait element that adblockers typically hide
     const bait = document.createElement('div');
     bait.className = 'adsbox ad-banner textads banner-ads pub_300x250 ad-placement';
     bait.style.cssText = 'position:absolute;left:-9999px;width:300px;height:250px;';
