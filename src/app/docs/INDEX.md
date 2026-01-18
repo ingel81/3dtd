@@ -14,8 +14,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 |----------|--------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System-Architektur, Component-System, Renderer, Services |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
-| [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) | Performance-Analyse & Optimierungs-Maßnahmenkatalog (8 Experten) |
-| [PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md](PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md) | **NEU** Games-Industry Deep Dive (8 Production-Experten) |
+| [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungs-Maßnahmenkatalog (16 Experten) |
 | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) | Umfassende Code-Analyse (7 KI-Experten) |
 | [TODO.md](TODO.md) | Offene Aufgaben und bekannte Bugs |
 | [DONE.md](DONE.md) | Abgeschlossene Features und Fixes |
@@ -63,10 +62,10 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | ...Partikel-Effekte anpassen | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
 | ...technische Schulden verstehen | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) |
 | ...Code-Qualitaet verbessern | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) → Massnahmenkatalog |
-| ...Performance optimieren | [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) |
-| ...mehr FPS rausholen | [PERFORMANCE_REPORT_2026.md](PERFORMANCE_REPORT_2026.md) → Maßnahmenkatalog |
-| ...Production-Ready werden | [PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md](PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md) |
-| ...AAA-Level Performance | [PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md](PERFORMANCE_REPORT_2_GAMES_INDUSTRY.md) → Games-Industry |
+| ...Performance optimieren | [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) |
+| ...mehr FPS rausholen | [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) → Maßnahmenkatalog |
+| ...Production-Ready werden | [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) → Games-Industry Vergleich |
+| ...AAA-Level Performance | [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) → Implementierungs-Roadmap |
 
 ---
 
