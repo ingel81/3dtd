@@ -454,7 +454,7 @@ export class ThreeTilesEngine {
     const loader = new TextureLoader();
 
     loader.load(
-      '/assets/images/kloppenheim_06_puresky.jpg',
+      '/assets/images/kloppenheim_06_puresky.webp',
       (texture) => {
         texture.mapping = EquirectangularReflectionMapping;
         texture.colorSpace = SRGBColorSpace;
