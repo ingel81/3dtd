@@ -56,6 +56,7 @@ export class GlobalRouteGridService {
    * @param tipY Tower tip Y position (for LOS origin)
    * @param range Tower targeting range
    * @param losRaycaster LOS raycaster function
+   * @param isPureAirTower If true, skip LOS checks (air enemies are always visible)
    * @returns Array of cells visible from this tower
    */
   registerTower(
@@ -64,9 +65,10 @@ export class GlobalRouteGridService {
     towerZ: number,
     tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster
+    losRaycaster: LineOfSightRaycaster,
+    isPureAirTower = false
   ): RouteCell[] {
-    return this.grid.registerTower(towerId, towerX, towerZ, tipY, range, losRaycaster);
+    return this.grid.registerTower(towerId, towerX, towerZ, tipY, range, losRaycaster, isPureAirTower);
   }
 
   /**
@@ -219,15 +221,17 @@ export class GlobalRouteGridService {
   /**
    * Create placement preview visualization (for build mode)
    * Returns mesh immediately, call continuePreviewBuild() each frame
+   * @param isPureAirTower If true, skip LOS checks (all cells visible)
    */
   createPlacementPreview(
     towerX: number,
     towerZ: number,
     tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster
+    losRaycaster: LineOfSightRaycaster,
+    isPureAirTower = false
   ): THREE.InstancedMesh | null {
-    return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster);
+    return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster, isPureAirTower);
   }
 
   /**
