@@ -136,7 +136,12 @@ export class HeightUpdateService {
     this.previousLineCount = 0;
 
     if (this.loadingStatusSignal) {
-      this.loadingStatusSignal.set('Synchronisiere mit Terrain...');
+      this.loadingStatusSignal.set('Warte auf 3D-Kacheln...');
+    }
+
+    // Update detail for first cycle
+    if (this.onUpdateDetailCallback) {
+      this.onUpdateDetailCallback('Starte Terrain-Sync...');
     }
 
     return new Promise((resolve) => {
@@ -160,9 +165,14 @@ export class HeightUpdateService {
     this.heightUpdateAttempts++;
     this.heightProgress.set(this.heightUpdateAttempts);
 
-    // Update step detail for live progress display
+    // Update step detail for live progress display - show what's happening
     if (this.onUpdateDetailCallback) {
-      this.onUpdateDetailCallback(`${this.heightUpdateAttempts} Sync-Zyklen`);
+      const remaining = this.MIN_ATTEMPTS - this.heightUpdateAttempts;
+      if (remaining > 0) {
+        this.onUpdateDetailCallback(`Terrain synchronisieren... (${this.heightUpdateAttempts}/${this.MIN_ATTEMPTS})`);
+      } else {
+        this.onUpdateDetailCallback(`Finalisiere Terrain...`);
+      }
     }
 
     // Clear height cache before each attempt to get fresh values
@@ -229,7 +239,7 @@ export class HeightUpdateService {
 
     // Mark finalize step as done
     if (this.onFinalizeCallback) {
-      this.onFinalizeCallback(`${this.heightUpdateAttempts} Sync-Zyklen`);
+      this.onFinalizeCallback('Bereit');
     }
 
     // Check if all loading is complete

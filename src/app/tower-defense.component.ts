@@ -456,6 +456,12 @@ const DEFAULT_CENTER_COORDS = {
       margin-left: auto;
     }
 
+    .td-loading-step.active .td-step-detail {
+      color: var(--td-gold);
+      font-size: 12px;
+      font-weight: 500;
+    }
+
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -1149,7 +1155,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       );
 
       this.streetCount.set(this.streetNetwork.streets.length);
-      this.renderStreets();
+      // NOTE: renderStreets() is called later in Height-Update-Loop AFTER filterStreetNetworkToRoutes()
 
       return this.streetNetwork.streets.length;
     } catch (err) {
@@ -1188,6 +1194,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize GlobalRouteGrid after routes are computed
     // (setStepActive/Done are async but we fire-and-forget for UI update)
     void this.engineInit.setStepActive('grid');
+    this.engineInit.updateStepDetail('grid', 'Berechne Grid...');
     this.gameState.initializeGlobalRouteGrid();
     void this.engineInit.setStepDone('grid');
 
@@ -2108,6 +2115,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       // STEP 2: Initialize (stop height updates, reset game)
       await this.engineInit.setStepActive('init');
+      this.engineInit.updateStepDetail('init', 'Reset Spielstand...');
       this.heightUpdate.stopHeightUpdates();
       this.routeAnimation.stopAnimation();
 
@@ -2138,6 +2146,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
       // Use same parameters as initEngine for consistent framing
+      this.engineInit.updateStepDetail('init', 'Kamera positionieren...');
       const hqCoord: GeoPoint = { lat: data.hq.lat, lon: data.hq.lon };
       const spawnCoords: GeoPoint[] = [{ lat: data.spawn.lat, lon: data.spawn.lon }];
 
@@ -2170,6 +2179,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // STEP 3: Load streets in parallel with tiles
       await this.engineInit.setStepActive('streets');
+      this.engineInit.updateStepDetail('streets', 'Lade OSM-Daten...');
       const streetsPromise = this.osmService.loadStreets(data.hq.lat, data.hq.lon, 2000);
 
       // Wait for streets to load
@@ -2189,8 +2199,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         }, 10000)) // 10 second timeout
       ]);
 
-      // Render streets (now that terrain is available)
-      this.renderStreets();
+      // NOTE: renderStreets() is called later in Height-Update-Loop AFTER filterStreetNetworkToRoutes()
+      // This avoids 16+ second raycast overhead with unfiltered streets (21786 → 410)
 
       // STEP 4: Place HQ marker
       await this.engineInit.setStepActive('hq');
@@ -2217,6 +2227,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // STEP 6: Calculate route
       await this.engineInit.setStepActive('route');
+      this.engineInit.updateStepDetail('route', 'A* Pathfinding...');
       const base = this.baseCoords();
       const waveSpawnPoints: WaveSpawnPoint[] = this.spawnPoints().map((sp) => ({
         id: sp.id,
@@ -2237,6 +2248,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Initialize GlobalRouteGrid after routes are computed
       await this.engineInit.setStepActive('grid');
+      this.engineInit.updateStepDetail('grid', 'Berechne Grid...');
       this.gameState.initializeGlobalRouteGrid();
       await this.engineInit.setStepDone('grid');
 
