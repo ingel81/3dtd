@@ -56,6 +56,7 @@ export class EngineInitializationService {
 
   /** Loading steps for detailed progress display */
   readonly loadingSteps = signal<LoadingStep[]>([
+    { id: 'location', label: 'Bestimme Standort', status: 'pending' },
     { id: 'init', label: 'Initialisiere Engine', status: 'pending' },
     { id: 'streets', label: 'Lade Straßennetz', status: 'pending' },
     { id: 'hq', label: 'Platziere Hauptquartier', status: 'pending' },
@@ -162,9 +163,16 @@ export class EngineInitializationService {
 
   /**
    * Reset all loading steps to 'pending' for a fresh start
+   * Preserves 'location' step if already done (runs before initEngine)
    */
   resetLoadingSteps(): void {
+    const currentLocationStep = this.loadingSteps().find(s => s.id === 'location');
+    const locationStep = currentLocationStep?.status === 'done'
+      ? currentLocationStep
+      : { id: 'location', label: 'Bestimme Standort', status: 'pending' as const };
+
     this.loadingSteps.set([
+      locationStep,
       { id: 'init', label: 'Initialisiere Engine', status: 'pending' },
       { id: 'streets', label: 'Lade Straßennetz', status: 'pending' },
       { id: 'hq', label: 'Platziere Hauptquartier', status: 'pending' },
