@@ -22,6 +22,21 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
   - Nur Production-Builds zeigen Werbung
   - Development bleibt werbefrei für bessere DX
 
+### Performance & Privacy
+- [x] **Self-hosted Fonts (kein Google CDN)**
+  - `@fontsource/roboto` und `material-icons` npm Packages
+  - Fonts werden lokal aus dem Bundle geladen
+  - Keine externen Requests zu Google (DSGVO-konform)
+  - Schnelleres Laden (kein DNS-Lookup, kein Roundtrip)
+
+### DevOps
+- [x] **FTP-Deploy optimiert (nur geänderte Dateien)**
+  - `dangerous-clean-slate: false` statt true
+  - FTP-Action speichert State in `.ftp-deploy-sync-state.json`
+  - Nur neue/geänderte Dateien werden hochgeladen
+  - Alte Dateien mit alten Hashes werden automatisch gelöscht
+  - Deutlich schnellere Deploys nach initialem Sync
+
 ---
 
 ## 2026-01-17
