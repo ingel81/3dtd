@@ -38,7 +38,7 @@ export const SPATIAL_AUDIO_DEFAULTS = {
 export const GAME_SOUNDS = {
   hqDamage: {
     id: 'hq_damage',
-    url: '/assets/sounds/small_hq_explosion.mp3',
+    url: '/assets/sounds/effects/explosion.mp3',
     refDistance: 40,
     rolloffFactor: 1,
     volume: 1.4,

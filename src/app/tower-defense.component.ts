@@ -184,7 +184,7 @@ const DEFAULT_CENTER_COORDS = {
           <!-- Google Attribution (required) -->
           @if (!loading() && !error()) {
             <div class="td-google-logo-container">
-              <img src="/assets/images/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
+              <img src="/assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
             </div>
             <div class="td-map-attribution">{{ mapAttribution() }}</div>
 

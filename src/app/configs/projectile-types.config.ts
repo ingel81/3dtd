@@ -193,37 +193,37 @@ export interface ProjectileSoundConfig {
 
 export const PROJECTILE_SOUNDS: Record<string, ProjectileSoundConfig> = {
   arrow: {
-    url: '/assets/sounds/arrow_01.mp3',
+    url: '/assets/sounds/towers/archer/shoot.mp3',
     refDistance: 50,
     rolloffFactor: 1,
     volume: 0.5,
   },
   bullet: {
-    url: '/assets/sounds/gatling_0.mp3',
+    url: '/assets/sounds/towers/gatling/shoot.mp3',
     refDistance: 40,
     rolloffFactor: 1.2,
     volume: 0.25,
   },
   rocket: {
-    url: '/assets/sounds/rocket_launch.mp3',
+    url: '/assets/sounds/towers/rocket/launch.mp3',
     refDistance: 60,
     rolloffFactor: 1,
     volume: 0.7,
   },
   cannonball: {
-    url: '/assets/sounds/cannon_01.mp3',
+    url: '/assets/sounds/towers/cannon/shoot.mp3',
     refDistance: 70,
     rolloffFactor: 1,
     volume: 0.6,
   },
   'ice-shard': {
-    url: '/assets/sounds/ice_cast.mp3',
+    url: '/assets/sounds/towers/ice/cast.mp3',
     refDistance: 50,
     rolloffFactor: 1,
     volume: 0.4,
   },
   fireball: {
-    url: '/assets/sounds/magic_cast.mp3',
+    url: '/assets/sounds/towers/magic/cast.mp3',
     refDistance: 55,
     rolloffFactor: 1.1,
     volume: 0.45,
