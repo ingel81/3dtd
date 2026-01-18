@@ -27,6 +27,7 @@ interface ActiveLoop {
   audio: PositionalAudio;
   container: Object3D;
   isEnemySound: boolean; // Track if this counts against enemy sound budget
+  paused: boolean; // Track if loop is paused due to distance culling
 }
 
 /**
@@ -129,6 +130,18 @@ export class AudioComponent extends Component {
     }
 
     const pos = this.getPosition();
+
+    // Distance culling check before starting loop
+    if (pos) {
+      const cullCheckPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
+      if (cullCheckPos && !this.spatialAudio.isWithinAudibleDistance(cullCheckPos)) {
+        // Too far away - don't start the loop
+        if (isEnemySound) {
+          this.spatialAudio.unregisterEnemySound();
+        }
+        return;
+      }
+    }
     if (!pos) {
       // Cleanup on early exit
       if (isEnemySound) {
@@ -202,7 +215,7 @@ export class AudioComponent extends Component {
       return;
     }
 
-    this.activeLoops.set(id, { audio, container, isEnemySound });
+    this.activeLoops.set(id, { audio, container, isEnemySound, paused: false });
     audio.play();
   }
 
@@ -248,7 +261,7 @@ export class AudioComponent extends Component {
   }
 
   /**
-   * Update loop positions to follow GameObject
+   * Update loop positions and check distance culling
    */
   update(_deltaTime: number): void {
     if (this.activeLoops.size === 0 || !this.spatialAudio) return;
@@ -259,8 +272,63 @@ export class AudioComponent extends Component {
     const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
     if (!localPos) return;
 
-    for (const loop of this.activeLoops.values()) {
+    const isInRange = this.spatialAudio.isWithinAudibleDistance(localPos);
+
+    for (const [id, loop] of this.activeLoops) {
       loop.container.position.copy(localPos);
+
+      if (!isInRange && !loop.paused) {
+        // Out of range and playing -> pause
+        this.pauseLoop(id, loop);
+      } else if (isInRange && loop.paused) {
+        // Back in range and paused -> resume
+        this.resumeLoop(id, loop);
+      }
+    }
+  }
+
+  /**
+   * Pause a loop due to distance culling
+   */
+  private pauseLoop(id: string, loop: ActiveLoop): void {
+    if (!this.spatialAudio) return;
+
+    try {
+      loop.audio.pause();
+      loop.paused = true;
+
+      // Release enemy sound budget while paused
+      if (loop.isEnemySound) {
+        this.spatialAudio.unregisterEnemySound();
+      }
+    } catch (e) {
+      console.warn(`[AudioComponent] pauseLoop('${id}') failed:`, e);
+    }
+  }
+
+  /**
+   * Resume a paused loop when back in audible range
+   */
+  private resumeLoop(id: string, loop: ActiveLoop): void {
+    if (!this.spatialAudio) return;
+
+    // Re-acquire enemy sound budget before resuming
+    if (loop.isEnemySound) {
+      if (!this.spatialAudio.registerEnemySound()) {
+        // Budget exceeded - stay paused
+        return;
+      }
+    }
+
+    try {
+      loop.audio.play();
+      loop.paused = false;
+    } catch (e) {
+      console.warn(`[AudioComponent] resumeLoop('${id}') failed:`, e);
+      // If resume failed, release the budget we just acquired
+      if (loop.isEnemySound) {
+        this.spatialAudio.unregisterEnemySound();
+      }
     }
   }
 
