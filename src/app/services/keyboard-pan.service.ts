@@ -20,8 +20,12 @@ export class KeyboardPanService {
   // Currently pressed keys
   private keysPressed = new Set<string>();
 
+  // Shift key state for faster panning
+  private shiftPressed = false;
+
   // Pan speed in meters per second
   private readonly PAN_SPEED = 80;
+  private readonly PAN_SPEED_SHIFT = 200; // Faster speed when holding Shift
 
   // Reusable vectors for calculations
   private readonly forward = new THREE.Vector3();
@@ -40,6 +44,9 @@ export class KeyboardPanService {
    * @returns true if the key was handled (should prevent default)
    */
   onKeyDown(event: KeyboardEvent): boolean {
+    // Track Shift key for faster panning
+    this.shiftPressed = event.shiftKey;
+
     const key = this.normalizeKey(event.key);
     if (!key) return false;
 
@@ -52,6 +59,9 @@ export class KeyboardPanService {
    * @returns true if the key was handled
    */
   onKeyUp(event: KeyboardEvent): boolean {
+    // Track Shift key for faster panning
+    this.shiftPressed = event.shiftKey;
+
     const key = this.normalizeKey(event.key);
     if (!key) return false;
 
@@ -128,8 +138,9 @@ export class KeyboardPanService {
     if (this.movement.lengthSq() > 0) {
       this.movement.normalize();
 
-      // Scale by speed and delta time
-      const distance = this.PAN_SPEED * deltaTime;
+      // Scale by speed and delta time (use faster speed when holding Shift)
+      const speed = this.shiftPressed ? this.PAN_SPEED_SHIFT : this.PAN_SPEED;
+      const distance = speed * deltaTime;
       this.movement.multiplyScalar(distance);
 
       // Apply movement to camera position
@@ -142,6 +153,7 @@ export class KeyboardPanService {
    */
   clearKeys(): void {
     this.keysPressed.clear();
+    this.shiftPressed = false;
   }
 
   /**
