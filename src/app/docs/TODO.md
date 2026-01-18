@@ -164,7 +164,7 @@
 
 ### Ideen
 - [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
-- [ ] Stats zu "Warte auf 3D-Tiles" im Loading Screen anzeigen (geladene/ausstehende Tiles)
+- [x] Stats zu "Warte auf 3D-Tiles" im Loading Screen anzeigen (geladene/ausstehende Tiles)
 - [ ] **Browser Geolocation API** - Standort per GPS/WLAN ermitteln
       `navigator.geolocation.getCurrentPosition()` - kostenlos, präzise, kein API-Key
       Fallback: IP-basiert via ip-api.com (Stadt-Genauigkeit)

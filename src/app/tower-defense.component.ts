@@ -49,6 +49,7 @@ import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS, D
 import { UrlLocationService } from './services/url-location.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
+import { GeolocationService } from './services/geolocation.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
@@ -469,6 +470,10 @@ const DEFAULT_CENTER_COORDS = {
       font-weight: 500;
     }
 
+    .td-loading-step.done .td-step-detail {
+      color: var(--td-green);
+    }
+
     @keyframes spin {
       from { transform: rotate(0deg); }
       to { transform: rotate(360deg); }
@@ -695,6 +700,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly keyboardPan = inject(KeyboardPanService);
+  private readonly geolocation = inject(GeolocationService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -820,27 +826,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // URL is source of truth
-    const urlData = this.urlLocation.parseFromUrl();
-
-    if (urlData) {
-      // URL has location → use it
-      this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
-    } else {
-      // No URL params → use defaults and update URL
-      this.locationMgmt.setLocation(DEFAULT_HQ, [DEFAULT_SPAWN]);
-    }
-
-    // Always sync URL with current location
-    this.syncUrlWithLocation();
-
-    // Resolve favorite names (async)
+    // Resolve favorite names (async, doesn't block)
     this.resolveFavoriteNames();
-
-    // Sync baseCoords and centerCoords
-    const hq = this.locationMgmt.hq();
-    this.baseCoords.set({ latitude: hq.lat, longitude: hq.lon });
-    this.centerCoords.set({ latitude: hq.lat, longitude: hq.lon, height: 400 });
   }
 
   /**
@@ -866,8 +853,47 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.favoriteNamesMap.set(names);
   }
 
-  ngAfterViewInit(): void {
+  async ngAfterViewInit(): Promise<void> {
+    // First: Determine location (with geolocation cascade if no URL params)
+    await this.initializeLocation();
+
+    // Then: Initialize the 3D engine
     this.initEngine();
+  }
+
+  /**
+   * Initialize location from URL or geolocation cascade
+   * Shows as first loading step: "Bestimme Standort"
+   */
+  private async initializeLocation(): Promise<void> {
+    await this.engineInit.setStepActive('location');
+
+    // URL is source of truth
+    const urlData = this.urlLocation.parseFromUrl();
+
+    if (urlData) {
+      // URL has location → use it (skip geolocation)
+      this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
+      await this.engineInit.setStepDone('location', 'aus URL');
+    } else {
+      // No URL params → try geolocation cascade
+      this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepDetail('location', detail);
+      const detected = await this.geolocation.detectLocation();
+      this.locationMgmt.setLocation(detected, []);
+
+      const sourceLabel = detected.source === 'browser' ? 'Browser'
+                        : detected.source === 'ip' ? 'IP-basiert'
+                        : 'Default';
+      await this.engineInit.setStepDone('location', sourceLabel);
+    }
+
+    // Sync URL with current location
+    this.syncUrlWithLocation();
+
+    // Sync baseCoords and centerCoords
+    const hq = this.locationMgmt.hq();
+    this.baseCoords.set({ latitude: hq.lat, longitude: hq.lon });
+    this.centerCoords.set({ latitude: hq.lat, longitude: hq.lon, height: 400 });
   }
 
   /**

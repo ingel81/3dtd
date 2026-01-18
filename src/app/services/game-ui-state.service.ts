@@ -75,6 +75,11 @@ export class GameUIStateService {
         if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
         if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
         if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
+
+        // Auto-expand layer menu if any layer is active
+        if (state.streetsVisible || state.routesVisible || state.spatialGridDebugVisible) {
+          this.layerMenuExpanded.set(true);
+        }
       }
     } catch {
       // Ignore parse errors
