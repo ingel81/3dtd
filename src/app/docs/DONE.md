@@ -4,6 +4,26 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-18
+
+### Monetarisierung
+- [x] **Ad-Banner System implementiert**
+  - `AdBannerComponent` mit WC3-Style Design
+  - Monetag Vignette Banner Integration (Zone 10479931)
+  - Ads werden nur in Production geladen (`environment.production`)
+  - Adblocker-Detection mit Bait-Element-Methode
+  - Fallback-Panel bei Adblocker: Ko-fi Spenden-Button + GitHub Star
+  - Komponente in Sidebar integriert (über Footer)
+  - Kontextabhängige Größe vorbereitet (compact-Mode für aktive Wellen)
+
+### Code Quality
+- [x] **Environment-basierte Ad-Konfiguration**
+  - Kein Ad-Script in index.html (dynamisches Laden)
+  - Nur Production-Builds zeigen Werbung
+  - Development bleibt werbefrei für bessere DX
+
+---
+
 ## 2026-01-17
 
 ### Neue Features
