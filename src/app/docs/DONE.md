@@ -6,6 +6,33 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-18
 
+### UI/UX
+- [x] **Tooltips im Baumenü nach links**
+  - `matTooltipPosition="left"` für Tower-Cards und Upgrade-Buttons
+  - Verhindert Überlappen mit rechtem Bildschirmrand
+
+### Camera & Controls
+- [x] **Shift + WASD/Pfeiltasten für schnelleres Panning**
+  - Normal: 80 m/s, mit Shift: 200 m/s
+  - `KeyboardPanService` trackt jetzt Shift-Modifier
+
+### Air Tower Visualisierung
+- [x] **Air Tower zeigen alle Zellen in Reichweite grün**
+  - Pure Air Tower (`canTargetAir && !canTargetGround`) überspringen LOS-Checks
+  - `isPureAirTower` Parameter in `registerTower()` und `createPlacementPreview()`
+  - Sowohl nach dem Bauen als auch im Baumodus (Preview) korrekt
+
+### Performance & Storage
+- [x] **Straßen-Cache von LocalStorage auf IndexedDB migriert**
+  - `StreetCacheService` (bereits implementiert) jetzt in `OsmStreetService` integriert
+  - Unterstützt 50-100+ MB statt 5-10 MB localStorage Limit
+  - LRU-Eviction (max. 5 Locations gecacht)
+
+### Bugfix
+- [x] **Grid/Tower-Visualisierung Flashing - präventiver Fix**
+  - `animationTime` wird jetzt gewrappt um Float-Präzisionsprobleme bei langen Sessions zu vermeiden
+  - Problem war schwer reproduzierbar (1x aufgetreten)
+
 ### Monetarisierung
 - [x] **Ad-Banner System implementiert**
   - `AdBannerComponent` mit WC3-Style Design
