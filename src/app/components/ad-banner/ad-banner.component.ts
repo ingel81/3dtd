@@ -4,11 +4,8 @@ import {
   signal,
   OnInit,
   OnDestroy,
-  AfterViewInit,
   PLATFORM_ID,
   inject,
-  ElementRef,
-  ViewChild,
 } from '@angular/core';
 import { isPlatformBrowser } from '@angular/common';
 import { CommonModule } from '@angular/common';
@@ -16,48 +13,25 @@ import { MatIconModule } from '@angular/material/icon';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
- * Ad Banner Component with Monetag Integration and Adblocker Fallback
+ * Ad Banner Component with Monetag Multitag Integration and Adblocker Fallback
  *
  * Features:
- * - Monetag ad network integration (better for gaming traffic)
- * - Context-aware sizing (large during pause, small during wave)
+ * - Monetag Multitag integration (automatic ad format selection)
  * - Adblocker detection with graceful fallback
  * - Fallback shows donation/support options
  * - WC3-inspired design style
  *
- * Setup:
- * 1. Create account at https://monetag.com
- * 2. Add your website and get approved
- * 3. Create a "Banner" ad unit (300x250 for large, 300x100 for compact)
- * 4. Replace MONETAG_ZONE_ID below with your zone ID
+ * Note: Multitag script is loaded globally in index.html
+ * This component only shows fallback content for adblocker users
  */
-
-// ============================================================================
-// MONETAG CONFIGURATION - Replace with your actual zone IDs after signup
-// ============================================================================
-const MONETAG_CONFIG = {
-  // Get these from your Monetag dashboard after creating ad units
-  zoneIdLarge: 'XXXXXXXX',   // 300x250 Medium Rectangle
-  zoneIdCompact: 'XXXXXXXX', // 300x100 Small Banner (or use same as large)
-  // Set to true once you have valid zone IDs
-  enabled: false,
-};
-
 @Component({
   selector: 'app-ad-banner',
   standalone: true,
   imports: [CommonModule, MatIconModule],
   template: `
     <div class="td-ad-container" [class.td-ad-compact]="compact()">
-      <!-- Monetag Ad Slot (hidden if blocked or not configured) -->
-      @if (!adBlocked() && monetagEnabled) {
-        <div class="td-ad-slot" [class.td-ad-slot-compact]="compact()">
-          <div #adContainer class="td-ad-monetag"></div>
-        </div>
-      }
-
-      <!-- Fallback: Donation Panel (shown if ad blocked or Monetag not configured) -->
-      @if (adBlocked() || !monetagEnabled) {
+      <!-- Fallback: Donation Panel (shown if ad blocked) -->
+      @if (adBlocked()) {
         <div class="td-fallback-panel" [class.td-fallback-compact]="compact()">
           <div class="td-fallback-header">
             <mat-icon>favorite</mat-icon>
@@ -116,33 +90,6 @@ const MONETAG_CONFIG = {
     .td-ad-container {
       margin-top: auto;
       padding: 0;
-    }
-
-    /* === Ad Slot === */
-    .td-ad-slot {
-      width: 300px;
-      height: 250px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      overflow: hidden;
-      transition: height 0.3s ease;
-    }
-
-    .td-ad-slot-compact {
-      height: 100px;
-    }
-
-    .td-ad-monetag {
-      width: 100%;
-      height: 100%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
     }
 
     /* === Fallback Panel (WC3 Style) === */
@@ -283,10 +230,8 @@ const MONETAG_CONFIG = {
     }
   `,
 })
-export class AdBannerComponent implements OnInit, AfterViewInit, OnDestroy {
+export class AdBannerComponent implements OnInit, OnDestroy {
   private readonly platformId = inject(PLATFORM_ID);
-
-  @ViewChild('adContainer') adContainer!: ElementRef<HTMLDivElement>;
 
   /** Whether the ad should be compact (during active wave) */
   readonly compact = input<boolean>(false);
@@ -294,27 +239,16 @@ export class AdBannerComponent implements OnInit, AfterViewInit, OnDestroy {
   /** Whether an adblocker is detected */
   readonly adBlocked = signal(false);
 
-  /** Whether Monetag is configured and enabled */
-  readonly monetagEnabled = MONETAG_CONFIG.enabled;
-
   /** Check interval for adblocker detection */
   private checkInterval: ReturnType<typeof setInterval> | null = null;
 
-  /** Track if Monetag script is loaded */
-  private monetagLoaded = false;
-
   ngOnInit(): void {
-    if (isPlatformBrowser(this.platformId) && this.monetagEnabled) {
-      // Load Monetag script
-      this.loadMonetag();
-    }
-  }
+    if (isPlatformBrowser(this.platformId)) {
+      // Check for adblocker after a delay (let Monetag script load)
+      setTimeout(() => this.checkForAdBlocker(), 3000);
 
-  ngAfterViewInit(): void {
-    if (isPlatformBrowser(this.platformId) && this.monetagEnabled) {
-      // Start adblocker detection after view init
-      setTimeout(() => this.checkForAdBlocker(), 2000);
-      this.checkInterval = setInterval(() => this.checkForAdBlocker(), 5000);
+      // Periodic re-check
+      this.checkInterval = setInterval(() => this.checkForAdBlocker(), 10000);
     }
   }
 
@@ -325,69 +259,38 @@ export class AdBannerComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Load Monetag ad script dynamically
-   */
-  private loadMonetag(): void {
-    if (this.monetagLoaded) return;
-
-    const zoneId = this.compact()
-      ? MONETAG_CONFIG.zoneIdCompact
-      : MONETAG_CONFIG.zoneIdLarge;
-
-    // Monetag uses a specific script pattern
-    const script = document.createElement('script');
-    script.async = true;
-    script.setAttribute('data-cfasync', 'false');
-    script.src = `//pl${zoneId}.profitabledisplaynetwork.com/${zoneId}/invoke.js`;
-
-    script.onerror = () => {
-      console.warn('[AdBanner] Monetag script blocked or failed to load');
-      this.adBlocked.set(true);
-    };
-
-    script.onload = () => {
-      this.monetagLoaded = true;
-      // Monetag will automatically fill the container
-    };
-
-    document.head.appendChild(script);
-  }
-
-  /**
    * Detect if an adblocker is active
    * Uses multiple detection methods for reliability
    */
   private checkForAdBlocker(): void {
-    // Method 1: Check if Monetag container has content
-    if (this.adContainer?.nativeElement) {
-      const container = this.adContainer.nativeElement;
-      const hasContent = container.children.length > 0 ||
-                         container.innerHTML.trim().length > 0;
-
-      if (!hasContent && this.monetagLoaded) {
-        // Script loaded but no ad content = blocked
-        this.adBlocked.set(true);
-        this.stopChecking();
-        return;
-      }
-    }
+    // Method 1: Check if Monetag script was blocked
+    // The script sets window variables when loaded successfully
+    const monetagLoaded = !!(window as any).__monetag ||
+                          document.querySelector('script[data-zone="203085"]') !== null;
 
     // Method 2: Create a bait element that adblockers typically hide
     const bait = document.createElement('div');
-    bait.className = 'adsbox ad-banner textads banner-ads pub_300x250';
+    bait.className = 'adsbox ad-banner textads banner-ads pub_300x250 ad-placement';
     bait.style.cssText = 'position:absolute;left:-9999px;width:300px;height:250px;';
+    bait.innerHTML = '&nbsp;';
     document.body.appendChild(bait);
 
-    const baitBlocked = bait.offsetHeight === 0 ||
-                        bait.offsetWidth === 0 ||
-                        window.getComputedStyle(bait).display === 'none';
+    // Give browser time to apply adblock rules
+    setTimeout(() => {
+      const baitBlocked = bait.offsetHeight === 0 ||
+                          bait.offsetWidth === 0 ||
+                          bait.clientHeight === 0 ||
+                          window.getComputedStyle(bait).display === 'none' ||
+                          window.getComputedStyle(bait).visibility === 'hidden';
 
-    document.body.removeChild(bait);
+      document.body.removeChild(bait);
 
-    if (baitBlocked) {
-      this.adBlocked.set(true);
-      this.stopChecking();
-    }
+      // If bait is blocked, show fallback
+      if (baitBlocked && !this.adBlocked()) {
+        this.adBlocked.set(true);
+        this.stopChecking();
+      }
+    }, 100);
   }
 
   private stopChecking(): void {
