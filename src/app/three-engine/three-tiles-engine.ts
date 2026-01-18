@@ -1335,7 +1335,8 @@ export class ThreeTilesEngine {
 
   /**
    * Get tile loading statistics by counting meshes in the tiles group
-   * Cached and updated every 500ms for performance
+   * and querying download/parse queue lengths.
+   * Cached and updated every 500ms for performance.
    */
   getTileStats(): { parsing: number; downloading: number; total: number; visible: number } {
     const now = performance.now();
@@ -1360,9 +1361,16 @@ export class ThreeTilesEngine {
       }
     });
 
+    // Get queue lengths for downloading/parsing stats
+    // PriorityQueue has 'length' property for queued items
+    const downloadQueue = this.tilesRenderer.downloadQueue as { length?: number };
+    const parseQueue = this.tilesRenderer.parseQueue as { length?: number };
+    const downloading = downloadQueue?.length ?? 0;
+    const parsing = parseQueue?.length ?? 0;
+
     this.cachedTileStats = {
-      parsing: 0,
-      downloading: 0,
+      parsing,
+      downloading,
       total: totalMeshes,
       visible: visibleMeshes,
     };

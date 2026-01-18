@@ -1044,10 +1044,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Check if we need to start/stop tile stats polling
     const tiles = this.tilesLoading();
-    const heights = this.heightsLoading();
 
-    // Start polling when heights done but tiles still loading
-    if (!heights && tiles && !this.tileStatsIntervalId && this.engine) {
+    // Get engine reference (may not be set on this.engine yet during init)
+    const engine = this.engine ?? this.engineInit.getEngine();
+
+    // Start polling when tiles still loading (shows stats in loading screen)
+    if (tiles && !this.tileStatsIntervalId && engine) {
       this.startTileStatsPolling();
     }
 
@@ -1076,10 +1078,15 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.tileStatsIntervalId) return;
 
     this.tileStatsIntervalId = window.setInterval(() => {
-      if (!this.engine) return;
+      // Get engine reference (may not be set on this.engine yet during init)
+      const engine = this.engine ?? this.engineInit.getEngine();
+      if (!engine) return;
 
-      const stats = this.engine.getTileStats();
-      const detail = `${stats.visible} Kacheln geladen`;
+      const stats = engine.getTileStats();
+      const pending = stats.downloading + stats.parsing;
+      const detail = pending > 0
+        ? `${stats.visible} geladen, ${pending} ausstehend`
+        : `${stats.visible} Kacheln geladen`;
       this.engineInit.updateStepDetail('tiles', detail);
     }, 500);
   }

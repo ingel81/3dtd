@@ -296,6 +296,12 @@ export class EngineInitializationService {
       // HeightUpdateService callback (runs BEFORE overlay hides)
       await this.setStepActive('finalize');
       await callbacks.onScheduleHeightUpdate();
+      await this.setStepDone('finalize');
+
+      // Step 7: Wait for 3D tiles (if still loading)
+      if (this.tilesLoading()) {
+        await this.setStepActive('tiles');
+      }
 
       // Final check (heights should trigger hiding overlay)
       callbacks.onCheckAllLoaded();
