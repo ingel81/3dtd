@@ -42,47 +42,6 @@
 > Siehe: [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) für Details
 > Erwarteter Gesamt-Gewinn: +80-100% FPS, -140MB Download, Memory Leaks behoben
 
-### 🔴 Priorität 1: Kritisch (Production-Blocker)
-
-- [x] **Shadow Flags entfernen** - GPU-Zyklen verschwendet für nie gerenderte Shadows
-      `three-tiles-engine.ts:389-411`, `three-enemy.renderer.ts:132-133`
-      → [Teil 4.1](PERFORMANCE_REPORT.md#41-shadow-configuration-mismatch--kritisch)
-
-- [x] **Event Listener Cleanup** - Memory Leak bei Location-Wechsel
-      `three-tiles-engine.ts:324-360` - dispose() räumt nicht auf
-      → [Teil 7.1](PERFORMANCE_REPORT.md#71-event-listener-leaks--kritisch)
-
-- [x] **Timeout Cleanup bei Reset** - Timeouts feuern nach Game-Reset weiter
-      `wave.manager.ts:78,96`, `game-state.manager.ts:687`
-      → [Teil 7.2](PERFORMANCE_REPORT.md#72-timeout-leaks-bei-reset)
-
-- [x] **RxJS takeUntil/takeUntilDestroyed** - Subscription Leaks
-      `tower-defense.component.ts:2303`, `game-sidebar.component.ts:579`
-      → [Teil 7.3](PERFORMANCE_REPORT.md#73-rxjs-subscription-leaks)
-
-- [x] **Three.js Named Imports** - Kompletter Import +400KB Bundle
-      28 Files mit `import * as THREE` → Named Imports
-      → [Teil 13.1](PERFORMANCE_REPORT.md#131-threejs-tree-shaking--kritisch)
-
-- [x] **herbert_talk.mp3 löschen** - 1.6MB nie benutzt, 15MB decoded Memory
-      → [Teil 10.3](PERFORMANCE_REPORT.md#103-herbert_talkmp3---verschwendung-)
-
-- [x] **localStorage → IndexedDB** - 100-400ms Blocking bei JSON Parse
-      `osm-street.service.ts` - StreetCacheService bereits implementiert und genutzt
-      → [Teil 9.3](PERFORMANCE_REPORT.md#93-json-serialization-100-500ms-)
-
-- [x] **OnPush ChangeDetection** - 40-60% CD-Overhead verschwendet
-      Alle 16 Components auf OnPush umgestellt (Signals bereits vorhanden)
-      → [Teil 11.1](PERFORMANCE_REPORT.md#111-change-detection-strategy--kritisch)
-
-- [x] **Distance Audio Culling** - Sounds pausieren bei 500m+ Entfernung
-      `audio.component.ts` - Pause/Resume statt Stop, rolloffFactor 1.5
-      → [Teil 12.1](PERFORMANCE_REPORT.md#121-distance-based-audio-culling--fehlt)
-
-- [x] **Material Pooling** - Jeder Enemy klont Materials (50× State Changes)
-      `three-enemy.renderer.ts` - Material Pool implementiert, shared Materials pro Enemy-Typ
-      → [Teil 4.2](PERFORMANCE_REPORT.md#42-material-state-changes--kritisch)
-
 ### 🟡 Priorität 2: Hoher Impact
 
 - [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (100× schneller)

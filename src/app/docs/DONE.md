@@ -6,6 +6,19 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-18
 
+### 🔴 Performance Prio 1: Kritisch (alle erledigt)
+
+- [x] **Shadow Flags entfernen** - GPU-Zyklen verschwendet für nie gerenderte Shadows
+- [x] **Event Listener Cleanup** - Memory Leak bei Location-Wechsel behoben
+- [x] **Timeout Cleanup bei Reset** - Timeouts feuern nicht mehr nach Game-Reset
+- [x] **RxJS takeUntilDestroyed** - Subscription Leaks behoben
+- [x] **Three.js Named Imports** - Tree-Shaking ermöglicht, -400KB Bundle
+- [x] **herbert_talk.mp3 gelöscht** - 1.6MB unbenutzte Datei entfernt
+- [x] **localStorage → IndexedDB** - StreetCacheService für große Caches
+- [x] **OnPush ChangeDetection** - Alle 16 Components umgestellt
+- [x] **Distance Audio Culling** - Sounds pausieren bei 500m+ Entfernung
+- [x] **Material Pooling** - Shared Materials pro Enemy-Typ statt Clone pro Instanz
+
 ### UI/UX
 - [x] **Tooltips im Baumenü nach links**
   - `matTooltipPosition="left"` für Tower-Cards und Upgrade-Buttons
