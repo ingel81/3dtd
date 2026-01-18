@@ -34,7 +34,7 @@ import { InfoOverlayComponent } from './components/info-overlay/info-overlay.com
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
-import { LocationDialogData, LocationDialogResult, LocationConfig, SpawnLocationConfig, FavoriteLocation } from './models/location.types';
+import { LocationDialogData, LocationDialogResult, LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
 import { CameraControlService } from './services/camera-control.service';

@@ -44,8 +44,6 @@ export class ModelPreviewService {
   // Track loaded model URLs for this service
   private loadedModelUrls = new Set<string>();
 
-  constructor() {}
-
   /**
    * Initialize the shared renderer.
    * Must be called before creating previews.
