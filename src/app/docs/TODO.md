@@ -154,6 +154,8 @@
 
 ### Beobachten bis Testcase wieder da
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
+- [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
+      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md)
 
 ### Location-System Bekannte Einschraenkungen
 - [ ] Nominatim-Geocoding gibt oft Strassen-Koordinaten statt Gebaeude-Koordinaten
@@ -163,6 +165,9 @@
 ### Ideen
 - [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
 - [ ] Stats zu "Warte auf 3D-Tiles" im Loading Screen anzeigen (geladene/ausstehende Tiles)
+- [ ] **Browser Geolocation API** - Standort per GPS/WLAN ermitteln
+      `navigator.geolocation.getCurrentPosition()` - kostenlos, präzise, kein API-Key
+      Fallback: IP-basiert via ip-api.com (Stadt-Genauigkeit)
 - [ ] Poison Tower
 - [ ] Flame Tower
 
