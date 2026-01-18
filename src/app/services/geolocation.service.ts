@@ -1,7 +1,6 @@
-import { Injectable, signal } from '@angular/core';
-import { DEFAULT_HQ } from './location-management.service';
+import { Injectable } from '@angular/core';
 
-export type GeolocationSource = 'browser' | 'ip' | 'default';
+export type GeolocationSource = 'browser' | 'ip';
 
 export interface GeolocationResult {
   lat: number;
@@ -15,7 +14,7 @@ export interface GeolocationResult {
  * Fallback-Kaskade:
  * 1. Browser Geolocation API (GPS/WLAN, präzise)
  * 2. ip-api.com (IP-basiert, Stadt-Genauigkeit)
- * 3. Default-Standort (Erlenbach)
+ * 3. null - Location-Dialog wird angezeigt
  */
 @Injectable({ providedIn: 'root' })
 export class GeolocationService {
@@ -24,9 +23,10 @@ export class GeolocationService {
 
   /**
    * Ermittelt den Standort des Nutzers mit Fallback-Kaskade
+   * Gibt null zurück wenn keine Geolocation möglich ist
    */
-  async detectLocation(): Promise<GeolocationResult> {
-    // 1. Browser Geolocation API versuchen (5s Timeout)
+  async detectLocation(): Promise<GeolocationResult | null> {
+    // 1. Browser Geolocation API versuchen (15s Timeout für Permission-Dialog)
     this.updateDetail('Prüfe Browser-Standort...');
     const browser = await this.tryBrowserGeolocation();
     if (browser) {
@@ -42,10 +42,10 @@ export class GeolocationService {
       return { ...ip, source: 'ip' };
     }
 
-    // 3. Default-Standort
-    console.log('[Geolocation] Verwende Default-Standort');
-    this.updateDetail('Standard-Standort');
-    return { lat: DEFAULT_HQ.lat, lon: DEFAULT_HQ.lon, source: 'default' };
+    // 3. Keine Geolocation möglich
+    console.log('[Geolocation] Keine Standortermittlung möglich');
+    this.updateDetail('Kein Standort gefunden');
+    return null;
   }
 
   /**

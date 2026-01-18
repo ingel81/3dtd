@@ -60,10 +60,10 @@ import { FavoriteLocation } from '../../models/location.types';
             </div>
           </div>
 
-          <!-- Home Button -->
-          <button class="action-btn" (click)="homeClick.emit()" matTooltip="Erlenbach (Default)">
+          <!-- Home Link -->
+          <a class="action-btn" href="/?l=49.17327,9.26859&s=49.17555,9.26387" matTooltip="Erlenbach">
             <mat-icon>home</mat-icon>
-          </button>
+          </a>
         </div>
       </div>
       <div class="header-stats">
@@ -423,7 +423,6 @@ export class GameHeaderComponent {
   readonly locationClick = output<void>();
   readonly closeClick = output<void>();
   readonly shareClick = output<void>();
-  readonly homeClick = output<void>();
   readonly addFavoriteClick = output<void>();
   readonly selectFavoriteClick = output<FavoriteLocation>();
   readonly deleteFavoriteClick = output<string>();

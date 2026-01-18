@@ -102,12 +102,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>crop_free</mat-icon>
           </button>
           <button class="td-dev-btn"
-                  (click)="resetToDefaultLocation.emit()"
-                  matTooltip="Default-Ort laden"
-                  matTooltipPosition="left">
-            <mat-icon>home</mat-icon>
-          </button>
-          <button class="td-dev-btn"
                   [class.active]="uiState.specialPointsDebugVisible()"
                   (click)="specialPointsDebugToggled.emit()"
                   matTooltip="Spezial-Punkte debuggen (Feuer, etc.)"
@@ -326,7 +320,6 @@ export class QuickActionsComponent {
   readonly towerDebugToggled = output<void>();
   readonly heightDebugToggled = output<void>();
   readonly cameraFramingDebugToggled = output<void>();
-  readonly resetToDefaultLocation = output<void>();
   readonly specialPointsDebugToggled = output<void>();
   readonly spatialGridDebugToggled = output<void>();
   readonly playRouteAnimation = output<void>();

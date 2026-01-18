@@ -45,7 +45,7 @@ import { MarkerVisualizationService, SpawnPoint } from './services/marker-visual
 import { PathAndRouteService } from './services/path-route.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
-import { LocationManagementService, DEFAULT_BASE_COORDS, DEFAULT_SPAWN_POINTS, DEFAULT_HQ, DEFAULT_SPAWN } from './services/location-management.service';
+import { LocationManagementService } from './services/location-management.service';
 import { UrlLocationService } from './services/url-location.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
@@ -76,10 +76,15 @@ import { TD_CSS_VARS } from './styles/td-theme';
 import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 
-// Camera center coords (slightly different from HQ location for better view)
-const DEFAULT_CENTER_COORDS = {
-  latitude: 49.1726836,
-  longitude: 9.2703122,
+// Initial empty coords - will be set when location is loaded
+const EMPTY_COORDS = {
+  latitude: 0,
+  longitude: 0,
+};
+
+const EMPTY_CENTER_COORDS = {
+  latitude: 0,
+  longitude: 0,
   height: 400,
 };
 
@@ -129,7 +134,6 @@ const DEFAULT_CENTER_COORDS = {
         (locationClick)="openLocationDialog()"
         (closeClick)="close()"
         (shareClick)="onShareLocation()"
-        (homeClick)="onHomeClick()"
         (addFavoriteClick)="onAddFavorite()"
         (selectFavoriteClick)="onSelectFavorite($event)"
         (deleteFavoriteClick)="onDeleteFavorite($event)"
@@ -231,7 +235,6 @@ const DEFAULT_CENTER_COORDS = {
               (towerDebugToggled)="onTowerDebugToggled()"
               (heightDebugToggled)="toggleHeightDebug()"
               (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
-              (resetToDefaultLocation)="resetToDefaultLocation()"
               (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
               (spatialGridDebugToggled)="onSpatialGridDebugToggled()"
               (playRouteAnimation)="onPlayRouteAnimation()"
@@ -775,8 +778,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly spawnDelay = this.waveDebug.spawnDelay;
   readonly useGathering = this.waveDebug.useGathering;
   readonly spawnPoints = signal<SpawnPoint[]>([]);
-  readonly baseCoords = signal(DEFAULT_BASE_COORDS);
-  readonly centerCoords = signal(DEFAULT_CENTER_COORDS);
+  readonly baseCoords = signal(EMPTY_COORDS);
+  readonly centerCoords = signal(EMPTY_CENTER_COORDS);
 
   readonly waveActive = computed(() => this.gameState.phase() === 'wave');
   readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
@@ -835,6 +838,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private syncUrlWithLocation(): void {
     const hq = this.locationMgmt.hq();
+    if (!hq) return; // No location set yet
     const spawns = this.locationMgmt.spawns();
     this.urlLocation.updateUrl(hq, spawns);
   }
@@ -864,6 +868,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Initialize location from URL or geolocation cascade
    * Shows as first loading step: "Bestimme Standort"
+   * Opens location dialog if no location can be determined
    */
   private async initializeLocation(): Promise<void> {
     await this.engineInit.setStepActive('location');
@@ -879,21 +884,56 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // No URL params → try geolocation cascade
       this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepDetail('location', detail);
       const detected = await this.geolocation.detectLocation();
-      this.locationMgmt.setLocation(detected, []);
 
-      const sourceLabel = detected.source === 'browser' ? 'Browser'
-                        : detected.source === 'ip' ? 'IP-basiert'
-                        : 'Default';
-      await this.engineInit.setStepDone('location', sourceLabel);
+      if (detected) {
+        this.locationMgmt.setLocation(detected, []);
+        const sourceLabel = detected.source === 'browser' ? 'Browser' : 'IP-basiert';
+        await this.engineInit.setStepDone('location', sourceLabel);
+      } else {
+        // No location found - open dialog and wait for user selection
+        this.engineInit.updateStepDetail('location', 'Wähle Standort...');
+        await this.waitForLocationFromDialog();
+        await this.engineInit.setStepDone('location', 'manuell gewählt');
+      }
     }
 
-    // Sync URL with current location
-    this.syncUrlWithLocation();
-
-    // Sync baseCoords and centerCoords
+    // Sync URL with current location (only if location is set)
     const hq = this.locationMgmt.hq();
-    this.baseCoords.set({ latitude: hq.lat, longitude: hq.lon });
-    this.centerCoords.set({ latitude: hq.lat, longitude: hq.lon, height: 400 });
+    if (hq) {
+      this.syncUrlWithLocation();
+      this.baseCoords.set({ latitude: hq.lat, longitude: hq.lon });
+      this.centerCoords.set({ latitude: hq.lat, longitude: hq.lon, height: 400 });
+    }
+  }
+
+  /**
+   * Open location dialog and wait for user to select a location
+   * Used when no location can be determined automatically
+   */
+  private waitForLocationFromDialog(): Promise<void> {
+    return new Promise((resolve) => {
+      const dialogRef = this.dialog.open(LocationDialogComponent, {
+        data: {
+          currentLocation: null,
+          currentSpawn: null,
+          isGameInProgress: false,
+        } as LocationDialogData,
+        panelClass: 'td-dialog-panel',
+        disableClose: true, // User must select a location
+      });
+
+      dialogRef.afterClosed()
+        .pipe(takeUntilDestroyed(this.destroyRef))
+        .subscribe((result: LocationDialogResult | null) => {
+          if (result?.confirmed) {
+            this.locationMgmt.setLocation(
+              { lat: result.hq.lat, lon: result.hq.lon },
+              result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }]
+            );
+          }
+          resolve();
+        });
+    });
   }
 
   /**
@@ -1720,10 +1760,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private addPredefinedSpawns(): number {
     const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]; // red, orange, cyan, magenta
+    const hq = this.locationMgmt.hq();
+
+    // No location set - should not happen, but handle gracefully
+    if (!hq) {
+      console.warn('[addPredefinedSpawns] No HQ location set');
+      return 0;
+    }
 
     // Check if we need to generate a random spawn (URL had no spawn parameter)
     if (this.locationMgmt.needsRandomSpawn() && this.streetNetwork) {
-      const hq = this.locationMgmt.hq();
       const randomSpawn = this.osmService.findRandomStreetPoint(this.streetNetwork, hq.lat, hq.lon, 500, 1000);
 
       if (randomSpawn) {
@@ -1736,22 +1782,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, colors[0]);
         return 1;
       } else {
-        console.warn('[addPredefinedSpawns] No valid random spawn found, using default');
-        // Fall through to default spawn
+        console.warn('[addPredefinedSpawns] No valid random spawn found');
+        return 0;
       }
     }
 
-    // Use editable spawn locations if available, otherwise defaults
+    // Use spawn locations from URL/service
     const spawns = this.editableSpawnLocations();
     let count = 0;
     if (spawns.length > 0 && spawns.every(s => s.lat !== 0 && s.lon !== 0)) {
       spawns.forEach((spawn, index) => {
         this.addSpawnPoint(spawn.id, spawn.name || `Spawn ${index + 1}`, spawn.lat, spawn.lon, colors[index % colors.length]);
-        count++;
-      });
-    } else {
-      DEFAULT_SPAWN_POINTS.forEach((spawn, index) => {
-        this.addSpawnPoint(spawn.id, spawn.name, spawn.latitude, spawn.longitude, colors[index % colors.length]);
         count++;
       });
     }
@@ -2105,14 +2146,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
-  resetToDefaultLocation(): void {
-    // Use the existing reset method
-    this.onResetLocations();
-
-    // Close dev menu
-    this.uiState.devMenuExpanded.set(false);
-  }
-
   logCameraPosition(): void {
     if (!this.engine) return;
 
@@ -2242,8 +2275,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         spawn: { lat: spawn.lat, lon: spawn.lon, name: spawn.name },
       });
     } else {
-      // Fall back to default location
-      this.onResetLocations();
+      // No location - open location dialog
+      this.openLocationDialog();
     }
   }
 
@@ -2559,14 +2592,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     });
   }
 
-  onResetLocations(): void {
-    this.onApplyNewLocation({
-      hq: { lat: DEFAULT_BASE_COORDS.latitude, lon: DEFAULT_BASE_COORDS.longitude, name: 'Erlenbach (Default)' },
-      spawn: { lat: DEFAULT_SPAWN_POINTS[0].latitude, lon: DEFAULT_SPAWN_POINTS[0].longitude, name: DEFAULT_SPAWN_POINTS[0].name },
-    });
-    this.locationMgmt.clearLocationsFromStorage();
-  }
-
   // ==================== Location Sharing & Favorites ====================
 
   /**
@@ -2576,18 +2601,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const url = this.urlLocation.getShareUrl();
     navigator.clipboard.writeText(url);
     this.appendDebugLog('Link kopiert: ' + url);
-  }
-
-  /**
-   * Reset to default Erlenbach location
-   */
-  onHomeClick(): void {
-    this.locationMgmt.setLocation(DEFAULT_HQ, [DEFAULT_SPAWN]);
-    this.syncUrlWithLocation();
-    this.onApplyNewLocation({
-      hq: { lat: DEFAULT_HQ.lat, lon: DEFAULT_HQ.lon, name: 'Erlenbach' },
-      spawn: { lat: DEFAULT_SPAWN.lat, lon: DEFAULT_SPAWN.lon, name: 'Spawn' },
-    });
   }
 
   /**
