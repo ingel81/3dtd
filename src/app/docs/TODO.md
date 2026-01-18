@@ -1,6 +1,10 @@
 # Offene TODOs
 
+[ ] air tower sollten kein keine LOS auf eine Straße haben bzw. einfach alles grün anzeigen oder eine andere farbe für air abdeckung?
 [ ] cache der straßen wegen größe besser in indexdb statt localstorage wegen limits?
+[ ] shift + wasd oder pfeil == schnelleres panning als ohne shift
+[ ] flashing von GRID und Towervisualisierung untersuchen...wird schlimmer stärker über zeit
+[ ] Tooltips über Türme im Baumenü nach links aufgehen lassen
 
 > Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
