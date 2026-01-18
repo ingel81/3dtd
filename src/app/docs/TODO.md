@@ -72,10 +72,6 @@
       gltf-pipeline mit Draco, DRACOLoader in asset-manager
       → [Teil 10.1](PERFORMANCE_REPORT.md#101-unkomprimierte-3d-models--kritisch-132mb)
 
-- [ ] **Skybox WebP Conversion** - 48MB → 6MB
-      8192×4096 JPEG → 4096×2048 WebP
-      → [Teil 10.2](PERFORMANCE_REPORT.md#102-skybox-images-48mb--6mb)
-
 - [ ] **A* MinHeap statt Linear Search** - 50-100ms gespart
       `osm-street.service.ts:323-354` - TinyQueue für O(log n)
       → [Teil 9.1](PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)

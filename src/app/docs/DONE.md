@@ -6,6 +6,12 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-18
 
+### Performance: Assets
+- [x] **Skybox WebP Conversion** - 48MB → 0.6MB (99% Reduktion!)
+      - 8192×4096 JPEG → 4096×2048 WebP
+      - `kloppenheim_06_puresky.webp`: 124KB (vorher 19MB)
+      - `qwantani_night_puresky.webp`: 532KB (vorher 29MB)
+
 ### Audio System Refactoring
 - [x] **Sound-Systeme konsolidiert** - Zentrale Loop-Verwaltung im SpatialAudioManager
       - `AudioComponent.activeLoops` → `SpatialAudioManager.activeLoops`
