@@ -68,6 +68,10 @@ export class ThreeEnemyRenderer {
   private frustum = new Frustum();
   private projScreenMatrix = new Matrix4();
 
+  // Material pool - shared materials per enemy type (reduces GPU state changes)
+  // Key: typeId, Value: Array of materials in mesh traverse order
+  private materialPool = new Map<string, Material[]>();
+
   constructor(scene: Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
     this.sync = sync;
@@ -146,64 +150,12 @@ export class ThreeEnemyRenderer {
     }
     mesh.scale.setScalar(config.scale);
 
-    // Apply material adjustments
-    mesh.traverse((node) => {
-      if ((node as Mesh).isMesh) {
-        const meshNode = node as Mesh;
-
-        // Convert to unlit material for cartoon models
-        if (config.unlit) {
-          const oldMaterial = meshNode.material as MeshStandardMaterial;
-          if (oldMaterial) {
-            // Fix texture colorspace for correct colors
-            if (oldMaterial.map) {
-              oldMaterial.map.colorSpace = SRGBColorSpace;
-            }
-            const basicMaterial = new MeshBasicMaterial({
-              map: oldMaterial.map,
-              color: 0xffffff, // White to show texture colors unchanged
-              transparent: oldMaterial.transparent,
-              opacity: oldMaterial.opacity,
-              side: oldMaterial.side,
-            });
-            meshNode.material = basicMaterial;
-            oldMaterial.dispose();
-          }
-        } else {
-          // Handle any material type (FBX often uses MeshPhongMaterial)
-          const material = meshNode.material as Material & {
-            map?: Texture;
-            metalness?: number;
-            roughness?: number;
-            emissive?: Color;
-            emissiveIntensity?: number;
-          };
-
-          if (material) {
-            // Fix texture colorspace for correct colors
-            if (material.map) {
-              material.map.colorSpace = SRGBColorSpace;
-              material.map.needsUpdate = true;
-            }
-
-            // For MeshStandardMaterial: reduce metalness for vibrant colors
-            if ('metalness' in material) {
-              material.metalness = 0;
-              material.roughness = 0.8;
-            }
-
-            // Apply emissive effect if configured
-            if (config.emissiveIntensity && config.emissiveIntensity > 0) {
-              if ('emissive' in material && 'emissiveIntensity' in material) {
-                const emissiveColor = config.emissiveColor || '#ffffff';
-                material.emissive = new Color(emissiveColor);
-                material.emissiveIntensity = config.emissiveIntensity;
-              }
-            }
-          }
-        }
-      }
-    });
+    // Apply materials from pool (or initialize pool for first instance)
+    if (!this.materialPool.has(typeId)) {
+      this.initMaterialPool(typeId, mesh, config);
+    } else {
+      this.applyPooledMaterials(typeId, mesh);
+    }
 
     // Position in local coordinates
     const localPos = this.sync.geoToLocal(lat, lon, height + config.heightOffset);
@@ -669,7 +621,101 @@ export class ThreeEnemyRenderer {
   }
 
   /**
-   * Recursively dispose Three.js object
+   * Initialize materials for an enemy type and cache in pool
+   * Called once per enemy type when first instance is created
+   */
+  private initMaterialPool(typeId: string, mesh: Object3D, config: EnemyTypeConfig): void {
+    const materials: Material[] = [];
+
+    mesh.traverse((node) => {
+      if ((node as Mesh).isMesh) {
+        const meshNode = node as Mesh;
+
+        if (config.unlit) {
+          // Convert to unlit material for cartoon models
+          const oldMaterial = meshNode.material as MeshStandardMaterial;
+          if (oldMaterial) {
+            if (oldMaterial.map) {
+              oldMaterial.map.colorSpace = SRGBColorSpace;
+            }
+            const basicMaterial = new MeshBasicMaterial({
+              map: oldMaterial.map,
+              color: 0xffffff,
+              transparent: oldMaterial.transparent,
+              opacity: oldMaterial.opacity,
+              side: oldMaterial.side,
+            });
+            meshNode.material = basicMaterial;
+            oldMaterial.dispose();
+          }
+        } else {
+          // Configure material properties
+          const material = meshNode.material as Material & {
+            map?: Texture;
+            metalness?: number;
+            roughness?: number;
+            emissive?: Color;
+            emissiveIntensity?: number;
+          };
+
+          if (material) {
+            if (material.map) {
+              material.map.colorSpace = SRGBColorSpace;
+              material.map.needsUpdate = true;
+            }
+            if ('metalness' in material) {
+              material.metalness = 0;
+              material.roughness = 0.8;
+            }
+            if (config.emissiveIntensity && config.emissiveIntensity > 0) {
+              if ('emissive' in material && 'emissiveIntensity' in material) {
+                const emissiveColor = config.emissiveColor || '#ffffff';
+                material.emissive = new Color(emissiveColor);
+                material.emissiveIntensity = config.emissiveIntensity;
+              }
+            }
+          }
+        }
+
+        // Store material in pool
+        materials.push(meshNode.material as Material);
+      }
+    });
+
+    this.materialPool.set(typeId, materials);
+  }
+
+  /**
+   * Apply pooled materials to a cloned mesh
+   * Disposes the cloned materials to free memory
+   */
+  private applyPooledMaterials(typeId: string, mesh: Object3D): void {
+    const pooledMaterials = this.materialPool.get(typeId);
+    if (!pooledMaterials) return;
+
+    let index = 0;
+    mesh.traverse((node) => {
+      if ((node as Mesh).isMesh) {
+        const meshNode = node as Mesh;
+
+        // Dispose cloned material (from AssetManager.cloneModel)
+        if (meshNode.material) {
+          (meshNode.material as Material).dispose();
+        }
+
+        // Use pooled material (shared across all instances of this type)
+        if (index < pooledMaterials.length) {
+          meshNode.material = pooledMaterials[index];
+        }
+        index++;
+      }
+    });
+  }
+
+  /**
+   * Recursively dispose Three.js object (geometry only)
+   * Note: Materials are NOT disposed here - they belong to the material pool
+   * and are shared across all instances of the same enemy type
    */
   private disposeObject(obj: Object3D): void {
     obj.traverse((node) => {
@@ -677,19 +723,7 @@ export class ThreeEnemyRenderer {
       if (mesh.geometry) {
         mesh.geometry.dispose();
       }
-      if (mesh.material) {
-        const materials: Material[] = Array.isArray(mesh.material)
-          ? mesh.material
-          : [mesh.material];
-        for (const mat of materials) {
-          const stdMat = mat as MeshStandardMaterial;
-          if (stdMat.map) stdMat.map.dispose();
-          if (stdMat.normalMap) stdMat.normalMap.dispose();
-          if (stdMat.roughnessMap) stdMat.roughnessMap.dispose();
-          if (stdMat.metalnessMap) stdMat.metalnessMap.dispose();
-          mat.dispose();
-        }
-      }
+      // Materials are pooled and shared - DO NOT dispose them here
     });
   }
 
@@ -704,6 +738,19 @@ export class ThreeEnemyRenderer {
       this.assetManager.releaseModel(url);
     }
     this.loadedModelUrls.clear();
+
+    // Dispose pooled materials and their textures
+    for (const materials of this.materialPool.values()) {
+      for (const mat of materials) {
+        const stdMat = mat as MeshStandardMaterial;
+        if (stdMat.map) stdMat.map.dispose();
+        if (stdMat.normalMap) stdMat.normalMap.dispose();
+        if (stdMat.roughnessMap) stdMat.roughnessMap.dispose();
+        if (stdMat.metalnessMap) stdMat.metalnessMap.dispose();
+        mat.dispose();
+      }
+    }
+    this.materialPool.clear();
 
     for (const texture of this.healthBarTextures.values()) {
       texture.dispose();

@@ -79,8 +79,8 @@
       `audio.component.ts` - Pause/Resume statt Stop, rolloffFactor 1.5
       → [Teil 12.1](PERFORMANCE_REPORT.md#121-distance-based-audio-culling--fehlt)
 
-- [ ] **Material Pooling** - Jeder Enemy klont Materials (50× State Changes)
-      `three-enemy.renderer.ts:136-186` - Material Pool statt Clone
+- [x] **Material Pooling** - Jeder Enemy klont Materials (50× State Changes)
+      `three-enemy.renderer.ts` - Material Pool implementiert, shared Materials pro Enemy-Typ
       → [Teil 4.2](PERFORMANCE_REPORT.md#42-material-state-changes--kritisch)
 
 ### 🟡 Priorität 2: Hoher Impact
