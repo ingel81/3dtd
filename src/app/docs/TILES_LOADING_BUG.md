@@ -181,3 +181,119 @@ Der Fix besteht aus drei Komponenten:
 ## Workaround für User
 
 Falls das Problem noch auftritt: Seite nochmal neu laden (F5).
+
+---
+
+## Tiefergehende Analyse (2026-01-18)
+
+### Neues Symptom entdeckt
+
+**Wichtig:** Das Problem ist **standortabhängig** - nicht alle Locations sind betroffen!
+
+**Problematische Location (100% reproduzierbar):**
+```
+/?l=47.37690,8.54169&s=47.38190,8.54169  (Bahnhofquai, Zürich)
+```
+
+**Andere Locations funktionieren problemlos** - sowohl bei URL-Load als auch nach F5.
+
+Das Problem tritt **konsistent** auf bei:
+- Direktem URL-Zugriff mit problematischen Location-Parametern
+- Browser-Reload (F5) bei problematischen Locations
+
+Das Problem tritt **NICHT** auf bei:
+- Wechsel zu einem Favorite im Spiel (funktioniert immer, auch bei problematischen Locations!)
+- Danach F5 → Problem tritt wieder auf
+- Bestimmte Locations, die generell unproblematisch sind
+
+### Kernunterschied: URL-Load vs. Favorite-Wechsel
+
+**URL-Load (BROKEN):**
+```
+CONSTRUCTOR: origin=(47.37, 8.54)
+initialize() called
+tiles-load-end fired, rootLoaded=true, groupChildren=0
+debounced check: visible=0, cam=(0,400,-145), tiles=(0,-6366567,21314)
+→ tilesGroup ist in ECEF-Koordinaten (Y = -6.3 Millionen = Erdradius!)
+→ Kamera sieht die Tiles nicht → visible=0
+```
+
+**Favorite-Wechsel (WORKS):**
+```
+setOrigin(47.37, 8.54) - resetting all flags
+tiles-load-end fired
+debounced check: visible=144, raycast=455.7, tiles=(0,0,0)
+→ tilesGroup ist bei Origin (0,0,0)
+→ Tiles sind sichtbar
+```
+
+### Root Cause identifiziert
+
+Das **ReorientationPlugin** funktioniert unterschiedlich:
+
+1. **Bei initialer Erstellung (initialize):**
+   - Plugin wird mit lat/lon/height und `recenter: true` erstellt
+   - ABER: Die tilesGroup bleibt in ECEF-Koordinaten `(0, -6366567, 21314)`
+   - `transformLatLonHeightToOrigin()` wird nicht automatisch aufgerufen
+
+2. **Bei Favorite-Wechsel (setOrigin):**
+   - `transformLatLonHeightToOrigin()` wird explizit aufgerufen
+   - Die tilesGroup wird korrekt auf `(0,0,0)` positioniert
+   - Tiles werden geladen und sind sichtbar
+
+### Versuchte Fixes (alle gescheitert)
+
+#### 1. setOrigin() nach initialize() aufrufen
+```typescript
+await this.engine.initialize();
+this.engine.setOrigin(this.baseCoords.lat, this.baseCoords.lon);
+```
+**Ergebnis:** `transformLatLonHeightToOrigin()` wird aufgerufen, aber tilesGroup bleibt bei ECEF-Position. Die Funktion scheint nur zu funktionieren wenn bereits Tiles geladen sind.
+
+#### 2. setOrigin() nach Render-Loop-Start mit Delay
+```typescript
+engine.startRenderLoop();
+await new Promise(resolve => setTimeout(resolve, 100));
+this.engine.setOrigin(...);
+```
+**Ergebnis:** Gleiches Problem - keine Tiles zum Zeitpunkt des Aufrufs.
+
+#### 3. Manuell Position auf (0,0,0) setzen wenn rootLoaded=true
+```typescript
+if (rootLoaded && !this.tilesWereLoaded) {
+  this.tilesRenderer.group.position.set(0, 0, 0);
+  this.tilesRenderer.group.updateMatrixWorld(true);
+  this.tilesRenderer.update(); // Force recalculate
+}
+```
+**Ergebnis:** Position wird auf (0,0,0) gesetzt, ABER `tilesChildren` bleibt 0. Die Tiles werden nie zur Gruppe hinzugefügt, obwohl Network-Requests (HAR) zeigen dass `.glb` Dateien geladen werden.
+
+### Offene Hypothesen
+
+1. **Standortabhängigkeit:**
+   - Das Problem tritt nur bei bestimmten Koordinaten auf
+   - Möglicherweise hängt es mit der Tile-Hierarchie zusammen (welche Root-Tiles geladen werden)
+   - Oder mit der ECEF-Position relativ zum Erdmittelpunkt
+   - Bahnhofquai Zürich: `47.37690, 8.54169` → ECEF Y ≈ -6.366.567
+
+2. **Frustum-Culling Race Condition:**
+   - TilesRenderer berechnet initial welche Tiles im Frustum sind
+   - Da tilesGroup bei ECEF ist, sind keine Tiles sichtbar
+   - Renderer entscheidet "keine Tiles nötig" und lädt keine Meshes
+   - Selbst wenn wir später die Position korrigieren, werden keine Meshes nachgeladen
+
+3. **Plugin-Initialisierungsreihenfolge:**
+   - ReorientationPlugin muss möglicherweise NACH dem ersten `tilesRenderer.update()` konfiguriert werden
+   - Bei Favorite-Wechsel läuft der Renderer bereits → Plugin-Änderungen greifen
+
+4. **Cesium Ion Session:**
+   - Bei Favorite wird dieselbe Session wiederverwendet
+   - Bei URL-Load wird neue Session erstellt
+   - Möglicherweise unterschiedliches Verhalten bei Session-Initialisierung
+
+### Nächste Schritte
+
+1. **3DTilesRendererJS Issues durchsuchen** nach ähnlichen Problemen mit ReorientationPlugin
+2. **Reihenfolge ändern:** TilesRenderer erst nach erstem Frame initialisieren?
+3. **Workaround:** Nach URL-Load automatisch `setOrigin()` mit minimal anderem Wert aufrufen um Plugin zu "aktivieren"?
+4. **Alternativ:** Engine komplett neu erstellen wenn nach Timeout keine Tiles
