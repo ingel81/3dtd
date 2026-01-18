@@ -56,7 +56,7 @@
       `wave.manager.ts:78,96`, `game-state.manager.ts:687`
       → [Teil 7.2](PERFORMANCE_REPORT.md#72-timeout-leaks-bei-reset)
 
-- [ ] **RxJS takeUntil/takeUntilDestroyed** - Subscription Leaks
+- [x] **RxJS takeUntil/takeUntilDestroyed** - Subscription Leaks
       `tower-defense.component.ts:2303`, `game-sidebar.component.ts:579`
       → [Teil 7.3](PERFORMANCE_REPORT.md#73-rxjs-subscription-leaks)
 

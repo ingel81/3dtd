@@ -11,7 +11,9 @@ import {
   inject,
   effect,
   computed,
+  DestroyRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -534,6 +536,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
+  private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
     // Update enemy preview when enemy type changes
@@ -576,9 +579,11 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     setTimeout(() => this.initPreviews(), 100);
 
     // Re-initialize tower previews when the list changes
-    this.towerPreviewCanvases.changes.subscribe(() => {
-      setTimeout(() => this.initTowerPreviews(), 50);
-    });
+    this.towerPreviewCanvases.changes
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        setTimeout(() => this.initTowerPreviews(), 50);
+      });
   }
 
   ngOnDestroy(): void {

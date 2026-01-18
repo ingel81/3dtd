@@ -11,7 +11,9 @@ import {
   computed,
   effect,
   HostListener,
+  DestroyRef,
 } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef, MatDialog } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
@@ -658,6 +660,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
+
+  // Cleanup
+  private readonly destroyRef = inject(DestroyRef);
 
   // Expose Math and tower config for template
   readonly Math = Math;
@@ -2305,7 +2310,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       disableClose: false,
     });
 
-    dialogRef.afterClosed().subscribe(async (result: LocationDialogResult | null) => {
+    dialogRef.afterClosed()
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(async (result: LocationDialogResult | null) => {
       if (!result?.confirmed) return;
 
       // Show loading overlay IMMEDIATELY before any async operations
