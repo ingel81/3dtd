@@ -2,16 +2,6 @@ import { Injectable, signal, inject, computed } from '@angular/core';
 import { SpawnLocationConfig, FavoriteLocation } from '../models/location.types';
 import { GeocodingService } from './geocoding.service';
 
-/**
- * Default locations (Erlenbach, Germany)
- */
-export const DEFAULT_HQ = { lat: 49.17326887448299, lon: 9.268588397188681 };
-export const DEFAULT_SPAWN = { lat: 49.17554723547113, lon: 9.263870533891945 };
-
-// Legacy exports for backwards compatibility
-export const DEFAULT_BASE_COORDS = { latitude: DEFAULT_HQ.lat, longitude: DEFAULT_HQ.lon };
-export const DEFAULT_SPAWN_POINTS = [{ id: 'spawn-north', name: 'Nord', latitude: DEFAULT_SPAWN.lat, longitude: DEFAULT_SPAWN.lon }];
-
 const FAVORITES_KEY = 'td_favorites_v2';
 const MAX_FAVORITES = 10;
 
@@ -20,20 +10,23 @@ const MAX_FAVORITES = 10;
  *
  * Only stores coordinates. Names are always resolved via GeocodingService (with cache).
  * URL is the source of truth - this service just holds the current state.
+ *
+ * IMPORTANT: hq and spawns can be null if no location is set.
+ * In this case, the component should show the location dialog.
  */
 @Injectable({ providedIn: 'root' })
 export class LocationManagementService {
   private readonly geocoding = inject(GeocodingService);
 
-  // Current location (just coordinates)
-  readonly hq = signal<{ lat: number; lon: number }>(DEFAULT_HQ);
-  readonly spawns = signal<{ lat: number; lon: number }[]>([DEFAULT_SPAWN]);
+  // Current location (just coordinates) - null means no location set
+  readonly hq = signal<{ lat: number; lon: number } | null>(null);
+  readonly spawns = signal<{ lat: number; lon: number }[]>([]);
 
   // Flag: true if no spawn was provided and random spawn should be generated
   readonly needsRandomSpawn = signal<boolean>(false);
 
   // Display name - resolved async via geocoding
-  readonly displayName = signal<string>('Laden...');
+  readonly displayName = signal<string>('Kein Ort');
 
   // Loading state
   readonly isApplyingLocation = signal(false);
@@ -41,9 +34,13 @@ export class LocationManagementService {
   // Favorites (just coordinates)
   readonly favorites = signal<FavoriteLocation[]>([]);
 
+  // Check if location is set
+  readonly hasLocation = computed(() => this.hq() !== null);
+
   // Computed: editable formats for backwards compatibility
   readonly editableHqLocation = computed(() => {
     const h = this.hq();
+    if (!h) return null;
     return { lat: h.lat, lon: h.lon, name: this.displayName() };
   });
 
@@ -87,13 +84,6 @@ export class LocationManagementService {
   }
 
   /**
-   * Reset to default location
-   */
-  resetToDefaults(): void {
-    this.setLocation(DEFAULT_HQ, [DEFAULT_SPAWN]);
-  }
-
-  /**
    * Get display name (for header)
    */
   getLocationDisplayName(): string {
@@ -110,7 +100,7 @@ export class LocationManagementService {
       const result = await this.geocoding.reverseGeocodeDetailed(lat, lon);
       // Only update if coords haven't changed
       const current = this.hq();
-      if (current.lat === lat && current.lon === lon) {
+      if (current && current.lat === lat && current.lon === lon) {
         if (result?.address) {
           this.displayName.set(this.geocoding.formatAddressShort(result.address));
         } else {
@@ -142,11 +132,12 @@ export class LocationManagementService {
    * Save current location as favorite
    */
   saveFavorite(): void {
-    if (this.favorites().length >= MAX_FAVORITES) return;
+    const hq = this.hq();
+    if (!hq || this.favorites().length >= MAX_FAVORITES) return;
 
     const fav: FavoriteLocation = {
       id: crypto.randomUUID(),
-      hq: { ...this.hq() },
+      hq: { ...hq },
       spawns: this.spawns().map(s => ({ ...s })),
       createdAt: Date.now(),
     };
@@ -197,11 +188,14 @@ export class LocationManagementService {
     this.needsRandomSpawn.set(false);
   }
 
+  /**
+   * Clear all location data
+   */
   reset(): void {
-    this.hq.set(DEFAULT_HQ);
-    this.spawns.set([DEFAULT_SPAWN]);
+    this.hq.set(null);
+    this.spawns.set([]);
     this.needsRandomSpawn.set(false);
-    this.displayName.set('Erlenbach');
+    this.displayName.set('Kein Ort');
     this.isApplyingLocation.set(false);
   }
 }

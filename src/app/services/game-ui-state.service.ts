@@ -9,6 +9,8 @@ interface PersistedUIState {
   streetsVisible: boolean;
   routesVisible: boolean;
   spatialGridDebugVisible: boolean;
+  devMenuExpanded: boolean;
+  layerMenuExpanded: boolean;
 }
 
 /**
@@ -75,11 +77,8 @@ export class GameUIStateService {
         if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
         if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
         if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
-
-        // Auto-expand layer menu if any layer is active
-        if (state.streetsVisible || state.routesVisible || state.spatialGridDebugVisible) {
-          this.layerMenuExpanded.set(true);
-        }
+        if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
+        if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
       }
     } catch {
       // Ignore parse errors
@@ -96,6 +95,8 @@ export class GameUIStateService {
         streetsVisible: this.streetsVisible(),
         routesVisible: this.routesVisible(),
         spatialGridDebugVisible: this.spatialGridDebugVisible(),
+        devMenuExpanded: this.devMenuExpanded(),
+        layerMenuExpanded: this.layerMenuExpanded(),
       };
       localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
     });
