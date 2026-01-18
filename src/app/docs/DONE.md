@@ -6,6 +6,43 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-18
 
+### Pathfinding
+- [x] **Gewichtetes Pathfinding nach Straßentyp**
+      - Primäre Straßen (primary, secondary, tertiary) bevorzugt
+      - Residential/Service Straßen mit höherem Gewicht bestraft
+      - Sauberer A* Algorithmus mit Typ-basiertem Weighting
+
+### Loading & UX
+- [x] **3D-Tiles Stats im Loading Screen**
+      - Zeigt "Warte auf 3D-Kacheln (X Kacheln geladen)"
+      - Retry-Mechanismus für sporadische 0-Tiles Probleme
+      - Detaillierte Debug-Logs für Troubleshooting
+- [x] **Detaillierter Loading-Screen**
+      - Separater Loading-Step "Warte auf 3D-Kacheln"
+      - Benutzerfreundliche Fehlermeldungen für OSM und WebGL
+      - Zeigt einzelne Schritte: Route, Assets, Tiles
+- [x] **Console-Trenner bei Location-Wechsel**
+      - `═══════ Location Change: [Name] ═══════` zur besseren Übersicht
+- [x] **Internationale Nominatim-Suche**
+      - `accept-language: *` Header für weltweite Ergebnisse
+      - Nicht mehr auf deutsche Ergebnisse beschränkt
+- [x] **Robustes Location-Loading**
+      - Error-Handling für fehlgeschlagene OSM-Requests
+      - Graceful Degradation bei Netzwerkproblemen
+
+### Bugfixes
+- [x] **Retry-Mechanismus für 3D-Tiles Loading nach F5**
+      - Fix für sporadisches "0 Kacheln geladen" Problem
+      - Max 50 Retries á 200ms (10 Sekunden gesamt)
+      - Force-Update bei persistentem Problem
+      - Siehe [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) für Details
+- [x] **Zombie-Textur Dateiname korrigiert**
+
+### Refactoring
+- [x] **Asset-Struktur vereinheitlicht und reorganisiert**
+      - Konsistente Ordnerstruktur für Models, Textures, Audio
+      - Alle Assets unter `assets/` mit klarer Hierarchie
+
 ### Performance: Assets
 - [x] **Skybox WebP Conversion** - 48MB → 0.6MB (99% Reduktion!)
       - 8192×4096 JPEG → 4096×2048 WebP

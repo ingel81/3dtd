@@ -35,7 +35,7 @@ src/app/
 ├── game-components/            # ECS Components (transform, health, etc.)
 ├── managers/                   # 7 Manager (enemy, tower, projectile, wave, game-state, entity, spatial-audio)
 ├── models/                     # Type Definitions
-├── services/                   # 19 Angular Services
+├── services/                   # 23 Angular Services
 ├── styles/                     # Theme & Global Styles
 └── three-engine/               # 3D Rendering (renderers/)
 ```
@@ -64,6 +64,8 @@ src/app/
 | [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
 | [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
 | [FRAME_TIMING_FIXES.md](src/app/docs/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme & Lösungen |
+| [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
+| [PERFORMANCE_REPORT.md](src/app/docs/PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungen |
 | [TODO.md](src/app/docs/TODO.md) | Offene Aufgaben |
 | [DONE.md](src/app/docs/DONE.md) | Changelog (chronologisch, neueste zuerst) |
 
