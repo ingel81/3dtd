@@ -20,6 +20,7 @@ export interface WaveConfig {
   enemyHealth?: number; // Optional custom health (defaults to enemy type's health)
   spawnMode: 'each' | 'random';
   spawnDelay: number; // Delay in ms between spawning each enemy
+  getSpawnDelay?: () => number; // Optional: Dynamic getter for live delay updates during wave
   useGathering: boolean; // If true, all enemies spawn paused and start together
 }
 
@@ -82,7 +83,8 @@ export class WaveManager {
     });
 
     const useGathering = config.useGathering;
-    const spawnDelay = config.spawnDelay;
+    // Use getter if provided (allows live delay changes), otherwise use static value
+    const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
 
     if (useGathering) {
       this.gatheringPhase.set(true);
@@ -137,7 +139,7 @@ export class WaveManager {
         this.activeTimeouts.delete(timeoutId);
         if (this.phase() !== 'wave') return; // Stop if reset/game over
         spawnNext();
-      }, spawnDelay);
+      }, getDelay());
       this.activeTimeouts.add(timeoutId);
     };
 
