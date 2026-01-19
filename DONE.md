@@ -6,6 +6,12 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-19
 
+- [x] **Event Debug Panel Position Fix** - Panel springt nicht mehr beim Öffnen
+      `constrainToViewport()` mit `requestAnimationFrame` verzögert, damit DOM korrekte Größe hat
+
+- [x] **Browser Geolocation API** - Automatische Standortermittlung implementiert
+      `GeolocationService` mit Fallback-Kaskade: Browser GPS/WLAN → IP-API (ip-api.com)
+
 ### Game Engine - Event Bus System (Phase 10 abgeschlossen)
 
 - [x] **game:over Event (Phase 10a)**

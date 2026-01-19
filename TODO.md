@@ -149,8 +149,6 @@
 ### Bewerten
 - [ ] FPS LIMIT auf 60 sinnvoll?
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
-- [ ] **Event Debug Panel Position** - Größe wird gespeichert aber Position nicht perfekt (Panel springt beim Öffnen)
-      Datei: `debug-window.service.ts`, `draggable-debug-panel.component.ts`
 - [x] ~~**Scrollbar Styling**~~ - ✅ ERLEDIGT (2026-01-19)
       Globale `TD_SCROLLBAR_STYLES` und `TD_SCROLLBAR_WEBKIT` in `td-theme.ts`
       Angewendet auf: `event-debugger`, `sound-debugger`, `draggable-debug-panel`
@@ -167,9 +165,6 @@
 
 ### Ideen
 - [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
-- [ ] **Browser Geolocation API** - Standort per GPS/WLAN ermitteln
-      `navigator.geolocation.getCurrentPosition()` - kostenlos, präzise, kein API-Key
-      Fallback: IP-basiert via ip-api.com (Stadt-Genauigkeit)
 - [ ] Poison Tower
 - [ ] Flame Tower
 
