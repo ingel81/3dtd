@@ -8,19 +8,13 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { geoDistance } from '../utils/geo-utils';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
-
-/**
- * Result of applying damage to an enemy
- */
-export interface DamageResult {
-  killed: boolean;
-  reward: number;
-}
+import { GameEventBus } from '../game-engine';
 
 /**
  * CombatEffectService - Handles projectile hits, damage application, and visual effects
  *
- * Extracted from GameStateManager to reduce god object complexity.
+ * Event-driven: Subscribes to projectile:hit events from GameEventBus
+ *
  * Manages:
  * - Projectile hit processing (splash damage, effects)
  * - Damage application to enemies
@@ -32,30 +26,43 @@ export class CombatEffectService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
 
   private tilesEngine: ThreeTilesEngine | null = null;
+  private eventBus: GameEventBus | null = null;
+  private towerManager: TowerManager | null = null;
+  private enemyManager: EnemyManager | null = null;
 
   /**
-   * Initialize with engine reference
+   * Initialize with engine reference and subscribe to events
    */
-  initialize(tilesEngine: ThreeTilesEngine): void {
+  initialize(
+    tilesEngine: ThreeTilesEngine,
+    eventBus: GameEventBus,
+    towerManager: TowerManager,
+    enemyManager: EnemyManager
+  ): void {
     this.tilesEngine = tilesEngine;
+    this.eventBus = eventBus;
+    this.towerManager = towerManager;
+    this.enemyManager = enemyManager;
+
+    // Subscribe to projectile:hit events
+    this.eventBus.on('projectile:hit', (event) => {
+      this.handleProjectileHit(event.projectile, event.target);
+    });
   }
 
   /**
    * Handle projectile hitting an enemy
-   * Processes splash damage, visual effects, and returns total rewards
+   * Processes splash damage and visual effects
    */
-  onProjectileHit(
-    projectile: Projectile,
-    enemy: Enemy,
-    towerManager: TowerManager,
-    enemyManager: EnemyManager
-  ): DamageResult {
+  private handleProjectileHit(projectile: Projectile, enemy: Enemy): void {
+    if (!this.towerManager || !this.enemyManager) {
+      console.warn('[CombatEffectService] Not initialized');
+      return;
+    }
+
     const splashRadius = projectile.typeConfig.splashRadius;
     const hasSplash = splashRadius && splashRadius > 0;
     const isIceShard = projectile.typeConfig.id === 'ice-shard';
-
-    let totalReward = 0;
-    let anyKilled = false;
 
     // Spawn explosion effect for splash damage projectiles
     if (hasSplash && this.tilesEngine) {
@@ -113,17 +120,13 @@ export class CombatEffectService {
     }
 
     // Apply damage to primary target
-    const primaryResult = this.applyDamageToEnemy(
+    this.applyDamageToEnemy(
       enemy,
       projectile.damage,
       projectile.sourceTowerId,
       false,
-      isIceShard,
-      towerManager,
-      enemyManager
+      isIceShard
     );
-    totalReward += primaryResult.reward;
-    anyKilled = anyKilled || primaryResult.killed;
 
     // Apply slow effect for ice-shard
     if (isIceShard) {
@@ -155,17 +158,13 @@ export class CombatEffectService {
         }
 
         if (splashDamage > 0) {
-          const splashResult = this.applyDamageToEnemy(
+          this.applyDamageToEnemy(
             nearbyEnemy,
             splashDamage,
             projectile.sourceTowerId,
             true,
-            isIceShard,
-            towerManager,
-            enemyManager
+            isIceShard
           );
-          totalReward += splashResult.reward;
-          anyKilled = anyKilled || splashResult.killed;
         }
 
         // Apply slow effect and ice decal to splash targets
@@ -192,23 +191,20 @@ export class CombatEffectService {
         }
       }
     }
-
-    return { killed: anyKilled, reward: totalReward };
   }
 
   /**
    * Apply damage to an enemy and handle death
-   * Returns reward if enemy was killed
    */
-  applyDamageToEnemy(
+  private applyDamageToEnemy(
     enemy: Enemy,
     damage: number,
     sourceTowerId: string,
     isSplashDamage: boolean,
-    skipBloodEffects: boolean,
-    towerManager: TowerManager,
-    enemyManager: EnemyManager
-  ): DamageResult {
+    skipBloodEffects: boolean
+  ): void {
+    if (!this.towerManager || !this.enemyManager) return;
+
     // Spawn blood effects for enemies that can bleed
     if (enemy.typeConfig.canBleed && this.tilesEngine && !skipBloodEffects) {
       this.tilesEngine.effects.spawnBloodSplatter(
@@ -238,7 +234,7 @@ export class CombatEffectService {
       if (!skipBloodEffects) {
         this.spawnDeathBloodEffect(enemy);
       }
-      enemyManager.kill(enemy);
+      this.enemyManager.kill(enemy);
 
       const reward = enemy.typeConfig.reward;
 
@@ -259,15 +255,11 @@ export class CombatEffectService {
       }
 
       // Track kill on source tower
-      const sourceTower = towerManager.getById(sourceTowerId);
+      const sourceTower = this.towerManager.getById(sourceTowerId);
       if (sourceTower) {
         sourceTower.combat.kills++;
       }
-
-      return { killed: true, reward };
     }
-
-    return { killed: false, reward: 0 };
   }
 
   /**

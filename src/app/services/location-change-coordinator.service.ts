@@ -55,7 +55,6 @@ export interface LocationChangeCallbacks {
   initializeTowerPlacement(): void;
   filterStreetNetworkToRoutes(): void;
   scheduleOverlayHeightUpdate(): Promise<void>;
-  onGameOver(): void;
 
   // Current state accessors
   getSpawnPoints(): SpawnPoint[];
@@ -329,8 +328,7 @@ export class LocationChangeCoordinatorService {
       { lat: base.latitude, lon: base.longitude },
       waveSpawnPoints,
       this.pathRoute.getCachedPaths(),
-      (msg: string) => callbacks.appendDebugLog(msg),
-      () => callbacks.onGameOver()
+      (msg: string) => callbacks.appendDebugLog(msg)
     );
 
     // Validate that routes were found

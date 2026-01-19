@@ -1,7 +1,8 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId } from '../models/enemy-types';
 import { GeoPosition } from '../models/game.types';
+import { GameEventBus } from '../game-engine';
 
 export type GamePhase = 'setup' | 'wave' | 'gameover';
 
@@ -24,11 +25,13 @@ export interface WaveConfig {
 
 /**
  * Manages wave spawning and game phases
+ *
+ * Framework-agnostic, event-based:
+ * - No @Injectable decorator
+ * - Constructor injection
+ * - Emits events: wave:started, wave:completed
  */
-@Injectable()
 export class WaveManager {
-  private enemyManager = inject(EnemyManager);
-
   readonly phase = signal<GamePhase>('setup');
   readonly waveNumber = signal(0);
   readonly gatheringPhase = signal(false);
@@ -38,6 +41,11 @@ export class WaveManager {
 
   // Track active timeouts for cleanup on reset
   private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
+  constructor(
+    private eventBus: GameEventBus,
+    private enemyManager: EnemyManager
+  ) {}
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
     this.spawnPoints = spawnPoints;
@@ -50,6 +58,13 @@ export class WaveManager {
   beginWave(): void {
     this.waveNumber.update((n) => n + 1);
     this.phase.set('wave');
+
+    // Emit wave:started event
+    this.eventBus.emit({
+      type: 'wave:started',
+      wave: this.waveNumber(),
+      enemyCount: 0, // Manual mode - count unknown
+    });
   }
 
   /**
@@ -58,6 +73,13 @@ export class WaveManager {
   startWave(config: WaveConfig): void {
     this.waveNumber.update((n) => n + 1);
     this.phase.set('wave');
+
+    // Emit wave:started event
+    this.eventBus.emit({
+      type: 'wave:started',
+      wave: this.waveNumber(),
+      enemyCount: config.enemyCount,
+    });
 
     const useGathering = config.useGathering;
     const spawnDelay = config.spawnDelay;
@@ -144,8 +166,16 @@ export class WaveManager {
    * End the current wave
    */
   endWave(): void {
+    const waveNum = this.waveNumber();
     this.enemyManager.clear();
     this.phase.set('setup');
+
+    // Emit wave:completed event (credits are added by GameStateManager)
+    this.eventBus.emitDeferred({
+      type: 'wave:completed',
+      wave: waveNum,
+      credits: 0, // Credits are handled separately via GAME_BALANCE
+    });
   }
 
   /**

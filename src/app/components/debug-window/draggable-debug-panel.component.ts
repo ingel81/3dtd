@@ -9,11 +9,17 @@ import {
   inject,
   HostListener,
   ChangeDetectionStrategy,
+  signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { DebugWindowService, DebugWindowId, WindowPosition } from '../../services/debug-window.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+
+export interface WindowSize {
+  width: number;
+  height: number;
+}
 
 @Component({
   selector: 'app-draggable-debug-panel',
@@ -24,9 +30,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     <div
       #panel
       class="debug-panel"
+      [class.resizable]="resizable()"
       [style.left.px]="position().x"
       [style.top.px]="position().y"
       [style.z-index]="zIndex()"
+      [style.width.px]="resizable() ? currentSize().width : null"
+      [style.height.px]="resizable() ? currentSize().height : null"
       (mousedown)="onPanelClick()"
     >
       <div
@@ -39,9 +48,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <mat-icon>close</mat-icon>
         </button>
       </div>
-      <div class="debug-panel-content">
+      <div class="debug-panel-content" [class.resizable-content]="resizable()">
         <ng-content></ng-content>
       </div>
+      @if (resizable()) {
+        <div class="resize-handle" (mousedown)="onResizeMouseDown($event)">
+          <mat-icon>drag_indicator</mat-icon>
+        </div>
+      }
     </div>
   `,
   styles: `
@@ -127,6 +141,47 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       overflow-y: auto;
       overflow-x: hidden;
     }
+
+    .debug-panel.resizable {
+      min-width: 300px;
+      min-height: 200px;
+      max-width: none;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .debug-panel.resizable .debug-panel-content.resizable-content {
+      flex: 1;
+      max-height: none;
+      overflow: auto;
+    }
+
+    .resize-handle {
+      position: absolute;
+      bottom: 0;
+      right: 0;
+      width: 20px;
+      height: 20px;
+      cursor: nwse-resize;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--td-text-muted);
+      opacity: 0.5;
+      transition: opacity 0.15s;
+    }
+
+    .resize-handle:hover {
+      opacity: 1;
+      color: var(--td-teal);
+    }
+
+    .resize-handle mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+      transform: rotate(-45deg);
+    }
   `,
 })
 export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
@@ -138,24 +193,35 @@ export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
   readonly icon = input<string>('bug_report');
   readonly position = input.required<WindowPosition>();
   readonly zIndex = input.required<number>();
+  readonly resizable = input<boolean>(false);
+  readonly size = input<WindowSize>({ width: 400, height: 350 });
 
   // Outputs
   readonly closed = output<void>();
   readonly positionChange = output<WindowPosition>();
   readonly focused = output<void>();
+  readonly sizeChange = output<WindowSize>();
 
   @ViewChild('panel') panelRef!: ElementRef<HTMLDivElement>;
 
+  // Internal state for current size (initialized from input)
+  readonly currentSize = signal<WindowSize>({ width: 400, height: 350 });
+
   private isDragging = false;
+  private isResizing = false;
   private dragOffset = { x: 0, y: 0 };
+  private resizeStart = { x: 0, y: 0, width: 0, height: 0 };
 
   ngAfterViewInit(): void {
+    // Initialize size from input
+    this.currentSize.set(this.size());
     // Ensure panel stays within viewport
     this.constrainToViewport();
   }
 
   ngOnDestroy(): void {
     this.stopDrag();
+    this.stopResize();
   }
 
   onPanelClick(): void {
@@ -177,30 +243,68 @@ export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
 
   @HostListener('document:mousemove', ['$event'])
   onMouseMove(event: MouseEvent): void {
-    if (!this.isDragging) return;
+    if (this.isDragging) {
+      const newX = event.clientX - this.dragOffset.x;
+      const newY = event.clientY - this.dragOffset.y;
 
-    const newX = event.clientX - this.dragOffset.x;
-    const newY = event.clientY - this.dragOffset.y;
+      // Constrain to viewport
+      const panel = this.panelRef?.nativeElement;
+      if (panel) {
+        const rect = panel.getBoundingClientRect();
+        const maxX = window.innerWidth - rect.width;
+        const maxY = window.innerHeight - rect.height;
 
-    // Constrain to viewport
-    const panel = this.panelRef?.nativeElement;
-    if (panel) {
-      const rect = panel.getBoundingClientRect();
-      const maxX = window.innerWidth - rect.width;
-      const maxY = window.innerHeight - rect.height;
+        this.positionChange.emit({
+          x: Math.max(0, Math.min(newX, maxX)),
+          y: Math.max(0, Math.min(newY, maxY)),
+        });
+      } else {
+        this.positionChange.emit({ x: newX, y: newY });
+      }
+    } else if (this.isResizing) {
+      const deltaX = event.clientX - this.resizeStart.x;
+      const deltaY = event.clientY - this.resizeStart.y;
 
-      this.positionChange.emit({
-        x: Math.max(0, Math.min(newX, maxX)),
-        y: Math.max(0, Math.min(newY, maxY)),
-      });
-    } else {
-      this.positionChange.emit({ x: newX, y: newY });
+      const newWidth = Math.max(300, this.resizeStart.width + deltaX);
+      const newHeight = Math.max(200, this.resizeStart.height + deltaY);
+
+      // Constrain to viewport
+      const pos = this.position();
+      const maxWidth = window.innerWidth - pos.x - 10;
+      const maxHeight = window.innerHeight - pos.y - 10;
+
+      const size: WindowSize = {
+        width: Math.min(newWidth, maxWidth),
+        height: Math.min(newHeight, maxHeight),
+      };
+
+      this.currentSize.set(size);
+      this.sizeChange.emit(size);
     }
   }
 
   @HostListener('document:mouseup')
   onMouseUp(): void {
     this.stopDrag();
+    this.stopResize();
+  }
+
+  onResizeMouseDown(event: MouseEvent): void {
+    if (event.button !== 0) return; // Only left click
+
+    event.preventDefault();
+    event.stopPropagation();
+    this.isResizing = true;
+
+    const size = this.currentSize();
+    this.resizeStart = {
+      x: event.clientX,
+      y: event.clientY,
+      width: size.width,
+      height: size.height,
+    };
+
+    this.focused.emit();
   }
 
   onClose(event: MouseEvent): void {
@@ -210,6 +314,10 @@ export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
 
   private stopDrag(): void {
     this.isDragging = false;
+  }
+
+  private stopResize(): void {
+    this.isResizing = false;
   }
 
   private constrainToViewport(): void {

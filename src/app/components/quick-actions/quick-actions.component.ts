@@ -102,6 +102,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>volume_up</mat-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.eventsWindow().isOpen"
+                  (click)="debugWindows.toggle('events')"
+                  matTooltip="Event-Bus-Panel"
+                  matTooltipPosition="left">
+            <mat-icon>cell_tower</mat-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="cameraFramingDebug()"
                   (click)="cameraFramingDebugToggled.emit()"
                   matTooltip="Kamera-Framing Debug"

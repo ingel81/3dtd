@@ -5,21 +5,32 @@ export interface WindowPosition {
   y: number;
 }
 
+export interface WindowSize {
+  width: number;
+  height: number;
+}
+
 export interface DebugWindowState {
   isOpen: boolean;
   position: WindowPosition;
   zIndex: number;
+  size?: WindowSize;
 }
 
-export type DebugWindowId = 'camera' | 'wave' | 'sound';
+export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events';
 
-const STORAGE_KEY = 'td_debug_windows_v2';
+const STORAGE_KEY = 'td_debug_windows_v4';
 const BASE_Z_INDEX = 100;
 
 const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   camera: { x: 20, y: 80 },
   wave: { x: 20, y: 400 },
   sound: { x: 20, y: 200 },
+  events: { x: 380, y: 80 },
+};
+
+const DEFAULT_SIZES: Partial<Record<DebugWindowId, WindowSize>> = {
+  events: { width: 450, height: 400 },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -34,6 +45,7 @@ export class DebugWindowService {
   readonly cameraWindow = computed(() => this.windowStates()['camera']);
   readonly waveWindow = computed(() => this.windowStates()['wave']);
   readonly soundWindow = computed(() => this.windowStates()['sound']);
+  readonly eventsWindow = computed(() => this.windowStates()['events']);
 
   // Check if any window is open
   readonly hasOpenWindows = computed(() =>
@@ -90,6 +102,20 @@ export class DebugWindowService {
   }
 
   /**
+   * Update window size (called during resize)
+   */
+  updateSize(windowId: DebugWindowId, size: WindowSize): void {
+    this.updateWindow(windowId, { size });
+  }
+
+  /**
+   * Get the current size for a window
+   */
+  getSize(windowId: DebugWindowId): WindowSize | undefined {
+    return this.windowStates()[windowId].size;
+  }
+
+  /**
    * Bring window to front (called on click)
    */
   bringToFront(windowId: DebugWindowId): void {
@@ -140,6 +166,12 @@ export class DebugWindowService {
         isOpen: false,
         position: DEFAULT_POSITIONS.sound,
         zIndex: BASE_Z_INDEX + 2,
+      },
+      events: {
+        isOpen: false,
+        position: DEFAULT_POSITIONS.events,
+        zIndex: BASE_Z_INDEX + 3,
+        size: DEFAULT_SIZES.events,
       },
     };
 

@@ -10,16 +10,17 @@ import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { CombatEffectService } from '../services/combat-effect.service';
 import { HQDamageService } from '../services/hq-damage.service';
 import { TowerCombatService } from '../services/tower-combat.service';
-import { StreetNetwork } from '../services/osm-street.service';
+import { EntityPoolService } from '../services/entity-pool.service';
+import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { Enemy } from '../entities/enemy.entity';
-import { Projectile } from '../entities/projectile.entity';
 import { EnemyTypeId } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
+import { GameEventBus, VFXService, AudioService } from '../game-engine';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -29,17 +30,24 @@ import { ThreeTilesEngine } from '../three-engine';
  */
 @Injectable()
 export class GameStateManager {
-  // Entity managers
-  readonly enemyManager = inject(EnemyManager);
-  readonly towerManager = inject(TowerManager);
-  readonly projectileManager = inject(ProjectileManager);
-  readonly waveManager = inject(WaveManager);
+  // Angular-injected services (UI & coordination)
   private readonly uiState = inject(GameUIStateService);
   private readonly pathRouteService = inject(PathAndRouteService);
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly combatEffect = inject(CombatEffectService);
   private readonly hqDamage = inject(HQDamageService);
   private readonly towerCombat = inject(TowerCombatService);
+  private readonly entityPool = inject(EntityPoolService);
+  private readonly osmService = inject(OsmStreetService);
+
+  // Game Engine (framework-agnostic)
+  private readonly eventBus = new GameEventBus();
+  private vfxService!: VFXService;
+  private audioService!: AudioService;
+  readonly towerManager = new TowerManager(this.eventBus, this.osmService);
+  readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid);
+  readonly projectileManager = new ProjectileManager(this.eventBus, this.entityPool);
+  readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
 
   // Game state signals
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
@@ -60,8 +68,7 @@ export class GameStateManager {
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
-  // Callbacks
-  private onGameOverCallback?: () => void;
+  // Callbacks (only debug log remains)
   private onDebugLogCallback?: (msg: string) => void;
 
   /**
@@ -73,19 +80,14 @@ export class GameStateManager {
     basePosition: GeoPosition,
     spawnPoints: SpawnPoint[],
     cachedPaths: Map<string, GeoPosition[]>,
-    onDebugLog?: (msg: string) => void,
-    onGameOver?: () => void
+    onDebugLog?: (msg: string) => void
   ): void {
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
-    this.onGameOverCallback = onGameOver;
     this.onDebugLogCallback = onDebugLog;
 
-    // Initialize entity managers
-    this.enemyManager.initialize(
-      tilesEngine,
-      (enemy) => this.onEnemyReachedBase(enemy)
-    );
+    // Initialize entity managers (no callbacks - use events)
+    this.enemyManager.initialize(tilesEngine);
 
     this.towerManager.initializeWithContext(
       tilesEngine,
@@ -94,19 +96,43 @@ export class GameStateManager {
       spawnPoints.map((s) => ({ lat: s.latitude, lon: s.longitude }))
     );
 
-    // Initialize combat effect service
-    this.combatEffect.initialize(tilesEngine);
+    // Initialize combat effect service (subscribes to projectile:hit events)
+    this.combatEffect.initialize(tilesEngine, this.eventBus, this.towerManager, this.enemyManager);
 
     // Initialize HQ damage service (handles fire, sounds, game over effects)
-    this.hqDamage.initialize(tilesEngine, basePosition);
+    this.hqDamage.initialize(tilesEngine, basePosition, this.eventBus);
 
     // Initialize tower combat service (handles targeting, rotation, shooting)
     this.towerCombat.initialize(tilesEngine);
 
-    this.projectileManager.initialize(
-      tilesEngine,
-      (proj, enemy) => this.handleProjectileHit(proj, enemy)
-    );
+    // Initialize VFX service (subscribes to vfx events)
+    this.vfxService = new VFXService(this.eventBus, tilesEngine);
+
+    // Initialize Audio service (subscribes to audio events)
+    this.audioService = new AudioService(this.eventBus, tilesEngine);
+
+    // Register event handlers
+    this.eventBus.on('enemy:reached-base', (event) => {
+      const oldHealth = this.baseHealth();
+      const newHealth = Math.max(0, oldHealth - event.damage);
+      this.baseHealth.set(newHealth);
+
+      // Emit health:changed - HQDamageService subscribes
+      this.eventBus.emit({
+        type: 'health:changed',
+        health: newHealth,
+        delta: newHealth - oldHealth,
+      });
+    });
+
+    this.eventBus.on('enemy:died', (event) => {
+      if (event.credits > 0) {
+        this.credits.update((c) => c + event.credits);
+      }
+    });
+
+    // Initialize projectile manager (no callback - uses events)
+    this.projectileManager.initialize(tilesEngine);
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
   }
@@ -125,6 +151,9 @@ export class GameStateManager {
 
     // Projectiles always complete their flight path
     this.projectileManager.update(deltaTime);
+
+    // Process deferred events (VFX, audio, etc.) at stable point in game loop
+    this.eventBus.processQueue();
 
     // Tower idle rotation (smooth return to base position) - only when not in wave
     if (this.waveManager.phase() !== 'wave') {
@@ -157,36 +186,8 @@ export class GameStateManager {
     // Check game over
     if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
       this.triggerGameOver();
-    } else if (this.baseHealth() < 100 && this.baseHealth() > 0) {
-      this.hqDamage.updateFireIntensity(this.baseHealth());
     }
   }
-
-
-  /**
-   * Handle enemy reaching the base
-   */
-  private onEnemyReachedBase(_enemy: Enemy): void {
-    this.baseHealth.update((h) => Math.max(0, h - GAME_BALANCE.combat.enemyBaseDamage));
-    this.hqDamage.updateFireIntensity(this.baseHealth());
-    this.hqDamage.playDamageSound();
-  }
-
-  /**
-   * Handle projectile hitting an enemy - delegates to CombatEffectService
-   */
-  private handleProjectileHit(projectile: Projectile, enemy: Enemy): void {
-    const result = this.combatEffect.onProjectileHit(
-      projectile,
-      enemy,
-      this.towerManager,
-      this.enemyManager
-    );
-    if (result.reward > 0) {
-      this.credits.update((c) => c + result.reward);
-    }
-  }
-
 
   /**
    * Trigger game over state
@@ -198,7 +199,12 @@ export class GameStateManager {
 
     // Delegate visual effects to HQDamageService
     this.hqDamage.triggerGameOverEffects();
-    this.onGameOverCallback?.();
+
+    // Emit game:over event
+    this.eventBus.emit({
+      type: 'game:over',
+      reason: 'base-destroyed',
+    });
   }
 
   // ============================================
@@ -333,8 +339,6 @@ export class GameStateManager {
    * Sell a tower and refund 50% of its cost
    */
   sellTower(tower: Tower): number {
-    const refund = tower.typeConfig.sellValue;
-
     // Dispose LOS visualization
     if (tower.losVisualization && this.tilesEngine) {
       this.tilesEngine.getScene().remove(tower.losVisualization);
@@ -348,7 +352,9 @@ export class GameStateManager {
     tower.visibleCells = []; // Clear references
 
     this.towerManager.selectTower(null);
-    this.towerManager.remove(tower);
+
+    // Sell tower (emits tower:sold event, returns refund)
+    const refund = this.towerManager.sell(tower);
     this.credits.update((c) => c + refund);
     return refund;
   }
@@ -526,5 +532,12 @@ export class GameStateManager {
    */
   getGlobalRouteGrid(): GlobalRouteGridService {
     return this.globalRouteGrid;
+  }
+
+  /**
+   * Get EventBus for external subscriptions (e.g., game:over in UI components)
+   */
+  getEventBus(): GameEventBus {
+    return this.eventBus;
   }
 }

@@ -1,4 +1,3 @@
-import { Injectable, inject } from '@angular/core';
 import { EntityManager } from './entity-manager';
 import { Projectile } from '../entities/projectile.entity';
 import { Tower } from '../entities/tower.entity';
@@ -6,26 +5,32 @@ import { Enemy } from '../entities/enemy.entity';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
-import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
+import { GameEventBus } from '../game-engine';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
+ *
+ * Framework-agnostic, event-based:
+ * - No @Injectable decorator
+ * - No inject() calls
+ * - Constructor injection
+ * - Emits events instead of callbacks
  */
-@Injectable()
 export class ProjectileManager extends EntityManager<Projectile> {
-  private entityPool = inject(EntityPoolService);
-  private onProjectileHit?: (projectile: Projectile, enemy: Enemy) => void;
   private soundsRegistered = false;
 
+  constructor(
+    private eventBus: GameEventBus,
+    private entityPool: EntityPoolService
+  ) {
+    super();
+  }
+
   /**
-   * Initialize projectile manager with ThreeTilesEngine and callbacks
+   * Initialize projectile manager with ThreeTilesEngine
    */
-  override initialize(
-    tilesEngine: ThreeTilesEngine,
-    onProjectileHit?: (projectile: Projectile, enemy: Enemy) => void
-  ): void {
+  override initialize(tilesEngine: ThreeTilesEngine): void {
     super.initialize(tilesEngine);
-    this.onProjectileHit = onProjectileHit;
 
     // Register projectile sounds with spatial audio
     if (!this.soundsRegistered && tilesEngine.spatialAudio) {
@@ -88,46 +93,31 @@ export class ProjectileManager extends EntityManager<Projectile> {
       const hit = projectile.updateTowardsTarget(deltaTime);
 
       if (hit) {
-        // Only call hit handler if target is still alive (not for ground impacts)
+        // Emit projectile:hit event if target is still alive
         if (!projectile.targetLost) {
-          this.onProjectileHit?.(projectile, projectile.targetEnemy);
+          this.eventBus.emit({
+            type: 'projectile:hit',
+            projectile,
+            target: projectile.targetEnemy,
+            damage: projectile.damage,
+          });
+        } else {
+          // Target died before projectile reached - ground impact
+          this.eventBus.emitDeferred({
+            type: 'projectile:missed',
+            projectile,
+          });
         }
 
-        // Spawn explosion effects based on projectile type (always, even on ground impact)
-        const projectileId = projectile.typeConfig.id;
-        if (projectile.isHoming) {
-          // Rocket explosion - large fire effect
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.rocket.particles
-          );
-        } else if (projectileId === 'cannonball') {
-          // Cannonball explosion - medium fire effect
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.cannon.particles
-          );
-        } else if (projectileId === 'bullet') {
-          // Minimal impact effect for bullets
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.bullet.particles
-          );
-        } else if (projectileId !== 'arrow') {
-          // Small impact effect for other projectiles (ice, etc.)
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.small.particles
-          );
-        }
+        // Emit VFX event for projectile impact (deferred, not critical)
+        this.eventBus.emitDeferred({
+          type: 'vfx:projectile-impact',
+          lat: projectile.position.lat,
+          lon: projectile.position.lon,
+          height: projectile.flightHeight,
+          projectileType: projectile.typeConfig.id,
+          targetLost: projectile.targetLost,
+        });
 
         toRemove.push(projectile);
       } else {
@@ -169,37 +159,24 @@ export class ProjectileManager extends EntityManager<Projectile> {
   }
 
   /**
-   * Play spatial sound for a projectile at the tower's position
-   * Fire-and-forget async - errors are logged but don't block gameplay
+   * Emit audio event for projectile sound at the tower's position
+   * Uses deferred events (processed at frame end)
    */
-  private async playProjectileSound(tower: Tower, projectileType: string): Promise<void> {
-    if (!this.tilesEngine?.spatialAudio) return;
-
+  private playProjectileSound(tower: Tower, projectileType: string): void {
     // Map projectile types to sound IDs
-    const soundId = projectileType in PROJECTILE_SOUNDS
-      ? projectileType
-      : 'arrow'; // Fallback to arrow sound
+    const soundId = projectileType in PROJECTILE_SOUNDS ? projectileType : 'arrow'; // Fallback to arrow sound
 
     const pos = tower.position;
     const height = (pos.height ?? 0) + tower.typeConfig.heightOffset;
 
-    try {
-      await this.tilesEngine.spatialAudio.playAtGeo(soundId, pos.lat, pos.lon, height);
-    } catch (err) {
-      console.warn(`[ProjectileManager] Failed to play sound '${soundId}':`, err);
-    }
-  }
-
-  /**
-   * Calculate heading angle from one position to another
-   */
-  private calculateHeading(
-    from: { lat: number; lon: number },
-    to: { lat: number; lon: number }
-  ): number {
-    const dLon = to.lon - from.lon;
-    const dLat = to.lat - from.lat;
-    return Math.atan2(dLon, dLat);
+    // Emit audio event (deferred, not critical)
+    this.eventBus.emitDeferred({
+      type: 'audio:play',
+      sound: soundId,
+      lat: pos.lat,
+      lon: pos.lon,
+      height,
+    });
   }
 
   /**
