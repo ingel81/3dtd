@@ -4,7 +4,19 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-20
+
+- [x] **Codebase auf Englisch umgestellt** - Vollständige Übersetzung
+      ~20 Dateien: UI-Strings, Tooltips, Error-Messages, Loading-States, Kommentare
+      Services, Components, HTML-Templates, Config-Dateien
+
+---
+
 ## 2026-01-19
+
+- [x] **TowerDefenseComponent Aufteilung abgeschlossen** - Keine weitere Aufteilung nötig
+      ~1797 Zeilen, davon Großteil Signal-Proxies, Lifecycle-Hooks und Service-Delegierungen
+      21 Services injiziert, Komponente fungiert korrekt als Orchestrator
 
 - [x] **Event Debug Panel Position Fix** - Panel springt nicht mehr beim Öffnen
       `constrainToViewport()` mit `requestAnimationFrame` verzögert, damit DOM korrekte Größe hat

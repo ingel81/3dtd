@@ -1,8 +1,8 @@
 /**
  * Route Animation Shaders
  *
- * Knight Rider Effekt: Leuchtender Kopf + nachleuchtender Schweif
- * läuft von Spawn → HQ und signalisiert Gefahr.
+ * Knight Rider effect: Glowing head + glowing tail
+ * runs from Spawn → HQ and signals danger.
  */
 
 export const ROUTE_ANIMATION_VERTEX = /* glsl */ `

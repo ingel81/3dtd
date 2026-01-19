@@ -3,8 +3,8 @@ import { EnemyTypeId, getAllEnemyTypes } from '../models/enemy-types';
 import { GameUIStateService } from './game-ui-state.service';
 
 /**
- * Service für Wave-Debug-Einstellungen.
- * Zentralisiert alle Debug-relevanten Signale für den Wave-Debugger.
+ * Service for wave debug settings.
+ * Centralizes all debug-relevant signals for the wave debugger.
  */
 @Injectable({ providedIn: 'root' })
 export class WaveDebugService {

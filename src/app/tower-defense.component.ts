@@ -232,10 +232,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Build mode hints for context hint box
   readonly buildModeHints: HintItem[] = [
-    { key: 'R', description: 'Drehen' },
-    { key: 'Klick', description: 'Bauen' },
-    { key: 'ESC', description: 'Abbruch' },
-    { key: 'Warten', description: 'Sichtfeld' },
+    { key: 'R', description: 'Rotate' },
+    { key: 'Click', description: 'Build' },
+    { key: 'ESC', description: 'Cancel' },
+    { key: 'Wait', description: 'Line of Sight' },
   ];
   readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
 
@@ -311,7 +311,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Initialize location from URL or geolocation cascade
-   * Shows as first loading step: "Bestimme Standort"
+   * Shows as first loading step: "Determining Location"
    * Opens location dialog if no location can be determined
    */
   private async initializeLocation(): Promise<void> {
@@ -323,7 +323,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (urlData) {
       // URL has location → use it (skip geolocation)
       this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
-      await this.engineInit.setStepDone('location', 'aus URL');
+      await this.engineInit.setStepDone('location', 'from URL');
     } else {
       // No URL params → try geolocation cascade
       this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepDetail('location', detail);
@@ -331,13 +331,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (detected) {
         this.locationMgmt.setLocation(detected, []);
-        const sourceLabel = detected.source === 'browser' ? 'Browser' : 'IP-basiert';
+        const sourceLabel = detected.source === 'browser' ? 'Browser' : 'IP-based';
         await this.engineInit.setStepDone('location', sourceLabel);
       } else {
         // No location found - open dialog and wait for user selection
-        this.engineInit.updateStepDetail('location', 'Wähle Standort...');
+        this.engineInit.updateStepDetail('location', 'Select location...');
         await this.waitForLocationFromDialog();
-        await this.engineInit.setStepDone('location', 'manuell gewählt');
+        await this.engineInit.setStepDone('location', 'manually selected');
       }
     }
 
@@ -502,7 +502,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const cesiumToken = this.configService.cesiumIonToken();
       const cesiumAssetId = this.configService.cesiumAssetId();
       if (!cesiumToken) {
-        this.engineInit.setError('Bitte konfiguriere deinen Cesium Ion Token in environment.ts.');
+        this.engineInit.setError('Please configure your Cesium Ion Token in environment.ts.');
         this.engineInit.setLoading(false);
         return;
       }
@@ -542,7 +542,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     } catch (err) {
       console.error('[TD] Engine init error:', err);
-      this.engineInit.setError(err instanceof Error ? err.message : 'Fehler beim Laden der 3D-Karte');
+      this.engineInit.setError(err instanceof Error ? err.message : 'Error loading 3D map');
       this.engineInit.setLoading(false);
     }
   }
@@ -597,8 +597,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const stats = engine.getTileStats();
       const pending = stats.downloading + stats.parsing;
       const detail = pending > 0
-        ? `${stats.visible} geladen, ${pending} ausstehend`
-        : `${stats.visible} Kacheln geladen`;
+        ? `${stats.visible} loaded, ${pending} pending`
+        : `${stats.visible} tiles loaded`;
       this.engineInit.updateStepDetail('tiles', detail);
     }, 500);
   }
@@ -788,7 +788,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize GlobalRouteGrid after routes are computed
     // (setStepActive/Done are async but we fire-and-forget for UI update)
     void this.engineInit.setStepActive('grid');
-    this.engineInit.updateStepDetail('grid', 'Berechne Grid...');
+    this.engineInit.updateStepDetail('grid', 'Calculating grid...');
     this.gameState.initializeGlobalRouteGrid();
     void this.engineInit.setStepDone('grid');
 
@@ -1221,23 +1221,23 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Startet eine neue Welle mit dem 2-Phasen-System:
+   * Starts a new wave with the 2-phase system:
    *
-   * PHASE 1 - SAMMELN (ca. N * 100ms):
-   * - Gegner spawnen nacheinander (100ms Delay)
-   * - Stehen still am Spawn-Punkt (paused=true)
-   * - Models werden asynchron geladen → verteilt GPU-Last
+   * PHASE 1 - GATHERING (approx. N * 100ms):
+   * - Enemies spawn one after another (100ms delay)
+   * - Stand still at spawn point (paused=true)
+   * - Models are loaded asynchronously → distributes GPU load
    *
-   * PHASE 2 - ANGRIFF (nach 500ms Pause):
-   * - Gegner laufen einzeln los (300ms Delay zwischen jedem)
-   * - Walk-Animation startet
-   * - Game-Loop beginnt
+   * PHASE 2 - ATTACK (after 500ms pause):
+   * - Enemies start moving one by one (300ms delay between each)
+   * - Walk animation starts
+   * - Game loop begins
    */
   startWave(): void {
     if (!this.engine || this.waveActive() || this.isGameOver()) return;
     if (this.spawnPoints().length === 0) return;
 
-    // Snapshot der Debug-Einstellungen - WaveManager verwaltet Spawning
+    // Snapshot of debug settings - WaveManager handles spawning
     // Note: getSpawnDelay allows live delay changes during wave (from Debug Panel)
     const waveConfig: WaveConfig = {
       enemyCount: this.enemyCount(),
@@ -1443,9 +1443,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   healHq(): void {
-    // HQ auf 100 HP heilen und Feuer stoppen
+    // Heal HQ to 100 HP and stop fire
     this.gameState.healBase();
-    this.appendDebugLog('HQ geheilt (100 HP)');
+    this.appendDebugLog('HQ healed (100 HP)');
   }
 
   addDebugCredits(): void {
@@ -1585,8 +1585,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       await this.locationCoordinator.executeLocationChange(input, context, callbacks);
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);
-      this.appendDebugLog(`Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
-      this.engineInit.setError(err instanceof Error ? err.message : 'Fehler beim Standortwechsel');
+      this.appendDebugLog(`Error: ${err instanceof Error ? err.message : 'Unknown'}`);
+      this.engineInit.setError(err instanceof Error ? err.message : 'Error changing location');
 
       // Reset loading flags on error
       this.tilesLoading.set(false);
@@ -1655,10 +1655,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         if (randomSpawn) {
           spawnLat = randomSpawn.lat;
           spawnLon = randomSpawn.lon;
-          spawnName = randomSpawn.streetName || 'Zufälliger Spawn';
-          this.appendDebugLog(`Zufälliger Spawn: ${Math.round(randomSpawn.distance)}m entfernt`);
+          spawnName = randomSpawn.streetName || 'Random Spawn';
+          this.appendDebugLog(`Random spawn: ${Math.round(randomSpawn.distance)}m away`);
         } else {
-          this.appendDebugLog('Kein gültiger Spawn gefunden, verwende Fallback');
+          this.appendDebugLog('No valid spawn found, using fallback');
           // Fallback: use a point 700m north
           spawnLat = result.hq.lat + 0.0063; // ~700m north
           spawnLon = result.hq.lon;
@@ -1691,14 +1691,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   onShareLocation(): void {
     const url = this.urlLocation.getShareUrl();
     navigator.clipboard.writeText(url);
-    this.appendDebugLog('Link kopiert: ' + url);
+    this.appendDebugLog('Link copied: ' + url);
   }
 
   /**
    * Roll for a random city from Wikidata and navigate there
    */
   async onWorldDice(): Promise<void> {
-    this.appendDebugLog('World Dice: Wuerfel zufaellige Stadt...');
+    this.appendDebugLog('World Dice: Rolling random city...');
 
     // Show loading overlay with World Dice step
     this.engineInit.startWorldDiceLoading();
@@ -1714,7 +1714,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.worldDice.onStepDetail = null;
 
     if (!city) {
-      this.appendDebugLog('World Dice: Fehlgeschlagen - ' + (this.worldDice.error() || 'Unbekannter Fehler'));
+      this.appendDebugLog('World Dice: Failed - ' + (this.worldDice.error() || 'Unknown error'));
       // Hide loading overlay on error
       this.engineInit.setLoading(false);
       return;
@@ -1723,7 +1723,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const displayName = city.country ? `${city.name}, ${city.country}` : city.name;
     this.appendDebugLog(`World Dice: ${displayName} (${city.lat.toFixed(4)}, ${city.lon.toFixed(4)})`);
 
-    // Show "Lade Karte..." step before reload
+    // Show "Loading Map..." step before reload
     this.engineInit.finishWorldDiceLoading(displayName);
 
     // Update URL with only HQ (l=), no spawn (s=) -> randomizer will create spawn
@@ -1731,7 +1731,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     url.searchParams.set('l', `${city.lat.toFixed(5)},${city.lon.toFixed(5)}`);
     url.searchParams.delete('s'); // Remove spawn so randomizer kicks in
 
-    // Small delay so user sees the "Lade Karte..." step
+    // Small delay so user sees the "Loading Map..." step
     await new Promise(resolve => setTimeout(resolve, 300));
 
     // Navigate to new location (full reload for clean state)
@@ -1744,7 +1744,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   onAddFavorite(): void {
     this.locationMgmt.saveFavorite();
     this.resolveFavoriteNames(); // Refresh names
-    this.appendDebugLog('Favorit gespeichert');
+    this.appendDebugLog('Favorite saved');
   }
 
   /**
@@ -1759,7 +1759,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Apply to game
     await this.onApplyNewLocation({
-      hq: { lat: fav.hq.lat, lon: fav.hq.lon, name: 'Laden...' },
+      hq: { lat: fav.hq.lat, lon: fav.hq.lon, name: 'Loading...' },
       spawn: { lat: spawn.lat, lon: spawn.lon, name: 'Spawn' },
     });
   }
@@ -1774,7 +1774,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       delete copy[id];
       return copy;
     });
-    this.appendDebugLog('Favorit gelöscht');
+    this.appendDebugLog('Favorite deleted');
   }
 
   /**

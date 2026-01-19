@@ -330,7 +330,7 @@ export class TowerPlacementService {
 
     // Validate and colorize
     const validation = this.validateTowerPosition(lat, lon);
-    this.validationReason.set(validation.valid ? null : (validation.reason ?? 'Ungültige Position'));
+    this.validationReason.set(validation.valid ? null : (validation.reason ?? 'Invalid position'));
 
     if (!this.lastValidation || this.lastValidation.valid !== validation.valid) {
       this.colorizePreviewModel(validation.valid);
@@ -522,11 +522,11 @@ export class TowerPlacementService {
 
   validateTowerPosition(lat: number, lon: number): { valid: boolean; reason?: string } {
     if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
-      return { valid: false, reason: 'Service nicht initialisiert' };
+      return { valid: false, reason: 'Service not initialized' };
     }
 
     if (this.streetNetwork.streets.length === 0) {
-      return { valid: false, reason: 'Keine Strassen geladen' };
+      return { valid: false, reason: 'No streets loaded' };
     }
 
     // Check bounds
@@ -587,11 +587,11 @@ export class TowerPlacementService {
     }
 
     if (nearest.distance > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Zu weit von Strasse' };
+      return { valid: false, reason: 'Too far from street' };
     }
 
     if (effectiveDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Zu nah an Strasse' };
+      return { valid: false, reason: 'Too close to street' };
     }
 
     return { valid: true };

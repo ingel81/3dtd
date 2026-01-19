@@ -37,7 +37,7 @@ const SPAWNABLE_STREET_TYPES = ['residential', 'primary', 'secondary', 'tertiary
  * Footpaths get multiplier 3.0 = only used if route is >66% shorter
  */
 const ROAD_TYPE_WEIGHTS: Record<string, number> = {
-  // Hauptstraßen - bevorzugt
+  // Main roads - preferred
   motorway: 0.8,
   motorway_link: 0.85,
   trunk: 0.85,
@@ -49,19 +49,19 @@ const ROAD_TYPE_WEIGHTS: Record<string, number> = {
   tertiary: 1.0,
   tertiary_link: 1.0,
 
-  // Normale Straßen - Standard
+  // Normal streets - standard
   residential: 1.0,
   living_street: 1.1,
   unclassified: 1.0,
   service: 1.2,
 
-  // Fußwege/Radwege - stark bestraft (nur bei großer Ersparnis)
+  // Footpaths/bike paths - heavily penalized (only if significantly shorter)
   pedestrian: 2.5,
   cycleway: 2.0,
   footway: 3.0,
   path: 3.0,
   track: 2.5,
-  steps: 5.0, // Treppen stark vermeiden
+  steps: 5.0, // Strongly avoid stairs
 };
 
 /** Default weight for unknown street types */
@@ -161,7 +161,7 @@ export class OsmStreetService {
 
         // Check if any streets were found
         if (network.streets.length === 0) {
-          throw new Error('Keine Straßen in diesem Bereich gefunden. Wähle einen anderen Standort.');
+          throw new Error('No streets found in this area. Choose a different location.');
         }
 
         // Cache the result to IndexedDB (async, fire-and-forget)
@@ -178,8 +178,8 @@ export class OsmStreetService {
 
     console.error('[OSM] All Overpass servers failed');
     // Provide user-friendly error message
-    const userMessage = 'OSM-Server nicht erreichbar. Prüfe deine Internetverbindung.';
-    throw lastError?.message?.includes('Keine Straßen')
+    const userMessage = 'OSM server unreachable. Check your internet connection.';
+    throw lastError?.message?.includes('No streets')
       ? lastError
       : new Error(userMessage);
   }

@@ -1,43 +1,43 @@
 /**
  * Tower Defense Theme - WC3/Ancient Command inspired
- * Zentrales Farbschema mit CSS Custom Properties
+ * Central color scheme with CSS Custom Properties
  */
 
 export const TD_THEME = {
-  // === Basisflächen (Sidebar & Panels) ===
-  bgDark: '#141815', // Haupt-Sidebar, dunkler Stein
-  bgSurface: '#1A201C', // Allgemeine Oberfläche (Overlay, Loading)
-  panelMain: '#232B25', // Primäre Panel-Fläche
-  panelSecondary: '#1C221E', // Unterpanels, Slots
-  panelShadow: '#0F130F', // Inset-Schatten, Tiefe
+  // === Base surfaces (Sidebar & Panels) ===
+  bgDark: '#141815', // Main sidebar, dark stone
+  bgSurface: '#1A201C', // General surface (Overlay, Loading)
+  panelMain: '#232B25', // Primary panel surface
+  panelSecondary: '#1C221E', // Sub-panels, slots
+  panelShadow: '#0F130F', // Inset shadow, depth
 
-  // === Rahmen & Material (WC3-DNA) ===
-  // Regel: hell oben, dunkel unten (klassischer WC3-Look)
-  frameDark: '#3A423C', // Unterkante, Schatten
-  frameMid: '#4F5A53', // Haupt-Rahmenfarbe
-  frameLight: '#6B756D', // Oberkante / Licht
-  edgeHighlight: '#8E9A90', // Fokus, Selektion
+  // === Frames & Material (WC3-DNA) ===
+  // Rule: light on top, dark on bottom (classic WC3 look)
+  frameDark: '#3A423C', // Bottom edge, shadow
+  frameMid: '#4F5A53', // Main frame color
+  frameLight: '#6B756D', // Top edge / highlight
+  edgeHighlight: '#8E9A90', // Focus, selection
 
-  // === Akzentfarben (Magie & Autorität) ===
-  // Sparsam einsetzen!
-  gold: '#C9A44C', // Wichtiges, Buttons, Titel
-  goldDark: '#9E7E32', // Gedrückt / Inaktiv
-  teal: '#6FB7A5', // Magische Akzente
-  green: '#9ED6A0', // Buffs, Positiv
-  greenDark: '#6AAB6C', // Gedrückt / Button-Schatten
+  // === Accent colors (Magic & Authority) ===
+  // Use sparingly!
+  gold: '#C9A44C', // Important, buttons, titles
+  goldDark: '#9E7E32', // Pressed / inactive
+  teal: '#6FB7A5', // Magical accents
+  green: '#9ED6A0', // Buffs, positive
+  greenDark: '#6AAB6C', // Pressed / button shadow
 
-  // === Status- & Feedbackfarben ===
+  // === Status & Feedback colors ===
   healthRed: '#B14436',
   healthBg: '#3A1B18',
   warnOrange: '#C96A3A',
   disabled: '#5B625C',
 
-  // === Textfarben ===
-  // Nie reines Weiß verwenden!
+  // === Text colors ===
+  // Never use pure white!
   textPrimary: '#ECEFE9',
   textSecondary: '#B2BCAF',
   textMuted: '#8B948A',
-  textTertiary: '#7A837A', // Zwischen muted und disabled, für pending/inactive Elemente
+  textTertiary: '#7A837A', // Between muted and disabled, for pending/inactive elements
   textDisabled: '#6A726A',
 
   // === Bars (HP, Mana, Progress) ===
@@ -52,7 +52,7 @@ export type TdThemeKey = keyof typeof TD_THEME;
 
 /**
  * CSS Custom Properties String
- * Zur Verwendung in :host oder Root-Element
+ * For use in :host or root element
  */
 export const TD_CSS_VARS = `
   --td-bg-dark: ${TD_THEME.bgDark};
@@ -119,7 +119,7 @@ export const TD_BUTTON_STYLES = `
 `;
 
 /**
- * Slot-Style (für Items, Tower-Auswahl etc.)
+ * Slot style (for items, tower selection etc.)
  */
 export const TD_SLOT_STYLES = `
   background: var(--td-panel-secondary);
@@ -129,7 +129,7 @@ export const TD_SLOT_STYLES = `
 `;
 
 /**
- * Secondary Button (Border-only, für Abbrechen etc.)
+ * Secondary Button (Border-only, for cancel etc.)
  */
 export const TD_BUTTON_SECONDARY_STYLES = `
   background: transparent;

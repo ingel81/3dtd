@@ -71,7 +71,7 @@ export class Enemy extends GameObject {
       });
     }
 
-    // Register random sound (nicht geloopt, wird per Timer abgespielt)
+    // Register random sound (not looped, played via timer)
     if (this.typeConfig.randomSound) {
       this._audio.registerSound('randomSound', this.typeConfig.randomSound, {
         volume: this.typeConfig.randomSoundVolumeMax ?? 0.5,
@@ -80,7 +80,7 @@ export class Enemy extends GameObject {
       });
     }
 
-    // Register spawn sound (einmalig beim Spawn)
+    // Register spawn sound (once at spawn)
     if (this.typeConfig.spawnSound) {
       this._audio.registerSound('spawn', this.typeConfig.spawnSound, {
         volume: this.typeConfig.spawnSoundVolume ?? 0.5,
@@ -143,17 +143,17 @@ export class Enemy extends GameObject {
     this.movement.resume();
     this.isMoving = true;
 
-    // Loop-Sound für normale Gegner
+    // Loop sound for normal enemies
     if (this.typeConfig.movingSound) {
       this.audio.play('moving', true);
     }
 
-    // Random Sound Timer für Gegner mit randomSound
+    // Random sound timer for enemies with randomSound
     if (this.typeConfig.randomSound) {
       this.scheduleNextRandomSound();
     }
 
-    // Random Sounds Pool (shuffle ohne Wiederholung)
+    // Random sounds pool (shuffle without repetition)
     if (this.typeConfig.randomSounds && this.typeConfig.randomSounds.length > 0) {
       this.startRandomSoundsPool();
     }
@@ -212,7 +212,7 @@ export class Enemy extends GameObject {
   }
 
   /**
-   * Start random sounds pool playback (shuffle ohne Wiederholung)
+   * Start random sounds pool playback (shuffle without repetition)
    */
   private startRandomSoundsPool(): void {
     if (!this.typeConfig.randomSounds || this.randomSoundsPlaying) return;

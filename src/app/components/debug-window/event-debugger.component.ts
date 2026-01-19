@@ -75,17 +75,17 @@ const MAX_LOG_ENTRIES = 100;
               <span class="value">{{ totalEvents() }}</span>
             </span>
             <span class="stat">
-              <span class="label">Angezeigt:</span>
+              <span class="label">Shown:</span>
               <span class="value">{{ filteredEvents().length }}</span>
             </span>
-            <button class="clear-btn" (click)="clearLog()" title="Log leeren">
+            <button class="clear-btn" (click)="clearLog()" title="Clear log">
               <mat-icon>delete_outline</mat-icon>
             </button>
             <button
               class="pause-btn"
               [class.active]="isPaused()"
               (click)="togglePause()"
-              [title]="isPaused() ? 'Fortsetzen' : 'Pausieren'"
+              [title]="isPaused() ? 'Resume' : 'Pause'"
             >
               <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
             </button>
@@ -102,9 +102,9 @@ const MAX_LOG_ENTRIES = 100;
             } @empty {
               <div class="empty-state">
                 @if (eventLog().length === 0) {
-                  Warte auf Events...
+                  Waiting for events...
                 } @else {
-                  Keine Events fuer Filter "{{ selectedCategory() }}"
+                  No events for filter "{{ selectedCategory() }}"
                 }
               </div>
             }

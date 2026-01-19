@@ -49,16 +49,16 @@ export class WorldDiceService {
     try {
       // Load pool if not yet loaded
       if (this.cityPool.length === 0) {
-        this.updateDetail('Lade Städte-Pool...');
+        this.updateDetail('Loading city pool...');
         await this.loadCityPool();
       }
 
       if (this.cityPool.length === 0) {
-        throw new Error('Keine Staedte geladen');
+        throw new Error('No cities loaded');
       }
 
       // Pick random city from pool
-      this.updateDetail('Würfle Stadt...');
+      this.updateDetail('Rolling city...');
       const randomIndex = Math.floor(Math.random() * this.cityPool.length);
       return this.cityPool[randomIndex];
     } catch (err) {
@@ -122,7 +122,7 @@ export class WorldDiceService {
     } catch (err) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('Timeout - Wikidata antwortet nicht');
+        throw new Error('Timeout - Wikidata not responding');
       }
       throw err;
     }

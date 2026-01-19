@@ -1,11 +1,11 @@
 /**
  * Line-of-Sight Hatching Shaders
  *
- * Animierte Schraffur-Visualisierung für Tower-Reichweite:
- * - Sichtbare Felder: Dezentes Punkt-Raster (grün, pulsierend)
- * - Blockierte Felder: Diagonale Schraffur (rot, wandernd)
+ * Animated hatching visualization for tower range:
+ * - Visible cells: Subtle dot grid (green, pulsing)
+ * - Blocked cells: Diagonal hatching (red, moving)
  *
- * Verwendet InstancedMesh für optimale Performance (1 Draw Call statt 500+)
+ * Uses InstancedMesh for optimal performance (1 draw call instead of 500+)
  */
 
 export const LOS_HATCHING_VERTEX = /* glsl */ `

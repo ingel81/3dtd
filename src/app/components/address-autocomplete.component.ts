@@ -31,7 +31,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
           <mat-spinner diameter="14" class="loading-spinner"></mat-spinner>
         }
         @if (currentValue() && !geocoding.isLoading()) {
-          <button class="clear-btn" (mousedown)="clearValue($event)" title="Löschen">
+          <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear">
             <mat-icon>close</mat-icon>
           </button>
         }
@@ -42,36 +42,36 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
         <div class="status-bar" [class.expanded]="showDropdown()">
           @switch (searchState()) {
             @case ('idle') {
-              <span class="hint">Adresse eingeben...</span>
+              <span class="hint">Enter address...</span>
             }
             @case ('too-short') {
               <span class="hint">
                 <mat-icon>keyboard</mat-icon>
-                Noch {{ 3 - searchText.length }} Zeichen
+                {{ 3 - searchText.length }} more characters
               </span>
             }
             @case ('searching') {
               <span class="hint searching">
                 <mat-icon>search</mat-icon>
-                Suche...
+                Searching...
               </span>
             }
             @case ('results') {
               <span class="hint success">
                 <mat-icon>check_circle</mat-icon>
-                {{ geocoding.results().length }} Treffer
+                {{ geocoding.results().length }} results
               </span>
             }
             @case ('no-results') {
               <span class="hint warning">
                 <mat-icon>search_off</mat-icon>
-                Keine Treffer
+                No results
               </span>
             }
             @case ('error') {
               <span class="hint error">
                 <mat-icon>error</mat-icon>
-                Fehler bei Suche
+                Search error
               </span>
             }
           }
@@ -291,7 +291,7 @@ export class AddressAutocompleteComponent {
   readonly geocoding = inject(GeocodingService);
 
   // Inputs
-  placeholder = input<string>('Adresse suchen...');
+  placeholder = input<string>('Search address...');
   currentValue = input<{ lat: number; lon: number; name?: string; address?: NominatimAddress } | null>(null);
 
   // Outputs

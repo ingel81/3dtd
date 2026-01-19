@@ -8,8 +8,8 @@ import { GeoPosition } from '../models/game.types';
  * Game Event Type Definitions
  * Uses discriminated unions for full type-safety
  *
- * WICHTIG: Nur für Broadcast-Events!
- * Für räumliche Queries → GlobalRouteGrid verwenden!
+ * IMPORTANT: Only for broadcast events!
+ * For spatial queries → use GlobalRouteGrid!
  */
 export type GameEvent =
   // ==================== Enemy Lifecycle ====================
@@ -213,8 +213,8 @@ interface EventBusMetrics {
  * - ~50-100ns per event (estimated)
  * - Zero framework dependencies
  *
- * WICHTIG: Nur für Broadcast-Events verwenden!
- * Für räumliche Queries (tower targeting, AOE damage) → GlobalRouteGrid!
+ * IMPORTANT: Only use for broadcast events!
+ * For spatial queries (tower targeting, AOE damage) → GlobalRouteGrid!
  *
  * @example
  * ```typescript

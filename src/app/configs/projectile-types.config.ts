@@ -115,8 +115,8 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       enabled: true,
       spawnChance: 0.8,
       countPerSpawn: 2,
-      colorMin: { r: 0.85, g: 0.95, b: 1.0 }, // Sehr hellblau/weiß
-      colorMax: { r: 1.0, g: 1.0, b: 1.0 }, // Reines Weiß
+      colorMin: { r: 0.85, g: 0.95, b: 1.0 }, // Very light blue/white
+      colorMax: { r: 1.0, g: 1.0, b: 1.0 }, // Pure white
       sizeMin: 0.4,
       sizeMax: 0.8,
       lifetimeMin: 0.3,

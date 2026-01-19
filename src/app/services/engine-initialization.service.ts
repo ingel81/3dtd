@@ -49,22 +49,22 @@ export class EngineInitializationService {
   readonly osmLoading = signal(true);
 
   /** Loading status text */
-  readonly loadingStatus = signal('Initialisiere...');
+  readonly loadingStatus = signal('Initializing...');
 
   /** Error message (if any) */
   readonly error = signal<string | null>(null);
 
   /** Loading steps for detailed progress display */
   readonly loadingSteps = signal<LoadingStep[]>([
-    { id: 'location', label: 'Bestimme Standort', status: 'pending' },
-    { id: 'init', label: 'Initialisiere Engine', status: 'pending' },
-    { id: 'streets', label: 'Lade Straßennetz', status: 'pending' },
-    { id: 'hq', label: 'Platziere Hauptquartier', status: 'pending' },
-    { id: 'spawn', label: 'Platziere Spawns', status: 'pending' },
-    { id: 'route', label: 'Berechne Routen', status: 'pending' },
-    { id: 'grid', label: 'Generiere Routen-Grid', status: 'pending' },
-    { id: 'finalize', label: 'Finalisiere 3D-Ansicht', status: 'pending' },
-    { id: 'tiles', label: 'Warte auf 3D-Kacheln', status: 'pending' },
+    { id: 'location', label: 'Determining Location', status: 'pending' },
+    { id: 'init', label: 'Initializing Engine', status: 'pending' },
+    { id: 'streets', label: 'Loading Street Network', status: 'pending' },
+    { id: 'hq', label: 'Placing Headquarters', status: 'pending' },
+    { id: 'spawn', label: 'Placing Spawns', status: 'pending' },
+    { id: 'route', label: 'Calculating Routes', status: 'pending' },
+    { id: 'grid', label: 'Generating Route Grid', status: 'pending' },
+    { id: 'finalize', label: 'Finalizing 3D View', status: 'pending' },
+    { id: 'tiles', label: 'Waiting for 3D Tiles', status: 'pending' },
   ]);
 
   // ========================================
@@ -167,9 +167,9 @@ export class EngineInitializationService {
    */
   startWorldDiceLoading(): void {
     this.loading.set(true);
-    this.loadingStatus.set('Würfle zufällige Stadt...');
+    this.loadingStatus.set('Rolling random city...');
     this.loadingSteps.set([
-      { id: 'dice-city', label: 'Würfle Stadt', status: 'active', detail: 'Lade Städte-Pool...' },
+      { id: 'dice-city', label: 'Rolling City', status: 'active', detail: 'Loading city pool...' },
     ]);
   }
 
@@ -181,7 +181,7 @@ export class EngineInitializationService {
   }
 
   /**
-   * Mark World Dice step as done and show "Lade Karte..." before reload
+   * Mark World Dice step as done and show "Loading Map..." before reload
    */
   finishWorldDiceLoading(cityName: string): void {
     this.loadingSteps.update(steps => steps.map(s =>
@@ -190,9 +190,9 @@ export class EngineInitializationService {
     // Add "loading map" step that will be visible until page reloads
     this.loadingSteps.update(steps => [
       ...steps,
-      { id: 'dice-reload', label: 'Lade Karte', status: 'active' as const }
+      { id: 'dice-reload', label: 'Loading Map', status: 'active' as const }
     ]);
-    this.loadingStatus.set('Lade Karte...');
+    this.loadingStatus.set('Loading map...');
   }
 
   /**
@@ -203,18 +203,18 @@ export class EngineInitializationService {
     const currentLocationStep = this.loadingSteps().find(s => s.id === 'location');
     const locationStep = currentLocationStep?.status === 'done'
       ? currentLocationStep
-      : { id: 'location', label: 'Bestimme Standort', status: 'pending' as const };
+      : { id: 'location', label: 'Determining Location', status: 'pending' as const };
 
     this.loadingSteps.set([
       locationStep,
-      { id: 'init', label: 'Initialisiere Engine', status: 'pending' },
-      { id: 'streets', label: 'Lade Straßennetz', status: 'pending' },
-      { id: 'hq', label: 'Platziere Hauptquartier', status: 'pending' },
-      { id: 'spawn', label: 'Platziere Spawns', status: 'pending' },
-      { id: 'route', label: 'Berechne Routen', status: 'pending' },
-      { id: 'grid', label: 'Generiere Routen-Grid', status: 'pending' },
-      { id: 'finalize', label: 'Finalisiere 3D-Ansicht', status: 'pending' },
-      { id: 'tiles', label: 'Warte auf 3D-Kacheln', status: 'pending' },
+      { id: 'init', label: 'Initializing Engine', status: 'pending' },
+      { id: 'streets', label: 'Loading Street Network', status: 'pending' },
+      { id: 'hq', label: 'Placing Headquarters', status: 'pending' },
+      { id: 'spawn', label: 'Placing Spawns', status: 'pending' },
+      { id: 'route', label: 'Calculating Routes', status: 'pending' },
+      { id: 'grid', label: 'Generating Route Grid', status: 'pending' },
+      { id: 'finalize', label: 'Finalizing 3D View', status: 'pending' },
+      { id: 'tiles', label: 'Waiting for 3D Tiles', status: 'pending' },
     ]);
   }
 
@@ -251,7 +251,7 @@ export class EngineInitializationService {
       this.resetLoadingSteps();
 
       if (!this.canvas || !this.cesiumToken || !this.cesiumAssetId || !this.baseCoords) {
-        this.error.set('Engine nicht konfiguriert. Bitte configure() zuerst aufrufen.');
+        this.error.set('Engine not configured. Please call configure() first.');
         this.loading.set(false);
         return;
       }
@@ -306,9 +306,9 @@ export class EngineInitializationService {
 
       // Step 2: Load OSM streets
       await this.setStepActive('streets');
-      this.updateStepDetail('streets', 'Lade OSM-Daten...');
+      this.updateStepDetail('streets', 'Loading OSM data...');
       const streetCnt = await callbacks.onLoadStreets();
-      await this.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Straßen` : undefined);
+      await this.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Streets` : undefined);
 
       // Initialize services that depend on engine and street network
       // Must be called before adding markers/spawns
@@ -322,7 +322,7 @@ export class EngineInitializationService {
       // Step 4: Place spawn points
       await this.setStepActive('spawn');
       const spawnCnt = callbacks.onAddPredefinedSpawns();
-      await this.setStepDone('spawn', spawnCnt > 0 ? `${spawnCnt} Punkt${spawnCnt > 1 ? 'e' : ''}` : undefined);
+      await this.setStepDone('spawn', spawnCnt > 0 ? `${spawnCnt} Point${spawnCnt > 1 ? 's' : ''}` : undefined);
 
       // Step 5: Calculate routes
       await this.setStepActive('route');
@@ -349,7 +349,7 @@ export class EngineInitializationService {
       callbacks.onCheckAllLoaded();
     } catch (err) {
       console.error('[EngineInit] Engine init error:', err);
-      this.error.set(err instanceof Error ? err.message : 'Fehler beim Laden der 3D-Karte');
+      this.error.set(err instanceof Error ? err.message : 'Error loading 3D map');
       this.loading.set(false);
     }
   }
@@ -441,7 +441,7 @@ export class EngineInitializationService {
     this.loading.set(true);
     this.tilesLoading.set(true);
     this.osmLoading.set(true);
-    this.loadingStatus.set('Initialisiere...');
+    this.loadingStatus.set('Initializing...');
     this.error.set(null);
     this.resetLoadingSteps();
   }

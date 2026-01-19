@@ -136,7 +136,7 @@ export class PathAndRouteService {
       (sum, path) => sum + path.length,
       0
     );
-    return `${this.cachedPaths.size} Routen (${totalPoints} Wegpunkte)`;
+    return `${this.cachedPaths.size} routes (${totalPoints} waypoints)`;
   }
 
   // ========================================

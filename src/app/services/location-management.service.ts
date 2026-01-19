@@ -94,7 +94,7 @@ export class LocationManagementService {
    * Resolve display name via reverse geocoding
    */
   private async resolveDisplayName(lat: number, lon: number): Promise<void> {
-    this.displayName.set('Laden...');
+    this.displayName.set('Loading...');
 
     try {
       const result = await this.geocoding.reverseGeocodeDetailed(lat, lon);

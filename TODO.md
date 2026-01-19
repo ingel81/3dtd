@@ -6,25 +6,13 @@
 
 ## Code Quality & Architektur (aus Expert Review)
 
-### Prioritaet 2: Mittelfristig
-- [ ] **GameStateManager weiter aufteilen** (~543 Zeilen, von 800 reduziert durch Event-System)
-      Combat/VFX/HQ-Fire bereits ausgelagert. Optional: weitere Aufteilung
-      Siehe: [EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen](src/app/docs/archive/EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen)
-
-- [ ] **Entity Object Pooling implementieren** - EntityPoolService ist nur Placeholder
-      Datei: `entity-pool.service.ts`
-      Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](src/app/docs/archive/EXPERT_REVIEW_2026.md)
-
 ### Prioritaet 3: Langfristig
-- [ ] **TowerDefenseComponent weiter aufteilen** (~1797 Zeilen, von 2280 reduziert durch Event-System)
-      Provider entfernt, Event-Subscriptions vereinfacht. Optional: weitere Aufteilung
-
 - [x] ~~**Koordinaten-Typen vereinheitlichen**~~ - ✅ ERLEDIGT (2026-01-19)
       Alle Typen auf `GeoPosition` ({lat, lon, height?}) konsolidiert
       `LocationCoords` entfernt, `latitude/longitude` überall zu `lat/lon`
 
-- [ ] **Codebase komplett auf Englisch umstellen** - Strings, Kommentare, Variablen, UI
-      Aktuell: Deutsche Tower-Namen ('Schnellfeuer'), Enemy-Namen ('Fledermaus'), UI-Texte, Tooltips
+- [x] ~~**Codebase komplett auf Englisch umstellen**~~ - ✅ ERLEDIGT (2026-01-20)
+      Alle UI-Strings, Tooltips, Error-Messages, Kommentare auf Englisch
 
 ### Event-System Erweiterungen (optional)
 

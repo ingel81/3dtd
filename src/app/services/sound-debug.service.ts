@@ -8,8 +8,8 @@ const MAX_EVENTS = 30;
 const VISIBLE_EVENT_TYPES: SoundDebugEvent['type'][] = ['play', 'budget_exceeded', 'distance_culled'];
 
 /**
- * Service für Sound-Debug-Informationen.
- * Empfängt Stats und Events vom SpatialAudioManager und stellt sie als Signals bereit.
+ * Service for sound debug information.
+ * Receives stats and events from SpatialAudioManager and provides them as signals.
  */
 @Injectable({ providedIn: 'root' })
 export class SoundDebugService {
