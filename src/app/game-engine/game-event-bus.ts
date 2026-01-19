@@ -115,6 +115,14 @@ export type GameEvent =
       position: Vector3;
       radius: number;
     }
+  | {
+      type: 'vfx:projectile-impact';
+      lat: number;
+      lon: number;
+      height: number;
+      projectileType: string;
+      targetLost: boolean; // true = ground impact, false = enemy hit
+    }
 
   // ==================== UI Events (Deferred) ====================
   | {
