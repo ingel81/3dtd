@@ -77,10 +77,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
 
             <div class="toggle-row">
-              <span class="label">Modus</span>
+              <span class="label">Mode</span>
               <button class="toggle-btn" [class.active]="waveDebug.spawnMode() === 'each'" (click)="waveDebug.toggleSpawnMode()">
                 <mat-icon>{{ waveDebug.spawnMode() === 'each' ? 'call_split' : 'shuffle' }}</mat-icon>
-                {{ waveDebug.spawnMode() === 'each' ? 'Verteilt' : 'Zufaellig' }}
+                {{ waveDebug.spawnMode() === 'each' ? 'Distributed' : 'Random' }}
               </button>
             </div>
 
@@ -93,22 +93,22 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
 
             <div class="toggle-row">
-              <span class="label">Sammeln</span>
+              <span class="label">Gather</span>
               <button class="toggle-btn" [class.active]="waveDebug.useGathering()" (click)="waveDebug.toggleGathering()">
                 <mat-icon>{{ waveDebug.useGathering() ? 'groups' : 'directions_run' }}</mat-icon>
-                {{ waveDebug.useGathering() ? 'Alle zusammen' : 'Sofort los' }}
+                {{ waveDebug.useGathering() ? 'Wait for all' : 'Start immediately' }}
               </button>
             </div>
           </div>
 
           <!-- Actions -->
           <div class="section">
-            <div class="section-title">Aktionen</div>
+            <div class="section-title">Actions</div>
             <div class="btn-row">
-              <button class="icon-btn heal" [disabled]="waveDebug.baseHealth() >= 100" (click)="healHq.emit()" title="HQ heilen">
+              <button class="icon-btn heal" [disabled]="waveDebug.baseHealth() >= 100" (click)="healHq.emit()" title="Heal HQ">
                 <mat-icon>healing</mat-icon>
               </button>
-              <button class="icon-btn danger" [disabled]="!waveDebug.waveActive()" (click)="killAll.emit()" title="Alle toeten">
+              <button class="icon-btn danger" [disabled]="!waveDebug.waveActive()" (click)="killAll.emit()" title="Kill all">
                 <mat-icon>delete_forever</mat-icon>
               </button>
               <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">

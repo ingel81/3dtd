@@ -136,12 +136,12 @@ export class HeightUpdateService {
     this.previousLineCount = 0;
 
     if (this.loadingStatusSignal) {
-      this.loadingStatusSignal.set('Warte auf 3D-Kacheln...');
+      this.loadingStatusSignal.set('Waiting for 3D tiles...');
     }
 
     // Update detail for first cycle
     if (this.onUpdateDetailCallback) {
-      this.onUpdateDetailCallback('Starte Terrain-Sync...');
+      this.onUpdateDetailCallback('Starting terrain sync...');
     }
 
     return new Promise((resolve) => {
@@ -169,9 +169,9 @@ export class HeightUpdateService {
     if (this.onUpdateDetailCallback) {
       const remaining = this.MIN_ATTEMPTS - this.heightUpdateAttempts;
       if (remaining > 0) {
-        this.onUpdateDetailCallback(`Terrain synchronisieren... (${this.heightUpdateAttempts}/${this.MIN_ATTEMPTS})`);
+        this.onUpdateDetailCallback(`Synchronizing terrain... (${this.heightUpdateAttempts}/${this.MIN_ATTEMPTS})`);
       } else {
-        this.onUpdateDetailCallback(`Finalisiere Terrain...`);
+        this.onUpdateDetailCallback(`Finalizing terrain...`);
       }
     }
 
@@ -246,8 +246,8 @@ export class HeightUpdateService {
 
     // Mark finalize step as done
     if (this.onFinalizeCallback) {
-      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Setting finalize step to "Bereit"`);
-      this.onFinalizeCallback('Bereit');
+      console.log(`[HeightUpdate ${performance.now().toFixed(0)}ms] Setting finalize step to "Ready"`);
+      this.onFinalizeCallback('Ready');
     }
 
     // Check if all loading is complete

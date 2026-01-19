@@ -145,7 +145,7 @@ export class LocationChangeCoordinatorService {
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
     await this.engineInit.setStepActive('init');
-    this.engineInit.updateStepDetail('init', 'Reset Spielstand...');
+    this.engineInit.updateStepDetail('init', 'Resetting game state...');
 
     // Stop running updates
     this.heightUpdate.stopHeightUpdates();
@@ -153,7 +153,7 @@ export class LocationChangeCoordinatorService {
 
     // Reset game state (handles stopping spawns via waveManager.reset())
     ctx.gameState.reset();
-    callbacks.appendDebugLog('Spielstand zurückgesetzt');
+    callbacks.appendDebugLog('Game state reset');
     callbacks.clearMapEntities();
     this.pathRoute.clearCache();
     callbacks.setSpawnPoints([]);
@@ -174,7 +174,7 @@ export class LocationChangeCoordinatorService {
     callbacks.syncUrlWithLocation();
 
     // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
-    this.engineInit.updateStepDetail('init', 'Kamera positionieren...');
+    this.engineInit.updateStepDetail('init', 'Positioning camera...');
     const hqCoord: GeoPoint = { lat: input.hq.lat, lon: input.hq.lon };
     const spawnCoords: GeoPoint[] = [{ lat: input.spawn.lat, lon: input.spawn.lon }];
 
@@ -207,12 +207,12 @@ export class LocationChangeCoordinatorService {
 
     // Check if we can reuse cached street network
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
-      this.engineInit.updateStepDetail('streets', 'Lade OSM-Daten...');
+      this.engineInit.updateStepDetail('streets', 'Loading OSM data...');
       streetNetwork = await this.osmService.loadStreets(input.hq.lat, input.hq.lon, 2000);
       callbacks.setStreetNetwork(streetNetwork);
       callbacks.setStreetNetworkLocation({ lat: input.hq.lat, lon: input.hq.lon });
     } else {
-      this.engineInit.updateStepDetail('streets', 'Verwende Cache...');
+      this.engineInit.updateStepDetail('streets', 'Using cache...');
       streetNetwork = ctx.streetNetwork!;
     }
 
@@ -220,7 +220,7 @@ export class LocationChangeCoordinatorService {
     this.engineInit.osmLoading.set(false);
 
     const streetCnt = streetNetwork.streets.length;
-    await this.engineInit.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Straßen` : undefined);
+    await this.engineInit.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Streets` : undefined);
 
     return streetNetwork;
   }
@@ -301,7 +301,7 @@ export class LocationChangeCoordinatorService {
     const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
     callbacks.addSpawnPoint('spawn-1', spawnName, input.spawn.lat, input.spawn.lon, 0xef4444);
 
-    await this.engineInit.setStepDone('spawn', '1 Punkt');
+    await this.engineInit.setStepDone('spawn', '1 point');
   }
 
   /**
@@ -334,12 +334,12 @@ export class LocationChangeCoordinatorService {
     // Validate that routes were found
     const paths = this.pathRoute.getCachedPaths();
     if (paths.size === 0) {
-      throw new Error('Keine Route zwischen HQ und Spawn möglich. Die Straßen sind nicht verbunden.');
+      throw new Error('No route possible between HQ and spawn. The streets are not connected.');
     }
 
     // Initialize GlobalRouteGrid after routes are computed
     await this.engineInit.setStepActive('grid');
-    this.engineInit.updateStepDetail('grid', 'Berechne Grid...');
+    this.engineInit.updateStepDetail('grid', 'Calculating grid...');
     ctx.gameState.initializeGlobalRouteGrid();
     await this.engineInit.setStepDone('grid');
 
@@ -369,7 +369,7 @@ export class LocationChangeCoordinatorService {
     // Save to localStorage
     this.locationMgmt.saveLocationsToStorage();
 
-    callbacks.appendDebugLog(`Geladen: ${callbacks.getSpawnPoints().length} Spawn-Punkte`);
+    callbacks.appendDebugLog(`Loaded: ${callbacks.getSpawnPoints().length} spawn points`);
 
     // Mark location change as complete
     this.locationMgmt.isApplyingLocation.set(false);

@@ -15,7 +15,7 @@ import { FavoriteLocation } from '../../models/location.types';
       <div class="header-left">
         <mat-icon class="title-icon">cell_tower</mat-icon>
         <h2 class="title">3DTD</h2>
-        <button class="location-btn" (click)="locationClick.emit()" matTooltip="Spielort ändern">
+        <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
           <span class="location-name">{{ locationName() }}</span>
           <mat-icon class="location-edit">edit</mat-icon>
         </button>
@@ -23,45 +23,45 @@ import { FavoriteLocation } from '../../models/location.types';
         <!-- Location Actions -->
         <div class="location-actions">
           <!-- Share Button -->
-          <button class="action-btn" (click)="onShare()" matTooltip="Link kopieren">
+          <button class="action-btn" (click)="onShare()" matTooltip="Copy link">
             <mat-icon>{{ shareConfirmed() ? 'check' : 'link' }}</mat-icon>
           </button>
 
           <!-- Favorites Dropdown -->
           <div class="fav-wrapper">
             <button class="action-btn" [class.active]="favMenuExpanded()"
-                    (click)="toggleFavMenu()" matTooltip="Favoriten">
+                    (click)="toggleFavMenu()" matTooltip="Favorites">
               <mat-icon>star</mat-icon>
             </button>
             <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
               @if (canAddFavorite()) {
                 <button class="fav-item fav-add" (click)="onAddFavorite()">
                   <mat-icon>add</mat-icon>
-                  <span>Ort speichern</span>
+                  <span>Save location</span>
                 </button>
               }
               @for (fav of favorites(); track fav.id) {
                 <div class="fav-item">
                   <button class="fav-select" (click)="onSelectFavorite(fav)">
-                    <span class="fav-name">{{ favoriteNames()[fav.id] || 'Laden...' }}</span>
+                    <span class="fav-name">{{ favoriteNames()[fav.id] || 'Loading...' }}</span>
                     <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
                   </button>
-                  <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Löschen">
+                  <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete">
                     <mat-icon>close</mat-icon>
                   </button>
                 </div>
               } @empty {
                 @if (!canAddFavorite()) {
-                  <div class="fav-empty">Max. Favoriten erreicht</div>
+                  <div class="fav-empty">Max favorites reached</div>
                 } @else {
-                  <div class="fav-empty">Keine Favoriten</div>
+                  <div class="fav-empty">No favorites</div>
                 }
               }
             </div>
           </div>
 
           <!-- World Dice -->
-          <button class="action-btn" (click)="diceClick.emit()" matTooltip="Zufälliger Ort">
+          <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location">
             <mat-icon>casino</mat-icon>
           </button>
 
@@ -92,7 +92,7 @@ import { FavoriteLocation } from '../../models/location.types';
         }
       </div>
       @if (isDialog()) {
-        <button class="close-btn" (click)="closeClick.emit()" matTooltip="Schliessen">
+        <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close">
           <mat-icon>close</mat-icon>
         </button>
       }

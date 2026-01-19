@@ -1,8 +1,8 @@
 /**
  * Enemy Type Configuration System
  *
- * Zentrale Registry für alle Enemy-Typen.
- * Neue Typen hier hinzufügen - keine Code-Änderungen an anderen Stellen nötig.
+ * Central registry for all enemy types.
+ * Add new types here - no code changes needed elsewhere.
  */
 
 export interface EnemyTypeConfig {
@@ -15,69 +15,69 @@ export interface EnemyTypeConfig {
   // Stats
   baseHp: number;
   baseSpeed: number; // m/s
-  damage: number; // Schaden an Basis
-  reward: number; // Credits bei Kill
+  damage: number; // Damage to base
+  reward: number; // Credits on kill
 
   // Animation
   hasAnimations: boolean;
   idleAnimation?: string;
   walkAnimation?: string;
-  runAnimation?: string; // Alternative zur Walk-Animation (Variation)
+  runAnimation?: string; // Alternative to walk animation (variation)
   deathAnimation?: string;
   animationSpeed?: number;
-  animationVariation?: boolean; // Wechselt zwischen Walk und Run Animation
-  runSpeedMultiplier?: number; // Speed-Multiplikator bei Run-Animation (default: 1.0)
+  animationVariation?: boolean; // Switches between walk and run animation
+  runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
 
   // Audio (Spatial)
-  movingSound?: string; // Loop-Sound während Bewegung (Asset-Pfad)
+  movingSound?: string; // Loop sound while moving (asset path)
   movingSoundVolume?: number; // 0.0 - 1.0
-  movingSoundRefDistance?: number; // Distanz für volle Lautstärke (default: 30m)
+  movingSoundRefDistance?: number; // Distance for full volume (default: 30m)
 
-  // Random Sound (statt Loop)
-  randomSound?: string; // Sound der random abgespielt wird
-  randomSoundMinInterval?: number; // Min. Zeit zwischen Sounds (ms)
-  randomSoundMaxInterval?: number; // Max. Zeit zwischen Sounds (ms)
-  randomSoundVolumeMin?: number; // Min. Lautstärke (0.0 - 1.0)
-  randomSoundVolumeMax?: number; // Max. Lautstärke (0.0 - 1.0)
-  randomSoundRefDistance?: number; // Distanz für volle Lautstärke
+  // Random Sound (instead of loop)
+  randomSound?: string; // Sound played randomly
+  randomSoundMinInterval?: number; // Min time between sounds (ms)
+  randomSoundMaxInterval?: number; // Max time between sounds (ms)
+  randomSoundVolumeMin?: number; // Min volume (0.0 - 1.0)
+  randomSoundVolumeMax?: number; // Max volume (0.0 - 1.0)
+  randomSoundRefDistance?: number; // Distance for full volume
 
-  // Random Sounds Pool (shuffle ohne Wiederholung)
-  randomSounds?: string[]; // Array von Sounds die zufällig abgespielt werden
-  randomSoundsMinInterval?: number; // Min. Zeit zwischen Sounds (ms)
-  randomSoundsMaxInterval?: number; // Max. Zeit zwischen Sounds (ms)
-  randomSoundsVolume?: number; // Lautstärke (0.0 - 1.0)
-  randomSoundsRefDistance?: number; // Distanz für volle Lautstärke
+  // Random Sounds Pool (shuffle without repetition)
+  randomSounds?: string[]; // Array of sounds played randomly
+  randomSoundsMinInterval?: number; // Min time between sounds (ms)
+  randomSoundsMaxInterval?: number; // Max time between sounds (ms)
+  randomSoundsVolume?: number; // Volume (0.0 - 1.0)
+  randomSoundsRefDistance?: number; // Distance for full volume
 
-  // Spawn Sound (einmalig beim Spawn)
-  spawnSound?: string; // Sound beim Spawn
-  spawnSoundVolume?: number; // Lautstärke (0.0 - 1.0)
-  spawnSoundRefDistance?: number; // Distanz für volle Lautstärke
+  // Spawn Sound (once on spawn)
+  spawnSound?: string; // Sound on spawn
+  spawnSoundVolume?: number; // Volume (0.0 - 1.0)
+  spawnSoundRefDistance?: number; // Distance for full volume
 
   // Visual
-  heightOffset: number; // Model-Höhe über Boden
-  healthBarOffset: number; // Health-Bar Höhe über Model
-  canBleed: boolean; // Ob Bluteffekte angezeigt werden
-  headingOffset?: number; // Rotations-Offset in Radians (Model-Ausrichtung korrigieren)
-  emissiveIntensity?: number; // Leuchteffekt-Stärke (0 = aus, 0.1-0.5 = subtil, 1+ = stark)
-  emissiveColor?: string; // Leuchtfarbe als Hex (default: '#ffffff')
-  unlit?: boolean; // Keine Beleuchtung - zeigt Originalfarben (für Cartoon-Modelle)
+  heightOffset: number; // Model height above ground
+  healthBarOffset: number; // Health bar height above model
+  canBleed: boolean; // Whether blood effects are shown
+  headingOffset?: number; // Rotation offset in radians (correct model orientation)
+  emissiveIntensity?: number; // Glow effect strength (0 = off, 0.1-0.5 = subtle, 1+ = strong)
+  emissiveColor?: string; // Glow color as hex (default: '#ffffff')
+  unlit?: boolean; // No lighting - shows original colors (for cartoon models)
 
   // Boss / Special
-  healthBarColor?: string; // Feste Healthbar-Farbe als Hex (z.B. '#ff0000' für Boss)
-  bossName?: string; // Name über der Healthbar (z.B. 'Boss')
-  immunityPercent?: number; // Schadensimmunität in % (0-100, wird als "Immun X%" angezeigt)
+  healthBarColor?: string; // Fixed health bar color as hex (e.g. '#ff0000' for boss)
+  bossName?: string; // Name above health bar (e.g. 'Boss')
+  immunityPercent?: number; // Damage immunity in % (0-100, displayed as "Immune X%")
 
   // Randomness
-  randomAnimationStart?: boolean; // Animation bei zufälligem Frame starten
-  randomSoundStart?: boolean; // Sound bei zufälliger Position starten
-  lateralOffset?: number; // Max. seitlicher Versatz in Metern (0 = keine Abweichung)
-  heightVariation?: number; // Max. zufällige Höhenabweichung in Metern (für Wellen)
+  randomAnimationStart?: boolean; // Start animation at random frame
+  randomSoundStart?: boolean; // Start sound at random position
+  lateralOffset?: number; // Max lateral offset in meters (0 = no deviation)
+  heightVariation?: number; // Max random height deviation in meters (for waves)
 
   // Air Unit
-  isAirUnit?: boolean; // true = Lufteinheit, nur von Air-Towern angreifbar
+  isAirUnit?: boolean; // true = air unit, only attackable by air towers
 
   // Spawning
-  spawnStartDelay?: number; // Delay in ms zwischen Start von Enemies dieses Typs (default: 300)
+  spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
 }
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
@@ -86,7 +86,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     name: 'Zombie',
     modelUrl: '/assets/models/enemies/zombie.glb',
     scale: 2.0,
-    minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping beim Zoomen
+    minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
     baseHp: 100,
     baseSpeed: 5,
     damage: 10,
@@ -98,36 +98,36 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 2.0,
     movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
-    movingSoundRefDistance: 25, // Zombies sind leiser aus der Ferne
+    movingSoundRefDistance: 25, // Zombies are quieter from distance
     heightOffset: 0,
-    healthBarOffset: 8, // Höher über dem Kopf
-    canBleed: true, // Zombies bluten
+    healthBarOffset: 8, // Higher above the head
+    canBleed: true, // Zombies bleed
     headingOffset: 0, // Model faces backward, rotate 180°
-    randomAnimationStart: true, // Animation bei zufälligem Frame starten
-    randomSoundStart: true, // Sound bei zufälliger Position starten
-    lateralOffset: 3.0, // Max. 3m seitlicher Versatz
+    randomAnimationStart: true, // Start animation at random frame
+    randomSoundStart: true, // Start sound at random position
+    lateralOffset: 3.0, // Max 3m lateral offset
   },
 
   tank: {
     id: 'tank',
-    name: 'Panzer',
+    name: 'Tank',
     modelUrl: '/assets/models/enemies/tank.glb',
     scale: 2.5,
-    minimumPixelSize: 0, // 0 = echte Größe, kein Pixel-Clamping
-    baseHp: 500, // Schwer gepanzert
+    minimumPixelSize: 0, // 0 = real size, no pixel clamping
+    baseHp: 500, // Heavily armored
     baseSpeed: 3,
     damage: 25,
     reward: 5,
     hasAnimations: false,
     movingSound: '/assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
-    movingSoundRefDistance: 50, // Panzer sind lauter (größerer refDistance-Bereich)
+    movingSoundRefDistance: 50, // Tanks are louder (larger refDistance range)
     heightOffset: 0,
-    healthBarOffset: 10, // Höher über dem Panzer
-    canBleed: false, // Panzer bluten nicht
-    randomSoundStart: true, // Sound bei zufälliger Position starten
-    lateralOffset: 2.5, // Max. 2.5m seitlicher Versatz
-    spawnStartDelay: 800, // Größerer Abstand zwischen Panzern (800ms statt 300ms)
+    healthBarOffset: 10, // Higher above the tank
+    canBleed: false, // Tanks don't bleed
+    randomSoundStart: true, // Start sound at random position
+    lateralOffset: 2.5, // Max 2.5m lateral offset
+    spawnStartDelay: 800, // Larger gap between tanks (800ms instead of 300ms)
   },
 
   wallsmasher: {
@@ -146,12 +146,12 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     deathAnimation: 'CharacterArmature|Death',
     animationSpeed: 1.5,
     animationVariation: true,
-    runSpeedMultiplier: 2.5, // 2.5x Geschwindigkeit bei Run
+    runSpeedMultiplier: 2.5, // 2.5x speed when running
     // Spawn Sound
     spawnSound: '/assets/sounds/enemies/wallsmasher/spawn.mp3',
     spawnSoundVolume: 0.7,
     spawnSoundRefDistance: 40,
-    // Random Sound während Bewegung
+    // Random sound while moving
     randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
     randomSoundMinInterval: 8000,
     randomSoundMaxInterval: 25000,
@@ -169,7 +169,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
 
   bat: {
     id: 'bat',
-    name: 'Fledermaus',
+    name: 'Bat',
     modelUrl: '/assets/models/enemies/bat.glb',
     scale: 7,
     minimumPixelSize: 0,
@@ -180,11 +180,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'fly.001',
     animationSpeed: 1.5,
-    heightOffset: 15, // 15m über Terrain
+    heightOffset: 15, // 15m above terrain
     healthBarOffset: 4,
     canBleed: false,
-    isAirUnit: true, // Nur von Air-Towern angreifbar
-    heightVariation: 3, // ±3m Variation zwischen Enemies
+    isAirUnit: true, // Only attackable by air towers
+    heightVariation: 3, // ±3m variation between enemies
     lateralOffset: 2.0,
     randomAnimationStart: true,
   },
@@ -202,11 +202,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'Armature|walking_man|baselayer',
     animationSpeed: 1.0,
-    // Spawn Sound (einmalig)
+    // Spawn Sound (once)
     spawnSound: '/assets/sounds/enemies/herbert/spawn.mp3',
     spawnSoundVolume: 0.6,
     spawnSoundRefDistance: 40,
-    // Random Sounds Pool (shuffle ohne Wiederholung)
+    // Random Sounds Pool (shuffle without repetition)
     randomSounds: [
       '/assets/sounds/enemies/herbert/random-01.mp3',
       '/assets/sounds/enemies/herbert/random-02.mp3',
@@ -228,7 +228,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundsRefDistance: 40,
     heightOffset: 0,
     healthBarOffset: 12,
-    healthBarColor: '#ef4444', // Rote Boss-Healthbar
+    healthBarColor: '#ef4444', // Red boss health bar
     bossName: 'Boss',
     immunityPercent: 100,
     canBleed: true,

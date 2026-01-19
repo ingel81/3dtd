@@ -27,7 +27,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
           @if (soundDebug.stats(); as stats) {
             <!-- Active Sounds -->
             <div class="section">
-              <div class="section-title">Aktiv</div>
+              <div class="section-title">Active</div>
               <div class="stat-row">
                 <span class="label">One-Shots</span>
                 <span class="value">{{ stats.activeOneShots }}</span>
@@ -55,7 +55,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 </div>
               </div>
               <div class="stat-row">
-                <span class="label">Projektil</span>
+                <span class="label">Projectile</span>
                 <span class="value" [class.warning]="stats.projectileBudget.current >= stats.projectileBudget.max">
                   {{ stats.projectileBudget.current }}/{{ stats.projectileBudget.max }}
                 </span>
@@ -68,10 +68,10 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
             <div class="section">
               <div class="no-data">
                 @if (soundDebug.connected()) {
-                  Warte auf Daten...
+                  Waiting for data...
                 } @else {
                   <mat-icon>link_off</mat-icon>
-                  Nicht verbunden
+                  Not connected
                 }
               </div>
             </div>
@@ -83,10 +83,10 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
               Events
               <div class="title-actions">
                 @if (soundDebug.events().length > 0) {
-                  <button class="action-btn" (click)="copyLog()" title="Log kopieren">
+                  <button class="action-btn" (click)="copyLog()" title="Copy log">
                     <mat-icon>content_copy</mat-icon>
                   </button>
-                  <button class="action-btn danger" (click)="soundDebug.clearEvents()" title="Events loeschen">
+                  <button class="action-btn danger" (click)="soundDebug.clearEvents()" title="Clear events">
                     <mat-icon>delete_sweep</mat-icon>
                   </button>
                 }
@@ -96,7 +96,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
               @for (event of soundDebug.events(); track event.timestamp) {
                 <div class="event-line" [class]="soundDebug.getEventTypeClass(event.type)">{{ formatEvent(event) }}</div>
               } @empty {
-                <div class="no-events">Keine Events</div>
+                <div class="no-events">No events</div>
               }
             </div>
           </div>
@@ -317,7 +317,7 @@ export class SoundDebuggerComponent {
   }
 
   formatEvent(event: { type: string; soundId: string; timestamp: number; details?: string }): string {
-    const time = new Date(event.timestamp).toLocaleTimeString('de-DE', {
+    const time = new Date(event.timestamp).toLocaleTimeString('en-US', {
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
@@ -339,7 +339,7 @@ export class SoundDebuggerComponent {
       .join('\n');
 
     navigator.clipboard.writeText(logText).then(() => {
-      // Optional: könnte hier ein kurzes visuelles Feedback geben
+      // Optional: could add brief visual feedback here
     });
   }
 }

@@ -71,8 +71,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     upgrades: [
       {
         id: 'speed',
-        name: 'Schnellfeuer',
-        description: 'Verdoppelt die Feuerrate',
+        name: 'Rapid Fire',
+        description: 'Doubles the fire rate',
         cost: 25,
         maxLevel: 1,
         effect: {
@@ -100,8 +100,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     upgrades: [
       {
         id: 'speed',
-        name: 'Schnellfeuer',
-        description: 'Verdoppelt die Feuerrate',
+        name: 'Rapid Fire',
+        description: 'Doubles the fire rate',
         cost: 50,
         maxLevel: 10,
         effect: {
@@ -129,8 +129,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     upgrades: [
       {
         id: 'speed',
-        name: 'Schnellfeuer',
-        description: 'Erhöht die Feuerrate um 50%',
+        name: 'Rapid Fire',
+        description: 'Increases fire rate by 50%',
         cost: 100,
         maxLevel: 2,
         effect: {
@@ -140,8 +140,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
       },
       {
         id: 'damage',
-        name: 'Verstärkte Ladung',
-        description: 'Erhöht den Schaden um 50%',
+        name: 'Reinforced Charge',
+        description: 'Increases damage by 50%',
         cost: 120,
         maxLevel: 3,
         effect: {
@@ -169,8 +169,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     upgrades: [
       {
         id: 'damage',
-        name: 'Arkane Macht',
-        description: 'Erhöht den magischen Schaden um 50%',
+        name: 'Arcane Power',
+        description: 'Increases magical damage by 50%',
         cost: 80,
         maxLevel: 3,
         effect: {
@@ -215,8 +215,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     upgrades: [
       {
         id: 'speed',
-        name: 'Schnellfeuer',
-        description: 'Verdoppelt die Feuerrate',
+        name: 'Rapid Fire',
+        description: 'Doubles the fire rate',
         cost: 100,
         maxLevel: 2,
         effect: {

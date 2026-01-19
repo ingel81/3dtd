@@ -14,7 +14,7 @@ import { TD_CSS_VARS } from '../styles/td-theme';
     <div class="debug-panel">
       <div class="section">
         <div class="row">
-          <span class="label">Strassen</span>
+          <span class="label">Streets</span>
           <span class="value">{{ streetCount() }}</span>
         </div>
       </div>
@@ -22,7 +22,7 @@ import { TD_CSS_VARS } from '../styles/td-theme';
       <div class="section">
         <div class="section-title">Spawn</div>
         <div class="toggle-row">
-          <span class="label">Typ</span>
+          <span class="label">Type</span>
           <div class="type-buttons">
             @for (type of enemyTypes(); track type.id) {
               <button
@@ -37,7 +37,7 @@ import { TD_CSS_VARS } from '../styles/td-theme';
           </div>
         </div>
         <div class="slider-row">
-          <span class="label">Anzahl</span>
+          <span class="label">Count</span>
           <input type="range" min="1" max="1000" step="1"
                  [value]="enemyCount()"
                  (input)="onEnemyCountChange($event)" />
@@ -51,10 +51,10 @@ import { TD_CSS_VARS } from '../styles/td-theme';
           <span class="value">{{ enemySpeed() }}m/s</span>
         </div>
         <div class="toggle-row">
-          <span class="label">Modus</span>
+          <span class="label">Mode</span>
           <button class="toggle-btn" [class.active]="spawnMode() === 'each'" (click)="toggleSpawnMode.emit()">
             <mat-icon>{{ spawnMode() === 'each' ? 'call_split' : 'shuffle' }}</mat-icon>
-            {{ spawnMode() === 'each' ? 'Verteilt' : 'Zufällig' }}
+            {{ spawnMode() === 'each' ? 'Distributed' : 'Random' }}
           </button>
         </div>
         <div class="slider-row">
@@ -65,24 +65,24 @@ import { TD_CSS_VARS } from '../styles/td-theme';
           <span class="value">{{ spawnDelay() / 1000 }}s</span>
         </div>
         <div class="toggle-row">
-          <span class="label">Sammeln</span>
+          <span class="label">Gather</span>
           <button class="toggle-btn" [class.active]="useGathering()" (click)="toggleGathering.emit()">
             <mat-icon>{{ useGathering() ? 'groups' : 'directions_run' }}</mat-icon>
-            {{ useGathering() ? 'Alle zusammen' : 'Sofort los' }}
+            {{ useGathering() ? 'Wait for all' : 'Start immediately' }}
           </button>
         </div>
       </div>
 
       <div class="section">
-        <div class="section-title">Aktionen</div>
+        <div class="section-title">Actions</div>
         <div class="btn-row">
-          <button class="icon-btn" (click)="logCamera.emit()" title="Kamera loggen">
+          <button class="icon-btn" (click)="logCamera.emit()" title="Log camera">
             <mat-icon>videocam</mat-icon>
           </button>
-          <button class="icon-btn heal" [disabled]="baseHealth() >= 100" (click)="healHq.emit()" title="HQ heilen">
+          <button class="icon-btn heal" [disabled]="baseHealth() >= 100" (click)="healHq.emit()" title="Heal HQ">
             <mat-icon>healing</mat-icon>
           </button>
-          <button class="icon-btn danger" [disabled]="!waveActive()" (click)="killAll.emit()" title="Alle töten">
+          <button class="icon-btn danger" [disabled]="!waveActive()" (click)="killAll.emit()" title="Kill all">
             <mat-icon>skull</mat-icon>
           </button>
           <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">

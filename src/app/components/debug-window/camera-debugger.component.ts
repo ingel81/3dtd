@@ -14,7 +14,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     @if (windowService.cameraWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="camera"
-        title="Kamera"
+        title="Camera"
         icon="videocam"
         [position]="windowService.cameraWindow().position"
         [zIndex]="windowService.cameraWindow().zIndex"
@@ -41,7 +41,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
 
             <div class="section">
-              <span class="section-label">Winkel</span>
+              <span class="section-label">Angle</span>
               <div class="row">
                 <span class="key">Heading:</span>
                 <span class="value">{{ cam.heading | number:'1.0-0' }}°</span>
@@ -53,13 +53,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
 
             <div class="section">
-              <span class="section-label">Abstand</span>
+              <span class="section-label">Distance</span>
               <div class="row">
-                <span class="key">Hoehe:</span>
+                <span class="key">Height:</span>
                 <span class="value">{{ cam.altitude | number:'1.0-0' }}m</span>
               </div>
               <div class="row">
-                <span class="key">Distanz:</span>
+                <span class="key">Distance:</span>
                 <span class="value">{{ cam.distanceToCenter | number:'1.0-0' }}m</span>
               </div>
               <div class="row">
@@ -69,7 +69,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
 
             <div class="section">
-              <span class="section-label">Optik</span>
+              <span class="section-label">Optics</span>
               <div class="row">
                 <span class="key">FOV:</span>
                 <span class="value">{{ cam.fov | number:'1.0-0' }}°</span>
@@ -77,7 +77,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
           </div>
         } @else {
-          <div class="no-data">Keine Kamera-Daten</div>
+          <div class="no-data">No camera data</div>
         }
       </app-draggable-debug-panel>
     }

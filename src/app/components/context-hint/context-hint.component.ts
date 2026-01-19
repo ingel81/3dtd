@@ -21,8 +21,8 @@ export interface HintItem {
  *
  * Usage:
  * <app-context-hint
- *   [hints]="[{key: 'R', description: 'Rotieren'}, {key: 'LMB', description: 'Platzieren'}]"
- *   [warning]="'Zu nah an Straße'"
+ *   [hints]="[{key: 'R', description: 'Rotate'}, {key: 'LMB', description: 'Place'}]"
+ *   [warning]="'Too close to street'"
  * />
  */
 @Component({

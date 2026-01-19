@@ -39,7 +39,7 @@ type EditMode = 'full' | 'spawn-only';
       <!-- Header -->
       <div class="dialog-header">
         <mat-icon class="header-icon">edit_location</mat-icon>
-        <h2>Spielort ändern</h2>
+        <h2>Change Location</h2>
       </div>
 
       <!-- Mode Tabs -->
@@ -50,7 +50,7 @@ type EditMode = 'full' | 'spawn-only';
           (click)="setEditMode('full')"
         >
           <mat-icon>swap_horiz</mat-icon>
-          <span>Neuer Ort</span>
+          <span>New Location</span>
         </button>
         <button
           class="mode-tab"
@@ -59,7 +59,7 @@ type EditMode = 'full' | 'spawn-only';
           [disabled]="!data.currentLocation"
         >
           <mat-icon>flag</mat-icon>
-          <span>Nur Spawn</span>
+          <span>Spawn Only</span>
         </button>
       </div>
 
@@ -70,7 +70,7 @@ type EditMode = 'full' | 'spawn-only';
           <div class="warning-box">
             <mat-icon>warning</mat-icon>
             <div class="warning-text">
-              <strong>Achtung!</strong> Das aktuelle Spiel wird beendet.
+              <strong>Warning!</strong> The current game will be ended.
             </div>
           </div>
         }
@@ -81,11 +81,11 @@ type EditMode = 'full' | 'spawn-only';
           <div class="section hq-section">
             <div class="section-header">
               <mat-icon>home</mat-icon>
-              <span class="section-title">Hauptquartier (HQ)</span>
+              <span class="section-title">Headquarters (HQ)</span>
             </div>
             <div class="section-body">
               <app-td-address-autocomplete
-                [placeholder]="'Stadt, Straße oder Adresse...'"
+                [placeholder]="'City, street or address...'"
                 [currentValue]="selectedHQ()"
                 (locationSelected)="onHQSelected($event)"
                 (locationCleared)="onHQCleared()"
@@ -93,7 +93,7 @@ type EditMode = 'full' | 'spawn-only';
               <!-- Coordinates toggle -->
               <button class="coords-toggle" (click)="toggleCoordinates()">
                 <mat-icon>{{ showCoordinates() ? 'expand_less' : 'expand_more' }}</mat-icon>
-                <span>Koordinaten eingeben</span>
+                <span>Enter coordinates</span>
               </button>
               @if (showCoordinates()) {
                 <div class="coords-input">
@@ -123,7 +123,7 @@ type EditMode = 'full' | 'spawn-only';
                     class="apply-coords-btn"
                     [disabled]="!canApplyCoords()"
                     (click)="applyCoordinates()"
-                    matTooltip="Koordinaten übernehmen"
+                    matTooltip="Apply coordinates"
                   >
                     @if (isLoadingCoords()) {
                       <mat-spinner diameter="14"></mat-spinner>
@@ -140,8 +140,8 @@ type EditMode = 'full' | 'spawn-only';
           <div class="section spawn-section">
             <div class="section-header">
               <mat-icon>flag</mat-icon>
-              <span class="section-title">Spawn-Punkt</span>
-              <span class="section-hint">Gegner erscheinen hier</span>
+              <span class="section-title">Spawn Point</span>
+              <span class="section-hint">Enemies appear here</span>
             </div>
             <div class="section-body">
               <div class="spawn-mode-toggle">
@@ -151,7 +151,7 @@ type EditMode = 'full' | 'spawn-only';
                   (click)="setSpawnMode('random')"
                 >
                   <mat-icon>casino</mat-icon>
-                  <span>Zufällig</span>
+                  <span>Random</span>
                 </button>
                 <button
                   class="spawn-mode-btn"
@@ -159,18 +159,18 @@ type EditMode = 'full' | 'spawn-only';
                   (click)="setSpawnMode('manual')"
                 >
                   <mat-icon>edit_location_alt</mat-icon>
-                  <span>Manuell</span>
+                  <span>Manual</span>
                 </button>
               </div>
               @if (spawnMode() === 'random') {
                 <div class="spawn-info">
                   <mat-icon>info_outline</mat-icon>
-                  <span>Automatisch 500m-1km vom HQ auf einer Straße</span>
+                  <span>Automatically placed 500m-1km from HQ on a street</span>
                 </div>
               } @else {
                 <div class="manual-spawn-input">
                   <app-td-address-autocomplete
-                    [placeholder]="'Spawn-Adresse suchen...'"
+                    [placeholder]="'Search spawn address...'"
                     [currentValue]="selectedSpawn()"
                     (locationSelected)="onSpawnSelected($event)"
                     (locationCleared)="onSpawnCleared()"
@@ -197,7 +197,7 @@ type EditMode = 'full' | 'spawn-only';
             <div class="current-hq-info">
               <mat-icon>home</mat-icon>
               <div class="hq-details">
-                <span class="hq-label">HQ bleibt</span>
+                <span class="hq-label">HQ stays</span>
                 <span class="hq-name">{{ data.currentLocation.name }}</span>
               </div>
             </div>
@@ -207,11 +207,11 @@ type EditMode = 'full' | 'spawn-only';
           <div class="section spawn-section">
             <div class="section-header">
               <mat-icon>flag</mat-icon>
-              <span class="section-title">Neuer Spawn-Punkt</span>
+              <span class="section-title">New Spawn Point</span>
             </div>
             <div class="section-body">
               <app-td-address-autocomplete
-                [placeholder]="'Neuen Spawn-Punkt suchen...'"
+                [placeholder]="'Search new spawn point...'"
                 [currentValue]="selectedSpawn()"
                 (locationSelected)="onSpawnSelected($event)"
                 (locationCleared)="onSpawnCleared()"
@@ -219,7 +219,7 @@ type EditMode = 'full' | 'spawn-only';
               @if (spawnDistance() !== null) {
                 <div class="distance-badge" [class.error]="isSpawnTooFar()">
                   <mat-icon>{{ isSpawnTooFar() ? 'error' : 'straighten' }}</mat-icon>
-                  <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km vom HQ</span>
+                  <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km from HQ</span>
                   @if (isSpawnTooFar()) {
                     <span class="limit">(max 1.5 km)</span>
                   }
@@ -227,7 +227,7 @@ type EditMode = 'full' | 'spawn-only';
               }
               <div class="spawn-info">
                 <mat-icon>info_outline</mat-icon>
-                <span>Spawn muss max. 1.5 km vom HQ entfernt sein</span>
+                <span>Spawn must be max. 1.5 km from HQ</span>
               </div>
             </div>
           </div>
@@ -236,10 +236,10 @@ type EditMode = 'full' | 'spawn-only';
 
       <!-- Actions -->
       <div class="dialog-actions">
-        <button class="cancel-btn" (click)="cancel()">Abbrechen</button>
+        <button class="cancel-btn" (click)="cancel()">Cancel</button>
         <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
           <mat-icon>check</mat-icon>
-          {{ editMode() === 'spawn-only' ? 'Spawn ändern' : 'Ort wechseln' }}
+          {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}
         </button>
       </div>
     </div>

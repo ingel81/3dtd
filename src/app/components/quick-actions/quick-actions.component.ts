@@ -16,7 +16,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       <!-- Route Animation Button -->
       <button class="td-quick-btn route-anim-btn"
               (click)="playRouteAnimation.emit()"
-              matTooltip="Route Animation abspielen"
+              matTooltip="Play route animation"
               matTooltipPosition="left">
         <mat-icon>moving</mat-icon>
       </button>
@@ -33,14 +33,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <button class="td-layer-btn"
                   [class.active]="uiState.streetsVisible()"
                   (click)="uiState.toggleStreets(); streetsToggled.emit()"
-                  matTooltip="Strassen anzeigen"
+                  matTooltip="Show streets"
                   matTooltipPosition="left">
             <mat-icon>route</mat-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiState.routesVisible()"
                   (click)="uiState.toggleRoutes(); routesToggled.emit()"
-                  matTooltip="Routen anzeigen"
+                  matTooltip="Show routes"
                   matTooltipPosition="left">
             <mat-icon>timeline</mat-icon>
           </button>
@@ -48,12 +48,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
         <button class="td-quick-btn td-layer-toggle-btn"
                 [class.active]="uiState.layerMenuExpanded()"
                 (click)="uiState.toggleLayerMenu()"
-                matTooltip="Ebenen"
+                matTooltip="Layers"
                 matTooltipPosition="left">
           <mat-icon>{{ uiState.layerMenuExpanded() ? 'layers_clear' : 'layers' }}</mat-icon>
         </button>
       </div>
-      <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Kamera zuruecksetzen" matTooltipPosition="left">
+      <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left">
         <mat-icon>my_location</mat-icon>
       </button>
       <button class="td-quick-btn"
@@ -69,56 +69,56 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <button class="td-dev-btn"
                   [class.active]="uiState.towerDebugVisible()"
                   (click)="uiState.toggleTowerDebug(); towerDebugToggled.emit()"
-                  matTooltip="Tower-Schusshoehe anzeigen"
+                  matTooltip="Show tower shoot height"
                   matTooltipPosition="left">
             <mat-icon>gps_fixed</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="uiState.heightDebugVisible()"
                   (click)="heightDebugToggled.emit()"
-                  matTooltip="Terrain-Hoehen debuggen"
+                  matTooltip="Debug terrain heights"
                   matTooltipPosition="left">
             <mat-icon>terrain</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.waveWindow().isOpen"
                   (click)="debugWindows.toggle('wave')"
-                  matTooltip="Wave-Debug-Panel"
+                  matTooltip="Wave debug panel"
                   matTooltipPosition="left">
             <mat-icon>pest_control</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.cameraWindow().isOpen"
                   (click)="debugWindows.toggle('camera')"
-                  matTooltip="Kamera-Debug-Overlay"
+                  matTooltip="Camera debug overlay"
                   matTooltipPosition="left">
             <mat-icon>videocam</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.soundWindow().isOpen"
                   (click)="debugWindows.toggle('sound')"
-                  matTooltip="Sound-Debug-Panel"
+                  matTooltip="Sound debug panel"
                   matTooltipPosition="left">
             <mat-icon>volume_up</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.eventsWindow().isOpen"
                   (click)="debugWindows.toggle('events')"
-                  matTooltip="Event-Bus-Panel"
+                  matTooltip="Event bus panel"
                   matTooltipPosition="left">
             <mat-icon>cell_tower</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="cameraFramingDebug()"
                   (click)="cameraFramingDebugToggled.emit()"
-                  matTooltip="Kamera-Framing Debug"
+                  matTooltip="Camera framing debug"
                   matTooltipPosition="left">
             <mat-icon>crop_free</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="uiState.specialPointsDebugVisible()"
                   (click)="specialPointsDebugToggled.emit()"
-                  matTooltip="Spezial-Punkte debuggen (Feuer, etc.)"
+                  matTooltip="Debug special points (fire, etc.)"
                   matTooltipPosition="left">
             <mat-icon>location_on</mat-icon>
           </button>
@@ -126,7 +126,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
         <button class="td-quick-btn td-dev-toggle-btn"
                 [class.active]="uiState.devMenuExpanded()"
                 (click)="uiState.toggleDevMenu()"
-                matTooltip="Entwickler-Optionen"
+                matTooltip="Developer options"
                 matTooltipPosition="left">
           <mat-icon>{{ uiState.devMenuExpanded() ? 'code_off' : 'code' }}</mat-icon>
         </button>

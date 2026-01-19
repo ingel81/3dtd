@@ -1,11 +1,11 @@
 /**
  * Magic Orb Shaders
  *
- * Pulsierender magischer Orb mit wirbelnden Energie-Mustern:
- * - Dynamischer Farbverlauf (violett → cyan → weiß)
- * - Wirbelende Voronoi-ähnliche Muster
- * - Pulsierender Glow-Effekt
- * - Additive Blending für leuchtende Magie
+ * Pulsating magical orb with swirling energy patterns:
+ * - Dynamic color gradient (violet → cyan → white)
+ * - Swirling Voronoi-like patterns
+ * - Pulsating glow effect
+ * - Additive blending for glowing magic
  */
 
 export const MAGIC_ORB_VERTEX = /* glsl */ `
