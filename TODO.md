@@ -164,11 +164,6 @@
       - Moegliche Verbesserung: Alternative Geocoding-API (Photon, Google)
 
 ### Ideen
-- [ ] Coole Locations irgendwie sharebar machen (URL-Parameter deaktiviert wegen Timing-Bugs beim Tile-Loading)
 - [ ] Poison Tower
 - [ ] Flame Tower
 
-### Stashed Features
-- [ ] World Dice - Random Street Generator (git stash: "feat: world dice random location generator")
-      Wikidata SPARQL fuer zufaellige Stadt + Overpass API fuer Strasse
-      Wuerfel-Button in Header + Location-Dialog

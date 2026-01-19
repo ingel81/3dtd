@@ -12,6 +12,16 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 - [x] **Browser Geolocation API** - Automatische Standortermittlung implementiert
       `GeolocationService` mit Fallback-Kaskade: Browser GPS/WLAN → IP-API (ip-api.com)
 
+- [x] **World Dice** - Random Street Generator
+      Wikidata SPARQL für zufällige Stadt + Overpass API für Straße
+      Würfel-Button in Header + Location-Dialog
+
+- [x] **World Dice Loading Feedback** - Loading Overlay beim Würfeln
+      Steps: "Würfle Stadt..." (mit Detail) → "Lade Karte..." (mit Stadtname)
+
+- [x] **Location Sharing via URL** - Shareable Links funktionieren
+      URL-Parameter `?l=lat,lon&s=spawns` aktiv, Share-Button kopiert Link
+
 ### Game Engine - Event Bus System (Phase 10 abgeschlossen)
 
 - [x] **game:over Event (Phase 10a)**
