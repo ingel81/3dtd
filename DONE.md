@@ -92,6 +92,16 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       - GOD Object Refactoring Phase 2 komplett abgeschlossen
 
 ### Bugfixes
+- [x] **Route Overlay "Routen anzeigen"** funktioniert wieder korrekt
+      - Problem: Bei fehlendem Terrain (`originTerrainY === null`) wurde `showPathFromSpawn()` beendet ohne Route Line zu erstellen
+      - Fix: Fallback auf `0` statt `return` - Route Line wird immer erstellt
+      - Datei: `path-route.service.ts`
+
+- [x] **Wave Debug Panel Delay** wirkt sich jetzt auf laufende Welle aus
+      - Problem: `spawnDelay` wurde einmal zu Beginn der Welle gespeichert und nie aktualisiert
+      - Fix: Neues `getSpawnDelay?: () => number` in `WaveConfig` - wird bei jedem Spawn aufgerufen
+      - Dateien: `wave.manager.ts`, `tower-defense.component.ts`
+
 - [x] **Route-Grid Animation beschleunigt sich mit jeder Wave**
       - Game Loop wurde bei jeder Wave erneut gestartet ohne den alten zu stoppen
       - Mehrere Loops liefen parallel → `updateAnimation()` wurde N-mal pro Frame aufgerufen
