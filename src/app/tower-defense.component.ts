@@ -56,23 +56,17 @@ import { WorldDiceService } from './services/world-dice.service';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
+import { StreetRenderingService } from './services/street-rendering.service';
+import { LocationChangeCoordinatorService, LocationChangeInput, LocationChangeContext, LocationChangeCallbacks } from './services/location-change-coordinator.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 import { EnemyManager } from './managers/enemy.manager';
 import { TowerManager } from './managers/tower.manager';
 import { ProjectileManager } from './managers/projectile.manager';
-import { WaveManager, SpawnPoint as WaveSpawnPoint } from './managers/wave.manager';
+import { WaveManager, SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
-import {
-  Vector3,
-  Material,
-  LineSegments,
-  InstancedMesh,
-  BufferGeometry,
-  Float32BufferAttribute,
-  LineBasicMaterial,
-} from 'three';
+import { Vector3, InstancedMesh } from 'three';
 // Theme
 import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
@@ -121,567 +115,14 @@ const EMPTY_CENTER_COORDS = {
     ModelPreviewService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
-  template: `
-    <div class="td-container" [class.td-fullscreen]="!isDialog">
-      <!-- Info Header -->
-      <app-game-header
-        [locationName]="currentLocationName()"
-        [baseHealth]="gameState.baseHealth()"
-        [credits]="gameState.credits()"
-        [waveNumber]="gameState.waveNumber()"
-        [enemiesAlive]="gameState.enemiesAlive()"
-        [waveActive]="waveActive()"
-        [isDialog]="isDialog"
-        [favorites]="favorites()"
-        [favoriteNames]="favoriteNamesMap()"
-        [canAddFavorite]="favorites().length < 10"
-        (locationClick)="openLocationDialog()"
-        (closeClick)="close()"
-        (shareClick)="onShareLocation()"
-        (diceClick)="onWorldDice()"
-        (addFavoriteClick)="onAddFavorite()"
-        (selectFavoriteClick)="onSelectFavorite($event)"
-        (deleteFavoriteClick)="onDeleteFavorite($event)"
-      />
-
-      <!-- Main Content: Canvas + Sidebar -->
-      <div class="td-main">
-        <!-- Canvas Area -->
-        <div class="td-canvas-area">
-          @if (loading()) {
-            <div class="td-loading-overlay">
-              @if (!error()) {
-                <mat-spinner diameter="48"></mat-spinner>
-                <div class="td-loading-title">Lade 3DTD</div>
-                <div class="td-loading-steps">
-                  @for (step of loadingSteps(); track step.id) {
-                    <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">
-                      <mat-icon class="td-step-icon">
-                        @if (step.status === 'done') {
-                          check_circle
-                        } @else if (step.status === 'active') {
-                          sync
-                        } @else {
-                          radio_button_unchecked
-                        }
-                      </mat-icon>
-                      <span class="td-step-label">{{ step.label }}</span>
-                      @if (step.detail) {
-                        <span class="td-step-detail">({{ step.detail }})</span>
-                      }
-                    </div>
-                  }
-                </div>
-              } @else {
-                <mat-icon class="td-loading-error-icon">warning</mat-icon>
-                <div class="td-loading-title">Laden fehlgeschlagen</div>
-                <p class="td-loading-error-msg">{{ error() }}</p>
-                <button class="td-btn td-btn-gold" (click)="retryLoading()">Erneut versuchen</button>
-              }
-            </div>
-          }
-
-          @if (error() && !loading()) {
-            <div class="td-error-overlay">
-              <mat-icon class="td-error-icon">error_outline</mat-icon>
-              <h3>Fehler</h3>
-              <p>{{ error() }}</p>
-              <div class="td-token-instructions">
-                <p>1. Erstelle ein Projekt in der <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></p>
-                <p>2. Aktiviere die <strong>Map Tiles API</strong></p>
-                <p>3. Erstelle einen API Key und trage ihn in <code>appsettings.json</code> ein:</p>
-                <pre>"GoogleMapsApiKey": "dein-api-key"</pre>
-              </div>
-              <button class="td-btn td-btn-gold" (click)="close()">Schliessen</button>
-            </div>
-          }
-
-          <canvas #gameCanvas class="td-canvas" [class.hidden]="error()"></canvas>
-
-          <!-- Google Attribution (required) -->
-          @if (!loading() && !error()) {
-            <div class="td-google-logo-container">
-              <img src="/assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
-            </div>
-            <div class="td-map-attribution">{{ mapAttribution() }}</div>
-
-            <!-- Compass Overlay -->
-            <app-compass [rotation]="compassRotation()" [heading]="cameraHeading()" />
-
-            <!-- Debug Windows (draggable) -->
-            <app-camera-debugger />
-            <app-wave-debugger
-              (killAll)="killAllEnemies()"
-              (healHq)="healHq()"
-              (addCredits)="addDebugCredits()"
-              (addHealth)="addDebugHealth()"
-            />
-            <app-sound-debugger />
-
-            <!-- Info Overlay (top left) -->
-            <app-info-overlay
-              [fps]="fps()"
-              [tileStats]="tileStats()"
-              [enemiesAlive]="gameState.enemiesAlive()"
-              [activeSounds]="activeSounds()"
-              [streetCount]="streetCount()"
-            />
-          }
-
-          <!-- Controls Hint -->
-          @if (!loading() && !error()) {
-            <div class="td-controls-hint">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
-
-            <!-- Quick Actions (bottom right) -->
-            <app-quick-actions
-              [cameraFramingDebug]="cameraFramingDebug()"
-              (resetCamera)="resetCamera()"
-              (streetsToggled)="onStreetsToggled()"
-              (routesToggled)="onRoutesToggled()"
-              (towerDebugToggled)="onTowerDebugToggled()"
-              (heightDebugToggled)="toggleHeightDebug()"
-              (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
-              (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"
-              (spatialGridDebugToggled)="onSpatialGridDebugToggled()"
-              (playRouteAnimation)="onPlayRouteAnimation()"
-            />
-          }
-
-          <!-- Build Mode Context Hints -->
-          @if (buildMode()) {
-            <app-context-hint
-              [hints]="buildModeHints"
-              [warning]="buildModeWarning()"
-            />
-          }
-
-          <!-- Gathering Overlay -->
-          @if (gatheringPhase()) {
-            <div class="td-gathering-overlay">
-              <mat-icon>groups</mat-icon>
-              <span>Gegner sammeln sich...</span>
-            </div>
-          }
-
-          <!-- Game Over Overlay -->
-          @if (gameState.showGameOverScreen()) {
-            <div class="td-gameover-overlay">
-              <div class="td-gameover-content">
-                <h1>GAME OVER</h1>
-                <p>Das HQ wurde zerstoert!</p>
-                <button class="td-btn td-btn-green" (click)="restartGame()">
-                  <mat-icon>replay</mat-icon>
-                  NEUSTART
-                </button>
-              </div>
-            </div>
-          }
-        </div>
-
-        <!-- Right Sidebar -->
-        <app-game-sidebar
-          [gameState]="gameState"
-          [towerTypes]="towerTypes"
-          [buildMode]="buildMode()"
-          [waveActive]="waveActive()"
-          [isGameOver]="isGameOver()"
-          (startWave)="startWave()"
-          (cancelBuild)="toggleBuildMode()"
-          (selectTower)="selectTowerType($event)"
-          (sellTower)="sellSelectedTower()"
-          (upgradeTower)="upgradeTower($event.tower, $event.upgradeId)"
-        />
-      </div>
-    </div>
-  `,
-  styles: `
+  templateUrl: './tower-defense.component.html',
+  styleUrls: ['./tower-defense.component.scss'],
+  styles: [`
     :host {
       display: contents;
       ${TD_CSS_VARS}
     }
-
-    /* === Container === */
-    .td-container {
-      display: flex;
-      flex-direction: column;
-      width: 90vw;
-      max-width: 1400px;
-      height: 85vh;
-      max-height: 900px;
-      background: var(--td-bg-dark);
-      border: 2px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-radius: 4px;
-      overflow: hidden;
-      font-family: 'JetBrains Mono', monospace;
-    }
-
-    .td-container.td-fullscreen {
-      width: 100vw;
-      max-width: 100vw;
-      height: 100vh;
-      max-height: 100vh;
-      border-radius: 0;
-      border: none;
-    }
-
-    /* === Main Layout === */
-    .td-main {
-      flex: 1;
-      display: flex;
-      overflow: visible; /* Allow canvas-area children to extend beyond bounds */
-    }
-
-    /* === Canvas Area === */
-    .td-canvas-area {
-      flex: 1;
-      position: relative;
-      background: var(--td-panel-shadow);
-      overflow: visible; /* Allow quick-actions to extend beyond bounds */
-    }
-
-    .td-canvas {
-      width: 100%;
-      height: 100%;
-    }
-
-    .td-canvas.hidden {
-      visibility: hidden;
-    }
-
-    .td-controls-hint {
-      position: absolute;
-      bottom: 5px;
-      left: 120px;
-      font-size: 11px;
-      color: var(--td-text-secondary);
-      background: rgba(20, 24, 21, 0.85);
-      padding: 4px 8px;
-      border-radius: 3px;
-      border: 1px solid var(--td-frame-dark);
-      z-index: 5;
-    }
-
-    /* Google Logo (bottom left) */
-    .td-google-logo-container {
-      position: absolute;
-      bottom: 5px;
-      left: 10px;
-      z-index: 5;
-    }
-
-    .td-google-logo {
-      height: 16px;
-      width: auto;
-      display: block;
-    }
-
-    /* Map Attribution (bottom right) */
-    .td-map-attribution {
-      position: absolute;
-      bottom: 5px;
-      right: 10px;
-      padding: 0 6px;
-      background: rgba(255, 255, 255, 0.7);
-      border-radius: 2px;
-      font-size: 9px;
-      color: #444;
-      z-index: 5;
-      max-width: 500px;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      white-space: nowrap;
-    }
-
-    /* === Overlays === */
-    .td-loading-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      background: color-mix(in srgb, var(--td-bg-dark) 90%, transparent);
-      backdrop-filter: blur(2px);
-      z-index: 10;
-      pointer-events: all; /* Block clicks to canvas below */
-    }
-
-    .td-loading-overlay mat-spinner ::ng-deep circle {
-      stroke: var(--td-gold) !important;
-    }
-
-    .td-loading-title {
-      color: var(--td-gold);
-      font-size: 18px;
-      font-weight: 600;
-      margin-top: 12px;
-      text-align: center;
-    }
-
-    .td-loading-steps {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-top: 16px;
-      padding: 16px;
-      background: color-mix(in srgb, var(--td-bg-surface) 50%, transparent);
-      border-radius: 8px;
-      min-width: 240px;
-    }
-
-    .td-loading-step {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      color: var(--td-text-tertiary);
-      font-size: 13px;
-      transition: color 0.2s;
-    }
-
-    .td-step-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
-      transition: color 0.2s;
-    }
-
-    .td-loading-step.active {
-      color: var(--td-text-primary);
-    }
-
-    .td-loading-step.active .td-step-icon {
-      color: var(--td-gold);
-      animation: spin 1s linear infinite;
-    }
-
-    .td-loading-step.done {
-      color: var(--td-text-secondary);
-    }
-
-    .td-loading-step.done .td-step-icon {
-      color: var(--td-green);
-    }
-
-    .td-step-detail {
-      color: var(--td-text-tertiary);
-      font-size: 11px;
-      margin-left: auto;
-    }
-
-    .td-loading-step.active .td-step-detail {
-      color: var(--td-gold);
-      font-size: 12px;
-      font-weight: 500;
-    }
-
-    .td-loading-step.done .td-step-detail {
-      color: var(--td-green);
-    }
-
-    @keyframes spin {
-      from { transform: rotate(0deg); }
-      to { transform: rotate(360deg); }
-    }
-
-    /* Loading Error State */
-    .td-loading-error-icon {
-      font-size: 48px;
-      width: 48px;
-      height: 48px;
-      color: var(--td-warn-orange);
-    }
-
-    .td-loading-error-msg {
-      color: var(--td-text-secondary);
-      max-width: 300px;
-      text-align: center;
-      margin: 8px 0 16px 0;
-      font-size: 14px;
-    }
-
-    .td-error-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 16px;
-      background: var(--td-bg-dark);
-      z-index: 10;
-    }
-
-    .td-error-overlay {
-      padding: 40px;
-      text-align: center;
-    }
-
-    .td-error-icon {
-      font-size: 64px;
-      width: 64px;
-      height: 64px;
-      color: var(--td-warn-orange);
-    }
-
-    .td-error-overlay h3 {
-      font-size: 20px;
-      color: var(--td-warn-orange);
-      margin: 0;
-    }
-
-    .td-error-overlay p {
-      color: var(--td-text-secondary);
-      max-width: 400px;
-    }
-
-    .td-token-instructions {
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      padding: 16px;
-      text-align: left;
-      margin: 16px 0;
-    }
-
-    .td-token-instructions p { margin: 8px 0; font-size: 12px; }
-    .td-token-instructions a { color: var(--td-teal); }
-    .td-token-instructions code {
-      background: var(--td-panel-shadow);
-      padding: 2px 6px;
-      font-size: 11px;
-    }
-    .td-token-instructions pre {
-      background: var(--td-panel-shadow);
-      border: 1px solid var(--td-frame-dark);
-      padding: 10px;
-      font-size: 11px;
-      color: var(--td-green);
-    }
-
-    /* Generic Buttons */
-    .td-btn {
-      display: inline-flex;
-      align-items: center;
-      gap: 8px;
-      padding: 10px 20px;
-      background: var(--td-gold);
-      border: none;
-      border-top: 1px solid var(--td-edge-highlight);
-      border-bottom: 2px solid var(--td-gold-dark);
-      color: var(--td-bg-dark);
-      font-family: inherit;
-      font-size: 12px;
-      font-weight: 700;
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-btn:hover { filter: brightness(1.1); }
-
-    .td-btn-gold { background: var(--td-gold); border-bottom-color: var(--td-gold-dark); }
-    .td-btn-green {
-      background: var(--td-green);
-      border-bottom-color: var(--td-green-dark);
-    }
-
-    /* Gathering Overlay */
-    .td-gathering-overlay {
-      position: absolute;
-      top: 20px;
-      left: 50%;
-      transform: translateX(-50%);
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      padding: 10px 20px;
-      background: var(--td-panel-main);
-      border: 2px solid var(--td-warn-orange);
-      z-index: 10;
-      animation: td-pulse 1s ease-in-out infinite;
-    }
-
-    .td-gathering-overlay mat-icon {
-      color: var(--td-warn-orange);
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
-    }
-
-    .td-gathering-overlay span {
-      font-size: 12px;
-      font-weight: 600;
-      color: var(--td-warn-orange);
-    }
-
-    /* Game Over Overlay */
-    .td-gameover-overlay {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      background: rgba(0, 0, 0, 0.8);
-      z-index: 20;
-      animation: td-fade-in 0.5s ease;
-    }
-
-    @keyframes td-fade-in {
-      from { opacity: 0; }
-      to { opacity: 1; }
-    }
-
-    .td-gameover-content {
-      text-align: center;
-      padding: 40px 60px;
-      background: var(--td-panel-main);
-      border: 3px solid var(--td-health-red);
-      box-shadow: 0 0 40px rgba(177, 68, 54, 0.5);
-    }
-
-    .td-gameover-content h1 {
-      font-size: 48px;
-      font-weight: 900;
-      color: var(--td-health-red);
-      margin: 0 0 16px 0;
-      letter-spacing: 6px;
-      animation: td-shake 0.5s ease-in-out;
-    }
-
-    @keyframes td-shake {
-      0%, 100% { transform: translateX(0); }
-      20% { transform: translateX(-6px); }
-      40% { transform: translateX(6px); }
-      60% { transform: translateX(-3px); }
-      80% { transform: translateX(3px); }
-    }
-
-    .td-gameover-content p {
-      font-size: 14px;
-      color: var(--td-text-secondary);
-      margin: 0 0 24px 0;
-    }
-
-    .td-gameover-content .td-btn {
-      padding: 12px 28px;
-      font-size: 14px;
-    }
-
-    .td-gameover-content .td-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-  `,
+  `],
 })
 export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   @ViewChild('gameCanvas') gameCanvas!: ElementRef<HTMLCanvasElement>;
@@ -711,6 +152,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly geolocation = inject(GeolocationService);
   private readonly worldDice = inject(WorldDiceService);
+  private readonly streetRendering = inject(StreetRenderingService);
+  private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -734,8 +177,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
   private readonly COORD_EPSILON = 0.0001; // ~11m tolerance for coordinate comparison
 
-  // Three.js object for streets (merged geometry for performance - 1 draw call instead of 600)
-  private streetLinesMesh: LineSegments | null = null;
+  // Three.js object for spatial grid debug visualization
   private spatialGridVizMesh: InstancedMesh | null = null;
 
   // Proxy signals from services for template compatibility
@@ -804,9 +246,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
-  readonly gatheringPhase = signal(false);
+  // Gathering phase signal - delegated to WaveManager
+  readonly gatheringPhase = computed(() => this.gameState.waveManager.gatheringPhase());
   readonly activeSounds = signal(0);
-  private waveAborted = false;
   readonly gatheringCountdown = signal(0);
 
   private tileStatsIntervalId: number | null = null; // Polling for tile stats during loading
@@ -1480,140 +922,21 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.cameraControl.saveInitialPosition(target);
   }
 
-  /** Flag to prevent concurrent renderStreets calls */
-  private isRenderingStreets = false;
-
+  /**
+   * Render streets using StreetRenderingService
+   */
   private renderStreets(): void {
-    // Guard: Only render when filtered (prevents 16s raycast on unfiltered streets)
-    if (!this.filteredStreetNetwork) {
-      console.log('[TD] renderStreets: Skipped - not filtered yet');
-      return;
-    }
-
-    // Prevent concurrent calls (can happen during loading sequence)
-    if (this.isRenderingStreets) {
-      return;
-    }
-    this.isRenderingStreets = true;
-    console.time('[TD] renderStreets');
-
-    // Get engine from service (this.engine may not be set yet during init)
     const engine = this.engine || this.engineInit.getEngine();
-    if (!engine || !this.streetNetwork) {
-      console.timeEnd('[TD] renderStreets');
-      this.isRenderingStreets = false;
-      return;
-    }
+    if (!engine) return;
 
-    // Use filtered network if available (much faster), otherwise full network
-    const networkToRender = this.filteredStreetNetwork || this.streetNetwork;
-
-    const overlayGroup = engine.getOverlayGroup();
-
-    // Remove existing street mesh (single object now instead of 600+ separate lines)
-    if (this.streetLinesMesh) {
-      overlayGroup.remove(this.streetLinesMesh);
-      this.streetLinesMesh.geometry.dispose();
-      (this.streetLinesMesh.material as Material).dispose();
-      this.streetLinesMesh = null;
-    }
-
-    // Clear height debug markers
-    this.markerViz.clearHeightDebugMarkers();
-
-    // Height offset above terrain (0 = directly on terrain)
-    const HEIGHT_ABOVE_GROUND = 0.5;
-
-    // Get terrain height at HQ (origin) as reference
     const base = this.baseCoords();
-    const originTerrainY = engine.getTerrainHeightAtGeo(base.latitude, base.longitude);
-    if (originTerrainY === null) {
-      console.timeEnd('[TD] renderStreets');
-      this.isRenderingStreets = false;
-      return;
-    }
-
-    // Set overlay base Y so overlayGroup is positioned at terrain surface
-    engine.setOverlayBaseY(originTerrainY);
-
-    // Always create debug markers (hidden by default) so toggleHeightDebug doesn't need to re-render
-    const debugMarkerInterval = 10; // Only show every Nth marker to reduce clutter
-    let debugMarkerCount = 0;
-
-    // Collect all line segments for merged geometry (PERFORMANCE: 1 draw call instead of 600+)
-    // LineSegments interprets vertices pairwise: [v0-v1], [v2-v3], [v4-v5]...
-    const allSegmentVertices: number[] = [];
-
-    for (const street of networkToRender.streets) {
-      if (street.nodes.length < 2) continue;
-
-      const points: Vector3[] = [];
-
-      for (const node of street.nodes) {
-        // Get terrain height at this position using local raycast
-        const terrainY = engine.getTerrainHeightAtGeo(node.lat, node.lon);
-
-        if (terrainY !== null) {
-          // Use geoToLocalSimple for X/Z
-          const local = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
-          // Y = height difference from origin + offset above ground
-          local.y = (terrainY - originTerrainY) + HEIGHT_ABOVE_GROUND;
-          points.push(local);
-
-          // Add debug marker (only every Nth point) - always create, visibility controlled separately
-          if (debugMarkerCount % debugMarkerInterval === 0) {
-            this.markerViz.addHeightDebugMarker(local, terrainY, true);
-          }
-          debugMarkerCount++;
-        } else {
-          // Add red debug marker for misses (only every Nth point)
-          if (debugMarkerCount % debugMarkerInterval === 0) {
-            const localMiss = engine.sync.geoToLocalSimple(node.lat, node.lon, 5);
-            this.markerViz.addHeightDebugMarker(localMiss, null, false);
-          }
-          debugMarkerCount++;
-        }
-      }
-
-      // Only render street if we have at least 2 points
-      if (points.length < 2) continue;
-
-      // Smooth out height anomalies (e.g., hitting buildings instead of ground)
-      const smoothedPoints = this.pathRoute.smoothPathHeights(points);
-
-      // Convert connected points to line segments for LineSegments geometry
-      // [A, B, C, D] -> segments: [A-B, B-C, C-D] -> vertices: [A, B, B, C, C, D]
-      for (let i = 0; i < smoothedPoints.length - 1; i++) {
-        const p1 = smoothedPoints[i];
-        const p2 = smoothedPoints[i + 1];
-        allSegmentVertices.push(p1.x, p1.y, p1.z);
-        allSegmentVertices.push(p2.x, p2.y, p2.z);
-      }
-    }
-
-    // Create single merged geometry with all street segments
-    if (allSegmentVertices.length > 0) {
-      const geometry = new BufferGeometry();
-      geometry.setAttribute('position', new Float32BufferAttribute(allSegmentVertices, 3));
-
-      // Single material for all streets (no more cloning per street!)
-      const material = new LineBasicMaterial({
-        color: 0xffd700,
-        linewidth: 2,
-        depthTest: true,
-        depthWrite: false,
-        transparent: true,
-        opacity: 0.9
-      });
-
-      this.streetLinesMesh = new LineSegments(geometry, material);
-      this.streetLinesMesh.visible = this.streetsVisible();
-      this.streetLinesMesh.renderOrder = 1;
-      this.streetLinesMesh.frustumCulled = false;  // Prevent disappearing at certain angles
-      overlayGroup.add(this.streetLinesMesh);
-    }
-    console.timeEnd('[TD] renderStreets');
-    this.isRenderingStreets = false;
+    this.streetRendering.renderStreets(
+      engine,
+      this.filteredStreetNetwork,
+      this.streetNetwork,
+      { latitude: base.latitude, longitude: base.longitude },
+      this.streetsVisible()
+    );
   }
 
 
@@ -1915,72 +1238,20 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   startWave(): void {
     if (!this.engine || this.waveActive() || this.isGameOver()) return;
+    if (this.spawnPoints().length === 0) return;
 
-    const spawns = this.spawnPoints();
-    if (spawns.length === 0) return;
-
-    const totalEnemies = this.enemyCount();
-    const gathering = this.useGathering();
-
-    // Reset abort flag at start of new wave
-    this.waveAborted = false;
-
-    this.gameState.beginWave();
-
-    if (gathering) {
-      this.gatheringPhase.set(true);
-    }
-
-    // Game loop already runs via onEngineUpdate - no need to start it
-
-    let spawnedCount = 0;
-
-    const spawnNext = () => {
-      // Stop spawning if wave was aborted
-      if (this.waveAborted) {
-        this.gatheringPhase.set(false);
-        return;
-      }
-
-      if (spawnedCount >= totalEnemies) {
-        if (gathering) {
-          // Gathering mode: Start all enemies together after short delay
-          setTimeout(() => {
-            if (!this.waveAborted) {
-              this.gatheringPhase.set(false);
-              this.gameState.startAllEnemies(300); // 300ms zwischen jedem Start
-            }
-          }, 500);
-        }
-        return;
-      }
-
-      // Read current settings live (allows changing during wave)
-      const mode = this.spawnMode();
-      const speed = this.enemySpeed();
-      const health = this.enemyHealth();
-
-      // Spawn-Punkt auswählen (Verteilt oder Zufällig)
-      let currentSpawn: SpawnPoint;
-      if (mode === 'each') {
-        currentSpawn = spawns[spawnedCount % spawns.length];
-      } else {
-        currentSpawn = spawns[Math.floor(Math.random() * spawns.length)];
-      }
-
-      const spawnPath = this.pathRoute.getCachedPath(currentSpawn.id);
-
-      if (spawnPath && spawnPath.length > 1) {
-        // In gathering mode: spawn paused, otherwise spawn and start immediately
-        this.gameState.spawnEnemy(spawnPath, this.enemyType(), speed, gathering, health);
-        spawnedCount++;
-      }
-
-      // Read delay live for next spawn
-      setTimeout(spawnNext, this.spawnDelay());
+    // Snapshot der Debug-Einstellungen - WaveManager verwaltet Spawning
+    const waveConfig: WaveConfig = {
+      enemyCount: this.enemyCount(),
+      enemyType: this.enemyType(),
+      enemySpeed: this.enemySpeed(),
+      enemyHealth: this.enemyHealth(),
+      spawnMode: this.spawnMode(),
+      spawnDelay: this.spawnDelay(),
+      useGathering: this.useGathering(),
     };
 
-    spawnNext();
+    this.gameState.startWave(waveConfig);
   }
 
   /**
@@ -1994,9 +1265,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Handle streets toggle side effect (visibility already toggled by QuickActionsComponent)
    */
   onStreetsToggled(): void {
-    if (this.streetLinesMesh) {
-      this.streetLinesMesh.visible = this.uiState.streetsVisible();
-    }
+    this.streetRendering.setVisibility(this.uiState.streetsVisible());
   }
 
   /**
@@ -2159,9 +1428,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   killAllEnemies(): void {
-    // Stop spawning new enemies
-    this.waveAborted = true;
-    this.gatheringPhase.set(false);
+    // Stop spawning new enemies (clears pending timeouts in WaveManager)
+    this.gameState.stopSpawning();
 
     // Kill all living enemies
     const enemies = this.gameState.enemies();
@@ -2215,9 +1483,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onGameOver(): void {
-    // Stop spawning new enemies
-    this.waveAborted = true;
-    this.gatheringPhase.set(false);
+    // Stop spawning new enemies (clears pending timeouts in WaveManager)
+    this.gameState.stopSpawning();
 
     // NOTE: Do NOT stop the game loop here!
     // The engine's render loop continues independently and needs to
@@ -2270,9 +1537,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   // ==================== Location Settings Methods ====================
 
   /**
-   * Apply new location - full reset like initial load
+   * Apply new location - delegates to LocationChangeCoordinatorService
    * Shows loading overlay and waits for tiles + streets to load
-   * CRITICAL: Follow correct reset sequence to avoid ghost entities
    */
   async onApplyNewLocation(data: { hq: LocationConfig; spawn: LocationConfig }): Promise<void> {
     if (!this.engine) {
@@ -2280,210 +1546,51 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       return;
     }
 
-    // STEP 1: Show loading overlay and reset steps
-    this.loading.set(true);
-    this.tilesLoading.set(true);
-    this.osmLoading.set(true);
-    this.heightsLoading.set(true);
-    this.isApplyingLocation.set(true);
-    this.heightProgress.set(0);
-    this.engineInit.resetLoadingSteps();
+    const input: LocationChangeInput = {
+      hq: data.hq,
+      spawn: data.spawn,
+    };
+
+    const context: LocationChangeContext = {
+      engine: this.engine,
+      gameState: this.gameState,
+      streetNetwork: this.streetNetwork,
+      streetNetworkLocation: this.streetNetworkLocation,
+      heightDebugVisible: this.heightDebugVisible,
+    };
+
+    const callbacks: LocationChangeCallbacks = {
+      // Signal updates
+      setBaseCoords: (c) => this.baseCoords.set(c),
+      setCenterCoords: (c) => this.centerCoords.set(c),
+      setSpawnPoints: (p) => this.spawnPoints.set(p),
+      addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
+      setStreetCount: (c) => this.streetCount.set(c),
+      setStreetNetwork: (n) => { this.streetNetwork = n; },
+      setStreetNetworkLocation: (l) => { this.streetNetworkLocation = l; },
+
+      // Actions
+      syncUrlWithLocation: () => this.syncUrlWithLocation(),
+      clearMapEntities: () => this.clearMapEntities(),
+      appendDebugLog: (msg) => this.appendDebugLog(msg),
+      initializeTowerPlacement: () => this.initializeTowerPlacement(),
+      filterStreetNetworkToRoutes: () => this.filterStreetNetworkToRoutes(),
+      scheduleOverlayHeightUpdate: () => this.scheduleOverlayHeightUpdate(),
+      onGameOver: () => this.onGameOver(),
+
+      // Current state accessors
+      getSpawnPoints: () => this.spawnPoints(),
+      getBaseCoords: () => this.baseCoords(),
+    };
 
     try {
-      // STEP 2: Initialize (stop height updates, reset game)
-      await this.engineInit.setStepActive('init');
-      this.engineInit.updateStepDetail('init', 'Reset Spielstand...');
-      this.heightUpdate.stopHeightUpdates();
-      this.routeAnimation.stopAnimation();
-
-      // Stop spawning new enemies before reset
-      this.waveAborted = true;
-      this.gatheringPhase.set(false);
-
-      this.gameState.reset();
-      this.appendDebugLog('Spielstand zurückgesetzt');
-      this.clearMapEntities();
-      this.pathRoute.clearCache();
-      this.spawnPoints.set([]);
-
-      // Update engine origin
-      this.engine.setOrigin(data.hq.lat, data.hq.lon);
-      this.engine.clearDebugHelpers();
-
-      // Update coordinates
-      this.baseCoords.set({ latitude: data.hq.lat, longitude: data.hq.lon });
-      this.centerCoords.set({ latitude: data.hq.lat, longitude: data.hq.lon, height: 400 });
-
-      // Update location service and URL
-      this.locationMgmt.setLocation(
-        { lat: data.hq.lat, lon: data.hq.lon },
-        [{ lat: data.spawn.lat, lon: data.spawn.lon }]
-      );
-      this.syncUrlWithLocation();
-
-      // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
-      // Use same parameters as initEngine for consistent framing
-      this.engineInit.updateStepDetail('init', 'Kamera positionieren...');
-      const hqCoord: GeoPoint = { lat: data.hq.lat, lon: data.hq.lon };
-      const spawnCoords: GeoPoint[] = [{ lat: data.spawn.lat, lon: data.spawn.lon }];
-
-      // Get camera properties from existing engine for accurate framing
-      const camera = this.engine.getCamera();
-      const aspectRatio = camera.aspect;
-      const fov = camera.fov;
-
-      const initialFrame = this.cameraFraming.computeInitialFrame(hqCoord, spawnCoords, {
-        padding: 0.1, // Same as initEngine (was 0.2)
-        angle: 70,
-        markerRadius: 8,
-        estimatedTerrainY: 0,
-        aspectRatio, // Use actual camera aspect ratio
-        fov, // Use actual camera FOV
-      });
-      this.cameraFraming.setEngine(this.engine);
-      this.cameraFraming.applyFrame(initialFrame);
-
-      await this.engineInit.setStepDone('init');
-
-      // Set up tiles loaded callback (runs in background)
-      const tilesLoadedPromise = new Promise<void>((resolve) => {
-        this.engine!.setOnFirstTilesLoadedCallback(() => {
-          this.tilesLoading.set(false);
-          this.checkAllLoaded();
-          resolve();
-        });
-      });
-
-      // STEP 3: Load streets in parallel with tiles (skip if already loaded for this location)
-      await this.engineInit.setStepActive('streets');
-      if (!this.isSameStreetNetworkLocation(data.hq.lat, data.hq.lon)) {
-        this.engineInit.updateStepDetail('streets', 'Lade OSM-Daten...');
-        this.streetNetwork = await this.osmService.loadStreets(data.hq.lat, data.hq.lon, 2000);
-        this.streetNetworkLocation = { lat: data.hq.lat, lon: data.hq.lon };
-      } else {
-        this.engineInit.updateStepDetail('streets', 'Verwende Cache...');
-      }
-      this.streetCount.set(this.streetNetwork!.streets.length);
-      this.osmLoading.set(false);
-      const streetCnt = this.streetCount();
-      await this.engineInit.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Straßen` : undefined);
-      this.checkAllLoaded();
-
-      // Wait for tiles to load (with timeout fallback - game continues even if tiles are slow)
-      let tilesLoaded = false;
-      const timeoutId = setTimeout(() => {
-        if (!tilesLoaded) {
-          console.warn('[TD] Tiles loading timed out after 15s - continuing with available tiles');
-          this.tilesLoading.set(false);
-        }
-      }, 15000);
-
-      await Promise.race([
-        tilesLoadedPromise.then(() => { tilesLoaded = true; }),
-        new Promise<void>(resolve => setTimeout(resolve, 15000))
-      ]);
-
-      clearTimeout(timeoutId);
-
-      // NOTE: renderStreets() is called later in Height-Update-Loop AFTER filterStreetNetworkToRoutes()
-      // This avoids 16+ second raycast overhead with unfiltered streets (21786 → 410)
-
-      // STEP 4: Place HQ marker
-      await this.engineInit.setStepActive('hq');
-      // Reinitialize visualization services with new coordinates
-      this.markerViz.initialize(this.engine, { lat: data.hq.lat, lon: data.hq.lon }, this.heightDebugVisible);
-      this.pathRoute.initialize(
-        this.engine,
-        this.streetNetwork!,
-        { lat: data.hq.lat, lon: data.hq.lon },
-        this.uiState.routesVisible,
-        this.osmService,
-        this.markerViz.getSpawnMarkers()
-      );
-      this.cameraControl.initialize(this.engine, { lat: data.hq.lat, lon: data.hq.lon });
-      this.routeAnimation.initialize(this.engine);
-      this.keyboardPan.initialize(this.engine);
-      this.markerViz.addBaseMarker();
-      await this.engineInit.setStepDone('hq');
-
-      // STEP 5: Place spawn point
-      await this.engineInit.setStepActive('spawn');
-      this.addSpawnPoint('spawn-1', data.spawn.name?.split(',')[0] || 'Spawn', data.spawn.lat, data.spawn.lon, 0xef4444);
-      await this.engineInit.setStepDone('spawn', '1 Punkt');
-
-      // STEP 6: Calculate route
-      await this.engineInit.setStepActive('route');
-      this.engineInit.updateStepDetail('route', 'A* Pathfinding...');
-      const base = this.baseCoords();
-      const waveSpawnPoints: WaveSpawnPoint[] = this.spawnPoints().map((sp) => ({
-        id: sp.id,
-        name: sp.name,
-        latitude: sp.latitude,
-        longitude: sp.longitude,
-      }));
-
-      this.gameState.initialize(
-        this.engine,
-        this.streetNetwork!,
-        { lat: base.latitude, lon: base.longitude },
-        waveSpawnPoints,
-        this.pathRoute.getCachedPaths(),
-        (msg: string) => this.appendDebugLog(msg),
-        () => this.onGameOver()
-      );
-
-      // Validate that routes were found
-      const paths = this.pathRoute.getCachedPaths();
-      if (paths.size === 0) {
-        throw new Error('Keine Route zwischen HQ und Spawn möglich. Die Straßen sind nicht verbunden.');
-      }
-
-      // Initialize GlobalRouteGrid after routes are computed
-      await this.engineInit.setStepActive('grid');
-      this.engineInit.updateStepDetail('grid', 'Berechne Grid...');
-      this.gameState.initializeGlobalRouteGrid();
-      await this.engineInit.setStepDone('grid');
-
-      // Re-initialize TowerPlacementService with new location data
-      this.initializeTowerPlacement();
-
-      // Filter street network to route corridor (dramatically speeds up rendering)
-      this.filterStreetNetworkToRoutes();
-
-      // Get route details for display
-      const routeDetail = this.pathRoute.getRouteDetail();
-      await this.engineInit.setStepDone('route', routeDetail);
-
-      // STEP 7: Finalize 3D view (waits for tiles + height sync)
-      // CRITICAL: Must await to ensure height updates complete, camera correction runs,
-      // and overlay hides AFTER everything is ready (same as F5-reload path)
-      await this.engineInit.setStepActive('finalize');
-      await this.scheduleOverlayHeightUpdate();
-
-      // Save to localStorage (after heights are stable)
-      this.locationMgmt.saveLocationsToStorage();
-
-      this.appendDebugLog(`Geladen: ${this.streetCount()} Strassen`);
-
-      // Mark location change as complete
-      this.isApplyingLocation.set(false);
-
-      // Start route animation NOW (after everything is ready)
-      // We do this manually because checkAllLoaded() skips animation while isApplyingLocation is true
-      if (!this.routeAnimation.isRunning()) {
-        const cachedPaths = this.pathRoute.getCachedPaths();
-        if (cachedPaths.size > 0) {
-          this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
-        }
-      }
-
+      await this.locationCoordinator.executeLocationChange(input, context, callbacks);
     } catch (err) {
       console.error('[Location] Failed to apply location:', err);
       this.appendDebugLog(`Fehler: ${err instanceof Error ? err.message : 'Unbekannt'}`);
       this.engineInit.setError(err instanceof Error ? err.message : 'Fehler beim Standortwechsel');
 
-      // Keep loading overlay visible with error (user can retry)
-      // loading stays true, error is set → shows error UI in loading overlay
+      // Reset loading flags on error
       this.tilesLoading.set(false);
       this.osmLoading.set(false);
       this.heightsLoading.set(false);
@@ -2673,13 +1780,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear routes via service
     this.pathRoute.clearAllRoutes();
 
-    // Clear street mesh (single object now)
-    if (this.streetLinesMesh) {
-      overlayGroup.remove(this.streetLinesMesh);
-      this.streetLinesMesh.geometry.dispose();
-      (this.streetLinesMesh.material as Material).dispose();
-      this.streetLinesMesh = null;
-    }
+    // Clear street mesh via service
+    this.streetRendering.dispose(overlayGroup);
 
     // Clear spawn points signal
     this.spawnPoints.set([]);

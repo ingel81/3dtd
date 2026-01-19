@@ -203,7 +203,7 @@ export class ThreeTilesEngine {
         antialias: true,
         logarithmicDepthBuffer: true,
       });
-    } catch (e) {
+    } catch {
       throw new Error('WebGL wird nicht unterstützt. Aktiviere Hardware-Beschleunigung im Browser.');
     }
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));

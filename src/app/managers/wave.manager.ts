@@ -16,6 +16,7 @@ export interface WaveConfig {
   enemyCount: number;
   enemyType: EnemyTypeId;
   enemySpeed: number;
+  enemyHealth?: number; // Optional custom health (defaults to enemy type's health)
   spawnMode: 'each' | 'random';
   spawnDelay: number; // Delay in ms between spawning each enemy
   useGathering: boolean; // If true, all enemies spawn paused and start together
@@ -103,7 +104,7 @@ export class WaveManager {
 
       if (path && path.length > 1) {
         // In gathering mode: spawn paused, otherwise spawn and start immediately
-        this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, useGathering);
+        this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, useGathering, config.enemyHealth);
         spawnedCount++;
       }
 
@@ -145,6 +146,19 @@ export class WaveManager {
   endWave(): void {
     this.enemyManager.clear();
     this.phase.set('setup');
+  }
+
+  /**
+   * Stop all pending spawns (for Kill All functionality)
+   * Clears timeouts but doesn't reset the wave - let checkWaveComplete() handle that
+   */
+  stopSpawning(): void {
+    // Clear all pending timeouts to prevent spawning after abort
+    for (const timeoutId of this.activeTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.activeTimeouts.clear();
+    this.gatheringPhase.set(false);
   }
 
   /**

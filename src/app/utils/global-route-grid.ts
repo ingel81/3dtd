@@ -5,7 +5,6 @@ import {
   BufferAttribute,
   BoxGeometry,
   Matrix4,
-  Object3D,
   DoubleSide,
   StaticDrawUsage,
   DynamicDrawUsage,

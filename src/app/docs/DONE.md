@@ -6,6 +6,15 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-19
 
+### Refactoring
+- [x] **LocationChangeCoordinatorService extrahiert**
+      - Neue Datei: `src/app/services/location-change-coordinator.service.ts` (406 Zeilen)
+      - `onApplyNewLocation()` von 215 auf 60 Zeilen reduziert
+      - 7 Step-Methoden für Location-Change-Sequenz
+      - Callback-Pattern für Component-Interaktion
+      - TowerDefenseComponent: 1.954 → 1.799 Zeilen (-155)
+      - GOD Object Refactoring Phase 2 komplett abgeschlossen
+
 ### Bugfixes
 - [x] **Route-Grid Animation beschleunigt sich mit jeder Wave**
       - Game Loop wurde bei jeder Wave erneut gestartet ohne den alten zu stoppen
