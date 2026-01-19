@@ -15,17 +15,9 @@
       Datei: `entity-pool.service.ts`
       Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](src/app/docs/archive/EXPERT_REVIEW_2026.md)
 
-- [x] ~~**Spawn-Logik in WaveManager konsolidieren**~~ - ✅ ERLEDIGT (2026-01-19)
-      tower-defense.component.ts delegiert jetzt an gameState.startWave() → waveManager.startWave()
-      Keine eigene Spawn-Logik mehr in der Komponente
-
 ### Prioritaet 3: Langfristig
 - [ ] **TowerDefenseComponent weiter aufteilen** (~1797 Zeilen, von 2280 reduziert durch Event-System)
       Provider entfernt, Event-Subscriptions vereinfacht. Optional: weitere Aufteilung
-
-- [x] ~~**Event-System einfuehren**~~ - ✅ ERLEDIGT (2026-01-19)
-      GameEventBus mit 20 Event-Typen, alle Manager event-driven
-      Siehe: [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) und [DONE.md](DONE.md#2026-01-19)
 
 - [ ] **Koordinaten-Typen vereinheitlichen** - 3 verschiedene Formate im Code
       `GeoPosition` vs `{latitude, longitude}` vs `{lat, lon}`
@@ -38,10 +30,6 @@
 
 > Siehe: [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) fuer aktuelle Implementierung
 
-- [x] ~~**Letzten Callback entfernen**~~ - ✅ ERLEDIGT (2026-01-19)
-      `onDebugLogCallback` war toter Code und wurde entfernt
-- [x] ~~**SpatialAudio debugCallback**~~ - ✅ ERLEDIGT (2026-01-19)
-      `debug:sound` Event hinzugefuegt, SoundDebugService subscribt via EventBus
 - [ ] **Pause-System Events** - `game:started`, `game:paused`, `game:resumed`
       Fuer zukuenftiges Pause-Feature
 
@@ -171,11 +159,6 @@
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
 - [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
       Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md)
-- [x] **Route Overlay "Routen anzeigen"** - funktioniert nicht mehr richtig, Route wird manchmal nicht angezeigt
-      Route Animation (anderes Feature) funktioniert hingegen korrekt
-      Dateien: `path-route.service.ts`, `route-animation.service.ts`
-- [x] **Wave Debug Panel Delay** - Änderungen am Delay haben keinen Einfluss auf aktuell spawnende Welle mehr
-      Dateien: `wave-debug.service.ts`, `wave.manager.ts`
 
 ### Location-System Bekannte Einschraenkungen
 - [ ] Nominatim-Geocoding gibt oft Strassen-Koordinaten statt Gebaeude-Koordinaten
