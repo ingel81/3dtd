@@ -13,7 +13,7 @@ Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. All
 | Vorher | Nachher |
 |--------|---------|
 | 5 Manager mit `@Injectable()` | 1 Manager mit `@Injectable()` (GameStateManager) |
-| 40+ Callbacks | 1 Callback (`onDebugLogCallback`) |
+| 40+ Callbacks | 0 Callbacks (alle via Events) |
 | Tight Coupling | Loose Coupling via Events |
 | Angular-abhaengig | Framework-agnostic (React/Vue/Vanilla JS kompatibel) |
 
@@ -52,6 +52,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 |-------|----------|----------|--------------|
 | `vfx:projectile-impact` | ProjectileManager | VFXService | Explosion VFX spawnen |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
+| `debug:sound` | SpatialAudioManager | SoundDebugService | Sound-Debug-Events (play, stop, budget) |
 
 ---
 

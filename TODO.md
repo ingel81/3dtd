@@ -1,6 +1,6 @@
 # Offene TODOs
 
-> Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
+> Siehe auch: [EXPERT_REVIEW_2026.md](src/app/docs/archive/EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
 ---
 
@@ -9,11 +9,11 @@
 ### Prioritaet 2: Mittelfristig
 - [ ] **GameStateManager weiter aufteilen** (~543 Zeilen, von 800 reduziert durch Event-System)
       Combat/VFX/HQ-Fire bereits ausgelagert. Optional: weitere Aufteilung
-      Siehe: [EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen](EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen)
+      Siehe: [EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen](src/app/docs/archive/EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen)
 
 - [ ] **Entity Object Pooling implementieren** - EntityPoolService ist nur Placeholder
       Datei: `entity-pool.service.ts`
-      Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](EXPERT_REVIEW_2026.md)
+      Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](src/app/docs/archive/EXPERT_REVIEW_2026.md)
 
 - [x] ~~**Spawn-Logik in WaveManager konsolidieren**~~ - ✅ ERLEDIGT (2026-01-19)
       tower-defense.component.ts delegiert jetzt an gameState.startWave() → waveManager.startWave()
@@ -25,23 +25,23 @@
 
 - [x] ~~**Event-System einfuehren**~~ - ✅ ERLEDIGT (2026-01-19)
       GameEventBus mit 20 Event-Typen, alle Manager event-driven
-      Siehe: [EVENT_SYSTEM.md](EVENT_SYSTEM.md) und [DONE.md](DONE.md#2026-01-19)
+      Siehe: [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) und [DONE.md](DONE.md#2026-01-19)
 
 - [ ] **Koordinaten-Typen vereinheitlichen** - 3 verschiedene Formate im Code
       `GeoPosition` vs `{latitude, longitude}` vs `{lat, lon}`
-      Siehe: [EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz](EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz)
+      Siehe: [EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz](src/app/docs/archive/EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz)
 
 - [ ] **Codebase komplett auf Englisch umstellen** - Strings, Kommentare, Variablen, UI
       Aktuell: Deutsche Tower-Namen ('Schnellfeuer'), Enemy-Namen ('Fledermaus'), UI-Texte, Tooltips
 
 ### Event-System Erweiterungen (optional)
 
-> Siehe: [EVENT_SYSTEM.md](EVENT_SYSTEM.md) fuer aktuelle Implementierung
+> Siehe: [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) fuer aktuelle Implementierung
 
-- [ ] **Letzten Callback entfernen** - `onDebugLogCallback` → `debug:log` Event
-      GameStateManager hat noch einen Callback fuer Debug-Logging
-- [ ] **SpatialAudio debugCallback** → EventBus integrieren
-      Datei: `spatial-audio.manager.ts`
+- [x] ~~**Letzten Callback entfernen**~~ - ✅ ERLEDIGT (2026-01-19)
+      `onDebugLogCallback` war toter Code und wurde entfernt
+- [x] ~~**SpatialAudio debugCallback**~~ - ✅ ERLEDIGT (2026-01-19)
+      `debug:sound` Event hinzugefuegt, SoundDebugService subscribt via EventBus
 - [ ] **Pause-System Events** - `game:started`, `game:paused`, `game:resumed`
       Fuer zukuenftiges Pause-Feature
 
@@ -49,78 +49,78 @@
 
 ## Performance Optimierung (aus Performance Report)
 
-> Siehe: [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) für Details
+> Siehe: [PERFORMANCE_REPORT.md](src/app/docs/archive/PERFORMANCE_REPORT.md) für Details
 > Erwarteter Gesamt-Gewinn: +80-100% FPS, -140MB Download, Memory Leaks behoben
 
 ### 🟡 Priorität 2: Hoher Impact
 
 - [ ] **Tiles Update Throttling** - 5-10% FPS bei statischer Kamera
       `three-tiles-engine.ts:965-969` - Nur bei Kamera-Bewegung updaten
-      → [Teil 1.2](PERFORMANCE_REPORT.md#12-kritisches-problem-tiles-update-ohne-throttling)
+      → [Teil 1.2](src/app/docs/archive/PERFORMANCE_REPORT.md#12-kritisches-problem-tiles-update-ohne-throttling)
 
 - [ ] **Animation LOD System** - 60-80% Animation-CPU verschwendet
       Enemies @ 200m+ mit 6 FPS statt 60 FPS animieren
-      → [Teil 3.1](PERFORMANCE_REPORT.md#31-kritisch-kein-animation-lod-system-)
+      → [Teil 3.1](src/app/docs/archive/PERFORMANCE_REPORT.md#31-kritisch-kein-animation-lod-system-)
 
 - [ ] **HQ Explosion Partikel reduzieren** - 1350 → 500 Partikel
       `game-state.manager.ts:990-1103` - Massive Overdraw
-      → [Teil 5.2](PERFORMANCE_REPORT.md#52-overdraw-durch-additive-blending)
+      → [Teil 5.2](src/app/docs/archive/PERFORMANCE_REPORT.md#52-overdraw-durch-additive-blending)
 
 - [ ] **Magic Orb Shader vereinfachen** - 200-300 ALU → 100 ALU
       `magic-orb.shaders.ts` - FBM 4→2 Iterationen, Voronoi 3×3→2×2
-      → [Teil 5.1](PERFORMANCE_REPORT.md#51-magic-orb-shader---zu-komplex)
+      → [Teil 5.1](src/app/docs/archive/PERFORMANCE_REPORT.md#51-magic-orb-shader---zu-komplex)
 
 - [ ] **Partikel Free-List** - O(n) → O(1) Pool-Suche
       `three-effects.renderer.ts:1926-1933` - 1000× schneller bei voller Auslastung
-      → [Teil 6.1](PERFORMANCE_REPORT.md#61-linearer-pool-search)
+      → [Teil 6.1](src/app/docs/archive/PERFORMANCE_REPORT.md#61-linearer-pool-search)
 
 - [ ] **Draco Model Compression** - 132MB → 30MB Models
       gltf-pipeline mit Draco, DRACOLoader in asset-manager
-      → [Teil 10.1](PERFORMANCE_REPORT.md#101-unkomprimierte-3d-models--kritisch-132mb)
+      → [Teil 10.1](src/app/docs/archive/PERFORMANCE_REPORT.md#101-unkomprimierte-3d-models--kritisch-132mb)
 
 - [ ] **A* MinHeap statt Linear Search** - 50-100ms gespart
       `osm-street.service.ts:323-354` - TinyQueue für O(log n)
-      → [Teil 9.1](PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
+      → [Teil 9.1](src/app/docs/archive/PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
 
 - [ ] **Sleeping Towers** - Idle Towers nicht updaten
       `tower.manager.ts` - Sleep/Wake System für Towers ohne Target
-      → [Teil 2.4](PERFORMANCE_REPORT.md#24-sleeping-towers--fehlt)
+      → [Teil 2.4](src/app/docs/archive/PERFORMANCE_REPORT.md#24-sleeping-towers--fehlt)
 
 - [ ] **Progressive Asset Loading** - 3-8s → 0.5-1s TTI
       Nur Critical Assets upfront, Rest im Background
-      → [Teil 10.4](PERFORMANCE_REPORT.md#104-fehlende-progressive-loading)
+      → [Teil 10.4](src/app/docs/archive/PERFORMANCE_REPORT.md#104-fehlende-progressive-loading)
 
 - [ ] **Performance Instrumentation** - Null Monitoring vorhanden
       PerformanceMonitorService mit mark/measure, Memory, Long Tasks
-      → [Teil 15](PERFORMANCE_REPORT.md#teil-15-performance-instrumentation--kritisch-fehlt)
+      → [Teil 15](src/app/docs/archive/PERFORMANCE_REPORT.md#teil-15-performance-instrumentation--kritisch-fehlt)
 
 ### 🟢 Priorität 3: Moderate Impact
 
 - [ ] **Selection Ring Geometry teilen** - Memory sparen
       `three-tower.renderer.ts:315-322` - Shared Geometry + Material
-      → [Teil 4.3](PERFORMANCE_REPORT.md#43-selection-ring-geometry-nicht-geteilt)
+      → [Teil 4.3](src/app/docs/archive/PERFORMANCE_REPORT.md#43-selection-ring-geometry-nicht-geteilt)
 
 - [ ] **Bounding Sphere Culling** - Große Enemies korrekt cullen
       `three-enemy.renderer.ts:440` - intersectsSphere statt containsPoint
-      → [Teil 3.2](PERFORMANCE_REPORT.md#32-frustum-culling---gut-aber-verbesserungsfähig)
+      → [Teil 3.2](src/app/docs/archive/PERFORMANCE_REPORT.md#32-frustum-culling---gut-aber-verbesserungsfähig)
 
 - [ ] **Partikel-Systeme konsolidieren** - 4 → 2 Draw Calls
       `three-effects.renderer.ts` - Additive + Normal zusammenfassen
-      → [Teil 6.2](PERFORMANCE_REPORT.md#62-konsolidierung-der-partikel-systeme)
+      → [Teil 6.2](src/app/docs/archive/PERFORMANCE_REPORT.md#62-konsolidierung-der-partikel-systeme)
 
 - [ ] **Tower Frustum Culling** - Unsichtbare Towers nicht animieren
       `three-tower.renderer.ts:659`
-      → [Teil 4.4](PERFORMANCE_REPORT.md#44-draw-call-analyse)
+      → [Teil 4.4](src/app/docs/archive/PERFORMANCE_REPORT.md#44-draw-call-analyse)
 
 - [ ] **Precision Qualifiers in Shadern** - Mobile Artefakte vermeiden
       Alle Fragment Shader: `precision highp float;`
-      → [Teil 5.3](PERFORMANCE_REPORT.md#53-fehlende-precision-qualifiers)
+      → [Teil 5.3](src/app/docs/archive/PERFORMANCE_REPORT.md#53-fehlende-precision-qualifiers)
 
 ### ⚪ Priorität 4: Langfristig (Architektur)
 
 - [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (100× schneller)
       `three-tiles-engine.ts:721` - Brute-Force ohne BVH, benötigt `three-mesh-bvh`
-      → [Teil 14.1](PERFORMANCE_REPORT.md#141-bvh-acceleration--kritisch-fehlt)
+      → [Teil 14.1](src/app/docs/archive/PERFORMANCE_REPORT.md#141-bvh-acceleration--kritisch-fehlt)
       **Hinweis:** Weniger kritisch als im Report dargestellt:
       - Raycasts passieren hauptsächlich **einmalig** beim Setup (Route-Höhen, Tower-Platzierung)
       - Der Fallback in `enemy.manager.ts:211` greift nur wenn Routen keine Heights haben
@@ -129,10 +129,10 @@
 
 - [ ] **Web Worker Pathfinding** - 200-600ms → 0ms Main Thread
       A* in Worker auslagern für non-blocking Location Changes
-      → [Teil 9.1](PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
+      → [Teil 9.1](src/app/docs/archive/PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
 
 - [ ] **Tower GPU Instancing** - Schwierig wegen Rotationen
-      → [Teil 4.4](PERFORMANCE_REPORT.md#44-draw-call-analyse)
+      → [Teil 4.4](src/app/docs/archive/PERFORMANCE_REPORT.md#44-draw-call-analyse)
 
 ---
 
@@ -170,7 +170,7 @@
 ### Beobachten bis Testcase wieder da
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
 - [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
-      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md)
+      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md)
 - [ ] **Route Overlay "Routen anzeigen"** - funktioniert nicht mehr richtig, Route wird manchmal nicht angezeigt
       Route Animation (anderes Feature) funktioniert hingegen korrekt
       Dateien: `path-route.service.ts`, `route-animation.service.ts`

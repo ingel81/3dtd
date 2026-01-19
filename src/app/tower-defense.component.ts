@@ -534,11 +534,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         this.engine.setOnTilesLoadCallback(() => this.onTilesLoaded());
         this.engine.setOnUpdateCallback((deltaTime) => this.onEngineUpdate(deltaTime));
 
-        // Connect sound debug service
-        this.engine.spatialAudio.setDebugCallback((event) => {
-          this.soundDebug.onDebugEvent(event);
-        });
-        this.soundDebug.setConnected(true);
+        // Connect sound debug service via EventBus
+        const eventBus = this.gameState.getEventBus();
+        this.engine.spatialAudio.setEventBus(eventBus);
+        this.soundDebug.subscribeToEventBus(eventBus);
       }
 
     } catch (err) {
@@ -771,8 +770,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.streetNetwork,
       { lat: base.latitude, lon: base.longitude },
       waveSpawnPoints,
-      this.pathRoute.getCachedPaths(),
-      (msg: string) => this.uiState.appendDebugLog(msg)
+      this.pathRoute.getCachedPaths()
     );
 
     // Subscribe to game:over event

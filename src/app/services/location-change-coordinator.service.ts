@@ -327,8 +327,7 @@ export class LocationChangeCoordinatorService {
       streetNetwork,
       { lat: base.latitude, lon: base.longitude },
       waveSpawnPoints,
-      this.pathRoute.getCachedPaths(),
-      (msg: string) => callbacks.appendDebugLog(msg)
+      this.pathRoute.getCachedPaths()
     );
 
     // Validate that routes were found

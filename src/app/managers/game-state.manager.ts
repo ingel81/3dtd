@@ -68,8 +68,6 @@ export class GameStateManager {
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
-  // Callbacks (only debug log remains)
-  private onDebugLogCallback?: (msg: string) => void;
 
   /**
    * Initialize game state with ThreeTilesEngine
@@ -79,12 +77,10 @@ export class GameStateManager {
     streetNetwork: StreetNetwork,
     basePosition: GeoPosition,
     spawnPoints: SpawnPoint[],
-    cachedPaths: Map<string, GeoPosition[]>,
-    onDebugLog?: (msg: string) => void
+    cachedPaths: Map<string, GeoPosition[]>
   ): void {
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
-    this.onDebugLogCallback = onDebugLog;
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);
@@ -461,13 +457,6 @@ export class GameStateManager {
    */
   stopSpawning(): void {
     this.waveManager.stopSpawning();
-  }
-
-  /**
-   * Log debug message
-   */
-  debugLog(msg: string): void {
-    this.onDebugLogCallback?.(msg);
   }
 
   /**

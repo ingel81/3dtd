@@ -125,6 +125,15 @@ export type GameEvent =
       type: 'ui:notification';
       message: string;
       level: 'info' | 'warning' | 'error';
+    }
+
+  // ==================== Debug Events ====================
+  | {
+      type: 'debug:sound';
+      eventType: 'play' | 'stop' | 'budget_exceeded' | 'pool_exhausted' | 'distance_culled';
+      soundId: string;
+      timestamp: number;
+      details?: string;
     };
 
 /**
