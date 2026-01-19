@@ -174,7 +174,7 @@
 - [x] **Route Overlay "Routen anzeigen"** - funktioniert nicht mehr richtig, Route wird manchmal nicht angezeigt
       Route Animation (anderes Feature) funktioniert hingegen korrekt
       Dateien: `path-route.service.ts`, `route-animation.service.ts`
-- [ ] **Wave Debug Panel Delay** - Änderungen am Delay haben keinen Einfluss auf aktuell spawnende Welle mehr
+- [x] **Wave Debug Panel Delay** - Änderungen am Delay haben keinen Einfluss auf aktuell spawnende Welle mehr
       Dateien: `wave-debug.service.ts`, `wave.manager.ts`
 
 ### Location-System Bekannte Einschraenkungen
