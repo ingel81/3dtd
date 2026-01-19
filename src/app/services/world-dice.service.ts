@@ -16,6 +16,9 @@ export class WorldDiceService {
   readonly isLoading = signal(false);
   readonly error = signal<string | null>(null);
 
+  /** Callback for step detail updates (set by component) */
+  onStepDetail: ((detail: string) => void) | null = null;
+
   // Cached city pool - loaded once, then pick randomly
   private cityPool: RandomCity[] = [];
   private poolLoadPromise: Promise<void> | null = null;
@@ -46,6 +49,7 @@ export class WorldDiceService {
     try {
       // Load pool if not yet loaded
       if (this.cityPool.length === 0) {
+        this.updateDetail('Lade Städte-Pool...');
         await this.loadCityPool();
       }
 
@@ -54,6 +58,7 @@ export class WorldDiceService {
       }
 
       // Pick random city from pool
+      this.updateDetail('Würfle Stadt...');
       const randomIndex = Math.floor(Math.random() * this.cityPool.length);
       return this.cityPool[randomIndex];
     } catch (err) {
@@ -64,6 +69,12 @@ export class WorldDiceService {
       return null;
     } finally {
       this.isLoading.set(false);
+    }
+  }
+
+  private updateDetail(detail: string): void {
+    if (this.onStepDetail) {
+      this.onStepDetail(detail);
     }
   }
 
