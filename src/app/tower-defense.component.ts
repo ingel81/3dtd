@@ -71,15 +71,15 @@ import { TD_CSS_VARS } from './styles/td-theme';
 import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 
-// Initial empty coords - will be set when location is loaded
+// Initial empty coords - will be set when location is loaded (using GeoPosition format)
 const EMPTY_COORDS = {
-  latitude: 0,
-  longitude: 0,
+  lat: 0,
+  lon: 0,
 };
 
 const EMPTY_CENTER_COORDS = {
-  latitude: 0,
-  longitude: 0,
+  lat: 0,
+  lon: 0,
   height: 400,
 };
 
@@ -345,8 +345,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const hq = this.locationMgmt.hq();
     if (hq) {
       this.syncUrlWithLocation();
-      this.baseCoords.set({ latitude: hq.lat, longitude: hq.lon });
-      this.centerCoords.set({ latitude: hq.lat, longitude: hq.lon, height: 400 });
+      this.baseCoords.set({ lat: hq.lat, lon: hq.lon });
+      this.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
     }
   }
 
@@ -510,7 +510,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Configure engine initialization service
       const canvas = this.gameCanvas.nativeElement;
       const base = this.baseCoords();
-      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.latitude, lon: base.longitude });
+      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon });
 
       // Initialize engine via service
       await this.engineInit.initEngine({
@@ -625,7 +625,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     const base = this.baseCoords();
-    const baseCoords = { lat: base.latitude, lon: base.longitude };
+    const baseCoords = { lat: base.lat, lon: base.lon };
 
     // Initialize marker visualization service
     this.markerViz.initialize(engine, baseCoords, this.heightDebugVisible);
@@ -709,8 +709,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const spawnPointsForPlacement = this.spawnPoints().map(sp => ({
       id: sp.id,
       name: sp.name,
-      latitude: sp.latitude,
-      longitude: sp.longitude,
+      lat: sp.lat,
+      lon: sp.lon,
       color: sp.color,
     }));
 
@@ -718,7 +718,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       engine,
       this.streetNetwork,
       this.osmService,
-      { latitude: base.latitude, longitude: base.longitude },
+      { lat: base.lat, lon: base.lon },
       spawnPointsForPlacement,
       this.gameState
     );
@@ -733,8 +733,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const center = this.centerCoords();
 
       this.streetNetwork = await this.osmService.loadStreets(
-        center.latitude,
-        center.longitude,
+        center.lat,
+        center.lon,
         2000 // 2km radius
       );
 
@@ -761,14 +761,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const waveSpawnPoints: WaveSpawnPoint[] = this.spawnPoints().map((sp) => ({
       id: sp.id,
       name: sp.name,
-      latitude: sp.latitude,
-      longitude: sp.longitude,
+      lat: sp.lat,
+      lon: sp.lon,
     }));
 
     this.gameState.initialize(
       engine,
       this.streetNetwork,
-      { lat: base.latitude, lon: base.longitude },
+      { lat: base.lat, lon: base.lon },
       waveSpawnPoints,
       this.pathRoute.getCachedPaths()
     );
@@ -850,15 +850,15 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize height update service with callbacks
     this.heightUpdate.initialize(
       engine,
-      { lat: base.latitude, lon: base.longitude },
+      { lat: base.lat, lon: base.lon },
       this.engineInit.loadingStatus,
       () => {
         // Update marker heights
         const spawnPointsForMarkers = this.spawnPoints().map(sp => ({
           id: sp.id,
           name: sp.name,
-          latitude: sp.latitude,
-          longitude: sp.longitude,
+          lat: sp.lat,
+          lon: sp.lon,
           color: sp.color,
         }));
         this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
@@ -873,7 +873,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Camera correction callback - runs BEFORE overlay hides
       () => {
         this.cameraFraming.setEngine(engine);
-        const realTerrainY = engine.getTerrainHeightAtGeo(base.latitude, base.longitude) ?? 0;
+        const realTerrainY = engine.getTerrainHeightAtGeo(base.lat, base.lon) ?? 0;
         if (Math.abs(realTerrainY) > 1) {
           this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
         }
@@ -904,8 +904,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     });
 
     if (spawns.length > 0) {
-      const hqCoord = { lat: hq.latitude, lon: hq.longitude };
-      const spawnCoords = spawns.map(s => ({ lat: s.latitude, lon: s.longitude }));
+      const hqCoord = { lat: hq.lat, lon: hq.lon };
+      const spawnCoords = spawns.map(s => ({ lat: s.lat, lon: s.lon }));
       this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, 0.1, routePoints);
     }
 
@@ -931,7 +931,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       engine,
       this.filteredStreetNetwork,
       this.streetNetwork,
-      { latitude: base.latitude, longitude: base.longitude },
+      { lat: base.lat, lon: base.lon },
       this.streetsVisible()
     );
   }
@@ -960,8 +960,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const spawnPointsForMarkers = this.spawnPoints().map(sp => ({
       id: sp.id,
       name: sp.name,
-      latitude: sp.latitude,
-      longitude: sp.longitude,
+      lat: sp.lat,
+      lon: sp.lon,
       color: sp.color,
     }));
     this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
@@ -1085,12 +1085,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private reframeCameraWithRoutes(): void {
     const base = this.baseCoords();
-    const hq: GeoPoint = { lat: base.latitude, lon: base.longitude };
+    const hq: GeoPoint = { lat: base.lat, lon: base.lon };
 
     // Get spawn coordinates
     const spawns: GeoPoint[] = this.spawnPoints().map(sp => ({
-      lat: sp.latitude,
-      lon: sp.longitude,
+      lat: sp.lat,
+      lon: sp.lon,
     }));
 
     // Extract all route waypoints from cached paths
@@ -1161,7 +1161,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const engine = this.engine || this.engineInit.getEngine();
     if (!engine || !this.streetNetwork) return;
 
-    const spawn: SpawnPoint = { id, name, latitude: lat, longitude: lon, color };
+    const spawn: SpawnPoint = { id, name, lat, lon, color };
     this.spawnPoints.update((points) => [...points, spawn]);
 
     // Add visual marker via service
@@ -1379,8 +1379,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       if (spawns.length > 0) {
         this.cameraControl.showDebugVisualization(
-          { lat: hq.latitude, lon: hq.longitude },
-          spawns.map(s => ({ lat: s.latitude, lon: s.longitude })),
+          { lat: hq.lat, lon: hq.lon },
+          spawns.map(s => ({ lat: s.lat, lon: s.lon })),
           0.1,
           routePoints
         );

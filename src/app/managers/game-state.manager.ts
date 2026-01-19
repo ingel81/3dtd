@@ -89,7 +89,7 @@ export class GameStateManager {
       tilesEngine,
       streetNetwork,
       basePosition,
-      spawnPoints.map((s) => ({ lat: s.latitude, lon: s.longitude }))
+      spawnPoints.map((s) => ({ lat: s.lat, lon: s.lon }))
     );
 
     // Initialize combat effect service (subscribes to projectile:hit events)

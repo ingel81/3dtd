@@ -9,17 +9,7 @@ import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
-
-/**
- * SpawnPoint interface
- */
-export interface SpawnPoint {
-  id: string;
-  name: string;
-  latitude: number;
-  longitude: number;
-  color: number;
-}
+import { SpawnPoint } from './marker-visualization.service';
 
 /**
  * TowerPlacementService
@@ -85,7 +75,7 @@ export class TowerPlacementService {
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
   private osmService: OsmStreetService | null = null;
-  private baseCoords: { latitude: number; longitude: number } | null = null;
+  private baseCoords: GeoPosition | null = null;
   private spawnPoints: SpawnPoint[] = [];
   private gameState: GameStateManager | null = null;
 
@@ -97,7 +87,7 @@ export class TowerPlacementService {
     engine: ThreeTilesEngine,
     streetNetwork: StreetNetwork,
     osmService: OsmStreetService,
-    baseCoords: { latitude: number; longitude: number },
+    baseCoords: GeoPosition,
     spawnPoints: SpawnPoint[],
     gameState: GameStateManager
   ): void {
@@ -322,7 +312,7 @@ export class TowerPlacementService {
 
     // Calculate relative Y - height difference from base + tower offset
     const baseTerrainY = this.baseCoords
-      ? this.engine.getTerrainHeightAtGeo(this.baseCoords.latitude, this.baseCoords.longitude)
+      ? this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon)
       : 0;
     const relativeY = terrainHeight - (baseTerrainY ?? 0);
 
@@ -548,14 +538,14 @@ export class TowerPlacementService {
     }
 
     // Check distance to base
-    const distToBase = this.osmService.haversineDistance(lat, lon, this.baseCoords.latitude, this.baseCoords.longitude);
+    const distToBase = this.osmService.haversineDistance(lat, lon, this.baseCoords.lat, this.baseCoords.lon);
     if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
       return { valid: false, reason: `Zu nah an Basis` };
     }
 
     // Check distance to spawns
     for (const spawn of this.spawnPoints) {
-      const distToSpawn = this.osmService.haversineDistance(lat, lon, spawn.latitude, spawn.longitude);
+      const distToSpawn = this.osmService.haversineDistance(lat, lon, spawn.lat, spawn.lon);
       if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
         return { valid: false, reason: `Zu nah am Spawn` };
       }

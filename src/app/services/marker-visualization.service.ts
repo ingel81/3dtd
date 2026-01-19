@@ -16,13 +16,11 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 
 /**
- * SpawnPoint definition
+ * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
  */
-export interface SpawnPoint {
+export interface SpawnPoint extends GeoPosition {
   id: string;
   name: string;
-  latitude: number;
-  longitude: number;
   color: number; // Three.js hex color
 }
 
@@ -456,9 +454,9 @@ export class MarkerVisualizationService {
       const spawn = spawnPoints[i];
       const marker = this.spawnMarkers[i];
 
-      const terrainY = this.engine.getTerrainHeightAtGeo(spawn.latitude, spawn.longitude);
+      const terrainY = this.engine.getTerrainHeightAtGeo(spawn.lat, spawn.lon);
       if (terrainY !== null) {
-        const local = this.engine.sync.geoToLocalSimple(spawn.latitude, spawn.longitude, 0);
+        const local = this.engine.sync.geoToLocalSimple(spawn.lat, spawn.lon, 0);
         const relativeY = terrainY - originTerrainY + SPAWN_MARKER_HEIGHT;
         marker.position.set(local.x, relativeY, local.z);
       }

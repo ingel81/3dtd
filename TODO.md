@@ -19,9 +19,9 @@
 - [ ] **TowerDefenseComponent weiter aufteilen** (~1797 Zeilen, von 2280 reduziert durch Event-System)
       Provider entfernt, Event-Subscriptions vereinfacht. Optional: weitere Aufteilung
 
-- [ ] **Koordinaten-Typen vereinheitlichen** - 3 verschiedene Formate im Code
-      `GeoPosition` vs `{latitude, longitude}` vs `{lat, lon}`
-      Siehe: [EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz](src/app/docs/archive/EXPERT_REVIEW_2026.md#8-koordinaten-typen-inkonsistenz)
+- [x] ~~**Koordinaten-Typen vereinheitlichen**~~ - ✅ ERLEDIGT (2026-01-19)
+      Alle Typen auf `GeoPosition` ({lat, lon, height?}) konsolidiert
+      `LocationCoords` entfernt, `latitude/longitude` überall zu `lat/lon`
 
 - [ ] **Codebase komplett auf Englisch umstellen** - Strings, Kommentare, Variablen, UI
       Aktuell: Deutsche Tower-Namen ('Schnellfeuer'), Enemy-Namen ('Fledermaus'), UI-Texte, Tooltips

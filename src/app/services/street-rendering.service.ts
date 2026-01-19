@@ -12,6 +12,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
+import { GeoPosition } from '../models/game.types';
 
 /**
  * StreetRenderingService - Handles street network visualization
@@ -47,7 +48,7 @@ export class StreetRenderingService {
     engine: ThreeTilesEngine,
     filteredNetwork: StreetNetwork | null,
     fullNetwork: StreetNetwork | null,
-    baseCoords: { latitude: number; longitude: number },
+    baseCoords: GeoPosition,
     visible: boolean
   ): void {
     // Guard: Only render when filtered (prevents 16s raycast on unfiltered streets)
@@ -89,7 +90,7 @@ export class StreetRenderingService {
     const HEIGHT_ABOVE_GROUND = 0.5;
 
     // Get terrain height at HQ (origin) as reference
-    const originTerrainY = engine.getTerrainHeightAtGeo(baseCoords.latitude, baseCoords.longitude);
+    const originTerrainY = engine.getTerrainHeightAtGeo(baseCoords.lat, baseCoords.lon);
     if (originTerrainY === null) {
       console.timeEnd('[StreetRendering] renderStreets');
       this.isRenderingStreets = false;

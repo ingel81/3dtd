@@ -6,11 +6,9 @@ import { GameEventBus } from '../game-engine';
 
 export type GamePhase = 'setup' | 'wave' | 'gameover';
 
-export interface SpawnPoint {
+export interface SpawnPoint extends GeoPosition {
   id: string;
   name: string;
-  latitude: number;
-  longitude: number;
 }
 
 export interface WaveConfig {
