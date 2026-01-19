@@ -13,7 +13,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { GameEventBus, GameEvent, EventSubscription } from '../../game-engine/game-event-bus';
-import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 
 interface EventLogEntry {
   id: number;
@@ -223,6 +223,23 @@ const MAX_LOG_ENTRIES = 100;
       display: flex;
       flex-direction: column;
       gap: 2px;
+      ${TD_SCROLLBAR_STYLES}
+    }
+
+    .event-log::-webkit-scrollbar {
+      ${TD_SCROLLBAR_WEBKIT.scrollbar}
+    }
+
+    .event-log::-webkit-scrollbar-track {
+      ${TD_SCROLLBAR_WEBKIT.track}
+    }
+
+    .event-log::-webkit-scrollbar-thumb {
+      ${TD_SCROLLBAR_WEBKIT.thumb}
+    }
+
+    .event-log::-webkit-scrollbar-thumb:hover {
+      ${TD_SCROLLBAR_WEBKIT.thumbHover}
     }
 
     .event-entry {

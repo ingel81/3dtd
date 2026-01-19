@@ -14,7 +14,7 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { DebugWindowService, DebugWindowId, WindowPosition } from '../../services/debug-window.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 
 export interface WindowSize {
   width: number;
@@ -140,6 +140,23 @@ export interface WindowSize {
       max-height: 400px;
       overflow-y: auto;
       overflow-x: hidden;
+      ${TD_SCROLLBAR_STYLES}
+    }
+
+    .debug-panel-content::-webkit-scrollbar {
+      ${TD_SCROLLBAR_WEBKIT.scrollbar}
+    }
+
+    .debug-panel-content::-webkit-scrollbar-track {
+      ${TD_SCROLLBAR_WEBKIT.track}
+    }
+
+    .debug-panel-content::-webkit-scrollbar-thumb {
+      ${TD_SCROLLBAR_WEBKIT.thumb}
+    }
+
+    .debug-panel-content::-webkit-scrollbar-thumb:hover {
+      ${TD_SCROLLBAR_WEBKIT.thumbHover}
     }
 
     .debug-panel.resizable {
