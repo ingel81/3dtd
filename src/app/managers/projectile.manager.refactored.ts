@@ -5,7 +5,6 @@ import { Enemy } from '../entities/enemy.entity';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
-import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
 import { GameEventBus } from '../game-engine';
 
 /**
@@ -110,43 +109,15 @@ export class ProjectileManager extends EntityManager<Projectile> {
           });
         }
 
-        // Spawn explosion effects based on projectile type
-        // TODO: Diese VFX Logic könnte auch via Events gemacht werden
-        // Für jetzt lassen wir es hier (funktioniert gut)
-        const projectileId = projectile.typeConfig.id;
-        if (projectile.isHoming) {
-          // Rocket explosion - large fire effect
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.rocket.particles
-          );
-        } else if (projectileId === 'cannonball') {
-          // Cannonball explosion - medium fire effect
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.cannon.particles
-          );
-        } else if (projectileId === 'bullet') {
-          // Minimal impact effect for bullets
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.bullet.particles
-          );
-        } else if (projectileId !== 'arrow') {
-          // Small impact effect for other projectiles (ice, etc.)
-          this.tilesEngine?.effects.spawnExplosionAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            EXPLOSION_PRESETS.small.particles
-          );
-        }
+        // Emit VFX event for projectile impact (deferred, not critical)
+        this.eventBus.emitDeferred({
+          type: 'vfx:projectile-impact',
+          lat: projectile.position.lat,
+          lon: projectile.position.lon,
+          height: projectile.flightHeight,
+          projectileType: projectile.typeConfig.id,
+          targetLost: projectile.targetLost,
+        });
 
         toRemove.push(projectile);
       } else {
