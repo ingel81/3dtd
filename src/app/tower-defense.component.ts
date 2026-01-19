@@ -32,11 +32,13 @@ import { CompassComponent } from './components/compass/compass.component';
 import { GameHeaderComponent } from './components/game-header/game-header.component';
 import { CameraDebuggerComponent } from './components/debug-window/camera-debugger.component';
 import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
+import { SoundDebuggerComponent } from './components/debug-window/sound-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
+import { SoundDebugService } from './services/sound-debug.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
@@ -104,6 +106,7 @@ const EMPTY_CENTER_COORDS = {
     GameHeaderComponent,
     CameraDebuggerComponent,
     WaveDebuggerComponent,
+    SoundDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
@@ -213,6 +216,7 @@ const EMPTY_CENTER_COORDS = {
               (addCredits)="addDebugCredits()"
               (addHealth)="addDebugHealth()"
             />
+            <app-sound-debugger />
 
             <!-- Info Overlay (top left) -->
             <app-info-overlay
@@ -711,6 +715,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
+  readonly soundDebug = inject(SoundDebugService);
 
   // Cleanup
   private readonly destroyRef = inject(DestroyRef);
@@ -1095,6 +1100,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.engine) {
         this.engine.setOnTilesLoadCallback(() => this.onTilesLoaded());
         this.engine.setOnUpdateCallback((deltaTime) => this.onEngineUpdate(deltaTime));
+
+        // Connect sound debug service
+        this.engine.spatialAudio.setDebugCallback((event) => {
+          this.soundDebug.onDebugEvent(event);
+        });
+        this.soundDebug.setConnected(true);
       }
 
     } catch (err) {
@@ -1695,6 +1706,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         if (newActiveSounds !== this.lastActiveSounds) {
           this.lastActiveSounds = newActiveSounds;
           this.activeSounds.set(newActiveSounds);
+        }
+
+        // Sound debug stats - only when panel is open
+        if (this.debugWindows.soundWindow().isOpen) {
+          this.soundDebug.updateStats(this.engine!.spatialAudio.getSoundPoolStats());
         }
 
         // Attributions - only update if changed
