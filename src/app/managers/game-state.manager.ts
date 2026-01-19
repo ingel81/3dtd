@@ -126,18 +126,34 @@ export class GameStateManager {
   }
 
   /**
-   * Main update loop - called each frame during wave phase
+   * Main update loop - called EVERY FRAME regardless of phase
+   * Phase controls WHAT updates, not IF updates happen
    */
   update(currentTime: number): void {
     const deltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
     this.lastUpdateTime = currentTime;
 
+    // ══════════════════════════════════════════════════════════════
+    // ALWAYS UPDATE (Phase-independent)
+    // ══════════════════════════════════════════════════════════════
+
+    // Projectiles always complete their flight path
+    this.projectileManager.update(deltaTime);
+
+    // Tower idle rotation (smooth return to base position)
+    this.updateTowerIdleRotations();
+
+    // ══════════════════════════════════════════════════════════════
+    // WAVE PHASE ONLY
+    // ══════════════════════════════════════════════════════════════
+
     if (this.waveManager.phase() !== 'wave') return;
 
-    // Update all entity managers
+    // Enemy movement
     this.enemyManager.update(deltaTime);
+
+    // Tower combat (targeting + firing)
     this.updateTowerShooting(currentTime);
-    this.projectileManager.update(deltaTime);
 
     // Check wave completion
     if (this.waveManager.checkWaveComplete()) {
@@ -150,6 +166,18 @@ export class GameStateManager {
       this.triggerGameOver();
     } else if (this.baseHealth() < 100 && this.baseHealth() > 0) {
       this.updateFireIntensity();
+    }
+  }
+
+  /**
+   * Update tower idle rotations - smooth return to base position
+   * Only runs when NOT in wave phase (during wave, updateTowerShooting handles rotation)
+   */
+  private updateTowerIdleRotations(): void {
+    if (this.waveManager.phase() === 'wave') return;
+
+    for (const tower of this.towerManager.getAllActive()) {
+      this.tilesEngine?.towers.resetRotation(tower.id);
     }
   }
 
