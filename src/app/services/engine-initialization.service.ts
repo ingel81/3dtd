@@ -162,6 +162,40 @@ export class EngineInitializationService {
   }
 
   /**
+   * Add World Dice step at the beginning and show loading overlay
+   * Used when user clicks World Dice button
+   */
+  startWorldDiceLoading(): void {
+    this.loading.set(true);
+    this.loadingStatus.set('Würfle zufällige Stadt...');
+    this.loadingSteps.set([
+      { id: 'dice-city', label: 'Würfle Stadt', status: 'active', detail: 'Lade Städte-Pool...' },
+    ]);
+  }
+
+  /**
+   * Update World Dice loading step detail
+   */
+  updateWorldDiceDetail(detail: string): void {
+    this.updateStepDetail('dice-city', detail);
+  }
+
+  /**
+   * Mark World Dice step as done and show "Lade Karte..." before reload
+   */
+  finishWorldDiceLoading(cityName: string): void {
+    this.loadingSteps.update(steps => steps.map(s =>
+      s.id === 'dice-city' ? { ...s, status: 'done' as const, detail: cityName } : s
+    ));
+    // Add "loading map" step that will be visible until page reloads
+    this.loadingSteps.update(steps => [
+      ...steps,
+      { id: 'dice-reload', label: 'Lade Karte', status: 'active' as const }
+    ]);
+    this.loadingStatus.set('Lade Karte...');
+  }
+
+  /**
    * Reset all loading steps to 'pending' for a fresh start
    * Preserves 'location' step if already done (runs before initEngine)
    */

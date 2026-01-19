@@ -1700,19 +1700,39 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   async onWorldDice(): Promise<void> {
     this.appendDebugLog('World Dice: Wuerfel zufaellige Stadt...');
 
+    // Show loading overlay with World Dice step
+    this.engineInit.startWorldDiceLoading();
+
+    // Connect step detail callback
+    this.worldDice.onStepDetail = (detail) => {
+      this.engineInit.updateWorldDiceDetail(detail);
+    };
+
     const city = await this.worldDice.rollRandomCity();
+
+    // Cleanup callback
+    this.worldDice.onStepDetail = null;
+
     if (!city) {
       this.appendDebugLog('World Dice: Fehlgeschlagen - ' + (this.worldDice.error() || 'Unbekannter Fehler'));
+      // Hide loading overlay on error
+      this.engineInit.setLoading(false);
       return;
     }
 
     const displayName = city.country ? `${city.name}, ${city.country}` : city.name;
     this.appendDebugLog(`World Dice: ${displayName} (${city.lat.toFixed(4)}, ${city.lon.toFixed(4)})`);
 
+    // Show "Lade Karte..." step before reload
+    this.engineInit.finishWorldDiceLoading(displayName);
+
     // Update URL with only HQ (l=), no spawn (s=) -> randomizer will create spawn
     const url = new URL(window.location.href);
     url.searchParams.set('l', `${city.lat.toFixed(5)},${city.lon.toFixed(5)}`);
     url.searchParams.delete('s'); // Remove spawn so randomizer kicks in
+
+    // Small delay so user sees the "Lade Karte..." step
+    await new Promise(resolve => setTimeout(resolve, 300));
 
     // Navigate to new location (full reload for clean state)
     window.location.href = url.toString();
