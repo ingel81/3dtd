@@ -1970,6 +1970,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private startGameLoop(): void {
+    // Don't start if already running
+    if (this.animationFrameId !== null) return;
+
     // Run game loop outside Angular zone to avoid triggering change detection every frame
     this.ngZone.runOutsideAngular(() => {
       const animate = () => {

@@ -4,6 +4,21 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-19
+
+### Bugfixes
+- [x] **Route-Grid Animation beschleunigt sich mit jeder Wave**
+      - Game Loop wurde bei jeder Wave erneut gestartet ohne den alten zu stoppen
+      - Mehrere Loops liefen parallel → `updateAnimation()` wurde N-mal pro Frame aufgerufen
+      - Fix: Guard in `startGameLoop()` verhindert mehrfache Loops
+
+### UI
+- [x] **Text-Selektion in UI deaktiviert**
+      - `user-select: none` auf body
+      - Input/Textarea bleiben selektierbar
+
+---
+
 ## 2026-01-18
 
 ### Pathfinding
