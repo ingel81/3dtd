@@ -95,6 +95,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>videocam</mat-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.soundWindow().isOpen"
+                  (click)="debugWindows.toggle('sound')"
+                  matTooltip="Sound-Debug-Panel"
+                  matTooltipPosition="left">
+            <mat-icon>volume_up</mat-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="cameraFramingDebug()"
                   (click)="cameraFramingDebugToggled.emit()"
                   matTooltip="Kamera-Framing Debug"
@@ -252,7 +259,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-dev-menu.expanded {
-      max-height: 260px;
+      max-height: 300px;
       opacity: 1;
     }
 

@@ -11,14 +11,15 @@ export interface DebugWindowState {
   zIndex: number;
 }
 
-export type DebugWindowId = 'camera' | 'wave';
+export type DebugWindowId = 'camera' | 'wave' | 'sound';
 
-const STORAGE_KEY = 'td_debug_windows_v1';
+const STORAGE_KEY = 'td_debug_windows_v2';
 const BASE_Z_INDEX = 100;
 
 const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   camera: { x: 20, y: 80 },
   wave: { x: 20, y: 400 },
+  sound: { x: 20, y: 200 },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -32,6 +33,7 @@ export class DebugWindowService {
   // Computed selectors for individual windows
   readonly cameraWindow = computed(() => this.windowStates()['camera']);
   readonly waveWindow = computed(() => this.windowStates()['wave']);
+  readonly soundWindow = computed(() => this.windowStates()['sound']);
 
   // Check if any window is open
   readonly hasOpenWindows = computed(() =>
@@ -133,6 +135,11 @@ export class DebugWindowService {
         isOpen: false,
         position: DEFAULT_POSITIONS.wave,
         zIndex: BASE_Z_INDEX + 1,
+      },
+      sound: {
+        isOpen: false,
+        position: DEFAULT_POSITIONS.sound,
+        zIndex: BASE_Z_INDEX + 2,
       },
     };
 

@@ -8,7 +8,7 @@ import {
   Vector3,
   Audio,
 } from 'three';
-import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, SPATIAL_AUDIO_DEFAULTS } from '../configs/audio.config';
+import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, PROJECTILE_SOUND_IDS, SPATIAL_AUDIO_DEFAULTS } from '../configs/audio.config';
 
 /** Reusable Vector3 for distance calculations (avoid GC pressure) */
 const _tempVec3 = new Vector3();
@@ -58,6 +58,7 @@ interface ActiveSound {
   container?: Object3D;
   ownerId?: string; // ID of the owner (e.g., enemy ID)
   timer?: ReturnType<typeof setTimeout>; // Cleanup timer for non-looping sounds
+  isProjectileSound?: boolean; // Track for budget management
 }
 
 /**
@@ -73,6 +74,29 @@ interface ActiveLoop {
 }
 
 // Sound budget uses centralized config from audio.config.ts
+
+/**
+ * Sound pool statistics for debugging
+ */
+export interface SoundPoolStats {
+  poolAvailable: number;
+  poolMax: number;
+  activeOneShots: number;
+  activeLoops: number;
+  enemyBudget: { current: number; max: number };
+  projectileBudget: { current: number; max: number };
+  cachedBuffers: number;
+}
+
+/**
+ * Debug event for sound system monitoring
+ */
+export interface SoundDebugEvent {
+  type: 'play' | 'stop' | 'budget_exceeded' | 'pool_exhausted' | 'distance_culled';
+  soundId: string;
+  timestamp: number;
+  details?: string;
+}
 
 /**
  * SpatialAudioManager - 3D positioned audio using Three.js Audio system
@@ -100,7 +124,7 @@ export class SpatialAudioManager {
   // URL to buffer cache with LRU eviction (shared across all sound IDs with same URL)
   private bufferCache = new Map<string, { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null }>();
   private bufferAccessOrder: string[] = []; // LRU tracking: oldest first
-  private readonly MAX_CACHED_BUFFERS = 20;  // ~20 sounds max in memory
+  private readonly MAX_CACHED_BUFFERS = 50;  // Buffer cache limit (generous - buffers are shared)
 
   // Active sound instances (one-shots)
   private activeSounds: ActiveSound[] = [];
@@ -111,6 +135,12 @@ export class SpatialAudioManager {
 
   // Track enemy sounds separately for budget management
   private enemySoundCount = 0;
+
+  // Track projectile sounds for budget management
+  private projectileSoundCount = 0;
+
+  // Debug callback for monitoring
+  private debugCallback?: (event: SoundDebugEvent) => void;
 
   // Audio context state
   private contextResumed = false;
@@ -142,35 +172,64 @@ export class SpatialAudioManager {
 
   /**
    * Get a PositionalAudio object from the pool (or create new if pool is empty)
+   *
+   * NOTE: PositionalAudio pooling is DISABLED because Three.js Audio objects
+   * don't properly support reuse after play/stop cycles. The internal WebAudio
+   * node connections can get into inconsistent states.
+   *
+   * Instead, we always create fresh PositionalAudio objects (they're lightweight)
+   * and properly disconnect+cleanup when done.
    */
   private getAudioFromPool(): PositionalAudio {
-    if (this.audioPool.length > 0) {
-      return this.audioPool.pop()!;
-    }
-    // Pool exhausted - create new audio object
+    // PositionalAudio objects don't reliably support reuse - always create fresh
+    // The pool is kept for potential future optimization but not used
     return new PositionalAudio(this.listener);
   }
 
   /**
-   * Return a PositionalAudio object to the pool for reuse
+   * Clean up a PositionalAudio object after use
+   *
+   * NOTE: We don't actually pool PositionalAudio objects because they don't
+   * reliably support reuse. This method just ensures proper cleanup.
    */
   private returnAudioToPool(audio: PositionalAudio): void {
-    // Reset audio state before returning to pool
+    // Stop playback if still playing
     if (audio.isPlaying) {
       audio.stop();
     }
+
+    // Detach from parent container
+    if (audio.parent) {
+      audio.parent.remove(audio);
+    }
+
+    // Disconnect WebAudio nodes for proper cleanup
     audio.disconnect();
 
-    // Clear the buffer to ensure clean state for next use
-    // This forces Three.js to properly reconnect audio nodes on next setBuffer()
-    (audio as any).buffer = null;
-    (audio as any).source = null;
+    // Let garbage collector clean up the object
+  }
 
-    // Only return to pool if we haven't exceeded max size
-    if (this.audioPool.length < this.MAX_POOL_SIZE) {
-      this.audioPool.push(audio);
-    }
-    // If pool is full, let it be garbage collected
+  /**
+   * Manually update panner position from audio's matrixWorld
+   * This is needed because PositionalAudio.updateMatrixWorld() only updates
+   * the panner when isPlaying=true, but we need the correct position BEFORE play()
+   */
+  private updatePannerPosition(audio: PositionalAudio): void {
+    // Access internal panner and context (Three.js doesn't expose these publicly)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const panner = (audio as any).panner as PannerNode;
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ctx = (audio as any).context as AudioContext;
+
+    if (!panner || !ctx) return;
+
+    // Get world position from matrixWorld (which was just computed by updateMatrixWorld)
+    _tempVec3.setFromMatrixPosition(audio.matrixWorld);
+
+    // Set panner position
+    panner.positionX.setValueAtTime(_tempVec3.x, ctx.currentTime);
+    panner.positionY.setValueAtTime(_tempVec3.y, ctx.currentTime);
+    panner.positionZ.setValueAtTime(_tempVec3.z, ctx.currentTime);
   }
 
   /**
@@ -243,7 +302,65 @@ export class SpatialAudioManager {
    * Debug: Log all active sounds
    */
   debugLogActiveSounds(): void {
-    // Debug method - no-op in production
+    console.log('[SpatialAudio] Active sounds:', {
+      oneShots: this.activeSounds.map(s => s.soundId),
+      loops: Array.from(this.activeLoops.values()).map(l => ({ id: l.soundId, paused: l.paused })),
+      enemyBudget: `${this.enemySoundCount}/${AUDIO_LIMITS.maxEnemySounds}`,
+      projectileBudget: `${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds}`,
+      poolAvailable: this.audioPool.length,
+    });
+  }
+
+  /**
+   * Set debug callback for monitoring sound events
+   */
+  setDebugCallback(callback: (event: SoundDebugEvent) => void): void {
+    this.debugCallback = callback;
+  }
+
+  /**
+   * Emit a debug event
+   */
+  private emitDebug(type: SoundDebugEvent['type'], soundId: string, details?: string): void {
+    if (this.debugCallback) {
+      this.debugCallback({ type, soundId, timestamp: Date.now(), details });
+    }
+  }
+
+  /**
+   * Check if a sound ID is a projectile sound
+   */
+  isProjectileSound(soundId: string): boolean {
+    return (PROJECTILE_SOUND_IDS as readonly string[]).includes(soundId);
+  }
+
+  /**
+   * Get comprehensive sound pool statistics
+   */
+  getSoundPoolStats(): SoundPoolStats {
+    return {
+      // Pool is disabled - always shows 0/0 (PositionalAudio objects don't support reliable reuse)
+      poolAvailable: 0,
+      poolMax: 0,
+      activeOneShots: this.activeSounds.length,
+      activeLoops: this.activeLoops.size,
+      enemyBudget: {
+        current: this.enemySoundCount,
+        max: AUDIO_LIMITS.maxEnemySounds,
+      },
+      projectileBudget: {
+        current: this.projectileSoundCount,
+        max: AUDIO_LIMITS.maxProjectileSounds,
+      },
+      cachedBuffers: this.bufferCache.size,
+    };
+  }
+
+  /**
+   * Get projectile sound stats
+   */
+  getProjectileSoundStats(): { current: number; max: number } {
+    return { current: this.projectileSoundCount, max: AUDIO_LIMITS.maxProjectileSounds };
   }
 
   /**
@@ -446,8 +563,19 @@ export class SpatialAudioManager {
     // Distance-based culling: skip sounds that are too far away
     if (!this.isWithinAudibleDistance(position)) {
       const distance = this.getDistanceToCamera(position);
-      console.log(`[SpatialAudio] Culled one-shot '${soundId}' - distance ${distance.toFixed(0)}m exceeds max ${AUDIO_LIMITS.maxAudibleDistance}m`);
+      this.emitDebug('distance_culled', soundId, `distance ${distance.toFixed(0)}m exceeds max ${AUDIO_LIMITS.maxAudibleDistance}m`);
       return null;
+    }
+
+    // Budget check for projectile sounds
+    const isProjectile = this.isProjectileSound(soundId);
+    if (isProjectile) {
+      if (this.projectileSoundCount >= AUDIO_LIMITS.maxProjectileSounds) {
+        this.emitDebug('budget_exceeded', soundId, `projectile budget ${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds}`);
+        console.warn(`[SpatialAudio] Projectile sound budget exceeded for '${soundId}' (${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds})`);
+        return null;
+      }
+      this.projectileSoundCount++;
     }
 
     // Get positional audio from pool (or create new if pool exhausted)
@@ -469,17 +597,44 @@ export class SpatialAudioManager {
     container.add(audio);
     this.scene.add(container);
 
+    // CRITICAL: Force compute matrixWorld and update panner position BEFORE play()
+    // Three.js PositionalAudio.updateMatrixWorld() only updates panner when isPlaying=true,
+    // but we need the correct position BEFORE play() starts.
+    // Without this, reused pool audio would play at the OLD position (potentially culled/silent)!
+    container.updateMatrixWorld(true);
+    this.updatePannerPosition(audio);
+
     // Track active sound (with container reference)
-    const activeSound: ActiveSound = { audio, soundId, container };
+    const activeSound: ActiveSound = { audio, soundId, container, isProjectileSound: isProjectile };
     this.activeSounds.push(activeSound);
 
-    // Play
-    audio.play();
+    // Play and emit debug event
+    try {
+      audio.play();
+      // Debug: verify play actually started
+      if (!audio.isPlaying) {
+        console.warn(`[SpatialAudio] audio.play() called but isPlaying=false for '${soundId}'`);
+        this.emitDebug('budget_exceeded', soundId, 'play() silent fail');
+      } else {
+        this.emitDebug('play', soundId, isProjectile ? 'projectile' : 'one-shot');
+      }
+    } catch (e) {
+      console.error(`[SpatialAudio] audio.play() failed for '${soundId}':`, e);
+      this.emitDebug('budget_exceeded', soundId, `play() error: ${e}`);
+      // Cleanup on error
+      if (isProjectile) {
+        this.projectileSoundCount = Math.max(0, this.projectileSoundCount - 1);
+      }
+      this.returnAudioToPool(audio);
+      this.scene.remove(container);
+      return null;
+    }
 
     // Cleanup after playback (if not looping)
     if (!sound.config.loop) {
       const duration = sound.buffer.duration * 1000;
       const timer = setTimeout(() => {
+        this.emitDebug('stop', soundId);
         this.cleanupActiveSound(activeSound);
         // Remove from activeSounds array
         const index = this.activeSounds.indexOf(activeSound);
@@ -623,6 +778,10 @@ export class SpatialAudioManager {
     container.add(audio);
     this.scene.add(container);
 
+    // CRITICAL: Force compute matrixWorld and update panner position BEFORE play()
+    container.updateMatrixWorld(true);
+    this.updatePannerPosition(audio);
+
     // Generate unique handle
     const handle = `loop_${++this.loopHandleCounter}`;
 
@@ -745,6 +904,10 @@ export class SpatialAudioManager {
     }
 
     try {
+      // Update panner position before resuming (container may have moved while paused)
+      loop.container.updateMatrixWorld(true);
+      this.updatePannerPosition(loop.audio);
+
       loop.audio.play();
       loop.paused = false;
       return true;
@@ -813,6 +976,11 @@ export class SpatialAudioManager {
     if (active.timer) {
       clearTimeout(active.timer);
       active.timer = undefined;
+    }
+
+    // Decrement projectile counter if applicable
+    if (active.isProjectileSound) {
+      this.projectileSoundCount = Math.max(0, this.projectileSoundCount - 1);
     }
 
     // Return audio to pool (handles stop and disconnect internally)

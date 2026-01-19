@@ -8,7 +8,7 @@
 /** Sound budget limits to prevent audio overload */
 export const AUDIO_LIMITS = {
   maxEnemySounds: 12,
-  maxProjectileSounds: 20,
+  maxProjectileSounds: 40,
   maxEffectSounds: 10,
   /** Maximum distance at which sounds are played (meters) - saves CPU for distant sounds */
   maxAudibleDistance: 500,
@@ -22,6 +22,16 @@ export const ENEMY_SOUND_PATTERNS = [
   'wallsmasher',
   'big_arm',
   'herbert',
+] as const;
+
+/** Projectile sound IDs for budget management */
+export const PROJECTILE_SOUND_IDS = [
+  'arrow',
+  'bullet',
+  'rocket',
+  'cannonball',
+  'ice-shard',
+  'fireball',
 ] as const;
 
 /** Default spatial audio settings */
