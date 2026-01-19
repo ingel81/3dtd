@@ -116,6 +116,12 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       - Fix: Guard in `startGameLoop()` verhindert mehrfache Loops
 
 ### UI
+- [x] **Scrollbar Styling für Debug Panels**
+      - Neue Theme-Konstanten: `TD_SCROLLBAR_STYLES`, `TD_SCROLLBAR_WEBKIT`
+      - Dunkles Theme passend zum WC3-Style (Frame-Farben)
+      - Cross-browser: Firefox (scrollbar-color) + Webkit (::-webkit-scrollbar)
+      - Angewendet auf: event-debugger, sound-debugger, draggable-debug-panel
+
 - [x] **Text-Selektion in UI deaktiviert**
       - `user-select: none` auf body
       - Input/Textarea bleiben selektierbar

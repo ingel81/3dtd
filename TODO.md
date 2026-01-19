@@ -151,9 +151,9 @@
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
 - [ ] **Event Debug Panel Position** - Größe wird gespeichert aber Position nicht perfekt (Panel springt beim Öffnen)
       Datei: `debug-window.service.ts`, `draggable-debug-panel.component.ts`
-- [ ] **Scrollbar Styling** - Scrollbar im Event Bus Debug Panel passt nicht zum App-Style
-      Globale Scrollbar-Styles in `td-theme.ts` oder `styles.scss` anlegen/verwenden
-      Betrifft: `event-debugger.component.ts`, ggf. andere Debug-Panels
+- [x] ~~**Scrollbar Styling**~~ - ✅ ERLEDIGT (2026-01-19)
+      Globale `TD_SCROLLBAR_STYLES` und `TD_SCROLLBAR_WEBKIT` in `td-theme.ts`
+      Angewendet auf: `event-debugger`, `sound-debugger`, `draggable-debug-panel`
 
 ### Beobachten bis Testcase wieder da
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)

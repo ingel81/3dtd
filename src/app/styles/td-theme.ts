@@ -180,3 +180,45 @@ export const TD_OPTION_STYLES = `
   cursor: pointer;
   transition: all 0.15s ease;
 `;
+
+/**
+ * Custom Scrollbar Styles (Dark Theme)
+ * Apply to scrollable containers. Uses Firefox standard properties
+ * and Webkit pseudo-elements for cross-browser support.
+ *
+ * Usage: Add TD_SCROLLBAR_STYLES to the selector in component styles
+ * Example: `.event-log { ${TD_SCROLLBAR_STYLES} }`
+ */
+export const TD_SCROLLBAR_STYLES = `
+  /* Firefox */
+  scrollbar-width: thin;
+  scrollbar-color: var(--td-frame-mid) var(--td-panel-shadow);
+`;
+
+/**
+ * Webkit Scrollbar CSS (use as separate rule block)
+ * Usage: Add as separate CSS block in component styles
+ * Example:
+ *   .event-log::-webkit-scrollbar { ... }
+ */
+export const TD_SCROLLBAR_WEBKIT = {
+  scrollbar: `
+    width: 8px;
+    height: 8px;
+  `,
+  track: `
+    background: var(--td-panel-shadow);
+    border-radius: 4px;
+  `,
+  thumb: `
+    background: var(--td-frame-mid);
+    border-radius: 4px;
+    border: 1px solid var(--td-panel-shadow);
+  `,
+  thumbHover: `
+    background: var(--td-frame-light);
+  `,
+  corner: `
+    background: var(--td-panel-shadow);
+  `,
+};
