@@ -14,6 +14,7 @@ import { KeyboardPanService } from './keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { GameUIStateService } from './game-ui-state.service';
 import { LocationConfig } from '../models/location.types';
+import { GeoPosition } from '../models/game.types';
 
 /**
  * Input data for location change
@@ -40,13 +41,13 @@ export interface LocationChangeContext {
  */
 export interface LocationChangeCallbacks {
   // Signal updates
-  setBaseCoords(coords: { latitude: number; longitude: number }): void;
-  setCenterCoords(coords: { latitude: number; longitude: number; height: number }): void;
+  setBaseCoords(coords: GeoPosition): void;
+  setCenterCoords(coords: GeoPosition & { height: number }): void; // height required for camera
   setSpawnPoints(points: SpawnPoint[]): void;
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void;
   setStreetCount(count: number): void;
   setStreetNetwork(network: StreetNetwork | null): void;
-  setStreetNetworkLocation(loc: { lat: number; lon: number } | null): void;
+  setStreetNetworkLocation(loc: GeoPosition | null): void;
 
   // Actions
   syncUrlWithLocation(): void;
@@ -58,7 +59,7 @@ export interface LocationChangeCallbacks {
 
   // Current state accessors
   getSpawnPoints(): SpawnPoint[];
-  getBaseCoords(): { latitude: number; longitude: number };
+  getBaseCoords(): GeoPosition;
 }
 
 /**
@@ -162,8 +163,8 @@ export class LocationChangeCoordinatorService {
     ctx.engine.clearDebugHelpers();
 
     // Update coordinates
-    callbacks.setBaseCoords({ latitude: input.hq.lat, longitude: input.hq.lon });
-    callbacks.setCenterCoords({ latitude: input.hq.lat, longitude: input.hq.lon, height: 400 });
+    callbacks.setBaseCoords({ lat: input.hq.lat, lon: input.hq.lon });
+    callbacks.setCenterCoords({ lat: input.hq.lat, lon: input.hq.lon, height: 400 });
 
     // Update location service and URL
     this.locationMgmt.setLocation(
@@ -318,14 +319,14 @@ export class LocationChangeCoordinatorService {
     const waveSpawnPoints: WaveSpawnPoint[] = callbacks.getSpawnPoints().map((sp) => ({
       id: sp.id,
       name: sp.name,
-      latitude: sp.latitude,
-      longitude: sp.longitude,
+      lat: sp.lat,
+      lon: sp.lon,
     }));
 
     ctx.gameState.initialize(
       ctx.engine,
       streetNetwork,
-      { lat: base.latitude, lon: base.longitude },
+      { lat: base.lat, lon: base.lon },
       waveSpawnPoints,
       this.pathRoute.getCachedPaths()
     );

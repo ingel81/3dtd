@@ -1,24 +1,16 @@
 import { NominatimAddress } from '../services/geocoding.service';
+import { GeoPosition } from './game.types';
 
 /**
  * Location System Types for Tower Defense
+ *
+ * Note: All coordinate types use GeoPosition (lat/lon/height?) as base
  */
-
-/**
- * Basic coordinate interface
- */
-export interface LocationCoords {
-  lat: number;
-  lon: number;
-  height?: number;
-}
 
 /**
  * Location config with optional name (for debug/editable locations)
  */
-export interface LocationConfig {
-  lat: number;
-  lon: number;
+export interface LocationConfig extends GeoPosition {
   name?: string; // Full displayName from OSM
   address?: NominatimAddress; // Structured address for smart display
 }
@@ -26,7 +18,7 @@ export interface LocationConfig {
 /**
  * Full location info with display name
  */
-export interface LocationInfo extends LocationCoords {
+export interface LocationInfo extends GeoPosition {
   name: string; // Display name (city/place)
   displayName: string; // Full Nominatim display name
   address?: NominatimAddress; // Structured address for smart display
@@ -35,7 +27,7 @@ export interface LocationInfo extends LocationCoords {
 /**
  * Spawn point configuration
  */
-export interface SpawnLocationConfig extends LocationCoords {
+export interface SpawnLocationConfig extends GeoPosition {
   id: string;
   name?: string;
   isRandom?: boolean;
@@ -62,9 +54,7 @@ export interface LocationDialogResult {
 /**
  * Random spawn candidate from street network
  */
-export interface RandomSpawnCandidate {
-  lat: number;
-  lon: number;
+export interface RandomSpawnCandidate extends GeoPosition {
   distance: number;
   streetName?: string;
   nodeId?: number;
@@ -76,7 +66,7 @@ export interface RandomSpawnCandidate {
  */
 export interface FavoriteLocation {
   id: string;
-  hq: { lat: number; lon: number };
-  spawns: { lat: number; lon: number }[];
+  hq: GeoPosition;
+  spawns: GeoPosition[];
   createdAt: number;
 }

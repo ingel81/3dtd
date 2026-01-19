@@ -83,6 +83,14 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       - Dokumentation: [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
 
 ### Refactoring
+- [x] **Koordinaten-Typen vereinheitlicht**
+      - Alle Typen auf `GeoPosition` ({lat, lon, height?}) konsolidiert
+      - `LocationCoords` Interface entfernt (war identisch zu GeoPosition)
+      - `latitude/longitude` überall zu `lat/lon` geändert (~50 Stellen)
+      - `SpawnPoint` Interfaces konsolidiert (marker-visualization.service.ts als Quelle)
+      - Betroffene Dateien: location.types.ts, wave.manager.ts, tower-placement.service.ts,
+        street-rendering.service.ts, location-change-coordinator.service.ts, tower-defense.component.ts, u.a.
+
 - [x] **LocationChangeCoordinatorService extrahiert**
       - Neue Datei: `src/app/services/location-change-coordinator.service.ts` (406 Zeilen)
       - `onApplyNewLocation()` von 215 auf 60 Zeilen reduziert

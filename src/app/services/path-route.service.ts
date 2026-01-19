@@ -194,8 +194,8 @@ export class PathAndRouteService {
 
     const path = this.osmService.findPath(
       this.streetNetwork,
-      spawn.latitude,
-      spawn.longitude,
+      spawn.lat,
+      spawn.lon,
       this.baseCoords.lat,
       this.baseCoords.lon
     );
