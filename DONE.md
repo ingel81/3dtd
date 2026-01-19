@@ -14,6 +14,14 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-19
 
+- [x] **Koordinaten-Typen vereinheitlichen** - GeoPosition als Standard
+      Alle Typen auf `GeoPosition` ({lat, lon, height?}) konsolidiert
+      `LocationCoords` entfernt, `latitude/longitude` überall zu `lat/lon`
+
+- [x] **Scrollbar Styling** - Einheitliches Theme für Debug-Panels
+      Globale `TD_SCROLLBAR_STYLES` und `TD_SCROLLBAR_WEBKIT` in `td-theme.ts`
+      Angewendet auf: `event-debugger`, `sound-debugger`, `draggable-debug-panel`
+
 - [x] **TowerDefenseComponent Aufteilung abgeschlossen** - Keine weitere Aufteilung nötig
       ~1797 Zeilen, davon Großteil Signal-Proxies, Lifecycle-Hooks und Service-Delegierungen
       21 Services injiziert, Komponente fungiert korrekt als Orchestrator
