@@ -41,5 +41,13 @@ body {
   // Reset the user agent margin.
   margin: 0;
   height: 100%;
+
+  // Prevent text selection in UI
+  user-select: none;
+}
+
+// Allow text selection in input fields
+input, textarea {
+  user-select: text;
 }
 /* You can add global styles to this file, and also import other style files */
