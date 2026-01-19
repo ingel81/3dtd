@@ -6,14 +6,6 @@
 
 ## Code Quality & Architektur (aus Expert Review)
 
-### Prioritaet 3: Langfristig
-- [x] ~~**Koordinaten-Typen vereinheitlichen**~~ - ✅ ERLEDIGT (2026-01-19)
-      Alle Typen auf `GeoPosition` ({lat, lon, height?}) konsolidiert
-      `LocationCoords` entfernt, `latitude/longitude` überall zu `lat/lon`
-
-- [x] ~~**Codebase komplett auf Englisch umstellen**~~ - ✅ ERLEDIGT (2026-01-20)
-      Alle UI-Strings, Tooltips, Error-Messages, Kommentare auf Englisch
-
 ### Event-System Erweiterungen (optional)
 
 > Siehe: [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) fuer aktuelle Implementierung
@@ -137,9 +129,6 @@
 ### Bewerten
 - [ ] FPS LIMIT auf 60 sinnvoll?
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
-- [x] ~~**Scrollbar Styling**~~ - ✅ ERLEDIGT (2026-01-19)
-      Globale `TD_SCROLLBAR_STYLES` und `TD_SCROLLBAR_WEBKIT` in `td-theme.ts`
-      Angewendet auf: `event-debugger`, `sound-debugger`, `draggable-debug-panel`
 
 ### Beobachten bis Testcase wieder da
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
