@@ -1,9 +1,5 @@
 # Offene TODOs
 
-[ ] wenn eine Wave endet (egal op gewonnen oder kill all button) bleiben Projektile in der Luft (Partikel verschwinden) stehen und Türme werden nicht mehr animiert (zurückdrehen auf Idle pos z.b.). Bei der nächsten Wave fliegen die Projektile dann weiter. Da wird etwas global pausiert
-
-[ ] 
-
 > Siehe auch: [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) fuer detaillierte Analyse
 
 ---

@@ -819,24 +819,35 @@ const dist = geoDistance(enemy.position, tower.position);
 
 ## 9. Render Pipeline
 
+**Design-Prinzip:** Der Game Loop läuft IMMER. Die Phase kontrolliert WAS passiert, nicht OB der Loop läuft.
+
 ```typescript
-// Game Loop (requestAnimationFrame)
-function gameLoop(currentTime: number) {
-  // 1. Game Logic Update
-  gameState.update(currentTime);
+// Engine Render Loop (three-tiles-engine.ts) - läuft IMMER
+function engineLoop(currentTime: number) {
+  engine.update(deltaTime);    // Animationen, Effekte, Shader
+  engine.render();             // Three.js Rendering
 
-  // 2. Three.js Update
-  engine.update();
+  // Callback für Game-Logik
+  onUpdateCallback(deltaTime);
 
-  // 3. Tiles Update
-  tilesRenderer.update();
+  requestAnimationFrame(engineLoop);
+}
 
-  // 4. Render
-  renderer.render(scene, camera);
-
-  requestAnimationFrame(gameLoop);
+// onEngineUpdate (tower-defense.component.ts) - Game-Logik
+function onEngineUpdate(deltaTime: number) {
+  // IMMER: Projektile, Tower-Idle-Rotation, Grid-Animation
+  // NUR WAVE: Enemy-Bewegung, Tower-Schießen, Wave-Check
+  gameState.update(performance.now());
 }
 ```
+
+**Update-Matrix nach Phase:**
+| System | setup | wave | gameover |
+|--------|-------|------|----------|
+| Projektile | ✓ | ✓ | ✓ |
+| Tower Idle-Rotation | ✓ | - | ✓ |
+| Enemy-Bewegung | - | ✓ | - |
+| Tower-Schießen | - | ✓ | - |
 
 ---
 

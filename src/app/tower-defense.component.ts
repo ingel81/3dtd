@@ -809,7 +809,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private waveAborted = false;
   readonly gatheringCountdown = signal(0);
 
-  private animationFrameId: number | null = null;
   private tileStatsIntervalId: number | null = null; // Polling for tile stats during loading
 
   // UI update throttling (avoid updating signals every frame)
@@ -1040,9 +1039,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
-    if (this.animationFrameId) {
-      cancelAnimationFrame(this.animationFrameId);
-    }
     this.entityPool.destroy();
     this.modelPreview.dispose();
     this.routeAnimation.dispose();
@@ -1680,6 +1676,25 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Animate route visualization (Knight Rider effect) - no signals, pure Three.js
     this.routeAnimation.update(deltaTime);
 
+    // ══════════════════════════════════════════════════════════════
+    // GAME LOGIC UPDATE - runs EVERY frame, phase controls behavior
+    // ══════════════════════════════════════════════════════════════
+    const currentTime = performance.now();
+    this.gameState.update(currentTime);
+
+    // Update global route grid visualization
+    const grid = this.gameState.getGlobalRouteGrid();
+    if (this.spatialGridDebugVisible() && this.spatialGridVizMesh) {
+      grid.updateVisualization();
+    }
+    grid.updateAnimation(deltaTime);
+
+    // Update selected tower's LOS visualization animation
+    const selectedTower = this.gameState.towerManager.getSelected();
+    if (selectedTower?.losVisualization?.visible) {
+      grid.updateTowerVisualizationTime(selectedTower.losVisualization);
+    }
+
     // Throttle UI signal updates to reduce Angular change detection overhead
     const now = performance.now();
     if (now - this.lastUIUpdateTime < this.UI_UPDATE_INTERVAL) {
@@ -1916,8 +1931,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.gatheringPhase.set(true);
     }
 
-    // Start game loop immediately (enemies will be updated as they spawn)
-    this.startGameLoop();
+    // Game loop already runs via onEngineUpdate - no need to start it
 
     let spawnedCount = 0;
 
@@ -1967,52 +1981,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     spawnNext();
-  }
-
-  private startGameLoop(): void {
-    // Don't start if already running
-    if (this.animationFrameId !== null) return;
-
-    // Run game loop outside Angular zone to avoid triggering change detection every frame
-    this.ngZone.runOutsideAngular(() => {
-      const animate = () => {
-        if (!this.engine || this.gameState.phase() === 'gameover') {
-          this.animationFrameId = null;
-          return;
-        }
-
-        const currentTime = performance.now();
-        this.gameState.update(currentTime);
-
-        // Update global route grid debug visualization if enabled
-        const grid = this.gameState.getGlobalRouteGrid();
-        if (this.spatialGridDebugVisible() && this.spatialGridVizMesh) {
-          grid.updateVisualization();
-        }
-
-        // Update animation time for grid (needed for both debug and per-tower visualization)
-        grid.updateAnimation(16.67); // ~60fps frame time
-
-        // Update selected tower's LOS visualization animation
-        const selectedTower = this.gameState.towerManager.getSelected();
-        if (selectedTower?.losVisualization?.visible) {
-          grid.updateTowerVisualizationTime(selectedTower.losVisualization);
-        }
-
-        if (this.gameState.checkWaveComplete()) {
-          // End wave inside Angular zone to trigger UI updates
-          this.ngZone.run(() => {
-            this.gameState.endWave();
-          });
-          this.animationFrameId = null;
-          return;
-        }
-
-        this.animationFrameId = requestAnimationFrame(animate);
-      };
-
-      this.animationFrameId = requestAnimationFrame(animate);
-    });
   }
 
   /**
@@ -2203,12 +2171,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       }
     }
 
-    // End the wave after a short delay (to let death animations play)
-    setTimeout(() => {
-      if (this.waveActive()) {
-        this.gameState.endWave();
-      }
-    }, 500);
+    // Wave ends automatically via checkWaveComplete() when aliveCount === 0
+    // Death animations, projectiles, and effects continue running
   }
 
   healHq(): void {

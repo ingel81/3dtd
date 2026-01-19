@@ -17,6 +17,15 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       - `user-select: none` auf body
       - Input/Textarea bleiben selektierbar
 
+### Architektur
+- [x] **Game Loop Refactoring - Immer laufend**
+      - **Problem**: Game Loop stoppte bei Wave-Ende → Projektile froren ein, Türme drehten nicht zu Idle
+      - **Lösung**: Kein separater Game Loop mehr, alles über Engine-Callback `onEngineUpdate()`
+      - Phase kontrolliert WAS passiert, nicht OB der Loop läuft
+      - `startGameLoop()` komplett entfernt
+      - `gameState.update()` refactored: Projektile + Tower-Idle immer, Rest nur während Wave
+      - `killAllEnemies()` vereinfacht: Wave endet automatisch via `checkWaveComplete()`
+
 ---
 
 ## 2026-01-18
