@@ -232,8 +232,8 @@ export class DraggableDebugPanelComponent implements AfterViewInit, OnDestroy {
   ngAfterViewInit(): void {
     // Initialize size from input
     this.currentSize.set(this.size());
-    // Ensure panel stays within viewport
-    this.constrainToViewport();
+    // Ensure panel stays within viewport - delay until DOM has updated with correct size
+    requestAnimationFrame(() => this.constrainToViewport());
   }
 
   ngOnDestroy(): void {
