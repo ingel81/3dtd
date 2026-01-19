@@ -854,7 +854,7 @@ const dist = geoDistance(enemy.position, tower.position);
 - `tower.manager.ts` - Tower-Placement-Validierung
 - `game-state.manager.ts` - Combat Update Loop
 
-**Siehe:** [TODO.md - Fast-Distance statt Haversine](TODO.md)
+**Siehe:** [TODO.md - Fast-Distance statt Haversine](../../../TODO.md)
 
 ---
 
@@ -980,9 +980,10 @@ src/app/
     ├── INDEX.md                  # Dokumentations-Index
     ├── ARCHITECTURE.md           # Dieses Dokument
     ├── DESIGN_SYSTEM.md          # UI/UX Guidelines
-    ├── EXPERT_REVIEW_2026.md     # Code-Analyse & Massnahmenkatalog
-    ├── TODO.md                   # Offene Aufgaben
-    ├── DONE.md                   # Changelog (chronologisch)
+    ├── archive/                  # Historische Referenzen
+    │   ├── EXPERT_REVIEW_2026.md
+    │   ├── PERFORMANCE_REPORT.md
+    │   └── GOD_REFACTOR.md
     ├── TOWER_CREATION.md         # Tower erstellen
     ├── ENEMY_CREATION.md         # Enemy erstellen
     ├── STATUS_EFFECTS.md         # Status-Effekt-System

@@ -1,5 +1,6 @@
 import { Injectable, signal } from '@angular/core';
 import { SoundPoolStats, SoundDebugEvent } from '../managers/spatial-audio.manager';
+import { GameEventBus, EventSubscription } from '../game-engine';
 
 const MAX_EVENTS = 30;
 
@@ -20,6 +21,9 @@ export class SoundDebugService {
 
   // Connection state
   readonly connected = signal(false);
+
+  // Event subscription for cleanup
+  private eventSubscription: EventSubscription | null = null;
 
   /**
    * Handle incoming debug events from SpatialAudioManager
@@ -52,6 +56,34 @@ export class SoundDebugService {
    */
   setConnected(connected: boolean): void {
     this.connected.set(connected);
+  }
+
+  /**
+   * Subscribe to debug:sound events from the EventBus
+   */
+  subscribeToEventBus(eventBus: GameEventBus): void {
+    // Cleanup previous subscription if any
+    this.eventSubscription?.dispose();
+
+    this.eventSubscription = eventBus.on('debug:sound', (event) => {
+      this.onDebugEvent({
+        type: event.eventType,
+        soundId: event.soundId,
+        timestamp: event.timestamp,
+        details: event.details,
+      });
+    });
+
+    this.connected.set(true);
+  }
+
+  /**
+   * Unsubscribe from EventBus (cleanup)
+   */
+  unsubscribe(): void {
+    this.eventSubscription?.dispose();
+    this.eventSubscription = null;
+    this.connected.set(false);
   }
 
   /**

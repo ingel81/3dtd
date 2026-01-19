@@ -59,18 +59,15 @@ src/app/
 | [ARCHITECTURE.md](src/app/docs/ARCHITECTURE.md) | System-Architektur & Design |
 | [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
 | [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
-| [EXPERT_REVIEW_2026.md](src/app/docs/EXPERT_REVIEW_2026.md) | Code-Analyse & Massnahmenkatalog |
 | [TOWER_CREATION.md](src/app/docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
 | [LOCATION_SYSTEM.md](src/app/docs/LOCATION_SYSTEM.md) | Standort-System |
 | [SPATIAL_AUDIO.md](src/app/docs/SPATIAL_AUDIO.md) | 3D Audio System |
 | [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
 | [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
 | [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
-| [FRAME_TIMING_FIXES.md](src/app/docs/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme & Loesungen |
 | [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
-| [PERFORMANCE_REPORT.md](src/app/docs/PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungen |
-| [TODO.md](src/app/docs/TODO.md) | Offene Aufgaben |
-| [DONE.md](src/app/docs/DONE.md) | Changelog (chronologisch, neueste zuerst) |
+| [TODO.md](TODO.md) | Offene Aufgaben |
+| [DONE.md](DONE.md) | Changelog (chronologisch, neueste zuerst) |
 
 **Hinweis zu TODO/DONE:**
 - **TODO.md** enthält offene Aufgaben, gruppiert nach Priorität und Bereich

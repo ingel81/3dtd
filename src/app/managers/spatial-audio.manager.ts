@@ -9,6 +9,7 @@ import {
   Audio,
 } from 'three';
 import { AUDIO_LIMITS, ENEMY_SOUND_PATTERNS, PROJECTILE_SOUND_IDS, SPATIAL_AUDIO_DEFAULTS } from '../configs/audio.config';
+import { GameEventBus } from '../game-engine';
 
 /** Reusable Vector3 for distance calculations (avoid GC pressure) */
 const _tempVec3 = new Vector3();
@@ -139,8 +140,8 @@ export class SpatialAudioManager {
   // Track projectile sounds for budget management
   private projectileSoundCount = 0;
 
-  // Debug callback for monitoring
-  private debugCallback?: (event: SoundDebugEvent) => void;
+  // Event bus for debug events (optional - set via setEventBus)
+  private eventBus: GameEventBus | null = null;
 
   // Audio context state
   private contextResumed = false;
@@ -312,18 +313,24 @@ export class SpatialAudioManager {
   }
 
   /**
-   * Set debug callback for monitoring sound events
+   * Set event bus for emitting debug events
    */
-  setDebugCallback(callback: (event: SoundDebugEvent) => void): void {
-    this.debugCallback = callback;
+  setEventBus(eventBus: GameEventBus): void {
+    this.eventBus = eventBus;
   }
 
   /**
-   * Emit a debug event
+   * Emit a debug event via EventBus
    */
   private emitDebug(type: SoundDebugEvent['type'], soundId: string, details?: string): void {
-    if (this.debugCallback) {
-      this.debugCallback({ type, soundId, timestamp: Date.now(), details });
+    if (this.eventBus) {
+      this.eventBus.emitDeferred({
+        type: 'debug:sound',
+        eventType: type,
+        soundId,
+        timestamp: Date.now(),
+        details,
+      });
     }
   }
 
