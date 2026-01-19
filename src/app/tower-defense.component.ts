@@ -1238,6 +1238,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.spawnPoints().length === 0) return;
 
     // Snapshot der Debug-Einstellungen - WaveManager verwaltet Spawning
+    // Note: getSpawnDelay allows live delay changes during wave (from Debug Panel)
     const waveConfig: WaveConfig = {
       enemyCount: this.enemyCount(),
       enemyType: this.enemyType(),
@@ -1245,6 +1246,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       enemyHealth: this.enemyHealth(),
       spawnMode: this.spawnMode(),
       spawnDelay: this.spawnDelay(),
+      getSpawnDelay: this.spawnDelay, // Signal getter for live updates
       useGathering: this.useGathering(),
     };
 

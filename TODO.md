@@ -171,7 +171,7 @@
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
 - [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
       Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md)
-- [ ] **Route Overlay "Routen anzeigen"** - funktioniert nicht mehr richtig, Route wird manchmal nicht angezeigt
+- [x] **Route Overlay "Routen anzeigen"** - funktioniert nicht mehr richtig, Route wird manchmal nicht angezeigt
       Route Animation (anderes Feature) funktioniert hingegen korrekt
       Dateien: `path-route.service.ts`, `route-animation.service.ts`
 - [ ] **Wave Debug Panel Delay** - Änderungen am Delay haben keinen Einfluss auf aktuell spawnende Welle mehr

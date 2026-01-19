@@ -266,19 +266,9 @@ export class PathAndRouteService {
     const overlayGroup = this.engine.getOverlayGroup();
     const points: Vector3[] = [];
 
-    // Get origin terrain height as reference
+    // Get origin terrain height as reference (fallback to 0 if terrain not loaded yet)
     const origin = this.engine.sync.getOrigin();
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
-
-    if (originTerrainY === null) {
-      // Cache path with default heights (fallback)
-      const pathWithHeights: GeoPosition[] = geoPath.map((pos) => ({
-        ...pos,
-        height: origin.height,
-      }));
-      this.cachedPaths.set(spawn.id, pathWithHeights);
-      return;
-    }
+    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
 
     // Track which positions got valid terrain samples
     const validIndices: number[] = [];
@@ -286,15 +276,14 @@ export class PathAndRouteService {
 
     for (let i = 0; i < geoPath.length; i++) {
       const pos = geoPath[i];
-      const terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon);
-      if (terrainY !== null) {
-        const local = this.engine.sync.geoToLocalSimple(pos.lat, pos.lon, 0);
-        // Y = height difference from origin + offset above ground
-        local.y = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
-        points.push(local);
-        validIndices.push(i);
-        terrainHeights.push(terrainY);
-      }
+      // Fallback to originTerrainY if terrain not available at this point
+      const terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon) ?? originTerrainY;
+      const local = this.engine.sync.geoToLocalSimple(pos.lat, pos.lon, 0);
+      // Y = height difference from origin + offset above ground
+      local.y = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
+      points.push(local);
+      validIndices.push(i);
+      terrainHeights.push(terrainY);
     }
 
     // Smooth out height anomalies
