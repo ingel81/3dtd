@@ -3,6 +3,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { GAME_SOUNDS } from '../configs/audio.config';
+import { GameEventBus } from '../game-engine';
 
 /**
  * HQDamageService - Handles HQ fire effects, damage sounds, and game over visuals
@@ -21,6 +22,7 @@ export class HQDamageService {
 
   private tilesEngine: ThreeTilesEngine | null = null;
   private basePosition: GeoPosition | null = null;
+  private eventBus: GameEventBus | null = null;
 
   // Fire effect tracking
   private activeFireId: string | null = null;
@@ -30,11 +32,12 @@ export class HQDamageService {
   private gameOverTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /**
-   * Initialize with engine and base position
+   * Initialize with engine, base position, and event bus
    */
-  initialize(tilesEngine: ThreeTilesEngine, basePosition: GeoPosition): void {
+  initialize(tilesEngine: ThreeTilesEngine, basePosition: GeoPosition, eventBus: GameEventBus): void {
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
+    this.eventBus = eventBus;
 
     // Register HQ damage sound
     if (tilesEngine.spatialAudio) {
@@ -48,6 +51,15 @@ export class HQDamageService {
         }
       );
     }
+
+    // Subscribe to health:changed events
+    this.eventBus.on('health:changed', (event) => {
+      this.updateFireIntensity(event.health);
+      // Play damage sound only when health decreases
+      if (event.delta < 0) {
+        this.playDamageSound();
+      }
+    });
   }
 
   /**
@@ -73,16 +85,17 @@ export class HQDamageService {
   }
 
   /**
-   * Play HQ damage sound at base position
+   * Emit audio event for HQ damage sound at base position
    */
   playDamageSound(): void {
-    if (this.basePosition && this.tilesEngine?.spatialAudio) {
-      this.tilesEngine.spatialAudio.playAtGeo(
-        GAME_SOUNDS.hqDamage.id,
-        this.basePosition.lat,
-        this.basePosition.lon,
-        this.basePosition.height ?? 0
-      ).catch(err => console.warn('[HQDamage] Sound failed:', err));
+    if (this.basePosition && this.eventBus) {
+      this.eventBus.emitDeferred({
+        type: 'audio:play',
+        sound: GAME_SOUNDS.hqDamage.id,
+        lat: this.basePosition.lat,
+        lon: this.basePosition.lon,
+        height: this.basePosition.height ?? 0,
+      });
     }
   }
 

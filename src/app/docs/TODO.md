@@ -7,26 +7,25 @@
 ## Code Quality & Architektur (aus Expert Review)
 
 ### Prioritaet 2: Mittelfristig
-- [ ] **GameStateManager aufteilen** (~800 Zeilen, God-Object)
-      Vorschlag: combat.manager.ts, effects.manager.ts, fire-intensity.manager.ts
+- [ ] **GameStateManager weiter aufteilen** (~543 Zeilen, von 800 reduziert durch Event-System)
+      Combat/VFX/HQ-Fire bereits ausgelagert. Optional: weitere Aufteilung
       Siehe: [EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen](EXPERT_REVIEW_2026.md#13-empfehlung-gamestatemanager-aufteilen)
 
 - [ ] **Entity Object Pooling implementieren** - EntityPoolService ist nur Placeholder
       Datei: `entity-pool.service.ts`
       Siehe: [EXPERT_REVIEW_2026.md#21-object-pooling](EXPERT_REVIEW_2026.md)
 
-### Prioritaet 2: Mittelfristig
-- [ ] **Spawn-Logik in WaveManager konsolidieren**
-      `tower-defense.component.ts:1711+` hat eigene spawnNext() Logik
-      Sollte `waveManager.startWave(config)` verwenden statt eigener Implementierung
-      Doppelter Code, doppelte Wartung, Bug-Risiko
+- [x] ~~**Spawn-Logik in WaveManager konsolidieren**~~ - ✅ ERLEDIGT (2026-01-19)
+      tower-defense.component.ts delegiert jetzt an gameState.startWave() → waveManager.startWave()
+      Keine eigene Spawn-Logik mehr in der Komponente
 
 ### Prioritaet 3: Langfristig
-- [ ] **TowerDefenseComponent aufteilen** (~2280 Zeilen)
-      Vorschlag: StreetRenderingService, WaveOrchestrationService, LocationChangeService
+- [ ] **TowerDefenseComponent weiter aufteilen** (~1797 Zeilen, von 2280 reduziert durch Event-System)
+      Provider entfernt, Event-Subscriptions vereinfacht. Optional: weitere Aufteilung
 
-- [ ] **Event-System einfuehren** - Aktuell nur Callbacks
-      Vorschlag: Typisierter EventBus mit emit<T>() und on<T>()
+- [x] ~~**Event-System einfuehren**~~ - ✅ ERLEDIGT (2026-01-19)
+      GameEventBus mit 20 Event-Typen, alle Manager event-driven
+      Siehe: [EVENT_SYSTEM.md](EVENT_SYSTEM.md) und [DONE.md](DONE.md#2026-01-19)
 
 - [ ] **Koordinaten-Typen vereinheitlichen** - 3 verschiedene Formate im Code
       `GeoPosition` vs `{latitude, longitude}` vs `{lat, lon}`
@@ -34,6 +33,17 @@
 
 - [ ] **Codebase komplett auf Englisch umstellen** - Strings, Kommentare, Variablen, UI
       Aktuell: Deutsche Tower-Namen ('Schnellfeuer'), Enemy-Namen ('Fledermaus'), UI-Texte, Tooltips
+
+### Event-System Erweiterungen (optional)
+
+> Siehe: [EVENT_SYSTEM.md](EVENT_SYSTEM.md) fuer aktuelle Implementierung
+
+- [ ] **Letzten Callback entfernen** - `onDebugLogCallback` → `debug:log` Event
+      GameStateManager hat noch einen Callback fuer Debug-Logging
+- [ ] **SpatialAudio debugCallback** → EventBus integrieren
+      Datei: `spatial-audio.manager.ts`
+- [ ] **Pause-System Events** - `game:started`, `game:paused`, `game:resumed`
+      Fuer zukuenftiges Pause-Feature
 
 ---
 
@@ -151,11 +161,21 @@
 ### Bewerten
 - [ ] FPS LIMIT auf 60 sinnvoll?
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
+- [ ] **Event Debug Panel Position** - Größe wird gespeichert aber Position nicht perfekt (Panel springt beim Öffnen)
+      Datei: `debug-window.service.ts`, `draggable-debug-panel.component.ts`
+- [ ] **Scrollbar Styling** - Scrollbar im Event Bus Debug Panel passt nicht zum App-Style
+      Globale Scrollbar-Styles in `td-theme.ts` oder `styles.scss` anlegen/verwenden
+      Betrifft: `event-debugger.component.ts`, ggf. andere Debug-Panels
 
 ### Beobachten bis Testcase wieder da
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
 - [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
       Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md)
+- [ ] **Route Overlay "Routen anzeigen"** - funktioniert nicht mehr richtig, Route wird manchmal nicht angezeigt
+      Route Animation (anderes Feature) funktioniert hingegen korrekt
+      Dateien: `path-route.service.ts`, `route-animation.service.ts`
+- [ ] **Wave Debug Panel Delay** - Änderungen am Delay haben keinen Einfluss auf aktuell spawnende Welle mehr
+      Dateien: `wave-debug.service.ts`, `wave.manager.ts`
 
 ### Location-System Bekannte Einschraenkungen
 - [ ] Nominatim-Geocoding gibt oft Strassen-Koordinaten statt Gebaeude-Koordinaten

@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-01-18
+**Stand:** 2026-01-19
 
 ## Übersicht
 
@@ -419,75 +419,91 @@ class Projectile extends GameObject {
 
 ## 4. Manager System
 
+> **Event-driven seit 2026-01-19:** Alle Manager kommunizieren via GameEventBus.
+> Siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md) fuer Details.
+
 ### 4.1 GameStateManager (Orchestrator)
 
 ```typescript
-@Injectable()
+@Injectable()  // Nur dieser Manager hat noch Angular DI
 class GameStateManager {
-  // Sub-Managers
+  // Sub-Managers (manuell erstellt, nicht injected)
   readonly enemyManager: EnemyManager;
   readonly towerManager: TowerManager;
   readonly projectileManager: ProjectileManager;
   readonly waveManager: WaveManager;
 
-  // Game State
+  // Event Bus
+  private eventBus: GameEventBus;
+
+  // Game State (Angular Signals fuer UI-Bindings)
   readonly baseHealth = signal(100);
   readonly credits = signal(100);
 
   initialize(engine: ThreeTilesEngine, streetNetwork, basePosition, spawnPoints, cachedPaths): void;
   update(currentTime: number): void;
   reset(): void;
+  getEventBus(): GameEventBus;  // Fuer externe Subscriptions
 }
 ```
 
-### 4.2 EnemyManager
+### 4.2 EnemyManager (Framework-agnostic)
 
 ```typescript
-@Injectable()
+// Kein @Injectable - Constructor Injection
 class EnemyManager extends EntityManager<Enemy> {
+  constructor(eventBus: GameEventBus, entityPool: EntityPoolService, routeGrid: GlobalRouteGridService);
+
   spawn(path, typeId, speedOverride?, paused?): Enemy;
-  kill(enemy: Enemy): void;
-  update(deltaTime: number): void;
+  kill(enemy: Enemy): void;  // Emittiert 'enemy:died'
+  update(deltaTime: number): void;  // Emittiert 'enemy:reached-base'
   startAll(delayBetween?: number): void;
   getAlive(): Enemy[];
 }
 ```
 
-### 4.3 TowerManager
+### 4.3 TowerManager (Framework-agnostic)
 
 ```typescript
-@Injectable()
+// Kein @Injectable - Constructor Injection
 class TowerManager extends EntityManager<Tower> {
+  constructor(eventBus: GameEventBus, osmService: OsmStreetService);
+
   initializeWithContext(engine, streetNetwork, basePosition, spawnPoints): void;
-  placeTower(position: GeoPosition, typeId: TowerTypeId): Tower | null;
+  placeTower(position: GeoPosition, typeId: TowerTypeId): Tower | null;  // Emittiert 'tower:placed'
+  sell(tower: Tower): number;  // Emittiert 'tower:sold'
   validatePosition(position: GeoPosition): { valid: boolean; reason?: string };
   selectTower(id: string | null): void;
   getSelected(): Tower | null;
 }
 ```
 
-### 4.4 ProjectileManager
+### 4.4 ProjectileManager (Framework-agnostic)
 
 ```typescript
-@Injectable()
+// Kein @Injectable - Constructor Injection
 class ProjectileManager extends EntityManager<Projectile> {
+  constructor(eventBus: GameEventBus, entityPool: EntityPoolService);
+
   spawn(tower: Tower, targetEnemy: Enemy): Projectile;
-  update(deltaTime: number): void; // Hit detection
+  update(deltaTime: number): void;  // Emittiert 'projectile:hit', 'vfx:projectile-impact', 'audio:play'
 }
 ```
 
-### 4.5 WaveManager
+### 4.5 WaveManager (Framework-agnostic)
 
 ```typescript
-@Injectable()
+// Kein @Injectable - Constructor Injection
 class WaveManager {
+  constructor(eventBus: GameEventBus, enemyManager: EnemyManager);
+
   readonly phase = signal<GamePhase>('setup');
   readonly waveNumber = signal(0);
 
   initialize(spawnPoints, cachedPaths): void;
-  startWave(config: WaveConfig): void;
+  startWave(config: WaveConfig): void;  // Emittiert 'wave:started'
   checkWaveComplete(): boolean;
-  endWave(): void;
+  endWave(): void;  // Emittiert 'wave:completed'
   reset(): void;
 }
 ```
@@ -501,6 +517,7 @@ class SpatialAudioManager {
 
   // 3D Audio mit Sound-Budget-Verwaltung
   playEnemySound(enemyId: string, soundType: string, position: Vector3): void;
+  playAtGeo(lat: number, lon: number, height: number, soundType: string): void;
   stopEnemySound(enemyId: string): void;
   stopAllSounds(): void;
 }
@@ -510,27 +527,51 @@ class SpatialAudioManager {
 
 ---
 
-## 5. Event-Koordination
+## 5. Event-System
 
-**Wichtig:** Das Projekt verwendet **kein** klassisches EventEmitter/Subject-System (wie RxJS).
+> **Vollstaendige Dokumentation:** [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
 
-Stattdessen werden **Callback-basierte Events** verwendet:
+Das Projekt verwendet einen **type-safe Event Bus** fuer lose Kopplung zwischen Komponenten.
+
+### GameEventBus
 
 ```typescript
-// In GameStateManager
-onGameOverCallback?: () => void;
-onDebugLogCallback?: (msg: string) => void;
-onEnemyReachedBase?: (enemy: Enemy) => void;
+class GameEventBus {
+  // Type-safe event emission
+  emit(event: GameEvent): void;           // Immediate (blocking)
+  emitDeferred(event: GameEvent): void;   // Queued for frame-end
+  processQueue(): void;                    // Process deferred events
 
-// Verwendung
-this.onGameOverCallback?.();
-this.onEnemyReachedBase?.(enemy);
+  // Subscriptions
+  on<T extends GameEvent['type']>(type: T, handler: (event) => void): () => void;
+  onAny(handler: (event: GameEvent) => void): () => void;  // Debug
+}
 ```
 
-**Warum Callbacks statt Subjects?**
-- Einfachere Lifecycle-Verwaltung
-- Keine Subscription-Leaks
-- Direktere Kommunikation zwischen Managern und Component
+### Event-Typen (20 definiert)
+
+| Kategorie | Events |
+|-----------|--------|
+| Enemy | `enemy:died`, `enemy:reached-base` |
+| Tower | `tower:placed`, `tower:sold` |
+| Combat | `projectile:hit` |
+| Wave | `wave:started`, `wave:completed` |
+| Game | `game:over`, `health:changed` |
+| Effects | `vfx:projectile-impact`, `audio:play` |
+
+### Immediate vs Deferred
+
+- **Immediate Events:** Game-kritisch, sofort verarbeitet (z.B. `enemy:died`, `projectile:hit`)
+- **Deferred Events:** Nicht-kritisch, am Frame-Ende verarbeitet (z.B. `vfx:*`, `audio:play`)
+
+```typescript
+// Game Loop
+function update(deltaTime: number) {
+  enemyManager.update(deltaTime);      // Emits immediate events
+  projectileManager.update(deltaTime); // Emits immediate + deferred
+  eventBus.processQueue();             // Process deferred at stable point
+}
+```
 
 ---
 

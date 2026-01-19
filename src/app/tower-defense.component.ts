@@ -33,6 +33,7 @@ import { GameHeaderComponent } from './components/game-header/game-header.compon
 import { CameraDebuggerComponent } from './components/debug-window/camera-debugger.component';
 import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
 import { SoundDebuggerComponent } from './components/debug-window/sound-debugger.component';
+import { EventDebuggerComponent } from './components/debug-window/event-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -60,10 +61,7 @@ import { StreetRenderingService } from './services/street-rendering.service';
 import { LocationChangeCoordinatorService, LocationChangeInput, LocationChangeContext, LocationChangeCallbacks } from './services/location-change-coordinator.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
-import { EnemyManager } from './managers/enemy.manager';
-import { TowerManager } from './managers/tower.manager';
-import { ProjectileManager } from './managers/projectile.manager';
-import { WaveManager, SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
+import { SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
 import { Vector3, InstancedMesh } from 'three';
@@ -101,16 +99,13 @@ const EMPTY_CENTER_COORDS = {
     CameraDebuggerComponent,
     WaveDebuggerComponent,
     SoundDebuggerComponent,
+    EventDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
   ],
   providers: [
     GameStateManager,
-    EnemyManager,
-    TowerManager,
-    ProjectileManager,
-    WaveManager,
     EntityPoolService,
     ModelPreviewService,
   ],
@@ -777,9 +772,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       { lat: base.latitude, lon: base.longitude },
       waveSpawnPoints,
       this.pathRoute.getCachedPaths(),
-      (msg: string) => this.uiState.appendDebugLog(msg),
-      () => this.onGameOver()
+      (msg: string) => this.uiState.appendDebugLog(msg)
     );
+
+    // Subscribe to game:over event
+    this.gameState.getEventBus().on('game:over', () => {
+      this.onGameOver();
+    });
 
     // Validate that routes were found
     const paths = this.pathRoute.getCachedPaths();
@@ -1576,7 +1575,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       initializeTowerPlacement: () => this.initializeTowerPlacement(),
       filterStreetNetworkToRoutes: () => this.filterStreetNetworkToRoutes(),
       scheduleOverlayHeightUpdate: () => this.scheduleOverlayHeightUpdate(),
-      onGameOver: () => this.onGameOver(),
 
       // Current state accessors
       getSpawnPoints: () => this.spawnPoints(),

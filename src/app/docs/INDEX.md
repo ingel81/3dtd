@@ -1,8 +1,8 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-01-18 (aktualisiert)
+**Stand:** 2026-01-19 (aktualisiert)
 
-Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense Minispiel.
+Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense Minispiel.
 
 ---
 
@@ -13,8 +13,9 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | Dokument | Beschreibung |
 |----------|--------------|
 | [ARCHITECTURE.md](ARCHITECTURE.md) | System-Architektur, Component-System, Renderer, Services |
+| [EVENT_SYSTEM.md](EVENT_SYSTEM.md) | Event Bus, Event-Typen, Manager-Kommunikation |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
-| [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungs-Maßnahmenkatalog (16 Experten) |
+| [PERFORMANCE_REPORT.md](PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungs-Massnahmenkatalog (16 Experten) |
 | [EXPERT_REVIEW_2026.md](EXPERT_REVIEW_2026.md) | Umfassende Code-Analyse (7 KI-Experten) |
 | [TODO.md](TODO.md) | Offene Aufgaben und bekannte Bugs |
 | [DONE.md](DONE.md) | Abgeschlossene Features und Fixes |
@@ -44,6 +45,7 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 | Ziel | Dokument |
 |------|----------|
 | ...die Gesamtarchitektur verstehen | [ARCHITECTURE.md](ARCHITECTURE.md) |
+| ...das Event-System verstehen | [EVENT_SYSTEM.md](EVENT_SYSTEM.md) |
 | ...wissen welche Services es gibt | [ARCHITECTURE.md](ARCHITECTURE.md) → Services |
 | ...das UI stylen | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) |
 | ...einen Bug fixen | [TODO.md](TODO.md) |
@@ -75,8 +77,9 @@ Dieses Verzeichnis enthält die technische Dokumentation für das Tower Defense 
 ```
 src/app/
 ├── tower-defense.component.ts   # Haupt-Spielkomponente
-├── services/                    # 23 Angular Services
-├── managers/                    # 7 Manager (Enemy, Tower, Wave, etc.)
+├── game-engine/                 # Event Bus, VFX/Audio Services (framework-agnostic)
+├── services/                    # Angular Services (UI-Bindings)
+├── managers/                    # Manager (Enemy, Tower, Wave, etc. - event-driven)
 ├── entities/                    # Enemy, Tower, Projectile Entities
 ├── game-components/             # Transform, Health, Movement, Combat, etc.
 ├── configs/                     # Tower/Projectile/Audio/Visual Configs

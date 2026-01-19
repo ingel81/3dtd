@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId } from '../models/enemy-types';
@@ -6,17 +6,18 @@ import { GeoPosition } from '../models/game.types';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
-import { geoDistance } from '../utils/geo-utils';
+import { GameEventBus } from '../game-engine';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
+ *
+ * Framework-agnostic, event-based:
+ * - No @Injectable decorator
+ * - Constructor injection
+ * - Emits events: enemy:died, enemy:reached-base
  */
-@Injectable()
 export class EnemyManager extends EntityManager<Enemy> {
-  private entityPool = inject(EntityPoolService);
-  private globalRouteGrid = inject(GlobalRouteGridService);
-  private onEnemyReachedBase?: (enemy: Enemy) => void;
-
   // Track enemies being killed to prevent double-kill
   private killingEnemies = new Set<string>();
 
@@ -29,15 +30,19 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
   private cachedAliveEnemies: Enemy[] | null = null;
 
+  constructor(
+    private eventBus: GameEventBus,
+    private entityPool: EntityPoolService,
+    private globalRouteGrid: GlobalRouteGridService
+  ) {
+    super();
+  }
+
   /**
    * Initialize enemy manager with ThreeTilesEngine
    */
-  override initialize(
-    tilesEngine: ThreeTilesEngine,
-    onEnemyReachedBase?: (enemy: Enemy) => void
-  ): void {
+  override initialize(tilesEngine: ThreeTilesEngine): void {
     super.initialize(tilesEngine);
-    this.onEnemyReachedBase = onEnemyReachedBase;
   }
 
   /**
@@ -133,6 +138,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   /**
    * Kill an enemy - plays death animation then removes
+   * Emits enemy:died event with credits
    */
   kill(enemy: Enemy): void {
     // Prevent double-kill
@@ -140,7 +146,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.killingEnemies.add(enemy.id);
 
     // Decrement alive count (killingEnemies set prevents double-counting)
-    // Note: enemy.alive may already be false if killed via takeDamage() before kill() is called
     this.aliveCount.update(c => Math.max(0, c - 1));
     this.cachedAliveEnemies = null; // Invalidate cache
 
@@ -149,6 +154,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.health.takeDamage(enemy.health.hp);
     }
     enemy.stopMoving();
+
+    // Emit enemy:died event
+    this.eventBus.emit({
+      type: 'enemy:died',
+      enemy,
+      credits: enemy.typeConfig.reward,
+    });
 
     // If enemy has death animation, play it and wait before removing
     if (enemy.typeConfig.deathAnimation) {
@@ -184,7 +196,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Move enemy along path
       const moveResult = enemy.movement.move(deltaTime);
       if (moveResult === 'reached_end') {
-        this.onEnemyReachedBase?.(enemy);
+        // Emit enemy:reached-base event
+        this.eventBus.emit({
+          type: 'enemy:reached-base',
+          enemy,
+          damage: GAME_BALANCE.combat.enemyBaseDamage,
+        });
         this.toRemove.push(enemy);
         continue;
       }
@@ -318,24 +335,4 @@ export class EnemyManager extends EntityManager<Enemy> {
       occupiedCells: stats.occupiedCells,
     };
   }
-
-  /**
-   * Get all alive enemies within a radius of a geo position
-   * @param center - Center point (lat, lon)
-   * @param radiusMeters - Radius in meters
-   * @param excludeId - Optional enemy ID to exclude (e.g., the primary target)
-   * @deprecated Use GlobalRouteGridService.getEnemiesInRadiusGeo() instead for O(cells) performance
-   */
-  getEnemiesInRadius(
-    center: { lat: number; lon: number },
-    radiusMeters: number,
-    excludeId?: string
-  ): Enemy[] {
-    return this.getAlive().filter((enemy) => {
-      if (excludeId && enemy.id === excludeId) return false;
-      const dist = geoDistance(center, enemy.position);
-      return dist <= radiusMeters;
-    });
-  }
-
 }

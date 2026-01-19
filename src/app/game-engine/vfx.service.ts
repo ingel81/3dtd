@@ -48,10 +48,10 @@ export class VFXService {
     projectileType: string;
     targetLost: boolean;
   }): void {
-    const { lat, lon, height, projectileType, targetLost } = event;
+    const { lat, lon, height, projectileType, targetLost: _targetLost } = event;
 
     // Select explosion preset based on projectile type
-    let preset: any;
+    let preset: number;
 
     if (projectileType === 'rocket' || projectileType.includes('homing')) {
       // Rocket explosion - large fire effect

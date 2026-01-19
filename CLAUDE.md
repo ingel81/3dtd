@@ -13,8 +13,9 @@ npm run build   # Production Build
 
 ## Architektur
 
-- Angular 21 Standalone Components
-- Three.js + 3DTilesRendererJS für 3D-Rendering
+- Angular 21 Standalone Components (nur UI)
+- Three.js + 3DTilesRendererJS fuer 3D-Rendering
+- **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
 - Kein Backend - komplett clientseitig
 - Google Maps API Key in environment.ts
 
@@ -26,6 +27,7 @@ src/app/
 ├── app.config.ts               # Provider Config
 ├── app.routes.ts               # Routing
 ├── tower-defense.component.ts  # Haupt-Spielkomponente
+├── game-engine/                # Event Bus, VFX/Audio Services (framework-agnostic)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower & Projectile Type Configs
 ├── core/services/              # Config Service
@@ -33,9 +35,9 @@ src/app/
 ├── entities/                   # Enemy, Tower, Projectile
 ├── game/tower-defense/shaders/ # Shader Code
 ├── game-components/            # ECS Components (transform, health, etc.)
-├── managers/                   # 7 Manager (enemy, tower, projectile, wave, game-state, entity, spatial-audio)
+├── managers/                   # Manager (event-driven, framework-agnostic)
 ├── models/                     # Type Definitions
-├── services/                   # 23 Angular Services
+├── services/                   # Angular Services (UI-Bindings)
 ├── styles/                     # Theme & Global Styles
 └── three-engine/               # 3D Rendering (renderers/)
 ```
@@ -53,8 +55,9 @@ src/app/
 
 | Dokument | Beschreibung |
 |----------|--------------|
-| [INDEX.md](src/app/docs/INDEX.md) | Übersicht aller Dokumentationen |
+| [INDEX.md](src/app/docs/INDEX.md) | Uebersicht aller Dokumentationen |
 | [ARCHITECTURE.md](src/app/docs/ARCHITECTURE.md) | System-Architektur & Design |
+| [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
 | [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
 | [EXPERT_REVIEW_2026.md](src/app/docs/EXPERT_REVIEW_2026.md) | Code-Analyse & Massnahmenkatalog |
 | [TOWER_CREATION.md](src/app/docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
@@ -63,7 +66,7 @@ src/app/
 | [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
 | [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
 | [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
-| [FRAME_TIMING_FIXES.md](src/app/docs/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme & Lösungen |
+| [FRAME_TIMING_FIXES.md](src/app/docs/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme & Loesungen |
 | [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
 | [PERFORMANCE_REPORT.md](src/app/docs/PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungen |
 | [TODO.md](src/app/docs/TODO.md) | Offene Aufgaben |

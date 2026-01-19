@@ -2,6 +2,7 @@ import { Vector3 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { Projectile } from '../entities/projectile.entity';
+import { GeoPosition } from '../models/game.types';
 
 /**
  * Game Event Type Definitions
@@ -16,7 +17,6 @@ export type GameEvent =
       type: 'enemy:died';
       enemy: Enemy;
       credits: number;
-      position: Vector3;
     }
   | {
       type: 'enemy:reached-base';
@@ -28,7 +28,7 @@ export type GameEvent =
   | {
       type: 'tower:placed';
       tower: Tower;
-      position: Vector3;
+      position: GeoPosition;
       cost: number;
     }
   | {
@@ -53,12 +53,6 @@ export type GameEvent =
   | {
       type: 'projectile:missed';
       projectile: Projectile;
-    }
-  | {
-      type: 'damage:dealt';
-      source: Tower | null;
-      target: Enemy;
-      amount: number;
     }
 
   // ==================== Wave Events ====================
@@ -102,7 +96,9 @@ export type GameEvent =
   | {
       type: 'audio:play';
       sound: string;
-      position?: Vector3;
+      lat: number;
+      lon: number;
+      height: number;
       volume?: number;
     }
   | {
@@ -240,6 +236,7 @@ interface EventBusMetrics {
  */
 export class GameEventBus {
   /** Map of event types to their listener sets */
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   private listeners = new Map<GameEvent['type'], Set<(event: any) => void>>();
 
   /** Queue for deferred events (processed at stable point in game loop) */
@@ -257,6 +254,27 @@ export class GameEventBus {
 
   /** Enable/disable metrics tracking */
   private metricsEnabled = false;
+
+  /** Debug listeners that receive ALL events (for debug panel) */
+  private debugListeners = new Set<(event: GameEvent) => void>();
+
+  /**
+   * Subscribe to ALL events (for debugging/monitoring)
+   *
+   * @param handler - Handler that receives all events
+   * @returns Subscription handle for cleanup
+   *
+   * @example
+   * ```typescript
+   * const subscription = eventBus.onAny((event) => {
+   *   console.log(event.type, event);
+   * });
+   * ```
+   */
+  onAny(handler: (event: GameEvent) => void): EventSubscription {
+    this.debugListeners.add(handler);
+    return new EventSubscription(() => this.debugListeners.delete(handler));
+  }
 
   /**
    * Subscribe to event (type-safe)
@@ -325,6 +343,9 @@ export class GameEventBus {
     if (this.metricsEnabled) {
       this.metrics.eventsEmitted++;
     }
+
+    // Notify debug listeners (catch-all)
+    this.debugListeners.forEach((handler) => handler(event as GameEvent));
 
     const handlers = this.listeners.get(event.type);
     if (handlers && handlers.size > 0) {

@@ -6,6 +6,82 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-19
 
+### Game Engine - Event Bus System (Phase 10 abgeschlossen)
+
+- [x] **game:over Event (Phase 10a)**
+      - `onGameOverCallback` aus GameStateManager entfernt
+      - GameStateManager emittiert `game:over` Event mit `reason: 'base-destroyed' | 'quit'`
+      - `getEventBus()` Getter hinzugefügt für externe Subscriptions
+      - TowerDefenseComponent subscribed zu `game:over` Event
+      - LocationChangeCoordinatorService: `onGameOver` aus Interface entfernt
+
+- [x] **EventBusDebugPanel (Phase 10b)**
+      - Neue Komponente: `event-debugger.component.ts`
+      - Zeigt alle Events in Echtzeit via `eventBus.onAny()`
+      - Filter nach Kategorie: enemy, tower, wave, game, vfx, audio
+      - Farbcodierte Event-Typen mit Timestamp
+      - Pause/Resume und Clear-Funktion
+      - **Resizable Panel** mit persistierter Größe
+      - Button in QuickActions (cell_tower Icon)
+      - GameEventBus erweitert um `onAny()` und `debugListeners`
+
+- [x] **DraggableDebugPanel Resize-Feature**
+      - `[resizable]` Input (default: false)
+      - `[size]` Input und `(sizeChange)` Output
+      - Resize-Handle unten rechts (drag_indicator Icon)
+      - Min-Size: 300x200px, Viewport-Constraints
+      - DebugWindowService: `WindowSize` Interface, `updateSize()`, `getSize()`
+      - Größe wird im localStorage persistiert (v4)
+
+- [x] **Event Cleanup**
+      - `damage:dealt` Event entfernt (redundant mit `projectile:hit`)
+      - Lint-Fixes: eslint-disable für legitimes `any`, unused vars
+
+- [x] **Event Bus Core implementiert**
+      - `GameEventBus` mit 20 Event-Typen (discriminated unions)
+      - Immediate Events (`emit`) für game-kritische Aktionen
+      - Deferred Events (`emitDeferred`) für VFX/Audio
+      - `processQueue()` am Frame-Ende
+      - WeakMap-basiertes Subscription-Tracking
+
+- [x] **Manager auf Event-System umgestellt**
+      - `ProjectileManager`: emittiert `projectile:hit`, `vfx:projectile-impact`
+      - `EnemyManager`: emittiert `enemy:died`, `enemy:reached-base`
+      - `WaveManager`: emittiert `wave:started`, `wave:completed`
+      - Alle drei: `@Injectable` entfernt, Constructor Injection
+      - Provider aus TowerDefenseComponent entfernt
+
+- [x] **Services event-driven**
+      - `VFXService`: subscribed zu `vfx:projectile-impact`
+      - `CombatEffectService`: subscribed zu `projectile:hit`
+      - `handleProjectileHit()` aus GameStateManager entfernt
+
+- [x] **Audio via Events (Phase 7)**
+      - `AudioService`: subscribed zu `audio:play` Events
+      - Event-Typ `audio:play` auf Geo-Koordinaten erweitert (`lat`, `lon`, `height`)
+      - `ProjectileManager`: emittiert `audio:play` statt direktem `spatialAudio.playAtGeo()`
+      - `HQDamageService`: emittiert `audio:play`, `initialize()` um `eventBus` erweitert
+      - Neue Datei: `src/app/game-engine/audio.service.ts` (56 LOC)
+
+- [x] **TowerManager refactored (Phase 8)**
+      - `@Injectable()` entfernt, Constructor Injection `(eventBus, osmService)`
+      - Emittiert `tower:placed` mit cost, neue `sell()` Methode emittiert `tower:sold`
+      - Event-Typ `tower:placed` auf `GeoPosition` geändert (statt Vector3)
+      - GameStateManager: `inject(OsmStreetService)` + manuelle TowerManager-Erstellung
+      - Provider aus TowerDefenseComponent entfernt
+      - **Alle 4 Entity-Manager jetzt framework-agnostic!**
+
+- [x] **health:changed Event (Phase 9)**
+      - GameStateManager emittiert `health:changed` statt direkter HQDamageService-Aufrufe
+      - HQDamageService subscribed zu `health:changed` (Fire-Intensity + Damage-Sound)
+      - Direkter `updateFireIntensity()` Aufruf aus Game-Loop entfernt
+      - HQDamageService jetzt vollständig event-driven
+
+- [x] **Architektur-Prinzip umgesetzt**
+      - Angular nur fuer UI, Game Engine framework-agnostic
+      - Hybrid: Events fuer Broadcasts, Spatial Grid fuer Queries
+      - Dokumentation: [EVENT_SYSTEM.md](EVENT_SYSTEM.md)
+
 ### Refactoring
 - [x] **LocationChangeCoordinatorService extrahiert**
       - Neue Datei: `src/app/services/location-change-coordinator.service.ts` (406 Zeilen)

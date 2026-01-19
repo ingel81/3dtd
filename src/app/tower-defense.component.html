@@ -93,6 +93,7 @@
           (addHealth)="addDebugHealth()"
         />
         <app-sound-debugger />
+        <app-event-debugger [eventBus]="gameState.getEventBus()" />
 
         <!-- Info Overlay (top left) -->
         <app-info-overlay

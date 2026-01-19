@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { signal } from '@angular/core';
 import { EntityManager } from './entity-manager';
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
@@ -7,13 +7,24 @@ import { GeoPosition } from '../models/game.types';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { geoDistance } from '../utils/geo-utils';
+import { GameEventBus } from '../game-engine';
 
 /**
  * Manages all tower entities
+ *
+ * Framework-agnostic, event-based:
+ * - No @Injectable decorator
+ * - No inject() calls
+ * - Constructor injection
+ * - Emits events: tower:placed, tower:sold
  */
-@Injectable()
 export class TowerManager extends EntityManager<Tower> {
-  private osmService = inject(OsmStreetService);
+  constructor(
+    private eventBus: GameEventBus,
+    private osmService: OsmStreetService
+  ) {
+    super();
+  }
 
   // Use signal for reactive updates
   private readonly _selectedTowerId = signal<string | null>(null);
@@ -67,6 +78,15 @@ export class TowerManager extends EntityManager<Tower> {
     );
 
     this.add(tower);
+
+    // Emit tower:placed event
+    this.eventBus.emit({
+      type: 'tower:placed',
+      tower,
+      position,
+      cost: tower.typeConfig.cost,
+    });
+
     return tower;
   }
 
@@ -176,6 +196,24 @@ export class TowerManager extends EntityManager<Tower> {
    */
   deselectAll(): void {
     this.selectTower(null);
+  }
+
+  /**
+   * Sell a tower - emits tower:sold event
+   * @returns The refund amount
+   */
+  sell(tower: Tower): number {
+    const refund = tower.typeConfig.sellValue;
+
+    // Emit tower:sold event before removal
+    this.eventBus.emit({
+      type: 'tower:sold',
+      tower,
+      refund,
+    });
+
+    this.remove(tower);
+    return refund;
   }
 
   /**
