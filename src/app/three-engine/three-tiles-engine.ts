@@ -955,6 +955,14 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Get DevTerrainProvider for wiring up street provider.
+   * Only available when DevWorld mode is active.
+   */
+  getDevTerrainProvider(): DevTerrainProvider | null {
+    return this.devTerrainProvider as DevTerrainProvider | null;
+  }
+
+  /**
    * Get terrain height at geographic coordinates using LOCAL coordinate raycast.
    * Uses cache to avoid expensive raycasts for the same positions.
    *
@@ -1283,6 +1291,9 @@ export class ThreeTilesEngine {
 
       // Update camera
       this.camera.updateMatrixWorld();
+
+      // Position overlayGroup at terrain base height (no tiles movement in DevWorld)
+      this.overlayGroup.position.y = this.overlayBaseY;
 
       // Render scene
       this.renderer.render(this.scene, this.camera);
