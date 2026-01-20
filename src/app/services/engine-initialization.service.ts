@@ -3,6 +3,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { CameraFramingService } from './camera-framing.service';
 import { AssetManagerService } from './asset-manager.service';
+import { DevWorldService } from '../devworld/devworld.service';
 
 /**
  * Loading step status
@@ -34,6 +35,7 @@ export class EngineInitializationService {
   private readonly ngZone = inject(NgZone);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly assetManager = inject(AssetManagerService);
+  private readonly devWorld = inject(DevWorldService);
 
   // ========================================
   // SIGNALS
@@ -274,7 +276,8 @@ export class EngineInitializationService {
         this.baseCoords.lat,
         this.baseCoords.lon,
         0,
-        this.assetManager
+        this.assetManager,
+        this.devWorld
       );
 
       this.updateStepDetail('init', '3D-Tiles Renderer...');

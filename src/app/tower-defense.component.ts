@@ -54,6 +54,9 @@ import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { GeolocationService } from './services/geolocation.service';
 import { WorldDiceService } from './services/world-dice.service';
+import { DevWorldService, DEV_WORLD_ORIGIN } from './devworld/devworld.service';
+import { DevStreetProvider } from './devworld/dev-street.provider';
+import { DEV_SPAWN_POINTS } from './devworld/configs/street-network.config';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
@@ -149,6 +152,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly worldDice = inject(WorldDiceService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
+  private readonly devWorld = inject(DevWorldService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -168,6 +172,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
+  private devStreetProvider: DevStreetProvider | null = null;
   private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
   private readonly COORD_EPSILON = 0.0001; // ~11m tolerance for coordinate comparison
@@ -316,6 +321,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   private async initializeLocation(): Promise<void> {
     await this.engineInit.setStepActive('location');
+
+    // DevWorld mode: Use fake origin, skip real location
+    if (this.devWorld.isActive) {
+      console.log('[TowerDefense] DevWorld mode - using fake origin');
+      this.locationMgmt.setLocation(
+        { lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon },
+        [] // Spawns will be added later from DevStreetProvider
+      );
+      this.baseCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon });
+      this.centerCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon, height: 400 });
+      await this.engineInit.setStepDone('location', 'DevWorld');
+      return; // Skip URL sync - keep ?devworld in URL
+    }
 
     // URL is source of truth
     const urlData = this.urlLocation.parseFromUrl();
@@ -631,12 +649,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.markerViz.initialize(engine, baseCoords, this.heightDebugVisible);
 
     // Initialize path and route service
+    // Use DevStreetProvider for pathfinding in DevWorld mode, otherwise OsmStreetService
+    const pathfindingService = this.devWorld.isActive && this.devStreetProvider
+      ? this.devStreetProvider
+      : this.osmService;
     this.pathRoute.initialize(
       engine,
       this.streetNetwork,
       baseCoords,
       this.uiState.routesVisible,
-      this.osmService,
+      pathfindingService,
       this.markerViz.getSpawnMarkers()
     );
 
@@ -725,13 +747,24 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Load OSM street network
+   * Load street network (OSM for real world, DevStreetProvider for DevWorld)
    * @returns Street count
    */
   private async loadStreets(): Promise<number> {
     try {
       const center = this.centerCoords();
 
+      // DevWorld mode: Use DevStreetProvider
+      if (this.devWorld.isActive) {
+        console.log('[TowerDefense] DevWorld mode - using DevStreetProvider');
+        const devStreetProvider = new DevStreetProvider(this.devWorld);
+        this.streetNetwork = await devStreetProvider.loadStreets(center.lat, center.lon, 500);
+        this.devStreetProvider = devStreetProvider; // Store for route calculations
+        this.streetCount.set(this.streetNetwork.streets.length);
+        return this.streetNetwork.streets.length;
+      }
+
+      // Real world: Use OSM
       this.streetNetwork = await this.osmService.loadStreets(
         center.lat,
         center.lon,
@@ -1138,8 +1171,20 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       return 0;
     }
 
-    // Check if we need to generate a random spawn (URL had no spawn parameter)
+    // Check if we need to generate a spawn (URL had no spawn parameter)
     if (this.locationMgmt.needsRandomSpawn() && this.streetNetwork) {
+      // DevWorld mode: Use configured spawn based on URL param or default to first
+      if (this.devWorld.isActive) {
+        const spawnConfig = this.devWorld.config.spawn;
+        const devSpawn = DEV_SPAWN_POINTS.find(s => s.id === spawnConfig) || DEV_SPAWN_POINTS[0];
+        const spawnGeo = this.devWorld.localToGeo(devSpawn.position.x, devSpawn.position.z);
+        console.log(`[addPredefinedSpawns] DevWorld spawn: ${devSpawn.name} (${spawnConfig})`);
+        this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
+        this.addSpawnPoint(devSpawn.id, devSpawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
+        return 1;
+      }
+
+      // Real world: Find random spawn on OSM streets
       const randomSpawn = this.osmService.findRandomStreetPoint(this.streetNetwork, hq.lat, hq.lon, 500, 1000);
 
       if (randomSpawn) {
