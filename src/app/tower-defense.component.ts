@@ -947,6 +947,22 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Manually refresh terrain heights (re-raycast all overlays)
+   * Useful when 3D tiles have loaded more detail since initial setup
+   */
+  refreshTerrainHeights(): void {
+    if (!this.engine) return;
+
+    console.log('[TowerDefense] Manual terrain height refresh triggered');
+
+    // Clear height cache to force fresh raycasts
+    this.engine.clearHeightCache();
+
+    // Re-run the tiles loaded logic (streets, markers, routes)
+    this.onTilesLoaded();
+  }
+
+  /**
    * Called automatically when tiles finish loading (LOD changes)
    * Re-renders terrain-following elements with updated geometry
    */
