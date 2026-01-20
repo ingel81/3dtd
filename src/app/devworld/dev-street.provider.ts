@@ -7,7 +7,17 @@ import {
   SpawnCandidate,
 } from '../interfaces/street-network-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE } from './devworld.service';
-import { DEV_STREETS, DEV_SPAWN_POINTS, DEV_HQ_POSITION, STREET_TYPE_WEIGHTS, StreetSegment } from './configs/street-network.config';
+import { StreetSegment, SpawnPoint } from './generators/street-generator';
+
+/**
+ * Street type weights for A* pathfinding
+ * Lower = preferred
+ */
+const STREET_TYPE_WEIGHTS: Record<string, number> = {
+  primary: 1.0,
+  secondary: 1.2,
+  residential: 1.5,
+};
 
 /**
  * Graph node for A* pathfinding
@@ -22,8 +32,9 @@ interface GraphNode {
 /**
  * DevStreetProvider
  *
- * Implements StreetNetworkProvider for DevWorld using hardcoded street network.
+ * Implements StreetNetworkProvider for DevWorld using generated street network.
  * Features:
+ * - Uses streets from StreetGenerator (via DevTerrainProvider)
  * - Converts street segments to graph with intersection detection
  * - A* pathfinding with street type weights
  * - Spawn candidate generation
@@ -33,7 +44,23 @@ export class DevStreetProvider implements StreetNetworkProvider {
   private graph = new Map<number, GraphNode>();
   private nodeIdCounter = 1;
 
+  // Street data from generator
+  private streetSegments: StreetSegment[] = [];
+  private spawnPoints: SpawnPoint[] = [];
+
   constructor(private devWorld: DevWorldService) {}
+
+  /**
+   * Set generated streets and spawns.
+   * Called by DevTerrainProvider after generation.
+   */
+  setGeneratedStreets(segments: StreetSegment[], spawns: SpawnPoint[]): void {
+    this.streetSegments = segments;
+    this.spawnPoints = spawns;
+    this.network = null; // Clear cached network
+    this.graph.clear();
+    this.nodeIdCounter = 1;
+  }
 
   async loadStreets(
     _centerLat: number,
@@ -48,7 +75,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     console.log('[DevStreets] Building street network...');
     const startTime = performance.now();
 
-    // Build network from config
+    // Build network from generated segments
     this.network = this.buildNetwork();
 
     // Build graph for pathfinding
@@ -68,7 +95,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     const halfSize = DEV_WORLD_SIZE / 2;
 
     // Convert segments to streets with nodes
-    for (const segment of DEV_STREETS) {
+    for (const segment of this.streetSegments) {
       const streetNodes = this.segmentToNodes(segment);
 
       // Add nodes to global map
@@ -131,10 +158,10 @@ export class DevStreetProvider implements StreetNetworkProvider {
     // Step 1: Find all intersections between street segments
     const intersections: { x: number; z: number; streetIndices: number[] }[] = [];
 
-    for (let i = 0; i < DEV_STREETS.length; i++) {
-      const seg1 = DEV_STREETS[i];
-      for (let j = i + 1; j < DEV_STREETS.length; j++) {
-        const seg2 = DEV_STREETS[j];
+    for (let i = 0; i < this.streetSegments.length; i++) {
+      const seg1 = this.streetSegments[i];
+      for (let j = i + 1; j < this.streetSegments.length; j++) {
+        const seg2 = this.streetSegments[j];
         const intersection = this.segmentIntersection(
           seg1.from[0], seg1.from[1], seg1.to[0], seg1.to[1],
           seg2.from[0], seg2.from[1], seg2.to[0], seg2.to[1]
@@ -155,7 +182,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
     const nodePositions = new Map<string, number>(); // "x_z" -> nodeId
 
     // Add all segment endpoints
-    for (const segment of DEV_STREETS) {
+    for (const segment of this.streetSegments) {
       for (const [x, z] of [segment.from, segment.to]) {
         const key = `${Math.round(x)}_${Math.round(z)}`;
         if (!nodePositions.has(key)) {
@@ -177,8 +204,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
     }
 
     // Step 3: Build edges for each street segment, splitting at intersections
-    for (let segIdx = 0; segIdx < DEV_STREETS.length; segIdx++) {
-      const segment = DEV_STREETS[segIdx];
+    for (let segIdx = 0; segIdx < this.streetSegments.length; segIdx++) {
+      const segment = this.streetSegments[segIdx];
       const weight = STREET_TYPE_WEIGHTS[segment.type] || 1.5;
 
       // Collect all points on this segment (endpoints + intersections)
@@ -471,11 +498,13 @@ export class DevStreetProvider implements StreetNetworkProvider {
     maxDistance: number,
     count = 5
   ): SpawnCandidate[] {
-    // Return configured spawn points that are within distance range
+    const hqPosition = { x: 0, z: 0 }; // HQ is at origin
+
+    // Return generated spawn points that are within distance range
     const candidates: SpawnCandidate[] = [];
 
-    for (const spawn of DEV_SPAWN_POINTS) {
-      const distance = Math.hypot(spawn.position.x - DEV_HQ_POSITION.x, spawn.position.z - DEV_HQ_POSITION.z);
+    for (const spawn of this.spawnPoints) {
+      const distance = Math.hypot(spawn.position.x - hqPosition.x, spawn.position.z - hqPosition.z);
 
       if (distance >= minDistance && distance <= maxDistance) {
         const geo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
@@ -491,8 +520,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
 
     // If no candidates in range, return all spawn points
     if (candidates.length === 0) {
-      for (const spawn of DEV_SPAWN_POINTS) {
-        const distance = Math.hypot(spawn.position.x - DEV_HQ_POSITION.x, spawn.position.z - DEV_HQ_POSITION.z);
+      for (const spawn of this.spawnPoints) {
+        const distance = Math.hypot(spawn.position.x - hqPosition.x, spawn.position.z - hqPosition.z);
         const geo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
         candidates.push({
           lat: geo.lat,
@@ -522,6 +551,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
   }
 
   clearCache(): void {
-    // No cache to clear
+    this.network = null;
+    this.graph.clear();
+    this.nodeIdCounter = 1;
   }
 }

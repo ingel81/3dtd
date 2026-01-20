@@ -5,14 +5,44 @@ import { Injectable } from '@angular/core';
  *
  * All settings can be controlled via URL parameters:
  * - ?devworld              - Activates DevWorld mode
- * - ?devworld&terrain=flat - Terrain preset (flat, default, hills)
+ * - ?devworld&terrain=hills - Terrain preset (flat, default, hills, valleys)
  * - ?devworld&buildings=dense - Building preset (none, sparse, dense, maze)
  * - ?devworld&spawn=north  - Spawn point (north, south, east, west, random)
  * - ?devworld&grid         - Show debug grid overlay
  */
+/**
+ * All available terrain presets
+ */
+export const TERRAIN_PRESETS = [
+  // Basic
+  'flat', 'gentle', 'default',
+  // Slopes
+  'slope_ns', 'slope_ew', 'slope_diag',
+  // Mountains
+  'mountains', 'peaks',
+  // Valleys
+  'crater', 'bowl', 'dome',
+  // Plateaus
+  'mesa', 'terraces', 'steps',
+  // Cellular
+  'canyon', 'cells', 'cracks',
+  // Waves
+  'waves', 'dunes', 'ripples',
+  // Patterns
+  'spiral', 'rings',
+  // Eroded
+  'eroded', 'weathered',
+  // Biomes
+  'islands', 'highlands', 'badlands',
+  // Extreme
+  'chaos', 'alien', 'fractal',
+] as const;
+
+export type TerrainPreset = typeof TERRAIN_PRESETS[number];
+
 export interface DevWorldConfig {
   /** Terrain heightmap preset */
-  terrain: 'flat' | 'default' | 'hills';
+  terrain: TerrainPreset;
 
   /** Building layout preset */
   buildings: 'none' | 'sparse' | 'dense' | 'maze';
@@ -22,6 +52,9 @@ export interface DevWorldConfig {
 
   /** Show debug grid overlay */
   grid: boolean;
+
+  /** Seed for reproducible generation (terrain, streets, buildings) */
+  seed: number;
 }
 
 /**
@@ -29,7 +62,7 @@ export interface DevWorldConfig {
  */
 export const DEV_WORLD_SIZE = 1000; // meters (1km x 1km play area)
 export const DEV_WORLD_HEIGHTMAP_SIZE = 1024; // pixels (~1m resolution)
-export const DEV_WORLD_MAX_HEIGHT = 30; // meters
+export const DEV_WORLD_MAX_HEIGHT = 150; // meters - dramatic terrain!
 
 /**
  * Fake origin for DevWorld (somewhere in the ocean, unlikely to conflict)
@@ -73,13 +106,16 @@ export class DevWorldService {
     this.isActive = params.has('devworld');
 
     if (this.isActive) {
+      const rawTerrain = params.get('terrain');
       this.config = {
-        terrain: this.parseTerrainParam(params.get('terrain')),
+        terrain: this.parseTerrainParam(rawTerrain),
         buildings: this.parseBuildingsParam(params.get('buildings')),
         spawn: this.parseSpawnParam(params.get('spawn')),
         grid: params.has('grid'),
+        seed: this.parseSeedParam(params.get('seed')),
       };
 
+      console.log(`[DevWorld] URL params: terrain="${rawTerrain}" -> "${this.config.terrain}", seed=${this.config.seed}`);
       console.log('[DevWorld] Active with config:', this.config);
     } else {
       // Default config (not used when inactive)
@@ -88,6 +124,7 @@ export class DevWorldService {
         buildings: 'sparse',
         spawn: 'north',
         grid: false,
+        seed: Date.now() % 100000,
       };
     }
   }
@@ -148,10 +185,9 @@ export class DevWorldService {
   getShareUrl(): string {
     const params = new URLSearchParams();
     params.set('devworld', '');
+    params.set('terrain', this.config.terrain);
+    params.set('seed', String(this.config.seed));
 
-    if (this.config.terrain !== 'default') {
-      params.set('terrain', this.config.terrain);
-    }
     if (this.config.buildings !== 'sparse') {
       params.set('buildings', this.config.buildings);
     }
@@ -166,9 +202,9 @@ export class DevWorldService {
     return `${base}?${params.toString()}`;
   }
 
-  private parseTerrainParam(value: string | null): DevWorldConfig['terrain'] {
-    if (value === 'flat' || value === 'hills') {
-      return value;
+  private parseTerrainParam(value: string | null): TerrainPreset {
+    if (value && (TERRAIN_PRESETS as readonly string[]).includes(value)) {
+      return value as TerrainPreset;
     }
     return 'default';
   }
@@ -185,5 +221,46 @@ export class DevWorldService {
       return value;
     }
     return 'north';
+  }
+
+  private parseSeedParam(value: string | null): number {
+    if (value) {
+      const parsed = parseInt(value, 10);
+      if (!isNaN(parsed) && parsed >= 0) {
+        return parsed;
+      }
+    }
+    // Generate random seed if not specified
+    return Math.floor(Math.random() * 100000);
+  }
+
+  /**
+   * Update configuration and URL parameters.
+   * Call this when changing settings from UI.
+   */
+  updateConfig(updates: Partial<DevWorldConfig>): void {
+    Object.assign(this.config, updates);
+    this.updateUrl();
+  }
+
+  /**
+   * Update URL with current config (without reload)
+   */
+  private updateUrl(): void {
+    const url = new URL(window.location.href);
+    url.searchParams.set('terrain', this.config.terrain);
+    url.searchParams.set('seed', String(this.config.seed));
+    url.searchParams.set('buildings', this.config.buildings);
+    if (this.config.spawn !== 'north') {
+      url.searchParams.set('spawn', this.config.spawn);
+    } else {
+      url.searchParams.delete('spawn');
+    }
+    if (this.config.grid) {
+      url.searchParams.set('grid', '');
+    } else {
+      url.searchParams.delete('grid');
+    }
+    window.history.replaceState({}, '', url.toString());
   }
 }
