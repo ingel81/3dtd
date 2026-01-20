@@ -1,24 +1,47 @@
 import * as THREE from 'three';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevWorldService, DEV_WORLD_SIZE, DEV_WORLD_MAX_HEIGHT } from './devworld.service';
-import { getBuildingPreset, BuildingConfig } from './configs/building-presets.config';
+import { TerrainGenerator, TerrainPreset } from './generators/terrain-generator';
+import { BuildingGenerator, BuildingConfig, BuildingDensity } from './generators/building-generator';
+import { StreetGenerator, StreetSegment, SpawnPoint } from './generators/street-generator';
 
 /**
  * DevTerrainProvider
  *
  * Implements TerrainProvider for DevWorld using:
- * - Heightmap-based terrain (PlaneGeometry with vertex displacement)
- * - Box meshes for buildings (LOS blockers)
+ * - Runtime terrain generation (no PNG files!)
+ * - Runtime building placement
  * - Grid shader for visual appearance
+ *
+ * Features:
+ * - Seeded reproducibility (same seed = same world)
+ * - Live regeneration via regenerate() method
  */
+/** Road width in meters */
+const ROAD_WIDTH = 6;
+/** Road thickness (height) in meters */
+const ROAD_THICKNESS = 0.3;
+/** Road height offset above terrain */
+const ROAD_HEIGHT_OFFSET = 0.5;
+
 export class DevTerrainProvider implements TerrainProvider {
   private scene: THREE.Scene | null = null;
   private terrainMesh: THREE.Mesh | null = null;
   private terrainGroup: THREE.Group = new THREE.Group();
   private buildings: THREE.Mesh[] = [];
+  private roadMesh: THREE.Mesh | null = null; // Asphalt road surface
   private heightData: Float32Array | null = null;
   private heightmapSize = 1024;
   private ready = false;
+
+  // Generators
+  private terrainGenerator: TerrainGenerator | null = null;
+  private streetGenerator: StreetGenerator | null = null;
+  private buildingGenerator: BuildingGenerator | null = null;
+
+  // Generated data
+  private streetSegments: StreetSegment[] = [];
+  private spawnPoints: SpawnPoint[] = [];
 
   // Raycaster for terrain queries
   private raycaster = new THREE.Raycaster();
@@ -38,25 +61,22 @@ export class DevTerrainProvider implements TerrainProvider {
   private heightCache = new Map<string, number>();
   private readonly CACHE_PRECISION = 5; // decimal places
 
+  // Shared building material
+  private buildingMaterial: THREE.MeshStandardMaterial | null = null;
+
+  // Callback for street refresh (notifies DevStreetProvider)
+  private onStreetRefreshCallback: ((segments: StreetSegment[], spawns: SpawnPoint[]) => void) | null = null;
+
   constructor(private devWorld: DevWorldService) {}
 
   async initialize(scene: THREE.Scene): Promise<void> {
     this.scene = scene;
 
-    console.log('[DevTerrain] Initializing...');
+    console.log('[DevTerrain] Initializing with runtime generation...');
     const startTime = performance.now();
 
-    // Load heightmap
-    await this.loadHeightmap();
-
-    // Create terrain mesh
-    this.createTerrainMesh();
-
-    // Add buildings
-    this.createBuildings();
-
-    // Build cached raycast targets (for LOS checks)
-    this.rebuildRaycastTargets();
+    // Generate everything from seed
+    await this.regenerate();
 
     // Add to scene
     scene.add(this.terrainGroup);
@@ -65,53 +85,162 @@ export class DevTerrainProvider implements TerrainProvider {
     console.log(`[DevTerrain] Initialized in ${(performance.now() - startTime).toFixed(0)}ms`);
   }
 
-  private async loadHeightmap(): Promise<void> {
-    const preset = this.devWorld.config.terrain;
-    const url = `/assets/devworld/heightmaps/${preset}.png`;
-
-    try {
-      const image = await this.loadImage(url);
-      this.heightData = this.extractHeightData(image);
-      this.heightmapSize = image.width;
-      console.log(`[DevTerrain] Loaded heightmap: ${preset} (${this.heightmapSize}x${this.heightmapSize})`);
-    } catch {
-      console.warn(`[DevTerrain] Failed to load heightmap ${url}, generating flat terrain`);
-      this.generateFlatHeightmap();
-    }
+  /**
+   * Set callback for street refresh notifications.
+   * Called when streets are regenerated.
+   */
+  setStreetRefreshCallback(callback: (segments: StreetSegment[], spawns: SpawnPoint[]) => void): void {
+    this.onStreetRefreshCallback = callback;
   }
 
-  private loadImage(url: string): Promise<HTMLImageElement> {
-    return new Promise((resolve, reject) => {
-      const img = new Image();
-      img.onload = () => resolve(img);
-      img.onerror = () => reject(new Error(`Failed to load image: ${url}`));
-      img.src = url;
+  /**
+   * Regenerate entire world with current config.
+   * Called on init AND on debug panel "Regenerate" button.
+   *
+   * Order matters:
+   * 1. Terrain first - so we have heights to sample
+   * 2. Streets second - can follow terrain contours
+   * 3. Buildings last - placed along streets on terrain
+   */
+  async regenerate(): Promise<void> {
+    const { terrain, seed, buildings } = this.devWorld.config;
+
+    console.log(`[DevTerrain] Regenerating: preset=${terrain}, seed=${seed}, buildings=${buildings}`);
+    const startTime = performance.now();
+
+    // Clear existing
+    this.clearWorld();
+
+    // Map buildings preset to density
+    const buildingDensity = this.mapBuildingPresetToDensity(buildings);
+
+    // Phase 1: Generate terrain FIRST so we have heights to sample
+    this.terrainGenerator = new TerrainGenerator({
+      preset: terrain as TerrainPreset,
+      seed,
+      size: 1024,
+      worldSize: DEV_WORLD_SIZE,
+      maxHeight: DEV_WORLD_MAX_HEIGHT,
     });
-  }
+    this.heightData = this.terrainGenerator.generate();
+    this.heightmapSize = 1024;
 
-  private extractHeightData(image: HTMLImageElement): Float32Array {
-    const canvas = document.createElement('canvas');
-    canvas.width = image.width;
-    canvas.height = image.height;
-    const ctx = canvas.getContext('2d')!;
-    ctx.drawImage(image, 0, 0);
+    // Phase 2: Generate streets - now terrainSampler works!
+    this.streetGenerator = new StreetGenerator({
+      seed,
+      worldSize: DEV_WORLD_SIZE,
+      hqPosition: { x: 0, z: 0 },
+      terrainSampler: (x, z) => this.getHeightAtLocalDirect(x, z),
+      minSpawnDistance: 300,
+      maxSpawnDistance: 450,
+    });
+    const streetResult = this.streetGenerator.generate();
+    this.streetSegments = streetResult.segments;
+    this.spawnPoints = streetResult.spawns;
 
-    const imageData = ctx.getImageData(0, 0, image.width, image.height);
-    const data = new Float32Array(image.width * image.height);
+    // Phase 3: Generate buildings - placed along streets on terrain
+    this.buildingGenerator = new BuildingGenerator({
+      seed,
+      density: buildingDensity,
+      streetSegments: this.streetSegments,
+      worldSize: DEV_WORLD_SIZE,
+      hqPosition: { x: 0, z: 0 },
+      hqSafeRadius: 60,
+      terrainSampler: (x, z) => this.getHeightAtLocalDirect(x, z),
+    });
+    const buildingConfigs = this.buildingGenerator.generate();
 
-    for (let i = 0; i < data.length; i++) {
-      // Use red channel (grayscale), normalize to 0-1, then scale to max height
-      const value = imageData.data[i * 4] / 255;
-      data[i] = value * DEV_WORLD_MAX_HEIGHT;
+    // Phase 4: Create meshes
+    this.createTerrainMesh();
+    this.createRoadMesh(); // Asphalt roads on terrain
+    this.createBuildings(buildingConfigs);
+
+    // Phase 5: Rebuild raycast targets
+    this.rebuildRaycastTargets();
+
+    // Phase 6: Clear height cache
+    this.heightCache.clear();
+
+    // Phase 7: Notify street provider
+    if (this.onStreetRefreshCallback) {
+      this.onStreetRefreshCallback(this.streetSegments, this.spawnPoints);
     }
 
-    return data;
+    console.log(
+      `[DevTerrain] Regenerated in ${(performance.now() - startTime).toFixed(0)}ms: ` +
+      `${this.streetSegments.length} streets, ${buildingConfigs.length} buildings`
+    );
   }
 
-  private generateFlatHeightmap(): void {
-    this.heightmapSize = 1024;
-    this.heightData = new Float32Array(this.heightmapSize * this.heightmapSize);
-    // All zeros = flat terrain
+  /**
+   * Get generated street segments.
+   */
+  getStreetSegments(): StreetSegment[] {
+    return this.streetSegments;
+  }
+
+  /**
+   * Get generated spawn points.
+   */
+  getSpawnPoints(): SpawnPoint[] {
+    return this.spawnPoints;
+  }
+
+  private mapBuildingPresetToDensity(preset: string): BuildingDensity {
+    switch (preset) {
+      case 'none':
+        return 'none';
+      case 'sparse':
+        return 'sparse';
+      case 'dense':
+      case 'maze':
+        return 'dense';
+      default:
+        return 'medium';
+    }
+  }
+
+  private clearWorld(): void {
+    // Remove terrain mesh
+    if (this.terrainMesh) {
+      this.terrainGroup.remove(this.terrainMesh);
+      this.terrainMesh.geometry.dispose();
+      this.terrainMesh = null;
+    }
+
+    // Remove road mesh
+    if (this.roadMesh) {
+      this.terrainGroup.remove(this.roadMesh);
+      this.roadMesh.geometry.dispose();
+      (this.roadMesh.material as THREE.Material).dispose();
+      this.roadMesh = null;
+    }
+
+    // Remove buildings
+    for (const building of this.buildings) {
+      this.terrainGroup.remove(building);
+      building.geometry.dispose();
+    }
+    this.buildings = [];
+
+    // Clear data
+    this.heightData = null;
+    this.streetSegments = [];
+    this.spawnPoints = [];
+    this.raycastTargets = [];
+  }
+
+  /**
+   * Direct height sampling (before mesh is created, for terrain generation)
+   */
+  private getHeightAtLocalDirect(x: number, z: number): number {
+    if (!this.heightData) return 0;
+
+    const halfSize = DEV_WORLD_SIZE / 2;
+    const u = (x + halfSize) / DEV_WORLD_SIZE;
+    const v = (z + halfSize) / DEV_WORLD_SIZE;
+
+    return this.sampleHeightmap(u, v);
   }
 
   private createTerrainMesh(): void {
@@ -162,6 +291,115 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   /**
+   * Create road mesh from street segments (asphalt surface on terrain)
+   *
+   * Uses circle stamps at regular intervals along each segment for smooth
+   * terrain following and proper junction coverage.
+   */
+  private createRoadMesh(): void {
+    if (this.streetSegments.length === 0) return;
+
+    // Remove existing road mesh if any
+    if (this.roadMesh) {
+      this.terrainGroup.remove(this.roadMesh);
+      this.roadMesh.geometry.dispose();
+      (this.roadMesh.material as THREE.Material).dispose();
+      this.roadMesh = null;
+    }
+
+    const radius = ROAD_WIDTH / 2;
+    const subdivisionLength = 1; // Sample every 1m
+    const circleSegments = 8; // Octagon approximation for circles
+    const vertices: number[] = [];
+    const indices: number[] = [];
+
+    // Collect all road points (with duplicates at junctions - that's fine)
+    const roadPoints: { x: number; z: number }[] = [];
+
+    for (const segment of this.streetSegments) {
+      const x1 = segment.from[0];
+      const z1 = segment.from[1];
+      const x2 = segment.to[0];
+      const z2 = segment.to[1];
+
+      const dx = x2 - x1;
+      const dz = z2 - z1;
+      const segmentLength = Math.sqrt(dx * dx + dz * dz);
+      if (segmentLength < 0.5) continue;
+
+      // Add points along segment
+      const numPoints = Math.max(2, Math.ceil(segmentLength / subdivisionLength));
+      for (let i = 0; i <= numPoints; i++) {
+        const t = i / numPoints;
+        roadPoints.push({
+          x: x1 + dx * t,
+          z: z1 + dz * t
+        });
+      }
+    }
+
+    // Create FLAT circle (disc) at each road point
+    // Use RAYCAST against terrain mesh for accurate height (not heightmap!)
+    const rayOrigin = new THREE.Vector3();
+    const rayDir = new THREE.Vector3(0, -1, 0);
+    const raycaster = new THREE.Raycaster();
+
+    for (const point of roadPoints) {
+      // Raycast from above to get exact terrain mesh height
+      rayOrigin.set(point.x, 500, point.z); // Start high above
+      raycaster.set(rayOrigin, rayDir);
+
+      let terrainY = 0;
+      if (this.terrainMesh) {
+        const hits = raycaster.intersectObject(this.terrainMesh);
+        if (hits.length > 0) {
+          terrainY = hits[0].point.y;
+        }
+      }
+
+      const discY = terrainY + ROAD_HEIGHT_OFFSET;
+      const baseIdx = vertices.length / 3;
+
+      // Center vertex
+      vertices.push(point.x, discY, point.z);
+
+      // Circle edge vertices - all at same Y as center
+      for (let i = 0; i < circleSegments; i++) {
+        const angle = (i / circleSegments) * Math.PI * 2;
+        const cx = point.x + Math.cos(angle) * radius;
+        const cz = point.z + Math.sin(angle) * radius;
+        vertices.push(cx, discY, cz);
+      }
+
+      // Create triangles (fan from center)
+      for (let i = 0; i < circleSegments; i++) {
+        const next = (i + 1) % circleSegments;
+        indices.push(baseIdx, baseIdx + 1 + i, baseIdx + 1 + next);
+      }
+    }
+
+    if (vertices.length === 0) return;
+
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setIndex(indices);
+    geometry.computeVertexNormals();
+
+    // Asphalt gray material
+    const material = new THREE.MeshBasicMaterial({
+      color: 0x3a3a3a,
+      side: THREE.DoubleSide,
+    });
+
+    this.roadMesh = new THREE.Mesh(geometry, material);
+    this.roadMesh.name = 'DevWorldRoads';
+    this.roadMesh.renderOrder = 1;
+    this.terrainGroup.add(this.roadMesh);
+
+    console.log(`[DevTerrain] Created road mesh: ${roadPoints.length} discs, ${indices.length / 3} triangles`);
+  }
+
+  /**
    * Sample heightmap with bilinear interpolation
    */
   private sampleHeightmap(u: number, v: number): number {
@@ -198,83 +436,130 @@ export class DevTerrainProvider implements TerrainProvider {
   private createGridMaterial(): THREE.ShaderMaterial {
     return new THREE.ShaderMaterial({
       uniforms: {
-        baseColor: { value: new THREE.Color(0x2a3a2a) }, // Dark green
-        gridColor: { value: new THREE.Color(0x4a5a4a) }, // Lighter green
-        majorGridColor: { value: new THREE.Color(0x6a7a6a) }, // Even lighter
+        maxHeight: { value: DEV_WORLD_MAX_HEIGHT },
+        // Height-based colors
+        grassColor: { value: new THREE.Color(0x3d6b3d) },    // Dark green grass
+        dirtColor: { value: new THREE.Color(0x6b5a3d) },     // Brown dirt
+        rockColor: { value: new THREE.Color(0x6a6a6a) },     // Gray rock
+        snowColor: { value: new THREE.Color(0xdedede) },     // Light snow/peak
+        // Grid colors (subtle)
+        gridColor: { value: new THREE.Color(0x4a5a4a) },
       },
       vertexShader: `
+        #include <common>
+        #include <logdepthbuf_pars_vertex>
+
         varying vec3 vWorldPosition;
         varying vec3 vNormal;
+        varying float vHeight;
 
         void main() {
           vec4 worldPos = modelMatrix * vec4(position, 1.0);
           vWorldPosition = worldPos.xyz;
+          vHeight = position.y; // Local Y = height
           vNormal = normalize(normalMatrix * normal);
           gl_Position = projectionMatrix * viewMatrix * worldPos;
+
+          #include <logdepthbuf_vertex>
         }
       `,
       fragmentShader: `
-        uniform vec3 baseColor;
+        #include <logdepthbuf_pars_fragment>
+
+        uniform float maxHeight;
+        uniform vec3 grassColor;
+        uniform vec3 dirtColor;
+        uniform vec3 rockColor;
+        uniform vec3 snowColor;
         uniform vec3 gridColor;
-        uniform vec3 majorGridColor;
 
         varying vec3 vWorldPosition;
         varying vec3 vNormal;
+        varying float vHeight;
 
         void main() {
-          // Grid lines at 10m intervals
-          float grid10 = step(0.92, fract(vWorldPosition.x / 10.0)) +
-                         step(0.92, fract(vWorldPosition.z / 10.0));
-          grid10 = clamp(grid10, 0.0, 1.0);
+          // Normalize height to 0-1 range
+          float h = clamp(vHeight / maxHeight, 0.0, 1.0);
 
-          // Major grid lines at 50m intervals
-          float grid50 = step(0.96, fract(vWorldPosition.x / 50.0)) +
-                         step(0.96, fract(vWorldPosition.z / 50.0));
+          // Height-based color blending with smooth transitions
+          vec3 terrainColor;
+          if (h < 0.25) {
+            // Low: grass
+            terrainColor = grassColor;
+          } else if (h < 0.45) {
+            // Transition: grass to dirt
+            float t = (h - 0.25) / 0.2;
+            terrainColor = mix(grassColor, dirtColor, t);
+          } else if (h < 0.65) {
+            // Mid: dirt
+            terrainColor = dirtColor;
+          } else if (h < 0.85) {
+            // Transition: dirt to rock
+            float t = (h - 0.65) / 0.2;
+            terrainColor = mix(dirtColor, rockColor, t);
+          } else {
+            // High: rock to snow
+            float t = (h - 0.85) / 0.15;
+            terrainColor = mix(rockColor, snowColor, min(t, 1.0));
+          }
+
+          // Slope-based variation (steeper = more rock)
+          float slope = 1.0 - abs(vNormal.y);
+          terrainColor = mix(terrainColor, rockColor, slope * 0.5);
+
+          // Subtle grid overlay (50m major lines only)
+          float grid50 = step(0.97, fract(vWorldPosition.x / 50.0)) +
+                         step(0.97, fract(vWorldPosition.z / 50.0));
           grid50 = clamp(grid50, 0.0, 1.0);
+          terrainColor = mix(terrainColor, gridColor, grid50 * 0.3);
 
-          // Simple directional lighting
-          vec3 lightDir = normalize(vec3(0.5, 1.0, 0.3));
-          float diffuse = max(dot(vNormal, lightDir), 0.0) * 0.5 + 0.5;
+          // Lighting: sun + ambient
+          vec3 lightDir = normalize(vec3(0.4, 0.8, 0.3));
+          float NdotL = max(dot(vNormal, lightDir), 0.0);
+          float diffuse = NdotL * 0.6 + 0.4; // 40% ambient
 
-          // Combine colors
-          vec3 color = baseColor;
-          color = mix(color, gridColor, grid10 * 0.4);
-          color = mix(color, majorGridColor, grid50 * 0.6);
-          color *= diffuse;
+          // Slight fog/atmosphere at distance (optional depth cue)
+          float fogFactor = smoothstep(800.0, 1500.0, length(vWorldPosition.xz));
+          vec3 fogColor = vec3(0.7, 0.75, 0.8);
 
-          gl_FragColor = vec4(color, 1.0);
+          vec3 finalColor = terrainColor * diffuse;
+          finalColor = mix(finalColor, fogColor, fogFactor * 0.3);
+
+          gl_FragColor = vec4(finalColor, 1.0);
+
+          #include <logdepthbuf_fragment>
         }
       `,
     });
   }
 
-  private createBuildings(): void {
-    const preset = this.devWorld.config.buildings;
-    const buildingConfigs = getBuildingPreset(preset);
-
-    const material = new THREE.MeshStandardMaterial({
-      color: 0x555566,
-      roughness: 0.8,
-      metalness: 0.1,
-    });
+  private createBuildings(buildingConfigs: BuildingConfig[]): void {
+    // Create shared material if needed
+    if (!this.buildingMaterial) {
+      this.buildingMaterial = new THREE.MeshStandardMaterial({
+        color: 0x555566,
+        roughness: 0.8,
+        metalness: 0.1,
+      });
+    }
 
     for (const config of buildingConfigs) {
-      const building = this.createBuilding(config, material);
+      const building = this.createBuilding(config);
       this.buildings.push(building);
       this.terrainGroup.add(building);
     }
 
-    console.log(`[DevTerrain] Created ${this.buildings.length} buildings (preset: ${preset})`);
+    console.log(`[DevTerrain] Created ${this.buildings.length} buildings`);
   }
 
-  private createBuilding(config: BuildingConfig, material: THREE.Material): THREE.Mesh {
+  private createBuilding(config: BuildingConfig): THREE.Mesh {
     const { width, height, depth } = config.size;
     const geometry = new THREE.BoxGeometry(width, height, depth);
 
     // Get terrain height at building position
     const terrainHeight = this.getHeightAtLocal(config.position.x, config.position.z) || 0;
 
-    const mesh = new THREE.Mesh(geometry, material);
+    const mesh = new THREE.Mesh(geometry, this.buildingMaterial!);
     mesh.position.set(
       config.position.x,
       terrainHeight + height / 2, // Place on top of terrain
@@ -314,7 +599,7 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   getHeightAtLocal(x: number, z: number): number | null {
-    if (!this.heightData) return null;
+    if (!this.terrainMesh) return null;
 
     // Check cache
     const cacheKey = `${x.toFixed(this.CACHE_PRECISION)}_${z.toFixed(this.CACHE_PRECISION)}`;
@@ -327,15 +612,25 @@ export class DevTerrainProvider implements TerrainProvider {
       return null;
     }
 
-    // Map to UV coordinates
-    const u = (x + halfSize) / DEV_WORLD_SIZE;
-    const v = (z + halfSize) / DEV_WORLD_SIZE;
+    // Use raycast against terrain mesh for accurate mesh surface height
+    // This avoids mismatch between heightmap interpolation and mesh triangles
+    const rayResult = this.raycastDown(x, z);
+    if (rayResult) {
+      const height = rayResult.y;
+      this.heightCache.set(cacheKey, height);
+      return height;
+    }
 
-    const height = this.sampleHeightmap(u, v);
+    // Fallback to heightmap sampling if raycast misses (shouldn't happen)
+    if (this.heightData) {
+      const u = (x + halfSize) / DEV_WORLD_SIZE;
+      const v = (z + halfSize) / DEV_WORLD_SIZE;
+      const height = this.sampleHeightmap(u, v);
+      this.heightCache.set(cacheKey, height);
+      return height;
+    }
 
-    // Cache result
-    this.heightCache.set(cacheKey, height);
-    return height;
+    return null;
   }
 
   raycastFromScreen(
@@ -452,6 +747,11 @@ export class DevTerrainProvider implements TerrainProvider {
 
     for (const building of this.buildings) {
       building.geometry.dispose();
+    }
+
+    if (this.buildingMaterial) {
+      this.buildingMaterial.dispose();
+      this.buildingMaterial = null;
     }
 
     if (this.scene && this.terrainGroup.parent === this.scene) {

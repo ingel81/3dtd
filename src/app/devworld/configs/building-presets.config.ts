@@ -20,112 +20,153 @@ export interface BuildingConfig {
 
 /**
  * Sparse preset: Buildings spread across 1km x 1km map
- * Good for basic LOS testing with clear sight lines
+ * Larger buildings, moderate coverage
  */
 export const BUILDINGS_SPARSE: BuildingConfig[] = [
-  // Far north buildings
-  { id: 'b1', position: { x: 150, z: 380 }, size: { width: 40, height: 20, depth: 35 } },
-  { id: 'b2', position: { x: -150, z: 380 }, size: { width: 35, height: 18, depth: 30 } },
+  // Far north - large warehouses
+  { id: 'b1', position: { x: 150, z: 350 }, size: { width: 60, height: 25, depth: 50 } },
+  { id: 'b2', position: { x: -150, z: 350 }, size: { width: 55, height: 22, depth: 45 } },
+  { id: 'b3', position: { x: 350, z: 350 }, size: { width: 50, height: 30, depth: 45 } },
+  { id: 'b4', position: { x: -350, z: 350 }, size: { width: 50, height: 28, depth: 45 } },
 
-  // North-central area
-  { id: 'b3', position: { x: 100, z: 220 }, size: { width: 30, height: 15, depth: 25 } },
-  { id: 'b4', position: { x: -100, z: 220 }, size: { width: 30, height: 16, depth: 25 } },
-  { id: 'b5', position: { x: 300, z: 220 }, size: { width: 35, height: 22, depth: 30 } },
-  { id: 'b6', position: { x: -300, z: 220 }, size: { width: 35, height: 20, depth: 30 } },
+  // North-central - office blocks
+  { id: 'b5', position: { x: 100, z: 150 }, size: { width: 45, height: 35, depth: 40 } },
+  { id: 'b6', position: { x: -100, z: 150 }, size: { width: 45, height: 32, depth: 40 } },
+  { id: 'b7', position: { x: 300, z: 150 }, size: { width: 55, height: 28, depth: 50 } },
+  { id: 'b8', position: { x: -300, z: 150 }, size: { width: 55, height: 30, depth: 50 } },
 
-  // Central area (around HQ)
-  { id: 'b7', position: { x: 80, z: 50 }, size: { width: 25, height: 12, depth: 20 } },
-  { id: 'b8', position: { x: -80, z: 50 }, size: { width: 25, height: 14, depth: 20 } },
-  { id: 'b9', position: { x: 80, z: -50 }, size: { width: 25, height: 13, depth: 20 } },
-  { id: 'b10', position: { x: -80, z: -50 }, size: { width: 25, height: 11, depth: 20 } },
+  // Central area - mixed use (around HQ at 0,0)
+  { id: 'b9', position: { x: 100, z: 50 }, size: { width: 40, height: 20, depth: 35 } },
+  { id: 'b10', position: { x: -100, z: 50 }, size: { width: 40, height: 22, depth: 35 } },
+  { id: 'b11', position: { x: 100, z: -50 }, size: { width: 40, height: 18, depth: 35 } },
+  { id: 'b12', position: { x: -100, z: -50 }, size: { width: 40, height: 24, depth: 35 } },
 
-  // South-central area
-  { id: 'b11', position: { x: 100, z: -220 }, size: { width: 30, height: 15, depth: 25 } },
-  { id: 'b12', position: { x: -100, z: -220 }, size: { width: 30, height: 17, depth: 25 } },
-  { id: 'b13', position: { x: 300, z: -220 }, size: { width: 35, height: 19, depth: 30 } },
-  { id: 'b14', position: { x: -300, z: -220 }, size: { width: 35, height: 21, depth: 30 } },
+  // South-central - industrial
+  { id: 'b13', position: { x: 100, z: -150 }, size: { width: 50, height: 20, depth: 45 } },
+  { id: 'b14', position: { x: -100, z: -150 }, size: { width: 50, height: 22, depth: 45 } },
+  { id: 'b15', position: { x: 300, z: -150 }, size: { width: 60, height: 25, depth: 55 } },
+  { id: 'b16', position: { x: -300, z: -150 }, size: { width: 60, height: 28, depth: 55 } },
 
-  // Far south buildings
-  { id: 'b15', position: { x: 150, z: -380 }, size: { width: 40, height: 18, depth: 35 } },
-  { id: 'b16', position: { x: -150, z: -380 }, size: { width: 35, height: 20, depth: 30 } },
+  // Far south - large factories
+  { id: 'b17', position: { x: 150, z: -350 }, size: { width: 70, height: 22, depth: 60 } },
+  { id: 'b18', position: { x: -150, z: -350 }, size: { width: 65, height: 25, depth: 55 } },
+  { id: 'b19', position: { x: 350, z: -350 }, size: { width: 55, height: 30, depth: 50 } },
+  { id: 'b20', position: { x: -350, z: -350 }, size: { width: 55, height: 26, depth: 50 } },
+
+  // Extra corner buildings
+  { id: 'b21', position: { x: 350, z: 100 }, size: { width: 45, height: 35, depth: 40 } },
+  { id: 'b22', position: { x: -350, z: 100 }, size: { width: 45, height: 32, depth: 40 } },
+  { id: 'b23', position: { x: 350, z: -100 }, size: { width: 45, height: 30, depth: 40 } },
+  { id: 'b24', position: { x: -350, z: -100 }, size: { width: 45, height: 28, depth: 40 } },
 ];
 
 /**
- * Dense preset: Many buildings for urban warfare, scaled for 1km map
+ * Dense preset: Many buildings for urban warfare
+ * Tall skyscrapers and dense city blocks
  */
 export const BUILDINGS_DENSE: BuildingConfig[] = [
-  // Far north district (z = 350-400)
-  { id: 'd1', position: { x: 300, z: 380 }, size: { width: 40, height: 25, depth: 35 } },
-  { id: 'd2', position: { x: 150, z: 370 }, size: { width: 35, height: 22, depth: 30 } },
-  { id: 'd3', position: { x: 0, z: 380 }, size: { width: 45, height: 28, depth: 40 } },
-  { id: 'd4', position: { x: -150, z: 370 }, size: { width: 35, height: 20, depth: 30 } },
-  { id: 'd5', position: { x: -300, z: 380 }, size: { width: 40, height: 24, depth: 35 } },
+  // Far north district - industrial zone
+  { id: 'd1', position: { x: 350, z: 350 }, size: { width: 60, height: 35, depth: 55 } },
+  { id: 'd2', position: { x: 200, z: 350 }, size: { width: 50, height: 40, depth: 45 } },
+  { id: 'd3', position: { x: 50, z: 350 }, size: { width: 55, height: 45, depth: 50 } },
+  { id: 'd4', position: { x: -50, z: 350 }, size: { width: 55, height: 42, depth: 50 } },
+  { id: 'd5', position: { x: -200, z: 350 }, size: { width: 50, height: 38, depth: 45 } },
+  { id: 'd6', position: { x: -350, z: 350 }, size: { width: 60, height: 36, depth: 55 } },
 
-  // North district (z = 200-250)
-  { id: 'd6', position: { x: 250, z: 220 }, size: { width: 35, height: 18, depth: 30 } },
-  { id: 'd7', position: { x: 100, z: 230 }, size: { width: 30, height: 20, depth: 25 } },
-  { id: 'd8', position: { x: -100, z: 230 }, size: { width: 30, height: 19, depth: 25 } },
-  { id: 'd9', position: { x: -250, z: 220 }, size: { width: 35, height: 21, depth: 30 } },
+  // North district - office towers
+  { id: 'd7', position: { x: 300, z: 200 }, size: { width: 45, height: 50, depth: 40 } },
+  { id: 'd8', position: { x: 150, z: 200 }, size: { width: 40, height: 55, depth: 35 } },
+  { id: 'd9', position: { x: 50, z: 200 }, size: { width: 42, height: 48, depth: 38 } },
+  { id: 'd10', position: { x: -50, z: 200 }, size: { width: 42, height: 52, depth: 38 } },
+  { id: 'd11', position: { x: -150, z: 200 }, size: { width: 40, height: 46, depth: 35 } },
+  { id: 'd12', position: { x: -300, z: 200 }, size: { width: 45, height: 54, depth: 40 } },
 
-  // Central north (z = 80-120)
-  { id: 'd10', position: { x: 150, z: 100 }, size: { width: 25, height: 15, depth: 20 } },
-  { id: 'd11', position: { x: 50, z: 90 }, size: { width: 28, height: 16, depth: 22 } },
-  { id: 'd12', position: { x: -50, z: 90 }, size: { width: 28, height: 17, depth: 22 } },
-  { id: 'd13', position: { x: -150, z: 100 }, size: { width: 25, height: 14, depth: 20 } },
+  // Central north - commercial
+  { id: 'd13', position: { x: 250, z: 100 }, size: { width: 35, height: 30, depth: 30 } },
+  { id: 'd14', position: { x: 100, z: 100 }, size: { width: 38, height: 35, depth: 32 } },
+  { id: 'd15', position: { x: -100, z: 100 }, size: { width: 38, height: 32, depth: 32 } },
+  { id: 'd16', position: { x: -250, z: 100 }, size: { width: 35, height: 28, depth: 30 } },
 
-  // Central south (z = -80 to -120)
-  { id: 'd14', position: { x: 150, z: -100 }, size: { width: 25, height: 16, depth: 20 } },
-  { id: 'd15', position: { x: 50, z: -90 }, size: { width: 28, height: 15, depth: 22 } },
-  { id: 'd16', position: { x: -50, z: -90 }, size: { width: 28, height: 18, depth: 22 } },
-  { id: 'd17', position: { x: -150, z: -100 }, size: { width: 25, height: 14, depth: 20 } },
+  // Central - downtown skyscrapers
+  { id: 'd17', position: { x: 150, z: 0 }, size: { width: 35, height: 60, depth: 30 } },
+  { id: 'd18', position: { x: -150, z: 0 }, size: { width: 35, height: 65, depth: 30 } },
+  { id: 'd19', position: { x: 300, z: 0 }, size: { width: 40, height: 45, depth: 35 } },
+  { id: 'd20', position: { x: -300, z: 0 }, size: { width: 40, height: 48, depth: 35 } },
 
-  // South district (z = -200 to -250)
-  { id: 'd18', position: { x: 250, z: -220 }, size: { width: 35, height: 19, depth: 30 } },
-  { id: 'd19', position: { x: 100, z: -230 }, size: { width: 30, height: 17, depth: 25 } },
-  { id: 'd20', position: { x: -100, z: -230 }, size: { width: 30, height: 20, depth: 25 } },
-  { id: 'd21', position: { x: -250, z: -220 }, size: { width: 35, height: 18, depth: 30 } },
+  // Central south
+  { id: 'd21', position: { x: 250, z: -100 }, size: { width: 35, height: 32, depth: 30 } },
+  { id: 'd22', position: { x: 100, z: -100 }, size: { width: 38, height: 28, depth: 32 } },
+  { id: 'd23', position: { x: -100, z: -100 }, size: { width: 38, height: 34, depth: 32 } },
+  { id: 'd24', position: { x: -250, z: -100 }, size: { width: 35, height: 30, depth: 30 } },
 
-  // Far south district (z = -350 to -400)
-  { id: 'd22', position: { x: 300, z: -380 }, size: { width: 40, height: 23, depth: 35 } },
-  { id: 'd23', position: { x: 150, z: -370 }, size: { width: 35, height: 21, depth: 30 } },
-  { id: 'd24', position: { x: 0, z: -380 }, size: { width: 45, height: 26, depth: 40 } },
-  { id: 'd25', position: { x: -150, z: -370 }, size: { width: 35, height: 19, depth: 30 } },
-  { id: 'd26', position: { x: -300, z: -380 }, size: { width: 40, height: 22, depth: 35 } },
+  // South district
+  { id: 'd25', position: { x: 300, z: -200 }, size: { width: 45, height: 42, depth: 40 } },
+  { id: 'd26', position: { x: 150, z: -200 }, size: { width: 40, height: 38, depth: 35 } },
+  { id: 'd27', position: { x: 50, z: -200 }, size: { width: 42, height: 44, depth: 38 } },
+  { id: 'd28', position: { x: -50, z: -200 }, size: { width: 42, height: 40, depth: 38 } },
+  { id: 'd29', position: { x: -150, z: -200 }, size: { width: 40, height: 46, depth: 35 } },
+  { id: 'd30', position: { x: -300, z: -200 }, size: { width: 45, height: 36, depth: 40 } },
+
+  // Far south district
+  { id: 'd31', position: { x: 350, z: -350 }, size: { width: 60, height: 30, depth: 55 } },
+  { id: 'd32', position: { x: 200, z: -350 }, size: { width: 50, height: 35, depth: 45 } },
+  { id: 'd33', position: { x: 50, z: -350 }, size: { width: 55, height: 38, depth: 50 } },
+  { id: 'd34', position: { x: -50, z: -350 }, size: { width: 55, height: 40, depth: 50 } },
+  { id: 'd35', position: { x: -200, z: -350 }, size: { width: 50, height: 32, depth: 45 } },
+  { id: 'd36', position: { x: -350, z: -350 }, size: { width: 60, height: 34, depth: 55 } },
+
+  // Extra fill buildings
+  { id: 'd37', position: { x: 380, z: 280 }, size: { width: 35, height: 25, depth: 30 } },
+  { id: 'd38', position: { x: -380, z: 280 }, size: { width: 35, height: 28, depth: 30 } },
+  { id: 'd39', position: { x: 380, z: -280 }, size: { width: 35, height: 26, depth: 30 } },
+  { id: 'd40', position: { x: -380, z: -280 }, size: { width: 35, height: 24, depth: 30 } },
 ];
 
 /**
- * Maze preset: Long walls creating corridors, scaled for 1km map
+ * Maze preset: Long walls creating corridors
  */
 export const BUILDINGS_MAZE: BuildingConfig[] = [
   // Outer perimeter walls (with gaps at streets)
-  { id: 'm1', position: { x: 420, z: 250 }, size: { width: 15, height: 18, depth: 300 } },
-  { id: 'm2', position: { x: 420, z: -250 }, size: { width: 15, height: 18, depth: 300 } },
-  { id: 'm3', position: { x: -420, z: 250 }, size: { width: 15, height: 18, depth: 300 } },
-  { id: 'm4', position: { x: -420, z: -250 }, size: { width: 15, height: 18, depth: 300 } },
+  { id: 'm1', position: { x: 420, z: 250 }, size: { width: 20, height: 25, depth: 300 } },
+  { id: 'm2', position: { x: 420, z: -250 }, size: { width: 20, height: 25, depth: 300 } },
+  { id: 'm3', position: { x: -420, z: 250 }, size: { width: 20, height: 25, depth: 300 } },
+  { id: 'm4', position: { x: -420, z: -250 }, size: { width: 20, height: 25, depth: 300 } },
 
-  // Horizontal maze walls
-  { id: 'm5', position: { x: 200, z: 300 }, size: { width: 300, height: 15, depth: 12 } },
-  { id: 'm6', position: { x: -200, z: 300 }, size: { width: 300, height: 15, depth: 12 } },
-  { id: 'm7', position: { x: 150, z: 100 }, size: { width: 250, height: 12, depth: 10 } },
-  { id: 'm8', position: { x: -150, z: 100 }, size: { width: 250, height: 12, depth: 10 } },
-  { id: 'm9', position: { x: 150, z: -100 }, size: { width: 250, height: 12, depth: 10 } },
-  { id: 'm10', position: { x: -150, z: -100 }, size: { width: 250, height: 12, depth: 10 } },
-  { id: 'm11', position: { x: 200, z: -300 }, size: { width: 300, height: 15, depth: 12 } },
-  { id: 'm12', position: { x: -200, z: -300 }, size: { width: 300, height: 15, depth: 12 } },
+  // Horizontal maze walls - north
+  { id: 'm5', position: { x: 200, z: 300 }, size: { width: 300, height: 20, depth: 15 } },
+  { id: 'm6', position: { x: -200, z: 300 }, size: { width: 300, height: 20, depth: 15 } },
+
+  // Inner horizontal walls
+  { id: 'm7', position: { x: 150, z: 150 }, size: { width: 250, height: 18, depth: 12 } },
+  { id: 'm8', position: { x: -150, z: 150 }, size: { width: 250, height: 18, depth: 12 } },
+  { id: 'm9', position: { x: 150, z: -150 }, size: { width: 250, height: 18, depth: 12 } },
+  { id: 'm10', position: { x: -150, z: -150 }, size: { width: 250, height: 18, depth: 12 } },
+
+  // Horizontal maze walls - south
+  { id: 'm11', position: { x: 200, z: -300 }, size: { width: 300, height: 20, depth: 15 } },
+  { id: 'm12', position: { x: -200, z: -300 }, size: { width: 300, height: 20, depth: 15 } },
 
   // Vertical maze walls
-  { id: 'm13', position: { x: 100, z: 200 }, size: { width: 12, height: 12, depth: 150 } },
-  { id: 'm14', position: { x: -100, z: 200 }, size: { width: 12, height: 12, depth: 150 } },
-  { id: 'm15', position: { x: 100, z: -200 }, size: { width: 12, height: 12, depth: 150 } },
-  { id: 'm16', position: { x: -100, z: -200 }, size: { width: 12, height: 12, depth: 150 } },
+  { id: 'm13', position: { x: 100, z: 225 }, size: { width: 15, height: 18, depth: 150 } },
+  { id: 'm14', position: { x: -100, z: 225 }, size: { width: 15, height: 18, depth: 150 } },
+  { id: 'm15', position: { x: 100, z: -225 }, size: { width: 15, height: 18, depth: 150 } },
+  { id: 'm16', position: { x: -100, z: -225 }, size: { width: 15, height: 18, depth: 150 } },
 
-  // Central obstacles
-  { id: 'm17', position: { x: 50, z: 0 }, size: { width: 60, height: 12, depth: 60 } },
-  { id: 'm18', position: { x: -50, z: 0 }, size: { width: 60, height: 12, depth: 60 } },
+  // Central blockers - larger
+  { id: 'm17', position: { x: 80, z: 0 }, size: { width: 80, height: 22, depth: 80 } },
+  { id: 'm18', position: { x: -80, z: 0 }, size: { width: 80, height: 22, depth: 80 } },
 
   // Chokepoint blockers
-  { id: 'm19', position: { x: 300, z: 0 }, size: { width: 50, height: 18, depth: 100 } },
-  { id: 'm20', position: { x: -300, z: 0 }, size: { width: 50, height: 18, depth: 100 } },
+  { id: 'm19', position: { x: 300, z: 50 }, size: { width: 60, height: 25, depth: 120 } },
+  { id: 'm20', position: { x: -300, z: 50 }, size: { width: 60, height: 25, depth: 120 } },
+  { id: 'm21', position: { x: 300, z: -50 }, size: { width: 60, height: 25, depth: 120 } },
+  { id: 'm22', position: { x: -300, z: -50 }, size: { width: 60, height: 25, depth: 120 } },
+
+  // Corner structures
+  { id: 'm23', position: { x: 350, z: 350 }, size: { width: 70, height: 30, depth: 70 } },
+  { id: 'm24', position: { x: -350, z: 350 }, size: { width: 70, height: 30, depth: 70 } },
+  { id: 'm25', position: { x: 350, z: -350 }, size: { width: 70, height: 30, depth: 70 } },
+  { id: 'm26', position: { x: -350, z: -350 }, size: { width: 70, height: 30, depth: 70 } },
 ];
 
 /**
