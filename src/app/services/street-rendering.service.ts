@@ -9,10 +9,18 @@ import {
   Group,
 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
-import { StreetNetwork } from './osm-street.service';
+import { StreetNetwork, StreetNode } from './osm-street.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
 import { GeoPosition } from '../models/game.types';
+import { DevWorldService } from '../devworld/devworld.service';
+
+/**
+ * Maximum distance between street points (in meters).
+ * Longer segments are subdivided to follow terrain contour.
+ * Smaller values = smoother terrain following but more vertices.
+ */
+const MAX_SEGMENT_LENGTH = 2;
 
 /**
  * StreetRenderingService - Handles street network visualization
@@ -20,7 +28,7 @@ import { GeoPosition } from '../models/game.types';
  * Extracted from TowerDefenseComponent to reduce god object complexity.
  * Manages:
  * - Merged LineSegments geometry for all streets (1 draw call instead of 600+)
- * - Terrain-following street heights via raycast
+ * - Terrain-following street heights via raycast with segment subdivision
  * - Debug height markers
  * - Street visibility toggle
  */
@@ -28,6 +36,7 @@ import { GeoPosition } from '../models/game.types';
 export class StreetRenderingService {
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
+  private readonly devWorld = inject(DevWorldService);
 
   /** Single merged mesh for all street segments */
   private streetLinesMesh: LineSegments | null = null;
@@ -75,7 +84,7 @@ export class StreetRenderingService {
 
     const overlayGroup = engine.getOverlayGroup();
 
-    // Remove existing street mesh (single object now instead of 600+ separate lines)
+    // Remove existing street mesh
     if (this.streetLinesMesh) {
       overlayGroup.remove(this.streetLinesMesh);
       this.streetLinesMesh.geometry.dispose();
@@ -86,8 +95,8 @@ export class StreetRenderingService {
     // Clear height debug markers
     this.markerViz.clearHeightDebugMarkers();
 
-    // Height offset above terrain (0 = directly on terrain)
-    const HEIGHT_ABOVE_GROUND = 0.5;
+    // Height offset above terrain - DevWorld needs higher offset due to steep terrain
+    const HEIGHT_ABOVE_GROUND = this.devWorld.isActive ? 3 : 0.5;
 
     // Get terrain height at HQ (origin) as reference
     const originTerrainY = engine.getTerrainHeightAtGeo(baseCoords.lat, baseCoords.lon);
@@ -113,29 +122,70 @@ export class StreetRenderingService {
 
       const points: Vector3[] = [];
 
-      for (const node of street.nodes) {
-        // Get terrain height at this position using local raycast
-        const terrainY = engine.getTerrainHeightAtGeo(node.lat, node.lon);
+      // DevWorld: Subdivide segments for smooth terrain following on steep hills
+      // Real World: Use original nodes directly (Google Maps terrain is smoother)
+      if (this.devWorld.isActive) {
+        // Process each segment between consecutive nodes with subdivision
+        for (let nodeIdx = 0; nodeIdx < street.nodes.length - 1; nodeIdx++) {
+          const nodeA = street.nodes[nodeIdx];
+          const nodeB = street.nodes[nodeIdx + 1];
 
-        if (terrainY !== null) {
-          // Use geoToLocalSimple for X/Z
-          const local = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
-          // Y = height difference from origin + offset above ground
-          local.y = (terrainY - originTerrainY) + HEIGHT_ABOVE_GROUND;
+          // Subdivide segment if too long
+          const subdivided = this.subdivideSegment(nodeA, nodeB);
+
+          // Sample terrain height at each subdivided point
+          for (const node of subdivided) {
+            const terrainY = engine.getTerrainHeightAtGeo(node.lat, node.lon);
+
+            if (terrainY !== null) {
+              const local = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
+              local.y = (terrainY - originTerrainY) + HEIGHT_ABOVE_GROUND;
+              points.push(local);
+
+              // Add debug marker (only every Nth point)
+              if (debugMarkerCount % debugMarkerInterval === 0) {
+                this.markerViz.addHeightDebugMarker(local, terrainY, true);
+              }
+              debugMarkerCount++;
+            } else {
+              if (debugMarkerCount % debugMarkerInterval === 0) {
+                const localMiss = engine.sync.geoToLocalSimple(node.lat, node.lon, 5);
+                this.markerViz.addHeightDebugMarker(localMiss, null, false);
+              }
+              debugMarkerCount++;
+            }
+          }
+        }
+
+        // Add the last node
+        const lastNode = street.nodes[street.nodes.length - 1];
+        const lastTerrainY = engine.getTerrainHeightAtGeo(lastNode.lat, lastNode.lon);
+        if (lastTerrainY !== null) {
+          const local = engine.sync.geoToLocalSimple(lastNode.lat, lastNode.lon, 0);
+          local.y = (lastTerrainY - originTerrainY) + HEIGHT_ABOVE_GROUND;
           points.push(local);
+        }
+      } else {
+        // Real World: Original behavior - iterate nodes directly
+        for (const node of street.nodes) {
+          const terrainY = engine.getTerrainHeightAtGeo(node.lat, node.lon);
 
-          // Add debug marker (only every Nth point) - always create, visibility controlled separately
-          if (debugMarkerCount % debugMarkerInterval === 0) {
-            this.markerViz.addHeightDebugMarker(local, terrainY, true);
+          if (terrainY !== null) {
+            const local = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
+            local.y = (terrainY - originTerrainY) + HEIGHT_ABOVE_GROUND;
+            points.push(local);
+
+            if (debugMarkerCount % debugMarkerInterval === 0) {
+              this.markerViz.addHeightDebugMarker(local, terrainY, true);
+            }
+            debugMarkerCount++;
+          } else {
+            if (debugMarkerCount % debugMarkerInterval === 0) {
+              const localMiss = engine.sync.geoToLocalSimple(node.lat, node.lon, 5);
+              this.markerViz.addHeightDebugMarker(localMiss, null, false);
+            }
+            debugMarkerCount++;
           }
-          debugMarkerCount++;
-        } else {
-          // Add red debug marker for misses (only every Nth point)
-          if (debugMarkerCount % debugMarkerInterval === 0) {
-            const localMiss = engine.sync.geoToLocalSimple(node.lat, node.lon, 5);
-            this.markerViz.addHeightDebugMarker(localMiss, null, false);
-          }
-          debugMarkerCount++;
         }
       }
 
@@ -155,12 +205,11 @@ export class StreetRenderingService {
       }
     }
 
-    // Create single merged geometry with all street segments
+    // Create street overlay (yellow lines for both real world and DevWorld)
     if (allSegmentVertices.length > 0) {
       const geometry = new BufferGeometry();
       geometry.setAttribute('position', new Float32BufferAttribute(allSegmentVertices, 3));
 
-      // Single material for all streets (no more cloning per street!)
       const material = new LineBasicMaterial({
         color: 0xffd700,
         linewidth: 2,
@@ -173,7 +222,7 @@ export class StreetRenderingService {
       this.streetLinesMesh = new LineSegments(geometry, material);
       this.streetLinesMesh.visible = visible;
       this.streetLinesMesh.renderOrder = 1;
-      this.streetLinesMesh.frustumCulled = false;  // Prevent disappearing at certain angles
+      this.streetLinesMesh.frustumCulled = false;
       overlayGroup.add(this.streetLinesMesh);
     }
     console.timeEnd('[StreetRendering] renderStreets');
@@ -215,5 +264,46 @@ export class StreetRenderingService {
   reset(): void {
     this.streetLinesMesh = null;
     this.isRenderingStreets = false;
+  }
+
+  /**
+   * Subdivide a segment between two nodes if it's longer than MAX_SEGMENT_LENGTH.
+   * Returns array of nodes including the start node (but NOT the end node).
+   * This ensures smooth terrain following on hilly terrain.
+   *
+   * @param nodeA Start node
+   * @param nodeB End node
+   * @returns Array of subdivided nodes (including nodeA, excluding nodeB)
+   */
+  private subdivideSegment(nodeA: StreetNode, nodeB: StreetNode): StreetNode[] {
+    // Calculate approximate distance in meters using flat-earth approximation
+    const METERS_PER_DEGREE = 111320;
+    const dLat = nodeB.lat - nodeA.lat;
+    const dLon = nodeB.lon - nodeA.lon;
+    const avgLat = (nodeA.lat + nodeB.lat) / 2;
+    const dx = dLon * METERS_PER_DEGREE * Math.cos(avgLat * Math.PI / 180);
+    const dy = dLat * METERS_PER_DEGREE;
+    const distance = Math.sqrt(dx * dx + dy * dy);
+
+    // If segment is short enough, just return start node
+    if (distance <= MAX_SEGMENT_LENGTH) {
+      return [nodeA];
+    }
+
+    // Calculate number of subdivisions needed
+    const numSegments = Math.ceil(distance / MAX_SEGMENT_LENGTH);
+    const result: StreetNode[] = [];
+
+    // Interpolate intermediate points
+    for (let i = 0; i < numSegments; i++) {
+      const t = i / numSegments;
+      result.push({
+        id: nodeA.id, // Keep original ID for reference
+        lat: nodeA.lat + t * dLat,
+        lon: nodeA.lon + t * dLon,
+      });
+    }
+
+    return result;
   }
 }
