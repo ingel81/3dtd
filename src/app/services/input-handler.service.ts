@@ -45,8 +45,12 @@ export class InputHandlerService {
 
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
-  private clickHandler: ((event: MouseEvent) => void) | null = null;
+  private pointerUpHandler: ((event: PointerEvent) => void) | null = null;
   private pointerMoveHandler: ((event: PointerEvent) => void) | null = null;
+
+  /** Throttle state for pointer move */
+  private lastPointerMoveTime = 0;
+  private readonly POINTER_MOVE_THROTTLE_MS = 16; // ~60fps max
 
   // ========================================
   // INITIALIZATION
@@ -100,11 +104,14 @@ export class InputHandlerService {
     };
     document.addEventListener('pointerdown', this.pointerDownHandler, { capture: true });
 
-    // Click handler
-    this.clickHandler = (event: MouseEvent) => {
-      this.handleClick(event);
+    // Use pointerup with document-level capture (consistent with other handlers)
+    // This ensures we get the event before EnvironmentControls can modify scene state
+    this.pointerUpHandler = (event: PointerEvent) => {
+      if (event.target === canvas || canvas.contains(event.target as Node)) {
+        this.handleClick(event);
+      }
     };
-    canvas.addEventListener('click', this.clickHandler);
+    document.addEventListener('pointerup', this.pointerUpHandler, { capture: true });
 
     // Pointer move handler for build preview - use document with capture to intercept before GlobeControls
     this.pointerMoveHandler = (event: PointerEvent) => {
@@ -116,11 +123,13 @@ export class InputHandlerService {
   }
 
   /**
-   * Handle canvas click event
-   * @param event Mouse event
+   * Handle canvas click event (via pointerup)
+   * @param event Pointer event
    */
-  private handleClick(event: MouseEvent): void {
-    if (!this.engine || !this.gameState || !this.buildModeSignal) return;
+  private handleClick(event: PointerEvent): void {
+    if (!this.engine || !this.gameState || !this.buildModeSignal) {
+      return;
+    }
 
     // Check if mouse moved significantly (was a pan, not a click)
     if (this.mouseDownPos) {
@@ -170,10 +179,18 @@ export class InputHandlerService {
    * Handle pointer move event (for build preview)
    * Only tracks when in build mode to avoid expensive raycasts
    * Uses document-level capture to ensure events aren't blocked by GlobeControls
+   * Throttled to ~60fps to prevent performance issues
    * @param event Pointer event
    */
   private handlePointerMove(event: PointerEvent): void {
     if (!this.engine || !this.buildModeSignal || !this.buildModeSignal() || !this.onMouseMoveCallback) return;
+
+    // Throttle to prevent excessive raycasts
+    const now = performance.now();
+    if (now - this.lastPointerMoveTime < this.POINTER_MOVE_THROTTLE_MS) {
+      return;
+    }
+    this.lastPointerMoveTime = now;
 
     const hitPoint = this.engine.raycastTerrain(event.clientX, event.clientY);
 
@@ -201,9 +218,9 @@ export class InputHandlerService {
       document.removeEventListener('pointerdown', this.pointerDownHandler, { capture: true });
       this.pointerDownHandler = null;
     }
-    if (this.canvas && this.clickHandler) {
-      this.canvas.removeEventListener('click', this.clickHandler);
-      this.clickHandler = null;
+    if (this.pointerUpHandler) {
+      document.removeEventListener('pointerup', this.pointerUpHandler, { capture: true });
+      this.pointerUpHandler = null;
     }
     if (this.pointerMoveHandler) {
       document.removeEventListener('pointermove', this.pointerMoveHandler, { capture: true });

@@ -381,6 +381,7 @@ export class GameStateManager {
     }
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation);
+
     if (tower && this.tilesEngine && this.globalRouteGrid.isInitialized()) {
       // Deduct cost
       this.credits.update((c) => c - config.cost);

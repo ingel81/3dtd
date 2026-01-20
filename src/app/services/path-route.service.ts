@@ -5,8 +5,16 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
-import { OsmStreetService, Street, StreetNetwork } from './osm-street.service';
+import { Street, StreetNetwork, StreetNode } from './osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
+
+/**
+ * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
+ */
+export interface PathfindingService {
+  findPath(network: StreetNetwork, startLat: number, startLon: number, endLat: number, endLon: number): StreetNode[];
+  haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
+}
 
 /**
  * PathAndRouteService
@@ -38,8 +46,8 @@ export class PathAndRouteService {
   /** Routes visibility state (from GameUIStateService) */
   private routesVisible: WritableSignal<boolean> | null = null;
 
-  /** OSM service for pathfinding */
-  private osmService: OsmStreetService | null = null;
+  /** Pathfinding service (OsmStreetService or DevStreetProvider) */
+  private pathfindingService: PathfindingService | null = null;
 
   /** Spawn markers for snap-to-path functionality */
   private spawnMarkers: Group[] = [];
@@ -54,7 +62,7 @@ export class PathAndRouteService {
    * @param streetNetwork Street network for pathfinding
    * @param baseCoords Base/HQ coordinates
    * @param routesVisible Signal for routes visibility state
-   * @param osmService OSM service for pathfinding
+   * @param pathfindingService Service for pathfinding (OsmStreetService or DevStreetProvider)
    * @param spawnMarkers Array of spawn markers for snapping
    */
   initialize(
@@ -62,14 +70,14 @@ export class PathAndRouteService {
     streetNetwork: StreetNetwork,
     baseCoords: GeoPosition,
     routesVisible: WritableSignal<boolean>,
-    osmService: OsmStreetService,
+    pathfindingService: PathfindingService,
     spawnMarkers: Group[]
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
-    this.osmService = osmService;
+    this.pathfindingService = pathfindingService;
     this.spawnMarkers = spawnMarkers;
   }
 
@@ -182,17 +190,17 @@ export class PathAndRouteService {
    * @param spawn Spawn point
    */
   showPathFromSpawn(spawn: SpawnPoint): void {
-    if (!this.engine || !this.streetNetwork || !this.osmService || !this.baseCoords) {
+    if (!this.engine || !this.streetNetwork || !this.pathfindingService || !this.baseCoords) {
       // console.warn('[PathRoute] showPathFromSpawn early return - missing:', {
       //   engine: !!this.engine,
       //   streetNetwork: !!this.streetNetwork,
-      //   osmService: !!this.osmService,
+      //   osmService: !!this.pathfindingService,
       //   baseCoords: !!this.baseCoords,
       // });
       return;
     }
 
-    const path = this.osmService.findPath(
+    const path = this.pathfindingService.findPath(
       this.streetNetwork,
       spawn.lat,
       spawn.lon,
@@ -229,7 +237,7 @@ export class PathAndRouteService {
         lat: this.baseCoords.lat,
         lon: this.baseCoords.lon,
       });
-      const dist = this.osmService.haversineDistance(
+      const dist = this.pathfindingService.haversineDistance(
         closest.lat,
         closest.lon,
         this.baseCoords.lat,
@@ -247,7 +255,7 @@ export class PathAndRouteService {
     geoPath = geoPath.slice(0, closestSegmentIndex + 1);
     if (closestPointOnSegment) {
       const lastPoint = geoPath[geoPath.length - 1];
-      const distToLast = this.osmService.haversineDistance(
+      const distToLast = this.pathfindingService.haversineDistance(
         closestPointOnSegment.lat,
         closestPointOnSegment.lon,
         lastPoint.lat,
@@ -499,7 +507,7 @@ export class PathAndRouteService {
     geoPath: { lat: number; lon: number }[],
     base: GeoPosition
   ): { lat: number; lon: number }[] {
-    if (!this.streetNetwork || !this.osmService || geoPath.length < 2) return geoPath;
+    if (!this.streetNetwork || !this.pathfindingService || geoPath.length < 2) return geoPath;
 
     const lastPoint = geoPath[geoPath.length - 1];
 
@@ -520,7 +528,7 @@ export class PathAndRouteService {
 
     // Find best extension
     let bestExtension: { lat: number; lon: number }[] = [];
-    let bestClosestDist = this.osmService.haversineDistance(
+    let bestClosestDist = this.pathfindingService.haversineDistance(
       lastPoint.lat,
       lastPoint.lon,
       base.lat,
@@ -538,7 +546,7 @@ export class PathAndRouteService {
         while (idx >= 0 && idx < street.nodes.length && extension.length < 20) {
           const node = street.nodes[idx];
 
-          const distToHQ = this.osmService.haversineDistance(node.lat, node.lon, base.lat, base.lon);
+          const distToHQ = this.pathfindingService.haversineDistance(node.lat, node.lon, base.lat, base.lon);
 
           const prevPoint = extension.length > 0 ? extension[extension.length - 1] : lastPoint;
           const closestOnSeg = this.closestPointOnSegment(
@@ -546,7 +554,7 @@ export class PathAndRouteService {
             { lat: node.lat, lon: node.lon },
             { lat: base.lat, lon: base.lon }
           );
-          const segDistToHQ = this.osmService.haversineDistance(
+          const segDistToHQ = this.pathfindingService.haversineDistance(
             closestOnSeg.lat,
             closestOnSeg.lon,
             base.lat,
@@ -571,7 +579,7 @@ export class PathAndRouteService {
               lat: base.lat,
               lon: base.lon,
             });
-            const dist = this.osmService.haversineDistance(closest.lat, closest.lon, base.lat, base.lon);
+            const dist = this.pathfindingService.haversineDistance(closest.lat, closest.lon, base.lat, base.lon);
             if (dist < minDist) {
               minDist = dist;
             }
@@ -621,7 +629,7 @@ export class PathAndRouteService {
     this.streetNetwork = null;
     this.baseCoords = null;
     this.routesVisible = null;
-    this.osmService = null;
+    this.pathfindingService = null;
     this.spawnMarkers = [];
   }
 }

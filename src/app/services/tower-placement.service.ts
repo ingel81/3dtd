@@ -489,7 +489,9 @@ export class TowerPlacementService {
    * Handle click in build mode - directly places tower if valid
    */
   handleBuildClick(): boolean {
-    if (!this.gameState || !this.currentPosition) return false;
+    if (!this.gameState || !this.currentPosition) {
+      return false;
+    }
 
     // Validate position
     const validation = this.validateTowerPosition(this.currentPosition.lat, this.currentPosition.lon);

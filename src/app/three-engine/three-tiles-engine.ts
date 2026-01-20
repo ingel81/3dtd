@@ -29,9 +29,10 @@ import {
 import {
   TilesRenderer,
   GlobeControls,
+  EnvironmentControls,
   WGS84_ELLIPSOID,
 } from '3d-tiles-renderer';
-// CAMERA_FRAME is used for getObjectFrame coordinate transformations
+// Frame constants for coordinate transformations
 import { CAMERA_FRAME } from '3d-tiles-renderer/src/three/renderer/math/Ellipsoid.js';
 import {
   TilesFadePlugin,
@@ -53,6 +54,9 @@ import {
 } from './renderers';
 import { SpatialAudioManager } from '../managers/spatial-audio.manager';
 import { AssetManagerService } from '../services/asset-manager.service';
+import { DevWorldService } from '../devworld/devworld.service';
+import { TerrainProvider } from '../interfaces/terrain-provider.interface';
+import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 
 /**
  * Initial camera position for pre-computed framing
@@ -84,6 +88,10 @@ export class ThreeTilesEngine {
   private controls: GlobeControls | null = null;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
+
+  // DevWorld support
+  private devWorld: DevWorldService | null = null;
+  private devTerrainProvider: TerrainProvider | null = null;
 
   // Coordinate sync
   readonly sync: EllipsoidSync;
@@ -178,6 +186,11 @@ export class ThreeTilesEngine {
   private cesiumIonToken: string;
   private cesiumAssetId: string;
 
+  // Origin coordinates (stored for DevWorld transformation)
+  private originLat: number;
+  private originLon: number;
+  private originHeight: number;
+
   constructor(
     canvas: HTMLCanvasElement,
     cesiumIonToken: string,
@@ -185,10 +198,18 @@ export class ThreeTilesEngine {
     originLat: number,
     originLon: number,
     originHeight = 0,
-    private assetManager?: AssetManagerService
+    private assetManager?: AssetManagerService,
+    devWorldService?: DevWorldService
   ) {
+    // Store DevWorld service reference
+    this.devWorld = devWorldService ?? null;
     this.cesiumIonToken = cesiumIonToken;
     this.cesiumAssetId = cesiumAssetId;
+
+    // Store origin for DevWorld transformation
+    this.originLat = originLat;
+    this.originLon = originLon;
+    this.originHeight = originHeight;
 
     // Initialize coordinate sync
     this.sync = new EllipsoidSync(originLat, originLon, originHeight);
@@ -278,6 +299,19 @@ export class ThreeTilesEngine {
    * Initialize 3D Tiles (async - must be called after constructor)
    */
   async initialize(): Promise<void> {
+    // ========================================
+    // DEVWORLD MODE - Use fake terrain instead of Google 3D Tiles
+    // ========================================
+    if (this.devWorld?.isActive) {
+      console.log('[ThreeTilesEngine] DevWorld mode active - using fake terrain');
+      await this.initializeDevWorld();
+      return;
+    }
+
+    // ========================================
+    // NORMAL MODE - Load Google 3D Tiles
+    // ========================================
+
     // Create TilesRenderer
     this.tilesRenderer = new TilesRenderer();
 
@@ -372,6 +406,133 @@ export class ThreeTilesEngine {
       this.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
     );
 
+  }
+
+  /** DevWorld group - contains terrain directly at local coordinates */
+  private devWorldGroup: Group | null = null;
+
+  /**
+   * Initialize DevWorld mode with fake terrain
+   * Called instead of normal TilesRenderer initialization when ?devworld is set
+   *
+   * DevWorld uses EnvironmentControls (not GlobeControls) because:
+   * - GlobeControls is designed for navigating around a globe at Earth-radius distances
+   * - DevWorld has flat terrain at local origin (0,0,0)
+   * - EnvironmentControls raycasts against scene geometry and works with local coordinates
+   */
+  private async initializeDevWorld(): Promise<void> {
+    if (!this.devWorld) return;
+
+    const LOG = '[DevWorld]';
+    console.log(`${LOG} ========== INITIALIZATION ==========`);
+    console.log(`${LOG} Mode: Flat terrain with EnvironmentControls`);
+    console.log(`${LOG} Origin: lat=${this.originLat}, lon=${this.originLon} (fake)`);
+
+    // Create devWorldGroup - simple group at local origin (no ECEF transformation)
+    // This is different from real game where tilesRenderer.group has inverse ENU
+    this.devWorldGroup = new Group();
+    this.devWorldGroup.name = 'DevWorldGroup';
+    this.scene.add(this.devWorldGroup);
+
+    // Create and initialize terrain provider
+    this.devTerrainProvider = new DevTerrainProvider(this.devWorld);
+
+    // Initialize terrain directly into devWorldGroup (no nested transforms)
+    // Terrain is at local coordinates: Y-up, centered at origin
+    await this.devTerrainProvider.initialize(this.devWorldGroup as unknown as Scene);
+
+    console.log(`${LOG} Terrain added to devWorldGroup at local origin`);
+
+    // Setup EnvironmentControls - works with flat local terrain
+    this.setupDevWorldControls();
+
+    // Set up terrain height sampler for tower range indicators
+    this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
+
+    // Set up direct terrain raycaster
+    this.towers.setTerrainRaycaster((localX, localZ) => this.raycastTerrainHeight(localX, localZ));
+
+    // Set up Line-of-Sight raycaster
+    this.towers.setLineOfSightRaycaster((ox, oy, oz, tx, ty, tz) =>
+      this.raycastLineOfSight(ox, oy, oz, tx, ty, tz)
+    );
+
+    // Mark as loaded immediately (no async tile loading in DevWorld)
+    this.firstTilesLoaded = true;
+    this.tilesWereLoaded = true;
+
+    // Trigger first tiles loaded callback
+    if (this.onFirstTilesLoadedCallback) {
+      this.onFirstTilesLoadedCallback();
+    }
+
+    console.log(`${LOG} DevWorld initialized with EnvironmentControls`);
+  }
+
+  /**
+   * Setup EnvironmentControls for DevWorld
+   *
+   * Uses EnvironmentControls instead of GlobeControls because:
+   * - GlobeControls is designed for globe navigation at Earth-radius distances
+   * - DevWorld has flat terrain at local origin
+   * - EnvironmentControls raycasts against scene geometry for pivoting/panning
+   *
+   * Control scheme (same interaction model as GlobeControls):
+   * - Left mouse drag: Pan (slide camera along terrain)
+   * - Right mouse drag: Rotate (orbit around pivot point)
+   * - Scroll wheel: Zoom in/out
+   */
+  private setupDevWorldControls(): void {
+    if (!this.devWorldGroup) return;
+
+    const LOG = '[DevWorld]';
+    console.log(`${LOG} ========== CONTROLS SETUP ==========`);
+
+    // EnvironmentControls - works with flat local terrain
+    // Cast to any because controls type is GlobeControls | null but EnvironmentControls is compatible
+    const envControls = new EnvironmentControls(
+      this.scene,
+      this.camera,
+      this.renderer.domElement
+    );
+
+    // Configure controls
+    envControls.enableDamping = true;
+    envControls.minDistance = 50;      // Minimum zoom distance
+    envControls.maxDistance = 2000;    // Maximum zoom distance
+    envControls.minAltitude = 0.1;     // Min camera altitude (radians from ground)
+    envControls.maxAltitude = Math.PI / 2 - 0.1; // Max altitude (near vertical)
+
+    // Set scene for raycasting (against devWorldGroup which contains terrain)
+    envControls.setScene(this.devWorldGroup);
+
+    // Store as GlobeControls type (EnvironmentControls is parent class)
+    this.controls = envControls as unknown as GlobeControls;
+
+    // Listen for drag start/end to distinguish clicks from pans
+    this.controls.addEventListener('start', this.controlsStartHandler);
+    this.controls.addEventListener('end', this.controlsEndHandler);
+
+    // Position camera - steep 70° view (same as real game)
+    if (this.initialCameraPosition) {
+      const pos = this.initialCameraPosition;
+      this.camera.position.set(pos.x, pos.y, pos.z);
+      this.camera.lookAt(pos.lookAtX, pos.lookAtY, pos.lookAtZ);
+      console.log(`${LOG} Camera from initialCameraPosition: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
+    } else {
+      // Default: view from above - position camera above origin looking down
+      // 70° angle: at 400m height, offset 145m horizontally
+      this.camera.position.set(0, 400, -145);
+      this.camera.lookAt(0, 0, 0);
+      console.log(`${LOG} Camera default: pos=(0, 400, -145), lookAt=(0, 0, 0)`);
+    }
+
+    // Update controls after camera positioning
+    this.controls.update();
+
+    console.log(`${LOG} EnvironmentControls configured`);
+    console.log(`${LOG} Camera position: (${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)})`);
+    console.log(`${LOG} Controls: pan=left-drag, rotate=right-drag, zoom=scroll`);
   }
 
   /**
@@ -777,6 +938,11 @@ export class ThreeTilesEngine {
    * Check if tiles are loaded enough for raycasting
    */
   areTilesReadyForRaycast(): boolean {
+    // DevWorld: always ready
+    if (this.devTerrainProvider) {
+      return this.devTerrainProvider.isReady();
+    }
+
     if (!this.tilesRenderer) return false;
 
     // Cast from camera toward origin
@@ -803,6 +969,11 @@ export class ThreeTilesEngine {
    * @returns Height in local Y coordinates, or null if no hit
    */
   getTerrainHeightAtGeo(lat: number, lon: number): number | null {
+    // DevWorld: delegate to provider
+    if (this.devTerrainProvider) {
+      return this.devTerrainProvider.getHeightAtGeo(lat, lon);
+    }
+
     // Check cache first
     const cacheKey = this.getHeightCacheKey(lat, lon);
     if (this.heightCache.has(cacheKey)) {
@@ -832,6 +1003,11 @@ export class ThreeTilesEngine {
    * @returns Height in local Y coordinates, or null if no hit
    */
   private raycastTerrainHeight(localX: number, localZ: number): number | null {
+    // DevWorld: delegate to provider
+    if (this.devTerrainProvider) {
+      return this.devTerrainProvider.getHeightAtLocal(localX, localZ);
+    }
+
     if (!this.tilesRenderer) return null;
 
     // Check if tiles are loaded (only on first call)
@@ -880,6 +1056,14 @@ export class ThreeTilesEngine {
     originX: number, originY: number, originZ: number,
     targetX: number, targetY: number, targetZ: number
   ): boolean {
+    // DevWorld: delegate to provider
+    if (this.devTerrainProvider) {
+      return this.devTerrainProvider.hasLineOfSightBlocked(
+        originX, originY, originZ,
+        targetX, targetY, targetZ
+      );
+    }
+
     if (!this.tilesRenderer) return false;
 
     // Calculate direction and distance
@@ -1056,6 +1240,13 @@ export class ThreeTilesEngine {
    * See ARCHITECTURE.md "Raycaster Corruption Issue" for details.
    */
   raycastTerrain(screenX: number, screenY: number): Vector3 | null {
+    // DevWorld: delegate to provider
+    if (this.devTerrainProvider) {
+      return this.devTerrainProvider.raycastFromScreen(
+        screenX, screenY, this.camera, this.renderer
+      );
+    }
+
     if (!this.tilesRenderer) return null;
 
     // Convert screen coords to NDC
@@ -1083,6 +1274,25 @@ export class ThreeTilesEngine {
    * Main render loop - call this each frame
    */
   render(): void {
+    // DevWorld render path
+    if (this.devTerrainProvider) {
+      // Update controls (if any)
+      if (this.controls) {
+        this.controls.update();
+      }
+
+      // Update camera
+      this.camera.updateMatrixWorld();
+
+      // Render scene
+      this.renderer.render(this.scene, this.camera);
+
+      // Update FPS
+      this.updateFPS();
+      return;
+    }
+
+    // Normal tiles render path
     if (!this.tilesRenderer) return;
 
     // Update controls
