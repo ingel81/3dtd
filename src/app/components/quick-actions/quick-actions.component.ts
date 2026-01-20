@@ -122,6 +122,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltipPosition="left">
             <mat-icon>location_on</mat-icon>
           </button>
+          <button class="td-dev-btn"
+                  (click)="refreshHeights.emit()"
+                  matTooltip="Refresh terrain heights (re-raycast)"
+                  matTooltipPosition="left">
+            <mat-icon>refresh</mat-icon>
+          </button>
         </div>
         <button class="td-quick-btn td-dev-toggle-btn"
                 [class.active]="uiState.devMenuExpanded()"
@@ -266,7 +272,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-dev-menu.expanded {
-      max-height: 300px;
+      max-height: 350px;
       opacity: 1;
     }
 
@@ -337,4 +343,5 @@ export class QuickActionsComponent {
   readonly specialPointsDebugToggled = output<void>();
   readonly spatialGridDebugToggled = output<void>();
   readonly playRouteAnimation = output<void>();
+  readonly refreshHeights = output<void>();
 }

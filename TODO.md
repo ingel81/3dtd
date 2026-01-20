@@ -144,3 +144,13 @@
 - [ ] Poison Tower
 - [ ] Flame Tower
 
+### Terrain & Routing Experimente
+- [ ] **Route Resampling für feinere Terrain-Anpassung**
+      Routen mit max 10m Abstand zwischen Punkten interpolieren für feineres Raycasting.
+      Könnte Gebäude-Hits reduzieren und sanftere Terrain-Verfolgung ermöglichen.
+      Code-Ansatz war in `path-route.service.ts` - `resampleGeoPath()` Funktion
+- [ ] **Verbessertes Height-Smoothing für Routen/Straßen**
+      Aktuell: MAX_SLOPE=50%, MAX_HEIGHT_DIFF=10m, nur bei beiden Nachbarn steil
+      Experimente mit strengeren Werten führten zu "im Boden"-Artefakten
+      Mögliche Ansätze: Median-Filter, asymmetrische Behandlung (oben vs unten)
+
