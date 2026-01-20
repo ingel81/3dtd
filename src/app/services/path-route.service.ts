@@ -1,4 +1,4 @@
-import { Injectable, WritableSignal } from '@angular/core';
+import { Injectable, WritableSignal, inject } from '@angular/core';
 import { Group, Vector3, Vector2 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
@@ -7,6 +7,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { Street, StreetNetwork, StreetNode } from './osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
+import { DevWorldService } from '../devworld/devworld.service';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -24,6 +25,8 @@ export interface PathfindingService {
  */
 @Injectable({ providedIn: 'root' })
 export class PathAndRouteService {
+  private readonly devWorld = inject(DevWorldService);
+
   // ========================================
   // STATE
   // ========================================
@@ -269,8 +272,15 @@ export class PathAndRouteService {
     // Add HQ as final destination
     geoPath.push({ lat: this.baseCoords.lat, lon: this.baseCoords.lon });
 
+    // DevWorld: Subdivide long segments for smooth terrain following on steep hills
+    // Real World: Use original path directly (Google Maps terrain is smoother)
+    if (this.devWorld.isActive) {
+      geoPath = this.subdivideGeoPath(geoPath, 2);
+    }
+
     // Create route line in Three.js - on terrain with RELATIVE heights
-    const HEIGHT_ABOVE_GROUND = 1;
+    // DevWorld needs higher offset due to steep procedural terrain
+    const HEIGHT_ABOVE_GROUND = this.devWorld.isActive ? 3 : 1;
     const overlayGroup = this.engine.getOverlayGroup();
     const points: Vector3[] = [];
 
@@ -631,5 +641,56 @@ export class PathAndRouteService {
     this.routesVisible = null;
     this.pathfindingService = null;
     this.spawnMarkers = [];
+  }
+
+  /**
+   * Subdivide a geo path so no segment is longer than maxLength meters.
+   * This ensures smooth terrain following on hilly terrain.
+   *
+   * @param path Original geo path
+   * @param maxLength Maximum segment length in meters
+   * @returns Subdivided path with more points
+   */
+  private subdivideGeoPath(
+    path: { lat: number; lon: number }[],
+    maxLength: number
+  ): { lat: number; lon: number }[] {
+    if (path.length < 2) return path;
+
+    const METERS_PER_DEGREE = 111320;
+    const result: { lat: number; lon: number }[] = [];
+
+    for (let i = 0; i < path.length - 1; i++) {
+      const a = path[i];
+      const b = path[i + 1];
+
+      // Calculate distance
+      const dLat = b.lat - a.lat;
+      const dLon = b.lon - a.lon;
+      const avgLat = (a.lat + b.lat) / 2;
+      const dx = dLon * METERS_PER_DEGREE * Math.cos(avgLat * Math.PI / 180);
+      const dy = dLat * METERS_PER_DEGREE;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+
+      // Always add start point
+      result.push(a);
+
+      // Add intermediate points if segment is too long
+      if (distance > maxLength) {
+        const numSegments = Math.ceil(distance / maxLength);
+        for (let j = 1; j < numSegments; j++) {
+          const t = j / numSegments;
+          result.push({
+            lat: a.lat + t * dLat,
+            lon: a.lon + t * dLon,
+          });
+        }
+      }
+    }
+
+    // Add final point
+    result.push(path[path.length - 1]);
+
+    return result;
   }
 }
