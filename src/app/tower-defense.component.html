@@ -86,6 +86,7 @@
 
         <!-- Debug Windows (draggable) -->
         <app-camera-debugger />
+        <app-devworld-debugger (terrainRefresh)="refreshTerrainHeights()" />
         <app-wave-debugger
           (killAll)="killAllEnemies()"
           (healHq)="healHq()"

@@ -34,6 +34,7 @@ import { CameraDebuggerComponent } from './components/debug-window/camera-debugg
 import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.component';
 import { SoundDebuggerComponent } from './components/debug-window/sound-debugger.component';
 import { EventDebuggerComponent } from './components/debug-window/event-debugger.component';
+import { DevWorldDebuggerComponent } from './devworld/devworld-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -56,7 +57,6 @@ import { GeolocationService } from './services/geolocation.service';
 import { WorldDiceService } from './services/world-dice.service';
 import { DevWorldService, DEV_WORLD_ORIGIN } from './devworld/devworld.service';
 import { DevStreetProvider } from './devworld/dev-street.provider';
-import { DEV_SPAWN_POINTS } from './devworld/configs/street-network.config';
 import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
@@ -103,6 +103,7 @@ const EMPTY_CENTER_COORDS = {
     WaveDebuggerComponent,
     SoundDebuggerComponent,
     EventDebuggerComponent,
+    DevWorldDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
@@ -280,12 +281,21 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   ngOnInit(): void {
     // Resolve favorite names (async, doesn't block)
     this.resolveFavoriteNames();
+
+    // Auto-open DevWorld debug panel when DevWorld is active
+    if (this.devWorld.isActive) {
+      this.debugWindows.open('devworld');
+    }
   }
 
   /**
    * Sync URL with current location (without reload)
+   * Skipped in DevWorld mode to preserve devworld URL parameters
    */
   private syncUrlWithLocation(): void {
+    // DevWorld: Don't modify URL (preserve ?devworld&terrain=... params)
+    if (this.devWorld.isActive) return;
+
     const hq = this.locationMgmt.hq();
     if (!hq) return; // No location set yet
     const spawns = this.locationMgmt.spawns();
@@ -754,10 +764,33 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     try {
       const center = this.centerCoords();
 
-      // DevWorld mode: Use DevStreetProvider
+      // DevWorld mode: Use DevStreetProvider with generated streets from terrain
       if (this.devWorld.isActive) {
         console.log('[TowerDefense] DevWorld mode - using DevStreetProvider');
         const devStreetProvider = new DevStreetProvider(this.devWorld);
+
+        // Get generated streets from terrain provider
+        const engine = this.engine || this.engineInit.getEngine();
+        const devTerrainProvider = engine?.getDevTerrainProvider();
+
+        if (devTerrainProvider) {
+          // Set initial streets from terrain provider
+          const segments = devTerrainProvider.getStreetSegments();
+          const spawns = devTerrainProvider.getSpawnPoints();
+          devStreetProvider.setGeneratedStreets(segments, spawns);
+
+          // Set up refresh callback for live terrain regeneration
+          devTerrainProvider.setStreetRefreshCallback((newSegments, newSpawns) => {
+            console.log('[TowerDefense] Terrain regenerated - updating streets');
+            devStreetProvider.setGeneratedStreets(newSegments, newSpawns);
+            // Reload street network
+            devStreetProvider.loadStreets(center.lat, center.lon, 500).then((network) => {
+              this.streetNetwork = network;
+              this.streetCount.set(network.streets.length);
+            });
+          });
+        }
+
         this.streetNetwork = await devStreetProvider.loadStreets(center.lat, center.lon, 500);
         this.devStreetProvider = devStreetProvider; // Store for route calculations
         this.streetCount.set(this.streetNetwork.streets.length);
@@ -841,9 +874,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Filter street network to only include streets near calculated routes.
    * This reduces rendering time dramatically in dense cities.
+   * Note: DevWorld skips filtering - all generated streets are needed.
    */
   private filterStreetNetworkToRoutes(): void {
     if (!this.streetNetwork) return;
+
+    // DevWorld: Don't filter - all streets are intentionally placed and buildings depend on them
+    if (this.devWorld.isActive) {
+      this.filteredStreetNetwork = this.streetNetwork;
+      return;
+    }
 
     // Collect all route paths
     const cachedPaths = this.pathRoute.getCachedPaths();
@@ -982,13 +1022,31 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Manually refresh terrain heights (re-raycast all overlays)
    * Useful when 3D tiles have loaded more detail since initial setup
+   *
+   * In DevWorld mode: Regenerates entire world with current config
    */
   refreshTerrainHeights(): void {
     if (!this.engine) return;
 
     console.log('[TowerDefense] Manual terrain height refresh triggered');
 
-    // Clear height cache to force fresh raycasts
+    // DevWorld mode: Regenerate entire world
+    if (this.devWorld.isActive) {
+      const devTerrainProvider = this.engine.getDevTerrainProvider();
+      if (devTerrainProvider) {
+        console.log('[TowerDefense] DevWorld: Regenerating world...');
+        // Clear engine height cache before regeneration
+        this.engine.clearHeightCache();
+        devTerrainProvider.regenerate().then(() => {
+          // Streets are updated via the refresh callback set in loadStreets()
+          // Re-render UI overlays
+          this.onTilesLoaded();
+        });
+        return;
+      }
+    }
+
+    // Real world: Just clear height cache
     this.engine.clearHeightCache();
 
     // Re-run the tiles loaded logic (streets, markers, routes)
@@ -1173,14 +1231,31 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Check if we need to generate a spawn (URL had no spawn parameter)
     if (this.locationMgmt.needsRandomSpawn() && this.streetNetwork) {
-      // DevWorld mode: Use configured spawn based on URL param or default to first
+      // DevWorld mode: Use dynamically generated spawn points from terrain provider
       if (this.devWorld.isActive) {
+        const engine = this.engine || this.engineInit.getEngine();
+        const devTerrainProvider = engine?.getDevTerrainProvider();
+
+        if (devTerrainProvider) {
+          const generatedSpawns = devTerrainProvider.getSpawnPoints();
+          if (generatedSpawns.length > 0) {
+            // Use first generated spawn (it's guaranteed to be on a street)
+            const spawn = generatedSpawns[0];
+            const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
+            console.log(`[addPredefinedSpawns] DevWorld spawn: ${spawn.name} at (${spawn.position.x.toFixed(0)}, ${spawn.position.z.toFixed(0)})`);
+            this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
+            this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
+            return 1;
+          }
+        }
+
+        // Fallback to fixed spawn if terrain provider not ready
         const spawnConfig = this.devWorld.config.spawn;
-        const devSpawn = DEV_SPAWN_POINTS.find(s => s.id === spawnConfig) || DEV_SPAWN_POINTS[0];
-        const spawnGeo = this.devWorld.localToGeo(devSpawn.position.x, devSpawn.position.z);
-        console.log(`[addPredefinedSpawns] DevWorld spawn: ${devSpawn.name} (${spawnConfig})`);
+        const spawnPos = this.devWorld.getSpawnPosition();
+        const spawnGeo = this.devWorld.localToGeo(spawnPos.x, spawnPos.z);
+        console.log(`[addPredefinedSpawns] DevWorld spawn (fallback): ${spawnConfig} at (${spawnPos.x}, ${spawnPos.z})`);
         this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-        this.addSpawnPoint(devSpawn.id, devSpawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
+        this.addSpawnPoint(`spawn-${spawnConfig}`, `Spawn ${spawnConfig}`, spawnGeo.lat, spawnGeo.lon, colors[0]);
         return 1;
       }
 
