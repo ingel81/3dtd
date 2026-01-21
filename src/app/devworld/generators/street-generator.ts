@@ -310,6 +310,7 @@ export class StreetGenerator {
 
   /**
    * Generate complete street network.
+   * Organic through-roads that cross the world - HQ is NOT the center.
    */
   generate(): StreetGeneratorResult {
     this.segments = [];
@@ -319,29 +320,20 @@ export class StreetGenerator {
 
     const { hqPosition } = this.config;
 
-    // Add HQ as first intersection
-    this.addIntersection(hqPosition);
+    // Phase 1: Main through-roads (edge to edge, NOT centered on HQ)
+    const roadEnds = this.generateThroughRoads();
 
-    // Phase 1: Generate arterial roads (radial from HQ)
-    const arterialEnds = this.generateArterials();
+    // Phase 2: Cross-connections between through-roads
+    this.generateCrossConnections();
 
-    // Phase 2: Generate ring roads connecting arterials
-    this.generateRingRoads(arterialEnds);
+    // Phase 3: Short connector from HQ to nearest road
+    this.connectHQ(hqPosition);
 
-    // Phase 3: Generate collector streets (branch from arterials)
-    this.generateCollectors();
-
-    // Phase 4: Generate residential streets (fill remaining space)
-    this.generateResidentialStreets();
-
-    // Phase 5: Ensure connectivity
+    // Phase 4: Ensure all roads connect
     this.ensureConnectivity();
 
-    // Phase 6: Cleanup useless streets (too short, parallel, dead-ends)
-    this.cleanupStreets();
-
-    // Phase 7: Generate spawn points at arterial endpoints
-    const spawns = this.generateSpawnPoints(arterialEnds);
+    // Phase 5: Generate spawns at road endpoints
+    const spawns = this.generateSpawnsAtEnds(roadEnds);
 
     console.log(
       `[StreetGen] Generated ${this.segments.length} segments, ` +
@@ -349,94 +341,393 @@ export class StreetGenerator {
       `${spawns.length} spawn points`
     );
 
-    return {
-      segments: this.segments,
-      spawns,
-    };
+    return { segments: this.segments, spawns };
   }
 
   /**
-   * Generate arterial roads radiating from HQ.
+   * Generate main through-roads from edge to edge.
+   * These are NOT centered on HQ - they just pass through the world.
+   */
+  private generateThroughRoads(): Vec2[] {
+    const { worldSize } = this.config;
+    const halfWorld = worldSize / 2;
+    const roadEnds: Vec2[] = [];
+
+    // 4-5 main roads crossing the map
+    const numRoads = 4 + Math.floor(this.rng() * 2);
+
+    for (let i = 0; i < numRoads; i++) {
+      // Pick random start edge (0=S, 1=E, 2=N, 3=W)
+      const startEdge = Math.floor(this.rng() * 4);
+      // End on opposite-ish edge (not same edge)
+      const endEdge = (startEdge + 1 + Math.floor(this.rng() * 2)) % 4;
+
+      const start = this.getEdgePoint(startEdge, halfWorld);
+      const end = this.getEdgePoint(endEdge, halfWorld);
+
+      // Generate curved path between edges
+      const path = this.generateCurvedPath(start, end);
+
+      // Add as segments
+      for (let j = 0; j < path.length - 1; j++) {
+        this.segments.push({
+          id: `road-${i}-${j}`,
+          from: [path[j].x, path[j].z],
+          to: [path[j + 1].x, path[j + 1].z],
+          type: 'primary',
+        });
+        this.addIntersection(path[j]);
+        this.unionFind.union(path[j], path[j + 1]);
+      }
+      this.addIntersection(path[path.length - 1]);
+
+      roadEnds.push(start, end);
+    }
+
+    return roadEnds;
+  }
+
+  /**
+   * Get a random point on a world edge.
+   */
+  private getEdgePoint(edge: number, halfWorld: number): Vec2 {
+    const margin = 30;
+    const randomOffset = (this.rng() - 0.5) * halfWorld * 1.2;
+
+    switch (edge) {
+      case 0: return { x: randomOffset, z: -halfWorld + margin }; // South
+      case 1: return { x: halfWorld - margin, z: randomOffset };  // East
+      case 2: return { x: randomOffset, z: halfWorld - margin };  // North
+      case 3: return { x: -halfWorld + margin, z: randomOffset }; // West
+      default: return { x: 0, z: -halfWorld + margin };
+    }
+  }
+
+  /**
+   * Generate a gently curved path between two points.
+   * Uses 1-2 control points for smooth Bezier-like curves.
+   */
+  private generateCurvedPath(start: Vec2, end: Vec2): Vec2[] {
+    const path: Vec2[] = [];
+    const dist = distance(start, end);
+    const numSegments = Math.max(3, Math.floor(dist / 80)); // ~80m per segment
+
+    // 1-2 random control points for curve
+    const numControls = 1 + Math.floor(this.rng() * 2);
+    const controls: Vec2[] = [start];
+
+    for (let i = 0; i < numControls; i++) {
+      const t = (i + 1) / (numControls + 1);
+      const basePoint = lerp(start, end, t);
+      // Offset perpendicular to line
+      const perpOffset = (this.rng() - 0.5) * dist * 0.3;
+      const angle = Math.atan2(end.z - start.z, end.x - start.x) + Math.PI / 2;
+      controls.push({
+        x: basePoint.x + Math.cos(angle) * perpOffset,
+        z: basePoint.z + Math.sin(angle) * perpOffset,
+      });
+    }
+    controls.push(end);
+
+    // Sample smooth curve through control points
+    for (let i = 0; i <= numSegments; i++) {
+      const t = i / numSegments;
+      const point = this.sampleBezier(controls, t);
+      path.push(point);
+    }
+
+    return path;
+  }
+
+  /**
+   * Sample a point on a Bezier curve through control points.
+   */
+  private sampleBezier(controls: Vec2[], t: number): Vec2 {
+    if (controls.length === 2) {
+      return lerp(controls[0], controls[1], t);
+    }
+
+    // De Casteljau's algorithm
+    const next: Vec2[] = [];
+    for (let i = 0; i < controls.length - 1; i++) {
+      next.push(lerp(controls[i], controls[i + 1], t));
+    }
+    return this.sampleBezier(next, t);
+  }
+
+  /**
+   * Add cross-connections between existing roads where they come close.
+   */
+  private generateCrossConnections(): void {
+    const intersectionPoints: Vec2[] = [...this.intersections];
+
+    // Find pairs of intersections that are close but not connected
+    for (let i = 0; i < intersectionPoints.length; i++) {
+      for (let j = i + 1; j < intersectionPoints.length; j++) {
+        const a = intersectionPoints[i];
+        const b = intersectionPoints[j];
+        const dist = distance(a, b);
+
+        // Connect if 40-150m apart and not already connected
+        if (dist > 40 && dist < 150 && !this.unionFind.connected(a, b)) {
+          if (this.rng() < 0.4) { // 40% chance to connect
+            this.segments.push({
+              id: `cross-${this.segmentIdCounter++}`,
+              from: [a.x, a.z],
+              to: [b.x, b.z],
+              type: 'secondary',
+            });
+            this.unionFind.union(a, b);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Connect HQ to nearest road with a SHORT connector.
+   */
+  private connectHQ(hqPosition: Vec2): void {
+    // Find closest point on any segment
+    let nearest: Vec2 | null = null;
+    let minDist = Infinity;
+
+    for (const seg of this.segments) {
+      const from: Vec2 = { x: seg.from[0], z: seg.from[1] };
+      const to: Vec2 = { x: seg.to[0], z: seg.to[1] };
+      const closest = this.closestPointOnSegment(hqPosition, from, to);
+      const dist = distance(closest, hqPosition);
+
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = closest;
+      }
+    }
+
+    // Only connect if HQ is not already on a road
+    if (nearest && minDist > 5) {
+      this.segments.push({
+        id: `hq-connector`,
+        from: [hqPosition.x, hqPosition.z],
+        to: [nearest.x, nearest.z],
+        type: 'residential',
+      });
+      this.addIntersection(hqPosition);
+      this.addIntersection(nearest);
+      this.unionFind.union(hqPosition, nearest);
+    }
+  }
+
+  /**
+   * Generate spawn points at road endpoints (far from HQ).
+   */
+  private generateSpawnsAtEnds(roadEnds: Vec2[]): SpawnPoint[] {
+    const { hqPosition, minSpawnDistance } = this.config;
+    const spawns: SpawnPoint[] = [];
+    const directions = ['North', 'Northeast', 'East', 'Southeast', 'South', 'Southwest', 'West', 'Northwest'];
+    const usedDirs = new Set<string>();
+
+    // Sort by distance from HQ (farthest first)
+    const sorted = roadEnds
+      .map(pos => ({ pos, dist: distance(pos, hqPosition) }))
+      .filter(p => p.dist >= minSpawnDistance * 0.7)
+      .sort((a, b) => b.dist - a.dist);
+
+    for (const { pos } of sorted) {
+      if (spawns.length >= 4) break;
+
+      const angle = Math.atan2(pos.z - hqPosition.z, pos.x - hqPosition.x);
+      const dirIndex = Math.round((angle + Math.PI) / (Math.PI / 4)) % 8;
+      const dir = directions[dirIndex];
+
+      if (usedDirs.has(dir)) continue;
+      usedDirs.add(dir);
+
+      spawns.push({
+        id: `spawn-${spawns.length}`,
+        name: dir,
+        position: { x: pos.x, z: pos.z },
+        description: `Spawn from ${dir}`,
+      });
+    }
+
+    return spawns;
+  }
+
+  /**
+   * Generate arterial roads - NOT radiating from HQ!
+   * Instead: roads that pass THROUGH or NEAR the HQ area, coming from edges.
    */
   private generateArterials(): Vec2[] {
     const { hqPosition, worldSize } = this.config;
     const halfWorld = worldSize / 2;
     const arterialEnds: Vec2[] = [];
 
-    // Generate 4-7 arterials
-    const numArterials = 4 + Math.floor(this.rng() * 4);
-    const angleOffset = this.rng() * Math.PI * 2;
+    // Generate 3-5 main through-roads (not centered on HQ)
+    const numArterials = 3 + Math.floor(this.rng() * 3);
 
     for (let i = 0; i < numArterials; i++) {
-      // Base angle with some randomness
-      const baseAngle = angleOffset + (i / numArterials) * Math.PI * 2;
-      const noisyAngle = baseAngle + (this.rng() - 0.5) * 0.4;
+      // Pick two opposite-ish edges to connect
+      const startAngle = this.rng() * Math.PI * 2;
+      const endAngle = startAngle + Math.PI + (this.rng() - 0.5) * 0.8; // Roughly opposite
 
-      // Generate curved path
-      const targetLength = halfWorld * 0.85 + this.rng() * halfWorld * 0.1;
+      // Start and end points near world edges
+      const edgeDist = halfWorld * 0.9;
+      const startPoint = {
+        x: Math.cos(startAngle) * edgeDist + (this.rng() - 0.5) * 50,
+        z: Math.sin(startAngle) * edgeDist + (this.rng() - 0.5) * 50,
+      };
+
+      // Clamp to world bounds
+      startPoint.x = Math.max(-halfWorld + 30, Math.min(halfWorld - 30, startPoint.x));
+      startPoint.z = Math.max(-halfWorld + 30, Math.min(halfWorld - 30, startPoint.z));
+
+      // Direction towards opposite edge, but with offset to miss HQ center
+      const hqOffset = 30 + this.rng() * 60; // Pass 30-90m away from HQ
+      const offsetAngle = this.rng() * Math.PI * 2;
+      const targetPoint = {
+        x: hqPosition.x + Math.cos(offsetAngle) * hqOffset,
+        z: hqPosition.z + Math.sin(offsetAngle) * hqOffset,
+      };
+
+      // Generate path from edge towards HQ area
+      const dirToTarget = Math.atan2(targetPoint.z - startPoint.z, targetPoint.x - startPoint.x);
+      const pathLength = halfWorld * 1.6; // Long enough to cross the map
+
       const path = this.generateTerrainFollowingPath(
-        hqPosition,
-        noisyAngle,
-        targetLength,
+        startPoint,
+        dirToTarget,
+        pathLength,
         'primary'
       );
 
       if (path.length >= 2) {
-        // Convert path to segments
         this.pathToSegments(path, 'primary', `arterial-${i}`);
-        arterialEnds.push(path[path.length - 1]);
+        arterialEnds.push(path[0]); // Start point is spawn candidate
+        arterialEnds.push(path[path.length - 1]); // End point too
       }
     }
+
+    // Add 2-3 short connector roads FROM HQ to nearest arterials
+    this.connectHQToArterials();
 
     return arterialEnds;
   }
 
   /**
+   * Create short connector roads from HQ to nearby arterials.
+   */
+  private connectHQToArterials(): void {
+    const { hqPosition } = this.config;
+
+    // Find closest points on existing primary roads
+    const closestPoints: { point: Vec2; dist: number; angle: number }[] = [];
+
+    for (const seg of this.segments) {
+      if (seg.type !== 'primary') continue;
+
+      const from: Vec2 = { x: seg.from[0], z: seg.from[1] };
+      const to: Vec2 = { x: seg.to[0], z: seg.to[1] };
+      const closest = this.closestPointOnSegment(hqPosition, from, to);
+      const dist = distance(closest, hqPosition);
+
+      if (dist > 20 && dist < 150) { // Not too close, not too far
+        const angle = Math.atan2(closest.z - hqPosition.z, closest.x - hqPosition.x);
+        closestPoints.push({ point: closest, dist, angle });
+      }
+    }
+
+    // Sort by distance
+    closestPoints.sort((a, b) => a.dist - b.dist);
+
+    // Connect to 2-3 nearest arterials from different directions
+    const connectedAngles: number[] = [];
+    let connected = 0;
+
+    for (const cp of closestPoints) {
+      if (connected >= 3) break;
+
+      // Check if we already have a connection in this direction (within 60 degrees)
+      const tooClose = connectedAngles.some(a => {
+        const diff = Math.abs(a - cp.angle);
+        return diff < Math.PI / 3 || diff > Math.PI * 5 / 3;
+      });
+
+      if (tooClose) continue;
+
+      // Create connector from HQ to this point
+      const path = this.generateTerrainFollowingPath(
+        hqPosition,
+        cp.angle,
+        cp.dist + 10,
+        'secondary'
+      );
+
+      if (path.length >= 2) {
+        this.pathToSegments(path, 'secondary', `hq-connector-${connected}`);
+        connectedAngles.push(cp.angle);
+        connected++;
+      }
+    }
+
+    console.log(`[StreetGen] Connected HQ to ${connected} arterials`);
+  }
+
+  /**
    * Generate ring roads connecting arterials.
+   * Simplified: just 1 ring road at medium distance.
    */
   private generateRingRoads(_arterialEnds: Vec2[]): void {
     const { hqPosition, worldSize } = this.config;
     const halfWorld = worldSize / 2;
 
-    // Generate 2-3 ring roads at different distances
-    const ringDistances = [halfWorld * 0.3, halfWorld * 0.55, halfWorld * 0.8];
-    const numRings = 2 + Math.floor(this.rng() * 2);
+    // Just ONE ring road at medium distance - keep it simple
+    const ringRadius = halfWorld * 0.45;
+    const numPoints = 16; // More points = smoother circle
+    const angleOffset = this.rng() * Math.PI * 2;
 
-    for (let r = 0; r < numRings; r++) {
-      const ringRadius = ringDistances[r];
-      const numPoints = 8 + Math.floor(this.rng() * 4);
-      const angleOffset = this.rng() * Math.PI * 2;
+    const ringPoints: Vec2[] = [];
 
-      const ringPoints: Vec2[] = [];
+    for (let i = 0; i < numPoints; i++) {
+      const angle = angleOffset + (i / numPoints) * Math.PI * 2;
+      // Almost no variation - nearly circular
+      const radiusVariation = 1 + (this.rng() - 0.5) * 0.03;
+      const actualRadius = ringRadius * radiusVariation;
 
-      for (let i = 0; i < numPoints; i++) {
-        const angle = angleOffset + (i / numPoints) * Math.PI * 2;
-        const radiusVariation = 1 + (this.rng() - 0.5) * 0.2;
-        const actualRadius = ringRadius * radiusVariation;
+      const point = {
+        x: hqPosition.x + Math.cos(angle) * actualRadius,
+        z: hqPosition.z + Math.sin(angle) * actualRadius,
+      };
 
-        const point = {
-          x: hqPosition.x + Math.cos(angle) * actualRadius,
-          z: hqPosition.z + Math.sin(angle) * actualRadius,
-        };
+      // Clamp to world bounds
+      point.x = Math.max(-halfWorld + 20, Math.min(halfWorld - 20, point.x));
+      point.z = Math.max(-halfWorld + 20, Math.min(halfWorld - 20, point.z));
 
-        // Clamp to world bounds
-        point.x = Math.max(-halfWorld + 20, Math.min(halfWorld - 20, point.x));
-        point.z = Math.max(-halfWorld + 20, Math.min(halfWorld - 20, point.z));
+      ringPoints.push(point);
+    }
 
-        ringPoints.push(point);
-      }
+    // Close the ring
+    ringPoints.push(ringPoints[0]);
 
-      // Close the ring
-      ringPoints.push(ringPoints[0]);
-
-      // Sample spline and create segments
-      const smoothedPath = sampleSplinePath(ringPoints, this.SAMPLE_DISTANCE);
-      this.pathToSegments(smoothedPath, 'secondary', `ring-${r}`);
+    // Use linear segments instead of spline - no weird curves
+    for (let i = 0; i < ringPoints.length - 1; i++) {
+      const from = ringPoints[i];
+      const to = ringPoints[i + 1];
+      this.segments.push({
+        id: `ring-${i}`,
+        from: [from.x, from.z],
+        to: [to.x, to.z],
+        type: 'secondary',
+      });
+      this.addIntersection(from);
+      this.addIntersection(to);
+      this.unionFind.union(from, to);
     }
   }
 
   /**
    * Generate collector streets branching from arterials.
+   * Simplified: fewer branches, straighter paths.
    */
   private generateCollectors(): void {
     const primarySegments = this.segments.filter(s => s.type === 'primary');
@@ -447,8 +738,8 @@ export class StreetGenerator {
         { x: segment.to[0], z: segment.to[1] }
       );
 
-      // Branch every 80-120 meters
-      const branchInterval = 80 + this.rng() * 40;
+      // Branch every 150-200 meters (less frequent)
+      const branchInterval = 150 + this.rng() * 50;
       const numBranches = Math.floor(segmentLength / branchInterval);
 
       for (let i = 1; i <= numBranches; i++) {
@@ -465,72 +756,84 @@ export class StreetGenerator {
           { x: segment.from[0], z: segment.from[1] }
         ));
 
-        // Branch at 70-110 degrees
-        const branchAngle = (70 + this.rng() * 40) * Math.PI / 180;
+        // Branch at ~90 degrees (perpendicular)
+        const branchAngle = (85 + this.rng() * 10) * Math.PI / 180;
         const side = this.rng() > 0.5 ? 1 : -1;
         const branchDir = rotate(segDir, branchAngle * side);
-        const branchDirection = Math.atan2(branchDir.z, branchDir.x);
 
-        // Generate branch path
-        const branchLength = 60 + this.rng() * 80;
-        const path = this.generateTerrainFollowingPath(
-          branchPoint,
-          branchDirection,
-          branchLength,
-          'secondary'
-        );
+        // Simple straight branch - no terrain following
+        const branchLength = 80 + this.rng() * 60;
+        const endPoint = add(branchPoint, scale(branchDir, branchLength));
 
-        if (path.length >= 2) {
-          this.pathToSegments(path, 'secondary', `collector-${this.segmentIdCounter}`);
-        }
+        // Create simple straight segment
+        this.segments.push({
+          id: `collector-${this.segmentIdCounter++}`,
+          from: [branchPoint.x, branchPoint.z],
+          to: [endPoint.x, endPoint.z],
+          type: 'secondary',
+        });
+        this.addIntersection(branchPoint);
+        this.addIntersection(endPoint);
+        this.unionFind.union(branchPoint, endPoint);
       }
     }
   }
 
   /**
    * Generate residential streets to fill remaining space.
+   * Simplified: fewer streets, straight lines.
    */
   private generateResidentialStreets(): void {
     const { worldSize, hqPosition } = this.config;
     const halfWorld = worldSize / 2;
 
     // Grid of potential residential street starting points
-    const gridSize = 100; // meters
+    const gridSize = 150; // meters (larger = fewer streets)
     const gridPoints: Vec2[] = [];
 
     for (let x = -halfWorld + gridSize; x < halfWorld - gridSize; x += gridSize) {
       for (let z = -halfWorld + gridSize; z < halfWorld - gridSize; z += gridSize) {
         // Skip if too close to HQ
         const distToHQ = distance({ x, z }, hqPosition);
-        if (distToHQ < 50) continue;
+        if (distToHQ < 80) continue;
 
-        // Add some randomness to position
         gridPoints.push({
-          x: x + (this.rng() - 0.5) * gridSize * 0.5,
-          z: z + (this.rng() - 0.5) * gridSize * 0.5,
+          x: x + (this.rng() - 0.5) * gridSize * 0.3,
+          z: z + (this.rng() - 0.5) * gridSize * 0.3,
         });
       }
     }
 
-    // Shuffle and take a subset
+    // Shuffle and take a smaller subset
     this.shuffle(gridPoints);
-    const numResidential = Math.min(gridPoints.length, 30 + Math.floor(this.rng() * 20));
+    const numResidential = Math.min(gridPoints.length, 15 + Math.floor(this.rng() * 10));
 
     for (let i = 0; i < numResidential; i++) {
       const start = gridPoints[i];
 
       // Skip if already covered by existing street
-      if (this.nearExistingIntersection(start, 30)) continue;
+      if (this.nearExistingIntersection(start, 40)) continue;
 
-      // Random direction
-      const direction = this.rng() * Math.PI * 2;
-      const length = 40 + this.rng() * 60;
+      // Prefer cardinal directions (straighter grid)
+      const baseAngle = Math.floor(this.rng() * 4) * (Math.PI / 2); // 0, 90, 180, 270 degrees
+      const direction = baseAngle + (this.rng() - 0.5) * 0.2; // Small variation
+      const streetLength = 60 + this.rng() * 40;
 
-      const path = this.generateTerrainFollowingPath(start, direction, length, 'residential');
+      // Simple straight segment
+      const endPoint = {
+        x: start.x + Math.cos(direction) * streetLength,
+        z: start.z + Math.sin(direction) * streetLength,
+      };
 
-      if (path.length >= 2) {
-        this.pathToSegments(path, 'residential', `residential-${this.segmentIdCounter}`);
-      }
+      this.segments.push({
+        id: `residential-${this.segmentIdCounter++}`,
+        from: [start.x, start.z],
+        to: [endPoint.x, endPoint.z],
+        type: 'residential',
+      });
+      this.addIntersection(start);
+      this.addIntersection(endPoint);
+      this.unionFind.union(start, endPoint);
     }
   }
 
@@ -562,8 +865,11 @@ export class StreetGenerator {
       let blendedDir = add(scale(currentDir, 0.8), scale(valleyDir, 0.2));
       blendedDir = normalize(blendedDir);
 
-      // Add small organic noise (max ±5 degrees per step)
-      const noiseAngle = (this.rng() - 0.5) * 0.1;
+      // Add organic noise using Simplex noise for gentle curves (even on flat terrain)
+      // Use position-based noise so curves are consistent and smooth
+      const noiseScale = 0.004; // Lower = smoother, larger curves
+      const noiseVal = this.noise.n1(current.x * noiseScale, current.z * noiseScale);
+      const noiseAngle = noiseVal * 0.15; // Up to ±8 degrees - gentle curves, not wild
       blendedDir = rotate(blendedDir, noiseAngle);
 
       // Calculate next point
@@ -652,8 +958,9 @@ export class StreetGenerator {
   private pathToSegments(path: Vec2[], type: StreetType, baseName: string): void {
     if (path.length < 2) return;
 
-    // Simplify path - use small epsilon to preserve terrain-following detail
-    const simplified = this.simplifyPath(path, 0.5);
+    // Simplify path - use larger epsilon for longer, more consistent segments
+    // This helps building alignment (buildings align to segment direction)
+    const simplified = this.simplifyPath(path, 8);
 
     for (let i = 0; i < simplified.length - 1; i++) {
       const from = simplified[i];
@@ -1016,8 +1323,9 @@ export class StreetGenerator {
         }
       }
 
-      // Always add a connector segment if spawn isn't exactly on a street endpoint
-      if (nearestPoint && nearestDist > 1) {
+      // Add a SHORT connector segment if spawn isn't exactly on a street endpoint
+      // Only if the nearest point is close (max 30m) - don't draw lines across the map!
+      if (nearestPoint && nearestDist > 1 && nearestDist < 30) {
         this.segments.push({
           id: `spawn-connector-${spawn.id}`,
           from: [spawn.position.x, spawn.position.z],
