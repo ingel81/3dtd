@@ -231,6 +231,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly spawnPoints = signal<SpawnPoint[]>([]);
   readonly baseCoords = signal(EMPTY_COORDS);
   readonly centerCoords = signal(EMPTY_CENTER_COORDS);
+  readonly isDevWorldRegenerating = signal(false);
 
   readonly waveActive = computed(() => this.gameState.phase() === 'wave');
   readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
@@ -1035,12 +1036,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const devTerrainProvider = this.engine.getDevTerrainProvider();
       if (devTerrainProvider) {
         console.log('[TowerDefense] DevWorld: Regenerating world...');
+        // Show loading state
+        this.isDevWorldRegenerating.set(true);
         // Clear engine height cache before regeneration
         this.engine.clearHeightCache();
         devTerrainProvider.regenerate().then(() => {
           // Streets are updated via the refresh callback set in loadStreets()
-          // Re-render UI overlays
-          this.onTilesLoaded();
+          // Full re-initialization of spawns, routes, and grid
+          this.onDevWorldRegenerated(devTerrainProvider);
+          // Hide loading state
+          this.isDevWorldRegenerating.set(false);
         });
         return;
       }
@@ -1051,6 +1056,103 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Re-run the tiles loaded logic (streets, markers, routes)
     this.onTilesLoaded();
+  }
+
+  /**
+   * Called after DevWorld terrain regeneration.
+   * Performs a full cleanup and re-initialization similar to location change.
+   */
+  private onDevWorldRegenerated(devTerrainProvider: import('./devworld/dev-terrain.provider').DevTerrainProvider): void {
+    console.log('[TowerDefense] DevWorld regenerated - full re-initialization');
+    if (!this.engine) return;
+
+    const overlayGroup = this.engine.getOverlayGroup();
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 1: Stop everything
+    // ══════════════════════════════════════════════════════════════
+    this.routeAnimation.stopAnimation();
+    this.heightUpdate.stopHeightUpdates();
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 2: Clear all visual elements
+    // ══════════════════════════════════════════════════════════════
+    // Clear ALL markers (HQ + spawns)
+    this.markerViz.clearAllMarkers();
+
+    // Clear route lines
+    this.pathRoute.clearAllRoutes();
+    this.pathRoute.clearCachedPaths();
+
+    // Clear street rendering
+    this.streetRendering.dispose(overlayGroup);
+
+    // Clear spawn points signal
+    this.spawnPoints.set([]);
+
+    // Clear global route grid visualization
+    this.gameState.getGlobalRouteGrid().disposeVisualization();
+    this.gameState.getGlobalRouteGrid().clear();
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 3: Re-create base/HQ marker
+    // ══════════════════════════════════════════════════════════════
+    this.markerViz.addBaseMarker();
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 4: Create new spawn point from terrain provider
+    // (Use only first spawn, same as initial load in addPredefinedSpawns)
+    // ══════════════════════════════════════════════════════════════
+    const generatedSpawns = devTerrainProvider.getSpawnPoints();
+    const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]; // Same as addPredefinedSpawns
+
+    if (generatedSpawns.length > 0) {
+      const spawn = generatedSpawns[0];
+      const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
+      this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
+    }
+
+    // Update spawn markers reference in pathRoute service
+    this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 5: Re-filter and render streets
+    // ══════════════════════════════════════════════════════════════
+    this.filteredStreetNetwork = this.streetNetwork;
+    this.renderStreets();
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 6: Update marker heights and render routes
+    // ══════════════════════════════════════════════════════════════
+    const spawnPointsForMarkers = this.spawnPoints().map(sp => ({
+      id: sp.id,
+      name: sp.name,
+      lat: sp.lat,
+      lon: sp.lon,
+      color: sp.color,
+    }));
+    this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
+
+    // Refresh route lines (this also caches paths)
+    this.pathRoute.refreshRouteLines(this.spawnPoints());
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 7: Re-initialize game state with new routes
+    // ══════════════════════════════════════════════════════════════
+    this.gameState.initializeGlobalRouteGrid();
+
+    // Update HQ terrain height
+    this.gameState.onTilesLoaded();
+
+    // ══════════════════════════════════════════════════════════════
+    // PHASE 8: Start route animation
+    // ══════════════════════════════════════════════════════════════
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    if (cachedPaths.size > 0) {
+      this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
+    }
+
+    console.log(`[TowerDefense] DevWorld re-initialized: ${generatedSpawns.length} spawns, ${cachedPaths.size} routes`);
   }
 
   /**

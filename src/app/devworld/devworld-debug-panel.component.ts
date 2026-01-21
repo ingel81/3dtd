@@ -1,4 +1,4 @@
-import { Component, ChangeDetectionStrategy, inject, output } from '@angular/core';
+import { Component, ChangeDetectionStrategy, inject, output, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { DevWorldService, TerrainPreset } from './devworld.service';
@@ -80,9 +80,9 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
 
       <div class="section">
         <div class="section-title">Actions</div>
-        <button class="regenerate-btn" (click)="regenerate()" title="Regenerate world with current settings">
-          <mat-icon>refresh</mat-icon>
-          Regenerate World
+        <button class="regenerate-btn" [class.loading]="isRegenerating()" [disabled]="isRegenerating()" (click)="regenerate()" title="Regenerate world with current settings">
+          <mat-icon [class.spinning]="isRegenerating()">{{ isRegenerating() ? 'sync' : 'refresh' }}</mat-icon>
+          {{ isRegenerating() ? 'Regenerating...' : 'Regenerate World' }}
         </button>
         <button class="copy-btn" (click)="copyUrl()" title="Copy shareable URL">
           <mat-icon>link</mat-icon>
@@ -291,6 +291,24 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
       height: 14px;
     }
 
+    .regenerate-btn.loading {
+      opacity: 0.7;
+      cursor: wait;
+    }
+
+    .regenerate-btn:disabled {
+      pointer-events: none;
+    }
+
+    .spinning {
+      animation: spin 1s linear infinite;
+    }
+
+    @keyframes spin {
+      from { transform: rotate(0deg); }
+      to { transform: rotate(360deg); }
+    }
+
     .copy-btn {
       width: 100%;
       display: flex;
@@ -347,6 +365,9 @@ export class DevWorldDebugPanelComponent {
   readonly devWorld = inject(DevWorldService);
   readonly categories = TERRAIN_CATEGORIES;
   readonly buildingPresets = ['none', 'sparse', 'dense', 'maze'] as const;
+
+  // Input for loading state
+  readonly isRegenerating = input(false);
 
   // Output for terrain refresh request
   readonly terrainRefresh = output<void>();
