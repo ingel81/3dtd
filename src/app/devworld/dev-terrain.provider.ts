@@ -193,8 +193,9 @@ export class DevTerrainProvider implements TerrainProvider {
       case 'sparse':
         return 'sparse';
       case 'dense':
-      case 'maze':
         return 'dense';
+      case 'maze':
+        return 'maze';
       default:
         return 'medium';
     }
@@ -566,7 +567,8 @@ export class DevTerrainProvider implements TerrainProvider {
       config.position.z
     );
 
-    if (config.rotation) {
+    // Apply rotation (check for undefined, not truthiness - 0 is a valid rotation!)
+    if (config.rotation !== undefined) {
       mesh.rotation.y = config.rotation;
     }
 

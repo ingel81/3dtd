@@ -19,7 +19,7 @@ import { StreetSegment } from './street-generator';
 // Types
 // ========================================
 
-export type BuildingDensity = 'none' | 'sparse' | 'medium' | 'dense';
+export type BuildingDensity = 'none' | 'sparse' | 'medium' | 'dense' | 'maze';
 
 export interface BuildingConfig {
   id: string;
@@ -65,48 +65,48 @@ interface BuildingPreset {
 
 const BUILDING_PRESETS: Record<string, BuildingPreset> = {
   small: {
-    minWidth: 15,
-    maxWidth: 25,
-    minHeight: 12,
+    minWidth: 6,
+    maxWidth: 10,
+    minHeight: 6,
+    maxHeight: 12,
+    minDepth: 6,
+    maxDepth: 10,
+  },
+  medium: {
+    minWidth: 10,
+    maxWidth: 18,
+    minHeight: 10,
     maxHeight: 20,
+    minDepth: 10,
+    maxDepth: 16,
+  },
+  large: {
+    minWidth: 16,
+    maxWidth: 28,
+    minHeight: 15,
+    maxHeight: 30,
+    minDepth: 16,
+    maxDepth: 25,
+  },
+  tower: {
+    minWidth: 10,
+    maxWidth: 16,
+    minHeight: 25,
+    maxHeight: 50,
+    minDepth: 10,
+    maxDepth: 16,
+  },
+  warehouse: {
+    minWidth: 20,
+    maxWidth: 35,
+    minHeight: 8,
+    maxHeight: 14,
     minDepth: 15,
     maxDepth: 25,
   },
-  medium: {
-    minWidth: 25,
-    maxWidth: 45,
-    minHeight: 18,
-    maxHeight: 35,
-    minDepth: 25,
-    maxDepth: 45,
-  },
-  large: {
-    minWidth: 40,
-    maxWidth: 70,
-    minHeight: 25,
-    maxHeight: 50,
-    minDepth: 40,
-    maxDepth: 60,
-  },
-  tower: {
-    minWidth: 20,
-    maxWidth: 35,
-    minHeight: 40,
-    maxHeight: 80,
-    minDepth: 20,
-    maxDepth: 35,
-  },
-  warehouse: {
-    minWidth: 50,
-    maxWidth: 80,
-    minHeight: 15,
-    maxHeight: 25,
-    minDepth: 40,
-    maxDepth: 70,
-  },
 };
 
-// Density configurations
+// Density configurations - DRASTICALLY different for visual distinction!
 // All buildings are placed along streets (no clusters without street access)
 const DENSITY_CONFIGS: Record<BuildingDensity, {
   totalBuildings: number;
@@ -117,16 +117,20 @@ const DENSITY_CONFIGS: Record<BuildingDensity, {
     presetWeights: {},
   },
   sparse: {
-    totalBuildings: 25,
-    presetWeights: { small: 0.4, medium: 0.4, large: 0.2 },
+    totalBuildings: 150,  // Just a few strategic buildings
+    presetWeights: { medium: 0.5, large: 0.5 },
   },
   medium: {
-    totalBuildings: 50,
-    presetWeights: { small: 0.35, medium: 0.4, large: 0.2, warehouse: 0.05 },
+    totalBuildings: 400,
+    presetWeights: { small: 0.3, medium: 0.4, large: 0.2, warehouse: 0.1 },
   },
   dense: {
-    totalBuildings: 80,
-    presetWeights: { small: 0.35, medium: 0.35, large: 0.2, warehouse: 0.1 },
+    totalBuildings: 1200,  // Packed city feel
+    presetWeights: { small: 0.4, medium: 0.35, large: 0.15, tower: 0.1 },
+  },
+  maze: {
+    totalBuildings: 2000,  // Labyrinth of walls and obstacles
+    presetWeights: { small: 0.7, medium: 0.3 },  // Mostly small blockers
   },
 };
 
@@ -265,10 +269,12 @@ export class BuildingGenerator {
     this.shuffle(viableSegments);
 
     let placed = 0;
-    const STREET_OFFSET = 22; // Distance from street center to building center
-    const BUILDING_SPACING = 8; // Gap between buildings along street
+    const ROAD_HALF_WIDTH = 5; // Half width of road + small clearance
+    const BUILDING_GAP = 2; // Gap between buildings
+    const ROW_GAP = 3; // Gap between rows
+    const MAX_ROWS = 4; // Maximum building rows per side
 
-    // Process each segment
+    // Process each segment - build on both sides, multiple rows
     for (const { segment, length, angle } of viableSegments) {
       if (placed >= count) break;
 
@@ -279,62 +285,74 @@ export class BuildingGenerator {
       const perpX = -Math.sin(angle);
       const perpZ = Math.cos(angle);
 
-      // Decide which side(s) to build on
-      const sides: number[] = length > 100 ? [1, -1] : [this.rng() > 0.5 ? 1 : -1];
-
-      for (const side of sides) {
+      // Build on BOTH sides
+      for (const side of [1, -1]) {
         if (placed >= count) break;
 
-        // Walk along the segment
-        let currentDist = 15; // Start 15m from segment start
+        // Build MULTIPLE ROWS per side
+        let currentRowOffset = ROAD_HALF_WIDTH;
 
-        while (currentDist < length - 15 && placed < count) {
-          const t = currentDist / length;
-          const streetPoint = lerp(from, to, t);
+        for (let row = 0; row < MAX_ROWS && placed < count; row++) {
+          // Walk along the segment for this row
+          let currentDist = 8 + this.rng() * 5; // Staggered start
 
-          // Select building size
-          const preset = this.selectPreset(presetWeights);
-          const buildingWidth = preset.minWidth + this.rng() * (preset.maxWidth - preset.minWidth) * 0.5;
-          const buildingDepth = preset.minDepth + this.rng() * (preset.maxDepth - preset.minDepth) * 0.5;
-          const buildingHeight = preset.minHeight + this.rng() * (preset.maxHeight - preset.minHeight);
+          while (currentDist < length - 8 && placed < count) {
+            const t = currentDist / length;
+            const streetPoint = lerp(from, to, t);
 
-          // Position: offset perpendicular from street
-          const offset = STREET_OFFSET + buildingDepth / 2;
-          const position = {
-            x: streetPoint.x + perpX * offset * side,
-            z: streetPoint.z + perpZ * offset * side,
-          };
+            // Select building size - smaller for denser packing
+            const preset = this.selectPreset(presetWeights);
+            const sizeScale = 0.4 + this.rng() * 0.3; // 40-70% of max size
+            const buildingWidth = preset.minWidth + (preset.maxWidth - preset.minWidth) * sizeScale;
+            const buildingDepth = preset.minDepth + (preset.maxDepth - preset.minDepth) * sizeScale;
+            const buildingHeight = preset.minHeight + this.rng() * (preset.maxHeight - preset.minHeight);
 
-          // Advance along street for next building
-          currentDist += buildingWidth + BUILDING_SPACING;
+            // Position: offset perpendicular from street
+            const offset = currentRowOffset + buildingDepth / 2;
+            const position = {
+              x: streetPoint.x + perpX * offset * side,
+              z: streetPoint.z + perpZ * offset * side,
+            };
 
-          // Skip if too close to HQ
-          if (distance(position, hqPosition) < hqSafeRadius) continue;
+            // Advance along street for next building
+            currentDist += buildingWidth + BUILDING_GAP;
 
-          // Skip if out of bounds
-          if (!this.isInBounds(position)) continue;
+            // Skip if too close to HQ
+            if (distance(position, hqPosition) < hqSafeRadius) continue;
 
-          // Skip if overlapping any street
-          if (this.overlapsStreet(position, Math.max(buildingWidth, buildingDepth) / 2 + 5)) continue;
+            // Skip if out of bounds
+            if (!this.isInBounds(position)) continue;
 
-          // Create building - rotation is street angle (building width along street)
-          const building: BuildingConfig = {
-            id: `building-${this.buildingIdCounter++}`,
-            position: { x: position.x, z: position.z },
-            size: { width: buildingWidth, height: buildingHeight, depth: buildingDepth },
-            rotation: angle + (this.rng() - 0.5) * 0.08, // Small variation ±2.3°
-          };
+            // Building rotation: use NEGATIVE angle because Three.js rotation.y
+            // rotates the local X-axis to direction -θ, not +θ
+            const buildingRotation = -angle;
 
-          // Check for overlap with existing buildings
-          if (this.overlapsExisting(building)) continue;
+            // Skip if building footprint overlaps any street
+            if (this.buildingOverlapsStreet(position, buildingWidth, buildingDepth, buildingRotation)) continue;
 
-          this.buildings.push(building);
-          placed++;
+            // Create building
+            const building: BuildingConfig = {
+              id: `building-${this.buildingIdCounter++}`,
+              position: { x: position.x, z: position.z },
+              size: { width: buildingWidth, height: buildingHeight, depth: buildingDepth },
+              rotation: buildingRotation,
+            };
+
+            // Check for overlap with existing buildings
+            if (this.overlapsExisting(building)) continue;
+
+            this.buildings.push(building);
+            placed++;
+          }
+
+          // Move to next row (further from street)
+          const avgDepth = (BUILDING_PRESETS['small'].minDepth + BUILDING_PRESETS['medium'].minDepth) / 2;
+          currentRowOffset += avgDepth + ROW_GAP;
         }
       }
     }
 
-    console.log(`[BuildingGen] Placed ${placed}/${count} buildings along streets`);
+    console.log(`[BuildingGen] Placed ${placed}/${count} buildings along streets (no grid fallback)`);
   }
 
 
@@ -347,34 +365,69 @@ export class BuildingGenerator {
   ): void {
     const { worldSize, hqPosition, hqSafeRadius } = this.config;
     const halfWorld = worldSize / 2;
+    const margin = 30; // Stay away from world edges
 
-    // Generate grid positions
-    const gridSize = Math.ceil(Math.sqrt(count * 2));
-    const spacing = worldSize / gridSize;
+    // Generate MORE grid positions than needed to account for overlaps
+    const gridSize = Math.ceil(Math.sqrt(count * 4)); // 4x oversampling
+    const spacing = (worldSize - margin * 2) / gridSize;
     const positions: Vec2[] = [];
 
     for (let gx = 0; gx < gridSize; gx++) {
       for (let gz = 0; gz < gridSize; gz++) {
-        const x = -halfWorld + spacing * (gx + 0.5) + (this.rng() - 0.5) * spacing * 0.4;
-        const z = -halfWorld + spacing * (gz + 0.5) + (this.rng() - 0.5) * spacing * 0.4;
+        const x = -halfWorld + margin + spacing * (gx + 0.5) + (this.rng() - 0.5) * spacing * 0.3;
+        const z = -halfWorld + margin + spacing * (gz + 0.5) + (this.rng() - 0.5) * spacing * 0.3;
 
-        if (distance({ x, z }, hqPosition) >= hqSafeRadius) {
-          positions.push({ x, z });
-        }
+        // Skip if too close to HQ
+        if (distance({ x, z }, hqPosition) < hqSafeRadius) continue;
+
+        // Skip if too close to streets (don't block them)
+        if (this.overlapsStreet({ x, z }, 15)) continue;
+
+        positions.push({ x, z });
       }
     }
 
-    // Shuffle and take required count
+    // Shuffle for variety
     this.shuffle(positions);
 
-    for (let i = 0; i < Math.min(count, positions.length); i++) {
+    let placed = 0;
+    for (let i = 0; i < positions.length && placed < count; i++) {
+      const pos = positions[i];
       const preset = this.selectPreset(presetWeights);
-      const building = this.createBuilding(positions[i], preset);
+
+      // Random size within preset range
+      const width = preset.minWidth + this.rng() * (preset.maxWidth - preset.minWidth) * 0.6;
+      const height = preset.minHeight + this.rng() * (preset.maxHeight - preset.minHeight);
+      const depth = preset.minDepth + this.rng() * (preset.maxDepth - preset.minDepth) * 0.6;
+
+      // Find nearest street and align to it (max 60m away)
+      const nearest = this.findNearestStreet(pos, 60);
+      let rotation: number;
+      if (nearest) {
+        // Use NEGATIVE angle because Three.js rotation.y rotates X-axis to -θ
+        rotation = -nearest.angle;
+      } else {
+        // No nearby street - use cardinal direction (0, 90, 180, 270 degrees)
+        rotation = Math.floor(this.rng() * 4) * (Math.PI / 2);
+      }
+
+      // Check if building footprint overlaps any street
+      if (this.buildingOverlapsStreet(pos, width, depth, rotation)) continue;
+
+      const building: BuildingConfig = {
+        id: `building-${this.buildingIdCounter++}`,
+        position: { x: pos.x, z: pos.z },
+        size: { width, height, depth },
+        rotation,
+      };
 
       if (!this.overlapsExisting(building)) {
         this.buildings.push(building);
+        placed++;
       }
     }
+
+    console.log(`[BuildingGen] Grid placed ${placed}/${count} buildings`);
   }
 
   /**
@@ -396,61 +449,15 @@ export class BuildingGenerator {
   }
 
   /**
-   * Create a building configuration.
-   * Aligns parallel to nearby street if provided.
+   * Find the nearest street segment and return its direction angle.
+   * Simple and robust: just use the angle of the nearest segment directly.
    */
-  private createBuilding(
-    position: Vec2,
-    preset: BuildingPreset,
-    streetFrom?: Vec2,
-    streetTo?: Vec2
-  ): BuildingConfig {
-    // Random size within preset range
-    const width =
-      preset.minWidth + this.rng() * (preset.maxWidth - preset.minWidth);
-    const height =
-      preset.minHeight + this.rng() * (preset.maxHeight - preset.minHeight);
-    const depth =
-      preset.minDepth + this.rng() * (preset.maxDepth - preset.minDepth);
+  private findNearestStreet(position: Vec2, maxDistance = 100): { from: Vec2; to: Vec2; dist: number; angle: number } | null {
+    let nearestFrom: Vec2 | null = null;
+    let nearestTo: Vec2 | null = null;
+    let minDist = maxDistance;
 
-    let rotation: number;
-    if (streetFrom && streetTo) {
-      // Align parallel to street
-      const streetAngle = Math.atan2(
-        streetTo.z - streetFrom.z,
-        streetTo.x - streetFrom.x
-      );
-      rotation = streetAngle + (this.rng() - 0.5) * 0.1;
-    } else {
-      // Find nearest street and align to it
-      const nearest = this.findNearestStreet(position);
-      if (nearest) {
-        const streetAngle = Math.atan2(
-          nearest.to.z - nearest.from.z,
-          nearest.to.x - nearest.from.x
-        );
-        rotation = streetAngle + (this.rng() - 0.5) * 0.1;
-      } else {
-        // Random rotation if no street nearby
-        rotation = this.rng() * Math.PI * 2;
-      }
-    }
-
-    return {
-      id: `building-${this.buildingIdCounter++}`,
-      position: { x: position.x, z: position.z },
-      size: { width, height, depth },
-      rotation,
-    };
-  }
-
-  /**
-   * Find the nearest street segment to a position.
-   */
-  private findNearestStreet(position: Vec2): { from: Vec2; to: Vec2 } | null {
-    let nearest: { from: Vec2; to: Vec2 } | null = null;
-    let minDist = Infinity;
-
+    // Find the nearest segment
     for (const segment of this.config.streetSegments) {
       const from = { x: segment.from[0], z: segment.from[1] };
       const to = { x: segment.to[0], z: segment.to[1] };
@@ -458,41 +465,17 @@ export class BuildingGenerator {
 
       if (dist < minDist) {
         minDist = dist;
-        nearest = { from, to };
+        nearestFrom = from;
+        nearestTo = to;
       }
     }
 
-    return nearest;
-  }
+    if (!nearestFrom || !nearestTo) return null;
 
-  /**
-   * Create a building with pre-calculated dimensions, aligned parallel to street.
-   */
-  private createBuildingAligned(
-    position: Vec2,
-    dimensions: { width: number; depth: number },
-    preset: BuildingPreset,
-    streetFrom: Vec2,
-    streetTo: Vec2
-  ): BuildingConfig {
-    const height =
-      preset.minHeight + this.rng() * (preset.maxHeight - preset.minHeight);
+    // Calculate angle of the nearest segment directly
+    const angle = Math.atan2(nearestTo.z - nearestFrom.z, nearestTo.x - nearestFrom.x);
 
-    // Align parallel to street direction
-    const streetAngle = Math.atan2(
-      streetTo.z - streetFrom.z,
-      streetTo.x - streetFrom.x
-    );
-
-    // Building is parallel to street with small variation (±3 degrees)
-    const rotation = streetAngle + (this.rng() - 0.5) * 0.1;
-
-    return {
-      id: `building-${this.buildingIdCounter++}`,
-      position: { x: position.x, z: position.z },
-      size: { width: dimensions.width, height, depth: dimensions.depth },
-      rotation,
-    };
+    return { from: nearestFrom, to: nearestTo, dist: minDist, angle };
   }
 
   /**
@@ -536,7 +519,8 @@ export class BuildingGenerator {
   }
 
   /**
-   * Check if position is too close to any street segment.
+   * Check if a building overlaps any street segment.
+   * Takes building size into account, not just center point.
    */
   private overlapsStreet(position: Vec2, minDistance: number): boolean {
     for (const segment of this.config.streetSegments) {
@@ -545,6 +529,45 @@ export class BuildingGenerator {
 
       const dist = distanceToSegment(position, from, to);
       if (dist < minDistance) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if a building (with its full footprint) overlaps any street.
+   * Checks corners, edge midpoints, and center - 9 points total.
+   */
+  private buildingOverlapsStreet(position: Vec2, width: number, depth: number, rotation: number): boolean {
+    const ROAD_CLEARANCE = 6; // Minimum clearance from road edge
+
+    const halfW = width / 2;
+    const halfD = depth / 2;
+    const cos = Math.cos(rotation);
+    const sin = Math.sin(rotation);
+
+    // Helper to rotate a local offset to world position
+    const toWorld = (dx: number, dz: number): Vec2 => ({
+      x: position.x + (dx * cos - dz * sin),
+      z: position.z + (dx * sin + dz * cos),
+    });
+
+    // Check 9 points: center, 4 corners, 4 edge midpoints
+    const points: Vec2[] = [
+      toWorld(0, 0),           // Center
+      toWorld(halfW, halfD),   // Corner: +X +Z
+      toWorld(-halfW, halfD),  // Corner: -X +Z
+      toWorld(halfW, -halfD),  // Corner: +X -Z
+      toWorld(-halfW, -halfD), // Corner: -X -Z
+      toWorld(halfW, 0),       // Edge mid: +X
+      toWorld(-halfW, 0),      // Edge mid: -X
+      toWorld(0, halfD),       // Edge mid: +Z
+      toWorld(0, -halfD),      // Edge mid: -Z
+    ];
+
+    for (const point of points) {
+      if (this.overlapsStreet(point, ROAD_CLEARANCE)) {
         return true;
       }
     }

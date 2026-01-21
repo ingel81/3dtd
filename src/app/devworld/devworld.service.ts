@@ -75,6 +75,12 @@ export const DEV_WORLD_ORIGIN = {
 };
 
 /**
+ * Default seed for reproducible DevWorld generation.
+ * Always use this when no seed is specified in URL.
+ */
+export const DEV_WORLD_DEFAULT_SEED = 666;
+
+/**
  * Spawn point locations in local coordinates (meters from origin)
  *
  * Coordinate convention (same as EllipsoidSync):
@@ -117,14 +123,17 @@ export class DevWorldService {
 
       console.log(`[DevWorld] URL params: terrain="${rawTerrain}" -> "${this.config.terrain}", seed=${this.config.seed}`);
       console.log('[DevWorld] Active with config:', this.config);
+
+      // Update URL to show resolved defaults (e.g. ?devworld -> ?devworld&terrain=flat&seed=42)
+      this.updateUrl();
     } else {
-      // Default config (not used when inactive)
+      // Default config (not used when inactive, but keep consistent)
       this.config = {
-        terrain: 'default',
+        terrain: 'flat',
         buildings: 'sparse',
         spawn: 'north',
         grid: false,
-        seed: Date.now() % 100000,
+        seed: DEV_WORLD_DEFAULT_SEED,
       };
     }
   }
@@ -206,7 +215,7 @@ export class DevWorldService {
     if (value && (TERRAIN_PRESETS as readonly string[]).includes(value)) {
       return value as TerrainPreset;
     }
-    return 'default';
+    return 'flat'; // Default: flat terrain for deterministic testing
   }
 
   private parseBuildingsParam(value: string | null): DevWorldConfig['buildings'] {
@@ -230,8 +239,8 @@ export class DevWorldService {
         return parsed;
       }
     }
-    // Generate random seed if not specified
-    return Math.floor(Math.random() * 100000);
+    // Use fixed seed for reproducible DevWorld
+    return DEV_WORLD_DEFAULT_SEED;
   }
 
   /**
