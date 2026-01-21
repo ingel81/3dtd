@@ -1031,28 +1031,23 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     console.log('[TowerDefense] Manual terrain height refresh triggered');
 
-    // DevWorld mode: Regenerate entire world
+    // DevWorld mode: Regenerate entire world (uses Web Worker - UI stays responsive)
     if (this.devWorld.isActive) {
       const devTerrainProvider = this.engine.getDevTerrainProvider();
       if (devTerrainProvider) {
         console.log('[TowerDefense] DevWorld: Regenerating world...');
-        // Show loading state FIRST
         this.isDevWorldRegenerating.set(true);
 
-        // Give browser TWO frames to render the loading state before heavy work
-        // (one for layout/style, one for paint)
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            // Clear engine height cache before regeneration
-            this.engine!.clearHeightCache();
-            devTerrainProvider.regenerate().then(() => {
-              // Streets are updated via the refresh callback set in loadStreets()
-              // Full re-initialization of spawns, routes, and grid
-              this.onDevWorldRegenerated(devTerrainProvider);
-              // Hide loading state
-              this.isDevWorldRegenerating.set(false);
-            });
-          });
+        // IMMEDIATELY clear all visuals before worker starts
+        this.clearDevWorldVisuals();
+
+        this.engine.clearHeightCache();
+
+        devTerrainProvider.regenerate().then(() => {
+          // Streets are updated via the refresh callback set in loadStreets()
+          // Full re-initialization of spawns, routes, and grid
+          this.onDevWorldRegenerated(devTerrainProvider);
+          this.isDevWorldRegenerating.set(false);
         });
         return;
       }
@@ -1066,24 +1061,24 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Called after DevWorld terrain regeneration.
-   * Performs a full cleanup and re-initialization similar to location change.
+   * Immediately clear all DevWorld visuals (called BEFORE regeneration starts).
+   * This ensures markers, routes, animations, towers, VFX disappear right when user clicks Regenerate.
    */
-  private onDevWorldRegenerated(devTerrainProvider: import('./devworld/dev-terrain.provider').DevTerrainProvider): void {
-    console.log('[TowerDefense] DevWorld regenerated - full re-initialization');
+  private clearDevWorldVisuals(): void {
     if (!this.engine) return;
 
     const overlayGroup = this.engine.getOverlayGroup();
 
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 1: Stop everything
-    // ══════════════════════════════════════════════════════════════
+    // Stop animations
     this.routeAnimation.stopAnimation();
     this.heightUpdate.stopHeightUpdates();
 
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 2: Clear all visual elements
-    // ══════════════════════════════════════════════════════════════
+    // Reset game state (clears towers, enemies, projectiles, VFX, etc.)
+    this.gameState.reset();
+
+    // Clear GlobalRouteGrid visualization (reset() only clears data, not 3D objects)
+    this.gameState.getGlobalRouteGrid().disposeVisualization();
+
     // Clear ALL markers (HQ + spawns)
     this.markerViz.clearAllMarkers();
 
@@ -1097,12 +1092,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Clear spawn points signal
     this.spawnPoints.set([]);
 
-    // Clear global route grid visualization
-    this.gameState.getGlobalRouteGrid().disposeVisualization();
-    this.gameState.getGlobalRouteGrid().clear();
+    console.log('[TowerDefense] DevWorld visuals cleared');
+  }
+
+  /**
+   * Called after DevWorld terrain regeneration.
+   * Re-creates all visuals with new terrain data.
+   */
+  private onDevWorldRegenerated(devTerrainProvider: import('./devworld/dev-terrain.provider').DevTerrainProvider): void {
+    console.log('[TowerDefense] DevWorld regenerated - re-creating visuals');
+    if (!this.engine) return;
 
     // ══════════════════════════════════════════════════════════════
-    // PHASE 3: Re-create base/HQ marker
+    // PHASE 1: Re-create base/HQ marker
     // ══════════════════════════════════════════════════════════════
     this.markerViz.addBaseMarker();
 
