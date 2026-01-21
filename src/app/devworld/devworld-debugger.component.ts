@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy, output } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, output, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from '../components/debug-window/draggable-debug-panel.component';
 import { DevWorldDebugPanelComponent } from './devworld-debug-panel.component';
@@ -28,7 +28,7 @@ import { DevWorldService } from './devworld.service';
         (positionChange)="windowService.updatePosition('devworld', $event)"
         (focused)="windowService.bringToFront('devworld')"
       >
-        <app-devworld-debug-panel (terrainRefresh)="onTerrainRefresh()" />
+        <app-devworld-debug-panel [isRegenerating]="isRegenerating()" (terrainRefresh)="onTerrainRefresh()" />
       </app-draggable-debug-panel>
     }
   `,
@@ -36,6 +36,9 @@ import { DevWorldService } from './devworld.service';
 export class DevWorldDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
   readonly devWorld = inject(DevWorldService);
+
+  // Input for loading state
+  readonly isRegenerating = input(false);
 
   // Output for terrain refresh request
   readonly terrainRefresh = output<void>();

@@ -28,7 +28,8 @@ export class DevTerrainProvider implements TerrainProvider {
   private scene: THREE.Scene | null = null;
   private terrainMesh: THREE.Mesh | null = null;
   private terrainGroup: THREE.Group = new THREE.Group();
-  private buildings: THREE.Mesh[] = [];
+  private buildings: THREE.Mesh[] = []; // For raycasting only (not added to scene)
+  private buildingInstancedMesh: THREE.InstancedMesh | null = null; // For rendering (1 draw call!)
   private roadMesh: THREE.Mesh | null = null; // Asphalt road surface
   private heightData: Float32Array | null = null;
   private heightmapSize = 1024;
@@ -61,11 +62,23 @@ export class DevTerrainProvider implements TerrainProvider {
   private heightCache = new Map<string, number>();
   private readonly CACHE_PRECISION = 5; // decimal places
 
-  // Shared building material
-  private buildingMaterial: THREE.MeshStandardMaterial | null = null;
+  // Shared building material (MeshLambertMaterial for better performance)
+  private buildingMaterial: THREE.MeshLambertMaterial | null = null;
 
   // Callback for street refresh (notifies DevStreetProvider)
   private onStreetRefreshCallback: ((segments: StreetSegment[], spawns: SpawnPoint[]) => void) | null = null;
+
+  // Building color palette for visual variety
+  private static readonly BUILDING_COLORS = [
+    0x555566, // Default gray-blue
+    0x665555, // Gray-red (brick)
+    0x556655, // Gray-green
+    0x606070, // Lighter gray-blue
+    0x504540, // Dark brown
+    0x606060, // Neutral gray
+    0x4a5a6a, // Steel blue
+    0x5a5a50, // Olive gray
+  ];
 
   constructor(private devWorld: DevWorldService) {}
 
@@ -217,9 +230,15 @@ export class DevTerrainProvider implements TerrainProvider {
       this.roadMesh = null;
     }
 
-    // Remove buildings
+    // Remove instanced building mesh (for rendering)
+    if (this.buildingInstancedMesh) {
+      this.terrainGroup.remove(this.buildingInstancedMesh);
+      this.buildingInstancedMesh.geometry.dispose();
+      this.buildingInstancedMesh = null;
+    }
+
+    // Dispose raycast-only building meshes (not in scene)
     for (const building of this.buildings) {
-      this.terrainGroup.remove(building);
       building.geometry.dispose();
     }
     this.buildings = [];
@@ -534,49 +553,101 @@ export class DevTerrainProvider implements TerrainProvider {
     });
   }
 
+  /**
+   * Create buildings using InstancedMesh for minimal draw calls.
+   * Creates:
+   * 1. An InstancedMesh for rendering (1 draw call for ALL buildings!)
+   * 2. Individual Meshes for raycasting (not added to scene)
+   */
   private createBuildings(buildingConfigs: BuildingConfig[]): void {
-    // Create shared material if needed
+    if (buildingConfigs.length === 0) return;
+
+    // Create shared material if needed (use MeshLambertMaterial for better performance)
+    // Note: Instance colors are automatically applied by Three.js when using setColorAt()
+    // The material color (white) is multiplied with the instance color
     if (!this.buildingMaterial) {
-      this.buildingMaterial = new THREE.MeshStandardMaterial({
-        color: 0x555566,
-        roughness: 0.8,
-        metalness: 0.1,
+      this.buildingMaterial = new THREE.MeshLambertMaterial({
+        color: 0xffffff, // White base, instance colors will tint this
       });
     }
 
-    for (const config of buildingConfigs) {
-      const building = this.createBuilding(config);
-      this.buildings.push(building);
-      this.terrainGroup.add(building);
-    }
+    // Unit box geometry - we scale each instance via matrix
+    const unitBox = new THREE.BoxGeometry(1, 1, 1);
 
-    console.log(`[DevTerrain] Created ${this.buildings.length} buildings`);
-  }
-
-  private createBuilding(config: BuildingConfig): THREE.Mesh {
-    const { width, height, depth } = config.size;
-    const geometry = new THREE.BoxGeometry(width, height, depth);
-
-    // Get terrain height at building position
-    const terrainHeight = this.getHeightAtLocal(config.position.x, config.position.z) || 0;
-
-    const mesh = new THREE.Mesh(geometry, this.buildingMaterial!);
-    mesh.position.set(
-      config.position.x,
-      terrainHeight + height / 2, // Place on top of terrain
-      config.position.z
+    // Create InstancedMesh
+    this.buildingInstancedMesh = new THREE.InstancedMesh(
+      unitBox,
+      this.buildingMaterial,
+      buildingConfigs.length
     );
+    this.buildingInstancedMesh.name = 'DevWorldBuildings';
+    // Disable shadows for better performance
+    this.buildingInstancedMesh.castShadow = false;
+    this.buildingInstancedMesh.receiveShadow = false;
 
-    // Apply rotation (check for undefined, not truthiness - 0 is a valid rotation!)
-    if (config.rotation !== undefined) {
-      mesh.rotation.y = config.rotation;
+    // Reusable objects for matrix construction
+    const matrix = new THREE.Matrix4();
+    const position = new THREE.Vector3();
+    const quaternion = new THREE.Quaternion();
+    const scale = new THREE.Vector3();
+    const color = new THREE.Color();
+
+    // Process each building
+    for (let i = 0; i < buildingConfigs.length; i++) {
+      const config = buildingConfigs[i];
+      const { width, height, depth } = config.size;
+
+      // Get terrain height
+      const terrainHeight = this.getHeightAtLocalDirect(config.position.x, config.position.z);
+
+      // Set position (center of building)
+      position.set(
+        config.position.x,
+        terrainHeight + height / 2,
+        config.position.z
+      );
+
+      // Set rotation
+      if (config.rotation !== undefined) {
+        quaternion.setFromAxisAngle(new THREE.Vector3(0, 1, 0), config.rotation);
+      } else {
+        quaternion.identity();
+      }
+
+      // Set scale (the unit box gets scaled to actual building size)
+      scale.set(width, height, depth);
+
+      // Compose transformation matrix
+      matrix.compose(position, quaternion, scale);
+      this.buildingInstancedMesh.setMatrixAt(i, matrix);
+
+      // Set per-instance color for visual variety
+      const colorIndex = (config.id.charCodeAt(0) + i) % DevTerrainProvider.BUILDING_COLORS.length;
+      color.setHex(DevTerrainProvider.BUILDING_COLORS[colorIndex]);
+      this.buildingInstancedMesh.setColorAt(i, color);
+
+      // Create raycast-only mesh (NOT added to scene, only for collision detection)
+      const raycastGeometry = new THREE.BoxGeometry(width, height, depth);
+      const raycastMesh = new THREE.Mesh(raycastGeometry);
+      raycastMesh.position.copy(position);
+      if (config.rotation !== undefined) {
+        raycastMesh.rotation.y = config.rotation;
+      }
+      raycastMesh.name = `Building_${config.id}`;
+      raycastMesh.updateMatrixWorld(true);
+      this.buildings.push(raycastMesh);
     }
 
-    mesh.name = `Building_${config.id}`;
-    mesh.castShadow = true;
-    mesh.receiveShadow = true;
+    // Notify Three.js that matrices/colors have been updated
+    this.buildingInstancedMesh.instanceMatrix.needsUpdate = true;
+    if (this.buildingInstancedMesh.instanceColor) {
+      this.buildingInstancedMesh.instanceColor.needsUpdate = true;
+    }
 
-    return mesh;
+    // Add to scene
+    this.terrainGroup.add(this.buildingInstancedMesh);
+
+    console.log(`[DevTerrain] Created ${buildingConfigs.length} buildings (1 instanced mesh, ${buildingConfigs.length} raycast meshes)`);
   }
 
   /**
@@ -682,7 +753,8 @@ export class DevTerrainProvider implements TerrainProvider {
     this.raycaster.near = 0;
     this.raycaster.far = Infinity;
 
-    const intersects = this.raycaster.intersectObject(this.terrainMesh, false);
+    // Raycast against terrain AND buildings - allows tower placement on rooftops
+    const intersects = this.raycaster.intersectObjects(this.raycastTargets, false);
     if (intersects.length > 0) {
       return intersects[0].point.clone();
     }
@@ -747,9 +819,17 @@ export class DevTerrainProvider implements TerrainProvider {
       (this.terrainMesh.material as THREE.Material).dispose();
     }
 
+    // Dispose instanced building mesh
+    if (this.buildingInstancedMesh) {
+      this.buildingInstancedMesh.geometry.dispose();
+      this.buildingInstancedMesh = null;
+    }
+
+    // Dispose raycast-only building meshes
     for (const building of this.buildings) {
       building.geometry.dispose();
     }
+    this.buildings = [];
 
     if (this.buildingMaterial) {
       this.buildingMaterial.dispose();

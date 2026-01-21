@@ -78,7 +78,7 @@ export const DEV_WORLD_ORIGIN = {
  * Default seed for reproducible DevWorld generation.
  * Always use this when no seed is specified in URL.
  */
-export const DEV_WORLD_DEFAULT_SEED = 666;
+export const DEV_WORLD_DEFAULT_SEED = 42;
 
 /**
  * Spawn point locations in local coordinates (meters from origin)
@@ -130,7 +130,7 @@ export class DevWorldService {
       // Default config (not used when inactive, but keep consistent)
       this.config = {
         terrain: 'flat',
-        buildings: 'sparse',
+        buildings: 'dense',
         spawn: 'north',
         grid: false,
         seed: DEV_WORLD_DEFAULT_SEED,
@@ -197,7 +197,7 @@ export class DevWorldService {
     params.set('terrain', this.config.terrain);
     params.set('seed', String(this.config.seed));
 
-    if (this.config.buildings !== 'sparse') {
+    if (this.config.buildings !== 'dense') {
       params.set('buildings', this.config.buildings);
     }
     if (this.config.spawn !== 'north') {
@@ -219,10 +219,10 @@ export class DevWorldService {
   }
 
   private parseBuildingsParam(value: string | null): DevWorldConfig['buildings'] {
-    if (value === 'none' || value === 'dense' || value === 'maze') {
+    if (value === 'none' || value === 'sparse' || value === 'maze') {
       return value;
     }
-    return 'sparse';
+    return 'dense'; // Default: dense buildings
   }
 
   private parseSpawnParam(value: string | null): DevWorldConfig['spawn'] {
