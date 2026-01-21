@@ -1036,16 +1036,23 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const devTerrainProvider = this.engine.getDevTerrainProvider();
       if (devTerrainProvider) {
         console.log('[TowerDefense] DevWorld: Regenerating world...');
-        // Show loading state
+        // Show loading state FIRST
         this.isDevWorldRegenerating.set(true);
-        // Clear engine height cache before regeneration
-        this.engine.clearHeightCache();
-        devTerrainProvider.regenerate().then(() => {
-          // Streets are updated via the refresh callback set in loadStreets()
-          // Full re-initialization of spawns, routes, and grid
-          this.onDevWorldRegenerated(devTerrainProvider);
-          // Hide loading state
-          this.isDevWorldRegenerating.set(false);
+
+        // Give browser TWO frames to render the loading state before heavy work
+        // (one for layout/style, one for paint)
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            // Clear engine height cache before regeneration
+            this.engine!.clearHeightCache();
+            devTerrainProvider.regenerate().then(() => {
+              // Streets are updated via the refresh callback set in loadStreets()
+              // Full re-initialization of spawns, routes, and grid
+              this.onDevWorldRegenerated(devTerrainProvider);
+              // Hide loading state
+              this.isDevWorldRegenerating.set(false);
+            });
+          });
         });
         return;
       }
