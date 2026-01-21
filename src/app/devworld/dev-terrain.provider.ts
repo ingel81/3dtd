@@ -1,9 +1,10 @@
 import * as THREE from 'three';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
-import { DevWorldService, DEV_WORLD_SIZE, DEV_WORLD_MAX_HEIGHT } from './devworld.service';
+import { DevWorldService, DEV_WORLD_SIZE, DEV_WORLD_MAX_HEIGHT, DEV_WORLD_HEIGHTMAP_SIZE } from './devworld.service';
 import { TerrainGenerator, TerrainPreset } from './generators/terrain-generator';
-import { BuildingGenerator, BuildingConfig, BuildingDensity } from './generators/building-generator';
-import { StreetGenerator, StreetSegment, SpawnPoint } from './generators/street-generator';
+import { BuildingConfig, BuildingDensity } from './generators/building-generator';
+import { StreetSegment, SpawnPoint } from './generators/street-generator';
+import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfig } from './devworld-worker.types';
 
 /**
  * DevTerrainProvider
@@ -27,18 +28,20 @@ const ROAD_HEIGHT_OFFSET = 0.5;
 export class DevTerrainProvider implements TerrainProvider {
   private scene: THREE.Scene | null = null;
   private terrainMesh: THREE.Mesh | null = null;
+  private terrainSkirt: THREE.Mesh | null = null; // Side walls for terrain depth
   private terrainGroup: THREE.Group = new THREE.Group();
   private buildings: THREE.Mesh[] = []; // For raycasting only (not added to scene)
   private buildingInstancedMesh: THREE.InstancedMesh | null = null; // For rendering (1 draw call!)
   private roadMesh: THREE.Mesh | null = null; // Asphalt road surface
   private heightData: Float32Array | null = null;
-  private heightmapSize = 1024;
+  private heightmapSize = DEV_WORLD_HEIGHTMAP_SIZE;
   private ready = false;
 
-  // Generators
+  // Web Worker for off-main-thread generation
+  private worker: Worker | null = null;
+
+  // TerrainGenerator kept for height sampling after generation
   private terrainGenerator: TerrainGenerator | null = null;
-  private streetGenerator: StreetGenerator | null = null;
-  private buildingGenerator: BuildingGenerator | null = null;
 
   // Generated data
   private streetSegments: StreetSegment[] = [];
@@ -110,15 +113,14 @@ export class DevTerrainProvider implements TerrainProvider {
    * Regenerate entire world with current config.
    * Called on init AND on debug panel "Regenerate" button.
    *
-   * Order matters:
-   * 1. Terrain first - so we have heights to sample
-   * 2. Streets second - can follow terrain contours
-   * 3. Buildings last - placed along streets on terrain
+   * Uses Web Worker for off-main-thread generation:
+   * 1. Worker generates terrain, streets, buildings DATA
+   * 2. Main thread creates THREE.js meshes from data
    */
   async regenerate(): Promise<void> {
     const { terrain, seed, buildings } = this.devWorld.config;
 
-    console.log(`[DevTerrain] Regenerating: preset=${terrain}, seed=${seed}, buildings=${buildings}`);
+    console.log(`[DevTerrain] Regenerating via Worker: preset=${terrain}, seed=${seed}, buildings=${buildings}`);
     const startTime = performance.now();
 
     // Clear existing
@@ -127,62 +129,106 @@ export class DevTerrainProvider implements TerrainProvider {
     // Map buildings preset to density
     const buildingDensity = this.mapBuildingPresetToDensity(buildings);
 
-    // Phase 1: Generate terrain FIRST so we have heights to sample
+    // Create worker config
+    const workerConfig: DevWorldWorkerConfig = {
+      seed,
+      worldSize: DEV_WORLD_SIZE,
+      heightmapSize: DEV_WORLD_HEIGHTMAP_SIZE,
+      maxHeight: DEV_WORLD_MAX_HEIGHT,
+      terrainPreset: terrain as TerrainPreset,
+      buildingDensity,
+      hqPosition: { x: 0, z: 0 },
+    };
+
+    // Run generation in Web Worker
+    const result = await this.runWorkerGeneration(workerConfig);
+
+    // Store generated data
+    this.heightData = result.heightData;
+    this.streetSegments = result.streetSegments;
+    this.spawnPoints = result.spawnPoints;
+
+    // Create TerrainGenerator for height sampling (reuses heightData)
     this.terrainGenerator = new TerrainGenerator({
       preset: terrain as TerrainPreset,
       seed,
-      size: 1024,
+      size: DEV_WORLD_HEIGHTMAP_SIZE,
       worldSize: DEV_WORLD_SIZE,
       maxHeight: DEV_WORLD_MAX_HEIGHT,
     });
-    this.heightData = this.terrainGenerator.generate();
-    this.heightmapSize = 1024;
 
-    // Phase 2: Generate streets - now terrainSampler works!
-    this.streetGenerator = new StreetGenerator({
-      seed,
-      worldSize: DEV_WORLD_SIZE,
-      hqPosition: { x: 0, z: 0 },
-      terrainSampler: (x, z) => this.getHeightAtLocalDirect(x, z),
-      minSpawnDistance: 300,
-      maxSpawnDistance: 450,
-    });
-    const streetResult = this.streetGenerator.generate();
-    this.streetSegments = streetResult.segments;
-    this.spawnPoints = streetResult.spawns;
-
-    // Phase 3: Generate buildings - placed along streets on terrain
-    this.buildingGenerator = new BuildingGenerator({
-      seed,
-      density: buildingDensity,
-      streetSegments: this.streetSegments,
-      worldSize: DEV_WORLD_SIZE,
-      hqPosition: { x: 0, z: 0 },
-      hqSafeRadius: 60,
-      terrainSampler: (x, z) => this.getHeightAtLocalDirect(x, z),
-    });
-    const buildingConfigs = this.buildingGenerator.generate();
-
-    // Phase 4: Create meshes
+    // Create meshes on main thread (requires THREE.js / DOM)
     this.createTerrainMesh();
-    this.createRoadMesh(); // Asphalt roads on terrain
-    this.createBuildings(buildingConfigs);
+    this.createRoadMesh();
+    this.createBuildings(result.buildingConfigs);
 
-    // Phase 5: Rebuild raycast targets
+    // Rebuild raycast targets
     this.rebuildRaycastTargets();
 
-    // Phase 6: Clear height cache
+    // Clear height cache
     this.heightCache.clear();
 
-    // Phase 7: Notify street provider
+    // Notify street provider
     if (this.onStreetRefreshCallback) {
       this.onStreetRefreshCallback(this.streetSegments, this.spawnPoints);
     }
 
+    const meshTime = performance.now() - startTime - result.timing.total;
     console.log(
-      `[DevTerrain] Regenerated in ${(performance.now() - startTime).toFixed(0)}ms: ` +
-      `${this.streetSegments.length} streets, ${buildingConfigs.length} buildings`
+      `[DevTerrain] Regenerated: Worker=${result.timing.total.toFixed(0)}ms ` +
+      `(terrain=${result.timing.terrain.toFixed(0)}ms, streets=${result.timing.streets.toFixed(0)}ms, ` +
+      `buildings=${result.timing.buildings.toFixed(0)}ms), Meshes=${meshTime.toFixed(0)}ms`
     );
+  }
+
+  /**
+   * Run generation in Web Worker and return results.
+   */
+  private runWorkerGeneration(config: DevWorldWorkerConfig): Promise<{
+    heightData: Float32Array;
+    streetSegments: StreetSegment[];
+    spawnPoints: SpawnPoint[];
+    buildingConfigs: BuildingConfig[];
+    timing: { terrain: number; streets: number; buildings: number; total: number };
+  }> {
+    return new Promise((resolve, reject) => {
+      // Create worker lazily
+      if (!this.worker) {
+        this.worker = new Worker(new URL('./devworld.worker', import.meta.url), { type: 'module' });
+      }
+
+      const handleMessage = (event: MessageEvent<DevWorldWorkerResponse>) => {
+        const response = event.data;
+
+        switch (response.type) {
+          case 'progress':
+            console.log(`[DevTerrain] Worker progress: ${response.phase} ${response.progress}%`);
+            break;
+
+          case 'result':
+            this.worker?.removeEventListener('message', handleMessage);
+            resolve({
+              heightData: response.heightData,
+              streetSegments: response.streetSegments,
+              spawnPoints: response.spawnPoints,
+              buildingConfigs: response.buildingConfigs,
+              timing: response.timing,
+            });
+            break;
+
+          case 'error':
+            this.worker?.removeEventListener('message', handleMessage);
+            reject(new Error(response.error));
+            break;
+        }
+      };
+
+      this.worker.addEventListener('message', handleMessage);
+
+      // Send generation request to worker
+      const message: DevWorldWorkerMessage = { type: 'generate', config };
+      this.worker.postMessage(message);
+    });
   }
 
   /**
@@ -220,6 +266,14 @@ export class DevTerrainProvider implements TerrainProvider {
       this.terrainGroup.remove(this.terrainMesh);
       this.terrainMesh.geometry.dispose();
       this.terrainMesh = null;
+    }
+
+    // Remove terrain skirt
+    if (this.terrainSkirt) {
+      this.terrainGroup.remove(this.terrainSkirt);
+      this.terrainSkirt.geometry.dispose();
+      (this.terrainSkirt.material as THREE.Material).dispose();
+      this.terrainSkirt = null;
     }
 
     // Remove road mesh
@@ -287,6 +341,122 @@ export class DevTerrainProvider implements TerrainProvider {
     this.terrainMesh.receiveShadow = true;
 
     this.terrainGroup.add(this.terrainMesh);
+
+    // Create terrain skirt (side walls for depth)
+    this.createTerrainSkirt(segments);
+  }
+
+  /**
+   * Create side walls around the terrain edge for visual depth.
+   * Creates 4 walls (N, S, E, W) that extend from terrain surface down.
+   */
+  private createTerrainSkirt(segments: number): void {
+    const halfSize = DEV_WORLD_SIZE / 2;
+    const skirtDepth = 100; // How far down the skirt extends
+    const skirtBottom = -50; // Bottom Y position
+
+    const vertices: number[] = [];
+    const indices: number[] = [];
+    const normals: number[] = [];
+
+    // Helper to add a quad (2 triangles)
+    const addQuad = (
+      x1: number, y1: number, z1: number,
+      x2: number, y2: number, z2: number,
+      x3: number, y3: number, z3: number,
+      x4: number, y4: number, z4: number,
+      nx: number, ny: number, nz: number
+    ) => {
+      const baseIdx = vertices.length / 3;
+
+      // 4 vertices
+      vertices.push(x1, y1, z1, x2, y2, z2, x3, y3, z3, x4, y4, z4);
+
+      // 4 normals (same for flat shading)
+      for (let i = 0; i < 4; i++) {
+        normals.push(nx, ny, nz);
+      }
+
+      // 2 triangles
+      indices.push(baseIdx, baseIdx + 1, baseIdx + 2);
+      indices.push(baseIdx, baseIdx + 2, baseIdx + 3);
+    };
+
+    // Sample edge heights and create walls
+    for (let i = 0; i < segments; i++) {
+      const t1 = i / segments;
+      const t2 = (i + 1) / segments;
+
+      // North edge (z = +halfSize)
+      const nx1 = -halfSize + t1 * DEV_WORLD_SIZE;
+      const nx2 = -halfSize + t2 * DEV_WORLD_SIZE;
+      const nh1 = this.getHeightAtLocalDirect(nx1, halfSize);
+      const nh2 = this.getHeightAtLocalDirect(nx2, halfSize);
+      addQuad(
+        nx1, nh1, halfSize,
+        nx2, nh2, halfSize,
+        nx2, skirtBottom, halfSize,
+        nx1, skirtBottom, halfSize,
+        0, 0, 1 // Normal facing north
+      );
+
+      // South edge (z = -halfSize)
+      const sx1 = -halfSize + t1 * DEV_WORLD_SIZE;
+      const sx2 = -halfSize + t2 * DEV_WORLD_SIZE;
+      const sh1 = this.getHeightAtLocalDirect(sx1, -halfSize);
+      const sh2 = this.getHeightAtLocalDirect(sx2, -halfSize);
+      addQuad(
+        sx2, sh2, -halfSize,
+        sx1, sh1, -halfSize,
+        sx1, skirtBottom, -halfSize,
+        sx2, skirtBottom, -halfSize,
+        0, 0, -1 // Normal facing south
+      );
+
+      // East edge (x = +halfSize)
+      const ez1 = -halfSize + t1 * DEV_WORLD_SIZE;
+      const ez2 = -halfSize + t2 * DEV_WORLD_SIZE;
+      const eh1 = this.getHeightAtLocalDirect(halfSize, ez1);
+      const eh2 = this.getHeightAtLocalDirect(halfSize, ez2);
+      addQuad(
+        halfSize, eh2, ez2,
+        halfSize, eh1, ez1,
+        halfSize, skirtBottom, ez1,
+        halfSize, skirtBottom, ez2,
+        1, 0, 0 // Normal facing east
+      );
+
+      // West edge (x = -halfSize)
+      const wz1 = -halfSize + t1 * DEV_WORLD_SIZE;
+      const wz2 = -halfSize + t2 * DEV_WORLD_SIZE;
+      const wh1 = this.getHeightAtLocalDirect(-halfSize, wz1);
+      const wh2 = this.getHeightAtLocalDirect(-halfSize, wz2);
+      addQuad(
+        -halfSize, wh1, wz1,
+        -halfSize, wh2, wz2,
+        -halfSize, skirtBottom, wz2,
+        -halfSize, skirtBottom, wz1,
+        -1, 0, 0 // Normal facing west
+      );
+    }
+
+    // Create geometry
+    const geometry = new THREE.BufferGeometry();
+    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
+    geometry.setAttribute('normal', new THREE.Float32BufferAttribute(normals, 3));
+    geometry.setIndex(indices);
+
+    // Dark rock material for the skirt (visible from both sides)
+    const material = new THREE.MeshLambertMaterial({
+      color: 0x3a3530, // Dark brown/rock
+      side: THREE.DoubleSide,
+    });
+
+    this.terrainSkirt = new THREE.Mesh(geometry, material);
+    this.terrainSkirt.name = 'DevWorldTerrainSkirt';
+    this.terrainGroup.add(this.terrainSkirt);
+
+    console.log(`[DevTerrain] Created terrain skirt: ${indices.length / 3} triangles`);
   }
 
   private applyHeightmapToGeometry(geometry: THREE.PlaneGeometry): void {
@@ -311,10 +481,8 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   /**
-   * Create road mesh from street segments (asphalt surface on terrain)
-   *
-   * Uses circle stamps at regular intervals along each segment for smooth
-   * terrain following and proper junction coverage.
+   * Create road mesh from street segments using InstancedMesh.
+   * Each road "stamp" is an instance of a circle - 1 draw call for all roads!
    */
   private createRoadMesh(): void {
     if (this.streetSegments.length === 0) return;
@@ -328,13 +496,16 @@ export class DevTerrainProvider implements TerrainProvider {
     }
 
     const radius = ROAD_WIDTH / 2;
-    const subdivisionLength = 1; // Sample every 1m
-    const circleSegments = 8; // Octagon approximation for circles
-    const vertices: number[] = [];
-    const indices: number[] = [];
+    const subdivisionLength = 3; // Sample every 3m (was 1m)
+    const circleSegments = 6; // Hexagon (was 8)
 
-    // Collect all road points (with duplicates at junctions - that's fine)
-    const roadPoints: { x: number; z: number }[] = [];
+    // Collect all road points
+    const roadPoints: { x: number; z: number; y: number }[] = [];
+
+    // Raycaster for terrain height
+    const rayOrigin = new THREE.Vector3();
+    const rayDir = new THREE.Vector3(0, -1, 0);
+    const raycaster = new THREE.Raycaster();
 
     for (const segment of this.streetSegments) {
       const x1 = segment.from[0];
@@ -347,76 +518,58 @@ export class DevTerrainProvider implements TerrainProvider {
       const segmentLength = Math.sqrt(dx * dx + dz * dz);
       if (segmentLength < 0.5) continue;
 
-      // Add points along segment
       const numPoints = Math.max(2, Math.ceil(segmentLength / subdivisionLength));
       for (let i = 0; i <= numPoints; i++) {
         const t = i / numPoints;
-        roadPoints.push({
-          x: x1 + dx * t,
-          z: z1 + dz * t
-        });
-      }
-    }
+        const x = x1 + dx * t;
+        const z = z1 + dz * t;
 
-    // Create FLAT circle (disc) at each road point
-    // Use RAYCAST against terrain mesh for accurate height (not heightmap!)
-    const rayOrigin = new THREE.Vector3();
-    const rayDir = new THREE.Vector3(0, -1, 0);
-    const raycaster = new THREE.Raycaster();
-
-    for (const point of roadPoints) {
-      // Raycast from above to get exact terrain mesh height
-      rayOrigin.set(point.x, 500, point.z); // Start high above
-      raycaster.set(rayOrigin, rayDir);
-
-      let terrainY = 0;
-      if (this.terrainMesh) {
-        const hits = raycaster.intersectObject(this.terrainMesh);
-        if (hits.length > 0) {
-          terrainY = hits[0].point.y;
+        // Get terrain height via raycast
+        rayOrigin.set(x, 500, z);
+        raycaster.set(rayOrigin, rayDir);
+        let y = ROAD_HEIGHT_OFFSET;
+        if (this.terrainMesh) {
+          const hits = raycaster.intersectObject(this.terrainMesh);
+          if (hits.length > 0) {
+            y = hits[0].point.y + ROAD_HEIGHT_OFFSET;
+          }
         }
-      }
 
-      const discY = terrainY + ROAD_HEIGHT_OFFSET;
-      const baseIdx = vertices.length / 3;
-
-      // Center vertex
-      vertices.push(point.x, discY, point.z);
-
-      // Circle edge vertices - all at same Y as center
-      for (let i = 0; i < circleSegments; i++) {
-        const angle = (i / circleSegments) * Math.PI * 2;
-        const cx = point.x + Math.cos(angle) * radius;
-        const cz = point.z + Math.sin(angle) * radius;
-        vertices.push(cx, discY, cz);
-      }
-
-      // Create triangles (fan from center)
-      for (let i = 0; i < circleSegments; i++) {
-        const next = (i + 1) % circleSegments;
-        indices.push(baseIdx, baseIdx + 1 + i, baseIdx + 1 + next);
+        roadPoints.push({ x, z, y });
       }
     }
 
-    if (vertices.length === 0) return;
+    if (roadPoints.length === 0) return;
 
-    const geometry = new THREE.BufferGeometry();
-    geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
-    geometry.setIndex(indices);
-    geometry.computeVertexNormals();
+    // Create single circle geometry (shared by all instances)
+    const circleGeom = new THREE.CircleGeometry(radius, circleSegments);
+    circleGeom.rotateX(-Math.PI / 2); // Make horizontal
 
-    // Asphalt gray material
+    // Asphalt material
     const material = new THREE.MeshBasicMaterial({
       color: 0x3a3a3a,
       side: THREE.DoubleSide,
     });
 
-    this.roadMesh = new THREE.Mesh(geometry, material);
-    this.roadMesh.name = 'DevWorldRoads';
+    // Create InstancedMesh
+    const instancedRoads = new THREE.InstancedMesh(circleGeom, material, roadPoints.length);
+    instancedRoads.name = 'DevWorldRoads';
+
+    // Set instance transforms
+    const matrix = new THREE.Matrix4();
+    for (let i = 0; i < roadPoints.length; i++) {
+      const p = roadPoints[i];
+      matrix.makeTranslation(p.x, p.y, p.z);
+      instancedRoads.setMatrixAt(i, matrix);
+    }
+    instancedRoads.instanceMatrix.needsUpdate = true;
+
+    // Store as roadMesh (it's actually an InstancedMesh but compatible)
+    this.roadMesh = instancedRoads as unknown as THREE.Mesh;
     this.roadMesh.renderOrder = 1;
     this.terrainGroup.add(this.roadMesh);
 
-    console.log(`[DevTerrain] Created road mesh: ${roadPoints.length} discs, ${indices.length / 3} triangles`);
+    console.log(`[DevTerrain] Created instanced road mesh: ${roadPoints.length} instances (1 draw call)`);
   }
 
   /**
@@ -814,6 +967,12 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   dispose(): void {
+    // Terminate worker
+    if (this.worker) {
+      this.worker.terminate();
+      this.worker = null;
+    }
+
     if (this.terrainMesh) {
       this.terrainMesh.geometry.dispose();
       (this.terrainMesh.material as THREE.Material).dispose();
