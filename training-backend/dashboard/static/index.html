@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>3DTD AI Training Dashboard</title>
+  <link rel="stylesheet" href="/static/style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+</head>
+<body>
+  <div class="dashboard">
+    <!-- Header -->
+    <div class="header">
+      <div class="header-left">
+        <h1>3DTD <span>Wave Director</span></h1>
+        <div class="connection-badge disconnected" id="ws-badge">
+          <span class="connection-dot"></span>
+          <span id="ws-status">Connecting...</span>
+        </div>
+      </div>
+      <div class="header-stats">
+        <div class="stat">
+          <div class="stat-value blue" id="episode">0</div>
+          <div class="stat-label">Episode</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value green" id="avg-reward">0.000</div>
+          <div class="stat-label">Avg Reward</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value purple" id="best-reward">0.000</div>
+          <div class="stat-label">Best</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value cyan" id="clients">0</div>
+          <div class="stat-label">Clients</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value orange" id="sweet-spot">0%</div>
+          <div class="stat-label">Sweet Spot</div>
+        </div>
+        <div class="stat">
+          <div class="stat-value" id="game-over-rate" style="color: var(--accent-red)">0%</div>
+          <div class="stat-label">Game Over</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 1: Reward Chart (2 cols) + Model Metrics (1 col) -->
+    <div class="card span-2">
+      <div class="card-header">
+        <span class="card-title">Reward</span>
+        <span class="card-badge green" id="reward-badge">--</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="reward-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Model Metrics</span>
+        <span class="card-badge orange" id="updates-badge">0 updates</span>
+      </div>
+      <div class="metrics-grid">
+        <div class="metric-item">
+          <div class="metric-label">Policy Loss</div>
+          <div class="metric-value purple" id="policy-loss">--</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Entropy</div>
+          <div class="metric-value blue" id="entropy">--</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Grad Norm</div>
+          <div class="metric-value orange" id="grad-norm">--</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Batch Reward</div>
+          <div class="metric-value green" id="batch-reward">--</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Near-Miss %</div>
+          <div class="metric-value cyan" id="near-miss-pct">0%</div>
+        </div>
+        <div class="metric-item">
+          <div class="metric-label">Games Played</div>
+          <div class="metric-value" style="color: var(--text-primary)" id="games-played">0</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 2: Progress Chart + Near-Miss Chart + Distribution -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Avg Progress</span>
+        <span class="card-badge green" id="progress-badge">--</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="progress-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Near-Miss Ratio</span>
+        <span class="card-badge orange" id="nm-badge">--</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="near-miss-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Progress Distribution</span>
+      </div>
+      <div class="distribution-bar" id="dist-bar"></div>
+      <div class="dist-legend">
+        <div class="dist-legend-item">
+          <div class="dist-legend-dot" style="background: var(--accent-blue); opacity:0.5"></div>
+          <span id="legend-boring">Boring (&lt;20%)</span>
+        </div>
+        <div class="dist-legend-item">
+          <div class="dist-legend-dot" style="background: var(--text-muted)"></div>
+          <span id="legend-low">Low (20-40%)</span>
+        </div>
+        <div class="dist-legend-item">
+          <div class="dist-legend-dot" style="background: var(--accent-green)"></div>
+          <span id="legend-sweet">Sweet (40-70%)</span>
+        </div>
+        <div class="dist-legend-item">
+          <div class="dist-legend-dot" style="background: var(--accent-orange)"></div>
+          <span id="legend-moderate">Moderate (70-85%)</span>
+        </div>
+        <div class="dist-legend-item">
+          <div class="dist-legend-dot" style="background: var(--accent-red)"></div>
+          <span id="legend-danger">Danger/GO (&gt;85%)</span>
+        </div>
+      </div>
+      <div class="chart-container" style="margin-top: 4px;">
+        <canvas id="dist-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 3: DPS Profiles + Wave Log + Training Log -->
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">DPS Profiles</span>
+        <span class="card-badge green" id="dps-client-count">0 clients</span>
+      </div>
+      <div class="dps-clients-container" id="dps-profiles-container">
+        <div class="dps-empty">No clients connected</div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Wave Log</span>
+      </div>
+      <div class="wave-log" id="wave-log">
+        <div class="wave-entry" style="color: var(--text-muted); grid-template-columns: 1fr;">
+          <span>Waiting for waves...</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header">
+        <span class="card-title">Training Log</span>
+      </div>
+      <div class="training-log" id="training-log">
+        <div class="log-entry">
+          <span class="log-msg" style="color: var(--text-muted)">Waiting for training data...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+      <div class="footer-left">
+        <div class="footer-item">
+          <span class="label">Runtime:</span>
+          <span class="value" id="runtime">0h 0m</span>
+        </div>
+        <div class="footer-item">
+          <span class="label">Model Updates:</span>
+          <span class="value" id="model-updates">0</span>
+        </div>
+        <div class="footer-item">
+          <span class="label">Batch Size:</span>
+          <span class="value">16</span>
+        </div>
+      </div>
+      <div class="footer-right">
+        <div class="footer-item">
+          <span class="label">WS:</span>
+          <span class="value">:3001</span>
+        </div>
+        <div class="footer-item">
+          <span class="label">Dashboard:</span>
+          <span class="value">:3002</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

@@ -1,0 +1,182 @@
+/**
+ * Base Tower Bot
+ *
+ * Abstract base class for all tower bots.
+ * Implements common functionality like timing and state management.
+ */
+
+import { GameStateSnapshot } from '../../core/models/game-state-snapshot';
+import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
+import {
+  ITowerBot,
+  TowerAction,
+  BotConfig,
+  BOT_CONFIGS,
+  BotSkillLevel,
+} from './tower-bot.interface';
+
+export abstract class BaseTowerBot implements ITowerBot {
+  readonly config: BotConfig;
+  readonly name: string;
+
+  protected lastActionTime = 0;
+  protected totalGoldSpent = 0;
+  protected towersBuilt = 0;
+
+  constructor(skillLevel: BotSkillLevel, name?: string) {
+    this.config = { ...BOT_CONFIGS[skillLevel] };
+    this.name = name ?? `${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`;
+  }
+
+  /**
+   * Main update method - handles timing and delegates to subclass
+   */
+  update(state: GameStateSnapshot, _deltaTime: number): TowerAction | null {
+    const now = Date.now();
+
+    // Check cooldown
+    if (now - this.lastActionTime < this.config.reactionTimeMs) {
+      return null;
+    }
+
+    // Decide action (individual strategies handle tower limits)
+    let action = this.decideAction(state);
+
+    // Maybe make a mistake
+    if (action && Math.random() < this.config.mistakeRate) {
+      action = this.makeSuboptimalAction(state, action);
+    }
+
+    // Record action time (always apply cooldown, even for 'wait',
+    // to prevent random-based decisions from being re-rolled every frame)
+    if (action) {
+      this.lastActionTime = now;
+
+      if (action.type === 'place' && action.towerType) {
+        const towerConfig = TOWER_TYPES[action.towerType];
+        if (towerConfig) {
+          this.totalGoldSpent += towerConfig.cost;
+          this.towersBuilt++;
+        }
+      }
+    }
+
+    return action;
+  }
+
+  /**
+   * Reset bot state for new game
+   */
+  reset(): void {
+    this.lastActionTime = 0;
+    this.totalGoldSpent = 0;
+    this.towersBuilt = 0;
+  }
+
+  /**
+   * Subclass must implement: decide what action to take
+   */
+  protected abstract decideAction(state: GameStateSnapshot): TowerAction | null;
+
+  /**
+   * Make a suboptimal version of the action (for mistakes)
+   */
+  protected makeSuboptimalAction(
+    state: GameStateSnapshot,
+    originalAction: TowerAction
+  ): TowerAction {
+    // Default: just do the original action
+    // Subclasses can override for more specific mistakes
+    return originalAction;
+  }
+
+  // === HELPER METHODS ===
+
+  /**
+   * Get cheapest tower this bot can build that it can afford
+   */
+  protected getCheapestAffordableTower(credits: number): TowerTypeId | null {
+    let cheapest: TowerTypeId | null = null;
+    let lowestCost = Infinity;
+
+    for (const typeId of this.config.knownTowerTypes) {
+      const config = TOWER_TYPES[typeId];
+      if (config && config.cost <= credits && config.cost < lowestCost) {
+        lowestCost = config.cost;
+        cheapest = typeId;
+      }
+    }
+
+    return cheapest;
+  }
+
+  /**
+   * Get best tower for current situation
+   */
+  protected getBestTowerForSituation(state: GameStateSnapshot, credits: number): TowerTypeId | null {
+    const affordable = this.config.knownTowerTypes.filter((t) => {
+      const config = TOWER_TYPES[t];
+      return config && config.cost <= credits;
+    });
+
+    if (affordable.length === 0) return null;
+
+    // If adapts to enemies, check vulnerabilities
+    if (this.config.adaptsToEnemies) {
+      // No anti-air? Build anti-air if affordable
+      if (state.vulnerabilities.airDefenseGap) {
+        const antiAir = affordable.find((t) => TOWER_TYPES[t].canTargetAir);
+        if (antiAir) return antiAir;
+      }
+
+      // No splash? Build splash for swarms
+      if (state.vulnerabilities.splashGap) {
+        const splash = affordable.find((t) => t === 'cannon' || t === 'rocket');
+        if (splash) return splash;
+      }
+
+      // No slow? Build ice
+      if (state.vulnerabilities.slowGap && affordable.includes('ice')) {
+        return 'ice';
+      }
+    }
+
+    // Default: pick based on DPS/cost ratio
+    return this.getBestValueTower(affordable);
+  }
+
+  /**
+   * Get tower with best DPS/cost ratio
+   */
+  protected getBestValueTower(typeIds: TowerTypeId[]): TowerTypeId {
+    let best: TowerTypeId = typeIds[0];
+    let bestValue = 0;
+
+    for (const typeId of typeIds) {
+      const config = TOWER_TYPES[typeId];
+      if (!config) continue;
+
+      const dps = config.damage * config.fireRate;
+      const value = dps / config.cost;
+
+      if (value > bestValue) {
+        bestValue = value;
+        best = typeId;
+      }
+    }
+
+    return best;
+  }
+
+  /**
+   * Generate random position near path (simplified)
+   */
+  protected getRandomPlacementPosition(): { x: number; z: number } {
+    // Simplified: random position in play area
+    // In real implementation, this should be near the path
+    return {
+      x: (Math.random() - 0.5) * 200,
+      z: (Math.random() - 0.5) * 200,
+    };
+  }
+}
