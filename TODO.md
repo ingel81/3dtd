@@ -3,7 +3,7 @@
 > **Philosophie:** Engine first, Game second.
 > Erst die Engine stabil, performant und testbar machen - dann Features bauen.
 
-> Siehe auch: [EXPERT_REVIEW_2026.md](src/app/docs/archive/EXPERT_REVIEW_2026.md) | [PERFORMANCE_REPORT.md](src/app/docs/archive/PERFORMANCE_REPORT.md) | [MASSNAHMEN_review_20260120.md](src/app/docs/new/MASSNAHMEN_review_20260120.md)
+> Siehe auch: [EXPERT_REVIEW_2026.md](src/app/docs/archive/EXPERT_REVIEW_2026.md) | [PERFORMANCE_REPORT.md](src/app/docs/archive/PERFORMANCE_REPORT.md)
 
 ---
 
@@ -261,6 +261,174 @@
 
 ---
 
+# PHASE 5: AI WAVE DIRECTOR
+
+> **Ziel:** Adaptive KI die spannende, faire Wellen generiert
+> **Dauer:** ~8 Wochen
+> **Plan:** [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
+
+## 5.1 Foundation - Data Collection (Prio 1) ✅
+
+> Daten sammeln ist Voraussetzung für alles weitere. Immer aktiv, auch in Prod.
+
+- [x] **AIDataCollectorService erstellen**
+      Passives Event-Listening auf GameEventBus
+      Dateien: `src/app/ai/core/ai-data-collector.service.ts`
+      Events: tower:placed, enemy:died, wave:completed, health:changed, etc.
+      → Sammelt IMMER, auch ohne AI aktiv
+
+- [x] **GameStateSnapshot Interface**
+      Datei: `src/app/ai/core/models/game-state-snapshot.ts`
+      Inhalt: Player State, Defense-Analyse, Vulnerabilities, History
+      52 Features für AI Input
+
+- [x] **WaveResult Interface**
+      Datei: `src/app/ai/core/models/wave-result.ts`
+      Inhalt: Config, Outcome (kills, damage, duration), Spannungs-Metriken
+      Für Reward-Berechnung
+
+- [x] **Defense-Analyse Utilities**
+      Dateien: `src/app/ai/core/defense-analyzer.ts`
+      Features: DPS-Berechnung, Path-Coverage, Vulnerability Detection
+      → Welche Schwächen hat die Spieler-Defense?
+
+## 5.2 Inference Pipeline (Prio 2) ✅
+
+> AI kann Wellen generieren (erst mit Fallback, später mit Model)
+
+- [x] **GameStateEncoder**
+      Datei: `src/app/ai/core/game-state-encoder.ts`
+      GameStateSnapshot → Float32Array (52 Features)
+      Normalisierung auf 0-1, deterministische Encoding
+
+- [x] **WaveDirectorService (Inference)**
+      Datei: `src/app/ai/core/wave-director.service.ts`
+      TensorFlow.js Model laden (lazy)
+      Fallback-Regeln wenn kein Model
+      Error Boundary → Graceful Degradation
+
+- [x] **Fallback Wave Generator**
+      Datei: `src/app/ai/core/fallback-rules.ts`
+      Regelbasierte Wellen ohne Model
+      Skaliert mit Wave-Nummer
+      Spielbar ohne trainiertes Model!
+
+- [x] **WaveManager Integration**
+      Datei: `tower-defense.component.ts` (minimal invasiv)
+      Optional Injection von WaveDirectorService
+      Signal `useAIDirector` - auto-enabled in DevWorld
+      Bestehende Logik bleibt als Fallback
+
+- [x] **Decision Explainer (Debug Mode)**
+      Datei: `src/app/ai/core/decision-explainer.ts`
+      Erklärt WARUM AI diese Welle gewählt hat
+      UI-Overlay in DevMode aktivierbar
+      Auch in Prod als Debug-Option
+
+## 5.3 Training Infrastructure (Prio 3) ✅
+
+> Lokales Training auf Dev-Machine
+
+- [x] **Training Backend Setup (Python)**
+      Ordner: `training-backend/`
+      Dateien: `server.py`, `model.py`, `trainer.py`, `reward.py`
+      WebSocket Server auf :3001
+      Kein Docker, einfacher Python-Start
+
+- [x] **TrainingClientService (Browser)**
+      Datei: `src/app/ai/training/training-client.service.ts`
+      WebSocket Verbindung zu Backend
+      State/Result Streaming
+      Graceful Fallback wenn Backend nicht läuft
+
+- [x] **Tower Bots implementieren**
+      Ordner: `src/app/ai/training/bots/`
+      BeginnerBot: Platziert zufällig, upgradet nie
+      CasualBot: Platziert am Pfad, manchmal Upgrades
+      StrategistBot: Plant voraus, nutzt Synergien
+      MetaBot: Noch nicht implementiert
+
+- [x] **Reward Function implementieren**
+      Datei: `training-backend/reward.py`
+      Sweet Spot: 10-30% Schaden = gut
+      Fun-Metriken: Variety, Crescendo, Boss-Timing
+      Mercy System: Pause nach 3× Close Call
+
+- [x] **Wave Archetypen System**
+      In `src/app/ai/core/fallback-rules.ts` integriert
+      Typen: Swarm, Elite, Rush, Siege, Mixed, Boss, Air
+      AI wählt erst Archetyp, dann Details
+
+## 5.4 Training UI (Prio 4)
+
+> Zuschauen beim Training, Stats, Export
+
+- [ ] **Training Panel Component**
+      Datei: `src/app/ai/training/components/training-panel.component.ts`
+      Route: `/ai-training` (nur Dev)
+      Live Game View + Speed Controls
+      Lazy Loaded
+
+- [ ] **Training Stats Dashboard**
+      Komponenten: `training-stats.component.ts`, `reward-chart.component.ts`
+      Episode Count, Avg Reward, Win Rate
+      Milestone-Tracking (Beats BeginnerBot, etc.)
+
+- [ ] **Bot Selector UI**
+      Datei: `src/app/ai/training/components/bot-selector.component.ts`
+      Auswahl welcher Bot-Typ für Training
+      Rotation konfigurieren
+
+- [ ] **Model Export Button**
+      Export trainiertes Model als JSON
+      Speichert nach `src/assets/ai/`
+      Mit Metadata (Version, Episodes, Reward)
+
+## 5.5 Build & Deployment (Prio 5)
+
+> Training-Code nicht in Prod Bundle
+
+- [ ] **Build Configuration**
+      `angular.json`: fileReplacements für Training-Code
+      Production: Training-Module wird zu leerem Stub
+      Bundle Size Check: AI < 300KB
+
+- [x] **Start Scripts**
+      `scripts/start-training.sh` / `.ps1`
+      Startet Python Backend
+      Ein-Befehl-Start
+
+- [ ] **Model Export Script**
+      `scripts/export-model.sh`
+      PyTorch → TensorFlow.js Format
+      Kopiert nach assets/ai/
+
+- [ ] **Model Validation**
+      `scripts/validate-model.js`
+      Prüft: Format, Größe, Basis-Inference
+      Läuft vor Commit (optional)
+
+## 5.6 Training & Tuning (Prio 6)
+
+> Das eigentliche Training
+
+- [ ] **Initial Training Run**
+      1000+ Episoden gegen alle Bot-Typen
+      Hyperparameter dokumentieren
+      Checkpoints speichern
+
+- [ ] **Model Selection**
+      Beste Version auswählen
+      Gegen alle Bots testen
+      Dokumentieren welches Model deployed
+
+- [ ] **Playtesting**
+      Interne Tests mit echten Spielern
+      Feedback sammeln
+      Reward Function anpassen wenn nötig
+
+---
+
 # BACKLOG
 
 > Langfristig, bei Bedarf
@@ -306,5 +474,8 @@
 
 # ZU BEWERTEN
 
-- [ ] FPS LIMIT auf 60 sinnvoll?
+- [ ] **Konfigurierbares FPS-Limit** (60/30/unlimited)
+      Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming
+      Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
+      ~20 Zeilen Core, optional UI-Setting in localStorage
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
