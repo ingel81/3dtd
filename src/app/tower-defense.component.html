@@ -95,6 +95,14 @@
         />
         <app-sound-debugger />
         <app-event-debugger [eventBus]="gameState.getEventBus()" />
+        <app-training-debugger
+          [botEnabled]="botEnabled()"
+          [botSkillLevel]="botSkillLevel()"
+          [botStats]="botStats()"
+          [onEnableBot]="enableBot.bind(this)"
+          [onDisableBot]="disableBot.bind(this)"
+          (dpsBinsToggled)="onDpsBinsToggled($event)"
+        />
 
         <!-- Info Overlay (top left) -->
         <app-info-overlay
