@@ -78,6 +78,9 @@ export interface EnemyTypeConfig {
 
   // Spawning
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
+
+  // Preview
+  previewScale?: number; // Override scale for model preview (sidebar)
 }
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
@@ -87,9 +90,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/zombie.glb',
     scale: 2.0,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
-    baseHp: 100,
+    baseHp: 80,
     baseSpeed: 5,
-    damage: 10,
+    damage: 5,
     reward: 1,
     hasAnimations: true,
     idleAnimation: 'Armature|Idle',
@@ -114,10 +117,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/tank.glb',
     scale: 2.5,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping
-    baseHp: 500, // Heavily armored
+    baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
-    damage: 25,
-    reward: 5,
+    damage: 5,
+    reward: 7,
     hasAnimations: false,
     movingSound: '/assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
@@ -136,10 +139,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/wallsmasher.fbx',
     scale: 0.05,
     minimumPixelSize: 0,
-    baseHp: 500,
+    baseHp: 200,
     baseSpeed: 7,
-    damage: 30,
-    reward: 20,
+    damage: 5,
+    reward: 5,
     hasAnimations: true,
     walkAnimation: 'CharacterArmature|Walk',
     runAnimation: 'CharacterArmature|Run',
@@ -173,7 +176,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/bat.glb',
     scale: 7,
     minimumPixelSize: 0,
-    baseHp: 80,
+    baseHp: 25,
     baseSpeed: 8,
     damage: 5,
     reward: 3,
@@ -189,16 +192,39 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
   },
 
+  penguin: {
+    id: 'penguin',
+    name: 'Penguin',
+    modelUrl: '/assets/models/enemies/penguin.glb',
+    scale: 0.006,
+    minimumPixelSize: 0,
+    baseHp: 30,
+    baseSpeed: 9,
+    damage: 3,
+    reward: 1,
+    hasAnimations: true,
+    walkAnimation: 'Walk',
+    deathAnimation: 'Fall',
+    animationSpeed: 5.6,
+    heightOffset: 0,
+    healthBarOffset: 6,
+    canBleed: false,
+    unlit: true,
+    randomAnimationStart: true,
+    lateralOffset: 2.5,
+    previewScale: 0.008,
+  },
+
   herbert: {
     id: 'herbert',
     name: 'Herbert',
     modelUrl: '/assets/models/enemies/herbert.glb',
     scale: 4.0,
     minimumPixelSize: 0,
-    baseHp: 5000,
+    baseHp: 500,
     baseSpeed: 4,
-    damage: 20,
-    reward: 8,
+    damage: 5,
+    reward: 100,
     hasAnimations: true,
     walkAnimation: 'Armature|walking_man|baselayer',
     animationSpeed: 1.0,

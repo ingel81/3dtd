@@ -671,8 +671,9 @@ export class ThreeTowerRenderer {
   /**
    * Update selection ring animation, turret rotations, and GLTF animations
    * Call each frame for pulse effect, smooth turret movement, and model animations
+   * @param timescale Game speed multiplier (e.g. 4.0 for 4x training speed)
    */
-  updateAnimations(deltaTime: number): void {
+  updateAnimations(deltaTime: number, timescale = 1.0): void {
     // Accumulate time for frame-independent animation (in seconds)
     this.animationTime += deltaTime * 0.001;
 
@@ -687,8 +688,8 @@ export class ThreeTowerRenderer {
     }
 
     // Turret rotation speed: ~180 degrees per second (PI radians/s)
-    // Scale deltaTime from ms to seconds
-    const turretRotationSpeed = Math.PI; // radians per second
+    // Apply timescale so turrets keep up with accelerated gameplay
+    const turretRotationSpeed = Math.PI * timescale; // radians per second (scaled)
     const maxRotationThisFrame = turretRotationSpeed * (deltaTime / 1000);
 
     for (const data of this.towers.values()) {

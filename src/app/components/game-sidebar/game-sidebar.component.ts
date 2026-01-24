@@ -140,10 +140,24 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-text-primary);
       font-size: 12px;
       font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 4px;
     }
 
     .td-stat-value.td-damage { color: var(--td-red); }
     .td-stat-value.td-kills { color: var(--td-gold); }
+    .td-stat-value.td-val-count { color: var(--td-warn-orange); }
+    .td-stat-value.td-val-modified { color: var(--td-teal); }
+
+    .td-multiplier {
+      font-size: 9px;
+      color: var(--td-gold);
+      background: rgba(255, 193, 7, 0.15);
+      padding: 1px 4px;
+      border-radius: 2px;
+      font-weight: 700;
+    }
 
     /* === Action Buttons === */
     .td-action-btn {
@@ -562,6 +576,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   // Current enemy config from wave debug service
   readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
+  // Current wave config (if available)
+  readonly currentWaveConfig = this.waveDebug.currentWaveConfig;
+
   // Ad banner should be compact during active wave
   readonly adCompact = computed(() => this.waveActive());
 
@@ -607,7 +624,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       this.enemyPreviewCanvas.nativeElement,
       {
         modelUrl: enemyConfig.modelUrl,
-        scale: enemyConfig.scale * 0.5,
+        scale: enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
         rotationSpeed: 0.4,
         cameraDistance: 7,
         cameraAngle: Math.PI / 12,
@@ -652,5 +669,14 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   onUpgradeTower(tower: Tower, upgradeId: UpgradeId): void {
     this.upgradeTower.emit({ tower, upgradeId });
+  }
+
+  getCurrentWaveDisplayName(): string {
+    const wave = this.currentWaveConfig();
+    if (wave) {
+      const config = this.currentEnemyConfig();
+      return config.name;
+    }
+    return this.currentEnemyConfig().name;
   }
 }

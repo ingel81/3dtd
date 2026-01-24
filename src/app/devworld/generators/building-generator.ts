@@ -149,7 +149,7 @@ function lerp(a: Vec2, b: Vec2, t: number): Vec2 {
   };
 }
 
-function perpendicular(a: Vec2, b: Vec2): Vec2 {
+function _perpendicular(a: Vec2, b: Vec2): Vec2 {
   const dx = b.x - a.x;
   const dz = b.z - a.z;
   const len = Math.sqrt(dx * dx + dz * dz);

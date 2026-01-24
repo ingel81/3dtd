@@ -579,7 +579,7 @@ export class SpatialAudioManager {
     if (isProjectile) {
       if (this.projectileSoundCount >= AUDIO_LIMITS.maxProjectileSounds) {
         this.emitDebug('budget_exceeded', soundId, `projectile budget ${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds}`);
-        console.warn(`[SpatialAudio] Projectile sound budget exceeded for '${soundId}' (${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds})`);
+        //console.warn(`[SpatialAudio] Projectile sound budget exceeded for '${soundId}' (${this.projectileSoundCount}/${AUDIO_LIMITS.maxProjectileSounds})`);
         return null;
       }
       this.projectileSoundCount++;

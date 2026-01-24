@@ -64,7 +64,7 @@ interface Vec2 {
 // Vector Utilities
 // ========================================
 
-function vec2(x: number, z: number): Vec2 {
+function _vec2(x: number, z: number): Vec2 {
   return { x, z };
 }
 
@@ -84,7 +84,7 @@ function length(v: Vec2): number {
   return Math.sqrt(v.x * v.x + v.z * v.z);
 }
 
-function normalize(v: Vec2): Vec2 {
+function _normalize(v: Vec2): Vec2 {
   const len = length(v);
   if (len < 0.0001) return { x: 0, z: 0 };
   return { x: v.x / len, z: v.z / len };
@@ -94,7 +94,7 @@ function distance(a: Vec2, b: Vec2): number {
   return length(sub(b, a));
 }
 
-function rotate(v: Vec2, angle: number): Vec2 {
+function _rotate(v: Vec2, angle: number): Vec2 {
   const cos = Math.cos(angle);
   const sin = Math.sin(angle);
   return {
@@ -141,7 +141,7 @@ function catmullRom(p0: Vec2, p1: Vec2, p2: Vec2, p3: Vec2, t: number): Vec2 {
 /**
  * Sample points along a Catmull-Rom spline path.
  */
-function sampleSplinePath(controlPoints: Vec2[], sampleDistance: number): Vec2[] {
+function _sampleSplinePath(controlPoints: Vec2[], sampleDistance: number): Vec2[] {
   if (controlPoints.length < 2) return [...controlPoints];
   if (controlPoints.length === 2) {
     return sampleLinearPath(controlPoints[0], controlPoints[1], sampleDistance);

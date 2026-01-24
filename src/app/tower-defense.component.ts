@@ -35,6 +35,7 @@ import { WaveDebuggerComponent } from './components/debug-window/wave-debugger.c
 import { SoundDebuggerComponent } from './components/debug-window/sound-debugger.component';
 import { EventDebuggerComponent } from './components/debug-window/event-debugger.component';
 import { DevWorldDebuggerComponent } from './devworld/devworld-debugger.component';
+import { TrainingDebuggerComponent } from './components/debug-window/training-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -73,6 +74,17 @@ import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
 import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
+// AI Wave Director (optional)
+import { WaveDirectorService } from './ai/core/wave-director.service';
+import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
+import { TrainingClientService } from './ai/training/training-client.service';
+import { adaptAIWaveConfigSingle } from './ai/core/wave-config-adapter';
+// AI Bot Training
+import { ITowerBot, TowerAction, BotSkillLevel } from './ai/training/bots/tower-bot.interface';
+import { StrategyBotFactory } from './ai/training/bots/strategy-bot.factory';
+import { StrategicPlacementService } from './services/strategic-placement.service';
+import { GeoPosition } from './models/game.types';
+import { DpsProfileVisualizer } from './ai/core/dps-profile-visualizer';
 
 // Initial empty coords - will be set when location is loaded (using GeoPosition format)
 const EMPTY_COORDS = {
@@ -104,6 +116,7 @@ const EMPTY_CENTER_COORDS = {
     SoundDebuggerComponent,
     EventDebuggerComponent,
     DevWorldDebuggerComponent,
+    TrainingDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
@@ -112,6 +125,10 @@ const EMPTY_CENTER_COORDS = {
     GameStateManager,
     EntityPoolService,
     ModelPreviewService,
+    // AI services (optional - game works without them)
+    AIDataCollectorService,
+    WaveDirectorService,
+    TrainingClientService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -160,16 +177,27 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly waveDebug = inject(WaveDebugService);
   readonly soundDebug = inject(SoundDebugService);
 
+  // AI Wave Director
+  private readonly waveDirector = inject(WaveDirectorService);
+  private readonly trainingClient = inject(TrainingClientService);
+  private readonly aiDataCollector = inject(AIDataCollectorService);
+
+  // AI Bot Training
+  private readonly strategicPlacement = inject(StrategicPlacementService);
+  private botFactory!: StrategyBotFactory;
+  private currentBot: ITowerBot | null = null;
+  readonly botEnabled = signal(false);
+  readonly botSkillLevel = signal<BotSkillLevel>('strategist');
+  readonly botStats = signal({ towersPlaced: 0, goldSpent: 0 });
+  readonly botAutoMode = signal(false); // Auto-start waves when bot is ready
+
   // Cleanup
   private readonly destroyRef = inject(DestroyRef);
 
   // Expose Math and tower config for template
   readonly Math = Math;
   readonly archerTowerConfig = TOWER_TYPES.archer;
-  // Filter out inactive tower types (sniper)
-  readonly towerTypes = getAllTowerTypes().filter(
-    t => t.id !== 'sniper'
-  );
+  readonly towerTypes = getAllTowerTypes();
 
   private engine: ThreeTilesEngine | null = null;
   private streetNetwork: StreetNetwork | null = null;
@@ -180,6 +208,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Three.js object for spatial grid debug visualization
   private spatialGridVizMesh: InstancedMesh | null = null;
+
+  // DPS profile visualization along path
+  private dpsProfileViz: DpsProfileVisualizer | null = null;
+  private dpsVizUnsubscribes: (() => void)[] = [];
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -229,6 +261,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly spawnDelay = this.waveDebug.spawnDelay;
   readonly useGathering = this.waveDebug.useGathering;
   readonly spawnPoints = signal<SpawnPoint[]>([]);
+  // AI Director mode - uses AI to generate waves instead of debug settings
+  readonly useAIDirector = signal(false);
+  readonly aiExplanation = signal<string | null>(null);
   readonly baseCoords = signal(EMPTY_COORDS);
   readonly centerCoords = signal(EMPTY_CENTER_COORDS);
   readonly isDevWorldRegenerating = signal(false);
@@ -283,9 +318,31 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Resolve favorite names (async, doesn't block)
     this.resolveFavoriteNames();
 
-    // Auto-open DevWorld debug panel when DevWorld is active
+    // Initialize bot factory
+    this.botFactory = new StrategyBotFactory(
+      this.strategicPlacement,
+      this.gameState,
+      this.osmService
+    );
+
+    // Check for bot=auto URL parameter BEFORE enabling features
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('bot')) {
+      const botMode = params.get('bot');
+      if (botMode === 'auto') {
+        this.botAutoMode.set(true);
+        console.log('[Bot] Auto-mode enabled from URL parameter (will auto-start waves)');
+      }
+    }
+
+    // Auto-enable AI features in DevWorld mode
     if (this.devWorld.isActive) {
-      this.debugWindows.open('devworld');
+      // Auto-enable AI Director in DevWorld mode
+      this.useAIDirector.set(true);
+      console.log('[AI] AI Director enabled for DevWorld');
+
+      // Try to connect to training backend (non-blocking)
+      this.connectToTrainingBackend();
     }
   }
 
@@ -514,6 +571,16 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.engine?.getScene().remove(this.spatialGridVizMesh);
       this.gameState.getGlobalRouteGrid().disposeVisualization();
       this.spatialGridVizMesh = null;
+    }
+
+    // Cleanup DPS profile visualization
+    this.dpsVizUnsubscribes.forEach(fn => fn());
+    this.dpsVizUnsubscribes = [];
+    if (this.dpsProfileViz) {
+      const mesh = this.dpsProfileViz.getMesh();
+      if (mesh) this.engine?.getScene().remove(mesh);
+      this.dpsProfileViz.dispose();
+      this.dpsProfileViz = null;
     }
 
     if (this.engine) {
@@ -840,9 +907,26 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.pathRoute.getCachedPaths()
     );
 
+    // Initialize strategic placement service with street network
+    this.strategicPlacement.initialize(this.streetNetwork);
+
     // Subscribe to game:over event
     this.gameState.getEventBus().on('game:over', () => {
       this.onGameOver();
+      // Reset bot for next game
+      if (this.currentBot) {
+        this.currentBot.reset();
+        this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
+        console.log('[Bot] Reset for new game');
+      }
+
+      // Auto-restart game if bot is in auto-mode
+      if (this.botAutoMode()) {
+        console.log('[Bot] Auto-restarting game in 2 seconds...');
+        setTimeout(() => {
+          this.restartGame();
+        }, 2000); // Wait 2 seconds to see game over screen
+      }
     });
 
     // Validate that routes were found
@@ -1220,6 +1304,21 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const currentTime = performance.now();
     this.gameState.update(currentTime);
 
+    // Bot update (if enabled) - can act during setup AND wave phases
+    if (this.botEnabled() && this.currentBot) {
+      const phase = this.gameState.phase();
+
+      // Bot can place/upgrade towers during both setup and wave (active combat)
+      if (phase === 'setup' || phase === 'wave') {
+        const snapshot = this.aiDataCollector.getStateSnapshot();
+        const action = this.currentBot.update(snapshot, deltaTime);
+
+        if (action) {
+          this.executeBotAction(action);
+        }
+      }
+    }
+
     // Update global route grid visualization
     const grid = this.gameState.getGlobalRouteGrid();
     if (this.spatialGridDebugVisible() && this.spatialGridVizMesh) {
@@ -1447,24 +1546,39 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   /**
    * Upgrade a tower with the specified upgrade
+   * @returns true if upgrade was successful, false otherwise
    */
-  upgradeTower(tower: Tower, upgradeId: UpgradeId): void {
+  upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
     const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
-    if (!upgrade) return;
+    if (!upgrade) {
+      console.warn('[Upgrade] Upgrade not found:', upgradeId);
+      return false;
+    }
+
+    // Calculate dynamic cost based on current level
+    const cost = tower.getNextUpgradeCost(upgradeId);
 
     // Check if we can afford it
-    if (this.gameState.credits() < upgrade.cost) {
-      return;
+    if (this.gameState.credits() < cost) {
+      console.warn(`[Upgrade] Not enough credits: ${this.gameState.credits()}/${cost}`);
+      return false;
     }
 
     // Check if upgrade can be applied
     if (!tower.canUpgrade(upgradeId)) {
-      return;
+      console.warn(`[Upgrade] Tower cannot upgrade ${upgradeId} (already max level)`);
+      return false;
     }
 
-    // Deduct credits and apply upgrade
-    this.gameState.spendCredits(upgrade.cost);
-    tower.applyUpgrade(upgradeId);
+    // Apply upgrade first, only deduct credits on success
+    const success = tower.applyUpgrade(upgradeId);
+
+    if (success) {
+      this.gameState.spendCredits(cost);
+      console.log(`[Upgrade] ✅ ${tower.typeConfig.name} upgraded with ${upgrade.name} (${cost} credits)`);
+    }
+
+    return success;
   }
 
   /**
@@ -1479,13 +1593,20 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * - Enemies start moving one by one (300ms delay between each)
    * - Walk animation starts
    * - Game loop begins
+   *
+   * In AI Director mode (DevWorld): Uses AI to generate wave config
    */
   startWave(): void {
     if (!this.engine || this.waveActive() || this.isGameOver()) return;
     if (this.spawnPoints().length === 0) return;
 
-    // Snapshot of debug settings - WaveManager handles spawning
-    // Note: getSpawnDelay allows live delay changes during wave (from Debug Panel)
+    // AI Director mode: Let AI generate the wave config
+    if (this.useAIDirector()) {
+      this.startWaveWithAI();
+      return;
+    }
+
+    // Manual/Debug mode: Use debug settings
     const waveConfig: WaveConfig = {
       enemyCount: this.enemyCount(),
       enemyType: this.enemyType(),
@@ -1497,7 +1618,299 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       useGathering: this.useGathering(),
     };
 
+    this.aiExplanation.set(null);
     this.gameState.startWave(waveConfig);
+  }
+
+  /**
+   * Start wave using AI Wave Director
+   */
+  private async startWaveWithAI(): Promise<void> {
+    try {
+      let aiConfig;
+
+      // If training backend is connected, request wave from it
+      if (this.trainingClient.isConnected()) {
+        console.log('[AI] Requesting wave from training backend...');
+        // Get current game state from data collector
+        const state = this.aiDataCollector.getStateSnapshot();
+        aiConfig = await this.trainingClient.requestWaveConfig(state);
+        console.log('[AI] Received wave from backend:', aiConfig);
+      } else {
+        // Otherwise use local AI/fallback
+        aiConfig = await this.waveDirector.getNextWave();
+      }
+
+      // Store explanation for UI
+      this.aiExplanation.set(aiConfig.explanation ?? null);
+
+      // Convert AI config to WaveManager format
+      const waveConfig = adaptAIWaveConfigSingle(aiConfig);
+
+      console.log('[AI] Wave config:', {
+        archetype: aiConfig.archetype,
+        enemies: aiConfig.enemies,
+        totalCount: aiConfig.totalCount,
+        explanation: aiConfig.explanation,
+      });
+
+      this.gameState.startWave(waveConfig);
+    } catch (error) {
+      console.error('[AI] Failed to generate wave, using fallback', error);
+      // Fallback to debug settings
+      this.useAIDirector.set(false);
+      this.startWave();
+    }
+  }
+
+  /**
+   * Toggle AI Director mode
+   */
+  toggleAIDirector(): void {
+    const newValue = !this.useAIDirector();
+    this.useAIDirector.set(newValue);
+    console.log(`[AI] AI Director ${newValue ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Get AI Director status text
+   */
+  getAIStatusText(): string {
+    if (!this.useAIDirector()) return 'AI deaktiviert';
+    return this.waveDirector.statusText();
+  }
+
+  /**
+   * Connect to training backend (non-blocking)
+   */
+  private async connectToTrainingBackend(): Promise<void> {
+    try {
+      const connected = await this.trainingClient.connect();
+      if (connected) {
+        console.log('[AI] Connected to training backend');
+
+        // Notify backend of game start (sends enemy base HP config)
+        this.trainingClient.notifyGameStart('normal');
+
+        // Enable training mode with 8x timescale for faster training (don't persist to localStorage)
+        this.gameState.setTrainingTimescale(8.0, false);
+        console.log('[AI] Training mode enabled (8x speed)');
+
+        // Enable StrategyBot for automated training
+        this.enableBot('strategist');
+
+        // Subscribe to wave completion events to send results to backend
+        this.gameState.getEventBus().on('wave:completed', async (_event) => {
+          console.log('[Wave] Wave completed! Bot will prepare for next wave...');
+
+          if (this.trainingClient.isConnected()) {
+            // Get the wave result from data collector
+            const history = this.aiDataCollector.getWaveHistory();
+            if (history.length > 0) {
+              const latestResult = history[history.length - 1];
+
+              // Add current state (after wave) to result for learning
+              const currentState = this.aiDataCollector.getStateSnapshot();
+              const resultWithState = {
+                ...latestResult,
+                stateAfter: currentState
+              };
+
+              console.log('[AI] Sending wave result to backend:', resultWithState);
+              await this.trainingClient.sendWaveResult(resultWithState);
+              console.log('[AI] Sent wave result + state to backend');
+            }
+          }
+        });
+
+        // Subscribe to game over events
+        this.gameState.getEventBus().on('game:over', async (_event) => {
+          if (this.trainingClient.isConnected()) {
+            // Send game over notification
+            console.log('[AI] Sending game over to backend:', {
+              won: false,
+              waveNumber: this.gameState.waveManager.waveNumber()
+            });
+            this.trainingClient.notifyGameOver(false, this.gameState.waveManager.waveNumber());
+            console.log('[AI] Sent game over to backend');
+
+            // Also send the final wave result if available
+            const history = this.aiDataCollector.getWaveHistory();
+            if (history.length > 0) {
+              const latestResult = history[history.length - 1];
+              console.log('[AI] Sending final wave result to backend:', latestResult);
+              await this.trainingClient.sendWaveResult(latestResult);
+              console.log('[AI] Sent final wave result to backend');
+            }
+          }
+        });
+
+        // Subscribe to episode reset from training backend
+        this.trainingClient.onReset$.subscribe(() => {
+          console.log('[AI] Episode reset - restarting game');
+          this.restartGame();
+          this.trainingClient.notifyGameStart('normal');
+        });
+      } else {
+        console.log('[AI] Training backend not available, using local inference');
+      }
+    } catch (error) {
+      console.warn('[AI] Failed to connect to training backend', error);
+    }
+  }
+
+  /**
+   * Enable StrategyBot for automated training
+   */
+  enableBot(skillLevel: BotSkillLevel): void {
+    this.currentBot = this.botFactory.createBot(
+      skillLevel,
+      this.botAutoMode() // autoStartWaves
+    );
+    this.botEnabled.set(true);
+    this.botSkillLevel.set(skillLevel);
+    this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
+
+    console.log(`[Training] StrategyBot enabled: ${skillLevel}, autoMode: ${this.botAutoMode()}`);
+  }
+
+  /**
+   * Disable StrategyBot
+   */
+  disableBot(): void {
+    this.currentBot = null;
+    this.botEnabled.set(false);
+    console.log('[Training] StrategyBot disabled');
+  }
+
+  /**
+   * Execute bot action
+   */
+  private executeBotAction(action: TowerAction): void {
+    switch (action.type) {
+      case 'place':
+        if (action.position && action.towerType) {
+          // Convert grid coordinates (x, z) back to GeoPosition (lon, lat)
+          // CRITICAL: Get terrain height for accurate placement!
+          if (!this.engine) {
+            console.warn(`[Bot] ⛔ Engine not initialized - ${action.reason}`);
+            break;
+          }
+
+          const terrainHeight = this.engine.getTerrainHeightAtGeo(action.position.z, action.position.x);
+
+          if (terrainHeight === null) {
+            console.warn(`[Bot] ⛔ Cannot get terrain height at position - ${action.reason}`);
+            break;
+          }
+
+          const geoPos: GeoPosition = {
+            lat: action.position.z,
+            lon: action.position.x,
+            height: terrainHeight
+          };
+
+          // Validate using TowerPlacementService with height (prevents building on rooftops!)
+          const validation = this.towerPlacement.validateTowerPositionWithHeight(geoPos);
+
+          if (!validation.valid) {
+            console.warn(`[Bot] ⛔ Position invalid: ${validation.reason} - ${action.reason}`);
+            break;
+          }
+
+          // Check if player has enough credits BEFORE placement
+          const towerConfig = TOWER_TYPES[action.towerType];
+          if (!towerConfig || this.gameState.credits() < towerConfig.cost) {
+            console.warn(`[Bot] ⛔ Not enough credits (${this.gameState.credits()}/${towerConfig?.cost}) - ${action.reason}`);
+            break;
+          }
+
+          const tower = this.gameState.placeTower(geoPos, action.towerType);
+
+          if (tower) {
+            console.log(`[Bot] ✅ Placed ${action.towerType} at ${action.reason || 'position'}`);
+
+            // Update stats
+            this.botStats.update(stats => ({
+              towersPlaced: stats.towersPlaced + 1,
+              goldSpent: stats.goldSpent + towerConfig.cost
+            }));
+          } else {
+            console.error(`[Bot] ⛔ Placement failed after validation passed! - ${action.reason}`);
+          }
+        }
+        break;
+
+      case 'upgrade':
+        if (action.towerId && action.upgradeId) {
+          // Find tower by ID
+          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
+
+          if (!tower) {
+            console.warn(`[Bot] ⛔ Tower not found: ${action.towerId} - ${action.reason}`);
+            break;
+          }
+
+          // Get upgrade details for validation
+          const upgrade = tower.typeConfig.upgrades.find(u => u.id === action.upgradeId);
+
+          if (!upgrade) {
+            console.warn(`[Bot] ⛔ Upgrade not found: ${action.upgradeId} - ${action.reason}`);
+            break;
+          }
+
+          // Check if tower can be upgraded (not at max level)
+          if (!tower.canUpgrade(action.upgradeId as UpgradeId)) {
+            console.warn(`[Bot] ⛔ Upgrade at max level: ${tower.typeConfig.name} ${upgrade.name} - ${action.reason}`);
+            break;
+          }
+
+          // Check if we can afford it (dynamic cost based on level)
+          const upgradeCost = tower.getNextUpgradeCost(action.upgradeId as UpgradeId);
+          if (this.gameState.credits() < upgradeCost) {
+            console.warn(`[Bot] ⛔ Not enough credits for upgrade: ${this.gameState.credits()}/${upgradeCost} - ${action.reason}`);
+            break;
+          }
+
+          // Attempt upgrade (this deducts credits if successful)
+          const success = this.upgradeTower(tower, action.upgradeId as UpgradeId);
+
+          if (success) {
+            console.log(`[Bot] ✅ Upgraded ${tower.typeConfig.name} with ${upgrade.name} - ${action.reason}`);
+
+            // Update bot stats (only if successful)
+            this.botStats.update(stats => ({
+              ...stats,
+              goldSpent: stats.goldSpent + upgradeCost
+            }));
+          } else {
+            console.error(`[Bot] ⛔ Upgrade failed unexpectedly - ${action.reason}`);
+          }
+        }
+        break;
+
+      case 'sell':
+        // TODO: Implement sell execution
+        console.log('[Bot] Sell requested:', action);
+        break;
+
+      case 'wait':
+        // Do nothing
+        break;
+
+      case 'start-wave': {
+        // Auto-start next wave (only if in setup phase!)
+        const currentPhase = this.gameState.phase();
+        if (currentPhase === 'setup') {
+          console.log(`[Bot] ${action.reason || 'Auto-starting wave'}`);
+          this.startWave(); // Use existing startWave() method (handles AI and manual modes)
+        } else {
+          // Silently ignore - wave already active
+          // This prevents bot from spamming wave starts during active waves
+        }
+        break;
+      }
+    }
   }
 
   /**
@@ -1589,6 +2002,57 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (this.spatialGridVizMesh) {
         this.spatialGridVizMesh.visible = false;
       }
+    }
+  }
+
+  /**
+   * Toggle DPS profile bins visualization along the enemy path
+   */
+  onDpsBinsToggled(visible: boolean): void {
+    const engine = this.engine || this.engineInit.getEngine();
+    if (!engine) return;
+
+    if (visible) {
+      const grid = this.gameState.getGlobalRouteGrid();
+      const coordSync = grid.getCoordinateSync();
+      if (!coordSync) return;
+
+      // Create visualizer if needed
+      if (!this.dpsProfileViz) {
+        this.dpsProfileViz = new DpsProfileVisualizer(coordSync);
+      }
+
+      this.updateDpsViz(engine);
+
+      // Subscribe to tower events for auto-update
+      const eventBus = this.gameState.getEventBus();
+      const updateHandler = () => this.updateDpsViz(engine);
+      const sub1 = eventBus.on('tower:placed', updateHandler);
+      const sub2 = eventBus.on('tower:sold', updateHandler);
+      const sub3 = eventBus.on('tower:upgraded', updateHandler);
+      this.dpsVizUnsubscribes = [
+        () => sub1.dispose(),
+        () => sub2.dispose(),
+        () => sub3.dispose(),
+      ];
+    } else {
+      if (this.dpsProfileViz) {
+        this.dpsProfileViz.setVisible(false);
+      }
+      // Unsubscribe from tower events
+      this.dpsVizUnsubscribes.forEach(fn => fn());
+      this.dpsVizUnsubscribes = [];
+    }
+  }
+
+  private updateDpsViz(engine: ThreeTilesEngine): void {
+    if (!this.dpsProfileViz) return;
+    const profile = this.aiDataCollector.getCurrentDPSProfile();
+    this.dpsProfileViz.update(profile);
+    this.dpsProfileViz.setVisible(true);
+    const mesh = this.dpsProfileViz.getMesh();
+    if (mesh && !mesh.parent) {
+      engine.getScene().add(mesh);
     }
   }
 
@@ -1746,7 +2210,23 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.spatialGridVizMesh = null;
     }
 
+    // Cleanup DPS profile visualization
+    this.dpsVizUnsubscribes.forEach(fn => fn());
+    this.dpsVizUnsubscribes = [];
+    if (this.dpsProfileViz) {
+      const mesh = this.dpsProfileViz.getMesh();
+      if (mesh) this.engine?.getScene().remove(mesh);
+      this.dpsProfileViz.dispose();
+      this.dpsProfileViz = null;
+    }
+
     this.gameState.reset();
+
+    // Reset bot state
+    if (this.currentBot) {
+      this.currentBot.reset();
+      this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
+    }
 
     // Re-initialize GlobalRouteGrid (was cleared in reset)
     this.gameState.initializeGlobalRouteGrid();

@@ -108,9 +108,45 @@ export class MovementComponent extends Component {
 
   /**
    * Get effective speed (base speed × multiplier × slow effects)
+   * Note: timescale is handled separately in the move() method
    */
   get effectiveSpeed(): number {
-    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier();
+    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(1.0);
+  }
+
+  /**
+   * Get effective speed with timescale
+   */
+  getEffectiveSpeed(timescale = 1.0): number {
+    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(timescale);
+  }
+
+  /**
+   * Get overall path progress (0 = start, 1 = reached end)
+   */
+  getPathProgress(): number {
+    if (this.path.length === 0 || this.segmentLengths.length === 0) {
+      return 0;
+    }
+
+    // Calculate total path length
+    const totalLength = this.segmentLengths.reduce((sum, len) => sum + len, 0);
+    if (totalLength === 0) return 1;
+
+    // Calculate distance covered
+    let coveredDistance = 0;
+
+    // Add all completed segments
+    for (let i = 0; i < this.currentIndex && i < this.segmentLengths.length; i++) {
+      coveredDistance += this.segmentLengths[i];
+    }
+
+    // Add progress within current segment
+    if (this.currentIndex < this.segmentLengths.length) {
+      coveredDistance += this.segmentLengths[this.currentIndex] * this.progress;
+    }
+
+    return Math.min(1, coveredDistance / totalLength);
   }
 
   /**
@@ -132,24 +168,30 @@ export class MovementComponent extends Component {
 
   /**
    * Remove expired status effects
+   * @param timescale Game speed multiplier (affects effective duration)
    */
-  removeExpiredEffects(): void {
+  removeExpiredEffects(timescale = 1.0): void {
     const now = performance.now();
     this.statusEffects = this.statusEffects.filter(
-      (effect) => now - effect.startTime < effect.duration
+      (effect) => {
+        const effectiveDuration = effect.duration / timescale;
+        return now - effect.startTime < effectiveDuration;
+      }
     );
   }
 
   /**
    * Calculate combined slow multiplier from all active slow effects
    * Returns 1.0 if no slow effects, lower values mean slower movement
+   * @param timescale Game speed multiplier (affects effective duration)
    */
-  getSlowMultiplier(): number {
+  getSlowMultiplier(timescale = 1.0): number {
     const now = performance.now();
     let slowMultiplier = 1.0;
 
     for (const effect of this.statusEffects) {
-      if (effect.type === 'slow' && now - effect.startTime < effect.duration) {
+      const effectiveDuration = effect.duration / timescale;
+      if (effect.type === 'slow' && now - effect.startTime < effectiveDuration) {
         // Stack slow effects multiplicatively (0.5 * 0.5 = 0.25 = 75% slow)
         slowMultiplier *= 1 - effect.value;
       }
@@ -160,30 +202,37 @@ export class MovementComponent extends Component {
 
   /**
    * Check if entity has any active slow effects
+   * @param timescale Game speed multiplier (affects effective duration)
    */
-  isSlowed(): boolean {
+  isSlowed(timescale = 1.0): boolean {
     const now = performance.now();
     return this.statusEffects.some(
-      (effect) => effect.type === 'slow' && now - effect.startTime < effect.duration
+      (effect) => {
+        const effectiveDuration = effect.duration / timescale;
+        return effect.type === 'slow' && now - effect.startTime < effectiveDuration;
+      }
     );
   }
 
   /**
    * Move along path
+   * @param deltaTime Delta time in milliseconds (already scaled by timescale)
+   * @param timescale Game speed multiplier (for status effect duration)
    * @returns 'moving' if still moving, 'reached_end' if path complete
    */
-  move(deltaTime: number): 'moving' | 'reached_end' {
+  move(deltaTime: number, timescale = 1.0): 'moving' | 'reached_end' {
     if (this.paused || this.path.length < 2) return 'moving';
 
     const transform = this.gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM);
     if (!transform) return 'moving';
 
-    // Cap deltaTime to prevent huge jumps
-    const cappedDelta = Math.min(deltaTime, 100);
+    // Cap deltaTime to prevent huge jumps (scale cap with timescale to avoid limiting high-speed gameplay)
+    const maxDelta = 100 * Math.max(1, timescale);
+    const cappedDelta = Math.min(deltaTime, maxDelta);
     const deltaSeconds = cappedDelta / 1000;
 
     // Movement in meters per frame (includes slow effects via effectiveSpeed)
-    const metersThisFrame = this.effectiveSpeed * deltaSeconds;
+    const metersThisFrame = this.getEffectiveSpeed(timescale) * deltaSeconds;
 
     // Current segment length
     const segmentLength = this.segmentLengths[this.currentIndex] || 1;

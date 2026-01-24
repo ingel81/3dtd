@@ -52,7 +52,8 @@ export class TowerCombatService {
     currentTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
-    projectileManager: ProjectileManager
+    projectileManager: ProjectileManager,
+    timescale = 1.0
   ): void {
     // Fallback: full enemy list (used when spatial optimization isn't available)
     const allEnemies = enemyManager.getAlive();
@@ -129,10 +130,10 @@ export class TowerCombatService {
 
         // Only fire if cooldown is ready AND turret is aligned
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
-        if (tower.combat.canFire(currentTime) && turretAligned) {
+        if (tower.combat.canFire(currentTime, timescale) && turretAligned) {
           // Periodic LOS recheck (throttled to max ~3/sec per tower)
           const isAirTarget = target.typeConfig.isAirUnit ?? false;
-          if (losCheck && !isAirTarget && tower.needsLosRecheck(currentTime)) {
+          if (losCheck && !isAirTarget && tower.needsLosRecheck(currentTime, timescale)) {
             tower.markLosChecked(currentTime);
             if (!losCheck(target)) {
               // Target no longer visible - find new target
