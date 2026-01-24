@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Material } from 'three';
+import { Material, Mesh, SphereGeometry, MeshBasicMaterial } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
@@ -12,10 +12,11 @@ import { HQDamageService } from '../services/hq-damage.service';
 import { TowerCombatService } from '../services/tower-combat.service';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
+import { WaveDebugService } from '../services/wave-debug.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { Enemy } from '../entities/enemy.entity';
-import { EnemyTypeId } from '../models/enemy-types';
+import { EnemyTypeId, ENEMY_TYPES } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
@@ -39,6 +40,7 @@ export class GameStateManager {
   private readonly towerCombat = inject(TowerCombatService);
   private readonly entityPool = inject(EntityPoolService);
   private readonly osmService = inject(OsmStreetService);
+  private readonly waveDebug = inject(WaveDebugService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -55,6 +57,9 @@ export class GameStateManager {
   /** Game over screen signal - delegated to HQDamageService */
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
 
+  /** Training mode timescale (1.0 = normal, 3.0 = 3x speed) */
+  readonly trainingTimescale = signal<number>(1.0);
+
   // Computed signals for UI bindings
   readonly phase = computed(() => this.waveManager.phase());
   readonly waveNumber = computed(() => this.waveManager.waveNumber());
@@ -67,6 +72,9 @@ export class GameStateManager {
   private tilesEngine: ThreeTilesEngine | null = null;
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
+
+  // Debug: defense reach marker
+  private defenseReachMarker: Mesh | null = null;
 
 
   /**
@@ -93,7 +101,13 @@ export class GameStateManager {
     );
 
     // Initialize combat effect service (subscribes to projectile:hit events)
-    this.combatEffect.initialize(tilesEngine, this.eventBus, this.towerManager, this.enemyManager);
+    this.combatEffect.initialize(
+      tilesEngine,
+      this.eventBus,
+      this.towerManager,
+      this.enemyManager,
+      () => this.trainingTimescale()
+    );
 
     // Initialize HQ damage service (handles fire, sounds, game over effects)
     this.hqDamage.initialize(tilesEngine, basePosition, this.eventBus);
@@ -131,6 +145,7 @@ export class GameStateManager {
     this.projectileManager.initialize(tilesEngine);
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
+    this.waveManager.setTimescaleProvider(() => this.trainingTimescale());
   }
 
   /**
@@ -138,8 +153,15 @@ export class GameStateManager {
    * Phase controls WHAT updates, not IF updates happen
    */
   update(currentTime: number): void {
-    const deltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
+    const rawDeltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
     this.lastUpdateTime = currentTime;
+
+    // Apply training timescale (accelerates gameplay for faster training)
+    const timescale = this.trainingTimescale();
+    const deltaTime = rawDeltaTime * timescale;
+
+    // Sync timescale to renderer (turret rotation speed)
+    this.tilesEngine?.setTimescale(timescale);
 
     // ══════════════════════════════════════════════════════════════
     // ALWAYS UPDATE (Phase-independent)
@@ -162,15 +184,16 @@ export class GameStateManager {
 
     if (this.waveManager.phase() !== 'wave') return;
 
-    // Enemy movement
-    this.enemyManager.update(deltaTime);
+    // Enemy movement (with timescale for status effect duration)
+    this.enemyManager.update(deltaTime, this.trainingTimescale());
 
     // Tower combat (targeting + firing) - delegates to TowerCombatService
     this.towerCombat.updateTowerShooting(
       currentTime,
       this.towerManager,
       this.enemyManager,
-      this.projectileManager
+      this.projectileManager,
+      this.trainingTimescale()
     );
 
     // Check wave completion
@@ -211,6 +234,29 @@ export class GameStateManager {
    * Start a new wave with config
    */
   startWave(config: WaveConfig): void {
+    // Update wave preview in sidebar with actual values (NOT timescaled)
+    if (config.enemyType) {
+      const enemyConfig = ENEMY_TYPES[config.enemyType];
+      const baseHp = enemyConfig.baseHp;
+      const baseSpeed = enemyConfig.baseSpeed;
+      const actualHp = config.enemyHealth ?? baseHp;
+      const actualSpeed = config.enemySpeed ?? baseSpeed;
+      const healthMultiplier = actualHp / baseHp;
+      const speedMultiplier = actualSpeed / baseSpeed;
+
+      this.waveDebug.setCurrentWaveConfig(
+        config.enemyType,
+        config.enemyCount,
+        baseHp,
+        actualHp,
+        baseSpeed,
+        actualSpeed,
+        config.spawnDelay,
+        healthMultiplier,
+        speedMultiplier
+      );
+    }
+
     this.waveManager.startWave(config);
   }
 
@@ -289,7 +335,7 @@ export class GameStateManager {
    * Start all paused enemies
    */
   startAllEnemies(delayBetween = 300): void {
-    this.enemyManager.startAll(delayBetween);
+    this.enemyManager.startAll(delayBetween, this.trainingTimescale());
   }
 
   /**
@@ -436,7 +482,7 @@ export class GameStateManager {
    * Kill an enemy
    */
   killEnemy(enemy: Enemy): void {
-    this.enemyManager.kill(enemy);
+    this.enemyManager.kill(enemy, this.trainingTimescale());
   }
 
   /**
@@ -525,9 +571,120 @@ export class GameStateManager {
   }
 
   /**
+   * Calculate defense reach percent using GlobalRouteGrid LOS data.
+   * Returns the furthest point on the path (0-1, distance-based) where
+   * at least one tower has line-of-sight visibility.
+   * Matches MovementComponent.getPathProgress() distance calculation.
+   * Also updates the orange debug marker position.
+   */
+  getDefenseReachPercent(): number {
+    if (!this.tilesEngine || !this.globalRouteGrid.isInitialized()) return 0;
+
+    const routes = this.getCachedRoutes();
+    if (routes.length === 0) return 0;
+    const path = routes[0];
+    if (path.length < 2) return 0;
+
+    const sync = this.tilesEngine.sync;
+
+    // Convert all waypoints to local coordinates
+    const localPositions = path.map(p => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
+
+    // Calculate segment lengths
+    let totalLength = 0;
+    const cumulativeDistances: number[] = [0];
+
+    for (let i = 0; i < localPositions.length - 1; i++) {
+      const a = localPositions[i];
+      const b = localPositions[i + 1];
+      const segLen = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
+      totalLength += segLen;
+      cumulativeDistances.push(totalLength);
+    }
+
+    if (totalLength === 0) return 0;
+
+    // Find last waypoint visible by any tower
+    let lastVisibleIndex = -1;
+
+    for (let i = 0; i < localPositions.length; i++) {
+      const local = localPositions[i];
+      const cell = this.globalRouteGrid.getCellAt(local.x, local.z);
+      if (cell) {
+        for (const visible of cell.towerVisibility.values()) {
+          if (visible) {
+            lastVisibleIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (lastVisibleIndex < 0) {
+      this.hideDefenseReachMarker();
+      return 0;
+    }
+
+    // Update orange debug marker at last visible waypoint
+    const markerPos = localPositions[lastVisibleIndex];
+    this.updateDefenseReachMarker(markerPos.x, markerPos.y + 3, markerPos.z);
+
+    return cumulativeDistances[lastVisibleIndex] / totalLength;
+  }
+
+  private updateDefenseReachMarker(x: number, y: number, z: number): void {
+    if (!this.tilesEngine) return;
+    const scene = this.tilesEngine.getScene();
+
+    if (!this.defenseReachMarker) {
+      const geo = new SphereGeometry(1.5, 8, 6);
+      const mat = new MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.85 });
+      this.defenseReachMarker = new Mesh(geo, mat);
+      this.defenseReachMarker.renderOrder = 10;
+      scene.add(this.defenseReachMarker);
+    }
+
+    this.defenseReachMarker.position.set(x, y, z);
+    this.defenseReachMarker.visible = true;
+  }
+
+  private hideDefenseReachMarker(): void {
+    if (this.defenseReachMarker) {
+      this.defenseReachMarker.visible = false;
+    }
+  }
+
+  /**
    * Get EventBus for external subscriptions (e.g., game:over in UI components)
    */
   getEventBus(): GameEventBus {
     return this.eventBus;
+  }
+
+  /**
+   * Get spawn points for bot/AI use
+   */
+  getSpawnPoints(): SpawnPoint[] {
+    return this.waveManager.spawnPoints;
+  }
+
+  /**
+   * Get cached paths for bot/AI use
+   */
+  getCachedPaths(): Map<string, GeoPosition[]> {
+    return this.pathRouteService.getCachedPaths();
+  }
+
+  /**
+   * Set training mode timescale
+   * @param scale Timescale multiplier (1.0 = normal, 75.0 = 75x speed)
+   * @param persist Whether to save to localStorage (default: true, set to false for automatic backend settings)
+   */
+  setTrainingTimescale(scale: number, persist = true): void {
+    const clamped = Math.max(0.1, Math.min(75, scale));
+    this.trainingTimescale.set(clamped);
+    if (persist) {
+      localStorage.setItem('training-timescale', clamped.toString());
+    }
   }
 }

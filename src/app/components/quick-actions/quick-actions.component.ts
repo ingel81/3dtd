@@ -109,6 +109,20 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>cell_tower</mat-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.trainingWindow().isOpen"
+                  (click)="debugWindows.toggle('training')"
+                  matTooltip="AI Training panel"
+                  matTooltipPosition="left">
+            <mat-icon>psychology</mat-icon>
+          </button>
+          <button class="td-dev-btn"
+                  [class.active]="debugWindows.devworldWindow().isOpen"
+                  (click)="debugWindows.toggle('devworld')"
+                  matTooltip="DevWorld panel"
+                  matTooltipPosition="left">
+            <mat-icon>language</mat-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="cameraFramingDebug()"
                   (click)="cameraFramingDebugToggled.emit()"
                   matTooltip="Camera framing debug"
@@ -272,7 +286,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-dev-menu.expanded {
-      max-height: 350px;
+      max-height: 500px;
       opacity: 1;
     }
 

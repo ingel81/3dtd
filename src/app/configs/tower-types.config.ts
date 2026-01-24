@@ -1,4 +1,4 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'sniper' | 'dual-gatling' | 'rocket' | 'ice';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
 export type UpgradeId = 'speed' | 'damage' | 'range';
 
@@ -6,12 +6,23 @@ export interface TowerUpgrade {
   id: UpgradeId;
   name: string;
   description: string;
-  cost: number;
+  cost: number; // Base cost for level 1
+  costScaling?: number; // Cost multiplier per level (default: 1.0 = flat cost)
   maxLevel: number;
   effect: {
     stat: 'fireRate' | 'damage' | 'range';
     multiplier: number; // e.g., 2.0 = double
   };
+}
+
+/**
+ * Calculate the cost of an upgrade at a given level.
+ * Formula: baseCost * costScaling^currentLevel
+ * Level 0 → baseCost, Level 1 → baseCost * scaling, etc.
+ */
+export function getUpgradeCost(upgrade: TowerUpgrade, currentLevel: number): number {
+  const scaling = upgrade.costScaling ?? 1.0;
+  return Math.round(upgrade.cost * Math.pow(scaling, currentLevel));
 }
 
 export interface TowerTypeConfig {
@@ -73,7 +84,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         id: 'speed',
         name: 'Rapid Fire',
         description: 'Doubles the fire rate',
-        cost: 25,
+        cost: 40,
         maxLevel: 1,
         effect: {
           stat: 'fireRate',
@@ -95,15 +106,16 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 50,
     fireRate: 5.0, // 5 shots/sec - rapid fire
     projectileType: 'bullet',
-    cost: 100,
+    cost: 90,
     sellValue: 60,
     upgrades: [
       {
         id: 'speed',
         name: 'Rapid Fire',
         description: 'Doubles the fire rate',
-        cost: 50,
-        maxLevel: 10,
+        cost: 90,
+        costScaling: 2.0,
+        maxLevel: 4,
         effect: {
           stat: 'fireRate',
           multiplier: 2.0,
@@ -124,14 +136,15 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
-    cost: 200,
+    cost: 175,
     sellValue: 120,
     upgrades: [
       {
         id: 'speed',
         name: 'Rapid Fire',
         description: 'Increases fire rate by 50%',
-        cost: 100,
+        cost: 150,
+        costScaling: 1.8,
         maxLevel: 2,
         effect: {
           stat: 'fireRate',
@@ -142,7 +155,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         id: 'damage',
         name: 'Reinforced Charge',
         description: 'Increases damage by 50%',
-        cost: 120,
+        cost: 175,
+        costScaling: 1.8,
         maxLevel: 3,
         effect: {
           stat: 'damage',
@@ -171,7 +185,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         id: 'damage',
         name: 'Arcane Power',
         description: 'Increases magical damage by 50%',
-        cost: 80,
+        cost: 120,
+        costScaling: 1.7,
         maxLevel: 3,
         effect: {
           stat: 'damage',
@@ -179,21 +194,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         },
       },
     ],
-  },
-  sniper: {
-    id: 'sniper',
-    name: 'Sniper Tower',
-    modelUrl: ARCHER_MODEL_URL, // TODO: Replace with tower_sniper.glb when available
-    scale: 1.6,
-    heightOffset: 2.0,
-    shootHeight: 14, // Top platform for sniper
-    damage: 150,
-    range: 120,
-    fireRate: 0.3, // Very slow but powerful
-    projectileType: 'arrow',
-    cost: 300,
-    sellValue: 180,
-    upgrades: [],
   },
   rocket: {
     id: 'rocket',
@@ -208,7 +208,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 100,
     fireRate: 0.5,
     projectileType: 'rocket',
-    cost: 200,
+    cost: 100,
     sellValue: 120,
     canTargetAir: true, // Can only target air units
     canTargetGround: false, // Cannot target ground units
@@ -217,7 +217,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         id: 'speed',
         name: 'Rapid Fire',
         description: 'Doubles the fire rate',
-        cost: 100,
+        cost: 130,
+        costScaling: 1.8,
         maxLevel: 2,
         effect: {
           stat: 'fireRate',

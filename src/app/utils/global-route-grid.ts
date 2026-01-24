@@ -197,6 +197,13 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Get the CoordinateSync instance (for DPS profile computation)
+   */
+  getCoordinateSync(): CoordinateSync | null {
+    return this.coordinateSync;
+  }
+
+  /**
    * Generate grid cells from enemy routes
    * Creates cells along the route corridor and samples terrain height at each
    * @param routes Array of route paths (each path is GeoPosition[])

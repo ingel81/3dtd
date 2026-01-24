@@ -39,6 +39,19 @@ export class WaveDebugService {
   readonly baseHealth = signal(100);
   readonly enemiesAlive = signal(0);
 
+  // Current wave config (from AI backend or manual wave start)
+  readonly currentWaveConfig = signal<{
+    enemyType: EnemyTypeId;
+    count: number;
+    baseHp: number;
+    actualHp: number;
+    baseSpeed: number;
+    actualSpeed: number;
+    spawnDelay: number;
+    healthMultiplier: number;
+    speedMultiplier: number;
+  } | null>(null);
+
   setEnemyCount(value: number): void {
     this.enemyCount.set(Math.max(1, Math.min(500, value)));
   }
@@ -81,6 +94,37 @@ export class WaveDebugService {
     this.waveActive.set(active);
     this.baseHealth.set(health);
     this.enemiesAlive.set(enemies);
+  }
+
+  /**
+   * Set current wave config (called when wave starts)
+   * Shows the actual multiplied values and base values
+   */
+  setCurrentWaveConfig(
+    enemyType: EnemyTypeId,
+    count: number,
+    baseHp: number,
+    actualHp: number,
+    baseSpeed: number,
+    actualSpeed: number,
+    spawnDelay: number,
+    healthMultiplier = 1,
+    speedMultiplier = 1
+  ): void {
+    // Update enemy type so the preview shows the correct model
+    this.enemyType.set(enemyType);
+
+    this.currentWaveConfig.set({
+      enemyType,
+      count,
+      baseHp,
+      actualHp,
+      baseSpeed,
+      actualSpeed,
+      spawnDelay,
+      healthMultiplier,
+      speedMultiplier,
+    });
   }
 
   clearLog(): void {

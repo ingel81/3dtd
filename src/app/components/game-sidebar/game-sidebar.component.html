@@ -9,15 +9,44 @@
             <canvas #enemyPreviewCanvas class="td-enemy-preview-canvas" width="72" height="72"></canvas>
           </div>
           <div class="td-wave-stats">
-            <div class="td-enemy-name">{{ currentEnemyConfig().name }}</div>
-            <div class="td-stat-row">
-              <span class="td-stat-label">HP</span>
-              <span class="td-stat-value">{{ currentEnemyConfig().baseHp }}</span>
-            </div>
-            <div class="td-stat-row">
-              <span class="td-stat-label">Enemies</span>
-              <span class="td-stat-value">{{ gameState().enemiesAlive() }}</span>
-            </div>
+            <div class="td-enemy-name">{{ getCurrentWaveDisplayName() }}</div>
+            @if (currentWaveConfig(); as wave) {
+              <div class="td-stat-row">
+                <span class="td-stat-label">Count</span>
+                <span class="td-stat-value td-val-count">{{ wave.count }}</span>
+              </div>
+              <div class="td-stat-row">
+                <span class="td-stat-label">HP</span>
+                <span class="td-stat-value" [class.td-val-modified]="wave.healthMultiplier !== 1">
+                  {{ wave.actualHp }}
+                  @if (wave.healthMultiplier !== 1) {
+                    <span class="td-multiplier">×{{ wave.healthMultiplier | number:'1.1-1' }}</span>
+                  }
+                </span>
+              </div>
+              <div class="td-stat-row">
+                <span class="td-stat-label">Speed</span>
+                <span class="td-stat-value" [class.td-val-modified]="wave.speedMultiplier !== 1">
+                  {{ wave.actualSpeed | number:'1.1-1' }}m/s
+                  @if (wave.speedMultiplier !== 1) {
+                    <span class="td-multiplier">×{{ wave.speedMultiplier | number:'1.2-2' }}</span>
+                  }
+                </span>
+              </div>
+              <div class="td-stat-row">
+                <span class="td-stat-label">Spawn</span>
+                <span class="td-stat-value">{{ wave.spawnDelay }}ms</span>
+              </div>
+            } @else {
+              <div class="td-stat-row">
+                <span class="td-stat-label">HP</span>
+                <span class="td-stat-value">{{ currentEnemyConfig().baseHp }}</span>
+              </div>
+              <div class="td-stat-row">
+                <span class="td-stat-label">Enemies</span>
+                <span class="td-stat-value">{{ gameState().enemiesAlive() }}</span>
+              </div>
+            }
           </div>
         </div>
         <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave.emit()"
@@ -96,8 +125,8 @@
               @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
                 <button
                   class="td-upgrade-tile"
-                  [class.td-upgrade-affordable]="gameState().credits() >= upgrade.cost"
-                  [disabled]="gameState().credits() < upgrade.cost"
+                  [class.td-upgrade-affordable]="gameState().credits() >= tower.getNextUpgradeCost(upgrade.id)"
+                  [disabled]="gameState().credits() < tower.getNextUpgradeCost(upgrade.id)"
                   (click)="onUpgradeTower(tower, upgrade.id)"
                   [matTooltip]="upgrade.description"
                   matTooltipPosition="left"
@@ -105,9 +134,9 @@
                   <mat-icon class="td-upgrade-icon">bolt</mat-icon>
                   <div class="td-upgrade-info">
                     <span class="td-upgrade-name">{{ upgrade.name }}</span>
-                    <span class="td-upgrade-desc">Upgrade available</span>
+                    <span class="td-upgrade-desc">Lv.{{ tower.getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
                   </div>
-                  <span class="td-upgrade-cost">{{ upgrade.cost }}</span>
+                  <span class="td-upgrade-cost">{{ tower.getNextUpgradeCost(upgrade.id) }}</span>
                 </button>
               }
             </div>

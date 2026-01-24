@@ -21,7 +21,7 @@ import type { DevWorldWorkerMessage, DevWorldWorkerResponse, DevWorldWorkerConfi
 /** Road width in meters */
 const ROAD_WIDTH = 6;
 /** Road thickness (height) in meters */
-const ROAD_THICKNESS = 0.3;
+const _ROAD_THICKNESS = 0.3; // Reserved for future use
 /** Road height offset above terrain */
 const ROAD_HEIGHT_OFFSET = 0.5;
 
@@ -352,7 +352,7 @@ export class DevTerrainProvider implements TerrainProvider {
    */
   private createTerrainSkirt(segments: number): void {
     const halfSize = DEV_WORLD_SIZE / 2;
-    const skirtDepth = 100; // How far down the skirt extends
+    const _skirtDepth = 100; // Reserved: how far down the skirt extends
     const skirtBottom = -50; // Bottom Y position
 
     const vertices: number[] = [];

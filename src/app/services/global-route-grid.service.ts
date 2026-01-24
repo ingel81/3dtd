@@ -41,6 +41,20 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Get the underlying GlobalRouteGrid instance (for DPS profile computation)
+   */
+  getGrid(): GlobalRouteGrid {
+    return this.grid;
+  }
+
+  /**
+   * Get the CoordinateSync instance used by the grid
+   */
+  getCoordinateSync(): CoordinateSync | null {
+    return this.grid.getCoordinateSync();
+  }
+
+  /**
    * Generate grid cells from enemy routes
    * @param routes Array of route paths (each path is GeoPosition[])
    */

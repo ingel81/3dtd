@@ -21,7 +21,7 @@ export const GAME_BALANCE = {
   /** Combat values */
   combat: {
     /** Damage dealt to base when enemy reaches HQ */
-    enemyBaseDamage: 10,
+    enemyBaseDamage: 1,
   },
 
   /** Status effects */

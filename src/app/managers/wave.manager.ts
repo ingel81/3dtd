@@ -35,11 +35,17 @@ export class WaveManager {
   readonly waveNumber = signal(0);
   readonly gatheringPhase = signal(false);
 
-  private spawnPoints: SpawnPoint[] = [];
+  spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
 
   // Track active timeouts for cleanup on reset
   private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
+  private timescaleProvider: (() => number) | null = null;
+
+  // Track spawning state to prevent premature wave completion
+  private expectedEnemyCount = 0;
+  private spawnedEnemyCount = 0;
 
   constructor(
     private eventBus: GameEventBus,
@@ -52,11 +58,22 @@ export class WaveManager {
   }
 
   /**
+   * Set timescale provider for spawn delay scaling
+   */
+  setTimescaleProvider(provider: () => number): void {
+    this.timescaleProvider = provider;
+  }
+
+  /**
    * Begin wave phase (for manual enemy spawning)
    */
   beginWave(): void {
     this.waveNumber.update((n) => n + 1);
     this.phase.set('wave');
+
+    // Reset spawn tracking (manual mode - unlimited spawning)
+    this.expectedEnemyCount = 0;
+    this.spawnedEnemyCount = 0;
 
     // Emit wave:started event
     this.eventBus.emit({
@@ -73,11 +90,15 @@ export class WaveManager {
     this.waveNumber.update((n) => n + 1);
     this.phase.set('wave');
 
-    // Emit wave:started event
+    // Initialize spawn tracking
+    this.expectedEnemyCount = config.enemyCount;
+    this.spawnedEnemyCount = 0;
+
+    // Emit wave:started event with actual enemy count
     this.eventBus.emit({
       type: 'wave:started',
       wave: this.waveNumber(),
-      enemyCount: config.enemyCount,
+      enemyCount: config.enemyCount, // This is the actual count being spawned
     });
 
     const useGathering = config.useGathering;
@@ -110,12 +131,15 @@ export class WaveManager {
       if (spawnedCount >= config.enemyCount) {
         if (useGathering) {
           // Gathering mode: Start all enemies together after short delay
+          const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+          const realTimeDelay = 500 / timescale; // Scale gathering delay
           const timeoutId = setTimeout(() => {
             this.activeTimeouts.delete(timeoutId);
             if (this.phase() !== 'wave') return; // Stop if reset/game over
             this.gatheringPhase.set(false);
-            this.enemyManager.startAll(300);
-          }, 500);
+            const currentTimescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+            this.enemyManager.startAll(300, currentTimescale);
+          }, realTimeDelay);
           this.activeTimeouts.add(timeoutId);
         }
         return;
@@ -128,16 +152,20 @@ export class WaveManager {
         // In gathering mode: spawn paused, otherwise spawn and start immediately
         this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, useGathering, config.enemyHealth);
         spawnedCount++;
+        this.spawnedEnemyCount++; // Track globally for wave completion check
       }
 
       // Check phase again before scheduling next spawn (could have been reset during spawn)
       if (this.phase() !== 'wave') return;
 
+      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+      const gameTimeDelay = getDelay();
+      const realTimeDelay = gameTimeDelay / timescale; // Scale spawn delay
       const timeoutId = setTimeout(() => {
         this.activeTimeouts.delete(timeoutId);
         if (this.phase() !== 'wave') return; // Stop if reset/game over
         spawnNext();
-      }, getDelay());
+      }, realTimeDelay);
       this.activeTimeouts.add(timeoutId);
     };
 
@@ -156,10 +184,18 @@ export class WaveManager {
   }
 
   /**
-   * Check if wave is complete (all enemies dead)
+   * Check if wave is complete (all enemies spawned AND all enemies dead)
    */
   checkWaveComplete(): boolean {
-    return this.enemyManager.getAliveCount() === 0 && this.phase() === 'wave';
+    if (this.phase() !== 'wave') return false;
+
+    // Wave is complete when:
+    // 1. All enemies have been spawned (or manual mode with expectedCount = 0)
+    // 2. AND all spawned enemies are dead
+    const allEnemiesSpawned = this.expectedEnemyCount === 0 || this.spawnedEnemyCount >= this.expectedEnemyCount;
+    const allEnemiesDead = this.enemyManager.getAliveCount() === 0;
+
+    return allEnemiesSpawned && allEnemiesDead;
   }
 
   /**

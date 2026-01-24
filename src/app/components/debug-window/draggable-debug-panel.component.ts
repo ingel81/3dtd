@@ -137,7 +137,7 @@ export interface WindowSize {
 
     .debug-panel-content {
       padding: 8px;
-      max-height: 400px;
+      max-height: min(600px, 70vh);
       overflow-y: auto;
       overflow-x: hidden;
       ${TD_SCROLLBAR_STYLES}

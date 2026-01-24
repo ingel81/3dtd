@@ -17,7 +17,7 @@ export interface DebugWindowState {
   size?: WindowSize;
 }
 
-export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld';
+export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'training';
 
 const STORAGE_KEY = 'td_debug_windows_v4';
 const BASE_Z_INDEX = 100;
@@ -28,6 +28,7 @@ const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   sound: { x: 20, y: 200 },
   events: { x: 380, y: 80 },
   devworld: { x: 20, y: 80 },
+  training: { x: 380, y: 300 },
 };
 
 const DEFAULT_SIZES: Partial<Record<DebugWindowId, WindowSize>> = {
@@ -48,6 +49,7 @@ export class DebugWindowService {
   readonly soundWindow = computed(() => this.windowStates()['sound']);
   readonly eventsWindow = computed(() => this.windowStates()['events']);
   readonly devworldWindow = computed(() => this.windowStates()['devworld']);
+  readonly trainingWindow = computed(() => this.windowStates()['training']);
 
   // Check if any window is open
   readonly hasOpenWindows = computed(() =>
@@ -179,6 +181,11 @@ export class DebugWindowService {
         isOpen: false,
         position: DEFAULT_POSITIONS.devworld,
         zIndex: BASE_Z_INDEX + 4,
+      },
+      training: {
+        isOpen: false,
+        position: DEFAULT_POSITIONS.training,
+        zIndex: BASE_Z_INDEX + 5,
       },
     };
 

@@ -7,7 +7,7 @@ import {
   RenderComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade } from '../configs/tower-types.config';
+import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost } from '../configs/tower-types.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
 
@@ -102,10 +102,12 @@ export class Tower extends GameObject {
   /**
    * Check if LOS recheck is needed (time-based throttling)
    * @param currentTime Current timestamp in ms
+   * @param timescale Game speed multiplier (1.0 = normal, 8.0 = 8x faster)
    * @returns true if LOS should be rechecked
    */
-  needsLosRecheck(currentTime: number): boolean {
-    return currentTime - this._lastLosCheckTime >= this.LOS_RECHECK_INTERVAL;
+  needsLosRecheck(currentTime: number, timescale = 1.0): boolean {
+    const interval = this.LOS_RECHECK_INTERVAL / timescale;
+    return currentTime - this._lastLosCheckTime >= interval;
   }
 
   /**
@@ -251,13 +253,25 @@ export class Tower extends GameObject {
   }
 
   /**
+   * Get the current cost for the next level of a specific upgrade
+   */
+  getNextUpgradeCost(upgradeId: UpgradeId): number {
+    const upgrade = this.typeConfig.upgrades.find(u => u.id === upgradeId);
+    if (!upgrade) return 0;
+    const currentLevel = this.upgradeLevels.get(upgradeId) ?? 0;
+    return getUpgradeCost(upgrade, currentLevel);
+  }
+
+  /**
    * Get total credits invested in upgrades
    */
   getTotalUpgradeCost(): number {
     let total = 0;
     for (const upgrade of this.typeConfig.upgrades) {
-      const level = this.upgradeLevels.get(upgrade.id) ?? 0;
-      total += upgrade.cost * level;
+      const maxLevel = this.upgradeLevels.get(upgrade.id) ?? 0;
+      for (let i = 0; i < maxLevel; i++) {
+        total += getUpgradeCost(upgrade, i);
+      }
     }
     return total;
   }

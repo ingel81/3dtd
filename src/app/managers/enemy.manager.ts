@@ -133,14 +133,23 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.add(enemy);
     this.aliveCount.update(c => c + 1);
     this.cachedAliveEnemies = null; // Invalidate cache
+
+    // Emit enemy:spawned event for AI tracking
+    this.eventBus.emit({
+      type: 'enemy:spawned',
+      enemy,
+    });
+
     return enemy;
   }
 
   /**
    * Kill an enemy - plays death animation then removes
    * Emits enemy:died event with credits
+   * @param enemy Enemy to kill
+   * @param timescale Game speed multiplier (for death animation timing)
    */
-  kill(enemy: Enemy): void {
+  kill(enemy: Enemy, timescale = 1.0): void {
     // Prevent double-kill
     if (this.killingEnemies.has(enemy.id)) return;
     this.killingEnemies.add(enemy.id);
@@ -165,10 +174,11 @@ export class EnemyManager extends EntityManager<Enemy> {
     // If enemy has death animation, play it and wait before removing
     if (enemy.typeConfig.deathAnimation) {
       this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
+      const realTimeDelay = 2000 / timescale; // Scale death animation duration
       setTimeout(() => {
         this.killingEnemies.delete(enemy.id);
         this.remove(enemy);
-      }, 2000);
+      }, realTimeDelay);
     } else {
       // No death animation - remove immediately
       this.killingEnemies.delete(enemy.id);
@@ -178,8 +188,10 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   /**
    * Update all enemies - movement and rendering
+   * @param deltaTime Delta time in milliseconds (already scaled by timescale)
+   * @param timescale Game speed multiplier (for status effect duration)
    */
-  override update(deltaTime: number): void {
+  override update(deltaTime: number, timescale = 1.0): void {
     // Clear reusable array (no allocation)
     this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
@@ -191,10 +203,10 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.update(deltaTime);
 
       // Remove expired status effects
-      enemy.movement.removeExpiredEffects();
+      enemy.movement.removeExpiredEffects(timescale);
 
       // Move enemy along path
-      const moveResult = enemy.movement.move(deltaTime);
+      const moveResult = enemy.movement.move(deltaTime, timescale);
       if (moveResult === 'reached_end') {
         // Emit enemy:reached-base event
         this.eventBus.emit({
@@ -259,13 +271,16 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   /**
    * Start all paused enemies with configurable delay between each
+   * @param defaultDelayBetween Default delay in milliseconds (game-time)
+   * @param timescale Game speed multiplier (converts game-time to real-time)
    */
-  startAll(defaultDelayBetween = 300): void {
+  startAll(defaultDelayBetween = 300, timescale = 1.0): void {
     const paused = this.getAll().filter((e) => e.movement.paused);
 
     let accumulatedDelay = 0;
     paused.forEach((enemy) => {
-      const delay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
+      const gameTimeDelay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
+      const realTimeDelay = gameTimeDelay / timescale; // Convert to real-time
       setTimeout(() => {
         // Check both alive (health) AND active (not destroyed)
         if (enemy.alive && enemy.active) {
@@ -273,7 +288,7 @@ export class EnemyManager extends EntityManager<Enemy> {
           this.tilesEngine?.enemies.startWalkAnimation(enemy.id);
         }
       }, accumulatedDelay);
-      accumulatedDelay += delay;
+      accumulatedDelay += realTimeDelay;
     });
   }
 

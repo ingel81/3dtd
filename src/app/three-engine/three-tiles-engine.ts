@@ -89,6 +89,9 @@ export class ThreeTilesEngine {
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
 
+  // Game speed multiplier for animations (turret rotation etc.)
+  private gameTimescale = 1.0;
+
   // DevWorld support
   private devWorld: DevWorldService | null = null;
   private devTerrainProvider: TerrainProvider | null = null;
@@ -293,6 +296,10 @@ export class ThreeTilesEngine {
    */
   setInitialCameraPosition(position: InitialCameraPosition): void {
     this.initialCameraPosition = position;
+  }
+
+  setTimescale(scale: number): void {
+    this.gameTimescale = scale;
   }
 
   /**
@@ -1357,8 +1364,8 @@ export class ThreeTilesEngine {
     // Update enemy animations (with frustum culling)
     this.enemies.updateAnimations(deltaSeconds, this.camera);
 
-    // Update tower selection animations
-    this.towers.updateAnimations(deltaTime);
+    // Update tower animations (turret rotation scales with game speed)
+    this.towers.updateAnimations(deltaTime, this.gameTimescale);
 
     // Commit projectile instance changes to GPU
     this.projectiles.commitToGPU();

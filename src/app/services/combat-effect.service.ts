@@ -29,6 +29,7 @@ export class CombatEffectService {
   private eventBus: GameEventBus | null = null;
   private towerManager: TowerManager | null = null;
   private enemyManager: EnemyManager | null = null;
+  private timescaleProvider: (() => number) | null = null;
 
   /**
    * Initialize with engine reference and subscribe to events
@@ -37,12 +38,14 @@ export class CombatEffectService {
     tilesEngine: ThreeTilesEngine,
     eventBus: GameEventBus,
     towerManager: TowerManager,
-    enemyManager: EnemyManager
+    enemyManager: EnemyManager,
+    timescaleProvider: () => number
   ): void {
     this.tilesEngine = tilesEngine;
     this.eventBus = eventBus;
     this.towerManager = towerManager;
     this.enemyManager = enemyManager;
+    this.timescaleProvider = timescaleProvider;
 
     // Subscribe to projectile:hit events
     this.eventBus.on('projectile:hit', (event) => {
@@ -234,7 +237,8 @@ export class CombatEffectService {
       if (!skipBloodEffects) {
         this.spawnDeathBloodEffect(enemy);
       }
-      this.enemyManager.kill(enemy);
+      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+      this.enemyManager.kill(enemy, timescale);
 
       const reward = enemy.typeConfig.reward;
 

@@ -14,6 +14,10 @@ import { GeoPosition } from '../models/game.types';
 export type GameEvent =
   // ==================== Enemy Lifecycle ====================
   | {
+      type: 'enemy:spawned';
+      enemy: Enemy;
+    }
+  | {
       type: 'enemy:died';
       enemy: Enemy;
       credits: number;

@@ -599,6 +599,83 @@ export class TowerPlacementService {
     return { valid: true };
   }
 
+  /**
+   * Validate tower position with explicit height (for bot/API usage)
+   * Includes 3D distance checks to prevent building on rooftops
+   */
+  validateTowerPositionWithHeight(geoPos: GeoPosition): { valid: boolean; reason?: string } {
+    if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
+      return { valid: false, reason: 'Service not initialized' };
+    }
+
+    if (this.streetNetwork.streets.length === 0) {
+      return { valid: false, reason: 'No streets loaded' };
+    }
+
+    // Check bounds
+    const bounds = this.streetNetwork.bounds;
+    const inBounds = geoPos.lat >= bounds.minLat && geoPos.lat <= bounds.maxLat &&
+                     geoPos.lon >= bounds.minLon && geoPos.lon <= bounds.maxLon;
+    if (!inBounds) {
+      return { valid: false, reason: 'Outside play area' };
+    }
+
+    // Check distance to base
+    const distToBase = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, this.baseCoords.lat, this.baseCoords.lon);
+    if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
+      return { valid: false, reason: `Too close to base` };
+    }
+
+    // Check distance to spawns
+    for (const spawn of this.spawnPoints) {
+      const distToSpawn = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, spawn.lat, spawn.lon);
+      if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
+        return { valid: false, reason: `Too close to spawn` };
+      }
+    }
+
+    // Check distance to other towers
+    if (this.gameState) {
+      for (const tower of this.gameState.towers()) {
+        const distToTower = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, tower.position.lat, tower.position.lon);
+        if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
+          return { valid: false, reason: `Too close to tower` };
+        }
+      }
+    }
+
+    // Check distance to street (with 3D distance calculation)
+    const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, geoPos.lat, geoPos.lon);
+    if (!nearest) {
+      return { valid: false, reason: 'No street nearby' };
+    }
+
+    if (nearest.distance > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) {
+      return { valid: false, reason: 'Too far from street' };
+    }
+
+    // 3D distance check (horizontal + vertical to street)
+    // Note: Building on rooftops is ALLOWED, only blocking placement IN streets
+    let effectiveDistance = nearest.distance;
+
+    if (this.engine && geoPos.height !== undefined) {
+      const streetNode = nearest.street.nodes[nearest.nodeIndex];
+      const streetHeight = this.engine.getTerrainHeightAtGeo(streetNode.lat, streetNode.lon);
+
+      if (streetHeight !== null) {
+        const heightDiff = Math.abs(geoPos.height - streetHeight);
+        // Calculate 3D distance: sqrt(horizontal² + vertical²)
+        effectiveDistance = Math.sqrt(nearest.distance * nearest.distance + heightDiff * heightDiff);
+      }
+    }
+
+    if (effectiveDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) {
+      return { valid: false, reason: 'Too close to street (3D)' };
+    }
+
+    return { valid: true };
+  }
+
   // ========================================
   // PUBLIC GETTERS
   // ========================================

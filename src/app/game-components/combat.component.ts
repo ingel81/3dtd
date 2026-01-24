@@ -31,9 +31,11 @@ export class CombatComponent extends Component {
 
   /**
    * Check if enough time has passed to fire again
+   * @param currentTime Current timestamp in milliseconds
+   * @param timescale Game speed multiplier (1.0 = normal, 8.0 = 8x faster)
    */
-  canFire(currentTime: number): boolean {
-    const fireInterval = 1000 / this.fireRate;
+  canFire(currentTime: number, timescale = 1.0): boolean {
+    const fireInterval = (1000 / this.fireRate) / timescale;
     return currentTime - this.lastFireTime >= fireInterval;
   }
 
