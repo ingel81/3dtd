@@ -1,6 +1,6 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-01-19 (aktualisiert)
+**Stand:** 2026-01-25
 
 Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense Minispiel.
 
@@ -41,6 +41,8 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) | 3D Model Previews in der Sidebar |
 | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Partikel-System, Blut, Feuer, Trail-Effekte |
 | [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse & Workarounds |
+| [DEVWORLD.md](DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung, Terrain-Presets |
+| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Based Bot System fuer AI Training |
 
 ---
 
@@ -68,6 +70,8 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |
 | ...Model Previews anpassen | [MODEL_PREVIEW.md](MODEL_PREVIEW.md) |
 | ...Partikel-Effekte anpassen | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
+| ...DevWorld konfigurieren | [DEVWORLD.md](DEVWORLD.md) |
+| ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 
 ---
 
@@ -76,6 +80,8 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 ```
 src/app/
 ├── tower-defense.component.ts   # Haupt-Spielkomponente
+├── ai/                          # AI System (Wave Director, Bots, Training)
+├── devworld/                    # DevWorld Offline-Umgebung (Terrain, Streets, Buildings)
 ├── game-engine/                 # Event Bus, VFX/Audio Services (framework-agnostic)
 ├── services/                    # Angular Services (UI-Bindings)
 ├── managers/                    # Manager (Enemy, Tower, Wave, etc. - event-driven)

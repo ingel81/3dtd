@@ -27,11 +27,16 @@ src/app/
 ├── app.config.ts               # Provider Config
 ├── app.routes.ts               # Routing
 ├── tower-defense.component.ts  # Haupt-Spielkomponente
+├── ai/                         # AI System (Browser)
+│   ├── training/               # Bot System (Strategy Pattern)
+│   │   ├── bots/               # StrategyBot, Factory
+│   │   └── strategies/         # Placement, Upgrade, Wave Strategies
+│   └── core/                   # Game State Capture, Data Collection
 ├── game-engine/                # Event Bus, VFX/Audio Services (framework-agnostic)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower & Projectile Type Configs
 ├── core/services/              # Config Service
-├── docs/                       # Dokumentation
+├── docs/                       # Feature Dokumentation
 ├── entities/                   # Enemy, Tower, Projectile
 ├── game/tower-defense/shaders/ # Shader Code
 ├── game-components/            # ECS Components (transform, health, etc.)
@@ -40,6 +45,15 @@ src/app/
 ├── services/                   # Angular Services (UI-Bindings)
 ├── styles/                     # Theme & Global Styles
 └── three-engine/               # 3D Rendering (renderers/)
+
+training-backend/               # Python Training Backend
+├── server.py                   # WebSocket Server
+├── model.py                    # Neural Network (PPO)
+├── trainer.py                  # Training Algorithm
+├── reward.py                   # Reward Function
+├── tui_logger.py               # Professional TUI
+├── requirements.txt            # Python Dependencies
+└── checkpoints/                # Model Checkpoints
 ```
 
 ## Wichtig
@@ -66,6 +80,14 @@ src/app/
 | [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
 | [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
 | [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
+| [DEVWORLD.md](src/app/docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
+| **AI System (Frontend)** | |
+| [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - Architektur, Konzepte, Dateien |
+| [BOT_SYSTEM.md](src/app/docs/BOT_SYSTEM.md) | Strategy-Based Bot System - Architecture & Strategies |
+| **Training Backend** (`training-backend/`) | |
+| [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | Python Training Backend - PPO, Dashboard, Reward |
+| [AI_TRAINING_SESSION_NOTES.md](training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte (v1→v2→v3) |
+| **Project Management** | |
 | [TODO.md](TODO.md) | Offene Aufgaben |
 | [DONE.md](DONE.md) | Changelog (chronologisch, neueste zuerst) |
 
@@ -85,3 +107,6 @@ src/app/
 | UI | Angular Material 21 |
 | Maps | Google Maps 3D Tiles API |
 | Geocoding | OpenStreetMap Nominatim |
+| AI Training | Python 3.8+ + PyTorch 2.0 + WebSockets |
+| AI UI | rich 13.0+ (Professional TUI) |
+| Bot System | TypeScript Strategy Pattern (Browser) |
