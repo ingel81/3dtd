@@ -2,7 +2,7 @@
  * Wave Director Service
  *
  * Central AI service that determines wave configurations.
- * Uses TensorFlow.js model when available, falls back to rules otherwise.
+ * Uses ONNX Runtime Web for inference, falls back to rules otherwise.
  *
  * IMPORTANT: This service is completely OPTIONAL.
  * The game works fine without it - WaveManager has its own default logic.
@@ -16,6 +16,7 @@ import { WaveResult } from './models/wave-result';
 import { generateFallbackWave, getWaveDifficulty } from './fallback-rules';
 import { explainWaveDecision, DecisionExplanation, formatExplanationForUI } from './decision-explainer';
 import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
+import { EnemyTypeId } from '../../models/enemy-types';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
@@ -23,14 +24,42 @@ type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
 /** AI Mode */
 type AIMode = 'inference' | 'fallback' | 'training' | 'disabled';
 
+/** Constants matching backend config.py */
+const AI_CONSTANTS = {
+  KILL_TIME_MIN: 2.0,
+  KILL_TIME_MAX: 5.0,
+  SPAWN_DELAY_MIN: 500,
+  SPAWN_DELAY_MAX: 2000,
+  VARIATION_MAX: 0.3,
+  HEALTH_MULTIPLIER_MAX: 20.0,
+};
+
+/** Enemy base HP - must match config.py ENEMY_BASE_HP */
+const ENEMY_BASE_HP: Record<string, number> = {
+  zombie: 80,
+  bat: 25,
+  tank: 250,
+  wallsmasher: 200,
+  penguin: 30,
+  herbert: 500,
+};
+
+/** Enemy type order - must match backend model output */
+const ENEMY_TYPES: EnemyTypeId[] = ['zombie', 'bat', 'tank', 'wallsmasher', 'penguin', 'herbert'];
+
+/** ONNX Runtime types (lazy loaded) */
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type OrtModule = any;
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type InferenceSession = any;
+
 @Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
 export class WaveDirectorService {
   private dataCollector = inject(AIDataCollectorService);
 
   // === STATE ===
-  private model: unknown = null; // TensorFlow model (lazy loaded)
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  private tf: any = null; // TensorFlow.js (lazy loaded)
+  private session: InferenceSession | null = null; // ONNX Runtime session
+  private ort: OrtModule | null = null; // ONNX Runtime (lazy loaded)
 
   // === SIGNALS ===
   readonly modelState = signal<ModelState>('not-loaded');
@@ -51,7 +80,7 @@ export class WaveDirectorService {
       case 'loading':
         return 'AI wird geladen...';
       case 'ready':
-        return 'AI bereit';
+        return 'AI bereit (ONNX)';
       case 'fallback':
         return 'Regelbasiert (kein Model)';
       case 'error':
@@ -81,7 +110,7 @@ export class WaveDirectorService {
   }
 
   /**
-   * Load TensorFlow.js and model
+   * Load ONNX Runtime and model
    */
   async loadModel(): Promise<boolean> {
     if (this.modelState() === 'ready') return true;
@@ -89,18 +118,31 @@ export class WaveDirectorService {
     this.modelState.set('loading');
 
     try {
-      // Lazy load TensorFlow.js
-      if (!this.tf) {
-        this.tf = await import('@tensorflow/tfjs');
-        console.log('[AI] TensorFlow.js loaded');
+      // Lazy load ONNX Runtime Web
+      if (!this.ort) {
+        this.ort = await import('onnxruntime-web');
+
+        // Configure WASM paths to use local assets
+        this.ort.env.wasm.wasmPaths = '/assets/onnx-wasm/';
+
+        console.log('[AI] ONNX Runtime Web loaded');
       }
 
       // Try to load model from assets
       try {
-        this.model = await this.tf.loadLayersModel('/assets/ai/wave-director/model.json');
+        // Create inference session with WASM backend only (simpler, more compatible)
+        const options: { executionProviders: string[] } = {
+          executionProviders: ['wasm'],
+        };
+
+        this.session = await this.ort.InferenceSession.create(
+          '/assets/ai/wave-director/wave-director.onnx',
+          options
+        );
+
         this.modelState.set('ready');
         this.aiMode.set('inference');
-        console.log('[AI] Model loaded successfully');
+        console.log('[AI] ONNX model loaded successfully');
         return true;
       } catch {
         // Model file not found - use fallback
@@ -110,7 +152,7 @@ export class WaveDirectorService {
         return false;
       }
     } catch (error) {
-      console.error('[AI] Failed to load TensorFlow.js', error);
+      console.error('[AI] Failed to load ONNX Runtime', error);
       this.modelState.set('error');
       this.aiMode.set('fallback');
       return false;
@@ -135,7 +177,7 @@ export class WaveDirectorService {
       let config: WaveConfig;
 
       // Use AI if available, otherwise fallback
-      if (this.aiMode() === 'inference' && this.model && this.tf) {
+      if (this.aiMode() === 'inference' && this.session && this.ort) {
         config = await this.runInference(state);
       } else {
         config = generateFallbackWave(state, recentDamage);
@@ -179,69 +221,106 @@ export class WaveDirectorService {
   }
 
   /**
-   * Run neural network inference
+   * Run ONNX neural network inference
    */
   private async runInference(state: GameStateSnapshot): Promise<WaveConfig> {
-    if (!this.tf || !this.model) {
+    if (!this.ort || !this.session) {
       throw new Error('Model not loaded');
     }
 
-    // Encode state to tensor
+    // Encode state to Float32Array
     const encoded = encodeGameState(state);
 
-    // Run prediction with memory cleanup
-    const output = this.tf.tidy(() => {
-      const inputTensor = this.tf!.tensor2d([Array.from(encoded)], [1, ENCODED_STATE_SIZE]);
-      const prediction = (this.model as { predict: (x: unknown) => { dataSync: () => Float32Array } }).predict(inputTensor);
-      return prediction.dataSync();
-    });
+    // Create ONNX tensor (shape: [1, 74])
+    const inputTensor = new this.ort.Tensor('float32', encoded, [1, ENCODED_STATE_SIZE]);
+
+    // Run inference
+    const feeds = { state: inputTensor };
+    const results = await this.session.run(feeds);
+
+    // Get output tensor (name: 'action')
+    const outputTensor = results.action;
+    const output = outputTensor.data as Float32Array;
 
     // Decode output to WaveConfig
-    return this.decodeModelOutput(output, state.waveNumber);
+    return this.decodeModelOutput(output, state);
+  }
+
+  /**
+   * Sigmoid activation function
+   */
+  private sigmoid(x: number): number {
+    return 1 / (1 + Math.exp(-x));
   }
 
   /**
    * Decode neural network output to WaveConfig
+   *
+   * Output format (10 values) - must match backend model.py:
+   * [0-5]  Enemy type logits (6 types)
+   * [6]    kill_time param (raw, apply sigmoid)
+   * [7]    count_factor param (raw, apply sigmoid)
+   * [8]    delay_factor param (raw, apply sigmoid)
+   * [9]    variation param (raw, apply sigmoid)
    */
-  private decodeModelOutput(output: Float32Array, _waveNumber: number): WaveConfig {
-    // Output format (15 values):
-    // [0-7]   Enemy type probabilities (softmax)
-    // [8]     Total count factor (0-1 -> 5-50 enemies)
-    // [9]     Spawn delay factor (0-1 -> 300-2000ms)
-    // [10]    Spawn delay variation (0-0.5)
-    // [11-14] Reserved for future use
+  private decodeModelOutput(output: Float32Array, state: GameStateSnapshot): WaveConfig {
+    // Extract enemy logits and raw continuous params
+    const enemyLogits = Array.from(output.slice(0, 6));
+    const rawParams = output.slice(6, 10);
 
-    const enemyTypes = ['zombie', 'bat', 'tank', 'wallsmasher', 'herbert'];
-    const probs = this.softmax(Array.from(output.slice(0, 5)));
+    // Apply softmax to get enemy probabilities
+    const enemyProbs = this.softmax(enemyLogits);
 
-    // Calculate enemy counts based on probabilities
-    const baseTotalCount = 5 + Math.round(output[8] * 45); // 5-50
-    const enemies = enemyTypes
-      .map((type, i) => ({
-        type,
-        count: Math.round(probs[i] * baseTotalCount),
-      }))
-      .filter((e) => e.count > 0);
+    // Apply sigmoid transforms to continuous params (matching backend server.py)
+    const killTime = AI_CONSTANTS.KILL_TIME_MIN +
+      this.sigmoid(rawParams[0]) * (AI_CONSTANTS.KILL_TIME_MAX - AI_CONSTANTS.KILL_TIME_MIN);
+    const countFactor = this.sigmoid(rawParams[1]);
+    const delayFactor = this.sigmoid(rawParams[2]);
+    const variation = this.sigmoid(rawParams[3]) * AI_CONSTANTS.VARIATION_MAX;
 
-    // Ensure at least one enemy
-    if (enemies.length === 0) {
-      enemies.push({ type: 'zombie', count: Math.max(5, baseTotalCount) });
-    }
+    // Select enemy type (argmax - deterministic for inference)
+    const maxProb = Math.max(...enemyProbs);
+    const enemyIdx = enemyProbs.indexOf(maxProb);
+    const enemyType = ENEMY_TYPES[enemyIdx];
 
-    const spawnDelay = 300 + Math.round(output[9] * 1700); // 300-2000ms
-    const spawnDelayVariation = output[10] * 0.5; // 0-0.5
+    // Calculate count based on tower count (matching backend server.py)
+    const towerCount = Math.max(1, state.defense.towerCount);
+    const minCount = Math.max(5, towerCount + 1);
+    const maxCount = Math.min(50, towerCount * 7);
+    const totalCount = Math.round(minCount + countFactor * (maxCount - minCount));
 
-    // Determine archetype from dominant enemy type
-    const dominantType = enemies.reduce((a, b) => (a.count > b.count ? a : b)).type;
-    const archetype = this.inferArchetype(dominantType, enemies);
+    // Calculate spawn delay
+    const spawnDelay = Math.round(
+      AI_CONSTANTS.SPAWN_DELAY_MIN +
+      delayFactor * (AI_CONSTANTS.SPAWN_DELAY_MAX - AI_CONSTANTS.SPAWN_DELAY_MIN)
+    );
+
+    // Calculate health multiplier (DPS-relative HP, matching backend)
+    const effectiveDPS = enemyType === 'bat'
+      ? Math.max(10, state.defense.antiAirDPS)
+      : Math.max(25, state.defense.totalDPS);
+    const enemyHP = effectiveDPS * killTime;
+    const baseHP = ENEMY_BASE_HP[enemyType];
+    const healthMultiplier = Math.min(
+      enemyHP / baseHP,
+      AI_CONSTANTS.HEALTH_MULTIPLIER_MAX
+    );
+
+    // Determine archetype
+    const archetype = this.inferArchetypeFromType(enemyType, totalCount);
 
     return {
-      enemies,
-      totalCount: enemies.reduce((sum, e) => sum + e.count, 0),
+      enemies: [{
+        type: enemyType,
+        count: totalCount,
+        healthMultiplier: Math.round(healthMultiplier * 100) / 100,
+      }],
+      totalCount,
       spawnDelay,
-      spawnDelayVariation,
-      useGathering: false, // Deprecated
+      spawnDelayVariation: variation,
+      useGathering: false,
       archetype,
+      confidence: maxProb,
       difficultyModifier: 0,
     };
   }
@@ -257,19 +336,17 @@ export class WaveDirectorService {
   }
 
   /**
-   * Infer wave archetype from enemy composition
+   * Infer wave archetype from enemy type and count
    */
-  private inferArchetype(
-    dominantType: string,
-    enemies: { type: string; count: number }[]
+  private inferArchetypeFromType(
+    enemyType: EnemyTypeId,
+    totalCount: number
   ): WaveConfig['archetype'] {
-    if (dominantType === 'herbert') return 'boss';
-    if (dominantType === 'bat') return 'air';
-    if (dominantType === 'tank' || dominantType === 'wallsmasher') return 'siege';
-
-    const totalCount = enemies.reduce((sum, e) => sum + e.count, 0);
+    if (enemyType === 'herbert') return 'boss';
+    if (enemyType === 'bat') return 'air';
+    if (enemyType === 'tank' || enemyType === 'wallsmasher') return 'siege';
+    if (enemyType === 'penguin') return 'rush';
     if (totalCount > 30) return 'swarm';
-
     return 'mixed';
   }
 
@@ -321,7 +398,7 @@ export class WaveDirectorService {
    */
   setEnabled(enabled: boolean): void {
     if (enabled) {
-      if (this.model) {
+      if (this.session) {
         this.aiMode.set('inference');
       } else {
         this.aiMode.set('fallback');

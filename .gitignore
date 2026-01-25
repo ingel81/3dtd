@@ -62,3 +62,9 @@ __pycache__/
 training-backend/checkpoints/
 training-backend/logs/
 logs/
+
+# AI Model intermediate files (ONNX model is committed)
+# public/assets/ai/wave-director/*.onnx  # Keep ONNX model in repo
+
+# ONNX Runtime WASM files (too large to commit - copy from node_modules)
+public/assets/onnx-wasm/

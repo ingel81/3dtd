@@ -1,35 +1,30 @@
-# AI Wave Director Model
+# Wave Director AI Model
 
-This folder will contain the trained TensorFlow.js model for the Wave Director AI.
+ONNX model for browser-based inference via ONNX Runtime Web.
 
-## Status: Placeholder
+## Files
 
-The model file (`model.json` and weight files) will be generated after training.
+- `wave-director.onnx` - ONNX model (committed to repo)
+- `metadata.json` - Constants and version info
 
-## Training
+## Generating/Updating Model
 
-1. Run the training backend:
-   ```
-   # Windows
-   .\scripts\start-training.ps1
+```bash
+cd training-backend
+pip install -r requirements.txt
+python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_XXXX.pt
+```
 
-   # Linux/Mac
-   ./scripts/start-training.sh
-   ```
+## Model Format
 
-2. Start the game in DevWorld mode and play through waves
+- **Input**: 74 features (encoded game state), tensor name: `state`
+- **Output**: 10 values, tensor name: `action`
+  - `[0-5]` Enemy type logits (zombie, bat, tank, wallsmasher, penguin, herbert)
+  - `[6]` kill_time param (apply sigmoid, scale to 2.0-5.0)
+  - `[7]` count_factor param (apply sigmoid, 0-1)
+  - `[8]` delay_factor param (apply sigmoid, 0-1)
+  - `[9]` variation param (apply sigmoid, scale to 0-0.3)
 
-3. After sufficient training, export the model:
-   - The Python backend will save checkpoints to `training-backend/checkpoints/`
-   - Convert to TensorFlow.js format and place here
+## Browser Runtime
 
-## Expected Files
-
-After training and export:
-- `model.json` - Model architecture and weights manifest
-- `group1-shard1of1.bin` - Weight data (or multiple shards)
-
-## Fallback Behavior
-
-If no model is present, the game uses rule-based wave generation.
-This is fully functional and provides a good gameplay experience.
+Uses `onnxruntime-web` package with WASM/WebGPU backend.
