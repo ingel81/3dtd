@@ -107,7 +107,7 @@ Air:     0   0   0  0.2 0.4 0.4  0   0   0   0  ...   0
 
 ### 2. DPS-Relative HP (Kill-Time)
 
-Das Model waehlt `kill_time` (0.5-4.0s) statt absoluter HP:
+Das Model waehlt `kill_time` (2.0-5.0s) statt absoluter HP:
 
 ```
 enemy_hp = effective_dps * kill_time
@@ -123,7 +123,7 @@ Die Model-Outputs werden wie folgt in Wave-Parameter umgewandelt:
 
 | Parameter | Model-Output | Umrechnung | Bereich |
 |-----------|-------------|------------|---------|
-| kill_time | sigmoid → [0,1] | 0.5 + x * 3.5 | 0.5 - 4.0s |
+| kill_time | sigmoid → [0,1] | 2.0 + x * 3.0 | 2.0 - 5.0s |
 | count | sigmoid → [0,1] | min_count + x * (max - min) | 5 - 30 |
 | delay | sigmoid → [0,1] | 150 + x * 450 | 150 - 600ms |
 | variation | sigmoid → [0,0.3] | Spawn-Delay-Variation | 0 - 30% |
@@ -190,7 +190,7 @@ Input: 74 Features
 │   → Linear(128, 64) + LayerNorm + ReLU + Dropout(0.1)
 │
 └── Output Heads:
-    ├── Enemy Head: Linear(64, 5) → Categorical(zombie, bat, tank, wallsmasher, herbert)
+    ├── Enemy Head: Linear(64, 6) → Categorical(zombie, bat, tank, wallsmasher, penguin, herbert)
     ├── Params Head: Linear(64, 4) → Gaussian(kill_time, count, delay, variation)
     ├── Log-Std: Parameter(4) → Exploration noise
     └── Value Head: Linear(64, 1) → State value estimate
@@ -200,24 +200,24 @@ Input: 74 Features
 
 ## Reward-Funktion
 
-**Ziel:** Wellen generieren bei denen Enemies 85-95% des verteidigten Pfades erreichen (Sweet Spot).
+**Ziel:** Wellen generieren bei denen Enemies ca. 40-70% des Pfades erreichen (Sweet Spot).
 
-### Gaussian Peak bei 90% Progress
+### Gaussian Peak bei 55% Progress
 
 ```python
-reward = exp(-((progress - 0.90)^2) / (2 * 0.08^2))
+reward = exp(-((progress - 0.55)^2) / (2 * 0.15^2))
 
 # Hard cutoff: Base erreicht = negativ
-if avg_progress > 0.95:
+if avg_progress > 0.85:
     reward = -0.30
 ```
 
 | avg_progress | Reward | Beschreibung |
 |-------------|--------|--------------|
-| < 20% | -0.30 | Langweilig (Enemies sterben sofort) |
-| 20-70% | 0 - 0.5 | Moderat |
-| 85-95% | 0.95 - 1.0 | **Sweet Spot** |
-| > 95% | **-0.30** | Ueberfordernd (Base erreicht) |
+| < 30% | -0.30 | Langweilig (Enemies sterben sofort) |
+| 30-40% | 0.3 - 0.7 | Moderat |
+| 40-70% | 0.7 - 1.0 | **Sweet Spot** |
+| > 85% | **-0.30** | Ueberfordernd (Base erreicht) |
 
 ### Game-Over-Penalty (proportional)
 
@@ -255,13 +255,13 @@ penalty = -0.5 * (EPISODE_LENGTH / wave_number)  # Cap: -5.0
 |-----------|------|--------------|
 | Learning Rate | 0.0003 | Adam Optimizer |
 | Clip Epsilon | 0.2 | PPO Surrogate Clip |
-| Entropy Coef | 0.005 | Exploration Bonus |
+| Entropy Coef | 0.08 | Exploration Bonus (hoch gegen Type-Kollaps) |
 | Value Coef | 0.5 | Value Loss Weight |
 | Batch Size | 16 | Episodes pro Update |
 | Update Epochs | 4 | PPO Epochs pro Batch |
 | Gamma | 0.99 | Discount Factor |
 | Grad Clip | 0.5 | Max Gradient Norm |
-| Episode Length | 20 | Waves pro Episode |
+| Episode Length | 100 | Waves pro Episode |
 | Checkpoint | alle 10 Ep. | Auto-Save |
 
 ### Training-Loop
@@ -408,44 +408,4 @@ uvicorn>=0.23.0
 
 ## Changelog
 
-### Version 3.1 (2026-01-24) - Anti-Exploitation Fixes
-
-- kill_time Range: [0.5, 8.0] → [0.5, 4.0]s (verhindert unkillbare Enemies)
-- Hard Penalty: progress > 0.95 → reward = -0.30 (Base erreicht = negativ)
-- Game-Over-Penalty proportional: -0.5 * (20/wave), cap -5.0
-- Near-Miss/Max-Progress Bonus nur bei progress < 0.95
-- Count-Minimum: max(5, tower_count+1) statt 3
-- Kill-Capacity zone_time Minimum: 8s statt 2s
-
-### Version 3.0 (2026-01-24) - DPS-Profil + Web Dashboard
-
-- DPS-Profil (20 Bins) ersetzt totalDPS/pathCoverage
-- Conv1D + Dense Modell-Architektur (74 Features)
-- `compute_effective_progress()` mit DPS-Normalisierung
-- Reward: Gaussian Peak bei 90% (statt 65%), Sigma 0.08
-- Near-Miss, Max-Progress, Spread Bonus-Signale
-- Web Dashboard (FastAPI + Chart.js) ersetzt TUI
-- Dashboard: 4 Charts mit Trendlinien, Distribution, Model Metrics
-- Per-Client DPS-Profile im Dashboard
-- TUI vereinfacht zu Console + JSONL Logger
-- `rich` und `tqdm` Dependencies entfernt
-- Trainer piped Training-Updates an Dashboard
-
-### Version 2.0 (2026-01-24) - DPS-Relative HP + Path-Progress
-
-- Reward: Path-Progress Gaussian (Peak bei 65%)
-- DPS-relative HP: `enemy_hp = effective_dps * kill_time`
-- Model: 4 continuous params (kill_time, count, delay, variation)
-- Anti-Air DPS fuer Bats
-- Frontend sendet enemyBaseHp (Single Source of Truth)
-
-### Version 1.0 (2026-01-23) - Initial
-
-- WebSocket Server + PPO Training
-- 52-Feature State Vector
-- Professional TUI (rich)
-- Checkpoint System + Bot Rotation
-
----
-
-**Last Updated:** 2026-01-24
+Siehe [AI_TRAINING_SESSION_NOTES.md](AI_TRAINING_SESSION_NOTES.md) fuer die vollstaendige Entwicklungsgeschichte (v1 → v3.5).
