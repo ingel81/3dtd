@@ -7,7 +7,9 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "lint": "ng lint"
+    "lint": "ng lint",
+    "postinstall": "node -e \"const fs=require('fs');const src='node_modules/onnxruntime-web/dist';const dst='public/assets/onnx-wasm';fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).filter(f=>f.endsWith('.wasm')||f.startsWith('ort-wasm')&&f.endsWith('.mjs')).forEach(f=>fs.copyFileSync(src+'/'+f,dst+'/'+f));console.log('ONNX WASM files copied')\"",
+    "export-ai": "cd training-backend && python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_latest.pt --output ../public/assets/ai/wave-director"
   },
   "prettier": {
     "printWidth": 100,
@@ -34,10 +36,10 @@
     "@angular/platform-browser": "^21.0.0",
     "@angular/router": "^21.0.0",
     "@fontsource/roboto": "^5.2.9",
-    "@tensorflow/tfjs": "^4.22.0",
     "@types/three": "^0.182.0",
     "3d-tiles-renderer": "^0.4.19",
     "material-icons": "^1.13.14",
+    "onnxruntime-web": "^1.23.2",
     "rxjs": "~7.8.0",
     "three": "^0.182.0",
     "tslib": "^2.3.0",

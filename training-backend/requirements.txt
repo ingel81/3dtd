@@ -8,7 +8,7 @@ numpy>=1.24.0
 # WebSocket Server
 websockets>=10.0
 
-# Model Export
+# Model Export (ONNX only - no TensorFlow.js conversion needed)
 onnx>=1.14.0
 
 # Utilities (none currently)
