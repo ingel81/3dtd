@@ -126,6 +126,8 @@ export class WaveDirectorService {
 
         // Configure WASM paths to use local assets
         this.ort.env.wasm.wasmPaths = '/assets/onnx-wasm/';
+        // Suppress WASM internal logs ("Unknown CPU vendor" etc.)
+        this.ort.env.logLevel = 'error';
 
         console.log('[AI] ONNX Runtime Web loaded');
       }
@@ -133,8 +135,9 @@ export class WaveDirectorService {
       // Try to load model from assets
       try {
         // Create inference session with WASM backend only (simpler, more compatible)
-        const options: { executionProviders: string[] } = {
+        const options: { executionProviders: string[]; logSeverityLevel: number } = {
           executionProviders: ['wasm'],
+          logSeverityLevel: 3, // ERROR only (suppress "Unknown CPU vendor" warning)
         };
 
         this.session = await this.ort.InferenceSession.create(
