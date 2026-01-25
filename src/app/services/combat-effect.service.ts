@@ -240,23 +240,8 @@ export class CombatEffectService {
       const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
       this.enemyManager.kill(enemy, timescale);
 
-      const reward = enemy.typeConfig.reward;
-
-      // Show reward popup
-      if (this.tilesEngine && reward > 0) {
-        this.tilesEngine.effects.spawnFloatingText(
-          `+${reward}`,
-          enemy.position.lat,
-          enemy.position.lon,
-          enemy.transform.terrainHeight + 5,
-          {
-            color: '#FFD700',
-            duration: 1200,
-            floatSpeed: 1.5,
-            scale: 2.5,
-          }
-        );
-      }
+      // NOTE: Reward popup is now shown in game-state.manager.ts on enemy:died event
+      // This ensures the correct dynamic reward is displayed (not static typeConfig.reward)
 
       // Track kill on source tower
       const sourceTower = this.towerManager.getById(sourceTowerId);

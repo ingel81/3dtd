@@ -138,6 +138,22 @@ export class GameStateManager {
     this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
         this.credits.update((c) => c + event.credits);
+
+        // Show reward popup with actual dynamic credits (not static typeConfig.reward)
+        if (this.tilesEngine) {
+          this.tilesEngine.effects.spawnFloatingText(
+            `+${event.credits}`,
+            event.enemy.position.lat,
+            event.enemy.position.lon,
+            event.enemy.transform.terrainHeight + 5,
+            {
+              color: '#FFD700',
+              duration: 1200,
+              floatSpeed: 1.5,
+              scale: 2.5,
+            }
+          );
+        }
       }
     });
 
