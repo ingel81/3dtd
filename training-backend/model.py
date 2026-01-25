@@ -8,7 +8,7 @@ and Dense scalar branch for game state features.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import INPUT_SIZE, NUM_SCALAR, NUM_SPATIAL
+from config import INPUT_SIZE, NUM_SCALAR, NUM_SPATIAL, KILL_TIME_MIN, KILL_TIME_MAX
 
 
 class WaveDirectorModel(nn.Module):
@@ -123,7 +123,8 @@ class WaveDirectorModel(nn.Module):
             sampled_raw = means + noise * std
 
         # Apply activations to sampled values
-        kill_time = 1.0 + torch.sigmoid(sampled_raw[:, 0]) * 3.0       # [1.0, 4.0]s
+        kill_time_range = KILL_TIME_MAX - KILL_TIME_MIN
+        kill_time = KILL_TIME_MIN + torch.sigmoid(sampled_raw[:, 0]) * kill_time_range  # [1.5, 4.0]s
         count_factor = torch.sigmoid(sampled_raw[:, 1])                 # [0, 1] -> mapped to [min_count, max]
         delay_factor = torch.sigmoid(sampled_raw[:, 2])                 # [0, 1] -> mapped to [500, 2000]ms
         variation = torch.sigmoid(sampled_raw[:, 3]) * 0.3              # [0, 0.3]

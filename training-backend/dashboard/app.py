@@ -21,6 +21,7 @@ from config import (
     REWARD_PROGRESS_CENTER,
     REWARD_PROGRESS_SIGMA,
     REWARD_BORING_PENALTY,
+    REWARD_BORING_THRESHOLD,
     ENTROPY_COEF,
 )
 
@@ -40,6 +41,12 @@ class Dashboard:
         self.progress_history = deque(maxlen=2000)
         self.near_miss_history = deque(maxlen=2000)
         self.wave_log = deque(maxlen=50)
+
+        # AI parameter history (for new charts)
+        self.kill_time_history = deque(maxlen=500)
+        self.enemy_hp_history = deque(maxlen=500)
+        self.dps_history = deque(maxlen=500)
+        self.type_probs_history = deque(maxlen=100)  # Last 100 type probability snapshots
 
         # Distribution tracking
         self.distribution = {"boring": 0, "low": 0, "moderate": 0, "sweet": 0, "danger": 0, "gameover": 0}
@@ -83,7 +90,7 @@ class Dashboard:
                 "sweetLower": round(sweet_lower, 3),
                 "sweetUpper": round(sweet_upper, 3),
                 "overflowThreshold": round(overflow, 3),
-                "boringThreshold": 0.20,
+                "boringThreshold": REWARD_BORING_THRESHOLD,
                 "entropyCoef": ENTROPY_COEF,
             }
 
@@ -107,6 +114,10 @@ class Dashboard:
                 "nearMiss": list(self.near_miss_history),
                 "distribution": dict(self.distribution),
                 "distHistory": list(self.dist_history),
+                # AI parameter history
+                "killTimeHistory": list(self.kill_time_history),
+                "enemyHpHistory": list(self.enemy_hp_history),
+                "dpsHistory": list(self.dps_history),
             }
 
         @self.app.get("/api/clients")
@@ -186,8 +197,14 @@ class Dashboard:
             self._broadcast_event("stats", stats)
 
     def record_wave(self, wave_num: int, enemy_type: str, count: int,
-                    progress: float, reward: float, kill_time: float = 0):
+                    progress: float, reward: float, wave_info: dict = None):
         """Record wave result for log."""
+        kill_time = wave_info.get("kill_time", 0) if wave_info else 0
+        enemy_hp = wave_info.get("enemy_hp", 0) if wave_info else 0
+        effective_dps = wave_info.get("effective_dps", 0) if wave_info else 0
+        type_probs = wave_info.get("type_probs", {}) if wave_info else {}
+        cooldown_override = wave_info.get("cooldown_override", False) if wave_info else False
+
         entry = {
             "wave": wave_num,
             "type": enemy_type,
@@ -195,9 +212,29 @@ class Dashboard:
             "progress": round(progress, 3),
             "reward": round(reward, 3),
             "killTime": round(kill_time, 2),
+            "enemyHp": round(enemy_hp, 1),
+            "dps": round(effective_dps, 1),
+            "cooldownOverride": cooldown_override,
         }
         self.wave_log.append(entry)
+
+        # Record to history for charts
+        self.kill_time_history.append(round(kill_time, 2))
+        self.enemy_hp_history.append(round(enemy_hp, 1))
+        self.dps_history.append(round(effective_dps, 1))
+        if type_probs:
+            self.type_probs_history.append(type_probs)
+
         self._broadcast_event("wave", entry)
+
+        # Broadcast AI params update for live charts
+        self._broadcast_event("ai_params", {
+            "killTime": round(kill_time, 2),
+            "enemyHp": round(enemy_hp, 1),
+            "dps": round(effective_dps, 1),
+            "typeProbs": type_probs,
+            "cooldownOverride": cooldown_override,
+        })
 
     def record_game_over(self):
         """Record a game over event."""

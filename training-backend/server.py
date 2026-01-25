@@ -26,6 +26,8 @@ from config import (
     EPISODE_LENGTH,
     INPUT_SIZE,
     ENEMY_BASE_HP,
+    TYPE_COOLDOWN_WAVES,
+    HEALTH_MULTIPLIER_MAX,
 )
 from model import create_model, save_model, load_model
 from reward import calculate_reward, estimate_player_skill
@@ -56,6 +58,7 @@ class ClientContext:
         self.win_streak = 0
         self.wave_num = 0
         self.last_enemy_type = None  # Last generated enemy type (for dashboard fallback)
+        self.last_wave_info = None  # Last generated wave info (for dashboard)
         self.enemy_base_hp = None  # Set from game_start (frontend is source of truth)
         self.ground_dps_profile = [0] * 20  # DPS profile for reward normalization
         self.air_dps_profile = [0] * 20
@@ -164,17 +167,18 @@ class TrainingServer:
             logger.wave_received(client_id, wave_num, towers, dps, credits, defense_reach=defense_reach, bot_type=ctx.current_bot)
 
             action = self._get_action(state_data, ctx, client_id)
-            wave_config, enemy_hp, kill_time = self._decode_action(action, state_data, ctx)
+            wave_config, wave_info = self._decode_action(action, state_data, ctx)
 
             # Track enemy type for variety bonus and cooldown
             wave_enemy_type = wave_config["enemies"][0]["type"]
             ctx.last_enemy_type = wave_enemy_type
+            ctx.last_wave_info = wave_info  # Store for dashboard on result
             ctx.enemy_types_used.append([wave_enemy_type])
             ctx.recent_types_flat.append(wave_enemy_type)
             if len(ctx.recent_types_flat) > 10:
                 ctx.recent_types_flat = ctx.recent_types_flat[-10:]
 
-            logger.wave_generated(wave_config, enemy_hp=enemy_hp, kill_time=kill_time)
+            logger.wave_generated(wave_config, wave_info=wave_info)
 
             await ws.send(json.dumps({
                 "type": "wave_config",
@@ -233,7 +237,8 @@ class TrainingServer:
                                               near_miss=near_miss_ratio, breakdown=breakdown)
                 enemy_type = ctx.enemy_types_used[-1][0] if ctx.enemy_types_used and ctx.enemy_types_used[-1] else getattr(ctx, 'last_enemy_type', '?')
                 enemy_count = outcome.get("enemiesSpawned", 0)
-                self.dashboard.record_wave(wave_num, enemy_type, enemy_count, avg_progress, reward)
+                self.dashboard.record_wave(wave_num, enemy_type, enemy_count, avg_progress, reward,
+                                           wave_info=ctx.last_wave_info)
 
             # Save checkpoint periodically
             if self.episode % CHECKPOINT_INTERVAL == 0:
@@ -488,9 +493,9 @@ class TrainingServer:
         else:
             dominant_type = enemy_types[min(sampled_idx, len(enemy_types) - 1)]
 
-        # Type cooldown: if this type was used in the last 2 waves, pick next best
-        if ctx and len(ctx.recent_types_flat) >= 2:
-            cooldown_types = ctx.recent_types_flat[-2:]
+        # Type cooldown: if this type was used in the last N waves, pick next best
+        if ctx and len(ctx.recent_types_flat) >= TYPE_COOLDOWN_WAVES:
+            cooldown_types = ctx.recent_types_flat[-TYPE_COOLDOWN_WAVES:]
             if dominant_type in cooldown_types:
                 # Pick highest-prob type NOT on cooldown
                 sorted_indices = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
@@ -517,6 +522,9 @@ class TrainingServer:
         base_hp = enemy_base_hp.get(dominant_type, 80)
         health_mult = enemy_hp / base_hp
 
+        # Cap healthMultiplier to prevent absurd values at high DPS
+        health_mult = min(health_mult, HEALTH_MULTIPLIER_MAX)
+
         enemies = [{
             "type": dominant_type,
             "count": total_count,
@@ -534,7 +542,23 @@ class TrainingServer:
             "archetype": self._infer_archetype(dominant_type, total_count),
         }
 
-        return config, enemy_hp, kill_time
+        # Extended wave info for logging/dashboard
+        wave_info = {
+            "kill_time": kill_time,
+            "enemy_hp": enemy_hp,
+            "effective_dps": effective_dps,
+            "count": total_count,
+            "count_factor": count_t,
+            "delay_factor": delay_t,
+            "variation": variation,
+            "spawn_delay": spawn_delay,
+            "type_probs": {enemy_types[i]: round(float(probs[i]), 4) for i in range(len(enemy_types))},
+            "sampled_type": enemy_types[min(sampled_idx, len(enemy_types) - 1)],
+            "final_type": dominant_type,
+            "cooldown_override": dominant_type != enemy_types[min(sampled_idx, len(enemy_types) - 1)],
+        }
+
+        return config, wave_info
 
     def _infer_archetype(self, dominant_type, count):
         """Infer wave archetype from dominant enemy type."""
@@ -651,11 +675,14 @@ class TrainingServer:
 
     def _get_stats(self):
         """Get current training stats."""
+        import math
         avg_reward = self.total_reward / max(1, self.episode)
+        # Handle inf/nan for JSON serialization
+        best = self.best_reward if math.isfinite(self.best_reward) else 0.0
         return {
             "episode": self.episode,
             "avgReward": round(avg_reward, 3),
-            "bestReward": round(self.best_reward, 3),
+            "bestReward": round(best, 3),
             "gamesPlayed": self.games_played,
             "winRate": 0,  # TODO: Track
             "clientCount": len(self.clients),
@@ -706,7 +733,7 @@ async def main():
                 )
                 dashboard_server = uvicorn.Server(config)
                 dashboard_task = asyncio.create_task(dashboard_server.serve())
-                logger.debug("Dashboard started on http://localhost:3002")
+                logger.debug("Dashboard started on http://0.0.0.0:3002")
             except ImportError:
                 logger.debug("uvicorn not installed, dashboard disabled")
 
