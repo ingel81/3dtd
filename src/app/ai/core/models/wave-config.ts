@@ -82,22 +82,6 @@ export interface WaveConfig {
 }
 
 /**
- * Wave configuration with sub-waves for complex patterns
- */
-export interface ComplexWaveConfig extends WaveConfig {
-  /** Sub-waves that spawn after delays */
-  subWaves?: SubWave[];
-}
-
-export interface SubWave {
-  /** Delay in ms before this sub-wave starts */
-  delayMs: number;
-
-  /** Enemies in this sub-wave */
-  enemies: WaveEnemyGroup[];
-}
-
-/**
  * Create a simple wave config
  */
 export function createSimpleWaveConfig(

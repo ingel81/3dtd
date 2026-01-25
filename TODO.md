@@ -486,34 +486,26 @@
       smart-tower-bot.ts, beginner-bot.ts, casual-bot.ts, strategist-bot.ts
       Nur noch StrategyBot mit Strategy-Pattern
 
-- [ ] **Ungenutzte AI Interfaces löschen**
-      `ComplexWaveConfig`, `SubWave` in `src/app/ai/core/models/wave-config.ts`
-      Exportiert aber nirgends verwendet
+- [x] **Ungenutzte AI Interfaces geloescht** ✅ DONE 2026-01-25
+      `ComplexWaveConfig`, `SubWave` aus wave-config.ts entfernt
 
-- [ ] **DpsProfileVisualizer prüfen** - Unvollständige Integration
-      Datei: `src/app/ai/core/dps-profile-visualizer.ts`
-      Wird importiert, aber `getMesh()` nie aufgerufen → entweder integrieren oder löschen
+- [x] **Ungenutzte Type Exports geloescht** ✅ DONE 2026-01-25
+      game.types.ts: Nur noch `GeoPosition` (TowerConfig, EnemyConfig, WaveConfig,
+      GamePhase, DistanceCalculator waren alle ungenutzt)
 
 ## Type Duplikate konsolidieren
 
 - [ ] **GamePhase Type Duplikat** ⚠️
-      `wave.manager.ts:7` → `'setup' | 'wave' | 'gameover'`
-      `models/game.types.ts:32` → `'setup' | 'wave' | 'paused' | 'gameover' | 'victory'`
-      Sollte eine einzige Definition geben
+      `wave.manager.ts:7` → `'setup' | 'wave' | 'gameover'` (verwendet)
+      Alternative: 'paused' | 'victory' hinzufuegen wenn noetig
 
-## Ungenutzte Type Exports prüfen
+## TODO-Kommentare im Code (Feature-Requests)
 
-- [ ] `DistanceCalculator` in `models/game.types.ts` - exportiert, nicht importiert
-- [ ] `TowerConfig` in `models/game.types.ts` - exportiert, nur intern verwendet
-- [ ] `EnemyConfig` in `models/game.types.ts` - exportiert, nur intern verwendet
-
-## TODO-Kommentare im Code auflösen
-
-- [ ] `tower-defense.component.ts:1893` - "TODO: Implement sell execution"
-- [ ] `three-tiles-engine.ts:849` - "TODO: Implement smooth animation"
-- [ ] `strategy-bot.factory.ts:84` - "TODO: Add advanced strategies"
-- [ ] `camera-control.service.ts:342` - "TODO: Implement smooth animation"
-- [ ] `vfx.service.ts:30,36` - "TODO: Implement blood/explosion effect"
+- [ ] `tower-defense.component.ts:1919` - Sell execution (Bot-Action)
+- [ ] `three-tiles-engine.ts:849` - Smooth camera animation (flyTo)
+- [ ] `strategy-bot.factory.ts:84` - Advanced Bot strategies
+- [ ] `camera-control.service.ts:342` - Smooth camera animation
+- [ ] `game-engine/vfx.service.ts:30,36` - Blood/Explosion effects
 
 ## Code Quality
 
