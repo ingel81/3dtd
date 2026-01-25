@@ -241,5 +241,9 @@ export class WaveManager {
     this.phase.set('setup');
     this.waveNumber.set(0);
     this.gatheringPhase.set(false);
+
+    // Reset spawn tracking counters (prevents stale state after game over mid-wave)
+    this.expectedEnemyCount = 0;
+    this.spawnedEnemyCount = 0;
   }
 }

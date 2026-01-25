@@ -213,6 +213,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private dpsProfileViz: DpsProfileVisualizer | null = null;
   private dpsVizUnsubscribes: (() => void)[] = [];
 
+  // Flag to prevent concurrent AI wave requests (race condition guard)
+  private pendingAIWaveRequest = false;
+
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
   readonly tilesLoading = this.engineInit.tilesLoading;
@@ -1602,6 +1605,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // AI Director mode: Let AI generate the wave config
     if (this.useAIDirector()) {
+      // Prevent concurrent AI wave requests (race condition guard)
+      if (this.pendingAIWaveRequest) {
+        console.log('[AI] Wave request already pending, ignoring duplicate call');
+        return;
+      }
       this.startWaveWithAI();
       return;
     }
@@ -1626,6 +1634,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Start wave using AI Wave Director
    */
   private async startWaveWithAI(): Promise<void> {
+    this.pendingAIWaveRequest = true;
+
     try {
       let aiConfig;
 
@@ -1660,6 +1670,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       // Fallback to debug settings
       this.useAIDirector.set(false);
       this.startWave();
+    } finally {
+      this.pendingAIWaveRequest = false;
     }
   }
 
@@ -1692,12 +1704,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         // Notify backend of game start (sends enemy base HP config)
         this.trainingClient.notifyGameStart('normal');
 
-        // Enable training mode with 8x timescale for faster training (don't persist to localStorage)
-        this.gameState.setTrainingTimescale(8.0, false);
-        console.log('[AI] Training mode enabled (8x speed)');
+        // Only enable fast speed and bot if bot=auto mode is active
+        if (this.botAutoMode()) {
+          // Enable training mode with 75x timescale for maximum training speed (don't persist to localStorage)
+          this.gameState.setTrainingTimescale(75.0, false);
+          console.log('[AI] Training mode enabled (75x speed)');
 
-        // Enable StrategyBot for automated training
-        this.enableBot('strategist');
+          // Enable StrategyBot for automated training
+          this.enableBot('strategist');
+        } else {
+          console.log('[AI] Connected to training backend (manual play mode - no bot, 1x speed)');
+        }
 
         // Subscribe to wave completion events to send results to backend
         this.gameState.getEventBus().on('wave:completed', async (_event) => {
@@ -2221,6 +2238,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     }
 
     this.gameState.reset();
+
+    // Reset pending AI wave request flag (prevents stuck state after game over during request)
+    this.pendingAIWaveRequest = false;
 
     // Reset bot state
     if (this.currentBot) {
