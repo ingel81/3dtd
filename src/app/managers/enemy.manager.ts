@@ -144,6 +144,26 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
+   * Calculate dynamic reward based on actual enemy HP and speed
+   * Scales with AI-generated healthMultiplier to keep rewards fair
+   */
+  private calculateDynamicReward(enemy: Enemy): number {
+    const healthMultiplier = enemy.health.maxHp / enemy.typeConfig.baseHp;
+    const effectiveHP = enemy.health.maxHp;
+    const speedBonus = Math.floor(enemy.typeConfig.baseSpeed / 10); // Reduced from /5
+
+    // Sublinear scaling (sqrt) prevents inflation
+    // 150 HP per credit (was 50) - roughly 1/3 of previous rewards
+    const hpReward = Math.floor(effectiveHP / 150);
+    const scaleFactor = 1 + Math.sqrt(Math.max(0, healthMultiplier - 1)) * 0.4; // Reduced from 0.6
+
+    const baseReward = Math.max(1, hpReward + speedBonus);
+    const dynamicReward = Math.round(baseReward * Math.min(scaleFactor, 2.0)); // Reduced cap from 2.5
+
+    return Math.min(25, Math.max(1, dynamicReward)); // Cap: 1-25 (was 1-40)
+  }
+
+  /**
    * Kill an enemy - plays death animation then removes
    * Emits enemy:died event with credits
    * @param enemy Enemy to kill
@@ -164,11 +184,14 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     enemy.stopMoving();
 
+    // Calculate dynamic reward based on actual enemy stats
+    const credits = this.calculateDynamicReward(enemy);
+
     // Emit enemy:died event
     this.eventBus.emit({
       type: 'enemy:died',
       enemy,
-      credits: enemy.typeConfig.reward,
+      credits,
     });
 
     // If enemy has death animation, play it and wait before removing

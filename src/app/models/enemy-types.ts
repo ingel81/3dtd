@@ -15,8 +15,7 @@ export interface EnemyTypeConfig {
   // Stats
   baseHp: number;
   baseSpeed: number; // m/s
-  damage: number; // Damage to base
-  reward: number; // Credits on kill
+  reward: number; // Credits on kill (only used without AI - AI uses dynamic reward calculation)
 
   // Animation
   hasAnimations: boolean;
@@ -92,8 +91,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
     baseHp: 80,
     baseSpeed: 5,
-    damage: 5,
-    reward: 1,
+    reward: 3, // Only without AI
     hasAnimations: true,
     idleAnimation: 'Armature|Idle',
     walkAnimation: 'Armature|Walk',
@@ -119,8 +117,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0, // 0 = real size, no pixel clamping
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
-    damage: 5,
-    reward: 7,
+    reward: 5, // Only without AI
     hasAnimations: false,
     movingSound: '/assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
@@ -141,8 +138,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0,
     baseHp: 200,
     baseSpeed: 7,
-    damage: 5,
-    reward: 5,
+    reward: 5, // Only without AI
     hasAnimations: true,
     walkAnimation: 'CharacterArmature|Walk',
     runAnimation: 'CharacterArmature|Run',
@@ -178,8 +174,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0,
     baseHp: 25,
     baseSpeed: 8,
-    damage: 5,
-    reward: 3,
+    reward: 2, // Only without AI
     hasAnimations: true,
     walkAnimation: 'fly.001',
     animationSpeed: 1.5,
@@ -200,8 +195,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0,
     baseHp: 30,
     baseSpeed: 9,
-    damage: 3,
-    reward: 1,
+    reward: 2, // Only without AI
     hasAnimations: true,
     walkAnimation: 'Walk',
     deathAnimation: 'Fall',
@@ -223,8 +217,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0,
     baseHp: 500,
     baseSpeed: 4,
-    damage: 5,
-    reward: 100,
+    reward: 15, // Only without AI
     hasAnimations: true,
     walkAnimation: 'Armature|walking_man|baselayer',
     animationSpeed: 1.0,

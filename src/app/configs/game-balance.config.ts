@@ -9,13 +9,13 @@ export const GAME_BALANCE = {
   /** Player starting values */
   player: {
     startHealth: 100,
-    startCredits: 70,
+    startCredits: 50, // Rebalanced: was 70 (1 Archer + reserve)
   },
 
   /** Wave system */
   waves: {
     /** Credits awarded for completing a wave */
-    completionBonus: 50,
+    completionBonus: 35, // Rebalanced: was 50 (kill rewards more relevant)
   },
 
   /** Combat values */

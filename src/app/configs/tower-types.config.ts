@@ -75,8 +75,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 60,
     fireRate: 1, // 1 shot/sec
     projectileType: 'arrow',
-    cost: 20,
-    sellValue: 12,
+    cost: 45, // Rebalanced: was 20 (Cost/DPS 0.80 -> 1.80)
+    sellValue: 27, // 60% of cost
     hasAnimations: true, // archer_tower.glb has base animation
     animationPingPong: true, // Smooth loop: forward then backward
     upgrades: [
@@ -136,8 +136,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
-    cost: 175,
-    sellValue: 120,
+    cost: 140, // Rebalanced: was 175 (Cost/DPS 4.67 -> 3.73)
+    sellValue: 84, // 60% of cost
     upgrades: [
       {
         id: 'speed',
@@ -178,8 +178,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 70,
     fireRate: 1.5, // 1.5 shots/sec
     projectileType: 'fireball',
-    cost: 150,
-    sellValue: 90,
+    cost: 120, // Rebalanced: was 150 (more attractive)
+    sellValue: 72, // 60% of cost
     upgrades: [
       {
         id: 'damage',
@@ -209,7 +209,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 0.5,
     projectileType: 'rocket',
     cost: 100,
-    sellValue: 120,
+    sellValue: 60, // Fixed: was 120 (bug: > cost!)
     canTargetAir: true, // Can only target air units
     canTargetGround: false, // Cannot target ground units
     upgrades: [
@@ -236,12 +236,12 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 1,
     shootHeight: 2.5,
     rotationY: Math.PI / 2,
-    damage: 5, // Low damage - mainly for slow effect
+    damage: 2, // Minimal damage - utility tower for slow effect
     range: 60,
-    fireRate: 0.8,
+    fireRate: 0.33, // 1 shot every 3s (matches slow duration, no stacking)
     projectileType: 'ice-shard',
-    cost: 120,
-    sellValue: 72,
+    cost: 90, // Rebalanced: was 120 (utility cheaper)
+    sellValue: 54, // 60% of cost
     canTargetAir: true,
     canTargetGround: true,
     upgrades: [],

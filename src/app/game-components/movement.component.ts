@@ -151,9 +151,23 @@ export class MovementComponent extends Component {
 
   /**
    * Apply a status effect to this entity
+   * Slow effects don't stack - only one slow can be active (refreshes duration)
    */
   applyStatusEffect(effect: StatusEffect): void {
-    // Check if same effect type from same source exists - refresh it
+    // For slow effects: only one can be active at a time (no stacking)
+    // Any new slow replaces existing slow (refreshes timer)
+    if (effect.type === 'slow') {
+      const existingSlowIndex = this.statusEffects.findIndex((e) => e.type === 'slow');
+      if (existingSlowIndex >= 0) {
+        // Replace existing slow (refresh duration)
+        this.statusEffects[existingSlowIndex] = effect;
+      } else {
+        this.statusEffects.push(effect);
+      }
+      return;
+    }
+
+    // For other effects: check same type + source
     const existingIndex = this.statusEffects.findIndex(
       (e) => e.type === effect.type && e.sourceId === effect.sourceId
     );
@@ -181,23 +195,22 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Calculate combined slow multiplier from all active slow effects
-   * Returns 1.0 if no slow effects, lower values mean slower movement
+   * Get slow multiplier from active slow effect (only one can be active)
+   * Returns 1.0 if not slowed, lower value if slowed (e.g. 0.5 = 50% speed)
    * @param timescale Game speed multiplier (affects effective duration)
    */
   getSlowMultiplier(timescale = 1.0): number {
     const now = performance.now();
-    let slowMultiplier = 1.0;
 
     for (const effect of this.statusEffects) {
       const effectiveDuration = effect.duration / timescale;
       if (effect.type === 'slow' && now - effect.startTime < effectiveDuration) {
-        // Stack slow effects multiplicatively (0.5 * 0.5 = 0.25 = 75% slow)
-        slowMultiplier *= 1 - effect.value;
+        // Slow effect active - return reduced speed multiplier
+        return 1 - effect.value;
       }
     }
 
-    return slowMultiplier;
+    return 1.0; // Not slowed
   }
 
   /**
