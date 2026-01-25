@@ -44,6 +44,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [DEVWORLD.md](DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung, Terrain-Presets |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Based Bot System fuer AI Training |
 | [AI_WAVE_DIRECTOR_PLAN.md](../../../docs/AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - Gesamtübersicht (Frontend + Backend) |
+| [REBALANCING.md](REBALANCING.md) | Vollstaendiger Balancing-Plan (Tower, Rewards, Economy, AI, Bot) |
 
 ---
 
@@ -74,6 +75,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...DevWorld konfigurieren | [DEVWORLD.md](DEVWORLD.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 | ...das AI-System verstehen | [AI_WAVE_DIRECTOR_PLAN.md](../../../docs/AI_WAVE_DIRECTOR_PLAN.md) |
+| ...das Balancing anpassen | [REBALANCING.md](REBALANCING.md) |
 
 ---
 

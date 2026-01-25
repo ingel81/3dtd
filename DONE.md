@@ -6,6 +6,113 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-25
 
+### Bugfixes & Training Verbesserungen
+
+- [x] **Wave 1 Stuck Bug gefixt**
+      Problem: Nach Game Over blieb das Spiel manchmal auf Wave 1 stecken
+      Ursachen:
+      - `waveManager.reset()` setzte nicht `expectedEnemyCount`/`spawnedEnemyCount` zurueck
+      - Race Condition in `startWaveWithAI()` (mehrfache Aufrufe)
+      - `AutoStartWaveStrategy` blockierte wenn Bot auf 2. Tower wartete
+      Fix:
+      - Spawn-Counter Reset in `wave.manager.ts`
+      - `pendingAIWaveRequest` Flag gegen Race Conditions
+      - 5-Sekunden Timeout in `AutoStartWaveStrategy` zum Erzwingen des Wave-Starts
+      Dateien: `wave.manager.ts`, `tower-defense.component.ts`, `auto-start-wave.strategy.ts`
+
+- [x] **Reward-Anzeige Bug gefixt**
+      Problem: Floating Text zeigte statischen `typeConfig.reward` statt dynamischen Reward
+      (z.B. Herbert mit 55 HP zeigte +15 statt +1)
+      Fix: Floating Text von `combat-effect.service.ts` nach `game-state.manager.ts` verschoben
+      wo korrektes `event.credits` verfuegbar ist
+      Dateien: `combat-effect.service.ts`, `game-state.manager.ts`
+
+- [x] **Dynamische Rewards auf ~1/3 reduziert**
+      Vorher: HP/50, Speed/5, Scale 0.6, Cap 40
+      Nachher: HP/150, Speed/10, Scale 0.4, Cap 25
+      Grund: Rewards waren zu grosszuegig, Wirtschaft eskalierte zu schnell
+      Datei: `enemy.manager.ts`
+
+- [x] **Training-Limits erhoeht (nur AI Training)**
+      Tower-Limit: 20 → 50 (strategist bot)
+      Episode-Length: 20 → 100 Waves
+      Grund: Mehr Daten fuer spaete Spielphasen mit hoher DPS
+      Dateien: `tower-bot.interface.ts`, `config.py`
+
+### Game Rebalancing - Schwierigkeitsanpassung
+
+- [x] **Tower Balancing**
+      Archer: cost 20→45, sellValue 12→27 (Cost/DPS 0.80→1.80)
+      Magic: cost 150→120, sellValue 90→72
+      Cannon: cost 175→140, sellValue 120→84
+      Ice: cost 120→90, sellValue 72→54
+      Rocket: sellValue 120→60 (Bug-Fix: war > cost!)
+      Datei: `src/app/configs/tower-types.config.ts`
+
+- [x] **Wirtschaft verlangsamt**
+      startCredits: 70→50, waveBonus: 50→35
+      Kill-Rewards werden relevanter (~40% statt ~20%)
+      Datei: `src/app/configs/game-balance.config.ts`
+
+- [x] **Dynamische Enemy-Rewards**
+      HP-basierte Berechnung mit Speed-Bonus
+      scaleFactor mit sqrt() verhindert Inflation
+      Cap bei 1-40 Credits
+      Datei: `src/app/managers/enemy.manager.ts`
+
+- [x] **Bot-Fixes (StrategyBot)**
+      makeSuboptimalAction() implementiert (war leer)
+      Spar-Rate 60%→30% reduziert
+      Archer-Limit: max 4, dann Alternativen
+      Dateien: `strategy-bot.ts`, `distributed-placement.strategy.ts`
+
+- [x] **AI Parameter angepasst**
+      KILL_TIME_MIN: 1.5→2.0s (laengere Kaempfe)
+      KILL_TIME_MAX: 4.0→5.0s (mehr Range)
+      HEALTH_MULTIPLIER_MAX: 20.0 (neuer Cap)
+      Dateien: `config.py`, `server.py`
+
+- [x] **Legacy Bot-Klassen entfernt**
+      Geloescht: beginner-bot.ts, casual-bot.ts, strategist-bot.ts, smart-tower-bot.ts
+      Nur noch StrategyBot mit Strategy-Pattern
+      Datei: `src/app/ai/training/bots/index.ts`
+
+- [x] **Enemy-Types Cleanup**
+      damage-Feld komplett entfernt (wird nicht verwendet)
+      reward-Werte mit Kommentar "only without AI"
+      Datei: `src/app/models/enemy-types.ts`
+
+- [x] **Balancing-Dokumentation**
+      Vollstaendiger Plan in `src/app/docs/REBALANCING.md`
+      HP-Tabelle fuer alle Enemy-Typen bei verschiedenen healthMultiplier
+
+### AI Training v3.4 - Anti-Kollaps Fixes
+
+- [x] **Kollaps-Analyse nach 32k Episoden**
+      Training kollabierte bei E6000-8000 (Reward 0.43→0.02)
+      Ursachen: Type-Kollaps (89% herbert/tank/bat), Boring-Exploitation
+      Analyse-Script `analyze_log.py` fuer Trend-Erkennung
+
+- [x] **Config-Anpassungen**
+      ENTROPY_COEF: 0.04 → 0.08 (mehr Exploration)
+      REWARD_BORING_THRESHOLD: 0.20 → 0.30 (hoehere Schwelle)
+      REWARD_VARIETY_BONUS: 0.15 → 0.20 (staerkerer Diversity-Anreiz)
+      TYPE_COOLDOWN_WAVES: 2 → 4 (laengere Typ-Sperre)
+
+- [x] **Rollback zu Checkpoint 5000**
+      2679 Checkpoints nach E5000 geloescht
+      Training neu gestartet mit v3.4 Config
+      Type-Verteilung jetzt: 5 von 6 Typen bei ~20%
+
+- [x] **Dashboard Mobile-Support**
+      Server bindet auf 0.0.0.0:3002
+      Responsive CSS fuer Smartphones (<600px)
+      Zugriff via http://<ip>:3002 vom Handy
+
+- [x] **Dashboard Fixes**
+      JSON-Fehler bei best_reward=-inf gefixt
+      Progress Distribution Flatline-Bug gefixt
+
 ### AI Wave Director System
 
 - [x] **AI Data Collection (Phase 5.1)**
