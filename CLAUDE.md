@@ -47,13 +47,17 @@ src/app/
 └── three-engine/               # 3D Rendering (renderers/)
 
 training-backend/               # Python Training Backend
-├── server.py                   # WebSocket Server
-├── model.py                    # Neural Network (PPO)
-├── trainer.py                  # Training Algorithm
-├── reward.py                   # Reward Function
-├── tui_logger.py               # Professional TUI
-├── requirements.txt            # Python Dependencies
-└── checkpoints/                # Model Checkpoints
+├── server.py                   # WebSocket Server (:3001)
+├── model.py                    # Neural Network (Conv1D + Dense)
+├── trainer.py                  # PPO Training Algorithm
+├── reward.py                   # Reward Function (DPS-Gaussian)
+├── config.py                   # Hyperparameter
+├── dashboard/                  # Web Dashboard (:3002)
+│   ├── app.py                  # FastAPI Server
+│   └── static/                 # Chart.js UI
+├── start.bat                   # Windows Start-Script
+├── checkpoints/                # Model Checkpoints
+└── docs/                       # Backend-Dokumentation
 ```
 
 ## Wichtig
@@ -74,6 +78,9 @@ training-backend/               # Python Training Backend
 | [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
 | [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
 | [TOWER_CREATION.md](src/app/docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
+| [ENEMY_CREATION.md](src/app/docs/ENEMY_CREATION.md) | Neue Enemies, Animationen, Audio |
+| [WAVE_SYSTEM.md](src/app/docs/WAVE_SYSTEM.md) | Wave-Management, Spawning, Phases |
+| [STATUS_EFFECTS.md](src/app/docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Freeze, Burn) |
 | [LOCATION_SYSTEM.md](src/app/docs/LOCATION_SYSTEM.md) | Standort-System |
 | [SPATIAL_AUDIO.md](src/app/docs/SPATIAL_AUDIO.md) | 3D Audio System |
 | [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
@@ -108,5 +115,5 @@ training-backend/               # Python Training Backend
 | Maps | Google Maps 3D Tiles API |
 | Geocoding | OpenStreetMap Nominatim |
 | AI Training | Python 3.8+ + PyTorch 2.0 + WebSockets |
-| AI UI | rich 13.0+ (Professional TUI) |
+| AI Dashboard | FastAPI + Chart.js (http://localhost:3002) |
 | Bot System | TypeScript Strategy Pattern (Browser) |

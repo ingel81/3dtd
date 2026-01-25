@@ -4,6 +4,64 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-25
+
+### AI Wave Director System
+
+- [x] **AI Data Collection (Phase 5.1)**
+      AIDataCollectorService, GameStateSnapshot (74 Features inkl. DPS-Profile)
+      WaveResult Interface, Defense-Analyzer mit Vulnerability Detection
+      Dateien: `src/app/ai/core/`
+
+- [x] **Inference Pipeline (Phase 5.2)**
+      GameStateEncoder (74 Features), WaveDirectorService mit TensorFlow.js
+      Fallback Wave Generator (regelbasiert), Decision Explainer
+      WaveConfigAdapter für WaveManager-Integration
+
+- [x] **Training Infrastructure (Phase 5.3)**
+      Python Backend: WebSocket Server (:3001), PPO Trainer, Reward Function
+      Conv1D + Dense Model (DPS-Profile als räumlicher Input)
+      TrainingClientService (Browser), Strategy Bot System
+      Dateien: `training-backend/`, `src/app/ai/training/`
+
+- [x] **Training UI (Phase 5.4)**
+      Web Dashboard (FastAPI :3002): Live Charts, Model Metrics, DPS-Profiles
+      Training-Debugger Component (In-Game)
+      Bot-Selection via Backend, ONNX Model Export
+
+- [x] **Strategy Bot System**
+      StrategyBot mit Composition Pattern (pluggable Strategies)
+      5+ Strategies: AntiAir, Splash, Distributed, Upgrade, AutoWave
+      4 Skill Levels: Beginner, Casual, Strategist, Meta
+      Datei: `src/app/ai/training/bots/`, `strategies/`
+
+### Dokumentation
+
+- [x] **AI-Dokumentation reorganisiert**
+      AI_TRAINING_BACKEND.md → training-backend/docs/
+      AI_TRAINING_SESSION_NOTES.md → training-backend/docs/
+      BOT_SYSTEM.md → src/app/docs/
+      DEVWORLD.md erstellt (basierend auf Code-Analyse)
+
+- [x] **Veraltete Docs bereinigt**
+      MASSNAHMEN_review_20260120.md gelöscht (Duplikat von TODO.md)
+      DEVWORLD_PLAN.md gelöscht (bereits implementiert)
+      tasks/FPS_LIMIT.md gelöscht (in TODO.md integriert)
+
+- [x] **CLAUDE.md aktualisiert**
+      Neue Pfade für AI-Dokumentation
+      Training-Backend Sektion hinzugefügt
+
+### Code Quality
+
+- [x] **53 ESLint Fehler behoben**
+      Unused vars mit `_` prefix oder entfernt
+      Explicit any: proper types oder eslint-disable
+      Case declarations: block scope
+      Empty functions: eslint-disable
+
+---
+
 ## 2026-01-20
 
 - [x] **Codebase auf Englisch umgestellt** - Vollständige Übersetzung
