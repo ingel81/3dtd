@@ -19,36 +19,58 @@
         </div>
       </div>
       <div class="header-stats">
-        <div class="stat">
-          <div class="stat-value blue" id="episode">0</div>
-          <div class="stat-label">Episode</div>
+        <!-- Primary Stats -->
+        <div class="stat-group primary">
+          <div class="stat" title="Anzahl der trainierten Wellen (1 Episode = 1 Wave Result)">
+            <div class="stat-value blue" id="episode">0</div>
+            <div class="stat-label">Episode</div>
+          </div>
+          <div class="stat" title="Durchschnittlicher Reward über alle Episoden. Ziel: ~0.8-1.0">
+            <div class="stat-value green" id="avg-reward">0.000</div>
+            <div class="stat-label">Avg Reward</div>
+          </div>
+          <div class="stat" title="Höchster einzelner Reward. Max möglich: ~1.2">
+            <div class="stat-value purple" id="best-reward">0.000</div>
+            <div class="stat-label">Best</div>
+          </div>
+          <div class="stat" title="Anzahl verbundener Browser-Clients (parallel trainierende Spiele)">
+            <div class="stat-value cyan" id="clients">0</div>
+            <div class="stat-label">Clients</div>
+          </div>
+          <div class="stat" title="Anteil der Wellen im Sweet Spot (40-70% Progress). Ziel: >50%">
+            <div class="stat-value orange" id="sweet-spot">0%</div>
+            <div class="stat-label">Sweet Spot</div>
+          </div>
+          <div class="stat" title="Anteil der Wellen die zum Game Over führten. Ziel: <10%">
+            <div class="stat-value red" id="game-over-rate">0%</div>
+            <div class="stat-label">Game Over</div>
+          </div>
         </div>
-        <div class="stat">
-          <div class="stat-value green" id="avg-reward">0.000</div>
-          <div class="stat-label">Avg Reward</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value purple" id="best-reward">0.000</div>
-          <div class="stat-label">Best</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value cyan" id="clients">0</div>
-          <div class="stat-label">Clients</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value orange" id="sweet-spot">0%</div>
-          <div class="stat-label">Sweet Spot</div>
-        </div>
-        <div class="stat">
-          <div class="stat-value" id="game-over-rate" style="color: var(--accent-red)">0%</div>
-          <div class="stat-label">Game Over</div>
+
+        <!-- Divider -->
+        <div class="stat-divider"></div>
+
+        <!-- Secondary Stats (Model Metrics) -->
+        <div class="stat-group secondary">
+          <div class="stat mini" title="Policy Entropy - Maß für Exploration. Hoch = viel Variation, Niedrig = spezialisiert. Sollte langsam sinken.">
+            <div class="stat-value" id="header-entropy">--</div>
+            <div class="stat-label">Entropy</div>
+          </div>
+          <div class="stat mini" title="Gradient Norm - Stärke der Gewichts-Updates. Zu hoch = instabil, zu niedrig = kein Lernen.">
+            <div class="stat-value" id="header-grad-norm">--</div>
+            <div class="stat-label">Grad</div>
+          </div>
+          <div class="stat mini" title="Anzahl der PPO Model-Updates (1 Update = 1 Batch von 16 Episoden)">
+            <div class="stat-value" id="header-updates">0</div>
+            <div class="stat-label">Updates</div>
+          </div>
         </div>
       </div>
     </div>
 
-    <!-- Row 1: Reward Chart (2 cols) + Model Metrics (1 col) -->
+    <!-- Row 1: Reward Chart + Config Legend -->
     <div class="card span-2">
-      <div class="card-header">
+      <div class="card-header" title="Reward pro Episode. Gaussian Peak bei 55% Progress. Positiv = gute Welle, Negativ = zu leicht/schwer.">
         <span class="card-title">Reward</span>
         <span class="card-badge green" id="reward-badge">--</span>
       </div>
@@ -59,40 +81,68 @@
 
     <div class="card">
       <div class="card-header">
-        <span class="card-title">Model Metrics</span>
-        <span class="card-badge orange" id="updates-badge">0 updates</span>
+        <span class="card-title">Reward Config</span>
       </div>
-      <div class="metrics-grid">
-        <div class="metric-item">
-          <div class="metric-label">Policy Loss</div>
-          <div class="metric-value purple" id="policy-loss">--</div>
+      <div class="config-legend">
+        <div class="config-section">
+          <div class="config-section-title">Progress Reward</div>
+          <div class="config-item">
+            <span class="config-label">Target</span>
+            <span class="config-value green">55%</span>
+            <span class="config-desc">Gaussian Peak</span>
+          </div>
+          <div class="config-item">
+            <span class="config-label">Sigma</span>
+            <span class="config-value">±15%</span>
+            <span class="config-desc">Sweet Spot: 40-70%</span>
+          </div>
         </div>
-        <div class="metric-item">
-          <div class="metric-label">Entropy</div>
-          <div class="metric-value blue" id="entropy">--</div>
-        </div>
-        <div class="metric-item">
-          <div class="metric-label">Grad Norm</div>
-          <div class="metric-value orange" id="grad-norm">--</div>
-        </div>
-        <div class="metric-item">
-          <div class="metric-label">Batch Reward</div>
-          <div class="metric-value green" id="batch-reward">--</div>
-        </div>
-        <div class="metric-item">
-          <div class="metric-label">Near-Miss %</div>
-          <div class="metric-value cyan" id="near-miss-pct">0%</div>
-        </div>
-        <div class="metric-item">
-          <div class="metric-label">Games Played</div>
-          <div class="metric-value" style="color: var(--text-primary)" id="games-played">0</div>
+        <div class="config-row">
+          <div class="config-section">
+            <div class="config-section-title">Penalties</div>
+            <div class="config-item compact" title="Welle zu leicht: Gegner sterben sofort (<20% Progress). Keine Spannung, keine Herausforderung.">
+              <span class="config-label">Boring</span>
+              <span class="config-value red">-0.30</span>
+            </div>
+            <div class="config-item compact" title="Welle zu schwer: Fast alle Gegner erreichen die Basis (>85% Progress). Spieler wird überrannt.">
+              <span class="config-label">Overflow</span>
+              <span class="config-value red">-0.30</span>
+            </div>
+            <div class="config-item compact" title="Spieler verliert das Spiel. Strafe skaliert mit Welle: früher Game Over = härtere Strafe (bis -5.0).">
+              <span class="config-label">Game Over</span>
+              <span class="config-value red">-0.5×</span>
+            </div>
+            <div class="config-item compact" title="Gleicher Gegnertyp 3× in den letzten 5 Wellen. Fördert Abwechslung und verhindert Spam.">
+              <span class="config-label">Monotony</span>
+              <span class="config-value red">-0.20</span>
+            </div>
+          </div>
+          <div class="config-section">
+            <div class="config-section-title">Bonuses</div>
+            <div class="config-item compact" title="Spannende Momente: >50% der Gegner erreichen 80%+ des Pfades, sterben aber noch. Knapp aber geschafft!">
+              <span class="config-label">Near-Miss</span>
+              <span class="config-value green">+0.15</span>
+            </div>
+            <div class="config-item compact" title="Mindestens ein Gegner kommt sehr weit (>90%). Erzeugt dramatische Momente.">
+              <span class="config-label">Max Prog</span>
+              <span class="config-value green">+0.10</span>
+            </div>
+            <div class="config-item compact" title="Gegner sterben an verschiedenen Stellen (hohe Varianz). Tower werden progressiv überlastet.">
+              <span class="config-label">Spread</span>
+              <span class="config-value green">+0.05</span>
+            </div>
+            <div class="config-item compact" title="Neuer Gegnertyp der in den letzten 5 Wellen nicht vorkam. Belohnt taktische Vielfalt.">
+              <span class="config-label">Variety</span>
+              <span class="config-value green">+0.15</span>
+            </div>
+          </div>
         </div>
       </div>
     </div>
 
     <!-- Row 2: Progress Chart + Near-Miss Chart + Distribution -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" title="Durchschnittlicher Pfad-Fortschritt der Gegner. Ziel: 55% (halb sterben, halb erreichen Basis).">
         <span class="card-title">Avg Progress</span>
         <span class="card-badge green" id="progress-badge">--</span>
       </div>
@@ -102,7 +152,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" title="Anteil der Gegner die >80% des Pfades erreichten. Hohe Werte = spannende Wellen mit knappen Momenten.">
         <span class="card-title">Near-Miss Ratio</span>
         <span class="card-badge orange" id="nm-badge">--</span>
       </div>
@@ -112,28 +162,28 @@
     </div>
 
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" title="Verteilung der Wellen nach Progress-Kategorie. Grün (Sweet) sollte dominieren.">
         <span class="card-title">Progress Distribution</span>
       </div>
       <div class="distribution-bar" id="dist-bar"></div>
       <div class="dist-legend">
-        <div class="dist-legend-item">
+        <div class="dist-legend-item" title="Zu leicht - Gegner sterben sofort. Penalty: -0.3">
           <div class="dist-legend-dot" style="background: var(--accent-blue); opacity:0.5"></div>
           <span id="legend-boring">Boring (&lt;20%)</span>
         </div>
-        <div class="dist-legend-item">
+        <div class="dist-legend-item" title="Leicht - Gegner kommen nicht weit. Niedriger Reward.">
           <div class="dist-legend-dot" style="background: var(--text-muted)"></div>
           <span id="legend-low">Low (20-40%)</span>
         </div>
-        <div class="dist-legend-item">
+        <div class="dist-legend-item" title="Perfekt! Spannende Wellen wo etwa die Hälfte durchkommt. Max Reward.">
           <div class="dist-legend-dot" style="background: var(--accent-green)"></div>
           <span id="legend-sweet">Sweet (40-70%)</span>
         </div>
-        <div class="dist-legend-item">
+        <div class="dist-legend-item" title="Etwas zu schwer - viele Gegner kommen durch. Reduzierter Reward.">
           <div class="dist-legend-dot" style="background: var(--accent-orange)"></div>
           <span id="legend-moderate">Moderate (70-85%)</span>
         </div>
-        <div class="dist-legend-item">
+        <div class="dist-legend-item" title="Zu schwer - fast alle Gegner erreichen die Basis. Penalty: -0.3">
           <div class="dist-legend-dot" style="background: var(--accent-red)"></div>
           <span id="legend-danger">Danger/GO (&gt;85%)</span>
         </div>
@@ -145,7 +195,7 @@
 
     <!-- Row 3: DPS Profiles + Wave Log + Training Log -->
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" title="DPS-Verteilung entlang des Pfades (20 Bins). Zeigt wo die Defense stark/schwach ist.">
         <span class="card-title">DPS Profiles</span>
         <span class="card-badge green" id="dps-client-count">0 clients</span>
       </div>
@@ -155,7 +205,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" title="Letzte 50 Wellen: Gegnertyp, Anzahl, Progress (Balken), Reward. Grün = Sweet Spot.">
         <span class="card-title">Wave Log</span>
       </div>
       <div class="wave-log" id="wave-log">
@@ -166,7 +216,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header">
+      <div class="card-header" title="PPO Updates: L=Policy Loss, H=Entropy, G=Grad Norm, R=Batch Reward">
         <span class="card-title">Training Log</span>
       </div>
       <div class="training-log" id="training-log">

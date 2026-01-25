@@ -122,12 +122,47 @@ body {
 
 .header-stats {
   display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.stat-group {
+  display: flex;
+  gap: 16px;
+}
+
+.stat-group.primary {
   gap: 20px;
+}
+
+.stat-group.secondary {
+  gap: 12px;
+  padding-left: 4px;
+}
+
+.stat-divider {
+  width: 1px;
+  height: 32px;
+  background: var(--border);
+  margin: 0 8px;
 }
 
 .stat {
   text-align: center;
-  min-width: 70px;
+  min-width: 65px;
+  cursor: help;
+}
+
+.stat.mini {
+  min-width: 50px;
+}
+
+.card-header[title] {
+  cursor: help;
+}
+
+.dist-legend-item[title] {
+  cursor: help;
 }
 
 .stat-value {
@@ -136,11 +171,18 @@ body {
   font-variant-numeric: tabular-nums;
 }
 
+.stat.mini .stat-value {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
 .stat-value.green { color: var(--accent-green); }
 .stat-value.blue { color: var(--accent-blue); }
 .stat-value.purple { color: var(--accent-purple); }
 .stat-value.orange { color: var(--accent-orange); }
 .stat-value.cyan { color: var(--accent-cyan); }
+.stat-value.red { color: var(--accent-red); }
 
 .stat-label {
   font-size: 10px;
@@ -148,6 +190,12 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.5px;
   margin-top: 2px;
+}
+
+.stat.mini .stat-label {
+  font-size: 9px;
+  color: var(--text-muted);
+  opacity: 0.7;
 }
 
 /* === Cards === */
@@ -259,6 +307,77 @@ body {
 
 .metric-delta.up { color: var(--accent-green); }
 .metric-delta.down { color: var(--accent-red); }
+
+/* === Config Legend === */
+.config-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  font-size: 11px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 0;
+}
+
+.config-row {
+  display: flex;
+  gap: 8px;
+}
+
+.config-row .config-section {
+  flex: 1;
+}
+
+.config-section {
+  background: var(--bg-primary);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 8px;
+}
+
+.config-section-title {
+  font-size: 9px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+
+.config-item {
+  display: grid;
+  grid-template-columns: 65px 45px 1fr;
+  align-items: center;
+  padding: 2px 0;
+  gap: 6px;
+}
+
+.config-item.compact {
+  grid-template-columns: 1fr auto;
+  cursor: help;
+}
+
+.config-label {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.config-value {
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.config-value.green { color: var(--accent-green); }
+.config-value.red { color: var(--accent-red); }
+.config-value.orange { color: var(--accent-orange); }
+
+.config-desc {
+  color: var(--text-muted);
+  font-size: 10px;
+}
 
 /* === Progress Distribution === */
 .distribution-bar {
