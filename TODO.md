@@ -443,6 +443,15 @@
 
 > Langfristig, bei Bedarf
 
+## Training Backend Refactoring
+
+- [ ] **training-backend Struktur verbessern**
+      Aktuell alles flach, besser in Module aufteilen:
+      - `core/` - model.py, trainer.py, reward.py
+      - `utils/` - logger (tui_logger + auto_logger mergen)
+      - `scripts/` - export, analyze (bereits teilweise)
+      Import-Pfade in server.py anpassen
+
 ## Performance - Advanced
 
 - [ ] **Spatial-Grid für Kollisionserkennung** - O(n²) → O(n log n), ab 500+ Entities

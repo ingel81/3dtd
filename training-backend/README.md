@@ -31,7 +31,7 @@ python server.py
 | `server.py` | WebSocket server, state encoding, action decoding |
 | `model.py` | Conv1D + Dense neural network (74 features input) |
 | `trainer.py` | PPO training algorithm |
-| `reward.py` | Reward function (Gaussian at 90% progress) |
+| `reward.py` | Reward function (Gaussian at 55% progress) |
 | `config.py` | Hyperparameters and settings |
 | `dashboard/` | FastAPI web dashboard with Chart.js |
 | `tui_logger.py` | Console output + JSONL file logging |
@@ -69,7 +69,7 @@ Edit `config.py`:
 - `BATCH_SIZE`: Episodes per PPO update (default 16)
 - `EPISODE_LENGTH`: Waves per episode (default 20)
 - `CHECKPOINT_INTERVAL`: Save frequency (default 10)
-- `REWARD_PROGRESS_CENTER`: Target progress (default 0.90)
+- `REWARD_PROGRESS_CENTER`: Target progress (default 0.55)
 
 ## Checkpoints
 
