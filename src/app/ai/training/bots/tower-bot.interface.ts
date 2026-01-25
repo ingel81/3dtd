@@ -130,7 +130,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic'],
     adaptsToEnemies: true,
     plansAhead: true,
-    maxTowers: 20,
+    maxTowers: 50,
   },
 
   meta: {
