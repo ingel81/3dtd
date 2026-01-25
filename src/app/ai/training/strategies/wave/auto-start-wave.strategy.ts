@@ -12,7 +12,9 @@ import { TowerAction } from '../../bots/tower-bot.interface';
 
 export class AutoStartWaveStrategy extends BaseStrategy {
   private lastActionTime = 0;
+  private setupPhaseStartTime = 0; // Track when setup phase started
   private readonly WAVE_START_DELAY = 1000; // 1 second delay after last action
+  private readonly MAX_SETUP_WAIT = 5000; // Max 5 seconds in setup phase before forcing wave start
 
   constructor(
     private autoMode: boolean
@@ -28,19 +30,35 @@ export class AutoStartWaveStrategy extends BaseStrategy {
     // Need at least 1 tower
     if (state.defense.towerCount === 0) return false;
 
+    const now = Date.now();
+
+    // Track setup phase start time
+    if (this.setupPhaseStartTime === 0) {
+      this.setupPhaseStartTime = now;
+    }
+
+    // Force start wave if we've been in setup too long (prevents infinite waiting)
+    const setupDuration = now - this.setupPhaseStartTime;
+    if (setupDuration > this.MAX_SETUP_WAIT) {
+      console.log(`[AutoStartWave] Forcing wave start after ${setupDuration}ms in setup`);
+      return true;
+    }
+
     // Prefer 2+ towers for early waves, but start anyway if can't afford more
     if (state.waveNumber < 3 && state.defense.towerCount < 2 && state.player.credits >= 20) {
       return false; // Still saving for a second tower
     }
 
     // Check if enough time passed since last action
-    const now = Date.now();
     if (now - this.lastActionTime < this.WAVE_START_DELAY) return false;
 
     return true;
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
+    // Reset setup timer when wave actually starts
+    this.setupPhaseStartTime = 0;
+
     return {
       type: 'start-wave',
       confidence: 0.9,
@@ -51,5 +69,11 @@ export class AutoStartWaveStrategy extends BaseStrategy {
   /** Called by bot when ANY action is executed */
   onActionExecuted(): void {
     this.lastActionTime = Date.now();
+  }
+
+  /** Called on game reset */
+  onReset(): void {
+    this.lastActionTime = 0;
+    this.setupPhaseStartTime = 0;
   }
 }
