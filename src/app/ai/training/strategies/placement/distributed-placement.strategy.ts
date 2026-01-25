@@ -86,8 +86,8 @@ export class DistributedPlacementStrategy extends BaseStrategy {
       chosen = missingAffordable[Math.floor(Math.random() * missingAffordable.length)];
       reason = 'new type';
     } else if (missingTypes.length > 0 && existingTowers.length >= 2) {
-      // Missing types exist but too expensive - save with 60% probability
-      if (Math.random() < 0.6) {
+      // Missing types exist but too expensive - save with 30% probability (was 60%)
+      if (Math.random() < 0.3) {
         // Pick cheapest missing type to save for
         const target = missingTypes.reduce((best, current) =>
           TOWER_TYPES[current].cost < TOWER_TYPES[best].cost ? current : best
@@ -99,7 +99,7 @@ export class DistributedPlacementStrategy extends BaseStrategy {
           confidence: 0.7
         } as TowerAction;
       }
-      // 40%: reinforce with what we have
+      // 70%: reinforce with what we have
       chosen = affordable.reduce((best, current) =>
         (typeCounts.get(current) || 0) < (typeCounts.get(best) || 0) ? current : best
       );
@@ -110,6 +110,16 @@ export class DistributedPlacementStrategy extends BaseStrategy {
         (typeCounts.get(current) || 0) < (typeCounts.get(best) || 0) ? current : best
       );
       reason = 'reinforce';
+    }
+
+    // Archer limit: max 4, then force alternatives (prevents OP archer spam)
+    const archerCount = existingTowers.filter(t => t.typeConfig.id === 'archer').length;
+    if (chosen === 'archer' && archerCount >= 4) {
+      const alternatives = affordable.filter(t => t !== 'archer');
+      if (alternatives.length > 0) {
+        chosen = alternatives[Math.floor(Math.random() * alternatives.length)];
+        reason = 'archer-limit';
+      }
     }
 
     return this.placeTower(chosen, existingTowers, reason);
