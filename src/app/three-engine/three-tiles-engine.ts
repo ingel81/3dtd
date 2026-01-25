@@ -391,7 +391,7 @@ export class ThreeTilesEngine {
     this.tilesRenderer.addEventListener('tiles-load-end', this.tilesLoadEndHandler);
 
     // Track tileset loading count (for debugging)
-    this.tilesRenderer.addEventListener('load-tile-set', () => {
+    this.tilesRenderer.addEventListener('load-tileset', () => {
       this.tilesetLoadCount++;
     });
 
