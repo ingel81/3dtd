@@ -1,30 +1,48 @@
 # Wave Director AI Model
 
-ONNX model for browser-based inference via ONNX Runtime Web.
+ONNX Model für Browser-Inference via ONNX Runtime Web.
 
-## Files
+## Dateien
 
-- `wave-director.onnx` - ONNX model (committed to repo)
-- `metadata.json` - Constants and version info
+- `wave-director.onnx` - Das trainierte AI Model (~108 KB)
+- `metadata.json` - Konstanten und Versionsinformation
 
-## Generating/Updating Model
+## Model aktualisieren
+
+Nach Training mit neuem Checkpoint:
 
 ```bash
 cd training-backend
-pip install -r requirements.txt
 python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_XXXX.pt
 ```
 
+Siehe `training-backend/docs/AI_MODEL_EXPORT.md` für Details.
+
 ## Model Format
 
-- **Input**: 74 features (encoded game state), tensor name: `state`
-- **Output**: 10 values, tensor name: `action`
-  - `[0-5]` Enemy type logits (zombie, bat, tank, wallsmasher, penguin, herbert)
-  - `[6]` kill_time param (apply sigmoid, scale to 2.0-5.0)
-  - `[7]` count_factor param (apply sigmoid, 0-1)
-  - `[8]` delay_factor param (apply sigmoid, 0-1)
-  - `[9]` variation param (apply sigmoid, scale to 0-0.3)
+**Input:** 74 Features (kodierter Spielzustand)
+- Tensor Name: `state`
+- Shape: `[1, 74]`
 
-## Browser Runtime
+**Output:** 10 Werte
+- Tensor Name: `action`
+- Shape: `[1, 10]`
 
-Uses `onnxruntime-web` package with WASM/WebGPU backend.
+| Index | Bedeutung |
+|-------|-----------|
+| 0-5 | Enemy Type Logits (zombie, bat, tank, wallsmasher, penguin, herbert) |
+| 6 | kill_time (sigmoid → 2.0-5.0) |
+| 7 | count_factor (sigmoid → 0-1) |
+| 8 | delay_factor (sigmoid → 0-1) |
+| 9 | variation (sigmoid → 0-0.3) |
+
+## WASM Runtime
+
+Benötigt ONNX Runtime Web WASM-Dateien in `/assets/onnx-wasm/`.
+Diese werden automatisch bei `npm install` kopiert (postinstall script).
+
+## Status
+
+⚠️ Model hat starke Präferenz für bestimmte Enemy-Typen (Training-Artefakt).
+Frontend hat Variety-Regeln die das überschreiben.
+Weiteres Feintuning notwendig.
