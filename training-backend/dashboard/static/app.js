@@ -433,39 +433,37 @@ function updateHeader(stats) {
   document.getElementById('best-reward').textContent = (stats.bestReward || 0).toFixed(3);
   document.getElementById('clients').textContent = stats.clientCount || 0;
   document.getElementById('sweet-spot').textContent = (stats.sweetSpotPct || 0).toFixed(0) + '%';
-  document.getElementById('games-played').textContent = stats.gamesPlayed || 0;
-
-  if (stats.gameOverRate !== undefined) {
-    document.getElementById('game-over-rate').textContent = stats.gameOverRate.toFixed(0) + '%';
-  }
-  if (stats.nearMissPct !== undefined) {
-    document.getElementById('near-miss-pct').textContent = stats.nearMissPct.toFixed(0) + '%';
-  }
+  document.getElementById('game-over-rate').textContent = (stats.gameOverRate || 0).toFixed(0) + '%';
   if (stats.modelUpdates !== undefined) {
     state.modelUpdates = stats.modelUpdates;
-    document.getElementById('model-updates').textContent = stats.modelUpdates;
-    document.getElementById('updates-badge').textContent = stats.modelUpdates + ' updates';
+    // Update header mini stat
+    const headerUpdates = document.getElementById('header-updates');
+    if (headerUpdates) headerUpdates.textContent = stats.modelUpdates;
+    // Update footer
+    const footerUpdates = document.getElementById('model-updates');
+    if (footerUpdates) footerUpdates.textContent = stats.modelUpdates;
   }
 }
 
 // === Model Metrics ===
 function updateModelMetrics(data) {
-  if (data.policyLoss !== undefined) {
-    document.getElementById('policy-loss').textContent = data.policyLoss.toFixed(4);
-  }
+  // Update header mini stats
   if (data.entropy !== undefined) {
-    document.getElementById('entropy').textContent = data.entropy.toFixed(3);
+    const headerEntropy = document.getElementById('header-entropy');
+    if (headerEntropy) headerEntropy.textContent = data.entropy.toFixed(2);
   }
   if (data.gradNorm !== undefined) {
-    document.getElementById('grad-norm').textContent = data.gradNorm.toFixed(2);
-  }
-  if (data.batchReward !== undefined) {
-    document.getElementById('batch-reward').textContent = (data.batchReward >= 0 ? '+' : '') + data.batchReward.toFixed(3);
+    const headerGrad = document.getElementById('header-grad-norm');
+    if (headerGrad) headerGrad.textContent = data.gradNorm.toFixed(1);
   }
 
   state.modelUpdates++;
-  document.getElementById('model-updates').textContent = state.modelUpdates;
-  document.getElementById('updates-badge').textContent = state.modelUpdates + ' updates';
+  // Update header mini stat
+  const headerUpdates = document.getElementById('header-updates');
+  if (headerUpdates) headerUpdates.textContent = state.modelUpdates;
+  // Update footer
+  const footerUpdates = document.getElementById('model-updates');
+  if (footerUpdates) footerUpdates.textContent = state.modelUpdates;
 
   addTrainingLog('upd', `L:${data.policyLoss?.toFixed(4) || '?'} H:${data.entropy?.toFixed(3) || '?'} G:${data.gradNorm?.toFixed(2) || '?'} R:${data.batchReward?.toFixed(3) || '?'}`);
 }
