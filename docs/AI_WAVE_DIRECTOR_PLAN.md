@@ -274,9 +274,9 @@ if avg_progress > 0.85:
 
 | Dokument | Inhalt |
 |----------|--------|
-| [AI_TRAINING_BACKEND.md](AI_TRAINING_BACKEND.md) | Detaillierte Backend-Doku |
-| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy Bot Architektur |
-| [AI_TRAINING_SESSION_NOTES.md](AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte |
+| [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Detaillierte Backend-Doku |
+| [BOT_SYSTEM.md](../src/app/docs/BOT_SYSTEM.md) | Strategy Bot Architektur |
+| [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte |
 
 ---
 

@@ -280,7 +280,7 @@
 - [x] **GameStateSnapshot Interface**
       Datei: `src/app/ai/core/models/game-state-snapshot.ts`
       Inhalt: Player State, Defense-Analyse, Vulnerabilities, History
-      52 Features für AI Input
+      74 Features inkl. DPS-Profil (20 Bins Ground + 20 Bins Air)
 
 - [x] **WaveResult Interface**
       Datei: `src/app/ai/core/models/wave-result.ts`
@@ -298,7 +298,7 @@
 
 - [x] **GameStateEncoder**
       Datei: `src/app/ai/core/game-state-encoder.ts`
-      GameStateSnapshot → Float32Array (52 Features)
+      GameStateSnapshot → Float32Array (74 Features inkl. DPS-Profile)
       Normalisierung auf 0-1, deterministische Encoding
 
 - [x] **WaveDirectorService (Inference)**
@@ -350,39 +350,45 @@
 
 - [x] **Reward Function implementieren**
       Datei: `training-backend/reward.py`
-      Sweet Spot: 10-30% Schaden = gut
-      Fun-Metriken: Variety, Crescendo, Boss-Timing
-      Mercy System: Pause nach 3× Close Call
+      Gaussian Peak bei 55% raw path progress
+      Bonus: Near-Miss, Max-Progress, Spread, Variety
+      DPS-relative HP (Kill-Time basiert)
 
 - [x] **Wave Archetypen System**
       In `src/app/ai/core/fallback-rules.ts` integriert
       Typen: Swarm, Elite, Rush, Siege, Mixed, Boss, Air
       AI wählt erst Archetyp, dann Details
 
-## 5.4 Training UI (Prio 4)
+## 5.4 Training UI (Prio 4) ✅
 
-> Zuschauen beim Training, Stats, Export
+> Implementiert als Python Web Dashboard statt Angular Components
 
-- [ ] **Training Panel Component**
-      Datei: `src/app/ai/training/components/training-panel.component.ts`
-      Route: `/ai-training` (nur Dev)
-      Live Game View + Speed Controls
-      Lazy Loaded
+- [x] **Training Debugger (In-Game)**
+      Datei: `src/app/components/debug-window/training-debugger.component.ts`
+      Bot-Status, Wave-Info, Connection-Status
+      Aktivierbar über Debug-Panel
 
-- [ ] **Training Stats Dashboard**
-      Komponenten: `training-stats.component.ts`, `reward-chart.component.ts`
-      Episode Count, Avg Reward, Win Rate
-      Milestone-Tracking (Beats BeginnerBot, etc.)
+- [x] **Web Dashboard (Python/FastAPI)**
+      Ordner: `training-backend/dashboard/`
+      URL: http://localhost:3002
+      Live Charts (Reward, Progress, Near-Miss, Distribution)
+      Model Metrics, DPS-Profile, Wave Log
 
-- [ ] **Bot Selector UI**
-      Datei: `src/app/ai/training/components/bot-selector.component.ts`
-      Auswahl welcher Bot-Typ für Training
-      Rotation konfigurieren
+- [x] **Bot Selection (Backend-gesteuert)**
+      Backend wählt Bot-Typ via WebSocket `select_bot`
+      Rotation: Beginner → Casual → Strategist
+      Konfiguration in `config.py`
 
-- [ ] **Model Export Button**
-      Export trainiertes Model als JSON
-      Speichert nach `src/assets/ai/`
-      Mit Metadata (Version, Episodes, Reward)
+- [x] **Model Export (ONNX)**
+      Backend exportiert nach `checkpoints/`
+      Format: PyTorch (.pt) + ONNX (.onnx)
+      Metadaten in Checkpoint enthalten
+
+- [ ] **Dashboard Header Styling verbessern**
+      Status/Header Metriken besser stylen
+      Model Metrics (Entropy, Grad Norm, etc.) als eigene Gruppe rechts
+      Dezenter als Hauptmetriken, nach "Game Over" Bereich
+      Dateien: `training-backend/dashboard/static/index.html`, `style.css`
 
 ## 5.5 Build & Deployment (Prio 5)
 
@@ -394,28 +400,28 @@
       Bundle Size Check: AI < 300KB
 
 - [x] **Start Scripts**
-      `scripts/start-training.sh` / `.ps1`
-      Startet Python Backend
+      `training-backend/start.bat` (Windows)
+      Startet WebSocket :3001 + Dashboard :3002
       Ein-Befehl-Start
 
-- [ ] **Model Export Script**
-      `scripts/export-model.sh`
+- [ ] **Model Conversion Script**
       PyTorch → TensorFlow.js Format
-      Kopiert nach assets/ai/
+      Für Browser-Inference ohne Backend
+      Kopiert nach `public/assets/ai/`
 
 - [ ] **Model Validation**
       `scripts/validate-model.js`
       Prüft: Format, Größe, Basis-Inference
       Läuft vor Commit (optional)
 
-## 5.6 Training & Tuning (Prio 6)
+## 5.6 Training & Tuning (Prio 6) 🔄 IN PROGRESS
 
 > Das eigentliche Training
 
-- [ ] **Initial Training Run**
-      1000+ Episoden gegen alle Bot-Typen
-      Hyperparameter dokumentieren
-      Checkpoints speichern
+- [~] **Initial Training Run** ← AKTUELL
+      Läuft mit 6 parallelen Frontends
+      Checkpoints alle 10 Episoden in `checkpoints/`
+      Dashboard auf http://localhost:3002
 
 - [ ] **Model Selection**
       Beste Version auswählen
@@ -459,6 +465,57 @@
 - [ ] Poison Tower
 - [ ] Flame Tower
 
+## Enemy-Ideen
+
+- [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
+      Model bereits vorhanden: `public/assets/models/enemies/mechacat_01.glb`
+
+---
+
+# EASY WINS / CLEANUP
+
+> Kleine Aufräumarbeiten, schnell erledigt
+
+## Dead Code entfernen
+
+- [ ] **SmartTowerBot löschen** - Deprecated (Version 1.0), 358 Zeilen toter Code
+      Datei: `src/app/ai/training/bots/smart-tower-bot.ts`
+      Auch aus `index.ts` entfernen (export + createSmartBot)
+
+- [ ] **Ungenutzte AI Interfaces löschen**
+      `ComplexWaveConfig`, `SubWave` in `src/app/ai/core/models/wave-config.ts`
+      Exportiert aber nirgends verwendet
+
+- [ ] **DpsProfileVisualizer prüfen** - Unvollständige Integration
+      Datei: `src/app/ai/core/dps-profile-visualizer.ts`
+      Wird importiert, aber `getMesh()` nie aufgerufen → entweder integrieren oder löschen
+
+## Type Duplikate konsolidieren
+
+- [ ] **GamePhase Type Duplikat** ⚠️
+      `wave.manager.ts:7` → `'setup' | 'wave' | 'gameover'`
+      `models/game.types.ts:32` → `'setup' | 'wave' | 'paused' | 'gameover' | 'victory'`
+      Sollte eine einzige Definition geben
+
+## Ungenutzte Type Exports prüfen
+
+- [ ] `DistanceCalculator` in `models/game.types.ts` - exportiert, nicht importiert
+- [ ] `TowerConfig` in `models/game.types.ts` - exportiert, nur intern verwendet
+- [ ] `EnemyConfig` in `models/game.types.ts` - exportiert, nur intern verwendet
+
+## TODO-Kommentare im Code auflösen
+
+- [ ] `tower-defense.component.ts:1893` - "TODO: Implement sell execution"
+- [ ] `three-tiles-engine.ts:849` - "TODO: Implement smooth animation"
+- [ ] `strategy-bot.factory.ts:84` - "TODO: Add advanced strategies"
+- [ ] `camera-control.service.ts:342` - "TODO: Implement smooth animation"
+- [ ] `vfx.service.ts:30,36` - "TODO: Implement blood/explosion effect"
+
+## Code Quality
+
+- [ ] **console.log Cleanup** - 152 Stellen in 27 Dateien
+      Viele Debug-Logs, ggf. durch proper Logging ersetzen oder entfernen
+
 ---
 
 # BEKANNTE ISSUES
@@ -479,3 +536,5 @@
       Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
       ~20 Zeilen Core, optional UI-Setting in localStorage
 - [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
+- [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
+- [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen

@@ -1266,7 +1266,7 @@ onActionExecuted() {
 ### Related Documentation
 
 - `training-backend/docs/AI_TRAINING_BACKEND.md` - Python Training Backend
-- `docs/AI_WAVE_DIRECTOR_PLAN.md` - Original AI Plan
+- [AI_WAVE_DIRECTOR_PLAN.md](../../../docs/AI_WAVE_DIRECTOR_PLAN.md) - AI Wave Director Übersicht
 - `docs/ARCHITECTURE.md` - Overall System Architecture
 - `docs/TOWER_CREATION.md` - Tower System Details
 

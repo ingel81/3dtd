@@ -43,6 +43,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse & Workarounds |
 | [DEVWORLD.md](DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung, Terrain-Presets |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Based Bot System fuer AI Training |
+| [AI_WAVE_DIRECTOR_PLAN.md](../../../docs/AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - Gesamtübersicht (Frontend + Backend) |
 
 ---
 
@@ -72,6 +73,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...Partikel-Effekte anpassen | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) |
 | ...DevWorld konfigurieren | [DEVWORLD.md](DEVWORLD.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
+| ...das AI-System verstehen | [AI_WAVE_DIRECTOR_PLAN.md](../../../docs/AI_WAVE_DIRECTOR_PLAN.md) |
 
 ---
 
