@@ -60,6 +60,8 @@ export class WaveDirectorService {
   // === STATE ===
   private session: InferenceSession | null = null; // ONNX Runtime session
   private ort: OrtModule | null = null; // ONNX Runtime (lazy loaded)
+  private recentEnemyTypes: EnemyTypeId[] = []; // Track recent types for variety
+  private readonly TYPE_COOLDOWN_WAVES = 2; // Don't repeat same type within N waves
 
   // === SIGNALS ===
   readonly modelState = signal<ModelState>('not-loaded');
@@ -178,8 +180,11 @@ export class WaveDirectorService {
 
       // Use AI if available, otherwise fallback
       if (this.aiMode() === 'inference' && this.session && this.ort) {
+        console.log('[AI] Running ONNX inference...');
         config = await this.runInference(state);
+        console.log('[AI] Inference result:', config.enemies[0].type, 'x', config.totalCount);
       } else {
+        console.log('[AI] Using fallback rules (mode:', this.aiMode(), ')');
         config = generateFallbackWave(state, recentDamage);
       }
 
@@ -231,6 +236,15 @@ export class WaveDirectorService {
     // Encode state to Float32Array
     const encoded = encodeGameState(state);
 
+    // Debug: Log key input values
+    console.log('[AI] Input state:', {
+      waveNumber: state.waveNumber,
+      towerCount: state.defense.towerCount,
+      totalDPS: state.defense.totalDPS,
+      livesPercent: state.player.livesPercent,
+      encoded_sample: Array.from(encoded.slice(0, 10)), // First 10 values
+    });
+
     // Create ONNX tensor (shape: [1, 74])
     const inputTensor = new this.ort.Tensor('float32', encoded, [1, ENCODED_STATE_SIZE]);
 
@@ -241,6 +255,9 @@ export class WaveDirectorService {
     // Get output tensor (name: 'action')
     const outputTensor = results.action;
     const output = outputTensor.data as Float32Array;
+
+    // Debug: Log raw model output
+    console.log('[AI] Raw output:', Array.from(output));
 
     // Decode output to WaveConfig
     return this.decodeModelOutput(output, state);
@@ -278,10 +295,16 @@ export class WaveDirectorService {
     const delayFactor = this.sigmoid(rawParams[2]);
     const variation = this.sigmoid(rawParams[3]) * AI_CONSTANTS.VARIATION_MAX;
 
-    // Select enemy type (argmax - deterministic for inference)
+    // Select enemy type with variety rules (like backend)
+    let enemyType = this.selectEnemyTypeWithVariety(enemyProbs, state.waveNumber);
+
+    // Track this type for future cooldown
+    this.recentEnemyTypes.push(enemyType);
+    if (this.recentEnemyTypes.length > this.TYPE_COOLDOWN_WAVES) {
+      this.recentEnemyTypes.shift();
+    }
+
     const maxProb = Math.max(...enemyProbs);
-    const enemyIdx = enemyProbs.indexOf(maxProb);
-    const enemyType = ENEMY_TYPES[enemyIdx];
 
     // Calculate count based on tower count (matching backend server.py)
     const towerCount = Math.max(1, state.defense.towerCount);
@@ -333,6 +356,45 @@ export class WaveDirectorService {
     const exps = values.map((v) => Math.exp(v - max));
     const sum = exps.reduce((a, b) => a + b, 0);
     return exps.map((e) => e / sum);
+  }
+
+  /**
+   * Select enemy type with variety rules (matching backend server.py)
+   */
+  private selectEnemyTypeWithVariety(probs: number[], waveNumber: number): EnemyTypeId {
+    // Early waves: force zombie
+    if (waveNumber < 2) {
+      console.log('[AI] Early wave, forcing zombie');
+      return 'zombie';
+    }
+
+    // Waves 2-3: limited selection (zombie, tank, penguin)
+    if (waveNumber < 4) {
+      const allowed = [0, 2, 4]; // zombie, tank, penguin indices
+      const allowedProbs = allowed.map(i => probs[i]);
+      const bestAllowedIdx = allowed[allowedProbs.indexOf(Math.max(...allowedProbs))];
+      console.log('[AI] Limited wave, selecting from allowed types');
+      return ENEMY_TYPES[bestAllowedIdx];
+    }
+
+    // Sort indices by probability (descending)
+    const sortedIndices = probs
+      .map((p, i) => ({ prob: p, idx: i }))
+      .sort((a, b) => b.prob - a.prob)
+      .map(x => x.idx);
+
+    // Find best type not on cooldown
+    for (const idx of sortedIndices) {
+      const candidateType = ENEMY_TYPES[idx];
+      if (!this.recentEnemyTypes.includes(candidateType)) {
+        console.log('[AI] Selected', candidateType, '(not on cooldown)');
+        return candidateType;
+      }
+    }
+
+    // All on cooldown, just pick the best
+    console.log('[AI] All types on cooldown, picking best:', ENEMY_TYPES[sortedIndices[0]]);
+    return ENEMY_TYPES[sortedIndices[0]];
   }
 
   /**

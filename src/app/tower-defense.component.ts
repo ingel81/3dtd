@@ -315,6 +315,15 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       const enemiesAlive = this.gameState.enemiesAlive();
       this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
     });
+
+    // Effect: Auto-enable AI Director when ONNX model loads successfully
+    effect(() => {
+      const state = this.waveDirector.modelState();
+      if (state === 'ready' && !this.useAIDirector()) {
+        this.useAIDirector.set(true);
+        console.log('[AI] AI Director auto-enabled (model loaded)');
+      }
+    });
   }
 
   ngOnInit(): void {
