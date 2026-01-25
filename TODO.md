@@ -222,20 +222,23 @@
       Datei: `wave.manager.ts`
       Scaling: Welle 1 (10 Zombies) → Welle 20 (Boss-Gauntlet)
 
-- [ ] **Tower-Kosten neu balancieren**
-      Aktuell: Archer 20, Gatling 100, Cannon 200, Ice 120
-      Problem: "Nur Archer bauen" zu dominant
-      Datei: `configs/tower-types.config.ts`
+- [x] **Tower-Kosten neu balancieren** ✅ DONE 2026-01-25
+      Archer: 20→45, Magic: 150→120, Cannon: 175→140, Ice: 120→90
+      Siehe: `src/app/docs/REBALANCING.md`
 
-- [ ] **Enemy-Belohnungen erhöhen**
-      Boss-Kämpfe müssen lohnender sein
-      Herbert: 8 → 40 Credits, Bat: 3 → 8 Credits
-      Datei: `models/enemy-types.ts`
+- [x] **Enemy-Belohnungen dynamisch** ✅ DONE 2026-01-25
+      Dynamische Rewards basierend auf HP + Speed (reduziert auf ~1/3)
+      Formel: HP/150 + Speed/10, Scale 0.4, Cap 25
+      Siehe: `enemy.manager.ts`
 
 - [ ] **Schwierigkeitsgrad-Auswahl hinzufügen**
       Presets: Easy (150% Credits), Normal, Hard (50%), Expert (25%)
 
 ## 4.3 Gameplay Features
+
+- [ ] **Rechtsklick bricht Baumodus ab**
+      Rechtsklick im Baumodus soll das Bauen abbrechen und den Turm nicht platzieren
+      Datei: `tower-placement.service.ts` oder `input-handler.service.ts`
 
 - [ ] **Tower-Targeting-Strategien**
       Modi: Closest, Lowest HP, Strongest, Flying Priority
@@ -418,9 +421,10 @@
 
 > Das eigentliche Training
 
-- [~] **Initial Training Run** ← AKTUELL
-      Läuft mit 6 parallelen Frontends
-      Checkpoints alle 10 Episoden in `checkpoints/`
+- [~] **Training Run v3.5** ← AKTUELL
+      5267+ Episoden, 40.1% Sweet Spot erreicht
+      Reward-Formel auf ~1/3 reduziert
+      Tower-Limit: 50, Episode-Length: 100
       Dashboard auf http://localhost:3002
 
 - [ ] **Model Selection**
@@ -478,9 +482,9 @@
 
 ## Dead Code entfernen
 
-- [ ] **SmartTowerBot löschen** - Deprecated (Version 1.0), 358 Zeilen toter Code
-      Datei: `src/app/ai/training/bots/smart-tower-bot.ts`
-      Auch aus `index.ts` entfernen (export + createSmartBot)
+- [x] **Legacy Bot-Klassen geloescht** ✅ DONE 2026-01-25
+      smart-tower-bot.ts, beginner-bot.ts, casual-bot.ts, strategist-bot.ts
+      Nur noch StrategyBot mit Strategy-Pattern
 
 - [ ] **Ungenutzte AI Interfaces löschen**
       `ComplexWaveConfig`, `SubWave` in `src/app/ai/core/models/wave-config.ts`

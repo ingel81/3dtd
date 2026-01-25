@@ -4,7 +4,98 @@ Chronologische Zusammenfassung der Architektur-Iterationen des AI Wave Directors
 
 ---
 
-## Version 3.3 (aktuell) - Anti-Boring + Balancing
+## Version 3.5 (aktuell) - Reward Reduction + Training Scaling
+
+### Problem (v3.4 Training)
+Training lief stabil mit ~40% Sweet Spot, aber:
+- **Rewards zu hoch:** Dynamische Rewards fuehrten zu schneller Wirtschafts-Eskalation
+- **Training-Limits zu niedrig:** Tower-Limit 20, Episode-Length 20 → wenig Daten fuer Late-Game DPS
+- **Kill Time sinkend:** 3.09s → 2.13s (naehert sich Minimum 2.0s)
+
+### Fixes
+- **Reward-Formel angepasst:**
+  - HP pro Credit: 50 → 150 (ca. 1/3 der Rewards)
+  - Speed-Divisor: /5 → /10
+  - Scale-Factor: 0.6 → 0.4
+  - Max-Cap: 40 → 25
+- **Training-Limits erhoeht:**
+  - Tower-Limit: 20 → 50 (strategist bot kann mehr bauen)
+  - Episode-Length: 20 → 100 (laengere Spiele, mehr Late-Game Daten)
+- **Bugfixes:**
+  - Wave 1 Stuck Bug (fehlender Spawn-Counter Reset)
+  - Floating Text zeigte statischen statt dynamischen Reward
+
+### Erwartete Verbesserungen
+| Metrik | v3.4 | v3.5 Ziel |
+|--------|------|-----------|
+| Reward pro Kill | 5-15 | 1-8 |
+| Late-Game Daten | Waves 1-20 | Waves 1-100 |
+| Tower-Variety | Max 20 | Max 50 |
+| Kill Time Trend | Sinkend | Stabil bei 2.0-3.0s |
+
+### Training Stand (5267 Episoden)
+- Sweet Spot: **40.1%** (Ziel erreicht!)
+- Avg Progress: 62.5% (etwas zu schwer, aber akzeptabel)
+- Type-Verteilung: Gut (16-20% pro Typ, nur Bat unterreprasentiert mit 9%)
+- Game Over Rate: 3.8-4.9% (gut)
+
+---
+
+## Version 3.4 - Anti-Kollaps + Type Diversity
+
+### Problem (v3.3 Training, 32000 Episoden)
+Training lief ueber Nacht, kollabierte bei ~E6000-8000:
+- **Peak bei E4000-6000:** Avg Reward 0.43, Sweet Spot 43%
+- **Kollaps E6000-14000:** Reward fiel von 0.43 auf 0.02
+- **Stagnation E14000-32000:** Reward blieb bei ~0.03, Sweet Spot nur 21%
+
+**Ursachen:**
+1. **Type-Kollaps:** herbert/tank/bat = 89%, penguin/wallsmasher = 2.7%
+2. **Boring-Wave-Exploitation:** Model generierte zu einfache Wellen (progress ~0.15-0.25), knapp ueber dem Boring-Threshold von 0.20
+3. **Entropy reichte nicht:** Trotz 0.04 Koeffizient spezialisierte sich das Model
+
+### Fixes
+- **ENTROPY_COEF 0.08** statt 0.04 (verdoppelt, mehr Exploration)
+- **REWARD_BORING_THRESHOLD 0.30** statt 0.20 (hoehere Schwelle fuer Boring-Penalty)
+- **REWARD_VARIETY_BONUS 0.20** statt 0.15 (staerkerer Anreiz fuer Type-Diversity)
+- **TYPE_COOLDOWN_WAVES 4** statt 2 (Typ wird fuer 4 Wellen nach Nutzung gesperrt)
+- **Dashboard Mobile-Support:** CSS fuer Smartphones, Server bindet auf 0.0.0.0
+
+### Ergebnisse (E5000-6500, nach Rollback + Fixes)
+| Metrik | v3.3 (Kollaps) | v3.4 (Fix) |
+|--------|----------------|------------|
+| Avg Reward | 0.02-0.04 | **0.30** |
+| Sweet Spot | 21% | **36.5%** |
+| Progress (Breakdown) | -0.002 | **+0.18** |
+| Game Over Rate | 0.4% | 4.1% |
+
+**Type-Verteilung drastisch verbessert:**
+| Typ | v3.3 (Kollaps) | v3.4 (Fix) |
+|-----|----------------|------------|
+| herbert | 30.5% | **19.8%** |
+| tank | 29.7% | **20.1%** |
+| bat | 28.6% | **19.7%** |
+| zombie | 8.4% | **19.8%** |
+| wallsmasher | 1.1% | **18.8%** |
+| penguin | 1.6% | 1.9% |
+
+5 von 6 Typen jetzt gleichverteilt (~20%). Penguin bleibt unterrepresentiert (Model-Bias aus Checkpoint).
+
+### Rollback-Strategie
+1. Checkpoints nach E5000 geloescht (2679 Dateien)
+2. Training von checkpoint_5000.pt neu gestartet
+3. Kritischer Bereich E6000-8000 wird ueberwacht
+
+### Zweiter Drift (E7000+)
+Training driftete erneut bei E7000+ - diesmal ohne Type-Kollaps aber mit Boring-Exploitation.
+Modell waehlt kill_time nahe Minimum (1.0-1.3s) → HP zu niedrig → Enemies sterben sofort → Boring Penalty.
+
+**Fix:** KILL_TIME_MIN von 1.0s auf 1.5s erhoeht - verhindert "instant-kill" Wellen.
+Rollback zu E7000, Training mit neuem Minimum fortgesetzt.
+
+---
+
+## Version 3.3 - Anti-Boring + Balancing
 
 ### Problem (v3.2 Training, 6500 Episoden)
 Bimodale Progress-Verteilung: 30% Boring (<20%) + 16.5% Danger (>85%). Sweet Spot nur 24.3%.
@@ -186,6 +277,15 @@ Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 8. **Symmetrische Penalties:** Boring und Overflow muessen gleich hart bestraft werden. Asymmetrie fuehrt zu Risk-Aversion (Model waehlt "sicher aber langweilig")
 9. **Action-Space-Minimum begrenzen:** kill_time min 1.0s statt 0.5s verhindert degenerierte "instant-kill" Waves die keinen Lernwert haben
 10. **Game-Laenge ermoeglicht DPS-Skalierung:** 1 Schaden/Enemy (statt 10) → Spiele dauern 15-20 Waves → Bot baut diverse teure Towers → AI sieht breites DPS-Spektrum
+11. **Type-Cooldown ist kritisch:** Ohne expliziten Cooldown kollabiert das Model auf 2-3 bevorzugte Typen. 4-Wellen-Cooldown erzwingt Diversity
+12. **Entropy muss hoch genug sein:** 0.04 reichte nicht fuer stabiles Training ueber 30k Episoden. 0.08 verhindert Spezialisierung
+13. **Boring-Threshold nicht zu niedrig:** 0.20 erlaubt dem Model "knapp drueber" zu exploiten. 0.30 schliesst diese Luecke
+14. **Checkpoints regelmaessig analysieren:** Kollaps passierte schleichend (E6000-14000). Fruehe Erkennung durch Analyse in 2000er-Chunks
+15. **Rollback-Strategie vorbereiten:** Checkpoints alle 10 Episoden ermoeglichen praezises Zuruecksetzen zum besten Zeitpunkt
+16. **Reward-Skalierung beachten:** Zu hohe Rewards fuehren zu schneller Wirtschafts-Eskalation. Sublineare Skalierung (HP/150 statt HP/50) verhindert Inflation
+17. **Training-Limits grosszuegig waehlen:** Niedrige Tower/Wave-Limits schraenken den DPS-Range ein. 50 Towers + 100 Waves ermoeglicht Training ueber breites DPS-Spektrum
+18. **Race Conditions in async Code:** Wave-Start kann mehrfach getriggert werden. Flags (`pendingAIWaveRequest`) schuetzen vor doppelten Requests
+19. **State vollstaendig zuruecksetzen:** Spawn-Counter, Flags und temporaerer State muessen in `reset()` explizit zurueckgesetzt werden
 
 ---
 
