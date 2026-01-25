@@ -100,14 +100,36 @@ class TUILogger:
             "bot_type": bot_type,
         })
 
-    def wave_generated(self, config, enemy_hp=None, kill_time=None):
+    def wave_generated(self, config, wave_info=None, enemy_hp=None, kill_time=None):
         enemy_type = config.get("enemies", [{}])[0].get("type", "?")
         count = config.get("totalCount", 0)
-        self._log("wave_generated", {
-            "enemy_type": enemy_type, "count": count,
-            "enemy_hp": round(enemy_hp, 1) if enemy_hp else None,
-            "kill_time": round(kill_time, 2) if kill_time else None,
-        })
+
+        # Build log entry
+        log_data = {
+            "enemy_type": enemy_type,
+            "count": count,
+        }
+
+        # Use wave_info if provided (new format), fall back to legacy params
+        if wave_info:
+            log_data.update({
+                "enemy_hp": round(wave_info.get("enemy_hp", 0), 1),
+                "kill_time": round(wave_info.get("kill_time", 0), 2),
+                "effective_dps": round(wave_info.get("effective_dps", 0), 1),
+                "count_factor": round(wave_info.get("count_factor", 0), 3),
+                "delay_factor": round(wave_info.get("delay_factor", 0), 3),
+                "variation": round(wave_info.get("variation", 0), 3),
+                "spawn_delay": wave_info.get("spawn_delay", 0),
+                "type_probs": wave_info.get("type_probs", {}),
+                "sampled_type": wave_info.get("sampled_type", "?"),
+                "cooldown_override": wave_info.get("cooldown_override", False),
+            })
+        else:
+            # Legacy format
+            log_data["enemy_hp"] = round(enemy_hp, 1) if enemy_hp else None
+            log_data["kill_time"] = round(kill_time, 2) if kill_time else None
+
+        self._log("wave_generated", log_data)
 
     def wave_result(self, wave_num, damage_pct, killed, avg_progress, near_miss_ratio=0):
         self._log("wave_result", {

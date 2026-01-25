@@ -29,6 +29,10 @@ const state = {
     overflowThreshold: 0.85,
     boringThreshold: 0.20,
   },
+  // AI parameter history
+  killTimeHistory: [],
+  enemyHpHistory: [],
+  dpsHistory: [],
 };
 
 // === Chart Setup ===
@@ -77,6 +81,7 @@ function createChartOptions(yMin, yMax, opts = {}) {
 }
 
 let rewardChart, progressChart, nearMissChart, distChart;
+let killTimeChart, enemyHpChart, dpsChart;  // AI parameter charts
 
 function calcRollingAvg(data, window) {
   const result = [];
@@ -234,6 +239,105 @@ function initCharts() {
       },
     },
   });
+
+  // === AI Parameter Charts ===
+
+  // Kill Time Chart (1.5s - 4.0s)
+  killTimeChart = new Chart(document.getElementById('kill-time-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Kill Time (s)',
+          data: [],
+          borderColor: 'rgba(57, 211, 83, 0.3)',
+          backgroundColor: 'rgba(57, 211, 83, 0.05)',
+          borderWidth: 1,
+          fill: true,
+          pointRadius: 0,
+        },
+        {
+          label: 'Trend (30)',
+          data: [],
+          borderColor: 'rgba(188, 140, 255, 0.9)',
+          borderWidth: 2,
+          fill: false,
+          pointRadius: 0,
+        },
+        {
+          label: 'Min (1.5s)',
+          data: [],
+          borderColor: 'rgba(248, 81, 73, 0.5)',
+          borderDash: [3, 3],
+          borderWidth: 1,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: createChartOptions(1.0, 4.5),
+  });
+
+  // Enemy HP Chart
+  enemyHpChart = new Chart(document.getElementById('enemy-hp-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Enemy HP',
+          data: [],
+          borderColor: 'rgba(188, 140, 255, 0.3)',
+          backgroundColor: 'rgba(188, 140, 255, 0.05)',
+          borderWidth: 1,
+          fill: true,
+          pointRadius: 0,
+        },
+        {
+          label: 'Trend (30)',
+          data: [],
+          borderColor: 'rgba(63, 185, 80, 0.9)',
+          borderWidth: 2,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: createChartOptions(0, null, {
+      yScale: { suggestedMax: 1000 }
+    }),
+  });
+
+  // Effective DPS Chart
+  dpsChart = new Chart(document.getElementById('dps-chart').getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: [],
+      datasets: [
+        {
+          label: 'Effective DPS',
+          data: [],
+          borderColor: 'rgba(210, 153, 34, 0.3)',
+          backgroundColor: 'rgba(210, 153, 34, 0.05)',
+          borderWidth: 1,
+          fill: true,
+          pointRadius: 0,
+        },
+        {
+          label: 'Trend (30)',
+          data: [],
+          borderColor: 'rgba(88, 166, 255, 0.9)',
+          borderWidth: 2,
+          fill: false,
+          pointRadius: 0,
+        },
+      ],
+    },
+    options: createChartOptions(0, null, {
+      yScale: { suggestedMax: 500 }
+    }),
+  });
 }
 
 function updateCharts() {
@@ -292,7 +396,7 @@ function updateCharts() {
 }
 
 // === Distribution ===
-function updateDistribution() {
+function updateDistribution(addNewPoint = true) {
   const total = Object.values(state.distribution).reduce((a, b) => a + b, 0);
   const bar = document.getElementById('dist-bar');
 
@@ -307,10 +411,12 @@ function updateDistribution() {
     return pct > 0 ? `<div class="dist-segment ${s}" style="width:${pct}%" title="${s}: ${pct.toFixed(1)}%"></div>` : '';
   }).join('');
 
-  // Update sweet spot over time chart
-  const sweetPct = total > 0 ? (state.distribution.sweet / total * 100) : 0;
-  state.distHistory.push(sweetPct);
-  if (state.distHistory.length > state.maxPoints) state.distHistory.shift();
+  // Update sweet spot over time chart - only add new point for actual episodes
+  if (addNewPoint) {
+    const sweetPct = total > 0 ? (state.distribution.sweet / total * 100) : 0;
+    state.distHistory.push(sweetPct);
+    if (state.distHistory.length > state.maxPoints) state.distHistory.shift();
+  }
 
   distChart.data.labels = state.distHistory.map((_, i) => i);
   distChart.data.datasets[0].data = state.distHistory;
@@ -325,6 +431,80 @@ function classifyProgress(p) {
   if (p <= overflowThreshold) return 'moderate';
   if (p < 1.0) return 'danger';
   return 'gameover';
+}
+
+// === AI Parameter Charts ===
+function updateAIParamCharts() {
+  // Kill Time Chart
+  const ktLabels = state.killTimeHistory.map((_, i) => i);
+  killTimeChart.data.labels = ktLabels;
+  killTimeChart.data.datasets[0].data = state.killTimeHistory;
+  killTimeChart.data.datasets[1].data = calcRollingAvg(state.killTimeHistory, 30);
+  killTimeChart.data.datasets[2].data = ktLabels.map(() => 1.5); // min line
+  killTimeChart.update('none');
+
+  // Update Kill Time badge
+  if (state.killTimeHistory.length > 0) {
+    const lastKT = state.killTimeHistory[state.killTimeHistory.length - 1];
+    const ktBadge = document.getElementById('kill-time-badge');
+    ktBadge.textContent = lastKT.toFixed(2) + 's';
+    ktBadge.className = 'card-badge ' + (lastKT >= 2.0 ? 'green' : lastKT >= 1.5 ? 'orange' : 'red');
+  }
+
+  // Enemy HP Chart
+  const hpLabels = state.enemyHpHistory.map((_, i) => i);
+  enemyHpChart.data.labels = hpLabels;
+  enemyHpChart.data.datasets[0].data = state.enemyHpHistory;
+  enemyHpChart.data.datasets[1].data = calcRollingAvg(state.enemyHpHistory, 30);
+  enemyHpChart.update('none');
+
+  // Update HP badge
+  if (state.enemyHpHistory.length > 0) {
+    const lastHP = state.enemyHpHistory[state.enemyHpHistory.length - 1];
+    const hpBadge = document.getElementById('enemy-hp-badge');
+    hpBadge.textContent = Math.round(lastHP);
+  }
+
+  // DPS Chart
+  const dpsLabels = state.dpsHistory.map((_, i) => i);
+  dpsChart.data.labels = dpsLabels;
+  dpsChart.data.datasets[0].data = state.dpsHistory;
+  dpsChart.data.datasets[1].data = calcRollingAvg(state.dpsHistory, 30);
+  dpsChart.update('none');
+
+  // Update DPS badge
+  if (state.dpsHistory.length > 0) {
+    const lastDPS = state.dpsHistory[state.dpsHistory.length - 1];
+    const dpsBadge = document.getElementById('dps-badge');
+    dpsBadge.textContent = Math.round(lastDPS);
+  }
+}
+
+// === Type Probabilities ===
+function updateTypeProbs(typeProbs, cooldownOverride = false) {
+  if (!typeProbs || Object.keys(typeProbs).length === 0) return;
+
+  const types = ['herbert', 'tank', 'zombie', 'bat', 'wallsmasher', 'penguin'];
+
+  types.forEach(type => {
+    const item = document.querySelector(`.type-prob-item[data-type="${type}"]`);
+    if (!item) return;
+
+    const prob = typeProbs[type] || 0;
+    const pct = (prob * 100).toFixed(1);
+
+    const fill = item.querySelector('.type-prob-fill');
+    const value = item.querySelector('.type-prob-value');
+
+    if (fill) fill.style.width = pct + '%';
+    if (value) value.textContent = pct + '%';
+  });
+
+  // Show/hide cooldown indicator
+  const indicator = document.getElementById('cooldown-indicator');
+  if (indicator) {
+    indicator.style.display = cooldownOverride ? 'inline-block' : 'none';
+  }
 }
 
 // === DPS Profiles ===
@@ -551,6 +731,26 @@ function handleEvent(msg) {
   } else if (msg.type === 'training_update') {
     updateModelMetrics(msg.data);
 
+  } else if (msg.type === 'ai_params') {
+    // Live AI parameter updates
+    const d = msg.data;
+    if (d.killTime !== undefined) {
+      state.killTimeHistory.push(d.killTime);
+      if (state.killTimeHistory.length > state.maxPoints) state.killTimeHistory.shift();
+    }
+    if (d.enemyHp !== undefined) {
+      state.enemyHpHistory.push(d.enemyHp);
+      if (state.enemyHpHistory.length > state.maxPoints) state.enemyHpHistory.shift();
+    }
+    if (d.dps !== undefined) {
+      state.dpsHistory.push(d.dps);
+      if (state.dpsHistory.length > state.maxPoints) state.dpsHistory.shift();
+    }
+    updateAIParamCharts();
+    if (d.typeProbs) {
+      updateTypeProbs(d.typeProbs, d.cooldownOverride || false);
+    }
+
   } else if (msg.type === 'log') {
     addTrainingLog(msg.data.level || 'ep', msg.data.message || '');
   }
@@ -587,13 +787,22 @@ async function loadInitialData() {
     state.distribution = history.distribution || state.distribution;
     state.distHistory = history.distHistory || [];
 
-    // Trim
+    // AI parameter history
+    state.killTimeHistory = history.killTimeHistory || [];
+    state.enemyHpHistory = history.enemyHpHistory || [];
+    state.dpsHistory = history.dpsHistory || [];
+
+    // Trim all arrays
     if (state.rewards.length > state.maxPoints) state.rewards = state.rewards.slice(-state.maxPoints);
     if (state.progress.length > state.maxPoints) state.progress = state.progress.slice(-state.maxPoints);
     if (state.nearMiss.length > state.maxPoints) state.nearMiss = state.nearMiss.slice(-state.maxPoints);
+    if (state.killTimeHistory.length > state.maxPoints) state.killTimeHistory = state.killTimeHistory.slice(-state.maxPoints);
+    if (state.enemyHpHistory.length > state.maxPoints) state.enemyHpHistory = state.enemyHpHistory.slice(-state.maxPoints);
+    if (state.dpsHistory.length > state.maxPoints) state.dpsHistory = state.dpsHistory.slice(-state.maxPoints);
 
     updateCharts();
-    updateDistribution();
+    updateAIParamCharts();
+    updateDistribution(false);  // Don't add new point on initial load
 
     const clients = await clientsRes.json();
     updateAllDPSProfiles(clients);

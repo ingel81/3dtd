@@ -193,7 +193,81 @@
       </div>
     </div>
 
-    <!-- Row 3: DPS Profiles + Wave Log + Training Log -->
+    <!-- Row 3: AI Parameters (Kill Time, Enemy HP, Effective DPS) -->
+    <div class="card">
+      <div class="card-header" title="Kill Time: Wie lange (in Sekunden) soll ein Gegner theoretisch ueberleben bevor er stirbt. Die AI waehlt Werte zwischen 1.5s (schwache Gegner) und 4.0s (starke Gegner). Bestimmt zusammen mit dem DPS die Gegner-HP.">
+        <span class="card-title">Kill Time</span>
+        <span class="card-badge cyan" id="kill-time-badge">--</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="kill-time-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" title="Enemy HP: Berechnete Lebenspunkte der Gegner (HP = DPS × kill_time). Hohe Werte bedeuten widerstandsfaehige Gegner die laenger durchhalten. Skaliert mit der Staerke der Verteidigung.">
+        <span class="card-title">Enemy HP</span>
+        <span class="card-badge purple" id="enemy-hp-badge">--</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="enemy-hp-chart"></canvas>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-header" title="Effective DPS: Der aktuelle Schadenswert der Verteidigung (Ground oder Air, je nach Gegnertyp). Wird vom Bot-Setup bestimmt. Die AI nutzt diesen Wert um passende Gegner-HP zu berechnen.">
+        <span class="card-title">Effective DPS</span>
+        <span class="card-badge orange" id="dps-badge">--</span>
+      </div>
+      <div class="chart-container">
+        <canvas id="dps-chart"></canvas>
+      </div>
+    </div>
+
+    <!-- Row 4: Type Probabilities + DPS Profiles + Wave Log -->
+    <div class="card">
+      <div class="card-header" title="Type Probabilities: Wahrscheinlichkeitsverteilung fuer jeden Gegnertyp. Zeigt welche Typen die AI aktuell bevorzugt. Gleichverteilung (~16.7% pro Typ) ist optimal. Type-Cooldown blockiert kuerzlich genutzte Typen.">
+        <span class="card-title">Type Probabilities</span>
+      </div>
+      <div class="type-probs-container" id="type-probs-container">
+        <div class="type-probs-bars">
+          <div class="type-prob-item" data-type="herbert">
+            <span class="type-prob-label">herbert</span>
+            <div class="type-prob-bar"><div class="type-prob-fill herbert" style="width: 0%"></div></div>
+            <span class="type-prob-value">0%</span>
+          </div>
+          <div class="type-prob-item" data-type="tank">
+            <span class="type-prob-label">tank</span>
+            <div class="type-prob-bar"><div class="type-prob-fill tank" style="width: 0%"></div></div>
+            <span class="type-prob-value">0%</span>
+          </div>
+          <div class="type-prob-item" data-type="zombie">
+            <span class="type-prob-label">zombie</span>
+            <div class="type-prob-bar"><div class="type-prob-fill zombie" style="width: 0%"></div></div>
+            <span class="type-prob-value">0%</span>
+          </div>
+          <div class="type-prob-item" data-type="bat">
+            <span class="type-prob-label">bat</span>
+            <div class="type-prob-bar"><div class="type-prob-fill bat" style="width: 0%"></div></div>
+            <span class="type-prob-value">0%</span>
+          </div>
+          <div class="type-prob-item" data-type="wallsmasher">
+            <span class="type-prob-label">wallsmasher</span>
+            <div class="type-prob-bar"><div class="type-prob-fill wallsmasher" style="width: 0%"></div></div>
+            <span class="type-prob-value">0%</span>
+          </div>
+          <div class="type-prob-item" data-type="penguin">
+            <span class="type-prob-label">penguin</span>
+            <div class="type-prob-bar"><div class="type-prob-fill penguin" style="width: 0%"></div></div>
+            <span class="type-prob-value">0%</span>
+          </div>
+        </div>
+        <div class="type-probs-footer">
+          <span class="cooldown-indicator" id="cooldown-indicator" style="display: none;">Cooldown Override</span>
+        </div>
+      </div>
+    </div>
+
     <div class="card">
       <div class="card-header" title="DPS-Verteilung entlang des Pfades (20 Bins). Zeigt wo die Defense stark/schwach ist.">
         <span class="card-title">DPS Profiles</span>
@@ -205,7 +279,7 @@
     </div>
 
     <div class="card">
-      <div class="card-header" title="Letzte 50 Wellen: Gegnertyp, Anzahl, Progress (Balken), Reward. Grün = Sweet Spot.">
+      <div class="card-header" title="Letzte 50 Wellen: Gegnertyp, Anzahl, Progress (Balken), Reward. Gruen = Sweet Spot.">
         <span class="card-title">Wave Log</span>
       </div>
       <div class="wave-log" id="wave-log">
@@ -215,8 +289,9 @@
       </div>
     </div>
 
-    <div class="card">
-      <div class="card-header" title="PPO Updates: L=Policy Loss, H=Entropy, G=Grad Norm, R=Batch Reward">
+    <!-- Row 5: Training Log (full width) -->
+    <div class="card span-3">
+      <div class="card-header" title="PPO Updates: L=Policy Loss (sollte sinken), H=Entropy (sollte stabil bei ~7 bleiben), G=Grad Norm (sollte <10 sein), R=Batch Reward (durchschnittlicher Reward im Batch)">
         <span class="card-title">Training Log</span>
       </div>
       <div class="training-log" id="training-log">

@@ -15,6 +15,7 @@ from config import (
     REWARD_PROGRESS_SIGMA,
     REWARD_GAME_OVER_PENALTY,
     REWARD_BORING_PENALTY,
+    REWARD_BORING_THRESHOLD,
     REWARD_VARIETY_BONUS,
     NUM_BINS,
 )
@@ -58,8 +59,8 @@ def calculate_reward(result: dict, context: dict, state_before: dict = None, sta
         -((avg_progress - REWARD_PROGRESS_CENTER) ** 2) / (2 * REWARD_PROGRESS_SIGMA ** 2)
     )
 
-    # Penalty for too easy (enemies die before 20% of path)
-    if avg_progress < 0.20:
+    # Penalty for too easy (enemies die before reaching threshold)
+    if avg_progress < REWARD_BORING_THRESHOLD:
         progress_reward = REWARD_BORING_PENALTY  # Flat penalty, same as overflow
 
     # Hard penalty for overwhelming waves (most enemies get through)

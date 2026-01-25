@@ -19,7 +19,7 @@ OUTPUT_SIZE = 10  # Enemy probs (6) + continuous params (4)
 LEARNING_RATE = 0.0003  # Increased from 0.0001 (was too slow to converge)
 GAMMA = 0.99  # Discount factor
 CLIP_EPSILON = 0.2  # PPO clip parameter
-ENTROPY_COEF = 0.04  # High to prevent early specialization (boring waves from low kill_time)
+ENTROPY_COEF = 0.08  # Increased from 0.04 to prevent type collapse
 VALUE_COEF = 0.5  # Value loss coefficient
 
 BATCH_SIZE = 16  # Reduced from 32 (more frequent updates)
@@ -29,8 +29,19 @@ UPDATE_EPOCHS = 4  # PPO epochs per batch
 REWARD_PROGRESS_CENTER = 0.55   # Target avg raw progress (half die in defense, half reach base)
 REWARD_PROGRESS_SIGMA = 0.15    # Wide Gaussian for gradient signal with raw progress
 REWARD_GAME_OVER_PENALTY = -0.5  # Mild game-over penalty
-REWARD_BORING_PENALTY = -0.3    # When avg progress < 20%
-REWARD_VARIETY_BONUS = 0.15
+REWARD_BORING_PENALTY = -0.3    # When avg progress < boring threshold
+REWARD_BORING_THRESHOLD = 0.30  # Increased from 0.20 to punish easy waves harder
+REWARD_VARIETY_BONUS = 0.20     # Increased from 0.15 to encourage type diversity
+
+# === TYPE COOLDOWN ===
+TYPE_COOLDOWN_WAVES = 4  # Block a type for N waves after use (was 2)
+
+# === KILL TIME ===
+KILL_TIME_MIN = 2.0  # Minimum seconds enemy survives under focus-fire (was 1.5)
+KILL_TIME_MAX = 5.0  # Maximum seconds (was 4.0)
+
+# === HEALTH MULTIPLIER ===
+HEALTH_MULTIPLIER_MAX = 20.0  # Cap to prevent absurd values at high DPS
 
 # === ENEMY BASE HP (for healthMultiplier calculation) ===
 ENEMY_BASE_HP = {
@@ -54,7 +65,7 @@ BOT_WEIGHTS = {
 }
 
 # === EPISODE ===
-EPISODE_LENGTH = 20  # Max waves per episode before reset
+EPISODE_LENGTH = 100  # Max waves per episode before reset
 
 # === CHECKPOINTS ===
 CHECKPOINT_INTERVAL = 10  # Save every N episodes
