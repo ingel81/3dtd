@@ -13,6 +13,7 @@ import { TowerCombatService } from '../services/tower-combat.service';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { WaveDebugService } from '../services/wave-debug.service';
+import { EnemyDebugService } from '../services/enemy-debug.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { Enemy } from '../entities/enemy.entity';
@@ -41,6 +42,7 @@ export class GameStateManager {
   private readonly entityPool = inject(EntityPoolService);
   private readonly osmService = inject(OsmStreetService);
   private readonly waveDebug = inject(WaveDebugService);
+  private readonly enemyDebug = inject(EnemyDebugService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -189,32 +191,41 @@ export class GameStateManager {
     // Process deferred events (VFX, audio, etc.) at stable point in game loop
     this.eventBus.processQueue();
 
-    // Tower idle rotation (smooth return to base position) - only when not in wave
-    if (this.waveManager.phase() !== 'wave') {
+    // Check combat conditions
+    const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
+    const isWavePhase = this.waveManager.phase() === 'wave';
+    const shouldRunCombat = isWavePhase || hasDebugEnemies;
+
+    // Tower idle rotation (smooth return to base position) - only when no combat
+    if (!shouldRunCombat) {
       this.towerCombat.updateTowerIdleRotations(this.towerManager);
+    }
+
+    // Enemy movement - always update (debug enemies may move outside wave phase)
+    // Paused enemies (e.g., during gathering) won't move due to movement.paused check
+    this.enemyManager.update(deltaTime, this.trainingTimescale());
+
+    // Tower combat (targeting + firing)
+    if (shouldRunCombat) {
+      this.towerCombat.updateTowerShooting(
+        currentTime,
+        this.towerManager,
+        this.enemyManager,
+        this.projectileManager,
+        this.trainingTimescale()
+      );
     }
 
     // ══════════════════════════════════════════════════════════════
     // WAVE PHASE ONLY
     // ══════════════════════════════════════════════════════════════
 
-    if (this.waveManager.phase() !== 'wave') return;
-
-    // Enemy movement (with timescale for status effect duration)
-    this.enemyManager.update(deltaTime, this.trainingTimescale());
-
-    // Tower combat (targeting + firing) - delegates to TowerCombatService
-    this.towerCombat.updateTowerShooting(
-      currentTime,
-      this.towerManager,
-      this.enemyManager,
-      this.projectileManager,
-      this.trainingTimescale()
-    );
+    if (!isWavePhase) return;
 
     // Check wave completion
     if (this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
+      this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
       this.credits.update((c) => c + GAME_BALANCE.waves.completionBonus);
     }
 
@@ -230,6 +241,7 @@ export class GameStateManager {
   private triggerGameOver(): void {
     this.waveManager.phase.set('gameover');
     this.enemyManager.clear();
+    this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
     this.towerManager.selectTower(null);
 
     // Delegate visual effects to HQDamageService
@@ -302,6 +314,7 @@ export class GameStateManager {
     this.clearAllTowerOverlays();
 
     this.enemyManager.clear();
+    this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
     this.towerManager.clear();
     this.projectileManager.clear();
     this.waveManager.reset();
