@@ -67,11 +67,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       <div class="td-dev-menu-wrapper">
         <div class="td-dev-menu" [class.expanded]="uiState.devMenuExpanded()">
           <button class="td-dev-btn"
-                  [class.active]="uiState.towerDebugVisible()"
-                  (click)="uiState.toggleTowerDebug(); towerDebugToggled.emit()"
-                  matTooltip="Show tower shoot height"
+                  [class.active]="debugWindows.towerWindow().isOpen"
+                  (click)="debugWindows.toggle('tower')"
+                  matTooltip="Tower debug panel"
                   matTooltipPosition="left">
-            <mat-icon>gps_fixed</mat-icon>
+            <mat-icon>settings</mat-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="uiState.heightDebugVisible()"
@@ -351,7 +351,6 @@ export class QuickActionsComponent {
   readonly resetCamera = output<void>();
   readonly streetsToggled = output<void>();
   readonly routesToggled = output<void>();
-  readonly towerDebugToggled = output<void>();
   readonly heightDebugToggled = output<void>();
   readonly cameraFramingDebugToggled = output<void>();
   readonly specialPointsDebugToggled = output<void>();

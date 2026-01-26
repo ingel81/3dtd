@@ -210,6 +210,8 @@ export class TowerPlacementService {
       }
 
       model.scale.setScalar(config.scale);
+      // Apply base rotation from config
+      model.rotation.y = config.rotationY ?? 0;
       this.makeModelTransparent(model, 0.7);
 
       this.previewTowerMesh = model;

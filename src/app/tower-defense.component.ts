@@ -36,12 +36,14 @@ import { SoundDebuggerComponent } from './components/debug-window/sound-debugger
 import { EventDebuggerComponent } from './components/debug-window/event-debugger.component';
 import { DevWorldDebuggerComponent } from './devworld/devworld-debugger.component';
 import { TrainingDebuggerComponent } from './components/debug-window/training-debugger.component';
+import { TowerDebuggerComponent } from './components/debug-window/tower-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
 import { SoundDebugService } from './services/sound-debug.service';
+import { TowerDebugService } from './services/tower-debug.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
@@ -117,6 +119,7 @@ const EMPTY_CENTER_COORDS = {
     EventDebuggerComponent,
     DevWorldDebuggerComponent,
     TrainingDebuggerComponent,
+    TowerDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
@@ -176,6 +179,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly debugWindows = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
   readonly soundDebug = inject(SoundDebugService);
+  private readonly towerDebug = inject(TowerDebugService);
 
   // AI Wave Director
   private readonly waveDirector = inject(WaveDirectorService);
@@ -227,7 +231,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly loadingSteps = this.engineInit.loadingSteps;
   readonly streetsVisible = this.uiState.streetsVisible;
   readonly routesVisible = this.uiState.routesVisible;
-  readonly towerDebugVisible = this.uiState.towerDebugVisible;
   readonly debugMode = this.uiState.debugMode;
   readonly heightDebugVisible = this.uiState.heightDebugVisible;
   readonly spatialGridDebugVisible = this.uiState.spatialGridDebugVisible;
@@ -324,6 +327,27 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         console.log('[AI] AI Director auto-enabled (model loaded)');
       }
     });
+
+    // Effect: Sync tower debug "Show Shoot Height" to renderer
+    effect(() => {
+      const showShootHeight = this.towerDebug.showShootHeight();
+      if (this.engine) {
+        this.engine.towers.setShowShootHeight(showShootHeight);
+      }
+    });
+
+    // Effect: Apply tower debug overrides to renderer (live updates)
+    effect(() => {
+      const allOverrides = this.towerDebug.allOverrides();
+      if (!this.engine) return;
+
+      // Apply overrides to all tower types
+      for (const typeId of Object.keys(allOverrides) as TowerTypeId[]) {
+        const overrides = allOverrides[typeId];
+        this.engine.towers.applyDebugOverrides(typeId, overrides);
+      }
+    });
+
   }
 
   ngOnInit(): void {
@@ -921,6 +945,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Initialize strategic placement service with street network
     this.strategicPlacement.initialize(this.streetNetwork);
+
+    // Subscribe to tower:selected event - sync debug panel dropdown
+    this.gameState.getEventBus().on('tower:selected', (event) => {
+      this.towerDebug.selectTower(event.tower.typeConfig.id);
+    });
 
     // Subscribe to game:over event
     this.gameState.getEventBus().on('game:over', () => {
@@ -1958,15 +1987,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    */
   onRoutesToggled(): void {
     this.pathRoute.setRouteLinesVisible(this.uiState.routesVisible());
-  }
-
-  /**
-   * Handle tower debug toggle side effect (visibility already toggled by QuickActionsComponent)
-   */
-  onTowerDebugToggled(): void {
-    if (this.engine) {
-      this.engine.towers.setDebugMode(this.uiState.towerDebugVisible());
-    }
   }
 
   /**
