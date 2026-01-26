@@ -52,6 +52,7 @@ export interface TowerRenderData {
   // Turret rotation animation
   currentLocalRotation: number; // Current turret rotation (local space)
   targetLocalRotation: number; // Target turret rotation (local space)
+  turretOriginalRotationY: number; // Original rotation from model (for reset)
   // Turret hover animation (e.g., magic tower orb)
   turretBaseY: number; // Original Y position of turret part
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
@@ -115,8 +116,11 @@ export class ThreeTowerRenderer {
   // Line-of-Sight raycaster for visibility checks
   private losRaycaster: LineOfSightRaycaster | null = null;
 
-  // Debug mode - shows tip markers for all towers
+  // Debug mode - shows LOS rings and aim arrows for all towers
   private debugMode = false;
+
+  // Show shoot height mode - shows tip markers (magenta spheres) for all towers
+  private showShootHeight = false;
 
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
@@ -297,11 +301,13 @@ export class ThreeTowerRenderer {
     // Supports 'turret_top', 'tower_top', and 'top' naming conventions
     let turretPart: Object3D | null = null;
     let turretBaseY = 0;
+    let turretOriginalRotationY = 0; // Preserve model's original turret rotation
     mesh.traverse((node) => {
       if ((node.name === 'turret_top' || node.name === 'tower_top' || node.name === 'top') && !turretPart) {
         turretPart = node;
         turretBaseY = node.position.y;
-        console.log(`[TowerRenderer] Found turret part '${node.name}' for ${typeId}, baseY: ${turretBaseY}`);
+        turretOriginalRotationY = node.rotation.y; // Capture original rotation
+        console.log(`[TowerRenderer] Found turret part '${node.name}' for ${typeId}, baseY: ${turretBaseY}, originalRotY: ${turretOriginalRotationY}`);
       }
     });
     // Debug: list all node names if no turret found
@@ -345,21 +351,19 @@ export class ThreeTowerRenderer {
     // Pure air towers don't need LOS visualization since air enemies are always visible
     const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
 
-    // Create tip marker (magenta sphere showing LoS origin point)
-    // Skip for pure air towers
-    let tipMarker: Mesh | null = null;
-    if (!isPureAirTower) {
-      const tipMarkerGeometry = new SphereGeometry(2, 16, 16);
-      const tipMarkerMaterial = new MeshBasicMaterial({
-        color: 0xff00ff, // Magenta
-        depthTest: false, // Always visible, even inside tower mesh
-      });
-      tipMarker = new Mesh(tipMarkerGeometry, tipMarkerMaterial);
-      tipMarker.position.set(terrainPos.x, tipY, terrainPos.z);
-      tipMarker.renderOrder = 999; // Render on top
-      tipMarker.visible = this.debugMode; // Visible in debug mode, or when tower is selected
-      this.scene.add(tipMarker);
-    }
+    // Create tip marker (magenta sphere showing projectile origin point)
+    const tipMarkerGeometry = new SphereGeometry(2, 16, 16);
+    const tipMarkerMaterial = new MeshBasicMaterial({
+      color: 0xff00ff, // Magenta
+      transparent: true,
+      opacity: 0.5, // Semi-transparent so tower is visible
+      depthTest: false, // Always visible, even inside tower mesh
+    });
+    const tipMarker = new Mesh(tipMarkerGeometry, tipMarkerMaterial);
+    tipMarker.position.set(terrainPos.x, tipY, terrainPos.z);
+    tipMarker.renderOrder = 999; // Render on top
+    tipMarker.visible = this.showShootHeight; // Controlled by "Show Shoot Height" option
+    this.scene.add(tipMarker);
 
     // Create LOS ring (cyan circle showing where LOS raycasts originate)
     // Skip for pure air towers
@@ -444,8 +448,9 @@ export class ThreeTowerRenderer {
       height,
       tipY,
       customRotation,
-      currentLocalRotation: 0, // Start at base position
-      targetLocalRotation: 0, // Target at base position
+      currentLocalRotation: turretOriginalRotationY, // Start at model's original rotation
+      targetLocalRotation: turretOriginalRotationY, // Target at model's original rotation
+      turretOriginalRotationY, // Store for reset
       turretBaseY, // Store original Y for hover animation
       hoverPhaseOffset: Math.random() * Math.PI * 2, // Random start phase
       hasTarget: false, // Start without target
@@ -493,6 +498,45 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Apply debug overrides to all towers of a specific type.
+   * Updates scale, position (heightOffset), tipMarker (shootHeight), and base rotation.
+   */
+  applyDebugOverrides(
+    typeId: TowerTypeId,
+    overrides: { scale: number; heightOffset: number; shootHeight: number; rotationY: number }
+  ): void {
+    for (const data of this.towers.values()) {
+      if (data.typeConfig.id !== typeId) continue;
+
+      // Update scale
+      data.mesh.scale.setScalar(overrides.scale);
+
+      // Update position (heightOffset)
+      const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
+      data.mesh.position.set(
+        terrainPos.x,
+        terrainPos.y + overrides.heightOffset,
+        terrainPos.z
+      );
+
+      // Update base rotation (preserving custom rotation)
+      data.mesh.rotation.y = overrides.rotationY + data.customRotation;
+
+      // Update tipY and tipMarker position (shootHeight)
+      const newTipY = terrainPos.y + overrides.heightOffset + overrides.shootHeight;
+      data.tipY = newTipY;
+
+      if (data.tipMarker) {
+        data.tipMarker.position.set(terrainPos.x, newTipY, terrainPos.z);
+      }
+
+      if (data.losRing) {
+        data.losRing.position.set(terrainPos.x, newTipY, terrainPos.z);
+      }
+    }
+  }
+
+  /**
    * Update tower rotation target (for aiming at target)
    * Only affects turrets (turret_top). Actual rotation is interpolated in updateTurretAnimations().
    *
@@ -534,9 +578,9 @@ export class ThreeTowerRenderer {
     const data = this.towers.get(id);
     if (!data || !data.turretPart) return;
 
-    // Set target to 0 = turret faces same direction as tower base
+    // Set target to original model rotation (turret returns to default pose)
     // Actual rotation is interpolated in updateTurretAnimations()
-    data.targetLocalRotation = 0;
+    data.targetLocalRotation = data.turretOriginalRotationY;
     data.hasTarget = false;
   }
 
@@ -551,7 +595,7 @@ export class ThreeTowerRenderer {
     data.isSelected = true;
     if (data.rangeIndicator) data.rangeIndicator.visible = true;
     if (data.selectionRing) data.selectionRing.visible = true;
-    if (data.tipMarker) data.tipMarker.visible = this.debugMode;
+    if (data.tipMarker) data.tipMarker.visible = this.showShootHeight;
     if (data.losRing) data.losRing.visible = this.debugMode;
   }
 
@@ -565,8 +609,8 @@ export class ThreeTowerRenderer {
     data.isSelected = false;
     if (data.rangeIndicator) data.rangeIndicator.visible = false;
     if (data.selectionRing) data.selectionRing.visible = false;
-    // Keep debug markers visible in debug mode
-    if (data.tipMarker) data.tipMarker.visible = this.debugMode;
+    // Keep debug markers visible when enabled
+    if (data.tipMarker) data.tipMarker.visible = this.showShootHeight;
     if (data.losRing) data.losRing.visible = this.debugMode;
   }
 
@@ -580,21 +624,32 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Set debug mode - shows tip markers and LOS rings for all towers
+   * Set debug mode - shows LOS rings and aim arrows for all towers
    * (Raycast lines removed - visualization is now via routeLosViz)
    */
   setDebugMode(enabled: boolean): void {
     this.debugMode = enabled;
 
     for (const data of this.towers.values()) {
-      if (data.tipMarker) {
-        data.tipMarker.visible = enabled;
-      }
       if (data.losRing) {
         data.losRing.visible = enabled;
       }
       if (data.aimArrow) {
         data.aimArrow.visible = enabled;
+      }
+    }
+  }
+
+  /**
+   * Set show shoot height mode - shows tip markers (magenta spheres) for all towers
+   * Controlled by Tower Debug Panel's "Show Shoot Height" checkbox
+   */
+  setShowShootHeight(enabled: boolean): void {
+    this.showShootHeight = enabled;
+
+    for (const data of this.towers.values()) {
+      if (data.tipMarker) {
+        data.tipMarker.visible = enabled;
       }
     }
   }
