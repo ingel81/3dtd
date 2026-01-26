@@ -4,6 +4,62 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-27
+
+### Tower Turret Rotation Fix
+
+- [x] **Neues Config-Feld `turretBarrelOffset` eingefuehrt**
+      Problem: Tuerme zielten ~180° falsch nach Config-Aenderungen (rotationY fuer visuelle Ausrichtung)
+      Ursache: `rotationY` wurde fuer zwei Zwecke verwendet:
+      1. Visuelle Basis-Ausrichtung (z.B. 180° damit Tower nach Sueden zeigt)
+      2. Turret-Barrel-Orientierung im Model (z.B. -90° bei dual-gatling)
+      Fix: Neues Feld `turretBarrelOffset` fuer Barrel-Orientierung im Model-Space
+      - archer: 0 (default, Laeufe zeigen -Z)
+      - dual-gatling: -1.5708 (-90°, Laeufe zeigen +X)
+      - ice: 1.047 (60°, Model-spezifisch)
+      - cannon, magic, rocket: 0 (default)
+      Dateien: `tower-types.config.ts`, `three-tower.renderer.ts`
+
+### Tower Placement Verbesserungen
+
+- [x] **Scan-Animation nach Tower-Platzierung**
+      Feature: Turrets drehen nach Platzierung 75° links, 75° rechts, dann zurueck zur Mitte
+      - 800ms Verzoegerung vor Scan-Start
+      - Scan wird sofort abgebrochen wenn Feind erkannt wird
+      - Magic Tower behaelt spezielles Idle-Spin-Verhalten nach Scan
+      Datei: `three-tower.renderer.ts`
+
+- [x] **Placement Sound hinzugefuegt**
+      Sound `building_placed.mp3` wird bei Tower-Platzierung abgespielt
+      - Raeumlicher Sound an Tower-Position (refDistance: 50, volume: 0.6)
+      - Sound wird als 'tower-placed' registriert bei Manager-Initialisierung
+      Datei: `tower.manager.ts`
+
+### Magic Tower Visual Improvements
+
+- [x] **Spiral Trail fuer Magic Tower**
+      Neuer Trail-Typ `spiral` fuer railgun-artigen Effekt statt feuer-artige Partikel
+      Config-Optionen:
+      - `trailType: 'spiral'` - Partikel rotieren um Projektil
+      - `spiralRadius: 1.5` - Radius der Spirale
+      - `spiralSpeed: 8.0` - Rotationsgeschwindigkeit
+      Magic Fireball verwendet jetzt Spiral-Trail mit roten Farben
+      Dateien: `projectile-types.config.ts`, `three-effects.renderer.ts`
+
+### Bugfixes
+
+- [x] **Debug Enemy Cleanup bei Wave-Ende**
+      Problem: Nach Wave-Ende blieben orphaned Debug-Enemy-Referenzen erhalten
+      - Enemies verschwanden visuell aber wurden weiter beschossen
+      - Combat lief weiter wegen `hasDebugEnemies` Check
+      Fix: `clearDebugEnemies()` wird jetzt aufgerufen bei:
+      - Wave Complete (checkWaveComplete)
+      - Game Over (triggerGameOver)
+      - Reset
+      Datei: `game-state.manager.ts`
+
+---
+
 ## 2026-01-25
 
 ### Bugfixes & Training Verbesserungen
