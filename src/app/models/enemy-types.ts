@@ -87,7 +87,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     id: 'zombie',
     name: 'Zombie',
     modelUrl: '/assets/models/enemies/zombie.glb',
-    scale: 2.0,
+    scale: 0.984,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
     baseHp: 80,
     baseSpeed: 5,
@@ -96,35 +96,38 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     idleAnimation: 'Armature|Idle',
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
-    animationSpeed: 2.0,
+    animationSpeed: 4.11,
     movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25, // Zombies are quieter from distance
-    heightOffset: 0,
-    healthBarOffset: 8, // Higher above the head
+    heightOffset: 0.5,
+    healthBarOffset: 5.5,
     canBleed: true, // Zombies bleed
-    headingOffset: 0, // Model faces backward, rotate 180°
+    headingOffset: -0.349, // -20° rotation offset
     randomAnimationStart: true, // Start animation at random frame
     randomSoundStart: true, // Start sound at random position
-    lateralOffset: 3.0, // Max 3m lateral offset
+    lateralOffset: 3.0, // Max 3m lateral offset,
+    previewScale: 1
   },
 
   tank: {
     id: 'tank',
     name: 'Tank',
     modelUrl: '/assets/models/enemies/tank.glb',
-    scale: 2.5,
+    scale: 2.009,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
     reward: 5, // Only without AI
     hasAnimations: false,
+    animationSpeed: 1,
     movingSound: '/assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
     movingSoundRefDistance: 50, // Tanks are louder (larger refDistance range)
     heightOffset: 0,
-    healthBarOffset: 10, // Higher above the tank
+    healthBarOffset: 5.5,
     canBleed: false, // Tanks don't bleed
+    headingOffset: -0.122, // ~-7° rotation offset
     randomSoundStart: true, // Start sound at random position
     lateralOffset: 2.5, // Max 2.5m lateral offset
     spawnStartDelay: 800, // Larger gap between tanks (800ms instead of 300ms)
@@ -134,7 +137,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     id: 'wallsmasher',
     name: 'Wallsmasher',
     modelUrl: '/assets/models/enemies/wallsmasher.fbx',
-    scale: 0.05,
+    scale: 0.037,
     minimumPixelSize: 0,
     baseHp: 200,
     baseSpeed: 7,
@@ -143,7 +146,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'CharacterArmature|Walk',
     runAnimation: 'CharacterArmature|Run',
     deathAnimation: 'CharacterArmature|Death',
-    animationSpeed: 1.5,
+    animationSpeed: 1.31,
     animationVariation: true,
     runSpeedMultiplier: 2.5, // 2.5x speed when running
     // Spawn Sound
@@ -158,7 +161,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundVolumeMax: 0.6,
     randomSoundRefDistance: 35,
     heightOffset: 0,
-    healthBarOffset: 12,
+    healthBarOffset: 9,
     canBleed: true,
     headingOffset: 0,
     randomAnimationStart: true,
@@ -170,17 +173,18 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     id: 'bat',
     name: 'Bat',
     modelUrl: '/assets/models/enemies/bat.glb',
-    scale: 7,
+    scale: 3.958,
     minimumPixelSize: 0,
     baseHp: 25,
     baseSpeed: 8,
     reward: 2, // Only without AI
     hasAnimations: true,
     walkAnimation: 'fly.001',
-    animationSpeed: 1.5,
+    animationSpeed: 2.79,
     heightOffset: 15, // 15m above terrain
-    healthBarOffset: 4,
+    healthBarOffset: 3.5,
     canBleed: false,
+    headingOffset: 0,
     isAirUnit: true, // Only attackable by air towers
     heightVariation: 3, // ±3m variation between enemies
     lateralOffset: 2.0,
@@ -191,7 +195,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     id: 'penguin',
     name: 'Penguin',
     modelUrl: '/assets/models/enemies/penguin.glb',
-    scale: 0.006,
+    scale: 0.005,
     minimumPixelSize: 0,
     baseHp: 30,
     baseSpeed: 9,
@@ -200,10 +204,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Walk',
     deathAnimation: 'Fall',
     animationSpeed: 5.6,
-    heightOffset: 0,
-    healthBarOffset: 6,
+    heightOffset: 0.5,
+    healthBarOffset: 4.5,
     canBleed: false,
     unlit: true,
+    headingOffset: 0,
     randomAnimationStart: true,
     lateralOffset: 2.5,
     previewScale: 0.008,
@@ -213,7 +218,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     id: 'herbert',
     name: 'Herbert',
     modelUrl: '/assets/models/enemies/herbert.glb',
-    scale: 4.0,
+    scale: 2.625,
     minimumPixelSize: 0,
     baseHp: 500,
     baseSpeed: 4,
@@ -245,12 +250,13 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundsMaxInterval: 25000,
     randomSoundsVolume: 0.6,
     randomSoundsRefDistance: 40,
-    heightOffset: 0,
-    healthBarOffset: 12,
+    heightOffset: 0.5,
+    healthBarOffset: 7,
     healthBarColor: '#ef4444', // Red boss health bar
     bossName: 'Boss',
     immunityPercent: 100,
     canBleed: true,
+    headingOffset: -0.192, // ~-11° rotation offset
     randomAnimationStart: true,
     lateralOffset: 2.0,
   },
