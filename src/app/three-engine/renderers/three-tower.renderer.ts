@@ -57,6 +57,10 @@ export interface TowerRenderData {
   turretBaseY: number; // Original Y position of turret part
   hoverPhaseOffset: number; // Random phase offset for desynchronized hover
   hasTarget: boolean; // Whether tower is currently targeting an enemy
+  // Scan animation after placement (turret looks left-right-center)
+  scanPhase: number; // 0=inactive, 1=going left, 2=going right, 3=returning to center
+  scanStartRotation: number; // Rotation at start of scan
+  scanDelayRemaining: number; // Delay before scan starts (ms)
   // GLTF animation support
   mixer: AnimationMixer | null;
   animations: Map<string, AnimationClip>;
@@ -454,6 +458,10 @@ export class ThreeTowerRenderer {
       turretBaseY, // Store original Y for hover animation
       hoverPhaseOffset: Math.random() * Math.PI * 2, // Random start phase
       hasTarget: false, // Start without target
+      // Start scan animation if tower has a turret (with short delay)
+      scanPhase: turretPart ? 1 : 0, // 1 = start scanning left
+      scanStartRotation: turretOriginalRotationY,
+      scanDelayRemaining: turretPart ? 800 : 0, // 800ms delay before scan starts
       mixer,
       animations,
       currentAction,
@@ -551,10 +559,11 @@ export class ThreeTowerRenderer {
     const data = this.towers.get(id);
     if (!data || !data.turretPart) return;
 
-    // Turret model offset: if barrels don't point -Z in model space, we need to compensate
-    // For dual-gatling: barrels point +X, so offset = π/2 (90° from -Z)
-    // The config.rotationY is set to align the model, so -rotationY gives us the model offset
-    const turretModelOffset = -(data.typeConfig.rotationY ?? 0);
+    // Turret barrel offset: compensates for models where barrels don't point -Z
+    // For dual-gatling: barrels point +X in model space, so turretBarrelOffset = -π/2
+    // Most towers have barrels pointing -Z, so turretBarrelOffset = 0 (default)
+    const turretBarrelOffset = data.typeConfig.turretBarrelOffset ?? 0;
+    const turretModelOffset = -turretBarrelOffset;
 
     // Convert geo heading to Three.js target rotation for the turret
     // geoHeading 0 = North = -Z = Three.js rotation 0
@@ -761,14 +770,61 @@ export class ThreeTowerRenderer {
       // Turret rotation interpolation (smooth tracking and return-to-base)
       if (data.turretPart) {
         // Magic tower orb: special idle behavior (continuous spin when no target)
-        const isMagicIdle = data.typeConfig.id === 'magic' && !data.hasTarget;
+        const isMagicIdle = data.typeConfig.id === 'magic' && !data.hasTarget && data.scanPhase === 0;
 
-        if (isMagicIdle) {
+        // Scan animation after placement (left-right-center)
+        // Cancel scan if tower acquires a target
+        if (data.scanPhase > 0 && data.hasTarget) {
+          data.scanPhase = 0;
+          data.scanDelayRemaining = 0;
+        }
+
+        // Handle scan delay
+        if (data.scanDelayRemaining > 0) {
+          data.scanDelayRemaining -= deltaTime;
+        }
+
+        // Scan animation: 75° left, then 75° right, then back to center
+        const scanAngle = 1.309; // 75° in radians
+        if (data.scanPhase > 0 && !data.hasTarget && data.scanDelayRemaining <= 0) {
+          let scanTarget: number;
+          if (data.scanPhase === 1) {
+            // Phase 1: rotate left
+            scanTarget = data.scanStartRotation - scanAngle;
+          } else if (data.scanPhase === 2) {
+            // Phase 2: rotate right
+            scanTarget = data.scanStartRotation + scanAngle;
+          } else {
+            // Phase 3: return to center (idle position)
+            scanTarget = data.turretOriginalRotationY;
+          }
+
+          // Interpolate towards scan target
+          let diff = scanTarget - data.currentLocalRotation;
+          while (diff > Math.PI) diff -= Math.PI * 2;
+          while (diff < -Math.PI) diff += Math.PI * 2;
+
+          if (Math.abs(diff) < 0.02) {
+            // Reached target, advance to next phase
+            data.currentLocalRotation = scanTarget;
+            data.scanPhase++;
+            if (data.scanPhase > 3) {
+              data.scanPhase = 0; // Scan complete
+            }
+          } else {
+            // Move towards target (slightly slower than combat rotation)
+            const scanSpeed = maxRotationThisFrame * 0.7;
+            const rotation = Math.sign(diff) * Math.min(Math.abs(diff), scanSpeed);
+            data.currentLocalRotation += rotation;
+          }
+
+          data.turretPart.rotation.y = data.currentLocalRotation;
+        } else if (isMagicIdle) {
           // Idle spin: slow continuous rotation
           const idleRotationSpeed = 0.3; // Radians per second
           data.currentLocalRotation += idleRotationSpeed * (deltaTime / 1000);
           data.turretPart.rotation.y = data.currentLocalRotation;
-        } else {
+        } else if (data.scanPhase === 0) {
           // Normal turret behavior: interpolate towards target
           const current = data.currentLocalRotation;
           const target = data.targetLocalRotation;

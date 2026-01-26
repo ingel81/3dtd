@@ -31,6 +31,7 @@ export class TowerManager extends EntityManager<Tower> {
   private streetNetwork: StreetNetwork | null = null;
   private basePosition: GeoPosition | null = null;
   private spawnPoints: GeoPosition[] = [];
+  private placementSoundRegistered = false;
 
   /**
    * Initialize with ThreeTilesEngine and street network context
@@ -45,6 +46,16 @@ export class TowerManager extends EntityManager<Tower> {
     this.streetNetwork = streetNetwork;
     this.basePosition = basePosition;
     this.spawnPoints = spawnPoints;
+
+    // Register placement sound
+    if (!this.placementSoundRegistered && tilesEngine.spatialAudio) {
+      tilesEngine.spatialAudio.registerSound('tower-placed', '/assets/sounds/effects/building_placed.mp3', {
+        refDistance: 50,
+        rolloffFactor: 1,
+        volume: 0.6,
+      });
+      this.placementSoundRegistered = true;
+    }
   }
 
   /**
@@ -85,6 +96,15 @@ export class TowerManager extends EntityManager<Tower> {
       tower,
       position,
       cost: tower.typeConfig.cost,
+    });
+
+    // Play placement sound
+    this.eventBus.emit({
+      type: 'audio:play',
+      sound: 'tower-placed',
+      lat: position.lat,
+      lon: position.lon,
+      height: position.height ?? 0,
     });
 
     return tower;
