@@ -17,7 +17,7 @@ export interface DebugWindowState {
   size?: WindowSize;
 }
 
-export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'training' | 'tower';
+export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'training' | 'tower' | 'enemy';
 
 const STORAGE_KEY = 'td_debug_windows_v5';
 const BASE_Z_INDEX = 100;
@@ -30,11 +30,13 @@ const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   devworld: { x: 20, y: 80 },
   training: { x: 380, y: 300 },
   tower: { x: 20, y: 80 },
+  enemy: { x: 340, y: 80 },
 };
 
 const DEFAULT_SIZES: Partial<Record<DebugWindowId, WindowSize>> = {
   events: { width: 450, height: 400 },
   tower: { width: 300, height: 550 },
+  enemy: { width: 320, height: 600 },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -53,6 +55,7 @@ export class DebugWindowService {
   readonly devworldWindow = computed(() => this.windowStates()['devworld']);
   readonly trainingWindow = computed(() => this.windowStates()['training']);
   readonly towerWindow = computed(() => this.windowStates()['tower']);
+  readonly enemyWindow = computed(() => this.windowStates()['enemy']);
 
   // Check if any window is open
   readonly hasOpenWindows = computed(() =>
@@ -195,6 +198,12 @@ export class DebugWindowService {
         position: DEFAULT_POSITIONS.tower,
         zIndex: BASE_Z_INDEX + 6,
         size: DEFAULT_SIZES.tower,
+      },
+      enemy: {
+        isOpen: false,
+        position: DEFAULT_POSITIONS.enemy,
+        zIndex: BASE_Z_INDEX + 7,
+        size: DEFAULT_SIZES.enemy,
       },
     };
 

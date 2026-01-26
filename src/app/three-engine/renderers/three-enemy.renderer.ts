@@ -25,6 +25,17 @@ import { EnemyTypeConfig, ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-ty
 import { AssetManagerService } from '../../services/asset-manager.service';
 
 /**
+ * Debug overrides for enemy visual properties
+ */
+export interface EnemyDebugOverrides {
+  scale?: number;
+  heightOffset?: number;
+  healthBarOffset?: number;
+  rotation?: number; // Y rotation in radians
+  animationSpeed?: number; // Direct timeScale override
+}
+
+/**
  * Enemy render data - stored per enemy
  */
 export interface EnemyRenderData {
@@ -40,6 +51,10 @@ export interface EnemyRenderData {
   // Animation variation
   isWalking: boolean; // true = Walk, false = Run
   animationVariationTimer: ReturnType<typeof setTimeout> | null;
+  // Debug overrides (optional)
+  debugOverrides?: EnemyDebugOverrides;
+  // Last known movement heading (for debug rotation offset)
+  lastHeading: number;
 }
 
 /**
@@ -200,6 +215,7 @@ export class ThreeEnemyRenderer {
       isDestroyed: false,
       isWalking: true,
       animationVariationTimer: null,
+      lastHeading: 0,
     };
 
     this.enemies.set(id, renderData);
@@ -221,35 +237,48 @@ export class ThreeEnemyRenderer {
     const data = this.enemies.get(id);
     if (!data || data.isDestroyed) return;
 
+    // Use debug overrides if present, otherwise use typeConfig
+    const heightOffset = data.debugOverrides?.heightOffset ?? data.typeConfig.heightOffset;
+    const healthBarOffset = data.debugOverrides?.healthBarOffset ?? data.typeConfig.healthBarOffset;
+
     // Update position
-    const localPos = this.sync.geoToLocal(lat, lon, height + data.typeConfig.heightOffset);
+    const localPos = this.sync.geoToLocal(lat, lon, height + heightOffset);
     data.mesh.position.copy(localPos);
 
-    // Update rotation (heading + offset)
-    const totalHeading = heading + (data.typeConfig.headingOffset ?? 0);
-    data.mesh.rotation.y = totalHeading;
+    // Store heading for debug rotation offset calculations
+    data.lastHeading = heading;
+
+    // Update rotation (movement heading + config offset + debug offset)
+    const configOffset = data.typeConfig.headingOffset ?? 0;
+    const debugOffset = data.debugOverrides?.rotation ?? 0;
+    data.mesh.rotation.y = heading + configOffset + debugOffset;
 
     // Update health bar position and value
     if (data.healthBar) {
       data.healthBar.position.copy(localPos);
-      data.healthBar.position.y += data.typeConfig.healthBarOffset;
+      data.healthBar.position.y += healthBarOffset;
       this.updateHealthBarTexture(data, healthPercent);
     }
 
-    // Update animation speed based on movement speed
+    // Update animation speed based on movement speed (skip if debug override is set)
     if (currentSpeed !== undefined && data.currentAction && data.typeConfig.baseSpeed > 0) {
-      const baseAnimSpeed = data.typeConfig.animationSpeed ?? 1.0;
+      if (data.debugOverrides?.animationSpeed !== undefined) {
+        // Use debug override directly
+        data.currentAction.timeScale = data.debugOverrides.animationSpeed;
+      } else {
+        const baseAnimSpeed = data.typeConfig.animationSpeed ?? 1.0;
 
-      // For run animation: use effective base speed (baseSpeed × runSpeedMultiplier)
-      // This prevents the run animation from being sped up by the multiplier
-      // (the run animation is already inherently faster in the model)
-      let effectiveBaseSpeed = data.typeConfig.baseSpeed;
-      if (!data.isWalking && data.typeConfig.runSpeedMultiplier) {
-        effectiveBaseSpeed = data.typeConfig.baseSpeed * data.typeConfig.runSpeedMultiplier;
+        // For run animation: use effective base speed (baseSpeed × runSpeedMultiplier)
+        // This prevents the run animation from being sped up by the multiplier
+        // (the run animation is already inherently faster in the model)
+        let effectiveBaseSpeed = data.typeConfig.baseSpeed;
+        if (!data.isWalking && data.typeConfig.runSpeedMultiplier) {
+          effectiveBaseSpeed = data.typeConfig.baseSpeed * data.typeConfig.runSpeedMultiplier;
+        }
+
+        const speedRatio = currentSpeed / effectiveBaseSpeed;
+        data.currentAction.timeScale = baseAnimSpeed * speedRatio;
       }
-
-      const speedRatio = currentSpeed / effectiveBaseSpeed;
-      data.currentAction.timeScale = baseAnimSpeed * speedRatio;
     }
   }
 
@@ -267,6 +296,116 @@ export class ThreeEnemyRenderer {
     if (data.typeConfig.animationVariation && data.typeConfig.runAnimation) {
       this.scheduleAnimationVariation(data);
     }
+  }
+
+  /**
+   * Start run animation (public method for debug control)
+   */
+  startRunAnimation(id: string): void {
+    const data = this.enemies.get(id);
+    if (!data || !data.mixer || !data.typeConfig.runAnimation) return;
+    this.playMovementAnimation(data, false);
+  }
+
+  /**
+   * Play idle animation (stops movement animation)
+   */
+  playIdleAnimation(id: string): void {
+    const data = this.enemies.get(id);
+    if (!data || !data.mixer) return;
+
+    // Stop animation variation timer
+    if (data.animationVariationTimer) {
+      clearTimeout(data.animationVariationTimer);
+      data.animationVariationTimer = null;
+    }
+
+    // Stop current animation
+    if (data.currentAction) {
+      data.currentAction.stop();
+      data.currentAction = null;
+    }
+
+    // Play idle animation if available
+    const idleClip = data.animations.get(data.typeConfig.idleAnimation ?? '');
+    if (idleClip) {
+      const action = data.mixer.clipAction(idleClip);
+      action.reset();
+      action.setLoop(LoopRepeat, Infinity);
+      action.timeScale = data.typeConfig.animationSpeed ?? 1.0;
+      action.play();
+      data.currentAction = action;
+    }
+  }
+
+  /**
+   * Apply debug overrides to an enemy (live update)
+   */
+  applyDebugOverrides(id: string, overrides: EnemyDebugOverrides): void {
+    const data = this.enemies.get(id);
+    if (!data) return;
+
+    // Get old values for delta calculation
+    const oldHeightOffset = data.debugOverrides?.heightOffset ?? data.typeConfig.heightOffset;
+    const oldHealthBarOffset = data.debugOverrides?.healthBarOffset ?? data.typeConfig.healthBarOffset;
+
+    // Store new overrides
+    data.debugOverrides = { ...overrides };
+
+    // Apply scale immediately
+    if (overrides.scale !== undefined) {
+      data.mesh.scale.setScalar(overrides.scale);
+    }
+
+    // Apply heightOffset delta immediately
+    if (overrides.heightOffset !== undefined) {
+      const delta = overrides.heightOffset - oldHeightOffset;
+      data.mesh.position.y += delta;
+      if (data.healthBar) {
+        data.healthBar.position.y += delta;
+      }
+    }
+
+    // Apply healthBarOffset delta immediately (additional to height change)
+    if (overrides.healthBarOffset !== undefined) {
+      const barDelta = overrides.healthBarOffset - oldHealthBarOffset;
+      if (data.healthBar) {
+        data.healthBar.position.y += barDelta;
+      }
+    }
+
+    // Apply rotation offset immediately (adds to movement heading + config offset)
+    if (overrides.rotation !== undefined) {
+      const configOffset = data.typeConfig.headingOffset ?? 0;
+      data.mesh.rotation.y = data.lastHeading + configOffset + overrides.rotation;
+    }
+
+    // Apply animation speed immediately
+    if (overrides.animationSpeed !== undefined && data.currentAction) {
+      data.currentAction.timeScale = overrides.animationSpeed;
+    }
+  }
+
+  /**
+   * Set animation speed for an enemy based on movement speed
+   */
+  setAnimationSpeed(id: string, speed: number): void {
+    const data = this.enemies.get(id);
+    if (!data || !data.currentAction) return;
+
+    const baseAnimSpeed = data.typeConfig.animationSpeed ?? 1.0;
+    const speedRatio = speed / data.typeConfig.baseSpeed;
+    data.currentAction.timeScale = baseAnimSpeed * speedRatio;
+  }
+
+  /**
+   * Set animation timeScale directly (for debug panel)
+   */
+  setAnimationTimeScale(id: string, timeScale: number): void {
+    const data = this.enemies.get(id);
+    if (!data || !data.currentAction) return;
+
+    data.currentAction.timeScale = timeScale;
   }
 
   /**
