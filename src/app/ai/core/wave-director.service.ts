@@ -299,7 +299,7 @@ export class WaveDirectorService {
     const variation = this.sigmoid(rawParams[3]) * AI_CONSTANTS.VARIATION_MAX;
 
     // Select enemy type with variety rules (like backend)
-    let enemyType = this.selectEnemyTypeWithVariety(enemyProbs, state.waveNumber);
+    const enemyType = this.selectEnemyTypeWithVariety(enemyProbs, state.waveNumber);
 
     // Track this type for future cooldown
     this.recentEnemyTypes.push(enemyType);
