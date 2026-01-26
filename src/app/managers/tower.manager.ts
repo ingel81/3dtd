@@ -172,7 +172,12 @@ export class TowerManager extends EntityManager<Tower> {
         if (tower.losVisualization) {
           tower.losVisualization.visible = true;
         }
+        // Emit tower:selected event
+        this.eventBus.emit({ type: 'tower:selected', tower });
       }
+    } else if (currentId) {
+      // Emit tower:deselected event only if something was previously selected
+      this.eventBus.emit({ type: 'tower:deselected' });
     }
   }
 
