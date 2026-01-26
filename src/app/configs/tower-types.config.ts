@@ -33,7 +33,8 @@ export interface TowerTypeConfig {
   previewScale?: number; // Optional separate scale for UI preview (defaults to scale * 0.4)
   heightOffset: number; // Vertical offset to place model above ground
   shootHeight: number; // Height above base where projectiles originate (for LoS calculations)
-  rotationY?: number; // Initial Y rotation in radians (default: 0)
+  rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
+  turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
 
   damage: number;
   range: number;
@@ -101,7 +102,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     previewScale: 5.5,
     heightOffset: 2.4,
     shootHeight: 2.1,
-    rotationY: -1.5708, // -90° to align turret with aim direction
+    rotationY: -1.5708, // -90° visual alignment (barrels face North in idle)
+    turretBarrelOffset: -1.5708, // Barrels point +X in model space (-90° from -Z)
     damage: 10,
     range: 50,
     fireRate: 5.0, // 5 shots/sec - rapid fire
@@ -236,6 +238,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 0.1,
     shootHeight: 3.4,
     rotationY: 3.1416, // 180°
+    turretBarrelOffset: 1.047, // Barrels point ~60° from -Z in model space
     damage: 2, // Minimal damage - utility tower for slow effect
     range: 60,
     fireRate: 0.33, // 1 shot every 3s (matches slow duration, no stacking)
