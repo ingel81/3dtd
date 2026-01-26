@@ -37,6 +37,7 @@ import { EventDebuggerComponent } from './components/debug-window/event-debugger
 import { DevWorldDebuggerComponent } from './devworld/devworld-debugger.component';
 import { TrainingDebuggerComponent } from './components/debug-window/training-debugger.component';
 import { TowerDebuggerComponent } from './components/debug-window/tower-debugger.component';
+import { EnemyDebuggerComponent } from './components/debug-window/enemy-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -44,6 +45,7 @@ import { DebugWindowService } from './services/debug-window.service';
 import { WaveDebugService } from './services/wave-debug.service';
 import { SoundDebugService } from './services/sound-debug.service';
 import { TowerDebugService } from './services/tower-debug.service';
+import { EnemyDebugService } from './services/enemy-debug.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
@@ -120,6 +122,7 @@ const EMPTY_CENTER_COORDS = {
     DevWorldDebuggerComponent,
     TrainingDebuggerComponent,
     TowerDebuggerComponent,
+    EnemyDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
@@ -180,6 +183,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly waveDebug = inject(WaveDebugService);
   readonly soundDebug = inject(SoundDebugService);
   private readonly towerDebug = inject(TowerDebugService);
+  readonly enemyDebug = inject(EnemyDebugService);
 
   // AI Wave Director
   private readonly waveDirector = inject(WaveDirectorService);
@@ -346,6 +350,38 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         const overrides = allOverrides[typeId];
         this.engine.towers.applyDebugOverrides(typeId, overrides);
       }
+    });
+
+    // Effect: Start paused debug enemies when wave starts
+    effect(() => {
+      const phase = this.gameState.phase();
+      if (phase === 'wave') {
+        // Start all paused debug enemies
+        for (const de of this.enemyDebug.debugEnemies()) {
+          if (de.enemy.movement.paused && de.enemy.alive) {
+            de.enemy.startMoving();
+            this.engine?.enemies.startWalkAnimation(de.id);
+          }
+        }
+      }
+    });
+
+    // Effect: Apply debug overrides to selected enemy (live update)
+    effect(() => {
+      const selected = this.enemyDebug.selectedDebugEnemy();
+      if (!selected || !this.engine) return;
+
+      // Apply visual overrides to renderer (including animationSpeed so update() respects it)
+      this.engine.enemies.applyDebugOverrides(selected.id, {
+        scale: selected.overrides.scale,
+        heightOffset: selected.overrides.heightOffset,
+        healthBarOffset: selected.overrides.healthBarOffset,
+        rotation: selected.overrides.rotation,
+        animationSpeed: selected.overrides.animationSpeed,
+      });
+
+      // Apply speed to enemy entity
+      selected.enemy.movement.speedMps = selected.overrides.baseSpeed;
     });
 
   }
@@ -802,6 +838,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       (lat: number, lon: number, height: number) => this.onTerrainClick(lat, lon, height),
       (lat: number, lon: number, hitPoint: Vector3) => this.onMouseMove(lat, lon, hitPoint)
     );
+
+    // Setup enemy placement callback
+    this.inputHandler.setEnemyPlacementCallback(
+      () => this.enemyDebug.placementMode(),
+      (lat: number, lon: number, height: number) => this.handleEnemyPlacement(lat, lon, height)
+    );
   }
 
   /**
@@ -818,6 +860,150 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private onMouseMove(lat: number, lon: number, hitPoint: Vector3): void {
     const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? hitPoint.y;
     this.towerPlacement.updatePreviewPosition(lat, lon, terrainHeight);
+  }
+
+  /**
+   * Handle enemy placement from debug panel
+   */
+  private handleEnemyPlacement(lat: number, lon: number, _height: number): void {
+    if (!this.engine) return;
+
+    // Convert to local coordinates for route grid validation
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+
+    // Validate: must be on route
+    const cell = this.gameState.getGlobalRouteGrid()?.getCellAt(local.x, local.z);
+    if (!cell) {
+      console.warn('[EnemyDebug] Invalid placement - not on route');
+      return;
+    }
+
+    // Create path from click position to base
+    const path = this.createPathFromPosition(lat, lon);
+    if (!path || path.length < 2) {
+      console.warn('[EnemyDebug] Could not create path from position');
+      return;
+    }
+
+    // Get overrides from debug service
+    const typeId = this.enemyDebug.selectedEnemyId();
+    const overrides = this.enemyDebug.currentOverrides();
+
+    // Spawn enemy (paused = idle)
+    const enemy = this.gameState.enemyManager.spawn(
+      path,
+      typeId,
+      overrides.baseSpeed,
+      true, // paused
+      overrides.baseHp
+    );
+
+    // Register as debug enemy
+    this.enemyDebug.registerDebugEnemy(enemy, typeId, lat, lon);
+
+    // Exit placement mode
+    this.enemyDebug.exitPlacementMode();
+
+    console.log(`[EnemyDebug] Placed ${typeId} at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+  }
+
+  /**
+   * Create path from a position to the base
+   * Finds nearest point on existing path and creates sub-path
+   */
+  private createPathFromPosition(lat: number, lon: number): GeoPosition[] | null {
+    const spawns = this.spawnPoints();
+    if (spawns.length === 0) return null;
+
+    // Try to find a cached path
+    const fullPath = this.pathRoute.getCachedPath(spawns[0].id);
+    if (!fullPath || fullPath.length < 2) return null;
+
+    // Find nearest point on path
+    let minDist = Infinity;
+    let closestIdx = 0;
+    for (let i = 0; i < fullPath.length; i++) {
+      const dx = fullPath[i].lat - lat;
+      const dy = fullPath[i].lon - lon;
+      const dist = dx * dx + dy * dy; // Squared distance is fine for comparison
+      if (dist < minDist) {
+        minDist = dist;
+        closestIdx = i;
+      }
+    }
+
+    // Get height at click position (from path if available, else fallback)
+    const clickHeight = fullPath[closestIdx].height ?? 0;
+
+    // Create sub-path: click position + rest of path
+    return [
+      { lat, lon, height: clickHeight },
+      ...fullPath.slice(closestIdx + 1)
+    ];
+  }
+
+  /**
+   * Remove a debug enemy (from enemy debugger component)
+   */
+  onRemoveDebugEnemy(enemyId: string): void {
+    const de = this.enemyDebug.getDebugEnemy(enemyId);
+    if (de) {
+      this.gameState.enemyManager.remove(de.enemy);
+      this.enemyDebug.removeDebugEnemy(enemyId);
+    }
+  }
+
+  /**
+   * Clear all debug enemies (from enemy debugger component)
+   */
+  onClearDebugEnemies(): void {
+    for (const de of this.enemyDebug.debugEnemies()) {
+      this.gameState.enemyManager.remove(de.enemy);
+    }
+    this.enemyDebug.clearDebugEnemies();
+  }
+
+  /**
+   * Play idle animation for debug enemy
+   */
+  onPlayIdleAnimation(enemyId: string): void {
+    this.engine?.enemies.playIdleAnimation(enemyId);
+  }
+
+  /**
+   * Play walk animation for debug enemy
+   */
+  onPlayWalkAnimation(enemyId: string): void {
+    this.engine?.enemies.startWalkAnimation(enemyId);
+  }
+
+  /**
+   * Play run animation for debug enemy
+   */
+  onPlayRunAnimation(enemyId: string): void {
+    this.engine?.enemies.startRunAnimation(enemyId);
+  }
+
+  /**
+   * Start movement for debug enemy
+   */
+  onStartEnemyMovement(enemyId: string): void {
+    const de = this.enemyDebug.getDebugEnemy(enemyId);
+    if (de?.enemy && de.enemy.alive) {
+      de.enemy.startMoving();
+      this.engine?.enemies.startWalkAnimation(enemyId);
+    }
+  }
+
+  /**
+   * Stop movement for debug enemy
+   */
+  onStopEnemyMovement(enemyId: string): void {
+    const de = this.enemyDebug.getDebugEnemy(enemyId);
+    if (de?.enemy) {
+      de.enemy.stopMoving();
+      this.engine?.enemies.playIdleAnimation(enemyId);
+    }
   }
 
   /**

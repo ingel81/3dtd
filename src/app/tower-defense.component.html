@@ -104,6 +104,15 @@
           (dpsBinsToggled)="onDpsBinsToggled($event)"
         />
         <app-tower-debugger />
+        <app-enemy-debugger
+          (removeEnemy)="onRemoveDebugEnemy($event)"
+          (clearAllEnemies)="onClearDebugEnemies()"
+          (playIdle)="onPlayIdleAnimation($event)"
+          (playWalk)="onPlayWalkAnimation($event)"
+          (playRun)="onPlayRunAnimation($event)"
+          (startMovement)="onStartEnemyMovement($event)"
+          (stopMovement)="onStopEnemyMovement($event)"
+        />
 
         <!-- Info Overlay (top left) -->
         <app-info-overlay

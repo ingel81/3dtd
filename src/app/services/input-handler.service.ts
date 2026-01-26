@@ -43,6 +43,12 @@ export class InputHandlerService {
   /** Mouse move callback for build preview updates */
   private onMouseMoveCallback: ((lat: number, lon: number, hitPoint: THREE.Vector3) => void) | null = null;
 
+  /** Enemy placement mode signal (from EnemyDebugService) */
+  private enemyPlacementModeSignal: (() => boolean) | null = null;
+
+  /** Enemy placement callback */
+  private onEnemyPlacementCallback: ((lat: number, lon: number, height: number) => void) | null = null;
+
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
   private pointerUpHandler: ((event: PointerEvent) => void) | null = null;
@@ -81,6 +87,19 @@ export class InputHandlerService {
     this.onMouseMoveCallback = onMouseMoveCallback;
 
     this.setupClickHandler();
+  }
+
+  /**
+   * Set up enemy placement mode callback
+   * @param placementModeSignal Signal that returns true when in enemy placement mode
+   * @param onPlacementCallback Callback for enemy placement clicks
+   */
+  setEnemyPlacementCallback(
+    placementModeSignal: () => boolean,
+    onPlacementCallback: (lat: number, lon: number, height: number) => void
+  ): void {
+    this.enemyPlacementModeSignal = placementModeSignal;
+    this.onEnemyPlacementCallback = onPlacementCallback;
   }
 
   // ========================================
@@ -169,6 +188,12 @@ export class InputHandlerService {
     // Convert to geo coordinates
     const geo = this.engine.sync.localToGeo(hitPoint);
 
+    // Check enemy placement mode first (takes priority)
+    if (this.enemyPlacementModeSignal?.() && this.onEnemyPlacementCallback) {
+      this.onEnemyPlacementCallback(geo.lat, geo.lon, geo.height);
+      return;
+    }
+
     // If in build mode, notify callback
     if (this.buildModeSignal() && this.onClickCallback) {
       this.onClickCallback(geo.lat, geo.lon, geo.height);
@@ -233,6 +258,8 @@ export class InputHandlerService {
     this.canvas = null;
     this.onClickCallback = null;
     this.onMouseMoveCallback = null;
+    this.enemyPlacementModeSignal = null;
+    this.onEnemyPlacementCallback = null;
     this.mouseDownPos = null;
   }
 }
