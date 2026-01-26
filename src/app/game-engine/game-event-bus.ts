@@ -46,6 +46,13 @@ export type GameEvent =
       tower: Tower;
       refund: number;
     }
+  | {
+      type: 'tower:selected';
+      tower: Tower;
+    }
+  | {
+      type: 'tower:deselected';
+    }
 
   // ==================== Combat Events ====================
   | {
