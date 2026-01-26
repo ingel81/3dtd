@@ -66,10 +66,10 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'archer',
     name: 'Archer Tower',
     modelUrl: ARCHER_MODEL_URL,
-    scale: 15.0,
-    previewScale: 14.0,
-    heightOffset: 7,
-    shootHeight: 1.0, // Shooting position height
+    scale: 10.1,
+    previewScale: 12,
+    heightOffset: 4.5,
+    shootHeight: 1.05,
     rotationY: 0,
     damage: 25,
     range: 60,
@@ -97,11 +97,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'dual-gatling',
     name: 'Dual-Gatling Tower',
     modelUrl: TURRET_MODEL_URL,
-    scale: 2.5, // World scale
-    previewScale: 5.5, // Larger preview in UI
-    heightOffset: 2.5, // Ground level
-    shootHeight: 2.5, // Barrel height at scale 2.5
-    rotationY: -Math.PI / 2, // -90° to align turret with aim direction
+    scale: 2.5,
+    previewScale: 5.5,
+    heightOffset: 2.4,
+    shootHeight: 2.1,
+    rotationY: -1.5708, // -90° to align turret with aim direction
     damage: 10,
     range: 50,
     fireRate: 5.0, // 5 shots/sec - rapid fire
@@ -127,11 +127,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'cannon',
     name: 'Cannon Tower',
     modelUrl: CANNON_MODEL_URL,
-    scale: 3.0,
+    scale: 3,
     previewScale: 5.5,
-    heightOffset: 2.5,
-    shootHeight: 3, // Cannon barrel height
-    rotationY: 0,
+    heightOffset: 2.3,
+    shootHeight: 1.95,
+    rotationY: 3.1416, // 180°
     damage: 75,
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)
@@ -169,11 +169,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'magic',
     name: 'Magic Tower',
     modelUrl: MAGIC_MODEL_URL,
-    scale: 12.0,
-    previewScale: 14.0,
-    heightOffset: 0.0,
-    shootHeight: 10.0, // Magic orb position at tower top
-    rotationY: 0,
+    scale: 11,
+    previewScale: 14,
+    heightOffset: 0,
+    shootHeight: 8.85,
+    rotationY: 3.1416, // 180°
     damage: 40,
     range: 70,
     fireRate: 1.5, // 1.5 shots/sec
@@ -199,11 +199,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'rocket',
     name: 'Rocket Tower',
     modelUrl: ROCKET_MODEL_URL,
-    scale: 2.5,
+    scale: 3.4,
     previewScale: 5.5,
-    heightOffset: 2.5,
-    shootHeight: 1.0,
-    rotationY: 0,
+    heightOffset: 2.6,
+    shootHeight: 1.7,
+    rotationY: 3.1416, // 180°
     damage: 40,
     range: 100,
     fireRate: 0.5,
@@ -231,11 +231,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'ice',
     name: 'Ice Tower',
     modelUrl: ICE_MODEL_URL,
-    scale: 8.0,
-    previewScale: 27.0,
-    heightOffset: 1,
-    shootHeight: 2.5,
-    rotationY: Math.PI / 2,
+    scale: 11.4,
+    previewScale: 32,
+    heightOffset: 0.1,
+    shootHeight: 3.4,
+    rotationY: 3.1416, // 180°
     damage: 2, // Minimal damage - utility tower for slow effect
     range: 60,
     fireRate: 0.33, // 1 shot every 3s (matches slow duration, no stacking)
