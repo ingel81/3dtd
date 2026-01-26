@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { GameUIStateService } from '../../services/game-ui-state.service';
+import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 @Component({
@@ -74,6 +75,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>settings</mat-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.enemyWindow().isOpen"
+                  (click)="debugWindows.toggle('enemy')"
+                  matTooltip="Enemy debug panel"
+                  matTooltipPosition="left">
+            <mat-icon>bug_report</mat-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="uiState.heightDebugVisible()"
                   (click)="heightDebugToggled.emit()"
                   matTooltip="Debug terrain heights"
@@ -115,13 +123,15 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltipPosition="left">
             <mat-icon>psychology</mat-icon>
           </button>
-          <button class="td-dev-btn"
-                  [class.active]="debugWindows.devworldWindow().isOpen"
-                  (click)="debugWindows.toggle('devworld')"
-                  matTooltip="DevWorld panel"
-                  matTooltipPosition="left">
-            <mat-icon>language</mat-icon>
-          </button>
+          @if (devWorld.isActive) {
+            <button class="td-dev-btn"
+                    [class.active]="debugWindows.devworldWindow().isOpen"
+                    (click)="debugWindows.toggle('devworld')"
+                    matTooltip="DevWorld panel"
+                    matTooltipPosition="left">
+              <mat-icon>language</mat-icon>
+            </button>
+          }
           <button class="td-dev-btn"
                   [class.active]="cameraFramingDebug()"
                   (click)="cameraFramingDebugToggled.emit()"
@@ -343,6 +353,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 export class QuickActionsComponent {
   readonly debugWindows = inject(DebugWindowService);
   readonly uiState = inject(GameUIStateService);
+  readonly devWorld = inject(DevWorldService);
 
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
