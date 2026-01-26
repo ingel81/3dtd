@@ -103,6 +103,7 @@
           [onDisableBot]="disableBot.bind(this)"
           (dpsBinsToggled)="onDpsBinsToggled($event)"
         />
+        <app-tower-debugger />
 
         <!-- Info Overlay (top left) -->
         <app-info-overlay
@@ -124,7 +125,6 @@
           (resetCamera)="resetCamera()"
           (streetsToggled)="onStreetsToggled()"
           (routesToggled)="onRoutesToggled()"
-          (towerDebugToggled)="onTowerDebugToggled()"
           (heightDebugToggled)="toggleHeightDebug()"
           (cameraFramingDebugToggled)="toggleCameraFramingDebug()"
           (specialPointsDebugToggled)="onSpecialPointsDebugToggled()"

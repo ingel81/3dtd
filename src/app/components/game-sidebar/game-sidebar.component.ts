@@ -23,6 +23,7 @@ import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES } from '../../conf
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
+import { TowerDebugService } from '../../services/tower-debug.service';
 import { AdBannerComponent } from '../ad-banner/ad-banner.component';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
@@ -552,6 +553,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
+  private readonly towerDebug = inject(TowerDebugService);
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
@@ -562,6 +564,17 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       // Wait for the preview to be initialized
       if (this.enemyPreviewCanvas?.nativeElement) {
         this.initEnemyPreview();
+      }
+    });
+
+    // Update tower previews when debug overrides change
+    effect(() => {
+      // Track selected tower and its overrides
+      const typeId = this.towerDebug.selectedTowerId();
+      const overrides = this.towerDebug.allOverrides()[typeId];
+      // Refresh only the selected tower's preview
+      if (this.towerPreviewCanvases) {
+        this.refreshTowerPreview(typeId, overrides.previewScale);
       }
     });
   }
@@ -647,10 +660,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       const towerConfig = TOWER_TYPES[towerId];
       if (!towerConfig) return;
 
-      // Use fixed preview scale (independent of game world scale)
-      // Use previewScale if defined, otherwise calculate from scale
-      const previewScale = towerConfig.previewScale
-        ?? (towerConfig.modelUrl.endsWith('.fbx') ? 0.032 : towerConfig.scale * 0.4);
+      // Use previewScale from debug overrides for live updates
+      const overrides = this.towerDebug.allOverrides()[towerId];
+      const previewScale = overrides.previewScale;
 
       this.modelPreview.createPreview(
         `tower-preview-${towerId}`,
@@ -665,6 +677,34 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
         }
       );
     });
+  }
+
+  /**
+   * Refresh a specific tower's preview with new scale
+   */
+  private refreshTowerPreview(towerId: TowerTypeId, previewScale: number): void {
+    if (!this.towerPreviewCanvases) return;
+
+    const canvasRef = this.towerPreviewCanvases.find((ref) =>
+      ref.nativeElement.getAttribute('data-tower-id') === towerId
+    );
+    if (!canvasRef) return;
+
+    const towerConfig = TOWER_TYPES[towerId];
+    if (!towerConfig) return;
+
+    this.modelPreview.createPreview(
+      `tower-preview-${towerId}`,
+      canvasRef.nativeElement,
+      {
+        modelUrl: towerConfig.modelUrl,
+        scale: previewScale,
+        rotationSpeed: 0.4,
+        cameraDistance: 20,
+        cameraAngle: Math.PI / 5,
+        lightIntensity: 1.2,
+      }
+    );
   }
 
   onUpgradeTower(tower: Tower, upgradeId: UpgradeId): void {

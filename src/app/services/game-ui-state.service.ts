@@ -45,9 +45,6 @@ export class GameUIStateService {
   /** Enemy route paths visibility */
   readonly routesVisible = signal(false);
 
-  /** Tower range debug visualization visibility */
-  readonly towerDebugVisible = signal(false);
-
   /** Height debug markers visibility */
   readonly heightDebugVisible = signal(false);
 
@@ -164,13 +161,6 @@ export class GameUIStateService {
   }
 
   /**
-   * Toggle tower range debug visibility
-   */
-  toggleTowerDebug(): void {
-    this.towerDebugVisible.update((v) => !v);
-  }
-
-  /**
    * Toggle height debug markers visibility
    */
   toggleHeightDebug(): void {
@@ -246,7 +236,6 @@ export class GameUIStateService {
     this.devMenuExpanded.set(false);
     this.streetsVisible.set(false);
     this.routesVisible.set(false);
-    this.towerDebugVisible.set(false);
     this.heightDebugVisible.set(false);
     this.specialPointsDebugVisible.set(false);
     this.infoOverlayVisible.set(false);
