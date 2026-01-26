@@ -179,6 +179,7 @@ export class ThreeProjectileRenderer {
   private arrowManager: ProjectileInstanceManager | null = null;
   private cannonballManager: ProjectileInstanceManager;
   private magicManager: ProjectileInstanceManager;
+  private iceManager: ProjectileInstanceManager;
   private bulletManager: ProjectileInstanceManager;
   private rocketManager: ProjectileInstanceManager;
 
@@ -196,6 +197,7 @@ export class ThreeProjectileRenderer {
     // Create instanced managers for each visual type
     this.cannonballManager = this.createCannonballManager();
     this.magicManager = this.createMagicManager();
+    this.iceManager = this.createIceManager();
     this.bulletManager = this.createBulletManager();
     this.rocketManager = this.createRocketManager();
 
@@ -206,6 +208,7 @@ export class ThreeProjectileRenderer {
     // Arrow will be added when model loads
     scene.add(this.cannonballManager.instancedMesh);
     scene.add(this.magicManager.instancedMesh);
+    scene.add(this.iceManager.instancedMesh);
     scene.add(this.bulletManager.instancedMesh);
     scene.add(this.rocketManager.instancedMesh);
   }
@@ -287,7 +290,7 @@ export class ThreeProjectileRenderer {
   }
 
   private createMagicManager(): ProjectileInstanceManager {
-    // Magic projectile: glowing sphere with custom shader
+    // Magic projectile: glowing mystical red/crimson sphere with custom shader
     const geometry = new SphereGeometry(1.2, 32, 32); // Higher segments for smooth shader
 
     const material = new ShaderMaterial({
@@ -295,7 +298,30 @@ export class ThreeProjectileRenderer {
       fragmentShader: MAGIC_ORB_FRAGMENT,
       uniforms: {
         uTime: { value: 0.0 },
-        uColor1: { value: new Color(0x6600cc) }, // Deep purple
+        uColor1: { value: new Color(0x990000) }, // Deep red
+        uColor2: { value: new Color(0xff3300) }, // Orange-red
+        uColor3: { value: new Color(0xffcc00) }, // Yellow highlights
+        uIntensity: { value: 2.5 },
+      },
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 500);
+  }
+
+  private createIceManager(): ProjectileInstanceManager {
+    // Ice projectile: glowing blue/white sphere with custom shader
+    const geometry = new SphereGeometry(1.2, 32, 32);
+
+    const material = new ShaderMaterial({
+      vertexShader: MAGIC_ORB_VERTEX,
+      fragmentShader: MAGIC_ORB_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0.0 },
+        uColor1: { value: new Color(0x0066cc) }, // Deep blue
         uColor2: { value: new Color(0x00ccff) }, // Cyan
         uColor3: { value: new Color(0xffffff) }, // White highlights
         uIntensity: { value: 2.5 },
@@ -347,6 +373,8 @@ export class ThreeProjectileRenderer {
         return this.cannonballManager;
       case 'magic':
         return this.magicManager;
+      case 'ice':
+        return this.iceManager;
       case 'bullet':
         return this.bulletManager;
       case 'rocket':
@@ -477,6 +505,7 @@ export class ThreeProjectileRenderer {
       (this.arrowManager?.count ?? 0) +
       this.cannonballManager.count +
       this.magicManager.count +
+      this.iceManager.count +
       this.bulletManager.count +
       this.rocketManager.count
     );
@@ -493,6 +522,7 @@ export class ThreeProjectileRenderer {
     this.arrowManager?.clear();
     this.cannonballManager.clear();
     this.magicManager.clear();
+    this.iceManager.clear();
     this.bulletManager.clear();
     this.rocketManager.clear();
     this.projectileTypes.clear();
@@ -507,6 +537,12 @@ export class ThreeProjectileRenderer {
     if (magicMaterial.uniforms?.['uTime']) {
       magicMaterial.uniforms['uTime'].value = time;
     }
+
+    // Update ice orb shader time uniform
+    const iceMaterial = this.iceManager.instancedMesh.material as ShaderMaterial;
+    if (iceMaterial.uniforms?.['uTime']) {
+      iceMaterial.uniforms['uTime'].value = time;
+    }
   }
 
   dispose(): void {
@@ -516,11 +552,13 @@ export class ThreeProjectileRenderer {
     }
     this.scene.remove(this.cannonballManager.instancedMesh);
     this.scene.remove(this.magicManager.instancedMesh);
+    this.scene.remove(this.iceManager.instancedMesh);
     this.scene.remove(this.bulletManager.instancedMesh);
     this.scene.remove(this.rocketManager.instancedMesh);
 
     this.cannonballManager.dispose();
     this.magicManager.dispose();
+    this.iceManager.dispose();
     this.bulletManager.dispose();
     this.rocketManager.dispose();
     this.projectileTypes.clear();

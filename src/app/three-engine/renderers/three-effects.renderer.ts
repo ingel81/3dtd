@@ -1258,10 +1258,14 @@ export class ThreeEffectsRenderer {
     this.spawnCannonSmoke(localPos.x, localPos.y, localPos.z, count);
   }
 
+  // Spiral angle tracker for railgun effect (uses time-based rotation)
+  private spiralAngle = 0;
+
   /**
    * Spawn configurable trail particles based on TrailParticleConfig
    * Generic method that uses config values instead of hardcoded parameters
    * Automatically chooses additive or normal blending pool based on config.blending
+   * Supports 'spiral' trailType for railgun-style rotating particles
    */
   spawnConfigurableTrail(
     localX: number,
@@ -1275,6 +1279,55 @@ export class ThreeEffectsRenderer {
     // Choose pool based on blending mode (default: additive for backwards compatibility)
     const pool = config.blending === 'normal' ? this.trailPoolNormal : this.trailPoolAdditive;
 
+    // Spiral trail type: railgun-style rotating particles
+    if (config.trailType === 'spiral') {
+      const radius = config.spiralRadius ?? 1.0;
+      const speed = config.spiralSpeed ?? 3.0;
+      const angleStep = (Math.PI * 2) / Math.max(config.countPerSpawn, 1);
+
+      for (let i = 0; i < config.countPerSpawn; i++) {
+        const particle = this.getInactiveParticle(pool);
+        if (!particle) break;
+
+        // Calculate spiral position around the projectile path
+        const angle = this.spiralAngle + i * angleStep;
+        const offsetX = Math.cos(angle) * radius;
+        const offsetY = Math.sin(angle) * radius;
+
+        particle.position.set(
+          localX + offsetX,
+          localY + offsetY,
+          localZ
+        );
+
+        // Outward velocity from center (creates expanding spiral)
+        const outwardSpeed = 2.0;
+        particle.velocity.set(
+          Math.cos(angle) * outwardSpeed,
+          Math.sin(angle) * outwardSpeed,
+          0
+        );
+
+        particle.life = 1.0;
+        particle.maxLife =
+          config.lifetimeMin + Math.random() * (config.lifetimeMax - config.lifetimeMin);
+        particle.size = config.sizeMin + Math.random() * (config.sizeMax - config.sizeMin);
+
+        // Interpolate between min and max color
+        const t = Math.random();
+        particle.color.setRGB(
+          config.colorMin.r + t * (config.colorMax.r - config.colorMin.r),
+          config.colorMin.g + t * (config.colorMax.g - config.colorMin.g),
+          config.colorMin.b + t * (config.colorMax.b - config.colorMin.b)
+        );
+      }
+
+      // Advance spiral angle for next frame
+      this.spiralAngle += speed * 0.016; // Assuming ~60fps
+      return;
+    }
+
+    // Default trail type: random dispersion
     for (let i = 0; i < config.countPerSpawn; i++) {
       const particle = this.getInactiveParticle(pool);
       if (!particle) break;

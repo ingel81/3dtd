@@ -3,7 +3,7 @@ import { ProjectileTypeId } from './tower-types.config';
 // Re-export ProjectileTypeId for convenience
 export type { ProjectileTypeId } from './tower-types.config';
 
-export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'bullet' | 'rocket';
+export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket';
 
 /**
  * Trail particle configuration for projectiles
@@ -35,6 +35,13 @@ export interface TrailParticleConfig {
 
   // Blending mode: 'additive' (default, good for fire/glow) or 'normal' (good for smoke)
   blending?: 'additive' | 'normal';
+
+  // Trail type: 'default' (random dispersion) or 'spiral' (railgun-style rotating)
+  trailType?: 'default' | 'spiral';
+
+  // Spiral-specific settings (only used when trailType === 'spiral')
+  spiralRadius?: number; // Distance from center (default: 1.0)
+  spiralSpeed?: number; // Rotations per second (default: 3.0)
 }
 
 export interface ProjectileTypeConfig {
@@ -89,25 +96,28 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     scale: 0.4,
     trailParticles: {
       enabled: true,
-      spawnChance: 1.0, // Every frame for dense magic trail
-      countPerSpawn: 3,
-      colorMin: { r: 0.4, g: 0.0, b: 0.8 }, // Deep purple
-      colorMax: { r: 0.0, g: 0.8, b: 1.0 }, // Cyan
-      sizeMin: 0.6,
-      sizeMax: 1.2,
-      lifetimeMin: 0.4,
-      lifetimeMax: 0.8,
-      velocityX: { min: -1.0, max: 1.0 },
-      velocityY: { min: -1.0, max: 1.0 },
-      velocityZ: { min: -1.0, max: 1.0 },
-      spawnOffset: 0.4,
-      blending: 'additive', // Glowing magic particles
+      spawnChance: 1.0, // Every frame for dense spiral
+      countPerSpawn: 2,
+      colorMin: { r: 0.8, g: 0.1, b: 0.0 }, // Deep red
+      colorMax: { r: 1.0, g: 0.4, b: 0.0 }, // Orange
+      sizeMin: 0.4,
+      sizeMax: 0.8,
+      lifetimeMin: 0.2,
+      lifetimeMax: 0.4,
+      velocityX: { min: 0, max: 0 }, // Spiral handles velocity
+      velocityY: { min: 0, max: 0 },
+      velocityZ: { min: 0, max: 0 },
+      spawnOffset: 0,
+      blending: 'additive',
+      trailType: 'spiral',
+      spiralRadius: 1.5,
+      spiralSpeed: 8.0, // Fast rotation
     },
   },
   'ice-shard': {
     id: 'ice-shard',
     speed: 90,
-    visualType: 'magic',
+    visualType: 'ice',
     scale: 0.4,
     splashRadius: 12,
     splashDamageFalloff: true,
