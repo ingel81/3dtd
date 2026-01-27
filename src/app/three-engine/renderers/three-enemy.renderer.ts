@@ -176,11 +176,10 @@ export class ThreeEnemyRenderer {
     const localPos = this.sync.geoToLocal(lat, lon, height + config.heightOffset);
     mesh.position.copy(localPos);
 
-    // Ensure all meshes are visible and disable frustum culling for small objects
+    // Ensure all meshes are visible
     mesh.visible = true;
     mesh.traverse((node) => {
       node.visible = true;
-      node.frustumCulled = false; // Disable culling - entities are small and might be culled incorrectly
     });
 
     // Add to scene
