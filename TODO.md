@@ -71,11 +71,7 @@
       Impact: 20-40% Performance-Gewinn
       War seit Initial-Commit deaktiviert (nervbox-Altlast)
 
-- [ ] **Projectile Frustum Culling aktivieren**
-      `three-projectile.renderer.ts:62` - `frustumCulled = true` setzen
-      Impact: 15-30% Performance-Gewinn
-
-- [ ] **EntityManager.getAllActive() optimieren**
+- [x] **EntityManager.getAllActive() optimieren**
       `entity-manager.ts:50-52` - O(n) Filter pro Frame
       Lösung: `activeEntities: Set<T>()` mit O(1) Add/Remove
       Impact: 15-25% bei vielen Entities
