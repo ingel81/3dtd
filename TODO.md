@@ -66,6 +66,25 @@
 
 ## 2.1 Kritische Performance-Optimierungen
 
+- [x] **Enemy Frustum Culling aktivieren** ✅ DONE 2026-01-27
+      `three-enemy.renderer.ts:183` - `frustumCulled = false` entfernt
+      Impact: 20-40% Performance-Gewinn
+      War seit Initial-Commit deaktiviert (nervbox-Altlast)
+
+- [ ] **Projectile Frustum Culling aktivieren**
+      `three-projectile.renderer.ts:62` - `frustumCulled = true` setzen
+      Impact: 15-30% Performance-Gewinn
+
+- [ ] **EntityManager.getAllActive() optimieren**
+      `entity-manager.ts:50-52` - O(n) Filter pro Frame
+      Lösung: `activeEntities: Set<T>()` mit O(1) Add/Remove
+      Impact: 15-25% bei vielen Entities
+
+- [ ] **TowerCombatService Fallback-Path optimieren**
+      `tower-combat.service.ts:59-121` - O(towers × enemies × losCheck)
+      Problem: Ground towers ohne visibleCells = 5000 LOS-Checks/Frame
+      Lösung: `globalRouteGrid.getEnemiesInRadius()` auch im Fallback nutzen
+
 - [ ] **Animation LOD System** ⭐ HIGHEST IMPACT - 60-80% FPS Gewinn
       Enemies @ 200m+ mit 6 FPS statt 60 FPS animieren
       Datei: `three-engine/renderers/three-enemy.renderer.ts`
@@ -437,6 +456,100 @@
       Feedback sammeln
       Reward Function anpassen wenn nötig
 
+## 5.7 Training Feintuning (Prio 6)
+
+> Erkenntnisse aus Testspielen gegen exportiertes ONNX-Model
+
+- [ ] **HP-Skalierung erweitern**
+      `HEALTH_MULTIPLIER_MAX`: 20 → 100
+      Problem: Im Endgame kann AI HP nicht mehr skalieren (Cap erreicht)
+      Dateien: `config.py`, `wave-director.service.ts`
+
+- [ ] **Bot Tower-Limit entfernen**
+      `strategist.maxTowers`: 50 → 0 (unlimited)
+      Problem: Training sieht nie Endgame-DPS-Levels
+      Datei: `tower-bot.interface.ts`
+
+- [ ] **Kill-Time Range erweitern**
+      `KILL_TIME_MAX`: 5.0 → 8.0
+      Mehr Spielraum für HP-Skalierung bei hoher DPS
+      Datei: `config.py`
+
+- [ ] **Wave-Schedule System implementieren**
+      Feste Typen für bestimmte Waves (z.B. Wave 7, 14, 21 = Air)
+      AI bestimmt nur Parameter (HP, Count, Delay), nicht Typ
+      Spieler kann sich auf Air/Boss-Waves vorbereiten
+      Frontend: `wave-director.service.ts`
+      Backend: `server.py` (forced_type im State)
+
+- [ ] **Enemy Properties System** (SPÄTER - wenn neue Gegner kommen)
+      Statt Typ-Encoding: Property-basiertes Encoding
+      Properties: `isAir`, `isTanky`, `isSwarm`, `isBoss`
+      Vorteil: Neue Gegner funktionieren ohne Neutraining
+      Voraussetzung: Properties in `EnemyTypeConfig` definieren
+      ```typescript
+      // Neue Felder in enemy-types.ts:
+      isTanky?: boolean;   // Viel HP, langsam (tank, wallsmasher)
+      isSwarm?: boolean;   // Wenig HP, viele (penguin)
+      isBoss?: boolean;    // Boss-Einheit (herbert)
+      // isAirUnit existiert bereits
+      ```
+      State-Vektor: +6 Features (5 Properties + force_active)
+      Model lernt Konzepte statt spezifische Typen
+
+---
+
+# PHASE 6: DAMAGE & ARMOR SYSTEM
+
+> **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
+> **Konzept:** [DAMAGE_ARMOR_SYSTEM.md](src/app/docs/DAMAGE_ARMOR_SYSTEM.md)
+> **Reihenfolge:** Erst Tower-Schadenstypen, dann Enemy-Rüstungen
+
+## 6.1 Infrastruktur
+
+- [ ] **DamageType und ArmorType Types definieren**
+      Types: `physical`, `pierce`, `siege`, `magic`, `fire`, `ice`, `chaos`
+      Armor: `unarmored`, `light`, `medium`, `heavy`, `fortified`, `ethereal`
+
+- [ ] **Schadensmatrix implementieren**
+      `calculateDamage(base, damageType, armorType)` in CombatEffectService
+      Erstmal alle Multiplikatoren = 1.0 (neutral)
+
+## 6.2 Tower-Schadenstypen
+
+- [ ] **damageType zu Tower-Configs hinzufügen**
+      Archer/Gatling: `physical`, Sniper: `pierce`, Cannon/Rocket: `siege`
+      Magic: `magic`, Ice: `ice`
+
+- [ ] **Neue Tower mit neuen Schadenstypen**
+      Flame Tower (`fire`), Tesla Tower (`magic`), Chaos Tower (`chaos`)
+
+- [ ] **UI: Schadenstyp im Tower-Panel anzeigen**
+      Icon + Label: "⚔️ Physical Damage"
+
+## 6.3 Enemy-Rüstungstypen
+
+- [ ] **armorType zu Enemy-Configs hinzufügen**
+      Zombie: `light`, Bat/Penguin: `unarmored`, Tank: `heavy`
+      Wallsmasher: `medium`, Herbert: `fortified`
+
+- [ ] **Schadensmatrix aktivieren**
+      Multiplikatoren gemäß Konzept-Doc
+
+- [ ] **Neue Enemies mit speziellen Rüstungen**
+      Ghost (`ethereal`), Golem (`fortified`), Dragon (`heavy` + Air)
+
+- [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
+      "🛡️ Heavy Armor - Weak to Siege"
+
+## 6.4 AI-Training Anpassung
+
+- [ ] **State-Vektor erweitern: dpsByDamageType**
+      Aufschlüsselung der DPS nach Schadenstyp
+
+- [ ] **Enemy-Properties für Rüstung**
+      AI lernt: "Nur Physical-Tower → Heavy Enemies effektiv"
+
 ---
 
 # BACKLOG
@@ -475,12 +588,23 @@
 
 ## Tower-Ideen
 
-- [ ] Poison Tower
-- [ ] Flame Tower
+> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](src/app/docs/DAMAGE_ARMOR_SYSTEM.md)
+
+- [ ] Poison Tower (`magic`)
+- [ ] Flame Tower (`fire`)
+- [ ] Tesla Tower (`magic`) - Kettenblitz
+- [ ] Chaos Tower (`chaos`) - Teuer, voller Schaden vs alle
 
 ## Enemy-Ideen
 
+> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](src/app/docs/DAMAGE_ARMOR_SYSTEM.md)
+
 - [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
+- [ ] **Ghost** - `ethereal` Rüstung, nur Magic/Chaos wirkt
+- [ ] **Skeleton** - `unarmored`, Swarm
+- [ ] **Golem** - `fortified`, Boss
+- [ ] **Spider** - `light`, schnell, immun gegen Slow
+- [ ] **Dragon** - `heavy` + Air, fliegender Boss
       Model bereits vorhanden: `public/assets/models/enemies/mechacat_01.glb`
 
 ---
