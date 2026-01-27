@@ -1,6 +1,9 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { EnemyTypeId, getAllEnemyTypes } from '../models/enemy-types';
+import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../models/enemy-types';
 import { GameUIStateService } from './game-ui-state.service';
+
+/** Default enemy type for debug panel */
+const DEFAULT_ENEMY_TYPE: EnemyTypeId = 'zombie';
 
 /**
  * Service for wave debug settings.
@@ -10,14 +13,16 @@ import { GameUIStateService } from './game-ui-state.service';
 export class WaveDebugService {
   private readonly uiState = inject(GameUIStateService);
 
-  // Spawn settings
+  // Get initial values from enemy config (single source of truth)
+  private readonly initialConfig = ENEMY_TYPES[DEFAULT_ENEMY_TYPE];
+
+  // Spawn settings - initialized from enemy config
   readonly enemyCount = signal(10);
-  readonly enemySpeed = signal(5);
-  readonly enemyHealth = signal(100);
-  readonly enemyType = signal<EnemyTypeId>('zombie');
+  readonly enemySpeed = signal(this.initialConfig.baseSpeed);
+  readonly enemyHealth = signal(this.initialConfig.baseHp);
+  readonly enemyType = signal<EnemyTypeId>(DEFAULT_ENEMY_TYPE);
   readonly spawnMode = signal<'each' | 'random'>('each');
   readonly spawnDelay = signal(1500);
-  readonly useGathering = signal(false);
 
   // Available enemy types
   readonly enemyTypes = computed(() => getAllEnemyTypes());
@@ -79,10 +84,6 @@ export class WaveDebugService {
 
   setSpawnDelay(value: number): void {
     this.spawnDelay.set(Math.max(100, Math.min(5000, value)));
-  }
-
-  toggleGathering(): void {
-    this.useGathering.update(v => !v);
   }
 
   setStreetCount(count: number): void {
