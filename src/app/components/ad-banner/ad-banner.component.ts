@@ -37,7 +37,7 @@ const ADS_ENABLED = false;
       @if (adBlocked()) {
         <div class="td-fallback-panel" [class.td-fallback-compact]="compact()">
           <div class="td-fallback-header">
-            <mat-icon>favorite</mat-icon>
+            <mat-icon>volunteer_activism</mat-icon>
             <span>Unterstuetzen</span>
           </div>
 

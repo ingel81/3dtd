@@ -29,7 +29,7 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
   template: `
     <div class="devworld-panel">
       <div class="badge">
-        <mat-icon>videogame_asset</mat-icon>
+        <mat-icon>sports_esports</mat-icon>
         <span>DevWorld</span>
       </div>
 
@@ -58,7 +58,7 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
             max="99999"
           />
           <button class="seed-btn" (click)="randomSeed()" title="Random Seed">
-            <mat-icon>casino</mat-icon>
+            <mat-icon>shuffle</mat-icon>
           </button>
         </div>
       </div>
@@ -85,7 +85,7 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
           {{ isRegenerating() ? 'Regenerating...' : 'Regenerate World' }}
         </button>
         <button class="copy-btn" (click)="copyUrl()" title="Copy shareable URL">
-          <mat-icon>link</mat-icon>
+          <mat-icon>share</mat-icon>
           Copy URL
         </button>
       </div>

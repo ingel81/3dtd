@@ -31,7 +31,7 @@ import { FavoriteLocation } from '../../models/location.types';
           <div class="fav-wrapper">
             <button class="action-btn" [class.active]="favMenuExpanded()"
                     (click)="toggleFavMenu()" matTooltip="Favorites">
-              <mat-icon>star</mat-icon>
+              <mat-icon>bookmark</mat-icon>
             </button>
             <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
               @if (canAddFavorite()) {
@@ -73,11 +73,11 @@ import { FavoriteLocation } from '../../models/location.types';
       </div>
       <div class="header-stats">
         <div class="stat hp">
-          <mat-icon>favorite</mat-icon>
+          <mat-icon>cardiology</mat-icon>
           <span>{{ baseHealth() }}</span>
         </div>
         <div class="stat credits">
-          <mat-icon>paid</mat-icon>
+          <mat-icon>savings</mat-icon>
           <span>{{ credits() }}</span>
         </div>
         <div class="stat wave">
