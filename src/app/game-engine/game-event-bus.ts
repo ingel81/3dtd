@@ -145,6 +145,9 @@ export type GameEvent =
       soundId: string;
       timestamp: number;
       details?: string;
+    }
+  | {
+      type: 'debug:start-custom-wave';
     };
 
 /**

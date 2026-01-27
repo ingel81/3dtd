@@ -1,10 +1,12 @@
-import { Component, inject, output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
-import { TD_CSS_VARS } from '../../styles/td-theme';
+import { GameEventBus } from '../../game-engine/game-event-bus';
+import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { EnemyTypeId } from '../../models/enemy-types';
 
 @Component({
   selector: 'app-wave-debugger',
@@ -28,24 +30,19 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <div class="section">
             <div class="section-title">Spawn</div>
 
-            <div class="toggle-row">
-              <span class="label">Typ</span>
-              <div class="type-buttons">
+            <div class="select-row">
+              <span class="label">Type</span>
+              <select class="enemy-select" (change)="onEnemyTypeChange($event)">
                 @for (type of waveDebug.enemyTypes(); track type.id) {
-                  <button
-                    class="type-btn"
-                    [class.active]="waveDebug.enemyType() === type.id"
-                    (click)="waveDebug.setEnemyType(type.id)"
-                    [title]="type.name"
-                  >
+                  <option [value]="type.id" [selected]="type.id === waveDebug.enemyType()">
                     {{ type.name }}
-                  </button>
+                  </option>
                 }
-              </div>
+              </select>
             </div>
 
             <div class="slider-row">
-              <span class="label">Anzahl</span>
+              <span class="label">Count</span>
               <input type="range" min="1" max="500" step="1"
                      [value]="waveDebug.enemyCount()"
                      (input)="onEnemyCountChange($event)" />
@@ -92,32 +89,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               <span class="value">{{ waveDebug.spawnDelay() / 1000 }}s</span>
             </div>
 
-            <div class="toggle-row">
-              <span class="label">Gather</span>
-              <button class="toggle-btn" [class.active]="waveDebug.useGathering()" (click)="waveDebug.toggleGathering()">
-                <mat-icon>{{ waveDebug.useGathering() ? 'groups' : 'directions_run' }}</mat-icon>
-                {{ waveDebug.useGathering() ? 'Wait for all' : 'Start immediately' }}
-              </button>
-            </div>
-          </div>
-
-          <!-- Actions -->
-          <div class="section">
-            <div class="section-title">Actions</div>
-            <div class="btn-row">
-              <button class="icon-btn heal" [disabled]="waveDebug.baseHealth() >= 100" (click)="healHq.emit()" title="Heal HQ">
-                <mat-icon>healing</mat-icon>
-              </button>
-              <button class="icon-btn danger" [disabled]="!waveDebug.waveActive()" (click)="killAll.emit()" title="Kill all">
-                <mat-icon>delete_forever</mat-icon>
-              </button>
-              <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">
-                <mat-icon>attach_money</mat-icon>
-              </button>
-              <button class="icon-btn health" (click)="addHealth.emit()" title="+1000 HP">
-                <mat-icon>favorite</mat-icon>
-              </button>
-            </div>
+            <!-- Custom Wave Start Button -->
+            <button class="start-wave-btn"
+                    [disabled]="waveDebug.waveActive()"
+                    (click)="onStartCustomWave()">
+              <mat-icon>play_arrow</mat-icon>
+              {{ waveDebug.waveActive() ? 'Wave running...' : 'Start Custom Wave' }}
+            </button>
           </div>
         </div>
       </app-draggable-debug-panel>
@@ -276,110 +254,92 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-bg-dark);
     }
 
-    .type-buttons {
+    .select-row {
       display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      flex: 1;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
     }
 
-    .type-btn {
-      flex: 1 1 auto;
-      min-width: 60px;
-      padding: 4px 6px;
+    .select-row .label {
+      width: 50px;
+      flex-shrink: 0;
+    }
+
+    .enemy-select {
+      flex: 1;
+      padding: 6px 8px;
       background: var(--td-panel-secondary);
       border: 1px solid var(--td-frame-mid);
-      color: var(--td-text-secondary);
-      font-family: inherit;
-      font-size: 9px;
-      cursor: pointer;
-      transition: all 0.15s ease;
-    }
-
-    .type-btn:hover {
-      background: var(--td-frame-mid);
-    }
-
-    .type-btn.active {
-      background: var(--td-gold-dark);
-      border-color: var(--td-gold);
       color: var(--td-text-primary);
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+      ${TD_SCROLLBAR_STYLES}
     }
 
-    .btn-row {
-      display: flex;
-      gap: 4px;
+    .enemy-select::-webkit-scrollbar {
+      ${TD_SCROLLBAR_WEBKIT.scrollbar}
     }
 
-    .icon-btn {
-      flex: 1;
+    .enemy-select::-webkit-scrollbar-track {
+      ${TD_SCROLLBAR_WEBKIT.track}
+    }
+
+    .enemy-select::-webkit-scrollbar-thumb {
+      ${TD_SCROLLBAR_WEBKIT.thumb}
+    }
+
+    .enemy-select::-webkit-scrollbar-thumb:hover {
+      ${TD_SCROLLBAR_WEBKIT.thumbHover}
+    }
+
+    .enemy-select:focus {
+      outline: none;
+      border-color: var(--td-teal);
+    }
+
+    .enemy-select option {
+      background: var(--td-panel-secondary);
+      color: var(--td-text-primary);
+      padding: 4px;
+    }
+
+    .start-wave-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      padding: 6px;
-      background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
+      gap: 6px;
+      width: 100%;
+      margin-top: 12px;
+      padding: 8px 12px;
+      background: var(--td-teal);
+      border: 1px solid var(--td-teal);
+      border-top-color: #5de8c2;
+      border-bottom-color: #1a9a7a;
+      color: var(--td-bg-dark);
+      font-family: inherit;
+      font-size: 11px;
+      font-weight: 600;
       cursor: pointer;
       transition: all 0.15s ease;
     }
 
-    .icon-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
+    .start-wave-btn mat-icon {
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
     }
 
-    .icon-btn:hover:not(:disabled) {
+    .start-wave-btn:hover:not(:disabled) {
+      background: #5de8c2;
+    }
+
+    .start-wave-btn:disabled {
       background: var(--td-frame-mid);
-      color: var(--td-text-primary);
-    }
-
-    .icon-btn:disabled {
-      opacity: 0.3;
+      border-color: var(--td-frame-mid);
+      color: var(--td-text-muted);
       cursor: not-allowed;
-    }
-
-    .icon-btn.danger {
-      border-color: var(--td-health-red);
-      color: var(--td-health-red);
-    }
-
-    .icon-btn.danger:hover:not(:disabled) {
-      background: var(--td-health-red);
-      color: var(--td-text-primary);
-    }
-
-    .icon-btn.heal {
-      border-color: var(--td-green);
-      color: var(--td-green);
-    }
-
-    .icon-btn.heal:hover:not(:disabled) {
-      background: var(--td-green);
-      color: var(--td-bg-dark);
-    }
-
-    .icon-btn.credits {
-      border-color: var(--td-gold);
-      color: var(--td-gold);
-    }
-
-    .icon-btn.credits:hover:not(:disabled) {
-      background: var(--td-gold);
-      color: var(--td-bg-dark);
-    }
-
-    .icon-btn.health {
-      border-color: var(--td-health-red);
-      color: var(--td-health-red);
-    }
-
-    .icon-btn.health:hover:not(:disabled) {
-      background: var(--td-health-red);
-      color: var(--td-text-primary);
     }
   `,
 })
@@ -387,11 +347,20 @@ export class WaveDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
   readonly waveDebug = inject(WaveDebugService);
 
-  // Actions that need to be handled by the parent
-  readonly killAll = output<void>();
-  readonly healHq = output<void>();
-  readonly addCredits = output<void>();
-  readonly addHealth = output<void>();
+  // Event bus input for emitting custom wave events
+  readonly eventBus = input<GameEventBus>();
+
+  onStartCustomWave(): void {
+    const bus = this.eventBus();
+    if (bus) {
+      bus.emit({ type: 'debug:start-custom-wave' });
+    }
+  }
+
+  onEnemyTypeChange(event: Event): void {
+    const value = (event.target as HTMLSelectElement).value as EnemyTypeId;
+    this.waveDebug.setEnemyType(value);
+  }
 
   onEnemyCountChange(event: Event): void {
     const value = parseInt((event.target as HTMLInputElement).value, 10);
