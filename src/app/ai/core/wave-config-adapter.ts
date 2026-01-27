@@ -66,7 +66,6 @@ export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig[] {
       spawnMode: 'random', // AI doesn't specify, use random for variety
       spawnDelay: baseDelay,
       getSpawnDelay, // Dynamic delay for variety
-      useGathering: false, // Deprecated - always use variable delays
     });
   }
 
@@ -199,7 +198,6 @@ function createDefaultConfig(aiConfig: AIWaveConfig): WaveManagerConfig {
       const max = baseDelay * (1 + variation);
       return Math.round(min + Math.random() * (max - min));
     },
-    useGathering: false,
   };
 }
 

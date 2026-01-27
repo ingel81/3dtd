@@ -60,9 +60,6 @@ export interface WaveConfig {
   /** Spawn delay variation (+/- this percentage, 0-0.5) */
   spawnDelayVariation?: number;
 
-  /** DEPRECATED: Gathering mode removed - always use variable delays */
-  useGathering?: boolean;
-
   /** Which spawn point to use (if multiple exist) */
   spawnPointIndex?: number;
 
@@ -93,7 +90,6 @@ export function createSimpleWaveConfig(
     enemies: [{ type: enemyType, count }],
     totalCount: count,
     spawnDelay,
-    useGathering: false,
   };
 }
 
@@ -102,14 +98,12 @@ export function createSimpleWaveConfig(
  */
 export function createMixedWaveConfig(
   groups: WaveEnemyGroup[],
-  spawnDelay = 800,
-  useGathering = false
+  spawnDelay = 800
 ): WaveConfig {
   return {
     enemies: groups,
     totalCount: groups.reduce((sum, g) => sum + g.count, 0),
     spawnDelay,
-    useGathering,
     archetype: 'mixed',
   };
 }

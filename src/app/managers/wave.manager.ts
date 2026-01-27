@@ -19,7 +19,6 @@ export interface WaveConfig {
   spawnMode: 'each' | 'random';
   spawnDelay: number; // Delay in ms between spawning each enemy
   getSpawnDelay?: () => number; // Optional: Dynamic getter for live delay updates during wave
-  useGathering: boolean; // If true, all enemies spawn paused and start together
 }
 
 /**
@@ -33,7 +32,6 @@ export interface WaveConfig {
 export class WaveManager {
   readonly phase = signal<GamePhase>('setup');
   readonly waveNumber = signal(0);
-  readonly gatheringPhase = signal(false);
 
   spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
@@ -101,13 +99,8 @@ export class WaveManager {
       enemyCount: config.enemyCount, // This is the actual count being spawned
     });
 
-    const useGathering = config.useGathering;
     // Use getter if provided (allows live delay changes), otherwise use static value
     const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
-
-    if (useGathering) {
-      this.gatheringPhase.set(true);
-    }
 
     let spawnedCount = 0;
 
@@ -129,19 +122,6 @@ export class WaveManager {
       }
 
       if (spawnedCount >= config.enemyCount) {
-        if (useGathering) {
-          // Gathering mode: Start all enemies together after short delay
-          const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-          const realTimeDelay = 500 / timescale; // Scale gathering delay
-          const timeoutId = setTimeout(() => {
-            this.activeTimeouts.delete(timeoutId);
-            if (this.phase() !== 'wave') return; // Stop if reset/game over
-            this.gatheringPhase.set(false);
-            const currentTimescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-            this.enemyManager.startAll(300, currentTimescale);
-          }, realTimeDelay);
-          this.activeTimeouts.add(timeoutId);
-        }
         return;
       }
 
@@ -149,8 +129,8 @@ export class WaveManager {
       const path = this.cachedPaths.get(spawn.id);
 
       if (path && path.length > 1) {
-        // In gathering mode: spawn paused, otherwise spawn and start immediately
-        this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, useGathering, config.enemyHealth);
+        // Spawn enemy and start immediately
+        this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, false, config.enemyHealth);
         spawnedCount++;
         this.spawnedEnemyCount++; // Track globally for wave completion check
       }
@@ -216,7 +196,7 @@ export class WaveManager {
 
   /**
    * Stop all pending spawns (for Kill All functionality)
-   * Clears timeouts but doesn't reset the wave - let checkWaveComplete() handle that
+   * Clears timeouts and adjusts expectedEnemyCount so wave can complete
    */
   stopSpawning(): void {
     // Clear all pending timeouts to prevent spawning after abort
@@ -224,7 +204,10 @@ export class WaveManager {
       clearTimeout(timeoutId);
     }
     this.activeTimeouts.clear();
-    this.gatheringPhase.set(false);
+
+    // Adjust expected count to match actually spawned enemies
+    // This allows checkWaveComplete() to succeed once all spawned enemies die
+    this.expectedEnemyCount = this.spawnedEnemyCount;
   }
 
   /**
@@ -240,7 +223,6 @@ export class WaveManager {
     this.enemyManager.clear();
     this.phase.set('setup');
     this.waveNumber.set(0);
-    this.gatheringPhase.set(false);
 
     // Reset spawn tracking counters (prevents stale state after game over mid-wave)
     this.expectedEnemyCount = 0;

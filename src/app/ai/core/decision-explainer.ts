@@ -287,10 +287,6 @@ function generateSummary(
   let summary = `Welle ${wave}: ${archetypeDesc}`;
   summary += ` (${totalEnemies} Gegner)`;
 
-  if (config.useGathering) {
-    summary += ' [Synchron-Angriff]';
-  }
-
   return summary;
 }
 

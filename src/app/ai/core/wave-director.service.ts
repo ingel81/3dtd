@@ -222,7 +222,6 @@ export class WaveDirectorService {
         totalCount: 10,
         spawnDelay: 1000,
         spawnDelayVariation: 0.2,
-        useGathering: false, // Deprecated
         explanation: 'Notfall-Fallback (AI-Fehler)',
       };
     }
@@ -344,7 +343,6 @@ export class WaveDirectorService {
       totalCount,
       spawnDelay,
       spawnDelayVariation: variation,
-      useGathering: false,
       archetype,
       confidence: maxProb,
       difficultyModifier: 0,
