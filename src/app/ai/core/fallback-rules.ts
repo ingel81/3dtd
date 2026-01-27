@@ -37,14 +37,10 @@ export function generateFallbackWave(
   // Calculate spawn delay (faster as game progresses)
   const spawnDelay = calculateSpawnDelay(wave, archetype);
 
-  // Boss waves use gathering
-  const useGathering = archetype === 'boss' || wave % 10 === 0;
-
   return {
     enemies,
     totalCount: enemies.reduce((sum, e) => sum + e.count, 0),
     spawnDelay,
-    useGathering,
     archetype,
     explanation: generateExplanation(archetype, state),
   };
@@ -276,9 +272,6 @@ export function getWaveDifficulty(config: WaveConfig, wave: number): number {
 
   // Spawn rate
   if (config.spawnDelay < 600) difficulty += 0.1;
-
-  // Gathering (synchronized attack)
-  if (config.useGathering) difficulty += 0.1;
 
   return Math.min(1, difficulty);
 }

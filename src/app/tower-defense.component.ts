@@ -269,7 +269,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly enemyTypes = getAllEnemyTypes();
   readonly spawnMode = this.waveDebug.spawnMode;
   readonly spawnDelay = this.waveDebug.spawnDelay;
-  readonly useGathering = this.waveDebug.useGathering;
   readonly spawnPoints = signal<SpawnPoint[]>([]);
   // AI Director mode - uses AI to generate waves instead of debug settings
   readonly useAIDirector = signal(false);
@@ -293,10 +292,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
-  // Gathering phase signal - delegated to WaveManager
-  readonly gatheringPhase = computed(() => this.gameState.waveManager.gatheringPhase());
   readonly activeSounds = signal(0);
-  readonly gatheringCountdown = signal(0);
 
   private tileStatsIntervalId: number | null = null; // Polling for tile stats during loading
 
@@ -1137,6 +1133,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.towerDebug.selectTower(event.tower.typeConfig.id);
     });
 
+    // Subscribe to debug:start-custom-wave event from Wave Debug Panel
+    this.gameState.getEventBus().on('debug:start-custom-wave', () => {
+      this.startCustomWave();
+    });
+
     // Subscribe to game:over event
     this.gameState.getEventBus().on('game:over', () => {
       this.onGameOver();
@@ -1847,7 +1848,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       spawnMode: this.spawnMode(),
       spawnDelay: this.spawnDelay(),
       getSpawnDelay: this.spawnDelay, // Signal getter for live updates
-      useGathering: this.useGathering(),
     };
 
     this.aiExplanation.set(null);
@@ -1906,6 +1906,30 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const newValue = !this.useAIDirector();
     this.useAIDirector.set(newValue);
     console.log(`[AI] AI Director ${newValue ? 'enabled' : 'disabled'}`);
+  }
+
+  /**
+   * Start a custom wave using debug panel settings only.
+   * This bypasses AI and is independent from the regular wave system.
+   */
+  startCustomWave(): void {
+    if (!this.engine || this.waveActive() || this.isGameOver()) return;
+    if (this.spawnPoints().length === 0) return;
+
+    // Use debug settings directly - no AI involvement
+    const waveConfig: WaveConfig = {
+      enemyCount: this.enemyCount(),
+      enemyType: this.enemyType(),
+      enemySpeed: this.enemySpeed(),
+      enemyHealth: this.enemyHealth(),
+      spawnMode: this.spawnMode(),
+      spawnDelay: this.spawnDelay(),
+      getSpawnDelay: this.spawnDelay,
+    };
+
+    console.log('[Debug] Starting custom wave:', waveConfig);
+    this.aiExplanation.set(null);
+    this.gameState.startWave(waveConfig);
   }
 
   /**
@@ -2383,12 +2407,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Wave ends automatically via checkWaveComplete() when aliveCount === 0
     // Death animations, projectiles, and effects continue running
-  }
-
-  healHq(): void {
-    // Heal HQ to 100 HP and stop fire
-    this.gameState.healBase();
-    this.appendDebugLog('HQ healed (100 HP)');
   }
 
   addDebugCredits(): void {

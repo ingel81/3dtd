@@ -64,13 +64,6 @@ import { TD_CSS_VARS } from '../styles/td-theme';
                  (input)="onSpawnDelayChange($event)" />
           <span class="value">{{ spawnDelay() / 1000 }}s</span>
         </div>
-        <div class="toggle-row">
-          <span class="label">Gather</span>
-          <button class="toggle-btn" [class.active]="useGathering()" (click)="toggleGathering.emit()">
-            <mat-icon>{{ useGathering() ? 'groups' : 'directions_run' }}</mat-icon>
-            {{ useGathering() ? 'Wait for all' : 'Start immediately' }}
-          </button>
-        </div>
       </div>
 
       <div class="section">
@@ -80,13 +73,13 @@ import { TD_CSS_VARS } from '../styles/td-theme';
             <mat-icon>videocam</mat-icon>
           </button>
           <button class="icon-btn heal" [disabled]="baseHealth() >= 100" (click)="healHq.emit()" title="Heal HQ">
-            <mat-icon>healing</mat-icon>
+            <mat-icon>heart_plus</mat-icon>
           </button>
           <button class="icon-btn danger" [disabled]="!waveActive()" (click)="killAll.emit()" title="Kill all">
             <mat-icon>skull</mat-icon>
           </button>
           <button class="icon-btn credits" (click)="addCredits.emit()" title="+1000 Credits">
-            <mat-icon>attach_money</mat-icon>
+            <mat-icon>payments</mat-icon>
           </button>
         </div>
       </div>
@@ -95,7 +88,7 @@ import { TD_CSS_VARS } from '../styles/td-theme';
         <div class="log-header">
           <span class="section-title">Log</span>
           <button class="clear-btn" (click)="clearLog.emit()">
-            <mat-icon>delete</mat-icon>
+            <mat-icon>delete_sweep</mat-icon>
           </button>
         </div>
         <textarea class="log" readonly [value]="debugLog()"></textarea>
@@ -588,7 +581,6 @@ export class DebugPanelComponent {
   enemyTypes = input.required<EnemyTypeConfig[]>();
   spawnMode = input.required<'each' | 'random'>();
   spawnDelay = input.required<number>();
-  useGathering = input.required<boolean>();
   waveActive = input.required<boolean>();
   baseHealth = input.required<number>();
   debugLog = input.required<string>();
@@ -599,7 +591,6 @@ export class DebugPanelComponent {
   enemyTypeChange = output<EnemyTypeId>();
   toggleSpawnMode = output<void>();
   spawnDelayChange = output<number>();
-  toggleGathering = output<void>();
   killAll = output<void>();
   healHq = output<void>();
   clearLog = output<void>();

@@ -286,41 +286,6 @@
   border-bottom-color: var(--td-green-dark);
 }
 
-/* Gathering Overlay */
-.td-gathering-overlay {
-  position: absolute;
-  top: 20px;
-  left: 50%;
-  transform: translateX(-50%);
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 10px 20px;
-  background: var(--td-panel-main);
-  border: 2px solid var(--td-warn-orange);
-  z-index: 10;
-  animation: td-pulse 1s ease-in-out infinite;
-}
-
-.td-gathering-overlay mat-icon {
-  color: var(--td-warn-orange);
-  font-size: 20px;
-  width: 20px;
-  height: 20px;
-}
-
-.td-gathering-overlay span {
-  font-size: 12px;
-  font-weight: 600;
-  color: var(--td-warn-orange);
-}
-
-/* td-pulse animation (used by gathering overlay) */
-@keyframes td-pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
-}
-
 /* Game Over Overlay */
 .td-gameover-overlay {
   position: absolute;

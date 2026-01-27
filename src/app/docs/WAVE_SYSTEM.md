@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-01-17
+**Stand:** 2026-01-27
 
 Dokumentation des Wave-Systems für automatisches Enemy-Spawning und Spielphasen.
 
@@ -12,7 +12,6 @@ Das Wave-System (`WaveManager`) steuert:
 - Spielphasen (Setup, Wave, Game Over)
 - Automatisches Enemy-Spawning
 - Wave-Konfiguration (Anzahl, Typ, Speed, Spawn-Modus)
-- Gathering-Phase (Enemies spawnen pausiert, starten zusammen)
 - Wave-Completion-Detection
 
 ---
@@ -28,7 +27,6 @@ Das Wave-System (`WaveManager`) steuert:
 export class WaveManager {
   readonly phase = signal<GamePhase>('setup');
   readonly waveNumber = signal(0);
-  readonly gatheringPhase = signal(false);
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void;
   startWave(config: WaveConfig): void;
@@ -60,10 +58,11 @@ export type GamePhase = 'setup' | 'wave' | 'gameover';
 export interface WaveConfig {
   enemyCount: number;      // Anzahl Enemies
   enemyType: EnemyTypeId;  // Enemy-Typ (z.B. 'zombie', 'tank')
-  enemySpeed: number;      // Geschwindigkeit override (m/s)
+  enemySpeed?: number;     // Geschwindigkeit override (m/s)
+  enemyHealth?: number;    // Health override
   spawnMode: 'each' | 'random';  // Spawn-Verteilung
   spawnDelay: number;      // Delay zwischen Spawns (ms)
-  useGathering: boolean;   // Gathering-Phase aktivieren
+  getSpawnDelay?: () => number;  // Optionale dynamische Delay-Funktion
 }
 ```
 
@@ -97,7 +96,7 @@ Spawn Point C: Enemy 2, 6, 8, 11, ...
 
 ## Wave-Start
 
-### Normale Wave (ohne Gathering)
+### Wave starten
 
 ```typescript
 this.waveManager.startWave({
@@ -106,7 +105,6 @@ this.waveManager.startWave({
   enemySpeed: 5,
   spawnMode: 'random',
   spawnDelay: 500,        // 500ms zwischen Spawns
-  useGathering: false,    // Spawnen und sofort bewegen
 });
 ```
 
@@ -115,33 +113,6 @@ this.waveManager.startWave({
 2. Phase wechselt zu `'wave'`
 3. Enemies spawnen im Abstand von 500ms
 4. Jeder Enemy beginnt sofort zu laufen
-
-### Gathering Wave
-
-```typescript
-this.waveManager.startWave({
-  enemyCount: 20,
-  enemyType: 'zombie',
-  enemySpeed: 5,
-  spawnMode: 'each',
-  spawnDelay: 200,
-  useGathering: true,     // Gathering aktiviert
-});
-```
-
-**Verhalten:**
-1. Wave-Nummer erhöht sich
-2. Phase wechselt zu `'wave'`
-3. `gatheringPhase` Signal = `true`
-4. Enemies spawnen pausiert (stehen still)
-5. Nach dem letzten Enemy: 500ms Delay
-6. `gatheringPhase` Signal = `false`
-7. Alle Enemies starten gleichzeitig
-
-**Verwendung:**
-- Große Wellen (20+ Enemies)
-- Boss-Waves (dramatischer Effekt)
-- Cinematic Moments
 
 ---
 
@@ -159,14 +130,6 @@ private startWave(config: WaveConfig): void {
 
     // Alle gespawnt?
     if (spawnedCount >= config.enemyCount) {
-      if (config.useGathering) {
-        // Gathering: Start alle zusammen
-        setTimeout(() => {
-          if (this.phase() === 'gameover') return;
-          this.gatheringPhase.set(false);
-          this.enemyManager.startAll(300);
-        }, 500);
-      }
       return;
     }
 
@@ -180,13 +143,15 @@ private startWave(config: WaveConfig): void {
         path,
         config.enemyType,
         config.enemySpeed,
-        config.useGathering  // paused = true wenn gathering
+        false,  // nie pausiert
+        config.enemyHealth
       );
       spawnedCount++;
     }
 
-    // Nächster Spawn
-    setTimeout(spawnNext, config.spawnDelay);
+    // Nächster Spawn (mit optionaler Delay-Variation)
+    const delay = config.getSpawnDelay?.() ?? config.spawnDelay;
+    setTimeout(spawnNext, delay);
   };
 
   spawnNext();
@@ -254,7 +219,6 @@ endWave(): void {
 // In Component
 readonly waveNumber = this.waveManager.waveNumber;
 readonly phase = this.waveManager.phase;
-readonly gatheringPhase = this.waveManager.gatheringPhase;
 ```
 
 ```html
@@ -262,10 +226,6 @@ readonly gatheringPhase = this.waveManager.gatheringPhase;
 <div class="wave-info">
   <h3>Welle {{ waveNumber() }}</h3>
   <p>Phase: {{ phase() }}</p>
-
-  @if (gatheringPhase()) {
-    <p class="gathering">Gegner sammeln sich...</p>
-  }
 </div>
 ```
 
@@ -281,7 +241,6 @@ startNextWave(): void {
     enemySpeed: 5,
     spawnMode: 'random',
     spawnDelay: 400,
-    useGathering: false,
   });
 }
 ```
@@ -312,7 +271,6 @@ private getWaveConfig(): WaveConfig {
     spawnDelay: Math.max(200, 500 - waveNum * 20),
 
     spawnMode: 'random',
-    useGathering: waveNum % 5 === 0,  // Gathering jede 5. Wave
   };
 }
 
@@ -337,7 +295,6 @@ private getBossConfig(): WaveConfig {
     enemySpeed: 4,
     spawnMode: 'random',
     spawnDelay: 0,
-    useGathering: true,    // Dramatischer Spawn
   };
 }
 ```
@@ -389,7 +346,6 @@ startTestWave(): void {
     enemySpeed: this.enemySpeed(),  // Slider value
     spawnMode: this.spawnMode(),
     spawnDelay: this.spawnDelay(),
-    useGathering: this.useGathering(),
   });
 }
 ```
@@ -452,7 +408,6 @@ reset(): void {
   this.enemyManager.clear();
   this.phase.set('setup');
   this.waveNumber.set(0);
-  this.gatheringPhase.set(false);
 }
 ```
 
@@ -542,17 +497,7 @@ spawnDelay: 300-500,  // ✅
 spawnDelay: 800-1000,  // ✅ (Tank, Boss)
 ```
 
-### 2. Gathering Mode
-
-```typescript
-// Gathering JA: Große Wellen, Bosse
-enemyCount >= 20 || isBossWave  // ✅
-
-// Gathering NEIN: Kleine/mittlere Wellen
-enemyCount < 20  // ✅
-```
-
-### 3. Wave Difficulty Curve
+### 2. Wave Difficulty Curve
 
 ```typescript
 // Linear: Langweilig
@@ -565,7 +510,7 @@ enemyCount: Math.pow(2, waveNum);  // ❌
 enemyCount: Math.min(50, 10 + waveNum * 5);  // ✅
 ```
 
-### 4. Mixed Enemy Types
+### 3. Mixed Enemy Types
 
 ```typescript
 // Nicht nur ein Typ pro Wave
@@ -589,11 +534,6 @@ const tankCount = Math.floor(waveNum / 3);
 ### Enemies spawnen an falscher Position
 - Check `cachedPaths` enthält richtigen Pfad
 - Check Spawn-Point `latitude`/`longitude` valide
-
-### Gathering funktioniert nicht
-- Check `useGathering: true` in Config
-- Check `enemyManager.startAll()` wird aufgerufen
-- Check Enemies sind `paused: true` beim Spawn
 
 ### Wave endet nicht
 - Check `getAliveCount()` = 0

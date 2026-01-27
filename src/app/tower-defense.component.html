@@ -87,12 +87,7 @@
         <!-- Debug Windows (draggable) -->
         <app-camera-debugger />
         <app-devworld-debugger [isRegenerating]="isDevWorldRegenerating()" (terrainRefresh)="refreshTerrainHeights()" />
-        <app-wave-debugger
-          (killAll)="killAllEnemies()"
-          (healHq)="healHq()"
-          (addCredits)="addDebugCredits()"
-          (addHealth)="addDebugHealth()"
-        />
+        <app-wave-debugger [eventBus]="gameState.getEventBus()" />
         <app-sound-debugger />
         <app-event-debugger [eventBus]="gameState.getEventBus()" />
         <app-training-debugger
@@ -140,6 +135,9 @@
           (spatialGridDebugToggled)="onSpatialGridDebugToggled()"
           (playRouteAnimation)="onPlayRouteAnimation()"
           (refreshHeights)="refreshTerrainHeights()"
+          (killAllEnemies)="killAllEnemies()"
+          (addCredits)="addDebugCredits()"
+          (addHealth)="addDebugHealth()"
         />
       }
 
@@ -149,14 +147,6 @@
           [hints]="buildModeHints"
           [warning]="buildModeWarning()"
         />
-      }
-
-      <!-- Gathering Overlay -->
-      @if (gatheringPhase()) {
-        <div class="td-gathering-overlay">
-          <mat-icon>groups</mat-icon>
-          <span>Enemies gathering...</span>
-        </div>
       }
 
       <!-- Game Over Overlay -->
