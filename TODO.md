@@ -251,6 +251,12 @@
 
 ## 4.3 Gameplay Features
 
+- [ ] **Spielgeschwindigkeit-Auswahl (Timescale)**
+      UI: Prominente Buttons/Toggle im Spiel (3 Stufen)
+      Stufen: Normal (1x), Mittel (2x), Schnell (4x)
+      Analog zu AI-Training-Panel timescale
+      Beeinflusst: `trainingTimescale` Signal in GameStateManager
+
 - [ ] **Rechtsklick bricht Baumodus ab**
       Rechtsklick im Baumodus soll das Bauen abbrechen und den Turm nicht platzieren
       Datei: `tower-placement.service.ts` oder `input-handler.service.ts`
