@@ -85,6 +85,8 @@ interface FloatingTextInstance {
   duration: number;
   floatSpeed: number;
   startY: number;
+  baseScaleX: number;
+  baseScaleY: number;
   active: boolean;
 }
 
@@ -1623,6 +1625,8 @@ export class ThreeEffectsRenderer {
           duration: 0,
           floatSpeed: 0,
           startY: 0,
+          baseScaleX: 0,
+          baseScaleY: 0,
           active: false,
         };
         this.floatingTexts.push(instance);
@@ -1657,6 +1661,8 @@ export class ThreeEffectsRenderer {
     instance.duration = duration;
     instance.floatSpeed = floatSpeed;
     instance.startY = localPos.y;
+    instance.baseScaleX = baseSize * aspect;
+    instance.baseScaleY = baseSize;
     instance.active = true;
 
     return id;
@@ -1846,13 +1852,13 @@ export class ThreeEffectsRenderer {
       const fadeProgress = Math.max(0, (progress - 0.5) * 2);
       (textInstance.sprite.material as SpriteMaterial).opacity = 1 - fadeProgress;
 
-      // Scale up slightly as it rises
+      // Scale up slightly as it rises (use stored base scale to prevent exponential growth)
       const scaleMultiplier = 1 + progress * 0.3;
-      const baseScale = textInstance.sprite.scale.clone();
-      textInstance.sprite.scale.setScalar(scaleMultiplier);
-      // Preserve aspect ratio
-      const aspect = baseScale.x / baseScale.y;
-      textInstance.sprite.scale.x = textInstance.sprite.scale.y * aspect;
+      textInstance.sprite.scale.set(
+        textInstance.baseScaleX * scaleMultiplier,
+        textInstance.baseScaleY * scaleMultiplier,
+        1
+      );
 
       // Mark as inactive when done
       if (progress >= 1) {

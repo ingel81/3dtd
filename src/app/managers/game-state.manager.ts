@@ -152,7 +152,7 @@ export class GameStateManager {
               color: '#FFD700',
               duration: 1200,
               floatSpeed: 1.5,
-              scale: 2.5,
+              scale: 0.75,
             }
           );
         }
