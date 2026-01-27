@@ -51,7 +51,7 @@
         </div>
         <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave.emit()"
                 [disabled]="waveActive() || buildMode() || isGameOver()">
-          <mat-icon>{{ waveActive() ? 'hourglass_empty' : 'play_arrow' }}</mat-icon>
+          <mat-icon>{{ waveActive() ? 'pending' : 'play_arrow' }}</mat-icon>
           <span>{{ waveActive() ? 'Wave running...' : 'Next Wave' }}</span>
         </button>
       </div>
@@ -131,7 +131,7 @@
                   [matTooltip]="upgrade.description"
                   matTooltipPosition="left"
                 >
-                  <mat-icon class="td-upgrade-icon">bolt</mat-icon>
+                  <mat-icon class="td-upgrade-icon">upgrade</mat-icon>
                   <div class="td-upgrade-info">
                     <span class="td-upgrade-name">{{ upgrade.name }}</span>
                     <span class="td-upgrade-desc">Lv.{{ tower.getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
