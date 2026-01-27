@@ -4,6 +4,22 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-28
+
+### Floating Text (Reward Popup) Bugfix
+
+- [x] **Exponentielle Vergroesserung gefixt**
+      Problem: Reward-Text (+Credits) wurde mit jedem Frame groesser
+      Ursache: `sprite.scale.clone()` holte aktuelle (bereits vergroesserte) Scale
+      Fix: `baseScaleX`/`baseScaleY` in FloatingTextInstance gespeichert
+      Dateien: `three-effects.renderer.ts`
+
+- [x] **Reward-Text Groesse angepasst**
+      Scale von 2.5 auf 0.75 reduziert (war viel zu gross)
+      Datei: `game-state.manager.ts`
+
+---
+
 ## 2026-01-27
 
 ### Tower Turret Rotation Fix
