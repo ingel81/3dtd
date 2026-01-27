@@ -6,6 +6,7 @@ import { ThreeTilesEngine } from '../three-engine';
  */
 export abstract class EntityManager<T extends GameObject> {
   protected entities = new Map<string, T>();
+  protected activeEntities = new Set<T>();
   protected tilesEngine: ThreeTilesEngine | null = null;
 
   /**
@@ -20,6 +21,7 @@ export abstract class EntityManager<T extends GameObject> {
    */
   add(entity: T): void {
     this.entities.set(entity.id, entity);
+    this.activeEntities.add(entity);
   }
 
   /**
@@ -28,6 +30,7 @@ export abstract class EntityManager<T extends GameObject> {
   remove(entity: T): void {
     entity.destroy();
     this.entities.delete(entity.id);
+    this.activeEntities.delete(entity);
   }
 
   /**
@@ -45,10 +48,10 @@ export abstract class EntityManager<T extends GameObject> {
   }
 
   /**
-   * Get all active entities
+   * Get all active entities - O(1) via cached Set
    */
   getAllActive(): T[] {
-    return this.getAll().filter((e) => e.active);
+    return Array.from(this.activeEntities);
   }
 
   /**
@@ -57,6 +60,7 @@ export abstract class EntityManager<T extends GameObject> {
   clear(): void {
     this.getAll().forEach((e) => this.remove(e));
     this.entities.clear();
+    this.activeEntities.clear();
   }
 
   /**

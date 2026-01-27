@@ -85,10 +85,6 @@ export abstract class GameObject {
     return this._active;
   }
 
-  set active(value: boolean) {
-    this._active = value;
-  }
-
   /**
    * Generate unique ID for GameObject
    */
