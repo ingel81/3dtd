@@ -104,24 +104,33 @@ export class WaveManager implements IGameManager {
    * Start a new wave with auto-spawning
    */
   startWave(config: WaveConfig): void {
+    // Guard against invalid enemyCount (NaN, Infinity, negative)
+    const enemyCount = Number.isFinite(config.enemyCount) && config.enemyCount > 0
+      ? config.enemyCount
+      : 10; // Safe fallback
+    if (enemyCount !== config.enemyCount) {
+      console.warn(`[WaveManager] Invalid enemyCount ${config.enemyCount}, using ${enemyCount}`);
+    }
+
     this.waveNumber.update((n) => n + 1);
     this.phase.set('wave');
 
     // Initialize spawn tracking
-    this.expectedEnemyCount = config.enemyCount;
+    this.expectedEnemyCount = enemyCount;
     this.spawnedEnemyCount = 0;
 
     // Emit wave:started event with actual enemy count
     this.eventBus.emit({
       type: 'wave:started',
       wave: this.waveNumber(),
-      enemyCount: config.enemyCount, // This is the actual count being spawned
+      enemyCount, // This is the actual count being spawned
     });
 
     // Use getter if provided (allows live delay changes), otherwise use static value
     const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
 
     let spawnedCount = 0;
+    let consecutiveFailures = 0;
 
     // Capture wave number at start to detect reset
     const waveId = this.waveNumber();
@@ -140,7 +149,7 @@ export class WaveManager implements IGameManager {
         return;
       }
 
-      if (spawnedCount >= config.enemyCount) {
+      if (spawnedCount >= enemyCount) {
         return;
       }
 
@@ -152,6 +161,15 @@ export class WaveManager implements IGameManager {
         this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, false, config.enemyHealth);
         spawnedCount++;
         this.spawnedEnemyCount++; // Track globally for wave completion check
+        consecutiveFailures = 0;
+      } else {
+        consecutiveFailures++;
+        // Abort if no spawn point has a valid path (prevents infinite loop)
+        if (consecutiveFailures >= this.spawnPoints.length * 2) {
+          console.error(`[WaveManager] No valid paths for spawn points, aborting spawn (${spawnedCount}/${enemyCount})`);
+          this.expectedEnemyCount = spawnedCount; // Adjust so wave can complete
+          return;
+        }
       }
 
       // Check phase again before scheduling next spawn (could have been reset during spawn)
