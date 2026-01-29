@@ -1005,6 +1005,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     }
   }
 
+  onEnemiesToggled(visible: boolean): void {
+    this.engine?.enemies.setEnemiesVisible(visible);
+  }
+
   onHealthBarsToggled(visible: boolean): void {
     this.engine?.enemies.setHealthBarsVisible(visible);
   }
@@ -1013,13 +1017,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.engine?.enemies.setAnimationsEnabled(enabled);
   }
 
+  onMovementToggled(enabled: boolean): void {
+    this.gameState.enemyManager.movementEnabled = enabled;
+  }
+
   private applyDisplayOptions(): void {
     try {
       const stored = localStorage.getItem('td_display_options');
       if (stored) {
         const opts = JSON.parse(stored);
+        if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
         if (opts.healthBars === false) this.engine?.enemies.setHealthBarsVisible(false);
         if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
+        if (opts.movement === false) this.gameState.enemyManager.movementEnabled = false;
       }
     } catch { /* ignore */ }
   }

@@ -109,8 +109,10 @@
           (stopMovement)="onStopEnemyMovement($event)"
         />
         <app-display-options
+          (enemiesToggled)="onEnemiesToggled($event)"
           (healthBarsToggled)="onHealthBarsToggled($event)"
           (animationsToggled)="onAnimationsToggled($event)"
+          (movementToggled)="onMovementToggled($event)"
         />
 
         <!-- Info Overlay (top left) -->
