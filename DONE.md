@@ -6,6 +6,38 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-01-29
 
+### Engine Foundation — Phase 1 Abschluss
+
+- [x] **IGameManager Lifecycle-Interface**
+      Interface mit `initialize()`, `update(dt)`, `destroy()` — formaler Contract für alle Manager
+      EntityManager (abstrakt) + WaveManager implementieren IGameManager
+      Dateien: `game-engine/game-manager.interface.ts`, `managers/entity-manager.ts`, `managers/wave.manager.ts`
+
+- [x] **Timeout-Tracking in EnemyManager**
+      `activeTimeouts: Set` trackt alle setTimeout-Aufrufe (Death-Animations, Spawn-Delays)
+      Self-Cleaning Pattern: Callback löscht sich selbst aus dem Set
+      `clear()` + `destroy()` clearen alle pending Timeouts — verhindert Ghost-Callbacks nach Reset
+
+- [x] **Performance-Regression-Tests (8 Tests)**
+      EntityManager: add/update/remove/getById mit 200 Entities, explizite ms-Schwellenwerte
+      GameEventBus: 100 Handler × 100 Events, 1000 Emits, 500 deferred Queue, Subscribe/Unsubscribe
+      Datei: `game-engine/performance.spec.ts`
+
+- [x] **timing.config.ts — Magic Numbers eliminiert**
+      5 zentrale Konstanten: deathAnimationDuration (2000ms), defaultSpawnStartDelay (300ms),
+      losRecheckInterval (300ms), gameOverScreenDelay (3000ms), rewardPopupDuration (1200ms)
+      Ersetzt in: EnemyManager, GameStateManager, Tower Entity, HQDamageService
+
+- [x] **GamePhase Type Duplikat aufgelöst**
+      Zentraler Type `GamePhase` in `models/game.types.ts` (Single Source of Truth)
+      Re-Export in `wave.manager.ts` für Abwärtskompatibilität
+      `game-state-snapshot.ts` + `ai-data-collector.service.ts` auf Import umgestellt
+
+- [x] **Three.js Resource Disposal verbessert**
+      `disposeObject()` disposed jetzt alle Texture-Maps (roughnessMap, metalnessMap, emissiveMap, aoMap)
+      `dispose()` cleared towers Map explizit für GC
+      Datei: `three-engine/renderers/three-tower.renderer.ts`
+
 ### Vitest Test-Infrastruktur
 
 - [x] **Vitest Setup + 79 Unit Tests**

@@ -28,9 +28,10 @@
       Dateien: `entities/*.spec.ts`, `core/*.spec.ts`, `game-components/*.spec.ts`,
       `managers/entity-manager.spec.ts`, `configs/*.spec.ts`, `models/*.spec.ts`
 
-- [ ] **Performance-Regression-Tests**
-      Benchmarks: 100 Enemies @ 60 FPS, <200 Draw Calls
-      Verhindert Performance-Regressionen
+- [x] **Performance-Regression-Tests** ✅ DONE 2026-01-29
+      8 Tests: EntityManager (add/update/remove/getById mit 200 Entities),
+      GameEventBus (100 Handler × 100 Events, 1000 Emits, 500 deferred Queue)
+      Datei: `game-engine/performance.spec.ts`
 
 ## 1.2 EventBus-Entkopplung (Prio 1) 🔄 IN PROGRESS
 
@@ -63,16 +64,21 @@
 
 ## 1.3 Architektur-Stabilität (Prio 1)
 
-- [ ] **IGameManager Lifecycle-Interface**
-      Formaler Contract: `initialize()`, `update(dt)`, `destroy()`
-      Alle Manager implementieren lassen für Konsistenz
+- [x] **IGameManager Lifecycle-Interface** ✅ DONE 2026-01-29
+      Interface mit `initialize()`, `update(dt)`, `destroy()`
+      EntityManager + WaveManager implementieren IGameManager
+      Datei: `game-engine/game-manager.interface.ts`, Export via `game-engine/index.ts`
 
-- [ ] **Timeout-Tracking in Managern**
-      Pattern: `this.timeouts.push(setTimeout(...))` + `clearAll()` in destroy
-      Cleanup-Sicherheit, verhindert Memory Leaks
+- [x] **Timeout-Tracking in Managern** ✅ DONE 2026-01-29
+      EnemyManager: `activeTimeouts: Set` mit Self-Cleaning Pattern
+      Death-Animation + startAll()-Timeouts getrackt
+      `clear()` + `destroy()` clearen alle Timeouts
+      WaveManager hatte bereits Timeout-Tracking
 
-- [ ] **Model Templates korrekt disposen**
-      Datei: `three-tower.renderer.ts:1479` - Geometry/Material nicht disposed
+- [x] **Model Templates korrekt disposen** ✅ DONE 2026-01-29
+      `disposeObject()` disposed alle Texture-Maps (roughness, metalness, emissive, ao)
+      `dispose()` cleared towers Map für GC
+      Datei: `three-engine/renderers/three-tower.renderer.ts`
 
 ## 1.3 Performance Monitoring (Prio 1)
 
@@ -83,9 +89,11 @@
 
 ## 1.4 Config-Konsolidierung
 
-- [ ] **timing.config.ts erstellen** - Animation/Game Timings
-      Aktuell: Death-Animation (2000ms), LOS-Recheck (300ms), Spawn-Delays etc.
-      Magic Numbers eliminieren
+- [x] **timing.config.ts erstellt** ✅ DONE 2026-01-29
+      5 zentrale Timing-Konstanten: deathAnimationDuration, defaultSpawnStartDelay,
+      losRecheckInterval, gameOverScreenDelay, rewardPopupDuration
+      Ersetzt in: EnemyManager, GameStateManager, Tower Entity, HQDamageService
+      Datei: `configs/timing.config.ts`
 
 ---
 
@@ -659,9 +667,9 @@
 
 ## Type Duplikate konsolidieren
 
-- [ ] **GamePhase Type Duplikat** ⚠️
-      `wave.manager.ts:7` → `'setup' | 'wave' | 'gameover'` (verwendet)
-      Alternative: 'paused' | 'victory' hinzufuegen wenn noetig
+- [x] **GamePhase Type Duplikat aufgelöst** ✅ DONE 2026-01-29
+      Zentraler Type in `models/game.types.ts`, Re-Export in `wave.manager.ts`
+      `game-state-snapshot.ts` + `ai-data-collector.service.ts` umgestellt
 
 ## TODO-Kommentare im Code (Feature-Requests)
 
