@@ -299,13 +299,15 @@ export class GameStateManager {
     const isFirstWave = this.waveManager.waveNumber() === 0;
     const wasPaused = this.waveManager.phase() !== 'wave';
 
-    this.waveManager.startWave(config);
-
+    // Emit lifecycle events BEFORE startWave() so that AIDataCollector.clearHistory()
+    // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (isFirstWave) {
       this.eventBus.emit({ type: 'game:started' });
     } else if (wasPaused) {
       this.eventBus.emit({ type: 'game:resumed' });
     }
+
+    this.waveManager.startWave(config);
   }
 
   /**
@@ -315,13 +317,15 @@ export class GameStateManager {
     const isFirstWave = this.waveManager.waveNumber() === 0;
     const wasPaused = this.waveManager.phase() !== 'wave';
 
-    this.waveManager.beginWave();
-
+    // Emit lifecycle events BEFORE beginWave() so that AIDataCollector.clearHistory()
+    // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (isFirstWave) {
       this.eventBus.emit({ type: 'game:started' });
     } else if (wasPaused) {
       this.eventBus.emit({ type: 'game:resumed' });
     }
+
+    this.waveManager.beginWave();
   }
 
   /**

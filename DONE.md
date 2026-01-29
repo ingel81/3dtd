@@ -58,6 +58,21 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       Dateien: game-event-bus.ts, game-state.manager.ts, combat-effect.service.ts,
       vfx.service.ts, enemy.manager.ts, wave.manager.ts, tower-defense.component.ts
 
+### Bugfixes
+
+- [x] **AI Wave NaN-Bug gefixt (Event-Reihenfolge)**
+      Problem: `game:started` wurde NACH `wave:started` emittiert → AIDataCollector.clearHistory()
+      löschte das gerade initialisierte Wave-Tracking → `damagePercent: undefined` in History →
+      `reduce(a + undefined) = NaN` → ONNX Model Input NaN → alle Outputs NaN → `enemyCount: NaN` →
+      Endlos-Spawn ab Wave 2.
+      Fix: `game:started`/`game:resumed` werden jetzt VOR `startWave()`/`beginWave()` emittiert.
+      Datei: `managers/game-state.manager.ts`
+
+- [x] **NaN-Guard in WaveManager (Sicherheitsnetz)**
+      `startWave()` validiert `enemyCount` gegen NaN/Infinity/negativ → Fallback auf 10.
+      Consecutive-Failure-Guard bricht Spawning ab wenn keine Paths verfügbar.
+      Datei: `managers/wave.manager.ts`
+
 ### GameEventBus Analyse
 
 - [x] **Abhängigkeits-Analyse erstellt**
