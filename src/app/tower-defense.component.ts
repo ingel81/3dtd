@@ -25,7 +25,7 @@ import { ConfigService } from './core/services/config.service';
 import { OsmStreetService, StreetNetwork } from './services/osm-street.service';
 import { EntityPoolService } from './services/entity-pool.service';
 import { ModelPreviewService } from './services/model-preview.service';
-import { getAllEnemyTypes } from './models/enemy-types';
+import { EnemyTypeId, getAllEnemyTypes } from './models/enemy-types';
 import { LocationDialogComponent } from './components/location-dialog/location-dialog.component';
 import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
 import { CompassComponent } from './components/compass/compass.component';
@@ -223,6 +223,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Flag to prevent concurrent AI wave requests (race condition guard)
   private pendingAIWaveRequest = false;
+
+  // Debug enemy placement tracking (for event-driven spawn)
+  private pendingDebugPlacement: { typeId: EnemyTypeId; lat: number; lon: number } | null = null;
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -885,22 +888,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const typeId = this.enemyDebug.selectedEnemyId();
     const overrides = this.enemyDebug.currentOverrides();
 
-    // Spawn enemy (paused = idle)
-    const enemy = this.gameState.enemyManager.spawn(
+    // Spawn enemy via debug event (paused = idle)
+    this.pendingDebugPlacement = { typeId, lat, lon };
+    this.gameState.getEventBus().emit({
+      type: 'debug:spawn-enemy',
+      enemyType: typeId,
+      count: 1,
       path,
-      typeId,
-      overrides.baseSpeed,
-      true, // paused
-      overrides.baseHp
-    );
-
-    // Register as debug enemy
-    this.enemyDebug.registerDebugEnemy(enemy, typeId, lat, lon);
-
-    // Exit placement mode
-    this.enemyDebug.exitPlacementMode();
-
-    console.log(`[EnemyDebug] Placed ${typeId} at ${lat.toFixed(6)}, ${lon.toFixed(6)}`);
+      speed: overrides.baseSpeed,
+      paused: true,
+      health: overrides.baseHp,
+    });
   }
 
   /**
@@ -1128,18 +1126,32 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize strategic placement service with street network
     this.strategicPlacement.initialize(this.streetNetwork);
 
+    const eventBus = this.gameState.getEventBus();
+
     // Subscribe to tower:selected event - sync debug panel dropdown
-    this.gameState.getEventBus().on('tower:selected', (event) => {
+    eventBus.on('tower:selected', (event) => {
       this.towerDebug.selectTower(event.tower.typeConfig.id);
     });
 
     // Subscribe to debug:start-custom-wave event from Wave Debug Panel
-    this.gameState.getEventBus().on('debug:start-custom-wave', () => {
+    eventBus.on('debug:start-custom-wave', () => {
       this.startCustomWave();
     });
 
+    // Register debug enemy placement (next spawned enemy after placement click)
+    eventBus.on('enemy:spawned', (event) => {
+      const pending = this.pendingDebugPlacement;
+      if (!pending) return;
+
+      this.pendingDebugPlacement = null;
+      this.enemyDebug.registerDebugEnemy(event.enemy, pending.typeId, pending.lat, pending.lon);
+      this.enemyDebug.exitPlacementMode();
+
+      console.log(`[EnemyDebug] Placed ${pending.typeId} at ${pending.lat.toFixed(6)}, ${pending.lon.toFixed(6)}`);
+    });
+
     // Subscribe to game:over event
-    this.gameState.getEventBus().on('game:over', () => {
+    eventBus.on('game:over', () => {
       this.onGameOver();
       // Reset bot for next game
       if (this.currentBot) {
@@ -1803,6 +1815,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     if (success) {
       this.gameState.spendCredits(cost);
+
+      this.gameState.getEventBus().emit({
+        type: 'tower:upgraded',
+        tower,
+        level: tower.getUpgradeLevel(upgradeId),
+        cost,
+      });
+
       console.log(`[Upgrade] ✅ ${tower.typeConfig.name} upgraded with ${upgrade.name} (${cost} credits)`);
     }
 
@@ -2394,16 +2414,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   killAllEnemies(): void {
-    // Stop spawning new enemies (clears pending timeouts in WaveManager)
-    this.gameState.stopSpawning();
-
-    // Kill all living enemies
-    const enemies = this.gameState.enemies();
-    for (const enemy of enemies) {
-      if (enemy.alive) {
-        this.gameState.killEnemy(enemy);
-      }
-    }
+    this.gameState.getEventBus().emit({ type: 'debug:kill-all' });
 
     // Wave ends automatically via checkWaveComplete() when aliveCount === 0
     // Death animations, projectiles, and effects continue running
