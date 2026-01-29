@@ -4,6 +4,7 @@ import { GeoPosition } from '../models/game.types';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { GAME_SOUNDS } from '../configs/audio.config';
 import { GameEventBus } from '../game-engine';
+import { TIMING } from '../configs/timing.config';
 
 /**
  * HQDamageService - Handles HQ fire effects, damage sounds, and game over visuals
@@ -203,7 +204,7 @@ export class HQDamageService {
       this.gameOverTimeout = null;
       this.showGameOverScreen.set(true);
       onComplete?.();
-    }, 3000);
+    }, TIMING.gameOverScreenDelay);
   }
 
   /**

@@ -20,6 +20,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId, ENEMY_TYPES } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, VFXService, AudioService } from '../game-engine';
@@ -150,7 +151,7 @@ export class GameStateManager {
             event.enemy.transform.terrainHeight + 5,
             {
               color: '#FFD700',
-              duration: 1200,
+              duration: TIMING.rewardPopupDuration,
               floatSpeed: 1.5,
               scale: 0.75,
             }
@@ -401,7 +402,7 @@ export class GameStateManager {
   /**
    * Start all paused enemies
    */
-  startAllEnemies(delayBetween = 300): void {
+  startAllEnemies(delayBetween = TIMING.defaultSpawnStartDelay): void {
     this.enemyManager.startAll(delayBetween, this.trainingTimescale());
   }
 

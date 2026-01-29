@@ -8,6 +8,7 @@ import {
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost } from '../configs/tower-types.config';
+import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
 
@@ -42,7 +43,7 @@ export class Tower extends GameObject {
   private _lastLosCheckTime = 0;
 
   /** Minimum interval between LOS rechecks (ms) */
-  private readonly LOS_RECHECK_INTERVAL = 300;
+  private readonly LOS_RECHECK_INTERVAL = TIMING.losRecheckInterval;
 
   constructor(position: GeoPosition, typeId: TowerTypeId, customRotation = 0) {
     super('tower');
