@@ -87,7 +87,11 @@ export class ThreeEnemyRenderer {
   // Key: typeId, Value: Array of materials in mesh traverse order
   private materialPool = new Map<string, Material[]>();
 
+  // Debug: track which types have been logged
+  private _loggedTypes = new Set<string>();
+
   // Display toggle flags
+  private _showEnemies = true;
   private _showHealthBars = true;
   private _showAnimations = true;
 
@@ -182,12 +186,22 @@ export class ThreeEnemyRenderer {
 
     // Ensure all meshes are visible
     mesh.visible = true;
+    let nodeCount = 0;
     mesh.traverse((node) => {
       node.visible = true;
+      nodeCount++;
     });
 
-    // Add to scene
-    this.scene.add(mesh);
+    // Log node count for first enemy of each type (debug)
+    if (!this._loggedTypes.has(typeId)) {
+      this._loggedTypes.add(typeId);
+      console.log(`[EnemyRenderer] ${typeId} scene nodes per enemy: ${nodeCount}`);
+    }
+
+    // Add to scene (skip if enemies are detached)
+    if (this._showEnemies) {
+      this.scene.add(mesh);
+    }
 
     // Setup animation mixer if model has animations AND config allows it
     let mixer: AnimationMixer | null = null;
@@ -205,7 +219,9 @@ export class ThreeEnemyRenderer {
     healthBar.position.copy(localPos);
     healthBar.position.y += config.healthBarOffset;
     healthBar.visible = this._showHealthBars;
-    this.scene.add(healthBar);
+    if (this._showEnemies) {
+      this.scene.add(healthBar);
+    }
 
     // Apply current animation toggle state
     if (mixer && !this._showAnimations) {
@@ -245,6 +261,9 @@ export class ThreeEnemyRenderer {
   ): void {
     const data = this.enemies.get(id);
     if (!data || data.isDestroyed) return;
+
+    // Skip position/visual updates when enemies are hidden
+    if (!this._showEnemies) return;
 
     // Use debug overrides if present, otherwise use typeConfig
     const heightOffset = data.debugOverrides?.heightOffset ?? data.typeConfig.heightOffset;
@@ -557,6 +576,9 @@ export class ThreeEnemyRenderer {
    * Only animates enemies visible to the camera
    */
   updateAnimations(deltaTime: number, camera: Camera): void {
+    // Skip all mixer updates when enemies are hidden or animations disabled
+    if (!this._showEnemies || !this._showAnimations) return;
+
     // Update frustum from camera
     this.projScreenMatrix.multiplyMatrices(
       camera.projectionMatrix,
@@ -917,7 +939,7 @@ export class ThreeEnemyRenderer {
     this._showHealthBars = visible;
     for (const data of this.enemies.values()) {
       if (data.healthBar && !data.isDestroyed) {
-        data.healthBar.visible = visible;
+        data.healthBar.visible = visible && this._showEnemies;
       }
     }
   }
@@ -941,5 +963,53 @@ export class ThreeEnemyRenderer {
 
   get showAnimations(): boolean {
     return this._showAnimations;
+  }
+
+  /**
+   * Toggle enemy mesh visibility (immediate).
+   * When hidden, meshes and health bars are removed from the scene graph entirely
+   * to avoid Three.js traversal overhead. Re-adding restores them.
+   */
+  setEnemiesVisible(visible: boolean): void {
+    if (this._showEnemies === visible) return;
+    this._showEnemies = visible;
+
+    if (visible) {
+      this.attachAllToScene();
+    } else {
+      this.detachAllFromScene();
+    }
+  }
+
+  get showEnemies(): boolean {
+    return this._showEnemies;
+  }
+
+  /**
+   * Remove all enemy meshes and health bars from the scene graph (without destroying them).
+   * Enemies still exist in the enemies Map and can be re-attached.
+   */
+  private detachAllFromScene(): void {
+    for (const data of this.enemies.values()) {
+      if (data.isDestroyed) continue;
+      this.scene.remove(data.mesh);
+      if (data.healthBar) {
+        this.scene.remove(data.healthBar);
+      }
+    }
+  }
+
+  /**
+   * Re-add all enemy meshes and health bars to the scene graph.
+   */
+  private attachAllToScene(): void {
+    for (const data of this.enemies.values()) {
+      if (data.isDestroyed) continue;
+      this.scene.add(data.mesh);
+      if (data.healthBar) {
+        this.scene.add(data.healthBar);
+        data.healthBar.visible = this._showHealthBars;
+      }
+    }
   }
 }

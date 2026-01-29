@@ -31,6 +31,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
 
+  // Debug toggle: skip movement + visual updates when false
+  movementEnabled = true;
+
   // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
   private cachedAliveEnemies: Enemy[] | null = null;
 
@@ -247,6 +250,9 @@ export class EnemyManager extends EntityManager<Enemy> {
    * @param timescale Game speed multiplier (for status effect duration)
    */
   override update(deltaTime: number, timescale = 1.0): void {
+    // Skip all per-enemy work when movement is disabled (debug toggle)
+    if (!this.movementEnabled) return;
+
     // Clear reusable array (no allocation)
     this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
