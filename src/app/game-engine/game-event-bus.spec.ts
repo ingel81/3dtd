@@ -288,7 +288,7 @@ describe('GameEventBus', () => {
 
     it('listener can remove itself during emit without crash', () => {
       const handler = vi.fn(() => {
-        bus.off('vfx:explosion', handler as unknown as (e: any) => void);
+        bus.off('vfx:explosion', handler as unknown as (e: never) => void);
       });
       const secondary = vi.fn();
 

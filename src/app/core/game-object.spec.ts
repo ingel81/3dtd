@@ -105,6 +105,7 @@ describe('GameObject', () => {
 
   it('warns when adding a duplicate component type', () => {
     const obj = new TestGameObject();
+    // eslint-disable-next-line @typescript-eslint/no-empty-function
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => {});
 
     obj.addComponent(new TestComponent(obj), ComponentType.TRANSFORM);

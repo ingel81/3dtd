@@ -27,11 +27,11 @@ export class TowerCombatService {
   private tilesEngine: ThreeTilesEngine | null = null;
 
   // Throttle blood effects for beam damage (every 200ms per enemy)
-  private lastBeamBloodEffect: Map<string, number> = new Map();
+  private lastBeamBloodEffect = new Map<string, number>();
   private readonly BEAM_BLOOD_EFFECT_INTERVAL = 200;
 
   // Active flame sound loops per tower (towerId -> soundHandle)
-  private activeFlameSounds: Map<string, string> = new Map();
+  private activeFlameSounds = new Map<string, string>();
 
   // Reusable vectors for cone collision
   private readonly tempDirection = new Vector3();
@@ -204,7 +204,7 @@ export class TowerCombatService {
     deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
-    timescale: number = 1.0
+    timescale = 1.0
   ): void {
     if (!this.tilesEngine || !this.tilesEngine?.flameBeams) return;
 

@@ -22,7 +22,7 @@ export class ThreeFlameBeamRenderer {
   private effectsRenderer: ThreeEffectsRenderer | null = null;
 
   // Active beams per tower
-  private activeBeams: Map<string, ActiveBeam> = new Map();
+  private activeBeams = new Map<string, ActiveBeam>();
 
   // Particle spawn configuration
   private readonly PARTICLES_PER_SECOND = 120; // How many particles to spawn per second
@@ -120,7 +120,7 @@ export class ThreeFlameBeamRenderer {
    * Spawn particles along the beam
    * Particles start small/concentrated at tower and expand toward target
    */
-  private spawnBeamParticles(beam: ActiveBeam, now: number, dt: number): void {
+  private spawnBeamParticles(beam: ActiveBeam, now: number, _dt: number): void {
     if (!this.effectsRenderer) return;
 
     // Calculate how many particles to spawn this frame

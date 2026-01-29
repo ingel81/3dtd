@@ -133,7 +133,7 @@ export class ThreeEffectsRenderer {
   private towerFirePool: Particle[] = [];
   private readonly MAX_TOWER_FIRE_PARTICLES = 800;
   private towerFireParticles: Points | null = null;
-  private activeTowerFires: Map<string, { particles: Particle[]; localPosition: Vector3 }> = new Map();
+  private activeTowerFires = new Map<string, { particles: Particle[]; localPosition: Vector3 }>();
 
   // ShaderMaterial alternatives with per-particle size and log depth support
   private trailShaderMaterialAdditive: ShaderMaterial | null = null;
@@ -885,8 +885,8 @@ export class ThreeEffectsRenderer {
   spawnTowerInnerFire(
     towerId: string,
     localPosition: Vector3,
-    fireHeight: number = 3.0,
-    intensity: number = 0.5
+    fireHeight = 3.0,
+    intensity = 0.5
   ): string {
     // Check if already exists
     if (this.activeTowerFires.has(towerId)) {
