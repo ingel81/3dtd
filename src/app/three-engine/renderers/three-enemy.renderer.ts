@@ -87,6 +87,10 @@ export class ThreeEnemyRenderer {
   // Key: typeId, Value: Array of materials in mesh traverse order
   private materialPool = new Map<string, Material[]>();
 
+  // Display toggle flags
+  private _showHealthBars = true;
+  private _showAnimations = true;
+
   constructor(scene: Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
     this.sync = sync;
@@ -200,7 +204,13 @@ export class ThreeEnemyRenderer {
     const healthBar = this.createHealthBarSprite(config);
     healthBar.position.copy(localPos);
     healthBar.position.y += config.healthBarOffset;
+    healthBar.visible = this._showHealthBars;
     this.scene.add(healthBar);
+
+    // Apply current animation toggle state
+    if (mixer && !this._showAnimations) {
+      mixer.timeScale = 0;
+    }
 
     const renderData: EnemyRenderData = {
       id,
@@ -894,5 +904,42 @@ export class ThreeEnemyRenderer {
       texture.dispose();
     }
     this.healthBarTextures.clear();
+  }
+
+  // =====================================================
+  // DISPLAY TOGGLES
+  // =====================================================
+
+  /**
+   * Toggle health bar visibility for all enemies (immediate)
+   */
+  setHealthBarsVisible(visible: boolean): void {
+    this._showHealthBars = visible;
+    for (const data of this.enemies.values()) {
+      if (data.healthBar && !data.isDestroyed) {
+        data.healthBar.visible = visible;
+      }
+    }
+  }
+
+  get showHealthBars(): boolean {
+    return this._showHealthBars;
+  }
+
+  /**
+   * Toggle enemy animations (immediate)
+   * When disabled, all mixers stop updating but enemies still move along paths.
+   */
+  setAnimationsEnabled(enabled: boolean): void {
+    this._showAnimations = enabled;
+    for (const data of this.enemies.values()) {
+      if (data.mixer && !data.isDestroyed) {
+        data.mixer.timeScale = enabled ? 1 : 0;
+      }
+    }
+  }
+
+  get showAnimations(): boolean {
+    return this._showAnimations;
   }
 }

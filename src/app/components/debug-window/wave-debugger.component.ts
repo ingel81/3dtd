@@ -83,10 +83,10 @@ import { EnemyTypeId } from '../../models/enemy-types';
 
             <div class="slider-row">
               <span class="label">Delay</span>
-              <input type="range" min="100" max="5000" step="100"
+              <input type="range" min="0.01" max="5000" step="0.01"
                      [value]="waveDebug.spawnDelay()"
                      (input)="onSpawnDelayChange($event)" />
-              <span class="value">{{ waveDebug.spawnDelay() / 1000 }}s</span>
+              <span class="value">{{ formatDelay(waveDebug.spawnDelay()) }}</span>
             </div>
 
             <!-- Custom Wave Start Button -->
@@ -378,7 +378,13 @@ export class WaveDebuggerComponent {
   }
 
   onSpawnDelayChange(event: Event): void {
-    const value = parseInt((event.target as HTMLInputElement).value, 10);
+    const value = parseFloat((event.target as HTMLInputElement).value);
     this.waveDebug.setSpawnDelay(value);
+  }
+
+  formatDelay(ms: number): string {
+    if (ms >= 100) return (ms / 1000) + 's';
+    if (ms >= 1) return ms + 'ms';
+    return ms.toFixed(2) + 'ms';
   }
 }

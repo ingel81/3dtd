@@ -108,6 +108,10 @@
           (startMovement)="onStartEnemyMovement($event)"
           (stopMovement)="onStopEnemyMovement($event)"
         />
+        <app-display-options
+          (healthBarsToggled)="onHealthBarsToggled($event)"
+          (animationsToggled)="onAnimationsToggled($event)"
+        />
 
         <!-- Info Overlay (top left) -->
         <app-info-overlay

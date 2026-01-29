@@ -155,6 +155,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>spatial_audio</mat-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.displayWindow().isOpen"
+                  (click)="debugWindows.toggle('display')"
+                  matTooltip="Display options"
+                  matTooltipPosition="left">
+            <mat-icon>tune</mat-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="debugWindows.eventsWindow().isOpen"
                   (click)="debugWindows.toggle('events')"
                   matTooltip="Event bus"

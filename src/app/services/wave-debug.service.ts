@@ -83,7 +83,7 @@ export class WaveDebugService {
   }
 
   setSpawnDelay(value: number): void {
-    this.spawnDelay.set(Math.max(100, Math.min(5000, value)));
+    this.spawnDelay.set(Math.max(0.01, Math.min(5000, value)));
   }
 
   setStreetCount(count: number): void {
