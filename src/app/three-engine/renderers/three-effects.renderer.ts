@@ -129,6 +129,12 @@ export class ThreeEffectsRenderer {
   private trailMaterialAdditive: PointsMaterial | null = null;
   private trailMaterialNormal: PointsMaterial | null = null;
 
+  // Dedicated tower inner fire pool (independent of combat effects)
+  private towerFirePool: Particle[] = [];
+  private readonly MAX_TOWER_FIRE_PARTICLES = 800;
+  private towerFireParticles: Points | null = null;
+  private activeTowerFires: Map<string, { particles: Particle[]; localPosition: Vector3 }> = new Map();
+
   // ShaderMaterial alternatives with per-particle size and log depth support
   private trailShaderMaterialAdditive: ShaderMaterial | null = null;
   private trailShaderMaterialNormal: ShaderMaterial | null = null;
@@ -213,6 +219,43 @@ export class ThreeEffectsRenderer {
     this.initDecalManagers();
 
     this.initParticleSystems();
+    this.initTowerFirePool();
+  }
+
+  /**
+   * Initialize dedicated tower fire particle pool.
+   * This pool is independent of combat effects and guaranteed for tower inner fires.
+   */
+  private initTowerFirePool(): void {
+    // Create geometry with position, size, color attributes
+    const geometry = new BufferGeometry();
+    const positions = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES * 3);
+    const sizes = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES);
+    const colors = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES * 3);
+
+    geometry.setAttribute('position', new BufferAttribute(positions, 3));
+    geometry.setAttribute('size', new BufferAttribute(sizes, 1));
+    geometry.setAttribute('color', new BufferAttribute(colors, 3));
+
+    // Use additive shader material for fire glow
+    this.towerFireParticles = new Points(geometry, this.trailShaderMaterialAdditive!);
+    this.towerFireParticles.frustumCulled = false;
+    this.towerFireParticles.renderOrder = 999;
+    this.scene.add(this.towerFireParticles);
+
+    // Initialize particle pool
+    for (let i = 0; i < this.MAX_TOWER_FIRE_PARTICLES; i++) {
+      this.towerFirePool.push({
+        position: new Vector3(),
+        velocity: new Vector3(),
+        life: 0,
+        maxLife: 0.6,
+        size: 2.0,
+        color: new Color(0xff6600),
+      });
+    }
+
+    console.log('[ThreeEffectsRenderer] Tower fire pool initialized:', this.MAX_TOWER_FIRE_PARTICLES, 'particles');
   }
 
   /**
@@ -823,6 +866,145 @@ export class ThreeEffectsRenderer {
       }
       this.activeEffects.delete(id);
     }
+  }
+
+  // =====================================================
+  // TOWER INNER FIRE - Dedicated pool for Fire Tower
+  // =====================================================
+
+  /**
+   * Spawn persistent inner fire for a Fire Tower.
+   * Uses dedicated pool independent of combat effects.
+   *
+   * @param towerId - Unique tower ID
+   * @param localPosition - Local position of tower base
+   * @param fireHeight - Height offset for fire center (inside tower)
+   * @param intensity - Fire intensity 0.0-1.0 (default 0.5)
+   * @returns Tower fire ID (same as towerId)
+   */
+  spawnTowerInnerFire(
+    towerId: string,
+    localPosition: Vector3,
+    fireHeight: number = 3.0,
+    intensity: number = 0.5
+  ): string {
+    // Check if already exists
+    if (this.activeTowerFires.has(towerId)) {
+      console.warn('[Effects] Tower fire already exists:', towerId);
+      return towerId;
+    }
+
+    const clampedIntensity = Math.max(0.1, Math.min(1.0, intensity));
+    const particleCount = Math.floor(30 + clampedIntensity * 80); // 30-110 particles
+    const fireRadius = 0.8 + clampedIntensity * 1.2; // 0.8-2.0 meters
+
+    // Fire center position (inside hollow tower)
+    const fireCenter = localPosition.clone();
+    fireCenter.y += fireHeight;
+
+    const particles: Particle[] = [];
+
+    for (let i = 0; i < particleCount; i++) {
+      const particle = this.getInactiveParticle(this.towerFirePool);
+      if (!particle) {
+        console.warn('[Effects] Tower fire pool exhausted at', i, 'particles');
+        break;
+      }
+
+      // Spawn in cylinder around center
+      const angle = Math.random() * Math.PI * 2;
+      const radius = Math.random() * fireRadius;
+
+      particle.position.copy(fireCenter);
+      particle.position.x += Math.cos(angle) * radius;
+      particle.position.z += Math.sin(angle) * radius;
+      particle.position.y += (Math.random() - 0.3) * 2; // Slight vertical spread
+
+      // Upward velocity with turbulence
+      particle.velocity.set(
+        (Math.random() - 0.5) * 1.5,
+        2 + Math.random() * 4, // Upward
+        (Math.random() - 0.5) * 1.5
+      );
+
+      particle.life = Math.random(); // Stagger initial life for natural look
+      particle.maxLife = 0.4 + Math.random() * 0.6;
+      particle.size = 1.0 + Math.random() * 1.5 + clampedIntensity;
+
+      // Fire colors - yellow core, orange mid, red edges
+      const t = Math.random();
+      if (t < 0.35) {
+        particle.color.setRGB(1, 0.9, 0.3); // Yellow core
+      } else if (t < 0.75) {
+        particle.color.setRGB(1, 0.5, 0.1); // Orange
+      } else {
+        particle.color.setRGB(1, 0.25, 0.05); // Red edges
+      }
+
+      particles.push(particle);
+    }
+
+    this.activeTowerFires.set(towerId, {
+      particles,
+      localPosition: fireCenter.clone(),
+    });
+
+    console.log('[Effects] Tower inner fire spawned:', towerId, '| Particles:', particles.length);
+    return towerId;
+  }
+
+  /**
+   * Stop tower inner fire immediately
+   */
+  stopTowerInnerFire(towerId: string): void {
+    const fire = this.activeTowerFires.get(towerId);
+    if (!fire) return;
+
+    // Kill all particles
+    for (const p of fire.particles) {
+      p.life = 0;
+    }
+
+    this.activeTowerFires.delete(towerId);
+    console.log('[Effects] Tower inner fire stopped:', towerId);
+  }
+
+  /**
+   * Stop all tower inner fires
+   */
+  stopAllTowerFires(): void {
+    for (const [towerId] of this.activeTowerFires) {
+      this.stopTowerInnerFire(towerId);
+    }
+  }
+
+  /**
+   * Check if tower has active inner fire
+   */
+  hasTowerFire(towerId: string): boolean {
+    return this.activeTowerFires.has(towerId);
+  }
+
+  /**
+   * Spawn a single flame particle for beam effects.
+   * Used by FlameBeamRenderer for flamethrower streams.
+   */
+  spawnFlameParticle(
+    position: Vector3,
+    velocity: Vector3,
+    color: Color,
+    size: number,
+    maxLife: number
+  ): void {
+    const particle = this.getInactiveParticle(this.trailPoolAdditive);
+    if (!particle) return;
+
+    particle.position.copy(position);
+    particle.velocity.copy(velocity);
+    particle.color.copy(color);
+    particle.size = size;
+    particle.life = 1.0;
+    particle.maxLife = maxLife;
   }
 
   /**
@@ -1889,6 +2071,50 @@ export class ThreeEffectsRenderer {
       particle.life -= dt / particle.maxLife;
     }
 
+    // Update tower inner fire particles (persistent, respawn when dead)
+    for (const [, fire] of this.activeTowerFires) {
+      const fireRadius = 1.5; // Fixed radius for inner fire
+      const fireCenter = fire.localPosition;
+
+      for (const particle of fire.particles) {
+        if (particle.life > 0) {
+          // Update position
+          particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
+          // Decay life
+          particle.life -= dt / particle.maxLife;
+        } else {
+          // Respawn dead particle
+          const angle = Math.random() * Math.PI * 2;
+          const radius = Math.random() * fireRadius;
+
+          particle.position.copy(fireCenter);
+          particle.position.x += Math.cos(angle) * radius;
+          particle.position.z += Math.sin(angle) * radius;
+          particle.position.y += (Math.random() - 0.3) * 2;
+
+          particle.velocity.set(
+            (Math.random() - 0.5) * 1.5,
+            2 + Math.random() * 4,
+            (Math.random() - 0.5) * 1.5
+          );
+
+          particle.life = 1.0;
+          particle.maxLife = 0.4 + Math.random() * 0.6;
+          particle.size = 1.0 + Math.random() * 2.0;
+
+          // Fire colors on respawn
+          const t = Math.random();
+          if (t < 0.35) {
+            particle.color.setRGB(1, 0.9, 0.3);
+          } else if (t < 0.75) {
+            particle.color.setRGB(1, 0.5, 0.1);
+          } else {
+            particle.color.setRGB(1, 0.25, 0.05);
+          }
+        }
+      }
+    }
+
     // Update GPU buffers
     this.updateParticleBuffers();
   }
@@ -1996,6 +2222,35 @@ export class ThreeEffectsRenderer {
       colors.needsUpdate = true;
       this.trailParticlesNormal.geometry.setDrawRange(0, activeCount);
     }
+
+    // Update tower fire particles (dedicated pool)
+    if (this.towerFireParticles) {
+      const positions = this.towerFireParticles.geometry.attributes['position'] as BufferAttribute;
+      const sizes = this.towerFireParticles.geometry.attributes['size'] as BufferAttribute;
+      const colors = this.towerFireParticles.geometry.attributes['color'] as BufferAttribute;
+      const posArray = positions.array as Float32Array;
+      const sizeArray = sizes.array as Float32Array;
+      const colorArray = colors.array as Float32Array;
+
+      let activeCount = 0;
+      for (const p of this.towerFirePool) {
+        if (p.life > 0) {
+          posArray[activeCount * 3] = p.position.x;
+          posArray[activeCount * 3 + 1] = p.position.y;
+          posArray[activeCount * 3 + 2] = p.position.z;
+          sizeArray[activeCount] = p.size * p.life;
+          colorArray[activeCount * 3] = p.color.r;
+          colorArray[activeCount * 3 + 1] = p.color.g;
+          colorArray[activeCount * 3 + 2] = p.color.b;
+          activeCount++;
+        }
+      }
+
+      positions.needsUpdate = true;
+      sizes.needsUpdate = true;
+      colors.needsUpdate = true;
+      this.towerFireParticles.geometry.setDrawRange(0, activeCount);
+    }
   }
 
   /**
@@ -2079,7 +2334,11 @@ export class ThreeEffectsRenderer {
     for (const p of this.trailPoolNormal) {
       p.life = 0;
     }
+    for (const p of this.towerFirePool) {
+      p.life = 0;
+    }
     this.activeEffects.clear();
+    this.activeTowerFires.clear();
 
     // Clear instanced decals
     if (this.bloodDecalManager) {
@@ -2120,6 +2379,10 @@ export class ThreeEffectsRenderer {
     if (this.trailParticlesNormal) {
       this.scene.remove(this.trailParticlesNormal);
       this.trailParticlesNormal.geometry.dispose();
+    }
+    if (this.towerFireParticles) {
+      this.scene.remove(this.towerFireParticles);
+      this.towerFireParticles.geometry.dispose();
     }
 
     // Dispose instanced decal managers
