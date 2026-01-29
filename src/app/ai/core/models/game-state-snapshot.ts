@@ -7,6 +7,7 @@
  * All values are raw (not normalized). Normalization happens in GameStateEncoder.
  */
 
+import { GamePhase } from '../../../models/game.types';
 import { PathDPSProfile } from '../dps-profile';
 
 export interface GameStateSnapshot {
@@ -14,7 +15,7 @@ export interface GameStateSnapshot {
   timestamp: number;
   waveNumber: number;
   gameTimeSeconds: number;
-  phase: 'setup' | 'wave' | 'gameover';
+  phase: GamePhase;
 
   // === PLAYER STATE ===
   player: PlayerState;

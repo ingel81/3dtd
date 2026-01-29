@@ -1,10 +1,11 @@
 import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId } from '../models/enemy-types';
-import { GeoPosition } from '../models/game.types';
+import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager } from '../game-engine';
 
-export type GamePhase = 'setup' | 'wave' | 'gameover';
+// Re-export GamePhase for backward compatibility
+export type { GamePhase } from '../models/game.types';
 
 export interface SpawnPoint extends GeoPosition {
   id: string;

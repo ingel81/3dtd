@@ -15,6 +15,7 @@
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
+import { GamePhase } from '../../models/game.types';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { Enemy } from '../../entities/enemy.entity';
 import { GameStateManager } from '../../managers/game-state.manager';
@@ -131,7 +132,7 @@ export class AIDataCollectorService {
       timestamp: Date.now(),
       waveNumber: this.gameState.waveNumber(),
       gameTimeSeconds: (Date.now() - this.currentWaveStartTime) / 1000,
-      phase: this.gameState.phase() as 'setup' | 'wave' | 'gameover',
+      phase: this.gameState.phase() as GamePhase,
 
       player: this.getPlayerState(),
       defense,
