@@ -51,6 +51,7 @@ import {
   ThreeTowerRenderer,
   ThreeProjectileRenderer,
   ThreeEffectsRenderer,
+  ThreeFlameBeamRenderer,
 } from './renderers';
 import { SpatialAudioManager } from '../managers/spatial-audio.manager';
 import { AssetManagerService } from '../services/asset-manager.service';
@@ -117,6 +118,7 @@ export class ThreeTilesEngine {
   readonly towers: ThreeTowerRenderer;
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
+  readonly flameBeams: ThreeFlameBeamRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -278,6 +280,8 @@ export class ThreeTilesEngine {
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
+    this.flameBeams = new ThreeFlameBeamRenderer();
+    this.flameBeams.setEffectsRenderer(this.effects);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -1376,6 +1380,9 @@ export class ThreeTilesEngine {
     // Update particle effects
     this.effects.update(deltaTime);
 
+    // Update flame beam shader animations
+    this.flameBeams.update(deltaTime);
+
     // Rotate test cube if exists
     if (this.testCube) {
       this.testCube.rotation.y += deltaTime * 0.001;
@@ -1778,6 +1785,7 @@ export class ThreeTilesEngine {
     this.towers.clear();
     this.projectiles.clear();
     this.effects.clear();
+    this.flameBeams.clear();
   }
 
   /**
@@ -1801,6 +1809,7 @@ export class ThreeTilesEngine {
     this.towers.dispose();
     this.projectiles.dispose();
     this.effects.dispose();
+    this.flameBeams.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();
