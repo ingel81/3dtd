@@ -6,3 +6,8 @@ export interface GeoPosition {
   lon: number;
   height?: number;
 }
+
+/**
+ * Game phase type - single source of truth for all game phase references
+ */
+export type GamePhase = 'setup' | 'wave' | 'gameover';
