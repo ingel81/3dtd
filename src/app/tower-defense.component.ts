@@ -38,6 +38,7 @@ import { DevWorldDebuggerComponent } from './devworld/devworld-debugger.componen
 import { TrainingDebuggerComponent } from './components/debug-window/training-debugger.component';
 import { TowerDebuggerComponent } from './components/debug-window/tower-debugger.component';
 import { EnemyDebuggerComponent } from './components/debug-window/enemy-debugger.component';
+import { DisplayOptionsComponent } from './components/debug-window/display-options.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -123,6 +124,7 @@ const EMPTY_CENTER_COORDS = {
     TrainingDebuggerComponent,
     TowerDebuggerComponent,
     EnemyDebuggerComponent,
+    DisplayOptionsComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,
@@ -705,6 +707,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         const eventBus = this.gameState.getEventBus();
         this.engine.spatialAudio.setEventBus(eventBus);
         this.soundDebug.subscribeToEventBus(eventBus);
+
+        // Apply saved display options
+        this.applyDisplayOptions();
       }
 
     } catch (err) {
@@ -998,6 +1003,25 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       de.enemy.stopMoving();
       this.engine?.enemies.playIdleAnimation(enemyId);
     }
+  }
+
+  onHealthBarsToggled(visible: boolean): void {
+    this.engine?.enemies.setHealthBarsVisible(visible);
+  }
+
+  onAnimationsToggled(enabled: boolean): void {
+    this.engine?.enemies.setAnimationsEnabled(enabled);
+  }
+
+  private applyDisplayOptions(): void {
+    try {
+      const stored = localStorage.getItem('td_display_options');
+      if (stored) {
+        const opts = JSON.parse(stored);
+        if (opts.healthBars === false) this.engine?.enemies.setHealthBarsVisible(false);
+        if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
+      }
+    } catch { /* ignore */ }
   }
 
   /**
