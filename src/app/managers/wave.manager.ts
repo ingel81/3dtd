@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId } from '../models/enemy-types';
 import { GeoPosition } from '../models/game.types';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, IGameManager } from '../game-engine';
 
 export type GamePhase = 'setup' | 'wave' | 'gameover';
 
@@ -29,7 +29,7 @@ export interface WaveConfig {
  * - Constructor injection
  * - Emits events: wave:started, wave:completed
  */
-export class WaveManager {
+export class WaveManager implements IGameManager {
   readonly phase = signal<GamePhase>('setup');
   readonly waveNumber = signal(0);
 
@@ -245,5 +245,21 @@ export class WaveManager {
     // Reset spawn tracking counters (prevents stale state after game over mid-wave)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+  }
+
+  /**
+   * Per-frame update (wave logic is event/timeout-driven, no per-frame work needed)
+   */
+  update(_dt: number): void {
+    // Wave spawning is driven by timeouts, not per-frame updates
+  }
+
+  /**
+   * Destroy the wave manager - cleanup all resources
+   */
+  destroy(): void {
+    this.reset();
+    this.cachedPaths.clear();
+    this.spawnPoints = [];
   }
 }

@@ -1,10 +1,13 @@
 import { GameObject } from '../core/game-object';
+import { IGameManager } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 
 /**
  * Abstract base class for all entity managers
+ *
+ * Implements IGameManager lifecycle interface.
  */
-export abstract class EntityManager<T extends GameObject> {
+export abstract class EntityManager<T extends GameObject> implements IGameManager {
   protected entities = new Map<string, T>();
   protected activeEntities = new Set<T>();
   protected tilesEngine: ThreeTilesEngine | null = null;
@@ -70,5 +73,13 @@ export abstract class EntityManager<T extends GameObject> {
     for (const entity of this.getAllActive()) {
       entity.update(deltaTime);
     }
+  }
+
+  /**
+   * Destroy the manager - cleanup all resources
+   */
+  destroy(): void {
+    this.clear();
+    this.tilesEngine = null;
   }
 }
