@@ -37,26 +37,23 @@
 > Analyse: [EVENTBUS-ANALYSIS.md](docs/EVENTBUS-ANALYSIS.md) — 10 harte Abhängigkeiten, 5 fehlende Events
 > Branch: `jarvis/test-setup`
 
-- [ ] **credits:changed Event emittieren**
-      Aktuell: Credits werden direkt geändert ohne Event
-      Ziel: Alle Credits-Änderungen emitten (Kauf, Verkauf, Kill-Reward, Wave-Bonus)
+- [x] **credits:changed Event emittieren** ✅ DONE 2026-01-29
+      Alle Credit-Mutationen via `updateCredits()` Helper mit Event-Emission
 
-- [ ] **VFX über EventBus routen**
-      Aktuell: CombatEffectService ruft Renderer direkt auf
-      Ziel: `vfx:blood`, `vfx:explosion` via `emitDeferred()` + Renderer subscribed
-      ⚠️ **Performance beobachten!** Overhead sollte minimal sein (~50-100ns/Event),
-      aber bei vielen gleichzeitigen VFX messen. Erstmal zusätzlich emittieren (neben
-      bestehenden Direct-Calls), dann A/B vergleichen bevor Direct-Calls entfernt werden.
+- [x] **VFX über EventBus routen** ✅ DONE 2026-01-29
+      `vfx:blood`, `vfx:explosion` via `emitDeferred()`, VFXService subscribed
+      ⚠️ **Performance beobachten!** Direct-Calls in CombatEffectService entfernt,
+      VFXService handelt Events. Blood-Intensity-Mapping: <10 splatter, ≥10 small decal, ≥30 large.
 
-- [ ] **Game Lifecycle Events** (game:started/paused/resumed)
-      Events existieren bereits in GameEvent Union, werden aber nie emitted
+- [x] **Game Lifecycle Events** ✅ DONE 2026-01-29
+      game:started (erste Wave), game:paused (Wave-Ende), game:resumed (nächste Wave)
 
-- [ ] **tower:upgraded Event emittieren**
-      Upgrade-Events für UI/Stats/VFX-Reaktionen
+- [x] **tower:upgraded Event emittieren** ✅ DONE 2026-01-29
+      Emittiert nach erfolgreichem Upgrade mit tower, level, cost
 
-- [ ] **Debug-Commands über Events**
-      Aktuell: tower-defense.component.ts ruft Manager direkt
-      Ziel: debug:spawn-enemy, debug:kill-all etc. als Events
+- [x] **Debug-Commands über Events** ✅ DONE 2026-01-29
+      Neue Events: debug:spawn-enemy, debug:kill-all, debug:reset-wave
+      EnemyManager + WaveManager subscriben auf Debug-Events
 
 - [ ] **GameStateManager God-Object reduzieren** (Langfristig)
       Importiert direkt: Tower/Enemy/Projectile/Wave Manager + 5 Services

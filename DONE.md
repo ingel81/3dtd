@@ -16,6 +16,16 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       EntityManager (9), Tower Types Config (8), Enemy Types Config (4)
       Alle Tests grün in ~2.8s
 
+### EventBus-Entkopplung (Refactoring)
+
+- [x] **credits:changed Events** — Alle Credit-Mutationen emitten via `updateCredits()` Helper
+- [x] **VFX über EventBus** — `vfx:blood`/`vfx:explosion` via deferred Events statt Direct-Calls
+- [x] **Game Lifecycle Events** — game:started/paused/resumed bei Wave-Transitions
+- [x] **tower:upgraded Event** — Emittiert nach Upgrade mit tower, level, cost
+- [x] **Debug-Commands entkoppelt** — debug:spawn-enemy/kill-all/reset-wave als Events
+      Dateien: game-event-bus.ts, game-state.manager.ts, combat-effect.service.ts,
+      vfx.service.ts, enemy.manager.ts, wave.manager.ts, tower-defense.component.ts
+
 ### GameEventBus Analyse
 
 - [x] **Abhängigkeits-Analyse erstellt**
