@@ -21,6 +21,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies being killed to prevent double-kill
   private killingEnemies = new Set<string>();
 
+  // Track active timeouts for cleanup on destroy
+  private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+
   // Reusable array to avoid allocations in update loop
   private toRemove: Enemy[] = [];
 
@@ -224,10 +227,12 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (enemy.typeConfig.deathAnimation) {
       this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
       const realTimeDelay = 2000 / timescale; // Scale death animation duration
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
+        this.activeTimeouts.delete(timeoutId);
         this.killingEnemies.delete(enemy.id);
         this.remove(enemy);
       }, realTimeDelay);
+      this.activeTimeouts.add(timeoutId);
     } else {
       // No death animation - remove immediately
       this.killingEnemies.delete(enemy.id);
@@ -330,13 +335,15 @@ export class EnemyManager extends EntityManager<Enemy> {
     paused.forEach((enemy) => {
       const gameTimeDelay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
       const realTimeDelay = gameTimeDelay / timescale; // Convert to real-time
-      setTimeout(() => {
+      const timeoutId = setTimeout(() => {
+        this.activeTimeouts.delete(timeoutId);
         // Check both alive (health) AND active (not destroyed)
         if (enemy.alive && enemy.active) {
           enemy.startMoving();
           this.tilesEngine?.enemies.startWalkAnimation(enemy.id);
         }
       }, accumulatedDelay);
+      this.activeTimeouts.add(timeoutId);
       accumulatedDelay += realTimeDelay;
     });
   }
@@ -360,6 +367,12 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Clear all enemies and cleanup resources
    */
   override clear(): void {
+    // Clear all pending timeouts (death animations, spawn delays)
+    for (const timeoutId of this.activeTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.activeTimeouts.clear();
+
     // Remove all enemies from global route grid before clearing
     for (const enemy of this.getAll()) {
       this.globalRouteGrid.removeEnemy(enemy);
@@ -398,5 +411,18 @@ export class EnemyManager extends EntityManager<Enemy> {
       trackedEnemies: stats.trackedEnemies,
       occupiedCells: stats.occupiedCells,
     };
+  }
+
+  /**
+   * Destroy the enemy manager - cleanup all resources and timeouts
+   */
+  override destroy(): void {
+    // Clear all pending timeouts
+    for (const timeoutId of this.activeTimeouts) {
+      clearTimeout(timeoutId);
+    }
+    this.activeTimeouts.clear();
+    this.killingEnemies.clear();
+    super.destroy();
   }
 }
