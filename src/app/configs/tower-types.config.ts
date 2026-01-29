@@ -1,6 +1,7 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
 export type UpgradeId = 'speed' | 'damage' | 'range';
+export type AttackType = 'projectile' | 'beam';
 
 export interface TowerUpgrade {
   id: UpgradeId;
@@ -52,6 +53,12 @@ export interface TowerTypeConfig {
   // Animation settings
   hasAnimations?: boolean; // Whether this tower has GLTF animations (default: false)
   animationPingPong?: boolean; // Play animation forward then backward (smooth loop, default: false)
+
+  // Beam attack settings (for flamethrower-type towers)
+  attackType?: AttackType; // 'projectile' (default) or 'beam' for continuous damage
+  damagePerSecond?: number; // DPS for beam towers (used instead of damage + fireRate)
+  beamRange?: number; // Length of the beam/cone in meters
+  beamWidth?: number; // Width of the cone at the end in meters
 }
 
 // Tower model URLs
@@ -61,6 +68,7 @@ const ROCKET_MODEL_URL = '/assets/models/towers/rocket.glb';
 const CANNON_MODEL_URL = '/assets/models/towers/cannon.glb';
 const ICE_MODEL_URL = '/assets/models/towers/ice.glb';
 const MAGIC_MODEL_URL = '/assets/models/towers/magic.glb';
+const FIRE_MODEL_URL = '/assets/models/towers/fire.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -248,6 +256,58 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     canTargetAir: true,
     canTargetGround: true,
     upgrades: [],
+  },
+  fire: {
+    id: 'fire',
+    name: 'Fire Tower',
+    modelUrl: FIRE_MODEL_URL,
+    scale: 8,
+    previewScale: 9.8,
+    heightOffset: 3.8,
+    shootHeight: 1.25,
+    rotationY: 3.0892, // ~177°
+    turretBarrelOffset: 0.436, // ~25° correction for barrel orientation in model space
+
+    // Beam attack - continuous flame damage
+    attackType: 'beam',
+    damage: 0, // Not used for beam towers
+    damagePerSecond: 35, // 35 DPS to all enemies in cone
+    range: 25, // Detection range (short - flamethrower)
+    beamRange: 20, // Flame stream length
+    beamWidth: 5, // Stream width
+    fireRate: 0, // Not used for beam towers
+    projectileType: 'fireball', // Fallback visual type
+
+    cost: 110,
+    sellValue: 66, // 60% of cost
+    canTargetAir: false, // Ground only - flames don't reach flyers
+    canTargetGround: true,
+    upgrades: [
+      {
+        id: 'damage',
+        name: 'Inferno',
+        description: 'Increases fire damage by 50%',
+        cost: 100,
+        costScaling: 1.8,
+        maxLevel: 3,
+        effect: {
+          stat: 'damage',
+          multiplier: 1.5, // Applied to damagePerSecond
+        },
+      },
+      {
+        id: 'range',
+        name: 'Wide Burn',
+        description: 'Increases flame cone width by 30%',
+        cost: 80,
+        costScaling: 1.6,
+        maxLevel: 2,
+        effect: {
+          stat: 'range',
+          multiplier: 1.3, // Applied to beamWidth
+        },
+      },
+    ],
   },
 };
 

@@ -30,6 +30,7 @@ const TOWER_CAPABILITIES: Record<
   'dual-gatling': {},
   rocket: { splash: true },
   ice: { slow: true },
+  fire: { splash: true }, // Fire Tower has cone-based splash damage
 };
 
 /**
