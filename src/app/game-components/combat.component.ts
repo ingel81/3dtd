@@ -21,6 +21,7 @@ export class CombatComponent extends Component {
   kills = 0;
 
   private lastFireTime = 0;
+  private target: GameObject | null = null;
 
   constructor(gameObject: GameObject, config: CombatConfig) {
     super(gameObject);
@@ -72,6 +73,27 @@ export class CombatComponent extends Component {
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  }
+
+  /**
+   * Set current target
+   */
+  setTarget(target: GameObject | null): void {
+    this.target = target;
+  }
+
+  /**
+   * Clear current target
+   */
+  clearTarget(): void {
+    this.target = null;
+  }
+
+  /**
+   * Check if a target is set
+   */
+  hasTarget(): boolean {
+    return this.target !== null;
   }
 
   update(_deltaTime: number): void {
