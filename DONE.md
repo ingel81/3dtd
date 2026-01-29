@@ -4,6 +4,28 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-29
+
+### Vitest Test-Infrastruktur
+
+- [x] **Vitest Setup + 79 Unit Tests**
+      `vitest.config.ts` (jsdom, globals), Three.js Mock, npm Scripts
+      12 Test-Dateien: GameEventBus (21), GameObject (7), HealthComponent (6),
+      TransformComponent (3), MovementComponent (6), CombatComponent (3),
+      Enemy Entity (5), Tower Entity (4), Projectile Entity (3),
+      EntityManager (9), Tower Types Config (8), Enemy Types Config (4)
+      Alle Tests grün in ~2.8s
+
+### GameEventBus Analyse
+
+- [x] **Abhängigkeits-Analyse erstellt**
+      `docs/EVENTBUS-ANALYSIS.md` — 10 harte Abhängigkeiten, 5 fehlende Events,
+      2 suboptimale Nutzungen, Refactoring-Reihenfolge dokumentiert.
+      Hauptproblem: GameStateManager als God-Object, fehlende Event-Emissionen
+      (credits:changed, game:started/paused/resumed, tower:upgraded)
+
+---
+
 ## 2026-01-28
 
 ### Floating Text (Reward Popup) Bugfix

@@ -15,24 +15,56 @@
 
 > Ohne Tests keine sichere Weiterentwicklung
 
-- [ ] **Vitest Setup**
-      `npm install -D vitest @vitest/ui`
-      `vitest.config.ts` erstellen
+- [x] **Vitest Setup** ✅ DONE 2026-01-29
+      `vitest.config.ts`, Three.js Mock, npm Scripts (test:unit, test:watch, test:coverage)
 
-- [ ] **Unit Tests: GameEventBus**
-      Tests: Emit, On, Off, Deferred Queue
+- [x] **Unit Tests: GameEventBus** ✅ DONE 2026-01-29
+      21 Tests: Emit, On, Off, Deferred Queue, Owner Subscriptions,
+      SubscriptionBag, onAny, Metrics, Edge Cases
       Datei: `game-engine/game-event-bus.spec.ts`
-      → Kern der Engine-Kommunikation
 
-- [ ] **Unit Tests: GameObject, Tower, Enemy**
-      Tests: ID-Generation, Component-System, Lifecycle
-      Dateien: `entities/*.spec.ts`
+- [x] **Unit Tests: GameObject, Tower, Enemy, Projectile** ✅ DONE 2026-01-29
+      12 Test-Dateien, 79 Tests gesamt
+      Dateien: `entities/*.spec.ts`, `core/*.spec.ts`, `game-components/*.spec.ts`,
+      `managers/entity-manager.spec.ts`, `configs/*.spec.ts`, `models/*.spec.ts`
 
 - [ ] **Performance-Regression-Tests**
       Benchmarks: 100 Enemies @ 60 FPS, <200 Draw Calls
       Verhindert Performance-Regressionen
 
-## 1.2 Architektur-Stabilität (Prio 1)
+## 1.2 EventBus-Entkopplung (Prio 1) 🔄 IN PROGRESS
+
+> Analyse: [EVENTBUS-ANALYSIS.md](docs/EVENTBUS-ANALYSIS.md) — 10 harte Abhängigkeiten, 5 fehlende Events
+> Branch: `jarvis/test-setup`
+
+- [ ] **credits:changed Event emittieren**
+      Aktuell: Credits werden direkt geändert ohne Event
+      Ziel: Alle Credits-Änderungen emitten (Kauf, Verkauf, Kill-Reward, Wave-Bonus)
+
+- [ ] **VFX über EventBus routen**
+      Aktuell: CombatEffectService ruft Renderer direkt auf
+      Ziel: `vfx:blood`, `vfx:explosion` via `emitDeferred()` + Renderer subscribed
+      ⚠️ **Performance beobachten!** Overhead sollte minimal sein (~50-100ns/Event),
+      aber bei vielen gleichzeitigen VFX messen. Erstmal zusätzlich emittieren (neben
+      bestehenden Direct-Calls), dann A/B vergleichen bevor Direct-Calls entfernt werden.
+
+- [ ] **Game Lifecycle Events** (game:started/paused/resumed)
+      Events existieren bereits in GameEvent Union, werden aber nie emitted
+
+- [ ] **tower:upgraded Event emittieren**
+      Upgrade-Events für UI/Stats/VFX-Reaktionen
+
+- [ ] **Debug-Commands über Events**
+      Aktuell: tower-defense.component.ts ruft Manager direkt
+      Ziel: debug:spawn-enemy, debug:kill-all etc. als Events
+
+- [ ] **GameStateManager God-Object reduzieren** (Langfristig)
+      Importiert direkt: Tower/Enemy/Projectile/Wave Manager + 5 Services
+      Schrittweise über Event-Koordination entkoppeln
+
+> ⚠️ **NICHT anfassen:** Audio/Sound Events (bekannte Themen, separat behandeln)
+
+## 1.3 Architektur-Stabilität (Prio 1)
 
 - [ ] **IGameManager Lifecycle-Interface**
       Formaler Contract: `initialize()`, `update(dt)`, `destroy()`
