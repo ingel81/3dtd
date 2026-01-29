@@ -112,13 +112,17 @@ export class CombatEffectService {
             );
           }
         }
-      } else {
-        this.tilesEngine.effects.spawnExplosionAtGeo(
+      } else if (this.eventBus) {
+        const explosionPos = this.tilesEngine.sync.geoToLocalSimple(
           enemy.position.lat,
           enemy.position.lon,
-          explosionHeight,
-          30
+          explosionHeight
         );
+        this.eventBus.emitDeferred({
+          type: 'vfx:explosion',
+          position: explosionPos,
+          radius: 30,
+        });
       }
     }
 
@@ -196,6 +200,17 @@ export class CombatEffectService {
     }
   }
 
+  private emitBloodEffect(lat: number, lon: number, height: number, intensity: number): void {
+    if (!this.tilesEngine || !this.eventBus) return;
+
+    const position = this.tilesEngine.sync.geoToLocalSimple(lat, lon, height);
+    this.eventBus.emitDeferred({
+      type: 'vfx:blood',
+      position,
+      intensity,
+    });
+  }
+
   /**
    * Apply damage to an enemy and handle death
    */
@@ -209,27 +224,10 @@ export class CombatEffectService {
     if (!this.towerManager || !this.enemyManager) return;
 
     // Spawn blood effects for enemies that can bleed
-    if (enemy.typeConfig.canBleed && this.tilesEngine && !skipBloodEffects) {
-      this.tilesEngine.effects.spawnBloodSplatter(
-        enemy.position.lat,
-        enemy.position.lon,
-        enemy.transform.terrainHeight + 1,
-        isSplashDamage ? 8 : 15
-      );
-
-      if (!isSplashDamage) {
-        const bloodDecalHeight = this.getTerrainHeightForDecal(
-          enemy.position.lat,
-          enemy.position.lon,
-          enemy.transform.terrainHeight
-        );
-        this.tilesEngine.effects.spawnBloodDecal(
-          enemy.position.lat,
-          enemy.position.lon,
-          bloodDecalHeight,
-          0.8
-        );
-      }
+    if (enemy.typeConfig.canBleed && !skipBloodEffects) {
+      const splatterHeight = enemy.transform.terrainHeight + 1;
+      const intensity = isSplashDamage ? 8 : 15;
+      this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, intensity);
     }
 
     const killed = enemy.health.takeDamage(damage);
@@ -257,24 +255,8 @@ export class CombatEffectService {
   private spawnDeathBloodEffect(enemy: Enemy): void {
     if (!enemy.typeConfig.canBleed || !this.tilesEngine) return;
 
-    this.tilesEngine.effects.spawnBloodSplatter(
-      enemy.position.lat,
-      enemy.position.lon,
-      enemy.transform.terrainHeight + 1,
-      40
-    );
-
-    const deathDecalHeight = this.getTerrainHeightForDecal(
-      enemy.position.lat,
-      enemy.position.lon,
-      enemy.transform.terrainHeight
-    );
-    this.tilesEngine.effects.spawnBloodDecal(
-      enemy.position.lat,
-      enemy.position.lon,
-      deathDecalHeight,
-      2.0
-    );
+    const splatterHeight = enemy.transform.terrainHeight + 1;
+    this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 40);
   }
 
   /**
@@ -331,13 +313,9 @@ export class CombatEffectService {
     if (!this.towerManager || !this.enemyManager) return;
 
     // Only show blood effects occasionally for performance
-    if (showBloodEffects && enemy.typeConfig.canBleed && this.tilesEngine) {
-      this.tilesEngine.effects.spawnBloodSplatter(
-        enemy.position.lat,
-        enemy.position.lon,
-        enemy.transform.terrainHeight + 1,
-        5 // Small splatter for continuous damage
-      );
+    if (showBloodEffects && enemy.typeConfig.canBleed) {
+      const splatterHeight = enemy.transform.terrainHeight + 1;
+      this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 5);
     }
 
     const killed = enemy.health.takeDamage(damage);

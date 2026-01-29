@@ -1,3 +1,4 @@
+import { Vector3 } from 'three';
 import { GameEventBus } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
@@ -25,17 +26,41 @@ export class VFXService {
       this.handleProjectileImpact(event);
     });
 
-    // Blood effects (for later)
+    // Blood effects
     this.eventBus.on('vfx:blood', (event) => {
-      // TODO: Implement blood effect
-      console.log('[VFXService] Blood effect at', event.position);
+      this.handleBloodEffect(event.position, event.intensity);
     });
 
-    // Generic explosions (for later)
+    // Generic explosions
     this.eventBus.on('vfx:explosion', (event) => {
-      // TODO: Implement generic explosion
-      console.log('[VFXService] Explosion at', event.position, 'radius:', event.radius);
+      this.handleExplosionEffect(event.position, event.radius);
     });
+  }
+
+  private handleBloodEffect(position: Vector3, intensity: number): void {
+    const { lat, lon, height } = this.tilesEngine.sync.localToGeo(position);
+    const count = Math.max(1, Math.round(intensity));
+
+    this.tilesEngine.effects.spawnBloodSplatter(lat, lon, height, count);
+
+    const decalSize = this.getBloodDecalSize(intensity);
+    if (decalSize > 0) {
+      const terrainHeight = this.tilesEngine.getTerrainHeightAtGeo(lat, lon);
+      const decalHeight = terrainHeight !== null ? terrainHeight : height;
+      this.tilesEngine.effects.spawnBloodDecal(lat, lon, decalHeight, decalSize);
+    }
+  }
+
+  private handleExplosionEffect(position: Vector3, radius: number): void {
+    const { lat, lon, height } = this.tilesEngine.sync.localToGeo(position);
+    const count = Math.max(10, Math.round(radius));
+    this.tilesEngine.effects.spawnExplosionAtGeo(lat, lon, height, count);
+  }
+
+  private getBloodDecalSize(intensity: number): number {
+    if (intensity >= 30) return 2.0;
+    if (intensity >= 10) return 0.8;
+    return 0;
   }
 
   /**

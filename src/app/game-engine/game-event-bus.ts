@@ -148,6 +148,21 @@ export type GameEvent =
     }
   | {
       type: 'debug:start-custom-wave';
+    }
+  | {
+      type: 'debug:spawn-enemy';
+      enemyType: string;
+      count?: number;
+      path?: GeoPosition[];
+      speed?: number;
+      paused?: boolean;
+      health?: number;
+    }
+  | {
+      type: 'debug:kill-all';
+    }
+  | {
+      type: 'debug:reset-wave';
     };
 
 /**

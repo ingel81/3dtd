@@ -139,7 +139,7 @@ export class GameStateManager {
 
     this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
-        this.credits.update((c) => c + event.credits);
+        this.updateCredits(event.credits);
 
         // Show reward popup with actual dynamic credits (not static typeConfig.reward)
         if (this.tilesEngine) {
@@ -235,7 +235,8 @@ export class GameStateManager {
       this.waveManager.endWave();
       this.towerCombat.stopAllBeams(); // Stop fire tower beams
       this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
-      this.credits.update((c) => c + GAME_BALANCE.waves.completionBonus);
+      this.updateCredits(GAME_BALANCE.waves.completionBonus);
+      this.eventBus.emit({ type: 'game:paused' });
     }
 
     // Check game over
@@ -294,14 +295,32 @@ export class GameStateManager {
       );
     }
 
+    const isFirstWave = this.waveManager.waveNumber() === 0;
+    const wasPaused = this.waveManager.phase() !== 'wave';
+
     this.waveManager.startWave(config);
+
+    if (isFirstWave) {
+      this.eventBus.emit({ type: 'game:started' });
+    } else if (wasPaused) {
+      this.eventBus.emit({ type: 'game:resumed' });
+    }
   }
 
   /**
    * Begin wave phase without auto-spawning
    */
   beginWave(): void {
+    const isFirstWave = this.waveManager.waveNumber() === 0;
+    const wasPaused = this.waveManager.phase() !== 'wave';
+
     this.waveManager.beginWave();
+
+    if (isFirstWave) {
+      this.eventBus.emit({ type: 'game:started' });
+    } else if (wasPaused) {
+      this.eventBus.emit({ type: 'game:resumed' });
+    }
   }
 
   /**
@@ -336,10 +355,20 @@ export class GameStateManager {
     }
 
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
-    this.credits.set(GAME_BALANCE.player.startCredits);
+    this.updateCredits(GAME_BALANCE.player.startCredits - this.credits());
     this.lastUpdateTime = 0;
 
     GameObject.resetIdCounter();
+  }
+
+  private updateCredits(delta: number): void {
+    const newCredits = this.credits() + delta;
+    this.credits.set(newCredits);
+    this.eventBus.emit({
+      type: 'credits:changed',
+      credits: newCredits,
+      delta,
+    });
   }
 
   /**
@@ -435,7 +464,7 @@ export class GameStateManager {
 
     // Sell tower (emits tower:sold event, returns refund)
     const refund = this.towerManager.sell(tower);
-    this.credits.update((c) => c + refund);
+    this.updateCredits(refund);
     return refund;
   }
 
@@ -445,7 +474,7 @@ export class GameStateManager {
    */
   spendCredits(amount: number): boolean {
     if (this.credits() < amount) return false;
-    this.credits.update((c) => c - amount);
+    this.updateCredits(-amount);
     return true;
   }
 
@@ -468,7 +497,7 @@ export class GameStateManager {
 
     if (tower && this.tilesEngine && this.globalRouteGrid.isInitialized()) {
       // Deduct cost
-      this.credits.update((c) => c - config.cost);
+      this.updateCredits(-config.cost);
 
       // Register tower with GlobalRouteGrid for LOS pre-computation
       // IMPORTANT: Use geoToLocalSimple for consistency with grid cell coordinates
@@ -511,7 +540,7 @@ export class GameStateManager {
       }
     } else if (tower) {
       // Still deduct cost even if grid not initialized
-      this.credits.update((c) => c - config.cost);
+      this.updateCredits(-config.cost);
     }
     return tower;
   }
@@ -536,6 +565,7 @@ export class GameStateManager {
   endWave(): void {
     this.waveManager.endWave();
     this.towerCombat.stopAllBeams();
+    this.eventBus.emit({ type: 'game:paused' });
   }
 
   /**

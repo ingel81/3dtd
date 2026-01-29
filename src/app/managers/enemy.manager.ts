@@ -36,6 +36,32 @@ export class EnemyManager extends EntityManager<Enemy> {
     private globalRouteGrid: GlobalRouteGridService
   ) {
     super();
+    this.registerDebugHandlers();
+  }
+
+  private registerDebugHandlers(): void {
+    this.eventBus.on('debug:spawn-enemy', (event) => {
+      if (!this.tilesEngine) {
+        console.warn('[EnemyManager] Debug spawn ignored - not initialized');
+        return;
+      }
+
+      if (!event.path || event.path.length < 2) {
+        console.warn('[EnemyManager] Debug spawn ignored - invalid path');
+        return;
+      }
+
+      const count = event.count ?? 1;
+      for (let i = 0; i < count; i++) {
+        this.spawn(
+          event.path,
+          event.enemyType as EnemyTypeId,
+          event.speed,
+          event.paused ?? false,
+          event.health
+        );
+      }
+    });
   }
 
   /**

@@ -48,7 +48,25 @@ export class WaveManager {
   constructor(
     private eventBus: GameEventBus,
     private enemyManager: EnemyManager
-  ) {}
+  ) {
+    this.registerDebugHandlers();
+  }
+
+  private registerDebugHandlers(): void {
+    this.eventBus.on('debug:kill-all', () => {
+      this.stopSpawning();
+      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+      for (const enemy of this.enemyManager.getAlive()) {
+        if (enemy.alive) {
+          this.enemyManager.kill(enemy, timescale);
+        }
+      }
+    });
+
+    this.eventBus.on('debug:reset-wave', () => {
+      this.reset();
+    });
+  }
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
     this.spawnPoints = spawnPoints;
