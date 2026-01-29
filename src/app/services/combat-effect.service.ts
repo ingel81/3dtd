@@ -308,4 +308,49 @@ export class CombatEffectService {
     const origin = this.tilesEngine.sync.getOrigin();
     return terrainY + origin.height + 0.15;
   }
+
+  // =====================================================
+  // PUBLIC METHODS FOR BEAM TOWERS
+  // =====================================================
+
+  /**
+   * Apply continuous beam damage to an enemy.
+   * Used by Fire Tower flamethrower effect.
+   *
+   * @param enemy - Target enemy
+   * @param damage - Damage amount (typically DPS * deltaTime)
+   * @param sourceTowerId - Tower that dealt the damage
+   * @param showBloodEffects - Whether to show blood/fire effects (throttle for performance)
+   */
+  applyBeamDamage(
+    enemy: Enemy,
+    damage: number,
+    sourceTowerId: string,
+    showBloodEffects: boolean = false
+  ): void {
+    if (!this.towerManager || !this.enemyManager) return;
+
+    // Only show blood effects occasionally for performance
+    if (showBloodEffects && enemy.typeConfig.canBleed && this.tilesEngine) {
+      this.tilesEngine.effects.spawnBloodSplatter(
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight + 1,
+        5 // Small splatter for continuous damage
+      );
+    }
+
+    const killed = enemy.health.takeDamage(damage);
+    if (killed) {
+      this.spawnDeathBloodEffect(enemy);
+      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+      this.enemyManager.kill(enemy, timescale);
+
+      // Track kill on source tower
+      const sourceTower = this.towerManager.getById(sourceTowerId);
+      if (sourceTower) {
+        sourceTower.combat.kills++;
+      }
+    }
+  }
 }

@@ -1,7 +1,10 @@
 import { Injectable, inject } from '@angular/core';
+import { Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GlobalRouteGridService } from './global-route-grid.service';
+import { CombatEffectService } from './combat-effect.service';
 import { Enemy } from '../entities/enemy.entity';
+import { Tower } from '../entities/tower.entity';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
@@ -19,8 +22,21 @@ import { ProjectileManager } from '../managers/projectile.manager';
 @Injectable({ providedIn: 'root' })
 export class TowerCombatService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
+  private readonly combatEffectService = inject(CombatEffectService);
 
   private tilesEngine: ThreeTilesEngine | null = null;
+
+  // Throttle blood effects for beam damage (every 200ms per enemy)
+  private lastBeamBloodEffect: Map<string, number> = new Map();
+  private readonly BEAM_BLOOD_EFFECT_INTERVAL = 200;
+
+  // Active flame sound loops per tower (towerId -> soundHandle)
+  private activeFlameSounds: Map<string, string> = new Map();
+
+  // Reusable vectors for cone collision
+  private readonly tempDirection = new Vector3();
+  private readonly tempToEnemy = new Vector3();
+  private readonly tempSoundPos = new Vector3();
 
   /**
    * Initialize with engine reference
@@ -170,5 +186,284 @@ export class TowerCombatService {
     const dLon = to.lon - from.lon;
     const dLat = to.lat - from.lat;
     return Math.atan2(dLon, dLat);
+  }
+
+  // =====================================================
+  // BEAM TOWER COMBAT (Fire Tower Flamethrower)
+  // =====================================================
+
+  /**
+   * Update beam towers - continuous damage in cone area
+   *
+   * @param deltaTime - Time since last frame in milliseconds
+   * @param towerManager - Tower manager
+   * @param enemyManager - Enemy manager
+   * @param timescale - Game speed multiplier
+   */
+  updateBeamTowers(
+    deltaTime: number,
+    towerManager: TowerManager,
+    enemyManager: EnemyManager,
+    timescale: number = 1.0
+  ): void {
+    if (!this.tilesEngine || !this.tilesEngine?.flameBeams) return;
+
+    const now = performance.now();
+    const dt = (deltaTime / 1000) * timescale; // Convert to seconds, apply timescale
+    const allEnemies = enemyManager.getAlive();
+
+    for (const tower of towerManager.getAllActive()) {
+      // Skip non-beam towers
+      if (tower.typeConfig.attackType !== 'beam') continue;
+
+      // Get candidate enemies (same logic as projectile towers)
+      const hasVisibleCells = tower.visibleCells.length > 0;
+      let candidates: Enemy[];
+
+      if (hasVisibleCells) {
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+      } else {
+        candidates = allEnemies;
+      }
+
+      // Find primary target (closest/lowest HP in range)
+      const target = tower.findTarget(candidates);
+
+      if (target) {
+        // Rotate turret towards target
+        const heading = this.calculateHeading(tower.position, target.position);
+        this.tilesEngine.towers.updateRotation(tower.id, heading);
+
+        // Get local positions
+        const terrainHeight = tower.position.height ?? 0;
+        const towerLocalPos = this.tilesEngine.sync.geoToLocalSimple(
+          tower.position.lat,
+          tower.position.lon,
+          terrainHeight
+        );
+        const shootHeight = tower.typeConfig.shootHeight ?? 4.0;
+        towerLocalPos.y += tower.typeConfig.heightOffset + shootHeight;
+
+        const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
+          target.position.lat,
+          target.position.lon,
+          target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0)
+        );
+        targetLocalPos.y += 1.5; // Target center mass
+
+        // Start/update flame beam visual
+        const beamLength = tower.typeConfig.beamRange ?? 35;
+        const beamWidth = tower.typeConfig.beamWidth ?? 8;
+        this.tilesEngine?.flameBeams.startBeam(
+          tower.id,
+          towerLocalPos,
+          targetLocalPos,
+          beamLength,
+          beamWidth
+        );
+
+        // Start flame sound if not already playing
+        if (!this.activeFlameSounds.has(tower.id)) {
+          this.startFlameSound(tower.id, towerLocalPos);
+        } else {
+          // Update sound position
+          this.updateFlameSoundPosition(tower.id, towerLocalPos);
+        }
+
+        // Apply DPS to all enemies in cone
+        const dps = this.getEffectiveDPS(tower);
+        const damageThisFrame = dps * dt;
+
+        const enemiesInCone = this.getEnemiesInCone(
+          towerLocalPos,
+          targetLocalPos,
+          beamLength,
+          beamWidth,
+          candidates
+        );
+
+        for (const enemy of enemiesInCone) {
+          // Throttle blood effects per enemy
+          const lastBlood = this.lastBeamBloodEffect.get(enemy.id) ?? 0;
+          const showBlood = now - lastBlood > this.BEAM_BLOOD_EFFECT_INTERVAL;
+          if (showBlood) {
+            this.lastBeamBloodEffect.set(enemy.id, now);
+          }
+
+          this.combatEffectService.applyBeamDamage(
+            enemy,
+            damageThisFrame,
+            tower.id,
+            showBlood
+          );
+        }
+      } else {
+        // No target - stop beam, sound, and reset turret
+        this.tilesEngine?.flameBeams.stopBeam(tower.id);
+        this.stopFlameSound(tower.id);
+        this.tilesEngine.towers.resetRotation(tower.id);
+      }
+    }
+
+    // Update flame beam shader animations
+    this.tilesEngine?.flameBeams.update(deltaTime);
+  }
+
+  /**
+   * Get effective DPS for a beam tower (with upgrades applied)
+   */
+  private getEffectiveDPS(tower: Tower): number {
+    let dps = tower.typeConfig.damagePerSecond ?? 30;
+
+    // Apply damage upgrade multiplier
+    // Note: 'damage' upgrades multiply damagePerSecond for beam towers
+    const damageUpgrade = tower.typeConfig.upgrades.find(u => u.id === 'damage');
+    if (damageUpgrade) {
+      const level = tower.getUpgradeLevel('damage');
+      if (level > 0) {
+        dps *= Math.pow(damageUpgrade.effect.multiplier, level);
+      }
+    }
+
+    return dps;
+  }
+
+  /**
+   * Get effective beam width for a tower (with upgrades applied)
+   */
+  private getEffectiveBeamWidth(tower: Tower): number {
+    let width = tower.typeConfig.beamWidth ?? 8;
+
+    // Apply range upgrade to beam width
+    const rangeUpgrade = tower.typeConfig.upgrades.find(u => u.id === 'range');
+    if (rangeUpgrade) {
+      const level = tower.getUpgradeLevel('range');
+      if (level > 0) {
+        width *= Math.pow(rangeUpgrade.effect.multiplier, level);
+      }
+    }
+
+    return width;
+  }
+
+  /**
+   * Get all enemies within a cone from source to target
+   *
+   * @param source - Cone origin (tower shoot position)
+   * @param target - Cone direction target
+   * @param maxLength - Maximum cone length
+   * @param endWidth - Cone diameter at the end
+   * @param candidates - Enemy candidates to check
+   */
+  private getEnemiesInCone(
+    source: Vector3,
+    target: Vector3,
+    maxLength: number,
+    endWidth: number,
+    candidates: Enemy[]
+  ): Enemy[] {
+    if (!this.tilesEngine) return [];
+
+    // Calculate cone direction
+    this.tempDirection.subVectors(target, source).normalize();
+    const coneLength = Math.min(source.distanceTo(target), maxLength);
+
+    // Half-angle of cone (endWidth is diameter, so radius = endWidth/2)
+    // tan(angle) = (endWidth/2) / coneLength
+    const halfAngle = Math.atan2(endWidth / 2, coneLength);
+    const cosHalfAngle = Math.cos(halfAngle);
+
+    const result: Enemy[] = [];
+
+    for (const enemy of candidates) {
+      // Skip air units for fire tower (ground only)
+      if (enemy.typeConfig.isAirUnit) continue;
+
+      // Get enemy local position
+      const enemyLocalPos = this.tilesEngine.sync.geoToLocalSimple(
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0)
+      );
+      enemyLocalPos.y += 1.0; // Approximate center
+
+      // Vector from source to enemy
+      this.tempToEnemy.subVectors(enemyLocalPos, source);
+      const distToEnemy = this.tempToEnemy.length();
+
+      // Check if within cone length
+      if (distToEnemy > coneLength + 2) continue; // +2m margin for enemy size
+
+      // Check if within cone angle
+      this.tempToEnemy.normalize();
+      const dot = this.tempDirection.dot(this.tempToEnemy);
+
+      if (dot >= cosHalfAngle) {
+        result.push(enemy);
+      }
+    }
+
+    return result;
+  }
+
+  /**
+   * Stop all active beams (called on wave end)
+   */
+  stopAllBeams(): void {
+    this.tilesEngine?.flameBeams?.clear();
+    this.lastBeamBloodEffect.clear();
+
+    // Stop all flame sounds
+    for (const towerId of this.activeFlameSounds.keys()) {
+      this.stopFlameSound(towerId);
+    }
+  }
+
+  // =====================================================
+  // FLAME SOUND HELPERS
+  // =====================================================
+
+  /**
+   * Start flame loop sound for a tower
+   */
+  private async startFlameSound(towerId: string, position: Vector3): Promise<void> {
+    if (!this.tilesEngine?.spatialAudio) return;
+
+    // Don't start if already playing
+    if (this.activeFlameSounds.has(towerId)) return;
+
+    // Create loop sound and store handle
+    this.tempSoundPos.copy(position);
+    const handle = await this.tilesEngine.spatialAudio.createLoop(
+      'flame-loop',
+      this.tempSoundPos,
+      { volumeMultiplier: 1.0 }
+    );
+
+    if (handle) {
+      this.activeFlameSounds.set(towerId, handle);
+    }
+  }
+
+  /**
+   * Update flame sound position (for moving camera / distance-based pause)
+   */
+  private updateFlameSoundPosition(towerId: string, position: Vector3): void {
+    const handle = this.activeFlameSounds.get(towerId);
+    if (!handle || !this.tilesEngine?.spatialAudio) return;
+
+    this.tempSoundPos.copy(position);
+    this.tilesEngine.spatialAudio.updateLoopPosition(handle, this.tempSoundPos);
+  }
+
+  /**
+   * Stop flame sound for a tower
+   */
+  private stopFlameSound(towerId: string): void {
+    const handle = this.activeFlameSounds.get(towerId);
+    if (!handle) return;
+
+    this.tilesEngine?.spatialAudio?.stopLoop(handle);
+    this.activeFlameSounds.delete(towerId);
   }
 }
