@@ -308,7 +308,7 @@ export class CombatEffectService {
     enemy: Enemy,
     damage: number,
     sourceTowerId: string,
-    showBloodEffects: boolean = false
+    showBloodEffects = false
   ): void {
     if (!this.towerManager || !this.enemyManager) return;
 
