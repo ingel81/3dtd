@@ -54,6 +54,15 @@ export class TowerManager extends EntityManager<Tower> {
         rolloffFactor: 1,
         volume: 0.6,
       });
+
+      // Register fire tower flame loop sound
+      tilesEngine.spatialAudio.registerSound('flame-loop', '/assets/sounds/towers/fire/flame_loop.mp3', {
+        refDistance: 30,
+        rolloffFactor: 1.2,
+        volume: 0.5,
+        loop: true,
+      });
+
       this.placementSoundRegistered = true;
     }
   }
@@ -87,6 +96,23 @@ export class TowerManager extends EntityManager<Tower> {
       terrainHeight,
       customRotation
     );
+
+    // Start inner fire for Fire Towers
+    if (typeId === 'fire') {
+      const localPos = this.tilesEngine.sync.geoToLocalSimple(
+        position.lat,
+        position.lon,
+        terrainHeight
+      );
+      // Fire center: deep inside the tower furnace
+      const fireHeight = tower.typeConfig.heightOffset - 1.5;
+      this.tilesEngine.effects.spawnTowerInnerFire(
+        tower.id,
+        localPos,
+        fireHeight,
+        0.5 // Medium intensity
+      );
+    }
 
     this.add(tower);
 
@@ -245,6 +271,10 @@ export class TowerManager extends EntityManager<Tower> {
    * Override remove to cleanup Three.js resources
    */
   override remove(entity: Tower): void {
+    // Stop inner fire for Fire Towers
+    if (entity.typeConfig.id === 'fire') {
+      this.tilesEngine?.effects.stopTowerInnerFire(entity.id);
+    }
     this.tilesEngine?.towers.remove(entity.id);
     super.remove(entity);
   }
@@ -253,6 +283,8 @@ export class TowerManager extends EntityManager<Tower> {
    * Override clear to cleanup all Three.js resources
    */
   override clear(): void {
+    // Stop all tower inner fires
+    this.tilesEngine?.effects.stopAllTowerFires();
     this.tilesEngine?.towers.clear();
     this._selectedTowerId.set(null);
     super.clear();

@@ -214,6 +214,14 @@ export class GameStateManager {
         this.projectileManager,
         this.trainingTimescale()
       );
+
+      // Beam tower combat (continuous flame damage)
+      this.towerCombat.updateBeamTowers(
+        deltaTime,
+        this.towerManager,
+        this.enemyManager,
+        this.trainingTimescale()
+      );
     }
 
     // ══════════════════════════════════════════════════════════════
@@ -225,6 +233,7 @@ export class GameStateManager {
     // Check wave completion
     if (this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
+      this.towerCombat.stopAllBeams(); // Stop fire tower beams
       this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
       this.credits.update((c) => c + GAME_BALANCE.waves.completionBonus);
     }
@@ -526,6 +535,7 @@ export class GameStateManager {
    */
   endWave(): void {
     this.waveManager.endWave();
+    this.towerCombat.stopAllBeams();
   }
 
   /**
