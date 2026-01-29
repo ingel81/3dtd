@@ -1,0 +1,59 @@
+import { describe, it, expect, vi } from 'vitest';
+
+vi.mock('three', () => ({
+  Vector3: class {
+    x = 0; y = 0; z = 0;
+    constructor(x?: number, y?: number, z?: number) {
+      this.x = x ?? 0;
+      this.y = y ?? 0;
+      this.z = z ?? 0;
+    }
+  },
+}));
+
+import { Projectile } from './projectile.entity';
+import { Enemy } from './enemy.entity';
+import { ComponentType } from '../core/component';
+import { TransformComponent, CombatComponent, MovementComponent, RenderComponent } from '../game-components';
+import { getProjectileType } from '../configs/projectile-types.config';
+
+const targetPath = [
+  { lat: 0.001, lon: 0, height: 0 },
+  { lat: 0.002, lon: 0, height: 0 },
+];
+
+describe('Projectile entity', () => {
+  it('constructs with correct components', () => {
+    const enemy = new Enemy('zombie', targetPath);
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1');
+
+    expect(projectile.getComponent(ComponentType.TRANSFORM)).toBeInstanceOf(TransformComponent);
+    expect(projectile.getComponent(ComponentType.COMBAT)).toBeInstanceOf(CombatComponent);
+    expect(projectile.getComponent(ComponentType.MOVEMENT)).toBeInstanceOf(MovementComponent);
+    expect(projectile.getComponent(ComponentType.RENDER)).toBeInstanceOf(RenderComponent);
+  });
+
+  it('sets projectile type config from config', () => {
+    const enemy = new Enemy('zombie', targetPath);
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1');
+
+    expect(projectile.typeConfig).toBe(getProjectileType('arrow'));
+    expect(projectile.movement.speedMps).toBe(getProjectileType('arrow').speed);
+  });
+
+  it('calculates initial movement direction towards target', () => {
+    const enemy = new Enemy('zombie', targetPath);
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1');
+
+    const direction = projectile.direction;
+
+    const targetHeight = (enemy.transform.terrainHeight ?? 0) + (enemy.typeConfig.heightOffset ?? 0) + 3;
+    const dy = targetHeight - 1;
+    const dz = 0.001 * 100000;
+    const length = Math.sqrt(dz * dz + dy * dy);
+
+    expect(direction.dx).toBeCloseTo(0, 5);
+    expect(direction.dy).toBeCloseTo(dy / length, 5);
+    expect(direction.dz).toBeCloseTo(dz / length, 5);
+  });
+});
