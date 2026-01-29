@@ -5,6 +5,9 @@
  * Can run with React, Vue, or vanilla JavaScript.
  */
 
+// Interfaces
+export type { IGameManager } from './game-manager.interface';
+
 // Event Bus
 export {
   GameEventBus,
