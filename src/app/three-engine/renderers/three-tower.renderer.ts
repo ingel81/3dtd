@@ -1354,8 +1354,13 @@ export class ThreeTowerRenderer {
           : [mesh.material];
         for (const mat of materials) {
           const stdMat = mat as MeshStandardMaterial;
+          // Dispose all possible texture maps
           if (stdMat.map) stdMat.map.dispose();
           if (stdMat.normalMap) stdMat.normalMap.dispose();
+          if (stdMat.roughnessMap) stdMat.roughnessMap.dispose();
+          if (stdMat.metalnessMap) stdMat.metalnessMap.dispose();
+          if (stdMat.emissiveMap) stdMat.emissiveMap.dispose();
+          if (stdMat.aoMap) stdMat.aoMap.dispose();
           mat.dispose();
         }
       }
@@ -1363,18 +1368,23 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Dispose all resources
+   * Dispose all resources including shared materials and model templates
    */
   dispose(): void {
+    // Remove and dispose all individual tower renders
     this.clear();
 
-    // Release model references from AssetManager
+    // Release model references from AssetManager (decrements ref counts, disposes at 0)
     for (const url of this.loadedModelUrls) {
       this.assetManager.releaseModel(url);
     }
     this.loadedModelUrls.clear();
 
+    // Dispose shared materials (geometry/material templates)
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();
+
+    // Clear map reference to allow GC
+    this.towers.clear();
   }
 }
