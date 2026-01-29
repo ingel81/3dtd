@@ -8,6 +8,7 @@ import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { TIMING } from '../configs/timing.config';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
@@ -226,7 +227,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     // If enemy has death animation, play it and wait before removing
     if (enemy.typeConfig.deathAnimation) {
       this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
-      const realTimeDelay = 2000 / timescale; // Scale death animation duration
+      const realTimeDelay = TIMING.deathAnimationDuration / timescale; // Scale death animation duration
       const timeoutId = setTimeout(() => {
         this.activeTimeouts.delete(timeoutId);
         this.killingEnemies.delete(enemy.id);
@@ -328,7 +329,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * @param defaultDelayBetween Default delay in milliseconds (game-time)
    * @param timescale Game speed multiplier (converts game-time to real-time)
    */
-  startAll(defaultDelayBetween = 300, timescale = 1.0): void {
+  startAll(defaultDelayBetween = TIMING.defaultSpawnStartDelay, timescale = 1.0): void {
     const paused = this.getAll().filter((e) => e.movement.paused);
 
     let accumulatedDelay = 0;
