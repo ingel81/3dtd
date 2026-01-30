@@ -1970,6 +1970,8 @@ export class ThreeEffectsRenderer {
           particle.life = 1.0;
           particle.maxLife = 0.4 + Math.random() * 0.8;
           particle.size = 1.5 + Math.random() * 2.5;
+          particle.frameIndex = -1; // Fire uses circular particles
+          particle.totalFrames = 0;
 
           // Fire colors on respawn
           const t = Math.random();
@@ -2226,9 +2228,11 @@ export class ThreeEffectsRenderer {
       const positions = this.towerFireParticles.geometry.attributes['position'] as BufferAttribute;
       const sizes = this.towerFireParticles.geometry.attributes['size'] as BufferAttribute;
       const colors = this.towerFireParticles.geometry.attributes['color'] as BufferAttribute;
+      const frameIndices = this.towerFireParticles.geometry.attributes['frameIndex'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
+      const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
       for (const p of this.towerFirePool) {
@@ -2240,6 +2244,7 @@ export class ThreeEffectsRenderer {
           colorArray[activeCount * 3] = p.color.r;
           colorArray[activeCount * 3 + 1] = p.color.g;
           colorArray[activeCount * 3 + 2] = p.color.b;
+          frameArray[activeCount] = -1; // Tower fire uses circular particles
           activeCount++;
         }
       }
@@ -2247,6 +2252,7 @@ export class ThreeEffectsRenderer {
       positions.needsUpdate = true;
       sizes.needsUpdate = true;
       colors.needsUpdate = true;
+      frameIndices.needsUpdate = true;
       this.towerFireParticles.geometry.setDrawRange(0, activeCount);
     }
   }
@@ -2261,6 +2267,9 @@ export class ThreeEffectsRenderer {
       const idx = (startIdx + i) % len;
       if (pool[idx].life <= 0) {
         this.poolCursors[cursorKey] = (idx + 1) % len;
+        // Reset sprite-sheet fields so reused particles default to circular
+        pool[idx].frameIndex = -1;
+        pool[idx].totalFrames = 0;
         return pool[idx];
       }
     }
@@ -2399,5 +2408,9 @@ export class ThreeEffectsRenderer {
     this.trailMaterialNormal?.dispose();
     this.trailShaderMaterialAdditive?.dispose();
     this.trailShaderMaterialNormal?.dispose();
+
+    // Dispose sprite-sheet atlas textures
+    this.explosionAtlas?.dispose();
+    this.smokeAtlas?.dispose();
   }
 }
