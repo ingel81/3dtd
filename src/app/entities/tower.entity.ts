@@ -27,6 +27,21 @@ export class Tower extends GameObject {
 
   selected = false;
 
+  /** Whether this tower is sleeping (no enemies in range) */
+  isSleeping = false;
+
+  /** Timestamp when tower last had a target */
+  lastTargetTime = 0;
+
+  /** Timestamp of last sleep wake-check */
+  lastSleepCheck = 0;
+
+  /** Pre-computed range² in geo-degrees for quick sleep checks */
+  rangeSquaredGeo = 0;
+
+  /** How long (ms) without a target before sleeping */
+  static readonly SLEEP_DELAY = 2000; // 2 seconds
+
   /** Custom rotation set by user during placement (radians) */
   customRotation = 0;
 
