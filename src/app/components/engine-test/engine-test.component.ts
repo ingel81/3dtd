@@ -260,6 +260,7 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     `;
 
     const fragmentShaderAdditive = `
+      precision highp float;
       varying vec3 vColor;
       void main() {
         vec2 center = gl_PointCoord - vec2(0.5);
@@ -271,6 +272,7 @@ export class EngineTestComponent implements OnInit, OnDestroy {
     `;
 
     const fragmentShaderNormal = `
+      precision highp float;
       varying vec3 vColor;
       void main() {
         vec2 center = gl_PointCoord - vec2(0.5);

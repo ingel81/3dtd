@@ -26,6 +26,7 @@ import {
   Frustum,
   Matrix4,
   Camera,
+  Sphere,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
@@ -113,8 +114,11 @@ export class ThreeTowerRenderer {
 
   // Shared materials and geometry
   private rangeMaterial: MeshBasicMaterial;
-  private selectionMaterial: MeshBasicMaterial;
-  private selectionGeometry: RingGeometry;
+
+  // Static shared selection ring geometry + material (created once, reused across all instances)
+  private static sharedSelectionMaterial: MeshBasicMaterial | null = null;
+  private static sharedSelectionGeometry: RingGeometry | null = null;
+  private static sharedRefCount = 0;
 
   // Muzzle flash (pooled - single reusable light)
   private muzzleFlashLight: PointLight | null = null;
@@ -139,6 +143,7 @@ export class ThreeTowerRenderer {
   private animationTime = 0;
   private frustum = new Frustum();
   private projScreenMatrix = new Matrix4();
+  private boundingSphere = new Sphere();
 
   // Configuration for terrain-conforming range indicator
   private readonly RANGE_SEGMENTS = 48; // Number of segments around the circle
@@ -162,18 +167,21 @@ export class ThreeTowerRenderer {
       depthTest: false,
     });
 
-    // Selection ring material (gold for WC3 style, high visibility)
-    this.selectionMaterial = new MeshBasicMaterial({
-      color: 0xc9a44c, // TD gold from design system
-      transparent: true,
-      opacity: 0.85,
-      side: DoubleSide,
-      depthWrite: false,
-      depthTest: false, // Always render on top
-    });
-
-    // Shared selection ring geometry (reused by all towers)
-    this.selectionGeometry = new RingGeometry(8, 12, 48);
+    // Static shared selection ring geometry + material (created once, reused across all instances)
+    if (!ThreeTowerRenderer.sharedSelectionMaterial) {
+      ThreeTowerRenderer.sharedSelectionMaterial = new MeshBasicMaterial({
+        color: 0xc9a44c, // TD gold from design system
+        transparent: true,
+        opacity: 0.85,
+        side: DoubleSide,
+        depthWrite: false,
+        depthTest: false, // Always render on top
+      });
+    }
+    if (!ThreeTowerRenderer.sharedSelectionGeometry) {
+      ThreeTowerRenderer.sharedSelectionGeometry = new RingGeometry(8, 12, 48);
+    }
+    ThreeTowerRenderer.sharedRefCount++;
   }
 
   /**
@@ -352,7 +360,7 @@ export class ThreeTowerRenderer {
     this.scene.add(rangeIndicator);
 
     // Create selection ring at terrain level (shared geometry + material)
-    const selectionRing = new Mesh(this.selectionGeometry, this.selectionMaterial);
+    const selectionRing = new Mesh(ThreeTowerRenderer.sharedSelectionGeometry!, ThreeTowerRenderer.sharedSelectionMaterial!);
     selectionRing.rotation.x = -Math.PI / 2;
     selectionRing.position.copy(terrainPos);
     selectionRing.position.y += 1.5; // Slightly above terrain
@@ -758,7 +766,9 @@ export class ThreeTowerRenderer {
     // Update GLTF animation mixers (only for towers in view)
     for (const data of this.towers.values()) {
       if (data.mixer) {
-        if (this.frustum.containsPoint(data.mesh.position)) {
+        this.boundingSphere.center.copy(data.mesh.position);
+        this.boundingSphere.radius = 3; // ~3m covers typical tower models
+        if (this.frustum.intersectsSphere(this.boundingSphere)) {
           data.mixer.update(deltaSeconds);
         }
       }
@@ -1427,9 +1437,17 @@ export class ThreeTowerRenderer {
     this.loadedModelUrls.clear();
 
     // Dispose shared geometry and materials
-    this.selectionGeometry.dispose();
     this.rangeMaterial.dispose();
-    this.selectionMaterial.dispose();
+
+    // Only dispose static selection resources when last instance is destroyed
+    ThreeTowerRenderer.sharedRefCount--;
+    if (ThreeTowerRenderer.sharedRefCount <= 0) {
+      ThreeTowerRenderer.sharedSelectionGeometry?.dispose();
+      ThreeTowerRenderer.sharedSelectionGeometry = null;
+      ThreeTowerRenderer.sharedSelectionMaterial?.dispose();
+      ThreeTowerRenderer.sharedSelectionMaterial = null;
+      ThreeTowerRenderer.sharedRefCount = 0;
+    }
 
     // Clean up muzzle flash
     if (this.muzzleFlashTimer) {
