@@ -109,7 +109,7 @@ export class GameLoopFacadeService {
 
     // Effect: Sync wave debug state with game state
     effect(() => {
-      const waveActive = this.store.waveActive();
+      const waveActive = this.gameState.phase() === 'wave';
       const baseHealth = this.gameState.baseHealth();
       const enemiesAlive = this.gameState.enemiesAlive();
       this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
@@ -200,7 +200,7 @@ export class GameLoopFacadeService {
    */
   startWave(): void {
     if (!this.initialized) return;
-    if (!this.bridge.getEngine() || this.store.waveActive() || this.store.isGameOver()) return;
+    if (!this.bridge.getEngine() || this.gameState.phase() === 'wave' || this.gameState.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
 
     if (this.store.useAIDirector()) {
@@ -268,7 +268,7 @@ export class GameLoopFacadeService {
    */
   startCustomWave(): void {
     if (!this.initialized) return;
-    if (!this.bridge.getEngine() || this.store.waveActive() || this.store.isGameOver()) return;
+    if (!this.bridge.getEngine() || this.gameState.phase() === 'wave' || this.gameState.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
 
     const waveConfig = this.buildWaveConfig();
