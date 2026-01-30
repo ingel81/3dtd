@@ -56,8 +56,8 @@ export interface EnemyRenderData {
   debugOverrides?: EnemyDebugOverrides;
   // Last known movement heading (for debug rotation offset)
   lastHeading: number;
-  // Animation LOD frame skip counter
-  lodFrameSkip: number;
+  // Animation LOD: stagger offset (unique per enemy, avoids all updating same frame)
+  lodStaggerOffset: number;
   // Original emissive values for freeze visual restore
   originalEmissive?: Map<Material, { color: Color; intensity: number }>;
 }
@@ -92,6 +92,11 @@ export class ThreeEnemyRenderer {
   // Material pool - shared materials per enemy type (reduces GPU state changes)
   // Key: typeId, Value: Array of materials in mesh traverse order
   private materialPool = new Map<string, Material[]>();
+
+  // Global frame counter for animation LOD staggering
+  private globalFrameCounter = 0;
+  // Next stagger offset to assign (cycles through to distribute updates evenly)
+  private nextStaggerOffset = 0;
 
   // Debug: track which types have been logged
   private _loggedTypes = new Set<string>();
@@ -252,7 +257,7 @@ export class ThreeEnemyRenderer {
       isWalking: true,
       animationVariationTimer: null,
       lastHeading: 0,
-      lodFrameSkip: 0,
+      lodStaggerOffset: this.nextStaggerOffset++,
     };
 
     this.enemies.set(id, renderData);
@@ -636,12 +641,23 @@ export class ThreeEnemyRenderer {
   }
 
   /**
-   * Update all animation mixers with frustum culling
-   * Only animates enemies visible to the camera
+   * Update all animation mixers with frustum culling and distance-based LOD.
+   *
+   * LOD tiers (by distance to camera):
+   *   < 50m  — Full animation update every frame
+   *   50–100m — Reduced: every 3rd frame (staggered per enemy)
+   *  100–200m — Very reduced: every 6th frame (staggered per enemy)
+   *   > 200m  — Skip animation entirely (position still updates via update())
+   *
+   * Staggering: each enemy gets a unique offset so not all enemies in the same
+   * LOD tier update on the same frame, spreading the CPU cost evenly.
    */
   updateAnimations(deltaTime: number, camera: Camera): void {
     // Skip all mixer updates when enemies are hidden or animations disabled
     if (!this._showEnemies || !this._showAnimations) return;
+
+    // Advance global frame counter (used for staggered LOD scheduling)
+    const frame = this.globalFrameCounter++;
 
     // Update frustum from camera
     this.projScreenMatrix.multiplyMatrices(
@@ -656,22 +672,27 @@ export class ThreeEnemyRenderer {
       // Check if enemy bounding sphere is in camera frustum
       this.boundingSphere.center.copy(data.mesh.position);
       this.boundingSphere.radius = 15;
-      if (this.frustum.intersectsSphere(this.boundingSphere)) {
-        // Animation LOD based on distance to camera
-        const distance = camera.position.distanceTo(data.mesh.position);
+      if (!this.frustum.intersectsSphere(this.boundingSphere)) continue;
 
-        if (distance < 100) {
-          // Full animation update
-          data.mixer.update(deltaTime);
-        } else if (distance < 200) {
-          // Reduced animation: update every other frame
-          data.lodFrameSkip++;
-          if (data.lodFrameSkip % 2 === 0) {
-            data.mixer.update(deltaTime * 2); // Compensate for skipped frame
-          }
+      // Animation LOD based on distance to camera
+      const distance = camera.position.distanceTo(data.mesh.position);
+
+      if (distance < 50) {
+        // Tier 1: Full animation update — every frame
+        data.mixer.update(deltaTime);
+      } else if (distance < 100) {
+        // Tier 2: Reduced — every 3rd frame (staggered), compensate deltaTime
+        if ((frame + data.lodStaggerOffset) % 3 === 0) {
+          data.mixer.update(deltaTime * 3);
         }
-        // Distance > 200: skip animation entirely (position still updates via update())
+      } else if (distance < 200) {
+        // Tier 3: Very reduced — every 6th frame (staggered), compensate deltaTime
+        if ((frame + data.lodStaggerOffset) % 6 === 0) {
+          data.mixer.update(deltaTime * 6);
+        }
       }
+      // Tier 4 (distance >= 200): Skip animation entirely.
+      // Position transform is still updated by the update() method.
     }
   }
 
