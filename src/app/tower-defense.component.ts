@@ -165,52 +165,72 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
 
-  // Proxy signals from services for template compatibility
-  readonly loading = this.engineInit.loading;
+  // ═══════════════════════════════════════════════════════════
+  // Signal proxies — mostly from Store (single source of truth)
+  // A few remain from services not yet consolidated into Store
+  // ═══════════════════════════════════════════════════════════
+
+  // Loading / Engine — from Store
+  readonly loading = this.store.loading;
+  readonly error = this.store.error;
+  readonly loadingStatus = this.store.loadingStatus;
+  readonly loadingSteps = this.store.loadingSteps;
+
+  // Loading sub-states — from services (not yet in Store)
   readonly tilesLoading = this.engineInit.tilesLoading;
   readonly osmLoading = this.engineInit.osmLoading;
   readonly heightsLoading = this.heightUpdate.heightsLoading;
   readonly heightProgress = this.heightUpdate.heightProgress;
-  readonly error = this.engineInit.error;
-  readonly loadingStatus = this.engineInit.loadingStatus;
-  readonly loadingSteps = this.engineInit.loadingSteps;
-  readonly streetsVisible = this.uiState.streetsVisible;
-  readonly routesVisible = this.uiState.routesVisible;
-  readonly debugMode = this.uiState.debugMode;
+
+  // UI State — from Store
+  readonly streetsVisible = this.store.streetsVisible;
+  readonly routesVisible = this.store.routesVisible;
+  readonly debugMode = this.store.debugMode;
+  readonly debugLog = this.store.debugLog;
+  readonly buildMode = this.store.buildMode;
+  readonly selectedTowerType = this.store.selectedTowerType;
+
+  // Debug / Height — from services (specialized)
   readonly heightDebugVisible = this.debugFacade.heightDebugVisible;
-  readonly fps = this.uiState.fps;
-  readonly tileStats = this.uiState.tileStats;
-  readonly mapAttribution = this.uiState.mapAttribution;
-  readonly debugLog = this.debugFacade.debugLog;
-  readonly buildMode = this.towerPlacement.buildMode;
-  readonly selectedTowerType = this.towerPlacement.selectedTowerType;
+
+  // Location — from Store
   readonly editableHqLocation = this.locationMgmt.editableHqLocation;
   readonly editableSpawnLocations = this.locationMgmt.editableSpawnLocations;
-  readonly isApplyingLocation = this.locationMgmt.isApplyingLocation;
+  readonly isApplyingLocation = this.store.isApplyingLocation;
   readonly favorites = this.locationMgmt.favorites;
   readonly favoriteNamesMap = this.locationCoordinator.favoriteNamesMap;
-  // Camera & debug signals (delegated to GameUIStateService)
-  readonly cameraHeading = this.uiState.cameraHeading;
-  readonly compassRotation = this.uiState.compassRotation;
-  readonly cameraFramingDebug = this.store.cameraFramingDebug;
-  readonly cameraDebugEnabled = this.uiState.cameraDebugEnabled;
-  readonly cameraDebugInfo = this.uiState.cameraDebugInfo;
-  // Wave debug settings (proxied from WaveDebugService for backwards compatibility)
-  readonly enemySpeed = this.waveDebug.enemySpeed;
-  readonly enemyHealth = this.waveDebug.enemyHealth;
-  readonly streetCount = this.store.streetCount;
-  readonly enemyCount = this.waveDebug.enemyCount;
-  readonly enemyType = this.waveDebug.enemyType;
-  readonly enemyTypes = getAllEnemyTypes();
-  readonly spawnMode = this.waveDebug.spawnMode;
-  readonly spawnDelay = this.waveDebug.spawnDelay;
   readonly spawnPoints = this.store.spawnPoints;
-  // AI Director mode - uses AI to generate waves instead of debug settings
-  readonly useAIDirector = this.store.useAIDirector;
-  readonly aiExplanation = this.store.aiExplanation;
   readonly baseCoords = this.store.baseCoords;
   readonly centerCoords = this.store.centerCoords;
-  /** DevWorld regeneration in progress — sourced from Store */
+  readonly streetCount = this.store.streetCount;
+
+  // Engine stats — from Store
+  readonly fps = this.store.fps;
+  readonly tileStats = this.store.tileStats;
+  readonly mapAttribution = this.store.mapAttribution;
+  readonly activeSounds = this.store.activeSounds;
+
+  // Camera & debug — from Store
+  readonly cameraHeading = this.store.cameraHeading;
+  readonly compassRotation = this.store.compassRotation;
+  readonly cameraFramingDebug = this.store.cameraFramingDebug;
+  readonly cameraDebugEnabled = this.store.cameraDebugEnabled;
+  readonly cameraDebugInfo = this.store.cameraDebugInfo;
+
+  // Wave debug settings — from Store
+  readonly enemySpeed = this.store.enemySpeed;
+  readonly enemyHealth = this.store.enemyHealth;
+  readonly enemyCount = this.store.enemyCount;
+  readonly enemyType = this.store.enemyType;
+  readonly enemyTypes = getAllEnemyTypes();
+  readonly spawnMode = this.store.spawnMode;
+  readonly spawnDelay = this.store.spawnDelay;
+
+  // AI Director — from Store
+  readonly useAIDirector = this.store.useAIDirector;
+  readonly aiExplanation = this.store.aiExplanation;
+
+  /** DevWorld regeneration in progress — from Store */
   readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
 
   // Game state signals — sourced from Store (single source of truth via GSM→Store sync)
@@ -229,7 +249,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
-  readonly activeSounds = this.uiState.activeSounds;
 
   // Tile stats polling is managed by EngineInitializationService
 
