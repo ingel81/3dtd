@@ -19,6 +19,7 @@ export {
 // Services
 export { VFXService } from './vfx.service';
 export { AudioService } from './audio.service';
+export { ScreenShakeService } from './screen-shake.service';
 
 // Future: GameEngine abstraction
 // export { GameEngine } from './game-engine';

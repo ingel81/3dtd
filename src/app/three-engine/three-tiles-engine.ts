@@ -337,8 +337,11 @@ export class ThreeTilesEngine {
    * @param duration - Duration in ms (default 200)
    */
   triggerScreenShake(intensity = 0.5, duration = 200): void {
-    this.shakeIntensity = intensity;
-    this.shakeDecay = intensity / (duration / 16.67); // Decay per frame at ~60fps
+    // Max-wins: only override if new shake is stronger than current
+    if (intensity > this.shakeIntensity) {
+      this.shakeIntensity = intensity;
+      this.shakeDecay = intensity / (duration / 16.67); // Decay per frame at ~60fps
+    }
   }
 
   setTimescale(scale: number): void {
@@ -1475,18 +1478,20 @@ export class ThreeTilesEngine {
       this.onUpdateCallback(deltaTime);
     }
 
-    // Screen shake
+    // Screen shake (XZ plane only — no vertical shake to avoid nausea)
+    // Always remove previous frame's offset first, then apply new one
+    if (this.shakeOffset.lengthSq() > 0) {
+      this.camera.position.sub(this.shakeOffset);
+    }
     if (this.shakeIntensity > 0) {
       this.shakeOffset.set(
         (Math.random() - 0.5) * 2 * this.shakeIntensity,
-        (Math.random() - 0.5) * 2 * this.shakeIntensity,
+        0,
         (Math.random() - 0.5) * 2 * this.shakeIntensity
       );
       this.camera.position.add(this.shakeOffset);
       this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay);
-    } else if (this.shakeOffset.lengthSq() > 0) {
-      // Remove last shake offset when shake ends
-      this.camera.position.sub(this.shakeOffset);
+    } else {
       this.shakeOffset.set(0, 0, 0);
     }
   }

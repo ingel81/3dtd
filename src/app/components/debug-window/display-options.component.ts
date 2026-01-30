@@ -14,6 +14,7 @@ interface DisplayOptions {
   textures: boolean;
   skeletonCloning: boolean;
   alphaBlend: boolean;
+  screenShake: boolean;
   colorGrading: ColorGradingPreset;
 }
 
@@ -63,6 +64,11 @@ interface DisplayOptions {
           <label class="checkbox-row">
             <input type="checkbox" [checked]="alphaBlend()" (change)="toggleAlphaBlend()" />
             <span>Alpha Blend</span>
+          </label>
+          <div class="separator">Effects</div>
+          <label class="checkbox-row">
+            <input type="checkbox" [checked]="screenShake()" (change)="toggleScreenShake()" />
+            <span>Screen Shake</span>
           </label>
           <div class="separator">Post-Processing</div>
           <label class="select-row">
@@ -159,6 +165,7 @@ export class DisplayOptionsComponent {
   readonly textures = signal(true);
   readonly skeletonCloning = signal(true);
   readonly alphaBlend = signal(true);
+  readonly screenShake = signal(true);
   readonly colorGrading = signal<ColorGradingPreset>('none');
 
   readonly colorGradingPresets = COLOR_GRADING_PRESETS;
@@ -170,6 +177,7 @@ export class DisplayOptionsComponent {
   readonly texturesToggled = output<boolean>();
   readonly skeletonCloningToggled = output<boolean>();
   readonly alphaBlendToggled = output<boolean>();
+  readonly screenShakeToggled = output<boolean>();
   readonly colorGradingChanged = output<ColorGradingPreset>();
 
   constructor() {
@@ -185,6 +193,7 @@ export class DisplayOptionsComponent {
         textures: this.textures(),
         skeletonCloning: this.skeletonCloning(),
         alphaBlend: this.alphaBlend(),
+        screenShake: this.screenShake(),
         colorGrading: this.colorGrading(),
       };
       try {
@@ -235,6 +244,16 @@ export class DisplayOptionsComponent {
     this.alphaBlendToggled.emit(next);
   }
 
+  toggleScreenShake(): void {
+    const next = !this.screenShake();
+    this.screenShake.set(next);
+    this.screenShakeToggled.emit(next);
+    // Also sync to ScreenShakeService's localStorage key
+    try {
+      localStorage.setItem('td_screen_shake_enabled', String(next));
+    } catch { /* ignore */ }
+  }
+
   onColorGradingChange(event: Event): void {
     const select = event.target as HTMLSelectElement;
     const preset = select.value as ColorGradingPreset;
@@ -254,6 +273,7 @@ export class DisplayOptionsComponent {
         this.textures.set(opts.textures ?? true);
         this.skeletonCloning.set(opts.skeletonCloning ?? true);
         this.alphaBlend.set(opts.alphaBlend ?? true);
+        this.screenShake.set(opts.screenShake ?? true);
         this.colorGrading.set(opts.colorGrading ?? 'none');
       }
     } catch { /* ignore */ }

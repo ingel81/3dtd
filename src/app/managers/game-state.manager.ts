@@ -25,7 +25,7 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, VFXService, AudioService, SubscriptionBag } from '../game-engine';
+import { GameEventBus, VFXService, AudioService, ScreenShakeService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/performance-profiler.service';
 
 /**
@@ -56,6 +56,7 @@ export class GameStateManager {
   private readonly eventBus = new GameEventBus();
   private vfxService!: VFXService;
   private audioService!: AudioService;
+  private screenShakeService!: ScreenShakeService;
   readonly towerManager = new TowerManager(this.eventBus, this.osmService);
   readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus, this.entityPool);
@@ -148,6 +149,9 @@ export class GameStateManager {
 
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);
+
+    // Initialize Screen Shake service (subscribes to explosion/impact events)
+    this.screenShakeService = new ScreenShakeService(this.eventBus, tilesEngine);
 
     // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
