@@ -59,18 +59,18 @@ export class DebugFacadeService {
   // ========================================
 
   /**
-   * Add 1000 debug credits to the game state
+   * Add 1000 debug credits via EventBus command
    */
   addDebugCredits(gameState: GameStateManager): void {
-    gameState.credits.update((c) => c + 1000);
+    gameState.getEventBus().emit({ type: 'debug:add-credits', amount: 1000 });
     this.appendDebugLog('+1000 Credits (Debug)');
   }
 
   /**
-   * Add 1000 debug health to the base
+   * Add 1000 debug health via EventBus command
    */
   addDebugHealth(gameState: GameStateManager): void {
-    gameState.baseHealth.update((h) => h + 1000);
+    gameState.getEventBus().emit({ type: 'debug:add-health', amount: 1000 });
     this.appendDebugLog('+1000 HP (Debug)');
   }
 

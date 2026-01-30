@@ -3,6 +3,8 @@ import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { Projectile } from '../entities/projectile.entity';
 import { GeoPosition } from '../models/game.types';
+import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
+import { WaveConfig } from '../managers/wave.manager';
 
 /**
  * Game Event Type Definitions
@@ -149,15 +151,11 @@ export type GameEvent =
   | {
       type: 'debug:kill-all';
     }
-  | {
-      type: 'debug:reset-wave';
-    }
-
   // ==================== Command Events (UI → Game Engine) ====================
   | {
       type: 'command:place-tower';
       position: { lat: number; lon: number; height?: number };
-      typeId: string;
+      typeId: TowerTypeId;
       rotation?: number;
     }
   | {
@@ -167,11 +165,11 @@ export type GameEvent =
   | {
       type: 'command:upgrade-tower';
       towerId: string;
-      upgradeId: string;
+      upgradeId: UpgradeId;
     }
   | {
       type: 'command:start-wave';
-      config?: unknown;
+      config?: WaveConfig;
     }
   | {
       type: 'command:restart-game';
