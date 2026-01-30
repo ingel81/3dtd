@@ -59,8 +59,19 @@ export class EngineStore {
     cameraHeading: number;
     cameraDebugInfo?: CameraDebugInfo | null;
   }): void {
-    this.fps.set(snapshot.fps);
-    this.tileStats.set(snapshot.tileStats);
+    // Only update fps when value changed (avoid unnecessary signal notifications)
+    if (this.fps() !== snapshot.fps) {
+      this.fps.set(snapshot.fps);
+    }
+
+    // Only update tileStats when values changed
+    const prev = this.tileStats();
+    const next = snapshot.tileStats;
+    if (prev.parsing !== next.parsing || prev.downloading !== next.downloading ||
+        prev.total !== next.total || prev.visible !== next.visible) {
+      this.tileStats.set(next);
+    }
+
     this.activeSounds.set(snapshot.activeSoundCount);
 
     if (snapshot.attribution) {

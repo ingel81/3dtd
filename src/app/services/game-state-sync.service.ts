@@ -47,7 +47,7 @@ export class GameStateSyncService {
       this.store.showGameOverScreen.set(true);
     }));
 
-    this.subs.add(eventBus.on('command:restart-game', () => {
+    this.subs.add(eventBus.on('game:reset', () => {
       this.store.resetGameState();
     }));
 
@@ -66,8 +66,14 @@ export class GameStateSyncService {
       this.store.towerCount.update(n => n + 1);
     }));
 
-    this.subs.add(eventBus.on('tower:sold', (_event) => {
+    this.subs.add(eventBus.on('tower:sold', (event) => {
       this.store.towerCount.update(n => Math.max(0, n - 1));
+
+      // Clear selection if the sold tower was the selected one
+      const selected = this.store.selectedTower();
+      if (selected && selected.id === event.tower.id) {
+        this.store.selectedTower.set(null);
+      }
     }));
 
     this.subs.add(eventBus.on('tower:selected', (event) => {

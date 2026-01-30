@@ -105,6 +105,9 @@ export class TowerDefenseFacadeService {
   /** EventBus subscription bag — cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
+  /** Pending auto-restart timeout (bot mode) — cleared in dispose() */
+  private autoRestartTimeout: ReturnType<typeof setTimeout> | null = null;
+
   /**
    * Initialize the facade with component bridge, game state, and injector.
    */
@@ -185,6 +188,10 @@ export class TowerDefenseFacadeService {
    * Full cleanup: dispose engine, pool, preview, animations, sub-facades, EventBus subs.
    */
   dispose(): void {
+    if (this.autoRestartTimeout !== null) {
+      clearTimeout(this.autoRestartTimeout);
+      this.autoRestartTimeout = null;
+    }
     this.eventBusSubs.disposeAll();
     this.gameStateSync.dispose();
     this.gameLoopFacade.dispose();
@@ -299,7 +306,8 @@ export class TowerDefenseFacadeService {
       onGameOverExtra: () => {
         this.trainingClient.resetBot();
         if (this.trainingClient.botAutoMode()) {
-          setTimeout(() => {
+          this.autoRestartTimeout = setTimeout(() => {
+            this.autoRestartTimeout = null;
             this.restartGame();
           }, 2000);
         }

@@ -84,6 +84,9 @@ export type GameEvent =
       reason: 'base-destroyed' | 'quit';
     }
   | {
+      type: 'game:reset';
+    }
+  | {
       type: 'credits:changed';
       credits: number;
       delta: number;

@@ -28,6 +28,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { Vector3 } from 'three';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { STREET_FILTER_RADIUS, CAMERA_PADDING, CAMERA_ANGLE, CAMERA_MARKER_RADIUS } from '../configs/map-constants.config';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -294,13 +295,7 @@ export class VisualizationFacadeService {
     }
 
     const base = this.store.baseCoords();
-    const spawnPointsForPlacement = this.store.spawnPoints().map(sp => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-      color: sp.color,
-    }));
+    const spawnPointsForPlacement = this.toSpawnPointDTOs();
 
     this.towerPlacement.initialize(
       engine,
@@ -344,7 +339,7 @@ export class VisualizationFacadeService {
     const filtered = this.osmService.filterStreetsNearRoutes(
       streetNetwork,
       routes,
-      100
+      STREET_FILTER_RADIUS
     );
     this.bridge.setFilteredStreetNetwork(filtered);
   }
@@ -387,14 +382,7 @@ export class VisualizationFacadeService {
       { lat: base.lat, lon: base.lon },
       this.engineInit.loadingStatus,
       () => {
-        const spawnPointsForMarkers = this.store.spawnPoints().map(sp => ({
-          id: sp.id,
-          name: sp.name,
-          lat: sp.lat,
-          lon: sp.lon,
-          color: sp.color,
-        }));
-        this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
+        this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
         this.gameState.getGlobalRouteGrid().updateTerrainHeights();
       },
       () => this.renderStreets(),
@@ -443,18 +431,12 @@ export class VisualizationFacadeService {
     const hq = this.store.baseCoords();
     const spawns = this.store.spawnPoints();
 
-    const routePoints: { lat: number; lon: number }[] = [];
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    cachedPaths.forEach((path) => {
-      for (const pos of path) {
-        routePoints.push({ lat: pos.lat, lon: pos.lon });
-      }
-    });
+    const routePoints = this.collectRoutePoints();
 
     if (spawns.length > 0) {
       const hqCoord = { lat: hq.lat, lon: hq.lon };
       const spawnCoords = spawns.map(s => ({ lat: s.lat, lon: s.lon }));
-      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, 0.1, routePoints);
+      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, CAMERA_PADDING, routePoints);
     }
 
     const lastFrame = this.cameraFraming.getLastFrame();
@@ -476,19 +458,13 @@ export class VisualizationFacadeService {
       const hq = this.store.baseCoords();
       const spawns = this.store.spawnPoints();
 
-      const routePoints: { lat: number; lon: number }[] = [];
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      cachedPaths.forEach((path) => {
-        for (const pos of path) {
-          routePoints.push({ lat: pos.lat, lon: pos.lon });
-        }
-      });
+      const routePoints = this.collectRoutePoints();
 
       if (spawns.length > 0) {
         this.cameraControl.showDebugVisualization(
           { lat: hq.lat, lon: hq.lon },
           spawns.map(s => ({ lat: s.lat, lon: s.lon })),
-          0.1,
+          CAMERA_PADDING,
           routePoints
         );
       }
@@ -543,19 +519,13 @@ export class VisualizationFacadeService {
       lon: sp.lon,
     }));
 
-    const routePoints: GeoPoint[] = [];
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    cachedPaths.forEach((path) => {
-      for (const pos of path) {
-        routePoints.push({ lat: pos.lat, lon: pos.lon });
-      }
-    });
+    const routePoints = this.collectRoutePoints();
 
     if (routePoints.length > 0) {
       this.cameraFraming.reframeWithRoutes(hq, spawns, routePoints, {
-        padding: 0.1,
-        angle: 70,
-        markerRadius: 8,
+        padding: CAMERA_PADDING,
+        angle: CAMERA_ANGLE,
+        markerRadius: CAMERA_MARKER_RADIUS,
       });
     }
   }
@@ -573,18 +543,42 @@ export class VisualizationFacadeService {
 
     this.renderStreets();
 
-    const spawnPointsForMarkers = this.store.spawnPoints().map(sp => ({
+    this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
+    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
+
+    this.gameState.onTilesLoaded();
+    this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Private Helpers (deduplication)
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * Map store spawn points to DTOs with color (for marker viz, tower placement, etc.).
+   */
+  private toSpawnPointDTOs(): { id: string; name: string; lat: number; lon: number; color: number }[] {
+    return this.store.spawnPoints().map(sp => ({
       id: sp.id,
       name: sp.name,
       lat: sp.lat,
       lon: sp.lon,
       color: sp.color,
     }));
-    this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
+  }
 
-    this.gameState.onTilesLoaded();
-    this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
+  /**
+   * Collect all route points from cached paths as GeoPoints.
+   */
+  private collectRoutePoints(): GeoPoint[] {
+    const routePoints: GeoPoint[] = [];
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    cachedPaths.forEach((path) => {
+      for (const pos of path) {
+        routePoints.push({ lat: pos.lat, lon: pos.lon });
+      }
+    });
+    return routePoints;
   }
 
   // ══════════════════════════════════════════════════════════════

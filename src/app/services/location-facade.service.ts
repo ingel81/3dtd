@@ -21,6 +21,7 @@ import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from './location-change-coordinator.service';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../configs/map-constants.config';
 
 /**
  * Sub-facade for location management, DevWorld, spawns, and street loading.
@@ -177,7 +178,12 @@ export class LocationFacadeService {
         await this.engineInit.setStepDone('location', sourceLabel);
       } else {
         this.engineInit.updateStepDetail('location', 'Select location...');
-        await this.waitForLocationFromDialog();
+        try {
+          await this.waitForLocationFromDialog();
+        } catch {
+          // Component destroyed before dialog closed — abort initialization gracefully
+          return;
+        }
         await this.engineInit.setStepDone('location', 'manually selected');
       }
     }
@@ -254,7 +260,6 @@ export class LocationFacadeService {
    * Add predefined spawn points.
    */
   addPredefinedSpawns(): number {
-    const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff];
     const hq = this.locationMgmt.hq();
     const streetNetwork = this.bridge.getStreetNetwork();
 
@@ -275,7 +280,7 @@ export class LocationFacadeService {
             const spawn = generatedSpawns[0];
             const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
             this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-            this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
+            this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
             return 1;
           }
         }
@@ -285,16 +290,16 @@ export class LocationFacadeService {
         const spawnPos = this.devWorld.getSpawnPosition();
         const spawnGeo = this.devWorld.localToGeo(spawnPos.x, spawnPos.z);
         this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-        this.addSpawnPoint(`spawn-${spawnConfig}`, `Spawn ${spawnConfig}`, spawnGeo.lat, spawnGeo.lon, colors[0]);
+        this.addSpawnPoint(`spawn-${spawnConfig}`, `Spawn ${spawnConfig}`, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
         return 1;
       }
 
       // Real world: random spawn
-      const randomSpawn = this.osmService.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, 500, 1000);
+      const randomSpawn = this.osmService.findRandomStreetPoint(streetNetwork, hq.lat, hq.lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE);
       if (randomSpawn) {
         this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
         this.syncUrlWithLocation();
-        this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, colors[0]);
+        this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, SPAWN_COLORS[0]);
         return 1;
       } else {
         console.warn('[addPredefinedSpawns] No valid random spawn found');
@@ -307,7 +312,7 @@ export class LocationFacadeService {
     let count = 0;
     if (spawns.length > 0 && spawns.every(s => s.lat !== 0 && s.lon !== 0)) {
       spawns.forEach((spawn, index) => {
-        this.addSpawnPoint(spawn.id, spawn.name || `Spawn ${index + 1}`, spawn.lat, spawn.lon, colors[index % colors.length]);
+        this.addSpawnPoint(spawn.id, spawn.name || `Spawn ${index + 1}`, spawn.lat, spawn.lon, SPAWN_COLORS[index % SPAWN_COLORS.length]);
         count++;
       });
     }
@@ -421,12 +426,10 @@ export class LocationFacadeService {
 
     // Create new spawn from terrain provider
     const generatedSpawns = devTerrainProvider.getSpawnPoints();
-    const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff];
-
     if (generatedSpawns.length > 0) {
       const spawn = generatedSpawns[0];
       const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-      this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
+      this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
     }
 
     this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
