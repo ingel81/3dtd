@@ -44,6 +44,10 @@ import {
 } from '3d-tiles-renderer/plugins';
 import { CesiumIonAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { EllipsoidSync } from './ellipsoid-sync';
 import {
   CoordinateSync,
@@ -89,6 +93,11 @@ export class ThreeTilesEngine {
   private controls: GlobeControls | null = null;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
+
+  // Post-processing
+  private composer: EffectComposer | null = null;
+  private bloomPass: UnrealBloomPass | null = null;
+  private bloomEnabled = false;
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
@@ -297,6 +306,9 @@ export class ThreeTilesEngine {
     this.spatialAudio.setGeoToLocal((lat, lon, height) =>
       this.sync.geoToLocalSimple(lat, lon, height)
     );
+
+    // Setup post-processing pipeline (bloom off by default)
+    this.setupPostProcessing();
 
   }
 
@@ -765,6 +777,25 @@ export class ThreeTilesEngine {
     );
   }
 
+  private setupPostProcessing(): void {
+    this.composer = new EffectComposer(this.renderer);
+
+    const renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(renderPass);
+
+    const bloomPass = new UnrealBloomPass(
+      new Vector2(window.innerWidth, window.innerHeight),
+      0.3,  // strength (subtle)
+      0.4,  // radius
+      0.85  // threshold (only bright things bloom)
+    );
+    this.bloomPass = bloomPass;
+    this.composer.addPass(bloomPass);
+
+    const outputPass = new OutputPass();
+    this.composer.addPass(outputPass);
+  }
+
   private setupControls(): void {
     if (!this.tilesRenderer) return;
 
@@ -927,6 +958,9 @@ export class ThreeTilesEngine {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
+    if (this.composer) {
+      this.composer.setSize(width, height);
+    }
   }
 
   /**
@@ -1326,7 +1360,11 @@ export class ThreeTilesEngine {
       this.overlayGroup.position.y = this.overlayBaseY;
 
       // Render scene
-      this.renderer.render(this.scene, this.camera);
+      if (this.bloomEnabled && this.composer) {
+        this.composer.render();
+      } else {
+        this.renderer.render(this.scene, this.camera);
+      }
 
       // Update FPS
       this.updateFPS();
@@ -1378,7 +1416,11 @@ export class ThreeTilesEngine {
     }
 
     // Render scene
-    this.renderer.render(this.scene, this.camera);
+    if (this.bloomEnabled && this.composer) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
 
     // Update FPS
     this.updateFPS();
@@ -1788,6 +1830,24 @@ export class ThreeTilesEngine {
     return this.lastCameraMovement;
   }
 
+  // ---- Bloom post-processing controls ----
+
+  setBloomEnabled(enabled: boolean): void {
+    this.bloomEnabled = enabled;
+  }
+
+  isBloomEnabled(): boolean {
+    return this.bloomEnabled;
+  }
+
+  setBloomStrength(strength: number): void {
+    if (this.bloomPass) this.bloomPass.strength = strength;
+  }
+
+  setBloomThreshold(threshold: number): void {
+    if (this.bloomPass) this.bloomPass.threshold = threshold;
+  }
+
   /**
    * Convert world position to screen coordinates
    */
@@ -1875,6 +1935,12 @@ export class ThreeTilesEngine {
         }
       }
     });
+
+    // Dispose post-processing composer
+    if (this.composer) {
+      this.composer.dispose();
+      this.composer = null;
+    }
 
     // Dispose renderer
     this.renderer.dispose();
