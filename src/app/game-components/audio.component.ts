@@ -1,6 +1,6 @@
 import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
-import { SpatialAudioManager } from '../managers/spatial-audio.manager';
+import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { TransformComponent } from './transform.component';
 import { ComponentType } from '../core/component';
 
