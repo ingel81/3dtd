@@ -20,6 +20,7 @@ import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { TOWER_TYPES, UpgradeId } from '../../configs/tower-types.config';
 import { GeoPosition } from '../../models/game.types';
 import { GameStateManager } from '../../managers/game-state.manager';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EventSubscription } from '../../game-engine';
 import { TowerPlacementService } from '../../services/tower-placement.service';
 import { StrategicPlacementService } from '../../services/strategic-placement.service';
@@ -101,6 +102,7 @@ export class TrainingClientService {
   private botFactory!: StrategyBotFactory;
 
   // === EXTERNAL DEPENDENCIES (set via initialize()) ===
+  private readonly store = inject(TowerDefenseStore);
   private gameState!: GameStateManager;
   private towerPlacement!: TowerPlacementService;
   private engine: ThreeTilesEngine | null = null;
@@ -192,7 +194,7 @@ export class TrainingClientService {
   updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
     if (!this.botEnabled() || !this.currentBot || !this.gameState) return false;
 
-    const phase = this.gameState.phase();
+    const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;
 
     const action = this.currentBot.update(snapshot, deltaTime);
@@ -241,8 +243,8 @@ export class TrainingClientService {
 
           // Check if player has enough credits BEFORE placement
           const towerConfig = TOWER_TYPES[action.towerType];
-          if (!towerConfig || this.gameState.credits() < towerConfig.cost) {
-            console.warn(`[Bot] ⛔ Not enough credits (${this.gameState.credits()}/${towerConfig?.cost}) - ${action.reason}`);
+          if (!towerConfig || this.store.credits() < towerConfig.cost) {
+            console.warn(`[Bot] ⛔ Not enough credits (${this.store.credits()}/${towerConfig?.cost}) - ${action.reason}`);
             break;
           }
 
@@ -288,8 +290,8 @@ export class TrainingClientService {
 
           // Check if we can afford it (dynamic cost based on level)
           const upgradeCost = tower.getNextUpgradeCost(action.upgradeId as UpgradeId);
-          if (this.gameState.credits() < upgradeCost) {
-            console.warn(`[Bot] ⛔ Not enough credits for upgrade: ${this.gameState.credits()}/${upgradeCost} - ${action.reason}`);
+          if (this.store.credits() < upgradeCost) {
+            console.warn(`[Bot] ⛔ Not enough credits for upgrade: ${this.store.credits()}/${upgradeCost} - ${action.reason}`);
             break;
           }
 
@@ -321,7 +323,7 @@ export class TrainingClientService {
 
       case 'start-wave': {
         // Auto-start next wave (only if in setup phase!)
-        const currentPhase = this.gameState.phase();
+        const currentPhase = this.store.phase();
         if (currentPhase === 'setup') {
           console.log(`[Bot] ${action.reason || 'Auto-starting wave'}`);
           this.callbacks.startWave();

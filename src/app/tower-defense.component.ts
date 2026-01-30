@@ -213,10 +213,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** DevWorld regeneration in progress — sourced from Store */
   readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
 
-  // Game state signals — sourced from GSM (authoritative game logic)
-  // These will migrate to Store once GSM→Store sync is implemented
-  readonly waveActive = computed(() => this.gameState.phase() === 'wave');
-  readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
+  // Game state signals — sourced from Store (single source of truth via GSM→Store sync)
+  readonly waveActive = this.store.waveActive;
+  readonly isGameOver = this.store.isGameOver;
   readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
   // Build mode hints for context hint box
@@ -337,7 +336,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Sell the currently selected tower
    */
   sellSelectedTower(): void {
-    const tower = this.gameState.selectedTower();
+    const tower = this.store.selectedTower();
     if (tower) {
       this.gameState.getEventBus().emit({
         type: 'command:sell-tower',

@@ -14,6 +14,7 @@ import { StrategicPlacementService } from './strategic-placement.service';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TrainingClientService } from '../ai/training/training-client.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { GameStateSyncService } from './game-state-sync.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { Tower } from '../entities/tower.entity';
 import { UpgradeId } from '../configs/tower-types.config';
@@ -90,6 +91,7 @@ export class TowerDefenseFacadeService {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly trainingClient = inject(TrainingClientService);
+  private readonly gameStateSync = inject(GameStateSyncService);
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
@@ -184,6 +186,7 @@ export class TowerDefenseFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    this.gameStateSync.dispose();
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
     this.vizFacade.dispose();
@@ -286,6 +289,9 @@ export class TowerDefenseFacadeService {
     if (!this.initialized) return undefined;
 
     const result = this.vizFacade.initializeGameState();
+
+    // Initialize GSM→Store sync (EventBus events → Store signals)
+    this.gameStateSync.initialize(this.gameState.getEventBus());
 
     // Let sub-facades subscribe to their own EventBus events
     this.vizFacade.subscribeToEventBus();

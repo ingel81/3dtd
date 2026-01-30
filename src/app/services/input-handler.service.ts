@@ -2,6 +2,7 @@ import { Injectable, WritableSignal, inject } from '@angular/core';
 import * as THREE from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameStateManager } from '../managers/game-state.manager';
+import { TowerDefenseStore } from '../store/tower-defense.store';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
 
@@ -41,6 +42,7 @@ export class InputHandlerService {
   private engine: ThreeTilesEngine | null = null;
 
   /** Reference to game state manager */
+  private readonly store = inject(TowerDefenseStore);
   private gameState: GameStateManager | null = null;
 
   /** Build mode state signal (from TowerPlacementService) */
@@ -184,7 +186,7 @@ export class InputHandlerService {
       const clickedTowerId = this.engine.raycastTowers(event.clientX, event.clientY);
 
       if (clickedTowerId) {
-        if (this.gameState.selectedTowerId() === clickedTowerId) {
+        if (this.store.selectedTowerId() === clickedTowerId) {
           this.gameState.towerManager.selectTower(null);
         } else {
           this.gameState.towerManager.selectTower(clickedTowerId);

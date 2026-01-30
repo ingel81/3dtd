@@ -18,7 +18,7 @@ import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { GameStateManager } from '../../managers/game-state.manager';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES } from '../../configs/tower-types.config';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
@@ -579,8 +579,10 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     });
   }
 
+  // Store — single source of truth
+  readonly store = inject(TowerDefenseStore);
+
   // Inputs
-  readonly gameState = input.required<GameStateManager>();
   readonly towerTypes = input.required<TowerTypeConfig[]>();
   readonly buildMode = input.required<boolean>();
   readonly waveActive = input.required<boolean>();
