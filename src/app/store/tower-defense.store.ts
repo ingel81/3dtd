@@ -35,7 +35,7 @@
  * MIGRATION PLAN: See docs/SIGNAL-STORE-ARCHITECTURE.md
  */
 
-import { Injectable, signal, computed, WritableSignal, Signal } from '@angular/core';
+import { Injectable, signal, computed, Signal } from '@angular/core';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
@@ -551,7 +551,7 @@ export class TowerDefenseStore {
    *
    * TODO: Emit 'debug:add-credits' via EventBus.
    */
-  addDebugCredits(amount: number = 500): void {
+  addDebugCredits(amount = 500): void {
     this.credits.update(c => c + amount);
     // TODO: Also emit event for EventBus subscribers
   }
@@ -561,7 +561,7 @@ export class TowerDefenseStore {
    *
    * TODO: Emit 'debug:add-health' via EventBus.
    */
-  addDebugHealth(amount: number = 25): void {
+  addDebugHealth(amount = 25): void {
     this.baseHealth.update(h => Math.min(GAME_BALANCE.player.startHealth, h + amount));
     // TODO: Also emit event for EventBus subscribers
   }
