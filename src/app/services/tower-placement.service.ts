@@ -775,6 +775,58 @@ export class TowerPlacementService {
   }
 
   /**
+   * Recompute LOS for a tower after its range has changed (e.g. range upgrade).
+   * Unregisters the tower from the grid, then re-registers with the current combat range.
+   */
+  recomputeTowerLOS(tower: Tower): void {
+    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
+
+    const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
+    if (!config) return;
+
+    // Unregister (cleans up old LOS visualization + grid cells)
+    this.unregisterTowerFromGrid(tower);
+
+    // Re-register with current (upgraded) range
+    const position = tower.position;
+    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+    const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
+
+    const losRaycaster = this.engine.towers.getLosRaycaster();
+    if (!losRaycaster) {
+      console.warn('[TowerPlacementService] recomputeTowerLOS: no losRaycaster!');
+      return;
+    }
+
+    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+
+    // Use the tower's current combat range (already upgraded) instead of base config range
+    tower.visibleCells = this.globalRouteGrid.registerTower(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      tipY,
+      tower.combat.range,
+      losRaycaster,
+      isPureAirTower
+    );
+
+    // Recreate LOS visualization with new range
+    tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      tower.combat.range
+    );
+
+    if (tower.losVisualization) {
+      // Keep visibility state consistent with selection
+      tower.losVisualization.visible = tower.selected;
+      this.engine.getScene().add(tower.losVisualization);
+    }
+  }
+
+  /**
    * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
    * Called on reset to cleanup before starting fresh
    */

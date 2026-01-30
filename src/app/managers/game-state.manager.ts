@@ -202,8 +202,22 @@ export class GameStateManager {
       if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
 
       if (this.spendCredits(cost)) {
+        const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
         const previousLevel = tower.getUpgradeLevel(upgradeId);
         tower.applyUpgrade(upgradeId);
+
+        // If range changed, recompute LOS cells so targeting uses the new range
+        if (upgrade?.effect.stat === 'range') {
+          this.towerPlacement.recomputeTowerLOS(tower);
+          // Update rangeSquaredGeo for sleep/wake checks
+          const pos = tower.position;
+          const metersPerDegreeLat = 111320;
+          const metersPerDegreeLon = 111320 * Math.cos(pos.lat * 0.0174533);
+          const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
+          const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
+          tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
+        }
+
         this.eventBus.emit({
           type: 'tower:upgraded',
           tower,
