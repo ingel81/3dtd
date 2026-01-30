@@ -67,7 +67,7 @@ export class UIStore {
   appendDebugLog(message: string): void {
     this.debugLog.update(log => {
       const lines = log.split('\n');
-      if (lines.length > 50) lines.shift();
+      while (lines.length >= 50) lines.shift();
       return [...lines, message].join('\n');
     });
   }
