@@ -342,8 +342,7 @@ export class MovementComponent extends Component {
     if (this.currentIndex >= this.path.length - 1) return false;
     const from = this.path[this.currentIndex];
     const to = this.path[this.currentIndex + 1];
-    return from.height !== undefined && from.height !== 0 &&
-           to.height !== undefined && to.height !== 0;
+    return from.height != null && to.height != null;
   }
 
   /**

@@ -108,11 +108,15 @@
           (startMovement)="enemyDebug.onStartEnemyMovement($event)"
           (stopMovement)="enemyDebug.onStopEnemyMovement($event)"
         />
+        <app-performance-debugger />
         <app-display-options
           (enemiesToggled)="debugFacade.onEnemiesToggled($event)"
           (healthBarsToggled)="debugFacade.onHealthBarsToggled($event)"
           (animationsToggled)="debugFacade.onAnimationsToggled($event)"
           (movementToggled)="debugFacade.onMovementToggled($event)"
+          (texturesToggled)="debugFacade.onTexturesToggled($event)"
+          (skeletonCloningToggled)="debugFacade.onSkeletonCloningToggled($event)"
+          (alphaBlendToggled)="debugFacade.onAlphaBlendToggled($event)"
         />
 
         <!-- Info Overlay (top left) -->

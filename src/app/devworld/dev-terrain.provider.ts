@@ -825,12 +825,7 @@ export class DevTerrainProvider implements TerrainProvider {
   }
 
   getHeightAtLocal(x: number, z: number): number | null {
-    if (!this.terrainMesh) return null;
-
-    // Check cache
-    const cacheKey = `${x.toFixed(this.CACHE_PRECISION)}_${z.toFixed(this.CACHE_PRECISION)}`;
-    const cached = this.heightCache.get(cacheKey);
-    if (cached !== undefined) return cached;
+    if (!this.heightData) return null;
 
     // Check bounds
     const halfSize = DEV_WORLD_SIZE / 2;
@@ -838,25 +833,11 @@ export class DevTerrainProvider implements TerrainProvider {
       return null;
     }
 
-    // Use raycast against terrain mesh for accurate mesh surface height
-    // This avoids mismatch between heightmap interpolation and mesh triangles
-    const rayResult = this.raycastDown(x, z);
-    if (rayResult) {
-      const height = rayResult.y;
-      this.heightCache.set(cacheKey, height);
-      return height;
-    }
-
-    // Fallback to heightmap sampling if raycast misses (shouldn't happen)
-    if (this.heightData) {
-      const u = (x + halfSize) / DEV_WORLD_SIZE;
-      const v = (z + halfSize) / DEV_WORLD_SIZE;
-      const height = this.sampleHeightmap(u, v);
-      this.heightCache.set(cacheKey, height);
-      return height;
-    }
-
-    return null;
+    // Use direct heightmap sampling (O(1) bilinear interpolation)
+    // The heightmap (1024x1024) is more accurate than the terrain mesh (64x64)
+    const u = (x + halfSize) / DEV_WORLD_SIZE;
+    const v = (z + halfSize) / DEV_WORLD_SIZE;
+    return this.sampleHeightmap(u, v);
   }
 
   raycastFromScreen(

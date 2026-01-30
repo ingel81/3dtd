@@ -162,6 +162,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>tune</mat-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.performanceWindow().isOpen"
+                  (click)="debugWindows.toggle('performance')"
+                  matTooltip="Performance"
+                  matTooltipPosition="left">
+            <mat-icon>speed</mat-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="debugWindows.eventsWindow().isOpen"
                   (click)="debugWindows.toggle('events')"
                   matTooltip="Event bus"

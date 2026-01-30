@@ -264,9 +264,16 @@ export class EnemyManager extends EntityManager<Enemy> {
    * @param deltaTime Delta time in milliseconds (already scaled by timescale)
    * @param timescale Game speed multiplier (for status effect duration)
    */
+  // Performance profiling callback (set by PerformanceProfilerService)
+  onProfileTiming: ((move: number, grid: number, height: number, render: number, total: number) => void) | null = null;
+
   override update(deltaTime: number, timescale = 1.0): void {
     // Skip all per-enemy work when movement is disabled (debug toggle)
     if (!this.movementEnabled) return;
+
+    const profiling = this.onProfileTiming !== null;
+    let tMove = 0, tGrid = 0, tHeight = 0, tRender = 0;
+    const tTotal = profiling ? performance.now() : 0;
 
     // Clear reusable array (no allocation)
     this.toRemove.length = 0;
@@ -275,14 +282,13 @@ export class EnemyManager extends EntityManager<Enemy> {
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
 
-      // Update components
+      // Update components + Move enemy along path
+      let t0 = profiling ? performance.now() : 0;
       enemy.update(deltaTime);
-
-      // Remove expired status effects
       enemy.movement.removeExpiredEffects(timescale);
-
-      // Move enemy along path
       const moveResult = enemy.movement.move(deltaTime, timescale);
+      if (profiling) tMove += performance.now() - t0;
+
       if (moveResult === 'reached_end') {
         // Emit enemy:reached-base event
         this.eventBus.emit({
@@ -295,6 +301,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
 
       // Update global route grid position for O(1) tower targeting
+      t0 = profiling ? performance.now() : 0;
       if (this.tilesEngine && this.globalRouteGrid.isInitialized()) {
         const localPos = this.tilesEngine.sync.geoToLocalSimple(
           enemy.position.lat,
@@ -303,8 +310,10 @@ export class EnemyManager extends EntityManager<Enemy> {
         );
         this.globalRouteGrid.updateEnemyPosition(enemy, localPos.x, localPos.z);
       }
+      if (profiling) tGrid += performance.now() - t0;
 
       // Check if path has valid heights (no object allocation)
+      t0 = profiling ? performance.now() : 0;
       const pathHasHeights = enemy.movement.hasCurrentSegmentHeights();
 
       let geoHeight: number;
@@ -322,12 +331,14 @@ export class EnemyManager extends EntityManager<Enemy> {
           : enemy.transform.terrainHeight;
         enemy.transform.terrainHeight = geoHeight;
       }
+      if (profiling) tHeight += performance.now() - t0;
 
       // Get speed multiplier from animation state (walk vs run)
       const speedMultiplier = this.tilesEngine?.enemies.getSpeedMultiplier(enemy.id) ?? 1.0;
       enemy.movement.speedMultiplier = speedMultiplier;
 
       // Update visual representation (including animation speed based on effective speed)
+      t0 = profiling ? performance.now() : 0;
       this.tilesEngine?.enemies.update(
         enemy.id,
         enemy.position.lat,
@@ -337,11 +348,17 @@ export class EnemyManager extends EntityManager<Enemy> {
         enemy.health.healthPercent,
         enemy.movement.effectiveSpeed
       );
+      if (profiling) tRender += performance.now() - t0;
     }
 
     // Remove enemies that reached base
     for (const enemy of this.toRemove) {
       this.remove(enemy);
+    }
+
+    // Send profiling data to PerformanceProfilerService
+    if (profiling) {
+      this.onProfileTiming!(tMove, tGrid, tHeight, tRender, performance.now() - tTotal);
     }
   }
 
