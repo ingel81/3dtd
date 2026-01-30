@@ -1,11 +1,31 @@
 import { describe, it, expect, beforeEach } from 'vitest';
+import { signal } from '@angular/core';
 import { Injector, runInInjectionContext } from '@angular/core';
 import { TowerDefenseStore } from './tower-defense.store';
 import { GameStore } from './game.store';
 import { UIStore } from './ui.store';
 import { EngineStore } from './engine.store';
 import { LocationStore } from './location.store';
+import { EngineInitializationService } from '../services/engine-initialization.service';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+
+/** Minimal stub for EngineInitializationService (only the signals TowerDefenseStore proxies) */
+function createEngineInitStub() {
+  return {
+    loading: signal(true),
+    error: signal<string | null>(null),
+    loadingStatus: signal('Initializing...'),
+    loadingSteps: signal<{ id: string; label: string; status: string; detail?: string }[]>([]),
+    reset: () => {
+      engineInitStub.loading.set(true);
+      engineInitStub.error.set(null);
+      engineInitStub.loadingStatus.set('Initializing...');
+      engineInitStub.loadingSteps.set([]);
+    },
+  } as unknown as EngineInitializationService;
+}
+
+let engineInitStub: EngineInitializationService;
 
 describe('TowerDefenseStore', () => {
   let store: TowerDefenseStore;
@@ -19,6 +39,7 @@ describe('TowerDefenseStore', () => {
     uiStore = new UIStore();
     engineStore = new EngineStore();
     locationStore = new LocationStore();
+    engineInitStub = createEngineInitStub();
 
     const injector = Injector.create({
       providers: [
@@ -26,6 +47,7 @@ describe('TowerDefenseStore', () => {
         { provide: UIStore, useValue: uiStore },
         { provide: EngineStore, useValue: engineStore },
         { provide: LocationStore, useValue: locationStore },
+        { provide: EngineInitializationService, useValue: engineInitStub },
         { provide: TowerDefenseStore, useFactory: () => {
           return runInInjectionContext(injector, () => new TowerDefenseStore());
         }},
@@ -60,7 +82,7 @@ describe('TowerDefenseStore', () => {
   describe('computed: canStartWave', () => {
     beforeEach(() => {
       gameStore.phase.set('setup');
-      engineStore.loading.set(false);
+      engineInitStub.loading.set(false);
       locationStore.spawnPoints.set([
         { id: 'sp1', name: 'North', lat: 48.78, lon: 9.19, color: 0xff0000 },
       ]);
@@ -81,7 +103,7 @@ describe('TowerDefenseStore', () => {
     });
 
     it('is false when loading', () => {
-      engineStore.loading.set(true);
+      engineInitStub.loading.set(true);
       expect(store.canStartWave()).toBe(false);
     });
 
@@ -105,28 +127,28 @@ describe('TowerDefenseStore', () => {
   describe('computed: canPlaceTowers', () => {
     it('is true when not game over, not loading, and build mode active', () => {
       gameStore.phase.set('setup');
-      engineStore.loading.set(false);
+      engineInitStub.loading.set(false);
       uiStore.buildMode.set(true);
       expect(store.canPlaceTowers()).toBe(true);
     });
 
     it('is false when game is over', () => {
       gameStore.phase.set('gameover');
-      engineStore.loading.set(false);
+      engineInitStub.loading.set(false);
       uiStore.buildMode.set(true);
       expect(store.canPlaceTowers()).toBe(false);
     });
 
     it('is false when loading', () => {
       gameStore.phase.set('setup');
-      engineStore.loading.set(true);
+      engineInitStub.loading.set(true);
       uiStore.buildMode.set(true);
       expect(store.canPlaceTowers()).toBe(false);
     });
 
     it('is false when build mode is off', () => {
       gameStore.phase.set('setup');
-      engineStore.loading.set(false);
+      engineInitStub.loading.set(false);
       uiStore.buildMode.set(false);
       expect(store.canPlaceTowers()).toBe(false);
     });
@@ -289,7 +311,7 @@ describe('TowerDefenseStore', () => {
     });
 
     it('does NOT reset engine state', () => {
-      engineStore.loading.set(false);
+      engineInitStub.loading.set(false);
       engineStore.fps.set(60);
 
       store.resetGameState();
@@ -311,10 +333,10 @@ describe('TowerDefenseStore', () => {
       uiStore.buildMode.set(true);
       uiStore.streetsVisible.set(true);
 
-      // Mutate engine store
-      engineStore.loading.set(false);
+      // Mutate engine store + engine init signals
+      engineInitStub.loading.set(false);
       engineStore.fps.set(120);
-      engineStore.error.set('broken');
+      engineInitStub.error.set('broken');
 
       // Mutate location store
       locationStore.baseCoords.set({ lat: 48.77, lon: 9.18 });

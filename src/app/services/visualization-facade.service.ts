@@ -1,6 +1,6 @@
 import { Injectable, inject, Injector, effect } from '@angular/core';
 import { OsmStreetService } from './osm-street.service';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 import { CameraControlService } from './camera-control.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
@@ -28,6 +28,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { Vector3 } from 'three';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { EngineStore } from '../store/engine.store';
 import { STREET_FILTER_RADIUS, CAMERA_PADDING, CAMERA_ANGLE, CAMERA_MARKER_RADIUS } from '../configs/map-constants.config';
 
 /**
@@ -44,10 +45,10 @@ import { STREET_FILTER_RADIUS, CAMERA_PADDING, CAMERA_ANGLE, CAMERA_MARKER_RADIU
  * - Click handler setup
  * - Game state initialization (routes, tower placement)
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class VisualizationFacadeService {
   private readonly osmService = inject(OsmStreetService);
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
   private readonly cameraControl = inject(CameraControlService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -67,6 +68,7 @@ export class VisualizationFacadeService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
   private readonly store = inject(TowerDefenseStore);
+  private readonly engineStore = inject(EngineStore);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -174,7 +176,7 @@ export class VisualizationFacadeService {
       engine,
       streetNetwork,
       baseCoords,
-      this.uiState.routesVisible,
+      this.uiStore.routesVisible,
       pathfindingService,
       this.markerViz.getSpawnMarkers()
     );
@@ -475,13 +477,13 @@ export class VisualizationFacadeService {
    * Toggle camera debug overlay.
    */
   toggleCameraDebug(): void {
-    const enabled = !this.uiState.cameraDebugEnabled();
-    this.uiState.cameraDebugEnabled.set(enabled);
+    const enabled = !this.engineStore.cameraDebugEnabled();
+    this.engineStore.cameraDebugEnabled.set(enabled);
 
     if (enabled) {
-      this.uiState.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
+      this.engineStore.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
     } else {
-      this.uiState.cameraDebugInfo.set(null);
+      this.engineStore.cameraDebugInfo.set(null);
     }
   }
 
@@ -579,6 +581,41 @@ export class VisualizationFacadeService {
       }
     });
     return routePoints;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Toggle Delegations
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * Toggle street rendering visibility.
+   */
+  onStreetsToggled(): void {
+    this.streetRendering.toggleVisibility();
+  }
+
+  /**
+   * Toggle route lines visibility.
+   */
+  onRoutesToggled(): void {
+    this.pathRoute.toggleRouteLinesVisibility();
+  }
+
+  /**
+   * Toggle special points debug (fire position markers, etc.).
+   */
+  onSpecialPointsDebugToggled(): void {
+    this.markerViz.toggleSpecialPointsDebug();
+  }
+
+  /**
+   * Play route animation for all cached paths.
+   */
+  onPlayRouteAnimation(): void {
+    const cachedPaths = this.pathRoute.getCachedPaths();
+    if (cachedPaths.size > 0) {
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+    }
   }
 
   // ══════════════════════════════════════════════════════════════

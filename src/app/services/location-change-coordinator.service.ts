@@ -17,7 +17,7 @@ import { KeyboardPanService } from './keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 import { LocationDialogComponent } from '../components/location-dialog/location-dialog.component';
 import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../models/location.types';
 import { GeoPosition } from '../models/game.types';
@@ -114,7 +114,7 @@ export class LocationChangeCoordinatorService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
   private readonly worldDice = inject(WorldDiceService);
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
 
   /** Favorite display names (resolved via geocoding) */
   readonly favoriteNamesMap = signal<Record<string, string>>({});
@@ -554,7 +554,7 @@ export class LocationChangeCoordinatorService {
       ctx.engine,
       streetNetwork,
       { lat: input.hq.lat, lon: input.hq.lon },
-      this.uiState.routesVisible,
+      this.uiStore.routesVisible,
       this.osmService,
       this.markerViz.getSpawnMarkers()
     );

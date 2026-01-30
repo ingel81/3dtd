@@ -234,7 +234,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       Datei: `src/app/models/enemy-types.ts`
 
 - [x] **Balancing-Dokumentation**
-      Vollstaendiger Plan in `src/app/docs/REBALANCING.md`
+      Vollstaendiger Plan in `docs/REBALANCING.md`
       HP-Tabelle fuer alle Enemy-Typen bei verschiedenen healthMultiplier
 
 ### AI Training v3.4 - Anti-Kollaps Fixes
@@ -298,7 +298,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 - [x] **AI-Dokumentation reorganisiert**
       AI_TRAINING_BACKEND.md → training-backend/docs/
       AI_TRAINING_SESSION_NOTES.md → training-backend/docs/
-      BOT_SYSTEM.md → src/app/docs/
+      BOT_SYSTEM.md → docs/
       DEVWORLD.md erstellt (basierend auf Code-Analyse)
 
 - [x] **Veraltete Docs bereinigt**

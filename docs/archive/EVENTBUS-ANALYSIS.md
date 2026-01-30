@@ -1,5 +1,7 @@
 # GameEventBus Analyse — Abhängigkeiten & Verbesserungen
 
+> **ARCHIVIERT** — Analyse ist historisch. Viele Punkte wurden im Refactoring (01/2026) behoben. Aktuelle Architektur: siehe [ARCHITECTURE.md](../ARCHITECTURE.md) und [EVENT_SYSTEM.md](../EVENT_SYSTEM.md).
+
 ## Zusammenfassung
 - 10 harte Abhängigkeiten gefunden
 - 5 fehlende Event-Nutzungen

@@ -1,23 +1,15 @@
 import { Injectable, signal } from '@angular/core';
-import { CameraDebugInfo, LoadingStep, TileStats } from './tower-defense.store.types';
+import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
 
 @Injectable({ providedIn: 'root' })
 export class EngineStore {
-  /** Global loading flag */
-  readonly loading = signal<boolean>(true);
+  // NOTE: loading, error, loadingStatus, loadingSteps signals are owned by
+  // EngineInitializationService (the writer). TowerDefenseStore proxies them
+  // directly from the service. EngineStore no longer duplicates them.
 
   // NOTE: tilesLoading, osmLoading, heightsLoading, heightProgress
   // are owned by EngineInitializationService / HeightUpdateService (the writers).
   // Component reads them directly from those services.
-
-  /** Error message (null = no error) */
-  readonly error = signal<string | null>(null);
-
-  /** Loading status string for progress UI */
-  readonly loadingStatus = signal<string>('Initializing...');
-
-  /** Ordered loading steps */
-  readonly loadingSteps = signal<LoadingStep[]>([]);
 
   /** Frames per second */
   readonly fps = signal<number>(0);
@@ -72,7 +64,9 @@ export class EngineStore {
       this.tileStats.set(next);
     }
 
-    this.activeSounds.set(snapshot.activeSoundCount);
+    if (this.activeSounds() !== snapshot.activeSoundCount) {
+      this.activeSounds.set(snapshot.activeSoundCount);
+    }
 
     if (snapshot.attribution) {
       this.mapAttribution.set(snapshot.attribution);
@@ -96,10 +90,6 @@ export class EngineStore {
   }
 
   resetAll(): void {
-    this.loading.set(true);
-    this.error.set(null);
-    this.loadingStatus.set('Initializing...');
-    this.loadingSteps.set([]);
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
     this.activeSounds.set(0);

@@ -1,5 +1,7 @@
 # Frame-Timing Fixes
 
+> **ARCHIVIERT** — Fixes wurden implementiert. Aktuelle Architektur: siehe [ARCHITECTURE.md](../ARCHITECTURE.md).
+
 ## Problem
 
 Mehrere Animationen im Spiel sind frameabhängig statt zeitabhängig. Das führt zu:

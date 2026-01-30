@@ -1,6 +1,6 @@
 # Tower Defense - Design System
 
-**Stand:** 2026-01-10
+**Stand:** 2026-01-30
 
 ## Uebersicht
 
@@ -96,7 +96,7 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 
 | Problem | Beschreibung |
 |---------|--------------|
-| `--td-red` undefiniert | Wird in game-sidebar.component.ts verwendet (`.td-stat-value.td-damage`, `.td-cancel-btn mat-icon`), ist aber nicht definiert. Sollte `--td-health-red` sein. |
+| `--td-red` undefiniert | Wird in game-sidebar.component.ts (`.td-stat-value.td-damage`, `.td-cancel-btn mat-icon`, `.td-sell-tile`) und enemy-debugger.component.ts verwendet, ist aber nicht definiert. Sollte `--td-health-red` sein. |
 
 ### Bars (HP, Mana, Progress)
 
@@ -220,9 +220,11 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 
 ```css
 .td-header {
-  background: url('/assets/images/425.jpg') repeat;
-  background-size: 64px 64px;
-  border-bottom: 2px solid var(--td-frame-dark);
+  background:
+    linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
+    url('/assets/images/backgrounds/stone-wall.jpg') repeat;
+  background-size: auto, 64px 64px;
+  border-bottom: 3px solid var(--td-panel-shadow);
   border-top: 1px solid var(--td-frame-light);
   padding: 4px 12px;
 }

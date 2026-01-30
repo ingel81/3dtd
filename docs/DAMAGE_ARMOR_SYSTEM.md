@@ -20,7 +20,7 @@ Ein Schadens- und Rüstungssystem das strategische Tiefe hinzufügt:
 ### Neue Config-Felder
 
 ```typescript
-// In tower-types.ts
+// In tower-types.config.ts
 interface TowerTypeConfig {
   // ... bestehende Felder ...
 
@@ -44,17 +44,16 @@ type DamageType =
 |-------|-------------|------------|
 | Archer | `physical` | Standard-Bogenschütze |
 | Dual-Gatling | `physical` | Schnelle Projektile |
-| Sniper | `pierce` | Hochkaliber, durchdringend |
 | Cannon | `siege` | Explosiv, effektiv vs Panzerung |
 | Rocket | `siege` | Schwere Sprengköpfe |
 | Magic | `magic` | Magischer Schaden |
 | Ice | `ice` | Frost-Schaden |
+| Fire | `fire` | Flächenschaden (Beam/Flammenwerfer) |
 
 ### Neue Tower (Ideen)
 
 | Tower | Schadenstyp | Beschreibung |
 |-------|-------------|--------------|
-| **Flame Tower** | `fire` | Flächenschaden + Burn DoT |
 | **Tesla Tower** | `magic` | Kettenblitz, mehrere Ziele |
 | **Poison Tower** | `magic` | DoT, stapelbar |
 | **Chaos Tower** | `chaos` | Teuer, Endgame, voller Schaden |
@@ -66,7 +65,7 @@ type DamageType =
 ### Neue Config-Felder
 
 ```typescript
-// In enemy-types.ts
+// In models/enemy-types.ts
 interface EnemyTypeConfig {
   // ... bestehende Felder ...
 
@@ -131,7 +130,7 @@ Ethereal          0%       0%     0%    150%     0%   100%   100%
 ### Implementierung
 
 ```typescript
-// In combat-effect.service.ts oder neuer damage-calculator.service.ts
+// In services/combat-effect.service.ts oder neuer damage-calculator.service.ts
 
 const DAMAGE_MATRIX: Record<DamageType, Record<ArmorType, number>> = {
   physical: {
@@ -268,7 +267,7 @@ interface EnemyTypeConfig {
 2. `damageType` zu allen Tower-Configs hinzufügen
 3. `armorType` zu allen Enemy-Configs hinzufügen (alle auf `light`)
 4. `calculateDamage()` Funktion erstellen
-5. In `CombatEffectService` einbauen (Multiplikator = 1.0 für alle)
+5. In `CombatEffectService` (`services/combat-effect.service.ts`) einbauen (Multiplikator = 1.0 für alle)
 
 **Ergebnis:** System existiert, Gameplay unverändert
 
@@ -282,9 +281,8 @@ interface EnemyTypeConfig {
 
 ### Schritt 3: Neue Tower einführen
 
-1. Flame Tower (Fire)
-2. Tesla Tower (Magic)
-3. Ggf. weitere
+1. Tesla Tower (Magic)
+2. Ggf. weitere (Fire Tower existiert bereits als Beam-Tower)
 
 **Ergebnis:** Mehr Vielfalt bei Schadenstypen
 
@@ -385,5 +383,6 @@ interface EnemyTypeConfig {
 ---
 
 **Erstellt:** 2026-01-27
+**Aktualisiert:** 2026-01-30
 **Autor:** AI-Assistiert
 **Status:** Konzept

@@ -3,7 +3,7 @@
 > **Philosophie:** Engine first, Game second.
 > Erst die Engine stabil, performant und testbar machen - dann Features bauen.
 
-> Siehe auch: [EXPERT_REVIEW_2026.md](src/app/docs/archive/EXPERT_REVIEW_2026.md) | [PERFORMANCE_REPORT.md](src/app/docs/archive/PERFORMANCE_REPORT.md)
+> Siehe auch: [EXPERT_REVIEW_2026.md](docs/archive/EXPERT_REVIEW_2026.md) | [PERFORMANCE_REPORT.md](docs/archive/PERFORMANCE_REPORT.md)
 
 ---
 
@@ -84,7 +84,7 @@
 
 - [ ] **Performance Instrumentation**
       PerformanceMonitorService mit mark/measure, Memory, Long Tasks
-      → [Teil 15](src/app/docs/archive/PERFORMANCE_REPORT.md#teil-15-performance-instrumentation--kritisch-fehlt)
+      → [Teil 15](docs/archive/PERFORMANCE_REPORT.md#teil-15-performance-instrumentation--kritisch-fehlt)
       Ohne Monitoring kein gezieltes Optimieren
 
 ## 1.4 Config-Konsolidierung
@@ -122,68 +122,68 @@
       Enemies @ 200m+ mit 6 FPS statt 60 FPS animieren
       Datei: `three-engine/renderers/three-enemy.renderer.ts`
       Logik: `if (distance < 50) mixer.update(dt); else if (distance < 100) updatePosition(); // >100m: Skip`
-      → [Teil 3.1](src/app/docs/archive/PERFORMANCE_REPORT.md#31-kritisch-kein-animation-lod-system-)
+      → [Teil 3.1](docs/archive/PERFORMANCE_REPORT.md#31-kritisch-kein-animation-lod-system-)
 
 - [ ] **Tiles Update Throttling** - 5-10% FPS
       `three-tiles-engine.ts:965-969` - Nur Update wenn Kamera >5m bewegt
-      → [Teil 1.2](src/app/docs/archive/PERFORMANCE_REPORT.md#12-kritisches-problem-tiles-update-ohne-throttling)
+      → [Teil 1.2](docs/archive/PERFORMANCE_REPORT.md#12-kritisches-problem-tiles-update-ohne-throttling)
 
 - [ ] **Partikel Free-List** - O(n) → O(1) Pool-Suche
       `three-effects.renderer.ts:1926-1933` - 1000× schneller bei voller Auslastung
-      → [Teil 6.1](src/app/docs/archive/PERFORMANCE_REPORT.md#61-linearer-pool-search)
+      → [Teil 6.1](docs/archive/PERFORMANCE_REPORT.md#61-linearer-pool-search)
 
 ## 2.2 Shader-Optimierungen
 
 - [ ] **Precision Qualifiers in Shadern** - Mobile Artefakte vermeiden
       Alle Fragment Shader: `precision highp float;` am Anfang
       Dateien: `game/tower-defense/shaders/*.ts`, `three-engine/renderers/decal-shaders.ts`
-      → [Teil 5.3](src/app/docs/archive/PERFORMANCE_REPORT.md#53-fehlende-precision-qualifiers)
+      → [Teil 5.3](docs/archive/PERFORMANCE_REPORT.md#53-fehlende-precision-qualifiers)
 
 - [ ] **Magic Orb Shader vereinfachen** - 200-300 ALU → 100 ALU
       `magic-orb.shaders.ts` - FBM 4→2 Iterationen, Voronoi 3×3→2×2
-      → [Teil 5.1](src/app/docs/archive/PERFORMANCE_REPORT.md#51-magic-orb-shader---zu-komplex)
+      → [Teil 5.1](docs/archive/PERFORMANCE_REPORT.md#51-magic-orb-shader---zu-komplex)
 
 ## 2.3 Rendering-Optimierungen
 
 - [ ] **Bounding Sphere Culling** - Große Enemies korrekt cullen
       `three-enemy.renderer.ts:440` - intersectsSphere statt containsPoint
-      → [Teil 3.2](src/app/docs/archive/PERFORMANCE_REPORT.md#32-frustum-culling---gut-aber-verbesserungsfähig)
+      → [Teil 3.2](docs/archive/PERFORMANCE_REPORT.md#32-frustum-culling---gut-aber-verbesserungsfähig)
 
 - [ ] **Tower Frustum Culling** - Unsichtbare Towers nicht animieren
       `three-tower.renderer.ts:659`
-      → [Teil 4.4](src/app/docs/archive/PERFORMANCE_REPORT.md#44-draw-call-analyse)
+      → [Teil 4.4](docs/archive/PERFORMANCE_REPORT.md#44-draw-call-analyse)
 
 - [ ] **Selection Ring Geometry teilen** - Memory sparen
       `three-tower.renderer.ts:315-322` - Shared Geometry + Material
-      → [Teil 4.3](src/app/docs/archive/PERFORMANCE_REPORT.md#43-selection-ring-geometry-nicht-geteilt)
+      → [Teil 4.3](docs/archive/PERFORMANCE_REPORT.md#43-selection-ring-geometry-nicht-geteilt)
 
 - [ ] **Partikel-Systeme konsolidieren** - 4 → 2 Draw Calls
       `three-effects.renderer.ts` - Additive + Normal zusammenfassen
-      → [Teil 6.2](src/app/docs/archive/PERFORMANCE_REPORT.md#62-konsolidierung-der-partikel-systeme)
+      → [Teil 6.2](docs/archive/PERFORMANCE_REPORT.md#62-konsolidierung-der-partikel-systeme)
 
 - [ ] **HQ Explosion Partikel reduzieren** - 1350 → 500 Partikel
       `game-state.manager.ts:990-1103` - Massive Overdraw
-      → [Teil 5.2](src/app/docs/archive/PERFORMANCE_REPORT.md#52-overdraw-durch-additive-blending)
+      → [Teil 5.2](docs/archive/PERFORMANCE_REPORT.md#52-overdraw-durch-additive-blending)
 
 ## 2.4 Asset-Optimierungen
 
 - [ ] **Draco Model Compression** - 132MB → 30MB Models
       gltf-pipeline mit Draco, DRACOLoader in asset-manager
-      → [Teil 10.1](src/app/docs/archive/PERFORMANCE_REPORT.md#101-unkomprimierte-3d-models--kritisch-132mb)
+      → [Teil 10.1](docs/archive/PERFORMANCE_REPORT.md#101-unkomprimierte-3d-models--kritisch-132mb)
 
 - [ ] **Progressive Asset Loading** - 3-8s → 0.5-1s TTI
       Nur Critical Assets upfront, Rest im Background
-      → [Teil 10.4](src/app/docs/archive/PERFORMANCE_REPORT.md#104-fehlende-progressive-loading)
+      → [Teil 10.4](docs/archive/PERFORMANCE_REPORT.md#104-fehlende-progressive-loading)
 
 ## 2.5 Pathfinding-Optimierungen
 
 - [ ] **A* MinHeap statt Linear Search** - 50-100ms gespart
       `osm-street.service.ts:323-354` - TinyQueue für O(log n)
-      → [Teil 9.1](src/app/docs/archive/PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
+      → [Teil 9.1](docs/archive/PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
 
 - [ ] **Sleeping Towers** - Idle Towers nicht updaten
       `tower.manager.ts` - Sleep/Wake System für Towers ohne Target
-      → [Teil 2.4](src/app/docs/archive/PERFORMANCE_REPORT.md#24-sleeping-towers--fehlt)
+      → [Teil 2.4](docs/archive/PERFORMANCE_REPORT.md#24-sleeping-towers--fehlt)
 
 ---
 
@@ -276,7 +276,7 @@
 
 - [x] **Tower-Kosten neu balancieren** ✅ DONE 2026-01-25
       Archer: 20→45, Magic: 150→120, Cannon: 175→140, Ice: 120→90
-      Siehe: `src/app/docs/REBALANCING.md`
+      Siehe: `docs/REBALANCING.md`
 
 - [x] **Enemy-Belohnungen dynamisch** ✅ DONE 2026-01-25
       Dynamische Rewards basierend auf HP + Speed (reduziert auf ~1/3)
@@ -541,7 +541,7 @@
 # PHASE 6: DAMAGE & ARMOR SYSTEM
 
 > **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
-> **Konzept:** [DAMAGE_ARMOR_SYSTEM.md](src/app/docs/DAMAGE_ARMOR_SYSTEM.md)
+> **Konzept:** [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
 > **Reihenfolge:** Erst Tower-Schadenstypen, dann Enemy-Rüstungen
 
 ## 6.1 Infrastruktur
@@ -627,7 +627,7 @@
 
 ## Tower-Ideen
 
-> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](src/app/docs/DAMAGE_ARMOR_SYSTEM.md)
+> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
 
 - [ ] Poison Tower (`magic`)
 - [ ] Flame Tower (`fire`)
@@ -636,7 +636,7 @@
 
 ## Enemy-Ideen
 
-> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](src/app/docs/DAMAGE_ARMOR_SYSTEM.md)
+> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
 
 - [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
 - [ ] **Ghost** - `ethereal` Rüstung, nur Magic/Chaos wirkt
@@ -692,7 +692,7 @@
 
 - [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
 - [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
-      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md)
+      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md)
 - [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
 
 ---

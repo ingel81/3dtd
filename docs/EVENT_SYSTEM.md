@@ -34,15 +34,22 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
+| `enemy:spawned` | EnemyManager | UI, GameStateSyncService | Enemy gespawnt |
 | `enemy:died` | EnemyManager | GameStateManager | Enemy gestorben, Credits vergeben |
 | `enemy:reached-base` | EnemyManager | GameStateManager | Enemy am Ziel, Base Damage |
 | `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft, Damage anwenden |
 | `tower:placed` | TowerManager | GameStateManager | Tower gebaut, Credits abziehen |
 | `tower:sold` | TowerManager | GameStateManager | Tower verkauft, Refund |
-| `game:over` | GameStateManager | TowerDefenseComponent | Spiel beendet |
-| `health:changed` | GameStateManager | HQDamageService | Base Health geaendert |
+| `tower:upgraded` | TowerManager | GameStateManager | Tower aufgewertet, Credits abziehen |
+| `tower:selected` | TowerManager | UI | Tower ausgewaehlt |
+| `tower:deselected` | TowerManager | UI | Tower-Auswahl aufgehoben |
 | `wave:started` | WaveManager | UI | Neue Welle gestartet |
 | `wave:completed` | WaveManager | UI | Welle abgeschlossen |
+| `game:started` | GameStateManager | UI | Spiel gestartet |
+| `game:over` | GameStateManager | TowerDefenseComponent | Spiel beendet |
+| `game:reset` | GameStateManager | All Managers | Spiel zurueckgesetzt |
+| `credits:changed` | GameStateManager | UI, GameStateSyncService | Credits geaendert |
+| `health:changed` | GameStateManager | HQDamageService | Base Health geaendert |
 
 ### Deferred Events (nicht-kritisch, queued)
 
@@ -50,9 +57,34 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `vfx:projectile-impact` | ProjectileManager | VFXService | Explosion VFX spawnen |
+| `vfx:blood` | CombatEffectService | VFXService | Blut-VFX spawnen |
+| `vfx:explosion` | CombatEffectService | VFXService | Explosion VFX spawnen |
+| `vfx:projectile-impact` | ProjectileManager | VFXService | Projektil-Einschlag VFX spawnen |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
+
+### Debug Events
+
+| Event | Producer | Consumer | Beschreibung |
+|-------|----------|----------|--------------|
 | `debug:sound` | SpatialAudioManager | SoundDebugService | Sound-Debug-Events (play, stop, budget) |
+| `debug:add-credits` | Debug UI | GameStateManager | Credits hinzufuegen |
+| `debug:add-health` | Debug UI | GameStateManager | Health hinzufuegen |
+| `debug:toggle-movement` | Debug UI | EnemyManager | Enemy-Bewegung an/aus |
+| `debug:remove-enemy` | Debug UI | EnemyManager | Einzelnen Enemy entfernen |
+| `debug:clear-enemies` | Debug UI | EnemyManager | Alle Enemies entfernen |
+| `debug:start-custom-wave` | Debug UI | WaveManager | Custom Wave starten |
+| `debug:spawn-enemy` | Debug UI | EnemyManager | Enemy manuell spawnen |
+| `debug:kill-all` | Debug UI | EnemyManager | Alle Enemies toeten |
+
+### Command Events (UI → Game Engine)
+
+| Event | Producer | Consumer | Beschreibung |
+|-------|----------|----------|--------------|
+| `command:place-tower` | UI / Bot | TowerManager | Tower platzieren |
+| `command:sell-tower` | UI / Bot | TowerManager | Tower verkaufen |
+| `command:upgrade-tower` | UI / Bot | TowerManager | Tower upgraden |
+| `command:start-wave` | UI / Bot | WaveManager | Welle starten |
+| `command:restart-game` | UI | GameStateManager | Spiel neu starten |
 
 ---
 
@@ -83,7 +115,6 @@ eventBus.emit({
   type: 'enemy:died',
   enemy: myEnemy,
   credits: 100,
-  position: new Vector3(10, 0, 5),
 });
 
 // Deferred event (nicht-kritisch)
@@ -171,7 +202,7 @@ function gameLoop(deltaTime: number) {
 
 | Komponente | Angular DI | Events | Beschreibung |
 |------------|------------|--------|--------------|
-| **GameEventBus** | Nein | Core System | Event Bus mit 20 Event-Typen |
+| **GameEventBus** | Nein | Core System | Event Bus mit 34 Event-Typen |
 | **VFXService** | Nein | Subscriber | Reagiert auf `vfx:*` Events |
 | **AudioService** | Nein | Subscriber | Reagiert auf `audio:play` |
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
@@ -180,6 +211,7 @@ function gameLoop(deltaTime: number) {
 | **TowerManager** | Nein | Producer | Emittiert `tower:placed`, `tower:sold` |
 | **CombatEffectService** | Ja | Subscriber | Reagiert auf `projectile:hit` |
 | **HQDamageService** | Ja | Mixed | Reagiert auf `health:changed`, emittiert `audio:play` |
+| **GameStateSyncService** | Ja | Subscriber | Synchronisiert Game State mit Angular UI |
 | **GameStateManager** | Ja | Adapter | Orchestriert Manager, emittiert `game:over` |
 
 ---
@@ -227,7 +259,7 @@ bag.add(eventBus.on('enemy:died', handler1));
 bag.add(eventBus.on('tower:placed', handler2));
 
 // Bei Destroy
-bag.unsubscribeAll();
+bag.disposeAll();
 ```
 
 ---
@@ -236,11 +268,11 @@ bag.unsubscribeAll();
 
 | Datei | LOC | Beschreibung |
 |-------|-----|--------------|
-| `game-engine/game-event-bus.ts` | ~530 | Event Bus Core |
-| `game-engine/vfx.service.ts` | ~85 | VFX Event Handler |
-| `game-engine/audio.service.ts` | ~56 | Audio Event Handler |
-| `game-engine/index.ts` | 7 | Barrel Exports |
-| `components/debug-window/event-debugger.component.ts` | ~200 | Debug Panel |
+| `game-engine/game-event-bus.ts` | ~614 | Event Bus Core |
+| `game-engine/vfx.service.ts` | ~109 | VFX Event Handler |
+| `game-engine/audio.service.ts` | ~60 | Audio Event Handler |
+| `game-engine/index.ts` | ~24 | Barrel Exports |
+| `components/debug-window/event-debugger.component.ts` | ~449 | Debug Panel |
 
 ---
 

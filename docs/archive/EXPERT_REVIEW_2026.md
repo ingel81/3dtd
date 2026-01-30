@@ -1,5 +1,7 @@
 # Expert Review Report - Januar 2026
 
+> **ARCHIVIERT** — Historische Analyse. Aktuelle Architektur: siehe [ARCHITECTURE.md](../ARCHITECTURE.md).
+>
 > Umfassende Codebase-Analyse durch 7 spezialisierte KI-Agenten
 
 ## Executive Summary

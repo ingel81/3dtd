@@ -3,7 +3,7 @@ import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
-import { GameUIStateService } from '../services/game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 import { PathAndRouteService } from '../services/path-route.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { CombatEffectService } from '../services/combat-effect.service';
@@ -34,7 +34,7 @@ import { GameEventBus, VFXService, AudioService, SubscriptionBag } from '../game
 @Injectable()
 export class GameStateManager {
   // Angular-injected services (UI & coordination)
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
   private readonly pathRouteService = inject(PathAndRouteService);
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly combatEffect = inject(CombatEffectService);
@@ -538,7 +538,7 @@ export class GameStateManager {
     this.hqDamage.onTilesLoaded();
 
     // Spawn debug point if debug option is enabled
-    if (this.uiState.specialPointsDebugVisible()) {
+    if (this.uiStore.specialPointsDebugVisible()) {
       this.markerViz.spawnHQDebugPoint();
     }
   }

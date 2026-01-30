@@ -111,11 +111,11 @@ function calculateDynamicReward(enemy: Enemy): number {
 |-------|------------|-----------|-------------|--------|
 | Zombie | 1.0 | 80 | +0 | 1 |
 | Zombie | 2.0 | 160 | +0 | 1 |
-| Zombie | 5.0 | 400 | +0 | 3 |
+| Zombie | 5.0 | 400 | +0 | 4 |
 | Tank | 1.0 | 250 | +0 | 1 |
-| Tank | 3.0 | 750 | +0 | 6 |
+| Tank | 3.0 | 750 | +0 | 8 |
 | Bat | 1.0 | 25 | +0 | 1 |
-| Bat | 4.0 | 100 | +0 | 1 |
+| Bat | 4.0 | 100 | +0 | 2 |
 | Penguin | 1.0 | 30 | +0 | 1 |
 | Herbert | 2.0 | 1000 | +0 | 8 |
 | Herbert | 5.0 | 2500 | +0 | 25 (cap) |
@@ -531,7 +531,7 @@ npm run lint   # Keine ESLint-Fehler
 | Risiko | Mitigation |
 |--------|------------|
 | Zu schwer fuer Anfaenger | Wave 1-3 haben niedrigen healthMult |
-| Dynamische Rewards zu hoch | Cap bei 40 Credits |
+| Dynamische Rewards zu hoch | Cap bei 25 Credits |
 | Bot zu schlecht | mistakeRate anpassen (Config: 5-40%) |
 | Training divergiert | Rollback zu Checkpoint, keine Model-Aenderungen |
 | Archer-Limit frustriert | Limit auf 4-5 belassen |
@@ -560,4 +560,4 @@ npm run lint   # Keine ESLint-Fehler
 
 ---
 
-**Last Updated:** 2026-01-25
+**Last Updated:** 2026-01-30

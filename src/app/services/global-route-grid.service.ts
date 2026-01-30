@@ -5,7 +5,7 @@ import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
 import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 
 /**
  * GlobalRouteGridService - Angular service wrapper for GlobalRouteGrid
@@ -17,7 +17,7 @@ import { GameUIStateService } from './game-ui-state.service';
  */
 @Injectable({ providedIn: 'root' })
 export class GlobalRouteGridService {
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
 
   private grid: GlobalRouteGrid;
   private initialized = false;
@@ -297,7 +297,7 @@ export class GlobalRouteGridService {
    * Toggles UI state and updates visualization accordingly.
    */
   toggleSpatialGridDebug(): void {
-    this.uiState.toggleSpatialGridDebug();
+    this.uiStore.toggleSpatialGridDebug();
     this.updateSpatialGridVisualization();
   }
 
@@ -306,7 +306,7 @@ export class GlobalRouteGridService {
    * Called after grid is initialized to restore persisted visibility.
    */
   initSpatialGridVisualizationIfEnabled(): void {
-    if (this.uiState.spatialGridDebugVisible()) {
+    if (this.uiStore.spatialGridDebugVisible()) {
       this.updateSpatialGridVisualization();
     }
   }
@@ -316,7 +316,7 @@ export class GlobalRouteGridService {
    * Creates mesh on first show, toggles visibility thereafter.
    */
   updateSpatialGridVisualization(): void {
-    const visible = this.uiState.spatialGridDebugVisible();
+    const visible = this.uiStore.spatialGridDebugVisible();
 
     if (visible) {
       // Create and add visualization mesh to scene
@@ -340,7 +340,7 @@ export class GlobalRouteGridService {
    * (used by game loop for per-frame visualization updates)
    */
   isSpatialGridVizVisible(): boolean {
-    return this.uiState.spatialGridDebugVisible() && this.spatialGridVizMesh !== null;
+    return this.uiStore.spatialGridDebugVisible() && this.spatialGridVizMesh !== null;
   }
 
   /**

@@ -22,7 +22,7 @@ vi.mock('@angular/core', async () => {
 
 function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
-    GameUIStateService: {
+    UIStore: {
       specialPointsDebugVisible: vi.fn().mockReturnValue(false),
     },
     PathAndRouteService: {

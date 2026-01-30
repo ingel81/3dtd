@@ -20,7 +20,8 @@ Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentr
 |--------|-------|--------------|
 | `GameLoopFacade` | `services/game-loop-facade.service.ts` | Wave-Management, Game-Loop, Restart, Tower-Upgrades, AI Director |
 | `LocationFacade` | `services/location-facade.service.ts` | Location-Erkennung, DevWorld, Spawns, Map-Cleanup |
-| `VisualizationFacade` | `services/visualization-facade.service.ts` | Rendering, Kamera, DPS-Viz, Height-Updates, Click-Handler |
+| `VisualizationFacade` | `services/visualization-facade.service.ts` | Rendering, Kamera, DPS-Viz, Height-Updates, Click-Handler, Toggles |
+| `DebugFacade` | `services/debug-facade.service.ts` | Debug-Log, Height-Debug, Display Options, Enemy-Debug |
 | **`TowerDefenseFacade`** | `services/tower-defense-facade.service.ts` | **Orchestrierung** — Init, Engine-Setup, delegiert an Sub-Facades |
 
 ### GSM→Store Sync Layer
@@ -238,7 +239,7 @@ expect(store.canStartWave()).toBe(false);
 
 ### Phase 4: Services entkernen ✅
 - [x] Component-Signals von 40+ Service-Proxies auf Store umgestellt
-- [x] GameUIStateService bleibt als Persistence-Layer (localStorage) + Toggle-Actions
+- [x] GameUIStateService entfernt — Persistence lebt in UIStore-Konstruktor
 - [x] GSM bleibt als Game-Logic-Orchestrator (update loop, entity managers)
 - [x] Bridge auf Minimum reduziert (5 getter/setter + Canvas getter + 4 Callbacks)
 
@@ -260,8 +261,6 @@ expect(store.canStartWave()).toBe(false);
 ### Contra
 - **God Object Risiko** — Der Store hatte ~60 Signals in einer Klasse.
   - *Gelöst:* Aufgeteilt in 4 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore). Root-Store aggregiert als Fassade.
-- **GameUIStateService koexistiert** — Persistence + Throttled-Stats bleiben dort.
-  - *Grund:* Vollständiges Entfernen wäre destruktiv bei 80+ Referenzen. Service behält seine Nische.
 - **Performance** — Mehr Signals = mehr Change Detection?
   - *Mitigation:* Angular Signals sind lazy. Computed werden nur evaluiert wenn gelesen.
     OnPush + Signals = optimal. Kein Overhead gegenüber jetzigem Setup.
@@ -308,7 +307,7 @@ src/app/services/
   game-loop-facade.service.ts     ← Wave, game loop, upgrades
   location-facade.service.ts      ← Location detection, DevWorld
   visualization-facade.service.ts ← Rendering, camera, viz
-  game-ui-state.service.ts        ← Persistence (localStorage) + throttled stats
+  debug-facade.service.ts         ← Debug operations, display options
 ```
 
 ## Referenzen

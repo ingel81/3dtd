@@ -18,14 +18,14 @@ Nach Browser-Reload (F5) bleibt der Loading-Screen manchmal bei "Warte auf 3D-Ka
 ### Beobachtungen aus Debug-Logs
 
 ```
-[TilesEngine] load-tile-set event - tileset root loaded  (20+ mal)
+[TilesEngine] load-tileset event - tileset root loaded  (20+ mal)
 [TilesEngine] tiles-load-end event received, rootLoaded=yes, groupPos=(0, -6365901, 21163)
 [TilesEngine] Debounce fired: firstTilesLoaded=false, raycast=null, visible=0, total=0
 [TilesEngine] Retry #1: raycast=null, visible=0, total=0, groupChildren=0, sceneMeshes=60, downloading=0, parsing=0
 ```
 
 **Erkenntnisse:**
-- `load-tile-set` Events werden 20+ mal gefeuert → Tilesets werden geladen (Metadaten)
+- `load-tileset` Events werden 20+ mal gefeuert → Tilesets werden geladen (Metadaten)
 - `rootLoaded=yes` → Root-Tileset existiert
 - `groupChildren=0` → ABER keine Meshes in der tilesRenderer.group!
 - `downloading=0, parsing=0` → Nichts in den Download/Parse Queues
@@ -71,13 +71,13 @@ if (freshOriginHeight !== null || stats.visible > 0) {
 
 **Ergebnis:** Plugins sind NICHT die Ursache, werden für korrektes Rendering benötigt
 
-### 4. Trigger basierend auf load-tile-set Events (zurückgerollt)
+### 4. Trigger basierend auf load-tileset Events (zurückgerollt)
 
-**Idee:** Nach 5 `load-tile-set` Events den Retry-Mechanismus starten.
+**Idee:** Nach 5 `load-tileset` Events den Retry-Mechanismus starten.
 
 **Code:**
 ```typescript
-this.tilesRenderer.addEventListener('load-tile-set', () => {
+this.tilesRenderer.addEventListener('load-tileset', () => {
   this.tilesetLoadCount++;
   if (!this.firstTilesLoaded && this.tilesetLoadCount >= 5) {
     this.scheduleFirstTilesRetry();
@@ -145,12 +145,12 @@ TILES_LOAD_DEBOUNCE_MS = 500;  // Debounce nach tiles-load-end
 FIRST_TILES_RETRY_MS = 200;    // Retry-Intervall
 FIRST_TILES_MAX_RETRIES = 50;  // Max 10 Sekunden
 MAX_CAMERA_NUDGES = 3;         // Max Force-Update Versuche
-MIN_VISIBLE_TILES = 50;        // Fallback wenn Raycast fehlschlägt
+MIN_VISIBLE_TILES = 50;        // Fallback wenn Raycast fehlschlägt (lokale Konstante in onTilesLoadEnd/scheduleFirstTilesRetry)
 ```
 
 ## Offene Fragen
 
-1. Warum laden die Tile-Geometrien manchmal nicht, obwohl `load-tile-set` Events gefeuert werden?
+1. Warum laden die Tile-Geometrien manchmal nicht, obwohl `load-tileset` Events gefeuert werden?
 2. Ist es ein Cesium Ion Auth Timing-Problem?
 3. Gibt es ein bekanntes Issue in 3DTilesRendererJS 0.4.19?
 4. Hängt es mit dem Browser-Cache zusammen?

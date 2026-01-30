@@ -16,6 +16,7 @@ npm run build   # Production Build
 - Angular 21 Standalone Components (nur UI)
 - Three.js + 3DTilesRendererJS fuer 3D-Rendering
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
+- **Signal Store** - 4 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location)
 - Kein Backend - komplett clientseitig
 - Google Maps API Key in environment.ts
 
@@ -35,14 +36,15 @@ src/app/
 ├── game-engine/                # Event Bus, VFX/Audio Services (framework-agnostic)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower & Projectile Type Configs
-├── core/services/              # Config Service
-├── docs/                       # Feature Dokumentation
+├── core/                       # Config Service
+├── devworld/                   # DevWorld Offline-Entwicklungsumgebung
 ├── entities/                   # Enemy, Tower, Projectile
 ├── game/tower-defense/shaders/ # Shader Code
 ├── game-components/            # ECS Components (transform, health, etc.)
 ├── managers/                   # Manager (event-driven, framework-agnostic)
 ├── models/                     # Type Definitions
-├── services/                   # Angular Services (UI-Bindings)
+├── services/                   # Angular Services (Facades, UI-Bindings)
+├── store/                      # Signal Stores (GameStore, UIStore, EngineStore, LocationStore)
 ├── styles/                     # Theme & Global Styles
 └── three-engine/               # 3D Rendering (renderers/)
 
@@ -69,31 +71,36 @@ training-backend/               # Python Training Backend
 
 ## Dokumentation
 
-**Pflichtlektüre je nach Aufgabe!** Detaillierte Dokumentation befindet sich in `src/app/docs/`:
+**Pflichtlektüre je nach Aufgabe!** Detaillierte Dokumentation befindet sich in `docs/`:
 
 | Dokument | Beschreibung |
 |----------|--------------|
-| [INDEX.md](src/app/docs/INDEX.md) | Uebersicht aller Dokumentationen |
-| [ARCHITECTURE.md](src/app/docs/ARCHITECTURE.md) | System-Architektur & Design |
-| [EVENT_SYSTEM.md](src/app/docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
-| [DESIGN_SYSTEM.md](src/app/docs/DESIGN_SYSTEM.md) | UI Design System |
-| [TOWER_CREATION.md](src/app/docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
-| [ENEMY_CREATION.md](src/app/docs/ENEMY_CREATION.md) | Neue Enemies, Animationen, Audio |
-| [WAVE_SYSTEM.md](src/app/docs/WAVE_SYSTEM.md) | Wave-Management, Spawning, Phases |
-| [STATUS_EFFECTS.md](src/app/docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Freeze, Burn) |
-| [LOCATION_SYSTEM.md](src/app/docs/LOCATION_SYSTEM.md) | Standort-System |
-| [SPATIAL_AUDIO.md](src/app/docs/SPATIAL_AUDIO.md) | 3D Audio System |
-| [PROJECTILES.md](src/app/docs/PROJECTILES.md) | Projektil-System |
-| [MODEL_PREVIEW.md](src/app/docs/MODEL_PREVIEW.md) | 3D Model Preview |
-| [PARTICLE_SYSTEM.md](src/app/docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
-| [TILES_LOADING_BUG.md](src/app/docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
-| [DEVWORLD.md](src/app/docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
+| [INDEX.md](docs/INDEX.md) | Uebersicht aller Dokumentationen |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System-Architektur & Design |
+| [EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) | Event Bus & Manager-Kommunikation |
+| [DESIGN_SYSTEM.md](docs/DESIGN_SYSTEM.md) | UI Design System |
+| [TOWER_CREATION.md](docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
+| [ENEMY_CREATION.md](docs/ENEMY_CREATION.md) | Neue Enemies, Animationen, Audio |
+| [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) | Wave-Management, Spawning, Phases |
+| [STATUS_EFFECTS.md](docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Freeze, Burn) |
+| [LOCATION_SYSTEM.md](docs/LOCATION_SYSTEM.md) | Standort-System |
+| [SPATIAL_AUDIO.md](docs/SPATIAL_AUDIO.md) | 3D Audio System |
+| [PROJECTILES.md](docs/PROJECTILES.md) | Projektil-System |
+| [MODEL_PREVIEW.md](docs/MODEL_PREVIEW.md) | 3D Model Preview |
+| [PARTICLE_SYSTEM.md](docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
+| [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
+| [DEVWORLD.md](docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
+| [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md) | Damage/Armor System (Konzept) |
+| [REBALANCING.md](docs/REBALANCING.md) | Balancing-Konzept & Implementierung |
+| **Architektur & Store** | |
+| [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (4 Sub-Stores) |
 | **AI System (Frontend)** | |
 | [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - Architektur, Konzepte, Dateien |
-| [BOT_SYSTEM.md](src/app/docs/BOT_SYSTEM.md) | Strategy-Based Bot System - Architecture & Strategies |
+| [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System - Architecture & Strategies |
 | **Training Backend** (`training-backend/`) | |
 | [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | Python Training Backend - PPO, Dashboard, Reward |
 | [AI_TRAINING_SESSION_NOTES.md](training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte (v1→v2→v3) |
+| [AI_MODEL_EXPORT.md](training-backend/docs/AI_MODEL_EXPORT.md) | ONNX Model Export |
 | **Project Management** | |
 | [TODO.md](TODO.md) | Offene Aufgaben |
 | [DONE.md](DONE.md) | Changelog (chronologisch, neueste zuerst) |

@@ -42,7 +42,7 @@ ThreeTilesEngine
     |   +-- DevTerrainProvider     (Generierte Geometrie - DevWorld)
     |
     +-- StreetNetworkProvider (Interface)
-        +-- OsmStreetProvider      (OpenStreetMap - Production)
+        +-- OsmStreetService       (OpenStreetMap - Production, Angular Service)
         +-- DevStreetProvider      (Generiertes Netz - DevWorld)
 ```
 
@@ -56,6 +56,7 @@ ThreeTilesEngine
 | `devworld.worker.ts` | Web Worker fuer Off-Main-Thread Generation |
 | `devworld-worker.types.ts` | Worker Message Types |
 | `devworld-debug-panel.component.ts` | UI Panel fuer Terrain/Building-Auswahl |
+| `devworld-debugger.component.ts` | Draggable Debug Window Wrapper |
 
 ### Generatoren
 
@@ -64,7 +65,7 @@ ThreeTilesEngine
 | `generators/terrain-generator.ts` | 28 Terrain-Presets via Seeded Noise (Simplex, FBM, Ridged, etc.) |
 | `generators/street-generator.ts` | 3-Level Strassenhierarchie (Arterial, Collector, Residential) |
 | `generators/building-generator.ts` | Gebaeude als LOS-Blocker, entlang Strassen platziert |
-| `configs/building-presets.config.ts` | Vordefinierte Gebaeude-Layouts (sparse, dense) |
+| `configs/building-presets.config.ts` | Vordefinierte Gebaeude-Layouts (none, sparse, dense, maze) |
 | `utils/seeded-random.ts` | Deterministische Noise-Funktionen (Mulberry32, Simplex) |
 
 ---
@@ -101,15 +102,15 @@ Terrain-Features:
 | Preset | Beschreibung |
 |--------|--------------|
 | `none` | Keine Gebaeude |
-| `sparse` | Wenige grosse Gebaeude, moderate Abdeckung |
-| `medium` | Mittlere Dichte |
-| `dense` | Viele Gebaeude, strategische Positionen |
-| `maze` | Maximale Dichte, labyrinth-artig |
+| `sparse` | Wenige grosse Gebaeude (150 Stueck) |
+| `dense` | Viele Gebaeude, Stadtgefuehl (1200 Stueck) |
+| `maze` | Maximale Dichte, labyrinth-artig (2000 Stueck) |
 
 Platzierungslogik:
-- 70% entlang von Strassen (strategisch relevant)
-- 30% zufaellige Cluster (Variation)
+- Alle Gebaeude entlang von Strassen platziert (keine isolierten Cluster)
+- Mehrere Reihen pro Strassenseite (bis zu 4 Reihen)
 - HQ Safe Zone wird respektiert (min. 60m Abstand)
+- Grid-Fallback wenn keine Strassen vorhanden
 - Gebaeude dienen als LOS-Blocker fuer Tower-Placement
 
 ---

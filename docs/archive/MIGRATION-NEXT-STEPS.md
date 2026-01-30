@@ -1,19 +1,23 @@
 # Migration: Nächste Schritte
 
-> Handoff-Dokument für die Weiterarbeit nach PR #2 (`jarvis/refactor-god-objects`)
+> **ARCHIVIERT** — Migration vollstaendig abgeschlossen. Aktuelle Architektur: siehe [SIGNAL-STORE-ARCHITECTURE.md](../SIGNAL-STORE-ARCHITECTURE.md).
+>
+> Handoff-Dokument fuer die Weiterarbeit nach PR #2 (`jarvis/refactor-god-objects`)
+>
+> **Status: ABGESCHLOSSEN** — Alle Migrationspunkte sind erledigt (30.01.2026).
 
 ## Status Quo
 
-Der Store (`TowerDefenseStore` + 4 Sub-Stores) existiert und ist **teilweise** als Single Source of Truth aktiv:
+Der Store (`TowerDefenseStore` + 4 Sub-Stores) ist **vollständig** als Single Source of Truth aktiv:
 
 | Bereich | Store aktiv? | Writer | Reader |
 |---------|-------------|--------|--------|
 | **Game-State** (credits, health, phase, wave, enemies, towers) | ✅ Ja | `GameStateSyncService` (via EventBus) | Component, Facades, AI-Services |
 | **Location** (coords, spawns, favorites) | ✅ Ja | Facades direkt | Component |
-| **Engine-Stats** (fps, tileStats, compass, sounds) | ❌ Nein | `GameUIStateService.updateThrottledStats()` | Component liest aus Store → zeigt 0 |
-| **Debug-Toggles** (debugMode, streetsVisible, etc.) | ❌ Nein | `GameUIStateService` | Component liest aus Store → out of sync |
-| **Camera-Debug** | ❌ Nein | `GameUIStateService` via VizFacade | Component liest aus Store → Toggle funktioniert nicht |
-| **Build-Mode** (buildMode, selectedTowerType) | ❌ Nein | `TowerPlacementService` eigene Signals | Component liest aus Store → out of sync |
+| **Engine-Stats** (fps, tileStats, compass, sounds) | ✅ Ja | `EngineStore.updateEngineStats()` via GameLoopFacade | Component liest aus Store |
+| **Debug-Toggles** (debugMode, streetsVisible, etc.) | ✅ Ja | `UIStore` | Component, Services lesen aus Store |
+| **Camera-Debug** | ✅ Ja | `EngineStore` via VizFacade | Component liest aus Store |
+| **Build-Mode** (buildMode, selectedTowerType) | ✅ Ja | `UIStore` via TowerPlacementService | Component liest aus Store |
 
 ## Was getan werden muss
 
@@ -68,20 +72,19 @@ toggleBuildMode() {
 }
 ```
 
-### 5. GameUIStateService schrittweise ablösen
+### 5. GameUIStateService schrittweise ablösen — ✅ ERLEDIGT
 
-**Langfristiges Ziel:** `GameUIStateService` wird komplett durch Stores + einen kleinen `StorePersistenceService` ersetzt.
+`GameUIStateService` wurde vollständig entfernt. Persistence (localStorage) lebt jetzt direkt im `UIStore`-Konstruktor.
 
-**Schrittweise Migration:**
-1. Stats-Writing → EngineStore ✅ (Schritt 1)
-2. Debug-Toggles → UIStore ✅ (Schritt 2)
-3. Camera-Debug → EngineStore ✅ (Schritt 3)
-4. Build-Mode → UIStore ✅ (Schritt 4)
-5. Persistence → `StorePersistenceService` (Effects die Store→localStorage synced)
-6. Verbleibende Referenzen auf GameUIStateService → Store
-7. `GameUIStateService` entfernen
-
-**Tipp:** `grep -rn "GameUIStateService\|uiState" src/app/ --include="*.ts" | grep -v ".spec.ts"` zeigt alle Referenzen.
+**Erledigte Schritte:**
+1. Stats-Writing → EngineStore ✅
+2. Debug-Toggles → UIStore ✅
+3. Camera-Debug → EngineStore ✅
+4. Build-Mode → UIStore ✅
+5. Persistence → UIStore-Konstruktor (Effect + localStorage) ✅
+6. Alle Service-Referenzen auf Store umgestellt ✅
+7. `GameUIStateService` entfernt (Datei gelöscht) ✅
+8. Toggle-Aufrufe im Component über VisualizationFacade geroutet ✅
 
 ## EventBus-Event-Katalog
 
@@ -141,23 +144,19 @@ Die Bridge enthält nur noch Engine/Canvas-Runtime-Objekte die NICHT in den Stor
 
 **Die Bridge kann langfristig weg** wenn Engine/StreetNetwork als Services bereitgestellt werden (z.B. `EngineService` der die Instanz hält). Aber das ist kein Blocker.
 
-## Component — Direkte Service-Aufrufe (Architektur-Schuld)
+## Component — Direkte Service-Aufrufe
 
-Diese Service-Aufrufe im Component gehen NICHT über Facades:
+Verbleibende direkte Service-Aufrufe (absichtlich, da view-nah):
 
 | Service | Methoden | Warum direkt? |
 |---------|----------|---------------|
 | `towerPlacement` | `handleBuildClick()`, `toggleBuildMode()`, `selectTowerType()` | View-naher Input-Handler |
 | `inputHandler` | `onKeyDown()`, `onKeyUp()` | Keyboard-Events |
 | `cameraControl` | `focusOnCoordinate()` | User-Action |
-| `streetRendering` | `toggleVisibility()` | UI-Toggle |
-| `pathRoute` | `toggleRouteLinesVisibility()` | UI-Toggle |
-| `markerViz` | `toggleSpecialPointsDebug()` | Debug-Toggle |
-| `routeAnimation` | `startAnimation()`, `stopAnimation()` | UI-Toggle |
 | `locationCoordinator` | `applyNewLocation()`, Favorites/Dialogs | Location-Flow |
 | `enemyDebug` | div. Debug-Methoden | Debug (direkt OK) |
 
-**Empfehlung:** Die Toggle-Aufrufe könnten in eine `UIToggleFacade` oder die bestehende `VisualizationFacade` wandern. Ist aber kein funktionaler Bug, nur Architektur-Konsistenz.
+**Erledigt:** Toggle-Aufrufe (streets, routes, specialPoints, routeAnimation) laufen jetzt über `VisualizationFacadeService` via `TowerDefenseFacadeService`.
 
 ## Angular/Engine Zone-Regeln
 
@@ -195,7 +194,7 @@ Component → ruft Facades für Actions auf
 Facades → schreiben in Store (UI-State) + emittieren EventBus (Engine-Commands)
 EventBus → GSM reagiert auf Commands, emittiert Events
 GameStateSyncService → hört auf GSM-Events, schreibt Game-State in Store
-Services → lesen/schreiben Store (nicht GameUIStateService)
+Services → lesen/schreiben Store direkt
 Store → Single Source of Truth für ALLES
 ```
 
@@ -208,7 +207,7 @@ Store → Single Source of Truth für ALLES
 | `src/app/store/ui.store.ts` | UI-State (debug flags, toggles, build mode) |
 | `src/app/store/engine.store.ts` | Engine-Stats (fps, tiles, camera, loading) |
 | `src/app/store/location.store.ts` | Location (coords, spawns, favorites) |
-| `src/app/services/game-ui-state.service.ts` | **LEGACY** — wird schrittweise durch Stores ersetzt |
+| ~~`src/app/services/game-ui-state.service.ts`~~ | **ENTFERNT** — Persistence lebt jetzt in UIStore |
 | `src/app/services/game-state-sync.service.ts` | GSM→Store Sync (Vorbild für weitere Syncs) |
 | `docs/SIGNAL-STORE-ARCHITECTURE.md` | Architektur-Dokumentation |
 

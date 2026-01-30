@@ -1,6 +1,5 @@
 import { Injectable, inject, Injector, NgZone, effect } from '@angular/core';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
-import { GameUIStateService } from './game-ui-state.service';
 import { CameraControlService } from './camera-control.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { KeyboardPanService } from './keyboard-pan.service';
@@ -20,6 +19,7 @@ import { Tower } from '../entities/tower.entity';
 import { UpgradeId } from '../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { EngineStore } from '../store/engine.store';
 import { SoundPoolStats } from '../managers/spatial-audio.manager';
 
 /**
@@ -33,9 +33,9 @@ import { SoundPoolStats } from '../managers/spatial-audio.manager';
  * - Tower upgrades
  * - AI Director toggle
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class GameLoopFacadeService {
-  private readonly uiState = inject(GameUIStateService);
+  private readonly engineStore = inject(EngineStore);
   private readonly cameraControl = inject(CameraControlService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly keyboardPan = inject(KeyboardPanService);
@@ -409,22 +409,19 @@ export class GameLoopFacadeService {
     const engine = this.bridge.getEngine();
     if (engine) {
       const soundDebugOpen = this.debugWindows.soundWindow().isOpen;
-      const stats = {
-        fps: engine.getFPS(),
-        tileStats: engine.getTileStats(),
-        activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
-        attribution: engine.getAttributions(),
-        cameraHeading: this.cameraControl.getCameraHeading(),
-        cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
-        soundPoolStats: soundDebugOpen ? engine.spatialAudio.getSoundPoolStats() : undefined,
-      };
       this.ngZone.run(() => {
-        this.uiState.updateThrottledStats({
-          ...stats,
-          onSoundDebugUpdate: soundDebugOpen
-            ? (poolStats: unknown) => this.soundDebug.updateStats(poolStats as SoundPoolStats)
-            : undefined,
+        this.engineStore.updateEngineStats({
+          fps: engine.getFPS(),
+          tileStats: engine.getTileStats(),
+          activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
+          attribution: engine.getAttributions(),
+          cameraHeading: this.cameraControl.getCameraHeading(),
+          cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
         });
+        // Sound debug stats (separate from engine store)
+        if (soundDebugOpen) {
+          this.soundDebug.updateStats(engine.spatialAudio.getSoundPoolStats() as SoundPoolStats);
+        }
       });
     }
   }

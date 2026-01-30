@@ -33,7 +33,7 @@ export interface StatusEffect {
   value: number;        // Effekt-Stärke (z.B. 0.5 = 50% slow)
   duration: number;     // Dauer in Millisekunden
   startTime: number;    // performance.now() bei Anwendung
-  sourceId?: string;    // Tower ID für Stacking-Logik
+  sourceId?: string;    // Tower ID für Refresh-Logik
 }
 ```
 
@@ -48,9 +48,10 @@ export class MovementComponent extends Component {
   statusEffects: StatusEffect[] = [];
 
   applyStatusEffect(effect: StatusEffect): void;
-  removeExpiredEffects(): void;
-  getSlowMultiplier(): number;
-  isSlowed(): boolean;
+  removeExpiredEffects(timescale?: number): void;
+  getSlowMultiplier(timescale?: number): number;
+  getEffectiveSpeed(timescale?: number): number;
+  isSlowed(timescale?: number): boolean;
 }
 ```
 
@@ -75,66 +76,79 @@ effectiveSpeed = baseSpeed × speedMultiplier × slowMultiplier
 ### Slow Multiplier Berechnung
 
 ```typescript
-getSlowMultiplier(): number {
+getSlowMultiplier(timescale = 1.0): number {
   const now = performance.now();
-  let slowMultiplier = 1.0;
 
   for (const effect of this.statusEffects) {
-    if (effect.type === 'slow' && now - effect.startTime < effect.duration) {
-      // Slow-Effekte multiplizieren sich
-      slowMultiplier *= (1 - effect.value);
+    const effectiveDuration = effect.duration / timescale;
+    if (effect.type === 'slow' && now - effect.startTime < effectiveDuration) {
+      // Slow effect active - return reduced speed multiplier
+      return 1 - effect.value;
     }
   }
 
-  return slowMultiplier;
+  return 1.0; // Not slowed
 }
 ```
 
-### Stacking-Verhalten
+### Kein Stacking
 
-Slow-Effekte **multiplizieren** sich (nicht addieren):
+Slow-Effekte **stacken nicht** - es kann nur ein Slow gleichzeitig aktiv sein. Jeder neue Slow ersetzt den vorherigen (unabhängig von Source):
 
-| Effekte | Berechnung | Gesamt-Slow |
-|---------|------------|-------------|
-| 1× 50% Slow | 1.0 × 0.5 = 0.5 | 50% langsamer |
-| 2× 50% Slow | 1.0 × 0.5 × 0.5 = 0.25 | 75% langsamer |
-| 3× 50% Slow | 1.0 × 0.5 × 0.5 × 0.5 = 0.125 | 87.5% langsamer |
+| Situation | Ergebnis |
+|-----------|----------|
+| Ice Tower A trifft → 50% slow | 50% langsamer |
+| Ice Tower B trifft danach → 50% slow | Ersetzt vorherigen, weiterhin 50% langsamer (Timer reset) |
 
-**Warum Multiplikation?**
-- Verhindert dass Enemy komplett stoppt (100% slow)
-- Jeder zusätzliche Effekt hat abnehmende Wirkung (Diminishing Returns)
-- Realistischer als Addition
+**Warum kein Stacking?**
+- Einfachere Balance
+- Verhindert dass Enemy komplett stoppt
+- Ein Slow-Effekt pro Enemy reicht für klare Spielmechanik
 
 ### Anwendung
 
-```typescript
-// Ice Tower trifft Enemy (in GameStateManager)
-const slowEffect: StatusEffect = {
-  type: 'slow',
-  value: 0.5,           // 50% Verlangsamung
-  duration: 3000,       // 3 Sekunden
-  startTime: performance.now(),
-  sourceId: tower.id,   // Ice Tower ID
-};
+Slow wird via `CombatEffectService` angewendet, der auf `projectile:hit` Events reagiert:
 
-enemy.movement.applyStatusEffect(slowEffect);
+```typescript
+// In CombatEffectService (event-driven via projectile:hit)
+private applySlowEffect(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
+  const effect: StatusEffect = {
+    type: 'slow',
+    value: slowAmount,       // aus GAME_BALANCE.effects.ice.slowAmount (0.5)
+    duration,                // aus GAME_BALANCE.effects.ice.duration (3000ms)
+    startTime: performance.now(),
+    sourceId,
+  };
+  enemy.movement.applyStatusEffect(effect);
+}
 ```
 
 ### Refresh-Logik
 
-Gleiche Effekte vom gleichen Tower werden aufgefrischt statt gestackt:
+Slow-Effekte werden **immer ersetzt** - es gibt kein Stacking. Jeder neue Slow ersetzt den vorherigen, unabhängig von der Source:
 
 ```typescript
 applyStatusEffect(effect: StatusEffect): void {
+  // Slow: Nur ein Slow gleichzeitig (kein Stacking)
+  if (effect.type === 'slow') {
+    const existingSlowIndex = this.statusEffects.findIndex((e) => e.type === 'slow');
+    if (existingSlowIndex >= 0) {
+      // Replace existing slow (refresh duration)
+      this.statusEffects[existingSlowIndex] = effect;
+    } else {
+      this.statusEffects.push(effect);
+    }
+    return;
+  }
+
+  // Andere Effekte: Gleicher Typ + gleiche Source = Refresh
   const existingIndex = this.statusEffects.findIndex(
     (e) => e.type === effect.type && e.sourceId === effect.sourceId
   );
 
   if (existingIndex >= 0) {
-    // Refresh: Ersetze mit neuem Effekt (neue startTime)
     this.statusEffects[existingIndex] = effect;
   } else {
-    // Neu: Füge hinzu
     this.statusEffects.push(effect);
   }
 }
@@ -143,24 +157,24 @@ applyStatusEffect(effect: StatusEffect): void {
 **Beispiel:**
 - Ice Tower A trifft Enemy → 50% slow, 3s
 - Nach 1s: Ice Tower A trifft erneut → Timer wird auf 3s zurückgesetzt
-- Nach 2s: Ice Tower B trifft Enemy → 2× 50% slow = 75% slow
+- Nach 2s: Ice Tower B trifft Enemy → Ersetzt Slow von Tower A (weiterhin 50%, Timer reset)
 
 ### Cleanup
 
-Abgelaufene Effekte werden jedes Frame entfernt:
+Abgelaufene Effekte werden jedes Frame entfernt. Die `timescale` beeinflusst die effektive Dauer (bei 2x Speed laufen Effekte doppelt so schnell ab):
 
 ```typescript
-// In EnemyManager.update()
-for (const enemy of this.getAllActive()) {
-  enemy.movement.removeExpiredEffects();
-  // ...
-}
+// In EnemyManager.update(deltaTime, timescale)
+enemy.movement.removeExpiredEffects(timescale);
 
 // In MovementComponent
-removeExpiredEffects(): void {
+removeExpiredEffects(timescale = 1.0): void {
   const now = performance.now();
   this.statusEffects = this.statusEffects.filter(
-    (effect) => now - effect.startTime < effect.duration
+    (effect) => {
+      const effectiveDuration = effect.duration / timescale;
+      return now - effect.startTime < effectiveDuration;
+    }
   );
 }
 ```
@@ -227,38 +241,55 @@ Damage over Time (DoT) - schadet Enemy kontinuierlich:
 
 ## Ice Tower Integration (Slow Example)
 
-Der Ice Tower wendet Slow auf alle Enemies in Splash-Radius an:
+Der Ice Tower wendet Slow auf alle Enemies in Splash-Radius an. Die Logik liegt im `CombatEffectService`, der event-driven auf `projectile:hit` Events reagiert:
 
 ```typescript
-// In GameStateManager (combat update)
-if (tower.typeConfig.projectileType === 'ice-shard') {
-  // Hauptziel: Schaden + Slow
-  enemy.health.takeDamage(tower.combat.damage);
-  enemy.movement.applyStatusEffect({
-    type: 'slow',
-    value: 0.5,
-    duration: 3000,
-    startTime: performance.now(),
-    sourceId: tower.id,
-  });
+// In CombatEffectService.handleProjectileHit() (via projectile:hit Event)
+const isIceShard = projectile.typeConfig.id === 'ice-shard';
 
-  // Splash: Slow auf nahe Enemies
-  const splashRadius = 15;
-  const nearbyEnemies = this.enemyManager.getEnemiesInRadius(
+// Schaden auf Hauptziel
+this.applyDamageToEnemy(enemy, projectile.damage, projectile.sourceTowerId, false, isIceShard);
+
+// Slow auf Hauptziel
+if (isIceShard) {
+  this.applySlowEffect(
+    enemy,
+    GAME_BALANCE.effects.ice.slowAmount,  // 0.5
+    GAME_BALANCE.effects.ice.duration,    // 3000ms
+    projectile.sourceTowerId
+  );
+}
+
+// Splash: Slow + Damage auf nahe Enemies
+if (hasSplash) {
+  const nearbyEnemies = this.globalRouteGrid.getEnemiesInRadiusGeo(
     enemy.position,
     splashRadius,
     enemy.id
   );
 
   for (const nearbyEnemy of nearbyEnemies) {
-    nearbyEnemy.movement.applyStatusEffect({
-      type: 'slow',
-      value: 0.5,
-      duration: 3000,
-      startTime: performance.now(),
-      sourceId: tower.id,
-    });
+    // Splash-Schaden mit Distance-Falloff
+    // ...
+    if (isIceShard) {
+      this.applySlowEffect(
+        nearbyEnemy,
+        GAME_BALANCE.effects.ice.slowAmount,
+        GAME_BALANCE.effects.ice.duration,
+        projectile.sourceTowerId
+      );
+    }
   }
+}
+```
+
+**Konfiguration** (aus `configs/game-balance.config.ts`):
+```typescript
+effects: {
+  ice: {
+    slowAmount: 0.5,   // 50% Verlangsamung
+    duration: 3000,     // 3 Sekunden
+  },
 }
 ```
 
@@ -266,13 +297,16 @@ if (tower.typeConfig.projectileType === 'ice-shard') {
 
 ## Visuelle Effekte
 
-### Slow Effect
+### Slow Effect (Ice Tower)
 
-**Aktuell:** Keine visuelle Indikation außer langsamerer Bewegung
+**Aktuell implementiert:**
+- Eis-Explosion (Partikel) am Einschlagort (`spawnIceExplosionAtGeo`)
+- Eis-Decals auf dem Boden (nur bei Ground Units, `spawnIceDecal`)
+- Zusätzliche kleinere Decals im Umkreis
+- Langsamere Bewegung des Enemies
 
 **Geplant:**
 - Blauer Glow um Enemy
-- Schnee/Eis-Partikel
 - Icon über Health Bar
 
 ### Freeze Effect
@@ -387,7 +421,7 @@ private updateBurnDamage(enemy: Enemy, deltaTime: number): void {
 
 ```typescript
 // In ThreeEnemyRenderer
-if (enemy.movement.isSlowed()) {
+if (enemy.movement.isSlowed(timescale)) {
   this.applySlowGlow(enemy.id);
 }
 ```
