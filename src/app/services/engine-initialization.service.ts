@@ -466,7 +466,7 @@ export class EngineInitializationService {
    * @param heightsLoading Heights loading signal
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
-    const now = performance.now();
+    const _now = performance.now();
     const tiles = this.tilesLoading();
     const osm = this.osmLoading();
     const heights = heightsLoading();
@@ -490,7 +490,7 @@ export class EngineInitializationService {
       void this.setStepDone('tiles');
       this.loading.set(false);
     } else {
-      const waiting = [tiles && 'tiles', osm && 'osm', heights && 'heights'].filter(Boolean);
+      const _waiting = [tiles && 'tiles', osm && 'osm', heights && 'heights'].filter(Boolean);
     }
   }
 

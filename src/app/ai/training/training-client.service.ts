@@ -355,6 +355,7 @@ export class TrainingClientService {
           // Enable StrategyBot for automated training
           this.enableBot('strategist');
         } else {
+          // No training action needed
         }
 
         // Subscribe to wave completion events to send results to backend
@@ -398,6 +399,7 @@ export class TrainingClientService {
           this.notifyGameStart('normal');
         });
       } else {
+        // No game-over subscription needed
       }
     } catch (error) {
       console.warn('[AI] Failed to connect to training backend', error);
