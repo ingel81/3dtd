@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { GameStore } from './game.store';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { Tower } from '../entities/tower.entity';
 
 describe('GameStore', () => {
   let store: GameStore;
@@ -70,6 +71,11 @@ describe('GameStore', () => {
       expect(store.credits()).toBe(250);
     });
 
+    it('credits can be negative for edge-case scenarios', () => {
+      store.credits.set(-25);
+      expect(store.credits()).toBe(-25);
+    });
+
     it('phase can be changed', () => {
       store.phase.set('wave');
       expect(store.phase()).toBe('wave');
@@ -103,6 +109,12 @@ describe('GameStore', () => {
   describe('computed values', () => {
     it('selectedTowerId returns null when no tower selected', () => {
       expect(store.selectedTowerId()).toBeNull();
+    });
+
+    it('selectedTowerId returns the id of the selected tower', () => {
+      const tower = new Tower({ lat: 0, lon: 0, height: 0 }, 'archer');
+      store.selectedTower.set(tower);
+      expect(store.selectedTowerId()).toBe(tower.id);
     });
 
     it('waveActive is true when phase is wave', () => {
@@ -150,6 +162,12 @@ describe('GameStore', () => {
     it('healthPercent is 0 when health is 0', () => {
       store.baseHealth.set(0);
       expect(store.healthPercent()).toBe(0);
+    });
+
+    it('healthPercent can go below 0 for negative health values', () => {
+      store.baseHealth.set(-10);
+      const expected = Math.round((-10 / GAME_BALANCE.player.startHealth) * 100);
+      expect(store.healthPercent()).toBe(expected);
     });
 
     it('healthCritical is false at full health', () => {

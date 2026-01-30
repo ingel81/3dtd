@@ -90,6 +90,12 @@ describe('TowerDefenseStore', () => {
       expect(store.canStartWave()).toBe(false);
     });
 
+    it('is false when wave is active and spawn points are empty', () => {
+      gameStore.phase.set('wave');
+      locationStore.spawnPoints.set([]);
+      expect(store.canStartWave()).toBe(false);
+    });
+
     it('is true when in setup phase', () => {
       gameStore.phase.set('setup');
       expect(store.canStartWave()).toBe(true);
