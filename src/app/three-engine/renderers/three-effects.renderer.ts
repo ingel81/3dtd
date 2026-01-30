@@ -25,6 +25,10 @@ import {
   BLOOD_DECAL_CONFIG,
   ICE_DECAL_CONFIG,
 } from '../../configs/visual-effects.config';
+
+// Pool size constants derived from config
+const TRAIL_ADDITIVE_POOL_SIZE = PARTICLE_LIMITS.maxTrailParticlesPerPool;
+const TRAIL_NORMAL_POOL_SIZE = PARTICLE_LIMITS.maxTrailNormalParticlesPerPool;
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
 
@@ -104,26 +108,13 @@ export class ThreeEffectsRenderer {
   private scene: Scene;
   private sync: CoordinateSync;
 
-  // Particle systems
-  private bloodParticles: Points | null = null;
-  private fireParticles: Points | null = null;
-
   // Active effects
   private activeEffects = new Map<string, EffectInstance>();
   private effectIdCounter = 0;
 
-  // Blood particle pool
-  private bloodPool: Particle[] = [];
-  private readonly MAX_BLOOD_PARTICLES = PARTICLE_LIMITS.maxBloodParticles;
-
-  // Fire particle pool
-  private firePool: Particle[] = [];
-  private readonly MAX_FIRE_PARTICLES = PARTICLE_LIMITS.maxFireParticles;
-
-  // Trail particle pools (additive for fire/glow, normal for smoke)
+  // Trail particle pools (additive for fire/glow, normal for smoke/blood)
   private trailPoolAdditive: Particle[] = [];
   private trailPoolNormal: Particle[] = [];
-  private readonly MAX_TRAIL_PARTICLES_PER_POOL = PARTICLE_LIMITS.maxTrailParticlesPerPool;
   private trailParticlesAdditive: Points | null = null;
   private trailParticlesNormal: Points | null = null;
   private trailMaterialAdditive: PointsMaterial | null = null;
@@ -131,8 +122,6 @@ export class ThreeEffectsRenderer {
 
   // Round-robin cursors for O(1) amortized inactive particle search
   private poolCursors = {
-    blood: 0,
-    fire: 0,
     trailAdditive: 0,
     trailNormal: 0,
     towerFire: 0,
@@ -165,37 +154,12 @@ export class ThreeEffectsRenderer {
   private readonly MAX_FLOATING_TEXTS = PARTICLE_LIMITS.maxFloatingTexts;
   private floatingTextIdCounter = 0;
 
-  // Shared materials
-  private bloodMaterial: PointsMaterial;
-  private fireMaterial: PointsMaterial;
-
   // Reusable temp vector for particle updates (avoids GC pressure)
   private readonly tempVelocity = new Vector3();
 
   constructor(scene: Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
-
-    // Create blood material
-    this.bloodMaterial = new PointsMaterial({
-      color: 0xcc0000,
-      size: 0.5,
-      transparent: true,
-      opacity: 0.8,
-      sizeAttenuation: true,
-      depthWrite: false,
-    });
-
-    // Create fire material
-    this.fireMaterial = new PointsMaterial({
-      color: 0xff6600,
-      size: 1.0,
-      transparent: true,
-      opacity: 0.7,
-      sizeAttenuation: true,
-      depthWrite: false,
-      blending: AdditiveBlending,
-    });
 
     // PointsMaterial for additive blending (fire, tracers, glow effects)
     // Note: PointsMaterial works correctly with 3D tiles, ShaderMaterial has depth issues
@@ -271,61 +235,11 @@ export class ThreeEffectsRenderer {
    * Initialize particle systems
    */
   private initParticleSystems(): void {
-    // Blood particles
-    const bloodGeometry = new BufferGeometry();
-    const bloodPositions = new Float32Array(this.MAX_BLOOD_PARTICLES * 3);
-    const bloodColors = new Float32Array(this.MAX_BLOOD_PARTICLES * 3);
-
-    bloodGeometry.setAttribute('position', new BufferAttribute(bloodPositions, 3));
-    bloodGeometry.setAttribute('color', new BufferAttribute(bloodColors, 3));
-
-    this.bloodParticles = new Points(bloodGeometry, this.bloodMaterial);
-    this.bloodParticles.frustumCulled = false;
-    this.bloodParticles.renderOrder = 999; // Render after 3D tiles
-    this.scene.add(this.bloodParticles);
-
-    // Initialize blood pool
-    for (let i = 0; i < this.MAX_BLOOD_PARTICLES; i++) {
-      this.bloodPool.push({
-        position: new Vector3(),
-        velocity: new Vector3(),
-        life: 0,
-        maxLife: 0,
-        size: 0.3,
-        color: new Color(0xcc0000),
-      });
-    }
-
-    // Fire particles
-    const fireGeometry = new BufferGeometry();
-    const firePositions = new Float32Array(this.MAX_FIRE_PARTICLES * 3);
-    const fireColors = new Float32Array(this.MAX_FIRE_PARTICLES * 3);
-
-    fireGeometry.setAttribute('position', new BufferAttribute(firePositions, 3));
-    fireGeometry.setAttribute('color', new BufferAttribute(fireColors, 3));
-
-    this.fireParticles = new Points(fireGeometry, this.fireMaterial);
-    this.fireParticles.frustumCulled = false;
-    this.fireParticles.renderOrder = 999; // Render after 3D tiles
-    this.scene.add(this.fireParticles);
-
-    // Initialize fire pool
-    for (let i = 0; i < this.MAX_FIRE_PARTICLES; i++) {
-      this.firePool.push({
-        position: new Vector3(),
-        velocity: new Vector3(),
-        life: 0,
-        maxLife: 0,
-        size: 1.0,
-        color: new Color(0xff6600),
-      });
-    }
-
     // Trail particles - ADDITIVE pool (for fire, tracers, glow effects)
     const trailGeometryAdditive = new BufferGeometry();
-    const trailPositionsAdditive = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
-    const trailSizesAdditive = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL);
-    const trailColorsAdditive = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
+    const trailPositionsAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE * 3);
+    const trailSizesAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE);
+    const trailColorsAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE * 3);
 
     trailGeometryAdditive.setAttribute('position', new BufferAttribute(trailPositionsAdditive, 3));
     trailGeometryAdditive.setAttribute('size', new BufferAttribute(trailSizesAdditive, 1));
@@ -341,7 +255,7 @@ export class ThreeEffectsRenderer {
     this.scene.add(this.trailParticlesAdditive);
 
     // Initialize additive trail pool
-    for (let i = 0; i < this.MAX_TRAIL_PARTICLES_PER_POOL; i++) {
+    for (let i = 0; i < TRAIL_ADDITIVE_POOL_SIZE; i++) {
       this.trailPoolAdditive.push({
         position: new Vector3(),
         velocity: new Vector3(),
@@ -352,11 +266,11 @@ export class ThreeEffectsRenderer {
       });
     }
 
-    // Trail particles - NORMAL pool (for smoke, dust effects)
+    // Trail particles - NORMAL pool (for smoke, dust, blood effects)
     const trailGeometryNormal = new BufferGeometry();
-    const trailPositionsNormal = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
-    const trailSizesNormal = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL);
-    const trailColorsNormal = new Float32Array(this.MAX_TRAIL_PARTICLES_PER_POOL * 3);
+    const trailPositionsNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE * 3);
+    const trailSizesNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE);
+    const trailColorsNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE * 3);
 
     trailGeometryNormal.setAttribute('position', new BufferAttribute(trailPositionsNormal, 3));
     trailGeometryNormal.setAttribute('size', new BufferAttribute(trailSizesNormal, 1));
@@ -372,7 +286,7 @@ export class ThreeEffectsRenderer {
     this.scene.add(this.trailParticlesNormal);
 
     // Initialize normal trail pool
-    for (let i = 0; i < this.MAX_TRAIL_PARTICLES_PER_POOL; i++) {
+    for (let i = 0; i < TRAIL_NORMAL_POOL_SIZE; i++) {
       this.trailPoolNormal.push({
         position: new Vector3(),
         velocity: new Vector3(),

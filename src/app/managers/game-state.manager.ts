@@ -1,9 +1,10 @@
-import { Injectable, inject, signal, computed } from '@angular/core';
+import { Injectable, inject, signal, computed, effect } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
 import { UIStore } from '../store/ui.store';
+import { GameStore } from '../store/game.store';
 import { PathAndRouteService } from '../services/path-route.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { CombatEffectService } from '../services/combat-effect.service';
@@ -46,6 +47,7 @@ export class GameStateManager {
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly towerPlacement = inject(TowerPlacementService);
+  private readonly gameStore = inject(GameStore);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -64,6 +66,12 @@ export class GameStateManager {
 
   /** Training mode timescale (1.0 = normal, 3.0 = 3x speed) */
   readonly trainingTimescale = signal<number>(1.0);
+
+  /** Sync timescale from GameStore (UI source of truth) → local signal */
+  private readonly timescaleSyncEffect = effect(() => {
+    const storeValue = this.gameStore.trainingTimescale();
+    this.trainingTimescale.set(storeValue);
+  });
 
   // Computed signals for UI bindings
   readonly phase = computed(() => this.waveManager.phase());
@@ -612,6 +620,8 @@ export class GameStateManager {
   setTrainingTimescale(scale: number, persist = true): void {
     const clamped = Math.max(0.1, Math.min(75, scale));
     this.trainingTimescale.set(clamped);
+    // Also update the global store so UI components stay in sync
+    this.gameStore.trainingTimescale.set(clamped);
     if (persist) {
       localStorage.setItem('training-timescale', clamped.toString());
     }

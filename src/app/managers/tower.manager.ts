@@ -6,7 +6,7 @@ import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GeoPosition } from '../models/game.types';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
-import { geoDistance } from '../utils/geo-utils';
+import { geoDistanceFast } from '../utils/geo-utils';
 import { GameEventBus } from '../game-engine';
 
 /**
@@ -145,14 +145,14 @@ export class TowerManager extends EntityManager<Tower> {
     }
 
     // Check distance to base
-    const distToBase = geoDistance(position, this.basePosition);
+    const distToBase = geoDistanceFast(position, this.basePosition);
     if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
       return { valid: false, reason: 'Too close to base' };
     }
 
     // Check distance to spawn points
     for (const spawn of this.spawnPoints) {
-      const distToSpawn = geoDistance(position, spawn);
+      const distToSpawn = geoDistanceFast(position, spawn);
       if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
         return { valid: false, reason: 'Too close to spawn point' };
       }
@@ -160,7 +160,7 @@ export class TowerManager extends EntityManager<Tower> {
 
     // Check distance to other towers
     for (const tower of this.getAll()) {
-      const distToTower = geoDistance(position, tower.position);
+      const distToTower = geoDistanceFast(position, tower.position);
       if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
         return { valid: false, reason: 'Too close to another tower' };
       }

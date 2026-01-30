@@ -1,11 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { ThreeTilesEngine } from '../three-engine';
 import { GlobalRouteGridService } from './global-route-grid.service';
+import { StatusEffectService } from './status-effect.service';
 import { Enemy } from '../entities/enemy.entity';
 import { Projectile } from '../entities/projectile.entity';
-import { StatusEffect } from '../models/status-effects';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { geoDistance } from '../utils/geo-utils';
+import { geoDistanceFast } from '../utils/geo-utils';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
 import { GameEventBus } from '../game-engine';
@@ -19,11 +19,12 @@ import { GameEventBus } from '../game-engine';
  * - Projectile hit processing (splash damage, effects)
  * - Damage application to enemies
  * - Blood/death effects
- * - Slow effects (ice towers)
+ * - Slow effects (delegated to StatusEffectService)
  */
 @Injectable({ providedIn: 'root' })
 export class CombatEffectService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
+  private readonly statusEffectService = inject(StatusEffectService);
 
   private tilesEngine: ThreeTilesEngine | null = null;
   private eventBus: GameEventBus | null = null;
@@ -137,7 +138,7 @@ export class CombatEffectService {
 
     // Apply slow effect for ice-shard
     if (isIceShard) {
-      this.applySlowEffect(
+      this.statusEffectService.applySlow(
         enemy,
         GAME_BALANCE.effects.ice.slowAmount,
         GAME_BALANCE.effects.ice.duration,
@@ -159,7 +160,7 @@ export class CombatEffectService {
         let splashDamage = projectile.damage;
 
         if (useFalloff) {
-          const dist = geoDistance(enemy.position, nearbyEnemy.position);
+          const dist = geoDistanceFast(enemy.position, nearbyEnemy.position);
           const falloff = 1 - (dist / splashRadius);
           splashDamage = Math.floor(projectile.damage * falloff);
         }
@@ -176,7 +177,7 @@ export class CombatEffectService {
 
         // Apply slow effect and ice decal to splash targets
         if (isIceShard) {
-          this.applySlowEffect(
+          this.statusEffectService.applySlow(
             nearbyEnemy,
             GAME_BALANCE.effects.ice.slowAmount,
             GAME_BALANCE.effects.ice.duration,
@@ -257,25 +258,6 @@ export class CombatEffectService {
 
     const splatterHeight = enemy.transform.terrainHeight + 1;
     this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 40);
-  }
-
-  /**
-   * Apply slow effect to an enemy
-   */
-  private applySlowEffect(
-    enemy: Enemy,
-    slowAmount: number,
-    duration: number,
-    sourceId: string
-  ): void {
-    const effect: StatusEffect = {
-      type: 'slow',
-      value: slowAmount,
-      duration,
-      startTime: performance.now(),
-      sourceId,
-    };
-    enemy.movement.applyStatusEffect(effect);
   }
 
   /**
