@@ -25,6 +25,7 @@ import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, VFXService, AudioService, SubscriptionBag } from '../game-engine';
+import { PerformanceProfilerService } from '../services/performance-profiler.service';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -86,10 +87,18 @@ export class GameStateManager {
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
+  // Performance profiler (optional, set via setProfiler())
+  private profiler: PerformanceProfilerService | null = null;
+
   /** EventBus subscription bag — cleaned up in reset() */
   private readonly eventBusSubs = new SubscriptionBag();
 
-
+  /**
+   * Set performance profiler for frame timing instrumentation.
+   */
+  setProfiler(profiler: PerformanceProfilerService): void {
+    this.profiler = profiler;
+  }
 
   /**
    * Initialize game state with ThreeTilesEngine
@@ -266,6 +275,9 @@ export class GameStateManager {
    * Phase controls WHAT updates, not IF updates happen
    */
   update(currentTime: number): void {
+    const frameStart = performance.now();
+    const profiling = this.profiler !== null;
+
     const rawDeltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
     this.lastUpdateTime = currentTime;
 
@@ -281,10 +293,14 @@ export class GameStateManager {
     // ══════════════════════════════════════════════════════════════
 
     // Projectiles always complete their flight path
+    let t0 = profiling ? performance.now() : 0;
     this.projectileManager.update(deltaTime);
+    const tProjectile = profiling ? performance.now() - t0 : 0;
 
     // Process deferred events (VFX, audio, etc.) at stable point in game loop
+    t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();
+    const tEvents = profiling ? performance.now() - t0 : 0;
 
     // Check combat conditions
     const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
@@ -292,16 +308,21 @@ export class GameStateManager {
     const shouldRunCombat = isWavePhase || hasDebugEnemies;
 
     // Tower idle rotation (smooth return to base position) - only when no combat
+    let tTower = 0;
+    t0 = profiling ? performance.now() : 0;
     if (!shouldRunCombat) {
       this.towerCombat.updateTowerIdleRotations(this.towerManager);
     }
+    tTower = profiling ? performance.now() - t0 : 0;
 
     // Enemy movement - always update (debug enemies may move outside wave phase)
     // Paused enemies (e.g., during gathering) won't move due to movement.paused check
     this.enemyManager.update(deltaTime, this.trainingTimescale());
 
     // Tower combat (targeting + firing)
+    let tCombat = 0;
     if (shouldRunCombat) {
+      t0 = profiling ? performance.now() : 0;
       this.towerCombat.updateTowerShooting(
         currentTime,
         this.towerManager,
@@ -316,6 +337,15 @@ export class GameStateManager {
         this.towerManager,
         this.enemyManager,
         this.trainingTimescale()
+      );
+      tCombat = profiling ? performance.now() - t0 : 0;
+    }
+
+    // Accumulate frame timings (tower idle + tower combat combined)
+    if (profiling) {
+      this.profiler!.accumulateFrameTiming(
+        tTower, tProjectile, tCombat, tEvents,
+        performance.now() - frameStart,
       );
     }
 

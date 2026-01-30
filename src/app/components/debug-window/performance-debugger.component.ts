@@ -24,11 +24,27 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
         @if (stats(); as s) {
           <div class="perf-content">
             <div class="section">
-              <span class="section-label">Rendering</span>
+              <span class="section-label">Frame Budget</span>
               <div class="row">
                 <span class="key">FPS</span>
                 <span class="value" [class.warn]="s.fps < 30" [class.crit]="s.fps < 15">{{ s.fps }}</span>
               </div>
+              <div class="row">
+                <span class="key">Frame Time</span>
+                <span class="value" [class.warn]="s.frameTime > 12" [class.crit]="s.frameTime > 16">{{ s.frameTime.toFixed(2) }}ms</span>
+              </div>
+              <div class="row">
+                <span class="key">Budget Used</span>
+                <span class="value" [class.warn]="s.frameBudgetPct > 70" [class.crit]="s.frameBudgetPct > 95">{{ s.frameBudgetPct.toFixed(0) }}%</span>
+              </div>
+              <div class="row">
+                <span class="key">Bottleneck</span>
+                <span class="value bottleneck">{{ s.bottleneck }} ({{ s.bottleneckMs.toFixed(2) }}ms)</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <span class="section-label">Rendering</span>
               <div class="row">
                 <span class="key">Draw Calls</span>
                 <span class="value">{{ s.drawCalls }}</span>
@@ -68,7 +84,31 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             </div>
 
             <div class="section">
-              <span class="section-label">Enemy Update</span>
+              <span class="section-label">Subsystem Timings</span>
+              <div class="row">
+                <span class="key">Enemy</span>
+                <span class="value" [class.highlight]="s.bottleneck === 'enemy'">{{ s.enemyTotal.toFixed(2) }}ms</span>
+              </div>
+              <div class="row">
+                <span class="key">Tower</span>
+                <span class="value" [class.highlight]="s.bottleneck === 'tower'">{{ s.towerUpdate.toFixed(2) }}ms</span>
+              </div>
+              <div class="row">
+                <span class="key">Projectile</span>
+                <span class="value" [class.highlight]="s.bottleneck === 'projectile'">{{ s.projectileUpdate.toFixed(2) }}ms</span>
+              </div>
+              <div class="row">
+                <span class="key">Combat</span>
+                <span class="value" [class.highlight]="s.bottleneck === 'combat'">{{ s.combatUpdate.toFixed(2) }}ms</span>
+              </div>
+              <div class="row">
+                <span class="key">Events</span>
+                <span class="value" [class.highlight]="s.bottleneck === 'events'">{{ s.eventProcessing.toFixed(2) }}ms</span>
+              </div>
+            </div>
+
+            <div class="section">
+              <span class="section-label">Enemy Breakdown</span>
               <div class="row">
                 <span class="key">Move</span>
                 <span class="value">{{ s.enemyMove.toFixed(2) }}ms</span>
@@ -84,10 +124,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               <div class="row">
                 <span class="key">Render</span>
                 <span class="value">{{ s.enemyRender.toFixed(2) }}ms</span>
-              </div>
-              <div class="row total-row">
-                <span class="key">Total</span>
-                <span class="value" [class.warn]="s.enemyTotal > 4" [class.crit]="s.enemyTotal > 8">{{ s.enemyTotal.toFixed(2) }}ms</span>
               </div>
             </div>
 
@@ -161,10 +197,15 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: #ff4444;
     }
 
-    .total-row {
-      border-top: 1px solid var(--td-frame-dark);
-      padding-top: 3px;
-      margin-top: 2px;
+    .value.highlight {
+      color: #ff8844;
+      font-weight: 700;
+    }
+
+    .bottleneck {
+      color: #ff8844;
+      font-weight: 700;
+      text-transform: capitalize;
     }
 
     .checkbox-row {
@@ -198,7 +239,7 @@ export class PerformanceDebuggerComponent implements OnDestroy {
     this.updateInterval = setInterval(() => {
       if (this.windowService.performanceWindow().isOpen) {
         this.stats.set(this.profiler.collectStats());
-        this.profiler.resetEnemyTimings();
+        this.profiler.resetTimings();
       }
     }, 100); // ~10 Hz
   }

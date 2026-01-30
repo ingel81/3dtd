@@ -2,6 +2,9 @@ import { Injectable, signal } from '@angular/core';
 import type { ThreeTilesEngine } from '../three-engine';
 import type { GameStateManager } from '../managers/game-state.manager';
 
+/** Subsystem names for timing & bottleneck detection */
+export type Subsystem = 'enemy' | 'tower' | 'projectile' | 'combat' | 'events' | 'other';
+
 export interface PerformanceStats {
   // Rendering
   fps: number;
@@ -20,6 +23,17 @@ export interface PerformanceStats {
   enemyHeight: number;
   enemyRender: number;
   enemyTotal: number;
+  // Manager Update Timings (avg ms per frame)
+  towerUpdate: number;
+  projectileUpdate: number;
+  combatUpdate: number;
+  eventProcessing: number;
+  // Frame Budget
+  frameTime: number;           // Total game-loop time (ms)
+  frameBudgetPct: number;      // % of 16.67ms budget used
+  // Bottleneck Detection
+  bottleneck: Subsystem;       // Which subsystem took the most time
+  bottleneckMs: number;        // How much time that subsystem took
 }
 
 const EMPTY_STATS: PerformanceStats = {
@@ -27,14 +41,26 @@ const EMPTY_STATS: PerformanceStats = {
   enemies: 0, towers: 0, projectiles: 0,
   geometries: 0, textures: 0,
   enemyMove: 0, enemyGrid: 0, enemyHeight: 0, enemyRender: 0, enemyTotal: 0,
+  towerUpdate: 0, projectileUpdate: 0, combatUpdate: 0, eventProcessing: 0,
+  frameTime: 0, frameBudgetPct: 0,
+  bottleneck: 'other', bottleneckMs: 0,
 };
+
+/** Target frame time for 60fps */
+const FRAME_BUDGET_MS = 16.67;
 
 /**
  * PerformanceProfilerService
  *
  * Collects engine-wide performance metrics and provides them
- * to the Performance debug panel. Enemy update timings are
- * accumulated per frame by EnemyManager and averaged here.
+ * to the Performance debug panel. Timing data is accumulated
+ * per-frame by managers and the game loop, then averaged here.
+ *
+ * Tracks:
+ * - Enemy update breakdown (move/grid/height/render)
+ * - Manager update timings (tower, projectile, combat, events)
+ * - Frame budget (total frame time, % used of 16.67ms)
+ * - Bottleneck detection (which subsystem is slowest)
  *
  * Console logging can be toggled via the UI.
  */
@@ -51,6 +77,15 @@ export class PerformanceProfilerService {
 
   // Enemy timing accumulator (written by EnemyManager every frame)
   private _enemyAcc = { move: 0, grid: 0, height: 0, render: 0, total: 0, frames: 0 };
+
+  // Manager timing accumulators (written by GameStateManager every frame)
+  private _towerAcc = { total: 0, frames: 0 };
+  private _projectileAcc = { total: 0, frames: 0 };
+  private _combatAcc = { total: 0, frames: 0 };
+  private _eventsAcc = { total: 0, frames: 0 };
+
+  // Frame timing accumulator
+  private _frameAcc = { total: 0, frames: 0 };
 
   // Console log timer
   private _logTimer = 0;
@@ -79,6 +114,29 @@ export class PerformanceProfilerService {
   }
 
   /**
+   * Called by GameStateManager every frame to accumulate subsystem timings.
+   * Each parameter is the ms spent in that subsystem this frame.
+   */
+  accumulateFrameTiming(
+    towerMs: number,
+    projectileMs: number,
+    combatMs: number,
+    eventsMs: number,
+    totalFrameMs: number,
+  ): void {
+    this._towerAcc.total += towerMs;
+    this._towerAcc.frames++;
+    this._projectileAcc.total += projectileMs;
+    this._projectileAcc.frames++;
+    this._combatAcc.total += combatMs;
+    this._combatAcc.frames++;
+    this._eventsAcc.total += eventsMs;
+    this._eventsAcc.frames++;
+    this._frameAcc.total += totalFrameMs;
+    this._frameAcc.frames++;
+  }
+
+  /**
    * Collect all performance stats from the engine.
    * Called ~10 Hz by the PerformanceDebuggerComponent.
    */
@@ -89,8 +147,41 @@ export class PerformanceProfilerService {
 
     const renderer = engine.getRenderer();
     const info = renderer.info;
-    const a = this._enemyAcc;
-    const f = a.frames || 1;
+
+    // Enemy timing averages
+    const ea = this._enemyAcc;
+    const ef = ea.frames || 1;
+
+    // Manager timing averages
+    const tf = this._towerAcc.frames || 1;
+    const pf = this._projectileAcc.frames || 1;
+    const cf = this._combatAcc.frames || 1;
+    const evf = this._eventsAcc.frames || 1;
+    const ff = this._frameAcc.frames || 1;
+
+    const enemyTotal = ea.total / ef;
+    const towerUpdate = this._towerAcc.total / tf;
+    const projectileUpdate = this._projectileAcc.total / pf;
+    const combatUpdate = this._combatAcc.total / cf;
+    const eventProcessing = this._eventsAcc.total / evf;
+    const frameTime = this._frameAcc.total / ff;
+
+    // Bottleneck detection — find the subsystem with the highest avg time
+    const subsystems: [Subsystem, number][] = [
+      ['enemy', enemyTotal],
+      ['tower', towerUpdate],
+      ['projectile', projectileUpdate],
+      ['combat', combatUpdate],
+      ['events', eventProcessing],
+    ];
+    let bottleneck: Subsystem = 'other';
+    let bottleneckMs = 0;
+    for (const [name, ms] of subsystems) {
+      if (ms > bottleneckMs) {
+        bottleneck = name;
+        bottleneckMs = ms;
+      }
+    }
 
     const stats: PerformanceStats = {
       fps: engine.getFPS(),
@@ -101,11 +192,23 @@ export class PerformanceProfilerService {
       projectiles: engine.projectiles.count,
       geometries: info.memory.geometries,
       textures: info.memory.textures,
-      enemyMove: a.move / f,
-      enemyGrid: a.grid / f,
-      enemyHeight: a.height / f,
-      enemyRender: a.render / f,
-      enemyTotal: a.total / f,
+      // Enemy breakdown
+      enemyMove: ea.move / ef,
+      enemyGrid: ea.grid / ef,
+      enemyHeight: ea.height / ef,
+      enemyRender: ea.render / ef,
+      enemyTotal: enemyTotal,
+      // Manager timings
+      towerUpdate,
+      projectileUpdate,
+      combatUpdate,
+      eventProcessing,
+      // Frame budget
+      frameTime,
+      frameBudgetPct: (frameTime / FRAME_BUDGET_MS) * 100,
+      // Bottleneck
+      bottleneck,
+      bottleneckMs,
     };
 
     this.stats.set(stats);
@@ -113,11 +216,21 @@ export class PerformanceProfilerService {
   }
 
   /**
-   * Reset enemy timing accumulator.
+   * Reset all timing accumulators.
    * Called after stats are collected to start fresh averaging window.
    */
-  resetEnemyTimings(): void {
+  resetTimings(): void {
     this._enemyAcc = { move: 0, grid: 0, height: 0, render: 0, total: 0, frames: 0 };
+    this._towerAcc = { total: 0, frames: 0 };
+    this._projectileAcc = { total: 0, frames: 0 };
+    this._combatAcc = { total: 0, frames: 0 };
+    this._eventsAcc = { total: 0, frames: 0 };
+    this._frameAcc = { total: 0, frames: 0 };
+  }
+
+  /** @deprecated Use resetTimings() instead */
+  resetEnemyTimings(): void {
+    this.resetTimings();
   }
 
   /**
@@ -136,9 +249,11 @@ export class PerformanceProfilerService {
       console.log(
         `[Perf] ${s.enemies} enemies | ${s.fps} FPS | ` +
         `${s.drawCalls} draws | ${tris} tris | ` +
-        `move:${s.enemyMove.toFixed(2)} grid:${s.enemyGrid.toFixed(2)} ` +
-        `height:${s.enemyHeight.toFixed(2)} render:${s.enemyRender.toFixed(2)} ` +
-        `TOTAL:${s.enemyTotal.toFixed(2)}ms | ` +
+        `enemy:${s.enemyTotal.toFixed(2)} tower:${s.towerUpdate.toFixed(2)} ` +
+        `proj:${s.projectileUpdate.toFixed(2)} combat:${s.combatUpdate.toFixed(2)} ` +
+        `events:${s.eventProcessing.toFixed(2)} | ` +
+        `frame:${s.frameTime.toFixed(2)}ms (${s.frameBudgetPct.toFixed(0)}%) | ` +
+        `bottleneck:${s.bottleneck}(${s.bottleneckMs.toFixed(2)}ms) | ` +
         `${s.towers} towers | ${s.projectiles} proj | ` +
         `mem: ${s.geometries} geo, ${s.textures} tex`
       );
