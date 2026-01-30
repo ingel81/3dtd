@@ -29,6 +29,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Reusable array to avoid allocations in update loop
   private toRemove: Enemy[] = [];
 
+  // Track enemies with active frost visual (for state-change detection)
+  private frozenVisualEnemies = new Set<string>();
+
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
 
@@ -354,6 +357,33 @@ export class EnemyManager extends EntityManager<Enemy> {
         enemy.health.healthPercent,
         enemy.movement.effectiveSpeed
       );
+
+      // Frost visual: toggle blue tint + particle aura based on slow state
+      if (this.tilesEngine) {
+        const isSlowed = enemy.movement.isSlowed(timescale);
+        const hasFrost = this.frozenVisualEnemies.has(enemy.id);
+
+        if (isSlowed && !hasFrost) {
+          // Apply frost visual
+          this.tilesEngine.enemies.setFreezeVisual(enemy.id, true);
+          const localPos = this.tilesEngine.sync.geoToLocal(
+            enemy.position.lat, enemy.position.lon, geoHeight
+          );
+          this.tilesEngine.effects.spawnFrostAura(enemy.id, localPos);
+          this.frozenVisualEnemies.add(enemy.id);
+        } else if (isSlowed && hasFrost) {
+          // Update frost aura position (enemy is moving)
+          const localPos = this.tilesEngine.sync.geoToLocal(
+            enemy.position.lat, enemy.position.lon, geoHeight
+          );
+          this.tilesEngine.effects.updateFrostAuraPosition(enemy.id, localPos);
+        } else if (!isSlowed && hasFrost) {
+          // Remove frost visual
+          this.tilesEngine.enemies.setFreezeVisual(enemy.id, false);
+          this.tilesEngine.effects.stopFrostAura(enemy.id);
+          this.frozenVisualEnemies.delete(enemy.id);
+        }
+      }
       if (profiling) tRender += performance.now() - t0;
     }
 
@@ -402,6 +432,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.aliveCount.update(c => Math.max(0, c - 1));
       this.cachedAliveEnemies = null; // Invalidate cache
     }
+    // Cleanup frost visual if active
+    if (this.frozenVisualEnemies.has(entity.id)) {
+      this.tilesEngine?.effects.stopFrostAura(entity.id);
+      this.frozenVisualEnemies.delete(entity.id);
+    }
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
@@ -429,6 +464,7 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
+    this.frozenVisualEnemies.clear();
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache

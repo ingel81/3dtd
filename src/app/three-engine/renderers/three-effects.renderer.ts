@@ -1029,6 +1029,97 @@ export class ThreeEffectsRenderer {
     return this.activeTowerFires.has(towerId);
   }
 
+  // =====================================================
+  // FROST AURA - Orbiting ice particles for slowed enemies
+  // =====================================================
+
+  /**
+   * Spawn frost aura around a slowed enemy.
+   * Creates 3 orbiting cyan/white particles from the additive trail pool.
+   *
+   * @param enemyId - Unique enemy ID
+   * @param localPosition - Current local position of the enemy
+   * @returns Enemy ID (same as input)
+   */
+  spawnFrostAura(enemyId: string, localPosition: Vector3): string {
+    if (this.activeFrostAuras.has(enemyId)) return enemyId;
+
+    const particleCount = 3;
+    const particles: Particle[] = [];
+    const center = localPosition.clone();
+
+    for (let i = 0; i < particleCount; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
+      if (!particle) break;
+
+      // Stagger initial angles evenly (120° apart)
+      const angle = (i / particleCount) * Math.PI * 2;
+      const orbitRadius = 1.8;
+
+      particle.position.set(
+        center.x + Math.cos(angle) * orbitRadius,
+        center.y + 1.5 + Math.sin(angle * 0.5) * 0.3,
+        center.z + Math.sin(angle) * orbitRadius
+      );
+
+      // Minimal velocity — position is overridden each frame
+      particle.velocity.set(0, 0.3 + Math.random() * 0.2, 0);
+      particle.life = 1.0;
+      particle.maxLife = 999; // Kept alive until explicitly stopped
+      particle.size = 1.2 + Math.random() * 0.6;
+      particle.frameIndex = -1;
+      particle.totalFrames = 0;
+
+      // Cyan / white ice colors
+      const t = Math.random();
+      if (t < 0.5) {
+        particle.color.setRGB(0.6, 0.9, 1.0); // Cyan
+      } else {
+        particle.color.setRGB(0.85, 0.95, 1.0); // White-cyan
+      }
+
+      particles.push(particle);
+    }
+
+    this.activeFrostAuras.set(enemyId, {
+      particles,
+      localPosition: center,
+      orbitAngle: 0,
+    });
+
+    return enemyId;
+  }
+
+  /**
+   * Update frost aura position to follow a moving enemy.
+   * Call each frame for enemies with active frost aura.
+   */
+  updateFrostAuraPosition(enemyId: string, localPosition: Vector3): void {
+    const aura = this.activeFrostAuras.get(enemyId);
+    if (!aura) return;
+    aura.localPosition.copy(localPosition);
+  }
+
+  /**
+   * Stop frost aura on an enemy (slow expired).
+   */
+  stopFrostAura(enemyId: string): void {
+    const aura = this.activeFrostAuras.get(enemyId);
+    if (!aura) return;
+
+    for (const p of aura.particles) {
+      p.life = 0;
+    }
+    this.activeFrostAuras.delete(enemyId);
+  }
+
+  /**
+   * Check if an enemy has an active frost aura
+   */
+  hasFrostAura(enemyId: string): boolean {
+    return this.activeFrostAuras.has(enemyId);
+  }
+
   /**
    * Spawn a single flame particle for beam effects.
    * Used by FlameBeamRenderer for flamethrower streams.
@@ -1049,6 +1140,50 @@ export class ThreeEffectsRenderer {
     particle.size = size;
     particle.life = 1.0;
     particle.maxLife = maxLife;
+  }
+
+  /**
+   * Spawn a brief muzzle flash at a local position.
+   * 3-5 bright additive particles (yellow/white) lasting ~50ms.
+   * Used when projectile towers fire.
+   *
+   * @param localX - Local X coordinate (tower shoot position)
+   * @param localY - Local Y coordinate (tower shoot position)
+   * @param localZ - Local Z coordinate (tower shoot position)
+   */
+  spawnMuzzleFlash(localX: number, localY: number, localZ: number): void {
+    const count = 3 + Math.floor(Math.random() * 3); // 3-5 particles
+
+    for (let i = 0; i < count; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
+      if (!particle) break;
+
+      // Spawn at shoot position with tiny random jitter
+      particle.position.set(
+        localX + (Math.random() - 0.5) * 0.3,
+        localY + (Math.random() - 0.5) * 0.3,
+        localZ + (Math.random() - 0.5) * 0.3
+      );
+
+      // Small outward burst velocity
+      particle.velocity.set(
+        (Math.random() - 0.5) * 4,
+        Math.random() * 3,
+        (Math.random() - 0.5) * 4
+      );
+
+      particle.life = 1.0;
+      particle.maxLife = 0.04 + Math.random() * 0.02; // 40-60ms (~50ms)
+      particle.size = 1.5 + Math.random() * 1.5; // 1.5-3.0 — bright and visible
+
+      // Bright yellow/white flash color
+      const t = Math.random();
+      if (t < 0.5) {
+        particle.color.setRGB(1, 1, 0.85); // White-yellow
+      } else {
+        particle.color.setRGB(1, 0.9, 0.4); // Warm yellow
+      }
+    }
   }
 
   /**
@@ -2166,6 +2301,32 @@ export class ThreeEffectsRenderer {
       }
     }
 
+    // Update frost aura particles (orbiting around slowed enemies)
+    for (const [, aura] of this.activeFrostAuras) {
+      aura.orbitAngle += dt * 3.0; // ~3 rad/s orbit speed
+      const orbitRadius = 1.8;
+      const center = aura.localPosition;
+      const count = aura.particles.length;
+
+      for (let i = 0; i < count; i++) {
+        const p = aura.particles[i];
+        if (p.life <= 0) continue;
+
+        const angle = aura.orbitAngle + (i / count) * Math.PI * 2;
+        p.position.set(
+          center.x + Math.cos(angle) * orbitRadius,
+          center.y + 1.5 + Math.sin(angle * 2) * 0.4, // gentle vertical bob
+          center.z + Math.sin(angle) * orbitRadius
+        );
+
+        // Keep alive indefinitely (reset life)
+        p.life = 1.0;
+
+        // Subtle size pulse
+        p.size = 1.0 + 0.4 * Math.sin(angle * 1.5);
+      }
+    }
+
     // Update GPU buffers
     this.updateParticleBuffers();
   }
@@ -2459,6 +2620,14 @@ export class ThreeEffectsRenderer {
 
     this.activeEffects.clear();
     this.activeTowerFires.clear();
+
+    // Clear frost auras
+    for (const [, aura] of this.activeFrostAuras) {
+      for (const p of aura.particles) {
+        p.life = 0;
+      }
+    }
+    this.activeFrostAuras.clear();
 
     // Clear instanced decals
     if (this.bloodDecalManager) {
