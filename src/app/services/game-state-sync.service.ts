@@ -33,7 +33,7 @@ export class GameStateSyncService {
     this.subs.add(eventBus.on('wave:started', (event) => {
       this.store.phase.set('wave');
       this.store.waveNumber.set(event.wave);
-      this.store.enemiesAlive.set(event.enemyCount);
+      this.store.enemiesAlive.set(0);
     }));
 
     this.subs.add(eventBus.on('wave:completed', (_event) => {
