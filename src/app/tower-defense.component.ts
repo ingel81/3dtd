@@ -221,6 +221,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly aiExplanation = signal<string | null>(null);
   readonly baseCoords = signal(EMPTY_COORDS);
   readonly centerCoords = signal(EMPTY_CENTER_COORDS);
+  /**
+   * DevWorld regeneration in progress.
+   * Set by LocationFacade during terrain regeneration to disable UI interactions.
+   * TODO(store): Migrate to TowerDefenseStore.isDevWorldRegenerating once bridge is removed.
+   */
   readonly isDevWorldRegenerating = signal(false);
 
   readonly waveActive = computed(() => this.gameState.phase() === 'wave');
