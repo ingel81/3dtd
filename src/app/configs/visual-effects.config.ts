@@ -7,10 +7,10 @@
 
 /** Particle pool limits */
 export const PARTICLE_LIMITS = {
-  maxBloodParticles: 1000,
-  maxFireParticles: 2000,
-  /** Trail pool serves: fire, explosions, rockets, bullets - needs capacity for HQ explosion (1350) + inferno (300) */
+  /** Trail additive pool serves: fire, explosions, rockets, bullets, flame beams - needs capacity for HQ explosion (~700) + inferno (300) */
   maxTrailParticlesPerPool: 3000,
+  /** Trail normal pool serves: smoke, cannon trails, blood splatter */
+  maxTrailNormalParticlesPerPool: 4000,
   maxFloatingTexts: 50,
 } as const;
 

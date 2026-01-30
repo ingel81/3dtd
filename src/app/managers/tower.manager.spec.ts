@@ -166,8 +166,33 @@ describe('TowerManager', () => {
     expect(manager.getById(t1.id)).toBe(t1);
   });
 
-  it('tower targeting selects lowest HP enemy within range', () => {
+  it('tower targeting selects by strategy (ice uses "first" — furthest along path)', () => {
     const tower = manager.placeTower({ lat: 0, lon: 0, height: 0 }, 'ice') as Tower;
+    expect(tower.targetingStrategy).toBe('first');
+
+    const pathA: GeoPosition[] = [
+      { lat: 0.00005, lon: 0, height: 0 },
+      { lat: 0.00006, lon: 0, height: 0 },
+    ];
+    const pathB: GeoPosition[] = [
+      { lat: 0.00004, lon: 0, height: 0 },
+      { lat: 0.00005, lon: 0, height: 0 },
+    ];
+
+    const enemyA = new Enemy('zombie', pathA);
+    const enemyB = new Enemy('zombie', pathB);
+    // Advance enemyB further along its path so it has higher progress
+    enemyB.movement.update(500, 1.0);
+
+    const target = tower.findTarget([enemyA, enemyB]);
+    // enemyB traveled further along its path, so 'first' strategy picks it
+    expect(target).toBe(enemyB);
+  });
+
+  it('tower targeting selects lowest HP enemy when strategy is "lowest-hp"', () => {
+    const tower = manager.placeTower({ lat: 0, lon: 0, height: 0 }, 'magic') as Tower;
+    // Override strategy for this test
+    tower.targetingStrategy = 'lowest-hp';
 
     const pathA: GeoPosition[] = [
       { lat: 0.00005, lon: 0, height: 0 },
