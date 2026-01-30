@@ -1,5 +1,4 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Material } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
@@ -15,6 +14,7 @@ import { OsmStreetService, StreetNetwork } from '../services/osm-street.service'
 import { WaveDebugService } from '../services/wave-debug.service';
 import { EnemyDebugService } from '../services/enemy-debug.service';
 import { MarkerVisualizationService } from '../services/marker-visualization.service';
+import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../models/enemy-types';
@@ -45,6 +45,7 @@ export class GameStateManager {
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly markerViz = inject(MarkerVisualizationService);
+  private readonly towerPlacement = inject(TowerPlacementService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -386,38 +387,16 @@ export class GameStateManager {
     // First deselect any selected tower (hides its LOS visualization)
     this.towerManager.selectTower(null);
 
-    // Then dispose all LOS visualizations
-    for (const tower of this.towerManager.getAll()) {
-      // Dispose LOS visualization
-      if (tower.losVisualization && this.tilesEngine) {
-        tower.losVisualization.visible = false; // Ensure hidden
-        this.tilesEngine.getScene().remove(tower.losVisualization);
-        tower.losVisualization.geometry.dispose();
-        (tower.losVisualization.material as Material).dispose();
-        tower.losVisualization = null;
-      }
-
-      // Unregister from GlobalRouteGrid
-      this.globalRouteGrid.unregisterTower(tower.id);
-      tower.visibleCells = [];
-    }
+    // Delegate to TowerPlacementService
+    this.towerPlacement.clearAllTowerOverlays(this.towerManager.getAll());
   }
 
   /**
    * Sell a tower and refund 50% of its cost
    */
   sellTower(tower: Tower): number {
-    // Dispose LOS visualization
-    if (tower.losVisualization && this.tilesEngine) {
-      this.tilesEngine.getScene().remove(tower.losVisualization);
-      tower.losVisualization.geometry.dispose();
-      (tower.losVisualization.material as Material).dispose();
-      tower.losVisualization = null;
-    }
-
-    // Unregister from GlobalRouteGrid
-    this.globalRouteGrid.unregisterTower(tower.id);
-    tower.visibleCells = []; // Clear references
+    // Unregister from grid + dispose LOS visualization
+    this.towerPlacement.unregisterTowerFromGrid(tower);
 
     this.towerManager.selectTower(null);
 
@@ -454,52 +433,12 @@ export class GameStateManager {
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation);
 
-    if (tower && this.tilesEngine && this.globalRouteGrid.isInitialized()) {
+    if (tower) {
       // Deduct cost
       this.updateCredits(-config.cost);
 
-      // Register tower with GlobalRouteGrid for LOS pre-computation
-      // IMPORTANT: Use geoToLocalSimple for consistency with grid cell coordinates
-      const terrainPos = this.tilesEngine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
-      const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
-      // Get LOS raycaster from tower renderer
-      const losRaycaster = this.tilesEngine.towers.getLosRaycaster();
-
-      if (losRaycaster) {
-        // Check if this is a pure air tower (only targets air, not ground)
-        const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
-
-        // Register tower and store visible cells reference
-        // Air towers skip LOS checks (air enemies are always visible)
-        tower.visibleCells = this.globalRouteGrid.registerTower(
-          tower.id,
-          terrainPos.x,
-          terrainPos.z,
-          tipY,
-          config.range,
-          losRaycaster,
-          isPureAirTower
-        );
-
-        // Create LOS visualization (hidden by default, shown on selection)
-        tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
-          tower.id,
-          terrainPos.x,
-          terrainPos.z,
-          config.range
-        );
-
-        if (tower.losVisualization) {
-          tower.losVisualization.visible = false;
-          this.tilesEngine.getScene().add(tower.losVisualization);
-        }
-      } else {
-        console.warn('[GameStateManager] placeTower: no losRaycaster!');
-      }
-    } else if (tower) {
-      // Still deduct cost even if grid not initialized
-      this.updateCredits(-config.cost);
+      // Register tower on grid (LOS raycasting + grid registration + visualization)
+      this.towerPlacement.registerTowerOnGrid(tower, position, typeId);
     }
     return tower;
   }

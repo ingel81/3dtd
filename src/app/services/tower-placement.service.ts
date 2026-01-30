@@ -1,9 +1,10 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, MeshStandardMaterial } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
 import { GeoPosition } from '../models/game.types';
+import { Tower } from '../entities/tower.entity';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
@@ -684,6 +685,89 @@ export class TowerPlacementService {
 
   getRotation(): number {
     return this.currentRotation();
+  }
+
+  // ========================================
+  // TOWER GRID REGISTRATION (Backend)
+  // ========================================
+
+  /**
+   * Register a placed tower on the GlobalRouteGrid:
+   * - LOS raycasting to determine visible cells
+   * - Grid registration for enemy targeting
+   * - LOS visualization mesh (hidden by default, shown on selection)
+   */
+  registerTowerOnGrid(tower: Tower, position: GeoPosition, typeId: TowerTypeId): void {
+    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
+
+    const config = TOWER_TYPES[typeId];
+    if (!config) return;
+
+    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+    const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
+
+    const losRaycaster = this.engine.towers.getLosRaycaster();
+    if (!losRaycaster) {
+      console.warn('[TowerPlacementService] registerTowerOnGrid: no losRaycaster!');
+      return;
+    }
+
+    // Check if this is a pure air tower (only targets air, not ground)
+    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+
+    // Register tower and store visible cells reference
+    // Air towers skip LOS checks (air enemies are always visible)
+    tower.visibleCells = this.globalRouteGrid.registerTower(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      tipY,
+      config.range,
+      losRaycaster,
+      isPureAirTower
+    );
+
+    // Create LOS visualization (hidden by default, shown on selection)
+    tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      config.range
+    );
+
+    if (tower.losVisualization) {
+      tower.losVisualization.visible = false;
+      this.engine.getScene().add(tower.losVisualization);
+    }
+  }
+
+  /**
+   * Unregister a tower from the GlobalRouteGrid:
+   * - Dispose LOS visualization mesh
+   * - Unregister from grid (removes tower visibility from cells)
+   */
+  unregisterTowerFromGrid(tower: Tower): void {
+    // Dispose LOS visualization
+    if (tower.losVisualization && this.engine) {
+      this.engine.getScene().remove(tower.losVisualization);
+      tower.losVisualization.geometry.dispose();
+      (tower.losVisualization.material as Material).dispose();
+      tower.losVisualization = null;
+    }
+
+    // Unregister from GlobalRouteGrid
+    this.globalRouteGrid.unregisterTower(tower.id);
+    tower.visibleCells = [];
+  }
+
+  /**
+   * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
+   * Called on reset to cleanup before starting fresh
+   */
+  clearAllTowerOverlays(towers: Tower[]): void {
+    for (const tower of towers) {
+      this.unregisterTowerFromGrid(tower);
+    }
   }
 
   // ========================================
