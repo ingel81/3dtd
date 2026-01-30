@@ -8,6 +8,7 @@ import { GeoPosition } from '../models/game.types';
 import { Street, StreetNetwork, StreetNode } from './osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../devworld/devworld.service';
+import { GameUIStateService } from './game-ui-state.service';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -26,6 +27,7 @@ export interface PathfindingService {
 @Injectable({ providedIn: 'root' })
 export class PathAndRouteService {
   private readonly devWorld = inject(DevWorldService);
+  private readonly uiState = inject(GameUIStateService);
 
   // ========================================
   // STATE
@@ -406,6 +408,14 @@ export class PathAndRouteService {
     for (const line of this.routeLines) {
       line.visible = visible;
     }
+  }
+
+  /**
+   * Toggle route lines visibility based on UI state signal.
+   * Called from component event handler.
+   */
+  toggleRouteLinesVisibility(): void {
+    this.setRouteLinesVisible(this.uiState.routesVisible());
   }
 
   /**

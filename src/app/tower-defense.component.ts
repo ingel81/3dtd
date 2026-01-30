@@ -67,13 +67,13 @@ import { CameraFramingService, GeoPoint } from './services/camera-framing.servic
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
 import { StreetRenderingService } from './services/street-rendering.service';
-import { LocationChangeCoordinatorService, LocationChangeInput, LocationChangeContext, LocationChangeCallbacks } from './services/location-change-coordinator.service';
+import { LocationChangeCoordinatorService, LocationFlowDelegate } from './services/location-change-coordinator.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
-import { Vector3, InstancedMesh } from 'three';
+import { Vector3 } from 'three';
 // Theme
 import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
@@ -213,9 +213,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
   private readonly COORD_EPSILON = 0.0001; // ~11m tolerance for coordinate comparison
 
-  // Three.js object for spatial grid debug visualization
-  private spatialGridVizMesh: InstancedMesh | null = null;
-
   // DPS profile visualization along path
   private dpsProfileViz: DpsProfileVisualizer | null = null;
   private dpsVizUnsubscribes: (() => void)[] = [];
@@ -236,7 +233,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly routesVisible = this.uiState.routesVisible;
   readonly debugMode = this.uiState.debugMode;
   readonly heightDebugVisible = this.uiState.heightDebugVisible;
-  readonly spatialGridDebugVisible = this.uiState.spatialGridDebugVisible;
   readonly fps = this.uiState.fps;
   readonly tileStats = this.uiState.tileStats;
   readonly mapAttribution = signal('Map data ©2024 Google');
@@ -247,7 +243,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly editableSpawnLocations = this.locationMgmt.editableSpawnLocations;
   readonly isApplyingLocation = this.locationMgmt.isApplyingLocation;
   readonly favorites = this.locationMgmt.favorites;
-  readonly favoriteNamesMap = signal<Record<string, string>>({});
+  readonly favoriteNamesMap = this.locationCoordinator.favoriteNamesMap;
   // Component-local signals (not moved to services)
   readonly cameraHeading = signal(0); // Compass heading: 0=N, 90=E, 180=S, 270=W
   readonly compassRotation = signal(0); // Accumulated rotation for smooth compass (avoids 0°/360° flip)
@@ -382,8 +378,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
-    // Resolve favorite names (async, doesn't block)
-    this.resolveFavoriteNames();
+    // Initialize location flow delegate (for dialog, favorites, world dice)
+    this.locationCoordinator.initializeFlow(this.buildLocationFlowDelegate());
 
     // Initialize training client with dependencies
     this.trainingClient.initialize({
@@ -431,20 +427,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (!hq) return; // No location set yet
     const spawns = this.locationMgmt.spawns();
     this.urlLocation.updateUrl(hq, spawns);
-  }
-
-  /**
-   * Resolve display names for all favorites
-   */
-  private async resolveFavoriteNames(): Promise<void> {
-    const favs = this.locationMgmt.favorites();
-    const names: Record<string, string> = {};
-
-    for (const fav of favs) {
-      names[fav.id] = await this.locationMgmt.getFavoriteDisplayName(fav);
-    }
-
-    this.favoriteNamesMap.set(names);
   }
 
   async ngAfterViewInit(): Promise<void> {
@@ -571,11 +553,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.routeAnimation.dispose();
 
     // Cleanup global route grid visualization
-    if (this.spatialGridVizMesh) {
-      this.engine?.getScene().remove(this.spatialGridVizMesh);
-      this.gameState.getGlobalRouteGrid().disposeVisualization();
-      this.spatialGridVizMesh = null;
-    }
+    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
 
     // Cleanup DPS profile visualization
     this.dpsVizUnsubscribes.forEach(fn => fn());
@@ -1397,7 +1375,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Initialize spatial grid visualization if persisted state was enabled
     // Must be done after tiles loaded so terrain heights are correct
-    this.initSpatialGridVisualizationIfEnabled();
+    this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
   }
 
   /**
@@ -1433,7 +1411,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
     // Update global route grid visualization
     const grid = this.gameState.getGlobalRouteGrid();
-    if (this.spatialGridDebugVisible() && this.spatialGridVizMesh) {
+    if (grid.isSpatialGridVizVisible()) {
       grid.updateVisualization();
     }
     grid.updateAnimation(deltaTime);
@@ -1857,31 +1835,21 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Handle streets toggle side effect (visibility already toggled by QuickActionsComponent)
    */
   onStreetsToggled(): void {
-    this.streetRendering.setVisibility(this.uiState.streetsVisible());
+    this.streetRendering.toggleVisibility();
   }
 
   /**
    * Handle routes toggle side effect (visibility already toggled by QuickActionsComponent)
    */
   onRoutesToggled(): void {
-    this.pathRoute.setRouteLinesVisible(this.uiState.routesVisible());
+    this.pathRoute.toggleRouteLinesVisibility();
   }
 
   /**
    * Toggle special points debug (fire position markers, etc.)
    */
   onSpecialPointsDebugToggled(): void {
-    this.uiState.toggleSpecialPointsDebug();
-    const visible = this.uiState.specialPointsDebugVisible();
-
-    if (this.engine) {
-      this.engine.effects.setDebugSpheresVisible(visible);
-
-      // Spawn HQ debug point if enabled and not yet spawned
-      if (visible) {
-        this.markerViz.spawnHQDebugPoint();
-      }
-    }
+    this.markerViz.toggleSpecialPointsDebug();
   }
 
   /**
@@ -1889,44 +1857,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Shows cells along routes with color-coded LOS and enemy presence
    */
   onSpatialGridDebugToggled(): void {
-    this.uiState.toggleSpatialGridDebug();
-    this.updateSpatialGridVisualization();
-  }
-
-  /**
-   * Initialize spatial grid visualization if persisted state was enabled
-   * Called after grid is initialized to restore persisted visibility
-   */
-  private initSpatialGridVisualizationIfEnabled(): void {
-    if (this.uiState.spatialGridDebugVisible()) {
-      this.updateSpatialGridVisualization();
-    }
-  }
-
-  /**
-   * Update spatial grid visualization based on current state
-   */
-  private updateSpatialGridVisualization(): void {
-    const visible = this.uiState.spatialGridDebugVisible();
-    const grid = this.gameState.getGlobalRouteGrid();
-    // Use engine from service if component's engine reference not yet set
-    const engine = this.engine || this.engineInit.getEngine();
-
-    if (visible) {
-      // Create and add visualization mesh to scene
-      if (!this.spatialGridVizMesh && engine && grid.isInitialized()) {
-        this.spatialGridVizMesh = grid.createVisualization();
-        engine.getScene().add(this.spatialGridVizMesh);
-      }
-      if (this.spatialGridVizMesh) {
-        this.spatialGridVizMesh.visible = true;
-      }
-    } else {
-      // Hide visualization (don't dispose - may toggle again)
-      if (this.spatialGridVizMesh) {
-        this.spatialGridVizMesh.visible = false;
-      }
-    }
+    this.gameState.getGlobalRouteGrid().toggleSpatialGridDebug();
   }
 
   /**
@@ -2113,11 +2044,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   restartGame(): void {
     // Cleanup old debug visualization before reset (grid will be cleared)
-    if (this.spatialGridVizMesh) {
-      this.engine?.getScene().remove(this.spatialGridVizMesh);
-      this.gameState.getGlobalRouteGrid().disposeVisualization();
-      this.spatialGridVizMesh = null;
-    }
+    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
 
     // Cleanup DPS profile visualization
     this.dpsVizUnsubscribes.forEach(fn => fn());
@@ -2169,258 +2096,79 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
 
-  // ==================== Location Settings Methods ====================
+  // ==================== Location Settings Methods (delegates to LocationChangeCoordinatorService) ====================
 
-  /**
-   * Apply new location - delegates to LocationChangeCoordinatorService
-   * Shows loading overlay and waits for tiles + streets to load
-   */
+  /** Apply new location - delegates to coordinator */
   async onApplyNewLocation(data: { hq: LocationConfig; spawn: LocationConfig }): Promise<void> {
-    if (!this.engine) {
-      console.error('[Location] No engine available');
-      return;
-    }
-
-    const input: LocationChangeInput = {
-      hq: data.hq,
-      spawn: data.spawn,
-    };
-
-    const context: LocationChangeContext = {
-      engine: this.engine,
-      gameState: this.gameState,
-      streetNetwork: this.streetNetwork,
-      streetNetworkLocation: this.streetNetworkLocation,
-      heightDebugVisible: this.heightDebugVisible,
-    };
-
-    const callbacks: LocationChangeCallbacks = {
-      // Signal updates
-      setBaseCoords: (c) => this.baseCoords.set(c),
-      setCenterCoords: (c) => this.centerCoords.set(c),
-      setSpawnPoints: (p) => this.spawnPoints.set(p),
-      addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
-      setStreetCount: (c) => this.streetCount.set(c),
-      setStreetNetwork: (n) => { this.streetNetwork = n; },
-      setStreetNetworkLocation: (l) => { this.streetNetworkLocation = l; },
-
-      // Actions
-      syncUrlWithLocation: () => this.syncUrlWithLocation(),
-      clearMapEntities: () => this.clearMapEntities(),
-      appendDebugLog: (msg) => this.appendDebugLog(msg),
-      initializeTowerPlacement: () => this.initializeTowerPlacement(),
-      filterStreetNetworkToRoutes: () => this.filterStreetNetworkToRoutes(),
-      scheduleOverlayHeightUpdate: () => this.scheduleOverlayHeightUpdate(),
-
-      // Current state accessors
-      getSpawnPoints: () => this.spawnPoints(),
-      getBaseCoords: () => this.baseCoords(),
-    };
-
-    try {
-      await this.locationCoordinator.executeLocationChange(input, context, callbacks);
-    } catch (err) {
-      console.error('[Location] Failed to apply location:', err);
-      this.appendDebugLog(`Error: ${err instanceof Error ? err.message : 'Unknown'}`);
-      this.engineInit.setError(err instanceof Error ? err.message : 'Error changing location');
-
-      // Reset loading flags on error
-      this.tilesLoading.set(false);
-      this.osmLoading.set(false);
-      this.heightsLoading.set(false);
-      this.isApplyingLocation.set(false);
-    }
+    this.locationCoordinator.applyNewLocation(data);
   }
 
-  /**
-   * Open location dialog to change HQ and spawn point
-   */
+  /** Open location dialog */
   openLocationDialog(): void {
-    const hq = this.editableHqLocation();
-    const spawn = this.editableSpawnLocations()[0];
-
-    const dialogData: LocationDialogData = {
-      currentLocation: hq
-        ? {
-            lat: hq.lat,
-            lon: hq.lon,
-            name: this.currentLocationName(),
-            displayName: hq.name || '',
-          }
-        : null,
-      currentSpawn: spawn
-        ? {
-            id: spawn.id,
-            lat: spawn.lat,
-            lon: spawn.lon,
-            name: spawn.name,
-          }
-        : null,
-      isGameInProgress: this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
-    };
-
-    const dialogRef = this.dialog.open(LocationDialogComponent, {
-      data: dialogData,
-      panelClass: 'td-dialog-panel',
-      disableClose: false,
-    });
-
-    dialogRef.afterClosed()
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(async (result: LocationDialogResult | null) => {
-      if (!result?.confirmed) return;
-
-      // Show loading overlay IMMEDIATELY before any async operations
-      this.loading.set(true);
-      this.engineInit.resetLoadingSteps();
-
-      let spawnLat = result.spawn.lat;
-      let spawnLon = result.spawn.lon;
-      let spawnName = result.spawn.name;
-
-      // Generate random spawn if requested
-      if (result.spawn.isRandom) {
-        // Load streets for the new location to find spawn (reused in onApplyNewLocation)
-        const newNetwork = await this.osmService.loadStreets(result.hq.lat, result.hq.lon, 2000);
-        // Store for reuse in onApplyNewLocation to avoid double-loading
-        this.streetNetwork = newNetwork;
-        this.streetNetworkLocation = { lat: result.hq.lat, lon: result.hq.lon };
-
-        const randomSpawn = this.osmService.findRandomStreetPoint(newNetwork, result.hq.lat, result.hq.lon, 500, 1000);
-
-        if (randomSpawn) {
-          spawnLat = randomSpawn.lat;
-          spawnLon = randomSpawn.lon;
-          spawnName = randomSpawn.streetName || 'Random Spawn';
-          this.appendDebugLog(`Random spawn: ${Math.round(randomSpawn.distance)}m away`);
-        } else {
-          this.appendDebugLog('No valid spawn found, using fallback');
-          // Fallback: use a point 700m north
-          spawnLat = result.hq.lat + 0.0063; // ~700m north
-          spawnLon = result.hq.lon;
-          spawnName = 'Fallback Spawn';
-        }
-      }
-
-      // Apply the new location
-      await this.onApplyNewLocation({
-        hq: {
-          lat: result.hq.lat,
-          lon: result.hq.lon,
-          name: result.hq.displayName,
-          address: result.hq.address,
-        },
-        spawn: {
-          lat: spawnLat,
-          lon: spawnLon,
-          name: spawnName,
-        },
-      });
-    });
+    this.locationCoordinator.openLocationDialog();
   }
 
-  // ==================== Location Sharing & Favorites ====================
-
-  /**
-   * Copy shareable URL to clipboard (URL already reflects current location)
-   */
+  /** Copy shareable URL to clipboard */
   onShareLocation(): void {
-    const url = this.urlLocation.getShareUrl();
-    navigator.clipboard.writeText(url);
-    this.appendDebugLog('Link copied: ' + url);
+    this.locationCoordinator.onShareLocation();
   }
 
-  /**
-   * Roll for a random city from Wikidata and navigate there
-   */
+  /** Roll for a random city */
   async onWorldDice(): Promise<void> {
-    this.appendDebugLog('World Dice: Rolling random city...');
-
-    // Show loading overlay with World Dice step
-    this.engineInit.startWorldDiceLoading();
-
-    // Connect step detail callback
-    this.worldDice.onStepDetail = (detail) => {
-      this.engineInit.updateWorldDiceDetail(detail);
-    };
-
-    const city = await this.worldDice.rollRandomCity();
-
-    // Cleanup callback
-    this.worldDice.onStepDetail = null;
-
-    if (!city) {
-      this.appendDebugLog('World Dice: Failed - ' + (this.worldDice.error() || 'Unknown error'));
-      // Hide loading overlay on error
-      this.engineInit.setLoading(false);
-      return;
-    }
-
-    const displayName = city.country ? `${city.name}, ${city.country}` : city.name;
-    this.appendDebugLog(`World Dice: ${displayName} (${city.lat.toFixed(4)}, ${city.lon.toFixed(4)})`);
-
-    // Show "Loading Map..." step before reload
-    this.engineInit.finishWorldDiceLoading(displayName);
-
-    // Update URL with only HQ (l=), no spawn (s=) -> randomizer will create spawn
-    const url = new URL(window.location.href);
-    url.searchParams.set('l', `${city.lat.toFixed(5)},${city.lon.toFixed(5)}`);
-    url.searchParams.delete('s'); // Remove spawn so randomizer kicks in
-
-    // Small delay so user sees the "Loading Map..." step
-    await new Promise(resolve => setTimeout(resolve, 300));
-
-    // Navigate to new location (full reload for clean state)
-    window.location.href = url.toString();
+    this.locationCoordinator.onWorldDice();
   }
 
-  /**
-   * Save current location as favorite
-   */
+  /** Save current location as favorite */
   onAddFavorite(): void {
-    this.locationMgmt.saveFavorite();
-    this.resolveFavoriteNames(); // Refresh names
-    this.appendDebugLog('Favorite saved');
+    this.locationCoordinator.onAddFavorite();
   }
 
-  /**
-   * Apply a favorite location
-   */
+  /** Apply a favorite location */
   async onSelectFavorite(fav: FavoriteLocation): Promise<void> {
-    const spawn = fav.spawns[0] || { lat: fav.hq.lat + 0.005, lon: fav.hq.lon };
-
-    // Update service and URL
-    this.locationMgmt.setLocation(fav.hq, fav.spawns);
-    this.syncUrlWithLocation();
-
-    // Apply to game
-    await this.onApplyNewLocation({
-      hq: { lat: fav.hq.lat, lon: fav.hq.lon, name: 'Loading...' },
-      spawn: { lat: spawn.lat, lon: spawn.lon, name: 'Spawn' },
-    });
+    this.locationCoordinator.onSelectFavorite(fav);
   }
 
-  /**
-   * Delete a favorite
-   */
+  /** Delete a favorite */
   onDeleteFavorite(id: string): void {
-    this.locationMgmt.deleteFavorite(id);
-    this.favoriteNamesMap.update(m => {
-      const copy = { ...m };
-      delete copy[id];
-      return copy;
-    });
-    this.appendDebugLog('Favorite deleted');
+    this.locationCoordinator.onDeleteFavorite(id);
   }
 
   /**
-   * Check if street network is already loaded for the given coordinates
-   * Used to avoid double-loading when random spawn uses same location
+   * Build the LocationFlowDelegate for the coordinator service.
+   * Provides component-specific state access for location flow operations.
    */
-  private isSameStreetNetworkLocation(lat: number, lon: number): boolean {
-    if (!this.streetNetworkLocation || !this.streetNetwork) return false;
-    return Math.abs(this.streetNetworkLocation.lat - lat) < this.COORD_EPSILON &&
-           Math.abs(this.streetNetworkLocation.lon - lon) < this.COORD_EPSILON;
+  private buildLocationFlowDelegate(): LocationFlowDelegate {
+    return {
+      getChangeContext: () => {
+        if (!this.engine) return null;
+        return {
+          engine: this.engine,
+          gameState: this.gameState,
+          streetNetwork: this.streetNetwork,
+          streetNetworkLocation: this.streetNetworkLocation,
+          heightDebugVisible: this.heightDebugVisible,
+        };
+      },
+      getChangeCallbacks: () => ({
+        setBaseCoords: (c) => this.baseCoords.set(c),
+        setCenterCoords: (c) => this.centerCoords.set(c),
+        setSpawnPoints: (p) => this.spawnPoints.set(p),
+        addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
+        setStreetCount: (c) => this.streetCount.set(c),
+        setStreetNetwork: (n) => { this.streetNetwork = n; },
+        setStreetNetworkLocation: (l) => { this.streetNetworkLocation = l; },
+        syncUrlWithLocation: () => this.syncUrlWithLocation(),
+        clearMapEntities: () => this.clearMapEntities(),
+        appendDebugLog: (msg) => this.appendDebugLog(msg),
+        initializeTowerPlacement: () => this.initializeTowerPlacement(),
+        filterStreetNetworkToRoutes: () => this.filterStreetNetworkToRoutes(),
+        scheduleOverlayHeightUpdate: () => this.scheduleOverlayHeightUpdate(),
+        getSpawnPoints: () => this.spawnPoints(),
+        getBaseCoords: () => this.baseCoords(),
+      }),
+      isGameInProgress: () => this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
+      getCurrentLocationName: () => this.currentLocationName(),
+    };
   }
 
   private clearMapEntities(): void {
