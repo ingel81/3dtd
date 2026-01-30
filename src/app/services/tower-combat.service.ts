@@ -143,8 +143,8 @@ export class TowerCombatService {
         candidates = allEnemies;
         losCheck = undefined;
       } else {
-        // FALLBACK: Use SpatialGrid for O(k) pre-filtering instead of O(n) over all enemies
-        // Then apply runtime LOS check on the smaller candidate set
+        // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
+        // Returns Enemy[] directly — no ID resolution needed
         const rangeMeters = tower.typeConfig.range;
         if (this.tilesEngine) {
           const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
@@ -152,16 +152,13 @@ export class TowerCombatService {
             tower.position.lon,
             0
           );
-          const nearbyIds = this.spatialGrid.getEnemyIdsInRadius(
+          candidates = this.globalRouteGrid.getEnemiesInRadius(
             towerLocal.x,
             towerLocal.z,
             rangeMeters * 1.1 // 10% margin
           );
-          // Resolve IDs to alive Enemy entities
-          const nearbyIdSet = new Set(nearbyIds);
-          candidates = allEnemies.filter(e => nearbyIdSet.has(e.id));
         } else {
-          // Ultimate fallback: distance-filtered list (no engine available)
+          // Ultimate fallback: geo-distance filter (no engine available)
           candidates = allEnemies.filter(enemy => {
             const dx = enemy.position.lat - tower.position.lat;
             const dy = enemy.position.lon - tower.position.lon;
@@ -283,7 +280,8 @@ export class TowerCombatService {
       if (hasVisibleCells) {
         candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
       } else {
-        // FALLBACK: Use SpatialGrid for O(k) pre-filtering instead of O(n) brute-force
+        // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
+        // Returns Enemy[] directly — no ID resolution needed
         const rangeMeters = tower.typeConfig.beamRange ?? 35;
         if (this.tilesEngine) {
           const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
@@ -291,13 +289,11 @@ export class TowerCombatService {
             tower.position.lon,
             0
           );
-          const nearbyIds = this.spatialGrid.getEnemyIdsInRadius(
+          candidates = this.globalRouteGrid.getEnemiesInRadius(
             towerLocal.x,
             towerLocal.z,
             rangeMeters * 1.2 // 20% margin for beam spread
           );
-          const nearbyIdSet = new Set(nearbyIds);
-          candidates = allEnemies.filter(e => nearbyIdSet.has(e.id));
         } else {
           candidates = allEnemies.filter(enemy => {
             const dx = enemy.position.lat - tower.position.lat;
