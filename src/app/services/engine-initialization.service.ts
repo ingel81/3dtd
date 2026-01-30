@@ -3,7 +3,9 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { CameraFramingService } from './camera-framing.service';
 import { AssetManagerService } from './asset-manager.service';
+import { OsmStreetService, StreetNetwork } from './osm-street.service';
 import { DevWorldService } from '../devworld/devworld.service';
+import { DevStreetProvider } from '../devworld/dev-street.provider';
 
 /**
  * Loading step status
@@ -35,6 +37,7 @@ export class EngineInitializationService {
   private readonly ngZone = inject(NgZone);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly assetManager = inject(AssetManagerService);
+  private readonly osmService = inject(OsmStreetService);
   private readonly devWorld = inject(DevWorldService);
 
   // ========================================
@@ -87,6 +90,9 @@ export class EngineInitializationService {
 
   /** Cesium Ion asset ID */
   private cesiumAssetId: string | null = null;
+
+  /** Tile stats polling interval ID */
+  private tileStatsIntervalId: number | null = null;
 
   // ========================================
   // INITIALIZATION
@@ -358,11 +364,107 @@ export class EngineInitializationService {
   }
 
   // ========================================
+  // TILE STATS POLLING
+  // ========================================
+
+  /**
+   * Start polling tile stats to show loading progress in the tiles step.
+   * Automatically manages polling lifecycle based on tilesLoading state.
+   */
+  startTileStatsPolling(): void {
+    if (this.tileStatsIntervalId) return;
+
+    this.tileStatsIntervalId = window.setInterval(() => {
+      if (!this.engine) return;
+
+      const stats = this.engine.getTileStats();
+      const pending = stats.downloading + stats.parsing;
+      const detail = pending > 0
+        ? `${stats.visible} loaded, ${pending} pending`
+        : `${stats.visible} tiles loaded`;
+      this.updateStepDetail('tiles', detail);
+    }, 500);
+  }
+
+  /**
+   * Stop polling tile stats
+   */
+  stopTileStatsPolling(): void {
+    if (this.tileStatsIntervalId) {
+      clearInterval(this.tileStatsIntervalId);
+      this.tileStatsIntervalId = null;
+    }
+  }
+
+  // ========================================
+  // STREET LOADING
+  // ========================================
+
+  /**
+   * Load street network for the given center coordinates.
+   * Handles both DevWorld (generated streets) and real-world (OSM) modes.
+   *
+   * @param centerLat Center latitude
+   * @param centerLon Center longitude
+   * @param onStreetNetworkRefreshed Callback when DevWorld streets are regenerated
+   * @returns Object with streetNetwork, streetCount, and optional devStreetProvider
+   */
+  async loadStreets(
+    centerLat: number,
+    centerLon: number,
+    onStreetNetworkRefreshed?: (network: StreetNetwork, count: number) => void,
+  ): Promise<{ network: StreetNetwork; count: number; devStreetProvider: DevStreetProvider | null }> {
+    try {
+      // DevWorld mode: Use DevStreetProvider with generated streets from terrain
+      if (this.devWorld.isActive) {
+        console.log('[EngineInit] DevWorld mode - using DevStreetProvider');
+        const devStreetProvider = new DevStreetProvider(this.devWorld);
+
+        // Get generated streets from terrain provider
+        const devTerrainProvider = this.engine?.getDevTerrainProvider();
+
+        if (devTerrainProvider) {
+          // Set initial streets from terrain provider
+          const segments = devTerrainProvider.getStreetSegments();
+          const spawns = devTerrainProvider.getSpawnPoints();
+          devStreetProvider.setGeneratedStreets(segments, spawns);
+
+          // Set up refresh callback for live terrain regeneration
+          devTerrainProvider.setStreetRefreshCallback((newSegments, newSpawns) => {
+            console.log('[EngineInit] Terrain regenerated - updating streets');
+            devStreetProvider.setGeneratedStreets(newSegments, newSpawns);
+            // Reload street network
+            devStreetProvider.loadStreets(centerLat, centerLon, 500).then((network) => {
+              onStreetNetworkRefreshed?.(network, network.streets.length);
+            });
+          });
+        }
+
+        const network = await devStreetProvider.loadStreets(centerLat, centerLon, 500);
+        return { network, count: network.streets.length, devStreetProvider };
+      }
+
+      // Real world: Use OSM
+      const network = await this.osmService.loadStreets(centerLat, centerLon, 2000);
+      return { network, count: network.streets.length, devStreetProvider: null };
+    } catch (err) {
+      console.error('[EngineInit] Failed to load streets:', err);
+      const emptyNetwork: StreetNetwork = {
+        streets: [],
+        nodes: new Map(),
+        bounds: { minLat: 0, maxLat: 0, minLon: 0, maxLon: 0 },
+      };
+      return { network: emptyNetwork, count: 0, devStreetProvider: null };
+    }
+  }
+
+  // ========================================
   // LOADING STATE
   // ========================================
 
   /**
    * Check if all loading is complete (tiles + OSM + heights)
+   * Manages tile stats polling lifecycle automatically.
    * @param heightsLoading Heights loading signal
    */
   checkAllLoaded(heightsLoading: WritableSignal<boolean>): void {
@@ -372,6 +474,14 @@ export class EngineInitializationService {
     const heights = heightsLoading();
 
     console.log(`[EngineInit ${now.toFixed(0)}ms] checkAllLoaded: tiles=${tiles}, osm=${osm}, heights=${heights}`);
+
+    // Manage tile stats polling lifecycle
+    if (tiles && !this.tileStatsIntervalId && this.engine) {
+      this.startTileStatsPolling();
+    }
+    if (!tiles && this.tileStatsIntervalId) {
+      this.stopTileStatsPolling();
+    }
 
     // If heights are done but tiles still loading, show the tiles step
     if (!heights && !osm && tiles) {
@@ -430,6 +540,7 @@ export class EngineInitializationService {
    * Dispose engine and cleanup
    */
   dispose(): void {
+    this.stopTileStatsPolling();
     this.engine = null;
     this.baseCoords = null;
     this.canvas = null;
