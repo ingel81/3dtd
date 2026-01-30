@@ -67,7 +67,7 @@ import { CameraFramingService, GeoPoint } from './services/camera-framing.servic
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
 import { StreetRenderingService } from './services/street-rendering.service';
-import { LocationChangeCoordinatorService, LocationFlowDelegate } from './services/location-change-coordinator.service';
+import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from './services/location-change-coordinator.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
@@ -2149,7 +2149,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
           heightDebugVisible: this.heightDebugVisible,
         };
       },
-      getChangeCallbacks: () => ({
+      getChangeCallbacks: (): LocationChangeCallbacks => ({
         setBaseCoords: (c) => this.baseCoords.set(c),
         setCenterCoords: (c) => this.centerCoords.set(c),
         setSpawnPoints: (p) => this.spawnPoints.set(p),
