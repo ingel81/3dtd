@@ -2,8 +2,9 @@
  * Training Client Service
  *
  * Connects to local Python training backend via WebSocket.
- * Only used during development for AI training.
+ * Also manages the StrategyBot lifecycle and action execution.
  *
+ * Only used during development for AI training.
  * If backend is not running, gracefully falls back to local inference.
  */
 
@@ -14,6 +15,16 @@ import { GameStateSnapshot } from '../core/models/game-state-snapshot';
 import { WaveConfig } from '../core/models/wave-config';
 import { WaveResult } from '../core/models/wave-result';
 import { ENEMY_TYPES } from '../../models/enemy-types';
+import { ITowerBot, TowerAction, BotSkillLevel } from './bots/tower-bot.interface';
+import { StrategyBotFactory } from './bots/strategy-bot.factory';
+import { TOWER_TYPES, UpgradeId } from '../../configs/tower-types.config';
+import { GeoPosition } from '../../models/game.types';
+import { GameStateManager } from '../../managers/game-state.manager';
+import { TowerPlacementService } from '../../services/tower-placement.service';
+import { StrategicPlacementService } from '../../services/strategic-placement.service';
+import { OsmStreetService } from '../../services/osm-street.service';
+import { ThreeTilesEngine } from '../../three-engine';
+import { Tower } from '../../entities/tower.entity';
 
 /** Training backend default port */
 const DEFAULT_BACKEND_URL = 'ws://localhost:3001';
@@ -52,6 +63,16 @@ type ServerMessage =
   | { type: 'model_exported'; path: string; version: string }
   | { type: 'error'; message: string };
 
+/**
+ * Callback interface for component-level operations that the service delegates back.
+ * These are operations that depend on the component (e.g., startWave, upgradeTower, restartGame).
+ */
+export interface TrainingComponentCallbacks {
+  startWave: () => void;
+  upgradeTower: (tower: Tower, upgradeId: UpgradeId) => boolean;
+  restartGame: () => void;
+}
+
 @Injectable() // Provided in TowerDefenseComponent alongside AIDataCollectorService
 export class TrainingClientService {
   private dataCollector = inject(AIDataCollectorService);
@@ -59,7 +80,7 @@ export class TrainingClientService {
   private socket: WebSocket | null = null;
   private clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-  // === SIGNALS ===
+  // === CONNECTION SIGNALS ===
   readonly isConnected = signal(false);
   readonly isConnecting = signal(false);
   readonly connectionError = signal<string | null>(null);
@@ -67,6 +88,22 @@ export class TrainingClientService {
   readonly displayId = signal<number | null>(null);
   readonly stats = signal<TrainingStats | null>(null);
   readonly lastModelVersion = signal<string | null>(null);
+
+  // === BOT SIGNALS ===
+  readonly botEnabled = signal(false);
+  readonly botSkillLevel = signal<BotSkillLevel>('strategist');
+  readonly botStats = signal({ towersPlaced: 0, goldSpent: 0 });
+  readonly botAutoMode = signal(false);
+
+  // === BOT STATE ===
+  private currentBot: ITowerBot | null = null;
+  private botFactory!: StrategyBotFactory;
+
+  // === EXTERNAL DEPENDENCIES (set via initialize()) ===
+  private gameState!: GameStateManager;
+  private towerPlacement!: TowerPlacementService;
+  private engine: ThreeTilesEngine | null = null;
+  private callbacks!: TrainingComponentCallbacks;
 
   // === SUBJECTS FOR ASYNC RESPONSES ===
   private pendingWaveConfig = new Subject<WaveConfig>();
@@ -76,7 +113,307 @@ export class TrainingClientService {
   /** Observable that emits when server requests episode reset */
   readonly onReset$ = this.resetRequested.asObservable();
 
-  // === PUBLIC API ===
+  // === INITIALIZATION ===
+
+  /**
+   * Initialize with dependencies that aren't available via DI.
+   * Must be called before using bot or connectToBackend features.
+   */
+  initialize(deps: {
+    gameState: GameStateManager;
+    towerPlacement: TowerPlacementService;
+    strategicPlacement: StrategicPlacementService;
+    osmService: OsmStreetService;
+    callbacks: TrainingComponentCallbacks;
+  }): void {
+    this.gameState = deps.gameState;
+    this.towerPlacement = deps.towerPlacement;
+    this.callbacks = deps.callbacks;
+
+    this.botFactory = new StrategyBotFactory(
+      deps.strategicPlacement,
+      deps.gameState,
+      deps.osmService
+    );
+  }
+
+  /**
+   * Set the engine reference (may be set after initialize, once engine is ready)
+   */
+  setEngine(engine: ThreeTilesEngine | null): void {
+    this.engine = engine;
+  }
+
+  // === BOT API ===
+
+  /**
+   * Enable StrategyBot for automated training
+   */
+  enableBot(skillLevel: BotSkillLevel): void {
+    this.currentBot = this.botFactory.createBot(
+      skillLevel,
+      this.botAutoMode() // autoStartWaves
+    );
+    this.botEnabled.set(true);
+    this.botSkillLevel.set(skillLevel);
+    this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
+
+    console.log(`[Training] StrategyBot enabled: ${skillLevel}, autoMode: ${this.botAutoMode()}`);
+  }
+
+  /**
+   * Disable StrategyBot
+   */
+  disableBot(): void {
+    this.currentBot = null;
+    this.botEnabled.set(false);
+    console.log('[Training] StrategyBot disabled');
+  }
+
+  /**
+   * Reset bot state (for new game / game over)
+   */
+  resetBot(): void {
+    if (this.currentBot) {
+      this.currentBot.reset();
+      this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
+    }
+  }
+
+  /**
+   * Update bot (called each frame from component's update loop)
+   * @returns true if bot performed an action
+   */
+  updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
+    if (!this.botEnabled() || !this.currentBot) return false;
+
+    const phase = this.gameState.phase();
+    if (phase !== 'setup' && phase !== 'wave') return false;
+
+    const action = this.currentBot.update(snapshot, deltaTime);
+    if (action) {
+      this.executeBotAction(action);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Execute bot action
+   */
+  executeBotAction(action: TowerAction): void {
+    switch (action.type) {
+      case 'place':
+        if (action.position && action.towerType) {
+          // Convert grid coordinates (x, z) back to GeoPosition (lon, lat)
+          // CRITICAL: Get terrain height for accurate placement!
+          if (!this.engine) {
+            console.warn(`[Bot] ⛔ Engine not initialized - ${action.reason}`);
+            break;
+          }
+
+          const terrainHeight = this.engine.getTerrainHeightAtGeo(action.position.z, action.position.x);
+
+          if (terrainHeight === null) {
+            console.warn(`[Bot] ⛔ Cannot get terrain height at position - ${action.reason}`);
+            break;
+          }
+
+          const geoPos: GeoPosition = {
+            lat: action.position.z,
+            lon: action.position.x,
+            height: terrainHeight
+          };
+
+          // Validate using TowerPlacementService with height (prevents building on rooftops!)
+          const validation = this.towerPlacement.validateTowerPositionWithHeight(geoPos);
+
+          if (!validation.valid) {
+            console.warn(`[Bot] ⛔ Position invalid: ${validation.reason} - ${action.reason}`);
+            break;
+          }
+
+          // Check if player has enough credits BEFORE placement
+          const towerConfig = TOWER_TYPES[action.towerType];
+          if (!towerConfig || this.gameState.credits() < towerConfig.cost) {
+            console.warn(`[Bot] ⛔ Not enough credits (${this.gameState.credits()}/${towerConfig?.cost}) - ${action.reason}`);
+            break;
+          }
+
+          const tower = this.gameState.placeTower(geoPos, action.towerType);
+
+          if (tower) {
+            console.log(`[Bot] ✅ Placed ${action.towerType} at ${action.reason || 'position'}`);
+
+            // Update stats
+            this.botStats.update(stats => ({
+              towersPlaced: stats.towersPlaced + 1,
+              goldSpent: stats.goldSpent + towerConfig.cost
+            }));
+          } else {
+            console.error(`[Bot] ⛔ Placement failed after validation passed! - ${action.reason}`);
+          }
+        }
+        break;
+
+      case 'upgrade':
+        if (action.towerId && action.upgradeId) {
+          // Find tower by ID
+          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
+
+          if (!tower) {
+            console.warn(`[Bot] ⛔ Tower not found: ${action.towerId} - ${action.reason}`);
+            break;
+          }
+
+          // Get upgrade details for validation
+          const upgrade = tower.typeConfig.upgrades.find(u => u.id === action.upgradeId);
+
+          if (!upgrade) {
+            console.warn(`[Bot] ⛔ Upgrade not found: ${action.upgradeId} - ${action.reason}`);
+            break;
+          }
+
+          // Check if tower can be upgraded (not at max level)
+          if (!tower.canUpgrade(action.upgradeId as UpgradeId)) {
+            console.warn(`[Bot] ⛔ Upgrade at max level: ${tower.typeConfig.name} ${upgrade.name} - ${action.reason}`);
+            break;
+          }
+
+          // Check if we can afford it (dynamic cost based on level)
+          const upgradeCost = tower.getNextUpgradeCost(action.upgradeId as UpgradeId);
+          if (this.gameState.credits() < upgradeCost) {
+            console.warn(`[Bot] ⛔ Not enough credits for upgrade: ${this.gameState.credits()}/${upgradeCost} - ${action.reason}`);
+            break;
+          }
+
+          // Attempt upgrade (this deducts credits if successful)
+          const success = this.callbacks.upgradeTower(tower, action.upgradeId as UpgradeId);
+
+          if (success) {
+            console.log(`[Bot] ✅ Upgraded ${tower.typeConfig.name} with ${upgrade.name} - ${action.reason}`);
+
+            // Update bot stats (only if successful)
+            this.botStats.update(stats => ({
+              ...stats,
+              goldSpent: stats.goldSpent + upgradeCost
+            }));
+          } else {
+            console.error(`[Bot] ⛔ Upgrade failed unexpectedly - ${action.reason}`);
+          }
+        }
+        break;
+
+      case 'sell':
+        // TODO: Implement sell execution
+        console.log('[Bot] Sell requested:', action);
+        break;
+
+      case 'wait':
+        // Do nothing
+        break;
+
+      case 'start-wave': {
+        // Auto-start next wave (only if in setup phase!)
+        const currentPhase = this.gameState.phase();
+        if (currentPhase === 'setup') {
+          console.log(`[Bot] ${action.reason || 'Auto-starting wave'}`);
+          this.callbacks.startWave();
+        } else {
+          // Silently ignore - wave already active
+        }
+        break;
+      }
+    }
+  }
+
+  // === TRAINING BACKEND CONNECTION ===
+
+  /**
+   * Connect to training backend and set up event subscriptions (non-blocking)
+   */
+  async connectToBackend(): Promise<void> {
+    try {
+      const connected = await this.connect();
+      if (connected) {
+        console.log('[AI] Connected to training backend');
+
+        // Notify backend of game start (sends enemy base HP config)
+        this.notifyGameStart('normal');
+
+        // Only enable fast speed and bot if bot=auto mode is active
+        if (this.botAutoMode()) {
+          // Enable training mode with 75x timescale for maximum training speed (don't persist to localStorage)
+          this.gameState.setTrainingTimescale(75.0, false);
+          console.log('[AI] Training mode enabled (75x speed)');
+
+          // Enable StrategyBot for automated training
+          this.enableBot('strategist');
+        } else {
+          console.log('[AI] Connected to training backend (manual play mode - no bot, 1x speed)');
+        }
+
+        // Subscribe to wave completion events to send results to backend
+        this.gameState.getEventBus().on('wave:completed', async (_event) => {
+          console.log('[Wave] Wave completed! Bot will prepare for next wave...');
+
+          if (this.isConnected()) {
+            // Get the wave result from data collector
+            const history = this.dataCollector.getWaveHistory();
+            if (history.length > 0) {
+              const latestResult = history[history.length - 1];
+
+              // Add current state (after wave) to result for learning
+              const currentState = this.dataCollector.getStateSnapshot();
+              const resultWithState = {
+                ...latestResult,
+                stateAfter: currentState
+              };
+
+              console.log('[AI] Sending wave result to backend:', resultWithState);
+              await this.sendWaveResult(resultWithState);
+              console.log('[AI] Sent wave result + state to backend');
+            }
+          }
+        });
+
+        // Subscribe to game over events
+        this.gameState.getEventBus().on('game:over', async (_event) => {
+          if (this.isConnected()) {
+            // Send game over notification
+            console.log('[AI] Sending game over to backend:', {
+              won: false,
+              waveNumber: this.gameState.waveManager.waveNumber()
+            });
+            this.notifyGameOver(false, this.gameState.waveManager.waveNumber());
+            console.log('[AI] Sent game over to backend');
+
+            // Also send the final wave result if available
+            const history = this.dataCollector.getWaveHistory();
+            if (history.length > 0) {
+              const latestResult = history[history.length - 1];
+              console.log('[AI] Sending final wave result to backend:', latestResult);
+              await this.sendWaveResult(latestResult);
+              console.log('[AI] Sent final wave result to backend');
+            }
+          }
+        });
+
+        // Subscribe to episode reset from training backend
+        this.onReset$.subscribe(() => {
+          console.log('[AI] Episode reset - restarting game');
+          this.callbacks.restartGame();
+          this.notifyGameStart('normal');
+        });
+      } else {
+        console.log('[AI] Training backend not available, using local inference');
+      }
+    } catch (error) {
+      console.warn('[AI] Failed to connect to training backend', error);
+    }
+  }
+
+  // === WEBSOCKET API ===
 
   /**
    * Connect to training backend

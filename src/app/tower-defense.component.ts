@@ -87,7 +87,6 @@ import { adaptAIWaveConfigSingle } from './ai/core/wave-config-adapter';
 // AI Bot Training
 import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { StrategicPlacementService } from './services/strategic-placement.service';
-import { GeoPosition } from './models/game.types';
 import { DpsProfileVisualizer } from './ai/core/dps-profile-visualizer';
 
 // Initial empty coords - will be set when location is loaded (using GeoPosition format)
@@ -660,6 +659,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     if (this.engine) {
       this.engine.dispose();
       this.engine = null;
+      this.trainingClient.setEngine(null);
     }
   }
 
@@ -698,6 +698,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Get engine reference
       this.engine = this.engineInit.getEngine();
+      this.trainingClient.setEngine(this.engine);
 
       // Register callbacks
       if (this.engine) {
@@ -1896,241 +1897,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Connect to training backend (non-blocking)
-   */
-  private async connectToTrainingBackend(): Promise<void> {
-    try {
-      const connected = await this.trainingClient.connect();
-      if (connected) {
-        console.log('[AI] Connected to training backend');
-
-        // Notify backend of game start (sends enemy base HP config)
-        this.trainingClient.notifyGameStart('normal');
-
-        // Only enable fast speed and bot if bot=auto mode is active
-        if (this.botAutoMode()) {
-          // Enable training mode with 75x timescale for maximum training speed (don't persist to localStorage)
-          this.gameState.setTrainingTimescale(75.0, false);
-          console.log('[AI] Training mode enabled (75x speed)');
-
-          // Enable StrategyBot for automated training
-          this.enableBot('strategist');
-        } else {
-          console.log('[AI] Connected to training backend (manual play mode - no bot, 1x speed)');
-        }
-
-        // Subscribe to wave completion events to send results to backend
-        this.gameState.getEventBus().on('wave:completed', async (_event) => {
-          console.log('[Wave] Wave completed! Bot will prepare for next wave...');
-
-          if (this.trainingClient.isConnected()) {
-            // Get the wave result from data collector
-            const history = this.aiDataCollector.getWaveHistory();
-            if (history.length > 0) {
-              const latestResult = history[history.length - 1];
-
-              // Add current state (after wave) to result for learning
-              const currentState = this.aiDataCollector.getStateSnapshot();
-              const resultWithState = {
-                ...latestResult,
-                stateAfter: currentState
-              };
-
-              console.log('[AI] Sending wave result to backend:', resultWithState);
-              await this.trainingClient.sendWaveResult(resultWithState);
-              console.log('[AI] Sent wave result + state to backend');
-            }
-          }
-        });
-
-        // Subscribe to game over events
-        this.gameState.getEventBus().on('game:over', async (_event) => {
-          if (this.trainingClient.isConnected()) {
-            // Send game over notification
-            console.log('[AI] Sending game over to backend:', {
-              won: false,
-              waveNumber: this.gameState.waveManager.waveNumber()
-            });
-            this.trainingClient.notifyGameOver(false, this.gameState.waveManager.waveNumber());
-            console.log('[AI] Sent game over to backend');
-
-            // Also send the final wave result if available
-            const history = this.aiDataCollector.getWaveHistory();
-            if (history.length > 0) {
-              const latestResult = history[history.length - 1];
-              console.log('[AI] Sending final wave result to backend:', latestResult);
-              await this.trainingClient.sendWaveResult(latestResult);
-              console.log('[AI] Sent final wave result to backend');
-            }
-          }
-        });
-
-        // Subscribe to episode reset from training backend
-        this.trainingClient.onReset$.subscribe(() => {
-          console.log('[AI] Episode reset - restarting game');
-          this.restartGame();
-          this.trainingClient.notifyGameStart('normal');
-        });
-      } else {
-        console.log('[AI] Training backend not available, using local inference');
-      }
-    } catch (error) {
-      console.warn('[AI] Failed to connect to training backend', error);
-    }
-  }
-
-  /**
-   * Enable StrategyBot for automated training
+   * Enable StrategyBot for automated training — delegates to TrainingClientService
    */
   enableBot(skillLevel: BotSkillLevel): void {
-    this.currentBot = this.botFactory.createBot(
-      skillLevel,
-      this.botAutoMode() // autoStartWaves
-    );
-    this.botEnabled.set(true);
-    this.botSkillLevel.set(skillLevel);
-    this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
-
-    console.log(`[Training] StrategyBot enabled: ${skillLevel}, autoMode: ${this.botAutoMode()}`);
+    this.trainingClient.enableBot(skillLevel);
   }
 
   /**
-   * Disable StrategyBot
+   * Disable StrategyBot — delegates to TrainingClientService
    */
   disableBot(): void {
-    this.currentBot = null;
-    this.botEnabled.set(false);
-    console.log('[Training] StrategyBot disabled');
-  }
-
-  /**
-   * Execute bot action
-   */
-  private executeBotAction(action: TowerAction): void {
-    switch (action.type) {
-      case 'place':
-        if (action.position && action.towerType) {
-          // Convert grid coordinates (x, z) back to GeoPosition (lon, lat)
-          // CRITICAL: Get terrain height for accurate placement!
-          if (!this.engine) {
-            console.warn(`[Bot] ⛔ Engine not initialized - ${action.reason}`);
-            break;
-          }
-
-          const terrainHeight = this.engine.getTerrainHeightAtGeo(action.position.z, action.position.x);
-
-          if (terrainHeight === null) {
-            console.warn(`[Bot] ⛔ Cannot get terrain height at position - ${action.reason}`);
-            break;
-          }
-
-          const geoPos: GeoPosition = {
-            lat: action.position.z,
-            lon: action.position.x,
-            height: terrainHeight
-          };
-
-          // Validate using TowerPlacementService with height (prevents building on rooftops!)
-          const validation = this.towerPlacement.validateTowerPositionWithHeight(geoPos);
-
-          if (!validation.valid) {
-            console.warn(`[Bot] ⛔ Position invalid: ${validation.reason} - ${action.reason}`);
-            break;
-          }
-
-          // Check if player has enough credits BEFORE placement
-          const towerConfig = TOWER_TYPES[action.towerType];
-          if (!towerConfig || this.gameState.credits() < towerConfig.cost) {
-            console.warn(`[Bot] ⛔ Not enough credits (${this.gameState.credits()}/${towerConfig?.cost}) - ${action.reason}`);
-            break;
-          }
-
-          const tower = this.gameState.placeTower(geoPos, action.towerType);
-
-          if (tower) {
-            console.log(`[Bot] ✅ Placed ${action.towerType} at ${action.reason || 'position'}`);
-
-            // Update stats
-            this.botStats.update(stats => ({
-              towersPlaced: stats.towersPlaced + 1,
-              goldSpent: stats.goldSpent + towerConfig.cost
-            }));
-          } else {
-            console.error(`[Bot] ⛔ Placement failed after validation passed! - ${action.reason}`);
-          }
-        }
-        break;
-
-      case 'upgrade':
-        if (action.towerId && action.upgradeId) {
-          // Find tower by ID
-          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
-
-          if (!tower) {
-            console.warn(`[Bot] ⛔ Tower not found: ${action.towerId} - ${action.reason}`);
-            break;
-          }
-
-          // Get upgrade details for validation
-          const upgrade = tower.typeConfig.upgrades.find(u => u.id === action.upgradeId);
-
-          if (!upgrade) {
-            console.warn(`[Bot] ⛔ Upgrade not found: ${action.upgradeId} - ${action.reason}`);
-            break;
-          }
-
-          // Check if tower can be upgraded (not at max level)
-          if (!tower.canUpgrade(action.upgradeId as UpgradeId)) {
-            console.warn(`[Bot] ⛔ Upgrade at max level: ${tower.typeConfig.name} ${upgrade.name} - ${action.reason}`);
-            break;
-          }
-
-          // Check if we can afford it (dynamic cost based on level)
-          const upgradeCost = tower.getNextUpgradeCost(action.upgradeId as UpgradeId);
-          if (this.gameState.credits() < upgradeCost) {
-            console.warn(`[Bot] ⛔ Not enough credits for upgrade: ${this.gameState.credits()}/${upgradeCost} - ${action.reason}`);
-            break;
-          }
-
-          // Attempt upgrade (this deducts credits if successful)
-          const success = this.upgradeTower(tower, action.upgradeId as UpgradeId);
-
-          if (success) {
-            console.log(`[Bot] ✅ Upgraded ${tower.typeConfig.name} with ${upgrade.name} - ${action.reason}`);
-
-            // Update bot stats (only if successful)
-            this.botStats.update(stats => ({
-              ...stats,
-              goldSpent: stats.goldSpent + upgradeCost
-            }));
-          } else {
-            console.error(`[Bot] ⛔ Upgrade failed unexpectedly - ${action.reason}`);
-          }
-        }
-        break;
-
-      case 'sell':
-        // TODO: Implement sell execution
-        console.log('[Bot] Sell requested:', action);
-        break;
-
-      case 'wait':
-        // Do nothing
-        break;
-
-      case 'start-wave': {
-        // Auto-start next wave (only if in setup phase!)
-        const currentPhase = this.gameState.phase();
-        if (currentPhase === 'setup') {
-          console.log(`[Bot] ${action.reason || 'Auto-starting wave'}`);
-          this.startWave(); // Use existing startWave() method (handles AI and manual modes)
-        } else {
-          // Silently ignore - wave already active
-          // This prevents bot from spamming wave starts during active waves
-        }
-        break;
-      }
-    }
+    this.trainingClient.disableBot();
   }
 
   /**
@@ -2422,10 +2199,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.pendingAIWaveRequest = false;
 
     // Reset bot state
-    if (this.currentBot) {
-      this.currentBot.reset();
-      this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
-    }
+    this.trainingClient.resetBot();
 
     // Re-initialize GlobalRouteGrid (was cleared in reset)
     this.gameState.initializeGlobalRouteGrid();
