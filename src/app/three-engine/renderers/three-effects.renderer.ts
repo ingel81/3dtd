@@ -1464,6 +1464,7 @@ export class ThreeEffectsRenderer {
 
     // Choose pool based on blending mode (default: additive for backwards compatibility)
     const pool = config.blending === 'normal' ? this.trailPoolNormal : this.trailPoolAdditive;
+    const poolCursorKey = config.blending === 'normal' ? 'trailNormal' as const : 'trailAdditive' as const;
 
     // Spiral trail type: railgun-style rotating particles
     if (config.trailType === 'spiral') {

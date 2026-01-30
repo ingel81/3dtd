@@ -67,6 +67,54 @@ const ROAD_TYPE_WEIGHTS: Record<string, number> = {
 /** Default weight for unknown street types */
 const DEFAULT_ROAD_WEIGHT = 1.5;
 
+/**
+ * MinHeap for A* pathfinding - O(log n) insert/extract
+ */
+class MinHeap<T> {
+  private heap: { item: T; priority: number }[] = [];
+
+  get size(): number { return this.heap.length; }
+
+  push(item: T, priority: number): void {
+    this.heap.push({ item, priority });
+    this._bubbleUp(this.heap.length - 1);
+  }
+
+  pop(): T | undefined {
+    if (this.heap.length === 0) return undefined;
+    const top = this.heap[0].item;
+    const last = this.heap.pop()!;
+    if (this.heap.length > 0) {
+      this.heap[0] = last;
+      this._sinkDown(0);
+    }
+    return top;
+  }
+
+  private _bubbleUp(i: number): void {
+    while (i > 0) {
+      const parent = (i - 1) >> 1;
+      if (this.heap[i].priority >= this.heap[parent].priority) break;
+      [this.heap[i], this.heap[parent]] = [this.heap[parent], this.heap[i]];
+      i = parent;
+    }
+  }
+
+  private _sinkDown(i: number): void {
+    const len = this.heap.length;
+    while (true) {
+      let smallest = i;
+      const left = 2 * i + 1;
+      const right = 2 * i + 2;
+      if (left < len && this.heap[left].priority < this.heap[smallest].priority) smallest = left;
+      if (right < len && this.heap[right].priority < this.heap[smallest].priority) smallest = right;
+      if (smallest === i) break;
+      [this.heap[i], this.heap[smallest]] = [this.heap[smallest], this.heap[i]];
+      i = smallest;
+    }
+  }
+}
+
 @Injectable({
   providedIn: 'root',
 })
@@ -506,28 +554,23 @@ export class OsmStreetService {
     endLat: number,
     endLon: number
   ): StreetNode[] {
-    const openSet = new Set<number>([start.id]);
+    const openHeap = new MinHeap<number>();
+    const openSetTracker = new Set<number>([start.id]);
     const cameFrom = new Map<number, number>();
     const gScore = new Map<number, number>();
     const fScore = new Map<number, number>();
 
+    const startF = this.haversineDistance(start.lat, start.lon, endLat, endLon);
     gScore.set(start.id, 0);
-    fScore.set(start.id, this.haversineDistance(start.lat, start.lon, endLat, endLon));
+    fScore.set(start.id, startF);
+    openHeap.push(start.id, startF);
 
-    while (openSet.size > 0) {
-      // Find node in openSet with lowest fScore
-      let current: number | null = null;
-      let lowestF = Infinity;
+    while (openHeap.size > 0) {
+      // Extract node with lowest fScore - O(log n) via MinHeap
+      const current = openHeap.pop()!;
 
-      for (const nodeId of openSet) {
-        const f = fScore.get(nodeId) ?? Infinity;
-        if (f < lowestF) {
-          lowestF = f;
-          current = nodeId;
-        }
-      }
-
-      if (current === null) break;
+      // Skip if already processed (stale heap entry)
+      if (!openSetTracker.has(current)) continue;
 
       if (current === end.id) {
         // Reconstruct path
@@ -543,7 +586,7 @@ export class OsmStreetService {
         return path;
       }
 
-      openSet.delete(current);
+      openSetTracker.delete(current);
       const currentEntry = graph.get(current);
 
       if (!currentEntry) continue;
@@ -568,12 +611,11 @@ export class OsmStreetService {
           cameFrom.set(neighbor.nodeId, current);
           gScore.set(neighbor.nodeId, tentativeG);
           // Heuristic uses unweighted distance (admissible heuristic)
-          fScore.set(
-            neighbor.nodeId,
-            tentativeG + this.haversineDistance(neighborEntry.node.lat, neighborEntry.node.lon, endLat, endLon)
-          );
+          const neighborF = tentativeG + this.haversineDistance(neighborEntry.node.lat, neighborEntry.node.lon, endLat, endLon);
+          fScore.set(neighbor.nodeId, neighborF);
 
-          openSet.add(neighbor.nodeId);
+          openHeap.push(neighbor.nodeId, neighborF);
+          openSetTracker.add(neighbor.nodeId);
         }
       }
     }
