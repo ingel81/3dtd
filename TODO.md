@@ -190,10 +190,6 @@
 
 ## 4.2 Game Design & Balance
 
-- [ ] **20-Wellen-Progressions-System implementieren**
-      Spiel braucht Ziel und Win-Condition
-      Datei: `wave.manager.ts`
-      Scaling: Welle 1 (10 Zombies) → Welle 20 (Boss-Gauntlet)
 
 - [ ] **Schwierigkeitsgrad-Auswahl hinzufügen**
       Presets: Easy (150% Credits), Normal, Hard (50%), Expert (25%)
