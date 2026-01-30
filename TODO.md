@@ -11,15 +11,7 @@
 
 > **Ziel:** Stabile, testbare, wartbare Basis
 
-## 1.1 EventBus-Entkopplung (Langfristig)
-
-- [ ] **GameStateManager God-Object reduzieren**
-      Importiert direkt: Tower/Enemy/Projectile/Wave Manager + 5 Services
-      Schrittweise über Event-Koordination entkoppeln
-
-> ⚠️ **NICHT anfassen:** Audio/Sound Events (bekannte Themen, separat behandeln)
-
-## 1.2 Performance Monitoring (Prio 1)
+## 1.1 Performance Monitoring (Prio 1)
 
 - [ ] **Performance Instrumentation**
       PerformanceMonitorService mit mark/measure, Memory, Long Tasks
@@ -78,23 +70,19 @@
       `three-tower.renderer.ts:315-322` - Shared Geometry + Material
       → [Teil 4.3](docs/archive/PERFORMANCE_REPORT.md#43-selection-ring-geometry-nicht-geteilt)
 
-- [ ] **Partikel-Systeme konsolidieren** - 4 → 2 Draw Calls
-      `three-effects.renderer.ts` - Additive + Normal zusammenfassen
-      → [Teil 6.2](docs/archive/PERFORMANCE_REPORT.md#62-konsolidierung-der-partikel-systeme)
+- [x] **Partikel-Systeme konsolidieren** - 4 → 2 Draw Calls ✅ `fd5d524`
+      `three-effects.renderer.ts` - Blood+Fire Pools entfernt, in Trail-Pools integriert
 
 - [ ] **HQ Explosion Partikel reduzieren** - 1350 → 500 Partikel
       `game-state.manager.ts:990-1103` - Massive Overdraw
       → [Teil 5.2](docs/archive/PERFORMANCE_REPORT.md#52-overdraw-durch-additive-blending)
 
-## 2.4 Asset-Optimierungen
+## 2.4 Collision & Spatial Queries
 
-- [ ] **Draco Model Compression** - 132MB → 30MB Models
-      gltf-pipeline mit Draco, DRACOLoader in asset-manager
-      → [Teil 10.1](docs/archive/PERFORMANCE_REPORT.md#101-unkomprimierte-3d-models--kritisch-132mb)
-
-- [ ] **Progressive Asset Loading** - 3-8s → 0.5-1s TTI
-      Nur Critical Assets upfront, Rest im Background
-      → [Teil 10.4](docs/archive/PERFORMANCE_REPORT.md#104-fehlende-progressive-loading)
+- [ ] **Spatial-Grid für Kollisionserkennung** ⭐ HIGH PRIORITY
+      Projektil↔Enemy-Kollision + Tower-Range-Checks: O(n²) → O(n log n)
+      Ab 100+ Enemies + Projektile deutlich spürbar
+      Ziel: Uniform Grid oder Quadtree für schnelle Nachbarschaftsabfragen
 
 ## 2.5 Pathfinding-Optimierungen
 
@@ -143,27 +131,19 @@
       Aktuell: 1015 Zeilen, zu groß
       Module: `PoolManager`, `PannerManager`, `ListenerManager`, `SpatialAudioFacade`
 
-- [ ] **Tower-Distance-Berechnungen zentralisieren**
-      Nutze `geoDistanceFast()` aus `geo-utils.ts` statt Duplikation
+- [x] **Tower-Distance-Berechnungen zentralisieren** ✅ `a8bd3ce`
+      Nutzt jetzt `geoDistanceFast()` aus `geo-utils.ts`
 
-## 3.4 Error Handling & DevOps
+## 3.4 Error Handling
 
-- [ ] **Custom-Error-Klassen**
-      Klassen: `GameError`, `AssetLoadError`, `PathfindingError`
-      Besseres Error-Handling und Debugging
-
-- [ ] **Pre-Commit-Hooks (Husky + Lint-Staged)**
-      Hooks: ESLint, Prettier, Type-Check vor Commit
+- [x] **Custom-Error-Klassen** ✅ `a8bd3ce`
+      `GameError`, `AssetLoadError`, `PathfindingError`, `GameStateError` in `src/app/models/errors.ts`
 
 ## 3.5 Integration Tests
 
 - [ ] **Integration-Tests: Manager-Interaktionen**
       Tests: GameState + TowerManager + EnemyManager Zusammenspiel
       Ziel: 50% Coverage
-
-- [ ] **E2E-Tests mit Playwright**
-      `npm install -D @playwright/test`
-      Flows: Komplette Spielrunde, Tower-Placement, Wave-Progression
 
 ---
 
@@ -188,13 +168,20 @@
 - [ ] **Freeze-Visual-Effect für Ice-Slow**
       Blaue Partikel-Aura + Emissive-Tint auf Enemy
 
-## 4.2 Game Design & Balance
+- [ ] **Sprite-Sheet-Partikel-System** - Texture Atlas 4×4
+      Animierte Partikel statt einfarbige Points
+      UV-Offset im Shader pro Frame für Explosionen, Rauch etc.
 
+- [ ] **Projektil-Trail-Streaks** - Shader mit Fade
+      Ribbon/Trail-Mesh oder Quad-Strip mit Alpha-Fade
+      Raketen mit Rauchschweif, Pfeile mit Lichtstreifen
 
-- [ ] **Schwierigkeitsgrad-Auswahl hinzufügen**
-      Presets: Easy (150% Credits), Normal, Hard (50%), Expert (25%)
+- [ ] **Color-Grading-LUT** - Dark Fantasy Atmosphäre (Demo-Option)
+      Post-Processing mit 3D-LUT (16³ als 2D-Textur)
+      Three.js `LUTPass` — als togglebare Demo-Option zum Rumspielen
+      Minimal Performance-Cost (ein Fullscreen-Pass)
 
-## 4.3 Gameplay Features
+## 4.2 Gameplay Features
 
 - [ ] **Spielgeschwindigkeit-Auswahl (Timescale)**
       UI: Prominente Buttons/Toggle im Spiel (3 Stufen)
@@ -206,22 +193,13 @@
       Rechtsklick im Baumodus soll das Bauen abbrechen und den Turm nicht platzieren
       Datei: `tower-placement.service.ts` oder `input-handler.service.ts`
 
-- [ ] **Tower-Targeting-Strategien**
-      Modi: Closest, Lowest HP, Strongest, Flying Priority
-      UI: Dropdown im Tower-Info-Panel
+- [x] **Tower-Targeting-Strategien** ✅
+      Implementiert: closest, lowest-hp, highest-hp, first, air-priority
+      Defaults pro Tower-Typ konfiguriert
 
 - [ ] **Range-Upgrade System implementieren**
       Tower-Upgrades die Range erhöhen
-      LOS-Zellen müssen bei Upgrade neu berechnet werden
-
-- [ ] **Tower-Synergien implementieren**
-      Beispiele: Ice Slow + Cannon = +20% Damage
-
-## 4.4 Onboarding
-
-- [ ] **5-Wellen-Tutorial**
-      Onboarding für neue Spieler
-      Schritte: Placement → Upgrade → Targeting → Flying → Boss
+      ⚠️ LOS-Zellen müssen bei Range-Upgrade neu berechnet werden!
 
 ---
 
@@ -389,19 +367,22 @@
 
 ## Performance - Advanced
 
-- [ ] **Spatial-Grid für Kollisionserkennung** - O(n²) → O(n log n), ab 500+ Entities
 - [ ] **Object-Pooling für Projektile** - Pool-Größe: 500 pro Typ
+      ⚠️ GPU-Instancing existiert bereits — Entity-Pooling (JS-Objekte) nochmal prüfen ob GC-Druck messbar ist
 - [ ] **Tower-Model-LOD-System** - Three.js LOD: High/Medium/Low
 - [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (weniger kritisch, siehe Hinweis in PERFORMANCE_REPORT)
-- [ ] **Web Worker Pathfinding** - 200-600ms → 0ms Main Thread
+- [ ] **Web Worker Offloading** - Pathfinding + weitere rechenintensive Logik
+      Pathfinding: 200-600ms → 0ms Main Thread
+      Auch prüfen: Collision-Checks, Wave-Director-Inference, Audio-Decoding
 - [ ] **Tower GPU Instancing** - Schwierig wegen Rotationen
+
+## Gameplay - Backlog
+
+- [ ] **Tower-Synergien** - Ice+Cannon = +20% Damage, etc.
 
 ## Visual Effects - Advanced
 
-- [ ] **Sprite-Sheet-Partikel-System** - Texture-Atlas 4×4
-- [ ] **Projektil-Trail-Streaks** - Shader mit Fade
 - [ ] **Advanced-Explosion-Staging** - 2-Stage Explosionen
-- [ ] **Color-Grading-LUT** - Dark-Fantasy Atmosphäre
 
 ## Terrain & Routing Experimente
 
