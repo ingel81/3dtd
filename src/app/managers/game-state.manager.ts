@@ -219,15 +219,16 @@ export class GameStateManager {
     });
 
     this.eventBus.on('debug:add-health', (event) => {
+      const oldHealth = this.baseHealth();
       const newHealth = Math.min(
         GAME_BALANCE.player.startHealth,
-        Math.max(0, this.baseHealth() + event.amount)
+        Math.max(0, oldHealth + event.amount)
       );
       this.baseHealth.set(newHealth);
       this.eventBus.emit({
         type: 'health:changed',
         health: newHealth,
-        delta: event.amount,
+        delta: newHealth - oldHealth,
       });
     });
 

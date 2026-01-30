@@ -91,6 +91,11 @@ export class InputHandlerService {
     onClickCallback: (lat: number, lon: number, height: number) => void,
     onMouseMoveCallback: (lat: number, lon: number, hitPoint: THREE.Vector3) => void
   ): void {
+    // Prevent double-init: clean up existing listeners first
+    if (this.pointerDownHandler || this.pointerUpHandler || this.pointerMoveHandler) {
+      this.dispose();
+    }
+
     this.canvas = canvas;
     this.engine = engine;
     this.gameState = gameState;
