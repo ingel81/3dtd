@@ -3,6 +3,8 @@ import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { Projectile } from '../entities/projectile.entity';
 import { GeoPosition } from '../models/game.types';
+import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
+import { WaveConfig } from '../managers/wave.manager';
 
 /**
  * Game Event Type Definitions
@@ -61,11 +63,6 @@ export type GameEvent =
       target: Enemy;
       damage: number;
     }
-  | {
-      type: 'projectile:missed';
-      projectile: Projectile;
-    }
-
   // ==================== Wave Events ====================
   | {
       type: 'wave:started';
@@ -83,14 +80,11 @@ export type GameEvent =
       type: 'game:started';
     }
   | {
-      type: 'game:paused';
-    }
-  | {
-      type: 'game:resumed';
-    }
-  | {
       type: 'game:over';
       reason: 'base-destroyed' | 'quit';
+    }
+  | {
+      type: 'game:reset';
     }
   | {
       type: 'credits:changed';
@@ -131,13 +125,6 @@ export type GameEvent =
       targetLost: boolean; // true = ground impact, false = enemy hit
     }
 
-  // ==================== UI Events (Deferred) ====================
-  | {
-      type: 'ui:notification';
-      message: string;
-      level: 'info' | 'warning' | 'error';
-    }
-
   // ==================== Debug Events ====================
   | {
       type: 'debug:sound';
@@ -161,8 +148,49 @@ export type GameEvent =
   | {
       type: 'debug:kill-all';
     }
+  // ==================== Command Events (UI → Game Engine) ====================
   | {
-      type: 'debug:reset-wave';
+      type: 'command:place-tower';
+      position: { lat: number; lon: number; height?: number };
+      typeId: TowerTypeId;
+      rotation?: number;
+    }
+  | {
+      type: 'command:sell-tower';
+      towerId: string;
+    }
+  | {
+      type: 'command:upgrade-tower';
+      towerId: string;
+      upgradeId: UpgradeId;
+    }
+  | {
+      type: 'command:start-wave';
+      config?: WaveConfig;
+    }
+  | {
+      type: 'command:restart-game';
+    }
+
+  // ==================== Debug Command Events ====================
+  | {
+      type: 'debug:add-credits';
+      amount: number;
+    }
+  | {
+      type: 'debug:add-health';
+      amount: number;
+    }
+  | {
+      type: 'debug:toggle-movement';
+      enabled: boolean;
+    }
+  | {
+      type: 'debug:remove-enemy';
+      enemyId: string;
+    }
+  | {
+      type: 'debug:clear-enemies';
     };
 
 /**
@@ -402,7 +430,6 @@ export class GameEventBus {
    * Use for non-critical events that can wait 1 frame:
    * - audio:play (audio can wait 16ms)
    * - vfx:* (VFX can wait 1 frame)
-   * - ui:notification (UI updates are not critical)
    *
    * Events are processed at stable point in game loop via processQueue()
    *

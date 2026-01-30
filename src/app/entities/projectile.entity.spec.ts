@@ -56,4 +56,41 @@ describe('Projectile entity', () => {
     expect(direction.dy).toBeCloseTo(dy / length, 5);
     expect(direction.dz).toBeCloseTo(dz / length, 5);
   });
+
+  it('reflects splash configuration for AoE projectiles', () => {
+    const enemy = new Enemy('zombie', targetPath);
+    const cannonball = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'cannonball', 10, 1, 'tower-1');
+    const iceShard = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'ice-shard', 10, 1, 'tower-1');
+    const bullet = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1');
+
+    expect(cannonball.typeConfig.splashRadius).toBeGreaterThan(0);
+    expect(iceShard.typeConfig.splashRadius).toBeGreaterThan(0);
+    expect(bullet.typeConfig.splashRadius).toBeUndefined();
+  });
+
+  it('updates direction based on target position (east vs west)', () => {
+    const eastEnemy = new Enemy('zombie', [
+      { lat: 0, lon: 0.001, height: 0 },
+      { lat: 0.002, lon: 0.001, height: 0 },
+    ]);
+    const westEnemy = new Enemy('zombie', [
+      { lat: 0, lon: -0.001, height: 0 },
+      { lat: 0.002, lon: -0.001, height: 0 },
+    ]);
+
+    const eastProjectile = new Projectile({ lat: 0, lon: 0, height: 0 }, eastEnemy, 'bullet', 10, 1, 'tower-1');
+    const westProjectile = new Projectile({ lat: 0, lon: 0, height: 0 }, westEnemy, 'bullet', 10, 1, 'tower-1');
+
+    expect(eastProjectile.direction.dx).toBeLessThan(0);
+    expect(westProjectile.direction.dx).toBeGreaterThan(0);
+  });
+
+  it('reports hit and despawn condition when reaching target', () => {
+    const enemy = new Enemy('zombie', targetPath);
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1');
+
+    const hit = projectile.updateTowardsTarget(100000);
+    expect(hit).toBe(true);
+    expect(projectile.flightProgress).toBeGreaterThanOrEqual(1);
+  });
 });

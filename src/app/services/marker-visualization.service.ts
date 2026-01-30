@@ -1,4 +1,4 @@
-import { Injectable, WritableSignal } from '@angular/core';
+import { Injectable, WritableSignal, inject } from '@angular/core';
 import {
   Group,
   Color,
@@ -14,6 +14,8 @@ import {
 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
+import { HQDamageService } from './hq-damage.service';
+import { UIStore } from '../store/ui.store';
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -43,6 +45,13 @@ export interface DiamondMarkerOptions {
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
   // ========================================
+  // INJECTED SERVICES
+  // ========================================
+
+  private readonly hqDamage = inject(HQDamageService);
+  private readonly uiStore = inject(UIStore);
+
+  // ========================================
   // STATE
   // ========================================
 
@@ -61,7 +70,7 @@ export class MarkerVisualizationService {
   /** Base coordinates for relative height calculations */
   private baseCoords: GeoPosition | null = null;
 
-  /** Height debug visibility state (from GameUIStateService) */
+  /** Height debug visibility state (from UIStore) */
   private heightDebugVisible: WritableSignal<boolean> | null = null;
 
   // ========================================
@@ -470,6 +479,46 @@ export class MarkerVisualizationService {
     this.clearSpawnMarkers();
     this.removeBaseMarker();
     this.clearHeightDebugMarkers();
+  }
+
+  // ========================================
+  // DEBUG VISUALIZATION
+  // ========================================
+
+  /**
+   * Toggle special points debug visualization.
+   * Toggles UI state, updates engine debug spheres, and spawns HQ debug point if enabling.
+   */
+  toggleSpecialPointsDebug(): void {
+    this.uiStore.toggleSpecialPointsDebug();
+    const visible = this.uiStore.specialPointsDebugVisible();
+
+    if (this.engine) {
+      this.engine.effects.setDebugSpheresVisible(visible);
+
+      if (visible) {
+        this.spawnHQDebugPoint();
+      }
+    }
+  }
+
+  /**
+   * Spawn or update HQ debug point at cached terrain height.
+   * Delegates to HQDamageService which owns the fire/debug position data.
+   */
+  spawnHQDebugPoint(): void {
+    this.hqDamage.spawnDebugPoint();
+  }
+
+  /**
+   * Update debug sphere visibility based on UI state.
+   * Controls engine-level debug sphere rendering.
+   */
+  updateDebugSpheresVisibility(): void {
+    if (!this.engine) return;
+    this.engine.effects.setDebugSpheresVisible(
+      this.uiStore.specialPointsDebugVisible()
+    );
   }
 
   // ========================================

@@ -1,15 +1,17 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, MeshStandardMaterial } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
 import { GeoPosition } from '../models/game.types';
-import { GameStateManager } from '../managers/game-state.manager';
+import { Tower } from '../entities/tower.entity';
+import type { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
 import { SpawnPoint } from './marker-visualization.service';
+import { UIStore } from '../store/ui.store';
 
 /**
  * TowerPlacementService
@@ -24,15 +26,26 @@ import { SpawnPoint } from './marker-visualization.service';
 export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
   private assetManager = inject(AssetManagerService);
+  private uiStore = inject(UIStore);
 
   // ========================================
-  // SIGNALS
+  // SIGNALS (UIStore-backed)
   // ========================================
 
-  readonly buildMode = signal(false);
-  readonly selectedTowerType = signal<TowerTypeId>('archer');
+  /** Build mode active — owned by UIStore */
+  readonly buildMode = this.uiStore.buildMode;
+
+  /** Selected tower type — owned by UIStore */
+  readonly selectedTowerType = this.uiStore.selectedTowerType;
+
+  /** Build validation reason — owned by UIStore */
+  readonly validationReason = this.uiStore.buildValidationReason;
+
+  // ========================================
+  // LOCAL SIGNALS (service-internal)
+  // ========================================
+
   readonly currentRotation = signal(0);
-  readonly validationReason = signal<string | null>(null);
 
   // ========================================
   // STATE
@@ -127,7 +140,7 @@ export class TowerPlacementService {
     this.buildMode.set(true);
 
     // Deselect any previously selected tower (hides its LOS visualization)
-    this.gameState?.deselectAll();
+    this.gameState?.towerManager.selectTower(null);
 
     // Pre-load the preview model
     this.loadPreviewModel(typeId);
@@ -306,6 +319,7 @@ export class TowerPlacementService {
     this.currentPosition = { lat, lon, height: terrainHeight };
 
     const typeId = this.selectedTowerType();
+    if (!typeId) return;
     const config = TOWER_TYPES[typeId];
     if (!config) return;
 
@@ -472,7 +486,7 @@ export class TowerPlacementService {
 
     // Apply rotation
     const typeId = this.selectedTowerType();
-    const config = TOWER_TYPES[typeId];
+    const config = typeId ? TOWER_TYPES[typeId] : undefined;
     const baseRotation = config?.rotationY ?? 0;
     this.previewTowerMesh.rotation.y = baseRotation + newRotation;
   }
@@ -501,23 +515,24 @@ export class TowerPlacementService {
       return false;
     }
 
-    const position: GeoPosition = {
-      lat: this.currentPosition.lat,
-      lon: this.currentPosition.lon,
-      height: this.currentPosition.height,
-    };
     const typeId = this.selectedTowerType();
+    if (!typeId) return false;
 
-    // Place the tower with current rotation
-    const tower = this.gameState.placeTower(position, typeId, this.currentRotation());
+    // Emit command event — GSM handler places the tower
+    this.gameState.getEventBus().emit({
+      type: 'command:place-tower',
+      position: {
+        lat: this.currentPosition.lat,
+        lon: this.currentPosition.lon,
+        height: this.currentPosition.height,
+      },
+      typeId,
+      rotation: this.currentRotation(),
+    });
 
-    if (tower) {
-      // Success - exit build mode completely
-      this.exitBuildMode();
-      return true;
-    }
-
-    return false;
+    // Exit build mode (placement handled by GSM via event)
+    this.exitBuildMode();
+    return true;
   }
 
   // ========================================
@@ -557,7 +572,7 @@ export class TowerPlacementService {
 
     // Check distance to other towers
     if (this.gameState) {
-      for (const tower of this.gameState.towers()) {
+      for (const tower of this.gameState.towerManager.getAll()) {
         const distToTower = this.osmService.haversineDistance(lat, lon, tower.position.lat, tower.position.lon);
         if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
           return { valid: false, reason: `Zu nah an Tower` };
@@ -638,7 +653,7 @@ export class TowerPlacementService {
 
     // Check distance to other towers
     if (this.gameState) {
-      for (const tower of this.gameState.towers()) {
+      for (const tower of this.gameState.towerManager.getAll()) {
         const distToTower = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, tower.position.lat, tower.position.lon);
         if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
           return { valid: false, reason: `Too close to tower` };
@@ -684,6 +699,89 @@ export class TowerPlacementService {
 
   getRotation(): number {
     return this.currentRotation();
+  }
+
+  // ========================================
+  // TOWER GRID REGISTRATION (Backend)
+  // ========================================
+
+  /**
+   * Register a placed tower on the GlobalRouteGrid:
+   * - LOS raycasting to determine visible cells
+   * - Grid registration for enemy targeting
+   * - LOS visualization mesh (hidden by default, shown on selection)
+   */
+  registerTowerOnGrid(tower: Tower, position: GeoPosition, typeId: TowerTypeId): void {
+    if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
+
+    const config = TOWER_TYPES[typeId];
+    if (!config) return;
+
+    const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
+    const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
+
+    const losRaycaster = this.engine.towers.getLosRaycaster();
+    if (!losRaycaster) {
+      console.warn('[TowerPlacementService] registerTowerOnGrid: no losRaycaster!');
+      return;
+    }
+
+    // Check if this is a pure air tower (only targets air, not ground)
+    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+
+    // Register tower and store visible cells reference
+    // Air towers skip LOS checks (air enemies are always visible)
+    tower.visibleCells = this.globalRouteGrid.registerTower(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      tipY,
+      config.range,
+      losRaycaster,
+      isPureAirTower
+    );
+
+    // Create LOS visualization (hidden by default, shown on selection)
+    tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      config.range
+    );
+
+    if (tower.losVisualization) {
+      tower.losVisualization.visible = false;
+      this.engine.getScene().add(tower.losVisualization);
+    }
+  }
+
+  /**
+   * Unregister a tower from the GlobalRouteGrid:
+   * - Dispose LOS visualization mesh
+   * - Unregister from grid (removes tower visibility from cells)
+   */
+  unregisterTowerFromGrid(tower: Tower): void {
+    // Dispose LOS visualization
+    if (tower.losVisualization && this.engine) {
+      this.engine.getScene().remove(tower.losVisualization);
+      tower.losVisualization.geometry.dispose();
+      (tower.losVisualization.material as Material).dispose();
+      tower.losVisualization = null;
+    }
+
+    // Unregister from GlobalRouteGrid
+    this.globalRouteGrid.unregisterTower(tower.id);
+    tower.visibleCells = [];
+  }
+
+  /**
+   * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
+   * Called on reset to cleanup before starting fresh
+   */
+  clearAllTowerOverlays(towers: Tower[]): void {
+    for (const tower of towers) {
+      this.unregisterTowerFromGrid(tower);
+    }
   }
 
   // ========================================

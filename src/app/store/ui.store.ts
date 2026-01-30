@@ -1,0 +1,185 @@
+import { Injectable, signal, effect } from '@angular/core';
+import { TowerTypeId } from '../configs/tower-types.config';
+
+/** LocalStorage key for persisted UI state */
+const STORAGE_KEY = 'td-ui-state';
+
+/** Shape of persisted UI state */
+interface PersistedUIState {
+  infoOverlayVisible: boolean;
+  streetsVisible: boolean;
+  routesVisible: boolean;
+  spatialGridDebugVisible: boolean;
+  devMenuExpanded: boolean;
+  layerMenuExpanded: boolean;
+}
+
+@Injectable({ providedIn: 'root' })
+export class UIStore {
+  /** Debug panel visibility */
+  readonly debugMode = signal<boolean>(false);
+
+  /** Layer menu expanded */
+  readonly layerMenuExpanded = signal<boolean>(false);
+
+  /** Developer menu expanded */
+  readonly devMenuExpanded = signal<boolean>(false);
+
+  /** Street network layer visibility */
+  readonly streetsVisible = signal<boolean>(false);
+
+  /** Route paths visibility */
+  readonly routesVisible = signal<boolean>(false);
+
+  /** Height debug markers visibility */
+  readonly heightDebugVisible = signal<boolean>(false);
+
+  /** Special points debug visibility */
+  readonly specialPointsDebugVisible = signal<boolean>(false);
+
+  /** Info overlay (FPS, tiles, enemies, sounds) */
+  readonly infoOverlayVisible = signal<boolean>(false);
+
+  /** Spatial grid debug */
+  readonly spatialGridDebugVisible = signal<boolean>(false);
+
+  /** DPS bins visualization */
+  readonly dpsBinsVisible = signal<boolean>(false);
+
+  /** Debug log output */
+  readonly debugLog = signal<string>('');
+
+  /** Build mode active */
+  readonly buildMode = signal<boolean>(false);
+
+  /** Selected tower type for placement */
+  readonly selectedTowerType = signal<TowerTypeId | null>(null);
+
+  /** Build validation reason (why placement is invalid) */
+  readonly buildValidationReason = signal<string | null>(null);
+
+  /** Debug: enemy speed override */
+  readonly enemySpeed = signal<number>(2.0);
+
+  /** Debug: enemy health override */
+  readonly enemyHealth = signal<number>(100);
+
+  /** Debug: enemy count per wave */
+  readonly enemyCount = signal<number>(5);
+
+  /** Debug: enemy type */
+  readonly enemyType = signal<string>('basic');
+
+  /** Debug: spawn mode (sequential / random / all) */
+  readonly spawnMode = signal<string>('sequential');
+
+  /** Debug: spawn delay in ms */
+  readonly spawnDelay = signal<number>(1000);
+
+  constructor() {
+    this.loadPersistedState();
+    this.setupPersistence();
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // PERSISTENCE (localStorage)
+  // ════════════════════════════════════════════════════════════
+
+  /** Load persisted state from localStorage */
+  private loadPersistedState(): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const state: PersistedUIState = JSON.parse(stored);
+        if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
+        if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
+        if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
+        if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
+        if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
+        if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  /** Persist state changes to localStorage via effect (no-op outside injection context) */
+  private setupPersistence(): void {
+    try {
+      effect(() => {
+        const state: PersistedUIState = {
+          infoOverlayVisible: this.infoOverlayVisible(),
+          streetsVisible: this.streetsVisible(),
+          routesVisible: this.routesVisible(),
+          spatialGridDebugVisible: this.spatialGridDebugVisible(),
+          devMenuExpanded: this.devMenuExpanded(),
+          layerMenuExpanded: this.layerMenuExpanded(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      });
+    } catch {
+      // Outside injection context (e.g. unit tests) — persistence disabled
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TOGGLE METHODS
+  // ════════════════════════════════════════════════════════════
+
+  toggleDebug(): void { this.debugMode.update(v => !v); }
+  toggleLayerMenu(): void { this.layerMenuExpanded.update(v => !v); }
+  toggleDevMenu(): void { this.devMenuExpanded.update(v => !v); }
+  toggleStreets(): void { this.streetsVisible.update(v => !v); }
+  toggleRoutes(): void { this.routesVisible.update(v => !v); }
+  toggleHeightDebug(): void { this.heightDebugVisible.update(v => !v); }
+  toggleSpecialPointsDebug(): void { this.specialPointsDebugVisible.update(v => !v); }
+  toggleInfoOverlay(): void { this.infoOverlayVisible.update(v => !v); }
+  toggleSpatialGridDebug(): void { this.spatialGridDebugVisible.update(v => !v); }
+
+  // ════════════════════════════════════════════════════════════
+  // DEBUG LOG
+  // ════════════════════════════════════════════════════════════
+
+  /** Append to debug log (max 50 lines) */
+  appendDebugLog(message: string): void {
+    this.debugLog.update(log => {
+      const lines = log.split('\n');
+      while (lines.length >= 50) lines.shift();
+      return [...lines, message].join('\n');
+    });
+  }
+
+  /** Clear debug log */
+  clearDebugLog(): void {
+    this.debugLog.set('');
+  }
+
+  /** Reset build state to initial values. */
+  resetBuildState(): void {
+    this.buildMode.set(false);
+    this.selectedTowerType.set(null);
+    this.buildValidationReason.set(null);
+  }
+
+  /** Full reset including UI state. */
+  resetAll(): void {
+    this.debugMode.set(false);
+    this.layerMenuExpanded.set(false);
+    this.devMenuExpanded.set(false);
+    this.streetsVisible.set(false);
+    this.routesVisible.set(false);
+    this.heightDebugVisible.set(false);
+    this.specialPointsDebugVisible.set(false);
+    this.infoOverlayVisible.set(false);
+    this.spatialGridDebugVisible.set(false);
+    this.dpsBinsVisible.set(false);
+    this.debugLog.set('');
+    this.resetBuildState();
+    this.enemySpeed.set(2.0);
+    this.enemyHealth.set(100);
+    this.enemyCount.set(5);
+    this.enemyType.set('basic');
+    this.spawnMode.set('sequential');
+    this.spawnDelay.set(1000);
+  }
+}

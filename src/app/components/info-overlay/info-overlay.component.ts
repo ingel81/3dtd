@@ -1,6 +1,6 @@
 import { Component, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { GameUIStateService } from '../../services/game-ui-state.service';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * InfoOverlayComponent
@@ -24,7 +24,7 @@ import { GameUIStateService } from '../../services/game-ui-state.service';
       <!-- FPS always visible -->
       <div class="info-line">FPS: {{ fps() }}</div>
       <!-- Rest only visible when info overlay is toggled -->
-      @if (uiState.infoOverlayVisible()) {
+      @if (uiStore.infoOverlayVisible()) {
         <div class="info-line">Tiles: {{ tileStats().visible }}/{{ tileStats().total }}</div>
         <div class="info-line">Enemies: {{ enemiesAlive() }}</div>
         <div class="info-line">Sounds: {{ activeSounds() }}</div>
@@ -64,7 +64,7 @@ import { GameUIStateService } from '../../services/game-ui-state.service';
   `,
 })
 export class InfoOverlayComponent {
-  readonly uiState = inject(GameUIStateService);
+  readonly uiStore = inject(UIStore);
 
   // Inputs from parent component
   readonly fps = input.required<number>();

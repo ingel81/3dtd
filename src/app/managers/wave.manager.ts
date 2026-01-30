@@ -64,9 +64,6 @@ export class WaveManager implements IGameManager {
       }
     });
 
-    this.eventBus.on('debug:reset-wave', () => {
-      this.reset();
-    });
   }
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {

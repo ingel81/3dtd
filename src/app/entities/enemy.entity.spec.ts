@@ -95,4 +95,78 @@ describe('Enemy entity', () => {
     enemy.movement.removeExpiredEffects();
     expect(enemy.movement.isSlowed()).toBe(false);
   });
+
+  it('supports different enemy archetypes (flyer, boss, armored)', () => {
+    const flyer = new Enemy('bat', path);
+    const boss = new Enemy('herbert', path);
+    const armored = new Enemy('tank', path);
+
+    expect(flyer.typeConfig.isAirUnit).toBe(true);
+    expect(boss.typeConfig.bossName).toBeTruthy();
+    expect(boss.typeConfig.immunityPercent).toBeGreaterThanOrEqual(0);
+    expect(armored.typeConfig.canBleed).toBe(false);
+    expect(armored.health.maxHp).toBeGreaterThan(flyer.health.maxHp);
+  });
+
+  it('replaces slow effects instead of stacking and keeps burn effects by source', () => {
+    const enemy = new Enemy('zombie', path);
+
+    enemy.movement.applyStatusEffect({
+      type: 'slow',
+      value: 0.3,
+      duration: 1000,
+      startTime: 1000,
+    });
+
+    enemy.movement.applyStatusEffect({
+      type: 'slow',
+      value: 0.6,
+      duration: 2000,
+      startTime: 1200,
+    });
+
+    expect(enemy.movement.statusEffects.length).toBe(1);
+    expect(enemy.movement.getSlowMultiplier()).toBeCloseTo(1 - 0.6, 5);
+
+    enemy.movement.applyStatusEffect({
+      type: 'burn',
+      value: 3,
+      duration: 1000,
+      startTime: 1200,
+      sourceId: 'tower-a',
+    });
+    enemy.movement.applyStatusEffect({
+      type: 'burn',
+      value: 3,
+      duration: 1000,
+      startTime: 1200,
+      sourceId: 'tower-b',
+    });
+
+    expect(enemy.movement.statusEffects.length).toBe(3);
+  });
+
+  it('moves along the path and reports when it reaches the end', () => {
+    const enemy = new Enemy('zombie', path, 10);
+
+    const resultStart = enemy.movement.move(1000);
+    expect(resultStart).toBe('moving');
+    expect(enemy.transform.position.lat).not.toBe(path[0].lat);
+
+    let resultEnd: 'moving' | 'reached_end' = 'moving';
+    for (let i = 0; i < 500; i++) {
+      resultEnd = enemy.movement.move(200);
+      if (resultEnd === 'reached_end') break;
+    }
+
+    expect(resultEnd).toBe('reached_end');
+  });
+
+  it('health calculations do not drop below zero even for heavy hits', () => {
+    const enemy = new Enemy('tank', path);
+
+    const wasKilled = enemy.health.takeDamage(enemy.health.maxHp * 10);
+    expect(wasKilled).toBe(true);
+    expect(enemy.health.hp).toBe(0);
+  });
 });
