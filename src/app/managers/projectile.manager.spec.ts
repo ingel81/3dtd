@@ -27,6 +27,15 @@ const createMockTilesEngine = () => ({
   effects: {
     spawnConfigurableTrailAtGeo: vi.fn(),
   },
+  trailStreaks: {
+    create: vi.fn(),
+    pushPosition: vi.fn(),
+    remove: vi.fn(),
+    updateAll: vi.fn(),
+  },
+  sync: {
+    geoToLocalSimple: vi.fn().mockReturnValue({ x: 0, y: 0, z: 0 }),
+  },
   spatialAudio: {
     registerSound: vi.fn(),
   },

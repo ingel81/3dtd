@@ -172,17 +172,24 @@ describe('TowerManager', () => {
 
     const pathA: GeoPosition[] = [
       { lat: 0.00005, lon: 0, height: 0 },
-      { lat: 0.00006, lon: 0, height: 0 },
+      { lat: 0.00010, lon: 0, height: 0 },
     ];
     const pathB: GeoPosition[] = [
       { lat: 0.00004, lon: 0, height: 0 },
-      { lat: 0.00005, lon: 0, height: 0 },
+      { lat: 0.00010, lon: 0, height: 0 },
     ];
 
     const enemyA = new Enemy('zombie', pathA);
     const enemyB = new Enemy('zombie', pathB);
-    // Advance enemyB further along its path so it has higher progress
-    enemyB.movement.update(500, 1.0);
+    // Advance enemyB further along its path via move() (update() is a no-op)
+    for (let i = 0; i < 20; i++) {
+      enemyB.movement.move(0.1, 1.0);
+    }
+
+    // Verify enemyB actually has higher progress
+    const progressA = enemyA.movement.getPathProgress();
+    const progressB = enemyB.movement.getPathProgress();
+    expect(progressB).toBeGreaterThan(progressA);
 
     const target = tower.findTarget([enemyA, enemyB]);
     // enemyB traveled further along its path, so 'first' strategy picks it

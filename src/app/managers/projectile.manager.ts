@@ -76,7 +76,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
     );
 
     // Create trail streak for the projectile
-    this.tilesEngine.trailStreaks.create(
+    this.tilesEngine.trailStreaks?.create(
       projectile.id,
       projectile.typeConfig.visualType
     );
@@ -160,7 +160,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
             projectile.position.lon,
             projectile.flightHeight
           );
-          this.tilesEngine.trailStreaks.pushPosition(projectile.id, localPos);
+          this.tilesEngine.trailStreaks?.pushPosition(projectile.id, localPos);
         }
       }
     }
@@ -194,7 +194,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    */
   override remove(entity: Projectile): void {
     this.tilesEngine?.projectiles.remove(entity.id);
-    this.tilesEngine?.trailStreaks.remove(entity.id);
+    this.tilesEngine?.trailStreaks?.remove(entity.id);
     super.remove(entity);
   }
 
@@ -203,7 +203,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    */
   override clear(): void {
     this.tilesEngine?.projectiles.clear();
-    this.tilesEngine?.trailStreaks.clear();
+    this.tilesEngine?.trailStreaks?.clear();
     super.clear();
   }
 }
