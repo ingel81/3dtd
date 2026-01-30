@@ -120,7 +120,7 @@ export class ScreenShakeService {
     // Enemy died → extra shake for bosses
     this.subs.add(
       this.eventBus.on('enemy:died', (event) => {
-        if (event.enemy.typeConfig.bossName) {
+        if (event.enemy?.typeConfig?.bossName) {
           this.shake(SHAKE_PRESETS.bossDeath.intensity, SHAKE_PRESETS.bossDeath.duration);
         }
       }),

@@ -83,6 +83,7 @@ export function createMockTilesEngine(): any {
         y: 0,
         z: 0,
       })),
+      geoToLocal: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
     },
     spatialAudio: {
       registerSound: vi.fn(),
@@ -115,6 +116,7 @@ export function createMockTilesEngine(): any {
       startWalkAnimation: vi.fn(),
       playDeathAnimation: vi.fn(),
       getSpeedMultiplier: vi.fn(() => 1.0),
+      setFreezeVisual: vi.fn(),
     },
     projectiles: {
       create: vi.fn(),
@@ -131,8 +133,14 @@ export function createMockTilesEngine(): any {
       spawnIceExplosionAtGeo: vi.fn(),
       spawnIceDecal: vi.fn(),
       spawnConfigurableTrailAtGeo: vi.fn(),
+      spawnFrostAura: vi.fn(),
+      updateFrostAuraPosition: vi.fn(),
+      stopFrostAura: vi.fn(),
+      hasFrostAura: vi.fn(() => false),
+      spawnMuzzleFlash: vi.fn(),
       clear: vi.fn(),
     },
+    triggerScreenShake: vi.fn(),
   };
 }
 

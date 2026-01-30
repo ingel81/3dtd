@@ -74,7 +74,7 @@ describe('ProjectileManager', () => {
       projectile.direction
     );
     expect(manager.getAll()).toHaveLength(1);
-    expect(eventBus.getQueueSize()).toBe(1); // audio event deferred
+    expect(eventBus.getQueueSize()).toBe(2); // audio event + muzzle flash deferred
   });
 
   it('moves projectile and emits hit event on impact', () => {
