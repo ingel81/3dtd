@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 /**
  * Integration Test: TowerManager + EnemyManager + ProjectileManager
  *
@@ -29,12 +30,9 @@ import {
   TEST_TOWER_POSITION,
   TEST_BASE_POSITION,
   TEST_SPAWN_POINTS,
-  createTestCachedPaths,
 } from './test-helpers';
 import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
-import { Projectile } from '../entities/projectile.entity';
-import { GameEventBus } from '../game-engine/game-event-bus';
 
 describe('Tower → Enemy Combat Integration', () => {
   let m: TestManagers;
@@ -118,7 +116,7 @@ describe('Tower → Enemy Combat Integration', () => {
     const enemy = spawnEnemy();
     const projectile = m.projectileManager.spawn(tower, enemy);
 
-    const initialHp = enemy.health.hp;
+    const _initialHp = enemy.health.hp;
 
     // Listen for projectile:hit
     const hitHandler = vi.fn();

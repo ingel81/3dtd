@@ -213,8 +213,7 @@ class MinHeap<T> {
 
   private _sinkDown(i: number): void {
     const len = this.heap.length;
-    // eslint-disable-next-line no-constant-condition
-    while (true) {
+      while (true) {
       let smallest = i;
       const left = 2 * i + 1;
       const right = 2 * i + 2;
@@ -237,7 +236,7 @@ interface GraphEntry {
 }
 
 let graph: Map<number, GraphEntry> | null = null;
-let networkNodes: Map<number, StreetNode> | null = null;
+let _networkNodes: Map<number, StreetNode> | null = null;
 let streets: Street[] = [];
 
 function buildGraph(networkStreets: Street[]): Map<number, GraphEntry> {
@@ -432,7 +431,7 @@ addEventListener('message', (event: MessageEvent<WorkerInMessage>) => {
     case 'init': {
       try {
         // Deserialize network
-        networkNodes = new Map(msg.network.nodes);
+        _networkNodes = new Map(msg.network.nodes);
         streets = msg.network.streets;
 
         // Build graph
@@ -472,7 +471,7 @@ addEventListener('message', (event: MessageEvent<WorkerInMessage>) => {
 
     case 'clearGraph': {
       graph = null;
-      networkNodes = null;
+      _networkNodes = null;
       streets = [];
       break;
     }

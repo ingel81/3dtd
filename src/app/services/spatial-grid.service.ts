@@ -37,7 +37,7 @@ export class SpatialGrid {
   /** Inverse of cell size for fast multiplication instead of division */
   private readonly invCellSize: number;
 
-  constructor(private readonly cellSize: number = 50) {
+  constructor(private readonly cellSize = 50) {
     this.invCellSize = 1 / cellSize;
   }
 

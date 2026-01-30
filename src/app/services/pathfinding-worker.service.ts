@@ -92,7 +92,7 @@ export class PathfindingWorkerService {
       const serialized = this.serializeNetwork(network);
       const initMsg: WorkerInMessage = { type: 'init', network: serialized };
 
-      return new Promise<void>((resolve, reject) => {
+      return new Promise<void>((resolve, _reject) => {
         // Set up one-time init listener
         const originalHandler = this.worker!.onmessage;
         this.worker!.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
@@ -141,7 +141,7 @@ export class PathfindingWorkerService {
     ) => StreetNode[]
   ): Promise<void> {
     // Cancel pending requests
-    for (const [id, pending] of this.pendingRequests) {
+    for (const [_id, pending] of this.pendingRequests) {
       pending.reject(new Error('Reinitializing worker'));
     }
     this.pendingRequests.clear();

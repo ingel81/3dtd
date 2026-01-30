@@ -302,8 +302,8 @@ class TrailStreak {
       const t = n > 1 ? i / (n - 1) : 1;
 
       // Compute tangent
-      const prevIdx = (ringIdx - 1 + this.style.maxPoints) % this.style.maxPoints;
-      const nextIdx = (ringIdx + 1) % this.style.maxPoints;
+      const _prevIdx = (ringIdx - 1 + this.style.maxPoints) % this.style.maxPoints;
+      const _nextIdx = (ringIdx + 1) % this.style.maxPoints;
 
       if (i === 0 && n > 1) {
         // First point — forward direction only
