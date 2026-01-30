@@ -340,10 +340,11 @@ export class TowerDefenseStore {
 
   /**
    * Reset game state to initial values.
-   * Called on game restart.
+   * Called on game restart (triggered by command:restart-game EventBus event).
    *
-   * NOTE: Does NOT reset UI preferences (debugMode, layer visibility, etc.)
-   *       Those are user choices that persist across games.
+   * Resets: credits, health, phase, wave number, enemies, towers, game over screen.
+   * Does NOT reset: UI preferences (debugMode, layer visibility, bot settings, etc.)
+   * Those are user choices that persist across games.
    */
   resetGameState(): void {
     this.gameStore.resetGameState();
