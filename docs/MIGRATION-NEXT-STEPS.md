@@ -83,6 +83,110 @@ toggleBuildMode() {
 
 **Tipp:** `grep -rn "GameUIStateService\|uiState" src/app/ --include="*.ts" | grep -v ".spec.ts"` zeigt alle Referenzen.
 
+## EventBus-Event-Katalog
+
+### Command Events (Component/Facade → GSM)
+| Event | Emitter | Listener | Store-Sync |
+|-------|---------|----------|------------|
+| `command:start-wave` | GameLoopFacade | GSM | via `wave:started` |
+| `command:place-tower` | TowerPlacementService | GSM | via `tower:placed` |
+| `command:sell-tower` | TowerDefenseFacade | GSM | via `tower:sold` |
+| `command:upgrade-tower` | GameLoopFacade | GSM | via `credits:changed` |
+| `command:restart-game` | TowerDefenseFacade | GSM | via `game:reset` |
+| `debug:add-credits` | DebugFacade | GSM | via `credits:changed` |
+| `debug:add-health` | DebugFacade | GSM | via `health:changed` |
+| `debug:kill-all` | DebugFacade | WaveManager | via `enemy:died` (mehrfach) |
+| `debug:start-custom-wave` | DebugFacade | GameLoopFacade | via `wave:started` |
+
+### Engine Events (GSM/Managers → Sync → Store)
+| Event | Emitter | Sync-Service schreibt |
+|-------|---------|----------------------|
+| `wave:started` | WaveManager | `phase='wave'`, `waveNumber`, `enemiesAlive=0` |
+| `wave:completed` | WaveManager | `phase='setup'` |
+| `game:over` | HqDamageService | `phase='gameover'` |
+| `game:reset` | GSM | `resetAll()` |
+| `credits:changed` | GSM | `credits` |
+| `health:changed` | GSM | `baseHealth` |
+| `tower:placed` | GSM | `towerCount++`, `credits` |
+| `tower:sold` | TowerManager | `towerCount--`, clear `selectedTower` if same |
+| `tower:selected` | TowerManager | `selectedTowerId` |
+| `tower:deselected` | TowerManager | `selectedTowerId=null` |
+| `enemy:spawned` | EnemyManager | `enemiesAlive++` |
+| `enemy:died` | EnemyManager | `enemiesAlive--` (min 0) |
+| `enemy:reached-base` | EnemyManager | `enemiesAlive--` (min 0) |
+
+### Nicht im Store synchronisierte Events (Engine-intern)
+| Event | Verwendung |
+|-------|-----------|
+| `projectile:hit` | CombatEffectService (VFX) |
+| `tower:attack` | Audio, VFX |
+| `enemy:status-effect` | Visual-Feedback |
+
+## FacadeComponentBridge — Was ist noch drin?
+
+Die Bridge enthält nur noch Engine/Canvas-Runtime-Objekte die NICHT in den Store gehören:
+
+| Property | Typ | Warum nicht im Store? |
+|----------|-----|----------------------|
+| `getEngine()` / `setEngine()` | `ThreeTilesEngine` | Komplexes Objekt, nicht serialisierbar |
+| `getStreetNetwork()` / `setStreetNetwork()` | `StreetNetwork` | Komplexes Objekt |
+| `getFilteredStreetNetwork()` / `setFilteredStreetNetwork()` | `StreetNetwork` | Komplexes Objekt |
+| `getDevStreetProvider()` / `setDevStreetProvider()` | `DevTerrainProvider` | Komplexes Objekt |
+| `getStreetNetworkLocation()` / `setStreetNetworkLocation()` | `GeoCoord` | Könnte in LocationStore, aber nur intern genutzt |
+| `getCanvas()` | `HTMLCanvasElement` | DOM-Element |
+| `onTilesLoaded` | Callback | Lifecycle |
+| `onCreateBuildPreview` | Callback | Lifecycle |
+| `onRemoveBuildPreview` | Callback | Lifecycle |
+| `onDeselectTower` | Callback | Lifecycle |
+
+**Die Bridge kann langfristig weg** wenn Engine/StreetNetwork als Services bereitgestellt werden (z.B. `EngineService` der die Instanz hält). Aber das ist kein Blocker.
+
+## Component — Direkte Service-Aufrufe (Architektur-Schuld)
+
+Diese Service-Aufrufe im Component gehen NICHT über Facades:
+
+| Service | Methoden | Warum direkt? |
+|---------|----------|---------------|
+| `towerPlacement` | `handleBuildClick()`, `toggleBuildMode()`, `selectTowerType()` | View-naher Input-Handler |
+| `inputHandler` | `onKeyDown()`, `onKeyUp()` | Keyboard-Events |
+| `cameraControl` | `focusOnCoordinate()` | User-Action |
+| `streetRendering` | `toggleVisibility()` | UI-Toggle |
+| `pathRoute` | `toggleRouteLinesVisibility()` | UI-Toggle |
+| `markerViz` | `toggleSpecialPointsDebug()` | Debug-Toggle |
+| `routeAnimation` | `startAnimation()`, `stopAnimation()` | UI-Toggle |
+| `locationCoordinator` | `applyNewLocation()`, Favorites/Dialogs | Location-Flow |
+| `enemyDebug` | div. Debug-Methoden | Debug (direkt OK) |
+
+**Empfehlung:** Die Toggle-Aufrufe könnten in eine `UIToggleFacade` oder die bestehende `VisualizationFacade` wandern. Ist aber kein funktionaler Bug, nur Architektur-Konsistenz.
+
+## Angular/Engine Zone-Regeln
+
+```
+AUSSERHALB Angular Zone (runOutsideAngular):
+├── Three.js Render Loop (requestAnimationFrame)
+├── onEngineUpdate() — Game-Loop-Callback
+│   ├── towerPlacement.updateRotation()
+│   ├── keyboardPan.update()
+│   ├── markerViz.animateMarkers()
+│   ├── routeAnimation.update()
+│   ├── gameState.update() — GESAMTE Game-Logik
+│   │   ├── enemyManager.update()
+│   │   ├── projectileManager.update()
+│   │   ├── towerCombat.update()
+│   │   └── eventBus.processQueue()
+│   │       └── EventBus-Handler (inkl. GameStateSyncService)
+│   │           └── Store-Signal-Writes (credits, health, phase etc.)
+│   └── [10Hz Throttle] → ngZone.run() → UI-Stats schreiben
+│
+INNERHALB Angular Zone:
+├── Component Template-Bindings (OnPush)
+├── User Input Events (@HostListener)
+├── Init-Phase (ngAfterViewInit → startGame)
+└── ngZone.run() Block — NUR für UI-Stats (10Hz)
+```
+
+**WICHTIG:** Signal-Writes AUSSERHALB der Zone triggern KEIN sofortiges Re-Render. Angular batched sie und rendert beim nächsten Zone-Entry (= der 10Hz Stats-Update). Das ist gewollt — Game-State-Updates (credits, health) erscheinen mit max 100ms Delay im UI, was für ein Game perfekt ist.
+
 ## Architektur-Regeln
 
 ```
