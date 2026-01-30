@@ -626,6 +626,7 @@ export class DevTerrainProvider implements TerrainProvider {
         }
       `,
       fragmentShader: `
+        precision highp float;
         #include <logdepthbuf_pars_fragment>
 
         uniform float maxHeight;

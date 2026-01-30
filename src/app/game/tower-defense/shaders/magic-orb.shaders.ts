@@ -46,9 +46,10 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
   varying vec3 vNormal;
   varying vec2 vUv;
 
-  // Simple 2D noise function
-  float noise(vec2 p) {
-    return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453);
+  // Simple 2D hash (cheaper than sin-based noise)
+  float hash(vec2 p) {
+    float h = dot(p, vec2(127.1, 311.7));
+    return fract(sin(h) * 43758.5453);
   }
 
   // Smooth noise using bilinear interpolation
@@ -57,30 +58,20 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
     vec2 f = fract(p);
     f = f * f * (3.0 - 2.0 * f); // Smoothstep
 
-    float a = noise(i);
-    float b = noise(i + vec2(1.0, 0.0));
-    float c = noise(i + vec2(0.0, 1.0));
-    float d = noise(i + vec2(1.0, 1.0));
+    float a = hash(i);
+    float b = hash(i + vec2(1.0, 0.0));
+    float c = hash(i + vec2(0.0, 1.0));
+    float d = hash(i + vec2(1.0, 1.0));
 
     return mix(mix(a, b, f.x), mix(c, d, f.x), f.y);
   }
 
-  // Fractal Brownian Motion for organic patterns
+  // Single-octave noise (was FBM with 2 octaves — one octave is enough for orb swirl)
   float fbm(vec2 p) {
-    float value = 0.0;
-    float amplitude = 0.5;
-    float frequency = 1.0;
-
-    for (int i = 0; i < 2; i++) {
-      value += amplitude * smoothNoise(p * frequency);
-      frequency *= 2.0;
-      amplitude *= 0.5;
-    }
-
-    return value;
+    return smoothNoise(p);
   }
 
-  // Voronoi-style cellular pattern
+  // Voronoi-style cellular pattern (2×2 grid)
   float voronoi(vec2 p) {
     vec2 i = floor(p);
     vec2 f = fract(p);
@@ -90,40 +81,32 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
     for (int y = 0; y <= 1; y++) {
       for (int x = 0; x <= 1; x++) {
         vec2 neighbor = vec2(float(x), float(y));
-        vec2 point = i + neighbor;
 
-        // Animated cell centers
+        // Animated cell center — single hash call with offset
         vec2 cellOffset = vec2(
-          noise(point + uTime * 0.1),
-          noise(point + uTime * 0.1 + 100.0)
+          hash(i + neighbor + uTime * 0.1),
+          hash(i + neighbor + 100.0 + uTime * 0.1)
         );
 
         vec2 diff = neighbor + cellOffset - f;
-        float dist = length(diff);
-        minDist = min(minDist, dist);
+        minDist = min(minDist, dot(diff, diff)); // squared distance (skip sqrt)
       }
     }
 
-    return minDist;
+    return sqrt(minDist); // single sqrt at the end
   }
 
   void main() {
     // === Animated swirling pattern ===
-    // Rotate UV coordinates over time for swirling effect
-    float angle = uTime * 0.5;
-    vec2 rotatedUv = vec2(
-      vUv.x * cos(angle) - vUv.y * sin(angle),
-      vUv.x * sin(angle) + vUv.y * cos(angle)
-    );
+    // Swirl UVs with simple offset (avoids per-fragment sin/cos rotation)
+    vec2 swirlUv = vUv + uTime * vec2(0.08, -0.05);
 
-    // Multi-scale noise for depth
-    float noise1 = fbm(rotatedUv * 3.0 + uTime * 0.3);
-    float noise2 = fbm(rotatedUv * 6.0 - uTime * 0.4);
-    float combinedNoise = (noise1 + noise2) * 0.5;
+    // Single noise sample for organic variation
+    float noiseVal = fbm(swirlUv * 4.0 + uTime * 0.3);
 
     // Cellular energy pattern
-    float cells = voronoi(rotatedUv * 8.0 + uTime * 0.2);
-    cells = pow(cells, 2.0); // Sharpen the cells
+    float cells = voronoi(swirlUv * 8.0 + uTime * 0.2);
+    cells *= cells; // Sharpen the cells (cheaper than pow)
 
     // === Pulsing effect ===
     float pulse = 0.5 + 0.5 * sin(uTime * 3.0);
@@ -131,11 +114,11 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
     // === Fresnel glow (edge highlight) ===
     vec3 viewDir = normalize(cameraPosition - vPosition);
     float fresnel = 1.0 - abs(dot(viewDir, vNormal));
-    fresnel = pow(fresnel, 2.0);
+    fresnel *= fresnel; // pow(fresnel, 2.0) → multiply
 
     // === Color mixing ===
     // Base: deep magic color with noise
-    vec3 baseColor = mix(uColor1, uColor2, combinedNoise);
+    vec3 baseColor = mix(uColor1, uColor2, noiseVal);
 
     // Add cellular highlights
     vec3 cellColor = mix(baseColor, uColor3, cells * 0.6);
@@ -147,7 +130,7 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
     finalColor *= uIntensity * (0.8 + 0.4 * pulse);
 
     // === Sphere fade at edges for soft appearance ===
-    float sphereFade = 1.0 - pow(fresnel, 0.5);
+    float sphereFade = 1.0 - sqrt(fresnel);
 
     // Output with additive-friendly alpha
     gl_FragColor = vec4(finalColor, sphereFade * 0.9);

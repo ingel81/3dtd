@@ -64,6 +64,7 @@ void main() {
  * States: 0 = gray (no tower), 1 = green (visible), 2 = red (blocked), 3 = blue (enemy), 4 = yellow (enemy + visible)
  */
 const LOS_CELL_FRAGMENT = /* glsl */ `
+precision highp float;
 uniform float uTime;
 varying float vCellState;
 
@@ -124,6 +125,7 @@ void main() {
 `;
 
 const TOWER_LOS_FRAGMENT = /* glsl */ `
+precision highp float;
 uniform float uTime;
 varying float vIsBlocked;
 

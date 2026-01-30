@@ -49,6 +49,7 @@ const LUTShader = {
     }
   `,
   fragmentShader: /* glsl */ `
+    precision highp float;
     uniform sampler2D tDiffuse;
     uniform sampler2D tLUT;
     uniform float lutSize;
