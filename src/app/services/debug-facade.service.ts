@@ -171,6 +171,13 @@ export class DebugFacadeService {
     this.persistDisplayOption('alphaBlend', enabled);
   }
 
+  /**
+   * Change color grading preset (persisted by display-options component)
+   */
+  onColorGradingChanged(preset: string): void {
+    this.engine?.setColorGradingPreset(preset as import('../three-engine/post-processing/color-grading').ColorGradingPreset);
+  }
+
   // ========================================
   // Display Option Persistence
   // ========================================

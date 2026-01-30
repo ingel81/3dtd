@@ -2,6 +2,7 @@ import { Component, inject, signal, output, effect, ChangeDetectionStrategy } fr
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/post-processing/color-grading';
 
 const STORAGE_KEY = 'td_display_options';
 
@@ -13,6 +14,7 @@ interface DisplayOptions {
   textures: boolean;
   skeletonCloning: boolean;
   alphaBlend: boolean;
+  colorGrading: ColorGradingPreset;
 }
 
 @Component({
@@ -62,6 +64,17 @@ interface DisplayOptions {
             <input type="checkbox" [checked]="alphaBlend()" (change)="toggleAlphaBlend()" />
             <span>Alpha Blend</span>
           </label>
+          <div class="separator">Post-Processing</div>
+          <label class="select-row">
+            <span>Color Grading</span>
+            <select (change)="onColorGradingChange($event)">
+              @for (preset of colorGradingPresets; track preset.id) {
+                <option [value]="preset.id" [selected]="colorGrading() === preset.id">
+                  {{ preset.label }}
+                </option>
+              }
+            </select>
+          </label>
         </div>
       </app-draggable-debug-panel>
     }
@@ -98,6 +111,33 @@ interface DisplayOptions {
       color: var(--td-text-primary);
     }
 
+    .select-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      color: var(--td-text-secondary);
+    }
+
+    .select-row select {
+      background: var(--td-panel-bg, #1a1f25);
+      color: var(--td-text-primary, #e0e0e0);
+      border: 1px solid var(--td-panel-border, #333);
+      border-radius: 4px;
+      padding: 2px 6px;
+      font-size: 12px;
+      cursor: pointer;
+      outline: none;
+    }
+
+    .select-row select:hover {
+      border-color: var(--td-teal, #00bcd4);
+    }
+
+    .select-row:hover {
+      color: var(--td-text-primary);
+    }
+
     .separator {
       font-size: 10px;
       text-transform: uppercase;
@@ -119,6 +159,9 @@ export class DisplayOptionsComponent {
   readonly textures = signal(true);
   readonly skeletonCloning = signal(true);
   readonly alphaBlend = signal(true);
+  readonly colorGrading = signal<ColorGradingPreset>('none');
+
+  readonly colorGradingPresets = COLOR_GRADING_PRESETS;
 
   readonly enemiesToggled = output<boolean>();
   readonly healthBarsToggled = output<boolean>();
@@ -127,6 +170,7 @@ export class DisplayOptionsComponent {
   readonly texturesToggled = output<boolean>();
   readonly skeletonCloningToggled = output<boolean>();
   readonly alphaBlendToggled = output<boolean>();
+  readonly colorGradingChanged = output<ColorGradingPreset>();
 
   constructor() {
     this.loadFromStorage();
@@ -141,6 +185,7 @@ export class DisplayOptionsComponent {
         textures: this.textures(),
         skeletonCloning: this.skeletonCloning(),
         alphaBlend: this.alphaBlend(),
+        colorGrading: this.colorGrading(),
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
@@ -190,6 +235,13 @@ export class DisplayOptionsComponent {
     this.alphaBlendToggled.emit(next);
   }
 
+  onColorGradingChange(event: Event): void {
+    const select = event.target as HTMLSelectElement;
+    const preset = select.value as ColorGradingPreset;
+    this.colorGrading.set(preset);
+    this.colorGradingChanged.emit(preset);
+  }
+
   private loadFromStorage(): void {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -202,6 +254,7 @@ export class DisplayOptionsComponent {
         this.textures.set(opts.textures ?? true);
         this.skeletonCloning.set(opts.skeletonCloning ?? true);
         this.alphaBlend.set(opts.alphaBlend ?? true);
+        this.colorGrading.set(opts.colorGrading ?? 'none');
       }
     } catch { /* ignore */ }
   }

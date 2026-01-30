@@ -7,6 +7,7 @@ import { UIStore } from '../store/ui.store';
 import { GameStore } from '../store/game.store';
 import { PathAndRouteService } from '../services/path-route.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
+import { SpatialGridService } from '../services/spatial-grid.service';
 import { CombatEffectService } from '../services/combat-effect.service';
 import { HQDamageService } from '../services/hq-damage.service';
 import { TowerCombatService } from '../services/tower-combat.service';
@@ -49,13 +50,14 @@ export class GameStateManager {
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly gameStore = inject(GameStore);
+  private readonly spatialGrid = inject(SpatialGridService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
   private vfxService!: VFXService;
   private audioService!: AudioService;
   readonly towerManager = new TowerManager(this.eventBus, this.osmService);
-  readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid);
+  readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus, this.entityPool);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
 

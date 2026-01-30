@@ -5,6 +5,7 @@ import { EnemyTypeId } from '../models/enemy-types';
 import { GeoPosition } from '../models/game.types';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
+import { SpatialGridService } from '../services/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
@@ -40,7 +41,8 @@ export class EnemyManager extends EntityManager<Enemy> {
   constructor(
     private eventBus: GameEventBus,
     private entityPool: EntityPoolService,
-    private globalRouteGrid: GlobalRouteGridService
+    private globalRouteGrid: GlobalRouteGridService,
+    private spatialGrid: SpatialGridService
   ) {
     super();
     this.registerDebugHandlers();
@@ -301,14 +303,18 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
 
       // Update global route grid position for O(1) tower targeting
+      // Also update spatial grid for O(1) proximity queries (sleep wake-checks, fallback targeting)
       t0 = profiling ? performance.now() : 0;
-      if (this.tilesEngine && this.globalRouteGrid.isInitialized()) {
+      if (this.tilesEngine) {
         const localPos = this.tilesEngine.sync.geoToLocalSimple(
           enemy.position.lat,
           enemy.position.lon,
           0 // Height not needed for X/Z cell lookup
         );
-        this.globalRouteGrid.updateEnemyPosition(enemy, localPos.x, localPos.z);
+        if (this.globalRouteGrid.isInitialized()) {
+          this.globalRouteGrid.updateEnemyPosition(enemy, localPos.x, localPos.z);
+        }
+        this.spatialGrid.updateEnemy(enemy.id, localPos.x, localPos.z);
       }
       if (profiling) tGrid += performance.now() - t0;
 
@@ -396,8 +402,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.aliveCount.update(c => Math.max(0, c - 1));
       this.cachedAliveEnemies = null; // Invalidate cache
     }
-    // Remove from global route grid
+    // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
+    this.spatialGrid.removeEnemy(entity.id);
     this.tilesEngine?.enemies.remove(entity.id);
     super.remove(entity);
   }
@@ -416,6 +423,9 @@ export class EnemyManager extends EntityManager<Enemy> {
     for (const enemy of this.getAll()) {
       this.globalRouteGrid.removeEnemy(enemy);
     }
+
+    // Clear spatial grid
+    this.spatialGrid.clear();
 
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();

@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GlobalRouteGridService } from './global-route-grid.service';
+import { SpatialGridService } from './spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
 import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
@@ -22,6 +23,7 @@ import { ProjectileManager } from '../managers/projectile.manager';
 @Injectable({ providedIn: 'root' })
 export class TowerCombatService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
+  private readonly spatialGrid = inject(SpatialGridService);
   private readonly combatEffectService = inject(CombatEffectService);
 
   private tilesEngine: ThreeTilesEngine | null = null;
@@ -76,15 +78,25 @@ export class TowerCombatService {
 
     for (const tower of towerManager.getAllActive()) {
       // Quick wake check for sleeping towers (every 500ms)
+      // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies
       if (tower.isSleeping) {
         if (currentTime - tower.lastSleepCheck < 500) continue;
         tower.lastSleepCheck = currentTime;
-        // Quick range check - any enemy within range? (no LOS, just distance)
-        const hasNearby = allEnemies.some(e => {
-          const dx = e.position.lat - tower.position.lat;
-          const dy = e.position.lon - tower.position.lon;
-          return (dx * dx + dy * dy) < tower.rangeSquaredGeo;
-        });
+
+        // Use spatial grid for fast proximity check (local coordinates, meters)
+        let hasNearby = false;
+        if (this.tilesEngine) {
+          const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+            tower.position.lat,
+            tower.position.lon,
+            0
+          );
+          hasNearby = this.spatialGrid.hasEnemyInRadius(
+            towerLocal.x,
+            towerLocal.z,
+            tower.typeConfig.range * 1.1 // 10% margin for approaching enemies
+          );
+        }
         if (!hasNearby) continue;
         tower.isSleeping = false;
       }
@@ -131,18 +143,34 @@ export class TowerCombatService {
         candidates = allEnemies;
         losCheck = undefined;
       } else {
-        // FALLBACK: Distance-filtered enemy list with runtime LOS check
-        // Pre-filter by range to avoid expensive LOS checks on distant enemies
+        // FALLBACK: Use SpatialGrid for O(k) pre-filtering instead of O(n) over all enemies
+        // Then apply runtime LOS check on the smaller candidate set
         const rangeMeters = tower.typeConfig.range;
-        candidates = allEnemies.filter(enemy => {
-          const dx = enemy.position.lat - tower.position.lat;
-          const dy = enemy.position.lon - tower.position.lon;
-          // Approximate meters: 1° lat ≈ 111320m, 1° lon ≈ 111320m * cos(lat)
-          const mPerDegLat = 111320;
-          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
-          const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
-          return distSq <= (rangeMeters * 1.1) ** 2; // 10% margin
-        });
+        if (this.tilesEngine) {
+          const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+            tower.position.lat,
+            tower.position.lon,
+            0
+          );
+          const nearbyIds = this.spatialGrid.getEnemyIdsInRadius(
+            towerLocal.x,
+            towerLocal.z,
+            rangeMeters * 1.1 // 10% margin
+          );
+          // Resolve IDs to alive Enemy entities
+          const nearbyIdSet = new Set(nearbyIds);
+          candidates = allEnemies.filter(e => nearbyIdSet.has(e.id));
+        } else {
+          // Ultimate fallback: distance-filtered list (no engine available)
+          candidates = allEnemies.filter(enemy => {
+            const dx = enemy.position.lat - tower.position.lat;
+            const dy = enemy.position.lon - tower.position.lon;
+            const mPerDegLat = 111320;
+            const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+            const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
+            return distSq <= (rangeMeters * 1.1) ** 2;
+          });
+        }
         losCheck = this.tilesEngine
           ? (enemy: Enemy) => {
               const pos = this.tilesEngine!.sync.geoToLocalSimple(
@@ -255,16 +283,31 @@ export class TowerCombatService {
       if (hasVisibleCells) {
         candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
       } else {
-        // FALLBACK: Distance-filtered to avoid checking all enemies
+        // FALLBACK: Use SpatialGrid for O(k) pre-filtering instead of O(n) brute-force
         const rangeMeters = tower.typeConfig.beamRange ?? 35;
-        candidates = allEnemies.filter(enemy => {
-          const dx = enemy.position.lat - tower.position.lat;
-          const dy = enemy.position.lon - tower.position.lon;
-          const mPerDegLat = 111320;
-          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
-          const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
-          return distSq <= (rangeMeters * 1.2) ** 2; // 20% margin for beam spread
-        });
+        if (this.tilesEngine) {
+          const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+            tower.position.lat,
+            tower.position.lon,
+            0
+          );
+          const nearbyIds = this.spatialGrid.getEnemyIdsInRadius(
+            towerLocal.x,
+            towerLocal.z,
+            rangeMeters * 1.2 // 20% margin for beam spread
+          );
+          const nearbyIdSet = new Set(nearbyIds);
+          candidates = allEnemies.filter(e => nearbyIdSet.has(e.id));
+        } else {
+          candidates = allEnemies.filter(enemy => {
+            const dx = enemy.position.lat - tower.position.lat;
+            const dy = enemy.position.lon - tower.position.lon;
+            const mPerDegLat = 111320;
+            const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+            const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
+            return distSq <= (rangeMeters * 1.2) ** 2;
+          });
+        }
       }
 
       // Find primary target (closest/lowest HP in range)
