@@ -64,7 +64,7 @@ import { GeolocationService } from './services/geolocation.service';
 import { WorldDiceService } from './services/world-dice.service';
 import { DevWorldService, DEV_WORLD_ORIGIN } from './devworld/devworld.service';
 import { DevStreetProvider } from './devworld/dev-street.provider';
-import { CameraFramingService, GeoPoint } from './services/camera-framing.service';
+import { CameraFramingService } from './services/camera-framing.service';
 import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
 import { StreetRenderingService } from './services/street-rendering.service';
@@ -72,7 +72,6 @@ import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeC
 import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/tower-defense-facade.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
-import { SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
 import { ThreeTilesEngine } from './three-engine';
 import { Vector3 } from 'three';
@@ -85,11 +84,9 @@ import { Tower } from './entities/tower.entity';
 import { WaveDirectorService } from './ai/core/wave-director.service';
 import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
 import { TrainingClientService } from './ai/training/training-client.service';
-import { adaptAIWaveConfigSingle } from './ai/core/wave-config-adapter';
 // AI Bot Training
 import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { StrategicPlacementService } from './services/strategic-placement.service';
-import { DpsProfileVisualizer } from './ai/core/dps-profile-visualizer';
 
 // Initial empty coords - will be set when location is loaded (using GeoPosition format)
 const EMPTY_COORDS = {
@@ -216,13 +213,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private filteredStreetNetwork: StreetNetwork | null = null; // Filtered to route corridor for rendering
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
   private readonly COORD_EPSILON = 0.0001; // ~11m tolerance for coordinate comparison
-
-  // DPS profile visualization along path
-  private dpsProfileViz: DpsProfileVisualizer | null = null;
-  private dpsVizUnsubscribes: (() => void)[] = [];
-
-  // Flag to prevent concurrent AI wave requests (race condition guard)
-  private pendingAIWaveRequest = false;
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -551,15 +541,8 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Cleanup global route grid visualization
     this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
 
-    // Cleanup DPS profile visualization
-    this.dpsVizUnsubscribes.forEach(fn => fn());
-    this.dpsVizUnsubscribes = [];
-    if (this.dpsProfileViz) {
-      const mesh = this.dpsProfileViz.getMesh();
-      if (mesh) this.engine?.getScene().remove(mesh);
-      this.dpsProfileViz.dispose();
-      this.dpsProfileViz = null;
-    }
+    // Cleanup DPS profile visualization (owned by facade)
+    this.facade.disposeDpsVisualization(this.engine);
 
     if (this.engine) {
       this.engine.dispose();
@@ -759,34 +742,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Initialize TowerPlacementService with all required dependencies
-   * Must be called after engine, streets, spawns, and game state are ready
+   * Initialize tower placement — delegates to facade
    */
   private initializeTowerPlacement(): void {
-    // Use engine from service if component's engine reference not yet set
-    const engine = this.engine || this.engineInit.getEngine();
-    if (!engine || !this.streetNetwork) {
-      console.warn('[TD] Cannot initialize TowerPlacement - engine or streetNetwork not available');
-      return;
-    }
-
-    const base = this.baseCoords();
-    const spawnPointsForPlacement = this.spawnPoints().map(sp => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-      color: sp.color,
-    }));
-
-    this.towerPlacement.initialize(
-      engine,
-      this.streetNetwork,
-      this.osmService,
-      { lat: base.lat, lon: base.lon },
-      spawnPointsForPlacement,
-      this.gameState
-    );
+    this.facade.initializeTowerPlacement(this.gameState);
   }
 
   /**
@@ -848,20 +807,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Render streets using StreetRenderingService
+   * Render streets — delegates to facade
    */
   private renderStreets(): void {
-    const engine = this.engine || this.engineInit.getEngine();
-    if (!engine) return;
-
-    const base = this.baseCoords();
-    this.streetRendering.renderStreets(
-      engine,
-      this.filteredStreetNetwork,
-      this.streetNetwork,
-      { lat: base.lat, lon: base.lon },
-      this.streetsVisible()
-    );
+    this.facade.renderStreets();
   }
 
 
@@ -880,172 +829,28 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * In DevWorld mode: Regenerates entire world with current config
    */
   refreshTerrainHeights(): void {
-    if (!this.engine) return;
-
-    console.log('[TowerDefense] Manual terrain height refresh triggered');
-
-    // DevWorld mode: Regenerate entire world (uses Web Worker - UI stays responsive)
-    if (this.devWorld.isActive) {
-      const devTerrainProvider = this.engine.getDevTerrainProvider();
-      if (devTerrainProvider) {
-        console.log('[TowerDefense] DevWorld: Regenerating world...');
-        this.isDevWorldRegenerating.set(true);
-
-        // IMMEDIATELY clear all visuals before worker starts
-        this.clearDevWorldVisuals();
-
-        this.engine.clearHeightCache();
-
-        devTerrainProvider.regenerate().then(() => {
-          // Streets are updated via the refresh callback set in loadStreets()
-          // Full re-initialization of spawns, routes, and grid
-          this.onDevWorldRegenerated(devTerrainProvider);
-          this.isDevWorldRegenerating.set(false);
-        });
-        return;
-      }
-    }
-
-    // Real world: Just clear height cache
-    this.engine.clearHeightCache();
-
-    // Re-run the tiles loaded logic (streets, markers, routes)
-    this.onTilesLoaded();
+    this.facade.refreshTerrainHeights(this.gameState);
   }
 
   /**
-   * Immediately clear all DevWorld visuals (called BEFORE regeneration starts).
-   * This ensures markers, routes, animations, towers, VFX disappear right when user clicks Regenerate.
+   * Clear DevWorld visuals — delegates to facade
    */
   private clearDevWorldVisuals(): void {
-    if (!this.engine) return;
-
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    // Stop animations
-    this.routeAnimation.stopAnimation();
-    this.heightUpdate.stopHeightUpdates();
-
-    // Reset game state (clears towers, enemies, projectiles, VFX, etc.)
-    this.gameState.reset();
-
-    // Clear GlobalRouteGrid visualization (reset() only clears data, not 3D objects)
-    this.gameState.getGlobalRouteGrid().disposeVisualization();
-
-    // Clear ALL markers (HQ + spawns)
-    this.markerViz.clearAllMarkers();
-
-    // Clear route lines
-    this.pathRoute.clearAllRoutes();
-    this.pathRoute.clearCachedPaths();
-
-    // Clear street rendering
-    this.streetRendering.dispose(overlayGroup);
-
-    // Clear spawn points signal
-    this.spawnPoints.set([]);
-
-    console.log('[TowerDefense] DevWorld visuals cleared');
+    this.facade.clearDevWorldVisuals(this.gameState);
   }
 
   /**
-   * Called after DevWorld terrain regeneration.
-   * Re-creates all visuals with new terrain data.
+   * DevWorld regenerated callback — delegates to facade
    */
   private onDevWorldRegenerated(devTerrainProvider: import('./devworld/dev-terrain.provider').DevTerrainProvider): void {
-    console.log('[TowerDefense] DevWorld regenerated - re-creating visuals');
-    if (!this.engine) return;
-
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 1: Re-create base/HQ marker
-    // ══════════════════════════════════════════════════════════════
-    this.markerViz.addBaseMarker();
-
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 4: Create new spawn point from terrain provider
-    // (Use only first spawn, same as initial load in addPredefinedSpawns)
-    // ══════════════════════════════════════════════════════════════
-    const generatedSpawns = devTerrainProvider.getSpawnPoints();
-    const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]; // Same as addPredefinedSpawns
-
-    if (generatedSpawns.length > 0) {
-      const spawn = generatedSpawns[0];
-      const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-      this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
-    }
-
-    // Update spawn markers reference in pathRoute service
-    this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
-
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 5: Re-filter and render streets
-    // ══════════════════════════════════════════════════════════════
-    this.filteredStreetNetwork = this.streetNetwork;
-    this.renderStreets();
-
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 6: Update marker heights and render routes
-    // ══════════════════════════════════════════════════════════════
-    const spawnPointsForMarkers = this.spawnPoints().map(sp => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-      color: sp.color,
-    }));
-    this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-
-    // Refresh route lines (this also caches paths)
-    this.pathRoute.refreshRouteLines(this.spawnPoints());
-
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 7: Re-initialize game state with new routes
-    // ══════════════════════════════════════════════════════════════
-    this.gameState.initializeGlobalRouteGrid();
-
-    // Update HQ terrain height
-    this.gameState.onTilesLoaded();
-
-    // ══════════════════════════════════════════════════════════════
-    // PHASE 8: Start route animation
-    // ══════════════════════════════════════════════════════════════
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
-    }
-
-    console.log(`[TowerDefense] DevWorld re-initialized: ${generatedSpawns.length} spawns, ${cachedPaths.size} routes`);
+    this.facade.onDevWorldRegenerated(devTerrainProvider, this.gameState);
   }
 
   /**
-   * Called automatically when tiles finish loading (LOD changes)
-   * Re-renders terrain-following elements with updated geometry
+   * Tiles loaded callback — delegates to facade
    */
   private onTilesLoaded(): void {
-    if (!this.engine || !this.filteredStreetNetwork) return;
-
-    // Re-render streets with new terrain data
-    this.renderStreets();
-
-    // Update marker heights via service
-    const spawnPointsForMarkers = this.spawnPoints().map(sp => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-      color: sp.color,
-    }));
-    this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-
-    // Re-render route lines (clear and re-create)
-    this.pathRoute.refreshRouteLines(this.spawnPoints());
-
-    // Update HQ terrain height and debug points in game state
-    this.gameState.onTilesLoaded();
-
-    // Initialize spatial grid visualization if persisted state was enabled
-    // Must be done after tiles loaded so terrain heights are correct
-    this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
+    this.facade.onTilesLoaded(this.gameState);
   }
 
   /**
@@ -1102,128 +907,24 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
 
   /**
-   * Reframe camera to include all calculated routes.
-   * Routes may curve significantly due to rivers, bridges, or street layout,
-   * so the initial frame (based only on spawns + HQ) may not show all waypoints.
+   * Reframe camera with routes — delegates to facade
    */
   private reframeCameraWithRoutes(): void {
-    const base = this.baseCoords();
-    const hq: GeoPoint = { lat: base.lat, lon: base.lon };
-
-    // Get spawn coordinates
-    const spawns: GeoPoint[] = this.spawnPoints().map(sp => ({
-      lat: sp.lat,
-      lon: sp.lon,
-    }));
-
-    // Extract all route waypoints from cached paths
-    const routePoints: GeoPoint[] = [];
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    cachedPaths.forEach((path) => {
-      for (const pos of path) {
-        routePoints.push({ lat: pos.lat, lon: pos.lon });
-      }
-    });
-
-    // Only reframe if we have route points
-    if (routePoints.length > 0) {
-      this.cameraFraming.reframeWithRoutes(hq, spawns, routePoints, {
-        padding: 0.1,
-        angle: 70,
-        markerRadius: 8,
-      });
-    }
-  }
-
-  private addPredefinedSpawns(): number {
-    const colors = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]; // red, orange, cyan, magenta
-    const hq = this.locationMgmt.hq();
-
-    // No location set - should not happen, but handle gracefully
-    if (!hq) {
-      console.warn('[addPredefinedSpawns] No HQ location set');
-      return 0;
-    }
-
-    // Check if we need to generate a spawn (URL had no spawn parameter)
-    if (this.locationMgmt.needsRandomSpawn() && this.streetNetwork) {
-      // DevWorld mode: Use dynamically generated spawn points from terrain provider
-      if (this.devWorld.isActive) {
-        const engine = this.engine || this.engineInit.getEngine();
-        const devTerrainProvider = engine?.getDevTerrainProvider();
-
-        if (devTerrainProvider) {
-          const generatedSpawns = devTerrainProvider.getSpawnPoints();
-          if (generatedSpawns.length > 0) {
-            // Use first generated spawn (it's guaranteed to be on a street)
-            const spawn = generatedSpawns[0];
-            const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-            console.log(`[addPredefinedSpawns] DevWorld spawn: ${spawn.name} at (${spawn.position.x.toFixed(0)}, ${spawn.position.z.toFixed(0)})`);
-            this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-            this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, colors[0]);
-            return 1;
-          }
-        }
-
-        // Fallback to fixed spawn if terrain provider not ready
-        const spawnConfig = this.devWorld.config.spawn;
-        const spawnPos = this.devWorld.getSpawnPosition();
-        const spawnGeo = this.devWorld.localToGeo(spawnPos.x, spawnPos.z);
-        console.log(`[addPredefinedSpawns] DevWorld spawn (fallback): ${spawnConfig} at (${spawnPos.x}, ${spawnPos.z})`);
-        this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-        this.addSpawnPoint(`spawn-${spawnConfig}`, `Spawn ${spawnConfig}`, spawnGeo.lat, spawnGeo.lon, colors[0]);
-        return 1;
-      }
-
-      // Real world: Find random spawn on OSM streets
-      const randomSpawn = this.osmService.findRandomStreetPoint(this.streetNetwork, hq.lat, hq.lon, 500, 1000);
-
-      if (randomSpawn) {
-        console.log(`[addPredefinedSpawns] Generated random spawn: ${randomSpawn.streetName || 'Unknown'} (${Math.round(randomSpawn.distance)}m)`);
-        // Update location service with generated spawn
-        this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
-        // Sync to URL so it can be shared
-        this.syncUrlWithLocation();
-        // Add the spawn point
-        this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, colors[0]);
-        return 1;
-      } else {
-        console.warn('[addPredefinedSpawns] No valid random spawn found');
-        return 0;
-      }
-    }
-
-    // Use spawn locations from URL/service
-    const spawns = this.editableSpawnLocations();
-    let count = 0;
-    if (spawns.length > 0 && spawns.every(s => s.lat !== 0 && s.lon !== 0)) {
-      spawns.forEach((spawn, index) => {
-        this.addSpawnPoint(spawn.id, spawn.name || `Spawn ${index + 1}`, spawn.lat, spawn.lon, colors[index % colors.length]);
-        count++;
-      });
-    }
-    return count;
+    this.facade.reframeCameraWithRoutes();
   }
 
   /**
-   * Add a spawn point (delegates to services)
+   * Add predefined spawn points — delegates to facade
+   */
+  private addPredefinedSpawns(): number {
+    return this.facade.addPredefinedSpawns();
+  }
+
+  /**
+   * Add a spawn point — delegates to facade
    */
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void {
-    // Use engine from service if component's engine reference not yet set
-    const engine = this.engine || this.engineInit.getEngine();
-    if (!engine || !this.streetNetwork) return;
-
-    const spawn: SpawnPoint = { id, name, lat, lon, color };
-    this.spawnPoints.update((points) => [...points, spawn]);
-
-    // Add visual marker via service
-    this.markerViz.addSpawnMarker(id, name, lat, lon, color);
-
-    // Update spawn markers reference in pathRoute service
-    this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
-
-    // Calculate and render path via service
-    this.pathRoute.showPathFromSpawn(spawn);
+    this.facade.addSpawnPoint(id, name, lat, lon, color);
   }
 
   /**
@@ -1254,172 +955,38 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Upgrade a tower with the specified upgrade
-   * @returns true if upgrade was successful, false otherwise
+   * Upgrade a tower — delegates to facade
    */
   upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
-    const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
-    if (!upgrade) {
-      console.warn('[Upgrade] Upgrade not found:', upgradeId);
-      return false;
-    }
-
-    // Pre-validate before emitting command
-    const cost = tower.getNextUpgradeCost(upgradeId);
-    if (this.gameState.credits() < cost) {
-      console.warn(`[Upgrade] Not enough credits: ${this.gameState.credits()}/${cost}`);
-      return false;
-    }
-    if (!tower.canUpgrade(upgradeId)) {
-      console.warn(`[Upgrade] Tower cannot upgrade ${upgradeId} (already max level)`);
-      return false;
-    }
-
-    // Emit command event — GSM handler applies upgrade + deducts credits
-    this.gameState.getEventBus().emit({
-      type: 'command:upgrade-tower',
-      towerId: tower.id,
-      upgradeId,
-    });
-
-    return true;
+    return this.facade.upgradeTower(tower, upgradeId, this.gameState);
   }
 
   /**
-   * Starts a new wave with the 2-phase system:
-   *
-   * PHASE 1 - GATHERING (approx. N * 100ms):
-   * - Enemies spawn one after another (100ms delay)
-   * - Stand still at spawn point (paused=true)
-   * - Models are loaded asynchronously → distributes GPU load
-   *
-   * PHASE 2 - ATTACK (after 500ms pause):
-   * - Enemies start moving one by one (300ms delay between each)
-   * - Walk animation starts
-   * - Game loop begins
-   *
-   * In AI Director mode (DevWorld): Uses AI to generate wave config
+   * Start a new wave — delegates to facade
    */
   startWave(): void {
-    if (!this.engine || this.waveActive() || this.isGameOver()) return;
-    if (this.spawnPoints().length === 0) return;
-
-    // AI Director mode: Let AI generate the wave config
-    if (this.useAIDirector()) {
-      // Prevent concurrent AI wave requests (race condition guard)
-      if (this.pendingAIWaveRequest) {
-        console.log('[AI] Wave request already pending, ignoring duplicate call');
-        return;
-      }
-      this.startWaveWithAI();
-      return;
-    }
-
-    // Manual/Debug mode: Use debug settings
-    const waveConfig: WaveConfig = {
-      enemyCount: this.enemyCount(),
-      enemyType: this.enemyType(),
-      enemySpeed: this.enemySpeed(),
-      enemyHealth: this.enemyHealth(),
-      spawnMode: this.spawnMode(),
-      spawnDelay: this.spawnDelay(),
-      getSpawnDelay: this.spawnDelay, // Signal getter for live updates
-    };
-
-    this.aiExplanation.set(null);
-    this.gameState.getEventBus().emit({
-      type: 'command:start-wave',
-      config: waveConfig,
-    });
+    this.facade.startWave(this.gameState);
   }
 
   /**
-   * Start wave using AI Wave Director
-   */
-  private async startWaveWithAI(): Promise<void> {
-    this.pendingAIWaveRequest = true;
-
-    try {
-      let aiConfig;
-
-      // If training backend is connected, request wave from it
-      if (this.trainingClient.isConnected()) {
-        console.log('[AI] Requesting wave from training backend...');
-        // Get current game state from data collector
-        const state = this.aiDataCollector.getStateSnapshot();
-        aiConfig = await this.trainingClient.requestWaveConfig(state);
-        console.log('[AI] Received wave from backend:', aiConfig);
-      } else {
-        // Otherwise use local AI/fallback
-        aiConfig = await this.waveDirector.getNextWave();
-      }
-
-      // Store explanation for UI
-      this.aiExplanation.set(aiConfig.explanation ?? null);
-
-      // Convert AI config to WaveManager format
-      const waveConfig = adaptAIWaveConfigSingle(aiConfig);
-
-      console.log('[AI] Wave config:', {
-        archetype: aiConfig.archetype,
-        enemies: aiConfig.enemies,
-        totalCount: aiConfig.totalCount,
-        explanation: aiConfig.explanation,
-      });
-
-      this.gameState.getEventBus().emit({
-        type: 'command:start-wave',
-        config: waveConfig,
-      });
-    } catch (error) {
-      console.error('[AI] Failed to generate wave, using fallback', error);
-      // Fallback to debug settings
-      this.useAIDirector.set(false);
-      this.startWave();
-    } finally {
-      this.pendingAIWaveRequest = false;
-    }
-  }
-
-  /**
-   * Toggle AI Director mode
+   * Toggle AI Director mode — delegates to facade
    */
   toggleAIDirector(): void {
-    const newValue = !this.useAIDirector();
-    this.useAIDirector.set(newValue);
-    console.log(`[AI] AI Director ${newValue ? 'enabled' : 'disabled'}`);
+    this.facade.toggleAIDirector();
   }
 
   /**
-   * Start a custom wave using debug panel settings only.
-   * This bypasses AI and is independent from the regular wave system.
+   * Start custom wave — delegates to facade
    */
   startCustomWave(): void {
-    if (!this.engine || this.waveActive() || this.isGameOver()) return;
-    if (this.spawnPoints().length === 0) return;
-
-    // Use debug settings directly - no AI involvement
-    const waveConfig: WaveConfig = {
-      enemyCount: this.enemyCount(),
-      enemyType: this.enemyType(),
-      enemySpeed: this.enemySpeed(),
-      enemyHealth: this.enemyHealth(),
-      spawnMode: this.spawnMode(),
-      spawnDelay: this.spawnDelay(),
-      getSpawnDelay: this.spawnDelay,
-    };
-
-    console.log('[Debug] Starting custom wave:', waveConfig);
-    this.aiExplanation.set(null);
-    this.gameState.startWave(waveConfig);
+    this.facade.startCustomWave(this.gameState);
   }
 
   /**
-   * Get AI Director status text
+   * Get AI Director status text — delegates to facade
    */
   getAIStatusText(): string {
-    if (!this.useAIDirector()) return 'AI deaktiviert';
-    return this.waveDirector.statusText();
+    return this.facade.getAIStatusText();
   }
 
   /**
@@ -1473,57 +1040,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle DPS profile bins visualization along the enemy path
-   */
-  onDpsBinsToggled(visible: boolean): void {
-    const engine = this.engine || this.engineInit.getEngine();
-    if (!engine) return;
-
-    if (visible) {
-      const grid = this.gameState.getGlobalRouteGrid();
-      const coordSync = grid.getCoordinateSync();
-      if (!coordSync) return;
-
-      // Create visualizer if needed
-      if (!this.dpsProfileViz) {
-        this.dpsProfileViz = new DpsProfileVisualizer(coordSync);
-      }
-
-      this.updateDpsViz(engine);
-
-      // Subscribe to tower events for auto-update
-      const eventBus = this.gameState.getEventBus();
-      const updateHandler = () => this.updateDpsViz(engine);
-      const sub1 = eventBus.on('tower:placed', updateHandler);
-      const sub2 = eventBus.on('tower:sold', updateHandler);
-      const sub3 = eventBus.on('tower:upgraded', updateHandler);
-      this.dpsVizUnsubscribes = [
-        () => sub1.dispose(),
-        () => sub2.dispose(),
-        () => sub3.dispose(),
-      ];
-    } else {
-      if (this.dpsProfileViz) {
-        this.dpsProfileViz.setVisible(false);
-      }
-      // Unsubscribe from tower events
-      this.dpsVizUnsubscribes.forEach(fn => fn());
-      this.dpsVizUnsubscribes = [];
-    }
-  }
-
-  private updateDpsViz(engine: ThreeTilesEngine): void {
-    if (!this.dpsProfileViz) return;
-    const profile = this.aiDataCollector.getCurrentDPSProfile();
-    this.dpsProfileViz.update(profile);
-    this.dpsProfileViz.setVisible(true);
-    const mesh = this.dpsProfileViz.getMesh();
-    if (mesh && !mesh.parent) {
-      engine.getScene().add(mesh);
-    }
-  }
-
-  /**
    * Manually trigger route animation playback
    */
   onPlayRouteAnimation(): void {
@@ -1534,52 +1050,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle camera framing debug visualization
-   * Shows bounding boxes for HQ+spawns+routes framing algorithm
+   * Toggle camera framing debug — delegates to facade
    */
   toggleCameraFramingDebug(): void {
-    const enabled = this.cameraControl.toggleDebugFraming();
-    this.cameraFramingDebug.set(enabled);
-
-    if (enabled) {
-      // Show current framing visualization (including routes)
-      const hq = this.baseCoords();
-      const spawns = this.spawnPoints();
-
-      // Extract all route waypoints from cached paths
-      const routePoints: { lat: number; lon: number }[] = [];
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      cachedPaths.forEach((path) => {
-        for (const pos of path) {
-          routePoints.push({ lat: pos.lat, lon: pos.lon });
-        }
-      });
-
-      if (spawns.length > 0) {
-        this.cameraControl.showDebugVisualization(
-          { lat: hq.lat, lon: hq.lon },
-          spawns.map(s => ({ lat: s.lat, lon: s.lon })),
-          0.1,
-          routePoints
-        );
-      }
-    }
+    this.facade.toggleCameraFramingDebug();
   }
 
   /**
-   * Toggle camera debug overlay
-   * Shows real-time camera position, angles, and other stats
+   * Toggle camera debug — delegates to facade
    */
   toggleCameraDebug(): void {
-    const enabled = !this.cameraDebugEnabled();
-    this.cameraDebugEnabled.set(enabled);
-
-    if (enabled) {
-      // Immediately update debug info
-      this.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
-    } else {
-      this.cameraDebugInfo.set(null);
-    }
+    this.facade.toggleCameraDebug();
   }
 
   logCameraPosition(): void {
@@ -1617,39 +1098,14 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   private onGameOver(): void {
-    // Stop spawning new enemies (clears pending timeouts in WaveManager)
-    this.gameState.waveManager.stopSpawning();
-
-    // NOTE: Do NOT stop the game loop here!
-    // The engine's render loop continues independently and needs to
-    // keep running to show the HQ explosion and fire effects.
-    // The game loop will stop naturally when it sees phase === 'gameover'
+    this.facade.onGameOver(this.gameState);
   }
 
+  /**
+   * Restart game — delegates to facade
+   */
   restartGame(): void {
-    // Cleanup old debug visualization before reset (grid will be cleared)
-    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
-
-    // Cleanup DPS profile visualization
-    this.dpsVizUnsubscribes.forEach(fn => fn());
-    this.dpsVizUnsubscribes = [];
-    if (this.dpsProfileViz) {
-      const mesh = this.dpsProfileViz.getMesh();
-      if (mesh) this.engine?.getScene().remove(mesh);
-      this.dpsProfileViz.dispose();
-      this.dpsProfileViz = null;
-    }
-
-    this.gameState.getEventBus().emit({ type: 'command:restart-game' });
-
-    // Reset pending AI wave request flag (prevents stuck state after game over during request)
-    this.pendingAIWaveRequest = false;
-
-    // Reset bot state
-    this.trainingClient.resetBot();
-
-    // Re-initialize GlobalRouteGrid (was cleared in reset)
-    this.gameState.initializeGlobalRouteGrid();
+    this.facade.restartGame(this.gameState);
   }
 
   /**
@@ -1718,6 +1174,43 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
+   * Build the FacadeComponentBridge for the TowerDefenseFacadeService.
+   */
+  private buildFacadeBridge(): FacadeComponentBridge {
+    return {
+      getEngine: () => this.engine,
+      setEngine: (e) => { this.engine = e; },
+      getStreetNetwork: () => this.streetNetwork,
+      setStreetNetwork: (n) => { this.streetNetwork = n; },
+      getDevStreetProvider: () => this.devStreetProvider,
+      setDevStreetProvider: (p) => { this.devStreetProvider = p; },
+      getFilteredStreetNetwork: () => this.filteredStreetNetwork,
+      setFilteredStreetNetwork: (n) => { this.filteredStreetNetwork = n; },
+      getStreetNetworkLocation: () => this.streetNetworkLocation,
+      setStreetNetworkLocation: (l) => { this.streetNetworkLocation = l; },
+      spawnPoints: this.spawnPoints,
+      baseCoords: this.baseCoords,
+      centerCoords: this.centerCoords,
+      isDevWorldRegenerating: this.isDevWorldRegenerating,
+      useAIDirector: this.useAIDirector,
+      aiExplanation: this.aiExplanation,
+      cameraFramingDebug: this.cameraFramingDebug,
+      debugLog: this.debugLog,
+      waveActive: this.waveActive,
+      isGameOver: this.isGameOver,
+      streetsVisible: this.streetsVisible,
+      heightDebugVisible: this.heightDebugVisible,
+      getCanvasElement: () => this.gameCanvas.nativeElement,
+      onTerrainClick: (lat, lon, height) => this.onTerrainClick(lat, lon, height),
+      onMouseMove: (lat, lon, hitPoint) => this.onMouseMove(lat, lon, hitPoint),
+      exitBuildMode: () => this.exitBuildMode(),
+      handleEnemyPlacement: (lat, lon, height) => this.handleEnemyPlacement(lat, lon, height),
+      syncUrlWithLocation: () => this.syncUrlWithLocation(),
+      appendDebugLog: (msg) => this.appendDebugLog(msg),
+    };
+  }
+
+  /**
    * Build the LocationFlowDelegate for the coordinator service.
    * Provides component-specific state access for location flow operations.
    */
@@ -1755,31 +1248,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     };
   }
 
+  /**
+   * Clear map entities — delegates to facade
+   */
   private clearMapEntities(): void {
-    if (!this.engine) return;
-
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    // Clear markers via service
-    this.markerViz.clearAllMarkers();
-
-    // Clear routes via service
-    this.pathRoute.clearAllRoutes();
-
-    // Clear street mesh via service
-    this.streetRendering.dispose(overlayGroup);
-
-    // Clear spawn points signal
-    this.spawnPoints.set([]);
-
-    // Clear cached paths via service
-    this.pathRoute.clearCachedPaths();
-
-    // Clear filtered street network and location tracking
-    this.filteredStreetNetwork = null;
-    this.streetNetworkLocation = null;
-
-    // Stop tile stats polling if running
-    this.engineInit.stopTileStatsPolling();
+    this.facade.clearMapEntities();
   }
 }
