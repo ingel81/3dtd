@@ -137,6 +137,14 @@ function createMockEngine(): never {
       remove: noopFn,
       clear: noopFn,
     },
+    trailStreaks: {
+      create: noopFn,
+      pushPosition: noopFn,
+      remove: noopFn,
+      updateAll: noopFn,
+      clear: noopFn,
+    },
+    triggerScreenShake: noopFn,
   } as never;
 }
 
