@@ -18,7 +18,7 @@ import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../models/enemy-types';
-import { TowerTypeId, TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
+import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
