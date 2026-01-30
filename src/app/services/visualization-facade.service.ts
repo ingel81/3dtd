@@ -27,6 +27,7 @@ import { TowerTypeId } from '../configs/tower-types.config';
 import { ThreeTilesEngine } from '../three-engine';
 import { Vector3 } from 'three';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
+import { TowerDefenseStore } from '../store/tower-defense.store';
 
 /**
  * Sub-facade for visualization, camera, rendering, and height updates.
@@ -64,6 +65,7 @@ export class VisualizationFacadeService {
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
+  private readonly store = inject(TowerDefenseStore);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -157,11 +159,11 @@ export class VisualizationFacadeService {
       return;
     }
 
-    const base = this.bridge.baseCoords();
+    const base = this.store.baseCoords();
     const baseCoords = { lat: base.lat, lon: base.lon };
 
     // Initialize marker visualization service
-    this.markerViz.initialize(engine, baseCoords, this.bridge.heightDebugVisible);
+    this.markerViz.initialize(engine, baseCoords, this.store.heightDebugVisible);
 
     // Initialize path and route service
     const pathfindingService = this.devWorld.isActive && this.bridge.getDevStreetProvider()
@@ -234,8 +236,8 @@ export class VisualizationFacadeService {
     const streetNetwork = this.bridge.getStreetNetwork();
     if (!engine || !streetNetwork) return undefined;
 
-    const base = this.bridge.baseCoords();
-    const waveSpawnPoints: WaveSpawnPoint[] = this.bridge.spawnPoints().map((sp) => ({
+    const base = this.store.baseCoords();
+    const waveSpawnPoints: WaveSpawnPoint[] = this.store.spawnPoints().map((sp) => ({
       id: sp.id,
       name: sp.name,
       lat: sp.lat,
@@ -254,7 +256,7 @@ export class VisualizationFacadeService {
     this.strategicPlacement.initialize(streetNetwork);
 
     // Initialize enemy debug service
-    this.enemyDebug.initialize(this.gameState, engine, this.bridge.spawnPoints);
+    this.enemyDebug.initialize(this.gameState, engine, this.store.spawnPoints);
 
     // Validate routes
     const paths = this.pathRoute.getCachedPaths();
@@ -291,8 +293,8 @@ export class VisualizationFacadeService {
       return;
     }
 
-    const base = this.bridge.baseCoords();
-    const spawnPointsForPlacement = this.bridge.spawnPoints().map(sp => ({
+    const base = this.store.baseCoords();
+    const spawnPointsForPlacement = this.store.spawnPoints().map(sp => ({
       id: sp.id,
       name: sp.name,
       lat: sp.lat,
@@ -354,13 +356,13 @@ export class VisualizationFacadeService {
     const engine = this.bridge.getEngine() || this.engineInit.getEngine();
     if (!engine) return;
 
-    const base = this.bridge.baseCoords();
+    const base = this.store.baseCoords();
     this.streetRendering.renderStreets(
       engine,
       this.bridge.getFilteredStreetNetwork(),
       this.bridge.getStreetNetwork(),
       { lat: base.lat, lon: base.lon },
-      this.bridge.streetsVisible()
+      this.store.streetsVisible()
     );
   }
 
@@ -378,14 +380,14 @@ export class VisualizationFacadeService {
       return;
     }
 
-    const base = this.bridge.baseCoords();
+    const base = this.store.baseCoords();
 
     this.heightUpdate.initialize(
       engine,
       { lat: base.lat, lon: base.lon },
       this.engineInit.loadingStatus,
       () => {
-        const spawnPointsForMarkers = this.bridge.spawnPoints().map(sp => ({
+        const spawnPointsForMarkers = this.store.spawnPoints().map(sp => ({
           id: sp.id,
           name: sp.name,
           lat: sp.lat,
@@ -425,7 +427,7 @@ export class VisualizationFacadeService {
     if (wasLoading && !isNowLoading && !this.routeAnimation.isRunning() && !isApplying) {
       const cachedPaths = this.pathRoute.getCachedPaths();
       if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, this.bridge.spawnPoints());
+        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
       }
     }
   }
@@ -438,8 +440,8 @@ export class VisualizationFacadeService {
    * Save current camera position as initial position for reset.
    */
   saveInitialCameraPosition(): void {
-    const hq = this.bridge.baseCoords();
-    const spawns = this.bridge.spawnPoints();
+    const hq = this.store.baseCoords();
+    const spawns = this.store.spawnPoints();
 
     const routePoints: { lat: number; lon: number }[] = [];
     const cachedPaths = this.pathRoute.getCachedPaths();
@@ -468,11 +470,11 @@ export class VisualizationFacadeService {
    */
   toggleCameraFramingDebug(): void {
     const enabled = this.cameraControl.toggleDebugFraming();
-    this.bridge.cameraFramingDebug.set(enabled);
+    this.store.cameraFramingDebug.set(enabled);
 
     if (enabled) {
-      const hq = this.bridge.baseCoords();
-      const spawns = this.bridge.spawnPoints();
+      const hq = this.store.baseCoords();
+      const spawns = this.store.spawnPoints();
 
       const routePoints: { lat: number; lon: number }[] = [];
       const cachedPaths = this.pathRoute.getCachedPaths();
@@ -521,7 +523,7 @@ export class VisualizationFacadeService {
         y: camera.position.y,
         z: camera.position.z,
       },
-      hq: this.bridge.baseCoords(),
+      hq: this.store.baseCoords(),
       tiltAngle: 45,
     };
 
@@ -533,10 +535,10 @@ export class VisualizationFacadeService {
    * Reframe camera to include all calculated routes.
    */
   reframeCameraWithRoutes(): void {
-    const base = this.bridge.baseCoords();
+    const base = this.store.baseCoords();
     const hq: GeoPoint = { lat: base.lat, lon: base.lon };
 
-    const spawns: GeoPoint[] = this.bridge.spawnPoints().map(sp => ({
+    const spawns: GeoPoint[] = this.store.spawnPoints().map(sp => ({
       lat: sp.lat,
       lon: sp.lon,
     }));
@@ -571,7 +573,7 @@ export class VisualizationFacadeService {
 
     this.renderStreets();
 
-    const spawnPointsForMarkers = this.bridge.spawnPoints().map(sp => ({
+    const spawnPointsForMarkers = this.store.spawnPoints().map(sp => ({
       id: sp.id,
       name: sp.name,
       lat: sp.lat,
@@ -579,7 +581,7 @@ export class VisualizationFacadeService {
       color: sp.color,
     }));
     this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-    this.pathRoute.refreshRouteLines(this.bridge.spawnPoints());
+    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
 
     this.gameState.onTilesLoaded();
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();

@@ -19,6 +19,7 @@ import { WaveConfig } from '../managers/wave.manager';
 import { Tower } from '../entities/tower.entity';
 import { UpgradeId } from '../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
+import { TowerDefenseStore } from '../store/tower-defense.store';
 import { SoundPoolStats } from '../managers/spatial-audio.manager';
 
 /**
@@ -48,6 +49,7 @@ export class GameLoopFacadeService {
   private readonly aiDataCollector = inject(AIDataCollectorService);
   private readonly trainingClient = inject(TrainingClientService);
   private readonly ngZone = inject(NgZone);
+  private readonly store = inject(TowerDefenseStore);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -107,7 +109,7 @@ export class GameLoopFacadeService {
 
     // Effect: Sync wave debug state with game state
     effect(() => {
-      const waveActive = this.bridge.waveActive();
+      const waveActive = this.store.waveActive();
       const baseHealth = this.gameState.baseHealth();
       const enemiesAlive = this.gameState.enemiesAlive();
       this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
@@ -116,8 +118,8 @@ export class GameLoopFacadeService {
     // Effect: Auto-enable AI Director when ONNX model loads successfully
     effect(() => {
       const state = this.waveDirector.modelState();
-      if (state === 'ready' && !this.bridge.useAIDirector()) {
-        this.bridge.useAIDirector.set(true);
+      if (state === 'ready' && !this.store.useAIDirector()) {
+        this.store.useAIDirector.set(true);
       }
     }, { injector });
 
@@ -198,17 +200,17 @@ export class GameLoopFacadeService {
    */
   startWave(): void {
     if (!this.initialized) return;
-    if (!this.bridge.getEngine() || this.bridge.waveActive() || this.bridge.isGameOver()) return;
-    if (this.bridge.spawnPoints().length === 0) return;
+    if (!this.bridge.getEngine() || this.store.waveActive() || this.store.isGameOver()) return;
+    if (this.store.spawnPoints().length === 0) return;
 
-    if (this.bridge.useAIDirector()) {
+    if (this.store.useAIDirector()) {
       if (this.pendingAIWaveRequest) return;
       this.startWaveWithAI(0);
       return;
     }
 
     const waveConfig = this.buildWaveConfig();
-    this.bridge.aiExplanation.set(null);
+    this.store.aiExplanation.set(null);
     this.gameState.getEventBus().emit({
       type: 'command:start-wave',
       config: waveConfig,
@@ -223,7 +225,7 @@ export class GameLoopFacadeService {
     if (retryCount >= GameLoopFacadeService.MAX_AI_RETRY) {
       console.error('[AI] Max retries reached, falling back to manual wave config');
       const waveConfig = this.buildWaveConfig();
-      this.bridge.aiExplanation.set(null);
+      this.store.aiExplanation.set(null);
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
         config: waveConfig,
@@ -243,7 +245,7 @@ export class GameLoopFacadeService {
         aiConfig = await this.waveDirector.getNextWave();
       }
 
-      this.bridge.aiExplanation.set(aiConfig.explanation ?? null);
+      this.store.aiExplanation.set(aiConfig.explanation ?? null);
       const waveConfig = adaptAIWaveConfigSingle(aiConfig);
 
       this.gameState.getEventBus().emit({
@@ -252,7 +254,7 @@ export class GameLoopFacadeService {
       });
     } catch (error) {
       console.error('[AI] Failed to generate wave, using fallback', error);
-      this.bridge.useAIDirector.set(false);
+      this.store.useAIDirector.set(false);
       this.pendingAIWaveRequest = false;
       this.startWaveWithAI(retryCount + 1);
       return;
@@ -266,11 +268,11 @@ export class GameLoopFacadeService {
    */
   startCustomWave(): void {
     if (!this.initialized) return;
-    if (!this.bridge.getEngine() || this.bridge.waveActive() || this.bridge.isGameOver()) return;
-    if (this.bridge.spawnPoints().length === 0) return;
+    if (!this.bridge.getEngine() || this.store.waveActive() || this.store.isGameOver()) return;
+    if (this.store.spawnPoints().length === 0) return;
 
     const waveConfig = this.buildWaveConfig();
-    this.bridge.aiExplanation.set(null);
+    this.store.aiExplanation.set(null);
     this.gameState.getEventBus().emit({
       type: 'command:start-wave',
       config: waveConfig,
@@ -281,15 +283,15 @@ export class GameLoopFacadeService {
    * Toggle AI Director mode.
    */
   toggleAIDirector(): void {
-    const newValue = !this.bridge.useAIDirector();
-    this.bridge.useAIDirector.set(newValue);
+    const newValue = !this.store.useAIDirector();
+    this.store.useAIDirector.set(newValue);
   }
 
   /**
    * Get AI Director status text.
    */
   getAIStatusText(): string {
-    if (!this.bridge.useAIDirector()) return 'AI deaktiviert';
+    if (!this.store.useAIDirector()) return 'AI deaktiviert';
     return this.waveDirector.statusText();
   }
 
