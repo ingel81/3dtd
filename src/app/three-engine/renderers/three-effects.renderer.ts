@@ -2049,44 +2049,6 @@ export class ThreeEffectsRenderer {
    * Update particle position buffers
    */
   private updateParticleBuffers(): void {
-    // Update blood particles
-    if (this.bloodParticles) {
-      const positions = this.bloodParticles.geometry.attributes['position'] as BufferAttribute;
-      const posArray = positions.array as Float32Array;
-
-      let activeCount = 0;
-      for (const p of this.bloodPool) {
-        if (p.life > 0) {
-          posArray[activeCount * 3] = p.position.x;
-          posArray[activeCount * 3 + 1] = p.position.y;
-          posArray[activeCount * 3 + 2] = p.position.z;
-          activeCount++;
-        }
-      }
-
-      positions.needsUpdate = true;
-      this.bloodParticles.geometry.setDrawRange(0, activeCount);
-    }
-
-    // Update fire particles
-    if (this.fireParticles) {
-      const positions = this.fireParticles.geometry.attributes['position'] as BufferAttribute;
-      const posArray = positions.array as Float32Array;
-
-      let activeCount = 0;
-      for (const p of this.firePool) {
-        if (p.life > 0) {
-          posArray[activeCount * 3] = p.position.x;
-          posArray[activeCount * 3 + 1] = p.position.y;
-          posArray[activeCount * 3 + 2] = p.position.z;
-          activeCount++;
-        }
-      }
-
-      positions.needsUpdate = true;
-      this.fireParticles.geometry.setDrawRange(0, activeCount);
-    }
-
     // Update trail particles - ADDITIVE pool
     if (this.trailParticlesAdditive) {
       const positions = this.trailParticlesAdditive.geometry.attributes['position'] as BufferAttribute;
@@ -2252,12 +2214,6 @@ export class ThreeEffectsRenderer {
    */
   clear(): void {
     // Reset all particles
-    for (const p of this.bloodPool) {
-      p.life = 0;
-    }
-    for (const p of this.firePool) {
-      p.life = 0;
-    }
     for (const p of this.trailPoolAdditive) {
       p.life = 0;
     }
@@ -2267,7 +2223,7 @@ export class ThreeEffectsRenderer {
     for (const p of this.towerFirePool) {
       p.life = 0;
     }
-    this.poolCursors = { blood: 0, fire: 0, trailAdditive: 0, trailNormal: 0, towerFire: 0 };
+    this.poolCursors = { trailAdditive: 0, trailNormal: 0, towerFire: 0 };
     this.activeEffects.clear();
     this.activeTowerFires.clear();
 
@@ -2295,14 +2251,6 @@ export class ThreeEffectsRenderer {
   dispose(): void {
     this.clear();
 
-    if (this.bloodParticles) {
-      this.scene.remove(this.bloodParticles);
-      this.bloodParticles.geometry.dispose();
-    }
-    if (this.fireParticles) {
-      this.scene.remove(this.fireParticles);
-      this.fireParticles.geometry.dispose();
-    }
     if (this.trailParticlesAdditive) {
       this.scene.remove(this.trailParticlesAdditive);
       this.trailParticlesAdditive.geometry.dispose();
@@ -2337,8 +2285,6 @@ export class ThreeEffectsRenderer {
     }
     this.floatingTexts = [];
 
-    this.bloodMaterial.dispose();
-    this.fireMaterial.dispose();
     this.trailMaterialAdditive?.dispose();
     this.trailMaterialNormal?.dispose();
     this.trailShaderMaterialAdditive?.dispose();
