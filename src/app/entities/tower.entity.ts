@@ -84,6 +84,14 @@ export class Tower extends GameObject {
     );
 
     this._transform.setPosition(position.lat, position.lon, position.height);
+
+    // Pre-compute range² in geo-degrees for quick sleep wake-checks
+    const metersPerDegreeLat = 111320;
+    const metersPerDegreeLon = 111320 * Math.cos(position.lat * 0.0174533);
+    // Use average of lat/lon scale for approximation
+    const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
+    const rangeInDegrees = this.typeConfig.range / avgMetersPerDegree;
+    this.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
   }
 
   get transform(): TransformComponent {

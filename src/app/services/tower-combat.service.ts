@@ -75,6 +75,20 @@ export class TowerCombatService {
     const allEnemies = enemyManager.getAlive();
 
     for (const tower of towerManager.getAllActive()) {
+      // Quick wake check for sleeping towers (every 500ms)
+      if (tower.isSleeping) {
+        if (currentTime - tower.lastSleepCheck < 500) continue;
+        tower.lastSleepCheck = currentTime;
+        // Quick range check - any enemy within range? (no LOS, just distance)
+        const hasNearby = allEnemies.some(e => {
+          const dx = e.position.lat - tower.position.lat;
+          const dy = e.position.lon - tower.position.lon;
+          return (dx * dx + dy * dy) < tower.rangeSquaredGeo;
+        });
+        if (!hasNearby) continue;
+        tower.isSleeping = false;
+      }
+
       // Determine if we can use GlobalRouteGrid optimization
       const hasVisibleCells = tower.visibleCells.length > 0;
       const isPureAirTower =
@@ -117,8 +131,18 @@ export class TowerCombatService {
         candidates = allEnemies;
         losCheck = undefined;
       } else {
-        // FALLBACK: Full enemy list with runtime LOS check
-        candidates = allEnemies;
+        // FALLBACK: Distance-filtered enemy list with runtime LOS check
+        // Pre-filter by range to avoid expensive LOS checks on distant enemies
+        const rangeMeters = tower.typeConfig.range;
+        candidates = allEnemies.filter(enemy => {
+          const dx = enemy.position.lat - tower.position.lat;
+          const dy = enemy.position.lon - tower.position.lon;
+          // Approximate meters: 1° lat ≈ 111320m, 1° lon ≈ 111320m * cos(lat)
+          const mPerDegLat = 111320;
+          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+          const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
+          return distSq <= (rangeMeters * 1.1) ** 2; // 10% margin
+        });
         losCheck = this.tilesEngine
           ? (enemy: Enemy) => {
               const pos = this.tilesEngine!.sync.geoToLocalSimple(
@@ -140,6 +164,10 @@ export class TowerCombatService {
       let target = tower.findTarget(candidates, losCheck);
 
       if (target) {
+        // Target found - update sleep tracking
+        tower.lastTargetTime = currentTime;
+        tower.isSleeping = false;
+
         // Always rotate turret towards target
         const heading = this.calculateHeading(tower.position, target.position);
         this.tilesEngine?.towers.updateRotation(tower.id, heading);
@@ -223,7 +251,16 @@ export class TowerCombatService {
       if (hasVisibleCells) {
         candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
       } else {
-        candidates = allEnemies;
+        // FALLBACK: Distance-filtered to avoid checking all enemies
+        const rangeMeters = tower.typeConfig.beamRange ?? 35;
+        candidates = allEnemies.filter(enemy => {
+          const dx = enemy.position.lat - tower.position.lat;
+          const dy = enemy.position.lon - tower.position.lon;
+          const mPerDegLat = 111320;
+          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+          const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
+          return distSq <= (rangeMeters * 1.2) ** 2; // 20% margin for beam spread
+        });
       }
 
       // Find primary target (closest/lowest HP in range)

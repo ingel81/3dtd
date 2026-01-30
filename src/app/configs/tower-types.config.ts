@@ -2,6 +2,7 @@ export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rock
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
 export type UpgradeId = 'speed' | 'damage' | 'range';
 export type AttackType = 'projectile' | 'beam';
+export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
 
 export interface TowerUpgrade {
   id: UpgradeId;
@@ -59,6 +60,8 @@ export interface TowerTypeConfig {
   damagePerSecond?: number; // DPS for beam towers (used instead of damage + fireRate)
   beamRange?: number; // Length of the beam/cone in meters
   beamWidth?: number; // Width of the cone at the end in meters
+
+  defaultTargeting?: TargetingStrategy; // Default targeting for this tower type (default: 'closest')
 }
 
 // Tower model URLs
@@ -74,6 +77,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
     id: 'archer',
     name: 'Archer Tower',
+    defaultTargeting: 'first',
     modelUrl: ARCHER_MODEL_URL,
     scale: 10.1,
     previewScale: 12,
@@ -136,6 +140,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   cannon: {
     id: 'cannon',
     name: 'Cannon Tower',
+    defaultTargeting: 'highest-hp',
     modelUrl: CANNON_MODEL_URL,
     scale: 3,
     previewScale: 5.5,
