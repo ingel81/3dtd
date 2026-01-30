@@ -194,6 +194,7 @@ export class TowerDefenseFacadeService {
     }
     this.eventBusSubs.disposeAll();
     this.gameStateSync.dispose();
+    this.gameState.dispose();
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
     this.vizFacade.dispose();
