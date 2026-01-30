@@ -486,6 +486,23 @@ export class MarkerVisualizationService {
   // ========================================
 
   /**
+   * Toggle special points debug visualization.
+   * Toggles UI state, updates engine debug spheres, and spawns HQ debug point if enabling.
+   */
+  toggleSpecialPointsDebug(): void {
+    this.uiState.toggleSpecialPointsDebug();
+    const visible = this.uiState.specialPointsDebugVisible();
+
+    if (this.engine) {
+      this.engine.effects.setDebugSpheresVisible(visible);
+
+      if (visible) {
+        this.spawnHQDebugPoint();
+      }
+    }
+  }
+
+  /**
    * Spawn or update HQ debug point at cached terrain height.
    * Delegates to HQDamageService which owns the fire/debug position data.
    */

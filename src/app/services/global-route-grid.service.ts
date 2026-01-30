@@ -1,10 +1,11 @@
-import { Injectable } from '@angular/core';
+import { Injectable, inject } from '@angular/core';
 import { GlobalRouteGrid, RouteCell } from '../utils/global-route-grid';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
 import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
+import { GameUIStateService } from './game-ui-state.service';
 
 /**
  * GlobalRouteGridService - Angular service wrapper for GlobalRouteGrid
@@ -16,12 +17,17 @@ import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 't
  */
 @Injectable({ providedIn: 'root' })
 export class GlobalRouteGridService {
+  private readonly uiState = inject(GameUIStateService);
+
   private grid: GlobalRouteGrid;
   private initialized = false;
 
   // Debug: defense reach marker (orange sphere)
   private scene: Scene | null = null;
   private defenseReachMarker: Mesh | null = null;
+
+  // Spatial grid debug visualization mesh (owned by this service)
+  private spatialGridVizMesh: InstancedMesh | null = null;
 
   constructor() {
     this.grid = new GlobalRouteGrid();
@@ -283,6 +289,75 @@ export class GlobalRouteGridService {
   }
 
   // ========================================
+  // SPATIAL GRID DEBUG VISUALIZATION
+  // ========================================
+
+  /**
+   * Toggle spatial grid debug visualization.
+   * Toggles UI state and updates visualization accordingly.
+   */
+  toggleSpatialGridDebug(): void {
+    this.uiState.toggleSpatialGridDebug();
+    this.updateSpatialGridVisualization();
+  }
+
+  /**
+   * Initialize spatial grid visualization if persisted state was enabled.
+   * Called after grid is initialized to restore persisted visibility.
+   */
+  initSpatialGridVisualizationIfEnabled(): void {
+    if (this.uiState.spatialGridDebugVisible()) {
+      this.updateSpatialGridVisualization();
+    }
+  }
+
+  /**
+   * Update spatial grid visualization based on current UI state.
+   * Creates mesh on first show, toggles visibility thereafter.
+   */
+  updateSpatialGridVisualization(): void {
+    const visible = this.uiState.spatialGridDebugVisible();
+
+    if (visible) {
+      // Create and add visualization mesh to scene
+      if (!this.spatialGridVizMesh && this.scene && this.initialized) {
+        this.spatialGridVizMesh = this.grid.createVisualization();
+        this.scene.add(this.spatialGridVizMesh);
+      }
+      if (this.spatialGridVizMesh) {
+        this.spatialGridVizMesh.visible = true;
+      }
+    } else {
+      // Hide visualization (don't dispose - may toggle again)
+      if (this.spatialGridVizMesh) {
+        this.spatialGridVizMesh.visible = false;
+      }
+    }
+  }
+
+  /**
+   * Check if the spatial grid viz mesh is active and visible
+   * (used by game loop for per-frame visualization updates)
+   */
+  isSpatialGridVizVisible(): boolean {
+    return this.uiState.spatialGridDebugVisible() && this.spatialGridVizMesh !== null;
+  }
+
+  /**
+   * Cleanup spatial grid visualization mesh.
+   * Removes from scene and disposes resources.
+   */
+  cleanupSpatialGridVisualization(): void {
+    if (this.spatialGridVizMesh) {
+      if (this.scene) {
+        this.scene.remove(this.spatialGridVizMesh);
+      }
+      this.grid.disposeVisualization();
+      this.spatialGridVizMesh = null;
+    }
+  }
+
+  // ========================================
   // DEFENSE REACH
   // ========================================
 
@@ -382,6 +457,7 @@ export class GlobalRouteGridService {
    * Clear all data (for location change / reset)
    */
   clear(): void {
+    this.cleanupSpatialGridVisualization();
     this.grid.clear();
     this.initialized = false;
     this.hideDefenseReachMarker();
@@ -391,6 +467,7 @@ export class GlobalRouteGridService {
    * Dispose all resources
    */
   dispose(): void {
+    this.cleanupSpatialGridVisualization();
     this.grid.dispose();
     this.initialized = false;
     if (this.defenseReachMarker) {
