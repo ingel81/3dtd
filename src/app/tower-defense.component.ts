@@ -899,7 +899,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
           cameraHeading: this.cameraControl.getCameraHeading(),
           cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
           soundPoolStats: soundDebugOpen ? this.engine!.spatialAudio.getSoundPoolStats() : undefined,
-          onSoundDebugUpdate: soundDebugOpen ? (stats) => this.soundDebug.updateStats(stats) : undefined,
+          onSoundDebugUpdate: soundDebugOpen ? (stats: unknown) => this.soundDebug.updateStats(stats as any) : undefined,
         });
       });
     }
@@ -1042,6 +1042,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   /**
    * Manually trigger route animation playback
    */
+  onDpsBinsToggled(visible: boolean): void {
+    this.facade.onDpsBinsToggled(visible, this.gameState);
+  }
+
   onPlayRouteAnimation(): void {
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
