@@ -198,7 +198,11 @@ export class TowerCombatService {
           projectileManager.spawn(tower, target);
         }
       } else {
-        // No target - reset turret to base position
+        // No target - check if tower should sleep
+        if (currentTime - tower.lastTargetTime > Tower.SLEEP_DELAY) {
+          tower.isSleeping = true;
+        }
+        // Reset turret to base position
         this.tilesEngine?.towers.resetRotation(tower.id);
       }
     }

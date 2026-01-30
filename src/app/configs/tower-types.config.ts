@@ -213,6 +213,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   rocket: {
     id: 'rocket',
     name: 'Rocket Tower',
+    defaultTargeting: 'highest-hp',
     modelUrl: ROCKET_MODEL_URL,
     scale: 3.4,
     previewScale: 5.5,
@@ -245,6 +246,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   ice: {
     id: 'ice',
     name: 'Ice Tower',
+    defaultTargeting: 'first',
     modelUrl: ICE_MODEL_URL,
     scale: 11.4,
     previewScale: 32,

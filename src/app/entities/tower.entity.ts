@@ -7,7 +7,7 @@ import {
   RenderComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost } from '../configs/tower-types.config';
+import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, TargetingStrategy } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
@@ -24,6 +24,9 @@ export class Tower extends GameObject {
 
   /** Track upgrade levels for each upgrade type */
   private upgradeLevels = new Map<UpgradeId, number>();
+
+  /** Current targeting strategy (can be changed per tower by player) */
+  targetingStrategy: TargetingStrategy;
 
   selected = false;
 
@@ -64,6 +67,7 @@ export class Tower extends GameObject {
     super('tower');
     this.typeConfig = getTowerType(typeId);
     this.customRotation = customRotation;
+    this.targetingStrategy = this.typeConfig.defaultTargeting ?? 'closest';
 
     // Add components
     this._transform = this.addComponent(
