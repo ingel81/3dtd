@@ -33,6 +33,7 @@ export const MAGIC_ORB_VERTEX = /* glsl */ `
 `;
 
 export const MAGIC_ORB_FRAGMENT = /* glsl */ `
+  precision highp float;
   #include <logdepthbuf_pars_fragment>
 
   uniform float uTime;
@@ -70,7 +71,7 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
     float amplitude = 0.5;
     float frequency = 1.0;
 
-    for (int i = 0; i < 4; i++) {
+    for (int i = 0; i < 2; i++) {
       value += amplitude * smoothNoise(p * frequency);
       frequency *= 2.0;
       amplitude *= 0.5;
@@ -86,8 +87,8 @@ export const MAGIC_ORB_FRAGMENT = /* glsl */ `
 
     float minDist = 1.0;
 
-    for (int y = -1; y <= 1; y++) {
-      for (int x = -1; x <= 1; x++) {
+    for (int y = 0; y <= 1; y++) {
+      for (int x = 0; x <= 1; x++) {
         vec2 neighbor = vec2(float(x), float(y));
         vec2 point = i + neighbor;
 

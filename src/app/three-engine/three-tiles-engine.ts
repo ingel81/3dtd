@@ -175,6 +175,15 @@ export class ThreeTilesEngine {
   private cameraNudgeCount = 0; // Track camera nudges to prevent infinite loop
   private readonly MAX_CAMERA_NUDGES = 3;
 
+  // Tiles update throttling - only update when camera moves significantly
+  private lastTilesUpdateCameraPos = new Vector3();
+  private readonly TILES_UPDATE_THRESHOLD = 5; // meters
+
+  // Screen shake system
+  private shakeIntensity = 0;
+  private shakeDecay = 0;
+  private shakeOffset = new Vector3();
+
   // Callback for per-frame updates (animations)
   private onUpdateCallback: ((deltaTime: number) => void) | null = null;
 
@@ -300,6 +309,16 @@ export class ThreeTilesEngine {
    */
   setInitialCameraPosition(position: InitialCameraPosition): void {
     this.initialCameraPosition = position;
+  }
+
+  /**
+   * Trigger camera screen shake (e.g., on explosion)
+   * @param intensity - Shake strength in meters (default 0.5)
+   * @param duration - Duration in ms (default 200)
+   */
+  triggerScreenShake(intensity = 0.5, duration = 200): void {
+    this.shakeIntensity = intensity;
+    this.shakeDecay = intensity / (duration / 16.67); // Decay per frame at ~60fps
   }
 
   setTimescale(scale: number): void {
@@ -1333,7 +1352,13 @@ export class ThreeTilesEngine {
     this.camera.updateMatrixWorld();
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
     this.tilesRenderer.setCamera(this.camera);
-    this.tilesRenderer.update();
+
+    // Throttle tiles update - only when camera moved significantly
+    const cameraMoved = this.camera.position.distanceTo(this.lastTilesUpdateCameraPos);
+    if (cameraMoved > this.TILES_UPDATE_THRESHOLD) {
+      this.tilesRenderer.update();
+      this.lastTilesUpdateCameraPos.copy(this.camera.position);
+    }
 
     // Capture initial tiles position only when tiles have loaded (position is non-zero)
     if (!this.tilesPosInitialized) {
@@ -1391,6 +1416,21 @@ export class ThreeTilesEngine {
     // Call external update callback (for component animations)
     if (this.onUpdateCallback) {
       this.onUpdateCallback(deltaTime);
+    }
+
+    // Screen shake
+    if (this.shakeIntensity > 0) {
+      this.shakeOffset.set(
+        (Math.random() - 0.5) * 2 * this.shakeIntensity,
+        (Math.random() - 0.5) * 2 * this.shakeIntensity,
+        (Math.random() - 0.5) * 2 * this.shakeIntensity
+      );
+      this.camera.position.add(this.shakeOffset);
+      this.shakeIntensity = Math.max(0, this.shakeIntensity - this.shakeDecay);
+    } else if (this.shakeOffset.lengthSq() > 0) {
+      // Remove last shake offset when shake ends
+      this.camera.position.sub(this.shakeOffset);
+      this.shakeOffset.set(0, 0, 0);
     }
   }
 

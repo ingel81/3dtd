@@ -37,6 +37,7 @@ export const FLAME_BEAM_VERTEX = /* glsl */ `
 `;
 
 export const FLAME_BEAM_FRAGMENT = /* glsl */ `
+  precision highp float;
   #include <logdepthbuf_pars_fragment>
 
   uniform float uTime;

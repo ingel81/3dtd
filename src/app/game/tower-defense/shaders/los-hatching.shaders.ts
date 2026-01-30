@@ -31,6 +31,7 @@ export const LOS_HATCHING_VERTEX = /* glsl */ `
 `;
 
 export const LOS_HATCHING_FRAGMENT = /* glsl */ `
+  precision highp float;
   uniform float uTime;
   uniform vec3 uVisibleColor;
   uniform vec3 uBlockedColor;

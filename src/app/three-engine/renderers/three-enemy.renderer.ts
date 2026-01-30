@@ -18,6 +18,7 @@ import {
   Camera,
   Frustum,
   Matrix4,
+  Sphere,
   Texture,
 } from 'three';
 import { CoordinateSync } from './index';
@@ -55,6 +56,10 @@ export interface EnemyRenderData {
   debugOverrides?: EnemyDebugOverrides;
   // Last known movement heading (for debug rotation offset)
   lastHeading: number;
+  // Animation LOD frame skip counter
+  lodFrameSkip: number;
+  // Original emissive values for freeze visual restore
+  originalEmissive?: Map<Material, { color: Color; intensity: number }>;
 }
 
 /**
@@ -82,6 +87,7 @@ export class ThreeEnemyRenderer {
   // Frustum culling for animations (reused to avoid allocations)
   private frustum = new Frustum();
   private projScreenMatrix = new Matrix4();
+  private boundingSphere = new Sphere();
 
   // Material pool - shared materials per enemy type (reduces GPU state changes)
   // Key: typeId, Value: Array of materials in mesh traverse order
@@ -246,6 +252,7 @@ export class ThreeEnemyRenderer {
       isWalking: true,
       animationVariationTimer: null,
       lastHeading: 0,
+      lodFrameSkip: 0,
     };
 
     this.enemies.set(id, renderData);
@@ -442,6 +449,58 @@ export class ThreeEnemyRenderer {
   }
 
   /**
+   * Set freeze visual effect (ice slow tint)
+   * When active: applies blue emissive tint to all materials
+   * When inactive: restores original emissive values
+   */
+  setFreezeVisual(id: string, active: boolean): void {
+    const data = this.enemies.get(id);
+    if (!data || data.isDestroyed) return;
+
+    if (active) {
+      // Store original emissive values if not already stored
+      if (!data.originalEmissive) {
+        data.originalEmissive = new Map();
+        data.mesh.traverse((node) => {
+          if ((node as Mesh).isMesh) {
+            const mat = (node as Mesh).material as MeshStandardMaterial;
+            if (mat && 'emissive' in mat) {
+              data.originalEmissive!.set(mat, {
+                color: mat.emissive.clone(),
+                intensity: mat.emissiveIntensity,
+              });
+            }
+          }
+        });
+      }
+
+      // Apply blue freeze tint
+      const freezeColor = new Color(0x4488ff);
+      data.mesh.traverse((node) => {
+        if ((node as Mesh).isMesh) {
+          const mat = (node as Mesh).material as MeshStandardMaterial;
+          if (mat && 'emissive' in mat) {
+            mat.emissive.copy(freezeColor);
+            mat.emissiveIntensity = 0.3;
+          }
+        }
+      });
+    } else {
+      // Restore original emissive values
+      if (data.originalEmissive) {
+        for (const [mat, original] of data.originalEmissive) {
+          const stdMat = mat as MeshStandardMaterial;
+          if ('emissive' in stdMat) {
+            stdMat.emissive.copy(original.color);
+            stdMat.emissiveIntensity = original.intensity;
+          }
+        }
+        data.originalEmissive = undefined;
+      }
+    }
+  }
+
+  /**
    * Play walk or run animation
    */
   private playMovementAnimation(data: EnemyRenderData, isWalk: boolean): void {
@@ -594,9 +653,24 @@ export class ThreeEnemyRenderer {
     for (const data of this.enemies.values()) {
       if (!data.mixer || data.isDestroyed) continue;
 
-      // Check if enemy mesh is in camera frustum
-      if (this.frustum.containsPoint(data.mesh.position)) {
-        data.mixer.update(deltaTime);
+      // Check if enemy bounding sphere is in camera frustum
+      this.boundingSphere.center.copy(data.mesh.position);
+      this.boundingSphere.radius = 15;
+      if (this.frustum.intersectsSphere(this.boundingSphere)) {
+        // Animation LOD based on distance to camera
+        const distance = camera.position.distanceTo(data.mesh.position);
+
+        if (distance < 100) {
+          // Full animation update
+          data.mixer.update(deltaTime);
+        } else if (distance < 200) {
+          // Reduced animation: update every other frame
+          data.lodFrameSkip++;
+          if (data.lodFrameSkip % 2 === 0) {
+            data.mixer.update(deltaTime * 2); // Compensate for skipped frame
+          }
+        }
+        // Distance > 200: skip animation entirely (position still updates via update())
       }
     }
   }

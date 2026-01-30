@@ -50,6 +50,7 @@ export function createBloodDecalShader(): ShaderMaterial {
   `;
 
   const fragmentShader = /* glsl */ `
+    precision highp float;
     varying vec2 vUv;
     varying vec3 vInstanceColor;
     varying float vInstanceOpacity;
@@ -157,6 +158,7 @@ export function createIceDecalShader(): ShaderMaterial {
   `;
 
   const fragmentShader = /* glsl */ `
+    precision highp float;
     varying vec2 vUv;
     varying vec3 vInstanceColor;
     varying float vInstanceOpacity;

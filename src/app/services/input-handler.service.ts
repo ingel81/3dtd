@@ -67,6 +67,7 @@ export class InputHandlerService {
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
   private pointerUpHandler: ((event: PointerEvent) => void) | null = null;
   private pointerMoveHandler: ((event: PointerEvent) => void) | null = null;
+  private contextMenuHandler: ((event: MouseEvent) => void) | null = null;
 
   /** Throttle state for pointer move */
   private lastPointerMoveTime = 0;
@@ -158,6 +159,17 @@ export class InputHandlerService {
       }
     };
     document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
+
+    // Right-click cancels build mode
+    this.contextMenuHandler = (event: MouseEvent) => {
+      if (event.target === canvas || canvas.contains(event.target as Node)) {
+        if (this.buildModeSignal?.()) {
+          event.preventDefault();
+          this.keyboardCallbacks?.exitBuildMode();
+        }
+      }
+    };
+    document.addEventListener('contextmenu', this.contextMenuHandler, { capture: true });
   }
 
   /**
@@ -372,6 +384,10 @@ export class InputHandlerService {
     if (this.pointerMoveHandler) {
       document.removeEventListener('pointermove', this.pointerMoveHandler, { capture: true });
       this.pointerMoveHandler = null;
+    }
+    if (this.contextMenuHandler) {
+      document.removeEventListener('contextmenu', this.contextMenuHandler, { capture: true });
+      this.contextMenuHandler = null;
     }
 
     this.engine = null;
