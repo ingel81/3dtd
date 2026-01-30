@@ -133,12 +133,23 @@ export class ThreeEffectsRenderer {
   private trailMaterialAdditive: PointsMaterial | null = null;
   private trailMaterialNormal: PointsMaterial | null = null;
 
-  // Round-robin cursors for O(1) amortized inactive particle search
+  // Round-robin cursors as fallback for inactive particle search
   private poolCursors = {
     trailAdditive: 0,
     trailNormal: 0,
     towerFire: 0,
   };
+
+  // Free-lists (stacks of free indices) for O(1) inactive particle lookup.
+  // Populated during updateParticleBuffers (already O(n) per frame).
+  // getInactiveParticle pops from here first, falling back to round-robin cursor.
+  private freeIndicesAdditive: number[] = [];
+  private freeIndicesNormal: number[] = [];
+  private freeIndicesTowerFire: number[] = [];
+  // Boolean tracking arrays to avoid duplicate free-list entries
+  private inFreeListAdditive!: Uint8Array;
+  private inFreeListNormal!: Uint8Array;
+  private inFreeListTowerFire!: Uint8Array;
 
   // Dedicated tower inner fire pool (independent of combat effects)
   private towerFirePool: Particle[] = [];
@@ -173,6 +184,9 @@ export class ThreeEffectsRenderer {
   private floatingTexts: FloatingTextInstance[] = [];
   private readonly MAX_FLOATING_TEXTS = PARTICLE_LIMITS.maxFloatingTexts;
   private floatingTextIdCounter = 0;
+
+  // Frost aura tracking (orbiting ice particles per enemy)
+  private activeFrostAuras = new Map<string, { particles: Particle[]; localPosition: Vector3; orbitAngle: number }>();
 
   // Reusable temp vector for particle updates (avoids GC pressure)
   private readonly tempVelocity = new Vector3();
@@ -256,6 +270,14 @@ export class ThreeEffectsRenderer {
       });
     }
 
+    // Initialize free-list with all indices (all particles start inactive)
+    this.inFreeListTowerFire = new Uint8Array(this.MAX_TOWER_FIRE_PARTICLES);
+    this.freeIndicesTowerFire = [];
+    for (let i = this.MAX_TOWER_FIRE_PARTICLES - 1; i >= 0; i--) {
+      this.freeIndicesTowerFire.push(i);
+      this.inFreeListTowerFire[i] = 1;
+    }
+
     console.log('[ThreeEffectsRenderer] Tower fire pool initialized:', this.MAX_TOWER_FIRE_PARTICLES, 'particles');
   }
 
@@ -298,6 +320,14 @@ export class ThreeEffectsRenderer {
       });
     }
 
+    // Initialize additive free-list with all indices (all start inactive)
+    this.inFreeListAdditive = new Uint8Array(TRAIL_ADDITIVE_POOL_SIZE);
+    this.freeIndicesAdditive = [];
+    for (let i = TRAIL_ADDITIVE_POOL_SIZE - 1; i >= 0; i--) {
+      this.freeIndicesAdditive.push(i);
+      this.inFreeListAdditive[i] = 1;
+    }
+
     // Trail particles - NORMAL pool (for smoke, dust, blood effects)
     const trailGeometryNormal = new BufferGeometry();
     const trailPositionsNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE * 3);
@@ -331,6 +361,14 @@ export class ThreeEffectsRenderer {
         frameIndex: -1,
         totalFrames: 0,
       });
+    }
+
+    // Initialize normal free-list with all indices (all start inactive)
+    this.inFreeListNormal = new Uint8Array(TRAIL_NORMAL_POOL_SIZE);
+    this.freeIndicesNormal = [];
+    for (let i = TRAIL_NORMAL_POOL_SIZE - 1; i >= 0; i--) {
+      this.freeIndicesNormal.push(i);
+      this.inFreeListNormal[i] = 1;
     }
   }
 
@@ -2148,7 +2186,8 @@ export class ThreeEffectsRenderer {
       const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
-      for (const p of this.trailPoolAdditive) {
+      for (let i = 0; i < this.trailPoolAdditive.length; i++) {
+        const p = this.trailPoolAdditive[i];
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -2170,6 +2209,9 @@ export class ThreeEffectsRenderer {
             frameArray[activeCount] = -1; // No atlas
           }
           activeCount++;
+        } else {
+          // Dead particle → return to free-list for O(1) reuse
+          this.returnToFreeList(i, 'trailAdditive');
         }
       }
 
@@ -2192,7 +2234,8 @@ export class ThreeEffectsRenderer {
       const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
-      for (const p of this.trailPoolNormal) {
+      for (let i = 0; i < this.trailPoolNormal.length; i++) {
+        const p = this.trailPoolNormal[i];
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -2214,6 +2257,9 @@ export class ThreeEffectsRenderer {
             frameArray[activeCount] = -1;
           }
           activeCount++;
+        } else {
+          // Dead particle → return to free-list for O(1) reuse
+          this.returnToFreeList(i, 'trailNormal');
         }
       }
 
@@ -2236,7 +2282,8 @@ export class ThreeEffectsRenderer {
       const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
-      for (const p of this.towerFirePool) {
+      for (let i = 0; i < this.towerFirePool.length; i++) {
+        const p = this.towerFirePool[i];
         if (p.life > 0) {
           posArray[activeCount * 3] = p.position.x;
           posArray[activeCount * 3 + 1] = p.position.y;
@@ -2247,6 +2294,9 @@ export class ThreeEffectsRenderer {
           colorArray[activeCount * 3 + 2] = p.color.b;
           frameArray[activeCount] = -1; // Tower fire uses circular particles
           activeCount++;
+        } else {
+          // Dead particle → return to free-list for O(1) reuse
+          this.returnToFreeList(i, 'towerFire');
         }
       }
 
@@ -2259,22 +2309,67 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Get an inactive particle from a pool
+   * Get an inactive particle from a pool using O(1) free-list lookup.
+   * Pops from the free-list stack first. Falls back to round-robin cursor
+   * if the free-list is empty (e.g. after bulk respawns that bypass the list).
    */
   private getInactiveParticle(pool: Particle[], cursorKey: keyof typeof this.poolCursors): Particle | null {
+    const freeList = this.getFreeList(cursorKey);
+    const inFreeList = this.getInFreeList(cursorKey);
+
+    // O(1) path: pop from free-list stack
+    while (freeList.length > 0) {
+      const idx = freeList.pop()!;
+      inFreeList[idx] = 0;
+      if (pool[idx].life <= 0) {
+        // Reset sprite-sheet fields so reused particles default to circular
+        pool[idx].frameIndex = -1;
+        pool[idx].totalFrames = 0;
+        return pool[idx];
+      }
+      // Particle was reactivated externally (e.g. fire respawn) — skip it
+    }
+
+    // Fallback: round-robin cursor scan (handles edge cases)
     const len = pool.length;
     const startIdx = this.poolCursors[cursorKey];
     for (let i = 0; i < len; i++) {
       const idx = (startIdx + i) % len;
       if (pool[idx].life <= 0) {
         this.poolCursors[cursorKey] = (idx + 1) % len;
-        // Reset sprite-sheet fields so reused particles default to circular
         pool[idx].frameIndex = -1;
         pool[idx].totalFrames = 0;
         return pool[idx];
       }
     }
     return null;
+  }
+
+  /** Map cursor key to corresponding free-list array */
+  private getFreeList(cursorKey: keyof typeof this.poolCursors): number[] {
+    switch (cursorKey) {
+      case 'trailAdditive': return this.freeIndicesAdditive;
+      case 'trailNormal': return this.freeIndicesNormal;
+      case 'towerFire': return this.freeIndicesTowerFire;
+    }
+  }
+
+  /** Map cursor key to corresponding inFreeList tracking array */
+  private getInFreeList(cursorKey: keyof typeof this.poolCursors): Uint8Array {
+    switch (cursorKey) {
+      case 'trailAdditive': return this.inFreeListAdditive;
+      case 'trailNormal': return this.inFreeListNormal;
+      case 'towerFire': return this.inFreeListTowerFire;
+    }
+  }
+
+  /** Push a dead particle's index back onto the free-list (if not already there) */
+  private returnToFreeList(idx: number, cursorKey: keyof typeof this.poolCursors): void {
+    const inFreeList = this.getInFreeList(cursorKey);
+    if (!inFreeList[idx]) {
+      inFreeList[idx] = 1;
+      this.getFreeList(cursorKey).push(idx);
+    }
   }
 
   // Debug spheres for visualization
@@ -2344,6 +2439,24 @@ export class ThreeEffectsRenderer {
       p.life = 0;
     }
     this.poolCursors = { trailAdditive: 0, trailNormal: 0, towerFire: 0 };
+
+    // Rebuild free-lists (all particles are now inactive)
+    this.freeIndicesAdditive = [];
+    this.inFreeListAdditive.fill(1);
+    for (let i = this.trailPoolAdditive.length - 1; i >= 0; i--) {
+      this.freeIndicesAdditive.push(i);
+    }
+    this.freeIndicesNormal = [];
+    this.inFreeListNormal.fill(1);
+    for (let i = this.trailPoolNormal.length - 1; i >= 0; i--) {
+      this.freeIndicesNormal.push(i);
+    }
+    this.freeIndicesTowerFire = [];
+    this.inFreeListTowerFire.fill(1);
+    for (let i = this.towerFirePool.length - 1; i >= 0; i--) {
+      this.freeIndicesTowerFire.push(i);
+    }
+
     this.activeEffects.clear();
     this.activeTowerFires.clear();
 
