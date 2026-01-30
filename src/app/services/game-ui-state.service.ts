@@ -114,6 +114,35 @@ export class GameUIStateService {
     visible: 0,
   });
 
+  /** Active spatial audio sound count */
+  readonly activeSounds = signal(0);
+
+  /** Map attribution text from tile engine */
+  readonly mapAttribution = signal('Map data ©2024 Google');
+
+  /** Compass heading: 0=N, 90=E, 180=S, 270=W */
+  readonly cameraHeading = signal(0);
+
+  /** Accumulated rotation for smooth compass animation (avoids 0°/360° flip) */
+  readonly compassRotation = signal(0);
+
+  /** Camera debug overlay enabled */
+  readonly cameraDebugEnabled = signal(false);
+
+  /** Camera debug info (position, rotation, etc.) */
+  readonly cameraDebugInfo = signal<{
+    posX: number; posY: number; posZ: number;
+    rotX: number; rotY: number; rotZ: number;
+    heading: number; pitch: number; altitude: number;
+    distanceToCenter: number; fov: number; terrainHeight: number;
+  } | null>(null);
+
+  // UI update throttling state (avoids updating signals every frame)
+  private lastUIUpdateTime = 0;
+  private readonly UI_UPDATE_INTERVAL = 100; // ms - update UI stats ~10x/sec instead of 60x
+  private lastFps = 0;
+  private lastActiveSounds = 0;
+
   // ========================================
   // DEBUG LOG
   // ========================================
@@ -228,6 +257,66 @@ export class GameUIStateService {
   }
 
   /**
+   * Throttled UI stats update (~10Hz instead of 60Hz).
+   * Called every frame from game loop; internally skips if interval not elapsed.
+   * @returns true if stats were updated, false if throttled/skipped
+   */
+  updateThrottledStats(snapshot: EngineStatsSnapshot): boolean {
+    const now = performance.now();
+    if (now - this.lastUIUpdateTime < this.UI_UPDATE_INTERVAL) {
+      return false; // Skip — too soon
+    }
+    this.lastUIUpdateTime = now;
+
+    // FPS - only update if changed
+    if (snapshot.fps !== this.lastFps) {
+      this.lastFps = snapshot.fps;
+      this.fps.set(snapshot.fps);
+    }
+
+    // Tile stats
+    this.tileStats.set(snapshot.tileStats);
+
+    // Active sounds - only update if changed
+    if (snapshot.activeSoundCount !== this.lastActiveSounds) {
+      this.lastActiveSounds = snapshot.activeSoundCount;
+      this.activeSounds.set(snapshot.activeSoundCount);
+    }
+
+    // Map attribution - only update if changed
+    if (snapshot.attribution && snapshot.attribution !== this.mapAttribution()) {
+      this.mapAttribution.set(snapshot.attribution);
+    }
+
+    // Compass heading - only update if changed
+    const heading = Math.round(snapshot.cameraHeading);
+    if (heading !== this.cameraHeading()) {
+      const oldHeading = this.cameraHeading();
+      this.cameraHeading.set(heading);
+
+      // Calculate shortest rotation delta (handles 0°/360° wrap-around)
+      let delta = heading - oldHeading;
+      if (delta > 180) delta -= 360;
+      if (delta < -180) delta += 360;
+
+      // Accumulate rotation for smooth compass animation
+      this.compassRotation.update(rot => rot + delta);
+    }
+
+    // Camera debug info - only when enabled
+    if (this.cameraDebugEnabled() && snapshot.cameraDebugInfo) {
+      this.cameraDebugInfo.set(snapshot.cameraDebugInfo);
+    }
+
+    // Sound debug stats - passthrough (caller provides if panel is open)
+    if (snapshot.soundPoolStats && snapshot.onSoundDebugUpdate) {
+      snapshot.onSoundDebugUpdate(snapshot.soundPoolStats);
+    }
+
+    return true;
+  }
+
+  /**
    * Reset all UI state to defaults
    */
   reset(): void {
@@ -242,6 +331,37 @@ export class GameUIStateService {
     this.spatialGridDebugVisible.set(false);
     this.fps.set(0);
     this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
+    this.activeSounds.set(0);
+    this.mapAttribution.set('Map data ©2024 Google');
+    this.cameraHeading.set(0);
+    this.compassRotation.set(0);
+    this.cameraDebugEnabled.set(false);
+    this.cameraDebugInfo.set(null);
     this.debugLog.set('');
+    this.lastUIUpdateTime = 0;
+    this.lastFps = 0;
+    this.lastActiveSounds = 0;
   }
+}
+
+/**
+ * Snapshot of engine stats passed to updateThrottledStats().
+ * The component gathers these values and hands them off for throttled signal updates.
+ */
+export interface EngineStatsSnapshot {
+  fps: number;
+  tileStats: { parsing: number; downloading: number; total: number; visible: number };
+  activeSoundCount: number;
+  attribution?: string;
+  cameraHeading: number;
+  cameraDebugInfo?: {
+    posX: number; posY: number; posZ: number;
+    rotX: number; rotY: number; rotZ: number;
+    heading: number; pitch: number; altitude: number;
+    distanceToCenter: number; fov: number; terrainHeight: number;
+  } | null;
+  /** Sound pool stats (only when sound debug panel is open) */
+  soundPoolStats?: unknown;
+  /** Callback to update sound debug service (avoids coupling GameUIStateService to SoundDebugService) */
+  onSoundDebugUpdate?: (stats: unknown) => void;
 }
