@@ -72,7 +72,7 @@ export class DevStreetProvider implements StreetNetworkProvider {
       return this.network;
     }
 
-    const startTime = performance.now();
+    const _startTime = performance.now();
 
     // Build network from generated segments
     this.network = this.buildNetwork();
@@ -254,9 +254,9 @@ export class DevStreetProvider implements StreetNetworkProvider {
     }
 
     // Log graph stats
-    let totalEdges = 0;
+    let _totalEdges = 0;
     for (const node of this.graph.values()) {
-      totalEdges += node.neighbors.length;
+      _totalEdges += node.neighbors.length;
     }
   }
 
@@ -382,8 +382,8 @@ export class DevStreetProvider implements StreetNetworkProvider {
       return [];
     }
 
-    const startNode = this.graph.get(startId)!;
-    const endNode = this.graph.get(endId)!;
+    const _startNode = this.graph.get(startId)!;
+    const _endNode = this.graph.get(endId)!;
 
 
     // A* pathfinding

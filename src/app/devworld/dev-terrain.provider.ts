@@ -88,7 +88,7 @@ export class DevTerrainProvider implements TerrainProvider {
   async initialize(scene: THREE.Scene): Promise<void> {
     this.scene = scene;
 
-    const startTime = performance.now();
+    const _startTime = performance.now();
 
     // Generate everything from seed
     await this.regenerate();
@@ -170,7 +170,7 @@ export class DevTerrainProvider implements TerrainProvider {
       this.onStreetRefreshCallback(this.streetSegments, this.spawnPoints);
     }
 
-    const meshTime = performance.now() - startTime - result.timing.total;
+    const _meshTime = performance.now() - startTime - result.timing.total;
   }
 
   /**

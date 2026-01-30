@@ -213,7 +213,7 @@ export class HeightUpdateService {
    * Stop height update interval
    */
   stopHeightUpdates(): void {
-    const now = performance.now();
+    const _now = performance.now();
 
     // Only run callbacks if there was an active height update cycle
     const hadActiveInterval = this.heightUpdateIntervalId !== null;
