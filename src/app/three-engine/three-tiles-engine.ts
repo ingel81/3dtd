@@ -48,6 +48,7 @@ import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
+import { createColorGradingPass, ColorGradingPreset } from './post-processing/color-grading';
 import { EllipsoidSync } from './ellipsoid-sync';
 import {
   CoordinateSync,
@@ -56,8 +57,9 @@ import {
   ThreeProjectileRenderer,
   ThreeEffectsRenderer,
   ThreeFlameBeamRenderer,
+  TrailStreakRenderer,
 } from './renderers';
-import { SpatialAudioManager } from '../managers/spatial-audio.manager';
+import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
@@ -99,6 +101,10 @@ export class ThreeTilesEngine {
   private bloomPass: UnrealBloomPass | null = null;
   private bloomEnabled = false;
 
+  // Color grading (LUT post-processing)
+  private colorGrading: ReturnType<typeof createColorGradingPass> | null = null;
+  private colorGradingPreset: ColorGradingPreset = 'none';
+
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
 
@@ -128,6 +134,7 @@ export class ThreeTilesEngine {
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
   readonly flameBeams: ThreeFlameBeamRenderer;
+  readonly trailStreaks: TrailStreakRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -300,6 +307,7 @@ export class ThreeTilesEngine {
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
     this.flameBeams = new ThreeFlameBeamRenderer();
     this.flameBeams.setEffectsRenderer(this.effects);
+    this.trailStreaks = new TrailStreakRenderer(this.scene);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -791,6 +799,10 @@ export class ThreeTilesEngine {
     );
     this.bloomPass = bloomPass;
     this.composer.addPass(bloomPass);
+
+    // Color grading LUT pass (inserted before output, disabled by default)
+    this.colorGrading = createColorGradingPass();
+    this.composer.addPass(this.colorGrading.pass);
 
     const outputPass = new OutputPass();
     this.composer.addPass(outputPass);
@@ -1359,8 +1371,8 @@ export class ThreeTilesEngine {
       // Position overlayGroup at terrain base height (no tiles movement in DevWorld)
       this.overlayGroup.position.y = this.overlayBaseY;
 
-      // Render scene
-      if (this.bloomEnabled && this.composer) {
+      // Render scene (use composer if any post-processing is active)
+      if (this.needsPostProcessing() && this.composer) {
         this.composer.render();
       } else {
         this.renderer.render(this.scene, this.camera);
@@ -1415,8 +1427,8 @@ export class ThreeTilesEngine {
       this.overlayGroup.position.set(deltaPos.x, deltaPos.y + this.overlayBaseY, deltaPos.z);
     }
 
-    // Render scene
-    if (this.bloomEnabled && this.composer) {
+    // Render scene (use composer if any post-processing is active)
+    if (this.needsPostProcessing() && this.composer) {
       this.composer.render();
     } else {
       this.renderer.render(this.scene, this.camera);
@@ -1449,6 +1461,9 @@ export class ThreeTilesEngine {
 
     // Update flame beam shader animations
     this.flameBeams.update(deltaTime);
+
+    // Rebuild trail streak geometries
+    this.trailStreaks.updateAll();
 
     // Rotate test cube if exists
     if (this.testCube) {
@@ -1832,6 +1847,11 @@ export class ThreeTilesEngine {
 
   // ---- Bloom post-processing controls ----
 
+  /** Check if any post-processing pass is active (bloom or color grading) */
+  private needsPostProcessing(): boolean {
+    return this.bloomEnabled || this.colorGradingPreset !== 'none';
+  }
+
   setBloomEnabled(enabled: boolean): void {
     this.bloomEnabled = enabled;
   }
@@ -1846,6 +1866,25 @@ export class ThreeTilesEngine {
 
   setBloomThreshold(threshold: number): void {
     if (this.bloomPass) this.bloomPass.threshold = threshold;
+  }
+
+  // ---- Color Grading (LUT) ----
+
+  setColorGradingPreset(preset: ColorGradingPreset): void {
+    this.colorGradingPreset = preset;
+    if (this.colorGrading) {
+      this.colorGrading.setPreset(preset);
+    }
+  }
+
+  getColorGradingPreset(): ColorGradingPreset {
+    return this.colorGradingPreset;
+  }
+
+  setColorGradingIntensity(value: number): void {
+    if (this.colorGrading) {
+      this.colorGrading.setIntensity(value);
+    }
   }
 
   /**
@@ -1886,6 +1925,7 @@ export class ThreeTilesEngine {
     this.projectiles.clear();
     this.effects.clear();
     this.flameBeams.clear();
+    this.trailStreaks.clear();
   }
 
   /**
@@ -1910,6 +1950,7 @@ export class ThreeTilesEngine {
     this.projectiles.dispose();
     this.effects.dispose();
     this.flameBeams.dispose();
+    this.trailStreaks.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();
@@ -1935,6 +1976,12 @@ export class ThreeTilesEngine {
         }
       }
     });
+
+    // Dispose color grading LUT textures
+    if (this.colorGrading) {
+      this.colorGrading.dispose();
+      this.colorGrading = null;
+    }
 
     // Dispose post-processing composer
     if (this.composer) {

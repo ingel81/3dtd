@@ -20,7 +20,7 @@ import { UpgradeId } from '../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineStore } from '../store/engine.store';
-import { SoundPoolStats } from '../managers/spatial-audio.manager';
+import { SoundPoolStats } from '../managers/audio/spatial-audio.manager';
 import { PerformanceProfilerService } from './performance-profiler.service';
 
 /**
