@@ -8,6 +8,7 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { WaveDebugService } from './wave-debug.service';
 import { SoundDebugService } from './sound-debug.service';
 import { DebugFacadeService } from './debug-facade.service';
+import { PerformanceProfilerService } from './performance-profiler.service';
 import { EntityPoolService } from './entity-pool.service';
 import { ModelPreviewService } from './model-preview.service';
 import { StrategicPlacementService } from './strategic-placement.service';
@@ -87,6 +88,7 @@ export class TowerDefenseFacadeService {
   private readonly waveDebug = inject(WaveDebugService);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
+  private readonly profiler = inject(PerformanceProfilerService);
   private readonly entityPool = inject(EntityPoolService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
@@ -263,6 +265,9 @@ export class TowerDefenseFacadeService {
 
         this.debugFacade.setEngine(engine, this.gameState);
         this.debugFacade.applyDisplayOptions();
+        this.profiler.setEngine(engine, this.gameState);
+        this.gameState.enemyManager.onProfileTiming =
+          (move, grid, height, render, total) => this.profiler.accumulateEnemyTiming(move, grid, height, render, total);
       }
     } catch (err) {
       console.error('[TD] Engine init error:', err);

@@ -147,6 +147,30 @@ export class DebugFacadeService {
     this.persistDisplayOption('movement', enabled);
   }
 
+  /**
+   * Toggle texture rendering and persist (Performance Debug)
+   */
+  onTexturesToggled(enabled: boolean): void {
+    this.engine?.enemies.setTexturesEnabled(enabled);
+    this.persistDisplayOption('textures', enabled);
+  }
+
+  /**
+   * Toggle skeleton cloning for new enemies and persist (Performance Debug)
+   */
+  onSkeletonCloningToggled(enabled: boolean): void {
+    this.engine?.enemies.setSkeletonCloningEnabled(enabled);
+    this.persistDisplayOption('skeletonCloning', enabled);
+  }
+
+  /**
+   * Toggle alpha blending and persist (Performance Debug)
+   */
+  onAlphaBlendToggled(enabled: boolean): void {
+    this.engine?.enemies.setAlphaBlendEnabled(enabled);
+    this.persistDisplayOption('alphaBlend', enabled);
+  }
+
   // ========================================
   // Display Option Persistence
   // ========================================
@@ -166,6 +190,9 @@ export class DebugFacadeService {
         if (opts.movement === false && this.gameState) {
           this.gameState.enemyManager.movementEnabled = false;
         }
+        if (opts.textures === false) this.engine?.enemies.setTexturesEnabled(false);
+        if (opts.skeletonCloning === false) this.engine?.enemies.setSkeletonCloningEnabled(false);
+        if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
       }
     } catch { /* ignore corrupt localStorage */ }
   }

@@ -32,6 +32,7 @@ import { TrainingDebuggerComponent } from './components/debug-window/training-de
 import { TowerDebuggerComponent } from './components/debug-window/tower-debugger.component';
 import { EnemyDebuggerComponent } from './components/debug-window/enemy-debugger.component';
 import { DisplayOptionsComponent } from './components/debug-window/display-options.component';
+import { PerformanceDebuggerComponent } from './components/debug-window/performance-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -91,6 +92,7 @@ import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
     TowerDebuggerComponent,
     EnemyDebuggerComponent,
     DisplayOptionsComponent,
+    PerformanceDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,

@@ -21,6 +21,7 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineStore } from '../store/engine.store';
 import { SoundPoolStats } from '../managers/spatial-audio.manager';
+import { PerformanceProfilerService } from './performance-profiler.service';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -50,6 +51,7 @@ export class GameLoopFacadeService {
   private readonly trainingClient = inject(TrainingClientService);
   private readonly ngZone = inject(NgZone);
   private readonly store = inject(TowerDefenseStore);
+  private readonly profiler = inject(PerformanceProfilerService);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -382,6 +384,9 @@ export class GameLoopFacadeService {
 
     // Game logic tick
     this.gameState.update(performance.now());
+
+    // Performance profiler tick (console log timer)
+    this.profiler.tick(deltaTime);
 
     // Bot update (if enabled)
     if (this.trainingClient.botEnabled()) {

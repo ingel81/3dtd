@@ -94,6 +94,11 @@ export class ThreeEnemyRenderer {
   private _showEnemies = true;
   private _showHealthBars = true;
   private _showAnimations = true;
+  private _showTextures = true;
+  private _useSkeletonClone = true;
+  private _showAlphaBlend = true;
+  private originalTextureMaps = new Map<Material, Texture | null>();
+  private originalAlphaStates = new Map<Material, { transparent: boolean; depthWrite: boolean }>();
 
   constructor(scene: Scene, sync: CoordinateSync, assetManager: AssetManagerService) {
     this.scene = scene;
@@ -166,7 +171,7 @@ export class ThreeEnemyRenderer {
 
     // Clone the model using SkeletonUtils for proper SkinnedMesh support
     // Regular .clone() breaks skeleton bindings for animated models
-    const mesh = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
+    const mesh = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: this._useSkeletonClone });
     if (!mesh) {
       console.error(`[ThreeEnemyRenderer] Failed to clone model: ${typeId}`);
       return null;
@@ -983,6 +988,84 @@ export class ThreeEnemyRenderer {
 
   get showEnemies(): boolean {
     return this._showEnemies;
+  }
+
+  /**
+   * Toggle textures on/off for all enemy materials (immediate).
+   * When disabled, all texture maps are removed → flat white rendering.
+   * Isolates GPU texture sampling overhead.
+   */
+  setTexturesEnabled(enabled: boolean): void {
+    if (this._showTextures === enabled) return;
+    this._showTextures = enabled;
+
+    for (const materials of this.materialPool.values()) {
+      for (const mat of materials) {
+        const typed = mat as Material & { map?: Texture | null };
+        if (enabled) {
+          const original = this.originalTextureMaps.get(mat);
+          if (original !== undefined) {
+            typed.map = original;
+          }
+        } else {
+          this.originalTextureMaps.set(mat, typed.map ?? null);
+          typed.map = null;
+        }
+        mat.needsUpdate = true;
+      }
+    }
+  }
+
+  get showTextures(): boolean {
+    return this._showTextures;
+  }
+
+  /**
+   * Toggle skeleton cloning for new enemies.
+   * When disabled, uses Object3D.clone() instead of SkeletonUtils.clone().
+   * Animations will break but isolates skeleton clone CPU cost.
+   * Only affects newly spawned enemies.
+   */
+  setSkeletonCloningEnabled(enabled: boolean): void {
+    this._useSkeletonClone = enabled;
+  }
+
+  get useSkeletonClone(): boolean {
+    return this._useSkeletonClone;
+  }
+
+  /**
+   * Toggle alpha blending on/off for all enemy materials (immediate).
+   * When disabled, forces opaque rendering with depth writes.
+   * Isolates alpha-blend overdraw cost (e.g. Penguin model uses BLEND).
+   */
+  setAlphaBlendEnabled(enabled: boolean): void {
+    if (this._showAlphaBlend === enabled) return;
+    this._showAlphaBlend = enabled;
+
+    for (const materials of this.materialPool.values()) {
+      for (const mat of materials) {
+        if (enabled) {
+          const original = this.originalAlphaStates.get(mat);
+          if (original) {
+            mat.transparent = original.transparent;
+            mat.depthWrite = original.depthWrite;
+          }
+        } else {
+          this.originalAlphaStates.set(mat, {
+            transparent: mat.transparent,
+            depthWrite: mat.depthWrite,
+          });
+          mat.transparent = false;
+          mat.depthWrite = true;
+        }
+        mat.needsUpdate = true;
+      }
+    }
+  }
+
+  get showAlphaBlend(): boolean {
+    return this._showAlphaBlend;
   }
 
   /**

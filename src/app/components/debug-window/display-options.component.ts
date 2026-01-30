@@ -10,6 +10,9 @@ interface DisplayOptions {
   healthBars: boolean;
   animations: boolean;
   movement: boolean;
+  textures: boolean;
+  skeletonCloning: boolean;
+  alphaBlend: boolean;
 }
 
 @Component({
@@ -46,6 +49,19 @@ interface DisplayOptions {
             <input type="checkbox" [checked]="movement()" (change)="toggleMovement()" />
             <span>Movement</span>
           </label>
+          <div class="separator">Performance</div>
+          <label class="checkbox-row">
+            <input type="checkbox" [checked]="textures()" (change)="toggleTextures()" />
+            <span>Textures</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" [checked]="skeletonCloning()" (change)="toggleSkeletonCloning()" />
+            <span>Skeleton Clone</span>
+          </label>
+          <label class="checkbox-row">
+            <input type="checkbox" [checked]="alphaBlend()" (change)="toggleAlphaBlend()" />
+            <span>Alpha Blend</span>
+          </label>
         </div>
       </app-draggable-debug-panel>
     }
@@ -81,6 +97,16 @@ interface DisplayOptions {
     .checkbox-row:hover {
       color: var(--td-text-primary);
     }
+
+    .separator {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      color: var(--td-text-tertiary);
+      border-top: 1px solid var(--td-panel-border);
+      padding-top: 8px;
+      margin-top: 4px;
+    }
   `,
 })
 export class DisplayOptionsComponent {
@@ -90,11 +116,17 @@ export class DisplayOptionsComponent {
   readonly healthBars = signal(true);
   readonly animations = signal(true);
   readonly movement = signal(true);
+  readonly textures = signal(true);
+  readonly skeletonCloning = signal(true);
+  readonly alphaBlend = signal(true);
 
   readonly enemiesToggled = output<boolean>();
   readonly healthBarsToggled = output<boolean>();
   readonly animationsToggled = output<boolean>();
   readonly movementToggled = output<boolean>();
+  readonly texturesToggled = output<boolean>();
+  readonly skeletonCloningToggled = output<boolean>();
+  readonly alphaBlendToggled = output<boolean>();
 
   constructor() {
     this.loadFromStorage();
@@ -106,6 +138,9 @@ export class DisplayOptionsComponent {
         healthBars: this.healthBars(),
         animations: this.animations(),
         movement: this.movement(),
+        textures: this.textures(),
+        skeletonCloning: this.skeletonCloning(),
+        alphaBlend: this.alphaBlend(),
       };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
@@ -137,6 +172,24 @@ export class DisplayOptionsComponent {
     this.movementToggled.emit(next);
   }
 
+  toggleTextures(): void {
+    const next = !this.textures();
+    this.textures.set(next);
+    this.texturesToggled.emit(next);
+  }
+
+  toggleSkeletonCloning(): void {
+    const next = !this.skeletonCloning();
+    this.skeletonCloning.set(next);
+    this.skeletonCloningToggled.emit(next);
+  }
+
+  toggleAlphaBlend(): void {
+    const next = !this.alphaBlend();
+    this.alphaBlend.set(next);
+    this.alphaBlendToggled.emit(next);
+  }
+
   private loadFromStorage(): void {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -146,6 +199,9 @@ export class DisplayOptionsComponent {
         this.healthBars.set(opts.healthBars ?? true);
         this.animations.set(opts.animations ?? true);
         this.movement.set(opts.movement ?? true);
+        this.textures.set(opts.textures ?? true);
+        this.skeletonCloning.set(opts.skeletonCloning ?? true);
+        this.alphaBlend.set(opts.alphaBlend ?? true);
       }
     } catch { /* ignore */ }
   }
