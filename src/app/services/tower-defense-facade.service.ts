@@ -1,4 +1,6 @@
-import { Injectable, inject, Signal, WritableSignal } from '@angular/core';
+import { Injectable, inject, Injector, NgZone, DestroyRef, Signal, WritableSignal, effect } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { MatDialog } from '@angular/material/dialog';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { GameUIStateService } from '../services/game-ui-state.service';
 import { CameraControlService } from '../services/camera-control.service';
@@ -9,7 +11,10 @@ import { TowerPlacementService } from '../services/tower-placement.service';
 import { LocationManagementService } from '../services/location-management.service';
 import { HeightUpdateService } from '../services/height-update.service';
 import { EngineInitializationService } from '../services/engine-initialization.service';
-import { DevWorldService } from '../devworld/devworld.service';
+import { ConfigService } from '../core/services/config.service';
+import { GeolocationService } from '../services/geolocation.service';
+import { UrlLocationService } from '../services/url-location.service';
+import { DevWorldService, DEV_WORLD_ORIGIN } from '../devworld/devworld.service';
 import { DevStreetProvider } from '../devworld/dev-street.provider';
 import { CameraFramingService, GeoPoint } from '../services/camera-framing.service';
 import { RouteAnimationService } from '../services/route-animation.service';
@@ -18,6 +23,15 @@ import { StreetRenderingService } from '../services/street-rendering.service';
 import { StrategicPlacementService } from '../services/strategic-placement.service';
 import { WaveDebugService } from '../services/wave-debug.service';
 import { EnemyDebugService } from '../services/enemy-debug.service';
+import { TowerDebugService } from '../services/tower-debug.service';
+import { SoundDebugService } from '../services/sound-debug.service';
+import { DebugFacadeService } from '../services/debug-facade.service';
+import { DebugWindowService } from '../services/debug-window.service';
+import { EntityPoolService } from '../services/entity-pool.service';
+import { ModelPreviewService } from '../services/model-preview.service';
+import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from '../services/location-change-coordinator.service';
+import { LocationDialogComponent } from '../components/location-dialog/location-dialog.component';
+import { LocationDialogData, LocationDialogResult } from '../models/location.types';
 import { GameStateManager } from '../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint, WaveConfig } from '../managers/wave.manager';
 import { WaveDirectorService } from '../ai/core/wave-director.service';
@@ -27,9 +41,10 @@ import { adaptAIWaveConfigSingle } from '../ai/core/wave-config-adapter';
 import { DpsProfileVisualizer } from '../ai/core/dps-profile-visualizer';
 import { ThreeTilesEngine } from '../three-engine';
 import { Tower } from '../entities/tower.entity';
-import { UpgradeId } from '../configs/tower-types.config';
+import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
 import { Vector3 } from 'three';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
+import { SoundPoolStats } from '../managers/spatial-audio.manager';
 
 /**
  * Context object passed from the component during initialization.
@@ -74,8 +89,6 @@ export interface FacadeComponentBridge {
   onMouseMove: (lat: number, lon: number, hitPoint: Vector3) => void;
   exitBuildMode: () => void;
   handleEnemyPlacement: (lat: number, lon: number, height: number) => void;
-  syncUrlWithLocation: () => void;
-  appendDebugLog: (msg: string) => void;
 }
 
 /**
@@ -106,6 +119,9 @@ export class TowerDefenseFacadeService {
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
+  private readonly configService = inject(ConfigService);
+  private readonly geolocation = inject(GeolocationService);
+  private readonly urlLocation = inject(UrlLocationService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly keyboardPan = inject(KeyboardPanService);
@@ -113,13 +129,28 @@ export class TowerDefenseFacadeService {
   private readonly devWorld = inject(DevWorldService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
+  private readonly towerDebug = inject(TowerDebugService);
+  private readonly soundDebug = inject(SoundDebugService);
+  private readonly debugFacade = inject(DebugFacadeService);
+  private readonly debugWindows = inject(DebugWindowService);
+  private readonly entityPool = inject(EntityPoolService);
+  private readonly modelPreview = inject(ModelPreviewService);
+  private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly waveDirector = inject(WaveDirectorService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
   private readonly trainingClient = inject(TrainingClientService);
+  private readonly ngZone = inject(NgZone);
+  private readonly dialog = inject(MatDialog);
 
   /** Component bridge - set via initialize() */
   private bridge!: FacadeComponentBridge;
+
+  /** Game state manager — component-provided, set via initialize() */
+  private gameState!: GameStateManager;
+
+  /** Component injector — needed for effects and takeUntilDestroyed */
+  private componentInjector!: Injector;
 
   /** DPS profile visualization along path */
   private dpsProfileViz: DpsProfileVisualizer | null = null;
@@ -129,11 +160,443 @@ export class TowerDefenseFacadeService {
   private pendingAIWaveRequest = false;
 
   /**
-   * Initialize the facade with component bridge.
-   * Must be called before any other method.
+   * Initialize the facade with component bridge, game state, and injector.
    */
-  initialize(bridge: FacadeComponentBridge): void {
+  private initialize(bridge: FacadeComponentBridge, gameState: GameStateManager, injector: Injector): void {
     this.bridge = bridge;
+    this.gameState = gameState;
+    this.componentInjector = injector;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Effects & Game Startup
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * Create Angular effects that were previously in the component constructor.
+   * Called from the component constructor (injection context active).
+   */
+  initEffects(component: { getFacadeBridge: () => FacadeComponentBridge; gameState: GameStateManager; injector: Injector }): void {
+    this.initialize(component.getFacadeBridge(), component.gameState, component.injector);
+
+    const injector = this.componentInjector;
+
+    // Effect: Update all existing enemies when speed changes
+    effect(() => {
+      const speed = this.waveDebug.enemySpeed();
+      for (const enemy of this.gameState.enemyManager.getAll()) {
+        enemy.movement.speedMps = speed;
+      }
+    }, { injector });
+
+    // Effect: Sync wave debug state with game state
+    effect(() => {
+      const waveActive = this.bridge.waveActive();
+      const baseHealth = this.gameState.baseHealth();
+      const enemiesAlive = this.gameState.enemiesAlive();
+      this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
+    }, { injector });
+
+    // Effect: Auto-enable AI Director when ONNX model loads successfully
+    effect(() => {
+      const state = this.waveDirector.modelState();
+      if (state === 'ready' && !this.bridge.useAIDirector()) {
+        this.bridge.useAIDirector.set(true);
+        console.log('[AI] AI Director auto-enabled (model loaded)');
+      }
+    }, { injector });
+
+    // Effect: Sync tower debug "Show Shoot Height" to renderer
+    effect(() => {
+      const showShootHeight = this.towerDebug.showShootHeight();
+      const engine = this.bridge.getEngine();
+      if (engine) {
+        engine.towers.setShowShootHeight(showShootHeight);
+      }
+    }, { injector });
+
+    // Effect: Apply tower debug overrides to renderer (live updates)
+    effect(() => {
+      const allOverrides = this.towerDebug.allOverrides();
+      const engine = this.bridge.getEngine();
+      if (!engine) return;
+      for (const typeId of Object.keys(allOverrides) as TowerTypeId[]) {
+        const overrides = allOverrides[typeId];
+        engine.towers.applyDebugOverrides(typeId, overrides);
+      }
+    }, { injector });
+
+    // Effect: Start paused debug enemies when wave starts
+    effect(() => {
+      const phase = this.gameState.phase();
+      if (phase === 'wave') {
+        for (const de of this.enemyDebug.debugEnemies()) {
+          if (de.enemy.movement.paused && de.enemy.alive) {
+            de.enemy.startMoving();
+            this.bridge.getEngine()?.enemies.startWalkAnimation(de.id);
+          }
+        }
+      }
+    }, { injector });
+
+    // Effect: Apply debug overrides to selected enemy (live update)
+    effect(() => {
+      const selected = this.enemyDebug.selectedDebugEnemy();
+      const engine = this.bridge.getEngine();
+      if (!selected || !engine) return;
+      engine.enemies.applyDebugOverrides(selected.id, {
+        scale: selected.overrides.scale,
+        heightOffset: selected.overrides.heightOffset,
+        healthBarOffset: selected.overrides.healthBarOffset,
+        rotation: selected.overrides.rotation,
+        animationSpeed: selected.overrides.animationSpeed,
+      });
+      selected.enemy.movement.speedMps = selected.overrides.baseSpeed;
+    }, { injector });
+  }
+
+  /**
+   * Main game startup sequence: location detection + engine initialization.
+   * Called from ngAfterViewInit. Also handles former ngOnInit logic.
+   */
+  async startGame(canvas: HTMLCanvasElement): Promise<void> {
+    // --- Former ngOnInit logic ---
+    this.locationCoordinator.initializeFlow(this.buildLocationFlowDelegate());
+
+    this.trainingClient.initialize({
+      gameState: this.gameState,
+      towerPlacement: this.towerPlacement,
+      strategicPlacement: this.strategicPlacement,
+      osmService: this.osmService,
+      callbacks: {
+        startWave: () => this.startWave(this.gameState),
+        upgradeTower: (tower: Tower, upgradeId: UpgradeId) => this.upgradeTower(tower, upgradeId, this.gameState),
+        restartGame: () => this.restartGame(this.gameState),
+      }
+    });
+
+    const params = new URLSearchParams(window.location.search);
+    if (params.has('bot')) {
+      const botMode = params.get('bot');
+      if (botMode === 'auto') {
+        this.trainingClient.botAutoMode.set(true);
+        console.log('[Bot] Auto-mode enabled from URL parameter (will auto-start waves)');
+      }
+    }
+
+    if (this.devWorld.isActive) {
+      this.bridge.useAIDirector.set(true);
+      console.log('[AI] AI Director enabled for DevWorld');
+      this.trainingClient.connectToBackend();
+    }
+
+    // --- Location detection ---
+    await this.initializeLocation();
+
+    // --- Engine initialization ---
+    await this.initEngineSequence(canvas);
+  }
+
+  /**
+   * Full cleanup: dispose engine, pool, preview, animations, DPS viz.
+   * Called from component's ngOnDestroy.
+   */
+  dispose(): void {
+    this.entityPool.destroy();
+    this.modelPreview.dispose();
+    this.routeAnimation.dispose();
+
+    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
+
+    const engine = this.bridge.getEngine();
+    this.disposeDpsVisualization(engine);
+
+    if (engine) {
+      engine.dispose();
+      this.bridge.setEngine(null);
+      this.trainingClient.setEngine(null);
+    }
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Location Detection (moved from component)
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * Initialize location from URL or geolocation cascade.
+   * Shows as first loading step: "Determining Location".
+   */
+  private async initializeLocation(): Promise<void> {
+    await this.engineInit.setStepActive('location');
+
+    // DevWorld mode: Use fake origin, skip real location
+    if (this.devWorld.isActive) {
+      console.log('[TowerDefense] DevWorld mode - using fake origin');
+      this.locationMgmt.setLocation(
+        { lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon },
+        []
+      );
+      this.bridge.baseCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon });
+      this.bridge.centerCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon, height: 400 });
+      await this.engineInit.setStepDone('location', 'DevWorld');
+      return;
+    }
+
+    // URL is source of truth
+    const urlData = this.urlLocation.parseFromUrl();
+
+    if (urlData) {
+      this.locationMgmt.setLocation(urlData.hq, urlData.spawns);
+      await this.engineInit.setStepDone('location', 'from URL');
+    } else {
+      // No URL params → try geolocation cascade
+      this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepDetail('location', detail);
+      const detected = await this.geolocation.detectLocation();
+
+      if (detected) {
+        this.locationMgmt.setLocation(detected, []);
+        const sourceLabel = detected.source === 'browser' ? 'Browser' : 'IP-based';
+        await this.engineInit.setStepDone('location', sourceLabel);
+      } else {
+        this.engineInit.updateStepDetail('location', 'Select location...');
+        await this.waitForLocationFromDialog();
+        await this.engineInit.setStepDone('location', 'manually selected');
+      }
+    }
+
+    // Sync URL with current location
+    const hq = this.locationMgmt.hq();
+    if (hq) {
+      this.syncUrlWithLocation();
+      this.bridge.baseCoords.set({ lat: hq.lat, lon: hq.lon });
+      this.bridge.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
+    }
+  }
+
+  /**
+   * Open location dialog and wait for user to select a location.
+   */
+  private waitForLocationFromDialog(): Promise<void> {
+    return new Promise((resolve) => {
+      const dialogRef = this.dialog.open(LocationDialogComponent, {
+        data: {
+          currentLocation: null,
+          currentSpawn: null,
+          isGameInProgress: false,
+        } as LocationDialogData,
+        panelClass: 'td-dialog-panel',
+        disableClose: true,
+      });
+
+      const destroyRef = this.componentInjector.get(DestroyRef);
+      dialogRef.afterClosed()
+        .pipe(takeUntilDestroyed(destroyRef))
+        .subscribe((result: LocationDialogResult | null) => {
+          if (result?.confirmed) {
+            this.locationMgmt.setLocation(
+              { lat: result.hq.lat, lon: result.hq.lon },
+              result.spawn.isRandom ? [] : [{ lat: result.spawn.lat, lon: result.spawn.lon }]
+            );
+          }
+          resolve();
+        });
+    });
+  }
+
+  /**
+   * Sync URL with current location (without reload).
+   * Skipped in DevWorld mode to preserve devworld URL parameters.
+   */
+  private syncUrlWithLocation(): void {
+    if (this.devWorld.isActive) return;
+    const hq = this.locationMgmt.hq();
+    if (!hq) return;
+    const spawns = this.locationMgmt.spawns();
+    this.urlLocation.updateUrl(hq, spawns);
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Engine Initialization (moved from component)
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * Initialize Three.js rendering engine with full callback wiring.
+   */
+  private async initEngineSequence(canvas: HTMLCanvasElement): Promise<void> {
+    try {
+      const cesiumToken = this.configService.cesiumIonToken();
+      const cesiumAssetId = this.configService.cesiumAssetId();
+      if (!cesiumToken) {
+        this.engineInit.setError('Please configure your Cesium Ion Token in environment.ts.');
+        this.engineInit.setLoading(false);
+        return;
+      }
+
+      const base = this.bridge.baseCoords();
+      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon });
+
+      await this.engineInit.initEngine({
+        onLoadStreets: () => this.loadStreetsInternal(),
+        onInitializeServices: () => this.initializeVisualizationServices(),
+        onAddBaseMarker: () => this.markerViz.addBaseMarker(),
+        onAddPredefinedSpawns: () => this.addPredefinedSpawns(),
+        onInitializeGameState: () => this.initializeGameStateInternal(),
+        onScheduleHeightUpdate: () => this.scheduleOverlayHeightUpdate(this.gameState),
+        onSetupClickHandler: () => this.setupClickHandlerWithGameState(this.gameState),
+        onCreateBuildPreview: () => { /* no-op: TowerPlacementService handles this */ },
+        onSaveInitialCameraPosition: () => this.saveInitialCameraPosition(),
+        onCheckAllLoaded: () => this.checkAllLoaded(),
+      });
+
+      const engine = this.engineInit.getEngine();
+      this.bridge.setEngine(engine);
+      this.trainingClient.setEngine(engine);
+
+      if (engine) {
+        engine.setOnTilesLoadCallback(() => this.onTilesLoaded(this.gameState));
+        engine.setOnUpdateCallback((deltaTime) => this.onEngineUpdate(deltaTime));
+
+        const eventBus = this.gameState.getEventBus();
+        engine.spatialAudio.setEventBus(eventBus);
+        this.soundDebug.subscribeToEventBus(eventBus);
+
+        this.debugFacade.setEngine(engine, this.gameState);
+        this.debugFacade.applyDisplayOptions();
+      }
+    } catch (err) {
+      console.error('[TD] Engine init error:', err);
+      this.engineInit.setError(err instanceof Error ? err.message : 'Error loading 3D map');
+      this.engineInit.setLoading(false);
+    }
+  }
+
+  /**
+   * Load street network wrapper (used as initEngine callback).
+   */
+  private async loadStreetsInternal(): Promise<number> {
+    const center = this.bridge.centerCoords();
+    const result = await this.engineInit.loadStreets(
+      center.lat,
+      center.lon,
+      (network, count) => {
+        this.bridge.setStreetNetwork(network);
+        this.waveDebug.streetCount.set(count);
+      },
+    );
+    this.bridge.setStreetNetwork(result.network);
+    this.bridge.setDevStreetProvider(result.devStreetProvider);
+    this.waveDebug.streetCount.set(result.count);
+    return result.count;
+  }
+
+  /**
+   * Initialize game state with routes AND subscribe to tower:selected.
+   */
+  private initializeGameStateInternal(): string | undefined {
+    const result = this.initializeGameState(this.gameState);
+
+    // Subscribe to tower:selected event - sync debug panel dropdown
+    const eventBus = this.gameState.getEventBus();
+    eventBus.on('tower:selected', (event) => {
+      this.towerDebug.selectTower(event.tower.typeConfig.id);
+    });
+
+    return result;
+  }
+
+  /**
+   * Called each frame for animations (runs outside Angular zone).
+   * Moved from component — orchestrates per-frame game logic.
+   */
+  private onEngineUpdate(deltaTime: number): void {
+    const dtSec = deltaTime / 1000;
+
+    // Per-frame delegation calls
+    this.towerPlacement.updateRotation(dtSec);
+    this.towerPlacement.updatePreviewBuild();
+    this.keyboardPan.update(dtSec);
+    this.markerViz.animateMarkers(deltaTime);
+    this.routeAnimation.update(deltaTime);
+
+    // Game logic tick
+    this.gameState.update(performance.now());
+
+    // Bot update (if enabled)
+    if (this.trainingClient.botEnabled()) {
+      this.trainingClient.updateBot(this.aiDataCollector.getStateSnapshot(), deltaTime);
+    }
+
+    // Route grid visualization
+    const grid = this.gameState.getGlobalRouteGrid();
+    if (grid.isSpatialGridVizVisible()) {
+      grid.updateVisualization();
+    }
+    grid.updateAnimation(deltaTime);
+
+    // Selected tower LOS animation
+    const selectedTower = this.gameState.towerManager.getSelected();
+    if (selectedTower?.losVisualization?.visible) {
+      grid.updateTowerVisualizationTime(selectedTower.losVisualization);
+    }
+
+    // Throttled UI stats (~10Hz)
+    const engine = this.bridge.getEngine();
+    if (engine) {
+      const soundDebugOpen = this.debugWindows.soundWindow().isOpen;
+      this.ngZone.run(() => {
+        this.uiState.updateThrottledStats({
+          fps: engine.getFPS(),
+          tileStats: engine.getTileStats(),
+          activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
+          attribution: engine.getAttributions(),
+          cameraHeading: this.cameraControl.getCameraHeading(),
+          cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
+          soundPoolStats: soundDebugOpen ? engine.spatialAudio.getSoundPoolStats() : undefined,
+          onSoundDebugUpdate: soundDebugOpen
+            ? (stats: unknown) => this.soundDebug.updateStats(stats as SoundPoolStats)
+            : undefined,
+        });
+      });
+    }
+  }
+
+  /**
+   * Build the LocationFlowDelegate for the coordinator service.
+   * Provides state access for location flow operations.
+   */
+  private buildLocationFlowDelegate(): LocationFlowDelegate {
+    return {
+      getChangeContext: () => {
+        const engine = this.bridge.getEngine();
+        if (!engine) return null;
+        return {
+          engine,
+          gameState: this.gameState,
+          streetNetwork: this.bridge.getStreetNetwork(),
+          streetNetworkLocation: this.bridge.getStreetNetworkLocation(),
+          heightDebugVisible: this.bridge.heightDebugVisible,
+        };
+      },
+      getChangeCallbacks: (): LocationChangeCallbacks => ({
+        setBaseCoords: (c) => this.bridge.baseCoords.set(c),
+        setCenterCoords: (c) => this.bridge.centerCoords.set(c),
+        setSpawnPoints: (p) => this.bridge.spawnPoints.set(p),
+        addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
+        setStreetCount: (c) => this.waveDebug.streetCount.set(c),
+        setStreetNetwork: (n) => this.bridge.setStreetNetwork(n),
+        setStreetNetworkLocation: (l) => this.bridge.setStreetNetworkLocation(l),
+        syncUrlWithLocation: () => this.syncUrlWithLocation(),
+        clearMapEntities: () => this.clearMapEntities(),
+        appendDebugLog: (msg) => this.debugFacade.appendDebugLog(msg),
+        initializeTowerPlacement: () => this.initializeTowerPlacement(this.gameState),
+        filterStreetNetworkToRoutes: () => this.filterStreetNetworkToRoutes(),
+        scheduleOverlayHeightUpdate: () => this.scheduleOverlayHeightUpdate(this.gameState),
+        getSpawnPoints: () => this.bridge.spawnPoints(),
+        getBaseCoords: () => this.bridge.baseCoords(),
+      }),
+      isGameInProgress: () => this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
+      getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
+    };
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -518,7 +981,7 @@ export class TowerDefenseFacadeService {
     };
 
     const output = JSON.stringify(data, null, 2);
-    this.bridge.appendDebugLog('=== CAMERA ===\n' + output);
+    this.debugFacade.appendDebugLog('=== CAMERA ===\n' + output);
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -900,7 +1363,7 @@ export class TowerDefenseFacadeService {
       if (randomSpawn) {
         console.log(`[addPredefinedSpawns] Generated random spawn: ${randomSpawn.streetName || 'Unknown'} (${Math.round(randomSpawn.distance)}m)`);
         this.locationMgmt.setGeneratedSpawns([{ lat: randomSpawn.lat, lon: randomSpawn.lon }]);
-        this.bridge.syncUrlWithLocation();
+        this.syncUrlWithLocation();
         this.addSpawnPoint('spawn-1', randomSpawn.streetName || 'Spawn', randomSpawn.lat, randomSpawn.lon, colors[0]);
         return 1;
       } else {
