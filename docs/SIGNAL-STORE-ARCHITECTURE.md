@@ -4,6 +4,76 @@
 
 Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** aus 6+ Klassen in einen einzigen, zentralen Store. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
 
+## Architektur-Prinzip: Store/Facade-Trennung
+
+### Klare Verantwortungsverteilung
+
+| Schicht | Verantwortung | Enthält |
+|---------|--------------|---------|
+| **Store** | State Container | Signals (state), Computed Values, set/update methods, resetAll() |
+| **Facade** | Orchestration | Commands via EventBus, liest/schreibt UI-State über Store |
+| **EventBus** | Engine-Kommunikation | Commands (start-wave, place-tower), Engine-Events (wave:started) |
+| **Component** | Pure View | Template-Bindings, User-Input → Facade, Angular Lifecycle |
+
+### Was gehört wohin?
+
+**Store (TowerDefenseStore):**
+- ✅ `signal<number>(100)` — WritableSignals
+- ✅ `computed(() => this.phase() === 'wave')` — Computed Values
+- ✅ `resetGameState()` — State-Reset
+- ✅ `updateEngineStats()` — Batch-State-Updates (pure, keine Side-Effects)
+- ✅ `appendDebugLog()` — Convenience-Mutations
+- ❌ `startWave()` — gehört in Facade
+- ❌ `placeTower()` — gehört in Facade
+- ❌ `upgradeTower()` — gehört in Facade
+- ❌ EventBus-Interaktion — gehört in Facade
+
+**Facade (TowerDefenseFacadeService):**
+- ✅ `startWave()` → `EventBus.emit('command:start-wave')`
+- ✅ `placeTower()` → `EventBus.emit('command:place-tower')`
+- ✅ `restartGame()` → `EventBus.emit('command:restart-game')`
+- ✅ EventBus-Subscriptions für UI-State-Sync
+- ✅ Service-Orchestrierung (Camera, Markers, Routes, etc.)
+- ❌ Eigene Signals — benutzt Store-Signals
+- ❌ Direkte State-Mutations ohne EventBus für Engine-Commands
+
+### Datenfluss-Muster
+
+```
+┌──────────┐     ┌──────────┐     ┌──────────┐     ┌──────────┐
+│Component │────>│ Facade   │────>│ EventBus │────>│ Engine   │
+│(UI Input)│     │(Command) │     │(Emit)    │     │(React)   │
+└──────────┘     └──────────┘     └──────────┘     └──────────┘
+                                        │
+                                        ▼
+                                  ┌──────────┐     ┌──────────┐
+                                  │ EventBus │────>│ Store    │
+                                  │(Response)│     │(UI State)│
+                                  └──────────┘     └──────────┘
+```
+
+**Konkretes Beispiel — Wave starten:**
+```
+Component.startWave()
+  → Facade.startWave()
+    → EventBus.emit('command:start-wave', config)
+      → GameStateManager reagiert, startet Wave
+        → EventBus.emit('wave:started', { wave: 1, enemyCount: 10 })
+          → Facade/Effect → Store.phase.set('wave')
+          → Facade/Effect → Store.waveNumber.set(1)
+```
+
+**Konkretes Beispiel — Tower platzieren:**
+```
+Component.onTerrainClick()
+  → TowerPlacementService.handleBuildClick()
+    → EventBus.emit('command:place-tower', { position, typeId })
+      → GameStateManager: Credit-Check + Place
+        → EventBus.emit('tower:placed', { tower, cost })
+          → Store.credits.update(c => c - cost)
+          → Store.towerCount.update(n => n + 1)
+```
+
 ## Das Problem (Ist-Zustand)
 
 ### Signal-Chaos: 40+ Proxy-Signals im Component
@@ -49,6 +119,7 @@ Die Facade ruft `bridge.spawnPoints.set(...)` auf — sie mutiert also State, de
 ┌──────────────────────────────────────────────────────┐
 │                  TowerDefenseStore                     │
 │  @Injectable({ providedIn: 'root' })                  │
+│  PURE STATE CONTAINER — keine Action-Methods!          │
 │                                                        │
 │  ┌─────────────┐ ┌──────────┐ ┌───────────────────┐  │
 │  │ Game State   │ │ UI State │ │ Location          │  │
@@ -73,20 +144,26 @@ Die Facade ruft `bridge.spawnPoints.set(...)` auf — sie mutiert also State, de
 │  waveActive, isGameOver, canStartWave, healthPercent  │
 │  healthCritical, canPlaceTowers, gameStarted          │
 │                                                        │
-│  ═══════ Actions ═════════════════════════════════════ │
-│  placeTower(), sellTower(), upgradeTower()             │
-│  startWave(), restartGame(), toggleBuildMode()         │
-│  toggleDebug(), addSpawnPoint(), ...                   │
+│  ═══════ State Mutations (pure, no side effects) ════ │
+│  resetGameState(), resetAll(), updateEngineStats()    │
+│  appendDebugLog(), clearDebugLog()                    │
 └──────────────────────────────────────────────────────┘
          │                              │
-    reads/actions                  reads/actions
+    reads signals                  reads/writes
          │                              │
     ┌────▼─────┐                 ┌──────▼──────┐
-    │Component │                 │  Services   │
-    │(pure view│                 │ (Facade,    │
-    │ template)│                 │  GameState, │
-    │          │                 │  etc.)      │
-    └──────────┘                 └─────────────┘
+    │Component │                 │   Facade    │
+    │(pure view│                 │ (Commands   │
+    │ template)│                 │  via Event- │
+    │          │───user input──>│  Bus)       │
+    └──────────┘                 └──────┬──────┘
+                                        │
+                                   EventBus
+                                        │
+                                 ┌──────▼──────┐
+                                 │   Engine    │
+                                 │ (GSM, Mgrs)│
+                                 └─────────────┘
 ```
 
 ## Vorteile
@@ -134,30 +211,41 @@ expect(store.healthCritical()).toBe(true);
 @Component({ ... })
 export class TowerDefenseComponent {
   readonly store = inject(TowerDefenseStore);
+  readonly facade = inject(TowerDefenseFacadeService);
 
-  onStartWave() { this.store.startWave(); }
-  onToggleBuild() { this.store.toggleBuildMode(); }
+  onStartWave() { this.facade.startWave(); }  // NOT store!
+  onToggleBuild() { this.facade.toggleBuildMode(); }
   // Template bindet direkt an store.credits(), store.phase(), etc.
 }
 ```
+
+### 6. Klare Ownership
+
+| Signal-Kategorie | Owner | Wer liest | Wer schreibt |
+|------------------|-------|-----------|-------------|
+| UI-State (debug, toggles) | Store | Component (Template) | Store direkt, Facade |
+| Game-State (credits, health) | Store | Component (Template) | Facade via Effect (nach EventBus-Event) |
+| Location (coords, spawns) | Store | Component, Facade | Facade (nach Location-Change) |
+| Engine-Stats (fps, tiles) | Store | Component (Template) | Facade (aus Game-Loop) |
+| Bot/AI | Store | Component (Template) | Facade (nach Bot-Events) |
 
 ## Migrationsplan
 
 ### Phase 1: Store erstellen ✅
 - [x] `TowerDefenseStore` mit allen Signals und Interfaces
 - [x] Computed Values definieren
-- [x] Action-Method-Stubs mit TODO
+- [x] Action-Method-Stubs entfernt — Store ist reiner State-Container
 
 ### Phase 2: Store als Read-Layer einführen
 - Store injizieren, aber NICHT als primäre Quelle verwenden
-- Sync-Effects: `effect(() => store.credits.set(gameState.credits()))` 
+- Sync-Effects: `effect(() => store.credits.set(gameState.credits()))`
 - Template schrittweise auf `store.xxx()` umstellen
 - **Kein Breaking Change** — alter und neuer Code koexistieren
 
-### Phase 3: Store als Write-Layer
-- Action-Methods implementieren (emit Events via EventBus)
-- Component-Methoden delegieren an `store.startWave()` etc.
+### Phase 3: Facade nutzt Store als State-Layer
+- Facade schreibt UI-State über Store statt Bridge
 - FacadeComponentBridge schrittweise abbauen
+- Commands weiterhin über EventBus
 
 ### Phase 4: Services entkernen
 - `GameUIStateService` Signals → Store (Service wird Persistence-Helper)
@@ -186,21 +274,18 @@ export class TowerDefenseComponent {
 - **Performance** — Mehr Signals = mehr Change Detection?
   - *Mitigation:* Angular Signals sind lazy. Computed werden nur evaluiert wenn gelesen.
     OnPush + Signals = optimal. Kein Overhead gegenüber jetzigem Setup.
-- **Kein Slicing** — NgRx Signal Store bietet `signalStoreFeature()` für Modularität.
-  - *Mitigation:* Wir brauchen das (noch) nicht. 60 Signals sind manageable.
-    Falls nötig: Sub-Stores mit eigenem `@Injectable()`.
 
 ## Architektur-Entscheidungen
 
 ### Warum kein NgRx Signal Store?
 - **Overkill** — Wir haben keine komplexen Reducers, keine Actions mit Metadata, kein DevTools-Replay
-- **Lernkurve** — Das Team kennt Angular Signals; NgRx hat eigene Konzepte (Features, Methods, etc.)
+- **Lernkurve** — Das Team kennt Angular Signals; NgRx hat eigene Konzepte
 - **Vendor Lock** — Reines Angular bleibt portabler
-- **Performance** — NgRx Signal Store hat overhead für Features wir nicht brauchen
+- **Performance** — NgRx Signal Store hat overhead für Features die wir nicht brauchen
 
 ### Warum nicht mehrere kleine Stores?
 - **Erst konsolidieren, dann splitten** — Wir wissen noch nicht, wo die natürlichen Grenzen sind
-- **Cross-Cutting Concerns** — `canStartWave` braucht `loading`, `spawnPoints`, `phase`, `isGameOver` — das sind 4 verschiedene "Domains"
+- **Cross-Cutting Concerns** — `canStartWave` braucht `loading`, `spawnPoints`, `phase`, `isGameOver`
 - **Einfachheit** — Ein Store mit Sections ist einfacher als 5 Stores mit Cross-Injection
 
 ### Warum `@Injectable({ providedIn: 'root' })`?
@@ -212,7 +297,7 @@ export class TowerDefenseComponent {
 
 ```
 src/app/store/
-  tower-defense.store.ts          ← Haupt-Store (diese Datei)
+  tower-defense.store.ts          ← Haupt-Store (reiner State-Container)
   tower-defense.store.spec.ts     ← Unit Tests (Phase 5)
 ```
 
@@ -220,4 +305,3 @@ src/app/store/
 
 - [Angular Signals RFC](https://github.com/angular/angular/discussions/49685)
 - [Angular Signal Store Discussion](https://github.com/angular/angular/discussions/56472)
-- [Manfred Steyer: Signal Store Patterns](https://www.angulararchitects.io/en/blog/the-new-ngrx-signal-store-for-angular-critical-review/)
