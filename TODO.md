@@ -11,89 +11,20 @@
 
 > **Ziel:** Stabile, testbare, wartbare Basis
 
-## 1.1 Testing-Infrastruktur (Prio 1)
+## 1.1 EventBus-Entkopplung (Langfristig)
 
-> Ohne Tests keine sichere Weiterentwicklung
-
-- [x] **Vitest Setup** ✅ DONE 2026-01-29
-      `vitest.config.ts`, Three.js Mock, npm Scripts (test:unit, test:watch, test:coverage)
-
-- [x] **Unit Tests: GameEventBus** ✅ DONE 2026-01-29
-      21 Tests: Emit, On, Off, Deferred Queue, Owner Subscriptions,
-      SubscriptionBag, onAny, Metrics, Edge Cases
-      Datei: `game-engine/game-event-bus.spec.ts`
-
-- [x] **Unit Tests: GameObject, Tower, Enemy, Projectile** ✅ DONE 2026-01-29
-      12 Test-Dateien, 79 Tests gesamt
-      Dateien: `entities/*.spec.ts`, `core/*.spec.ts`, `game-components/*.spec.ts`,
-      `managers/entity-manager.spec.ts`, `configs/*.spec.ts`, `models/*.spec.ts`
-
-- [x] **Performance-Regression-Tests** ✅ DONE 2026-01-29
-      8 Tests: EntityManager (add/update/remove/getById mit 200 Entities),
-      GameEventBus (100 Handler × 100 Events, 1000 Emits, 500 deferred Queue)
-      Datei: `game-engine/performance.spec.ts`
-
-## 1.2 EventBus-Entkopplung (Prio 1) 🔄 IN PROGRESS
-
-> Analyse: [EVENTBUS-ANALYSIS.md](docs/EVENTBUS-ANALYSIS.md) — 10 harte Abhängigkeiten, 5 fehlende Events
-> Branch: `jarvis/test-setup`
-
-- [x] **credits:changed Event emittieren** ✅ DONE 2026-01-29
-      Alle Credit-Mutationen via `updateCredits()` Helper mit Event-Emission
-
-- [x] **VFX über EventBus routen** ✅ DONE 2026-01-29
-      `vfx:blood`, `vfx:explosion` via `emitDeferred()`, VFXService subscribed
-      ⚠️ **Performance beobachten!** Direct-Calls in CombatEffectService entfernt,
-      VFXService handelt Events. Blood-Intensity-Mapping: <10 splatter, ≥10 small decal, ≥30 large.
-
-- [x] **Game Lifecycle Events** ✅ DONE 2026-01-29
-      game:started (erste Wave), game:paused (Wave-Ende), game:resumed (nächste Wave)
-
-- [x] **tower:upgraded Event emittieren** ✅ DONE 2026-01-29
-      Emittiert nach erfolgreichem Upgrade mit tower, level, cost
-
-- [x] **Debug-Commands über Events** ✅ DONE 2026-01-29
-      Neue Events: debug:spawn-enemy, debug:kill-all, debug:reset-wave
-      EnemyManager + WaveManager subscriben auf Debug-Events
-
-- [ ] **GameStateManager God-Object reduzieren** (Langfristig)
+- [ ] **GameStateManager God-Object reduzieren**
       Importiert direkt: Tower/Enemy/Projectile/Wave Manager + 5 Services
       Schrittweise über Event-Koordination entkoppeln
 
 > ⚠️ **NICHT anfassen:** Audio/Sound Events (bekannte Themen, separat behandeln)
 
-## 1.3 Architektur-Stabilität (Prio 1)
-
-- [x] **IGameManager Lifecycle-Interface** ✅ DONE 2026-01-29
-      Interface mit `initialize()`, `update(dt)`, `destroy()`
-      EntityManager + WaveManager implementieren IGameManager
-      Datei: `game-engine/game-manager.interface.ts`, Export via `game-engine/index.ts`
-
-- [x] **Timeout-Tracking in Managern** ✅ DONE 2026-01-29
-      EnemyManager: `activeTimeouts: Set` mit Self-Cleaning Pattern
-      Death-Animation + startAll()-Timeouts getrackt
-      `clear()` + `destroy()` clearen alle Timeouts
-      WaveManager hatte bereits Timeout-Tracking
-
-- [x] **Model Templates korrekt disposen** ✅ DONE 2026-01-29
-      `disposeObject()` disposed alle Texture-Maps (roughness, metalness, emissive, ao)
-      `dispose()` cleared towers Map für GC
-      Datei: `three-engine/renderers/three-tower.renderer.ts`
-
-## 1.3 Performance Monitoring (Prio 1)
+## 1.2 Performance Monitoring (Prio 1)
 
 - [ ] **Performance Instrumentation**
       PerformanceMonitorService mit mark/measure, Memory, Long Tasks
       → [Teil 15](docs/archive/PERFORMANCE_REPORT.md#teil-15-performance-instrumentation--kritisch-fehlt)
       Ohne Monitoring kein gezieltes Optimieren
-
-## 1.4 Config-Konsolidierung
-
-- [x] **timing.config.ts erstellt** ✅ DONE 2026-01-29
-      5 zentrale Timing-Konstanten: deathAnimationDuration, defaultSpawnStartDelay,
-      losRecheckInterval, gameOverScreenDelay, rewardPopupDuration
-      Ersetzt in: EnemyManager, GameStateManager, Tower Entity, HQDamageService
-      Datei: `configs/timing.config.ts`
 
 ---
 
@@ -102,16 +33,6 @@
 > **Ziel:** 60 FPS auf allen Geräten, schnelle Ladezeiten
 
 ## 2.1 Kritische Performance-Optimierungen
-
-- [x] **Enemy Frustum Culling aktivieren** ✅ DONE 2026-01-27
-      `three-enemy.renderer.ts:183` - `frustumCulled = false` entfernt
-      Impact: 20-40% Performance-Gewinn
-      War seit Initial-Commit deaktiviert (nervbox-Altlast)
-
-- [x] **EntityManager.getAllActive() optimieren**
-      `entity-manager.ts:50-52` - O(n) Filter pro Frame
-      Lösung: `activeEntities: Set<T>()` mit O(1) Add/Remove
-      Impact: 15-25% bei vielen Entities
 
 - [ ] **TowerCombatService Fallback-Path optimieren**
       `tower-combat.service.ts:59-121` - O(towers × enemies × losCheck)
@@ -274,15 +195,6 @@
       Datei: `wave.manager.ts`
       Scaling: Welle 1 (10 Zombies) → Welle 20 (Boss-Gauntlet)
 
-- [x] **Tower-Kosten neu balancieren** ✅ DONE 2026-01-25
-      Archer: 20→45, Magic: 150→120, Cannon: 175→140, Ice: 120→90
-      Siehe: `docs/REBALANCING.md`
-
-- [x] **Enemy-Belohnungen dynamisch** ✅ DONE 2026-01-25
-      Dynamische Rewards basierend auf HP + Speed (reduziert auf ~1/3)
-      Formel: HP/150 + Speed/10, Scale 0.4, Cap 25
-      Siehe: `enemy.manager.ts`
-
 - [ ] **Schwierigkeitsgrad-Auswahl hinzufügen**
       Presets: Easy (150% Credits), Normal, Hard (50%), Expert (25%)
 
@@ -315,11 +227,6 @@
       Onboarding für neue Spieler
       Schritte: Placement → Upgrade → Targeting → Flying → Boss
 
-## 4.5 Event-System Erweiterungen
-
-- [ ] **Pause-System Events** - `game:started`, `game:paused`, `game:resumed`
-      Für zukünftiges Pause-Feature
-
 ---
 
 # PHASE 5: AI WAVE DIRECTOR
@@ -328,122 +235,7 @@
 > **Dauer:** ~8 Wochen
 > **Plan:** [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
 
-## 5.1 Foundation - Data Collection (Prio 1) ✅
-
-> Daten sammeln ist Voraussetzung für alles weitere. Immer aktiv, auch in Prod.
-
-- [x] **AIDataCollectorService erstellen**
-      Passives Event-Listening auf GameEventBus
-      Dateien: `src/app/ai/core/ai-data-collector.service.ts`
-      Events: tower:placed, enemy:died, wave:completed, health:changed, etc.
-      → Sammelt IMMER, auch ohne AI aktiv
-
-- [x] **GameStateSnapshot Interface**
-      Datei: `src/app/ai/core/models/game-state-snapshot.ts`
-      Inhalt: Player State, Defense-Analyse, Vulnerabilities, History
-      74 Features inkl. DPS-Profil (20 Bins Ground + 20 Bins Air)
-
-- [x] **WaveResult Interface**
-      Datei: `src/app/ai/core/models/wave-result.ts`
-      Inhalt: Config, Outcome (kills, damage, duration), Spannungs-Metriken
-      Für Reward-Berechnung
-
-- [x] **Defense-Analyse Utilities**
-      Dateien: `src/app/ai/core/defense-analyzer.ts`
-      Features: DPS-Berechnung, Path-Coverage, Vulnerability Detection
-      → Welche Schwächen hat die Spieler-Defense?
-
-## 5.2 Inference Pipeline (Prio 2) ✅
-
-> AI kann Wellen generieren (erst mit Fallback, später mit Model)
-
-- [x] **GameStateEncoder**
-      Datei: `src/app/ai/core/game-state-encoder.ts`
-      GameStateSnapshot → Float32Array (74 Features inkl. DPS-Profile)
-      Normalisierung auf 0-1, deterministische Encoding
-
-- [x] **WaveDirectorService (Inference)**
-      Datei: `src/app/ai/core/wave-director.service.ts`
-      TensorFlow.js Model laden (lazy)
-      Fallback-Regeln wenn kein Model
-      Error Boundary → Graceful Degradation
-
-- [x] **Fallback Wave Generator**
-      Datei: `src/app/ai/core/fallback-rules.ts`
-      Regelbasierte Wellen ohne Model
-      Skaliert mit Wave-Nummer
-      Spielbar ohne trainiertes Model!
-
-- [x] **WaveManager Integration**
-      Datei: `tower-defense.component.ts` (minimal invasiv)
-      Optional Injection von WaveDirectorService
-      Signal `useAIDirector` - auto-enabled in DevWorld
-      Bestehende Logik bleibt als Fallback
-
-- [x] **Decision Explainer (Debug Mode)**
-      Datei: `src/app/ai/core/decision-explainer.ts`
-      Erklärt WARUM AI diese Welle gewählt hat
-      UI-Overlay in DevMode aktivierbar
-      Auch in Prod als Debug-Option
-
-## 5.3 Training Infrastructure (Prio 3) ✅
-
-> Lokales Training auf Dev-Machine
-
-- [x] **Training Backend Setup (Python)**
-      Ordner: `training-backend/`
-      Dateien: `server.py`, `model.py`, `trainer.py`, `reward.py`
-      WebSocket Server auf :3001
-      Kein Docker, einfacher Python-Start
-
-- [x] **TrainingClientService (Browser)**
-      Datei: `src/app/ai/training/training-client.service.ts`
-      WebSocket Verbindung zu Backend
-      State/Result Streaming
-      Graceful Fallback wenn Backend nicht läuft
-
-- [x] **Tower Bots implementieren**
-      Ordner: `src/app/ai/training/bots/`
-      BeginnerBot: Platziert zufällig, upgradet nie
-      CasualBot: Platziert am Pfad, manchmal Upgrades
-      StrategistBot: Plant voraus, nutzt Synergien
-      MetaBot: Noch nicht implementiert
-
-- [x] **Reward Function implementieren**
-      Datei: `training-backend/reward.py`
-      Gaussian Peak bei 55% raw path progress
-      Bonus: Near-Miss, Max-Progress, Spread, Variety
-      DPS-relative HP (Kill-Time basiert)
-
-- [x] **Wave Archetypen System**
-      In `src/app/ai/core/fallback-rules.ts` integriert
-      Typen: Swarm, Elite, Rush, Siege, Mixed, Boss, Air
-      AI wählt erst Archetyp, dann Details
-
-## 5.4 Training UI (Prio 4) ✅
-
-> Implementiert als Python Web Dashboard statt Angular Components
-
-- [x] **Training Debugger (In-Game)**
-      Datei: `src/app/components/debug-window/training-debugger.component.ts`
-      Bot-Status, Wave-Info, Connection-Status
-      Aktivierbar über Debug-Panel
-
-- [x] **Web Dashboard (Python/FastAPI)**
-      Ordner: `training-backend/dashboard/`
-      URL: http://localhost:3002
-      Live Charts (Reward, Progress, Near-Miss, Distribution)
-      Model Metrics, DPS-Profile, Wave Log
-
-- [x] **Bot Selection (Backend-gesteuert)**
-      Backend wählt Bot-Typ via WebSocket `select_bot`
-      Rotation: Beginner → Casual → Strategist
-      Konfiguration in `config.py`
-
-- [x] **Model Export (ONNX)**
-      Backend exportiert nach `checkpoints/`
-      Format: PyTorch (.pt) + ONNX (.onnx)
-      Metadaten in Checkpoint enthalten
+## 5.1 Training UI (Offen)
 
 - [ ] **Dashboard Header Styling verbessern**
       Status/Header Metriken besser stylen
@@ -451,7 +243,7 @@
       Dezenter als Hauptmetriken, nach "Game Over" Bereich
       Dateien: `training-backend/dashboard/static/index.html`, `style.css`
 
-## 5.5 Build & Deployment (Prio 5)
+## 5.2 Build & Deployment
 
 > Training-Code nicht in Prod Bundle
 
@@ -459,11 +251,6 @@
       `angular.json`: fileReplacements für Training-Code
       Production: Training-Module wird zu leerem Stub
       Bundle Size Check: AI < 300KB
-
-- [x] **Start Scripts**
-      `training-backend/start.bat` (Windows)
-      Startet WebSocket :3001 + Dashboard :3002
-      Ein-Befehl-Start
 
 - [ ] **Model Conversion Script**
       PyTorch → TensorFlow.js Format
@@ -475,7 +262,7 @@
       Prüft: Format, Größe, Basis-Inference
       Läuft vor Commit (optional)
 
-## 5.6 Training & Tuning (Prio 6) 🔄 IN PROGRESS
+## 5.3 Training & Tuning 🔄 IN PROGRESS
 
 > Das eigentliche Training
 
@@ -495,7 +282,7 @@
       Feedback sammeln
       Reward Function anpassen wenn nötig
 
-## 5.7 Training Feintuning (Prio 6)
+## 5.4 Training Feintuning
 
 > Erkenntnisse aus Testspielen gegen exportiertes ONNX-Model
 
@@ -651,25 +438,6 @@
 # EASY WINS / CLEANUP
 
 > Kleine Aufräumarbeiten, schnell erledigt
-
-## Dead Code entfernen
-
-- [x] **Legacy Bot-Klassen geloescht** ✅ DONE 2026-01-25
-      smart-tower-bot.ts, beginner-bot.ts, casual-bot.ts, strategist-bot.ts
-      Nur noch StrategyBot mit Strategy-Pattern
-
-- [x] **Ungenutzte AI Interfaces geloescht** ✅ DONE 2026-01-25
-      `ComplexWaveConfig`, `SubWave` aus wave-config.ts entfernt
-
-- [x] **Ungenutzte Type Exports geloescht** ✅ DONE 2026-01-25
-      game.types.ts: Nur noch `GeoPosition` (TowerConfig, EnemyConfig, WaveConfig,
-      GamePhase, DistanceCalculator waren alle ungenutzt)
-
-## Type Duplikate konsolidieren
-
-- [x] **GamePhase Type Duplikat aufgelöst** ✅ DONE 2026-01-29
-      Zentraler Type in `models/game.types.ts`, Re-Export in `wave.manager.ts`
-      `game-state-snapshot.ts` + `ai-data-collector.service.ts` umgestellt
 
 ## TODO-Kommentare im Code (Feature-Requests)
 

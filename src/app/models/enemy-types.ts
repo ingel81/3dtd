@@ -217,7 +217,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   herbert: {
     id: 'herbert',
     name: 'Herbert',
-    modelUrl: '/assets/models/enemies/herbert.glb',
+    modelUrl: '/assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
     minimumPixelSize: 0,
     baseHp: 500,
