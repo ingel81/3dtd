@@ -2,7 +2,39 @@
 
 ## Überblick
 
-Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** aus 6+ Klassen in einen einzigen, zentralen Store. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
+Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **4 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
+
+## Aktuelle Struktur (Stand: Januar 2025)
+
+### Sub-Stores
+| Store | Datei | Domain | Signals |
+|-------|-------|--------|---------|
+| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies, towers |
+| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, build mode, menus |
+| `EngineStore` | `store/engine.store.ts` | Engine State | fps, tiles, camera, loading |
+| `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, favorites, streets |
+| **`TowerDefenseStore`** | `store/tower-defense.store.ts` | **Root/Aggregat** | Re-exports, cross-cutting computeds, resetAll() |
+
+### Sub-Facades
+| Facade | Datei | Verantwortung |
+|--------|-------|--------------|
+| `GameLoopFacade` | `services/game-loop-facade.service.ts` | Wave-Management, Game-Loop, Restart, Tower-Upgrades, AI Director |
+| `LocationFacade` | `services/location-facade.service.ts` | Location-Erkennung, DevWorld, Spawns, Map-Cleanup |
+| `VisualizationFacade` | `services/visualization-facade.service.ts` | Rendering, Kamera, DPS-Viz, Height-Updates, Click-Handler |
+| **`TowerDefenseFacade`** | `services/tower-defense-facade.service.ts` | **Orchestrierung** — Init, Engine-Setup, delegiert an Sub-Facades |
+
+### Dateigrößen
+| Datei | Zeilen |
+|-------|--------|
+| `tower-defense.component.ts` | 699 |
+| `tower-defense-facade.service.ts` | 404 |
+| `game-loop-facade.service.ts` | 429 |
+| `location-facade.service.ts` | 456 |
+| `visualization-facade.service.ts` | 662 |
+| `tower-defense.store.ts` (Root) | 363 |
+| Sub-Stores (4×) | ~370 |
+| `game-state.manager.ts` | 603 |
+| `debug-facade.service.ts` | 205 |
 
 ## Architektur-Prinzip: Store/Facade-Trennung
 
