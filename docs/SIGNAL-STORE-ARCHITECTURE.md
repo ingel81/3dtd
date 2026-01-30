@@ -240,7 +240,7 @@ expect(store.canStartWave()).toBe(false);
 - [x] Component-Signals von 40+ Service-Proxies auf Store umgestellt
 - [x] GameUIStateService bleibt als Persistence-Layer (localStorage) + Toggle-Actions
 - [x] GSM bleibt als Game-Logic-Orchestrator (update loop, entity managers)
-- [x] Bridge auf Minimum reduziert (nur Engine + StreetNetwork + Canvas + Callbacks)
+- [x] Bridge auf Minimum reduziert (5 getter/setter + Canvas getter + 4 Callbacks)
 
 ### Phase 5: Cleanup ✅
 - [x] Dead code: Duplicate `activeSounds` entfernt
@@ -288,7 +288,7 @@ expect(store.canStartWave()).toBe(false);
 ### Verbleibende Bridge
 - **Enthält NUR:** Engine-Referenz, StreetNetwork, Canvas, Click-Callbacks
 - **Warum nicht im Store?** — Mutable Runtime-Objekte (ThreeTilesEngine, HTMLCanvasElement) passen nicht in ein Signal-Store-Pattern
-- **Minimal:** 4 getter/setter Paare + 4 Callbacks
+- **Minimal:** 5 getter/setter Paare + 1 getter (Canvas) + 4 Callbacks
 
 ## Datei-Struktur
 

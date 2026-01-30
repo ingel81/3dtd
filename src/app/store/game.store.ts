@@ -1,7 +1,6 @@
 import { Injectable, computed, signal } from '@angular/core';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { Tower } from '../entities/tower.entity';
-import { BotSkillLevel } from '../ai/training/bots/tower-bot.interface';
 import { GamePhase } from './tower-defense.store.types';
 
 @Injectable({ providedIn: 'root' })
@@ -36,14 +35,8 @@ export class GameStore {
   /** Training mode timescale (1.0 = normal, up to 75x) */
   readonly trainingTimescale = signal<number>(1.0);
 
-  /** Strategy bot enabled */
-  readonly botEnabled = signal<boolean>(false);
-
-  /** Bot skill level */
-  readonly botSkillLevel = signal<BotSkillLevel>('beginner');
-
-  /** Bot auto mode (auto-start waves, auto-restart) */
-  readonly botAutoMode = signal<boolean>(false);
+  // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by TrainingClientService
+  // (the writer). Component reads them directly from that service.
 
   /** AI Wave Director enabled */
   readonly useAIDirector = signal<boolean>(false);
@@ -94,9 +87,6 @@ export class GameStore {
   resetAll(): void {
     this.resetGameState();
     this.trainingTimescale.set(1.0);
-    this.botEnabled.set(false);
-    this.botSkillLevel.set('beginner');
-    this.botAutoMode.set(false);
     this.useAIDirector.set(false);
     this.isDevWorldRegenerating.set(false);
   }

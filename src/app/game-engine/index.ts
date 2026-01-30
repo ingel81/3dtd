@@ -20,5 +20,5 @@ export {
 export { VFXService } from './vfx.service';
 export { AudioService } from './audio.service';
 
-// Game Engine Core (coming in Phase 2)
+// Future: GameEngine abstraction
 // export { GameEngine } from './game-engine';

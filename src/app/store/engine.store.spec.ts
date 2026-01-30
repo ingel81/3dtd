@@ -14,21 +14,8 @@ describe('EngineStore', () => {
       expect(store.loading()).toBe(true);
     });
 
-    it('tilesLoading starts as true', () => {
-      expect(store.tilesLoading()).toBe(true);
-    });
-
-    it('osmLoading starts as true', () => {
-      expect(store.osmLoading()).toBe(true);
-    });
-
-    it('heightsLoading starts as false', () => {
-      expect(store.heightsLoading()).toBe(false);
-    });
-
-    it('heightProgress starts at 0', () => {
-      expect(store.heightProgress()).toBe(0);
-    });
+    // NOTE: tilesLoading, osmLoading, heightsLoading, heightProgress
+    // are owned by EngineInitializationService / HeightUpdateService
 
     it('error starts as null', () => {
       expect(store.error()).toBeNull();
@@ -218,10 +205,6 @@ describe('EngineStore', () => {
   describe('resetAll', () => {
     it('resets all engine state to initial values', () => {
       store.loading.set(false);
-      store.tilesLoading.set(false);
-      store.osmLoading.set(false);
-      store.heightsLoading.set(true);
-      store.heightProgress.set(0.75);
       store.error.set('Something broke');
       store.loadingStatus.set('Done');
       store.loadingSteps.set([{ id: 'test', label: 'Test', status: 'done' }]);
@@ -243,10 +226,6 @@ describe('EngineStore', () => {
       store.resetAll();
 
       expect(store.loading()).toBe(true);
-      expect(store.tilesLoading()).toBe(true);
-      expect(store.osmLoading()).toBe(true);
-      expect(store.heightsLoading()).toBe(false);
-      expect(store.heightProgress()).toBe(0);
       expect(store.error()).toBeNull();
       expect(store.loadingStatus()).toBe('Initializing...');
       expect(store.loadingSteps()).toEqual([]);

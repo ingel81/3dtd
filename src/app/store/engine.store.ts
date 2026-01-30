@@ -6,17 +6,9 @@ export class EngineStore {
   /** Global loading flag */
   readonly loading = signal<boolean>(true);
 
-  /** Tiles loading sub-state */
-  readonly tilesLoading = signal<boolean>(true);
-
-  /** OSM streets loading sub-state */
-  readonly osmLoading = signal<boolean>(true);
-
-  /** Heights loading sub-state */
-  readonly heightsLoading = signal<boolean>(false);
-
-  /** Height update progress (0..1) */
-  readonly heightProgress = signal<number>(0);
+  // NOTE: tilesLoading, osmLoading, heightsLoading, heightProgress
+  // are owned by EngineInitializationService / HeightUpdateService (the writers).
+  // Component reads them directly from those services.
 
   /** Error message (null = no error) */
   readonly error = signal<string | null>(null);
@@ -94,10 +86,6 @@ export class EngineStore {
 
   resetAll(): void {
     this.loading.set(true);
-    this.tilesLoading.set(true);
-    this.osmLoading.set(true);
-    this.heightsLoading.set(false);
-    this.heightProgress.set(0);
     this.error.set(null);
     this.loadingStatus.set('Initializing...');
     this.loadingSteps.set([]);

@@ -121,9 +121,9 @@ describe('GameEventBus', () => {
     it('unsubscribeAll(owner) removes all subscriptions for owner', () => {
       const owner = {};
       const handler = vi.fn();
-      const event = { type: 'game:paused' } as const;
+      const event = { type: 'game:started' } as const;
 
-      bus.subscribe(owner, 'game:paused', handler);
+      bus.subscribe(owner, 'game:started', handler);
       bus.unsubscribeAll(owner);
       bus.emit(event);
 
@@ -135,10 +135,10 @@ describe('GameEventBus', () => {
       const ownerB = {};
       const handlerA = vi.fn();
       const handlerB = vi.fn();
-      const event = { type: 'game:resumed' } as const;
+      const event = { type: 'game:started' } as const;
 
-      bus.subscribe(ownerA, 'game:resumed', handlerA);
-      bus.subscribe(ownerB, 'game:resumed', handlerB);
+      bus.subscribe(ownerA, 'game:started', handlerA);
+      bus.subscribe(ownerB, 'game:started', handlerB);
 
       bus.unsubscribeAll(ownerA);
       bus.emit(event);
@@ -173,7 +173,7 @@ describe('GameEventBus', () => {
     it('add() stores subscriptions and size is correct', () => {
       const bag = new SubscriptionBag();
       bag.add(bus.on('game:started', vi.fn()));
-      bag.add(bus.on('game:paused', vi.fn()));
+      bag.add(bus.on('game:over', vi.fn()));
 
       expect(bag.size).toBe(2);
     });
@@ -182,13 +182,13 @@ describe('GameEventBus', () => {
       const bag = new SubscriptionBag();
       const handler = vi.fn();
       bag.add(bus.on('game:started', handler));
-      bag.add(bus.on('game:paused', handler));
+      bag.add(bus.on('game:over', handler));
 
       bag.disposeAll();
       expect(bag.size).toBe(0);
 
       bus.emit({ type: 'game:started' });
-      bus.emit({ type: 'game:paused' });
+      bus.emit({ type: 'game:over', reason: 'quit' });
       expect(handler).not.toHaveBeenCalled();
     });
   });

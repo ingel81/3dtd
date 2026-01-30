@@ -1,4 +1,4 @@
-export type GamePhase = 'setup' | 'wave' | 'paused' | 'gameover';
+export type GamePhase = 'setup' | 'wave' | 'gameover';
 
 /** Geo coordinate (minimal) */
 export interface GeoCoord {

@@ -90,8 +90,8 @@ describe('TowerDefenseStore', () => {
       expect(store.canStartWave()).toBe(false);
     });
 
-    it('is true when paused (not wave, not gameover)', () => {
-      gameStore.phase.set('paused');
+    it('is true when in setup phase', () => {
+      gameStore.phase.set('setup');
       expect(store.canStartWave()).toBe(true);
     });
   });
@@ -299,7 +299,6 @@ describe('TowerDefenseStore', () => {
       gameStore.credits.set(999);
       gameStore.phase.set('gameover');
       gameStore.waveNumber.set(10);
-      gameStore.botEnabled.set(true);
 
       // Mutate UI store
       uiStore.debugMode.set(true);
@@ -322,7 +321,6 @@ describe('TowerDefenseStore', () => {
       expect(store.credits()).toBe(GAME_BALANCE.player.startCredits);
       expect(store.phase()).toBe('setup');
       expect(store.waveNumber()).toBe(0);
-      expect(store.botEnabled()).toBe(false);
 
       // UI state reset
       expect(store.debugMode()).toBe(false);

@@ -40,7 +40,6 @@ import { EnemyDebugService } from './services/enemy-debug.service';
 import { DebugFacadeService } from './services/debug-facade.service';
 import { LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
-import { GameUIStateService } from './services/game-ui-state.service';
 import { CameraControlService } from './services/camera-control.service';
 import { MarkerVisualizationService } from './services/marker-visualization.service';
 import { PathAndRouteService } from './services/path-route.service';
@@ -126,7 +125,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly injector = inject(Injector);
 
   // Refactoring services
-  private readonly uiState = inject(GameUIStateService);
   private readonly cameraControl = inject(CameraControlService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
@@ -176,7 +174,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly loadingStatus = this.store.loadingStatus;
   readonly loadingSteps = this.store.loadingSteps;
 
-  // Loading sub-states — from services (not yet in Store)
+  // Loading sub-states — owned by services (signal writers)
   readonly tilesLoading = this.engineInit.tilesLoading;
   readonly osmLoading = this.engineInit.osmLoading;
   readonly heightsLoading = this.heightUpdate.heightsLoading;
@@ -352,16 +350,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Sell the currently selected tower
+   * Sell the currently selected tower — delegates to facade
    */
   sellSelectedTower(): void {
-    const tower = this.store.selectedTower();
-    if (tower) {
-      this.gameState.getEventBus().emit({
-        type: 'command:sell-tower',
-        towerId: tower.id,
-      });
-    }
+    this.facade.sellSelectedTower();
   }
 
   /**
@@ -446,7 +438,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Shows cells along routes with color-coded LOS and enemy presence
    */
   onSpatialGridDebugToggled(): void {
-    this.gameState.getGlobalRouteGrid().toggleSpatialGridDebug();
+    this.facade.toggleSpatialGridDebug();
   }
 
   /**
