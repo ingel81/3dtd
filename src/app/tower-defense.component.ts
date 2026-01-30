@@ -47,6 +47,7 @@ import { WaveDebugService } from './services/wave-debug.service';
 import { SoundDebugService } from './services/sound-debug.service';
 import { TowerDebugService } from './services/tower-debug.service';
 import { EnemyDebugService } from './services/enemy-debug.service';
+import { DebugFacadeService } from './services/debug-facade.service';
 import { LocationDialogData, LocationDialogResult, LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
@@ -184,6 +185,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly soundDebug = inject(SoundDebugService);
   private readonly towerDebug = inject(TowerDebugService);
   readonly enemyDebug = inject(EnemyDebugService);
+  readonly debugFacade = inject(DebugFacadeService);
 
   // AI Wave Director
   private readonly waveDirector = inject(WaveDirectorService);
@@ -232,11 +234,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly streetsVisible = this.uiState.streetsVisible;
   readonly routesVisible = this.uiState.routesVisible;
   readonly debugMode = this.uiState.debugMode;
-  readonly heightDebugVisible = this.uiState.heightDebugVisible;
+  readonly heightDebugVisible = this.debugFacade.heightDebugVisible;
   readonly fps = this.uiState.fps;
   readonly tileStats = this.uiState.tileStats;
   readonly mapAttribution = this.uiState.mapAttribution;
-  readonly debugLog = this.uiState.debugLog;
+  readonly debugLog = this.debugFacade.debugLog;
   readonly buildMode = this.towerPlacement.buildMode;
   readonly selectedTowerType = this.towerPlacement.selectedTowerType;
   readonly editableHqLocation = this.locationMgmt.editableHqLocation;
@@ -608,8 +610,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         this.engine.spatialAudio.setEventBus(eventBus);
         this.soundDebug.subscribeToEventBus(eventBus);
 
-        // Apply saved display options
-        this.applyDisplayOptions();
+        // Set engine on debug facade and apply saved display options
+        this.debugFacade.setEngine(this.engine, this.gameState);
+        this.debugFacade.applyDisplayOptions();
       }
 
     } catch (err) {
@@ -782,32 +785,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   onEnemiesToggled(visible: boolean): void {
-    this.engine?.enemies.setEnemiesVisible(visible);
+    this.debugFacade.onEnemiesToggled(visible);
   }
 
   onHealthBarsToggled(visible: boolean): void {
-    this.engine?.enemies.setHealthBarsVisible(visible);
+    this.debugFacade.onHealthBarsToggled(visible);
   }
 
   onAnimationsToggled(enabled: boolean): void {
-    this.engine?.enemies.setAnimationsEnabled(enabled);
+    this.debugFacade.onAnimationsToggled(enabled);
   }
 
   onMovementToggled(enabled: boolean): void {
-    this.gameState.enemyManager.movementEnabled = enabled;
-  }
-
-  private applyDisplayOptions(): void {
-    try {
-      const stored = localStorage.getItem('td_display_options');
-      if (stored) {
-        const opts = JSON.parse(stored);
-        if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
-        if (opts.healthBars === false) this.engine?.enemies.setHealthBarsVisible(false);
-        if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
-        if (opts.movement === false) this.gameState.enemyManager.movementEnabled = false;
-      }
-    } catch { /* ignore */ }
+    this.debugFacade.onMovementToggled(enabled);
   }
 
   /**
@@ -1104,8 +1094,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Toggle height debug visualization (just visibility, no re-render)
    */
   toggleHeightDebug(): void {
-    this.heightDebugVisible.update((v) => !v);
-    this.markerViz.toggleHeightDebug(this.heightDebugVisible());
+    this.debugFacade.toggleHeightDebug();
   }
 
   /**
@@ -1823,56 +1812,28 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   logCameraPosition(): void {
     if (!this.engine) return;
-
-    const camera = this.engine.getCamera();
-
-    const data = {
-      position: {
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z,
-      },
-      hq: this.baseCoords(),
-      tiltAngle: 45, // fixed
-    };
-
-    const output = JSON.stringify(data, null, 2);
-
-    // Log to debug textarea
-    this.appendDebugLog('=== CAMERA ===\n' + output);
+    this.debugFacade.logCameraPosition(this.engine, this.baseCoords());
   }
 
 
   killAllEnemies(): void {
-    this.gameState.getEventBus().emit({ type: 'debug:kill-all' });
-
-    // Wave ends automatically via checkWaveComplete() when aliveCount === 0
-    // Death animations, projectiles, and effects continue running
+    this.debugFacade.killAllEnemies(this.gameState);
   }
 
   addDebugCredits(): void {
-    this.gameState.credits.update((c) => c + 1000);
-    this.appendDebugLog('+1000 Credits (Debug)');
+    this.debugFacade.addDebugCredits(this.gameState);
   }
 
   addDebugHealth(): void {
-    this.gameState.baseHealth.update((h) => h + 1000);
-    this.appendDebugLog('+1000 HP (Debug)');
+    this.debugFacade.addDebugHealth(this.gameState);
   }
 
   clearDebugLog(): void {
-    this.debugLog.set('');
+    this.debugFacade.clearDebugLog();
   }
 
   appendDebugLog(message: string): void {
-    this.debugLog.update((log) => {
-      const lines = log.split('\n');
-      // Max 50 Zeilen behalten
-      if (lines.length > 50) {
-        lines.shift();
-      }
-      return [...lines, message].join('\n');
-    });
+    this.debugFacade.appendDebugLog(message);
   }
 
   close(): void {
