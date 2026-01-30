@@ -378,9 +378,9 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(90);
       });
 
-      it('debug:add-health does not exceed max health', () => {
-        bus.emit({ type: 'debug:add-health', amount: 9999 } as never);
-        expect(gsm.baseHealth()).toBe(GAME_BALANCE.player.startHealth);
+      it('debug:add-health allows exceeding start health (debug)', () => {
+        bus.emit({ type: 'debug:add-health', amount: 1000 } as never);
+        expect(gsm.baseHealth()).toBe(GAME_BALANCE.player.startHealth + 1000);
       });
     });
   });
