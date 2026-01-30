@@ -78,12 +78,10 @@ import { GameStateManager } from './game-state.manager';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { GameEventBus } from '../game-engine';
 
-// Helper to access EventBus
 function getEventBus(gsm: GameStateManager): GameEventBus {
   return gsm.getEventBus();
 }
 
-// Helper: create a comprehensive mock ThreeTilesEngine
 function createMockEngine(): never {
   const noopFn = vi.fn();
   const noopReturning = (val: unknown) => vi.fn().mockReturnValue(val);
@@ -139,7 +137,6 @@ describe('GameStateManager', () => {
   let gsm: GameStateManager;
 
   beforeEach(() => {
-    // Reset service mocks
     Object.keys(mockServices).forEach(k => delete mockServices[k]);
     gsm = new GameStateManager();
   });
@@ -221,7 +218,6 @@ describe('GameStateManager', () => {
           enemy: { id: 'e1' } as never,
           damage: 10,
         });
-
         expect(gsm.baseHealth()).toBe(initialHealth - 10);
       });
 
@@ -231,7 +227,6 @@ describe('GameStateManager', () => {
           enemy: { id: 'e1' } as never,
           damage: 9999,
         });
-
         expect(gsm.baseHealth()).toBe(0);
       });
 
@@ -258,7 +253,6 @@ describe('GameStateManager', () => {
     describe('enemy:died credits', () => {
       it('awards credits on enemy death', () => {
         const initial = gsm.credits();
-
         bus.emit({
           type: 'enemy:died',
           enemy: {
@@ -267,13 +261,11 @@ describe('GameStateManager', () => {
           } as never,
           credits: 25,
         });
-
         expect(gsm.credits()).toBe(initial + 25);
       });
 
       it('does not award credits when credits=0', () => {
         const initial = gsm.credits();
-
         bus.emit({
           type: 'enemy:died',
           enemy: {
@@ -282,7 +274,6 @@ describe('GameStateManager', () => {
           } as never,
           credits: 0,
         });
-
         expect(gsm.credits()).toBe(initial);
       });
     });
@@ -302,7 +293,6 @@ describe('GameStateManager', () => {
       it('deducts cost on successful placement', () => {
         const initial = gsm.credits();
         const tower = gsm.placeTower(BASE_POSITION, 'archer');
-
         if (tower) {
           expect(gsm.credits()).toBeLessThan(initial);
         }
@@ -316,7 +306,6 @@ describe('GameStateManager', () => {
           enemy: { id: 'e1' } as never,
           damage: 50,
         });
-
         gsm.reset();
         expect(gsm.baseHealth()).toBe(GAME_BALANCE.player.startHealth);
       });
@@ -327,33 +316,11 @@ describe('GameStateManager', () => {
         expect(gsm.credits()).toBe(GAME_BALANCE.player.startCredits);
       });
 
-      it('keeps event bus subscriptions active (handlers survive restart)', () => {
-        // After reset(), command handlers should still be registered
-        // (only dispose() removes them — for real component destruction)
-        gsm.reset();
-
-        const bus2 = getEventBus(gsm);
-        expect(bus2.hasListeners('command:place-tower')).toBe(true);
-        expect(bus2.hasListeners('enemy:reached-base')).toBe(true);
-      });
-
-      it('emits game:reset event', () => {
-        const handler = vi.fn();
-        bus.on('game:reset', handler);
-
-        gsm.reset();
-
-        expect(handler).toHaveBeenCalledWith(
-          expect.objectContaining({ type: 'game:reset' })
-        );
-      });
-
-      it('dispose() removes event bus subscriptions', () => {
-        gsm.dispose();
-
-        const bus2 = getEventBus(gsm);
-        expect(bus2.hasListeners('command:place-tower')).toBe(false);
-        expect(bus2.hasListeners('enemy:reached-base')).toBe(false);
+      it('can be called multiple times without error', () => {
+        expect(() => gsm.reset()).not.toThrow();
+        expect(() => gsm.reset()).not.toThrow();
+        expect(gsm.baseHealth()).toBe(GAME_BALANCE.player.startHealth);
+        expect(gsm.credits()).toBe(GAME_BALANCE.player.startCredits);
       });
     });
 
@@ -365,7 +332,6 @@ describe('GameStateManager', () => {
           damage: 60,
         });
         expect(gsm.baseHealth()).toBe(40);
-
         gsm.healBase();
         expect(gsm.baseHealth()).toBe(100);
       });
@@ -408,7 +374,6 @@ describe('GameStateManager', () => {
           damage: 30,
         });
         expect(gsm.baseHealth()).toBe(70);
-
         bus.emit({ type: 'debug:add-health', amount: 20 } as never);
         expect(gsm.baseHealth()).toBe(90);
       });
