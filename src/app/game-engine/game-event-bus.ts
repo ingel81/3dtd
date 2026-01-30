@@ -124,6 +124,11 @@ export type GameEvent =
       projectileType: string;
       targetLost: boolean; // true = ground impact, false = enemy hit
     }
+  | {
+      type: 'vfx:muzzle-flash';
+      towerId: string;
+      towerTypeId: string;
+    }
 
   // ==================== Debug Events ====================
   | {
