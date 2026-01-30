@@ -540,91 +540,22 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Handle keyboard events for build mode and camera panning
-   * R (hold) = Rotate tower preview continuously
-   * Escape = Cancel build mode
-   * WASD / Arrow keys = Pan camera
+   * Keyboard event handlers - delegates to InputHandlerService.
+   * @HostListener decorators must stay on the component (Angular requirement).
    */
   @HostListener('window:keydown', ['$event'])
   onKeyDown(event: KeyboardEvent): void {
-    // Don't intercept keyboard events when user is typing in an input field
-    if (this.isTypingInInputField(event)) {
-      return;
-    }
-
-    // Camera panning (WASD / Arrow keys) - works always
-    if (this.keyboardPan.onKeyDown(event)) {
-      event.preventDefault();
-      return;
-    }
-
-    // Debug: Toggle 3D tiles visibility with 'T' key
-    if (event.key === 't' || event.key === 'T') {
-      if (this.engine) {
-        const currentlyVisible = this.engine.areTilesVisible();
-        this.engine.setTilesVisible(!currentlyVisible);
-        event.preventDefault();
-        return;
-      }
-    }
-
-    // Debug: Toggle ShaderMaterial for particles with 'P' key
-    // Tests per-particle size support with logarithmic depth buffer
-    if (event.key === 'p' || event.key === 'P') {
-      if (this.engine) {
-        const currentlyUsingShader = this.engine.effects.isUsingShaderMaterial();
-        this.engine.effects.setUseShaderMaterial(!currentlyUsingShader);
-        event.preventDefault();
-        return;
-      }
-    }
-
-    // Build mode keys
-    if (!this.towerPlacement.buildMode()) return;
-
-    if (event.key === 'r' || event.key === 'R') {
-      event.preventDefault();
-      this.towerPlacement.startRotating();
-    } else if (event.key === 'Escape') {
-      event.preventDefault();
-      this.exitBuildMode();
-    }
+    this.inputHandler.handleKeyDown(event);
   }
 
   @HostListener('window:keyup', ['$event'])
   onKeyUp(event: KeyboardEvent): void {
-    // Don't intercept keyboard events when user is typing in an input field
-    if (this.isTypingInInputField(event)) {
-      return;
-    }
-
-    // Camera panning key release
-    this.keyboardPan.onKeyUp(event);
-
-    if (event.key === 'r' || event.key === 'R') {
-      this.towerPlacement.stopRotating();
-    }
+    this.inputHandler.handleKeyUp(event);
   }
 
   @HostListener('window:blur')
   onWindowBlur(): void {
-    // Clear pan keys when window loses focus
-    this.keyboardPan.clearKeys();
-  }
-
-  /**
-   * Check if the user is typing in an input field (input, textarea, select, contenteditable).
-   * Game keyboard shortcuts should not interfere with text input.
-   */
-  private isTypingInInputField(event: KeyboardEvent): boolean {
-    const target = event.target as HTMLElement;
-    if (!target) return false;
-
-    const tagName = target.tagName.toLowerCase();
-    const isInputField = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
-    const isContentEditable = target.isContentEditable;
-
-    return isInputField || isContentEditable;
+    this.inputHandler.handleWindowBlur();
   }
 
   /**
@@ -850,6 +781,11 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       () => this.enemyDebug.placementMode(),
       (lat: number, lon: number, height: number) => this.handleEnemyPlacement(lat, lon, height)
     );
+
+    // Setup keyboard handling callbacks
+    this.inputHandler.initKeyboard({
+      exitBuildMode: () => this.exitBuildMode(),
+    });
   }
 
   /**
