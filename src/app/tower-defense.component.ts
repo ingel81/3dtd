@@ -25,7 +25,7 @@ import { ConfigService } from './core/services/config.service';
 import { OsmStreetService, StreetNetwork } from './services/osm-street.service';
 import { EntityPoolService } from './services/entity-pool.service';
 import { ModelPreviewService } from './services/model-preview.service';
-import { EnemyTypeId, getAllEnemyTypes } from './models/enemy-types';
+import { getAllEnemyTypes } from './models/enemy-types';
 import { LocationDialogComponent } from './components/location-dialog/location-dialog.component';
 import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
 import { CompassComponent } from './components/compass/compass.component';
@@ -85,8 +85,7 @@ import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
 import { TrainingClientService } from './ai/training/training-client.service';
 import { adaptAIWaveConfigSingle } from './ai/core/wave-config-adapter';
 // AI Bot Training
-import { ITowerBot, TowerAction, BotSkillLevel } from './ai/training/bots/tower-bot.interface';
-import { StrategyBotFactory } from './ai/training/bots/strategy-bot.factory';
+import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { StrategicPlacementService } from './services/strategic-placement.service';
 import { GeoPosition } from './models/game.types';
 import { DpsProfileVisualizer } from './ai/core/dps-profile-visualizer';
@@ -192,14 +191,13 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly trainingClient = inject(TrainingClientService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
 
-  // AI Bot Training
+  // AI Bot Training (delegated to TrainingClientService)
   private readonly strategicPlacement = inject(StrategicPlacementService);
-  private botFactory!: StrategyBotFactory;
-  private currentBot: ITowerBot | null = null;
-  readonly botEnabled = signal(false);
-  readonly botSkillLevel = signal<BotSkillLevel>('strategist');
-  readonly botStats = signal({ towersPlaced: 0, goldSpent: 0 });
-  readonly botAutoMode = signal(false); // Auto-start waves when bot is ready
+  // Expose bot signals from service for template bindings
+  readonly botEnabled = this.trainingClient.botEnabled;
+  readonly botSkillLevel = this.trainingClient.botSkillLevel;
+  readonly botStats = this.trainingClient.botStats;
+  readonly botAutoMode = this.trainingClient.botAutoMode;
 
   // Cleanup
   private readonly destroyRef = inject(DestroyRef);
@@ -225,9 +223,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Flag to prevent concurrent AI wave requests (race condition guard)
   private pendingAIWaveRequest = false;
-
-  // Debug enemy placement tracking (for event-driven spawn)
-  private pendingDebugPlacement: { typeId: EnemyTypeId; lat: number; lon: number } | null = null;
 
   // Proxy signals from services for template compatibility
   readonly loading = this.engineInit.loading;
@@ -391,19 +386,25 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Resolve favorite names (async, doesn't block)
     this.resolveFavoriteNames();
 
-    // Initialize bot factory
-    this.botFactory = new StrategyBotFactory(
-      this.strategicPlacement,
-      this.gameState,
-      this.osmService
-    );
+    // Initialize training client with dependencies
+    this.trainingClient.initialize({
+      gameState: this.gameState,
+      towerPlacement: this.towerPlacement,
+      strategicPlacement: this.strategicPlacement,
+      osmService: this.osmService,
+      callbacks: {
+        startWave: () => this.startWave(),
+        upgradeTower: (tower, upgradeId) => this.upgradeTower(tower, upgradeId),
+        restartGame: () => this.restartGame(),
+      }
+    });
 
     // Check for bot=auto URL parameter BEFORE enabling features
     const params = new URLSearchParams(window.location.search);
     if (params.has('bot')) {
       const botMode = params.get('bot');
       if (botMode === 'auto') {
-        this.botAutoMode.set(true);
+        this.trainingClient.botAutoMode.set(true);
         console.log('[Bot] Auto-mode enabled from URL parameter (will auto-start waves)');
       }
     }
@@ -415,7 +416,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       console.log('[AI] AI Director enabled for DevWorld');
 
       // Try to connect to training backend (non-blocking)
-      this.connectToTrainingBackend();
+      this.trainingClient.connectToBackend();
     }
   }
 
@@ -867,142 +868,59 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Handle enemy placement from debug panel
+   * Handle enemy placement from debug panel — delegated to EnemyDebugService
    */
-  private handleEnemyPlacement(lat: number, lon: number, _height: number): void {
-    if (!this.engine) return;
-
-    // Convert to local coordinates for route grid validation
-    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-
-    // Validate: must be on route
-    const cell = this.gameState.getGlobalRouteGrid()?.getCellAt(local.x, local.z);
-    if (!cell) {
-      console.warn('[EnemyDebug] Invalid placement - not on route');
-      return;
-    }
-
-    // Create path from click position to base
-    const path = this.createPathFromPosition(lat, lon);
-    if (!path || path.length < 2) {
-      console.warn('[EnemyDebug] Could not create path from position');
-      return;
-    }
-
-    // Get overrides from debug service
-    const typeId = this.enemyDebug.selectedEnemyId();
-    const overrides = this.enemyDebug.currentOverrides();
-
-    // Spawn enemy via debug event (paused = idle)
-    this.pendingDebugPlacement = { typeId, lat, lon };
-    this.gameState.getEventBus().emit({
-      type: 'debug:spawn-enemy',
-      enemyType: typeId,
-      count: 1,
-      path,
-      speed: overrides.baseSpeed,
-      paused: true,
-      health: overrides.baseHp,
-    });
+  private handleEnemyPlacement(lat: number, lon: number, height: number): void {
+    this.enemyDebug.handleEnemyPlacement(lat, lon, height);
   }
 
   /**
-   * Create path from a position to the base
-   * Finds nearest point on existing path and creates sub-path
-   */
-  private createPathFromPosition(lat: number, lon: number): GeoPosition[] | null {
-    const spawns = this.spawnPoints();
-    if (spawns.length === 0) return null;
-
-    // Try to find a cached path
-    const fullPath = this.pathRoute.getCachedPath(spawns[0].id);
-    if (!fullPath || fullPath.length < 2) return null;
-
-    // Find nearest point on path
-    let minDist = Infinity;
-    let closestIdx = 0;
-    for (let i = 0; i < fullPath.length; i++) {
-      const dx = fullPath[i].lat - lat;
-      const dy = fullPath[i].lon - lon;
-      const dist = dx * dx + dy * dy; // Squared distance is fine for comparison
-      if (dist < minDist) {
-        minDist = dist;
-        closestIdx = i;
-      }
-    }
-
-    // Get height at click position (from path if available, else fallback)
-    const clickHeight = fullPath[closestIdx].height ?? 0;
-
-    // Create sub-path: click position + rest of path
-    return [
-      { lat, lon, height: clickHeight },
-      ...fullPath.slice(closestIdx + 1)
-    ];
-  }
-
-  /**
-   * Remove a debug enemy (from enemy debugger component)
+   * Remove a debug enemy — delegated to EnemyDebugService
    */
   onRemoveDebugEnemy(enemyId: string): void {
-    const de = this.enemyDebug.getDebugEnemy(enemyId);
-    if (de) {
-      this.gameState.enemyManager.remove(de.enemy);
-      this.enemyDebug.removeDebugEnemy(enemyId);
-    }
+    this.enemyDebug.onRemoveDebugEnemy(enemyId);
   }
 
   /**
-   * Clear all debug enemies (from enemy debugger component)
+   * Clear all debug enemies — delegated to EnemyDebugService
    */
   onClearDebugEnemies(): void {
-    for (const de of this.enemyDebug.debugEnemies()) {
-      this.gameState.enemyManager.remove(de.enemy);
-    }
-    this.enemyDebug.clearDebugEnemies();
+    this.enemyDebug.onClearDebugEnemies();
   }
 
   /**
-   * Play idle animation for debug enemy
+   * Play idle animation for debug enemy — delegated to EnemyDebugService
    */
   onPlayIdleAnimation(enemyId: string): void {
-    this.engine?.enemies.playIdleAnimation(enemyId);
+    this.enemyDebug.onPlayIdleAnimation(enemyId);
   }
 
   /**
-   * Play walk animation for debug enemy
+   * Play walk animation for debug enemy — delegated to EnemyDebugService
    */
   onPlayWalkAnimation(enemyId: string): void {
-    this.engine?.enemies.startWalkAnimation(enemyId);
+    this.enemyDebug.onPlayWalkAnimation(enemyId);
   }
 
   /**
-   * Play run animation for debug enemy
+   * Play run animation for debug enemy — delegated to EnemyDebugService
    */
   onPlayRunAnimation(enemyId: string): void {
-    this.engine?.enemies.startRunAnimation(enemyId);
+    this.enemyDebug.onPlayRunAnimation(enemyId);
   }
 
   /**
-   * Start movement for debug enemy
+   * Start movement for debug enemy — delegated to EnemyDebugService
    */
   onStartEnemyMovement(enemyId: string): void {
-    const de = this.enemyDebug.getDebugEnemy(enemyId);
-    if (de?.enemy && de.enemy.alive) {
-      de.enemy.startMoving();
-      this.engine?.enemies.startWalkAnimation(enemyId);
-    }
+    this.enemyDebug.onStartEnemyMovement(enemyId);
   }
 
   /**
-   * Stop movement for debug enemy
+   * Stop movement for debug enemy — delegated to EnemyDebugService
    */
   onStopEnemyMovement(enemyId: string): void {
-    const de = this.enemyDebug.getDebugEnemy(enemyId);
-    if (de?.enemy) {
-      de.enemy.stopMoving();
-      this.engine?.enemies.playIdleAnimation(enemyId);
-    }
+    this.enemyDebug.onStopEnemyMovement(enemyId);
   }
 
   onEnemiesToggled(visible: boolean): void {
@@ -1160,6 +1078,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Initialize strategic placement service with street network
     this.strategicPlacement.initialize(this.streetNetwork);
 
+    // Initialize enemy debug service with game state, engine, and spawn points
+    this.enemyDebug.initialize(this.gameState, engine, this.spawnPoints);
+
     const eventBus = this.gameState.getEventBus();
 
     // Subscribe to tower:selected event - sync debug panel dropdown
@@ -1172,30 +1093,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.startCustomWave();
     });
 
-    // Register debug enemy placement (next spawned enemy after placement click)
-    eventBus.on('enemy:spawned', (event) => {
-      const pending = this.pendingDebugPlacement;
-      if (!pending) return;
-
-      this.pendingDebugPlacement = null;
-      this.enemyDebug.registerDebugEnemy(event.enemy, pending.typeId, pending.lat, pending.lon);
-      this.enemyDebug.exitPlacementMode();
-
-      console.log(`[EnemyDebug] Placed ${pending.typeId} at ${pending.lat.toFixed(6)}, ${pending.lon.toFixed(6)}`);
-    });
+    // Debug enemy placement listener is now in EnemyDebugService.initialize()
 
     // Subscribe to game:over event
     eventBus.on('game:over', () => {
       this.onGameOver();
       // Reset bot for next game
-      if (this.currentBot) {
-        this.currentBot.reset();
-        this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
+      this.trainingClient.resetBot();
+      if (this.trainingClient.botEnabled()) {
         console.log('[Bot] Reset for new game');
       }
 
       // Auto-restart game if bot is in auto-mode
-      if (this.botAutoMode()) {
+      if (this.trainingClient.botAutoMode()) {
         console.log('[Bot] Auto-restarting game in 2 seconds...');
         setTimeout(() => {
           this.restartGame();
@@ -1579,18 +1489,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.gameState.update(currentTime);
 
     // Bot update (if enabled) - can act during setup AND wave phases
-    if (this.botEnabled() && this.currentBot) {
-      const phase = this.gameState.phase();
-
-      // Bot can place/upgrade towers during both setup and wave (active combat)
-      if (phase === 'setup' || phase === 'wave') {
-        const snapshot = this.aiDataCollector.getStateSnapshot();
-        const action = this.currentBot.update(snapshot, deltaTime);
-
-        if (action) {
-          this.executeBotAction(action);
-        }
-      }
+    if (this.trainingClient.botEnabled()) {
+      const snapshot = this.aiDataCollector.getStateSnapshot();
+      this.trainingClient.updateBot(snapshot, deltaTime);
     }
 
     // Update global route grid visualization
