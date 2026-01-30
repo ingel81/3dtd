@@ -10,6 +10,7 @@ vi.mock('@angular/core', async () => {
   return {
     ...actual,
     Injectable: () => (target: unknown) => target,
+    effect: vi.fn(),
     inject: (token: { name?: string }) => {
       const name = token?.name ?? 'unknown';
       if (!mockServices[name]) {
@@ -22,6 +23,9 @@ vi.mock('@angular/core', async () => {
 
 function createStubService(name: string): Record<string, unknown> {
   const stubs: Record<string, Record<string, unknown>> = {
+    GameStore: {
+      trainingTimescale: Object.assign(vi.fn().mockReturnValue(1.0), { set: vi.fn() }),
+    },
     UIStore: {
       specialPointsDebugVisible: vi.fn().mockReturnValue(false),
     },
