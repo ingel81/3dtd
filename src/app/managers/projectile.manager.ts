@@ -75,6 +75,12 @@ export class ProjectileManager extends EntityManager<Projectile> {
       projectile.direction
     );
 
+    // Create trail streak for the projectile
+    this.tilesEngine.trailStreaks.create(
+      projectile.id,
+      projectile.typeConfig.visualType
+    );
+
     this.add(projectile);
 
     // Play spatial sound at tower position (fire-and-forget, errors logged)
@@ -146,6 +152,16 @@ export class ProjectileManager extends EntityManager<Projectile> {
             trailConfig
           );
         }
+
+        // Push position to trail streak (ribbon renderer)
+        if (this.tilesEngine) {
+          const localPos = this.tilesEngine.sync.geoToLocalSimple(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight
+          );
+          this.tilesEngine.trailStreaks.pushPosition(projectile.id, localPos);
+        }
       }
     }
 
@@ -178,6 +194,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    */
   override remove(entity: Projectile): void {
     this.tilesEngine?.projectiles.remove(entity.id);
+    this.tilesEngine?.trailStreaks.remove(entity.id);
     super.remove(entity);
   }
 
@@ -186,6 +203,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    */
   override clear(): void {
     this.tilesEngine?.projectiles.clear();
+    this.tilesEngine?.trailStreaks.clear();
     super.clear();
   }
 }
