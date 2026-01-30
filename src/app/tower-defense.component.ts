@@ -235,7 +235,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly heightDebugVisible = this.uiState.heightDebugVisible;
   readonly fps = this.uiState.fps;
   readonly tileStats = this.uiState.tileStats;
-  readonly mapAttribution = signal('Map data ©2024 Google');
+  readonly mapAttribution = this.uiState.mapAttribution;
   readonly debugLog = this.uiState.debugLog;
   readonly buildMode = this.towerPlacement.buildMode;
   readonly selectedTowerType = this.towerPlacement.selectedTowerType;
@@ -244,17 +244,12 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   readonly isApplyingLocation = this.locationMgmt.isApplyingLocation;
   readonly favorites = this.locationMgmt.favorites;
   readonly favoriteNamesMap = this.locationCoordinator.favoriteNamesMap;
-  // Component-local signals (not moved to services)
-  readonly cameraHeading = signal(0); // Compass heading: 0=N, 90=E, 180=S, 270=W
-  readonly compassRotation = signal(0); // Accumulated rotation for smooth compass (avoids 0°/360° flip)
+  // Camera & debug signals (delegated to GameUIStateService)
+  readonly cameraHeading = this.uiState.cameraHeading;
+  readonly compassRotation = this.uiState.compassRotation;
   readonly cameraFramingDebug = signal(false); // Debug visualization for camera framing
-  readonly cameraDebugEnabled = signal(false); // Camera debug overlay
-  readonly cameraDebugInfo = signal<{
-    posX: number; posY: number; posZ: number;
-    rotX: number; rotY: number; rotZ: number;
-    heading: number; pitch: number; altitude: number;
-    distanceToCenter: number; fov: number; terrainHeight: number;
-  } | null>(null);
+  readonly cameraDebugEnabled = this.uiState.cameraDebugEnabled;
+  readonly cameraDebugInfo = this.uiState.cameraDebugInfo;
   // Wave debug settings (proxied from WaveDebugService for backwards compatibility)
   readonly enemySpeed = this.waveDebug.enemySpeed;
   readonly enemyHealth = this.waveDebug.enemyHealth;
@@ -287,15 +282,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
-  readonly activeSounds = signal(0);
+  readonly activeSounds = this.uiState.activeSounds;
 
-  private tileStatsIntervalId: number | null = null; // Polling for tile stats during loading
-
-  // UI update throttling (avoid updating signals every frame)
-  private lastUIUpdateTime = 0;
-  private readonly UI_UPDATE_INTERVAL = 100; // ms - update UI stats ~10x per second instead of 60x
-  private lastFps = 0;
-  private lastActiveSounds = 0;
+  // Tile stats polling is managed by EngineInitializationService
 
   constructor() {
     // Effect: Update all existing enemies when speed changes
@@ -637,22 +626,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     const wasLoading = this.loading();
     const isApplying = this.isApplyingLocation();
 
-    // Check if we need to start/stop tile stats polling
-    const tiles = this.tilesLoading();
-
-    // Get engine reference (may not be set on this.engine yet during init)
-    const engine = this.engine ?? this.engineInit.getEngine();
-
-    // Start polling when tiles still loading (shows stats in loading screen)
-    if (tiles && !this.tileStatsIntervalId && engine) {
-      this.startTileStatsPolling();
-    }
-
-    // Stop polling when tiles are done
-    if (!tiles && this.tileStatsIntervalId) {
-      this.stopTileStatsPolling();
-    }
-
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
     const isNowLoading = this.loading();
 
@@ -663,36 +636,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       if (cachedPaths.size > 0) {
         this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
       }
-    }
-  }
-
-  /**
-   * Start polling tile stats to show loading progress
-   */
-  private startTileStatsPolling(): void {
-    if (this.tileStatsIntervalId) return;
-
-    this.tileStatsIntervalId = window.setInterval(() => {
-      // Get engine reference (may not be set on this.engine yet during init)
-      const engine = this.engine ?? this.engineInit.getEngine();
-      if (!engine) return;
-
-      const stats = engine.getTileStats();
-      const pending = stats.downloading + stats.parsing;
-      const detail = pending > 0
-        ? `${stats.visible} loaded, ${pending} pending`
-        : `${stats.visible} tiles loaded`;
-      this.engineInit.updateStepDetail('tiles', detail);
-    }, 500);
-  }
-
-  /**
-   * Stop polling tile stats
-   */
-  private stopTileStatsPolling(): void {
-    if (this.tileStatsIntervalId) {
-      clearInterval(this.tileStatsIntervalId);
-      this.tileStatsIntervalId = null;
     }
   }
 
@@ -912,57 +855,19 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * @returns Street count
    */
   private async loadStreets(): Promise<number> {
-    try {
-      const center = this.centerCoords();
-
-      // DevWorld mode: Use DevStreetProvider with generated streets from terrain
-      if (this.devWorld.isActive) {
-        console.log('[TowerDefense] DevWorld mode - using DevStreetProvider');
-        const devStreetProvider = new DevStreetProvider(this.devWorld);
-
-        // Get generated streets from terrain provider
-        const engine = this.engine || this.engineInit.getEngine();
-        const devTerrainProvider = engine?.getDevTerrainProvider();
-
-        if (devTerrainProvider) {
-          // Set initial streets from terrain provider
-          const segments = devTerrainProvider.getStreetSegments();
-          const spawns = devTerrainProvider.getSpawnPoints();
-          devStreetProvider.setGeneratedStreets(segments, spawns);
-
-          // Set up refresh callback for live terrain regeneration
-          devTerrainProvider.setStreetRefreshCallback((newSegments, newSpawns) => {
-            console.log('[TowerDefense] Terrain regenerated - updating streets');
-            devStreetProvider.setGeneratedStreets(newSegments, newSpawns);
-            // Reload street network
-            devStreetProvider.loadStreets(center.lat, center.lon, 500).then((network) => {
-              this.streetNetwork = network;
-              this.streetCount.set(network.streets.length);
-            });
-          });
-        }
-
-        this.streetNetwork = await devStreetProvider.loadStreets(center.lat, center.lon, 500);
-        this.devStreetProvider = devStreetProvider; // Store for route calculations
-        this.streetCount.set(this.streetNetwork.streets.length);
-        return this.streetNetwork.streets.length;
-      }
-
-      // Real world: Use OSM
-      this.streetNetwork = await this.osmService.loadStreets(
-        center.lat,
-        center.lon,
-        2000 // 2km radius
-      );
-
-      this.streetCount.set(this.streetNetwork.streets.length);
-      // NOTE: renderStreets() is called later in Height-Update-Loop AFTER filterStreetNetworkToRoutes()
-
-      return this.streetNetwork.streets.length;
-    } catch (err) {
-      console.error('Failed to load streets:', err);
-      return 0;
-    }
+    const center = this.centerCoords();
+    const result = await this.engineInit.loadStreets(
+      center.lat,
+      center.lon,
+      (network, count) => {
+        this.streetNetwork = network;
+        this.streetCount.set(count);
+      },
+    );
+    this.streetNetwork = result.network;
+    this.devStreetProvider = result.devStreetProvider;
+    this.streetCount.set(result.count);
+    return result.count;
   }
 
   /**
@@ -1382,104 +1287,50 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
    * Called each frame for animations (runs outside Angular zone)
    */
   private onEngineUpdate(deltaTime: number): void {
-    // Update tower placement rotation (R key held) - deltaTime is in ms, convert to seconds
-    this.towerPlacement.updateRotation(deltaTime / 1000);
+    const dtSec = deltaTime / 1000;
 
-    // Continue progressive LOS preview building (spreads work across frames)
+    // ── Per-frame delegation calls ──────────────────────────────
+    this.towerPlacement.updateRotation(dtSec);
     this.towerPlacement.updatePreviewBuild();
-
-    // Update keyboard panning - deltaTime is in ms, convert to seconds
-    this.keyboardPan.update(deltaTime / 1000);
-
-    // Animate markers (HQ rotation, spawn pulse) - no signals, pure Three.js
+    this.keyboardPan.update(dtSec);
     this.markerViz.animateMarkers(deltaTime);
-
-    // Animate route visualization (Knight Rider effect) - no signals, pure Three.js
     this.routeAnimation.update(deltaTime);
 
-    // ══════════════════════════════════════════════════════════════
-    // GAME LOGIC UPDATE - runs EVERY frame, phase controls behavior
-    // ══════════════════════════════════════════════════════════════
-    const currentTime = performance.now();
-    this.gameState.update(currentTime);
+    // ── Game logic tick ─────────────────────────────────────────
+    this.gameState.update(performance.now());
 
-    // Bot update (if enabled) - can act during setup AND wave phases
+    // ── Bot update (if enabled) ─────────────────────────────────
     if (this.trainingClient.botEnabled()) {
-      const snapshot = this.aiDataCollector.getStateSnapshot();
-      this.trainingClient.updateBot(snapshot, deltaTime);
+      this.trainingClient.updateBot(this.aiDataCollector.getStateSnapshot(), deltaTime);
     }
 
-    // Update global route grid visualization
+    // ── Route grid visualization ────────────────────────────────
     const grid = this.gameState.getGlobalRouteGrid();
     if (grid.isSpatialGridVizVisible()) {
       grid.updateVisualization();
     }
     grid.updateAnimation(deltaTime);
 
-    // Update selected tower's LOS visualization animation
+    // ── Selected tower LOS animation ────────────────────────────
     const selectedTower = this.gameState.towerManager.getSelected();
     if (selectedTower?.losVisualization?.visible) {
       grid.updateTowerVisualizationTime(selectedTower.losVisualization);
     }
 
-    // Throttle UI signal updates to reduce Angular change detection overhead
-    const now = performance.now();
-    if (now - this.lastUIUpdateTime < this.UI_UPDATE_INTERVAL) {
-      return; // Skip UI updates this frame
-    }
-    this.lastUIUpdateTime = now;
-
-    // Update UI signals only when values changed (runs inside Angular zone for change detection)
+    // ── Throttled UI stats (~10Hz) ──────────────────────────────
     if (this.engine) {
+      const soundDebugOpen = this.debugWindows.soundWindow().isOpen;
       this.ngZone.run(() => {
-        // FPS - only update if changed
-        const newFps = this.engine!.getFPS();
-        if (newFps !== this.lastFps) {
-          this.lastFps = newFps;
-          this.fps.set(newFps);
-        }
-
-        // Tile stats - only update if changed (compare by reference is fine, engine returns same object if unchanged)
-        const newTileStats = this.engine!.getTileStats();
-        this.tileStats.set(newTileStats);
-
-        // Active sounds - only update if changed
-        const newActiveSounds = this.engine!.spatialAudio.getActiveSoundCount();
-        if (newActiveSounds !== this.lastActiveSounds) {
-          this.lastActiveSounds = newActiveSounds;
-          this.activeSounds.set(newActiveSounds);
-        }
-
-        // Sound debug stats - only when panel is open
-        if (this.debugWindows.soundWindow().isOpen) {
-          this.soundDebug.updateStats(this.engine!.spatialAudio.getSoundPoolStats());
-        }
-
-        // Attributions - only update if changed
-        const attr = this.engine!.getAttributions();
-        if (attr && attr !== this.mapAttribution()) {
-          this.mapAttribution.set(attr || 'Map data ©2024 Google');
-        }
-
-        // Compass heading - only update if changed
-        const heading = Math.round(this.cameraControl.getCameraHeading());
-        if (heading !== this.cameraHeading()) {
-          const oldHeading = this.cameraHeading();
-          this.cameraHeading.set(heading);
-
-          // Calculate shortest rotation delta (handles 0°/360° wrap-around)
-          let delta = heading - oldHeading;
-          if (delta > 180) delta -= 360;
-          if (delta < -180) delta += 360;
-
-          // Accumulate rotation for smooth compass animation
-          this.compassRotation.update(rot => rot + delta);
-        }
-
-        // Camera debug info - only when debug overlay is enabled
-        if (this.cameraDebugEnabled()) {
-          this.cameraDebugInfo.set(this.cameraControl.getCameraDebugInfo());
-        }
+        this.uiState.updateThrottledStats({
+          fps: this.engine!.getFPS(),
+          tileStats: this.engine!.getTileStats(),
+          activeSoundCount: this.engine!.spatialAudio.getActiveSoundCount(),
+          attribution: this.engine!.getAttributions(),
+          cameraHeading: this.cameraControl.getCameraHeading(),
+          cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
+          soundPoolStats: soundDebugOpen ? this.engine!.spatialAudio.getSoundPoolStats() : undefined,
+          onSoundDebugUpdate: soundDebugOpen ? (stats) => this.soundDebug.updateStats(stats) : undefined,
+        });
       });
     }
   }
@@ -2196,6 +2047,6 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     this.streetNetworkLocation = null;
 
     // Stop tile stats polling if running
-    this.stopTileStatsPolling();
+    this.engineInit.stopTileStatsPolling();
   }
 }
