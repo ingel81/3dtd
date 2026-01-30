@@ -127,7 +127,7 @@ export class TowerPlacementService {
     this.buildMode.set(true);
 
     // Deselect any previously selected tower (hides its LOS visualization)
-    this.gameState?.deselectAll();
+    this.gameState?.towerManager.selectTower(null);
 
     // Pre-load the preview model
     this.loadPreviewModel(typeId);
@@ -557,7 +557,7 @@ export class TowerPlacementService {
 
     // Check distance to other towers
     if (this.gameState) {
-      for (const tower of this.gameState.towers()) {
+      for (const tower of this.gameState.towerManager.getAll()) {
         const distToTower = this.osmService.haversineDistance(lat, lon, tower.position.lat, tower.position.lon);
         if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
           return { valid: false, reason: `Zu nah an Tower` };
@@ -638,7 +638,7 @@ export class TowerPlacementService {
 
     // Check distance to other towers
     if (this.gameState) {
-      for (const tower of this.gameState.towers()) {
+      for (const tower of this.gameState.towerManager.getAll()) {
         const distToTower = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, tower.position.lat, tower.position.lon);
         if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
           return { valid: false, reason: `Too close to tower` };

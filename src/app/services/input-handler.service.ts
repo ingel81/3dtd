@@ -168,13 +168,13 @@ export class InputHandlerService {
 
       if (clickedTowerId) {
         if (this.gameState.selectedTowerId() === clickedTowerId) {
-          this.gameState.deselectAll();
+          this.gameState.towerManager.selectTower(null);
         } else {
-          this.gameState.selectTower(clickedTowerId);
+          this.gameState.towerManager.selectTower(clickedTowerId);
         }
         return; // Tower handled, done
       } else {
-        this.gameState.deselectAll();
+        this.gameState.towerManager.selectTower(null);
       }
     }
 
