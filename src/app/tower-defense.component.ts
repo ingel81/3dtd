@@ -213,8 +213,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /** DevWorld regeneration in progress — sourced from Store */
   readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
 
-  readonly waveActive = this.store.waveActive;
-  readonly isGameOver = this.store.isGameOver;
+  // Game state signals — sourced from GSM (authoritative game logic)
+  // These will migrate to Store once GSM→Store sync is implemented
+  readonly waveActive = computed(() => this.gameState.phase() === 'wave');
+  readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
   readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
   // Build mode hints for context hint box

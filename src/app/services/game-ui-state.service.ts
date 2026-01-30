@@ -19,6 +19,11 @@ interface PersistedUIState {
  * Manages UI state signals for the Tower Defense game.
  * Handles debug flags, layer toggles, menu states, and performance stats.
  * Persists layer and overlay visibility to localStorage.
+ *
+ * NOTE: Coexists with UIStore/EngineStore from the TowerDefenseStore hierarchy.
+ * This service owns persistence (localStorage) and throttled update logic.
+ * The stores aggregate signals for the component/template layer.
+ * Services that need operational reads continue to inject this service.
  */
 @Injectable({ providedIn: 'root' })
 export class GameUIStateService {
