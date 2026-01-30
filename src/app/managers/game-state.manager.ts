@@ -18,7 +18,7 @@ import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../models/enemy-types';
-import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
+import { TowerTypeId, TOWER_TYPES, UpgradeId } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
@@ -161,6 +161,74 @@ export class GameStateManager {
           );
         }
       }
+    });
+
+    // ══════════════════════════════════════════════════════════════
+    // Command event handlers (UI → Game Engine)
+    // ══════════════════════════════════════════════════════════════
+
+    this.eventBus.on('command:place-tower', (event) => {
+      this.placeTower(
+        { lat: event.position.lat, lon: event.position.lon, height: event.position.height },
+        event.typeId as TowerTypeId,
+        event.rotation ?? 0
+      );
+    });
+
+    this.eventBus.on('command:sell-tower', (event) => {
+      const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
+      if (tower) {
+        this.sellTower(tower);
+      }
+    });
+
+    this.eventBus.on('command:upgrade-tower', (event) => {
+      const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
+      if (!tower) return;
+
+      const upgradeId = event.upgradeId as UpgradeId;
+      const cost = tower.getNextUpgradeCost(upgradeId);
+      if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
+
+      if (this.spendCredits(cost)) {
+        const previousLevel = tower.getUpgradeLevel(upgradeId);
+        tower.applyUpgrade(upgradeId);
+        this.eventBus.emit({
+          type: 'tower:upgraded',
+          tower,
+          level: previousLevel + 1,
+          cost,
+        });
+      }
+    });
+
+    this.eventBus.on('command:start-wave', (event) => {
+      if (event.config) {
+        this.startWave(event.config as WaveConfig);
+      } else {
+        this.beginWave();
+      }
+    });
+
+    this.eventBus.on('command:restart-game', () => {
+      this.reset();
+    });
+
+    this.eventBus.on('debug:add-credits', (event) => {
+      this.updateCredits(event.amount);
+    });
+
+    this.eventBus.on('debug:add-health', (event) => {
+      const newHealth = Math.min(
+        GAME_BALANCE.player.startHealth,
+        Math.max(0, this.baseHealth() + event.amount)
+      );
+      this.baseHealth.set(newHealth);
+      this.eventBus.emit({
+        type: 'health:changed',
+        health: newHealth,
+        delta: event.amount,
+      });
     });
 
     // Initialize projectile manager (no callback - uses events)

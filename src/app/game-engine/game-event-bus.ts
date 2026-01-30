@@ -61,11 +61,6 @@ export type GameEvent =
       target: Enemy;
       damage: number;
     }
-  | {
-      type: 'projectile:missed';
-      projectile: Projectile;
-    }
-
   // ==================== Wave Events ====================
   | {
       type: 'wave:started';
@@ -131,13 +126,6 @@ export type GameEvent =
       targetLost: boolean; // true = ground impact, false = enemy hit
     }
 
-  // ==================== UI Events (Deferred) ====================
-  | {
-      type: 'ui:notification';
-      message: string;
-      level: 'info' | 'warning' | 'error';
-    }
-
   // ==================== Debug Events ====================
   | {
       type: 'debug:sound';
@@ -163,6 +151,51 @@ export type GameEvent =
     }
   | {
       type: 'debug:reset-wave';
+    }
+
+  // ==================== Command Events (UI → Game Engine) ====================
+  | {
+      type: 'command:place-tower';
+      position: { lat: number; lon: number; height?: number };
+      typeId: string;
+      rotation?: number;
+    }
+  | {
+      type: 'command:sell-tower';
+      towerId: string;
+    }
+  | {
+      type: 'command:upgrade-tower';
+      towerId: string;
+      upgradeId: string;
+    }
+  | {
+      type: 'command:start-wave';
+      config?: unknown;
+    }
+  | {
+      type: 'command:restart-game';
+    }
+
+  // ==================== Debug Command Events ====================
+  | {
+      type: 'debug:add-credits';
+      amount: number;
+    }
+  | {
+      type: 'debug:add-health';
+      amount: number;
+    }
+  | {
+      type: 'debug:toggle-movement';
+      enabled: boolean;
+    }
+  | {
+      type: 'debug:remove-enemy';
+      enemyId: string;
+    }
+  | {
+      type: 'debug:clear-enemies';
     };
 
 /**
@@ -402,7 +435,6 @@ export class GameEventBus {
    * Use for non-critical events that can wait 1 frame:
    * - audio:play (audio can wait 16ms)
    * - vfx:* (VFX can wait 1 frame)
-   * - ui:notification (UI updates are not critical)
    *
    * Events are processed at stable point in game loop via processQueue()
    *
