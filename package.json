@@ -53,7 +53,7 @@
     "@angular/cli": "^21.0.5",
     "@angular/compiler-cli": "^21.0.0",
     "@gltf-transform/core": "^4.3.0",
-    "@vitest/coverage-v8": "^4.0.16",
+    "@vitest/coverage-v8": "^4.0.18",
     "angular-eslint": "21.1.0",
     "canvas": "^3.2.1",
     "eslint": "^9.39.1",
