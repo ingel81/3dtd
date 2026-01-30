@@ -48,7 +48,6 @@ export class CoverageFillStrategy extends BaseStrategy {
     if (this.savingForType) {
       const target = TOWER_TYPES[this.savingForType];
       if (state.player.credits >= target.cost) {
-        console.log(`[Bot] CoverageFill: Saved enough for ${target.name}! Building now.`);
         return this.placeTower(this.savingForType, existingTowers, 'saved up');
       }
       return {
@@ -90,7 +89,6 @@ export class CoverageFillStrategy extends BaseStrategy {
         // Commit to saving for a random missing type
         const target = missingTypes[Math.floor(Math.random() * missingTypes.length)];
         this.savingForType = target;
-        console.log(`[Bot] CoverageFill: Saving for ${TOWER_TYPES[target].name} (cost: ${TOWER_TYPES[target].cost})`);
         return {
           type: 'wait',
           reason: `Saving for ${TOWER_TYPES[target].name} (${state.player.credits}/${TOWER_TYPES[target].cost})`,

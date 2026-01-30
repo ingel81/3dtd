@@ -335,11 +335,6 @@ export class StreetGenerator {
     // Phase 5: Generate spawns at road endpoints
     const spawns = this.generateSpawnsAtEnds(roadEnds);
 
-    console.log(
-      `[StreetGen] Generated ${this.segments.length} segments, ` +
-      `${this.intersections.length} intersections, ` +
-      `${spawns.length} spawn points`
-    );
 
     return { segments: this.segments, spawns };
   }
@@ -675,7 +670,6 @@ export class StreetGenerator {
 
     if (!mainComponent || disconnected.length === 0) return;
 
-    console.log(`[StreetGen] Connecting ${disconnected.length} disconnected components`);
 
     // Create bridge segments to connect disconnected components
     for (const component of disconnected) {

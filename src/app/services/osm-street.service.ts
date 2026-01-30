@@ -199,13 +199,9 @@ export class OsmStreetService {
           throw new Error(`OSM API error: ${response.status}`);
         }
 
-        console.time('[OSM] JSON parse');
         const data = await response.json();
-        console.timeEnd('[OSM] JSON parse');
 
-        console.time('[OSM] parseOverpassResponse');
         const network = this.parseOverpassResponse(data, bounds);
-        console.timeEnd('[OSM] parseOverpassResponse');
 
         // Check if any streets were found
         if (network.streets.length === 0) {
@@ -369,7 +365,6 @@ export class OsmStreetService {
     const graph = this.getOrBuildGraph(network);
 
     // A* pathfinding
-    console.time('[OSM] astar');
     const path = this.astar(
       graph,
       startPoint.street.nodes[startPoint.nodeIndex],
@@ -377,7 +372,6 @@ export class OsmStreetService {
       endLat,
       endLon
     );
-    console.timeEnd('[OSM] astar');
 
     return path;
   }
@@ -395,10 +389,8 @@ export class OsmStreetService {
     }
 
     // Build and cache new graph
-    console.time('[OSM] buildGraph');
     this.cachedGraph = this.buildGraph(network);
     this.cachedGraphNetworkId = networkId;
-    console.timeEnd('[OSM] buildGraph');
 
     return this.cachedGraph;
   }
@@ -425,7 +417,6 @@ export class OsmStreetService {
     routes: { lat: number; lon: number }[][],
     corridorWidth = 100
   ): StreetNetwork {
-    console.time('[OSM] filterStreetsNearRoutes');
 
     // Collect all route points
     const routePoints: { lat: number; lon: number }[] = [];
@@ -434,7 +425,6 @@ export class OsmStreetService {
     }
 
     if (routePoints.length === 0) {
-      console.timeEnd('[OSM] filterStreetsNearRoutes');
       return network; // No routes, return full network
     }
 
@@ -470,7 +460,6 @@ export class OsmStreetService {
       }
     }
 
-    console.timeEnd('[OSM] filterStreetsNearRoutes');
     console.log(`[OSM] Filtered: ${network.streets.length} → ${filteredStreets.length} streets, ${network.nodes.size} → ${filteredNodes.size} nodes`);
 
     return {

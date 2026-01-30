@@ -72,7 +72,6 @@ export class DevStreetProvider implements StreetNetworkProvider {
       return this.network;
     }
 
-    console.log('[DevStreets] Building street network...');
     const startTime = performance.now();
 
     // Build network from generated segments
@@ -81,10 +80,6 @@ export class DevStreetProvider implements StreetNetworkProvider {
     // Build graph for pathfinding
     this.buildGraph();
 
-    console.log(
-      `[DevStreets] Built network with ${this.network.streets.length} streets, ` +
-        `${this.graph.size} nodes in ${(performance.now() - startTime).toFixed(0)}ms`
-    );
 
     return this.network;
   }
@@ -176,7 +171,6 @@ export class DevStreetProvider implements StreetNetworkProvider {
       }
     }
 
-    console.log(`[DevStreets] Found ${intersections.length} intersections`);
 
     // Step 2: Create graph nodes for all endpoints AND intersections
     const nodePositions = new Map<string, number>(); // "x_z" -> nodeId
@@ -264,7 +258,6 @@ export class DevStreetProvider implements StreetNetworkProvider {
     for (const node of this.graph.values()) {
       totalEdges += node.neighbors.length;
     }
-    console.log(`[DevStreets] Graph: ${this.graph.size} nodes, ${totalEdges / 2} edges`);
   }
 
   /**
@@ -392,10 +385,6 @@ export class DevStreetProvider implements StreetNetworkProvider {
     const startNode = this.graph.get(startId)!;
     const endNode = this.graph.get(endId)!;
 
-    console.log(`[DevStreets] Pathfinding from (${startLocal.x.toFixed(0)}, ${startLocal.z.toFixed(0)}) ` +
-      `→ node at (${startNode.x.toFixed(0)}, ${startNode.z.toFixed(0)})`);
-    console.log(`[DevStreets] Pathfinding to (${endLocal.x.toFixed(0)}, ${endLocal.z.toFixed(0)}) ` +
-      `→ node at (${endNode.x.toFixed(0)}, ${endNode.z.toFixed(0)})`);
 
     // A* pathfinding
     return this.astar(startId, endId);
