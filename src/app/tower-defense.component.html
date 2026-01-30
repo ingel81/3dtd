@@ -100,19 +100,19 @@
         />
         <app-tower-debugger />
         <app-enemy-debugger
-          (removeEnemy)="onRemoveDebugEnemy($event)"
-          (clearAllEnemies)="onClearDebugEnemies()"
-          (playIdle)="onPlayIdleAnimation($event)"
-          (playWalk)="onPlayWalkAnimation($event)"
-          (playRun)="onPlayRunAnimation($event)"
-          (startMovement)="onStartEnemyMovement($event)"
-          (stopMovement)="onStopEnemyMovement($event)"
+          (removeEnemy)="enemyDebug.onRemoveDebugEnemy($event)"
+          (clearAllEnemies)="enemyDebug.onClearDebugEnemies()"
+          (playIdle)="enemyDebug.onPlayIdleAnimation($event)"
+          (playWalk)="enemyDebug.onPlayWalkAnimation($event)"
+          (playRun)="enemyDebug.onPlayRunAnimation($event)"
+          (startMovement)="enemyDebug.onStartEnemyMovement($event)"
+          (stopMovement)="enemyDebug.onStopEnemyMovement($event)"
         />
         <app-display-options
-          (enemiesToggled)="onEnemiesToggled($event)"
-          (healthBarsToggled)="onHealthBarsToggled($event)"
-          (animationsToggled)="onAnimationsToggled($event)"
-          (movementToggled)="onMovementToggled($event)"
+          (enemiesToggled)="debugFacade.onEnemiesToggled($event)"
+          (healthBarsToggled)="debugFacade.onHealthBarsToggled($event)"
+          (animationsToggled)="debugFacade.onAnimationsToggled($event)"
+          (movementToggled)="debugFacade.onMovementToggled($event)"
         />
 
         <!-- Info Overlay (top left) -->
