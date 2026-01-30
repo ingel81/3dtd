@@ -1,13 +1,25 @@
-import { Injectable, WritableSignal } from '@angular/core';
+import { Injectable, WritableSignal, inject } from '@angular/core';
 import * as THREE from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameStateManager } from '../managers/game-state.manager';
+import { KeyboardPanService } from './keyboard-pan.service';
+import { TowerPlacementService } from './tower-placement.service';
+
+/**
+ * Callbacks that the component provides for keyboard actions
+ * that require component-level context (e.g., Angular-specific operations).
+ */
+export interface KeyboardCallbacks {
+  /** Called when Escape is pressed in build mode */
+  exitBuildMode: () => void;
+}
 
 /**
  * InputHandlerService
  *
- * Manages click and mouse input handling for the Tower Defense game.
- * Distinguishes between clicks and pans, handles tower selection and placement.
+ * Manages click, mouse, and keyboard input handling for the Tower Defense game.
+ * Distinguishes between clicks and pans, handles tower selection and placement,
+ * and processes keyboard shortcuts (WASD panning, build mode keys, debug toggles).
  */
 @Injectable({ providedIn: 'root' })
 export class InputHandlerService {
@@ -231,6 +243,109 @@ export class InputHandlerService {
   }
 
   // ========================================
+  // KEYBOARD HANDLING
+  // ========================================
+
+  private readonly keyboardPan = inject(KeyboardPanService);
+  private readonly towerPlacement = inject(TowerPlacementService);
+
+  /** Component-provided callbacks for keyboard actions */
+  private keyboardCallbacks: KeyboardCallbacks | null = null;
+
+  /**
+   * Initialize keyboard handling with component-specific callbacks.
+   * Call this from the component after engine is ready.
+   */
+  initKeyboard(callbacks: KeyboardCallbacks): void {
+    this.keyboardCallbacks = callbacks;
+  }
+
+  /**
+   * Handle keydown events delegated from the component's @HostListener.
+   * Processes: WASD panning, debug toggles (T/P), build mode keys (R/Escape).
+   */
+  handleKeyDown(event: KeyboardEvent): void {
+    if (this.isTypingInInputField(event)) {
+      return;
+    }
+
+    // Camera panning (WASD / Arrow keys) - works always
+    if (this.keyboardPan.onKeyDown(event)) {
+      event.preventDefault();
+      return;
+    }
+
+    // Debug: Toggle 3D tiles visibility with 'T' key
+    if (event.key === 't' || event.key === 'T') {
+      if (this.engine) {
+        const currentlyVisible = this.engine.areTilesVisible();
+        this.engine.setTilesVisible(!currentlyVisible);
+        event.preventDefault();
+        return;
+      }
+    }
+
+    // Debug: Toggle ShaderMaterial for particles with 'P' key
+    if (event.key === 'p' || event.key === 'P') {
+      if (this.engine) {
+        const currentlyUsingShader = this.engine.effects.isUsingShaderMaterial();
+        this.engine.effects.setUseShaderMaterial(!currentlyUsingShader);
+        event.preventDefault();
+        return;
+      }
+    }
+
+    // Build mode keys
+    if (!this.towerPlacement.buildMode()) return;
+
+    if (event.key === 'r' || event.key === 'R') {
+      event.preventDefault();
+      this.towerPlacement.startRotating();
+    } else if (event.key === 'Escape') {
+      event.preventDefault();
+      this.keyboardCallbacks?.exitBuildMode();
+    }
+  }
+
+  /**
+   * Handle keyup events delegated from the component's @HostListener.
+   */
+  handleKeyUp(event: KeyboardEvent): void {
+    if (this.isTypingInInputField(event)) {
+      return;
+    }
+
+    // Camera panning key release
+    this.keyboardPan.onKeyUp(event);
+
+    if (event.key === 'r' || event.key === 'R') {
+      this.towerPlacement.stopRotating();
+    }
+  }
+
+  /**
+   * Handle window blur - clear all pressed keys.
+   */
+  handleWindowBlur(): void {
+    this.keyboardPan.clearKeys();
+  }
+
+  /**
+   * Check if the user is typing in an input field.
+   * Game keyboard shortcuts should not interfere with text input.
+   */
+  private isTypingInInputField(event: KeyboardEvent): boolean {
+    const target = event.target as HTMLElement;
+    if (!target) return false;
+
+    const tagName = target.tagName.toLowerCase();
+    const isInputField = tagName === 'input' || tagName === 'textarea' || tagName === 'select';
+    const isContentEditable = target.isContentEditable;
+
+    return isInputField || isContentEditable;
+  }
+
+  // ========================================
   // CLEANUP
   // ========================================
 
@@ -261,5 +376,6 @@ export class InputHandlerService {
     this.enemyPlacementModeSignal = null;
     this.onEnemyPlacementCallback = null;
     this.mouseDownPos = null;
+    this.keyboardCallbacks = null;
   }
 }
