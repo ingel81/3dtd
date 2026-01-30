@@ -3,6 +3,7 @@ import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../models/enemy-types
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { GameStateManager } from '../managers/game-state.manager';
+import { EventSubscription } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { PathAndRouteService } from './path-route.service';
 import { SpawnPoint } from './marker-visualization.service';
@@ -70,9 +71,12 @@ export class EnemyDebugService {
 
   // --- Placement state (moved from component) ---
   private pendingDebugPlacement: { typeId: EnemyTypeId; lat: number; lon: number } | null = null;
-  private gameState!: GameStateManager;
-  private engine!: ThreeTilesEngine | null;
+  private gameState: GameStateManager | null = null;
+  private engine: ThreeTilesEngine | null = null;
   private spawnPoints!: Signal<SpawnPoint[]>;
+
+  /** Subscription for enemy:spawned listener (cleanup on re-init) */
+  private enemySpawnedSub: EventSubscription | null = null;
 
   /**
    * Initialize with runtime dependencies (called after game state is ready).
@@ -83,9 +87,12 @@ export class EnemyDebugService {
     this.engine = engine;
     this.spawnPoints = spawnPoints;
 
+    // Cleanup previous listener on re-init
+    this.enemySpawnedSub?.dispose();
+
     // Register debug enemy placement (next spawned enemy after placement click)
     const eventBus = gameState.getEventBus();
-    eventBus.on('enemy:spawned', (event) => {
+    this.enemySpawnedSub = eventBus.on('enemy:spawned', (event) => {
       const pending = this.pendingDebugPlacement;
       if (!pending) return;
 
@@ -350,7 +357,7 @@ export class EnemyDebugService {
    * Validates position is on route, creates sub-path, and spawns enemy.
    */
   handleEnemyPlacement(lat: number, lon: number, _height: number): void {
-    if (!this.engine) return;
+    if (!this.engine || !this.gameState) return;
 
     // Convert to local coordinates for route grid validation
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
@@ -425,6 +432,7 @@ export class EnemyDebugService {
    * Remove a single debug enemy.
    */
   onRemoveDebugEnemy(enemyId: string): void {
+    if (!this.gameState) return;
     const de = this.getDebugEnemy(enemyId);
     if (de) {
       this.gameState.enemyManager.remove(de.enemy);
@@ -436,6 +444,7 @@ export class EnemyDebugService {
    * Clear all debug enemies.
    */
   onClearDebugEnemies(): void {
+    if (!this.gameState) return;
     for (const de of this.debugEnemies()) {
       this.gameState.enemyManager.remove(de.enemy);
     }
@@ -483,5 +492,15 @@ export class EnemyDebugService {
       de.enemy.stopMoving();
       this.engine?.enemies.playIdleAnimation(enemyId);
     }
+  }
+
+  /**
+   * Dispose all subscriptions and cleanup.
+   */
+  dispose(): void {
+    this.enemySpawnedSub?.dispose();
+    this.enemySpawnedSub = null;
+    this.gameState = null;
+    this.engine = null;
   }
 }

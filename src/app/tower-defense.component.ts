@@ -69,6 +69,7 @@ import { RouteAnimationService } from './services/route-animation.service';
 import { KeyboardPanService } from './services/keyboard-pan.service';
 import { StreetRenderingService } from './services/street-rendering.service';
 import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from './services/location-change-coordinator.service';
+import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/tower-defense-facade.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint, WaveConfig } from './managers/wave.manager';
@@ -178,6 +179,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly devWorld = inject(DevWorldService);
+  readonly facade = inject(TowerDefenseFacadeService);
 
   // Debug services
   readonly debugWindows = inject(DebugWindowService);
@@ -369,6 +371,9 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   ngOnInit(): void {
+    // Initialize facade with component bridge
+    this.facade.initialize(this.buildFacadeBridge());
+
     // Initialize location flow delegate (for dialog, favorites, world dice)
     this.locationCoordinator.initializeFlow(this.buildLocationFlowDelegate());
 
@@ -643,73 +648,17 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Initialize visualization services (markerViz, pathRoute)
-   * Must be called after engine and streets are loaded, before markers/spawns are added
+   * Initialize visualization services — delegates to facade
    */
   private initializeVisualizationServices(): void {
-    const engine = this.engineInit.getEngine();
-    if (!engine || !this.streetNetwork) {
-      console.warn('[TD] Cannot initialize visualization services - engine or streetNetwork not available');
-      return;
-    }
-
-    const base = this.baseCoords();
-    const baseCoords = { lat: base.lat, lon: base.lon };
-
-    // Initialize marker visualization service
-    this.markerViz.initialize(engine, baseCoords, this.heightDebugVisible);
-
-    // Initialize path and route service
-    // Use DevStreetProvider for pathfinding in DevWorld mode, otherwise OsmStreetService
-    const pathfindingService = this.devWorld.isActive && this.devStreetProvider
-      ? this.devStreetProvider
-      : this.osmService;
-    this.pathRoute.initialize(
-      engine,
-      this.streetNetwork,
-      baseCoords,
-      this.uiState.routesVisible,
-      pathfindingService,
-      this.markerViz.getSpawnMarkers()
-    );
-
-    // Initialize camera control service
-    this.cameraControl.initialize(engine, { lat: baseCoords.lat, lon: baseCoords.lon });
-
-    // Initialize route animation service
-    this.routeAnimation.initialize(engine);
-
-    // Initialize keyboard panning service
-    this.keyboardPan.initialize(engine);
+    this.facade.initializeVisualizationServices();
   }
 
   /**
-   * Setup click handler - delegates to InputHandlerService
+   * Setup click handler — delegates to facade
    */
   private setupClickHandler(): void {
-    // Use engine from service if component's engine reference not yet set
-    const engine = this.engine || this.engineInit.getEngine();
-    if (!engine) return;
-
-    this.inputHandler.initialize(
-      this.gameCanvas.nativeElement,
-      engine,
-      this.gameState,
-      this.towerPlacement.buildMode,
-      (lat: number, lon: number, height: number) => this.onTerrainClick(lat, lon, height),
-      (lat: number, lon: number, hitPoint: Vector3) => this.onMouseMove(lat, lon, hitPoint)
-    );
-
-    // Setup enemy placement callback
-    this.inputHandler.setEnemyPlacementCallback(
-      () => this.enemyDebug.placementMode(),
-      (lat: number, lon: number, height: number) => this.handleEnemyPlacement(lat, lon, height)
-    );
-
-    // Setup keyboard handling callbacks
-    this.inputHandler.initKeyboard({
-      exitBuildMode: () => this.exitBuildMode(),
-    });
+    this.facade.setupClickHandlerWithGameState(this.gameState);
   }
 
   /**
@@ -861,214 +810,41 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   }
 
   /**
-   * Initialize game state with routes
+   * Initialize game state with routes — delegates to facade
    * @returns Route detail string
    */
   private initializeGameState(): string | undefined {
-    // Use engine from service if component's engine reference not yet set
-    const engine = this.engine || this.engineInit.getEngine();
-    if (!engine || !this.streetNetwork) return undefined;
-
-    const base = this.baseCoords();
-    const waveSpawnPoints: WaveSpawnPoint[] = this.spawnPoints().map((sp) => ({
-      id: sp.id,
-      name: sp.name,
-      lat: sp.lat,
-      lon: sp.lon,
-    }));
-
-    this.gameState.initialize(
-      engine,
-      this.streetNetwork,
-      { lat: base.lat, lon: base.lon },
-      waveSpawnPoints,
-      this.pathRoute.getCachedPaths()
-    );
-
-    // Initialize strategic placement service with street network
-    this.strategicPlacement.initialize(this.streetNetwork);
-
-    // Initialize enemy debug service with game state, engine, and spawn points
-    this.enemyDebug.initialize(this.gameState, engine, this.spawnPoints);
-
-    const eventBus = this.gameState.getEventBus();
+    // tower:selected event stays here (component-specific debug panel sync)
+    const result = this.facade.initializeGameState(this.gameState);
 
     // Subscribe to tower:selected event - sync debug panel dropdown
+    const eventBus = this.gameState.getEventBus();
     eventBus.on('tower:selected', (event) => {
       this.towerDebug.selectTower(event.tower.typeConfig.id);
     });
 
-    // Subscribe to debug:start-custom-wave event from Wave Debug Panel
-    eventBus.on('debug:start-custom-wave', () => {
-      this.startCustomWave();
-    });
-
-    // Debug enemy placement listener is now in EnemyDebugService.initialize()
-
-    // Subscribe to game:over event
-    eventBus.on('game:over', () => {
-      this.onGameOver();
-      // Reset bot for next game
-      this.trainingClient.resetBot();
-      if (this.trainingClient.botEnabled()) {
-        console.log('[Bot] Reset for new game');
-      }
-
-      // Auto-restart game if bot is in auto-mode
-      if (this.trainingClient.botAutoMode()) {
-        console.log('[Bot] Auto-restarting game in 2 seconds...');
-        setTimeout(() => {
-          this.restartGame();
-        }, 2000); // Wait 2 seconds to see game over screen
-      }
-    });
-
-    // Validate that routes were found
-    const paths = this.pathRoute.getCachedPaths();
-    if (paths.size === 0) {
-      console.error('[TD] No routes found - spawn and HQ may not be connected by streets');
-      // Don't throw here as this is initial load - game will still be playable but enemies can't reach HQ
-    }
-
-    // Initialize GlobalRouteGrid after routes are computed
-    // (setStepActive/Done are async but we fire-and-forget for UI update)
-    void this.engineInit.setStepActive('grid');
-    this.engineInit.updateStepDetail('grid', 'Calculating grid...');
-    this.gameState.initializeGlobalRouteGrid();
-    void this.engineInit.setStepDone('grid');
-
-    // Initialize tower placement service (now that all dependencies are ready)
-    this.initializeTowerPlacement();
-
-    // Filter street network to only include streets near the calculated routes
-    // This dramatically reduces rendering time in dense cities (Berlin: 50k → 500 nodes)
-    this.filterStreetNetworkToRoutes();
-
-    // Reframe camera to include all route waypoints (routes may curve away from spawn-HQ line)
-    this.reframeCameraWithRoutes();
-
-    return this.pathRoute.getRouteDetail();
+    return result;
   }
 
   /**
-   * Filter street network to only include streets near calculated routes.
-   * This reduces rendering time dramatically in dense cities.
-   * Note: DevWorld skips filtering - all generated streets are needed.
+   * Filter street network to route corridor — delegates to facade
    */
   private filterStreetNetworkToRoutes(): void {
-    if (!this.streetNetwork) return;
-
-    // DevWorld: Don't filter - all streets are intentionally placed and buildings depend on them
-    if (this.devWorld.isActive) {
-      this.filteredStreetNetwork = this.streetNetwork;
-      return;
-    }
-
-    // Collect all route paths
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    const routes: { lat: number; lon: number }[][] = [];
-
-    cachedPaths.forEach((path) => {
-      routes.push(path.map(p => ({ lat: p.lat, lon: p.lon })));
-    });
-
-    if (routes.length === 0) {
-      // No routes calculated, use full network
-      this.filteredStreetNetwork = this.streetNetwork;
-      return;
-    }
-
-    // Filter to 100m corridor around routes
-    this.filteredStreetNetwork = this.osmService.filterStreetsNearRoutes(
-      this.streetNetwork,
-      routes,
-      100 // 100m corridor width
-    );
+    this.facade.filterStreetNetworkToRoutes();
   }
 
   /**
-   * Schedule overlay height updates
+   * Schedule overlay height updates — delegates to facade
    */
   private async scheduleOverlayHeightUpdate(): Promise<void> {
-    // Get engine from service (this.engine may not be set yet during init)
-    const engine = this.engineInit.getEngine();
-    if (!engine) {
-      console.warn('[TD] scheduleOverlayHeightUpdate - no engine from service!');
-      return;
-    }
-
-    const base = this.baseCoords();
-
-    // Initialize height update service with callbacks
-    this.heightUpdate.initialize(
-      engine,
-      { lat: base.lat, lon: base.lon },
-      this.engineInit.loadingStatus,
-      () => {
-        // Update marker heights
-        const spawnPointsForMarkers = this.spawnPoints().map(sp => ({
-          id: sp.id,
-          name: sp.name,
-          lat: sp.lat,
-          lon: sp.lon,
-          color: sp.color,
-        }));
-        this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-
-        // Update GlobalRouteGrid terrain heights now that terrain is loaded
-        this.gameState.getGlobalRouteGrid().updateTerrainHeights();
-      },
-      () => this.renderStreets(),
-      (detail: string) => this.engineInit.setStepDone('finalize', detail),
-      (detail: string) => this.engineInit.updateStepDetail('finalize', detail),
-      () => this.checkAllLoaded(),
-      // Camera correction callback - runs BEFORE overlay hides
-      () => {
-        this.cameraFraming.setEngine(engine);
-        const realTerrainY = engine.getTerrainHeightAtGeo(base.lat, base.lon) ?? 0;
-        if (Math.abs(realTerrainY) > 1) {
-          this.cameraFraming.correctTerrainHeight(realTerrainY, 0);
-        }
-        this.saveInitialCameraPosition();
-      }
-    );
-
-    await this.heightUpdate.scheduleOverlayHeightUpdate();
+    await this.facade.scheduleOverlayHeightUpdate(this.gameState);
   }
 
   /**
-   * Save current camera position as initial position for reset
-   * NOTE: Framing is now done by CameraFramingService after routes are calculated
-   * This method only saves the (already correct) position, no re-framing
+   * Save initial camera position — delegates to facade
    */
   private saveInitialCameraPosition(): void {
-    // Show debug visualization if enabled (including routes)
-    const hq = this.baseCoords();
-    const spawns = this.spawnPoints();
-
-    // Extract all route waypoints from cached paths
-    const routePoints: { lat: number; lon: number }[] = [];
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    cachedPaths.forEach((path) => {
-      for (const pos of path) {
-        routePoints.push({ lat: pos.lat, lon: pos.lon });
-      }
-    });
-
-    if (spawns.length > 0) {
-      const hqCoord = { lat: hq.lat, lon: hq.lon };
-      const spawnCoords = spawns.map(s => ({ lat: s.lat, lon: s.lon }));
-      this.cameraControl.showDebugVisualization(hqCoord, spawnCoords, 0.1, routePoints);
-    }
-
-    // Get target from last computed frame
-    const lastFrame = this.cameraFraming.getLastFrame();
-    const target = lastFrame
-      ? { x: lastFrame.lookAtX, y: lastFrame.lookAtY, z: lastFrame.lookAtZ }
-      : undefined;
-
-    // Save current position and target as the initial position
-    this.cameraControl.saveInitialPosition(target);
+    this.facade.saveInitialCameraPosition();
   }
 
   /**
@@ -1470,7 +1246,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
   sellSelectedTower(): void {
     const tower = this.gameState.selectedTower();
     if (tower) {
-      this.gameState.sellTower(tower);
+      this.gameState.getEventBus().emit({
+        type: 'command:sell-tower',
+        towerId: tower.id,
+      });
     }
   }
 
@@ -1485,38 +1264,25 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       return false;
     }
 
-    // Calculate dynamic cost based on current level
+    // Pre-validate before emitting command
     const cost = tower.getNextUpgradeCost(upgradeId);
-
-    // Check if we can afford it
     if (this.gameState.credits() < cost) {
       console.warn(`[Upgrade] Not enough credits: ${this.gameState.credits()}/${cost}`);
       return false;
     }
-
-    // Check if upgrade can be applied
     if (!tower.canUpgrade(upgradeId)) {
       console.warn(`[Upgrade] Tower cannot upgrade ${upgradeId} (already max level)`);
       return false;
     }
 
-    // Apply upgrade first, only deduct credits on success
-    const success = tower.applyUpgrade(upgradeId);
+    // Emit command event — GSM handler applies upgrade + deducts credits
+    this.gameState.getEventBus().emit({
+      type: 'command:upgrade-tower',
+      towerId: tower.id,
+      upgradeId,
+    });
 
-    if (success) {
-      this.gameState.spendCredits(cost);
-
-      this.gameState.getEventBus().emit({
-        type: 'tower:upgraded',
-        tower,
-        level: tower.getUpgradeLevel(upgradeId),
-        cost,
-      });
-
-      console.log(`[Upgrade] ✅ ${tower.typeConfig.name} upgraded with ${upgrade.name} (${cost} credits)`);
-    }
-
-    return success;
+    return true;
   }
 
   /**
@@ -1561,7 +1327,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     };
 
     this.aiExplanation.set(null);
-    this.gameState.startWave(waveConfig);
+    this.gameState.getEventBus().emit({
+      type: 'command:start-wave',
+      config: waveConfig,
+    });
   }
 
   /**
@@ -1598,7 +1367,10 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
         explanation: aiConfig.explanation,
       });
 
-      this.gameState.startWave(waveConfig);
+      this.gameState.getEventBus().emit({
+        type: 'command:start-wave',
+        config: waveConfig,
+      });
     } catch (error) {
       console.error('[AI] Failed to generate wave, using fallback', error);
       // Fallback to debug settings
@@ -1868,7 +1640,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
       this.dpsProfileViz = null;
     }
 
-    this.gameState.reset();
+    this.gameState.getEventBus().emit({ type: 'command:restart-game' });
 
     // Reset pending AI wave request flag (prevents stuck state after game over during request)
     this.pendingAIWaveRequest = false;

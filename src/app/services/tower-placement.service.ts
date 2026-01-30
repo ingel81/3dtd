@@ -5,7 +5,7 @@ import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
 import { GeoPosition } from '../models/game.types';
 import { Tower } from '../entities/tower.entity';
-import { GameStateManager } from '../managers/game-state.manager';
+import type { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './global-route-grid.service';
@@ -502,23 +502,23 @@ export class TowerPlacementService {
       return false;
     }
 
-    const position: GeoPosition = {
-      lat: this.currentPosition.lat,
-      lon: this.currentPosition.lon,
-      height: this.currentPosition.height,
-    };
     const typeId = this.selectedTowerType();
 
-    // Place the tower with current rotation
-    const tower = this.gameState.placeTower(position, typeId, this.currentRotation());
+    // Emit command event — GSM handler places the tower
+    this.gameState.getEventBus().emit({
+      type: 'command:place-tower',
+      position: {
+        lat: this.currentPosition.lat,
+        lon: this.currentPosition.lon,
+        height: this.currentPosition.height,
+      },
+      typeId,
+      rotation: this.currentRotation(),
+    });
 
-    if (tower) {
-      // Success - exit build mode completely
-      this.exitBuildMode();
-      return true;
-    }
-
-    return false;
+    // Exit build mode (placement handled by GSM via event)
+    this.exitBuildMode();
+    return true;
   }
 
   // ========================================

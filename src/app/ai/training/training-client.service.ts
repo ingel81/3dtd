@@ -20,6 +20,7 @@ import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { TOWER_TYPES, UpgradeId } from '../../configs/tower-types.config';
 import { GeoPosition } from '../../models/game.types';
 import { GameStateManager } from '../../managers/game-state.manager';
+import { EventSubscription } from '../../game-engine';
 import { TowerPlacementService } from '../../services/tower-placement.service';
 import { StrategicPlacementService } from '../../services/strategic-placement.service';
 import { OsmStreetService } from '../../services/osm-street.service';
@@ -105,6 +106,9 @@ export class TrainingClientService {
   private engine: ThreeTilesEngine | null = null;
   private callbacks!: TrainingComponentCallbacks;
 
+  // === EVENT SUBSCRIPTIONS (cleanup on disconnect/re-connect) ===
+  private eventSubscriptions: EventSubscription[] = [];
+
   // === SUBJECTS FOR ASYNC RESPONSES ===
   private pendingWaveConfig = new Subject<WaveConfig>();
   private pendingExport = new Subject<{ path: string; version: string }>();
@@ -150,6 +154,7 @@ export class TrainingClientService {
    * Enable StrategyBot for automated training
    */
   enableBot(skillLevel: BotSkillLevel): void {
+    if (!this.botFactory) return;
     this.currentBot = this.botFactory.createBot(
       skillLevel,
       this.botAutoMode() // autoStartWaves
@@ -185,7 +190,7 @@ export class TrainingClientService {
    * @returns true if bot performed an action
    */
   updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
-    if (!this.botEnabled() || !this.currentBot) return false;
+    if (!this.botEnabled() || !this.currentBot || !this.gameState) return false;
 
     const phase = this.gameState.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;
@@ -202,6 +207,7 @@ export class TrainingClientService {
    * Execute bot action
    */
   executeBotAction(action: TowerAction): void {
+    if (!this.gameState || !this.callbacks) return;
     switch (action.type) {
       case 'place':
         if (action.position && action.towerType) {
@@ -333,7 +339,12 @@ export class TrainingClientService {
    * Connect to training backend and set up event subscriptions (non-blocking)
    */
   async connectToBackend(): Promise<void> {
+    if (!this.gameState) return;
+
     try {
+      // Clean up previous event subscriptions on re-connect
+      this.disposeEventSubscriptions();
+
       const connected = await this.connect();
       if (connected) {
         console.log('[AI] Connected to training backend');
@@ -354,7 +365,7 @@ export class TrainingClientService {
         }
 
         // Subscribe to wave completion events to send results to backend
-        this.gameState.getEventBus().on('wave:completed', async (_event) => {
+        this.eventSubscriptions.push(this.gameState.getEventBus().on('wave:completed', async (_event) => {
           console.log('[Wave] Wave completed! Bot will prepare for next wave...');
 
           if (this.isConnected()) {
@@ -375,10 +386,10 @@ export class TrainingClientService {
               console.log('[AI] Sent wave result + state to backend');
             }
           }
-        });
+        }));
 
         // Subscribe to game over events
-        this.gameState.getEventBus().on('game:over', async (_event) => {
+        this.eventSubscriptions.push(this.gameState.getEventBus().on('game:over', async (_event) => {
           if (this.isConnected()) {
             // Send game over notification
             console.log('[AI] Sending game over to backend:', {
@@ -397,7 +408,7 @@ export class TrainingClientService {
               console.log('[AI] Sent final wave result to backend');
             }
           }
-        });
+        }));
 
         // Subscribe to episode reset from training backend
         this.onReset$.subscribe(() => {
@@ -626,7 +637,18 @@ export class TrainingClientService {
     }
   }
 
+  /**
+   * Dispose all event bus subscriptions (cleanup on disconnect/re-connect)
+   */
+  private disposeEventSubscriptions(): void {
+    for (const sub of this.eventSubscriptions) {
+      sub.dispose();
+    }
+    this.eventSubscriptions = [];
+  }
+
   private cleanup(): void {
+    this.disposeEventSubscriptions();
     this.socket = null;
     this.sessionId.set(null);
     this.displayId.set(null);
