@@ -37,7 +37,6 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { WaveDebugService } from './services/wave-debug.service';
-import { SoundDebugService } from './services/sound-debug.service';
 import { EnemyDebugService } from './services/enemy-debug.service';
 import { DebugFacadeService } from './services/debug-facade.service';
 import { LocationConfig, FavoriteLocation } from './models/location.types';
@@ -155,7 +154,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
-  readonly soundDebug = inject(SoundDebugService);
   readonly enemyDebug = inject(EnemyDebugService);
   readonly debugFacade = inject(DebugFacadeService);
 
