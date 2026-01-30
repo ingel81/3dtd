@@ -87,12 +87,16 @@ export function createMockTilesEngine(): any {
       registerSound: vi.fn(),
       playAt: vi.fn(),
       geoToLocalPosition: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+      createLoop: vi.fn(() => Promise.resolve({ stop: vi.fn() })),
+      playOneShot: vi.fn(() => Promise.resolve()),
+      stopLoop: vi.fn(),
     },
     trailStreaks: {
       create: vi.fn(),
       update: vi.fn(),
       remove: vi.fn(),
       clear: vi.fn(),
+      pushPosition: vi.fn(),
     },
     towers: {
       create: vi.fn(),
