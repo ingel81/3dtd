@@ -9,6 +9,7 @@ import { Street, StreetNetwork, StreetNode } from './osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../devworld/devworld.service';
 import { UIStore } from '../store/ui.store';
+import { PathfindingWorkerService } from './pathfinding-worker.service';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -28,6 +29,7 @@ export interface PathfindingService {
 export class PathAndRouteService {
   private readonly devWorld = inject(DevWorldService);
   private readonly uiStore = inject(UIStore);
+  private readonly pathfindingWorker = inject(PathfindingWorkerService);
 
   // ========================================
   // STATE
@@ -94,6 +96,22 @@ export class PathAndRouteService {
     this.spawnMarkers = spawnMarkers;
   }
 
+  /**
+   * Initialize the Web Worker for pathfinding.
+   * Call after initialize() when the street network is available.
+   * Falls back to main-thread pathfinding if workers are unsupported.
+   */
+  async initializeWorker(): Promise<void> {
+    if (!this.streetNetwork || !this.pathfindingService) return;
+
+    const service = this.pathfindingService;
+    await this.pathfindingWorker.initialize(
+      this.streetNetwork,
+      (network, startLat, startLon, endLat, endLon) =>
+        service.findPath(network, startLat, startLon, endLat, endLon)
+    );
+  }
+
   // ========================================
   // PATH CACHING
   // ========================================
@@ -157,6 +175,38 @@ export class PathAndRouteService {
   // ========================================
 
   /**
+   * Refresh all route lines using async worker pathfinding.
+   * Falls back to synchronous if worker is unavailable.
+   * @param spawnPoints Current spawn points
+   */
+  async refreshRouteLinesAsync(spawnPoints: SpawnPoint[]): Promise<void> {
+    if (!this.engine) return;
+
+    const overlayGroup = this.engine.getOverlayGroup();
+    const wasVisible = this.routesVisible?.() ?? false;
+
+    // Remove existing route lines
+    for (const line of this.routeLines) {
+      overlayGroup.remove(line);
+      line.geometry.dispose();
+      if (Array.isArray(line.material)) {
+        line.material.forEach((m) => m.dispose());
+      } else {
+        line.material.dispose();
+      }
+    }
+    this.routeLines = [];
+
+    // Re-create route lines for all spawns (in parallel via worker)
+    await Promise.all(spawnPoints.map((spawn) => this.showPathFromSpawnAsync(spawn)));
+
+    // Restore visibility state
+    for (const line of this.routeLines) {
+      line.visible = wasVisible;
+    }
+  }
+
+  /**
    * Refresh all route lines (re-create from cached paths)
    * @param spawnPoints Current spawn points
    */
@@ -190,18 +240,48 @@ export class PathAndRouteService {
   }
 
   /**
+   * Show path from spawn point to base (async version using Web Worker).
+   * Falls back to synchronous pathfinding if worker is unavailable.
+   * Creates 3D line visualization and caches path with heights.
+   * @param spawn Spawn point
+   */
+  async showPathFromSpawnAsync(spawn: SpawnPoint): Promise<void> {
+    if (!this.engine || !this.streetNetwork || !this.pathfindingService || !this.baseCoords) {
+      return;
+    }
+
+    let path: StreetNode[];
+    if (this.pathfindingWorker.isWorkerAvailable) {
+      path = await this.pathfindingWorker.findPath(
+        spawn.lat,
+        spawn.lon,
+        this.baseCoords.lat,
+        this.baseCoords.lon
+      );
+    } else {
+      path = this.pathfindingService.findPath(
+        this.streetNetwork,
+        spawn.lat,
+        spawn.lon,
+        this.baseCoords.lat,
+        this.baseCoords.lon
+      );
+    }
+
+    if (path.length < 2) {
+      return;
+    }
+
+    this.buildRouteFromPath(spawn, path);
+  }
+
+  /**
    * Show path from spawn point to base
    * Creates 3D line visualization and caches path with heights
    * @param spawn Spawn point
    */
   showPathFromSpawn(spawn: SpawnPoint): void {
     if (!this.engine || !this.streetNetwork || !this.pathfindingService || !this.baseCoords) {
-      // console.warn('[PathRoute] showPathFromSpawn early return - missing:', {
-      //   engine: !!this.engine,
-      //   streetNetwork: !!this.streetNetwork,
-      //   osmService: !!this.pathfindingService,
-      //   baseCoords: !!this.baseCoords,
-      // });
       return;
     }
 
@@ -214,6 +294,20 @@ export class PathAndRouteService {
     );
 
     if (path.length < 2) {
+      return;
+    }
+
+    this.buildRouteFromPath(spawn, path);
+  }
+
+  /**
+   * Build route visualization and cache from a computed path.
+   * Shared by both sync (showPathFromSpawn) and async (showPathFromSpawnAsync) flows.
+   * @param spawn Spawn point
+   * @param path Computed A* path nodes
+   */
+  private buildRouteFromPath(spawn: SpawnPoint, path: StreetNode[]): void {
+    if (!this.engine || !this.streetNetwork || !this.pathfindingService || !this.baseCoords) {
       return;
     }
 
@@ -645,6 +739,7 @@ export class PathAndRouteService {
   dispose(): void {
     this.clearRouteLines();
     this.clearCache();
+    this.pathfindingWorker.dispose();
     this.engine = null;
     this.streetNetwork = null;
     this.baseCoords = null;

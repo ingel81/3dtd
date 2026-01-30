@@ -16,7 +16,9 @@ import {
   SphereGeometry,
   PlaneGeometry,
   CanvasTexture,
+  Texture,
   Material,
+  Uniform,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
@@ -25,6 +27,7 @@ import {
   BLOOD_DECAL_CONFIG,
   ICE_DECAL_CONFIG,
 } from '../../configs/visual-effects.config';
+import { generateExplosionAtlas, generateSmokeAtlas } from './sprite-atlas-generator';
 
 // Pool size constants derived from config
 const TRAIL_ADDITIVE_POOL_SIZE = PARTICLE_LIMITS.maxTrailParticlesPerPool;
@@ -42,6 +45,15 @@ interface Particle {
   maxLife: number;
   size: number;
   color: Color;
+  /**
+   * Sprite-sheet frame index for animated particles.
+   * -1 = use default circular particle (no atlas), ≥0 = atlas frame.
+   * When animated, this is the starting frame; actual frame is computed
+   * from life progress during buffer updates.
+   */
+  frameIndex: number;
+  /** Total frames for this particle's animation (0 = not animated) */
+  totalFrames: number;
 }
 
 /**
@@ -138,6 +150,13 @@ export class ThreeEffectsRenderer {
   private trailShaderMaterialNormal: ShaderMaterial | null = null;
   private useShaderMaterial = true; // Default to ShaderMaterial (per-particle sizes, soft edges)
 
+  // Sprite-sheet atlas textures (procedurally generated)
+  private explosionAtlas: Texture | null = null;
+  private smokeAtlas: Texture | null = null;
+  /** Atlas grid dimensions (cols × rows). Both atlases use the same grid. */
+  private readonly ATLAS_COLS = 4;
+  private readonly ATLAS_ROWS = 4;
+
   // Instanced decal managers (GPU instancing for performance)
   private bloodDecalManager: DecalInstanceManager | null = null;
   private iceDecalManager: DecalInstanceManager | null = null;
@@ -184,6 +203,10 @@ export class ThreeEffectsRenderer {
       vertexColors: true,
     });
 
+    // Generate procedural sprite-sheet atlases
+    this.explosionAtlas = generateExplosionAtlas({ cols: this.ATLAS_COLS, rows: this.ATLAS_ROWS, cellSize: 64 });
+    this.smokeAtlas = generateSmokeAtlas({ cols: this.ATLAS_COLS, rows: this.ATLAS_ROWS, cellSize: 64 });
+
     // ShaderMaterial with logarithmic depth buffer support and per-particle sizes
     // This is required for custom shaders to work with 3D Tiles (which use log depth)
     this.initShaderMaterials();
@@ -200,15 +223,17 @@ export class ThreeEffectsRenderer {
    * This pool is independent of combat effects and guaranteed for tower inner fires.
    */
   private initTowerFirePool(): void {
-    // Create geometry with position, size, color attributes
+    // Create geometry with position, size, color, frameIndex attributes
     const geometry = new BufferGeometry();
     const positions = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES * 3);
     const sizes = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES);
     const colors = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES * 3);
+    const frameIndices = new Float32Array(this.MAX_TOWER_FIRE_PARTICLES).fill(-1); // Default: no atlas
 
     geometry.setAttribute('position', new BufferAttribute(positions, 3));
     geometry.setAttribute('size', new BufferAttribute(sizes, 1));
     geometry.setAttribute('color', new BufferAttribute(colors, 3));
+    geometry.setAttribute('frameIndex', new BufferAttribute(frameIndices, 1));
 
     // Use additive shader material for fire glow
     this.towerFireParticles = new Points(geometry, this.trailShaderMaterialAdditive!);
@@ -225,6 +250,8 @@ export class ThreeEffectsRenderer {
         maxLife: 0.6,
         size: 2.0,
         color: new Color(0xff6600),
+        frameIndex: -1,
+        totalFrames: 0,
       });
     }
 
@@ -240,10 +267,12 @@ export class ThreeEffectsRenderer {
     const trailPositionsAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE * 3);
     const trailSizesAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE);
     const trailColorsAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE * 3);
+    const trailFrameIndicesAdditive = new Float32Array(TRAIL_ADDITIVE_POOL_SIZE).fill(-1);
 
     trailGeometryAdditive.setAttribute('position', new BufferAttribute(trailPositionsAdditive, 3));
     trailGeometryAdditive.setAttribute('size', new BufferAttribute(trailSizesAdditive, 1));
     trailGeometryAdditive.setAttribute('color', new BufferAttribute(trailColorsAdditive, 3));
+    trailGeometryAdditive.setAttribute('frameIndex', new BufferAttribute(trailFrameIndicesAdditive, 1));
 
     // Use ShaderMaterial by default for per-particle sizes and soft edges
     const additiveMaterial = this.useShaderMaterial
@@ -263,6 +292,8 @@ export class ThreeEffectsRenderer {
         maxLife: 0.5,
         size: 1.5,
         color: new Color(0xff8800),
+        frameIndex: -1,
+        totalFrames: 0,
       });
     }
 
@@ -271,10 +302,12 @@ export class ThreeEffectsRenderer {
     const trailPositionsNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE * 3);
     const trailSizesNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE);
     const trailColorsNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE * 3);
+    const trailFrameIndicesNormal = new Float32Array(TRAIL_NORMAL_POOL_SIZE).fill(-1);
 
     trailGeometryNormal.setAttribute('position', new BufferAttribute(trailPositionsNormal, 3));
     trailGeometryNormal.setAttribute('size', new BufferAttribute(trailSizesNormal, 1));
     trailGeometryNormal.setAttribute('color', new BufferAttribute(trailColorsNormal, 3));
+    trailGeometryNormal.setAttribute('frameIndex', new BufferAttribute(trailFrameIndicesNormal, 1));
 
     // Use ShaderMaterial by default for per-particle sizes and soft edges
     const normalMaterial = this.useShaderMaterial
@@ -294,6 +327,8 @@ export class ThreeEffectsRenderer {
         maxLife: 0.5,
         size: 1.5,
         color: new Color(0x888888),
+        frameIndex: -1,
+        totalFrames: 0,
       });
     }
   }
@@ -307,16 +342,22 @@ export class ThreeEffectsRenderer {
    * depth values. Built-in materials (PointsMaterial, etc.) get this automatically.
    */
   private initShaderMaterials(): void {
-    // Vertex shader with per-particle size and log depth support
+    // Vertex shader with per-particle size, sprite-sheet frame, and log depth support.
+    // The `frameIndex` attribute controls sprite-sheet animation:
+    //   frameIndex < 0  → default circular particle (no atlas)
+    //   frameIndex >= 0 → index into NxN atlas grid
     const vertexShader = /* glsl */ `
       attribute float size;
+      attribute float frameIndex;
       varying vec3 vColor;
+      varying float vFrameIndex;
 
       #include <common>
       #include <logdepthbuf_pars_vertex>
 
       void main() {
         vColor = color;
+        vFrameIndex = frameIndex;
         vec4 mvPosition = modelViewMatrix * vec4(position, 1.0);
 
         // Size attenuation: larger particles when closer
@@ -327,73 +368,112 @@ export class ThreeEffectsRenderer {
       }
     `;
 
-    // Fragment shader for additive blending (fire, tracers, glow)
+    // Fragment shader for additive blending with sprite-sheet support
     const fragmentShaderAdditive = /* glsl */ `
       precision highp float;
       varying vec3 vColor;
+      varying float vFrameIndex;
+      uniform sampler2D uAtlas;
+      uniform vec2 uAtlasGrid; // (cols, rows)
 
       #include <logdepthbuf_pars_fragment>
 
       void main() {
-        // Circular particle with soft edges
-        vec2 center = gl_PointCoord - vec2(0.5);
-        float dist = length(center);
-        if (dist > 0.5) discard;
-
-        // Soft falloff from center
-        float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
-
-        // Additive: color * alpha, alpha for blending
-        gl_FragColor = vec4(vColor * alpha, alpha);
+        if (vFrameIndex < 0.0) {
+          // === Classic circular particle (no atlas) ===
+          vec2 center = gl_PointCoord - vec2(0.5);
+          float dist = length(center);
+          if (dist > 0.5) discard;
+          float alpha = 1.0 - smoothstep(0.0, 0.5, dist);
+          gl_FragColor = vec4(vColor * alpha, alpha);
+        } else {
+          // === Sprite-sheet atlas lookup ===
+          float frame = floor(vFrameIndex + 0.5); // round to nearest int
+          float col = mod(frame, uAtlasGrid.x);
+          float row = floor(frame / uAtlasGrid.x);
+          // UV within this cell: gl_PointCoord is [0,1] across the point
+          vec2 cellUV = gl_PointCoord;
+          // Map to atlas coordinates (row 0 = top of texture)
+          vec2 uv = vec2(
+            (col + cellUV.x) / uAtlasGrid.x,
+            (row + cellUV.y) / uAtlasGrid.y
+          );
+          vec4 texel = texture2D(uAtlas, uv);
+          if (texel.a < 0.01) discard;
+          // Tint with particle color (allows color variation)
+          gl_FragColor = vec4(texel.rgb * vColor, texel.a);
+        }
 
         #include <logdepthbuf_fragment>
       }
     `;
 
-    // Fragment shader for normal blending (smoke, dust)
+    // Fragment shader for normal blending with sprite-sheet support
     const fragmentShaderNormal = /* glsl */ `
       precision highp float;
       varying vec3 vColor;
+      varying float vFrameIndex;
+      uniform sampler2D uAtlas;
+      uniform vec2 uAtlasGrid; // (cols, rows)
 
       #include <logdepthbuf_pars_fragment>
 
       void main() {
-        // Circular particle with soft edges
-        vec2 center = gl_PointCoord - vec2(0.5);
-        float dist = length(center);
-        if (dist > 0.5) discard;
-
-        // Soft falloff from center
-        float alpha = 0.7 * (1.0 - smoothstep(0.3, 0.5, dist));
-
-        // Normal blending: opaque color with alpha
-        gl_FragColor = vec4(vColor, alpha);
+        if (vFrameIndex < 0.0) {
+          // === Classic circular particle (no atlas) ===
+          vec2 center = gl_PointCoord - vec2(0.5);
+          float dist = length(center);
+          if (dist > 0.5) discard;
+          float alpha = 0.7 * (1.0 - smoothstep(0.3, 0.5, dist));
+          gl_FragColor = vec4(vColor, alpha);
+        } else {
+          // === Sprite-sheet atlas lookup ===
+          float frame = floor(vFrameIndex + 0.5);
+          float col = mod(frame, uAtlasGrid.x);
+          float row = floor(frame / uAtlasGrid.x);
+          vec2 cellUV = gl_PointCoord;
+          vec2 uv = vec2(
+            (col + cellUV.x) / uAtlasGrid.x,
+            (row + cellUV.y) / uAtlasGrid.y
+          );
+          vec4 texel = texture2D(uAtlas, uv);
+          if (texel.a < 0.01) discard;
+          gl_FragColor = vec4(texel.rgb * vColor, texel.a * 0.85);
+        }
 
         #include <logdepthbuf_fragment>
       }
     `;
 
-    // Create additive ShaderMaterial
+    // Create additive ShaderMaterial (with explosion atlas)
     this.trailShaderMaterialAdditive = new ShaderMaterial({
       vertexShader,
       fragmentShader: fragmentShaderAdditive,
+      uniforms: {
+        uAtlas: new Uniform(this.explosionAtlas),
+        uAtlasGrid: new Uniform([this.ATLAS_COLS, this.ATLAS_ROWS]),
+      },
       transparent: true,
       depthWrite: false,
       blending: AdditiveBlending,
       vertexColors: true,
     });
 
-    // Create normal ShaderMaterial
+    // Create normal ShaderMaterial (with smoke atlas)
     this.trailShaderMaterialNormal = new ShaderMaterial({
       vertexShader,
       fragmentShader: fragmentShaderNormal,
+      uniforms: {
+        uAtlas: new Uniform(this.smokeAtlas),
+        uAtlasGrid: new Uniform([this.ATLAS_COLS, this.ATLAS_ROWS]),
+      },
       transparent: true,
       depthWrite: false,
       blending: NormalBlending,
       vertexColors: true,
     });
 
-    console.log('[ThreeEffectsRenderer] ShaderMaterials with log depth support initialized');
+    console.log('[ThreeEffectsRenderer] ShaderMaterials with sprite-sheet atlas + log depth initialized');
   }
 
   /**
@@ -1496,6 +1576,8 @@ export class ThreeEffectsRenderer {
    * @param radius - Explosion radius in meters (default 5)
    */
   spawnExplosion(localX: number, localY: number, localZ: number, count = 25, _radius = 5): void {
+    const totalAtlasFrames = this.ATLAS_COLS * this.ATLAS_ROWS; // 16 frames
+
     for (let i = 0; i < count; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
@@ -1515,20 +1597,22 @@ export class ThreeEffectsRenderer {
       );
 
       particle.life = 1.0;
-      particle.maxLife = 0.2 + Math.random() * 0.3; // 0.2-0.5 seconds (fast explosion)
-      particle.size = 1.5 + Math.random() * 2.0; // 1.5-3.5 size (bigger than trail)
+      particle.maxLife = 0.3 + Math.random() * 0.4; // 0.3-0.7 seconds (slightly longer for animation)
+      particle.size = 2.5 + Math.random() * 3.0; // Bigger to show atlas detail (2.5-5.5)
 
-      // Orange/red/yellow explosion colors
+      // Sprite-sheet animation: each particle starts at a random early frame
+      // so the explosion looks varied (not all particles on same frame)
+      particle.frameIndex = Math.floor(Math.random() * 3); // Start at frame 0-2
+      particle.totalFrames = totalAtlasFrames;
+
+      // Tint color (white = use atlas color as-is, slight variation adds richness)
       const t = Math.random();
-      if (t < 0.3) {
-        // Yellow core
-        particle.color.setRGB(1, 0.9, 0.3);
+      if (t < 0.4) {
+        particle.color.setRGB(1, 1, 1); // Pure atlas color
       } else if (t < 0.7) {
-        // Orange
-        particle.color.setRGB(1, 0.5, 0.1);
+        particle.color.setRGB(1, 0.9, 0.7); // Warm tint
       } else {
-        // Red edges
-        particle.color.setRGB(1, 0.2, 0.05);
+        particle.color.setRGB(1, 0.7, 0.5); // Orange tint
       }
     }
   }
@@ -2054,9 +2138,11 @@ export class ThreeEffectsRenderer {
       const positions = this.trailParticlesAdditive.geometry.attributes['position'] as BufferAttribute;
       const sizes = this.trailParticlesAdditive.geometry.attributes['size'] as BufferAttribute;
       const colors = this.trailParticlesAdditive.geometry.attributes['color'] as BufferAttribute;
+      const frameIndices = this.trailParticlesAdditive.geometry.attributes['frameIndex'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
+      const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
       for (const p of this.trailPoolAdditive) {
@@ -2070,6 +2156,16 @@ export class ThreeEffectsRenderer {
           colorArray[activeCount * 3] = p.color.r;
           colorArray[activeCount * 3 + 1] = p.color.g;
           colorArray[activeCount * 3 + 2] = p.color.b;
+          // Sprite-sheet frame: compute current frame from life progress
+          if (p.totalFrames > 0) {
+            const progress = 1.0 - p.life; // 0 at spawn → 1 at death
+            frameArray[activeCount] = Math.min(
+              Math.floor(progress * p.totalFrames),
+              p.totalFrames - 1
+            );
+          } else {
+            frameArray[activeCount] = -1; // No atlas
+          }
           activeCount++;
         }
       }
@@ -2077,6 +2173,7 @@ export class ThreeEffectsRenderer {
       positions.needsUpdate = true;
       sizes.needsUpdate = true;
       colors.needsUpdate = true;
+      frameIndices.needsUpdate = true;
       this.trailParticlesAdditive.geometry.setDrawRange(0, activeCount);
     }
 
@@ -2085,9 +2182,11 @@ export class ThreeEffectsRenderer {
       const positions = this.trailParticlesNormal.geometry.attributes['position'] as BufferAttribute;
       const sizes = this.trailParticlesNormal.geometry.attributes['size'] as BufferAttribute;
       const colors = this.trailParticlesNormal.geometry.attributes['color'] as BufferAttribute;
+      const frameIndices = this.trailParticlesNormal.geometry.attributes['frameIndex'] as BufferAttribute;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
+      const frameArray = frameIndices.array as Float32Array;
 
       let activeCount = 0;
       for (const p of this.trailPoolNormal) {
@@ -2101,6 +2200,16 @@ export class ThreeEffectsRenderer {
           colorArray[activeCount * 3] = p.color.r;
           colorArray[activeCount * 3 + 1] = p.color.g;
           colorArray[activeCount * 3 + 2] = p.color.b;
+          // Sprite-sheet frame
+          if (p.totalFrames > 0) {
+            const progress = 1.0 - p.life;
+            frameArray[activeCount] = Math.min(
+              Math.floor(progress * p.totalFrames),
+              p.totalFrames - 1
+            );
+          } else {
+            frameArray[activeCount] = -1;
+          }
           activeCount++;
         }
       }
@@ -2108,6 +2217,7 @@ export class ThreeEffectsRenderer {
       positions.needsUpdate = true;
       sizes.needsUpdate = true;
       colors.needsUpdate = true;
+      frameIndices.needsUpdate = true;
       this.trailParticlesNormal.geometry.setDrawRange(0, activeCount);
     }
 
