@@ -4,7 +4,6 @@ import {
   UnsignedByteType,
   LinearFilter,
   ClampToEdgeWrapping,
-  Vector2,
 } from 'three';
 import { ShaderPass } from 'three/examples/jsm/postprocessing/ShaderPass.js';
 

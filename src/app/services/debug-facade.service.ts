@@ -200,6 +200,9 @@ export class DebugFacadeService {
         if (opts.textures === false) this.engine?.enemies.setTexturesEnabled(false);
         if (opts.skeletonCloning === false) this.engine?.enemies.setSkeletonCloningEnabled(false);
         if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
+        if (opts.colorGrading && opts.colorGrading !== 'none') {
+          this.engine?.setColorGradingPreset(opts.colorGrading);
+        }
       }
     } catch { /* ignore corrupt localStorage */ }
   }
