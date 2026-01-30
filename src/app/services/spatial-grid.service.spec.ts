@@ -264,11 +264,16 @@ describe('SpatialGrid', () => {
     expect(result).toContain('a');
   });
 
-  it('should handle duplicate insert (overwrites)', () => {
+  it('should handle duplicate insert (second insert creates orphan - use update instead)', () => {
     grid.insert('a', 10, 10);
-    grid.insert('a', 60, 60); // Insert again at different position
+    grid.insert('a', 60, 60); // Insert again overwrites entity entry but leaves old cell reference
 
-    expect(grid.size).toBe(2); // Note: insert doesn't deduplicate — use update for that
+    // Entity entry is overwritten, so size stays 1
+    expect(grid.size).toBe(1);
+    // The entity is now at the new position
+    const pos = grid.getPosition('a');
+    expect(pos).toEqual({ x: 60, z: 60 });
+    // For safe re-positioning, always use update() instead of insert()
   });
 
   it('should handle rapid updates to same position', () => {

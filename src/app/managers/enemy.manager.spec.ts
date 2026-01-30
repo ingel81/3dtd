@@ -12,6 +12,7 @@ import { GameEventBus } from '../game-engine';
 import type { GeoPosition } from '../models/game.types';
 import type { EntityPoolService } from '../services/entity-pool.service';
 import type { GlobalRouteGridService } from '../services/global-route-grid.service';
+import { SpatialGridService } from '../services/spatial-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
 
 const createMockTilesEngine = () => ({
@@ -52,7 +53,8 @@ describe('EnemyManager', () => {
     manager = new EnemyManager(
       eventBus,
       {} as unknown as EntityPoolService,
-      globalRouteGrid as unknown as GlobalRouteGridService
+      globalRouteGrid as unknown as GlobalRouteGridService,
+      new SpatialGridService()
     );
     manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
   });
