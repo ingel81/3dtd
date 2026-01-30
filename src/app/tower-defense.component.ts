@@ -311,7 +311,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
     // Effect: Update all existing enemies when speed changes
     effect(() => {
       const speed = this.enemySpeed();
-      for (const enemy of this.gameState.enemies()) {
+      for (const enemy of this.gameState.enemyManager.getAll()) {
         enemy.movement.speedMps = speed;
       }
     });
@@ -2265,7 +2265,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
       // Spawn HQ debug point if enabled and not yet spawned
       if (visible) {
-        this.gameState.spawnHQDebugPoint();
+        this.markerViz.spawnHQDebugPoint();
       }
     }
   }
@@ -2489,7 +2489,7 @@ export class TowerDefenseComponent implements OnInit, AfterViewInit, OnDestroy {
 
   private onGameOver(): void {
     // Stop spawning new enemies (clears pending timeouts in WaveManager)
-    this.gameState.stopSpawning();
+    this.gameState.waveManager.stopSpawning();
 
     // NOTE: Do NOT stop the game loop here!
     // The engine's render loop continues independently and needs to

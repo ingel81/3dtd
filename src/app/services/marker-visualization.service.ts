@@ -1,4 +1,4 @@
-import { Injectable, WritableSignal } from '@angular/core';
+import { Injectable, WritableSignal, inject } from '@angular/core';
 import {
   Group,
   Color,
@@ -14,6 +14,8 @@ import {
 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
+import { HQDamageService } from './hq-damage.service';
+import { GameUIStateService } from './game-ui-state.service';
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -42,6 +44,13 @@ export interface DiamondMarkerOptions {
  */
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
+  // ========================================
+  // INJECTED SERVICES
+  // ========================================
+
+  private readonly hqDamage = inject(HQDamageService);
+  private readonly uiState = inject(GameUIStateService);
+
   // ========================================
   // STATE
   // ========================================
@@ -470,6 +479,29 @@ export class MarkerVisualizationService {
     this.clearSpawnMarkers();
     this.removeBaseMarker();
     this.clearHeightDebugMarkers();
+  }
+
+  // ========================================
+  // DEBUG VISUALIZATION
+  // ========================================
+
+  /**
+   * Spawn or update HQ debug point at cached terrain height.
+   * Delegates to HQDamageService which owns the fire/debug position data.
+   */
+  spawnHQDebugPoint(): void {
+    this.hqDamage.spawnDebugPoint();
+  }
+
+  /**
+   * Update debug sphere visibility based on UI state.
+   * Controls engine-level debug sphere rendering.
+   */
+  updateDebugSpheresVisibility(): void {
+    if (!this.engine) return;
+    this.engine.effects.setDebugSpheresVisible(
+      this.uiState.specialPointsDebugVisible()
+    );
   }
 
   // ========================================

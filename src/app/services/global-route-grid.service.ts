@@ -4,7 +4,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
-import { InstancedMesh } from 'three';
+import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 
 /**
  * GlobalRouteGridService - Angular service wrapper for GlobalRouteGrid
@@ -18,6 +18,10 @@ import { InstancedMesh } from 'three';
 export class GlobalRouteGridService {
   private grid: GlobalRouteGrid;
   private initialized = false;
+
+  // Debug: defense reach marker (orange sphere)
+  private scene: Scene | null = null;
+  private defenseReachMarker: Mesh | null = null;
 
   constructor() {
     this.grid = new GlobalRouteGrid();
@@ -278,12 +282,109 @@ export class GlobalRouteGridService {
     this.grid.updateTerrainHeights();
   }
 
+  // ========================================
+  // DEFENSE REACH
+  // ========================================
+
+  /**
+   * Initialize debug visualization with a Three.js scene reference.
+   * Must be called before getDefenseReachPercent() can show the orange marker.
+   */
+  initDebugViz(scene: Scene): void {
+    this.scene = scene;
+  }
+
+  /**
+   * Calculate defense reach percent using GlobalRouteGrid LOS data.
+   * Returns the furthest point on the path (0-1, distance-based) where
+   * at least one tower has line-of-sight visibility.
+   * Matches MovementComponent.getPathProgress() distance calculation.
+   * Also updates the orange debug marker position.
+   *
+   * @param routes Array of route paths (GeoPosition[][])
+   * @returns Defense reach as fraction 0..1
+   */
+  getDefenseReachPercent(routes: GeoPosition[][]): number {
+    const sync = this.grid.getCoordinateSync();
+    if (!this.initialized || !sync) return 0;
+
+    if (routes.length === 0) return 0;
+    const path = routes[0];
+    if (path.length < 2) return 0;
+
+    // Convert all waypoints to local coordinates
+    const localPositions = path.map(p => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
+
+    // Calculate segment lengths
+    let totalLength = 0;
+    const cumulativeDistances: number[] = [0];
+
+    for (let i = 0; i < localPositions.length - 1; i++) {
+      const a = localPositions[i];
+      const b = localPositions[i + 1];
+      const segLen = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
+      totalLength += segLen;
+      cumulativeDistances.push(totalLength);
+    }
+
+    if (totalLength === 0) return 0;
+
+    // Find last waypoint visible by any tower
+    let lastVisibleIndex = -1;
+
+    for (let i = 0; i < localPositions.length; i++) {
+      const local = localPositions[i];
+      const cell = this.grid.getCellAt(local.x, local.z);
+      if (cell) {
+        for (const visible of cell.towerVisibility.values()) {
+          if (visible) {
+            lastVisibleIndex = i;
+            break;
+          }
+        }
+      }
+    }
+
+    if (lastVisibleIndex < 0) {
+      this.hideDefenseReachMarker();
+      return 0;
+    }
+
+    // Update orange debug marker at last visible waypoint
+    const markerPos = localPositions[lastVisibleIndex];
+    this.updateDefenseReachMarker(markerPos.x, markerPos.y + 3, markerPos.z);
+
+    return cumulativeDistances[lastVisibleIndex] / totalLength;
+  }
+
+  private updateDefenseReachMarker(x: number, y: number, z: number): void {
+    if (!this.scene) return;
+
+    if (!this.defenseReachMarker) {
+      const geo = new SphereGeometry(1.5, 8, 6);
+      const mat = new MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.85 });
+      this.defenseReachMarker = new Mesh(geo, mat);
+      this.defenseReachMarker.renderOrder = 10;
+      this.scene.add(this.defenseReachMarker);
+    }
+
+    this.defenseReachMarker.position.set(x, y, z);
+    this.defenseReachMarker.visible = true;
+  }
+
+  private hideDefenseReachMarker(): void {
+    if (this.defenseReachMarker) {
+      this.defenseReachMarker.visible = false;
+    }
+  }
+
   /**
    * Clear all data (for location change / reset)
    */
   clear(): void {
     this.grid.clear();
     this.initialized = false;
+    this.hideDefenseReachMarker();
   }
 
   /**
@@ -292,5 +393,12 @@ export class GlobalRouteGridService {
   dispose(): void {
     this.grid.dispose();
     this.initialized = false;
+    if (this.defenseReachMarker) {
+      if (this.scene) this.scene.remove(this.defenseReachMarker);
+      this.defenseReachMarker.geometry.dispose();
+      (this.defenseReachMarker.material as MeshBasicMaterial).dispose();
+      this.defenseReachMarker = null;
+    }
+    this.scene = null;
   }
 }

@@ -117,12 +117,12 @@ export class AIDataCollectorService {
    * Get current game state as snapshot (for AI input)
    */
   getStateSnapshot(): GameStateSnapshot {
-    const towers = this.gameState.towers();
+    const towers = this.gameState.towerManager.getAll();
     const defense = analyzeDefense(towers);
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
-    defense.defenseReachPercent = this.gameState.getDefenseReachPercent();
+    defense.defenseReachPercent = this.gridService.getDefenseReachPercent(this.gameState.getCachedRoutes());
     defense.killZoneStrength = estimateKillZoneStrength(towers);
 
     const capabilities = defense.capabilities;
@@ -518,7 +518,7 @@ export class AIDataCollectorService {
    * Uses cached value if towers haven't changed.
    */
   getCurrentDPSProfile(): PathDPSProfile {
-    return this.getDPSProfile(this.gameState.towers());
+    return this.getDPSProfile(this.gameState.towerManager.getAll());
   }
 
   /**

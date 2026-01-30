@@ -1,5 +1,5 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Material, Mesh, SphereGeometry, MeshBasicMaterial } from 'three';
+import { Material } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
@@ -14,10 +14,10 @@ import { EntityPoolService } from '../services/entity-pool.service';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { WaveDebugService } from '../services/wave-debug.service';
 import { EnemyDebugService } from '../services/enemy-debug.service';
+import { MarkerVisualizationService } from '../services/marker-visualization.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
-import { Enemy } from '../entities/enemy.entity';
-import { EnemyTypeId, ENEMY_TYPES } from '../models/enemy-types';
+import { ENEMY_TYPES } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
@@ -44,6 +44,7 @@ export class GameStateManager {
   private readonly osmService = inject(OsmStreetService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
+  private readonly markerViz = inject(MarkerVisualizationService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -76,8 +77,6 @@ export class GameStateManager {
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
-  // Debug: defense reach marker
-  private defenseReachMarker: Mesh | null = null;
 
 
   /**
@@ -92,6 +91,9 @@ export class GameStateManager {
   ): void {
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
+
+    // Initialize defense-reach debug visualization (orange marker)
+    this.globalRouteGrid.initDebugViz(tilesEngine.getScene());
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);
@@ -377,54 +379,6 @@ export class GameStateManager {
   }
 
   /**
-   * Get all towers
-   */
-  towers(): Tower[] {
-    return this.towerManager.getAll();
-  }
-
-  /**
-   * Get all enemies
-   */
-  enemies(): Enemy[] {
-    return this.enemyManager.getAll();
-  }
-
-  /**
-   * Spawn an enemy
-   */
-  spawnEnemy(
-    path: GeoPosition[],
-    typeId: EnemyTypeId,
-    speed?: number,
-    paused = false,
-    health?: number
-  ): Enemy {
-    return this.enemyManager.spawn(path, typeId, speed, paused, health);
-  }
-
-  /**
-   * Start all paused enemies
-   */
-  startAllEnemies(delayBetween = TIMING.defaultSpawnStartDelay): void {
-    this.enemyManager.startAll(delayBetween, this.trainingTimescale());
-  }
-
-  /**
-   * Select a tower
-   */
-  selectTower(id: string): void {
-    this.towerManager.selectTower(id);
-  }
-
-  /**
-   * Deselect all towers
-   */
-  deselectAll(): void {
-    this.towerManager.selectTower(null);
-  }
-
-  /**
    * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
    * Called on reset to cleanup before starting fresh
    */
@@ -551,36 +505,6 @@ export class GameStateManager {
   }
 
   /**
-   * Kill an enemy
-   */
-  killEnemy(enemy: Enemy): void {
-    this.enemyManager.kill(enemy, this.trainingTimescale());
-  }
-
-  /**
-   * Check if wave is complete
-   */
-  checkWaveComplete(): boolean {
-    return this.waveManager.checkWaveComplete();
-  }
-
-  /**
-   * End current wave
-   */
-  endWave(): void {
-    this.waveManager.endWave();
-    this.towerCombat.stopAllBeams();
-    this.eventBus.emit({ type: 'game:paused' });
-  }
-
-  /**
-   * Stop all pending spawns (for Kill All functionality)
-   */
-  stopSpawning(): void {
-    this.waveManager.stopSpawning();
-  }
-
-  /**
    * Called when tiles are loaded - notifies HQ damage service
    */
   onTilesLoaded(): void {
@@ -588,25 +512,8 @@ export class GameStateManager {
 
     // Spawn debug point if debug option is enabled
     if (this.uiState.specialPointsDebugVisible()) {
-      this.spawnHQDebugPoint();
+      this.markerViz.spawnHQDebugPoint();
     }
-  }
-
-  /**
-   * Spawn or update HQ debug point at cached terrain height
-   */
-  spawnHQDebugPoint(): void {
-    this.hqDamage.spawnDebugPoint();
-  }
-
-  /**
-   * Update debug sphere visibility based on UI state
-   */
-  updateDebugSpheresVisibility(): void {
-    if (!this.tilesEngine) return;
-    this.tilesEngine.effects.setDebugSpheresVisible(
-      this.uiState.specialPointsDebugVisible()
-    );
   }
 
   /**
@@ -645,87 +552,11 @@ export class GameStateManager {
   }
 
   /**
-   * Calculate defense reach percent using GlobalRouteGrid LOS data.
-   * Returns the furthest point on the path (0-1, distance-based) where
-   * at least one tower has line-of-sight visibility.
-   * Matches MovementComponent.getPathProgress() distance calculation.
-   * Also updates the orange debug marker position.
+   * Calculate defense reach percent — delegates to GlobalRouteGridService.
+   * @see GlobalRouteGridService.getDefenseReachPercent
    */
   getDefenseReachPercent(): number {
-    if (!this.tilesEngine || !this.globalRouteGrid.isInitialized()) return 0;
-
-    const routes = this.getCachedRoutes();
-    if (routes.length === 0) return 0;
-    const path = routes[0];
-    if (path.length < 2) return 0;
-
-    const sync = this.tilesEngine.sync;
-
-    // Convert all waypoints to local coordinates
-    const localPositions = path.map(p => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
-
-    // Calculate segment lengths
-    let totalLength = 0;
-    const cumulativeDistances: number[] = [0];
-
-    for (let i = 0; i < localPositions.length - 1; i++) {
-      const a = localPositions[i];
-      const b = localPositions[i + 1];
-      const segLen = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
-      totalLength += segLen;
-      cumulativeDistances.push(totalLength);
-    }
-
-    if (totalLength === 0) return 0;
-
-    // Find last waypoint visible by any tower
-    let lastVisibleIndex = -1;
-
-    for (let i = 0; i < localPositions.length; i++) {
-      const local = localPositions[i];
-      const cell = this.globalRouteGrid.getCellAt(local.x, local.z);
-      if (cell) {
-        for (const visible of cell.towerVisibility.values()) {
-          if (visible) {
-            lastVisibleIndex = i;
-            break;
-          }
-        }
-      }
-    }
-
-    if (lastVisibleIndex < 0) {
-      this.hideDefenseReachMarker();
-      return 0;
-    }
-
-    // Update orange debug marker at last visible waypoint
-    const markerPos = localPositions[lastVisibleIndex];
-    this.updateDefenseReachMarker(markerPos.x, markerPos.y + 3, markerPos.z);
-
-    return cumulativeDistances[lastVisibleIndex] / totalLength;
-  }
-
-  private updateDefenseReachMarker(x: number, y: number, z: number): void {
-    if (!this.tilesEngine) return;
-    const scene = this.tilesEngine.getScene();
-
-    if (!this.defenseReachMarker) {
-      const geo = new SphereGeometry(1.5, 8, 6);
-      const mat = new MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.85 });
-      this.defenseReachMarker = new Mesh(geo, mat);
-      this.defenseReachMarker.renderOrder = 10;
-      scene.add(this.defenseReachMarker);
-    }
-
-    this.defenseReachMarker.position.set(x, y, z);
-    this.defenseReachMarker.visible = true;
-  }
-
-  private hideDefenseReachMarker(): void {
-    if (this.defenseReachMarker) {
-      this.defenseReachMarker.visible = false;
-    }
+    return this.globalRouteGrid.getDefenseReachPercent(this.getCachedRoutes());
   }
 
   /**
