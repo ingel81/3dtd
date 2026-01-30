@@ -602,8 +602,9 @@ export class ThreeEffectsRenderer {
     };
 
     // Spawn particles
-    for (let i = 0; i < count && effect.particles.length < this.MAX_BLOOD_PARTICLES; i++) {
-      const particle = this.getInactiveParticle(this.bloodPool, 'blood');
+    const maxBloodParticles = 100;
+    for (let i = 0; i < count && effect.particles.length < maxBloodParticles; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolNormal, 'trailNormal');
       if (!particle) break;
 
       particle.position.copy(localPos);
