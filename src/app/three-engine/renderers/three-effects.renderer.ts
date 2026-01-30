@@ -1200,8 +1200,8 @@ export class ThreeEffectsRenderer {
     console.log('[HQ Explosion] Spawning at local:', centerX.toFixed(1), centerY.toFixed(1), centerZ.toFixed(1));
     console.log('[HQ Explosion] Input localY:', localY, '| Available particles:', availableParticles, '/', this.trailPoolAdditive.length);
 
-    // Phase 1: Central bright flash - massive initial burst (3x: 150 → 450)
-    for (let i = 0; i < 450; i++) {
+    // Phase 1: Central bright flash - reduced count, larger size to compensate
+    for (let i = 0; i < 150; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) {
         console.warn('[HQ Explosion] Pool exhausted at phase 1, particle', i);
@@ -1223,7 +1223,7 @@ export class ThreeEffectsRenderer {
 
       particle.life = 1.0;
       particle.maxLife = 1.5 + Math.random() * 1.5; // Longer duration
-      particle.size = 8.0 + Math.random() * 12.0; // 3x larger particles
+      particle.size = (8.0 + Math.random() * 12.0) * 1.5; // 1.5x larger to compensate for fewer particles
 
       // Bright yellow/white core
       const t = Math.random();
@@ -1236,8 +1236,8 @@ export class ThreeEffectsRenderer {
       }
     }
 
-    // Phase 2: Secondary fire/debris ring - expanding outward (3x: 200 → 600)
-    for (let i = 0; i < 600; i++) {
+    // Phase 2: Secondary fire/debris ring - reduced count, larger size to compensate
+    for (let i = 0; i < 250; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) {
         console.warn('[HQ Explosion] Pool exhausted at phase 2, particle', i);
@@ -1264,7 +1264,7 @@ export class ThreeEffectsRenderer {
 
       particle.life = 1.0;
       particle.maxLife = 2.0 + Math.random() * 2.0; // Longer duration
-      particle.size = 6.0 + Math.random() * 10.0; // 3x larger
+      particle.size = (6.0 + Math.random() * 10.0) * 1.3; // 1.3x larger to compensate for fewer particles
 
       // Orange/red fire colors
       const t = Math.random();
