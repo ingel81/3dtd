@@ -405,12 +405,29 @@ export class GameStateManager {
   }
 
   /**
-   * Reset game to initial state
+   * Full dispose — called when the component is destroyed.
+   * Cleans up EventBus subscriptions that were registered in initialize().
+   */
+  dispose(): void {
+    this.eventBusSubs.disposeAll();
+    this.hqDamage.reset();
+
+    this.enemyManager.clear();
+    this.towerManager.clear();
+    this.projectileManager.clear();
+    this.waveManager.reset();
+    this.globalRouteGrid.clear();
+
+    if (this.tilesEngine) {
+      this.tilesEngine.effects.clear();
+    }
+  }
+
+  /**
+   * Reset game to initial state (restart).
+   * Does NOT dispose EventBus subscriptions — handlers stay active for the next game.
    */
   reset(): void {
-    // Dispose EventBus subscriptions to prevent duplicate handlers on re-initialize
-    this.eventBusSubs.disposeAll();
-
     // Reset HQ damage service (clears fires, timeouts, game over screen)
     this.hqDamage.reset();
 
@@ -435,6 +452,9 @@ export class GameStateManager {
     this.lastUpdateTime = 0;
 
     GameObject.resetIdCounter();
+
+    // Emit game:reset so downstream services (e.g. GameStateSyncService) can react
+    this.eventBus.emit({ type: 'game:reset' });
   }
 
   private updateCredits(delta: number): void {
