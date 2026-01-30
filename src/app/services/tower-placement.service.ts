@@ -11,6 +11,7 @@ import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
 import { SpawnPoint } from './marker-visualization.service';
+import { UIStore } from '../store/ui.store';
 
 /**
  * TowerPlacementService
@@ -25,15 +26,26 @@ import { SpawnPoint } from './marker-visualization.service';
 export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
   private assetManager = inject(AssetManagerService);
+  private uiStore = inject(UIStore);
 
   // ========================================
-  // SIGNALS
+  // SIGNALS (UIStore-backed)
   // ========================================
 
-  readonly buildMode = signal(false);
-  readonly selectedTowerType = signal<TowerTypeId>('archer');
+  /** Build mode active — owned by UIStore */
+  readonly buildMode = this.uiStore.buildMode;
+
+  /** Selected tower type — owned by UIStore */
+  readonly selectedTowerType = this.uiStore.selectedTowerType;
+
+  /** Build validation reason — owned by UIStore */
+  readonly validationReason = this.uiStore.buildValidationReason;
+
+  // ========================================
+  // LOCAL SIGNALS (service-internal)
+  // ========================================
+
   readonly currentRotation = signal(0);
-  readonly validationReason = signal<string | null>(null);
 
   // ========================================
   // STATE
@@ -307,6 +319,7 @@ export class TowerPlacementService {
     this.currentPosition = { lat, lon, height: terrainHeight };
 
     const typeId = this.selectedTowerType();
+    if (!typeId) return;
     const config = TOWER_TYPES[typeId];
     if (!config) return;
 
@@ -473,7 +486,7 @@ export class TowerPlacementService {
 
     // Apply rotation
     const typeId = this.selectedTowerType();
-    const config = TOWER_TYPES[typeId];
+    const config = typeId ? TOWER_TYPES[typeId] : undefined;
     const baseRotation = config?.rotationY ?? 0;
     this.previewTowerMesh.rotation.y = baseRotation + newRotation;
   }
@@ -503,6 +516,7 @@ export class TowerPlacementService {
     }
 
     const typeId = this.selectedTowerType();
+    if (!typeId) return false;
 
     // Emit command event — GSM handler places the tower
     this.gameState.getEventBus().emit({

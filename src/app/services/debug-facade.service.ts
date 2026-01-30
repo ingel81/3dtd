@@ -1,5 +1,5 @@
 import { Injectable, inject } from '@angular/core';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { GameStateManager } from '../managers/game-state.manager';
@@ -9,7 +9,7 @@ import { GameStateManager } from '../managers/game-state.manager';
  *
  * Thin orchestrator that consolidates all debug-related operations
  * from TowerDefenseComponent. Delegates to specialized services:
- * - GameUIStateService: debug log, height debug toggle
+ * - UIStore: debug log, height debug toggle
  * - EnemyDebugService: enemy debug operations
  * - MarkerVisualizationService: height debug marker visualization
  * - GameStateManager: game state cheats (credits, health)
@@ -19,7 +19,7 @@ import { GameStateManager } from '../managers/game-state.manager';
  */
 @Injectable({ providedIn: 'root' })
 export class DebugFacadeService {
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly markerViz = inject(MarkerVisualizationService);
 
@@ -27,14 +27,14 @@ export class DebugFacadeService {
   private static readonly DISPLAY_OPTIONS_KEY = 'td_display_options';
 
   // ========================================
-  // Proxy signals from GameUIStateService
+  // Proxy signals from UIStore
   // ========================================
 
   /** Debug log signal (readonly) */
-  readonly debugLog = this.uiState.debugLog;
+  readonly debugLog = this.uiStore.debugLog;
 
   /** Height debug visibility signal (readonly) */
-  readonly heightDebugVisible = this.uiState.heightDebugVisible;
+  readonly heightDebugVisible = this.uiStore.heightDebugVisible;
 
   // ========================================
   // Debug Log Management
@@ -44,14 +44,14 @@ export class DebugFacadeService {
    * Append message to debug log (max 50 lines)
    */
   appendDebugLog(message: string): void {
-    this.uiState.appendDebugLog(message);
+    this.uiStore.appendDebugLog(message);
   }
 
   /**
    * Clear the debug log
    */
   clearDebugLog(): void {
-    this.uiState.clearDebugLog();
+    this.uiStore.clearDebugLog();
   }
 
   // ========================================
@@ -89,7 +89,7 @@ export class DebugFacadeService {
    * Toggle height debug visualization (signal + marker visibility)
    */
   toggleHeightDebug(): void {
-    this.uiState.toggleHeightDebug();
+    this.uiStore.toggleHeightDebug();
     this.markerViz.toggleHeightDebug(this.heightDebugVisible());
   }
 

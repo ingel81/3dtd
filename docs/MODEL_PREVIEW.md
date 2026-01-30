@@ -37,10 +37,10 @@ interface PreviewConfig {
 - **groundModel: true**: Modell steht auf y=0, Kamera schaut auf Koerpermitte (gut fuer Charaktere)
 
 ### Animation & Caching
-- **Statische Modelle**: Werden gecached und geklont (performant)
-- **Animierte Modelle**: Werden NICHT gecached, sondern frisch geladen
-  - Grund: `scene.clone()` bricht Skeleton-Referenzen fuer Animationen
-  - AnimationMixer braucht die Original-Scene mit korrekten Bone-Referenzen
+- **Alle Modelle**: Werden via `AssetManager.loadModel()` gecached und geklont
+- **Animierte Modelle**: Werden mit `cloneModel(url, { preserveSkeleton: true })` geklont
+  - Grund: `preserveSkeleton` erhält Bone-Referenzen fuer AnimationMixer
+- **Statische Modelle**: Werden mit `cloneModel(url)` ohne Skeleton-Erhaltung geklont
 - **Fallback Animation**: Wenn `animationName` nicht gefunden wird, wird automatisch die erste Animation verwendet
 
 ### Pivot-Rotation
@@ -89,11 +89,11 @@ rimLight.position.set(-2, 1, -2);
 ```typescript
 this.modelPreview.createPreview('enemy-preview', canvas, {
   modelUrl: enemyConfig.modelUrl,
-  scale: enemyConfig.scale * 0.5,  // Dynamisch aus Enemy-Config
+  scale: enemyConfig.previewScale ?? enemyConfig.scale * 0.5,  // previewScale oder Fallback
   rotationSpeed: 0.4,
   cameraDistance: 7,
   cameraAngle: Math.PI / 12,       // 15° - flacher Blickwinkel
-  animationName: 'Armature|Walk',
+  animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
   animationTimeScale: 0.7,
   lightIntensity: 1.3,
   groundModel: true,               // Wichtig fuer Charaktere!
@@ -102,9 +102,9 @@ this.modelPreview.createPreview('enemy-preview', canvas, {
 
 ### Tower Preview (statisch)
 ```typescript
-this.modelPreview.createPreview('tower-archer', canvas, {
-  modelUrl: '/assets/.../tower_archer.glb',
-  scale: towerConfig.scale * 0.4,  // Dynamisch aus Tower-Config
+this.modelPreview.createPreview(`tower-preview-${towerId}`, canvas, {
+  modelUrl: towerConfig.modelUrl,
+  scale: previewScale,              // Aus TowerDebugService Overrides
   rotationSpeed: 0.4,
   cameraDistance: 20,
   cameraAngle: Math.PI / 5,        // 36° - steilerer Blickwinkel

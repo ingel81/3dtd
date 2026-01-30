@@ -41,18 +41,16 @@ import { DebugFacadeService } from './services/debug-facade.service';
 import { LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { CameraControlService } from './services/camera-control.service';
-import { MarkerVisualizationService } from './services/marker-visualization.service';
-import { PathAndRouteService } from './services/path-route.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
 import { LocationManagementService } from './services/location-management.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
 import { DevStreetProvider } from './devworld/dev-street.provider';
-import { RouteAnimationService } from './services/route-animation.service';
-import { StreetRenderingService } from './services/street-rendering.service';
 import { LocationChangeCoordinatorService } from './services/location-change-coordinator.service';
 import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/tower-defense-facade.service';
+import { GameLoopFacadeService } from './services/game-loop-facade.service';
+import { VisualizationFacadeService } from './services/visualization-facade.service';
 import { TowerDefenseStore } from './store/tower-defense.store';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
@@ -105,6 +103,10 @@ import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
     AIDataCollectorService,
     WaveDirectorService,
     TrainingClientService,
+    // Facade services (depend on component-scoped providers above)
+    TowerDefenseFacadeService,
+    GameLoopFacadeService,
+    VisualizationFacadeService,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './tower-defense.component.html',
@@ -126,15 +128,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Refactoring services
   private readonly cameraControl = inject(CameraControlService);
-  private readonly markerViz = inject(MarkerVisualizationService);
-  private readonly pathRoute = inject(PathAndRouteService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
-  private readonly routeAnimation = inject(RouteAnimationService);
-  private readonly streetRendering = inject(StreetRenderingService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
@@ -416,21 +414,21 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Handle streets toggle side effect (visibility already toggled by QuickActionsComponent)
    */
   onStreetsToggled(): void {
-    this.streetRendering.toggleVisibility();
+    this.facade.onStreetsToggled();
   }
 
   /**
    * Handle routes toggle side effect (visibility already toggled by QuickActionsComponent)
    */
   onRoutesToggled(): void {
-    this.pathRoute.toggleRouteLinesVisibility();
+    this.facade.onRoutesToggled();
   }
 
   /**
    * Toggle special points debug (fire position markers, etc.)
    */
   onSpecialPointsDebugToggled(): void {
-    this.markerViz.toggleSpecialPointsDebug();
+    this.facade.onSpecialPointsDebugToggled();
   }
 
   /**
@@ -449,10 +447,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   onPlayRouteAnimation(): void {
-    const cachedPaths = this.pathRoute.getCachedPaths();
-    if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.spawnPoints());
-    }
+    this.facade.onPlayRouteAnimation();
   }
 
   /**

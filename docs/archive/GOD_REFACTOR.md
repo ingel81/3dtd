@@ -1,5 +1,7 @@
 # GOD Object Refactoring Plan
 
+> **ARCHIVIERT** — Refactoring abgeschlossen (01/2026). Aktueller Stand: siehe [REFACTORING-PLAN.md](REFACTORING-PLAN.md) und [ARCHITECTURE.md](../ARCHITECTURE.md).
+
 Vollständiger Umsetzungsplan zur Aufspaltung der God Objects im 3DTD-Projekt.
 
 ---

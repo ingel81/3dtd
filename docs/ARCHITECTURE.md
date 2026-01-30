@@ -56,81 +56,145 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 
 ## Services (2026-01 Refactoring)
 
-Die Komponente wurde durch Extraktion von **23 spezialisierten Services** modularisiert.
+Die Komponente wurde durch Extraktion spezialisierter Services modularisiert.
 Die Komponente selbst ist von 4098 auf ~1950 Zeilen reduziert worden.
 
 **Hinweis:** Services liegen in `/src/app/services/`, nicht im tower-defense Subfolder.
 
 ### Service-Übersicht
 
+#### Engine & Initialization
+
 | Service | Verantwortung |
 |---------|---------------|
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
+| **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
+| **EntityPoolService** | Object Pooling (Placeholder, Backwards Compatibility) |
+
+#### Camera & Input
+
+| Service | Verantwortung |
+|---------|---------------|
 | **CameraControlService** | Kamera Position, Reset, Fly-To Animationen |
 | **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
-| **DebugWindowService** | Debug-Window Verwaltung |
-| **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
-| **EntityPoolService** | Object Pooling (Placeholder) |
-| **GameUIStateService** | UI State Signals, Layer Toggles, Debug Log |
-| **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
-| **GeolocationService** | Browser Geolocation API Wrapper |
-| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup |
-| **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
-| **LocationManagementService** | Location CRUD, LocalStorage Persistence |
+
+#### Combat & Gameplay
+
+| Service | Verantwortung |
+|---------|---------------|
+| **TowerCombatService** | Tower Targeting, Turret-Rotation, Shooting |
+| **CombatEffectService** | Projectile Hits, Damage, Blood/Death/Slow Effects |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
+| **StrategicPlacementService** | Optimale Tower-Positionen entlang Enemy-Pfade |
+| **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
+
+#### World & Location
+
+| Service | Verantwortung |
+|---------|---------------|
 | **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
-| **ModelPreviewService** | 3D Model Previews für Sidebar |
-| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **PathAndRouteService** | Pfad-Caching, Route-Visualisierung, Height Smoothing |
 | **RouteAnimationService** | Knight Rider Routen-Animation |
+| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup |
+| **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
+| **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
+| **LocationManagementService** | Location CRUD, LocalStorage Persistence |
+| **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Dialog, Spawns, Reset) |
+| **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
+| **GeolocationService** | Browser Geolocation API Wrapper |
+| **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
-| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
+| **WorldDiceService** | Zufällige Städte für Random-Location |
+
+#### State & Sync
+
+| Service | Verantwortung |
+|---------|---------------|
+| **GameStateSyncService** | Bridges GameStateManager Events zum Store |
+
+#### UI & Preview
+
+| Service | Verantwortung |
+|---------|---------------|
+| **ModelPreviewService** | 3D Model Previews für Sidebar |
+| **DebugWindowService** | Debug-Window Verwaltung |
+
+#### Debug
+
+| Service | Verantwortung |
+|---------|---------------|
 | **WaveDebugService** | Wave-Debugging Utilities |
+| **SoundDebugService** | Sound-Debug Stats & Events von SpatialAudioManager |
+| **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation) |
+| **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung) |
+
+### Facade Services
+
+Fünf Facade Services orchestrieren die spezialisierten Services und bilden die Schnittstelle zur Komponente:
+
+| Facade | Verantwortung |
+|--------|---------------|
+| **TowerDefenseFacadeService** | Haupt-Orchestrator: Initialisierung, Service-Wiring, Lifecycle |
+| **GameLoopFacadeService** | Wave-Management, Game Loop, Upgrades, AI-Integration |
+| **VisualizationFacadeService** | Rendering, Kamera, Toggle-Steuerung, DPS-Visualisierung |
+| **LocationFacadeService** | Location Detection, DevWorld, Spawn-Management |
+| **DebugFacadeService** | Debug Log, Height Debug, Display Options, Enemy Debug |
 
 ### Service-Architektur
 
 ```
-tower-defense.component.ts (Orchestrierung)
+tower-defense.component.ts
     │
-    ├── EngineInitializationService ─ Loading Sequence
-    │       └── AssetManagerService ─ Zentrales Asset Loading
+    ├── TowerDefenseFacadeService ─── Haupt-Orchestrator
+    │   ├── EngineInitializationService ─ Loading Sequence
+    │   │       └── AssetManagerService ─ Zentrales Asset Loading
+    │   ├── TowerPlacementService ────── Build Mode
+    │   └── GameStateSyncService ─────── EventBus → Store Bridge
+    │
+    ├── GameLoopFacadeService ───────── Wave, Game Loop, AI
+    │   ├── TowerCombatService ───────── Targeting, Rotation, Shooting
+    │   ├── CombatEffectService ──────── Hits, Damage, Effects
+    │   ├── HQDamageService ──────────── HQ Fire, Damage Sounds
+    │   └── StrategicPlacementService ── Optimale Tower-Positionen
+    │
+    ├── VisualizationFacadeService ──── Rendering, Camera, Toggles
+    │   ├── CameraControlService ─────── Kamera-Steuerung
+    │   ├── CameraFramingService ─────── Viewport-Framing
+    │   ├── KeyboardPanService ───────── WASD Steuerung
+    │   ├── MarkerVisualizationService ─ 3D Marker
+    │   ├── PathAndRouteService ──────── Pfade & Routen
+    │   ├── RouteAnimationService ────── Route-Animation
+    │   ├── GlobalRouteGridService ───── LOS Grid
+    │   ├── HeightUpdateService ──────── Terrain Sync
+    │   ├── StreetRenderingService ───── Street Visualization
+    │   └── InputHandlerService ──────── Click/Pan Events
+    │
+    ├── LocationFacadeService ────────── Location, DevWorld, Spawns
+    │   ├── LocationManagementService ── Location CRUD
+    │   ├── LocationChangeCoordinatorService ── Location-Wechsel
+    │   ├── UrlLocationService ────────── URL Sharing
+    │   ├── GeocodingService ──────────── Nominatim
+    │   ├── GeolocationService ────────── Browser GPS
+    │   ├── OsmStreetService ──────────── OSM + A* Pathfinding
+    │   ├── StreetCacheService ────────── IndexedDB Cache
+    │   └── WorldDiceService ──────────── Random Cities
+    │
+    ├── DebugFacadeService ───────────── Debug Operations
+    │   ├── WaveDebugService ──────────── Wave Debugging
+    │   ├── SoundDebugService ─────────── Sound Debug Stats
+    │   ├── TowerDebugService ─────────── Tower Parameter Overrides
+    │   └── EnemyDebugService ─────────── Enemy Debug
     │
     ├── UI Services
-    │   ├── GameUIStateService ───── UI State & Toggles
-    │   └── DebugWindowService ───── Debug Windows
+    │   ├── UIStore ───────────────────── UI State & Toggles
+    │   ├── DebugWindowService ────────── Debug Windows
+    │   └── ModelPreviewService ───────── 3D Previews
     │
-    ├── Camera Services
-    │   ├── CameraControlService ─── Kamera-Steuerung
-    │   ├── CameraFramingService ─── Viewport-Framing
-    │   └── KeyboardPanService ───── WASD Steuerung
-    │
-    ├── Input & Interaction
-    │   ├── InputHandlerService ──── Click/Pan Events
-    │   └── TowerPlacementService ── Build Mode
-    │
-    ├── World Services
-    │   ├── MarkerVisualizationService ─ 3D Marker
-    │   ├── PathAndRouteService ──── Pfade & Routen
-    │   ├── RouteAnimationService ── Route-Animation
-    │   ├── GlobalRouteGridService ─ LOS Grid
-    │   └── HeightUpdateService ──── Terrain Sync
-    │
-    ├── Location Services
-    │   ├── LocationManagementService ─ Location CRUD
-    │   ├── UrlLocationService ──── URL Sharing
-    │   ├── GeocodingService ─────── Nominatim
-    │   └── GeolocationService ───── Browser GPS
-    │
-    ├── Data Services
-    │   ├── OsmStreetService ──────── OSM + A* Pathfinding
-    │   ├── StreetCacheService ────── IndexedDB Cache
-    │   └── ModelPreviewService ───── 3D Previews
-    │
-    └── Debug Services
-        ├── WaveDebugService ──────── Wave Debugging
-        └── EntityPoolService ─────── Object Pooling
+    └── Shared
+        └── EntityPoolService ─────────── Object Pooling
 ```
 
 ---
@@ -898,24 +962,14 @@ function onEngineUpdate(deltaTime: number) {
 src/app/
 ├── tower-defense.component.ts    # Haupt-Component (~1950 Zeilen)
 │
-├── services/                     # 17 Services
-│   ├── game-ui-state.service.ts        # UI State & Toggles
-│   ├── camera-control.service.ts       # Kamera-Steuerung
-│   ├── camera-framing.service.ts       # Viewport-Framing
-│   ├── marker-visualization.service.ts # 3D Marker
-│   ├── path-route.service.ts           # Pfade & Routen
-│   ├── route-animation.service.ts      # Knight Rider Animation
-│   ├── input-handler.service.ts        # Click/Pan Events
-│   ├── tower-placement.service.ts      # Build Mode
-│   ├── location-management.service.ts  # Location CRUD
-│   ├── height-update.service.ts        # Terrain Sync
-│   ├── engine-initialization.service.ts# Loading Sequence
-│   ├── wave-debug.service.ts           # Wave Debugging
-│   ├── debug-window.service.ts         # Debug Windows
-│   ├── osm-street.service.ts           # OSM Straßen-Loading
-│   ├── geocoding.service.ts            # Nominatim Geocoding
-│   ├── model-preview.service.ts        # 3D Previews
-│   └── entity-pool.service.ts          # Object Pooling
+├── services/                     # Angular Services (38 Dateien)
+│   ├── tower-defense-facade.service.ts  # Facades (5)
+│   ├── game-loop-facade.service.ts
+│   ├── visualization-facade.service.ts
+│   ├── location-facade.service.ts
+│   ├── debug-facade.service.ts
+│   ├── ...                              # Spezialisierte Services
+│   └── (siehe Service-Übersicht oben)
 │
 ├── managers/                     # 7 Manager-Dateien
 │   ├── index.ts                  # Manager Exports
@@ -954,6 +1008,13 @@ src/app/
 ├── core/
 │   ├── game-object.ts
 │   └── component.ts
+│
+├── store/                       # Signal Stores (Single Source of Truth)
+│   ├── tower-defense.store.ts   # Root-Store (Aggregat-Fassade)
+│   ├── game.store.ts            # Game State (credits, health, phase, wave)
+│   ├── ui.store.ts              # UI State (toggles, build mode, persistence)
+│   ├── engine.store.ts          # Engine Stats (fps, tiles, camera, loading)
+│   └── location.store.ts        # Location (coords, spawns, favorites)
 │
 ├── configs/
 │   ├── tower-types.config.ts

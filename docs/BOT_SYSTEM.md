@@ -26,7 +26,7 @@ Das Bot System ist ein professionelles, erweiterbares Framework für automatisie
 │                                                                 │
 │  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
 │  │ Game Engine  │─────▶│  Bot System  │─────▶│   Actions    │  │
-│  │  (update)    │      │ (decideAction)│      │(place/upgrade)│ │
+│  │  (update)    │      │   (update)   │      │(place/upgrade)│ │
 │  └──────────────┘      └──────┬───────┘      └──────────────┘  │
 │                               │                                 │
 │                               ▼                                 │
@@ -51,16 +51,17 @@ Das Bot System ist ein professionelles, erweiterbares Framework für automatisie
 
 - **Placement Strategies** → Wo soll ein Tower gebaut werden?
 - **Upgrade Strategies** → Welcher Tower soll upgraden werden?
-- **Economy Strategies** → Wann sparen, wann ausgeben?
 - **Wave Strategies** → Wann nächste Welle starten?
 
 **Execution Flow:**
 
-1. Bot wird jedes Frame von `TowerDefenseComponent` aufgerufen
-2. `StrategyBot.decideAction()` iteriert über Strategien (sortiert nach Priority)
-3. Erste Strategie mit `canExecute() === true` wird ausgeführt
-4. `execute()` gibt `TowerAction` zurück
-5. `TowerDefenseComponent` führt Action aus
+1. Bot wird jedes Frame von `TowerDefenseComponent` aufgerufen via `update(state, deltaTime)`
+2. `BaseTowerBot.update()` prüft Cooldown (`reactionTimeMs`) und delegiert an `decideAction()`
+3. `StrategyBot.decideAction()` iteriert über Strategien (sortiert nach Priority)
+4. Erste Strategie mit `canExecute() === true` und konkreter Action wird ausgeführt
+5. `wait`-Actions werden als Fallback gespeichert, blockieren aber nicht niedrigere Strategien
+6. `BaseTowerBot.update()` wendet optional Fehler an (`mistakeRate`)
+7. `TowerDefenseComponent` führt Action aus
 
 ---
 
@@ -68,41 +69,36 @@ Das Bot System ist ein professionelles, erweiterbares Framework für automatisie
 
 ```
 src/app/ai/training/
+├── index.ts                         # Module Exports
+├── training-client.service.ts       # WebSocket Training Client
+│
 ├── bots/
-│   ├── tower-bot.interface.ts        # ITowerBot Interface
-│   ├── base-tower-bot.ts             # Abstract Base Bot
-│   ├── strategy-bot.ts               # Strategy-Based Bot
-│   └── strategy-bot.factory.ts       # Factory für Skill Levels
+│   ├── index.ts                     # Bot Exports
+│   ├── tower-bot.interface.ts       # ITowerBot, TowerAction, BotConfig, BOT_CONFIGS
+│   ├── base-tower-bot.ts            # Abstract Base Bot
+│   ├── strategy-bot.ts              # Strategy-Based Bot
+│   └── strategy-bot.factory.ts      # Factory für Skill Levels
 │
 ├── strategies/
-│   ├── tower-strategy.interface.ts   # ITowerStrategy Interface
+│   ├── tower-strategy.interface.ts  # ITowerStrategy, BaseStrategy
 │   │
-│   ├── placement/                    # Placement Strategies
+│   ├── placement/                   # Placement Strategies
 │   │   ├── anti-air-placement.strategy.ts
 │   │   ├── splash-defense-placement.strategy.ts
 │   │   ├── coverage-fill.strategy.ts
-│   │   ├── distributed-placement.strategy.ts
-│   │   └── economic-tower-placement.strategy.ts
+│   │   └── distributed-placement.strategy.ts
 │   │
-│   ├── upgrade/                      # Upgrade Strategies
-│   │   ├── near-spawn-upgrade.strategy.ts
-│   │   └── cost-effective-upgrade.strategy.ts
+│   ├── upgrade/                     # Upgrade Strategies
+│   │   └── near-spawn-upgrade.strategy.ts
 │   │
-│   ├── economy/                      # Economy Strategies
-│   │   ├── save-for-expensive.strategy.ts
-│   │   └── spend-aggressively.strategy.ts
-│   │
-│   └── wave/                         # Wave Control Strategies
+│   └── wave/                        # Wave Control Strategies
 │       └── auto-start-wave.strategy.ts
 │
-├── models/
-│   ├── tower-action.ts               # TowerAction Type
-│   └── bot-config.ts                 # Bot Configurations
-│
-└── core/
-    ├── game-state-snapshot.ts        # Game State Capture
-    └── ai-data-collector.service.ts  # State Collection
+└── components/                      # (leer, reserviert)
 ```
+
+**Hinweis:** `TowerAction`, `BotConfig` und `BOT_CONFIGS` befinden sich alle in `bots/tower-bot.interface.ts`.
+`GameStateSnapshot` befindet sich in `src/app/ai/core/models/game-state-snapshot.ts`.
 
 ---
 
@@ -112,20 +108,26 @@ src/app/ai/training/
 
 ```typescript
 export interface ITowerBot {
-  /** Bot name for logging */
+  /** Bot configuration */
+  readonly config: BotConfig;
+
+  /** Bot name for display */
   readonly name: string;
 
-  /** Skill level */
-  readonly skillLevel: BotSkillLevel;
-
   /**
-   * Decide next action based on current game state
+   * Get next action based on game state
    * Called every frame by TowerDefenseComponent
+   *
+   * @param state Current game state snapshot
+   * @param deltaTime Time since last update (ms)
    */
-  decideAction(state: GameStateSnapshot): TowerAction | null;
+  update(state: GameStateSnapshot, deltaTime: number): TowerAction | null;
 
   /** Reset bot state (new game) */
   reset(): void;
+
+  /** Notify bot of wave completion (for learning bots) */
+  onWaveCompleted?(survived: boolean, damagePercent: number): void;
 }
 
 export type BotSkillLevel = 'beginner' | 'casual' | 'strategist' | 'meta';
@@ -158,37 +160,42 @@ export interface ITowerStrategy {
 ### TowerAction
 
 ```typescript
-export type TowerAction =
-  | PlaceTowerAction
-  | UpgradeTowerAction
-  | StartWaveAction
-  | WaitAction;
+export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave';
 
-interface PlaceTowerAction {
-  type: 'place';
-  position: { x: number; z: number };  // World coordinates
-  towerType: TowerTypeId;
-  confidence: number;                   // 0-1
-  reason: string;
+export interface TowerAction {
+  type: TowerActionType;
+
+  /** For 'place': Where to place the tower */
+  position?: { x: number; z: number };
+
+  /** For 'place': What tower type to build */
+  towerType?: TowerTypeId;
+
+  /** For 'upgrade' and 'sell': Which tower to act on */
+  towerId?: string;
+
+  /** For 'upgrade': Which upgrade to apply */
+  upgradeId?: string;
+
+  /** Confidence in this action (0-1) */
+  confidence?: number;
+
+  /** Human-readable reason for this action */
+  reason?: string;
 }
+```
 
-interface UpgradeTowerAction {
-  type: 'upgrade';
-  towerId: number;
-  upgradeId: UpgradeId;
-  confidence: number;
-  reason: string;
-}
+### BotConfig
 
-interface StartWaveAction {
-  type: 'start-wave';
-  confidence: number;
-  reason: string;
-}
-
-interface WaitAction {
-  type: 'wait';
-  reason: string;
+```typescript
+export interface BotConfig {
+  skillLevel: BotSkillLevel;
+  reactionTimeMs: number;
+  mistakeRate: number;              // 0-1, probability of suboptimal action
+  knownTowerTypes: TowerTypeId[];
+  adaptsToEnemies: boolean;
+  plansAhead: boolean;
+  maxTowers: number;                // 0 = unlimited
 }
 ```
 
@@ -196,19 +203,25 @@ interface WaitAction {
 
 ```typescript
 export interface GameStateSnapshot {
+  timestamp: number;
   waveNumber: number;
   gameTimeSeconds: number;
+  phase: GamePhase;
 
   player: {
     credits: number;
+    lives: number;
+    maxLives: number;
     livesPercent: number;  // 0-1
   };
 
   defense: {
     towerCount: number;
     totalDPS: number;
-    pathCoverage: number;           // 0-1
+    antiAirDPS: number;
     avgTowerLevel: number;
+    pathCoverage: number;           // 0-1
+    defenseReachPercent: number;    // 0-1
     killZoneStrength: number;       // 0-1
     towerVariety: number;           // 0-1
 
@@ -217,12 +230,13 @@ export interface GameStateSnapshot {
       hasSplash: boolean;
       hasSlow: boolean;
       hasDoT: boolean;
-      hasSniper: boolean;
     };
 
-    towerDistribution: Record<TowerTypeId, {
+    towerDistribution: Record<string, {
       count: number;
       avgLevel: number;
+      totalDamage: number;
+      totalDPS: number;
     }>;
   };
 
@@ -235,11 +249,16 @@ export interface GameStateSnapshot {
   };
 
   recentHistory: {
-    damagePerWave: number[];        // Last N waves
+    damagePerWave: number[];
+    progressPerWave: number[];
+    enemyTypesUsed: string[][];
     lastWaveThreat: number;
+    avgWaveDuration: number;
     winStreak: number;
     closeCallStreak: number;
   };
+
+  dpsProfile: PathDPSProfile;
 }
 ```
 
@@ -260,17 +279,19 @@ export class StrategyBot extends BaseTowerBot {
     strategies: ITowerStrategy[],
     name?: string
   ) {
-    super(skillLevel, name || `Strategy${skillLevel}Bot`);
+    super(skillLevel, name || `Strategy${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`);
 
     // Sort strategies by priority (highest first)
     this.strategies = strategies.sort((a, b) => b.priority - a.priority);
 
-    console.log(`[${this.name}] Initialized with ${strategies.length} strategies:`,
+    console.log(`[Bot] Initialized with ${strategies.length} strategies:`,
       strategies.map(s => `${s.name}(${s.priority})`).join(', ')
     );
   }
 
   protected decideAction(state: GameStateSnapshot): TowerAction | null {
+    let pendingWait: TowerAction | null = null;
+
     // Iterate through strategies in priority order
     for (const strategy of this.strategies) {
       if (!strategy.canExecute(state)) {
@@ -280,10 +301,21 @@ export class StrategyBot extends BaseTowerBot {
       const action = strategy.execute(state);
 
       if (action) {
-        console.log(`[${this.name}] 📋 ${strategy.name} → ${action.type}`,
-          action.reason || '');
+        if (action.type === 'wait') {
+          // Store first wait as fallback, but don't block lower-priority strategies
+          if (!pendingWait) pendingWait = action;
+          continue;
+        }
+
+        this.notifyStrategies('onActionExecuted', action);
+        console.log(`[Bot] ${strategy.name} → ${action.type}`, action.reason || '');
         return action;
       }
+    }
+
+    // Return best wait action if no concrete action was found
+    if (pendingWait) {
+      return pendingWait;
     }
 
     return { type: 'wait', reason: 'No applicable strategy' };
@@ -298,9 +330,11 @@ export class StrategyBot extends BaseTowerBot {
 
 **Features:**
 - ✅ Priority-based execution
-- ✅ Early exit on first applicable strategy
+- ✅ `wait`-Actions als Fallback (blockieren niedrigere Strategien nicht)
+- ✅ `notifyStrategies()` benachrichtigt alle Strategien bei konkreten Actions
 - ✅ Runtime strategy modification
 - ✅ Detailed logging
+- ✅ `makeSuboptimalAction()` Override für Fehler-Simulation
 
 ### BaseTowerBot
 
@@ -308,33 +342,58 @@ export class StrategyBot extends BaseTowerBot {
 
 ```typescript
 export abstract class BaseTowerBot implements ITowerBot {
-  constructor(
-    public readonly skillLevel: BotSkillLevel,
-    public readonly name: string
-  ) {}
+  readonly config: BotConfig;
+  readonly name: string;
 
-  abstract decideAction(state: GameStateSnapshot): TowerAction | null;
+  protected lastActionTime = 0;
+  protected totalGoldSpent = 0;
+  protected towersBuilt = 0;
+
+  constructor(skillLevel: BotSkillLevel, name?: string) {
+    this.config = { ...BOT_CONFIGS[skillLevel] };
+    this.name = name ?? `${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`;
+  }
+
+  /**
+   * Main update method - handles timing, delegates to subclass, applies mistakes
+   */
+  update(state: GameStateSnapshot, _deltaTime: number): TowerAction | null {
+    const now = Date.now();
+
+    // Check cooldown (reactionTimeMs)
+    if (now - this.lastActionTime < this.config.reactionTimeMs) {
+      return null;
+    }
+
+    let action = this.decideAction(state);
+
+    // Maybe make a mistake (mistakeRate)
+    if (action && Math.random() < this.config.mistakeRate) {
+      action = this.makeSuboptimalAction(state, action);
+    }
+
+    // Record action time
+    if (action) {
+      this.lastActionTime = now;
+      // Track gold spent for place actions
+    }
+
+    return action;
+  }
+
+  protected abstract decideAction(state: GameStateSnapshot): TowerAction | null;
 
   reset(): void {
-    // Override in subclass if needed
+    this.lastActionTime = 0;
+    this.totalGoldSpent = 0;
+    this.towersBuilt = 0;
   }
 
   // Helper methods
-  protected getAffordableTowers(
-    credits: number,
-    knownTypes: TowerTypeId[]
-  ): TowerTypeId[] {
-    return knownTypes.filter(typeId => {
-      const config = TOWER_TYPES[typeId];
-      return config && config.cost <= credits;
-    });
-  }
-
-  protected getTowerValue(towerType: TowerTypeId): number {
-    const config = TOWER_TYPES[towerType];
-    const dps = config.damage * config.fireRate;
-    return dps / config.cost;  // DPS per Credit
-  }
+  protected getCheapestAffordableTower(credits: number): TowerTypeId | null { ... }
+  protected getBestTowerForSituation(state: GameStateSnapshot, credits: number): TowerTypeId | null { ... }
+  protected getBestValueTower(typeIds: TowerTypeId[]): TowerTypeId { ... }
+  protected getRandomPlacementPosition(): { x: number; z: number } { ... }
 }
 ```
 
@@ -346,7 +405,8 @@ export abstract class BaseTowerBot implements ITowerBot {
 export class StrategyBotFactory {
   constructor(
     private strategicPlacement: StrategicPlacementService,
-    private gameState: GameStateManager
+    private gameState: GameStateManager,
+    private osmService: OsmStreetService
   ) {}
 
   createBot(
@@ -413,6 +473,8 @@ export class StrategyBotFactory {
 }
 ```
 
+**Hinweis:** `NearSpawnUpgradeStrategy` erhält `(gameState, osmService)` als Parameter.
+
 ---
 
 ## Strategies
@@ -435,9 +497,11 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
 
   canExecute(state: GameStateSnapshot): boolean {
     // Only execute if:
-    // 1. Air defense gap exists
-    // 2. Wave number > 3 (air enemies appear later)
-    // 3. Can afford anti-air tower
+    // 1. Tower count below maxTowers
+    // 2. Air defense gap exists
+    // 3. Wave number > 3 (air enemies appear later)
+    // 4. Can afford anti-air tower
+    if (this.config.maxTowers > 0 && state.defense.towerCount >= this.config.maxTowers) return false;
     if (!state.vulnerabilities.airDefenseGap) return false;
     if (state.waveNumber < 4) return false;
 
@@ -452,6 +516,9 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
     // 1. Find best anti-air tower
     const affordable = this.getAffordableTowers(...);
     const antiAirTowers = affordable.filter(t => TOWER_TYPES[t].canTargetAir);
+
+    if (antiAirTowers.length === 0) return null;
+
     const bestTower = antiAirTowers.reduce((best, current) => {
       return this.getTowerValue(current) > this.getTowerValue(best)
         ? current : best;
@@ -461,7 +528,8 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
     const candidates = this.strategicPlacement.findStrategicPositions(
-      spawnPoints, paths, TOWER_TYPES[bestTower].range, ...
+      spawnPoints, paths, TOWER_TYPES[bestTower].range,
+      this.gameState.towerManager.getAll()
     );
 
     // 3. Find first valid position
@@ -487,7 +555,7 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
 ```
 
 **Priority:** 90 (High)
-**Triggers:** Air defense gap + Wave 4+ + Affordable anti-air tower
+**Triggers:** Air defense gap + Wave 4+ + Affordable anti-air tower + Below maxTowers
 **Action:** Place rocket/sniper at strategic position
 
 #### SplashDefensePlacementStrategy
@@ -495,8 +563,8 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
 **Purpose:** Place splash damage towers when splash gap exists.
 
 **Priority:** 85 (High)
-**Triggers:** Splash gap + Affordable splash tower
-**Action:** Place cannon at strategic position
+**Triggers:** Splash gap + Wave 3+ + Affordable splash tower + Below maxTowers
+**Action:** Place cannon/rocket at strategic position
 
 #### DistributedPlacementStrategy
 
@@ -504,6 +572,8 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
 
 ```typescript
 export class DistributedPlacementStrategy extends BaseStrategy {
+  private savingForType: TowerTypeId | null = null;
+
   constructor(
     private strategicPlacement: StrategicPlacementService,
     private gameState: GameStateManager,
@@ -513,20 +583,29 @@ export class DistributedPlacementStrategy extends BaseStrategy {
   }
 
   canExecute(state: GameStateSnapshot): boolean {
-    return state.player.credits >= 20
-      && (this.config.maxTowers <= 0 || state.defense.towerCount < this.config.maxTowers);
+    const notMaxed = this.config.maxTowers <= 0 || state.defense.towerCount < this.config.maxTowers;
+    if (!notMaxed) return false;
+
+    // Stay active while saving for a type
+    if (this.savingForType) return true;
+
+    return state.player.credits >= 20;
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
-    // 1. Choose tower type (variety-first, then reinforce least-represented)
-    const towerType = this.chooseTowerType(state);
+    // 1. Saving-Logik: wartet auf teure Tower-Typen
+    // 2. First 2 towers: cheapest (bootstrap defense)
+    // 3. New type available? Build it (variety first)
+    // 4. Missing types too expensive? 30% save, 70% reinforce
+    // 5. All types placed: reinforce least-represented
+    // 6. Archer limit: max 4, then force alternatives
 
-    // 2. Use zone-based distributed positions
+    // Uses findDistributedPositions() for zone-based placement
     const candidates = this.strategicPlacement.findDistributedPositions(
-      spawnPoints, paths, towerRange, existingTowers, 5 /* zones */
+      spawnPoints, paths, towerRange, existingTowers
     );
 
-    // 3. Validate and place at best candidate
+    // Validate and place at best candidate
     for (const candidate of candidates) {
       if (validation.valid) {
         return { type: 'place', position, towerType, confidence: 0.8, reason };
@@ -534,19 +613,22 @@ export class DistributedPlacementStrategy extends BaseStrategy {
     }
     return null;
   }
+
+  onReset(): void {
+    this.savingForType = null;
+  }
 }
 ```
 
 **Priority:** 65 (Medium-High)
-**Triggers:** Credits >= 20 + Tower count below max
+**Triggers:** Credits >= 20 + Tower count below max (oder aktiv beim Sparen)
 **Action:** Place tower in under-defended path zone
-**Scoring:** 50% zone-need + 30% path-coverage + 20% street-distance
+**Archer Limit:** Max 4 Archer-Tower, danach Alternativen erzwungen
 
 **Zone Algorithm:**
-1. Path divided into 5 equal-length zones
-2. Each candidate scored by how many towers already exist in its zone
-3. Under-defended zones get higher scores
-4. Ensures towers spread across 60%+ of the path
+1. `findDistributedPositions()` verteilt Kandidaten über die gesamte Pfadlänge
+2. Under-defended zones get higher scores
+3. Ensures towers spread across entire path (not just near spawn)
 
 **Used by:** Strategist bot (AI training) - replaces CoverageFillStrategy
 
@@ -554,53 +636,50 @@ export class DistributedPlacementStrategy extends BaseStrategy {
 
 #### CoverageFillStrategy
 
-**Purpose:** Fill gaps in path coverage with cheap towers.
+**Purpose:** Fill gaps in path coverage, prioritize tower variety.
 
 ```typescript
 export class CoverageFillStrategy extends BaseStrategy {
-  constructor(...) {
+  private savingForType: TowerTypeId | null = null;
+
+  constructor(
+    private strategicPlacement: StrategicPlacementService,
+    private gameState: GameStateManager,
+    private config: BotConfig
+  ) {
     super('CoverageFill', 60);  // Medium priority
   }
 
   canExecute(state: GameStateSnapshot): boolean {
-    return state.defense.pathCoverage < 0.7
-      && state.defense.towerCount >= 2
-      && state.player.credits >= 20;
+    const notMaxed = this.config.maxTowers <= 0 || state.defense.towerCount < this.config.maxTowers;
+    if (!notMaxed) return false;
+
+    // Stay active while saving for a type
+    if (this.savingForType) return true;
+
+    return state.player.credits >= 20;
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
-    // Find cheapest affordable tower
-    const affordable = this.getAffordableTowers(...);
-    const cheapest = affordable.reduce((best, current) => {
-      return TOWER_TYPES[current].cost < TOWER_TYPES[best].cost
-        ? current : best;
-    });
+    // 1. Saving-Logik: wartet auf teure Tower-Typen
+    // 2. First tower: cheapest to get started
+    // 3. New type available? Build it (variety)
+    // 4. Missing types too expensive? 50% save, 50% reinforce
+    // 5. All types placed: reinforce least-represented
 
-    // Get candidates and find gap
-    const candidates = this.strategicPlacement.findStrategicPositions(...);
+    // Uses findStrategicPositions() for placement
+    ...
+  }
 
-    for (const candidate of candidates) {
-      const validation = this.gameState.towerManager.validatePosition(...);
-
-      if (validation.valid) {
-        return {
-          type: 'place',
-          position: { x: candidate.position.lon, z: candidate.position.lat },
-          towerType: cheapest,
-          confidence: 0.7,
-          reason: `Filling coverage gap - ${candidate.reason}`
-        };
-      }
-    }
-
-    return null;
+  onReset(): void {
+    this.savingForType = null;
   }
 }
 ```
 
 **Priority:** 60 (Medium)
-**Triggers:** Coverage < 70% + 2+ towers + 20+ credits
-**Action:** Place cheapest tower in gap
+**Triggers:** Credits >= 20 + Below maxTowers (oder aktiv beim Sparen)
+**Action:** Place tower with variety/reinforce logic
 
 ### Upgrade Strategies
 
@@ -610,13 +689,28 @@ export class CoverageFillStrategy extends BaseStrategy {
 
 ```typescript
 export class NearSpawnUpgradeStrategy extends BaseStrategy {
-  constructor(private gameState: GameStateManager) {
+  constructor(
+    private gameState: GameStateManager,
+    private osmService: OsmStreetService
+  ) {
     super('NearSpawnUpgrade', 75);  // Medium-High priority
   }
 
   canExecute(state: GameStateSnapshot): boolean {
-    return state.defense.towerCount >= 3
-      && state.player.credits >= 50;
+    if (state.defense.towerCount < 3 || state.player.credits < 50) return false;
+
+    // ~33% chance to fire (gives build/save strategies room)
+    if (Math.random() > 0.33) return false;
+
+    // Check if any tower actually has affordable upgrades (dynamic cost)
+    const towers = this.gameState.towerManager.getAll();
+    for (const tower of towers) {
+      const upgrades = tower.getAvailableUpgrades();
+      if (upgrades.some(u => tower.getNextUpgradeCost(u.id) <= state.player.credits)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
@@ -628,15 +722,12 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
       t.getAvailableUpgrades().length > 0
     );
 
-    if (upgradeableTowers.length === 0) {
-      console.log(`[Bot] No upgradeable towers (all ${towers.length} at max)`);
-      return null;
-    }
+    if (upgradeableTowers.length === 0) return null;
 
-    // Sort by distance to nearest spawn
+    // Sort by distance to nearest spawn (using osmService.haversineDistance)
     const towersWithDistance = upgradeableTowers.map(tower => {
       const minDist = Math.min(...spawnPoints.map(spawn => {
-        return this.gameState.osmService.haversineDistance(
+        return this.osmService.haversineDistance(
           tower.position.lat, tower.position.lon,
           spawn.lat, spawn.lon
         );
@@ -649,15 +740,11 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
     // Try to upgrade closest tower
     const closest = towersWithDistance[0].tower;
     const upgrades = closest.getAvailableUpgrades();
-    const affordable = upgrades.filter(u => u.cost <= state.player.credits);
+    const affordable = upgrades.filter(u =>
+      closest.getNextUpgradeCost(u.id) <= state.player.credits
+    );
 
-    if (affordable.length === 0) {
-      const cheapest = upgrades.length > 0
-        ? Math.min(...upgrades.map(u => u.cost))
-        : 0;
-      console.log(`[Bot] No affordable upgrades (${state.player.credits} credits, cheapest: ${cheapest})`);
-      return null;
-    }
+    if (affordable.length === 0) return null;
 
     // Pick random affordable upgrade (variety for training)
     const upgrade = affordable[Math.floor(Math.random() * affordable.length)];
@@ -674,8 +761,9 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
 ```
 
 **Priority:** 75 (Medium-High)
-**Triggers:** 3+ towers + 50+ credits
+**Triggers:** 3+ towers + 50+ credits + ~33% Chance + bezahlbares Upgrade vorhanden
 **Action:** Upgrade tower closest to spawn
+**Upgrade-Kosten:** Dynamisch via `tower.getNextUpgradeCost(upgradeId)`
 
 ### Wave Strategies
 
@@ -686,7 +774,9 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
 ```typescript
 export class AutoStartWaveStrategy extends BaseStrategy {
   private lastActionTime = 0;
-  private readonly WAVE_START_DELAY = 1000;  // 1 second
+  private setupPhaseStartTime = 0;
+  private readonly WAVE_START_DELAY = 1000;   // 1 second
+  private readonly MAX_SETUP_WAIT = 5000;     // Max 5 seconds in setup phase
 
   constructor(private autoMode: boolean) {
     super('AutoStartWave', 30);  // Low priority
@@ -694,19 +784,33 @@ export class AutoStartWaveStrategy extends BaseStrategy {
 
   canExecute(state: GameStateSnapshot): boolean {
     if (!this.autoMode) return false;
+    if (state.phase !== 'setup') return false;
 
-    // Need minimal defense
-    const minTowers = state.waveNumber < 3 ? 2 : 1;
-    if (state.defense.towerCount < minTowers) return false;
+    // Need at least 1 tower
+    if (state.defense.towerCount === 0) return false;
+
+    const now = Date.now();
+
+    // Track setup phase start time
+    if (this.setupPhaseStartTime === 0) {
+      this.setupPhaseStartTime = now;
+    }
+
+    // Force start wave if setup takes too long
+    if (now - this.setupPhaseStartTime > this.MAX_SETUP_WAIT) return true;
+
+    // Prefer 2+ towers for early waves if credits available
+    if (state.waveNumber < 3 && state.defense.towerCount < 2
+        && state.player.credits >= 20) return false;
 
     // Check cooldown
-    const now = Date.now();
     if (now - this.lastActionTime < this.WAVE_START_DELAY) return false;
 
     return true;
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
+    this.setupPhaseStartTime = 0; // Reset setup timer
     return {
       type: 'start-wave',
       confidence: 0.9,
@@ -714,14 +818,22 @@ export class AutoStartWaveStrategy extends BaseStrategy {
     };
   }
 
+  /** Called by bot when ANY action is executed */
   onActionExecuted(): void {
     this.lastActionTime = Date.now();
+  }
+
+  /** Called on game reset */
+  onReset(): void {
+    this.lastActionTime = 0;
+    this.setupPhaseStartTime = 0;
   }
 }
 ```
 
 **Priority:** 30 (Low) - Only after other strategies can't execute
-**Triggers:** Auto-mode + Minimal defense + Cooldown passed
+**Triggers:** Auto-mode + Setup-Phase + Minimal defense + Cooldown passed
+**Force-Start:** Nach 5 Sekunden in Setup-Phase wird Wave erzwungen
 **Action:** Start next wave
 
 ---
@@ -733,35 +845,43 @@ export class AutoStartWaveStrategy extends BaseStrategy {
 ```typescript
 export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
   beginner: {
-    knownTowerTypes: ['archer', 'cannon'],           // Limited types
-    reactionTimeMs: 2000,                            // Slow
-    maxActionsPerSecond: 0.3,                        // ~1 action per 3 seconds
-    confidenceThreshold: 0.5,                        // Low bar
-    upgradeFrequency: 0.1,                           // Rarely upgrades
+    skillLevel: 'beginner',
+    reactionTimeMs: 3000,                            // Slow
+    mistakeRate: 0.4,                                // Viele Fehler
+    knownTowerTypes: ['archer', 'cannon'],            // Limited types
+    adaptsToEnemies: false,
+    plansAhead: false,
+    maxTowers: 10,
   },
 
   casual: {
-    knownTowerTypes: ['archer', 'cannon', 'magic', 'sniper'],
+    skillLevel: 'casual',
     reactionTimeMs: 1500,
-    maxActionsPerSecond: 0.5,                        // ~1 action per 2 seconds
-    confidenceThreshold: 0.6,
-    upgradeFrequency: 0.3,
+    mistakeRate: 0.2,
+    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling'],
+    adaptsToEnemies: true,
+    plansAhead: false,
+    maxTowers: 15,
   },
 
   strategist: {
-    knownTowerTypes: ['archer', 'cannon', 'magic', 'sniper', 'dual-gatling', 'rocket'],
-    reactionTimeMs: 1000,
-    maxActionsPerSecond: 0.7,
-    confidenceThreshold: 0.7,
-    upgradeFrequency: 0.5,
+    skillLevel: 'strategist',
+    reactionTimeMs: 800,
+    mistakeRate: 0.05,
+    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic'],
+    adaptsToEnemies: true,
+    plansAhead: true,
+    maxTowers: 50,
   },
 
   meta: {
-    knownTowerTypes: ALL_TOWER_TYPES,
-    reactionTimeMs: 500,                             // Fast
-    maxActionsPerSecond: 1.0,                        // 1 action per second
-    confidenceThreshold: 0.8,                        // High standards
-    upgradeFrequency: 0.7,                           // Frequent upgrades
+    skillLevel: 'meta',
+    reactionTimeMs: 400,                             // Fast
+    mistakeRate: 0.01,                               // Fast keine Fehler
+    knownTowerTypes: ['archer', 'cannon', 'ice', 'dual-gatling', 'magic', 'rocket'],
+    adaptsToEnemies: true,
+    plansAhead: true,
+    maxTowers: 0,                                    // Unlimited
   }
 };
 ```
@@ -774,8 +894,8 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
 |----------------|-------|----------|
 | 90-100 | **Critical** - Must execute ASAP | Air defense gaps, Game-losing scenarios |
 | 75-89 | **High** - Important but not critical | Splash defense, Key upgrades |
-| 50-74 | **Medium** - Standard operations | Coverage fill, Economic towers |
-| 25-49 | **Low** - Nice to have | Economy optimization, Wave start |
+| 50-74 | **Medium** - Standard operations | Coverage fill, Distributed placement |
+| 25-49 | **Low** - Nice to have | Wave start |
 | 0-24 | **Very Low** - Last resort | Fallback strategies, Default actions |
 
 ---
@@ -802,10 +922,11 @@ export class TowerDefenseComponent implements OnInit {
   });
 
   ngOnInit() {
-    // Initialize factory
+    // Initialize factory (requires 3 dependencies)
     this.botFactory = new StrategyBotFactory(
       this.strategicPlacement,
-      this.gameState
+      this.gameState,
+      this.osmService
     );
 
     // Enable bot if training mode active
@@ -837,8 +958,8 @@ private updateBotBehavior(deltaTime: number): void {
   // Get current game state
   const state = this.captureGameState();
 
-  // Bot decides action
-  const action = this.currentBot.decideAction(state);
+  // Bot decides action (update handles cooldown + mistakes internally)
+  const action = this.currentBot.update(state, deltaTime);
 
   if (action) {
     this.executeBotAction(action);
@@ -851,7 +972,7 @@ private executeBotAction(action: TowerAction): void {
       // Validate affordable
       const towerCost = TOWER_TYPES[action.towerType]?.cost;
       if (!towerCost || this.gameState.credits() < towerCost) {
-        console.warn(`[Bot] ⛔ Cannot afford tower: ${towerCost}`);
+        console.warn(`[Bot] Cannot afford tower: ${towerCost}`);
         break;
       }
 
@@ -865,55 +986,16 @@ private executeBotAction(action: TowerAction): void {
         goldSpent: stats.goldSpent + towerCost,
         actionsPerformed: stats.actionsPerformed + 1
       }));
-
-      console.log(`[Bot] ✅ Placed ${action.towerType} at (${action.position.x.toFixed(1)}, ${action.position.z.toFixed(1)})`);
       break;
 
     case 'upgrade':
-      // Find tower
-      const tower = this.gameState.towerManager.getTower(action.towerId);
-      if (!tower) {
-        console.warn(`[Bot] ⛔ Tower not found: ${action.towerId}`);
-        break;
-      }
-
-      // Find upgrade
-      const upgrade = tower.typeConfig.upgrades.find(u => u.id === action.upgradeId);
-      if (!upgrade) {
-        console.warn(`[Bot] ⛔ Upgrade not found: ${action.upgradeId}`);
-        break;
-      }
-
-      // Validate can upgrade
-      if (!tower.canUpgrade(action.upgradeId as UpgradeId)) {
-        console.warn(`[Bot] ⛔ Upgrade at max level`);
-        break;
-      }
-
-      // Validate affordable
-      if (this.gameState.credits() < upgrade.cost) {
-        console.warn(`[Bot] ⛔ Cannot afford upgrade: ${upgrade.cost}`);
-        break;
-      }
-
-      // Execute upgrade
-      const success = this.upgradeTower(tower, action.upgradeId as UpgradeId);
-
-      if (success) {
-        console.log(`[Bot] ✅ Upgraded ${tower.typeConfig.name} with ${upgrade.name}`);
-        this.botStats.update(stats => ({
-          ...stats,
-          upgradesPerformed: stats.upgradesPerformed + 1,
-          goldSpent: stats.goldSpent + upgrade.cost,
-          actionsPerformed: stats.actionsPerformed + 1
-        }));
-      }
+      // Find tower and upgrade, validate, execute
+      ...
       break;
 
     case 'start-wave':
       // Engine prevents starting during active wave
       this.startNextWave();
-      console.log(`[Bot] ✅ Starting Wave ${this.gameState.waveNumber() + 1}`);
       break;
 
     case 'wait':
@@ -1016,7 +1098,7 @@ describe('StrategyBot', () => {
 
   it('should execute highest priority applicable strategy', () => {
     const state = createMockState({});
-    const action = bot.decideAction(state);
+    const action = bot.update(state, 16);
 
     expect(action).not.toBeNull();
     expect(action!.reason).toContain('High');  // High priority executed
@@ -1025,7 +1107,7 @@ describe('StrategyBot', () => {
   it('should skip strategies that cannot execute', () => {
     strategies[0].canExecute = () => false;  // High disabled
 
-    const action = bot.decideAction(state);
+    const action = bot.update(state, 16);
 
     expect(action!.reason).toContain('Low');  // Low priority executed
   });
@@ -1033,7 +1115,7 @@ describe('StrategyBot', () => {
   it('should return wait when no strategy can execute', () => {
     strategies.forEach(s => s.canExecute = () => false);
 
-    const action = bot.decideAction(state);
+    const action = bot.update(state, 16);
 
     expect(action!.type).toBe('wait');
   });
@@ -1048,7 +1130,7 @@ describe('StrategyBot', () => {
 
 1. **Single Responsibility**
    - One strategy = one decision concern
-   - Placement, Upgrade, Economy, Wave should be separate
+   - Placement, Upgrade, Wave should be separate
 
 2. **Clear canExecute()**
    - Fast checks only (no heavy computation)
@@ -1118,6 +1200,7 @@ describe('StrategyBot', () => {
 2. Enough credits? → Check console for "Cannot afford"
 3. Valid positions? → Check TowerPlacementService validation
 4. Strategy canExecute()? → Add logging
+5. Cooldown abgelaufen? → `reactionTimeMs` im BotConfig
 
 **Debug:**
 ```typescript
@@ -1133,8 +1216,9 @@ for (const candidate of candidates) {
 
 **Check:**
 1. Towers have available upgrades? → `tower.getAvailableUpgrades()`
-2. Enough credits? → Check upgrade cost
-3. Tower at max level? → `tower.canUpgrade()`
+2. Enough credits? → `tower.getNextUpgradeCost(upgradeId)` (dynamische Kosten)
+3. ~33% Chance getroffen? → `NearSpawnUpgradeStrategy` feuert nur mit ~33% Wahrscheinlichkeit
+4. 3+ Towers vorhanden? → Minimum Requirement
 
 **Solution:**
 - Added detailed logging in `NearSpawnUpgradeStrategy`
@@ -1143,24 +1227,10 @@ for (const candidate of candidates) {
 ### Bot Spam Starting Waves
 
 **Check:**
-1. AutoStartWaveStrategy has cooldown? → `WAVE_START_DELAY`
-2. Engine prevents starts during active wave? → ✅ Already handled
-
-**Fix:**
-```typescript
-// In AutoStartWaveStrategy
-private lastActionTime = 0;
-
-canExecute(state) {
-  const now = Date.now();
-  if (now - this.lastActionTime < 1000) return false;
-  // ...
-}
-
-onActionExecuted() {
-  this.lastActionTime = Date.now();
-}
-```
+1. AutoStartWaveStrategy has cooldown? → `WAVE_START_DELAY` (1s)
+2. Phase check? → Nur in `'setup'` Phase aktiv
+3. Max setup wait? → Nach 5s wird Wave erzwungen (`MAX_SETUP_WAIT`)
+4. Engine prevents starts during active wave? → Ja, bereits behandelt
 
 ### Bot Placing Towers on Buildings
 
@@ -1248,10 +1318,7 @@ onActionExecuted() {
 - ✅ Comprehensive validation
 
 ### Version 1.0 (2026-01-20) - SmartTowerBot
-- ❌ Deprecated: Monolithic bot implementation
-- ❌ Wave-start spam bug
-- ❌ Complex state tracking
-- ❌ Hard to extend
+- Deprecated: Monolithic bot implementation
 
 ---
 
@@ -1273,5 +1340,5 @@ onActionExecuted() {
 ---
 
 **Maintainer:** 3DTD Team
-**Last Updated:** 2026-01-24
+**Last Updated:** 2026-01-30
 **Status:** Production Ready ✅

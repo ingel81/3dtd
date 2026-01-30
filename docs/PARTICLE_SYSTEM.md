@@ -257,6 +257,13 @@ interface TrailParticleConfig {
 
   // Blending Mode: 'additive' (default) oder 'normal'
   blending?: 'additive' | 'normal';
+
+  // Trail Typ: 'default' (zufällige Streuung) oder 'spiral' (Railgun-Stil rotierend)
+  trailType?: 'default' | 'spiral';
+
+  // Spiral-spezifische Einstellungen (nur bei trailType === 'spiral')
+  spiralRadius?: number; // Abstand vom Zentrum (default: 1.0)
+  spiralSpeed?: number;  // Rotationen pro Sekunde (default: 3.0)
 }
 ```
 
@@ -324,6 +331,8 @@ Features:
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `three-effects.renderer.ts` | Haupt-Partikel-Renderer |
-| `projectile-types.config.ts` | Trail-Partikel Konfiguration |
-| `engine-test.component.ts` | Engine Test Sandbox |
+| `three-engine/renderers/three-effects.renderer.ts` | Haupt-Partikel-Renderer |
+| `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
+| `configs/visual-effects.config.ts` | Partikel-Limits, Explosion-Presets, Farben |
+| `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Projectile Impact) |
+| `components/engine-test/engine-test.component.ts` | Engine Test Sandbox |

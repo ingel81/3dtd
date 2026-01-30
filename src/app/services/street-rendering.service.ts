@@ -14,7 +14,7 @@ import { MarkerVisualizationService } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
 import { GeoPosition } from '../models/game.types';
 import { DevWorldService } from '../devworld/devworld.service';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 
 /**
  * Maximum distance between street points (in meters).
@@ -38,7 +38,7 @@ export class StreetRenderingService {
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly pathRoute = inject(PathAndRouteService);
   private readonly devWorld = inject(DevWorldService);
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
 
   /** Single merged mesh for all street segments */
   private streetLinesMesh: LineSegments | null = null;
@@ -245,7 +245,7 @@ export class StreetRenderingService {
    * Called from component event handler.
    */
   toggleVisibility(): void {
-    this.setVisibility(this.uiState.streetsVisible());
+    this.setVisibility(this.uiStore.streetsVisible());
   }
 
   /**

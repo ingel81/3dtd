@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-01-17
+**Stand:** 2026-01-30
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -30,7 +30,10 @@ Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
+  wallsmasher: { ... },
   bat: { ... },
+  penguin: { ... },
+  herbert: { ... },
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -61,8 +64,7 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
   // Stats
   baseHp: 150,
   baseSpeed: 5,    // m/s
-  damage: 15,      // Schaden an Basis
-  reward: 2,       // Credits bei Kill
+  reward: 2,       // Credits bei Kill (nur ohne AI - AI nutzt dynamische Reward-Berechnung)
 
   // Animation
   hasAnimations: true,
@@ -85,6 +87,9 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
 
   // Movement Variation
   lateralOffset: 2.0,     // ±2m seitlicher Versatz
+
+  // Preview (optional)
+  previewScale: 1.5,      // Überschreibt Scale für Model-Preview (Sidebar)
 },
 ```
 
@@ -344,26 +349,28 @@ Siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) für Details.
 zombie: {
   id: 'zombie',
   name: 'Zombie',
-  modelUrl: '/assets/models/enemies/zombie_01.glb',
-  scale: 2.0,
+  modelUrl: '/assets/models/enemies/zombie.glb',
+  scale: 0.984,
   minimumPixelSize: 0,
-  baseHp: 100,
+  baseHp: 80,
   baseSpeed: 5,
-  damage: 10,
-  reward: 1,
+  reward: 3,
   hasAnimations: true,
+  idleAnimation: 'Armature|Idle',
   walkAnimation: 'Armature|Walk',
   deathAnimation: 'Armature|Die',
-  animationSpeed: 2.0,
-  movingSound: '/assets/sounds/zombie-sound-2-357976.mp3',
+  animationSpeed: 4.11,
+  movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
   movingSoundVolume: 0.4,
   movingSoundRefDistance: 25,
-  heightOffset: 0,
-  healthBarOffset: 8,
+  heightOffset: 0.5,
+  healthBarOffset: 5.5,
   canBleed: true,
+  headingOffset: -0.349,
   randomAnimationStart: true,
   randomSoundStart: true,
   lateralOffset: 3.0,
+  previewScale: 1,
 },
 ```
 
@@ -372,20 +379,20 @@ zombie: {
 ```typescript
 bat: {
   id: 'bat',
-  name: 'Fledermaus',
-  modelUrl: '/assets/models/enemies/bat_new.glb',
-  scale: 7,
+  name: 'Bat',
+  modelUrl: '/assets/models/enemies/bat.glb',
+  scale: 3.958,
   minimumPixelSize: 0,
-  baseHp: 80,
+  baseHp: 25,
   baseSpeed: 8,
-  damage: 5,
-  reward: 3,
+  reward: 2,
   hasAnimations: true,
   walkAnimation: 'fly.001',
-  animationSpeed: 1.5,
+  animationSpeed: 2.79,
   heightOffset: 15,        // 15m Flughöhe
-  healthBarOffset: 4,
+  healthBarOffset: 3.5,
   canBleed: false,
+  headingOffset: 0,
   isAirUnit: true,         // Nur Air-Tower können angreifen
   heightVariation: 3,      // ±3m Variation
   lateralOffset: 2.0,
@@ -399,38 +406,67 @@ bat: {
 herbert: {
   id: 'herbert',
   name: 'Herbert',
-  modelUrl: '/assets/models/enemies/herbert_walking.glb',
-  scale: 4.0,
+  modelUrl: '/assets/models/enemies/herbert.glb',
+  scale: 2.625,
   minimumPixelSize: 0,
-  baseHp: 5000,            // Sehr hohe HP
+  baseHp: 500,
   baseSpeed: 4,
-  damage: 20,
-  reward: 8,
+  reward: 15,
   hasAnimations: true,
   walkAnimation: 'Armature|walking_man|baselayer',
   animationSpeed: 1.0,
 
   // Spawn Sound
-  spawnSound: '/assets/sounds/herbert_01.mp3',
+  spawnSound: '/assets/sounds/enemies/herbert/spawn.mp3',
   spawnSoundVolume: 0.6,
+  spawnSoundRefDistance: 40,
 
   // Random Sounds Pool (13 Voice Lines)
   randomSounds: [
-    '/assets/sounds/herbert_02.mp3',
+    '/assets/sounds/enemies/herbert/random-01.mp3',
     // ... 12 weitere
   ],
   randomSoundsMinInterval: 10000,
   randomSoundsMaxInterval: 25000,
   randomSoundsVolume: 0.6,
+  randomSoundsRefDistance: 40,
 
-  heightOffset: 0,
-  healthBarOffset: 12,
+  heightOffset: 0.5,
+  healthBarOffset: 7,
   healthBarColor: '#ef4444',  // Rote Boss-Bar
   bossName: 'Boss',
   immunityPercent: 100,       // "Immun 100%"
   canBleed: true,
+  headingOffset: -0.192,
   randomAnimationStart: true,
   lateralOffset: 2.0,
+},
+```
+
+### Unlit Enemy (Penguin)
+
+```typescript
+penguin: {
+  id: 'penguin',
+  name: 'Penguin',
+  modelUrl: '/assets/models/enemies/penguin.glb',
+  scale: 0.005,
+  minimumPixelSize: 0,
+  baseHp: 30,
+  baseSpeed: 9,
+  reward: 2,
+  hasAnimations: true,
+  walkAnimation: 'Walk',
+  deathAnimation: 'Fall',
+  animationSpeed: 5.6,
+  heightOffset: 0.5,
+  healthBarOffset: 4.5,
+  canBleed: false,
+  unlit: true,               // Cartoon-Style ohne Beleuchtung
+  headingOffset: 0,
+  randomAnimationStart: true,
+  lateralOffset: 2.5,
+  previewScale: 0.008,       // Eigener Scale für Sidebar-Preview
 },
 ```
 
@@ -440,29 +476,35 @@ herbert: {
 wallsmasher: {
   id: 'wallsmasher',
   name: 'Wallsmasher',
-  modelUrl: '/assets/models/enemies/wallsmasher_01.fbx',
-  scale: 0.05,
+  modelUrl: '/assets/models/enemies/wallsmasher.fbx',
+  scale: 0.037,
   minimumPixelSize: 0,
-  baseHp: 500,
+  baseHp: 200,
   baseSpeed: 7,
-  damage: 30,
-  reward: 20,
+  reward: 5,
   hasAnimations: true,
   walkAnimation: 'CharacterArmature|Walk',
   runAnimation: 'CharacterArmature|Run',
   deathAnimation: 'CharacterArmature|Death',
-  animationSpeed: 1.5,
+  animationSpeed: 1.31,
   animationVariation: true,    // Wechselt zwischen Walk/Run
   runSpeedMultiplier: 2.5,     // 2.5x Speed bei Run
 
-  spawnSound: '/assets/sounds/big_arm_spawn.mp3',
-  randomSound: '/assets/sounds/big_arm_01.mp3',
+  spawnSound: '/assets/sounds/enemies/wallsmasher/spawn.mp3',
+  spawnSoundVolume: 0.7,
+  spawnSoundRefDistance: 40,
+  randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
   randomSoundMinInterval: 8000,
   randomSoundMaxInterval: 25000,
+  randomSoundVolumeMin: 0.2,
+  randomSoundVolumeMax: 0.6,
+  randomSoundRefDistance: 35,
 
   heightOffset: 0,
-  healthBarOffset: 12,
+  healthBarOffset: 9,
   canBleed: true,
+  headingOffset: 0,
+  randomAnimationStart: true,
   lateralOffset: 2.0,
   spawnStartDelay: 500,
 },
@@ -483,6 +525,7 @@ wallsmasher: {
 - [ ] Bei Air Unit: `isAirUnit: true` gesetzt
 - [ ] Bei Run-Animation: `runSpeedMultiplier` gesetzt
 - [ ] Bei Boss: `healthBarColor`, `bossName`, `immunityPercent` gesetzt
+- [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 
 ---
 

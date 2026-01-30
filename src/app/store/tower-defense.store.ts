@@ -34,6 +34,7 @@ import { GameStore } from './game.store';
 import { LocationStore } from './location.store';
 import { UIStore } from './ui.store';
 import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
+import { EngineInitializationService } from '../services/engine-initialization.service';
 
 export * from './tower-defense.store.types';
 
@@ -47,6 +48,7 @@ export class TowerDefenseStore {
   private readonly uiStore = inject(UIStore);
   private readonly engineStore = inject(EngineStore);
   private readonly locationStore = inject(LocationStore);
+  private readonly engineInit = inject(EngineInitializationService);
 
   // ════════════════════════════════════════════════════════════
   // GAME STATE
@@ -86,21 +88,21 @@ export class TowerDefenseStore {
   // LOADING / INIT STATE
   // ════════════════════════════════════════════════════════════
 
-  /** Global loading flag */
-  readonly loading = this.engineStore.loading;
+  /** Global loading flag — owned by EngineInitializationService */
+  readonly loading = this.engineInit.loading;
 
   // NOTE: tilesLoading, osmLoading owned by EngineInitializationService;
   // heightsLoading, heightProgress owned by HeightUpdateService.
   // Component reads directly from those services (they are the signal owners).
 
-  /** Error message (null = no error) */
-  readonly error = this.engineStore.error;
+  /** Error message (null = no error) — owned by EngineInitializationService */
+  readonly error = this.engineInit.error;
 
-  /** Loading status string for progress UI */
-  readonly loadingStatus = this.engineStore.loadingStatus;
+  /** Loading status string for progress UI — owned by EngineInitializationService */
+  readonly loadingStatus = this.engineInit.loadingStatus;
 
-  /** Ordered loading steps */
-  readonly loadingSteps = this.engineStore.loadingSteps;
+  /** Ordered loading steps — owned by EngineInitializationService */
+  readonly loadingSteps = this.engineInit.loadingSteps;
 
   // ════════════════════════════════════════════════════════════
   // UI STATE (debug flags, layer toggles, menu state)
@@ -345,6 +347,7 @@ export class TowerDefenseStore {
     this.gameStore.resetAll();
     this.uiStore.resetAll();
     this.engineStore.resetAll();
+    this.engineInit.reset();
     this.locationStore.resetAll();
   }
 }

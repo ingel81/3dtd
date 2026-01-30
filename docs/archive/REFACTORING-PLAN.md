@@ -1,7 +1,8 @@
 # Refactoring-Plan: God Objects auflösen — ABGESCHLOSSEN ✅
 
 > **Branch:** `jarvis/refactor-god-objects`
-> **Status:** ✅ Alle Phasen abgeschlossen (Januar 2025)
+> **ARCHIVIERT** — Refactoring abgeschlossen. Aktuelle Architektur: siehe [ARCHITECTURE.md](../ARCHITECTURE.md).
+> **Status:** ✅ Alle Phasen abgeschlossen (Januar 2026)
 > **Ergebnis:** TowerDefenseStore ist Single Source of Truth. Component, Facades, AI lesen vom Store.
 
 ---
@@ -103,10 +104,10 @@ Component ──user input──> Facade.startWave()
 
 ## Verbleibendes (bewusst nicht geändert)
 
-### GameUIStateService koexistiert mit UIStore
-- **Grund:** 80+ Referenzen, Persistence-Logic (localStorage), Throttled-Stats-Pipeline
-- **Status:** Service behält Nische als Persistence-Layer + Toggle-Actions
-- **UIStore/EngineStore** spiegeln die gleichen Signals — GameUIStateService ist der Writer
+### ~~GameUIStateService koexistiert mit UIStore~~ — ENTFERNT
+- **GameUIStateService** wurde vollständig entfernt (30.01.2026)
+- **Persistence** (localStorage) lebt jetzt im UIStore-Konstruktor (Effect)
+- **Alle Services** lesen/schreiben direkt UIStore bzw. EngineStore
 
 ### Bridge hat 4 getter/setter + 4 Callbacks
 - **Grund:** Mutable Runtime-Objekte (ThreeTilesEngine, HTMLCanvasElement)

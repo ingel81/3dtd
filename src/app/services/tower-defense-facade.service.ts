@@ -68,7 +68,7 @@ export interface FacadeComponentBridge {
  * - LocationFacadeService: Location detection, DevWorld, spawns, streets
  * - VisualizationFacadeService: Rendering, camera, DPS viz, height updates
  */
-@Injectable({ providedIn: 'root' })
+@Injectable()
 export class TowerDefenseFacadeService {
   // Store — single source of truth for UI state
   private readonly store = inject(TowerDefenseStore);
@@ -380,6 +380,26 @@ export class TowerDefenseFacadeService {
   /** Add a spawn point. */
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void {
     this.locationFacade.addSpawnPoint(id, name, lat, lon, color);
+  }
+
+  /** Toggle street rendering visibility. */
+  onStreetsToggled(): void {
+    this.vizFacade.onStreetsToggled();
+  }
+
+  /** Toggle route lines visibility. */
+  onRoutesToggled(): void {
+    this.vizFacade.onRoutesToggled();
+  }
+
+  /** Toggle special points debug. */
+  onSpecialPointsDebugToggled(): void {
+    this.vizFacade.onSpecialPointsDebugToggled();
+  }
+
+  /** Play route animation. */
+  onPlayRouteAnimation(): void {
+    this.vizFacade.onPlayRouteAnimation();
   }
 
   /** Toggle DPS profile bins visualization. */

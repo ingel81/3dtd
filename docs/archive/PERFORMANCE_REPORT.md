@@ -1,6 +1,8 @@
 # Performance-Bericht & Optimierungs-Maßnahmenkatalog
 # 3DTD Tower Defense Game
 
+> **ARCHIVIERT** — Historische Analyse. Viele Optimierungen wurden implementiert.
+>
 > Erstellt: 2026-01-18
 > Analysiert von: 16-köpfiges Expertenteam (3D-Grafik, Game Engines, WebGL, Three.js, TypeScript, Angular, Shader-Optimierung, AAA Graphics, Chrome Performance, Audio Systems)
 

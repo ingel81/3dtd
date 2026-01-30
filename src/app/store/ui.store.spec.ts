@@ -5,6 +5,7 @@ describe('UIStore', () => {
   let store: UIStore;
 
   beforeEach(() => {
+    localStorage.removeItem('td-ui-state');
     store = new UIStore();
   });
 

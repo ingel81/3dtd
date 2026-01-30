@@ -15,7 +15,7 @@ import {
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { HQDamageService } from './hq-damage.service';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -49,7 +49,7 @@ export class MarkerVisualizationService {
   // ========================================
 
   private readonly hqDamage = inject(HQDamageService);
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
 
   // ========================================
   // STATE
@@ -70,7 +70,7 @@ export class MarkerVisualizationService {
   /** Base coordinates for relative height calculations */
   private baseCoords: GeoPosition | null = null;
 
-  /** Height debug visibility state (from GameUIStateService) */
+  /** Height debug visibility state (from UIStore) */
   private heightDebugVisible: WritableSignal<boolean> | null = null;
 
   // ========================================
@@ -490,8 +490,8 @@ export class MarkerVisualizationService {
    * Toggles UI state, updates engine debug spheres, and spawns HQ debug point if enabling.
    */
   toggleSpecialPointsDebug(): void {
-    this.uiState.toggleSpecialPointsDebug();
-    const visible = this.uiState.specialPointsDebugVisible();
+    this.uiStore.toggleSpecialPointsDebug();
+    const visible = this.uiStore.specialPointsDebugVisible();
 
     if (this.engine) {
       this.engine.effects.setDebugSpheresVisible(visible);
@@ -517,7 +517,7 @@ export class MarkerVisualizationService {
   updateDebugSpheresVisibility(): void {
     if (!this.engine) return;
     this.engine.effects.setDebugSpheresVisible(
-      this.uiState.specialPointsDebugVisible()
+      this.uiStore.specialPointsDebugVisible()
     );
   }
 

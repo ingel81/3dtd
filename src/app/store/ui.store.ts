@@ -1,5 +1,18 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, signal, effect } from '@angular/core';
 import { TowerTypeId } from '../configs/tower-types.config';
+
+/** LocalStorage key for persisted UI state */
+const STORAGE_KEY = 'td-ui-state';
+
+/** Shape of persisted UI state */
+interface PersistedUIState {
+  infoOverlayVisible: boolean;
+  streetsVisible: boolean;
+  routesVisible: boolean;
+  spatialGridDebugVisible: boolean;
+  devMenuExpanded: boolean;
+  layerMenuExpanded: boolean;
+}
 
 @Injectable({ providedIn: 'root' })
 export class UIStore {
@@ -62,6 +75,70 @@ export class UIStore {
 
   /** Debug: spawn delay in ms */
   readonly spawnDelay = signal<number>(1000);
+
+  constructor() {
+    this.loadPersistedState();
+    this.setupPersistence();
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // PERSISTENCE (localStorage)
+  // ════════════════════════════════════════════════════════════
+
+  /** Load persisted state from localStorage */
+  private loadPersistedState(): void {
+    try {
+      const stored = localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        const state: PersistedUIState = JSON.parse(stored);
+        if (state.infoOverlayVisible !== undefined) this.infoOverlayVisible.set(state.infoOverlayVisible);
+        if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
+        if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
+        if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
+        if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
+        if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
+      }
+    } catch {
+      // Ignore parse errors
+    }
+  }
+
+  /** Persist state changes to localStorage via effect (no-op outside injection context) */
+  private setupPersistence(): void {
+    try {
+      effect(() => {
+        const state: PersistedUIState = {
+          infoOverlayVisible: this.infoOverlayVisible(),
+          streetsVisible: this.streetsVisible(),
+          routesVisible: this.routesVisible(),
+          spatialGridDebugVisible: this.spatialGridDebugVisible(),
+          devMenuExpanded: this.devMenuExpanded(),
+          layerMenuExpanded: this.layerMenuExpanded(),
+        };
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+      });
+    } catch {
+      // Outside injection context (e.g. unit tests) — persistence disabled
+    }
+  }
+
+  // ════════════════════════════════════════════════════════════
+  // TOGGLE METHODS
+  // ════════════════════════════════════════════════════════════
+
+  toggleDebug(): void { this.debugMode.update(v => !v); }
+  toggleLayerMenu(): void { this.layerMenuExpanded.update(v => !v); }
+  toggleDevMenu(): void { this.devMenuExpanded.update(v => !v); }
+  toggleStreets(): void { this.streetsVisible.update(v => !v); }
+  toggleRoutes(): void { this.routesVisible.update(v => !v); }
+  toggleHeightDebug(): void { this.heightDebugVisible.update(v => !v); }
+  toggleSpecialPointsDebug(): void { this.specialPointsDebugVisible.update(v => !v); }
+  toggleInfoOverlay(): void { this.infoOverlayVisible.update(v => !v); }
+  toggleSpatialGridDebug(): void { this.spatialGridDebugVisible.update(v => !v); }
+
+  // ════════════════════════════════════════════════════════════
+  // DEBUG LOG
+  // ════════════════════════════════════════════════════════════
 
   /** Append to debug log (max 50 lines) */
   appendDebugLog(message: string): void {

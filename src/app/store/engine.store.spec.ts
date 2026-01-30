@@ -9,26 +9,11 @@ describe('EngineStore', () => {
     store = new EngineStore();
   });
 
+  // NOTE: loading, error, loadingStatus, loadingSteps signals are now owned by
+  // EngineInitializationService and proxied through TowerDefenseStore directly.
+  // EngineStore no longer holds those signals.
+
   describe('initial values', () => {
-    it('loading starts as true', () => {
-      expect(store.loading()).toBe(true);
-    });
-
-    // NOTE: tilesLoading, osmLoading, heightsLoading, heightProgress
-    // are owned by EngineInitializationService / HeightUpdateService
-
-    it('error starts as null', () => {
-      expect(store.error()).toBeNull();
-    });
-
-    it('loadingStatus starts as Initializing...', () => {
-      expect(store.loadingStatus()).toBe('Initializing...');
-    });
-
-    it('loadingSteps starts as empty array', () => {
-      expect(store.loadingSteps()).toEqual([]);
-    });
-
     it('fps starts at 0', () => {
       expect(store.fps()).toBe(0);
     });
@@ -204,10 +189,6 @@ describe('EngineStore', () => {
 
   describe('resetAll', () => {
     it('resets all engine state to initial values', () => {
-      store.loading.set(false);
-      store.error.set('Something broke');
-      store.loadingStatus.set('Done');
-      store.loadingSteps.set([{ id: 'test', label: 'Test', status: 'done' }]);
       store.fps.set(120);
       store.tileStats.set({ parsing: 5, downloading: 10, total: 50, visible: 40 });
       store.activeSounds.set(10);
@@ -225,10 +206,6 @@ describe('EngineStore', () => {
 
       store.resetAll();
 
-      expect(store.loading()).toBe(true);
-      expect(store.error()).toBeNull();
-      expect(store.loadingStatus()).toBe('Initializing...');
-      expect(store.loadingSteps()).toEqual([]);
       expect(store.fps()).toBe(0);
       expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0 });
       expect(store.activeSounds()).toBe(0);
