@@ -13,10 +13,8 @@
 
 ## 1.1 Performance Monitoring (Prio 1)
 
-- [ ] **Performance Instrumentation**
-      PerformanceMonitorService mit mark/measure, Memory, Long Tasks
-      → [Teil 15](docs/archive/PERFORMANCE_REPORT.md#teil-15-performance-instrumentation--kritisch-fehlt)
-      Ohne Monitoring kein gezieltes Optimieren
+- [x] **Performance Instrumentation** ✅ `febf3bb`
+      Subsystem-Timings (Tower/Projectile/Combat/Events), Frame-Budget-Tracking, Bottleneck-Erkennung
 
 ---
 
@@ -26,73 +24,56 @@
 
 ## 2.1 Kritische Performance-Optimierungen
 
-- [ ] **TowerCombatService Fallback-Path optimieren**
-      `tower-combat.service.ts:59-121` - O(towers × enemies × losCheck)
-      Problem: Ground towers ohne visibleCells = 5000 LOS-Checks/Frame
-      Lösung: `globalRouteGrid.getEnemiesInRadius()` auch im Fallback nutzen
+- [x] **TowerCombatService Fallback-Path optimieren** ✅ `78031de`
+      Nutzt jetzt `getEnemiesInRadius()` direkt statt brute-force
 
-- [ ] **Animation LOD System** ⭐ HIGHEST IMPACT - 60-80% FPS Gewinn
-      Enemies @ 200m+ mit 6 FPS statt 60 FPS animieren
-      Datei: `three-engine/renderers/three-enemy.renderer.ts`
-      Logik: `if (distance < 50) mixer.update(dt); else if (distance < 100) updatePosition(); // >100m: Skip`
-      → [Teil 3.1](docs/archive/PERFORMANCE_REPORT.md#31-kritisch-kein-animation-lod-system-)
+- [x] **Animation LOD System** ⭐ ✅ `397d6f8`
+      Distance-LOD: <50m=jeder Frame, 50-100m=jeder 3., 100-200m=jeder 6., >200m=skip
+      Staggered per Enemy, DeltaTime-Kompensation
 
-- [ ] **Tiles Update Throttling** - 5-10% FPS
-      `three-tiles-engine.ts:965-969` - Nur Update wenn Kamera >5m bewegt
-      → [Teil 1.2](docs/archive/PERFORMANCE_REPORT.md#12-kritisches-problem-tiles-update-ohne-throttling)
+- [x] **Tiles Update Throttling** ✅ (bereits auf Branch)
+      Nur Update wenn Kamera >5m bewegt
 
-- [ ] **Partikel Free-List** - O(n) → O(1) Pool-Suche
-      `three-effects.renderer.ts:1926-1933` - 1000× schneller bei voller Auslastung
-      → [Teil 6.1](docs/archive/PERFORMANCE_REPORT.md#61-linearer-pool-search)
+- [x] **Partikel Free-List** ✅
+      O(1) Spawning per Free-Stack pro Pool, Fallback auf Round-Robin
 
 ## 2.2 Shader-Optimierungen
 
-- [ ] **Precision Qualifiers in Shadern** - Mobile Artefakte vermeiden
-      Alle Fragment Shader: `precision highp float;` am Anfang
-      Dateien: `game/tower-defense/shaders/*.ts`, `three-engine/renderers/decal-shaders.ts`
-      → [Teil 5.3](docs/archive/PERFORMANCE_REPORT.md#53-fehlende-precision-qualifiers)
+- [x] **Precision Qualifiers in Shadern** ✅
+      `precision highp float;` in 8 Fragment-Shadern ergänzt
 
-- [ ] **Magic Orb Shader vereinfachen** - 200-300 ALU → 100 ALU
-      `magic-orb.shaders.ts` - FBM 4→2 Iterationen, Voronoi 3×3→2×2
-      → [Teil 5.1](docs/archive/PERFORMANCE_REPORT.md#51-magic-orb-shader---zu-komplex)
+- [x] **Magic Orb Shader vereinfachen** ✅ `44bdacd`
+      FBM 4→1, Voronoi 3×3→2×2, ~60-80 ALU (von 200-300)
 
 ## 2.3 Rendering-Optimierungen
 
-- [ ] **Bounding Sphere Culling** - Große Enemies korrekt cullen
-      `three-enemy.renderer.ts:440` - intersectsSphere statt containsPoint
-      → [Teil 3.2](docs/archive/PERFORMANCE_REPORT.md#32-frustum-culling---gut-aber-verbesserungsfähig)
+- [x] **Bounding Sphere Culling** ✅ `44bdacd`
+      `intersectsSphere` statt `containsPoint` in Tower-Renderer
 
-- [ ] **Tower Frustum Culling** - Unsichtbare Towers nicht animieren
-      `three-tower.renderer.ts:659`
-      → [Teil 4.4](docs/archive/PERFORMANCE_REPORT.md#44-draw-call-analyse)
+- [x] **Tower Frustum Culling** ✅ `2a47f45`
 
-- [ ] **Selection Ring Geometry teilen** - Memory sparen
-      `three-tower.renderer.ts:315-322` - Shared Geometry + Material
-      → [Teil 4.3](docs/archive/PERFORMANCE_REPORT.md#43-selection-ring-geometry-nicht-geteilt)
+- [x] **Selection Ring Geometry teilen** ✅ `4e89cc3`
+      Static shared Geometry + Material mit Ref-Counting
 
 - [x] **Partikel-Systeme konsolidieren** - 4 → 2 Draw Calls ✅ `fd5d524`
       `three-effects.renderer.ts` - Blood+Fire Pools entfernt, in Trail-Pools integriert
 
-- [ ] **HQ Explosion Partikel reduzieren** - 1350 → 500 Partikel
-      `game-state.manager.ts:990-1103` - Massive Overdraw
-      → [Teil 5.2](docs/archive/PERFORMANCE_REPORT.md#52-overdraw-durch-additive-blending)
+- [x] **HQ Explosion Partikel reduzieren** ✅ `2a47f45`
+      1350 → 500 Partikel, größere Sizes als Kompensation
 
 ## 2.4 Collision & Spatial Queries
 
-- [ ] **Spatial-Grid für Kollisionserkennung** ⭐ HIGH PRIORITY
-      Projektil↔Enemy-Kollision + Tower-Range-Checks: O(n²) → O(n log n)
-      Ab 100+ Enemies + Projektile deutlich spürbar
-      Ziel: Uniform Grid oder Quadtree für schnelle Nachbarschaftsabfragen
+- [x] **Spatial-Grid für Kollisionserkennung** ⭐ ✅
+      Uniform Grid, O(1) Insert/Remove, O(k) Radius-Queries
+      Integriert in TowerCombatService (Sleep-Check, Targeting)
 
 ## 2.5 Pathfinding-Optimierungen
 
-- [ ] **A* MinHeap statt Linear Search** - 50-100ms gespart
-      `osm-street.service.ts:323-354` - TinyQueue für O(log n)
-      → [Teil 9.1](docs/archive/PERFORMANCE_REPORT.md#91-route-calculation--kritisch-100-500ms)
+- [x] **A* MinHeap** ✅ (bereits auf Branch)
+      MinHeap Binary Heap in OsmStreetService + Pathfinding Worker
 
-- [ ] **Sleeping Towers** - Idle Towers nicht updaten
-      `tower.manager.ts` - Sleep/Wake System für Towers ohne Target
-      → [Teil 2.4](docs/archive/PERFORMANCE_REPORT.md#24-sleeping-towers--fehlt)
+- [x] **Sleeping Towers** ✅ `7f3e3e2`
+      Sleep nach 2s ohne Target, Wake via SpatialGrid hasEnemyInRadius
 
 ---
 
@@ -122,14 +103,11 @@
 
 ## 3.3 Code Quality Refactoring
 
-- [ ] **CombatEffectService refactoren**
-      Aktuell: ~1000 LOC, 5+ Verantwortlichkeiten
-      Extraktion: `StatusEffectService` (Slow, Burn, Poison)
-      Impact: SRP, Wartbarkeit
+- [x] **CombatEffectService refactoren** ✅ `a8bd3ce`
+      Aufgeteilt in: StatusEffectService, CombatVfxService, DamageApplicationService + Facade
 
-- [ ] **spatial-audio.manager.ts splitten**
-      Aktuell: 1015 Zeilen, zu groß
-      Module: `PoolManager`, `PannerManager`, `ListenerManager`, `SpatialAudioFacade`
+- [x] **spatial-audio.manager.ts splitten** ✅ `b521837`
+      4 Module: AudioBufferCache, AudioPoolManager, SpatialAudioPlayback, SpatialAudioManager
 
 - [x] **Tower-Distance-Berechnungen zentralisieren** ✅ `a8bd3ce`
       Nutzt jetzt `geoDistanceFast()` aus `geo-utils.ts`
@@ -141,9 +119,8 @@
 
 ## 3.5 Integration Tests
 
-- [ ] **Integration-Tests: Manager-Interaktionen**
-      Tests: GameState + TowerManager + EnemyManager Zusammenspiel
-      Ziel: 50% Coverage
+- [x] **Integration-Tests: Manager-Interaktionen** ✅ `b140a8a`
+      46 Tests in 5 Suites (Combat, Waves, Movement, Effects, Lifecycle)
 
 ---
 
@@ -153,45 +130,34 @@
 
 ## 4.1 Visual Polish (Engine-nah)
 
-- [ ] **Bloom Post-Processing** ⭐ HIGHEST VISUAL IMPACT
-      +20% wahrgenommene Qualität, -2-3% FPS
-      Datei: `three-tiles-engine.ts`
-      Library: `three/examples/jsm/postprocessing/UnrealBloomPass`
+- [x] **Bloom Post-Processing** ⭐ ✅ `7f05a6c`
+      UnrealBloomPass, default OFF, togglebar
 
-- [ ] **Screen Shake bei Explosionen** ⭐ HIGH IMPACT
-      Explosionen fühlen sich 10× mächtiger an
-      Camera-Position Offset mit Decay über 200ms
+- [x] **Screen Shake bei Explosionen** ⭐ ✅
+      XZ-Shake mit Intensity-Presets (Bullet→Cannon→Rocket→HQ→Boss), togglebar
 
-- [ ] **Muzzle Flash bei Tower-Schüssen**
-      5 Partikel + 50ms Point-Light bei jedem Schuss
+- [x] **Muzzle Flash bei Tower-Schüssen** ✅
+      3-5 Additive Partikel + PointLight bei Projectile-Towers
 
-- [ ] **Freeze-Visual-Effect für Ice-Slow**
-      Blaue Partikel-Aura + Emissive-Tint auf Enemy
+- [x] **Freeze-Visual-Effect für Ice-Slow** ✅
+      Blaue Emissive-Tint + 3 orbitierende Frost-Partikel
 
-- [ ] **Sprite-Sheet-Partikel-System** - Texture Atlas 4×4
-      Animierte Partikel statt einfarbige Points
-      UV-Offset im Shader pro Frame für Explosionen, Rauch etc.
+- [x] **Sprite-Sheet-Partikel-System** ✅
+      4×4 Atlas prozedural generiert, animierte Explosionen
 
-- [ ] **Projektil-Trail-Streaks** - Shader mit Fade
-      Ribbon/Trail-Mesh oder Quad-Strip mit Alpha-Fade
-      Raketen mit Rauchschweif, Pfeile mit Lichtstreifen
+- [x] **Projektil-Trail-Streaks** ✅ `d6b1a17`
+      Ribbon-Renderer mit 6 Styles, 60 Instanzen/Typ, Alpha-Fade
 
-- [ ] **Color-Grading-LUT** - Dark Fantasy Atmosphäre (Demo-Option)
-      Post-Processing mit 3D-LUT (16³ als 2D-Textur)
-      Three.js `LUTPass` — als togglebare Demo-Option zum Rumspielen
-      Minimal Performance-Cost (ein Fullscreen-Pass)
+- [x] **Color-Grading-LUT** ✅ `b6fac01`
+      Dark Fantasy, Noir, Warm Sunset Presets, localStorage-Persistenz
 
 ## 4.2 Gameplay Features
 
-- [ ] **Spielgeschwindigkeit-Auswahl (Timescale)**
-      UI: Prominente Buttons/Toggle im Spiel (3 Stufen)
-      Stufen: Normal (1x), Mittel (2x), Schnell (4x)
-      Analog zu AI-Training-Panel timescale
-      Beeinflusst: `trainingTimescale` Signal in GameStateManager
+- [x] **Spielgeschwindigkeit-Auswahl (Timescale)** ✅ `3dc21fc`
+      UI ↔ GameStateManager bidirektional synchronisiert
 
-- [ ] **Rechtsklick bricht Baumodus ab**
-      Rechtsklick im Baumodus soll das Bauen abbrechen und den Turm nicht platzieren
-      Datei: `tower-placement.service.ts` oder `input-handler.service.ts`
+- [x] **Rechtsklick bricht Baumodus ab** ✅
+      contextmenu-Handler cancelt Placement + preventDefault
 
 - [x] **Tower-Targeting-Strategien** ✅
       Implementiert: closest, lowest-hp, highest-hp, first, air-priority

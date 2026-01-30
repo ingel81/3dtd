@@ -1,6 +1,6 @@
 # Test-Guide: Branch `jarvis/batch-improvements`
 
-> 25 Commits, 78 Dateien, +6674/-1564 Zeilen
+> 34 Commits, 87 Dateien, +7830/-1833 Zeilen
 
 ---
 
@@ -8,11 +8,15 @@
 
 1. Spiel starten → kein Crash ✓
 2. Tower platzieren → Enemies kommen → Tower schießt → **Trail-Streaks sichtbar** ✓
-3. Cannon/Rocket-Explosion → **animierte Partikel** ✓
-4. Debug-Panel → Display → **Color Grading** auf "Dark Fantasy" → Look ändert sich ✓
-5. Debug-Panel → Performance → **Subsystem Timings** sichtbar ✓
-6. Tower upgraden (Range) → **LOS-Kreis wird größer** ✓
-7. Speed 1x → 2x → 4x → **funktioniert** ✓
+3. Tower schießt → **Muzzle Flash** (gelb/weiß Blitz + Licht) ✓
+4. Cannon/Rocket-Explosion → **animierte Partikel** ✓
+5. Explosion → **Kamera wackelt** (Screen Shake) ✓
+6. Ice Tower → Enemy verlangsamt → **blaue Frost-Aura + Tint** sichtbar ✓
+7. Debug-Panel → Display → **Color Grading** auf "Dark Fantasy" → Look ändert sich ✓
+8. Debug-Panel → Performance → **Subsystem Timings** sichtbar ✓
+9. Tower upgraden (Range) → **LOS-Kreis wird größer** ✓
+10. Speed 1x → 2x → 4x → **funktioniert** ✓
+11. Rechtsklick im Baumodus → **Placement abgebrochen** ✓
 
 ---
 
@@ -98,6 +102,47 @@
 
 ---
 
+### 10. Muzzle Flash (Visuell)
+**Wo:** Im Spiel, Projectile-Tower schießen
+**Wie:** Archer, Cannon, Gatling, Rocket platzieren und schießen lassen
+**Checken:** Kurzer gelb/weißer Blitz (3-5 Partikel + PointLight) am Barrel beim Schuss. NICHT bei Ice/Magic/Fire (Beam-Tower).
+
+---
+
+### 11. Screen Shake (Visuell + Haptik)
+**Wo:** Im Spiel bei Explosionen
+**Wie:** Cannon/Rocket auf Enemies schießen lassen, HQ Damage kassieren
+**Checken:**
+- Kamera wackelt leicht bei Cannon-Hit, stärker bei Rocket, stark bei HQ-Damage
+- XZ-Ebene nur (kein vertikales Wackeln)
+- Togglebar: Debug-Panel → Display → Effects → "Screen Shake"
+
+---
+
+### 12. Freeze-Visual-Effect (Visuell)
+**Wo:** Im Spiel, Ice Tower auf Enemies schießen
+**Wie:** Ice Tower platzieren, warten bis Enemy verlangsamt wird
+**Checken:**
+- Enemy bekommt blauen Emissive-Tint
+- 3 cyan/weiße Partikel orbieren um den Enemy
+- Effekt verschwindet wenn Slow ausläuft
+
+---
+
+### 13. Animation LOD (Performance)
+**Wo:** Nicht direkt sichtbar — FPS-Verbesserung
+**Wie:** Viele Enemies spawnen, Kamera rauszoomen
+**Checken:** Weit entfernte Enemies animieren seltener/gar nicht. FPS sollte deutlich besser sein bei 50+ Enemies. Im Performance-Panel: Enemy-Timings niedrig.
+
+---
+
+### 14. Rechtsklick-Cancel (Gameplay)
+**Wo:** Tower-Placement
+**Wie:** Tower zum Bauen auswählen → Rechtsklick auf die Map
+**Checken:** Baumodus wird abgebrochen, kein Context-Menu erscheint.
+
+---
+
 ## Automatisierte Checks
 
 ```bash
@@ -113,22 +158,13 @@ npx ng lint                   # ✅ 0 neue Errors (11 pre-existing)
 
 ---
 
-## Commit-Übersicht
+## Commit-Übersicht (neueste zuerst)
 
-| Commit | Beschreibung |
-|--------|-------------|
-| `57581c4` | fix: lint errors aus neuen Dateien |
-| `d5c05a5` | fix: test failures aus paralleler Agent-Integration |
-| `b140a8a` | feat: Integration-Tests (46 Tests, 5 Suites) |
-| `0acae14` | fix: Sprite-Sheet Vector2 import |
-| `f877aee` | fix: Sprite-Sheet Partikel cleanup |
-| `b6fac01` | fix: Color Grading Preset restore nach Reload |
-| `3e6b988` | feat: Web Worker für Pathfinding |
-| `d6b1a17` | feat: Projektil Trail-Streak Ribbon Renderer |
-| `febf3bb` | feat: Performance Instrumentation erweitert |
-| `b521837` | refactor: Spatial Audio in 4 Module gesplittet |
-| `b506722` | fix: LOS-Neuberechnung bei Range-Upgrade |
-| `79e876b` | chore: TODO.md nach Jörg's Review aktualisiert |
-| `3dc21fc` | fix: Game Speed UI ↔ GameStateManager Sync |
-| `fd5d524` | perf: Partikel-Konsolidierung (4→2 Draw Calls) |
-| `a8bd3ce` | refactor: StatusEffectService extrahiert |
+| Bereich | Was |
+|---------|-----|
+| **Visual** | Trail-Streaks, Sprite-Sheet Partikel, Color-Grading LUT, Muzzle Flash, Freeze-Effect, Screen Shake, Bloom |
+| **Performance** | Animation LOD, Spatial Grid, Partikel Free-List, Tiles Throttling, Sleeping Towers, Combat Fallback, A* MinHeap, HQ Explosion Reduktion, Bounding Sphere Culling, Selection Ring Sharing, Precision Qualifiers, Magic Orb Shader |
+| **Gameplay** | Spielgeschwindigkeit-Fix, Range-Upgrade LOS, Rechtsklick-Cancel, Tower-Targeting-Strategien |
+| **Refactoring** | Audio Split (4 Module), CombatEffect Split (4 Services), StatusEffect Extraktion, Distance-Zentralisierung, Error-Klassen |
+| **Tests** | 46 Integration-Tests (5 Suites), Test-Fix-Commits für parallele Agent-Integration |
+| **Infra** | Web Worker Pathfinding, Performance Instrumentation, TODO.md Updates |
