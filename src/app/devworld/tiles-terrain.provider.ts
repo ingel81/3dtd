@@ -27,7 +27,6 @@ export class TilesTerrainProvider implements TerrainProvider {
     // TilesRenderer is already initialized by ThreeTilesEngine
     // We just mark ourselves as ready
     this.ready = true;
-    console.log('[TilesTerrain] Provider initialized (wrapping existing TilesRenderer)');
   }
 
   getHeightAtGeo(lat: number, lon: number): number | null {

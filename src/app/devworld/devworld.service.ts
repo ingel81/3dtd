@@ -121,9 +121,6 @@ export class DevWorldService {
         seed: this.parseSeedParam(params.get('seed')),
       };
 
-      console.log(`[DevWorld] URL params: terrain="${rawTerrain}" -> "${this.config.terrain}", seed=${this.config.seed}`);
-      console.log('[DevWorld] Active with config:', this.config);
-
       // Update URL to show resolved defaults (e.g. ?devworld -> ?devworld&terrain=flat&seed=42)
       this.updateUrl();
     } else {

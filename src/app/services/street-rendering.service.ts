@@ -64,7 +64,6 @@ export class StreetRenderingService {
   ): void {
     // Guard: Only render when filtered (prevents 16s raycast on unfiltered streets)
     if (!filteredNetwork) {
-      console.log('[StreetRendering] renderStreets: Skipped - not filtered yet');
       return;
     }
 
@@ -73,10 +72,8 @@ export class StreetRenderingService {
       return;
     }
     this.isRenderingStreets = true;
-    console.time('[StreetRendering] renderStreets');
 
     if (!fullNetwork) {
-      console.timeEnd('[StreetRendering] renderStreets');
       this.isRenderingStreets = false;
       return;
     }
@@ -103,7 +100,6 @@ export class StreetRenderingService {
     // Get terrain height at HQ (origin) as reference
     const originTerrainY = engine.getTerrainHeightAtGeo(baseCoords.lat, baseCoords.lon);
     if (originTerrainY === null) {
-      console.timeEnd('[StreetRendering] renderStreets');
       this.isRenderingStreets = false;
       return;
     }
@@ -227,7 +223,6 @@ export class StreetRenderingService {
       this.streetLinesMesh.frustumCulled = false;
       overlayGroup.add(this.streetLinesMesh);
     }
-    console.timeEnd('[StreetRendering] renderStreets');
     this.isRenderingStreets = false;
   }
 

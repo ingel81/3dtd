@@ -225,9 +225,6 @@ export class BuildingGenerator {
     // All buildings along streets (no isolated clusters)
     this.placeAlongStreets(densityConfig.totalBuildings, densityConfig.presetWeights);
 
-    console.log(
-      `[BuildingGen] Generated ${this.buildings.length} buildings along streets`
-    );
 
     return this.buildings;
   }
@@ -352,7 +349,6 @@ export class BuildingGenerator {
       }
     }
 
-    console.log(`[BuildingGen] Placed ${placed}/${count} buildings along streets (no grid fallback)`);
   }
 
 
@@ -427,7 +423,6 @@ export class BuildingGenerator {
       }
     }
 
-    console.log(`[BuildingGen] Grid placed ${placed}/${count} buildings`);
   }
 
   /**

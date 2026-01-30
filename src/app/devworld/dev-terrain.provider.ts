@@ -88,7 +88,6 @@ export class DevTerrainProvider implements TerrainProvider {
   async initialize(scene: THREE.Scene): Promise<void> {
     this.scene = scene;
 
-    console.log('[DevTerrain] Initializing with runtime generation...');
     const startTime = performance.now();
 
     // Generate everything from seed
@@ -98,7 +97,6 @@ export class DevTerrainProvider implements TerrainProvider {
     scene.add(this.terrainGroup);
 
     this.ready = true;
-    console.log(`[DevTerrain] Initialized in ${(performance.now() - startTime).toFixed(0)}ms`);
   }
 
   /**
@@ -120,7 +118,6 @@ export class DevTerrainProvider implements TerrainProvider {
   async regenerate(): Promise<void> {
     const { terrain, seed, buildings } = this.devWorld.config;
 
-    console.log(`[DevTerrain] Regenerating via Worker: preset=${terrain}, seed=${seed}, buildings=${buildings}`);
     const startTime = performance.now();
 
     // Clear existing
@@ -174,11 +171,6 @@ export class DevTerrainProvider implements TerrainProvider {
     }
 
     const meshTime = performance.now() - startTime - result.timing.total;
-    console.log(
-      `[DevTerrain] Regenerated: Worker=${result.timing.total.toFixed(0)}ms ` +
-      `(terrain=${result.timing.terrain.toFixed(0)}ms, streets=${result.timing.streets.toFixed(0)}ms, ` +
-      `buildings=${result.timing.buildings.toFixed(0)}ms), Meshes=${meshTime.toFixed(0)}ms`
-    );
   }
 
   /**
@@ -202,7 +194,6 @@ export class DevTerrainProvider implements TerrainProvider {
 
         switch (response.type) {
           case 'progress':
-            console.log(`[DevTerrain] Worker progress: ${response.phase} ${response.progress}%`);
             break;
 
           case 'result':
@@ -456,7 +447,6 @@ export class DevTerrainProvider implements TerrainProvider {
     this.terrainSkirt.name = 'DevWorldTerrainSkirt';
     this.terrainGroup.add(this.terrainSkirt);
 
-    console.log(`[DevTerrain] Created terrain skirt: ${indices.length / 3} triangles`);
   }
 
   private applyHeightmapToGeometry(geometry: THREE.PlaneGeometry): void {
@@ -569,7 +559,6 @@ export class DevTerrainProvider implements TerrainProvider {
     this.roadMesh.renderOrder = 1;
     this.terrainGroup.add(this.roadMesh);
 
-    console.log(`[DevTerrain] Created instanced road mesh: ${roadPoints.length} instances (1 draw call)`);
   }
 
   /**
@@ -800,7 +789,6 @@ export class DevTerrainProvider implements TerrainProvider {
     // Add to scene
     this.terrainGroup.add(this.buildingInstancedMesh);
 
-    console.log(`[DevTerrain] Created ${buildingConfigs.length} buildings (1 instanced mesh, ${buildingConfigs.length} raycast meshes)`);
   }
 
   /**
@@ -847,7 +835,6 @@ export class DevTerrainProvider implements TerrainProvider {
     renderer: THREE.WebGLRenderer
   ): THREE.Vector3 | null {
     if (!this.terrainMesh) {
-      console.log('[DevTerrain] raycastFromScreen: no terrainMesh');
       return null;
     }
 

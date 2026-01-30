@@ -165,7 +165,6 @@ export class TrainingClientService {
     this.botSkillLevel.set(skillLevel);
     this.botStats.set({ towersPlaced: 0, goldSpent: 0 });
 
-    console.log(`[Training] StrategyBot enabled: ${skillLevel}, autoMode: ${this.botAutoMode()}`);
   }
 
   /**
@@ -174,7 +173,6 @@ export class TrainingClientService {
   disableBot(): void {
     this.currentBot = null;
     this.botEnabled.set(false);
-    console.log('[Training] StrategyBot disabled');
   }
 
   /**
@@ -251,7 +249,6 @@ export class TrainingClientService {
           const tower = this.gameState.placeTower(geoPos, action.towerType);
 
           if (tower) {
-            console.log(`[Bot] ✅ Placed ${action.towerType} at ${action.reason || 'position'}`);
 
             // Update stats
             this.botStats.update(stats => ({
@@ -299,7 +296,6 @@ export class TrainingClientService {
           const success = this.callbacks.upgradeTower(tower, action.upgradeId as UpgradeId);
 
           if (success) {
-            console.log(`[Bot] ✅ Upgraded ${tower.typeConfig.name} with ${upgrade.name} - ${action.reason}`);
 
             // Update bot stats (only if successful)
             this.botStats.update(stats => ({
@@ -314,7 +310,6 @@ export class TrainingClientService {
 
       case 'sell':
         // TODO: Implement sell execution
-        console.log('[Bot] Sell requested:', action);
         break;
 
       case 'wait':
@@ -325,7 +320,6 @@ export class TrainingClientService {
         // Auto-start next wave (only if in setup phase!)
         const currentPhase = this.store.phase();
         if (currentPhase === 'setup') {
-          console.log(`[Bot] ${action.reason || 'Auto-starting wave'}`);
           this.callbacks.startWave();
         } else {
           // Silently ignore - wave already active
@@ -349,7 +343,6 @@ export class TrainingClientService {
 
       const connected = await this.connect();
       if (connected) {
-        console.log('[AI] Connected to training backend');
 
         // Notify backend of game start (sends enemy base HP config)
         this.notifyGameStart('normal');
@@ -358,17 +351,14 @@ export class TrainingClientService {
         if (this.botAutoMode()) {
           // Enable training mode with 75x timescale for maximum training speed (don't persist to localStorage)
           this.gameState.setTrainingTimescale(75.0, false);
-          console.log('[AI] Training mode enabled (75x speed)');
 
           // Enable StrategyBot for automated training
           this.enableBot('strategist');
         } else {
-          console.log('[AI] Connected to training backend (manual play mode - no bot, 1x speed)');
         }
 
         // Subscribe to wave completion events to send results to backend
         this.eventSubscriptions.push(this.gameState.getEventBus().on('wave:completed', async (_event) => {
-          console.log('[Wave] Wave completed! Bot will prepare for next wave...');
 
           if (this.isConnected()) {
             // Get the wave result from data collector
@@ -383,9 +373,7 @@ export class TrainingClientService {
                 stateAfter: currentState
               };
 
-              console.log('[AI] Sending wave result to backend:', resultWithState);
               await this.sendWaveResult(resultWithState);
-              console.log('[AI] Sent wave result + state to backend');
             }
           }
         }));
@@ -394,32 +382,22 @@ export class TrainingClientService {
         this.eventSubscriptions.push(this.gameState.getEventBus().on('game:over', async (_event) => {
           if (this.isConnected()) {
             // Send game over notification
-            console.log('[AI] Sending game over to backend:', {
-              won: false,
-              waveNumber: this.gameState.waveManager.waveNumber()
-            });
-            this.notifyGameOver(false, this.gameState.waveManager.waveNumber());
-            console.log('[AI] Sent game over to backend');
 
             // Also send the final wave result if available
             const history = this.dataCollector.getWaveHistory();
             if (history.length > 0) {
               const latestResult = history[history.length - 1];
-              console.log('[AI] Sending final wave result to backend:', latestResult);
               await this.sendWaveResult(latestResult);
-              console.log('[AI] Sent final wave result to backend');
             }
           }
         }));
 
         // Subscribe to episode reset from training backend
         this.onReset$.subscribe(() => {
-          console.log('[AI] Episode reset - restarting game');
           this.callbacks.restartGame();
           this.notifyGameStart('normal');
         });
       } else {
-        console.log('[AI] Training backend not available, using local inference');
       }
     } catch (error) {
       console.warn('[AI] Failed to connect to training backend', error);
@@ -455,7 +433,6 @@ export class TrainingClientService {
 
         this.socket.onopen = () => {
           clearTimeout(timeoutId);
-          console.log('[WS-Debug] onopen fired, sending connect message');
 
           // Send connect message
           this.send({
@@ -466,14 +443,12 @@ export class TrainingClientService {
 
           this.isConnected.set(true);
           this.isConnecting.set(false);
-          console.log('[WS-Debug] isConnected=true, resolving promise');
           resolve(true);
         };
 
         this.socket.onmessage = (event) => {
           try {
             const msg = JSON.parse(event.data) as ServerMessage;
-            console.log('[WS-Debug] message received:', msg.type);
             this.handleMessage(msg);
           } catch (e) {
             console.error('[WS-Debug] Failed to parse message', e);
@@ -610,7 +585,6 @@ export class TrainingClientService {
         if (msg.displayId !== undefined) {
           this.displayId.set(msg.displayId);
         }
-        console.log(`[Training] Connected as #${msg.displayId ?? '?'}`);
         break;
 
       case 'wave_config':
@@ -618,7 +592,6 @@ export class TrainingClientService {
         break;
 
       case 'reset':
-        console.log('[Training] Episode reset requested by server');
         this.resetRequested.next();
         break;
 
@@ -629,7 +602,6 @@ export class TrainingClientService {
       case 'model_exported':
         this.lastModelVersion.set(msg.version);
         this.pendingExport.next({ path: msg.path, version: msg.version });
-        console.log(`[Training] Model exported: ${msg.version} at ${msg.path}`);
         break;
 
       case 'error':

@@ -103,7 +103,6 @@ export class AIDataCollectorService {
 
     this.subscribeToEvents();
     this.isCollecting.set(true);
-    console.log('[AI] Data collection started');
   }
 
   /**
@@ -112,7 +111,6 @@ export class AIDataCollectorService {
   stopCollecting(): void {
     this.subscriptions.disposeAll();
     this.isCollecting.set(false);
-    console.log('[AI] Data collection stopped');
   }
 
   /**
@@ -448,7 +446,6 @@ export class AIDataCollectorService {
         this.addToHistory(result);
         this.waveResultCount.update((n) => n + 1);
 
-        console.log('[AI] Finalized wave result on game over:', result);
       }
     }
   }

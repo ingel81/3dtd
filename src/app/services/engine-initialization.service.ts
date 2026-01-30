@@ -417,7 +417,6 @@ export class EngineInitializationService {
     try {
       // DevWorld mode: Use DevStreetProvider with generated streets from terrain
       if (this.devWorld.isActive) {
-        console.log('[EngineInit] DevWorld mode - using DevStreetProvider');
         const devStreetProvider = new DevStreetProvider(this.devWorld);
 
         // Get generated streets from terrain provider
@@ -431,7 +430,6 @@ export class EngineInitializationService {
 
           // Set up refresh callback for live terrain regeneration
           devTerrainProvider.setStreetRefreshCallback((newSegments, newSpawns) => {
-            console.log('[EngineInit] Terrain regenerated - updating streets');
             devStreetProvider.setGeneratedStreets(newSegments, newSpawns);
             // Reload street network
             devStreetProvider.loadStreets(centerLat, centerLon, 500).then((network) => {
@@ -473,7 +471,6 @@ export class EngineInitializationService {
     const osm = this.osmLoading();
     const heights = heightsLoading();
 
-    console.log(`[EngineInit ${now.toFixed(0)}ms] checkAllLoaded: tiles=${tiles}, osm=${osm}, heights=${heights}`);
 
     // Manage tile stats polling lifecycle
     if (tiles && !this.tileStatsIntervalId && this.engine) {
@@ -485,18 +482,15 @@ export class EngineInitializationService {
 
     // If heights are done but tiles still loading, show the tiles step
     if (!heights && !osm && tiles) {
-      console.log(`[EngineInit ${now.toFixed(0)}ms] Heights done, waiting for tiles → activating tiles step`);
       void this.setStepActive('tiles');
     }
 
     if (!tiles && !osm && !heights) {
-      console.log(`[EngineInit ${now.toFixed(0)}ms] ✓ All loaded → hiding overlay`);
       // Mark tiles step as done before hiding
       void this.setStepDone('tiles');
       this.loading.set(false);
     } else {
       const waiting = [tiles && 'tiles', osm && 'osm', heights && 'heights'].filter(Boolean);
-      console.log(`[EngineInit ${now.toFixed(0)}ms] ⏳ Still waiting for: ${waiting.join(', ')}`);
     }
   }
 

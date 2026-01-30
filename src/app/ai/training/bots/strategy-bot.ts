@@ -24,9 +24,6 @@ export class StrategyBot extends BaseTowerBot {
     // Sort strategies by priority (highest first)
     this.strategies = strategies.sort((a, b) => b.priority - a.priority);
 
-    console.log(`[Bot] Initialized with ${strategies.length} strategies:`,
-      strategies.map(s => `${s.name}(${s.priority})`).join(', ')
-    );
   }
 
   /**
@@ -51,7 +48,6 @@ export class StrategyBot extends BaseTowerBot {
         }
 
         this.notifyStrategies('onActionExecuted', action);
-        console.log(`[Bot] ${strategy.name} → ${action.type}`, action.reason || '');
         return action;
       }
     }

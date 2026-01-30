@@ -40,7 +40,6 @@ export class AutoStartWaveStrategy extends BaseStrategy {
     // Force start wave if we've been in setup too long (prevents infinite waiting)
     const setupDuration = now - this.setupPhaseStartTime;
     if (setupDuration > this.MAX_SETUP_WAIT) {
-      console.log(`[AutoStartWave] Forcing wave start after ${setupDuration}ms in setup`);
       return true;
     }
 
