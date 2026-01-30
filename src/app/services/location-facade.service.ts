@@ -127,7 +127,7 @@ export class LocationFacadeService {
         appendDebugLog: (msg) => this.debugFacade.appendDebugLog(msg),
         initializeTowerPlacement: () => vizCallbacks.initializeTowerPlacement(),
         filterStreetNetworkToRoutes: () => vizCallbacks.filterStreetNetworkToRoutes(),
-        scheduleOverlayHeightUpdate: async () => vizCallbacks.scheduleOverlayHeightUpdate(),
+        scheduleOverlayHeightUpdate: () => Promise.resolve(vizCallbacks.scheduleOverlayHeightUpdate()),
         getSpawnPoints: () => this.bridge.spawnPoints(),
         getBaseCoords: () => this.bridge.baseCoords(),
       }),

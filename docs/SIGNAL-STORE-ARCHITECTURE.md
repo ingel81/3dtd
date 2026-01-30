@@ -235,6 +235,10 @@ export class TowerDefenseComponent {
 - [x] `TowerDefenseStore` mit allen Signals und Interfaces
 - [x] Computed Values definieren
 - [x] Action-Method-Stubs entfernt — Store ist reiner State-Container
+- [x] Sub-Stores erstellt: `GameStore`, `UIStore`, `EngineStore`, `LocationStore`
+- [x] Root-Store als Aggregate-Fassade refactored
+- [x] Types in `tower-defense.store.types.ts` extrahiert
+- [x] `buildModeHints` als Config-Konstante in Component verschoben (kein reaktiver State)
 
 ### Phase 2: Store als Read-Layer einführen
 - Store injizieren, aber NICHT als primäre Quelle verwenden
@@ -267,8 +271,8 @@ export class TowerDefenseComponent {
 - **DevTools** — Ein `console.log(inject(TowerDefenseStore))` zeigt alles
 
 ### Contra
-- **God Object Risiko** — Der Store hat ~60 Signals. Das ist viel.
-  - *Mitigation:* Logische Gruppierung in Sections. Später ggf. Sub-Stores (GameStore, UIStore, LocationStore).
+- **God Object Risiko** — Der Store hatte ~60 Signals in einer Klasse.
+  - *Gelöst:* Aufgeteilt in 4 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore). Root-Store aggregiert als Fassade.
 - **Doppelte Signals während Migration** — Phase 2-3 haben temporär zwei Quellen
   - *Mitigation:* Sync-Effects, klare TODO-Marker, zeitlich begrenzt
 - **Performance** — Mehr Signals = mehr Change Detection?
@@ -299,7 +303,12 @@ export class TowerDefenseComponent {
 
 ```
 src/app/store/
-  tower-defense.store.ts          ← Haupt-Store (reiner State-Container)
+  tower-defense.store.ts          ← Root-Store (Aggregate-Fassade, cross-cutting computed)
+  tower-defense.store.types.ts    ← Shared Type Definitions (GamePhase, GeoCoord, etc.)
+  game.store.ts                   ← Game State (credits, health, phase, wave, towers, bot/AI)
+  ui.store.ts                     ← UI State (debug flags, layers, build mode, wave debug)
+  engine.store.ts                 ← Engine State (fps, tiles, camera, loading)
+  location.store.ts               ← Location State (coords, spawns, favorites)
   tower-defense.store.spec.ts     ← Unit Tests (Phase 5)
 ```
 
