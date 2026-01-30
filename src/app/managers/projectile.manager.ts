@@ -86,6 +86,13 @@ export class ProjectileManager extends EntityManager<Projectile> {
     // Play spatial sound at tower position (fire-and-forget, errors logged)
     this.playProjectileSound(tower, projectile.typeConfig.id);
 
+    // Muzzle flash VFX (deferred — handled by VFXService)
+    this.eventBus.emitDeferred({
+      type: 'vfx:muzzle-flash',
+      towerId: tower.id,
+      towerTypeId: tower.typeConfig.id,
+    });
+
     return projectile;
   }
 
