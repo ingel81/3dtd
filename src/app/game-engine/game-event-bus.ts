@@ -80,12 +80,6 @@ export type GameEvent =
       type: 'game:started';
     }
   | {
-      type: 'game:paused';
-    }
-  | {
-      type: 'game:resumed';
-    }
-  | {
       type: 'game:over';
       reason: 'base-destroyed' | 'quit';
     }

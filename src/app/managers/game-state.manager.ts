@@ -312,7 +312,6 @@ export class GameStateManager {
       this.towerCombat.stopAllBeams(); // Stop fire tower beams
       this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
       this.updateCredits(GAME_BALANCE.waves.completionBonus);
-      this.eventBus.emit({ type: 'game:paused' });
     }
 
     // Check game over
@@ -372,14 +371,11 @@ export class GameStateManager {
     }
 
     const isFirstWave = this.waveManager.waveNumber() === 0;
-    const wasPaused = this.waveManager.phase() !== 'wave';
 
-    // Emit lifecycle events BEFORE startWave() so that AIDataCollector.clearHistory()
+    // Emit lifecycle event BEFORE startWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (isFirstWave) {
       this.eventBus.emit({ type: 'game:started' });
-    } else if (wasPaused) {
-      this.eventBus.emit({ type: 'game:resumed' });
     }
 
     this.waveManager.startWave(config);
@@ -390,14 +386,11 @@ export class GameStateManager {
    */
   beginWave(): void {
     const isFirstWave = this.waveManager.waveNumber() === 0;
-    const wasPaused = this.waveManager.phase() !== 'wave';
 
-    // Emit lifecycle events BEFORE beginWave() so that AIDataCollector.clearHistory()
+    // Emit lifecycle event BEFORE beginWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (isFirstWave) {
       this.eventBus.emit({ type: 'game:started' });
-    } else if (wasPaused) {
-      this.eventBus.emit({ type: 'game:resumed' });
     }
 
     this.waveManager.beginWave();

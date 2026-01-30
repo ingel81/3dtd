@@ -397,4 +397,22 @@ export class TowerDefenseFacadeService {
   logCameraPosition(): void {
     this.vizFacade.logCameraPosition();
   }
+
+  /** Sell the currently selected tower via EventBus command. */
+  sellSelectedTower(): void {
+    const tower = this.store.selectedTower();
+    if (tower) {
+      this.gameState.getEventBus().emit({
+        type: 'command:sell-tower',
+        towerId: tower.id,
+      });
+    }
+  }
+
+  /** Toggle spatial grid debug visualization on the global route grid. */
+  toggleSpatialGridDebug(): void {
+    if (this.initialized) {
+      this.gameState.getGlobalRouteGrid().toggleSpatialGridDebug();
+    }
+  }
 }

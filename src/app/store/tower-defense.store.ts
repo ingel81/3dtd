@@ -89,17 +89,9 @@ export class TowerDefenseStore {
   /** Global loading flag */
   readonly loading = this.engineStore.loading;
 
-  /** Tiles loading sub-state */
-  readonly tilesLoading = this.engineStore.tilesLoading;
-
-  /** OSM streets loading sub-state */
-  readonly osmLoading = this.engineStore.osmLoading;
-
-  /** Heights loading sub-state */
-  readonly heightsLoading = this.engineStore.heightsLoading;
-
-  /** Height update progress (0..1) */
-  readonly heightProgress = this.engineStore.heightProgress;
+  // NOTE: tilesLoading, osmLoading owned by EngineInitializationService;
+  // heightsLoading, heightProgress owned by HeightUpdateService.
+  // Component reads directly from those services (they are the signal owners).
 
   /** Error message (null = no error) */
   readonly error = this.engineStore.error;
@@ -223,14 +215,8 @@ export class TowerDefenseStore {
   // BOT / AI
   // ════════════════════════════════════════════════════════════
 
-  /** Strategy bot enabled */
-  readonly botEnabled = this.gameStore.botEnabled;
-
-  /** Bot skill level */
-  readonly botSkillLevel = this.gameStore.botSkillLevel;
-
-  /** Bot auto mode (auto-start waves, auto-restart) */
-  readonly botAutoMode = this.gameStore.botAutoMode;
+  // NOTE: botEnabled, botSkillLevel, botAutoMode owned by TrainingClientService.
+  // Component reads directly from that service (it is the signal owner).
 
   /** AI Wave Director enabled */
   readonly useAIDirector = this.gameStore.useAIDirector;

@@ -46,17 +46,7 @@ describe('GameStore', () => {
       expect(store.trainingTimescale()).toBe(1.0);
     });
 
-    it('botEnabled starts as false', () => {
-      expect(store.botEnabled()).toBe(false);
-    });
-
-    it('botSkillLevel starts as beginner', () => {
-      expect(store.botSkillLevel()).toBe('beginner');
-    });
-
-    it('botAutoMode starts as false', () => {
-      expect(store.botAutoMode()).toBe(false);
-    });
+    // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by TrainingClientService
 
     it('useAIDirector starts as false', () => {
       expect(store.useAIDirector()).toBe(false);
@@ -123,8 +113,6 @@ describe('GameStore', () => {
 
     it('waveActive is false for other phases', () => {
       store.phase.set('setup');
-      expect(store.waveActive()).toBe(false);
-      store.phase.set('paused');
       expect(store.waveActive()).toBe(false);
       store.phase.set('gameover');
       expect(store.waveActive()).toBe(false);
@@ -208,27 +196,20 @@ describe('GameStore', () => {
       expect(store.aiExplanation()).toBeNull();
     });
 
-    it('does NOT reset bot/training settings', () => {
-      store.botEnabled.set(true);
+    it('does NOT reset training timescale', () => {
       store.trainingTimescale.set(10);
-      store.botAutoMode.set(true);
 
       store.resetGameState();
 
-      expect(store.botEnabled()).toBe(true);
       expect(store.trainingTimescale()).toBe(10);
-      expect(store.botAutoMode()).toBe(true);
     });
   });
 
   describe('resetAll', () => {
-    it('resets everything including bot/training settings', () => {
+    it('resets everything including training settings', () => {
       store.credits.set(999);
       store.phase.set('gameover');
-      store.botEnabled.set(true);
       store.trainingTimescale.set(50);
-      store.botSkillLevel.set('expert');
-      store.botAutoMode.set(true);
       store.useAIDirector.set(true);
       store.isDevWorldRegenerating.set(true);
 
@@ -236,10 +217,7 @@ describe('GameStore', () => {
 
       expect(store.credits()).toBe(GAME_BALANCE.player.startCredits);
       expect(store.phase()).toBe('setup');
-      expect(store.botEnabled()).toBe(false);
       expect(store.trainingTimescale()).toBe(1.0);
-      expect(store.botSkillLevel()).toBe('beginner');
-      expect(store.botAutoMode()).toBe(false);
       expect(store.useAIDirector()).toBe(false);
       expect(store.isDevWorldRegenerating()).toBe(false);
     });
