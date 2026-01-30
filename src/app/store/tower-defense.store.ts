@@ -28,309 +28,257 @@
  * MIGRATION PLAN: See docs/SIGNAL-STORE-ARCHITECTURE.md
  */
 
-import { Injectable, signal, computed, Signal } from '@angular/core';
-import { TowerTypeId } from '../configs/tower-types.config';
-import { GAME_BALANCE } from '../configs/game-balance.config';
-import { Tower } from '../entities/tower.entity';
-import { BotSkillLevel } from '../ai/training/bots/tower-bot.interface';
+import { Injectable, Signal, computed, inject } from '@angular/core';
+import { EngineStore } from './engine.store';
+import { GameStore } from './game.store';
+import { LocationStore } from './location.store';
+import { UIStore } from './ui.store';
+import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
+
+export * from './tower-defense.store.types';
 
 // ═══════════════════════════════════════════════════════════════
-// Type Definitions
-// ═══════════════════════════════════════════════════════════════
-
-/** Game phase lifecycle */
-export type GamePhase = 'setup' | 'wave' | 'paused' | 'gameover';
-
-/** Geo coordinate (minimal) */
-export interface GeoCoord {
-  lat: number;
-  lon: number;
-}
-
-/** Geo coordinate with height */
-export interface GeoCoordWithHeight extends GeoCoord {
-  height: number;
-}
-
-/** Spawn point definition */
-export interface StoreSpawnPoint {
-  id: string;
-  name: string;
-  lat: number;
-  lon: number;
-  color: number;
-}
-
-/** Favorite location */
-export interface StoreFavoriteLocation {
-  id: string;
-  name: string;
-  hq: GeoCoord;
-  spawns: GeoCoord[];
-}
-
-/** Tile loading statistics */
-export interface TileStats {
-  parsing: number;
-  downloading: number;
-  total: number;
-  visible: number;
-}
-
-/** Camera debug info */
-export interface CameraDebugInfo {
-  posX: number; posY: number; posZ: number;
-  rotX: number; rotY: number; rotZ: number;
-  heading: number; pitch: number; altitude: number;
-  distanceToCenter: number; fov: number; terrainHeight: number;
-}
-
-/** Loading step for init sequence */
-export interface LoadingStep {
-  id: string;
-  label: string;
-  status: 'pending' | 'active' | 'done' | 'error';
-  detail?: string;
-}
-
-// ═══════════════════════════════════════════════════════════════
-// Store — Pure State Container
+// Store — Root Aggregate Facade
 // ═══════════════════════════════════════════════════════════════
 
 @Injectable({ providedIn: 'root' })
 export class TowerDefenseStore {
+  private readonly gameStore = inject(GameStore);
+  private readonly uiStore = inject(UIStore);
+  private readonly engineStore = inject(EngineStore);
+  private readonly locationStore = inject(LocationStore);
 
   // ════════════════════════════════════════════════════════════
   // GAME STATE
   // ════════════════════════════════════════════════════════════
 
   /** Player credits (gold) */
-  readonly credits = signal<number>(GAME_BALANCE.player.startCredits);
+  readonly credits = this.gameStore.credits;
 
   /** Base health points */
-  readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
+  readonly baseHealth = this.gameStore.baseHealth;
 
   /** Current game phase */
-  readonly phase = signal<GamePhase>('setup');
+  readonly phase = this.gameStore.phase;
 
   /** Current wave number (0 = no wave started yet) */
-  readonly waveNumber = signal<number>(0);
+  readonly waveNumber = this.gameStore.waveNumber;
 
   /** Number of enemies currently alive */
-  readonly enemiesAlive = signal<number>(0);
+  readonly enemiesAlive = this.gameStore.enemiesAlive;
 
   /** Currently selected tower (for info panel / upgrades) */
-  readonly selectedTower = signal<Tower | null>(null);
+  readonly selectedTower = this.gameStore.selectedTower;
 
   /** Selected tower ID shortcut */
-  readonly selectedTowerId = computed(() => this.selectedTower()?.id ?? null);
+  readonly selectedTowerId = this.gameStore.selectedTowerId;
 
   /** Total placed tower count */
-  readonly towerCount = signal<number>(0);
+  readonly towerCount = this.gameStore.towerCount;
 
   /** Show game over overlay screen */
-  readonly showGameOverScreen = signal<boolean>(false);
+  readonly showGameOverScreen = this.gameStore.showGameOverScreen;
 
   /** Training mode timescale (1.0 = normal, up to 75x) */
-  readonly trainingTimescale = signal<number>(1.0);
+  readonly trainingTimescale = this.gameStore.trainingTimescale;
 
   // ════════════════════════════════════════════════════════════
   // LOADING / INIT STATE
   // ════════════════════════════════════════════════════════════
 
   /** Global loading flag */
-  readonly loading = signal<boolean>(true);
+  readonly loading = this.engineStore.loading;
 
   /** Tiles loading sub-state */
-  readonly tilesLoading = signal<boolean>(true);
+  readonly tilesLoading = this.engineStore.tilesLoading;
 
   /** OSM streets loading sub-state */
-  readonly osmLoading = signal<boolean>(true);
+  readonly osmLoading = this.engineStore.osmLoading;
 
   /** Heights loading sub-state */
-  readonly heightsLoading = signal<boolean>(false);
+  readonly heightsLoading = this.engineStore.heightsLoading;
 
   /** Height update progress (0..1) */
-  readonly heightProgress = signal<number>(0);
+  readonly heightProgress = this.engineStore.heightProgress;
 
   /** Error message (null = no error) */
-  readonly error = signal<string | null>(null);
+  readonly error = this.engineStore.error;
 
   /** Loading status string for progress UI */
-  readonly loadingStatus = signal<string>('Initializing...');
+  readonly loadingStatus = this.engineStore.loadingStatus;
 
   /** Ordered loading steps */
-  readonly loadingSteps = signal<LoadingStep[]>([]);
+  readonly loadingSteps = this.engineStore.loadingSteps;
 
   // ════════════════════════════════════════════════════════════
   // UI STATE (debug flags, layer toggles, menu state)
   // ════════════════════════════════════════════════════════════
 
   /** Debug panel visibility */
-  readonly debugMode = signal<boolean>(false);
+  readonly debugMode = this.uiStore.debugMode;
 
   /** Layer menu expanded */
-  readonly layerMenuExpanded = signal<boolean>(false);
+  readonly layerMenuExpanded = this.uiStore.layerMenuExpanded;
 
   /** Developer menu expanded */
-  readonly devMenuExpanded = signal<boolean>(false);
+  readonly devMenuExpanded = this.uiStore.devMenuExpanded;
 
   /** Street network layer visibility */
-  readonly streetsVisible = signal<boolean>(false);
+  readonly streetsVisible = this.uiStore.streetsVisible;
 
   /** Route paths visibility */
-  readonly routesVisible = signal<boolean>(false);
+  readonly routesVisible = this.uiStore.routesVisible;
 
   /** Height debug markers visibility */
-  readonly heightDebugVisible = signal<boolean>(false);
+  readonly heightDebugVisible = this.uiStore.heightDebugVisible;
 
   /** Special points debug visibility */
-  readonly specialPointsDebugVisible = signal<boolean>(false);
+  readonly specialPointsDebugVisible = this.uiStore.specialPointsDebugVisible;
 
   /** Info overlay (FPS, tiles, enemies, sounds) */
-  readonly infoOverlayVisible = signal<boolean>(false);
+  readonly infoOverlayVisible = this.uiStore.infoOverlayVisible;
 
   /** Spatial grid debug */
-  readonly spatialGridDebugVisible = signal<boolean>(false);
+  readonly spatialGridDebugVisible = this.uiStore.spatialGridDebugVisible;
 
   /** DPS bins visualization */
-  readonly dpsBinsVisible = signal<boolean>(false);
+  readonly dpsBinsVisible = this.uiStore.dpsBinsVisible;
 
   /** Debug log output */
-  readonly debugLog = signal<string>('');
+  readonly debugLog = this.uiStore.debugLog;
 
   // ════════════════════════════════════════════════════════════
   // BUILD MODE
   // ════════════════════════════════════════════════════════════
 
   /** Build mode active */
-  readonly buildMode = signal<boolean>(false);
+  readonly buildMode = this.uiStore.buildMode;
 
   /** Selected tower type for placement */
-  readonly selectedTowerType = signal<TowerTypeId | null>(null);
+  readonly selectedTowerType = this.uiStore.selectedTowerType;
 
   /** Build validation reason (why placement is invalid) */
-  readonly buildValidationReason = signal<string | null>(null);
+  readonly buildValidationReason = this.uiStore.buildValidationReason;
 
   /** Location being applied (disables certain UI) */
-  readonly isApplyingLocation = signal<boolean>(false);
+  readonly isApplyingLocation = this.locationStore.isApplyingLocation;
 
   // ════════════════════════════════════════════════════════════
   // LOCATION (persistent state)
   // ════════════════════════════════════════════════════════════
 
   /** HQ / base coordinates */
-  readonly baseCoords = signal<GeoCoord>({ lat: 0, lon: 0 });
+  readonly baseCoords = this.locationStore.baseCoords;
 
   /** Camera center coordinates (with height) */
-  readonly centerCoords = signal<GeoCoordWithHeight>({ lat: 0, lon: 0, height: 400 });
+  readonly centerCoords = this.locationStore.centerCoords;
 
   /** Active spawn points */
-  readonly spawnPoints = signal<StoreSpawnPoint[]>([]);
+  readonly spawnPoints = this.locationStore.spawnPoints;
 
   /** Current location display name */
-  readonly currentLocationName = signal<string>('');
+  readonly currentLocationName = this.locationStore.currentLocationName;
 
   /** Saved favorite locations */
-  readonly favorites = signal<StoreFavoriteLocation[]>([]);
+  readonly favorites = this.locationStore.favorites;
 
   /** Favorite names lookup map */
-  readonly favoriteNamesMap = signal<Map<string, string>>(new Map());
+  readonly favoriteNamesMap = this.locationStore.favoriteNamesMap;
 
   // ════════════════════════════════════════════════════════════
   // ENGINE / PERFORMANCE
   // ════════════════════════════════════════════════════════════
 
   /** Frames per second */
-  readonly fps = signal<number>(0);
+  readonly fps = this.engineStore.fps;
 
   /** Tile loading statistics */
-  readonly tileStats = signal<TileStats>({ parsing: 0, downloading: 0, total: 0, visible: 0 });
+  readonly tileStats = this.engineStore.tileStats;
 
   /** Active spatial audio sound count */
-  readonly activeSounds = signal<number>(0);
+  readonly activeSounds = this.engineStore.activeSounds;
 
   /** Map attribution text */
-  readonly mapAttribution = signal<string>('Map data ©2024 Google');
+  readonly mapAttribution = this.engineStore.mapAttribution;
 
   /** Camera compass heading (0=N, 90=E, 180=S, 270=W) */
-  readonly cameraHeading = signal<number>(0);
+  readonly cameraHeading = this.engineStore.cameraHeading;
 
   /** Accumulated compass rotation (avoids 0°/360° flip) */
-  readonly compassRotation = signal<number>(0);
+  readonly compassRotation = this.engineStore.compassRotation;
 
   /** Camera debug overlay enabled */
-  readonly cameraDebugEnabled = signal<boolean>(false);
+  readonly cameraDebugEnabled = this.engineStore.cameraDebugEnabled;
 
   /** Camera debug info */
-  readonly cameraDebugInfo = signal<CameraDebugInfo | null>(null);
+  readonly cameraDebugInfo = this.engineStore.cameraDebugInfo;
 
   /** Camera framing debug visualization */
-  readonly cameraFramingDebug = signal<boolean>(false);
+  readonly cameraFramingDebug = this.engineStore.cameraFramingDebug;
 
   /** Street count in loaded network */
-  readonly streetCount = signal<number>(0);
+  readonly streetCount = this.locationStore.streetCount;
 
   // ════════════════════════════════════════════════════════════
   // BOT / AI
   // ════════════════════════════════════════════════════════════
 
   /** Strategy bot enabled */
-  readonly botEnabled = signal<boolean>(false);
+  readonly botEnabled = this.gameStore.botEnabled;
 
   /** Bot skill level */
-  readonly botSkillLevel = signal<BotSkillLevel>('beginner');
+  readonly botSkillLevel = this.gameStore.botSkillLevel;
 
   /** Bot auto mode (auto-start waves, auto-restart) */
-  readonly botAutoMode = signal<boolean>(false);
+  readonly botAutoMode = this.gameStore.botAutoMode;
 
   /** AI Wave Director enabled */
-  readonly useAIDirector = signal<boolean>(false);
+  readonly useAIDirector = this.gameStore.useAIDirector;
 
   /** AI explanation text for current wave */
-  readonly aiExplanation = signal<string | null>(null);
+  readonly aiExplanation = this.gameStore.aiExplanation;
 
   // ════════════════════════════════════════════════════════════
   // DEVWORLD
   // ════════════════════════════════════════════════════════════
 
   /** DevWorld is regenerating terrain */
-  readonly isDevWorldRegenerating = signal<boolean>(false);
+  readonly isDevWorldRegenerating = this.gameStore.isDevWorldRegenerating;
 
   // ════════════════════════════════════════════════════════════
   // WAVE DEBUG OVERRIDES
   // ════════════════════════════════════════════════════════════
 
   /** Debug: enemy speed override */
-  readonly enemySpeed = signal<number>(2.0);
+  readonly enemySpeed = this.uiStore.enemySpeed;
 
   /** Debug: enemy health override */
-  readonly enemyHealth = signal<number>(100);
+  readonly enemyHealth = this.uiStore.enemyHealth;
 
   /** Debug: enemy count per wave */
-  readonly enemyCount = signal<number>(5);
+  readonly enemyCount = this.uiStore.enemyCount;
 
   /** Debug: enemy type */
-  readonly enemyType = signal<string>('basic');
+  readonly enemyType = this.uiStore.enemyType;
 
   /** Debug: spawn mode (sequential / random / all) */
-  readonly spawnMode = signal<string>('sequential');
+  readonly spawnMode = this.uiStore.spawnMode;
 
   /** Debug: spawn delay in ms */
-  readonly spawnDelay = signal<number>(1000);
+  readonly spawnDelay = this.uiStore.spawnDelay;
 
   // ════════════════════════════════════════════════════════════
   // COMPUTED VALUES — derived from signals above
   // ════════════════════════════════════════════════════════════
 
   /** Whether a wave is currently active */
-  readonly waveActive: Signal<boolean> = computed(() => this.phase() === 'wave');
+  readonly waveActive: Signal<boolean> = this.gameStore.waveActive;
 
   /** Whether the game is over */
-  readonly isGameOver: Signal<boolean> = computed(() => this.phase() === 'gameover');
+  readonly isGameOver: Signal<boolean> = this.gameStore.isGameOver;
 
   /** Whether the game has started (at least one wave played) */
-  readonly gameStarted: Signal<boolean> = computed(() => this.waveNumber() > 0 || this.phase() !== 'setup');
+  readonly gameStarted: Signal<boolean> = this.gameStore.gameStarted;
 
   /** Whether the player can start a wave */
   readonly canStartWave: Signal<boolean> = computed(() =>
@@ -348,20 +296,10 @@ export class TowerDefenseStore {
   );
 
   /** Health percentage (0..100) */
-  readonly healthPercent: Signal<number> = computed(() =>
-    Math.round((this.baseHealth() / GAME_BALANCE.player.startHealth) * 100)
-  );
+  readonly healthPercent: Signal<number> = this.gameStore.healthPercent;
 
   /** Health is critical (≤ 25%) */
-  readonly healthCritical: Signal<boolean> = computed(() => this.healthPercent() <= 25);
-
-  /** Build mode hint items (static, but exposed as signal-compatible) */
-  readonly buildModeHints = [
-    { key: 'R', description: 'Rotate' },
-    { key: 'Click', description: 'Build' },
-    { key: 'ESC', description: 'Cancel' },
-    { key: 'Wait', description: 'Line of Sight' },
-  ] as const;
+  readonly healthCritical: Signal<boolean> = this.gameStore.healthCritical;
 
   /** Build mode warning text */
   readonly buildModeWarning: Signal<string | null> = computed(() => this.buildValidationReason());
@@ -372,16 +310,12 @@ export class TowerDefenseStore {
 
   /** Append to debug log (max 50 lines) */
   appendDebugLog(message: string): void {
-    this.debugLog.update(log => {
-      const lines = log.split('\n');
-      if (lines.length > 50) lines.shift();
-      return [...lines, message].join('\n');
-    });
+    this.uiStore.appendDebugLog(message);
   }
 
   /** Clear debug log */
   clearDebugLog(): void {
-    this.debugLog.set('');
+    this.uiStore.clearDebugLog();
   }
 
   /**
@@ -397,29 +331,7 @@ export class TowerDefenseStore {
     cameraHeading: number;
     cameraDebugInfo?: CameraDebugInfo | null;
   }): void {
-    this.fps.set(snapshot.fps);
-    this.tileStats.set(snapshot.tileStats);
-    this.activeSounds.set(snapshot.activeSoundCount);
-
-    if (snapshot.attribution) {
-      this.mapAttribution.set(snapshot.attribution);
-    }
-
-    // Compass heading with wrap-around
-    const heading = Math.round(snapshot.cameraHeading);
-    if (heading !== this.cameraHeading()) {
-      const oldHeading = this.cameraHeading();
-      this.cameraHeading.set(heading);
-
-      let delta = heading - oldHeading;
-      if (delta > 180) delta -= 360;
-      if (delta < -180) delta += 360;
-      this.compassRotation.update(rot => rot + delta);
-    }
-
-    if (this.cameraDebugEnabled() && snapshot.cameraDebugInfo) {
-      this.cameraDebugInfo.set(snapshot.cameraDebugInfo);
-    }
+    this.engineStore.updateEngineStats(snapshot);
   }
 
   // ════════════════════════════════════════════════════════════
@@ -434,18 +346,8 @@ export class TowerDefenseStore {
    *       Those are user choices that persist across games.
    */
   resetGameState(): void {
-    this.credits.set(GAME_BALANCE.player.startCredits);
-    this.baseHealth.set(GAME_BALANCE.player.startHealth);
-    this.phase.set('setup');
-    this.waveNumber.set(0);
-    this.enemiesAlive.set(0);
-    this.selectedTower.set(null);
-    this.towerCount.set(0);
-    this.showGameOverScreen.set(false);
-    this.buildMode.set(false);
-    this.selectedTowerType.set(null);
-    this.buildValidationReason.set(null);
-    this.aiExplanation.set(null);
+    this.gameStore.resetGameState();
+    this.uiStore.resetBuildState();
   }
 
   /**
@@ -453,25 +355,9 @@ export class TowerDefenseStore {
    * Used for complete teardown.
    */
   resetAll(): void {
-    this.resetGameState();
-    this.debugMode.set(false);
-    this.layerMenuExpanded.set(false);
-    this.devMenuExpanded.set(false);
-    this.streetsVisible.set(false);
-    this.routesVisible.set(false);
-    this.heightDebugVisible.set(false);
-    this.specialPointsDebugVisible.set(false);
-    this.infoOverlayVisible.set(false);
-    this.spatialGridDebugVisible.set(false);
-    this.dpsBinsVisible.set(false);
-    this.fps.set(0);
-    this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
-    this.activeSounds.set(0);
-    this.mapAttribution.set('Map data ©2024 Google');
-    this.cameraHeading.set(0);
-    this.compassRotation.set(0);
-    this.cameraDebugEnabled.set(false);
-    this.cameraDebugInfo.set(null);
-    this.debugLog.set('');
+    this.gameStore.resetAll();
+    this.uiStore.resetAll();
+    this.engineStore.resetAll();
+    this.locationStore.resetAll();
   }
 }

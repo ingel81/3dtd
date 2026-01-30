@@ -1,0 +1,103 @@
+import { Injectable, computed, signal } from '@angular/core';
+import { GAME_BALANCE } from '../configs/game-balance.config';
+import { Tower } from '../entities/tower.entity';
+import { BotSkillLevel } from '../ai/training/bots/tower-bot.interface';
+import { GamePhase } from './tower-defense.store.types';
+
+@Injectable({ providedIn: 'root' })
+export class GameStore {
+  /** Player credits (gold) */
+  readonly credits = signal<number>(GAME_BALANCE.player.startCredits);
+
+  /** Base health points */
+  readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
+
+  /** Current game phase */
+  readonly phase = signal<GamePhase>('setup');
+
+  /** Current wave number (0 = no wave started yet) */
+  readonly waveNumber = signal<number>(0);
+
+  /** Number of enemies currently alive */
+  readonly enemiesAlive = signal<number>(0);
+
+  /** Currently selected tower (for info panel / upgrades) */
+  readonly selectedTower = signal<Tower | null>(null);
+
+  /** Selected tower ID shortcut */
+  readonly selectedTowerId = computed(() => this.selectedTower()?.id ?? null);
+
+  /** Total placed tower count */
+  readonly towerCount = signal<number>(0);
+
+  /** Show game over overlay screen */
+  readonly showGameOverScreen = signal<boolean>(false);
+
+  /** Training mode timescale (1.0 = normal, up to 75x) */
+  readonly trainingTimescale = signal<number>(1.0);
+
+  /** Strategy bot enabled */
+  readonly botEnabled = signal<boolean>(false);
+
+  /** Bot skill level */
+  readonly botSkillLevel = signal<BotSkillLevel>('beginner');
+
+  /** Bot auto mode (auto-start waves, auto-restart) */
+  readonly botAutoMode = signal<boolean>(false);
+
+  /** AI Wave Director enabled */
+  readonly useAIDirector = signal<boolean>(false);
+
+  /** AI explanation text for current wave */
+  readonly aiExplanation = signal<string | null>(null);
+
+  /** DevWorld is regenerating terrain */
+  readonly isDevWorldRegenerating = signal<boolean>(false);
+
+  /** Whether a wave is currently active */
+  readonly waveActive = computed(() => this.phase() === 'wave');
+
+  /** Whether the game is over */
+  readonly isGameOver = computed(() => this.phase() === 'gameover');
+
+  /** Whether the game has started (at least one wave played) */
+  readonly gameStarted = computed(() => this.waveNumber() > 0 || this.phase() !== 'setup');
+
+  /** Health percentage (0..100) */
+  readonly healthPercent = computed(() =>
+    Math.round((this.baseHealth() / GAME_BALANCE.player.startHealth) * 100)
+  );
+
+  /** Health is critical (≤ 25%) */
+  readonly healthCritical = computed(() => this.healthPercent() <= 25);
+
+  /**
+   * Reset game state to initial values.
+   * Called on game restart.
+   */
+  resetGameState(): void {
+    this.credits.set(GAME_BALANCE.player.startCredits);
+    this.baseHealth.set(GAME_BALANCE.player.startHealth);
+    this.phase.set('setup');
+    this.waveNumber.set(0);
+    this.enemiesAlive.set(0);
+    this.selectedTower.set(null);
+    this.towerCount.set(0);
+    this.showGameOverScreen.set(false);
+    this.aiExplanation.set(null);
+  }
+
+  /**
+   * Full reset including UI state.
+   * Used for complete teardown.
+   */
+  resetAll(): void {
+    this.resetGameState();
+    this.trainingTimescale.set(1.0);
+    this.botEnabled.set(false);
+    this.botSkillLevel.set('beginner');
+    this.botAutoMode.set(false);
+    this.useAIDirector.set(false);
+    this.isDevWorldRegenerating.set(false);
+  }
+}

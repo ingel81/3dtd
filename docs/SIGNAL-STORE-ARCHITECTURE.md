@@ -283,10 +283,12 @@ export class TowerDefenseComponent {
 - **Vendor Lock** — Reines Angular bleibt portabler
 - **Performance** — NgRx Signal Store hat overhead für Features die wir nicht brauchen
 
-### Warum nicht mehrere kleine Stores?
-- **Erst konsolidieren, dann splitten** — Wir wissen noch nicht, wo die natürlichen Grenzen sind
-- **Cross-Cutting Concerns** — `canStartWave` braucht `loading`, `spawnPoints`, `phase`, `isGameOver`
-- **Einfachheit** — Ein Store mit Sections ist einfacher als 5 Stores mit Cross-Injection
+### Sub-Store Architektur (umgesetzt)
+- **Konsolidiert, dann gesplittet** — Nach der initialen Konsolidierung wurden natürliche Domain-Grenzen sichtbar
+- **4 Sub-Stores:** `GameStore`, `UIStore`, `EngineStore`, `LocationStore`
+- **Root-Store als Fassade:** `TowerDefenseStore` injiziert alle Sub-Stores und re-exportiert deren Signals
+- **Cross-Cutting Concerns** bleiben im Root-Store — `canStartWave` braucht Signals aus Game, Engine und Location
+- **Consumer-kompatibel** — Bestehender Code nutzt weiterhin `TowerDefenseStore`, keine Breaking Changes
 
 ### Warum `@Injectable({ providedIn: 'root' })`?
 - **Singleton** — Es gibt genau ein Spiel, genau einen State
