@@ -20,6 +20,7 @@ import { GameStateManager } from '../managers/game-state.manager';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from './location-change-coordinator.service';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
+import { TowerDefenseStore } from '../store/tower-defense.store';
 
 /**
  * Sub-facade for location management, DevWorld, spawns, and street loading.
@@ -48,6 +49,7 @@ export class LocationFacadeService {
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly dialog = inject(MatDialog);
+  private readonly store = inject(TowerDefenseStore);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -111,15 +113,15 @@ export class LocationFacadeService {
           gameState: this.gameState,
           streetNetwork: this.bridge.getStreetNetwork(),
           streetNetworkLocation: this.bridge.getStreetNetworkLocation(),
-          heightDebugVisible: this.bridge.heightDebugVisible,
+          heightDebugVisible: this.store.heightDebugVisible,
         };
       },
       getChangeCallbacks: (): LocationChangeCallbacks => ({
-        setBaseCoords: (c) => this.bridge.baseCoords.set(c),
-        setCenterCoords: (c) => this.bridge.centerCoords.set(c),
-        setSpawnPoints: (p) => this.bridge.spawnPoints.set(p),
+        setBaseCoords: (c) => this.store.baseCoords.set(c),
+        setCenterCoords: (c) => this.store.centerCoords.set(c),
+        setSpawnPoints: (p) => this.store.spawnPoints.set(p),
         addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
-        setStreetCount: (c) => this.waveDebug.streetCount.set(c),
+        setStreetCount: (c) => this.store.streetCount.set(c),
         setStreetNetwork: (n) => this.bridge.setStreetNetwork(n),
         setStreetNetworkLocation: (l) => this.bridge.setStreetNetworkLocation(l),
         syncUrlWithLocation: () => this.syncUrlWithLocation(),
@@ -128,8 +130,8 @@ export class LocationFacadeService {
         initializeTowerPlacement: () => vizCallbacks.initializeTowerPlacement(),
         filterStreetNetworkToRoutes: () => vizCallbacks.filterStreetNetworkToRoutes(),
         scheduleOverlayHeightUpdate: () => Promise.resolve(vizCallbacks.scheduleOverlayHeightUpdate()),
-        getSpawnPoints: () => this.bridge.spawnPoints(),
-        getBaseCoords: () => this.bridge.baseCoords(),
+        getSpawnPoints: () => this.store.spawnPoints(),
+        getBaseCoords: () => this.store.baseCoords(),
       }),
       isGameInProgress: () => this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
       getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
@@ -152,8 +154,8 @@ export class LocationFacadeService {
         { lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon },
         []
       );
-      this.bridge.baseCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon });
-      this.bridge.centerCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon, height: 400 });
+      this.store.baseCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon });
+      this.store.centerCoords.set({ lat: DEV_WORLD_ORIGIN.lat, lon: DEV_WORLD_ORIGIN.lon, height: 400 });
       await this.engineInit.setStepDone('location', 'DevWorld');
       return;
     }
@@ -184,8 +186,8 @@ export class LocationFacadeService {
     const hq = this.locationMgmt.hq();
     if (hq) {
       this.syncUrlWithLocation();
-      this.bridge.baseCoords.set({ lat: hq.lat, lon: hq.lon });
-      this.bridge.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
+      this.store.baseCoords.set({ lat: hq.lat, lon: hq.lon });
+      this.store.centerCoords.set({ lat: hq.lat, lon: hq.lon, height: 400 });
     }
   }
 
@@ -321,7 +323,7 @@ export class LocationFacadeService {
     if (!engine || !streetNetwork) return;
 
     const spawn: SpawnPoint = { id, name, lat, lon, color };
-    this.bridge.spawnPoints.update((points) => [...points, spawn]);
+    this.store.spawnPoints.update((points) => [...points, spawn]);
 
     this.markerViz.addSpawnMarker(id, name, lat, lon, color);
     this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
@@ -345,7 +347,7 @@ export class LocationFacadeService {
     this.pathRoute.clearAllRoutes();
     this.streetRendering.dispose(overlayGroup);
 
-    this.bridge.spawnPoints.set([]);
+    this.store.spawnPoints.set([]);
     this.pathRoute.clearCachedPaths();
 
     this.bridge.setFilteredStreetNetwork(null);
@@ -368,13 +370,13 @@ export class LocationFacadeService {
     if (this.devWorld.isActive) {
       const devTerrainProvider = engine.getDevTerrainProvider();
       if (devTerrainProvider) {
-        this.bridge.isDevWorldRegenerating.set(true);
+        this.store.isDevWorldRegenerating.set(true);
         this.clearDevWorldVisuals();
         engine.clearHeightCache();
 
         devTerrainProvider.regenerate().then(() => {
           this.onDevWorldRegenerated(devTerrainProvider);
-          this.bridge.isDevWorldRegenerating.set(false);
+          this.store.isDevWorldRegenerating.set(false);
         });
         return;
       }
@@ -404,7 +406,7 @@ export class LocationFacadeService {
     this.pathRoute.clearCachedPaths();
     this.streetRendering.dispose(overlayGroup);
 
-    this.bridge.spawnPoints.set([]);
+    this.store.spawnPoints.set([]);
   }
 
   /**
@@ -433,7 +435,7 @@ export class LocationFacadeService {
     this.bridge.setFilteredStreetNetwork(this.bridge.getStreetNetwork());
 
     // Update marker heights and render routes
-    const spawnPointsForMarkers = this.bridge.spawnPoints().map(sp => ({
+    const spawnPointsForMarkers = this.store.spawnPoints().map(sp => ({
       id: sp.id,
       name: sp.name,
       lat: sp.lat,
@@ -441,7 +443,7 @@ export class LocationFacadeService {
       color: sp.color,
     }));
     this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-    this.pathRoute.refreshRouteLines(this.bridge.spawnPoints());
+    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
 
     // Re-initialize game state
     this.gameState.initializeGlobalRouteGrid();
@@ -450,7 +452,7 @@ export class LocationFacadeService {
     // Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.bridge.spawnPoints());
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
     }
   }
 }

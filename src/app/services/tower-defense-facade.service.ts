@@ -1,4 +1,4 @@
-import { Injectable, inject, Injector, Signal, WritableSignal } from '@angular/core';
+import { Injectable, inject, Injector } from '@angular/core';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { OsmStreetService } from './osm-street.service';
 import { TowerPlacementService } from './tower-placement.service';
@@ -13,11 +13,11 @@ import { ModelPreviewService } from './model-preview.service';
 import { StrategicPlacementService } from './strategic-placement.service';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TrainingClientService } from '../ai/training/training-client.service';
+import { TowerDefenseStore } from '../store/tower-defense.store';
 import { ThreeTilesEngine } from '../three-engine';
 import { Tower } from '../entities/tower.entity';
 import { UpgradeId } from '../configs/tower-types.config';
 import { Vector3 } from 'three';
-import { SpawnPoint } from './marker-visualization.service';
 import { StreetNetwork } from './osm-street.service';
 import { DevStreetProvider } from '../devworld/dev-street.provider';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
@@ -28,8 +28,11 @@ import { LocationFacadeService } from './location-facade.service';
 import { VisualizationFacadeService } from './visualization-facade.service';
 
 /**
- * Context object passed from the component during initialization.
- * Contains component-owned state that the facade needs to read/write.
+ * Minimal bridge for engine/canvas references that cannot live in the Store.
+ *
+ * All UI state signals have been migrated to TowerDefenseStore.
+ * The bridge only carries mutable engine infrastructure references
+ * and component-level callbacks (click handlers, etc.).
  */
 export interface FacadeComponentBridge {
   /** Engine reference (component-owned, may be null early) */
@@ -45,22 +48,6 @@ export interface FacadeComponentBridge {
   setFilteredStreetNetwork: (n: StreetNetwork | null) => void;
   getStreetNetworkLocation: () => { lat: number; lon: number } | null;
   setStreetNetworkLocation: (l: { lat: number; lon: number } | null) => void;
-
-  /** Signals owned by the component */
-  spawnPoints: WritableSignal<SpawnPoint[]>;
-  baseCoords: WritableSignal<{ lat: number; lon: number }>;
-  centerCoords: WritableSignal<{ lat: number; lon: number; height: number }>;
-  isDevWorldRegenerating: WritableSignal<boolean>;
-  useAIDirector: WritableSignal<boolean>;
-  aiExplanation: WritableSignal<string | null>;
-  cameraFramingDebug: WritableSignal<boolean>;
-  debugLog: WritableSignal<string>;
-
-  /** Read-only signals */
-  waveActive: Signal<boolean>;
-  isGameOver: Signal<boolean>;
-  streetsVisible: Signal<boolean>;
-  heightDebugVisible: WritableSignal<boolean>;
 
   /** Canvas element for input handler */
   getCanvasElement: () => HTMLCanvasElement;
@@ -82,6 +69,9 @@ export interface FacadeComponentBridge {
  */
 @Injectable({ providedIn: 'root' })
 export class TowerDefenseFacadeService {
+  // Store — single source of truth for UI state
+  private readonly store = inject(TowerDefenseStore);
+
   // Sub-facades
   private readonly gameLoopFacade = inject(GameLoopFacadeService);
   private readonly locationFacade = inject(LocationFacadeService);
@@ -178,7 +168,7 @@ export class TowerDefenseFacadeService {
     }
 
     if (this.devWorld.isActive) {
-      this.bridge.useAIDirector.set(true);
+      this.store.useAIDirector.set(true);
       this.trainingClient.connectToBackend();
     }
 
@@ -232,7 +222,7 @@ export class TowerDefenseFacadeService {
         return;
       }
 
-      const base = this.bridge.baseCoords();
+      const base = this.store.baseCoords();
       this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon });
 
       await this.engineInit.initEngine({
@@ -274,18 +264,18 @@ export class TowerDefenseFacadeService {
    * Load street network wrapper (used as initEngine callback).
    */
   private async loadStreetsInternal(): Promise<number> {
-    const center = this.bridge.centerCoords();
+    const center = this.store.centerCoords();
     const result = await this.engineInit.loadStreets(
       center.lat,
       center.lon,
       (network, count) => {
         this.bridge.setStreetNetwork(network);
-        this.waveDebug.streetCount.set(count);
+        this.store.streetCount.set(count);
       },
     );
     this.bridge.setStreetNetwork(result.network);
     this.bridge.setDevStreetProvider(result.devStreetProvider);
-    this.waveDebug.streetCount.set(result.count);
+    this.store.streetCount.set(result.count);
     return result.count;
   }
 

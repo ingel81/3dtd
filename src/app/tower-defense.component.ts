@@ -5,7 +5,6 @@ import {
   ElementRef,
   ViewChild,
   Injector,
-  signal,
   inject,
   computed,
   HostListener,
@@ -43,7 +42,7 @@ import { LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { GameUIStateService } from './services/game-ui-state.service';
 import { CameraControlService } from './services/camera-control.service';
-import { MarkerVisualizationService, SpawnPoint } from './services/marker-visualization.service';
+import { MarkerVisualizationService } from './services/marker-visualization.service';
 import { PathAndRouteService } from './services/path-route.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
@@ -55,6 +54,7 @@ import { RouteAnimationService } from './services/route-animation.service';
 import { StreetRenderingService } from './services/street-rendering.service';
 import { LocationChangeCoordinatorService } from './services/location-change-coordinator.service';
 import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/tower-defense-facade.service';
+import { TowerDefenseStore } from './store/tower-defense.store';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
@@ -71,18 +71,6 @@ import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
 import { TrainingClientService } from './ai/training/training-client.service';
 // AI Bot Training
 import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
-
-// Initial empty coords - will be set when location is loaded (using GeoPosition format)
-const EMPTY_COORDS = {
-  lat: 0,
-  lon: 0,
-};
-
-const EMPTY_CENTER_COORDS = {
-  lat: 0,
-  lon: 0,
-  height: 400,
-};
 
 @Component({
   selector: 'app-tower-defense',
@@ -151,6 +139,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   readonly facade = inject(TowerDefenseFacadeService);
+  readonly store = inject(TowerDefenseStore);
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
@@ -203,33 +192,29 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Camera & debug signals (delegated to GameUIStateService)
   readonly cameraHeading = this.uiState.cameraHeading;
   readonly compassRotation = this.uiState.compassRotation;
-  readonly cameraFramingDebug = signal(false); // Debug visualization for camera framing
+  readonly cameraFramingDebug = this.store.cameraFramingDebug;
   readonly cameraDebugEnabled = this.uiState.cameraDebugEnabled;
   readonly cameraDebugInfo = this.uiState.cameraDebugInfo;
   // Wave debug settings (proxied from WaveDebugService for backwards compatibility)
   readonly enemySpeed = this.waveDebug.enemySpeed;
   readonly enemyHealth = this.waveDebug.enemyHealth;
-  readonly streetCount = this.waveDebug.streetCount;
+  readonly streetCount = this.store.streetCount;
   readonly enemyCount = this.waveDebug.enemyCount;
   readonly enemyType = this.waveDebug.enemyType;
   readonly enemyTypes = getAllEnemyTypes();
   readonly spawnMode = this.waveDebug.spawnMode;
   readonly spawnDelay = this.waveDebug.spawnDelay;
-  readonly spawnPoints = signal<SpawnPoint[]>([]);
+  readonly spawnPoints = this.store.spawnPoints;
   // AI Director mode - uses AI to generate waves instead of debug settings
-  readonly useAIDirector = signal(false);
-  readonly aiExplanation = signal<string | null>(null);
-  readonly baseCoords = signal(EMPTY_COORDS);
-  readonly centerCoords = signal(EMPTY_CENTER_COORDS);
-  /**
-   * DevWorld regeneration in progress.
-   * Set by LocationFacade during terrain regeneration to disable UI interactions.
-   * TODO(store): Migrate to TowerDefenseStore.isDevWorldRegenerating once bridge is removed.
-   */
-  readonly isDevWorldRegenerating = signal(false);
+  readonly useAIDirector = this.store.useAIDirector;
+  readonly aiExplanation = this.store.aiExplanation;
+  readonly baseCoords = this.store.baseCoords;
+  readonly centerCoords = this.store.centerCoords;
+  /** DevWorld regeneration in progress — sourced from Store */
+  readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
 
-  readonly waveActive = computed(() => this.gameState.phase() === 'wave');
-  readonly isGameOver = computed(() => this.gameState.phase() === 'gameover');
+  readonly waveActive = this.store.waveActive;
+  readonly isGameOver = this.store.isGameOver;
   readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
   // Build mode hints for context hint box
@@ -582,18 +567,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       setFilteredStreetNetwork: (n) => { this.filteredStreetNetwork = n; },
       getStreetNetworkLocation: () => this.streetNetworkLocation,
       setStreetNetworkLocation: (l) => { this.streetNetworkLocation = l; },
-      spawnPoints: this.spawnPoints,
-      baseCoords: this.baseCoords,
-      centerCoords: this.centerCoords,
-      isDevWorldRegenerating: this.isDevWorldRegenerating,
-      useAIDirector: this.useAIDirector,
-      aiExplanation: this.aiExplanation,
-      cameraFramingDebug: this.cameraFramingDebug,
-      debugLog: this.debugLog,
-      waveActive: this.waveActive,
-      isGameOver: this.isGameOver,
-      streetsVisible: this.streetsVisible,
-      heightDebugVisible: this.heightDebugVisible,
       getCanvasElement: () => this.gameCanvas.nativeElement,
       onTerrainClick: (lat, lon, height) => this.onTerrainClick(lat, lon, height),
       onMouseMove: (lat, lon, hitPoint) => this.onMouseMove(lat, lon, hitPoint),
