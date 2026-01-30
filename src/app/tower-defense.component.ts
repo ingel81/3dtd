@@ -306,68 +306,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Remove a debug enemy — delegated to EnemyDebugService
-   */
-  onRemoveDebugEnemy(enemyId: string): void {
-    this.enemyDebug.onRemoveDebugEnemy(enemyId);
-  }
-
-  /**
-   * Clear all debug enemies — delegated to EnemyDebugService
-   */
-  onClearDebugEnemies(): void {
-    this.enemyDebug.onClearDebugEnemies();
-  }
-
-  /**
-   * Play idle animation for debug enemy — delegated to EnemyDebugService
-   */
-  onPlayIdleAnimation(enemyId: string): void {
-    this.enemyDebug.onPlayIdleAnimation(enemyId);
-  }
-
-  /**
-   * Play walk animation for debug enemy — delegated to EnemyDebugService
-   */
-  onPlayWalkAnimation(enemyId: string): void {
-    this.enemyDebug.onPlayWalkAnimation(enemyId);
-  }
-
-  /**
-   * Play run animation for debug enemy — delegated to EnemyDebugService
-   */
-  onPlayRunAnimation(enemyId: string): void {
-    this.enemyDebug.onPlayRunAnimation(enemyId);
-  }
-
-  /**
-   * Start movement for debug enemy — delegated to EnemyDebugService
-   */
-  onStartEnemyMovement(enemyId: string): void {
-    this.enemyDebug.onStartEnemyMovement(enemyId);
-  }
-
-  /**
-   * Stop movement for debug enemy — delegated to EnemyDebugService
-   */
-  onStopEnemyMovement(enemyId: string): void {
-    this.enemyDebug.onStopEnemyMovement(enemyId);
-  }
-
-  onEnemiesToggled(visible: boolean): void {
-    this.debugFacade.onEnemiesToggled(visible);
-  }
-  onHealthBarsToggled(visible: boolean): void {
-    this.debugFacade.onHealthBarsToggled(visible);
-  }
-  onAnimationsToggled(enabled: boolean): void {
-    this.debugFacade.onAnimationsToggled(enabled);
-  }
-  onMovementToggled(enabled: boolean): void {
-    this.debugFacade.onMovementToggled(enabled);
-  }
-
-  /**
    * Toggle height debug visualization (just visibility, no re-render)
    */
   toggleHeightDebug(): void {
@@ -382,41 +320,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   refreshTerrainHeights(): void {
     this.facade.refreshTerrainHeights();
-  }
-
-  /**
-   * Clear DevWorld visuals — delegates to facade
-   */
-  private clearDevWorldVisuals(): void {
-    this.facade.clearDevWorldVisuals();
-  }
-
-  /**
-   * DevWorld regenerated callback — delegates to facade
-   */
-  private onDevWorldRegenerated(devTerrainProvider: import('./devworld/dev-terrain.provider').DevTerrainProvider): void {
-    this.facade.onDevWorldRegenerated(devTerrainProvider);
-  }
-
-  /**
-   * Tiles loaded callback — delegates to facade
-   */
-  private onTilesLoaded(): void {
-    this.facade.onTilesLoaded();
-  }
-
-  /**
-   * Reframe camera with routes — delegates to facade
-   */
-  private reframeCameraWithRoutes(): void {
-    this.facade.reframeCameraWithRoutes();
-  }
-
-  /**
-   * Add predefined spawn points — delegates to facade
-   */
-  private addPredefinedSpawns(): number {
-    return this.facade.addPredefinedSpawns();
   }
 
   /**
