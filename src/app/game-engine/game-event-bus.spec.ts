@@ -62,10 +62,10 @@ describe('GameEventBus', () => {
     it('supports multiple listeners for same event type', () => {
       const handlerA = vi.fn();
       const handlerB = vi.fn();
-      const event = { type: 'projectile:missed', projectile: mockProjectile } as const;
+      const event = { type: 'projectile:hit', projectile: mockProjectile, target: mockEnemy, damage: 10 } as const;
 
-      bus.on('projectile:missed', handlerA);
-      bus.on('projectile:missed', handlerB);
+      bus.on('projectile:hit', handlerA);
+      bus.on('projectile:hit', handlerB);
       bus.emit(event);
 
       expect(handlerA).toHaveBeenCalledTimes(1);
@@ -92,10 +92,10 @@ describe('GameEventBus', () => {
 
     it('processQueue() dispatches queued events and clears queue (FIFO)', () => {
       const calls: string[] = [];
-      bus.on('ui:notification', (event) => calls.push(event.message));
+      bus.on('audio:play', (event) => calls.push(event.sound));
 
-      bus.emitDeferred({ type: 'ui:notification', message: 'first', level: 'info' });
-      bus.emitDeferred({ type: 'ui:notification', message: 'second', level: 'warning' });
+      bus.emitDeferred({ type: 'audio:play', sound: 'first', lat: 0, lon: 0, height: 0 });
+      bus.emitDeferred({ type: 'audio:play', sound: 'second', lat: 0, lon: 0, height: 0 });
 
       expect(bus.getQueueSize()).toBe(2);
 
@@ -212,14 +212,14 @@ describe('GameEventBus', () => {
   describe('clear()', () => {
     it('removes all listeners and clears deferred queue', () => {
       const handler = vi.fn();
-      bus.on('ui:notification', handler);
-      bus.emitDeferred({ type: 'ui:notification', message: 'hello', level: 'info' });
+      bus.on('audio:play', handler);
+      bus.emitDeferred({ type: 'audio:play', sound: 'hello', lat: 0, lon: 0, height: 0 });
 
       bus.clear();
 
       expect(bus.getQueueSize()).toBe(0);
       bus.processQueue();
-      bus.emit({ type: 'ui:notification', message: 'later', level: 'warning' });
+      bus.emit({ type: 'audio:play', sound: 'later', lat: 0, lon: 0, height: 0 });
       expect(handler).not.toHaveBeenCalled();
     });
   });
