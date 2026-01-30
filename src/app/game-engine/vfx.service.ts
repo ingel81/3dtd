@@ -35,6 +35,11 @@ export class VFXService {
     this.eventBus.on('vfx:explosion', (event) => {
       this.handleExplosionEffect(event.position, event.radius);
     });
+
+    // Muzzle flash on tower fire (projectile towers only)
+    this.eventBus.on('vfx:muzzle-flash', (event) => {
+      this.handleMuzzleFlash(event.towerId, event.towerTypeId);
+    });
   }
 
   private handleBloodEffect(position: Vector3, intensity: number): void {
@@ -97,6 +102,39 @@ export class VFXService {
 
     // Spawn explosion effect
     this.tilesEngine.effects.spawnExplosionAtGeo(lat, lon, height, preset);
+  }
+
+  /**
+   * Beam tower type IDs — no muzzle flash for these
+   */
+  private static readonly BEAM_TOWER_IDS = new Set(['ice', 'magic', 'fire']);
+
+  /**
+   * Handle muzzle flash for projectile towers.
+   * Spawns additive particles + triggers pooled PointLight on tower renderer.
+   */
+  private handleMuzzleFlash(towerId: string, towerTypeId: string): void {
+    // Skip beam towers (Ice, Magic, Fire)
+    if (VFXService.BEAM_TOWER_IDS.has(towerTypeId)) return;
+
+    const towerData = this.tilesEngine.towers.get(towerId);
+    if (!towerData) return;
+
+    const terrainPos = this.tilesEngine.sync.geoToLocal(
+      towerData.lat,
+      towerData.lon,
+      towerData.height
+    );
+
+    const shootX = terrainPos.x;
+    const shootY = towerData.tipY;
+    const shootZ = terrainPos.z;
+
+    // 1. Additive particles (3-5 bright yellow/white, ~50ms)
+    this.tilesEngine.effects.spawnMuzzleFlash(shootX, shootY, shootZ);
+
+    // 2. Pooled PointLight (reused, removed after 50ms)
+    this.tilesEngine.towers.triggerMuzzleFlash(towerId);
   }
 
   /**
