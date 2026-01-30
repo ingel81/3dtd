@@ -129,6 +129,15 @@ export class ThreeEffectsRenderer {
   private trailMaterialAdditive: PointsMaterial | null = null;
   private trailMaterialNormal: PointsMaterial | null = null;
 
+  // Round-robin cursors for O(1) amortized inactive particle search
+  private poolCursors = {
+    blood: 0,
+    fire: 0,
+    trailAdditive: 0,
+    trailNormal: 0,
+    towerFire: 0,
+  };
+
   // Dedicated tower inner fire pool (independent of combat effects)
   private towerFirePool: Particle[] = [];
   private readonly MAX_TOWER_FIRE_PARTICLES = 800;
@@ -561,7 +570,7 @@ export class ThreeEffectsRenderer {
 
     // Spawn particles
     for (let i = 0; i < count && effect.particles.length < this.MAX_BLOOD_PARTICLES; i++) {
-      const particle = this.getInactiveParticle(this.bloodPool);
+      const particle = this.getInactiveParticle(this.bloodPool, 'blood');
       if (!particle) break;
 
       particle.position.copy(localPos);
@@ -693,7 +702,7 @@ export class ThreeEffectsRenderer {
 
     // Use trailPoolAdditive for better visuals (per-particle colors, shader support)
     for (let i = 0; i < config.count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -796,7 +805,7 @@ export class ThreeEffectsRenderer {
 
     // Use trailPoolAdditive for better visuals (per-particle colors, shader support)
     for (let i = 0; i < config.count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -907,7 +916,7 @@ export class ThreeEffectsRenderer {
     const particles: Particle[] = [];
 
     for (let i = 0; i < particleCount; i++) {
-      const particle = this.getInactiveParticle(this.towerFirePool);
+      const particle = this.getInactiveParticle(this.towerFirePool, 'towerFire');
       if (!particle) {
         console.warn('[Effects] Tower fire pool exhausted at', i, 'particles');
         break;
@@ -998,7 +1007,7 @@ export class ThreeEffectsRenderer {
     size: number,
     maxLife: number
   ): void {
-    const particle = this.getInactiveParticle(this.trailPoolAdditive);
+    const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
     if (!particle) return;
 
     particle.position.copy(position);
@@ -1019,7 +1028,7 @@ export class ThreeEffectsRenderer {
 
     // Spawn 30 particles that fade quickly
     for (let i = 0; i < 30; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -1078,7 +1087,7 @@ export class ThreeEffectsRenderer {
     (effect as EffectInstance & { radius: number }).radius = fireRadius;
 
     for (let i = 0; i < particleCount; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -1138,7 +1147,7 @@ export class ThreeEffectsRenderer {
     const toAdd = Math.max(0, targetCount - currentCount);
 
     for (let i = 0; i < toAdd; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       const angle = Math.random() * Math.PI * 2;
@@ -1193,7 +1202,7 @@ export class ThreeEffectsRenderer {
 
     // Phase 1: Central bright flash - massive initial burst (3x: 150 → 450)
     for (let i = 0; i < 450; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) {
         console.warn('[HQ Explosion] Pool exhausted at phase 1, particle', i);
         break;
@@ -1229,7 +1238,7 @@ export class ThreeEffectsRenderer {
 
     // Phase 2: Secondary fire/debris ring - expanding outward (3x: 200 → 600)
     for (let i = 0; i < 600; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) {
         console.warn('[HQ Explosion] Pool exhausted at phase 2, particle', i);
         break;
@@ -1270,7 +1279,7 @@ export class ThreeEffectsRenderer {
 
     // Phase 3: Rising embers and sparks - long duration (3x: 100 → 300)
     for (let i = 0; i < 300; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) {
         console.warn('[HQ Explosion] Pool exhausted at phase 3, particle', i);
         break;
@@ -1320,7 +1329,7 @@ export class ThreeEffectsRenderer {
    */
   spawnRocketTrail(localX: number, localY: number, localZ: number, count = 3): void {
     for (let i = 0; i < count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       // Spawn at rocket position with small random offset
@@ -1368,7 +1377,7 @@ export class ThreeEffectsRenderer {
    */
   spawnBulletTracer(localX: number, localY: number, localZ: number, count = 1): void {
     for (let i = 0; i < count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       // Spawn at bullet position with tiny random offset
@@ -1409,7 +1418,7 @@ export class ThreeEffectsRenderer {
    */
   spawnCannonSmoke(localX: number, localY: number, localZ: number, count = 1): void {
     for (let i = 0; i < count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolNormal);
+      const particle = this.getInactiveParticle(this.trailPoolNormal, 'trailNormal');
       if (!particle) break;
 
       // Spawn at cannonball position with small random offset
@@ -1473,7 +1482,7 @@ export class ThreeEffectsRenderer {
       const angleStep = (Math.PI * 2) / Math.max(config.countPerSpawn, 1);
 
       for (let i = 0; i < config.countPerSpawn; i++) {
-        const particle = this.getInactiveParticle(pool);
+        const particle = this.getInactiveParticle(pool, poolCursorKey);
         if (!particle) break;
 
         // Calculate spiral position around the projectile path
@@ -1516,7 +1525,7 @@ export class ThreeEffectsRenderer {
 
     // Default trail type: random dispersion
     for (let i = 0; i < config.countPerSpawn; i++) {
-      const particle = this.getInactiveParticle(pool);
+      const particle = this.getInactiveParticle(pool, poolCursorKey);
       if (!particle) break;
 
       // Spawn at position with configurable offset
@@ -1574,7 +1583,7 @@ export class ThreeEffectsRenderer {
    */
   spawnExplosion(localX: number, localY: number, localZ: number, count = 25, _radius = 5): void {
     for (let i = 0; i < count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       // Spawn at impact position
@@ -1635,7 +1644,7 @@ export class ThreeEffectsRenderer {
    */
   spawnIceExplosion(localX: number, localY: number, localZ: number, count = 20): void {
     for (let i = 0; i < count; i++) {
-      const particle = this.getInactiveParticle(this.trailPoolAdditive);
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) break;
 
       // Spawn at impact position
@@ -2259,10 +2268,14 @@ export class ThreeEffectsRenderer {
   /**
    * Get an inactive particle from a pool
    */
-  private getInactiveParticle(pool: Particle[]): Particle | null {
-    for (const p of pool) {
-      if (p.life <= 0) {
-        return p;
+  private getInactiveParticle(pool: Particle[], cursorKey: keyof typeof this.poolCursors): Particle | null {
+    const len = pool.length;
+    const startIdx = this.poolCursors[cursorKey];
+    for (let i = 0; i < len; i++) {
+      const idx = (startIdx + i) % len;
+      if (pool[idx].life <= 0) {
+        this.poolCursors[cursorKey] = (idx + 1) % len;
+        return pool[idx];
       }
     }
     return null;
@@ -2340,6 +2353,7 @@ export class ThreeEffectsRenderer {
     for (const p of this.towerFirePool) {
       p.life = 0;
     }
+    this.poolCursors = { blood: 0, fire: 0, trailAdditive: 0, trailNormal: 0, towerFire: 0 };
     this.activeEffects.clear();
     this.activeTowerFires.clear();
 
