@@ -13,6 +13,7 @@ import {
   SphereGeometry,
   BufferGeometry,
   LineBasicMaterial,
+  PointLight,
   Vector3,
   Float32BufferAttribute,
   DoubleSide,
@@ -107,9 +108,14 @@ export class ThreeTowerRenderer {
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
 
-  // Shared materials
+  // Shared materials and geometry
   private rangeMaterial: MeshBasicMaterial;
   private selectionMaterial: MeshBasicMaterial;
+  private selectionGeometry: RingGeometry;
+
+  // Muzzle flash (pooled - single reusable light)
+  private muzzleFlashLight: PointLight | null = null;
+  private muzzleFlashTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Terrain height sampler (optional - for terrain-conforming range indicators)
   private terrainHeightSampler: TerrainHeightSampler | null = null;
@@ -160,6 +166,9 @@ export class ThreeTowerRenderer {
       depthWrite: false,
       depthTest: false, // Always render on top
     });
+
+    // Shared selection ring geometry (reused by all towers)
+    this.selectionGeometry = new RingGeometry(8, 12, 48);
   }
 
   /**
@@ -337,9 +346,8 @@ export class ThreeTowerRenderer {
     rangeIndicator.visible = false;
     this.scene.add(rangeIndicator);
 
-    // Create selection ring at terrain level
-    const selectionGeometry = new RingGeometry(8, 12, 48);
-    const selectionRing = new Mesh(selectionGeometry, this.selectionMaterial.clone());
+    // Create selection ring at terrain level (shared geometry + material)
+    const selectionRing = new Mesh(this.selectionGeometry, this.selectionMaterial);
     selectionRing.rotation.x = -Math.PI / 2;
     selectionRing.position.copy(terrainPos);
     selectionRing.position.y += 1.5; // Slightly above terrain
@@ -687,15 +695,9 @@ export class ThreeTowerRenderer {
       this.disposeObject(data.rangeIndicator);
     }
 
-    // Remove selection ring
+    // Remove selection ring (geometry and material are shared — do NOT dispose)
     if (data.selectionRing) {
       this.scene.remove(data.selectionRing);
-      if (data.selectionRing.geometry) {
-        data.selectionRing.geometry.dispose();
-      }
-      if (data.selectionRing.material) {
-        (data.selectionRing.material as Material).dispose();
-      }
     }
 
     // Remove tip marker
@@ -1340,6 +1342,39 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Trigger muzzle flash at tower's shoot position
+   * Creates a brief bright point light + small sprite flash
+   */
+  triggerMuzzleFlash(towerId: string): void {
+    const data = this.towers.get(towerId);
+    if (!data) return;
+
+    const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
+
+    // Reuse or create the pooled PointLight
+    if (!this.muzzleFlashLight) {
+      this.muzzleFlashLight = new PointLight(0xffaa44, 3, 30);
+    }
+
+    // Position at tower tip
+    this.muzzleFlashLight.position.set(terrainPos.x, data.tipY, terrainPos.z);
+    this.scene.add(this.muzzleFlashLight);
+
+    // Clear any existing timer
+    if (this.muzzleFlashTimer) {
+      clearTimeout(this.muzzleFlashTimer);
+    }
+
+    // Remove after 50ms
+    this.muzzleFlashTimer = setTimeout(() => {
+      if (this.muzzleFlashLight) {
+        this.scene.remove(this.muzzleFlashLight);
+      }
+      this.muzzleFlashTimer = null;
+    }, 50);
+  }
+
+  /**
    * Recursively dispose Three.js object
    */
   private disposeObject(obj: Object3D): void {
@@ -1380,9 +1415,21 @@ export class ThreeTowerRenderer {
     }
     this.loadedModelUrls.clear();
 
-    // Dispose shared materials (geometry/material templates)
+    // Dispose shared geometry and materials
+    this.selectionGeometry.dispose();
     this.rangeMaterial.dispose();
     this.selectionMaterial.dispose();
+
+    // Clean up muzzle flash
+    if (this.muzzleFlashTimer) {
+      clearTimeout(this.muzzleFlashTimer);
+      this.muzzleFlashTimer = null;
+    }
+    if (this.muzzleFlashLight) {
+      this.scene.remove(this.muzzleFlashLight);
+      this.muzzleFlashLight.dispose();
+      this.muzzleFlashLight = null;
+    }
 
     // Clear map reference to allow GC
     this.towers.clear();

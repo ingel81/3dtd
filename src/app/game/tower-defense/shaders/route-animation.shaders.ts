@@ -12,6 +12,7 @@ export const ROUTE_ANIMATION_VERTEX = /* glsl */ `
 `;
 
 export const ROUTE_ANIMATION_FRAGMENT = /* glsl */ `
+  precision highp float;
   uniform vec3 uColor;
   uniform float uOpacity;
 

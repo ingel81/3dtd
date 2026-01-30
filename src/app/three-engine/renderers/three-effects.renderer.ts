@@ -406,6 +406,7 @@ export class ThreeEffectsRenderer {
 
     // Fragment shader for additive blending (fire, tracers, glow)
     const fragmentShaderAdditive = /* glsl */ `
+      precision highp float;
       varying vec3 vColor;
 
       #include <logdepthbuf_pars_fragment>
@@ -428,6 +429,7 @@ export class ThreeEffectsRenderer {
 
     // Fragment shader for normal blending (smoke, dust)
     const fragmentShaderNormal = /* glsl */ `
+      precision highp float;
       varying vec3 vColor;
 
       #include <logdepthbuf_pars_fragment>
