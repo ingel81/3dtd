@@ -23,7 +23,7 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, VFXService, AudioService } from '../game-engine';
+import { GameEventBus, VFXService, AudioService, SubscriptionBag } from '../game-engine';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -78,6 +78,9 @@ export class GameStateManager {
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
+  /** EventBus subscription bag — cleaned up in reset() */
+  private readonly eventBusSubs = new SubscriptionBag();
+
 
 
   /**
@@ -127,8 +130,8 @@ export class GameStateManager {
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);
 
-    // Register event handlers
-    this.eventBus.on('enemy:reached-base', (event) => {
+    // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
+    this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
       const oldHealth = this.baseHealth();
       const newHealth = Math.max(0, oldHealth - event.damage);
       this.baseHealth.set(newHealth);
@@ -139,9 +142,9 @@ export class GameStateManager {
         health: newHealth,
         delta: newHealth - oldHealth,
       });
-    });
+    }));
 
-    this.eventBus.on('enemy:died', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
         this.updateCredits(event.credits);
 
@@ -161,32 +164,32 @@ export class GameStateManager {
           );
         }
       }
-    });
+    }));
 
     // ══════════════════════════════════════════════════════════════
     // Command event handlers (UI → Game Engine)
     // ══════════════════════════════════════════════════════════════
 
-    this.eventBus.on('command:place-tower', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('command:place-tower', (event) => {
       this.placeTower(
         { lat: event.position.lat, lon: event.position.lon, height: event.position.height },
-        event.typeId as TowerTypeId,
+        event.typeId,
         event.rotation ?? 0
       );
-    });
+    }));
 
-    this.eventBus.on('command:sell-tower', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('command:sell-tower', (event) => {
       const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
       if (tower) {
         this.sellTower(tower);
       }
-    });
+    }));
 
-    this.eventBus.on('command:upgrade-tower', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('command:upgrade-tower', (event) => {
       const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
       if (!tower) return;
 
-      const upgradeId = event.upgradeId as UpgradeId;
+      const upgradeId = event.upgradeId;
       const cost = tower.getNextUpgradeCost(upgradeId);
       if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
 
@@ -200,25 +203,25 @@ export class GameStateManager {
           cost,
         });
       }
-    });
+    }));
 
-    this.eventBus.on('command:start-wave', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('command:start-wave', (event) => {
       if (event.config) {
-        this.startWave(event.config as WaveConfig);
+        this.startWave(event.config);
       } else {
         this.beginWave();
       }
-    });
+    }));
 
-    this.eventBus.on('command:restart-game', () => {
+    this.eventBusSubs.add(this.eventBus.on('command:restart-game', () => {
       this.reset();
-    });
+    }));
 
-    this.eventBus.on('debug:add-credits', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('debug:add-credits', (event) => {
       this.updateCredits(event.amount);
-    });
+    }));
 
-    this.eventBus.on('debug:add-health', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('debug:add-health', (event) => {
       const oldHealth = this.baseHealth();
       const newHealth = Math.min(
         GAME_BALANCE.player.startHealth,
@@ -230,7 +233,7 @@ export class GameStateManager {
         health: newHealth,
         delta: newHealth - oldHealth,
       });
-    });
+    }));
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
@@ -412,6 +415,9 @@ export class GameStateManager {
    * Reset game to initial state
    */
   reset(): void {
+    // Dispose EventBus subscriptions to prevent duplicate handlers on re-initialize
+    this.eventBusSubs.disposeAll();
+
     // Reset HQ damage service (clears fires, timeouts, game over screen)
     this.hqDamage.reset();
 
