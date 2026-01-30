@@ -18,6 +18,7 @@ import { LocationDialogComponent } from '../components/location-dialog/location-
 import { LocationDialogData, LocationDialogResult } from '../models/location.types';
 import { GameStateManager } from '../managers/game-state.manager';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
+import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from './location-change-coordinator.service';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
 
 /**
@@ -45,6 +46,7 @@ export class LocationFacadeService {
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
+  private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly dialog = inject(MatDialog);
 
   /** Component bridge — set via initialize() */
@@ -74,6 +76,64 @@ export class LocationFacadeService {
    */
   dispose(): void {
     this.initialized = false;
+  }
+
+  // ══════════════════════════════════════════════════════════════
+  // Location Coordinator
+  // ══════════════════════════════════════════════════════════════
+
+  /**
+   * Initialize the LocationChangeCoordinator with the flow delegate.
+   * @param vizCallbacks Callbacks to visualization sub-facade methods
+   */
+  initializeCoordinator(vizCallbacks: {
+    initializeTowerPlacement: () => void;
+    filterStreetNetworkToRoutes: () => void;
+    scheduleOverlayHeightUpdate: () => Promise<void>;
+  }): void {
+    this.locationCoordinator.initializeFlow(this.buildLocationFlowDelegate(vizCallbacks));
+  }
+
+  /**
+   * Build the LocationFlowDelegate for the coordinator service.
+   */
+  private buildLocationFlowDelegate(vizCallbacks: {
+    initializeTowerPlacement: () => void;
+    filterStreetNetworkToRoutes: () => void;
+    scheduleOverlayHeightUpdate: () => Promise<void>;
+  }): LocationFlowDelegate {
+    return {
+      getChangeContext: () => {
+        const engine = this.bridge.getEngine();
+        if (!engine) return null;
+        return {
+          engine,
+          gameState: this.gameState,
+          streetNetwork: this.bridge.getStreetNetwork(),
+          streetNetworkLocation: this.bridge.getStreetNetworkLocation(),
+          heightDebugVisible: this.bridge.heightDebugVisible,
+        };
+      },
+      getChangeCallbacks: (): LocationChangeCallbacks => ({
+        setBaseCoords: (c) => this.bridge.baseCoords.set(c),
+        setCenterCoords: (c) => this.bridge.centerCoords.set(c),
+        setSpawnPoints: (p) => this.bridge.spawnPoints.set(p),
+        addSpawnPoint: (id, name, lat, lon, color) => this.addSpawnPoint(id, name, lat, lon, color),
+        setStreetCount: (c) => this.waveDebug.streetCount.set(c),
+        setStreetNetwork: (n) => this.bridge.setStreetNetwork(n),
+        setStreetNetworkLocation: (l) => this.bridge.setStreetNetworkLocation(l),
+        syncUrlWithLocation: () => this.syncUrlWithLocation(),
+        clearMapEntities: () => this.clearMapEntities(),
+        appendDebugLog: (msg) => this.debugFacade.appendDebugLog(msg),
+        initializeTowerPlacement: () => vizCallbacks.initializeTowerPlacement(),
+        filterStreetNetworkToRoutes: () => vizCallbacks.filterStreetNetworkToRoutes(),
+        scheduleOverlayHeightUpdate: async () => vizCallbacks.scheduleOverlayHeightUpdate(),
+        getSpawnPoints: () => this.bridge.spawnPoints(),
+        getBaseCoords: () => this.bridge.baseCoords(),
+      }),
+      isGameInProgress: () => this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
+      getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
+    };
   }
 
   // ══════════════════════════════════════════════════════════════

@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, Injector, effect } from '@angular/core';
 import { OsmStreetService } from './osm-street.service';
 import { GameUIStateService } from './game-ui-state.service';
 import { CameraControlService } from './camera-control.service';
@@ -15,12 +15,15 @@ import { KeyboardPanService } from './keyboard-pan.service';
 import { StreetRenderingService } from './street-rendering.service';
 import { StrategicPlacementService } from './strategic-placement.service';
 import { EnemyDebugService } from './enemy-debug.service';
+import { TowerDebugService } from './tower-debug.service';
 import { DebugFacadeService } from './debug-facade.service';
 import { LocationManagementService } from './location-management.service';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { AIDataCollectorService } from '../ai/core/ai-data-collector.service';
 import { DpsProfileVisualizer } from '../ai/core/dps-profile-visualizer';
 import { GameStateManager } from '../managers/game-state.manager';
 import { SpawnPoint as WaveSpawnPoint } from '../managers/wave.manager';
+import { TowerTypeId } from '../configs/tower-types.config';
 import { ThreeTilesEngine } from '../three-engine';
 import { Vector3 } from 'three';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -57,6 +60,7 @@ export class VisualizationFacadeService {
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly enemyDebug = inject(EnemyDebugService);
+  private readonly towerDebug = inject(TowerDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
@@ -69,6 +73,9 @@ export class VisualizationFacadeService {
 
   /** Whether this sub-facade has been initialized */
   private initialized = false;
+
+  /** EventBus subscription bag — cleaned up in dispose() */
+  private readonly eventBusSubs = new SubscriptionBag();
 
   /** DPS profile visualization along path */
   private dpsProfileViz: DpsProfileVisualizer | null = null;
@@ -87,9 +94,51 @@ export class VisualizationFacadeService {
    * Reset state and cleanup on dispose.
    */
   dispose(): void {
+    this.eventBusSubs.disposeAll();
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.disposeDpsVisualization(engine);
     this.initialized = false;
+  }
+
+  /**
+   * Create Angular effects owned by this sub-facade.
+   * Called from the main facade during initEffects().
+   */
+  initEffects(injector: Injector): void {
+    // Effect: Sync tower debug "Show Shoot Height" to renderer
+    effect(() => {
+      const showShootHeight = this.towerDebug.showShootHeight();
+      const engine = this.bridge.getEngine();
+      if (engine) {
+        engine.towers.setShowShootHeight(showShootHeight);
+      }
+    }, { injector });
+
+    // Effect: Apply tower debug overrides to renderer (live updates)
+    effect(() => {
+      const allOverrides = this.towerDebug.allOverrides();
+      const engine = this.bridge.getEngine();
+      if (!engine) return;
+      for (const typeId of Object.keys(allOverrides) as TowerTypeId[]) {
+        const overrides = allOverrides[typeId];
+        engine.towers.applyDebugOverrides(typeId, overrides);
+      }
+    }, { injector });
+  }
+
+  /**
+   * Subscribe to EventBus events owned by this sub-facade.
+   * Called from the main facade after game state is initialized.
+   */
+  subscribeToEventBus(): void {
+    const eventBus = this.gameState.getEventBus();
+
+    // Subscribe to tower:selected event — sync debug panel dropdown
+    this.eventBusSubs.add(
+      eventBus.on('tower:selected', (event) => {
+        this.towerDebug.selectTower(event.tower.typeConfig.id);
+      })
+    );
   }
 
   // ══════════════════════════════════════════════════════════════

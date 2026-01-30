@@ -1,26 +1,21 @@
-import { Injectable, inject, Injector, Signal, WritableSignal, effect } from '@angular/core';
+import { Injectable, inject, Injector, Signal, WritableSignal } from '@angular/core';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { OsmStreetService } from './osm-street.service';
 import { TowerPlacementService } from './tower-placement.service';
-import { LocationManagementService } from './location-management.service';
 import { EngineInitializationService } from './engine-initialization.service';
 import { ConfigService } from '../core/services/config.service';
 import { DevWorldService } from '../devworld/devworld.service';
 import { WaveDebugService } from './wave-debug.service';
-import { EnemyDebugService } from './enemy-debug.service';
-import { TowerDebugService } from './tower-debug.service';
 import { SoundDebugService } from './sound-debug.service';
 import { DebugFacadeService } from './debug-facade.service';
 import { EntityPoolService } from './entity-pool.service';
 import { ModelPreviewService } from './model-preview.service';
-import { LocationChangeCoordinatorService, LocationFlowDelegate, LocationChangeCallbacks } from './location-change-coordinator.service';
 import { StrategicPlacementService } from './strategic-placement.service';
 import { GameStateManager } from '../managers/game-state.manager';
-import { WaveDirectorService } from '../ai/core/wave-director.service';
 import { TrainingClientService } from '../ai/training/training-client.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { Tower } from '../entities/tower.entity';
-import { TowerTypeId, UpgradeId } from '../configs/tower-types.config';
+import { UpgradeId } from '../configs/tower-types.config';
 import { Vector3 } from 'three';
 import { SpawnPoint } from './marker-visualization.service';
 import { StreetNetwork } from './osm-street.service';
@@ -95,20 +90,15 @@ export class TowerDefenseFacadeService {
   // Services needed only by the main facade for orchestration
   private readonly osmService = inject(OsmStreetService);
   private readonly towerPlacement = inject(TowerPlacementService);
-  private readonly locationMgmt = inject(LocationManagementService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly configService = inject(ConfigService);
   private readonly devWorld = inject(DevWorldService);
   private readonly waveDebug = inject(WaveDebugService);
-  private readonly enemyDebug = inject(EnemyDebugService);
-  private readonly towerDebug = inject(TowerDebugService);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly entityPool = inject(EntityPoolService);
   private readonly modelPreview = inject(ModelPreviewService);
-  private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
-  private readonly waveDirector = inject(WaveDirectorService);
   private readonly trainingClient = inject(TrainingClientService);
 
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
@@ -116,9 +106,6 @@ export class TowerDefenseFacadeService {
 
   /** Game state manager — component-provided, set via initialize(). */
   private gameState!: GameStateManager;
-
-  /** Component injector — needed for effects and takeUntilDestroyed */
-  private componentInjector!: Injector;
 
   /** Whether the facade has been initialized via initEffects() */
   private initialized = false;
@@ -132,7 +119,6 @@ export class TowerDefenseFacadeService {
   private initialize(bridge: FacadeComponentBridge, gameState: GameStateManager, injector: Injector): void {
     this.bridge = bridge;
     this.gameState = gameState;
-    this.componentInjector = injector;
     this.initialized = true;
 
     // Initialize sub-facades
@@ -141,111 +127,34 @@ export class TowerDefenseFacadeService {
     this.vizFacade.initialize(bridge, gameState);
   }
 
-  /**
-   * Guard: check if facade is initialized.
-   */
-  private assertInitialized(): boolean {
-    if (!this.initialized) {
-      console.warn('[Facade] Not initialized — call initEffects() first');
-      return false;
-    }
-    return true;
-  }
-
   // ══════════════════════════════════════════════════════════════
   // Effects & Game Startup
   // ══════════════════════════════════════════════════════════════
 
   /**
    * Create Angular effects that were previously in the component constructor.
-   * Called from the component constructor (injection context active).
+   * Delegates effect creation to sub-facades.
    */
   initEffects(component: { getFacadeBridge: () => FacadeComponentBridge; gameState: GameStateManager; injector: Injector }): void {
     this.initialize(component.getFacadeBridge(), component.gameState, component.injector);
 
-    const injector = this.componentInjector;
-
-    // Effect: Update all existing enemies when speed changes
-    effect(() => {
-      const speed = this.waveDebug.enemySpeed();
-      for (const enemy of this.gameState.enemyManager.getAll()) {
-        enemy.movement.speedMps = speed;
-      }
-    }, { injector });
-
-    // Effect: Sync wave debug state with game state
-    effect(() => {
-      const waveActive = this.bridge.waveActive();
-      const baseHealth = this.gameState.baseHealth();
-      const enemiesAlive = this.gameState.enemiesAlive();
-      this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
-    }, { injector });
-
-    // Effect: Auto-enable AI Director when ONNX model loads successfully
-    effect(() => {
-      const state = this.waveDirector.modelState();
-      if (state === 'ready' && !this.bridge.useAIDirector()) {
-        this.bridge.useAIDirector.set(true);
-      }
-    }, { injector });
-
-    // Effect: Sync tower debug "Show Shoot Height" to renderer
-    effect(() => {
-      const showShootHeight = this.towerDebug.showShootHeight();
-      const engine = this.bridge.getEngine();
-      if (engine) {
-        engine.towers.setShowShootHeight(showShootHeight);
-      }
-    }, { injector });
-
-    // Effect: Apply tower debug overrides to renderer (live updates)
-    effect(() => {
-      const allOverrides = this.towerDebug.allOverrides();
-      const engine = this.bridge.getEngine();
-      if (!engine) return;
-      for (const typeId of Object.keys(allOverrides) as TowerTypeId[]) {
-        const overrides = allOverrides[typeId];
-        engine.towers.applyDebugOverrides(typeId, overrides);
-      }
-    }, { injector });
-
-    // Effect: Start paused debug enemies when wave starts
-    effect(() => {
-      const phase = this.gameState.phase();
-      if (phase === 'wave') {
-        for (const de of this.enemyDebug.debugEnemies()) {
-          if (de.enemy.movement.paused && de.enemy.alive) {
-            de.enemy.startMoving();
-            this.bridge.getEngine()?.enemies.startWalkAnimation(de.id);
-          }
-        }
-      }
-    }, { injector });
-
-    // Effect: Apply debug overrides to selected enemy (live update)
-    effect(() => {
-      const selected = this.enemyDebug.selectedDebugEnemy();
-      const engine = this.bridge.getEngine();
-      if (!selected || !engine) return;
-      engine.enemies.applyDebugOverrides(selected.id, {
-        scale: selected.overrides.scale,
-        heightOffset: selected.overrides.heightOffset,
-        healthBarOffset: selected.overrides.healthBarOffset,
-        rotation: selected.overrides.rotation,
-        animationSpeed: selected.overrides.animationSpeed,
-      });
-      selected.enemy.movement.speedMps = selected.overrides.baseSpeed;
-    }, { injector });
+    const injector = component.injector;
+    this.gameLoopFacade.initEffects(injector);
+    this.vizFacade.initEffects(injector);
   }
 
   /**
    * Main game startup sequence: location detection + engine initialization.
    */
   async startGame(canvas: HTMLCanvasElement): Promise<void> {
-    if (!this.assertInitialized()) return;
+    if (!this.initialized) return;
 
     // Initialize location coordinator flow
-    this.locationCoordinator.initializeFlow(this.buildLocationFlowDelegate());
+    this.locationFacade.initializeCoordinator({
+      initializeTowerPlacement: () => this.vizFacade.initializeTowerPlacement(),
+      filterStreetNetworkToRoutes: () => this.vizFacade.filterStreetNetworkToRoutes(),
+      scheduleOverlayHeightUpdate: () => this.vizFacade.scheduleOverlayHeightUpdate(),
+    });
 
     // Initialize training client
     this.trainingClient.initialize({
@@ -284,10 +193,7 @@ export class TowerDefenseFacadeService {
    * Full cleanup: dispose engine, pool, preview, animations, sub-facades, EventBus subs.
    */
   dispose(): void {
-    // Clean up EventBus subscriptions
     this.eventBusSubs.disposeAll();
-
-    // Dispose sub-facades
     this.gameLoopFacade.dispose();
     this.locationFacade.dispose();
     this.vizFacade.dispose();
@@ -306,7 +212,6 @@ export class TowerDefenseFacadeService {
       }
     }
 
-    // Reset state
     this.initialized = false;
   }
 
@@ -318,12 +223,6 @@ export class TowerDefenseFacadeService {
    * Initialize Three.js rendering engine with full callback wiring.
    */
   private async initEngineSequence(canvas: HTMLCanvasElement): Promise<void> {
-    if (!this.assertInitialized()) {
-      this.engineInit.setError('Facade not initialized');
-      this.engineInit.setLoading(false);
-      return;
-    }
-
     try {
       const cesiumToken = this.configService.cesiumIonToken();
       const cesiumAssetId = this.configService.cesiumAssetId();
@@ -394,78 +293,24 @@ export class TowerDefenseFacadeService {
    * Initialize game state with routes AND subscribe to events.
    */
   private initializeGameStateInternal(): string | undefined {
-    if (!this.assertInitialized()) return undefined;
+    if (!this.initialized) return undefined;
 
     const result = this.vizFacade.initializeGameState();
 
-    // Subscribe to tower:selected event — sync debug panel dropdown
-    const eventBus = this.gameState.getEventBus();
-    this.eventBusSubs.add(
-      eventBus.on('tower:selected', (event) => {
-        this.towerDebug.selectTower(event.tower.typeConfig.id);
-      })
-    );
-
-    // Subscribe to debug:start-custom-wave event
-    this.gameLoopFacade.eventBusSubs.add(
-      eventBus.on('debug:start-custom-wave', () => {
-        this.gameLoopFacade.startCustomWave();
-      })
-    );
-
-    // Subscribe to game:over event
-    this.gameLoopFacade.eventBusSubs.add(
-      eventBus.on('game:over', () => {
-        this.gameLoopFacade.onGameOver();
+    // Let sub-facades subscribe to their own EventBus events
+    this.vizFacade.subscribeToEventBus();
+    this.gameLoopFacade.subscribeToEventBus({
+      onGameOverExtra: () => {
         this.trainingClient.resetBot();
-
         if (this.trainingClient.botAutoMode()) {
           setTimeout(() => {
             this.restartGame();
           }, 2000);
         }
-      })
-    );
+      },
+    });
 
     return result;
-  }
-
-  /**
-   * Build the LocationFlowDelegate for the coordinator service.
-   */
-  private buildLocationFlowDelegate(): LocationFlowDelegate {
-    return {
-      getChangeContext: () => {
-        const engine = this.bridge.getEngine();
-        if (!engine) return null;
-        return {
-          engine,
-          gameState: this.gameState,
-          streetNetwork: this.bridge.getStreetNetwork(),
-          streetNetworkLocation: this.bridge.getStreetNetworkLocation(),
-          heightDebugVisible: this.bridge.heightDebugVisible,
-        };
-      },
-      getChangeCallbacks: (): LocationChangeCallbacks => ({
-        setBaseCoords: (c) => this.bridge.baseCoords.set(c),
-        setCenterCoords: (c) => this.bridge.centerCoords.set(c),
-        setSpawnPoints: (p) => this.bridge.spawnPoints.set(p),
-        addSpawnPoint: (id, name, lat, lon, color) => this.locationFacade.addSpawnPoint(id, name, lat, lon, color),
-        setStreetCount: (c) => this.waveDebug.streetCount.set(c),
-        setStreetNetwork: (n) => this.bridge.setStreetNetwork(n),
-        setStreetNetworkLocation: (l) => this.bridge.setStreetNetworkLocation(l),
-        syncUrlWithLocation: () => this.locationFacade.syncUrlWithLocation(),
-        clearMapEntities: () => this.locationFacade.clearMapEntities(),
-        appendDebugLog: (msg) => this.debugFacade.appendDebugLog(msg),
-        initializeTowerPlacement: () => this.vizFacade.initializeTowerPlacement(),
-        filterStreetNetworkToRoutes: () => this.vizFacade.filterStreetNetworkToRoutes(),
-        scheduleOverlayHeightUpdate: () => this.vizFacade.scheduleOverlayHeightUpdate(),
-        getSpawnPoints: () => this.bridge.spawnPoints(),
-        getBaseCoords: () => this.bridge.baseCoords(),
-      }),
-      isGameInProgress: () => this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
-      getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
-    };
   }
 
   // ══════════════════════════════════════════════════════════════

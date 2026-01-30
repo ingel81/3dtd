@@ -1,4 +1,4 @@
-import { Injectable, inject, NgZone } from '@angular/core';
+import { Injectable, inject, Injector, NgZone, effect } from '@angular/core';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { GameUIStateService } from './game-ui-state.service';
 import { CameraControlService } from './camera-control.service';
@@ -9,6 +9,7 @@ import { RouteAnimationService } from './route-animation.service';
 import { WaveDebugService } from './wave-debug.service';
 import { SoundDebugService } from './sound-debug.service';
 import { DebugWindowService } from './debug-window.service';
+import { EnemyDebugService } from './enemy-debug.service';
 import { WaveDirectorService } from '../ai/core/wave-director.service';
 import { AIDataCollectorService } from '../ai/core/ai-data-collector.service';
 import { TrainingClientService } from '../ai/training/training-client.service';
@@ -42,6 +43,7 @@ export class GameLoopFacadeService {
   private readonly waveDebug = inject(WaveDebugService);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugWindows = inject(DebugWindowService);
+  private readonly enemyDebug = inject(EnemyDebugService);
   private readonly waveDirector = inject(WaveDirectorService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
   private readonly trainingClient = inject(TrainingClientService);
@@ -69,7 +71,7 @@ export class GameLoopFacadeService {
   private static readonly MAX_AI_RETRY = 1;
 
   /** EventBus subscription bag — cleaned up in dispose() */
-  readonly eventBusSubs = new SubscriptionBag();
+  private readonly eventBusSubs = new SubscriptionBag();
 
   /**
    * Initialize sub-facade with bridge and game state.
@@ -88,6 +90,87 @@ export class GameLoopFacadeService {
     this.pendingAIWaveRequest = false;
     this.lastStatsUpdate = 0;
     this.initialized = false;
+  }
+
+  /**
+   * Create Angular effects owned by this sub-facade.
+   * Called from the main facade during initEffects().
+   */
+  initEffects(injector: Injector): void {
+    // Effect: Update all existing enemies when speed changes
+    effect(() => {
+      const speed = this.waveDebug.enemySpeed();
+      for (const enemy of this.gameState.enemyManager.getAll()) {
+        enemy.movement.speedMps = speed;
+      }
+    }, { injector });
+
+    // Effect: Sync wave debug state with game state
+    effect(() => {
+      const waveActive = this.bridge.waveActive();
+      const baseHealth = this.gameState.baseHealth();
+      const enemiesAlive = this.gameState.enemiesAlive();
+      this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
+    }, { injector });
+
+    // Effect: Auto-enable AI Director when ONNX model loads successfully
+    effect(() => {
+      const state = this.waveDirector.modelState();
+      if (state === 'ready' && !this.bridge.useAIDirector()) {
+        this.bridge.useAIDirector.set(true);
+      }
+    }, { injector });
+
+    // Effect: Start paused debug enemies when wave starts
+    effect(() => {
+      const phase = this.gameState.phase();
+      if (phase === 'wave') {
+        for (const de of this.enemyDebug.debugEnemies()) {
+          if (de.enemy.movement.paused && de.enemy.alive) {
+            de.enemy.startMoving();
+            this.bridge.getEngine()?.enemies.startWalkAnimation(de.id);
+          }
+        }
+      }
+    }, { injector });
+
+    // Effect: Apply debug overrides to selected enemy (live update)
+    effect(() => {
+      const selected = this.enemyDebug.selectedDebugEnemy();
+      const engine = this.bridge.getEngine();
+      if (!selected || !engine) return;
+      engine.enemies.applyDebugOverrides(selected.id, {
+        scale: selected.overrides.scale,
+        heightOffset: selected.overrides.heightOffset,
+        healthBarOffset: selected.overrides.healthBarOffset,
+        rotation: selected.overrides.rotation,
+        animationSpeed: selected.overrides.animationSpeed,
+      });
+      selected.enemy.movement.speedMps = selected.overrides.baseSpeed;
+    }, { injector });
+  }
+
+  /**
+   * Subscribe to EventBus events owned by this sub-facade.
+   * Called from the main facade after game state is initialized.
+   */
+  subscribeToEventBus(callbacks: { onGameOverExtra: () => void }): void {
+    const eventBus = this.gameState.getEventBus();
+
+    // Subscribe to debug:start-custom-wave event
+    this.eventBusSubs.add(
+      eventBus.on('debug:start-custom-wave', () => {
+        this.startCustomWave();
+      })
+    );
+
+    // Subscribe to game:over event
+    this.eventBusSubs.add(
+      eventBus.on('game:over', () => {
+        this.onGameOver();
+        callbacks.onGameOverExtra();
+      })
+    );
   }
 
   // ══════════════════════════════════════════════════════════════
