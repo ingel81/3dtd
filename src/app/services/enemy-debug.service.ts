@@ -1,6 +1,11 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, Signal, signal, computed, inject } from '@angular/core';
 import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../models/enemy-types';
 import { Enemy } from '../entities/enemy.entity';
+import { GeoPosition } from '../models/game.types';
+import { GameStateManager } from '../managers/game-state.manager';
+import { ThreeTilesEngine } from '../three-engine';
+import { PathAndRouteService } from './path-route.service';
+import { SpawnPoint } from './marker-visualization.service';
 
 export interface EnemyOverrides {
   scale: number;
@@ -30,6 +35,8 @@ export interface DebugEnemy {
  */
 @Injectable({ providedIn: 'root' })
 export class EnemyDebugService {
+  private readonly pathRoute = inject(PathAndRouteService);
+
   /** Aktuell ausgewählter Enemy-Typ für Slider */
   readonly selectedEnemyId = signal<EnemyTypeId>('zombie');
 
@@ -60,6 +67,42 @@ export class EnemyDebugService {
     if (!id) return null;
     return this.debugEnemies().find(de => de.id === id) ?? null;
   });
+
+  // --- Placement state (moved from component) ---
+  private pendingDebugPlacement: { typeId: EnemyTypeId; lat: number; lon: number } | null = null;
+  private gameState!: GameStateManager;
+  private engine!: ThreeTilesEngine | null;
+  private spawnPoints!: Signal<SpawnPoint[]>;
+
+  /**
+   * Initialize with runtime dependencies (called after game state is ready).
+   * Also registers the enemy:spawned listener for debug placement.
+   */
+  initialize(gameState: GameStateManager, engine: ThreeTilesEngine | null, spawnPoints: Signal<SpawnPoint[]>): void {
+    this.gameState = gameState;
+    this.engine = engine;
+    this.spawnPoints = spawnPoints;
+
+    // Register debug enemy placement (next spawned enemy after placement click)
+    const eventBus = gameState.getEventBus();
+    eventBus.on('enemy:spawned', (event) => {
+      const pending = this.pendingDebugPlacement;
+      if (!pending) return;
+
+      this.pendingDebugPlacement = null;
+      this.registerDebugEnemy(event.enemy, pending.typeId, pending.lat, pending.lon);
+      this.exitPlacementMode();
+
+      console.log(`[EnemyDebug] Placed ${pending.typeId} at ${pending.lat.toFixed(6)}, ${pending.lon.toFixed(6)}`);
+    });
+  }
+
+  /**
+   * Update engine reference (e.g. after re-initialization).
+   */
+  setEngine(engine: ThreeTilesEngine | null): void {
+    this.engine = engine;
+  }
 
   /** Initialisiert Overrides mit Original-Werten für alle Enemies */
   private initAllOverrides(): Record<EnemyTypeId, EnemyOverrides> {
@@ -297,6 +340,148 @@ export class EnemyDebugService {
       console.log('[EnemyDebug] JSON copied to clipboard');
     } catch (err) {
       console.error('[EnemyDebug] Failed to copy:', err);
+    }
+  }
+
+  // ─── Placement & Control (moved from TowerDefenseComponent) ───
+
+  /**
+   * Handle enemy placement from debug panel.
+   * Validates position is on route, creates sub-path, and spawns enemy.
+   */
+  handleEnemyPlacement(lat: number, lon: number, _height: number): void {
+    if (!this.engine) return;
+
+    // Convert to local coordinates for route grid validation
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+
+    // Validate: must be on route
+    const cell = this.gameState.getGlobalRouteGrid()?.getCellAt(local.x, local.z);
+    if (!cell) {
+      console.warn('[EnemyDebug] Invalid placement - not on route');
+      return;
+    }
+
+    // Create path from click position to base
+    const path = this.createPathFromPosition(lat, lon);
+    if (!path || path.length < 2) {
+      console.warn('[EnemyDebug] Could not create path from position');
+      return;
+    }
+
+    // Get overrides from debug service
+    const typeId = this.selectedEnemyId();
+    const overrides = this.currentOverrides();
+
+    // Spawn enemy via debug event (paused = idle)
+    this.pendingDebugPlacement = { typeId, lat, lon };
+    this.gameState.getEventBus().emit({
+      type: 'debug:spawn-enemy',
+      enemyType: typeId,
+      count: 1,
+      path,
+      speed: overrides.baseSpeed,
+      paused: true,
+      health: overrides.baseHp,
+    });
+  }
+
+  /**
+   * Create path from a position to the base.
+   * Finds nearest point on existing path and creates sub-path.
+   */
+  private createPathFromPosition(lat: number, lon: number): GeoPosition[] | null {
+    const spawns = this.spawnPoints();
+    if (spawns.length === 0) return null;
+
+    // Try to find a cached path
+    const fullPath = this.pathRoute.getCachedPath(spawns[0].id);
+    if (!fullPath || fullPath.length < 2) return null;
+
+    // Find nearest point on path
+    let minDist = Infinity;
+    let closestIdx = 0;
+    for (let i = 0; i < fullPath.length; i++) {
+      const dx = fullPath[i].lat - lat;
+      const dy = fullPath[i].lon - lon;
+      const dist = dx * dx + dy * dy; // Squared distance is fine for comparison
+      if (dist < minDist) {
+        minDist = dist;
+        closestIdx = i;
+      }
+    }
+
+    // Get height at click position (from path if available, else fallback)
+    const clickHeight = fullPath[closestIdx].height ?? 0;
+
+    // Create sub-path: click position + rest of path
+    return [
+      { lat, lon, height: clickHeight },
+      ...fullPath.slice(closestIdx + 1)
+    ];
+  }
+
+  /**
+   * Remove a single debug enemy.
+   */
+  onRemoveDebugEnemy(enemyId: string): void {
+    const de = this.getDebugEnemy(enemyId);
+    if (de) {
+      this.gameState.enemyManager.remove(de.enemy);
+      this.removeDebugEnemy(enemyId);
+    }
+  }
+
+  /**
+   * Clear all debug enemies.
+   */
+  onClearDebugEnemies(): void {
+    for (const de of this.debugEnemies()) {
+      this.gameState.enemyManager.remove(de.enemy);
+    }
+    this.clearDebugEnemies();
+  }
+
+  /**
+   * Play idle animation for debug enemy.
+   */
+  onPlayIdleAnimation(enemyId: string): void {
+    this.engine?.enemies.playIdleAnimation(enemyId);
+  }
+
+  /**
+   * Play walk animation for debug enemy.
+   */
+  onPlayWalkAnimation(enemyId: string): void {
+    this.engine?.enemies.startWalkAnimation(enemyId);
+  }
+
+  /**
+   * Play run animation for debug enemy.
+   */
+  onPlayRunAnimation(enemyId: string): void {
+    this.engine?.enemies.startRunAnimation(enemyId);
+  }
+
+  /**
+   * Start movement for debug enemy.
+   */
+  onStartEnemyMovement(enemyId: string): void {
+    const de = this.getDebugEnemy(enemyId);
+    if (de?.enemy && de.enemy.alive) {
+      de.enemy.startMoving();
+      this.engine?.enemies.startWalkAnimation(enemyId);
+    }
+  }
+
+  /**
+   * Stop movement for debug enemy.
+   */
+  onStopEnemyMovement(enemyId: string): void {
+    const de = this.getDebugEnemy(enemyId);
+    if (de?.enemy) {
+      de.enemy.stopMoving();
+      this.engine?.enemies.playIdleAnimation(enemyId);
     }
   }
 }
