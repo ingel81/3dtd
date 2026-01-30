@@ -14,6 +14,7 @@ import { WaveManager, SpawnPoint } from '../managers/wave.manager';
 import { EntityPoolService } from '../services/entity-pool.service';
 import { OsmStreetService } from '../services/osm-street.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
+import { SpatialGridService } from '../services/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 
 // ─── Test Path Data ───────────────────────────────────────────────
@@ -85,6 +86,13 @@ export function createMockTilesEngine(): any {
     spatialAudio: {
       registerSound: vi.fn(),
       playAt: vi.fn(),
+      geoToLocalPosition: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+    },
+    trailStreaks: {
+      create: vi.fn(),
+      update: vi.fn(),
+      remove: vi.fn(),
+      clear: vi.fn(),
     },
     towers: {
       create: vi.fn(),
@@ -167,8 +175,9 @@ export function createTestManagers(): TestManagers {
   const entityPool = new EntityPoolService();
   const osmService = createMockOsmService();
   const globalRouteGrid = createMockGlobalRouteGrid();
+  const spatialGrid = new SpatialGridService();
 
-  const enemyManager = new EnemyManager(eventBus, entityPool, globalRouteGrid);
+  const enemyManager = new EnemyManager(eventBus, entityPool, globalRouteGrid, spatialGrid);
   const towerManager = new TowerManager(eventBus, osmService);
   const projectileManager = new ProjectileManager(eventBus, entityPool);
   const waveManager = new WaveManager(eventBus, enemyManager);

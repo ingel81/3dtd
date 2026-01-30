@@ -74,6 +74,14 @@ function createStubService(name: string): Record<string, unknown> {
       registerTowerOnGrid: vi.fn(),
       unregisterTowerFromGrid: vi.fn(),
     },
+    SpatialGridService: {
+      updateEnemy: vi.fn(),
+      removeEnemy: vi.fn(),
+      hasEnemyInRadius: vi.fn().mockReturnValue(false),
+      getEnemyIdsInRadius: vi.fn().mockReturnValue([]),
+      clear: vi.fn(),
+      getEnemyGrid: vi.fn().mockReturnValue({ size: 0 }),
+    },
   };
   return stubs[name] ?? {};
 }

@@ -1,4 +1,5 @@
 import {
+  Vector2,
   Vector3,
   Color,
   Scene,
@@ -451,7 +452,7 @@ export class ThreeEffectsRenderer {
       fragmentShader: fragmentShaderAdditive,
       uniforms: {
         uAtlas: new Uniform(this.explosionAtlas),
-        uAtlasGrid: new Uniform([this.ATLAS_COLS, this.ATLAS_ROWS]),
+        uAtlasGrid: new Uniform(new Vector2(this.ATLAS_COLS, this.ATLAS_ROWS)),
       },
       transparent: true,
       depthWrite: false,
@@ -465,7 +466,7 @@ export class ThreeEffectsRenderer {
       fragmentShader: fragmentShaderNormal,
       uniforms: {
         uAtlas: new Uniform(this.smokeAtlas),
-        uAtlasGrid: new Uniform([this.ATLAS_COLS, this.ATLAS_ROWS]),
+        uAtlasGrid: new Uniform(new Vector2(this.ATLAS_COLS, this.ATLAS_ROWS)),
       },
       transparent: true,
       depthWrite: false,
