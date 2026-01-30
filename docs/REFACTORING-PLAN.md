@@ -43,7 +43,7 @@
 | Source of Truth | GSM + Component + Services | Store (einzige) |
 | Signal-Duplikate | Viele | Keine |
 | Bridge-Signals | 15+ WritableSignals | 0 (nur Callbacks) |
-| Tests | 223 ✅ | 223 ✅ |
+| Tests | 346 ✅ | 346 ✅ |
 
 ### Architektur-Datenfluss
 
