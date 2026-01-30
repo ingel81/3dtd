@@ -2,7 +2,7 @@
   <div class="td-sidebar-content">
     <!-- WAVE Section -->
     <section class="td-panel">
-      <div class="td-panel-header">WAVE {{ gameState().waveNumber() }}</div>
+      <div class="td-panel-header">WAVE {{ store.waveNumber() }}</div>
       <div class="td-panel-content td-wave-section">
         <div class="td-wave-info">
           <div class="td-enemy-preview-container">
@@ -44,7 +44,7 @@
               </div>
               <div class="td-stat-row">
                 <span class="td-stat-label">Enemies</span>
-                <span class="td-stat-value">{{ gameState().enemiesAlive() }}</span>
+                <span class="td-stat-value">{{ store.enemiesAlive() }}</span>
               </div>
             }
           </div>
@@ -58,7 +58,7 @@
     </section>
 
     <!-- BUILD Section (hidden when tower selected) -->
-    <section class="td-panel" [class.td-hidden]="gameState().selectedTower()">
+    <section class="td-panel" [class.td-hidden]="store.selectedTower()">
       <div class="td-panel-header">BUILD</div>
       <div class="td-panel-content td-build-section">
         @if (buildMode()) {
@@ -71,8 +71,8 @@
           <div class="td-tower-grid">
             @for (tower of towerTypes(); track tower.id) {
               <button class="td-tower-card"
-                      [class.disabled]="gameState().credits() < tower.cost"
-                      [disabled]="isGameOver() || gameState().credits() < tower.cost"
+                      [class.disabled]="store.credits() < tower.cost"
+                      [disabled]="isGameOver() || store.credits() < tower.cost"
                       (click)="selectTower.emit(tower.id)"
                       [matTooltip]="tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'"
                       matTooltipPosition="left">
@@ -91,7 +91,7 @@
     </section>
 
     <!-- TOWER Section (only when tower selected) -->
-    @if (gameState().selectedTower(); as tower) {
+    @if (store.selectedTower(); as tower) {
       <section class="td-panel td-tower-panel">
         <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
         <div class="td-panel-content td-tower-section">
@@ -125,8 +125,8 @@
               @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
                 <button
                   class="td-upgrade-tile"
-                  [class.td-upgrade-affordable]="gameState().credits() >= tower.getNextUpgradeCost(upgrade.id)"
-                  [disabled]="gameState().credits() < tower.getNextUpgradeCost(upgrade.id)"
+                  [class.td-upgrade-affordable]="store.credits() >= tower.getNextUpgradeCost(upgrade.id)"
+                  [disabled]="store.credits() < tower.getNextUpgradeCost(upgrade.id)"
                   (click)="onUpgradeTower(tower, upgrade.id)"
                   [matTooltip]="upgrade.description"
                   matTooltipPosition="left"

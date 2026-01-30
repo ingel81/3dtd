@@ -62,10 +62,10 @@ describe('GameEventBus', () => {
     it('supports multiple listeners for same event type', () => {
       const handlerA = vi.fn();
       const handlerB = vi.fn();
-      const event = { type: 'projectile:missed', projectile: mockProjectile } as const;
+      const event = { type: 'projectile:hit', projectile: mockProjectile, target: mockEnemy, damage: 10 } as const;
 
-      bus.on('projectile:missed', handlerA);
-      bus.on('projectile:missed', handlerB);
+      bus.on('projectile:hit', handlerA);
+      bus.on('projectile:hit', handlerB);
       bus.emit(event);
 
       expect(handlerA).toHaveBeenCalledTimes(1);
@@ -92,10 +92,10 @@ describe('GameEventBus', () => {
 
     it('processQueue() dispatches queued events and clears queue (FIFO)', () => {
       const calls: string[] = [];
-      bus.on('ui:notification', (event) => calls.push(event.message));
+      bus.on('audio:play', (event) => calls.push(event.sound));
 
-      bus.emitDeferred({ type: 'ui:notification', message: 'first', level: 'info' });
-      bus.emitDeferred({ type: 'ui:notification', message: 'second', level: 'warning' });
+      bus.emitDeferred({ type: 'audio:play', sound: 'first', lat: 0, lon: 0, height: 0 });
+      bus.emitDeferred({ type: 'audio:play', sound: 'second', lat: 0, lon: 0, height: 0 });
 
       expect(bus.getQueueSize()).toBe(2);
 
@@ -121,9 +121,9 @@ describe('GameEventBus', () => {
     it('unsubscribeAll(owner) removes all subscriptions for owner', () => {
       const owner = {};
       const handler = vi.fn();
-      const event = { type: 'game:paused' } as const;
+      const event = { type: 'game:started' } as const;
 
-      bus.subscribe(owner, 'game:paused', handler);
+      bus.subscribe(owner, 'game:started', handler);
       bus.unsubscribeAll(owner);
       bus.emit(event);
 
@@ -135,10 +135,10 @@ describe('GameEventBus', () => {
       const ownerB = {};
       const handlerA = vi.fn();
       const handlerB = vi.fn();
-      const event = { type: 'game:resumed' } as const;
+      const event = { type: 'game:started' } as const;
 
-      bus.subscribe(ownerA, 'game:resumed', handlerA);
-      bus.subscribe(ownerB, 'game:resumed', handlerB);
+      bus.subscribe(ownerA, 'game:started', handlerA);
+      bus.subscribe(ownerB, 'game:started', handlerB);
 
       bus.unsubscribeAll(ownerA);
       bus.emit(event);
@@ -173,7 +173,7 @@ describe('GameEventBus', () => {
     it('add() stores subscriptions and size is correct', () => {
       const bag = new SubscriptionBag();
       bag.add(bus.on('game:started', vi.fn()));
-      bag.add(bus.on('game:paused', vi.fn()));
+      bag.add(bus.on('game:over', vi.fn()));
 
       expect(bag.size).toBe(2);
     });
@@ -182,13 +182,13 @@ describe('GameEventBus', () => {
       const bag = new SubscriptionBag();
       const handler = vi.fn();
       bag.add(bus.on('game:started', handler));
-      bag.add(bus.on('game:paused', handler));
+      bag.add(bus.on('game:over', handler));
 
       bag.disposeAll();
       expect(bag.size).toBe(0);
 
       bus.emit({ type: 'game:started' });
-      bus.emit({ type: 'game:paused' });
+      bus.emit({ type: 'game:over', reason: 'quit' });
       expect(handler).not.toHaveBeenCalled();
     });
   });
@@ -212,14 +212,14 @@ describe('GameEventBus', () => {
   describe('clear()', () => {
     it('removes all listeners and clears deferred queue', () => {
       const handler = vi.fn();
-      bus.on('ui:notification', handler);
-      bus.emitDeferred({ type: 'ui:notification', message: 'hello', level: 'info' });
+      bus.on('audio:play', handler);
+      bus.emitDeferred({ type: 'audio:play', sound: 'hello', lat: 0, lon: 0, height: 0 });
 
       bus.clear();
 
       expect(bus.getQueueSize()).toBe(0);
       bus.processQueue();
-      bus.emit({ type: 'ui:notification', message: 'later', level: 'warning' });
+      bus.emit({ type: 'audio:play', sound: 'later', lat: 0, lon: 0, height: 0 });
       expect(handler).not.toHaveBeenCalled();
     });
   });

@@ -47,6 +47,21 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   private registerDebugHandlers(): void {
+    this.eventBus.on('debug:toggle-movement', (event) => {
+      this.movementEnabled = event.enabled;
+    });
+
+    this.eventBus.on('debug:remove-enemy', (event) => {
+      const enemy = this.getAll().find(e => e.id === event.enemyId);
+      if (enemy) {
+        this.remove(enemy);
+      }
+    });
+
+    this.eventBus.on('debug:clear-enemies', () => {
+      this.clear();
+    });
+
     this.eventBus.on('debug:spawn-enemy', (event) => {
       if (!this.tilesEngine) {
         console.warn('[EnemyManager] Debug spawn ignored - not initialized');

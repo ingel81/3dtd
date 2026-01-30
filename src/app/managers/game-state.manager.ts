@@ -1,10 +1,9 @@
 import { Injectable, inject, signal, computed } from '@angular/core';
-import { Material, Mesh, SphereGeometry, MeshBasicMaterial } from 'three';
 import { EnemyManager } from './enemy.manager';
 import { TowerManager } from './tower.manager';
 import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
-import { GameUIStateService } from '../services/game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 import { PathAndRouteService } from '../services/path-route.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { CombatEffectService } from '../services/combat-effect.service';
@@ -14,16 +13,17 @@ import { EntityPoolService } from '../services/entity-pool.service';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { WaveDebugService } from '../services/wave-debug.service';
 import { EnemyDebugService } from '../services/enemy-debug.service';
+import { MarkerVisualizationService } from '../services/marker-visualization.service';
+import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
-import { Enemy } from '../entities/enemy.entity';
-import { EnemyTypeId, ENEMY_TYPES } from '../models/enemy-types';
+import { ENEMY_TYPES } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, VFXService, AudioService } from '../game-engine';
+import { GameEventBus, VFXService, AudioService, SubscriptionBag } from '../game-engine';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -34,7 +34,7 @@ import { GameEventBus, VFXService, AudioService } from '../game-engine';
 @Injectable()
 export class GameStateManager {
   // Angular-injected services (UI & coordination)
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
   private readonly pathRouteService = inject(PathAndRouteService);
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly combatEffect = inject(CombatEffectService);
@@ -44,6 +44,8 @@ export class GameStateManager {
   private readonly osmService = inject(OsmStreetService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
+  private readonly markerViz = inject(MarkerVisualizationService);
+  private readonly towerPlacement = inject(TowerPlacementService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -76,8 +78,9 @@ export class GameStateManager {
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
 
-  // Debug: defense reach marker
-  private defenseReachMarker: Mesh | null = null;
+  /** EventBus subscription bag — cleaned up in reset() */
+  private readonly eventBusSubs = new SubscriptionBag();
+
 
 
   /**
@@ -92,6 +95,9 @@ export class GameStateManager {
   ): void {
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
+
+    // Initialize defense-reach debug visualization (orange marker)
+    this.globalRouteGrid.initDebugViz(tilesEngine.getScene());
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);
@@ -124,8 +130,8 @@ export class GameStateManager {
     // Initialize Audio service (subscribes to audio events)
     this.audioService = new AudioService(this.eventBus, tilesEngine);
 
-    // Register event handlers
-    this.eventBus.on('enemy:reached-base', (event) => {
+    // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
+    this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
       const oldHealth = this.baseHealth();
       const newHealth = Math.max(0, oldHealth - event.damage);
       this.baseHealth.set(newHealth);
@@ -136,9 +142,9 @@ export class GameStateManager {
         health: newHealth,
         delta: newHealth - oldHealth,
       });
-    });
+    }));
 
-    this.eventBus.on('enemy:died', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {
       if (event.credits > 0) {
         this.updateCredits(event.credits);
 
@@ -158,7 +164,76 @@ export class GameStateManager {
           );
         }
       }
-    });
+    }));
+
+    // ══════════════════════════════════════════════════════════════
+    // Command event handlers (UI → Game Engine)
+    // ══════════════════════════════════════════════════════════════
+
+    this.eventBusSubs.add(this.eventBus.on('command:place-tower', (event) => {
+      this.placeTower(
+        { lat: event.position.lat, lon: event.position.lon, height: event.position.height },
+        event.typeId,
+        event.rotation ?? 0
+      );
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('command:sell-tower', (event) => {
+      const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
+      if (tower) {
+        this.sellTower(tower);
+      }
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('command:upgrade-tower', (event) => {
+      const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
+      if (!tower) return;
+
+      const upgradeId = event.upgradeId;
+      const cost = tower.getNextUpgradeCost(upgradeId);
+      if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
+
+      if (this.spendCredits(cost)) {
+        const previousLevel = tower.getUpgradeLevel(upgradeId);
+        tower.applyUpgrade(upgradeId);
+        this.eventBus.emit({
+          type: 'tower:upgraded',
+          tower,
+          level: previousLevel + 1,
+          cost,
+        });
+      }
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('command:start-wave', (event) => {
+      if (event.config) {
+        this.startWave(event.config);
+      } else {
+        this.beginWave();
+      }
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('command:restart-game', () => {
+      this.reset();
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('debug:add-credits', (event) => {
+      this.updateCredits(event.amount);
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('debug:add-health', (event) => {
+      const oldHealth = this.baseHealth();
+      const newHealth = Math.min(
+        GAME_BALANCE.player.startHealth,
+        Math.max(0, oldHealth + event.amount)
+      );
+      this.baseHealth.set(newHealth);
+      this.eventBus.emit({
+        type: 'health:changed',
+        health: newHealth,
+        delta: newHealth - oldHealth,
+      });
+    }));
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
@@ -237,7 +312,6 @@ export class GameStateManager {
       this.towerCombat.stopAllBeams(); // Stop fire tower beams
       this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
       this.updateCredits(GAME_BALANCE.waves.completionBonus);
-      this.eventBus.emit({ type: 'game:paused' });
     }
 
     // Check game over
@@ -297,14 +371,11 @@ export class GameStateManager {
     }
 
     const isFirstWave = this.waveManager.waveNumber() === 0;
-    const wasPaused = this.waveManager.phase() !== 'wave';
 
-    // Emit lifecycle events BEFORE startWave() so that AIDataCollector.clearHistory()
+    // Emit lifecycle event BEFORE startWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (isFirstWave) {
       this.eventBus.emit({ type: 'game:started' });
-    } else if (wasPaused) {
-      this.eventBus.emit({ type: 'game:resumed' });
     }
 
     this.waveManager.startWave(config);
@@ -315,14 +386,11 @@ export class GameStateManager {
    */
   beginWave(): void {
     const isFirstWave = this.waveManager.waveNumber() === 0;
-    const wasPaused = this.waveManager.phase() !== 'wave';
 
-    // Emit lifecycle events BEFORE beginWave() so that AIDataCollector.clearHistory()
+    // Emit lifecycle event BEFORE beginWave() so that AIDataCollector.clearHistory()
     // runs before wave:started sets up tracking (prevents NaN in wave history)
     if (isFirstWave) {
       this.eventBus.emit({ type: 'game:started' });
-    } else if (wasPaused) {
-      this.eventBus.emit({ type: 'game:resumed' });
     }
 
     this.waveManager.beginWave();
@@ -337,7 +405,27 @@ export class GameStateManager {
   }
 
   /**
-   * Reset game to initial state
+   * Full dispose — called when the component is destroyed.
+   * Cleans up EventBus subscriptions that were registered in initialize().
+   */
+  dispose(): void {
+    this.eventBusSubs.disposeAll();
+    this.hqDamage.reset();
+
+    this.enemyManager.clear();
+    this.towerManager.clear();
+    this.projectileManager.clear();
+    this.waveManager.reset();
+    this.globalRouteGrid.clear();
+
+    if (this.tilesEngine) {
+      this.tilesEngine.effects.clear();
+    }
+  }
+
+  /**
+   * Reset game to initial state (restart).
+   * Does NOT dispose EventBus subscriptions — handlers stay active for the next game.
    */
   reset(): void {
     // Reset HQ damage service (clears fires, timeouts, game over screen)
@@ -364,6 +452,9 @@ export class GameStateManager {
     this.lastUpdateTime = 0;
 
     GameObject.resetIdCounter();
+
+    // Emit game:reset so downstream services (e.g. GameStateSyncService) can react
+    this.eventBus.emit({ type: 'game:reset' });
   }
 
   private updateCredits(delta: number): void {
@@ -377,54 +468,6 @@ export class GameStateManager {
   }
 
   /**
-   * Get all towers
-   */
-  towers(): Tower[] {
-    return this.towerManager.getAll();
-  }
-
-  /**
-   * Get all enemies
-   */
-  enemies(): Enemy[] {
-    return this.enemyManager.getAll();
-  }
-
-  /**
-   * Spawn an enemy
-   */
-  spawnEnemy(
-    path: GeoPosition[],
-    typeId: EnemyTypeId,
-    speed?: number,
-    paused = false,
-    health?: number
-  ): Enemy {
-    return this.enemyManager.spawn(path, typeId, speed, paused, health);
-  }
-
-  /**
-   * Start all paused enemies
-   */
-  startAllEnemies(delayBetween = TIMING.defaultSpawnStartDelay): void {
-    this.enemyManager.startAll(delayBetween, this.trainingTimescale());
-  }
-
-  /**
-   * Select a tower
-   */
-  selectTower(id: string): void {
-    this.towerManager.selectTower(id);
-  }
-
-  /**
-   * Deselect all towers
-   */
-  deselectAll(): void {
-    this.towerManager.selectTower(null);
-  }
-
-  /**
    * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
    * Called on reset to cleanup before starting fresh
    */
@@ -432,38 +475,16 @@ export class GameStateManager {
     // First deselect any selected tower (hides its LOS visualization)
     this.towerManager.selectTower(null);
 
-    // Then dispose all LOS visualizations
-    for (const tower of this.towerManager.getAll()) {
-      // Dispose LOS visualization
-      if (tower.losVisualization && this.tilesEngine) {
-        tower.losVisualization.visible = false; // Ensure hidden
-        this.tilesEngine.getScene().remove(tower.losVisualization);
-        tower.losVisualization.geometry.dispose();
-        (tower.losVisualization.material as Material).dispose();
-        tower.losVisualization = null;
-      }
-
-      // Unregister from GlobalRouteGrid
-      this.globalRouteGrid.unregisterTower(tower.id);
-      tower.visibleCells = [];
-    }
+    // Delegate to TowerPlacementService
+    this.towerPlacement.clearAllTowerOverlays(this.towerManager.getAll());
   }
 
   /**
    * Sell a tower and refund 50% of its cost
    */
   sellTower(tower: Tower): number {
-    // Dispose LOS visualization
-    if (tower.losVisualization && this.tilesEngine) {
-      this.tilesEngine.getScene().remove(tower.losVisualization);
-      tower.losVisualization.geometry.dispose();
-      (tower.losVisualization.material as Material).dispose();
-      tower.losVisualization = null;
-    }
-
-    // Unregister from GlobalRouteGrid
-    this.globalRouteGrid.unregisterTower(tower.id);
-    tower.visibleCells = []; // Clear references
+    // Unregister from grid + dispose LOS visualization
+    this.towerPlacement.unregisterTowerFromGrid(tower);
 
     this.towerManager.selectTower(null);
 
@@ -500,84 +521,14 @@ export class GameStateManager {
 
     const tower = this.towerManager.placeTower(position, typeId, customRotation);
 
-    if (tower && this.tilesEngine && this.globalRouteGrid.isInitialized()) {
+    if (tower) {
       // Deduct cost
       this.updateCredits(-config.cost);
 
-      // Register tower with GlobalRouteGrid for LOS pre-computation
-      // IMPORTANT: Use geoToLocalSimple for consistency with grid cell coordinates
-      const terrainPos = this.tilesEngine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
-      const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
-      // Get LOS raycaster from tower renderer
-      const losRaycaster = this.tilesEngine.towers.getLosRaycaster();
-
-      if (losRaycaster) {
-        // Check if this is a pure air tower (only targets air, not ground)
-        const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
-
-        // Register tower and store visible cells reference
-        // Air towers skip LOS checks (air enemies are always visible)
-        tower.visibleCells = this.globalRouteGrid.registerTower(
-          tower.id,
-          terrainPos.x,
-          terrainPos.z,
-          tipY,
-          config.range,
-          losRaycaster,
-          isPureAirTower
-        );
-
-        // Create LOS visualization (hidden by default, shown on selection)
-        tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
-          tower.id,
-          terrainPos.x,
-          terrainPos.z,
-          config.range
-        );
-
-        if (tower.losVisualization) {
-          tower.losVisualization.visible = false;
-          this.tilesEngine.getScene().add(tower.losVisualization);
-        }
-      } else {
-        console.warn('[GameStateManager] placeTower: no losRaycaster!');
-      }
-    } else if (tower) {
-      // Still deduct cost even if grid not initialized
-      this.updateCredits(-config.cost);
+      // Register tower on grid (LOS raycasting + grid registration + visualization)
+      this.towerPlacement.registerTowerOnGrid(tower, position, typeId);
     }
     return tower;
-  }
-
-  /**
-   * Kill an enemy
-   */
-  killEnemy(enemy: Enemy): void {
-    this.enemyManager.kill(enemy, this.trainingTimescale());
-  }
-
-  /**
-   * Check if wave is complete
-   */
-  checkWaveComplete(): boolean {
-    return this.waveManager.checkWaveComplete();
-  }
-
-  /**
-   * End current wave
-   */
-  endWave(): void {
-    this.waveManager.endWave();
-    this.towerCombat.stopAllBeams();
-    this.eventBus.emit({ type: 'game:paused' });
-  }
-
-  /**
-   * Stop all pending spawns (for Kill All functionality)
-   */
-  stopSpawning(): void {
-    this.waveManager.stopSpawning();
   }
 
   /**
@@ -587,26 +538,9 @@ export class GameStateManager {
     this.hqDamage.onTilesLoaded();
 
     // Spawn debug point if debug option is enabled
-    if (this.uiState.specialPointsDebugVisible()) {
-      this.spawnHQDebugPoint();
+    if (this.uiStore.specialPointsDebugVisible()) {
+      this.markerViz.spawnHQDebugPoint();
     }
-  }
-
-  /**
-   * Spawn or update HQ debug point at cached terrain height
-   */
-  spawnHQDebugPoint(): void {
-    this.hqDamage.spawnDebugPoint();
-  }
-
-  /**
-   * Update debug sphere visibility based on UI state
-   */
-  updateDebugSpheresVisibility(): void {
-    if (!this.tilesEngine) return;
-    this.tilesEngine.effects.setDebugSpheresVisible(
-      this.uiState.specialPointsDebugVisible()
-    );
   }
 
   /**
@@ -645,87 +579,11 @@ export class GameStateManager {
   }
 
   /**
-   * Calculate defense reach percent using GlobalRouteGrid LOS data.
-   * Returns the furthest point on the path (0-1, distance-based) where
-   * at least one tower has line-of-sight visibility.
-   * Matches MovementComponent.getPathProgress() distance calculation.
-   * Also updates the orange debug marker position.
+   * Calculate defense reach percent — delegates to GlobalRouteGridService.
+   * @see GlobalRouteGridService.getDefenseReachPercent
    */
   getDefenseReachPercent(): number {
-    if (!this.tilesEngine || !this.globalRouteGrid.isInitialized()) return 0;
-
-    const routes = this.getCachedRoutes();
-    if (routes.length === 0) return 0;
-    const path = routes[0];
-    if (path.length < 2) return 0;
-
-    const sync = this.tilesEngine.sync;
-
-    // Convert all waypoints to local coordinates
-    const localPositions = path.map(p => sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0));
-
-    // Calculate segment lengths
-    let totalLength = 0;
-    const cumulativeDistances: number[] = [0];
-
-    for (let i = 0; i < localPositions.length - 1; i++) {
-      const a = localPositions[i];
-      const b = localPositions[i + 1];
-      const segLen = Math.sqrt((b.x - a.x) ** 2 + (b.z - a.z) ** 2);
-      totalLength += segLen;
-      cumulativeDistances.push(totalLength);
-    }
-
-    if (totalLength === 0) return 0;
-
-    // Find last waypoint visible by any tower
-    let lastVisibleIndex = -1;
-
-    for (let i = 0; i < localPositions.length; i++) {
-      const local = localPositions[i];
-      const cell = this.globalRouteGrid.getCellAt(local.x, local.z);
-      if (cell) {
-        for (const visible of cell.towerVisibility.values()) {
-          if (visible) {
-            lastVisibleIndex = i;
-            break;
-          }
-        }
-      }
-    }
-
-    if (lastVisibleIndex < 0) {
-      this.hideDefenseReachMarker();
-      return 0;
-    }
-
-    // Update orange debug marker at last visible waypoint
-    const markerPos = localPositions[lastVisibleIndex];
-    this.updateDefenseReachMarker(markerPos.x, markerPos.y + 3, markerPos.z);
-
-    return cumulativeDistances[lastVisibleIndex] / totalLength;
-  }
-
-  private updateDefenseReachMarker(x: number, y: number, z: number): void {
-    if (!this.tilesEngine) return;
-    const scene = this.tilesEngine.getScene();
-
-    if (!this.defenseReachMarker) {
-      const geo = new SphereGeometry(1.5, 8, 6);
-      const mat = new MeshBasicMaterial({ color: 0xff8800, transparent: true, opacity: 0.85 });
-      this.defenseReachMarker = new Mesh(geo, mat);
-      this.defenseReachMarker.renderOrder = 10;
-      scene.add(this.defenseReachMarker);
-    }
-
-    this.defenseReachMarker.position.set(x, y, z);
-    this.defenseReachMarker.visible = true;
-  }
-
-  private hideDefenseReachMarker(): void {
-    if (this.defenseReachMarker) {
-      this.defenseReachMarker.visible = false;
-    }
+    return this.globalRouteGrid.getDefenseReachPercent(this.getCachedRoutes());
   }
 
   /**

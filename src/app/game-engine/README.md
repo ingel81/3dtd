@@ -9,10 +9,10 @@ Kann mit React, Vue oder Vanilla JavaScript verwendet werden.
 
 ## Dokumentation
 
-Die vollstaendige Dokumentation befindet sich in `src/app/docs/`:
+Die vollstaendige Dokumentation befindet sich in `docs/`:
 
-- **[EVENT_SYSTEM.md](../docs/EVENT_SYSTEM.md)** - Event-Typen, Event Flow, Best Practices
-- **[ARCHITECTURE.md](../docs/ARCHITECTURE.md)** - Gesamt-Architektur
+- **[EVENT_SYSTEM.md](../../../docs/EVENT_SYSTEM.md)** - Event-Typen, Event Flow, Best Practices
+- **[ARCHITECTURE.md](../../../docs/ARCHITECTURE.md)** - Gesamt-Architektur
 
 ---
 

@@ -101,12 +101,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
             target: projectile.targetEnemy,
             damage: projectile.damage,
           });
-        } else {
-          // Target died before projectile reached - ground impact
-          this.eventBus.emitDeferred({
-            type: 'projectile:missed',
-            projectile,
-          });
         }
 
         // Emit VFX event for projectile impact (deferred, not critical)

@@ -3,7 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug-window.service';
-import { GameUIStateService } from '../../services/game-ui-state.service';
+import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
@@ -23,50 +23,50 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       </button>
       <!-- Layer Menu (collapsible, expands upward) -->
       <div class="td-layer-menu-wrapper">
-        <div class="td-layer-toggles" [class.expanded]="uiState.layerMenuExpanded()">
+        <div class="td-layer-toggles" [class.expanded]="uiStore.layerMenuExpanded()">
           <button class="td-layer-btn"
-                  [class.active]="uiState.spatialGridDebugVisible()"
+                  [class.active]="uiStore.spatialGridDebugVisible()"
                   (click)="spatialGridDebugToggled.emit()"
                   matTooltip="Route Grid Overlay"
                   matTooltipPosition="left">
             <mat-icon>grid_on</mat-icon>
           </button>
           <button class="td-layer-btn"
-                  [class.active]="uiState.streetsVisible()"
-                  (click)="uiState.toggleStreets(); streetsToggled.emit()"
+                  [class.active]="uiStore.streetsVisible()"
+                  (click)="uiStore.toggleStreets(); streetsToggled.emit()"
                   matTooltip="Show streets"
                   matTooltipPosition="left">
             <mat-icon>route</mat-icon>
           </button>
           <button class="td-layer-btn"
-                  [class.active]="uiState.routesVisible()"
-                  (click)="uiState.toggleRoutes(); routesToggled.emit()"
+                  [class.active]="uiStore.routesVisible()"
+                  (click)="uiStore.toggleRoutes(); routesToggled.emit()"
                   matTooltip="Show routes"
                   matTooltipPosition="left">
             <mat-icon>timeline</mat-icon>
           </button>
         </div>
         <button class="td-quick-btn td-layer-toggle-btn"
-                [class.active]="uiState.layerMenuExpanded()"
-                (click)="uiState.toggleLayerMenu()"
+                [class.active]="uiStore.layerMenuExpanded()"
+                (click)="uiStore.toggleLayerMenu()"
                 matTooltip="Layers"
                 matTooltipPosition="left">
-          <mat-icon>{{ uiState.layerMenuExpanded() ? 'layers_clear' : 'layers' }}</mat-icon>
+          <mat-icon>{{ uiStore.layerMenuExpanded() ? 'layers_clear' : 'layers' }}</mat-icon>
         </button>
       </div>
       <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left">
         <mat-icon>my_location</mat-icon>
       </button>
       <button class="td-quick-btn"
-              [class.active]="uiState.infoOverlayVisible()"
-              (click)="uiState.toggleInfoOverlay()"
+              [class.active]="uiStore.infoOverlayVisible()"
+              (click)="uiStore.toggleInfoOverlay()"
               matTooltip="Info-Overlay"
               matTooltipPosition="left">
         <mat-icon>info</mat-icon>
       </button>
       <!-- Dev Menu (expands upward) -->
       <div class="td-dev-menu-wrapper">
-        <div class="td-dev-menu" [class.expanded]="uiState.devMenuExpanded()">
+        <div class="td-dev-menu" [class.expanded]="uiStore.devMenuExpanded()">
           <!-- Cheats -->
           <button class="td-dev-btn td-dev-btn-danger"
                   (click)="killAllEnemies.emit()"
@@ -89,14 +89,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           <div class="td-dev-separator"></div>
           <!-- Terrain & Map -->
           <button class="td-dev-btn"
-                  [class.active]="uiState.heightDebugVisible()"
+                  [class.active]="uiStore.heightDebugVisible()"
                   (click)="heightDebugToggled.emit()"
                   matTooltip="Height markers"
                   matTooltipPosition="left">
             <mat-icon>terrain</mat-icon>
           </button>
           <button class="td-dev-btn"
-                  [class.active]="uiState.specialPointsDebugVisible()"
+                  [class.active]="uiStore.specialPointsDebugVisible()"
                   (click)="specialPointsDebugToggled.emit()"
                   matTooltip="Special points"
                   matTooltipPosition="left">
@@ -186,11 +186,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
           }
         </div>
         <button class="td-quick-btn td-dev-toggle-btn"
-                [class.active]="uiState.devMenuExpanded()"
-                (click)="uiState.toggleDevMenu()"
+                [class.active]="uiStore.devMenuExpanded()"
+                (click)="uiStore.toggleDevMenu()"
                 matTooltip="Developer options"
                 matTooltipPosition="left">
-          <mat-icon>{{ uiState.devMenuExpanded() ? 'code_off' : 'code' }}</mat-icon>
+          <mat-icon>{{ uiStore.devMenuExpanded() ? 'code_off' : 'code' }}</mat-icon>
         </button>
       </div>
     </div>
@@ -420,7 +420,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 })
 export class QuickActionsComponent {
   readonly debugWindows = inject(DebugWindowService);
-  readonly uiState = inject(GameUIStateService);
+  readonly uiStore = inject(UIStore);
   readonly devWorld = inject(DevWorldService);
 
   // Input for camera framing debug state (component-local in parent)

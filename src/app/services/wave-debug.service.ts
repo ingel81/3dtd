@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../models/enemy-types';
-import { GameUIStateService } from './game-ui-state.service';
+import { UIStore } from '../store/ui.store';
 
 /** Default enemy type for debug panel */
 const DEFAULT_ENEMY_TYPE: EnemyTypeId = 'zombie';
@@ -11,7 +11,7 @@ const DEFAULT_ENEMY_TYPE: EnemyTypeId = 'zombie';
  */
 @Injectable({ providedIn: 'root' })
 export class WaveDebugService {
-  private readonly uiState = inject(GameUIStateService);
+  private readonly uiStore = inject(UIStore);
 
   // Get initial values from enemy config (single source of truth)
   private readonly initialConfig = ENEMY_TYPES[DEFAULT_ENEMY_TYPE];
@@ -34,7 +34,7 @@ export class WaveDebugService {
   });
 
   // Debug log (from UI state service)
-  readonly debugLog = this.uiState.debugLog;
+  readonly debugLog = this.uiStore.debugLog;
 
   // Street count (set externally after loading)
   readonly streetCount = signal(0);
@@ -129,11 +129,11 @@ export class WaveDebugService {
   }
 
   clearLog(): void {
-    this.uiState.debugLog.set('');
+    this.uiStore.debugLog.set('');
   }
 
   appendLog(message: string): void {
-    this.uiState.debugLog.update(log => {
+    this.uiStore.debugLog.update(log => {
       const timestamp = new Date().toLocaleTimeString('de-DE', {
         hour: '2-digit',
         minute: '2-digit',
