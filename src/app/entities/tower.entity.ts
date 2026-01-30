@@ -147,11 +147,11 @@ export class Tower extends GameObject {
   }
 
   /**
-   * Find target enemy within range using "lowest HP" strategy
-   * OPTIMIZED: Caches target to avoid expensive LOS checks every frame
+   * Find target enemy within range using the tower's targeting strategy.
+   * OPTIMIZED: Caches target to avoid expensive LOS checks every frame.
    * @param enemies List of potential targets
    * @param losCheck Optional line-of-sight check function (only called on target change)
-   * @returns Enemy with lowest HP that is in range and visible, or null
+   * @returns Best enemy based on targeting strategy that is in range and visible, or null
    */
   findTarget(enemies: Enemy[], losCheck?: (enemy: Enemy) => boolean): Enemy | null {
     // Fast path: Check if current target is still valid (no LOS check needed)
@@ -176,8 +176,8 @@ export class Tower extends GameObject {
     }
 
     // Slow path: Search for new target (with LOS checks)
-    let bestTarget: Enemy | null = null;
-    let lowestHp = Infinity;
+    // Build list of valid candidates first
+    const candidates: Enemy[] = [];
 
     // Get targeting capabilities (defaults: canTargetGround=true, canTargetAir=false)
     const canTargetAir = this.typeConfig.canTargetAir ?? false;
@@ -198,16 +198,106 @@ export class Tower extends GameObject {
       // Skip LOS for air enemies - they fly high enough to always be visible
       if (losCheck && !isAirEnemy && !losCheck(enemy)) continue;
 
-      // Find enemy with lowest HP
-      if (enemy.health.hp < lowestHp) {
-        lowestHp = enemy.health.hp;
-        bestTarget = enemy;
-      }
+      candidates.push(enemy);
     }
+
+    if (candidates.length === 0) {
+      this._currentTarget = null;
+      return null;
+    }
+
+    // Select best target based on strategy
+    const bestTarget = this.selectByStrategy(candidates);
 
     // Cache the new target
     this._currentTarget = bestTarget;
     return bestTarget;
+  }
+
+  /**
+   * Select the best target from valid candidates based on the current targeting strategy.
+   */
+  private selectByStrategy(candidates: Enemy[]): Enemy | null {
+    switch (this.targetingStrategy) {
+      case 'closest': {
+        let best: Enemy | null = null;
+        let bestDist = Infinity;
+        for (const enemy of candidates) {
+          const dist = this.calculateDistanceFast(this.position, enemy.position);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+
+      case 'lowest-hp': {
+        let best: Enemy | null = null;
+        let lowestHp = Infinity;
+        for (const enemy of candidates) {
+          if (enemy.health.hp < lowestHp) {
+            lowestHp = enemy.health.hp;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+
+      case 'highest-hp': {
+        let best: Enemy | null = null;
+        let highestHp = -Infinity;
+        for (const enemy of candidates) {
+          if (enemy.health.hp > highestHp) {
+            highestHp = enemy.health.hp;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+
+      case 'first': {
+        // Pick the enemy furthest along its path (closest to reaching the end)
+        let best: Enemy | null = null;
+        let highestProgress = -Infinity;
+        for (const enemy of candidates) {
+          const progress = enemy.movement.getPathProgress();
+          if (progress > highestProgress) {
+            highestProgress = progress;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+
+      case 'air-priority': {
+        // Separate air and ground enemies
+        const airEnemies: Enemy[] = [];
+        const groundEnemies: Enemy[] = [];
+        for (const enemy of candidates) {
+          if (enemy.typeConfig.isAirUnit) {
+            airEnemies.push(enemy);
+          } else {
+            groundEnemies.push(enemy);
+          }
+        }
+        // Pick closest air first, then closest ground
+        const pool = airEnemies.length > 0 ? airEnemies : groundEnemies;
+        let best: Enemy | null = null;
+        let bestDist = Infinity;
+        for (const enemy of pool) {
+          const dist = this.calculateDistanceFast(this.position, enemy.position);
+          if (dist < bestDist) {
+            bestDist = dist;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+
+      default:
+        return candidates[0] ?? null;
+    }
   }
 
   /**

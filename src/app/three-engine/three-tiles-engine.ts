@@ -1436,7 +1436,7 @@ export class ThreeTilesEngine {
     this.enemies.updateAnimations(deltaSeconds, this.camera);
 
     // Update tower animations (turret rotation scales with game speed)
-    this.towers.updateAnimations(deltaTime, this.gameTimescale);
+    this.towers.updateAnimations(deltaTime, this.camera, this.gameTimescale);
 
     // Commit projectile instance changes to GPU
     this.projectiles.commitToGPU();

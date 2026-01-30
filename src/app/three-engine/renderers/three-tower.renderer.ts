@@ -23,6 +23,9 @@ import {
   MeshStandardMaterial,
   CircleGeometry,
   Group,
+  Frustum,
+  Matrix4,
+  Camera,
 } from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
@@ -134,6 +137,8 @@ export class ThreeTowerRenderer {
 
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
+  private frustum = new Frustum();
+  private projScreenMatrix = new Matrix4();
 
   // Configuration for terrain-conforming range indicator
   private readonly RANGE_SEGMENTS = 48; // Number of segments around the circle
@@ -739,17 +744,23 @@ export class ThreeTowerRenderer {
    * Call each frame for pulse effect, smooth turret movement, and model animations
    * @param timescale Game speed multiplier (e.g. 4.0 for 4x training speed)
    */
-  updateAnimations(deltaTime: number, timescale = 1.0): void {
+  updateAnimations(deltaTime: number, camera: Camera, timescale = 1.0): void {
     // Accumulate time for frame-independent animation (in seconds)
     this.animationTime += deltaTime * 0.001;
 
     // Convert deltaTime from ms to seconds for animation mixer
     const deltaSeconds = deltaTime * 0.001;
 
-    // Update GLTF animation mixers
+    // Update frustum for culling GLTF animations
+    this.projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    this.frustum.setFromProjectionMatrix(this.projScreenMatrix);
+
+    // Update GLTF animation mixers (only for towers in view)
     for (const data of this.towers.values()) {
       if (data.mixer) {
-        data.mixer.update(deltaSeconds);
+        if (this.frustum.containsPoint(data.mesh.position)) {
+          data.mixer.update(deltaSeconds);
+        }
       }
     }
 
