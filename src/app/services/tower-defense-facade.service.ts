@@ -266,6 +266,7 @@ export class TowerDefenseFacadeService {
         this.debugFacade.setEngine(engine, this.gameState);
         this.debugFacade.applyDisplayOptions();
         this.profiler.setEngine(engine, this.gameState);
+        this.gameState.setProfiler(this.profiler);
         this.gameState.enemyManager.onProfileTiming =
           (move, grid, height, render, total) => this.profiler.accumulateEnemyTiming(move, grid, height, render, total);
       }
