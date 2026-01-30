@@ -1277,8 +1277,8 @@ export class ThreeEffectsRenderer {
       }
     }
 
-    // Phase 3: Rising embers and sparks - long duration (3x: 100 → 300)
-    for (let i = 0; i < 300; i++) {
+    // Phase 3: Rising embers and sparks - reduced count
+    for (let i = 0; i < 100; i++) {
       const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
       if (!particle) {
         console.warn('[HQ Explosion] Pool exhausted at phase 3, particle', i);
