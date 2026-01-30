@@ -381,28 +381,28 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * In DevWorld mode: Regenerates entire world with current config
    */
   refreshTerrainHeights(): void {
-    this.facade.refreshTerrainHeights(this.gameState);
+    this.facade.refreshTerrainHeights();
   }
 
   /**
    * Clear DevWorld visuals — delegates to facade
    */
   private clearDevWorldVisuals(): void {
-    this.facade.clearDevWorldVisuals(this.gameState);
+    this.facade.clearDevWorldVisuals();
   }
 
   /**
    * DevWorld regenerated callback — delegates to facade
    */
   private onDevWorldRegenerated(devTerrainProvider: import('./devworld/dev-terrain.provider').DevTerrainProvider): void {
-    this.facade.onDevWorldRegenerated(devTerrainProvider, this.gameState);
+    this.facade.onDevWorldRegenerated(devTerrainProvider);
   }
 
   /**
    * Tiles loaded callback — delegates to facade
    */
   private onTilesLoaded(): void {
-    this.facade.onTilesLoaded(this.gameState);
+    this.facade.onTilesLoaded();
   }
 
   /**
@@ -457,14 +457,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Upgrade a tower — delegates to facade
    */
   upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
-    return this.facade.upgradeTower(tower, upgradeId, this.gameState);
+    return this.facade.upgradeTower(tower, upgradeId);
   }
 
   /**
    * Start a new wave — delegates to facade
    */
   startWave(): void {
-    this.facade.startWave(this.gameState);
+    this.facade.startWave();
   }
 
   /**
@@ -478,7 +478,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Start custom wave — delegates to facade
    */
   startCustomWave(): void {
-    this.facade.startCustomWave(this.gameState);
+    this.facade.startCustomWave();
   }
 
   /**
@@ -542,7 +542,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Manually trigger route animation playback
    */
   onDpsBinsToggled(visible: boolean): void {
-    this.facade.onDpsBinsToggled(visible, this.gameState);
+    this.facade.onDpsBinsToggled(visible);
   }
 
   onPlayRouteAnimation(): void {
@@ -594,7 +594,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Restart game — delegates to facade
    */
   restartGame(): void {
-    this.facade.restartGame(this.gameState);
+    this.facade.restartGame();
   }
 
   /**
