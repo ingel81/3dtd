@@ -3,6 +3,7 @@ import { MatDialog } from '@angular/material/dialog';
 import { take } from 'rxjs';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameStateManager } from '../managers/game-state.manager';
+import { SPAWN_COLORS } from '../configs/map-constants.config';
 import { SpawnPoint as WaveSpawnPoint } from '../managers/wave.manager';
 import { StreetNetwork, OsmStreetService } from './osm-street.service';
 import { EngineInitializationService } from './engine-initialization.service';
@@ -579,7 +580,7 @@ export class LocationChangeCoordinatorService {
 
     // Add spawn point (component handles signal update and visualization)
     const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
-    callbacks.addSpawnPoint('spawn-1', spawnName, input.spawn.lat, input.spawn.lon, 0xef4444);
+    callbacks.addSpawnPoint('spawn-1', spawnName, input.spawn.lat, input.spawn.lon, SPAWN_COLORS[0]);
 
     await this.engineInit.setStepDone('spawn', '1 point');
   }

@@ -382,6 +382,9 @@ export class LocationFacadeService {
         devTerrainProvider.regenerate().then(() => {
           this.onDevWorldRegenerated(devTerrainProvider);
           this.store.isDevWorldRegenerating.set(false);
+        }).catch((error) => {
+          console.error('[LocationFacade] DevWorld regeneration failed:', error);
+          this.store.isDevWorldRegenerating.set(false);
         });
         return;
       }
