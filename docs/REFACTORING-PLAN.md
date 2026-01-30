@@ -69,22 +69,65 @@ Statt neue Services zu erfinden, nutzen wir die **existierende Service-Landschaf
 
 Statt direkte Service-Aufrufe aus der Component führen wir **Command-Events** ein. Die Component emittiert nur noch Befehle — Services reagieren darauf.
 
-### Neue Command-Events
+### Architektur-Prinzip: Store / Facade / EventBus Trennung
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│ DATENFLUSS                                                    │
+│                                                               │
+│  Component ──user input──> Facade.startWave()                │
+│                              │                                │
+│                              ▼                                │
+│                         EventBus.emit('command:start-wave')   │
+│                              │                                │
+│                              ▼                                │
+│                     GameStateManager (Engine reagiert)         │
+│                              │                                │
+│                              ▼                                │
+│                     EventBus.emit('wave:started')             │
+│                              │                                │
+│                              ▼                                │
+│                     Facade/Effect → Store.phase.set('wave')  │
+│                                                               │
+│  Component <──reads──── Store.phase() ─── (Template Binding) │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Ownership-Matrix pro Signal
+
+| Signal-Kategorie | Owner | Wer liest | Wer schreibt |
+|---|---|---|---|
+| UI-State (debug, toggles) | **Store** | Component (Template) | Store direkt, Facade |
+| Game-State (credits, health, phase) | **Store** | Component (Template) | Facade via Effect (nach EventBus-Event) |
+| Location (coords, spawns, favorites) | **Store** | Component, Facade | Facade (nach Location-Change) |
+| Engine-Stats (fps, tiles, sounds) | **Store** | Component (Template) | Facade (aus Game-Loop) |
+| Bot/AI (enabled, skill, autoMode) | **Store** | Component (Template) | Facade (nach Bot-Events) |
+
+### Was gehört wohin?
+
+| Schicht | ✅ Enthält | ❌ Enthält NICHT |
+|---|---|---|
+| **Store** | Signals, Computed, reset(), set/update | Action-Methods, EventBus, Side-Effects |
+| **Facade** | Commands via EventBus, Service-Orchestrierung | Eigene Signals, direkte State-Mutations |
+| **EventBus** | Engine-Commands, Engine-Events | UI-State, Persistence |
+| **Component** | Template, @HostListener, Lifecycle | Business-Logik, State |
+
+### Command-Events (bereits implementiert in EventBus)
 
 ```typescript
-// Neue Event-Typen für game-event-bus.ts
-'command:place-tower':    { position: GeoPosition, typeId: TowerTypeId, rotation?: number }
+// game-event-bus.ts — Command Events
+'command:place-tower':    { position: GeoPosition, typeId: string, rotation?: number }
 'command:sell-tower':     { towerId: string }
-'command:upgrade-tower':  { towerId: string, upgradeId: UpgradeId }
-'command:start-wave':     { config?: WaveConfig }
-'command:toggle-pause':   {}
+'command:upgrade-tower':  { towerId: string, upgradeId: string }
+'command:start-wave':     { config?: unknown }
 'command:restart-game':   {}
 
-// Debug-Commands (erweitern)
+// Debug-Commands
 'debug:add-credits':      { amount: number }
 'debug:add-health':       { amount: number }
 'debug:toggle-movement':  { enabled: boolean }
 'debug:remove-enemy':     { enemyId: string }
+'debug:clear-enemies':    {}
 ```
 
 ### Wer hört auf was?
@@ -105,9 +148,7 @@ Statt direkte Service-Aufrufe aus der Component führen wir **Command-Events** e
 
 | Event | Aktion |
 |---|---|
-| `projectile:missed` | Type entfernen (nie implementiert) |
 | `vfx:explosion` | Listener entfernen oder Emitter hinzufügen (HQ-Explosion?) |
-| `ui:notification` | Type entfernen (nie implementiert) |
 | `debug:reset-wave` | Emitter in Quick-Actions hinzufügen oder Listener entfernen |
 | `tower:deselected` | Listener in UI hinzufügen (Build-Mode exit) |
 | `game:paused` / `game:resumed` | Listener für UI-State hinzufügen (Pause-Overlay etc.) |

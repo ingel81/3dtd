@@ -1,6 +1,7 @@
 import { Injectable, inject, Injector, NgZone, DestroyRef, Signal, WritableSignal, effect } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { MatDialog } from '@angular/material/dialog';
+import { SubscriptionBag } from '../game-engine/game-event-bus';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { GameUIStateService } from '../services/game-ui-state.service';
 import { CameraControlService } from '../services/camera-control.service';
@@ -143,21 +144,32 @@ export class TowerDefenseFacadeService {
   private readonly ngZone = inject(NgZone);
   private readonly dialog = inject(MatDialog);
 
-  /** Component bridge - set via initialize() */
+  /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
 
-  /** Game state manager — component-provided, set via initialize() */
+  /** Game state manager — component-provided, set via initialize(). Non-null after initEffects(). */
   private gameState!: GameStateManager;
 
   /** Component injector — needed for effects and takeUntilDestroyed */
   private componentInjector!: Injector;
 
+  /** Whether the facade has been initialized via initEffects() */
+  private initialized = false;
+
   /** DPS profile visualization along path */
   private dpsProfileViz: DpsProfileVisualizer | null = null;
   private dpsVizUnsubscribes: (() => void)[] = [];
 
+  /** EventBus subscription bag — cleaned up in dispose() */
+  private readonly eventBusSubs = new SubscriptionBag();
+
   /** Flag to prevent concurrent AI wave requests */
   private pendingAIWaveRequest = false;
+
+  /** Throttle: last UI stats update timestamp */
+  private lastStatsUpdate = 0;
+  /** Throttle interval for UI stats (ms) — ~10Hz */
+  private static readonly STATS_THROTTLE_MS = 100;
 
   /**
    * Initialize the facade with component bridge, game state, and injector.
@@ -166,6 +178,19 @@ export class TowerDefenseFacadeService {
     this.bridge = bridge;
     this.gameState = gameState;
     this.componentInjector = injector;
+    this.initialized = true;
+  }
+
+  /**
+   * Guard: check if facade is initialized.
+   * Use at public entry points to prevent calls before initEffects().
+   */
+  private assertInitialized(): boolean {
+    if (!this.initialized) {
+      console.warn('[Facade] Not initialized — call initEffects() first');
+      return false;
+    }
+    return true;
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -260,6 +285,8 @@ export class TowerDefenseFacadeService {
    * Called from ngAfterViewInit. Also handles former ngOnInit logic.
    */
   async startGame(canvas: HTMLCanvasElement): Promise<void> {
+    if (!this.assertInitialized()) return;
+
     // --- Former ngOnInit logic ---
     this.locationCoordinator.initializeFlow(this.buildLocationFlowDelegate());
 
@@ -298,24 +325,34 @@ export class TowerDefenseFacadeService {
   }
 
   /**
-   * Full cleanup: dispose engine, pool, preview, animations, DPS viz.
+   * Full cleanup: dispose engine, pool, preview, animations, DPS viz, EventBus subs.
    * Called from component's ngOnDestroy.
    */
   dispose(): void {
+    // Clean up EventBus subscriptions to prevent memory leaks
+    this.eventBusSubs.disposeAll();
+
     this.entityPool.destroy();
     this.modelPreview.dispose();
     this.routeAnimation.dispose();
 
-    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
+    if (this.initialized) {
+      this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
 
-    const engine = this.bridge.getEngine();
-    this.disposeDpsVisualization(engine);
+      const engine = this.bridge.getEngine();
+      this.disposeDpsVisualization(engine);
 
-    if (engine) {
-      engine.dispose();
-      this.bridge.setEngine(null);
-      this.trainingClient.setEngine(null);
+      if (engine) {
+        engine.dispose();
+        this.bridge.setEngine(null);
+        this.trainingClient.setEngine(null);
+      }
     }
+
+    // Reset state
+    this.initialized = false;
+    this.pendingAIWaveRequest = false;
+    this.lastStatsUpdate = 0;
   }
 
   // ══════════════════════════════════════════════════════════════
@@ -423,6 +460,12 @@ export class TowerDefenseFacadeService {
    * Initialize Three.js rendering engine with full callback wiring.
    */
   private async initEngineSequence(canvas: HTMLCanvasElement): Promise<void> {
+    if (!this.assertInitialized()) {
+      this.engineInit.setError('Facade not initialized');
+      this.engineInit.setLoading(false);
+      return;
+    }
+
     try {
       const cesiumToken = this.configService.cesiumIonToken();
       const cesiumAssetId = this.configService.cesiumAssetId();
@@ -493,13 +536,18 @@ export class TowerDefenseFacadeService {
    * Initialize game state with routes AND subscribe to tower:selected.
    */
   private initializeGameStateInternal(): string | undefined {
+    if (!this.assertInitialized()) return undefined;
+
     const result = this.initializeGameState(this.gameState);
 
     // Subscribe to tower:selected event - sync debug panel dropdown
+    // Track subscription for cleanup in dispose()
     const eventBus = this.gameState.getEventBus();
-    eventBus.on('tower:selected', (event) => {
-      this.towerDebug.selectTower(event.tower.typeConfig.id);
-    });
+    this.eventBusSubs.add(
+      eventBus.on('tower:selected', (event) => {
+        this.towerDebug.selectTower(event.tower.typeConfig.id);
+      })
+    );
 
     return result;
   }
@@ -509,6 +557,8 @@ export class TowerDefenseFacadeService {
    * Moved from component — orchestrates per-frame game logic.
    */
   private onEngineUpdate(deltaTime: number): void {
+    if (!this.initialized) return;
+
     const dtSec = deltaTime / 1000;
 
     // Per-frame delegation calls
@@ -539,21 +589,29 @@ export class TowerDefenseFacadeService {
       grid.updateTowerVisualizationTime(selectedTower.losVisualization);
     }
 
-    // Throttled UI stats (~10Hz)
+    // Throttled UI stats (~10Hz) — throttle BEFORE zone entry to avoid unnecessary zone ticks
+    const now = performance.now();
+    if (now - this.lastStatsUpdate < TowerDefenseFacadeService.STATS_THROTTLE_MS) return;
+    this.lastStatsUpdate = now;
+
     const engine = this.bridge.getEngine();
     if (engine) {
       const soundDebugOpen = this.debugWindows.soundWindow().isOpen;
+      // Collect stats outside zone, then enter zone only for signal writes
+      const stats = {
+        fps: engine.getFPS(),
+        tileStats: engine.getTileStats(),
+        activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
+        attribution: engine.getAttributions(),
+        cameraHeading: this.cameraControl.getCameraHeading(),
+        cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
+        soundPoolStats: soundDebugOpen ? engine.spatialAudio.getSoundPoolStats() : undefined,
+      };
       this.ngZone.run(() => {
         this.uiState.updateThrottledStats({
-          fps: engine.getFPS(),
-          tileStats: engine.getTileStats(),
-          activeSoundCount: engine.spatialAudio.getActiveSoundCount(),
-          attribution: engine.getAttributions(),
-          cameraHeading: this.cameraControl.getCameraHeading(),
-          cameraDebugInfo: this.cameraControl.getCameraDebugInfo(),
-          soundPoolStats: soundDebugOpen ? engine.spatialAudio.getSoundPoolStats() : undefined,
+          ...stats,
           onSoundDebugUpdate: soundDebugOpen
-            ? (stats: unknown) => this.soundDebug.updateStats(stats as SoundPoolStats)
+            ? (poolStats: unknown) => this.soundDebug.updateStats(poolStats as SoundPoolStats)
             : undefined,
         });
       });
@@ -707,26 +765,30 @@ export class TowerDefenseFacadeService {
 
     const eventBus = gameState.getEventBus();
 
-    // Subscribe to debug:start-custom-wave event
-    eventBus.on('debug:start-custom-wave', () => {
-      this.startCustomWave(gameState);
-    });
+    // Subscribe to debug:start-custom-wave event — tracked for cleanup
+    this.eventBusSubs.add(
+      eventBus.on('debug:start-custom-wave', () => {
+        this.startCustomWave(gameState);
+      })
+    );
 
-    // Subscribe to game:over event
-    eventBus.on('game:over', () => {
-      this.onGameOver(gameState);
-      this.trainingClient.resetBot();
-      if (this.trainingClient.botEnabled()) {
-        console.log('[Bot] Reset for new game');
-      }
+    // Subscribe to game:over event — tracked for cleanup
+    this.eventBusSubs.add(
+      eventBus.on('game:over', () => {
+        this.onGameOver(gameState);
+        this.trainingClient.resetBot();
+        if (this.trainingClient.botEnabled()) {
+          console.log('[Bot] Reset for new game');
+        }
 
-      if (this.trainingClient.botAutoMode()) {
-        console.log('[Bot] Auto-restarting game in 2 seconds...');
-        setTimeout(() => {
-          this.restartGame(gameState);
-        }, 2000);
-      }
-    });
+        if (this.trainingClient.botAutoMode()) {
+          console.log('[Bot] Auto-restarting game in 2 seconds...');
+          setTimeout(() => {
+            this.restartGame(gameState);
+          }, 2000);
+        }
+      })
+    );
 
     // Validate routes
     const paths = this.pathRoute.getCachedPaths();

@@ -1,36 +1,29 @@
 /**
- * TowerDefenseStore — Central Signal Store for all game state
+ * TowerDefenseStore — Central Signal Store for UI & persistent state
  *
- * ARCHITECTURE DESIGN — NOT YET WIRED IN
+ * ARCHITECTURE:
+ *   Store = State Container (signals + computed + reset)
+ *   Facade = Orchestration (commands via EventBus, reads/writes Store for UI state)
  *
- * This store consolidates ALL scattered signals from:
- *   - TowerDefenseComponent (30+ proxy signals, writable signals, computed)
- *   - GameUIStateService (debug, layer toggles, perf stats)
- *   - GameStateManager (credits, health, phase, wave, enemies)
- *   - TowerDefenseFacadeService (bridge pattern with WritableSignal pass-through)
- *   - WaveDebugService, EnemyDebugService, TowerDebugService (debug overrides)
- *   - TrainingClientService (bot signals)
+ * The Store does NOT contain action methods (startWave, placeTower, etc.).
+ * Those belong in the Facade, which delegates to the EventBus:
  *
- * WHY THIS IS BETTER:
- *   1. Single Source of Truth — No more "proxy signals" that just re-export
- *      another service's signal. Currently the component has 40+ lines like:
- *        readonly fps = this.uiState.fps;
- *        readonly buildMode = this.towerPlacement.buildMode;
- *      These are not proxies — they ARE the state. The store owns them.
+ *   Component → Facade.startWave() → EventBus.emit('command:start-wave')
+ *                                   → Engine reacts
+ *                                   → EventBus.emit('wave:started')
+ *                                   → Facade/Effect → Store.phase.set('wave')
  *
- *   2. No more FacadeComponentBridge — The current FacadeComponentBridge passes
- *      WritableSignals from the component INTO a service via initialize().
- *      This is a code smell: the service mutates component-owned state.
- *      With the store, both component and facade READ from the same store.
+ * Store owns:
+ *   - WritableSignals (state)
+ *   - Computed values (derived state)
+ *   - set/update convenience methods (pure state mutations, no side effects)
+ *   - resetGameState() / resetAll()
  *
- *   3. Testable — Inject TowerDefenseStore, set signals, assert computed values.
- *      No need to instantiate a 500-line component to test game logic.
- *
- *   4. Component becomes pure view — The component reads signals and calls
- *      action methods. Zero state management in the component itself.
- *
- *   5. DevTools-friendly — All state in one place = easy console debugging.
- *      `inject(TowerDefenseStore)` in browser console shows everything.
+ * Store does NOT own:
+ *   - Action methods (startWave, placeTower, upgradeTower, etc.)
+ *   - EventBus interaction
+ *   - Service orchestration
+ *   - Side effects
  *
  * MIGRATION PLAN: See docs/SIGNAL-STORE-ARCHITECTURE.md
  */
@@ -101,14 +94,14 @@ export interface LoadingStep {
 }
 
 // ═══════════════════════════════════════════════════════════════
-// Store
+// Store — Pure State Container
 // ═══════════════════════════════════════════════════════════════
 
 @Injectable({ providedIn: 'root' })
 export class TowerDefenseStore {
 
   // ════════════════════════════════════════════════════════════
-  // GAME STATE — currently in GameStateManager
+  // GAME STATE
   // ════════════════════════════════════════════════════════════
 
   /** Player credits (gold) */
@@ -142,7 +135,7 @@ export class TowerDefenseStore {
   readonly trainingTimescale = signal<number>(1.0);
 
   // ════════════════════════════════════════════════════════════
-  // LOADING / INIT STATE — currently in EngineInitializationService
+  // LOADING / INIT STATE
   // ════════════════════════════════════════════════════════════
 
   /** Global loading flag */
@@ -170,7 +163,7 @@ export class TowerDefenseStore {
   readonly loadingSteps = signal<LoadingStep[]>([]);
 
   // ════════════════════════════════════════════════════════════
-  // UI STATE — currently in GameUIStateService
+  // UI STATE (debug flags, layer toggles, menu state)
   // ════════════════════════════════════════════════════════════
 
   /** Debug panel visibility */
@@ -207,7 +200,7 @@ export class TowerDefenseStore {
   readonly debugLog = signal<string>('');
 
   // ════════════════════════════════════════════════════════════
-  // BUILD MODE — currently in TowerPlacementService
+  // BUILD MODE
   // ════════════════════════════════════════════════════════════
 
   /** Build mode active */
@@ -223,7 +216,7 @@ export class TowerDefenseStore {
   readonly isApplyingLocation = signal<boolean>(false);
 
   // ════════════════════════════════════════════════════════════
-  // LOCATION — currently split across Component + LocationMgmt
+  // LOCATION (persistent state)
   // ════════════════════════════════════════════════════════════
 
   /** HQ / base coordinates */
@@ -245,7 +238,7 @@ export class TowerDefenseStore {
   readonly favoriteNamesMap = signal<Map<string, string>>(new Map());
 
   // ════════════════════════════════════════════════════════════
-  // ENGINE / PERFORMANCE — currently in GameUIStateService
+  // ENGINE / PERFORMANCE
   // ════════════════════════════════════════════════════════════
 
   /** Frames per second */
@@ -279,7 +272,7 @@ export class TowerDefenseStore {
   readonly streetCount = signal<number>(0);
 
   // ════════════════════════════════════════════════════════════
-  // BOT / AI — currently in TrainingClientService + Component
+  // BOT / AI
   // ════════════════════════════════════════════════════════════
 
   /** Strategy bot enabled */
@@ -298,14 +291,14 @@ export class TowerDefenseStore {
   readonly aiExplanation = signal<string | null>(null);
 
   // ════════════════════════════════════════════════════════════
-  // DEVWORLD — currently in Component
+  // DEVWORLD
   // ════════════════════════════════════════════════════════════
 
   /** DevWorld is regenerating terrain */
   readonly isDevWorldRegenerating = signal<boolean>(false);
 
   // ════════════════════════════════════════════════════════════
-  // WAVE DEBUG — currently in WaveDebugService
+  // WAVE DEBUG OVERRIDES
   // ════════════════════════════════════════════════════════════
 
   /** Debug: enemy speed override */
@@ -374,206 +367,8 @@ export class TowerDefenseStore {
   readonly buildModeWarning: Signal<string | null> = computed(() => this.buildValidationReason());
 
   // ════════════════════════════════════════════════════════════
-  // ACTION METHODS — state mutations + side effects
+  // STATE MUTATION HELPERS (pure state changes, no side effects)
   // ════════════════════════════════════════════════════════════
-
-  // ── Game Actions ──────────────────────────────────────────
-
-  /**
-   * Place a tower at the current preview position.
-   * Deducts credits, emits command:place-tower event.
-   *
-   * TODO: Delegate to GameStateManager.placeTower() or emit event.
-   *       Validate credits >= cost, check placement validity.
-   *       On success: update towerCount, deduct credits.
-   */
-  placeTower(_typeId: TowerTypeId, _lat: number, _lon: number, _height: number, _rotation: number): void {
-    // TODO: Implement — emit 'command:place-tower' via EventBus
-  }
-
-  /**
-   * Sell the currently selected tower.
-   * Refunds 50% of total investment.
-   *
-   * TODO: Delegate to GameStateManager.sellTower().
-   *       On success: update credits, clear selectedTower, update towerCount.
-   */
-  sellSelectedTower(): void {
-    // TODO: Implement — emit 'command:sell-tower' via EventBus
-  }
-
-  /**
-   * Upgrade a tower with a specific upgrade path.
-   *
-   * TODO: Validate credits >= upgrade cost, tower.canUpgrade().
-   *       Emit 'command:upgrade-tower' via EventBus.
-   */
-  upgradeTower(_tower: Tower, _upgradeId: string): boolean {
-    // TODO: Implement — emit 'command:upgrade-tower' via EventBus
-    return false;
-  }
-
-  // ── Wave Actions ──────────────────────────────────────────
-
-  /**
-   * Start the next wave (manual or AI-directed).
-   *
-   * TODO: Check canStartWave(). If useAIDirector, request AI config.
-   *       Otherwise build WaveConfig from debug signals.
-   *       Emit 'command:start-wave' via EventBus.
-   */
-  startWave(): void {
-    // TODO: Implement — delegate to facade or emit event directly
-  }
-
-  /**
-   * Start a custom wave with current debug panel settings.
-   *
-   * TODO: Build WaveConfig from enemySpeed/health/count/type/spawnMode/spawnDelay.
-   *       Emit 'command:start-wave' via EventBus.
-   */
-  startCustomWave(): void {
-    // TODO: Implement
-  }
-
-  /**
-   * Restart the game to initial state.
-   *
-   * TODO: Reset all game signals to defaults.
-   *       Emit 'command:restart-game' via EventBus.
-   *       Clear towers, enemies, projectiles.
-   */
-  restartGame(): void {
-    // TODO: Implement — emit 'command:restart-game' via EventBus
-  }
-
-  // ── Build Mode Actions ────────────────────────────────────
-
-  /**
-   * Toggle build mode on/off.
-   *
-   * TODO: If entering: set buildMode=true, keep selectedTowerType.
-   *       If exiting: set buildMode=false, clear preview.
-   */
-  toggleBuildMode(): void {
-    this.buildMode.update(v => !v);
-    if (!this.buildMode()) {
-      this.selectedTowerType.set(null);
-      this.buildValidationReason.set(null);
-    }
-  }
-
-  /**
-   * Select a tower type and enter build mode.
-   *
-   * TODO: Set selectedTowerType, activate buildMode, create preview mesh.
-   */
-  selectTowerType(typeId: TowerTypeId): void {
-    this.selectedTowerType.set(typeId);
-    this.buildMode.set(true);
-  }
-
-  // ── AI / Bot Actions ──────────────────────────────────────
-
-  /**
-   * Toggle AI Wave Director mode.
-   *
-   * TODO: Toggle useAIDirector signal.
-   */
-  toggleAIDirector(): void {
-    this.useAIDirector.update(v => !v);
-  }
-
-  /**
-   * Enable strategy bot with given skill level.
-   *
-   * TODO: Delegate to TrainingClientService.enableBot().
-   */
-  enableBot(_skillLevel: BotSkillLevel): void {
-    // TODO: Implement
-  }
-
-  /**
-   * Disable strategy bot.
-   *
-   * TODO: Delegate to TrainingClientService.disableBot().
-   */
-  disableBot(): void {
-    // TODO: Implement
-  }
-
-  // ── UI Toggle Actions ─────────────────────────────────────
-
-  /** Toggle debug panel */
-  toggleDebugMode(): void {
-    this.debugMode.update(v => !v);
-  }
-
-  /** Toggle street layer */
-  toggleStreets(): void {
-    this.streetsVisible.update(v => !v);
-  }
-
-  /** Toggle route layer */
-  toggleRoutes(): void {
-    this.routesVisible.update(v => !v);
-  }
-
-  /** Toggle info overlay (FPS, etc.) */
-  toggleInfoOverlay(): void {
-    this.infoOverlayVisible.update(v => !v);
-  }
-
-  /** Toggle height debug markers */
-  toggleHeightDebug(): void {
-    this.heightDebugVisible.update(v => !v);
-  }
-
-  /** Toggle camera debug overlay */
-  toggleCameraDebug(): void {
-    this.cameraDebugEnabled.update(v => !v);
-  }
-
-  /** Toggle spatial grid debug */
-  toggleSpatialGridDebug(): void {
-    this.spatialGridDebugVisible.update(v => !v);
-  }
-
-  /** Toggle DPS bins visualization */
-  toggleDpsBins(): void {
-    this.dpsBinsVisible.update(v => !v);
-  }
-
-  // ── Debug Actions ─────────────────────────────────────────
-
-  /**
-   * Add debug credits.
-   *
-   * TODO: Emit 'debug:add-credits' via EventBus.
-   */
-  addDebugCredits(amount = 500): void {
-    this.credits.update(c => c + amount);
-    // TODO: Also emit event for EventBus subscribers
-  }
-
-  /**
-   * Add debug health.
-   *
-   * TODO: Emit 'debug:add-health' via EventBus.
-   */
-  addDebugHealth(amount = 25): void {
-    this.baseHealth.update(h => Math.min(GAME_BALANCE.player.startHealth, h + amount));
-    // TODO: Also emit event for EventBus subscribers
-  }
-
-  /**
-   * Kill all enemies (debug).
-   *
-   * TODO: Delegate to GameStateManager/EnemyManager.
-   */
-  killAllEnemies(): void {
-    // TODO: Implement — iterate enemies, deal lethal damage
-  }
 
   /** Append to debug log (max 50 lines) */
   appendDebugLog(message: string): void {
@@ -589,41 +384,10 @@ export class TowerDefenseStore {
     this.debugLog.set('');
   }
 
-  // ── Location Actions ──────────────────────────────────────
-
-  /**
-   * Set base coordinates (HQ position).
-   *
-   * TODO: Update baseCoords, centerCoords, sync URL.
-   */
-  setBaseCoords(coords: GeoCoord): void {
-    this.baseCoords.set(coords);
-    this.centerCoords.update(c => ({ ...c, lat: coords.lat, lon: coords.lon }));
-  }
-
-  /**
-   * Add a spawn point.
-   *
-   * TODO: Append to spawnPoints signal, create marker visualization.
-   */
-  addSpawnPoint(spawn: StoreSpawnPoint): void {
-    this.spawnPoints.update(points => [...points, spawn]);
-  }
-
-  /**
-   * Clear all spawn points.
-   */
-  clearSpawnPoints(): void {
-    this.spawnPoints.set([]);
-  }
-
-  // ── Engine Stats Update (throttled, called from game loop) ──
-
   /**
    * Update performance stats from engine.
    * Called ~10Hz from the game loop (outside Angular zone).
-   *
-   * TODO: Migrate throttling logic from GameUIStateService.updateThrottledStats().
+   * Pure state update — no side effects.
    */
   updateEngineStats(snapshot: {
     fps: number;
@@ -663,7 +427,7 @@ export class TowerDefenseStore {
   // ════════════════════════════════════════════════════════════
 
   /**
-   * Reset all game state to initial values.
+   * Reset game state to initial values.
    * Called on game restart.
    *
    * NOTE: Does NOT reset UI preferences (debugMode, layer visibility, etc.)
