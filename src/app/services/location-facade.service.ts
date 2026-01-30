@@ -133,7 +133,7 @@ export class LocationFacadeService {
         getSpawnPoints: () => this.store.spawnPoints(),
         getBaseCoords: () => this.store.baseCoords(),
       }),
-      isGameInProgress: () => this.gameState.phase() !== 'setup' || this.gameState.waveNumber() > 0,
+      isGameInProgress: () => this.store.phase() !== 'setup' || this.store.waveNumber() > 0,
       getCurrentLocationName: () => this.locationMgmt.getLocationDisplayName(),
     };
   }

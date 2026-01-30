@@ -107,11 +107,11 @@ export class GameLoopFacadeService {
       }
     }, { injector });
 
-    // Effect: Sync wave debug state with game state
+    // Effect: Sync wave debug state with store
     effect(() => {
-      const waveActive = this.gameState.phase() === 'wave';
-      const baseHealth = this.gameState.baseHealth();
-      const enemiesAlive = this.gameState.enemiesAlive();
+      const waveActive = this.store.waveActive();
+      const baseHealth = this.store.baseHealth();
+      const enemiesAlive = this.store.enemiesAlive();
       this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
     }, { injector });
 
@@ -125,7 +125,7 @@ export class GameLoopFacadeService {
 
     // Effect: Start paused debug enemies when wave starts
     effect(() => {
-      const phase = this.gameState.phase();
+      const phase = this.store.phase();
       if (phase === 'wave') {
         for (const de of this.enemyDebug.debugEnemies()) {
           if (de.enemy.movement.paused && de.enemy.alive) {
@@ -200,7 +200,7 @@ export class GameLoopFacadeService {
    */
   startWave(): void {
     if (!this.initialized) return;
-    if (!this.bridge.getEngine() || this.gameState.phase() === 'wave' || this.gameState.phase() === 'gameover') return;
+    if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
 
     if (this.store.useAIDirector()) {
@@ -268,7 +268,7 @@ export class GameLoopFacadeService {
    */
   startCustomWave(): void {
     if (!this.initialized) return;
-    if (!this.bridge.getEngine() || this.gameState.phase() === 'wave' || this.gameState.phase() === 'gameover') return;
+    if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
 
     const waveConfig = this.buildWaveConfig();
@@ -342,8 +342,8 @@ export class GameLoopFacadeService {
     }
 
     const cost = tower.getNextUpgradeCost(upgradeId);
-    if (this.gameState.credits() < cost) {
-      console.warn(`[Upgrade] Not enough credits: ${this.gameState.credits()}/${cost}`);
+    if (this.store.credits() < cost) {
+      console.warn(`[Upgrade] Not enough credits: ${this.store.credits()}/${cost}`);
       return false;
     }
     if (!tower.canUpgrade(upgradeId)) {

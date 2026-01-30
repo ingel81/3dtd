@@ -19,6 +19,7 @@ import { GamePhase } from '../../models/game.types';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { Enemy } from '../../entities/enemy.entity';
 import { GameStateManager } from '../../managers/game-state.manager';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
 import {
   GameStateSnapshot,
   PlayerState,
@@ -49,6 +50,7 @@ const CLOSE_CALL_THRESHOLD = 0.3;
 @Injectable() // Provided in TowerDefenseComponent alongside GameStateManager
 export class AIDataCollectorService {
   private gameState = inject(GameStateManager);
+  private store = inject(TowerDefenseStore);
   private gridService = inject(GlobalRouteGridService);
   // Get eventBus from GameStateManager (not directly injectable)
   private get eventBus() {
@@ -130,9 +132,9 @@ export class AIDataCollectorService {
 
     const snapshot: GameStateSnapshot = {
       timestamp: Date.now(),
-      waveNumber: this.gameState.waveNumber(),
+      waveNumber: this.store.waveNumber(),
       gameTimeSeconds: (Date.now() - this.currentWaveStartTime) / 1000,
-      phase: this.gameState.phase() as GamePhase,
+      phase: this.store.phase() as GamePhase,
 
       player: this.getPlayerState(),
       defense,
@@ -229,7 +231,7 @@ export class AIDataCollectorService {
   private onWaveStarted(event: { wave: number; enemyCount: number }): void {
     this.currentWaveNumber = event.wave;
     this.currentWaveStartTime = Date.now();
-    this.lowestHealthThisWave = this.gameState.baseHealth();
+    this.lowestHealthThisWave = this.store.baseHealth();
 
     // Reset outcome tracking
     this.currentWaveOutcome = {
@@ -568,11 +570,11 @@ export class AIDataCollectorService {
   }
 
   private getPlayerState(): PlayerState {
-    const health = this.gameState.baseHealth();
+    const health = this.store.baseHealth();
     const maxHealth = GAME_BALANCE.player.startHealth;
 
     return {
-      credits: this.gameState.credits(),
+      credits: this.store.credits(),
       lives: health,
       maxLives: maxHealth,
       livesPercent: health / maxHealth,

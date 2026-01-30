@@ -2,10 +2,10 @@
   <!-- Info Header -->
   <app-game-header
     [locationName]="currentLocationName()"
-    [baseHealth]="gameState.baseHealth()"
-    [credits]="gameState.credits()"
-    [waveNumber]="gameState.waveNumber()"
-    [enemiesAlive]="gameState.enemiesAlive()"
+    [baseHealth]="store.baseHealth()"
+    [credits]="store.credits()"
+    [waveNumber]="store.waveNumber()"
+    [enemiesAlive]="store.enemiesAlive()"
     [waveActive]="waveActive()"
     [isDialog]="isDialog"
     [favorites]="favorites()"
@@ -119,7 +119,7 @@
         <app-info-overlay
           [fps]="fps()"
           [tileStats]="tileStats()"
-          [enemiesAlive]="gameState.enemiesAlive()"
+          [enemiesAlive]="store.enemiesAlive()"
           [activeSounds]="activeSounds()"
           [streetCount]="streetCount()"
         />
@@ -156,7 +156,7 @@
       }
 
       <!-- Game Over Overlay -->
-      @if (gameState.showGameOverScreen()) {
+      @if (store.showGameOverScreen()) {
         <div class="td-gameover-overlay">
           <div class="td-gameover-content">
             <h1>GAME OVER</h1>
@@ -172,7 +172,6 @@
 
     <!-- Right Sidebar -->
     <app-game-sidebar
-      [gameState]="gameState"
       [towerTypes]="towerTypes"
       [buildMode]="buildMode()"
       [waveActive]="waveActive()"
