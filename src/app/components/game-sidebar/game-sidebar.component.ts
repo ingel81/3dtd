@@ -393,9 +393,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-tower-section {
+      position: relative;
       display: flex;
       flex-direction: column;
       gap: 10px;
+      padding-bottom: 52px;
     }
 
     /* Stats Grid - 2x2 tiles */
@@ -555,7 +557,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     /* === Sell Button (subtle) === */
     .td-sell-section {
-      margin-top: 6px;
+      position: absolute;
+      left: 8px;
+      right: 8px;
+      bottom: 8px;
+      margin-top: 0;
       padding-top: 6px;
       border-top: 1px dashed var(--td-frame-dark);
     }
