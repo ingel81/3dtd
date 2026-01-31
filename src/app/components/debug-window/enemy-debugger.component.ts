@@ -278,8 +278,8 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .enemy-select option {
-      background: var(--td-panel-dark);
-      color: var(--td-text-primary);
+      background: #1C221E;
+      color: #ECEFE9;
       padding: 4px 8px;
     }
 
