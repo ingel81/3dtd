@@ -59,7 +59,7 @@ export interface EnemyRenderData {
   // Animation LOD: stagger offset (unique per enemy, avoids all updating same frame)
   lodStaggerOffset: number;
   // Original materials per mesh node for freeze visual restore
-  originalMaterials?: Map<Mesh, Material>;
+  originalMaterials?: Map<Mesh, Material | Material[]>;
 }
 
 /**
@@ -469,8 +469,8 @@ export class ThreeEnemyRenderer {
         data.mesh.traverse((node) => {
           if ((node as Mesh).isMesh) {
             const mesh = node as Mesh;
-            const mat = mesh.material as MeshStandardMaterial;
-            if (mat && 'emissive' in mat) {
+            const mat = mesh.material as Material | Material[] | undefined;
+            if (mat) {
               data.originalMaterials!.set(mesh, mat);
             }
           }
@@ -479,21 +479,45 @@ export class ThreeEnemyRenderer {
 
       // Clone materials and apply blue freeze tint (avoids affecting other enemies sharing the same material)
       const freezeColor = new Color(0x4488ff);
+      const applyFreeze = (material: Material): Material => {
+        const cloned = material.clone() as Material & {
+          emissive?: Color;
+          emissiveIntensity?: number;
+          color?: Color;
+        };
+
+        if ('emissive' in cloned && cloned.emissive) {
+          cloned.emissive.copy(freezeColor);
+          if ('emissiveIntensity' in cloned) {
+            cloned.emissiveIntensity = 0.3;
+          }
+        } else if ('color' in cloned && cloned.color) {
+          cloned.color.copy(freezeColor);
+        }
+
+        return cloned;
+      };
+
       for (const [mesh, originalMat] of data.originalMaterials) {
-        const cloned = originalMat.clone() as MeshStandardMaterial;
-        cloned.emissive.copy(freezeColor);
-        cloned.emissiveIntensity = 0.3;
-        mesh.material = cloned;
+        if (Array.isArray(originalMat)) {
+          mesh.material = originalMat.map((mat) => applyFreeze(mat));
+        } else {
+          mesh.material = applyFreeze(originalMat);
+        }
       }
     } else {
       // Restore original shared materials and dispose clones
       if (data.originalMaterials) {
         for (const [mesh, originalMat] of data.originalMaterials) {
-          const clonedMat = mesh.material as MeshStandardMaterial;
-          if (clonedMat !== originalMat) {
-            clonedMat.dispose();
+          const currentMat = mesh.material as Material | Material[];
+          if (Array.isArray(currentMat)) {
+            for (const mat of currentMat) {
+              mat.dispose();
+            }
+          } else if (currentMat !== originalMat) {
+            currentMat.dispose();
           }
-          mesh.material = originalMat;
+          mesh.material = originalMat as Material | Material[];
         }
         data.originalMaterials = undefined;
       }

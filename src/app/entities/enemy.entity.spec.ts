@@ -102,7 +102,7 @@ describe('Enemy entity', () => {
     const armored = new Enemy('tank', path);
 
     expect(flyer.typeConfig.isAirUnit).toBe(true);
-    expect(boss.typeConfig.bossName).toBeTruthy();
+    expect(boss.typeConfig.baseHp).toBeGreaterThanOrEqual(500);
     expect(boss.typeConfig.immunityPercent).toBeGreaterThanOrEqual(0);
     expect(armored.typeConfig.canBleed).toBe(false);
     expect(armored.health.maxHp).toBeGreaterThan(flyer.health.maxHp);
