@@ -1406,12 +1406,10 @@ export class ThreeTilesEngine {
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
     this.tilesRenderer.setCamera(this.camera);
 
-    // Throttle tiles update - only when camera moved significantly
-    const cameraMoved = this.camera.position.distanceTo(this.lastTilesUpdateCameraPos);
-    if (cameraMoved > this.TILES_UPDATE_THRESHOLD) {
-      this.tilesRenderer.update();
-      this.lastTilesUpdateCameraPos.copy(this.camera.position);
-    }
+    // TODO: Tiles throttling was here (only update when camera moves >5m) but broke
+    // initial tile loading — tiles never loaded because update() was never called.
+    // Needs a smarter approach (e.g. always update until tiles are loaded, then throttle).
+    this.tilesRenderer.update();
 
     // Capture initial tiles position only when tiles have loaded (position is non-zero)
     if (!this.tilesPosInitialized) {

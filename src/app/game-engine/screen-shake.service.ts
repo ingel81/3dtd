@@ -159,7 +159,7 @@ export class ScreenShakeService {
   private loadPreference(): boolean {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored !== null ? stored === 'true' : true; // Default: enabled
+      return stored !== null ? stored === 'true' : false; // Default: disabled
     } catch {
       return true;
     }

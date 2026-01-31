@@ -58,8 +58,8 @@ export interface EnemyRenderData {
   lastHeading: number;
   // Animation LOD: stagger offset (unique per enemy, avoids all updating same frame)
   lodStaggerOffset: number;
-  // Original emissive values for freeze visual restore
-  originalEmissive?: Map<Material, { color: Color; intensity: number }>;
+  // Original materials per mesh node for freeze visual restore
+  originalMaterials?: Map<Mesh, Material>;
 }
 
 /**
@@ -463,44 +463,39 @@ export class ThreeEnemyRenderer {
     if (!data || data.isDestroyed) return;
 
     if (active) {
-      // Store original emissive values if not already stored
-      if (!data.originalEmissive) {
-        data.originalEmissive = new Map();
+      // Store original materials per mesh (before cloning)
+      if (!data.originalMaterials) {
+        data.originalMaterials = new Map();
         data.mesh.traverse((node) => {
           if ((node as Mesh).isMesh) {
-            const mat = (node as Mesh).material as MeshStandardMaterial;
+            const mesh = node as Mesh;
+            const mat = mesh.material as MeshStandardMaterial;
             if (mat && 'emissive' in mat) {
-              data.originalEmissive!.set(mat, {
-                color: mat.emissive.clone(),
-                intensity: mat.emissiveIntensity,
-              });
+              data.originalMaterials!.set(mesh, mat);
             }
           }
         });
       }
 
-      // Apply blue freeze tint
+      // Clone materials and apply blue freeze tint (avoids affecting other enemies sharing the same material)
       const freezeColor = new Color(0x4488ff);
-      data.mesh.traverse((node) => {
-        if ((node as Mesh).isMesh) {
-          const mat = (node as Mesh).material as MeshStandardMaterial;
-          if (mat && 'emissive' in mat) {
-            mat.emissive.copy(freezeColor);
-            mat.emissiveIntensity = 0.3;
-          }
-        }
-      });
+      for (const [mesh, originalMat] of data.originalMaterials) {
+        const cloned = originalMat.clone() as MeshStandardMaterial;
+        cloned.emissive.copy(freezeColor);
+        cloned.emissiveIntensity = 0.3;
+        mesh.material = cloned;
+      }
     } else {
-      // Restore original emissive values
-      if (data.originalEmissive) {
-        for (const [mat, original] of data.originalEmissive) {
-          const stdMat = mat as MeshStandardMaterial;
-          if ('emissive' in stdMat) {
-            stdMat.emissive.copy(original.color);
-            stdMat.emissiveIntensity = original.intensity;
+      // Restore original shared materials and dispose clones
+      if (data.originalMaterials) {
+        for (const [mesh, originalMat] of data.originalMaterials) {
+          const clonedMat = mesh.material as MeshStandardMaterial;
+          if (clonedMat !== originalMat) {
+            clonedMat.dispose();
           }
+          mesh.material = originalMat;
         }
-        data.originalEmissive = undefined;
+        data.originalMaterials = undefined;
       }
     }
   }
