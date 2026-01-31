@@ -154,11 +154,13 @@
           }
 
           <!-- Sell button (subtle) -->
-          <button class="td-sell-tile" (click)="sellTower.emit()">
-            <mat-icon>sell</mat-icon>
-            <span>Sell</span>
-            <span class="td-sell-value">+{{ tower.typeConfig.sellValue }}</span>
-          </button>
+          <div class="td-sell-section">
+            <button class="td-sell-tile" (click)="sellTower.emit()">
+              <mat-icon>sell</mat-icon>
+              <span>Sell</span>
+              <span class="td-sell-value">+{{ tower.typeConfig.sellValue }}</span>
+            </button>
+          </div>
         </div>
       </section>
     }

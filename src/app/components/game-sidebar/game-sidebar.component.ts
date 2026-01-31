@@ -546,6 +546,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     /* === Sell Button (subtle) === */
+    .td-sell-section {
+      margin-top: 6px;
+      padding-top: 6px;
+      border-top: 1px dashed var(--td-frame-dark);
+    }
+
     .td-sell-tile {
       display: flex;
       align-items: center;
