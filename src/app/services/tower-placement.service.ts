@@ -12,6 +12,7 @@ import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { UIStore } from '../store/ui.store';
+import { DevWorldService } from '../devworld/devworld.service';
 
 /**
  * TowerPlacementService
@@ -27,6 +28,7 @@ export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
   private assetManager = inject(AssetManagerService);
   private uiStore = inject(UIStore);
+  private devWorld = inject(DevWorldService);
 
   // ========================================
   // SIGNALS (UIStore-backed)
@@ -541,6 +543,10 @@ export class TowerPlacementService {
 
   private isPositionOnBuilding(lat: number, lon: number): boolean {
     if (!this.engine) return false;
+
+    if (this.devWorld?.isActive) {
+      return false;
+    }
 
     const devTerrain = this.engine.getDevTerrainProvider?.();
     if (!devTerrain) return false;
