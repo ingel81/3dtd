@@ -5,7 +5,7 @@ import { DraggableDebugPanelComponent } from './draggable-debug-panel.component'
 import { DebugWindowService } from '../../services/debug-window.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
-import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 
 @Component({
   selector: 'app-enemy-debugger',
@@ -257,7 +257,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .enemy-select {
       flex: 1;
       padding: 6px 8px;
-      background: var(--td-panel-dark);
+      background: var(--td-panel-secondary);
       border: 1px solid var(--td-frame-mid);
       border-radius: 2px;
       color: var(--td-text-primary);
@@ -277,10 +277,26 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       border-color: var(--td-teal);
     }
 
+    .enemy-select::-webkit-scrollbar {
+      ${TD_SCROLLBAR_WEBKIT.scrollbar}
+    }
+
+    .enemy-select::-webkit-scrollbar-track {
+      ${TD_SCROLLBAR_WEBKIT.track}
+    }
+
+    .enemy-select::-webkit-scrollbar-thumb {
+      ${TD_SCROLLBAR_WEBKIT.thumb}
+    }
+
+    .enemy-select::-webkit-scrollbar-thumb:hover {
+      ${TD_SCROLLBAR_WEBKIT.thumbHover}
+    }
+
     .enemy-select option {
-      background: #1C221E;
-      color: #ECEFE9;
-      padding: 4px 8px;
+      background: var(--td-panel-secondary);
+      color: var(--td-text-primary);
+      padding: 4px;
     }
 
     .place-btn {
