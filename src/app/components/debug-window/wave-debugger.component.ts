@@ -271,10 +271,17 @@ import { EnemyTypeId } from '../../models/enemy-types';
       padding: 6px 8px;
       background: var(--td-panel-secondary);
       border: 1px solid var(--td-frame-mid);
+      border-radius: 2px;
       color: var(--td-text-primary);
       font-family: inherit;
       font-size: 10px;
       cursor: pointer;
+      appearance: none;
+      -webkit-appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23c9a44c' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 8px center;
+      padding-right: 28px;
       ${TD_SCROLLBAR_STYLES}
     }
 
