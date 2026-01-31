@@ -83,7 +83,7 @@ import { EnemyTypeId } from '../../models/enemy-types';
 
             <div class="slider-row">
               <span class="label">Delay</span>
-              <input type="range" min="0.01" max="5000" step="0.01"
+              <input type="range" min="0.01" max="5000" step="0.1"
                      [value]="waveDebug.spawnDelay()"
                      (input)="onSpawnDelayChange($event)" />
               <span class="value">{{ formatDelay(waveDebug.spawnDelay()) }}</span>
@@ -379,12 +379,21 @@ export class WaveDebuggerComponent {
 
   onSpawnDelayChange(event: Event): void {
     const value = parseFloat((event.target as HTMLInputElement).value);
-    this.waveDebug.setSpawnDelay(value);
+    this.waveDebug.setSpawnDelay(this.roundTo(value, 2));
   }
 
   formatDelay(ms: number): string {
-    if (ms >= 100) return (ms / 1000) + 's';
-    if (ms >= 1) return ms + 'ms';
-    return ms.toFixed(2) + 'ms';
+    if (ms >= 100) return `${this.formatNumber(ms / 1000, 2)}s`;
+    if (ms >= 1) return `${this.formatNumber(ms, 1)}ms`;
+    return `${this.formatNumber(ms, 2)}ms`;
+  }
+
+  private formatNumber(value: number, decimals: number): string {
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: decimals }).format(value);
+  }
+
+  private roundTo(value: number, decimals: number): number {
+    const factor = 10 ** decimals;
+    return Math.round(value * factor) / factor;
   }
 }
