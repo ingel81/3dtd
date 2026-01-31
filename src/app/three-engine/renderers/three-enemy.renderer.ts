@@ -478,12 +478,15 @@ export class ThreeEnemyRenderer {
       }
 
       // Clone materials and apply blue freeze tint (avoids affecting other enemies sharing the same material)
-      const freezeColor = new Color(0x4488ff);
+      const freezeColor = new Color(0x66ccff);
       const applyFreeze = (material: Material): Material => {
         const cloned = material.clone() as Material & {
           emissive?: Color;
           emissiveIntensity?: number;
           color?: Color;
+          opacity?: number;
+          transparent?: boolean;
+          depthWrite?: boolean;
         };
 
         if ('emissive' in cloned && cloned.emissive) {
@@ -492,7 +495,14 @@ export class ThreeEnemyRenderer {
             cloned.emissiveIntensity = 0.3;
           }
         } else if ('color' in cloned && cloned.color) {
-          cloned.color.copy(freezeColor);
+          if (cloned instanceof MeshBasicMaterial) {
+            cloned.color.copy(freezeColor);
+            cloned.opacity = Math.min(cloned.opacity ?? 1, 0.85);
+            cloned.transparent = true;
+            cloned.depthWrite = false;
+          } else {
+            cloned.color.copy(freezeColor);
+          }
         }
 
         return cloned;
