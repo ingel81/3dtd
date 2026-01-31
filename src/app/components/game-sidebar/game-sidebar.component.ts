@@ -490,6 +490,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       display: flex;
       flex-direction: column;
       gap: 6px;
+      min-height: 120px;
     }
 
     .td-upgrade-tile {

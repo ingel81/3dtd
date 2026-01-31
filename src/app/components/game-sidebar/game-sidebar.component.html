@@ -131,8 +131,8 @@
           </div>
 
           <!-- Upgrades Section -->
-          @if (tower.getAvailableUpgrades().length > 0) {
-            <div class="td-upgrades-section">
+          <div class="td-upgrades-section">
+            @if (tower.getAvailableUpgrades().length > 0) {
               @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
                 <button
                   class="td-upgrade-tile"
@@ -150,8 +150,8 @@
                   <span class="td-upgrade-cost">{{ tower.getNextUpgradeCost(upgrade.id) }}</span>
                 </button>
               }
-            </div>
-          }
+            }
+          </div>
 
           <!-- Sell button (subtle) -->
           <div class="td-sell-section">
