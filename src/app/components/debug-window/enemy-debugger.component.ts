@@ -277,6 +277,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       border-color: var(--td-teal);
     }
 
+    .enemy-select option {
+      background: var(--td-panel-dark);
+      color: var(--td-text-primary);
+      padding: 4px 8px;
+    }
+
     .place-btn {
       width: 36px;
       flex-shrink: 0;
