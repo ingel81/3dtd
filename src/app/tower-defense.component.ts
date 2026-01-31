@@ -61,7 +61,7 @@ import { Vector3 } from 'three';
 // Theme
 import { TD_CSS_VARS } from './styles/td-theme';
 // Tower config
-import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId } from './configs/tower-types.config';
+import { TOWER_TYPES, getAllTowerTypes, TowerTypeId, UpgradeId, TargetingStrategy } from './configs/tower-types.config';
 import { Tower } from './entities/tower.entity';
 // AI Wave Director (optional)
 import { WaveDirectorService } from './ai/core/wave-director.service';
@@ -361,6 +361,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
     return this.facade.upgradeTower(tower, upgradeId);
+  }
+
+  /**
+   * Change tower targeting strategy — direct property set
+   */
+  changeTargeting(tower: Tower, strategy: TargetingStrategy): void {
+    tower.targetingStrategy = strategy;
   }
 
   /**
