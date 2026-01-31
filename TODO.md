@@ -3,33 +3,21 @@
 > **Philosophie:** Engine first, Game second.
 > Erst die Engine stabil, performant und testbar machen - dann Features bauen.
 
+
+** NEU **
+- herbert soll kein boss mehr sein, healthbar normal machen
+- upgrade vs sell button positionskonflikt: wenn alles upgrades gekauft plötzlich sell button an der selben pos. gefährlich wenn man schnell updates reinklickt und final dann verkauft weil position gleich
+- Delay setting in Wave Debug Panel, nachkommastellen wahnsinn
+- devworld: kein bauen von türmen auf gebäude mehr möglich
+- pinguin: ice effekt nicht sichtbare
+- fire tower: "Wide Burn" Upgrade macht schon swas wie range update und da scheint es zu gehen
+- bei manchen türmen machen manche target einstellungen keinen sinn (präferiert air, aber kann gar kein air...oder kann nur air)
+- "enemy type" dropdown beim enemy debug panel nicht gestyled (haben wir keine globalen dropdown styles - oder warum kommt dieses thema immer wieder bei einem neuen dropdown ?)
+
+
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
 
 ---
-
-# PHASE 3: ENGINE POLISH
-
-> **Ziel:** Mobile-Ready, Accessible, Clean Code
-
-## 3.1 Mobile Support
-
-- [ ] **Mobile-Qualitäts-Presets**
-      Low (1.0 pixelRatio, 50% Partikel), Medium, High (Retina)
-      Auto-Detect via `navigator.userAgent`
-
-- [ ] **Mobile Breakpoints hinzufügen**
-      Breakpoints: 768px (Tablet), 480px (Mobile)
-      Dateien: Components mit responsiven Styles
-
-- [ ] **Touch-Targets auf 44px vergrößern**
-      Mobile usability (Apple/Google Guidelines)
-      Alle Icon-Buttons: `min-width: 44px; min-height: 44px;`
-
-## 3.2 Accessibility
-
-- [ ] **ARIA-Labels zu Icon-Buttons**
-      Accessibility (Screen Reader)
-      Alle `<button>` mit Icons: `aria-label="Description"`
 
 ---
 
@@ -61,6 +49,12 @@
       Aktuell: <50m=jeder Frame, 50-100m=jeder 3., 100-200m=jeder 6., >200m=skip
       Feedback: Animation stoppt gefühlt zu früh
       Vorschlag: Schwellen erhöhen (z.B. 80/150/250m) oder >200m=jeder 10. statt skip
+
+- [ ] **Gatling Dual Fire** - Abwechselnd links/rechts aus den exakten Barrel-Positionen feuern
+
+- [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
+
+- [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
 
 - [ ] **Color Grading Anwendungsfall klären**
       Feature funktioniert (Dark Fantasy, Noir, Warm Sunset)
@@ -120,11 +114,11 @@
       Prüft: Format, Größe, Basis-Inference
       Läuft vor Commit (optional)
 
-## 5.3 Training & Tuning 🔄 IN PROGRESS
+## 5.3 Training & Tuning ⏸️ PAUSIERT
 
 > Das eigentliche Training
 
-- [~] **Training Run v3.5** ← AKTUELL
+- [~] **Training Run v3.5** ← PAUSIERT
       5267+ Episoden, 40.1% Sweet Spot erreicht
       Reward-Formel auf ~1/3 reduziert
       Tower-Limit: 50, Episode-Length: 100
@@ -259,14 +253,26 @@
       Pathfinding: 200-600ms → 0ms Main Thread
       Auch prüfen: Collision-Checks, Wave-Director-Inference, Audio-Decoding
 - [ ] **Tower GPU Instancing** - Schwierig wegen Rotationen
-
-## Gameplay - Backlog
-
-- [ ] **Tower-Synergien** - Ice+Cannon = +20% Damage, etc.
+- [ ] **Konfigurierbares FPS-Limit** (60/30/unlimited)
+      Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming
+      Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
+      ~20 Zeilen Core, optional UI-Setting in localStorage
 
 ## Visual Effects - Advanced
 
 - [ ] **Advanced-Explosion-Staging** - 2-Stage Explosionen
+
+## Mobile Support & Accessibility
+
+- [ ] **Mobile-Qualitäts-Presets**
+      Low (1.0 pixelRatio, 50% Partikel), Medium, High (Retina)
+      Auto-Detect via `navigator.userAgent`
+- [ ] **Mobile Breakpoints hinzufügen**
+      Breakpoints: 768px (Tablet), 480px (Mobile)
+- [ ] **Touch-Targets auf 44px vergrößern**
+      Mobile usability (Apple/Google Guidelines)
+- [ ] **ARIA-Labels zu Icon-Buttons**
+      Accessibility (Screen Reader)
 
 ## Terrain & Routing Experimente
 
@@ -302,15 +308,11 @@
 
 ## TODO-Kommentare im Code (Feature-Requests)
 
-- [ ] `tower-defense.component.ts:1919` - Sell execution (Bot-Action)
-- [ ] `three-tiles-engine.ts:849` - Smooth camera animation (flyTo)
 - [ ] `strategy-bot.factory.ts:84` - Advanced Bot strategies
-- [ ] `camera-control.service.ts:342` - Smooth camera animation
-- [ ] `game-engine/vfx.service.ts:30,36` - Blood/Explosion effects
 
 ## Code Quality
 
-- [ ] **console.log Cleanup** - 152 Stellen in 27 Dateien
+- [ ] **console.log Cleanup** - ~196 Stellen in ~45 Dateien
       Viele Debug-Logs, ggf. durch proper Logging ersetzen oder entfernen
 
 ---
@@ -319,19 +321,8 @@
 
 > Beobachten, bei Reproduktion fixen
 
-- [ ] Mobs laufen z.T. unterirdisch an bestimmten Stellen (Vermutung: Unterbrechung der Route)
+- [ ] Route liegt in seltenen Fällen nicht sauber auf dem Terrain (Mobs laufen teilweise unterirdisch)
 - [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
       Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md)
 - [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
 
----
-
-# ZU BEWERTEN
-
-- [ ] **Konfigurierbares FPS-Limit** (60/30/unlimited)
-      Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming
-      Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
-      ~20 Zeilen Core, optional UI-Setting in localStorage
-- [ ] Gatling Dual Fire mit exakten Positionen der Barrels abwechselnd links und rechts
-- [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
-- [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
