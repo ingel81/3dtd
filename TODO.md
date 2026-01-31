@@ -5,14 +5,8 @@
 
 
 ** NEU **
-- herbert soll kein boss mehr sein, healthbar normal machen
-- upgrade vs sell button positionskonflikt: wenn alles upgrades gekauft plötzlich sell button an der selben pos. gefährlich wenn man schnell updates reinklickt und final dann verkauft weil position gleich
-- Delay setting in Wave Debug Panel, nachkommastellen wahnsinn
-- devworld: kein bauen von türmen auf gebäude mehr möglich
-- pinguin: ice effekt nicht sichtbare
-- fire tower: "Wide Burn" Upgrade macht schon swas wie range update und da scheint es zu gehen
-- bei manchen türmen machen manche target einstellungen keinen sinn (präferiert air, aber kann gar kein air...oder kann nur air)
-- "enemy type" dropdown beim enemy debug panel nicht gestyled (haben wir keine globalen dropdown styles - oder warum kommt dieses thema immer wieder bei einem neuen dropdown ?)
+- Air Priority Targeting: braucht Sub-Strategie (strongest/weakest/nearest bei Air-Priorität)
+- Fire Tower "Wide Burn" Upgrade: macht aktuell dasselbe wie Range-Upgrade, eigene Logik nötig
 
 
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
