@@ -121,7 +121,7 @@
 
           <!-- Targeting Strategy -->
           <div class="td-targeting-row">
-            @for (s of targetingStrategies; track s.id) {
+            @for (s of getTargetingStrategies(tower); track s.id) {
               <button class="td-targeting-btn" [class.active]="tower.targetingStrategy === s.id"
                       [matTooltip]="s.tooltip" matTooltipPosition="above"
                       (click)="onChangeTargeting(tower, s.id)">

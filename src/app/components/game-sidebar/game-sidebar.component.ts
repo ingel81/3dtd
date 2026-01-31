@@ -19,7 +19,15 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES, TargetingStrategy, TARGETING_STRATEGIES } from '../../configs/tower-types.config';
+import {
+  TargetingStrategyConfig,
+  TowerTypeConfig,
+  TowerTypeId,
+  UpgradeId,
+  TOWER_TYPES,
+  TargetingStrategy,
+  TARGETING_STRATEGIES,
+} from '../../configs/tower-types.config';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
@@ -757,6 +765,18 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   // Targeting strategy config for template
   readonly targetingStrategies = TARGETING_STRATEGIES;
+
+  getTargetingStrategies(tower: Tower): TargetingStrategyConfig[] {
+    const canTargetAir = tower.typeConfig.canTargetAir ?? false;
+    const canTargetGround = tower.typeConfig.canTargetGround ?? true;
+
+    return this.targetingStrategies.filter((strategy) => {
+      if (strategy.id === 'air-priority') {
+        return canTargetAir && canTargetGround;
+      }
+      return true;
+    });
+  }
 
   onChangeTargeting(tower: Tower, strategy: TargetingStrategy): void {
     this.changeTargeting.emit({ tower, strategy });
