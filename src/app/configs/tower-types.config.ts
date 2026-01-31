@@ -318,6 +318,21 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   },
 };
 
+export interface TargetingStrategyConfig {
+  id: TargetingStrategy;
+  label: string;
+  icon: string;
+  tooltip: string;
+}
+
+export const TARGETING_STRATEGIES: TargetingStrategyConfig[] = [
+  { id: 'closest', label: 'Closest', icon: 'near_me', tooltip: 'Attacks the nearest enemy' },
+  { id: 'lowest-hp', label: 'Weakest', icon: 'heart_broken', tooltip: 'Attacks the weakest enemy' },
+  { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Attacks the strongest enemy' },
+  { id: 'first', label: 'First', icon: 'flag', tooltip: 'Attacks the enemy closest to the base' },
+  { id: 'air-priority', label: 'Air', icon: 'flight', tooltip: 'Prioritizes flying enemies' },
+];
+
 export function getTowerType(id: TowerTypeId): TowerTypeConfig {
   return TOWER_TYPES[id];
 }

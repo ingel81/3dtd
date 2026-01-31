@@ -119,6 +119,17 @@
             </div>
           </div>
 
+          <!-- Targeting Strategy -->
+          <div class="td-targeting-row">
+            @for (s of targetingStrategies; track s.id) {
+              <button class="td-targeting-btn" [class.active]="tower.targetingStrategy === s.id"
+                      [matTooltip]="s.tooltip" matTooltipPosition="above"
+                      (click)="onChangeTargeting(tower, s.id)">
+                <mat-icon>{{ s.icon }}</mat-icon>
+              </button>
+            }
+          </div>
+
           <!-- Upgrades Section -->
           @if (tower.getAvailableUpgrades().length > 0) {
             <div class="td-upgrades-section">

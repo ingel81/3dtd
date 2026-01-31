@@ -19,7 +19,7 @@ import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES } from '../../configs/tower-types.config';
+import { TowerTypeConfig, TowerTypeId, UpgradeId, TOWER_TYPES, TargetingStrategy, TARGETING_STRATEGIES } from '../../configs/tower-types.config';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
@@ -436,6 +436,45 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       letter-spacing: 0.3px;
     }
 
+    /* === Targeting Strategy Row === */
+    .td-targeting-row {
+      display: flex;
+      gap: 4px;
+    }
+
+    .td-targeting-btn {
+      flex: 1;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 6px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-dark);
+      border-radius: 3px;
+      color: var(--td-text-muted);
+      cursor: pointer;
+      transition: all 0.15s;
+      font-family: inherit;
+    }
+
+    .td-targeting-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .td-targeting-btn:hover {
+      border-color: var(--td-teal);
+      color: var(--td-text-secondary);
+    }
+
+    .td-targeting-btn.active {
+      border-color: var(--td-teal);
+      background: rgba(0, 188, 212, 0.15);
+      color: var(--td-teal);
+      box-shadow: 0 0 6px rgba(0, 188, 212, 0.3);
+    }
+
     /* === Upgrade Section === */
     .td-upgrades-section {
       display: flex;
@@ -603,6 +642,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly selectTower = output<TowerTypeId>();
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
+  readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
 
   // Canvas refs for previews
   @ViewChild('enemyPreviewCanvas') enemyPreviewCanvas!: ElementRef<HTMLCanvasElement>;
@@ -707,6 +747,13 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
         lightIntensity: 1.2,
       }
     );
+  }
+
+  // Targeting strategy config for template
+  readonly targetingStrategies = TARGETING_STRATEGIES;
+
+  onChangeTargeting(tower: Tower, strategy: TargetingStrategy): void {
+    this.changeTargeting.emit({ tower, strategy });
   }
 
   onUpgradeTower(tower: Tower, upgradeId: UpgradeId): void {
