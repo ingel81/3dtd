@@ -252,8 +252,6 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundsRefDistance: 40,
     heightOffset: 0.5,
     healthBarOffset: 7,
-    healthBarColor: '#ef4444', // Red boss health bar
-    bossName: 'Boss',
     immunityPercent: 100,
     canBleed: true,
     headingOffset: -0.192, // ~-11° rotation offset
