@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial, Raycaster, Vector3 } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
@@ -12,7 +12,6 @@ import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { UIStore } from '../store/ui.store';
-import { DevWorldService } from '../devworld/devworld.service';
 
 /**
  * TowerPlacementService
@@ -28,7 +27,6 @@ export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
   private assetManager = inject(AssetManagerService);
   private uiStore = inject(UIStore);
-  private devWorld = inject(DevWorldService);
 
   // ========================================
   // SIGNALS (UIStore-backed)
@@ -541,28 +539,6 @@ export class TowerPlacementService {
   // VALIDATION
   // ========================================
 
-  private isPositionOnBuilding(lat: number, lon: number): boolean {
-    if (!this.engine) return false;
-
-    if (this.devWorld?.isActive) {
-      return false;
-    }
-
-    const devTerrain = this.engine.getDevTerrainProvider?.();
-    if (!devTerrain) return false;
-
-    const buildingMeshes = devTerrain.getBuildingMeshes();
-    if (buildingMeshes.length === 0) return false;
-
-    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-    const raycaster = new Raycaster();
-    const origin = new Vector3(local.x, 10000, local.z);
-    raycaster.set(origin, new Vector3(0, -1, 0));
-
-    const hits = raycaster.intersectObjects(buildingMeshes, false);
-    return hits.length > 0;
-  }
-
   validateTowerPosition(lat: number, lon: number): { valid: boolean; reason?: string } {
     if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
       return { valid: false, reason: 'Service not initialized' };
@@ -578,10 +554,6 @@ export class TowerPlacementService {
                      lon >= bounds.minLon && lon <= bounds.maxLon;
     if (!inBounds) {
       return { valid: false, reason: 'Ausserhalb Spielbereich' };
-    }
-
-    if (this.isPositionOnBuilding(lat, lon)) {
-      return { valid: false, reason: 'Nicht auf Gebaeuden bauen' };
     }
 
     // Check distance to base
@@ -663,10 +635,6 @@ export class TowerPlacementService {
                      geoPos.lon >= bounds.minLon && geoPos.lon <= bounds.maxLon;
     if (!inBounds) {
       return { valid: false, reason: 'Outside play area' };
-    }
-
-    if (this.isPositionOnBuilding(geoPos.lat, geoPos.lon)) {
-      return { valid: false, reason: 'Cannot build on buildings' };
     }
 
     // Check distance to base
