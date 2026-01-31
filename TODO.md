@@ -3,77 +3,7 @@
 > **Philosophie:** Engine first, Game second.
 > Erst die Engine stabil, performant und testbar machen - dann Features bauen.
 
-> Siehe auch: [EXPERT_REVIEW_2026.md](docs/archive/EXPERT_REVIEW_2026.md) | [PERFORMANCE_REPORT.md](docs/archive/PERFORMANCE_REPORT.md)
-
----
-
-# PHASE 1: ENGINE FOUNDATION
-
-> **Ziel:** Stabile, testbare, wartbare Basis
-
-## 1.1 Performance Monitoring (Prio 1)
-
-- [x] **Performance Instrumentation** ✅ `febf3bb`
-      Subsystem-Timings (Tower/Projectile/Combat/Events), Frame-Budget-Tracking, Bottleneck-Erkennung
-
----
-
-# PHASE 2: ENGINE PERFORMANCE
-
-> **Ziel:** 60 FPS auf allen Geräten, schnelle Ladezeiten
-
-## 2.1 Kritische Performance-Optimierungen
-
-- [x] **TowerCombatService Fallback-Path optimieren** ✅ `78031de`
-      Nutzt jetzt `getEnemiesInRadius()` direkt statt brute-force
-
-- [x] **Animation LOD System** ⭐ ✅ `397d6f8`
-      Distance-LOD: <50m=jeder Frame, 50-100m=jeder 3., 100-200m=jeder 6., >200m=skip
-      Staggered per Enemy, DeltaTime-Kompensation
-
-- [x] **Tiles Update Throttling** ✅ (bereits auf Branch)
-      Nur Update wenn Kamera >5m bewegt
-
-- [x] **Partikel Free-List** ✅
-      O(1) Spawning per Free-Stack pro Pool, Fallback auf Round-Robin
-
-## 2.2 Shader-Optimierungen
-
-- [x] **Precision Qualifiers in Shadern** ✅
-      `precision highp float;` in 8 Fragment-Shadern ergänzt
-
-- [x] **Magic Orb Shader vereinfachen** ✅ `44bdacd`
-      FBM 4→1, Voronoi 3×3→2×2, ~60-80 ALU (von 200-300)
-
-## 2.3 Rendering-Optimierungen
-
-- [x] **Bounding Sphere Culling** ✅ `44bdacd`
-      `intersectsSphere` statt `containsPoint` in Tower-Renderer
-
-- [x] **Tower Frustum Culling** ✅ `2a47f45`
-
-- [x] **Selection Ring Geometry teilen** ✅ `4e89cc3`
-      Static shared Geometry + Material mit Ref-Counting
-
-- [x] **Partikel-Systeme konsolidieren** - 4 → 2 Draw Calls ✅ `fd5d524`
-      `three-effects.renderer.ts` - Blood+Fire Pools entfernt, in Trail-Pools integriert
-
-- [x] **HQ Explosion Partikel reduzieren** ✅ `2a47f45`
-      1350 → 500 Partikel, größere Sizes als Kompensation
-
-## 2.4 Collision & Spatial Queries
-
-- [x] **Spatial-Grid für Kollisionserkennung** ⭐ ✅
-      Uniform Grid, O(1) Insert/Remove, O(k) Radius-Queries
-      Integriert in TowerCombatService (Sleep-Check, Targeting)
-
-## 2.5 Pathfinding-Optimierungen
-
-- [x] **A* MinHeap** ✅ (bereits auf Branch)
-      MinHeap Binary Heap in OsmStreetService + Pathfinding Worker
-
-- [x] **Sleeping Towers** ✅ `7f3e3e2`
-      Sleep nach 2s ohne Target, Wake via SpatialGrid hasEnemyInRadius
+> **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
 
 ---
 
@@ -101,67 +31,55 @@
       Accessibility (Screen Reader)
       Alle `<button>` mit Icons: `aria-label="Description"`
 
-## 3.3 Code Quality Refactoring
-
-- [x] **CombatEffectService refactoren** ✅ `a8bd3ce`
-      Aufgeteilt in: StatusEffectService, CombatVfxService, DamageApplicationService + Facade
-
-- [x] **spatial-audio.manager.ts splitten** ✅ `b521837`
-      4 Module: AudioBufferCache, AudioPoolManager, SpatialAudioPlayback, SpatialAudioManager
-
-- [x] **Tower-Distance-Berechnungen zentralisieren** ✅ `a8bd3ce`
-      Nutzt jetzt `geoDistanceFast()` aus `geo-utils.ts`
-
-## 3.4 Error Handling
-
-- [x] **Custom-Error-Klassen** ✅ `a8bd3ce`
-      `GameError`, `AssetLoadError`, `PathfindingError`, `GameStateError` in `src/app/models/errors.ts`
-
-## 3.5 Integration Tests
-
-- [x] **Integration-Tests: Manager-Interaktionen** ✅ `b140a8a`
-      46 Tests in 5 Suites (Combat, Waves, Movement, Effects, Lifecycle)
-
 ---
 
 # PHASE 4: GAME FEATURES
 
 > **Ziel:** Spielbares, poliertes Tower Defense
 
-## 4.1 Visual Polish (Engine-nah)
+## 4.1a Visual Feintuning
 
-- [x] **Bloom Post-Processing** ⭐ ✅ `7f05a6c`
-      UnrealBloomPass, default OFF, togglebar
+- [ ] **Muzzle Flash feintunen**
+      Grundsätzlich sichtbar, aber Intensität/Größe/Dauer anpassen
+      Prüfen: nur bei Projectile-Towern (Archer, Cannon, Gatling, Rocket), NICHT bei Ice/Magic/Fire
 
-- [x] **Screen Shake bei Explosionen** ⭐ ✅
-      XZ-Shake mit Intensity-Presets (Bullet→Cannon→Rocket→HQ→Boss), togglebar
+- [ ] **Explosions-Partikel feintunen**
+      Sprite-Sheet Partikel (Flash→Fireball→Rauch) — Timing, Größe, Farben polieren
+      Betrifft Cannon- und Rocket-Einschläge
 
-- [x] **Muzzle Flash bei Tower-Schüssen** ✅
-      3-5 Additive Partikel + PointLight bei Projectile-Towers
+- [ ] **Screen Shake Performance untersuchen**
+      Aktuell deaktiviert wegen Performance-Bedenken
+      Messen: tatsächlicher FPS-Impact, ggf. nur bei nahen Explosionen aktivieren
+      Dateien: `screen-shake.service.ts`, Display Options Toggle
 
-- [x] **Freeze-Visual-Effect für Ice-Slow** ✅
-      Blaue Emissive-Tint + 3 orbitierende Frost-Partikel
+- [ ] **Freeze-Effect Performance prüfen**
+      Funktioniert jetzt pro Enemy-Instanz statt pro Typ (Material-Clone)
+      Bei vielen gefrorenen Enemies: GPU-Last durch geklonte Materials messen
+      Ggf. Material-Pool oder Shader-Uniform statt Clone
 
-- [x] **Sprite-Sheet-Partikel-System** ✅
-      4×4 Atlas prozedural generiert, animierte Explosionen
+- [ ] **Animation LOD Distanz-Schwellen lockern**
+      Aktuell: <50m=jeder Frame, 50-100m=jeder 3., 100-200m=jeder 6., >200m=skip
+      Feedback: Animation stoppt gefühlt zu früh
+      Vorschlag: Schwellen erhöhen (z.B. 80/150/250m) oder >200m=jeder 10. statt skip
 
-- [x] **Projektil-Trail-Streaks** ✅ `d6b1a17`
-      Ribbon-Renderer mit 6 Styles, 60 Instanzen/Typ, Alpha-Fade
+- [ ] **Color Grading Anwendungsfall klären**
+      Feature funktioniert (Dark Fantasy, Noir, Warm Sunset)
+      Brainstorming: als Gameplay-Element? (z.B. Nacht-Modus, Wetter), oder rein kosmetisch?
+      Aktuell nur im Debug-Panel zugänglich — evtl. in Settings verschieben
 
-- [x] **Color-Grading-LUT** ✅ `b6fac01`
-      Dark Fantasy, Noir, Warm Sunset Presets, localStorage-Persistenz
+## 4.1b Visual Settings (Performance-Toggles)
+
+- [ ] **VFX Settings Menu** — Visuelle Effekte einzeln ein/ausschaltbar
+      Freeze-Tint (klont Materials pro Enemy → GPU-Last), Muzzle Flash,
+      Trail-Streaks, Sprite-Sheet Partikel, Screen Shake, Bloom, Color-Grading
+      Ziel: Low-End-Geräte können teure Effekte deaktivieren
 
 ## 4.2 Gameplay Features
 
-- [x] **Spielgeschwindigkeit-Auswahl (Timescale)** ✅ `3dc21fc`
-      UI ↔ GameStateManager bidirektional synchronisiert
-
-- [x] **Rechtsklick bricht Baumodus ab** ✅
-      contextmenu-Handler cancelt Placement + preventDefault
-
-- [x] **Tower-Targeting-Strategien** ✅
-      Implementiert: closest, lowest-hp, highest-hp, first, air-priority
-      Defaults pro Tower-Typ konfiguriert
+- [ ] **GameSpeedComponent ins UI einbauen**
+      `GameSpeedComponent` existiert aber ist nicht im Template eingebunden
+      Spieler kann aktuell nicht zwischen 1x/2x/4x wechseln
+      Einbauen in Sidebar oder Header, sichtbar während aktiver Welle
 
 - [ ] **Range-Upgrade System implementieren**
       Tower-Upgrades die Range erhöhen

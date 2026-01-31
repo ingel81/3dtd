@@ -1,6 +1,6 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-01-30
+**Stand:** 2026-01-31
 
 Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense Minispiel.
 
@@ -35,7 +35,6 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse & Workarounds |
 | [DEVWORLD.md](DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung, Terrain-Presets |
 | [DAMAGE_ARMOR_SYSTEM.md](DAMAGE_ARMOR_SYSTEM.md) | Konzept: Schadenstypen & Ruestungssystem (geplant) |
-| [REBALANCING.md](REBALANCING.md) | Balancing-Plan (Tower, Rewards, Economy, AI, Bot) |
 
 ### AI & Bot System
 
@@ -46,19 +45,6 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Python Training Backend - PPO, Dashboard, Reward |
 | [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte (v1→v2→v3) |
 | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | ONNX Model Export |
-
-### Archiv (historische Referenz)
-
-| Dokument | Beschreibung |
-|----------|--------------|
-| [MIGRATION-NEXT-STEPS.md](archive/MIGRATION-NEXT-STEPS.md) | Signal-Migration Handoff (abgeschlossen 30.01.2026) |
-| [REFACTORING-PLAN.md](archive/REFACTORING-PLAN.md) | God Object Refactoring Plan (abgeschlossen 01/2026) |
-| [EVENTBUS-ANALYSIS.md](archive/EVENTBUS-ANALYSIS.md) | EventBus Analyse & Hard Dependencies |
-| [PERFORMANCE_REPORT.md](archive/PERFORMANCE_REPORT.md) | Performance-Analyse & Optimierungen |
-| [EXPERT_REVIEW_2026.md](archive/EXPERT_REVIEW_2026.md) | Code-Analyse (7 KI-Experten) |
-| [FRAME_TIMING_FIXES.md](archive/FRAME_TIMING_FIXES.md) | Frame-Timing Probleme |
-| [GOD_REFACTOR.md](archive/GOD_REFACTOR.md) | God Object Refactoring (urspruenglicher Plan) |
-| [2026-01-27_review.md](archive/2026-01-27_review.md) | Performance & Wartbarkeit Review |
 
 ---
 
@@ -90,7 +76,6 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...DevWorld konfigurieren | [DEVWORLD.md](DEVWORLD.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 | ...das AI-System verstehen | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
-| ...das Balancing anpassen | [REBALANCING.md](REBALANCING.md) |
 | ...das Schadens-/Ruestungssystem verstehen | [DAMAGE_ARMOR_SYSTEM.md](DAMAGE_ARMOR_SYSTEM.md) |
 
 ---
