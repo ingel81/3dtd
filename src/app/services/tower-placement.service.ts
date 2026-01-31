@@ -294,6 +294,21 @@ export class TowerPlacementService {
   // PREVIEW POSITION UPDATE
   // ========================================
 
+  private resolvePlacementHeight(lat: number, lon: number, fallbackHeight: number): number {
+    if (!this.engine) {
+      return fallbackHeight;
+    }
+
+    const devProvider = this.engine.getDevTerrainProvider();
+    if (!devProvider) {
+      return fallbackHeight;
+    }
+
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+    const hit = devProvider.raycastDown(local.x, local.z, 10000);
+    return hit ? hit.y : fallbackHeight;
+  }
+
   /**
    * Update preview position - called on mouse move
    * In normal mode: tower follows cursor with validation coloring
@@ -304,19 +319,21 @@ export class TowerPlacementService {
       return;
     }
 
+    const resolvedHeight = this.resolvePlacementHeight(lat, lon, terrainHeight);
+
     // If model is still loading, queue this position for later
     if (this.modelLoading) {
-      this.queuedPosition = { lat, lon, height: terrainHeight };
+      this.queuedPosition = { lat, lon, height: resolvedHeight };
       return;
     }
 
     if (!this.previewTowerMesh) {
-      this.queuedPosition = { lat, lon, height: terrainHeight };
+      this.queuedPosition = { lat, lon, height: resolvedHeight };
       return;
     }
 
     // Store current position for placement
-    this.currentPosition = { lat, lon, height: terrainHeight };
+    this.currentPosition = { lat, lon, height: resolvedHeight };
 
     const typeId = this.selectedTowerType();
     if (!typeId) return;
@@ -330,7 +347,7 @@ export class TowerPlacementService {
     const baseTerrainY = this.baseCoords
       ? this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon)
       : 0;
-    const relativeY = terrainHeight - (baseTerrainY ?? 0);
+    const relativeY = resolvedHeight - (baseTerrainY ?? 0);
 
     // Position the preview tower
     this.previewTowerMesh.position.set(
@@ -355,7 +372,7 @@ export class TowerPlacementService {
 
     // Update LoS preview only for valid positions (skip calculation for invalid spots)
     if (validation.valid) {
-      this.updateLoSPreviewDebounced(lat, lon, terrainHeight, typeId);
+      this.updateLoSPreviewDebounced(lat, lon, resolvedHeight, typeId);
     } else {
       // Invalid position - cancel any ongoing preview and hide
       this.cancelAndHideLosPreview();
