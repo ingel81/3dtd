@@ -4,6 +4,87 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-01-31
+
+### Phase 1: Engine Foundation (abgeschlossen)
+
+- [x] **Performance Instrumentation** `febf3bb`
+      Subsystem-Timings (Tower/Projectile/Combat/Events), Frame-Budget-Tracking, Bottleneck-Erkennung
+
+### Phase 2: Engine Performance (abgeschlossen)
+
+- [x] **TowerCombatService Fallback-Path optimieren** `78031de`
+      Nutzt jetzt `getEnemiesInRadius()` direkt statt brute-force
+- [x] **Animation LOD System** `397d6f8`
+      Distance-LOD: <50m=jeder Frame, 50-100m=jeder 3., 100-200m=jeder 6., >200m=skip
+      Staggered per Enemy, DeltaTime-Kompensation
+- [x] **Tiles Update Throttling**
+      Nur Update wenn Kamera >5m bewegt
+- [x] **Partikel Free-List**
+      O(1) Spawning per Free-Stack pro Pool, Fallback auf Round-Robin
+- [x] **Precision Qualifiers in Shadern**
+      `precision highp float;` in 8 Fragment-Shadern ergänzt
+- [x] **Magic Orb Shader vereinfachen** `44bdacd`
+      FBM 4→1, Voronoi 3×3→2×2, ~60-80 ALU (von 200-300)
+- [x] **Bounding Sphere Culling** `44bdacd`
+      `intersectsSphere` statt `containsPoint` in Tower-Renderer
+- [x] **Tower Frustum Culling** `2a47f45`
+- [x] **Selection Ring Geometry teilen** `4e89cc3`
+      Static shared Geometry + Material mit Ref-Counting
+- [x] **Partikel-Systeme konsolidieren** `fd5d524`
+      4 → 2 Draw Calls — Blood+Fire Pools entfernt, in Trail-Pools integriert
+- [x] **HQ Explosion Partikel reduzieren** `2a47f45`
+      1350 → 500 Partikel, größere Sizes als Kompensation
+- [x] **Spatial-Grid für Kollisionserkennung**
+      Uniform Grid, O(1) Insert/Remove, O(k) Radius-Queries
+      Integriert in TowerCombatService (Sleep-Check, Targeting)
+- [x] **A* MinHeap**
+      MinHeap Binary Heap in OsmStreetService + Pathfinding Worker
+- [x] **Sleeping Towers** `7f3e3e2`
+      Sleep nach 2s ohne Target, Wake via SpatialGrid hasEnemyInRadius
+
+### Phase 3: Engine Polish (teilweise abgeschlossen)
+
+- [x] **CombatEffectService refactoren** `a8bd3ce`
+      Aufgeteilt in: StatusEffectService, CombatVfxService, DamageApplicationService + Facade
+- [x] **spatial-audio.manager.ts splitten** `b521837`
+      4 Module: AudioBufferCache, AudioPoolManager, SpatialAudioPlayback, SpatialAudioManager
+- [x] **Tower-Distance-Berechnungen zentralisieren** `a8bd3ce`
+      Nutzt jetzt `geoDistanceFast()` aus `geo-utils.ts`
+- [x] **Custom-Error-Klassen** `a8bd3ce`
+      `GameError`, `AssetLoadError`, `PathfindingError`, `GameStateError` in `src/app/models/errors.ts`
+- [x] **Integration-Tests: Manager-Interaktionen** `b140a8a`
+      46 Tests in 5 Suites (Combat, Waves, Movement, Effects, Lifecycle)
+
+### Phase 4: Game Features (teilweise abgeschlossen)
+
+- [x] **Bloom Post-Processing** `7f05a6c`
+      UnrealBloomPass, default OFF, togglebar
+- [x] **Screen Shake bei Explosionen**
+      XZ-Shake mit Intensity-Presets (Bullet→Cannon→Rocket→HQ→Boss), togglebar
+- [x] **Muzzle Flash bei Tower-Schüssen**
+      3-5 Additive Partikel + PointLight bei Projectile-Towers
+- [x] **Freeze-Visual-Effect für Ice-Slow**
+      Blaue Emissive-Tint + 3 orbitierende Frost-Partikel
+- [x] **Sprite-Sheet-Partikel-System**
+      4×4 Atlas prozedural generiert, animierte Explosionen
+- [x] **Projektil-Trail-Streaks** `d6b1a17`
+      Ribbon-Renderer mit 6 Styles, 60 Instanzen/Typ, Alpha-Fade
+- [x] **Color-Grading-LUT** `b6fac01`
+      Dark Fantasy, Noir, Warm Sunset Presets, localStorage-Persistenz
+- [x] **Spielgeschwindigkeit-Auswahl (Timescale)** `3dc21fc`
+      UI ↔ GameStateManager bidirektional synchronisiert
+- [x] **Rechtsklick bricht Baumodus ab**
+      contextmenu-Handler cancelt Placement + preventDefault
+- [x] **Tower-Targeting-Strategien**
+      Implementiert: closest, lowest-hp, highest-hp, first, air-priority
+      Defaults pro Tower-Typ konfiguriert
+- [x] **Tower-Targeting-UI Selector**
+      Button-Leiste in Sidebar zwischen Stats und Upgrades
+      5 Strategien mit Material Icons + Tooltips, Teal-Highlight für aktive Strategie
+
+---
+
 ## 2026-01-29
 
 ### Engine Foundation — Phase 1 Abschluss
