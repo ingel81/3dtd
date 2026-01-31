@@ -1,4 +1,4 @@
-import { Component, inject, ChangeDetectionStrategy, output } from '@angular/core';
+import { Component, inject, ChangeDetectionStrategy, HostListener, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
@@ -254,8 +254,17 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       gap: 8px;
     }
 
-    .enemy-select {
+    .enemy-select-wrapper {
       flex: 1;
+      position: relative;
+    }
+
+    .enemy-select {
+      width: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
       padding: 6px 8px;
       background: var(--td-panel-dark);
       border: 1px solid var(--td-frame-mid);
@@ -264,12 +273,27 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       font-family: inherit;
       font-size: 10px;
       cursor: pointer;
-      appearance: none;
-      -webkit-appearance: none;
-      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%23c9a44c' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10l-5 5z'/%3E%3C/svg%3E");
-      background-repeat: no-repeat;
-      background-position: right 8px center;
-      padding-right: 28px;
+    }
+
+    .enemy-select-label {
+      text-align: left;
+      flex: 1;
+    }
+
+    .enemy-select-icon {
+      font-size: 12px;
+      width: 12px;
+      height: 12px;
+      color: var(--td-gold);
+      transition: transform 0.15s;
+    }
+
+    .enemy-select.open {
+      border-color: var(--td-teal);
+    }
+
+    .enemy-select.open .enemy-select-icon {
+      transform: rotate(180deg);
     }
 
     .enemy-select:focus {
@@ -277,10 +301,39 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       border-color: var(--td-teal);
     }
 
-    .enemy-select option {
+    .enemy-dropdown {
+      position: absolute;
+      top: calc(100% + 4px);
+      left: 0;
+      right: 0;
       background: var(--td-panel-dark);
+      border: 1px solid var(--td-frame-mid);
+      border-radius: 2px;
+      z-index: 20;
+      max-height: 180px;
+      overflow-y: auto;
+      box-shadow: 0 6px 12px rgba(0, 0, 0, 0.45);
+    }
+
+    .enemy-option {
+      width: 100%;
+      text-align: left;
+      padding: 6px 8px;
+      background: transparent;
+      border: none;
       color: var(--td-text-primary);
-      padding: 4px 8px;
+      font-family: inherit;
+      font-size: 10px;
+      cursor: pointer;
+    }
+
+    .enemy-option:hover {
+      background: var(--td-frame-mid);
+    }
+
+    .enemy-option.selected {
+      color: var(--td-gold);
+      background: var(--td-bg-dark);
     }
 
     .place-btn {
@@ -585,13 +638,24 @@ export class EnemyDebuggerComponent {
   readonly startMovement = output<string>();
   readonly stopMovement = output<string>();
 
+  enemyTypeDropdownOpen = false;
+
   getEnemyName(id: EnemyTypeId): string {
     return ENEMY_TYPES[id].name;
   }
 
-  onEnemyTypeSelect(event: Event): void {
-    const select = event.target as HTMLSelectElement;
-    this.enemyDebug.selectEnemy(select.value as EnemyTypeId);
+  toggleEnemyTypeDropdown(): void {
+    this.enemyTypeDropdownOpen = !this.enemyTypeDropdownOpen;
+  }
+
+  selectEnemyType(id: EnemyTypeId): void {
+    this.enemyDebug.selectEnemy(id);
+    this.enemyTypeDropdownOpen = false;
+  }
+
+  @HostListener('document:click')
+  onDocumentClick(): void {
+    this.enemyTypeDropdownOpen = false;
   }
 
   onSelectedSliderChange(key: 'scale' | 'heightOffset' | 'healthBarOffset' | 'baseSpeed' | 'animationSpeed', event: Event): void {
