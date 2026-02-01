@@ -258,6 +258,28 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.0,
   },
+
+  spider: {
+    id: 'spider',
+    name: 'Spider',
+    modelUrl: '/assets/models/enemies/spider.glb',
+    scale: 1.5,
+    minimumPixelSize: 0,
+    baseHp: 60,
+    baseSpeed: 9,
+    reward: 2,
+    hasAnimations: true,
+    walkAnimation: 'Armature|Walk-Cycle-Basic',
+    animationSpeed: 2.0,
+    heightOffset: 0,
+    healthBarOffset: 3.5,
+    canBleed: true,
+    headingOffset: 0,
+    randomAnimationStart: true,
+    lateralOffset: 1.5,
+    spawnStartDelay: 200,
+    previewScale: 1.5,
+  },
 };
 
 export type EnemyTypeId = keyof typeof ENEMY_TYPES;
