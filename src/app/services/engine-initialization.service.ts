@@ -91,6 +91,12 @@ export class EngineInitializationService {
   /** Cesium Ion asset ID */
   private cesiumAssetId: string | null = null;
 
+  /** Tile provider: 'cesium' or 'google' */
+  private tileProvider: 'cesium' | 'google' = 'cesium';
+
+  /** Google Maps API key (for direct Google 3D Tiles) */
+  private googleMapsApiKey: string | null = null;
+
   /** Tile stats polling interval ID */
   private tileStatsIntervalId: number | null = null;
 
@@ -105,11 +111,20 @@ export class EngineInitializationService {
    * @param cesiumAssetId Cesium Ion asset ID
    * @param baseCoords Base/HQ coordinates for engine origin
    */
-  configure(canvas: HTMLCanvasElement, cesiumToken: string, cesiumAssetId: string, baseCoords: GeoPosition): void {
+  configure(
+    canvas: HTMLCanvasElement,
+    cesiumToken: string,
+    cesiumAssetId: string,
+    baseCoords: GeoPosition,
+    tileProvider: 'cesium' | 'google' = 'cesium',
+    googleMapsApiKey?: string,
+  ): void {
     this.canvas = canvas;
     this.cesiumToken = cesiumToken;
     this.cesiumAssetId = cesiumAssetId;
     this.baseCoords = baseCoords;
+    this.tileProvider = tileProvider;
+    this.googleMapsApiKey = googleMapsApiKey ?? null;
   }
 
   /**
@@ -258,7 +273,7 @@ export class EngineInitializationService {
       // Reset loading steps for fresh start
       this.resetLoadingSteps();
 
-      if (!this.canvas || !this.cesiumToken || !this.cesiumAssetId || !this.baseCoords) {
+      if (!this.canvas || !this.baseCoords) {
         this.error.set('Engine not configured. Please call configure() first.');
         this.loading.set(false);
         return;
@@ -277,13 +292,15 @@ export class EngineInitializationService {
       // Engine starts with default camera on HQ - final framing happens after routes are calculated
       this.engine = new ThreeTilesEngine(
         this.canvas,
-        this.cesiumToken,
-        this.cesiumAssetId,
+        this.cesiumToken ?? '',
+        this.cesiumAssetId ?? '',
         this.baseCoords.lat,
         this.baseCoords.lon,
         0,
         this.assetManager,
-        this.devWorld
+        this.devWorld,
+        this.tileProvider,
+        this.googleMapsApiKey ?? '',
       );
 
       this.updateStepDetail('init', '3D-Tiles Renderer...');
@@ -540,6 +557,8 @@ export class EngineInitializationService {
     this.canvas = null;
     this.cesiumToken = null;
     this.cesiumAssetId = null;
+    this.googleMapsApiKey = null;
+    this.tileProvider = 'cesium';
   }
 
   /**

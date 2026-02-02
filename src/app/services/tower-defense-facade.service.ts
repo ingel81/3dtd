@@ -227,16 +227,24 @@ export class TowerDefenseFacadeService {
    */
   private async initEngineSequence(canvas: HTMLCanvasElement): Promise<void> {
     try {
+      const tileProvider = this.configService.tileProvider();
       const cesiumToken = this.configService.cesiumIonToken();
       const cesiumAssetId = this.configService.cesiumAssetId();
-      if (!cesiumToken) {
+      const googleMapsApiKey = this.configService.googleMapsApiKey();
+
+      if (tileProvider === 'google' && !googleMapsApiKey) {
+        this.engineInit.setError('Please configure your Google Maps API Key in environment.ts.');
+        this.engineInit.setLoading(false);
+        return;
+      }
+      if (tileProvider === 'cesium' && !cesiumToken) {
         this.engineInit.setError('Please configure your Cesium Ion Token in environment.ts.');
         this.engineInit.setLoading(false);
         return;
       }
 
       const base = this.store.baseCoords();
-      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon });
+      this.engineInit.configure(canvas, cesiumToken, cesiumAssetId, { lat: base.lat, lon: base.lon }, tileProvider, googleMapsApiKey);
 
       await this.engineInit.initEngine({
         onLoadStreets: () => this.loadStreetsInternal(),
