@@ -3,6 +3,7 @@
 
 export const environment = {
   production: false, // Set to true for environment.prod.ts
+  tileProvider: 'cesium' as 'cesium' | 'google', // 'cesium' = Cesium Ion, 'google' = Google Maps API direct
   googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
   // Cesium Ion (alternative to Google 3D Tiles)
   cesiumIonToken: 'YOUR_CESIUM_ION_ACCESS_TOKEN',

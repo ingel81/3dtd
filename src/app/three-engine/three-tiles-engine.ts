@@ -42,7 +42,7 @@ import {
   GLTFExtensionsPlugin,
   ReorientationPlugin,
 } from '3d-tiles-renderer/plugins';
-import { CesiumIonAuthPlugin } from '3d-tiles-renderer/core/plugins';
+import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
@@ -212,9 +212,11 @@ export class ThreeTilesEngine {
   private animationFrameId: number | null = null;
   private isRunning = false;
 
-  // Cesium Ion credentials
+  // Tile provider credentials
   private cesiumIonToken: string;
   private cesiumAssetId: string;
+  private tileProvider: 'cesium' | 'google';
+  private googleMapsApiKey: string;
 
   // Origin coordinates (stored for DevWorld transformation)
   private originLat: number;
@@ -229,12 +231,16 @@ export class ThreeTilesEngine {
     originLon: number,
     originHeight = 0,
     private assetManager?: AssetManagerService,
-    devWorldService?: DevWorldService
+    devWorldService?: DevWorldService,
+    tileProvider: 'cesium' | 'google' = 'cesium',
+    googleMapsApiKey = '',
   ) {
     // Store DevWorld service reference
     this.devWorld = devWorldService ?? null;
     this.cesiumIonToken = cesiumIonToken;
     this.cesiumAssetId = cesiumAssetId;
+    this.tileProvider = tileProvider;
+    this.googleMapsApiKey = googleMapsApiKey;
 
     // Store origin for DevWorld transformation
     this.originLat = originLat;
@@ -368,13 +374,21 @@ export class ThreeTilesEngine {
     // Create TilesRenderer
     this.tilesRenderer = new TilesRenderer();
 
-    // Register plugins - Cesium Ion 3D Tiles
-    this.tilesRenderer.registerPlugin(
-      new CesiumIonAuthPlugin({
-        apiToken: this.cesiumIonToken,
-        assetId: this.cesiumAssetId,
-      })
-    );
+    // Register auth plugin based on tile provider
+    if (this.tileProvider === 'google') {
+      console.log('[ThreeTilesEngine] Using Google Cloud 3D Tiles (direct)');
+      this.tilesRenderer.registerPlugin(
+        new GoogleCloudAuthPlugin({ apiToken: this.googleMapsApiKey })
+      );
+    } else {
+      console.log('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
+      this.tilesRenderer.registerPlugin(
+        new CesiumIonAuthPlugin({
+          apiToken: this.cesiumIonToken,
+          assetId: this.cesiumAssetId,
+        })
+      );
+    }
     this.tilesRenderer.registerPlugin(new TileCompressionPlugin());
     this.tilesRenderer.registerPlugin(new UpdateOnChangePlugin());
     this.tilesRenderer.registerPlugin(new UnloadTilesPlugin());
