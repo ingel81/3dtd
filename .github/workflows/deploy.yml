@@ -26,12 +26,14 @@ jobs:
         run: |
           echo "export const environment = {
             production: false,
+            tileProvider: 'cesium' as 'cesium' | 'google',
             googleMapsApiKey: '${{ secrets.GOOGLE_MAPS_API_KEY }}',
             cesiumIonToken: '${{ secrets.CESIUM_ION_TOKEN }}',
             cesiumAssetId: '2275207',
           };" > src/environments/environment.ts
           echo "export const environment = {
             production: true,
+            tileProvider: 'cesium' as 'cesium' | 'google',
             googleMapsApiKey: '${{ secrets.GOOGLE_MAPS_API_KEY }}',
             cesiumIonToken: '${{ secrets.CESIUM_ION_TOKEN }}',
             cesiumAssetId: '2275207',
