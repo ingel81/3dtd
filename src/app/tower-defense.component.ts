@@ -420,6 +420,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Handle buildings toggle side effect (visibility already toggled by QuickActionsComponent)
+   */
+  onBuildingsToggled(): void {
+    this.facade.onBuildingsToggled();
+  }
+
+  /**
    * Handle streets toggle side effect (visibility already toggled by QuickActionsComponent)
    */
   onStreetsToggled(): void {

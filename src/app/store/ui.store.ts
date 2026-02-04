@@ -46,6 +46,9 @@ export class UIStore {
   /** DPS bins visualization */
   readonly dpsBinsVisible = signal<boolean>(false);
 
+  /** Building footprints visibility */
+  readonly buildingsVisible = signal<boolean>(false);
+
   /** Debug log output */
   readonly debugLog = signal<string>('');
 
@@ -135,6 +138,7 @@ export class UIStore {
   toggleSpecialPointsDebug(): void { this.specialPointsDebugVisible.update(v => !v); }
   toggleInfoOverlay(): void { this.infoOverlayVisible.update(v => !v); }
   toggleSpatialGridDebug(): void { this.spatialGridDebugVisible.update(v => !v); }
+  toggleBuildings(): void { this.buildingsVisible.update(v => !v); }
 
   // ════════════════════════════════════════════════════════════
   // DEBUG LOG
@@ -173,6 +177,7 @@ export class UIStore {
     this.infoOverlayVisible.set(false);
     this.spatialGridDebugVisible.set(false);
     this.dpsBinsVisible.set(false);
+    this.buildingsVisible.set(false);
     this.debugLog.set('');
     this.resetBuildState();
     this.enemySpeed.set(2.0);

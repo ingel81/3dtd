@@ -396,6 +396,11 @@ export class TowerDefenseFacadeService {
     this.locationFacade.addSpawnPoint(id, name, lat, lon, color);
   }
 
+  /** Toggle building footprints visibility. */
+  onBuildingsToggled(): void {
+    this.vizFacade.onBuildingsToggled();
+  }
+
   /** Toggle street rendering visibility. */
   onStreetsToggled(): void {
     this.vizFacade.onStreetsToggled();
