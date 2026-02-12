@@ -64,13 +64,58 @@
 
 ---
 
-# PHASE 5: AI WAVE DIRECTOR
+# PHASE 5: DAMAGE & ARMOR SYSTEM
+
+> **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
+> **Konzept:** [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
+> **Reihenfolge:** Erst Tower-Schadenstypen, dann Enemy-Rüstungen
+
+## 5.1 Infrastruktur
+
+- [ ] **DamageType und ArmorType Types definieren**
+      Types: `physical`, `pierce`, `siege`, `magic`, `fire`, `ice`, `chaos`
+      Armor: `unarmored`, `light`, `medium`, `heavy`, `fortified`, `ethereal`
+
+- [ ] **Schadensmatrix implementieren**
+      `calculateDamage(base, damageType, armorType)` in CombatEffectService
+      Erstmal alle Multiplikatoren = 1.0 (neutral)
+
+## 5.2 Tower-Schadenstypen
+
+- [ ] **damageType zu Tower-Configs hinzufügen**
+      Archer/Gatling: `physical`, Sniper: `pierce`, Cannon/Rocket: `siege`
+      Magic: `magic`, Ice: `ice`
+
+- [ ] **Neue Tower mit neuen Schadenstypen**
+      Flame Tower (`fire`), Tesla Tower (`magic`), Chaos Tower (`chaos`)
+
+- [ ] **UI: Schadenstyp im Tower-Panel anzeigen**
+      Icon + Label: "⚔️ Physical Damage"
+
+## 5.3 Enemy-Rüstungstypen
+
+- [ ] **armorType zu Enemy-Configs hinzufügen**
+      Zombie: `light`, Bat/Penguin: `unarmored`, Tank: `heavy`
+      Wallsmasher: `medium`, Herbert: `fortified`
+
+- [ ] **Schadensmatrix aktivieren**
+      Multiplikatoren gemäß Konzept-Doc
+
+- [ ] **Neue Enemies mit speziellen Rüstungen**
+      Ghost (`ethereal`), Golem (`fortified`), Dragon (`heavy` + Air)
+
+- [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
+      "🛡️ Heavy Armor - Weak to Siege"
+
+---
+
+# PHASE 6: AI WAVE DIRECTOR
 
 > **Ziel:** Adaptive KI die spannende, faire Wellen generiert
-> **Dauer:** ~8 Wochen
+> **Voraussetzung:** Phase 5 (Damage/Armor) abgeschlossen — erst Spielinhalt, dann Training
 > **Plan:** [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
 
-## 5.1 Training UI (Offen)
+## 6.1 Training UI
 
 - [ ] **Dashboard Header Styling verbessern**
       Status/Header Metriken besser stylen
@@ -78,7 +123,7 @@
       Dezenter als Hauptmetriken, nach "Game Over" Bereich
       Dateien: `training-backend/dashboard/static/index.html`, `style.css`
 
-## 5.2 Build & Deployment
+## 6.2 Build & Deployment
 
 > Training-Code nicht in Prod Bundle
 
@@ -97,7 +142,7 @@
       Prüft: Format, Größe, Basis-Inference
       Läuft vor Commit (optional)
 
-## 5.3 Training & Tuning ⏸️ PAUSIERT
+## 6.3 Training & Tuning ⏸️ PAUSIERT
 
 > Das eigentliche Training
 
@@ -117,7 +162,7 @@
       Feedback sammeln
       Reward Function anpassen wenn nötig
 
-## 5.4 Training Feintuning
+## 6.4 Training Feintuning
 
 > Erkenntnisse aus Testspielen gegen exportiertes ONNX-Model
 
@@ -158,52 +203,7 @@
       State-Vektor: +6 Features (5 Properties + force_active)
       Model lernt Konzepte statt spezifische Typen
 
----
-
-# PHASE 6: DAMAGE & ARMOR SYSTEM
-
-> **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
-> **Konzept:** [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
-> **Reihenfolge:** Erst Tower-Schadenstypen, dann Enemy-Rüstungen
-
-## 6.1 Infrastruktur
-
-- [ ] **DamageType und ArmorType Types definieren**
-      Types: `physical`, `pierce`, `siege`, `magic`, `fire`, `ice`, `chaos`
-      Armor: `unarmored`, `light`, `medium`, `heavy`, `fortified`, `ethereal`
-
-- [ ] **Schadensmatrix implementieren**
-      `calculateDamage(base, damageType, armorType)` in CombatEffectService
-      Erstmal alle Multiplikatoren = 1.0 (neutral)
-
-## 6.2 Tower-Schadenstypen
-
-- [ ] **damageType zu Tower-Configs hinzufügen**
-      Archer/Gatling: `physical`, Sniper: `pierce`, Cannon/Rocket: `siege`
-      Magic: `magic`, Ice: `ice`
-
-- [ ] **Neue Tower mit neuen Schadenstypen**
-      Flame Tower (`fire`), Tesla Tower (`magic`), Chaos Tower (`chaos`)
-
-- [ ] **UI: Schadenstyp im Tower-Panel anzeigen**
-      Icon + Label: "⚔️ Physical Damage"
-
-## 6.3 Enemy-Rüstungstypen
-
-- [ ] **armorType zu Enemy-Configs hinzufügen**
-      Zombie: `light`, Bat/Penguin: `unarmored`, Tank: `heavy`
-      Wallsmasher: `medium`, Herbert: `fortified`
-
-- [ ] **Schadensmatrix aktivieren**
-      Multiplikatoren gemäß Konzept-Doc
-
-- [ ] **Neue Enemies mit speziellen Rüstungen**
-      Ghost (`ethereal`), Golem (`fortified`), Dragon (`heavy` + Air)
-
-- [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
-      "🛡️ Heavy Armor - Weak to Siege"
-
-## 6.4 AI-Training Anpassung
+## 6.5 AI-Training Anpassung für Damage/Armor
 
 - [ ] **State-Vektor erweitern: dpsByDamageType**
       Aufschlüsselung der DPS nach Schadenstyp
