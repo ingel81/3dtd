@@ -40,11 +40,6 @@
       Bei vielen gefrorenen Enemies: GPU-Last durch geklonte Materials messen
       Ggf. Material-Pool oder Shader-Uniform statt Clone
 
-- [ ] **Animation LOD Distanz-Schwellen lockern**
-      Aktuell: <50m=jeder Frame, 50-100m=jeder 3., 100-200m=jeder 6., >200m=skip
-      Feedback: Animation stoppt gefühlt zu früh
-      Vorschlag: Schwellen erhöhen (z.B. 80/150/250m) oder >200m=jeder 10. statt skip
-
 - [ ] **Gatling Dual Fire** - Abwechselnd links/rechts aus den exakten Barrel-Positionen feuern
 
 - [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
@@ -64,11 +59,6 @@
       Ziel: Low-End-Geräte können teure Effekte deaktivieren
 
 ## 4.2 Gameplay Features
-
-- [ ] **GameSpeedComponent ins UI einbauen**
-      `GameSpeedComponent` existiert aber ist nicht im Template eingebunden
-      Spieler kann aktuell nicht zwischen 1x/2x/4x wechseln
-      Einbauen in Sidebar oder Header, sichtbar während aktiver Welle
 
 - [ ] **Range-Upgrade System implementieren**
       Tower-Upgrades die Range erhöhen
