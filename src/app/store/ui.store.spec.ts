@@ -30,6 +30,7 @@ describe('UIStore', () => {
       expect(store.infoOverlayVisible()).toBe(false);
       expect(store.spatialGridDebugVisible()).toBe(false);
       expect(store.dpsBinsVisible()).toBe(false);
+      expect(store.buildingsVisible()).toBe(false);
     });
 
     it('debugLog starts as empty string', () => {
@@ -55,6 +56,16 @@ describe('UIStore', () => {
       expect(store.enemyType()).toBe('basic');
       expect(store.spawnMode()).toBe('sequential');
       expect(store.spawnDelay()).toBe(1000);
+    });
+  });
+
+  describe('toggleBuildings', () => {
+    it('toggles buildingsVisible', () => {
+      expect(store.buildingsVisible()).toBe(false);
+      store.toggleBuildings();
+      expect(store.buildingsVisible()).toBe(true);
+      store.toggleBuildings();
+      expect(store.buildingsVisible()).toBe(false);
     });
   });
 
@@ -125,6 +136,7 @@ describe('UIStore', () => {
       store.infoOverlayVisible.set(true);
       store.spatialGridDebugVisible.set(true);
       store.dpsBinsVisible.set(true);
+      store.buildingsVisible.set(true);
       store.appendDebugLog('test log');
       store.buildMode.set(true);
       store.selectedTowerType.set('cannon');
@@ -148,6 +160,7 @@ describe('UIStore', () => {
       expect(store.infoOverlayVisible()).toBe(false);
       expect(store.spatialGridDebugVisible()).toBe(false);
       expect(store.dpsBinsVisible()).toBe(false);
+      expect(store.buildingsVisible()).toBe(false);
       expect(store.debugLog()).toBe('');
       expect(store.buildMode()).toBe(false);
       expect(store.selectedTowerType()).toBeNull();
