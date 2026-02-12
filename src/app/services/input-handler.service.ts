@@ -38,6 +38,9 @@ export class InputHandlerService {
   /** Track mouse position to distinguish clicks from pans */
   private mouseDownPos: { x: number; y: number } | null = null;
 
+  /** Track right-click down position — used by contextmenu to detect drag vs click */
+  private rightClickDownPos: { x: number; y: number } | null = null;
+
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
 
@@ -139,6 +142,9 @@ export class InputHandlerService {
     this.pointerDownHandler = (event: PointerEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         this.mouseDownPos = { x: event.clientX, y: event.clientY };
+        if (event.button === 2) {
+          this.rightClickDownPos = { x: event.clientX, y: event.clientY };
+        }
       }
     };
     document.addEventListener('pointerdown', this.pointerDownHandler, { capture: true });
@@ -160,13 +166,21 @@ export class InputHandlerService {
     };
     document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
 
-    // Right-click cancels build mode
+    // Right-click cancels build mode (only if no camera drag)
     this.contextMenuHandler = (event: MouseEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         if (this.buildModeSignal?.()) {
           event.preventDefault();
-          this.keyboardCallbacks?.exitBuildMode();
+          // Only cancel if right-click was stationary (not a camera drag)
+          if (this.rightClickDownPos) {
+            const dx = event.clientX - this.rightClickDownPos.x;
+            const dy = event.clientY - this.rightClickDownPos.y;
+            if (Math.sqrt(dx * dx + dy * dy) < 10) {
+              this.keyboardCallbacks?.exitBuildMode();
+            }
+          }
         }
+        this.rightClickDownPos = null;
       }
     };
     document.addEventListener('contextmenu', this.contextMenuHandler, { capture: true });
@@ -177,6 +191,9 @@ export class InputHandlerService {
    * @param event Pointer event
    */
   private handleClick(event: PointerEvent): void {
+    // Only left-click (button 0) triggers actions — right-click is camera rotation / build cancel
+    if (event.button !== 0) return;
+
     if (!this.engine || !this.gameState || !this.buildModeSignal) {
       return;
     }
