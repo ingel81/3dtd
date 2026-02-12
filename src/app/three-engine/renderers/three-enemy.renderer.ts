@@ -673,10 +673,10 @@ export class ThreeEnemyRenderer {
    * Update all animation mixers with frustum culling and distance-based LOD.
    *
    * LOD tiers (by distance to camera):
-   *   < 50m  — Full animation update every frame
-   *   50–100m — Reduced: every 3rd frame (staggered per enemy)
-   *  100–200m — Very reduced: every 6th frame (staggered per enemy)
-   *   > 200m  — Skip animation entirely (position still updates via update())
+   *   < 80m  — Full animation update every frame
+   *   80–150m — Reduced: every 3rd frame (staggered per enemy)
+   *  150–250m — Very reduced: every 6th frame (staggered per enemy)
+   *   > 250m  — Minimal: every 10th frame (staggered per enemy)
    *
    * Staggering: each enemy gets a unique offset so not all enemies in the same
    * LOD tier update on the same frame, spreading the CPU cost evenly.
@@ -706,22 +706,25 @@ export class ThreeEnemyRenderer {
       // Animation LOD based on distance to camera
       const distance = camera.position.distanceTo(data.mesh.position);
 
-      if (distance < 50) {
+      if (distance < 80) {
         // Tier 1: Full animation update — every frame
         data.mixer.update(deltaTime);
-      } else if (distance < 100) {
+      } else if (distance < 150) {
         // Tier 2: Reduced — every 3rd frame (staggered), compensate deltaTime
         if ((frame + data.lodStaggerOffset) % 3 === 0) {
           data.mixer.update(deltaTime * 3);
         }
-      } else if (distance < 200) {
+      } else if (distance < 250) {
         // Tier 3: Very reduced — every 6th frame (staggered), compensate deltaTime
         if ((frame + data.lodStaggerOffset) % 6 === 0) {
           data.mixer.update(deltaTime * 6);
         }
+      } else {
+        // Tier 4 (distance >= 250): Minimal — every 10th frame (staggered)
+        if ((frame + data.lodStaggerOffset) % 10 === 0) {
+          data.mixer.update(deltaTime * 10);
+        }
       }
-      // Tier 4 (distance >= 200): Skip animation entirely.
-      // Position transform is still updated by the update() method.
     }
   }
 

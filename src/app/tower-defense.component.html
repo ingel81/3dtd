@@ -130,6 +130,11 @@
         />
       }
 
+      <!-- Game Speed (visible during active wave) -->
+      @if (waveActive()) {
+        <app-game-speed />
+      }
+
       <!-- Controls Hint -->
       @if (!loading() && !error()) {
         <div class="td-controls-hint">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
