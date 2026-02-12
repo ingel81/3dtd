@@ -273,8 +273,10 @@
 
 ## Terrain & Routing Experimente
 
-- [ ] **Route Resampling für feinere Terrain-Anpassung** - max 10m Abstand
-- [ ] **Verbessertes Height-Smoothing** - Median-Filter, asymmetrische Behandlung
+- [ ] **OSM bridge/tunnel Tags abfragen** - `bridge=yes`/`tunnel=yes`/`layer=*` in Overpass-Query mitabfragen, im Street-Interface speichern, bei Höhenkorrektur berücksichtigen (bridge → Korrektur überspringen)
+- [ ] **Automatisches Height-Refinement bei Tile-LOD-Nachladen** - Statt nach 4 Versuchen aufzuhören, bei `tileLoadEnd`-Events automatisch Höhen für Routen und unmittelbare Umgebung neu raycasen. Stoppen wenn Delta unter Threshold. Nur Routenbereich aktualisieren (nicht alle Straßen) wegen Performance
+- [ ] **Laterales Sampling nur auf Routen** - Aktuell wird getGroundHeightEstimate für alle gefilterten Straßen aufgerufen (4 Extra-Raycasts pro Punkt). Optimierung: nur für Straßen die tatsächlich Routen sind das teure laterale Sampling nutzen, restliche Straßen im Korridor mit einfachem Raycast + Smoothing rendern
+- [ ] **Gewässer von OSM laden** - `natural=water`, `waterway=river/stream/canal` über Overpass abfragen. Gewässer als unpassierbare Zonen ins Routing einbeziehen → Brücken werden natürliche Chokepoints (Engstellen). Optional: Gewässerflächen visuell auf der Karte darstellen
 
 ## Tower-Ideen
 

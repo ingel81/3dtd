@@ -164,9 +164,19 @@ export class StreetRenderingService {
           points.push(local);
         }
       } else {
-        // Real World: Original behavior - iterate nodes directly
-        for (const node of street.nodes) {
-          const terrainY = engine.getTerrainHeightAtGeo(node.lat, node.lon);
+        // Real World: Use lateral sampling to detect tree/building hits
+        const nodes = street.nodes;
+        for (let idx = 0; idx < nodes.length; idx++) {
+          const node = nodes[idx];
+          const prevNode = nodes[Math.max(0, idx - 1)];
+          const nextNode = nodes[Math.min(nodes.length - 1, idx + 1)];
+
+          // Lateral sampling: raycasts perpendicular to path to find ground level
+          const terrainY = engine.getGroundHeightEstimate(
+            node.lat, node.lon,
+            prevNode.lat, prevNode.lon,
+            nextNode.lat, nextNode.lon
+          );
 
           if (terrainY !== null) {
             const local = engine.sync.geoToLocalSimple(node.lat, node.lon, 0);
@@ -190,8 +200,8 @@ export class StreetRenderingService {
       // Only render street if we have at least 2 points
       if (points.length < 2) continue;
 
-      // Smooth out height anomalies (e.g., hitting buildings instead of ground)
-      const smoothedPoints = this.pathRoute.smoothPathHeights(points);
+      // Smooth out height anomalies (e.g., hitting trees/buildings instead of ground)
+      const smoothedPoints = this.pathRoute.smoothPathHeights(points, street.type);
 
       // Convert connected points to line segments for LineSegments geometry
       // [A, B, C, D] -> segments: [A-B, B-C, C-D] -> vertices: [A, B, B, C, C, D]
