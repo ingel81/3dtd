@@ -6,6 +6,10 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-02-12
 
+- [x] **GameSpeedComponent ins UI eingebaut** `73818a1`
+      Speed-Button (1x/2x/4x) erscheint oben-mittig während aktiver Welle
+- [x] **Animation LOD Schwellen gelockert** `73818a1`
+      50/100/200m → 80/150/250m, >250m jetzt jeden 10. Frame statt komplett skip
 - [x] **Rechtsklick-Kontextmenü auf gesamtem Game-UI deaktiviert** `81b2f0a`
       `contextmenu.preventDefault()` auf dem Root-Container, blockt Browser-Menü auf Canvas, Sidebar, Header, Buttons
 - [x] **Rechtsklick im Build-Mode fixt** `0b50cce`
