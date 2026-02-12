@@ -1,4 +1,4 @@
-<div class="td-container" [class.td-fullscreen]="!isDialog">
+<div class="td-container" [class.td-fullscreen]="!isDialog" (contextmenu)="$event.preventDefault()">
   <!-- Info Header -->
   <app-game-header
     [locationName]="currentLocationName()"
