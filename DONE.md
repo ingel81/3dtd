@@ -4,6 +4,15 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-02-12
+
+- [x] **Rechtsklick-Kontextmenü auf gesamtem Game-UI deaktiviert** `81b2f0a`
+      `contextmenu.preventDefault()` auf dem Root-Container, blockt Browser-Menü auf Canvas, Sidebar, Header, Buttons
+- [x] **Rechtsklick im Build-Mode fixt** `0b50cce`
+      Rechtsklick platziert keinen Turm mehr, stationärer Rechtsklick bricht Build ab, Rechts-Drag rotiert Kamera
+
+---
+
 ## 2026-01-31
 
 ### Phase 1: Engine Foundation (abgeschlossen)
