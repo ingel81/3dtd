@@ -178,6 +178,20 @@ export class DebugFacadeService {
     this.engine?.setColorGradingPreset(preset as import('../three-engine/post-processing/color-grading').ColorGradingPreset);
   }
 
+  /**
+   * Toggle screen shake and persist
+   */
+  onScreenShakeToggled(enabled: boolean): void {
+    if (this.gameState) {
+      if (enabled) {
+        this.gameState.screenShakeService.enable();
+      } else {
+        this.gameState.screenShakeService.disable();
+      }
+    }
+    this.persistDisplayOption('screenShake', enabled);
+  }
+
   // ========================================
   // Display Option Persistence
   // ========================================
@@ -202,6 +216,9 @@ export class DebugFacadeService {
         if (opts.alphaBlend === false) this.engine?.enemies.setAlphaBlendEnabled(false);
         if (opts.colorGrading && opts.colorGrading !== 'none') {
           this.engine?.setColorGradingPreset(opts.colorGrading);
+        }
+        if (opts.screenShake === false && this.gameState) {
+          this.gameState.screenShakeService.disable();
         }
       }
     } catch { /* ignore corrupt localStorage */ }
