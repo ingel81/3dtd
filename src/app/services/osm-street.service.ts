@@ -26,6 +26,17 @@ export interface StreetNetwork {
   };
 }
 
+export interface BuildingFootprint {
+  id: number;
+  type: string; // yes, residential, commercial, etc.
+  levels: number; // building:levels tag (default 2)
+  nodes: StreetNode[];
+}
+
+export interface BuildingData {
+  buildings: BuildingFootprint[];
+}
+
 /**
  * Street types suitable for enemy spawning (exclude footpaths)
  */
@@ -629,6 +640,158 @@ export class OsmStreetService {
         Math.sin(dLon / 2);
     const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
     return R * c;
+  }
+
+  /**
+   * Load building footprints for a given bounding box around coordinates
+   */
+  async loadBuildings(
+    centerLat: number,
+    centerLon: number,
+    radiusMeters = 500
+  ): Promise<BuildingData> {
+    const latDelta = radiusMeters / 111320;
+    const lonDelta = radiusMeters / (111320 * Math.cos((centerLat * Math.PI) / 180));
+
+    const bounds = {
+      minLat: centerLat - latDelta,
+      maxLat: centerLat + latDelta,
+      minLon: centerLon - lonDelta,
+      maxLon: centerLon + lonDelta,
+    };
+
+    const query = `
+      [out:json][timeout:25][maxsize:4194304];
+      (
+        way["building"](${bounds.minLat},${bounds.minLon},${bounds.maxLat},${bounds.maxLon});
+      );
+      out body;
+      >;
+      out skel qt;
+    `;
+
+    let lastError: Error | null = null;
+
+    for (const server of this.OVERPASS_SERVERS) {
+      try {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+        const response = await fetch(server, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+          body: `data=${encodeURIComponent(query)}`,
+          signal: controller.signal,
+        });
+
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`OSM API error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        const buildings = this.parseBuildingResponse(data);
+
+        console.log(`[OSM] Loaded ${buildings.length} building footprints`);
+        return { buildings };
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error(String(error));
+      }
+    }
+
+    console.error('[OSM] All Overpass servers failed for buildings');
+    throw lastError ?? new Error('Failed to load buildings');
+  }
+
+  private parseBuildingResponse(
+    data: {
+      elements: {
+        type: string;
+        id: number;
+        lat?: number;
+        lon?: number;
+        nodes?: number[];
+        tags?: Record<string, string>;
+      }[];
+    }
+  ): BuildingFootprint[] {
+    const nodes = new Map<number, StreetNode>();
+    const buildings: BuildingFootprint[] = [];
+
+    // First pass: collect all nodes
+    for (const element of data.elements) {
+      if (element.type === 'node') {
+        nodes.set(element.id, {
+          id: element.id,
+          lat: element.lat!,
+          lon: element.lon!,
+        });
+      }
+    }
+
+    // Second pass: build polygons from ways
+    for (const element of data.elements) {
+      if (element.type === 'way' && element.nodes) {
+        const polyNodes: StreetNode[] = [];
+
+        for (const nodeId of element.nodes) {
+          const node = nodes.get(nodeId);
+          if (node) {
+            polyNodes.push(node);
+          }
+        }
+
+        if (polyNodes.length >= 3) {
+          const rawLevels = element.tags?.['building:levels'];
+          const levels = rawLevels ? Math.max(1, Math.round(parseFloat(rawLevels))) : 2;
+          buildings.push({
+            id: element.id,
+            type: element.tags?.['building'] || 'yes',
+            levels,
+            nodes: polyNodes,
+          });
+        }
+      }
+    }
+
+    return buildings;
+  }
+
+  /**
+   * Filter buildings to only include those near the given routes.
+   */
+  filterBuildingsNearRoutes(
+    buildings: BuildingFootprint[],
+    routes: { lat: number; lon: number }[][],
+    corridorWidth = 100
+  ): BuildingFootprint[] {
+    const routePoints: { lat: number; lon: number }[] = [];
+    for (const route of routes) {
+      routePoints.push(...route);
+    }
+
+    if (routePoints.length === 0) {
+      return buildings;
+    }
+
+    const filtered: BuildingFootprint[] = [];
+
+    for (const building of buildings) {
+      let nearRoute = false;
+      for (const node of building.nodes) {
+        if (this.isPointNearRoute(node.lat, node.lon, routePoints, corridorWidth)) {
+          nearRoute = true;
+          break;
+        }
+      }
+      if (nearRoute) {
+        filtered.push(building);
+      }
+    }
+
+    console.log(`[OSM] Filtered buildings: ${buildings.length} → ${filtered.length}`);
+    return filtered;
   }
 
   /**

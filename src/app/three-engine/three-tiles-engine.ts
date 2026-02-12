@@ -1096,6 +1096,86 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Estimate ground height by sampling center + lateral points perpendicular to path direction.
+   * Detects obstacles (trees, buildings) by comparing center height with lateral samples.
+   *
+   * If center is significantly higher than the lateral minimum, the raycast likely hit
+   * a tree canopy or building roof. In that case, returns the lateral minimum as ground estimate.
+   *
+   * Preserves bridges: bridge decks are wide enough (6-12m+) that lateral samples at ±3m/±6m
+   * still hit the bridge surface, so center ≈ lateral → no correction applied.
+   *
+   * @param lat - Latitude of the path point
+   * @param lon - Longitude of the path point
+   * @param prevLat - Latitude of the previous path point (for direction)
+   * @param prevLon - Longitude of the previous path point
+   * @param nextLat - Latitude of the next path point (for direction)
+   * @param nextLon - Longitude of the next path point
+   * @returns Estimated ground height, or null if no hit
+   */
+  getGroundHeightEstimate(
+    lat: number, lon: number,
+    prevLat: number, prevLon: number,
+    nextLat: number, nextLon: number
+  ): number | null {
+    const centerHeight = this.getTerrainHeightAtGeo(lat, lon);
+    if (centerHeight === null) return null;
+
+    // DevWorld uses procedural terrain without tree/building issues
+    if (this.devTerrainProvider) return centerHeight;
+
+    // Calculate path direction vector (in degrees)
+    const dLat = nextLat - prevLat;
+    const dLon = nextLon - prevLon;
+    const len = Math.sqrt(dLat * dLat + dLon * dLon);
+
+    // If no direction available (single point), return center height
+    if (len < 1e-10) return centerHeight;
+
+    // Perpendicular direction (rotate 90°): swap and negate one component
+    const perpLat = -dLon / len;
+    const perpLon = dLat / len;
+
+    // Convert meter offsets to degree offsets
+    const METERS_TO_DEG_LAT = 1 / 111320;
+    const cosLat = Math.cos(lat * Math.PI / 180);
+
+    // Sample at ±3m and ±6m perpendicular to path
+    const OFFSETS_M = [3, 6];
+    // If center is this much higher than lateral minimum, it's an obstacle (tree/building)
+    const OBSTACLE_THRESHOLD = 3;
+
+    let minLateralHeight = centerHeight;
+    let lateralSampleCount = 0;
+
+    for (const offsetM of OFFSETS_M) {
+      const offsetLat = perpLat * offsetM * METERS_TO_DEG_LAT;
+      const offsetLon = perpLon * offsetM * METERS_TO_DEG_LAT / cosLat;
+
+      // Left side of path
+      const leftH = this.getTerrainHeightAtGeo(lat + offsetLat, lon + offsetLon);
+      if (leftH !== null) {
+        minLateralHeight = Math.min(minLateralHeight, leftH);
+        lateralSampleCount++;
+      }
+
+      // Right side of path
+      const rightH = this.getTerrainHeightAtGeo(lat - offsetLat, lon - offsetLon);
+      if (rightH !== null) {
+        minLateralHeight = Math.min(minLateralHeight, rightH);
+        lateralSampleCount++;
+      }
+    }
+
+    // If lateral samples exist and center is significantly higher → obstacle detected
+    if (lateralSampleCount > 0 && (centerHeight - minLateralHeight) > OBSTACLE_THRESHOLD) {
+      return minLateralHeight;
+    }
+
+    return centerHeight;
+  }
+
+  /**
    * Internal raycast for terrain height - no caching, just the raw raycast.
    * Used for cache invalidation checks and actual height lookups.
    *

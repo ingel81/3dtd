@@ -13,6 +13,8 @@ import { CameraFramingService, GeoPoint } from './camera-framing.service';
 import { RouteAnimationService } from './route-animation.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { StreetRenderingService } from './street-rendering.service';
+import { BuildingRenderingService } from './building-rendering.service';
+import { BuildingFootprint } from './osm-street.service';
 import { StrategicPlacementService } from './strategic-placement.service';
 import { EnemyDebugService } from './enemy-debug.service';
 import { TowerDebugService } from './tower-debug.service';
@@ -61,6 +63,7 @@ export class VisualizationFacadeService {
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly streetRendering = inject(StreetRenderingService);
+  private readonly buildingRendering = inject(BuildingRenderingService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly towerDebug = inject(TowerDebugService);
@@ -86,6 +89,9 @@ export class VisualizationFacadeService {
   private dpsProfileViz: DpsProfileVisualizer | null = null;
   private dpsVizUnsubscribes: (() => void)[] = [];
 
+  /** Cached building footprints (filtered to route corridor) */
+  private cachedBuildings: BuildingFootprint[] | null = null;
+
   /**
    * Initialize sub-facade with bridge and game state.
    */
@@ -102,6 +108,8 @@ export class VisualizationFacadeService {
     this.eventBusSubs.disposeAll();
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.disposeDpsVisualization(engine);
+    this.cachedBuildings = null;
+    this.buildingRendering.reset();
     this.initialized = false;
   }
 
@@ -545,6 +553,17 @@ export class VisualizationFacadeService {
 
     this.renderStreets();
 
+    // Re-render buildings if loaded
+    if (this.cachedBuildings && this.uiStore.buildingsVisible()) {
+      const base = this.store.baseCoords();
+      this.buildingRendering.renderBuildings(
+        engine,
+        this.cachedBuildings,
+        { lat: base.lat, lon: base.lon },
+        true
+      );
+    }
+
     this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
 
@@ -592,6 +611,56 @@ export class VisualizationFacadeService {
    */
   onStreetsToggled(): void {
     this.streetRendering.toggleVisibility();
+  }
+
+  /**
+   * Toggle building footprints visibility.
+   * Loads buildings on first toggle-on.
+   */
+  onBuildingsToggled(): void {
+    const visible = this.uiStore.buildingsVisible();
+
+    if (visible && !this.cachedBuildings) {
+      // First time: load and render buildings
+      this.loadAndRenderBuildings();
+    } else {
+      this.buildingRendering.toggleVisibility();
+    }
+  }
+
+  /**
+   * Load building footprints from OSM and render them.
+   */
+  private async loadAndRenderBuildings(): Promise<void> {
+    const engine = this.bridge.getEngine() || this.engineInit.getEngine();
+    if (!engine) return;
+
+    const base = this.store.baseCoords();
+    const center = this.store.centerCoords();
+
+    try {
+      const buildingData = await this.osmService.loadBuildings(center.lat, center.lon);
+
+      // Filter to route corridor
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      const routes: { lat: number; lon: number }[][] = [];
+      cachedPaths.forEach((path) => {
+        routes.push(path.map(p => ({ lat: p.lat, lon: p.lon })));
+      });
+
+      this.cachedBuildings = routes.length > 0
+        ? this.osmService.filterBuildingsNearRoutes(buildingData.buildings, routes, STREET_FILTER_RADIUS)
+        : buildingData.buildings;
+
+      this.buildingRendering.renderBuildings(
+        engine,
+        this.cachedBuildings,
+        { lat: base.lat, lon: base.lon },
+        this.uiStore.buildingsVisible()
+      );
+    } catch (err) {
+      console.error('[Buildings] Failed to load:', err);
+    }
   }
 
   /**

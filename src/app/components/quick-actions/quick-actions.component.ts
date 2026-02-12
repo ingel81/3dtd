@@ -32,6 +32,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>grid_on</mat-icon>
           </button>
           <button class="td-layer-btn"
+                  [class.active]="uiStore.buildingsVisible()"
+                  (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
+                  matTooltip="Show buildings"
+                  matTooltipPosition="left">
+            <mat-icon>domain</mat-icon>
+          </button>
+          <button class="td-layer-btn"
                   [class.active]="uiStore.streetsVisible()"
                   (click)="uiStore.toggleStreets(); streetsToggled.emit()"
                   matTooltip="Show streets"
@@ -435,6 +442,7 @@ export class QuickActionsComponent {
 
   // Outputs for actions that need parent handling
   readonly resetCamera = output<void>();
+  readonly buildingsToggled = output<void>();
   readonly streetsToggled = output<void>();
   readonly routesToggled = output<void>();
   readonly heightDebugToggled = output<void>();
