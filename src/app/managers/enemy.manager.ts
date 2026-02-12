@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId } from '../models/enemy-types';
@@ -31,6 +32,9 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Track enemies with active frost visual (for state-change detection)
   private frozenVisualEnemies = new Set<string>();
+
+  // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
+  private _tempLocalPos = new Vector3();
 
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
@@ -309,15 +313,17 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Also update spatial grid for O(1) proximity queries (sleep wake-checks, fallback targeting)
       t0 = profiling ? performance.now() : 0;
       if (this.tilesEngine) {
-        const localPos = this.tilesEngine.sync.geoToLocalSimple(
+        // Compute local position ONCE — reuse for grid update AND frost visual below
+        this.tilesEngine.sync.geoToLocalSimpleInto(
           enemy.position.lat,
           enemy.position.lon,
-          0 // Height not needed for X/Z cell lookup
+          0, // Height not needed for X/Z cell lookup
+          this._tempLocalPos
         );
         if (this.globalRouteGrid.isInitialized()) {
-          this.globalRouteGrid.updateEnemyPosition(enemy, localPos.x, localPos.z);
+          this.globalRouteGrid.updateEnemyPosition(enemy, this._tempLocalPos.x, this._tempLocalPos.z);
         }
-        this.spatialGrid.updateEnemy(enemy.id, localPos.x, localPos.z);
+        this.spatialGrid.updateEnemy(enemy.id, this._tempLocalPos.x, this._tempLocalPos.z);
       }
       if (profiling) tGrid += performance.now() - t0;
 
@@ -364,19 +370,15 @@ export class EnemyManager extends EntityManager<Enemy> {
         const hasFrost = this.frozenVisualEnemies.has(enemy.id);
 
         if (isSlowed && !hasFrost) {
-          // Apply frost visual
+          // Apply frost visual — reuse _tempLocalPos (set Y for correct height)
           this.tilesEngine.enemies.setFreezeVisual(enemy.id, true);
-          const localPos = this.tilesEngine.sync.geoToLocal(
-            enemy.position.lat, enemy.position.lon, geoHeight
-          );
-          this.tilesEngine.effects.spawnFrostAura(enemy.id, localPos);
+          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this.tilesEngine.effects.spawnFrostAura(enemy.id, this._tempLocalPos);
           this.frozenVisualEnemies.add(enemy.id);
         } else if (isSlowed && hasFrost) {
-          // Update frost aura position (enemy is moving)
-          const localPos = this.tilesEngine.sync.geoToLocal(
-            enemy.position.lat, enemy.position.lon, geoHeight
-          );
-          this.tilesEngine.effects.updateFrostAuraPosition(enemy.id, localPos);
+          // Update frost aura position — reuse _tempLocalPos
+          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this.tilesEngine.effects.updateFrostAuraPosition(enemy.id, this._tempLocalPos);
         } else if (!isSlowed && hasFrost) {
           // Remove frost visual
           this.tilesEngine.enemies.setFreezeVisual(enemy.id, false);

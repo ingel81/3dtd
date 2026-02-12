@@ -157,6 +157,19 @@ export class ThreeEffectsRenderer {
   private towerFireParticles: Points | null = null;
   private activeTowerFires = new Map<string, { particles: Particle[]; localPosition: Vector3 }>();
 
+  // Pool activity tracking — skip idle pools entirely (Tasks 1.3 + 1.4)
+  private _prevActiveCountAdditive = 0;
+  private _prevActiveCountNormal = 0;
+  private _prevActiveCountTowerFire = 0;
+  private _poolDirtyAdditive = false;
+  private _poolDirtyNormal = false;
+  private _poolDirtyTowerFire = false;
+
+  // Cached buffer attribute references (avoid per-frame string lookup)
+  private _bufAdditive: { pos: BufferAttribute; size: BufferAttribute; color: BufferAttribute; frame: BufferAttribute } | null = null;
+  private _bufNormal: { pos: BufferAttribute; size: BufferAttribute; color: BufferAttribute; frame: BufferAttribute } | null = null;
+  private _bufTowerFire: { pos: BufferAttribute; size: BufferAttribute; color: BufferAttribute; frame: BufferAttribute } | null = null;
+
   // ShaderMaterial alternatives with per-particle size and log depth support
   private trailShaderMaterialAdditive: ShaderMaterial | null = null;
   private trailShaderMaterialNormal: ShaderMaterial | null = null;
@@ -278,6 +291,14 @@ export class ThreeEffectsRenderer {
       this.inFreeListTowerFire[i] = 1;
     }
 
+    // Cache buffer attribute references
+    this._bufTowerFire = {
+      pos: geometry.attributes['position'] as BufferAttribute,
+      size: geometry.attributes['size'] as BufferAttribute,
+      color: geometry.attributes['color'] as BufferAttribute,
+      frame: geometry.attributes['frameIndex'] as BufferAttribute,
+    };
+
     console.log('[ThreeEffectsRenderer] Tower fire pool initialized:', this.MAX_TOWER_FIRE_PARTICLES, 'particles');
   }
 
@@ -370,6 +391,20 @@ export class ThreeEffectsRenderer {
       this.freeIndicesNormal.push(i);
       this.inFreeListNormal[i] = 1;
     }
+
+    // Cache buffer attribute references (avoid per-frame string lookup)
+    this._bufAdditive = {
+      pos: trailGeometryAdditive.attributes['position'] as BufferAttribute,
+      size: trailGeometryAdditive.attributes['size'] as BufferAttribute,
+      color: trailGeometryAdditive.attributes['color'] as BufferAttribute,
+      frame: trailGeometryAdditive.attributes['frameIndex'] as BufferAttribute,
+    };
+    this._bufNormal = {
+      pos: trailGeometryNormal.attributes['position'] as BufferAttribute,
+      size: trailGeometryNormal.attributes['size'] as BufferAttribute,
+      color: trailGeometryNormal.attributes['color'] as BufferAttribute,
+      frame: trailGeometryNormal.attributes['frameIndex'] as BufferAttribute,
+    };
   }
 
   /**
@@ -2236,26 +2271,22 @@ export class ThreeEffectsRenderer {
       }
     }
 
-    // Update trail particles - ADDITIVE pool (independent of effects system)
-    for (const particle of this.trailPoolAdditive) {
-      if (particle.life <= 0) continue;
-
-      // Update position (reuse temp vector to avoid GC)
-      particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
-
-      // Decay life
-      particle.life -= dt / particle.maxLife;
+    // Update trail particles - ADDITIVE pool (skip when idle)
+    if (this._prevActiveCountAdditive > 0 || this._poolDirtyAdditive) {
+      for (const particle of this.trailPoolAdditive) {
+        if (particle.life <= 0) continue;
+        particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
+        particle.life -= dt / particle.maxLife;
+      }
     }
 
-    // Update trail particles - NORMAL pool (independent of effects system)
-    for (const particle of this.trailPoolNormal) {
-      if (particle.life <= 0) continue;
-
-      // Update position (reuse temp vector to avoid GC)
-      particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
-
-      // Decay life
-      particle.life -= dt / particle.maxLife;
+    // Update trail particles - NORMAL pool (skip when idle)
+    if (this._prevActiveCountNormal > 0 || this._poolDirtyNormal) {
+      for (const particle of this.trailPoolNormal) {
+        if (particle.life <= 0) continue;
+        particle.position.add(this.tempVelocity.copy(particle.velocity).multiplyScalar(dt));
+        particle.life -= dt / particle.maxLife;
+      }
     }
 
     // Update tower inner fire particles (persistent, respawn when dead)
@@ -2333,15 +2364,14 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Update particle position buffers
+   * Update particle position buffers.
+   * Skips idle pools entirely (no iteration, no GPU upload).
+   * Uses cached buffer attribute refs to avoid per-frame string lookups.
    */
   private updateParticleBuffers(): void {
-    // Update trail particles - ADDITIVE pool
-    if (this.trailParticlesAdditive) {
-      const positions = this.trailParticlesAdditive.geometry.attributes['position'] as BufferAttribute;
-      const sizes = this.trailParticlesAdditive.geometry.attributes['size'] as BufferAttribute;
-      const colors = this.trailParticlesAdditive.geometry.attributes['color'] as BufferAttribute;
-      const frameIndices = this.trailParticlesAdditive.geometry.attributes['frameIndex'] as BufferAttribute;
+    // ADDITIVE pool — skip when idle (prevActive=0 AND no new spawns)
+    if (this._bufAdditive && (this._prevActiveCountAdditive > 0 || this._poolDirtyAdditive)) {
+      const { pos: positions, size: sizes, color: colors, frame: frameIndices } = this._bufAdditive;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
@@ -2351,64 +2381,14 @@ export class ThreeEffectsRenderer {
       for (let i = 0; i < this.trailPoolAdditive.length; i++) {
         const p = this.trailPoolAdditive[i];
         if (p.life > 0) {
-          posArray[activeCount * 3] = p.position.x;
-          posArray[activeCount * 3 + 1] = p.position.y;
-          posArray[activeCount * 3 + 2] = p.position.z;
-          // Size decreases as particle fades
+          const idx3 = activeCount * 3;
+          posArray[idx3] = p.position.x;
+          posArray[idx3 + 1] = p.position.y;
+          posArray[idx3 + 2] = p.position.z;
           sizeArray[activeCount] = p.size * p.life;
-          // Per-particle color
-          colorArray[activeCount * 3] = p.color.r;
-          colorArray[activeCount * 3 + 1] = p.color.g;
-          colorArray[activeCount * 3 + 2] = p.color.b;
-          // Sprite-sheet frame: compute current frame from life progress
-          if (p.totalFrames > 0) {
-            const progress = 1.0 - p.life; // 0 at spawn → 1 at death
-            frameArray[activeCount] = Math.min(
-              Math.floor(progress * p.totalFrames),
-              p.totalFrames - 1
-            );
-          } else {
-            frameArray[activeCount] = -1; // No atlas
-          }
-          activeCount++;
-        } else {
-          // Dead particle → return to free-list for O(1) reuse
-          this.returnToFreeList(i, 'trailAdditive');
-        }
-      }
-
-      positions.needsUpdate = true;
-      sizes.needsUpdate = true;
-      colors.needsUpdate = true;
-      frameIndices.needsUpdate = true;
-      this.trailParticlesAdditive.geometry.setDrawRange(0, activeCount);
-    }
-
-    // Update trail particles - NORMAL pool
-    if (this.trailParticlesNormal) {
-      const positions = this.trailParticlesNormal.geometry.attributes['position'] as BufferAttribute;
-      const sizes = this.trailParticlesNormal.geometry.attributes['size'] as BufferAttribute;
-      const colors = this.trailParticlesNormal.geometry.attributes['color'] as BufferAttribute;
-      const frameIndices = this.trailParticlesNormal.geometry.attributes['frameIndex'] as BufferAttribute;
-      const posArray = positions.array as Float32Array;
-      const sizeArray = sizes.array as Float32Array;
-      const colorArray = colors.array as Float32Array;
-      const frameArray = frameIndices.array as Float32Array;
-
-      let activeCount = 0;
-      for (let i = 0; i < this.trailPoolNormal.length; i++) {
-        const p = this.trailPoolNormal[i];
-        if (p.life > 0) {
-          posArray[activeCount * 3] = p.position.x;
-          posArray[activeCount * 3 + 1] = p.position.y;
-          posArray[activeCount * 3 + 2] = p.position.z;
-          // Size decreases as particle fades
-          sizeArray[activeCount] = p.size * p.life;
-          // Per-particle color
-          colorArray[activeCount * 3] = p.color.r;
-          colorArray[activeCount * 3 + 1] = p.color.g;
-          colorArray[activeCount * 3 + 2] = p.color.b;
-          // Sprite-sheet frame
+          colorArray[idx3] = p.color.r;
+          colorArray[idx3 + 1] = p.color.g;
+          colorArray[idx3 + 2] = p.color.b;
           if (p.totalFrames > 0) {
             const progress = 1.0 - p.life;
             frameArray[activeCount] = Math.min(
@@ -2420,24 +2400,71 @@ export class ThreeEffectsRenderer {
           }
           activeCount++;
         } else {
-          // Dead particle → return to free-list for O(1) reuse
+          this.returnToFreeList(i, 'trailAdditive');
+        }
+      }
+
+      // Only upload to GPU if there are active particles or count just changed to 0
+      if (activeCount > 0 || this._prevActiveCountAdditive > 0) {
+        positions.needsUpdate = true;
+        sizes.needsUpdate = true;
+        colors.needsUpdate = true;
+        frameIndices.needsUpdate = true;
+      }
+      this.trailParticlesAdditive!.geometry.setDrawRange(0, activeCount);
+      this._prevActiveCountAdditive = activeCount;
+      this._poolDirtyAdditive = false;
+    }
+
+    // NORMAL pool — skip when idle
+    if (this._bufNormal && (this._prevActiveCountNormal > 0 || this._poolDirtyNormal)) {
+      const { pos: positions, size: sizes, color: colors, frame: frameIndices } = this._bufNormal;
+      const posArray = positions.array as Float32Array;
+      const sizeArray = sizes.array as Float32Array;
+      const colorArray = colors.array as Float32Array;
+      const frameArray = frameIndices.array as Float32Array;
+
+      let activeCount = 0;
+      for (let i = 0; i < this.trailPoolNormal.length; i++) {
+        const p = this.trailPoolNormal[i];
+        if (p.life > 0) {
+          const idx3 = activeCount * 3;
+          posArray[idx3] = p.position.x;
+          posArray[idx3 + 1] = p.position.y;
+          posArray[idx3 + 2] = p.position.z;
+          sizeArray[activeCount] = p.size * p.life;
+          colorArray[idx3] = p.color.r;
+          colorArray[idx3 + 1] = p.color.g;
+          colorArray[idx3 + 2] = p.color.b;
+          if (p.totalFrames > 0) {
+            const progress = 1.0 - p.life;
+            frameArray[activeCount] = Math.min(
+              Math.floor(progress * p.totalFrames),
+              p.totalFrames - 1
+            );
+          } else {
+            frameArray[activeCount] = -1;
+          }
+          activeCount++;
+        } else {
           this.returnToFreeList(i, 'trailNormal');
         }
       }
 
-      positions.needsUpdate = true;
-      sizes.needsUpdate = true;
-      colors.needsUpdate = true;
-      frameIndices.needsUpdate = true;
-      this.trailParticlesNormal.geometry.setDrawRange(0, activeCount);
+      if (activeCount > 0 || this._prevActiveCountNormal > 0) {
+        positions.needsUpdate = true;
+        sizes.needsUpdate = true;
+        colors.needsUpdate = true;
+        frameIndices.needsUpdate = true;
+      }
+      this.trailParticlesNormal!.geometry.setDrawRange(0, activeCount);
+      this._prevActiveCountNormal = activeCount;
+      this._poolDirtyNormal = false;
     }
 
-    // Update tower fire particles (dedicated pool)
-    if (this.towerFireParticles) {
-      const positions = this.towerFireParticles.geometry.attributes['position'] as BufferAttribute;
-      const sizes = this.towerFireParticles.geometry.attributes['size'] as BufferAttribute;
-      const colors = this.towerFireParticles.geometry.attributes['color'] as BufferAttribute;
-      const frameIndices = this.towerFireParticles.geometry.attributes['frameIndex'] as BufferAttribute;
+    // TOWER FIRE pool — skip when idle
+    if (this._bufTowerFire && (this._prevActiveCountTowerFire > 0 || this._poolDirtyTowerFire)) {
+      const { pos: positions, size: sizes, color: colors, frame: frameIndices } = this._bufTowerFire;
       const posArray = positions.array as Float32Array;
       const sizeArray = sizes.array as Float32Array;
       const colorArray = colors.array as Float32Array;
@@ -2447,26 +2474,30 @@ export class ThreeEffectsRenderer {
       for (let i = 0; i < this.towerFirePool.length; i++) {
         const p = this.towerFirePool[i];
         if (p.life > 0) {
-          posArray[activeCount * 3] = p.position.x;
-          posArray[activeCount * 3 + 1] = p.position.y;
-          posArray[activeCount * 3 + 2] = p.position.z;
+          const idx3 = activeCount * 3;
+          posArray[idx3] = p.position.x;
+          posArray[idx3 + 1] = p.position.y;
+          posArray[idx3 + 2] = p.position.z;
           sizeArray[activeCount] = p.size * p.life;
-          colorArray[activeCount * 3] = p.color.r;
-          colorArray[activeCount * 3 + 1] = p.color.g;
-          colorArray[activeCount * 3 + 2] = p.color.b;
-          frameArray[activeCount] = -1; // Tower fire uses circular particles
+          colorArray[idx3] = p.color.r;
+          colorArray[idx3 + 1] = p.color.g;
+          colorArray[idx3 + 2] = p.color.b;
+          frameArray[activeCount] = -1;
           activeCount++;
         } else {
-          // Dead particle → return to free-list for O(1) reuse
           this.returnToFreeList(i, 'towerFire');
         }
       }
 
-      positions.needsUpdate = true;
-      sizes.needsUpdate = true;
-      colors.needsUpdate = true;
-      frameIndices.needsUpdate = true;
-      this.towerFireParticles.geometry.setDrawRange(0, activeCount);
+      if (activeCount > 0 || this._prevActiveCountTowerFire > 0) {
+        positions.needsUpdate = true;
+        sizes.needsUpdate = true;
+        colors.needsUpdate = true;
+        frameIndices.needsUpdate = true;
+      }
+      this.towerFireParticles!.geometry.setDrawRange(0, activeCount);
+      this._prevActiveCountTowerFire = activeCount;
+      this._poolDirtyTowerFire = false;
     }
   }
 
@@ -2487,6 +2518,7 @@ export class ThreeEffectsRenderer {
         // Reset sprite-sheet fields so reused particles default to circular
         pool[idx].frameIndex = -1;
         pool[idx].totalFrames = 0;
+        this.markPoolDirty(cursorKey);
         return pool[idx];
       }
       // Particle was reactivated externally (e.g. fire respawn) — skip it
@@ -2501,10 +2533,19 @@ export class ThreeEffectsRenderer {
         this.poolCursors[cursorKey] = (idx + 1) % len;
         pool[idx].frameIndex = -1;
         pool[idx].totalFrames = 0;
+        this.markPoolDirty(cursorKey);
         return pool[idx];
       }
     }
     return null;
+  }
+
+  private markPoolDirty(cursorKey: keyof typeof this.poolCursors): void {
+    switch (cursorKey) {
+      case 'trailAdditive': this._poolDirtyAdditive = true; break;
+      case 'trailNormal': this._poolDirtyNormal = true; break;
+      case 'towerFire': this._poolDirtyTowerFire = true; break;
+    }
   }
 
   /** Map cursor key to corresponding free-list array */
