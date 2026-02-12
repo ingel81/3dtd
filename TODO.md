@@ -7,7 +7,6 @@
 ** NEU **
 - Air Priority Targeting: braucht Sub-Strategie (strongest/weakest/nearest bei Air-Priorität)
 - Fire Tower "Wide Burn" Upgrade: macht aktuell dasselbe wie Range-Upgrade, eigene Logik nötig
-- Rechtsklick auf HTML-Bereiche außerhalb der Spiel-Engine verhindern ( + alle UI Elemente)
 - Kamera-Boundaries: evtl. Begrenzung wenn man sich weit aus dem Spielbereich bewegt
 
 
