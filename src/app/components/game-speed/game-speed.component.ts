@@ -13,6 +13,13 @@ import { GameStore } from '../../store/game.store';
     </button>
   `,
   styles: [`
+    :host {
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 20;
+    }
     .speed-btn {
       background: rgba(0, 0, 0, 0.7);
       border: 1px solid rgba(201, 164, 76, 0.6);
