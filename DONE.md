@@ -8,6 +8,8 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 - [x] **GameSpeedComponent ins UI eingebaut** `73818a1`
       Speed-Button (1x/2x/4x) erscheint oben-mittig während aktiver Welle
+- [x] **Gatling Dual Fire** `84167e8`
+      Neues `firePoints` Config-Feld für Multi-Barrel-Tower, Projektile alternieren links/rechts (±0.9m)
 - [x] **Animation LOD Schwellen gelockert** `73818a1`
       50/100/200m → 80/150/250m, >250m jetzt jeden 10. Frame statt komplett skip
 - [x] **Rechtsklick-Kontextmenü auf gesamtem Game-UI deaktiviert** `81b2f0a`
