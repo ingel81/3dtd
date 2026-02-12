@@ -9,7 +9,6 @@
 - Fire Tower "Wide Burn" Upgrade: macht aktuell dasselbe wie Range-Upgrade, eigene Logik nötig
 - Rechtsklick auf HTML-Bereiche außerhalb der Spiel-Engine verhindern ( + alle UI Elemente)
 - Kamera-Boundaries: evtl. Begrenzung wenn man sich weit aus dem Spielbereich bewegt
-- Rechtsklick während Turm-Bau führt nicht zu Abbruch - Turm wird trotzdem gebaut
 
 
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
