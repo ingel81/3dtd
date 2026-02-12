@@ -248,10 +248,6 @@ export class DisplayOptionsComponent {
     const next = !this.screenShake();
     this.screenShake.set(next);
     this.screenShakeToggled.emit(next);
-    // Also sync to ScreenShakeService's localStorage key
-    try {
-      localStorage.setItem('td_screen_shake_enabled', String(next));
-    } catch { /* ignore */ }
   }
 
   onColorGradingChange(event: Event): void {

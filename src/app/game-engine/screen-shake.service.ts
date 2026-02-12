@@ -44,7 +44,7 @@ export class ScreenShakeService {
     private readonly eventBus: GameEventBus,
     private readonly engine: ThreeTilesEngine,
   ) {
-    // Load preference from localStorage (default: enabled)
+    // Load preference from localStorage (default: enabled, overridden by applyDisplayOptions)
     this._enabled = this.loadPreference();
     this.setupEventHandlers();
   }
@@ -159,7 +159,7 @@ export class ScreenShakeService {
   private loadPreference(): boolean {
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
-      return stored !== null ? stored === 'true' : false; // Default: disabled
+      return stored !== null ? stored === 'true' : true; // Default: enabled
     } catch {
       return true;
     }

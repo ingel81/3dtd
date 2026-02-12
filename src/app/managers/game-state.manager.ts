@@ -56,7 +56,7 @@ export class GameStateManager {
   private readonly eventBus = new GameEventBus();
   private vfxService!: VFXService;
   private audioService!: AudioService;
-  private screenShakeService!: ScreenShakeService;
+  screenShakeService!: ScreenShakeService;
   readonly towerManager = new TowerManager(this.eventBus, this.osmService);
   readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus, this.entityPool);
