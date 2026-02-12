@@ -62,6 +62,9 @@ export interface TowerTypeConfig {
   beamWidth?: number; // Width of the cone at the end in meters
 
   defaultTargeting?: TargetingStrategy; // Default targeting for this tower type (default: 'closest')
+
+  /** Fire point offsets in turret-local space (x=lateral meters, z=forward meters). Alternates per shot. */
+  firePoints?: { x: number; z: number }[];
 }
 
 // Tower model URLs
@@ -116,6 +119,10 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 2.1,
     rotationY: -1.5708, // -90° visual alignment (barrels face North in idle)
     turretBarrelOffset: -1.5708, // Barrels point +X in model space (-90° from -Z)
+    firePoints: [
+      { x: -0.9, z: 0 }, // Left barrel cluster
+      { x: 0.9, z: 0 },  // Right barrel cluster
+    ],
     damage: 10,
     range: 50,
     fireRate: 5.0, // 5 shots/sec - rapid fire

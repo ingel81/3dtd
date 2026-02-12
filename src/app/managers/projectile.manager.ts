@@ -46,9 +46,10 @@ export class ProjectileManager extends EntityManager<Projectile> {
   }
 
   /**
-   * Spawn a new projectile from a tower to a target enemy
+   * Spawn a new projectile from a tower to a target enemy.
+   * @param heading Optional turret heading in radians (for fire point offset rotation)
    */
-  spawn(tower: Tower, targetEnemy: Enemy): Projectile {
+  spawn(tower: Tower, targetEnemy: Enemy, heading?: number): Projectile {
     if (!this.tilesEngine) {
       throw new Error('ProjectileManager not initialized');
     }
@@ -57,8 +58,25 @@ export class ProjectileManager extends EntityManager<Projectile> {
     const terrainHeight = tower.position.height ?? 0;
     const spawnHeight = terrainHeight + tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
 
+    // Calculate spawn position with optional fire point offset
+    let spawnLat = tower.position.lat;
+    let spawnLon = tower.position.lon;
+
+    const firePoint = tower.getNextFirePoint();
+    if (firePoint && heading !== undefined) {
+      const metersPerDegreeLat = 111320;
+      const metersPerDegreeLon = 111320 * Math.cos(tower.position.lat * 0.0174533);
+      const cosH = Math.cos(heading);
+      const sinH = Math.sin(heading);
+      // Rotate fire point offset by heading (x=lateral, z=forward)
+      spawnLat += (-firePoint.x * sinH + firePoint.z * cosH) / metersPerDegreeLat;
+      spawnLon += (firePoint.x * cosH + firePoint.z * sinH) / metersPerDegreeLon;
+    }
+
+    const spawnPosition = { lat: spawnLat, lon: spawnLon, height: tower.position.height };
+
     const projectile = new Projectile(
-      tower.position,
+      spawnPosition,
       targetEnemy,
       tower.typeConfig.projectileType,
       tower.combat.damage,
@@ -69,8 +87,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
     this.tilesEngine.projectiles.create(
       projectile.id,
       projectile.typeConfig.id,
-      tower.position.lat,
-      tower.position.lon,
+      spawnLat,
+      spawnLon,
       spawnHeight,
       projectile.direction
     );

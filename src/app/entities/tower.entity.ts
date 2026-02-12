@@ -48,6 +48,9 @@ export class Tower extends GameObject {
   /** Custom rotation set by user during placement (radians) */
   customRotation = 0;
 
+  /** Index for alternating fire points (dual-barrel etc.) */
+  private _nextFirePointIndex = 0;
+
   /** References to visible cells from GlobalRouteGrid (for targeting) */
   visibleCells: RouteCell[] = [];
 
@@ -110,6 +113,18 @@ export class Tower extends GameObject {
 
   get position(): GeoPosition {
     return this.transform.position;
+  }
+
+  /**
+   * Get the next fire point offset (alternating for multi-barrel towers).
+   * Returns null if no fire points are configured.
+   */
+  getNextFirePoint(): { x: number; z: number } | null {
+    const points = this.typeConfig.firePoints;
+    if (!points || points.length === 0) return null;
+    const point = points[this._nextFirePointIndex % points.length];
+    this._nextFirePointIndex++;
+    return point;
   }
 
   /**
