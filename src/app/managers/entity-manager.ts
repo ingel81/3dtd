@@ -12,6 +12,10 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
   protected activeEntities = new Set<T>();
   protected tilesEngine: ThreeTilesEngine | null = null;
 
+  /** Cached arrays — rebuilt only when entities change */
+  private _cachedAll: T[] | null = null;
+  private _cachedActive: T[] | null = null;
+
   /**
    * Initialize with ThreeTilesEngine
    */
@@ -25,6 +29,8 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
   add(entity: T): void {
     this.entities.set(entity.id, entity);
     this.activeEntities.add(entity);
+    this._cachedAll = null;
+    this._cachedActive = null;
   }
 
   /**
@@ -34,6 +40,8 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
     entity.destroy();
     this.entities.delete(entity.id);
     this.activeEntities.delete(entity);
+    this._cachedAll = null;
+    this._cachedActive = null;
   }
 
   /**
@@ -44,17 +52,23 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
   }
 
   /**
-   * Get all entities
+   * Get all entities (cached, rebuilt only on add/remove)
    */
   getAll(): T[] {
-    return Array.from(this.entities.values());
+    if (this._cachedAll === null) {
+      this._cachedAll = Array.from(this.entities.values());
+    }
+    return this._cachedAll;
   }
 
   /**
-   * Get all active entities - O(1) via cached Set
+   * Get all active entities (cached, rebuilt only on add/remove)
    */
   getAllActive(): T[] {
-    return Array.from(this.activeEntities);
+    if (this._cachedActive === null) {
+      this._cachedActive = Array.from(this.activeEntities);
+    }
+    return this._cachedActive;
   }
 
   /**
@@ -64,6 +78,8 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
     this.getAll().forEach((e) => this.remove(e));
     this.entities.clear();
     this.activeEntities.clear();
+    this._cachedAll = null;
+    this._cachedActive = null;
   }
 
   /**

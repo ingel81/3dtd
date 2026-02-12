@@ -262,6 +262,27 @@ export class EllipsoidSync {
   }
 
   /**
+   * Like geoToLocalSimple(), but writes into an existing Vector3 to avoid allocation.
+   * Use in hot loops where per-frame allocation matters.
+   */
+  geoToLocalSimpleInto(lat: number, lon: number, height: number, target: Vector3): Vector3 {
+    const originLat = this.originLatRad * MathUtils.RAD2DEG;
+    const originLon = this.originLonRad * MathUtils.RAD2DEG;
+
+    const eastDist = this.fastDistance(originLat, originLon, originLat, lon);
+    const eastSign = lon > originLon ? -1 : 1;
+    const northDist = this.fastDistance(originLat, originLon, lat, originLon);
+    const northSign = lat > originLat ? 1 : -1;
+
+    target.set(
+      eastDist * eastSign,
+      height - this.originHeight,
+      northDist * northSign
+    );
+    return target;
+  }
+
+  /**
    * @deprecated Use geoToLocalSimple() with overlayGroup instead
    *
    * This method was for adding objects directly inside tilesRenderer.group
