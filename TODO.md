@@ -40,8 +40,6 @@
       Bei vielen gefrorenen Enemies: GPU-Last durch geklonte Materials messen
       Ggf. Material-Pool oder Shader-Uniform statt Clone
 
-- [ ] **Gatling Dual Fire** - Abwechselnd links/rechts aus den exakten Barrel-Positionen feuern
-
 - [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
 
 - [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
