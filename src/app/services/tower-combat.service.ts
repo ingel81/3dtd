@@ -220,7 +220,7 @@ export class TowerCombatService {
           }
 
           tower.combat.fire(currentTime);
-          projectileManager.spawn(tower, target);
+          projectileManager.spawn(tower, target, heading);
         }
       } else {
         // No target - check if tower should sleep
