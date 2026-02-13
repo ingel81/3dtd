@@ -11,7 +11,7 @@ import {
   DoubleSide,
 } from 'three';
 
-const MAX_HEALTH_BARS = 512;
+const MAX_HEALTH_BARS = 20000;
 
 /**
  * HealthBarInstanceManager
@@ -21,6 +21,9 @@ const MAX_HEALTH_BARS = 512;
  * that draws a colored health bar based on per-instance healthPercent.
  *
  * Replaces individual Sprites (1 draw call per enemy → 1 draw call total).
+ *
+ * Billboard optimization: position and scale are cached in flat arrays
+ * so updateBillboard() only needs compose (no decompose per instance).
  */
 export class HealthBarInstanceManager {
   readonly instancedMesh: InstancedMesh;
@@ -34,10 +37,13 @@ export class HealthBarInstanceManager {
   private barColorAttribute: InstancedBufferAttribute; // fixed color override (boss etc.)
   private isBossAttribute: InstancedBufferAttribute;
 
+  // Cached position/scale per slot (avoids decompose in updateBillboard)
+  private readonly posCache: Float32Array;   // [x, y, z] per slot
+  private readonly scaleCache: Float32Array; // [w, h] per slot
+
   // Reusable temp objects
   private readonly matrix = new Matrix4();
   private static readonly _tempPos = new Vector3();
-  private static readonly _tempQuat = new Quaternion();
   private static readonly _tempScale = new Vector3();
   private static readonly _billboardQuat = new Quaternion();
 
@@ -63,11 +69,9 @@ export class HealthBarInstanceManager {
     geometry.setAttribute('aBarColor', this.barColorAttribute);
     geometry.setAttribute('aIsBoss', this.isBossAttribute);
 
-    // Hide all initially
-    for (let i = 0; i < MAX_HEALTH_BARS; i++) {
-      this.matrix.makeTranslation(0, -10000, 0);
-      this.instancedMesh.setMatrixAt(i, this.matrix);
-    }
+    // Position/scale caches
+    this.posCache = new Float32Array(MAX_HEALTH_BARS * 3);
+    this.scaleCache = new Float32Array(MAX_HEALTH_BARS * 2);
 
     this.scene.add(this.instancedMesh);
   }
@@ -97,16 +101,17 @@ export class HealthBarInstanceManager {
     this.activeCount = Math.max(this.activeCount, index + 1);
     this.instancedMesh.count = this.activeCount;
 
-    // Set initial matrix (position + billboard scale)
-    HealthBarInstanceManager._tempPos.copy(position);
-    HealthBarInstanceManager._tempPos.y += yOffset;
-    HealthBarInstanceManager._tempScale.set(barWidth, barHeight, 1);
+    // Cache position and scale
+    const pi = index * 3;
+    this.posCache[pi] = position.x;
+    this.posCache[pi + 1] = position.y + yOffset;
+    this.posCache[pi + 2] = position.z;
+    const si = index * 2;
+    this.scaleCache[si] = barWidth;
+    this.scaleCache[si + 1] = barHeight;
 
-    this.matrix.compose(
-      HealthBarInstanceManager._tempPos,
-      HealthBarInstanceManager._billboardQuat,
-      HealthBarInstanceManager._tempScale,
-    );
+    // Build matrix
+    this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
 
     // Set attributes
@@ -140,16 +145,17 @@ export class HealthBarInstanceManager {
     const index = this.instances.get(enemyId);
     if (index === undefined) return;
 
-    // Update matrix with billboard orientation
-    HealthBarInstanceManager._tempPos.copy(position);
-    HealthBarInstanceManager._tempPos.y += yOffset;
-    HealthBarInstanceManager._tempScale.set(barWidth, barHeight, 1);
+    // Update cache
+    const pi = index * 3;
+    this.posCache[pi] = position.x;
+    this.posCache[pi + 1] = position.y + yOffset;
+    this.posCache[pi + 2] = position.z;
+    const si = index * 2;
+    this.scaleCache[si] = barWidth;
+    this.scaleCache[si + 1] = barHeight;
 
-    this.matrix.compose(
-      HealthBarInstanceManager._tempPos,
-      HealthBarInstanceManager._billboardQuat,
-      HealthBarInstanceManager._tempScale,
-    );
+    // Rebuild matrix from cache
+    this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
 
@@ -161,6 +167,7 @@ export class HealthBarInstanceManager {
   /**
    * Update billboard orientation to face camera.
    * Called once per frame before render.
+   * Uses cached position/scale — no decompose needed.
    */
   updateBillboard(camera: Camera): void {
     if (this.instances.size === 0) return;
@@ -168,20 +175,9 @@ export class HealthBarInstanceManager {
     // Extract camera quaternion for billboard
     camera.getWorldQuaternion(HealthBarInstanceManager._billboardQuat);
 
-    // Rebuild matrices with new camera quaternion
+    // Rebuild matrices from cache with new billboard quaternion (no decompose)
     for (const [, index] of this.instances) {
-      this.instancedMesh.getMatrixAt(index, this.matrix);
-      this.matrix.decompose(
-        HealthBarInstanceManager._tempPos,
-        HealthBarInstanceManager._tempQuat,
-        HealthBarInstanceManager._tempScale,
-      );
-
-      this.matrix.compose(
-        HealthBarInstanceManager._tempPos,
-        HealthBarInstanceManager._billboardQuat,
-        HealthBarInstanceManager._tempScale,
-      );
+      this.composeFromCache(index);
       this.instancedMesh.setMatrixAt(index, this.matrix);
     }
     this.instancedMesh.instanceMatrix.needsUpdate = true;
@@ -194,7 +190,13 @@ export class HealthBarInstanceManager {
     const index = this.instances.get(enemyId);
     if (index === undefined) return;
 
-    this.matrix.makeTranslation(0, -10000, 0);
+    // Update cache to hidden position
+    const pi = index * 3;
+    this.posCache[pi] = 0;
+    this.posCache[pi + 1] = -10000;
+    this.posCache[pi + 2] = 0;
+
+    this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
   }
@@ -206,7 +208,13 @@ export class HealthBarInstanceManager {
     const index = this.instances.get(enemyId);
     if (index === undefined) return;
 
-    this.matrix.makeTranslation(0, -10000, 0);
+    // Update cache to hidden position
+    const pi = index * 3;
+    this.posCache[pi] = 0;
+    this.posCache[pi + 1] = -10000;
+    this.posCache[pi + 2] = 0;
+
+    this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
 
@@ -226,9 +234,7 @@ export class HealthBarInstanceManager {
   }
 
   clear(): void {
-    for (const id of Array.from(this.instances.keys())) {
-      this.remove(id);
-    }
+    this.instances.clear();
     this.freeIndices = [];
     this.activeCount = 0;
     this.instancedMesh.count = 0;
@@ -239,6 +245,31 @@ export class HealthBarInstanceManager {
     this.scene.remove(this.instancedMesh);
     this.instancedMesh.geometry.dispose();
     (this.instancedMesh.material as ShaderMaterial).dispose();
+  }
+
+  // =====================================================
+  // PRIVATE
+  // =====================================================
+
+  /** Compose matrix from cached position + scale + current billboard quaternion */
+  private composeFromCache(index: number): void {
+    const pi = index * 3;
+    const si = index * 2;
+    HealthBarInstanceManager._tempPos.set(
+      this.posCache[pi],
+      this.posCache[pi + 1],
+      this.posCache[pi + 2],
+    );
+    HealthBarInstanceManager._tempScale.set(
+      this.scaleCache[si],
+      this.scaleCache[si + 1],
+      1,
+    );
+    this.matrix.compose(
+      HealthBarInstanceManager._tempPos,
+      HealthBarInstanceManager._billboardQuat,
+      HealthBarInstanceManager._tempScale,
+    );
   }
 
   // =====================================================
@@ -286,44 +317,52 @@ export class HealthBarInstanceManager {
         void main() {
           #include <logdepthbuf_fragment>
 
-          // Bar layout: 5% padding each side
-          float barStart = 0.05;
-          float barEnd = 0.95;
-          float barTop = 0.2;
-          float barBottom = 0.8;
+          // Aspect ratio correction (plane is ~6:1)
+          float aspect = 6.0;
 
-          // Background (dark semi-transparent)
-          vec4 color = vec4(0.0, 0.0, 0.0, 0.7);
+          // Thin outline in visual pixels (uniform thickness via aspect correction)
+          float outlineY = 0.08;           // ~8% of height
+          float outlineX = outlineY / aspect; // same visual thickness horizontally
 
-          // Border (1 pixel white)
-          float borderSize = 0.03;
-          if (vUv.x < borderSize || vUv.x > 1.0 - borderSize ||
-              vUv.y < borderSize || vUv.y > 1.0 - borderSize) {
-            color = vec4(1.0, 1.0, 1.0, 0.8);
+          // Check if we're inside the bar area (with outline)
+          bool inBarArea = vUv.x >= outlineX && vUv.x <= 1.0 - outlineX &&
+                           vUv.y >= outlineY && vUv.y <= 1.0 - outlineY;
+
+          if (!inBarArea) {
+            // Outside bar: thin dark outline
+            // Use smooth edge for anti-aliasing
+            float dx = min(vUv.x, 1.0 - vUv.x);
+            float dy = min(vUv.y, 1.0 - vUv.y);
+            float edgeDist = min(dx / outlineX, dy / outlineY);
+            float outlineAlpha = smoothstep(0.0, 0.5, edgeDist) * 0.6;
+            gl_FragColor = vec4(0.0, 0.0, 0.0, outlineAlpha);
+            return;
           }
 
-          // Health fill
-          float healthWidth = barStart + (barEnd - barStart) * vHealth;
-          if (vUv.x >= barStart && vUv.x <= healthWidth &&
-              vUv.y >= barTop && vUv.y <= barBottom) {
+          // Inside bar area: health fill or empty background
+          float innerX = (vUv.x - outlineX) / (1.0 - 2.0 * outlineX);
+          float healthFill = step(innerX, vHealth);
+
+          if (healthFill > 0.5) {
+            // Health fill color
             vec3 fillColor;
-            // Check if fixed color is set (non-zero)
             if (dot(vBarColor, vBarColor) > 0.01) {
               fillColor = vBarColor;
             } else {
-              // Dynamic color: green → yellow → red
+              // Dynamic: green → yellow → red
               if (vHealth > 0.6) {
-                fillColor = vec3(0.133, 0.773, 0.369); // #22c55e green
+                fillColor = vec3(0.133, 0.773, 0.369); // #22c55e
               } else if (vHealth > 0.3) {
-                fillColor = vec3(0.918, 0.702, 0.031); // #eab308 yellow
+                fillColor = vec3(0.918, 0.702, 0.031); // #eab308
               } else {
-                fillColor = vec3(0.937, 0.267, 0.267); // #ef4444 red
+                fillColor = vec3(0.937, 0.267, 0.267); // #ef4444
               }
             }
-            color = vec4(fillColor, 1.0);
+            gl_FragColor = vec4(fillColor, 0.9);
+          } else {
+            // Empty part: dark background
+            gl_FragColor = vec4(0.0, 0.0, 0.0, 0.4);
           }
-
-          gl_FragColor = color;
         }
       `,
       transparent: true,

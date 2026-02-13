@@ -6,6 +6,7 @@ import { Vector3 } from 'three';
 export interface CoordinateSync {
   geoToLocal(lat: number, lon: number, height: number): Vector3;
   geoToLocalSimple(lat: number, lon: number, height: number): Vector3;
+  geoToLocalSimpleInto(lat: number, lon: number, height: number, target: Vector3): Vector3;
   localToGeo?(vec: Vector3): { lat: number; lon: number; height: number };
 }
 

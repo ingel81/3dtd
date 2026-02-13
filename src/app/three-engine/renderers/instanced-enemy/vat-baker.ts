@@ -7,6 +7,8 @@ import {
   RGBAFormat,
   SkinnedMesh,
   Vector3,
+  Matrix4,
+  Matrix3,
   Object3D,
   BufferGeometry,
   Texture,
@@ -44,9 +46,16 @@ export interface VATData {
   isUnlit: boolean;
   /** Baking FPS */
   fps: number;
+  /** Actual texture width (capped for GPU limits) */
+  texWidth: number;
+  /** Number of texture rows per animation frame (≥ 1) */
+  rowsPerFrame: number;
+  /** Material base color (fallback when no diffuse map) */
+  baseColor: { r: number; g: number; b: number };
 }
 
 const DEFAULT_BAKE_FPS = 30;
+const MAX_VAT_WIDTH = 8192;
 
 /**
  * Bake skeletal animations into a Vertex Animation Texture (VAT).
@@ -66,11 +75,17 @@ export function bakeVAT(
   clipNames: string[],
   fps: number = DEFAULT_BAKE_FPS,
 ): VATData | null {
-  // Find the primary SkinnedMesh
+  // Find the largest SkinnedMesh (most vertices = main body)
   let skinnedMesh: SkinnedMesh | null = null;
+  let maxSkinnedVertices = 0;
   modelRoot.traverse((node) => {
-    if (!skinnedMesh && (node as SkinnedMesh).isSkinnedMesh) {
-      skinnedMesh = node as SkinnedMesh;
+    if ((node as SkinnedMesh).isSkinnedMesh) {
+      const sm = node as SkinnedMesh;
+      const count = sm.geometry.getAttribute('position')?.count ?? 0;
+      if (count > maxSkinnedVertices) {
+        maxSkinnedVertices = count;
+        skinnedMesh = sm;
+      }
     }
   });
 
@@ -111,8 +126,24 @@ export function bakeVAT(
     totalFrames += frameCount;
   }
 
-  // Allocate VAT data (width=vertexCount, height=totalFrames, RGBA32F)
-  const data = new Float32Array(vertexCount * totalFrames * 4);
+  // Compute mesh-to-root transform: applyBoneTransform returns positions
+  // in SkinnedMesh local space. If the mesh is nested inside groups with
+  // transforms, we need to convert to model-root space.
+  modelRoot.updateMatrixWorld(true);
+  const meshToRoot = new Matrix4();
+  const rootInverse = new Matrix4().copy(modelRoot.matrixWorld).invert();
+  meshToRoot.multiplyMatrices(rootInverse, sm.matrixWorld);
+
+  // Also transform normals in the cloned geometry later
+  const normalMatrix = new Matrix3().getNormalMatrix(meshToRoot);
+
+  // Compute tiled texture dimensions (cap width to GPU-safe limit)
+  const texWidth = Math.min(vertexCount, MAX_VAT_WIDTH);
+  const rowsPerFrame = Math.ceil(vertexCount / texWidth);
+  const texHeight = totalFrames * rowsPerFrame;
+
+  // Allocate VAT data (width=texWidth, height=texHeight, RGBA32F)
+  const data = new Float32Array(texWidth * texHeight * 4);
   const tempVec = new Vector3();
 
   // Bake each clip using a fresh mixer
@@ -134,14 +165,17 @@ export function bakeVAT(
       mixer.setTime(time);
       modelRoot.updateMatrixWorld(true);
 
-      // Bake each vertex position
-      const rowOffset = (entry.frameStart + frame) * vertexCount * 4;
-
+      // Bake each vertex position (tiled layout for large vertex counts)
       for (let v = 0; v < vertexCount; v++) {
         tempVec.fromBufferAttribute(posAttr, v);
         sm.applyBoneTransform(v, tempVec);
+        // Transform from mesh-local to model-root space
+        tempVec.applyMatrix4(meshToRoot);
 
-        const offset = rowOffset + v * 4;
+        const col = v % texWidth;
+        const localRow = Math.floor(v / texWidth);
+        const globalRow = (entry.frameStart + frame) * rowsPerFrame + localRow;
+        const offset = (globalRow * texWidth + col) * 4;
         data[offset] = tempVec.x;
         data[offset + 1] = tempVec.y;
         data[offset + 2] = tempVec.z;
@@ -157,20 +191,24 @@ export function bakeVAT(
   }
 
   // Create DataTexture
-  const positionTexture = new DataTexture(data, vertexCount, totalFrames, RGBAFormat, FloatType);
+  const positionTexture = new DataTexture(data, texWidth, texHeight, RGBAFormat, FloatType);
   positionTexture.minFilter = NearestFilter;
   positionTexture.magFilter = NearestFilter;
   positionTexture.needsUpdate = true;
 
-  // Extract diffuse texture from material
+  // Extract material properties
   let diffuseMap: Texture | null = null;
   let isUnlit = false;
+  let baseColor = { r: 1.0, g: 1.0, b: 1.0 };
   const meshMaterial = (sm as Mesh).material as Material;
   if (meshMaterial) {
     const typed = meshMaterial as MeshStandardMaterial & MeshBasicMaterial;
     if (typed.map) {
       diffuseMap = typed.map;
     }
+    if (typed.color) {
+      baseColor = { r: typed.color.r, g: typed.color.g, b: typed.color.b };
+    }
     isUnlit = meshMaterial instanceof MeshBasicMaterial;
   }
 
@@ -180,72 +218,230 @@ export function bakeVAT(
   for (let i = 0; i < vertexCount; i++) vertexIndices[i] = i;
   clonedGeometry.setAttribute('aVertexIndex', new BufferAttribute(vertexIndices, 1));
 
+  // Transform normals from mesh-local to model-root space
+  const normalAttr = clonedGeometry.getAttribute('normal');
+  if (normalAttr) {
+    const tempNormal = new Vector3();
+    for (let i = 0; i < normalAttr.count; i++) {
+      tempNormal.fromBufferAttribute(normalAttr, i);
+      tempNormal.applyMatrix3(normalMatrix).normalize();
+      (normalAttr as BufferAttribute).setXYZ(i, tempNormal.x, tempNormal.y, tempNormal.z);
+    }
+    normalAttr.needsUpdate = true;
+  }
+
   // Remove skinning attributes (not needed for VAT rendering)
   clonedGeometry.deleteAttribute('skinIndex');
   clonedGeometry.deleteAttribute('skinWeight');
+
+  // Per-vertex color and texture flag (for shader: use texture vs vertex color)
+  const vertexColorData = new Float32Array(vertexCount * 3);
+  const useMapData = new Float32Array(vertexCount);
+  const hasMap = diffuseMap !== null;
+  for (let i = 0; i < vertexCount; i++) {
+    vertexColorData[i * 3] = baseColor.r;
+    vertexColorData[i * 3 + 1] = baseColor.g;
+    vertexColorData[i * 3 + 2] = baseColor.b;
+    useMapData[i] = hasMap ? 1.0 : 0.0;
+  }
+  clonedGeometry.setAttribute('aVertexColor', new BufferAttribute(vertexColorData, 3));
+  clonedGeometry.setAttribute('aUseMap', new BufferAttribute(useMapData, 1));
 
   return {
     positionTexture,
     vertexCount,
     totalFrames,
+    texWidth,
+    rowsPerFrame,
     animations: animEntries,
     geometry: clonedGeometry,
     diffuseMap,
+    baseColor,
     isUnlit,
     fps,
   };
 }
 
 /**
- * Bake a static (non-animated) mesh into a 1-frame VAT.
+ * Bake a static (non-animated) model into a 1-frame VAT.
  * Used for enemy types without skeletal animations (e.g., tank).
+ * Merges ALL meshes in the model into a single geometry to handle
+ * multi-mesh models correctly.
  */
 export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
-  // Find first Mesh
-  let mesh: Mesh | null = null;
+  // Collect all non-skinned meshes
+  const meshes: Mesh[] = [];
   modelRoot.traverse((node) => {
-    if (!mesh && (node as Mesh).isMesh) {
-      mesh = node as Mesh;
+    if ((node as Mesh).isMesh && !(node as SkinnedMesh).isSkinnedMesh) {
+      meshes.push(node as Mesh);
     }
   });
 
-  if (!mesh) return null;
+  if (meshes.length === 0) return null;
 
-  const geometry = (mesh as Mesh).geometry;
-  const posAttr = geometry.getAttribute('position');
-  const vertexCount = posAttr.count;
+  modelRoot.updateMatrixWorld(true);
+  const rootInverse = new Matrix4().copy(modelRoot.matrixWorld).invert();
 
-  // Create 1-frame VAT with rest-pose positions
-  const data = new Float32Array(vertexCount * 1 * 4);
-  for (let v = 0; v < vertexCount; v++) {
-    data[v * 4] = posAttr.getX(v);
-    data[v * 4 + 1] = posAttr.getY(v);
-    data[v * 4 + 2] = posAttr.getZ(v);
-    data[v * 4 + 3] = 1.0;
+  // Collect per-mesh info and find best material source
+  interface MeshInfo {
+    mesh: Mesh;
+    meshToRoot: Matrix4;
+    normalMatrix: Matrix3;
+    vertexCount: number;
+  }
+  const meshInfos: MeshInfo[] = [];
+  let totalVertices = 0;
+  let diffuseMap: Texture | null = null;
+  let bestMapVertices = 0;
+  let baseColor = { r: 1.0, g: 1.0, b: 1.0 };
+  let bestColorVertices = 0;
+  let isUnlit = false;
+
+  for (const m of meshes) {
+    const posAttr = m.geometry.getAttribute('position');
+    if (!posAttr) continue;
+
+    const count = posAttr.count;
+    const meshToRoot = new Matrix4();
+    meshToRoot.multiplyMatrices(rootInverse, m.matrixWorld);
+    const normalMatrix = new Matrix3().getNormalMatrix(meshToRoot);
+
+    meshInfos.push({ mesh: m, meshToRoot, normalMatrix, vertexCount: count });
+    totalVertices += count;
+
+    // Track best texture and color (prefer mesh with most vertices)
+    const mat = m.material as MeshStandardMaterial & MeshBasicMaterial;
+    if (mat) {
+      if (mat.map && count > bestMapVertices) {
+        diffuseMap = mat.map;
+        bestMapVertices = count;
+      }
+      if (mat.color && count > bestColorVertices) {
+        baseColor = { r: mat.color.r, g: mat.color.g, b: mat.color.b };
+        bestColorVertices = count;
+      }
+      if (m.material instanceof MeshBasicMaterial) isUnlit = true;
+    }
+
   }
 
-  const positionTexture = new DataTexture(data, vertexCount, 1, RGBAFormat, FloatType);
+  if (totalVertices === 0) return null;
+
+  // Build merged geometry: positions, normals, UVs, vertex colors, indices
+  const mergedPositions = new Float32Array(totalVertices * 3);
+  const mergedNormals = new Float32Array(totalVertices * 3);
+  const mergedUVs = new Float32Array(totalVertices * 2);
+  const mergedColors = new Float32Array(totalVertices * 3);
+  const mergedUseMap = new Float32Array(totalVertices);
+  const mergedIndices: number[] = [];
+  const tempVec = new Vector3();
+  const tempNormal = new Vector3();
+
+  let vertexOffset = 0;
+  for (const info of meshInfos) {
+    const geo = info.mesh.geometry;
+    const posAttr = geo.getAttribute('position');
+    const normalAttr = geo.getAttribute('normal');
+    const uvAttr = geo.getAttribute('uv');
+
+    // Per-mesh material color and texture flag
+    const mat = info.mesh.material as MeshStandardMaterial & MeshBasicMaterial;
+    const meshHasSharedMap = !!(mat && mat.map && mat.map === diffuseMap);
+    const cr = mat && mat.color ? mat.color.r : 1.0;
+    const cg = mat && mat.color ? mat.color.g : 1.0;
+    const cb = mat && mat.color ? mat.color.b : 1.0;
+
+    for (let i = 0; i < info.vertexCount; i++) {
+      const vi = vertexOffset + i;
+
+      // Position → root space
+      tempVec.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+      tempVec.applyMatrix4(info.meshToRoot);
+      mergedPositions[vi * 3] = tempVec.x;
+      mergedPositions[vi * 3 + 1] = tempVec.y;
+      mergedPositions[vi * 3 + 2] = tempVec.z;
+
+      // Normal → root space
+      if (normalAttr) {
+        tempNormal.set(normalAttr.getX(i), normalAttr.getY(i), normalAttr.getZ(i));
+        tempNormal.applyMatrix3(info.normalMatrix).normalize();
+        mergedNormals[vi * 3] = tempNormal.x;
+        mergedNormals[vi * 3 + 1] = tempNormal.y;
+        mergedNormals[vi * 3 + 2] = tempNormal.z;
+      } else {
+        mergedNormals[vi * 3 + 1] = 1.0; // default up normal
+      }
+
+      // UV (pass through)
+      if (uvAttr) {
+        mergedUVs[vi * 2] = uvAttr.getX(i);
+        mergedUVs[vi * 2 + 1] = uvAttr.getY(i);
+      }
+
+      // Per-vertex color and texture flag
+      if (meshHasSharedMap) {
+        // This mesh uses the shared texture → white vertex color, flag=1
+        mergedColors[vi * 3] = 1.0;
+        mergedColors[vi * 3 + 1] = 1.0;
+        mergedColors[vi * 3 + 2] = 1.0;
+        mergedUseMap[vi] = 1.0;
+      } else {
+        // No texture for this mesh → use material color
+        mergedColors[vi * 3] = cr;
+        mergedColors[vi * 3 + 1] = cg;
+        mergedColors[vi * 3 + 2] = cb;
+        mergedUseMap[vi] = 0.0;
+      }
+    }
+
+    // Indices (offset by vertexOffset)
+    if (geo.index) {
+      for (let i = 0; i < geo.index.count; i++) {
+        mergedIndices.push(geo.index.getX(i) + vertexOffset);
+      }
+    } else {
+      for (let i = 0; i < info.vertexCount; i++) {
+        mergedIndices.push(vertexOffset + i);
+      }
+    }
+
+    vertexOffset += info.vertexCount;
+  }
+
+  // Create merged BufferGeometry
+  const mergedGeometry = new BufferGeometry();
+  mergedGeometry.setAttribute('position', new BufferAttribute(mergedPositions, 3));
+  mergedGeometry.setAttribute('normal', new BufferAttribute(mergedNormals, 3));
+  mergedGeometry.setAttribute('uv', new BufferAttribute(mergedUVs, 2));
+  mergedGeometry.setIndex(mergedIndices);
+
+  // Add vertex index, vertex color, and texture flag attributes
+  const vertexIndices = new Float32Array(totalVertices);
+  for (let i = 0; i < totalVertices; i++) vertexIndices[i] = i;
+  mergedGeometry.setAttribute('aVertexIndex', new BufferAttribute(vertexIndices, 1));
+  mergedGeometry.setAttribute('aVertexColor', new BufferAttribute(mergedColors, 3));
+  mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
+
+  // VAT texture: 1-frame with tiled layout
+  const texWidth = Math.min(totalVertices, MAX_VAT_WIDTH);
+  const rowsPerFrame = Math.ceil(totalVertices / texWidth);
+  const texHeight = rowsPerFrame;
+
+  const data = new Float32Array(texWidth * texHeight * 4);
+  for (let v = 0; v < totalVertices; v++) {
+    const col = v % texWidth;
+    const localRow = Math.floor(v / texWidth);
+    const offset = (localRow * texWidth + col) * 4;
+    data[offset] = mergedPositions[v * 3];
+    data[offset + 1] = mergedPositions[v * 3 + 1];
+    data[offset + 2] = mergedPositions[v * 3 + 2];
+    data[offset + 3] = 1.0;
+  }
+
+  const positionTexture = new DataTexture(data, texWidth, texHeight, RGBAFormat, FloatType);
   positionTexture.minFilter = NearestFilter;
   positionTexture.magFilter = NearestFilter;
   positionTexture.needsUpdate = true;
-
-  // Extract diffuse texture
-  let diffuseMap: Texture | null = null;
-  let isUnlit = false;
-  const meshMaterial = (mesh as Mesh).material as Material;
-  if (meshMaterial) {
-    const typed = meshMaterial as MeshStandardMaterial & MeshBasicMaterial;
-    if (typed.map) diffuseMap = typed.map;
-    isUnlit = meshMaterial instanceof MeshBasicMaterial;
-  }
-
-  // Clone geometry and add vertex index attribute
-  const clonedGeometry = geometry.clone();
-  const vertexIndices = new Float32Array(vertexCount);
-  for (let i = 0; i < vertexCount; i++) vertexIndices[i] = i;
-  clonedGeometry.setAttribute('aVertexIndex', new BufferAttribute(vertexIndices, 1));
-  clonedGeometry.deleteAttribute('skinIndex');
-  clonedGeometry.deleteAttribute('skinWeight');
 
   // Single "static" animation entry
   const animations = new Map<string, VATAnimationEntry>();
@@ -258,11 +454,14 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
 
   return {
     positionTexture,
-    vertexCount,
+    vertexCount: totalVertices,
     totalFrames: 1,
+    texWidth,
+    rowsPerFrame,
     animations,
-    geometry: clonedGeometry,
+    geometry: mergedGeometry,
     diffuseMap,
+    baseColor,
     isUnlit,
     fps: DEFAULT_BAKE_FPS,
   };

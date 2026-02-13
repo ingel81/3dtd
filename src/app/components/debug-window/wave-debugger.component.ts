@@ -43,10 +43,10 @@ import { EnemyTypeId } from '../../models/enemy-types';
 
             <div class="slider-row">
               <span class="label">Count</span>
-              <input type="range" min="1" max="500" step="1"
+              <input type="range" min="1" max="20000" step="1"
                      [value]="waveDebug.enemyCount()"
                      (input)="onEnemyCountChange($event)" />
-              <input type="number" class="number-input" min="1" max="500"
+              <input type="number" class="number-input" min="1" max="20000"
                      [value]="waveDebug.enemyCount()"
                      (change)="onEnemyCountChange($event)" />
             </div>

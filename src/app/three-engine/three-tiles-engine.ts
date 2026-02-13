@@ -299,6 +299,7 @@ export class ThreeTilesEngine {
     const coordinateSync: CoordinateSync = {
       geoToLocal: (lat: number, lon: number, height: number) => this.sync.geoToLocalSimple(lat, lon, height),
       geoToLocalSimple: (lat: number, lon: number, height: number) => this.sync.geoToLocalSimple(lat, lon, height),
+      geoToLocalSimpleInto: (lat: number, lon: number, height: number, target: Vector3) => this.sync.geoToLocalSimpleInto(lat, lon, height, target),
       localToGeo: (vec: Vector3) => this.sync.localToGeo(vec),
     };
 
