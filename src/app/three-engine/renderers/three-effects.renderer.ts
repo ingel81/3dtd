@@ -10,13 +10,10 @@ import {
   BufferAttribute,
   AdditiveBlending,
   NormalBlending,
-  Sprite,
-  SpriteMaterial,
   Mesh,
   MeshBasicMaterial,
   SphereGeometry,
   PlaneGeometry,
-  CanvasTexture,
   Texture,
   Material,
   Uniform,
@@ -35,6 +32,8 @@ const TRAIL_ADDITIVE_POOL_SIZE = PARTICLE_LIMITS.maxTrailParticlesPerPool;
 const TRAIL_NORMAL_POOL_SIZE = PARTICLE_LIMITS.maxTrailNormalParticlesPerPool;
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
+import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
+import type { Camera } from 'three';
 
 /**
  * Particle data for GPU
@@ -90,21 +89,6 @@ export interface FloatingTextConfig {
   outlineColor?: string;
   /** Outline width (default: 3) */
   outlineWidth?: number;
-}
-
-/**
- * Active floating text instance
- */
-interface FloatingTextInstance {
-  id: string;
-  sprite: Sprite;
-  startTime: number;
-  duration: number;
-  floatSpeed: number;
-  startY: number;
-  baseScaleX: number;
-  baseScaleY: number;
-  active: boolean;
 }
 
 /**
@@ -193,14 +177,8 @@ export class ThreeEffectsRenderer {
   private readonly ICE_DECAL_FADE_DURATION = ICE_DECAL_CONFIG.fadeDuration;
   private decalIdCounter = 0;
 
-  // Floating text pool
-  private floatingTexts: FloatingTextInstance[] = [];
-  private readonly MAX_FLOATING_TEXTS = PARTICLE_LIMITS.maxFloatingTexts;
-  private floatingTextIdCounter = 0;
-  private freeTextIndices: number[] = [];
-
-  // Shared canvas for createTextTexture (reused since rendering is synchronous)
-  private _sharedCanvas: HTMLCanvasElement | null = null;
+  // GPU-instanced floating text system (1 draw call for all texts)
+  private floatingTextManager!: FloatingTextInstanceManager;
 
   // Frost aura tracking (orbiting ice particles per enemy)
   private activeFrostAuras = new Map<string, { particles: Particle[]; localPosition: Vector3; orbitAngle: number }>();
@@ -211,6 +189,9 @@ export class ThreeEffectsRenderer {
   constructor(scene: Scene, sync: CoordinateSync) {
     this.scene = scene;
     this.sync = sync;
+
+    // GPU-instanced floating text system
+    this.floatingTextManager = new FloatingTextInstanceManager(scene, sync);
 
     // PointsMaterial for additive blending (fire, tracers, glow effects)
     // Note: PointsMaterial works correctly with 3D tiles, ShaderMaterial has depth issues
@@ -1987,149 +1968,16 @@ export class ThreeEffectsRenderer {
     lon: number,
     height: number,
     config: FloatingTextConfig = {}
-  ): string {
-    const {
-      color = '#FFD700', // Gold
-      fontSize = 48,
-      duration = 1000,
-      floatSpeed = 2,
-      scale = 1,
-      outlineColor = '#000000',
-      outlineWidth = 3,
-    } = config;
-
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    const id = `text_${this.floatingTextIdCounter++}`;
-
-    // Try to reuse inactive sprite (O(1) via free-stack)
-    let instance: FloatingTextInstance | undefined;
-    if (this.freeTextIndices.length > 0) {
-      instance = this.floatingTexts[this.freeTextIndices.pop()!];
-    }
-
-    if (!instance) {
-      if (this.floatingTexts.length >= this.MAX_FLOATING_TEXTS) {
-        // Reuse oldest
-        let oldest = this.floatingTexts[0];
-        for (const t of this.floatingTexts) {
-          if (t.startTime < oldest.startTime) {
-            oldest = t;
-          }
-        }
-        instance = oldest;
-      } else {
-        // Create new sprite
-        const spriteMaterial = new SpriteMaterial({
-          transparent: true,
-          depthTest: false,
-          depthWrite: false,
-        });
-        const sprite = new Sprite(spriteMaterial);
-        this.scene.add(sprite);
-
-        instance = {
-          id: '',
-          sprite,
-          startTime: 0,
-          duration: 0,
-          floatSpeed: 0,
-          startY: 0,
-          baseScaleX: 0,
-          baseScaleY: 0,
-          active: false,
-        };
-        this.floatingTexts.push(instance);
-      }
-    }
-
-    // Create text texture
-    const texture = this.createTextTexture(text, color, fontSize, outlineColor, outlineWidth);
-    const material = instance.sprite.material as SpriteMaterial;
-
-    // Dispose old texture if exists
-    if (material.map) {
-      material.map.dispose();
-    }
-
-    material.map = texture;
-    material.opacity = 1;
-    material.needsUpdate = true;
-
-    // Calculate sprite size based on text
-    const aspect = texture.image.width / texture.image.height;
-    const baseSize = scale * 3; // Base size in world units
-    instance.sprite.scale.set(baseSize * aspect, baseSize, 1);
-
-    // Position sprite
-    instance.sprite.position.copy(localPos);
-    instance.sprite.visible = true;
-
-    // Configure instance
-    instance.id = id;
-    instance.startTime = performance.now();
-    instance.duration = duration;
-    instance.floatSpeed = floatSpeed;
-    instance.startY = localPos.y;
-    instance.baseScaleX = baseSize * aspect;
-    instance.baseScaleY = baseSize;
-    instance.active = true;
-
-    return id;
+  ): void {
+    this.floatingTextManager.spawn(text, lat, lon, height, config);
   }
 
   /**
-   * Create a canvas texture with text
+   * Update floating text billboard uniforms and reclaim expired instances.
+   * Must be called with the active camera for correct billboard orientation.
    */
-  private createTextTexture(
-    text: string,
-    color: string,
-    fontSize: number,
-    outlineColor: string,
-    outlineWidth: number
-  ): CanvasTexture {
-    if (!this._sharedCanvas) {
-      this._sharedCanvas = document.createElement('canvas');
-    }
-    const canvas = this._sharedCanvas;
-    const ctx = canvas.getContext('2d')!;
-
-    // Set font to measure text
-    const font = `bold ${fontSize}px Arial, sans-serif`;
-    ctx.font = font;
-    const metrics = ctx.measureText(text);
-
-    // Canvas size with padding for outline
-    const padding = outlineWidth * 2 + 4;
-    canvas.width = Math.ceil(metrics.width) + padding * 2;
-    canvas.height = fontSize + padding * 2;
-
-    // Clear canvas
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-    // Set font again after resize
-    ctx.font = font;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-
-    const centerX = canvas.width / 2;
-    const centerY = canvas.height / 2;
-
-    // Draw outline
-    if (outlineWidth > 0) {
-      ctx.strokeStyle = outlineColor;
-      ctx.lineWidth = outlineWidth;
-      ctx.lineJoin = 'round';
-      ctx.strokeText(text, centerX, centerY);
-    }
-
-    // Draw fill
-    ctx.fillStyle = color;
-    ctx.fillText(text, centerX, centerY);
-
-    const texture = new CanvasTexture(canvas);
-    texture.needsUpdate = true;
-
-    return texture;
+  updateFloatingTexts(camera: Camera): void {
+    this.floatingTextManager.update(camera);
   }
 
   /**
@@ -2252,36 +2100,7 @@ export class ThreeEffectsRenderer {
       }
     }
 
-    // Update floating texts (rise + fade)
-    for (let i = 0; i < this.floatingTexts.length; i++) {
-      const textInstance = this.floatingTexts[i];
-      if (!textInstance.active) continue;
-
-      const elapsed = now - textInstance.startTime;
-      const progress = Math.min(elapsed / textInstance.duration, 1);
-
-      // Float upward
-      textInstance.sprite.position.y = textInstance.startY + progress * textInstance.floatSpeed * 3;
-
-      // Fade out (start fading at 50% progress)
-      const fadeProgress = Math.max(0, (progress - 0.5) * 2);
-      (textInstance.sprite.material as SpriteMaterial).opacity = 1 - fadeProgress;
-
-      // Scale up slightly as it rises (use stored base scale to prevent exponential growth)
-      const scaleMultiplier = 1 + progress * 0.3;
-      textInstance.sprite.scale.set(
-        textInstance.baseScaleX * scaleMultiplier,
-        textInstance.baseScaleY * scaleMultiplier,
-        1
-      );
-
-      // Mark as inactive when done and return index to free-stack
-      if (progress >= 1) {
-        textInstance.active = false;
-        textInstance.sprite.visible = false;
-        this.freeTextIndices.push(i);
-      }
-    }
+    // Floating texts are updated via updateFloatingTexts(camera) called from the engine
 
     // Update trail particles - ADDITIVE pool (skip when idle)
     if (this._prevActiveCountAdditive > 0 || this._poolDirtyAdditive) {
@@ -2691,13 +2510,8 @@ export class ThreeEffectsRenderer {
       this.iceDecalManager.clear();
     }
 
-    // Hide all floating texts and rebuild free-stack
-    this.freeTextIndices = [];
-    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
-      this.floatingTexts[i].active = false;
-      this.floatingTexts[i].sprite.visible = false;
-      this.freeTextIndices.push(i);
-    }
+    // Clear GPU-instanced floating texts
+    this.floatingTextManager.clear();
 
     // Clear debug spheres
     this.clearDebugSpheres();
@@ -2732,18 +2546,8 @@ export class ThreeEffectsRenderer {
       this.iceDecalManager.dispose();
     }
 
-    // Dispose floating texts
-    for (const textInstance of this.floatingTexts) {
-      this.scene.remove(textInstance.sprite);
-      const material = textInstance.sprite.material as SpriteMaterial;
-      if (material.map) {
-        material.map.dispose();
-      }
-      material.dispose();
-    }
-    this.floatingTexts = [];
-    this.freeTextIndices = [];
-    this._sharedCanvas = null;
+    // Dispose GPU-instanced floating texts
+    this.floatingTextManager.dispose();
 
     this.trailMaterialAdditive?.dispose();
     this.trailMaterialNormal?.dispose();

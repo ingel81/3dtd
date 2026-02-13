@@ -11,7 +11,6 @@ export const PARTICLE_LIMITS = {
   maxTrailParticlesPerPool: 3000,
   /** Trail normal pool serves: smoke, cannon trails, blood splatter */
   maxTrailNormalParticlesPerPool: 4000,
-  maxFloatingTexts: 200,
 } as const;
 
 /** Blood decal configuration */

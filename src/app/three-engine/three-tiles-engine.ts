@@ -1566,6 +1566,9 @@ export class ThreeTilesEngine {
     // Update particle effects
     this.effects.update(deltaTime);
 
+    // Update GPU-instanced floating texts (needs camera for billboard orientation)
+    this.effects.updateFloatingTexts(this.camera);
+
     // Update flame beam shader animations
     this.flameBeams.update(deltaTime);
 
