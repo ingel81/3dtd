@@ -212,6 +212,11 @@ export class ThreeTilesEngine {
   private animationFrameId: number | null = null;
   private isRunning = false;
 
+  /** Target FPS limit (0 = unlimited/vsync) */
+  private _fpsLimit = 0;
+  /** Minimum frame interval in ms (derived from _fpsLimit) */
+  private _minFrameInterval = 0;
+
   // Tile provider credentials
   private cesiumIonToken: string;
   private cesiumAssetId: string;
@@ -324,6 +329,12 @@ export class ThreeTilesEngine {
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
+
+    // Load saved FPS limit from localStorage
+    const savedFps = localStorage.getItem('3dtd-fps-limit');
+    if (savedFps !== null) {
+      this.setFpsLimit(Number(savedFps));
+    }
 
   }
 
@@ -1590,6 +1601,20 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Set the FPS limit. 0 = unlimited (vsync), 30 = 30fps, 60 = 60fps.
+   * Persisted to localStorage.
+   */
+  setFpsLimit(fps: number): void {
+    this._fpsLimit = fps;
+    this._minFrameInterval = fps > 0 ? 1000 / fps : 0;
+    localStorage.setItem('3dtd-fps-limit', String(fps));
+  }
+
+  getFpsLimit(): number {
+    return this._fpsLimit;
+  }
+
+  /**
    * Start the render loop
    */
   startRenderLoop(): void {
@@ -1599,6 +1624,15 @@ export class ThreeTilesEngine {
     let lastTime = performance.now();
     const animate = (currentTime: number) => {
       if (!this.isRunning) return;
+
+      // FPS limiting: skip frame if not enough time has elapsed
+      if (this._minFrameInterval > 0) {
+        const elapsed = currentTime - lastTime;
+        if (elapsed < this._minFrameInterval) {
+          this.animationFrameId = requestAnimationFrame(animate);
+          return;
+        }
+      }
 
       const deltaTime = currentTime - lastTime;
       lastTime = currentTime;

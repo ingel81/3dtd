@@ -13,7 +13,7 @@ import {
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
 import { Enemy } from './enemy.entity';
-import { geoDistanceFast } from '../utils/geo-utils';
+import { geoDistanceFast, geoDistanceFastSq } from '../utils/geo-utils';
 
 /**
  * Projectile entity - combines Transform, Combat, Movement, and Render components
@@ -212,13 +212,13 @@ export class Projectile extends GameObject {
     const targetPos = this._targetLost
       ? this._lastTargetPosition!
       : this.targetEnemy.position;
-    const dist = geoDistanceFast(this.position, targetPos);
+    const distSq = geoDistanceFastSq(this.position, targetPos);
     const moveDistance = (this.movement.speedMps * deltaTime) / 1000;
 
     // Track traveled distance for progress calculation
     this._traveledDistance += moveDistance;
 
-    if (dist <= moveDistance) {
+    if (distSq <= moveDistance * moveDistance) {
       // Hit target (or ground if target was lost)
       this.transform.setPosition(targetPos.lat, targetPos.lon);
       // If target lost, hit ground level; otherwise hit enemy height
@@ -228,7 +228,8 @@ export class Projectile extends GameObject {
       return true;
     }
 
-    // Move towards target
+    // Move towards target (compute actual distance only on non-hit path)
+    const dist = Math.sqrt(distSq);
     const ratio = moveDistance / dist;
     const newLat = this.position.lat + (targetPos.lat - this.position.lat) * ratio;
     const newLon = this.position.lon + (targetPos.lon - this.position.lon) * ratio;

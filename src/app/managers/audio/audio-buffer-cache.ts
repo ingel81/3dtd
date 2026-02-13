@@ -10,8 +10,9 @@ export class AudioBufferCache {
   /** URL → cached buffer + loading promise */
   private bufferCache = new Map<string, { buffer: AudioBuffer | null; loading: Promise<AudioBuffer> | null }>();
 
-  /** LRU tracking: oldest first */
-  private bufferAccessOrder: string[] = [];
+  /** LRU tracking: maps URL → access counter (higher = more recent) */
+  private accessTimestamps = new Map<string, number>();
+  private accessCounter = 0;
 
   /** Maximum number of cached buffers */
   private readonly MAX_CACHED_BUFFERS = 50;
@@ -75,31 +76,33 @@ export class AudioBufferCache {
   }
 
   /**
-   * LRU: Move URL to end of access order (most recently used).
+   * LRU: Mark URL as most recently used via incrementing counter.
    */
   private touchBuffer(url: string): void {
-    const idx = this.bufferAccessOrder.indexOf(url);
-    if (idx !== -1) {
-      this.bufferAccessOrder.splice(idx, 1);
-    }
-    this.bufferAccessOrder.push(url);
+    this.accessTimestamps.set(url, ++this.accessCounter);
   }
 
   /**
    * LRU: Evict oldest buffers if cache exceeds limit.
    */
   private evictOldestBuffers(): void {
-    while (this.bufferAccessOrder.length > this.MAX_CACHED_BUFFERS) {
-      const oldest = this.bufferAccessOrder.shift();
-      if (oldest) {
-        const cached = this.bufferCache.get(oldest);
-        if (cached && !cached.loading) {
-          this.bufferCache.delete(oldest);
-        } else if (cached?.loading) {
-          this.bufferAccessOrder.push(oldest);
-          break;
+    while (this.accessTimestamps.size > this.MAX_CACHED_BUFFERS) {
+      // Find the least-recently-used entry
+      let oldestUrl = '';
+      let oldestTime = Infinity;
+      for (const [url, time] of this.accessTimestamps) {
+        if (time < oldestTime) {
+          const cached = this.bufferCache.get(url);
+          // Don't evict entries that are still loading
+          if (cached && !cached.loading) {
+            oldestTime = time;
+            oldestUrl = url;
+          }
         }
       }
+      if (!oldestUrl) break;
+      this.bufferCache.delete(oldestUrl);
+      this.accessTimestamps.delete(oldestUrl);
     }
   }
 }

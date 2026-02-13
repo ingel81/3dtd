@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { haversineDistance, fastDistance, geoDistance, geoDistanceFast } from './geo-utils';
+import { haversineDistance, fastDistance, fastDistanceSq, geoDistance, geoDistanceFast, geoDistanceFastSq } from './geo-utils';
 
 describe('geo-utils', () => {
   // Well-known coordinates
@@ -129,6 +129,62 @@ describe('geo-utils', () => {
 
     it('returns 0 for same point', () => {
       expect(geoDistanceFast(EQUATOR_ZERO, EQUATOR_ZERO)).toBe(0);
+    });
+  });
+
+  describe('fastDistanceSq()', () => {
+    it('returns 0 for identical points', () => {
+      const d = fastDistanceSq(48.0, 9.0, 48.0, 9.0);
+      expect(d).toBe(0);
+    });
+
+    it('equals fastDistance() squared for known points', () => {
+      const lat1 = 48.7758, lon1 = 9.1829;
+      const lat2 = 48.7767, lon2 = 9.1835;
+
+      const fd = fastDistance(lat1, lon1, lat2, lon2);
+      const fdSq = fastDistanceSq(lat1, lon1, lat2, lon2);
+
+      expect(fdSq).toBeCloseTo(fd * fd, 6);
+    });
+
+    it('equals fastDistance() squared at equator', () => {
+      const fd = fastDistance(0, 0, 0, 0.001);
+      const fdSq = fastDistanceSq(0, 0, 0, 0.001);
+
+      expect(fdSq).toBeCloseTo(fd * fd, 6);
+    });
+
+    it('can be used for range comparisons', () => {
+      const lat1 = 48.7758, lon1 = 9.1829;
+      const lat2 = 48.7767, lon2 = 9.1835;
+
+      const fd = fastDistance(lat1, lon1, lat2, lon2);
+      const fdSq = fastDistanceSq(lat1, lon1, lat2, lon2);
+      const range = fd + 1; // just beyond the distance
+
+      // Both comparisons should agree
+      expect(fd <= range).toBe(true);
+      expect(fdSq <= range * range).toBe(true);
+
+      const shortRange = fd - 1; // just within the distance
+      expect(fd <= shortRange).toBe(false);
+      expect(fdSq <= shortRange * shortRange).toBe(false);
+    });
+  });
+
+  describe('geoDistanceFastSq() wrapper', () => {
+    it('produces same result as fastDistanceSq', () => {
+      const pos1 = { lat: 48.7758, lon: 9.1829 };
+      const pos2 = { lat: 48.7767, lon: 9.1835 };
+
+      const d1 = geoDistanceFastSq(pos1, pos2);
+      const d2 = fastDistanceSq(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+      expect(d1).toBe(d2);
+    });
+
+    it('returns 0 for same point', () => {
+      expect(geoDistanceFastSq(EQUATOR_ZERO, EQUATOR_ZERO)).toBe(0);
     });
   });
 

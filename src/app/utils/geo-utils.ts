@@ -92,3 +92,33 @@ export function geoDistanceFast(
 ): number {
   return fastDistance(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
 }
+
+/**
+ * Fast flat-earth distance SQUARED approximation
+ * Use for range comparisons: fastDistanceSq(...) <= range * range
+ * Avoids the Math.sqrt() call in fastDistance()
+ */
+export function fastDistanceSq(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number {
+  const dLat = lat2 - lat1;
+  const dLon = lon2 - lon1;
+  const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(lat1 * DEG_TO_RAD);
+  const dx = dLon * metersPerDegreeLon;
+  const dy = dLat * METERS_PER_DEGREE_LAT;
+  return dx * dx + dy * dy;
+}
+
+/**
+ * Fast distance squared with GeoPosition-like objects
+ * Use for range comparisons without sqrt
+ */
+export function geoDistanceFastSq(
+  pos1: { lat: number; lon: number },
+  pos2: { lat: number; lon: number }
+): number {
+  return fastDistanceSq(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
+}

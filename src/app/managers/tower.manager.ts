@@ -6,7 +6,7 @@ import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GeoPosition } from '../models/game.types';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
-import { geoDistanceFast } from '../utils/geo-utils';
+import { geoDistanceFastSq } from '../utils/geo-utils';
 import { GameEventBus } from '../game-engine';
 
 /**
@@ -144,24 +144,24 @@ export class TowerManager extends EntityManager<Tower> {
       return { valid: false, reason: 'Not initialized' };
     }
 
-    // Check distance to base
-    const distToBase = geoDistanceFast(position, this.basePosition);
-    if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
+    // Check distance to base (squared comparison avoids sqrt)
+    const distToBaseSq = geoDistanceFastSq(position, this.basePosition);
+    if (distToBaseSq < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE ** 2) {
       return { valid: false, reason: 'Too close to base' };
     }
 
-    // Check distance to spawn points
+    // Check distance to spawn points (squared comparison avoids sqrt)
     for (const spawn of this.spawnPoints) {
-      const distToSpawn = geoDistanceFast(position, spawn);
-      if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
+      const distToSpawnSq = geoDistanceFastSq(position, spawn);
+      if (distToSpawnSq < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN ** 2) {
         return { valid: false, reason: 'Too close to spawn point' };
       }
     }
 
-    // Check distance to other towers
+    // Check distance to other towers (squared comparison avoids sqrt)
     for (const tower of this.getAll()) {
-      const distToTower = geoDistanceFast(position, tower.position);
-      if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
+      const distToTowerSq = geoDistanceFastSq(position, tower.position);
+      if (distToTowerSq < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER ** 2) {
         return { valid: false, reason: 'Too close to another tower' };
       }
     }
