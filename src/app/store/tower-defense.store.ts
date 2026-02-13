@@ -117,6 +117,9 @@ export class TowerDefenseStore {
   /** Developer menu expanded */
   readonly devMenuExpanded = this.uiStore.devMenuExpanded;
 
+  /** Display settings menu expanded */
+  readonly displayMenuExpanded = this.uiStore.displayMenuExpanded;
+
   /** Street network layer visibility */
   readonly streetsVisible = this.uiStore.streetsVisible;
 

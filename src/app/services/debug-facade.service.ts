@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { UIStore } from '../store/ui.store';
 import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
+import { CombatEffectService } from './combat-effect.service';
 import { GameStateManager } from '../managers/game-state.manager';
 
 /**
@@ -22,6 +23,7 @@ export class DebugFacadeService {
   private readonly uiStore = inject(UIStore);
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly markerViz = inject(MarkerVisualizationService);
+  private readonly combatEffect = inject(CombatEffectService);
 
   /** LocalStorage key for display options */
   private static readonly DISPLAY_OPTIONS_KEY = 'td_display_options';
@@ -179,6 +181,14 @@ export class DebugFacadeService {
   }
 
   /**
+   * Toggle damage numbers and persist
+   */
+  onDamageNumbersToggled(visible: boolean): void {
+    this.combatEffect.damageNumbersEnabled = visible;
+    this.persistDisplayOption('damageNumbers', visible);
+  }
+
+  /**
    * Toggle screen shake and persist
    */
   onScreenShakeToggled(enabled: boolean): void {
@@ -220,6 +230,9 @@ export class DebugFacadeService {
         if (opts.screenShake === false && this.gameState) {
           this.gameState.screenShakeService.disable();
         }
+        if (opts.damageNumbers === false) {
+          this.combatEffect.damageNumbersEnabled = false;
+        }
       }
     } catch { /* ignore corrupt localStorage */ }
   }
@@ -227,7 +240,7 @@ export class DebugFacadeService {
   /**
    * Persist a single display option to localStorage
    */
-  private persistDisplayOption(key: string, value: boolean): void {
+  persistDisplayOption(key: string, value: boolean): void {
     try {
       const stored = localStorage.getItem(DebugFacadeService.DISPLAY_OPTIONS_KEY);
       const opts = stored ? JSON.parse(stored) : {};

@@ -7,6 +7,7 @@ import { DamageApplicationService } from './damage-application.service';
 import { Enemy } from '../entities/enemy.entity';
 import { Projectile } from '../entities/projectile.entity';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { TIMING } from '../configs/timing.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
@@ -28,7 +29,11 @@ export class CombatEffectService {
   private readonly vfx = inject(CombatVfxService);
   private readonly damageService = inject(DamageApplicationService);
 
+  private tilesEngine: ThreeTilesEngine | null = null;
   private eventBus: GameEventBus | null = null;
+
+  /** Whether damage numbers are shown on hits (toggled via display options) */
+  damageNumbersEnabled = true;
 
   /**
    * Initialize with engine reference and subscribe to events
@@ -40,6 +45,7 @@ export class CombatEffectService {
     enemyManager: EnemyManager,
     timescaleProvider: () => number
   ): void {
+    this.tilesEngine = tilesEngine;
     this.eventBus = eventBus;
 
     // Initialize sub-services
@@ -79,6 +85,9 @@ export class CombatEffectService {
       false,
       isIceShard
     );
+
+    // Spawn damage number for direct hit
+    this.spawnDamageNumber(enemy, projectile.damage);
 
     // Apply slow effect for ice-shard
     if (isIceShard) {
@@ -131,6 +140,9 @@ export class CombatEffectService {
           true,
           isIceShard
         );
+
+        // Spawn damage number for splash hit
+        this.spawnDamageNumber(nearbyEnemy, splashDamage);
       }
 
       // Apply slow effect and ice decal to splash targets
@@ -144,6 +156,29 @@ export class CombatEffectService {
         this.vfx.emitIceDecal(nearbyEnemy);
       }
     }
+  }
+
+  /**
+   * Spawn a red floating damage number above an enemy.
+   */
+  private spawnDamageNumber(enemy: Enemy, damage: number): void {
+    if (!this.damageNumbersEnabled || !this.tilesEngine) return;
+    const rounded = Math.round(damage);
+    // Scale text size with damage: small splash hits → small, big direct hits → large
+    const t = Math.min(rounded / 80, 1);
+    const scale = 0.25 + t * 0.3; // 0.25 (low dmg) → 0.55 (high dmg)
+    this.tilesEngine.effects.spawnFloatingText(
+      `-${rounded}`,
+      enemy.position.lat,
+      enemy.position.lon,
+      enemy.transform.terrainHeight + 5,
+      {
+        color: '#FF4444',
+        duration: TIMING.damagePopupDuration,
+        floatSpeed: 1.2,
+        scale,
+      }
+    );
   }
 
   // =====================================================

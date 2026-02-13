@@ -298,9 +298,9 @@ export class ThreeProjectileRenderer {
       fragmentShader: MAGIC_ORB_FRAGMENT,
       uniforms: {
         uTime: { value: 0.0 },
-        uColor1: { value: new Color(0x990000) }, // Deep red
-        uColor2: { value: new Color(0xff3300) }, // Orange-red
-        uColor3: { value: new Color(0xffcc00) }, // Yellow highlights
+        uColor1: { value: new Color(0x8b0000) }, // Dark crimson
+        uColor2: { value: new Color(0xdd1100) }, // Vivid red
+        uColor3: { value: new Color(0xff4400) }, // Red-orange highlights
         uIntensity: { value: 2.5 },
       },
       transparent: true,

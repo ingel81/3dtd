@@ -464,6 +464,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.facade.onDpsBinsToggled(visible);
   }
 
+  onDamageNumbersToggled(visible: boolean): void {
+    this.debugFacade.onDamageNumbersToggled(visible);
+  }
+
   onPlayRouteAnimation(): void {
     this.facade.onPlayRouteAnimation();
   }

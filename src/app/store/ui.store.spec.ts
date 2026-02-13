@@ -22,6 +22,10 @@ describe('UIStore', () => {
       expect(store.devMenuExpanded()).toBe(false);
     });
 
+    it('displayMenuExpanded starts as false', () => {
+      expect(store.displayMenuExpanded()).toBe(false);
+    });
+
     it('all debug visibility flags start as false', () => {
       expect(store.streetsVisible()).toBe(false);
       expect(store.routesVisible()).toBe(false);
@@ -129,6 +133,7 @@ describe('UIStore', () => {
       store.debugMode.set(true);
       store.layerMenuExpanded.set(true);
       store.devMenuExpanded.set(true);
+      store.displayMenuExpanded.set(true);
       store.streetsVisible.set(true);
       store.routesVisible.set(true);
       store.heightDebugVisible.set(true);
@@ -153,6 +158,7 @@ describe('UIStore', () => {
       expect(store.debugMode()).toBe(false);
       expect(store.layerMenuExpanded()).toBe(false);
       expect(store.devMenuExpanded()).toBe(false);
+      expect(store.displayMenuExpanded()).toBe(false);
       expect(store.streetsVisible()).toBe(false);
       expect(store.routesVisible()).toBe(false);
       expect(store.heightDebugVisible()).toBe(false);

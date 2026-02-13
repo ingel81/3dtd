@@ -70,7 +70,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 50,
     visualType: 'cannonball',
     scale: 0.5,
-    splashRadius: 16,
+    splashRadius: 10,
     splashDamageFalloff: true,
     trailParticles: {
       enabled: true,
@@ -119,7 +119,7 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 90,
     visualType: 'ice',
     scale: 0.4,
-    splashRadius: 12,
+    splashRadius: 8,
     splashDamageFalloff: true,
     trailParticles: {
       enabled: true,
