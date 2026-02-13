@@ -6,6 +6,35 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-02-13
 
+### Performance Tier 2+3: Micro-Optimizations
+
+- [x] **Trig vorberechnen im Targeting-Fallback (2.1)**
+      `Math.cos()` und Range-Squaring aus dem per-Enemy-Filter gehoisted in tower-combat.service.ts
+- [x] **Distance² statt sqrt() fuer Range-Checks (2.2)**
+      Neue `fastDistanceSq()`/`geoDistanceFastSq()` in geo-utils.ts, Caller in tower.manager.ts und projectile.entity.ts konvertiert
+- [x] **Canvas Pool fuer Floating Text (2.4)**
+      Shared Canvas-Element statt `document.createElement('canvas')` pro Text in three-effects.renderer.ts
+- [x] **Audio stop() In-Place (2.5)**
+      Backward-Iteration + splice statt Array-Neuallokation in spatial-audio-playback.ts
+- [x] **Tower Animation Distance-LOD (2.8)**
+      3-Tier LOD (<50m full, <100m every 2nd, <200m every 4th, >200m skip) in three-tower.renderer.ts
+- [x] **Early-Exit bei 0 Enemies (3.1)**
+      Guard clause in game-state.manager.ts, ueberspringt enemyManager.update() wenn leer
+- [x] **Trail-Partikel Throttling (3.2)**
+      Spawn nur jeden 2. Frame in projectile.manager.ts (bitwise & 1)
+- [x] **Floating Text Free-Stack (3.3)**
+      O(1) Free-Index-Stack statt O(n) `.find()` in three-effects.renderer.ts
+- [x] **Konfigurierbares FPS-Limit (3.4)**
+      `setFpsLimit()`/`getFpsLimit()` in three-tiles-engine.ts, skip-frame in rAF-Loop, localStorage-Persistenz
+- [x] **Range-Indicator Material teilen (3.5)**
+      Shared Material statt `.clone()` pro Tower in three-tower.renderer.ts
+- [x] **Audio LRU Map (3.6)**
+      Map-basiertes LRU mit Zeitstempel-Counter statt indexOf+splice in audio-buffer-cache.ts
+- [x] **Floating Text Limit erhoeht**
+      maxFloatingTexts 50 → 200 in visual-effects.config.ts
+- [x] **17 neue Tests**
+      geo-utils (7), effects-renderer (4), audio-buffer-cache (6), Test-Mocks aktualisiert
+
 ### GPU Instanced Enemy Rendering (VAT System)
 
 - [x] **GPU Instanced Enemy Renderer mit VAT-Animation**

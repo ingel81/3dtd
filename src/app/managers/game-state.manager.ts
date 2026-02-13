@@ -323,7 +323,9 @@ export class GameStateManager {
 
     // Enemy movement - always update (debug enemies may move outside wave phase)
     // Paused enemies (e.g., during gathering) won't move due to movement.paused check
-    this.enemyManager.update(deltaTime, this.trainingTimescale());
+    if (this.enemyManager.getAll().length > 0) {
+      this.enemyManager.update(deltaTime, this.trainingTimescale());
+    }
 
     // Tower combat (targeting + firing)
     let tCombat = 0;

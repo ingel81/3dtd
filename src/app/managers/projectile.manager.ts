@@ -18,6 +18,7 @@ import { GameEventBus } from '../game-engine';
  */
 export class ProjectileManager extends EntityManager<Projectile> {
   private soundsRegistered = false;
+  private _trailFrameCount = 0;
 
   constructor(
     private eventBus: GameEventBus,
@@ -118,6 +119,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * Update all projectiles - movement and collision detection
    */
   override update(deltaTime: number): void {
+    this._trailFrameCount++;
     const toRemove: Projectile[] = [];
 
     for (const projectile of this.getAllActive()) {
@@ -167,9 +169,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
           );
         }
 
-        // Spawn trail particles if configured
+        // Spawn trail particles if configured (throttle to every 2nd frame)
         const trailConfig = projectile.typeConfig.trailParticles;
-        if (trailConfig?.enabled && this.tilesEngine) {
+        if (trailConfig?.enabled && this.tilesEngine && (this._trailFrameCount & 1) === 0) {
           this.tilesEngine.effects.spawnConfigurableTrailAtGeo(
             projectile.position.lat,
             projectile.position.lon,

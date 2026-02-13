@@ -1,5 +1,97 @@
 import { describe, it, expect } from 'vitest';
 
+describe('Floating Text Free-Stack Logic', () => {
+  interface MockTextInstance { id: string; active: boolean; }
+
+  /**
+   * Mirrors spawnFloatingText allocation: pop from free-stack for O(1) reuse.
+   */
+  function allocateFromFreeStack(
+    pool: MockTextInstance[],
+    freeIndices: number[]
+  ): MockTextInstance | undefined {
+    if (freeIndices.length > 0) {
+      return pool[freeIndices.pop()!];
+    }
+    return undefined;
+  }
+
+  /**
+   * Mirrors the update loop deactivation: when a text finishes, push its index
+   * onto the free-stack so it can be reused.
+   */
+  function deactivateText(
+    pool: MockTextInstance[],
+    freeIndices: number[],
+    index: number
+  ): void {
+    pool[index].active = false;
+    freeIndices.push(index);
+  }
+
+  it('should pop from free-stack and return the correct instance', () => {
+    const pool: MockTextInstance[] = [
+      { id: 'a', active: false },
+      { id: 'b', active: true },
+      { id: 'c', active: false },
+    ];
+    const freeIndices = [0, 2]; // indices 0 and 2 are free
+
+    const result = allocateFromFreeStack(pool, freeIndices);
+    expect(result).toBe(pool[2]); // Last-in (index 2) is popped first
+    expect(freeIndices).toEqual([0]);
+  });
+
+  it('should return undefined when free-stack is empty', () => {
+    const pool: MockTextInstance[] = [
+      { id: 'a', active: true },
+      { id: 'b', active: true },
+    ];
+    const freeIndices: number[] = [];
+
+    const result = allocateFromFreeStack(pool, freeIndices);
+    expect(result).toBeUndefined();
+  });
+
+  it('should make deactivated index available for reuse', () => {
+    const pool: MockTextInstance[] = [
+      { id: 'a', active: true },
+      { id: 'b', active: true },
+      { id: 'c', active: true },
+    ];
+    const freeIndices: number[] = [];
+
+    // Deactivate index 1
+    deactivateText(pool, freeIndices, 1);
+    expect(pool[1].active).toBe(false);
+    expect(freeIndices).toEqual([1]);
+
+    // Allocate should return the just-deactivated instance
+    const reused = allocateFromFreeStack(pool, freeIndices);
+    expect(reused).toBe(pool[1]);
+    expect(freeIndices).toEqual([]);
+  });
+
+  it('should support multiple deactivations and allocations in LIFO order', () => {
+    const pool: MockTextInstance[] = [
+      { id: 'a', active: true },
+      { id: 'b', active: true },
+      { id: 'c', active: true },
+    ];
+    const freeIndices: number[] = [];
+
+    // Deactivate 0 then 2
+    deactivateText(pool, freeIndices, 0);
+    deactivateText(pool, freeIndices, 2);
+    expect(freeIndices).toEqual([0, 2]);
+
+    // Allocations come in LIFO order: 2 first, then 0
+    expect(allocateFromFreeStack(pool, freeIndices)).toBe(pool[2]);
+    expect(allocateFromFreeStack(pool, freeIndices)).toBe(pool[0]);
+    expect(allocateFromFreeStack(pool, freeIndices)).toBeUndefined();
+  });
+});
+
 describe('Particle Pool Cursor Logic', () => {
   interface MockParticle { life: number; }
 

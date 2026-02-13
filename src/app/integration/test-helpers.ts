@@ -84,6 +84,7 @@ export function createMockTilesEngine(): any {
         z: 0,
       })),
       geoToLocal: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+      geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: unknown) => target),
     },
     spatialAudio: {
       registerSound: vi.fn(),

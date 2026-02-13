@@ -197,6 +197,10 @@ export class ThreeEffectsRenderer {
   private floatingTexts: FloatingTextInstance[] = [];
   private readonly MAX_FLOATING_TEXTS = PARTICLE_LIMITS.maxFloatingTexts;
   private floatingTextIdCounter = 0;
+  private freeTextIndices: number[] = [];
+
+  // Shared canvas for createTextTexture (reused since rendering is synchronous)
+  private _sharedCanvas: HTMLCanvasElement | null = null;
 
   // Frost aura tracking (orbiting ice particles per enemy)
   private activeFrostAuras = new Map<string, { particles: Particle[]; localPosition: Vector3; orbitAngle: number }>();
@@ -1997,8 +2001,11 @@ export class ThreeEffectsRenderer {
     const localPos = this.sync.geoToLocal(lat, lon, height);
     const id = `text_${this.floatingTextIdCounter++}`;
 
-    // Try to reuse inactive sprite
-    let instance = this.floatingTexts.find((t) => !t.active);
+    // Try to reuse inactive sprite (O(1) via free-stack)
+    let instance: FloatingTextInstance | undefined;
+    if (this.freeTextIndices.length > 0) {
+      instance = this.floatingTexts[this.freeTextIndices.pop()!];
+    }
 
     if (!instance) {
       if (this.floatingTexts.length >= this.MAX_FLOATING_TEXTS) {
@@ -2080,7 +2087,10 @@ export class ThreeEffectsRenderer {
     outlineColor: string,
     outlineWidth: number
   ): CanvasTexture {
-    const canvas = document.createElement('canvas');
+    if (!this._sharedCanvas) {
+      this._sharedCanvas = document.createElement('canvas');
+    }
+    const canvas = this._sharedCanvas;
     const ctx = canvas.getContext('2d')!;
 
     // Set font to measure text
@@ -2243,7 +2253,8 @@ export class ThreeEffectsRenderer {
     }
 
     // Update floating texts (rise + fade)
-    for (const textInstance of this.floatingTexts) {
+    for (let i = 0; i < this.floatingTexts.length; i++) {
+      const textInstance = this.floatingTexts[i];
       if (!textInstance.active) continue;
 
       const elapsed = now - textInstance.startTime;
@@ -2264,10 +2275,11 @@ export class ThreeEffectsRenderer {
         1
       );
 
-      // Mark as inactive when done
+      // Mark as inactive when done and return index to free-stack
       if (progress >= 1) {
         textInstance.active = false;
         textInstance.sprite.visible = false;
+        this.freeTextIndices.push(i);
       }
     }
 
@@ -2679,10 +2691,12 @@ export class ThreeEffectsRenderer {
       this.iceDecalManager.clear();
     }
 
-    // Hide all floating texts
-    for (const textInstance of this.floatingTexts) {
-      textInstance.active = false;
-      textInstance.sprite.visible = false;
+    // Hide all floating texts and rebuild free-stack
+    this.freeTextIndices = [];
+    for (let i = this.floatingTexts.length - 1; i >= 0; i--) {
+      this.floatingTexts[i].active = false;
+      this.floatingTexts[i].sprite.visible = false;
+      this.freeTextIndices.push(i);
     }
 
     // Clear debug spheres
@@ -2728,6 +2742,8 @@ export class ThreeEffectsRenderer {
       material.dispose();
     }
     this.floatingTexts = [];
+    this.freeTextIndices = [];
+    this._sharedCanvas = null;
 
     this.trailMaterialAdditive?.dispose();
     this.trailMaterialNormal?.dispose();

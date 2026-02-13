@@ -36,13 +36,16 @@
       Dateien: `screen-shake.service.ts`, Display Options Toggle
 
 - [ ] **Freeze-Effect Performance prüfen**
-      Funktioniert jetzt pro Enemy-Instanz statt pro Typ (Material-Clone)
-      Bei vielen gefrorenen Enemies: GPU-Last durch geklonte Materials messen
-      Ggf. Material-Pool oder Shader-Uniform statt Clone
+      Instanced Enemies: gelöst via `aTintColor` Shader-Attribut (kein Material-Cloning)
+      Classic Renderer (nur Boss-Fallback): klont noch Materials pro Enemy
+      → Wird obsolet wenn Boss-Fallback entfernt wird (siehe BACKLOG)
 
 - [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
 
 - [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
+
+- [ ] **Floating Damage Numbers (togglebar)**
+      Schadenszahlen über Gegnern anzeigen, ein/ausschaltbar in Display Options
 
 - [ ] **Color Grading Anwendungsfall klären**
       Feature funktioniert (Dark Fantasy, Noir, Warm Sunset)
@@ -52,8 +55,8 @@
 ## 4.1b Visual Settings (Performance-Toggles)
 
 - [ ] **VFX Settings Menu** — Visuelle Effekte einzeln ein/ausschaltbar
-      Freeze-Tint (klont Materials pro Enemy → GPU-Last), Muzzle Flash,
-      Trail-Streaks, Sprite-Sheet Partikel, Screen Shake, Bloom, Color-Grading
+      Freeze-Tint, Muzzle Flash, Trail-Streaks, Sprite-Sheet Partikel,
+      Screen Shake, Bloom, Color-Grading
       Ziel: Low-End-Geräte können teure Effekte deaktivieren
 
 ## 4.2 Gameplay Features
@@ -235,6 +238,10 @@
 - [ ] **Web Worker Offloading** - Pathfinding + weitere rechenintensive Logik
       Pathfinding: 200-600ms → 0ms Main Thread
       Auch prüfen: Collision-Checks, Wave-Director-Inference, Audio-Decoding
+- [ ] **Klassischen ThreeEnemyRenderer-Fallback entfernen**
+      Boss-Features (Name über Health Bar, spezielle Farbe) direkt im instanced System implementieren.
+      Aktuell nutzt kein Enemy-Typ den Fallback — `bossName` wird nirgends gesetzt.
+      Dateien: `instanced-enemy.renderer.ts`, `three-enemy.renderer.ts`
 - [ ] **Tower GPU Instancing** - Schwierig wegen Rotationen
 - [ ] **Konfigurierbares FPS-Limit** (60/30/unlimited)
       Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming

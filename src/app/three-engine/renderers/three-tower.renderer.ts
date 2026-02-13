@@ -144,6 +144,7 @@ export class ThreeTowerRenderer {
   private frustum = new Frustum();
   private projScreenMatrix = new Matrix4();
   private boundingSphere = new Sphere();
+  private _animFrameCount = 0;
 
   // Configuration for terrain-conforming range indicator
   private readonly RANGE_SEGMENTS = 48; // Number of segments around the circle
@@ -755,6 +756,7 @@ export class ThreeTowerRenderer {
   updateAnimations(deltaTime: number, camera: Camera, timescale = 1.0): void {
     // Accumulate time for frame-independent animation (in seconds)
     this.animationTime += deltaTime * 0.001;
+    this._animFrameCount++;
 
     // Convert deltaTime from ms to seconds for animation mixer
     const deltaSeconds = deltaTime * 0.001;
@@ -763,13 +765,30 @@ export class ThreeTowerRenderer {
     this.projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.projScreenMatrix);
 
-    // Update GLTF animation mixers (only for towers in view)
+    // Update GLTF animation mixers (only for towers in view, with distance-based LOD)
     for (const data of this.towers.values()) {
       if (data.mixer) {
         this.boundingSphere.center.copy(data.mesh.position);
         this.boundingSphere.radius = 3; // ~3m covers typical tower models
         if (this.frustum.intersectsSphere(this.boundingSphere)) {
-          data.mixer.update(deltaSeconds);
+          // Distance-based animation LOD
+          const distSq = data.mesh.position.distanceToSquared(camera.position);
+          if (distSq > 40000) {
+            // >200m: skip animation entirely (too far to notice)
+          } else if (distSq > 10000) {
+            // >100m: update every 4th frame
+            if (this._animFrameCount % 4 === 0) {
+              data.mixer.update(deltaSeconds * 4); // Compensate skipped frames
+            }
+          } else if (distSq > 2500) {
+            // >50m: update every 2nd frame
+            if (this._animFrameCount % 2 === 0) {
+              data.mixer.update(deltaSeconds * 2);
+            }
+          } else {
+            // Close: full rate
+            data.mixer.update(deltaSeconds);
+          }
         }
       }
     }
@@ -968,7 +987,7 @@ export class ThreeTowerRenderer {
 
       // Filled disc
       const discGeometry = new CircleGeometry(range, this.RANGE_SEGMENTS);
-      const discMesh = new Mesh(discGeometry, this.rangeMaterial.clone());
+      const discMesh = new Mesh(discGeometry, this.rangeMaterial);
       discMesh.rotation.x = -Math.PI / 2;
       group.add(discMesh);
 
@@ -997,7 +1016,7 @@ export class ThreeTowerRenderer {
     // Create terrain-conforming disc geometry using direct raycasts
     const geometry = this.createTerrainDiscGeometryRaycast(localCenter.x, localCenter.z, range);
 
-    const discMesh = new Mesh(geometry, this.rangeMaterial.clone());
+    const discMesh = new Mesh(geometry, this.rangeMaterial);
     discMesh.renderOrder = 1;
     group.add(discMesh);
 

@@ -159,13 +159,14 @@ export class TowerCombatService {
           );
         } else {
           // Ultimate fallback: geo-distance filter (no engine available)
+          const mPerDegLat = 111320;
+          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+          const rangeMarginSq = (rangeMeters * 1.1) ** 2;
+
           candidates = allEnemies.filter(enemy => {
-            const dx = enemy.position.lat - tower.position.lat;
-            const dy = enemy.position.lon - tower.position.lon;
-            const mPerDegLat = 111320;
-            const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
-            const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
-            return distSq <= (rangeMeters * 1.1) ** 2;
+            const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
+            const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
+            return dx * dx + dy * dy <= rangeMarginSq;
           });
         }
         losCheck = this.tilesEngine
@@ -295,13 +296,14 @@ export class TowerCombatService {
             rangeMeters * 1.2 // 20% margin for beam spread
           );
         } else {
+          const mPerDegLat = 111320;
+          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+          const rangeMarginSq = (rangeMeters * 1.2) ** 2;
+
           candidates = allEnemies.filter(enemy => {
-            const dx = enemy.position.lat - tower.position.lat;
-            const dy = enemy.position.lon - tower.position.lon;
-            const mPerDegLat = 111320;
-            const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
-            const distSq = (dx * mPerDegLat) ** 2 + (dy * mPerDegLon) ** 2;
-            return distSq <= (rangeMeters * 1.2) ** 2;
+            const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
+            const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
+            return dx * dx + dy * dy <= rangeMarginSq;
           });
         }
       }

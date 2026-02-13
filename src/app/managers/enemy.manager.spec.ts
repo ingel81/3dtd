@@ -29,6 +29,7 @@ const createMockTilesEngine = () => ({
   sync: {
     getOrigin: vi.fn(() => ({ height: 0 })),
     geoToLocalSimple: vi.fn(() => ({ x: 0, y: 0, z: 0 })),
+    geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _h: number, target: unknown) => target),
   },
   getTerrainHeightAtGeo: vi.fn(() => 0),
 });

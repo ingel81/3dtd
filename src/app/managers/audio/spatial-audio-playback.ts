@@ -280,15 +280,12 @@ export class SpatialAudioPlayback {
   // --- Stop / cleanup ---
 
   stop(soundId: string): void {
-    const remaining: ActiveSound[] = [];
-    for (const active of this.activeSounds) {
-      if (active.soundId === soundId) {
-        this.cleanupActiveSound(active);
-      } else {
-        remaining.push(active);
+    for (let i = this.activeSounds.length - 1; i >= 0; i--) {
+      if (this.activeSounds[i].soundId === soundId) {
+        this.cleanupActiveSound(this.activeSounds[i]);
+        this.activeSounds.splice(i, 1);
       }
     }
-    this.activeSounds = remaining;
   }
 
   stopAllOneShots(): void {
