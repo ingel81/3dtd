@@ -63,8 +63,8 @@ const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
     widthTail: 0.1,
     alphaHead: 0.9,
     alphaTail: 0.0,
-    colorHead: new Color(0.7, 0.2, 1.0),     // purple
-    colorTail: new Color(0.2, 0.05, 0.6),    // deep blue-purple
+    colorHead: new Color(1.0, 0.15, 0.05),    // vivid red
+    colorTail: new Color(0.5, 0.02, 0.0),    // dark crimson
     emissiveIntensity: 2.0,
     minSegmentDistSq: 0.3,
   },

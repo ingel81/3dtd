@@ -18,4 +18,7 @@ export const TIMING = {
 
   /** Duration of floating reward text popup (ms) */
   rewardPopupDuration: 1200,
+
+  /** Duration of floating damage number popup (ms) — shorter than reward to avoid clutter */
+  damagePopupDuration: 800,
 } as const;

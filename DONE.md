@@ -6,6 +6,20 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-02-13
 
+### Floating Damage Numbers
+
+- [x] **Rote Schadenszahlen bei Treffer**
+      GPU-instanced floating text (`-25`) über Gegnern bei Projektil-Hits.
+      Farbe `#FF4444`, schwebt hoch und blendet aus (800ms).
+      Textgröße skaliert mit Schaden (0.25 bei kleinem Splash → 0.55 bei vollem Hit).
+      Toggle via Display Options (persistiert in localStorage).
+- [x] **Splash-Damage Numbers**
+      Auch Splash-Treffer (Cannon, Ice-Shard) zeigen individuelle Schadenszahlen
+      pro getroffenen Gegner. Logik in CombatEffectService statt GameStateManager,
+      da dort Direct Hits + Splash zusammenlaufen.
+- [x] **Splash Radius reduziert**
+      Cannonball: 16m → 10m, Ice-Shard: 12m → 8m. Engerer, realistischerer AOE.
+
 ### Performance Tier 2+3: Micro-Optimizations
 
 - [x] **Trig vorberechnen im Targeting-Fallback (2.1)**

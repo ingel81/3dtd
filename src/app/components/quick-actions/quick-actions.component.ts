@@ -1,4 +1,4 @@
-import { Component, inject, input, output, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -21,6 +21,29 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               matTooltipPosition="left">
         <mat-icon>moving</mat-icon>
       </button>
+      <!-- Display Settings Menu (collapsible, expands upward) -->
+      <div class="td-display-menu-wrapper">
+        <div class="td-display-toggles" [class.expanded]="uiStore.displayMenuExpanded()">
+          <button class="td-display-btn" [class.active]="screenShakeEnabled()"
+                  (click)="toggleScreenShake()" matTooltip="Screen Shake" matTooltipPosition="left">
+            <mat-icon>vibration</mat-icon>
+          </button>
+          <button class="td-display-btn" [class.active]="healthBarsVisible()"
+                  (click)="toggleHealthBars()" matTooltip="Health Bars" matTooltipPosition="left">
+            <mat-icon>monitor_heart</mat-icon>
+          </button>
+          <button class="td-display-btn" [class.active]="damageNumbersVisible()"
+                  (click)="toggleDamageNumbers()" matTooltip="Damage Numbers" matTooltipPosition="left">
+            <mat-icon>pin</mat-icon>
+          </button>
+        </div>
+        <button class="td-quick-btn td-display-toggle-btn"
+                [class.active]="uiStore.displayMenuExpanded()"
+                (click)="uiStore.toggleDisplayMenu()"
+                matTooltip="Display" matTooltipPosition="left">
+          <mat-icon>{{ uiStore.displayMenuExpanded() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+      </div>
       <!-- Layer Menu (collapsible, expands upward) -->
       <div class="td-layer-menu-wrapper">
         <div class="td-layer-toggles" [class.expanded]="uiStore.layerMenuExpanded()">
@@ -324,6 +347,67 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-text-primary);
     }
 
+    .td-display-menu-wrapper {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-end;
+      gap: 4px;
+    }
+
+    .td-display-toggles {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.3s ease-out, opacity 0.15s ease;
+    }
+
+    .td-display-toggles.expanded {
+      max-height: 100vh;
+      opacity: 1;
+    }
+
+    .td-display-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 32px;
+      height: 32px;
+      min-width: 32px;
+      min-height: 32px;
+      box-sizing: border-box;
+      background: var(--td-panel-main);
+      border: 1px solid var(--td-frame-mid);
+      border-top-color: var(--td-frame-light);
+      border-bottom-color: var(--td-frame-dark);
+      color: var(--td-text-secondary);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+
+    .td-display-btn mat-icon {
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
+    }
+
+    .td-display-btn:hover {
+      background: var(--td-frame-mid);
+      color: var(--td-text-primary);
+    }
+
+    .td-display-btn.active {
+      background: var(--td-teal);
+      color: var(--td-bg-dark);
+    }
+
+    .td-display-toggle-btn.active {
+      background: var(--td-teal);
+      color: var(--td-bg-dark);
+    }
+
     .td-dev-menu-wrapper {
       display: flex;
       flex-direction: column;
@@ -440,6 +524,16 @@ export class QuickActionsComponent {
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
 
+  // Display settings signals (initialized from localStorage)
+  readonly screenShakeEnabled = signal(true);
+  readonly healthBarsVisible = signal(true);
+  readonly damageNumbersVisible = signal(true);
+
+  // Display settings outputs
+  readonly screenShakeToggled = output<boolean>();
+  readonly healthBarsToggled = output<boolean>();
+  readonly damageNumbersToggled = output<boolean>();
+
   // Outputs for actions that need parent handling
   readonly resetCamera = output<void>();
   readonly buildingsToggled = output<void>();
@@ -454,4 +548,35 @@ export class QuickActionsComponent {
   readonly killAllEnemies = output<void>();
   readonly addCredits = output<void>();
   readonly addHealth = output<void>();
+
+  constructor() {
+    this.loadDisplayOptions();
+  }
+
+  private loadDisplayOptions(): void {
+    try {
+      const stored = localStorage.getItem('td_display_options');
+      if (stored) {
+        const opts = JSON.parse(stored);
+        if (opts.screenShake === false) this.screenShakeEnabled.set(false);
+        if (opts.healthBars === false) this.healthBarsVisible.set(false);
+        if (opts.damageNumbers === false) this.damageNumbersVisible.set(false);
+      }
+    } catch { /* ignore corrupt localStorage */ }
+  }
+
+  toggleScreenShake(): void {
+    this.screenShakeEnabled.update(v => !v);
+    this.screenShakeToggled.emit(this.screenShakeEnabled());
+  }
+
+  toggleHealthBars(): void {
+    this.healthBarsVisible.update(v => !v);
+    this.healthBarsToggled.emit(this.healthBarsVisible());
+  }
+
+  toggleDamageNumbers(): void {
+    this.damageNumbersVisible.update(v => !v);
+    this.damageNumbersToggled.emit(this.damageNumbersVisible());
+  }
 }

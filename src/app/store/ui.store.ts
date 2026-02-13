@@ -12,6 +12,7 @@ interface PersistedUIState {
   spatialGridDebugVisible: boolean;
   devMenuExpanded: boolean;
   layerMenuExpanded: boolean;
+  displayMenuExpanded: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -24,6 +25,9 @@ export class UIStore {
 
   /** Developer menu expanded */
   readonly devMenuExpanded = signal<boolean>(false);
+
+  /** Display settings menu expanded */
+  readonly displayMenuExpanded = signal<boolean>(false);
 
   /** Street network layer visibility */
   readonly streetsVisible = signal<boolean>(false);
@@ -100,6 +104,7 @@ export class UIStore {
         if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
         if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
         if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
+        if (state.displayMenuExpanded !== undefined) this.displayMenuExpanded.set(state.displayMenuExpanded);
       }
     } catch {
       // Ignore parse errors
@@ -117,6 +122,7 @@ export class UIStore {
           spatialGridDebugVisible: this.spatialGridDebugVisible(),
           devMenuExpanded: this.devMenuExpanded(),
           layerMenuExpanded: this.layerMenuExpanded(),
+          displayMenuExpanded: this.displayMenuExpanded(),
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       });
@@ -132,6 +138,7 @@ export class UIStore {
   toggleDebug(): void { this.debugMode.update(v => !v); }
   toggleLayerMenu(): void { this.layerMenuExpanded.update(v => !v); }
   toggleDevMenu(): void { this.devMenuExpanded.update(v => !v); }
+  toggleDisplayMenu(): void { this.displayMenuExpanded.update(v => !v); }
   toggleStreets(): void { this.streetsVisible.update(v => !v); }
   toggleRoutes(): void { this.routesVisible.update(v => !v); }
   toggleHeightDebug(): void { this.heightDebugVisible.update(v => !v); }
@@ -170,6 +177,7 @@ export class UIStore {
     this.debugMode.set(false);
     this.layerMenuExpanded.set(false);
     this.devMenuExpanded.set(false);
+    this.displayMenuExpanded.set(false);
     this.streetsVisible.set(false);
     this.routesVisible.set(false);
     this.heightDebugVisible.set(false);

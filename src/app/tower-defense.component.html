@@ -156,6 +156,9 @@
           (killAllEnemies)="killAllEnemies()"
           (addCredits)="addDebugCredits()"
           (addHealth)="addDebugHealth()"
+          (screenShakeToggled)="debugFacade.onScreenShakeToggled($event)"
+          (healthBarsToggled)="debugFacade.onHealthBarsToggled($event)"
+          (damageNumbersToggled)="onDamageNumbersToggled($event)"
         />
       }
 

@@ -44,7 +44,7 @@
 
 - [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
 
-- [ ] **Floating Damage Numbers (togglebar)**
+- [x] **Floating Damage Numbers (togglebar)** → DONE
       Schadenszahlen über Gegnern anzeigen, ein/ausschaltbar in Display Options
 
 - [ ] **Color Grading Anwendungsfall klären**
