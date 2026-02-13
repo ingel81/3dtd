@@ -52,13 +52,13 @@ import { createColorGradingPass, ColorGradingPreset } from './post-processing/co
 import { EllipsoidSync } from './ellipsoid-sync';
 import {
   CoordinateSync,
-  ThreeEnemyRenderer,
   ThreeTowerRenderer,
   ThreeProjectileRenderer,
   ThreeEffectsRenderer,
   ThreeFlameBeamRenderer,
   TrailStreakRenderer,
 } from './renderers';
+import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
 import { AssetManagerService } from '../services/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -129,7 +129,7 @@ export class ThreeTilesEngine {
   private initialCameraPosition: InitialCameraPosition | null = null;
 
   // Entity renderers
-  readonly enemies: ThreeEnemyRenderer;
+  readonly enemies: InstancedEnemyRenderer;
   readonly towers: ThreeTowerRenderer;
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
@@ -307,7 +307,7 @@ export class ThreeTilesEngine {
       throw new Error('[ThreeTilesEngine] AssetManagerService is required');
     }
 
-    this.enemies = new ThreeEnemyRenderer(this.scene, coordinateSync, this.assetManager);
+    this.enemies = new InstancedEnemyRenderer(this.scene, coordinateSync, this.assetManager);
     this.towers = new ThreeTowerRenderer(this.scene, coordinateSync, this.assetManager);
     this.projectiles = new ThreeProjectileRenderer(this.scene, coordinateSync);
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
