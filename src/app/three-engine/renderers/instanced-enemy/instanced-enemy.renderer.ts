@@ -2,6 +2,7 @@ import {
   Scene,
   Object3D,
   Camera,
+  Vector3,
 } from 'three';
 import { CoordinateSync } from '../index';
 import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../models/enemy-types';
@@ -40,6 +41,12 @@ export class InstancedEnemyRenderer {
   // Track loaded types
   private loadedTypes = new Set<string>();
   private bakingPromises = new Map<string, Promise<void>>();
+
+  // Cached parsed health bar colors per type (avoid repeated hex parsing)
+  private healthBarColorCache = new Map<string, { r: number; g: number; b: number } | null>();
+
+  // Reusable temp vector (avoids allocation in hot path)
+  private static readonly _tempLocalPos = new Vector3();
 
   // Display toggle state
   private _showEnemies = true;
@@ -91,7 +98,12 @@ export class InstancedEnemyRenderer {
       if (config.hasAnimations && cached.animations.length > 0) {
         // Clone with skeleton for VAT baking
         const clone = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
-        if (!clone) return;
+        if (!clone) {
+          console.warn(`[InstancedRenderer] Clone failed for ${typeId}, using classic renderer`);
+          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          this.loadedTypes.add(typeId);
+          return;
+        }
 
         // Collect animation clip names to bake
         const clipNames: string[] = [];
@@ -102,12 +114,10 @@ export class InstancedEnemyRenderer {
 
         const vatData = bakeVAT(clone, cached.animations, clipNames);
         if (vatData) {
+          // Use config's unlit flag (material detection is unreliable before conversion)
+          if (config.unlit) vatData.isUnlit = true;
           this.instanceManager.createPool(typeId, vatData, config);
           this.loadedTypes.add(typeId);
-          console.log(
-            `[InstancedRenderer] Baked VAT for ${typeId}: ${vatData.vertexCount} vertices, ` +
-            `${vatData.totalFrames} frames, ${vatData.animations.size} clips`,
-          );
         } else {
           // VAT bake failed → fall back to classic
           console.warn(`[InstancedRenderer] VAT bake failed for ${typeId}, using classic renderer`);
@@ -117,13 +127,22 @@ export class InstancedEnemyRenderer {
       } else {
         // Non-animated model → static VAT
         const clone = this.assetManager.cloneModel(config.modelUrl);
-        if (!clone) return;
+        if (!clone) {
+          console.warn(`[InstancedRenderer] Clone failed for ${typeId}, using classic renderer`);
+          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          this.loadedTypes.add(typeId);
+          return;
+        }
 
         const vatData = bakeStaticVAT(clone);
         if (vatData) {
+          if (config.unlit) vatData.isUnlit = true;
           this.instanceManager.createPool(typeId, vatData, config);
           this.loadedTypes.add(typeId);
-          console.log(`[InstancedRenderer] Static VAT for ${typeId}: ${vatData.vertexCount} vertices`);
+        } else {
+          console.warn(`[InstancedRenderer] Static VAT failed for ${typeId}, using classic renderer`);
+          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          this.loadedTypes.add(typeId);
         }
       }
     } catch (err) {
@@ -167,17 +186,21 @@ export class InstancedEnemyRenderer {
     const state = this.instanceManager.addEnemy(id, typeId, localPos, 0);
     if (!state) return null;
 
-    // Add health bar
+    // Add health bar (use cached parsed color)
     const isBoss = false;
-    let fixedColor: { r: number; g: number; b: number } | null = null;
-    if (config.healthBarColor) {
-      // Parse hex color to RGB
-      const hex = parseInt(config.healthBarColor.replace('#', ''), 16);
-      fixedColor = {
-        r: ((hex >> 16) & 0xff) / 255,
-        g: ((hex >> 8) & 0xff) / 255,
-        b: (hex & 0xff) / 255,
-      };
+    let fixedColor = this.healthBarColorCache.get(typeId);
+    if (fixedColor === undefined) {
+      if (config.healthBarColor) {
+        const hex = parseInt(config.healthBarColor.replace('#', ''), 16);
+        fixedColor = {
+          r: ((hex >> 16) & 0xff) / 255,
+          g: ((hex >> 8) & 0xff) / 255,
+          b: (hex & 0xff) / 255,
+        };
+      } else {
+        fixedColor = null;
+      }
+      this.healthBarColorCache.set(typeId, fixedColor);
     }
 
     this.healthBarManager.add(
@@ -252,7 +275,10 @@ export class InstancedEnemyRenderer {
     if (!state) return;
 
     const heightOffset = state.config.heightOffset;
-    const localPos = this.sync.geoToLocal(lat, lon, height + heightOffset);
+    const localPos = this.sync.geoToLocalSimpleInto(
+      lat, lon, height + heightOffset,
+      InstancedEnemyRenderer._tempLocalPos,
+    );
 
     // Update instance position/rotation
     this.instanceManager.updateEnemy(id, localPos, heading, currentSpeed);
@@ -293,12 +319,7 @@ export class InstancedEnemyRenderer {
       this.classicRenderer.playIdleAnimation(id);
       return;
     }
-    // For instanced: set to idle anim if exists, otherwise keep current
-    const state = this.instanceManager.getState(id);
-    if (state && state.config.idleAnimation) {
-      state.currentAnim = state.config.idleAnimation;
-      state.animTime = 0;
-    }
+    this.instanceManager.playIdleAnimation(id);
   }
 
   playDeathAnimation(id: string): void {

@@ -4,6 +4,40 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-02-13
+
+### GPU Instanced Enemy Rendering (VAT System)
+
+- [x] **GPU Instanced Enemy Renderer mit VAT-Animation**
+      Neues Rendering-System: Skelettanimationen in DataTextures gebacken (Vertex Animation Textures),
+      pro Enemy-Typ nur 1 InstancedMesh statt 1 Object3D pro Enemy. ~1000 → ~14 Draw Calls bei 500 Enemies.
+- [x] **VAT Texture Tiling fuer grosse Modelle**
+      Modelle mit >8192 Vertices (Wallsmasher: 17010, Herbert: 30831) werden auf mehrere Zeilen
+      in der VAT-Textur verteilt, um WebGL MAX_TEXTURE_SIZE nicht zu ueberschreiten.
+- [x] **Multi-Mesh Merge fuer statische Modelle**
+      `bakeStaticVAT` merged alle Sub-Meshes eines Modells in eine Geometrie (z.B. Tank: 7 Meshes).
+      Positionen und Normalen werden korrekt in Root-Space transformiert.
+- [x] **Per-Vertex Multi-Material Support**
+      Per-Vertex `aVertexColor` und `aUseMap` Attribute erlauben korrekte Darstellung von
+      Multi-Material-Modellen (Textur-Meshes + Farb-Meshes gemischt).
+- [x] **World-Space Beleuchtung im VAT Shader**
+      4-Punkt-Beleuchtung (Sun + Fill + Hemi + Ambient) in World-Space.
+      Normalen via `mat3(instanceMatrix) * normal` transformiert.
+- [x] **Instanzierte Health Bars**
+      Alle Health Bars in 1 Draw Call via InstancedMesh + prozeduralem Shader.
+      Billboard-Orientierung, Farbverlauf (Gruen→Gelb→Rot), Boss-Support.
+- [x] **Largest SkinnedMesh Selection**
+      Bei Modellen mit mehreren SkinnedMeshes (z.B. Spider) wird automatisch
+      das groesste nach Vertex-Count gewaehlt.
+- [x] **Enemy-Limit auf 20.000 erhoeht**
+      MAX_INSTANCES_PER_TYPE, MAX_HEALTH_BARS, Wave-Debug UI + Service Limits angepasst.
+- [x] **Boss-Fallback auf klassischen Renderer**
+      Boss-Enemies nutzen weiterhin ThreeEnemyRenderer mit vollem Object3D + AnimationMixer.
+- [x] **Dokumentation: INSTANCED_ENEMY_RENDERING.md**
+      Umfassende technische Dokumentation des VAT Instancing Systems.
+
+---
+
 ## 2026-02-12
 
 - [x] **GameSpeedComponent ins UI eingebaut** `73818a1`

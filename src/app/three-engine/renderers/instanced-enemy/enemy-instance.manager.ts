@@ -11,7 +11,7 @@ import { VATData } from './vat-baker';
 import { createVATMaterial } from './vat-material';
 import { EnemyTypeConfig } from '../../../models/enemy-types';
 
-const MAX_INSTANCES_PER_TYPE = 512;
+const MAX_INSTANCES_PER_TYPE = 20000;
 const UP = new Vector3(0, 1, 0);
 
 /** Per-enemy animation and visual state */
@@ -64,6 +64,7 @@ const FREEZE_TINT_B = 1.0;
 export class EnemyInstanceManager {
   private pools = new Map<string, TypePool>();
   private enemyToType = new Map<string, string>(); // enemyId → typeId
+  private cachedAllIds: string[] | null = null; // null-invalidation cache
 
   // Reusable temp objects
   private readonly matrix = new Matrix4();
@@ -102,12 +103,7 @@ export class EnemyInstanceManager {
     instancedMesh.geometry.setAttribute('aTintColor', tintColorAttr);
     instancedMesh.geometry.setAttribute('aOpacity', opacityAttr);
 
-    // Hide all slots initially
-    for (let i = 0; i < MAX_INSTANCES_PER_TYPE; i++) {
-      this.matrix.makeTranslation(0, -10000, 0);
-      instancedMesh.setMatrixAt(i, this.matrix);
-    }
-
+    // count=0 → GPU renders nothing; slots are initialized on first use
     this.scene.add(instancedMesh);
 
     this.pools.set(typeId, {
@@ -180,6 +176,7 @@ export class EnemyInstanceManager {
 
     pool.instances.set(id, state);
     this.enemyToType.set(id, typeId);
+    this.cachedAllIds = null;
 
     return state;
   }
@@ -246,6 +243,23 @@ export class EnemyInstanceManager {
 
     state.currentAnim = runAnim;
     state.isWalking = false;
+  }
+
+  /**
+   * Set animation to idle
+   */
+  playIdleAnimation(id: string): void {
+    const state = this.getState(id);
+    if (!state || state.isDead) return;
+
+    const idleAnim = state.config.idleAnimation;
+    if (!idleAnim) return;
+
+    const pool = this.pools.get(state.typeId);
+    if (!pool || !pool.vatData.animations.has(idleAnim)) return;
+
+    state.currentAnim = idleAnim;
+    state.animTime = 0;
   }
 
   /**
@@ -367,6 +381,7 @@ export class EnemyInstanceManager {
     pool.instances.delete(id);
     pool.freeIndices.push(state.index);
     this.enemyToType.delete(id);
+    this.cachedAllIds = null;
   }
 
   /**
@@ -391,7 +406,10 @@ export class EnemyInstanceManager {
    * Get all instance IDs
    */
   getAllIds(): string[] {
-    return Array.from(this.enemyToType.keys());
+    if (!this.cachedAllIds) {
+      this.cachedAllIds = Array.from(this.enemyToType.keys());
+    }
+    return this.cachedAllIds;
   }
 
   /**
@@ -426,6 +444,7 @@ export class EnemyInstanceManager {
       pool.instancedMesh.count = 0;
     }
     this.enemyToType.clear();
+    this.cachedAllIds = null;
   }
 
   /**

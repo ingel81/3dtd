@@ -58,7 +58,7 @@ export class WaveDebugService {
   } | null>(null);
 
   setEnemyCount(value: number): void {
-    this.enemyCount.set(Math.max(1, Math.min(500, value)));
+    this.enemyCount.set(Math.max(1, Math.min(20000, value)));
   }
 
   setEnemySpeed(value: number): void {
