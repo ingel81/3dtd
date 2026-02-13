@@ -13,26 +13,108 @@ import {
 
 const MAX_HEALTH_BARS = 20000;
 
+// Shared GLSL for the health bar vertex shader
+const HEALTH_BAR_VERTEX = /* glsl */ `
+  attribute float aHealth;
+  attribute vec3 aBarColor;
+  attribute float aIsBoss;
+
+  varying float vHealth;
+  varying vec3 vBarColor;
+  varying float vIsBoss;
+  varying vec2 vUv;
+
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
+
+  void main() {
+    vUv = uv;
+    vHealth = aHealth;
+    vBarColor = aBarColor;
+    vIsBoss = aIsBoss;
+
+    vec4 worldPosition = instanceMatrix * vec4(position, 1.0);
+    vec4 mvPosition = modelViewMatrix * worldPosition;
+    gl_Position = projectionMatrix * mvPosition;
+
+    #include <logdepthbuf_vertex>
+  }
+`;
+
+// Shared GLSL for the health bar rendering logic (after discard check)
+const HEALTH_BAR_BODY = /* glsl */ `
+  // Aspect ratio correction (plane is ~6:1)
+  float aspect = 6.0;
+
+  // Thin outline in visual pixels (uniform thickness via aspect correction)
+  float outlineY = 0.08;           // ~8% of height
+  float outlineX = outlineY / aspect; // same visual thickness horizontally
+
+  // Check if we're inside the bar area (with outline)
+  bool inBarArea = vUv.x >= outlineX && vUv.x <= 1.0 - outlineX &&
+                   vUv.y >= outlineY && vUv.y <= 1.0 - outlineY;
+
+  if (!inBarArea) {
+    // Outside bar: thin dark outline
+    float dx = min(vUv.x, 1.0 - vUv.x);
+    float dy = min(vUv.y, 1.0 - vUv.y);
+    float edgeDist = min(dx / outlineX, dy / outlineY);
+    float outlineAlpha = smoothstep(0.0, 0.5, edgeDist) * 0.6;
+    gl_FragColor = vec4(0.0, 0.0, 0.0, outlineAlpha);
+    return;
+  }
+
+  // Inside bar area: health fill or empty background
+  float innerX = (vUv.x - outlineX) / (1.0 - 2.0 * outlineX);
+  float healthFill = step(innerX, vHealth);
+
+  if (healthFill > 0.5) {
+    // Health fill color
+    vec3 fillColor;
+    if (dot(vBarColor, vBarColor) > 0.01) {
+      fillColor = vBarColor;
+    } else {
+      // Dynamic: green → yellow → red
+      if (vHealth > 0.6) {
+        fillColor = vec3(0.133, 0.773, 0.369); // #22c55e
+      } else if (vHealth > 0.3) {
+        fillColor = vec3(0.918, 0.702, 0.031); // #eab308
+      } else {
+        fillColor = vec3(0.937, 0.267, 0.267); // #ef4444
+      }
+    }
+    gl_FragColor = vec4(fillColor, 0.9);
+  } else {
+    // Empty part: dark background
+    gl_FragColor = vec4(0.0, 0.0, 0.0, 0.4);
+  }
+`;
+
 /**
  * HealthBarInstanceManager
  *
- * Renders ALL enemy health bars in a single draw call using InstancedMesh.
- * Each health bar is a PlaneGeometry billboard with a procedural shader
- * that draws a colored health bar based on per-instance healthPercent.
+ * Renders ALL enemy health bars using InstancedMesh.
+ * Two render passes sharing the same geometry & attributes:
+ *   1) Background (renderOrder 999): all bars, depthTest true
+ *   2) Foreground (renderOrder 1000): damaged bars only, depthTest false
  *
- * Replaces individual Sprites (1 draw call per enemy → 1 draw call total).
+ * This ensures full-health bars render normally while damaged bars
+ * are always visible in the foreground.
  *
  * Billboard optimization: position and scale are cached in flat arrays
  * so updateBillboard() only needs compose (no decompose per instance).
  */
 export class HealthBarInstanceManager {
+  /** Background pass — all bars with depth test */
   readonly instancedMesh: InstancedMesh;
+  /** Foreground pass — damaged bars only, always on top */
+  private readonly foregroundMesh: InstancedMesh;
 
   private instances = new Map<string, number>(); // enemyId → instanceIndex
   private freeIndices: number[] = [];
   private activeCount = 0;
 
-  // Per-instance attributes
+  // Per-instance attributes (shared between both meshes via same geometry)
   private healthAttribute: InstancedBufferAttribute;
   private barColorAttribute: InstancedBufferAttribute; // fixed color override (boss etc.)
   private isBossAttribute: InstancedBufferAttribute;
@@ -49,12 +131,6 @@ export class HealthBarInstanceManager {
 
   constructor(private readonly scene: Scene) {
     const geometry = new PlaneGeometry(1, 1);
-    const material = this.createMaterial();
-
-    this.instancedMesh = new InstancedMesh(geometry, material, MAX_HEALTH_BARS);
-    this.instancedMesh.count = 0;
-    this.instancedMesh.frustumCulled = false;
-    this.instancedMesh.renderOrder = 1000; // Render after everything else
 
     // Per-instance attributes
     const healthData = new Float32Array(MAX_HEALTH_BARS);
@@ -69,11 +145,26 @@ export class HealthBarInstanceManager {
     geometry.setAttribute('aBarColor', this.barColorAttribute);
     geometry.setAttribute('aIsBoss', this.isBossAttribute);
 
+    // Pass 1: Background — all bars, depth tested (occluded by terrain normally)
+    const bgMaterial = this.createMaterial(false);
+    this.instancedMesh = new InstancedMesh(geometry, bgMaterial, MAX_HEALTH_BARS);
+    this.instancedMesh.count = 0;
+    this.instancedMesh.frustumCulled = false;
+    this.instancedMesh.renderOrder = 999;
+
+    // Pass 2: Foreground — damaged bars only, always on top
+    const fgMaterial = this.createMaterial(true);
+    this.foregroundMesh = new InstancedMesh(geometry, fgMaterial, MAX_HEALTH_BARS);
+    this.foregroundMesh.count = 0;
+    this.foregroundMesh.frustumCulled = false;
+    this.foregroundMesh.renderOrder = 1000;
+
     // Position/scale caches
     this.posCache = new Float32Array(MAX_HEALTH_BARS * 3);
     this.scaleCache = new Float32Array(MAX_HEALTH_BARS * 2);
 
     this.scene.add(this.instancedMesh);
+    this.scene.add(this.foregroundMesh);
   }
 
   /**
@@ -100,6 +191,7 @@ export class HealthBarInstanceManager {
     this.instances.set(enemyId, index);
     this.activeCount = Math.max(this.activeCount, index + 1);
     this.instancedMesh.count = this.activeCount;
+    this.foregroundMesh.count = this.activeCount;
 
     // Cache position and scale
     const pi = index * 3;
@@ -113,6 +205,7 @@ export class HealthBarInstanceManager {
     // Build matrix
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.foregroundMesh.setMatrixAt(index, this.matrix);
 
     // Set attributes
     this.healthAttribute.setX(index, 1.0);
@@ -129,6 +222,7 @@ export class HealthBarInstanceManager {
     this.barColorAttribute.needsUpdate = true;
     this.isBossAttribute.needsUpdate = true;
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.foregroundMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -157,7 +251,9 @@ export class HealthBarInstanceManager {
     // Rebuild matrix from cache
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.foregroundMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.foregroundMesh.instanceMatrix.needsUpdate = true;
 
     // Update health
     this.healthAttribute.setX(index, healthPercent);
@@ -179,8 +275,10 @@ export class HealthBarInstanceManager {
     for (const [, index] of this.instances) {
       this.composeFromCache(index);
       this.instancedMesh.setMatrixAt(index, this.matrix);
+      this.foregroundMesh.setMatrixAt(index, this.matrix);
     }
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.foregroundMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -198,7 +296,9 @@ export class HealthBarInstanceManager {
 
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.foregroundMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.foregroundMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -216,7 +316,9 @@ export class HealthBarInstanceManager {
 
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
+    this.foregroundMesh.setMatrixAt(index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.foregroundMesh.instanceMatrix.needsUpdate = true;
 
     this.instances.delete(enemyId);
     this.freeIndices.push(index);
@@ -227,6 +329,7 @@ export class HealthBarInstanceManager {
    */
   setVisible(visible: boolean): void {
     this.instancedMesh.visible = visible;
+    this.foregroundMesh.visible = visible;
   }
 
   get count(): number {
@@ -238,13 +341,16 @@ export class HealthBarInstanceManager {
     this.freeIndices = [];
     this.activeCount = 0;
     this.instancedMesh.count = 0;
+    this.foregroundMesh.count = 0;
   }
 
   dispose(): void {
     this.clear();
     this.scene.remove(this.instancedMesh);
+    this.scene.remove(this.foregroundMesh);
     this.instancedMesh.geometry.dispose();
     (this.instancedMesh.material as ShaderMaterial).dispose();
+    (this.foregroundMesh.material as ShaderMaterial).dispose();
   }
 
   // =====================================================
@@ -276,34 +382,17 @@ export class HealthBarInstanceManager {
   // SHADER
   // =====================================================
 
-  private createMaterial(): ShaderMaterial {
+  /**
+   * Create health bar material.
+   * @param foregroundOnly If true, discards full-health bars (foreground pass)
+   */
+  private createMaterial(foregroundOnly: boolean): ShaderMaterial {
+    const discardLine = foregroundOnly
+      ? 'if (vHealth >= 0.999) discard;'
+      : '';
+
     return new ShaderMaterial({
-      vertexShader: /* glsl */ `
-        attribute float aHealth;
-        attribute vec3 aBarColor;
-        attribute float aIsBoss;
-
-        varying float vHealth;
-        varying vec3 vBarColor;
-        varying float vIsBoss;
-        varying vec2 vUv;
-
-        #include <common>
-        #include <logdepthbuf_pars_vertex>
-
-        void main() {
-          vUv = uv;
-          vHealth = aHealth;
-          vBarColor = aBarColor;
-          vIsBoss = aIsBoss;
-
-          vec4 worldPosition = instanceMatrix * vec4(position, 1.0);
-          vec4 mvPosition = modelViewMatrix * worldPosition;
-          gl_Position = projectionMatrix * mvPosition;
-
-          #include <logdepthbuf_vertex>
-        }
-      `,
+      vertexShader: HEALTH_BAR_VERTEX,
       fragmentShader: /* glsl */ `
         precision highp float;
 
@@ -317,57 +406,14 @@ export class HealthBarInstanceManager {
         void main() {
           #include <logdepthbuf_fragment>
 
-          // Aspect ratio correction (plane is ~6:1)
-          float aspect = 6.0;
+          ${discardLine}
 
-          // Thin outline in visual pixels (uniform thickness via aspect correction)
-          float outlineY = 0.08;           // ~8% of height
-          float outlineX = outlineY / aspect; // same visual thickness horizontally
-
-          // Check if we're inside the bar area (with outline)
-          bool inBarArea = vUv.x >= outlineX && vUv.x <= 1.0 - outlineX &&
-                           vUv.y >= outlineY && vUv.y <= 1.0 - outlineY;
-
-          if (!inBarArea) {
-            // Outside bar: thin dark outline
-            // Use smooth edge for anti-aliasing
-            float dx = min(vUv.x, 1.0 - vUv.x);
-            float dy = min(vUv.y, 1.0 - vUv.y);
-            float edgeDist = min(dx / outlineX, dy / outlineY);
-            float outlineAlpha = smoothstep(0.0, 0.5, edgeDist) * 0.6;
-            gl_FragColor = vec4(0.0, 0.0, 0.0, outlineAlpha);
-            return;
-          }
-
-          // Inside bar area: health fill or empty background
-          float innerX = (vUv.x - outlineX) / (1.0 - 2.0 * outlineX);
-          float healthFill = step(innerX, vHealth);
-
-          if (healthFill > 0.5) {
-            // Health fill color
-            vec3 fillColor;
-            if (dot(vBarColor, vBarColor) > 0.01) {
-              fillColor = vBarColor;
-            } else {
-              // Dynamic: green → yellow → red
-              if (vHealth > 0.6) {
-                fillColor = vec3(0.133, 0.773, 0.369); // #22c55e
-              } else if (vHealth > 0.3) {
-                fillColor = vec3(0.918, 0.702, 0.031); // #eab308
-              } else {
-                fillColor = vec3(0.937, 0.267, 0.267); // #ef4444
-              }
-            }
-            gl_FragColor = vec4(fillColor, 0.9);
-          } else {
-            // Empty part: dark background
-            gl_FragColor = vec4(0.0, 0.0, 0.0, 0.4);
-          }
+          ${HEALTH_BAR_BODY}
         }
       `,
       transparent: true,
-      depthTest: false, // Always visible (like the original Sprites)
-      depthWrite: false, // Don't pollute depth buffer
+      depthTest: !foregroundOnly,
+      depthWrite: false,
       side: DoubleSide,
     });
   }
