@@ -32,6 +32,10 @@ export class HQDamageService {
   // Game over timeout for cleanup
   private gameOverTimeout: ReturnType<typeof setTimeout> | null = null;
 
+  // Cooldown to prevent audio overload when many enemies hit HQ simultaneously
+  private lastDamageSoundTime = 0;
+  private readonly DAMAGE_SOUND_COOLDOWN = 150; // ms between HQ damage sounds
+
   /**
    * Initialize with engine, base position, and event bus
    */
@@ -89,15 +93,20 @@ export class HQDamageService {
    * Emit audio event for HQ damage sound at base position
    */
   playDamageSound(): void {
-    if (this.basePosition && this.eventBus) {
-      this.eventBus.emitDeferred({
-        type: 'audio:play',
-        sound: GAME_SOUNDS.hqDamage.id,
-        lat: this.basePosition.lat,
-        lon: this.basePosition.lon,
-        height: this.basePosition.height ?? 0,
-      });
-    }
+    if (!this.basePosition || !this.eventBus) return;
+
+    // Throttle: skip if too soon after last sound (prevents audio overload on mass hits)
+    const now = performance.now();
+    if (now - this.lastDamageSoundTime < this.DAMAGE_SOUND_COOLDOWN) return;
+    this.lastDamageSoundTime = now;
+
+    this.eventBus.emitDeferred({
+      type: 'audio:play',
+      sound: GAME_SOUNDS.hqDamage.id,
+      lat: this.basePosition.lat,
+      lon: this.basePosition.lon,
+      height: this.basePosition.height ?? 0,
+    });
   }
 
   /**
