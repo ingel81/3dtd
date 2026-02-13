@@ -466,6 +466,11 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     this.tilesEngine?.enemies.clear();
     this.killingEnemies.clear();
+
+    // Stop frost auras before clearing the tracking set
+    for (const enemyId of this.frozenVisualEnemies) {
+      this.tilesEngine?.effects.stopFrostAura(enemyId);
+    }
     this.frozenVisualEnemies.clear();
     super.clear();
     this.aliveCount.set(0);

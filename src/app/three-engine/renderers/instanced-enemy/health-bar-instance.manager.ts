@@ -367,6 +367,7 @@ export class HealthBarInstanceManager {
       `,
       transparent: true,
       depthTest: false, // Always visible (like the original Sprites)
+      depthWrite: false, // Don't pollute depth buffer
       side: DoubleSide,
     });
   }
