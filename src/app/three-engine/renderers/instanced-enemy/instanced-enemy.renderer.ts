@@ -38,6 +38,9 @@ export class InstancedEnemyRenderer {
   private instancedEnemies = new Set<string>();
   private classicEnemies = new Set<string>();
 
+  // IDs that should use classic renderer (debug enemies need live overrides)
+  private forceClassicIds = new Set<string>();
+
   // Track loaded types
   private loadedTypes = new Set<string>();
   private bakingPromises = new Map<string, Promise<void>>();
@@ -172,8 +175,8 @@ export class InstancedEnemyRenderer {
       await this.bakingPromises.get(typeId);
     }
 
-    // Boss or failed bake → classic renderer
-    if (config.bossName || !this.instanceManager.hasPool(typeId)) {
+    // Boss, debug, or failed bake → classic renderer
+    if (config.bossName || this.forceClassicIds.has(id) || !this.instanceManager.hasPool(typeId)) {
       const data = await this.classicRenderer.create(id, typeId, lat, lon, height);
       if (data) this.classicEnemies.add(id);
       return data;
@@ -447,7 +450,15 @@ export class InstancedEnemyRenderer {
     return this.classicRenderer.showAlphaBlend;
   }
 
-  // Debug overrides (only for classic/boss enemies)
+  /**
+   * Mark an enemy ID to use classic renderer on next create().
+   * Used for debug enemies that need live override support.
+   */
+  markForClassic(id: string): void {
+    this.forceClassicIds.add(id);
+  }
+
+  // Debug overrides (classic enemies only — use markForClassic() before create())
   applyDebugOverrides(id: string, overrides: EnemyDebugOverrides): void {
     if (this.classicEnemies.has(id)) {
       this.classicRenderer.applyDebugOverrides(id, overrides);

@@ -154,7 +154,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 2.3,
     shootHeight: 1.95,
     rotationY: 3.1416, // 180°
-    damage: 75,
+    damage: 55,
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
