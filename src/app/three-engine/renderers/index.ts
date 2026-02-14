@@ -15,4 +15,5 @@ export { ThreeTowerRenderer, type TowerRenderData, type TerrainHeightSampler, ty
 export { ThreeProjectileRenderer, type ProjectileRenderData } from './three-projectile.renderer';
 export { ThreeEffectsRenderer } from './three-effects.renderer';
 export { ThreeFlameBeamRenderer } from './three-flame-beam.renderer';
+export { ThreeTentacleRenderer } from './three-tentacle.renderer';
 export { TrailStreakRenderer } from './trail-streak.renderer';

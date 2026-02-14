@@ -186,6 +186,21 @@ export class CombatEffectService {
   // =====================================================
 
   /**
+   * Apply melee damage to an enemy.
+   * Used by Tentacle Tower direct strikes.
+   */
+  applyMeleeDamage(
+    enemy: Enemy,
+    damage: number,
+    sourceTowerId: string
+  ): void {
+    this.damageService.applyBeamDamage(this.vfx, enemy, damage, sourceTowerId, true);
+
+    // Spawn damage number
+    this.spawnDamageNumber(enemy, damage);
+  }
+
+  /**
    * Apply continuous beam damage to an enemy.
    * Used by Fire Tower flamethrower effect.
    */

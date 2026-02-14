@@ -63,6 +63,13 @@ export class TowerManager extends EntityManager<Tower> {
         loop: true,
       });
 
+      // Register tentacle strike sound
+      tilesEngine.spatialAudio.registerSound('tentacle-grab', '/assets/sounds/towers/tentacle/tentacle-01.mp3', {
+        refDistance: 25,
+        rolloffFactor: 1.5,
+        volume: 0.7,
+      });
+
       this.placementSoundRegistered = true;
     }
   }
@@ -96,6 +103,18 @@ export class TowerManager extends EntityManager<Tower> {
       terrainHeight,
       customRotation
     );
+
+    // Create tentacle visual for Tentacle Towers
+    if (typeId === 'tentacle') {
+      const localPos = this.tilesEngine.sync.geoToLocalSimple(
+        position.lat,
+        position.lon,
+        terrainHeight
+      );
+      const shootPos = localPos.clone();
+      shootPos.y += tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
+      this.tilesEngine.tentacles.create(tower.id, shootPos);
+    }
 
     // Start inner fire for Fire Towers
     if (typeId === 'fire') {
@@ -294,6 +313,10 @@ export class TowerManager extends EntityManager<Tower> {
     if (entity.typeConfig.id === 'fire') {
       this.tilesEngine?.effects.stopTowerInnerFire(entity.id);
     }
+    // Remove tentacle visual for Tentacle Towers
+    if (entity.typeConfig.id === 'tentacle') {
+      this.tilesEngine?.tentacles.remove(entity.id);
+    }
     this.tilesEngine?.towers.remove(entity.id);
     super.remove(entity);
   }
@@ -304,6 +327,8 @@ export class TowerManager extends EntityManager<Tower> {
   override clear(): void {
     // Stop all tower inner fires
     this.tilesEngine?.effects.stopAllTowerFires();
+    // Clear all tentacle visuals
+    this.tilesEngine?.tentacles.clear();
     this.tilesEngine?.towers.clear();
     this._selectedTowerId.set(null);
     super.clear();
