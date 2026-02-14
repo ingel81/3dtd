@@ -77,6 +77,9 @@ export class TowerCombatService {
     const allEnemies = enemyManager.getAlive();
 
     for (const tower of towerManager.getAllActive()) {
+      // Skip non-projectile towers (beam, melee) — they have their own update methods
+      if (tower.typeConfig.attackType && tower.typeConfig.attackType !== 'projectile') continue;
+
       // Quick wake check for sleeping towers (every 500ms)
       // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies
       if (tower.isSleeping) {
@@ -499,6 +502,126 @@ export class TowerCombatService {
     for (const towerId of this.activeFlameSounds.keys()) {
       this.stopFlameSound(towerId);
     }
+  }
+
+  // =====================================================
+  // MELEE TOWER COMBAT (Tentacle Tower)
+  // =====================================================
+
+  /**
+   * Update melee towers - single-target direct damage with cooldown
+   *
+   * @param deltaTime - Time since last frame in milliseconds (unused for melee, kept for API consistency)
+   * @param towerManager - Tower manager
+   * @param enemyManager - Enemy manager
+   * @param timescale - Game speed multiplier
+   */
+  updateMeleeTowers(
+    _deltaTime: number,
+    towerManager: TowerManager,
+    enemyManager: EnemyManager,
+    timescale = 1.0
+  ): void {
+    if (!this.tilesEngine) return;
+
+    const now = performance.now();
+    const allEnemies = enemyManager.getAlive();
+
+    for (const tower of towerManager.getAllActive()) {
+      // Skip non-melee towers
+      if (tower.typeConfig.attackType !== 'melee') continue;
+
+      // Quick wake check for sleeping towers (every 500ms)
+      if (tower.isSleeping) {
+        if (now - tower.lastSleepCheck < 500) continue;
+        tower.lastSleepCheck = now;
+
+        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+          tower.position.lat,
+          tower.position.lon,
+          0
+        );
+        const hasNearby = this.spatialGrid.hasEnemyInRadius(
+          towerLocal.x,
+          towerLocal.z,
+          tower.typeConfig.range * 1.1
+        );
+        if (!hasNearby) continue;
+        tower.isSleeping = false;
+      }
+
+      // Get candidate enemies (same logic as beam towers)
+      const hasVisibleCells = tower.visibleCells.length > 0;
+      let candidates: Enemy[];
+
+      if (hasVisibleCells) {
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+      } else {
+        const rangeMeters = tower.typeConfig.range;
+        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+          tower.position.lat,
+          tower.position.lon,
+          0
+        );
+        candidates = this.globalRouteGrid.getEnemiesInRadius(
+          towerLocal.x,
+          towerLocal.z,
+          rangeMeters * 1.1
+        );
+      }
+
+      // Find target
+      const target = tower.findTarget(candidates);
+
+      if (target) {
+        // Target found - update sleep tracking
+        tower.lastTargetTime = now;
+        tower.isSleeping = false;
+
+        // Rotate turret towards target
+        const heading = this.calculateHeading(tower.position, target.position);
+        this.tilesEngine.towers.updateRotation(tower.id, heading);
+
+        // Fire if cooldown ready
+        if (tower.combat.canFire(now, timescale)) {
+          tower.combat.fire(now);
+
+          // Apply direct melee damage
+          this.combatEffectService.applyMeleeDamage(
+            target,
+            tower.combat.damage,
+            tower.id
+          );
+
+          // Start tentacle strike visual
+          const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
+            target.position.lat,
+            target.position.lon,
+            target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0)
+          );
+          targetLocalPos.y += 1.5; // Target center mass
+          this.tilesEngine.tentacles?.startStrike(tower.id, targetLocalPos);
+
+          // Play tentacle strike sound at target position
+          this.tilesEngine.spatialAudio?.playAt('tentacle-grab', targetLocalPos);
+        }
+      } else {
+        // No target - check if tower should sleep
+        if (now - tower.lastTargetTime > Tower.SLEEP_DELAY) {
+          tower.isSleeping = true;
+        }
+        // Reset turret to base position
+        this.tilesEngine.towers.resetRotation(tower.id);
+      }
+    }
+  }
+
+  /**
+   * Stop all active melee visuals (called on wave end)
+   * Resets tentacles to idle — they stay visible as part of the tower
+   */
+  stopAllMelee(): void {
+    this.tilesEngine?.tentacles?.resetAllToIdle();
   }
 
   // =====================================================

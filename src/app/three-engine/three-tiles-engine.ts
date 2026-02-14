@@ -56,6 +56,7 @@ import {
   ThreeProjectileRenderer,
   ThreeEffectsRenderer,
   ThreeFlameBeamRenderer,
+  ThreeTentacleRenderer,
   TrailStreakRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
@@ -134,6 +135,7 @@ export class ThreeTilesEngine {
   readonly projectiles: ThreeProjectileRenderer;
   readonly effects: ThreeEffectsRenderer;
   readonly flameBeams: ThreeFlameBeamRenderer;
+  readonly tentacles: ThreeTentacleRenderer;
   readonly trailStreaks: TrailStreakRenderer;
 
   // Spatial audio manager
@@ -319,6 +321,7 @@ export class ThreeTilesEngine {
     this.effects = new ThreeEffectsRenderer(this.scene, coordinateSync);
     this.flameBeams = new ThreeFlameBeamRenderer();
     this.flameBeams.setEffectsRenderer(this.effects);
+    this.tentacles = new ThreeTentacleRenderer(this.scene);
     this.trailStreaks = new TrailStreakRenderer(this.scene);
 
     // Initialize spatial audio with camera listener
@@ -1572,6 +1575,9 @@ export class ThreeTilesEngine {
     // Update flame beam shader animations
     this.flameBeams.update(deltaTime);
 
+    // Update tentacle animations
+    this.tentacles.update(deltaTime, this.camera.position);
+
     // Rebuild trail streak geometries
     this.trailStreaks.updateAll();
 
@@ -2061,6 +2067,7 @@ export class ThreeTilesEngine {
     this.projectiles.clear();
     this.effects.clear();
     this.flameBeams.clear();
+    this.tentacles.clear();
     this.trailStreaks.clear();
   }
 
@@ -2086,6 +2093,7 @@ export class ThreeTilesEngine {
     this.projectiles.dispose();
     this.effects.dispose();
     this.flameBeams.dispose();
+    this.tentacles.dispose();
     this.trailStreaks.dispose();
 
     // Dispose spatial audio

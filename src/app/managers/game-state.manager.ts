@@ -346,6 +346,14 @@ export class GameStateManager {
         this.enemyManager,
         this.trainingTimescale()
       );
+
+      // Melee tower combat (tentacle strikes)
+      this.towerCombat.updateMeleeTowers(
+        deltaTime,
+        this.towerManager,
+        this.enemyManager,
+        this.trainingTimescale()
+      );
       tCombat = profiling ? performance.now() - t0 : 0;
     }
 
@@ -367,6 +375,7 @@ export class GameStateManager {
     if (this.waveManager.checkWaveComplete()) {
       this.waveManager.endWave();
       this.towerCombat.stopAllBeams(); // Stop fire tower beams
+      this.towerCombat.stopAllMelee(); // Stop tentacle visuals
       this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
       this.updateCredits(GAME_BALANCE.waves.completionBonus);
     }

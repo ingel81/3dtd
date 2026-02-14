@@ -1,7 +1,7 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
 export type UpgradeId = 'speed' | 'damage' | 'range';
-export type AttackType = 'projectile' | 'beam';
+export type AttackType = 'projectile' | 'beam' | 'melee';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
 
 export interface TowerUpgrade {
@@ -65,6 +65,9 @@ export interface TowerTypeConfig {
 
   /** Fire point offsets in turret-local space (x=lateral meters, z=forward meters). Alternates per shot. */
   firePoints?: { x: number; z: number }[];
+
+  // Melee attack settings (for tentacle-type towers)
+  meleeStrikeDuration?: number; // Strike animation duration in ms (default: 250)
 }
 
 // Tower model URLs
@@ -319,6 +322,53 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         effect: {
           stat: 'range',
           multiplier: 1.3, // Applied to beamWidth
+        },
+      },
+    ],
+  },
+  tentacle: {
+    id: 'tentacle',
+    name: 'Tentacle Tower',
+    defaultTargeting: 'closest',
+    modelUrl: '/assets/models/towers/tentacle.glb',
+    scale: 9.8,
+    previewScale: 12,
+    heightOffset: 2,
+    shootHeight: -2,
+    rotationY: 0,
+
+    // Melee attack — direct hit, no projectile
+    attackType: 'melee',
+    damage: 30,
+    range: 25, // Short range like Fire Tower
+    fireRate: 1.5, // 1.5 hits/sec
+    projectileType: 'arrow', // Fallback, not used
+    meleeStrikeDuration: 250, // 250ms strike animation
+
+    cost: 80,
+    sellValue: 48, // 60% of cost
+    upgrades: [
+      {
+        id: 'damage',
+        name: 'Barbed Tips',
+        description: 'Increases melee damage by 50%',
+        cost: 80,
+        costScaling: 1.8,
+        maxLevel: 3,
+        effect: {
+          stat: 'damage',
+          multiplier: 1.5,
+        },
+      },
+      {
+        id: 'speed',
+        name: 'Rapid Lash',
+        description: 'Doubles strike speed',
+        cost: 70,
+        maxLevel: 1,
+        effect: {
+          stat: 'fireRate',
+          multiplier: 2.0,
         },
       },
     ],
