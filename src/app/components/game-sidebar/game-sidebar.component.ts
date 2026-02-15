@@ -16,6 +16,7 @@ import {
 } from '@angular/core';
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
+import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
@@ -33,6 +34,7 @@ import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { AdBannerComponent } from '../ad-banner/ad-banner.component';
+import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 @Component({
@@ -40,6 +42,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   standalone: true,
   imports: [
     CommonModule,
+    MatDialogModule,
     MatIconModule,
     MatTooltipModule,
     AdBannerComponent,
@@ -82,17 +85,23 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .td-sidebar-footer {
       display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-top: auto;
+      font-size: 10px;
+      color: var(--td-text-muted);
+    }
+
+    .td-sidebar-footer-bottom {
+      display: flex;
       align-items: center;
       justify-content: center;
       gap: 10px;
       padding: 6px 8px;
-      margin-top: auto;
-      font-size: 10px;
-      color: var(--td-text-muted);
       opacity: 0.6;
     }
 
-    .td-sidebar-footer:hover {
+    .td-sidebar-footer-bottom:hover {
       opacity: 1;
     }
 
@@ -105,6 +114,36 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .td-sidebar-footer a:hover {
       color: var(--td-text-primary);
+    }
+
+    .td-attributions-btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      width: 100%;
+      padding: 6px 8px;
+      background: none;
+      border: none;
+      border-top: 1px solid var(--td-frame-dark);
+      color: var(--td-text-muted);
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 9px;
+      cursor: pointer;
+      opacity: 0.6;
+      transition: all 0.15s ease;
+    }
+
+    .td-attributions-btn:hover {
+      opacity: 1;
+      color: var(--td-text-secondary);
+      background: var(--td-panel-secondary);
+    }
+
+    .td-attributions-btn mat-icon {
+      font-size: 12px;
+      width: 12px;
+      height: 12px;
     }
 
     /* === Panel (WC3 Style) === */
@@ -611,6 +650,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
   `,
 })
 export class GameSidebarComponent implements AfterViewInit, OnDestroy {
+  private readonly dialog = inject(MatDialog);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly towerDebug = inject(TowerDebugService);
@@ -800,5 +840,11 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       return config.name;
     }
     return this.currentEnemyConfig().name;
+  }
+
+  openAttributions(): void {
+    this.dialog.open(AttributionsDialogComponent, {
+      panelClass: 'td-dialog-panel',
+    });
   }
 }
