@@ -79,7 +79,10 @@ export class EnemyInstanceManager {
   createPool(typeId: string, vatData: VATData, config: EnemyTypeConfig): void {
     if (this.pools.has(typeId)) return;
 
-    const material = createVATMaterial(vatData);
+    const material = createVATMaterial(vatData, {
+      emissiveIntensity: config.emissiveIntensity,
+      emissiveColor: config.emissiveColor,
+    });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,
       material,

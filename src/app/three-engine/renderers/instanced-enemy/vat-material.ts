@@ -1,8 +1,14 @@
 import {
   ShaderMaterial,
   FrontSide,
+  Color,
 } from 'three';
 import { VATData } from './vat-baker';
+
+export interface VATMaterialOptions {
+  emissiveIntensity?: number;
+  emissiveColor?: string;
+}
 
 /**
  * Create a ShaderMaterial for Vertex Animation Texture (VAT) rendering.
@@ -16,13 +22,18 @@ import { VATData } from './vat-baker';
  *   aTintColor (vec3) - tint color overlay (0,0,0 = no tint)
  *   aOpacity (float) - instance opacity (1.0 = fully visible)
  */
-export function createVATMaterial(vatData: VATData): ShaderMaterial {
+export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions): ShaderMaterial {
+  const emissiveIntensity = options?.emissiveIntensity ?? 0;
+  const emissiveColor = new Color(options?.emissiveColor ?? '#ffffff');
+
   const uniforms: Record<string, { value: unknown }> = {
     vatTexture: { value: vatData.positionTexture },
     vatWidth: { value: vatData.texWidth },
     vatHeight: { value: vatData.totalFrames * vatData.rowsPerFrame },
     rowsPerFrame: { value: vatData.rowsPerFrame },
     isUnlit: { value: vatData.isUnlit ? 1.0 : 0.0 },
+    emissiveIntensity: { value: emissiveIntensity },
+    emissiveColor: { value: emissiveColor },
   };
 
   if (vatData.diffuseMap) {
@@ -102,6 +113,8 @@ export function createVATMaterial(vatData: VATData): ShaderMaterial {
       uniform sampler2D diffuseMap;
       uniform float hasDiffuse;
       uniform float isUnlit;
+      uniform float emissiveIntensity;
+      uniform vec3 emissiveColor;
 
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -160,6 +173,9 @@ export function createVATMaterial(vatData: VATData): ShaderMaterial {
           vec3 totalLight = sun + fill + hemi + ambientColor;
           litColor = baseColor * totalLight;
         }
+
+        // Emissive: additive glow (brightens the model)
+        litColor += emissiveColor * emissiveIntensity;
 
         // Apply tint (for freeze/damage effects)
         if (vHasTint > 0.5) {
