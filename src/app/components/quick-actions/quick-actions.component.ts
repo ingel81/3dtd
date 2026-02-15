@@ -87,13 +87,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left">
         <mat-icon>my_location</mat-icon>
       </button>
-      <button class="td-quick-btn"
-              [class.active]="uiStore.infoOverlayVisible()"
-              (click)="uiStore.toggleInfoOverlay()"
-              matTooltip="Info-Overlay"
-              matTooltipPosition="left">
-        <mat-icon>info</mat-icon>
-      </button>
       <!-- Dev Menu (expands upward) -->
       <div class="td-dev-menu-wrapper">
         <div class="td-dev-menu" [class.expanded]="uiStore.devMenuExpanded()">

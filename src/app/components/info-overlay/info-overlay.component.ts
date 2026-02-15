@@ -6,11 +6,12 @@ import { UIStore } from '../../store/ui.store';
  * InfoOverlayComponent
  *
  * Transparent text overlay in the top left of the game field.
- * Shows FPS (always visible), plus Tiles, active enemies, sounds, street count (toggleable).
+ * Shows FPS (always visible) with a caret toggle for additional stats.
+ * Clicking the FPS line expands/collapses Tiles, enemies, sounds, street count.
  *
  * Features:
- * - FPS display is always visible
- * - Rest (Tiles, enemies, sounds, streets) toggleable via Quick Actions button
+ * - FPS display is always visible with clickable caret
+ * - Rest (Tiles, enemies, sounds, streets) toggleable via caret
  * - No background - completely transparent
  * - Multi-layer text shadow for readability on all backgrounds
  */
@@ -21,8 +22,11 @@ import { UIStore } from '../../store/ui.store';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="info-overlay">
-      <!-- FPS always visible -->
-      <div class="info-line">FPS: {{ fps() }}</div>
+      <!-- FPS always visible, caret toggles details -->
+      <div class="info-line fps-line" (click)="uiStore.toggleInfoOverlay()">
+        <span>FPS: {{ fps() }}</span>
+        <span class="caret" [class.expanded]="uiStore.infoOverlayVisible()">&#9656;</span>
+      </div>
       <!-- Rest only visible when info overlay is toggled -->
       @if (uiStore.infoOverlayVisible()) {
         <div class="info-line">Tiles: {{ tileStats().visible }}/{{ tileStats().total }}</div>
@@ -60,6 +64,24 @@ import { UIStore } from '../../store/ui.store';
          0    1px 0 #000000,
         /* Subtle glow for extra contrast */
          0    0   4px rgba(0, 0, 0, 0.8);
+    }
+
+    .fps-line {
+      pointer-events: auto;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+
+    .caret {
+      display: inline-block;
+      font-size: 10px;
+      transition: transform 0.15s ease;
+    }
+
+    .caret.expanded {
+      transform: rotate(90deg);
     }
   `,
 })
