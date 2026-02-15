@@ -1,5 +1,6 @@
 import { Injectable, inject, Injector } from '@angular/core';
 import { SubscriptionBag } from '../game-engine/game-event-bus';
+import { BackgroundMusicService } from '../game-engine/background-music.service';
 import { OsmStreetService } from './osm-street.service';
 import { TowerPlacementService } from './tower-placement.service';
 import { EngineInitializationService } from './engine-initialization.service';
@@ -178,6 +179,9 @@ export class TowerDefenseFacadeService {
       this.store.useAIDirector.set(true);
       this.trainingClient.connectToBackend();
     }
+
+    // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
+    BackgroundMusicService.playMainTheme();
 
     // Location detection (delegated to LocationFacade)
     await this.locationFacade.initializeLocation();
