@@ -83,7 +83,7 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | Typ | Speed | Scale | Visual Type | Splash | Trail |
 |-----|-------|-------|-------------|--------|-------|
 | arrow | 80 m/s | 8 | arrow (GLB Model) | - | - |
-| cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 16m | Rauch (normal blending) |
+| cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 10m | Rauch (normal blending) |
 | fireball | 100 m/s | 0.4 | magic (Shader Orb) | - | Feuer-Spirale (additive) |
 | ice-shard | 90 m/s | 0.4 | ice (Shader Orb) | 12m | Eis-Partikel (additive) |
 | bullet | 150 m/s | 0.15 | bullet (Cylinder) | - | Gelber Tracer (additive) |

@@ -131,6 +131,8 @@ if (vUseMap > 0.5 && hasDiffuse > 0.5) {
 | `diffuseMap` | sampler2D | Diffuse Texture (optional) |
 | `hasDiffuse` | float | 1.0 wenn Texture vorhanden |
 | `isUnlit` | float | 1.0 fuer unbeleuchtete Modelle |
+| `emissiveIntensity` | float | Additiver Helligkeitsboost (aus EnemyTypeConfig) |
+| `emissiveColor` | vec3 | Emissive-Farbe (default weiss) |
 
 ### Per-Vertex Attribute
 

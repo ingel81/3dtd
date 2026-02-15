@@ -8,6 +8,9 @@
 - Air Priority Targeting: braucht Sub-Strategie (strongest/weakest/nearest bei Air-Priorität)
 - Fire Tower "Wide Burn" Upgrade: macht aktuell dasselbe wie Range-Upgrade, eigene Logik nötig
 - Kamera-Boundaries: evtl. Begrenzung wenn man sich weit aus dem Spielbereich bewegt
+- Attributions: Skybox (day.webp, night.webp) Quelle ermitteln und eintragen
+- Attributions: stone-wall.jpg Quelle ermitteln und eintragen
+- Attributions: Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
 
 
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
@@ -285,12 +288,12 @@
 > Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
 
 - [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
+      Model bereits vorhanden: `public/assets/models/enemies/candidates/mechacat_01.glb`
 - [ ] **Ghost** - `ethereal` Rüstung, nur Magic/Chaos wirkt
 - [ ] **Skeleton** - `unarmored`, Swarm
 - [ ] **Golem** - `fortified`, Boss
-- [ ] **Spider** - `light`, schnell, immun gegen Slow
 - [ ] **Dragon** - `heavy` + Air, fliegender Boss
-      Model bereits vorhanden: `public/assets/models/enemies/mechacat_01.glb`
+      Model vorhanden: `public/assets/models/enemies/candidates/dragon.glb`
 
 ---
 

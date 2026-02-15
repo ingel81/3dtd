@@ -18,6 +18,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Air/Ground Targeting
 - Animierte Tower-Modelle (GLTF-Animationen)
 - Beam-Angriffe (z.B. Flammenwerfer)
+- Melee-Angriffe (z.B. Tentacle Tower, `attackType: 'melee'`)
 
 ---
 
@@ -32,6 +33,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Rocket | projectile | 40 | 100m | 0.5/s | 100 | Nur Luft-Ziele |
 | Ice | projectile | 2 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground |
 | Fire | beam | 35 DPS | 25m | - | 110 | Flächenschaden (Kegel), nur Boden |
+| Tentacle | melee | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering, Nahkampf (`meleeStrikeDuration`) |
 
 ---
 
