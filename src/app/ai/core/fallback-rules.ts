@@ -17,6 +17,8 @@ const ENEMY_TYPES = {
   tank: 'tank',
   heavy: 'wallsmasher',
   mammoth: 'mammoth',
+  bear: 'bear',
+  dragon: 'dragon',
   boss: 'herbert',
 };
 
@@ -114,7 +116,14 @@ function generateEnemiesForArchetype(
       break;
 
     case 'elite':
-      // Few strong enemies
+      // Few strong enemies — bears from wave 6+
+      if (wave >= 6) {
+        groups.push({
+          type: ENEMY_TYPES.bear,
+          count: Math.max(1, Math.floor(baseCount * 0.15)),
+          healthMultiplier: 1.2,
+        });
+      }
       groups.push({
         type: ENEMY_TYPES.tank,
         count: Math.max(2, Math.floor(baseCount * 0.3)),
@@ -127,7 +136,13 @@ function generateEnemiesForArchetype(
       break;
 
     case 'rush':
-      // Fast enemies
+      // Fast enemies — bears appear from wave 5+
+      if (wave >= 5) {
+        groups.push({
+          type: ENEMY_TYPES.bear,
+          count: Math.max(1, Math.floor(baseCount * 0.2)),
+        });
+      }
       groups.push({
         type: ENEMY_TYPES.fast,
         count: Math.floor(baseCount * 0.8),
@@ -160,7 +175,14 @@ function generateEnemiesForArchetype(
       break;
 
     case 'air':
-      // Flying enemies (if player has no anti-air)
+      // Flying enemies (if player has no anti-air) — dragons from wave 8+
+      if (wave >= 8) {
+        groups.push({
+          type: ENEMY_TYPES.dragon,
+          count: Math.max(1, Math.floor(baseCount * 0.1)),
+          healthMultiplier: 1.2,
+        });
+      }
       groups.push({
         type: ENEMY_TYPES.fast, // Bat is air unit
         count: Math.floor(baseCount * 0.7),

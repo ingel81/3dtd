@@ -59,6 +59,7 @@ export interface EnemyTypeConfig {
   headingOffset?: number; // Rotation offset in radians (correct model orientation)
   emissiveIntensity?: number; // Glow effect strength (0 = off, 0.1-0.5 = subtle, 1+ = strong)
   emissiveColor?: string; // Glow color as hex (default: '#ffffff')
+  colorMultiplier?: number; // Overall brightness multiplier (0.0-1.0 = darken, default 1.0)
   unlit?: boolean; // No lighting - shows original colors (for cartoon models)
 
   // Boss / Special
@@ -360,6 +361,67 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.5,
     spawnStartDelay: 1000,
+  },
+
+  bear: {
+    id: 'bear',
+    name: 'Bear',
+    modelUrl: '/assets/models/enemies/bear.glb',
+    scale: 0.1,
+    minimumPixelSize: 0,
+    baseHp: 300,
+    baseSpeed: 8,
+    reward: 8,
+    hasAnimations: true,
+    walkAnimation: 'GltfAnimation 0',
+    animationSpeed: 2.0,
+    // Random bear growl — every 10-30s
+    randomSound: '/assets/sounds/enemies/bear/bear01.mp3',
+    randomSoundMinInterval: 10000,
+    randomSoundMaxInterval: 30000,
+    randomSoundVolumeMin: 0.3,
+    randomSoundVolumeMax: 0.7,
+    randomSoundRefDistance: 40,
+    heightOffset: 0,
+    healthBarOffset: 5,
+    canBleed: true,
+    headingOffset: -1.658,
+    emissiveIntensity: 0.01,
+    colorMultiplier: 0.6,
+    randomAnimationStart: true,
+    lateralOffset: 2.0,
+    spawnStartDelay: 600,
+  },
+
+  dragon: {
+    id: 'dragon',
+    name: 'Dragon',
+    modelUrl: '/assets/models/enemies/dragon.glb',
+    scale: 2.5,
+    minimumPixelSize: 0,
+    baseHp: 450,
+    baseSpeed: 6,
+    reward: 12,
+    hasAnimations: true,
+    walkAnimation: 'flying',
+    animationSpeed: 1.46,
+    // Rare dragon roar — every 12-35s
+    randomSound: '/assets/sounds/enemies/dragon/dragon01.mp3',
+    randomSoundMinInterval: 12000,
+    randomSoundMaxInterval: 35000,
+    randomSoundVolumeMin: 0.3,
+    randomSoundVolumeMax: 0.7,
+    randomSoundRefDistance: 50,
+    heightOffset: 20,
+    heightVariation: 4,
+    healthBarOffset: 14,
+    canBleed: true,
+    headingOffset: 0,
+    isAirUnit: true,
+    colorMultiplier: 0.6,
+    randomAnimationStart: true,
+    lateralOffset: 3.0,
+    spawnStartDelay: 1200,
   },
 };
 

@@ -79,6 +79,20 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
         licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
         sourceUrl: 'https://sketchfab.com/3d-models/mammoth-5e0a1d6bb8a74c0f906bafa34cffa0c5',
       },
+      {
+        name: 'Bear',
+        author: 'krutoydenis123',
+        license: 'CC-BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        sourceUrl: 'https://sketchfab.com/3d-models/masha-and-the-bear-bear-bc27b449e8ba4ae098a0c972603492f8',
+      },
+      {
+        name: 'Dragon',
+        author: 'endlessvoidmc',
+        license: 'CC-BY 4.0',
+        licenseUrl: 'https://creativecommons.org/licenses/by/4.0/',
+        sourceUrl: 'https://sketchfab.com/3d-models/demon-dragon-full-texture-19035a72cdcb4abfa2c161de32823e6b',
+      },
     ],
   },
   {

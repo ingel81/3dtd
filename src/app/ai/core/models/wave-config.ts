@@ -9,7 +9,7 @@
  * Known enemy type IDs in the game
  * Keep in sync with ENEMY_TYPES in models/enemy-types.ts
  */
-export type KnownEnemyTypeId = 'zombie' | 'tank' | 'wallsmasher' | 'bat' | 'herbert' | 'mammoth';
+export type KnownEnemyTypeId = 'zombie' | 'tank' | 'wallsmasher' | 'bat' | 'herbert' | 'mammoth' | 'bear' | 'dragon';
 
 /**
  * Wave archetypes for thematic wave generation
