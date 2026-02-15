@@ -4,6 +4,56 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-02-15
+
+### Attributions Dialog
+- [x] **Attributions & Licenses Dialog** in Sidebar-Footer
+      WC3-styled Dialog mit allen 3D-Model-Lizenzen (Sketchfab, Poly Pizza),
+      Fonts, Sound Effects und Open Source Libraries. Strukturierte Config
+      in `attributions.config.ts` fuer einfache Pflege.
+
+### Info Overlay Caret
+- [x] **Info-Overlay Toggle an FPS-Anzeige verschoben**
+      Button aus Quick-Actions entfernt. Klickbares Caret neben FPS-Zeile
+      expanded/collapsed die Detail-Stats (Tiles, Enemies, Sounds, Streets).
+
+## 2026-02-14
+
+### Background Music Service
+- [x] **Phasen-basierte Hintergrundmusik**
+      Two-Channel A/B Crossfade-System spielt zufaellige Tracks pro Phase
+      (Build vs Wave). Neuer Track bei jeder Wave, Loop mit Crossfade.
+      Config in `background-music.config.ts`, 15 Tracks (2 Build, 13 Wave).
+- [x] **Main Theme beim Start**
+      Spielt via HTMLAudioElement vor Engine-Init, geloopt bis Game Ready,
+      dann Crossfade zu Build-Musik.
+- [x] **Musik-Dateien getrimmt**
+      Trailing Silence aus allen 15+1 Music-Files entfernt (ffmpeg).
+
+### Mammoth Enemy
+- [x] **Neuer Mammoth-Gegner**
+      Langsam (Speed 3), stark (400 HP), Siege-Archetyp ab Wave 7+.
+      Walk/Die-Animationen, seltener Mammoth-Call Sound (15-40s Intervall).
+
+### VAT Shader Emissive Support
+- [x] **Emissive-Unterstuetzung im instanced VAT Shader**
+      `emissiveIntensity` und `emissiveColor` Uniforms im Fragment Shader.
+      Behebt dunkle Darstellung von Mammoth, Rat, Spider, Zombie Soldier.
+
+### Tentacle Tower
+- [x] **Tentacle Tower mit GPU Bezier-Rendering**
+      Melee-Tower mit prozeduralem Tentakel-Rendering (kubische Bezier-Kurven).
+      `attackType: 'melee'`, `meleeStrikeDuration` fuer Nahkampf.
+
+### Zombie Soldier + Rat
+- [x] **Zwei neue Gegner-Typen**
+      Zombie Soldier (humanoid, mittel) und Rat (schnell, schwach).
+      Beide mit Walk/Die-Animationen und Instanced Rendering.
+
+### Two-Pass Health Bars
+- [x] **Verbessertes Health-Bar-Rendering**
+      Korrektes Depth-Testing mit Two-Pass Rendering.
+
 ## 2026-02-13
 
 ### Floating Damage Numbers

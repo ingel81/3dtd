@@ -575,7 +575,7 @@ class WaveManager {
 ### 4.6 SpatialAudioManager
 
 ```typescript
-@Injectable()
+// Framework-agnostic (kein @Injectable)
 class SpatialAudioManager {
   private readonly MAX_ENEMY_SOUNDS = 12;  // Sound Budget
 
@@ -612,16 +612,17 @@ class GameEventBus {
 }
 ```
 
-### Event-Typen (20 definiert)
+### Event-Typen (35 definiert)
 
 | Kategorie | Events |
 |-----------|--------|
-| Enemy | `enemy:died`, `enemy:reached-base` |
-| Tower | `tower:placed`, `tower:sold` |
-| Combat | `projectile:hit` |
-| Wave | `wave:started`, `wave:completed` |
-| Game | `game:over`, `health:changed` |
-| Effects | `vfx:projectile-impact`, `audio:play` |
+| Enemy | `enemy:died`, `enemy:reached-base`, `enemy:spawned`, `enemy:damaged` |
+| Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:targeting` |
+| Combat | `projectile:hit`, `projectile:fired` |
+| Wave | `wave:started`, `wave:completed`, `wave:all-cleared` |
+| Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
+| Effects | `vfx:projectile-impact`, `vfx:enemy-death`, `vfx:muzzle-flash`, `audio:play` |
+| Debug | `debug:spawn-enemy`, `debug:kill-all`, `debug:add-credits`, u.a. |
 
 ### Immediate vs Deferred
 
@@ -646,6 +647,8 @@ Alle Renderer verwenden das `CoordinateSync` Interface für Geo-zu-Lokal Transfo
 ```typescript
 interface CoordinateSync {
   geoToLocal(lat: number, lon: number, height: number): THREE.Vector3;
+  geoToLocalSimple(lat: number, lon: number, height: number): THREE.Vector3;
+  geoToLocalSimpleInto(lat: number, lon: number, height: number, target: THREE.Vector3): THREE.Vector3;
   localToGeo?(vec: THREE.Vector3): { lat: number; lon: number; height: number };
 }
 ```
@@ -772,7 +775,7 @@ const ENEMY_TYPES: Record<EnemyTypeId, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
-    modelUrl: '/assets/games/tower-defense/models/zombie_alternative.glb',
+    modelUrl: '/assets/models/enemies/zombie.glb',
     baseHp: 100,
     baseSpeed: 2.5,
     scale: 0.5,
@@ -962,7 +965,7 @@ function onEngineUpdate(deltaTime: number) {
 src/app/
 ├── tower-defense.component.ts    # Haupt-Component (~1950 Zeilen)
 │
-├── services/                     # Angular Services (38 Dateien)
+├── services/                     # Angular Services (~48 Dateien)
 │   ├── tower-defense-facade.service.ts  # Facades (5)
 │   ├── game-loop-facade.service.ts
 │   ├── visualization-facade.service.ts
@@ -971,7 +974,7 @@ src/app/
 │   ├── ...                              # Spezialisierte Services
 │   └── (siehe Service-Übersicht oben)
 │
-├── managers/                     # 7 Manager-Dateien
+├── managers/                     # ~18 Manager-Dateien (inkl. audio/)
 │   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
 │   ├── game-state.manager.ts     # Orchestrator (~800 Zeilen)

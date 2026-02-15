@@ -229,9 +229,8 @@ unlit: true,  // Keine Beleuchtung - zeigt Originalfarben
 ### Boss Health Bar
 
 ```typescript
-healthBarColor: '#ef4444',   // Rote Healthbar
-bossName: 'Boss',            // Name über Healthbar
 immunityPercent: 100,        // "Immun 100%" Anzeige
+// healthBarColor und bossName: im Interface definiert, aber noch nicht implementiert
 ```
 
 ### Blood Effects
@@ -433,8 +432,6 @@ herbert: {
 
   heightOffset: 0.5,
   healthBarOffset: 7,
-  healthBarColor: '#ef4444',  // Rote Boss-Bar
-  bossName: 'Boss',
   immunityPercent: 100,       // "Immun 100%"
   canBleed: true,
   headingOffset: -0.192,
@@ -524,7 +521,7 @@ wallsmasher: {
 - [ ] `canBleed` korrekt (true für organisch, false für mechanisch)
 - [ ] Bei Air Unit: `isAirUnit: true` gesetzt
 - [ ] Bei Run-Animation: `runSpeedMultiplier` gesetzt
-- [ ] Bei Boss: `healthBarColor`, `bossName`, `immunityPercent` gesetzt
+- [ ] Bei Boss: `immunityPercent` gesetzt
 - [ ] `previewScale` gesetzt falls Model im Sidebar-Preview zu gross/klein
 
 ---

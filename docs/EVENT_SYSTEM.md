@@ -60,6 +60,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:blood` | CombatEffectService | VFXService | Blut-VFX spawnen |
 | `vfx:explosion` | CombatEffectService | VFXService | Explosion VFX spawnen |
 | `vfx:projectile-impact` | ProjectileManager | VFXService | Projektil-Einschlag VFX spawnen |
+| `vfx:muzzle-flash` | TowerManager | VFXService | Muzzle-Flash VFX am Tower spawnen |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
 
 ### Debug Events
@@ -202,7 +203,7 @@ function gameLoop(deltaTime: number) {
 
 | Komponente | Angular DI | Events | Beschreibung |
 |------------|------------|--------|--------------|
-| **GameEventBus** | Nein | Core System | Event Bus mit 34 Event-Typen |
+| **GameEventBus** | Nein | Core System | Event Bus mit 35 Event-Typen |
 | **VFXService** | Nein | Subscriber | Reagiert auf `vfx:*` Events |
 | **AudioService** | Nein | Subscriber | Reagiert auf `audio:play` |
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
