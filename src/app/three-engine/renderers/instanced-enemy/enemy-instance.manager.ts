@@ -82,6 +82,7 @@ export class EnemyInstanceManager {
     const material = createVATMaterial(vatData, {
       emissiveIntensity: config.emissiveIntensity,
       emissiveColor: config.emissiveColor,
+      colorMultiplier: config.colorMultiplier,
     });
     const instancedMesh = new InstancedMesh(
       vatData.geometry,

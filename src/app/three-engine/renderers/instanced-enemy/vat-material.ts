@@ -8,6 +8,7 @@ import { VATData } from './vat-baker';
 export interface VATMaterialOptions {
   emissiveIntensity?: number;
   emissiveColor?: string;
+  colorMultiplier?: number;
 }
 
 /**
@@ -25,6 +26,7 @@ export interface VATMaterialOptions {
 export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions): ShaderMaterial {
   const emissiveIntensity = options?.emissiveIntensity ?? 0;
   const emissiveColor = new Color(options?.emissiveColor ?? '#ffffff');
+  const colorMultiplier = options?.colorMultiplier ?? 1.0;
 
   const uniforms: Record<string, { value: unknown }> = {
     vatTexture: { value: vatData.positionTexture },
@@ -34,6 +36,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
     isUnlit: { value: vatData.isUnlit ? 1.0 : 0.0 },
     emissiveIntensity: { value: emissiveIntensity },
     emissiveColor: { value: emissiveColor },
+    colorMultiplier: { value: colorMultiplier },
   };
 
   if (vatData.diffuseMap) {
@@ -115,6 +118,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       uniform float isUnlit;
       uniform float emissiveIntensity;
       uniform vec3 emissiveColor;
+      uniform float colorMultiplier;
 
       varying vec2 vUv;
       varying vec3 vNormal;
@@ -173,6 +177,9 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           vec3 totalLight = sun + fill + hemi + ambientColor;
           litColor = baseColor * totalLight;
         }
+
+        // Color multiplier: darken overly bright models
+        litColor *= colorMultiplier;
 
         // Emissive: additive glow (brightens the model)
         litColor += emissiveColor * emissiveIntensity;
