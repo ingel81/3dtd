@@ -22,6 +22,7 @@ export const ENEMY_SOUND_PATTERNS = [
   'wallsmasher',
   'big_arm',
   'herbert',
+  'mammouth',
 ] as const;
 
 /** Projectile sound IDs for budget management */

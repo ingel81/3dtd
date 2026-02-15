@@ -16,6 +16,7 @@ const ENEMY_TYPES = {
   fast: 'bat',
   tank: 'tank',
   heavy: 'wallsmasher',
+  mammoth: 'mammoth',
   boss: 'herbert',
 };
 
@@ -139,7 +140,14 @@ function generateEnemiesForArchetype(
       break;
 
     case 'siege':
-      // Slow but tanky
+      // Slow but tanky — mammoths appear from wave 7+
+      if (wave >= 7) {
+        groups.push({
+          type: ENEMY_TYPES.mammoth,
+          count: Math.max(1, Math.floor(baseCount * 0.15)),
+          healthMultiplier: 1.2,
+        });
+      }
       groups.push({
         type: ENEMY_TYPES.heavy,
         count: Math.max(2, Math.floor(baseCount * 0.25)),
