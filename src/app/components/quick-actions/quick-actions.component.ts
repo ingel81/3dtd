@@ -1,4 +1,4 @@
-import { Component, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, input, output, signal, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -42,6 +42,43 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 (click)="uiStore.toggleDisplayMenu()"
                 matTooltip="Display" matTooltipPosition="left">
           <mat-icon>{{ uiStore.displayMenuExpanded() ? 'visibility_off' : 'visibility' }}</mat-icon>
+        </button>
+      </div>
+      <!-- Audio Settings Menu (collapsible, expands upward) -->
+      <div class="td-audio-menu-wrapper">
+        <div class="td-audio-panel" [class.expanded]="uiStore.audioMenuExpanded()">
+          <div class="td-audio-row">
+            <mat-icon class="td-audio-label">music_note</mat-icon>
+            <input type="range" class="td-audio-slider"
+                   min="0" max="100" step="1"
+                   [value]="uiStore.musicVolume() * 100"
+                   (input)="onMusicSlider($event)">
+            <button class="td-audio-mute"
+                    [class.muted]="uiStore.musicMuted()"
+                    (click)="toggleMusicMute()"
+                    matTooltip="Mute music" matTooltipPosition="left">
+              <mat-icon>{{ uiStore.musicMuted() ? 'music_off' : 'music_note' }}</mat-icon>
+            </button>
+          </div>
+          <div class="td-audio-row">
+            <mat-icon class="td-audio-label">graphic_eq</mat-icon>
+            <input type="range" class="td-audio-slider"
+                   min="0" max="100" step="1"
+                   [value]="uiStore.sfxVolume() * 100"
+                   (input)="onSfxSlider($event)">
+            <button class="td-audio-mute"
+                    [class.muted]="uiStore.sfxMuted()"
+                    (click)="toggleSfxMute()"
+                    matTooltip="Mute SFX" matTooltipPosition="left">
+              <mat-icon>{{ uiStore.sfxMuted() ? 'volume_off' : 'volume_up' }}</mat-icon>
+            </button>
+          </div>
+        </div>
+        <button class="td-quick-btn td-audio-toggle-btn"
+                [class.active]="uiStore.audioMenuExpanded()"
+                (click)="uiStore.toggleAudioMenu()"
+                matTooltip="Audio" matTooltipPosition="left">
+          <mat-icon>{{ anyMuted() ? 'volume_off' : 'volume_up' }}</mat-icon>
         </button>
       </div>
       <!-- Layer Menu (collapsible, expands upward) -->
@@ -401,6 +438,114 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-bg-dark);
     }
 
+    .td-audio-menu-wrapper {
+      position: relative;
+    }
+
+    .td-audio-panel {
+      position: absolute;
+      bottom: calc(100% + 4px);
+      right: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      background: var(--td-panel-main);
+      border: 1px solid var(--td-frame-mid);
+      border-top-color: var(--td-frame-light);
+      border-bottom-color: var(--td-frame-dark);
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      padding: 0 10px;
+      pointer-events: none;
+      transition: max-height 0.3s ease-out, opacity 0.15s ease, padding 0.15s ease;
+    }
+
+    .td-audio-panel.expanded {
+      max-height: 100vh;
+      opacity: 1;
+      padding: 10px;
+      pointer-events: auto;
+    }
+
+    .td-audio-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      white-space: nowrap;
+    }
+
+    .td-audio-label {
+      font-size: 14px !important;
+      width: 14px !important;
+      height: 14px !important;
+      color: var(--td-text-secondary);
+      flex-shrink: 0;
+    }
+
+    .td-audio-slider {
+      width: 80px;
+      height: 4px;
+      -webkit-appearance: none;
+      appearance: none;
+      background: var(--td-frame-mid);
+      border-radius: 2px;
+      outline: none;
+      cursor: pointer;
+    }
+
+    .td-audio-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 12px;
+      height: 12px;
+      background: var(--td-teal);
+      border-radius: 50%;
+      cursor: pointer;
+    }
+
+    .td-audio-slider::-moz-range-thumb {
+      width: 12px;
+      height: 12px;
+      background: var(--td-teal);
+      border-radius: 50%;
+      border: none;
+      cursor: pointer;
+    }
+
+    .td-audio-mute {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px;
+      height: 20px;
+      min-width: 20px;
+      background: transparent;
+      border: none;
+      color: var(--td-text-secondary);
+      cursor: pointer;
+      padding: 0;
+      flex-shrink: 0;
+    }
+
+    .td-audio-mute mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+
+    .td-audio-mute:hover {
+      color: var(--td-text-primary);
+    }
+
+    .td-audio-mute.muted {
+      color: var(--td-health-red);
+    }
+
+    .td-audio-toggle-btn.active {
+      background: var(--td-teal);
+      color: var(--td-bg-dark);
+    }
+
     .td-dev-menu-wrapper {
       display: flex;
       flex-direction: column;
@@ -542,6 +687,13 @@ export class QuickActionsComponent {
   readonly addCredits = output<void>();
   readonly addHealth = output<void>();
 
+  // Audio outputs
+  readonly musicVolumeChanged = output<number>();
+  readonly sfxVolumeChanged = output<number>();
+
+  // Computed: any channel muted?
+  readonly anyMuted = computed(() => this.uiStore.musicMuted() || this.uiStore.sfxMuted());
+
   constructor() {
     this.loadDisplayOptions();
   }
@@ -571,5 +723,30 @@ export class QuickActionsComponent {
   toggleDamageNumbers(): void {
     this.damageNumbersVisible.update(v => !v);
     this.damageNumbersToggled.emit(this.damageNumbersVisible());
+  }
+
+  // Audio controls
+  onMusicSlider(event: Event): void {
+    const val = (event.target as HTMLInputElement).valueAsNumber / 100;
+    this.uiStore.musicVolume.set(val);
+    if (this.uiStore.musicMuted()) this.uiStore.musicMuted.set(false);
+    this.musicVolumeChanged.emit(val);
+  }
+
+  onSfxSlider(event: Event): void {
+    const val = (event.target as HTMLInputElement).valueAsNumber / 100;
+    this.uiStore.sfxVolume.set(val);
+    if (this.uiStore.sfxMuted()) this.uiStore.sfxMuted.set(false);
+    this.sfxVolumeChanged.emit(val);
+  }
+
+  toggleMusicMute(): void {
+    this.uiStore.musicMuted.update(v => !v);
+    this.musicVolumeChanged.emit(this.uiStore.musicMuted() ? 0 : this.uiStore.musicVolume());
+  }
+
+  toggleSfxMute(): void {
+    this.uiStore.sfxMuted.update(v => !v);
+    this.sfxVolumeChanged.emit(this.uiStore.sfxMuted() ? 0 : this.uiStore.sfxVolume());
   }
 }

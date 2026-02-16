@@ -54,6 +54,7 @@ import { TowerDefenseFacadeService, FacadeComponentBridge } from './services/tow
 import { GameLoopFacadeService } from './services/game-loop-facade.service';
 import { VisualizationFacadeService } from './services/visualization-facade.service';
 import { TowerDefenseStore } from './store/tower-defense.store';
+import { UIStore } from './store/ui.store';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
@@ -127,6 +128,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   readonly gameState = inject(GameStateManager);
+  private readonly uiStore = inject(UIStore);
 
   readonly injector = inject(Injector);
 
@@ -258,6 +260,15 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   async ngAfterViewInit(): Promise<void> {
     await this.facade.startGame(this.gameCanvas.nativeElement);
+    this.applyPersistedAudioSettings();
+  }
+
+  /** Apply persisted audio volume/mute settings after engine init */
+  private applyPersistedAudioSettings(): void {
+    const musicVol = this.uiStore.musicMuted() ? 0 : this.uiStore.musicVolume();
+    const sfxVol = this.uiStore.sfxMuted() ? 0 : this.uiStore.sfxVolume();
+    this.gameState.backgroundMusic?.setVolume(musicVol);
+    this.engine?.spatialAudio.setMasterVolume(sfxVol);
   }
 
   /**
@@ -466,6 +477,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   onDamageNumbersToggled(visible: boolean): void {
     this.debugFacade.onDamageNumbersToggled(visible);
+  }
+
+  onMusicVolumeChanged(volume: number): void {
+    this.gameState.backgroundMusic?.setVolume(volume);
+  }
+
+  onSfxVolumeChanged(volume: number): void {
+    this.engine?.spatialAudio.setMasterVolume(volume);
   }
 
   onPlayRouteAnimation(): void {
