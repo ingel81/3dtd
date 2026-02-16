@@ -13,6 +13,11 @@ interface PersistedUIState {
   devMenuExpanded: boolean;
   layerMenuExpanded: boolean;
   displayMenuExpanded: boolean;
+  audioMenuExpanded?: boolean;
+  musicVolume?: number;
+  sfxVolume?: number;
+  musicMuted?: boolean;
+  sfxMuted?: boolean;
 }
 
 @Injectable({ providedIn: 'root' })
@@ -28,6 +33,21 @@ export class UIStore {
 
   /** Display settings menu expanded */
   readonly displayMenuExpanded = signal<boolean>(false);
+
+  /** Audio settings menu expanded */
+  readonly audioMenuExpanded = signal<boolean>(false);
+
+  /** Music volume (0-1), default matches BACKGROUND_MUSIC.masterVolume */
+  readonly musicVolume = signal<number>(0.4);
+
+  /** SFX volume (0-1) */
+  readonly sfxVolume = signal<number>(1.0);
+
+  /** Music muted */
+  readonly musicMuted = signal<boolean>(false);
+
+  /** SFX muted */
+  readonly sfxMuted = signal<boolean>(false);
 
   /** Street network layer visibility */
   readonly streetsVisible = signal<boolean>(false);
@@ -105,6 +125,11 @@ export class UIStore {
         if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
         if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
         if (state.displayMenuExpanded !== undefined) this.displayMenuExpanded.set(state.displayMenuExpanded);
+        if (state.audioMenuExpanded !== undefined) this.audioMenuExpanded.set(state.audioMenuExpanded);
+        if (state.musicVolume !== undefined) this.musicVolume.set(state.musicVolume);
+        if (state.sfxVolume !== undefined) this.sfxVolume.set(state.sfxVolume);
+        if (state.musicMuted !== undefined) this.musicMuted.set(state.musicMuted);
+        if (state.sfxMuted !== undefined) this.sfxMuted.set(state.sfxMuted);
       }
     } catch {
       // Ignore parse errors
@@ -123,6 +148,11 @@ export class UIStore {
           devMenuExpanded: this.devMenuExpanded(),
           layerMenuExpanded: this.layerMenuExpanded(),
           displayMenuExpanded: this.displayMenuExpanded(),
+          audioMenuExpanded: this.audioMenuExpanded(),
+          musicVolume: this.musicVolume(),
+          sfxVolume: this.sfxVolume(),
+          musicMuted: this.musicMuted(),
+          sfxMuted: this.sfxMuted(),
         };
         localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
       });
@@ -139,6 +169,7 @@ export class UIStore {
   toggleLayerMenu(): void { this.layerMenuExpanded.update(v => !v); }
   toggleDevMenu(): void { this.devMenuExpanded.update(v => !v); }
   toggleDisplayMenu(): void { this.displayMenuExpanded.update(v => !v); }
+  toggleAudioMenu(): void { this.audioMenuExpanded.update(v => !v); }
   toggleStreets(): void { this.streetsVisible.update(v => !v); }
   toggleRoutes(): void { this.routesVisible.update(v => !v); }
   toggleHeightDebug(): void { this.heightDebugVisible.update(v => !v); }
