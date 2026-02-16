@@ -53,6 +53,7 @@ interface ActiveLoop {
   container: Object3D;
   isEnemySound: boolean;
   paused: boolean;
+  baseVolume: number;
 }
 
 /**
@@ -89,6 +90,9 @@ export class SpatialAudioManager {
   // Active looping sounds
   private activeLoops = new Map<string, ActiveLoop>();
   private loopHandleCounter = 0;
+
+  // Master SFX volume (0-1)
+  private _masterVolume = 1.0;
 
   // Enemy sound budget
   private enemySoundCount = 0;
@@ -221,6 +225,24 @@ export class SpatialAudioManager {
     await this.playback.resumeContext();
   }
 
+  // ─── Master volume ─────────────────────────────────────
+
+  get masterVolume(): number {
+    return this._masterVolume;
+  }
+
+  /** Set master SFX volume (0-1). Updates active loops immediately. */
+  setMasterVolume(vol: number): void {
+    this._masterVolume = Math.max(0, Math.min(1, vol));
+    this.playback.setMasterVolume(this._masterVolume);
+    // Update active loops
+    for (const loop of this.activeLoops.values()) {
+      if (!loop.paused) {
+        loop.audio.setVolume(loop.baseVolume * this._masterVolume);
+      }
+    }
+  }
+
   // ─── Sound registration ──────────────────────────────────
 
   registerSound(id: string, url: string, config: SpatialSoundConfig = {}): void {
@@ -319,7 +341,8 @@ export class SpatialAudioManager {
     audio.setRefDistance(sound.config.refDistance);
     audio.setRolloffFactor(sound.config.rolloffFactor);
     audio.setDistanceModel(sound.config.distanceModel);
-    audio.setVolume(sound.config.volume * (config?.volumeMultiplier ?? 1.0));
+    const baseVolume = sound.config.volume * (config?.volumeMultiplier ?? 1.0);
+    audio.setVolume(baseVolume * this._masterVolume);
     audio.setLoop(true);
 
     if (sound.config.maxDistance > 0) {
@@ -341,6 +364,7 @@ export class SpatialAudioManager {
       container,
       isEnemySound,
       paused: false,
+      baseVolume,
     };
     this.activeLoops.set(handle, activeLoop);
 

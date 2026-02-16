@@ -70,6 +70,9 @@ export class BackgroundMusicService {
   // Enable/disable
   private _enabled: boolean;
 
+  // User-controlled volume multiplier (0-1), applied on top of track + master volume
+  private _userVolume = 1.0;
+
   // =====================================================
   // STATIC: Early main theme (before Three.js exists)
   // =====================================================
@@ -161,6 +164,34 @@ export class BackgroundMusicService {
       this.enable();
     }
     return this._enabled;
+  }
+
+  get volume(): number {
+    return this._userVolume;
+  }
+
+  /** Set user volume (0-1). Immediately updates currently playing channels. */
+  setVolume(vol: number): void {
+    this._userVolume = Math.max(0, Math.min(1, vol));
+
+    // Update fade target if a fade is in progress
+    if (this.fadeInChannel) {
+      this.fadeInTargetVol = this.fadeInChannel.targetVolume * this._userVolume;
+    }
+
+    // Update active channel volumes immediately
+    const active = this.getActiveChannel();
+    if (active.audio.isPlaying) {
+      const v = active.targetVolume * this._userVolume;
+      active.audio.setVolume(v);
+      active.currentVolume = v;
+    }
+    const inactive = this.getInactiveChannel();
+    if (inactive.audio.isPlaying) {
+      const v = inactive.targetVolume * this._userVolume;
+      inactive.audio.setVolume(v);
+      inactive.currentVolume = v;
+    }
   }
 
   /** Stop all music immediately (no fade) */
@@ -355,6 +386,8 @@ export class BackgroundMusicService {
 
     const trackVol = (track.volume ?? 0.5) * BACKGROUND_MUSIC.masterVolume;
     inChannel.targetVolume = trackVol;
+    // fadeInTargetVol includes user volume for actual playback
+    const effectiveVol = trackVol * this._userVolume;
     inChannel.currentVolume = 0;
     inChannel.audio.setVolume(0);
 
@@ -376,7 +409,7 @@ export class BackgroundMusicService {
     this.fadeOutChannel = outChannel.audio.isPlaying ? outChannel : null;
     this.fadeInChannel = inChannel;
     this.fadeOutStartVol = outChannel.currentVolume;
-    this.fadeInTargetVol = trackVol;
+    this.fadeInTargetVol = effectiveVol;
     this.fadeDuration = duration;
     this.fadeStartTime = performance.now();
     this.fadeRafId = requestAnimationFrame(this.fadeStep);

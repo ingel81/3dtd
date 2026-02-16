@@ -50,6 +50,7 @@ export class SpatialAudioPlayback {
   private contextResumed = false;
   private geoToLocal: ((lat: number, lon: number, height: number) => Vector3) | null = null;
   private camera: { getWorldPosition: (target: Vector3) => Vector3 };
+  private _masterVolume = 1.0;
 
   constructor(
     pool: AudioPoolManager,
@@ -59,6 +60,10 @@ export class SpatialAudioPlayback {
     this.pool = pool;
     this.sounds = sounds;
     this.camera = camera;
+  }
+
+  setMasterVolume(vol: number): void {
+    this._masterVolume = Math.max(0, Math.min(1, vol));
   }
 
   // --- Event bus ---
@@ -180,7 +185,7 @@ export class SpatialAudioPlayback {
     audio.setRefDistance(sound.config.refDistance);
     audio.setRolloffFactor(sound.config.rolloffFactor);
     audio.setDistanceModel(sound.config.distanceModel);
-    audio.setVolume(sound.config.volume * volumeMultiplier);
+    audio.setVolume(sound.config.volume * volumeMultiplier * this._masterVolume);
     audio.setLoop(sound.config.loop);
 
     if (sound.config.maxDistance > 0) {
@@ -263,7 +268,7 @@ export class SpatialAudioPlayback {
 
     const audio = new Audio(this.pool.getListener());
     audio.setBuffer(sound.buffer);
-    audio.setVolume(sound.config.volume * volumeMultiplier);
+    audio.setVolume(sound.config.volume * volumeMultiplier * this._masterVolume);
     audio.setLoop(sound.config.loop);
     audio.play();
 
