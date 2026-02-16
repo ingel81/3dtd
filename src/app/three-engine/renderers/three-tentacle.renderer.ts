@@ -217,10 +217,10 @@ export class ThreeTentacleRenderer {
   private computeIdleCurve(s: TentacleState): void {
     const t = s.time;
     this._tipPos.copy(s.idleTipPos);
-    // Gentle sway — only the tip moves, base stays rigid
-    this._tipPos.x += Math.sin(t * 0.9) * 1.5 + Math.sin(t * 2.1) * 0.4;
-    this._tipPos.z += Math.cos(t * 0.7) * 1.2 + Math.cos(t * 1.8) * 0.3;
-    this._tipPos.y += Math.sin(t * 0.5) * 0.3;
+    // Sinuous writhing motion — wider, more complex sway
+    this._tipPos.x += Math.sin(t * 0.9) * 2.2 + Math.sin(t * 2.3) * 0.7;
+    this._tipPos.z += Math.cos(t * 0.7) * 1.8 + Math.cos(t * 1.9) * 0.5;
+    this._tipPos.y += Math.sin(t * 0.5) * 0.5;
 
     this.buildIdleCurve(s, s.basePos, this._tipPos, t);
   }
@@ -330,11 +330,11 @@ export class ThreeTentacleRenderer {
       base.z
     );
 
-    // CP2 = mid-bend — moderate sway in the flexible upper portion
+    // CP2 = mid-bend — independent motion creates sinuous S-curves
     u['uCP2'].value.set(
-      tip.x * 0.5 + base.x * 0.5 + Math.sin(time * 1.1 + 2.0) * 0.6,
-      trunkTopY + (tip.y - trunkTopY) * 0.5,
-      tip.z * 0.5 + base.z * 0.5 + Math.cos(time * 0.9 + 1.5) * 0.5
+      base.x + (tip.x - base.x) * 0.3 + Math.sin(time * 1.3 + 3.14) * 1.8,
+      trunkTopY + (tip.y - trunkTopY) * 0.4,
+      base.z + (tip.z - base.z) * 0.3 + Math.cos(time * 1.1 + 2.5) * 1.5
     );
 
     // CP3 = tip

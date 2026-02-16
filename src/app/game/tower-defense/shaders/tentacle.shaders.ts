@@ -4,7 +4,7 @@
  * Procedural tentacle rendering for Tentacle Tower melee attack:
  * - GPU Bezier: vertex shader evaluates cubic Bezier curve + Frenet frame
  * - Only 4 vec3 control-point uniforms set per frame from CPU
- * - Flesh-colored gradient from base to tip (dark reddish → pale pink)
+ * - Purple-pink flesh gradient from base to tip (dark purple → rose pink)
  * - Procedural veins (FBM-warped sin lines) + glossy specular (wet/slimy)
  * - Log depth buffer support for 3D Tiles compatibility
  *
@@ -79,8 +79,13 @@ export const TENTACLE_VERTEX = /* glsl */ `
     bino = normalize(mix(binoAlt, bino, step(0.0001, dot(bino, bino))));
     vec3 N = cross(bino, T);
 
-    // Taper: thick base (1.2) → blunt tip (0.35)
-    float baseRadius = mix(1.2, 0.35, pow(t, 1.2));
+    // Taper: thick base → pointed tip with organic undulations
+    float taper = pow(t, 0.7);
+    float baseRadius = mix(1.3, 0.08, taper);
+    // Organic undulations along length (muscle segments)
+    baseRadius *= 1.0 + sin(t * 18.0) * 0.06 * (1.0 - t);
+    // Slight mid-section widening (muscular)
+    baseRadius += smoothstep(0.0, 0.25, t) * smoothstep(0.55, 0.25, t) * 0.15;
 
     // --- Seamless procedural displacement ---
     float angle = uv.x * 6.28318;
@@ -95,8 +100,9 @@ export const TENTACLE_VERTEX = /* glsl */ `
     float wart = smoothstep(0.62, 0.82, cylNoise(angle, cr * 0.4, ly * 0.25, vec2(7.1, 3.4)));
     wart += smoothstep(0.68, 0.88, cylNoise(angle, cr * 0.5, ly * 0.35, vec2(2.9, 11.7))) * 0.7;
 
-    // Sucker indentations
-    float sucker = smoothstep(0.7, 0.85, cylNoise(angle, cr * 0.9, ly * 0.6, vec2(4.2, 6.8))) * -0.15;
+    // Sucker indentations — concentrated on inner face
+    float suckerSide = smoothstep(0.3, 0.7, sin(angle));
+    float sucker = smoothstep(0.65, 0.85, cylNoise(angle, cr * 0.9, ly * 0.6, vec2(4.2, 6.8))) * -0.25 * suckerSide;
 
     // Combine, fade near tip
     float disp = (bulge + wart * 0.3 + sucker) * smoothstep(0.92, 0.4, t);
@@ -180,7 +186,7 @@ export const TENTACLE_FRAGMENT = /* glsl */ `
   // We scale X by radius/baseRadius to keep patterns square in world space
   vec2 worldUv(vec2 uv) {
     float t = uv.y;
-    float radius = mix(1.2, 0.35, pow(t, 1.2));
+    float radius = mix(1.3, 0.08, pow(t, 0.7));
     // X: scale by circumference ratio, Y: scale by length (12m)
     return vec2(uv.x * radius * 6.28, uv.y * 12.0);
   }
@@ -243,29 +249,37 @@ export const TENTACLE_FRAGMENT = /* glsl */ `
     // World-space UVs: compensated for taper so patterns stay square
     vec2 wuv = worldUv(vUv);
 
-    // Dark sinister flesh
-    vec3 baseColor = vec3(0.22, 0.10, 0.08);  // Very dark reddish-brown
-    vec3 midColor  = vec3(0.35, 0.16, 0.13);  // Dark blood-red flesh
-    vec3 tipColor  = vec3(0.45, 0.22, 0.18);  // Dark reddish tip
+    // Purple-pink tentacle flesh
+    vec3 baseColor = vec3(0.30, 0.10, 0.28);  // Dark purple base
+    vec3 midColor  = vec3(0.58, 0.28, 0.42);  // Rose-pink flesh
+    vec3 tipColor  = vec3(0.72, 0.45, 0.55);  // Lighter pink tip
 
     vec3 color = t < 0.5
       ? mix(baseColor, midColor, t * 2.0)
       : mix(midColor, tipColor, (t - 0.5) * 2.0);
 
-    // --- Veins: thick, prominent, dark ---
+    // --- Veins: deep purple, prominent ---
     float veinIntensity = veins(wuv, t);
-    vec3 veinColor = vec3(0.12, 0.04, 0.06); // Near-black veins
+    vec3 veinColor = vec3(0.15, 0.03, 0.14); // Deep purple veins
     color = mix(color, veinColor, veinIntensity * 0.7);
 
     // --- Scars: pale raised tissue ---
     float scarIntensity = scars(wuv);
-    vec3 scarColor = vec3(0.40, 0.25, 0.22); // Dark scar tissue
+    vec3 scarColor = vec3(0.68, 0.45, 0.52); // Light pink scar tissue
     color = mix(color, scarColor, scarIntensity * 0.5);
 
     // --- Grime / dirt patches ---
     float grimeIntensity = grime(wuv, t);
-    vec3 grimeColor = vec3(0.08, 0.05, 0.04); // Near-black grime
+    vec3 grimeColor = vec3(0.12, 0.04, 0.10); // Dark purple grime
     color = mix(color, grimeColor, grimeIntensity * 0.4);
+
+    // --- Sucker cups: lighter circular spots on inner face ---
+    float suckerSide = smoothstep(0.3, 0.7, sin(vUv.x * 6.28318));
+    float suckerNoise = vnoise(wuv * vec2(1.2, 0.8) + vec2(4.2, 6.8));
+    float suckerPattern = smoothstep(0.62, 0.82, suckerNoise);
+    vec3 suckerColor = vec3(0.78, 0.55, 0.62); // Pale pink sucker cups
+    float suckerFade = smoothstep(0.05, 0.15, t) * smoothstep(0.92, 0.7, t);
+    color = mix(color, suckerColor, suckerPattern * suckerSide * 0.5 * suckerFade);
 
     // --- Skin texture: bumpy, uneven surface ---
     float skinNoise = fbm(wuv * 0.8 + vec2(5.3, 2.1));
@@ -297,20 +311,20 @@ export const TENTACLE_FRAGMENT = /* glsl */ `
 
     float diffuse = max(dot(bumpN, lightDir), 0.0) * 0.5 + 0.4;
 
-    // Very subtle specular — matte/leathery, not wet
+    // Wet/slimy specular — glossy tentacle surface
     vec3 viewDir = normalize(uCameraPos - vWorldPos);
     vec3 halfDir = normalize(lightDir + viewDir);
-    float spec = pow(max(dot(bumpN, halfDir), 0.0), 16.0) * 0.12;
+    float spec = pow(max(dot(bumpN, halfDir), 0.0), 24.0) * 0.22;
 
-    // Tiny bit of specular on veins (slightly moist in crevices)
-    spec += veinIntensity * 0.05 * pow(max(dot(bumpN, halfDir), 0.0), 12.0);
+    // Extra specular on veins and suckers (moist crevices)
+    spec += veinIntensity * 0.08 * pow(max(dot(bumpN, halfDir), 0.0), 16.0);
     spec = max(spec, 0.0);
 
-    // Very subtle greenish rim light (matching tower crystals)
-    float rim = pow(1.0 - max(dot(bumpN, viewDir), 0.0), 4.0) * 0.08;
-    vec3 rimColor = vec3(0.1, 0.18, 0.08); // Dark green rim
+    // Purple rim light for tentacle glow
+    float rim = pow(1.0 - max(dot(bumpN, viewDir), 0.0), 4.0) * 0.12;
+    vec3 rimColor = vec3(0.25, 0.08, 0.25); // Purple rim
 
-    vec3 finalColor = color * diffuse + vec3(0.9, 0.85, 0.8) * spec + rimColor * rim;
+    vec3 finalColor = color * diffuse + vec3(0.95, 0.88, 0.92) * spec + rimColor * rim;
 
     gl_FragColor = vec4(finalColor, 1.0);
 
