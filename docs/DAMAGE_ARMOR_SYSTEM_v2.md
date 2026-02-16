@@ -59,7 +59,7 @@ Schicht 1 ist das Fundament. Schichten 2+3 kommen progressiv dazu und erhöhen d
 | **Light** | 🛡️ | Grün | Leichte Rüstung, schnell/evasiv | Wallsmasher, Bat, Scout |
 | **Heavy** | 🛡️🛡️ | Orange | Massiv gepanzert, langsam | Tank, Zombie Soldier, Mech |
 | **Fortified** | 🏰 | Braun-Gold | Befestigt/Organisch-massiv, Damage-Sponge | Mammoth, Golem, Herbert |
-| **Ethereal** | 👻 | Lila-Transparent | Geisterhaft, immun vs. Physical | Ghost, Wraith, Lich |
+| **Ethereal** | 👻 | Lila-Transparent | Geisterhaft, immun vs. Physical → Counter: Magic oder Ice | Ghost, Wraith, Lich |
 
 **Warum 5 statt 4?** Fortified und Heavy sind nicht dasselbe:
 - **Heavy** = Panzerung (Tank, Mech) — Siege durchbricht sie
@@ -76,10 +76,10 @@ Pierce    🎯       1.2×      1.3×     0.5×     0.6×        0.0× ★
 Siege     💥       0.8×      0.7×     1.5×     1.25×       0.75×
 Magic     ✨       1.0×      1.0×     0.85×    0.75×       1.75×
 Fire      🔥       1.15×     1.0×     0.9×     0.6×        0.0× ★
-Ice       ❄️       1.0×      0.9×     1.0×     1.0×        1.25×
+Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
 ```
 
-★ = **Immun.** Physical, Pierce und Fire gehen durch Geister durch. Das ist der härteste Check im Spiel — erzwingt Magic/Ice/Siege Investment.
+★ = **Immun.** Physical, Pierce und Fire gehen durch Geister durch. Das ist der härteste Check im Spiel — erzwingt Magic- oder Ice-Investment (Siege nur als Notlösung).
 
 ### Design-Logik der Matrix
 
@@ -93,6 +93,7 @@ Ice       ❄️       1.0×      0.9×     1.0×     1.0×        1.25×
 **Pierce (🎯) — Anti-Swarm Spezialist**
 - 1.3× vs Light: hohe Feuerrate shredded evasive Ziele
 - 1.2× vs Unarmored: Swarm-Killer
+- 0.6× vs Fortified: dicke Ziele schlucken Durchschläge
 - 0.5× vs Heavy: Kugeln prallen an Panzerung ab
 - 0.0× vs Ethereal: physische Projektile nutzlos
 - **Rolle:** Dominiert Early/Mid Swarm-Waves, nutzlos gegen Tanks/Ghosts
@@ -104,11 +105,11 @@ Ice       ❄️       1.0×      0.9×     1.0×     1.0×        1.25×
 - 0.75× vs Ethereal: teilweise Wirkung (Druckwelle trifft auch Geister)
 - **Rolle:** Essential Mid-Late, aber schwach gegen Swarm/Evasive
 
-**Magic (✨) — Ethereal Counter + Utility**
-- 1.75× vs Ethereal: DER Counter gegen Geister
+**Magic (✨) — Ethereal Burst + Utility**
+- 1.75× vs Ethereal: stärkster Burst gegen Geister
 - 0.85× vs Heavy: magische Bolts tun wenig gegen Stahl
 - 0.75× vs Fortified: noch weniger gegen massive Kreaturen
-- **Rolle:** Nischen-Pick, aber ESSENTIAL wenn Ethereal auftaucht. Kein Allrounder mehr!
+- **Rolle:** Nischen-Pick, aber starker Ethereal-Counter. Ice ist die CC-Alternative, Magic bleibt der Burst.
 
 **Fire (🔥) — DoT Specialist**
 - 1.15× vs Unarmored: Fleisch brennt gut
@@ -117,9 +118,10 @@ Ice       ❄️       1.0×      0.9×     1.0×     1.0×        1.25×
 - **Rolle:** Anti-Regen (Burn verhindert Heilung), gut vs. organische Feinde
 
 **Ice (❄️) — Crowd Control**
-- Niedrige Multiplikatoren überall (0.9–1.25×)
-- 1.25× vs Ethereal: Kälte verlangsamt auch Geister
-- **Rolle:** DPS ist nie das Ziel. Slow-Utility + leichter Ethereal-Support
+- Spürbar besser vs Light (1.2×): Frost macht leichte Rüstung spröde
+- Schwächer vs Fortified (0.75×): zu viel Masse zum Einfrieren
+- 1.5× vs Ethereal: CC + solider Schaden gegen Geister
+- **Rolle:** DPS ist nicht das Ziel. Slow-Utility + echte Ethereal-Option (CC+Damage).
 
 ### Warum diese Multiplier-Range?
 
@@ -195,10 +197,10 @@ Binäre Checks, inspiriert von Bloons TD. Unabhängig von Matrix UND Status.
 | **Dual-Gatling** | 🎯 Pierce | – | Anti-Swarm, hohe Feuerrate |
 | **Cannon** | 💥 Siege | – | Anti-Heavy, AoE |
 | **Rocket** | 💥 Siege | – | Anti-Heavy + Anti-Air, AoE |
-| **Magic** | ✨ Magic | – | Anti-Ethereal, einziger harter Ghost-Counter |
+| **Magic** | ✨ Magic | – | Anti-Ethereal, stärkster Burst-Counter |
 | **Ice** | ❄️ Ice | Slow | Crowd Control, Utility |
 | **Fire** | 🔥 Fire | Burn | DoT, Anti-Regen |
-| **Tentacle** | ⚔️ Physical | – | Melee Multi-Target, Anti-Swarm (Nahbereich) |
+| **Tentacle** | ⚔️ Physical | True Damage (20%) | Melee Multi-Target, Late-Game Finisher (Nahbereich) |
 
 ### Geplante Erweiterungen (Zukunft)
 
@@ -214,6 +216,15 @@ Binäre Checks, inspiriert von Bloons TD. Unabhängig von Matrix UND Status.
 *Poison Tower könnte auch ein eigener 7. Schadenstyp werden wenn genug Tower ihn nutzen.
 
 **Erweiterbarkeit:** Das 6×5 System hat Platz für mindestens 2 weitere Schadenstypen und 2 weitere Rüstungstypen ohne die Matrix unleserlich zu machen. Ein 8×7 System wäre das absolute Maximum.
+
+---
+
+## Spezial-Mechaniken
+
+### True Damage (Tentacle)
+- **Passiv:** 20% des Schadens ignorieren den Armor-Multiplikator (echter Schaden).
+- **Ziel:** Melee-Risiko muss sich lohnen, besonders im Late-Game gegen Heavy/Fortified/Ethereal.
+- **Gameplay:** Der Rest des Hits wird normal über die Matrix gerechnet — True Damage ist ein Bonus, kein eigener Schadenstyp.
 
 ---
 
@@ -263,7 +274,7 @@ Binäre Checks, inspiriert von Bloons TD. Unabhängig von Matrix UND Status.
 ### Phase 2: Erste Differenzierung (Wave 6–10)
 **Neuer Armor-Typ:** Light (Wallsmasher, Bat)
 **Tower unlock:** Cannon, Ice
-**Aha-Moment:** Bat erscheint → "Brauche Anti-Air!" (Rocket/Magic)
+**Aha-Moment:** Bat erscheint → "Brauche Anti-Air!" (Rocket/Magic kommen in Phase 3)
 **Status-Effekt:** Slow wird spürbar (Ice)
 
 → *Spieler merkt: verschiedene Enemies brauchen verschiedene Antworten.*
@@ -286,7 +297,7 @@ Binäre Checks, inspiriert von Bloons TD. Unabhängig von Matrix UND Status.
 
 ### Phase 5: Ethereal — Der Game-Changer (Wave 22–30)
 **Neuer Armor-Typ:** Ethereal (Ghost)
-**Aha-Moment:** "WAS?! 0 Damage?!" → Magic Tower ist ESSENTIAL
+**Aha-Moment:** "WAS?! 0 Damage?!" → Magic ODER Ice wird Pflicht (Burst vs CC+Damage)
 **Mischung:** Ghost + Tank Eskorte → erzwingt Mixed Build (Magic + Siege)
 **Immunität-Flags:** Camo, Regen
 
@@ -321,7 +332,7 @@ interface DamageProfile {
 | Spieler-Schwäche | AI-Antwort | Intensität |
 |------------------|------------|------------|
 | Kein Siege | Mehr Heavy/Fortified | Soft (+25% Spawn-Rate) |
-| Kein Magic | Ethereal einstreuen | Hard (Ghost-Wave als Check) |
+| Kein Magic/Ice | Ethereal einstreuen | Hard (Ghost-Wave als Check) |
 | Nur Siege | Swarm + Light (weichen AoE aus) | Soft |
 | Kein Pierce | Swarm-Waves | Soft |
 | Kein Anti-Air | Air-Units | Medium |
@@ -332,6 +343,8 @@ interface DamageProfile {
 
 **Wichtig:** Hard Counters nur für NEUE Mechaniken (Ethereal, Camo). Nicht für "mehr Tank weil du kein Siege hast" — das wäre frustrierend.
 
+**Teaser-Units (Fairness-Setup):** Bevor eine harte Counter-Wave kommt, mischt der Director **2–3 Einheiten** des kommenden Counters in die vorherige Wave. Das gibt dem Spieler einen lesbaren Warnhinweis, ohne den Check zu entschärfen.
+
 ---
 
 ## Visuelles Feedback
@@ -340,7 +353,7 @@ interface DamageProfile {
 
 | Effektivität | Größe | Farbe | Animation | Sound |
 |-------------|-------|-------|-----------|-------|
-| Immun (0×) | Winzig | Grau | "0" + Abprall nach oben | Hohles "Ping" |
+| Immun (0×) | Winzig | Grau | "0" + Projektil fliegt durch (Ethereal) | Hohles "Ping" |
 | Schwach (≤0.7×) | 0.7× kleiner | Dunkelgrau | Sinkt nach unten | Dumpfes "Clonk" |
 | Normal (0.85–1.15×) | Standard | Weiß | Standard Float-Up | Standard Impact |
 | Effektiv (≥1.25×) | 1.5× größer | Gold/Gelb | Punch-Out + Glow | Satisfying "Crunch" |
@@ -383,7 +396,7 @@ interface DamageProfile {
 | Dual-Gatling | 90 | **95** | Pierce Anti-Swarm ist stark |
 | Cannon | 140 | **155** | 1.5× vs Heavy ist premium |
 | Rocket | 160 | **160** | Bleibt — Air + Siege bereits teuer |
-| Magic | 125 | **130** | 1.75× vs Ethereal = einziger Hard-Counter |
+| Magic | 125 | **130** | 1.75× vs Ethereal = stärkster Burst-Counter |
 | Ice | 100 | **100** | Bleibt — Low DPS, Utility-Tower |
 | Fire | 175 | **170** | Leicht günstiger — 0.0× vs Ethereal ist ein Nachteil |
 | Tentacle | 200 | **185** | Physical-Melee ist riskant → günstiger |
@@ -447,9 +460,9 @@ interface DamageProfile {
 ## Offene Entscheidungen
 
 1. **Ghost-Model:** Asset beschaffen (transparent, eerie, lila Glow)
-2. **Camo-Mechanik:** Upgrade für bestehende Tower oder eigener "Radar" Tower?
+2. **Camo-Mechanik:** Upgrade für bestehende Tower oder eigener "Radar" Tower? Ideen für mehr Vielfalt: Fire illuminiert Boden / Archer-Flare-Upgrade / Magic-Detection.
 3. **Tower-Unlock:** Alle verfügbar oder progressiv freischalten?
-4. **Tentacle-Spezial:** True Damage als Melee-Bonus? Oder Physical bleibt?
+4. **Tentacle-Spezial:** True Damage (20%) gesetzt — Feintuning der Höhe nach Playtests.
 5. **Armor Break:** Eigener Tower oder Upgrade für Cannon?
 6. **7. Schadenstyp (Poison/Corrosive):** Wann einführen? Braucht mindestens 2 Tower.
 
