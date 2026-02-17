@@ -422,10 +422,15 @@ export class VisualizationFacadeService {
     this.engineInit.checkAllLoaded(this.heightUpdate.heightsLoading);
     const isNowLoading = this.engineInit.loading();
 
-    if (wasLoading && !isNowLoading && !this.routeAnimation.isRunning() && !isApplying) {
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+    if (wasLoading && !isNowLoading) {
+      // Transition from opening music → build phase music now that loading screen is gone
+      this.gameState.backgroundMusic?.onLoadingComplete();
+
+      if (!this.routeAnimation.isRunning() && !isApplying) {
+        const cachedPaths = this.pathRoute.getCachedPaths();
+        if (cachedPaths.size > 0) {
+          this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+        }
       }
     }
   }

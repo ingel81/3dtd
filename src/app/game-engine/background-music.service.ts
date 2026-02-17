@@ -129,12 +129,9 @@ export class BackgroundMusicService {
     this.preloadAll();
     this.setupEventHandlers();
 
-    // Transition from main theme → build music
-    if (this._enabled) {
-      this.transitionFromMainTheme();
-    } else {
-      BackgroundMusicService.stopMainTheme();
-    }
+    // NOTE: Do NOT transition from main theme here.
+    // The main theme should keep playing until the loading screen is fully hidden.
+    // Call onLoadingComplete() from outside when loading is done.
   }
 
   // =====================================================
@@ -191,6 +188,18 @@ export class BackgroundMusicService {
       const v = inactive.targetVolume * this._userVolume;
       inactive.audio.setVolume(v);
       inactive.currentVolume = v;
+    }
+  }
+
+  /**
+   * Called when the loading screen has fully hidden.
+   * Transitions from the static main theme to build phase music.
+   */
+  onLoadingComplete(): void {
+    if (this._enabled) {
+      this.transitionFromMainTheme();
+    } else {
+      BackgroundMusicService.stopMainTheme();
     }
   }
 
