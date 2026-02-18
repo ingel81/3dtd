@@ -45,6 +45,7 @@ import { LocationConfig, FavoriteLocation } from './models/location.types';
 import { CameraControlService } from './services/camera-control.service';
 import { InputHandlerService } from './services/input-handler.service';
 import { TowerPlacementService } from './services/tower-placement.service';
+import { MapPlacementService } from './services/map-placement.service';
 import { LocationManagementService } from './services/location-management.service';
 import { HeightUpdateService } from './services/height-update.service';
 import { EngineInitializationService } from './services/engine-initialization.service';
@@ -136,6 +137,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly cameraControl = inject(CameraControlService);
   private readonly inputHandler = inject(InputHandlerService);
   private readonly towerPlacement = inject(TowerPlacementService);
+  private readonly mapPlacement = inject(MapPlacementService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
@@ -248,6 +250,19 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'Wait', description: 'Line of Sight' },
   ];
   readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
+
+  // Map placement hints for context hint box
+  readonly placementModeHints: HintItem[] = [
+    { key: 'Click', description: 'Platzieren' },
+    { key: 'ESC', description: 'Abbrechen' },
+  ];
+  readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
+
+  // Map placement mode (HQ/Spawn)
+  readonly mapPlacementMode = computed(() => this.uiStore.mapPlacementMode());
+  readonly canPlaceOnMap = computed(() =>
+    this.store.phase() === 'setup' && !this.engineInit.loading(),
+  );
 
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
@@ -600,6 +615,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.locationCoordinator.onDeleteFavorite(id);
   }
 
+  /** Enter HQ placement mode */
+  onPlaceHq(): void {
+    this.facade.startMapPlacement('hq');
+  }
+
+  /** Enter spawn placement mode */
+  onPlaceSpawn(): void {
+    this.facade.startMapPlacement('spawn');
+  }
+
   /**
    * Build the FacadeComponentBridge for the TowerDefenseFacadeService.
    */
@@ -620,6 +645,12 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
       onMouseMove: (lat, lon, hitPoint) => this.onMouseMove(lat, lon, hitPoint),
       exitBuildMode: () => this.exitBuildMode(),
       handleEnemyPlacement: (lat, lon, height) => this.handleEnemyPlacement(lat, lon, height),
+      onMapPlacementClick: (lat, lon, height) => this.facade.handleMapPlacementClick(lat, lon, height),
+      onMapPlacementMove: (lat, lon, hitPoint) => {
+        const h = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? hitPoint.y;
+        this.mapPlacement.updatePreviewPosition(lat, lon, h);
+      },
+      exitMapPlacement: () => this.mapPlacement.exitPlacementMode(),
     };
   }
 

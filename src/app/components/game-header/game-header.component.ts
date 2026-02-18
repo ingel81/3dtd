@@ -69,6 +69,21 @@ import { FavoriteLocation } from '../../models/location.types';
           <a class="action-btn" href="/?l=49.17327,9.26859&s=49.17555,9.26387" matTooltip="Erlenbach">
             <mat-icon>home</mat-icon>
           </a>
+
+          <!-- Placement Divider + Buttons -->
+          <span class="action-divider"></span>
+
+          <button class="action-btn" [class.active]="placementMode() === 'hq'"
+                  (click)="placeHqClick.emit()" matTooltip="HQ versetzen"
+                  [disabled]="!canPlace()">
+            <mat-icon>where_to_vote</mat-icon>
+          </button>
+
+          <button class="action-btn" [class.active]="placementMode() === 'spawn'"
+                  (click)="placeSpawnClick.emit()" matTooltip="Spawn setzen"
+                  [disabled]="!canPlace()">
+            <mat-icon>add_location_alt</mat-icon>
+          </button>
         </div>
       </div>
       <div class="header-stats">
@@ -279,6 +294,19 @@ import { FavoriteLocation } from '../../models/location.types';
       height: 16px;
     }
 
+    .action-btn:disabled {
+      opacity: 0.3;
+      pointer-events: none;
+    }
+
+    .action-divider {
+      width: 1px;
+      height: 16px;
+      background: var(--td-frame-mid);
+      margin: 0 2px;
+      opacity: 0.5;
+    }
+
     .fav-wrapper {
       position: relative;
     }
@@ -423,6 +451,8 @@ export class GameHeaderComponent {
   readonly favorites = input<FavoriteLocation[]>([]);
   readonly favoriteNames = input<Record<string, string>>({});
   readonly canAddFavorite = input<boolean>(true);
+  readonly placementMode = input<'hq' | 'spawn' | null>(null);
+  readonly canPlace = input<boolean>(true);
 
   // Outputs
   readonly locationClick = output<void>();
@@ -432,6 +462,8 @@ export class GameHeaderComponent {
   readonly addFavoriteClick = output<void>();
   readonly selectFavoriteClick = output<FavoriteLocation>();
   readonly deleteFavoriteClick = output<string>();
+  readonly placeHqClick = output<void>();
+  readonly placeSpawnClick = output<void>();
 
   // Internal state
   readonly favMenuExpanded = signal(false);

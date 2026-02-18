@@ -1,4 +1,4 @@
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 
 /**
@@ -10,6 +10,8 @@ import { ThreeTilesEngine } from '../three-engine';
  * Event-driven: Subscribes to `audio:play` events from GameEventBus
  */
 export class AudioService {
+  private readonly subs = new SubscriptionBag();
+
   constructor(
     private eventBus: GameEventBus,
     private tilesEngine: ThreeTilesEngine
@@ -21,9 +23,9 @@ export class AudioService {
    * Setup event handlers for audio events
    */
   private setupEventHandlers(): void {
-    this.eventBus.on('audio:play', (event) => {
+    this.subs.add(this.eventBus.on('audio:play', (event) => {
       this.handleAudioPlay(event);
-    });
+    }));
   }
 
   /**
@@ -54,7 +56,6 @@ export class AudioService {
    * Cleanup (call on destroy)
    */
   destroy(): void {
-    // Events auto-cleanup via WeakMap in EventBus
-    // Nothing to do here unless we add manual cleanup
+    this.subs.disposeAll();
   }
 }

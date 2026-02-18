@@ -85,6 +85,9 @@ export class UIStore {
   /** Build validation reason (why placement is invalid) */
   readonly buildValidationReason = signal<string | null>(null);
 
+  /** Map placement mode: 'hq' to place HQ, 'spawn' to place spawn, null when inactive */
+  readonly mapPlacementMode = signal<'hq' | 'spawn' | null>(null);
+
   /** Debug: enemy speed override */
   readonly enemySpeed = signal<number>(2.0);
 
@@ -201,6 +204,7 @@ export class UIStore {
     this.buildMode.set(false);
     this.selectedTowerType.set(null);
     this.buildValidationReason.set(null);
+    this.mapPlacementMode.set(null);
   }
 
   /** Full reset including UI state. */

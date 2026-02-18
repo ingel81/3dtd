@@ -6,6 +6,7 @@ import { MarkerVisualizationService } from './marker-visualization.service';
 import { PathAndRouteService } from './path-route.service';
 import { InputHandlerService } from './input-handler.service';
 import { TowerPlacementService } from './tower-placement.service';
+import { MapPlacementService } from './map-placement.service';
 import { HeightUpdateService } from './height-update.service';
 import { EngineInitializationService } from './engine-initialization.service';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -70,6 +71,7 @@ export class VisualizationFacadeService {
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
+  private readonly mapPlacement = inject(MapPlacementService);
   private readonly store = inject(TowerDefenseStore);
   private readonly engineStore = inject(EngineStore);
 
@@ -227,8 +229,15 @@ export class VisualizationFacadeService {
       (lat: number, lon: number, height: number) => this.bridge.handleEnemyPlacement(lat, lon, height)
     );
 
+    this.inputHandler.setMapPlacementCallback(
+      () => this.mapPlacement.placementMode(),
+      (lat: number, lon: number, height: number) => this.bridge.onMapPlacementClick(lat, lon, height),
+      (lat: number, lon: number, hitPoint: Vector3) => this.bridge.onMapPlacementMove(lat, lon, hitPoint),
+    );
+
     this.inputHandler.initKeyboard({
       exitBuildMode: () => this.bridge.exitBuildMode(),
+      exitMapPlacement: () => this.bridge.exitMapPlacement(),
     });
   }
 
@@ -315,6 +324,9 @@ export class VisualizationFacadeService {
       spawnPointsForPlacement,
       this.gameState
     );
+
+    // Initialize map placement service (HQ/Spawn click-to-place)
+    this.mapPlacement.initialize(engine, streetNetwork, { lat: base.lat, lon: base.lon });
   }
 
   // ══════════════════════════════════════════════════════════════
