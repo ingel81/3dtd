@@ -47,6 +47,10 @@
   visibility: hidden;
 }
 
+.td-canvas.td-placement-cursor {
+  cursor: none;
+}
+
 .td-controls-hint {
   position: absolute;
   bottom: 5px;

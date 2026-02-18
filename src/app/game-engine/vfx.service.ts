@@ -1,5 +1,5 @@
 import { Vector3 } from 'three';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
 
@@ -10,6 +10,8 @@ import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
  * and spawns visual effects using ThreeTilesEngine.
  */
 export class VFXService {
+  private readonly subs = new SubscriptionBag();
+
   constructor(
     private eventBus: GameEventBus,
     private tilesEngine: ThreeTilesEngine
@@ -22,24 +24,24 @@ export class VFXService {
    */
   private setupEventHandlers(): void {
     // Projectile impact effects
-    this.eventBus.on('vfx:projectile-impact', (event) => {
+    this.subs.add(this.eventBus.on('vfx:projectile-impact', (event) => {
       this.handleProjectileImpact(event);
-    });
+    }));
 
     // Blood effects
-    this.eventBus.on('vfx:blood', (event) => {
+    this.subs.add(this.eventBus.on('vfx:blood', (event) => {
       this.handleBloodEffect(event.position, event.intensity);
-    });
+    }));
 
     // Generic explosions
-    this.eventBus.on('vfx:explosion', (event) => {
+    this.subs.add(this.eventBus.on('vfx:explosion', (event) => {
       this.handleExplosionEffect(event.position, event.radius);
-    });
+    }));
 
     // Muzzle flash on tower fire (projectile towers only)
-    this.eventBus.on('vfx:muzzle-flash', (event) => {
+    this.subs.add(this.eventBus.on('vfx:muzzle-flash', (event) => {
       this.handleMuzzleFlash(event.towerId, event.towerTypeId);
-    });
+    }));
   }
 
   private handleBloodEffect(position: Vector3, intensity: number): void {
@@ -141,7 +143,6 @@ export class VFXService {
    * Cleanup (call on destroy)
    */
   destroy(): void {
-    // Events auto-cleanup via WeakMap in EventBus
-    // Nothing to do here unless we add manual cleanup
+    this.subs.disposeAll();
   }
 }

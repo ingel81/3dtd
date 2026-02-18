@@ -3,7 +3,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { GAME_SOUNDS } from '../configs/audio.config';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 
 /**
@@ -24,6 +24,7 @@ export class HQDamageService {
   private tilesEngine: ThreeTilesEngine | null = null;
   private basePosition: GeoPosition | null = null;
   private eventBus: GameEventBus | null = null;
+  private readonly eventBusSubs = new SubscriptionBag();
 
   // Fire effect tracking
   private activeFireId: string | null = null;
@@ -40,6 +41,9 @@ export class HQDamageService {
    * Initialize with engine, base position, and event bus
    */
   initialize(tilesEngine: ThreeTilesEngine, basePosition: GeoPosition, eventBus: GameEventBus): void {
+    // Clean up previous subscriptions on re-init
+    this.eventBusSubs.disposeAll();
+
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
     this.eventBus = eventBus;
@@ -58,13 +62,13 @@ export class HQDamageService {
     }
 
     // Subscribe to health:changed events
-    this.eventBus.on('health:changed', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('health:changed', (event) => {
       this.updateFireIntensity(event.health);
       // Play damage sound only when health decreases
       if (event.delta < 0) {
         this.playDamageSound();
       }
-    });
+    }));
   }
 
   /**

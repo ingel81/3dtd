@@ -25,3 +25,12 @@ export const CAMERA_MARKER_RADIUS = 8;
 
 /** Ordered spawn-point colors (hex, up to 4 spawns) */
 export const SPAWN_COLORS: readonly number[] = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff] as const;
+
+/** Min distance (meters) from HQ for manual spawn placement */
+export const MIN_MANUAL_SPAWN_DISTANCE = 200;
+
+/** Max distance (meters) from HQ for manual spawn placement */
+export const MAX_MANUAL_SPAWN_DISTANCE = 1500;
+
+/** Max distance from a street for HQ/spawn placement (meters) */
+export const MAX_PLACEMENT_STREET_DISTANCE = 150;

@@ -60,6 +60,11 @@ export interface FacadeComponentBridge {
   onMouseMove: (lat: number, lon: number, hitPoint: Vector3) => void;
   exitBuildMode: () => void;
   handleEnemyPlacement: (lat: number, lon: number, height: number) => void;
+
+  /** Map placement callbacks (HQ/Spawn click-to-place) */
+  onMapPlacementClick: (lat: number, lon: number, height: number) => void;
+  onMapPlacementMove: (lat: number, lon: number, hitPoint: Vector3) => void;
+  exitMapPlacement: () => void;
 }
 
 /**
@@ -152,6 +157,10 @@ export class TowerDefenseFacadeService {
       initializeTowerPlacement: () => this.vizFacade.initializeTowerPlacement(),
       filterStreetNetworkToRoutes: () => this.vizFacade.filterStreetNetworkToRoutes(),
       scheduleOverlayHeightUpdate: () => this.vizFacade.scheduleOverlayHeightUpdate(),
+      initializeVisualizationServices: () => this.vizFacade.initializeVisualizationServices(),
+      reframeCameraWithRoutes: () => this.vizFacade.reframeCameraWithRoutes(),
+      renderStreets: () => this.vizFacade.renderStreets(),
+      saveInitialCameraPosition: () => this.vizFacade.saveInitialCameraPosition(),
     });
 
     // Initialize training client
@@ -368,6 +377,17 @@ export class TowerDefenseFacadeService {
   /** Restart game. */
   restartGame(): void {
     this.gameLoopFacade.restartGame(() => this.vizFacade.cleanupDpsVisualization());
+  }
+
+  /** Start map placement mode for HQ or Spawn. */
+  startMapPlacement(mode: 'hq' | 'spawn'): void {
+    this.towerPlacement.exitBuildMode();
+    this.locationFacade.startMapPlacement(mode);
+  }
+
+  /** Handle map placement click (delegates to LocationFacade). */
+  handleMapPlacementClick(lat: number, lon: number, height: number): void {
+    this.locationFacade.handleMapPlacementClick(lat, lon, height);
   }
 
   /** Refresh terrain heights. In DevWorld: regenerates entire world. */

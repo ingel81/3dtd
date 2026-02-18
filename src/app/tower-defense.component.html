@@ -11,6 +11,8 @@
     [favorites]="favorites()"
     [favoriteNames]="favoriteNamesMap()"
     [canAddFavorite]="favorites().length < 10"
+    [placementMode]="mapPlacementMode()"
+    [canPlace]="canPlaceOnMap()"
     (locationClick)="openLocationDialog()"
     (closeClick)="close()"
     (shareClick)="onShareLocation()"
@@ -18,6 +20,8 @@
     (addFavoriteClick)="onAddFavorite()"
     (selectFavoriteClick)="onSelectFavorite($event)"
     (deleteFavoriteClick)="onDeleteFavorite($event)"
+    (placeHqClick)="onPlaceHq()"
+    (placeSpawnClick)="onPlaceSpawn()"
   />
 
   <!-- Main Content: Canvas + Sidebar -->
@@ -72,7 +76,7 @@
         </div>
       }
 
-      <canvas #gameCanvas class="td-canvas" [class.hidden]="error()"></canvas>
+      <canvas #gameCanvas class="td-canvas" [class.hidden]="error()" [class.td-placement-cursor]="!!mapPlacementMode()"></canvas>
 
       <!-- Google Attribution (required) -->
       @if (!loading() && !error()) {
@@ -169,6 +173,14 @@
         <app-context-hint
           [hints]="buildModeHints"
           [warning]="buildModeWarning()"
+        />
+      }
+
+      <!-- Placement Mode Context Hints -->
+      @if (mapPlacementMode()) {
+        <app-context-hint
+          [hints]="placementModeHints"
+          [warning]="placementModeWarning()"
         />
       }
 

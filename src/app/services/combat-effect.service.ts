@@ -11,7 +11,7 @@ import { TIMING } from '../configs/timing.config';
 import { geoDistanceFast } from '../utils/geo-utils';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine';
 
 /**
  * CombatEffectService - Orchestrates projectile hits
@@ -31,6 +31,7 @@ export class CombatEffectService {
 
   private tilesEngine: ThreeTilesEngine | null = null;
   private eventBus: GameEventBus | null = null;
+  private readonly eventBusSubs = new SubscriptionBag();
 
   /** Whether damage numbers are shown on hits (toggled via display options) */
   damageNumbersEnabled = true;
@@ -45,6 +46,9 @@ export class CombatEffectService {
     enemyManager: EnemyManager,
     timescaleProvider: () => number
   ): void {
+    // Clean up previous subscriptions on re-init
+    this.eventBusSubs.disposeAll();
+
     this.tilesEngine = tilesEngine;
     this.eventBus = eventBus;
 
@@ -53,9 +57,9 @@ export class CombatEffectService {
     this.damageService.initialize(towerManager, enemyManager, timescaleProvider);
 
     // Subscribe to projectile:hit events
-    this.eventBus.on('projectile:hit', (event) => {
+    this.eventBusSubs.add(this.eventBus.on('projectile:hit', (event) => {
       this.handleProjectileHit(event.projectile, event.target);
-    });
+    }));
   }
 
   /**

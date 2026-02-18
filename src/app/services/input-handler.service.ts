@@ -13,6 +13,8 @@ import { TowerPlacementService } from './tower-placement.service';
 export interface KeyboardCallbacks {
   /** Called when Escape is pressed in build mode */
   exitBuildMode: () => void;
+  /** Called when Escape is pressed in map placement mode */
+  exitMapPlacement?: () => void;
 }
 
 /**
@@ -65,6 +67,15 @@ export class InputHandlerService {
 
   /** Enemy placement callback */
   private onEnemyPlacementCallback: ((lat: number, lon: number, height: number) => void) | null = null;
+
+  /** Map placement mode signal (HQ/Spawn placement) */
+  private mapPlacementModeSignal: (() => 'hq' | 'spawn' | null) | null = null;
+
+  /** Map placement click callback */
+  private onMapPlacementClickCallback: ((lat: number, lon: number, height: number) => void) | null = null;
+
+  /** Map placement mouse move callback */
+  private onMapPlacementMoveCallback: ((lat: number, lon: number, hitPoint: THREE.Vector3) => void) | null = null;
 
   /** Stored event listeners for cleanup */
   private pointerDownHandler: ((event: PointerEvent) => void) | null = null;
@@ -125,6 +136,22 @@ export class InputHandlerService {
     this.onEnemyPlacementCallback = onPlacementCallback;
   }
 
+  /**
+   * Set up map placement mode callbacks (HQ/Spawn placement)
+   * @param modeSignal Signal returning 'hq' | 'spawn' | null
+   * @param onClickCallback Callback for placement clicks
+   * @param onMoveCallback Callback for mouse move (preview updates)
+   */
+  setMapPlacementCallback(
+    modeSignal: () => 'hq' | 'spawn' | null,
+    onClickCallback: (lat: number, lon: number, height: number) => void,
+    onMoveCallback: (lat: number, lon: number, hitPoint: THREE.Vector3) => void,
+  ): void {
+    this.mapPlacementModeSignal = modeSignal;
+    this.onMapPlacementClickCallback = onClickCallback;
+    this.onMapPlacementMoveCallback = onMoveCallback;
+  }
+
   // ========================================
   // EVENT HANDLERS
   // ========================================
@@ -166,17 +193,24 @@ export class InputHandlerService {
     };
     document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
 
-    // Right-click cancels build mode (only if no camera drag)
+    // Right-click cancels build mode or placement mode (only if no camera drag)
     this.contextMenuHandler = (event: MouseEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
-        if (this.buildModeSignal?.()) {
+        const inPlacementMode = !!this.mapPlacementModeSignal?.();
+        const inBuildMode = this.buildModeSignal?.() ?? false;
+
+        if (inPlacementMode || inBuildMode) {
           event.preventDefault();
           // Only cancel if right-click was stationary (not a camera drag)
           if (this.rightClickDownPos) {
             const dx = event.clientX - this.rightClickDownPos.x;
             const dy = event.clientY - this.rightClickDownPos.y;
             if (Math.sqrt(dx * dx + dy * dy) < 10) {
-              this.keyboardCallbacks?.exitBuildMode();
+              if (inPlacementMode) {
+                this.keyboardCallbacks?.exitMapPlacement?.();
+              } else {
+                this.keyboardCallbacks?.exitBuildMode();
+              }
             }
           }
         }
@@ -242,6 +276,12 @@ export class InputHandlerService {
       return;
     }
 
+    // Map placement mode (HQ/Spawn)
+    if (this.mapPlacementModeSignal?.() && this.onMapPlacementClickCallback) {
+      this.onMapPlacementClickCallback(geo.lat, geo.lon, geo.height);
+      return;
+    }
+
     // If in build mode, notify callback
     if (this.buildModeSignal() && this.onClickCallback) {
       this.onClickCallback(geo.lat, geo.lon, geo.height);
@@ -256,7 +296,12 @@ export class InputHandlerService {
    * @param event Pointer event
    */
   private handlePointerMove(event: PointerEvent): void {
-    if (!this.engine || !this.buildModeSignal || !this.buildModeSignal() || !this.onMouseMoveCallback) return;
+    if (!this.engine) return;
+
+    const inBuildMode = this.buildModeSignal?.() ?? false;
+    const inPlacementMode = !!this.mapPlacementModeSignal?.();
+
+    if (!inBuildMode && !inPlacementMode) return;
 
     // Throttle to prevent excessive raycasts
     const now = performance.now();
@@ -274,8 +319,12 @@ export class InputHandlerService {
     // Convert to geo coordinates
     const geo = this.engine.sync.localToGeo(hitPoint);
 
-    // Notify callback with hitPoint for preview positioning
-    this.onMouseMoveCallback(geo.lat, geo.lon, hitPoint);
+    // Route to appropriate callback
+    if (inPlacementMode && this.onMapPlacementMoveCallback) {
+      this.onMapPlacementMoveCallback(geo.lat, geo.lon, hitPoint);
+    } else if (inBuildMode && this.onMouseMoveCallback) {
+      this.onMouseMoveCallback(geo.lat, geo.lon, hitPoint);
+    }
   }
 
   // ========================================
@@ -329,6 +378,13 @@ export class InputHandlerService {
         event.preventDefault();
         return;
       }
+    }
+
+    // ESC cancels map placement mode
+    if (event.key === 'Escape' && this.mapPlacementModeSignal?.()) {
+      event.preventDefault();
+      this.keyboardCallbacks?.exitMapPlacement?.();
+      return;
     }
 
     // Build mode keys
@@ -415,6 +471,9 @@ export class InputHandlerService {
     this.onMouseMoveCallback = null;
     this.enemyPlacementModeSignal = null;
     this.onEnemyPlacementCallback = null;
+    this.mapPlacementModeSignal = null;
+    this.onMapPlacementClickCallback = null;
+    this.onMapPlacementMoveCallback = null;
     this.mouseDownPos = null;
     this.keyboardCallbacks = null;
   }

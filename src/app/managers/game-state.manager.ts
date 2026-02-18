@@ -94,7 +94,7 @@ export class GameStateManager {
   // Performance profiler (optional, set via setProfiler())
   private profiler: PerformanceProfilerService | null = null;
 
-  /** EventBus subscription bag — cleaned up in reset() */
+  /** EventBus subscription bag — cleaned up in initialize() (re-init) and dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
   /**
@@ -114,6 +114,15 @@ export class GameStateManager {
     spawnPoints: SpawnPoint[],
     cachedPaths: Map<string, GeoPosition[]>
   ): void {
+    // Clean up previous subscriptions to prevent duplicate event handlers on re-init
+    this.eventBusSubs.disposeAll();
+
+    // Destroy old game-engine service instances (they register event handlers in constructors)
+    this.vfxService?.destroy();
+    this.audioService?.destroy();
+    this.screenShakeService?.destroy();
+    this.backgroundMusic?.destroy();
+
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
 
@@ -480,8 +489,14 @@ export class GameStateManager {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+
+    // Destroy game-engine service instances (they hold EventBus subscriptions)
+    this.vfxService?.destroy();
+    this.audioService?.destroy();
+    this.screenShakeService?.destroy();
+    this.backgroundMusic?.destroy();
+
     this.hqDamage.reset();
-    this.backgroundMusic.destroy();
 
     this.enemyManager.clear();
     this.towerManager.clear();
