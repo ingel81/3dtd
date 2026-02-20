@@ -280,6 +280,13 @@ export class TowerDefenseFacadeService {
         engine.setOnTilesLoadCallback(() => this.vizFacade.onTilesLoaded());
         engine.setOnUpdateCallback((deltaTime) => this.gameLoopFacade.onEngineUpdate(deltaTime));
 
+        // Fix race condition: if tiles loaded during initEngine() before the
+        // onTilesLoadCallback was set, the route refresh was skipped.
+        // Trigger it manually now that everything is wired up.
+        if (!this.engineInit.tilesLoading()) {
+          this.vizFacade.onTilesLoaded();
+        }
+
         const eventBus = this.gameState.getEventBus();
         engine.spatialAudio.setEventBus(eventBus);
         this.soundDebug.subscribeToEventBus(eventBus);
