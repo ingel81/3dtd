@@ -42,7 +42,7 @@ export class CombatVfxService {
    */
   emitHitBlood(enemy: Enemy, isSplashDamage: boolean): void {
     if (!enemy.typeConfig.canBleed) return;
-    const splatterHeight = enemy.transform.terrainHeight + 1;
+    const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
     const intensity = isSplashDamage ? 8 : 15;
     this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, intensity);
   }
@@ -52,7 +52,7 @@ export class CombatVfxService {
    */
   emitDeathBlood(enemy: Enemy): void {
     if (!enemy.typeConfig.canBleed || !this.tilesEngine) return;
-    const splatterHeight = enemy.transform.terrainHeight + 1;
+    const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
     this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 40);
   }
 

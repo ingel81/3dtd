@@ -580,7 +580,7 @@ export class ThreeTilesEngine {
 
     // Configure controls
     envControls.enableDamping = true;
-    envControls.minDistance = 50;      // Minimum zoom distance
+    envControls.minDistance = 5;       // Minimum zoom distance
     envControls.maxDistance = 2000;    // Maximum zoom distance
     envControls.minAltitude = 0.1;     // Min camera altitude (radians from ground)
     envControls.maxAltitude = Math.PI / 2 - 0.1; // Max altitude (near vertical)

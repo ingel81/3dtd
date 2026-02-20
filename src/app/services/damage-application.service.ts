@@ -80,7 +80,7 @@ export class DamageApplicationService {
     if (!this.towerManager || !this.enemyManager) return;
 
     if (showBloodEffects && enemy.typeConfig.canBleed) {
-      const splatterHeight = enemy.transform.terrainHeight + 1;
+      const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
       vfx.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 5);
     }
 
