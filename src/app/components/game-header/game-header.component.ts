@@ -12,9 +12,8 @@ import { FavoriteLocation } from '../../models/location.types';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="header">
+      <img class="logo" src="/assets/images/logo/logo.png" alt="3DTD">
       <div class="header-left">
-        <mat-icon class="title-icon">cell_tower</mat-icon>
-        <h2 class="title">3DTD</h2>
         <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
           <span class="location-name">{{ locationName() }}</span>
           <mat-icon class="location-edit">edit</mat-icon>
@@ -136,6 +135,19 @@ import { FavoriteLocation } from '../../models/location.types';
         inset 0 -2px 4px rgba(0, 0, 0, 0.3);
     }
 
+    .logo {
+      width: 74px;
+      height: 74px;
+      object-fit: contain;
+      margin: -25px 0;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 1;
+      filter:
+        drop-shadow(0 -1px 0 rgba(255, 255, 220, 0.45))
+        drop-shadow(0 1px 0 rgba(0, 0, 0, 0.9));
+    }
+
     .header-left {
       display: flex;
       align-items: center;
@@ -146,35 +158,17 @@ import { FavoriteLocation } from '../../models/location.types';
       border-top-color: var(--td-frame-mid);
     }
 
-    .title-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-      color: var(--td-gold);
-    }
-
-    .title {
-      margin: 0;
-      font-size: 13px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--td-gold);
-      text-transform: uppercase;
-    }
-
     .location-btn {
       display: flex;
       align-items: center;
       gap: 6px;
       padding: 4px 10px;
-      margin-left: 8px;
       background: transparent;
       border: 1px solid transparent;
-      border-left: 1px solid var(--td-frame-mid);
       color: var(--td-text-secondary);
       cursor: pointer;
       transition: all 0.15s ease;
-      border-radius: 0 3px 3px 0;
+      border-radius: 3px;
       font-family: inherit;
       font-size: 10px;
     }
