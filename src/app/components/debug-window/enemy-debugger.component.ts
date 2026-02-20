@@ -155,6 +155,17 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 <span class="unit">×</span>
               </div>
 
+              <div class="slider-row">
+                <span class="label">Preview</span>
+                <input type="range" min="0.001" max="5" step="0.001"
+                       [value]="selected.overrides.previewScale"
+                       (input)="onSelectedSliderChange('previewScale', $event)" />
+                <input type="number" class="number-input" min="0.001" max="5" step="0.001"
+                       [value]="selected.overrides.previewScale"
+                       (change)="onSelectedSliderChange('previewScale', $event)" />
+                <span class="unit">×</span>
+              </div>
+
               <!-- Animation Controls -->
               <div class="control-group">
                 <div class="control-label">Animation</div>
@@ -610,7 +621,7 @@ export class EnemyDebuggerComponent {
     this.enemyDebug.selectEnemy(select.value as EnemyTypeId);
   }
 
-  onSelectedSliderChange(key: 'scale' | 'heightOffset' | 'healthBarOffset' | 'baseSpeed' | 'animationSpeed', event: Event): void {
+  onSelectedSliderChange(key: 'scale' | 'heightOffset' | 'healthBarOffset' | 'baseSpeed' | 'animationSpeed' | 'previewScale', event: Event): void {
     const input = event.target as HTMLInputElement;
     this.enemyDebug.updateSelectedOverride(key, parseFloat(input.value));
   }
@@ -650,6 +661,7 @@ export class EnemyDebuggerComponent {
           baseSpeed: Math.round(selected.overrides.baseSpeed * 10) / 10,
           animationSpeed: Math.round(selected.overrides.animationSpeed * 100) / 100,
           rotation: Math.round(selected.overrides.rotation * 1000) / 1000,
+          previewScale: Math.round(selected.overrides.previewScale * 1000) / 1000,
         }
       }, null, 2);
       navigator.clipboard.writeText(json);
