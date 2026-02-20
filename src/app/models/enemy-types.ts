@@ -421,7 +421,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     colorMultiplier: 0.6,
     randomAnimationStart: true,
     lateralOffset: 3.0,
-    spawnStartDelay: 1200,
+    spawnStartDelay: 1200,  
   },
 };
 
