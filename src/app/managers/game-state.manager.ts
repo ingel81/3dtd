@@ -190,7 +190,7 @@ export class GameStateManager {
             `+${event.credits}`,
             event.enemy.position.lat,
             event.enemy.position.lon,
-            event.enemy.transform.terrainHeight + 5,
+            event.enemy.transform.terrainHeight + (event.enemy.typeConfig.heightOffset ?? 0) + 5,
             {
               color: '#FFD700',
               duration: TIMING.rewardPopupDuration,

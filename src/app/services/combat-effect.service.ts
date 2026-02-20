@@ -175,7 +175,7 @@ export class CombatEffectService {
       `-${rounded}`,
       enemy.position.lat,
       enemy.position.lon,
-      enemy.transform.terrainHeight + 5,
+      enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 5,
       {
         color: '#FF4444',
         duration: TIMING.damagePopupDuration,
