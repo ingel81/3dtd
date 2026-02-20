@@ -53,6 +53,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       // Per-vertex attributes
       attribute float aVertexIndex;
       attribute vec3 aVertexColor;
+      attribute float aVertexAlpha;
       attribute float aUseMap;
 
       // Per-instance attributes
@@ -73,6 +74,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying float vOpacity;
       varying float vHasTint;
       varying vec3 vVertexColor;
+      varying float vVertexAlpha;
       varying float vUseMap;
 
       #include <common>
@@ -84,6 +86,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
         vOpacity = aOpacity;
         vHasTint = step(0.01, dot(aTintColor, aTintColor));
         vVertexColor = aVertexColor;
+        vVertexAlpha = aVertexAlpha;
         vUseMap = aUseMap;
 
         // Sample VAT for animated position (tiled layout for large vertex counts)
@@ -126,6 +129,7 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
       varying float vOpacity;
       varying float vHasTint;
       varying vec3 vVertexColor;
+      varying float vVertexAlpha;
       varying float vUseMap;
 
       #include <logdepthbuf_pars_fragment>
@@ -136,13 +140,21 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
 
         #include <logdepthbuf_fragment>
 
-        // Base color: per-vertex texture flag decides texture vs vertex color
+        // Base color + alpha: per-vertex texture flag decides texture vs vertex color
         vec3 baseColor;
+        float baseAlpha;
         if (vUseMap > 0.5 && hasDiffuse > 0.5) {
-          baseColor = texture2D(diffuseMap, vUv).rgb;
+          vec4 texSample = texture2D(diffuseMap, vUv);
+          baseColor = texSample.rgb;
+          baseAlpha = texSample.a;
         } else {
           baseColor = vVertexColor;
+          baseAlpha = vVertexAlpha;
         }
+
+        // Alpha test: discard nearly transparent fragments
+        float finalAlpha = vOpacity * baseAlpha;
+        if (finalAlpha < 0.05) discard;
 
         vec3 litColor;
 
@@ -189,7 +201,12 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           litColor = mix(litColor, vTintColor, 0.5);
         }
 
-        gl_FragColor = vec4(litColor, vOpacity);
+        // ACES Filmic tone mapping (matches Three.js default)
+        // Prevents overexposure and preserves color saturation
+        litColor = (litColor * (2.51 * litColor + 0.03)) /
+                   (litColor * (2.43 * litColor + 0.59) + 0.14);
+
+        gl_FragColor = vec4(litColor, finalAlpha);
       }
     `,
     transparent: true,
