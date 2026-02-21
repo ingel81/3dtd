@@ -23,7 +23,7 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { MapPlacementService } from './map-placement.service';
 import { TowerPlacementService } from './tower-placement.service';
-import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE } from '../configs/map-constants.config';
+import { SPAWN_COLORS, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE, SPAWN_DISCARD_DISTANCE } from '../configs/map-constants.config';
 import { SpawnPoint as WaveSpawnPoint } from '../managers/wave.manager';
 
 /**
@@ -392,18 +392,51 @@ export class LocationFacadeService {
     }
 
     // Slow path: outside bounds → full 7-step location change
+    // Check if old spawn is still usable or needs to be regenerated
     const existingSpawns = this.store.spawnPoints();
     let spawnLat: number;
     let spawnLon: number;
     let spawnName = 'Spawn';
 
-    if (existingSpawns.length > 0) {
-      spawnLat = existingSpawns[0].lat;
-      spawnLon = existingSpawns[0].lon;
-      spawnName = existingSpawns[0].name;
+    const oldSpawn = existingSpawns.length > 0 ? existingSpawns[0] : null;
+    const spawnTooFar = oldSpawn
+      ? this.osmService.haversineDistance(oldSpawn.lat, oldSpawn.lon, lat, lon) > SPAWN_DISCARD_DISTANCE
+      : true;
+
+    if (oldSpawn && !spawnTooFar) {
+      // Old spawn is close enough — let coordinator validate the path
+      spawnLat = oldSpawn.lat;
+      spawnLon = oldSpawn.lon;
+      spawnName = oldSpawn.name;
     } else {
-      spawnLat = lat + 0.005;
-      spawnLon = lon;
+      // Old spawn too far or none exists — pre-load streets and find a random spawn
+      // (same pattern as the location dialog's isRandom flow)
+      try {
+        const newNetwork = await this.osmService.loadStreets(lat, lon, 2000);
+
+        // Cache in bridge so coordinator's step3 reuses it (avoids double-load)
+        this.bridge.setStreetNetwork(newNetwork);
+        this.bridge.setStreetNetworkLocation({ lat, lon });
+
+        const randomSpawn = this.osmService.findRandomStreetPoint(
+          newNetwork, lat, lon, MIN_SPAWN_DISTANCE, MAX_SPAWN_DISTANCE,
+        );
+        if (randomSpawn) {
+          spawnLat = randomSpawn.lat;
+          spawnLon = randomSpawn.lon;
+          spawnName = randomSpawn.streetName || 'Spawn';
+        } else {
+          // Fallback: ~700m north (coordinator will attempt pathfinding)
+          spawnLat = lat + 0.0063;
+          spawnLon = lon;
+          spawnName = 'Fallback Spawn';
+        }
+      } catch {
+        // Street loading failed — use fallback offset
+        spawnLat = lat + 0.0063;
+        spawnLon = lon;
+        spawnName = 'Spawn';
+      }
     }
 
     await this.locationCoordinator.applyNewLocation({

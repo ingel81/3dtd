@@ -211,6 +211,26 @@ export class MapPlacementService {
    * Validate a position for the given placement mode.
    */
   validatePosition(mode: 'hq' | 'spawn', lat: number, lon: number): { valid: boolean; reason?: string } {
+    // HQ can be placed anywhere — streets will be loaded afterwards via the slow path
+    // in LocationFacadeService.applyNewHqPosition()
+    if (mode === 'hq') {
+      if (this.streetNetwork) {
+        // If we have a street network, validate proximity only within loaded bounds
+        const b = this.streetNetwork.bounds;
+        const inBounds = lat >= b.minLat && lat <= b.maxLat && lon >= b.minLon && lon <= b.maxLon;
+        if (inBounds) {
+          const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
+          if (!nearest || nearest.distance > MAX_PLACEMENT_STREET_DISTANCE) {
+            return { valid: false, reason: 'Too far from streets' };
+          }
+        }
+        // Outside bounds → allow (streets will be loaded for new area)
+      }
+      // No street network at all → allow
+      return { valid: true };
+    }
+
+    // Spawn mode: requires loaded street network
     if (!this.streetNetwork) {
       return { valid: false, reason: 'No street network loaded' };
     }
