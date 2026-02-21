@@ -7,6 +7,7 @@ import {
   Injector,
   inject,
   computed,
+  signal,
   HostListener,
   ChangeDetectionStrategy,
 } from '@angular/core';
@@ -264,6 +265,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     this.store.phase() === 'setup' && !this.engineInit.loading(),
   );
 
+  // Controls hint auto-hide
+  readonly controlsHintVisible = signal(true);
+  private controlsHintTimer: ReturnType<typeof setTimeout> | null = null;
+
   // Location name for header display - delegates to service for consistent formatting
   readonly currentLocationName = computed(() => this.locationMgmt.getLocationDisplayName());
 
@@ -276,6 +281,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   async ngAfterViewInit(): Promise<void> {
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyPersistedAudioSettings();
+    this.controlsHintTimer = setTimeout(() => this.controlsHintVisible.set(false), 15000);
   }
 
   /** Apply persisted audio volume/mute settings after engine init */
@@ -313,6 +319,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   ngOnDestroy(): void {
+    if (this.controlsHintTimer) clearTimeout(this.controlsHintTimer);
     this.facade.dispose();
   }
 

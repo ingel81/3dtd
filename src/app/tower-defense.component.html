@@ -140,10 +140,12 @@
         <app-game-speed />
       }
 
-      <!-- Controls Hint -->
-      @if (!loading() && !error()) {
-        <div class="td-controls-hint">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
+      <!-- Controls Hint (auto-hides after 15s, click to dismiss) -->
+      @if (!loading() && !error() && controlsHintVisible()) {
+        <div class="td-controls-hint" (click)="controlsHintVisible.set(false)">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
+      }
 
+      @if (!loading() && !error()) {
         <!-- Quick Actions (bottom right) -->
         <app-quick-actions
           [cameraFramingDebug]="cameraFramingDebug()"
