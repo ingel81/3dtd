@@ -166,6 +166,18 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       text-transform: uppercase;
     }
 
+    .td-wave-panel {
+      border-left: 3px solid var(--td-teal);
+    }
+
+    .td-wave-panel .td-panel-header {
+      background: linear-gradient(90deg, rgba(111, 183, 165, 0.15) 0%, var(--td-panel-secondary) 100%);
+    }
+
+    .td-panel:not(.td-wave-panel):not(.td-tower-panel) .td-panel-header {
+      background: linear-gradient(90deg, rgba(201, 164, 76, 0.1) 0%, var(--td-panel-secondary) 100%);
+    }
+
     .td-panel-content {
       padding: 8px;
     }
@@ -253,6 +265,28 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .td-action-btn.td-btn-green:hover:not(:disabled) {
       filter: brightness(1.1);
+    }
+
+    .td-action-btn.td-btn-green.td-wave-btn:not(:disabled) {
+      background: linear-gradient(180deg, #B0E8A0 0%, var(--td-green) 40%, var(--td-green-dark) 100%);
+      font-size: 13px;
+      font-weight: 700;
+      padding: 10px;
+      border-top: 1px solid #B0E8A0;
+      border-bottom: 2px solid var(--td-green-dark);
+      letter-spacing: 1px;
+      box-shadow: 0 2px 8px rgba(106, 171, 108, 0.3);
+    }
+
+    .td-action-btn.td-btn-green.td-wave-btn:not(:disabled) mat-icon {
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
+    }
+
+    .td-action-btn.td-btn-green.td-wave-btn:hover:not(:disabled) {
+      filter: brightness(1.15);
+      box-shadow: 0 3px 12px rgba(106, 171, 108, 0.5);
     }
 
     .td-build-hint {
@@ -359,15 +393,15 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .td-tower-preview-canvas {
       width: 100%;
-      height: 70px;
+      height: 80px;
       display: block;
-      background: linear-gradient(180deg, rgba(0,0,0,0.2) 0%, rgba(0,0,0,0.4) 100%);
+      background: linear-gradient(180deg, rgba(30,40,30,0.3) 0%, rgba(10,15,10,0.5) 100%);
     }
 
     .td-tower-card-name {
       display: block;
-      padding: 4px 6px;
-      font-size: 9px;
+      padding: 5px 6px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--td-text-secondary);
       text-align: center;
@@ -382,13 +416,13 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       position: absolute;
       top: 4px;
       right: 4px;
-      padding: 2px 6px;
-      background: var(--td-gold-dark);
+      padding: 3px 8px;
+      background: var(--td-gold);
       color: var(--td-bg-dark);
-      font-size: 9px;
+      font-size: 11px;
       font-weight: 700;
       border-radius: 2px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
     }
 
     .td-tower-card:hover:not(:disabled) .td-tower-card-name {

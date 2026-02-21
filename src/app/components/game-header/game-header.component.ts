@@ -197,7 +197,7 @@ import { FavoriteLocation } from '../../models/location.types';
     .header-stats {
       display: flex;
       align-items: center;
-      gap: 8px;
+      gap: 10px;
       margin-left: auto;
       margin-right: 8px;
     }
@@ -206,20 +206,20 @@ import { FavoriteLocation } from '../../models/location.types';
       display: flex;
       align-items: center;
       justify-content: center;
-      gap: 4px;
-      font-size: 11px;
-      font-weight: 600;
+      gap: 6px;
+      font-size: 15px;
+      font-weight: 700;
       background: var(--td-panel-shadow);
-      padding: 4px 10px;
-      min-width: 50px;
+      padding: 6px 14px;
+      min-width: 60px;
       border: 1px solid var(--td-frame-dark);
       border-top-color: var(--td-frame-mid);
     }
 
     .stat mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
+      font-size: 18px;
+      width: 18px;
+      height: 18px;
     }
 
     .stat.hp { color: var(--td-health-red); }

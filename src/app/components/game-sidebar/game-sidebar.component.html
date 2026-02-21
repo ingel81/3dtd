@@ -1,7 +1,7 @@
 <aside class="td-sidebar">
   <div class="td-sidebar-content">
     <!-- WAVE Section -->
-    <section class="td-panel">
+    <section class="td-panel td-wave-panel">
       <div class="td-panel-header">WAVE {{ store.waveNumber() }}</div>
       <div class="td-panel-content td-wave-section">
         <div class="td-wave-info">
@@ -79,8 +79,8 @@
                 <canvas #towerPreviewCanvas
                         class="td-tower-preview-canvas"
                         [attr.data-tower-id]="tower.id"
-                        width="120"
-                        height="70"></canvas>
+                        width="140"
+                        height="80"></canvas>
                 <span class="td-tower-card-name">{{ tower.name }}</span>
                 <span class="td-tower-card-cost">{{ tower.cost }}</span>
               </button>
