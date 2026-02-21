@@ -414,6 +414,43 @@ Angular Material Dialog mit zwei Modi:
 
 Bei `isRandom: true` wird der Spawn-Punkt vom Coordinator nachtraeglich generiert (Street-Loading + `findRandomStreetPoint()`).
 
+## HQ-Relocation (interaktives Versetzen)
+
+Wenn der Spieler das HQ ueber die Map-Platzierung versetzt, waehlt `LocationFacadeService.applyNewHqPosition()` zwischen zwei Pfaden:
+
+### Fast Path (innerhalb Street-Bounds)
+
+Wenn das neue HQ innerhalb der geladenen Street-Network-Bounds liegt:
+- Kein Street-Reload, kein Loading Screen
+- Strassennetz wird wiederverwendet
+- Alte Spawns werden via `findPath()` revalidiert
+- Wenn kein alter Spawn erreichbar ist → Random Spawn generieren
+
+### Slow Path (ausserhalb Street-Bounds)
+
+Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
+- Volle 7-Step Location Change Pipeline (mit Loading Screen)
+- **Spawn-Discard-Logik**: Alter Spawn wird verworfen wenn >1500m vom neuen HQ (`SPAWN_DISCARD_DISTANCE`)
+- Bei verworfenen/fehlenden Spawns: Streets werden vorab geladen, Random Spawn generiert (500-1000m)
+- Street-Network wird gecached → Coordinator reused es in Step 3 (kein doppeltes Laden)
+- Tiles-Wait ist schnell (~500ms) wenn der Spieler bereits dorthin gescrollt hat
+
+### HQ-Placement-Validierung (`MapPlacementService`)
+
+| Modus | Innerhalb Bounds | Ausserhalb Bounds |
+|-------|------------------|-------------------|
+| `hq` | Naehe zu Strasse pruefen (max 150m) | Immer erlaubt (Streets werden nachgeladen) |
+| `spawn` | Naehe zu Strasse pruefen (max 150m) | Nicht erlaubt (Street-Network erforderlich) |
+
+### Relevante Konstanten (`map-constants.config.ts`)
+
+```typescript
+SPAWN_DISCARD_DISTANCE = 1500   // Max Distanz bevor alter Spawn verworfen wird
+MIN_SPAWN_DISTANCE = 500        // Random Spawn: Mindestdistanz zum HQ
+MAX_SPAWN_DISTANCE = 1000       // Random Spawn: Maximaldistanz zum HQ
+MAX_PLACEMENT_STREET_DISTANCE = 150  // Max Distanz zur naechsten Strasse fuer Placement
+```
+
 ## Bekannte Einschraenkungen
 
 ### Nominatim-Geocoding Praezision

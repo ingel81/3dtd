@@ -293,7 +293,6 @@
 - [ ] **Skeleton** - `unarmored`, Swarm
 - [ ] **Golem** - `fortified`, Boss
 - [ ] **Dragon** - `heavy` + Air, fliegender Boss
-      Model vorhanden: `public/assets/models/enemies/candidates/dragon.glb`
 
 ---
 

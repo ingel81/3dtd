@@ -4,6 +4,19 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-02-21
+
+### HQ-Placement ausserhalb der Street-Bounds
+- [x] **HQ kann jetzt ueberall auf der Karte platziert werden**
+      Auch in Bereichen ohne geladenes Strassennetz. Streets werden automatisch
+      nachgeladen, alter Spawn wird verworfen wenn >1500m entfernt und ein neuer
+      Random Spawn nahe dem neuen HQ generiert.
+      Dateien: `map-placement.service.ts`, `location-facade.service.ts`, `map-constants.config.ts`
+
+### Unused Enemy Model Candidates entfernt
+- [x] **6 GLB-Dateien aus `candidates/` entfernt**
+      asian_giant_hornet, bipedal_mech, dragon, fantasma_animado, flying_hornet, uber_soldier
+
 ## 2026-02-15
 
 ### Attributions Dialog
