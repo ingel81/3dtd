@@ -12,7 +12,7 @@ export interface TowerUpgrade {
   costScaling?: number; // Cost multiplier per level (default: 1.0 = flat cost)
   maxLevel: number;
   effect: {
-    stat: 'fireRate' | 'damage' | 'range';
+    stat: 'fireRate' | 'damage' | 'range' | 'beamWidth';
     multiplier: number; // e.g., 2.0 = double
   };
 }
@@ -320,7 +320,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         costScaling: 1.6,
         maxLevel: 2,
         effect: {
-          stat: 'range',
+          stat: 'beamWidth',
           multiplier: 1.3, // Applied to beamWidth
         },
       },
