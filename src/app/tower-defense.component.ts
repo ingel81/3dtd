@@ -57,6 +57,7 @@ import { GameLoopFacadeService } from './services/game-loop-facade.service';
 import { VisualizationFacadeService } from './services/visualization-facade.service';
 import { TowerDefenseStore } from './store/tower-defense.store';
 import { UIStore } from './store/ui.store';
+import { ConfigService } from './core/services/config.service';
 // New OO Game Engine imports
 import { GameStateManager } from './managers/game-state.manager';
 // Three.js Engine (new 3DTilesRendererJS-based)
@@ -131,6 +132,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly dialogRef = inject(MatDialogRef<TowerDefenseComponent>, { optional: true });
   readonly gameState = inject(GameStateManager);
   private readonly uiStore = inject(UIStore);
+  readonly configService = inject(ConfigService);
 
   readonly injector = inject(Injector);
 
