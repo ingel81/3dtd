@@ -15,6 +15,9 @@ export interface EnemyOverrides {
   heightOffset: number;
   healthBarOffset: number;
   previewScale: number;
+  previewCameraDistance: number;
+  previewCameraAngle: number;
+  previewOffsetY: number;
   rotation: number; // Y rotation offset in radians
   animationSpeed: number; // Animation timeScale multiplier
 }
@@ -123,6 +126,9 @@ export class EnemyDebugService {
         heightOffset: config.heightOffset,
         healthBarOffset: config.healthBarOffset,
         previewScale: config.previewScale ?? config.scale * 0.4,
+        previewCameraDistance: config.previewCameraDistance ?? 7,
+        previewCameraAngle: config.previewCameraAngle ?? Math.PI / 12,
+        previewOffsetY: config.previewOffsetY ?? 0,
         rotation: 0,
         animationSpeed: config.animationSpeed ?? 1.0,
       };
@@ -135,6 +141,13 @@ export class EnemyDebugService {
    */
   selectEnemy(id: EnemyTypeId): void {
     this.selectedEnemyId.set(id);
+  }
+
+  /**
+   * Holt die Overrides für einen bestimmten Enemy-Typ.
+   */
+  getOverrides(id: EnemyTypeId): EnemyOverrides {
+    return this.allOverrides()[id];
   }
 
   /**
@@ -168,6 +181,9 @@ export class EnemyDebugService {
         heightOffset: config.heightOffset,
         healthBarOffset: config.healthBarOffset,
         previewScale: config.previewScale ?? config.scale * 0.4,
+        previewCameraDistance: config.previewCameraDistance ?? 7,
+        previewCameraAngle: config.previewCameraAngle ?? Math.PI / 12,
+        previewOffsetY: config.previewOffsetY ?? 0,
         rotation: 0,
         animationSpeed: config.animationSpeed ?? 1.0,
       },
@@ -283,6 +299,9 @@ export class EnemyDebugService {
               heightOffset: config.heightOffset,
               healthBarOffset: config.healthBarOffset,
               previewScale: config.previewScale ?? config.scale * 0.4,
+              previewCameraDistance: config.previewCameraDistance ?? 7,
+              previewCameraAngle: config.previewCameraAngle ?? Math.PI / 12,
+              previewOffsetY: config.previewOffsetY ?? 0,
               rotation: 0,
               animationSpeed: config.animationSpeed ?? 1.0,
             }
@@ -329,6 +348,9 @@ export class EnemyDebugService {
         heightOffset: Math.round(overrides[id as EnemyTypeId].heightOffset * 10) / 10,
         healthBarOffset: Math.round(overrides[id as EnemyTypeId].healthBarOffset * 10) / 10,
         previewScale: Math.round(overrides[id as EnemyTypeId].previewScale * 1000) / 1000,
+        previewCameraDistance: Math.round(overrides[id as EnemyTypeId].previewCameraDistance * 10) / 10,
+        previewCameraAngle: Math.round(overrides[id as EnemyTypeId].previewCameraAngle * 100) / 100,
+        previewOffsetY: Math.round(overrides[id as EnemyTypeId].previewOffsetY * 10) / 10,
         rotation: Math.round(overrides[id as EnemyTypeId].rotation * 1000) / 1000,
         animationSpeed: Math.round(overrides[id as EnemyTypeId].animationSpeed * 100) / 100,
       };

@@ -36,6 +36,8 @@ import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
 import { TowerDebugService } from '../../services/tower-debug.service';
+import { EnemyDebugService } from '../../services/enemy-debug.service';
+import { EnemyTypeId } from '../../models/enemy-types';
 import { AdBannerComponent } from '../ad-banner/ad-banner.component';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -696,13 +698,15 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly towerDebug = inject(TowerDebugService);
+  private readonly enemyDebug = inject(EnemyDebugService);
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
-    // Update enemy preview when enemy type changes
+    // Update enemy preview when enemy type or debug overrides change
     effect(() => {
-      // Track currentEnemyConfig to trigger effect when it changes
-      this.currentEnemyConfig();
+      // Track currentEnemyConfig and enemy overrides to trigger effect on changes
+      const config = this.currentEnemyConfig();
+      this.enemyDebug.allOverrides()[config.id as EnemyTypeId];
       // Wait for the preview to be initialized
       if (this.enemyPreviewCanvas?.nativeElement) {
         this.initEnemyPreview();
@@ -778,15 +782,17 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     if (!this.enemyPreviewCanvas?.nativeElement) return;
 
     const enemyConfig = this.currentEnemyConfig();
+    const overrides = this.enemyDebug.getOverrides(enemyConfig.id as EnemyTypeId);
     this.modelPreview.createPreview(
       'enemy-preview',
       this.enemyPreviewCanvas.nativeElement,
       {
         modelUrl: enemyConfig.modelUrl,
-        scale: enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
+        scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
         rotationSpeed: 0.4,
-        cameraDistance: 7,
-        cameraAngle: Math.PI / 12,
+        cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
+        cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
+        offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
         animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
         animationTimeScale: 0.7,
         lightIntensity: 1.3,

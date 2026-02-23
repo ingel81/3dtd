@@ -37,4 +37,35 @@ describe('enemy types config', () => {
     const unique = new Set(ids);
     expect(unique.size).toBe(ids.length);
   });
+
+  it('preview fields are undefined or valid numbers', () => {
+    const all = getAllEnemyTypes();
+    all.forEach((enemy) => {
+      if (enemy.previewCameraDistance !== undefined) {
+        expect(typeof enemy.previewCameraDistance).toBe('number');
+        expect(enemy.previewCameraDistance).toBeGreaterThan(0);
+      }
+      if (enemy.previewCameraAngle !== undefined) {
+        expect(typeof enemy.previewCameraAngle).toBe('number');
+        expect(enemy.previewCameraAngle).toBeGreaterThanOrEqual(0);
+        expect(enemy.previewCameraAngle).toBeLessThanOrEqual(Math.PI / 2);
+      }
+      if (enemy.previewOffsetY !== undefined) {
+        expect(typeof enemy.previewOffsetY).toBe('number');
+      }
+    });
+  });
+
+  it('preview defaults are applied correctly', () => {
+    const all = getAllEnemyTypes();
+    all.forEach((enemy) => {
+      const cameraDistance = enemy.previewCameraDistance ?? 7;
+      const cameraAngle = enemy.previewCameraAngle ?? Math.PI / 12;
+      const offsetY = enemy.previewOffsetY ?? 0;
+
+      expect(cameraDistance).toBeGreaterThan(0);
+      expect(cameraAngle).toBeGreaterThanOrEqual(0);
+      expect(typeof offsetY).toBe('number');
+    });
+  });
 });
