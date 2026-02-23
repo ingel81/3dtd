@@ -254,12 +254,22 @@ export class EnemyDebugService {
     }
   }
 
+  /** Keys that affect the sidebar preview and should sync to type-level overrides */
+  private readonly PREVIEW_KEYS: ReadonlySet<string> = new Set([
+    'previewScale', 'previewCameraDistance', 'previewCameraAngle', 'previewOffsetY',
+  ]);
+
   /**
    * Aktualisiert einen Override-Wert für den selektierten Debug-Enemy.
+   * Preview-relevante Keys werden auch auf Type-Level synchronisiert,
+   * damit der Sidebar-Preview-Effect feuert.
    */
   updateSelectedOverride<K extends keyof EnemyOverrides>(key: K, value: number): void {
     const id = this.selectedDebugEnemyId();
     if (!id) return;
+
+    // Get typeId before updating for preview sync
+    const debugEnemy = this.debugEnemies().find(d => d.id === id);
 
     this.debugEnemies.update(list =>
       list.map(de => de.id === id
@@ -267,6 +277,15 @@ export class EnemyDebugService {
         : de
       )
     );
+
+    // Sync preview-related overrides to type-level so sidebar preview updates
+    if (debugEnemy && this.PREVIEW_KEYS.has(key as string)) {
+      const all = this.allOverrides();
+      this.allOverrides.set({
+        ...all,
+        [debugEnemy.typeId]: { ...all[debugEnemy.typeId], [key]: value },
+      });
+    }
   }
 
   /**

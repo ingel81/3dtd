@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
+import { WaveDebugService } from '../../services/wave-debug.service';
 import { ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 
@@ -644,6 +645,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
 export class EnemyDebuggerComponent {
   readonly windowService = inject(DebugWindowService);
   readonly enemyDebug = inject(EnemyDebugService);
+  private readonly waveDebug = inject(WaveDebugService);
 
   // Outputs for removing enemies
   readonly removeEnemy = output<string>();
@@ -662,7 +664,10 @@ export class EnemyDebuggerComponent {
 
   onEnemyTypeSelect(event: Event): void {
     const select = event.target as HTMLSelectElement;
-    this.enemyDebug.selectEnemy(select.value as EnemyTypeId);
+    const typeId = select.value as EnemyTypeId;
+    this.enemyDebug.selectEnemy(typeId);
+    // Also update wave debug so the sidebar preview shows the correct enemy type
+    this.waveDebug.setEnemyType(typeId);
   }
 
   onSelectedSliderChange(key: 'scale' | 'heightOffset' | 'healthBarOffset' | 'baseSpeed' | 'animationSpeed' | 'previewScale' | 'previewCameraDistance' | 'previewCameraAngle' | 'previewOffsetY', event: Event): void {
