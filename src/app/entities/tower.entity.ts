@@ -378,6 +378,9 @@ export class Tower extends GameObject {
       case 'range':
         this._combat.range *= upgrade.effect.multiplier;
         break;
+      case 'beamWidth':
+        // Beam width is computed dynamically via getEffectiveBeamWidth()
+        break;
     }
 
     // Increment the level

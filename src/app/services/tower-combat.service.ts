@@ -338,7 +338,7 @@ export class TowerCombatService {
 
         // Start/update flame beam visual
         const beamLength = tower.typeConfig.beamRange ?? 35;
-        const beamWidth = tower.typeConfig.beamWidth ?? 8;
+        const beamWidth = this.getEffectiveBeamWidth(tower);
         this.tilesEngine?.flameBeams.startBeam(
           tower.id,
           towerLocalPos,
@@ -419,12 +419,12 @@ export class TowerCombatService {
   private getEffectiveBeamWidth(tower: Tower): number {
     let width = tower.typeConfig.beamWidth ?? 8;
 
-    // Apply range upgrade to beam width
-    const rangeUpgrade = tower.typeConfig.upgrades.find(u => u.id === 'range');
-    if (rangeUpgrade) {
-      const level = tower.getUpgradeLevel('range');
+    // Apply beamWidth upgrade (e.g. Fire Tower "Wide Burn")
+    const beamWidthUpgrade = tower.typeConfig.upgrades.find(u => u.effect.stat === 'beamWidth');
+    if (beamWidthUpgrade) {
+      const level = tower.getUpgradeLevel(beamWidthUpgrade.id);
       if (level > 0) {
-        width *= Math.pow(rangeUpgrade.effect.multiplier, level);
+        width *= Math.pow(beamWidthUpgrade.effect.multiplier, level);
       }
     }
 
