@@ -492,6 +492,15 @@ export class TowerCombatService {
   }
 
   /**
+   * Stop a specific tower's flame beam and sound (called when fire tower is sold)
+   */
+  stopTowerBeam(towerId: string): void {
+    this.tilesEngine?.flameBeams?.stopBeam(towerId);
+    this.stopFlameSound(towerId);
+    this.lastBeamBloodEffect.delete(towerId);
+  }
+
+  /**
    * Stop all active beams (called on wave end)
    */
   stopAllBeams(): void {

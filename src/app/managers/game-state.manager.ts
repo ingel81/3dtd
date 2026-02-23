@@ -574,6 +574,11 @@ export class GameStateManager {
 
     this.towerManager.selectTower(null);
 
+    // Stop flame beam if fire tower
+    if (tower.typeConfig.id === 'fire') {
+      this.towerCombat.stopTowerBeam(tower.id);
+    }
+
     // Sell tower (emits tower:sold event, returns refund)
     const refund = this.towerManager.sell(tower);
     this.updateCredits(refund);
