@@ -65,18 +65,28 @@
   cursor: pointer;
 }
 
-/* Google Logo (bottom left) */
-.td-google-logo-container {
+/* Logo Attribution (bottom left) */
+.td-logo-attribution {
   position: absolute;
   bottom: 5px;
   left: 10px;
   z-index: 5;
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .td-google-logo {
   height: 16px;
   width: auto;
   display: block;
+}
+
+.td-cesium-logo {
+  height: 16px;
+  width: auto;
+  display: block;
+  opacity: 0.85;
 }
 
 /* Map Attribution (bottom right) */

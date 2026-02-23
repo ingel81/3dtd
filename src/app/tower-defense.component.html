@@ -80,8 +80,11 @@
 
       <!-- Google Attribution (required) -->
       @if (!loading() && !error()) {
-        <div class="td-google-logo-container">
+        <div class="td-logo-attribution">
           <img src="/assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
+          @if (configService.tileProvider() === 'cesium') {
+            <img src="/assets/images/ui/cesium-ion-logo.svg" alt="Cesium ion" class="td-cesium-logo">
+          }
         </div>
         <div class="td-map-attribution">{{ mapAttribution() }}</div>
 
