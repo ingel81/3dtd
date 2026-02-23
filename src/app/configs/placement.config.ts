@@ -8,11 +8,8 @@
  */
 
 export const PLACEMENT_CONFIG = {
-  /** Minimum distance from street in meters */
-  MIN_DISTANCE_TO_STREET: 10,
-
-  /** Maximum distance from street in meters */
-  MAX_DISTANCE_TO_STREET: 50,
+  /** Minimum distance from active enemy route in meters */
+  MIN_DISTANCE_TO_ROUTE: 10,
 
   /** Minimum distance from base/HQ in meters */
   MIN_DISTANCE_TO_BASE: 30,

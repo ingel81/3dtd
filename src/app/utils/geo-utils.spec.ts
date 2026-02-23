@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { haversineDistance, fastDistance, fastDistanceSq, geoDistance, geoDistanceFast, geoDistanceFastSq } from './geo-utils';
+import { haversineDistance, fastDistance, fastDistanceSq, geoDistance, geoDistanceFast, geoDistanceFastSq, findNearestRouteDistance } from './geo-utils';
 
 describe('geo-utils', () => {
   // Well-known coordinates
@@ -185,6 +185,67 @@ describe('geo-utils', () => {
 
     it('returns 0 for same point', () => {
       expect(geoDistanceFastSq(EQUATOR_ZERO, EQUATOR_ZERO)).toBe(0);
+    });
+  });
+
+  describe('findNearestRouteDistance()', () => {
+    // Route along lat=48.0 from lon=11.0 to lon=11.001 (~75m east-west)
+    const route: { lat: number; lon: number }[] = [
+      { lat: 48.0, lon: 11.0 },
+      { lat: 48.0, lon: 11.0005 },
+      { lat: 48.0, lon: 11.001 },
+    ];
+
+    it('returns Infinity when no routes provided', () => {
+      expect(findNearestRouteDistance([], 48.0, 11.0)).toBe(Infinity);
+    });
+
+    it('returns ~0 for a point directly on the route', () => {
+      const dist = findNearestRouteDistance([route], 48.0, 11.0005);
+      expect(dist).toBeLessThan(1);
+    });
+
+    it('point 5m from route → distance ~5m (under MIN_DISTANCE_TO_ROUTE)', () => {
+      // ~5m north: 0.000045 degrees lat
+      const dist = findNearestRouteDistance([route], 48.000045, 11.0005);
+      expect(dist).toBeGreaterThan(3);
+      expect(dist).toBeLessThan(7);
+    });
+
+    it('point 15m from route → distance ~15m (over MIN_DISTANCE_TO_ROUTE)', () => {
+      // ~15m north: 0.000135 degrees lat
+      const dist = findNearestRouteDistance([route], 48.000135, 11.0005);
+      expect(dist).toBeGreaterThan(12);
+      expect(dist).toBeLessThan(18);
+    });
+
+    it('checks segment distance, not just node distance', () => {
+      const singleRoute = [
+        { lat: 48.0, lon: 11.0 },
+        { lat: 48.0, lon: 11.001 },
+      ];
+      // Point at midpoint but 10m north
+      const midLon = 11.0005;
+      const segDist = findNearestRouteDistance([singleRoute], 48.00009, midLon);
+      const nodeDist = haversineDistance(48.00009, midLon, 48.0, 11.0);
+      // Segment distance should be less than distance to nearest node
+      expect(segDist).toBeLessThan(nodeDist);
+    });
+
+    it('works with multiple routes and returns minimum', () => {
+      const route1 = [{ lat: 48.0, lon: 11.0 }, { lat: 48.0, lon: 11.001 }];
+      const route2 = [{ lat: 48.001, lon: 11.0 }, { lat: 48.001, lon: 11.001 }];
+      // Point between routes, closer to route1
+      const dist = findNearestRouteDistance([route1, route2], 48.0002, 11.0005);
+      const d1 = findNearestRouteDistance([route1], 48.0002, 11.0005);
+      const d2 = findNearestRouteDistance([route2], 48.0002, 11.0005);
+      expect(dist).toBeCloseTo(Math.min(d1, d2), 6);
+    });
+
+    it('point next to non-route street has no effect (Infinity without routes)', () => {
+      // This test verifies that without routes, the function returns Infinity
+      // (i.e., non-route streets are not checked)
+      expect(findNearestRouteDistance([], 48.0, 11.0)).toBe(Infinity);
     });
   });
 

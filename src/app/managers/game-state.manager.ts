@@ -138,6 +138,9 @@ export class GameStateManager {
       basePosition,
       spawnPoints.map((s) => ({ lat: s.lat, lon: s.lon }))
     );
+    this.towerManager.setActiveRoutesGetter(() =>
+      Array.from(this.pathRouteService.getCachedPaths().values())
+    );
 
     // Initialize combat effect service (subscribes to projectile:hit events)
     this.combatEffect.initialize(

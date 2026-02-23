@@ -122,3 +122,70 @@ export function geoDistanceFastSq(
 ): number {
   return fastDistanceSq(pos1.lat, pos1.lon, pos2.lat, pos2.lon);
 }
+
+/**
+ * Find the minimum distance from a point to any segment on the given routes.
+ * Checks distance to line segments between consecutive route points, not just nodes.
+ *
+ * @param routes Array of route paths (each route is an array of {lat, lon} points)
+ * @param lat Latitude of the query point
+ * @param lon Longitude of the query point
+ * @returns Distance in meters to the nearest route segment, or Infinity if no routes
+ */
+export function findNearestRouteDistance(
+  routes: { lat: number; lon: number }[][],
+  lat: number,
+  lon: number
+): number {
+  let minDist = Infinity;
+
+  for (const route of routes) {
+    for (let i = 0; i < route.length - 1; i++) {
+      const dist = distanceToSegment(
+        lat, lon,
+        route[i].lat, route[i].lon,
+        route[i + 1].lat, route[i + 1].lon
+      );
+      if (dist < minDist) {
+        minDist = dist;
+      }
+    }
+    // Also check distance to the last point (single-point routes)
+    if (route.length === 1) {
+      const dist = haversineDistance(lat, lon, route[0].lat, route[0].lon);
+      if (dist < minDist) {
+        minDist = dist;
+      }
+    }
+  }
+
+  return minDist;
+}
+
+/**
+ * Calculate perpendicular distance from a point to a line segment in geo coordinates.
+ * Projects the point onto the segment and clamps to endpoints.
+ */
+function distanceToSegment(
+  pLat: number, pLon: number,
+  aLat: number, aLon: number,
+  bLat: number, bLon: number
+): number {
+  const dxSeg = bLon - aLon;
+  const dySeg = bLat - aLat;
+  const lengthSq = dxSeg * dxSeg + dySeg * dySeg;
+
+  if (lengthSq === 0) {
+    return haversineDistance(pLat, pLon, aLat, aLon);
+  }
+
+  // Parameter t: projection of point onto segment line, clamped to [0,1]
+  const t = Math.max(0, Math.min(1,
+    ((pLon - aLon) * dxSeg + (pLat - aLat) * dySeg) / lengthSq
+  ));
+
+  const closestLat = aLat + t * dySeg;
+  const closestLon = aLon + t * dxSeg;
+
+  return haversineDistance(pLat, pLon, closestLat, closestLon);
+}
