@@ -6,7 +6,7 @@ import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GeoPosition } from '../models/game.types';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
-import { geoDistanceFastSq } from '../utils/geo-utils';
+import { geoDistanceFastSq, findNearestRouteDistance } from '../utils/geo-utils';
 import { GameEventBus } from '../game-engine';
 
 /**
@@ -32,6 +32,7 @@ export class TowerManager extends EntityManager<Tower> {
   private basePosition: GeoPosition | null = null;
   private spawnPoints: GeoPosition[] = [];
   private placementSoundRegistered = false;
+  private activeRoutesGetter: (() => GeoPosition[][]) | null = null;
 
   /**
    * Initialize with ThreeTilesEngine and street network context
@@ -72,6 +73,13 @@ export class TowerManager extends EntityManager<Tower> {
 
       this.placementSoundRegistered = true;
     }
+  }
+
+  /**
+   * Set a callback to retrieve active enemy routes for placement validation.
+   */
+  setActiveRoutesGetter(getter: () => GeoPosition[][]): void {
+    this.activeRoutesGetter = getter;
   }
 
   /**
@@ -185,24 +193,15 @@ export class TowerManager extends EntityManager<Tower> {
       }
     }
 
-    // Check distance to street
-    const nearest = this.osmService.findNearestStreetPoint(
-      this.streetNetwork,
-      position.lat,
-      position.lon
-    );
-
-    if (!nearest) {
-      return { valid: false, reason: 'No street nearby' };
+    // Check distance to active enemy routes
+    const activeRoutes = this.activeRoutesGetter?.() ?? [];
+    if (activeRoutes.length > 0) {
+      const routeDistance = findNearestRouteDistance(activeRoutes, position.lat, position.lon);
+      if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
+        return { valid: false, reason: 'Too close to route' };
+      }
     }
-
-    if (nearest.distance > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Too far from street' };
-    }
-
-    if (nearest.distance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Cannot build directly on street' };
-    }
+    // If no routes exist yet, allow placement anywhere
 
     return { valid: true };
   }

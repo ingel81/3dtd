@@ -3,6 +3,7 @@ import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } 
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
+import { PathAndRouteService } from './path-route.service';
 import { GeoPosition } from '../models/game.types';
 import { Tower } from '../entities/tower.entity';
 import type { GameStateManager } from '../managers/game-state.manager';
@@ -12,6 +13,7 @@ import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { UIStore } from '../store/ui.store';
+import { findNearestRouteDistance } from '../utils/geo-utils';
 
 /**
  * TowerPlacementService
@@ -27,6 +29,7 @@ export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
   private assetManager = inject(AssetManagerService);
   private uiStore = inject(UIStore);
+  private pathRouteService = inject(PathAndRouteService);
 
   // ========================================
   // SIGNALS (UIStore-backed)
@@ -556,6 +559,15 @@ export class TowerPlacementService {
   // VALIDATION
   // ========================================
 
+  /**
+   * Get active enemy routes from PathAndRouteService.
+   * Returns array of route paths (each route is GeoPosition[]).
+   */
+  private getActiveRoutes(): GeoPosition[][] {
+    const cachedPaths = this.pathRouteService.getCachedPaths();
+    return Array.from(cachedPaths.values());
+  }
+
   validateTowerPosition(lat: number, lon: number): { valid: boolean; reason?: string } {
     if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
       return { valid: false, reason: 'Service not initialized' };
@@ -597,45 +609,21 @@ export class TowerPlacementService {
       }
     }
 
-    // Check distance to street (with 3D distance calculation)
-    const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, lat, lon);
-    if (!nearest) {
-      return { valid: false, reason: 'Keine Strasse gefunden' };
-    }
-
-    // Calculate 3D distance including height difference
-    let effectiveDistance = nearest.distance;
-    let heightDiff = 0;
-
-    if (this.engine && this.currentPosition) {
-      // Get tower height (terrain height at tower position)
-      const towerHeight = this.currentPosition.height;
-
-      // Get street height at nearest point
-      const streetNode = nearest.street.nodes[nearest.nodeIndex];
-      const streetHeight = this.engine.getTerrainHeightAtGeo(streetNode.lat, streetNode.lon);
-
-      if (streetHeight !== null) {
-        heightDiff = Math.abs(towerHeight - streetHeight);
-        // 3D distance: sqrt(horizontal² + vertical²)
-        effectiveDistance = Math.sqrt(nearest.distance * nearest.distance + heightDiff * heightDiff);
+    // Check distance to active enemy routes (not all streets)
+    const activeRoutes = this.getActiveRoutes();
+    if (activeRoutes.length > 0) {
+      const routeDistance = findNearestRouteDistance(activeRoutes, lat, lon);
+      if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
+        return { valid: false, reason: 'Zu nah an Route' };
       }
     }
-
-    if (nearest.distance > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Too far from street' };
-    }
-
-    if (effectiveDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Too close to street' };
-    }
+    // If no routes exist yet (before game start), allow placement anywhere
 
     return { valid: true };
   }
 
   /**
    * Validate tower position with explicit height (for bot/API usage)
-   * Includes 3D distance checks to prevent building on rooftops
    */
   validateTowerPositionWithHeight(geoPos: GeoPosition): { valid: boolean; reason?: string } {
     if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
@@ -678,34 +666,15 @@ export class TowerPlacementService {
       }
     }
 
-    // Check distance to street (with 3D distance calculation)
-    const nearest = this.osmService.findNearestStreetPoint(this.streetNetwork, geoPos.lat, geoPos.lon);
-    if (!nearest) {
-      return { valid: false, reason: 'No street nearby' };
-    }
-
-    if (nearest.distance > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Too far from street' };
-    }
-
-    // 3D distance check (horizontal + vertical to street)
-    // Note: Building on rooftops is ALLOWED, only blocking placement IN streets
-    let effectiveDistance = nearest.distance;
-
-    if (this.engine && geoPos.height !== undefined) {
-      const streetNode = nearest.street.nodes[nearest.nodeIndex];
-      const streetHeight = this.engine.getTerrainHeightAtGeo(streetNode.lat, streetNode.lon);
-
-      if (streetHeight !== null) {
-        const heightDiff = Math.abs(geoPos.height - streetHeight);
-        // Calculate 3D distance: sqrt(horizontal² + vertical²)
-        effectiveDistance = Math.sqrt(nearest.distance * nearest.distance + heightDiff * heightDiff);
+    // Check distance to active enemy routes (not all streets)
+    const activeRoutes = this.getActiveRoutes();
+    if (activeRoutes.length > 0) {
+      const routeDistance = findNearestRouteDistance(activeRoutes, geoPos.lat, geoPos.lon);
+      if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
+        return { valid: false, reason: 'Too close to route' };
       }
     }
-
-    if (effectiveDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) {
-      return { valid: false, reason: 'Too close to street (3D)' };
-    }
+    // If no routes exist yet (before game start), allow placement anywhere
 
     return { valid: true };
   }

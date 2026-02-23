@@ -13,6 +13,7 @@ import { GeoPosition } from '../models/game.types';
 import { SpawnPoint } from '../managers/wave.manager';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { Tower } from '../entities/tower.entity';
+import { findNearestRouteDistance } from '../utils/geo-utils';
 
 export interface PlacementCandidate {
   position: GeoPosition;
@@ -315,15 +316,12 @@ export class StrategicPlacementService {
    * Checks if position meets placement constraints
    */
   private meetsPlacementConstraints(pos: GeoPosition, spawnPoints: SpawnPoint[], existingTowers: Tower[] = []): boolean {
-    // Check against PLACEMENT_CONFIG
-    if (!this.streetNetwork) return false;
-    const streetInfo = this.osmService.findNearestStreetPoint(this.streetNetwork, pos.lat, pos.lon);
-    if (!streetInfo) return false;
-
-    const streetDist = streetInfo.distance;
-
-    if (streetDist < PLACEMENT_CONFIG.MIN_DISTANCE_TO_STREET) return false;
-    if (streetDist > PLACEMENT_CONFIG.MAX_DISTANCE_TO_STREET) return false;
+    // Check distance to active enemy routes
+    const activeRoutes = Array.from(this.pathRouteService.getCachedPaths().values());
+    if (activeRoutes.length > 0) {
+      const routeDist = findNearestRouteDistance(activeRoutes, pos.lat, pos.lon);
+      if (routeDist < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) return false;
+    }
 
     // Check distance to spawns (min 30m)
     for (const spawn of spawnPoints) {
