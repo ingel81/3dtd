@@ -43,6 +43,9 @@ export class InputHandlerService {
   /** Track right-click down position — used by contextmenu to detect drag vs click */
   private rightClickDownPos: { x: number; y: number } | null = null;
 
+  /** Track right-click down timestamp — used to distinguish quick click from camera hold */
+  private rightClickDownTime = 0;
+
   /** Reference to the 3D engine */
   private engine: ThreeTilesEngine | null = null;
 
@@ -171,6 +174,7 @@ export class InputHandlerService {
         this.mouseDownPos = { x: event.clientX, y: event.clientY };
         if (event.button === 2) {
           this.rightClickDownPos = { x: event.clientX, y: event.clientY };
+          this.rightClickDownTime = Date.now();
         }
       }
     };
@@ -201,11 +205,13 @@ export class InputHandlerService {
 
         if (inPlacementMode || inBuildMode) {
           event.preventDefault();
-          // Only cancel if right-click was stationary (not a camera drag)
+          // Only cancel if right-click was a quick, stationary click (not a camera drag)
           if (this.rightClickDownPos) {
             const dx = event.clientX - this.rightClickDownPos.x;
             const dy = event.clientY - this.rightClickDownPos.y;
-            if (Math.sqrt(dx * dx + dy * dy) < 10) {
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const duration = Date.now() - this.rightClickDownTime;
+            if (distance < 5 && duration < 300) {
               if (inPlacementMode) {
                 this.keyboardCallbacks?.exitMapPlacement?.();
               } else {
