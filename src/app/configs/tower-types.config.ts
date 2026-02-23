@@ -3,6 +3,7 @@ export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard'
 export type UpgradeId = 'speed' | 'damage' | 'range';
 export type AttackType = 'projectile' | 'beam' | 'melee';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
+export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
 export interface TowerUpgrade {
   id: UpgradeId;
@@ -62,6 +63,7 @@ export interface TowerTypeConfig {
   beamWidth?: number; // Width of the cone at the end in meters
 
   defaultTargeting?: TargetingStrategy; // Default targeting for this tower type (default: 'closest')
+  defaultAirSubStrategy?: AirSubStrategy; // Sub-strategy for air-priority pool selection (default: 'closest')
 
   /** Fire point offsets in turret-local space (x=lateral meters, z=forward meters). Alternates per shot. */
   firePoints?: { x: number; z: number }[];
@@ -382,12 +384,25 @@ export interface TargetingStrategyConfig {
   tooltip: string;
 }
 
+export interface AirSubStrategyConfig {
+  id: AirSubStrategy;
+  label: string;
+  icon: string;
+  tooltip: string;
+}
+
 export const TARGETING_STRATEGIES: TargetingStrategyConfig[] = [
   { id: 'closest', label: 'Closest', icon: 'near_me', tooltip: 'Attacks the nearest enemy' },
   { id: 'lowest-hp', label: 'Weakest', icon: 'heart_broken', tooltip: 'Attacks the weakest enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Attacks the strongest enemy' },
   { id: 'first', label: 'First', icon: 'flag', tooltip: 'Attacks the enemy closest to the base' },
   { id: 'air-priority', label: 'Air', icon: 'flight', tooltip: 'Prioritizes flying enemies' },
+];
+
+export const AIR_SUB_STRATEGIES: AirSubStrategyConfig[] = [
+  { id: 'closest', label: 'Closest', icon: 'near_me', tooltip: 'Targets the nearest air enemy' },
+  { id: 'lowest-hp', label: 'Weakest', icon: 'heart_broken', tooltip: 'Targets the weakest air enemy' },
+  { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Targets the strongest air enemy' },
 ];
 
 export function getTowerType(id: TowerTypeId): TowerTypeConfig {
