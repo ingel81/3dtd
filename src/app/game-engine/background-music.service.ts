@@ -298,10 +298,11 @@ export class BackgroundMusicService {
   // =====================================================
 
   private setupEventHandlers(): void {
-    // Wave started → new random wave track
+    // Wave started → fade out music (no wave music during gameplay)
+    // TODO: Re-enable with better wave music: this.playWavePhase()
     this.subs.add(
       this.eventBus.on('wave:started', () => {
-        this.playWavePhase();
+        this.fadeOutForWave();
       }),
     );
 
@@ -347,6 +348,27 @@ export class BackgroundMusicService {
     if (!track) return;
     this.lastWaveTrackId = track.id;
     this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
+  }
+
+  /**
+   * Fade out current music for wave phase without starting new music.
+   * Wave music is temporarily disabled — will be re-enabled with better tracks.
+   */
+  private fadeOutForWave(): void {
+    if (!this._enabled) return;
+    this.currentPhase = 'wave';
+
+    const active = this.getActiveChannel();
+    if (!active.audio.isPlaying) return;
+
+    this.cancelFade();
+    this.fadeOutChannel = active;
+    this.fadeInChannel = null;
+    this.fadeOutStartVol = active.currentVolume;
+    this.fadeInTargetVol = 0;
+    this.fadeDuration = BACKGROUND_MUSIC.phaseFadeDuration;
+    this.fadeStartTime = performance.now();
+    this.fadeRafId = requestAnimationFrame(this.fadeStep);
   }
 
   private fadeOutAndStop(): void {
