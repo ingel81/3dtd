@@ -642,8 +642,8 @@ private generateSpawnPoints(basePos: GeoPosition): SpawnPoint[] {
       spawnPoints.push({
         id: `spawn_${i}`,
         name: this.getCardinalDirection(bearing),
-        latitude: spawnPos.lat,
-        longitude: spawnPos.lon,
+        lat: spawnPos.lat,
+        lon: spawnPos.lon,
       });
     }
   }

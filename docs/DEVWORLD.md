@@ -102,9 +102,10 @@ Terrain-Features:
 | Preset | Beschreibung |
 |--------|--------------|
 | `none` | Keine Gebaeude |
-| `sparse` | Wenige grosse Gebaeude (150 Stueck) |
-| `dense` | Viele Gebaeude, Stadtgefuehl (1200 Stueck) |
-| `maze` | Maximale Dichte, labyrinth-artig (2000 Stueck) |
+| `sparse` | Wenige grosse Gebaeude (~150 Stueck) |
+| `medium` | Mittlere Dichte |
+| `dense` | Viele Gebaeude, Stadtgefuehl (~1200 Stueck) |
+| `maze` | Maximale Dichte, labyrinth-artig (~2000 Stueck) |
 
 Platzierungslogik:
 - Alle Gebaeude entlang von Strassen platziert (keine isolierten Cluster)

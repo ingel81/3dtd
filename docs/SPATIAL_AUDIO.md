@@ -20,7 +20,7 @@ GameObject (Enemy, Tower, ...)
             └── loopHandles Map → delegiert an SpatialAudioManager
 ```
 
-### SpatialAudioManager (`managers/spatial-audio.manager.ts`)
+### SpatialAudioManager (`managers/audio/spatial-audio.manager.ts`)
 
 Zentrale Klasse für 3D-Audio. Verwaltet sowohl One-Shot-Sounds als auch Loops.
 
@@ -122,7 +122,7 @@ const AUDIO_LIMITS = {
   maxEffectSounds: 10,
   maxAudibleDistance: 500,  // Sounds pausieren jenseits dieser Distanz
 };
-const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy', 'wallsmasher', 'big_arm', 'herbert'];
+const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy', 'wallsmasher', 'big_arm', 'herbert', 'mammouth'];
 ```
 
 **Methoden in SpatialAudioManager:**
@@ -153,9 +153,10 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 ```
 
 **Funktionsweise:**
-- `bufferAccessOrder[]` trackt Zugriffs-Reihenfolge (älteste zuerst)
-- Bei jedem `registerSound()`: URL wird "touched" (ans Ende verschoben)
-- Nach dem Laden: `evictOldestBuffers()` entfernt älteste Einträge
+- Separierte Klasse `AudioBufferCache` (`managers/audio/audio-buffer-cache.ts`)
+- `accessTimestamps: Map<string, number>` trackt Zugriffs-Zeitpunkte (inkrementierender Counter)
+- Bei jedem Zugriff: Timestamp wird aktualisiert
+- Bei Überschreitung: Ältester Eintrag (niedrigster Timestamp) wird evicted
 - Buffers die gerade laden werden nicht evicted
 
 ## Distanz-Modelle
