@@ -4,7 +4,7 @@
 
 Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **4 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
 
-## Aktuelle Struktur (Stand: Januar 2025)
+## Aktuelle Struktur (Stand: Januar 2026)
 
 ### Sub-Stores
 | Store | Datei | Domain | Signals |
@@ -125,14 +125,14 @@ CombatComponent → enemy:died Event
 │  │ selectedTwr  │ │ ...      │ │ ...               │  │
 │  └─────────────┘ └──────────┘ └───────────────────┘  │
 │                                                        │
-│  ┌─────────────┐ ┌──────────┐ ┌───────────────────┐  │
-│  │ Engine       │ │ Bot/AI   │ │ Wave Debug        │  │
-│  │ fps          │ │ botOn    │ │ enemySpeed        │  │
-│  │ tileStats    │ │ skill    │ │ enemyHealth       │  │
-│  │ sounds       │ │ aiDir    │ │ enemyCount        │  │
-│  │ compass      │ │ explain  │ │ spawnMode         │  │
-│  │ cameraDbg    │ │ ...      │ │ ...               │  │
-│  └─────────────┘ └──────────┘ └───────────────────┘  │
+│  ┌─────────────┐ ┌──────────────┐ ┌─────────────────┐│
+│  │ Engine       │ │ Bot/AI       │ │ Wave Debug      ││
+│  │ fps          │ │ useAIDir     │ │ enemySpeed      ││
+│  │ tileStats    │ │ aiExplain    │ │ enemyHealth     ││
+│  │ sounds       │ │ (rest in     │ │ enemyCount      ││
+│  │ compass      │ │ Training-    │ │ spawnMode       ││
+│  │ cameraDbg    │ │ Client-Svc)  │ │ ...             ││
+│  └─────────────┘ └──────────────┘ └─────────────────┘│
 │                                                        │
 │  ═══════ Computed ════════════════════════════════════ │
 │  waveActive, isGameOver, canStartWave, healthPercent  │
@@ -213,7 +213,8 @@ expect(store.canStartWave()).toBe(false);
 | Game-State (credits, health) | Store (GameStore) | Component, Facade, AI | GameStateSyncService (via EventBus) |
 | Location (coords, spawns) | Store (LocationStore) | Component, Facade | Facade (nach Location-Change) |
 | Engine-Stats (fps, tiles) | Store (EngineStore) | Component (Template) | Facade (aus Game-Loop) |
-| Bot/AI | Store (GameStore) | Component (Template) | Facade (nach Bot-Events) |
+| Bot/AI (useAIDirector, aiExplanation) | Store (GameStore) | Component (Template) | Facade (nach Bot-Events) |
+| Bot/AI (botEnabled, botSkillLevel, botAutoMode) | TrainingClientService | Component, Facade | TrainingClientService intern |
 
 ## Migrationsplan — ABGESCHLOSSEN ✅
 
@@ -241,7 +242,7 @@ expect(store.canStartWave()).toBe(false);
 - [x] Component-Signals von 40+ Service-Proxies auf Store umgestellt
 - [x] GameUIStateService entfernt — Persistence lebt in UIStore-Konstruktor
 - [x] GSM bleibt als Game-Logic-Orchestrator (update loop, entity managers)
-- [x] Bridge auf Minimum reduziert (5 getter/setter + Canvas getter + 4 Callbacks)
+- [x] Bridge auf Minimum reduziert (5 getter/setter-Paare + Canvas getter + 4 Callbacks)
 
 ### Phase 5: Cleanup ✅
 - [x] Dead code: Duplicate `activeSounds` entfernt

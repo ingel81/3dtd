@@ -107,11 +107,11 @@ Slow-Effekte **stacken nicht** - es kann nur ein Slow gleichzeitig aktiv sein. J
 
 ### Anwendung
 
-Slow wird via `CombatEffectService` angewendet, der auf `projectile:hit` Events reagiert:
+Slow wird via `StatusEffectService` angewendet. `CombatEffectService` reagiert auf `projectile:hit` Events und delegiert an `StatusEffectService`:
 
 ```typescript
-// In CombatEffectService (event-driven via projectile:hit)
-private applySlowEffect(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
+// In StatusEffectService (services/status-effect.service.ts)
+applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
   const effect: StatusEffect = {
     type: 'slow',
     value: slowAmount,       // aus GAME_BALANCE.effects.ice.slowAmount (0.5)
@@ -121,6 +121,9 @@ private applySlowEffect(enemy: Enemy, slowAmount: number, duration: number, sour
   };
   enemy.movement.applyStatusEffect(effect);
 }
+
+// Aufruf aus CombatEffectService:
+// this.statusEffectService.applySlow(enemy, slowAmount, duration, tower.id);
 ```
 
 ### Refresh-Logik

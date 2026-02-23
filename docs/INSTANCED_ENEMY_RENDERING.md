@@ -187,6 +187,7 @@ interface EnemyInstanceState {
   id: string;
   typeId: string;
   index: number;        // Instance-Slot
+  config: EnemyTypeConfig; // Typ-Konfiguration
   currentAnim: string;  // Clip-Name
   animTime: number;     // Akkumulierte Zeit
   animSpeed: number;    // Playback Speed

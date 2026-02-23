@@ -43,7 +43,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 
 ```typescript
 // configs/tower-types.config.ts
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'NEW_TYPE';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'NEW_TYPE';
 ```
 
 ### 2. Model-URL definieren
@@ -115,10 +115,13 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
-| `attackType` | AttackType | 'projectile' | 'projectile' oder 'beam' |
+| `attackType` | AttackType | 'projectile' | 'projectile', 'beam' oder 'melee' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamRange` | number | - | Beam/Kegel-Länge in Metern |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
+| `defaultTargeting` | TargetingStrategy | - | Standard-Targeting-Strategie |
+| `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
+| `meleeStrikeDuration` | number | - | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
@@ -282,6 +285,7 @@ export const TOWER_TYPES = {
   rocket: { ... },         // 5. Position
   ice: { ... },            // 6. Position
   fire: { ... },           // 7. Position
+  tentacle: { ... },       // 8. Position
 };
 ```
 

@@ -34,7 +34,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [PARTICLE_SYSTEM.md](PARTICLE_SYSTEM.md) | Partikel-System, Blut, Feuer, Trail-Effekte |
 | [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse & Workarounds |
 | [DEVWORLD.md](DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung, Terrain-Presets |
-| [DAMAGE_ARMOR_SYSTEM.md](DAMAGE_ARMOR_SYSTEM.md) | Konzept: Schadenstypen & Ruestungssystem (geplant) |
+| [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) | Konsolidiertes Game Design (Schadenstypen, Ruestung, Balance) |
 | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT fuer Enemy-Rendering (Draw Call Reduktion) |
 
 ### AI & Bot System
@@ -77,7 +77,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...DevWorld konfigurieren | [DEVWORLD.md](DEVWORLD.md) |
 | ...das Bot-System verstehen | [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 | ...das AI-System verstehen | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) |
-| ...das Schadens-/Ruestungssystem verstehen | [DAMAGE_ARMOR_SYSTEM.md](DAMAGE_ARMOR_SYSTEM.md) |
+| ...das Schadens-/Ruestungssystem verstehen | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
 | ...das GPU-instanzierte Enemy-Rendering verstehen | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
 
 ---

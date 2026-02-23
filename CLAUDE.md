@@ -90,7 +90,7 @@ training-backend/               # Python Training Backend
 | [PARTICLE_SYSTEM.md](docs/PARTICLE_SYSTEM.md) | Partikel-System (Blut, Feuer, Trails) |
 | [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md) | 3D-Tiles Loading Bug Analyse |
 | [DEVWORLD.md](docs/DEVWORLD.md) | DevWorld Offline-Entwicklungsumgebung |
-| [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md) | Damage/Armor System (Konzept) |
+| [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Ruestung, Balance) |
 | [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
 | **Architektur & Store** | |
 | [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (4 Sub-Stores) |

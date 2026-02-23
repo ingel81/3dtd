@@ -255,7 +255,7 @@ eventBus.onAny((event) => {
 
 ```typescript
 // SubscriptionBag fuer automatisches Cleanup
-const bag = eventBus.createSubscriptionBag();
+const bag = new SubscriptionBag();
 bag.add(eventBus.on('enemy:died', handler1));
 bag.add(eventBus.on('tower:placed', handler2));
 
@@ -270,9 +270,9 @@ bag.disposeAll();
 | Datei | LOC | Beschreibung |
 |-------|-----|--------------|
 | `game-engine/game-event-bus.ts` | ~614 | Event Bus Core |
-| `game-engine/vfx.service.ts` | ~109 | VFX Event Handler |
+| `game-engine/vfx.service.ts` | ~147 | VFX Event Handler |
 | `game-engine/audio.service.ts` | ~60 | Audio Event Handler |
-| `game-engine/index.ts` | ~24 | Barrel Exports |
+| `game-engine/index.ts` | ~26 | Barrel Exports |
 | `components/debug-window/event-debugger.component.ts` | ~449 | Debug Panel |
 
 ---

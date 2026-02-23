@@ -191,6 +191,7 @@ if avg_progress > 0.85:
 | `src/app/ai/core/models/game-state-snapshot.ts` | State Interface |
 | `src/app/ai/core/models/wave-config.ts` | Wave Config Interface |
 | `src/app/ai/core/models/wave-result.ts` | Wave Result Interface |
+| `src/app/ai/core/decision-explainer.ts` | Entscheidungs-Erklaerungen |
 | `src/app/ai/training/training-client.service.ts` | WebSocket Client |
 
 ---
@@ -205,6 +206,7 @@ if avg_progress > 0.85:
 | `training-backend/reward.py` | Reward Function (DPS-Gaussian) |
 | `training-backend/config.py` | Hyperparameter & Settings |
 | `training-backend/tui_logger.py` | Console + JSONL Logging |
+| `training-backend/auto_logger.py` | Automatisches Logging |
 | `training-backend/dashboard/` | FastAPI Web Dashboard (Port 3002) |
 
 ---

@@ -94,7 +94,6 @@ src/app/ai/training/
 │   └── wave/                        # Wave Control Strategies
 │       └── auto-start-wave.strategy.ts
 │
-└── components/                      # (leer, reserviert)
 ```
 
 **Hinweis:** `TowerAction`, `BotConfig` und `BOT_CONFIGS` befinden sich alle in `bots/tower-bot.interface.ts`.
@@ -902,44 +901,23 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
 
 ## Integration
 
-### TowerDefenseComponent
+### TrainingClientService
 
-**Bot Initialization:**
+Die Bot-Logik (Factory, Steuerung, Stats) lebt im `TrainingClientService`, nicht in der Component:
 
 ```typescript
-export class TowerDefenseComponent implements OnInit {
-  private strategicPlacement = inject(StrategicPlacementService);
-  private currentBot: ITowerBot | null = null;
+// In TrainingClientService (ai/training/training-client.service.ts)
+export class TrainingClientService {
   private botFactory!: StrategyBotFactory;
+  private currentBot: ITowerBot | null = null;
 
   // Stats
-  botEnabled = signal(false);
-  botStats = signal<BotStats>({
-    towersPlaced: 0,
-    upgradesPerformed: 0,
-    goldSpent: 0,
-    actionsPerformed: 0
-  });
+  readonly botEnabled = signal(false);
+  readonly botStats = signal({ towersPlaced: 0, goldSpent: 0 });
 
-  ngOnInit() {
-    // Initialize factory (requires 3 dependencies)
-    this.botFactory = new StrategyBotFactory(
-      this.strategicPlacement,
-      this.gameState,
-      this.osmService
-    );
-
-    // Enable bot if training mode active
-    if (this.trainingClient.isConnected()) {
-      this.enableBot('strategist', true);
-    }
-  }
-
-  enableBot(skillLevel: BotSkillLevel, autoStartWaves: boolean): void {
-    this.currentBot = this.botFactory.createBot(skillLevel, autoStartWaves);
+  enableBot(skillLevel: BotSkillLevel): void {
+    this.currentBot = this.botFactory.createBot(skillLevel);
     this.botEnabled.set(true);
-
-    console.log('[Training] StrategyBot enabled:', skillLevel);
   }
 
   disableBot(): void {
@@ -948,6 +926,8 @@ export class TowerDefenseComponent implements OnInit {
   }
 }
 ```
+
+**TowerDefenseComponent** delegiert via `this.trainingClient.enableBot(skillLevel)` im `ngAfterViewInit()`.
 
 **Bot Execution (Game Loop):**
 

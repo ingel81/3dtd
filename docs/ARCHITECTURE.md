@@ -57,7 +57,7 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 ## Services (2026-01 Refactoring)
 
 Die Komponente wurde durch Extraktion spezialisierter Services modularisiert.
-Die Komponente selbst ist von 4098 auf ~1950 Zeilen reduziert worden.
+Die Komponente selbst ist von 4098 auf ~630 Zeilen reduziert worden.
 
 **Hinweis:** Services liegen in `/src/app/services/`, nicht im tower-defense Subfolder.
 
@@ -398,7 +398,7 @@ abstract class GameObject {
   private _active = true;
 
   // Component Management
-  addComponent<T extends Component>(component: T): T;
+  addComponent<T extends Component>(component: T, type: ComponentType): T;
   getComponent<T extends Component>(type: ComponentType): T | null;
   hasComponent(type: ComponentType): boolean;
   removeComponent(type: ComponentType): void;
@@ -516,7 +516,7 @@ class GameStateManager {
 ```typescript
 // Kein @Injectable - Constructor Injection
 class EnemyManager extends EntityManager<Enemy> {
-  constructor(eventBus: GameEventBus, entityPool: EntityPoolService, routeGrid: GlobalRouteGridService);
+  constructor(eventBus: GameEventBus, entityPool: EntityPoolService, routeGrid: GlobalRouteGridService, spatialGrid: SpatialGridService);
 
   spawn(path, typeId, speedOverride?, paused?): Enemy;
   kill(enemy: Enemy): void;  // Emittiert 'enemy:died'
@@ -577,13 +577,10 @@ class WaveManager {
 ```typescript
 // Framework-agnostic (kein @Injectable)
 class SpatialAudioManager {
-  private readonly MAX_ENEMY_SOUNDS = 12;  // Sound Budget
-
   // 3D Audio mit Sound-Budget-Verwaltung
-  playEnemySound(enemyId: string, soundType: string, position: Vector3): void;
-  playAtGeo(lat: number, lon: number, height: number, soundType: string): void;
-  stopEnemySound(enemyId: string): void;
-  stopAllSounds(): void;
+  // Delegiert an AudioPoolManager, AudioBufferCache, SpatialAudioPlayback
+  playAtGeo(soundId: string, lat: number, lon: number, height: number, volumeMultiplier?: number): Promise<PositionalAudio | null>;
+  stopAll(): void;
 }
 ```
 
@@ -612,17 +609,18 @@ class GameEventBus {
 }
 ```
 
-### Event-Typen (35 definiert)
+### Event-Typen
 
 | Kategorie | Events |
 |-----------|--------|
-| Enemy | `enemy:died`, `enemy:reached-base`, `enemy:spawned`, `enemy:damaged` |
-| Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:targeting` |
-| Combat | `projectile:hit`, `projectile:fired` |
-| Wave | `wave:started`, `wave:completed`, `wave:all-cleared` |
+| Enemy | `enemy:died`, `enemy:reached-base`, `enemy:spawned` |
+| Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:selected`, `tower:deselected` |
+| Combat | `projectile:hit` |
+| Wave | `wave:started`, `wave:completed` |
 | Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
-| Effects | `vfx:projectile-impact`, `vfx:enemy-death`, `vfx:muzzle-flash`, `audio:play` |
-| Debug | `debug:spawn-enemy`, `debug:kill-all`, `debug:add-credits`, u.a. |
+| Effects | `vfx:blood`, `vfx:explosion`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `audio:play` |
+| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave` |
+| Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game` |
 
 ### Immediate vs Deferred
 
@@ -660,7 +658,7 @@ class ThreeEnemyRenderer {
   constructor(scene: THREE.Scene, sync: CoordinateSync);
 
   preloadModel(typeId: EnemyTypeId): Promise<void>;
-  create(id, typeId, lat, lon, height): Promise<EnemyRenderData>;
+  create(id, typeId, lat, lon, height): Promise<EnemyRenderData | null>;
   update(id, lat, lon, height, rotation, healthPercent, currentSpeed?): void;
   startWalkAnimation(id: string): void;
   playDeathAnimation(id: string): void;
@@ -760,11 +758,11 @@ const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 60,
     fireRate: 1,
     projectileType: 'arrow',
-    cost: 100,
+    cost: 45,
   },
   cannon: { /* ... */ },
   magic: { /* ... */ },
-  sniper: { /* ... */ },
+  // ... weitere: dual-gatling, rocket, ice, fire, tentacle
 };
 ```
 
@@ -776,9 +774,9 @@ const ENEMY_TYPES: Record<EnemyTypeId, EnemyTypeConfig> = {
     id: 'zombie',
     name: 'Zombie',
     modelUrl: '/assets/models/enemies/zombie.glb',
-    baseHp: 100,
-    baseSpeed: 2.5,
-    scale: 0.5,
+    baseHp: 80,
+    baseSpeed: 5,
+    scale: 0.984,
     hasAnimations: true,
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
@@ -921,7 +919,7 @@ const dist = geoDistance(enemy.position, tower.position);
 - `tower.manager.ts` - Tower-Placement-Validierung
 - `game-state.manager.ts` - Combat Update Loop
 
-**Siehe:** [TODO.md - Fast-Distance statt Haversine](../../../TODO.md)
+**Siehe:** [TODO.md - Fast-Distance statt Haversine](../TODO.md)
 
 ---
 
@@ -963,9 +961,9 @@ function onEngineUpdate(deltaTime: number) {
 
 ```
 src/app/
-├── tower-defense.component.ts    # Haupt-Component (~1950 Zeilen)
+├── tower-defense.component.ts    # Haupt-Component (~630 Zeilen)
 │
-├── services/                     # Angular Services (~48 Dateien)
+├── services/                     # Angular Services
 │   ├── tower-defense-facade.service.ts  # Facades (5)
 │   ├── game-loop-facade.service.ts
 │   ├── visualization-facade.service.ts
@@ -974,15 +972,19 @@ src/app/
 │   ├── ...                              # Spezialisierte Services
 │   └── (siehe Service-Übersicht oben)
 │
-├── managers/                     # ~18 Manager-Dateien (inkl. audio/)
+├── managers/                     # Manager-Dateien
 │   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts     # Orchestrator (~800 Zeilen)
+│   ├── game-state.manager.ts     # Orchestrator (~695 Zeilen)
 │   ├── enemy.manager.ts          # Enemy Lifecycle
 │   ├── tower.manager.ts          # Tower Lifecycle
 │   ├── projectile.manager.ts     # Projectile Lifecycle
 │   ├── wave.manager.ts           # Wave Management
-│   └── spatial-audio.manager.ts  # 3D Audio (Sound Budget)
+│   └── audio/                    # Audio-Subsystem
+│       ├── spatial-audio.manager.ts    # 3D Audio Manager
+│       ├── spatial-audio-playback.ts   # Playback-Logik
+│       ├── audio-buffer-cache.ts       # LRU Buffer Cache
+│       └── audio-pool.manager.ts       # Audio Pool
 │
 ├── three-engine/                 # Three.js Engine
 │   ├── three-tiles-engine.ts     # Haupt-Engine
@@ -1040,24 +1042,25 @@ src/app/
 │   ├── location-dialog/          # Location-Auswahl Dialog
 │   └── ...
 │
-└── docs/
-    ├── INDEX.md                  # Dokumentations-Index
-    ├── ARCHITECTURE.md           # Dieses Dokument
-    ├── DESIGN_SYSTEM.md          # UI/UX Guidelines
-    ├── archive/                  # Historische Referenzen
-    │   ├── EXPERT_REVIEW_2026.md
-    │   ├── PERFORMANCE_REPORT.md
-    │   └── GOD_REFACTOR.md
-    ├── TOWER_CREATION.md         # Tower erstellen
-    ├── ENEMY_CREATION.md         # Enemy erstellen
-    ├── STATUS_EFFECTS.md         # Status-Effekt-System
-    ├── WAVE_SYSTEM.md            # Wave-System
-    ├── LOCATION_SYSTEM.md        # Location-System
-    ├── PROJECTILES.md            # Projektil-System
-    ├── SPATIAL_AUDIO.md          # 3D Audio System
-    ├── MODEL_PREVIEW.md          # Model Previews
-    ├── PARTICLE_SYSTEM.md        # Partikel-System
-    └── FRAME_TIMING_FIXES.md     # Frame-Timing Probleme
+docs/
+├── INDEX.md                  # Dokumentations-Index
+├── ARCHITECTURE.md           # Dieses Dokument
+├── DESIGN_SYSTEM.md          # UI/UX Guidelines
+├── TOWER_CREATION.md         # Tower erstellen
+├── ENEMY_CREATION.md         # Enemy erstellen
+├── STATUS_EFFECTS.md         # Status-Effekt-System
+├── WAVE_SYSTEM.md            # Wave-System
+├── LOCATION_SYSTEM.md        # Location-System
+├── PROJECTILES.md            # Projektil-System
+├── SPATIAL_AUDIO.md          # 3D Audio System
+├── MODEL_PREVIEW.md          # Model Previews
+├── PARTICLE_SYSTEM.md        # Partikel-System
+├── DEVWORLD.md               # DevWorld Offline-Umgebung
+├── INSTANCED_ENEMY_RENDERING.md  # GPU Instancing
+├── SIGNAL-STORE-ARCHITECTURE.md  # Signal Store
+├── AI_WAVE_DIRECTOR_PLAN.md  # AI System
+├── BOT_SYSTEM.md             # Bot System
+└── TILES_LOADING_BUG.md      # 3D-Tiles Loading Bug
 ```
 
 ---
@@ -1099,17 +1102,23 @@ uniform float uAlpha;     // Transparenz
 
 ```typescript
 export const BLOOD_DECAL_CONFIG = {
-  color: 0x8b0000,      // Dunkelrot
-  size: 2.0,            // 2m Durchmesser
-  maxDecals: 500,       // Pool-Größe
-  fadeOutTime: 0,       // Kein Fade (bleibt sichtbar)
+  maxDecals: 100,
+  fadeDelay: 20000,      // ms before fade starts
+  fadeDuration: 10000,   // ms fade duration
+  baseOpacity: 0.7,
+  baseColor: { r: 0.55, g: 0, b: 0 },  // Dark red
+  colorVariation: 0.2,
+  heightOffset: 0.12,
 };
 
 export const ICE_DECAL_CONFIG = {
-  color: 0x00bfff,      // Hellblau
-  size: 3.0,            // 3m Durchmesser
-  maxDecals: 200,
-  fadeOutTime: 5000,    // 5s Fade-Out
+  maxDecals: 150,
+  fadeDelay: 4000,
+  fadeDuration: 3000,
+  baseOpacity: 0.6,
+  baseColor: { r: 0.75, g: 0.94, b: 1.0 },  // Light cyan
+  colorVariation: 0.1,
+  heightOffset: 0.12,
 };
 ```
 
@@ -1118,7 +1127,7 @@ export const ICE_DECAL_CONFIG = {
 - Ice: Bei Ice Tower Hit (Splash-Effekt)
 
 **Performance:**
-- 500 Blood + 200 Ice Decals = **2 Draw Calls** (statt 700!)
+- 100 Blood + 150 Ice Decals = **2 Draw Calls** (statt 250!)
 - Keine Performance-Impact bei vielen Decals
 
 ### Fire Effects
@@ -1134,16 +1143,18 @@ spawnFire(lat: number, lon: number, height: number, intensity: FireIntensity): s
 spawnFireOnTerrain(lat: number, lon: number, getHeight: Function, intensity: FireIntensity): string;
 spawnFireAtLocalY(lat: number, lon: number, localY: number, intensity: FireIntensity): string;
 
-type FireIntensity = 'small' | 'medium' | 'large';
+type FireIntensityLevel = 'tiny' | 'small' | 'medium' | 'large' | 'inferno';
 ```
 
 **Intensitätsstufen:**
 
-| Intensity | Partikel/Sekunde | Radius | Use Case |
-|-----------|------------------|--------|----------|
-| `small` | 20 | 2m | Einzelner Treffer |
-| `medium` | 50 | 4m | HQ Schaden (pro Hit) |
-| `large` | 100 | 8m | Game Over Explosion |
+| Intensity | Count | Radius | Use Case |
+|-----------|-------|--------|----------|
+| `tiny` | 10 | 1m | Kleinster Effekt |
+| `small` | 30 | 2m | Einzelner Treffer |
+| `medium` | 60 | 3m | HQ Schaden (pro Hit) |
+| `large` | 100 | 5m | Game Over Explosion |
+| `inferno` | 200 | 8m | Dauerhaftes Inferno |
 
 **Komponenten:**
 
@@ -1196,22 +1207,12 @@ spawnFireAtLocalY(lat, lon, localY, 'medium');
 **Konfiguration:** `configs/visual-effects.config.ts`
 
 ```typescript
-export const FIRE_CONFIG = {
-  small: {
-    particlesPerSecond: 20,
-    particleLifetime: 2000,
-    emitterRadius: 2,
-  },
-  medium: {
-    particlesPerSecond: 50,
-    particleLifetime: 3000,
-    emitterRadius: 4,
-  },
-  large: {
-    particlesPerSecond: 100,
-    particleLifetime: 4000,
-    emitterRadius: 8,
-  },
+export const FIRE_INTENSITY = {
+  tiny:    { count: 10,  radius: 1, duration: 3000 },
+  small:   { count: 30,  radius: 2, duration: 5000 },
+  medium:  { count: 60,  radius: 3, duration: 8000 },
+  large:   { count: 100, radius: 5, duration: 10000 },
+  inferno: { count: 200, radius: 8, duration: -1 },  // -1 = infinite
 };
 ```
 
@@ -1234,16 +1235,14 @@ stopAnimation(): void;
 Feingranulare Line-of-Sight Visualisierung entlang der Gegner-Routen:
 
 ```typescript
-// RouteLosGrid (route-los-grid.ts)
-class RouteLosGrid {
+// GlobalRouteGrid (utils/global-route-grid.ts)
+class GlobalRouteGrid {
   // 2m Zellenauflösung entlang aller Routen
-  generateFromRoutes(routes: GeoPosition[][], sync: CoordinateSync): void;
+  generateFromRoutes(routes: GeoPosition[][]): void;
 
-  // Shader-basierte Visualisierung mit InstancedMesh
-  createVisualization(): THREE.InstancedMesh;
-
-  // O(1) LOS-Lookup
-  canSeeCell(worldX: number, worldZ: number): boolean;
+  // Enemy-Tracking in Zellen
+  getEnemiesInRadius(lat: number, lon: number, radiusMeters: number, excludeId?: string): Enemy[];
+  getEnemiesInRadiusGeo(position: GeoPosition, radiusMeters: number, excludeId?: string): Enemy[];
 }
 ```
 

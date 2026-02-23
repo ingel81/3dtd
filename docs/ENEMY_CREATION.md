@@ -316,9 +316,9 @@ statusEffect: {
 }
 ```
 
-**Stacking:** Slow-Effekte multiplizieren sich
-- 1x Slow 50%: `speedMultiplier = 0.5`
-- 2x Slow 50%: `speedMultiplier = 0.25` (75% langsamer)
+**Kein Stacking:** Slow-Effekte ersetzen sich gegenseitig (nur einer aktiv)
+- 1x Slow 50%: `slowMultiplier = 0.5`
+- 2x Slow 50%: Ersetzt vorherigen (Timer reset), weiterhin 50% langsamer
 
 ### Freeze (Einfrieren)
 
@@ -540,7 +540,6 @@ this.waveManager.startWave({
   enemySpeed: 5,
   spawnMode: 'random',
   spawnDelay: 500,
-  useGathering: false,
 });
 ```
 

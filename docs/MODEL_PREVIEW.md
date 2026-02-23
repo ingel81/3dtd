@@ -53,7 +53,7 @@ interface PreviewConfig {
 | Preview Typ | Canvas-Groesse |
 |-------------|----------------|
 | Enemy Preview | 72x72 pixel |
-| Tower Preview | 120x70 pixel |
+| Tower Preview | 100%×70 pixel (flexible Breite) |
 | Shared Renderer (intern) | 128x128 pixel |
 
 ## Renderer Settings

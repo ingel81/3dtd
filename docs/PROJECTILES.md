@@ -109,6 +109,7 @@ magic:        { projectileType: 'fireball' }
 rocket:       { projectileType: 'rocket' }
 ice:          { projectileType: 'ice-shard' }
 fire:         { projectileType: 'fireball', attackType: 'beam' }  // Beam-Tower, kein Projektil
+tentacle:     { projectileType: 'arrow', attackType: 'melee' }  // Melee-Tower, kein Projektil
 ```
 
 ## Sound
