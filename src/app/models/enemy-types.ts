@@ -81,6 +81,9 @@ export interface EnemyTypeConfig {
 
   // Preview
   previewScale?: number; // Override scale for model preview (sidebar)
+  previewCameraDistance?: number; // Camera distance for preview (default: 7)
+  previewCameraAngle?: number; // Camera pitch angle in radians for preview (default: Math.PI / 12)
+  previewOffsetY?: number; // Vertical offset for preview camera target (default: 0)
 }
 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {

@@ -155,8 +155,11 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 <span class="unit">×</span>
               </div>
 
+              <!-- Preview Section -->
+              <div class="subsection-title">Preview</div>
+
               <div class="slider-row">
-                <span class="label">Preview</span>
+                <span class="label">Scale</span>
                 <input type="range" min="0.001" max="5" step="0.001"
                        [value]="selected.overrides.previewScale"
                        (input)="onSelectedSliderChange('previewScale', $event)" />
@@ -164,6 +167,37 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                        [value]="selected.overrides.previewScale"
                        (change)="onSelectedSliderChange('previewScale', $event)" />
                 <span class="unit">×</span>
+              </div>
+
+              <div class="slider-row">
+                <span class="label">Cam Dist</span>
+                <input type="range" min="1" max="30" step="0.5"
+                       [value]="selected.overrides.previewCameraDistance"
+                       (input)="onSelectedSliderChange('previewCameraDistance', $event)" />
+                <input type="number" class="number-input" min="1" max="30" step="0.5"
+                       [value]="selected.overrides.previewCameraDistance"
+                       (change)="onSelectedSliderChange('previewCameraDistance', $event)" />
+              </div>
+
+              <div class="slider-row">
+                <span class="label">Cam Angle</span>
+                <input type="range" min="0" max="1.57" step="0.01"
+                       [value]="selected.overrides.previewCameraAngle"
+                       (input)="onSelectedSliderChange('previewCameraAngle', $event)" />
+                <input type="number" class="number-input" min="0" max="1.57" step="0.01"
+                       [value]="selected.overrides.previewCameraAngle"
+                       (change)="onSelectedSliderChange('previewCameraAngle', $event)" />
+                <span class="unit">rad</span>
+              </div>
+
+              <div class="slider-row">
+                <span class="label">Offset Y</span>
+                <input type="range" min="-3" max="3" step="0.1"
+                       [value]="selected.overrides.previewOffsetY"
+                       (input)="onSelectedSliderChange('previewOffsetY', $event)" />
+                <input type="number" class="number-input" min="-3" max="3" step="0.1"
+                       [value]="selected.overrides.previewOffsetY"
+                       (change)="onSelectedSliderChange('previewOffsetY', $event)" />
               </div>
 
               <!-- Animation Controls -->
@@ -486,6 +520,16 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       width: 20px;
     }
 
+    .subsection-title {
+      color: var(--td-text-secondary);
+      font-size: 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      margin: 8px 0 4px;
+      padding-top: 6px;
+      border-top: 1px solid var(--td-frame-dark);
+    }
+
     .control-group {
       margin: 8px 0;
     }
@@ -621,7 +665,7 @@ export class EnemyDebuggerComponent {
     this.enemyDebug.selectEnemy(select.value as EnemyTypeId);
   }
 
-  onSelectedSliderChange(key: 'scale' | 'heightOffset' | 'healthBarOffset' | 'baseSpeed' | 'animationSpeed' | 'previewScale', event: Event): void {
+  onSelectedSliderChange(key: 'scale' | 'heightOffset' | 'healthBarOffset' | 'baseSpeed' | 'animationSpeed' | 'previewScale' | 'previewCameraDistance' | 'previewCameraAngle' | 'previewOffsetY', event: Event): void {
     const input = event.target as HTMLInputElement;
     this.enemyDebug.updateSelectedOverride(key, parseFloat(input.value));
   }
@@ -662,6 +706,9 @@ export class EnemyDebuggerComponent {
           animationSpeed: Math.round(selected.overrides.animationSpeed * 100) / 100,
           rotation: Math.round(selected.overrides.rotation * 1000) / 1000,
           previewScale: Math.round(selected.overrides.previewScale * 1000) / 1000,
+          previewCameraDistance: Math.round(selected.overrides.previewCameraDistance * 10) / 10,
+          previewCameraAngle: Math.round(selected.overrides.previewCameraAngle * 100) / 100,
+          previewOffsetY: Math.round(selected.overrides.previewOffsetY * 10) / 10,
         }
       }, null, 2);
       navigator.clipboard.writeText(json);

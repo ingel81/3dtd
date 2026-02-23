@@ -28,6 +28,7 @@ export interface PreviewConfig {
   backgroundColor?: number; // hex color or transparent if not set
   lightIntensity?: number;
   groundModel?: boolean; // If true, model stands on ground (y=0) instead of centered
+  offsetY?: number; // Vertical offset for camera target (shifts view up/down)
 }
 
 interface PreviewInstance {
@@ -210,12 +211,14 @@ export class ModelPreviewService {
 
       const finalDistance = preview.config.cameraDistance ?? autoDistance;
       const angle = preview.config.cameraAngle ?? Math.PI / 6;
+      const offsetY = preview.config.offsetY ?? 0;
+      const targetY = lookAtY + offsetY;
       preview.camera.position.set(
         0,
-        lookAtY + Math.sin(angle) * finalDistance,
+        targetY + Math.sin(angle) * finalDistance,
         Math.cos(angle) * finalDistance
       );
-      preview.camera.lookAt(0, lookAtY, 0);
+      preview.camera.lookAt(0, targetY, 0);
 
       // Setup animation if specified
       if (preview.config.animationName && cachedModel.animations.length > 0) {
