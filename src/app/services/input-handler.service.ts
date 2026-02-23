@@ -184,6 +184,11 @@ export class InputHandlerService {
     // This ensures we get the event before EnvironmentControls can modify scene state
     this.pointerUpHandler = (event: PointerEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
+        // Right-click release: cancel build/placement mode if it was a short, stationary click
+        if (event.button === 2) {
+          this.handleRightClickUp(event);
+          return;
+        }
         this.handleClick(event);
       }
     };
@@ -197,7 +202,7 @@ export class InputHandlerService {
     };
     document.addEventListener('pointermove', this.pointerMoveHandler, { capture: true });
 
-    // Right-click cancels build mode or placement mode (only if no camera drag)
+    // Suppress browser context menu in build/placement mode
     this.contextMenuHandler = (event: MouseEvent) => {
       if (event.target === canvas || canvas.contains(event.target as Node)) {
         const inPlacementMode = !!this.mapPlacementModeSignal?.();
@@ -205,22 +210,7 @@ export class InputHandlerService {
 
         if (inPlacementMode || inBuildMode) {
           event.preventDefault();
-          // Only cancel if right-click was a quick, stationary click (not a camera drag)
-          if (this.rightClickDownPos) {
-            const dx = event.clientX - this.rightClickDownPos.x;
-            const dy = event.clientY - this.rightClickDownPos.y;
-            const distance = Math.sqrt(dx * dx + dy * dy);
-            const duration = Date.now() - this.rightClickDownTime;
-            if (distance < 5 && duration < 300) {
-              if (inPlacementMode) {
-                this.keyboardCallbacks?.exitMapPlacement?.();
-              } else {
-                this.keyboardCallbacks?.exitBuildMode();
-              }
-            }
-          }
         }
-        this.rightClickDownPos = null;
       }
     };
     document.addEventListener('contextmenu', this.contextMenuHandler, { capture: true });
@@ -292,6 +282,37 @@ export class InputHandlerService {
     if (this.buildModeSignal() && this.onClickCallback) {
       this.onClickCallback(geo.lat, geo.lon, geo.height);
     }
+  }
+
+  /**
+   * Handle right-click release (pointerup with button === 2).
+   * Exits build or placement mode only if the right-click was a short,
+   * stationary click (not a camera drag). Evaluated on pointerup so that
+   * duration is measured correctly even on systems where contextmenu fires
+   * synchronously on mousedown (e.g. Linux).
+   */
+  private handleRightClickUp(event: PointerEvent): void {
+    if (!this.rightClickDownPos) return;
+
+    const inPlacementMode = !!this.mapPlacementModeSignal?.();
+    const inBuildMode = this.buildModeSignal?.() ?? false;
+
+    if (inPlacementMode || inBuildMode) {
+      const dx = event.clientX - this.rightClickDownPos.x;
+      const dy = event.clientY - this.rightClickDownPos.y;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const duration = Date.now() - this.rightClickDownTime;
+
+      if (distance < 5 && duration < 300) {
+        if (inPlacementMode) {
+          this.keyboardCallbacks?.exitMapPlacement?.();
+        } else {
+          this.keyboardCallbacks?.exitBuildMode();
+        }
+      }
+    }
+
+    this.rightClickDownPos = null;
   }
 
   /**
