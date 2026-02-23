@@ -7,7 +7,7 @@ import {
   RenderComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, TargetingStrategy } from '../configs/tower-types.config';
+import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, TargetingStrategy, AirSubStrategy } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
@@ -27,6 +27,9 @@ export class Tower extends GameObject {
 
   /** Current targeting strategy (can be changed per tower by player) */
   targetingStrategy: TargetingStrategy;
+
+  /** Sub-strategy for air-priority pool selection (closest/weakest/strongest) */
+  airSubStrategy: AirSubStrategy;
 
   selected = false;
 
@@ -71,6 +74,7 @@ export class Tower extends GameObject {
     this.typeConfig = getTowerType(typeId);
     this.customRotation = customRotation;
     this.targetingStrategy = this.typeConfig.defaultTargeting ?? 'closest';
+    this.airSubStrategy = this.typeConfig.defaultAirSubStrategy ?? 'closest';
 
     // Add components
     this._transform = this.addComponent(
@@ -296,8 +300,24 @@ export class Tower extends GameObject {
             groundEnemies.push(enemy);
           }
         }
-        // Pick closest air first, then closest ground
+        // Pick from air pool first (using sub-strategy), then ground fallback
         const pool = airEnemies.length > 0 ? airEnemies : groundEnemies;
+        return this.selectFromPool(pool, this.airSubStrategy);
+      }
+
+      default:
+        return candidates[0] ?? null;
+    }
+  }
+
+  /**
+   * Select best enemy from a pool using the given sub-strategy.
+   */
+  private selectFromPool(pool: Enemy[], strategy: AirSubStrategy): Enemy | null {
+    if (pool.length === 0) return null;
+
+    switch (strategy) {
+      case 'closest': {
         let best: Enemy | null = null;
         let bestDist = Infinity;
         for (const enemy of pool) {
@@ -309,9 +329,28 @@ export class Tower extends GameObject {
         }
         return best;
       }
-
-      default:
-        return candidates[0] ?? null;
+      case 'lowest-hp': {
+        let best: Enemy | null = null;
+        let lowestHp = Infinity;
+        for (const enemy of pool) {
+          if (enemy.health.hp < lowestHp) {
+            lowestHp = enemy.health.hp;
+            best = enemy;
+          }
+        }
+        return best;
+      }
+      case 'highest-hp': {
+        let best: Enemy | null = null;
+        let highestHp = -Infinity;
+        for (const enemy of pool) {
+          if (enemy.health.hp > highestHp) {
+            highestHp = enemy.health.hp;
+            best = enemy;
+          }
+        }
+        return best;
+      }
     }
   }
 

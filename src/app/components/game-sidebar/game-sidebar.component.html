@@ -130,6 +130,19 @@
             }
           </div>
 
+          <!-- Air Sub-Strategy (only when air-priority active) -->
+          @if (tower.targetingStrategy === 'air-priority') {
+            <div class="td-targeting-row td-sub-targeting-row">
+              @for (s of airSubStrategies; track s.id) {
+                <button class="td-targeting-btn" [class.active]="tower.airSubStrategy === s.id"
+                        [matTooltip]="s.tooltip" matTooltipPosition="above"
+                        (click)="onChangeAirSubStrategy(tower, s.id)">
+                  <mat-icon>{{ s.icon }}</mat-icon>
+                </button>
+              }
+            </div>
+          }
+
           <!-- Upgrades Section -->
           <div class="td-upgrades-section">
             @if (tower.getAvailableUpgrades().length > 0) {

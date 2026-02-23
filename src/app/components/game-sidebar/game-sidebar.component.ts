@@ -22,12 +22,15 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import {
   TargetingStrategyConfig,
+  AirSubStrategyConfig,
   TowerTypeConfig,
   TowerTypeId,
   UpgradeId,
   TOWER_TYPES,
   TargetingStrategy,
   TARGETING_STRATEGIES,
+  AirSubStrategy,
+  AIR_SUB_STRATEGIES,
 } from '../../configs/tower-types.config';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
@@ -558,6 +561,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       box-shadow: 0 0 6px rgba(0, 188, 212, 0.3);
     }
 
+    .td-sub-targeting-row {
+      padding-top: 2px;
+      border-top: 1px dashed var(--td-frame-dark);
+    }
+
     /* === Upgrade Section === */
     .td-upgrades-section {
       display: flex;
@@ -738,6 +746,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly sellTower = output<void>();
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
+  readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
 
   // Canvas refs for previews
   @ViewChild('enemyPreviewCanvas') enemyPreviewCanvas!: ElementRef<HTMLCanvasElement>;
@@ -846,6 +855,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   // Targeting strategy config for template
   readonly targetingStrategies = TARGETING_STRATEGIES;
+  readonly airSubStrategies = AIR_SUB_STRATEGIES;
 
   getTargetingStrategies(tower: Tower): TargetingStrategyConfig[] {
     const canTargetAir = tower.typeConfig.canTargetAir ?? false;
@@ -861,6 +871,10 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   onChangeTargeting(tower: Tower, strategy: TargetingStrategy): void {
     this.changeTargeting.emit({ tower, strategy });
+  }
+
+  onChangeAirSubStrategy(tower: Tower, strategy: AirSubStrategy): void {
+    this.changeAirSubStrategy.emit({ tower, strategy });
   }
 
   onUpgradeTower(tower: Tower, upgradeId: UpgradeId): void {
