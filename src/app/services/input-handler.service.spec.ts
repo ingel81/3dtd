@@ -1,10 +1,11 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 /**
  * Tests for the right-click behavior in InputHandlerService.
  *
- * We test the contextmenu handler logic directly by extracting
- * the handler registered on document and simulating pointer events.
+ * The exit logic now lives in pointerup (button === 2) instead of contextmenu,
+ * so that duration is measured correctly even when contextmenu fires on mousedown.
+ * The contextmenu handler only suppresses the browser context menu.
  */
 
 // Minimal mock for the service's dependencies
@@ -15,31 +16,14 @@ function createMockCanvas(): HTMLCanvasElement {
 }
 
 /**
- * Helper that creates a minimal InputHandlerService instance
- * and captures the registered event handlers so we can invoke them directly.
+ * Helper that creates a minimal replica of InputHandlerService's
+ * right-click handling logic and returns the handlers for direct invocation.
  */
 function setupService(options: { buildMode: boolean; placementMode?: 'hq' | 'spawn' | null }) {
   const exitBuildMode = vi.fn();
   const exitMapPlacement = vi.fn();
 
   const canvas = createMockCanvas();
-
-  // Capture handlers registered via addEventListener
-  const handlers: Record<string, EventListenerOrEventListenerObject> = {};
-  const origAdd = document.addEventListener.bind(document);
-  const addSpy = vi.spyOn(document, 'addEventListener').mockImplementation(
-    (type: string, listener: EventListenerOrEventListenerObject, _options?: any) => {
-      handlers[type] = listener;
-      origAdd(type, listener, _options);
-    }
-  );
-
-  const removeSpy = vi.spyOn(document, 'removeEventListener');
-
-  // Dynamically import after mocks are in place
-  // Instead, we build a lightweight replica of the handler logic to test:
-  // We will test the actual service by importing it. But since it uses Angular DI,
-  // we replicate the critical handler logic in a test harness.
 
   // --- Replicate the handler logic from InputHandlerService ---
   let rightClickDownPos: { x: number; y: number } | null = null;
@@ -56,18 +40,19 @@ function setupService(options: { buildMode: boolean; placementMode?: 'hq' | 'spa
     }
   };
 
-  const contextMenuHandler = (event: MouseEvent) => {
+  // Right-click exit logic now lives in pointerup (button === 2)
+  const pointerUpHandler = (event: PointerEvent) => {
     if (event.target === canvas || canvas.contains(event.target as Node)) {
-      const inPlacementMode = !!mapPlacementModeSignal();
-      const inBuildMode = buildModeSignal();
+      if (event.button === 2 && rightClickDownPos) {
+        const inPlacementMode = !!mapPlacementModeSignal();
+        const inBuildMode = buildModeSignal();
 
-      if (inPlacementMode || inBuildMode) {
-        event.preventDefault();
-        if (rightClickDownPos) {
+        if (inPlacementMode || inBuildMode) {
           const dx = event.clientX - rightClickDownPos.x;
           const dy = event.clientY - rightClickDownPos.y;
           const distance = Math.sqrt(dx * dx + dy * dy);
           const duration = Date.now() - rightClickDownTime;
+
           if (distance < 5 && duration < 300) {
             if (inPlacementMode) {
               exitMapPlacement();
@@ -76,20 +61,29 @@ function setupService(options: { buildMode: boolean; placementMode?: 'hq' | 'spa
             }
           }
         }
+        rightClickDownPos = null;
       }
-      rightClickDownPos = null;
     }
   };
 
-  // Cleanup spies
-  addSpy.mockRestore();
-  removeSpy.mockRestore();
+  // contextmenu handler only prevents the browser menu — no exit logic
+  const contextMenuHandler = (event: MouseEvent) => {
+    if (event.target === canvas || canvas.contains(event.target as Node)) {
+      const inPlacementMode = !!mapPlacementModeSignal();
+      const inBuildMode = buildModeSignal();
+
+      if (inPlacementMode || inBuildMode) {
+        event.preventDefault();
+      }
+    }
+  };
 
   return {
     canvas,
     exitBuildMode,
     exitMapPlacement,
     pointerDownHandler,
+    pointerUpHandler,
     contextMenuHandler,
   };
 }
@@ -115,40 +109,40 @@ function createMouseEvent(type: string, canvas: HTMLCanvasElement, x: number, y:
 
 describe('InputHandlerService – right-click in build mode', () => {
   describe('build mode', () => {
-    it('short stationary right-click (< 5px, < 300ms) should exit build mode', () => {
-      const { canvas, exitBuildMode, pointerDownHandler, contextMenuHandler } = setupService({ buildMode: true });
+    it('short stationary right-click (< 5px, < 300ms) should exit build mode on pointerup', () => {
+      const { canvas, exitBuildMode, pointerDownHandler, pointerUpHandler } = setupService({ buildMode: true });
 
       // Simulate right-click down at (100, 100)
       const downEvent = createPointerEvent('pointerdown', canvas, 100, 100, 2);
       Object.defineProperty(downEvent, 'target', { value: canvas });
       pointerDownHandler(downEvent);
 
-      // Simulate contextmenu at nearly the same position (moved 2px)
-      const ctxEvent = createMouseEvent('contextmenu', canvas, 101, 101);
-      Object.defineProperty(ctxEvent, 'target', { value: canvas });
-      contextMenuHandler(ctxEvent);
+      // Simulate pointerup at nearly the same position (moved 2px)
+      const upEvent = createPointerEvent('pointerup', canvas, 101, 101, 2);
+      Object.defineProperty(upEvent, 'target', { value: canvas });
+      pointerUpHandler(upEvent);
 
       expect(exitBuildMode).toHaveBeenCalledTimes(1);
     });
 
     it('right-click with movement > 5px should NOT exit build mode (camera drag)', () => {
-      const { canvas, exitBuildMode, pointerDownHandler, contextMenuHandler } = setupService({ buildMode: true });
+      const { canvas, exitBuildMode, pointerDownHandler, pointerUpHandler } = setupService({ buildMode: true });
 
       // Right-click down
       const downEvent = createPointerEvent('pointerdown', canvas, 100, 100, 2);
       Object.defineProperty(downEvent, 'target', { value: canvas });
       pointerDownHandler(downEvent);
 
-      // contextmenu at far position (moved 20px)
-      const ctxEvent = createMouseEvent('contextmenu', canvas, 120, 100);
-      Object.defineProperty(ctxEvent, 'target', { value: canvas });
-      contextMenuHandler(ctxEvent);
+      // pointerup at far position (moved 20px)
+      const upEvent = createPointerEvent('pointerup', canvas, 120, 100, 2);
+      Object.defineProperty(upEvent, 'target', { value: canvas });
+      pointerUpHandler(upEvent);
 
       expect(exitBuildMode).not.toHaveBeenCalled();
     });
 
     it('right-click held > 300ms without movement should NOT exit build mode (camera hold)', async () => {
-      const { canvas, exitBuildMode, pointerDownHandler, contextMenuHandler } = setupService({ buildMode: true });
+      const { canvas, exitBuildMode, pointerDownHandler, pointerUpHandler } = setupService({ buildMode: true });
 
       // Right-click down
       const downEvent = createPointerEvent('pointerdown', canvas, 100, 100, 2);
@@ -158,18 +152,47 @@ describe('InputHandlerService – right-click in build mode', () => {
       // Wait 350ms to simulate a held click
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // contextmenu at same position (no movement)
-      const ctxEvent = createMouseEvent('contextmenu', canvas, 100, 100);
-      Object.defineProperty(ctxEvent, 'target', { value: canvas });
-      contextMenuHandler(ctxEvent);
+      // pointerup at same position (no movement)
+      const upEvent = createPointerEvent('pointerup', canvas, 100, 100, 2);
+      Object.defineProperty(upEvent, 'target', { value: canvas });
+      pointerUpHandler(upEvent);
 
       expect(exitBuildMode).not.toHaveBeenCalled();
     });
   });
 
+  describe('contextmenu handler', () => {
+    it('should preventDefault in build mode but NOT exit', () => {
+      const { canvas, exitBuildMode, pointerDownHandler, contextMenuHandler } = setupService({ buildMode: true });
+
+      const downEvent = createPointerEvent('pointerdown', canvas, 100, 100, 2);
+      Object.defineProperty(downEvent, 'target', { value: canvas });
+      pointerDownHandler(downEvent);
+
+      const ctxEvent = createMouseEvent('contextmenu', canvas, 100, 100);
+      Object.defineProperty(ctxEvent, 'target', { value: canvas });
+      const preventSpy = vi.spyOn(ctxEvent, 'preventDefault');
+      contextMenuHandler(ctxEvent);
+
+      expect(preventSpy).toHaveBeenCalled();
+      expect(exitBuildMode).not.toHaveBeenCalled();
+    });
+
+    it('should NOT preventDefault outside build/placement mode', () => {
+      const { canvas, contextMenuHandler } = setupService({ buildMode: false, placementMode: null });
+
+      const ctxEvent = createMouseEvent('contextmenu', canvas, 100, 100);
+      Object.defineProperty(ctxEvent, 'target', { value: canvas });
+      const preventSpy = vi.spyOn(ctxEvent, 'preventDefault');
+      contextMenuHandler(ctxEvent);
+
+      expect(preventSpy).not.toHaveBeenCalled();
+    });
+  });
+
   describe('map placement mode', () => {
-    it('short stationary right-click should exit map placement mode', () => {
-      const { canvas, exitMapPlacement, exitBuildMode, pointerDownHandler, contextMenuHandler } = setupService({
+    it('short stationary right-click should exit map placement mode on pointerup', () => {
+      const { canvas, exitMapPlacement, exitBuildMode, pointerDownHandler, pointerUpHandler } = setupService({
         buildMode: false,
         placementMode: 'hq',
       });
@@ -178,16 +201,16 @@ describe('InputHandlerService – right-click in build mode', () => {
       Object.defineProperty(downEvent, 'target', { value: canvas });
       pointerDownHandler(downEvent);
 
-      const ctxEvent = createMouseEvent('contextmenu', canvas, 201, 200);
-      Object.defineProperty(ctxEvent, 'target', { value: canvas });
-      contextMenuHandler(ctxEvent);
+      const upEvent = createPointerEvent('pointerup', canvas, 201, 200, 2);
+      Object.defineProperty(upEvent, 'target', { value: canvas });
+      pointerUpHandler(upEvent);
 
       expect(exitMapPlacement).toHaveBeenCalledTimes(1);
       expect(exitBuildMode).not.toHaveBeenCalled();
     });
 
     it('right-click drag should NOT exit map placement mode', () => {
-      const { canvas, exitMapPlacement, pointerDownHandler, contextMenuHandler } = setupService({
+      const { canvas, exitMapPlacement, pointerDownHandler, pointerUpHandler } = setupService({
         buildMode: false,
         placementMode: 'spawn',
       });
@@ -196,9 +219,9 @@ describe('InputHandlerService – right-click in build mode', () => {
       Object.defineProperty(downEvent, 'target', { value: canvas });
       pointerDownHandler(downEvent);
 
-      const ctxEvent = createMouseEvent('contextmenu', canvas, 215, 210);
-      Object.defineProperty(ctxEvent, 'target', { value: canvas });
-      contextMenuHandler(ctxEvent);
+      const upEvent = createPointerEvent('pointerup', canvas, 215, 210, 2);
+      Object.defineProperty(upEvent, 'target', { value: canvas });
+      pointerUpHandler(upEvent);
 
       expect(exitMapPlacement).not.toHaveBeenCalled();
     });
@@ -206,7 +229,7 @@ describe('InputHandlerService – right-click in build mode', () => {
 
   describe('no active mode', () => {
     it('right-click outside build/placement mode should not call any exit', () => {
-      const { canvas, exitBuildMode, exitMapPlacement, pointerDownHandler, contextMenuHandler } = setupService({
+      const { canvas, exitBuildMode, exitMapPlacement, pointerDownHandler, pointerUpHandler } = setupService({
         buildMode: false,
         placementMode: null,
       });
@@ -215,9 +238,9 @@ describe('InputHandlerService – right-click in build mode', () => {
       Object.defineProperty(downEvent, 'target', { value: canvas });
       pointerDownHandler(downEvent);
 
-      const ctxEvent = createMouseEvent('contextmenu', canvas, 100, 100);
-      Object.defineProperty(ctxEvent, 'target', { value: canvas });
-      contextMenuHandler(ctxEvent);
+      const upEvent = createPointerEvent('pointerup', canvas, 100, 100, 2);
+      Object.defineProperty(upEvent, 'target', { value: canvas });
+      pointerUpHandler(upEvent);
 
       expect(exitBuildMode).not.toHaveBeenCalled();
       expect(exitMapPlacement).not.toHaveBeenCalled();
