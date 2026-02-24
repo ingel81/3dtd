@@ -260,27 +260,27 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-action-btn.td-btn-green:not(:disabled) {
-      background: var(--td-green);
-      color: var(--td-bg-dark);
+      background: var(--td-panel-secondary);
+      color: var(--td-teal);
+      border-color: var(--td-teal);
     }
 
     .td-action-btn.td-btn-green mat-icon {
-      color: var(--td-bg-dark);
+      color: var(--td-teal);
     }
 
     .td-action-btn.td-btn-green:hover:not(:disabled) {
-      filter: brightness(1.1);
+      background: rgba(111, 183, 165, 0.15);
     }
 
     .td-action-btn.td-btn-green.td-wave-btn:not(:disabled) {
-      background: linear-gradient(180deg, #B0E8A0 0%, var(--td-green) 40%, var(--td-green-dark) 100%);
+      background: linear-gradient(180deg, rgba(111, 183, 165, 0.2) 0%, var(--td-panel-secondary) 100%);
       font-size: 13px;
       font-weight: 700;
       padding: 10px;
-      border-top: 1px solid #B0E8A0;
-      border-bottom: 2px solid var(--td-green-dark);
+      border: 1px solid var(--td-teal);
       letter-spacing: 1px;
-      box-shadow: 0 2px 8px rgba(106, 171, 108, 0.3);
+      color: var(--td-teal);
     }
 
     .td-action-btn.td-btn-green.td-wave-btn:not(:disabled) mat-icon {
@@ -290,8 +290,8 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-action-btn.td-btn-green.td-wave-btn:hover:not(:disabled) {
-      filter: brightness(1.15);
-      box-shadow: 0 3px 12px rgba(106, 171, 108, 0.5);
+      background: linear-gradient(180deg, rgba(111, 183, 165, 0.3) 0%, rgba(111, 183, 165, 0.1) 100%);
+      box-shadow: 0 0 12px rgba(111, 183, 165, 0.3);
     }
 
     .td-build-hint {
