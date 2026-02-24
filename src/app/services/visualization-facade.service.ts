@@ -314,14 +314,12 @@ export class VisualizationFacadeService {
     }
 
     const base = this.store.baseCoords();
-    const spawnPointsForPlacement = this.toSpawnPointDTOs();
 
     this.towerPlacement.initialize(
       engine,
       streetNetwork,
       this.osmService,
       { lat: base.lat, lon: base.lon },
-      spawnPointsForPlacement,
       this.gameState
     );
 
