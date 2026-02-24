@@ -110,6 +110,7 @@ export type GameEvent =
       type: 'vfx:blood';
       position: Vector3;
       intensity: number;
+      skipGroundDecal?: boolean;
     }
   | {
       type: 'vfx:explosion';

@@ -26,7 +26,7 @@ export class CombatVfxService {
   /**
    * Emit a blood splatter VFX event at the given geo position.
    */
-  emitBloodEffect(lat: number, lon: number, height: number, intensity: number): void {
+  emitBloodEffect(lat: number, lon: number, height: number, intensity: number, skipGroundDecal = false): void {
     if (!this.tilesEngine || !this.eventBus) return;
 
     const position = this.tilesEngine.sync.geoToLocalSimple(lat, lon, height);
@@ -34,6 +34,7 @@ export class CombatVfxService {
       type: 'vfx:blood',
       position,
       intensity,
+      skipGroundDecal,
     });
   }
 
@@ -44,7 +45,7 @@ export class CombatVfxService {
     if (!enemy.typeConfig.canBleed) return;
     const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
     const intensity = isSplashDamage ? 8 : 15;
-    this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, intensity);
+    this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, intensity, !!enemy.typeConfig.isAirUnit);
   }
 
   /**
@@ -53,7 +54,7 @@ export class CombatVfxService {
   emitDeathBlood(enemy: Enemy): void {
     if (!enemy.typeConfig.canBleed || !this.tilesEngine) return;
     const splatterHeight = enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 1;
-    this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 40);
+    this.emitBloodEffect(enemy.position.lat, enemy.position.lon, splatterHeight, 40, !!enemy.typeConfig.isAirUnit);
   }
 
   // =====================================================
