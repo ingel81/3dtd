@@ -15,6 +15,7 @@ import { FavoriteLocation } from '../../models/location.types';
       <img class="logo" src="/assets/images/logo/logo.png" alt="3DTD">
       <div class="header-left">
         <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
+          <span class="location-label">DEFEND</span>
           <span class="location-name">{{ locationName() }}</span>
           <mat-icon class="location-edit">edit</mat-icon>
         </button>
@@ -151,32 +152,36 @@ import { FavoriteLocation } from '../../models/location.types';
     .header-left {
       display: flex;
       align-items: center;
-      gap: 8px;
-      background: var(--td-panel-shadow);
-      padding: 4px 10px;
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
+      gap: 4px;
     }
 
     .location-btn {
       display: flex;
       align-items: center;
       gap: 6px;
-      padding: 4px 10px;
-      background: transparent;
-      border: 1px solid transparent;
-      color: var(--td-text-secondary);
+      padding: 4px 12px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
+      border-top-color: var(--td-frame-mid);
+      color: var(--td-gold);
       cursor: pointer;
       transition: all 0.15s ease;
-      border-radius: 3px;
       font-family: inherit;
-      font-size: 10px;
+      font-size: 13px;
     }
 
     .location-btn:hover {
       border-color: var(--td-gold-dark);
-      background: rgba(255, 215, 0, 0.1);
-      color: var(--td-gold);
+      background: rgba(255, 215, 0, 0.15);
+      color: #ffe066;
+    }
+
+    .location-label {
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      color: var(--td-text-secondary);
+      opacity: 0.6;
     }
 
     .location-name {
@@ -184,9 +189,9 @@ import { FavoriteLocation } from '../../models/location.types';
     }
 
     .location-edit {
-      font-size: 12px;
-      width: 12px;
-      height: 12px;
+      font-size: 16px;
+      width: 16px;
+      height: 16px;
       opacity: 0.5;
     }
 
@@ -197,9 +202,11 @@ import { FavoriteLocation } from '../../models/location.types';
     .header-stats {
       display: flex;
       align-items: center;
-      gap: 10px;
       margin-left: auto;
       margin-right: 8px;
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
+      border-top-color: var(--td-frame-mid);
     }
 
     .stat {
@@ -209,11 +216,12 @@ import { FavoriteLocation } from '../../models/location.types';
       gap: 6px;
       font-size: 15px;
       font-weight: 700;
-      background: var(--td-panel-shadow);
       padding: 6px 14px;
       min-width: 60px;
-      border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
+    }
+
+    .stat + .stat {
+      border-left: 1px solid var(--td-frame-dark);
     }
 
     .stat mat-icon {
@@ -258,17 +266,14 @@ import { FavoriteLocation } from '../../models/location.types';
       display: flex;
       align-items: center;
       gap: 2px;
-      margin-left: 4px;
-      border-left: 1px solid var(--td-frame-mid);
-      padding-left: 4px;
     }
 
     .action-btn {
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
+      width: 34px;
+      height: 34px;
       background: transparent;
       border: 1px solid transparent;
       color: var(--td-text-secondary);
@@ -283,9 +288,9 @@ import { FavoriteLocation } from '../../models/location.types';
     }
 
     .action-btn mat-icon {
-      font-size: 16px;
-      width: 16px;
-      height: 16px;
+      font-size: 22px;
+      width: 22px;
+      height: 22px;
     }
 
     .action-btn:disabled {
