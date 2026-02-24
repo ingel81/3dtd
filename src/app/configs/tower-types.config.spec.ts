@@ -8,9 +8,9 @@ import {
 } from './tower-types.config';
 
 describe('tower types config', () => {
-  const allIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire'];
+  const allIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle'];
 
-  it('contains all 7 tower types', () => {
+  it('contains all tower types', () => {
     allIds.forEach((id) => {
       expect(TOWER_TYPES[id]).toBeDefined();
     });
@@ -22,9 +22,9 @@ describe('tower types config', () => {
     });
   });
 
-  it('getAllTowerTypes() returns array with 7 elements', () => {
+  it('getAllTowerTypes() returns correct number of elements', () => {
     const all = getAllTowerTypes();
-    expect(all).toHaveLength(7);
+    expect(all).toHaveLength(allIds.length);
   });
 
   it('all tower types have required fields', () => {
