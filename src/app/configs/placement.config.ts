@@ -15,7 +15,7 @@ export const PLACEMENT_CONFIG = {
   MIN_DISTANCE_TO_BASE: 30,
 
   /** Minimum distance from spawn points in meters */
-  MIN_DISTANCE_TO_SPAWN: 30,
+  MIN_DISTANCE_TO_SPAWN: 60,
 
   /** Minimum distance between towers in meters */
   MIN_DISTANCE_TO_OTHER_TOWER: 8,

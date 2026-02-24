@@ -11,8 +11,8 @@ import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { AssetManagerService } from './asset-manager.service';
-import { SpawnPoint } from './marker-visualization.service';
 import { UIStore } from '../store/ui.store';
+import { TowerDefenseStore } from '../store/tower-defense.store';
 import { findNearestRouteDistance } from '../utils/geo-utils';
 
 /**
@@ -29,6 +29,7 @@ export class TowerPlacementService {
   private globalRouteGrid = inject(GlobalRouteGridService);
   private assetManager = inject(AssetManagerService);
   private uiStore = inject(UIStore);
+  private store = inject(TowerDefenseStore);
   private pathRouteService = inject(PathAndRouteService);
 
   // ========================================
@@ -92,7 +93,6 @@ export class TowerPlacementService {
   private streetNetwork: StreetNetwork | null = null;
   private osmService: OsmStreetService | null = null;
   private baseCoords: GeoPosition | null = null;
-  private spawnPoints: SpawnPoint[] = [];
   private gameState: GameStateManager | null = null;
 
   // ========================================
@@ -104,19 +104,13 @@ export class TowerPlacementService {
     streetNetwork: StreetNetwork,
     osmService: OsmStreetService,
     baseCoords: GeoPosition,
-    spawnPoints: SpawnPoint[],
     gameState: GameStateManager
   ): void {
     this.engine = engine;
     this.streetNetwork = streetNetwork;
     this.osmService = osmService;
     this.baseCoords = baseCoords;
-    this.spawnPoints = spawnPoints;
     this.gameState = gameState;
-  }
-
-  updateSpawnPoints(spawnPoints: SpawnPoint[]): void {
-    this.spawnPoints = spawnPoints;
   }
 
   updateStreetNetwork(streetNetwork: StreetNetwork): void {
@@ -591,10 +585,13 @@ export class TowerPlacementService {
       return { valid: false, reason: `Zu nah an Basis` };
     }
 
-    // Check distance to spawns
-    for (const spawn of this.spawnPoints) {
+    // Check distance to spawns (read from store signal - always current)
+    const currentSpawns = this.store.spawnPoints();
+    for (const spawn of currentSpawns) {
       const distToSpawn = this.osmService.haversineDistance(lat, lon, spawn.lat, spawn.lon);
+      // TEMP DEBUG - remove after diagnosis
       if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
+        console.warn(`[PlacementDebug] BLOCKED spawn="${spawn.name}" spawn=(${spawn.lat.toFixed(6)},${spawn.lon.toFixed(6)}) cursor=(${lat.toFixed(6)},${lon.toFixed(6)}) dist=${distToSpawn.toFixed(1)}m threshold=${PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN}m`);
         return { valid: false, reason: `Zu nah am Spawn` };
       }
     }
@@ -648,8 +645,9 @@ export class TowerPlacementService {
       return { valid: false, reason: `Too close to base` };
     }
 
-    // Check distance to spawns
-    for (const spawn of this.spawnPoints) {
+    // Check distance to spawns (read from store signal - always current)
+    const currentSpawns = this.store.spawnPoints();
+    for (const spawn of currentSpawns) {
       const distToSpawn = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, spawn.lat, spawn.lon);
       if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
         return { valid: false, reason: `Too close to spawn` };
@@ -839,7 +837,6 @@ export class TowerPlacementService {
     this.streetNetwork = null;
     this.osmService = null;
     this.baseCoords = null;
-    this.spawnPoints = [];
     this.gameState = null;
   }
 }
