@@ -135,6 +135,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true, // Start sound at random position
     lateralOffset: 2.5, // Max 2.5m lateral offset
     spawnStartDelay: 800, // Larger gap between tanks (800ms instead of 300ms)
+    previewScale: 1.073,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 0,
   },
 
   wallsmasher: {
@@ -171,6 +175,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.0,
     spawnStartDelay: 500,
+    previewScale: 0.015,
+    previewCameraDistance: 4,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 0,
   },
 
   bat: {
@@ -193,6 +201,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     heightVariation: 3, // ±3m variation between enemies
     lateralOffset: 2.0,
     randomAnimationStart: true,
+    previewScale: 2.908,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 0,
   },
 
   penguin: {
@@ -216,6 +228,9 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.5,
     previewScale: 0.008,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0,
+    previewOffsetY: 1.8,
   },
 
   herbert: {
@@ -261,6 +276,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: -0.192, // ~-11° rotation offset
     randomAnimationStart: true,
     lateralOffset: 2.0,
+    previewScale: 1.05,
+    previewCameraDistance: 3,
+    previewCameraAngle: 0,
+    previewOffsetY: 0.8,
   },
 
   'zombie-soldier': {
@@ -289,7 +308,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     randomSoundStart: true,
     lateralOffset: 2.5,
-    previewScale: 1,
+    previewScale: 2.571,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 2.4,
   },
 
   rat: {
@@ -312,7 +334,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 3.0,
     spawnStartDelay: 150,
-    previewScale: 1.5,
+    previewScale: 3.473,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0,
+    previewOffsetY: -0.2,
   },
 
   spider: {
@@ -335,7 +360,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 1.5,
     spawnStartDelay: 200,
-    previewScale: 1.5,
+    previewScale: 1.901,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 1,
   },
 
   mammoth: {
@@ -366,6 +394,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.5,
     spawnStartDelay: 1000,
+    previewScale: 0.882,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 1,
   },
 
   bear: {
@@ -397,6 +429,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.0,
     spawnStartDelay: 600,
+    previewScale: 0.075,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 1,
   },
 
   dragon: {
@@ -430,6 +466,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 3.0,
     spawnStartDelay: 1200,
+    previewScale: 1,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 3,
   },
 
   ghost: {
@@ -453,6 +493,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.0,
     spawnStartDelay: 400,
+    previewScale: 0.312,
+    previewCameraDistance: 15,
+    previewCameraAngle: 0,
+    previewOffsetY: 7,
   },
 
   hornet: {
@@ -477,6 +521,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.5,
     spawnStartDelay: 300,
+    previewScale: 0.122,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 0,
   },
 
   mech: {
@@ -524,6 +572,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomAnimationStart: true,
     lateralOffset: 2.0,
     spawnStartDelay: 400,
+    previewScale: 2.732,
+    previewCameraDistance: 6.5,
+    previewCameraAngle: 0,
+    previewOffsetY: 1.9,
   },
 };
 
