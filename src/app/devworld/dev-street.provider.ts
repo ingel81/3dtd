@@ -326,22 +326,28 @@ export class DevStreetProvider implements StreetNetworkProvider {
     bLat: number,
     bLon: number
   ): number {
-    const segmentLength = this.haversineDistance(aLat, aLon, bLat, bLon);
-    if (segmentLength === 0) {
+    // Scale longitude by cos(latitude) to get approximately equal-distance units
+    const midLat = (aLat + bLat) * 0.5;
+    const lonScale = Math.cos((midLat * Math.PI) / 180);
+
+    const dxSeg = (bLon - aLon) * lonScale;
+    const dySeg = bLat - aLat;
+    const lengthSq = dxSeg * dxSeg + dySeg * dySeg;
+
+    if (lengthSq === 0) {
       return this.haversineDistance(pLat, pLon, aLat, aLon);
     }
 
-    // Project point onto line segment
-    const dxSeg = bLon - aLon;
-    const dySeg = bLat - aLat;
-    const dxPoint = pLon - aLon;
+    const dxPoint = (pLon - aLon) * lonScale;
     const dyPoint = pLat - aLat;
 
-    let t = (dxPoint * dxSeg + dyPoint * dySeg) / (dxSeg * dxSeg + dySeg * dySeg);
-    t = Math.max(0, Math.min(1, t));
+    // Parameter t represents position along segment (0 = at A, 1 = at B)
+    let t = (dxPoint * dxSeg + dyPoint * dySeg) / lengthSq;
+    t = Math.max(0, Math.min(1, t)); // Clamp to segment
 
-    const closestLon = aLon + t * dxSeg;
-    const closestLat = aLat + t * dySeg;
+    // Interpolate in original coordinates for haversine
+    const closestLat = aLat + t * (bLat - aLat);
+    const closestLon = aLon + t * (bLon - aLon);
 
     return this.haversineDistance(pLat, pLon, closestLat, closestLon);
   }
