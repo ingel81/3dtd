@@ -171,7 +171,11 @@ function distanceToSegment(
   aLat: number, aLon: number,
   bLat: number, bLon: number
 ): number {
-  const dxSeg = bLon - aLon;
+  // Scale longitude by cos(latitude) to get approximately equal-distance units
+  const midLat = (aLat + bLat) * 0.5;
+  const lonScale = Math.cos(midLat * DEG_TO_RAD);
+
+  const dxSeg = (bLon - aLon) * lonScale;
   const dySeg = bLat - aLat;
   const lengthSq = dxSeg * dxSeg + dySeg * dySeg;
 
@@ -179,13 +183,17 @@ function distanceToSegment(
     return haversineDistance(pLat, pLon, aLat, aLon);
   }
 
+  const dxPoint = (pLon - aLon) * lonScale;
+  const dyPoint = pLat - aLat;
+
   // Parameter t: projection of point onto segment line, clamped to [0,1]
   const t = Math.max(0, Math.min(1,
-    ((pLon - aLon) * dxSeg + (pLat - aLat) * dySeg) / lengthSq
+    (dxPoint * dxSeg + dyPoint * dySeg) / lengthSq
   ));
 
-  const closestLat = aLat + t * dySeg;
-  const closestLon = aLon + t * dxSeg;
+  // Interpolate in original coordinates for haversine
+  const closestLat = aLat + t * (bLat - aLat);
+  const closestLon = aLon + t * (bLon - aLon);
 
   return haversineDistance(pLat, pLon, closestLat, closestLon);
 }
