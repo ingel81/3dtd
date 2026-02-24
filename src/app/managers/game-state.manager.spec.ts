@@ -94,58 +94,60 @@ function getEventBus(gsm: GameStateManager): GameEventBus {
   return gsm.getEventBus();
 }
 
-function createMockEngine(): never {
+/** Creates a deep auto-mock: any missing property returns a noop fn or nested proxy */
+function createDeepMock(): never {
   const noopFn = vi.fn();
   const noopReturning = (val: unknown) => vi.fn().mockReturnValue(val);
-  return {
-    getScene: noopReturning({}),
-    getTerrainHeightAtLocal: noopReturning(0),
-    getTerrainHeightAtGeo: noopReturning(0),
-    setTimescale: noopFn,
-    sync: {
-      getOrigin: noopReturning({ lat: 48.77, lon: 9.18 }),
-      geoToLocal: noopReturning({ x: 0, y: 0, z: 0 }),
-      localToGeo: noopReturning({ lat: 48.77, lon: 9.18, height: 0 }),
+
+  const handler: ProxyHandler<Record<string, unknown>> = {
+    get(target, prop) {
+      if (prop in target) return target[prop as string];
+      // Return a vi.fn() for any unknown property (auto-stub)
+      const fn = vi.fn().mockReturnValue(undefined);
+      target[prop as string] = fn;
+      return fn;
     },
-    spatialAudio: null,
-    effects: {
-      spawnFloatingText: noopFn,
-      clear: noopFn,
-      stopAllTowerFires: noopFn,
-      startInnerFire: noopFn,
-      stopInnerFire: noopFn,
-    },
-    enemies: {
-      create: noopFn,
-      createEnemy: noopFn,
-      remove: noopFn,
-      removeEnemy: noopFn,
-      clear: noopFn,
-      startWalkAnimation: noopFn,
-      playDeathAnimation: noopFn,
-      updatePosition: noopFn,
-    },
-    towers: {
-      create: noopFn,
-      createTower: noopFn,
-      remove: noopFn,
-      removeTower: noopFn,
-      clear: noopFn,
-    },
-    projectiles: {
-      create: noopFn,
-      remove: noopFn,
-      clear: noopFn,
-    },
-    trailStreaks: {
-      create: noopFn,
-      pushPosition: noopFn,
-      remove: noopFn,
-      updateAll: noopFn,
-      clear: noopFn,
-    },
-    triggerScreenShake: noopFn,
-  } as never;
+  };
+
+  const autoProxy = () => new Proxy({} as Record<string, unknown>, handler);
+
+  return new Proxy(
+    {
+      getScene: noopReturning({}),
+      getTerrainHeightAtLocal: noopReturning(0),
+      getTerrainHeightAtGeo: noopReturning(0),
+      setTimescale: noopFn,
+      sync: {
+        getOrigin: noopReturning({ lat: 48.77, lon: 9.18 }),
+        geoToLocal: noopReturning({ x: 0, y: 0, z: 0 }),
+        geoToLocalSimple: noopReturning({ x: 0, y: 0, z: 0 }),
+        localToGeo: noopReturning({ lat: 48.77, lon: 9.18, height: 0 }),
+      },
+      spatialAudio: new Proxy({} as Record<string, unknown>, {
+        get(target, prop) {
+          if (prop in target) return target[prop as string];
+          // playAtGeo returns a Promise, all others return undefined
+          const fn = prop === 'playAtGeo'
+            ? vi.fn().mockResolvedValue(undefined)
+            : vi.fn().mockReturnValue(undefined);
+          target[prop as string] = fn;
+          return fn;
+        },
+      }),
+      effects: autoProxy(),
+      enemies: autoProxy(),
+      towers: autoProxy(),
+      projectiles: autoProxy(),
+      trailStreaks: autoProxy(),
+      tentacles: autoProxy(),
+      triggerScreenShake: noopFn,
+    } as Record<string, unknown>,
+    handler
+  ) as never;
+}
+
+function createMockEngine(): never {
+  return createDeepMock();
 }
 
 const BASE_POSITION = { lat: 48.77, lon: 9.18, height: 0 };
@@ -278,6 +280,7 @@ describe('GameStateManager', () => {
           enemy: {
             position: { lat: 48.77, lon: 9.18, height: 0 },
             transform: { terrainHeight: 0 },
+            typeConfig: { heightOffset: 0 },
           } as never,
           credits: 25,
         });
