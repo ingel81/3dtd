@@ -21,8 +21,11 @@ export const TD_THEME = {
   // === Accent colors (Magic & Authority) ===
   // Use sparingly!
   gold: '#C9A44C', // Important, buttons, titles
+  goldLight: '#E0C06A', // Button highlight (hover, top-border)
   goldDark: '#9E7E32', // Pressed / inactive
   teal: '#6FB7A5', // Magical accents
+  tealLight: '#5DE8C2', // Button highlight (hover, top-border)
+  tealDark: '#1A9A7A', // Button shadow (bottom-border)
   green: '#9ED6A0', // Buffs, positive
   greenDark: '#6AAB6C', // Pressed / button shadow
 
@@ -67,8 +70,11 @@ export const TD_CSS_VARS = `
   --td-edge-highlight: ${TD_THEME.edgeHighlight};
 
   --td-gold: ${TD_THEME.gold};
+  --td-gold-light: ${TD_THEME.goldLight};
   --td-gold-dark: ${TD_THEME.goldDark};
   --td-teal: ${TD_THEME.teal};
+  --td-teal-light: ${TD_THEME.tealLight};
+  --td-teal-dark: ${TD_THEME.tealDark};
   --td-green: ${TD_THEME.green};
   --td-green-dark: ${TD_THEME.greenDark};
 
