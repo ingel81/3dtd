@@ -379,6 +379,328 @@ export function bakeVAT(
 }
 
 /**
+ * Bake object/rigid-body animations into a Vertex Animation Texture (VAT).
+ *
+ * Used for models where animation moves Mesh nodes (via armature or direct
+ * object transforms) rather than deforming vertices with bone weights
+ * (SkinnedMesh). Examples: mech (limb parts), hornet (wing parts).
+ *
+ * Key difference to bakeVAT: recomputes meshToRoot per frame instead of
+ * using applyBoneTransform, since the animation moves the meshes themselves.
+ *
+ * @param modelRoot - Cloned model root
+ * @param animations - AnimationClip array from CachedModel
+ * @param clipNames - Animation clip names to bake (from EnemyTypeConfig)
+ * @param fps - Baking framerate (default: 30)
+ */
+export function bakeObjectAnimVAT(
+  modelRoot: Object3D,
+  animations: AnimationClip[],
+  clipNames: string[],
+  fps: number = DEFAULT_BAKE_FPS,
+): VATData | null {
+  // Collect all non-skinned Mesh nodes
+  interface ObjMeshInfo {
+    mesh: Mesh;
+    vertexCount: number;
+    vertexOffset: number;
+  }
+  const meshInfos: ObjMeshInfo[] = [];
+  modelRoot.traverse((node) => {
+    if ((node as Mesh).isMesh && !(node as SkinnedMesh).isSkinnedMesh) {
+      const m = node as Mesh;
+      const count = m.geometry.getAttribute('position')?.count ?? 0;
+      if (count > 0) meshInfos.push({ mesh: m, vertexCount: count, vertexOffset: 0 });
+    }
+  });
+
+  if (meshInfos.length === 0) return null;
+
+  // Compute vertex offsets
+  let totalVertices = 0;
+  for (const info of meshInfos) {
+    info.vertexOffset = totalVertices;
+    totalVertices += info.vertexCount;
+  }
+
+  if (totalVertices === 0) return null;
+
+  // Filter to clips that exist
+  const clipMap = new Map<string, AnimationClip>();
+  for (const clip of animations) {
+    clipMap.set(clip.name, clip);
+  }
+
+  const validClipNames = clipNames.filter((name) => clipMap.has(name));
+  if (validClipNames.length === 0) {
+    console.warn('[VATBaker] No matching animation clips found for object-anim bake');
+    return null;
+  }
+
+  // Calculate total frames and build registry
+  let totalFrames = 0;
+  const animEntries = new Map<string, VATAnimationEntry>();
+
+  for (const name of validClipNames) {
+    const clip = clipMap.get(name)!;
+    const frameCount = Math.max(1, Math.ceil(clip.duration * fps));
+    animEntries.set(name, {
+      name,
+      frameStart: totalFrames,
+      frameCount,
+      duration: clip.duration,
+    });
+    totalFrames += frameCount;
+  }
+
+  // Compute tiled texture dimensions
+  const texWidth = Math.min(totalVertices, MAX_VAT_WIDTH);
+  const rowsPerFrame = Math.ceil(totalVertices / texWidth);
+  const texHeight = totalFrames * rowsPerFrame;
+
+  // Allocate VAT data
+  const data = new Float32Array(texWidth * texHeight * 4);
+  const tempVec = new Vector3();
+  const meshToRoot = new Matrix4();
+  const rootInverse = new Matrix4();
+
+  // Bake each clip
+  for (const name of validClipNames) {
+    const clip = clipMap.get(name)!;
+    const entry = animEntries.get(name)!;
+
+    const mixer = new AnimationMixer(modelRoot);
+    const action = mixer.clipAction(clip);
+    action.setLoop(LoopOnce, 1);
+    action.clampWhenFinished = true;
+    action.play();
+
+    for (let frame = 0; frame < entry.frameCount; frame++) {
+      const time = Math.min(frame / fps, clip.duration - 0.0001);
+
+      mixer.setTime(time);
+      modelRoot.updateMatrixWorld(true);
+      rootInverse.copy(modelRoot.matrixWorld).invert();
+
+      // Bake vertices from all meshes with current-frame transforms
+      for (const info of meshInfos) {
+        meshToRoot.multiplyMatrices(rootInverse, info.mesh.matrixWorld);
+        const posAttr = info.mesh.geometry.getAttribute('position');
+
+        for (let v = 0; v < info.vertexCount; v++) {
+          tempVec.fromBufferAttribute(posAttr, v);
+          tempVec.applyMatrix4(meshToRoot);
+
+          const globalV = info.vertexOffset + v;
+          const col = globalV % texWidth;
+          const localRow = Math.floor(globalV / texWidth);
+          const globalRow = (entry.frameStart + frame) * rowsPerFrame + localRow;
+          const offset = (globalRow * texWidth + col) * 4;
+          data[offset] = tempVec.x;
+          data[offset + 1] = tempVec.y;
+          data[offset + 2] = tempVec.z;
+          data[offset + 3] = 1.0;
+        }
+      }
+    }
+
+    action.stop();
+    mixer.stopAllAction();
+    mixer.uncacheClip(clip);
+    mixer.uncacheRoot(modelRoot);
+  }
+
+  // Create DataTexture
+  const positionTexture = new DataTexture(data, texWidth, texHeight, RGBAFormat, FloatType);
+  positionTexture.minFilter = NearestFilter;
+  positionTexture.magFilter = NearestFilter;
+  positionTexture.needsUpdate = true;
+
+  // Compute rest-pose transforms for geometry merging
+  modelRoot.updateMatrixWorld(true);
+  const restRootInverse = new Matrix4().copy(modelRoot.matrixWorld).invert();
+
+  // Extract material properties
+  let diffuseMap: Texture | null = null;
+  let bestMapVertices = 0;
+  let baseColor = { r: 1.0, g: 1.0, b: 1.0 };
+  let bestColorVertices = 0;
+  let isUnlit = false;
+
+  for (const info of meshInfos) {
+    const mat = info.mesh.material as MeshStandardMaterial & MeshBasicMaterial;
+    if (mat) {
+      if (mat.map && info.vertexCount > bestMapVertices) {
+        diffuseMap = mat.map;
+        bestMapVertices = info.vertexCount;
+      }
+      if (mat.color && info.vertexCount > bestColorVertices) {
+        baseColor = { r: mat.color.r, g: mat.color.g, b: mat.color.b };
+        bestColorVertices = info.vertexCount;
+      }
+      if (info.mesh.material instanceof MeshBasicMaterial) isUnlit = true;
+    }
+  }
+
+  // Build merged geometry (rest-pose positions)
+  const mergedPositions = new Float32Array(totalVertices * 3);
+  const mergedNormals = new Float32Array(totalVertices * 3);
+  const mergedUVs = new Float32Array(totalVertices * 2);
+  const mergedColors = new Float32Array(totalVertices * 3);
+  const mergedAlpha = new Float32Array(totalVertices).fill(1.0);
+  const mergedUseMap = new Float32Array(totalVertices);
+  const mergedIndices: number[] = [];
+  const tempNormal = new Vector3();
+
+  const samplerCache = new Map<Texture, Uint8ClampedArray | null>();
+  const samplerSizes = new Map<Texture, { w: number; h: number }>();
+
+  for (const info of meshInfos) {
+    const geo = info.mesh.geometry;
+    const posAttr = geo.getAttribute('position');
+    const normalAttr = geo.getAttribute('normal');
+    const uvAttr = geo.getAttribute('uv');
+
+    // Rest-pose mesh-to-root transform
+    const restMeshToRoot = new Matrix4().multiplyMatrices(restRootInverse, info.mesh.matrixWorld);
+    const restNormalMatrix = new Matrix3().getNormalMatrix(restMeshToRoot);
+
+    const mat = info.mesh.material as MeshStandardMaterial & MeshBasicMaterial;
+    const meshSharesTexture = !!(mat && mat.map && diffuseMap &&
+      (mat.map === diffuseMap || mat.map.source === diffuseMap.source));
+    const meshHasOwnTexture = !meshSharesTexture && !!(mat && mat.map);
+    const cr = mat && mat.color ? mat.color.r : 1.0;
+    const cg = mat && mat.color ? mat.color.g : 1.0;
+    const cb = mat && mat.color ? mat.color.b : 1.0;
+    const matOpacity = mat ? mat.opacity ?? 1.0 : 1.0;
+
+    let texPixels: Uint8ClampedArray | null = null;
+    let texW = 0, texH = 0;
+    if (meshHasOwnTexture && uvAttr) {
+      const tex = mat.map!;
+      if (!samplerCache.has(tex)) {
+        try {
+          const img = tex.image as HTMLImageElement | ImageBitmap | HTMLCanvasElement;
+          const w = (img as HTMLImageElement).naturalWidth || img.width || 0;
+          const h = (img as HTMLImageElement).naturalHeight || img.height || 0;
+          if (w > 0 && h > 0) {
+            const canvas = document.createElement('canvas');
+            canvas.width = w;
+            canvas.height = h;
+            const ctx = canvas.getContext('2d')!;
+            ctx.drawImage(img as CanvasImageSource, 0, 0);
+            samplerCache.set(tex, ctx.getImageData(0, 0, w, h).data);
+            samplerSizes.set(tex, { w, h });
+          } else {
+            samplerCache.set(tex, null);
+          }
+        } catch {
+          samplerCache.set(tex, null);
+        }
+      }
+      texPixels = samplerCache.get(tex) ?? null;
+      const size = samplerSizes.get(tex);
+      if (size) { texW = size.w; texH = size.h; }
+    }
+
+    for (let i = 0; i < info.vertexCount; i++) {
+      const vi = info.vertexOffset + i;
+
+      // Rest-pose position
+      tempVec.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
+      tempVec.applyMatrix4(restMeshToRoot);
+      mergedPositions[vi * 3] = tempVec.x;
+      mergedPositions[vi * 3 + 1] = tempVec.y;
+      mergedPositions[vi * 3 + 2] = tempVec.z;
+
+      // Normal
+      if (normalAttr) {
+        tempNormal.set(normalAttr.getX(i), normalAttr.getY(i), normalAttr.getZ(i));
+        tempNormal.applyMatrix3(restNormalMatrix).normalize();
+        mergedNormals[vi * 3] = tempNormal.x;
+        mergedNormals[vi * 3 + 1] = tempNormal.y;
+        mergedNormals[vi * 3 + 2] = tempNormal.z;
+      } else {
+        mergedNormals[vi * 3 + 1] = 1.0;
+      }
+
+      // UV
+      if (uvAttr) {
+        mergedUVs[vi * 2] = uvAttr.getX(i);
+        mergedUVs[vi * 2 + 1] = uvAttr.getY(i);
+      }
+
+      // Per-vertex color, alpha and texture flag
+      if (meshSharesTexture) {
+        mergedColors[vi * 3] = 1.0;
+        mergedColors[vi * 3 + 1] = 1.0;
+        mergedColors[vi * 3 + 2] = 1.0;
+        mergedAlpha[vi] = matOpacity;
+        mergedUseMap[vi] = 1.0;
+      } else if (texPixels && uvAttr) {
+        let u = uvAttr.getX(i);
+        let v = uvAttr.getY(i);
+        u = u - Math.floor(u);
+        v = v - Math.floor(v);
+        const px = Math.min(Math.floor(u * texW), texW - 1);
+        const py = Math.min(Math.floor((1 - v) * texH), texH - 1);
+        const idx = (py * texW + px) * 4;
+        mergedColors[vi * 3] = texPixels[idx] / 255;
+        mergedColors[vi * 3 + 1] = texPixels[idx + 1] / 255;
+        mergedColors[vi * 3 + 2] = texPixels[idx + 2] / 255;
+        mergedAlpha[vi] = (texPixels[idx + 3] / 255) * matOpacity;
+        mergedUseMap[vi] = 0.0;
+      } else {
+        mergedColors[vi * 3] = cr;
+        mergedColors[vi * 3 + 1] = cg;
+        mergedColors[vi * 3 + 2] = cb;
+        mergedAlpha[vi] = matOpacity;
+        mergedUseMap[vi] = 0.0;
+      }
+    }
+
+    // Indices
+    if (geo.index) {
+      for (let i = 0; i < geo.index.count; i++) {
+        mergedIndices.push(geo.index.getX(i) + info.vertexOffset);
+      }
+    } else {
+      for (let i = 0; i < info.vertexCount; i++) {
+        mergedIndices.push(info.vertexOffset + i);
+      }
+    }
+  }
+
+  // Create merged BufferGeometry
+  const mergedGeometry = new BufferGeometry();
+  mergedGeometry.setAttribute('position', new BufferAttribute(mergedPositions, 3));
+  mergedGeometry.setAttribute('normal', new BufferAttribute(mergedNormals, 3));
+  mergedGeometry.setAttribute('uv', new BufferAttribute(mergedUVs, 2));
+  mergedGeometry.setIndex(mergedIndices);
+
+  const vertexIndices = new Float32Array(totalVertices);
+  for (let i = 0; i < totalVertices; i++) vertexIndices[i] = i;
+  mergedGeometry.setAttribute('aVertexIndex', new BufferAttribute(vertexIndices, 1));
+  mergedGeometry.setAttribute('aVertexColor', new BufferAttribute(mergedColors, 3));
+  mergedGeometry.setAttribute('aVertexAlpha', new BufferAttribute(mergedAlpha, 1));
+  mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
+
+  return {
+    positionTexture,
+    vertexCount: totalVertices,
+    totalFrames,
+    texWidth,
+    rowsPerFrame,
+    animations: animEntries,
+    geometry: mergedGeometry,
+    diffuseMap,
+    baseColor,
+    isUnlit,
+    fps,
+  };
+}
+
+/**
  * Bake a static (non-animated) model into a 1-frame VAT.
  * Used for enemy types without skeletal animations (e.g., tank).
  * Merges ALL meshes in the model into a single geometry to handle

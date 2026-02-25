@@ -10,7 +10,7 @@ import { AssetManagerService } from '../../../services/asset-manager.service';
 import { ThreeEnemyRenderer, EnemyRenderData, EnemyDebugOverrides } from '../three-enemy.renderer';
 import { EnemyInstanceManager } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
-import { bakeVAT, bakeStaticVAT } from './vat-baker';
+import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';
 
 // Dummy Object3D shared across all instanced enemy stubs
 const DUMMY_OBJECT = new Object3D();
@@ -115,7 +115,13 @@ export class InstancedEnemyRenderer {
         if (config.deathAnimation) clipNames.push(config.deathAnimation);
         if (config.idleAnimation) clipNames.push(config.idleAnimation);
 
-        const vatData = bakeVAT(clone, cached.animations, clipNames);
+        let vatData = bakeVAT(clone, cached.animations, clipNames);
+
+        // Fallback: try object/rigid-body animation bake (e.g., mech, hornet)
+        if (!vatData) {
+          vatData = bakeObjectAnimVAT(clone, cached.animations, clipNames);
+        }
+
         if (vatData) {
           // Use config's unlit flag (material detection is unreliable before conversion)
           if (config.unlit) vatData.isUnlit = true;
