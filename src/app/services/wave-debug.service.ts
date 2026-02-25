@@ -15,6 +15,20 @@ export interface MixedGroupConfig {
   spawnDelay?: number;
 }
 
+/** Display data for a single enemy group in the wave sidebar */
+export interface WaveGroupDisplay {
+  enemyType: EnemyTypeId;
+  name: string;
+  count: number;
+  baseHp: number;
+  actualHp: number;
+  baseSpeed: number;
+  actualSpeed: number;
+  healthMultiplier: number;
+  speedMultiplier: number;
+  spawnDelay: number;
+}
+
 /** Default enemy type for debug panel */
 const DEFAULT_ENEMY_TYPE: EnemyTypeId = 'zombie';
 
@@ -86,6 +100,10 @@ export class WaveDebugService {
     healthMultiplier: number;
     speedMultiplier: number;
   } | null>(null);
+
+  // All enemy groups in the current wave (for mixed wave display)
+  readonly currentWaveGroups = signal<WaveGroupDisplay[]>([]);
+  readonly isMixedWave = computed(() => this.currentWaveGroups().length > 1);
 
   setEnemyCount(value: number): void {
     this.enemyCount.set(Math.max(1, Math.min(20000, value)));
@@ -217,8 +235,8 @@ export class WaveDebugService {
   }
 
   /**
-   * Set current wave config (called when wave starts)
-   * Shows the actual multiplied values and base values
+   * Set current wave config for a single-type wave.
+   * Also sets currentWaveGroups with one entry.
    */
   setCurrentWaveConfig(
     enemyType: EnemyTypeId,
@@ -245,6 +263,37 @@ export class WaveDebugService {
       healthMultiplier,
       speedMultiplier,
     });
+
+    const name = ENEMY_TYPES[enemyType]?.name ?? enemyType;
+    this.currentWaveGroups.set([{
+      enemyType, name, count, baseHp, actualHp, baseSpeed, actualSpeed,
+      healthMultiplier, speedMultiplier, spawnDelay,
+    }]);
+  }
+
+  /**
+   * Set current wave config for a mixed wave with multiple enemy groups.
+   * Also sets currentWaveConfig to the dominant group for backwards compat.
+   */
+  setCurrentWaveGroups(groups: WaveGroupDisplay[]): void {
+    this.currentWaveGroups.set(groups);
+
+    // Set currentWaveConfig to dominant group (most enemies)
+    if (groups.length > 0) {
+      const dominant = groups.reduce((best, g) => g.count > best.count ? g : best);
+      this.enemyType.set(dominant.enemyType);
+      this.currentWaveConfig.set({
+        enemyType: dominant.enemyType,
+        count: groups.reduce((sum, g) => sum + g.count, 0),
+        baseHp: dominant.baseHp,
+        actualHp: dominant.actualHp,
+        baseSpeed: dominant.baseSpeed,
+        actualSpeed: dominant.actualSpeed,
+        spawnDelay: dominant.spawnDelay,
+        healthMultiplier: dominant.healthMultiplier,
+        speedMultiplier: dominant.speedMultiplier,
+      });
+    }
   }
 
   clearLog(): void {

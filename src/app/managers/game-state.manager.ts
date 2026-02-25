@@ -431,34 +431,42 @@ export class GameStateManager {
   startWave(config: WaveConfig): void {
     // Update wave preview in sidebar with actual values (NOT timescaled)
     if (config.schedule) {
-      // Mixed wave: find dominant type for UI preview
+      // Mixed wave: aggregate all groups from spawn entries
       const entries = config.schedule.entries;
       if (entries.length > 0) {
-        const counts = new Map<string, number>();
+        // Aggregate entries by enemy type
+        const groupMap = new Map<string, { count: number; health: number; speed: number }>();
         for (const e of entries) {
-          counts.set(e.enemyType, (counts.get(e.enemyType) ?? 0) + 1);
-        }
-        let dominantType = entries[0].enemyType;
-        let maxCount = 0;
-        for (const [type, count] of counts) {
-          if (count > maxCount) {
-            maxCount = count;
-            dominantType = type as typeof dominantType;
+          const existing = groupMap.get(e.enemyType);
+          if (existing) {
+            existing.count++;
+          } else {
+            groupMap.set(e.enemyType, { count: 1, health: e.health ?? 0, speed: e.speed });
           }
         }
-        const enemyConfig = ENEMY_TYPES[dominantType];
-        const dominantEntry = entries.find(e => e.enemyType === dominantType)!;
-        this.waveDebug.setCurrentWaveConfig(
-          dominantType,
-          entries.length,
-          enemyConfig.baseHp,
-          dominantEntry.health ?? enemyConfig.baseHp,
-          enemyConfig.baseSpeed,
-          dominantEntry.speed,
-          config.schedule.baseDelay,
-          (dominantEntry.health ?? enemyConfig.baseHp) / enemyConfig.baseHp,
-          dominantEntry.speed / enemyConfig.baseSpeed
-        );
+
+        // Build display groups for all enemy types
+        const groups = Array.from(groupMap.entries()).map(([typeId, data]) => {
+          const enemyConfig = ENEMY_TYPES[typeId as keyof typeof ENEMY_TYPES];
+          const baseHp = enemyConfig.baseHp;
+          const baseSpeed = enemyConfig.baseSpeed;
+          const actualHp = data.health || baseHp;
+          const actualSpeed = data.speed;
+          return {
+            enemyType: typeId as typeof config.enemyType,
+            name: enemyConfig.name,
+            count: data.count,
+            baseHp,
+            actualHp,
+            baseSpeed,
+            actualSpeed,
+            healthMultiplier: actualHp / baseHp,
+            speedMultiplier: actualSpeed / baseSpeed,
+            spawnDelay: config.schedule!.baseDelay,
+          };
+        });
+
+        this.waveDebug.setCurrentWaveGroups(groups);
       }
     } else if (config.enemyType) {
       const enemyConfig = ENEMY_TYPES[config.enemyType];

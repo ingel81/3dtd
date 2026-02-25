@@ -2,52 +2,29 @@
   <div class="td-sidebar-content">
     <!-- WAVE Section -->
     <section class="td-panel td-wave-panel">
-      <div class="td-panel-header">WAVE {{ store.waveNumber() }}</div>
+      <div class="td-panel-header">
+        WAVE {{ store.waveNumber() }}
+        @if (isMixedWave()) {
+          <span class="td-mixed-badge">MIX · {{ getMixedTotalCount() }}</span>
+        }
+      </div>
       <div class="td-panel-content td-wave-section">
-        <div class="td-wave-info">
-          <div class="td-enemy-preview-container">
-            <canvas #enemyPreviewCanvas class="td-enemy-preview-canvas" width="72" height="72"></canvas>
-          </div>
-          <div class="td-wave-stats">
-            <div class="td-enemy-name">{{ getCurrentWaveDisplayName() }}</div>
-            @if (currentWaveConfig(); as wave) {
-              <div class="td-stat-row">
-                <span class="td-stat-label">Count</span>
-                <span class="td-stat-value td-val-count">{{ wave.count }}</span>
+        <div class="td-enemy-group-grid">
+          @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
+            <div class="td-enemy-group-card"
+                 [matTooltip]="getGroupTooltip(group)"
+                 matTooltipPosition="left"
+                 matTooltipClass="td-group-tooltip">
+              <div class="td-group-preview-container">
+                <canvas #mixedEnemyCanvas class="td-group-preview-canvas"
+                        [attr.data-group-index]="i" width="64" height="64"></canvas>
               </div>
-              <div class="td-stat-row">
-                <span class="td-stat-label">HP</span>
-                <span class="td-stat-value" [class.td-val-modified]="wave.healthMultiplier !== 1">
-                  {{ wave.actualHp }}
-                  @if (wave.healthMultiplier !== 1) {
-                    <span class="td-multiplier">×{{ wave.healthMultiplier | number:'1.1-1' }}</span>
-                  }
-                </span>
+              <div class="td-group-label">
+                <span class="td-group-name">{{ group.name }}</span>
+                <span class="td-group-count">×{{ group.count }}</span>
               </div>
-              <div class="td-stat-row">
-                <span class="td-stat-label">Speed</span>
-                <span class="td-stat-value" [class.td-val-modified]="wave.speedMultiplier !== 1">
-                  {{ wave.actualSpeed | number:'1.1-1' }}m/s
-                  @if (wave.speedMultiplier !== 1) {
-                    <span class="td-multiplier">×{{ wave.speedMultiplier | number:'1.2-2' }}</span>
-                  }
-                </span>
-              </div>
-              <div class="td-stat-row">
-                <span class="td-stat-label">Spawn</span>
-                <span class="td-stat-value">{{ wave.spawnDelay }}ms</span>
-              </div>
-            } @else {
-              <div class="td-stat-row">
-                <span class="td-stat-label">HP</span>
-                <span class="td-stat-value">{{ currentEnemyConfig().baseHp }}</span>
-              </div>
-              <div class="td-stat-row">
-                <span class="td-stat-label">Enemies</span>
-                <span class="td-stat-value">{{ store.enemiesAlive() }}</span>
-              </div>
-            }
-          </div>
+            </div>
+          }
         </div>
         <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave.emit()"
                 [disabled]="waveActive() || buildMode() || isGameOver()">
