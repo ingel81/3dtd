@@ -8,18 +8,51 @@
 import { WaveConfig as AIWaveConfig } from './models/wave-config';
 import { WaveConfig as WaveManagerConfig } from '../../managers/wave.manager';
 import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
+import { buildSpawnSchedule, getRecommendedPattern } from './spawn-schedule-builder';
 
 /**
- * Convert AI WaveConfig to WaveManager WaveConfig
+ * Convert AI WaveConfig to WaveManager WaveConfig (with mixed wave support)
  *
- * The AI generates complex wave configs with multiple enemy types.
- * The WaveManager currently supports single enemy type per startWave() call.
- *
- * Strategy: Return array of WaveManagerConfigs, one per enemy type.
- * The caller can either:
- * - Call startWave() multiple times (sequentially)
- * - Use the first/dominant type only
- * - Extend WaveManager to support multi-type waves (future)
+ * Single enemy group → uses classic single-type spawning.
+ * Multiple groups → builds a SpawnSchedule for mixed spawning.
+ */
+export function adaptAIWaveConfigMixed(aiConfig: AIWaveConfig): WaveManagerConfig {
+  const validGroups = aiConfig.enemies.filter(g => g.count > 0);
+
+  // Single group or empty: use classic single-type path
+  if (validGroups.length <= 1) {
+    return adaptAIWaveConfigSingle(aiConfig);
+  }
+
+  // Multiple groups: build a mixed wave schedule
+  const pattern = aiConfig.pattern ?? getRecommendedPattern(aiConfig.archetype ?? 'mixed');
+
+  const schedule = buildSpawnSchedule({
+    groups: validGroups,
+    pattern,
+    baseDelay: aiConfig.spawnDelay,
+    delayVariation: aiConfig.spawnDelayVariation,
+  });
+
+  // Get dominant type for legacy fields
+  const dominant = validGroups.reduce((best, current) =>
+    current.count > best.count ? current : best
+  );
+  const dominantType = validateEnemyType(dominant.type) ?? 'zombie';
+  const dominantConfig = ENEMY_TYPES[dominantType];
+
+  return {
+    enemyCount: aiConfig.totalCount,
+    enemyType: dominantType,
+    enemySpeed: dominantConfig?.baseSpeed ?? 5,
+    spawnMode: 'random',
+    spawnDelay: aiConfig.spawnDelay,
+    schedule,
+  };
+}
+
+/**
+ * Convert AI WaveConfig to array of WaveManager configs (one per group)
  */
 export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig[] {
   const configs: WaveManagerConfig[] = [];
@@ -27,27 +60,20 @@ export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig[] {
   for (const group of aiConfig.enemies) {
     if (group.count <= 0) continue;
 
-    // Validate enemy type
     const enemyType = validateEnemyType(group.type);
     if (!enemyType) {
       console.warn(`[AI Adapter] Unknown enemy type: ${group.type}, skipping`);
       continue;
     }
 
-    // Get base enemy config
     const enemyConfig = ENEMY_TYPES[enemyType];
     if (!enemyConfig) continue;
 
-    // Calculate adjusted stats
-    const baseSpeed = enemyConfig.baseSpeed;
-    const baseHealth = enemyConfig.baseHp;
-
-    const adjustedSpeed = baseSpeed * (group.speedMultiplier ?? 1);
+    const adjustedSpeed = enemyConfig.baseSpeed * (group.speedMultiplier ?? 1);
     const adjustedHealth = group.healthMultiplier
-      ? Math.round(baseHealth * group.healthMultiplier)
+      ? Math.round(enemyConfig.baseHp * group.healthMultiplier)
       : undefined;
 
-    // Create variable delay function if variation is specified
     const baseDelay = aiConfig.spawnDelay;
     const variation = aiConfig.spawnDelayVariation ?? 0;
     const getSpawnDelay = variation > 0
@@ -60,16 +86,15 @@ export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig[] {
 
     configs.push({
       enemyCount: group.count,
-      enemyType: enemyType,
+      enemyType,
       enemySpeed: adjustedSpeed,
       enemyHealth: adjustedHealth,
-      spawnMode: 'random', // AI doesn't specify, use random for variety
+      spawnMode: 'random',
       spawnDelay: baseDelay,
-      getSpawnDelay, // Dynamic delay for variety
+      getSpawnDelay,
     });
   }
 
-  // Ensure at least one config
   if (configs.length === 0) {
     configs.push(createDefaultConfig(aiConfig));
   }
@@ -86,13 +111,10 @@ export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig[] {
 export function adaptAIWaveConfigSingle(aiConfig: AIWaveConfig): WaveManagerConfig {
   const configs = adaptAIWaveConfig(aiConfig);
 
-  // Get config with most enemies (dominant type)
   const dominant = configs.reduce((best, current) =>
     current.enemyCount > best.enemyCount ? current : best
   );
 
-  // Use totalCount to spawn all enemies (as the dominant type)
-  // This ensures we don't lose enemies when AI generates mixed waves
   return {
     ...dominant,
     enemyCount: aiConfig.totalCount,
@@ -100,75 +122,13 @@ export function adaptAIWaveConfigSingle(aiConfig: AIWaveConfig): WaveManagerConf
 }
 
 /**
- * Create combined wave config (experimental)
- *
- * Returns a single config that spawns mixed enemies by interleaving.
- * The dominant type is used for the config, but multiple spawn calls
- * can be orchestrated by the caller.
- */
-export function createMixedWaveSchedule(aiConfig: AIWaveConfig): WaveSpawnSchedule {
-  const schedule: WaveSpawnSchedule = {
-    totalEnemies: aiConfig.totalCount,
-    spawnDelay: aiConfig.spawnDelay,
-    spawnDelayVariation: aiConfig.spawnDelayVariation ?? 0,
-    spawnOrder: [],
-  };
-
-  // Create spawn order by interleaving enemy types
-  const groups = [...aiConfig.enemies].filter((g) => g.count > 0);
-
-  // Sort by count (spawn more common enemies more often)
-  groups.sort((a, b) => b.count - a.count);
-
-  // Interleave: go through each group and add enemies one at a time
-  let remaining = groups.map((g) => ({ ...g }));
-  while (remaining.some((g) => g.count > 0)) {
-    for (const group of remaining) {
-      if (group.count > 0) {
-        const enemyType = validateEnemyType(group.type);
-        if (enemyType) {
-          const enemyConfig = ENEMY_TYPES[enemyType];
-          schedule.spawnOrder.push({
-            enemyType,
-            speed: enemyConfig.baseSpeed * (group.speedMultiplier ?? 1),
-            health: group.healthMultiplier
-              ? Math.round(enemyConfig.baseHp * group.healthMultiplier)
-              : undefined,
-          });
-        }
-        group.count--;
-      }
-    }
-    remaining = remaining.filter((g) => g.count > 0);
-  }
-
-  return schedule;
-}
-
-/**
- * Wave spawn schedule for mixed enemy types
- */
-export interface WaveSpawnSchedule {
-  totalEnemies: number;
-  spawnDelay: number;
-  spawnDelayVariation: number;
-  spawnOrder: {
-    enemyType: EnemyTypeId;
-    speed: number;
-    health?: number;
-  }[];
-}
-
-/**
  * Validate and convert enemy type string to EnemyTypeId
  */
 function validateEnemyType(type: string): EnemyTypeId | null {
-  // Direct match
   if (type in ENEMY_TYPES) {
     return type as EnemyTypeId;
   }
 
-  // Common aliases
   const aliases: Record<string, EnemyTypeId> = {
     basic: 'zombie',
     fast: 'bat',
@@ -199,25 +159,4 @@ function createDefaultConfig(aiConfig: AIWaveConfig): WaveManagerConfig {
       return Math.round(min + Math.random() * (max - min));
     },
   };
-}
-
-/**
- * Get recommended spawn strategy for AI config
- */
-export type SpawnStrategy = 'single' | 'sequential' | 'interleaved';
-
-export function recommendSpawnStrategy(aiConfig: AIWaveConfig): SpawnStrategy {
-  const typeCount = aiConfig.enemies.filter((g) => g.count > 0).length;
-
-  if (typeCount <= 1) {
-    return 'single';
-  }
-
-  // For boss waves, spawn boss after other enemies
-  if (aiConfig.archetype === 'boss') {
-    return 'sequential';
-  }
-
-  // For variety, interleave
-  return 'interleaved';
 }

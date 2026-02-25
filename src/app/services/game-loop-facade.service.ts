@@ -12,7 +12,7 @@ import { EnemyDebugService } from './enemy-debug.service';
 import { WaveDirectorService } from '../ai/core/wave-director.service';
 import { AIDataCollectorService } from '../ai/core/ai-data-collector.service';
 import { TrainingClientService } from '../ai/training/training-client.service';
-import { adaptAIWaveConfigSingle } from '../ai/core/wave-config-adapter';
+import { adaptAIWaveConfigMixed } from '../ai/core/wave-config-adapter';
 import { GameStateManager } from '../managers/game-state.manager';
 import { WaveConfig } from '../managers/wave.manager';
 import { Tower } from '../entities/tower.entity';
@@ -248,7 +248,7 @@ export class GameLoopFacadeService {
       }
 
       this.store.aiExplanation.set(aiConfig.explanation ?? null);
-      const waveConfig = adaptAIWaveConfigSingle(aiConfig);
+      const waveConfig = adaptAIWaveConfigMixed(aiConfig);
 
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
@@ -273,7 +273,10 @@ export class GameLoopFacadeService {
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
 
-    const waveConfig = this.buildWaveConfig();
+    const waveConfig = this.waveDebug.mixedMode()
+      ? this.waveDebug.buildMixedWaveConfig()
+      : this.buildWaveConfig();
+
     this.store.aiExplanation.set(null);
     this.gameState.getEventBus().emit({
       type: 'command:start-wave',

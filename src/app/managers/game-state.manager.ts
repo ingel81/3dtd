@@ -430,7 +430,37 @@ export class GameStateManager {
    */
   startWave(config: WaveConfig): void {
     // Update wave preview in sidebar with actual values (NOT timescaled)
-    if (config.enemyType) {
+    if (config.schedule) {
+      // Mixed wave: find dominant type for UI preview
+      const entries = config.schedule.entries;
+      if (entries.length > 0) {
+        const counts = new Map<string, number>();
+        for (const e of entries) {
+          counts.set(e.enemyType, (counts.get(e.enemyType) ?? 0) + 1);
+        }
+        let dominantType = entries[0].enemyType;
+        let maxCount = 0;
+        for (const [type, count] of counts) {
+          if (count > maxCount) {
+            maxCount = count;
+            dominantType = type as typeof dominantType;
+          }
+        }
+        const enemyConfig = ENEMY_TYPES[dominantType];
+        const dominantEntry = entries.find(e => e.enemyType === dominantType)!;
+        this.waveDebug.setCurrentWaveConfig(
+          dominantType,
+          entries.length,
+          enemyConfig.baseHp,
+          dominantEntry.health ?? enemyConfig.baseHp,
+          enemyConfig.baseSpeed,
+          dominantEntry.speed,
+          config.schedule.baseDelay,
+          (dominantEntry.health ?? enemyConfig.baseHp) / enemyConfig.baseHp,
+          dominantEntry.speed / enemyConfig.baseSpeed
+        );
+      }
+    } else if (config.enemyType) {
       const enemyConfig = ENEMY_TYPES[config.enemyType];
       const baseHp = enemyConfig.baseHp;
       const baseSpeed = enemyConfig.baseSpeed;

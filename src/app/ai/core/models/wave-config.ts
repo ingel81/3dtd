@@ -23,6 +23,8 @@ export type WaveArchetype =
   | 'boss' // Boss + support
   | 'air'; // Flying enemies
 
+export type { SpawnPattern } from '../spawn-schedule-builder';
+
 /**
  * Single enemy group in a wave
  */
@@ -38,6 +40,9 @@ export interface WaveEnemyGroup {
 
   /** Speed multiplier (0.5-1.5, default 1.0) */
   speedMultiplier?: number;
+
+  /** Per-group spawn delay override in ms (overrides global baseDelay) */
+  spawnDelay?: number;
 }
 
 /**
@@ -76,6 +81,9 @@ export interface WaveConfig {
 
   /** Human-readable explanation of why this wave was chosen */
   explanation?: string;
+
+  /** Spawn pattern for mixed waves (defaults to archetype recommendation) */
+  pattern?: import('../spawn-schedule-builder').SpawnPattern;
 }
 
 /**
