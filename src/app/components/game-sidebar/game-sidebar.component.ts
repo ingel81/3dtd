@@ -812,6 +812,13 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       const towerConfig = TOWER_TYPES[towerId];
       if (!towerConfig) return;
 
+      // Sync canvas resolution to actual CSS display size to avoid stretching
+      const rect = canvas.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        canvas.width = Math.round(rect.width * devicePixelRatio);
+        canvas.height = Math.round(rect.height * devicePixelRatio);
+      }
+
       // Use previewScale from debug overrides for live updates
       const overrides = this.towerDebug.allOverrides()[towerId];
       const previewScale = overrides.previewScale;
@@ -845,9 +852,17 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     const towerConfig = TOWER_TYPES[towerId];
     if (!towerConfig) return;
 
+    // Sync canvas resolution to actual CSS display size
+    const canvas = canvasRef.nativeElement;
+    const rect = canvas.getBoundingClientRect();
+    if (rect.width > 0 && rect.height > 0) {
+      canvas.width = Math.round(rect.width * devicePixelRatio);
+      canvas.height = Math.round(rect.height * devicePixelRatio);
+    }
+
     this.modelPreview.createPreview(
       `tower-preview-${towerId}`,
-      canvasRef.nativeElement,
+      canvas,
       {
         modelUrl: towerConfig.modelUrl,
         scale: previewScale,
