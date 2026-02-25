@@ -12,6 +12,24 @@ export interface SpawnPoint extends GeoPosition {
   name: string;
 }
 
+/** A single spawn entry in a mixed-wave schedule */
+export interface SpawnEntry {
+  enemyType: EnemyTypeId;
+  speed: number;
+  health?: number;
+  /** Per-entry delay override in ms (overrides schedule baseDelay) */
+  delay?: number;
+  /** Extra pause in ms after this spawn (for wave-in-wave pattern) */
+  pauseAfter?: number;
+}
+
+/** Pre-built spawn schedule for mixed enemy waves */
+export interface SpawnSchedule {
+  entries: SpawnEntry[];
+  baseDelay: number;
+  getDelay?: () => number;
+}
+
 export interface WaveConfig {
   enemyCount: number;
   enemyType: EnemyTypeId;
@@ -20,6 +38,8 @@ export interface WaveConfig {
   spawnMode: 'each' | 'random';
   spawnDelay: number; // Delay in ms between spawning each enemy
   getSpawnDelay?: () => number; // Optional: Dynamic getter for live delay updates during wave
+  /** Mixed wave schedule - when present, overrides single-type spawning */
+  schedule?: SpawnSchedule;
 }
 
 /**
@@ -101,6 +121,12 @@ export class WaveManager implements IGameManager {
    * Start a new wave with auto-spawning
    */
   startWave(config: WaveConfig): void {
+    // Mixed wave: use schedule-based spawning
+    if (config.schedule) {
+      this.startScheduledWave(config.schedule);
+      return;
+    }
+
     // Guard against invalid enemyCount (NaN, Infinity, negative)
     const enemyCount = Number.isFinite(config.enemyCount) && config.enemyCount > 0
       ? config.enemyCount
@@ -178,6 +204,72 @@ export class WaveManager implements IGameManager {
       const timeoutId = setTimeout(() => {
         this.activeTimeouts.delete(timeoutId);
         if (this.phase() !== 'wave') return; // Stop if reset/game over
+        spawnNext();
+      }, realTimeDelay);
+      this.activeTimeouts.add(timeoutId);
+    };
+
+    spawnNext();
+  }
+
+  /**
+   * Start wave from pre-built spawn schedule (mixed enemy types)
+   */
+  private startScheduledWave(schedule: SpawnSchedule): void {
+    const entries = schedule.entries;
+    if (entries.length === 0) return;
+
+    this.waveNumber.update((n) => n + 1);
+    this.phase.set('wave');
+
+    this.expectedEnemyCount = entries.length;
+    this.spawnedEnemyCount = 0;
+
+    this.eventBus.emit({
+      type: 'wave:started',
+      wave: this.waveNumber(),
+      enemyCount: entries.length,
+    });
+
+    const getDelay = schedule.getDelay ?? (() => schedule.baseDelay);
+    let spawnIndex = 0;
+    let consecutiveFailures = 0;
+    const waveId = this.waveNumber();
+
+    const spawnNext = () => {
+      if (this.phase() !== 'wave') return;
+      if (this.waveNumber() !== waveId) return;
+      if (spawnIndex >= entries.length) return;
+
+      const entry = entries[spawnIndex];
+      const spawn = this.selectSpawnPoint('random', spawnIndex);
+      const path = this.cachedPaths.get(spawn.id);
+
+      if (path && path.length > 1) {
+        this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health);
+        spawnIndex++;
+        this.spawnedEnemyCount++;
+        consecutiveFailures = 0;
+      } else {
+        consecutiveFailures++;
+        if (consecutiveFailures >= this.spawnPoints.length * 2) {
+          console.error(`[WaveManager] No valid paths, aborting scheduled wave (${spawnIndex}/${entries.length})`);
+          this.expectedEnemyCount = spawnIndex;
+          return;
+        }
+      }
+
+      if (this.phase() !== 'wave') return;
+      if (spawnIndex >= entries.length) return;
+
+      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+      const baseWait = entry.delay ?? getDelay();
+      const extraPause = entry.pauseAfter ?? 0;
+      const realTimeDelay = (baseWait + extraPause) / timescale;
+
+      const timeoutId = setTimeout(() => {
+        this.activeTimeouts.delete(timeoutId);
+        if (this.phase() !== 'wave') return;
         spawnNext();
       }, realTimeDelay);
       this.activeTimeouts.add(timeoutId);
