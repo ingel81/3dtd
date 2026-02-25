@@ -254,6 +254,10 @@
 ## Visual Effects - Advanced
 
 - [ ] **Advanced-Explosion-Staging** - 2-Stage Explosionen
+- [ ] **Terrain-Decals bei Waffenbeschuss** — Scorch Marks, Krater-Optik, Einschusslöcher, Burn Areas
+      Basiert auf existierendem GPU-Instanced Decal System (Blood/Ice Decals)
+      Neue Shader in `decal-shaders.ts`, Configs in `visual-effects.config.ts`
+      Dateien: `decal-instance.manager.ts`, `three-effects.renderer.ts`, `vfx.service.ts`
 
 ## Mobile Support & Accessibility
 
