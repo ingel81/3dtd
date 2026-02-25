@@ -1,6 +1,19 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../models/enemy-types';
 import { UIStore } from '../store/ui.store';
+import { WaveConfig } from '../managers/wave.manager';
+import { SpawnPattern, ALL_SPAWN_PATTERNS, buildSpawnSchedule } from '../ai/core/spawn-schedule-builder';
+
+/** Configuration for a single enemy group in a mixed wave */
+export interface MixedGroupConfig {
+  id: number;
+  enemyType: EnemyTypeId;
+  count: number;
+  healthMultiplier: number;
+  speedMultiplier: number;
+  /** Per-group spawn delay override in ms (undefined = use global delay) */
+  spawnDelay?: number;
+}
 
 /** Default enemy type for debug panel */
 const DEFAULT_ENEMY_TYPE: EnemyTypeId = 'zombie';
@@ -23,6 +36,23 @@ export class WaveDebugService {
   readonly enemyType = signal<EnemyTypeId>(DEFAULT_ENEMY_TYPE);
   readonly spawnMode = signal<'each' | 'random'>('each');
   readonly spawnDelay = signal(1500);
+
+  // Mixed wave mode
+  readonly mixedMode = signal(false);
+  readonly mixedGroups = signal<MixedGroupConfig[]>([
+    { id: 1, enemyType: 'zombie', count: 8, healthMultiplier: 1, speedMultiplier: 1 },
+    { id: 2, enemyType: 'bat', count: 4, healthMultiplier: 1, speedMultiplier: 1 },
+  ]);
+  readonly spawnPattern = signal<SpawnPattern>('interleaved');
+  readonly clusterSize = signal(3);
+  readonly subWavePause = signal(3000);
+  readonly delayVariation = signal(0);
+  readonly allPatterns = ALL_SPAWN_PATTERNS;
+  private nextGroupId = 3;
+
+  readonly mixedTotalCount = computed(() =>
+    this.mixedGroups().reduce((sum, g) => sum + g.count, 0)
+  );
 
   // Available enemy types
   readonly enemyTypes = computed(() => getAllEnemyTypes());
@@ -84,6 +114,95 @@ export class WaveDebugService {
 
   setSpawnDelay(value: number): void {
     this.spawnDelay.set(Math.max(0.01, Math.min(5000, value)));
+  }
+
+  // === Mixed Wave Methods ===
+
+  toggleMixedMode(): void {
+    this.mixedMode.update(v => !v);
+  }
+
+  addGroup(): void {
+    const existing = this.mixedGroups();
+    const usedTypes = new Set(existing.map(g => g.enemyType));
+    const allTypes = getAllEnemyTypes();
+    const nextType = allTypes.find(t => !usedTypes.has(t.id as EnemyTypeId));
+
+    this.mixedGroups.update(groups => [
+      ...groups,
+      {
+        id: this.nextGroupId++,
+        enemyType: (nextType?.id as EnemyTypeId) ?? 'zombie',
+        count: 5,
+        healthMultiplier: 1,
+        speedMultiplier: 1,
+      },
+    ]);
+  }
+
+  removeGroup(id: number): void {
+    this.mixedGroups.update(groups => {
+      if (groups.length <= 1) return groups; // keep at least 1
+      return groups.filter(g => g.id !== id);
+    });
+  }
+
+  updateGroup(id: number, changes: Partial<Omit<MixedGroupConfig, 'id'>>): void {
+    this.mixedGroups.update(groups =>
+      groups.map(g => g.id === id ? { ...g, ...changes } : g)
+    );
+  }
+
+  setSpawnPattern(pattern: SpawnPattern): void {
+    this.spawnPattern.set(pattern);
+  }
+
+  setClusterSize(value: number): void {
+    this.clusterSize.set(Math.max(1, Math.min(20, value)));
+  }
+
+  setSubWavePause(value: number): void {
+    this.subWavePause.set(Math.max(500, Math.min(10000, value)));
+  }
+
+  setDelayVariation(value: number): void {
+    this.delayVariation.set(Math.max(0, Math.min(0.5, value)));
+  }
+
+  /**
+   * Build a WaveConfig with SpawnSchedule from current mixed-mode settings.
+   */
+  buildMixedWaveConfig(): WaveConfig {
+    const groups = this.mixedGroups().map(g => ({
+      type: g.enemyType,
+      count: g.count,
+      healthMultiplier: g.healthMultiplier !== 1 ? g.healthMultiplier : undefined,
+      speedMultiplier: g.speedMultiplier !== 1 ? g.speedMultiplier : undefined,
+      spawnDelay: g.spawnDelay,
+    }));
+
+    const schedule = buildSpawnSchedule({
+      groups,
+      pattern: this.spawnPattern(),
+      baseDelay: this.spawnDelay(),
+      delayVariation: this.delayVariation(),
+      clusterSize: this.clusterSize(),
+      subWavePause: this.subWavePause(),
+    });
+
+    // Legacy fields (ignored when schedule is present, but needed for type compatibility)
+    const dominant = this.mixedGroups().reduce((best, curr) =>
+      curr.count > best.count ? curr : best
+    );
+
+    return {
+      enemyCount: this.mixedTotalCount(),
+      enemyType: dominant.enemyType,
+      enemySpeed: ENEMY_TYPES[dominant.enemyType]?.baseSpeed ?? 5,
+      spawnMode: 'random',
+      spawnDelay: this.spawnDelay(),
+      schedule,
+    };
   }
 
   setStreetCount(count: number): void {
