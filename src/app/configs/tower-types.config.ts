@@ -95,6 +95,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     damage: 25,
     range: 60,
     fireRate: 1, // 1 shot/sec
+    canTargetAir: true,
     projectileType: 'arrow',
     cost: 45, // Rebalanced: was 20 (Cost/DPS 0.80 -> 1.80)
     sellValue: 27, // 60% of cost
