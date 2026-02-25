@@ -4,6 +4,27 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-02-25
+
+### Mixed Waves (Multi-Type Spawning)
+- [x] **Mixed Waves Infrastruktur**
+      Mehrere Enemy-Typen pro Wave mit 7 konfigurierbaren Spawn-Patterns
+      (interleaved, sequential, clustered, random, front-loaded, back-loaded, wave-in-wave).
+      SpawnSchedule-System loest Pattern-Logik zur Build-Time auf, WaveManager spielt
+      den Schedule sequentiell ab. Backwards-kompatibel via optionales `schedule` Feld
+      auf `WaveConfig`.
+      Dateien: `wave.manager.ts`, `spawn-schedule-builder.ts` (neu), `wave-config-adapter.ts`
+- [x] **Mixed Wave Debug Panel**
+      Mode-Toggle (Single/Mixed) im Wave-Debug-Panel. Mixed-Mode bietet
+      Gruppen-Karten (Typ, Count, HP/Speed-Multiplier), Pattern-Auswahl mit Icons,
+      konditionale Controls (Cluster Size, Sub-Wave Pause), Delay-Variation.
+      Dateien: `wave-debugger.component.ts`, `wave-debug.service.ts`, `game-loop-facade.service.ts`
+- [x] **Theme-Erweiterung: Teal/Gold Button-Varianten**
+      `tealLight`, `tealDark`, `goldLight` CSS-Variablen zum Design-System hinzugefuegt.
+      Dateien: `td-theme.ts`
+
+---
+
 ## 2026-02-21
 
 ### HQ-Placement ausserhalb der Street-Bounds
