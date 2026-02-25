@@ -34,10 +34,10 @@ import {
 } from '../../configs/tower-types.config';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
-import { WaveDebugService } from '../../services/wave-debug.service';
+import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.service';
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
-import { EnemyTypeId } from '../../models/enemy-types';
+import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
 import { AdBannerComponent } from '../ad-banner/ad-banner.component';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -177,6 +177,19 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 
     .td-wave-panel .td-panel-header {
       background: linear-gradient(90deg, rgba(111, 183, 165, 0.15) 0%, var(--td-panel-secondary) 100%);
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+
+    .td-mixed-badge {
+      font-size: 9px;
+      color: var(--td-warn-orange);
+      background: rgba(255, 152, 0, 0.15);
+      padding: 1px 5px;
+      border-radius: 2px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
     }
 
     .td-panel:not(.td-wave-panel):not(.td-tower-panel) .td-panel-header {
@@ -316,44 +329,72 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       gap: 8px;
     }
 
-    .td-wave-info {
-      display: flex;
-      gap: 12px;
-      align-items: center;
+    .td-wave-btn {
+      margin-top: 4px;
     }
 
-    .td-enemy-preview-container {
-      flex-shrink: 0;
-      width: 72px;
-      height: 72px;
+    /* === Mixed Wave === */
+    .td-enemy-group-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      justify-content: center;
+    }
+
+    .td-enemy-group-card {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1px;
+      cursor: default;
+      padding: 2px;
+      border-radius: 4px;
+      transition: background 0.15s;
+      flex: 1;
+      min-width: 64px;
+      max-width: 90px;
+    }
+
+    .td-enemy-group-card:hover {
+      background: rgba(255, 255, 255, 0.05);
+    }
+
+    .td-group-preview-container {
+      width: 64px;
+      height: 64px;
       background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
       border: 1px solid var(--td-frame-dark);
       border-radius: 4px;
       overflow: hidden;
     }
 
-    .td-enemy-preview-canvas {
+    .td-group-preview-canvas {
       width: 100%;
       height: 100%;
       display: block;
     }
 
-    .td-enemy-name {
-      font-size: 11px;
-      font-weight: 600;
-      color: var(--td-warn-orange);
-      margin-bottom: 4px;
-    }
-
-    .td-wave-stats {
+    .td-group-label {
       display: flex;
-      flex-direction: column;
-      gap: 4px;
-      flex: 1;
+      align-items: baseline;
+      gap: 3px;
+      justify-content: center;
     }
 
-    .td-wave-btn {
-      margin-top: 4px;
+    .td-group-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--td-text-primary);
+      max-width: 60px;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .td-group-count {
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--td-warn-orange);
     }
 
     /* === Build Section === */
@@ -702,14 +743,15 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
-    // Update enemy preview when enemy type or debug overrides change
+    // Update enemy group previews when wave groups change
     effect(() => {
-      // Track currentEnemyConfig and enemy overrides to trigger effect on changes
-      const config = this.currentEnemyConfig();
-      this.enemyDebug.allOverrides()[config.id as EnemyTypeId];
-      // Wait for the preview to be initialized
-      if (this.enemyPreviewCanvas?.nativeElement) {
-        this.initEnemyPreview();
+      const groups = this.currentWaveGroups();
+      // Also track debug overrides for preview updates
+      for (const g of groups) {
+        this.enemyDebug.allOverrides()[g.enemyType];
+      }
+      if (this.mixedEnemyCanvases?.length) {
+        this.initMixedEnemyPreviews();
       }
     });
 
@@ -734,11 +776,26 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly waveActive = input.required<boolean>();
   readonly isGameOver = input.required<boolean>();
 
-  // Current enemy config from wave debug service
-  readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
-
-  // Current wave config (if available)
-  readonly currentWaveConfig = this.waveDebug.currentWaveConfig;
+  // Wave group display (with fallback for initial state before first wave)
+  readonly currentWaveGroups = computed(() => {
+    const groups = this.waveDebug.currentWaveGroups();
+    if (groups.length > 0) return groups;
+    // Fallback: show currently selected enemy type from debug panel
+    const config = this.waveDebug.currentEnemyConfig();
+    return [{
+      enemyType: config.id as EnemyTypeId,
+      name: config.name,
+      count: this.waveDebug.enemyCount(),
+      baseHp: config.baseHp,
+      actualHp: config.baseHp,
+      baseSpeed: config.baseSpeed,
+      actualSpeed: config.baseSpeed,
+      healthMultiplier: 1,
+      speedMultiplier: 1,
+      spawnDelay: this.waveDebug.spawnDelay(),
+    }];
+  });
+  readonly isMixedWave = this.waveDebug.isMixedWave;
 
   // Ad banner should be compact during active wave
   readonly adCompact = computed(() => this.waveActive());
@@ -753,8 +810,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
 
   // Canvas refs for previews
-  @ViewChild('enemyPreviewCanvas') enemyPreviewCanvas!: ElementRef<HTMLCanvasElement>;
   @ViewChildren('towerPreviewCanvas') towerPreviewCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
+  @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
+  private activeMixedPreviewIds: string[] = [];
 
   ngAfterViewInit(): void {
     // Initialize previews after DOM is ready
@@ -766,6 +824,13 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       .subscribe(() => {
         setTimeout(() => this.initTowerPreviews(), 50);
       });
+
+    // Initialize mixed enemy previews when canvases appear
+    this.mixedEnemyCanvases.changes
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe(() => {
+        setTimeout(() => this.initMixedEnemyPreviews(), 100);
+      });
   }
 
   ngOnDestroy(): void {
@@ -774,31 +839,8 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   private initPreviews(): void {
     this.modelPreview.initialize();
-    this.initEnemyPreview();
+    this.initMixedEnemyPreviews();
     this.initTowerPreviews();
-  }
-
-  private initEnemyPreview(): void {
-    if (!this.enemyPreviewCanvas?.nativeElement) return;
-
-    const enemyConfig = this.currentEnemyConfig();
-    const overrides = this.enemyDebug.getOverrides(enemyConfig.id as EnemyTypeId);
-    this.modelPreview.createPreview(
-      'enemy-preview',
-      this.enemyPreviewCanvas.nativeElement,
-      {
-        modelUrl: enemyConfig.modelUrl,
-        scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
-        rotationSpeed: 0.4,
-        cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
-        cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
-        offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
-        animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
-        animationTimeScale: 0.7,
-        lightIntensity: 1.3,
-        groundModel: true,
-      }
-    );
   }
 
   private initTowerPreviews(): void {
@@ -902,13 +944,59 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     this.upgradeTower.emit({ tower, upgradeId });
   }
 
-  getCurrentWaveDisplayName(): string {
-    const wave = this.currentWaveConfig();
-    if (wave) {
-      const config = this.currentEnemyConfig();
-      return config.name;
+  getMixedTotalCount(): number {
+    return this.currentWaveGroups().reduce((sum, g) => sum + g.count, 0);
+  }
+
+  getGroupTooltip(group: WaveGroupDisplay): string {
+    let tip = `HP: ${group.actualHp}`;
+    if (group.healthMultiplier !== 1) {
+      tip += ` (×${group.healthMultiplier.toFixed(1)})`;
     }
-    return this.currentEnemyConfig().name;
+    tip += `\nSpeed: ${group.actualSpeed.toFixed(1)}m/s`;
+    if (group.speedMultiplier !== 1) {
+      tip += ` (×${group.speedMultiplier.toFixed(2)})`;
+    }
+    tip += `\nSpawn: ${group.spawnDelay}ms`;
+    return tip;
+  }
+
+  private initMixedEnemyPreviews(): void {
+    if (!this.mixedEnemyCanvases) return;
+
+    // Destroy old mixed previews
+    for (const id of this.activeMixedPreviewIds) {
+      this.modelPreview.destroyPreview(id);
+    }
+    this.activeMixedPreviewIds = [];
+
+    const groups = this.currentWaveGroups();
+    this.mixedEnemyCanvases.forEach((canvasRef) => {
+      const canvas = canvasRef.nativeElement;
+      const idx = parseInt(canvas.getAttribute('data-group-index') ?? '0', 10);
+      const group = groups[idx];
+      if (!group) return;
+
+      const enemyConfig = ENEMY_TYPES[group.enemyType];
+      if (!enemyConfig) return;
+
+      const overrides = this.enemyDebug.getOverrides(group.enemyType);
+      const previewId = `mixed-enemy-${idx}`;
+      this.activeMixedPreviewIds.push(previewId);
+
+      this.modelPreview.createPreview(previewId, canvas, {
+        modelUrl: enemyConfig.modelUrl,
+        scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
+        rotationSpeed: 0.4,
+        cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
+        cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
+        offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
+        animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
+        animationTimeScale: 0.7,
+        lightIntensity: 1.3,
+        groundModel: true,
+      });
+    });
   }
 
   openAttributions(): void {
