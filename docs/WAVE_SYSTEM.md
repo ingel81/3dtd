@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-01-30
+**Stand:** 2026-02-25
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -478,35 +478,180 @@ private getBossConfig(): WaveConfig {
 
 ---
 
-## Multi-Type Waves (Planned)
+## Mixed Waves (Multi-Type)
 
-**Aktuell:** Nur ein Enemy-Typ pro Wave
+Mixed Waves erlauben mehrere Enemy-Typen in einer Wave mit konfigurierbaren Spawn-Patterns.
 
-**Geplant:** Mehrere Typen gemischt
+### Architektur
+
+Die Mixed-Wave-Logik basiert auf einem **SpawnSchedule** — einer vorab berechneten, flachen Liste von `SpawnEntry`-Objekten. Alle Pattern-Logik wird zur Build-Time aufgeloest, der WaveManager spielt den Schedule nur noch sequentiell ab.
+
+```
+┌─────────────────┐    ┌──────────────────────┐    ┌─────────────┐
+│ Enemy Groups     │ -> │ SpawnScheduleBuilder  │ -> │ SpawnSchedule│
+│ + Pattern        │    │ (Build-Time)          │    │ (flat list)  │
+└─────────────────┘    └──────────────────────┘    └──────┬──────┘
+                                                          │
+                                                          v
+                                                   ┌─────────────┐
+                                                   │ WaveManager  │
+                                                   │ (Runtime)    │
+                                                   └─────────────┘
+```
+
+### Interfaces
 
 ```typescript
-// Future: WaveConfig erweitern
-export interface WaveConfig {
-  waves: Array<{
-    enemyType: EnemyTypeId;
-    count: number;
-    speed: number;
-  }>;
-  spawnMode: 'sequential' | 'mixed';
-  // ...
+// managers/wave.manager.ts
+
+export interface SpawnEntry {
+  enemyType: EnemyTypeId;  // Typ dieses Spawns
+  speed: number;           // Geschwindigkeit (m/s)
+  health?: number;         // HP override (optional)
+  pauseAfter?: number;     // Extra-Pause in ms nach diesem Spawn
 }
 
-// Beispiel: Mixed Wave
-this.waveManager.startWave({
-  waves: [
-    { enemyType: 'zombie', count: 10, speed: 5 },
-    { enemyType: 'tank', count: 2, speed: 3 },
-    { enemyType: 'bat', count: 5, speed: 8 },
+export interface SpawnSchedule {
+  entries: SpawnEntry[];   // Geordnete Spawn-Liste
+  baseDelay: number;       // Standard-Delay zwischen Spawns (ms)
+  getDelay?: () => number; // Optionale dynamische Delay-Funktion
+}
+```
+
+Das bestehende `WaveConfig` Interface wurde um ein optionales `schedule` Feld erweitert:
+
+```typescript
+export interface WaveConfig {
+  // Bestehende Felder (unveraendert)
+  enemyCount: number;
+  enemyType: EnemyTypeId;
+  enemySpeed: number;
+  enemyHealth?: number;
+  spawnMode: 'each' | 'random';
+  spawnDelay: number;
+  getSpawnDelay?: () => number;
+
+  schedule?: SpawnSchedule;  // Wenn vorhanden: Schedule-basiertes Spawning
+}
+```
+
+**Backwards-kompatibel:** Ohne `schedule` Feld verhalt sich alles exakt wie bisher.
+
+### Spawn-Patterns
+
+7 Patterns stehen zur Verfuegung (`src/app/ai/core/spawn-schedule-builder.ts`):
+
+| Pattern | Verhalten | Beispiel (8Z, 4B, 2T) |
+|---------|-----------|------------------------|
+| `interleaved` | Proportionaler Round-Robin | Z B Z T Z B Z Z B Z T Z B Z |
+| `sequential` | Alle einer Gruppe, dann naechste | ZZZZZZZZ BBBB TT |
+| `clustered` | Cluster von N, dann Wechsel | ZZZ BBB ZZZ TT BBB ZZ |
+| `random` | Fisher-Yates Shuffle | Zufaellig durchmischt |
+| `front-loaded` | Staerkste zuerst (HP desc) | TT ZZZZZZZZ BBBB |
+| `back-loaded` | Schwaechste zuerst (HP asc) | BBBB ZZZZZZZZ TT |
+| `wave-in-wave` | Sub-Waves mit Pausen | ZZZZZZZZ [Pause] BBBB [Pause] TT |
+
+### SpawnScheduleBuilder
+
+```typescript
+import { buildSpawnSchedule, SpawnPattern } from '../ai/core/spawn-schedule-builder';
+
+const schedule = buildSpawnSchedule({
+  groups: [
+    { type: 'zombie', count: 8 },
+    { type: 'bat', count: 4, speedMultiplier: 1.2 },
+    { type: 'wallsmasher', count: 2, healthMultiplier: 1.5 },
   ],
-  spawnMode: 'mixed',  // Alle Typen durchmischen
-  // ...
+  pattern: 'interleaved',
+  baseDelay: 800,
+  delayVariation: 0.2,      // +/- 20% Zufallsvariation
+  clusterSize: 3,            // Nur fuer 'clustered'
+  subWavePause: 3000,        // Nur fuer 'wave-in-wave' (ms)
 });
 ```
+
+**Helper-Funktionen:**
+
+```typescript
+// Empfohlenes Pattern fuer einen Archetype
+getRecommendedPattern('swarm');  // -> 'random'
+getRecommendedPattern('boss');   // -> 'wave-in-wave'
+
+// Gruppen aus Ratio-basierter Definition
+fromRatio(20, { zombie: 0.6, bat: 0.3, tank: 0.1 });
+// -> [{ type: 'zombie', count: 12 }, { type: 'bat', count: 6 }, { type: 'tank', count: 2 }]
+```
+
+### WaveManager Integration
+
+Wenn `config.schedule` vorhanden ist, delegiert `startWave()` an `startScheduledWave()`:
+
+```typescript
+// Intern in wave.manager.ts
+startWave(config: WaveConfig): void {
+  if (config.schedule) {
+    this.startScheduledWave(config);  // Mixed-Wave Pfad
+    return;
+  }
+  // ... bestehender Single-Type Pfad
+}
+```
+
+`startScheduledWave()` iteriert ueber `schedule.entries[]` und spawnt jeden Entry mit dem richtigen Typ, Speed und Health. `pauseAfter` wird als Extra-Delay zum Standard-Delay addiert. Die bestehenden Mechanismen (Timescale, `stopSpawning()`, `checkWaveComplete()`) funktionieren unveraendert.
+
+### AI Director Integration
+
+Der `adaptAIWaveConfigMixed()` Adapter (`src/app/ai/core/wave-config-adapter.ts`) konvertiert AI-generierte Configs:
+
+- **Einzelne Gruppe:** Delegiert an `adaptAIWaveConfigSingle()` (unveraendertes Verhalten)
+- **Mehrere Gruppen:** Nutzt `buildSpawnSchedule()` mit Pattern aus `getRecommendedPattern(archetype)`
+
+```typescript
+import { adaptAIWaveConfigMixed } from '../ai/core/wave-config-adapter';
+
+const waveConfig = adaptAIWaveConfigMixed(aiConfig);
+// -> WaveConfig mit schedule (bei Multi-Group) oder ohne (bei Single-Group)
+```
+
+### Debug Panel: Mixed Wave Designer
+
+Das Wave-Debug-Panel (`wave-debugger.component.ts`) bietet einen **Mode-Toggle** (Single/Mixed):
+
+- **Single Mode:** Bestehende Steuerung (Typ, Count, Speed, Health, Delay)
+- **Mixed Mode:** Voller Wave-Designer:
+  - Gruppen-Karten (Typ-Dropdown, Count, HP/Speed-Multiplier)
+  - Add/Remove Groups
+  - Pattern-Auswahl (7 Buttons mit Icons)
+  - Konditionale Controls (Cluster Size, Sub-Wave Pause)
+  - Delay + Variation Slider
+  - Total-Counter
+
+State wird im `WaveDebugService` verwaltet (`wave-debug.service.ts`):
+
+```typescript
+// Mixed-Mode Signals
+readonly mixedMode = signal(false);
+readonly mixedGroups = signal<MixedGroupConfig[]>([...]);
+readonly spawnPattern = signal<SpawnPattern>('interleaved');
+readonly clusterSize = signal(3);
+readonly subWavePause = signal(3000);
+readonly delayVariation = signal(0);
+
+// Baut WaveConfig mit SpawnSchedule
+buildMixedWaveConfig(): WaveConfig { ... }
+```
+
+### Dateien
+
+| Datei | Rolle |
+|-------|-------|
+| `managers/wave.manager.ts` | `SpawnEntry`, `SpawnSchedule` Interfaces, `startScheduledWave()` |
+| `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, Helpers |
+| `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfigMixed()` — AI-zu-WaveManager Konvertierung |
+| `ai/core/models/wave-config.ts` | Optionales `pattern` Feld fuer AI Config |
+| `services/wave-debug.service.ts` | Mixed-Mode Signals, `buildMixedWaveConfig()` |
+| `components/debug-window/wave-debugger.component.ts` | Mixed Wave Designer UI |
+| `services/game-loop-facade.service.ts` | Mixed-Mode Weiche in `startCustomWave()` |
 
 ---
 
