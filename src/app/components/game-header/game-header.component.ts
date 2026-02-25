@@ -62,7 +62,7 @@ import { FavoriteLocation } from '../../models/location.types';
 
           <!-- World Dice -->
           <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location">
-            <mat-icon>casino</mat-icon>
+            <mat-icon>explore</mat-icon>
           </button>
 
           <!-- Home Link -->
