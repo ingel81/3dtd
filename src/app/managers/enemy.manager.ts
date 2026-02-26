@@ -33,6 +33,12 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies with active frost visual (for state-change detection)
   private frozenVisualEnemies = new Set<string>();
 
+  // Track enemies with active poison visual
+  private poisonVisualEnemies = new Set<string>();
+
+  // Track last poison tick time per enemy (for 500ms interval)
+  private poisonTickTimes = new Map<string, number>();
+
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
 
@@ -392,6 +398,51 @@ export class EnemyManager extends EntityManager<Enemy> {
           this.tilesEngine.effects.stopFrostAura(enemy.id);
           this.frozenVisualEnemies.delete(enemy.id);
         }
+
+        // Poison visual: toggle green tint + particle aura based on poison state
+        const isPoisoned = enemy.movement.isPoisoned(timescale);
+        const hasPoison = this.poisonVisualEnemies.has(enemy.id);
+
+        if (isPoisoned && !hasPoison) {
+          this.tilesEngine.enemies.setPoisonVisual(enemy.id, true);
+          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this.tilesEngine.effects.spawnPoisonAura(enemy.id, this._tempLocalPos);
+          this.poisonVisualEnemies.add(enemy.id);
+        } else if (isPoisoned && hasPoison) {
+          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this.tilesEngine.effects.updatePoisonAuraPosition(enemy.id, this._tempLocalPos);
+        } else if (!isPoisoned && hasPoison) {
+          this.tilesEngine.enemies.setPoisonVisual(enemy.id, false);
+          this.tilesEngine.effects.stopPoisonAura(enemy.id);
+          this.poisonVisualEnemies.delete(enemy.id);
+          this.poisonTickTimes.delete(enemy.id);
+        }
+
+        // Poison DOT tick: emit damage every 500ms
+        if (isPoisoned) {
+          const now = performance.now();
+          const lastTick = this.poisonTickTimes.get(enemy.id) ?? 0;
+          // 500ms in real-time (adjusted for timescale)
+          const tickInterval = 500 / timescale;
+          if (now - lastTick >= tickInterval) {
+            this.poisonTickTimes.set(enemy.id, now);
+            // Find active poison effect to get DPS value
+            const poisonEffect = enemy.movement.statusEffects.find(
+              (e) => e.type === 'poison'
+            );
+            if (poisonEffect) {
+              // 500ms tick = DPS * 0.5
+              const tickDamage = poisonEffect.value * 0.5;
+              this.eventBus.emit({
+                type: 'dot:damage',
+                enemy,
+                damage: tickDamage,
+                sourceId: poisonEffect.sourceId ?? '',
+                effectType: 'poison',
+              });
+            }
+          }
+        }
       }
       if (profiling) tRender += performance.now() - t0;
     }
@@ -446,6 +497,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopFrostAura(entity.id);
       this.frozenVisualEnemies.delete(entity.id);
     }
+    // Cleanup poison visual if active
+    if (this.poisonVisualEnemies.has(entity.id)) {
+      this.tilesEngine?.effects.stopPoisonAura(entity.id);
+      this.poisonVisualEnemies.delete(entity.id);
+      this.poisonTickTimes.delete(entity.id);
+    }
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
@@ -479,6 +536,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopFrostAura(enemyId);
     }
     this.frozenVisualEnemies.clear();
+
+    // Stop poison auras before clearing
+    for (const enemyId of this.poisonVisualEnemies) {
+      this.tilesEngine?.effects.stopPoisonAura(enemyId);
+    }
+    this.poisonVisualEnemies.clear();
+    this.poisonTickTimes.clear();
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache

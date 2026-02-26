@@ -1,7 +1,7 @@
 /**
  * Status effect types that can be applied to enemies
  */
-export type StatusEffectType = 'slow' | 'freeze' | 'burn';
+export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison';
 
 /**
  * Represents an active status effect on an enemy

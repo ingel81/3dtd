@@ -31,6 +31,26 @@ export class StatusEffectService {
   }
 
   /**
+   * Apply a poison DOT effect to an enemy.
+   * Only one poison can be active at a time (refreshes timer like slow).
+   */
+  applyPoison(
+    enemy: Enemy,
+    dotDps: number,
+    duration: number,
+    sourceId: string
+  ): void {
+    const effect: StatusEffect = {
+      type: 'poison',
+      value: dotDps,
+      duration,
+      startTime: performance.now(),
+      sourceId,
+    };
+    enemy.movement.applyStatusEffect(effect);
+  }
+
+  /**
    * Apply a generic status effect to an enemy.
    * Extensible for future effect types (burn, freeze, poison).
    */

@@ -366,6 +366,14 @@ export class InstancedEnemyRenderer {
     this.instanceManager.setFreezeVisual(id, active);
   }
 
+  setPoisonVisual(id: string, active: boolean): void {
+    if (this.classicEnemies.has(id)) {
+      this.classicRenderer.setPoisonVisual(id, active);
+      return;
+    }
+    this.instanceManager.setPoisonVisual(id, active);
+  }
+
   // =====================================================
   // QUERIES
   // =====================================================

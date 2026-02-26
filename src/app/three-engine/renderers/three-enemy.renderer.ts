@@ -535,6 +535,73 @@ export class ThreeEnemyRenderer {
   }
 
   /**
+   * Set poison visual effect (green tint)
+   * Analogous to setFreezeVisual but with green emissive
+   */
+  setPoisonVisual(id: string, active: boolean): void {
+    const data = this.enemies.get(id);
+    if (!data || data.isDestroyed) return;
+
+    if (active) {
+      if (!data.originalMaterials) {
+        data.originalMaterials = new Map();
+        data.mesh.traverse((node) => {
+          if ((node as Mesh).isMesh) {
+            const mesh = node as Mesh;
+            const mat = mesh.material as Material | Material[] | undefined;
+            if (mat) {
+              data.originalMaterials!.set(mesh, mat);
+            }
+          }
+        });
+      }
+
+      const poisonColor = new Color(0x44cc22);
+      const applyPoison = (material: Material): Material => {
+        const cloned = material.clone() as Material & {
+          emissive?: Color;
+          emissiveIntensity?: number;
+          color?: Color;
+        };
+
+        if ('emissive' in cloned && cloned.emissive) {
+          cloned.emissive.copy(poisonColor);
+          if ('emissiveIntensity' in cloned) {
+            cloned.emissiveIntensity = 0.3;
+          }
+        } else if ('color' in cloned && cloned.color) {
+          cloned.color.copy(poisonColor);
+        }
+
+        return cloned;
+      };
+
+      for (const [mesh, originalMat] of data.originalMaterials) {
+        if (Array.isArray(originalMat)) {
+          mesh.material = originalMat.map((mat) => applyPoison(mat));
+        } else {
+          mesh.material = applyPoison(originalMat);
+        }
+      }
+    } else {
+      if (data.originalMaterials) {
+        for (const [mesh, originalMat] of data.originalMaterials) {
+          const currentMat = mesh.material as Material | Material[];
+          if (Array.isArray(currentMat)) {
+            for (const mat of currentMat) {
+              mat.dispose();
+            }
+          } else if (currentMat !== originalMat) {
+            currentMat.dispose();
+          }
+          mesh.material = originalMat as Material | Material[];
+        }
+        data.originalMaterials = undefined;
+      }
+    }
+  }
+
+  /**
    * Play walk or run animation
    */
   private playMovementAnimation(data: EnemyRenderData, isWalk: boolean): void {

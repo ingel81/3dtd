@@ -97,6 +97,15 @@ export type GameEvent =
       delta: number;
     }
 
+  // ==================== DOT Events ====================
+  | {
+      type: 'dot:damage';
+      enemy: Enemy;
+      damage: number;
+      sourceId: string;
+      effectType: 'poison';
+    }
+
   // ==================== Effect Events (Deferred) ====================
   | {
       type: 'audio:play';

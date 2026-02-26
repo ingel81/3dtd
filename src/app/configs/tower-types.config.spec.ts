@@ -8,7 +8,7 @@ import {
 } from './tower-types.config';
 
 describe('tower types config', () => {
-  const allIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle'];
+  const allIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison'];
 
   it('contains all tower types', () => {
     allIds.forEach((id) => {

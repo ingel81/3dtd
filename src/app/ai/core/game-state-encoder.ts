@@ -29,7 +29,7 @@ export const ENCODED_STATE_SIZE = 74;
 export const NUM_SCALAR_FEATURES = 34;
 
 /** Tower types in fixed order for encoding */
-const TOWER_TYPE_ORDER = ['archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice'];
+const TOWER_TYPE_ORDER = ['archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'poison'];
 
 /** Enemy threat ratings (relative to Zombie = 1.0) */
 export const ENEMY_THREAT_RATING: Record<string, number> = {

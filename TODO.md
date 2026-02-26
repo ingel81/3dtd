@@ -5,6 +5,25 @@
 
 
 ** NEU **
+
+- **BUG: Gegner spawnen unter der Erde nach radikalem Zoom**
+      Bei schnellem Rein-/Rauszoomen spawnen Gegner plötzlich unter dem Terrain.
+      Betrifft oft viele Gegner über längeren Zeitraum bis erneuter Zoom-Ruckler es "reset".
+      Auch Straßenlinien (gelb) und Routenlinien (rot) verschwinden dabei.
+      **Analyse:** Height-Cache in `three-tiles-engine.ts` wird bei Tile-LOD-Wechseln nicht invalidiert.
+      - `HEIGHT_CHANGE_THRESHOLD = 2.0` (Zeile 123) ist zu hoch — LOD-Höhendifferenzen oft <2m
+      - `onTilesLoadEnd()` (Zeile 625) leert Cache nur wenn Höhe am Origin um >2m abweicht
+      - Raycast trifft während LOD-Transition alte Low-Res-Tiles → zu niedrige Höhe wird gecacht
+      - 500ms Debounce (`TILES_LOAD_DEBOUNCE_MS`) — Gegner können mit stale Cache spawnen
+      - Overlay-Positionierung (`overlayGroup`, Zeile 1534) nutzt `tilesRenderer.group.position` Delta —
+        verschiebt sich bei radikalem Zoom ebenfalls (erklärt verschwundene Straßen/Routen)
+      **Fix-Ideen:**
+      1. Cache IMMER bei `tiles-load-end` leeren (Threshold nur für Callback)
+      2. "Tiles transitioning" Flag → Cache umgehen während LOD-Wechsel
+      3. Debug-Logging einbauen um Verhalten live zu beobachten
+      **Dateien:** `three-tiles-engine.ts` (Zeilen 120-124, 625-678, 1087-1111, 1201-1237),
+      `enemy.manager.ts` (Zeilen 153-177, 344-362)
+
 - Air Priority Targeting: braucht Sub-Strategie (strongest/weakest/nearest bei Air-Priorität)
 - Fire Tower "Wide Burn" Upgrade: macht aktuell dasselbe wie Range-Upgrade, eigene Logik nötig
 - Kamera-Boundaries: evtl. Begrenzung wenn man sich weit aus dem Spielbereich bewegt
