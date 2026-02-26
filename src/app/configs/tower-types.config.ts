@@ -1,5 +1,5 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle';
-export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison';
+export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob';
 export type UpgradeId = 'speed' | 'damage' | 'range';
 export type AttackType = 'projectile' | 'beam' | 'melee';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
@@ -80,6 +80,7 @@ const CANNON_MODEL_URL = '/assets/models/towers/cannon.glb';
 const ICE_MODEL_URL = '/assets/models/towers/ice.glb';
 const MAGIC_MODEL_URL = '/assets/models/towers/magic.glb';
 const FIRE_MODEL_URL = '/assets/models/towers/fire.glb';
+const POISON_MODEL_URL = '/assets/models/towers/poison_tower.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -372,6 +373,50 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         effect: {
           stat: 'fireRate',
           multiplier: 2.0,
+        },
+      },
+    ],
+  },
+  poison: {
+    id: 'poison',
+    name: 'Poison Tower',
+    defaultTargeting: 'first',
+    modelUrl: POISON_MODEL_URL,
+    scale: 7.6,
+    previewScale: 12,
+    heightOffset: 2.8,
+    shootHeight: 1.4,
+    rotationY: 3.1416, // 180°
+    damage: 5,
+    range: 55,
+    fireRate: 1, // 1 shot/sec
+    projectileType: 'poison-glob',
+    cost: 100,
+    sellValue: 60, // 60% of cost
+    canTargetAir: false,
+    upgrades: [
+      {
+        id: 'damage',
+        name: 'Virulent Toxin',
+        description: 'Increases poison damage by 50%',
+        cost: 90,
+        costScaling: 1.8,
+        maxLevel: 3,
+        effect: {
+          stat: 'damage',
+          multiplier: 1.5,
+        },
+      },
+      {
+        id: 'range',
+        name: 'Extended Reach',
+        description: 'Increases range by 30%',
+        cost: 70,
+        costScaling: 1.6,
+        maxLevel: 2,
+        effect: {
+          stat: 'range',
+          multiplier: 1.3,
         },
       },
     ],

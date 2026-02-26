@@ -33,6 +33,13 @@ export const GAME_BALANCE = {
       /** Duration in milliseconds */
       duration: 3000,
     },
+    /** Poison Tower DOT effect */
+    poison: {
+      /** Damage per second */
+      dotDamagePerSecond: 8,
+      /** Duration in milliseconds */
+      duration: 4000,
+    },
   },
 
   /** Fire behavior thresholds */

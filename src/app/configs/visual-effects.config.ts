@@ -51,6 +51,7 @@ export const EXPLOSION_PRESETS = {
   hq:       { particles: 150, radius: 15 },
   small:    { particles: 8,   radius: 3 },
   bullet:   { particles: 2,   radius: 1 },
+  poison:   { particles: 6,   radius: 2 },
 } as const;
 
 /** Effect color presets (RGB 0-1) */
@@ -64,6 +65,11 @@ export const EFFECT_COLORS = {
   ice: {
     white: { r: 1.0, g: 1.0, b: 1.0 },
     cyan:  { r: 0.8, g: 0.95, b: 1.0 },
+  },
+  poison: {
+    dark:   { r: 0.1, g: 0.4, b: 0.0 },
+    mid:    { r: 0.2, g: 0.8, b: 0.05 },
+    bright: { r: 0.8, g: 1.0, b: 0.2 },
   },
 } as const;
 

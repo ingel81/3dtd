@@ -60,6 +60,11 @@ export class CombatEffectService {
     this.eventBusSubs.add(this.eventBus.on('projectile:hit', (event) => {
       this.handleProjectileHit(event.projectile, event.target);
     }));
+
+    // Subscribe to DOT damage events (poison ticks)
+    this.eventBusSubs.add(this.eventBus.on('dot:damage', (event) => {
+      this.handleDotDamage(event.enemy, event.damage);
+    }));
   }
 
   /**
@@ -70,6 +75,7 @@ export class CombatEffectService {
     const splashRadius = projectile.typeConfig.splashRadius;
     const hasSplash = splashRadius && splashRadius > 0;
     const isIceShard = projectile.typeConfig.id === 'ice-shard';
+    const isPoisonGlob = projectile.typeConfig.id === 'poison-glob';
 
     // Spawn explosion/ice effects for splash projectiles
     if (hasSplash) {
@@ -80,14 +86,15 @@ export class CombatEffectService {
       }
     }
 
-    // Apply damage to primary target
+    // Apply damage to primary target (suppress blood for ice and poison)
+    const suppressBlood = isIceShard || isPoisonGlob;
     this.damageService.applyDamage(
       this.vfx,
       enemy,
       projectile.damage,
       projectile.sourceTowerId,
       false,
-      isIceShard
+      suppressBlood
     );
 
     // Spawn damage number for direct hit
@@ -103,9 +110,24 @@ export class CombatEffectService {
       );
     }
 
+    // Apply poison DOT for poison-glob
+    if (isPoisonGlob) {
+      // Scale DOT DPS with tower damage upgrade multiplier
+      const baseDamage = 5; // Poison tower base damage
+      const upgradeMultiplier = projectile.damage / baseDamage;
+      const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
+
+      this.statusEffectService.applyPoison(
+        enemy,
+        dotDps,
+        GAME_BALANCE.effects.poison.duration,
+        projectile.sourceTowerId
+      );
+    }
+
     // Apply splash damage to nearby enemies
     if (hasSplash) {
-      this.applySplashDamage(projectile, enemy, splashRadius, isIceShard);
+      this.applySplashDamage(projectile, enemy, splashRadius, isIceShard, isPoisonGlob);
     }
   }
 
@@ -116,7 +138,8 @@ export class CombatEffectService {
     projectile: Projectile,
     origin: Enemy,
     splashRadius: number,
-    isIceShard: boolean
+    isIceShard: boolean,
+    isPoisonGlob = false
   ): void {
     const nearbyEnemies = this.globalRouteGrid.getEnemiesInRadiusGeo(
       origin.position,
@@ -142,7 +165,7 @@ export class CombatEffectService {
           splashDamage,
           projectile.sourceTowerId,
           true,
-          isIceShard
+          isIceShard || isPoisonGlob
         );
 
         // Spawn damage number for splash hit
@@ -158,6 +181,20 @@ export class CombatEffectService {
           projectile.sourceTowerId
         );
         this.vfx.emitIceDecal(nearbyEnemy);
+      }
+
+      // Apply poison DOT to splash targets
+      if (isPoisonGlob) {
+        const baseDamage = 5;
+        const upgradeMultiplier = projectile.damage / baseDamage;
+        const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
+
+        this.statusEffectService.applyPoison(
+          nearbyEnemy,
+          dotDps,
+          GAME_BALANCE.effects.poison.duration,
+          projectile.sourceTowerId
+        );
       }
     }
   }
@@ -183,6 +220,40 @@ export class CombatEffectService {
         scale,
       }
     );
+  }
+
+  /**
+   * Handle DOT damage tick (poison).
+   * Applies damage and spawns green damage number.
+   */
+  private handleDotDamage(enemy: Enemy, damage: number): void {
+    if (!enemy.alive || !this.tilesEngine) return;
+
+    this.damageService.applyDamage(
+      this.vfx,
+      enemy,
+      damage,
+      '',
+      false,
+      true // suppress blood for DOT
+    );
+
+    // Green damage number for poison
+    if (this.damageNumbersEnabled) {
+      const rounded = Math.round(damage);
+      this.tilesEngine.effects.spawnFloatingText(
+        `-${rounded}`,
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 5,
+        {
+          color: '#44CC22',
+          duration: TIMING.damagePopupDuration,
+          floatSpeed: 1.2,
+          scale: 0.2,
+        }
+      );
+    }
   }
 
   // =====================================================

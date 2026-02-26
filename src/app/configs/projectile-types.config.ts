@@ -3,7 +3,7 @@ import { ProjectileTypeId } from './tower-types.config';
 // Re-export ProjectileTypeId for convenience
 export type { ProjectileTypeId } from './tower-types.config';
 
-export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket';
+export type ProjectileVisualType = 'arrow' | 'cannonball' | 'magic' | 'ice' | 'bullet' | 'rocket' | 'poison';
 
 /**
  * Trail particle configuration for projectiles
@@ -180,6 +180,30 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       spawnOffset: 0.5,
     },
   },
+  'poison-glob': {
+    id: 'poison-glob',
+    speed: 70,
+    visualType: 'poison',
+    scale: 0.5,
+    splashRadius: 8,
+    splashDamageFalloff: true,
+    trailParticles: {
+      enabled: true,
+      spawnChance: 0.8,
+      countPerSpawn: 2,
+      colorMin: { r: 0.1, g: 0.5, b: 0.0 }, // Dark green
+      colorMax: { r: 0.2, g: 0.8, b: 0.1 }, // Bright green
+      sizeMin: 0.4,
+      sizeMax: 0.8,
+      lifetimeMin: 0.3,
+      lifetimeMax: 0.6,
+      velocityX: { min: -1.5, max: 1.5 },
+      velocityY: { min: -0.5, max: 1.0 },
+      velocityZ: { min: -1.5, max: 1.5 },
+      spawnOffset: 0.3,
+      blending: 'additive',
+    },
+  },
 };
 
 export function getProjectileType(id: ProjectileTypeId): ProjectileTypeConfig {
@@ -237,5 +261,11 @@ export const PROJECTILE_SOUNDS: Record<string, ProjectileSoundConfig> = {
     refDistance: 55,
     rolloffFactor: 1.1,
     volume: 0.45,
+  },
+  'poison-glob': {
+    url: '/assets/sounds/towers/poison/poison_spit.mp3',
+    refDistance: 50,
+    rolloffFactor: 1,
+    volume: 0.4,
   },
 } as const;

@@ -96,6 +96,9 @@ export class VFXService {
     } else if (projectileType === 'bullet') {
       // Minimal impact effect for bullets
       preset = EXPLOSION_PRESETS.bullet.particles;
+    } else if (projectileType === 'poison-glob') {
+      // Small green impact for poison
+      preset = EXPLOSION_PRESETS.poison.particles;
     } else if (projectileType !== 'arrow') {
       // Small impact effect for other projectiles (ice, etc.)
       preset = EXPLOSION_PRESETS.small.particles;

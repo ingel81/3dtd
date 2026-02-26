@@ -183,6 +183,9 @@ export class ThreeEffectsRenderer {
   // Frost aura tracking (orbiting ice particles per enemy)
   private activeFrostAuras = new Map<string, { particles: Particle[]; localPosition: Vector3; orbitAngle: number }>();
 
+  // Poison aura tracking (orbiting green particles per enemy)
+  private activePoisonAuras = new Map<string, { particles: Particle[]; localPosition: Vector3; orbitAngle: number }>();
+
   // Reusable temp vector for particle updates (avoids GC pressure)
   private readonly tempVelocity = new Vector3();
 
@@ -1139,6 +1142,85 @@ export class ThreeEffectsRenderer {
    */
   hasFrostAura(enemyId: string): boolean {
     return this.activeFrostAuras.has(enemyId);
+  }
+
+  /**
+   * Spawn orbiting green poison particles around a poisoned enemy.
+   */
+  spawnPoisonAura(enemyId: string, localPosition: Vector3): string {
+    if (this.activePoisonAuras.has(enemyId)) return enemyId;
+
+    const particleCount = 3;
+    const particles: Particle[] = [];
+    const center = localPosition.clone();
+
+    for (let i = 0; i < particleCount; i++) {
+      const particle = this.getInactiveParticle(this.trailPoolAdditive, 'trailAdditive');
+      if (!particle) break;
+
+      const angle = (i / particleCount) * Math.PI * 2;
+      const orbitRadius = 1.8;
+
+      particle.position.set(
+        center.x + Math.cos(angle) * orbitRadius,
+        center.y + 1.5 + Math.sin(angle * 0.5) * 0.3,
+        center.z + Math.sin(angle) * orbitRadius
+      );
+
+      particle.velocity.set(0, 0.3 + Math.random() * 0.2, 0);
+      particle.life = 1.0;
+      particle.maxLife = 999;
+      particle.size = 1.2 + Math.random() * 0.6;
+      particle.frameIndex = -1;
+      particle.totalFrames = 0;
+
+      // Green poison colors
+      const t = Math.random();
+      if (t < 0.5) {
+        particle.color.setRGB(0.2, 0.8, 0.1); // Green
+      } else {
+        particle.color.setRGB(0.5, 1.0, 0.2); // Yellow-green
+      }
+
+      particles.push(particle);
+    }
+
+    this.activePoisonAuras.set(enemyId, {
+      particles,
+      localPosition: center,
+      orbitAngle: 0,
+    });
+
+    return enemyId;
+  }
+
+  /**
+   * Update poison aura position to follow a moving enemy.
+   */
+  updatePoisonAuraPosition(enemyId: string, localPosition: Vector3): void {
+    const aura = this.activePoisonAuras.get(enemyId);
+    if (!aura) return;
+    aura.localPosition.copy(localPosition);
+  }
+
+  /**
+   * Stop poison aura on an enemy (poison expired).
+   */
+  stopPoisonAura(enemyId: string): void {
+    const aura = this.activePoisonAuras.get(enemyId);
+    if (!aura) return;
+
+    for (const p of aura.particles) {
+      p.life = 0;
+    }
+    this.activePoisonAuras.delete(enemyId);
+  }
+
+  /**
+   * Check if an enemy has an active poison aura
+   */
+  hasPoisonAura(enemyId: string): boolean {
+    return this.activePoisonAuras.has(enemyId);
   }
 
   /**
@@ -2190,6 +2272,29 @@ export class ThreeEffectsRenderer {
       }
     }
 
+    // Update poison aura particles (orbiting around poisoned enemies)
+    for (const [, aura] of this.activePoisonAuras) {
+      aura.orbitAngle += dt * 2.5; // Slightly slower than frost (2.5 vs 3.0 rad/s)
+      const orbitRadius = 1.8;
+      const center = aura.localPosition;
+      const count = aura.particles.length;
+
+      for (let i = 0; i < count; i++) {
+        const p = aura.particles[i];
+        if (p.life <= 0) continue;
+
+        const angle = aura.orbitAngle + (i / count) * Math.PI * 2;
+        p.position.set(
+          center.x + Math.cos(angle) * orbitRadius,
+          center.y + 1.5 + Math.sin(angle * 2) * 0.4,
+          center.z + Math.sin(angle) * orbitRadius
+        );
+
+        p.life = 1.0;
+        p.size = 1.0 + 0.4 * Math.sin(angle * 1.5);
+      }
+    }
+
     // Update GPU buffers
     this.updateParticleBuffers();
   }
@@ -2501,6 +2606,14 @@ export class ThreeEffectsRenderer {
       }
     }
     this.activeFrostAuras.clear();
+
+    // Clear poison auras
+    for (const [, aura] of this.activePoisonAuras) {
+      for (const p of aura.particles) {
+        p.life = 0;
+      }
+    }
+    this.activePoisonAuras.clear();
 
     // Clear instanced decals
     if (this.bloodDecalManager) {

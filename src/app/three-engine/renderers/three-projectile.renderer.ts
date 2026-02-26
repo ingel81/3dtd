@@ -182,6 +182,7 @@ export class ThreeProjectileRenderer {
   private iceManager: ProjectileInstanceManager;
   private bulletManager: ProjectileInstanceManager;
   private rocketManager: ProjectileInstanceManager;
+  private poisonManager: ProjectileInstanceManager;
 
   // Track which manager owns each projectile
   private projectileTypes = new Map<string, ProjectileVisualType>();
@@ -200,6 +201,7 @@ export class ThreeProjectileRenderer {
     this.iceManager = this.createIceManager();
     this.bulletManager = this.createBulletManager();
     this.rocketManager = this.createRocketManager();
+    this.poisonManager = this.createPoisonManager();
 
     // Load arrow model async
     this.loadArrowModel();
@@ -211,6 +213,7 @@ export class ThreeProjectileRenderer {
     scene.add(this.iceManager.instancedMesh);
     scene.add(this.bulletManager.instancedMesh);
     scene.add(this.rocketManager.instancedMesh);
+    scene.add(this.poisonManager.instancedMesh);
   }
 
   /**
@@ -365,6 +368,29 @@ export class ThreeProjectileRenderer {
     return new ProjectileInstanceManager(bodyGeometry, material, 100);
   }
 
+  private createPoisonManager(): ProjectileInstanceManager {
+    // Poison projectile: glowing green orb with custom shader
+    const geometry = new SphereGeometry(1.2, 32, 32);
+
+    const material = new ShaderMaterial({
+      vertexShader: MAGIC_ORB_VERTEX,
+      fragmentShader: MAGIC_ORB_FRAGMENT,
+      uniforms: {
+        uTime: { value: 0.0 },
+        uColor1: { value: new Color(0x1a6600) }, // Dark green
+        uColor2: { value: new Color(0x33cc00) }, // Vivid green
+        uColor3: { value: new Color(0xccff33) }, // Yellow-green highlights
+        uIntensity: { value: 2.5 },
+      },
+      transparent: true,
+      blending: AdditiveBlending,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+
+    return new ProjectileInstanceManager(geometry, material, 500);
+  }
+
   private getManager(visualType: ProjectileVisualType): ProjectileInstanceManager | null {
     switch (visualType) {
       case 'arrow':
@@ -379,6 +405,8 @@ export class ThreeProjectileRenderer {
         return this.bulletManager;
       case 'rocket':
         return this.rocketManager;
+      case 'poison':
+        return this.poisonManager;
     }
   }
 
@@ -507,7 +535,8 @@ export class ThreeProjectileRenderer {
       this.magicManager.count +
       this.iceManager.count +
       this.bulletManager.count +
-      this.rocketManager.count
+      this.rocketManager.count +
+      this.poisonManager.count
     );
   }
 
@@ -525,6 +554,7 @@ export class ThreeProjectileRenderer {
     this.iceManager.clear();
     this.bulletManager.clear();
     this.rocketManager.clear();
+    this.poisonManager.clear();
     this.projectileTypes.clear();
   }
 
@@ -543,6 +573,12 @@ export class ThreeProjectileRenderer {
     if (iceMaterial.uniforms?.['uTime']) {
       iceMaterial.uniforms['uTime'].value = time;
     }
+
+    // Update poison orb shader time uniform
+    const poisonMaterial = this.poisonManager.instancedMesh.material as ShaderMaterial;
+    if (poisonMaterial.uniforms?.['uTime']) {
+      poisonMaterial.uniforms['uTime'].value = time;
+    }
   }
 
   dispose(): void {
@@ -555,12 +591,14 @@ export class ThreeProjectileRenderer {
     this.scene.remove(this.iceManager.instancedMesh);
     this.scene.remove(this.bulletManager.instancedMesh);
     this.scene.remove(this.rocketManager.instancedMesh);
+    this.scene.remove(this.poisonManager.instancedMesh);
 
     this.cannonballManager.dispose();
     this.magicManager.dispose();
     this.iceManager.dispose();
     this.bulletManager.dispose();
     this.rocketManager.dispose();
+    this.poisonManager.dispose();
     this.projectileTypes.clear();
   }
 }

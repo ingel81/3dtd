@@ -167,6 +167,17 @@ export class MovementComponent extends Component {
       return;
     }
 
+    // For poison effects: only one can be active at a time (no stacking, refreshes timer)
+    if (effect.type === 'poison') {
+      const existingPoisonIndex = this.statusEffects.findIndex((e) => e.type === 'poison');
+      if (existingPoisonIndex >= 0) {
+        this.statusEffects[existingPoisonIndex] = effect;
+      } else {
+        this.statusEffects.push(effect);
+      }
+      return;
+    }
+
     // For other effects: check same type + source
     const existingIndex = this.statusEffects.findIndex(
       (e) => e.type === effect.type && e.sourceId === effect.sourceId
@@ -223,6 +234,20 @@ export class MovementComponent extends Component {
       (effect) => {
         const effectiveDuration = effect.duration / timescale;
         return effect.type === 'slow' && now - effect.startTime < effectiveDuration;
+      }
+    );
+  }
+
+  /**
+   * Check if entity has any active poison effects
+   * @param timescale Game speed multiplier (affects effective duration)
+   */
+  isPoisoned(timescale = 1.0): boolean {
+    const now = performance.now();
+    return this.statusEffects.some(
+      (effect) => {
+        const effectiveDuration = effect.duration / timescale;
+        return effect.type === 'poison' && now - effect.startTime < effectiveDuration;
       }
     );
   }

@@ -26,6 +26,7 @@ export interface EnemyInstanceState {
   isWalking: boolean;
   isDead: boolean;
   frozen: boolean;
+  poisoned: boolean;
   config: EnemyTypeConfig;
 }
 
@@ -51,6 +52,11 @@ interface TypePool {
 const FREEZE_TINT_R = 0.4;
 const FREEZE_TINT_G = 0.8;
 const FREEZE_TINT_B = 1.0;
+
+// Poison tint color (green)
+const POISON_TINT_R = 0.2;
+const POISON_TINT_G = 0.8;
+const POISON_TINT_B = 0.1;
 
 /**
  * EnemyInstanceManager
@@ -175,6 +181,7 @@ export class EnemyInstanceManager {
       isWalking: true,
       isDead: false,
       frozen: false,
+      poisoned: false,
       config,
     };
 
@@ -299,7 +306,33 @@ export class EnemyInstanceManager {
     if (active) {
       pool.tintColorAttr.setXYZ(state.index, FREEZE_TINT_R, FREEZE_TINT_G, FREEZE_TINT_B);
     } else {
-      pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
+      // When deactivating freeze, keep poison tint if poisoned
+      if (state.poisoned) {
+        pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
+      } else {
+        pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
+      }
+    }
+    pool.tintColorAttr.needsUpdate = true;
+  }
+
+  setPoisonVisual(id: string, active: boolean): void {
+    const state = this.getState(id);
+    if (!state) return;
+
+    state.poisoned = active;
+    const pool = this.pools.get(state.typeId);
+    if (!pool) return;
+
+    if (active) {
+      // Don't override freeze tint (freeze takes visual priority)
+      if (!state.frozen) {
+        pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
+      }
+    } else {
+      if (!state.frozen) {
+        pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
+      }
     }
     pool.tintColorAttr.needsUpdate = true;
   }
