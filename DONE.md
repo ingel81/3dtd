@@ -4,6 +4,39 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-02-27
+
+### Fix: Gegner spawnen unter der Erde nach radikalem Zoom
+- [x] **Tile-Quality-Aware Route Protection**
+      Beim schnellen Rein-/Rauszoomen wechselten 3D Tiles auf Low-LOD, was zu
+      20m+ niedrigeren Terrain-Hoehen fuehrte. Route-Neuberechnung gegen diese
+      Low-LOD Tiles liess Gegner unter dem Terrain spawnen (620 betroffene Enemies
+      mit exakt 20.132m Desync im Debug-Log nachgewiesen).
+      **Fix:** Tile-Qualitaets-Tracking per `geometricError` (3D-Tiles-Standard LOD-Metrik).
+      Bei jeder Route-Berechnung wird via `forEachLoadedModel()` eine Scene→Tile Lookup-Map
+      gebaut. Waehrend der Hoehen-Raycasts wird per Parent-Walk das getroffene Tile
+      identifiziert und dessen `geometricError` aufgezeichnet. Neue Routen-Hoehen werden
+      nur akzeptiert wenn die Tile-Qualitaet nicht schlechter als 2× gegenueber der
+      vorherigen Berechnung ist. Visuelle Route-Linien werden immer aktualisiert.
+      Kein zusaetzlicher Raycast, Performance-Impact < 0.1ms pro Route.
+      Dateien: `three-tiles-engine.ts` (Tile Quality Tracking API),
+      `path-route.service.ts` (Quality-gated cachedPaths)
+
+### Nachtraegliche Bereinigung: bereits erledigte TODOs
+- [x] **Air Priority Sub-Strategie**
+      `closest`/`lowest-hp`/`highest-hp` als AirSubStrategy implementiert.
+      Tower-Entity, Targeting-Logik und Sidebar-UI unterstuetzen Auswahl.
+      Dateien: `tower-types.config.ts`, `tower.entity.ts`, `game-sidebar.component.ts`
+- [x] **Fire Tower "Wide Burn" Upgrade**
+      Modifiziert `beamWidth` (Flammen-Kegelbreite, ×1.3 pro Level), nicht Range.
+      Eigene `getEffectiveBeamWidth()` Logik in `tower-combat.service.ts`.
+      Dateien: `tower-types.config.ts`, `tower-combat.service.ts`
+- [x] **Kamera-Boundaries**
+      `minDistance=5`, `maxDistance=2000` auf EnvironmentControls gesetzt.
+      Dateien: `three-tiles-engine.ts`
+
+---
+
 ## 2026-02-25
 
 ### Mixed Waves (Multi-Type Spawning)
