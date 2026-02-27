@@ -383,6 +383,34 @@ if (pathHasHeights) {
 - Ersetzt Ausreißer durch interpolierte Werte
 - Verhindert dass Gebäude/Bäume die Route beeinflussen
 
+### Tile-Quality Route Protection
+
+Beim Zoomen wechseln 3D Tiles ihr LOD-Level. Low-LOD Tiles liefern bis zu 20m+ niedrigere
+Terrain-Höhen. Ohne Schutz würden Route-Neuberechnungen gegen diese Low-LOD Tiles falsche
+Höhen in `cachedPaths` speichern → Gegner spawnen unter dem Terrain.
+
+**Lösung:** Tile-Qualitäts-Tracking per `geometricError` (3D-Tiles-Standard):
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│  Route Calculation (path-route.service.ts)                    │
+│  1. startTileQualityTracking()                                │
+│     → forEachLoadedModel() baut Map<Scene, TileInfo>          │
+│  2. Height raycasts (normal, gecacht)                         │
+│     → Bei jedem Raycast-Hit: Mesh → parent walk → Tile       │
+│     → geometricError + __depth aufzeichnen                    │
+│  3. stopTileQualityTracking() → avgGeometricError             │
+│  4. Vergleich mit vorheriger Berechnung:                      │
+│     - Wenn >2× schlechter → REJECT (alte cachedPaths behalten)│
+│     - Sonst → ACCEPT (neue cachedPaths speichern)             │
+│  5. Visuelle Route-Linie wird IMMER aktualisiert              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+`geometricError`: niedrig = detailliert (5–50), hoch = grob (200–500).
+LOD-Wechsel verursacht 3–10× Sprung → klar detektierbar.
+Performance-Impact: < 0.1ms (kein zusätzlicher Raycast).
+
 ---
 
 ## 2. Core System: GameObject & Components

@@ -566,8 +566,6 @@ export class VisualizationFacadeService {
     const engine = this.bridge.getEngine();
     if (!engine || !this.bridge.getFilteredStreetNetwork()) return;
 
-    console.debug('[VizFacade:HeightDebug] onTilesLoaded() → refreshing streets, markers, routes');
-
     this.renderStreets();
 
     // Re-render buildings if loaded

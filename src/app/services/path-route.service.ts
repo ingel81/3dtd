@@ -38,6 +38,13 @@ export class PathAndRouteService {
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, GeoPosition[]>();
 
+  /** Tile quality metrics from last accepted route calculation per spawn */
+  private cachedPathQuality = new Map<string, { avgGeometricError: number }>();
+
+  /** Reject route if tile geometric error increased by more than this factor.
+   *  LOD drops cause 3-10× increase, normal variation is <1.5×. */
+  private readonly QUALITY_REJECT_FACTOR = 2.0;
+
   /** 3D route lines for visualization (using Line2 for proper line width) */
   private routeLines: Line2[] = [];
 
@@ -139,6 +146,7 @@ export class PathAndRouteService {
    */
   clearCache(): void {
     this.cachedPaths.clear();
+    this.cachedPathQuality.clear();
   }
 
   /**
@@ -384,6 +392,9 @@ export class PathAndRouteService {
     const origin = this.engine.sync.getOrigin();
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
 
+    // Start tile quality tracking (piggybacks on raycasts to record tile LOD info)
+    this.engine.startTileQualityTracking();
+
     // Track which positions got valid terrain samples
     const validIndices: number[] = [];
     const terrainHeights: number[] = [];
@@ -448,17 +459,19 @@ export class PathAndRouteService {
         return { ...pos, height: lastValidGeoHeight };
       }
     });
-    this.cachedPaths.set(spawn.id, pathWithHeights);
+    // Stop tile quality tracking and check if route should be accepted
+    const quality = this.engine.stopTileQualityTracking();
+    const prevQuality = this.cachedPathQuality.get(spawn.id);
 
-    // DEBUG: Log route height statistics for desync detection
-    const heights = pathWithHeights.filter(p => p.height !== undefined).map(p => p.height!);
-    if (heights.length > 0) {
-      const minH = Math.min(...heights);
-      const maxH = Math.max(...heights);
-      const avgH = heights.reduce((a, b) => a + b, 0) / heights.length;
-      console.debug(
-        `[RouteHeight:HeightDebug] ${spawn.id} | points=${pathWithHeights.length} | heights: min=${minH.toFixed(3)} max=${maxH.toFixed(3)} avg=${avgH.toFixed(3)} | originTerrainY=${originTerrainY.toFixed(3)} | originH=${origin.height.toFixed(3)}`
-      );
+    // Reject if tiles are significantly worse (lower LOD) than previous calculation
+    if (prevQuality && quality &&
+        quality.avgGeometricError > prevQuality.avgGeometricError * this.QUALITY_REJECT_FACTOR) {
+      // Keep old cachedPaths (gameplay-critical), visual route line below is still recreated
+    } else {
+      this.cachedPaths.set(spawn.id, pathWithHeights);
+      if (quality) {
+        this.cachedPathQuality.set(spawn.id, { avgGeometricError: quality.avgGeometricError });
+      }
     }
 
     // Convert points to flat array for LineGeometry
