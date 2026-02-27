@@ -125,6 +125,8 @@ export class ThreeTilesEngine {
 
   // Debug flag: reset when tiles are loaded so we get debug output
   private tilesWereLoaded = false;
+  // DEBUG: Timer for periodic height cache validation
+  private debugLastCacheValidation = 0;
 
   // Pre-computed initial camera position (set before initialize())
   private initialCameraPosition: InitialCameraPosition | null = null;
@@ -635,6 +637,15 @@ export class ThreeTilesEngine {
       const freshOriginHeight = this.raycastTerrainHeight(0, 0);
       const stats = this.getTileStats();
 
+      // DEBUG: Log every tile-load-end with height info
+      const groupPos = this.tilesRenderer?.group.position;
+      console.debug(
+        `[TilesEngine:HeightDebug] tiles-load-end | freshOriginH=${freshOriginHeight?.toFixed(3)} | lastOriginH=${this.lastOriginHeight?.toFixed(3)} | delta=${
+          freshOriginHeight !== null && this.lastOriginHeight !== null
+            ? Math.abs(freshOriginHeight - this.lastOriginHeight).toFixed(3)
+            : 'N/A'
+        } | threshold=${this.HEIGHT_CHANGE_THRESHOLD} | cacheSize=${this.heightCache.size} | tiles=${stats.visible}/${stats.total} | groupPos=(${groupPos?.x.toFixed(1)},${groupPos?.y.toFixed(1)},${groupPos?.z.toFixed(1)})`
+      );
 
       // FIRST TILES LOADED - primarily wait for raycast success
       // Raycast hitting terrain means tiles are loaded AND stable (not mid-LOD-transition)
@@ -668,10 +679,18 @@ export class ThreeTilesEngine {
 
           // Clear cache and notify for full refresh
           this.heightCache.clear();
+          console.debug(
+            `[TilesEngine:HeightDebug] ✓ CACHE CLEARED & CALLBACK (delta=${heightDelta.toFixed(3)} > ${this.HEIGHT_CHANGE_THRESHOLD})`
+          );
 
           if (this.onTilesLoadCallback) {
             this.onTilesLoadCallback();
           }
+        } else {
+          // DEBUG: Log when cache is NOT cleared (potential stale data)
+          console.debug(
+            `[TilesEngine:HeightDebug] ✗ Cache NOT cleared (delta=${heightDelta.toFixed(3)} <= ${this.HEIGHT_CHANGE_THRESHOLD}) — stale heights possible!`
+          );
         }
       }
     }, this.TILES_LOAD_DEBOUNCE_MS);
@@ -1393,6 +1412,60 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * DEBUG: Validate cached heights against fresh raycasts.
+   * Call periodically (e.g., every few seconds) to detect stale cache entries.
+   * Samples up to `maxSamples` random entries from the cache.
+   */
+  debugValidateHeightCache(maxSamples = 5): void {
+    if (this.heightCache.size === 0) {
+      console.debug('[TilesEngine:HeightDebug] validateCache: cache empty');
+      return;
+    }
+
+    const entries = Array.from(this.heightCache.entries());
+    const sampleCount = Math.min(maxSamples, entries.length);
+    const indices = new Set<number>();
+    while (indices.size < sampleCount) {
+      indices.add(Math.floor(Math.random() * entries.length));
+    }
+
+    let maxDiff = 0;
+    let staleCount = 0;
+    const results: string[] = [];
+
+    for (const idx of indices) {
+      const [key, cachedHeight] = entries[idx];
+      const [latStr, lonStr] = key.split('_');
+      const lat = parseFloat(latStr);
+      const lon = parseFloat(lonStr);
+
+      // Fresh raycast (bypass cache)
+      const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
+      const freshHeight = this.raycastTerrainHeight(localPos.x, localPos.z);
+
+      if (freshHeight !== null) {
+        const diff = Math.abs(cachedHeight - freshHeight);
+        maxDiff = Math.max(maxDiff, diff);
+        if (diff > 0.5) {
+          staleCount++;
+          results.push(`(${lat.toFixed(5)},${lon.toFixed(5)}): cached=${cachedHeight.toFixed(3)} fresh=${freshHeight.toFixed(3)} diff=${diff.toFixed(3)}`);
+        }
+      }
+    }
+
+    if (staleCount > 0) {
+      console.warn(
+        `[TilesEngine:HeightDebug] ⚠️ STALE CACHE: ${staleCount}/${sampleCount} samples differ >0.5m (maxDiff=${maxDiff.toFixed(3)}m)\n` +
+        results.join('\n')
+      );
+    } else {
+      console.debug(
+        `[TilesEngine:HeightDebug] validateCache: ${sampleCount} samples OK (maxDiff=${maxDiff.toFixed(3)}m, cacheSize=${this.heightCache.size})`
+      );
+    }
+  }
+
+  /**
    * Preload heights for a path
    */
   async preloadHeightsForPath(path: { lat: number; lon: number }[]): Promise<void> {
@@ -1533,6 +1606,16 @@ export class ThreeTilesEngine {
     // Sync overlayGroup with tiles movement (only after initial pos is captured)
     if (this.tilesPosInitialized) {
       const deltaPos = this.tilesRenderer.group.position.clone().sub(this.initialTilesPos);
+
+      // DEBUG: Log significant delta changes (potential desync source)
+      const prevDelta = this.overlayGroup.position.clone();
+      const newY = deltaPos.y + this.overlayBaseY;
+      if (Math.abs(prevDelta.y - newY) > 0.5 || Math.abs(prevDelta.x - deltaPos.x) > 0.5 || Math.abs(prevDelta.z - deltaPos.z) > 0.5) {
+        console.debug(
+          `[TilesEngine:HeightDebug] overlayGroup SHIFT | deltaXYZ=(${deltaPos.x.toFixed(2)},${deltaPos.y.toFixed(2)},${deltaPos.z.toFixed(2)}) | overlayBaseY=${this.overlayBaseY.toFixed(2)} | newGroupY=${newY.toFixed(2)} | prevGroupY=${prevDelta.y.toFixed(2)}`
+        );
+      }
+
       // Apply delta X/Z, but Y = delta + base terrain height
       this.overlayGroup.position.set(deltaPos.x, deltaPos.y + this.overlayBaseY, deltaPos.z);
     }
@@ -1546,6 +1629,13 @@ export class ThreeTilesEngine {
 
     // Update FPS
     this.updateFPS();
+
+    // DEBUG: Periodic height cache validation (every 5 seconds)
+    const now = performance.now();
+    if (now - this.debugLastCacheValidation > 5000 && this.heightCache.size > 0) {
+      this.debugLastCacheValidation = now;
+      this.debugValidateHeightCache(5);
+    }
   }
 
   /**

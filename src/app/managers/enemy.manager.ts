@@ -154,10 +154,12 @@ export class EnemyManager extends EntityManager<Enemy> {
     const startPos = path[0];
     const origin = this.tilesEngine.sync.getOrigin();
     let geoHeight: number;
+    let heightSource: string;
 
     if (startPos.height !== undefined && startPos.height !== 0) {
       // Path has pre-computed smoothed height - use it
       geoHeight = startPos.height;
+      heightSource = 'path';
     } else {
       // Fallback: sample terrain height at spawn position
       const localTerrainY = this.tilesEngine.getTerrainHeightAtGeo(startPos.lat, startPos.lon);
@@ -165,7 +167,16 @@ export class EnemyManager extends EntityManager<Enemy> {
       // geoToLocalSimple does: Y = height - originHeight
       // So we need: geoHeight = localY + originHeight
       geoHeight = localTerrainY !== null ? localTerrainY + origin.height : origin.height;
+      heightSource = localTerrainY !== null ? `raycast(localY=${localTerrainY.toFixed(3)})` : 'fallback(origin)';
     }
+
+    // DEBUG: Compare path height with live raycast to detect desync
+    const liveTerrainY = this.tilesEngine.getTerrainHeightAtGeo(startPos.lat, startPos.lon);
+    const liveGeoHeight = liveTerrainY !== null ? liveTerrainY + origin.height : null;
+    const heightDiff = liveGeoHeight !== null ? Math.abs(geoHeight - liveGeoHeight) : -1;
+    console.debug(
+      `[EnemySpawn:HeightDebug] ${typeId} #${enemy.id} | source=${heightSource} | geoH=${geoHeight.toFixed(3)} | liveGeoH=${liveGeoHeight?.toFixed(3) ?? 'null'} | diff=${heightDiff >= 0 ? heightDiff.toFixed(3) : 'N/A'} | originH=${origin.height.toFixed(3)} | pos=(${startPos.lat.toFixed(5)},${startPos.lon.toFixed(5)})${heightDiff > 1 ? ' ⚠️ DESYNC!' : ''}`
+    );
 
     enemy.transform.terrainHeight = geoHeight;
 

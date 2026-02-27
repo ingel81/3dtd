@@ -450,6 +450,17 @@ export class PathAndRouteService {
     });
     this.cachedPaths.set(spawn.id, pathWithHeights);
 
+    // DEBUG: Log route height statistics for desync detection
+    const heights = pathWithHeights.filter(p => p.height !== undefined).map(p => p.height!);
+    if (heights.length > 0) {
+      const minH = Math.min(...heights);
+      const maxH = Math.max(...heights);
+      const avgH = heights.reduce((a, b) => a + b, 0) / heights.length;
+      console.debug(
+        `[RouteHeight:HeightDebug] ${spawn.id} | points=${pathWithHeights.length} | heights: min=${minH.toFixed(3)} max=${maxH.toFixed(3)} avg=${avgH.toFixed(3)} | originTerrainY=${originTerrainY.toFixed(3)} | originH=${origin.height.toFixed(3)}`
+      );
+    }
+
     // Convert points to flat array for LineGeometry
     const positions: number[] = [];
     for (const pt of smoothedPoints) {
