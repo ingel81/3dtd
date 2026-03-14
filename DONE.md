@@ -34,6 +34,20 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 - [x] **Kamera-Boundaries**
       `minDistance=5`, `maxDistance=2000` auf EnvironmentControls gesetzt.
       Dateien: `three-tiles-engine.ts`
+- [x] **Poison Tower**
+      DOT Damage, gruene Visuals, Splash Poisoning.
+      Dateien: `tower-types.config.ts`, `projectile-types.config.ts`
+- [x] **Floating Damage Numbers**
+      GPU-instanzierte Schadenszahlen ueber Gegnern, togglebar.
+      Dateien: `floating-text-instance.manager.ts`, `floating-text-material.ts`, `floating-text-atlas.ts`
+- [x] **Route-Terrain-Desync (BEKANNTE ISSUES)**
+      Durch Tile-Quality-Aware Route Protection behoben — Low-LOD Routen
+      werden nicht mehr als Gameplay-Hoehen akzeptiert.
+
+### TODO.md Cleanup
+- Erledigte Eintraege entfernt (Poison Tower, Floating Damage Numbers, Route-Desync,
+  Height-Refinement obsolet durch Tile-Quality-Fix)
+- console.log Zahl aktualisiert: ~196 → ~68 Stellen in ~18 Dateien
 
 ---
 
