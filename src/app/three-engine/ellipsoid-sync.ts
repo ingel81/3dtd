@@ -21,6 +21,13 @@ export class EllipsoidSync {
   private originLonRad: number;
   private originHeight: number;
 
+  // Cached origin in degrees (avoid RAD2DEG multiplication per call in hot path)
+  private originLatDeg: number = 0;
+  private originLonDeg: number = 0;
+
+  // Cached cosine of origin latitude (avoids 10000+ Math.cos() calls per frame in hot path)
+  private originLatCos: number = 1;
+
   // Cached transformation matrices
   private originMatrix = new Matrix4();
   private inverseOriginMatrix = new Matrix4();
@@ -32,6 +39,9 @@ export class EllipsoidSync {
   constructor(originLat: number, originLon: number, originHeight = 0) {
     this.originLatRad = originLat * MathUtils.DEG2RAD;
     this.originLonRad = originLon * MathUtils.DEG2RAD;
+    this.originLatDeg = originLat;
+    this.originLonDeg = originLon;
+    this.originLatCos = Math.cos(originLat * MathUtils.DEG2RAD);
     this.originHeight = originHeight;
     this.updateOriginMatrix();
   }
@@ -49,6 +59,9 @@ export class EllipsoidSync {
   setOrigin(lat: number, lon: number, height = 0): void {
     this.originLatRad = lat * MathUtils.DEG2RAD;
     this.originLonRad = lon * MathUtils.DEG2RAD;
+    this.originLatDeg = lat;
+    this.originLonDeg = lon;
+    this.originLatCos = Math.cos(lat * MathUtils.DEG2RAD);
     this.originHeight = height;
     this.updateOriginMatrix();
   }
@@ -240,24 +253,16 @@ export class EllipsoidSync {
    * @returns Three.js Vector3 in local coordinates
    */
   geoToLocalSimple(lat: number, lon: number, height: number): Vector3 {
-    const originLat = this.originLatRad * MathUtils.RAD2DEG;
-    const originLon = this.originLonRad * MathUtils.RAD2DEG;
-
-    // Calculate East offset (X)
-    // With ReorientationPlugin: -X = East, +X = West
-    const eastDist = this.fastDistance(originLat, originLon, originLat, lon);
-    const eastSign = lon > originLon ? -1 : 1; // Inverted: East is negative X
-
-    // Calculate North offset (Z)
-    // With ReorientationPlugin + tiles.group.rotation.x = -PI/2:
-    // +Z = North, -Z = South
-    const northDist = this.fastDistance(originLat, originLon, lat, originLon);
-    const northSign = lat > originLat ? 1 : -1;
+    // Inline fast conversion: no fastDistance() calls, no sqrt (1D distances)
+    // Uses cached originLatCos to avoid per-call Math.cos()
+    const dLon = lon - this.originLonDeg;
+    const dLat = lat - this.originLatDeg;
+    const METERS_PER_DEG = 111320;
 
     return new Vector3(
-      eastDist * eastSign, // -X = East
+      -dLon * METERS_PER_DEG * this.originLatCos, // -X = East
       height - this.originHeight,
-      northDist * northSign // +Z = North
+      dLat * METERS_PER_DEG // +Z = North
     );
   }
 
@@ -266,18 +271,16 @@ export class EllipsoidSync {
    * Use in hot loops where per-frame allocation matters.
    */
   geoToLocalSimpleInto(lat: number, lon: number, height: number, target: Vector3): Vector3 {
-    const originLat = this.originLatRad * MathUtils.RAD2DEG;
-    const originLon = this.originLonRad * MathUtils.RAD2DEG;
-
-    const eastDist = this.fastDistance(originLat, originLon, originLat, lon);
-    const eastSign = lon > originLon ? -1 : 1;
-    const northDist = this.fastDistance(originLat, originLon, lat, originLon);
-    const northSign = lat > originLat ? 1 : -1;
+    // Inline fast conversion: no fastDistance() calls, no sqrt (1D distances)
+    // Uses cached originLatCos to avoid per-call Math.cos()
+    const dLon = lon - this.originLonDeg;
+    const dLat = lat - this.originLatDeg;
+    const METERS_PER_DEG = 111320;
 
     target.set(
-      eastDist * eastSign,
+      -dLon * METERS_PER_DEG * this.originLatCos, // -X = East
       height - this.originHeight,
-      northDist * northSign
+      dLat * METERS_PER_DEG // +Z = North
     );
     return target;
   }

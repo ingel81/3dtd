@@ -32,6 +32,16 @@ export class MovementComponent extends Component {
   private previousLon = 0;
   private hasMovedOnce = false;
 
+  // Cached segment perpendicular vector (recalculated on segment change only)
+  private cachedPerpLat = 0;
+  private cachedPerpLon = 0;
+  private cachedPerpSegIdx = -1;
+  private cachedPerpValid = false;
+  private cachedMetersPerDegree = 111000; // Cached lat→meter conversion for lateral offset
+
+  // Reusable lookAt target (avoid object literal allocation per frame)
+  private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
+
   constructor(gameObject: GameObject) {
     super(gameObject);
   }
@@ -64,6 +74,8 @@ export class MovementComponent extends Component {
     this.path = path;
     this.currentIndex = 0;
     this.progress = 0;
+    this.cachedPerpSegIdx = -1;
+    this.cachedPerpValid = false;
     this.precomputeSegmentLengths();
 
     // Set initial position
@@ -117,8 +129,8 @@ export class MovementComponent extends Component {
   /**
    * Get effective speed with timescale
    */
-  getEffectiveSpeed(timescale = 1.0): number {
-    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(timescale);
+  getEffectiveSpeed(timescale = 1.0, now?: number): number {
+    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(timescale, now);
   }
 
   /**
@@ -192,30 +204,73 @@ export class MovementComponent extends Component {
   }
 
   /**
+   * Single-pass status effect update: removes expired effects in-place
+   * and returns active slow/poison flags + slow multiplier.
+   * Replaces 3 separate calls (removeExpiredEffects + isSlowed + isPoisoned).
+   * @param timescale Game speed multiplier (affects effective duration)
+   * @param now Current timestamp from performance.now() (cached per frame)
+   */
+  updateStatusEffects(timescale: number, now: number): {
+    isSlowed: boolean;
+    isPoisoned: boolean;
+    slowMultiplier: number;
+  } {
+    let writeIdx = 0;
+    let isSlowed = false;
+    let isPoisoned = false;
+    let slowMultiplier = 1.0;
+
+    for (let i = 0; i < this.statusEffects.length; i++) {
+      const effect = this.statusEffects[i];
+      const effectiveDuration = effect.duration / timescale;
+      if (now - effect.startTime < effectiveDuration) {
+        // Effect still active — keep it
+        this.statusEffects[writeIdx++] = effect;
+        if (effect.type === 'slow') {
+          isSlowed = true;
+          slowMultiplier = 1 - effect.value;
+        } else if (effect.type === 'freeze') {
+          isSlowed = true;
+        } else if (effect.type === 'poison') {
+          isPoisoned = true;
+        }
+      }
+    }
+    this.statusEffects.length = writeIdx; // In-place compact, no allocation
+
+    return { isSlowed, isPoisoned, slowMultiplier };
+  }
+
+  /**
    * Remove expired status effects
    * @param timescale Game speed multiplier (affects effective duration)
+   * @param now Optional cached timestamp (avoids performance.now() call)
    */
-  removeExpiredEffects(timescale = 1.0): void {
-    const now = performance.now();
-    this.statusEffects = this.statusEffects.filter(
-      (effect) => {
-        const effectiveDuration = effect.duration / timescale;
-        return now - effect.startTime < effectiveDuration;
+  removeExpiredEffects(timescale = 1.0, now?: number): void {
+    const t = now ?? performance.now();
+    let writeIdx = 0;
+    for (let i = 0; i < this.statusEffects.length; i++) {
+      const effect = this.statusEffects[i];
+      const effectiveDuration = effect.duration / timescale;
+      if (t - effect.startTime < effectiveDuration) {
+        this.statusEffects[writeIdx++] = effect;
       }
-    );
+    }
+    this.statusEffects.length = writeIdx;
   }
 
   /**
    * Get slow multiplier from active slow effect (only one can be active)
    * Returns 1.0 if not slowed, lower value if slowed (e.g. 0.5 = 50% speed)
    * @param timescale Game speed multiplier (affects effective duration)
+   * @param now Optional cached timestamp (avoids performance.now() call)
    */
-  getSlowMultiplier(timescale = 1.0): number {
-    const now = performance.now();
+  getSlowMultiplier(timescale = 1.0, now?: number): number {
+    const t = now ?? performance.now();
 
     for (const effect of this.statusEffects) {
       const effectiveDuration = effect.duration / timescale;
-      if (effect.type === 'slow' && now - effect.startTime < effectiveDuration) {
+      if (effect.type === 'slow' && t - effect.startTime < effectiveDuration) {
         // Slow effect active - return reduced speed multiplier
         return 1 - effect.value;
       }
@@ -227,13 +282,14 @@ export class MovementComponent extends Component {
   /**
    * Check if entity has any active slow effects
    * @param timescale Game speed multiplier (affects effective duration)
+   * @param now Optional cached timestamp (avoids performance.now() call)
    */
-  isSlowed(timescale = 1.0): boolean {
-    const now = performance.now();
+  isSlowed(timescale = 1.0, now?: number): boolean {
+    const t = now ?? performance.now();
     return this.statusEffects.some(
       (effect) => {
         const effectiveDuration = effect.duration / timescale;
-        return effect.type === 'slow' && now - effect.startTime < effectiveDuration;
+        return effect.type === 'slow' && t - effect.startTime < effectiveDuration;
       }
     );
   }
@@ -241,13 +297,14 @@ export class MovementComponent extends Component {
   /**
    * Check if entity has any active poison effects
    * @param timescale Game speed multiplier (affects effective duration)
+   * @param now Optional cached timestamp (avoids performance.now() call)
    */
-  isPoisoned(timescale = 1.0): boolean {
-    const now = performance.now();
+  isPoisoned(timescale = 1.0, now?: number): boolean {
+    const t = now ?? performance.now();
     return this.statusEffects.some(
       (effect) => {
         const effectiveDuration = effect.duration / timescale;
-        return effect.type === 'poison' && now - effect.startTime < effectiveDuration;
+        return effect.type === 'poison' && t - effect.startTime < effectiveDuration;
       }
     );
   }
@@ -256,9 +313,11 @@ export class MovementComponent extends Component {
    * Move along path
    * @param deltaTime Delta time in milliseconds (already scaled by timescale)
    * @param timescale Game speed multiplier (for status effect duration)
+   * @param now Optional cached performance.now() timestamp
+   * @param cachedSlowMult Optional pre-computed slow multiplier from updateStatusEffects()
    * @returns 'moving' if still moving, 'reached_end' if path complete
    */
-  move(deltaTime: number, timescale = 1.0): 'moving' | 'reached_end' {
+  move(deltaTime: number, timescale = 1.0, now?: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
     if (this.paused || this.path.length < 2) return 'moving';
 
     const transform = this.gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM);
@@ -269,8 +328,9 @@ export class MovementComponent extends Component {
     const cappedDelta = Math.min(deltaTime, maxDelta);
     const deltaSeconds = cappedDelta / 1000;
 
-    // Movement in meters per frame (includes slow effects via effectiveSpeed)
-    const metersThisFrame = this.getEffectiveSpeed(timescale) * deltaSeconds;
+    // Movement in meters per frame — use cached slow multiplier if available (avoids re-iterating statusEffects)
+    const slowMult = cachedSlowMult ?? this.getSlowMultiplier(timescale, now);
+    const metersThisFrame = this.speedMps * this.speedMultiplier * slowMult * deltaSeconds;
 
     // Current segment length
     const segmentLength = this.segmentLengths[this.currentIndex] || 1;
@@ -282,6 +342,7 @@ export class MovementComponent extends Component {
     while (this.progress >= 1) {
       this.progress -= 1;
       this.currentIndex++;
+      this.cachedPerpValid = false; // Invalidate cached perpendicular on segment change
 
       if (this.currentIndex >= this.path.length - 1) {
         return 'reached_end';
@@ -298,18 +359,28 @@ export class MovementComponent extends Component {
 
       // Apply lateral offset perpendicular to movement direction
       if (this.lateralOffsetMeters !== 0) {
-        const dLat = next.lat - current.lat;
-        const dLon = next.lon - current.lon;
-        const len = Math.sqrt(dLat * dLat + dLon * dLon);
-        if (len > 0) {
-          // Perpendicular vector (rotated 90 degrees)
-          const perpLat = -dLon / len;
-          const perpLon = dLat / len;
-          // Convert meters to approximate degrees (at this latitude)
-          const metersPerDegree = 111000 * Math.cos((newLat * Math.PI) / 180);
-          const offsetDegrees = this.lateralOffsetMeters / metersPerDegree;
-          newLat += perpLat * offsetDegrees;
-          newLon += perpLon * offsetDegrees;
+        // Cache perpendicular vector per segment (recalc only on segment change)
+        if (!this.cachedPerpValid || this.cachedPerpSegIdx !== this.currentIndex) {
+          const dLat = next.lat - current.lat;
+          const dLon = next.lon - current.lon;
+          const lenSq = dLat * dLat + dLon * dLon;
+          if (lenSq > 0) {
+            const len = Math.sqrt(lenSq);
+            this.cachedPerpLat = -dLon / len;
+            this.cachedPerpLon = dLat / len;
+          } else {
+            this.cachedPerpLat = 0;
+            this.cachedPerpLon = 0;
+          }
+          // Cache metersPerDegree at segment start (varies <0.01% within a segment)
+          this.cachedMetersPerDegree = 111000 * Math.cos((newLat * Math.PI) / 180);
+          this.cachedPerpSegIdx = this.currentIndex;
+          this.cachedPerpValid = true;
+        }
+        if (this.cachedPerpLat !== 0 || this.cachedPerpLon !== 0) {
+          const offsetDegrees = this.lateralOffsetMeters / this.cachedMetersPerDegree;
+          newLat += this.cachedPerpLat * offsetDegrees;
+          newLon += this.cachedPerpLon * offsetDegrees;
         }
       }
 
@@ -330,10 +401,14 @@ export class MovementComponent extends Component {
       if (this.hasMovedOnce) {
         const dLat = newLat - this.previousLat;
         const dLon = newLon - this.previousLon;
-        const moveDist = Math.sqrt(dLat * dLat + dLon * dLon);
-        // Only update heading if we've moved a meaningful distance
-        if (moveDist > 0.0000001) {
-          transform.lookAt({ lat: newLat + dLat, lon: newLon + dLon });
+        // Use squared distance to avoid sqrt (only checking threshold)
+        const moveDistSq = dLat * dLat + dLon * dLon;
+        if (moveDistSq > 1e-14) {
+          // Reuse static object to avoid per-frame allocation
+          const target = MovementComponent._lookAtTarget;
+          target.lat = newLat + dLat;
+          target.lon = newLon + dLon;
+          transform.lookAt(target);
         }
       } else {
         // First frame: look at next waypoint

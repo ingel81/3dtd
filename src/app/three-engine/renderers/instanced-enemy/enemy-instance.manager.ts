@@ -46,6 +46,10 @@ interface TypePool {
   animFrameAttr: InstancedBufferAttribute;
   tintColorAttr: InstancedBufferAttribute;
   opacityAttr: InstancedBufferAttribute;
+
+  // Dirty flags for batched GPU buffer updates (set per-instance, flushed once per frame)
+  matrixDirty: boolean;
+  tintDirty: boolean;
 }
 
 // Freeze tint color (light blue)
@@ -127,6 +131,8 @@ export class EnemyInstanceManager {
       animFrameAttr,
       tintColorAttr,
       opacityAttr,
+      matrixDirty: false,
+      tintDirty: false,
     });
   }
 
@@ -162,7 +168,7 @@ export class EnemyInstanceManager {
     pool.tintColorAttr.setXYZ(index, 0, 0, 0);
     pool.opacityAttr.setX(index, 1.0);
     pool.animFrameAttr.needsUpdate = true;
-    pool.tintColorAttr.needsUpdate = true;
+    pool.tintDirty = true;
     pool.opacityAttr.needsUpdate = true;
 
     // Determine initial animation
@@ -313,7 +319,7 @@ export class EnemyInstanceManager {
         pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
       }
     }
-    pool.tintColorAttr.needsUpdate = true;
+    pool.tintDirty = true;
   }
 
   setPoisonVisual(id: string, active: boolean): void {
@@ -334,7 +340,7 @@ export class EnemyInstanceManager {
         pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
       }
     }
-    pool.tintColorAttr.needsUpdate = true;
+    pool.tintDirty = true;
   }
 
   /**
@@ -370,9 +376,9 @@ export class EnemyInstanceManager {
           state.animTime += deltaTime * state.animSpeed;
         }
 
-        // Compute current frame
+        // Compute current frame (totalTime pre-computed on entry)
         let localFrame: number;
-        const totalTime = entry.frameCount / pool.vatData.fps;
+        const totalTime = entry.totalTime;
 
         if (state.isDead) {
           // Clamp at last frame
@@ -519,6 +525,22 @@ export class EnemyInstanceManager {
       EnemyInstanceManager._tempScale,
     );
     pool.instancedMesh.setMatrixAt(index, this.matrix);
-    pool.instancedMesh.instanceMatrix.needsUpdate = true;
+    pool.matrixDirty = true;
+  }
+
+  /**
+   * Flush all dirty GPU buffer flags. Call once per frame after all updates.
+   */
+  flushDirtyFlags(): void {
+    for (const pool of this.pools.values()) {
+      if (pool.matrixDirty) {
+        pool.instancedMesh.instanceMatrix.needsUpdate = true;
+        pool.matrixDirty = false;
+      }
+      if (pool.tintDirty) {
+        pool.tintColorAttr.needsUpdate = true;
+        pool.tintDirty = false;
+      }
+    }
   }
 }

@@ -248,22 +248,19 @@ export class HealthBarInstanceManager {
     this.scaleCache[si] = barWidth;
     this.scaleCache[si + 1] = barHeight;
 
-    // Rebuild matrix from cache
-    this.composeFromCache(index);
-    this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.foregroundMesh.setMatrixAt(index, this.matrix);
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
-    this.foregroundMesh.instanceMatrix.needsUpdate = true;
-
-    // Update health
+    // Position/scale cached — matrix will be composed in updateBillboard()
+    // Only update health attribute here
     this.healthAttribute.setX(index, healthPercent);
-    this.healthAttribute.needsUpdate = true;
+    this.healthDirty = true;
   }
 
+  // Dirty flag for batched health attribute update
+  private healthDirty = false;
+
   /**
-   * Update billboard orientation to face camera.
-   * Called once per frame before render.
-   * Uses cached position/scale — no decompose needed.
+   * Update billboard orientation to face camera and flush all dirty flags.
+   * Called once per frame before render. Composes matrices from cached
+   * position/scale data with the current billboard quaternion.
    */
   updateBillboard(camera: Camera): void {
     if (this.instances.size === 0) return;
@@ -271,14 +268,19 @@ export class HealthBarInstanceManager {
     // Extract camera quaternion for billboard
     camera.getWorldQuaternion(HealthBarInstanceManager._billboardQuat);
 
-    // Rebuild matrices from cache with new billboard quaternion (no decompose)
+    // Single pass: compose matrices from cache with billboard quaternion
     for (const [, index] of this.instances) {
       this.composeFromCache(index);
       this.instancedMesh.setMatrixAt(index, this.matrix);
       this.foregroundMesh.setMatrixAt(index, this.matrix);
     }
+    // Flush GPU buffer flags once per frame
     this.instancedMesh.instanceMatrix.needsUpdate = true;
     this.foregroundMesh.instanceMatrix.needsUpdate = true;
+    if (this.healthDirty) {
+      this.healthAttribute.needsUpdate = true;
+      this.healthDirty = false;
+    }
   }
 
   /**

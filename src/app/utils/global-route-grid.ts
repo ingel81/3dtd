@@ -24,8 +24,8 @@ import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderer
  * - Map of tower visibility (LOS check results per tower)
  */
 export interface RouteCell {
-  /** Unique cell key (format: "cellKeyX_cellKeyZ") */
-  key: string;
+  /** Unique cell key (integer hash) */
+  key: number;
   /** Cell center X in local coordinates */
   x: number;
   /** Cell center Z in local coordinates */
@@ -157,16 +157,24 @@ void main() {
  */
 export class GlobalRouteGrid {
   /** Map of cell keys to RouteCell data */
-  private cells = new Map<string, RouteCell>();
+  private cells = new Map<number, RouteCell>();
 
   /** Map of enemy ID to current cell key (for fast cell transitions) */
-  private enemyCellKeys = new Map<string, string>();
+  private enemyCellKeys = new Map<string, number>();
 
   /** Grid cell size in meters (matches original CELL_SIZE) */
   private readonly CELL_SIZE = 2;
 
   /** Corridor width from route center in meters */
   private readonly CORRIDOR_WIDTH = 7;
+
+  /** Cached inverse cell size for fast multiplication instead of division */
+  private readonly INV_CELL_SIZE = 1 / 2; // 1 / CELL_SIZE
+
+  /** Integer hash for cell key (avoids string allocation in hot path) */
+  private intCellKey(cx: number, cz: number): number {
+    return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
+  }
 
   /** LOS offset from tower center (raycast starts from tower edge) */
   private readonly LOS_OFFSET = 2.4;
@@ -219,7 +227,7 @@ export class GlobalRouteGrid {
     this.cells.clear();
     this.enemyCellKeys.clear();
 
-    const processedCells = new Set<string>();
+    const processedCells = new Set<number>();
 
     for (const route of routes) {
       if (route.length < 2) continue;
@@ -257,7 +265,7 @@ export class GlobalRouteGrid {
   private generateCorridorCells(
     centerX: number,
     centerZ: number,
-    processedCells: Set<string>
+    processedCells: Set<number>
   ): number {
     const corridorWidthSq = this.CORRIDOR_WIDTH * this.CORRIDOR_WIDTH;
     const numCells = Math.ceil(this.CORRIDOR_WIDTH / this.CELL_SIZE);
@@ -275,7 +283,7 @@ export class GlobalRouteGrid {
         // Create cell key (quantized to grid)
         const cellKeyX = Math.floor(cellX / this.CELL_SIZE);
         const cellKeyZ = Math.floor(cellZ / this.CELL_SIZE);
-        const key = `${cellKeyX}_${cellKeyZ}`;
+        const key = this.intCellKey(cellKeyX, cellKeyZ);
 
         // Skip if already processed
         if (processedCells.has(key)) continue;
@@ -417,9 +425,9 @@ export class GlobalRouteGrid {
    * @param localZ New Z position (local coordinates)
    */
   updateEnemyPosition(enemy: Enemy, localX: number, localZ: number): void {
-    const cellKeyX = Math.floor(localX / this.CELL_SIZE);
-    const cellKeyZ = Math.floor(localZ / this.CELL_SIZE);
-    const newCellKey = `${cellKeyX}_${cellKeyZ}`;
+    const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
+    const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
+    const newCellKey = this.intCellKey(cellKeyX, cellKeyZ);
 
     const currentCellKey = this.enemyCellKeys.get(enemy.id);
 
@@ -484,9 +492,9 @@ export class GlobalRouteGrid {
    * @returns RouteCell or undefined if not in grid
    */
   getCellAt(localX: number, localZ: number): RouteCell | undefined {
-    const cellKeyX = Math.floor(localX / this.CELL_SIZE);
-    const cellKeyZ = Math.floor(localZ / this.CELL_SIZE);
-    return this.cells.get(`${cellKeyX}_${cellKeyZ}`);
+    const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
+    const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
+    return this.cells.get(this.intCellKey(cellKeyX, cellKeyZ));
   }
 
   /**
@@ -511,14 +519,14 @@ export class GlobalRouteGrid {
     const radiusSq = radiusMeters * radiusMeters;
 
     // Calculate cell range to check
-    const cellRadius = Math.ceil(radiusMeters / this.CELL_SIZE);
-    const centerCellX = Math.floor(localX / this.CELL_SIZE);
-    const centerCellZ = Math.floor(localZ / this.CELL_SIZE);
+    const cellRadius = Math.ceil(radiusMeters * this.INV_CELL_SIZE);
+    const centerCellX = (localX * this.INV_CELL_SIZE) | 0;
+    const centerCellZ = (localZ * this.INV_CELL_SIZE) | 0;
 
     // Iterate only over cells within radius
     for (let dx = -cellRadius; dx <= cellRadius; dx++) {
       for (let dz = -cellRadius; dz <= cellRadius; dz++) {
-        const cellKey = `${centerCellX + dx}_${centerCellZ + dz}`;
+        const cellKey = this.intCellKey(centerCellX + dx, centerCellZ + dz);
         const cell = this.cells.get(cellKey);
         if (!cell) continue;
 
@@ -600,7 +608,7 @@ export class GlobalRouteGrid {
   // ========================================
 
   /** Map cell key to instance index for fast state updates */
-  private cellIndexMap = new Map<string, number>();
+  private cellIndexMap = new Map<number, number>();
 
   /**
    * Create visualization mesh (InstancedMesh with shader)

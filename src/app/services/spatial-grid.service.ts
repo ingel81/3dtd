@@ -20,7 +20,7 @@ import { Injectable } from '@angular/core';
 interface EntityEntry {
   x: number;
   z: number;
-  cellKey: string;
+  cellKey: number;
 }
 
 /**
@@ -28,8 +28,8 @@ interface EntityEntry {
  * Can be used standalone or wrapped in an Angular service.
  */
 export class SpatialGrid {
-  /** Map of cell key -> Set of entity IDs in that cell */
-  private cells = new Map<string, Set<string>>();
+  /** Map of cell key (integer hash) -> Set of entity IDs in that cell */
+  private cells = new Map<number, Set<string>>();
 
   /** Map of entity ID -> position + current cell */
   private entities = new Map<string, EntityEntry>();
@@ -42,18 +42,22 @@ export class SpatialGrid {
   }
 
   /**
-   * Get the cell key for a world position.
-   * Uses bitwise OR for fast floor (works for positive and negative coords).
+   * Get the cell key for a world position as an integer hash.
+   * Uses bitwise OR for fast floor and bit-packing for zero-allocation keys.
    */
-  private cellKey(x: number, z: number): string {
+  private cellKey(x: number, z: number): number {
     const cx = (x * this.invCellSize) | 0;
     const cz = (z * this.invCellSize) | 0;
-    return `${cx}_${cz}`;
+    return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
   }
 
-  /** Extract cell indices from position */
-  private cellIndices(x: number, z: number): [number, number] {
-    return [(x * this.invCellSize) | 0, (z * this.invCellSize) | 0];
+  /** Get cell indices from position */
+  private cellIndicesX(x: number): number { return (x * this.invCellSize) | 0; }
+  private cellIndicesZ(z: number): number { return (z * this.invCellSize) | 0; }
+
+  /** Compute cell key from cell indices */
+  private cellKeyFromIndices(cx: number, cz: number): number {
+    return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
   }
 
   /**
@@ -139,13 +143,14 @@ export class SpatialGrid {
   queryRadius(x: number, z: number, radius: number): string[] {
     const radiusSq = radius * radius;
     const cellRadius = Math.ceil(radius * this.invCellSize);
-    const [cx, cz] = this.cellIndices(x, z);
+    const cx = this.cellIndicesX(x);
+    const cz = this.cellIndicesZ(z);
 
     const result: string[] = [];
 
     for (let dx = -cellRadius; dx <= cellRadius; dx++) {
       for (let dz = -cellRadius; dz <= cellRadius; dz++) {
-        const key = `${cx + dx}_${cz + dz}`;
+        const key = this.cellKeyFromIndices(cx + dx, cz + dz);
         const cell = this.cells.get(key);
         if (!cell) continue;
 
@@ -177,7 +182,7 @@ export class SpatialGrid {
 
     for (let cx = minCX; cx <= maxCX; cx++) {
       for (let cz = minCZ; cz <= maxCZ; cz++) {
-        const key = `${cx}_${cz}`;
+        const key = this.cellKeyFromIndices(cx, cz);
         const cell = this.cells.get(key);
         if (!cell) continue;
 
@@ -200,11 +205,12 @@ export class SpatialGrid {
   hasAny(x: number, z: number, radius: number): boolean {
     const radiusSq = radius * radius;
     const cellRadius = Math.ceil(radius * this.invCellSize);
-    const [cx, cz] = this.cellIndices(x, z);
+    const cx = this.cellIndicesX(x);
+    const cz = this.cellIndicesZ(z);
 
     for (let dx = -cellRadius; dx <= cellRadius; dx++) {
       for (let dz = -cellRadius; dz <= cellRadius; dz++) {
-        const key = `${cx + dx}_${cz + dz}`;
+        const key = this.cellKeyFromIndices(cx + dx, cz + dz);
         const cell = this.cells.get(key);
         if (!cell) continue;
 

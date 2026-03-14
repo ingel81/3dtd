@@ -272,6 +272,7 @@ export class InstancedEnemyRenderer {
     heading: number,
     healthPercent: number,
     currentSpeed?: number,
+    precomputedLocalPos?: Vector3,
   ): void {
     if (this.classicEnemies.has(id)) {
       this.classicRenderer.update(id, lat, lon, height, heading, healthPercent, currentSpeed);
@@ -283,11 +284,17 @@ export class InstancedEnemyRenderer {
     const state = this.instanceManager.getState(id);
     if (!state) return;
 
-    const heightOffset = state.config.heightOffset;
-    const localPos = this.sync.geoToLocalSimpleInto(
-      lat, lon, height + heightOffset,
-      InstancedEnemyRenderer._tempLocalPos,
-    );
+    // Use pre-computed local position if available (avoids duplicate geoToLocalSimpleInto)
+    let localPos: Vector3;
+    if (precomputedLocalPos) {
+      localPos = precomputedLocalPos;
+    } else {
+      const heightOffset = state.config.heightOffset;
+      localPos = this.sync.geoToLocalSimpleInto(
+        lat, lon, height + heightOffset,
+        InstancedEnemyRenderer._tempLocalPos,
+      );
+    }
 
     // Update instance position/rotation
     this.instanceManager.updateEnemy(id, localPos, heading, currentSpeed);
@@ -350,7 +357,10 @@ export class InstancedEnemyRenderer {
     // Update instanced animation frames
     this.instanceManager.updateAnimations(deltaTime);
 
-    // Update health bar billboards
+    // Flush batched GPU buffer dirty flags (matrices, tint colors)
+    this.instanceManager.flushDirtyFlags();
+
+    // Update health bar billboards (also flushes health bar dirty flags)
     this.healthBarManager.updateBillboard(camera);
   }
 
@@ -391,6 +401,11 @@ export class InstancedEnemyRenderer {
       return this.classicRenderer.getSpeedMultiplier(id);
     }
     return this.instanceManager.getSpeedMultiplier(id);
+  }
+
+  getHeightOffset(id: string): number {
+    const state = this.instanceManager.getState(id);
+    return state?.config.heightOffset ?? 0;
   }
 
   getAllIds(): string[] {

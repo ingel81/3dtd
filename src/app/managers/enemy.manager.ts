@@ -300,6 +300,8 @@ export class EnemyManager extends EntityManager<Enemy> {
     // Clear reusable array (no allocation)
     this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
+    // Cache performance.now() once per frame — avoid 9000+ calls at 3000 enemies
+    const now = performance.now();
 
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
@@ -307,8 +309,9 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Update components + Move enemy along path
       let t0 = profiling ? performance.now() : 0;
       enemy.update(deltaTime);
-      enemy.movement.removeExpiredEffects(timescale);
-      const moveResult = enemy.movement.move(deltaTime, timescale);
+      // Single-pass: remove expired effects AND get slow/poison flags (replaces 3 separate calls)
+      const statusFlags = enemy.movement.updateStatusEffects(timescale, now);
+      const moveResult = enemy.movement.move(deltaTime, timescale, now, statusFlags.slowMultiplier);
       if (profiling) tMove += performance.now() - t0;
 
       if (moveResult === 'reached_end') {
@@ -365,8 +368,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       const speedMultiplier = this.tilesEngine?.enemies.getSpeedMultiplier(enemy.id) ?? 1.0;
       enemy.movement.speedMultiplier = speedMultiplier;
 
-      // Update visual representation (including animation speed based on effective speed)
+      // Update visual representation — reuse _tempLocalPos (X/Z already set from grid update)
+      // Set Y = (geoHeight + heightOffset) - originHeight to complete the local position
       t0 = profiling ? performance.now() : 0;
+      const heightOffset = this.tilesEngine?.enemies.getHeightOffset(enemy.id) ?? 0;
+      this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
       this.tilesEngine?.enemies.update(
         enemy.id,
         enemy.position.lat,
@@ -374,12 +380,13 @@ export class EnemyManager extends EntityManager<Enemy> {
         geoHeight,
         enemy.transform.rotation,
         enemy.health.healthPercent,
-        enemy.movement.effectiveSpeed
+        enemy.movement.effectiveSpeed,
+        this._tempLocalPos
       );
 
       // Frost visual: toggle blue tint + particle aura based on slow state
       if (this.tilesEngine) {
-        const isSlowed = enemy.movement.isSlowed(timescale);
+        const isSlowed = statusFlags.isSlowed;
         const hasFrost = this.frozenVisualEnemies.has(enemy.id);
 
         if (isSlowed && !hasFrost) {
@@ -400,7 +407,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         }
 
         // Poison visual: toggle green tint + particle aura based on poison state
-        const isPoisoned = enemy.movement.isPoisoned(timescale);
+        const isPoisoned = statusFlags.isPoisoned;
         const hasPoison = this.poisonVisualEnemies.has(enemy.id);
 
         if (isPoisoned && !hasPoison) {
@@ -420,7 +427,6 @@ export class EnemyManager extends EntityManager<Enemy> {
 
         // Poison DOT tick: emit damage every 500ms
         if (isPoisoned) {
-          const now = performance.now();
           const lastTick = this.poisonTickTimes.get(enemy.id) ?? 0;
           // 500ms in real-time (adjusted for timescale)
           const tickInterval = 500 / timescale;

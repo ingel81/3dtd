@@ -118,8 +118,9 @@ export class ThreeTilesEngine {
 
   // Raycaster for terrain height queries
   private raycaster: Raycaster;
-  private heightCache = new Map<string, number>();
+  private heightCache = new Map<number, number>();
   private readonly CACHE_PRECISION = 5;
+  private readonly CACHE_SCALE = 1e5; // 10^CACHE_PRECISION
   private readonly HEIGHT_CHANGE_THRESHOLD = 2.0; // Only refresh if height changed by >2m
   private lastOriginHeight: number | null = null;
 
@@ -1426,8 +1427,14 @@ export class ThreeTilesEngine {
     return this.heightCache.get(key) ?? null;
   }
 
-  private getHeightCacheKey(lat: number, lon: number): string {
-    return `${lat.toFixed(this.CACHE_PRECISION)}_${lon.toFixed(this.CACHE_PRECISION)}`;
+  private getHeightCacheKey(lat: number, lon: number): number {
+    // Integer key via Cantor pairing — avoids toFixed() string allocation
+    const latI = (lat * this.CACHE_SCALE) | 0;
+    const lonI = (lon * this.CACHE_SCALE) | 0;
+    // Szudzik pairing (handles negatives better than Cantor)
+    const a = latI >= 0 ? 2 * latI : -2 * latI - 1;
+    const b = lonI >= 0 ? 2 * lonI : -2 * lonI - 1;
+    return a >= b ? a * a + a + b : b * b + a;
   }
 
   /**
