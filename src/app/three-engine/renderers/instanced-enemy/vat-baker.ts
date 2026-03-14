@@ -26,6 +26,7 @@ export interface VATAnimationEntry {
   frameStart: number;
   frameCount: number;
   duration: number; // seconds
+  totalTime: number; // pre-computed: frameCount / fps (for animation loop)
 }
 
 /** Result of VAT baking for one enemy type */
@@ -129,6 +130,7 @@ export function bakeVAT(
       frameStart: totalFrames,
       frameCount,
       duration: clip.duration,
+      totalTime: frameCount / fps,
     });
     totalFrames += frameCount;
   }
@@ -449,6 +451,7 @@ export function bakeObjectAnimVAT(
       frameStart: totalFrames,
       frameCount,
       duration: clip.duration,
+      totalTime: frameCount / fps,
     });
     totalFrames += frameCount;
   }
@@ -941,6 +944,7 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
     frameStart: 0,
     frameCount: 1,
     duration: 0,
+    totalTime: 1, // Static: single frame
   });
 
   return {
