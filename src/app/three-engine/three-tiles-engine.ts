@@ -670,10 +670,13 @@ export class ThreeTilesEngine {
           this.lastOriginHeight = freshOriginHeight;
 
           // Clear cache and notify for full refresh
+          const cacheSize = this.heightCache.size;
           this.heightCache.clear();
 
           if (this.onTilesLoadCallback) {
+            const t0 = performance.now();
             this.onTilesLoadCallback();
+            console.warn(`[PerfTrace] onTilesLoadCallback: ${(performance.now() - t0).toFixed(1)}ms (cleared ${cacheSize} cache entries, delta=${heightDelta.toFixed(2)}m)`);
           }
         }
       }

@@ -77,6 +77,9 @@ export class TowerCombatService {
     const allEnemies = enemyManager.getAlive();
 
     for (const tower of towerManager.getAllActive()) {
+      // Skip towers with pending LOS computation (progressive registration not yet complete)
+      if (!tower.losReady) continue;
+
       // Skip non-projectile towers (beam, melee) — they have their own update methods
       if (tower.typeConfig.attackType && tower.typeConfig.attackType !== 'projectile') continue;
 
@@ -274,6 +277,8 @@ export class TowerCombatService {
     const allEnemies = enemyManager.getAlive();
 
     for (const tower of towerManager.getAllActive()) {
+      // Skip towers with pending LOS computation
+      if (!tower.losReady) continue;
       // Skip non-beam towers
       if (tower.typeConfig.attackType !== 'beam') continue;
 
@@ -537,6 +542,8 @@ export class TowerCombatService {
     const allEnemies = enemyManager.getAlive();
 
     for (const tower of towerManager.getAllActive()) {
+      // Skip towers with pending LOS computation
+      if (!tower.losReady) continue;
       // Skip non-melee towers
       if (tower.typeConfig.attackType !== 'melee') continue;
 

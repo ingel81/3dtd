@@ -96,6 +96,30 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Start progressive tower LOS registration (non-blocking).
+   * Call continueTowerRegistration() each frame until complete.
+   */
+  registerTowerProgressive(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    losRaycaster: LineOfSightRaycaster,
+    isPureAirTower: boolean,
+    onComplete: (visibleCells: RouteCell[]) => void
+  ): void {
+    this.grid.registerTowerProgressive(towerId, towerX, towerZ, tipY, range, losRaycaster, isPureAirTower, onComplete);
+  }
+
+  /**
+   * Continue progressive tower LOS computation. Returns true when complete.
+   */
+  continueTowerRegistration(): boolean {
+    return this.grid.continueTowerRegistration();
+  }
+
+  /**
    * Unregister a tower
    * @param towerId Tower ID to unregister
    */
