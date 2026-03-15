@@ -566,7 +566,10 @@ export class VisualizationFacadeService {
     const engine = this.bridge.getEngine();
     if (!engine || !this.bridge.getFilteredStreetNetwork()) return;
 
+    const t0 = performance.now();
+
     this.renderStreets();
+    const tStreets = performance.now();
 
     // Re-render buildings if loaded
     if (this.cachedBuildings && this.uiStore.buildingsVisible()) {
@@ -578,12 +581,20 @@ export class VisualizationFacadeService {
         true
       );
     }
+    const tBuildings = performance.now();
 
     this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
+    const tMarkers = performance.now();
+
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
+    const tRoutes = performance.now();
 
     this.gameState.onTilesLoaded();
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
+
+    console.warn(
+      `[PerfTrace] onTilesLoaded: ${(performance.now() - t0).toFixed(1)}ms total | streets=${(tStreets - t0).toFixed(1)}ms buildings=${(tBuildings - tStreets).toFixed(1)}ms markers=${(tMarkers - tBuildings).toFixed(1)}ms routes=${(tRoutes - tMarkers).toFixed(1)}ms`
+    );
   }
 
   // ══════════════════════════════════════════════════════════════

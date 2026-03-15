@@ -64,6 +64,9 @@ export class TowerPlacementService {
   /** Is LOS preview currently building progressively */
   private losPreviewBuilding = false;
 
+  /** Tower with pending progressive LOS registration */
+  private pendingTowerReg: import('../entities/tower.entity').Tower | null = null;
+
   /** Flag indicating model is being loaded */
   private modelLoading = false;
 
@@ -458,6 +461,16 @@ export class TowerPlacementService {
   }
 
   /**
+   * Update method - call each frame
+   * Continues progressive tower LOS registration (after placement)
+   */
+  updateTowerRegistration(): void {
+    if (this.pendingTowerReg) {
+      this.globalRouteGrid.continueTowerRegistration();
+    }
+  }
+
+  /**
    * Update method - call each frame during build mode
    * Continues progressive LOS preview building
    */
@@ -713,30 +726,41 @@ export class TowerPlacementService {
     // Check if this is a pure air tower (only targets air, not ground)
     const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
 
-    // Register tower and store visible cells reference
-    // Air towers skip LOS checks (air enemies are always visible)
-    tower.visibleCells = this.globalRouteGrid.registerTower(
+    // Progressive LOS registration — tower stays inactive until complete (no glitches)
+    const tLos0 = performance.now();
+    tower.losReady = false;
+    this.pendingTowerReg = tower;
+
+    this.globalRouteGrid.registerTowerProgressive(
       tower.id,
       terrainPos.x,
       terrainPos.z,
       tipY,
       config.range,
       losRaycaster,
-      isPureAirTower
-    );
+      isPureAirTower,
+      (visibleCells: import('../utils/global-route-grid').RouteCell[]) => {
+        tower.visibleCells = visibleCells;
+        tower.losReady = true;
+        this.pendingTowerReg = null;
 
-    // Create LOS visualization (hidden by default, shown on selection)
-    tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      config.range
-    );
+        // Create LOS visualization (hidden by default, shown on selection)
+        tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
+          tower.id,
+          terrainPos.x,
+          terrainPos.z,
+          config.range
+        );
+        if (tower.losVisualization) {
+          tower.losVisualization.visible = tower.selected;
+          this.engine!.getScene().add(tower.losVisualization);
+        }
 
-    if (tower.losVisualization) {
-      tower.losVisualization.visible = false;
-      this.engine.getScene().add(tower.losVisualization);
-    }
+        console.warn(
+          `[PerfTrace] registerTowerOnGrid: LOS=${(performance.now() - tLos0).toFixed(1)}ms (progressive) | range=${config.range} visibleCells=${visibleCells.length} type=${typeId}`
+        );
+      }
+    );
   }
 
   /**

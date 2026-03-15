@@ -220,6 +220,7 @@ export class PathAndRouteService {
    */
   refreshRouteLines(spawnPoints: SpawnPoint[]): void {
     if (!this.engine) return;
+    const tRefresh0 = performance.now();
 
     const overlayGroup = this.engine.getOverlayGroup();
     const wasVisible = this.routesVisible?.() ?? false;
@@ -240,6 +241,8 @@ export class PathAndRouteService {
     for (const spawn of spawnPoints) {
       this.showPathFromSpawn(spawn);
     }
+
+    console.warn(`[PerfTrace] refreshRouteLines: ${(performance.now() - tRefresh0).toFixed(1)}ms | spawns=${spawnPoints.length}`);
 
     // Restore visibility state
     for (const line of this.routeLines) {

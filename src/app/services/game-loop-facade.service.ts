@@ -22,6 +22,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineStore } from '../store/engine.store';
 import { SoundPoolStats } from '../managers/audio/spatial-audio.manager';
 import { PerformanceProfilerService } from './performance-profiler.service';
+import { StreetRenderingService } from './street-rendering.service';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -52,6 +53,7 @@ export class GameLoopFacadeService {
   private readonly ngZone = inject(NgZone);
   private readonly store = inject(TowerDefenseStore);
   private readonly profiler = inject(PerformanceProfilerService);
+  private readonly streetRendering = inject(StreetRenderingService);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -380,7 +382,9 @@ export class GameLoopFacadeService {
 
     // Per-frame delegation calls
     this.towerPlacement.updateRotation(dtSec);
+    this.towerPlacement.updateTowerRegistration();
     this.towerPlacement.updatePreviewBuild();
+    this.streetRendering.continueStreetRender();
     this.keyboardPan.update(dtSec);
     this.markerViz.animateMarkers(deltaTime);
     this.routeAnimation.update(deltaTime);

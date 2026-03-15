@@ -57,6 +57,9 @@ export class Tower extends GameObject {
   /** References to visible cells from GlobalRouteGrid (for targeting) */
   visibleCells: RouteCell[] = [];
 
+  /** Whether LOS computation is complete (tower won't fire until true) */
+  losReady = false;
+
   /** LOS visualization mesh (shown when tower is selected) */
   losVisualization: InstancedMesh | null = null;
 

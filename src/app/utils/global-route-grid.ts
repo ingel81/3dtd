@@ -356,8 +356,10 @@ export class GlobalRouteGrid {
   ): RouteCell[] {
     const visibleCells: RouteCell[] = [];
     const rangeSq = range * range;
+    let cellsChecked = 0, cellsInRange = 0, losRaycasts = 0;
 
     for (const cell of this.cells.values()) {
+      cellsChecked++;
       // Check if cell is within tower range
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
@@ -366,6 +368,7 @@ export class GlobalRouteGrid {
       const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
       if (terrainY === null) continue;
 
+      cellsInRange++;
       // Update cell terrain height
       cell.terrainHeight = terrainY;
 
@@ -389,6 +392,7 @@ export class GlobalRouteGrid {
         const targetY = terrainY + 1.5;
 
         // Raycast - returns true if BLOCKED
+        losRaycasts++;
         const isBlocked = losRaycaster(
           originX, tipY, originZ,
           cell.x, targetY, cell.z
@@ -404,6 +408,9 @@ export class GlobalRouteGrid {
       }
     }
 
+    console.warn(
+      `[PerfTrace] registerTower: cellsChecked=${cellsChecked} inRange=${cellsInRange} losRaycasts=${losRaycasts} visible=${visibleCells.length}`
+    );
     return visibleCells;
   }
 
@@ -866,6 +873,128 @@ export class GlobalRouteGrid {
     if (material?.uniforms?.['uTime']) {
       material.uniforms['uTime'].value = this.animationTime;
     }
+  }
+
+  // ========================================
+  // PROGRESSIVE TOWER REGISTRATION
+  // ========================================
+
+  /** State for progressive tower LOS computation */
+  private towerRegState: {
+    towerId: string;
+    cells: RouteCell[];
+    towerX: number;
+    towerZ: number;
+    tipY: number;
+    losRaycaster: LineOfSightRaycaster;
+    isPureAirTower: boolean;
+    currentIndex: number;
+    batchSize: number;
+    visibleCells: RouteCell[];
+    onComplete: (visibleCells: RouteCell[]) => void;
+  } | null = null;
+
+  /**
+   * Start progressive tower LOS registration.
+   * Returns immediately — LOS computed over multiple frames via continueTowerRegistration().
+   * @param onComplete Called when LOS is fully computed, with final visibleCells array
+   */
+  registerTowerProgressive(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    losRaycaster: LineOfSightRaycaster,
+    isPureAirTower: boolean,
+    onComplete: (visibleCells: RouteCell[]) => void
+  ): void {
+    const rangeSq = range * range;
+    const cellsInRange: RouteCell[] = [];
+
+    // Collect cells in range (quick distance check, no raycasts)
+    for (const cell of this.cells.values()) {
+      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
+      if (distSq <= rangeSq) {
+        cellsInRange.push(cell);
+      }
+    }
+
+    if (cellsInRange.length === 0) {
+      onComplete([]);
+      return;
+    }
+
+    this.towerRegState = {
+      towerId,
+      cells: cellsInRange,
+      towerX,
+      towerZ,
+      tipY,
+      losRaycaster,
+      isPureAirTower,
+      currentIndex: 0,
+      batchSize: 50, // 50 cells/frame — faster than preview (tower already placed)
+      visibleCells: [],
+      onComplete,
+    };
+  }
+
+  /**
+   * Continue progressive tower LOS computation.
+   * Call each frame from game loop. Returns true when complete.
+   */
+  continueTowerRegistration(): boolean {
+    if (!this.towerRegState) return true;
+
+    const s = this.towerRegState;
+    const endIndex = Math.min(s.currentIndex + s.batchSize, s.cells.length);
+
+    for (let i = s.currentIndex; i < endIndex; i++) {
+      const cell = s.cells[i];
+
+      // Sample terrain height
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
+      if (terrainY === null) continue;
+
+      cell.terrainHeight = terrainY;
+
+      // Calculate LOS
+      let isVisible: boolean;
+      if (s.isPureAirTower) {
+        isVisible = true;
+      } else {
+        const dirX = cell.x - s.towerX;
+        const dirZ = cell.z - s.towerZ;
+        const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
+
+        if (dirLen < 0.1) {
+          isVisible = true;
+        } else {
+          const originX = s.towerX + (dirX / dirLen) * this.LOS_OFFSET;
+          const originZ = s.towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+          const targetY = terrainY + 1.5;
+          isVisible = !s.losRaycaster(originX, s.tipY, originZ, cell.x, targetY, cell.z);
+        }
+      }
+
+      cell.towerVisibility.set(s.towerId, isVisible);
+      if (isVisible) {
+        s.visibleCells.push(cell);
+      }
+    }
+
+    s.currentIndex = endIndex;
+
+    if (endIndex >= s.cells.length) {
+      const visibleCells = s.visibleCells;
+      const onComplete = s.onComplete;
+      this.towerRegState = null;
+      onComplete(visibleCells);
+      return true;
+    }
+
+    return false;
   }
 
   // ========================================
