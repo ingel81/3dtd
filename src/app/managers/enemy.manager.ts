@@ -373,6 +373,8 @@ export class EnemyManager extends EntityManager<Enemy> {
       t0 = profiling ? performance.now() : 0;
       const heightOffset = this.tilesEngine?.enemies.getHeightOffset(enemy.id) ?? 0;
       this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
+      // Use pre-computed speed from statusFlags (avoids effectiveSpeed getter which re-iterates statusEffects)
+      const currentSpeed = enemy.movement.speedMps * speedMultiplier * statusFlags.slowMultiplier;
       this.tilesEngine?.enemies.update(
         enemy.id,
         enemy.position.lat,
@@ -380,7 +382,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         geoHeight,
         enemy.transform.rotation,
         enemy.health.healthPercent,
-        enemy.movement.effectiveSpeed,
+        currentSpeed,
         this._tempLocalPos
       );
 
@@ -562,6 +564,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.cachedAliveEnemies = this.getAll().filter((e) => e.alive);
     }
     return this.cachedAliveEnemies;
+  }
+
+  /**
+   * Get count of enemies currently in death animation (killed but not yet removed)
+   */
+  getKillingCount(): number {
+    return this.killingEnemies.size;
   }
 
   /**

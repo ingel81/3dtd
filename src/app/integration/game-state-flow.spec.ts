@@ -149,6 +149,9 @@ describe('Game State Flow Integration', () => {
       m.enemyManager.kill(enemy, 1.0);
     }
 
+    // Advance past death animation (wave waits for killingEnemies to clear)
+    vi.advanceTimersByTime(2100);
+
     // Check wave complete
     expect(m.waveManager.checkWaveComplete()).toBe(true);
 

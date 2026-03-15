@@ -299,7 +299,9 @@ export class WaveManager implements IGameManager {
     // 1. All enemies have been spawned (or manual mode with expectedCount = 0)
     // 2. AND all spawned enemies are dead
     const allEnemiesSpawned = this.expectedEnemyCount === 0 || this.spawnedEnemyCount >= this.expectedEnemyCount;
-    const allEnemiesDead = this.enemyManager.getAliveCount() === 0;
+    // Check both alive AND killing (in death animation) — prevents premature wave completion
+    const allEnemiesDead = this.enemyManager.getAliveCount() === 0
+      && this.enemyManager.getKillingCount() === 0;
 
     return allEnemiesSpawned && allEnemiesDead;
   }

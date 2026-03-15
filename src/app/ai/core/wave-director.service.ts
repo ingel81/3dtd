@@ -61,7 +61,7 @@ export class WaveDirectorService {
   private session: InferenceSession | null = null; // ONNX Runtime session
   private ort: OrtModule | null = null; // ONNX Runtime (lazy loaded)
   private recentEnemyTypes: EnemyTypeId[] = []; // Track recent types for variety
-  private readonly TYPE_COOLDOWN_WAVES = 2; // Don't repeat same type within N waves
+  private readonly TYPE_COOLDOWN_WAVES = 4; // Don't repeat same type within N waves (synced with backend config.py)
 
   // === SIGNALS ===
   readonly modelState = signal<ModelState>('not-loaded');

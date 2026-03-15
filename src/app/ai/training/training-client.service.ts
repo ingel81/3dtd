@@ -309,7 +309,8 @@ export class TrainingClientService {
         break;
 
       case 'sell':
-        // TODO: Implement sell execution
+        // Sell not implemented — no strategy generates sell actions currently.
+        // Would require: callbacks.sellTower(towerId) + botStats goldEarned tracking.
         break;
 
       case 'wait':

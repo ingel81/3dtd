@@ -117,6 +117,7 @@ export function createMockTilesEngine(): any {
       startWalkAnimation: vi.fn(),
       playDeathAnimation: vi.fn(),
       getSpeedMultiplier: vi.fn(() => 1.0),
+      getHeightOffset: vi.fn(() => 0),
       setFreezeVisual: vi.fn(),
     },
     projectiles: {

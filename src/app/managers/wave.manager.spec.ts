@@ -13,6 +13,7 @@ function createMockEnemyManager(): EnemyManager {
     spawn: vi.fn(),
     getAlive: vi.fn().mockReturnValue([]),
     getAliveCount: vi.fn().mockReturnValue(0),
+    getKillingCount: vi.fn().mockReturnValue(0),
     clear: vi.fn(),
     kill: vi.fn(),
   } as unknown as EnemyManager;

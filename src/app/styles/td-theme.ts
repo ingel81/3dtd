@@ -78,6 +78,7 @@ export const TD_CSS_VARS = `
   --td-green: ${TD_THEME.green};
   --td-green-dark: ${TD_THEME.greenDark};
 
+  --td-red: ${TD_THEME.healthRed};
   --td-health-red: ${TD_THEME.healthRed};
   --td-health-bg: ${TD_THEME.healthBg};
   --td-warn-orange: ${TD_THEME.warnOrange};

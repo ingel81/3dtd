@@ -37,6 +37,13 @@ export class CombatEffectService {
   damageNumbersEnabled = true;
 
   /**
+   * Dispose event subscriptions. Call from GameStateManager.dispose().
+   */
+  destroy(): void {
+    this.eventBusSubs.disposeAll();
+  }
+
+  /**
    * Initialize with engine reference and subscribe to events
    */
   initialize(

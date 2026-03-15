@@ -549,6 +549,9 @@ export class ThreeEffectsRenderer {
 
     this.useShaderMaterial = useShader;
 
+    // Note: Don't dispose materials here — both shader and non-shader materials
+    // are persistent (created once at init, reused on toggle). Only the assignment changes.
+    // Disposal happens in dispose() which cleans up all materials.
     if (this.trailParticlesAdditive) {
       this.trailParticlesAdditive.material = useShader
         ? this.trailShaderMaterialAdditive!

@@ -1,7 +1,5 @@
-import { Component, ComponentType } from '../core/component';
+import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
-import { GeoPosition } from '../models/game.types';
-import { TransformComponent } from './transform.component';
 
 export interface CombatConfig {
   damage: number;
@@ -10,7 +8,9 @@ export interface CombatConfig {
 }
 
 /**
- * CombatComponent handles damage dealing and targeting
+ * CombatComponent handles damage dealing and targeting.
+ * Combat logic (targeting, firing) is handled by TowerCombatService.
+ * This component stores combat stats and firing state.
  */
 export class CombatComponent extends Component {
   damage: number;
@@ -21,7 +21,6 @@ export class CombatComponent extends Component {
   kills = 0;
 
   private lastFireTime = 0;
-  private target: GameObject | null = null;
 
   constructor(gameObject: GameObject, config: CombatConfig) {
     super(gameObject);
@@ -47,56 +46,7 @@ export class CombatComponent extends Component {
     this.lastFireTime = currentTime;
   }
 
-  /**
-   * Check if a target position is within range
-   */
-  isInRange(targetPosition: GeoPosition): boolean {
-    const transform = this.gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM);
-    if (!transform) return false;
-
-    const distance = this.calculateDistance(transform.position, targetPosition);
-    return distance <= this.range;
-  }
-
-  /**
-   * Calculate distance between two positions
-   */
-  private calculateDistance(pos1: GeoPosition, pos2: GeoPosition): number {
-    const R = 6371000; // Earth radius in meters
-    const dLat = ((pos2.lat - pos1.lat) * Math.PI) / 180;
-    const dLon = ((pos2.lon - pos1.lon) * Math.PI) / 180;
-    const a =
-      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-      Math.cos((pos1.lat * Math.PI) / 180) *
-        Math.cos((pos2.lat * Math.PI) / 180) *
-        Math.sin(dLon / 2) *
-        Math.sin(dLon / 2);
-    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
-    return R * c;
-  }
-
-  /**
-   * Set current target
-   */
-  setTarget(target: GameObject | null): void {
-    this.target = target;
-  }
-
-  /**
-   * Clear current target
-   */
-  clearTarget(): void {
-    this.target = null;
-  }
-
-  /**
-   * Check if a target is set
-   */
-  hasTarget(): boolean {
-    return this.target !== null;
-  }
-
   update(_deltaTime: number): void {
-    // Combat logic is handled explicitly (tower shooting, etc.)
+    // Combat logic is handled by TowerCombatService
   }
 }

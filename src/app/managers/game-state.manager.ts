@@ -532,6 +532,7 @@ export class GameStateManager {
     this.eventBusSubs.disposeAll();
 
     // Destroy game-engine service instances (they hold EventBus subscriptions)
+    this.combatEffect.destroy();
     this.vfxService?.destroy();
     this.audioService?.destroy();
     this.screenShakeService?.destroy();
