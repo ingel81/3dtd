@@ -36,6 +36,9 @@ REWARD_VARIETY_BONUS = 0.20     # Increased from 0.15 to encourage type diversit
 # === TYPE COOLDOWN ===
 TYPE_COOLDOWN_WAVES = 4  # Block a type for N waves after use (was 2)
 
+# === VARIATION ===
+VARIATION_MAX = 0.3  # Max speed/count/delay variation (0.0 = uniform, 0.3 = ±30%)
+
 # === KILL TIME ===
 KILL_TIME_MIN = 2.0  # Minimum seconds enemy survives under focus-fire (was 1.5)
 KILL_TIME_MAX = 5.0  # Maximum seconds (was 4.0)

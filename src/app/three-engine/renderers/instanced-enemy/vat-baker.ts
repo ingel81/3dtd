@@ -12,7 +12,6 @@ import {
   Object3D,
   BufferGeometry,
   Texture,
-  Material,
   MeshStandardMaterial,
   MeshBasicMaterial,
   Mesh,

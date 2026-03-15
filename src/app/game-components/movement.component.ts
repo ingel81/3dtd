@@ -42,6 +42,9 @@ export class MovementComponent extends Component {
   // Reusable lookAt target (avoid object literal allocation per frame)
   private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
 
+  // Reusable status result object (avoid per-enemy allocation in updateStatusEffects)
+  private static readonly _statusResult = { isSlowed: false, isPoisoned: false, slowMultiplier: 1.0 };
+
   constructor(gameObject: GameObject) {
     super(gameObject);
   }
@@ -216,10 +219,12 @@ export class MovementComponent extends Component {
     slowMultiplier: number;
   } {
     let writeIdx = 0;
-    let isSlowed = false;
-    let isPoisoned = false;
-    let slowMultiplier = 1.0;
+    const result = MovementComponent._statusResult;
+    result.isSlowed = false;
+    result.isPoisoned = false;
+    result.slowMultiplier = 1.0;
 
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of -- in-place compact needs indexed write
     for (let i = 0; i < this.statusEffects.length; i++) {
       const effect = this.statusEffects[i];
       const effectiveDuration = effect.duration / timescale;
@@ -227,18 +232,18 @@ export class MovementComponent extends Component {
         // Effect still active — keep it
         this.statusEffects[writeIdx++] = effect;
         if (effect.type === 'slow') {
-          isSlowed = true;
-          slowMultiplier = 1 - effect.value;
+          result.isSlowed = true;
+          result.slowMultiplier = 1 - effect.value;
         } else if (effect.type === 'freeze') {
-          isSlowed = true;
+          result.isSlowed = true;
         } else if (effect.type === 'poison') {
-          isPoisoned = true;
+          result.isPoisoned = true;
         }
       }
     }
     this.statusEffects.length = writeIdx; // In-place compact, no allocation
 
-    return { isSlowed, isPoisoned, slowMultiplier };
+    return result;
   }
 
   /**
@@ -249,6 +254,7 @@ export class MovementComponent extends Component {
   removeExpiredEffects(timescale = 1.0, now?: number): void {
     const t = now ?? performance.now();
     let writeIdx = 0;
+    // eslint-disable-next-line @typescript-eslint/prefer-for-of -- in-place compact needs indexed write
     for (let i = 0; i < this.statusEffects.length; i++) {
       const effect = this.statusEffects[i];
       const effectiveDuration = effect.duration / timescale;

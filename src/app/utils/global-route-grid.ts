@@ -447,8 +447,8 @@ export class GlobalRouteGrid {
     if (newCell) {
       newCell.enemies.add(enemy);
       this.enemyCellKeys.set(enemy.id, newCellKey);
-    } else {
-      // Enemy moved outside tracked cells - remove from tracking
+    } else if (this.enemyCellKeys.has(enemy.id)) {
+      // Enemy moved outside tracked corridor cells — no longer targetable by route-grid towers
       this.enemyCellKeys.delete(enemy.id);
     }
   }

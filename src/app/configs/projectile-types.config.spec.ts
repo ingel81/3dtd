@@ -8,7 +8,7 @@ import {
 } from './projectile-types.config';
 
 describe('projectile types config', () => {
-  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'fireball', 'ice-shard', 'bullet', 'rocket'];
+  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'fireball', 'ice-shard', 'bullet', 'rocket', 'poison-glob'];
 
   const expectValidTrail = (trail: TrailParticleConfig) => {
     expect(typeof trail.enabled).toBe('boolean');
@@ -65,9 +65,9 @@ describe('projectile types config', () => {
     });
   });
 
-  it('getAllProjectileTypes() returns array with 6 elements', () => {
+  it('getAllProjectileTypes() returns array with 7 elements', () => {
     const all = getAllProjectileTypes();
-    expect(all).toHaveLength(6);
+    expect(all).toHaveLength(7);
   });
 
   it('all projectile types have required fields and valid values', () => {

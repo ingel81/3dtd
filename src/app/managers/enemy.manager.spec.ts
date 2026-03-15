@@ -24,6 +24,7 @@ const createMockTilesEngine = () => ({
     clear: vi.fn(),
     update: vi.fn(),
     getSpeedMultiplier: vi.fn(() => 1),
+    getHeightOffset: vi.fn(() => 0),
   },
   spatialAudio: null,
   sync: {
@@ -157,10 +158,11 @@ describe('EnemyManager', () => {
     ];
 
     const enemy = manager.spawn(path, 'zombie');
-    const removeSpy = vi.spyOn(enemy.movement, 'removeExpiredEffects');
+    const statusSpy = vi.spyOn(enemy.movement, 'updateStatusEffects');
 
     manager.update(16, 2);
-    expect(removeSpy).toHaveBeenCalledWith(2);
+    // updateStatusEffects replaces removeExpiredEffects (single-pass optimization)
+    expect(statusSpy).toHaveBeenCalledWith(2, expect.any(Number));
   });
 
   it('ignores debug spawn with invalid path', () => {

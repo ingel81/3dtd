@@ -163,7 +163,13 @@ describe('Wave + Enemy Spawning Integration', () => {
       m.enemyManager.kill(enemy, 1.0);
     }
 
-    // Wave should now be complete
+    // Wave NOT complete yet — enemies in death animation (killingEnemies > 0)
+    expect(m.waveManager.checkWaveComplete()).toBe(false);
+
+    // Advance past death animation duration (2000ms)
+    vi.advanceTimersByTime(2100);
+
+    // NOW wave should be complete (enemies removed after death animation)
     expect(m.waveManager.checkWaveComplete()).toBe(true);
   });
 

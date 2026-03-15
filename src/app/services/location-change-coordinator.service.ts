@@ -342,6 +342,12 @@ export class LocationChangeCoordinatorService {
    * Apply new location - builds context from delegate and executes change
    */
   async applyNewLocation(data: { hq: LocationConfig; spawn: LocationConfig }): Promise<void> {
+    // Prevent concurrent location changes (guard against rapid clicks)
+    if (this.locationMgmt.isApplyingLocation()) {
+      console.warn('[LocationCoordinator] Location change already in progress, ignoring');
+      return;
+    }
+
     if (!this.delegate) {
       console.error('[LocationCoordinator] No delegate registered');
       return;
