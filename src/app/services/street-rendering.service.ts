@@ -100,9 +100,10 @@ export class StreetRenderingService {
     // Guard: Only render when filtered (prevents 16s raycast on unfiltered streets)
     if (!filteredNetwork) return;
 
-    // Cancel any ongoing progressive build
+    // Cancel any ongoing progressive build and reset guard
     if (this.streetBuildState) {
       this.streetBuildState = null;
+      this.isRenderingStreets = false;
     }
 
     // Prevent concurrent calls

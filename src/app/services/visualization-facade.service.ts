@@ -566,6 +566,13 @@ export class VisualizationFacadeService {
     const engine = this.bridge.getEngine();
     if (!engine || !this.bridge.getFilteredStreetNetwork()) return;
 
+    // Always update overlay base Y (must happen even if streets are still building progressively)
+    const base = this.store.baseCoords();
+    const originTerrainY = engine.getTerrainHeightAtGeo(base.lat, base.lon);
+    if (originTerrainY !== null) {
+      engine.setOverlayBaseY(originTerrainY);
+    }
+
     const t0 = performance.now();
 
     this.renderStreets();
