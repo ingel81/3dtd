@@ -45,8 +45,8 @@ export class RouteAnimationService {
   /** Duration of fade-out in milliseconds */
   private readonly FADE_DURATION = 800; // Quick fade
 
-  /** Height offset above terrain for the animated line */
-  private readonly HEIGHT_OFFSET = 1.5;
+  /** Height offset above terrain for the animated line (matches path-route.service HEIGHT_ABOVE_GROUND) */
+  private readonly HEIGHT_OFFSET = 1;
 
   // --- MAIN LINE (flowing red dashes) ---
   /** Main line color (vivid red) */
