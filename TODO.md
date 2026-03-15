@@ -303,8 +303,9 @@
 
 ## Code Quality
 
-- [ ] **console.log Cleanup** - ~68 Stellen in ~18 Dateien
+- [ ] **console.log Cleanup** - ~67 Stellen in ~18 Dateien
       Viele Debug-Logs, ggf. durch proper Logging ersetzen oder entfernen
+      Hinweis: `[PerfTrace]` Logs (console.warn) sind temporaer fuer Performance-Monitoring
 
 ---
 
