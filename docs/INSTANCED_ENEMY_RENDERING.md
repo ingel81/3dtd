@@ -306,11 +306,16 @@ await renderer.preloadAllModels();      // Alle Typen parallel
 
 ## Performance
 
-| Szenario | Draw Calls | JS-Zeit |
-|----------|-----------|---------|
-| 500 Enemies (klassisch) | ~1000 | ~1.3ms |
-| 500 Enemies (instanziert) | ~14 | ~1.3ms |
-| 5000 Enemies (instanziert) | ~14 | ~5ms |
-| 20000 Enemies (instanziert) | ~14 | ~20ms |
+| Szenario | Draw Calls | JS-Zeit | FPS |
+|----------|-----------|---------|-----|
+| 500 Enemies (klassisch) | ~1000 | ~1.3ms | ~45 |
+| 500 Enemies (instanziert) | ~14 | ~1.3ms | ~60 |
+| 5000 Enemies (instanziert) | ~14 | ~9ms | ~67 |
+| 20000 Enemies (instanziert) | ~14 | ~35ms | ~28 |
 
 Der JS-Overhead (Animation-Update, Matrix-Setzen) skaliert linear. Der GPU-Overhead bleibt nahezu konstant da die Draw Call Anzahl gleich bleibt.
+
+**Optimierungen (Stand 2026-03-15):** ~37% Reduktion des JS-Overheads pro Enemy durch:
+gecachtes `performance.now()`, Single-Pass Status-Effects, gebatchte GPU-Flags,
+Integer-Hash Spatial-Grid-Keys, inlined `geoToLocalSimple()` mit gecachtem Cosinus,
+eliminiertes `Math.pow`/`Math.sqrt` in Hot-Paths. Details: siehe ARCHITECTURE.md.

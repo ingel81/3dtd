@@ -4,6 +4,57 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-03-15
+
+### Performance: Enemy System Optimierung (~37% schneller pro Enemy)
+- [x] **Runde 1 — JS-Hotpath Optimierungen**
+      `performance.now()` einmal pro Frame cachen (war 9000+ Calls), Single-Pass
+      Status-Effect-Update mit In-Place Array Compact (ersetzt 3 separate Iterationen),
+      `needsUpdate` GPU-Flags pro Pool batchen statt pro Instance, Integer-Hash-Keys
+      fuer Spatial Grids (keine String-Allokation), sqrt-Elimination im Heading-Check,
+      Segment-Perpendikularvektor cachen, statisches lookAt-Target, In-Place
+      `transform.setPosition()`. Ergebnis: ~2.83µs → ~1.84µs pro Enemy.
+      Dateien: `enemy.manager.ts`, `movement.component.ts`, `transform.component.ts`,
+      `spatial-grid.service.ts`, `global-route-grid.ts`, `enemy-instance.manager.ts`,
+      `health-bar-instance.manager.ts`, `instanced-enemy.renderer.ts`, `ellipsoid-sync.ts`
+- [x] **Runde 2 — Koordinaten & Math Optimierungen**
+      `geoToLocalSimple/Into()` inlined mit gecachtem Origin-Cosinus (kein Math.cos/sqrt),
+      doppelte Koordinaten-Konvertierung eliminiert (localPos zum Renderer durchgereicht),
+      `slowMultiplier` aus Status-Update durchgereicht (keine Re-Iteration),
+      `Math.pow` durch lineare Approximation ersetzt, Height-Cache Integer-Keys (Szudzik
+      Pairing statt toFixed), VAT totalTime pro Animationstyp vorberechnet, tintDirty
+      Bug-Fix (GPU-Flag wurde nie gesetzt). Ergebnis: ~1.84µs → ~1.79µs pro Enemy.
+      5000+ Enemies bei 67 FPS (vorher 3000 bei 61 FPS).
+
+### Performance: Progressive LOS & Street Rendering
+- [x] **Tower-Platzierung ruckelfrei**
+      `registerTowerProgressive()` berechnet LOS in Batches von 50 Zellen/Frame.
+      Tower bleibt inaktiv (`losReady=false`) bis Berechnung abgeschlossen (~130ms).
+      Combat-System ueberspringt Towers mit ausstehender LOS. Vorher: 95-380ms
+      Frame-Drop pro Platzierung. Nachher: 0ms pro Frame.
+      Dateien: `global-route-grid.ts`, `tower-placement.service.ts`,
+      `tower-combat.service.ts`, `tower.entity.ts`, `game-loop-facade.service.ts`
+- [x] **Street-Rendering ruckelfrei**
+      `renderStreets()` sammelt Arbeit und gibt sofort zurueck.
+      `continueStreetRender()` verarbeitet 50 Nodes/Frame progressiv.
+      Alte Strassen bleiben sichtbar bis neue fertig (kein Flackern).
+      Tile-Reload-Callback von 350-600ms auf 14-34ms reduziert.
+      Dateien: `street-rendering.service.ts`, `game-loop-facade.service.ts`,
+      `visualization-facade.service.ts`
+
+### Code Review: Projekt-weite Bereinigung (12 Agenten)
+- [x] **CombatEffectService.destroy()** hinzugefuegt + Aufruf in GameStateManager.dispose()
+- [x] **Wave-Completion Race Condition** — `getKillingCount()` pruefen bevor Wave complete
+- [x] **--td-red CSS-Variable** im Theme definiert (war undefiniert, 8+ Stellen)
+- [x] **TYPE_COOLDOWN_WAVES** Frontend 2→4 synced mit Backend
+- [x] **Concurrent Location Changes** Guard mit `isApplyingLocation()`
+- [x] **VARIATION_MAX** aus config.py importiert statt hardcoded in model.py
+- [x] **CombatComponent Dead Code** entfernt (setTarget, clearTarget, hasTarget, isInRange)
+- [x] **Three.js Mock** komplett ueberarbeitet (30+ Klassen, fixt 26 vorher fehlende Tests)
+- [x] **487/487 Tests** gruen, 39/39 Test-Files passed
+
+---
+
 ## 2026-02-27
 
 ### Fix: Gegner spawnen unter der Erde nach radikalem Zoom

@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-01-19
+**Stand:** 2026-03-15
 
 ## Übersicht
 
@@ -410,6 +410,37 @@ Höhen in `cachedPaths` speichern → Gegner spawnen unter dem Terrain.
 `geometricError`: niedrig = detailliert (5–50), hoch = grob (200–500).
 LOD-Wechsel verursacht 3–10× Sprung → klar detektierbar.
 Performance-Impact: < 0.1ms (kein zusätzlicher Raycast).
+
+### Progressive LOS & Street Rendering
+
+Tower-Platzierung und Kamera-Bewegung loesten frueher schwere Frame-Drops aus
+(95-600ms synchrone Raycasts). Beide nutzen jetzt progressive Batching:
+
+**Tower LOS Registration:**
+- `registerTowerProgressive()` berechnet LOS in Batches von 50 Zellen/Frame
+- Tower bleibt inaktiv (`tower.losReady = false`) bis LOS komplett (~130ms / ~8 Frames)
+- Combat-System ueberspringt Towers mit `!losReady`
+- Gleiche Logik wie die existierende Preview (`continuePreviewBuild()`)
+
+**Street Rendering:**
+- `renderStreets()` sammelt alle Nodes und gibt sofort zurueck
+- `continueStreetRender()` verarbeitet 50 Nodes/Frame (je 5 Raycasts bei Lateral Sampling)
+- Alte Strassen bleiben sichtbar bis neue fertig (kein Flackern)
+- Tile-Reload-Callback: von 350-600ms auf 14-34ms reduziert
+
+### Enemy System Performance
+
+Optimiert fuer 5000+ Enemies bei 67 FPS (~1.79µs pro Enemy):
+
+| Optimierung | Ersparnis |
+|-------------|-----------|
+| `performance.now()` einmal pro Frame cachen | ~0.5ms |
+| Single-Pass Status-Effects (in-place compact) | ~0.8ms |
+| GPU `needsUpdate` Flags pro Pool batchen | ~0.7ms |
+| Integer-Hash-Keys fuer Spatial Grids | ~0.4ms |
+| `geoToLocalSimple` inlined + cos gecacht | ~0.9ms |
+| Heading sqrt eliminiert, lateralOffset gecacht | ~0.4ms |
+| `Math.pow` → lineare Approximation | ~0.4ms |
 
 ---
 

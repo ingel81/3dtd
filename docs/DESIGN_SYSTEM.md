@@ -96,7 +96,7 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 
 | Problem | Beschreibung |
 |---------|--------------|
-| `--td-red` undefiniert | Wird in game-sidebar.component.ts (`.td-stat-value.td-damage`, `.td-cancel-btn mat-icon`, `.td-sell-tile`) und enemy-debugger.component.ts verwendet, ist aber nicht definiert. Sollte `--td-health-red` sein. |
+| ~~`--td-red` undefiniert~~ | **Geloest (2026-03-15):** `--td-red` wurde als Alias fuer `--td-health-red` in `td-theme.ts` hinzugefuegt. |
 
 ### Bars (HP, Mana, Progress)
 
