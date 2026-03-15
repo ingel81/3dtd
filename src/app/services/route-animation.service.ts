@@ -288,12 +288,18 @@ export class RouteAnimationService {
     for (const pos of path) {
       const local = this.engine.sync.geoToLocalSimple(pos.lat, pos.lon, 0);
 
-      // Sample terrain height at this position (same as PathAndRouteService)
-      const terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon);
-      if (terrainY !== null) {
-        local.y = terrainY - originTerrainY + this.HEIGHT_OFFSET;
+      // Prefer pre-computed path height (from cachedPaths, always available)
+      // Avoids live raycast which can return null during tile loading → vertical spikes
+      if (pos.height !== undefined && pos.height !== 0) {
+        local.y = (pos.height - origin.height) + this.HEIGHT_OFFSET;
       } else {
-        local.y = this.HEIGHT_OFFSET;
+        // Fallback: live terrain sample
+        const terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon);
+        if (terrainY !== null) {
+          local.y = terrainY - originTerrainY + this.HEIGHT_OFFSET;
+        } else {
+          local.y = this.HEIGHT_OFFSET;
+        }
       }
 
       points.push(local);
