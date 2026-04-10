@@ -437,26 +437,26 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       display: flex;
       align-items: center;
       justify-content: center;
-      width: 18px;
-      height: 18px;
-      background: transparent;
-      border: 1px solid var(--td-frame-mid);
-      border-radius: 2px;
-      color: var(--td-text-secondary);
+      width: 22px;
+      height: 22px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-health-red);
+      border-radius: 3px;
+      color: var(--td-health-red);
       cursor: pointer;
       transition: all 0.15s;
     }
 
     .remove-btn:hover {
-      background: var(--td-red);
-      border-color: var(--td-red);
-      color: var(--td-bg-dark);
+      background: var(--td-health-red);
+      border-color: var(--td-health-red);
+      color: var(--td-text-primary);
     }
 
     .remove-btn mat-icon {
-      font-size: 12px;
-      width: 12px;
-      height: 12px;
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
     }
 
     .selected-section {
