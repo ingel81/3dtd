@@ -489,4 +489,9 @@ export class TowerDefenseFacadeService {
       this.gameState.getGlobalRouteGrid().toggleSpatialGridDebug();
     }
   }
+
+  /** Emit a command event on the GameEventBus. Used for research commands etc. */
+  emitCommand(event: { type: string; [key: string]: any }): void {
+    this.gameState.getEventBus().emit(event as any);
+  }
 }

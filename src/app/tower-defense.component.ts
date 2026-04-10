@@ -380,6 +380,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     tower.airSubStrategy = strategy;
   }
 
+  onStartResearch(researchId: string): void {
+    this.facade.emitCommand({ type: 'command:start-research', researchId });
+  }
+
+  onCancelResearch(researchId: string): void {
+    this.facade.emitCommand({ type: 'command:cancel-research', researchId });
+  }
+
   /**
    * Start a new wave — delegates to facade
    */

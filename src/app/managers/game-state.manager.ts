@@ -27,6 +27,9 @@ import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/performance-profiler.service';
+import { ResearchManager } from './research.manager';
+import { ResearchStore } from '../store/research.store';
+import { getResearch } from '../configs/research/research-tree.config';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -62,6 +65,8 @@ export class GameStateManager {
   readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus, this.entityPool);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
+  readonly researchManager = new ResearchManager(this.eventBus);
+  private readonly researchStore = inject(ResearchStore);
 
   // Game state signals
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
@@ -237,6 +242,12 @@ export class GameStateManager {
         const previousLevel = tower.getUpgradeLevel(upgradeId);
         tower.applyUpgrade(upgradeId);
 
+        // Research Center slot upgrade
+        if (upgrade?.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
+          this.researchManager.upgradeCenter();
+          this.syncResearchStoreState();
+        }
+
         // If range changed, recompute LOS cells so targeting uses the new range
         if (upgrade?.effect.stat === 'range') {
           this.towerPlacement.recomputeTowerLOS(tower);
@@ -256,6 +267,31 @@ export class GameStateManager {
           cost,
         });
       }
+    }));
+
+    // ── Research commands ────────────────────────────────────────
+    this.eventBusSubs.add(this.eventBus.on('command:start-research', (event) => {
+      const validation = this.researchManager.canStartResearch(event.researchId, this.credits());
+      if (!validation.canStart) return;
+
+      const research = getResearch(event.researchId);
+      if (research && this.spendCredits(research.cost)) {
+        this.researchManager.startResearch(event.researchId);
+      }
+      this.syncResearchStoreState();
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('command:cancel-research', (event) => {
+      const refund = this.researchManager.cancelResearch(event.researchId);
+      if (refund > 0) {
+        this.addCredits(refund);
+      }
+      this.syncResearchStoreState();
+    }));
+
+    // ── Research completion listener ──────────────────────────────
+    this.eventBusSubs.add(this.eventBus.on('research:completed', (_event) => {
+      this.syncResearchStoreState();
     }));
 
     this.eventBusSubs.add(this.eventBus.on('command:start-wave', (event) => {
@@ -318,6 +354,13 @@ export class GameStateManager {
     let t0 = profiling ? performance.now() : 0;
     this.projectileManager.update(deltaTime);
     const tProjectile = profiling ? performance.now() - t0 : 0;
+
+    // Research ticks on REAL TIME (not game timescale)
+    this.researchManager.update(rawDeltaTime / 1000);
+    // Sync active research progress to store for UI
+    if (this.researchManager.usedSlots > 0) {
+      this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
+    }
 
     // Process deferred events (VFX, audio, etc.) at stable point in game loop
     t0 = profiling ? performance.now() : 0;
@@ -544,6 +587,7 @@ export class GameStateManager {
     this.towerManager.clear();
     this.projectileManager.clear();
     this.waveManager.reset();
+    this.researchManager.reset();
     this.globalRouteGrid.clear();
 
     if (this.tilesEngine) {
@@ -593,6 +637,21 @@ export class GameStateManager {
       credits: newCredits,
       delta,
     });
+  }
+
+  private addCredits(amount: number): void {
+    this.updateCredits(amount);
+  }
+
+  /**
+   * Sync ResearchManager state to ResearchStore signals.
+   * Called after any research state change.
+   */
+  private syncResearchStoreState(): void {
+    this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
+    this.researchStore.completedResearches.set(this.researchManager.getCompletedResearches());
+    this.researchStore.centerLevel.set(this.researchManager.centerLevel);
+    this.researchStore.researchSlots.set(this.researchManager.maxSlots);
   }
 
   /**
@@ -647,6 +706,12 @@ export class GameStateManager {
     const config = TOWER_TYPES[typeId];
     if (!config) return null;
 
+    // Research Center: only one allowed
+    if (typeId === 'research-center') {
+      const existing = this.towerManager.getAll().find(t => t.typeConfig.id === 'research-center');
+      if (existing) return null;
+    }
+
     // Check if player has enough credits
     if (this.credits() < config.cost) {
       return null;
@@ -659,7 +724,16 @@ export class GameStateManager {
       this.updateCredits(-config.cost);
 
       // Register tower on grid (LOS raycasting + grid registration + visualization)
-      this.towerPlacement.registerTowerOnGrid(tower, position, typeId);
+      // Skip grid registration for passive buildings (no targeting/LOS needed)
+      if (config.attackType !== 'passive') {
+        this.towerPlacement.registerTowerOnGrid(tower, position, typeId);
+      }
+
+      // Notify ResearchManager when Research Center is placed
+      if (typeId === 'research-center') {
+        this.researchManager.onCenterPlaced();
+        this.syncResearchStoreState();
+      }
     }
     return tower;
   }

@@ -33,6 +33,7 @@ import { EngineStore } from './engine.store';
 import { GameStore } from './game.store';
 import { LocationStore } from './location.store';
 import { UIStore } from './ui.store';
+import { ResearchStore } from './research.store';
 import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
 import { EngineInitializationService } from '../services/engine-initialization.service';
 
@@ -48,6 +49,7 @@ export class TowerDefenseStore {
   private readonly uiStore = inject(UIStore);
   private readonly engineStore = inject(EngineStore);
   private readonly locationStore = inject(LocationStore);
+  private readonly researchStore = inject(ResearchStore);
   private readonly engineInit = inject(EngineInitializationService);
 
   // ════════════════════════════════════════════════════════════
@@ -237,6 +239,37 @@ export class TowerDefenseStore {
   readonly isDevWorldRegenerating = this.gameStore.isDevWorldRegenerating;
 
   // ════════════════════════════════════════════════════════════
+  // RESEARCH STATE
+  // ════════════════════════════════════════════════════════════
+
+  /** Completed research IDs */
+  readonly completedResearches = this.researchStore.completedResearches;
+
+  /** Active researches with progress */
+  readonly activeResearches = this.researchStore.activeResearches;
+
+  /** Research Center building level (0 = not placed) */
+  readonly researchCenterLevel = this.researchStore.centerLevel;
+
+  /** Whether Research Center has been placed */
+  readonly researchCenterPlaced = this.researchStore.centerPlaced;
+
+  /** Maximum concurrent research slots */
+  readonly researchSlots = this.researchStore.researchSlots;
+
+  /** Available (free) research slots */
+  readonly availableResearchSlots = this.researchStore.availableSlots;
+
+  /** Highest unlocked upgrade tier */
+  readonly maxUpgradeTier = this.researchStore.maxUpgradeTier;
+
+  /** Set of unlocked global perk IDs */
+  readonly unlockedPerks = this.researchStore.unlockedPerks;
+
+  /** Whether air targeting perk is unlocked */
+  readonly airTargetingUnlocked = this.researchStore.airTargetingUnlocked;
+
+  // ════════════════════════════════════════════════════════════
   // WAVE DEBUG OVERRIDES
   // ════════════════════════════════════════════════════════════
 
@@ -340,6 +373,7 @@ export class TowerDefenseStore {
   resetGameState(): void {
     this.gameStore.resetGameState();
     this.uiStore.resetBuildState();
+    this.researchStore.resetResearchState();
   }
 
   /**

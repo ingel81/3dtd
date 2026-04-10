@@ -47,18 +47,32 @@
         } @else {
           <div class="td-tower-grid">
             @for (tower of towerTypes(); track tower.id) {
-              <button class="td-tower-card"
-                      [class.disabled]="store.credits() < tower.cost"
-                      [disabled]="isGameOver() || store.credits() < tower.cost"
-                      (click)="selectTower.emit(tower.id)"
-                      [matTooltip]="tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'"
-                      matTooltipPosition="left">
-                <canvas #towerPreviewCanvas
-                        class="td-tower-preview-canvas"
-                        [attr.data-tower-id]="tower.id"></canvas>
-                <span class="td-tower-card-name">{{ tower.name }}</span>
-                <span class="td-tower-card-cost">{{ tower.cost }}</span>
-              </button>
+              @if (isTowerUnlocked(tower.id)) {
+                <!-- Unlocked tower — normal card -->
+                <button class="td-tower-card"
+                        [class.disabled]="store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
+                        [disabled]="isGameOver() || store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
+                        (click)="selectTower.emit(tower.id)"
+                        [matTooltip]="tower.id === 'research-center' ? (isResearchCenterPlaced() ? 'Already placed' : 'Research Center') : tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'"
+                        matTooltipPosition="left">
+                  <canvas #towerPreviewCanvas
+                          class="td-tower-preview-canvas"
+                          [attr.data-tower-id]="tower.id"></canvas>
+                  <span class="td-tower-card-name">{{ tower.name }}</span>
+                  <span class="td-tower-card-cost">{{ tower.cost }}</span>
+                </button>
+              } @else {
+                <!-- Locked tower — silhouette -->
+                <div class="td-tower-card td-tower-locked"
+                     [matTooltip]="getTowerLockTooltip(tower.id)"
+                     matTooltipPosition="left">
+                  <canvas #towerPreviewCanvas
+                          class="td-tower-preview-canvas td-silhouette"
+                          [attr.data-tower-id]="tower.id"></canvas>
+                  <span class="td-tower-card-name">???</span>
+                  <mat-icon class="td-lock-icon">lock</mat-icon>
+                </div>
+              }
             }
           </div>
         }
@@ -67,32 +81,121 @@
 
     <!-- TOWER Section (only when tower selected) -->
     @if (store.selectedTower(); as tower) {
-      <section class="td-panel td-tower-panel">
-        <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
-        <div class="td-panel-content td-tower-section">
-          <!-- Stats as tile grid -->
-          <div class="td-stats-grid">
-            <div class="td-stat-tile">
-              <mat-icon class="td-stat-icon td-icon-damage">local_fire_department</mat-icon>
-              <span class="td-stat-value td-val-damage">{{ tower.combat.damage }}</span>
-              <span class="td-stat-label">Damage</span>
+      @if (isResearchCenter()) {
+        <!-- RESEARCH CENTER Panel -->
+        <section class="td-panel td-research-panel">
+          <div class="td-panel-header">RESEARCH CENTER · Lv.{{ researchStore.centerLevel() }}</div>
+          <div class="td-panel-content td-tower-section">
+            <!-- Active Research Slots -->
+            <div class="td-research-slots-header">
+              <span>Research Slots: {{ store.activeResearches().length }}/{{ researchStore.researchSlots() }}</span>
             </div>
-            <div class="td-stat-tile">
-              <mat-icon class="td-stat-icon td-icon-range">radar</mat-icon>
-              <span class="td-stat-value">{{ tower.combat.range }}m</span>
-              <span class="td-stat-label">Range</span>
-            </div>
-            <div class="td-stat-tile">
-              <mat-icon class="td-stat-icon td-icon-firerate">speed</mat-icon>
-              <span class="td-stat-value">{{ tower.combat.fireRate }}/s</span>
-              <span class="td-stat-label">Fire Rate</span>
-            </div>
-            <div class="td-stat-tile">
-              <mat-icon class="td-stat-icon td-icon-kills">military_tech</mat-icon>
-              <span class="td-stat-value td-val-kills">{{ tower.combat.kills }}</span>
-              <span class="td-stat-label">Kills</span>
+
+            <!-- Active Researches -->
+            @for (active of store.activeResearches(); track active.researchId) {
+              <div class="td-research-active">
+                <div class="td-research-active-info">
+                  <span class="td-research-active-name">{{ getResearchName(active.researchId) }}</span>
+                  <span class="td-research-active-time">{{ getActiveResearchRemaining(active.researchId) | number:'1.0-0' }}s</span>
+                </div>
+                <div class="td-research-progress-bar">
+                  <div class="td-research-progress-fill" [style.width.%]="getActiveResearchProgress(active.researchId) * 100"></div>
+                </div>
+                <button class="td-research-cancel-btn" (click)="cancelResearch.emit(active.researchId)">
+                  <mat-icon>close</mat-icon>
+                </button>
+              </div>
+            }
+
+            <!-- Research Tree -->
+            @for (research of allResearches; track research.id) {
+              <button class="td-research-node"
+                      [class.td-research-completed]="getResearchStatus(research.id) === 'completed'"
+                      [class.td-research-available]="getResearchStatus(research.id) === 'available'"
+                      [class.td-research-active]="getResearchStatus(research.id) === 'active'"
+                      [class.td-research-locked]="getResearchStatus(research.id) === 'locked'"
+                      [disabled]="getResearchStatus(research.id) !== 'available' || store.credits() < research.cost || store.availableResearchSlots() <= 0"
+                      (click)="startResearch.emit(research.id)"
+                      [matTooltip]="getResearchStatus(research.id) === 'locked' ? 'Requires: ' + getMissingPrereqs(research.id) : research.description"
+                      matTooltipPosition="left">
+                <mat-icon class="td-research-node-icon">
+                  @switch (getResearchStatus(research.id)) {
+                    @case ('completed') { check_circle }
+                    @case ('active') { hourglass_top }
+                    @case ('available') { {{ research.icon }} }
+                    @case ('locked') { lock }
+                  }
+                </mat-icon>
+                <div class="td-research-node-info">
+                  <span class="td-research-node-name">{{ research.name }}</span>
+                  <span class="td-research-node-meta">
+                    @switch (getResearchStatus(research.id)) {
+                      @case ('completed') { Completed }
+                      @case ('active') { Researching... }
+                      @default { {{ research.cost }} · {{ research.duration }}s }
+                    }
+                  </span>
+                </div>
+              </button>
+            }
+
+            <!-- Upgrades (Research Wing) -->
+            <div class="td-upgrades-section">
+              @if (tower.getAvailableUpgrades().length > 0) {
+                @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
+                  <button
+                    class="td-upgrade-tile"
+                    [class.td-upgrade-affordable]="store.credits() >= tower.getNextUpgradeCost(upgrade.id)"
+                    [disabled]="store.credits() < tower.getNextUpgradeCost(upgrade.id)"
+                    (click)="onUpgradeTower(tower, upgrade.id)"
+                    [matTooltip]="upgrade.description"
+                    matTooltipPosition="left"
+                  >
+                    <mat-icon class="td-upgrade-icon">upgrade</mat-icon>
+                    <div class="td-upgrade-info">
+                      <span class="td-upgrade-name">{{ upgrade.name }}</span>
+                      <span class="td-upgrade-desc">Lv.{{ tower.getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
+                    </div>
+                    <span class="td-upgrade-cost">{{ tower.getNextUpgradeCost(upgrade.id) }}</span>
+                  </button>
+                }
+              }
             </div>
           </div>
+        </section>
+      } @else {
+        <!-- NORMAL TOWER Panel -->
+        <section class="td-panel td-tower-panel">
+          <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
+          <div class="td-panel-content td-tower-section">
+            <!-- Damage Type Badge -->
+            <div class="td-damage-type-badge" [style.border-color]="damageTypeUI[tower.typeConfig.damageType].color">
+              <span>{{ damageTypeUI[tower.typeConfig.damageType].icon }} {{ damageTypeUI[tower.typeConfig.damageType].label }}</span>
+            </div>
+
+            <!-- Stats as tile grid -->
+            <div class="td-stats-grid">
+              <div class="td-stat-tile">
+                <mat-icon class="td-stat-icon td-icon-damage">local_fire_department</mat-icon>
+                <span class="td-stat-value td-val-damage">{{ tower.combat.damage }}</span>
+                <span class="td-stat-label">Damage</span>
+              </div>
+              <div class="td-stat-tile">
+                <mat-icon class="td-stat-icon td-icon-range">radar</mat-icon>
+                <span class="td-stat-value">{{ tower.combat.range }}m</span>
+                <span class="td-stat-label">Range</span>
+              </div>
+              <div class="td-stat-tile">
+                <mat-icon class="td-stat-icon td-icon-firerate">speed</mat-icon>
+                <span class="td-stat-value">{{ tower.combat.fireRate }}/s</span>
+                <span class="td-stat-label">Fire Rate</span>
+              </div>
+              <div class="td-stat-tile">
+                <mat-icon class="td-stat-icon td-icon-kills">military_tech</mat-icon>
+                <span class="td-stat-value td-val-kills">{{ tower.combat.kills }}</span>
+                <span class="td-stat-label">Kills</span>
+              </div>
+            </div>
 
           <!-- Targeting Strategy -->
           <div class="td-targeting-row">
@@ -141,16 +244,19 @@
             }
           </div>
 
-          <!-- Sell button (subtle) -->
-          <div class="td-sell-section">
-            <button class="td-sell-tile" (click)="sellTower.emit()">
-              <mat-icon>sell</mat-icon>
-              <span>Sell</span>
-              <span class="td-sell-value">+{{ tower.typeConfig.sellValue }}</span>
-            </button>
-          </div>
+          <!-- Sell button (subtle, hidden for research center) -->
+          @if (tower.typeConfig.sellValue > 0) {
+            <div class="td-sell-section">
+              <button class="td-sell-tile" (click)="sellTower.emit()">
+                <mat-icon>sell</mat-icon>
+                <span>Sell</span>
+                <span class="td-sell-value">+{{ tower.typeConfig.sellValue }}</span>
+              </button>
+            </div>
+          }
         </div>
       </section>
+      }
     }
 
     <!-- Footer -->

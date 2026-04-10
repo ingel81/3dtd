@@ -20,6 +20,7 @@ import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { ResearchStore } from '../../store/research.store';
 import {
   TargetingStrategyConfig,
   AirSubStrategyConfig,
@@ -32,6 +33,9 @@ import {
   AirSubStrategy,
   AIR_SUB_STRATEGIES,
 } from '../../configs/tower-types.config';
+import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
+import { ResearchConfig, ResearchId, RESEARCH_CATEGORIES } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.service';
@@ -435,6 +439,29 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       cursor: not-allowed;
     }
 
+    /* Locked tower — silhouette effect */
+    .td-tower-locked {
+      opacity: 0.5;
+      cursor: default;
+      pointer-events: auto;
+    }
+    .td-tower-locked .td-silhouette {
+      filter: brightness(0) saturate(0);
+      opacity: 0.3;
+    }
+    .td-tower-locked .td-tower-card-name {
+      color: var(--td-text-muted);
+    }
+    .td-lock-icon {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -70%);
+      font-size: 24px;
+      color: var(--td-text-muted);
+      opacity: 0.7;
+    }
+
     .td-tower-preview-canvas {
       width: 100%;
       height: 80px;
@@ -730,6 +757,127 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       font-weight: 600;
       border-radius: 2px;
     }
+
+    /* === Damage Type Badge === */
+    .td-damage-type-badge {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 4px 8px;
+      margin-bottom: 6px;
+      border: 1px solid;
+      border-radius: 3px;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--td-text-secondary);
+      background: rgba(0,0,0,0.2);
+    }
+
+    /* === Research Panel === */
+    .td-research-panel {
+      border-color: var(--td-teal);
+    }
+    .td-research-slots-header {
+      font-size: 11px;
+      color: var(--td-text-muted);
+      padding: 4px 0;
+      border-bottom: 1px solid var(--td-frame-dark);
+      margin-bottom: 6px;
+    }
+    .td-research-active {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px;
+      margin-bottom: 4px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-teal);
+      border-radius: 3px;
+    }
+    .td-research-active-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-width: 0;
+    }
+    .td-research-active-name {
+      font-size: 10px;
+      font-weight: 600;
+      color: var(--td-text-secondary);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .td-research-active-time {
+      font-size: 9px;
+      color: var(--td-teal);
+    }
+    .td-research-progress-bar {
+      flex: 1;
+      height: 4px;
+      background: var(--td-frame-dark);
+      border-radius: 2px;
+      overflow: hidden;
+    }
+    .td-research-progress-fill {
+      height: 100%;
+      background: var(--td-teal);
+      transition: width 0.3s linear;
+    }
+    .td-research-cancel-btn {
+      background: none;
+      border: 1px solid var(--td-red, #cc3333);
+      color: var(--td-red, #cc3333);
+      cursor: pointer;
+      border-radius: 3px;
+      padding: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .td-research-cancel-btn mat-icon { font-size: 14px; width: 14px; height: 14px; }
+    .td-research-cancel-btn:hover { background: rgba(204,51,51,0.2); }
+
+    /* Research Tree Nodes */
+    .td-research-node {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      width: 100%;
+      padding: 6px 8px;
+      margin-bottom: 3px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-mid);
+      border-radius: 3px;
+      cursor: pointer;
+      font-family: inherit;
+      transition: all 0.15s ease;
+    }
+    .td-research-node:disabled { cursor: not-allowed; opacity: 0.5; }
+    .td-research-node-icon { font-size: 18px; width: 18px; height: 18px; }
+    .td-research-node-info { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+    .td-research-node-name { font-size: 10px; font-weight: 600; color: var(--td-text-secondary); }
+    .td-research-node-meta { font-size: 9px; color: var(--td-text-muted); }
+
+    .td-research-completed {
+      border-color: var(--td-green);
+      opacity: 0.7;
+    }
+    .td-research-completed .td-research-node-icon { color: var(--td-green); }
+    .td-research-available {
+      border-color: var(--td-gold-dark);
+    }
+    .td-research-available:hover:not(:disabled) {
+      border-color: var(--td-gold);
+      box-shadow: 0 0 8px rgba(255,215,0,0.2);
+    }
+    .td-research-available .td-research-node-icon { color: var(--td-gold); }
+    .td-research-active { border-color: var(--td-teal); }
+    .td-research-active .td-research-node-icon { color: var(--td-teal); }
+    .td-research-locked {
+      opacity: 0.4;
+    }
+    .td-research-locked .td-research-node-icon { color: var(--td-text-muted); }
   `,
 })
 export class GameSidebarComponent implements AfterViewInit, OnDestroy {
@@ -795,6 +943,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   });
   readonly isMixedWave = this.waveDebug.isMixedWave;
 
+  // Research store reference
+  readonly researchStore = inject(ResearchStore);
+
   // Outputs
   readonly startWave = output<void>();
   readonly cancelBuild = output<void>();
@@ -803,6 +954,63 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly upgradeTower = output<{ tower: Tower; upgradeId: UpgradeId }>();
   readonly changeTargeting = output<{ tower: Tower; strategy: TargetingStrategy }>();
   readonly changeAirSubStrategy = output<{ tower: Tower; strategy: AirSubStrategy }>();
+  readonly startResearch = output<ResearchId>();
+  readonly cancelResearch = output<ResearchId>();
+
+  // Research helpers
+  readonly isResearchCenter = computed(() =>
+    this.store.selectedTower()?.typeConfig.id === 'research-center'
+  );
+
+  readonly allResearches = Object.values(RESEARCH_TREE);
+  readonly damageTypeUI = DAMAGE_TYPE_UI;
+
+  isTowerUnlocked(towerId: TowerTypeId): boolean {
+    return this.researchStore.isTowerUnlocked(towerId);
+  }
+
+  getTowerLockTooltip(towerId: TowerTypeId): string {
+    const name = this.researchStore.getRequiredResearchName(towerId);
+    return name ? `Requires: ${name}` : 'Locked';
+  }
+
+  isResearchCenterPlaced(): boolean {
+    return this.researchStore.centerPlaced();
+  }
+
+  getResearchStatus(id: ResearchId): 'completed' | 'active' | 'available' | 'locked' {
+    if (this.researchStore.completedResearches().has(id)) return 'completed';
+    if (this.researchStore.activeResearches().some(a => a.researchId === id)) return 'active';
+    const config = getResearch(id);
+    if (!config) return 'locked';
+    const allPrereqsMet = config.prerequisites.every(p => this.researchStore.completedResearches().has(p));
+    return allPrereqsMet ? 'available' : 'locked';
+  }
+
+  getActiveResearchProgress(id: ResearchId): number {
+    const active = this.researchStore.activeResearches().find(a => a.researchId === id);
+    if (!active) return 0;
+    return Math.min(1, active.elapsed / active.duration);
+  }
+
+  getActiveResearchRemaining(id: ResearchId): number {
+    const active = this.researchStore.activeResearches().find(a => a.researchId === id);
+    if (!active) return 0;
+    return Math.max(0, active.duration - active.elapsed);
+  }
+
+  getResearchName(id: ResearchId): string {
+    return getResearch(id)?.name ?? id;
+  }
+
+  getMissingPrereqs(id: ResearchId): string {
+    const config = getResearch(id);
+    if (!config) return '';
+    const missing = config.prerequisites
+      .filter(p => !this.researchStore.completedResearches().has(p))
+      .map(p => getResearch(p)?.name ?? p);
+    return missing.join(', ');
+  }
 
   // Canvas refs for previews
   @ViewChildren('towerPreviewCanvas') towerPreviewCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;

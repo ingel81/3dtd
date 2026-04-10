@@ -1,6 +1,7 @@
 import { Injectable, inject } from '@angular/core';
 import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
 import { TowerDefenseStore } from '../store/tower-defense.store';
+import { ResearchStore } from '../store/research.store';
 
 /**
  * GameStateSyncService — Bridges GSM (GameStateManager) events to the Store.
@@ -22,6 +23,7 @@ import { TowerDefenseStore } from '../store/tower-defense.store';
 @Injectable({ providedIn: 'root' })
 export class GameStateSyncService {
   private readonly store = inject(TowerDefenseStore);
+  private readonly researchStore = inject(ResearchStore);
   private readonly subs = new SubscriptionBag();
 
   /**
@@ -95,6 +97,24 @@ export class GameStateSyncService {
 
     this.subs.add(eventBus.on('enemy:reached-base', (_event) => {
       this.store.enemiesAlive.update(n => Math.max(0, n - 1));
+    }));
+
+    // ── Research lifecycle ────────────────────────────────────────
+    this.subs.add(eventBus.on('research:started', (event) => {
+      // Active researches are updated from ResearchManager snapshot via GSM
+    }));
+
+    this.subs.add(eventBus.on('research:completed', (event) => {
+      this.researchStore.completedResearches.update(set => {
+        const next = new Set(set);
+        next.add(event.researchId);
+        return next;
+      });
+      this.researchStore.applyResearchEffects(event.effects);
+    }));
+
+    this.subs.add(eventBus.on('research:cancelled', (_event) => {
+      // Active researches are updated from ResearchManager snapshot via GSM
     }));
   }
 
