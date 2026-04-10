@@ -7,7 +7,6 @@ import {
 import { CoordinateSync } from '../index';
 import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../models/enemy-types';
 import { AssetManagerService } from '../../../services/asset-manager.service';
-import { ThreeEnemyRenderer, EnemyRenderData, EnemyDebugOverrides } from '../three-enemy.renderer';
 import { EnemyInstanceManager } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';
@@ -16,13 +15,38 @@ import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';
 const DUMMY_OBJECT = new Object3D();
 
 /**
+ * Debug overrides for enemy visual properties.
+ * Used by enemy debugger for live tuning of a single enemy.
+ */
+export interface EnemyDebugOverrides {
+  scale?: number;
+  heightOffset?: number;
+  healthBarOffset?: number;
+  rotation?: number; // Y rotation in radians
+  animationSpeed?: number; // Direct timeScale override
+}
+
+/**
+ * Enemy render data - returned by create() for compatibility with enemy manager.
+ * For instanced enemies this is a lightweight stub (mesh = DUMMY_OBJECT).
+ */
+export interface EnemyRenderData {
+  id: string;
+  mesh: Object3D;
+  typeConfig: EnemyTypeConfig;
+  isDestroyed: boolean;
+  isWalking: boolean;
+  lastHeading: number;
+}
+
+/**
  * InstancedEnemyRenderer
  *
- * Drop-in replacement for ThreeEnemyRenderer that uses GPU instancing
- * with Vertex Animation Textures (VAT) for massive draw call reduction.
+ * GPU-instanced enemy renderer using Vertex Animation Textures (VAT)
+ * for massive draw call reduction.
  *
- * Normal enemies → instanced (VAT + InstancedMesh)
- * Boss enemies → fallback to classic ThreeEnemyRenderer
+ * All enemies use instanced rendering. Debug overrides (scale, height,
+ * rotation, animation speed) are supported natively per-instance.
  *
  * Target: ~1000 draw calls → ~14 draw calls for 500 enemies
  */
@@ -31,15 +55,8 @@ export class InstancedEnemyRenderer {
   private readonly instanceManager: EnemyInstanceManager;
   private readonly healthBarManager: HealthBarInstanceManager;
 
-  // Classic renderer for boss enemies
-  private readonly classicRenderer: ThreeEnemyRenderer;
-
-  // Track which enemies are instanced vs classic
+  // Track active enemies
   private instancedEnemies = new Set<string>();
-  private classicEnemies = new Set<string>();
-
-  // IDs that should use classic renderer (debug enemies need live overrides)
-  private forceClassicIds = new Set<string>();
 
   // Track loaded types
   private loadedTypes = new Set<string>();
@@ -63,7 +80,6 @@ export class InstancedEnemyRenderer {
   ) {
     this.instanceManager = new EnemyInstanceManager(scene);
     this.healthBarManager = new HealthBarInstanceManager(scene);
-    this.classicRenderer = new ThreeEnemyRenderer(scene, sync, assetManager);
   }
 
   // =====================================================
@@ -73,11 +89,6 @@ export class InstancedEnemyRenderer {
   async preloadModel(typeId: EnemyTypeId): Promise<void> {
     const config = ENEMY_TYPES[typeId];
     if (!config) return;
-
-    // Boss → classic renderer only
-    if (config.bossName) {
-      return this.classicRenderer.preloadModel(typeId);
-    }
 
     // Skip if already loaded or loading
     if (this.loadedTypes.has(typeId)) return;
@@ -102,8 +113,7 @@ export class InstancedEnemyRenderer {
         // Clone with skeleton for VAT baking
         const clone = this.assetManager.cloneModel(config.modelUrl, { preserveSkeleton: true });
         if (!clone) {
-          console.warn(`[InstancedRenderer] Clone failed for ${typeId}, using classic renderer`);
-          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          console.error(`[InstancedRenderer] Clone failed for ${typeId} — enemy type will not render`);
           this.loadedTypes.add(typeId);
           return;
         }
@@ -128,17 +138,14 @@ export class InstancedEnemyRenderer {
           this.instanceManager.createPool(typeId, vatData, config);
           this.loadedTypes.add(typeId);
         } else {
-          // VAT bake failed → fall back to classic
-          console.warn(`[InstancedRenderer] VAT bake failed for ${typeId}, using classic renderer`);
-          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          console.error(`[InstancedRenderer] VAT bake failed for ${typeId} — enemy type will not render`);
           this.loadedTypes.add(typeId);
         }
       } else {
         // Non-animated model → static VAT
         const clone = this.assetManager.cloneModel(config.modelUrl);
         if (!clone) {
-          console.warn(`[InstancedRenderer] Clone failed for ${typeId}, using classic renderer`);
-          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          console.error(`[InstancedRenderer] Clone failed for ${typeId} — enemy type will not render`);
           this.loadedTypes.add(typeId);
           return;
         }
@@ -149,15 +156,12 @@ export class InstancedEnemyRenderer {
           this.instanceManager.createPool(typeId, vatData, config);
           this.loadedTypes.add(typeId);
         } else {
-          console.warn(`[InstancedRenderer] Static VAT failed for ${typeId}, using classic renderer`);
-          await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
+          console.error(`[InstancedRenderer] Static VAT failed for ${typeId} — enemy type will not render`);
           this.loadedTypes.add(typeId);
         }
       }
     } catch (err) {
       console.error(`[InstancedRenderer] Failed to bake ${typeId}:`, err);
-      // Fallback to classic
-      await this.classicRenderer.preloadModel(typeId as EnemyTypeId);
       this.loadedTypes.add(typeId);
     }
   }
@@ -181,11 +185,9 @@ export class InstancedEnemyRenderer {
       await this.bakingPromises.get(typeId);
     }
 
-    // Boss, debug, or failed bake → classic renderer
-    if (config.bossName || this.forceClassicIds.has(id) || !this.instanceManager.hasPool(typeId)) {
-      const data = await this.classicRenderer.create(id, typeId, lat, lon, height);
-      if (data) this.classicEnemies.add(id);
-      return data;
+    if (!this.instanceManager.hasPool(typeId)) {
+      console.warn(`[InstancedRenderer] No pool for ${typeId} — cannot create enemy`);
+      return null;
     }
 
     // Convert geo to local position
@@ -196,7 +198,6 @@ export class InstancedEnemyRenderer {
     if (!state) return null;
 
     // Add health bar (use cached parsed color)
-    const isBoss = false;
     let fixedColor = this.healthBarColorCache.get(typeId);
     if (fixedColor === undefined) {
       if (config.healthBarColor) {
@@ -216,7 +217,7 @@ export class InstancedEnemyRenderer {
       id,
       localPos,
       config.healthBarOffset,
-      isBoss,
+      false, // isBoss
       fixedColor,
       6, // barWidth (matches original Sprite scale)
       1, // barHeight
@@ -232,27 +233,14 @@ export class InstancedEnemyRenderer {
     return {
       id,
       mesh: DUMMY_OBJECT,
-      mixer: null,
-      animations: new Map(),
-      currentAction: null,
-      healthBar: null,
-      healthBarBucket: 100,
       typeConfig: config,
       isDestroyed: false,
       isWalking: true,
-      animationVariationTimer: null,
       lastHeading: 0,
-      lodStaggerOffset: 0,
     };
   }
 
   remove(id: string): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.remove(id);
-      this.classicEnemies.delete(id);
-      return;
-    }
-
     if (this.instancedEnemies.has(id)) {
       this.instanceManager.removeEnemy(id);
       this.healthBarManager.remove(id);
@@ -274,11 +262,6 @@ export class InstancedEnemyRenderer {
     currentSpeed?: number,
     precomputedLocalPos?: Vector3,
   ): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.update(id, lat, lon, height, heading, healthPercent, currentSpeed);
-      return;
-    }
-
     if (!this._showEnemies) return;
 
     const state = this.instanceManager.getState(id);
@@ -299,11 +282,12 @@ export class InstancedEnemyRenderer {
     // Update instance position/rotation
     this.instanceManager.updateEnemy(id, localPos, heading, currentSpeed);
 
-    // Update health bar
+    // Update health bar (with debug healthBarOffset if set)
+    const barOffset = state.debugHealthBarOffset ?? state.config.healthBarOffset;
     this.healthBarManager.update(
       id,
       localPos,
-      state.config.healthBarOffset,
+      barOffset,
       healthPercent,
       6, // barWidth
       1, // barHeight
@@ -315,42 +299,23 @@ export class InstancedEnemyRenderer {
   // =====================================================
 
   startWalkAnimation(id: string): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.startWalkAnimation(id);
-      return;
-    }
     this.instanceManager.startWalkAnimation(id);
   }
 
   startRunAnimation(id: string): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.startRunAnimation(id);
-      return;
-    }
     this.instanceManager.startRunAnimation(id);
   }
 
   playIdleAnimation(id: string): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.playIdleAnimation(id);
-      return;
-    }
     this.instanceManager.playIdleAnimation(id);
   }
 
   playDeathAnimation(id: string): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.playDeathAnimation(id);
-      return;
-    }
     this.instanceManager.playDeathAnimation(id);
     this.healthBarManager.hide(id);
   }
 
   updateAnimations(deltaTime: number, camera: Camera): void {
-    // Update classic renderer animations (bosses)
-    this.classicRenderer.updateAnimations(deltaTime, camera);
-
     // Skip instanced updates if hidden or animations disabled
     if (!this._showEnemies || !this._showAnimations) return;
 
@@ -369,18 +334,10 @@ export class InstancedEnemyRenderer {
   // =====================================================
 
   setFreezeVisual(id: string, active: boolean): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.setFreezeVisual(id, active);
-      return;
-    }
     this.instanceManager.setFreezeVisual(id, active);
   }
 
   setPoisonVisual(id: string, active: boolean): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.setPoisonVisual(id, active);
-      return;
-    }
     this.instanceManager.setPoisonVisual(id, active);
   }
 
@@ -389,17 +346,11 @@ export class InstancedEnemyRenderer {
   // =====================================================
 
   get(id: string): EnemyRenderData | undefined {
-    if (this.classicEnemies.has(id)) {
-      return this.classicRenderer.get(id);
-    }
-    // For instanced enemies, return undefined (no full render data)
+    // Instanced enemies have no full render data — return undefined
     return undefined;
   }
 
   getSpeedMultiplier(id: string): number {
-    if (this.classicEnemies.has(id)) {
-      return this.classicRenderer.getSpeedMultiplier(id);
-    }
     return this.instanceManager.getSpeedMultiplier(id);
   }
 
@@ -409,14 +360,11 @@ export class InstancedEnemyRenderer {
   }
 
   getAllIds(): string[] {
-    return [
-      ...this.instanceManager.getAllIds(),
-      ...this.classicRenderer.getAllIds(),
-    ];
+    return this.instanceManager.getAllIds();
   }
 
   get count(): number {
-    return this.instanceManager.count + this.classicRenderer.count;
+    return this.instanceManager.count;
   }
 
   // =====================================================
@@ -426,7 +374,6 @@ export class InstancedEnemyRenderer {
   setHealthBarsVisible(visible: boolean): void {
     this._showHealthBars = visible;
     this.healthBarManager.setVisible(visible);
-    this.classicRenderer.setHealthBarsVisible(visible);
   }
 
   get showHealthBars(): boolean {
@@ -435,7 +382,6 @@ export class InstancedEnemyRenderer {
 
   setAnimationsEnabled(enabled: boolean): void {
     this._showAnimations = enabled;
-    this.classicRenderer.setAnimationsEnabled(enabled);
   }
 
   get showAnimations(): boolean {
@@ -447,63 +393,48 @@ export class InstancedEnemyRenderer {
     this._showEnemies = visible;
     this.instanceManager.setVisible(visible);
     this.healthBarManager.setVisible(visible && this._showHealthBars);
-    this.classicRenderer.setEnemiesVisible(visible);
   }
 
   get showEnemies(): boolean {
     return this._showEnemies;
   }
 
-  // These toggles are irrelevant for instanced rendering but needed for API compat
-  setTexturesEnabled(enabled: boolean): void {
-    this.classicRenderer.setTexturesEnabled(enabled);
-  }
+  // Legacy display toggles — no-ops for instanced rendering, kept for API compat
+  setTexturesEnabled(_enabled: boolean): void { /* no-op */ }
+  get showTextures(): boolean { return true; }
+  setSkeletonCloningEnabled(_enabled: boolean): void { /* no-op */ }
+  get useSkeletonClone(): boolean { return true; }
+  setAlphaBlendEnabled(_enabled: boolean): void { /* no-op */ }
+  get showAlphaBlend(): boolean { return true; }
 
-  get showTextures(): boolean {
-    return this.classicRenderer.showTextures;
-  }
-
-  setSkeletonCloningEnabled(enabled: boolean): void {
-    this.classicRenderer.setSkeletonCloningEnabled(enabled);
-  }
-
-  get useSkeletonClone(): boolean {
-    return this.classicRenderer.useSkeletonClone;
-  }
-
-  setAlphaBlendEnabled(enabled: boolean): void {
-    this.classicRenderer.setAlphaBlendEnabled(enabled);
-  }
-
-  get showAlphaBlend(): boolean {
-    return this.classicRenderer.showAlphaBlend;
-  }
+  // =====================================================
+  // DEBUG OVERRIDES (native instanced support)
+  // =====================================================
 
   /**
-   * Mark an enemy ID to use classic renderer on next create().
-   * Used for debug enemies that need live override support.
+   * Apply debug overrides to an enemy instance.
+   * Supports scale, heightOffset, healthBarOffset, rotation, animationSpeed.
+   * Used by the enemy debugger for live tuning.
    */
-  markForClassic(id: string): void {
-    this.forceClassicIds.add(id);
+  applyDebugOverrides(id: string, overrides: EnemyDebugOverrides): void {
+    this.instanceManager.applyDebugOverrides(id, overrides);
   }
 
-  // Debug overrides (classic enemies only — use markForClassic() before create())
-  applyDebugOverrides(id: string, overrides: EnemyDebugOverrides): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.applyDebugOverrides(id, overrides);
-    }
-  }
+  /** No-op kept for API compat — markForClassic is no longer needed */
+  markForClassic(_id: string): void { /* no-op */ }
 
   setAnimationSpeed(id: string, speed: number): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.setAnimationSpeed(id, speed);
-    }
+    const state = this.instanceManager.getState(id);
+    if (!state) return;
+    const baseAnimSpeed = state.config.animationSpeed ?? 1.0;
+    const speedRatio = speed / state.config.baseSpeed;
+    state.animSpeed = baseAnimSpeed * speedRatio;
   }
 
   setAnimationTimeScale(id: string, timeScale: number): void {
-    if (this.classicEnemies.has(id)) {
-      this.classicRenderer.setAnimationTimeScale(id, timeScale);
-    }
+    const state = this.instanceManager.getState(id);
+    if (!state) return;
+    state.animSpeed = timeScale;
   }
 
   // =====================================================
@@ -513,16 +444,13 @@ export class InstancedEnemyRenderer {
   clear(): void {
     this.instanceManager.clear();
     this.healthBarManager.clear();
-    this.classicRenderer.clear();
     this.instancedEnemies.clear();
-    this.classicEnemies.clear();
   }
 
   dispose(): void {
     this.clear();
     this.instanceManager.dispose();
     this.healthBarManager.dispose();
-    this.classicRenderer.dispose();
     this.loadedTypes.clear();
   }
 }

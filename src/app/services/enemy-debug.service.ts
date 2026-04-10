@@ -421,7 +421,7 @@ export class EnemyDebugService {
     const typeId = this.selectedEnemyId();
     const overrides = this.currentOverrides();
 
-    // Spawn enemy via debug event (paused = idle, classic renderer for live overrides)
+    // Spawn enemy via debug event (paused = idle, overrides applied via instanced system)
     this.pendingDebugPlacement = { typeId, lat, lon };
     this.gameState.getEventBus().emit({
       type: 'debug:spawn-enemy',
@@ -431,7 +431,6 @@ export class EnemyDebugService {
       speed: overrides.baseSpeed,
       paused: true,
       health: overrides.baseHp,
-      forceClassic: true,
     });
   }
 

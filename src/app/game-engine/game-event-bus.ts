@@ -159,7 +159,6 @@ export type GameEvent =
       speed?: number;
       paused?: boolean;
       health?: number;
-      forceClassic?: boolean;
     }
   | {
       type: 'debug:kill-all';

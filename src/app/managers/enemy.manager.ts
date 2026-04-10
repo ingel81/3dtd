@@ -96,7 +96,6 @@ export class EnemyManager extends EntityManager<Enemy> {
           event.speed,
           event.paused ?? false,
           event.health,
-          event.forceClassic
         );
       }
     });
@@ -118,7 +117,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     speedOverride?: number,
     paused = false,
     healthOverride?: number,
-    forceClassic?: boolean
   ): Enemy {
     if (!this.tilesEngine) {
       throw new Error('EnemyManager not initialized');
@@ -174,11 +172,6 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (heightVar !== 0) {
       geoHeight += heightVar;
       enemy.transform.terrainHeight = geoHeight;
-    }
-
-    // Force classic renderer for debug enemies (needed for live override support)
-    if (forceClassic) {
-      this.tilesEngine.enemies.markForClassic(enemy.id);
     }
 
     // Create 3D model and start animation

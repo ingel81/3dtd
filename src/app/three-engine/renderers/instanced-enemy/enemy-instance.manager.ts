@@ -28,6 +28,11 @@ export interface EnemyInstanceState {
   frozen: boolean;
   poisoned: boolean;
   config: EnemyTypeConfig;
+  // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
+  debugScale?: number;
+  debugHeightOffset?: number;
+  debugRotation?: number;
+  debugHealthBarOffset?: number;
 }
 
 /** Per-type InstancedMesh pool */
@@ -80,6 +85,7 @@ export class EnemyInstanceManager {
   private readonly matrix = new Matrix4();
   private static readonly _tempQuat = new Quaternion();
   private static readonly _tempScale = new Vector3();
+  private static readonly _tempPos = new Vector3();
 
   constructor(private readonly scene: Scene) {}
 
@@ -214,8 +220,8 @@ export class EnemyInstanceManager {
     const state = pool.instances.get(id);
     if (!state || state.isDead) return;
 
-    // Update matrix
-    this.setInstanceMatrix(pool, state.index, position, heading);
+    // Update matrix (state passed for debug overrides)
+    this.setInstanceMatrix(pool, state.index, position, heading, state);
 
     // Update speed multiplier for animation
     if (currentSpeed !== undefined && state.config.baseSpeed > 0) {
@@ -491,6 +497,27 @@ export class EnemyInstanceManager {
   }
 
   /**
+   * Apply debug overrides to an enemy instance (scale, height, rotation, animation speed).
+   * Only used by the enemy debugger for live tuning of a single enemy.
+   */
+  applyDebugOverrides(id: string, overrides: {
+    scale?: number;
+    heightOffset?: number;
+    healthBarOffset?: number;
+    rotation?: number;
+    animationSpeed?: number;
+  }): void {
+    const state = this.getState(id);
+    if (!state) return;
+
+    if (overrides.scale !== undefined) state.debugScale = overrides.scale;
+    if (overrides.heightOffset !== undefined) state.debugHeightOffset = overrides.heightOffset;
+    if (overrides.rotation !== undefined) state.debugRotation = overrides.rotation;
+    if (overrides.healthBarOffset !== undefined) state.debugHealthBarOffset = overrides.healthBarOffset;
+    if (overrides.animationSpeed !== undefined) state.animSpeed = overrides.animationSpeed;
+  }
+
+  /**
    * Dispose all resources
    */
   dispose(): void {
@@ -513,17 +540,32 @@ export class EnemyInstanceManager {
     index: number,
     position: Vector3,
     heading: number,
+    state?: EnemyInstanceState,
   ): void {
     const configOffset = pool.config.headingOffset ?? 0;
-    EnemyInstanceManager._tempQuat.setFromAxisAngle(UP, heading + configOffset);
+    const rotationOffset = state?.debugRotation ?? 0;
+    EnemyInstanceManager._tempQuat.setFromAxisAngle(UP, heading + configOffset + rotationOffset);
 
-    const scale = pool.config.scale;
+    const scale = state?.debugScale ?? pool.config.scale;
     EnemyInstanceManager._tempScale.set(scale, scale, scale);
-    this.matrix.compose(
-      position,
-      EnemyInstanceManager._tempQuat,
-      EnemyInstanceManager._tempScale,
-    );
+
+    // Apply debug height offset if present
+    if (state?.debugHeightOffset !== undefined) {
+      const heightDelta = state.debugHeightOffset - pool.config.heightOffset;
+      EnemyInstanceManager._tempPos.copy(position);
+      EnemyInstanceManager._tempPos.y += heightDelta;
+      this.matrix.compose(
+        EnemyInstanceManager._tempPos,
+        EnemyInstanceManager._tempQuat,
+        EnemyInstanceManager._tempScale,
+      );
+    } else {
+      this.matrix.compose(
+        position,
+        EnemyInstanceManager._tempQuat,
+        EnemyInstanceManager._tempScale,
+      );
+    }
     pool.instancedMesh.setMatrixAt(index, this.matrix);
     pool.matrixDirty = true;
   }

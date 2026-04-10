@@ -4,11 +4,11 @@ export { EllipsoidSync } from './ellipsoid-sync';
 
 // Renderers
 export {
-  ThreeEnemyRenderer,
   ThreeTowerRenderer,
   ThreeProjectileRenderer,
   ThreeEffectsRenderer,
   type EnemyRenderData,
+  type EnemyDebugOverrides,
   type TowerRenderData,
   type ProjectileRenderData,
 } from './renderers';

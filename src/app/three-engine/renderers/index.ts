@@ -10,7 +10,7 @@ export interface CoordinateSync {
   localToGeo?(vec: Vector3): { lat: number; lon: number; height: number };
 }
 
-export { ThreeEnemyRenderer, type EnemyRenderData } from './three-enemy.renderer';
+export { type EnemyRenderData, type EnemyDebugOverrides } from './instanced-enemy/instanced-enemy.renderer';
 export { ThreeTowerRenderer, type TowerRenderData, type TerrainHeightSampler, type TerrainRaycaster, type LineOfSightRaycaster } from './three-tower.renderer';
 export { ThreeProjectileRenderer, type ProjectileRenderData } from './three-projectile.renderer';
 export { ThreeEffectsRenderer } from './three-effects.renderer';
