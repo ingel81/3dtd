@@ -38,6 +38,9 @@ export class PathAndRouteService {
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, GeoPosition[]>();
 
+  /** originTerrainY used when building cached paths (needed for geo→local conversion) */
+  private cachedOriginTerrainY = 0;
+
   /** Tile quality metrics from last accepted route calculation per spawn */
   private cachedPathQuality = new Map<string, { avgGeometricError: number }>();
 
@@ -162,6 +165,15 @@ export class PathAndRouteService {
    */
   getCachedPaths(): Map<string, GeoPosition[]> {
     return this.cachedPaths;
+  }
+
+  /**
+   * Get the originTerrainY that was used when building cached paths.
+   * Needed by route animation to convert geo heights back to overlay-local Y
+   * without re-raycasting (which may fail if tiles aren't loaded yet).
+   */
+  getCachedOriginTerrainY(): number {
+    return this.cachedOriginTerrainY;
   }
 
   /**
@@ -394,6 +406,7 @@ export class PathAndRouteService {
     // Get origin terrain height as reference (fallback to 0 if terrain not loaded yet)
     const origin = this.engine.sync.getOrigin();
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
+    this.cachedOriginTerrainY = originTerrainY;
 
     // Start tile quality tracking (piggybacks on raycasts to record tile LOD info)
     this.engine.startTileQualityTracking();
@@ -475,6 +488,7 @@ export class PathAndRouteService {
       if (quality) {
         this.cachedPathQuality.set(spawn.id, { avgGeometricError: quality.avgGeometricError });
       }
+
     }
 
     // Convert points to flat array for LineGeometry

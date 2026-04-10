@@ -76,6 +76,7 @@ export class RouteAnimationService {
   private isAnimating = false;
   private startTime = 0;
   private disposed = false;
+  private cachedOriginTerrainY = 0;
 
   // ========================================
   // INITIALIZATION
@@ -102,10 +103,14 @@ export class RouteAnimationService {
    */
   startAnimation(
     cachedPaths: Map<string, GeoPosition[]>,
-    _spawnPoints: SpawnPoint[]
+    _spawnPoints: SpawnPoint[],
+    originTerrainY: number = 0,
   ): void {
     if (!this.engine || !this.overlayGroup || this.disposed) return;
     if (cachedPaths.size === 0) return;
+
+    // Store for use in convertPathToLocalPoints
+    this.cachedOriginTerrainY = originTerrainY;
 
     // Clean up any existing animation
     this.stopAnimation();
@@ -283,15 +288,18 @@ export class RouteAnimationService {
 
     const points: Vector3[] = [];
     const origin = this.engine.sync.getOrigin();
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(origin.lat, origin.lon) ?? 0;
+    // Use the originTerrainY from route build time (not live raycast which may fail)
+    const originTerrainY = this.cachedOriginTerrainY;
 
     for (const pos of path) {
       const local = this.engine.sync.geoToLocalSimple(pos.lat, pos.lon, 0);
 
       // Prefer pre-computed path height (from cachedPaths, always available)
       // Avoids live raycast which can return null during tile loading → vertical spikes
+      // geoHeight was stored as: (localY - HAG + originTerrainY) + origin.height
+      // So to recover localY: (geoHeight - origin.height) - originTerrainY + HAG
       if (pos.height !== undefined && pos.height !== 0) {
-        local.y = (pos.height - origin.height) + this.HEIGHT_OFFSET;
+        local.y = (pos.height - origin.height) - originTerrainY + this.HEIGHT_OFFSET;
       } else {
         // Fallback: live terrain sample
         const terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon);

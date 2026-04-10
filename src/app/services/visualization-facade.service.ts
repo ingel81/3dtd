@@ -439,7 +439,7 @@ export class VisualizationFacadeService {
       if (!this.routeAnimation.isRunning() && !isApplying) {
         const cachedPaths = this.pathRoute.getCachedPaths();
         if (cachedPaths.size > 0) {
-          this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+          this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
         }
       }
     }
@@ -596,6 +596,14 @@ export class VisualizationFacadeService {
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
     const tRoutes = performance.now();
 
+    // Restart running route animation so it uses the updated overlayBaseY and refreshed paths
+    if (this.routeAnimation.isRunning()) {
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
+      }
+    }
+
     this.gameState.onTilesLoaded();
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
 
@@ -716,7 +724,7 @@ export class VisualizationFacadeService {
   onPlayRouteAnimation(): void {
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
     }
   }
 

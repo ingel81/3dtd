@@ -538,7 +538,7 @@ export class LocationFacadeService {
     // 14. Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, spawns);
+      this.routeAnimation.startAnimation(cachedPaths, spawns, this.pathRoute.getCachedOriginTerrainY());
     }
 
     // 15. Update map placement dependencies
@@ -618,7 +618,7 @@ export class LocationFacadeService {
     // 8. Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
     }
   }
 
@@ -757,7 +757,7 @@ export class LocationFacadeService {
     // Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
     }
   }
 }
