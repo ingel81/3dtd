@@ -45,6 +45,11 @@ export const TD_THEME = {
   textTertiary: '#7A837A', // Between muted and disabled, for pending/inactive elements
   textDisabled: '#6A726A',
 
+  // === Debug & Event Category Colors ===
+  eventVfx: '#a855f7', // VFX events (purple)
+  eventAudio: '#3b82f6', // Audio events (blue)
+  perfCritical: '#ff4444', // Critical performance threshold
+  perfWarning: '#ff8844', // Warning/bottleneck (orange-red)
 } as const;
 
 export type TdThemeKey = keyof typeof TD_THEME;
@@ -88,6 +93,10 @@ export const TD_CSS_VARS = `
   --td-text-tertiary: ${TD_THEME.textTertiary};
   --td-text-disabled: ${TD_THEME.textDisabled};
 
+  --td-event-vfx: ${TD_THEME.eventVfx};
+  --td-event-audio: ${TD_THEME.eventAudio};
+  --td-perf-critical: ${TD_THEME.perfCritical};
+  --td-perf-warning: ${TD_THEME.perfWarning};
 `;
 
 /**

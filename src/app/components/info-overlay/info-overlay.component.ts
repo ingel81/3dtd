@@ -1,6 +1,7 @@
 import { Component, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { UIStore } from '../../store/ui.store';
+import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
  * InfoOverlayComponent
@@ -37,6 +38,7 @@ import { UIStore } from '../../store/ui.store';
     </div>
   `,
   styles: `
+    :host { ${TD_CSS_VARS} }
     .info-overlay {
       position: absolute;
       top: 10px;
@@ -51,7 +53,7 @@ import { UIStore } from '../../store/ui.store';
     }
 
     .info-line {
-      color: #ffffff;
+      color: var(--td-text-primary);
       text-shadow:
         /* Black outline - 8 directions for clean edges */
         -1px -1px 0 #000000,
