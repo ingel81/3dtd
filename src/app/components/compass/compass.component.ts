@@ -130,5 +130,4 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 })
 export class CompassComponent {
   readonly rotation = input.required<number>();
-  readonly heading = input.required<number>();
 }

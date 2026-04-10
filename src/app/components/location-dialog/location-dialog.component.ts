@@ -493,7 +493,7 @@ type EditMode = 'full' | 'spawn-only';
     }
 
     .apply-coords-btn:hover:not(:disabled) {
-      background: #D4B05A;
+      background: var(--td-gold);
     }
 
     .apply-coords-btn:disabled {
@@ -690,7 +690,7 @@ type EditMode = 'full' | 'spawn-only';
     }
 
     .confirm-btn:hover:not(:disabled) {
-      background: #D4B05A;
+      background: var(--td-gold);
     }
 
     .confirm-btn:disabled {

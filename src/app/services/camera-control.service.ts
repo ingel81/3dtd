@@ -309,40 +309,6 @@ export class CameraControlService {
     return (heading + 360) % 360;
   }
 
-  /** Debug: Log camera state */
-  debugLogCameraState(): void {
-    // Debug method - no-op in production
-  }
-
-  // ========================================
-  // FLY-TO ANIMATIONS
-  // ========================================
-
-  /**
-   * Fly camera to center location (uses resetCamera for consistent positioning)
-   */
-  flyToCenter(): void {
-    this.resetCamera();
-  }
-
-  /**
-   * Fly camera to specific location
-   * @param lat Latitude
-   * @param lon Longitude
-   * @param height Optional height above terrain (default: 400m)
-   * @param duration Optional animation duration in ms (default: instant)
-   */
-  flyToLocation(lat: number, lon: number, height = 400, _duration = 0): void {
-    if (!this.engine) return;
-
-    const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon) ?? 0;
-    const cameraY = terrainY + height;
-
-    // For now, we use instant positioning (no animation)
-    // TODO: Implement smooth animation with requestAnimationFrame
-    this.engine.setLocalCameraPosition(0, cameraY, -height, 0, terrainY, 0);
-  }
-
   // ========================================
   // DEBUG
   // ========================================
@@ -602,14 +568,6 @@ export class CameraControlService {
       }
     }
     this.debugMeshes = [];
-  }
-
-  /**
-   * Log current camera position and rotation to console
-   * Useful for debugging camera issues and determining initial positions
-   */
-  logCameraPosition(): void {
-    // Debug method - no-op in production
   }
 
   // ========================================

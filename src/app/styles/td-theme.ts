@@ -7,6 +7,8 @@ export const TD_THEME = {
   // === Base surfaces (Sidebar & Panels) ===
   bgDark: '#141815', // Main sidebar, dark stone
   bgSurface: '#1A201C', // General surface (Overlay, Loading)
+  panelDark: '#181D19', // Dark panel sections (debugger selected states)
+  panelPrimary: '#232B25', // Primary panel surface (alias for panelMain)
   panelMain: '#232B25', // Primary panel surface
   panelSecondary: '#1C221E', // Sub-panels, slots
   panelShadow: '#0F130F', // Inset shadow, depth
@@ -43,12 +45,6 @@ export const TD_THEME = {
   textTertiary: '#7A837A', // Between muted and disabled, for pending/inactive elements
   textDisabled: '#6A726A',
 
-  // === Bars (HP, Mana, Progress) ===
-  hpFill: '#B14436',
-  hpBg: '#3A1B18',
-  manaFill: '#4FB3C2',
-  manaBg: '#1A2B30',
-  xpFill: '#9ED6A0',
 } as const;
 
 export type TdThemeKey = keyof typeof TD_THEME;
@@ -60,6 +56,8 @@ export type TdThemeKey = keyof typeof TD_THEME;
 export const TD_CSS_VARS = `
   --td-bg-dark: ${TD_THEME.bgDark};
   --td-bg-surface: ${TD_THEME.bgSurface};
+  --td-panel-dark: ${TD_THEME.panelDark};
+  --td-panel-primary: ${TD_THEME.panelPrimary};
   --td-panel-main: ${TD_THEME.panelMain};
   --td-panel-secondary: ${TD_THEME.panelSecondary};
   --td-panel-shadow: ${TD_THEME.panelShadow};
@@ -90,11 +88,6 @@ export const TD_CSS_VARS = `
   --td-text-tertiary: ${TD_THEME.textTertiary};
   --td-text-disabled: ${TD_THEME.textDisabled};
 
-  --td-hp-fill: ${TD_THEME.hpFill};
-  --td-hp-bg: ${TD_THEME.hpBg};
-  --td-mana-fill: ${TD_THEME.manaFill};
-  --td-mana-bg: ${TD_THEME.manaBg};
-  --td-xp-fill: ${TD_THEME.xpFill};
 `;
 
 /**

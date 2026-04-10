@@ -511,28 +511,6 @@ export class VisualizationFacadeService {
   }
 
   /**
-   * Log camera position to debug log.
-   */
-  logCameraPosition(): void {
-    const engine = this.bridge.getEngine();
-    if (!engine) return;
-
-    const camera = engine.getCamera();
-    const data = {
-      position: {
-        x: camera.position.x,
-        y: camera.position.y,
-        z: camera.position.z,
-      },
-      hq: this.store.baseCoords(),
-      tiltAngle: 45,
-    };
-
-    const output = JSON.stringify(data, null, 2);
-    this.debugFacade.appendDebugLog('=== CAMERA ===\n' + output);
-  }
-
-  /**
    * Reframe camera to include all calculated routes.
    */
   reframeCameraWithRoutes(): void {

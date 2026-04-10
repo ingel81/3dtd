@@ -472,11 +472,6 @@ export class TowerDefenseFacadeService {
     this.vizFacade.toggleCameraDebug();
   }
 
-  /** Log camera position. */
-  logCameraPosition(): void {
-    this.vizFacade.logCameraPosition();
-  }
-
   /** Sell the currently selected tower via EventBus command. */
   sellSelectedTower(): void {
     const tower = this.store.selectedTower();

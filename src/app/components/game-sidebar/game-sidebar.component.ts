@@ -38,7 +38,6 @@ import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.se
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
-import { AdBannerComponent } from '../ad-banner/ad-banner.component';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
@@ -50,7 +49,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     MatDialogModule,
     MatIconModule,
     MatTooltipModule,
-    AdBannerComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
@@ -544,9 +542,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       opacity: 0.7;
     }
 
-    .td-icon-damage { color: #ff6b4a; }
+    .td-icon-damage { color: var(--td-health-red); }
     .td-icon-range { color: var(--td-teal); }
-    .td-icon-firerate { color: #ffc107; }
+    .td-icon-firerate { color: var(--td-gold); }
     .td-icon-kills { color: var(--td-gold); }
 
     .td-stat-tile .td-stat-value {
@@ -555,7 +553,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-text-primary);
     }
 
-    .td-stat-tile .td-val-damage { color: #ff6b4a; }
+    .td-stat-tile .td-val-damage { color: var(--td-health-red); }
     .td-stat-tile .td-val-kills { color: var(--td-gold); }
 
     .td-stat-tile .td-stat-label {
@@ -796,9 +794,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     }];
   });
   readonly isMixedWave = this.waveDebug.isMixedWave;
-
-  // Ad banner should be compact during active wave
-  readonly adCompact = computed(() => this.waveActive());
 
   // Outputs
   readonly startWave = output<void>();

@@ -159,7 +159,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly botEnabled = this.trainingClient.botEnabled;
   readonly botSkillLevel = this.trainingClient.botSkillLevel;
   readonly botStats = this.trainingClient.botStats;
-  readonly botAutoMode = this.trainingClient.botAutoMode;
 
   // Expose Math and tower config for template
   readonly Math = Math;
@@ -180,35 +179,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Loading / Engine — from Store
   readonly loading = this.store.loading;
   readonly error = this.store.error;
-  readonly loadingStatus = this.store.loadingStatus;
   readonly loadingSteps = this.store.loadingSteps;
 
-  // Loading sub-states — owned by services (signal writers)
-  readonly tilesLoading = this.engineInit.tilesLoading;
-  readonly osmLoading = this.engineInit.osmLoading;
-  readonly heightsLoading = this.heightUpdate.heightsLoading;
-  readonly heightProgress = this.heightUpdate.heightProgress;
-
   // UI State — from Store
-  readonly streetsVisible = this.store.streetsVisible;
-  readonly routesVisible = this.store.routesVisible;
-  readonly debugMode = this.store.debugMode;
-  readonly debugLog = this.store.debugLog;
   readonly buildMode = this.store.buildMode;
-  readonly selectedTowerType = this.store.selectedTowerType;
 
-  // Debug / Height — from services (specialized)
-  readonly heightDebugVisible = this.debugFacade.heightDebugVisible;
-
-  // Location — from Store
+  // Location — from Store/Services (used in TS methods + template)
   readonly editableHqLocation = this.locationMgmt.editableHqLocation;
   readonly editableSpawnLocations = this.locationMgmt.editableSpawnLocations;
-  readonly isApplyingLocation = this.store.isApplyingLocation;
   readonly favorites = this.locationMgmt.favorites;
   readonly favoriteNamesMap = this.locationCoordinator.favoriteNamesMap;
-  readonly spawnPoints = this.store.spawnPoints;
   readonly baseCoords = this.store.baseCoords;
-  readonly centerCoords = this.store.centerCoords;
   readonly streetCount = this.store.streetCount;
 
   // Engine stats — from Store
@@ -217,25 +198,11 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly mapAttribution = this.store.mapAttribution;
   readonly activeSounds = this.store.activeSounds;
 
-  // Camera & debug — from Store
-  readonly cameraHeading = this.store.cameraHeading;
+  // Camera — from Store
   readonly compassRotation = this.store.compassRotation;
   readonly cameraFramingDebug = this.store.cameraFramingDebug;
-  readonly cameraDebugEnabled = this.store.cameraDebugEnabled;
-  readonly cameraDebugInfo = this.store.cameraDebugInfo;
 
-  // Wave debug settings — from Store
-  readonly enemySpeed = this.store.enemySpeed;
-  readonly enemyHealth = this.store.enemyHealth;
-  readonly enemyCount = this.store.enemyCount;
-  readonly enemyType = this.store.enemyType;
   readonly enemyTypes = getAllEnemyTypes();
-  readonly spawnMode = this.store.spawnMode;
-  readonly spawnDelay = this.store.spawnDelay;
-
-  // AI Director — from Store
-  readonly useAIDirector = this.store.useAIDirector;
-  readonly aiExplanation = this.store.aiExplanation;
 
   /** DevWorld regeneration in progress — from Store */
   readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
@@ -243,7 +210,6 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Game state signals — sourced from Store (single source of truth via GSM→Store sync)
   readonly waveActive = this.store.waveActive;
   readonly isGameOver = this.store.isGameOver;
-  readonly currentEnemyConfig = this.waveDebug.currentEnemyConfig;
 
   // Build mode hints for context hint box
   readonly buildModeHints: HintItem[] = [
@@ -444,17 +410,19 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Enable StrategyBot for automated training — delegates to TrainingClientService
+   * Arrow function to provide stable reference for template binding (avoids .bind(this))
    */
-  enableBot(skillLevel: BotSkillLevel): void {
+  readonly enableBot = (skillLevel: BotSkillLevel): void => {
     this.trainingClient.enableBot(skillLevel);
-  }
+  };
 
   /**
    * Disable StrategyBot — delegates to TrainingClientService
+   * Arrow function to provide stable reference for template binding (avoids .bind(this))
    */
-  disableBot(): void {
+  readonly disableBot = (): void => {
     this.trainingClient.disableBot();
-  }
+  };
 
   /**
    * Reset camera - delegates to CameraControlService
