@@ -1,21 +1,23 @@
 import { Injectable, WritableSignal, inject } from '@angular/core';
 import {
   Group,
-  Color,
-  OctahedronGeometry,
-  MeshPhongMaterial,
-  DoubleSide,
-  BackSide,
   Mesh,
   MeshBasicMaterial,
+  MeshPhongMaterial,
+  OctahedronGeometry,
   TorusGeometry,
+  DoubleSide,
+  BackSide,
   Vector3,
   SphereGeometry,
+  Color,
 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GeoPosition } from '../models/game.types';
 import { HQDamageService } from './hq-damage.service';
 import { UIStore } from '../store/ui.store';
+import { MarkerInstanceManager } from '../three-engine/renderers/marker/marker-instance.manager';
+import { MarkerLabelManager } from '../three-engine/renderers/marker/marker-label.manager';
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling
@@ -27,7 +29,7 @@ export interface SpawnPoint extends GeoPosition {
 }
 
 /**
- * Options for creating a diamond marker
+ * Options for creating a diamond marker (used for placement preview)
  */
 export interface DiamondMarkerOptions {
   color: number;
@@ -40,7 +42,8 @@ export interface DiamondMarkerOptions {
  * MarkerVisualizationService
  *
  * Manages 3D marker visualization for spawns, base, and debug purposes.
- * Creates and disposes diamond markers with glow effects and rings.
+ * Uses GPU-instanced rendering for diamond bodies, rings, ground glow, and labels.
+ * Total: 4 draw calls for all markers (diamond + ring + ground + label).
  */
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
@@ -55,11 +58,11 @@ export class MarkerVisualizationService {
   // STATE
   // ========================================
 
-  /** Spawn markers (diamond markers at spawn points) */
-  private spawnMarkers: Group[] = [];
+  /** GPU-instanced marker renderer (diamonds, rings, ground glow) */
+  private markerManager: MarkerInstanceManager | null = null;
 
-  /** Base/HQ marker (diamond marker at base location) */
-  private baseMarker: Group | null = null;
+  /** GPU-instanced label renderer (billboard text) */
+  private labelManager: MarkerLabelManager | null = null;
 
   /** Height debug markers group (small spheres for terrain height debugging) */
   private heightDebugGroup: Group | null = null;
@@ -73,15 +76,15 @@ export class MarkerVisualizationService {
   /** Height debug visibility state (from UIStore) */
   private heightDebugVisible: WritableSignal<boolean> | null = null;
 
+  /** Spawn counter for label numbering */
+  private spawnCounter = 0;
+
   // ========================================
   // INITIALIZATION
   // ========================================
 
   /**
    * Initialize marker visualization service
-   * @param engine ThreeTilesEngine instance
-   * @param baseCoords Base/HQ coordinates for relative positioning
-   * @param heightDebugVisible Signal for height debug visibility state
    */
   initialize(
     engine: ThreeTilesEngine,
@@ -91,114 +94,10 @@ export class MarkerVisualizationService {
     this.engine = engine;
     this.baseCoords = baseCoords;
     this.heightDebugVisible = heightDebugVisible;
-  }
 
-  // ========================================
-  // DIAMOND MARKER FACTORY
-  // ========================================
-
-  /**
-   * Create a diamond marker with glow effect and optional rings
-   * @param options Marker configuration
-   * @returns Group containing the marker meshes
-   */
-  createDiamondMarker(options: DiamondMarkerOptions): Group {
-    const { color, size = 1, glowIntensity = 1, showRings = true } = options;
-
-    const group = new Group();
-
-    // Derive colors from base color
-    const baseColor = new Color(color);
-    const lighterColor = baseColor.clone().lerp(new Color(0xffffff), 0.4);
-    const emissiveColor = baseColor.clone().multiplyScalar(0.3);
-
-    // === MAIN DIAMOND (inner core) ===
-    const coreGeom = new OctahedronGeometry(8 * size, 0);
-    coreGeom.scale(1, 1.8, 1);
-    const coreMat = new MeshPhongMaterial({
-      color: color,
-      emissive: emissiveColor,
-      shininess: 100,
-      transparent: true,
-      opacity: 0.9,
-      side: DoubleSide,
-    });
-    const coreMesh = new Mesh(coreGeom, coreMat);
-    coreMesh.renderOrder = 3;
-    group.add(coreMesh);
-
-    // === OUTER WIREFRAME (edge glow) ===
-    const wireGeom = new OctahedronGeometry(9 * size, 0);
-    wireGeom.scale(1, 1.8, 1);
-    const wireMat = new MeshBasicMaterial({
-      color: lighterColor,
-      wireframe: true,
-      transparent: true,
-      opacity: 0.6 * glowIntensity,
-    });
-    const wireMesh = new Mesh(wireGeom, wireMat);
-    wireMesh.renderOrder = 4;
-    group.add(wireMesh);
-
-    // === OUTER GLOW SHELL ===
-    const glowGeom = new OctahedronGeometry(12 * size, 0);
-    glowGeom.scale(1, 1.8, 1);
-    const glowMat = new MeshBasicMaterial({
-      color: color,
-      transparent: true,
-      opacity: 0.15 * glowIntensity,
-      side: BackSide,
-    });
-    const glowMesh = new Mesh(glowGeom, glowMat);
-    glowMesh.renderOrder = 2;
-    group.add(glowMesh);
-
-    if (showRings) {
-      // === HORIZONTAL RING ===
-      const ringGeom = new TorusGeometry(14 * size, 0.8 * size, 8, 32);
-      const ringMat = new MeshBasicMaterial({
-        color: lighterColor,
-        transparent: true,
-        opacity: 0.7 * glowIntensity,
-      });
-      const ringMesh = new Mesh(ringGeom, ringMat);
-      ringMesh.rotation.x = Math.PI / 2;
-      ringMesh.renderOrder = 2;
-      group.add(ringMesh);
-
-      // === SECOND RING (tilted) ===
-      const ring2Geom = new TorusGeometry(16 * size, 0.5 * size, 8, 32);
-      const ring2Mat = new MeshBasicMaterial({
-        color: lighterColor,
-        transparent: true,
-        opacity: 0.4 * glowIntensity,
-      });
-      const ring2Mesh = new Mesh(ring2Geom, ring2Mat);
-      ring2Mesh.rotation.x = Math.PI / 2;
-      ring2Mesh.rotation.z = Math.PI / 6;
-      ring2Mesh.renderOrder = 2;
-      group.add(ring2Mesh);
-    }
-
-    return group;
-  }
-
-  /**
-   * Dispose a diamond marker group properly
-   * @param marker Marker group to dispose
-   */
-  disposeDiamondMarker(marker: Group): void {
-    marker.traverse((obj) => {
-      if ((obj as Mesh).isMesh) {
-        (obj as Mesh).geometry.dispose();
-        const mat = (obj as Mesh).material;
-        if (Array.isArray(mat)) {
-          mat.forEach((m) => m.dispose());
-        } else {
-          mat.dispose();
-        }
-      }
-    });
+    const overlayGroup = engine.getOverlayGroup();
+    this.markerManager = new MarkerInstanceManager(overlayGroup);
+    this.labelManager = new MarkerLabelManager(overlayGroup);
   }
 
   // ========================================
@@ -209,43 +108,27 @@ export class MarkerVisualizationService {
    * Add base/HQ marker at base coordinates
    */
   addBaseMarker(): void {
-    if (!this.engine || !this.baseCoords) return;
+    if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return;
 
-    const overlayGroup = this.engine.getOverlayGroup();
+    // Remove existing
+    this.markerManager.remove('hq');
+    this.labelManager.removeLabel('hq');
 
-    // Remove existing marker
-    if (this.baseMarker) {
-      overlayGroup.remove(this.baseMarker);
-      this.disposeDiamondMarker(this.baseMarker);
-    }
-
-    // Create new marker
-    this.baseMarker = this.createDiamondMarker({
-      color: 0x22c55e, // Green (matches original HQ marker)
-      size: 1.0,
-      showRings: true,
-      glowIntensity: 1.2,
-    });
-    this.baseMarker.name = 'baseMarker';
-
-    // Position at base coords
     const HEIGHT_ABOVE_GROUND = 30;
     const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    this.baseMarker.position.set(local.x, HEIGHT_ABOVE_GROUND, local.z);
+    const pos = new Vector3(local.x, HEIGHT_ABOVE_GROUND, local.z);
 
-    overlayGroup.add(this.baseMarker);
+    const proxy = this.markerManager.add('hq', 'hq', pos, 0x22c55e, 1.2, 0.001);
+    this.labelManager.addLabel('hq', 'HQ', pos, '#22c55e', this.getPhaseOffset('hq'));
   }
 
   /**
    * Remove base marker
    */
   removeBaseMarker(): void {
-    if (!this.baseMarker || !this.engine) return;
-
-    const overlayGroup = this.engine.getOverlayGroup();
-    overlayGroup.remove(this.baseMarker);
-    this.disposeDiamondMarker(this.baseMarker);
-    this.baseMarker = null;
+    if (!this.markerManager || !this.labelManager) return;
+    this.markerManager.remove('hq');
+    this.labelManager.removeLabel('hq');
   }
 
   // ========================================
@@ -254,92 +137,69 @@ export class MarkerVisualizationService {
 
   /**
    * Add spawn marker at specified location
-   * @param id Spawn point ID
-   * @param name Spawn point name
-   * @param lat Latitude
-   * @param lon Longitude
-   * @param color Marker color (js hex)
-   * @returns Created marker group
    */
   addSpawnMarker(id: string, name: string, lat: number, lon: number, color: number): Group | null {
-    if (!this.engine || !this.baseCoords) return null;
+    if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return null;
 
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    // Position marker on terrain with RELATIVE heights
-    const HEIGHT_ABOVE_GROUND = 30; // Spawn markers ~30m above ground
+    const HEIGHT_ABOVE_GROUND = 30;
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
     const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
 
-    // Calculate relative Y (height difference from origin)
     let markerY = HEIGHT_ABOVE_GROUND;
     if (originTerrainY !== null && terrainY !== null) {
       markerY = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
     }
 
-    // Create spawn marker - same size as HQ, but no rings
-    const marker = this.createDiamondMarker({
-      color,
-      size: 1.0,
-      showRings: false,
-      glowIntensity: 0.8,
-    });
-    marker.name = `spawnMarker_${id}`;
-    marker.position.set(local.x, markerY, local.z);
+    const pos = new Vector3(local.x, markerY, local.z);
+    this.spawnCounter++;
 
-    overlayGroup.add(marker);
-    this.spawnMarkers.push(marker);
+    // Convert hex color to CSS string for label outline
+    const cssColor = '#' + new Color(color).getHexString();
 
-    return marker;
+    const proxy = this.markerManager.add(id, 'spawn', pos, color, 0.8, -0.0015);
+    this.labelManager.addLabel(id, name, pos, cssColor, this.getPhaseOffset(id));
+
+    return proxy;
   }
 
   /**
    * Remove spawn marker by ID
-   * @param spawnId Spawn point ID
    */
   removeSpawnMarker(spawnId: string): void {
-    if (!this.engine) return;
-
-    const overlayGroup = this.engine.getOverlayGroup();
-    const index = this.spawnMarkers.findIndex((m) => m.name === `spawnMarker_${spawnId}`);
-
-    if (index >= 0) {
-      const marker = this.spawnMarkers[index];
-      overlayGroup.remove(marker);
-      this.disposeDiamondMarker(marker);
-      this.spawnMarkers.splice(index, 1);
-    }
+    if (!this.markerManager || !this.labelManager) return;
+    this.markerManager.remove(spawnId);
+    this.labelManager.removeLabel(spawnId);
   }
 
   /**
    * Clear all spawn markers
    */
   clearSpawnMarkers(): void {
-    if (!this.engine) return;
+    if (!this.markerManager || !this.labelManager) return;
 
-    const overlayGroup = this.engine.getOverlayGroup();
-
-    for (const marker of this.spawnMarkers) {
-      overlayGroup.remove(marker);
-      this.disposeDiamondMarker(marker);
+    // Get all spawn proxies to find their ids
+    const proxies = this.markerManager.getAllSpawnProxies();
+    for (const proxy of proxies) {
+      const id = proxy.name.replace('spawnMarker_', '');
+      this.markerManager.remove(id);
+      this.labelManager.removeLabel(id);
     }
-
-    this.spawnMarkers = [];
+    this.spawnCounter = 0;
   }
 
   /**
-   * Get all spawn markers
+   * Get all spawn markers (proxy groups for backward compatibility)
    */
   getSpawnMarkers(): Group[] {
-    return this.spawnMarkers;
+    return this.markerManager?.getAllSpawnProxies() ?? [];
   }
 
   /**
-   * Get base marker
+   * Get base marker (proxy group)
    */
   getBaseMarker(): Group | null {
-    return this.baseMarker;
+    return this.markerManager?.getBaseProxy() ?? null;
   }
 
   // ========================================
@@ -348,16 +208,12 @@ export class MarkerVisualizationService {
 
   /**
    * Add height debug marker (small sphere)
-   * @param position World position
-   * @param height Terrain height (null if raycast miss)
-   * @param isHit Whether raycast hit terrain
    */
   addHeightDebugMarker(position: Vector3, height: number | null, isHit: boolean): void {
     if (!this.engine) return;
 
     const overlayGroup = this.engine.getOverlayGroup();
 
-    // Create debug group if not exists (hidden by default)
     if (!this.heightDebugGroup) {
       this.heightDebugGroup = new Group();
       this.heightDebugGroup.name = 'heightDebugGroup';
@@ -365,10 +221,9 @@ export class MarkerVisualizationService {
       overlayGroup.add(this.heightDebugGroup);
     }
 
-    // Create small sphere marker
     const geometry = new SphereGeometry(1, 8, 8);
     const material = new MeshBasicMaterial({
-      color: isHit ? 0x00ff00 : 0xff0000, // Green for hits, red for misses
+      color: isHit ? 0x00ff00 : 0xff0000,
       transparent: true,
       opacity: 0.7,
       depthTest: true,
@@ -376,7 +231,7 @@ export class MarkerVisualizationService {
 
     const marker = new Mesh(geometry, material);
     marker.position.copy(position);
-    marker.position.y += 2; // Slightly above the street
+    marker.position.y += 2;
     marker.renderOrder = 10;
 
     this.heightDebugGroup.add(marker);
@@ -390,7 +245,6 @@ export class MarkerVisualizationService {
 
     const overlayGroup = this.engine.getOverlayGroup();
 
-    // Dispose all markers
     this.heightDebugGroup.traverse((obj) => {
       if ((obj as Mesh).isMesh) {
         (obj as Mesh).geometry.dispose();
@@ -403,14 +257,12 @@ export class MarkerVisualizationService {
       }
     });
 
-    // Remove from scene
     overlayGroup.remove(this.heightDebugGroup);
     this.heightDebugGroup = null;
   }
 
   /**
    * Toggle height debug markers visibility
-   * @param visible Visibility state
    */
   toggleHeightDebug(visible: boolean): void {
     if (this.heightDebugGroup) {
@@ -423,51 +275,53 @@ export class MarkerVisualizationService {
   // ========================================
 
   /**
-   * Animate markers (rotation, pulsing, etc.)
-   * @param deltaTime Time since last frame in milliseconds
+   * Animate markers (GPU shader handles rotation, pulsing, bobbing).
+   * Updates shader uniforms via managers.
    */
   animateMarkers(deltaTime: number): void {
-    // Rotate base marker (deltaTime is in milliseconds)
-    if (this.baseMarker) {
-      this.baseMarker.rotation.y += deltaTime * 0.001; // Slow rotation
+    if (!this.engine || !this.markerManager || !this.labelManager) return;
+
+    const camera = this.engine.getCamera();
+    const changedIds = this.markerManager.update(camera);
+
+    // Sync label positions for markers whose proxy was moved (e.g. snap-to-path)
+    for (const id of changedIds) {
+      const proxy = this.markerManager.getProxy(id);
+      if (proxy) {
+        this.labelManager.updatePosition(id, proxy.position);
+      }
     }
 
-    // Rotate spawn markers in opposite direction
-    for (const marker of this.spawnMarkers) {
-      marker.rotation.y -= deltaTime * 0.0015;
-    }
+    this.labelManager.update();
   }
 
   /**
    * Update heights of all markers based on terrain
-   * @param spawnPoints Spawn points to update
    */
   updateMarkerHeights(spawnPoints: SpawnPoint[]): void {
-    if (!this.engine || !this.baseCoords) return;
+    if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return;
 
     const HQ_MARKER_HEIGHT = 30;
     const SPAWN_MARKER_HEIGHT = 30;
 
-    // Get origin terrain height
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
     if (originTerrainY === null) return;
 
-    // Update base marker - at origin, so relative height = 0
-    if (this.baseMarker) {
-      const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-      this.baseMarker.position.set(local.x, HQ_MARKER_HEIGHT, local.z);
-    }
+    // Update base marker
+    const baseLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
+    const basePos = new Vector3(baseLocal.x, HQ_MARKER_HEIGHT, baseLocal.z);
+    this.markerManager.updatePosition('hq', basePos);
+    this.labelManager.updatePosition('hq', basePos);
 
-    // Update spawn markers - relative to origin
-    for (let i = 0; i < spawnPoints.length && i < this.spawnMarkers.length; i++) {
-      const spawn = spawnPoints[i];
-      const marker = this.spawnMarkers[i];
-
+    // Update spawn markers
+    for (const spawn of spawnPoints) {
       const terrainY = this.engine.getTerrainHeightAtGeo(spawn.lat, spawn.lon);
       if (terrainY !== null) {
         const local = this.engine.sync.geoToLocalSimple(spawn.lat, spawn.lon, 0);
         const relativeY = terrainY - originTerrainY + SPAWN_MARKER_HEIGHT;
-        marker.position.set(local.x, relativeY, local.z);
+        const pos = new Vector3(local.x, relativeY, local.z);
+        this.markerManager.updatePosition(spawn.id, pos);
+        this.labelManager.updatePosition(spawn.id, pos);
       }
     }
   }
@@ -476,9 +330,10 @@ export class MarkerVisualizationService {
    * Clear all markers (spawn, base, debug)
    */
   clearAllMarkers(): void {
-    this.clearSpawnMarkers();
-    this.removeBaseMarker();
+    this.markerManager?.clear();
+    this.labelManager?.clear();
     this.clearHeightDebugMarkers();
+    this.spawnCounter = 0;
   }
 
   // ========================================
@@ -487,7 +342,6 @@ export class MarkerVisualizationService {
 
   /**
    * Toggle special points debug visualization.
-   * Toggles UI state, updates engine debug spheres, and spawns HQ debug point if enabling.
    */
   toggleSpecialPointsDebug(): void {
     this.uiStore.toggleSpecialPointsDebug();
@@ -504,7 +358,6 @@ export class MarkerVisualizationService {
 
   /**
    * Spawn or update HQ debug point at cached terrain height.
-   * Delegates to HQDamageService which owns the fire/debug position data.
    */
   spawnHQDebugPoint(): void {
     this.hqDamage.spawnDebugPoint();
@@ -512,13 +365,101 @@ export class MarkerVisualizationService {
 
   /**
    * Update debug sphere visibility based on UI state.
-   * Controls engine-level debug sphere rendering.
    */
   updateDebugSpheresVisibility(): void {
     if (!this.engine) return;
     this.engine.effects.setDebugSpheresVisible(
       this.uiStore.specialPointsDebugVisible()
     );
+  }
+
+  // ========================================
+  // PREVIEW MARKER FACTORY (for placement preview, non-instanced)
+  // ========================================
+
+  /**
+   * Create a diamond marker Group for placement preview (non-instanced).
+   * Used by MapPlacementService for cursor-following preview markers.
+   */
+  createDiamondMarker(options: DiamondMarkerOptions): Group {
+    const { color, size = 1, glowIntensity = 1, showRings = true } = options;
+
+    const group = new Group();
+    const baseColor = new Color(color);
+    const lighterColor = baseColor.clone().lerp(new Color(0xffffff), 0.4);
+    const emissiveColor = baseColor.clone().multiplyScalar(0.3);
+
+    const coreGeom = new OctahedronGeometry(8 * size, 0);
+    coreGeom.scale(1, 1.8, 1);
+    const coreMat = new MeshPhongMaterial({
+      color, emissive: emissiveColor, shininess: 100,
+      transparent: true, opacity: 0.9, side: DoubleSide,
+    });
+    const coreMesh = new Mesh(coreGeom, coreMat);
+    coreMesh.renderOrder = 3;
+    group.add(coreMesh);
+
+    const wireGeom = new OctahedronGeometry(9 * size, 0);
+    wireGeom.scale(1, 1.8, 1);
+    const wireMat = new MeshBasicMaterial({
+      color: lighterColor, wireframe: true,
+      transparent: true, opacity: 0.6 * glowIntensity,
+    });
+    const wireMesh = new Mesh(wireGeom, wireMat);
+    wireMesh.renderOrder = 4;
+    group.add(wireMesh);
+
+    const glowGeom = new OctahedronGeometry(12 * size, 0);
+    glowGeom.scale(1, 1.8, 1);
+    const glowMat = new MeshBasicMaterial({
+      color, transparent: true,
+      opacity: 0.15 * glowIntensity, side: BackSide,
+    });
+    const glowMesh = new Mesh(glowGeom, glowMat);
+    glowMesh.renderOrder = 2;
+    group.add(glowMesh);
+
+    if (showRings) {
+      const ringGeom = new TorusGeometry(14 * size, 0.8 * size, 8, 32);
+      const ringMat = new MeshBasicMaterial({
+        color: lighterColor, transparent: true,
+        opacity: 0.7 * glowIntensity,
+      });
+      const ringMesh = new Mesh(ringGeom, ringMat);
+      ringMesh.rotation.x = Math.PI / 2;
+      ringMesh.renderOrder = 2;
+      group.add(ringMesh);
+
+      const ring2Geom = new TorusGeometry(16 * size, 0.5 * size, 8, 32);
+      const ring2Mat = new MeshBasicMaterial({
+        color: lighterColor, transparent: true,
+        opacity: 0.4 * glowIntensity,
+      });
+      const ring2Mesh = new Mesh(ring2Geom, ring2Mat);
+      ring2Mesh.rotation.x = Math.PI / 2;
+      ring2Mesh.rotation.z = Math.PI / 6;
+      ring2Mesh.renderOrder = 2;
+      group.add(ring2Mesh);
+    }
+
+    return group;
+  }
+
+  /**
+   * Dispose a diamond marker group (for placement preview cleanup).
+   */
+  disposeDiamondMarker(marker: Group): void {
+    marker.traverse((obj) => {
+      if ((obj as Mesh).isMesh) {
+        (obj as Mesh).geometry.dispose();
+        const mat = (obj as Mesh).material;
+        if (Array.isArray(mat)) {
+          mat.forEach((m) => m.dispose());
+        } else {
+          mat.dispose();
+        }
+      }
+    });
   }
 
   // ========================================
@@ -529,9 +470,29 @@ export class MarkerVisualizationService {
    * Dispose all markers and cleanup
    */
   dispose(): void {
-    this.clearAllMarkers();
+    this.markerManager?.dispose();
+    this.labelManager?.dispose();
+    this.clearHeightDebugMarkers();
+    this.markerManager = null;
+    this.labelManager = null;
     this.engine = null;
     this.baseCoords = null;
     this.heightDebugVisible = null;
+    this.spawnCounter = 0;
+  }
+
+  // ========================================
+  // PRIVATE
+  // ========================================
+
+  /**
+   * Get consistent phase offset for a marker id (deterministic from id hash).
+   */
+  private getPhaseOffset(id: string): number {
+    let hash = 0;
+    for (let i = 0; i < id.length; i++) {
+      hash = ((hash << 5) - hash + id.charCodeAt(i)) | 0;
+    }
+    return (Math.abs(hash) % 1000) / 1000 * Math.PI * 2;
   }
 }
