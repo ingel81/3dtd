@@ -230,10 +230,6 @@
 - [ ] **Web Worker Offloading** - Pathfinding + weitere rechenintensive Logik
       Pathfinding: 200-600ms → 0ms Main Thread
       Auch prüfen: Collision-Checks, Wave-Director-Inference, Audio-Decoding
-- [ ] **Klassischen ThreeEnemyRenderer-Fallback entfernen**
-      Boss-Features (Name über Health Bar, spezielle Farbe) direkt im instanced System implementieren.
-      Aktuell nutzt kein Enemy-Typ den Fallback — `bossName` wird nirgends gesetzt.
-      Dateien: `instanced-enemy.renderer.ts`, `three-enemy.renderer.ts`
 - [ ] **Tower GPU Instancing** - Schwierig wegen Rotationen
 - [ ] **Konfigurierbares FPS-Limit** (60/30/unlimited)
       Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming
