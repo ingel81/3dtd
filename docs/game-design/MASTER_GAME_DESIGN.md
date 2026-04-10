@@ -11,13 +11,14 @@
 
 ## 2. Damage & Armor System (Matrix + Status + Flags)
 
-### 2.1 Schadenstypen (6)
+### 2.1 Schadenstypen (7)
 - **Physical (⚔️)**: solider Allrounder, fällt vs. Armor ab.
 - **Pierce (🎯)**: hohe Feuerrate, Anti-Swarm.
 - **Siege (💥)**: langsame AoE, Anti-Heavy/Fortified.
 - **Magic (✨)**: Ethereal-Counter, Utility.
 - **Fire (🔥)**: DoT/Burn, Anti-Regen.
 - **Ice (❄️)**: Low-DPS, starker Slow/CC.
+- **Poison (☠️)**: DoT-Spezialist, Anti-Regen, eigenstaendiger Schadenstyp.
 
 ### 2.2 Rüstungstypen (5)
 - **Unarmored**
@@ -38,6 +39,7 @@ Siege     💥       0.8×      0.7×     1.5×     1.25×       0.75×
 Magic     ✨       1.0×      1.0×     0.85×    0.75×       1.75×
 Fire      🔥       1.15×     1.0×     0.9×     0.6×        0.15×
 Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
+Poison    ☠️       1.1×      1.1×     0.6×     0.6×        0.5×
 ```
 
 **Interpretation:**
@@ -77,6 +79,7 @@ Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
 | **Ice** | Ice | 2 dmg, 0.33/s, Range 60 | 100 | **Air + Ground** |
 | **Fire** | Fire | 35 DPS Beam, Range 25 | 170 | per Upgrade |
 | **Tentacle** | Physical (+20% True) | 30 dmg, 1.5/s, Range 25 | 185 | nein |
+| **Poison** | Poison | DoT-Projektil, Splash, Range 65 | 100 | nein |
 
 ### 3.2 Upgrade-Kosten-Regel (vereinheitlicht)
 - **Upgrade-Kosten-Skalierung:** **1.5× pro Tier** (alle Tower, alle Pfade). 
@@ -113,7 +116,12 @@ Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
 - **Air via Upgrade „Luftflamme“**.
 
 ### 3.10 Tentacle — Physical + True Damage
-- **True Damage 20%** (Armor-unabhängig).
+- **True Damage 20%** (Armor-unabhaengig).
+
+### 3.11 Poison — Poison
+- DoT-Spezialist mit Splash-Projektil.
+- Eigenstaendiger Schadenstyp (nicht Fire-Subtyp).
+- Poison-DoT und Burn-DoT sind getrennte Effekte, koennen gleichzeitig wirken.
 
 ---
 
@@ -138,6 +146,8 @@ Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
 | **Dragon** | Heavy | Air, Boss | Air-Boss |
 | **Spider** | Light | Camo | Camo-Check |
 | **Mech** | Heavy | Shielded, immuneToBurn | Shield-Check |
+| **Bear** | Heavy | Tanky | Ground-Tank |
+| **Hornet** | Light | Air, Swarm | Air-Swarm |
 | **Skeleton** | Unarmored | Split | Swarm-Check |
 | **Slime** | Unarmored | Regen, Split | Regen-Check |
 | **Banshee** | Ethereal | Phasing | Slow-Check |
@@ -194,32 +204,97 @@ Milestones (Wave 10/20/30/40) = 45 / 80 / 120 / 170
 
 ---
 
-## 6. HQ & Research System
+## 6. Forschungszentrum & Tech-Tree
 
-### 6.1 HQ-Level & Unlocks (final, konsistent)
-| HQ Level | Kosten | Unlocks |
-|---:|---:|---|
-| **1** | Start | Archer, Dual-Gatling, Research-Slot 1 |
-| **2** | **180** | **Cannon, Ice**, Armor-UI sichtbar |
-| **3** | **360** | **Magic, Fire**, Status-Icons sichtbar, Research-Slot 2 |
-| **4** | **600** | **Rocket, Tentacle**, Camo möglich, AA-Upgrades freischaltbar |
-| **5** | **950** | T2-Upgrades + Global Perks, Research-Slot 3 |
-| **6** | **1400** | T3-Upgrades + Spezial-Mods |
+> **Ersetzt das alte HQ-Level-Konzept.** Das Forschungszentrum ist ein platzierbares Gebaeude
+> das als einziges Progressionssystem Tower, Perks und Upgrade-Tiers freischaltet.
 
-**Timing-Ziel:**
-- HQ2: Wave 3–4
-- HQ3: Wave 6–7
-- HQ4: Wave 10–12
+### 6.1 Forschungszentrum (Gebaeude)
 
-### 6.2 Forschung (Beispiele, konsistent)
-- **AA Retrofit (Engineering):** Archer & Gatling erhalten Air-Targeting (70% dmg vs Air).
-- **Shatter Rounds (Military):** Armor Break Chance +10% (Physical/Pierce).
-- **Hexed Mark (Arcane):** Mark +15% für 4s.
+| Eigenschaft | Wert |
+|---|---|
+| **Typ** | Platzierbares Gebaeude (wie ein Tower) |
+| **Kosten** | 75 Credits |
+| **Verfuegbar** | Sofort (ab Spielstart) |
+| **Anzahl** | Genau eines erlaubt |
+| **Angriff** | Keiner (passives Gebaeude) |
+| **Zerstoerbar** | Nein (wie alle Tower) |
+| **Verkaufbar** | Nein |
+| **Platzierung** | Gleiche Mechanik wie Tower (nimmt Tower-Slot ein) |
 
-### 6.3 Fairness-Regel für AI Director
-> **AI darf neue Mechaniken erst testen, wenn der Spieler Zugriff darauf hatte.**
-- Air-Waves nur nach HQ2/AA-Optionen.
-- Camo nur wenn Detection erforschbar.
+**Level-Upgrades:**
+| Level | Upgrade-Kosten | Research-Slots | Beschreibung |
+|---:|---:|---:|---|
+| **1** | — (Basis) | 1 | Basic Research |
+| **2** | 120 | 2 | Expanded Research |
+| **3** | 220 | 3 | Advanced Research |
+
+### 6.2 Forschungsmechanik
+
+- **Kosten:** Jede Forschung kostet Credits (abgezogen bei Start)
+- **Dauer:** Echtzeit-Countdown (laeuft auch zwischen Waves)
+- **Slots:** Pro Slot eine parallele Forschung. Mehr Slots = mehr gleichzeitige Forschungen
+- **Abbruch:** Moeglich, 50% der Credits werden erstattet
+- **Start-Tower:** **Nur Archer** ist von Anfang an verfuegbar. Alle anderen Tower muessen erforscht werden
+
+### 6.3 Tech-Tree (Forschungsbaum)
+
+Frei waehlbar mit Voraussetzungen (Directed Acyclic Graph).
+Drei Kategorien: **Tower-Unlock**, **Global Perk**, **Upgrade-Tier**.
+
+#### Tower-Unlocks
+
+**Tier 0 (keine Voraussetzungen):**
+| ID | Name | Kosten | Dauer | Schaltet frei |
+|---|---|---:|---:|---|
+| `gatling-tech` | Gatling Technology | 40 | 15s | Dual-Gatling |
+| `ice-magic` | Ice Magic | 40 | 15s | Ice Tower |
+| `tentacle-biology` | Tentacle Biology | 45 | 15s | Tentacle |
+| `toxic-compounds` | Toxic Compounds | 45 | 15s | Poison Tower |
+
+**Tier 1 (mit Voraussetzungen):**
+| ID | Name | Kosten | Dauer | Prereq | Schaltet frei |
+|---|---|---:|---:|---|---|
+| `siege-engineering` | Siege Engineering | 60 | 20s | Gatling Tech | Cannon |
+| `fire-alchemy` | Fire Alchemy | 55 | 20s | Toxic Compounds | Fire Tower |
+| `arcane-studies` | Arcane Studies | 65 | 20s | Ice Magic | Magic Tower |
+
+**Tier 2:**
+| ID | Name | Kosten | Dauer | Prereq | Schaltet frei |
+|---|---|---:|---:|---|---|
+| `rocketry` | Rocketry | 80 | 25s | Siege Engineering | Rocket Tower |
+
+#### Global Perks
+| ID | Name | Kosten | Dauer | Prereq | Effekt |
+|---|---|---:|---:|---|---|
+| `aa-retrofit` | AA Retrofit | 70 | 20s | Rocketry | Archer + Gatling erhalten Air-Targeting |
+
+#### Upgrade-Tier-Freischaltungen
+| ID | Name | Kosten | Dauer | Prereq | Effekt |
+|---|---|---:|---:|---|---|
+| `advanced-weaponry` | Advanced Weaponry | 100 | 30s | 3 Tower-Unlocks | T2-Upgrades verfuegbar |
+| `master-engineering` | Master Engineering | 180 | 45s | Advanced Weaponry | T3-Upgrades verfuegbar |
+
+### 6.4 UI im Forschungszentrum
+
+Wenn das Forschungszentrum selektiert ist, zeigt die Sidebar:
+- **Gebaeude-Level** mit Upgrade-Button und Kosten
+- **Aktive Forschungen** mit Fortschrittsbalken und verbleibender Zeit
+- **Tech-Tree** gruppiert nach Kategorie:
+  - Abgeschlossen: Gruener Haken
+  - Verfuegbar: Gold-Rand, "Research"-Button mit Kosten
+  - In Arbeit: Fortschrittsbalken + Cancel-Button
+  - Gesperrt: Grau, Lock-Icon, Tooltip mit fehlenden Voraussetzungen
+
+**Gesperrte Tower im Build-Panel:**
+- Dunkle Silhouette mit Lock-Icon
+- Tooltip: "Requires: [Forschungsname]"
+
+### 6.5 Fairness-Regel fuer AI Director
+> **AI darf neue Mechaniken erst einsetzen, wenn der Spieler Zugriff darauf hatte.**
+- Air-Waves nur wenn Anti-Air verfuegbar (Ice erforscht oder AA Retrofit)
+- Ethereal nur wenn Magic/Ice erforscht
+- Camo nur wenn Detection erforschbar
 
 ---
 
@@ -259,43 +334,46 @@ Milestones (Wave 10/20/30/40) = 45 / 80 / 120 / 170
 ---
 
 ## 9. Visuelles Feedback
-- **Damage Numbers**: Größe/Farbe nach Effektivität.
+- **Damage Numbers**: Groesse/Farbe nach Effektivitaet (weak=grau, normal=rot, strong=orange, devastating=gold).
 - **Armor-Icons** am HP-Bar-Rahmen.
+- **DamageType Badge** im Tower-Stats-Panel (Icon + Label).
+- **ArmorType Badge** im Wave-Preview (Icon + "Weak to X").
 - **Ethereal**: lila/transparenter Shader.
 - **Air-Alert**: rotes Air-Icon + Sound, 2 Waves vorher.
 
 ---
 
-## 10. Progression Timeline (Wave-für-Wave)
+## 10. Progression Timeline (Wave-fuer-Wave)
 
-> **Ultimativer Konsistenz-Check** — jede Einführung entspricht HQ-Level, Economy und AI-Regeln.
+> **Konsistenz-Check** — jede Einfuehrung entspricht Forschungs-Verfuegbarkeit, Economy und AI-Regeln.
+> Spieler startet mit **nur Archer** + 50 Credits. Forschungszentrum kostet 75 Credits.
 
-**Wave 1**: Unarmored (Zombie/Rat). HQ1 (Archer, Gatling). Start-Credits 60.
-**Wave 2**: Swarm-Pressure, erste Upgrade-Entscheidung.
-**Wave 3**: HQ2 erreichbar → **Cannon + Ice**.
-**Wave 4**: Light Armor-Teaser (Wallsmasher).
-**Wave 5**: Light-Wave, Ice-Slow relevant.
-**Wave 6**: **Teaser Air (1–2 Bats)**, HQ3 erreichbar → **Magic + Fire**.
-**Wave 7**: Heavy-Teaser (Zombie Soldier).
-**Wave 8**: **Erste reine Air-Wave (fix)**. Anti-Air verfügbar (Ice / AA-Pfad).
+**Wave 1**: Unarmored (Zombie/Rat). Nur Archer verfuegbar. Start-Credits 50.
+**Wave 2**: Swarm-Pressure. Nach Wave 1 genug Credits fuer Forschungszentrum (~85 kumulativ). Erste Forschung starten (z.B. Gatling Tech, 15s).
+**Wave 3**: Gatling/Ice sollte erforscht sein. Light Armor-Teaser (Wallsmasher). Zweite Forschung starten.
+**Wave 4**: Mehr Tower verfuegbar. Upgrade-Entscheidungen.
+**Wave 5**: Light-Wave, Ice-Slow relevant (falls erforscht).
+**Wave 6**: **Teaser Air (1-2 Bats)**. Ice muss erforscht sein fuer Anti-Air. Siege/Magic-Forschung laeuft.
+**Wave 7**: Heavy-Teaser (Zombie Soldier). Cannon/Magic sollte verfuegbar werden.
+**Wave 8**: **Erste reine Air-Wave (fix)**. Anti-Air verfuegbar (Ice oder AA Retrofit).
 **Wave 9**: Breather (leichter Ground).
-**Wave 10**: Heavy-Check (Tank). HQ4 in Reichweite.
+**Wave 10**: Heavy-Check (Tank). Rocket-Forschung in Reichweite.
 **Wave 11**: Mixed Ground + Air-Teaser.
-**Wave 12**: **Air-Swarm** (Bats), HQ4 → **Rocket + Tentacle**.
+**Wave 12**: **Air-Swarm** (Bats/Hornets). Rocket + Tentacle sollten erforscht sein.
 **Wave 13**: Fortified-Teaser (Mammoth).
 **Wave 14**: Heavy+Light Mixed.
-**Wave 15**: **Hybrid Check** (Air + Heavy).
+**Wave 15**: **Hybrid Check** (Air + Heavy). Advanced Weaponry (T2) in Reichweite.
 **Wave 16**: Breather.
 **Wave 17**: Shielded-Teaser (Mech-lite).
 **Wave 18**: Mini-Boss Ground (Herbert lite).
 **Wave 19**: **Fortified-Wave**.
-**Wave 20**: **Air-Elite** (1 Dragon). HQ5 erreichbar (T2 Upgrades).
+**Wave 20**: **Air-Elite** (1 Dragon). T2-Upgrades sollten verfuegbar sein.
 **Wave 21**: Ethereal-Teaser (1 Ghost).
-**Wave 22**: **Ethereal-Check** (Ghost-Wave, soft).
+**Wave 22**: **Ethereal-Check** (Ghost-Wave, soft). Magic muss erforscht sein (1.75x vs Ethereal).
 **Wave 23**: Mixed Ground + Ghost Escort.
 **Wave 24**: Breather.
-**Wave 25**: Air-Swarm + Ground Rush.
-**Wave 26**: Camo-Teaser (1–2 Spider) falls Detection verfügbar.
+**Wave 25**: Air-Swarm + Ground Rush. Master Engineering (T3) in Reichweite.
+**Wave 26**: Camo-Teaser (1-2 Spider) falls Detection erforschbar.
 **Wave 27**: Heavy+Fortified Check.
 **Wave 28**: **Air-Elite** (2 Dragons).
 **Wave 29**: Mixed Ethereal + Heavy.
@@ -306,6 +384,10 @@ Milestones (Wave 10/20/30/40) = 45 / 80 / 120 / 170
 ## 11. Offene Entscheidungen
 1. **Ghost-Visuals** (Asset final).
 2. **Camo-Detection UI** (Radar-Icon vs. Tower-Halo).
-3. **Exact DPS-Werte** je Tower für TargetCost-Validierung.
-4. **Poison-Schadenstyp**: eigener Typ oder Fire-Subtyp?
+3. **Exact DPS-Werte** je Tower fuer TargetCost-Validierung.
+4. ~~**Poison-Schadenstyp**: eigener Typ oder Fire-Subtyp?~~ → **Entschieden: eigener Typ (Poison).**
 5. **Endless-Scaling** (HP/Speed-Kurven nach Wave 30).
+6. **Forschungszeiten balancen** — aktuelle Werte (15-45s) sind Startwerte, muessen getestet werden.
+7. **Forschungskosten feintunen** — Economy-Kurve muss mit Research-Kosten abgestimmt werden.
+8. **Forschungszentrum 3D-Model** — Asset muss erstellt werden (Placeholder vorerst).
+9. **Status-Effekte Phase 2** — Armor Break, Mark, Stun als spaetere Erweiterung geplant.
