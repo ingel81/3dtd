@@ -105,7 +105,7 @@ export interface HintItem {
       color: var(--td-gold);
       padding: 3px 8px;
       border-radius: 3px;
-      font-family: 'Segoe UI', sans-serif;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 11px;
       font-weight: 600;
       text-transform: uppercase;

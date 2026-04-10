@@ -89,7 +89,7 @@
         <div class="td-map-attribution">{{ mapAttribution() }}</div>
 
         <!-- Compass Overlay -->
-        <app-compass [rotation]="compassRotation()" [heading]="cameraHeading()" />
+        <app-compass [rotation]="compassRotation()" />
 
         <!-- Debug Windows (draggable) -->
         <app-camera-debugger />
@@ -101,8 +101,8 @@
           [botEnabled]="botEnabled()"
           [botSkillLevel]="botSkillLevel()"
           [botStats]="botStats()"
-          [onEnableBot]="enableBot.bind(this)"
-          [onDisableBot]="disableBot.bind(this)"
+          [onEnableBot]="enableBot"
+          [onDisableBot]="disableBot"
           (dpsBinsToggled)="onDpsBinsToggled($event)"
         />
         <app-tower-debugger />

@@ -1,8 +1,9 @@
-import { Component, inject, input, output, signal, computed, ChangeDetectionStrategy } from '@angular/core';
+import { Component, inject, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug-window.service';
+import { DebugFacadeService } from '../../services/debug-facade.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -282,14 +283,19 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       flex-shrink: 0;
     }
 
-    .td-layer-menu-wrapper {
+    /* === Shared: Accordion wrapper + collapse === */
+    .td-layer-menu-wrapper,
+    .td-display-menu-wrapper,
+    .td-dev-menu-wrapper {
       display: flex;
       flex-direction: column;
       align-items: flex-end;
       gap: 4px;
     }
 
-    .td-layer-toggles {
+    .td-layer-toggles,
+    .td-display-toggles,
+    .td-dev-menu {
       display: flex;
       flex-direction: column;
       gap: 4px;
@@ -299,12 +305,18 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       transition: max-height 0.3s ease-out, opacity 0.15s ease;
     }
 
-    .td-layer-toggles.expanded {
+    .td-layer-toggles.expanded,
+    .td-display-toggles.expanded,
+    .td-dev-menu.expanded {
       max-height: 100vh;
       opacity: 1;
     }
 
-    .td-layer-btn {
+    /* === Shared: Icon button base === */
+    .td-quick-btn,
+    .td-layer-btn,
+    .td-display-btn,
+    .td-dev-btn {
       display: flex;
       align-items: center;
       justify-content: center;
@@ -322,52 +334,29 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       transition: all 0.15s;
     }
 
-    .td-layer-btn mat-icon {
+    .td-quick-btn mat-icon,
+    .td-layer-btn mat-icon,
+    .td-display-btn mat-icon,
+    .td-dev-btn mat-icon {
       font-size: 18px;
       width: 18px;
       height: 18px;
     }
 
-    .td-layer-btn:hover {
+    .td-quick-btn:hover,
+    .td-layer-btn:hover,
+    .td-display-btn:hover,
+    .td-dev-btn:hover {
       background: var(--td-frame-mid);
       color: var(--td-text-primary);
     }
 
-    .td-layer-btn.active {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
-    }
-
-    .td-quick-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      min-width: 32px;
-      min-height: 32px;
-      box-sizing: border-box;
-      background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-quick-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .td-quick-btn:hover {
-      background: var(--td-frame-mid);
-      color: var(--td-text-primary);
-    }
-
-    .td-quick-btn.active {
+    /* === Active states (teal for display/layer/audio, gold for dev) === */
+    .td-quick-btn.active,
+    .td-layer-btn.active,
+    .td-display-btn.active,
+    .td-display-toggle-btn.active,
+    .td-audio-toggle-btn.active {
       background: var(--td-teal);
       color: var(--td-bg-dark);
     }
@@ -375,67 +364,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .td-layer-toggle-btn.active {
       background: var(--td-gold-dark);
       color: var(--td-text-primary);
-    }
-
-    .td-display-menu-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-    }
-
-    .td-display-toggles {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      overflow: hidden;
-      max-height: 0;
-      opacity: 0;
-      transition: max-height 0.3s ease-out, opacity 0.15s ease;
-    }
-
-    .td-display-toggles.expanded {
-      max-height: 100vh;
-      opacity: 1;
-    }
-
-    .td-display-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      min-width: 32px;
-      min-height: 32px;
-      box-sizing: border-box;
-      background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-display-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .td-display-btn:hover {
-      background: var(--td-frame-mid);
-      color: var(--td-text-primary);
-    }
-
-    .td-display-btn.active {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
-    }
-
-    .td-display-toggle-btn.active {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
     }
 
     .td-audio-menu-wrapper {
@@ -541,67 +469,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       color: var(--td-health-red);
     }
 
-    .td-audio-toggle-btn.active {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
-    }
-
-    .td-dev-menu-wrapper {
-      display: flex;
-      flex-direction: column;
-      align-items: flex-end;
-      gap: 4px;
-    }
-
-    .td-dev-menu {
-      display: flex;
-      flex-direction: column;
-      gap: 4px;
-      overflow: hidden;
-      max-height: 0;
-      opacity: 0;
-      transition: max-height 0.3s ease-out, opacity 0.15s ease;
-    }
-
-    .td-dev-menu.expanded {
-      max-height: 100vh;
-      opacity: 1;
-    }
-
-    .td-dev-btn {
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      width: 32px;
-      height: 32px;
-      min-width: 32px;
-      min-height: 32px;
-      box-sizing: border-box;
-      background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      color: var(--td-text-secondary);
-      cursor: pointer;
-      transition: all 0.15s;
-    }
-
-    .td-dev-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
-
-    .td-dev-btn:hover {
-      background: var(--td-frame-mid);
-      color: var(--td-text-primary);
-    }
-
-    .td-dev-btn.active {
-      background: var(--td-gold-dark);
-      color: var(--td-text-primary);
-    }
-
+    .td-dev-btn.active,
     .td-dev-toggle-btn.active {
       background: var(--td-gold-dark);
       color: var(--td-text-primary);
@@ -658,14 +526,15 @@ export class QuickActionsComponent {
   readonly debugWindows = inject(DebugWindowService);
   readonly uiStore = inject(UIStore);
   readonly devWorld = inject(DevWorldService);
+  private readonly debugFacade = inject(DebugFacadeService);
 
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
 
-  // Display settings signals (initialized from localStorage)
-  readonly screenShakeEnabled = signal(true);
-  readonly healthBarsVisible = signal(true);
-  readonly damageNumbersVisible = signal(true);
+  // Display settings — read from shared signals in DebugFacadeService (single source of truth)
+  readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
+  readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
+  readonly damageNumbersVisible = this.debugFacade.damageNumbersVisible;
 
   // Display settings outputs
   readonly screenShakeToggled = output<boolean>();
@@ -694,35 +563,16 @@ export class QuickActionsComponent {
   // Computed: any channel muted?
   readonly anyMuted = computed(() => this.uiStore.musicMuted() || this.uiStore.sfxMuted());
 
-  constructor() {
-    this.loadDisplayOptions();
-  }
-
-  private loadDisplayOptions(): void {
-    try {
-      const stored = localStorage.getItem('td_display_options');
-      if (stored) {
-        const opts = JSON.parse(stored);
-        if (opts.screenShake === false) this.screenShakeEnabled.set(false);
-        if (opts.healthBars === false) this.healthBarsVisible.set(false);
-        if (opts.damageNumbers === false) this.damageNumbersVisible.set(false);
-      }
-    } catch { /* ignore corrupt localStorage */ }
-  }
-
   toggleScreenShake(): void {
-    this.screenShakeEnabled.update(v => !v);
-    this.screenShakeToggled.emit(this.screenShakeEnabled());
+    this.screenShakeToggled.emit(!this.screenShakeEnabled());
   }
 
   toggleHealthBars(): void {
-    this.healthBarsVisible.update(v => !v);
-    this.healthBarsToggled.emit(this.healthBarsVisible());
+    this.healthBarsToggled.emit(!this.healthBarsVisible());
   }
 
   toggleDamageNumbers(): void {
-    this.damageNumbersVisible.update(v => !v);
-    this.damageNumbersToggled.emit(this.damageNumbersVisible());
+    this.damageNumbersToggled.emit(!this.damageNumbersVisible());
   }
 
   // Audio controls

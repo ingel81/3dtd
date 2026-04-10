@@ -173,7 +173,7 @@ import { FavoriteLocation } from '../../models/location.types';
     .location-btn:hover {
       border-color: var(--td-gold-dark);
       background: rgba(255, 215, 0, 0.15);
-      color: #ffe066;
+      color: var(--td-gold-light);
     }
 
     .location-label {

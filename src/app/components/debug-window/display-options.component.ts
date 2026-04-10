@@ -1,6 +1,7 @@
 import { Component, inject, signal, output, effect, ChangeDetectionStrategy } from '@angular/core';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
+import { DebugFacadeService } from '../../services/debug-facade.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/post-processing/color-grading';
 
@@ -157,15 +158,16 @@ interface DisplayOptions {
 })
 export class DisplayOptionsComponent {
   readonly windowService = inject(DebugWindowService);
+  private readonly debugFacade = inject(DebugFacadeService);
 
   readonly enemies = signal(true);
-  readonly healthBars = signal(true);
+  readonly healthBars = this.debugFacade.healthBarsVisible;
   readonly animations = signal(true);
   readonly movement = signal(true);
   readonly textures = signal(true);
   readonly skeletonCloning = signal(true);
   readonly alphaBlend = signal(true);
-  readonly screenShake = signal(true);
+  readonly screenShake = this.debugFacade.screenShakeEnabled;
   readonly colorGrading = signal<ColorGradingPreset>('none');
 
   readonly colorGradingPresets = COLOR_GRADING_PRESETS;
@@ -209,9 +211,7 @@ export class DisplayOptionsComponent {
   }
 
   toggleHealthBars(): void {
-    const next = !this.healthBars();
-    this.healthBars.set(next);
-    this.healthBarsToggled.emit(next);
+    this.healthBarsToggled.emit(!this.healthBars());
   }
 
   toggleAnimations(): void {
@@ -245,9 +245,7 @@ export class DisplayOptionsComponent {
   }
 
   toggleScreenShake(): void {
-    const next = !this.screenShake();
-    this.screenShake.set(next);
-    this.screenShakeToggled.emit(next);
+    this.screenShakeToggled.emit(!this.screenShake());
   }
 
   onColorGradingChange(event: Event): void {
@@ -263,13 +261,12 @@ export class DisplayOptionsComponent {
       if (stored) {
         const opts = JSON.parse(stored) as DisplayOptions;
         this.enemies.set(opts.enemies ?? true);
-        this.healthBars.set(opts.healthBars ?? true);
+        // healthBars and screenShake are managed by DebugFacadeService shared signals
         this.animations.set(opts.animations ?? true);
         this.movement.set(opts.movement ?? true);
         this.textures.set(opts.textures ?? true);
         this.skeletonCloning.set(opts.skeletonCloning ?? true);
         this.alphaBlend.set(opts.alphaBlend ?? true);
-        this.screenShake.set(opts.screenShake ?? true);
         this.colorGrading.set(opts.colorGrading ?? 'none');
       }
     } catch { /* ignore */ }

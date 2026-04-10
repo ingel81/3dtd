@@ -1,4 +1,4 @@
-import { Injectable, inject } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import { UIStore } from '../store/ui.store';
 import { EnemyDebugService } from './enemy-debug.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
@@ -27,6 +27,14 @@ export class DebugFacadeService {
 
   /** LocalStorage key for display options */
   private static readonly DISPLAY_OPTIONS_KEY = 'td_display_options';
+
+  // ========================================
+  // Shared display option signals (single source of truth for UI sync)
+  // Both QuickActions and DisplayOptions read from these.
+  // ========================================
+  readonly healthBarsVisible = signal(true);
+  readonly screenShakeEnabled = signal(true);
+  readonly damageNumbersVisible = signal(true);
 
   // ========================================
   // Proxy signals from UIStore
@@ -127,6 +135,7 @@ export class DebugFacadeService {
    * Toggle health bar visibility and persist
    */
   onHealthBarsToggled(visible: boolean): void {
+    this.healthBarsVisible.set(visible);
     this.engine?.enemies.setHealthBarsVisible(visible);
     this.persistDisplayOption('healthBars', visible);
   }
@@ -184,6 +193,7 @@ export class DebugFacadeService {
    * Toggle damage numbers and persist
    */
   onDamageNumbersToggled(visible: boolean): void {
+    this.damageNumbersVisible.set(visible);
     this.combatEffect.damageNumbersEnabled = visible;
     this.persistDisplayOption('damageNumbers', visible);
   }
@@ -192,6 +202,7 @@ export class DebugFacadeService {
    * Toggle screen shake and persist
    */
   onScreenShakeToggled(enabled: boolean): void {
+    this.screenShakeEnabled.set(enabled);
     if (this.gameState) {
       if (enabled) {
         this.gameState.screenShakeService.enable();
@@ -216,7 +227,10 @@ export class DebugFacadeService {
       if (stored) {
         const opts = JSON.parse(stored);
         if (opts.enemies === false) this.engine?.enemies.setEnemiesVisible(false);
-        if (opts.healthBars === false) this.engine?.enemies.setHealthBarsVisible(false);
+        if (opts.healthBars === false) {
+          this.healthBarsVisible.set(false);
+          this.engine?.enemies.setHealthBarsVisible(false);
+        }
         if (opts.animations === false) this.engine?.enemies.setAnimationsEnabled(false);
         if (opts.movement === false && this.gameState) {
           this.gameState.enemyManager.movementEnabled = false;
@@ -227,10 +241,12 @@ export class DebugFacadeService {
         if (opts.colorGrading && opts.colorGrading !== 'none') {
           this.engine?.setColorGradingPreset(opts.colorGrading);
         }
-        if (opts.screenShake === false && this.gameState) {
-          this.gameState.screenShakeService.disable();
+        if (opts.screenShake === false) {
+          this.screenShakeEnabled.set(false);
+          if (this.gameState) this.gameState.screenShakeService.disable();
         }
         if (opts.damageNumbers === false) {
+          this.damageNumbersVisible.set(false);
           this.combatEffect.damageNumbersEnabled = false;
         }
       }
