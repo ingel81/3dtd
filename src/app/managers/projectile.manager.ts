@@ -82,7 +82,8 @@ export class ProjectileManager extends EntityManager<Projectile> {
       tower.typeConfig.projectileType,
       tower.combat.damage,
       spawnHeight,
-      tower.id
+      tower.id,
+      tower.typeConfig.damageType
     );
 
     this.tilesEngine.projectiles.create(
@@ -133,6 +134,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
             projectile,
             target: projectile.targetEnemy,
             damage: projectile.damage,
+            damageType: projectile.damageType,
           });
         }
 

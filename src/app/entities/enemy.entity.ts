@@ -9,12 +9,16 @@ import {
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
 import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../models/enemy-types';
+import { ArmorType } from '../configs/combat/combat.types';
 
 /**
  * Enemy entity - combines Transform, Health, Render, Movement, and Audio components
  */
 export class Enemy extends GameObject {
   readonly typeConfig: EnemyTypeConfig;
+
+  // Armor type override (e.g., Armor Break sets this to 'unarmored')
+  private _armorTypeOverride: ArmorType | null = null;
 
   // Component shortcuts
   private _transform!: TransformComponent;
@@ -110,6 +114,16 @@ export class Enemy extends GameObject {
     if (this.typeConfig.spawnSound) {
       this.audio.play('spawn', false);
     }
+  }
+
+  /** Get effective armor type (checks for active override like Armor Break, then falls back to config). */
+  getEffectiveArmorType(): ArmorType {
+    return this._armorTypeOverride ?? this.typeConfig.armorType;
+  }
+
+  /** Set armor type override (e.g., Armor Break → 'unarmored'). Pass null to clear. */
+  setArmorTypeOverride(armorType: ArmorType | null): void {
+    this._armorTypeOverride = armorType;
   }
 
   // Convenience getters

@@ -33,6 +33,7 @@ const TOWER_CAPABILITIES: Record<
   fire: { splash: true }, // Fire Tower has cone-based splash damage
   tentacle: {}, // Melee tower — no special capabilities yet
   poison: { dot: true }, // Poison Tower applies DOT
+  'research-center': {}, // Passive building — no combat capabilities
 };
 
 /**

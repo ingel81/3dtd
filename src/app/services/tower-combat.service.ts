@@ -53,6 +53,7 @@ export class TowerCombatService {
    */
   updateTowerIdleRotations(towerManager: TowerManager): void {
     for (const tower of towerManager.getAllActive()) {
+      if (tower.typeConfig.attackType === 'passive') continue;
       this.tilesEngine?.towers.resetRotation(tower.id);
     }
   }
@@ -383,6 +384,7 @@ export class TowerCombatService {
           this.combatEffectService.applyBeamDamage(
             enemy,
             damageThisFrame,
+            tower.typeConfig.damageType,
             tower.id,
             showBlood
           );
@@ -606,6 +608,7 @@ export class TowerCombatService {
           this.combatEffectService.applyMeleeDamage(
             target,
             tower.combat.damage,
+            tower.typeConfig.damageType,
             tower.id
           );
 

@@ -440,6 +440,7 @@ export class EnemyManager extends EntityManager<Enemy> {
                 damage: tickDamage,
                 sourceId: poisonEffect.sourceId ?? '',
                 effectType: 'poison',
+                damageType: 'poison',
               });
             }
           }
