@@ -297,42 +297,6 @@
 
 > Kleine Aufräumarbeiten, schnell erledigt
 
-## TODO-Kommentare im Code (Feature-Requests)
-
-- [ ] `strategy-bot.factory.ts:84` - Advanced Bot strategies
-
-## Code Quality
-
-- [ ] **console.log Cleanup** - ~67 Stellen in ~18 Dateien
-      Viele Debug-Logs, ggf. durch proper Logging ersetzen oder entfernen
-      Hinweis: `[PerfTrace]` Logs (console.warn) sind temporaer fuer Performance-Monitoring
-
-## UI Architektur (aus Review 2026-04-10)
-
-- [ ] **Facade Pass-through Methoden eliminieren**
-      VisualizationFacadeService hat viele 1:1 Delegationen ohne Logik
-      (z.B. `onStreetsToggled()` → `streetRendering.toggleVisibility()`)
-      Dateien: `visualization-facade.service.ts`, `tower-defense-facade.service.ts`
-
-- [ ] **VisualizationFacadeService aufteilen** — 17 injizierte Services
-      Zu viele Verantwortlichkeiten in einer Sub-Facade
-      Kandidaten zum Auslagern: Debug-Toggles, Camera-Ops, Street/Building-Rendering
-
-- [ ] **Proxy-Signals in tower-defense.component.ts konsolidieren**
-      ~15 verbleibende 1:1 Proxies koennten direkt via `store.xyz()` im Template gelesen werden
-      Store ist bereits als `readonly public` exponiert
-      Entscheidung offen: Explizite Proxies vs. direkte Store-Zugriffe
-
-- [ ] **Angular Material Theme an WC3-Farben angleichen**
-      `styles.scss` nutzt `mat.$azure-palette` — Material-Inputs/Buttons koennten
-      Azure statt WC3-Gold/Teal zeigen wenn nicht explizit ueberschrieben
-      Entweder Custom-Palette mit WC3-Farben oder globale Overrides
-
-- [ ] **Hardcodierte Farben in Debug-Komponenten ersetzen**
-      `engine-test`: eigenes Farbschema (#1a1a2e, #e94560) — evtl. Theme nutzen
-      `event-debugger`: #a855f7, #3b82f6 fuer Event-Kategorien
-      `performance-debugger`: #ff4444, #ff8844 fuer Performance-Schwellen
-      Niedrige Prio — betrifft nur Dev-Tools
 
 ---
 

@@ -268,11 +268,11 @@ const MAX_LOG_ENTRIES = 100;
     }
 
     .event-entry.vfx {
-      border-left-color: #a855f7;
+      border-left-color: var(--td-event-vfx);
     }
 
     .event-entry.audio {
-      border-left-color: #3b82f6;
+      border-left-color: var(--td-event-audio);
     }
 
     .event-entry .time {

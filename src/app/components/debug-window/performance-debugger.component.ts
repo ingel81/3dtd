@@ -194,16 +194,16 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .value.crit {
-      color: #ff4444;
+      color: var(--td-perf-critical);
     }
 
     .value.highlight {
-      color: #ff8844;
+      color: var(--td-perf-warning);
       font-weight: 700;
     }
 
     .bottleneck {
-      color: #ff8844;
+      color: var(--td-perf-warning);
       font-weight: 700;
       text-transform: capitalize;
     }

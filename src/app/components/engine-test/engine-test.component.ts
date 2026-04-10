@@ -2,6 +2,7 @@ import { Component, ElementRef, OnDestroy, OnInit, ViewChild, ChangeDetectionStr
 import { CommonModule } from '@angular/common';
 import { Scene, PerspectiveCamera, WebGLRenderer, Color, PointsMaterial, Points, BufferGeometry, BufferAttribute, Vector3, GridHelper, AxesHelper, AdditiveBlending, NormalBlending, ShaderMaterial } from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { TD_CSS_VARS } from '../../styles/td-theme';
 
 /**
  * Engine Test Component - Sandbox for testing Three.js features
@@ -64,11 +65,12 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     </div>
   `,
   styles: [`
+    :host { ${TD_CSS_VARS} }
     .engine-test-container {
       display: flex;
       width: 100vw;
       height: 100vh;
-      background: #1a1a2e;
+      background: var(--td-bg-surface);
     }
     .canvas-container {
       flex: 1;
@@ -77,30 +79,30 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     .controls {
       width: 300px;
       padding: 20px;
-      background: #16213e;
-      color: white;
+      background: var(--td-panel-secondary);
+      color: var(--td-text-primary);
       overflow-y: auto;
     }
     .control-group {
       margin-bottom: 20px;
       padding: 10px;
-      background: #1a1a2e;
+      background: var(--td-bg-surface);
       border-radius: 8px;
     }
     h2 { margin: 0 0 20px 0; }
-    h3 { margin: 0 0 10px 0; font-size: 14px; color: #888; }
+    h3 { margin: 0 0 10px 0; font-size: 14px; color: var(--td-text-muted); }
     button {
       display: block;
       width: 100%;
       padding: 10px;
       margin: 5px 0;
-      background: #e94560;
-      color: white;
+      background: var(--td-health-red);
+      color: var(--td-text-primary);
       border: none;
       border-radius: 4px;
       cursor: pointer;
     }
-    button:hover { background: #ff6b6b; }
+    button:hover { background: var(--td-warn-orange); }
     label {
       display: block;
       margin: 10px 0;
@@ -112,7 +114,7 @@ import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
     }
     .stats {
       font-size: 12px;
-      color: #888;
+      color: var(--td-text-muted);
     }
     .stats p { margin: 5px 0; }
   `]
