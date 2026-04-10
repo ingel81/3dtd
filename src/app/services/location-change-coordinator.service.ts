@@ -665,7 +665,7 @@ export class LocationChangeCoordinatorService {
     if (!this.routeAnimation.isRunning()) {
       const cachedPaths = this.pathRoute.getCachedPaths();
       if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, callbacks.getSpawnPoints());
+        this.routeAnimation.startAnimation(cachedPaths, callbacks.getSpawnPoints(), this.pathRoute.getCachedOriginTerrainY());
       }
     }
   }
