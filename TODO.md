@@ -57,12 +57,6 @@
       Screen Shake, Bloom, Color-Grading
       Ziel: Low-End-Geräte können teure Effekte deaktivieren
 
-## 4.2 Gameplay Features
-
-- [ ] **Range-Upgrade System implementieren**
-      Tower-Upgrades die Range erhöhen
-      ⚠️ LOS-Zellen müssen bei Range-Upgrade neu berechnet werden!
-
 ---
 
 # PHASE 5: DAMAGE & ARMOR SYSTEM
@@ -290,13 +284,6 @@
 - [ ] **Skeleton** - `unarmored`, Swarm
 - [ ] **Golem** - `fortified`, Boss
 - [ ] **Dragon** - `heavy` + Air, fliegender Boss
-
----
-
-# EASY WINS / CLEANUP
-
-> Kleine Aufräumarbeiten, schnell erledigt
-
 
 ---
 
