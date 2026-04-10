@@ -5,12 +5,17 @@
  * Add new types here - no code changes needed elsewhere.
  */
 
+import { ArmorType } from '../configs/combat/combat.types';
+
 export interface EnemyTypeConfig {
   id: string;
   name: string;
   modelUrl: string;
   scale: number;
   minimumPixelSize: number;
+
+  // Combat
+  armorType: ArmorType; // Armor type for the damage matrix
 
   // Stats
   baseHp: number;
@@ -93,6 +98,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/zombie.glb',
     scale: 0.984,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
+    armorType: 'unarmored',
     baseHp: 80,
     baseSpeed: 5,
     reward: 3, // Only without AI
@@ -120,6 +126,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/tank.glb',
     scale: 2.009,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping
+    armorType: 'heavy',
     baseHp: 250, // Heavily armored (reduced from 500 for better early game balance)
     baseSpeed: 3,
     reward: 5, // Only without AI
@@ -147,6 +154,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/wallsmasher.fbx',
     scale: 0.037,
     minimumPixelSize: 0,
+    armorType: 'light',
     baseHp: 200,
     baseSpeed: 7,
     reward: 5, // Only without AI
@@ -187,6 +195,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/bat.glb',
     scale: 3.958,
     minimumPixelSize: 0,
+    armorType: 'light',
     baseHp: 25,
     baseSpeed: 8,
     reward: 2, // Only without AI
@@ -213,6 +222,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/penguin.glb',
     scale: 0.005,
     minimumPixelSize: 0,
+    armorType: 'unarmored',
     baseHp: 30,
     baseSpeed: 9,
     reward: 2, // Only without AI
@@ -239,6 +249,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
     minimumPixelSize: 0,
+    armorType: 'fortified',
     baseHp: 500,
     baseSpeed: 4,
     reward: 15, // Only without AI
@@ -288,6 +299,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/zombie_soldier.glb',
     scale: 2.492,
     minimumPixelSize: 0,
+    armorType: 'heavy',
     baseHp: 160,
     baseSpeed: 6,
     reward: 5,
@@ -320,6 +332,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/rat.glb',
     scale: 1.5,
     minimumPixelSize: 0,
+    armorType: 'unarmored',
     baseHp: 5,
     baseSpeed: 10,
     reward: 1,
@@ -346,6 +359,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/spider.glb',
     scale: 1.5,
     minimumPixelSize: 0,
+    armorType: 'light',
     baseHp: 60,
     baseSpeed: 9,
     reward: 2,
@@ -372,6 +386,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/mammoth.glb',
     scale: 2.206,
     minimumPixelSize: 0,
+    armorType: 'fortified',
     baseHp: 400,
     baseSpeed: 3,
     reward: 10,
@@ -406,6 +421,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/bear.glb',
     scale: 0.1,
     minimumPixelSize: 0,
+    armorType: 'heavy',
     baseHp: 300,
     baseSpeed: 8,
     reward: 8,
@@ -441,6 +457,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/dragon.glb',
     scale: 2.5,
     minimumPixelSize: 0,
+    armorType: 'heavy',
     baseHp: 450,
     baseSpeed: 6,
     reward: 12,
@@ -478,6 +495,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/ghost.glb',
     scale: 0.099,
     minimumPixelSize: 0,
+    armorType: 'ethereal',
     baseHp: 120,
     baseSpeed: 5,
     reward: 6,
@@ -505,6 +523,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/hornet.glb',
     scale: 0.063,
     minimumPixelSize: 0,
+    armorType: 'light',
     baseHp: 80,
     baseSpeed: 9,
     reward: 4,
@@ -533,6 +552,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/mech.glb',
     scale: 0.885,
     minimumPixelSize: 0,
+    armorType: 'heavy',
     baseHp: 500,
     baseSpeed: 3,
     reward: 12,
@@ -557,6 +577,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     modelUrl: '/assets/models/enemies/wraith.glb',
     scale: 2.0,
     minimumPixelSize: 0,
+    armorType: 'ethereal',
     baseHp: 100,
     baseSpeed: 8,
     reward: 7,

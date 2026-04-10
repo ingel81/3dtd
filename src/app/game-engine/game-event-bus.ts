@@ -62,6 +62,7 @@ export type GameEvent =
       projectile: Projectile;
       target: Enemy;
       damage: number;
+      damageType: import('../configs/combat/combat.types').DamageType;
     }
   // ==================== Wave Events ====================
   | {
@@ -104,6 +105,35 @@ export type GameEvent =
       damage: number;
       sourceId: string;
       effectType: 'poison';
+      damageType: import('../configs/combat/combat.types').DamageType;
+    }
+
+  // ==================== Research Events ====================
+  | {
+      type: 'research:started';
+      researchId: string;
+      cost: number;
+      duration: number;
+    }
+  | {
+      type: 'research:completed';
+      researchId: string;
+      effects: import('../configs/research/research.types').ResearchEffect[];
+    }
+  | {
+      type: 'research:cancelled';
+      researchId: string;
+      refund: number;
+    }
+
+  // ==================== Research Commands ====================
+  | {
+      type: 'command:start-research';
+      researchId: string;
+    }
+  | {
+      type: 'command:cancel-research';
+      researchId: string;
     }
 
   // ==================== Effect Events (Deferred) ====================

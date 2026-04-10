@@ -62,7 +62,7 @@ describe('GameEventBus', () => {
     it('supports multiple listeners for same event type', () => {
       const handlerA = vi.fn();
       const handlerB = vi.fn();
-      const event = { type: 'projectile:hit', projectile: mockProjectile, target: mockEnemy, damage: 10 } as const;
+      const event = { type: 'projectile:hit', projectile: mockProjectile, target: mockEnemy, damage: 10, damageType: 'physical' as const } as const;
 
       bus.on('projectile:hit', handlerA);
       bus.on('projectile:hit', handlerB);

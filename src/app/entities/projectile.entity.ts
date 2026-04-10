@@ -51,7 +51,8 @@ export class Projectile extends GameObject {
     typeId: ProjectileTypeId,
     damage: number,
     startHeight: number,
-    sourceTowerId: string
+    sourceTowerId: string,
+    public readonly damageType: import('../configs/combat/combat.types').DamageType = 'physical'
   ) {
     super('projectile');
     this.typeConfig = getProjectileType(typeId);

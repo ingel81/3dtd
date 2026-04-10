@@ -1,7 +1,9 @@
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison';
+import { DamageType } from './combat/combat.types';
+
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'research-center';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob';
-export type UpgradeId = 'speed' | 'damage' | 'range';
-export type AttackType = 'projectile' | 'beam' | 'melee';
+export type UpgradeId = 'speed' | 'damage' | 'range' | 'research-slots';
+export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
@@ -13,7 +15,7 @@ export interface TowerUpgrade {
   costScaling?: number; // Cost multiplier per level (default: 1.0 = flat cost)
   maxLevel: number;
   effect: {
-    stat: 'fireRate' | 'damage' | 'range' | 'beamWidth';
+    stat: 'fireRate' | 'damage' | 'range' | 'beamWidth' | 'research-slots';
     multiplier: number; // e.g., 2.0 = double
   };
 }
@@ -39,6 +41,7 @@ export interface TowerTypeConfig {
   rotationY?: number; // Initial Y rotation in radians for visual alignment (default: 0)
   turretBarrelOffset?: number; // Turret barrel orientation in model space (default: 0 = barrels point -Z/North)
 
+  damageType: DamageType; // Damage type for the damage matrix
   damage: number;
   range: number;
   fireRate: number; // Shots per second
@@ -93,6 +96,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 4.5,
     shootHeight: 1.05,
     rotationY: 0,
+    damageType: 'physical',
     damage: 25,
     range: 60,
     fireRate: 1, // 1 shot/sec
@@ -130,6 +134,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
       { x: -0.9, z: 0 }, // Left barrel cluster
       { x: 0.9, z: 0 },  // Right barrel cluster
     ],
+    damageType: 'pierce',
     damage: 10,
     range: 50,
     fireRate: 5.0, // 5 shots/sec - rapid fire
@@ -161,6 +166,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 2.3,
     shootHeight: 1.95,
     rotationY: 3.1416, // 180°
+    damageType: 'siege',
     damage: 55,
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)
@@ -203,6 +209,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 0,
     shootHeight: 8.85,
     rotationY: 3.1416, // 180°
+    damageType: 'magic',
     damage: 40,
     range: 70,
     fireRate: 1.5, // 1.5 shots/sec
@@ -234,6 +241,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 2.6,
     shootHeight: 1.7,
     rotationY: 3.1416, // 180°
+    damageType: 'siege',
     damage: 40,
     range: 100,
     fireRate: 0.5,
@@ -268,6 +276,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     shootHeight: 3.4,
     rotationY: 3.1416, // 180°
     turretBarrelOffset: 1.047, // Barrels point ~60° from -Z in model space
+    damageType: 'ice',
     damage: 2, // Minimal damage - utility tower for slow effect
     range: 60,
     fireRate: 0.33, // 1 shot every 3s (matches slow duration, no stacking)
@@ -291,6 +300,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
 
     // Beam attack - continuous flame damage
     attackType: 'beam',
+    damageType: 'fire',
     damage: 0, // Not used for beam towers
     damagePerSecond: 35, // 35 DPS to all enemies in cone
     range: 25, // Detection range (short - flamethrower)
@@ -343,6 +353,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
 
     // Melee attack — direct hit, no projectile
     attackType: 'melee',
+    damageType: 'physical',
     damage: 30,
     range: 25, // Short range like Fire Tower
     fireRate: 1.5, // 1.5 hits/sec
@@ -387,6 +398,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     heightOffset: 2.8,
     shootHeight: 1.4,
     rotationY: 3.1416, // 180°
+    damageType: 'poison',
     damage: 5,
     range: 55,
     fireRate: 1, // 1 shot/sec
@@ -417,6 +429,39 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
         effect: {
           stat: 'range',
           multiplier: 1.3,
+        },
+      },
+    ],
+  },
+  'research-center': {
+    id: 'research-center',
+    name: 'Research Center',
+    modelUrl: '/assets/models/buildings/research_building.glb',
+    scale: 8,
+    previewScale: 10,
+    heightOffset: 3,
+    shootHeight: 0,
+
+    attackType: 'passive',
+    damageType: 'physical', // Unused — passive building
+    damage: 0,
+    range: 0,
+    fireRate: 0,
+    projectileType: 'arrow', // Fallback, unused
+
+    cost: 75,
+    sellValue: 0, // Cannot be sold
+    upgrades: [
+      {
+        id: 'research-slots' as UpgradeId,
+        name: 'Research Wing',
+        description: 'Adds an additional research slot',
+        cost: 120,
+        costScaling: 1.8,
+        maxLevel: 2, // Level 1→2 slots, Level 2→3 slots
+        effect: {
+          stat: 'research-slots',
+          multiplier: 1,
         },
       },
     ],
