@@ -33,7 +33,7 @@ import {
   AirSubStrategy,
   AIR_SUB_STRATEGIES,
 } from '../../configs/tower-types.config';
-import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_TYPE_UI, ARMOR_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
 import { ResearchConfig, ResearchId, RESEARCH_CATEGORIES } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
@@ -43,7 +43,7 @@ import { TowerDebugService } from '../../services/tower-debug.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
-import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 
 @Component({
   selector: 'app-game-sidebar',
@@ -68,10 +68,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       position: relative;
       display: flex;
       flex-direction: column;
+      height: 100%;
+      max-height: 100%;
+      overflow: hidden;
     }
 
     .td-sidebar-content {
       flex: 1;
+      min-height: 0;
       background:
         linear-gradient(rgba(15, 19, 15, 0.75), rgba(15, 19, 15, 0.75)),
         url('/assets/images/backgrounds/stone-wall.jpg') repeat;
@@ -80,7 +84,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       flex-direction: column;
       gap: 8px;
       padding: 8px;
-      overflow-y: auto;
+      overflow: hidden;
       position: relative;
       z-index: 1;
       border-left: 4px solid var(--td-panel-shadow);
@@ -160,6 +164,32 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       border-left: 1px solid var(--td-frame-mid);
       border-right: 1px solid var(--td-frame-dark);
       border-bottom: 2px solid var(--td-frame-dark);
+    }
+    /* Non-wave panels fill available space and allow internal scroll */
+    .td-panel:not(.td-wave-panel) {
+      flex: 1;
+      min-height: 0;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .td-panel:not(.td-wave-panel) > .td-panel-content {
+      flex: 1;
+      min-height: 0;
+      overflow-y: auto;
+      ${TD_SCROLLBAR_STYLES}
+    }
+    .td-panel:not(.td-wave-panel) > .td-panel-content::-webkit-scrollbar {
+      ${TD_SCROLLBAR_WEBKIT.scrollbar}
+    }
+    .td-panel:not(.td-wave-panel) > .td-panel-content::-webkit-scrollbar-track {
+      ${TD_SCROLLBAR_WEBKIT.track}
+    }
+    .td-panel:not(.td-wave-panel) > .td-panel-content::-webkit-scrollbar-thumb {
+      ${TD_SCROLLBAR_WEBKIT.thumb}
+    }
+    .td-panel:not(.td-wave-panel) > .td-panel-content::-webkit-scrollbar-thumb:hover {
+      ${TD_SCROLLBAR_WEBKIT.thumbHover}
     }
 
     .td-panel-header {
@@ -335,35 +365,35 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       margin-top: 4px;
     }
 
-    /* === Mixed Wave === */
-    .td-enemy-group-grid {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 4px;
-      justify-content: center;
-    }
-
-    .td-enemy-group-card {
+    /* === Wave Enemy List === */
+    .td-enemy-group-list {
       display: flex;
       flex-direction: column;
+      gap: 4px;
+    }
+
+    .td-enemy-group-row {
+      display: flex;
       align-items: center;
-      gap: 1px;
+      gap: 8px;
       cursor: default;
       padding: 2px;
       border-radius: 4px;
       transition: background 0.15s;
-      flex: 1;
-      min-width: 64px;
-      max-width: 90px;
+      padding: 4px;
+      border-radius: 3px;
+      background: var(--td-panel-secondary);
+      border: 1px solid var(--td-frame-dark);
     }
 
-    .td-enemy-group-card:hover {
+    .td-enemy-group-row:hover {
       background: rgba(255, 255, 255, 0.05);
     }
 
     .td-group-preview-container {
       width: 64px;
       height: 64px;
+      flex-shrink: 0;
       background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
       border: 1px solid var(--td-frame-dark);
       border-radius: 4px;
@@ -376,27 +406,48 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       display: block;
     }
 
-    .td-group-label {
+    .td-group-info {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+    }
+    .td-group-info-header {
       display: flex;
       align-items: baseline;
-      gap: 3px;
-      justify-content: center;
+      gap: 4px;
     }
-
     .td-group-name {
-      font-size: 10px;
+      font-size: 11px;
       font-weight: 600;
       color: var(--td-text-primary);
-      max-width: 60px;
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
     }
-
     .td-group-count {
       font-size: 10px;
       font-weight: 700;
       color: var(--td-warn-orange);
+    }
+    .td-group-stats {
+      display: flex;
+      gap: 8px;
+    }
+    .td-group-stat {
+      font-size: 9px;
+      color: var(--td-text-muted);
+    }
+    .td-group-armor {
+      display: flex;
+      gap: 6px;
+      font-size: 9px;
+      color: var(--td-text-secondary);
+    }
+    .td-group-weak {
+      color: var(--td-gold-dark);
+      font-style: italic;
     }
 
     /* === Build Section === */
@@ -404,6 +455,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       display: flex;
       flex-direction: column;
       gap: 6px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
     }
 
     .td-tower-grid {
@@ -501,7 +555,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     .td-hidden {
-      display: none;
+      display: none !important;
     }
 
     .td-cancel-btn {
@@ -527,10 +581,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     /* === Tower Section === */
-    .td-tower-panel {
-      border-color: var(--td-teal);
-    }
-
     .td-tower-panel .td-panel-header {
       background: linear-gradient(180deg, var(--td-teal) 0%, rgba(0, 188, 212, 0.3) 100%);
       color: var(--td-bg-dark);
@@ -542,6 +592,9 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       flex-direction: column;
       gap: 10px;
       padding-bottom: 52px;
+      overflow-y: auto;
+      flex: 1;
+      min-height: 0;
     }
 
     /* Stats Grid - 2x2 tiles */
@@ -774,9 +827,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     }
 
     /* === Research Panel === */
-    .td-research-panel {
-      border-color: var(--td-teal);
-    }
     .td-research-slots-header {
       font-size: 11px;
       color: var(--td-text-muted);
@@ -1151,6 +1201,21 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     return this.currentWaveGroups().reduce((sum, g) => sum + g.count, 0);
   }
 
+  getArmorIcon(enemyType: EnemyTypeId): string {
+    const config = ENEMY_TYPES[enemyType];
+    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].icon : '';
+  }
+
+  getArmorLabel(enemyType: EnemyTypeId): string {
+    const config = ENEMY_TYPES[enemyType];
+    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].label : '';
+  }
+
+  getArmorWeakTo(enemyType: EnemyTypeId): string {
+    const config = ENEMY_TYPES[enemyType];
+    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].weakTo : '';
+  }
+
   getGroupTooltip(group: WaveGroupDisplay): string {
     let tip = `HP: ${group.actualHp}`;
     if (group.healthMultiplier !== 1) {
@@ -1160,7 +1225,13 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     if (group.speedMultiplier !== 1) {
       tip += ` (×${group.speedMultiplier.toFixed(2)})`;
     }
-    tip += `\nSpawn: ${group.spawnDelay}ms`;
+    // Armor type + weakness info
+    const enemyConfig = ENEMY_TYPES[group.enemyType];
+    if (enemyConfig?.armorType) {
+      const armorMeta = ARMOR_TYPE_UI[enemyConfig.armorType];
+      tip += `\nArmor: ${armorMeta.icon} ${armorMeta.label}`;
+      tip += `\nWeak to: ${armorMeta.weakTo}`;
+    }
     return tip;
   }
 

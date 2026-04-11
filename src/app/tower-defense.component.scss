@@ -27,7 +27,7 @@
 .td-main {
   flex: 1;
   display: flex;
-  overflow: visible; /* Allow canvas-area children to extend beyond bounds */
+  overflow: hidden; /* Constrain sidebar height; canvas-area handles its own overflow */
 }
 
 /* === Canvas Area === */
