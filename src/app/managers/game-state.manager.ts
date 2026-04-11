@@ -606,11 +606,16 @@ export class GameStateManager {
     // Clear tower overlays before clearing towers
     this.clearAllTowerOverlays();
 
+    // Stop all active beams/melee before clearing towers
+    this.towerCombat.stopAllBeams();
+    this.towerCombat.stopAllMelee();
+
     this.enemyManager.clear();
     this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
     this.towerManager.clear();
     this.projectileManager.clear();
     this.waveManager.reset();
+    this.researchManager.reset();
 
     // Clear GlobalRouteGrid (will be re-initialized on location change)
     this.globalRouteGrid.clear();
@@ -678,6 +683,12 @@ export class GameStateManager {
     // Stop flame beam if fire tower
     if (tower.typeConfig.id === 'fire') {
       this.towerCombat.stopTowerBeam(tower.id);
+    }
+
+    // Notify ResearchManager when Research Center is sold
+    if (tower.typeConfig.id === 'research-center') {
+      this.researchManager.onCenterRemoved();
+      this.syncResearchStoreState();
     }
 
     // Sell tower (emits tower:sold event, returns refund)

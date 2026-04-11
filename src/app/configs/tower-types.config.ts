@@ -437,10 +437,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'research-center',
     name: 'Research Center',
     modelUrl: '/assets/models/buildings/research_building.glb',
-    scale: 8,
+    scale: 17.9,
     previewScale: 10,
-    heightOffset: 3,
-    shootHeight: 0,
+    heightOffset: 5.1,
+    shootHeight: 4.65,
+    rotationY: -3.1416,
 
     attackType: 'passive',
     damageType: 'physical', // Unused — passive building
@@ -450,7 +451,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'arrow', // Fallback, unused
 
     cost: 75,
-    sellValue: 0, // Cannot be sold
+    sellValue: 45, // 60% of cost — research progress is preserved on re-place
     upgrades: [
       {
         id: 'research-slots' as UpgradeId,
