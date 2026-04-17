@@ -61,6 +61,17 @@ function createStubService(name: string): Record<string, unknown> {
     },
     EntityPoolService: {},
     OsmStreetService: {},
+    ResearchStore: {
+      isTowerUnlocked: vi.fn().mockReturnValue(true),
+      centerLevel: vi.fn().mockReturnValue(0),
+      researchSlots: vi.fn().mockReturnValue(1),
+      maxUpgradeTier: vi.fn().mockReturnValue(1),
+      airTargetingUnlocked: vi.fn().mockReturnValue(false),
+      completedResearches: Object.assign(vi.fn().mockReturnValue(new Set()), { set: vi.fn(), update: vi.fn() }),
+      activeResearches: Object.assign(vi.fn().mockReturnValue([]), { set: vi.fn() }),
+      applyResearchEffects: vi.fn(),
+      resetResearchState: vi.fn(),
+    },
     WaveDebugService: {
       setCurrentWaveConfig: vi.fn(),
     },

@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial, Raycaster, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
@@ -307,6 +307,31 @@ export class TowerPlacementService {
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
     const hit = devProvider.raycastDown(local.x, local.z, 10000);
     return hit ? hit.y : fallbackHeight;
+  }
+
+  /**
+   * Check if a position is inside a DevWorld building footprint.
+   * Raycasts down only against building meshes (not terrain).
+   * Returns false outside DevWorld or if no provider available.
+   */
+  private isInsideBuilding(lat: number, lon: number): boolean {
+    if (!this.engine) return false;
+    const devProvider = this.engine.getDevTerrainProvider();
+    if (!devProvider) return false;
+
+    const buildings = devProvider.getBuildingMeshes();
+    if (!buildings || buildings.length === 0) return false;
+
+    const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
+
+    // Raycast down from above, hitting only buildings — a hit means
+    // the (x, z) position is inside a building footprint.
+    const raycaster = new Raycaster(
+      new Vector3(local.x, 10000, local.z),
+      new Vector3(0, -1, 0),
+    );
+    const hits = raycaster.intersectObjects(buildings, false);
+    return hits.length > 0;
   }
 
   /**
@@ -629,6 +654,11 @@ export class TowerPlacementService {
     }
     // If no routes exist yet (before game start), allow placement anywhere
 
+    // DevWorld only: reject positions inside building footprints
+    if (this.isInsideBuilding(lat, lon)) {
+      return { valid: false, reason: 'Gebaeude blockiert Platzierung' };
+    }
+
     return { valid: true };
   }
 
@@ -686,6 +716,11 @@ export class TowerPlacementService {
       }
     }
     // If no routes exist yet (before game start), allow placement anywhere
+
+    // DevWorld only: reject positions inside building footprints
+    if (this.isInsideBuilding(geoPos.lat, geoPos.lon)) {
+      return { valid: false, reason: 'Building blocks placement' };
+    }
 
     return { valid: true };
   }
