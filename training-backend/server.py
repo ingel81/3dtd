@@ -775,6 +775,9 @@ async def main():
     # Start TUI
     logger.start()
 
+    # Initialize before try block so `finally` can always access it
+    dashboard_task = None
+
     try:
         # Start WebSocket training server
         ws_server = await websockets.serve(
@@ -788,7 +791,6 @@ async def main():
         logger.server_started(SERVER_HOST, SERVER_PORT, server.episode)
 
         # Start dashboard if available
-        dashboard_task = None
         if _dashboard:
             try:
                 import uvicorn
