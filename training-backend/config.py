@@ -8,12 +8,13 @@ Hyperparameters and settings for AI training.
 SERVER_HOST = "localhost"
 SERVER_PORT = 3001
 
-# === MODEL ARCHITECTURE ===
-INPUT_SIZE = 74  # Must match ENCODED_STATE_SIZE in game-state-encoder.ts
-NUM_SCALAR = 34  # Scalar features [0-33], rest is spatial (DPS profile)
+# === MODEL ARCHITECTURE (Phase 5.5) ===
+INPUT_SIZE = 93  # Must match ENCODED_STATE_SIZE in game-state-encoder.ts (was 74)
+NUM_SCALAR = 53  # Scalar features [0-52], rest is spatial (DPS profile) — was 34
 NUM_SPATIAL = 40  # 2 channels x 20 bins (ground + air DPS profile)
 NUM_BINS = 20    # Number of DPS profile bins per channel
-OUTPUT_SIZE = 10  # Enemy probs (6) + continuous params (4)
+NUM_ENEMY_TYPES = 16  # Expanded from 6 to all 16 enemies
+OUTPUT_SIZE = 20  # Enemy probs (16) + continuous params (4) — was 10
 
 # === TRAINING ===
 LEARNING_RATE = 0.0003  # Increased from 0.0001 (was too slow to converge)
@@ -34,7 +35,11 @@ REWARD_BORING_THRESHOLD = 0.30  # Increased from 0.20 to punish easy waves harde
 REWARD_VARIETY_BONUS = 0.20     # Increased from 0.15 to encourage type diversity
 
 # === TYPE COOLDOWN ===
-TYPE_COOLDOWN_WAVES = 4  # Block a type for N waves after use (was 2)
+TYPE_COOLDOWN_WAVES = 6  # Block a type for N waves after use (expanded pool → longer cooldown)
+
+# === MIXED WAVE DECODER ===
+MIXED_WAVE_THRESHOLD = 0.15  # Min prob for a type to become a separate group
+MIXED_WAVE_MAX_GROUPS = 3    # Max enemy groups per wave
 
 # === VARIATION ===
 VARIATION_MAX = 0.3  # Max speed/count/delay variation (0.0 = uniform, 0.3 = ±30%)
@@ -47,14 +52,46 @@ KILL_TIME_MAX = 5.0  # Maximum seconds (was 4.0)
 HEALTH_MULTIPLIER_MAX = 20.0  # Cap to prevent absurd values at high DPS
 
 # === ENEMY BASE HP (for healthMultiplier calculation) ===
+# Phase 5.5: expanded from 6 to all 16 enemies
 ENEMY_BASE_HP = {
+    # Unarmored
     "zombie": 80,
-    "bat": 25,
-    "tank": 250,
-    "wallsmasher": 200,
+    "rat": 5,
     "penguin": 30,
+    # Light
+    "wallsmasher": 200,
+    "bat": 25,
+    "hornet": 80,
+    "spider": 60,
+    # Heavy
+    "zombie-soldier": 160,
+    "tank": 250,
+    "bear": 300,
+    "dragon": 450,
+    "mech": 500,
+    # Fortified
+    "mammoth": 400,
     "herbert": 500,
+    # Ethereal
+    "ghost": 120,
+    "wraith": 100,
 }
+
+# Enemy type order — MUST match frontend ENEMY_TYPES in wave-director.service.ts
+# NN output logits[i] corresponds to ENEMY_TYPES[i]
+ENEMY_TYPES = [
+    "zombie", "rat", "penguin",                           # Unarmored (3)
+    "wallsmasher", "bat", "hornet", "spider",             # Light (4, air: bat+hornet)
+    "zombie-soldier", "tank", "bear", "dragon", "mech",   # Heavy (5, air: dragon)
+    "mammoth", "herbert",                                  # Fortified (2, boss: herbert)
+    "ghost", "wraith",                                     # Ethereal (2)
+]
+
+# Air-unit flags (matches frontend isAirUnit)
+AIR_ENEMIES = {"bat", "hornet", "dragon"}
+
+# Ethereal enemies (for fairness-gate on server side, mirrors frontend)
+ETHEREAL_ENEMIES = {"ghost", "wraith"}
 
 # === EXPLORATION ===
 INITIAL_EPSILON = 1.0
