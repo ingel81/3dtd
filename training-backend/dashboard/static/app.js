@@ -481,29 +481,145 @@ function updateAIParamCharts() {
 }
 
 // === Type Probabilities ===
+// Enemy → armor-group mapping (for color-coding and ordered display).
+// Must match ENEMY_TYPES order in training-backend/config.py.
+const ENEMY_ARMOR_GROUPS = [
+  { label: 'Unarmored', armor: 'unarmored', types: ['zombie', 'rat', 'penguin'] },
+  { label: 'Light',     armor: 'light',     types: ['wallsmasher', 'bat', 'hornet', 'spider'] },
+  { label: 'Heavy',     armor: 'heavy',     types: ['zombie-soldier', 'tank', 'bear', 'dragon', 'mech'] },
+  { label: 'Fortified', armor: 'fortified', types: ['mammoth', 'herbert'] },
+  { label: 'Ethereal',  armor: 'ethereal',  types: ['ghost', 'wraith'] },
+];
+
+// Build the DOM for all 16 enemies, grouped by armor. Called once on first data.
+function ensureTypeProbDOM() {
+  const container = document.getElementById('type-probs-bars');
+  if (!container || container.childElementCount > 0) return;
+
+  for (const group of ENEMY_ARMOR_GROUPS) {
+    const header = document.createElement('div');
+    header.className = 'type-prob-group-header';
+    header.textContent = group.label;
+    container.appendChild(header);
+    for (const type of group.types) {
+      const item = document.createElement('div');
+      item.className = 'type-prob-item';
+      item.dataset.type = type;
+      item.innerHTML = `
+        <span class="type-prob-label">${type}</span>
+        <div class="type-prob-bar"><div class="type-prob-fill armor-${group.armor}" style="width: 0%"></div></div>
+        <span class="type-prob-value">0%</span>
+      `;
+      container.appendChild(item);
+    }
+  }
+}
+
 function updateTypeProbs(typeProbs, cooldownOverride = false) {
   if (!typeProbs || Object.keys(typeProbs).length === 0) return;
 
-  const types = ['herbert', 'tank', 'zombie', 'bat', 'wallsmasher', 'penguin'];
+  ensureTypeProbDOM();
 
-  types.forEach(type => {
-    const item = document.querySelector(`.type-prob-item[data-type="${type}"]`);
-    if (!item) return;
+  // Update all 16 enemies — any missing from typeProbs display as 0%
+  for (const group of ENEMY_ARMOR_GROUPS) {
+    for (const type of group.types) {
+      const item = document.querySelector(`.type-prob-item[data-type="${type}"]`);
+      if (!item) continue;
 
-    const prob = typeProbs[type] || 0;
-    const pct = (prob * 100).toFixed(1);
+      const prob = typeProbs[type] || 0;
+      const pct = (prob * 100).toFixed(1);
 
-    const fill = item.querySelector('.type-prob-fill');
-    const value = item.querySelector('.type-prob-value');
+      const fill = item.querySelector('.type-prob-fill');
+      const value = item.querySelector('.type-prob-value');
 
-    if (fill) fill.style.width = pct + '%';
-    if (value) value.textContent = pct + '%';
-  });
+      if (fill) fill.style.width = pct + '%';
+      if (value) value.textContent = pct + '%';
+    }
+  }
 
   // Show/hide cooldown indicator
   const indicator = document.getElementById('cooldown-indicator');
   if (indicator) {
     indicator.style.display = cooldownOverride ? 'inline-block' : 'none';
+  }
+}
+
+// === State Signals (Phase 5.5) ===
+// Renders DPS-by-damage-type, armor distribution, and research state.
+// If any block is entirely 0 or null, the corresponding signal isn't reaching
+// the NN — indicates a frontend/backend sync bug.
+
+const DAMAGE_TYPES = ['physical', 'pierce', 'siege', 'magic', 'fire', 'ice', 'poison'];
+const DAMAGE_TYPE_COLORS = {
+  physical: '#B0B0B0', pierce: '#FFD700', siege: '#FF6600',
+  magic: '#9B59B6', fire: '#FF4400', ice: '#00BFFF', poison: '#44CC22',
+};
+const ARMOR_TYPES = ['unarmored', 'light', 'heavy', 'fortified', 'ethereal'];
+const ARMOR_TYPE_COLORS = {
+  unarmored: '#4CAF50', light: '#2196F3', heavy: '#FF9800',
+  fortified: '#F44336', ethereal: '#9C27B0',
+};
+
+function renderSignalBars(containerId, keys, values, colorMap) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  if (container.childElementCount === 0) {
+    // First render: build static rows
+    for (const k of keys) {
+      const label = document.createElement('span');
+      label.className = 'state-signal-label';
+      label.textContent = k;
+      container.appendChild(label);
+
+      const bar = document.createElement('div');
+      bar.className = 'state-signal-bar';
+      const fill = document.createElement('div');
+      fill.className = 'state-signal-bar-fill';
+      fill.style.background = colorMap[k] || '#888';
+      fill.dataset.key = k;
+      bar.appendChild(fill);
+      container.appendChild(bar);
+
+      const val = document.createElement('span');
+      val.className = 'state-signal-value';
+      val.dataset.key = k;
+      val.textContent = '–';
+      container.appendChild(val);
+    }
+  }
+  // Update values
+  for (const k of keys) {
+    const v = (values && typeof values[k] === 'number') ? values[k] : 0;
+    const pct = (v * 100).toFixed(1);
+    const fill = container.querySelector(`.state-signal-bar-fill[data-key="${k}"]`);
+    const val = container.querySelector(`.state-signal-value[data-key="${k}"]`);
+    if (fill) fill.style.width = Math.min(100, v * 100) + '%';
+    if (val) val.textContent = pct + '%';
+  }
+}
+
+function updateStateSignals(dpsByType, armorDist, research) {
+  renderSignalBars('dps-by-type-bars', DAMAGE_TYPES, dpsByType || {}, DAMAGE_TYPE_COLORS);
+  renderSignalBars('armor-dist-bars', ARMOR_TYPES, armorDist || {}, ARMOR_TYPE_COLORS);
+
+  // Research state
+  const setText = (id, val) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = val;
+  };
+  if (research) {
+    setText('rs-center', `${research.centerLevel}/3`);
+    setText('rs-completed', `${research.completedCount}/${research.totalCount}`);
+    setText('rs-tier', `T${research.maxUpgradeTier}`);
+    setText('rs-aa', research.airTargetingUnlocked ? 'YES' : 'no');
+    const ids = (research.completedIds || []).join(', ') || '(none)';
+    setText('rs-ids', ids);
+  } else {
+    setText('rs-center', '–');
+    setText('rs-completed', '–');
+    setText('rs-tier', '–');
+    setText('rs-aa', '–');
+    setText('rs-ids', '');
   }
 }
 
@@ -750,6 +866,8 @@ function handleEvent(msg) {
     if (d.typeProbs) {
       updateTypeProbs(d.typeProbs, d.cooldownOverride || false);
     }
+    // Phase 5.5: state signals — damage/armor/research
+    updateStateSignals(d.dpsByType, d.armorDist, d.research);
 
   } else if (msg.type === 'log') {
     addTrainingLog(msg.data.level || 'ep', msg.data.message || '');
