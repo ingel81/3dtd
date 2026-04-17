@@ -26,8 +26,13 @@ from config import (
     EPISODE_LENGTH,
     INPUT_SIZE,
     ENEMY_BASE_HP,
+    ENEMY_TYPES,
+    AIR_ENEMIES,
+    ETHEREAL_ENEMIES,
     TYPE_COOLDOWN_WAVES,
     HEALTH_MULTIPLIER_MAX,
+    MIXED_WAVE_THRESHOLD,
+    MIXED_WAVE_MAX_GROUPS,
 )
 from model import create_model, save_model, load_model
 from reward import calculate_reward, estimate_player_skill
@@ -324,19 +329,22 @@ class TrainingServer:
         return action
 
     def _encode_state(self, state, ctx=None):
-        """Convert game state dict to flat 74-feature array.
+        """Convert game state dict to flat 93-feature array (Phase 5.5).
 
-        Layout (must match game-state-encoder.ts):
-        [0-3]   Player: credits, lives%, wave, time
-        [4-5]   Tower: count, avgLevel
-        [6-11]  Tower Type Counts: 6 types
-        [12-16] History Damage: last 5 waves
-        [17-21] History Progress: last 5 waves avg_progress
-        [22-26] Wave Signals: momentum, avgDmg, duration, episodeProgress, variance
-        [27-31] Context: wave, trend, skill, lastThreat, winStreak
-        [32-33] Reserved
-        [34-53] Ground DPS Profile: 20 bins
-        [54-73] Air DPS Profile: 20 bins
+        Layout (MUST match game-state-encoder.ts encodeGameState):
+        [0-3]    Player: credits, lives%, wave, time
+        [4-5]    Tower: count, avgLevel
+        [6-14]   Tower Type Counts: 9 types (archer, cannon, magic, dual-gatling, rocket, ice, fire, tentacle, poison)
+        [15-19]  History Damage: last 5 waves
+        [20-24]  History Progress: last 5 waves avg_progress
+        [25-29]  Wave Signals: momentum, avgDmg, duration, episodeProgress, variance
+        [30-34]  Context: wave, trend, skill, lastThreat, winStreak
+        [35-41]  DPS by Damage Type: physical, pierce, siege, magic, fire, ice, poison (7)
+        [42-46]  Enemy Armor Distribution: unarmored, light, heavy, fortified, ethereal (5)
+        [47-51]  Research State: completedRatio, centerLevel/3, slotsUsed/maxSlots, airTargeting, maxTier/3 (5)
+        [52]     Reserved
+        [53-72]  Ground DPS Profile: 20 bins
+        [73-92]  Air DPS Profile: 20 bins
         """
         encoded = []
 
@@ -356,48 +364,48 @@ class TrainingServer:
             defense.get("avgTowerLevel", 0) / 5,
         ])
 
-        # === Tower Type Counts [6-11] ===
-        tower_types = ["archer", "cannon", "magic", "dual-gatling", "rocket", "ice"]
+        # === Tower Type Counts [6-14] (9 types — added fire, tentacle) ===
+        tower_types = ["archer", "cannon", "magic", "dual-gatling", "rocket", "ice", "fire", "tentacle", "poison"]
         dist = defense.get("towerDistribution", {})
         for t in tower_types:
             stats = dist.get(t, {})
             encoded.append(stats.get("count", 0) / 10)
 
-        # === History Damage [12-16] ===
+        # === History Damage [15-19] ===
         history = state.get("recentHistory", {})
         damages = history.get("damagePerWave", [])
         for i in range(5):
             idx = len(damages) - 5 + i
             encoded.append(damages[idx] if 0 <= idx < len(damages) else 0)
 
-        # === History Progress [17-21] ===
+        # === History Progress [20-24] ===
         progresses = history.get("progressPerWave", [])
         for i in range(5):
             idx = len(progresses) - 5 + i
             encoded.append(progresses[idx] if 0 <= idx < len(progresses) else 0)
 
-        # === Wave Signals [22-26] ===
+        # === Wave Signals [25-29] ===
         wave_num = state.get("waveNumber", 0)
 
-        # [22] Damage momentum
+        # [25] Damage momentum
         if len(damages) >= 2:
             momentum = (damages[-1] - damages[-2]) * 10
         else:
             momentum = 0.0
         encoded.append(max(-1.0, min(1.0, momentum)))
 
-        # [23] Average recent damage
+        # [26] Average recent damage
         recent_5 = damages[-5:] if damages else []
         avg_recent = sum(recent_5) / max(1, len(recent_5))
         encoded.append(min(1.0, avg_recent))
 
-        # [24] Wave duration
+        # [27] Wave duration
         encoded.append(min(1.0, history.get("avgWaveDuration", 0) / 300))
 
-        # [25] Episode progress
+        # [28] Episode progress
         encoded.append(wave_num / 20.0)
 
-        # [26] Damage variance
+        # [29] Damage variance
         if len(recent_5) >= 2:
             mean_d = sum(recent_5) / len(recent_5)
             variance = sum((d - mean_d) ** 2 for d in recent_5) / len(recent_5)
@@ -405,7 +413,7 @@ class TrainingServer:
         else:
             encoded.append(0.0)
 
-        # === Context [27-31] ===
+        # === Context [30-34] ===
         encoded.extend([
             wave_num / 50,
             self._calculate_difficulty_trend(damages),
@@ -414,10 +422,40 @@ class TrainingServer:
             history.get("winStreak", 0) / 10,
         ])
 
-        # === Reserved [32-33] ===
-        encoded.extend([0, 0])
+        # === DPS by Damage Type [35-41] (Phase 5.5) ===
+        damage_types = ["physical", "pierce", "siege", "magic", "fire", "ice", "poison"]
+        dps_by_type = {dt: 0.0 for dt in damage_types}
+        # Frontend pre-computes this via computeDpsByDamageType — if not in state, fall back to 0
+        dps_by_type_state = state.get("dpsByDamageType", {})
+        for dt in damage_types:
+            encoded.append(min(1.0, dps_by_type_state.get(dt, 0.0)))
 
-        # === DPS Profile [34-73] ===
+        # === Enemy Armor Distribution [42-46] (Phase 5.5) ===
+        armor_types = ["unarmored", "light", "heavy", "fortified", "ethereal"]
+        armor_dist = state.get("expectedArmorDistribution") or {}
+        if not armor_dist:
+            # Uniform fallback
+            share = 1.0 / len(armor_types)
+            armor_dist = {a: share for a in armor_types}
+        for a in armor_types:
+            encoded.append(armor_dist.get(a, 0))
+
+        # === Research State [47-51] (Phase 5.5) ===
+        research = state.get("research", {}) or {}
+        total_count = research.get("totalCount", 0)
+        completed_count = research.get("completedCount", 0)
+        encoded.append(completed_count / total_count if total_count > 0 else 0)
+        encoded.append(research.get("centerLevel", 0) / 3)
+        max_slots = research.get("maxSlots", 0)
+        slots_used = research.get("slotsUsed", 0)
+        encoded.append(slots_used / max_slots if max_slots > 0 else 0)
+        encoded.append(1.0 if research.get("airTargetingUnlocked", False) else 0.0)
+        encoded.append(research.get("maxUpgradeTier", 1) / 3)
+
+        # === Reserved [52] ===
+        encoded.append(0)
+
+        # === DPS Profile [53-92] ===
         dps_profile = state.get("dpsProfile", {})
         ground_dps = dps_profile.get("groundDPS", [0] * 20)
         air_dps = dps_profile.get("airDPS", [0] * 20)
@@ -427,116 +465,80 @@ class TrainingServer:
             ctx.ground_dps_profile = ground_dps[:20]
             ctx.air_dps_profile = air_dps[:20]
 
-        # Ground DPS [34-53]
+        # Ground DPS [53-72]
         for i in range(20):
             encoded.append(ground_dps[i] if i < len(ground_dps) else 0)
 
-        # Air DPS [54-73]
+        # Air DPS [73-92]
         for i in range(20):
             encoded.append(air_dps[i] if i < len(air_dps) else 0)
 
         return encoded[:INPUT_SIZE]
 
     def _decode_action(self, action, state=None, ctx=None):
-        """Convert model action to wave config using DPS-relative HP. Returns (config, enemy_hp, kill_time)."""
-        enemy_types = ["zombie", "bat", "tank", "wallsmasher", "penguin", "herbert"]
-        probs = action["enemy_probs"][0].detach().numpy()  # 6 enemy type probabilities
+        """Convert model action to wave config (Phase 5.5: Top-K multi-group mixed waves)."""
+        enemy_types = ENEMY_TYPES  # 16 types from config
+        probs = action["enemy_probs"][0].detach().numpy()  # 16 enemy type probabilities
 
         # Get wave number
         wave_num = state.get("waveNumber", 0) if state else 0
 
         # Extract model outputs
-        kill_time = action["kill_time"][0].detach().item()  # [1.0, 4.0]s
-        count_t = action["count_factor"][0].detach().item()  # [0, 1]
-        delay_t = action["delay_factor"][0].detach().item()  # [0, 1]
-        variation = action["variation"][0].detach().item()    # [0, 0.3]
+        kill_time = action["kill_time"][0].detach().item()
+        count_t = action["count_factor"][0].detach().item()
+        delay_t = action["delay_factor"][0].detach().item()
+        variation = action["variation"][0].detach().item()
+
+        # Apply fairness mask (same logic as frontend)
+        research = state.get("research", {}) if state else {}
+        masked_probs = self._apply_fairness_mask(probs, research)
 
         # Count: scaled by tower count and defense zone kill capacity
         defense = state.get("defense", {}) if state else {}
         tower_count = max(1, defense.get("towerCount", 1))
         defense_reach = defense.get("defenseReachPercent", 0.2)
 
-        # Base max count from tower count
         max_count = max(8, min(30, tower_count * 5))
-
-        # Kill capacity: how many enemies can towers kill in the defense zone?
-        # Assume full path takes ~40s to traverse at base speed
-        # zone_time = defense_reach * 40s (minimum 8s to avoid too-restrictive counts)
-        # Each tower shoots one target at a time, N towers = N parallel kills
         zone_time = max(8.0, defense_reach * 40.0)
         max_kills = (zone_time / max(1.0, kill_time)) * tower_count
-        # Allow 1.5x for pressure (some should get close but not all pass)
         kill_capacity = max(8, int(max_kills * 1.5))
-
-        # Count is min of tower-based limit and kill-capacity limit
         effective_max = min(max_count, kill_capacity)
-        min_count = max(5, tower_count + 1)  # At least towers+1 enemies
+        min_count = max(5, tower_count + 1)
         total_count = int(min_count + count_t * (effective_max - min_count))
 
-        # Spawn delay: [500, 2000]ms (min 500ms for proper TD spacing)
         spawn_delay = int(500 + delay_t * 1500)
 
-        # Select enemy type using model's sampled index
-        # For early waves, restrict enemy types (override model choice)
-        enemy_idx = action.get("enemy_idx")
-        sampled_idx = int(enemy_idx[0].item()) if enemy_idx is not None else int(probs.argmax())
+        # Top-K multi-group selection
+        groups = self._select_enemy_groups_top_k(
+            masked_probs, total_count, wave_num, ctx
+        )
 
-        if wave_num < 2:
-            dominant_type = "zombie"
-        elif wave_num < 4:
-            allowed = [0, 2, 4]  # zombie, tank, penguin
-            if sampled_idx in allowed:
-                dominant_type = enemy_types[sampled_idx]
-            else:
-                allowed_probs = [probs[i] for i in allowed]
-                dominant_type = enemy_types[allowed[allowed_probs.index(max(allowed_probs))]]
-        else:
-            dominant_type = enemy_types[min(sampled_idx, len(enemy_types) - 1)]
+        # Compute health multiplier per group
+        enemies = []
+        for group in groups:
+            is_air = group["type"] in AIR_ENEMIES
+            effective_dps = max(10, defense.get("antiAirDPS", 10)) if is_air \
+                else max(25, defense.get("totalDPS", 25))
+            enemy_hp = effective_dps * kill_time
+            enemy_base_hp = ctx.enemy_base_hp if ctx and ctx.enemy_base_hp else ENEMY_BASE_HP
+            base_hp = enemy_base_hp.get(group["type"], 80)
+            health_mult = min(enemy_hp / base_hp, HEALTH_MULTIPLIER_MAX)
+            enemies.append({
+                "type": group["type"],
+                "count": group["count"],
+                "healthMultiplier": round(health_mult, 2),
+                "speedMultiplier": 1.0,
+            })
 
-        # Type cooldown: if this type was used in the last N waves, pick next best
-        if ctx and len(ctx.recent_types_flat) >= TYPE_COOLDOWN_WAVES:
-            cooldown_types = ctx.recent_types_flat[-TYPE_COOLDOWN_WAVES:]
-            if dominant_type in cooldown_types:
-                # Pick highest-prob type NOT on cooldown
-                sorted_indices = sorted(range(len(probs)), key=lambda i: probs[i], reverse=True)
-                for idx in sorted_indices:
-                    candidate = enemy_types[min(idx, len(enemy_types) - 1)]
-                    if candidate not in cooldown_types:
-                        dominant_type = candidate
-                        break
-
-        # === DPS-RELATIVE HP CALCULATION ===
-        # kill_time = how long an enemy survives under focus-fire (all towers on one)
-        # enemy_hp = total_dps * kill_time ensures this timing
-        if dominant_type == "bat":
-            effective_dps = max(10, defense.get("antiAirDPS", 10))
-        else:
-            effective_dps = max(25, defense.get("totalDPS", 25))
-
-        # kill_time determines how long an enemy survives: HP = DPS * kill_time
-        enemy_hp = effective_dps * kill_time
-
-        # Convert absolute HP to healthMultiplier (game expects multiplier)
-        # Use frontend-provided base HP (from game_start), fall back to config
-        enemy_base_hp = ctx.enemy_base_hp if ctx and ctx.enemy_base_hp else ENEMY_BASE_HP
-        base_hp = enemy_base_hp.get(dominant_type, 80)
-        health_mult = enemy_hp / base_hp
-
-        # Cap healthMultiplier to prevent absurd values at high DPS
-        health_mult = min(health_mult, HEALTH_MULTIPLIER_MAX)
-
-        enemies = [{
-            "type": dominant_type,
-            "count": total_count,
-            "healthMultiplier": round(health_mult, 2),
-            "speedMultiplier": 1.0,
-        }]
+        dominant_type = enemies[0]["type"] if enemies else "zombie"
 
         config = {
             "enemies": enemies,
             "totalCount": total_count,
             "spawnDelay": spawn_delay,
             "spawnDelayVariation": variation,
+            # Pattern for mixed waves — hardcoded 'interleaved' (AB AB AB)
+            "pattern": "interleaved" if len(enemies) > 1 else None,
             "useGathering": False,
             "confidence": 0.8,
             "archetype": self._infer_archetype(dominant_type, total_count),
@@ -545,20 +547,85 @@ class TrainingServer:
         # Extended wave info for logging/dashboard
         wave_info = {
             "kill_time": kill_time,
-            "enemy_hp": enemy_hp,
-            "effective_dps": effective_dps,
             "count": total_count,
             "count_factor": count_t,
             "delay_factor": delay_t,
             "variation": variation,
             "spawn_delay": spawn_delay,
             "type_probs": {enemy_types[i]: round(float(probs[i]), 4) for i in range(len(enemy_types))},
-            "sampled_type": enemy_types[min(sampled_idx, len(enemy_types) - 1)],
+            "groups": enemies,
+            "num_groups": len(enemies),
             "final_type": dominant_type,
-            "cooldown_override": dominant_type != enemy_types[min(sampled_idx, len(enemy_types) - 1)],
         }
 
         return config, wave_info
+
+    def _apply_fairness_mask(self, probs, research):
+        """Zero out probs for enemies without available counter-tech, renormalize."""
+        import numpy as np
+        tower_unlocked = research.get("towerUnlocked", {}) if research else {}
+        air_targeting = research.get("airTargetingUnlocked", False) if research else False
+
+        has_anti_air = (
+            tower_unlocked.get("ice", False) or
+            tower_unlocked.get("rocket", False) or
+            air_targeting
+        )
+        has_ethereal_counter = (
+            tower_unlocked.get("magic", False) or
+            tower_unlocked.get("ice", False)
+        )
+
+        masked = probs.copy()
+        for i, t in enumerate(ENEMY_TYPES):
+            if t in AIR_ENEMIES and not has_anti_air:
+                masked[i] = 0
+            elif t in ETHEREAL_ENEMIES and not has_ethereal_counter:
+                masked[i] = 0
+
+        s = masked.sum()
+        if s <= 0:
+            return probs  # nothing allowed — fall back to original
+        return masked / s
+
+    def _select_enemy_groups_top_k(self, probs, total_count, wave_num, ctx):
+        """Top-K selection: returns list of {type, count} dicts.
+        Matches frontend selectEnemyGroupsTopK logic.
+        """
+        # Early wave: force zombie
+        if wave_num < 2:
+            return [{"type": "zombie", "count": total_count}]
+
+        # Waves 2-3: single unarmored-pool type
+        if wave_num < 4:
+            allowed_types = ["zombie", "rat", "penguin"]
+            allowed_idx = [ENEMY_TYPES.index(t) for t in allowed_types if t in ENEMY_TYPES]
+            allowed_probs = [probs[i] for i in allowed_idx]
+            best_idx = allowed_idx[allowed_probs.index(max(allowed_probs))]
+            return [{"type": ENEMY_TYPES[best_idx], "count": total_count}]
+
+        # Wave 4+: Top-K with threshold
+        candidates = [(i, probs[i]) for i in range(len(probs)) if probs[i] > MIXED_WAVE_THRESHOLD]
+        candidates.sort(key=lambda x: -x[1])
+        candidates = candidates[:MIXED_WAVE_MAX_GROUPS]
+
+        # Fallback: nothing above threshold → argmax
+        if not candidates:
+            i = int(probs.argmax())
+            return [{"type": ENEMY_TYPES[i], "count": total_count}]
+
+        # Allocate counts proportional to probs (last group gets remainder)
+        prob_sum = sum(p for _, p in candidates)
+        groups = []
+        allocated = 0
+        for idx, (i, p) in enumerate(candidates):
+            if idx == len(candidates) - 1:
+                count = max(1, total_count - allocated)
+            else:
+                count = max(1, round(total_count * (p / prob_sum)))
+                allocated += count
+            groups.append({"type": ENEMY_TYPES[i], "count": count})
+        return groups
 
     def _infer_archetype(self, dominant_type, count):
         """Infer wave archetype from dominant enemy type."""

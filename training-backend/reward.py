@@ -133,6 +133,32 @@ def calculate_reward(result: dict, context: dict, state_before: dict = None, sta
             reward += monotony_penalty
     breakdown["monotony"] = round(monotony_penalty, 4)
 
+    # === PHASE 5.5: Wave-Quality Signals (Perfect / CloseCall / Mixed) ===
+
+    # Perfect-Wave Penalty: if the player took ZERO damage, the wave was too easy
+    # → mild negative signal to push the director toward more pressure
+    perfect_penalty = 0.0
+    if result.get("perfect", False):
+        perfect_penalty = -0.15
+        reward += perfect_penalty
+    breakdown["perfect_penalty"] = round(perfect_penalty, 4)
+
+    # CloseCall Bonus: player barely survived (HP <= closeCallHpThreshold) → perfect challenge
+    close_call_bonus = 0.0
+    if result.get("closeCall", False):
+        close_call_bonus = 0.15
+        reward += close_call_bonus
+    breakdown["close_call"] = round(close_call_bonus, 4)
+
+    # Mixed-Wave Diversity Bonus: reward waves with >=2 distinct enemy groups.
+    # Prevents the model from collapsing to single-type spam.
+    mixed_bonus = 0.0
+    num_groups = len(result.get("enemies", [])) if "enemies" in result else len(enemy_types)
+    if num_groups >= 2:
+        mixed_bonus = 0.05 * min(num_groups, 3)  # +0.05, +0.10, +0.15 for 2/3/3+ groups
+        reward += mixed_bonus
+    breakdown["mixed_diversity"] = round(mixed_bonus, 4)
+
     return reward, breakdown
 
 

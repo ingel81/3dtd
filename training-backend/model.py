@@ -8,20 +8,20 @@ and Dense scalar branch for game state features.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import INPUT_SIZE, NUM_SCALAR, NUM_SPATIAL, KILL_TIME_MIN, KILL_TIME_MAX, VARIATION_MAX
+from config import INPUT_SIZE, NUM_SCALAR, NUM_SPATIAL, NUM_ENEMY_TYPES, KILL_TIME_MIN, KILL_TIME_MAX, VARIATION_MAX
 
 
 class WaveDirectorModel(nn.Module):
     """
     Neural network for wave configuration prediction.
 
-    Architecture:
+    Architecture (Phase 5.5):
     - Spatial branch: Conv1D over DPS profile (2 channels x 20 bins)
-    - Scalar branch: Dense layers over game state (34 features)
+    - Scalar branch: Dense layers over game state (53 features)
     - Combined: Merged features -> output heads
 
-    Input: 74 features = 34 scalar + 40 spatial (2x20 DPS bins)
-    Output: Enemy type (categorical) + continuous params (Gaussian) + value
+    Input: 93 features = 53 scalar + 40 spatial (2x20 DPS bins)
+    Output: Enemy type (categorical, 16 types) + continuous params (Gaussian) + value
     """
 
     # Number of continuous action parameters
@@ -30,7 +30,7 @@ class WaveDirectorModel(nn.Module):
     def __init__(self):
         super().__init__()
 
-        # Spatial branch: Conv1D over DPS profile
+        # Spatial branch: Conv1D over DPS profile (unchanged)
         # Input: (batch, 2, 20) - 2 channels (ground, air), 20 bins
         self.spatial = nn.Sequential(
             nn.Conv1d(2, 16, kernel_size=3, padding=1),   # -> (batch, 16, 20)
@@ -40,49 +40,49 @@ class WaveDirectorModel(nn.Module):
             nn.AdaptiveAvgPool1d(1),                       # -> (batch, 32, 1)
         )  # Output: 32 features
 
-        # Scalar branch: Dense
+        # Scalar branch: Dense (input 34 → 53, output scaled up to 96)
         self.scalar = nn.Sequential(
-            nn.Linear(NUM_SCALAR, 64),
-            nn.LayerNorm(64),
+            nn.Linear(NUM_SCALAR, 96),
+            nn.LayerNorm(96),
             nn.ReLU(),
-        )  # Output: 64 features
+        )  # Output: 96 features
 
-        # Combined: 32 + 64 = 96
+        # Combined: 32 + 96 = 128
         self.combined = nn.Sequential(
-            nn.Linear(96, 128),
-            nn.LayerNorm(128),
+            nn.Linear(128, 192),
+            nn.LayerNorm(192),
             nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(128, 64),
-            nn.LayerNorm(64),
+            nn.Linear(192, 96),
+            nn.LayerNorm(96),
             nn.ReLU(),
             nn.Dropout(0.1),
         )
 
-        # Output heads
-        self.enemy_head = nn.Linear(64, 6)   # 6 enemy types
-        self.params_head = nn.Linear(64, 4)  # 4 continuous params
+        # Output heads — enemy_head expanded from 6 to 16
+        self.enemy_head = nn.Linear(96, NUM_ENEMY_TYPES)   # 16 enemy types
+        self.params_head = nn.Linear(96, 4)  # 4 continuous params
 
         # Learnable log_std for continuous action exploration
         self.log_std = nn.Parameter(torch.zeros(self.NUM_CONTINUOUS))
 
         # Value head for PPO
-        self.value_head = nn.Linear(64, 1)
+        self.value_head = nn.Linear(96, 1)
 
     def forward(self, x):
         """Forward pass returning policy and value."""
         # Split input into scalar and spatial
-        scalars = x[:, :NUM_SCALAR]            # (batch, 34)
+        scalars = x[:, :NUM_SCALAR]            # (batch, 53)
         spatial = x[:, NUM_SCALAR:]            # (batch, 40)
         spatial = spatial.view(-1, 2, 20)      # (batch, 2, 20) = 2 channels
 
         # Process branches
         spatial_out = self.spatial(spatial).squeeze(-1)  # (batch, 32)
-        scalar_out = self.scalar(scalars)                # (batch, 64)
+        scalar_out = self.scalar(scalars)                # (batch, 96)
 
         # Combine
-        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 96)
-        features = self.combined(combined)                       # (batch, 64)
+        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 128)
+        features = self.combined(combined)                       # (batch, 96)
 
         # Output heads
         enemy_logits = self.enemy_head(features)
