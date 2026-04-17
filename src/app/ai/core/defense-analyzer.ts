@@ -116,7 +116,11 @@ function calculateTowerDistribution(towers: Tower[]): TowerDistribution {
     const entry = distribution[typeId];
     entry.count++;
     entry.totalDamage += tower.combat.damage;
-    entry.totalDPS += tower.combat.damage * tower.combat.fireRate;
+    // Beam towers (fire) have damage=0 but damagePerSecond set — use that instead
+    const dps = tower.typeConfig.attackType === 'beam'
+      ? (tower.typeConfig.damagePerSecond ?? 0)
+      : tower.combat.damage * tower.combat.fireRate;
+    entry.totalDPS += dps;
   }
 
   // Calculate average level per type
@@ -160,13 +164,19 @@ function detectCapabilities(towers: Tower[]): DefenseCapabilities {
   return capabilities;
 }
 
+/** Per-tower DPS: beam towers use damagePerSecond, others damage * fireRate, passive = 0 */
+function getTowerDPS(tower: Tower): number {
+  const cfg = tower.typeConfig;
+  if (cfg.attackType === 'passive') return 0;
+  if (cfg.attackType === 'beam') return cfg.damagePerSecond ?? 0;
+  return tower.combat.damage * tower.combat.fireRate;
+}
+
 /**
  * Calculate total DPS across all towers
  */
 function calculateTotalDPS(towers: Tower[]): number {
-  return towers.reduce((sum, tower) => {
-    return sum + tower.combat.damage * tower.combat.fireRate;
-  }, 0);
+  return towers.reduce((sum, tower) => sum + getTowerDPS(tower), 0);
 }
 
 /**
@@ -174,10 +184,7 @@ function calculateTotalDPS(towers: Tower[]): number {
  */
 function calculateAntiAirDPS(towers: Tower[]): number {
   return towers.reduce((sum, tower) => {
-    if (tower.typeConfig.canTargetAir) {
-      return sum + tower.combat.damage * tower.combat.fireRate;
-    }
-    return sum;
+    return tower.typeConfig.canTargetAir ? sum + getTowerDPS(tower) : sum;
   }, 0);
 }
 

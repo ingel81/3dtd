@@ -189,9 +189,11 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
   encoded[idx++] = normalize(history.winStreak, MAX_VALUES.winStreak);
 
   // === DPS BY DAMAGE TYPE (7 features) [35-41] === (Phase 5.5 NEW)
-  const dpsByType = computeDpsByDamageType(snapshot);
+  // Prefer pre-computed value from snapshot (ensures sync with backend);
+  // fall back to local computation if not provided (e.g. in tests).
+  const dpsByType = snapshot.dpsByDamageType ?? computeDpsByDamageType(snapshot);
   for (const dt of DAMAGE_TYPE_ORDER) {
-    encoded[idx++] = dpsByType[dt];
+    encoded[idx++] = dpsByType[dt] ?? 0;
   }
 
   // === ENEMY ARMOR DISTRIBUTION (5 features) [42-46] === (Phase 5.5 NEW)
@@ -229,8 +231,11 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
  * Compute DPS by damage type from the tower distribution in the snapshot.
  * Uses TOWER_TYPES config to map each tower to its damageType and DPS.
  * Normalized to 0-1 with a cap of MAX_DPS_PER_TYPE.
+ *
+ * Exported so AIDataCollectorService can pre-compute and include it in the snapshot
+ * (ensures the Python backend gets the same values via WebSocket).
  */
-function computeDpsByDamageType(snapshot: GameStateSnapshot): Record<DamageType, number> {
+export function computeDpsByDamageType(snapshot: GameStateSnapshot): Record<DamageType, number> {
   const MAX_DPS_PER_TYPE = 500;
   const result: Record<DamageType, number> = {} as Record<DamageType, number>;
   for (const dt of DAMAGE_TYPE_ORDER) result[dt] = 0;

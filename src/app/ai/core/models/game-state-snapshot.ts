@@ -10,7 +10,7 @@
 import { GamePhase } from '../../../models/game.types';
 import { PathDPSProfile } from '../dps-profile';
 import { TowerTypeId } from '../../../configs/tower-types.config';
-import { ArmorType } from '../../../configs/combat/combat.types';
+import { ArmorType, DamageType } from '../../../configs/combat/combat.types';
 
 export interface GameStateSnapshot {
   // === META ===
@@ -39,6 +39,13 @@ export interface GameStateSnapshot {
 
   /** Expected armor distribution in current or next wave (used by Bot for tower picks) */
   expectedArmorDistribution?: Record<ArmorType, number>;
+
+  /**
+   * DPS aggregated by DamageType (normalized, pre-computed).
+   * MUST be in the snapshot so the Python backend gets it via WebSocket.
+   * If omitted, encoder falls back to computing from towerDistribution (frontend only).
+   */
+  dpsByDamageType?: Record<DamageType, number>;
 }
 
 export interface ResearchSnapshot {
