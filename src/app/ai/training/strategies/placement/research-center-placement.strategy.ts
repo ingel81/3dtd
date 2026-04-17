@@ -29,11 +29,11 @@ export class ResearchCenterPlacementStrategy extends BaseStrategy {
     // Already placed?
     if (state.research && state.research.centerLevel > 0) return false;
 
-    const cost = TOWER_TYPES['research-center'].cost;
-    if (state.player.credits < cost) return false;
-
-    // Don't bootstrap during wave 0 — let player/bot build at least one Archer first
-    if (state.waveNumber < 1) return false;
+    // Need enough credits: research center + at least one Archer
+    // (so the bot doesn't drain everything into the research center and stall)
+    const centerCost = TOWER_TYPES['research-center'].cost;
+    const archerCost = TOWER_TYPES['archer']?.cost ?? 45;
+    if (state.player.credits < centerCost + archerCost) return false;
 
     return true;
   }
