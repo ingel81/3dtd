@@ -721,6 +721,32 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       background: var(--td-panel-secondary);
     }
 
+    /* Tier-locked upgrades (requires further research) */
+    .td-upgrade-tile.td-upgrade-tier-locked {
+      opacity: 0.45;
+      border-color: var(--td-frame-dark);
+      background: var(--td-panel-shadow);
+    }
+    .td-upgrade-tile.td-upgrade-tier-locked .td-upgrade-icon {
+      color: var(--td-text-muted);
+    }
+
+    .td-upgrade-tier-badge {
+      display: inline-block;
+      padding: 1px 5px;
+      margin-left: 4px;
+      font-size: 9px;
+      font-weight: 700;
+      color: var(--td-bg-dark);
+      background: var(--td-gold-dark);
+      border-radius: 2px;
+      vertical-align: middle;
+    }
+    .td-upgrade-tier-locked .td-upgrade-tier-badge {
+      background: var(--td-frame-mid);
+      color: var(--td-text-muted);
+    }
+
     .td-upgrade-icon {
       font-size: 28px;
       width: 28px;
@@ -765,6 +791,13 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       right: 8px;
       bottom: 8px;
       margin-top: 0;
+      padding-top: 6px;
+      border-top: 1px dashed var(--td-frame-dark);
+    }
+
+    /* Inline variant for Research Center — flows after tree, no overlay */
+    .td-sell-section-inline {
+      margin-top: 8px;
       padding-top: 6px;
       border-top: 1px dashed var(--td-frame-dark);
     }
@@ -1051,6 +1084,32 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   getResearchName(id: ResearchId): string {
     return getResearch(id)?.name ?? id;
+  }
+
+  /**
+   * Get the required upgrade tier for the NEXT level of this upgrade.
+   * Level 0→1 = Tier 1 (always free)
+   * Level 1→2 = Tier 2 (requires Advanced Weaponry)
+   * Level 2+ = Tier 3 (requires Master Engineering)
+   */
+  getRequiredUpgradeTier(tower: Tower, upgradeId: UpgradeId): number {
+    const currentLevel = tower.getUpgradeLevel(upgradeId);
+    if (currentLevel >= 2) return 3;
+    if (currentLevel >= 1) return 2;
+    return 1;
+  }
+
+  isUpgradeTierUnlocked(tower: Tower, upgradeId: UpgradeId): boolean {
+    const requiredTier = this.getRequiredUpgradeTier(tower, upgradeId);
+    return this.researchStore.maxUpgradeTier() >= requiredTier;
+  }
+
+  getUpgradeTierLockReason(tower: Tower, upgradeId: UpgradeId): string | null {
+    if (this.isUpgradeTierUnlocked(tower, upgradeId)) return null;
+    const tier = this.getRequiredUpgradeTier(tower, upgradeId);
+    if (tier === 2) return 'Requires: Advanced Weaponry';
+    if (tier === 3) return 'Requires: Master Engineering';
+    return null;
   }
 
   getMissingPrereqs(id: ResearchId): string {
