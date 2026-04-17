@@ -39,7 +39,7 @@ import {
   estimatePathCoverage,
   estimateKillZoneStrength,
 } from './defense-analyzer';
-import { calculateWaveThreat } from './game-state-encoder';
+import { calculateWaveThreat, computeDpsByDamageType } from './game-state-encoder';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ComponentType } from '../../core/component';
 import { MovementComponent } from '../../game-components/movement.component';
@@ -149,6 +149,10 @@ export class AIDataCollectorService {
       research: this.getResearchSnapshot(),
       expectedArmorDistribution: this.getExpectedArmorDistribution(),
     };
+
+    // Pre-compute dpsByDamageType so Python backend receives it via WebSocket
+    // (encoder fallback also works, but pre-computing guarantees sync).
+    snapshot.dpsByDamageType = computeDpsByDamageType(snapshot);
 
     this.lastSnapshot.set(snapshot);
     return snapshot;

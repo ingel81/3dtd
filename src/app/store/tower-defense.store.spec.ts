@@ -6,6 +6,7 @@ import { GameStore } from './game.store';
 import { UIStore } from './ui.store';
 import { EngineStore } from './engine.store';
 import { LocationStore } from './location.store';
+import { ResearchStore } from './research.store';
 import { EngineInitializationService } from '../services/engine-initialization.service';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 
@@ -33,12 +34,14 @@ describe('TowerDefenseStore', () => {
   let uiStore: UIStore;
   let engineStore: EngineStore;
   let locationStore: LocationStore;
+  let researchStore: ResearchStore;
 
   beforeEach(() => {
     gameStore = new GameStore();
     uiStore = new UIStore();
     engineStore = new EngineStore();
     locationStore = new LocationStore();
+    researchStore = new ResearchStore();
     engineInitStub = createEngineInitStub();
 
     const injector = Injector.create({
@@ -47,6 +50,7 @@ describe('TowerDefenseStore', () => {
         { provide: UIStore, useValue: uiStore },
         { provide: EngineStore, useValue: engineStore },
         { provide: LocationStore, useValue: locationStore },
+        { provide: ResearchStore, useValue: researchStore },
         { provide: EngineInitializationService, useValue: engineInitStub },
         { provide: TowerDefenseStore, useFactory: () => {
           return runInInjectionContext(injector, () => new TowerDefenseStore());
