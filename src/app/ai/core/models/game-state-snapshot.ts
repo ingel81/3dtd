@@ -9,6 +9,8 @@
 
 import { GamePhase } from '../../../models/game.types';
 import { PathDPSProfile } from '../dps-profile';
+import { TowerTypeId } from '../../../configs/tower-types.config';
+import { ArmorType } from '../../../configs/combat/combat.types';
 
 export interface GameStateSnapshot {
   // === META ===
@@ -31,6 +33,29 @@ export interface GameStateSnapshot {
 
   // === DPS PROFILE (spatial defense along path) ===
   dpsProfile: PathDPSProfile;
+
+  // === RESEARCH STATE ===
+  research: ResearchSnapshot;
+
+  /** Expected armor distribution in current or next wave (used by Bot for tower picks) */
+  expectedArmorDistribution?: Record<ArmorType, number>;
+}
+
+export interface ResearchSnapshot {
+  /** IDs of completed researches */
+  completedIds: string[];
+  completedCount: number;
+  totalCount: number;
+  /** Research Center building level (0 = not placed, 1-3 = placed + level) */
+  centerLevel: number;
+  /** Currently running researches */
+  slotsUsed: number;
+  maxSlots: number;
+  /** Perk flags derived from completed researches */
+  airTargetingUnlocked: boolean;
+  maxUpgradeTier: number;
+  /** Per-tower unlock map (true = unlocked or always-free) */
+  towerUnlocked: Record<TowerTypeId, boolean>;
 }
 
 export interface PlayerState {
@@ -189,6 +214,28 @@ export function createEmptySnapshot(): GameStateSnapshot {
       groundDPS: new Array(20).fill(0),
       airDPS: new Array(20).fill(0),
       binPositions: [],
+    },
+    research: {
+      completedIds: [],
+      completedCount: 0,
+      totalCount: 0,
+      centerLevel: 0,
+      slotsUsed: 0,
+      maxSlots: 0,
+      airTargetingUnlocked: false,
+      maxUpgradeTier: 1,
+      towerUnlocked: {
+        archer: true,
+        cannon: false,
+        magic: false,
+        'dual-gatling': false,
+        rocket: false,
+        ice: false,
+        fire: false,
+        tentacle: false,
+        poison: false,
+        'research-center': true,
+      },
     },
   };
 }

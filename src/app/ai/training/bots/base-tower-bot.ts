@@ -93,30 +93,39 @@ export abstract class BaseTowerBot implements ITowerBot {
   // === HELPER METHODS ===
 
   /**
-   * Get cheapest tower this bot can build that it can afford
+   * Get cheapest tower this bot can build that it can afford.
+   * Respects research unlock status when `state` is provided (optional for backwards compat).
    */
-  protected getCheapestAffordableTower(credits: number): TowerTypeId | null {
+  protected getCheapestAffordableTower(credits: number, state?: GameStateSnapshot): TowerTypeId | null {
     let cheapest: TowerTypeId | null = null;
     let lowestCost = Infinity;
 
     for (const typeId of this.config.knownTowerTypes) {
       const config = TOWER_TYPES[typeId];
-      if (config && config.cost <= credits && config.cost < lowestCost) {
-        lowestCost = config.cost;
-        cheapest = typeId;
-      }
+      if (!config || config.cost > credits || config.cost >= lowestCost) continue;
+      if (config.attackType === 'passive') continue;
+      if (state?.research && !state.research.towerUnlocked[typeId]) continue;
+      lowestCost = config.cost;
+      cheapest = typeId;
     }
 
     return cheapest;
   }
 
   /**
-   * Get best tower for current situation
+   * Get best tower for current situation.
+   * Respects:
+   * - knownTowerTypes (bot skill-limit)
+   * - research unlock status (only unlocked towers)
+   * - excludes passive buildings (research-center) — not a combat tower
    */
   protected getBestTowerForSituation(state: GameStateSnapshot, credits: number): TowerTypeId | null {
     const affordable = this.config.knownTowerTypes.filter((t) => {
       const config = TOWER_TYPES[t];
-      return config && config.cost <= credits;
+      if (!config || config.cost > credits) return false;
+      if (config.attackType === 'passive') return false;       // exclude research-center etc.
+      if (state.research && !state.research.towerUnlocked[t]) return false;
+      return true;
     });
 
     if (affordable.length === 0) return null;

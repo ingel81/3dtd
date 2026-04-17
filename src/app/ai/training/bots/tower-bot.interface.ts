@@ -16,7 +16,7 @@ export type BotSkillLevel = 'beginner' | 'casual' | 'strategist' | 'meta';
 /**
  * Tower action types
  */
-export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave';
+export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel';
 
 /**
  * Tower action returned by bot
@@ -35,6 +35,9 @@ export interface TowerAction {
 
   /** For 'upgrade': Which upgrade to apply */
   upgradeId?: string;
+
+  /** For 'research-start' and 'research-cancel': Which research to act on */
+  researchId?: string;
 
   /** Confidence in this action (0-1) */
   confidence?: number;
@@ -117,7 +120,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'casual',
     reactionTimeMs: 1500,
     mistakeRate: 0.2,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'poison'],
+    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'poison', 'tentacle'],
     adaptsToEnemies: true,
     plansAhead: false,
     maxTowers: 15,
@@ -127,7 +130,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'strategist',
     reactionTimeMs: 800,
     mistakeRate: 0.05,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic', 'poison'],
+    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic', 'poison', 'fire', 'tentacle'],
     adaptsToEnemies: true,
     plansAhead: true,
     maxTowers: 50,
@@ -137,7 +140,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'meta',
     reactionTimeMs: 400,
     mistakeRate: 0.01,
-    knownTowerTypes: ['archer', 'cannon', 'ice', 'dual-gatling', 'magic', 'rocket', 'poison'],
+    knownTowerTypes: ['archer', 'cannon', 'ice', 'dual-gatling', 'magic', 'rocket', 'poison', 'fire', 'tentacle'],
     adaptsToEnemies: true,
     plansAhead: true,
     maxTowers: 0, // Unlimited
