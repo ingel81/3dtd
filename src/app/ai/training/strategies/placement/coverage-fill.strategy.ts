@@ -58,7 +58,7 @@ export class CoverageFillStrategy extends BaseStrategy {
     }
 
     // Find affordable towers
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     const missingTypes = this.config.knownTowerTypes.filter(t => !existingTypes.has(t));
     const missingAffordable = affordable.filter(t => !existingTypes.has(t));
 

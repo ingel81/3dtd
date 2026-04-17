@@ -761,6 +761,12 @@ export class GameStateManager {
     const config = TOWER_TYPES[typeId];
     if (!config) return null;
 
+    // Research-gate: tower must be unlocked. Defense-in-depth against bots
+    // or commands that bypass the UI's isTowerUnlocked() check.
+    if (!this.researchStore.isTowerUnlocked(typeId)) {
+      return null;
+    }
+
     // Research Center: only one allowed
     if (typeId === 'research-center') {
       const existing = this.towerManager.getAll().find(t => t.typeConfig.id === 'research-center');

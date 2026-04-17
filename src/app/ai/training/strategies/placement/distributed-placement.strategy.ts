@@ -60,7 +60,7 @@ export class DistributedPlacementStrategy extends BaseStrategy {
       } as TowerAction;
     }
 
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     if (affordable.length === 0) return null;
 
     const missingTypes = this.config.knownTowerTypes.filter(t => !existingTypes.has(t));

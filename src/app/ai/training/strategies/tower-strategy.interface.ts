@@ -47,12 +47,25 @@ export abstract class BaseStrategy implements ITowerStrategy {
   // Helper methods shared by all strategies
 
   /**
-   * Get affordable towers from known types
+   * Get affordable towers from known types.
+   * Filters out:
+   * - Passive buildings (research-center) — not combat towers
+   * - Locked towers (if state provided) — respects research unlocks
+   *
+   * @param state Optional snapshot for research-gate check. Omit in contexts
+   *              where research isn't relevant (rare — nearly all callers have state).
    */
-  protected getAffordableTowers(credits: number, knownTypes: TowerTypeId[]): TowerTypeId[] {
+  protected getAffordableTowers(
+    credits: number,
+    knownTypes: TowerTypeId[],
+    state?: GameStateSnapshot
+  ): TowerTypeId[] {
     return knownTypes.filter(typeId => {
       const config = TOWER_TYPES[typeId];
-      return config && config.cost <= credits;
+      if (!config || config.cost > credits) return false;
+      if (config.attackType === 'passive') return false;
+      if (state?.research && !state.research.towerUnlocked[typeId]) return false;
+      return true;
     });
   }
 

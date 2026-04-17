@@ -27,7 +27,7 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
     if (!state.vulnerabilities.airDefenseGap) return false;
     if (state.waveNumber < 4) return false;
 
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     const hasAntiAir = affordable.some(t => TOWER_TYPES[t].canTargetAir);
 
     return hasAntiAir;
@@ -35,7 +35,7 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
 
   execute(state: GameStateSnapshot): TowerAction | null {
     // 1. Find best anti-air tower
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     const antiAirTowers = affordable.filter(t => TOWER_TYPES[t].canTargetAir);
 
     if (antiAirTowers.length === 0) return null;

@@ -27,7 +27,7 @@ export class SplashDefensePlacementStrategy extends BaseStrategy {
     if (!state.vulnerabilities.splashGap) return false;
     if (state.waveNumber < 3) return false;
 
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     const hasSplash = affordable.some(t => t === 'cannon' || t === 'rocket');
 
     return hasSplash;
@@ -35,7 +35,7 @@ export class SplashDefensePlacementStrategy extends BaseStrategy {
 
   execute(state: GameStateSnapshot): TowerAction | null {
     // 1. Find best splash tower
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     const splashTowers = affordable.filter(t => t === 'cannon' || t === 'rocket');
 
     if (splashTowers.length === 0) return null;
