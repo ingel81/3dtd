@@ -20,11 +20,17 @@ import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { Enemy } from '../../entities/enemy.entity';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { ResearchStore } from '../../store/research.store';
 import {
   GameStateSnapshot,
   PlayerState,
   RecentHistory,
+  ResearchSnapshot,
 } from './models/game-state-snapshot';
+import { RESEARCH_TREE, getResearchForTower } from '../../configs/research/research-tree.config';
+import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
+import { ArmorType } from '../../configs/combat/combat.types';
+import { getEnemyType } from '../../models/enemy-types';
 import { WaveResult, WaveOutcome } from './models/wave-result';
 import { WaveConfig, createSimpleWaveConfig } from './models/wave-config';
 import {
@@ -51,6 +57,7 @@ const CLOSE_CALL_THRESHOLD = 0.3;
 export class AIDataCollectorService {
   private gameState = inject(GameStateManager);
   private store = inject(TowerDefenseStore);
+  private researchStore = inject(ResearchStore);
   private gridService = inject(GlobalRouteGridService);
   // Get eventBus from GameStateManager (not directly injectable)
   private get eventBus() {
@@ -139,10 +146,58 @@ export class AIDataCollectorService {
       vulnerabilities,
       recentHistory: this.getRecentHistory(),
       dpsProfile: this.getDPSProfile(towers),
+      research: this.getResearchSnapshot(),
+      expectedArmorDistribution: this.getExpectedArmorDistribution(),
     };
 
     this.lastSnapshot.set(snapshot);
     return snapshot;
+  }
+
+  /** Build a research-state snapshot from ResearchStore. */
+  private getResearchSnapshot(): ResearchSnapshot {
+    const completed = this.researchStore.completedResearches();
+    const totalCount = Object.keys(RESEARCH_TREE).length;
+
+    // Build per-tower unlock map
+    const towerUnlocked: Record<TowerTypeId, boolean> = {} as Record<TowerTypeId, boolean>;
+    for (const id of Object.keys(TOWER_TYPES) as TowerTypeId[]) {
+      towerUnlocked[id] = this.researchStore.isTowerUnlocked(id);
+    }
+
+    return {
+      completedIds: [...completed],
+      completedCount: completed.size,
+      totalCount,
+      centerLevel: this.researchStore.centerLevel(),
+      slotsUsed: this.researchStore.activeResearches().length,
+      maxSlots: this.researchStore.researchSlots(),
+      airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
+      maxUpgradeTier: this.researchStore.maxUpgradeTier(),
+      towerUnlocked,
+    };
+  }
+
+  /** Approximate the armor distribution expected in the current wave config. */
+  private getExpectedArmorDistribution(): Record<ArmorType, number> | undefined {
+    const config = this.currentWaveConfig;
+    if (!config || !config.enemies || config.enemies.length === 0) return undefined;
+
+    const dist: Record<ArmorType, number> = {
+      unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0,
+    };
+    let total = 0;
+    for (const group of config.enemies) {
+      const enemyCfg = getEnemyType(group.type as any);
+      if (!enemyCfg?.armorType) continue;
+      dist[enemyCfg.armorType] += group.count;
+      total += group.count;
+    }
+    if (total === 0) return undefined;
+    for (const k of Object.keys(dist) as ArmorType[]) {
+      dist[k] /= total;
+    }
+    return dist;
   }
 
   /**

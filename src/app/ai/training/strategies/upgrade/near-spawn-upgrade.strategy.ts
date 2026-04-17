@@ -63,7 +63,18 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
     // Try to upgrade closest tower
     const closest = towersWithDistance[0].tower;
     const upgrades = closest.getAvailableUpgrades();
-    const affordable = upgrades.filter(u => closest.getNextUpgradeCost(u.id) <= state.player.credits);
+    const maxTier = state.research?.maxUpgradeTier ?? 1;
+    const affordable = upgrades.filter(u => {
+      if (closest.getNextUpgradeCost(u.id) > state.player.credits) return false;
+      // Tier-Gate: T2 needs Advanced Weaponry, T3 needs Master Engineering
+      // research-slots (Research Center) is always allowed
+      if (u.id !== 'research-slots') {
+        const currentLevel = closest.getUpgradeLevel(u.id);
+        const requiredTier = currentLevel >= 2 ? 3 : currentLevel >= 1 ? 2 : 1;
+        if (maxTier < requiredTier) return false;
+      }
+      return true;
+    });
 
     if (affordable.length === 0) {
       return null;
