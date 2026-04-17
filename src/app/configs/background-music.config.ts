@@ -31,11 +31,12 @@ export interface BackgroundMusicConfig {
 
 export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   main: [
-    { id: 'music-main-01', url: '/assets/music/main/main01.mp3', volume: 0.5 },
+    { id: 'music-main-01', url: '/assets/music/main/main02.mp3', volume: 0.5 },
   ],
   build: [
     { id: 'music-build-01', url: '/assets/music/build/build01.mp3', volume: 0.5 },
     { id: 'music-build-02', url: '/assets/music/build/build02.mp3', volume: 0.5 },
+    { id: 'music-build-03', url: '/assets/music/build/build03.mp3', volume: 0.5 },
   ],
   wave: [
     { id: 'music-wave-01', url: '/assets/music/wave/wave01.mp3' },
