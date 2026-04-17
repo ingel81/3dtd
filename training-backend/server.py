@@ -544,18 +544,38 @@ class TrainingServer:
             "archetype": self._infer_archetype(dominant_type, total_count),
         }
 
+        # Compute dominant-group HP/DPS for dashboard (backwards-compat)
+        dominant_is_air = dominant_type in AIR_ENEMIES
+        dominant_eff_dps = (max(10, defense.get("antiAirDPS", 10)) if dominant_is_air
+                            else max(25, defense.get("totalDPS", 25)))
+        dominant_enemy_hp = dominant_eff_dps * kill_time
+
         # Extended wave info for logging/dashboard
         wave_info = {
             "kill_time": kill_time,
+            "enemy_hp": dominant_enemy_hp,
+            "effective_dps": dominant_eff_dps,
             "count": total_count,
             "count_factor": count_t,
             "delay_factor": delay_t,
             "variation": variation,
             "spawn_delay": spawn_delay,
             "type_probs": {enemy_types[i]: round(float(probs[i]), 4) for i in range(len(enemy_types))},
+            "masked_probs": {enemy_types[i]: round(float(masked_probs[i]), 4) for i in range(len(enemy_types))},
             "groups": enemies,
             "num_groups": len(enemies),
             "final_type": dominant_type,
+            # Phase 5.5: damage/armor/research signals (for dashboard observability)
+            "armor_dist": state.get("expectedArmorDistribution") if state else None,
+            "dps_by_type": state.get("dpsByDamageType") if state else None,
+            "research": {
+                "centerLevel": (state.get("research", {}) or {}).get("centerLevel", 0),
+                "completedCount": (state.get("research", {}) or {}).get("completedCount", 0),
+                "totalCount": (state.get("research", {}) or {}).get("totalCount", 0),
+                "maxUpgradeTier": (state.get("research", {}) or {}).get("maxUpgradeTier", 1),
+                "airTargetingUnlocked": (state.get("research", {}) or {}).get("airTargetingUnlocked", False),
+                "completedIds": (state.get("research", {}) or {}).get("completedIds", []),
+            } if state else None,
         }
 
         return config, wave_info

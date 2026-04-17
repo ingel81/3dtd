@@ -573,12 +573,91 @@ body {
   transition: width 0.3s ease;
 }
 
-.type-prob-fill.herbert { background: var(--accent-green); }
-.type-prob-fill.tank { background: var(--accent-blue); }
-.type-prob-fill.zombie { background: var(--accent-purple); }
-.type-prob-fill.bat { background: var(--accent-orange); }
-.type-prob-fill.wallsmasher { background: var(--accent-red); }
-.type-prob-fill.penguin { background: var(--accent-cyan); }
+/* Armor-group color-coding (matches combat-ui.config.ts) */
+.type-prob-fill.armor-unarmored { background: #4CAF50; }
+.type-prob-fill.armor-light     { background: #2196F3; }
+.type-prob-fill.armor-heavy     { background: #FF9800; }
+.type-prob-fill.armor-fortified { background: #F44336; }
+.type-prob-fill.armor-ethereal  { background: #9C27B0; }
+
+.type-prob-group-header {
+  grid-column: 1 / -1;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  margin-top: 4px;
+  padding-bottom: 2px;
+  border-bottom: 1px solid var(--border);
+}
+
+/* === State Signals panel (Phase 5.5) === */
+.state-signals {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 12px;
+  padding: 8px;
+}
+.state-signal-block {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.state-signal-title {
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+  padding-bottom: 4px;
+  border-bottom: 1px solid var(--border);
+}
+.state-signal-bars {
+  display: grid;
+  grid-template-columns: 72px 1fr 40px;
+  gap: 3px 6px;
+  align-items: center;
+  font-size: 10px;
+}
+.state-signal-label {
+  color: var(--text-secondary);
+  text-transform: capitalize;
+}
+.state-signal-bar {
+  height: 6px;
+  background: var(--bg-primary);
+  border-radius: 3px;
+  overflow: hidden;
+}
+.state-signal-bar-fill {
+  height: 100%;
+  transition: width 0.3s ease;
+}
+.state-signal-value {
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+}
+.state-signal-research {
+  font-size: 10px;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.research-line span {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+.research-ids {
+  font-size: 9px;
+  color: var(--text-muted);
+  word-break: break-all;
+  margin-top: 4px;
+  padding-top: 4px;
+  border-top: 1px solid var(--border);
+}
 
 .type-prob-value {
   font-size: 10px;

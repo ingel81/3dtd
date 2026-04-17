@@ -226,42 +226,12 @@
 
     <!-- Row 4: Type Probabilities + DPS Profiles + Wave Log -->
     <div class="card">
-      <div class="card-header" title="Type Probabilities: Wahrscheinlichkeitsverteilung fuer jeden Gegnertyp. Zeigt welche Typen die AI aktuell bevorzugt. Gleichverteilung (~16.7% pro Typ) ist optimal. Type-Cooldown blockiert kuerzlich genutzte Typen.">
+      <div class="card-header" title="Type Probabilities: Wahrscheinlichkeitsverteilung fuer jeden Gegnertyp. 16 Enemies gruppiert nach Armor-Typ. Gleichverteilung (~6.25% pro Typ) ist uniform; der AI darf differenzieren. Type-Cooldown blockiert kuerzlich genutzte Typen.">
         <span class="card-title">Type Probabilities</span>
       </div>
       <div class="type-probs-container" id="type-probs-container">
-        <div class="type-probs-bars">
-          <div class="type-prob-item" data-type="herbert">
-            <span class="type-prob-label">herbert</span>
-            <div class="type-prob-bar"><div class="type-prob-fill herbert" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="tank">
-            <span class="type-prob-label">tank</span>
-            <div class="type-prob-bar"><div class="type-prob-fill tank" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="zombie">
-            <span class="type-prob-label">zombie</span>
-            <div class="type-prob-bar"><div class="type-prob-fill zombie" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="bat">
-            <span class="type-prob-label">bat</span>
-            <div class="type-prob-bar"><div class="type-prob-fill bat" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="wallsmasher">
-            <span class="type-prob-label">wallsmasher</span>
-            <div class="type-prob-bar"><div class="type-prob-fill wallsmasher" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="penguin">
-            <span class="type-prob-label">penguin</span>
-            <div class="type-prob-bar"><div class="type-prob-fill penguin" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-        </div>
+        <!-- Dynamisch befuellt durch app.js updateTypeProbs() (16 Enemies, gruppiert nach Armor) -->
+        <div class="type-probs-bars" id="type-probs-bars"></div>
         <div class="type-probs-footer">
           <span class="cooldown-indicator" id="cooldown-indicator" style="display: none;">Cooldown Override</span>
         </div>
@@ -285,6 +255,37 @@
       <div class="wave-log" id="wave-log">
         <div class="wave-entry" style="color: var(--text-muted); grid-template-columns: 1fr;">
           <span>Waiting for waves...</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Row 4.5 (Phase 5.5): State Signals — damage/armor/research visibility -->
+    <div class="card span-3">
+      <div class="card-header" title="Zeigt ob Damage-Matrix, Armor-Distribution und Research-State am Model ankommen. Alles 0 = Signal fehlt (Bug). Differenzierte Werte = AI lernt korrekt.">
+        <span class="card-title">State Signals (Phase 5.5)</span>
+      </div>
+      <div class="state-signals">
+        <div class="state-signal-block">
+          <div class="state-signal-title">DPS by Damage Type</div>
+          <div class="state-signal-bars" id="dps-by-type-bars">
+            <!-- populated by app.js -->
+          </div>
+        </div>
+        <div class="state-signal-block">
+          <div class="state-signal-title">Enemy Armor Distribution (current wave)</div>
+          <div class="state-signal-bars" id="armor-dist-bars">
+            <!-- populated by app.js -->
+          </div>
+        </div>
+        <div class="state-signal-block">
+          <div class="state-signal-title">Research State</div>
+          <div class="state-signal-research" id="research-state-display">
+            <div class="research-line">Center Level: <span id="rs-center">–</span></div>
+            <div class="research-line">Completed: <span id="rs-completed">–</span></div>
+            <div class="research-line">Max Tier: <span id="rs-tier">–</span></div>
+            <div class="research-line">AA Retrofit: <span id="rs-aa">–</span></div>
+            <div class="research-line research-ids" id="rs-ids"></div>
+          </div>
         </div>
       </div>
     </div>

@@ -205,6 +205,13 @@ class Dashboard:
         type_probs = wave_info.get("type_probs", {}) if wave_info else {}
         cooldown_override = wave_info.get("cooldown_override", False) if wave_info else False
 
+        # Phase 5.5 signals
+        num_groups = wave_info.get("num_groups", 1) if wave_info else 1
+        groups = wave_info.get("groups", []) if wave_info else []
+        armor_dist = wave_info.get("armor_dist") if wave_info else None
+        dps_by_type = wave_info.get("dps_by_type") if wave_info else None
+        research = wave_info.get("research") if wave_info else None
+
         entry = {
             "wave": wave_num,
             "type": enemy_type,
@@ -215,6 +222,8 @@ class Dashboard:
             "enemyHp": round(enemy_hp, 1),
             "dps": round(effective_dps, 1),
             "cooldownOverride": cooldown_override,
+            "numGroups": num_groups,
+            "groups": groups,
         }
         self.wave_log.append(entry)
 
@@ -234,6 +243,11 @@ class Dashboard:
             "dps": round(effective_dps, 1),
             "typeProbs": type_probs,
             "cooldownOverride": cooldown_override,
+            # Phase 5.5: new signals
+            "numGroups": num_groups,
+            "armorDist": armor_dist,
+            "dpsByType": dps_by_type,
+            "research": research,
         })
 
     def record_game_over(self):
