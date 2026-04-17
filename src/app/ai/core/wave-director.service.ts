@@ -82,8 +82,14 @@ export class WaveDirectorService {
   // === STATE ===
   private session: InferenceSession | null = null; // ONNX Runtime session
   private ort: OrtModule | null = null; // ONNX Runtime (lazy loaded)
-  private recentEnemyTypes: EnemyTypeId[] = []; // Track recent types for variety
-  private readonly TYPE_COOLDOWN_WAVES = 4; // Don't repeat same type within N waves (synced with backend config.py)
+  private recentEnemyTypes: EnemyTypeId[] = []; // Track recent (dominant) types for variety
+  private readonly TYPE_COOLDOWN_WAVES = 6; // Don't repeat same dominant type within N waves (expanded pool → longer cooldown)
+
+  // ==================== Mixed-Wave Decoder (Top-K) ====================
+  /** Min prob to include a type as a separate group in mixed waves */
+  private readonly MIXED_WAVE_THRESHOLD = 0.15;
+  /** Max number of enemy groups per wave */
+  private readonly MAX_GROUPS = 3;
 
   // === SIGNALS ===
   readonly modelState = signal<ModelState>('not-loaded');
@@ -311,22 +317,25 @@ export class WaveDirectorService {
     const delayFactor = this.sigmoid(rawParams[2]);
     const variation = this.sigmoid(rawParams[3]) * AI_CONSTANTS.VARIATION_MAX;
 
-    // Select enemy type with variety rules (like backend)
-    const enemyType = this.selectEnemyTypeWithVariety(enemyProbs, state.waveNumber);
-
-    // Track this type for future cooldown
-    this.recentEnemyTypes.push(enemyType);
-    if (this.recentEnemyTypes.length > this.TYPE_COOLDOWN_WAVES) {
-      this.recentEnemyTypes.shift();
-    }
-
-    const maxProb = Math.max(...enemyProbs);
-
-    // Calculate count based on tower count (matching backend server.py)
+    // Calculate total enemy count first (shared across groups)
     const towerCount = Math.max(1, state.defense.towerCount);
     const minCount = Math.max(5, towerCount + 1);
     const maxCount = Math.min(50, towerCount * 7);
     const totalCount = Math.round(minCount + countFactor * (maxCount - minCount));
+
+    // Top-K multi-group selection (Mixed Waves) — falls back to single-group
+    // when waveNumber<2 (zombie-only) or when threshold filters all enemies.
+    const groups = this.selectEnemyGroupsTopK(enemyProbs, totalCount, state.waveNumber);
+
+    // Track dominant (first) type for cooldown
+    if (groups.length > 0) {
+      this.recentEnemyTypes.push(groups[0].type);
+      if (this.recentEnemyTypes.length > this.TYPE_COOLDOWN_WAVES) {
+        this.recentEnemyTypes.shift();
+      }
+    }
+
+    const maxProb = Math.max(...enemyProbs);
 
     // Calculate spawn delay
     const spawnDelay = Math.round(
@@ -334,30 +343,35 @@ export class WaveDirectorService {
       delayFactor * (AI_CONSTANTS.SPAWN_DELAY_MAX - AI_CONSTANTS.SPAWN_DELAY_MIN)
     );
 
-    // Calculate health multiplier (DPS-relative HP, matching backend)
-    const isAir = this.isAirEnemy(enemyType);
-    const effectiveDPS = isAir
-      ? Math.max(10, state.defense.antiAirDPS)
-      : Math.max(25, state.defense.totalDPS);
-    const enemyHP = effectiveDPS * killTime;
-    const baseHP = ENEMY_BASE_HP[enemyType];
-    const healthMultiplier = Math.min(
-      enemyHP / baseHP,
-      AI_CONSTANTS.HEALTH_MULTIPLIER_MAX
-    );
+    // Calculate health multiplier per group (DPS-relative, different for air vs ground)
+    const enemies = groups.map(g => {
+      const isAir = this.isAirEnemy(g.type);
+      const effectiveDPS = isAir
+        ? Math.max(10, state.defense.antiAirDPS)
+        : Math.max(25, state.defense.totalDPS);
+      const enemyHP = effectiveDPS * killTime;
+      const baseHP = ENEMY_BASE_HP[g.type];
+      const healthMultiplier = Math.min(
+        enemyHP / baseHP,
+        AI_CONSTANTS.HEALTH_MULTIPLIER_MAX
+      );
+      return {
+        type: g.type,
+        count: g.count,
+        healthMultiplier: Math.round(healthMultiplier * 100) / 100,
+      };
+    });
 
-    // Determine archetype
-    const archetype = this.inferArchetypeFromType(enemyType, totalCount);
+    // Determine archetype from dominant type
+    const archetype = this.inferArchetypeFromType(groups[0]?.type ?? 'zombie', totalCount);
 
     return {
-      enemies: [{
-        type: enemyType,
-        count: totalCount,
-        healthMultiplier: Math.round(healthMultiplier * 100) / 100,
-      }],
+      enemies,
       totalCount,
       spawnDelay,
       spawnDelayVariation: variation,
+      // Pattern for mixed waves — hardcoded 'interleaved' for now (AB AB AB)
+      pattern: enemies.length > 1 ? 'interleaved' : undefined,
       archetype,
       confidence: maxProb,
       difficultyModifier: 0,
@@ -421,6 +435,59 @@ export class WaveDirectorService {
     const sum = masked.reduce((a, b) => a + b, 0);
     if (sum <= 0) return probs;  // nothing allowed — fall back to original
     return masked.map(p => p / sum);
+  }
+
+  /**
+   * Select enemy groups via Top-K (Mixed Waves).
+   * - Wave 0-1: single zombie group (training-wheels)
+   * - Wave 2-3: single group from limited pool (unarmored only)
+   * - Wave 4+: Top-K groups (probs > threshold, max MAX_GROUPS)
+   *
+   * Counts allocated proportionally to probabilities.
+   * Returns at least one group (falls back to argmax if threshold filters all).
+   */
+  private selectEnemyGroupsTopK(
+    probs: number[],
+    totalCount: number,
+    waveNumber: number,
+  ): { type: EnemyTypeId; count: number }[] {
+    // Early wave: force zombie only
+    if (waveNumber < 2) {
+      return [{ type: 'zombie', count: totalCount }];
+    }
+
+    // Waves 2-3: single-type from unarmored pool (easier for player to handle)
+    if (waveNumber < 4) {
+      const type = this.selectEnemyTypeWithVariety(probs, waveNumber);
+      return [{ type, count: totalCount }];
+    }
+
+    // Wave 4+: Top-K selection
+    const candidates = probs
+      .map((p, i) => ({ type: ENEMY_TYPES[i], prob: p }))
+      .filter(c => c.prob > this.MIXED_WAVE_THRESHOLD)
+      .sort((a, b) => b.prob - a.prob)
+      .slice(0, this.MAX_GROUPS);
+
+    // Threshold filtered everything → single-group fallback via argmax
+    if (candidates.length === 0) {
+      const type = this.selectEnemyTypeWithVariety(probs, waveNumber);
+      return [{ type, count: totalCount }];
+    }
+
+    // Allocate counts proportionally to probabilities (last group gets remainder)
+    const probSum = candidates.reduce((s, c) => s + c.prob, 0);
+    const groups: { type: EnemyTypeId; count: number }[] = [];
+    let allocated = 0;
+    for (let i = 0; i < candidates.length; i++) {
+      const c = candidates[i];
+      const count = i === candidates.length - 1
+        ? Math.max(1, totalCount - allocated)
+        : Math.max(1, Math.round(totalCount * (c.prob / probSum)));
+      groups.push({ type: c.type, count });
+      allocated += count;
+    }
+    return groups;
   }
 
   /**
