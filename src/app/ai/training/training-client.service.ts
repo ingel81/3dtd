@@ -225,10 +225,18 @@ export class TrainingClientService {
             break;
           }
 
+          // Use surface height (terrain or building rooftop, whichever is higher)
+          // so towers land on roofs in DevWorld instead of being hidden inside buildings.
+          const surfaceHeight = this.towerPlacement.getSurfaceHeightAt(
+            action.position.z,
+            action.position.x,
+            terrainHeight,
+          );
+
           const geoPos: GeoPosition = {
             lat: action.position.z,
             lon: action.position.x,
-            height: terrainHeight
+            height: surfaceHeight
           };
 
           // Validate using TowerPlacementService with height (prevents building on rooftops!)
