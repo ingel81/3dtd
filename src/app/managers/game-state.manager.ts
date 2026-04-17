@@ -619,6 +619,7 @@ export class GameStateManager {
     this.hqDamage.reset();
 
     // Clear tower overlays before clearing towers
+    // (unregisters each tower from GlobalRouteGrid, disposes LOS meshes)
     this.clearAllTowerOverlays();
 
     // Stop all active beams/melee before clearing towers
@@ -632,8 +633,9 @@ export class GameStateManager {
     this.waveManager.reset();
     this.researchManager.reset();
 
-    // Clear GlobalRouteGrid (will be re-initialized on location change)
-    this.globalRouteGrid.clear();
+    // NOTE: Do NOT clear GlobalRouteGrid here — it's bound to the location
+    // and won't be re-initialized on a game-over restart. Tower visibility
+    // has already been cleaned up per-tower via clearAllTowerOverlays above.
 
     if (this.tilesEngine) {
       this.tilesEngine.effects.clear();
