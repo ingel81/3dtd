@@ -171,8 +171,8 @@
               }
             </div>
 
-            <!-- Sell Research Center -->
-            <div class="td-sell-section">
+            <!-- Sell Research Center (inline, flows after tree) -->
+            <div class="td-sell-section-inline">
               <button class="td-sell-tile" (click)="sellTower.emit()">
                 <mat-icon>sell</mat-icon>
                 <span>Sell</span>
@@ -245,15 +245,18 @@
               @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
                 <button
                   class="td-upgrade-tile"
-                  [class.td-upgrade-affordable]="store.credits() >= tower.getNextUpgradeCost(upgrade.id)"
-                  [disabled]="store.credits() < tower.getNextUpgradeCost(upgrade.id)"
+                  [class.td-upgrade-affordable]="store.credits() >= tower.getNextUpgradeCost(upgrade.id) && isUpgradeTierUnlocked(tower, upgrade.id)"
+                  [class.td-upgrade-tier-locked]="!isUpgradeTierUnlocked(tower, upgrade.id)"
+                  [disabled]="store.credits() < tower.getNextUpgradeCost(upgrade.id) || !isUpgradeTierUnlocked(tower, upgrade.id)"
                   (click)="onUpgradeTower(tower, upgrade.id)"
-                  [matTooltip]="upgrade.description"
+                  [matTooltip]="getUpgradeTierLockReason(tower, upgrade.id) ?? upgrade.description"
                   matTooltipPosition="left"
                 >
-                  <mat-icon class="td-upgrade-icon">upgrade</mat-icon>
+                  <mat-icon class="td-upgrade-icon">
+                    {{ isUpgradeTierUnlocked(tower, upgrade.id) ? 'upgrade' : 'lock' }}
+                  </mat-icon>
                   <div class="td-upgrade-info">
-                    <span class="td-upgrade-name">{{ upgrade.name }}</span>
+                    <span class="td-upgrade-name">{{ upgrade.name }} <span class="td-upgrade-tier-badge">T{{ getRequiredUpgradeTier(tower, upgrade.id) }}</span></span>
                     <span class="td-upgrade-desc">Lv.{{ tower.getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
                   </div>
                   <span class="td-upgrade-cost">{{ tower.getNextUpgradeCost(upgrade.id) }}</span>

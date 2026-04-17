@@ -128,6 +128,14 @@
   stroke: var(--td-gold) !important;
 }
 
+.td-loading-logo {
+  height: 96px;
+  width: auto;
+  object-fit: contain;
+  margin-bottom: 8px;
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.5));
+}
+
 .td-loading-title {
   color: var(--td-gold);
   font-size: 18px;

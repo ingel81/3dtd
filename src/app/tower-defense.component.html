@@ -31,8 +31,9 @@
       @if (loading()) {
         <div class="td-loading-overlay">
           @if (!error()) {
+            <img class="td-loading-logo" src="/assets/images/logo/logo.png" alt="3DTD">
             <mat-spinner diameter="48"></mat-spinner>
-            <div class="td-loading-title">Lade 3DTD</div>
+            <div class="td-loading-title">Lade...</div>
             <div class="td-loading-steps">
               @for (step of loadingSteps(); track step.id) {
                 <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">

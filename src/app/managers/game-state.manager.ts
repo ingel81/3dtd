@@ -237,6 +237,14 @@ export class GameStateManager {
       const cost = tower.getNextUpgradeCost(upgradeId);
       if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
 
+      // Tier-Gating: research-slots (Research Center) is always allowed.
+      // Regular tower upgrades require matching upgrade tier research.
+      if (upgradeId !== 'research-slots') {
+        const currentLevel = tower.getUpgradeLevel(upgradeId);
+        const requiredTier = currentLevel >= 2 ? 3 : currentLevel >= 1 ? 2 : 1;
+        if (this.researchManager.getMaxUpgradeTier() < requiredTier) return;
+      }
+
       if (this.spendCredits(cost)) {
         const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
         const previousLevel = tower.getUpgradeLevel(upgradeId);
