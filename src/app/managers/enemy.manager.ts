@@ -51,6 +51,10 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
   private cachedAliveEnemies: Enemy[] | null = null;
 
+  // Wave-number provider (for WaveFactor in kill-reward formula).
+  // Set via setWaveNumberProvider() after construction (loose coupling).
+  private getWaveNumber: () => number = () => 0;
+
   constructor(
     private eventBus: GameEventBus,
     private entityPool: EntityPoolService,
@@ -207,23 +211,37 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Calculate dynamic reward based on actual enemy HP and speed
-   * Scales with AI-generated healthMultiplier to keep rewards fair
+   * Set the wave-number provider (from WaveManager).
+   * Used in the kill-reward formula (WaveFactor component).
+   * Loose coupling — no direct WaveManager dependency.
+   */
+  setWaveNumberProvider(provider: () => number): void {
+    this.getWaveNumber = provider;
+  }
+
+  /**
+   * Calculate kill reward using the design-doc formula (MASTER_GAME_DESIGN 5.1):
+   *   BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor
+   *
+   * All multipliers come from GAME_BALANCE.economy — tuneable without code changes.
    */
   private calculateDynamicReward(enemy: Enemy): number {
-    const healthMultiplier = enemy.health.maxHp / enemy.typeConfig.baseHp;
-    const effectiveHP = enemy.health.maxHp;
-    const speedBonus = Math.floor(enemy.typeConfig.baseSpeed / 10); // Reduced from /5
+    const cfg = GAME_BALANCE.economy;
+    const t = enemy.typeConfig;
 
-    // Sublinear scaling (sqrt) prevents inflation
-    // 150 HP per credit (was 50) - roughly 1/3 of previous rewards
-    const hpReward = Math.floor(effectiveHP / 150);
-    const scaleFactor = 1 + Math.sqrt(Math.max(0, healthMultiplier - 1)) * 0.4; // Reduced from 0.6
+    const BaseHP = Math.max(1, t.baseHp / cfg.baseHpDivisor);
+    const HP_Scale = enemy.health.maxHp / t.baseHp;   // Wave-Director HP-Multiplier
+    const SpeedFactor = cfg.speedFactorBase + (t.baseSpeed / 10) * cfg.speedFactorSlope;
+    const ArmorFactor = cfg.armorFactor[t.armorType as keyof typeof cfg.armorFactor] ?? 1.0;
+    const AirFactor = t.isAirUnit ? cfg.airFactor : 1.0;
+    const FlagFactor =
+      (t.bossName ? cfg.bossFactor : 1.0) *
+      (t.isElite ? cfg.eliteFactor : 1.0);
+    const WaveFactor = 1.0 + cfg.waveFactorPerWave * Math.max(0, this.getWaveNumber() - 1);
 
-    const baseReward = Math.max(1, hpReward + speedBonus);
-    const dynamicReward = Math.round(baseReward * Math.min(scaleFactor, 2.0)); // Reduced cap from 2.5
-
-    return Math.min(25, Math.max(1, dynamicReward)); // Cap: 1-25 (was 1-40)
+    return Math.max(1, Math.round(
+      BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor
+    ));
   }
 
   /**

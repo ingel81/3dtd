@@ -81,6 +81,9 @@ export interface EnemyTypeConfig {
   // Air Unit
   isAirUnit?: boolean; // true = air unit, only attackable by air towers
 
+  // Elite flag — triggers eliteFactor (1.10x) in kill reward formula
+  isElite?: boolean;
+
   // Spawning
   spawnStartDelay?: number; // Delay in ms between spawning enemies of this type (default: 300)
 
