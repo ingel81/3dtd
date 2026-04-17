@@ -31,13 +31,33 @@ export const NUM_SCALAR_FEATURES = 34;
 /** Tower types in fixed order for encoding */
 const TOWER_TYPE_ORDER = ['archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'poison'];
 
-/** Enemy threat ratings (relative to Zombie = 1.0) */
+/**
+ * Enemy threat ratings (relative to Zombie = 1.0).
+ * Used for wave history aggregation — NOT for reward shaping.
+ * Phase 5.5: expanded from 5 to all 16 enemies for full armor-type coverage.
+ */
 export const ENEMY_THREAT_RATING: Record<string, number> = {
-  zombie: 1.0,      // Baseline: 80 HP, 5 m/s
-  bat: 1.5,         // Low HP (25), fast (8 m/s), air unit (only rocket/ice can target)
-  tank: 2.5,        // High HP (250), slow (3 m/s)
-  wallsmasher: 3.5, // High HP (200), fast (7 m/s)
-  herbert: 50.0,    // Boss: 500 HP, 100% immunity (unkillable, always reaches base)
+  // Unarmored
+  zombie: 1.0,              // Baseline: 80 HP, 5 m/s
+  rat: 0.5,                 // Swarm, very low HP (5)
+  penguin: 0.8,             // Very fast (9 m/s), fragile
+  // Light
+  wallsmasher: 3.5,         // High HP (200), fast
+  bat: 1.5,                 // Air, low HP
+  hornet: 2.0,              // Air + swarm
+  spider: 2.0,              // Camo-teaser (no camo yet)
+  // Heavy
+  'zombie-soldier': 3.0,    // Heavy ground, fast
+  tank: 4.0,                // Armored tank, 250 HP
+  bear: 3.5,                // Tanky ground
+  dragon: 8.0,              // Air-elite, 450 HP
+  mech: 6.0,                // Heavy + future shielded
+  // Fortified
+  mammoth: 5.0,             // Very high HP (400), slow
+  herbert: 50.0,            // Boss: 500 HP, 100% immunity
+  // Ethereal
+  ghost: 6.0,               // Ethereal, requires magic/ice
+  wraith: 7.0,              // Ethereal-fast
 };
 
 /** Max values for normalization */

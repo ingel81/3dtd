@@ -16,7 +16,7 @@ import { WaveResult } from './models/wave-result';
 import { generateFallbackWave, getWaveDifficulty } from './fallback-rules';
 import { explainWaveDecision, DecisionExplanation, formatExplanationForUI } from './decision-explainer';
 import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
-import { EnemyTypeId } from '../../models/enemy-types';
+import { EnemyTypeId, getEnemyType } from '../../models/enemy-types';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
@@ -34,18 +34,40 @@ const AI_CONSTANTS = {
   HEALTH_MULTIPLIER_MAX: 20.0,
 };
 
-/** Enemy base HP - must match config.py ENEMY_BASE_HP */
+/**
+ * Enemy base HP — must match config.py ENEMY_BASE_HP.
+ * Expanded from 6 to all 16 enemies for Phase 5.5 (full armor-type coverage).
+ */
 const ENEMY_BASE_HP: Record<string, number> = {
   zombie: 80,
-  bat: 25,
-  tank: 250,
-  wallsmasher: 200,
+  rat: 5,
   penguin: 30,
+  wallsmasher: 200,
+  bat: 25,
+  hornet: 80,
+  spider: 60,
+  'zombie-soldier': 160,
+  tank: 250,
+  bear: 300,
+  dragon: 450,
+  mech: 500,
+  mammoth: 400,
   herbert: 500,
+  ghost: 120,
+  wraith: 100,
 };
 
-/** Enemy type order - must match backend model output */
-const ENEMY_TYPES: EnemyTypeId[] = ['zombie', 'bat', 'tank', 'wallsmasher', 'penguin', 'herbert'];
+/**
+ * Enemy type order — must match backend model output.
+ * Order matters: NN output logits[i] corresponds to ENEMY_TYPES[i].
+ */
+const ENEMY_TYPES: EnemyTypeId[] = [
+  'zombie', 'rat', 'penguin',                           // Unarmored (3)
+  'wallsmasher', 'bat', 'hornet', 'spider',             // Light (4, air: bat+hornet)
+  'zombie-soldier', 'tank', 'bear', 'dragon', 'mech',   // Heavy (5, air: dragon)
+  'mammoth', 'herbert',                                  // Fortified (2, boss: herbert)
+  'ghost', 'wraith',                                     // Ethereal (2)
+];
 
 /** ONNX Runtime types (lazy loaded) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -271,12 +293,16 @@ export class WaveDirectorService {
    * [9]    variation param (raw, apply sigmoid)
    */
   private decodeModelOutput(output: Float32Array, state: GameStateSnapshot): WaveConfig {
-    // Extract enemy logits and raw continuous params
-    const enemyLogits = Array.from(output.slice(0, 6));
-    const rawParams = output.slice(6, 10);
+    // Extract enemy logits (16 types) and raw continuous params (4)
+    const numEnemies = ENEMY_TYPES.length;
+    const enemyLogits = Array.from(output.slice(0, numEnemies));
+    const rawParams = output.slice(numEnemies, numEnemies + 4);
 
     // Apply softmax to get enemy probabilities
-    const enemyProbs = this.softmax(enemyLogits);
+    let enemyProbs = this.softmax(enemyLogits);
+
+    // Apply fairness-gate mask (only allow enemies with available counter-tech)
+    enemyProbs = this.applyFairnessMask(enemyProbs, state);
 
     // Apply sigmoid transforms to continuous params (matching backend server.py)
     const killTime = AI_CONSTANTS.KILL_TIME_MIN +
@@ -309,7 +335,8 @@ export class WaveDirectorService {
     );
 
     // Calculate health multiplier (DPS-relative HP, matching backend)
-    const effectiveDPS = enemyType === 'bat'
+    const isAir = this.isAirEnemy(enemyType);
+    const effectiveDPS = isAir
       ? Math.max(10, state.defense.antiAirDPS)
       : Math.max(25, state.defense.totalDPS);
     const enemyHP = effectiveDPS * killTime;
@@ -348,27 +375,87 @@ export class WaveDirectorService {
   }
 
   /**
-   * Select enemy type with variety rules (matching backend server.py)
+   * Check if an enemy type is an air unit (via config).
+   * Used to decide effective DPS in HP-multiplier calculation.
+   */
+  private isAirEnemy(type: EnemyTypeId): boolean {
+    return !!getEnemyType(type)?.isAirUnit;
+  }
+
+  /**
+   * Check if an enemy type is allowed given current research state.
+   * Fairness: don't spawn enemies the player has no counter for.
+   */
+  private isEnemyAllowed(type: EnemyTypeId, state: GameStateSnapshot): boolean {
+    const cfg = getEnemyType(type);
+    if (!cfg) return false;
+    const research = state.research;
+    if (!research) return true; // safety: no research state → allow all
+
+    // Air enemies: require ice, rocket, or AA Retrofit perk
+    if (cfg.isAirUnit) {
+      const hasAntiAir =
+        research.towerUnlocked['ice'] ||
+        research.towerUnlocked['rocket'] ||
+        research.airTargetingUnlocked;
+      if (!hasAntiAir) return false;
+    }
+
+    // Ethereal enemies: require magic or ice counter
+    if (cfg.armorType === 'ethereal') {
+      const hasEtherealCounter =
+        research.towerUnlocked['magic'] ||
+        research.towerUnlocked['ice'];
+      if (!hasEtherealCounter) return false;
+    }
+
+    return true;
+  }
+
+  /**
+   * Zero out probabilities for enemies blocked by fairness-gates, then renormalize.
+   * Returns the original probs if nothing survives (caller falls back).
+   */
+  private applyFairnessMask(probs: number[], state: GameStateSnapshot): number[] {
+    const masked = probs.map((p, i) => this.isEnemyAllowed(ENEMY_TYPES[i], state) ? p : 0);
+    const sum = masked.reduce((a, b) => a + b, 0);
+    if (sum <= 0) return probs;  // nothing allowed — fall back to original
+    return masked.map(p => p / sum);
+  }
+
+  /**
+   * Select enemy type with variety rules (matching backend server.py).
+   * Respects fairness-mask: enemies with prob=0 are skipped.
    */
   private selectEnemyTypeWithVariety(probs: number[], waveNumber: number): EnemyTypeId {
-    // Early waves: force zombie
+    // Early waves: force zombie (always unarmored, safe choice)
     if (waveNumber < 2) {
       return 'zombie';
     }
 
-    // Waves 2-3: limited selection (zombie, tank, penguin)
+    // Waves 2-3: limited to unarmored enemies only (zombie, rat, penguin)
+    // Index-based so it survives pool changes
     if (waveNumber < 4) {
-      const allowed = [0, 2, 4]; // zombie, tank, penguin indices
+      const allowedTypes: EnemyTypeId[] = ['zombie', 'rat', 'penguin'];
+      const allowed = allowedTypes
+        .map(t => ENEMY_TYPES.indexOf(t))
+        .filter(i => i >= 0);
       const allowedProbs = allowed.map(i => probs[i]);
       const bestAllowedIdx = allowed[allowedProbs.indexOf(Math.max(...allowedProbs))];
       return ENEMY_TYPES[bestAllowedIdx];
     }
 
-    // Sort indices by probability (descending)
+    // Sort indices by probability (descending). Masked-out enemies have prob=0.
     const sortedIndices = probs
       .map((p, i) => ({ prob: p, idx: i }))
+      .filter(x => x.prob > 0)   // skip fairness-blocked enemies
       .sort((a, b) => b.prob - a.prob)
       .map(x => x.idx);
+
+    if (sortedIndices.length === 0) {
+      // All blocked (fallback) — just return zombie
+      return 'zombie';
+    }
 
     // Find best type not on cooldown
     for (const idx of sortedIndices) {
