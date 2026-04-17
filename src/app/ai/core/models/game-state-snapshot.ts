@@ -46,6 +46,8 @@ export interface ResearchSnapshot {
   completedIds: string[];
   completedCount: number;
   totalCount: number;
+  /** IDs of currently-active (in-progress) researches */
+  activeIds: string[];
   /** Research Center building level (0 = not placed, 1-3 = placed + level) */
   centerLevel: number;
   /** Currently running researches */
@@ -219,6 +221,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
       completedIds: [],
       completedCount: 0,
       totalCount: 0,
+      activeIds: [],
       centerLevel: 0,
       slotsUsed: 0,
       maxSlots: 0,
