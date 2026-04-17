@@ -4,32 +4,45 @@
  * Converts GameStateSnapshot to Float32Array for neural network input.
  * All values are normalized to 0-1 range.
  *
- * Feature Vector (74 features):
- * [0-3]   Player state: credits, lives%, wave, time (4)
- * [4]     towerCount (1)
- * [5]     avgTowerLevel (1)
- * [6-11]  Tower Type Counts: 6 types, normalized (6)
- * [12-16] History Damage: last 5 waves (5)
- * [17-21] History Progress: last 5 waves avg_progress (5)
- * [22-26] Wave Signals: momentum, avgDmg, duration, episodeProgress, variance (5)
- * [27-31] Context: wave, trend, skill, lastThreat, winStreak (5)
- * [32-33] Reserved/Padding (2)
- * [34-53] Ground DPS Profile: 20 bins (20)
- * [54-73] Air DPS Profile: 20 bins (20)
+ * Feature Vector (93 features, Phase 5.5):
+ * [0-3]    Player state: credits, lives%, wave, time (4)
+ * [4]      towerCount (1)
+ * [5]      avgTowerLevel (1)
+ * [6-14]   Tower Type Counts: 9 types (archer, cannon, magic, dual-gatling, rocket, ice, fire, tentacle, poison) (9)
+ * [15-19]  History Damage: last 5 waves (5)
+ * [20-24]  History Progress: last 5 waves avg_progress (5)
+ * [25-29]  Wave Signals: momentum, avgDmg, duration, episodeProgress, variance (5)
+ * [30-34]  Context: wave, trend, skill, lastThreat, winStreak (5)
+ * [35-41]  DPS by Damage Type: physical, pierce, siege, magic, fire, ice, poison (7)
+ * [42-46]  Enemy Armor Distribution: unarmored, light, heavy, fortified, ethereal (5)
+ * [47-51]  Research State: completedRatio, centerLevel/3, slotsUsed/maxSlots, airTargeting, maxTier/3 (5)
+ * [52]     Reserved/Padding (1)
+ * [53-72]  Ground DPS Profile: 20 bins (20)
+ * [73-92]  Air DPS Profile: 20 bins (20)
  */
 
 import { GameStateSnapshot, RecentHistory } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
 import { NUM_BINS } from './dps-profile';
+import { DamageType, ArmorType, DAMAGE_TYPES, ARMOR_TYPES } from '../../configs/combat/combat.types';
+import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 
-/** Total number of features in the encoded state */
-export const ENCODED_STATE_SIZE = 74;
+/** Total number of features in the encoded state (Phase 5.5: 74 → 93) */
+export const ENCODED_STATE_SIZE = 93;
 
 /** Number of scalar features (before spatial DPS profile) */
-export const NUM_SCALAR_FEATURES = 34;
+export const NUM_SCALAR_FEATURES = 53;
 
-/** Tower types in fixed order for encoding */
-const TOWER_TYPE_ORDER = ['archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'poison'];
+/** Tower types in fixed order for encoding. Phase 5.5: expanded from 7 to 9 (+fire, +tentacle). */
+const TOWER_TYPE_ORDER: TowerTypeId[] = [
+  'archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
+];
+
+/** DamageType order for encoding (must be stable) */
+const DAMAGE_TYPE_ORDER: readonly DamageType[] = DAMAGE_TYPES;
+
+/** ArmorType order for encoding (must be stable) */
+const ARMOR_TYPE_ORDER: readonly ArmorType[] = ARMOR_TYPES;
 
 /**
  * Enemy threat ratings (relative to Zombie = 1.0).
@@ -122,44 +135,44 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
   encoded[idx++] = normalize(snapshot.defense.towerCount, MAX_VALUES.towerCount);
   encoded[idx++] = normalize(snapshot.defense.avgTowerLevel, MAX_VALUES.towerLevel);
 
-  // === TOWER TYPE COUNTS (6 features) [6-11] ===
+  // === TOWER TYPE COUNTS (9 features) [6-14] ===
   for (const towerType of TOWER_TYPE_ORDER) {
     const stats = snapshot.defense.towerDistribution[towerType];
     encoded[idx++] = stats ? normalize(stats.count, 10) : 0;
   }
 
-  // === HISTORY DAMAGE (5 features) [12-16] ===
+  // === HISTORY DAMAGE (5 features) [15-19] ===
   const history = snapshot.recentHistory;
   const damages = history.damagePerWave;
   for (let i = 0; i < 5; i++) {
     encoded[idx++] = damages[damages.length - 5 + i] ?? 0;
   }
 
-  // === HISTORY PROGRESS (5 features) [17-21] ===
+  // === HISTORY PROGRESS (5 features) [20-24] ===
   const progresses = history.progressPerWave;
   for (let i = 0; i < 5; i++) {
     encoded[idx++] = progresses[progresses.length - 5 + i] ?? 0;
   }
 
-  // === WAVE SIGNALS (5 features) [22-26] ===
-  // [22] Damage momentum (positive = getting harder)
+  // === WAVE SIGNALS (5 features) [25-29] ===
+  // [25] Damage momentum (positive = getting harder)
   const momentum = damages.length >= 2
     ? (damages[damages.length - 1] - damages[damages.length - 2]) * 10
     : 0;
   encoded[idx++] = Math.max(-1, Math.min(1, momentum));
 
-  // [23] Average recent damage (last 5)
+  // [26] Average recent damage (last 5)
   const recent5 = damages.slice(-5);
   const avgRecent = recent5.length > 0 ? recent5.reduce((a, b) => a + b, 0) / recent5.length : 0;
   encoded[idx++] = Math.min(1, avgRecent);
 
-  // [24] Wave duration (avg)
+  // [27] Wave duration (avg)
   encoded[idx++] = normalize(history.avgWaveDuration, MAX_VALUES.waveDuration);
 
-  // [25] Episode progress (max 20 waves)
+  // [28] Episode progress (max 20 waves)
   encoded[idx++] = normalize(snapshot.waveNumber, 20);
 
-  // [26] Damage variance (consistency signal)
+  // [29] Damage variance (consistency signal)
   let damageVariance = 0;
   if (recent5.length >= 2) {
     const mean = avgRecent;
@@ -168,24 +181,43 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
   }
   encoded[idx++] = damageVariance;
 
-  // === CONTEXT (5 features) [27-31] ===
+  // === CONTEXT (5 features) [30-34] ===
   encoded[idx++] = normalize(snapshot.waveNumber, MAX_VALUES.wave);
   encoded[idx++] = calculateDifficultyTrend(history);
   encoded[idx++] = estimatePlayerSkill(history);
   encoded[idx++] = normalize(history.lastWaveThreat, MAX_VALUES.waveThreat);
   encoded[idx++] = normalize(history.winStreak, MAX_VALUES.winStreak);
 
-  // === RESERVED/PADDING (2 features) [32-33] ===
-  encoded[idx++] = 0;
+  // === DPS BY DAMAGE TYPE (7 features) [35-41] === (Phase 5.5 NEW)
+  const dpsByType = computeDpsByDamageType(snapshot);
+  for (const dt of DAMAGE_TYPE_ORDER) {
+    encoded[idx++] = dpsByType[dt];
+  }
+
+  // === ENEMY ARMOR DISTRIBUTION (5 features) [42-46] === (Phase 5.5 NEW)
+  const armorDist = snapshot.expectedArmorDistribution ?? uniformArmorDist();
+  for (const a of ARMOR_TYPE_ORDER) {
+    encoded[idx++] = armorDist[a] ?? 0;
+  }
+
+  // === RESEARCH STATE (5 features) [47-51] === (Phase 5.5 NEW)
+  const r = snapshot.research;
+  encoded[idx++] = r && r.totalCount > 0 ? r.completedCount / r.totalCount : 0;
+  encoded[idx++] = r ? r.centerLevel / 3 : 0;
+  encoded[idx++] = r && r.maxSlots > 0 ? r.slotsUsed / r.maxSlots : 0;
+  encoded[idx++] = r && r.airTargetingUnlocked ? 1 : 0;
+  encoded[idx++] = r ? r.maxUpgradeTier / 3 : 1 / 3;
+
+  // === RESERVED/PADDING (1 feature) [52] ===
   encoded[idx++] = 0;
 
-  // === DPS PROFILE: GROUND (20 features) [34-53] ===
+  // === DPS PROFILE: GROUND (20 features) [53-72] ===
   const profile = snapshot.dpsProfile;
   for (let i = 0; i < NUM_BINS; i++) {
     encoded[idx++] = profile.groundDPS[i] ?? 0;
   }
 
-  // === DPS PROFILE: AIR (20 features) [54-73] ===
+  // === DPS PROFILE: AIR (20 features) [73-92] ===
   for (let i = 0; i < NUM_BINS; i++) {
     encoded[idx++] = profile.airDPS[i] ?? 0;
   }
@@ -194,7 +226,41 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
 }
 
 /**
- * Decode neural network output to feature names (for debugging)
+ * Compute DPS by damage type from the tower distribution in the snapshot.
+ * Uses TOWER_TYPES config to map each tower to its damageType and DPS.
+ * Normalized to 0-1 with a cap of MAX_DPS_PER_TYPE.
+ */
+function computeDpsByDamageType(snapshot: GameStateSnapshot): Record<DamageType, number> {
+  const MAX_DPS_PER_TYPE = 500;
+  const result: Record<DamageType, number> = {} as Record<DamageType, number>;
+  for (const dt of DAMAGE_TYPE_ORDER) result[dt] = 0;
+
+  for (const [towerId, stats] of Object.entries(snapshot.defense.towerDistribution)) {
+    const cfg = TOWER_TYPES[towerId as TowerTypeId];
+    if (!cfg || cfg.attackType === 'passive') continue;
+    const dt = cfg.damageType;
+    // stats.totalDPS is pre-computed from damage * fireRate; for beams we fall back to damagePerSecond
+    const dps = stats.totalDPS ?? 0;
+    result[dt] += dps;
+  }
+
+  // Normalize
+  for (const dt of DAMAGE_TYPE_ORDER) {
+    result[dt] = Math.min(1, result[dt] / MAX_DPS_PER_TYPE);
+  }
+  return result;
+}
+
+function uniformArmorDist(): Record<ArmorType, number> {
+  const share = 1 / ARMOR_TYPE_ORDER.length;
+  const dist = {} as Record<ArmorType, number>;
+  for (const a of ARMOR_TYPE_ORDER) dist[a] = share;
+  return dist;
+}
+
+/**
+ * Decode neural network output to feature names (for debugging).
+ * MUST match encodeGameState() layout exactly.
  */
 export function decodeFeatureNames(): string[] {
   const names: string[] = [];
@@ -205,30 +271,39 @@ export function decodeFeatureNames(): string[] {
   // Tower stats [4-5]
   names.push('towerCount', 'avgLevel');
 
-  // Tower type counts [6-11]
+  // Tower type counts [6-14] (9 types)
   for (const type of TOWER_TYPE_ORDER) {
     names.push(`${type}_count`);
   }
 
-  // History damage [12-16]
+  // History damage [15-19]
   for (let i = 1; i <= 5; i++) names.push(`damage_${i}`);
 
-  // History progress [17-21]
+  // History progress [20-24]
   for (let i = 1; i <= 5; i++) names.push(`progress_${i}`);
 
-  // Wave signals [22-26]
+  // Wave signals [25-29]
   names.push('momentum', 'avgDamage', 'duration', 'episodeProgress', 'variance');
 
-  // Context [27-31]
+  // Context [30-34]
   names.push('waveNorm', 'diffTrend', 'skill', 'lastWaveThreat', 'winStreak');
 
-  // Reserved [32-33]
-  names.push('reserved_0', 'reserved_1');
+  // DPS by damage type [35-41]
+  for (const dt of DAMAGE_TYPE_ORDER) names.push(`dps_${dt}`);
 
-  // Ground DPS profile [34-53]
+  // Armor distribution [42-46]
+  for (const a of ARMOR_TYPE_ORDER) names.push(`armor_${a}`);
+
+  // Research state [47-51]
+  names.push('research_progress', 'center_level', 'slots_used', 'air_targeting', 'upgrade_tier');
+
+  // Reserved [52]
+  names.push('reserved_0');
+
+  // Ground DPS profile [53-72]
   for (let i = 0; i < NUM_BINS; i++) names.push(`ground_dps_${i}`);
 
-  // Air DPS profile [54-73]
+  // Air DPS profile [73-92]
   for (let i = 0; i < NUM_BINS; i++) names.push(`air_dps_${i}`);
 
   return names;
