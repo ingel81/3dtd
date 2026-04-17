@@ -103,6 +103,16 @@ export interface ITowerBot {
 }
 
 /**
+ * All combat towers — Research Center is NOT a combat tower and excluded by
+ * base-tower-bot.ts (attackType === 'passive'). Research is the actual gate.
+ * Skill-level differences come from reactionTimeMs, mistakeRate, maxTowers,
+ * adaptsToEnemies, plansAhead — not knownTowerTypes.
+ */
+const ALL_COMBAT_TOWERS: TowerTypeId[] = [
+  'archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
+];
+
+/**
  * Default bot configurations by skill level
  */
 export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
@@ -110,7 +120,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'beginner',
     reactionTimeMs: 3000,
     mistakeRate: 0.4,
-    knownTowerTypes: ['archer', 'cannon'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: false,
     plansAhead: false,
     maxTowers: 10,
@@ -120,7 +130,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'casual',
     reactionTimeMs: 1500,
     mistakeRate: 0.2,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'poison', 'tentacle'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
     plansAhead: false,
     maxTowers: 15,
@@ -130,7 +140,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'strategist',
     reactionTimeMs: 800,
     mistakeRate: 0.05,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic', 'poison', 'fire', 'tentacle'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
     plansAhead: true,
     maxTowers: 50,
@@ -140,7 +150,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     skillLevel: 'meta',
     reactionTimeMs: 400,
     mistakeRate: 0.01,
-    knownTowerTypes: ['archer', 'cannon', 'ice', 'dual-gatling', 'magic', 'rocket', 'poison', 'fire', 'tentacle'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
     plansAhead: true,
     maxTowers: 0, // Unlimited
