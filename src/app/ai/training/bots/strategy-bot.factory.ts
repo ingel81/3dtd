@@ -16,6 +16,8 @@ import { AntiAirPlacementStrategy } from '../strategies/placement/anti-air-place
 import { SplashDefensePlacementStrategy } from '../strategies/placement/splash-defense-placement.strategy';
 import { CoverageFillStrategy } from '../strategies/placement/coverage-fill.strategy';
 import { DistributedPlacementStrategy } from '../strategies/placement/distributed-placement.strategy';
+import { ResearchCenterPlacementStrategy } from '../strategies/placement/research-center-placement.strategy';
+import { ResearchPickStrategy } from '../strategies/research/research-pick.strategy';
 import { NearSpawnUpgradeStrategy } from '../strategies/upgrade/near-spawn-upgrade.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 
@@ -46,42 +48,56 @@ export class StrategyBotFactory {
     // Get config for this skill level
     const config = BOT_CONFIGS[skillLevel];
 
+    // Research strategies — ALL skill levels get them so the bot can bootstrap
+    // research and respect tower-lock state. Priority 95 (build center) > 90 (AntiAir).
+    const researchCenterPlacement = new ResearchCenterPlacementStrategy(
+      this.strategicPlacement, this.gameState
+    );
+    const researchPick = new ResearchPickStrategy(config);
+
     switch (skillLevel) {
       case 'beginner':
-        // Beginner: Only basic placement, no upgrades
+        // Beginner: Research Center + basic research (gatling-tech only) + placement
         strategies.push(
+          researchCenterPlacement,
+          researchPick,
           new CoverageFillStrategy(this.strategicPlacement, this.gameState, config)
         );
         break;
 
       case 'casual':
-        // Casual: Basic placement + occasional upgrades
+        // Casual: Research + basic placement + occasional upgrades
         strategies.push(
+          researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
-          new CoverageFillStrategy(this.strategicPlacement, this.gameState, config),
-          new NearSpawnUpgradeStrategy(this.gameState, this.osmService)
+          researchPick,
+          new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
+          new CoverageFillStrategy(this.strategicPlacement, this.gameState, config)
         );
         break;
 
       case 'strategist':
-        // Strategist: Distributed placement for even path coverage (AI training)
+        // Strategist: Full research tree + distributed placement + upgrades
         strategies.push(
+          researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
+          researchPick,
           new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
           new DistributedPlacementStrategy(this.strategicPlacement, this.gameState, config)
         );
         break;
 
       case 'meta':
-        // Meta: All strategies + advanced versions
+        // Meta: All strategies + research
         strategies.push(
+          researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
+          researchPick,
           new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
           new CoverageFillStrategy(this.strategicPlacement, this.gameState, config)
-          // TODO: Add advanced strategies
         );
         break;
     }

@@ -7,6 +7,8 @@
 
 import { GameStateSnapshot } from '../../core/models/game-state-snapshot';
 import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
+import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
+import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
 import {
   ITowerBot,
   TowerAction,
@@ -130,7 +132,7 @@ export abstract class BaseTowerBot implements ITowerBot {
 
     if (affordable.length === 0) return null;
 
-    // If adapts to enemies, check vulnerabilities
+    // If adapts to enemies, check vulnerabilities first (high-prio matchups)
     if (this.config.adaptsToEnemies) {
       // No anti-air? Build anti-air if affordable
       if (state.vulnerabilities.airDefenseGap) {
@@ -148,10 +150,50 @@ export abstract class BaseTowerBot implements ITowerBot {
       if (state.vulnerabilities.slowGap && affordable.includes('ice')) {
         return 'ice';
       }
+
+      // DamageType-aware pick: use armor distribution to weight effective DPS
+      if (state.expectedArmorDistribution) {
+        return this.pickTowerByDamageMatrix(affordable, state.expectedArmorDistribution);
+      }
     }
 
     // Default: pick based on DPS/cost ratio
     return this.getBestValueTower(affordable);
+  }
+
+  /**
+   * Pick the tower with highest effective DPS-per-cost against expected armor mix.
+   * effectiveDps = sum over armor-types: DAMAGE_MATRIX[damageType][armor] * dist[armor]
+   */
+  protected pickTowerByDamageMatrix(
+    affordable: TowerTypeId[],
+    armorDist: Record<ArmorType, number>
+  ): TowerTypeId {
+    let best: TowerTypeId = affordable[0];
+    let bestScore = -Infinity;
+
+    for (const typeId of affordable) {
+      const cfg = TOWER_TYPES[typeId];
+      if (!cfg) continue;
+
+      // DPS: beam towers use damagePerSecond, projectile/melee use damage * fireRate
+      const baseDps = cfg.attackType === 'beam'
+        ? (cfg.damagePerSecond ?? 0)
+        : cfg.damage * cfg.fireRate;
+      if (baseDps <= 0) continue;
+
+      const avgMultiplier = ARMOR_TYPES.reduce((sum, armor) => {
+        const m = DAMAGE_MATRIX[cfg.damageType]?.[armor] ?? 1.0;
+        return sum + m * (armorDist[armor] ?? 0);
+      }, 0);
+
+      const score = (baseDps * avgMultiplier) / cfg.cost;
+      if (score > bestScore) {
+        bestScore = score;
+        best = typeId;
+      }
+    }
+    return best;
   }
 
   /**

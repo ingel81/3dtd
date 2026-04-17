@@ -327,6 +327,27 @@ export class TrainingClientService {
         }
         break;
       }
+
+      case 'research-start': {
+        // Start a research via EventBus command
+        if (action.researchId && this.gameState) {
+          this.gameState.getEventBus().emit({
+            type: 'command:start-research',
+            researchId: action.researchId,
+          });
+        }
+        break;
+      }
+
+      case 'research-cancel': {
+        if (action.researchId && this.gameState) {
+          this.gameState.getEventBus().emit({
+            type: 'command:cancel-research',
+            researchId: action.researchId,
+          });
+        }
+        break;
+      }
     }
   }
 

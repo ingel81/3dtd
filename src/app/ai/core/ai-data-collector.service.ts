@@ -165,12 +165,14 @@ export class AIDataCollectorService {
       towerUnlocked[id] = this.researchStore.isTowerUnlocked(id);
     }
 
+    const activeResearches = this.researchStore.activeResearches();
     return {
       completedIds: [...completed],
       completedCount: completed.size,
       totalCount,
+      activeIds: activeResearches.map(a => a.researchId),
       centerLevel: this.researchStore.centerLevel(),
-      slotsUsed: this.researchStore.activeResearches().length,
+      slotsUsed: activeResearches.length,
       maxSlots: this.researchStore.researchSlots(),
       airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
       maxUpgradeTier: this.researchStore.maxUpgradeTier(),
