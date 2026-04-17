@@ -74,6 +74,12 @@ export type GameEvent =
       type: 'wave:completed';
       wave: number;
       credits: number;
+      /** True wenn keine HP in dieser Wave verloren wurde (triggers PerfectBonus) */
+      perfect: boolean;
+      /** True wenn HP am Wave-Ende <= closeCallHpThreshold (triggers CloseCallBonus) */
+      closeCall: boolean;
+      /** Anzahl HP die in dieser Wave verloren wurde (0 wenn perfect) */
+      hpLost: number;
     }
 
   // ==================== Game State Events ====================

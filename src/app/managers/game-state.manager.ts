@@ -77,6 +77,9 @@ export class GameStateManager {
   /** Training mode timescale (1.0 = normal, 3.0 = 3x speed) */
   readonly trainingTimescale = signal<number>(1.0);
 
+  /** Combo-Streak: aufeinanderfolgende Perfect-Waves (reset bei Non-Perfect + reset()) */
+  private _perfectStreak = 0;
+
   /** Sync timescale from GameStore (UI source of truth) → local signal */
   private readonly timescaleSyncEffect = effect(() => {
     const storeValue = this.gameStore.trainingTimescale();
@@ -136,6 +139,8 @@ export class GameStateManager {
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);
+    // Wire wave-number provider for WaveFactor in kill-reward formula
+    this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
 
     this.towerManager.initializeWithContext(
       tilesEngine,
@@ -334,6 +339,8 @@ export class GameStateManager {
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
     this.waveManager.setTimescaleProvider(() => this.trainingTimescale());
+    // Wire health-provider for CloseCall detection at wave end
+    this.waveManager.setCurrentHealthProvider(() => this.baseHealth());
   }
 
   /**
@@ -440,11 +447,11 @@ export class GameStateManager {
 
     // Check wave completion
     if (this.waveManager.checkWaveComplete()) {
-      this.waveManager.endWave();
+      const result = this.waveManager.endWave();
       this.towerCombat.stopAllBeams(); // Stop fire tower beams
       this.towerCombat.stopAllMelee(); // Stop tentacle visuals
       this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
-      this.updateCredits(GAME_BALANCE.waves.completionBonus);
+      this.applyWaveCompletionBonus(result);
     }
 
     // Check game over
@@ -635,6 +642,7 @@ export class GameStateManager {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
     this.updateCredits(GAME_BALANCE.player.startCredits - this.credits());
     this.lastUpdateTime = 0;
+    this._perfectStreak = 0;
 
     GameObject.resetIdCounter();
 
@@ -650,6 +658,34 @@ export class GameStateManager {
       credits: newCredits,
       delta,
     });
+  }
+
+  /**
+   * Apply Wave-Completion-Bonus gemaess MASTER_GAME_DESIGN 5.2 + 5.4.
+   * - WaveCompleteBase = base + slope * wave
+   * - PerfectBonus (35%) wenn kein HP-Verlust
+   * - CloseCallBonus (12%) wenn HP am Ende knapp
+   * - Milestone-Bonus (fest bei Wave 10/20/30/40)
+   * - ComboBonus (aufeinanderfolgende Perfect-Waves, max 30%)
+   * - ComebackBonus (HP_Lost * slope, capped)
+   */
+  private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): void {
+    const cfg = GAME_BALANCE.economy;
+    const base = Math.round(cfg.waveCompleteBase + cfg.waveCompleteSlope * result.wave);
+    const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
+    const closeCallBonus = result.closeCall ? Math.round(base * cfg.closeCallBonusRatio) : 0;
+    const milestoneBonus = cfg.milestoneBonuses[result.wave] ?? 0;
+    const comebackBonus = result.hpLost > 0
+      ? Math.min(cfg.comebackBonusCap, Math.round(result.hpLost * cfg.comebackBonusSlope))
+      : 0;
+
+    // Combo-Streak: Perfect-Wave erhoeht Streak, Non-Perfect resettet
+    this._perfectStreak = result.perfect ? this._perfectStreak + 1 : 0;
+    const comboMultiplier = Math.min(cfg.comboBonusMax, this._perfectStreak * cfg.comboBonusPerStreak);
+    const comboBonus = Math.round(base * comboMultiplier);
+
+    const total = base + perfectBonus + closeCallBonus + milestoneBonus + comebackBonus + comboBonus;
+    this.updateCredits(total);
   }
 
   private addCredits(amount: number): void {

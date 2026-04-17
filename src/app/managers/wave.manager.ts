@@ -3,6 +3,7 @@ import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId } from '../models/enemy-types';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager } from '../game-engine';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 
 // Re-export GamePhase for backward compatibility
 export type { GamePhase } from '../models/game.types';
@@ -66,11 +67,29 @@ export class WaveManager implements IGameManager {
   private expectedEnemyCount = 0;
   private spawnedEnemyCount = 0;
 
+  // Track Perfect/CloseCall signals per wave
+  private damageTakenThisWave = 0;
+  private currentHealthProvider: (() => number) | null = null;
+
   constructor(
     private eventBus: GameEventBus,
     private enemyManager: EnemyManager
   ) {
     this.registerDebugHandlers();
+    // Accumulate damage-to-base during active waves (for Perfect-detection)
+    this.eventBus.on('enemy:reached-base', (e) => {
+      if (this.phase() === 'wave') {
+        this.damageTakenThisWave += e.damage;
+      }
+    });
+  }
+
+  /**
+   * Set the current-health provider (from GameStateManager).
+   * Used for CloseCall-detection at wave end.
+   */
+  setCurrentHealthProvider(provider: () => number): void {
+    this.currentHealthProvider = provider;
   }
 
   private registerDebugHandlers(): void {
@@ -108,6 +127,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking (manual mode - unlimited spawning)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+    this.damageTakenThisWave = 0;
 
     // Emit wave:started event
     this.eventBus.emit({
@@ -141,6 +161,7 @@ export class WaveManager implements IGameManager {
     // Initialize spawn tracking
     this.expectedEnemyCount = enemyCount;
     this.spawnedEnemyCount = 0;
+    this.damageTakenThisWave = 0;
 
     // Emit wave:started event with actual enemy count
     this.eventBus.emit({
@@ -224,6 +245,7 @@ export class WaveManager implements IGameManager {
 
     this.expectedEnemyCount = entries.length;
     this.spawnedEnemyCount = 0;
+    this.damageTakenThisWave = 0;
 
     this.eventBus.emit({
       type: 'wave:started',
@@ -309,17 +331,28 @@ export class WaveManager implements IGameManager {
   /**
    * End the current wave
    */
-  endWave(): void {
+  endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number } {
     const waveNum = this.waveNumber();
     this.enemyManager.clear();
     this.phase.set('setup');
+
+    // Compute Perfect/CloseCall quality signals
+    const hpLost = this.damageTakenThisWave;
+    const perfect = hpLost === 0;
+    const hpAtEnd = this.currentHealthProvider ? this.currentHealthProvider() : 100;
+    const closeCall = !perfect && hpAtEnd <= GAME_BALANCE.economy.closeCallHpThreshold;
 
     // Emit wave:completed event (credits are added by GameStateManager)
     this.eventBus.emitDeferred({
       type: 'wave:completed',
       wave: waveNum,
       credits: 0, // Credits are handled separately via GAME_BALANCE
+      perfect,
+      closeCall,
+      hpLost,
     });
+
+    return { wave: waveNum, perfect, closeCall, hpLost };
   }
 
   /**
