@@ -15,12 +15,12 @@ class WaveDirectorModel(nn.Module):
     """
     Neural network for wave configuration prediction.
 
-    Architecture (Phase 5.5):
+    Architecture (Phase 5.7):
     - Spatial branch: Conv1D over DPS profile (2 channels x 20 bins)
-    - Scalar branch: Dense layers over game state (53 features)
+    - Scalar branch: Dense layers over game state (131 features — +25 self-awareness)
     - Combined: Merged features -> output heads
 
-    Input: 93 features = 53 scalar + 40 spatial (2x20 DPS bins)
+    Input: 171 features = 131 scalar + 40 spatial (2x20 DPS bins)
     Output: Enemy type (categorical, 16 types) + continuous params (Gaussian) + value
     """
 
@@ -40,16 +40,16 @@ class WaveDirectorModel(nn.Module):
             nn.AdaptiveAvgPool1d(1),                       # -> (batch, 32, 1)
         )  # Output: 32 features
 
-        # Scalar branch: Dense (input 34 → 53, output scaled up to 96)
+        # Scalar branch: Dense (input 131 → hidden 128 for Phase 5.7)
         self.scalar = nn.Sequential(
-            nn.Linear(NUM_SCALAR, 96),
-            nn.LayerNorm(96),
+            nn.Linear(NUM_SCALAR, 128),
+            nn.LayerNorm(128),
             nn.ReLU(),
-        )  # Output: 96 features
+        )  # Output: 128 features
 
-        # Combined: 32 + 96 = 128
+        # Combined: 32 + 128 = 160
         self.combined = nn.Sequential(
-            nn.Linear(128, 192),
+            nn.Linear(160, 192),
             nn.LayerNorm(192),
             nn.ReLU(),
             nn.Dropout(0.1),
@@ -72,16 +72,16 @@ class WaveDirectorModel(nn.Module):
     def forward(self, x):
         """Forward pass returning policy and value."""
         # Split input into scalar and spatial
-        scalars = x[:, :NUM_SCALAR]            # (batch, 53)
+        scalars = x[:, :NUM_SCALAR]            # (batch, 131)
         spatial = x[:, NUM_SCALAR:]            # (batch, 40)
         spatial = spatial.view(-1, 2, 20)      # (batch, 2, 20) = 2 channels
 
         # Process branches
         spatial_out = self.spatial(spatial).squeeze(-1)  # (batch, 32)
-        scalar_out = self.scalar(scalars)                # (batch, 96)
+        scalar_out = self.scalar(scalars)                # (batch, 128)
 
         # Combine
-        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 128)
+        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 160)
         features = self.combined(combined)                       # (batch, 96)
 
         # Output heads
@@ -126,7 +126,7 @@ class WaveDirectorModel(nn.Module):
         kill_time_range = KILL_TIME_MAX - KILL_TIME_MIN
         kill_time = KILL_TIME_MIN + torch.sigmoid(sampled_raw[:, 0]) * kill_time_range  # [KILL_TIME_MIN, KILL_TIME_MAX]s
         count_factor = torch.sigmoid(sampled_raw[:, 1])                 # [0, 1] -> mapped to [min_count, max]
-        delay_factor = torch.sigmoid(sampled_raw[:, 2])                 # [0, 1] -> mapped to [500, 2000]ms
+        delay_factor = torch.sigmoid(sampled_raw[:, 2])                 # [0, 1] -> mapped to [SPAWN_DELAY_MIN, SPAWN_DELAY_MAX]ms (50-2000)
         variation = torch.sigmoid(sampled_raw[:, 3]) * VARIATION_MAX     # [0, VARIATION_MAX]
 
         # === Continuous log probability ===

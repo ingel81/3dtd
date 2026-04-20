@@ -131,24 +131,48 @@ class TUILogger:
 
         self._log("wave_generated", log_data)
 
-    def wave_result(self, wave_num, damage_pct, killed, avg_progress, near_miss_ratio=0):
-        self._log("wave_result", {
-            "wave": wave_num, "damage_pct": round(damage_pct, 3),
-            "killed": killed, "avg_progress": round(avg_progress, 3),
+    def wave_result(self, wave_num, damage_pct, killed, avg_progress, near_miss_ratio=0,
+                    client_id=None, max_progress=None, progress_std=None,
+                    total_count=None, num_groups=None, reward=None, perfect=None,
+                    close_call=None, enemy_types=None, player_credits=None,
+                    player_health=None):
+        """Log a wave result with full context so post-hoc analysis can break
+        it down by client, wave, and signal."""
+        payload = {
+            "wave": wave_num,
+            "damage_pct": round(damage_pct, 3),
+            "killed": killed,
+            "avg_progress": round(avg_progress, 3),
             "near_miss_ratio": round(near_miss_ratio, 3),
-        })
+        }
+        if client_id is not None: payload["client_id"] = client_id
+        if max_progress is not None: payload["max_progress"] = round(max_progress, 3)
+        if progress_std is not None: payload["progress_std"] = round(progress_std, 3)
+        if total_count is not None: payload["total_count"] = int(total_count)
+        if num_groups is not None: payload["num_groups"] = int(num_groups)
+        if reward is not None: payload["reward"] = round(reward, 4)
+        if perfect is not None: payload["perfect"] = bool(perfect)
+        if close_call is not None: payload["close_call"] = bool(close_call)
+        if enemy_types is not None: payload["enemy_types"] = list(enemy_types)
+        if player_credits is not None: payload["player_credits"] = int(player_credits)
+        if player_health is not None: payload["player_health"] = int(player_health)
+        self._log("wave_result", payload)
 
-    def training_step(self, episode, reward, avg_reward, breakdown=None):
+    def training_step(self, episode, reward, avg_reward, breakdown=None, client_id=None, wave=None):
         best = self.stats["best_reward"]
         if reward > best:
             best = reward
         self.update_episode(episode, 0, avg_reward, best)
 
-        self._log("training_step", {
-            "episode": episode, "reward": round(reward, 4),
+        payload = {
+            "episode": episode,
+            "reward": round(reward, 4),
             "avg_reward": round(avg_reward, 4),
             "breakdown": breakdown,
-        })
+        }
+        if client_id is not None: payload["client_id"] = client_id
+        if wave is not None: payload["wave"] = wave
+        self._log("training_step", payload)
 
         # Print every 10th episode to reduce noise
         if episode % 10 == 0:
