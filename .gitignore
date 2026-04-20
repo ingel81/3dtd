@@ -61,6 +61,8 @@ __pycache__/
 # AI Training (generated artifacts)
 training-backend/checkpoints/
 training-backend/logs/
+training-backend/.server.log
+training-backend/.server.pid
 logs/
 
 # AI Model intermediate files (ONNX model is committed)
