@@ -27,6 +27,7 @@ from config import (
     INPUT_SIZE,
     ENEMY_BASE_HP,
     ENEMY_TYPES,
+    ENEMY_ARMOR,
     AIR_ENEMIES,
     ETHEREAL_ENEMIES,
     TYPE_COOLDOWN_WAVES,
@@ -48,6 +49,26 @@ except ImportError:
     pass
 
 
+def _compute_armor_dist(enemies: list) -> dict:
+    """Armor-Verteilung (in %) aus den gerade entschiedenen Gruppen.
+
+    Wird im wave_info ans Dashboard gegeben damit jede Client-Card die
+    tatsächliche Armor-Mischung der aktuellen Wave sieht (nicht die vorige,
+    die im state.expectedArmorDistribution des Clients stand und stale war).
+    """
+    dist = {"unarmored": 0.0, "light": 0.0, "heavy": 0.0, "fortified": 0.0, "ethereal": 0.0}
+    total = sum(int(g.get("count", 0) or 0) for g in (enemies or []))
+    if total <= 0:
+        return dist
+    for g in enemies:
+        t = g.get("type")
+        c = int(g.get("count", 0) or 0)
+        armor = ENEMY_ARMOR.get(t, "unarmored")
+        dist[armor] = dist.get(armor, 0.0) + c / total
+    # Clean-up: runde auf 4 decimals um Float-Rauschen zu vermeiden
+    return {k: round(v, 4) for k, v in dist.items()}
+
+
 class ClientContext:
     """Per-client training context."""
 
@@ -59,6 +80,19 @@ class ClientContext:
         self.recent_progress = []
         self.enemy_types_used = []
         self.recent_types_flat = []  # Last N types for cooldown/monotony
+        # Armor categories of recent waves (for armor-diversity reward signals).
+        # Parallel to recent_types_flat — tracks dominant-group armor per wave.
+        self.recent_armor_categories = []
+        # Phase 5.7: flat armor-category-log over 30 waves (one entry per wave's
+        # dominant armor). Feeds the armor-dominance-penalty AND the per-client
+        # state-vector Armor-Dominance-Share features.
+        self.recent_armor_categories_flat = []
+        # Phase 5.7: self-awareness history — what the net itself chose last.
+        # Read into state-vector so the net sees its own recent policy output.
+        self.recent_rewards = []        # last 5 total rewards
+        self.recent_wave_sizes = []     # last 5 totalCount values
+        self.recent_kill_times = []     # last 5 kill_time decisions
+        self.recent_count_factors = []  # last 5 count_factor decisions (already [0,1])
         self.consecutive_close_calls = 0
         self.win_streak = 0
         self.wave_num = 0
@@ -90,6 +124,9 @@ class TrainingServer:
         self.games_played = 0
         self.total_reward = 0
         self.best_reward = float("-inf")
+        # Training run-state: clients join paused. Dashboard Start button flips
+        # this to 'running' and broadcasts. Reload keeps the current state.
+        self.training_state = 'paused'  # 'paused' | 'running'
 
         # Create checkpoint directory
         Path(CHECKPOINT_DIR).mkdir(exist_ok=True)
@@ -134,7 +171,18 @@ class TrainingServer:
             stale_keys = [k for k in self.trainer.pending if k[0] == client_id]
             for k in stale_keys:
                 del self.trainer.pending[k]
+            # Drop dashboard per-client history so the UI's stats broadcast
+            # (activeClientIds) can prune the card without stale data resurrection.
+            if self.dashboard:
+                display_id = client_id % 10000
+                self.dashboard.per_client.pop(display_id, None)
             logger.client_disconnected(client_id, len(self.clients))
+            # Push fresh stats so the dashboard UI sees the new activeClientIds list
+            # and removes the disconnected client's card immediately.
+            try:
+                await self._broadcast_stats()
+            except Exception:
+                pass
 
     async def _handle_message(self, ws, client_id, msg):
         """Process incoming message."""
@@ -150,9 +198,10 @@ class TrainingServer:
             await ws.send(json.dumps({
                 "type": "connected",
                 "sessionId": session_id,
-                "displayId": display_id
+                "displayId": display_id,
+                "trainingState": self.training_state,
             }))
-            logger.debug(f"Session established: #{display_id}")
+            logger.debug(f"Session established: #{display_id} ({self.training_state})")
 
         elif msg_type == "state":
             # Game state received - generate wave config
@@ -174,14 +223,44 @@ class TrainingServer:
             action = self._get_action(state_data, ctx, client_id)
             wave_config, wave_info = self._decode_action(action, state_data, ctx)
 
-            # Track enemy type for variety bonus and cooldown
-            wave_enemy_type = wave_config["enemies"][0]["type"]
+            # Track ALL enemy types from this wave (not just dominant) so monotony
+            # + armor-diversity reward signals see the full mixed-wave composition.
+            from config import ENEMY_ARMOR
+            wave_all_types = [g["type"] for g in wave_config["enemies"]]
+            wave_enemy_type = wave_all_types[0]  # dominant — kept for legacy fields
+            wave_all_armors = list({ENEMY_ARMOR.get(t, "unknown") for t in wave_all_types})
+
             ctx.last_enemy_type = wave_enemy_type
-            ctx.last_wave_info = wave_info  # Store for dashboard on result
-            ctx.enemy_types_used.append([wave_enemy_type])
-            ctx.recent_types_flat.append(wave_enemy_type)
-            if len(ctx.recent_types_flat) > 10:
-                ctx.recent_types_flat = ctx.recent_types_flat[-10:]
+            ctx.last_wave_info = wave_info
+            ctx.enemy_types_used.append(wave_all_types)  # all types per wave
+            # Flat history: each wave extends with ALL its types (not just one)
+            ctx.recent_types_flat.extend(wave_all_types)
+            if len(ctx.recent_types_flat) > 30:
+                ctx.recent_types_flat = ctx.recent_types_flat[-30:]
+            # Armor-history: one entry per wave containing ALL armors present.
+            # Use comma-joined string so reward.py can parse back set membership.
+            ctx.recent_armor_categories.append(",".join(sorted(wave_all_armors)))
+            if len(ctx.recent_armor_categories) > 10:
+                ctx.recent_armor_categories = ctx.recent_armor_categories[-10:]
+            # Phase 5.7: flat armor log over 30 waves (one entry per wave's
+            # DOMINANT armor) for the Armor-Dominance-Penalty in reward.py AND
+            # the per-client state-vector features.
+            dominant_armor = ENEMY_ARMOR.get(wave_enemy_type, "unarmored")
+            ctx.recent_armor_categories_flat.append(dominant_armor)
+            if len(ctx.recent_armor_categories_flat) > 30:
+                ctx.recent_armor_categories_flat = ctx.recent_armor_categories_flat[-30:]
+            # Phase 5.7: self-awareness — remember what the net chose (wave size,
+            # kill_time, count_factor) so the state-vector can expose those as
+            # features the net can read back.
+            ctx.recent_wave_sizes.append(int(wave_config.get("totalCount", 0)))
+            if len(ctx.recent_wave_sizes) > 5:
+                ctx.recent_wave_sizes = ctx.recent_wave_sizes[-5:]
+            ctx.recent_kill_times.append(float(wave_info.get("kill_time", 0)))
+            if len(ctx.recent_kill_times) > 5:
+                ctx.recent_kill_times = ctx.recent_kill_times[-5:]
+            ctx.recent_count_factors.append(float(wave_info.get("count_factor", 0)))
+            if len(ctx.recent_count_factors) > 5:
+                ctx.recent_count_factors = ctx.recent_count_factors[-5:]
 
             logger.wave_generated(wave_config, wave_info=wave_info)
 
@@ -205,7 +284,16 @@ class TrainingServer:
             # Use raw path progress (DPS profile is model INPUT only, not used for reward normalization)
             raw_values = outcome.get('enemyProgressValues', [])
             if not raw_values:
-                raw_values = [0]
+                # Fallback: per-enemy list is missing (can happen on game-over mid-wave
+                # when the frontend hasn't finalized enemyPathProgress). Use the summary
+                # from the outcome so we don't drop the wave to a bogus 0.0 progress
+                # (that made avg_progress bimodal at 0/1 and killed the reward gradient).
+                summary = raw_progress
+                # If game-over but zero summary, synthesize from damage — enemies clearly
+                # got through (damage > 0) so progress must have been high.
+                if summary == 0 and damage_pct > 0:
+                    summary = min(1.0, 0.5 + damage_pct)
+                raw_values = [summary] if summary > 0 else [0]
 
             # Compute distribution metrics on raw progress values
             avg_progress = sum(raw_values) / len(raw_values)
@@ -213,7 +301,19 @@ class TrainingServer:
             near_miss_ratio = sum(1 for v in raw_values if v > 0.80) / len(raw_values)
             progress_std = (sum((v - avg_progress)**2 for v in raw_values) / len(raw_values)) ** 0.5
 
-            logger.wave_result(wave_num, damage_pct, killed, avg_progress, near_miss_ratio)
+            display_id_for_log = client_id % 10000
+            logger.wave_result(
+                wave_num, damage_pct, killed, avg_progress, near_miss_ratio,
+                client_id=display_id_for_log,
+                max_progress=max_progress,
+                progress_std=progress_std,
+                total_count=outcome.get("enemiesSpawned", 0),
+                perfect=outcome.get("perfect"),
+                close_call=outcome.get("wasCloseCall"),
+                enemy_types=list(ctx.enemy_types_used[-1]) if ctx.enemy_types_used and ctx.enemy_types_used[-1] else None,
+                player_credits=(state_after or {}).get("player", {}).get("credits") if state_after else None,
+                player_health=(state_after or {}).get("player", {}).get("lives") if state_after else None,
+            )
 
             # Show player state changes during wave
             if state_after and ctx.current_state:
@@ -234,16 +334,46 @@ class TrainingServer:
             self.total_reward += reward
             avg_reward = self.total_reward / max(1, self.episode)
 
-            logger.training_step(self.episode, reward, avg_reward, breakdown=breakdown)
+            logger.training_step(
+                self.episode, reward, avg_reward, breakdown=breakdown,
+                client_id=client_id % 10000, wave=wave_num,
+            )
 
             # Record to dashboard
             if self.dashboard:
+                display_id = client_id % 10000
                 self.dashboard.record_episode(reward, avg_progress,
-                                              near_miss=near_miss_ratio, breakdown=breakdown)
+                                              near_miss=near_miss_ratio, breakdown=breakdown,
+                                              client_id=display_id)
                 enemy_type = ctx.enemy_types_used[-1][0] if ctx.enemy_types_used and ctx.enemy_types_used[-1] else getattr(ctx, 'last_enemy_type', '?')
                 enemy_count = outcome.get("enemiesSpawned", 0)
+                # Enrich wave_info with post-wave player economy (credits + health) for
+                # dashboard visibility — not used by the NN, purely for balance inspection.
+                if ctx.last_wave_info is not None and state_after:
+                    player = state_after.get("player", {})
+                    ctx.last_wave_info["player_credits"] = player.get("credits", 0)
+                    # Snapshot uses `lives`, not `health`, for base HP
+                    ctx.last_wave_info["player_health"] = player.get("lives", 0)
+                    ctx.last_wave_info["damage_pct"] = damage_pct
+
+                    # Bot telemetry — tower-type distribution + avg levels for
+                    # dashboard inspection. towerDistribution = {id: {count, avgLevel, ...}}
+                    defense = state_after.get("defense", {}) or {}
+                    tower_dist = defense.get("towerDistribution", {}) or {}
+                    tower_counts = {}
+                    tower_levels = {}
+                    for type_id, stats in tower_dist.items():
+                        if isinstance(stats, dict):
+                            count = stats.get("count", 0) or 0
+                            if count > 0:
+                                tower_counts[type_id] = count
+                                tower_levels[type_id] = round(stats.get("avgLevel", 1) or 1, 1)
+                    ctx.last_wave_info["tower_counts"] = tower_counts
+                    ctx.last_wave_info["tower_avg_levels"] = tower_levels
+                    ctx.last_wave_info["tower_count_total"] = defense.get("towerCount", 0)
                 self.dashboard.record_wave(wave_num, enemy_type, enemy_count, avg_progress, reward,
-                                           wave_info=ctx.last_wave_info)
+                                           wave_info=ctx.last_wave_info,
+                                           client_id=display_id)
 
             # Save checkpoint periodically
             if self.episode % CHECKPOINT_INTERVAL == 0:
@@ -329,22 +459,37 @@ class TrainingServer:
         return action
 
     def _encode_state(self, state, ctx=None):
-        """Convert game state dict to flat 93-feature array (Phase 5.5).
+        """Convert game state dict to flat 171-feature array (Phase 5.7).
 
         Layout (MUST match game-state-encoder.ts encodeGameState):
-        [0-3]    Player: credits, lives%, wave, time
-        [4-5]    Tower: count, avgLevel
-        [6-14]   Tower Type Counts: 9 types (archer, cannon, magic, dual-gatling, rocket, ice, fire, tentacle, poison)
-        [15-19]  History Damage: last 5 waves
-        [20-24]  History Progress: last 5 waves avg_progress
-        [25-29]  Wave Signals: momentum, avgDmg, duration, episodeProgress, variance
-        [30-34]  Context: wave, trend, skill, lastThreat, winStreak
-        [35-41]  DPS by Damage Type: physical, pierce, siege, magic, fire, ice, poison (7)
-        [42-46]  Enemy Armor Distribution: unarmored, light, heavy, fortified, ethereal (5)
-        [47-51]  Research State: completedRatio, centerLevel/3, slotsUsed/maxSlots, airTargeting, maxTier/3 (5)
-        [52]     Reserved
-        [53-72]  Ground DPS Profile: 20 bins
-        [73-92]  Air DPS Profile: 20 bins
+        [0-3]     Player: credits, lives%, wave, time
+        [4-5]     Tower: count, avgLevel
+        [6-14]    Tower Type Counts: 9 types (archer, cannon, magic, dual-gatling, rocket, ice, fire, tentacle, poison)
+        [15-19]   History Damage: last 5 waves
+        [20-24]   History Progress: last 5 waves avg_progress
+        [25-29]   Wave Signals: momentum, avgDmg, duration, episodeProgress, variance
+        [30-34]   Context: wave, trend, skill, lastThreat, winStreak
+        [35-41]   DPS by Damage Type: physical, pierce, siege, magic, fire, ice, poison (7)
+        [42-46]   Enemy Armor Distribution (current wave): unarmored, light, heavy, fortified, ethereal (5)
+        [47-51]   Research State: completedRatio, centerLevel/3, slotsUsed/maxSlots, airTargeting, maxTier/3 (5)
+        [52]      Reserved
+        --- Phase 5.6 Awareness Block (53 features, scalar) ---
+        [53-68]   Types-History: per-type frequency across last 5 waves (16)
+        [69-73]   Armor-History: per-armor frequency across last 5 waves (5)
+        [74-78]   Damage-Pct-History: last 5 damage percentages (5)
+        [79-87]   Tower-Type Avg-Levels: avg upgrade level per tower type (9)
+        [88-91]   Defense Capabilities: hasAntiAir, hasSplash, hasSlow, hasDoT (4)
+        [92-100]  Tower-Unlock-Status: researched flags per tower type (9)
+        [101-105] Near-Miss-History: last 5 nearMissRatio values (5)
+        --- Phase 5.7 Self-Awareness Block (25 features, scalar, PER-CLIENT) ---
+        [106-110] Reward-History: last 5 total rewards, clipped [-2,+2]/2 (5)
+        [111-115] Wave-Size-History: last 5 totalCount, min(1, count/500) (5)
+        [116-120] Kill-Time-History: last 5 kill_time, normalized (5)
+        [121-125] Count-Factor-History: last 5 count_factor values [0,1] (5)
+        [126-130] Armor-Dominance-Share: per category share over last 30 waves (5)
+        --- Spatial Block (40 features) ---
+        [131-150] Ground DPS Profile: 20 bins
+        [151-170] Air DPS Profile: 20 bins
         """
         encoded = []
 
@@ -455,7 +600,117 @@ class TrainingServer:
         # === Reserved [52] ===
         encoded.append(0)
 
-        # === DPS Profile [53-92] ===
+        # ─── PHASE 5.6 AWARENESS BLOCK [53-105] (53 features) ───────────────
+
+        # === Types-History [53-68] (16) ===
+        # Each entry = fraction of last 5 waves in which this enemy type appeared.
+        # Frontend sends enemyTypesUsed: string[][] (outer = wave, inner = types used that wave).
+        enemy_types_history = history.get("enemyTypesUsed", []) or []
+        recent_waves = enemy_types_history[-5:] if enemy_types_history else []
+        window = max(1, len(recent_waves))
+        for t in ENEMY_TYPES:
+            count_in_window = sum(1 for wave_types in recent_waves if t in wave_types)
+            encoded.append(count_in_window / window)
+
+        # === Armor-History [69-73] (5) ===
+        # Fraction of last 5 waves that contained each armor category.
+        for a in armor_types:
+            count_in_window = sum(
+                1 for wave_types in recent_waves
+                if any(ENEMY_ARMOR.get(t) == a for t in wave_types)
+            )
+            encoded.append(count_in_window / window)
+
+        # === Damage-Pct-History [74-78] (5) ===
+        # Same semantics as [15-19] — explicit duplication mirrors frontend.
+        for i in range(5):
+            idx = len(damages) - 5 + i
+            encoded.append(damages[idx] if 0 <= idx < len(damages) else 0)
+
+        # === Tower-Type Avg-Levels [79-87] (9) ===
+        for t in tower_types:
+            stats = dist.get(t, {}) or {}
+            avg_lvl = stats.get("avgLevel", 0)
+            encoded.append(min(1.0, (avg_lvl or 0) / 5))
+
+        # === Defense Capabilities [88-91] (4) ===
+        caps = defense.get("capabilities", {}) or {}
+        encoded.append(1.0 if caps.get("hasAntiAir") else 0.0)
+        encoded.append(1.0 if caps.get("hasSplash") else 0.0)
+        encoded.append(1.0 if caps.get("hasSlow") else 0.0)
+        encoded.append(1.0 if caps.get("hasDoT") else 0.0)
+
+        # === Tower-Unlock Status [92-100] (9) ===
+        tower_unlocked_map = (research or {}).get("towerUnlocked", {}) or {}
+        for t in tower_types:
+            encoded.append(1.0 if tower_unlocked_map.get(t) else 0.0)
+
+        # === Near-Miss History [101-105] (5) ===
+        near_miss_hist = history.get("nearMissPerWave", []) or []
+        for i in range(5):
+            idx = len(near_miss_hist) - 5 + i
+            encoded.append(near_miss_hist[idx] if 0 <= idx < len(near_miss_hist) else 0)
+
+        # ─── PHASE 5.7 SELF-AWARENESS BLOCK [106-130] (25 features) ─────────
+        # All five histories are PER-CLIENT (read from ctx). If ctx is missing
+        # (shouldn't happen in practice), we zero-fill so the vector stays the
+        # correct size and the model's first evaluate call doesn't crash.
+
+        # === Reward-History [106-110] (5) ===
+        # Last 5 total rewards, clipped to [-2, +2] then normalized to [-1, +1].
+        recent_rewards = ctx.recent_rewards if ctx else []
+        for i in range(5):
+            idx = len(recent_rewards) - 5 + i
+            if 0 <= idx < len(recent_rewards):
+                r = recent_rewards[idx]
+                encoded.append(max(-1.0, min(1.0, r / 2.0)))
+            else:
+                encoded.append(0.0)
+
+        # === Wave-Size-History [111-115] (5) ===
+        # Last 5 totalCount values, normalized min(1, count/500).
+        recent_wave_sizes = ctx.recent_wave_sizes if ctx else []
+        for i in range(5):
+            idx = len(recent_wave_sizes) - 5 + i
+            if 0 <= idx < len(recent_wave_sizes):
+                encoded.append(min(1.0, recent_wave_sizes[idx] / 500.0))
+            else:
+                encoded.append(0.0)
+
+        # === Kill-Time-History [116-120] (5) ===
+        # Last 5 kill_time values, normalized (value - KT_MIN) / (KT_MAX - KT_MIN).
+        from config import KILL_TIME_MIN, KILL_TIME_MAX
+        kt_span = max(0.001, KILL_TIME_MAX - KILL_TIME_MIN)
+        recent_kill_times = ctx.recent_kill_times if ctx else []
+        for i in range(5):
+            idx = len(recent_kill_times) - 5 + i
+            if 0 <= idx < len(recent_kill_times):
+                normed = (recent_kill_times[idx] - KILL_TIME_MIN) / kt_span
+                encoded.append(max(0.0, min(1.0, normed)))
+            else:
+                encoded.append(0.0)
+
+        # === Count-Factor-History [121-125] (5) ===
+        # Last 5 count_factor values (already [0, 1]).
+        recent_count_factors = ctx.recent_count_factors if ctx else []
+        for i in range(5):
+            idx = len(recent_count_factors) - 5 + i
+            if 0 <= idx < len(recent_count_factors):
+                encoded.append(max(0.0, min(1.0, recent_count_factors[idx])))
+            else:
+                encoded.append(0.0)
+
+        # === Armor-Dominance-Share [126-130] (5) ===
+        # Per category share over last 30 waves (dominant armor per wave).
+        armor_flat = ctx.recent_armor_categories_flat if ctx else []
+        from config import ARMOR_DOMINANCE_WINDOW
+        window_flat = armor_flat[-ARMOR_DOMINANCE_WINDOW:] if armor_flat else []
+        total_in_window = max(1, len(window_flat))
+        for a in armor_types:
+            cnt = sum(1 for x in window_flat if x == a)
+            encoded.append(cnt / total_in_window)
+
+        # ─── SPATIAL BLOCK [131-170] (40 features) ──────────────────────────
         dps_profile = state.get("dpsProfile", {})
         ground_dps = dps_profile.get("groundDPS", [0] * 20)
         air_dps = dps_profile.get("airDPS", [0] * 20)
@@ -465,11 +720,11 @@ class TrainingServer:
             ctx.ground_dps_profile = ground_dps[:20]
             ctx.air_dps_profile = air_dps[:20]
 
-        # Ground DPS [53-72]
+        # Ground DPS [131-150]
         for i in range(20):
             encoded.append(ground_dps[i] if i < len(ground_dps) else 0)
 
-        # Air DPS [73-92]
+        # Air DPS [151-170]
         for i in range(20):
             encoded.append(air_dps[i] if i < len(air_dps) else 0)
 
@@ -493,20 +748,47 @@ class TrainingServer:
         research = state.get("research", {}) if state else {}
         masked_probs = self._apply_fairness_mask(probs, research)
 
-        # Count: scaled by tower count and defense zone kill capacity
+        # Count: PRIMARY difficulty knob, but gated by what the defense can
+        # actually kill in WAVE_BUDGET_S seconds. Strong defense + low-HP enemies
+        # → thousands of mobs legitimately possible. Weak defense → small wave.
+        # Wave stays challenging (slack > 1.0) but beatable — never unwinnable.
+        from config import (
+            WAVE_COUNT_MIN_BASE, WAVE_COUNT_CAP, WAVE_COUNT_FLOOR,
+            WAVE_BUDGET_S, WAVE_COUNT_SLACK, HEALTH_MULTIPLIER_MAX,
+        )
         defense = state.get("defense", {}) if state else {}
         tower_count = max(1, defense.get("towerCount", 1))
-        defense_reach = defense.get("defenseReachPercent", 0.2)
+        total_dps = max(25.0, float(defense.get("totalDPS", 25)))
 
-        max_count = max(8, min(30, tower_count * 5))
-        zone_time = max(8.0, defense_reach * 40.0)
-        max_kills = (zone_time / max(1.0, kill_time)) * tower_count
-        kill_capacity = max(8, int(max_kills * 1.5))
-        effective_max = min(max_count, kill_capacity)
-        min_count = max(5, tower_count + 1)
-        total_count = int(min_count + count_t * (effective_max - min_count))
+        # Expected per-enemy HP for capacity-planning. Use a fixed reference
+        # (median baseHP × typical multiplier) instead of the AI's kill_time
+        # derived HP — otherwise kill_capacity collapses to a constant, and
+        # stronger defense wouldn't unlock bigger waves. This way:
+        #   DPS=100  → capacity ~20  (early game)
+        #   DPS=800  → capacity ~160
+        #   DPS=3000 → capacity ~600 (mid-late game)
+        #   DPS=10000→ capacity ~2000 (endgame)
+        # Swarm waves (rats, baseHP=5) are even larger in practice since the
+        # healthMultiplier cap bites — the AI is free to exploit that.
+        REFERENCE_ENEMY_HP = 300.0   # median baseHP × typical mult (~100 × 3)
+        kill_capacity = (total_dps * WAVE_BUDGET_S) / REFERENCE_ENEMY_HP
 
-        spawn_delay = int(500 + delay_t * 1500)
+        min_count = max(WAVE_COUNT_MIN_BASE, tower_count + 1)
+        max_count = min(WAVE_COUNT_CAP, int(max(WAVE_COUNT_FLOOR, kill_capacity * WAVE_COUNT_SLACK)))
+        if max_count <= min_count:
+            max_count = min_count + 5
+        total_count = int(min_count + count_t * (max_count - min_count))
+
+        # Spawn delay: compress for large waves so all enemies fit inside
+        # WAVE_BUDGET_S (wave shouldn't drag on much longer than the budget).
+        from config import SPAWN_DELAY_MIN, SPAWN_DELAY_MAX
+        base_delay = int(SPAWN_DELAY_MIN + delay_t * (SPAWN_DELAY_MAX - SPAWN_DELAY_MIN))
+        target_window_ms = WAVE_BUDGET_S * 1000
+        if total_count * base_delay > target_window_ms:
+            base_delay = int(target_window_ms / max(1, total_count))
+        # Floor 5ms → at 2000 enemies = 10s spawn window = actual horde feeling
+        # (was 50ms = 100s which killed swarm impact).
+        spawn_delay = max(5, base_delay)
 
         # Top-K multi-group selection
         groups = self._select_enemy_groups_top_k(
@@ -566,7 +848,11 @@ class TrainingServer:
             "num_groups": len(enemies),
             "final_type": dominant_type,
             # Phase 5.5: damage/armor/research signals (for dashboard observability)
-            "armor_dist": state.get("expectedArmorDistribution") if state else None,
+            # armor_dist: deterministisch aus den gerade entschiedenen enemies-Gruppen
+            # berechnen. State.expectedArmorDistribution stammt noch aus der VORIGEN
+            # Wave → stale/None. Hier zählen wir die tatsächliche Verteilung der
+            # Wave, die wir gerade zurücksenden.
+            "armor_dist": _compute_armor_dist(enemies),
             "dps_by_type": state.get("dpsByDamageType") if state else None,
             "research": {
                 "centerLevel": (state.get("research", {}) or {}).get("centerLevel", 0),
@@ -699,6 +985,9 @@ class TrainingServer:
             "recent_damages": ctx.recent_damages,
             "enemy_types_used": ctx.enemy_types_used[:-1],  # History before current wave
             "recent_types_flat": ctx.recent_types_flat,  # For monotony penalty
+            "recent_armor_categories": ctx.recent_armor_categories,  # For armor-diversity
+            # Phase 5.7: flat 30-wave armor log feeds Armor-Dominance-Penalty.
+            "recent_armor_categories_flat": ctx.recent_armor_categories_flat,
             "consecutive_close_calls": ctx.consecutive_close_calls,
         }
 
@@ -706,6 +995,12 @@ class TrainingServer:
 
         if reward > self.best_reward:
             self.best_reward = reward
+
+        # Phase 5.7: track reward in per-client history so next state's encoder
+        # can expose it (self-awareness — the net sees what it just earned).
+        ctx.recent_rewards.append(float(reward))
+        if len(ctx.recent_rewards) > 5:
+            ctx.recent_rewards = ctx.recent_rewards[-5:]
 
         # Pair reward with this client+wave's pending state
         self.trainer.store_result(client_id, wave_num, reward)
@@ -730,6 +1025,13 @@ class TrainingServer:
         ctx.recent_progress = []
         ctx.enemy_types_used = []
         ctx.consecutive_close_calls = 0
+        # Phase 5.7: reset self-awareness histories on new game. Armor-
+        # dominance-flat deliberately NOT reset — it's a longer-term signal
+        # that reflects the policy across multiple games.
+        ctx.recent_rewards = []
+        ctx.recent_wave_sizes = []
+        ctx.recent_kill_times = []
+        ctx.recent_count_factors = []
 
     def _calculate_difficulty_trend(self, damages):
         """Calculate difficulty trend matching TypeScript's implementation.
@@ -755,6 +1057,34 @@ class TrainingServer:
             except Exception:
                 pass
 
+    async def broadcast_client_command(self, cmd: str) -> int:
+        """Send a control command to every connected training client.
+
+        Backend holds authoritative training_state. 'start'/'stop' flip it;
+        newly-connected clients read it from the `connected` message and
+        auto-sync. 'reload' is transient and doesn't change the state.
+
+        Client behavior:
+          - 'reload': window.location.reload() — fresh engine state
+          - 'start':  enable bot + training timescale (resume training)
+          - 'stop':   disable bot + timescale 1 (pause training, keep game)
+        Returns the number of clients that received the message.
+        """
+        if cmd == 'start':
+            self.training_state = 'running'
+        elif cmd == 'stop':
+            self.training_state = 'paused'
+        msg = json.dumps({"type": "control", "action": cmd})
+        delivered = 0
+        for client in list(self.clients):
+            try:
+                await client.send(msg)
+                delivered += 1
+            except Exception:
+                pass
+        print(f"[control] broadcast '{cmd}' -> {delivered}/{len(self.clients)} clients (state={self.training_state})")
+        return delivered
+
     async def _send_stats(self, ws):
         """Send stats to specific client."""
         stats = self._get_stats()
@@ -766,6 +1096,8 @@ class TrainingServer:
         avg_reward = self.total_reward / max(1, self.episode)
         # Handle inf/nan for JSON serialization
         best = self.best_reward if math.isfinite(self.best_reward) else 0.0
+        # Active display-IDs (same id mapping as record_episode/record_wave use)
+        active_display_ids = sorted({cid % 10000 for cid in self.client_contexts.keys()})
         return {
             "episode": self.episode,
             "avgReward": round(avg_reward, 3),
@@ -773,6 +1105,8 @@ class TrainingServer:
             "gamesPlayed": self.games_played,
             "winRate": 0,  # TODO: Track
             "clientCount": len(self.clients),
+            "trainingState": self.training_state,
+            "activeClientIds": active_display_ids,
         }
 
     def _export_model(self, version):
