@@ -58,11 +58,12 @@ type ClientMessage =
   | { type: 'request_export'; version: string };
 
 type ServerMessage =
-  | { type: 'connected'; sessionId: string; displayId?: number }
+  | { type: 'connected'; sessionId: string; displayId?: number; trainingState?: 'running' | 'paused' }
   | { type: 'wave_config'; data: WaveConfig }
   | { type: 'reset' }
   | { type: 'stats'; data: TrainingStats }
   | { type: 'model_exported'; path: string; version: string }
+  | { type: 'control'; action: 'start' | 'stop' | 'reload' }
   | { type: 'error'; message: string };
 
 /**
@@ -81,6 +82,11 @@ export class TrainingClientService {
 
   private socket: WebSocket | null = null;
   private clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Reconnect state
+  private intentionalDisconnect = false;
+  private reconnectTimer: number | null = null;
+  private reconnectAttempts = 0;
 
   // === CONNECTION SIGNALS ===
   readonly isConnected = signal(false);
@@ -317,8 +323,17 @@ export class TrainingClientService {
         break;
 
       case 'sell':
-        // Sell not implemented — no strategy generates sell actions currently.
-        // Would require: callbacks.sellTower(towerId) + botStats goldEarned tracking.
+        if (action.towerId) {
+          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
+          if (!tower) {
+            console.warn(`[Bot] ⛔ Sell: tower not found: ${action.towerId}`);
+            break;
+          }
+          // sellTower returns refund amount; we don't need to thread it into
+          // botStats (goldEarned) right now, but it feeds GameStateManager's
+          // credit tracking automatically via its own emission path.
+          this.gameState.sellTower(tower);
+        }
         break;
 
       case 'wait':
@@ -377,16 +392,10 @@ export class TrainingClientService {
         // Notify backend of game start (sends enemy base HP config)
         this.notifyGameStart('normal');
 
-        // Only enable fast speed and bot if bot=auto mode is active
-        if (this.botAutoMode()) {
-          // Enable training mode with 75x timescale for maximum training speed (don't persist to localStorage)
-          this.gameState.setTrainingTimescale(75.0, false);
-
-          // Enable StrategyBot for automated training
-          this.enableBot('strategist');
-        } else {
-          // No training action needed
-        }
+        // Initial state is paused — the `connected` message from the backend
+        // carries the authoritative trainingState and handleConnected applies
+        // it (auto-starts the bot if backend is already 'running').
+        this.gameState.setTrainingTimescale(1.0, false);
 
         // Subscribe to wave completion events to send results to backend
         this.eventSubscriptions.push(this.gameState.getEventBus().on('wave:completed', async (_event) => {
@@ -473,6 +482,7 @@ export class TrainingClientService {
             gameVersion: '1.0.0',
           });
 
+          this.intentionalDisconnect = false;  // fresh connection → reconnect allowed
           this.isConnected.set(true);
           this.isConnecting.set(false);
           resolve(true);
@@ -501,8 +511,13 @@ export class TrainingClientService {
             reason: event.reason,
             wasClean: event.wasClean
           });
-          console.trace('[WS-Debug] disconnect stacktrace');
           this.cleanup();
+          // Auto-reconnect unless this was an intentional disconnect().
+          // Backend might have been restarted — keep trying so dashboard can
+          // resume control once it comes back.
+          if (!this.intentionalDisconnect) {
+            this.scheduleReconnect(url);
+          }
         };
       } catch (error) {
         console.error('[Training] Failed to create WebSocket', error);
@@ -517,10 +532,37 @@ export class TrainingClientService {
    * Disconnect from backend
    */
   disconnect(): void {
+    this.intentionalDisconnect = true;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.socket) {
       this.socket.close();
     }
     this.cleanup();
+  }
+
+  /**
+   * Schedule a reconnect with exponential backoff (1s → 2s → 4s → … → 30s).
+   * Runs until the connection succeeds or disconnect() is called. Calls the
+   * full connectToBackend() so event subscriptions get rebuilt.
+   */
+  private scheduleReconnect(_url: string): void {
+    if (this.reconnectTimer !== null) return;  // already scheduled
+    const attempt = ++this.reconnectAttempts;
+    const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(5, attempt - 1)));
+    console.log(`[Training] Reconnect attempt ${attempt} in ${delay}ms`);
+    this.reconnectTimer = window.setTimeout(async () => {
+      this.reconnectTimer = null;
+      await this.connectToBackend();
+      if (this.isConnected()) {
+        console.log('[Training] Reconnected successfully');
+        this.reconnectAttempts = 0;
+      } else if (!this.intentionalDisconnect) {
+        this.scheduleReconnect(_url);
+      }
+    }, delay);
   }
 
   /**
@@ -617,6 +659,13 @@ export class TrainingClientService {
         if (msg.displayId !== undefined) {
           this.displayId.set(msg.displayId);
         }
+        // Apply backend-authoritative training state. If backend says 'running',
+        // auto-enable bot; otherwise stay paused until Dashboard Start.
+        if (msg.trainingState === 'running') {
+          this.handleControlCommand('start');
+        } else {
+          this.handleControlCommand('stop');
+        }
         break;
 
       case 'wave_config':
@@ -636,10 +685,39 @@ export class TrainingClientService {
         this.pendingExport.next({ path: msg.path, version: msg.version });
         break;
 
+      case 'control':
+        this.handleControlCommand(msg.action);
+        break;
+
       case 'error':
         console.error('[Training] Backend error:', msg.message);
         this.connectionError.set(msg.message);
         break;
+    }
+  }
+
+  /**
+   * Handle control commands from the dashboard (start/stop/reload).
+   * 'reload' hard-refreshes the tab (cleanest way to reset engine + tiles).
+   * 'stop'  disables the bot + resets timescale → game pauses from training's POV.
+   * 'start' re-enables bot + 75× timescale → resumes automated training.
+   */
+  private handleControlCommand(action: 'start' | 'stop' | 'reload'): void {
+    console.log('[Training] Control command received:', action);
+    if (action === 'reload') {
+      // Give the log a chance to flush, then hard reload
+      setTimeout(() => window.location.reload(), 100);
+      return;
+    }
+    if (action === 'stop') {
+      this.gameState.setTrainingTimescale(1.0, false);
+      this.disableBot();
+      return;
+    }
+    if (action === 'start') {
+      this.gameState.setTrainingTimescale(75.0, false);
+      this.enableBot('strategist');
+      return;
     }
   }
 

@@ -139,8 +139,9 @@ export class GameStateManager {
 
     // Initialize entity managers (no callbacks - use events)
     this.enemyManager.initialize(tilesEngine);
-    // Wire wave-number provider for WaveFactor in kill-reward formula
+    // Wire wave-number + wave-size providers for the kill-reward formula
     this.enemyManager.setWaveNumberProvider(() => this.waveManager.waveNumber());
+    this.enemyManager.setWaveSizeProvider(() => this.waveManager.getExpectedEnemyCount());
 
     this.towerManager.initializeWithContext(
       tilesEngine,

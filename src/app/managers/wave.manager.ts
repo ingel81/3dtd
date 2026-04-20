@@ -92,6 +92,14 @@ export class WaveManager implements IGameManager {
     this.currentHealthProvider = provider;
   }
 
+  /**
+   * Expected number of enemies in the current wave.
+   * Used by EnemyManager for swarm-discount in kill-rewards.
+   */
+  getExpectedEnemyCount(): number {
+    return this.expectedEnemyCount;
+  }
+
   private registerDebugHandlers(): void {
     this.eventBus.on('debug:kill-all', () => {
       this.stopSpawning();

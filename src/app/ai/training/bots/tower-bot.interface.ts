@@ -56,17 +56,11 @@ export interface BotConfig {
   /** Reaction time in ms (time between decisions) */
   reactionTimeMs: number;
 
-  /** Mistake rate (0-1, probability of suboptimal action) */
-  mistakeRate: number;
-
   /** Tower types this bot knows how to use */
   knownTowerTypes: TowerTypeId[];
 
   /** Whether bot considers enemy types when building */
   adaptsToEnemies: boolean;
-
-  /** Whether bot plans ahead (multiple waves) */
-  plansAhead: boolean;
 
   /** Max towers bot will build (0 = unlimited) */
   maxTowers: number;
@@ -119,41 +113,33 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
   beginner: {
     skillLevel: 'beginner',
     reactionTimeMs: 3000,
-    mistakeRate: 0.4,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: false,
-    plansAhead: false,
     maxTowers: 10,
   },
 
   casual: {
     skillLevel: 'casual',
     reactionTimeMs: 1500,
-    mistakeRate: 0.2,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    plansAhead: false,
     maxTowers: 15,
   },
 
   strategist: {
     skillLevel: 'strategist',
     reactionTimeMs: 800,
-    mistakeRate: 0.05,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    plansAhead: true,
-    maxTowers: 50,
+    maxTowers: 300,  // Raised from 50 — bot was hitting cap and hoarding gold
   },
 
   meta: {
     skillLevel: 'meta',
     reactionTimeMs: 400,
-    mistakeRate: 0.01,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    plansAhead: true,
-    maxTowers: 0, // Unlimited
+    maxTowers: 300,  // Raised from 0 (unlimited) to match strategist with higher cap
   },
 };
 

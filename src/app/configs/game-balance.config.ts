@@ -73,13 +73,35 @@ export const GAME_BALANCE = {
     bossFactor: 1.30,
     /** Elite-Multiplier (erkannt via EnemyTypeConfig.isElite) */
     eliteFactor: 1.10,
-    /** WaveFactor: 1.0 + waveFactorPerWave * (wave - 1) — Anti-Snowball */
-    waveFactorPerWave: 0.02,
+    /**
+     * WaveFactor: 1.0 + waveFactorPerWave * (wave - 1) — Anti-Snowball.
+     * Softened 0.02 → 0.01: even after swarm-discount the bot reached 500k
+     * credits at Wave 81. Halving the per-wave scaling tames late-game spiral.
+     * Wave 80 multiplier now 1.79 (was 2.58).
+     */
+    waveFactorPerWave: 0.01,
+    /**
+     * Swarm-Discount: pro-Kill-Credits skalieren invers mit Wave-Count via
+     * sqrt(threshold / count). Bis 50 Enemies keine Reduktion; darüber
+     * sinken Credits pro Kill. Verhindert dass AI-generierte Mega-Swarms
+     * (500-2000 Enemies) den Bot mit hunderttausenden Credits fluten.
+     *  count=50  → 1.00×
+     *  count=200 → 0.50×
+     *  count=940 → 0.23×
+     *  count=2000 → 0.16×
+     * Wave-Completion-Bonus (siehe unten) bleibt unberührt — lineares
+     * Wachstum mit Wave-Nr dort belohnt das Überleben, nicht die Swarms.
+     */
+    swarmDiscountThreshold: 50,
 
     // ==================== Wave-Completion-Rewards (5.2) ====================
-    /** WaveCompleteBase = waveCompleteBase + round(waveCompleteSlope * wave) */
+    /**
+     * WaveCompleteBase = waveCompleteBase + round(waveCompleteSlope * wave)
+     * Slope 2.6 → 1.5: Wave 80 completion bonus 226 → 138. Reduces the
+     * straight-up linear income from just surviving waves at high wave_num.
+     */
     waveCompleteBase: 18,
-    waveCompleteSlope: 2.6,
+    waveCompleteSlope: 1.5,
     /** PerfectBonus: +35% wenn 0 HP-Verlust in Wave */
     perfectBonusRatio: 0.35,
     /** CloseCallBonus: +12% wenn HP <= closeCallHpThreshold am Wave-Ende */
