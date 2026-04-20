@@ -27,11 +27,21 @@ type AIMode = 'inference' | 'fallback' | 'training' | 'disabled';
 /** Constants matching backend config.py */
 const AI_CONSTANTS = {
   KILL_TIME_MIN: 2.0,
-  KILL_TIME_MAX: 5.0,
-  SPAWN_DELAY_MIN: 500,
+  KILL_TIME_MAX: 3.5,              // reduced from 5.0 — count is primary knob
+  // SPAWN_DELAY_MIN 500 → 50: allow AI to produce actual hordes at small
+  // counts (30 zombies × 80ms = shoulder-to-shoulder). Was architecturally
+  // blocked from horde-style waves before.
+  SPAWN_DELAY_MIN: 50,
   SPAWN_DELAY_MAX: 2000,
   VARIATION_MAX: 0.3,
-  HEALTH_MULTIPLIER_MAX: 20.0,
+  HEALTH_MULTIPLIER_MAX: 8.0,
+  // Wave-count: gated by defense kill-throughput so waves stay beatable.
+  // Engine tested to 5000+; strong defense + low-HP swarms can reach thousands.
+  WAVE_COUNT_MIN_BASE: 5,
+  WAVE_COUNT_CAP: 2000,
+  WAVE_COUNT_FLOOR: 10,
+  WAVE_BUDGET_S: 60.0,             // wave duration budget
+  WAVE_COUNT_SLACK: 1.25,          // 25% above kill-capacity = challenging
 };
 
 /**
@@ -87,7 +97,9 @@ export class WaveDirectorService {
 
   // ==================== Mixed-Wave Decoder (Top-K) ====================
   /** Min prob to include a type as a separate group in mixed waves */
-  private readonly MIXED_WAVE_THRESHOLD = 0.15;
+  // Lowered 0.15 → 0.08 (see config.py comment). Was blocking differentiated
+  // policies from rendering as mixed waves — only the top prob crossed.
+  private readonly MIXED_WAVE_THRESHOLD = 0.08;
   /** Max number of enemy groups per wave */
   private readonly MAX_GROUPS = 3;
 
@@ -317,10 +329,26 @@ export class WaveDirectorService {
     const delayFactor = this.sigmoid(rawParams[2]);
     const variation = this.sigmoid(rawParams[3]) * AI_CONSTANTS.VARIATION_MAX;
 
-    // Calculate total enemy count first (shared across groups)
+    // Total enemy count: primary difficulty knob, but gated by defense kill-
+    // throughput. Strong defense + low-HP swarms → thousands legitimately
+    // possible; weak defense → small wave. Waves stay beatable, never
+    // unwinnable. (Mirrors backend server.py _decode_action.)
     const towerCount = Math.max(1, state.defense.towerCount);
-    const minCount = Math.max(5, towerCount + 1);
-    const maxCount = Math.min(50, towerCount * 7);
+    const totalDPS = Math.max(25, state.defense.totalDPS);
+    // Reference HP (median baseHP × typical multiplier). Using a fixed value
+    // instead of killTime×DPS is intentional — otherwise capacity collapses
+    // to a constant and more DPS wouldn't unlock bigger waves.
+    const REFERENCE_ENEMY_HP = 300;
+    const killCapacity = (totalDPS * AI_CONSTANTS.WAVE_BUDGET_S) / REFERENCE_ENEMY_HP;
+
+    const minCount = Math.max(AI_CONSTANTS.WAVE_COUNT_MIN_BASE, towerCount + 1);
+    const maxCount = Math.max(
+      minCount + 5,
+      Math.min(
+        AI_CONSTANTS.WAVE_COUNT_CAP,
+        Math.floor(Math.max(AI_CONSTANTS.WAVE_COUNT_FLOOR, killCapacity * AI_CONSTANTS.WAVE_COUNT_SLACK)),
+      ),
+    );
     const totalCount = Math.round(minCount + countFactor * (maxCount - minCount));
 
     // Top-K multi-group selection (Mixed Waves) — falls back to single-group
@@ -337,11 +365,20 @@ export class WaveDirectorService {
 
     const maxProb = Math.max(...enemyProbs);
 
-    // Calculate spawn delay
-    const spawnDelay = Math.round(
+    // Spawn delay: compress for large waves so all enemies spawn inside the
+    // wave budget (~60s). For massive swarms this drops spawn_delay to tens
+    // of ms, which the engine handles fine.
+    let spawnDelay = Math.round(
       AI_CONSTANTS.SPAWN_DELAY_MIN +
       delayFactor * (AI_CONSTANTS.SPAWN_DELAY_MAX - AI_CONSTANTS.SPAWN_DELAY_MIN)
     );
+    const targetWindowMs = AI_CONSTANTS.WAVE_BUDGET_S * 1000;
+    if (totalCount * spawnDelay > targetWindowMs) {
+      spawnDelay = Math.floor(targetWindowMs / Math.max(1, totalCount));
+    }
+    // Floor 5ms so massive swarms actually feel like hordes
+    // (2000 enemies × 5ms = 10s spawn; was 50ms = 100s).
+    spawnDelay = Math.max(5, spawnDelay);
 
     // Calculate health multiplier per group (DPS-relative, different for air vs ground)
     const enemies = groups.map(g => {

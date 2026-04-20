@@ -155,6 +155,9 @@ export interface RecentHistory {
   /** Average enemy path progress per wave (0-1 each) */
   progressPerWave: number[];
 
+  /** Near-miss ratio per wave (fraction of enemies reaching >0.8 path, 0-1 each) */
+  nearMissPerWave: number[];
+
   /** Enemy types used in last N waves */
   enemyTypesUsed: string[][];
 
@@ -213,6 +216,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
     recentHistory: {
       damagePerWave: [],
       progressPerWave: [],
+      nearMissPerWave: [],
       enemyTypesUsed: [],
       lastWaveThreat: 0,
       avgWaveDuration: 0,

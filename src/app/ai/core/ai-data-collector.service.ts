@@ -83,6 +83,7 @@ export class AIDataCollectorService {
   private waveHistory: WaveResult[] = [];
   private damageHistory: number[] = [];
   private progressHistory: number[] = [];
+  private nearMissHistory: number[] = [];
   private enemyTypesHistory: string[][] = [];
   private threatHistory: number[] = [];
 
@@ -234,6 +235,7 @@ export class AIDataCollectorService {
     this.waveHistory = [];
     this.damageHistory = [];
     this.progressHistory = [];
+    this.nearMissHistory = [];
     this.enemyTypesHistory = [];
     this.threatHistory = [];
     this.waveResultCount.set(0);
@@ -547,6 +549,12 @@ export class AIDataCollectorService {
     this.waveHistory.push(result);
     this.damageHistory.push(result.outcome.damagePercent);
     this.progressHistory.push(result.outcome.avgPathProgressPercent);
+    // Derive near-miss ratio from enemyProgressValues: fraction reaching >0.8
+    const progressValues = result.outcome.enemyProgressValues ?? [];
+    const nearMissRatio = progressValues.length > 0
+      ? progressValues.filter((p) => p > 0.80).length / progressValues.length
+      : 0;
+    this.nearMissHistory.push(nearMissRatio);
     this.enemyTypesHistory.push(
       result.config.enemies.map((e) => e.type)
     );
@@ -560,6 +568,7 @@ export class AIDataCollectorService {
       this.waveHistory.shift();
       this.damageHistory.shift();
       this.progressHistory.shift();
+      this.nearMissHistory.shift();
       this.enemyTypesHistory.shift();
       this.threatHistory.shift();
     }
@@ -678,6 +687,7 @@ export class AIDataCollectorService {
     return {
       damagePerWave: [...this.damageHistory],
       progressPerWave: [...this.progressHistory],
+      nearMissPerWave: [...this.nearMissHistory],
       enemyTypesUsed: [...this.enemyTypesHistory],
       lastWaveThreat,
       avgWaveDuration: avgDuration,

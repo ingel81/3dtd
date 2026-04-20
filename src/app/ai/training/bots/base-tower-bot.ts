@@ -25,8 +25,15 @@ export abstract class BaseTowerBot implements ITowerBot {
   protected totalGoldSpent = 0;
   protected towersBuilt = 0;
 
-  constructor(skillLevel: BotSkillLevel, name?: string) {
-    this.config = { ...BOT_CONFIGS[skillLevel] };
+  /**
+   * @param skillLevel Baseline config from BOT_CONFIGS
+   * @param configOverrides Optional per-instance tweaks (used by factory to add
+   *   ±30% randomness to reactionTimeMs/maxTowers so concurrent training clients
+   *   don't all play identically).
+   * @param name Display name
+   */
+  constructor(skillLevel: BotSkillLevel, configOverrides?: Partial<BotConfig>, name?: string) {
+    this.config = { ...BOT_CONFIGS[skillLevel], ...(configOverrides ?? {}) };
     this.name = name ?? `${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`;
   }
 
@@ -42,12 +49,7 @@ export abstract class BaseTowerBot implements ITowerBot {
     }
 
     // Decide action (individual strategies handle tower limits)
-    let action = this.decideAction(state);
-
-    // Maybe make a mistake
-    if (action && Math.random() < this.config.mistakeRate) {
-      action = this.makeSuboptimalAction(state, action);
-    }
+    const action = this.decideAction(state);
 
     // Record action time (always apply cooldown, even for 'wait',
     // to prevent random-based decisions from being re-rolled every frame)
@@ -79,18 +81,6 @@ export abstract class BaseTowerBot implements ITowerBot {
    * Subclass must implement: decide what action to take
    */
   protected abstract decideAction(state: GameStateSnapshot): TowerAction | null;
-
-  /**
-   * Make a suboptimal version of the action (for mistakes)
-   */
-  protected makeSuboptimalAction(
-    state: GameStateSnapshot,
-    originalAction: TowerAction
-  ): TowerAction {
-    // Default: just do the original action
-    // Subclasses can override for more specific mistakes
-    return originalAction;
-  }
 
   // === HELPER METHODS ===
 

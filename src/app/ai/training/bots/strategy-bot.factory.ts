@@ -5,7 +5,7 @@
  */
 
 import { StrategyBot } from './strategy-bot';
-import { BotSkillLevel, BOT_CONFIGS } from './tower-bot.interface';
+import { BotSkillLevel, BOT_CONFIGS, BotConfig } from './tower-bot.interface';
 import { ITowerStrategy } from '../strategies/tower-strategy.interface';
 import { StrategicPlacementService } from '../../../services/strategic-placement.service';
 import { GameStateManager } from '../../../managers/game-state.manager';
@@ -19,6 +19,7 @@ import { DistributedPlacementStrategy } from '../strategies/placement/distribute
 import { ResearchCenterPlacementStrategy } from '../strategies/placement/research-center-placement.strategy';
 import { ResearchPickStrategy } from '../strategies/research/research-pick.strategy';
 import { NearSpawnUpgradeStrategy } from '../strategies/upgrade/near-spawn-upgrade.strategy';
+import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 
 export class StrategyBotFactory {
@@ -29,11 +30,28 @@ export class StrategyBotFactory {
   ) {}
 
   /**
-   * Create bot with strategies for given skill level
+   * Create bot with strategies for given skill level.
+   * Adds ±30% jitter to reactionTimeMs and maxTowers so parallel training
+   * clients don't all play identically → richer training distribution.
    */
   createBot(skillLevel: BotSkillLevel, autoStartWaves = false): StrategyBot {
     const strategies = this.getStrategiesForSkillLevel(skillLevel, autoStartWaves);
-    return new StrategyBot(skillLevel, strategies);
+    const overrides = this.jitterConfig(skillLevel);
+    return new StrategyBot(skillLevel, strategies, overrides);
+  }
+
+  /** Random multiplier in [0.7, 1.3] */
+  private jitter(): number {
+    return 0.7 + Math.random() * 0.6;
+  }
+
+  private jitterConfig(skillLevel: BotSkillLevel): Partial<BotConfig> {
+    const base = BOT_CONFIGS[skillLevel];
+    return {
+      reactionTimeMs: Math.max(100, Math.round(base.reactionTimeMs * this.jitter())),
+      // maxTowers=0 (unlimited) stays 0 — jitter only applies to concrete caps
+      maxTowers: base.maxTowers > 0 ? Math.max(5, Math.round(base.maxTowers * this.jitter())) : 0,
+    };
   }
 
   /**
@@ -78,13 +96,14 @@ export class StrategyBotFactory {
         break;
 
       case 'strategist':
-        // Strategist: Full research tree + distributed placement + upgrades
+        // Strategist: Full research tree + distributed placement + upgrades + sell
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
           new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
+          new SellUnderperformerStrategy(this.gameState, config),
           new DistributedPlacementStrategy(this.strategicPlacement, this.gameState, config)
         );
         break;

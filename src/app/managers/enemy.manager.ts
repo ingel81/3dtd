@@ -220,9 +220,22 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
+   * Set the wave-size provider (expected enemy count) from WaveManager.
+   * Used for swarm-discount in the kill-reward formula.
+   */
+  setWaveSizeProvider(provider: () => number): void {
+    this.getWaveSize = provider;
+  }
+
+  private getWaveSize: () => number = () => 1;
+
+  /**
    * Calculate kill reward using the design-doc formula (MASTER_GAME_DESIGN 5.1):
    *   BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor
+   *   * SwarmDiscount
    *
+   * SwarmDiscount = sqrt(threshold / count) when count > threshold, else 1.0.
+   * Caps total per-wave kill-credits at large enemy counts.
    * All multipliers come from GAME_BALANCE.economy — tuneable without code changes.
    */
   private calculateDynamicReward(enemy: Enemy): number {
@@ -239,8 +252,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       (t.isElite ? cfg.eliteFactor : 1.0);
     const WaveFactor = 1.0 + cfg.waveFactorPerWave * Math.max(0, this.getWaveNumber() - 1);
 
+    // Swarm discount: keeps large waves from flooding the bot with credits
+    const count = Math.max(1, this.getWaveSize());
+    const threshold = cfg.swarmDiscountThreshold;
+    const SwarmDiscount = count <= threshold ? 1.0 : Math.sqrt(threshold / count);
+
     return Math.max(1, Math.round(
-      BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor
+      BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor * SwarmDiscount
     ));
   }
 

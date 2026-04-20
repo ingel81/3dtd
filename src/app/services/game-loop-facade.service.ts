@@ -318,8 +318,10 @@ export class GameLoopFacadeService {
    * @param cleanupDpsViz Callback to clean up DPS visualization (owned by VisualizationFacade)
    */
   restartGame(cleanupDpsViz: () => void): void {
-    // Cleanup old debug visualization before reset
-    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
+    // NOTE: Do NOT dispose the spatial grid visualization here. The grid itself
+    // is preserved across restart (it's bound to the location), and the viz
+    // mesh self-updates from live cell state. Disposing it here made the
+    // overlay disappear after game-over until the user toggled it off/on.
 
     // Cleanup DPS profile visualization (delegated to VisualizationFacade)
     cleanupDpsViz();

@@ -4,7 +4,7 @@
  * Converts GameStateSnapshot to Float32Array for neural network input.
  * All values are normalized to 0-1 range.
  *
- * Feature Vector (93 features, Phase 5.5):
+ * Feature Vector (146 features, Phase 5.6 — +53 awareness features):
  * [0-3]    Player state: credits, lives%, wave, time (4)
  * [4]      towerCount (1)
  * [5]      avgTowerLevel (1)
@@ -17,8 +17,17 @@
  * [42-46]  Enemy Armor Distribution: unarmored, light, heavy, fortified, ethereal (5)
  * [47-51]  Research State: completedRatio, centerLevel/3, slotsUsed/maxSlots, airTargeting, maxTier/3 (5)
  * [52]     Reserved/Padding (1)
- * [53-72]  Ground DPS Profile: 20 bins (20)
- * [73-92]  Air DPS Profile: 20 bins (20)
+ * === PHASE 5.6 awareness block ===
+ * [53-68]  Types-History: frequency of each of 16 enemy types in last 5 waves (16)
+ * [69-73]  Armor-History: frequency of each armor category in last 5 waves (5)
+ * [74-78]  Damage-Pct-History: explicit last 5 damage percentages (5)
+ * [79-87]  Tower-Type Avg-Levels: avg upgrade level per tower type (9)
+ * [88-91]  Defense-Capabilities: hasAntiAir, hasSplash, hasSlow, hasDoT (4)
+ * [92-100] Tower-Unlock-Status: which tower types are researched (9)
+ * [101-105] Near-Miss-History: last 5 near-miss-ratios (5)
+ * === ORIGINAL SPATIAL ===
+ * [106-125] Ground DPS Profile: 20 bins (20)
+ * [126-145] Air DPS Profile: 20 bins (20)
  */
 
 import { GameStateSnapshot, RecentHistory } from './models/game-state-snapshot';
@@ -27,11 +36,30 @@ import { NUM_BINS } from './dps-profile';
 import { DamageType, ArmorType, DAMAGE_TYPES, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 
-/** Total number of features in the encoded state (Phase 5.5: 74 → 93) */
-export const ENCODED_STATE_SIZE = 93;
+/** Total number of features in the encoded state (Phase 5.6: 93 → 146) */
+export const ENCODED_STATE_SIZE = 146;
 
 /** Number of scalar features (before spatial DPS profile) */
-export const NUM_SCALAR_FEATURES = 53;
+export const NUM_SCALAR_FEATURES = 106;
+
+/** Enemy type order — 16 entries. Must match backend ENEMY_TYPES. */
+const ENEMY_TYPE_ORDER = [
+  'zombie', 'rat', 'penguin',
+  'wallsmasher', 'bat', 'hornet', 'spider',
+  'zombie-soldier', 'tank', 'bear', 'dragon', 'mech',
+  'mammoth', 'herbert',
+  'ghost', 'wraith',
+];
+
+/** Enemy → armor category mapping (must match backend ENEMY_ARMOR). */
+const ENEMY_ARMOR_MAP: Record<string, ArmorType> = {
+  zombie: 'unarmored', rat: 'unarmored', penguin: 'unarmored',
+  wallsmasher: 'light', bat: 'light', hornet: 'light', spider: 'light',
+  'zombie-soldier': 'heavy', tank: 'heavy', bear: 'heavy',
+  dragon: 'heavy', mech: 'heavy',
+  mammoth: 'fortified', herbert: 'fortified',
+  ghost: 'ethereal', wraith: 'ethereal',
+};
 
 /** Tower types in fixed order for encoding. Phase 5.5: expanded from 7 to 9 (+fire, +tentacle). */
 const TOWER_TYPE_ORDER: TowerTypeId[] = [
@@ -213,18 +241,113 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
   // === RESERVED/PADDING (1 feature) [52] ===
   encoded[idx++] = 0;
 
-  // === DPS PROFILE: GROUND (20 features) [53-72] ===
+  // ─── PHASE 5.6 AWARENESS BLOCK ───────────────────────────────────────
+
+  // === TYPES-HISTORY (16 features) [53-68] ===
+  // For each enemy type: frequency (count / 5) across the last 5 waves.
+  // Last wave counted as 1 if dominant type matches. Mixed-waves: all group
+  // types count.
+  const typesHistory = computeTypesHistory(history.enemyTypesUsed, 5);
+  for (const t of ENEMY_TYPE_ORDER) {
+    encoded[idx++] = typesHistory[t] ?? 0;
+  }
+
+  // === ARMOR-HISTORY (5 features) [69-73] ===
+  // Frequency of each armor category across the last 5 waves.
+  const armorHistory = computeArmorHistory(history.enemyTypesUsed, 5);
+  for (const a of ARMOR_TYPE_ORDER) {
+    encoded[idx++] = armorHistory[a] ?? 0;
+  }
+
+  // === DAMAGE-PCT-HISTORY (5 features) [74-78] ===
+  // Explicit last 5 damage-percentages. Parallel to [15-19] but semantically
+  // tied to the awareness block.
+  const dmgHist = history.damagePerWave;
+  for (let i = 0; i < 5; i++) {
+    encoded[idx++] = dmgHist[dmgHist.length - 5 + i] ?? 0;
+  }
+
+  // === TOWER-TYPE AVG-LEVELS (9 features) [79-87] ===
+  // Average upgrade level per tower type (0-5 range, normalized by 5).
+  for (const towerType of TOWER_TYPE_ORDER) {
+    const stats = snapshot.defense.towerDistribution[towerType];
+    encoded[idx++] = stats ? Math.min(1, (stats.avgLevel ?? 0) / 5) : 0;
+  }
+
+  // === DEFENSE CAPABILITIES (4 features) [88-91] ===
+  const cap = snapshot.defense.capabilities;
+  encoded[idx++] = cap.hasAntiAir ? 1 : 0;
+  encoded[idx++] = cap.hasSplash ? 1 : 0;
+  encoded[idx++] = cap.hasSlow ? 1 : 0;
+  encoded[idx++] = cap.hasDoT ? 1 : 0;
+
+  // === TOWER UNLOCK STATUS (9 features) [92-100] ===
+  // Which tower types has the bot researched (flags 0/1).
+  const unlocked = snapshot.research?.towerUnlocked ?? {};
+  for (const towerType of TOWER_TYPE_ORDER) {
+    encoded[idx++] = unlocked[towerType] ? 1 : 0;
+  }
+
+  // === NEAR-MISS HISTORY (5 features) [101-105] ===
+  const nmHist = history.nearMissPerWave ?? [];
+  for (let i = 0; i < 5; i++) {
+    encoded[idx++] = nmHist[nmHist.length - 5 + i] ?? 0;
+  }
+
+  // ─── ORIGINAL SPATIAL BLOCK ──────────────────────────────────────────
+
+  // === DPS PROFILE: GROUND (20 features) [106-125] ===
   const profile = snapshot.dpsProfile;
   for (let i = 0; i < NUM_BINS; i++) {
     encoded[idx++] = profile.groundDPS[i] ?? 0;
   }
 
-  // === DPS PROFILE: AIR (20 features) [73-92] ===
+  // === DPS PROFILE: AIR (20 features) [126-145] ===
   for (let i = 0; i < NUM_BINS; i++) {
     encoded[idx++] = profile.airDPS[i] ?? 0;
   }
 
   return encoded;
+}
+
+/** Frequency of each enemy type across last N waves (0-1, capped at 1). */
+function computeTypesHistory(enemyTypesUsed: string[][], window: number): Record<string, number> {
+  const result: Record<string, number> = {};
+  const recent = enemyTypesUsed.slice(-window);
+  if (recent.length === 0) return result;
+  for (const waveTypes of recent) {
+    for (const t of waveTypes) {
+      result[t] = (result[t] ?? 0) + 1;
+    }
+  }
+  // Normalize by window size so each feature is in 0-1 range (each type can
+  // appear in at most `window` waves → fraction of waves).
+  for (const k in result) {
+    result[k] = Math.min(1, result[k] / window);
+  }
+  return result;
+}
+
+/** Frequency of each armor category across last N waves (0-1). */
+function computeArmorHistory(enemyTypesUsed: string[][], window: number): Record<string, number> {
+  const result: Record<string, number> = {};
+  const recent = enemyTypesUsed.slice(-window);
+  if (recent.length === 0) return result;
+  for (const waveTypes of recent) {
+    // Dedupe armors within a single wave so mixed-wave doesn't double-count
+    const waveArmors = new Set<string>();
+    for (const t of waveTypes) {
+      const a = ENEMY_ARMOR_MAP[t];
+      if (a) waveArmors.add(a);
+    }
+    for (const a of waveArmors) {
+      result[a] = (result[a] ?? 0) + 1;
+    }
+  }
+  for (const k in result) {
+    result[k] = Math.min(1, result[k] / window);
+  }
+  return result;
 }
 
 /**

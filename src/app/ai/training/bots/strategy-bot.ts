@@ -8,7 +8,7 @@
 import { BaseTowerBot } from './base-tower-bot';
 import { ITowerStrategy } from '../strategies/tower-strategy.interface';
 import { GameStateSnapshot } from '../../core/models/game-state-snapshot';
-import { TowerAction, BotSkillLevel } from './tower-bot.interface';
+import { TowerAction, BotSkillLevel, BotConfig } from './tower-bot.interface';
 import { TowerTypeId } from '../../../configs/tower-types.config';
 
 export class StrategyBot extends BaseTowerBot {
@@ -17,9 +17,14 @@ export class StrategyBot extends BaseTowerBot {
   constructor(
     skillLevel: BotSkillLevel,
     strategies: ITowerStrategy[],
+    configOverrides?: Partial<BotConfig>,
     name?: string
   ) {
-    super(skillLevel, name || `Strategy${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`);
+    super(
+      skillLevel,
+      configOverrides,
+      name || `Strategy${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`,
+    );
 
     // Sort strategies by priority (highest first)
     this.strategies = strategies.sort((a, b) => b.priority - a.priority);
@@ -113,42 +118,4 @@ export class StrategyBot extends BaseTowerBot {
     return false;
   }
 
-  /**
-   * Make a suboptimal action (for mistake simulation)
-   * Called by BaseTowerBot.update() when mistakeRate triggers
-   */
-  protected override makeSuboptimalAction(
-    _state: GameStateSnapshot,
-    originalAction: TowerAction
-  ): TowerAction {
-    // 50% chance: pick a different tower type
-    if (originalAction.type === 'place' && originalAction.towerType) {
-      const alternatives = this.config.knownTowerTypes.filter(
-        (t: TowerTypeId) => t !== originalAction.towerType
-      );
-      if (alternatives.length > 0 && Math.random() < 0.5) {
-        const randomType = alternatives[Math.floor(Math.random() * alternatives.length)];
-        return {
-          ...originalAction,
-          towerType: randomType,
-          reason: `Mistake: ${randomType} statt ${originalAction.towerType}`,
-          confidence: (originalAction.confidence ?? 0.8) * 0.6,
-        };
-      }
-    }
-
-    // Otherwise: shift position slightly
-    if (originalAction.position) {
-      return {
-        ...originalAction,
-        position: {
-          x: originalAction.position.x + (Math.random() - 0.5) * 20,
-          z: originalAction.position.z + (Math.random() - 0.5) * 20,
-        },
-        confidence: (originalAction.confidence ?? 0.8) * 0.7,
-      };
-    }
-
-    return originalAction;
-  }
 }
