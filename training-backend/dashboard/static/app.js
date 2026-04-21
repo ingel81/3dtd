@@ -48,24 +48,12 @@ const ARMOR_TYPE_COLORS = {
   unarmored: '#4CAF50', light: '#2196F3', heavy: '#FF9800',
   fortified: '#F44336', ethereal: '#9C27B0',
 };
+// Phase 5.10: only 4 reward terms remain.
 const BREAKDOWN_KEY_LABELS = {
-  damage_zone: 'Damage Zone',
-  near_miss: 'Near-Miss',
-  overflow: 'Overflow',
-  boring: 'Boring',
-  survival: 'Survival',
-  game_over: 'Game Over',
-  variety: 'Variety',
-  monotony: 'Monotony',
-  armor_monotony: 'Armor Monotony',
-  armor_variety: 'Armor Variety',
-  mixed: 'Mixed',
-  swarm_count: 'Swarm Count',
-  episode_length: 'Episode Length',
-  type_diversity: 'Type Diversity',
-  armor_match: 'Armor Match',
-  perfect_penalty: 'Perfect Penalty',
-  close_call: 'Close Call',
+  death: 'Death',
+  drama: 'Drama',
+  swarm_size: 'Swarm Size',
+  progression: 'Progression',
 };
 // Breakdown values are expected in ~[-2.5, +1.0] range. We scale visual width
 // relative to BREAKDOWN_MAX_VALUE so 2.5 maps to ~full bar.

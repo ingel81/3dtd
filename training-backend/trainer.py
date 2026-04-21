@@ -50,13 +50,15 @@ class PPOTrainer:
         self.reward_running_var = 1.0
         self.reward_count = 0
 
-    def store_action(self, client_id, wave_num, state_tensor, action_tensor=None, enemy_idx=None, log_prob=None):
-        """Store a pending state+action+log_prob for a client+wave (awaiting reward)."""
+    def store_action(self, client_id, wave_num, state_tensor, action_tensor=None,
+                     enemy_idx=None, log_prob=None, template_mask=None):
+        """Store a pending state+action+log_prob+mask for a client+wave (awaiting reward)."""
         self.pending[(client_id, wave_num)] = (
             state_tensor.detach(),
             action_tensor.detach() if action_tensor is not None else None,
             enemy_idx.detach() if enemy_idx is not None else None,
             log_prob.detach() if log_prob is not None else None,
+            template_mask.detach() if template_mask is not None else None,
         )
 
     def store_result(self, client_id, wave_num, reward):
@@ -67,8 +69,8 @@ class PPOTrainer:
         if pending is None:
             return  # No matching state (wave result without prior state request)
 
-        state, action, enemy_idx, old_log_prob = pending
-        self.transitions.append((state, action, enemy_idx, old_log_prob, reward))
+        state, action, enemy_idx, old_log_prob, template_mask = pending
+        self.transitions.append((state, action, enemy_idx, old_log_prob, reward, template_mask))
 
         # Update when we have enough paired samples
         if len(self.transitions) >= BATCH_SIZE:
@@ -87,18 +89,21 @@ class PPOTrainer:
         enemy_idx_list = []
         old_log_probs_list = []
         rewards_list = []
-        for state, action, enemy_idx, old_log_prob, reward in batch:
+        template_mask_list = []
+        for state, action, enemy_idx, old_log_prob, reward, template_mask in batch:
             states_list.append(state)
             actions_list.append(action)
             enemy_idx_list.append(enemy_idx)
             old_log_probs_list.append(old_log_prob)
             rewards_list.append(reward)
+            template_mask_list.append(template_mask)
 
         try:
             states_batch = torch.stack(states_list)
             actions_batch = torch.stack(actions_list) if actions_list[0] is not None else None
             enemy_idx_batch = torch.stack(enemy_idx_list) if enemy_idx_list[0] is not None else None
             old_log_probs_batch = torch.stack(old_log_probs_list) if old_log_probs_list[0] is not None else None
+            template_mask_batch = torch.stack(template_mask_list) if template_mask_list[0] is not None else None
         except Exception as e:
             print(f"[Trainer] Failed to stack: {e}")
             self.transitions = []
@@ -126,9 +131,12 @@ class PPOTrainer:
 
         # Multiple PPO epochs over same batch
         for epoch in range(UPDATE_EPOCHS):
-            # Re-evaluate actions under current policy
+            # Re-evaluate actions under current policy (apply same template mask)
             log_probs, values, entropy = self.model.evaluate_action(
-                states_batch, actions_batch, stored_enemy_idx=enemy_idx_batch
+                states_batch,
+                actions_batch,
+                stored_template_idx=enemy_idx_batch,
+                template_mask=template_mask_batch,
             )
 
             # Advantage estimation with value baseline
