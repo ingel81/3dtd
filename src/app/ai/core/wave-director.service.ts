@@ -21,6 +21,9 @@ import {
   MAX_TEMPLATE_SLOTS,
   MAX_WAVE_DURATION_MS,
   MIN_SPAWN_DELAY_MS,
+  DPS_RAMP_FLOOR,
+  DPS_RAMP_COUNT,
+  DPS_RAMP_HP_MULT,
   getTemplate,
   getAvailableTemplateMask,
   lerpRange,
@@ -278,9 +281,19 @@ export class WaveDirectorService {
     const hpFactor = this.sigmoid(rawParams[2]);
     const variationFactor = this.sigmoid(rawParams[3]);
 
-    let totalCount = Math.max(1, Math.round(lerpRange(template.countRange, countFactor)));
+    // DPS-scaled range caps for difficulty axes (count, hp_mult). Weak defense
+    // → narrow effective range; strong defense → full range.
+    const totalDPS = Math.max(0, state.defense?.totalDPS ?? 0);
+    const dpsFracCount = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDPS / DPS_RAMP_COUNT));
+    const dpsFracHp = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDPS / DPS_RAMP_HP_MULT));
+    const lerpCapped = (rng: readonly [number, number], factor: number, dpsFrac: number): number => {
+      const effMax = rng[0] + (rng[1] - rng[0]) * dpsFrac;
+      return rng[0] + (effMax - rng[0]) * factor;
+    };
+
+    let totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
     let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
-    const hpMult = Math.round(lerpRange(template.hpMultRange, hpFactor) * 1000) / 1000;
+    const hpMult = Math.round(lerpCapped(template.hpMultRange, hpFactor, dpsFracHp) * 1000) / 1000;
     const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
     // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
