@@ -8,7 +8,7 @@
 import { WaveConfig as AIWaveConfig } from './models/wave-config';
 import { WaveConfig as WaveManagerConfig } from '../../managers/wave.manager';
 import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
-import { buildSpawnSchedule, getRecommendedPattern } from './spawn-schedule-builder';
+import { buildSpawnSchedule, DEFAULT_SPAWN_PATTERN } from './spawn-schedule-builder';
 
 /**
  * Convert AI WaveConfig to WaveManager WaveConfig (with mixed wave support)
@@ -24,8 +24,8 @@ export function adaptAIWaveConfigMixed(aiConfig: AIWaveConfig): WaveManagerConfi
     return adaptAIWaveConfigSingle(aiConfig);
   }
 
-  // Multiple groups: build a mixed wave schedule
-  const pattern = aiConfig.pattern ?? getRecommendedPattern(aiConfig.archetype ?? 'mixed');
+  // Multiple groups: build a mixed wave schedule (Template supplies pattern; fall back to default)
+  const pattern = aiConfig.pattern ?? DEFAULT_SPAWN_PATTERN;
 
   const schedule = buildSpawnSchedule({
     groups: validGroups,
