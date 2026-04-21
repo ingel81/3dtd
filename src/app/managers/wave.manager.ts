@@ -58,8 +58,20 @@ export class WaveManager implements IGameManager {
   spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
 
-  // Track active timeouts for cleanup on reset
-  private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+  /**
+   * Active spawn controller — driven by tickSpawn() each frame in game-time
+   * (deltaTime already pre-multiplied by timescale upstream). Using a
+   * frame-based accumulator instead of setTimeout chains fixes spacing drift
+   * at high training timescales where setTimeout precision degrades below
+   * ~4ms and the per-spawn real-time delay gets clamped.
+   */
+  private activeSpawner: {
+    waveId: number;
+    accumulatedMs: number;      // game-time since last spawn
+    nextDelayMs: number;        // game-time until next spawn
+    spawnAndAdvance: (excessGameTimeMs: number) => boolean;
+    recomputeDelay: () => number;
+  } | null = null;
 
   private timescaleProvider: (() => number) | null = null;
 
@@ -180,65 +192,51 @@ export class WaveManager implements IGameManager {
 
     // Use getter if provided (allows live delay changes), otherwise use static value
     const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
-
     let spawnedCount = 0;
     let consecutiveFailures = 0;
-
-    // Capture wave number at start to detect reset
     const waveId = this.waveNumber();
 
-    const spawnNext = () => {
-      const currentPhase = this.phase();
-      const currentWave = this.waveNumber();
-
-      // Stop spawning if not in wave phase (reset or game over)
-      if (currentPhase !== 'wave') {
-        return;
-      }
-
-      // Stop if wave was reset (new wave started or game reset)
-      if (currentWave !== waveId) {
-        return;
-      }
-
-      if (spawnedCount >= enemyCount) {
-        return;
-      }
+    // Spawn callback: returns true while wave continues, false when done.
+    // NOTE: the sub-frame-advance amount is passed via `excessGameTimeMs` so
+    // callers (tickSpawn) can compensate for frames longer than spawn_delay.
+    const spawnOne = (excessGameTimeMs: number): boolean => {
+      if (this.phase() !== 'wave' || this.waveNumber() !== waveId) return false;
+      if (spawnedCount >= enemyCount) return false;
 
       const spawn = this.selectSpawnPoint(config.spawnMode, spawnedCount);
       const path = this.cachedPaths.get(spawn.id);
-
       if (path && path.length > 1) {
-        // Spawn enemy and start immediately
-        this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, false, config.enemyHealth);
+        const enemy = this.enemyManager.spawn(
+          path, config.enemyType, config.enemySpeed, false, config.enemyHealth,
+        );
+        // Sub-frame advance: enemy gets a head-start equal to the frame time
+        // remaining after its logical spawn point, preserving gap-spacing at
+        // high timescales.
+        if (excessGameTimeMs > 0 && enemy) {
+          const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+          enemy.movement.move(excessGameTimeMs, timescale);
+        }
         spawnedCount++;
-        this.spawnedEnemyCount++; // Track globally for wave completion check
+        this.spawnedEnemyCount++;
         consecutiveFailures = 0;
       } else {
         consecutiveFailures++;
-        // Abort if no spawn point has a valid path (prevents infinite loop)
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
           console.error(`[WaveManager] No valid paths for spawn points, aborting spawn (${spawnedCount}/${enemyCount})`);
-          this.expectedEnemyCount = spawnedCount; // Adjust so wave can complete
-          return;
+          this.expectedEnemyCount = spawnedCount;
+          return false;
         }
       }
-
-      // Check phase again before scheduling next spawn (could have been reset during spawn)
-      if (this.phase() !== 'wave') return;
-
-      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-      const gameTimeDelay = getDelay();
-      const realTimeDelay = gameTimeDelay / timescale; // Scale spawn delay
-      const timeoutId = setTimeout(() => {
-        this.activeTimeouts.delete(timeoutId);
-        if (this.phase() !== 'wave') return; // Stop if reset/game over
-        spawnNext();
-      }, realTimeDelay);
-      this.activeTimeouts.add(timeoutId);
+      return spawnedCount < enemyCount;
     };
 
-    spawnNext();
+    this.activeSpawner = {
+      waveId,
+      accumulatedMs: getDelay(),  // spawn first enemy immediately on first tick
+      nextDelayMs: getDelay(),
+      spawnAndAdvance: spawnOne,
+      recomputeDelay: getDelay,
+    };
   }
 
   /**
@@ -266,17 +264,30 @@ export class WaveManager implements IGameManager {
     let consecutiveFailures = 0;
     const waveId = this.waveNumber();
 
-    const spawnNext = () => {
-      if (this.phase() !== 'wave') return;
-      if (this.waveNumber() !== waveId) return;
-      if (spawnIndex >= entries.length) return;
+    // Compute delay for the *current* entry about to be spawned (used to
+    // determine the gap BEFORE spawning this enemy, matching pre-refactor
+    // setTimeout semantics where pauseAfter extended the gap to the NEXT spawn).
+    const delayForEntry = (idx: number): number => {
+      if (idx <= 0) return getDelay();
+      const prev = entries[idx - 1];
+      const baseWait = prev.delay ?? getDelay();
+      const extraPause = prev.pauseAfter ?? 0;
+      return baseWait + extraPause;
+    };
+
+    const spawnOne = (excessGameTimeMs: number): boolean => {
+      if (this.phase() !== 'wave' || this.waveNumber() !== waveId) return false;
+      if (spawnIndex >= entries.length) return false;
 
       const entry = entries[spawnIndex];
       const spawn = this.selectSpawnPoint('random', spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
-
       if (path && path.length > 1) {
-        this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health);
+        const enemy = this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health);
+        if (excessGameTimeMs > 0 && enemy) {
+          const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+          enemy.movement.move(excessGameTimeMs, timescale);
+        }
         spawnIndex++;
         this.spawnedEnemyCount++;
         consecutiveFailures = 0;
@@ -285,27 +296,57 @@ export class WaveManager implements IGameManager {
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
           console.error(`[WaveManager] No valid paths, aborting scheduled wave (${spawnIndex}/${entries.length})`);
           this.expectedEnemyCount = spawnIndex;
-          return;
+          return false;
         }
       }
-
-      if (this.phase() !== 'wave') return;
-      if (spawnIndex >= entries.length) return;
-
-      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-      const baseWait = entry.delay ?? getDelay();
-      const extraPause = entry.pauseAfter ?? 0;
-      const realTimeDelay = (baseWait + extraPause) / timescale;
-
-      const timeoutId = setTimeout(() => {
-        this.activeTimeouts.delete(timeoutId);
-        if (this.phase() !== 'wave') return;
-        spawnNext();
-      }, realTimeDelay);
-      this.activeTimeouts.add(timeoutId);
+      return spawnIndex < entries.length;
     };
 
-    spawnNext();
+    this.activeSpawner = {
+      waveId,
+      accumulatedMs: delayForEntry(0),  // spawn first immediately
+      nextDelayMs: delayForEntry(0),
+      spawnAndAdvance: spawnOne,
+      recomputeDelay: () => delayForEntry(spawnIndex),
+    };
+  }
+
+  /**
+   * Drive the active spawner forward by gameTimeDeltaMs (already timescale-scaled).
+   * Called from GameStateManager.update() each frame during wave phase.
+   *
+   * Uses a game-time accumulator instead of setTimeout chaining: at high
+   * training timescales the browser setTimeout floor (~4ms) caused visible
+   * spacing drift (gaps grew as speed increased). With a frame accumulator,
+   * spacing stays consistent in game-time regardless of timescale.
+   *
+   * Sub-frame advance: when the accumulator overshoots the spawn-delay, the
+   * fresh enemy is advanced by the excess game-time so it visually "catches up"
+   * within the current frame.
+   */
+  tickSpawn(gameTimeDeltaMs: number): void {
+    const spawner = this.activeSpawner;
+    if (!spawner) return;
+    if (this.phase() !== 'wave' || this.waveNumber() !== spawner.waveId) {
+      this.activeSpawner = null;
+      return;
+    }
+
+    spawner.accumulatedMs += gameTimeDeltaMs;
+    // Safety: cap total loops per frame to avoid runaway at extreme timescales.
+    const MAX_SPAWNS_PER_TICK = 500;
+    let spawnsThisTick = 0;
+    while (spawner.accumulatedMs >= spawner.nextDelayMs && spawnsThisTick < MAX_SPAWNS_PER_TICK) {
+      spawner.accumulatedMs -= spawner.nextDelayMs;
+      // Pass remainder so the new enemy gets a head-start = frame-time-remaining.
+      const stillActive = spawner.spawnAndAdvance(spawner.accumulatedMs);
+      spawnsThisTick++;
+      if (!stillActive) {
+        this.activeSpawner = null;
+        return;
+      }
+      spawner.nextDelayMs = spawner.recomputeDelay();
+    }
   }
 
   /**
@@ -364,18 +405,11 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Stop all pending spawns (for Kill All functionality)
-   * Clears timeouts and adjusts expectedEnemyCount so wave can complete
+   * Stop all pending spawns (for Kill All functionality).
+   * Cancels the active spawner and adjusts expectedEnemyCount so wave can complete.
    */
   stopSpawning(): void {
-    // Clear all pending timeouts to prevent spawning after abort
-    for (const timeoutId of this.activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this.activeTimeouts.clear();
-
-    // Adjust expected count to match actually spawned enemies
-    // This allows checkWaveComplete() to succeed once all spawned enemies die
+    this.activeSpawner = null;
     this.expectedEnemyCount = this.spawnedEnemyCount;
   }
 
@@ -383,12 +417,7 @@ export class WaveManager implements IGameManager {
    * Reset wave manager
    */
   reset(): void {
-    // Clear all pending timeouts to prevent spawning after reset
-    for (const timeoutId of this.activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this.activeTimeouts.clear();
-
+    this.activeSpawner = null;
     this.enemyManager.clear();
     this.phase.set('setup');
     this.waveNumber.set(0);
