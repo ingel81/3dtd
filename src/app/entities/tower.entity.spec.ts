@@ -110,9 +110,9 @@ describe('Tower entity', () => {
       { lat: position.lat + 0.0001, lon: position.lon, height: 0 },
     ]);
 
-    expect(tower.findTarget([farEnemy])).toBeNull();
-    expect(tower.findTarget([closeEnemy])).toBeNull();
-    expect(tower.findTarget([airEnemy, closeEnemy])).toBe(airEnemy);
+    expect(tower.findTarget([farEnemy], false)).toBeNull();
+    expect(tower.findTarget([closeEnemy], false)).toBeNull();
+    expect(tower.findTarget([airEnemy, closeEnemy], false)).toBe(airEnemy);
   });
 
   it('supports different tower archetypes (sniper/aoe/beam)', () => {

@@ -185,7 +185,7 @@ describe('Game State Flow Integration', () => {
     });
 
     // Tower finds target
-    const target = tower.findTarget(m.enemyManager.getAll());
+    const target = tower.findTarget(m.enemyManager.getAll(), false);
     expect(target).toBe(enemy);
 
     // Fire projectiles until enemy dies

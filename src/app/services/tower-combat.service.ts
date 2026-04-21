@@ -4,11 +4,14 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { SpatialGridService } from './spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
+import { ResearchStore } from '../store/research.store';
 import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
+import { TowerTypeId } from '../configs/tower-types.config';
+import { canTargetAirEffective } from '../ai/core/tower-dps.util';
 
 /**
  * TowerCombatService - Handles tower targeting, rotation, and shooting
@@ -25,6 +28,7 @@ export class TowerCombatService {
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly spatialGrid = inject(SpatialGridService);
   private readonly combatEffectService = inject(CombatEffectService);
+  private readonly researchStore = inject(ResearchStore);
 
   private tilesEngine: ThreeTilesEngine | null = null;
 
@@ -76,6 +80,7 @@ export class TowerCombatService {
   ): void {
     // Fallback: full enemy list (used when spatial optimization isn't available)
     const allEnemies = enemyManager.getAlive();
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
       // Skip towers with pending LOS computation (progressive registration not yet complete)
@@ -110,9 +115,12 @@ export class TowerCombatService {
 
       // Determine if we can use GlobalRouteGrid optimization
       const hasVisibleCells = tower.visibleCells.length > 0;
+      const towerCanAir = canTargetAirEffective(
+        tower.typeConfig.id as TowerTypeId,
+        airTargetingUnlocked,
+      );
       const isPureAirTower =
-        (tower.typeConfig.canTargetAir ?? false) &&
-        !(tower.typeConfig.canTargetGround ?? true);
+        towerCanAir && !(tower.typeConfig.canTargetGround ?? true);
 
       // Get candidate enemies based on tower type and available data
       let candidates: Enemy[];
@@ -194,7 +202,7 @@ export class TowerCombatService {
       }
 
       // Fast path: get cached target or find new one
-      let target = tower.findTarget(candidates, losCheck);
+      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
       if (target) {
         // Target found - update sleep tracking
@@ -215,7 +223,7 @@ export class TowerCombatService {
             if (!losCheck(target)) {
               // Target no longer visible - find new target
               tower.clearTarget();
-              target = tower.findTarget(candidates, losCheck);
+              target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
               if (!target) {
                 this.tilesEngine?.towers.resetRotation(tower.id);
                 continue;
@@ -276,6 +284,7 @@ export class TowerCombatService {
     const now = performance.now();
     const dt = (deltaTime / 1000) * timescale; // Convert to seconds, apply timescale
     const allEnemies = enemyManager.getAlive();
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
       // Skip towers with pending LOS computation
@@ -318,7 +327,7 @@ export class TowerCombatService {
       }
 
       // Find primary target (closest/lowest HP in range)
-      const target = tower.findTarget(candidates);
+      const target = tower.findTarget(candidates, airTargetingUnlocked);
 
       if (target) {
         // Rotate turret towards target
@@ -542,6 +551,7 @@ export class TowerCombatService {
 
     const now = performance.now();
     const allEnemies = enemyManager.getAlive();
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
       // Skip towers with pending LOS computation
@@ -589,7 +599,7 @@ export class TowerCombatService {
       }
 
       // Find target
-      const target = tower.findTarget(candidates);
+      const target = tower.findTarget(candidates, airTargetingUnlocked);
 
       if (target) {
         // Target found - update sleep tracking

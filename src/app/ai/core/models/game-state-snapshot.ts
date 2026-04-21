@@ -106,6 +106,19 @@ export interface DefenseAnalysis {
 
   /** Tower distribution by type */
   towerDistribution: TowerDistribution;
+
+  /**
+   * Armor-matrix weighted effective DPS per armor category.
+   * Already multiplied with DAMAGE_MATRIX[towerDamageType][armor] so the
+   * network sees "how hard do I actually hit a heavy unit at this defense
+   * setup, separated by ground vs air targeting".
+   */
+  effectiveDPSPerArmor: EffectiveDPSPerArmor;
+}
+
+export interface EffectiveDPSPerArmor {
+  ground: Record<ArmorType, number>;
+  air: Record<ArmorType, number>;
 }
 
 export interface DefenseCapabilities {
@@ -205,6 +218,10 @@ export function createEmptySnapshot(): GameStateSnapshot {
         hasDoT: false,
       },
       towerDistribution: {},
+      effectiveDPSPerArmor: {
+        ground: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
+        air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
+      },
     },
     vulnerabilities: {
       airDefenseGap: true,
