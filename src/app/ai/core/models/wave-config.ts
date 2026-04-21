@@ -1,32 +1,28 @@
 /**
- * Wave Config - AI Output
+ * Wave Config — AI Output (Phase 5.10 Template-Based)
  *
- * Defines how a wave should be configured.
- * This is what the Wave Director AI produces.
+ * Defines how a wave should be configured. This is what the Wave Director AI
+ * produces after expanding a Template into concrete enemy groups.
+ *
+ * WaveArchetype was removed in Phase 5.10 — each Template is self-describing
+ * (see src/app/ai/core/templates.ts).
  */
 
 /**
- * Known enemy type IDs in the game
+ * Known enemy type IDs in the game.
  * Keep in sync with ENEMY_TYPES in models/enemy-types.ts
  */
-export type KnownEnemyTypeId = 'zombie' | 'tank' | 'wallsmasher' | 'bat' | 'herbert' | 'mammoth' | 'bear' | 'dragon';
-
-/**
- * Wave archetypes for thematic wave generation
- */
-export type WaveArchetype =
-  | 'swarm' // Many weak enemies
-  | 'elite' // Few strong enemies
-  | 'rush' // Fast enemies
-  | 'siege' // Slow tanks
-  | 'mixed' // Balanced mix
-  | 'boss' // Boss + support
-  | 'air'; // Flying enemies
+export type KnownEnemyTypeId =
+  | 'zombie' | 'rat' | 'penguin'
+  | 'wallsmasher' | 'bat' | 'hornet' | 'spider'
+  | 'zombie-soldier' | 'tank' | 'bear' | 'dragon' | 'mech'
+  | 'mammoth' | 'herbert'
+  | 'ghost' | 'wraith';
 
 export type { SpawnPattern } from '../spawn-schedule-builder';
 
 /**
- * Single enemy group in a wave
+ * Single enemy group in a wave.
  */
 export interface WaveEnemyGroup {
   /** Enemy type to spawn */
@@ -35,10 +31,10 @@ export interface WaveEnemyGroup {
   /** Number of this enemy type */
   count: number;
 
-  /** Health multiplier (0.5-5.0, default 1.0) */
+  /** Health multiplier (default 1.0) */
   healthMultiplier?: number;
 
-  /** Speed multiplier (0.5-1.5, default 1.0) */
+  /** Speed multiplier (default 1.0) */
   speedMultiplier?: number;
 
   /** Per-group spawn delay override in ms (overrides global baseDelay) */
@@ -46,7 +42,7 @@ export interface WaveEnemyGroup {
 }
 
 /**
- * Complete wave configuration
+ * Complete wave configuration.
  */
 export interface WaveConfig {
   // === ENEMY COMPOSITION ===
@@ -59,7 +55,7 @@ export interface WaveConfig {
 
   // === SPAWN BEHAVIOR ===
 
-  /** Base milliseconds between spawns (300-3000) */
+  /** Base milliseconds between spawns */
   spawnDelay: number;
 
   /** Spawn delay variation (+/- this percentage, 0-0.5) */
@@ -70,24 +66,29 @@ export interface WaveConfig {
 
   // === METADATA ===
 
-  /** The archetype this wave follows */
-  archetype?: WaveArchetype;
-
-  /** Difficulty modifier applied (-0.3 to +0.3) */
-  difficultyModifier?: number;
-
   /** AI confidence in this configuration (0-1) */
   confidence?: number;
 
   /** Human-readable explanation of why this wave was chosen */
   explanation?: string;
 
-  /** Spawn pattern for mixed waves (defaults to archetype recommendation) */
+  /** Spawn pattern (from template.spawnPattern) */
   pattern?: import('../spawn-schedule-builder').SpawnPattern;
+
+  // === PHASE 5.10 TEMPLATE METADATA ===
+
+  /** Index of the chosen template (0..NUM_ACTIVE_TEMPLATES-1) */
+  templateIdx?: number;
+
+  /** Template name for UI/dashboard display */
+  templateName?: string;
+
+  /** Strength multiplier applied to the template (0.5..2.0) */
+  templateStrength?: number;
 }
 
 /**
- * Create a simple wave config
+ * Create a simple single-type wave config (utility for debug/fallback paths).
  */
 export function createSimpleWaveConfig(
   enemyType: string,
@@ -102,7 +103,7 @@ export function createSimpleWaveConfig(
 }
 
 /**
- * Create a mixed wave config
+ * Create a mixed-type wave config (utility for debug paths).
  */
 export function createMixedWaveConfig(
   groups: WaveEnemyGroup[],
@@ -112,22 +113,5 @@ export function createMixedWaveConfig(
     enemies: groups,
     totalCount: groups.reduce((sum, g) => sum + g.count, 0),
     spawnDelay,
-    archetype: 'mixed',
   };
-}
-
-/**
- * Get archetype description for UI
- */
-export function getArchetypeDescription(archetype: WaveArchetype): string {
-  const descriptions: Record<WaveArchetype, string> = {
-    swarm: 'Viele schwache Gegner - Splash-Damage empfohlen',
-    elite: 'Wenige starke Gegner - hoher Einzelschaden noetig',
-    rush: 'Schnelle Gegner - Slow-Tower helfen',
-    siege: 'Langsame Tanks - brauchen viel Schaden',
-    mixed: 'Ausgewogener Mix - vielseitige Defense noetig',
-    boss: 'Boss-Welle - konzentriere Feuer!',
-    air: 'Fliegende Gegner - Anti-Air Pflicht!',
-  };
-  return descriptions[archetype];
 }

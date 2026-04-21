@@ -6,7 +6,7 @@
  */
 
 import { GameStateSnapshot } from './models/game-state-snapshot';
-import { WaveConfig, WaveArchetype, getArchetypeDescription } from './models/wave-config';
+import { WaveConfig } from './models/wave-config';
 
 export interface DecisionExplanation {
   /** One-line summary */
@@ -21,8 +21,9 @@ export interface DecisionExplanation {
   /** Confidence level (0-1) */
   confidence: number;
 
-  /** Archetype chosen */
-  archetype?: WaveArchetype;
+  /** Phase 5.10 Template metadata (when AI picked a template) */
+  templateName?: string;
+  templateStrength?: number;
 }
 
 export interface DecisionFactor {
@@ -59,7 +60,8 @@ export function explainWaveDecision(
     reasons,
     factors,
     confidence: config.confidence ?? 0.7,
-    archetype: config.archetype,
+    templateName: config.templateName,
+    templateStrength: config.templateStrength,
   };
 }
 
@@ -179,7 +181,7 @@ function analyzeVulnerabilities(
       weight: 0.7,
     });
 
-    if (config.archetype === 'swarm') {
+    if (config.templateName?.toLowerCase().includes('swarm') || config.templateName?.toLowerCase().includes('tide')) {
       reasons.push('Kein Splash-Damage -> Sende Schwarm');
     }
   }
@@ -192,7 +194,7 @@ function analyzeVulnerabilities(
       weight: 0.6,
     });
 
-    if (config.archetype === 'rush') {
+    if (config.templateName?.toLowerCase().includes('rush')) {
       reasons.push('Keine Slow-Tower -> Sende schnelle Gegner');
     }
   }
@@ -274,20 +276,12 @@ function generateSummary(
   _reasons: string[]
 ): string {
   const wave = state.waveNumber;
-
-  // Archetype description
-  const archetypeDesc = config.archetype
-    ? getArchetypeDescription(config.archetype)
-    : 'Gemischte Welle';
-
-  // Count summary
   const totalEnemies = config.totalCount;
-
-  // Build summary
-  let summary = `Welle ${wave}: ${archetypeDesc}`;
-  summary += ` (${totalEnemies} Gegner)`;
-
-  return summary;
+  const templateName = config.templateName ?? 'Template';
+  const strengthPart = config.templateStrength !== undefined
+    ? ` (Stärke ${config.templateStrength.toFixed(2)}×)`
+    : '';
+  return `Welle ${wave}: ${templateName}${strengthPart} — ${totalEnemies} Gegner`;
 }
 
 /**
@@ -299,8 +293,11 @@ export function formatExplanationForUI(explanation: DecisionExplanation): string
   lines.push(`=== ${explanation.summary} ===`);
   lines.push('');
 
-  if (explanation.archetype) {
-    lines.push(`Typ: ${explanation.archetype.toUpperCase()}`);
+  if (explanation.templateName) {
+    const strength = explanation.templateStrength !== undefined
+      ? ` (${explanation.templateStrength.toFixed(2)}×)`
+      : '';
+    lines.push(`Template: ${explanation.templateName}${strength}`);
   }
 
   lines.push(`Konfidenz: ${Math.round(explanation.confidence * 100)}%`);

@@ -10,7 +10,7 @@
 
 import { SpawnEntry, SpawnSchedule } from '../../managers/wave.manager';
 import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
-import { WaveEnemyGroup, WaveArchetype } from './models/wave-config';
+import { WaveEnemyGroup } from './models/wave-config';
 
 export type SpawnPattern =
   | 'interleaved'   // ABABABAB - proportional round-robin
@@ -86,20 +86,11 @@ export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
 }
 
 /**
- * Map archetype to a recommended spawn pattern.
+ * Default pattern when the backend didn't specify one.
+ * Phase 5.10: Templates provide their own spawnPattern; this is only used
+ * for legacy paths (debug UI creating ad-hoc waves without template metadata).
  */
-export function getRecommendedPattern(archetype: WaveArchetype): SpawnPattern {
-  switch (archetype) {
-    case 'swarm':  return 'random';
-    case 'elite':  return 'front-loaded';
-    case 'rush':   return 'interleaved';
-    case 'siege':  return 'clustered';
-    case 'mixed':  return 'interleaved';
-    case 'boss':   return 'wave-in-wave';
-    case 'air':    return 'back-loaded';
-    default:       return 'interleaved';
-  }
-}
+export const DEFAULT_SPAWN_PATTERN: SpawnPattern = 'interleaved';
 
 /**
  * Create WaveEnemyGroups from ratio-based definition.
