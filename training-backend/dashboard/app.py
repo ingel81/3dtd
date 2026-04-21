@@ -18,12 +18,13 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
 from config import (
-    REWARD_PROGRESS_CENTER,
-    REWARD_PROGRESS_SIGMA,
-    REWARD_BORING_PENALTY,
-    REWARD_BORING_THRESHOLD,
     ENTROPY_COEF,
     ENEMY_TYPES,
+    DAMAGE_SWEET_MIN,
+    DAMAGE_SWEET_MAX,
+    PROGRESS_NEAR_MISS_LOW,
+    PROGRESS_NEAR_MISS_HIGH,
+    PROGRESS_OVERFLOW_THRESHOLD,
 )
 
 # Wave-size histogram buckets. Upper bound exclusive, last bucket is "+inf".
@@ -104,18 +105,18 @@ class Dashboard:
 
         @self.app.get("/api/config")
         async def get_config():
-            """Return reward config for dynamic dashboard thresholds."""
-            sweet_lower = REWARD_PROGRESS_CENTER - REWARD_PROGRESS_SIGMA
-            sweet_upper = REWARD_PROGRESS_CENTER + REWARD_PROGRESS_SIGMA
-            # Overflow threshold matches reward.py hard penalty
-            overflow = min(sweet_upper + REWARD_PROGRESS_SIGMA, 0.95)
+            """Return reward config for dynamic dashboard thresholds (Phase 5.10)."""
+            # Progress "sweet spot" = near-miss band from reward.py
+            center = (PROGRESS_NEAR_MISS_LOW + PROGRESS_NEAR_MISS_HIGH) / 2
+            sigma = (PROGRESS_NEAR_MISS_HIGH - PROGRESS_NEAR_MISS_LOW) / 2
             return {
-                "progressCenter": REWARD_PROGRESS_CENTER,
-                "progressSigma": REWARD_PROGRESS_SIGMA,
-                "sweetLower": round(sweet_lower, 3),
-                "sweetUpper": round(sweet_upper, 3),
-                "overflowThreshold": round(overflow, 3),
-                "boringThreshold": REWARD_BORING_THRESHOLD,
+                "progressCenter": round(center, 3),
+                "progressSigma": round(sigma, 3),
+                "sweetLower": round(PROGRESS_NEAR_MISS_LOW, 3),
+                "sweetUpper": round(PROGRESS_NEAR_MISS_HIGH, 3),
+                "overflowThreshold": round(PROGRESS_OVERFLOW_THRESHOLD, 3),
+                "damageSweetMin": DAMAGE_SWEET_MIN,
+                "damageSweetMax": DAMAGE_SWEET_MAX,
                 "entropyCoef": ENTROPY_COEF,
             }
 
@@ -499,25 +500,20 @@ class Dashboard:
         self._broadcast_event("training_update", self.model_metrics)
 
     def _classify_progress(self, progress: float) -> str:
-        sweet_lower = REWARD_PROGRESS_CENTER - REWARD_PROGRESS_SIGMA
-        sweet_upper = REWARD_PROGRESS_CENTER + REWARD_PROGRESS_SIGMA
-        overflow = min(REWARD_PROGRESS_CENTER + 2 * REWARD_PROGRESS_SIGMA, 0.95)
-
         if progress < 0.20: return "boring"
-        if progress < sweet_lower: return "low"
-        if progress <= sweet_upper: return "sweet"
-        if progress <= overflow: return "moderate"
+        if progress < PROGRESS_NEAR_MISS_LOW: return "low"
+        if progress <= PROGRESS_NEAR_MISS_HIGH: return "sweet"
+        if progress <= PROGRESS_OVERFLOW_THRESHOLD: return "moderate"
         if progress < 1.0: return "danger"
         return "gameover"
 
     def _calc_sweet_spot_pct(self) -> float:
-        """Percentage of recent episodes in sweet spot (center ± sigma)."""
+        """Percentage of recent episodes in the near-miss sweet band."""
         if not self.progress_history:
             return 0
-        sweet_lower = REWARD_PROGRESS_CENTER - REWARD_PROGRESS_SIGMA
-        sweet_upper = REWARD_PROGRESS_CENTER + REWARD_PROGRESS_SIGMA
         recent = list(self.progress_history)[-100:]
-        in_spot = sum(1 for p in recent if sweet_lower <= p <= sweet_upper)
+        in_spot = sum(1 for p in recent
+                       if PROGRESS_NEAR_MISS_LOW <= p <= PROGRESS_NEAR_MISS_HIGH)
         return round(in_spot / len(recent) * 100, 1)
 
     def _calc_game_over_rate(self) -> float:
