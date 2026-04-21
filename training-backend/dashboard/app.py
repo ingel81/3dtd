@@ -224,10 +224,13 @@ class Dashboard:
                     "id": cid % 10000,
                     "waveNum": ctx.wave_num,
                     "bot": ctx.current_bot,
-                    "groundDPS": ctx.ground_dps_profile,
-                    "airDPS": ctx.air_dps_profile,
+                    # Phase 5.10: ctx no longer caches dps_profile; endpoint
+                    # returns empty arrays for API compatibility.
+                    "groundDPS": [],
+                    "airDPS": [],
                     "recentProgress": ctx.recent_progress[-5:],
                     "winStreak": ctx.win_streak,
+                    "recentTemplateIndices": ctx.recent_template_indices[-5:],
                 })
             return clients
 
@@ -237,10 +240,8 @@ class Dashboard:
                 return {"error": "Server not initialized"}
             for cid, ctx in self.server_ref.client_contexts.items():
                 if cid % 10000 == client_id:
-                    return {
-                        "groundDPS": ctx.ground_dps_profile,
-                        "airDPS": ctx.air_dps_profile,
-                    }
+                    # Phase 5.10: dps_profile no longer cached in ctx.
+                    return {"groundDPS": [], "airDPS": []}
             return {"error": "Client not found"}
 
         @self.app.post("/api/control/{cmd}")
