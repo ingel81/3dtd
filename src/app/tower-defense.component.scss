@@ -370,3 +370,38 @@
   width: 18px;
   height: 18px;
 }
+
+/* Phase 5.10: AI error banner (ONNX load fail etc.) */
+.ai-error-banner {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 1000;
+  padding: 12px 20px;
+  background: rgba(200, 60, 60, 0.95);
+  color: white;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+}
+.ai-error-banner strong {
+  flex-shrink: 0;
+}
+.ai-error-banner span {
+  flex: 1;
+}
+.ai-error-banner button {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 22px;
+  cursor: pointer;
+  padding: 0 6px;
+  line-height: 1;
+}
+.ai-error-banner button:hover {
+  opacity: 0.75;
+}

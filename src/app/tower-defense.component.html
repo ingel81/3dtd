@@ -1,4 +1,12 @@
 <div class="td-container" [class.td-fullscreen]="!isDialog" (contextmenu)="$event.preventDefault()">
+  @if (store.aiError(); as aiErr) {
+    <div class="ai-error-banner" role="alert">
+      <strong>AI-Fehler:</strong>
+      <span>{{ aiErr }}</span>
+      <button type="button" (click)="store.aiError.set(null)" aria-label="Schließen">×</button>
+    </div>
+  }
+
   <!-- Info Header -->
   <app-game-header
     [locationName]="currentLocationName()"
