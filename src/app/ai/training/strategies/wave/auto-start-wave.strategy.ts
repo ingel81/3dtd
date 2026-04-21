@@ -30,6 +30,13 @@ export class AutoStartWaveStrategy extends BaseStrategy {
     // Need at least 1 tower
     if (state.defense.towerCount === 0) return false;
 
+    // Phase 5.11: wait for any active research before triggering the wave.
+    // A human wouldn't start a wave while upgrading — neither should the bot.
+    // Without this, at high training timescales the bot effectively skips
+    // every research because waves come faster than real-time research ticks.
+    const activeResearchCount = state.research?.activeIds?.length ?? 0;
+    if (activeResearchCount > 0) return false;
+
     const now = Date.now();
 
     // Track setup phase start time
@@ -37,7 +44,8 @@ export class AutoStartWaveStrategy extends BaseStrategy {
       this.setupPhaseStartTime = now;
     }
 
-    // Force start wave if we've been in setup too long (prevents infinite waiting)
+    // Force start wave if we've been in setup too long (prevents infinite waiting
+    // when there is NO research running — research takes priority above).
     const setupDuration = now - this.setupPhaseStartTime;
     if (setupDuration > this.MAX_SETUP_WAIT) {
       return true;
