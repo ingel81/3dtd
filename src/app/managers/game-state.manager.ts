@@ -396,6 +396,12 @@ export class GameStateManager {
     }
     tTower = profiling ? performance.now() - t0 : 0;
 
+    // Phase 5.11 fix: drive wave spawning in game-time instead of setTimeout.
+    // deltaTime is already timescale-scaled here, so it represents game-time ms.
+    if (this.waveManager.phase() === 'wave') {
+      this.waveManager.tickSpawn(deltaTime);
+    }
+
     // Enemy movement - always update (debug enemies may move outside wave phase)
     // Paused enemies (e.g., during gathering) won't move due to movement.paused check
     if (this.enemyManager.getAll().length > 0) {

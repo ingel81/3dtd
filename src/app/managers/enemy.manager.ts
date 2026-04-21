@@ -37,7 +37,12 @@ export class EnemyManager extends EntityManager<Enemy> {
   private poisonVisualEnemies = new Set<string>();
 
   // Track last poison tick time per enemy (for 500ms interval)
+  /** Poison tick timestamps in GAME-TIME ms (not wall-clock) — prevents
+   *  DoT-tick drift at high training timescales. Key: enemy.id.
+   */
   private poisonTickTimes = new Map<string, number>();
+  /** Running game-time counter (sum of all deltaTime since construction). */
+  private gameTimeMs = 0;
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
@@ -331,6 +336,9 @@ export class EnemyManager extends EntityManager<Enemy> {
     const origin = this.tilesEngine?.sync.getOrigin();
     // Cache performance.now() once per frame — avoid 9000+ calls at 3000 enemies
     const now = performance.now();
+    // Advance game-time counter for frame-precise DoT ticking (independent
+    // of wall-clock timescale drift).
+    this.gameTimeMs += deltaTime;
 
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
@@ -456,20 +464,18 @@ export class EnemyManager extends EntityManager<Enemy> {
           this.poisonTickTimes.delete(enemy.id);
         }
 
-        // Poison DOT tick: emit damage every 500ms
+        // Poison DOT tick: emit damage every 500ms of GAME-TIME (not wall-clock),
+        // so DoT damage stays consistent across all timescales.
         if (isPoisoned) {
-          const lastTick = this.poisonTickTimes.get(enemy.id) ?? 0;
-          // 500ms in real-time (adjusted for timescale)
-          const tickInterval = 500 / timescale;
-          if (now - lastTick >= tickInterval) {
-            this.poisonTickTimes.set(enemy.id, now);
-            // Find active poison effect to get DPS value
+          const lastTick = this.poisonTickTimes.get(enemy.id) ?? this.gameTimeMs;
+          const POISON_TICK_INTERVAL_MS = 500;
+          if (this.gameTimeMs - lastTick >= POISON_TICK_INTERVAL_MS) {
+            this.poisonTickTimes.set(enemy.id, this.gameTimeMs);
             const poisonEffect = enemy.movement.statusEffects.find(
               (e) => e.type === 'poison'
             );
             if (poisonEffect) {
-              // 500ms tick = DPS * 0.5
-              const tickDamage = poisonEffect.value * 0.5;
+              const tickDamage = poisonEffect.value * 0.5;  // 500ms tick = DPS * 0.5
               this.eventBus.emit({
                 type: 'dot:damage',
                 enemy,
