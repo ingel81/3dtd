@@ -164,6 +164,16 @@
 
           <div class="card">
             <div class="card-header">
+              <span class="card-title">Template Usage (Phase 5.10)</span>
+              <span class="help" data-tooltip="Wie oft der NN jedes Template ausgewählt hat. Saubere Verteilung = NN nutzt alle Templates; Peaks = Template-Bias.">?</span>
+            </div>
+            <div class="chart-container chart-container--tall">
+              <canvas id="template-usage-chart"></canvas>
+            </div>
+          </div>
+
+          <div class="card">
+            <div class="card-header">
               <span class="card-title">Wave Size Distribution</span>
               <span class="help" data-tooltip="Histogramm der Wave-Größen (totalCount). Ziel: Verteilung über alle Buckets. Alles im ersten Bucket → AI schickt zu kleine Waves.">?</span>
             </div>

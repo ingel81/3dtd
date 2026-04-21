@@ -55,6 +55,18 @@ const BREAKDOWN_KEY_LABELS = {
   swarm_size: 'Swarm Size',
   progression: 'Progression',
 };
+// Phase 5.10: 18 active templates (slot-order). Mirror of backend templates.py.
+const TEMPLATE_ID_ORDER = [
+  'zombie_horde', 'rat_tide', 'penguin_rush',
+  'light_mix', 'spider_swarm', 'wallsmasher_crew',
+  'bat_swarm', 'hornet_strike',
+  'tank_column', 'bear_pack', 'mech_army',
+  'dragon_elite',
+  'mammoth_siege',
+  'ghost_surge', 'wraith_storm',
+  'chaos_wave', 'armor_gauntlet',
+  'boss_herbert',
+];
 // Breakdown values are expected in ~[-2.5, +1.0] range. We scale visual width
 // relative to BREAKDOWN_MAX_VALUE so 2.5 maps to ~full bar.
 const BREAKDOWN_MAX_VALUE = 1.5;
@@ -74,6 +86,7 @@ const state = {
 
   // Policy-output globals
   enemyTypeCounts: {},
+  templateUsageCounts: {},
   waveSizeHistogram: { labels: [], counts: [] },
   mixedWaveRate: { raw: [], rolling50: [] },
 
@@ -413,6 +426,13 @@ function initGlobalCharts() {
     borderWidth: 0,
   }], { horizontal: true, labels: ENEMY_TYPE_ORDER });
 
+  // Template-Usage (Phase 5.10): horizontal bar, ordered by slot index
+  charts.templateUsage = createBarChart('template-usage-chart', [{
+    data: new Array(TEMPLATE_ID_ORDER.length).fill(0),
+    backgroundColor: '#58a6ff',
+    borderWidth: 0,
+  }], { horizontal: true, labels: TEMPLATE_ID_ORDER });
+
   // Wave-Size-Histogramm
   charts.waveSizeHist = createBarChart('wave-size-histogram-chart', [{
     data: [0, 0, 0, 0, 0],
@@ -506,6 +526,12 @@ function updatePolicyOutputCharts() {
     const data = ENEMY_TYPE_ORDER.map(t => state.enemyTypeCounts[t] || 0);
     charts.enemyTypeFreq.data.datasets[0].data = data;
     charts.enemyTypeFreq.update('none');
+  }
+  // Phase 5.10: Template-Usage (populated from stats.templateUsageCounts)
+  if (charts.templateUsage) {
+    const data = TEMPLATE_ID_ORDER.map(t => state.templateUsageCounts[t] || 0);
+    charts.templateUsage.data.datasets[0].data = data;
+    charts.templateUsage.update('none');
   }
   // Wave-Size-Histogramm
   if (charts.waveSizeHist && state.waveSizeHistogram.counts) {
@@ -1115,6 +1141,7 @@ function updateHeaderStats(stats) {
 
   // Policy-output globals (fresh counts from server)
   if (stats.enemyTypeCounts) state.enemyTypeCounts = stats.enemyTypeCounts;
+  if (stats.templateUsageCounts) state.templateUsageCounts = stats.templateUsageCounts;
   if (stats.waveSizeHistogram) state.waveSizeHistogram = stats.waveSizeHistogram;
   if (stats.mixedWaveRate) state.mixedWaveRate = stats.mixedWaveRate;
 

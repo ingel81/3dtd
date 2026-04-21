@@ -1,10 +1,24 @@
 # AI Wave Director
 
+> **⚠️ Stand Phase 5.10 (April 2026):** Die Architektur wurde grundlegend überarbeitet.
+> Der aktuelle Stand ist in [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md)
+> dokumentiert. Dieses Dokument beschreibt die historische Phase 5.x-Architektur
+> (16-Softmax × 4 Continuous + 13 Reward-Terms), die durch Template-Based Waves
+> ersetzt wurde.
+
 ## Ueberblick
 
 Machine-Learning-basierter Wave Director fuer 3DTD. Generiert adaptive Gegner-Wellen basierend auf der raeumlichen Verteidigung des Spielers. Ziel: avg raw progress ~55% (Haelfte der Enemies stirbt in der Defense, Haelfte kommt durch).
 
 **Stack:** Angular (Browser) + Python (Training Backend)
+
+**Aktuelle Architektur (Phase 5.10):**
+- Action Space: `template_idx` (32 slots, 18 aktiv) + `strength` + `count`
+- State Vector: 156 Features (Phase 5.6 awareness + Gap-5 armor-matrix)
+- 4 Reward-Terms: DEATH + DRAMA + SWARM_SIZE + PROGRESSION
+- Hard-Constraints im Decoder (Cooldown, Capability-Gates, Curriculum)
+
+Details siehe [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md).
 
 ---
 

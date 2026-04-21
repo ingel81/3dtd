@@ -257,7 +257,16 @@ export class GameLoopFacadeService {
         config: waveConfig,
       });
     } catch (error) {
-      console.error('[AI] Failed to generate wave, using fallback', error);
+      console.error('[AI] Failed to generate wave', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      // Phase 5.10: ONNX model missing is a hard-fail. Set a user-visible error
+      // banner and disable AI so the manual wave path kicks in on the next call.
+      if (msg.includes('model is not available') || msg.includes('Model not loaded')) {
+        this.store.aiError.set(
+          'AI-Model konnte nicht geladen werden. Training läuft weiter über den '
+          + 'Server-Backend-Pfad; für Standalone-Play bitte die Seite neu laden.'
+        );
+      }
       this.store.useAIDirector.set(false);
       this.pendingAIWaveRequest = false;
       this.startWaveWithAI(retryCount + 1);

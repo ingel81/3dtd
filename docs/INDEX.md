@@ -41,7 +41,8 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 
 | Dokument | Beschreibung |
 |----------|--------------|
-| [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - Gesamtuebersicht (Frontend + Backend) |
+| **[PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md)** | **Aktuelle Architektur (Phase 5.10):** Template-Based Wave Director, 4 Reward-Terms, Hard-Constraints |
+| [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - historische Gesamtuebersicht (Phase 5.x) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Based Bot System fuer AI Training |
 | [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Python Training Backend - PPO, Dashboard, Reward |
 | [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte (v1→v2→v3) |

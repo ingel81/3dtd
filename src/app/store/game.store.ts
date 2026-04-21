@@ -44,6 +44,9 @@ export class GameStore {
   /** AI explanation text for current wave */
   readonly aiExplanation = signal<string | null>(null);
 
+  /** Fatal AI error message (shown as blocking banner, typically ONNX load fail) */
+  readonly aiError = signal<string | null>(null);
+
   /** DevWorld is regenerating terrain */
   readonly isDevWorldRegenerating = signal<boolean>(false);
 

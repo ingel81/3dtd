@@ -753,11 +753,38 @@ def main():
     if args.breakdown or not any_flag:
         report_breakdown(client_id=args.client)
         print()
+    if not any_flag:
+        report_template_usage()
+        print()
     if args.log or args.tail or not any_flag:
         report_log(client_id=args.client, tail=args.tail)
         print()
     if args.checkpoints or not any_flag:
         report_checkpoints()
+
+
+def report_template_usage():
+    """Phase 5.10: Template-Usage-Histogramm aus /api/stats."""
+    print("=== TEMPLATE USAGE (Phase 5.10) ===")
+    stats = fetch_json("/api/stats")
+    if "__error__" in stats:
+        print(f"  [err] Dashboard offline: {stats['__error__']}")
+        return
+    usage = stats.get("templateUsageCounts") or {}
+    if not usage:
+        print("  (no template usage yet — training hasn't started)")
+        return
+    total = sum(usage.values())
+    if total == 0:
+        print("  (all zero)")
+        return
+    # Sort descending by count
+    rows = sorted(usage.items(), key=lambda kv: -kv[1])
+    print(f"  Total template picks: {total}")
+    for tmpl_id, count in rows:
+        pct = 100 * count / total
+        bar = "#" * int(pct / 3)
+        print(f"  {tmpl_id:<20} {count:>5}  {pct:>5.1f}%  {bar}")
 
 
 if __name__ == "__main__":
