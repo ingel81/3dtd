@@ -1,57 +1,57 @@
 """
-Wave Templates (Phase 5.10)
+Wave Templates — Phase 5.11 Range-Based
 
-Designer-curated wave compositions. The NN picks a template index + strength +
-count, the decoder expands the template into a concrete wave config.
+Each template defines the CHARACTER of a wave (enemy mix, curriculum gate,
+capability requirement, spawn pattern) plus RANGES for 4 dynamic parameters:
+count, spawn_delay, hp_mult, variation.
 
-Each template specifies a coherent enemy mix that matches a tactical theme.
-Monotony and armor-dominance are prevented structurally via the cooldown mask
-in server.py::_decode_action — no soft reward penalties for repetition.
+The NN picks template + 4 continuous factors in [0,1]; the decoder
+interpolates each factor into its template-specific range.
 
-Slots 0-17 are the active templates. Slots 18-31 are reserved placeholders
-so the model can be extended later without retraining (MAX_TEMPLATE_SLOTS in
-config.py). The slot-availability mask blocks reserved slots.
+Slots 0-17 are active. Slots 18-31 are reserved so more templates can be
+added later without retraining the model.
 """
 
 from typing import Any
 
 
-# Each template: a dict with keys:
-#   id:                      stable string identifier
-#   name:                    human-readable name (UI)
-#   description:             short UI text
-#   enemies:                 list of (enemy_type, share) tuples; shares must sum to 1.0
-#   base_count:              typical wave size at count=1.0
-#   base_spawn_delay_ms:     default spawn interval
-#   base_hp_mult:            hp multiplier at strength=1.0
-#   min_wave:                curriculum gate — template blocked before this wave
-#   spawn_pattern:           'interleaved' | 'sequential' | 'clustered' | None
-#   requires_capability:     None | 'antiAir' | 'antiEthereal'
-#   boss_only:               True if this template is gated to every-10-waves
+# Template dict keys:
+#   id, name, description:    metadata
+#   enemies:                  [(enemy_type, share), ...] — shares sum to ~1.0
+#   count_range:              (min, max) total enemies
+#   spawn_delay_range:        (min_ms, max_ms) between spawns
+#   hp_mult_range:            (min, max) healthMultiplier applied to base_hp
+#   variation_range:          (min, max) spawn-delay jitter factor (0..1)
+#   min_wave:                 curriculum gate — blocked before this wave
+#   spawn_pattern:            'interleaved' | 'sequential' | 'clustered' | None
+#   requires_capability:      None | 'antiAir' | 'antiEthereal'
+#   boss_only:                True → only usable at wave % 10 == 0
 TEMPLATES: list[dict[str, Any]] = [
-    # 0: Unarmored starter
+    # 0: Unarmored starter → massive mega-horde
     {
         "id": "zombie_horde",
         "name": "Zombie Horde",
-        "description": "Langsame Unarmored-Welle mit ein paar Ratten als Füller",
+        "description": "Unarmored-Horde mit Ratten als Füller — von Easy-Intro bis Mega-Horde",
         "enemies": [("zombie", 0.8), ("rat", 0.2)],
-        "base_count": 40,
-        "base_spawn_delay_ms": 300,
-        "base_hp_mult": 1.0,
+        "count_range": (20, 2000),
+        "spawn_delay_range": (15, 400),
+        "hp_mult_range": (0.5, 6.0),
+        "variation_range": (0.05, 0.40),
         "min_wave": 1,
         "spawn_pattern": "interleaved",
         "requires_capability": None,
         "boss_only": False,
     },
-    # 1: Mega-Swarm — Hauptattraktion für 2000+ Enemies
+    # 1: Mega-Swarm
     {
         "id": "rat_tide",
         "name": "Rat Tide",
-        "description": "Mega-Swarm reiner Ratten mit sehr hoher Dichte",
+        "description": "Reine Rattenflut — 100 bis 5000 Ratten",
         "enemies": [("rat", 1.0)],
-        "base_count": 400,
-        "base_spawn_delay_ms": 80,
-        "base_hp_mult": 1.0,
+        "count_range": (100, 5000),
+        "spawn_delay_range": (10, 200),
+        "hp_mult_range": (0.5, 5.0),
+        "variation_range": (0.05, 0.30),
         "min_wave": 8,
         "spawn_pattern": None,
         "requires_capability": None,
@@ -61,11 +61,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "penguin_rush",
         "name": "Penguin Rush",
-        "description": "Schnelle Pinguine mit Ratten als Ablenkung",
+        "description": "Schnelle Pinguine mit Rattenfüller",
         "enemies": [("penguin", 0.9), ("rat", 0.1)],
-        "base_count": 80,
-        "base_spawn_delay_ms": 150,
-        "base_hp_mult": 1.0,
+        "count_range": (30, 500),
+        "spawn_delay_range": (10, 300),
+        "hp_mult_range": (0.5, 4.0),
+        "variation_range": (0.05, 0.35),
         "min_wave": 5,
         "spawn_pattern": "interleaved",
         "requires_capability": None,
@@ -75,11 +76,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "light_mix",
         "name": "Light Mix",
-        "description": "Wallsmasher und Spider — Einführung in Light-Armor",
+        "description": "Wallsmasher + Spider",
         "enemies": [("wallsmasher", 0.5), ("spider", 0.5)],
-        "base_count": 60,
-        "base_spawn_delay_ms": 400,
-        "base_hp_mult": 1.0,
+        "count_range": (30, 400),
+        "spawn_delay_range": (30, 500),
+        "hp_mult_range": (0.5, 5.0),
+        "variation_range": (0.05, 0.40),
         "min_wave": 4,
         "spawn_pattern": "interleaved",
         "requires_capability": None,
@@ -91,9 +93,10 @@ TEMPLATES: list[dict[str, Any]] = [
         "name": "Spider Swarm",
         "description": "Reine Spider-Flut",
         "enemies": [("spider", 1.0)],
-        "base_count": 120,
-        "base_spawn_delay_ms": 250,
-        "base_hp_mult": 1.0,
+        "count_range": (50, 800),
+        "spawn_delay_range": (20, 350),
+        "hp_mult_range": (0.5, 4.0),
+        "variation_range": (0.05, 0.35),
         "min_wave": 8,
         "spawn_pattern": None,
         "requires_capability": None,
@@ -103,11 +106,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "wallsmasher_crew",
         "name": "Wallsmasher Crew",
-        "description": "Reine Wallsmasher — HP-fokussiertes Light-Team",
+        "description": "Reine Wallsmasher — HP-Fokus",
         "enemies": [("wallsmasher", 1.0)],
-        "base_count": 40,
-        "base_spawn_delay_ms": 500,
-        "base_hp_mult": 1.0,
+        "count_range": (15, 200),
+        "spawn_delay_range": (50, 600),
+        "hp_mult_range": (0.5, 6.0),
+        "variation_range": (0.10, 0.40),
         "min_wave": 6,
         "spawn_pattern": None,
         "requires_capability": None,
@@ -117,11 +121,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "bat_swarm",
         "name": "Bat Swarm",
-        "description": "Reiner Bat-Schwarm — erfordert Anti-Air",
+        "description": "Reiner Bat-Schwarm — braucht Anti-Air",
         "enemies": [("bat", 1.0)],
-        "base_count": 100,
-        "base_spawn_delay_ms": 150,
-        "base_hp_mult": 1.0,
+        "count_range": (30, 600),
+        "spawn_delay_range": (15, 300),
+        "hp_mult_range": (0.5, 4.0),
+        "variation_range": (0.05, 0.30),
         "min_wave": 7,
         "spawn_pattern": None,
         "requires_capability": "antiAir",
@@ -131,11 +136,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "hornet_strike",
         "name": "Hornet Strike",
-        "description": "Hornets mit Bat-Support — Fortgeschrittener Air-Mix",
+        "description": "Hornets + Bats",
         "enemies": [("hornet", 0.7), ("bat", 0.3)],
-        "base_count": 50,
-        "base_spawn_delay_ms": 250,
-        "base_hp_mult": 1.0,
+        "count_range": (20, 300),
+        "spawn_delay_range": (30, 400),
+        "hp_mult_range": (0.5, 5.0),
+        "variation_range": (0.10, 0.40),
         "min_wave": 9,
         "spawn_pattern": "interleaved",
         "requires_capability": "antiAir",
@@ -145,25 +151,27 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "tank_column",
         "name": "Tank Column",
-        "description": "Tanks und Zombie-Soldiers — Heavy-Ground-Einführung",
+        "description": "Tanks + Zombie-Soldiers",
         "enemies": [("tank", 0.6), ("zombie-soldier", 0.4)],
-        "base_count": 25,
-        "base_spawn_delay_ms": 500,
-        "base_hp_mult": 1.0,
+        "count_range": (10, 150),
+        "spawn_delay_range": (80, 800),
+        "hp_mult_range": (0.5, 8.0),
+        "variation_range": (0.10, 0.35),
         "min_wave": 10,
         "spawn_pattern": "interleaved",
         "requires_capability": None,
         "boss_only": False,
     },
-    # 9: Tank pack
+    # 9: Bear pack
     {
         "id": "bear_pack",
         "name": "Bear Pack",
         "description": "Reines Bear-Rudel",
         "enemies": [("bear", 1.0)],
-        "base_count": 20,
-        "base_spawn_delay_ms": 400,
-        "base_hp_mult": 1.0,
+        "count_range": (8, 120),
+        "spawn_delay_range": (60, 600),
+        "hp_mult_range": (0.5, 7.0),
+        "variation_range": (0.10, 0.35),
         "min_wave": 12,
         "spawn_pattern": None,
         "requires_capability": None,
@@ -173,11 +181,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "mech_army",
         "name": "Mech Army",
-        "description": "Reine Mechs — Late-Game Heavy-Welle",
+        "description": "Reine Mechs — Late-Game Stress",
         "enemies": [("mech", 1.0)],
-        "base_count": 15,
-        "base_spawn_delay_ms": 600,
-        "base_hp_mult": 1.0,
+        "count_range": (5, 100),
+        "spawn_delay_range": (100, 900),
+        "hp_mult_range": (0.5, 10.0),
+        "variation_range": (0.10, 0.40),
         "min_wave": 20,
         "spawn_pattern": None,
         "requires_capability": None,
@@ -187,11 +196,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "dragon_elite",
         "name": "Dragon Elite",
-        "description": "Dragons mit Hornet-Begleitung — Heavy+Light Air",
+        "description": "Dragons + Hornets",
         "enemies": [("dragon", 0.6), ("hornet", 0.4)],
-        "base_count": 15,
-        "base_spawn_delay_ms": 600,
-        "base_hp_mult": 1.0,
+        "count_range": (5, 100),
+        "spawn_delay_range": (80, 800),
+        "hp_mult_range": (0.5, 8.0),
+        "variation_range": (0.10, 0.40),
         "min_wave": 15,
         "spawn_pattern": "interleaved",
         "requires_capability": "antiAir",
@@ -201,11 +211,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "mammoth_siege",
         "name": "Mammoth Siege",
-        "description": "Mammoths mit Wallsmasher — Fortified-Belagerung",
+        "description": "Mammoths + Wallsmashers",
         "enemies": [("mammoth", 0.7), ("wallsmasher", 0.3)],
-        "base_count": 20,
-        "base_spawn_delay_ms": 700,
-        "base_hp_mult": 1.0,
+        "count_range": (8, 120),
+        "spawn_delay_range": (100, 1000),
+        "hp_mult_range": (0.5, 10.0),
+        "variation_range": (0.10, 0.40),
         "min_wave": 14,
         "spawn_pattern": "interleaved",
         "requires_capability": None,
@@ -215,11 +226,12 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "ghost_surge",
         "name": "Ghost Surge",
-        "description": "Ghosts mit Wraith-Anteil — benötigt Magic/Ice",
+        "description": "Ghosts + Wraiths — braucht Magic/Ice",
         "enemies": [("ghost", 0.8), ("wraith", 0.2)],
-        "base_count": 40,
-        "base_spawn_delay_ms": 250,
-        "base_hp_mult": 1.0,
+        "count_range": (20, 350),
+        "spawn_delay_range": (30, 400),
+        "hp_mult_range": (0.5, 5.0),
+        "variation_range": (0.10, 0.40),
         "min_wave": 12,
         "spawn_pattern": "interleaved",
         "requires_capability": "antiEthereal",
@@ -229,25 +241,27 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "wraith_storm",
         "name": "Wraith Storm",
-        "description": "Reine Wraiths — benötigt Magic/Ice",
+        "description": "Reine Wraiths — braucht Magic/Ice",
         "enemies": [("wraith", 1.0)],
-        "base_count": 35,
-        "base_spawn_delay_ms": 200,
-        "base_hp_mult": 1.0,
+        "count_range": (15, 300),
+        "spawn_delay_range": (20, 350),
+        "hp_mult_range": (0.5, 6.0),
+        "variation_range": (0.05, 0.35),
         "min_wave": 18,
         "spawn_pattern": None,
         "requires_capability": "antiEthereal",
         "boss_only": False,
     },
-    # 15: Chaos — all-round
+    # 15: Chaos
     {
         "id": "chaos_wave",
         "name": "Chaos Wave",
-        "description": "Chaotisch gemischte Welle aus 4 Typen",
+        "description": "Chaotischer 4-Typen-Mix",
         "enemies": [("zombie", 0.3), ("tank", 0.3), ("hornet", 0.2), ("bear", 0.2)],
-        "base_count": 50,
-        "base_spawn_delay_ms": 350,
-        "base_hp_mult": 1.0,
+        "count_range": (25, 500),
+        "spawn_delay_range": (40, 500),
+        "hp_mult_range": (0.5, 5.0),
+        "variation_range": (0.15, 0.50),
         "min_wave": 15,
         "spawn_pattern": "interleaved",
         "requires_capability": "antiAir",
@@ -257,40 +271,40 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "armor_gauntlet",
         "name": "Armor Gauntlet",
-        "description": "Alle 4 Armor-Kategorien gleichzeitig — Allround-Test",
+        "description": "Alle 4 Armor-Kategorien gleichzeitig",
         "enemies": [("rat", 0.25), ("tank", 0.25), ("mammoth", 0.25), ("ghost", 0.25)],
-        "base_count": 60,
-        "base_spawn_delay_ms": 400,
-        "base_hp_mult": 1.0,
+        "count_range": (30, 600),
+        "spawn_delay_range": (40, 500),
+        "hp_mult_range": (0.5, 6.0),
+        "variation_range": (0.15, 0.45),
         "min_wave": 20,
         "spawn_pattern": "interleaved",
         "requires_capability": "antiEthereal",
         "boss_only": False,
     },
-    # 17: Boss wave
+    # 17: Boss (every 10 waves)
     {
         "id": "boss_herbert",
         "name": "Boss: Herbert",
-        "description": "Herbert-Boss mit Tank- und Zombie-Support",
+        "description": "Herbert-Boss mit Support",
         "enemies": [("herbert", 0.0334), ("tank", 0.4833), ("zombie", 0.4833)],
-        "base_count": 30,
-        "base_spawn_delay_ms": 800,
-        "base_hp_mult": 1.0,
+        "count_range": (10, 100),
+        "spawn_delay_range": (100, 1200),
+        "hp_mult_range": (0.5, 6.0),
+        "variation_range": (0.10, 0.30),
         "min_wave": 20,
         "spawn_pattern": "clustered",
         "requires_capability": None,
-        "boss_only": True,  # gated to wave % 10 == 0
+        "boss_only": True,
     },
 ]
 
 
-# Number of actual templates defined. Slots beyond this index are reserved
-# (masked out by the slot-availability mask in the decoder).
 NUM_ACTIVE_TEMPLATES = len(TEMPLATES)
 
 
 def get_template(idx: int) -> dict[str, Any] | None:
-    """Return template at slot idx, or None if slot is reserved/invalid."""
+    """Return template at slot idx, or None if invalid/reserved."""
     if 0 <= idx < NUM_ACTIVE_TEMPLATES:
         return TEMPLATES[idx]
     return None
@@ -303,17 +317,7 @@ def get_available_template_mask(
     recent_template_indices: list[int],
     cooldown_waves: int = 2,
 ) -> list[bool]:
-    """
-    Return a boolean mask of length MAX_TEMPLATE_SLOTS indicating which
-    slots are allowed for the current wave. True = allowed, False = blocked.
-
-    Applies:
-      - Slot-Availability (slot < NUM_ACTIVE_TEMPLATES)
-      - Min-Wave curriculum
-      - Capability gates (antiAir, antiEthereal)
-      - Template cooldown (recent_template_indices tracked per client)
-      - Boss gate (boss templates only at wave % 10 == 0)
-    """
+    """Boolean mask of length MAX_TEMPLATE_SLOTS: True = template allowed."""
     from config import MAX_TEMPLATE_SLOTS
 
     mask = [False] * MAX_TEMPLATE_SLOTS
@@ -321,25 +325,19 @@ def get_available_template_mask(
 
     for i in range(NUM_ACTIVE_TEMPLATES):
         t = TEMPLATES[i]
-
         if current_wave < t["min_wave"]:
             continue
-
         if t["requires_capability"] == "antiAir" and not has_anti_air:
             continue
         if t["requires_capability"] == "antiEthereal" and not has_anti_ethereal:
             continue
-
         if i in recent_set:
             continue
-
         if t.get("boss_only", False) and current_wave % 10 != 0:
             continue
-
         mask[i] = True
 
-    # Fallback: if every slot is blocked (edge case — e.g. early wave with all recents),
-    # unblock the first unblocked non-boss template regardless of cooldown.
+    # Fallback: never return an all-false mask
     if not any(mask):
         for i in range(NUM_ACTIVE_TEMPLATES):
             t = TEMPLATES[i]
@@ -354,7 +352,6 @@ def get_available_template_mask(
             mask[i] = True
             break
 
-    # Final safety: unblock slot 0 (zombie_horde, min_wave=1) if still nothing
     if not any(mask):
         mask[0] = True
 

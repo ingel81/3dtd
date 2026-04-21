@@ -1,10 +1,12 @@
 """
-Wave Director Neural Network — Phase 5.10 Template-Based
+Wave Director Neural Network — Phase 5.11 Range-Based Templates
 
 PyTorch model with Conv1D spatial branch for DPS profile and Dense scalar
 branch for game state features. Output heads:
   - template_head: Categorical over MAX_TEMPLATE_SLOTS (32, 18 active)
-  - params_head:   2 continuous params (strength, count) — Gaussian policy
+  - params_head:   4 continuous params in [0,1] via sigmoid
+                   (count, spawn_delay, hp_mult, variation — interpolated
+                    per template in the server-side decoder)
   - value_head:    PPO critic baseline
   - log_std:       learnable per-param std for exploration noise
 """
@@ -18,10 +20,6 @@ from config import (
     NUM_SPATIAL,
     MAX_TEMPLATE_SLOTS,
     NUM_CONTINUOUS,
-    STRENGTH_MIN,
-    STRENGTH_MAX,
-    COUNT_MIN,
-    COUNT_MAX,
 )
 
 
@@ -130,13 +128,11 @@ class WaveDirectorModel(nn.Module):
             noise = torch.randn_like(means)
             sampled_raw = means + noise * std
 
-        # Apply sigmoid + scale for each continuous param
-        strength_range = STRENGTH_MAX - STRENGTH_MIN
-        count_range = COUNT_MAX - COUNT_MIN
-        strength = STRENGTH_MIN + torch.sigmoid(sampled_raw[:, 0]) * strength_range
-        count = COUNT_MIN + torch.sigmoid(sampled_raw[:, 1]) * count_range
+        # All 4 continuous params normalised to [0, 1] via sigmoid.
+        # The server-side decoder interpolates each factor into the template's range.
+        factors = torch.sigmoid(sampled_raw)  # shape (batch, NUM_CONTINUOUS=4)
 
-        # Continuous log-prob (Gaussian)
+        # Continuous log-prob (Gaussian on raw logits, not scaled factors)
         log_prob_cont = -0.5 * (
             ((sampled_raw - means) / (std + 1e-8)) ** 2
             + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0)
@@ -149,8 +145,10 @@ class WaveDirectorModel(nn.Module):
         return {
             "template_probs": template_probs,
             "template_idx": template_idx.detach(),
-            "strength": strength,
-            "count": count,
+            "count_factor": factors[:, 0],
+            "spawn_factor": factors[:, 1],
+            "hp_factor": factors[:, 2],
+            "variation_factor": factors[:, 3],
             "raw_params": sampled_raw.detach(),
         }, log_prob, value.squeeze(-1)
 

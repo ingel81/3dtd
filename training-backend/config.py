@@ -1,10 +1,14 @@
 """
-Training Configuration — Phase 5.10 Template-Based Wave Director
+Training Configuration — Phase 5.11 Range-Based Templates
 
-Minimal, clean config after the Phase 5.10 big-wurf overhaul.
-Action space: template_idx (32 slots, 18 active) + strength + count.
-Reward: 4 terms (DEATH, DRAMA, SWARM_SIZE, PROGRESSION) + running normalization.
-State: 156 features (Phase 5.6 + Gap-5 armor-matrix). Phase 5.7 awareness dropped.
+Templates define character (enemy mix, curriculum, capability). The NN picks
+a template + 4 independent scaling factors (count, spawn_delay, hp_mult,
+variation) — each interpolated into the template's designer-set range.
+
+Architecture:
+  - State:  156 features (unchanged from Phase 5.10)
+  - Action: template_idx (32 slots, 18 active) + 4 continuous in [0,1]
+  - Reward: 4 terms (DEATH, DRAMA, SWARM_SIZE, PROGRESSION)
 """
 
 # === SERVER ===
@@ -19,20 +23,21 @@ SERVER_PORT = 3001
 #   [116-135] Ground DPS Profile (20)
 #   [136-155] Air DPS Profile (20)
 #
-# Action space:
+# Action space (Phase 5.11):
 #   template_head: 32 logits (Categorical over MAX_TEMPLATE_SLOTS)
-#   params_head:   2 continuous (strength, count) → Gaussian policy
-#   value_head:    1 scalar (PPO critic)
-#
-# MAX_TEMPLATE_SLOTS is permanent (32). NUM_ACTIVE_TEMPLATES (18) can grow
-# later without retraining — reserve slots are masked at decode time.
+#   params_head:   4 continuous in [0,1] via sigmoid — the decoder interpolates
+#                  them across each template's designer-set range for
+#                    count, spawn_delay_ms, hp_mult, variation.
 INPUT_SIZE = 156
 NUM_SCALAR = 116
 NUM_SPATIAL = 40
 NUM_BINS = 20
 MAX_TEMPLATE_SLOTS = 32
-NUM_CONTINUOUS = 2
-OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS  # 34
+NUM_CONTINUOUS = 4
+OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS  # 36
+
+# Ordered names of the continuous params (for logging + debugging).
+CONTINUOUS_PARAM_NAMES = ["count", "spawn_delay", "hp_mult", "variation"]
 
 # === TRAINING ===
 LEARNING_RATE = 0.0003
@@ -48,10 +53,12 @@ REWARD_GAME_OVER_PENALTY = -0.3   # multiplied by early-wave scaling in reward._
 REWARD_GAME_OVER_CAP = -3.5       # absolute floor for the death term
 
 # === REWARD — Term 2: DRAMA (damage + path-progress merged) ===
+# Phase 5.11 user-tightened sweet zone: 1-5% HP loss per wave = "permanent fordernd".
 DAMAGE_SWEET_MIN = 0.01           # >= 1% HP lost = into sweet zone
-DAMAGE_SWEET_MAX = 0.10           # <= 10% = peak
-DAMAGE_HARD_THRESHOLD = 0.25      # damage > 25% starts linear penalty
-REWARD_DAMAGE_SWEET_PEAK = 0.30
+DAMAGE_SWEET_MAX = 0.05           # <= 5% = peak (was 0.10 in 5.10)
+DAMAGE_HARD_THRESHOLD = 0.20      # damage > 20% starts linear penalty (was 0.25)
+REWARD_DAMAGE_SWEET_PEAK = 0.40   # higher peak to reward exact targeting (was 0.30)
+REWARD_DAMAGE_ZERO_PENALTY = -0.10  # small penalty below SWEET_MIN (boring wave)
 REWARD_DAMAGE_HARD_SLOPE = 3.0    # penalty factor per full HP overrun
 PROGRESS_NEAR_MISS_LOW = 0.65     # enemies reached 65-90% path = near-miss sweet
 PROGRESS_NEAR_MISS_HIGH = 0.90
@@ -70,14 +77,16 @@ SWARM_SIZE_CAP = 8.0              # reaches cap at ~2700 enemies
 PROGRESSION_SLOPE = 0.02          # +0.02 per wave_num
 PROGRESSION_CAP = 0.5             # plateau at wave 25+
 
-# === ACTION SCALING (decoder) ===
-STRENGTH_MIN = 0.5
-STRENGTH_MAX = 2.0
-COUNT_MIN = 0.3
-COUNT_MAX = 6.0                   # rat_tide × 400 × 6.0 → 2400 enemies
-
 # === TEMPLATE CONSTRAINTS ===
 TEMPLATE_COOLDOWN_WAVES = 2       # template blocked for N waves after use
+
+# === WAVE-DURATION CAP (Phase 5.11) ===
+# Hard upper bound on total wave duration. If (count × spawn_delay) would
+# exceed this, the decoder compresses spawn_delay down to max(min_floor, cap/count).
+# Prevents pathological mega-wave + long-delay combos from stretching across
+# 10+ minutes. NN's preference still counts within the cap.
+MAX_WAVE_DURATION_MS = 180_000    # 3 minutes
+MIN_SPAWN_DELAY_MS = 5            # engine floor — below this brings no feel-improvement
 
 # === ENEMY DEFINITIONS (shared by templates, fairness gates, HP scaling) ===
 # Must stay in sync with frontend enemy-types config.

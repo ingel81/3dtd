@@ -33,10 +33,9 @@ from config import (
     MAX_TEMPLATE_SLOTS,
     NUM_CONTINUOUS,
     OUTPUT_SIZE,
-    STRENGTH_MIN,
-    STRENGTH_MAX,
-    COUNT_MIN,
-    COUNT_MAX,
+    CONTINUOUS_PARAM_NAMES,
+    MAX_WAVE_DURATION_MS,
+    MIN_SPAWN_DELAY_MS,
     ENEMY_BASE_HP,
 )
 from templates import TEMPLATES, NUM_ACTIVE_TEMPLATES
@@ -159,14 +158,17 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
                 "name": t["name"],
                 "minWave": t["min_wave"],
                 "requiresCapability": t.get("requires_capability"),
+                "countRange": list(t["count_range"]),
+                "spawnDelayRange": list(t["spawn_delay_range"]),
+                "hpMultRange": list(t["hp_mult_range"]),
+                "variationRange": list(t["variation_range"]),
             }
             for i, t in enumerate(TEMPLATES)
         ],
-        "actionScaling": {
-            "strengthMin": STRENGTH_MIN,
-            "strengthMax": STRENGTH_MAX,
-            "countMin": COUNT_MIN,
-            "countMax": COUNT_MAX,
+        "continuousParams": CONTINUOUS_PARAM_NAMES,
+        "waveDurationCap": {
+            "maxMs": MAX_WAVE_DURATION_MS,
+            "minSpawnDelayMs": MIN_SPAWN_DELAY_MS,
         },
         "enemyBaseHP": ENEMY_BASE_HP,
     }

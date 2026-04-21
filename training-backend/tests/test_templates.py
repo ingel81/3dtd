@@ -45,15 +45,25 @@ class TestTemplates(unittest.TestCase):
                 )
 
     def test_required_fields(self):
-        required = {"id", "name", "description", "enemies", "base_count",
-                    "base_spawn_delay_ms", "base_hp_mult", "min_wave",
-                    "spawn_pattern", "requires_capability", "boss_only"}
+        required = {"id", "name", "description", "enemies",
+                    "count_range", "spawn_delay_range", "hp_mult_range", "variation_range",
+                    "min_wave", "spawn_pattern", "requires_capability", "boss_only"}
         for t in TEMPLATES:
             self.assertTrue(required.issubset(t.keys()), f"{t['id']} missing keys")
 
-    def test_base_count_positive(self):
+    def test_ranges_valid(self):
         for t in TEMPLATES:
-            self.assertGreater(t["base_count"], 0, f"{t['id']} base_count={t['base_count']}")
+            for key in ("count_range", "spawn_delay_range", "hp_mult_range", "variation_range"):
+                rng = t[key]
+                self.assertEqual(len(rng), 2, f"{t['id']} {key} not a 2-tuple")
+                self.assertLess(rng[0], rng[1], f"{t['id']} {key} min >= max")
+                self.assertGreater(rng[0], 0 if key != "variation_range" else -0.01,
+                                    f"{t['id']} {key} min not positive")
+
+    def test_count_range_positive(self):
+        for t in TEMPLATES:
+            self.assertGreaterEqual(t["count_range"][0], 1,
+                                     f"{t['id']} count_range min < 1")
 
     def test_get_template_invalid_indices(self):
         self.assertIsNone(get_template(-1))

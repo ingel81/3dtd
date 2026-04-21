@@ -29,6 +29,7 @@ from config import (
     DAMAGE_SWEET_MAX,
     DAMAGE_HARD_THRESHOLD,
     REWARD_DAMAGE_SWEET_PEAK,
+    REWARD_DAMAGE_ZERO_PENALTY,
     REWARD_DAMAGE_HARD_SLOPE,
     # DRAMA — progress
     PROGRESS_NEAR_MISS_LOW,
@@ -59,15 +60,22 @@ def _death_penalty(wave_num: int, survived: bool) -> float:
 
 
 def _drama_reward(damage_pct: float, avg_progress: float) -> float:
-    """Drama = damage-zone + path-progress, merged into one signal."""
+    """Drama = damage-zone + path-progress, merged into one signal.
+
+    Phase 5.11: sweet zone tightened to 1-5% HP loss for "permanent fordernd".
+    Zero-damage waves now cost REWARD_DAMAGE_ZERO_PENALTY (−0.10) so the NN
+    has a gradient toward "at least a bit of damage every wave".
+    """
     # Damage sub-component
-    if DAMAGE_SWEET_MIN <= damage_pct <= DAMAGE_SWEET_MAX:
-        damage_score = REWARD_DAMAGE_SWEET_PEAK
-    elif damage_pct > DAMAGE_HARD_THRESHOLD:
-        overrun = damage_pct - DAMAGE_HARD_THRESHOLD
-        damage_score = -1.0 * REWARD_DAMAGE_HARD_SLOPE * overrun
+    if damage_pct < DAMAGE_SWEET_MIN:
+        damage_score = REWARD_DAMAGE_ZERO_PENALTY   # below 1% = boring
+    elif damage_pct <= DAMAGE_SWEET_MAX:
+        damage_score = REWARD_DAMAGE_SWEET_PEAK     # 1-5% = sweet peak
+    elif damage_pct <= DAMAGE_HARD_THRESHOLD:
+        damage_score = 0.0                          # 5-20% = neutral band
     else:
-        damage_score = 0.0
+        overrun = damage_pct - DAMAGE_HARD_THRESHOLD
+        damage_score = -1.0 * REWARD_DAMAGE_HARD_SLOPE * overrun  # >20% = penalty
 
     # Progress sub-component
     if avg_progress > PROGRESS_OVERFLOW_THRESHOLD:
