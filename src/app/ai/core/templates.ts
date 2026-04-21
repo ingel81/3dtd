@@ -299,6 +299,11 @@ export const TEMPLATE_COOLDOWN_WAVES = 2;
 export const MAX_WAVE_DURATION_MS = 180_000;
 export const MIN_SPAWN_DELAY_MS = 5;
 
+/** DPS-scaled range caps (Phase 5.11b) — keep in sync with config.py. */
+export const DPS_RAMP_FLOOR = 0.10;
+export const DPS_RAMP_COUNT = 500.0;
+export const DPS_RAMP_HP_MULT = 1000.0;
+
 export function getTemplate(idx: number): Template | null {
   if (idx < 0 || idx >= NUM_ACTIVE_TEMPLATES) return null;
   return TEMPLATES[idx];

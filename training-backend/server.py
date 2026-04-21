@@ -671,13 +671,17 @@ class TrainingServer:
         return encoded[:INPUT_SIZE]
 
     def _decode_action(self, action, state=None, ctx=None):
-        """Phase 5.11: Range-based template decoding.
+        """Phase 5.11: Range-based template decoding with DPS-scaled difficulty caps.
 
         NN produces template_idx + 4 factors in [0,1]. The decoder interpolates
-        each factor into the template's designer-set range, then applies the
-        wave-duration cap to prevent pathological count × spawn_delay combos.
+        each factor into the template's designer-set range. For COUNT and
+        HP_MULT the upper end is scaled by defense.totalDPS so wave 1 (low
+        DPS) can't oversized — prevents "everything overflows" lock-in early.
         """
-        from config import MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS
+        from config import (
+            MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS,
+            DPS_RAMP_FLOOR, DPS_RAMP_COUNT, DPS_RAMP_HP_MULT,
+        )
 
         template_idx = int(action["template_idx"][0].detach().item())
         count_factor = float(action["count_factor"][0].detach().item())
@@ -690,13 +694,23 @@ class TrainingServer:
             template = TEMPLATES[0]
             template_idx = 0
 
+        # DPS-scaled frac: 0 DPS → FLOOR, DPS_RAMP_X → 1.0.
+        defense = (state or {}).get("defense") or {}
+        total_dps = max(0.0, float(defense.get("totalDPS", 0) or 0))
+        dps_frac_count = max(DPS_RAMP_FLOOR, min(1.0, total_dps / DPS_RAMP_COUNT))
+        dps_frac_hp = max(DPS_RAMP_FLOOR, min(1.0, total_dps / DPS_RAMP_HP_MULT))
+
         def lerp(rng, t):
             return rng[0] + (rng[1] - rng[0]) * t
 
-        count_min, count_max = template["count_range"]
-        total_count = max(1, round(lerp((count_min, count_max), count_factor)))
+        def lerp_capped(rng, factor, dps_frac):
+            """Lerp where the range-max is dps-scaled: min + (max-min)*dps_frac."""
+            eff_max = rng[0] + (rng[1] - rng[0]) * dps_frac
+            return rng[0] + (eff_max - rng[0]) * factor
+
+        total_count = max(1, round(lerp_capped(template["count_range"], count_factor, dps_frac_count)))
         spawn_delay = max(MIN_SPAWN_DELAY_MS, int(lerp(template["spawn_delay_range"], spawn_factor)))
-        hp_mult = round(lerp(template["hp_mult_range"], hp_factor), 3)
+        hp_mult = round(lerp_capped(template["hp_mult_range"], hp_factor, dps_frac_hp), 3)
         variation = round(lerp(template["variation_range"], variation_factor), 3)
 
         # Wave-duration cap: compress spawn_delay if (count × spawn_delay) would exceed 3 min.

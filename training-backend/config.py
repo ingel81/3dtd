@@ -80,6 +80,22 @@ PROGRESSION_CAP = 0.5             # plateau at wave 25+
 # === TEMPLATE CONSTRAINTS ===
 TEMPLATE_COOLDOWN_WAVES = 2       # template blocked for N waves after use
 
+# === DPS-SCALED RANGE CAPS (Phase 5.11b curriculum) ===
+# NN's factors are in [0,1], but the decoder clamps the TOP of difficulty
+# ranges based on the player's actual defense DPS. Prevents one-shotting
+# the fresh player at wave 1 (sigmoid(0)=0.5 → midrange → unplayable with
+# 25 DPS) while still letting a heavily-invested bot see hard waves early.
+#
+# formula: dps_frac      = max(FLOOR, min(1.0, total_dps / DPS_RAMP))
+#          effective_max = range_min + (range_max - range_min) * dps_frac
+#          final_value   = lerp((range_min, effective_max), factor)
+#
+# Applied only to COUNT and HP_MULT (difficulty axes). spawn_delay and
+# variation remain free over the full range (style, not difficulty).
+DPS_RAMP_FLOOR = 0.10             # even at 0 DPS, 10% of the range is reachable
+DPS_RAMP_COUNT = 500.0            # count hits full range at totalDPS ≥ 500
+DPS_RAMP_HP_MULT = 1000.0         # hp_mult hits full range at totalDPS ≥ 1000
+
 # === WAVE-DURATION CAP (Phase 5.11) ===
 # Hard upper bound on total wave duration. If (count × spawn_delay) would
 # exceed this, the decoder compresses spawn_delay down to max(min_floor, cap/count).
