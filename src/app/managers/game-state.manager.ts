@@ -371,8 +371,12 @@ export class GameStateManager {
     this.projectileManager.update(deltaTime);
     const tProjectile = profiling ? performance.now() - t0 : 0;
 
-    // Research ticks on REAL TIME (not game timescale)
-    this.researchManager.update(rawDeltaTime / 1000);
+    // Research ticks on GAME TIME (Phase 5.11 fix): previously rawDeltaTime
+    // (wall-clock), which froze research progression at high training
+    // timescales — at 75x the bot saw ~75 game-seconds per 1 second of
+    // research progress, so by wave 10 almost nothing was researched. Now
+    // research advances proportionally to the same game-time the waves use.
+    this.researchManager.update(deltaTime / 1000);
     // Sync active research progress to store for UI
     if (this.researchManager.usedSlots > 0) {
       this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
@@ -414,6 +418,7 @@ export class GameStateManager {
       t0 = profiling ? performance.now() : 0;
       this.towerCombat.updateTowerShooting(
         currentTime,
+        deltaTime,
         this.towerManager,
         this.enemyManager,
         this.projectileManager,

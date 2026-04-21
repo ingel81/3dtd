@@ -73,6 +73,7 @@ export class TowerCombatService {
    */
   updateTowerShooting(
     currentTime: number,
+    deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
@@ -83,6 +84,11 @@ export class TowerCombatService {
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
+      // Advance the per-tower game-time fire cooldown regardless of phase/target.
+      // Phase 5.11 fix: without this the wall-clock cooldown check mis-fires
+      // at high timescales because setTimeout / frame cadence dominate.
+      tower.combat.update(deltaTime);
+
       // Skip towers with pending LOS computation (progressive registration not yet complete)
       if (!tower.losReady) continue;
 
@@ -215,7 +221,7 @@ export class TowerCombatService {
 
         // Only fire if cooldown is ready AND turret is aligned
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
-        if (tower.combat.canFire(currentTime, timescale) && turretAligned) {
+        if (tower.combat.canFire() && turretAligned) {
           // Periodic LOS recheck (throttled to max ~3/sec per tower)
           const isAirTarget = target.typeConfig.isAirUnit ?? false;
           if (losCheck && !isAirTarget && tower.needsLosRecheck(currentTime, timescale)) {
@@ -235,7 +241,7 @@ export class TowerCombatService {
             }
           }
 
-          tower.combat.fire(currentTime);
+          tower.combat.fire();
           projectileManager.spawn(tower, target, heading);
         }
       } else {
@@ -282,7 +288,11 @@ export class TowerCombatService {
     if (!this.tilesEngine || !this.tilesEngine?.flameBeams) return;
 
     const now = performance.now();
-    const dt = (deltaTime / 1000) * timescale; // Convert to seconds, apply timescale
+    // Phase 5.11 fix: deltaTime is already timescale-scaled by the caller
+    // (GameStateManager passes rawDelta * timescale as game-time). The
+    // previous code multiplied by timescale a second time, producing 75×
+    // the intended beam DPS at 75× training speed. Convert ms → s only.
+    const dt = deltaTime / 1000;
     const allEnemies = enemyManager.getAlive();
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
@@ -542,7 +552,7 @@ export class TowerCombatService {
    * @param timescale - Game speed multiplier
    */
   updateMeleeTowers(
-    _deltaTime: number,
+    deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
     timescale = 1.0
@@ -554,6 +564,9 @@ export class TowerCombatService {
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
+      // Advance melee-tower cooldown in game-time (Phase 5.11 fix).
+      tower.combat.update(deltaTime);
+
       // Skip towers with pending LOS computation
       if (!tower.losReady) continue;
       // Skip non-melee towers
@@ -611,8 +624,8 @@ export class TowerCombatService {
         this.tilesEngine.towers.updateRotation(tower.id, heading);
 
         // Fire if cooldown ready
-        if (tower.combat.canFire(now, timescale)) {
-          tower.combat.fire(now);
+        if (tower.combat.canFire()) {
+          tower.combat.fire();
 
           // Apply direct melee damage
           this.combatEffectService.applyMeleeDamage(
