@@ -57,8 +57,11 @@ class Dashboard:
 
         # Policy-output globals (legitim aggregierbar, Netz-Signale):
         # Enemy-Type-Frequency: Wie oft hat die AI jeden der 16 Typen bestellt
-        # über alle Clients/Waves hinweg. Zeigt Monotony auf einen Blick.
+        # über alle Clients/Waves hinweg.
         self.enemy_type_counts: dict[str, int] = {t: 0 for t in ENEMY_TYPES}
+        # Phase 5.10: Template-Usage — wie oft der NN welches Template wählt.
+        # Wird in record_wave aus wave_info.template_id aggregiert.
+        self.template_usage_counts: dict[str, int] = {}
         # Wave-Size-History: totalCount pro Wave, global, für Histogramm
         self.wave_size_history = deque(maxlen=2000)
         # Mixed-Wave-Rate: 0/1 pro Wave (≥2 Groups), Rolling-Avg später
@@ -128,6 +131,7 @@ class Dashboard:
             stats["startTime"] = int(self.start_time * 1000)  # JS timestamp
             # Policy-output diagnostics
             stats["enemyTypeCounts"] = dict(self.enemy_type_counts)
+            stats["templateUsageCounts"] = dict(self.template_usage_counts)
             stats["waveSizeHistogram"] = self._calc_wave_size_histogram()
             stats["mixedWaveRate"] = self._calc_mixed_wave_rate()
             stats["modelMetrics"] = dict(self.model_metrics)
@@ -426,6 +430,11 @@ class Dashboard:
                 self.enemy_type_counts[t] += c_count
             elif t:
                 self.enemy_type_counts[t] = c_count
+
+        # Phase 5.10: Template-Usage aggregation (which template did the NN pick?)
+        template_id = wave_info.get("template_id") if wave_info else None
+        if template_id:
+            self.template_usage_counts[template_id] = self.template_usage_counts.get(template_id, 0) + 1
 
         # Per-client mirror so charts can filter cleanly
         c = self._ensure_client(client_id)
