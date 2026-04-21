@@ -8,8 +8,10 @@
 
 import { GeoPosition } from '../../models/game.types';
 import { Tower } from '../../entities/tower.entity';
+import { TowerTypeId } from '../../configs/tower-types.config';
 import { GlobalRouteGrid } from '../../utils/global-route-grid';
 import { CoordinateSync } from '../../three-engine/renderers';
+import { computeTowerDPS, canTargetAirEffective } from './tower-dps.util';
 
 export interface PathDPSProfile {
   /** Ground DPS at each bin, normalized 0-1 */
@@ -40,7 +42,8 @@ export function computePathDPSProfile(
   routes: GeoPosition[][],
   grid: GlobalRouteGrid,
   towers: Tower[],
-  coordinateSync: CoordinateSync
+  coordinateSync: CoordinateSync,
+  airTargetingUnlocked: boolean,
 ): PathDPSProfile {
   const emptyProfile: PathDPSProfile = {
     groundDPS: new Array(NUM_BINS).fill(0),
@@ -130,12 +133,13 @@ export function computePathDPSProfile(
         const tower = towerMap.get(towerId);
         if (!tower) continue;
 
-        const dps = tower.combat.damage * tower.combat.fireRate;
-        const canTargetGround = tower.typeConfig.canTargetGround ?? true;
-        const canTargetAir = tower.typeConfig.canTargetAir ?? false;
+        const dps = computeTowerDPS(tower);
+        const typeId = tower.typeConfig.id as TowerTypeId;
+        const canGround = tower.typeConfig.canTargetGround ?? true;
+        const canAir = canTargetAirEffective(typeId, airTargetingUnlocked);
 
-        if (canTargetGround) binGroundDPS += dps;
-        if (canTargetAir) binAirDPS += dps;
+        if (canGround) binGroundDPS += dps;
+        if (canAir) binAirDPS += dps;
       }
     }
 

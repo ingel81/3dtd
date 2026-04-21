@@ -127,7 +127,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'aa-retrofit': {
     id: 'aa-retrofit',
     name: 'AA Retrofit',
-    description: 'Archer and Gatling towers gain air targeting capability',
+    description: 'Gatling towers gain air targeting capability',
     category: 'global-perk',
     icon: 'flight',
     cost: 70,

@@ -4,7 +4,7 @@
  * Converts GameStateSnapshot to Float32Array for neural network input.
  * All values are normalized to 0-1 range.
  *
- * Feature Vector (146 features, Phase 5.6 — +53 awareness features):
+ * Feature Vector (156 features, Gap-5 Fix — +10 armor-matrix features):
  * [0-3]    Player state: credits, lives%, wave, time (4)
  * [4]      towerCount (1)
  * [5]      avgTowerLevel (1)
@@ -25,9 +25,17 @@
  * [88-91]  Defense-Capabilities: hasAntiAir, hasSplash, hasSlow, hasDoT (4)
  * [92-100] Tower-Unlock-Status: which tower types are researched (9)
  * [101-105] Near-Miss-History: last 5 near-miss-ratios (5)
- * === ORIGINAL SPATIAL ===
- * [106-125] Ground DPS Profile: 20 bins (20)
- * [126-145] Air DPS Profile: 20 bins (20)
+ * === NEW (Gap-5): armor-matrix weighted effective DPS ===
+ * [106-110] Effective DPS vs armor (ground) per category (5)
+ * [111-115] Effective DPS vs armor (air)    per category (5)
+ * === SPATIAL (shifted by +10) ===
+ * [116-135] Ground DPS Profile: 20 bins (20)
+ * [136-155] Air DPS Profile: 20 bins (20)
+ *
+ * NOTE: The Python training backend encodes a different schema (181 features)
+ * that also includes a Phase-5.7 backend-only awareness block [116-140]. The
+ * frontend encoder is only consumed by the ONNX client path and does not need
+ * to match the training-time server schema.
  */
 
 import { GameStateSnapshot, RecentHistory } from './models/game-state-snapshot';
@@ -36,11 +44,14 @@ import { NUM_BINS } from './dps-profile';
 import { DamageType, ArmorType, DAMAGE_TYPES, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 
-/** Total number of features in the encoded state (Phase 5.6: 93 → 146) */
-export const ENCODED_STATE_SIZE = 146;
+/** Total number of features in the encoded state (Gap-5 Fix: 146 → 156) */
+export const ENCODED_STATE_SIZE = 156;
 
 /** Number of scalar features (before spatial DPS profile) */
-export const NUM_SCALAR_FEATURES = 106;
+export const NUM_SCALAR_FEATURES = 116;
+
+/** Normalization constant for effective DPS per armor class. */
+const MAX_EFFECTIVE_DPS_PER_ARMOR = 500;
 
 /** Enemy type order — 16 entries. Must match backend ENEMY_TYPES. */
 const ENEMY_TYPE_ORDER = [
@@ -294,15 +305,27 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
     encoded[idx++] = nmHist[nmHist.length - 5 + i] ?? 0;
   }
 
+  // ─── GAP-5: armor-matrix weighted effective DPS ──────────────────────
+
+  // === EFFECTIVE DPS vs ARMOR, GROUND (5 features) [106-110] ===
+  const eff = snapshot.defense.effectiveDPSPerArmor;
+  for (const a of ARMOR_TYPE_ORDER) {
+    encoded[idx++] = normalize(eff?.ground?.[a] ?? 0, MAX_EFFECTIVE_DPS_PER_ARMOR);
+  }
+  // === EFFECTIVE DPS vs ARMOR, AIR (5 features) [111-115] ===
+  for (const a of ARMOR_TYPE_ORDER) {
+    encoded[idx++] = normalize(eff?.air?.[a] ?? 0, MAX_EFFECTIVE_DPS_PER_ARMOR);
+  }
+
   // ─── ORIGINAL SPATIAL BLOCK ──────────────────────────────────────────
 
-  // === DPS PROFILE: GROUND (20 features) [106-125] ===
+  // === DPS PROFILE: GROUND (20 features) [116-135] ===
   const profile = snapshot.dpsProfile;
   for (let i = 0; i < NUM_BINS; i++) {
     encoded[idx++] = profile.groundDPS[i] ?? 0;
   }
 
-  // === DPS PROFILE: AIR (20 features) [126-145] ===
+  // === DPS PROFILE: AIR (20 features) [136-155] ===
   for (let i = 0; i < NUM_BINS; i++) {
     encoded[idx++] = profile.airDPS[i] ?? 0;
   }
@@ -428,10 +451,23 @@ export function decodeFeatureNames(): string[] {
   // Reserved [52]
   names.push('reserved_0');
 
-  // Ground DPS profile [53-72]
+  // Phase 5.6 awareness block [53-105]
+  for (const t of ENEMY_TYPE_ORDER) names.push(`typehist_${t}`);
+  for (const a of ARMOR_TYPE_ORDER) names.push(`armorhist_${a}`);
+  for (let i = 1; i <= 5; i++) names.push(`dmgpct_${i}`);
+  for (const t of TOWER_TYPE_ORDER) names.push(`avglvl_${t}`);
+  names.push('has_antiair', 'has_splash', 'has_slow', 'has_dot');
+  for (const t of TOWER_TYPE_ORDER) names.push(`unlocked_${t}`);
+  for (let i = 1; i <= 5; i++) names.push(`nearmiss_${i}`);
+
+  // Gap-5 effective DPS per armor [106-115]
+  for (const a of ARMOR_TYPE_ORDER) names.push(`effdps_ground_${a}`);
+  for (const a of ARMOR_TYPE_ORDER) names.push(`effdps_air_${a}`);
+
+  // Ground DPS profile [116-135]
   for (let i = 0; i < NUM_BINS; i++) names.push(`ground_dps_${i}`);
 
-  // Air DPS profile [73-92]
+  // Air DPS profile [136-155]
   for (let i = 0; i < NUM_BINS; i++) names.push(`air_dps_${i}`);
 
   return names;

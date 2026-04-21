@@ -191,7 +191,7 @@ describe('TowerManager', () => {
     const progressB = enemyB.movement.getPathProgress();
     expect(progressB).toBeGreaterThan(progressA);
 
-    const target = tower.findTarget([enemyA, enemyB]);
+    const target = tower.findTarget([enemyA, enemyB], false);
     // enemyB traveled further along its path, so 'first' strategy picks it
     expect(target).toBe(enemyB);
   });
@@ -215,7 +215,7 @@ describe('TowerManager', () => {
     enemyA.health.takeDamage(10); // higher HP remaining
     enemyB.health.takeDamage(40); // lower HP remaining
 
-    const target = tower.findTarget([enemyA, enemyB]);
+    const target = tower.findTarget([enemyA, enemyB], false);
     expect(target).toBe(enemyB);
   });
 });

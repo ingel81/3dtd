@@ -9,12 +9,15 @@
 
 import { Tower } from '../../entities/tower.entity';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
+import { ArmorType, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import {
   DefenseAnalysis,
   DefenseCapabilities,
+  EffectiveDPSPerArmor,
   TowerDistribution,
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
+import { computeTowerDPS, canTargetAirEffective, armorMultipliersFor } from './tower-dps.util';
 
 /**
  * Tower capabilities mapping
@@ -39,17 +42,18 @@ const TOWER_CAPABILITIES: Record<
 /**
  * Analyze a list of towers and return defense metrics
  */
-export function analyzeDefense(towers: Tower[]): DefenseAnalysis {
+export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): DefenseAnalysis {
   if (towers.length === 0) {
     return createEmptyDefenseAnalysis();
   }
 
   const towerDistribution = calculateTowerDistribution(towers);
-  const capabilities = detectCapabilities(towers);
+  const capabilities = detectCapabilities(towers, airTargetingUnlocked);
   const totalDPS = calculateTotalDPS(towers);
-  const antiAirDPS = calculateAntiAirDPS(towers);
+  const antiAirDPS = calculateAntiAirDPS(towers, airTargetingUnlocked);
   const avgLevel = calculateAvgLevel(towers);
   const towerVariety = calculateTowerVariety(towers);
+  const effectiveDPSPerArmor = calculateEffectiveDPSPerArmor(towers, airTargetingUnlocked);
 
   return {
     towerCount: towers.length,
@@ -62,6 +66,7 @@ export function analyzeDefense(towers: Tower[]): DefenseAnalysis {
     towerVariety,
     capabilities,
     towerDistribution,
+    effectiveDPSPerArmor,
   };
 }
 
@@ -116,11 +121,7 @@ function calculateTowerDistribution(towers: Tower[]): TowerDistribution {
     const entry = distribution[typeId];
     entry.count++;
     entry.totalDamage += tower.combat.damage;
-    // Beam towers (fire) have damage=0 but damagePerSecond set — use that instead
-    const dps = tower.typeConfig.attackType === 'beam'
-      ? (tower.typeConfig.damagePerSecond ?? 0)
-      : tower.combat.damage * tower.combat.fireRate;
-    entry.totalDPS += dps;
+    entry.totalDPS += computeTowerDPS(tower);
   }
 
   // Calculate average level per type
@@ -136,7 +137,10 @@ function calculateTowerDistribution(towers: Tower[]): TowerDistribution {
 /**
  * Detect defense capabilities from tower types
  */
-function detectCapabilities(towers: Tower[]): DefenseCapabilities {
+function detectCapabilities(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+): DefenseCapabilities {
   const capabilities: DefenseCapabilities = {
     hasAntiAir: false,
     hasSplash: false,
@@ -148,12 +152,10 @@ function detectCapabilities(towers: Tower[]): DefenseCapabilities {
     const typeId = tower.typeConfig.id as TowerTypeId;
     const towerCaps = TOWER_CAPABILITIES[typeId];
 
-    // Check tower config for anti-air
-    if (tower.typeConfig.canTargetAir) {
+    if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
       capabilities.hasAntiAir = true;
     }
 
-    // Check capability mapping
     if (towerCaps) {
       if (towerCaps.splash) capabilities.hasSplash = true;
       if (towerCaps.slow) capabilities.hasSlow = true;
@@ -164,28 +166,59 @@ function detectCapabilities(towers: Tower[]): DefenseCapabilities {
   return capabilities;
 }
 
-/** Per-tower DPS: beam towers use damagePerSecond, others damage * fireRate, passive = 0 */
-function getTowerDPS(tower: Tower): number {
-  const cfg = tower.typeConfig;
-  if (cfg.attackType === 'passive') return 0;
-  if (cfg.attackType === 'beam') return cfg.damagePerSecond ?? 0;
-  return tower.combat.damage * tower.combat.fireRate;
-}
-
 /**
  * Calculate total DPS across all towers
  */
 function calculateTotalDPS(towers: Tower[]): number {
-  return towers.reduce((sum, tower) => sum + getTowerDPS(tower), 0);
+  return towers.reduce((sum, tower) => sum + computeTowerDPS(tower), 0);
 }
 
 /**
- * Calculate DPS from towers that can target air units
+ * Calculate DPS from towers that can target air units (including AA-Retrofit).
  */
-function calculateAntiAirDPS(towers: Tower[]): number {
+function calculateAntiAirDPS(towers: Tower[], airTargetingUnlocked: boolean): number {
   return towers.reduce((sum, tower) => {
-    return tower.typeConfig.canTargetAir ? sum + getTowerDPS(tower) : sum;
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    return canTargetAirEffective(typeId, airTargetingUnlocked)
+      ? sum + computeTowerDPS(tower)
+      : sum;
   }, 0);
+}
+
+/**
+ * Per-armor-class effective DPS (damage-type × armor matrix applied).
+ * Returns a split for ground (hits ground enemies) and air (hits air enemies).
+ */
+function calculateEffectiveDPSPerArmor(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+): EffectiveDPSPerArmor {
+  const zero = () =>
+    ARMOR_TYPES.reduce((acc, a) => {
+      acc[a] = 0;
+      return acc;
+    }, {} as Record<ArmorType, number>);
+
+  const ground = zero();
+  const air = zero();
+
+  for (const tower of towers) {
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    const dps = computeTowerDPS(tower);
+    if (dps <= 0) continue;
+
+    const mults = armorMultipliersFor(tower.typeConfig.damageType);
+    const canGround = tower.typeConfig.canTargetGround ?? true;
+    const canAir = canTargetAirEffective(typeId, airTargetingUnlocked);
+
+    for (const armor of ARMOR_TYPES) {
+      const effective = dps * mults[armor];
+      if (canGround) ground[armor] += effective;
+      if (canAir) air[armor] += effective;
+    }
+  }
+
+  return { ground, air };
 }
 
 /**
@@ -236,6 +269,12 @@ function calculateTowerVariety(towers: Tower[]): number {
  * Create empty defense analysis
  */
 function createEmptyDefenseAnalysis(): DefenseAnalysis {
+  const zeroArmor = () =>
+    ARMOR_TYPES.reduce((acc, a) => {
+      acc[a] = 0;
+      return acc;
+    }, {} as Record<ArmorType, number>);
+
   return {
     towerCount: 0,
     totalDPS: 0,
@@ -250,8 +289,9 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
       hasSplash: false,
       hasSlow: false,
       hasDoT: false,
-      },
+    },
     towerDistribution: {},
+    effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },
   };
 }
 

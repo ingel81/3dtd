@@ -126,7 +126,8 @@ export class AIDataCollectorService {
    */
   getStateSnapshot(): GameStateSnapshot {
     const towers = this.gameState.towerManager.getAll();
-    const defense = analyzeDefense(towers);
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const defense = analyzeDefense(towers, airTargetingUnlocked);
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
@@ -146,7 +147,7 @@ export class AIDataCollectorService {
       defense,
       vulnerabilities,
       recentHistory: this.getRecentHistory(),
-      dpsProfile: this.getDPSProfile(towers),
+      dpsProfile: this.getDPSProfile(towers, airTargetingUnlocked),
       research: this.getResearchSnapshot(),
       expectedArmorDistribution: this.getExpectedArmorDistribution(),
     };
@@ -587,16 +588,19 @@ export class AIDataCollectorService {
    * Uses cached value if towers haven't changed.
    */
   getCurrentDPSProfile(): PathDPSProfile {
-    return this.getDPSProfile(this.gameState.towerManager.getAll());
+    return this.getDPSProfile(
+      this.gameState.towerManager.getAll(),
+      this.researchStore.airTargetingUnlocked(),
+    );
   }
 
   /**
    * Compute DPS profile with caching.
-   * Only recomputes when towers change (place/sell/upgrade).
+   * Only recomputes when towers change (place/sell/upgrade) or AA-Retrofit unlocks.
    */
-  private getDPSProfile(towers: Tower[]): PathDPSProfile {
-    // Compute a hash of tower state for cache invalidation
-    const hash = this.computeTowerHash(towers);
+  private getDPSProfile(towers: Tower[], airTargetingUnlocked: boolean): PathDPSProfile {
+    // Compute a hash of tower state for cache invalidation (retrofit changes air bins)
+    const hash = `${this.computeTowerHash(towers)}|aa:${airTargetingUnlocked ? 1 : 0}`;
 
     if (this.cachedDPSProfile && this.dpsProfileTowerHash === hash) {
       return this.cachedDPSProfile;
@@ -614,7 +618,13 @@ export class AIDataCollectorService {
       return createEmptyDPSProfile();
     }
 
-    this.cachedDPSProfile = computePathDPSProfile(routes, grid, towers, coordinateSync);
+    this.cachedDPSProfile = computePathDPSProfile(
+      routes,
+      grid,
+      towers,
+      coordinateSync,
+      airTargetingUnlocked,
+    );
     this.dpsProfileTowerHash = hash;
     return this.cachedDPSProfile;
   }
