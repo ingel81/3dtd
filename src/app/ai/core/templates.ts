@@ -1,26 +1,30 @@
 /**
- * Wave Templates — Phase 5.10 (Frontend mirror of training-backend/templates.py)
+ * Wave Templates — Phase 5.11 Range-Based (Frontend mirror of templates.py).
  *
- * Designer-curated wave compositions. The NN picks a template_idx + strength + count,
- * the decoder expands the template into a concrete wave config.
+ * Each template defines the CHARACTER of a wave (enemy mix, curriculum gate,
+ * capability requirement, spawn pattern) plus RANGES for 4 dynamic parameters:
+ * count, spawn_delay_ms, hp_mult, variation.
  *
- * The 18 active slots (0-17) must stay in 1:1 sync with the backend.
- * Slots 18-31 are reserved for future templates (added without retraining).
+ * The NN produces template_idx + 4 factors in [0,1]; the decoder
+ * interpolates each factor into the template's designer-set range.
  *
- * To add a template: append here AND in templates.py at the same slot index.
+ * Slots 0-17 are active. Slots 18-31 are reserved for future expansion
+ * without retraining (blocked by slot-availability mask).
  */
 
 export type TemplateSpawnPattern = 'interleaved' | 'sequential' | 'clustered' | null;
 export type TemplateCapability = 'antiAir' | 'antiEthereal' | null;
+export type NumberRange = readonly [number, number];
 
 export interface Template {
   id: string;
   name: string;
   description: string;
   enemies: readonly (readonly [string, number])[];
-  baseCount: number;
-  baseSpawnDelayMs: number;
-  baseHpMult: number;
+  countRange: NumberRange;
+  spawnDelayRange: NumberRange;
+  hpMultRange: NumberRange;
+  variationRange: NumberRange;
   minWave: number;
   spawnPattern: TemplateSpawnPattern;
   requiresCapability: TemplateCapability;
@@ -31,11 +35,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'zombie_horde',
     name: 'Zombie Horde',
-    description: 'Langsame Unarmored-Welle mit ein paar Ratten als Füller',
+    description: 'Unarmored-Horde mit Ratten als Füller — von Easy-Intro bis Mega-Horde',
     enemies: [['zombie', 0.8], ['rat', 0.2]],
-    baseCount: 40,
-    baseSpawnDelayMs: 300,
-    baseHpMult: 1.0,
+    countRange: [20, 2000],
+    spawnDelayRange: [15, 400],
+    hpMultRange: [0.5, 6.0],
+    variationRange: [0.05, 0.40],
     minWave: 1,
     spawnPattern: 'interleaved',
     requiresCapability: null,
@@ -44,11 +49,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'rat_tide',
     name: 'Rat Tide',
-    description: 'Mega-Swarm reiner Ratten mit sehr hoher Dichte',
+    description: 'Reine Rattenflut — 100 bis 5000 Ratten',
     enemies: [['rat', 1.0]],
-    baseCount: 400,
-    baseSpawnDelayMs: 80,
-    baseHpMult: 1.0,
+    countRange: [100, 5000],
+    spawnDelayRange: [10, 200],
+    hpMultRange: [0.5, 5.0],
+    variationRange: [0.05, 0.30],
     minWave: 8,
     spawnPattern: null,
     requiresCapability: null,
@@ -57,11 +63,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'penguin_rush',
     name: 'Penguin Rush',
-    description: 'Schnelle Pinguine mit Ratten als Ablenkung',
+    description: 'Schnelle Pinguine mit Rattenfüller',
     enemies: [['penguin', 0.9], ['rat', 0.1]],
-    baseCount: 80,
-    baseSpawnDelayMs: 150,
-    baseHpMult: 1.0,
+    countRange: [30, 500],
+    spawnDelayRange: [10, 300],
+    hpMultRange: [0.5, 4.0],
+    variationRange: [0.05, 0.35],
     minWave: 5,
     spawnPattern: 'interleaved',
     requiresCapability: null,
@@ -70,11 +77,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'light_mix',
     name: 'Light Mix',
-    description: 'Wallsmasher und Spider — Einführung in Light-Armor',
+    description: 'Wallsmasher + Spider',
     enemies: [['wallsmasher', 0.5], ['spider', 0.5]],
-    baseCount: 60,
-    baseSpawnDelayMs: 400,
-    baseHpMult: 1.0,
+    countRange: [30, 400],
+    spawnDelayRange: [30, 500],
+    hpMultRange: [0.5, 5.0],
+    variationRange: [0.05, 0.40],
     minWave: 4,
     spawnPattern: 'interleaved',
     requiresCapability: null,
@@ -85,9 +93,10 @@ export const TEMPLATES: readonly Template[] = [
     name: 'Spider Swarm',
     description: 'Reine Spider-Flut',
     enemies: [['spider', 1.0]],
-    baseCount: 120,
-    baseSpawnDelayMs: 250,
-    baseHpMult: 1.0,
+    countRange: [50, 800],
+    spawnDelayRange: [20, 350],
+    hpMultRange: [0.5, 4.0],
+    variationRange: [0.05, 0.35],
     minWave: 8,
     spawnPattern: null,
     requiresCapability: null,
@@ -96,11 +105,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'wallsmasher_crew',
     name: 'Wallsmasher Crew',
-    description: 'Reine Wallsmasher — HP-fokussiertes Light-Team',
+    description: 'Reine Wallsmasher — HP-Fokus',
     enemies: [['wallsmasher', 1.0]],
-    baseCount: 40,
-    baseSpawnDelayMs: 500,
-    baseHpMult: 1.0,
+    countRange: [15, 200],
+    spawnDelayRange: [50, 600],
+    hpMultRange: [0.5, 6.0],
+    variationRange: [0.10, 0.40],
     minWave: 6,
     spawnPattern: null,
     requiresCapability: null,
@@ -109,11 +119,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'bat_swarm',
     name: 'Bat Swarm',
-    description: 'Reiner Bat-Schwarm — erfordert Anti-Air',
+    description: 'Reiner Bat-Schwarm — braucht Anti-Air',
     enemies: [['bat', 1.0]],
-    baseCount: 100,
-    baseSpawnDelayMs: 150,
-    baseHpMult: 1.0,
+    countRange: [30, 600],
+    spawnDelayRange: [15, 300],
+    hpMultRange: [0.5, 4.0],
+    variationRange: [0.05, 0.30],
     minWave: 7,
     spawnPattern: null,
     requiresCapability: 'antiAir',
@@ -122,11 +133,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'hornet_strike',
     name: 'Hornet Strike',
-    description: 'Hornets mit Bat-Support — Fortgeschrittener Air-Mix',
+    description: 'Hornets + Bats',
     enemies: [['hornet', 0.7], ['bat', 0.3]],
-    baseCount: 50,
-    baseSpawnDelayMs: 250,
-    baseHpMult: 1.0,
+    countRange: [20, 300],
+    spawnDelayRange: [30, 400],
+    hpMultRange: [0.5, 5.0],
+    variationRange: [0.10, 0.40],
     minWave: 9,
     spawnPattern: 'interleaved',
     requiresCapability: 'antiAir',
@@ -135,11 +147,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'tank_column',
     name: 'Tank Column',
-    description: 'Tanks und Zombie-Soldiers — Heavy-Ground-Einführung',
+    description: 'Tanks + Zombie-Soldiers',
     enemies: [['tank', 0.6], ['zombie-soldier', 0.4]],
-    baseCount: 25,
-    baseSpawnDelayMs: 500,
-    baseHpMult: 1.0,
+    countRange: [10, 150],
+    spawnDelayRange: [80, 800],
+    hpMultRange: [0.5, 8.0],
+    variationRange: [0.10, 0.35],
     minWave: 10,
     spawnPattern: 'interleaved',
     requiresCapability: null,
@@ -150,9 +163,10 @@ export const TEMPLATES: readonly Template[] = [
     name: 'Bear Pack',
     description: 'Reines Bear-Rudel',
     enemies: [['bear', 1.0]],
-    baseCount: 20,
-    baseSpawnDelayMs: 400,
-    baseHpMult: 1.0,
+    countRange: [8, 120],
+    spawnDelayRange: [60, 600],
+    hpMultRange: [0.5, 7.0],
+    variationRange: [0.10, 0.35],
     minWave: 12,
     spawnPattern: null,
     requiresCapability: null,
@@ -161,11 +175,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'mech_army',
     name: 'Mech Army',
-    description: 'Reine Mechs — Late-Game Heavy-Welle',
+    description: 'Reine Mechs — Late-Game Stress',
     enemies: [['mech', 1.0]],
-    baseCount: 15,
-    baseSpawnDelayMs: 600,
-    baseHpMult: 1.0,
+    countRange: [5, 100],
+    spawnDelayRange: [100, 900],
+    hpMultRange: [0.5, 10.0],
+    variationRange: [0.10, 0.40],
     minWave: 20,
     spawnPattern: null,
     requiresCapability: null,
@@ -174,11 +189,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'dragon_elite',
     name: 'Dragon Elite',
-    description: 'Dragons mit Hornet-Begleitung — Heavy+Light Air',
+    description: 'Dragons + Hornets',
     enemies: [['dragon', 0.6], ['hornet', 0.4]],
-    baseCount: 15,
-    baseSpawnDelayMs: 600,
-    baseHpMult: 1.0,
+    countRange: [5, 100],
+    spawnDelayRange: [80, 800],
+    hpMultRange: [0.5, 8.0],
+    variationRange: [0.10, 0.40],
     minWave: 15,
     spawnPattern: 'interleaved',
     requiresCapability: 'antiAir',
@@ -187,11 +203,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'mammoth_siege',
     name: 'Mammoth Siege',
-    description: 'Mammoths mit Wallsmasher — Fortified-Belagerung',
+    description: 'Mammoths + Wallsmashers',
     enemies: [['mammoth', 0.7], ['wallsmasher', 0.3]],
-    baseCount: 20,
-    baseSpawnDelayMs: 700,
-    baseHpMult: 1.0,
+    countRange: [8, 120],
+    spawnDelayRange: [100, 1000],
+    hpMultRange: [0.5, 10.0],
+    variationRange: [0.10, 0.40],
     minWave: 14,
     spawnPattern: 'interleaved',
     requiresCapability: null,
@@ -200,11 +217,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'ghost_surge',
     name: 'Ghost Surge',
-    description: 'Ghosts mit Wraith-Anteil — benötigt Magic/Ice',
+    description: 'Ghosts + Wraiths — braucht Magic/Ice',
     enemies: [['ghost', 0.8], ['wraith', 0.2]],
-    baseCount: 40,
-    baseSpawnDelayMs: 250,
-    baseHpMult: 1.0,
+    countRange: [20, 350],
+    spawnDelayRange: [30, 400],
+    hpMultRange: [0.5, 5.0],
+    variationRange: [0.10, 0.40],
     minWave: 12,
     spawnPattern: 'interleaved',
     requiresCapability: 'antiEthereal',
@@ -213,11 +231,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'wraith_storm',
     name: 'Wraith Storm',
-    description: 'Reine Wraiths — benötigt Magic/Ice',
+    description: 'Reine Wraiths — braucht Magic/Ice',
     enemies: [['wraith', 1.0]],
-    baseCount: 35,
-    baseSpawnDelayMs: 200,
-    baseHpMult: 1.0,
+    countRange: [15, 300],
+    spawnDelayRange: [20, 350],
+    hpMultRange: [0.5, 6.0],
+    variationRange: [0.05, 0.35],
     minWave: 18,
     spawnPattern: null,
     requiresCapability: 'antiEthereal',
@@ -226,11 +245,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'chaos_wave',
     name: 'Chaos Wave',
-    description: 'Chaotisch gemischte Welle aus 4 Typen',
+    description: 'Chaotischer 4-Typen-Mix',
     enemies: [['zombie', 0.3], ['tank', 0.3], ['hornet', 0.2], ['bear', 0.2]],
-    baseCount: 50,
-    baseSpawnDelayMs: 350,
-    baseHpMult: 1.0,
+    countRange: [25, 500],
+    spawnDelayRange: [40, 500],
+    hpMultRange: [0.5, 5.0],
+    variationRange: [0.15, 0.50],
     minWave: 15,
     spawnPattern: 'interleaved',
     requiresCapability: 'antiAir',
@@ -239,11 +259,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'armor_gauntlet',
     name: 'Armor Gauntlet',
-    description: 'Alle 4 Armor-Kategorien gleichzeitig — Allround-Test',
+    description: 'Alle 4 Armor-Kategorien gleichzeitig',
     enemies: [['rat', 0.25], ['tank', 0.25], ['mammoth', 0.25], ['ghost', 0.25]],
-    baseCount: 60,
-    baseSpawnDelayMs: 400,
-    baseHpMult: 1.0,
+    countRange: [30, 600],
+    spawnDelayRange: [40, 500],
+    hpMultRange: [0.5, 6.0],
+    variationRange: [0.15, 0.45],
     minWave: 20,
     spawnPattern: 'interleaved',
     requiresCapability: 'antiEthereal',
@@ -252,11 +273,12 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'boss_herbert',
     name: 'Boss: Herbert',
-    description: 'Herbert-Boss mit Tank- und Zombie-Support',
+    description: 'Herbert-Boss mit Support',
     enemies: [['herbert', 0.0334], ['tank', 0.4833], ['zombie', 0.4833]],
-    baseCount: 30,
-    baseSpawnDelayMs: 800,
-    baseHpMult: 1.0,
+    countRange: [10, 100],
+    spawnDelayRange: [100, 1200],
+    hpMultRange: [0.5, 6.0],
+    variationRange: [0.10, 0.30],
     minWave: 20,
     spawnPattern: 'clustered',
     requiresCapability: null,
@@ -270,18 +292,21 @@ export const MAX_TEMPLATE_SLOTS = 32;
 /** Number of currently defined templates — slots beyond this are reserved. */
 export const NUM_ACTIVE_TEMPLATES = TEMPLATES.length;
 
-/** Scaling ranges — must match backend config.py. */
-export const STRENGTH_MIN = 0.5;
-export const STRENGTH_MAX = 2.0;
-export const COUNT_MIN = 0.3;
-export const COUNT_MAX = 6.0;
-
 /** Template cooldown: template blocked for N waves after use. */
 export const TEMPLATE_COOLDOWN_WAVES = 2;
+
+/** Global wave-duration safety cap (count × spawn_delay ≤ 3 min). */
+export const MAX_WAVE_DURATION_MS = 180_000;
+export const MIN_SPAWN_DELAY_MS = 5;
 
 export function getTemplate(idx: number): Template | null {
   if (idx < 0 || idx >= NUM_ACTIVE_TEMPLATES) return null;
   return TEMPLATES[idx];
+}
+
+/** Linear interpolation within a [min, max] range. t ∈ [0,1]. */
+export function lerpRange(range: NumberRange, t: number): number {
+  return range[0] + (range[1] - range[0]) * t;
 }
 
 /**
@@ -307,7 +332,6 @@ export function getAvailableTemplateMask(
     mask[i] = true;
   }
 
-  // Fallback: ensure at least one template is allowed
   if (!mask.some(x => x)) {
     for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
       const t = TEMPLATES[i];

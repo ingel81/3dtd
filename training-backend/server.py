@@ -671,33 +671,43 @@ class TrainingServer:
         return encoded[:INPUT_SIZE]
 
     def _decode_action(self, action, state=None, ctx=None):
-        """Phase 5.10: Template-based decoding.
+        """Phase 5.11: Range-based template decoding.
 
-        Action already respects the template mask (applied in _get_action).
-        Expand the chosen template into a concrete wave config.
+        NN produces template_idx + 4 factors in [0,1]. The decoder interpolates
+        each factor into the template's designer-set range, then applies the
+        wave-duration cap to prevent pathological count × spawn_delay combos.
         """
-        from config import STRENGTH_MIN, STRENGTH_MAX, COUNT_MIN, COUNT_MAX
+        from config import MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS
 
         template_idx = int(action["template_idx"][0].detach().item())
-        strength = float(action["strength"][0].detach().item())
-        count_factor = float(action["count"][0].detach().item())
+        count_factor = float(action["count_factor"][0].detach().item())
+        spawn_factor = float(action["spawn_factor"][0].detach().item())
+        hp_factor = float(action["hp_factor"][0].detach().item())
+        variation_factor = float(action["variation_factor"][0].detach().item())
 
         template = get_template(template_idx)
         if template is None:
-            # Safety fallback: mask should have prevented this; default to slot 0
             template = TEMPLATES[0]
             template_idx = 0
 
-        # Scale
-        total_count = max(1, round(template["base_count"] * count_factor))
-        hp_mult = round(template["base_hp_mult"] * strength, 3)
-        spawn_delay = template["base_spawn_delay_ms"]
+        def lerp(rng, t):
+            return rng[0] + (rng[1] - rng[0]) * t
+
+        count_min, count_max = template["count_range"]
+        total_count = max(1, round(lerp((count_min, count_max), count_factor)))
+        spawn_delay = max(MIN_SPAWN_DELAY_MS, int(lerp(template["spawn_delay_range"], spawn_factor)))
+        hp_mult = round(lerp(template["hp_mult_range"], hp_factor), 3)
+        variation = round(lerp(template["variation_range"], variation_factor), 3)
+
+        # Wave-duration cap: compress spawn_delay if (count × spawn_delay) would exceed 3 min.
+        total_duration = total_count * spawn_delay
+        if total_duration > MAX_WAVE_DURATION_MS:
+            spawn_delay = max(MIN_SPAWN_DELAY_MS, MAX_WAVE_DURATION_MS // total_count)
 
         # Expand template → enemy groups
         enemies = []
         allocated = 0
         for i, (enemy_type, share) in enumerate(template["enemies"]):
-            # Boss templates: herbert share is a small fraction that rounds to 1
             if i == len(template["enemies"]) - 1:
                 count = max(1, total_count - allocated)
             else:
@@ -716,31 +726,31 @@ class TrainingServer:
             "enemies": enemies,
             "totalCount": final_total,
             "spawnDelay": spawn_delay,
-            "spawnDelayVariation": 0.2,
+            "spawnDelayVariation": variation,
             "pattern": template.get("spawn_pattern"),
             "useGathering": False,
             "confidence": round(float(action["template_probs"][0, template_idx].item()), 4),
-            # Phase 5.10 metadata (frontend uses these for explainer + dashboard)
             "templateIdx": template_idx,
             "templateName": template["name"],
-            "templateStrength": round(strength, 3),
+            "templateStrength": hp_mult,
         }
 
-        # Dashboard/debug info
         wave_info = {
             "template_idx": template_idx,
             "template_id": template["id"],
             "template_name": template["name"],
             "template_description": template["description"],
-            "strength": round(strength, 3),
             "count_factor": round(count_factor, 3),
+            "spawn_factor": round(spawn_factor, 3),
+            "hp_factor": round(hp_factor, 3),
+            "variation_factor": round(variation_factor, 3),
             "count": final_total,
             "spawn_delay": spawn_delay,
+            "variation": variation,
             "health_mult": hp_mult,
             "num_groups": len(enemies),
             "groups": enemies,
             "armor_dist": _compute_armor_dist(enemies),
-            # Template-usage probability distribution for dashboard observability
             "template_probs": {
                 TEMPLATES[i]["id"]: round(float(action["template_probs"][0, i].item()), 4)
                 for i in range(NUM_ACTIVE_TEMPLATES)

@@ -19,12 +19,11 @@ import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
 import {
   TEMPLATES,
   MAX_TEMPLATE_SLOTS,
-  STRENGTH_MIN,
-  STRENGTH_MAX,
-  COUNT_MIN,
-  COUNT_MAX,
+  MAX_WAVE_DURATION_MS,
+  MIN_SPAWN_DELAY_MS,
   getTemplate,
   getAvailableTemplateMask,
+  lerpRange,
 } from './templates';
 import { EnemyTypeId } from '../../models/enemy-types';
 
@@ -227,15 +226,16 @@ export class WaveDirectorService {
   }
 
   /**
-   * Decode NN output to WaveConfig (Phase 5.10 Template-Based).
+   * Decode NN output to WaveConfig (Phase 5.11 Range-Based Templates).
    *
-   * Expected output layout (34 values) — must match backend model.py:
-   *   [0..MAX_TEMPLATE_SLOTS-1]             template logits (32 slots)
-   *   [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS] raw continuous params (strength, count)
+   * Expected output layout (36 values) — must match backend model.py:
+   *   [0..MAX_TEMPLATE_SLOTS-1]                template logits (32 slots)
+   *   [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1]  4 raw continuous params
+   *                                            (count, spawn_delay, hp_mult, variation)
    */
   private decodeModelOutput(output: Float32Array, state: GameStateSnapshot): WaveConfig {
     const templateLogits = Array.from(output.slice(0, MAX_TEMPLATE_SLOTS));
-    const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 2);
+    const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 4);
 
     // Apply template availability mask
     const research = state.research;
@@ -255,11 +255,9 @@ export class WaveDirectorService {
       this.recentTemplateIndices,
     );
 
-    // Mask and softmax
     const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);
     const probs = this.softmax(maskedLogits);
 
-    // Argmax for deterministic inference (client side; training uses sampling)
     let bestIdx = 0;
     let bestProb = -1;
     for (let i = 0; i < probs.length; i++) {
@@ -274,12 +272,22 @@ export class WaveDirectorService {
       throw new Error(`[AI] Decoder selected invalid template index ${bestIdx}`);
     }
 
-    // Scale continuous params
-    const strength = STRENGTH_MIN + this.sigmoid(rawParams[0]) * (STRENGTH_MAX - STRENGTH_MIN);
-    const countFactor = COUNT_MIN + this.sigmoid(rawParams[1]) * (COUNT_MAX - COUNT_MIN);
+    // Interpolate each factor into template's range.
+    const countFactor = this.sigmoid(rawParams[0]);
+    const spawnFactor = this.sigmoid(rawParams[1]);
+    const hpFactor = this.sigmoid(rawParams[2]);
+    const variationFactor = this.sigmoid(rawParams[3]);
 
-    const totalCount = Math.max(1, Math.round(template.baseCount * countFactor));
-    const hpMult = Math.round(template.baseHpMult * strength * 1000) / 1000;
+    let totalCount = Math.max(1, Math.round(lerpRange(template.countRange, countFactor)));
+    let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
+    const hpMult = Math.round(lerpRange(template.hpMultRange, hpFactor) * 1000) / 1000;
+    const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
+
+    // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
+    const totalDuration = totalCount * spawnDelay;
+    if (totalDuration > MAX_WAVE_DURATION_MS) {
+      spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount));
+    }
 
     // Expand template → enemy groups
     const enemies: { type: string; count: number; healthMultiplier: number }[] = [];
@@ -293,7 +301,6 @@ export class WaveDirectorService {
       enemies.push({ type, count, healthMultiplier: hpMult });
     }
 
-    // Track for cooldown
     this.recentTemplateIndices.push(bestIdx);
     if (this.recentTemplateIndices.length > 5) {
       this.recentTemplateIndices.shift();
@@ -302,13 +309,13 @@ export class WaveDirectorService {
     return {
       enemies,
       totalCount: enemies.reduce((s, e) => s + e.count, 0),
-      spawnDelay: template.baseSpawnDelayMs,
-      spawnDelayVariation: 0.2,
+      spawnDelay,
+      spawnDelayVariation: variation,
       pattern: template.spawnPattern ?? undefined,
       confidence: bestProb,
       templateIdx: bestIdx,
       templateName: template.name,
-      templateStrength: Math.round(strength * 1000) / 1000,
+      templateStrength: hpMult,
     };
   }
 
@@ -401,10 +408,12 @@ export class WaveDirectorService {
   getCurrentDifficulty(): number {
     const config = this.lastDecision();
     if (!config) return 0;
-    const strength = config.templateStrength ?? 1.0;
-    const strengthNorm = Math.min(1, (strength - STRENGTH_MIN) / (STRENGTH_MAX - STRENGTH_MIN));
-    const countNorm = Math.min(1, config.totalCount / 500);
-    return Math.min(1, strengthNorm * 0.5 + countNorm * 0.5);
+    // Phase 5.11: derive from templateStrength (hp_mult) + count size.
+    // hp_mult ranges vary per template (up to 10× for mech/mammoth); normalize against 10.
+    const hpMult = config.templateStrength ?? 1.0;
+    const hpNorm = Math.min(1, hpMult / 10);
+    const countNorm = Math.min(1, config.totalCount / 1000);
+    return Math.min(1, hpNorm * 0.5 + countNorm * 0.5);
   }
 
   /**

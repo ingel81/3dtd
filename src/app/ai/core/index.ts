@@ -17,13 +17,14 @@ export {
   TEMPLATES,
   NUM_ACTIVE_TEMPLATES,
   MAX_TEMPLATE_SLOTS,
-  STRENGTH_MIN,
-  STRENGTH_MAX,
-  COUNT_MIN,
-  COUNT_MAX,
+  MAX_WAVE_DURATION_MS,
+  MIN_SPAWN_DELAY_MS,
+  TEMPLATE_COOLDOWN_WAVES,
   getTemplate,
   getAvailableTemplateMask,
+  lerpRange,
   type Template,
+  type NumberRange,
 } from './templates';
 export {
   explainWaveDecision,

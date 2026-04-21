@@ -1,5 +1,12 @@
 # Phase 5.10 — Template-Based Wave Director
 
+> **Superseded by Phase 5.11 (Range-Based Templates):** Siehe
+> [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md). Phase 5.11 ersetzt die
+> statischen `base_*`-Felder durch Ranges und erweitert den NN auf 4
+> Continuous-Parameter (count, spawn_delay, hp_mult, variation). Dieses
+> Dokument beschreibt den Phase-5.10-Übergangsstand (Action-Space 2
+> Continuous, statische Template-Werte).
+
 ## Overview
 
 Phase 5.10 replaced the 16-softmax × 4-continuous action space and the 13-term
