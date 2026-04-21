@@ -88,10 +88,28 @@ def _drama_reward(damage_pct: float, avg_progress: float) -> float:
     return damage_score + progress_score
 
 
-def _swarm_size_reward(total_count: int) -> float:
-    """Continuous bonus for wave size. Tiny waves penalized, mega-swarms rewarded."""
+def _swarm_size_reward(total_count: int, damage_pct: float,
+                        avg_progress: float, survived: bool) -> float:
+    """Continuous bonus for wave size, gated on wave quality.
+
+    Phase 5.11 hotfix: ungated swarm_size got over-exploited — NN sent 2000
+    zombies knowing they'd ALL overflow, scoring +4.67 swarm vs −3.39 drama
+    for net +1.28 per wave, while the bot actually lost every wave. The gate
+    removes the bonus on waves that failed the user's goals ("player lives,
+    enemies come far with minimal damage") so the NN has to learn to hit the
+    drama-sweet first, then maximise count within that envelope.
+    """
     if total_count <= SWARM_SMALL_THRESHOLD:
         return SWARM_SMALL_PENALTY
+
+    # Gate conditions — any failure → swarm-bonus neutralised.
+    if not survived:
+        return 0.0
+    if avg_progress > PROGRESS_OVERFLOW_THRESHOLD:
+        return 0.0  # everyone reached base → "big wave" is meaningless
+    if damage_pct > DAMAGE_HARD_THRESHOLD:
+        return 0.0  # wave too hard → already penalised by DRAMA
+
     over = total_count - SWARM_SMALL_THRESHOLD
     return min(SWARM_SIZE_CAP, SWARM_SIZE_SLOPE * over)
 
@@ -133,7 +151,7 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
 
     death = _death_penalty(wave_num, survived)
     drama = _drama_reward(damage_pct, avg_progress)
-    swarm = _swarm_size_reward(total_count)
+    swarm = _swarm_size_reward(total_count, damage_pct, avg_progress, survived)
     progression = _progression_bonus(wave_num, survived, damage_pct)
 
     total = death + drama + swarm + progression
