@@ -27,7 +27,8 @@ import { Tower } from '../../../../entities/tower.entity';
 export class SellUnderperformerStrategy extends BaseStrategy {
   private readonly richThreshold = 2000;
   private readonly minTowerCount = 5;
-  private lastSellTime = 0;
+  /** Phase 5.12: game-time accumulator (ticks via tickCooldowns). */
+  private sellCooldownRemainingMs = 0;
   private readonly sellCooldownMs = 4000; // not too spammy
 
   constructor(
@@ -37,10 +38,16 @@ export class SellUnderperformerStrategy extends BaseStrategy {
     super('SellUnderperformer', 72);
   }
 
+  override tickCooldowns(deltaTime: number): void {
+    if (this.sellCooldownRemainingMs > 0) {
+      this.sellCooldownRemainingMs = Math.max(0, this.sellCooldownRemainingMs - deltaTime);
+    }
+  }
+
   canExecute(state: GameStateSnapshot): boolean {
     if (state.player.credits < this.richThreshold) return false;
     if (state.defense.towerCount < this.minTowerCount) return false;
-    if (Date.now() - this.lastSellTime < this.sellCooldownMs) return false;
+    if (this.sellCooldownRemainingMs > 0) return false;
 
     // Needs at least one unupgraded Archer
     const archers = this.findUnupgradedArchers();
@@ -67,7 +74,7 @@ export class SellUnderperformerStrategy extends BaseStrategy {
     // replacements will get placed anyway by NearSpawnUpgrade / DistributedPlacement).
     // Simpler: just sell the first. Strategies aren't stateful long-term here.
     const target = archers[0];
-    this.lastSellTime = Date.now();
+    this.sellCooldownRemainingMs = this.sellCooldownMs;
 
     return {
       type: 'sell',
@@ -78,7 +85,7 @@ export class SellUnderperformerStrategy extends BaseStrategy {
   }
 
   onReset(): void {
-    this.lastSellTime = 0;
+    this.sellCooldownRemainingMs = 0;
   }
 
   /** Archers whose upgrade-tree is fully at level 0 (no upgrades spent). */

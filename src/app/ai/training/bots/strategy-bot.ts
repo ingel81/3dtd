@@ -32,6 +32,20 @@ export class StrategyBot extends BaseTowerBot {
   }
 
   /**
+   * Frame update hook — ticks per-strategy game-time cooldowns BEFORE the
+   * BaseTowerBot runs its own reaction-time cooldown. We tick every frame
+   * so strategy cooldowns (e.g. sell, auto-start-wave) advance even while
+   * the bot itself is in reaction cooldown. Without this, strategy cooldowns
+   * would be starved at high timescales exactly like the bot was pre-5.12.
+   */
+  override update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
+    for (const strategy of this.strategies) {
+      strategy.tickCooldowns?.(deltaTime);
+    }
+    return super.update(state, deltaTime);
+  }
+
+  /**
    * Decision-making: Execute first applicable strategy
    */
   protected decideAction(state: GameStateSnapshot): TowerAction | null {
