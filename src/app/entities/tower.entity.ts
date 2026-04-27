@@ -151,22 +151,17 @@ export class Tower extends GameObject {
   }
 
   /**
-   * Check if LOS recheck is needed (time-based throttling)
-   * @param currentTime Current timestamp in ms
-   * @param timescale Game speed multiplier (1.0 = normal, 8.0 = 8x faster)
-   * @returns true if LOS should be rechecked
+   * Check if LOS recheck is needed (game-time throttle).
+   * `gameTimeMs` is the engine game-clock — no timescale compensation needed
+   * because the sub-step loop runs in game-time at every speed.
    */
-  needsLosRecheck(currentTime: number, timescale = 1.0): boolean {
-    const interval = this.LOS_RECHECK_INTERVAL / timescale;
-    return currentTime - this._lastLosCheckTime >= interval;
+  needsLosRecheck(gameTimeMs: number): boolean {
+    return gameTimeMs - this._lastLosCheckTime >= this.LOS_RECHECK_INTERVAL;
   }
 
-  /**
-   * Mark that LOS was just checked
-   * @param currentTime Current timestamp in ms
-   */
-  markLosChecked(currentTime: number): void {
-    this._lastLosCheckTime = currentTime;
+  /** Mark that LOS was just checked (game-time). */
+  markLosChecked(gameTimeMs: number): void {
+    this._lastLosCheckTime = gameTimeMs;
   }
 
   /**

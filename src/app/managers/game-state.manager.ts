@@ -9,6 +9,7 @@ import { PathAndRouteService } from '../services/path-route.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { SpatialGridService } from '../services/spatial-grid.service';
 import { CombatEffectService } from '../services/combat-effect.service';
+import { StatusEffectService } from '../services/status-effect.service';
 import { HQDamageService } from '../services/hq-damage.service';
 import { TowerCombatService } from '../services/tower-combat.service';
 import { EntityPoolService } from '../services/entity-pool.service';
@@ -44,6 +45,7 @@ export class GameStateManager {
   private readonly pathRouteService = inject(PathAndRouteService);
   private readonly globalRouteGrid = inject(GlobalRouteGridService);
   private readonly combatEffect = inject(CombatEffectService);
+  private readonly statusEffectService = inject(StatusEffectService);
   private readonly hqDamage = inject(HQDamageService);
   private readonly towerCombat = inject(TowerCombatService);
   private readonly entityPool = inject(EntityPoolService);
@@ -86,6 +88,13 @@ export class GameStateManager {
     this.trainingTimescale.set(storeValue);
   });
 
+  /** Phase 5.14: sync renderingEnabled signal → ThreeTilesEngine. Gameplay
+   *  runs unaffected; only per-frame visual work is skipped when disabled. */
+  private readonly renderingSyncEffect = effect(() => {
+    const enabled = this.gameStore.renderingEnabled();
+    this.tilesEngine?.setRenderingEnabled(enabled);
+  });
+
   // Computed signals for UI bindings
   readonly phase = computed(() => this.waveManager.phase());
   readonly waveNumber = computed(() => this.waveManager.waveNumber());
@@ -94,10 +103,37 @@ export class GameStateManager {
   readonly selectedTowerId = computed(() => this.towerManager.getSelectedId());
   readonly selectedTower = computed(() => this.towerManager.getSelected());
 
-  // Engine reference
-  private tilesEngine: ThreeTilesEngine | null = null;
+  // Engine reference (public so visual hooks like turret-aim can access it).
+  tilesEngine: ThreeTilesEngine | null = null;
   private lastUpdateTime = 0;
   private basePosition: GeoPosition | null = null;
+
+  // ──────────────────────────────────────────────────────────────────
+  // Game-Clock — single source of truth for ALL gameplay timing.
+  // Advances by FIXED_STEP_MS per sub-step. Sub-stepping ensures the
+  // simulation runs identically at every training timescale: at 75× a
+  // single render-frame splits into ~75 sub-steps, each behaving like
+  // one 1× tick. No /timescale compensation anywhere.
+  // ──────────────────────────────────────────────────────────────────
+  private _gameTimeMs = 0;
+  private subStepRemainderMs = 0;
+  /** Fixed game-time per sub-step (~60Hz game-time granularity). */
+  private static readonly FIXED_STEP_MS = 16.667;
+  /** Max sub-steps per real-frame. At 75× training and 10fps real-time
+   *  we need ~450 sub-steps to keep up; 600 gives headroom for heavier
+   *  scenes before the simulation falls behind wall-clock-timescale. */
+  private static readonly MAX_SUBSTEPS_PER_FRAME = 600;
+  /** Cap on unprocessed game-time debt. Without a cap, frame-drops cause
+   *  `subStepRemainderMs` to grow unboundedly — the sim trails further
+   *  behind every frame and never catches up. Capping at one real-frame
+   *  worth of timescale lets spikes recover but bounds the debt. */
+  private static readonly MAX_REMAINDER_MS = 2000;
+
+  /** Read-only access to the game-clock for any consumer that needs
+   *  game-time (status effects, sleep checks, AI bot ticks, etc). */
+  get gameTimeMs(): number {
+    return this._gameTimeMs;
+  }
 
   // Performance profiler (optional, set via setProfiler())
   private profiler: PerformanceProfilerService | null = null;
@@ -153,13 +189,16 @@ export class GameStateManager {
       Array.from(this.pathRouteService.getCachedPaths().values())
     );
 
+    // Wire the engine game-clock into StatusEffectService (breaks DI cycle —
+    // StatusEffectService can't directly inject GameStateManager).
+    this.statusEffectService.setGameClockProvider(() => this._gameTimeMs);
+
     // Initialize combat effect service (subscribes to projectile:hit events)
     this.combatEffect.initialize(
       tilesEngine,
       this.eventBus,
       this.towerManager,
       this.enemyManager,
-      () => this.trainingTimescale()
     );
 
     // Initialize HQ damage service (handles fire, sounds, game over effects)
@@ -345,131 +384,162 @@ export class GameStateManager {
   }
 
   /**
-   * Main update loop - called EVERY FRAME regardless of phase
-   * Phase controls WHAT updates, not IF updates happen
+   * Main update loop — called EVERY FRAME by the renderer.
+   *
+   * Architecture: outer wrapper handles wall-clock → game-time conversion and
+   * once-per-frame visual chores; inner sub-step loop runs all gameplay logic
+   * at a FIXED 16.667ms game-time granularity, identical to a single 1× tick.
+   *
+   * `onSubStep` is invoked once per sub-step with the step length in game-time
+   * ms — used by AI bots so their decision cadence matches game-time rather
+   * than wall-clock at high training timescales.
    */
-  update(currentTime: number): void {
+  update(currentTime: number, onSubStep?: (gameTimeStepMs: number) => void): void {
     const frameStart = performance.now();
     const profiling = this.profiler !== null;
 
     const rawDeltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
     this.lastUpdateTime = currentTime;
 
-    // Apply training timescale (accelerates gameplay for faster training)
     const timescale = this.trainingTimescale();
-    const deltaTime = rawDeltaTime * timescale;
+    const frameGameTimeMs = rawDeltaTime * timescale;
 
-    // Sync timescale to renderer (turret rotation speed)
+    // Sync timescale to renderer (turret-pulse / hover / shader-time only —
+    // gameplay rotation now flows through sub-step game-time).
     this.tilesEngine?.setTimescale(timescale);
 
     // ══════════════════════════════════════════════════════════════
-    // ALWAYS UPDATE (Phase-independent)
+    // SUB-STEP LOOP (gameplay)
+    // ══════════════════════════════════════════════════════════════
+    // Cap accumulated game-time so a slow real-frame (heavy rendering /
+    // massive waves) doesn't grow the sim debt without bound. Excess is
+    // dropped — simulation stays ≤ MAX_REMAINDER_MS behind wall-clock
+    // × timescale but never more.
+    let pendingMs = this.subStepRemainderMs + frameGameTimeMs;
+    const maxBudget =
+      GameStateManager.MAX_SUBSTEPS_PER_FRAME * GameStateManager.FIXED_STEP_MS
+      + GameStateManager.MAX_REMAINDER_MS;
+    if (pendingMs > maxBudget) pendingMs = maxBudget;
+    let stepsExecuted = 0;
+    let tProjectile = 0, tCombat = 0, tEvents = 0, tTower = 0;
+
+    while (
+      pendingMs >= GameStateManager.FIXED_STEP_MS &&
+      stepsExecuted < GameStateManager.MAX_SUBSTEPS_PER_FRAME
+    ) {
+      const stepMs = GameStateManager.FIXED_STEP_MS;
+      const step = this.runSubStep(stepMs, profiling);
+      tProjectile += step.tProjectile;
+      tCombat += step.tCombat;
+      tEvents += step.tEvents;
+      tTower += step.tTower;
+
+      // Notify per-sub-step listeners (AI bot, etc.)
+      onSubStep?.(stepMs);
+
+      pendingMs -= stepMs;
+      stepsExecuted++;
+
+      // Wave-completion / game-over checks belong INSIDE the sub-step loop
+      // so they catch state transitions mid-frame (otherwise a wave might
+      // visibly run for "one extra frame" at high timescales).
+      const isWavePhase = this.waveManager.phase() === 'wave';
+      if (isWavePhase && this.waveManager.checkWaveComplete()) {
+        const result = this.waveManager.endWave();
+        this.towerCombat.stopAllBeams();
+        this.towerCombat.stopAllMelee();
+        this.enemyDebug.clearDebugEnemies();
+        this.applyWaveCompletionBonus(result);
+      }
+      if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
+        this.triggerGameOver();
+        break; // no point running more sub-steps after game-over
+      }
+    }
+    this.subStepRemainderMs = pendingMs;
+
+    // ══════════════════════════════════════════════════════════════
+    // ONCE PER RENDER-FRAME (visuals + UI sync)
     // ══════════════════════════════════════════════════════════════
 
-    // Projectiles always complete their flight path
-    let t0 = profiling ? performance.now() : 0;
-    this.projectileManager.update(deltaTime);
-    const tProjectile = profiling ? performance.now() - t0 : 0;
-
-    // Research ticks on GAME TIME (Phase 5.11 fix): previously rawDeltaTime
-    // (wall-clock), which froze research progression at high training
-    // timescales — at 75x the bot saw ~75 game-seconds per 1 second of
-    // research progress, so by wave 10 almost nothing was researched. Now
-    // research advances proportionally to the same game-time the waves use.
-    this.researchManager.update(deltaTime / 1000);
-    // Sync active research progress to store for UI
+    // Sync active research progress to store for UI (cheap, batched once/frame)
     if (this.researchManager.usedSlots > 0) {
       this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
     }
 
-    // Process deferred events (VFX, audio, etc.) at stable point in game loop
-    t0 = profiling ? performance.now() : 0;
-    this.eventBus.processQueue();
-    const tEvents = profiling ? performance.now() - t0 : 0;
-
-    // Check combat conditions
-    const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
+    // Tower idle-rotation visual (smooth return) when no combat is running
     const isWavePhase = this.waveManager.phase() === 'wave';
-    const shouldRunCombat = isWavePhase || hasDebugEnemies;
-
-    // Tower idle rotation (smooth return to base position) - only when no combat
-    let tTower = 0;
-    t0 = profiling ? performance.now() : 0;
-    if (!shouldRunCombat) {
+    const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
+    if (!(isWavePhase || hasDebugEnemies)) {
       this.towerCombat.updateTowerIdleRotations(this.towerManager);
     }
-    tTower = profiling ? performance.now() - t0 : 0;
 
-    // Phase 5.11 fix: drive wave spawning in game-time instead of setTimeout.
-    // deltaTime is already timescale-scaled here, so it represents game-time ms.
-    if (this.waveManager.phase() === 'wave') {
-      this.waveManager.tickSpawn(deltaTime);
-    }
-
-    // Enemy movement - always update (debug enemies may move outside wave phase)
-    // Paused enemies (e.g., during gathering) won't move due to movement.paused check
-    if (this.enemyManager.getAll().length > 0) {
-      this.enemyManager.update(deltaTime, this.trainingTimescale());
-    }
-
-    // Tower combat (targeting + firing)
-    let tCombat = 0;
-    if (shouldRunCombat) {
-      t0 = profiling ? performance.now() : 0;
-      this.towerCombat.updateTowerShooting(
-        currentTime,
-        deltaTime,
-        this.towerManager,
-        this.enemyManager,
-        this.projectileManager,
-        this.trainingTimescale()
-      );
-
-      // Beam tower combat (continuous flame damage)
-      this.towerCombat.updateBeamTowers(
-        deltaTime,
-        this.towerManager,
-        this.enemyManager,
-        this.trainingTimescale()
-      );
-
-      // Melee tower combat (tentacle strikes)
-      this.towerCombat.updateMeleeTowers(
-        deltaTime,
-        this.towerManager,
-        this.enemyManager,
-        this.trainingTimescale()
-      );
-      tCombat = profiling ? performance.now() - t0 : 0;
-    }
-
-    // Accumulate frame timings (tower idle + tower combat combined)
     if (profiling) {
       this.profiler!.accumulateFrameTiming(
         tTower, tProjectile, tCombat, tEvents,
         performance.now() - frameStart,
       );
     }
+  }
 
-    // ══════════════════════════════════════════════════════════════
-    // WAVE PHASE ONLY
-    // ══════════════════════════════════════════════════════════════
+  /**
+   * Execute one fixed game-time sub-step. Called repeatedly from update()
+   * so the simulation always runs at ~60Hz game-time regardless of timescale.
+   */
+  private runSubStep(stepMs: number, profiling: boolean): {
+    tProjectile: number; tCombat: number; tEvents: number; tTower: number;
+  } {
+    this._gameTimeMs += stepMs;
 
-    if (!isWavePhase) return;
+    let t0 = profiling ? performance.now() : 0;
+    this.projectileManager.update(stepMs);
+    const tProjectile = profiling ? performance.now() - t0 : 0;
 
-    // Check wave completion
-    if (this.waveManager.checkWaveComplete()) {
-      const result = this.waveManager.endWave();
-      this.towerCombat.stopAllBeams(); // Stop fire tower beams
-      this.towerCombat.stopAllMelee(); // Stop tentacle visuals
-      this.enemyDebug.clearDebugEnemies(); // Clear orphaned debug enemy references
-      this.applyWaveCompletionBonus(result);
+    this.researchManager.update(stepMs / 1000);
+
+    t0 = profiling ? performance.now() : 0;
+    this.eventBus.processQueue();
+    const tEvents = profiling ? performance.now() - t0 : 0;
+
+    const hasDebugEnemies = this.enemyDebug.debugEnemies().length > 0;
+    const isWavePhase = this.waveManager.phase() === 'wave';
+    const shouldRunCombat = isWavePhase || hasDebugEnemies;
+
+    if (isWavePhase) {
+      this.waveManager.tickSpawn(stepMs);
     }
 
-    // Check game over
-    if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
-      this.triggerGameOver();
+    // Run enemyManager.update unconditionally — even with zero entities it
+    // still needs to tick pending-death / pending-start accumulators, and
+    // tickPendingDeaths is what finalises the removal of enemies whose
+    // death animation just expired.
+    this.enemyManager.update(stepMs, this._gameTimeMs);
+
+    let tCombat = 0;
+    if (shouldRunCombat) {
+      t0 = profiling ? performance.now() : 0;
+      this.towerCombat.updateTowerShooting(
+        this._gameTimeMs,
+        stepMs,
+        this.towerManager,
+        this.enemyManager,
+        this.projectileManager,
+      );
+      this.towerCombat.updateBeamTowers(
+        stepMs,
+        this.towerManager,
+        this.enemyManager,
+      );
+      this.towerCombat.updateMeleeTowers(
+        stepMs,
+        this.towerManager,
+        this.enemyManager,
+        this._gameTimeMs,
+      );
+      tCombat = profiling ? performance.now() - t0 : 0;
     }
+
+    return { tProjectile, tCombat, tEvents, tTower: 0 };
   }
 
   /**
@@ -656,6 +726,8 @@ export class GameStateManager {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
     this.updateCredits(GAME_BALANCE.player.startCredits - this.credits());
     this.lastUpdateTime = 0;
+    this._gameTimeMs = 0;
+    this.subStepRemainderMs = 0;
     this._perfectStreak = 0;
 
     GameObject.resetIdCounter();

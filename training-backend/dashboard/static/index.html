@@ -63,6 +63,19 @@
         <button class="ctrl-btn ctrl-start" data-cmd="start" title="Bot + Zeitraffer starten">▶ Start</button>
         <button class="ctrl-btn ctrl-stop" data-cmd="stop" title="Training pausieren">⏸ Stop</button>
         <button class="ctrl-btn ctrl-reload" data-cmd="reload" title="Hard-Reload aller Client-Tabs">⟳ Reload</button>
+        <label class="ctrl-select-label" title="Timescale für alle Clients">
+          Speed
+          <select class="ctrl-select" id="speed-select">
+            <option value="1">1×</option>
+            <option value="4">4×</option>
+            <option value="10">10×</option>
+            <option value="25">25×</option>
+            <option value="50">50×</option>
+            <option value="75" selected>75×</option>
+          </select>
+        </label>
+        <button class="ctrl-btn ctrl-render" id="render-toggle" data-rendering="off"
+                title="3D-Rendering für alle Clients umschalten">👁 Render: OFF</button>
         <span class="ctrl-status" id="ctrl-status"></span>
       </div>
     </div>
@@ -109,6 +122,7 @@
           <div class="card">
             <div class="card-header">
               <span class="card-title">Progress Distribution</span>
+              <span class="help" data-tooltip="Verteilung aller Waves in Progress-Zonen: Boring (&lt;20%), Low (20-Sweet), Sweet (Near-Miss-Band), Moderate (Sweet-Overflow), Danger (&gt;Overflow inkl. GameOver). Ziel: möglichst grüner Sweet-Anteil. Die Linie unten zeigt Sweet-% im Zeitverlauf.">?</span>
             </div>
             <div class="distribution-bar" id="dist-bar"></div>
             <div class="dist-legend compact">
@@ -127,6 +141,7 @@
             <div class="card-header">
               <span class="card-title">Near-Miss Ratio</span>
               <span class="card-badge orange" id="nm-badge">--</span>
+              <span class="help" data-tooltip="Anteil der Gegner pro Wave, die weiter als 80% des Pfades gekommen sind. Hoch (nahe 50%) = knappe, spannende Waves; niedrig = entweder zu easy (alle früh tot) oder zu hart (alle durch).">?</span>
             </div>
             <div class="chart-container">
               <canvas id="near-miss-chart"></canvas>
@@ -137,6 +152,7 @@
             <div class="card-header">
               <span class="card-title">Avg Progress</span>
               <span class="card-badge green" id="progress-badge">--</span>
+              <span class="help" data-tooltip="Durchschnittlicher Path-Progress aller Gegner pro Wave (0-100%). Das grüne Band ist die Near-Miss-Sweet-Zone — Waves die dort landen bekommen den Progression-Bonus. Unter dem Band: zu easy. Über dem Band: zu hart.">?</span>
             </div>
             <div class="chart-container">
               <canvas id="progress-chart"></canvas>
@@ -152,20 +168,10 @@
           <span class="help" data-tooltip="Was das Netz tatsächlich produziert: Welche Enemy-Typen, wie groß die Waves, wie oft Mixed. Hier siehst du Monotony/Wave-Size-Kollaps sofort.">?</span>
         </div>
         <div class="section-grid policy-grid">
-          <div class="card">
+          <div class="card card--wide">
             <div class="card-header">
-              <span class="card-title">Enemy Type Frequency</span>
-              <span class="help" data-tooltip="Gesamtanzahl gesendeter Gegner pro Typ über alle Clients. Dominanz = Monotony-Problem. Ziel: einigermaßen ausgeglichen.">?</span>
-            </div>
-            <div class="chart-container chart-container--tall">
-              <canvas id="enemy-type-frequency-chart"></canvas>
-            </div>
-          </div>
-
-          <div class="card">
-            <div class="card-header">
-              <span class="card-title">Template Usage (Phase 5.10)</span>
-              <span class="help" data-tooltip="Wie oft der NN jedes Template ausgewählt hat. Saubere Verteilung = NN nutzt alle Templates; Peaks = Template-Bias.">?</span>
+              <span class="card-title">Template Usage (Phase 5.11)</span>
+              <span class="help" data-tooltip="Wie oft der NN jedes Template ausgewählt hat. Saubere Verteilung = NN nutzt alle Templates; Peaks = Template-Bias. Phase 5.11: 18 aktive Templates, Rest Reserve-Slots.">?</span>
             </div>
             <div class="chart-container chart-container--tall">
               <canvas id="template-usage-chart"></canvas>
@@ -186,23 +192,10 @@
             <div class="card-header">
               <span class="card-title">Mixed Wave Rate</span>
               <span class="card-badge orange" id="mixed-rate-badge">--</span>
-              <span class="help" data-tooltip="Anteil Waves mit ≥2 Gruppen. Rolling-Avg(50) — wenn steigt: Netz lernt Mixed. Flat bei 0: Mono-Type-Spam.">?</span>
+              <span class="help" data-tooltip="Anteil Waves mit ≥2 Gruppen (z.B. Templates wie chaos_wave oder armor_gauntlet). Rolling-Avg(50) — wenn steigt: Netz nutzt Multi-Group-Templates öfter.">?</span>
             </div>
             <div class="chart-container">
               <canvas id="mixed-wave-rate-chart"></canvas>
-            </div>
-          </div>
-
-          <div class="card card--wide">
-            <div class="card-header">
-              <span class="card-title">Type Probabilities (aktuell)</span>
-              <span class="help" data-tooltip="Aktuelle NN-Output-Wahrscheinlichkeiten für alle 16 Gegner-Typen. Gleichverteilung = exploration, starke Peaks = committed policy.">?</span>
-            </div>
-            <div class="type-probs-container" id="type-probs-container">
-              <div class="type-probs-bars" id="type-probs-bars"></div>
-              <div class="type-probs-footer">
-                <span class="cooldown-indicator" id="cooldown-indicator" style="display: none;">Cooldown Override</span>
-              </div>
             </div>
           </div>
         </div>
@@ -241,6 +234,7 @@
             <div class="card-header">
               <span class="card-title">Policy Loss</span>
               <span class="card-badge" id="nn-policy-loss-badge">--</span>
+              <span class="help" data-tooltip="PPO Policy-Gradient-Loss pro Update-Step. Typischer Verlauf: fluktuiert um 0, kleine negative Werte sind OK. Große Spikes (&gt;1) = instabiles Update, meist weil Advantages zu groß oder clipping aktiv.">?</span>
             </div>
             <div class="chart-container chart-container--slim">
               <canvas id="nn-policy-loss-chart"></canvas>
@@ -250,6 +244,7 @@
             <div class="card-header">
               <span class="card-title">Entropy</span>
               <span class="card-badge" id="nn-entropy-badge">--</span>
+              <span class="help" data-tooltip="Exploration-Indikator: wie breit streut das Netz noch seine Aktionen. Fresh-Model: hoch (~4 bei 32 Templates). Sollte langsam fallen während das Netz eine Policy committet. Fällt zu schnell = vorzeitiger Kollaps; bleibt konstant = Netz lernt nichts.">?</span>
             </div>
             <div class="chart-container chart-container--slim">
               <canvas id="nn-entropy-chart"></canvas>
@@ -259,6 +254,7 @@
             <div class="card-header">
               <span class="card-title">Gradient Norm</span>
               <span class="card-badge" id="nn-grad-norm-badge">--</span>
+              <span class="help" data-tooltip="Euklidische Norm der Gradienten vor dem Clipping (max 0.5). Stabil: 1-10. Spikes &gt;50 = Reward-Outlier oder instabile Policy. Dauerhaft nahe 0 = gesättigter Lernprozess.">?</span>
             </div>
             <div class="chart-container chart-container--slim">
               <canvas id="nn-grad-norm-chart"></canvas>
@@ -268,6 +264,7 @@
             <div class="card-header">
               <span class="card-title">Batch Reward</span>
               <span class="card-badge" id="nn-batch-reward-badge">--</span>
+              <span class="help" data-tooltip="Durchschnittlicher Reward über die aktuellen 16 Episoden die ins PPO-Update geflossen sind. Direkter Lernfortschritts-Indikator — sollte langfristig steigen Richtung 0+.">?</span>
             </div>
             <div class="chart-container chart-container--slim">
               <canvas id="nn-batch-reward-chart"></canvas>

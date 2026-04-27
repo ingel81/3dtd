@@ -11,6 +11,7 @@ import asyncio
 import json
 import os
 import random
+import time
 from datetime import datetime
 from pathlib import Path
 
@@ -113,6 +114,8 @@ class TrainingServer:
         self.trainer = PPOTrainer(self.model, dashboard=self.dashboard)
         self.clients = set()
         self.client_contexts = {}  # Per-client state: {client_id: ClientContext}
+        # Phase 5.14: live 1Hz status from clients (display_id → {wave,enemiesAlive,phase,ts})
+        self.client_statuses: dict[int, dict] = {}
 
         # Global training state
         self.episode = 0
@@ -171,6 +174,8 @@ class TrainingServer:
             if self.dashboard:
                 display_id = client_id % 10000
                 self.dashboard.per_client.pop(display_id, None)
+            # Drop live-status entry
+            self.client_statuses.pop(client_id % 10000, None)
             logger.client_disconnected(client_id, len(self.clients))
             # Push fresh stats so the dashboard UI sees the new activeClientIds list
             # and removes the disconnected client's card immediately.
@@ -315,6 +320,14 @@ class TrainingServer:
                 self.dashboard.record_episode(reward, avg_progress,
                                               near_miss=near_miss_ratio, breakdown=breakdown,
                                               client_id=display_id)
+                # Game-over tracking: the frontend's explicit `game_over` message
+                # isn't always sent (notifyGameOver is defined but never called).
+                # Use the authoritative signal from the wave result instead — if
+                # the player has no lives left, this wave ended the game.
+                if state_after:
+                    player_lives = (state_after.get("player") or {}).get("lives", 1)
+                    if player_lives is not None and player_lives <= 0:
+                        self.dashboard.record_game_over()
                 enemy_type = ctx.enemy_types_used[-1][0] if ctx.enemy_types_used and ctx.enemy_types_used[-1] else '?'
                 enemy_count = outcome.get("enemiesSpawned", 0)
                 # Enrich wave_info with post-wave player economy (credits + health) for
@@ -341,6 +354,31 @@ class TrainingServer:
                     ctx.last_wave_info["tower_counts"] = tower_counts
                     ctx.last_wave_info["tower_avg_levels"] = tower_levels
                     ctx.last_wave_info["tower_count_total"] = defense.get("towerCount", 0)
+
+                    # Dashboard sparklines: kill-time, enemy-hp, DPS, dps-by-type, research.
+                    # Phase 5.11 no longer computes these in _decode_action — pull them
+                    # from the authoritative post-wave state + outcome for the UI only.
+                    ctx.last_wave_info["effective_dps"] = float(defense.get("totalDPS", 0) or 0)
+                    ctx.last_wave_info["dps_by_type"] = state_after.get("dpsByDamageType") or {}
+                    ctx.last_wave_info["research"] = state_after.get("research") or {}
+                    # Kill-time = wave duration in seconds (outcome.waveDurationMs or fallback).
+                    kill_time_ms = outcome.get("waveDurationMs")
+                    if kill_time_ms is not None:
+                        ctx.last_wave_info["kill_time"] = round(float(kill_time_ms) / 1000.0, 2)
+                    # Approximate per-enemy HP from template base × hp-multiplier. Good enough
+                    # for a dashboard sparkline; exact values would need frontend telemetry.
+                    groups = ctx.last_wave_info.get("groups") or []
+                    hp_mult = float(ctx.last_wave_info.get("health_mult", 1.0))
+                    if groups and ctx.enemy_base_hp:
+                        total_hp = 0.0
+                        total_n = 0
+                        for g in groups:
+                            base_hp = float(ctx.enemy_base_hp.get(g.get("type"), 0) or 0)
+                            n = int(g.get("count", 0) or 0)
+                            total_hp += base_hp * hp_mult * n
+                            total_n += n
+                        if total_n > 0:
+                            ctx.last_wave_info["enemy_hp"] = round(total_hp / total_n, 1)
                 self.dashboard.record_wave(wave_num, enemy_type, enemy_count, avg_progress, reward,
                                            wave_info=ctx.last_wave_info,
                                            client_id=display_id)
@@ -387,6 +425,18 @@ class TrainingServer:
                 ctx.win_streak = 0
                 if self.dashboard:
                     self.dashboard.record_game_over()
+
+        elif msg_type == "status":
+            # Phase 5.14: 1Hz live status push from client. Stored per-client
+            # so the dashboard can show live wave + enemies-alive without
+            # waiting for post-wave results.
+            display_id = client_id % 10000
+            self.client_statuses[display_id] = {
+                "wave": int(msg.get("wave", 0) or 0),
+                "enemiesAlive": int(msg.get("enemiesAlive", 0) or 0),
+                "phase": msg.get("phase", "setup"),
+                "ts": time.time(),
+            }
 
         elif msg_type == "request_stats":
             await self._send_stats(ws)
@@ -851,24 +901,26 @@ class TrainingServer:
             except Exception:
                 pass
 
-    async def broadcast_client_command(self, cmd: str) -> int:
+    async def broadcast_client_command(self, cmd: str, value=None) -> int:
         """Send a control command to every connected training client.
 
-        Backend holds authoritative training_state. 'start'/'stop' flip it;
-        newly-connected clients read it from the `connected` message and
-        auto-sync. 'reload' is transient and doesn't change the state.
+        Supported commands (Phase 5.14 extended):
+          - 'start'          : enable bot + timescale 75
+          - 'stop'           : disable bot + timescale 1
+          - 'reload'         : hard-reload tab (fresh engine)
+          - 'set_timescale'  : value=number — set game speed
+          - 'set_rendering'  : value=bool   — enable/disable 3D render
 
-        Client behavior:
-          - 'reload': window.location.reload() — fresh engine state
-          - 'start':  enable bot + training timescale (resume training)
-          - 'stop':   disable bot + timescale 1 (pause training, keep game)
         Returns the number of clients that received the message.
         """
         if cmd == 'start':
             self.training_state = 'running'
         elif cmd == 'stop':
             self.training_state = 'paused'
-        msg = json.dumps({"type": "control", "action": cmd})
+        payload = {"type": "control", "action": cmd}
+        if value is not None:
+            payload["value"] = value
+        msg = json.dumps(payload)
         delivered = 0
         for client in list(self.clients):
             try:
@@ -876,7 +928,7 @@ class TrainingServer:
                 delivered += 1
             except Exception:
                 pass
-        print(f"[control] broadcast '{cmd}' -> {delivered}/{len(self.clients)} clients (state={self.training_state})")
+        print(f"[control] broadcast '{cmd}' value={value} -> {delivered}/{len(self.clients)} clients")
         return delivered
 
     async def _send_stats(self, ws):

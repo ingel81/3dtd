@@ -400,16 +400,26 @@ export class GameLoopFacadeService {
     this.markerViz.animateMarkers(deltaTime);
     this.routeAnimation.update(deltaTime);
 
-    // Game logic tick
-    this.gameState.update(performance.now());
+    // Game logic tick — sub-step loop runs gameplay at fixed game-time
+    // granularity. Bot decisions and turret aim are per-sub-step so they
+    // stay framerate-independent at any training speed.
+    const tilesEngine = this.gameState.tilesEngine;
+    this.gameState.update(performance.now(), (gameTimeStepMs) => {
+      // Turret aim advances per sub-step in game-time (gameplay-relevant —
+      // alignment gates firing).
+      tilesEngine?.towers.advanceTurretAim(gameTimeStepMs);
+
+      // Bot decision tick per sub-step (game-time)
+      if (this.trainingClient.botEnabled()) {
+        this.trainingClient.updateBot(
+          this.aiDataCollector.getStateSnapshot(),
+          gameTimeStepMs,
+        );
+      }
+    });
 
     // Performance profiler tick (console log timer)
     this.profiler.tick(deltaTime);
-
-    // Bot update (if enabled)
-    if (this.trainingClient.botEnabled()) {
-      this.trainingClient.updateBot(this.aiDataCollector.getStateSnapshot(), deltaTime);
-    }
 
     // Route grid visualization
     const grid = this.gameState.getGlobalRouteGrid();

@@ -11,6 +11,7 @@ import { GeoPosition } from '../models/game.types';
 function createMockEnemyManager(): EnemyManager {
   return {
     spawn: vi.fn(),
+    getAll: vi.fn().mockReturnValue([]),
     getAlive: vi.fn().mockReturnValue([]),
     getAliveCount: vi.fn().mockReturnValue(0),
     getKillingCount: vi.fn().mockReturnValue(0),
@@ -129,32 +130,33 @@ describe('WaveManager', () => {
       );
     });
 
-    it('spawns first enemy immediately', () => {
+    it('spawns first enemy on first tickSpawn', () => {
       wm.startWave(makeWaveConfig({ enemyCount: 2 }));
+      wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
     });
 
-    it('spawns enemies with delay between them', () => {
+    it('spawns enemies with game-time delay between them', () => {
       wm.startWave(makeWaveConfig({ enemyCount: 3, spawnDelay: 200 }));
 
-      // First spawned immediately
+      wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
 
-      vi.advanceTimersByTime(200);
+      wm.tickSpawn(200);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
 
-      vi.advanceTimersByTime(200);
+      wm.tickSpawn(200);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
 
       // No more spawning after all enemies
-      vi.advanceTimersByTime(200);
+      wm.tickSpawn(200);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(3);
     });
 
     it('uses "each" spawn mode (round-robin)', () => {
       wm.startWave(makeWaveConfig({ enemyCount: 3, spawnMode: 'each', spawnDelay: 50 }));
 
-      // First call uses sp-1 (index 0 % 2 = 0)
+      wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledWith(
         CACHED_PATHS.get('sp-1'),
         expect.anything(),
@@ -163,8 +165,7 @@ describe('WaveManager', () => {
         undefined,
       );
 
-      vi.advanceTimersByTime(50);
-      // Second call uses sp-2 (index 1 % 2 = 1)
+      wm.tickSpawn(50);
       expect(enemyManager.spawn).toHaveBeenCalledWith(
         CACHED_PATHS.get('sp-2'),
         expect.anything(),
@@ -198,14 +199,16 @@ describe('WaveManager', () => {
       );
     });
 
-    it('respects timescale for spawn delay', () => {
-      wm.setTimescaleProvider(() => 2.0); // 2x speed
+    it('spawning is timescale-agnostic — advanced via game-time tickSpawn', () => {
+      // Sub-stepping: the engine ticks game-time in fixed 16ms steps. Two
+      // 100ms-each ticks together cover one 200ms spawn delay regardless
+      // of training timescale.
       wm.startWave(makeWaveConfig({ enemyCount: 2, spawnDelay: 200 }));
-
+      wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
-
-      // With 2x timescale, 200ms delay becomes 100ms real time
-      vi.advanceTimersByTime(100);
+      wm.tickSpawn(100);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
+      wm.tickSpawn(100);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
     });
   });
@@ -223,13 +226,14 @@ describe('WaveManager', () => {
 
     it('returns true when all enemies spawned AND all dead', () => {
       wm.startWave(makeWaveConfig({ enemyCount: 1, spawnDelay: 50 }));
-      // 1 spawned immediately, aliveCount returns 0 (mock default)
+      wm.tickSpawn(0); // spawn the 1 enemy
       expect(wm.checkWaveComplete()).toBe(true);
     });
 
     it('returns false when all spawned but some alive', () => {
       (enemyManager.getAliveCount as ReturnType<typeof vi.fn>).mockReturnValue(2);
       wm.startWave(makeWaveConfig({ enemyCount: 1, spawnDelay: 50 }));
+      wm.tickSpawn(0);
       expect(wm.checkWaveComplete()).toBe(false);
     });
   });
@@ -289,12 +293,12 @@ describe('WaveManager', () => {
 
     it('stops pending spawns on reset', () => {
       wm.startWave(makeWaveConfig({ enemyCount: 10, spawnDelay: 100 }));
+      wm.tickSpawn(0);
       const spawnCountBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
 
       wm.reset();
-
-      // Advance timers — no more spawns should happen
-      vi.advanceTimersByTime(2000);
+      // Subsequent tickSpawn() calls should be no-ops after reset
+      wm.tickSpawn(2000);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(spawnCountBefore);
     });
   });
@@ -302,10 +306,11 @@ describe('WaveManager', () => {
   describe('stopSpawning()', () => {
     it('prevents further spawns', () => {
       wm.startWave(makeWaveConfig({ enemyCount: 5, spawnDelay: 100 }));
+      wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
 
       wm.stopSpawning();
-      vi.advanceTimersByTime(1000);
+      wm.tickSpawn(1000);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
     });
 
@@ -338,19 +343,19 @@ describe('WaveManager', () => {
 
       bus.emit({ type: 'debug:kill-all' });
 
-      expect(enemyManager.kill).toHaveBeenCalledWith(mockEnemy, 1.0);
+      expect(enemyManager.kill).toHaveBeenCalledWith(mockEnemy);
     });
 
     it('stops further spawning after kill-all', () => {
       (enemyManager.getAlive as ReturnType<typeof vi.fn>).mockReturnValue([]);
 
       wm.startWave(makeWaveConfig({ enemyCount: 5, spawnDelay: 100 }));
+      wm.tickSpawn(0);
       const callsBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
 
       bus.emit({ type: 'debug:kill-all' });
 
-      vi.advanceTimersByTime(1000);
-      // No additional spawns after kill-all
+      wm.tickSpawn(1000);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(callsBefore);
     });
   });

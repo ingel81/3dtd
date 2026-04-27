@@ -76,4 +76,20 @@ describe('CombatComponent', () => {
     combatB.update(1000);
     expect(combatB.canFire()).toBe(true);
   });
+
+  it('single-shot per fire(): cooldown resets to full interval', () => {
+    // With fixed-timestep sub-stepping (engine), the renderer never invokes
+    // fire() multiple times per frame — each sub-step is small enough that
+    // at most 1 shot fires per call. Hard reset matches 1× behavior.
+    const combat = new CombatComponent(gameObject, { damage: 10, range: 25, fireRate: 2 });
+    combat.update(60_000); // long frame
+    expect(combat.canFire()).toBe(true);
+    combat.fire();
+    expect(combat.canFire()).toBe(false);
+    // No second shot until next 500ms elapse, no matter how big the previous gap was
+    combat.update(499);
+    expect(combat.canFire()).toBe(false);
+    combat.update(2);
+    expect(combat.canFire()).toBe(true);
+  });
 });

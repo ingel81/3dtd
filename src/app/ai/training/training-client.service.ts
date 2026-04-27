@@ -54,6 +54,7 @@ type ClientMessage =
   | { type: 'result'; data: WaveResult }
   | { type: 'game_start'; difficulty: 'easy' | 'normal' | 'hard'; enemyBaseHp: Record<string, number> }
   | { type: 'game_over'; won: boolean; waves: number }
+  | { type: 'status'; wave: number; enemiesAlive: number; phase: string }
   | { type: 'request_stats' }
   | { type: 'request_export'; version: string };
 
@@ -63,7 +64,7 @@ type ServerMessage =
   | { type: 'reset' }
   | { type: 'stats'; data: TrainingStats }
   | { type: 'model_exported'; path: string; version: string }
-  | { type: 'control'; action: 'start' | 'stop' | 'reload' }
+  | { type: 'control'; action: 'start' | 'stop' | 'reload' | 'set_timescale' | 'set_rendering'; value?: number | boolean }
   | { type: 'error'; message: string };
 
 /**
@@ -195,6 +196,11 @@ export class TrainingClientService {
    * Update bot (called each frame from component's update loop)
    * @returns true if bot performed an action
    */
+  /**
+   * `deltaTime` is GAME-TIME ms passed by the engine sub-step loop —
+   * the bot's reactionTimeMs and strategy cooldowns are authored in
+   * game-time, so this matches semantics directly with no scaling.
+   */
   updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
     if (!this.botEnabled() || !this.currentBot || !this.gameState) return false;
 
@@ -263,15 +269,13 @@ export class TrainingClientService {
           const tower = this.gameState.placeTower(geoPos, action.towerType);
 
           if (tower) {
-
-            // Update stats
             this.botStats.update(stats => ({
               towersPlaced: stats.towersPlaced + 1,
               goldSpent: stats.goldSpent + towerConfig.cost
             }));
-          } else {
-            console.error(`[Bot] ⛔ Placement failed after validation passed! - ${action.reason}`);
           }
+          // Silent fail: bot strategies reason about LOS/collision themselves;
+          // placement failures happen and are recovered from naturally.
         }
         break;
 
@@ -485,6 +489,7 @@ export class TrainingClientService {
           this.intentionalDisconnect = false;  // fresh connection → reconnect allowed
           this.isConnected.set(true);
           this.isConnecting.set(false);
+          this.startStatusPush();
           resolve(true);
         };
 
@@ -659,6 +664,12 @@ export class TrainingClientService {
         if (msg.displayId !== undefined) {
           this.displayId.set(msg.displayId);
         }
+        // Phase 5.14: Training clients go headless by default. GPU/CPU cost
+        // drops to near-zero for the 3D scene, so many more tabs can train
+        // in parallel on one machine. User can re-enable via Game-Header
+        // toggle or dashboard per-client control.
+        this.store.renderingEnabled.set(false);
+
         // Apply backend-authoritative training state. If backend says 'running',
         // auto-enable bot; otherwise stay paused until Dashboard Start.
         if (msg.trainingState === 'running') {
@@ -686,7 +697,7 @@ export class TrainingClientService {
         break;
 
       case 'control':
-        this.handleControlCommand(msg.action);
+        this.handleControlCommand(msg.action, msg.value);
         break;
 
       case 'error':
@@ -697,15 +708,19 @@ export class TrainingClientService {
   }
 
   /**
-   * Handle control commands from the dashboard (start/stop/reload).
-   * 'reload' hard-refreshes the tab (cleanest way to reset engine + tiles).
-   * 'stop'  disables the bot + resets timescale → game pauses from training's POV.
-   * 'start' re-enables bot + 75× timescale → resumes automated training.
+   * Handle control commands from the dashboard.
+   * 'reload'        → hard-refresh tab (cleanest engine+tiles reset).
+   * 'stop'          → disable bot, timescale=1.
+   * 'start'         → enable bot, timescale=75.
+   * 'set_timescale' → set timescale to value (global speed control).
+   * 'set_rendering' → enable/disable per-frame 3D rendering (headless mode).
    */
-  private handleControlCommand(action: 'start' | 'stop' | 'reload'): void {
-    console.log('[Training] Control command received:', action);
+  private handleControlCommand(
+    action: 'start' | 'stop' | 'reload' | 'set_timescale' | 'set_rendering',
+    value?: number | boolean,
+  ): void {
+    console.log('[Training] Control command received:', action, value);
     if (action === 'reload') {
-      // Give the log a chance to flush, then hard reload
       setTimeout(() => window.location.reload(), 100);
       return;
     }
@@ -717,6 +732,14 @@ export class TrainingClientService {
     if (action === 'start') {
       this.gameState.setTrainingTimescale(75.0, false);
       this.enableBot('strategist');
+      return;
+    }
+    if (action === 'set_timescale' && typeof value === 'number' && value > 0) {
+      this.gameState.setTrainingTimescale(value, false);
+      return;
+    }
+    if (action === 'set_rendering' && typeof value === 'boolean') {
+      this.store.renderingEnabled.set(value);
       return;
     }
   }
@@ -733,10 +756,36 @@ export class TrainingClientService {
 
   private cleanup(): void {
     this.disposeEventSubscriptions();
+    this.stopStatusPush();
     this.socket = null;
     this.sessionId.set(null);
     this.displayId.set(null);
     this.isConnected.set(false);
     this.isConnecting.set(false);
+  }
+
+  /**
+   * Phase 5.14: push a compact status snapshot to the backend once per
+   * wall-clock second so the dashboard can show live wave number +
+   * enemies-alive per client (without per-event flooding).
+   */
+  private statusPushTimer: ReturnType<typeof setInterval> | null = null;
+
+  private startStatusPush(): void {
+    if (this.statusPushTimer !== null) return;
+    this.statusPushTimer = setInterval(() => {
+      if (!this.isConnected() || !this.gameState) return;
+      const waveNum = this.gameState.waveNumber();
+      const enemiesAlive = this.gameState.enemyManager.getAliveCount();
+      const phase = this.gameState.phase();
+      this.send({ type: 'status', wave: waveNum, enemiesAlive, phase });
+    }, 1000);
+  }
+
+  private stopStatusPush(): void {
+    if (this.statusPushTimer !== null) {
+      clearInterval(this.statusPushTimer);
+      this.statusPushTimer = null;
+    }
   }
 }

@@ -42,6 +42,14 @@ function createStubService(name: string): Record<string, unknown> {
     CombatEffectService: {
       initialize: vi.fn(),
     },
+    StatusEffectService: {
+      setGameClockProvider: vi.fn(),
+      applySlow: vi.fn(),
+      applyPoison: vi.fn(),
+      applyEffect: vi.fn(),
+      removeExpired: vi.fn(),
+      hasActiveEffect: vi.fn().mockReturnValue(false),
+    },
     HQDamageService: {
       initialize: vi.fn(),
       reset: vi.fn(),

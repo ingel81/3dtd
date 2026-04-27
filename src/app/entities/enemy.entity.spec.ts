@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 
 vi.mock('three', () => ({
   Vector3: class {
@@ -23,15 +23,6 @@ const path = [
 ];
 
 describe('Enemy entity', () => {
-  let nowSpy: ReturnType<typeof vi.spyOn>;
-
-  beforeEach(() => {
-    nowSpy = vi.spyOn(performance, 'now').mockReturnValue(1000);
-  });
-
-  afterEach(() => {
-    nowSpy.mockRestore();
-  });
 
   it('constructs an enemy with correct type and path', () => {
     const enemy = new Enemy('zombie', path);
@@ -77,7 +68,7 @@ describe('Enemy entity', () => {
     };
 
     enemy.movement.applyStatusEffect(slow);
-    expect(enemy.movement.isSlowed()).toBe(true);
+    expect(enemy.movement.isSlowed(1500)).toBe(true);
 
     // Add a burn effect as well
     enemy.movement.applyStatusEffect({
@@ -90,10 +81,9 @@ describe('Enemy entity', () => {
 
     expect(enemy.movement.statusEffects.length).toBe(2);
 
-    // Expire effects
-    nowSpy.mockReturnValue(3000);
-    enemy.movement.removeExpiredEffects();
-    expect(enemy.movement.isSlowed()).toBe(false);
+    // Expire effects (game-time has advanced past durations)
+    enemy.movement.removeExpiredEffects(3000);
+    expect(enemy.movement.isSlowed(3000)).toBe(false);
   });
 
   it('supports different enemy archetypes (flyer, boss, armored)', () => {
@@ -126,7 +116,7 @@ describe('Enemy entity', () => {
     });
 
     expect(enemy.movement.statusEffects.length).toBe(1);
-    expect(enemy.movement.getSlowMultiplier()).toBeCloseTo(1 - 0.6, 5);
+    expect(enemy.movement.getSlowMultiplier(1500)).toBeCloseTo(1 - 0.6, 5);
 
     enemy.movement.applyStatusEffect({
       type: 'burn',
@@ -149,13 +139,13 @@ describe('Enemy entity', () => {
   it('moves along the path and reports when it reaches the end', () => {
     const enemy = new Enemy('zombie', path, 10);
 
-    const resultStart = enemy.movement.move(1000);
+    const resultStart = enemy.movement.move(1000, 0);
     expect(resultStart).toBe('moving');
     expect(enemy.transform.position.lat).not.toBe(path[0].lat);
 
     let resultEnd: 'moving' | 'reached_end' = 'moving';
     for (let i = 0; i < 500; i++) {
-      resultEnd = enemy.movement.move(200);
+      resultEnd = enemy.movement.move(200, 0);
       if (resultEnd === 'reached_end') break;
     }
 

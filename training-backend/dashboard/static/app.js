@@ -90,6 +90,9 @@ const state = {
   waveSizeHistogram: { labels: [], counts: [] },
   mixedWaveRate: { raw: [], rolling50: [] },
 
+  // Phase 5.14: live 1Hz per-client status (wave + enemiesAlive + phase)
+  clientStatuses: {},
+
   // NN-Internals mini-histories (build up live from training_update events)
   nnHistory: {
     policyLoss: [],
@@ -419,14 +422,7 @@ function initGlobalCharts() {
     { label: 'Sweet %', data: [], borderColor: 'rgba(63,185,80,0.9)', backgroundColor: 'rgba(63,185,80,0.1)', fill: true, borderWidth: 1.5 },
   ], { yScale: { min: 0, max: 100 }, legend: false });
 
-  // Enemy-Type-Frequency (horizontal bar)
-  charts.enemyTypeFreq = createBarChart('enemy-type-frequency-chart', [{
-    data: new Array(ENEMY_TYPE_ORDER.length).fill(0),
-    backgroundColor: ENEMY_TYPE_ORDER.map(t => ARMOR_TYPE_COLORS[ENEMY_ARMOR_MAP[t]] || '#888'),
-    borderWidth: 0,
-  }], { horizontal: true, labels: ENEMY_TYPE_ORDER });
-
-  // Template-Usage (Phase 5.10): horizontal bar, ordered by slot index
+  // Template-Usage (Phase 5.11): horizontal bar, ordered by slot index
   charts.templateUsage = createBarChart('template-usage-chart', [{
     data: new Array(TEMPLATE_ID_ORDER.length).fill(0),
     backgroundColor: '#58a6ff',
@@ -521,13 +517,8 @@ function updateProgressDistribution() {
 }
 
 function updatePolicyOutputCharts() {
-  // Enemy-Type-Frequency: data in state.enemyTypeCounts (populated from stats)
-  if (charts.enemyTypeFreq) {
-    const data = ENEMY_TYPE_ORDER.map(t => state.enemyTypeCounts[t] || 0);
-    charts.enemyTypeFreq.data.datasets[0].data = data;
-    charts.enemyTypeFreq.update('none');
-  }
-  // Phase 5.10: Template-Usage (populated from stats.templateUsageCounts)
+  // Phase 5.11: Template-Usage (populated from stats.templateUsageCounts).
+  // Enemy-Type-Frequency entfernt — der NN wählt Templates, nicht Gegnertypen.
   if (charts.templateUsage) {
     const data = TEMPLATE_ID_ORDER.map(t => state.templateUsageCounts[t] || 0);
     charts.templateUsage.data.datasets[0].data = data;
@@ -616,9 +607,8 @@ function onAiParams(d) {
     playerHealth: d.playerHealth ?? c.signals.playerHealth,
     towerCountTotal: d.towerCountTotal ?? c.signals.towerCountTotal,
   };
-  // Type-probs aren't per-client in the display — the global chart reads latest sender's.
-  if (d.typeProbs) updateTypeProbs(d.typeProbs, d.cooldownOverride);
-
+  // Phase 5.11: Type-probs entfernt — der NN hat keine Per-Enemy-Wahrscheinlichkeiten mehr,
+  // stattdessen template_probs (siehe Template-Usage-Chart).
   if (state.activeTab === 'clients') renderClientCard(d.clientId);
 }
 
@@ -656,7 +646,7 @@ function buildClientCard(id) {
       <span class="client-card__chevron">▼</span>
       <span class="client-card__id">#${id}</span>
       <div class="client-card__kpis">
-        <span class="client-card__kpi"><span class="client-card__kpi-label">Waves</span><span class="client-card__kpi-value" data-role="waves">0</span></span>
+        <span class="client-card__kpi" title="Current wave + enemies alive (total completed in tooltip)"><span class="client-card__kpi-label">Wave</span><span class="client-card__kpi-value" data-role="waves">—</span></span>
         <span class="client-card__kpi"><span class="client-card__kpi-label">avgR50</span><span class="client-card__kpi-value" data-role="avgr50">0.00</span></span>
         <span class="client-card__kpi"><span class="client-card__kpi-label">Progress</span><span class="client-card__kpi-value" data-role="progress">0.00</span></span>
         <span class="client-card__kpi"><span class="client-card__kpi-label">Dmg</span><span class="client-card__kpi-value" data-role="damage">0.0%</span></span>
@@ -785,7 +775,18 @@ function renderClientCardContent(id) {
     el.classList.remove('positive', 'negative');
     if (cls) el.classList.add(cls);
   };
-  setKpi('waves', c.totalWaves);
+  // Phase 5.14: show LIVE wave + enemies-alive from 1Hz status push.
+  // Fallback to total-completed if no live status yet.
+  const liveStatus = state.clientStatuses?.[id];
+  if (liveStatus && typeof liveStatus.wave === 'number') {
+    const waveText = `W:${liveStatus.wave}`
+      + (liveStatus.enemiesAlive > 0 ? ` (${liveStatus.enemiesAlive})` : '');
+    setKpi('waves', waveText);
+    const waveEl = card.querySelector('[data-role="waves"]');
+    if (waveEl) waveEl.title = `Total completed: ${c.totalWaves} · Phase: ${liveStatus.phase}`;
+  } else {
+    setKpi('waves', c.totalWaves);
+  }
   setKpi('avgr50', (avgR50 >= 0 ? '+' : '') + avgR50.toFixed(2), avgR50 >= 0 ? 'positive' : 'negative');
   setKpi('progress', lastProgress.toFixed(2));
   setKpi('damage', (lastDmg * 100).toFixed(1) + '%');
@@ -973,43 +974,6 @@ function renderResearchInfo(container, research) {
 }
 
 // ═══════════════════════════════════════════════════════════════════
-// TYPE PROBABILITIES (Tab 1 bottom, shared NN output)
-// ═══════════════════════════════════════════════════════════════════
-function ensureTypeProbsDOM() {
-  const container = document.getElementById('type-probs-bars');
-  if (!container || container.childElementCount > 0) return;
-  container.innerHTML = ENEMY_ARMOR_GROUPS.map(g => `
-    <div class="type-probs-armor-group">
-      <div class="type-probs-armor-label">${g.label}</div>
-      ${g.types.map(t => `
-        <div class="type-probs-row" data-type="${t}">
-          <span class="type-probs-label">${t}</span>
-          <div class="type-probs-bar-bg">
-            <div class="type-probs-bar-fill" style="width:0%;background:${ARMOR_TYPE_COLORS[g.armor]}"></div>
-          </div>
-          <span class="type-probs-value">0%</span>
-        </div>
-      `).join('')}
-    </div>
-  `).join('');
-}
-
-function updateTypeProbs(probs, cooldownOverride = false) {
-  ensureTypeProbsDOM();
-  Object.entries(probs || {}).forEach(([type, p]) => {
-    const row = document.querySelector(`.type-probs-row[data-type="${type}"]`);
-    if (!row) return;
-    const pct = (p * 100).toFixed(1);
-    const fill = row.querySelector('.type-probs-bar-fill');
-    const val = row.querySelector('.type-probs-value');
-    if (fill) fill.style.width = pct + '%';
-    if (val) val.textContent = pct + '%';
-  });
-  const ind = document.getElementById('cooldown-indicator');
-  if (ind) ind.style.display = cooldownOverride ? 'inline-block' : 'none';
-}
-
-// ═══════════════════════════════════════════════════════════════════
 // 8. WAVE LOG (Tab 4)
 // ═══════════════════════════════════════════════════════════════════
 const WAVE_LOG_MAX = 200;
@@ -1067,16 +1031,33 @@ function waveEntryHTML(entry) {
 
   const reward = (entry.reward >= 0 ? '+' : '') + entry.reward.toFixed(3);
 
+  // Phase 5.11 meta row: template name + continuous params so the user can
+  // tell "mild zombie_horde" from "max zombie_horde" at a glance.
+  const metaParts = [];
+  if (entry.templateName) metaParts.push(`<span class="wave-meta-tmpl">${entry.templateName}</span>`);
+  if (entry.spawnDelay != null) metaParts.push(`spawn ${entry.spawnDelay}ms`);
+  if (entry.hpMult != null) metaParts.push(`hp ×${entry.hpMult.toFixed(2)}`);
+  if (entry.variation != null) metaParts.push(`var ${(entry.variation * 100).toFixed(0)}%`);
+  if (entry.dps != null && entry.dps > 0) metaParts.push(`dps ${entry.dps.toFixed(0)}`);
+  if (entry.enemyHp != null && entry.enemyHp > 0) metaParts.push(`ehp ${entry.enemyHp.toFixed(0)}`);
+  if (entry.killTime != null && entry.killTime > 0) metaParts.push(`${entry.killTime.toFixed(1)}s`);
+  const metaRow = metaParts.length
+    ? `<span class="wave-meta">${metaParts.join(' · ')}</span>`
+    : '';
+
   return `
     <div class="wave-entry">
-      <span class="type" title="${typeLabel}">${idPrefix}${typeLabel}</span>
-      <div class="progress-bar-container">
-        <div class="progress-bar">
-          <div class="progress-bar-fill" style="width:${progressPct}%;background:${barColor}"></div>
+      <div class="wave-entry__main">
+        <span class="type" title="${typeLabel}">${idPrefix}${typeLabel}</span>
+        <div class="progress-bar-container">
+          <div class="progress-bar">
+            <div class="progress-bar-fill" style="width:${progressPct}%;background:${barColor}"></div>
+          </div>
+          <span class="progress-text" style="color:${barColor}">${progressPct}%</span>
         </div>
-        <span class="progress-text" style="color:${barColor}">${progressPct}%</span>
+        <span class="reward ${rewardClass}">${reward}</span>
       </div>
-      <span class="reward ${rewardClass}">${reward}</span>
+      ${metaRow}
     </div>
   `;
 }
@@ -1144,6 +1125,15 @@ function updateHeaderStats(stats) {
   if (stats.templateUsageCounts) state.templateUsageCounts = stats.templateUsageCounts;
   if (stats.waveSizeHistogram) state.waveSizeHistogram = stats.waveSizeHistogram;
   if (stats.mixedWaveRate) state.mixedWaveRate = stats.mixedWaveRate;
+
+  // Phase 5.14: live per-client status for Wave/Alive display
+  if (stats.clientStatuses) {
+    state.clientStatuses = stats.clientStatuses;
+    // Trigger client-card re-render when on Clients tab so KPI refreshes.
+    if (state.activeTab === 'clients') {
+      for (const id of state.availableClients) renderClientCardContent(id);
+    }
+  }
 
   // Prune inactive clients (browser reloads leave stale entries)
   if (Array.isArray(stats.activeClientIds)) {
@@ -1256,15 +1246,20 @@ async function fetchClientHistory(id) {
 // ═══════════════════════════════════════════════════════════════════
 // CONTROL BUTTONS
 // ═══════════════════════════════════════════════════════════════════
-async function sendControl(cmd) {
+async function sendControl(cmd, body = null) {
   const status = document.getElementById('ctrl-status');
   if (status) status.textContent = `Sending ${cmd}…`;
   try {
-    const res = await fetch(`/api/control/${cmd}`, { method: 'POST' });
-    const body = await res.json();
-    if (!res.ok) throw new Error(body.error || res.statusText);
+    const options = { method: 'POST' };
+    if (body !== null) {
+      options.headers = { 'Content-Type': 'application/json' };
+      options.body = JSON.stringify(body);
+    }
+    const res = await fetch(`/api/control/${cmd}`, options);
+    const reply = await res.json();
+    if (!res.ok) throw new Error(reply.error || res.statusText);
     if (status) {
-      status.textContent = `${cmd}: ${body.clientsNotified}`;
+      status.textContent = `${cmd}: ${reply.clientsNotified}`;
       setTimeout(() => { if (status.textContent.startsWith(cmd)) status.textContent = ''; }, 3000);
     }
   } catch (e) {
@@ -1273,23 +1268,95 @@ async function sendControl(cmd) {
 }
 
 function initControls() {
-  document.querySelectorAll('.ctrl-btn').forEach(btn => {
+  document.querySelectorAll('.ctrl-btn[data-cmd]').forEach(btn => {
     btn.addEventListener('click', () => {
       const cmd = btn.dataset.cmd;
       if (cmd === 'reload' && !confirm('Reload ALL connected clients?')) return;
       sendControl(cmd);
     });
   });
+
+  // Phase 5.14: global speed selector
+  const speedSelect = document.getElementById('speed-select');
+  if (speedSelect) {
+    speedSelect.addEventListener('change', () => {
+      const value = parseFloat(speedSelect.value);
+      if (Number.isFinite(value) && value > 0) {
+        sendControl('set_timescale', { value });
+      }
+    });
+  }
+
+  // Phase 5.14: global rendering toggle (headless default)
+  const renderBtn = document.getElementById('render-toggle');
+  if (renderBtn) {
+    renderBtn.addEventListener('click', () => {
+      const currentlyOn = renderBtn.dataset.rendering === 'on';
+      const next = !currentlyOn;
+      renderBtn.dataset.rendering = next ? 'on' : 'off';
+      renderBtn.textContent = next ? '👁 Render: ON' : '👁 Render: OFF';
+      sendControl('set_rendering', { value: next });
+    });
+  }
 }
 
 // ═══════════════════════════════════════════════════════════════════
 // 9. HELP-TOOLTIP PORTAL (kept from old dashboard)
 // ═══════════════════════════════════════════════════════════════════
 function initHelpTooltips() {
-  // CSS handles tooltip rendering via ::after; on scroll/resize we force
-  // an opacity reset because ::after is positioned: fixed and doesn't follow.
-  // This keeps the bulk of styling in CSS and the JS minimal.
-  // (The old portal-rendering approach is unnecessary with position:fixed).
+  // Shared tooltip portal — clamped to viewport so icons near the left edge
+  // don't spill off-screen. One div is reused for every .help hover.
+  let tip = document.querySelector('.help-tooltip');
+  if (!tip) {
+    tip = document.createElement('div');
+    tip.className = 'help-tooltip';
+    document.body.appendChild(tip);
+  }
+  const PAD = 8; // viewport-edge padding
+  const GAP = 6; // distance between icon and tooltip
+
+  function positionTooltip(iconEl) {
+    const text = iconEl.getAttribute('data-tooltip') || '';
+    if (!text) return;
+    tip.textContent = text;
+    tip.classList.add('is-visible');
+    // Measure after content is set
+    const iconRect = iconEl.getBoundingClientRect();
+    const tipRect = tip.getBoundingClientRect();
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    // Horizontal: center on icon, then clamp to viewport
+    let left = iconRect.left + iconRect.width / 2 - tipRect.width / 2;
+    left = Math.max(PAD, Math.min(vw - tipRect.width - PAD, left));
+    // Vertical: below by default, flip above if no room
+    let top = iconRect.bottom + GAP;
+    if (top + tipRect.height > vh - PAD) {
+      top = iconRect.top - tipRect.height - GAP;
+    }
+    tip.style.left = `${Math.round(left)}px`;
+    tip.style.top = `${Math.round(top)}px`;
+  }
+
+  function hideTooltip() {
+    tip.classList.remove('is-visible');
+  }
+
+  // Delegate on body — covers .help elements added dynamically (client cards).
+  document.body.addEventListener('mouseover', (e) => {
+    const icon = e.target.closest('.help');
+    if (!icon) return;
+    positionTooltip(icon);
+  });
+  document.body.addEventListener('mouseout', (e) => {
+    const icon = e.target.closest('.help');
+    if (!icon) return;
+    // Only hide when leaving the icon itself (mouseout fires on children too)
+    if (e.relatedTarget && icon.contains(e.relatedTarget)) return;
+    hideTooltip();
+  });
+  // Hide on scroll — fixed-position tooltips don't follow the help icon.
+  window.addEventListener('scroll', hideTooltip, { passive: true, capture: true });
+  window.addEventListener('resize', hideTooltip);
 }
 
 // ═══════════════════════════════════════════════════════════════════
