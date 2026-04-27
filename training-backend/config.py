@@ -68,10 +68,17 @@ REWARD_OVERFLOW = -0.80
 REWARD_PROGRESS_SLOPE = 0.30      # mild positive for intermediate progress
 
 # === REWARD — Term 3: SWARM_SIZE ===
+# Phase 5.14 dampening: previous values (slope=0.003, cap=8.0) made big
+# unarmored swarms net +1-8 reward, dwarfing sweet-spot peak (+0.4) and
+# progression cap (+0.5). NN exploited the path-of-least-resistance
+# (huge zombie waves → bot trivially clears → 0 damage → max swarm bonus,
+# 77% zero-damage waves observed). Halved slope + 4× lower cap brings
+# swarm reward in line with the other terms so sweet-spot becomes the
+# attractive optimization target again.
 SWARM_SMALL_THRESHOLD = 20        # below this = tiny wave (penalty)
 SWARM_SMALL_PENALTY = -0.10
-SWARM_SIZE_SLOPE = 0.003          # +0.003 per enemy above threshold
-SWARM_SIZE_CAP = 8.0              # reaches cap at ~2700 enemies
+SWARM_SIZE_SLOPE = 0.0015         # +0.0015 per enemy above threshold (was 0.003)
+SWARM_SIZE_CAP = 2.0              # max swarm bonus (was 8.0)
 
 # === REWARD — Term 4: PROGRESSION ===
 PROGRESSION_SLOPE = 0.02          # +0.02 per wave_num
