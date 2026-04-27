@@ -11,10 +11,12 @@ import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
 
 export class AutoStartWaveStrategy extends BaseStrategy {
-  private lastActionTime = 0;
-  private setupPhaseStartTime = 0; // Track when setup phase started
-  private readonly WAVE_START_DELAY = 1000; // 1 second delay after last action
-  private readonly MAX_SETUP_WAIT = 5000; // Max 5 seconds in setup phase before forcing wave start
+  /** Phase 5.12: all timers game-time accumulated via tickCooldowns. */
+  private msSinceLastAction = Infinity; // starts "ready" so the first wave can trigger
+  private setupPhaseDurationMs = 0;
+  private inSetupPhase = false;
+  private readonly WAVE_START_DELAY = 1000; // 1s game-time after last action
+  private readonly MAX_SETUP_WAIT = 5000; // max 5s game-time in setup before force-start
 
   constructor(
     private autoMode: boolean
@@ -22,32 +24,42 @@ export class AutoStartWaveStrategy extends BaseStrategy {
     super('AutoStartWave', 30);
   }
 
+  override tickCooldowns(deltaTime: number): void {
+    if (this.msSinceLastAction !== Infinity) {
+      this.msSinceLastAction += deltaTime;
+    }
+    if (this.inSetupPhase) {
+      this.setupPhaseDurationMs += deltaTime;
+    }
+  }
+
   canExecute(state: GameStateSnapshot): boolean {
     // Only in auto-mode and during setup phase
     if (!this.autoMode) return false;
-    if (state.phase !== 'setup') return false;
+    if (state.phase !== 'setup') {
+      // Leaving setup — reset setup duration so next setup starts fresh
+      this.inSetupPhase = false;
+      this.setupPhaseDurationMs = 0;
+      return false;
+    }
 
     // Need at least 1 tower
     if (state.defense.towerCount === 0) return false;
 
     // Phase 5.11: wait for any active research before triggering the wave.
     // A human wouldn't start a wave while upgrading — neither should the bot.
-    // Without this, at high training timescales the bot effectively skips
-    // every research because waves come faster than real-time research ticks.
     const activeResearchCount = state.research?.activeIds?.length ?? 0;
     if (activeResearchCount > 0) return false;
 
-    const now = Date.now();
-
-    // Track setup phase start time
-    if (this.setupPhaseStartTime === 0) {
-      this.setupPhaseStartTime = now;
+    // Track that we're in setup phase (tickCooldowns will accumulate duration)
+    if (!this.inSetupPhase) {
+      this.inSetupPhase = true;
+      this.setupPhaseDurationMs = 0;
     }
 
     // Force start wave if we've been in setup too long (prevents infinite waiting
     // when there is NO research running — research takes priority above).
-    const setupDuration = now - this.setupPhaseStartTime;
-    if (setupDuration > this.MAX_SETUP_WAIT) {
+    if (this.setupPhaseDurationMs > this.MAX_SETUP_WAIT) {
       return true;
     }
 
@@ -56,15 +68,16 @@ export class AutoStartWaveStrategy extends BaseStrategy {
       return false; // Still saving for a second tower
     }
 
-    // Check if enough time passed since last action
-    if (now - this.lastActionTime < this.WAVE_START_DELAY) return false;
+    // Check if enough game-time passed since last action
+    if (this.msSinceLastAction < this.WAVE_START_DELAY) return false;
 
     return true;
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
     // Reset setup timer when wave actually starts
-    this.setupPhaseStartTime = 0;
+    this.inSetupPhase = false;
+    this.setupPhaseDurationMs = 0;
 
     return {
       type: 'start-wave',
@@ -75,12 +88,13 @@ export class AutoStartWaveStrategy extends BaseStrategy {
 
   /** Called by bot when ANY action is executed */
   onActionExecuted(): void {
-    this.lastActionTime = Date.now();
+    this.msSinceLastAction = 0;
   }
 
   /** Called on game reset */
   onReset(): void {
-    this.lastActionTime = 0;
-    this.setupPhaseStartTime = 0;
+    this.msSinceLastAction = Infinity;
+    this.setupPhaseDurationMs = 0;
+    this.inSetupPhase = false;
   }
 }

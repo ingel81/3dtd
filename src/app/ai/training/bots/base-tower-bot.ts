@@ -21,7 +21,13 @@ export abstract class BaseTowerBot implements ITowerBot {
   readonly config: BotConfig;
   readonly name: string;
 
-  protected lastActionTime = 0;
+  /**
+   * Phase 5.12: Game-time cooldown accumulator. Decrements by deltaTime (game-time
+   * from caller). Previous wall-clock `lastActionTime` made the bot make 75× fewer
+   * decisions per game-second at high training timescales — the major cause of
+   * "bot gets to wave 6 at 75× but wave 20 at 10×".
+   */
+  protected cooldownRemainingMs = 0;
   protected totalGoldSpent = 0;
   protected towersBuilt = 0;
 
@@ -38,23 +44,24 @@ export abstract class BaseTowerBot implements ITowerBot {
   }
 
   /**
-   * Main update method - handles timing and delegates to subclass
+   * Main update method - handles timing and delegates to subclass.
+   * deltaTime is game-time ms (already timescale-scaled by TrainingClientService).
    */
-  update(state: GameStateSnapshot, _deltaTime: number): TowerAction | null {
-    const now = Date.now();
-
-    // Check cooldown
-    if (now - this.lastActionTime < this.config.reactionTimeMs) {
-      return null;
+  update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
+    // Tick cooldown in game-time. While cooldown is active, return early.
+    if (this.cooldownRemainingMs > 0) {
+      this.cooldownRemainingMs -= deltaTime;
+      if (this.cooldownRemainingMs > 0) return null;
+      this.cooldownRemainingMs = 0;
     }
 
     // Decide action (individual strategies handle tower limits)
     const action = this.decideAction(state);
 
-    // Record action time (always apply cooldown, even for 'wait',
-    // to prevent random-based decisions from being re-rolled every frame)
+    // Reset cooldown on any action (including 'wait') to prevent random-based
+    // decisions from being re-rolled every frame.
     if (action) {
-      this.lastActionTime = now;
+      this.cooldownRemainingMs = this.config.reactionTimeMs;
 
       if (action.type === 'place' && action.towerType) {
         const towerConfig = TOWER_TYPES[action.towerType];
@@ -72,7 +79,7 @@ export abstract class BaseTowerBot implements ITowerBot {
    * Reset bot state for new game
    */
   reset(): void {
-    this.lastActionTime = 0;
+    this.cooldownRemainingMs = 0;
     this.totalGoldSpent = 0;
     this.towersBuilt = 0;
   }

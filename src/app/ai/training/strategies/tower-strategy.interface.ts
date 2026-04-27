@@ -30,6 +30,12 @@ export interface ITowerStrategy {
    * @returns TowerAction to perform, or null if strategy cannot execute
    */
   execute(state: GameStateSnapshot): TowerAction | null;
+
+  /**
+   * Optional: called once per frame with game-time delta. Override for
+   * strategies with internal cooldowns (e.g. sell-cooldown, wave-start-delay).
+   */
+  tickCooldowns?(deltaTime: number): void;
 }
 
 /**
@@ -43,6 +49,15 @@ export abstract class BaseStrategy implements ITowerStrategy {
 
   abstract canExecute(state: GameStateSnapshot): boolean;
   abstract execute(state: GameStateSnapshot): TowerAction | null;
+
+  /**
+   * Called once per frame by StrategyBot with game-time delta.
+   * Strategies with internal cooldowns override this to decrement them.
+   * Default: no-op so most strategies don't need to care.
+   */
+  tickCooldowns(_deltaTime: number): void {
+    /* no-op by default */
+  }
 
   // Helper methods shared by all strategies
 
