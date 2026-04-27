@@ -34,21 +34,18 @@ import {
   TEST_BASE_POSITION,
   TEST_SPAWN_POINTS,
   createTestCachedPaths,
+  tickEngine,
 } from './test-helpers';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
 describe('Game State Flow Integration', () => {
   let m: TestManagers;
+  let clock: { now: number };
 
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.spyOn(performance, 'now').mockReturnValue(1000);
     m = createTestManagers();
-
-    // Initialize wave + tower managers
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
-    m.waveManager.setTimescaleProvider(() => 1.0);
 
     m.towerManager.initializeWithContext(
       m.tilesEngine,
@@ -56,10 +53,11 @@ describe('Game State Flow Integration', () => {
       TEST_BASE_POSITION,
       TEST_SPAWN_POINTS.map(s => ({ lat: s.lat, lon: s.lon }))
     );
+
+    clock = { now: 0 };
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -82,11 +80,12 @@ describe('Game State Flow Integration', () => {
       spawnDelay: 0,
     });
     expect(events).toContain('wave:started');
+    tickEngine(m, 16, clock);
     expect(events).toContain('enemy:spawned');
 
     // 3. Kill enemy
     const enemy = m.enemyManager.getAll()[0];
-    m.enemyManager.kill(enemy, 1.0);
+    m.enemyManager.kill(enemy);
     expect(events).toContain('enemy:died');
   });
 
@@ -100,9 +99,11 @@ describe('Game State Flow Integration', () => {
     // Spawn fast enemy that reaches base
     m.enemyManager.spawn(TEST_PATH, 'zombie', 500, false);
 
-    // Run until enemy reaches end
+    // Run until enemy reaches end (game-time ticking)
+    let gt = 0;
     for (let i = 0; i < 200; i++) {
-      m.enemyManager.update(50, 1.0);
+      gt += 50;
+      m.enemyManager.update(50, gt);
       if (m.enemyManager.getAll().length === 0) break;
     }
 
@@ -123,7 +124,7 @@ describe('Game State Flow Integration', () => {
     });
 
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 5, true);
-    m.enemyManager.kill(enemy, 1.0);
+    m.enemyManager.kill(enemy);
 
     // Credits should have increased
     expect(totalCredits).toBeGreaterThan(GAME_BALANCE.player.startCredits - archerCost);
@@ -138,19 +139,18 @@ describe('Game State Flow Integration', () => {
       spawnDelay: 50,
     });
 
-    // Wait for all enemies to spawn
-    vi.advanceTimersByTime(100);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll()).toHaveLength(2);
     expect(m.waveManager.phase()).toBe('wave');
 
     // Kill all enemies
     const enemies = [...m.enemyManager.getAll()];
     for (const enemy of enemies) {
-      m.enemyManager.kill(enemy, 1.0);
+      m.enemyManager.kill(enemy);
     }
 
-    // Advance past death animation (wave waits for killingEnemies to clear)
-    vi.advanceTimersByTime(2100);
+    // Tick past death animation (game-time)
+    tickEngine(m, 2100, clock);
 
     // Check wave complete
     expect(m.waveManager.checkWaveComplete()).toBe(true);
@@ -233,10 +233,11 @@ describe('Game State Flow Integration', () => {
       spawnMode: 'each',
       spawnDelay: 0,
     });
+    tickEngine(m, 16, clock);
     expect(m.waveManager.waveNumber()).toBe(1);
 
-    // Kill and complete wave 1
-    for (const e of [...m.enemyManager.getAll()]) m.enemyManager.kill(e, 1.0);
+    for (const e of [...m.enemyManager.getAll()]) m.enemyManager.kill(e);
+    tickEngine(m, 2100, clock);
     m.waveManager.endWave();
 
     // Wave 2
@@ -249,7 +250,7 @@ describe('Game State Flow Integration', () => {
     });
     expect(m.waveManager.waveNumber()).toBe(2);
 
-    vi.advanceTimersByTime(100);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll()).toHaveLength(2);
   });
 });

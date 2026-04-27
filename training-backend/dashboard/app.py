@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 from collections import deque
 
-from fastapi import FastAPI, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Body
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import FileResponse, JSONResponse
 
@@ -136,6 +136,8 @@ class Dashboard:
             stats["waveSizeHistogram"] = self._calc_wave_size_histogram()
             stats["mixedWaveRate"] = self._calc_mixed_wave_rate()
             stats["modelMetrics"] = dict(self.model_metrics)
+            # Phase 5.14: live per-client status (wave + enemies alive + phase)
+            stats["clientStatuses"] = dict(self.server_ref.client_statuses)
             return stats
 
         @self.app.get("/api/history")
@@ -245,14 +247,24 @@ class Dashboard:
             return {"error": "Client not found"}
 
         @self.app.post("/api/control/{cmd}")
-        async def control(cmd: str):
-            """Broadcast a control command (start/stop/reload) to all training clients."""
-            if cmd not in ("start", "stop", "reload"):
+        async def control(cmd: str, body: dict = Body(default=None)):
+            """Broadcast a control command to all training clients.
+
+            Supported (Phase 5.14 extended):
+              - start / stop / reload (no body)
+              - set_timescale  body: {"value": number}
+              - set_rendering  body: {"value": bool}
+            """
+            allowed = ("start", "stop", "reload", "set_timescale", "set_rendering")
+            if cmd not in allowed:
                 return JSONResponse({"error": f"Unknown command: {cmd}"}, status_code=400)
             if not self.server_ref:
                 return JSONResponse({"error": "Server not initialized"}, status_code=503)
-            count = await self.server_ref.broadcast_client_command(cmd)
-            return {"cmd": cmd, "clientsNotified": count}
+            value = None
+            if isinstance(body, dict):
+                value = body.get("value")
+            count = await self.server_ref.broadcast_client_command(cmd, value)
+            return {"cmd": cmd, "value": value, "clientsNotified": count}
 
         @self.app.websocket("/ws/live")
         async def websocket_live(ws: WebSocket):
@@ -400,6 +412,19 @@ class Dashboard:
         tower_avg_levels = wave_info.get("tower_avg_levels") if wave_info else None
         tower_count_total = wave_info.get("tower_count_total") if wave_info else None
 
+        # Phase 5.11: surface template + continuous params to the wave log so the
+        # user can tell apart e.g. "zombie_horde 200×1× hp at 40ms" vs the same
+        # template at max settings.
+        template_id = wave_info.get("template_id") if wave_info else None
+        template_name = wave_info.get("template_name") if wave_info else None
+        spawn_delay = wave_info.get("spawn_delay") if wave_info else None
+        hp_mult = wave_info.get("health_mult") if wave_info else None
+        variation = wave_info.get("variation") if wave_info else None
+        count_factor = wave_info.get("count_factor") if wave_info else None
+        spawn_factor = wave_info.get("spawn_factor") if wave_info else None
+        hp_factor = wave_info.get("hp_factor") if wave_info else None
+        variation_factor = wave_info.get("variation_factor") if wave_info else None
+
         entry = {
             "wave": wave_num,
             "type": enemy_type,
@@ -412,6 +437,16 @@ class Dashboard:
             "cooldownOverride": cooldown_override,
             "numGroups": num_groups,
             "groups": groups,
+            # Phase 5.11 decoder output
+            "templateId": template_id,
+            "templateName": template_name,
+            "spawnDelay": spawn_delay,
+            "hpMult": hp_mult,
+            "variation": variation,
+            "countFactor": count_factor,
+            "spawnFactor": spawn_factor,
+            "hpFactor": hp_factor,
+            "variationFactor": variation_factor,
         }
         self.wave_log.append(entry)
 

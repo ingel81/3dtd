@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, beforeEach } from 'vitest';
 import { MovementComponent } from './movement.component';
 import { GameObject } from '../core/game-object';
 import { TransformComponent } from './transform.component';
@@ -15,16 +15,10 @@ class TestGameObject extends GameObject {
 describe('MovementComponent', () => {
   let gameObject: TestGameObject;
   let movement: MovementComponent;
-  let nowSpy: ReturnType<typeof vi.spyOn>;
 
   beforeEach(() => {
     gameObject = new TestGameObject();
     movement = new MovementComponent(gameObject);
-    nowSpy = vi.spyOn(performance, 'now').mockReturnValue(1000);
-  });
-
-  afterEach(() => {
-    nowSpy.mockRestore();
   });
 
   it('setPath sets path and initial position', () => {
@@ -58,7 +52,7 @@ describe('MovementComponent', () => {
     movement.setPath(path);
     movement.speedMps = 1;
 
-    const result = movement.move(1000);
+    const result = movement.move(1000, 0);
 
     const transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
     expect(result).toBe('moving');
@@ -77,27 +71,25 @@ describe('MovementComponent', () => {
 
     expect(movement.getPathProgress()).toBe(0);
 
-    const result = movement.move(1000);
+    const result = movement.move(1000, 0);
 
     expect(result).toBe('reached_end');
     expect(movement.getPathProgress()).toBe(1);
   });
 
-  it('applies slow status effects and removes expired effects', () => {
+  it('applies slow status effects and removes expired effects (game-time)', () => {
     const slow: StatusEffect = {
       type: 'slow',
       value: 0.5,
       duration: 1000,
-      startTime: 1000,
+      startTime: 1000, // game-time ms
     };
 
     movement.applyStatusEffect(slow);
-    expect(movement.isSlowed()).toBe(true);
+    expect(movement.isSlowed(1500)).toBe(true);   // 500ms elapsed: still active
+    expect(movement.isSlowed(2500)).toBe(false);  // 1500ms elapsed: expired
 
-    nowSpy.mockReturnValue(2500);
-    movement.removeExpiredEffects();
-
-    expect(movement.isSlowed()).toBe(false);
+    movement.removeExpiredEffects(2500);
     expect(movement.statusEffects.length).toBe(0);
   });
 
@@ -107,13 +99,13 @@ describe('MovementComponent', () => {
 
     movement.setPath([]);
     expect(movement.getPathProgress()).toBe(0);
-    expect(movement.move(1000)).toBe('moving');
+    expect(movement.move(1000, 0)).toBe('moving');
     expect(transform.position).toEqual(initialPosition);
 
     const singlePoint = { lat: 5, lon: 6, height: 7 };
     movement.setPath([singlePoint]);
     expect(movement.getPathProgress()).toBe(0);
-    expect(movement.move(1000)).toBe('moving');
+    expect(movement.move(1000, 0)).toBe('moving');
     expect(transform.position).toEqual(singlePoint);
   });
 });

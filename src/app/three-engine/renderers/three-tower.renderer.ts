@@ -333,16 +333,11 @@ export class ThreeTowerRenderer {
       if ((node.name === 'turret_top' || node.name === 'tower_top' || node.name === 'top') && !turretPart) {
         turretPart = node;
         turretBaseY = node.position.y;
-        turretOriginalRotationY = node.rotation.y; // Capture original rotation
-        console.log(`[TowerRenderer] Found turret part '${node.name}' for ${typeId}, baseY: ${turretBaseY}, originalRotY: ${turretOriginalRotationY}`);
+        turretOriginalRotationY = node.rotation.y;
       }
     });
-    // Debug: list all node names if no turret found
-    if (!turretPart) {
-      const names: string[] = [];
-      mesh.traverse((node) => names.push(node.name));
-      console.log(`[TowerRenderer] No turret found for ${typeId}. Nodes:`, names);
-    }
+    // (Diagnostic removed — fires on every tower placement for types without
+    // a named turret part, which was flooding the console during training.)
 
     // Position in local coordinates - terrain level (without height offset)
     const terrainPos = this.sync.geoToLocal(lat, lon, height);
@@ -454,7 +449,6 @@ export class ThreeTowerRenderer {
         }
         action.play();
         currentAction = action;
-        console.log(`[ThreeTowerRenderer] Started animation '${firstClip.name}' for tower ${id} (pingPong: ${config.animationPingPong ?? false})`);
       }
     }
 
@@ -749,167 +743,151 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update selection ring animation, turret rotations, and GLTF animations
-   * Call each frame for pulse effect, smooth turret movement, and model animations
-   * @param timescale Game speed multiplier (e.g. 4.0 for 4x training speed)
+   * Visual update — once per RENDER frame. Drives selection-ring pulse,
+   * magic-idle spin, and GLTF mixer (LOD). NO gameplay-affecting state here:
+   * turret aim now flows through `advanceTurretAim()` which is called per
+   * sub-step in game-time.
    */
-  updateAnimations(deltaTime: number, camera: Camera, timescale = 1.0): void {
-    // Accumulate time for frame-independent animation (in seconds)
+  updateAnimations(deltaTime: number, camera: Camera): void {
     this.animationTime += deltaTime * 0.001;
     this._animFrameCount++;
 
-    // Convert deltaTime from ms to seconds for animation mixer
     const deltaSeconds = deltaTime * 0.001;
 
-    // Update frustum for culling GLTF animations
+    // Frustum for culling GLTF animations
     this.projScreenMatrix.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     this.frustum.setFromProjectionMatrix(this.projScreenMatrix);
 
-    // Update GLTF animation mixers (only for towers in view, with distance-based LOD)
     for (const data of this.towers.values()) {
+      // GLTF mixer LOD (visual only)
       if (data.mixer) {
         this.boundingSphere.center.copy(data.mesh.position);
-        this.boundingSphere.radius = 3; // ~3m covers typical tower models
+        this.boundingSphere.radius = 3;
         if (this.frustum.intersectsSphere(this.boundingSphere)) {
-          // Distance-based animation LOD
           const distSq = data.mesh.position.distanceToSquared(camera.position);
           if (distSq > 40000) {
-            // >200m: skip animation entirely (too far to notice)
+            // >200m: skip
           } else if (distSq > 10000) {
-            // >100m: update every 4th frame
-            if (this._animFrameCount % 4 === 0) {
-              data.mixer.update(deltaSeconds * 4); // Compensate skipped frames
-            }
+            if (this._animFrameCount % 4 === 0) data.mixer.update(deltaSeconds * 4);
           } else if (distSq > 2500) {
-            // >50m: update every 2nd frame
-            if (this._animFrameCount % 2 === 0) {
-              data.mixer.update(deltaSeconds * 2);
-            }
+            if (this._animFrameCount % 2 === 0) data.mixer.update(deltaSeconds * 2);
           } else {
-            // Close: full rate
             data.mixer.update(deltaSeconds);
           }
         }
       }
-    }
 
-    // Turret rotation speed: ~180 degrees per second (PI radians/s)
-    // Apply timescale so turrets keep up with accelerated gameplay
-    const turretRotationSpeed = Math.PI * timescale; // radians per second (scaled)
-    const maxRotationThisFrame = turretRotationSpeed * (deltaTime / 1000);
-
-    for (const data of this.towers.values()) {
-      // Selection ring animation
+      // Selection ring (visual)
       if (data.isSelected && data.selectionRing) {
-        // Pulse scale (using accumulated time for consistent speed)
         const scale = 1 + Math.sin(this.animationTime) * 0.1;
         data.selectionRing.scale.setScalar(scale);
-
-        // Rotate slowly
         data.selectionRing.rotation.z += deltaTime * 0.001;
       }
 
-      // Turret rotation interpolation (smooth tracking and return-to-base)
-      if (data.turretPart) {
-        // Magic tower orb: special idle behavior (continuous spin when no target)
-        const isMagicIdle = data.typeConfig.id === 'magic' && !data.hasTarget && data.scanPhase === 0;
+      // Magic-tower idle spin (visual)
+      if (
+        data.turretPart &&
+        data.typeConfig.id === 'magic' &&
+        !data.hasTarget &&
+        data.scanPhase === 0
+      ) {
+        const idleRotationSpeed = 0.3; // rad/s wall-clock — purely cosmetic
+        data.currentLocalRotation += idleRotationSpeed * (deltaTime / 1000);
+        data.turretPart.rotation.y = data.currentLocalRotation;
+      }
+    }
 
-        // Scan animation after placement (left-right-center)
-        // Cancel scan if tower acquires a target
-        if (data.scanPhase > 0 && data.hasTarget) {
-          data.scanPhase = 0;
-          data.scanDelayRemaining = 0;
+    // Visual-only per-render-frame extras (magic hover, debug arrow)
+    this.updateTurretVisuals();
+  }
+
+  /**
+   * Gameplay-affecting turret aim — called per sub-step in game-time.
+   * Rotation speed is a constant ~PI rad/s game-time, so combat alignment
+   * advances at the same rate at every training timescale (sub-stepping
+   * provides the "more ticks per real-frame" at high speeds).
+   */
+  advanceTurretAim(gameTimeStepMs: number): void {
+    const turretRotationSpeed = Math.PI; // rad/s game-time
+    const maxRotationThisStep = turretRotationSpeed * (gameTimeStepMs / 1000);
+
+    for (const data of this.towers.values()) {
+      if (!data.turretPart) continue;
+
+      // Cancel scan if tower acquires a target
+      if (data.scanPhase > 0 && data.hasTarget) {
+        data.scanPhase = 0;
+        data.scanDelayRemaining = 0;
+      }
+
+      // Tick scan delay in game-time
+      if (data.scanDelayRemaining > 0) {
+        data.scanDelayRemaining -= gameTimeStepMs;
+      }
+
+      const scanAngle = 1.309; // 75° in radians
+      if (data.scanPhase > 0 && !data.hasTarget && data.scanDelayRemaining <= 0) {
+        let scanTarget: number;
+        if (data.scanPhase === 1) {
+          scanTarget = data.scanStartRotation - scanAngle;
+        } else if (data.scanPhase === 2) {
+          scanTarget = data.scanStartRotation + scanAngle;
+        } else {
+          scanTarget = data.turretOriginalRotationY;
         }
-
-        // Handle scan delay
-        if (data.scanDelayRemaining > 0) {
-          data.scanDelayRemaining -= deltaTime;
+        let diff = scanTarget - data.currentLocalRotation;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        if (Math.abs(diff) < 0.02) {
+          data.currentLocalRotation = scanTarget;
+          data.scanPhase++;
+          if (data.scanPhase > 3) data.scanPhase = 0;
+        } else {
+          const scanSpeed = maxRotationThisStep * 0.7;
+          const rotation = Math.sign(diff) * Math.min(Math.abs(diff), scanSpeed);
+          data.currentLocalRotation += rotation;
         }
-
-        // Scan animation: 75° left, then 75° right, then back to center
-        const scanAngle = 1.309; // 75° in radians
-        if (data.scanPhase > 0 && !data.hasTarget && data.scanDelayRemaining <= 0) {
-          let scanTarget: number;
-          if (data.scanPhase === 1) {
-            // Phase 1: rotate left
-            scanTarget = data.scanStartRotation - scanAngle;
-          } else if (data.scanPhase === 2) {
-            // Phase 2: rotate right
-            scanTarget = data.scanStartRotation + scanAngle;
-          } else {
-            // Phase 3: return to center (idle position)
-            scanTarget = data.turretOriginalRotationY;
-          }
-
-          // Interpolate towards scan target
-          let diff = scanTarget - data.currentLocalRotation;
-          while (diff > Math.PI) diff -= Math.PI * 2;
-          while (diff < -Math.PI) diff += Math.PI * 2;
-
-          if (Math.abs(diff) < 0.02) {
-            // Reached target, advance to next phase
-            data.currentLocalRotation = scanTarget;
-            data.scanPhase++;
-            if (data.scanPhase > 3) {
-              data.scanPhase = 0; // Scan complete
-            }
-          } else {
-            // Move towards target (slightly slower than combat rotation)
-            const scanSpeed = maxRotationThisFrame * 0.7;
-            const rotation = Math.sign(diff) * Math.min(Math.abs(diff), scanSpeed);
-            data.currentLocalRotation += rotation;
-          }
-
-          data.turretPart.rotation.y = data.currentLocalRotation;
-        } else if (isMagicIdle) {
-          // Idle spin: slow continuous rotation
-          const idleRotationSpeed = 0.3; // Radians per second
-          data.currentLocalRotation += idleRotationSpeed * (deltaTime / 1000);
-          data.turretPart.rotation.y = data.currentLocalRotation;
-        } else if (data.scanPhase === 0) {
-          // Normal turret behavior: interpolate towards target
-          const current = data.currentLocalRotation;
-          const target = data.targetLocalRotation;
-
-          // Calculate shortest rotation path (handle wraparound at ±π)
-          let diff = target - current;
-
-          // Normalize to [-π, π] for shortest path
-          while (diff > Math.PI) diff -= Math.PI * 2;
-          while (diff < -Math.PI) diff += Math.PI * 2;
-
-          // If close enough, snap to target
-          if (Math.abs(diff) < 0.01) {
-            data.currentLocalRotation = target;
-          } else {
-            // Move towards target, clamped to max rotation speed
-            const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisFrame);
-            data.currentLocalRotation += rotation;
-          }
-
-          // Apply current rotation to turret
-          data.turretPart.rotation.y = data.currentLocalRotation;
+        data.turretPart.rotation.y = data.currentLocalRotation;
+      } else if (
+        data.scanPhase === 0 &&
+        // skip magic-idle (handled in render-frame visual update)
+        !(data.typeConfig.id === 'magic' && !data.hasTarget)
+      ) {
+        const current = data.currentLocalRotation;
+        const target = data.targetLocalRotation;
+        let diff = target - current;
+        while (diff > Math.PI) diff -= Math.PI * 2;
+        while (diff < -Math.PI) diff += Math.PI * 2;
+        if (Math.abs(diff) < 0.01) {
+          data.currentLocalRotation = target;
+        } else {
+          const rotation = Math.sign(diff) * Math.min(Math.abs(diff), maxRotationThisStep);
+          data.currentLocalRotation += rotation;
         }
+        data.turretPart.rotation.y = data.currentLocalRotation;
+      }
+    }
+  }
 
-        // Magic tower orb: hover animation (always active)
-        if (data.typeConfig.id === 'magic') {
-          const hoverAmplitude = 0.006;
-          const hoverSpeed = 0.6;
-          const phase = this.animationTime * hoverSpeed * Math.PI * 2 + data.hoverPhaseOffset;
-          data.turretPart.position.y = data.turretBaseY + Math.sin(phase) * hoverAmplitude;
-        }
+  /** Visual-only per-render-frame extras: magic hover + debug aim arrow. */
+  updateTurretVisuals(): void {
+    for (const data of this.towers.values()) {
+      if (!data.turretPart) continue;
 
-        // Update debug arrow direction (world space)
-        if (data.aimArrow) {
-          const parentRotation = data.mesh.rotation.y;
-          const worldRot = data.currentLocalRotation + parentRotation;
-          const dir = new Vector3(
-            Math.sin(worldRot),
-            0,
-            Math.cos(worldRot)
-          );
-          data.aimArrow.setDirection(dir);
-        }
+      // Magic tower orb: hover animation (always active, purely visual)
+      if (data.typeConfig.id === 'magic') {
+        const hoverAmplitude = 0.006;
+        const hoverSpeed = 0.6;
+        const phase = this.animationTime * hoverSpeed * Math.PI * 2 + data.hoverPhaseOffset;
+        data.turretPart.position.y = data.turretBaseY + Math.sin(phase) * hoverAmplitude;
+      }
+
+      // Debug aim arrow (world-space direction)
+      if (data.aimArrow) {
+        const parentRotation = data.mesh.rotation.y;
+        const worldRot = data.currentLocalRotation + parentRotation;
+        const dir = new Vector3(Math.sin(worldRot), 0, Math.cos(worldRot));
+        data.aimArrow.setDirection(dir);
       }
     }
   }

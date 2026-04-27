@@ -17,16 +17,13 @@ import { calculateDamage } from '../utils/damage-calculator';
 export class DamageApplicationService {
   private towerManager: TowerManager | null = null;
   private enemyManager: EnemyManager | null = null;
-  private timescaleProvider: (() => number) | null = null;
 
   initialize(
     towerManager: TowerManager,
     enemyManager: EnemyManager,
-    timescaleProvider: () => number
   ): void {
     this.towerManager = towerManager;
     this.enemyManager = enemyManager;
-    this.timescaleProvider = timescaleProvider;
   }
 
   /**
@@ -117,8 +114,7 @@ export class DamageApplicationService {
   private killEnemy(enemy: Enemy, sourceTowerId: string): void {
     if (!this.towerManager || !this.enemyManager) return;
 
-    const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-    this.enemyManager.kill(enemy, timescale);
+    this.enemyManager.kill(enemy);
 
     // Track kill on source tower
     const sourceTower = this.towerManager.getById(sourceTowerId);

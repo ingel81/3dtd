@@ -63,30 +63,27 @@ export class TowerCombatService {
   }
 
   /**
-   * Update tower shooting - find targets and spawn projectiles
-   * Uses GlobalRouteGrid for O(cells) instead of O(n) enemy checks
+   * Update tower shooting — find targets and spawn projectiles.
+   * Called once per gameplay sub-step (~16ms game-time) from GameStateManager.
    *
-   * Optimization strategy:
-   * - Ground towers with visibleCells: Query only enemies in visible cells (LOS implicit)
-   * - Air towers: Query all enemies (no LOS needed for air units)
-   * - Fallback: Full enemy list with runtime LOS check
+   * `gameTimeMs` is the engine's monotonic game-clock; sleep / LOS / target
+   * timestamps all live in this clock. No timescale compensation is needed
+   * because the sub-step loop already discretises wall-clock × timescale into
+   * fixed game-time chunks.
    */
   updateTowerShooting(
-    currentTime: number,
+    gameTimeMs: number,
     deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
-    timescale = 1.0
   ): void {
     // Fallback: full enemy list (used when spatial optimization isn't available)
     const allEnemies = enemyManager.getAlive();
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
-      // Advance the per-tower game-time fire cooldown regardless of phase/target.
-      // Phase 5.11 fix: without this the wall-clock cooldown check mis-fires
-      // at high timescales because setTimeout / frame cadence dominate.
+      // Advance per-tower fire cooldown in game-time
       tower.combat.update(deltaTime);
 
       // Skip towers with pending LOS computation (progressive registration not yet complete)
@@ -95,11 +92,11 @@ export class TowerCombatService {
       // Skip non-projectile towers (beam, melee) — they have their own update methods
       if (tower.typeConfig.attackType && tower.typeConfig.attackType !== 'projectile') continue;
 
-      // Quick wake check for sleeping towers (every 500ms)
-      // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies
+      // Quick wake check for sleeping towers (every 500ms game-time).
+      // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies.
       if (tower.isSleeping) {
-        if (currentTime - tower.lastSleepCheck < 500) continue;
-        tower.lastSleepCheck = currentTime;
+        if (gameTimeMs - tower.lastSleepCheck < 500) continue;
+        tower.lastSleepCheck = gameTimeMs;
 
         // Use spatial grid for fast proximity check (local coordinates, meters)
         let hasNearby = false;
@@ -211,21 +208,21 @@ export class TowerCombatService {
       let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
       if (target) {
-        // Target found - update sleep tracking
-        tower.lastTargetTime = currentTime;
+        // Target found - update sleep tracking (game-time)
+        tower.lastTargetTime = gameTimeMs;
         tower.isSleeping = false;
 
-        // Always rotate turret towards target
+        // Always rotate turret towards target (rotation advances per sub-step)
         const heading = this.calculateHeading(tower.position, target.position);
         this.tilesEngine?.towers.updateRotation(tower.id, heading);
 
-        // Only fire if cooldown is ready AND turret is aligned
+        // Fire if cooldown is ready AND turret is aligned
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
         if (tower.combat.canFire() && turretAligned) {
-          // Periodic LOS recheck (throttled to max ~3/sec per tower)
+          // Periodic LOS recheck (throttled to max ~3/sec per tower) — game-time
           const isAirTarget = target.typeConfig.isAirUnit ?? false;
-          if (losCheck && !isAirTarget && tower.needsLosRecheck(currentTime, timescale)) {
-            tower.markLosChecked(currentTime);
+          if (losCheck && !isAirTarget && tower.needsLosRecheck(gameTimeMs)) {
+            tower.markLosChecked(gameTimeMs);
             if (!losCheck(target)) {
               // Target no longer visible - find new target
               tower.clearTarget();
@@ -234,22 +231,23 @@ export class TowerCombatService {
                 this.tilesEngine?.towers.resetRotation(tower.id);
                 continue;
               }
-              // Update rotation to new target, don't fire this frame
+              // Update rotation to new target, don't fire this sub-step
               const newHeading = this.calculateHeading(tower.position, target.position);
               this.tilesEngine?.towers.updateRotation(tower.id, newHeading);
               continue;
             }
           }
 
+          // Single fire per sub-step — sub-step is small enough (≤16.67ms game-time)
+          // that a tower with fireRate up to 60/sec produces at most 1 shot per step.
           tower.combat.fire();
           projectileManager.spawn(tower, target, heading);
         }
       } else {
-        // No target - check if tower should sleep
-        if (currentTime - tower.lastTargetTime > Tower.SLEEP_DELAY) {
+        // No target - check if tower should sleep (game-time)
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
           tower.isSleeping = true;
         }
-        // Reset turret to base position
         this.tilesEngine?.towers.resetRotation(tower.id);
       }
     }
@@ -272,26 +270,19 @@ export class TowerCombatService {
   // =====================================================
 
   /**
-   * Update beam towers - continuous damage in cone area
-   *
-   * @param deltaTime - Time since last frame in milliseconds
-   * @param towerManager - Tower manager
-   * @param enemyManager - Enemy manager
-   * @param timescale - Game speed multiplier
+   * Update beam towers — continuous damage in a cone area.
+   * Called once per gameplay sub-step (~16ms game-time).
    */
   updateBeamTowers(
     deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
-    timescale = 1.0
   ): void {
     if (!this.tilesEngine || !this.tilesEngine?.flameBeams) return;
 
+    // Wall-clock used only for the beam-blood-splatter throttle (visual).
     const now = performance.now();
-    // Phase 5.11 fix: deltaTime is already timescale-scaled by the caller
-    // (GameStateManager passes rawDelta * timescale as game-time). The
-    // previous code multiplied by timescale a second time, producing 75×
-    // the intended beam DPS at 75× training speed. Convert ms → s only.
+    // deltaTime is sub-step game-time ms — convert to seconds for DPS math.
     const dt = deltaTime / 1000;
     const allEnemies = enemyManager.getAlive();
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
@@ -544,54 +535,45 @@ export class TowerCombatService {
   // =====================================================
 
   /**
-   * Update melee towers - single-target direct damage with cooldown
-   *
-   * @param deltaTime - Time since last frame in milliseconds (unused for melee, kept for API consistency)
-   * @param towerManager - Tower manager
-   * @param enemyManager - Enemy manager
-   * @param timescale - Game speed multiplier
+   * Update melee towers — single-target direct damage with cooldown.
+   * Called once per gameplay sub-step (game-time).
    */
   updateMeleeTowers(
     deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
-    timescale = 1.0
+    gameTimeMs: number,
   ): void {
     if (!this.tilesEngine) return;
 
-    const now = performance.now();
     const allEnemies = enemyManager.getAlive();
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
-      // Advance melee-tower cooldown in game-time (Phase 5.11 fix).
       tower.combat.update(deltaTime);
 
-      // Skip towers with pending LOS computation
       if (!tower.losReady) continue;
-      // Skip non-melee towers
       if (tower.typeConfig.attackType !== 'melee') continue;
 
-      // Quick wake check for sleeping towers (every 500ms)
+      // Wake check (game-time, no timescale compensation needed thanks to sub-stepping)
       if (tower.isSleeping) {
-        if (now - tower.lastSleepCheck < 500) continue;
-        tower.lastSleepCheck = now;
+        if (gameTimeMs - tower.lastSleepCheck < 500) continue;
+        tower.lastSleepCheck = gameTimeMs;
 
         const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
           tower.position.lat,
           tower.position.lon,
-          0
+          0,
         );
         const hasNearby = this.spatialGrid.hasEnemyInRadius(
           towerLocal.x,
           towerLocal.z,
-          tower.typeConfig.range * 1.1
+          tower.typeConfig.range * 1.1,
         );
         if (!hasNearby) continue;
         tower.isSleeping = false;
       }
 
-      // Get candidate enemies (same logic as beam towers)
       const hasVisibleCells = tower.visibleCells.length > 0;
       let candidates: Enemy[];
 
@@ -602,57 +584,47 @@ export class TowerCombatService {
         const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
           tower.position.lat,
           tower.position.lon,
-          0
+          0,
         );
         candidates = this.globalRouteGrid.getEnemiesInRadius(
           towerLocal.x,
           towerLocal.z,
-          rangeMeters * 1.1
+          rangeMeters * 1.1,
         );
       }
 
-      // Find target
       const target = tower.findTarget(candidates, airTargetingUnlocked);
 
       if (target) {
-        // Target found - update sleep tracking
-        tower.lastTargetTime = now;
+        tower.lastTargetTime = gameTimeMs;
         tower.isSleeping = false;
 
-        // Rotate turret towards target
         const heading = this.calculateHeading(tower.position, target.position);
         this.tilesEngine.towers.updateRotation(tower.id, heading);
 
-        // Fire if cooldown ready
         if (tower.combat.canFire()) {
           tower.combat.fire();
 
-          // Apply direct melee damage
           this.combatEffectService.applyMeleeDamage(
             target,
             tower.combat.damage,
             tower.typeConfig.damageType,
-            tower.id
+            tower.id,
           );
 
-          // Start tentacle strike visual
           const targetLocalPos = this.tilesEngine.sync.geoToLocalSimple(
             target.position.lat,
             target.position.lon,
-            target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0)
+            target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0),
           );
-          targetLocalPos.y += 1.5; // Target center mass
+          targetLocalPos.y += 1.5;
           this.tilesEngine.tentacles?.startStrike(tower.id, targetLocalPos);
-
-          // Play tentacle strike sound at target position
           this.tilesEngine.spatialAudio?.playAt('tentacle-grab', targetLocalPos);
         }
       } else {
-        // No target - check if tower should sleep
-        if (now - tower.lastTargetTime > Tower.SLEEP_DELAY) {
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
           tower.isSleeping = true;
         }
-        // Reset turret to base position
         this.tilesEngine.towers.resetRotation(tower.id);
       }
     }

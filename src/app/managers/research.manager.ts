@@ -1,11 +1,10 @@
 /**
- * ResearchManager - Framework-agnostic research system manager
+ * ResearchManager — Framework-agnostic research system manager.
  *
- * Tracks active/completed researches, ticks progress in real-time,
- * and emits events on completion. Same pattern as TowerManager/EnemyManager.
- *
- * Research ticks on REAL TIME (wall clock), not game timescale.
- * This prevents research from completing instantly at 75x training speed.
+ * Tracks active/completed researches, ticks progress in GAME-TIME (sub-step
+ * driven), and emits events on completion. Same pattern as TowerManager /
+ * EnemyManager. With sub-stepping a research authored as "60s game-time"
+ * always takes exactly 60s of game-time, regardless of training speed.
  */
 
 import { GameEventBus } from '../game-engine';
@@ -260,16 +259,16 @@ export class ResearchManager {
   // ==================== Update Loop ====================
 
   /**
-   * Tick all active researches. Called every frame with real-time delta.
-   * @param realDeltaSeconds Wall-clock delta in seconds (NOT game-timescale-adjusted)
+   * Tick all active researches. Called every gameplay sub-step with the
+   * step's GAME-TIME delta in seconds (engine sub-step is ~16ms game-time).
    */
-  update(realDeltaSeconds: number): void {
+  update(gameDeltaSeconds: number): void {
     if (this.activeResearches.size === 0) return;
 
     const completed: ResearchId[] = [];
 
     for (const [id, active] of this.activeResearches) {
-      active.elapsed += realDeltaSeconds;
+      active.elapsed += gameDeltaSeconds;
 
       if (active.elapsed >= active.duration) {
         completed.push(id);

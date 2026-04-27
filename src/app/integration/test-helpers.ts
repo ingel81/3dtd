@@ -212,3 +212,33 @@ export function createTestManagers(): TestManagers {
     tilesEngine,
   };
 }
+
+/**
+ * Helper that ticks the engine sub-step loop by `gameTimeMs` of game-time,
+ * driving wave-spawn + enemy-manager pending-deaths/starts. Replaces the
+ * old `vi.advanceTimersByTime` pattern that relied on setTimeout chains.
+ *
+ * `clock` is a mutable cursor of accumulated game-time so callers can keep
+ * updating without manually tracking it.
+ */
+export function tickEngine(
+  m: TestManagers,
+  gameTimeMs: number,
+  clock: { now: number } = { now: 0 },
+): { now: number } {
+  const STEP = 16;
+  let remaining = gameTimeMs;
+  while (remaining > 0) {
+    const step = Math.min(STEP, remaining);
+    clock.now += step;
+    m.waveManager.tickSpawn(step);
+    if (m.enemyManager.getAll().length > 0) {
+      m.enemyManager.update(step, clock.now);
+    } else {
+      // Still tick pending death/start delays on empty rosters
+      m.enemyManager.update(step, clock.now);
+    }
+    remaining -= step;
+  }
+  return clock;
+}

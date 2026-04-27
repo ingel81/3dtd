@@ -53,7 +53,6 @@ export class CombatEffectService {
     eventBus: GameEventBus,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
-    timescaleProvider: () => number
   ): void {
     // Clean up previous subscriptions on re-init
     this.eventBusSubs.disposeAll();
@@ -63,7 +62,7 @@ export class CombatEffectService {
 
     // Initialize sub-services
     this.vfx.initialize(tilesEngine, eventBus);
-    this.damageService.initialize(towerManager, enemyManager, timescaleProvider);
+    this.damageService.initialize(towerManager, enemyManager);
 
     // Subscribe to projectile:hit events
     this.eventBusSubs.add(this.eventBus.on('projectile:hit', (event) => {

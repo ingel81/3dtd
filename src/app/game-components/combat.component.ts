@@ -13,11 +13,9 @@ export interface CombatConfig {
  * Combat logic (targeting, firing) is handled by TowerCombatService.
  * This component stores combat stats and firing state.
  *
- * Phase 5.11 fix: cooldown uses game-time (deltaTime-driven) instead of
- * wall-clock `now - lastFireTime`. At high training timescales (e.g. 75x)
- * the wall-clock approach clamped against the ~16ms frame boundary and
- * produced ~20% fewer shots than the fireRate should allow — causing the
- * bot to appear weaker the faster the simulation ran.
+ * Cooldown is driven by deltaTime (game-time ms). High-timescale correctness
+ * is handled at the GameStateManager level via fixed-timestep sub-stepping —
+ * the combat component itself behaves identically at every timescale.
  */
 export class CombatComponent extends Component {
   damage: number;
@@ -37,26 +35,16 @@ export class CombatComponent extends Component {
     this.fireRate = config.fireRate;
   }
 
-  /**
-   * Can the tower fire this frame? (game-time cooldown elapsed)
-   */
   canFire(): boolean {
     return this.fireRate > 0 && this.cooldownRemainingMs <= 0;
   }
 
-  /**
-   * Mark that a shot was fired — resets the cooldown.
-   */
   fire(): void {
     if (this.fireRate > 0) {
       this.cooldownRemainingMs = 1000 / this.fireRate;
     }
   }
 
-  /**
-   * Advance the cooldown by the given game-time delta.
-   * Called from tower-combat.service each frame for every active tower.
-   */
   update(deltaTime: number): void {
     if (this.cooldownRemainingMs > 0) {
       this.cooldownRemainingMs -= deltaTime;
