@@ -206,6 +206,45 @@
 - [ ] **Enemy-Properties für Rüstung**
       AI lernt: "Nur Physical-Tower → Heavy Enemies effektiv"
 
+## 6.6 Wave-Curriculum (Designer-forced Variety) — POST-CKPT-7350-PLAYTEST
+
+**Problem (Live-Playtest mit Checkpoint 7350):**
+- Endgame ab Wave 15+ viel zu leicht — keine starken Wellen, Geld-Überfluss
+- Template-Loop: nur wallsmasher / spider / rat / spider — keine Variation
+- Keine Air-Units in 39 Wellen (bat / hornet / dragon nie)
+- Forschung viel zu schnell fertig — muss teurer/langsamer
+- NN findet Variety nicht von alleine über Reward, optimiert Sweet-Spot mit den 2-3 einfachsten Templates
+
+**Lösung A: Wave-Curriculum-Mask in `templates.py::get_available_template_mask`**
+
+Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates wählen, continuous params bleiben frei:
+
+| Wave | Mask-Constraint |
+|---|---|
+| 1-2 | unarmored only (zombie/rat/penguin) |
+| 3 | + light (wallsmasher/bat/hornet/spider) |
+| 5 | + heavy (tank/bear) |
+| 7 | **AIR forced** (bat_swarm/hornet_strike/dragon_elite) |
+| 10 | **BOSS forced** (boss_herbert) |
+| 12 | + fortified (mammoth_siege) |
+| 15 | + ethereal (ghost_surge/wraith_storm) |
+| 20 | mix-only forced (chaos_wave/armor_gauntlet) |
+| 25+ | mech_army oder mammoth_siege jede 5. Wave |
+| 30+ | boss alle 10 Waves |
+
+**Lösung B: Continuous-Param-Floor ab Wave 20**
+- `count_factor` clamped auf min 0.7
+- `hp_mult_factor` clamped auf min 0.5
+- → NN kann keine "easy" Wave mehr picken, Endgame wird automatisch fordernder
+
+**Game-Balance (separate von NN, in `game-balance.config.ts`):**
+- Research-Cost erhöhen (×2 oder ×3 pro Tier)
+- Research-Duration verlängern
+- Kill-Reward-Curve flacher (Wave-Multiplier reduzieren)
+- → bekämpft Geld-Überfluss + zu schnelle Forschung
+
+**Bonus:** Lösung A+B kompatibel mit existierendem Checkpoint — kein Retraining nötig, NN respektiert Masks bereits aus Phase 5.10. Optional Re-Training mit Curriculum aktiv damit NN die Constraints "lernt".
+
 ---
 
 # BACKLOG
