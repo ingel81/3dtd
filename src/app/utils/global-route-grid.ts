@@ -408,9 +408,7 @@ export class GlobalRouteGrid {
       }
     }
 
-    console.warn(
-      `[PerfTrace] registerTower: cellsChecked=${cellsChecked} inRange=${cellsInRange} losRaycasts=${losRaycasts} visible=${visibleCells.length}`
-    );
+    void cellsChecked; void cellsInRange; void losRaycasts;
     return visibleCells;
   }
 

@@ -772,9 +772,8 @@ export class TowerPlacementService {
           this.engine!.getScene().add(tower.losVisualization);
         }
 
-        console.warn(
-          `[PerfTrace] registerTowerOnGrid: LOS=${(performance.now() - tLos0).toFixed(1)}ms (progressive) | range=${config.range} visibleCells=${visibleCells.length} type=${typeId}`
-        );
+        // PerfTrace disabled — fired per tower placement (noisy during training)
+        void tLos0;
       }
     );
   }
