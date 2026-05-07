@@ -524,8 +524,9 @@ export class TowerCombatService {
     this.tilesEngine?.flameBeams?.clear();
     this.lastBeamBloodEffect.clear();
 
-    // Stop all flame sounds
-    for (const towerId of this.activeFlameSounds.keys()) {
+    // Stop all flame sounds. Snapshot keys before iterating because
+    // stopFlameSound mutates the map.
+    for (const towerId of [...this.activeFlameSounds.keys()]) {
       this.stopFlameSound(towerId);
     }
   }
@@ -643,15 +644,28 @@ export class TowerCombatService {
   // =====================================================
 
   /**
-   * Start flame loop sound for a tower
+   * Start flame loop sound for a tower.
+   *
+   * createLoop is async, so without a synchronous reservation a
+   * stopFlameSound / stopAllBeams that fires *between* the await and the
+   * handle-storing line would silently leak the loop — the loop's handle
+   * gets stored after the cancel ran, so nobody can stop it later. This
+   * was the "fire sound keeps playing after wave end / kill all" bug.
+   *
+   * Fix: reserve the slot with a PENDING sentinel before awaiting. After
+   * await, only commit the real handle if the sentinel is still there.
+   * If the entry is gone (= we got cancelled mid-await), stop the freshly
+   * created loop immediately.
    */
+  private static readonly FLAME_PENDING = '<pending>';
   private async startFlameSound(towerId: string, position: Vector3): Promise<void> {
     if (!this.tilesEngine?.spatialAudio) return;
 
-    // Don't start if already playing
+    // Don't start if already playing or in flight
     if (this.activeFlameSounds.has(towerId)) return;
 
-    // Create loop sound and store handle
+    this.activeFlameSounds.set(towerId, TowerCombatService.FLAME_PENDING);
+
     this.tempSoundPos.copy(position);
     const handle = await this.tilesEngine.spatialAudio.createLoop(
       'flame-loop',
@@ -659,8 +673,13 @@ export class TowerCombatService {
       { volumeMultiplier: 1.0 }
     );
 
-    if (handle) {
+    const current = this.activeFlameSounds.get(towerId);
+    if (current === TowerCombatService.FLAME_PENDING && handle) {
       this.activeFlameSounds.set(towerId, handle);
+    } else if (handle) {
+      // We were cancelled mid-await. The loop is already playing into
+      // the void — stop it now or it leaks forever.
+      this.tilesEngine.spatialAudio.stopLoop(handle);
     }
   }
 
@@ -682,7 +701,11 @@ export class TowerCombatService {
     const handle = this.activeFlameSounds.get(towerId);
     if (!handle) return;
 
-    this.tilesEngine?.spatialAudio?.stopLoop(handle);
+    // Pending: clear the slot so the in-flight startFlameSound knows
+    // to stop the loop itself once the await resolves.
     this.activeFlameSounds.delete(towerId);
+    if (handle === TowerCombatService.FLAME_PENDING) return;
+
+    this.tilesEngine?.spatialAudio?.stopLoop(handle);
   }
 }

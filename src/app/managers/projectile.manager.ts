@@ -33,13 +33,20 @@ export class ProjectileManager extends EntityManager<Projectile> {
   override initialize(tilesEngine: ThreeTilesEngine): void {
     super.initialize(tilesEngine);
 
-    // Register projectile sounds with spatial audio
+    // Register projectile sounds with spatial audio.
+    // Override the duration-based heuristic — projectile samples can run
+    // ~1 s, which would put them in the medium bucket (4 polyphony, ~50 ms
+    // anti-flood). At 8 max-upgraded towers in continuous fire that caps
+    // out instantly. Combat sounds need loose throttling regardless of
+    // sample length.
     if (!this.soundsRegistered && tilesEngine.spatialAudio) {
       for (const [id, config] of Object.entries(PROJECTILE_SOUNDS)) {
         tilesEngine.spatialAudio.registerSound(id, config.url, {
           refDistance: config.refDistance,
           rolloffFactor: config.rolloffFactor,
           volume: config.volume,
+          minIntervalMs: 10,
+          maxInstances: 12,
         });
       }
       this.soundsRegistered = true;

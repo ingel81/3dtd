@@ -32,6 +32,17 @@ export interface SpatialSoundConfig {
   volume?: number;
   /** Loop the sound */
   loop?: boolean;
+  /**
+   * Anti-flood window for this sound (ms). Triggers within the window
+   * are dropped. Default: heuristic from buffer duration (5%, clamped
+   * to 10–80 ms).
+   */
+  minIntervalMs?: number;
+  /**
+   * Polyphony cap: max concurrent instances of this sound. Default:
+   * heuristic from buffer duration (short=8, medium=4, long=2).
+   */
+  maxInstances?: number;
 }
 
 const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
@@ -41,6 +52,9 @@ const DEFAULT_CONFIG: Required<SpatialSoundConfig> = {
   distanceModel: SPATIAL_AUDIO_DEFAULTS.distanceModel,
   volume: SPATIAL_AUDIO_DEFAULTS.volume,
   loop: SPATIAL_AUDIO_DEFAULTS.loop,
+  // -1 sentinel: derive from buffer duration at play time.
+  minIntervalMs: -1,
+  maxInstances: -1,
 };
 
 /**
@@ -101,6 +115,48 @@ export class SpatialAudioManager {
     // Create audio listener and attach to camera
     const listener = new AudioListener();
     camera.add(listener);
+
+    // Master bus: listener.gain → preGain → limiter → destination
+    //
+    // Three.js wires listener.gain directly to destination, so simultaneous
+    // sounds sum past ±1.0 and Web Audio hard-clips into harsh distortion.
+    // The pre-gain leaves headroom for polyphony; the compressor acts as a
+    // soft limiter that tames residual peaks without pumping perceptibly.
+    const ctx = listener.context;
+    const preGain = ctx.createGain();
+    preGain.gain.setValueAtTime(0.6, ctx.currentTime); // -4.4 dB headroom
+    const limiter = ctx.createDynamicsCompressor();
+    limiter.threshold.setValueAtTime(-6, ctx.currentTime);
+    limiter.knee.setValueAtTime(6, ctx.currentTime);
+    limiter.ratio.setValueAtTime(12, ctx.currentTime);
+    limiter.attack.setValueAtTime(0.001, ctx.currentTime);
+    limiter.release.setValueAtTime(0.1, ctx.currentTime);
+    listener.gain.disconnect();
+    listener.gain.connect(preGain);
+    preGain.connect(limiter);
+    limiter.connect(ctx.destination);
+
+    // Recover from browser-side context suspension (tab-switch, audio focus
+    // loss, idle policies). Three.js' single resumeContext() is a one-shot —
+    // if the context is suspended *again* later, no playback wakes it up.
+    // visibilitychange fires when the tab comes back, document.click as a
+    // last-resort if user gesture is required to resume.
+    const tryResume = () => {
+      if (ctx.state === 'suspended') {
+        ctx.resume().catch(() => { /* user gesture required, try again later */ });
+      }
+    };
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) {
+        tryResume();
+        // Drop any active one-shots that the browser cleared while the tab
+        // was throttled. Their setTimeout cleanup may not have fired in
+        // time (background-tab throttling caps timers at ~1Hz), so the
+        // active list and counters can be stale on return. Revalidating
+        // here avoids playing into a saturated bookkeeping state.
+        this.revalidateActiveSounds();
+      }
+    });
 
     const loader = new AudioLoader();
 
@@ -465,6 +521,11 @@ export class SpatialAudioManager {
     for (const handle of loopHandles) {
       this.stopLoop(handle);
     }
+  }
+
+  /** Drop active one-shots that already finished playing (used on tab return). */
+  revalidateActiveSounds(): void {
+    this.playback.revalidateActiveSounds();
   }
 
   isPlaying(soundId: string): boolean {
