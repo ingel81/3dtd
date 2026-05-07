@@ -233,6 +233,9 @@ export type GameEvent =
       amount: number;
     }
   | {
+      type: 'debug:complete-all-research';
+    }
+  | {
       type: 'debug:toggle-movement';
       enabled: boolean;
     }

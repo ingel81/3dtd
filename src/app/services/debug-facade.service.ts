@@ -91,6 +91,16 @@ export class DebugFacadeService {
     gameState.getEventBus().emit({ type: 'debug:kill-all' });
   }
 
+  /**
+   * Complete all research instantly (emits debug:complete-all-research event).
+   * Used to record gameplay trailers without waiting for the tech tree.
+   * Player still needs gold to actually build/upgrade.
+   */
+  completeAllResearch(gameState: GameStateManager): void {
+    gameState.getEventBus().emit({ type: 'debug:complete-all-research' });
+    this.appendDebugLog('All research completed (Debug)');
+  }
+
   // ========================================
   // Height Debug Toggle
   // ========================================

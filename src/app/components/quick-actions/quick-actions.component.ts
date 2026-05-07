@@ -147,6 +147,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltipPosition="left">
             <mat-icon>heart_plus</mat-icon>
           </button>
+          <button class="td-dev-btn td-dev-btn-research"
+                  (click)="completeAllResearch.emit()"
+                  matTooltip="Complete all research"
+                  matTooltipPosition="left">
+            <mat-icon>science</mat-icon>
+          </button>
           <div class="td-dev-separator"></div>
           <!-- Terrain & Map -->
           <button class="td-dev-btn"
@@ -520,6 +526,16 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       background: var(--td-health-red);
       color: var(--td-text-primary);
     }
+
+    .td-dev-btn-research {
+      border-color: var(--td-teal);
+      color: var(--td-teal);
+    }
+
+    .td-dev-btn-research:hover {
+      background: var(--td-teal);
+      color: var(--td-bg-dark);
+    }
   `,
 })
 export class QuickActionsComponent {
@@ -555,6 +571,7 @@ export class QuickActionsComponent {
   readonly killAllEnemies = output<void>();
   readonly addCredits = output<void>();
   readonly addHealth = output<void>();
+  readonly completeAllResearch = output<void>();
 
   // Audio outputs
   readonly musicVolumeChanged = output<number>();
