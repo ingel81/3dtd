@@ -221,7 +221,64 @@
       - `scripts/` - export, analyze (bereits teilweise)
       Import-Pfade in server.py anpassen
 
+## CPU Hot-Path Optimierungen (neu aufsetzen)
+
+> Ideen aus lokalem `perf:` Commit (Feb 2026), der vor Merge mit origin aufgegeben wurde.
+> Enemy-Teile sind durch origin's "5000+ enemies"-Commit abgedeckt — folgende Punkte NICHT:
+
+- [ ] **Tower Placement Validation debouncen**
+      60Hz → ~3Hz bei statischer Cursor-Position. Schwellwert ~1m Bewegung,
+      Validierung nur bei Überschreitung erneut ausführen.
+      Datei: `src/app/services/tower-placement.service.ts`
+
+- [ ] **Projectile Trails distance-basiert statt frame-basiert**
+      Trail-Partikel spawnen pro gereister Strecke (z.B. alle 0.5m), nicht pro N Frames.
+      Gleichmäßigere Trails bei schwankender Framerate und variabler Projektil-Geschwindigkeit.
+      Datei: `src/app/entities/projectile.entity.ts`
+
+- [ ] **Projectile Arc Tangent + Homing Recalc Rate**
+      Cachen der Arc-Tangenten-Richtung zwischen Frames, Homing-Richtung nicht jeden Frame neu berechnen.
+
+- [ ] **UIStore localStorage Persistenz debouncen (500ms)**
+      Aktuell wird bei jeder Store-Mutation sofort geschrieben — stattdessen Trailing-Debounce.
+      Datei: `src/app/store/ui.store.ts`
+
+- [ ] **GameEventBus: Empty debugListeners Set Iteration überspringen**
+      Guard: wenn Set leer ist, `for`-Loop komplett überspringen (Hot Path mit hoher Event-Rate).
+      Datei: `src/app/game-engine/game-event-bus.ts`
+
+- [ ] **Wave Completion Dirty-Flag statt Polling**
+      Statt jeden Frame prüfen: Flag setzen bei enemy:died/reached-base, prüfen nur wenn dirty.
+      Datei: `src/app/managers/wave.manager.ts`
+
+- [ ] **Poison DOT Tick: deltaTime-Accumulator statt performance.now()**
+      Pro Enemy einen Akkumulator hochzählen, bei 500ms Tick feuern und resetten.
+      Robuster bei pausiertem Spiel / timescale ≠ 1.
+      Datei: `src/app/managers/enemy.manager.ts`
+
+- [ ] **Wave Debugger: 0ms Spawn + konfigurierbares Batching**
+      Spawn-Delay-Minimum von 0.01ms auf 0ms (synchrones Spawnen statt setTimeout(0)).
+      Batch-Size Slider (1–100 spawns/frame, default 3) im Wave Debug Panel.
+      `maxSpawnsPerFrame` als konfigurierbares Property auf WaveManager.
+      Dateien: `wave-debugger.component.ts`, `wave.manager.ts`, `game-state.manager.ts`, `wave-debug.service.ts`
+
+---
+
 ## Performance - Advanced
+
+- [ ] **Enemy Movement auf SoA (Structure of Arrays) umziehen**
+      Ziel: Cache-freundliche Batch-Verarbeitung für Movement + Koordinaten-Konvertierung.
+      Idee aus lokalem Experiment (vor Merge aufgegeben, da origin den klassischen Renderer entfernt hat):
+      - Neue Klasse `EnemySoA` mit Typed Arrays (`Float64Array` für lat/lon, `Float32Array` für speed/progress/heights, `Uint8Array` für Flags).
+      - Slot-Management: `allocSlot(id)`, `freeSlots[]`, `idToSlot` Map.
+      - Update-Loop in Phasen statt Per-Entity-Mix:
+        1. Status-Effekte + Slow/Speed/Pause → SoA syncen
+        2. `batchMove(dt, timescale)` — tight Loop über Typed Arrays (ersetzt `MovementComponent.move()`)
+        3. `batchGeoToLocal(originLat, originLon, originHeight)` — vektorisierte Koordinaten-Umrechnung
+        4. Per-Entity Sync (reached-end, currentIndex, progress) + Grid + Height + Render
+      - Grid-Throttle: Spatial/Route-Grid-Updates nur jedes 2. Frame (`_gridFrameCounter & 1`).
+      - Enemy-Entity behält `soaSlot` Property, bei Kill: `setAlive(slot, false)` → batchMove skippt.
+      - Neuaufsatz gegen aktuelles main (instanced-only Renderer, ohne classic Fallback).
 
 - [ ] **Object-Pooling für Projektile** - Pool-Größe: 500 pro Typ
       ⚠️ GPU-Instancing existiert bereits — Entity-Pooling (JS-Objekte) nochmal prüfen ob GC-Druck messbar ist
