@@ -70,3 +70,4 @@ logs/
 
 # ONNX Runtime WASM files (too large to commit - copy from node_modules)
 public/assets/onnx-wasm/
+.profiles/
