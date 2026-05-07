@@ -61,4 +61,15 @@ input, textarea {
   font-family: 'JetBrains Mono', monospace;
 }
 
+/* Phase 5.16: Multiline tooltip — preserves \n line breaks from getTowerCardTooltip etc. */
+.td-tooltip-multiline .mdc-tooltip__surface {
+  white-space: pre-line !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 11px !important;
+  text-align: left !important;
+  max-width: 280px !important;
+  padding: 8px 10px !important;
+  line-height: 1.45 !important;
+}
+
 /* You can add global styles to this file, and also import other style files */
