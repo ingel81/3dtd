@@ -145,7 +145,7 @@ export class GameStateManager {
   /**
    * Set performance profiler for frame timing instrumentation.
    */
-  setProfiler(profiler: PerformanceProfilerService): void {
+  setProfiler(profiler: PerformanceProfilerService | null): void {
     this.profiler = profiler;
   }
 

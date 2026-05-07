@@ -284,9 +284,6 @@ Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates w
       Aktuell **nicht dringend** — bei x4 mit ~1000 Enemies bleibt 10% Idle-Reserve. Erst bei extremen Setups (>2000 Enemies, x10+) wieder relevant. Determinismus für x75-Training muss erhalten bleiben.
       Startpunkte: `src/app/services/game-loop-facade.service.ts`, `src/app/managers/enemy.manager.ts:285`, `src/app/managers/projectile.manager.ts`, `src/app/managers/status-effect.manager.ts`.
 
-- [ ] **`performance.now()` Frame-Caching** (Mini-Hebel)
-      Bei x4 frisst `now()` 15.3% Self-Time — wird in mehreren Managers/Substeps wiederholt aufgerufen. Einmal pro Frame in einer Variable cachen und durchreichen würde grob die Hälfte sparen.
-
 - [ ] **Preview-RAF-Drosselung** (optional)
       `ModelPreviewService` läuft mit voller Display-Refresh-Rate (60 fps). Auf 15–30 fps drosseln oder via IntersectionObserver pausieren wenn Sidebar-Canvas nicht im Viewport. Spart weitere ~5% bei sichtbarer Build-Sidebar.
 
