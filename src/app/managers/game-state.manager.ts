@@ -23,6 +23,7 @@ import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../models/enemy-types';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
+import { goldBudgetForWave } from '../ai/core/wave-curriculum';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';
@@ -284,9 +285,16 @@ export class GameStateManager {
 
       // Tier-Gating: research-slots (Research Center) is always allowed.
       // Regular tower upgrades require matching upgrade tier research.
+      // Phase 5.16: 25-level tracks gated in 5-level bands (mirror of
+      // GameSidebarComponent.getRequiredUpgradeTier — keep in sync).
+      //   L1-5 = T1, L6-10 = T2, L11-15 = T3, L16-20 = T4, L21-25 = T5
       if (upgradeId !== 'research-slots') {
         const currentLevel = tower.getUpgradeLevel(upgradeId);
-        const requiredTier = currentLevel >= 2 ? 3 : currentLevel >= 1 ? 2 : 1;
+        const requiredTier =
+          currentLevel >= 20 ? 5 :
+          currentLevel >= 15 ? 4 :
+          currentLevel >= 10 ? 3 :
+          currentLevel >= 5  ? 2 : 1;
         if (this.researchManager.getMaxUpgradeTier() < requiredTier) return;
       }
 
@@ -372,6 +380,11 @@ export class GameStateManager {
         health: newHealth,
         delta: newHealth - oldHealth,
       });
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('debug:complete-all-research', () => {
+      this.researchManager.completeAllResearch();
+      this.syncResearchStoreState();
     }));
 
     // Initialize projectile manager (no callback - uses events)
@@ -747,17 +760,14 @@ export class GameStateManager {
   }
 
   /**
-   * Apply Wave-Completion-Bonus gemaess MASTER_GAME_DESIGN 5.2 + 5.4.
-   * - WaveCompleteBase = base + slope * wave
-   * - PerfectBonus (35%) wenn kein HP-Verlust
-   * - CloseCallBonus (12%) wenn HP am Ende knapp
-   * - Milestone-Bonus (fest bei Wave 10/20/30/40)
-   * - ComboBonus (aufeinanderfolgende Perfect-Waves, max 30%)
-   * - ComebackBonus (HP_Lost * slope, capped)
+   * Apply Wave-Completion-Bonus (Phase 5.16):
+   * - Base bonus comes from the curriculum's per-wave budget (deterministic).
+   * - Skill bonuses stack on top: Perfect (no HP loss), CloseCall, Milestone,
+   *   Combo (perfect-streak), Comeback (HP-lost penalty consolation).
    */
   private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): void {
     const cfg = GAME_BALANCE.economy;
-    const base = Math.round(cfg.waveCompleteBase + cfg.waveCompleteSlope * result.wave);
+    const base = goldBudgetForWave(result.wave).complete;
     const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
     const closeCallBonus = result.closeCall ? Math.round(base * cfg.closeCallBonusRatio) : 0;
     const milestoneBonus = cfg.milestoneBonuses[result.wave] ?? 0;

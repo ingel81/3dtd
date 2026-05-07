@@ -28,6 +28,7 @@ import {
   getAvailableTemplateMask,
   lerpRange,
 } from './templates';
+import { templateForWave, endgameHpMultiplier } from './wave-curriculum';
 import { EnemyTypeId } from '../../models/enemy-types';
 
 /** Model loading states */
@@ -270,6 +271,20 @@ export class WaveDirectorService {
       }
     }
 
+    // Phase 5.16: Wave-Curriculum override. For waves 1..18 the designer
+    // picks the template; NN's continuous factors still tune difficulty.
+    // Bot/player has unlimited build-phase research time — capability
+    // alignment is their responsibility.
+    const upcomingWave = state.waveNumber + 1;
+    const forcedId = templateForWave(upcomingWave);
+    if (forcedId) {
+      const forcedIdx = TEMPLATES.findIndex((t) => t.id === forcedId);
+      if (forcedIdx >= 0) {
+        bestIdx = forcedIdx;
+        bestProb = 1.0;
+      }
+    }
+
     const template = getTemplate(bestIdx);
     if (!template) {
       throw new Error(`[AI] Decoder selected invalid template index ${bestIdx}`);
@@ -293,7 +308,10 @@ export class WaveDirectorService {
 
     let totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
     let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
-    const hpMult = Math.round(lerpCapped(template.hpMultRange, hpFactor, dpsFracHp) * 1000) / 1000;
+    // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
+    // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
+    const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
+    const hpMult = Math.round(baseHpMult * endgameHpMultiplier(upcomingWave) * 1000) / 1000;
     const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
     // Wave-duration cap: compress spawn_delay if total would exceed 3 min.

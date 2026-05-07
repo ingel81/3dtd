@@ -35,8 +35,8 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'zombie_horde',
     name: 'Zombie Horde',
-    description: 'Unarmored-Horde mit Ratten als Füller — von Easy-Intro bis Mega-Horde',
-    enemies: [['zombie', 0.8], ['rat', 0.2]],
+    description: 'Pure zombie horde — unarmored intro, from easy to mega-swarm',
+    enemies: [['zombie', 1.0]],
     countRange: [20, 2000],
     spawnDelayRange: [15, 400],
     hpMultRange: [0.5, 6.0],
@@ -49,7 +49,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'rat_tide',
     name: 'Rat Tide',
-    description: 'Reine Rattenflut — 100 bis 5000 Ratten',
+    description: 'Pure rat flood — 100 to 5000 rats',
     enemies: [['rat', 1.0]],
     countRange: [100, 5000],
     spawnDelayRange: [10, 200],
@@ -63,7 +63,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'penguin_rush',
     name: 'Penguin Rush',
-    description: 'Schnelle Pinguine mit Rattenfüller',
+    description: 'Fast penguins with rat fillers',
     enemies: [['penguin', 0.9], ['rat', 0.1]],
     countRange: [30, 500],
     spawnDelayRange: [10, 300],
@@ -77,7 +77,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'light_mix',
     name: 'Light Mix',
-    description: 'Wallsmasher + Spider',
+    description: 'Wallsmashers + spiders',
     enemies: [['wallsmasher', 0.5], ['spider', 0.5]],
     countRange: [30, 400],
     spawnDelayRange: [30, 500],
@@ -91,7 +91,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'spider_swarm',
     name: 'Spider Swarm',
-    description: 'Reine Spider-Flut',
+    description: 'Pure spider flood',
     enemies: [['spider', 1.0]],
     countRange: [50, 800],
     spawnDelayRange: [20, 350],
@@ -105,7 +105,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'wallsmasher_crew',
     name: 'Wallsmasher Crew',
-    description: 'Reine Wallsmasher — HP-Fokus',
+    description: 'Pure wallsmashers — HP focus',
     enemies: [['wallsmasher', 1.0]],
     countRange: [15, 200],
     spawnDelayRange: [50, 600],
@@ -119,7 +119,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'bat_swarm',
     name: 'Bat Swarm',
-    description: 'Reiner Bat-Schwarm — braucht Anti-Air',
+    description: 'Pure bat swarm — needs Anti-Air',
     enemies: [['bat', 1.0]],
     countRange: [30, 600],
     spawnDelayRange: [15, 300],
@@ -133,7 +133,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'hornet_strike',
     name: 'Hornet Strike',
-    description: 'Hornets + Bats',
+    description: 'Hornets + bats — needs Anti-Air',
     enemies: [['hornet', 0.7], ['bat', 0.3]],
     countRange: [20, 300],
     spawnDelayRange: [30, 400],
@@ -147,7 +147,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'tank_column',
     name: 'Tank Column',
-    description: 'Tanks + Zombie-Soldiers',
+    description: 'Tanks + zombie soldiers',
     enemies: [['tank', 0.6], ['zombie-soldier', 0.4]],
     countRange: [10, 150],
     spawnDelayRange: [80, 800],
@@ -161,7 +161,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'bear_pack',
     name: 'Bear Pack',
-    description: 'Reines Bear-Rudel',
+    description: 'Pure bear pack',
     enemies: [['bear', 1.0]],
     countRange: [8, 120],
     spawnDelayRange: [60, 600],
@@ -175,7 +175,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'mech_army',
     name: 'Mech Army',
-    description: 'Reine Mechs — Late-Game Stress',
+    description: 'Pure mechs — late-game stress test',
     enemies: [['mech', 1.0]],
     countRange: [5, 100],
     spawnDelayRange: [100, 900],
@@ -189,7 +189,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'dragon_elite',
     name: 'Dragon Elite',
-    description: 'Dragons + Hornets',
+    description: 'Dragons + hornets — needs Anti-Air',
     enemies: [['dragon', 0.6], ['hornet', 0.4]],
     countRange: [5, 100],
     spawnDelayRange: [80, 800],
@@ -203,7 +203,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'mammoth_siege',
     name: 'Mammoth Siege',
-    description: 'Mammoths + Wallsmashers',
+    description: 'Mammoths + wallsmashers',
     enemies: [['mammoth', 0.7], ['wallsmasher', 0.3]],
     countRange: [8, 120],
     spawnDelayRange: [100, 1000],
@@ -217,7 +217,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'ghost_surge',
     name: 'Ghost Surge',
-    description: 'Ghosts + Wraiths — braucht Magic/Ice',
+    description: 'Ghosts + wraiths — needs Magic/Ice',
     enemies: [['ghost', 0.8], ['wraith', 0.2]],
     countRange: [20, 350],
     spawnDelayRange: [30, 400],
@@ -231,7 +231,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'wraith_storm',
     name: 'Wraith Storm',
-    description: 'Reine Wraiths — braucht Magic/Ice',
+    description: 'Pure wraiths — needs Magic/Ice',
     enemies: [['wraith', 1.0]],
     countRange: [15, 300],
     spawnDelayRange: [20, 350],
@@ -245,7 +245,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'chaos_wave',
     name: 'Chaos Wave',
-    description: 'Chaotischer 4-Typen-Mix',
+    description: 'Chaotic 4-type mix — needs Anti-Air',
     enemies: [['zombie', 0.3], ['tank', 0.3], ['hornet', 0.2], ['bear', 0.2]],
     countRange: [25, 500],
     spawnDelayRange: [40, 500],
@@ -259,7 +259,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'armor_gauntlet',
     name: 'Armor Gauntlet',
-    description: 'Alle 4 Armor-Kategorien gleichzeitig',
+    description: 'All 4 armor categories at once',
     enemies: [['rat', 0.25], ['tank', 0.25], ['mammoth', 0.25], ['ghost', 0.25]],
     countRange: [30, 600],
     spawnDelayRange: [40, 500],
@@ -273,7 +273,7 @@ export const TEMPLATES: readonly Template[] = [
   {
     id: 'boss_herbert',
     name: 'Boss: Herbert',
-    description: 'Herbert-Boss mit Support',
+    description: 'Herbert boss with support waves',
     enemies: [['herbert', 0.0334], ['tank', 0.4833], ['zombie', 0.4833]],
     countRange: [10, 100],
     spawnDelayRange: [100, 1200],

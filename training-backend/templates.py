@@ -31,8 +31,8 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "zombie_horde",
         "name": "Zombie Horde",
-        "description": "Unarmored-Horde mit Ratten als Füller — von Easy-Intro bis Mega-Horde",
-        "enemies": [("zombie", 0.8), ("rat", 0.2)],
+        "description": "Pure zombie horde — unarmored intro, from easy to mega-swarm",
+        "enemies": [("zombie", 1.0)],
         "count_range": (20, 2000),
         "spawn_delay_range": (15, 400),
         "hp_mult_range": (0.5, 6.0),
@@ -46,7 +46,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "rat_tide",
         "name": "Rat Tide",
-        "description": "Reine Rattenflut — 100 bis 5000 Ratten",
+        "description": "Pure rat flood — 100 to 5000 rats",
         "enemies": [("rat", 1.0)],
         "count_range": (100, 5000),
         "spawn_delay_range": (10, 200),
@@ -61,7 +61,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "penguin_rush",
         "name": "Penguin Rush",
-        "description": "Schnelle Pinguine mit Rattenfüller",
+        "description": "Fast penguins with rat fillers",
         "enemies": [("penguin", 0.9), ("rat", 0.1)],
         "count_range": (30, 500),
         "spawn_delay_range": (10, 300),
@@ -76,7 +76,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "light_mix",
         "name": "Light Mix",
-        "description": "Wallsmasher + Spider",
+        "description": "Wallsmashers + spiders",
         "enemies": [("wallsmasher", 0.5), ("spider", 0.5)],
         "count_range": (30, 400),
         "spawn_delay_range": (30, 500),
@@ -91,7 +91,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "spider_swarm",
         "name": "Spider Swarm",
-        "description": "Reine Spider-Flut",
+        "description": "Pure spider flood",
         "enemies": [("spider", 1.0)],
         "count_range": (50, 800),
         "spawn_delay_range": (20, 350),
@@ -106,7 +106,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "wallsmasher_crew",
         "name": "Wallsmasher Crew",
-        "description": "Reine Wallsmasher — HP-Fokus",
+        "description": "Pure wallsmashers — HP focus",
         "enemies": [("wallsmasher", 1.0)],
         "count_range": (15, 200),
         "spawn_delay_range": (50, 600),
@@ -121,7 +121,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "bat_swarm",
         "name": "Bat Swarm",
-        "description": "Reiner Bat-Schwarm — braucht Anti-Air",
+        "description": "Pure bat swarm — needs Anti-Air",
         "enemies": [("bat", 1.0)],
         "count_range": (30, 600),
         "spawn_delay_range": (15, 300),
@@ -136,7 +136,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "hornet_strike",
         "name": "Hornet Strike",
-        "description": "Hornets + Bats",
+        "description": "Hornets + bats — needs Anti-Air",
         "enemies": [("hornet", 0.7), ("bat", 0.3)],
         "count_range": (20, 300),
         "spawn_delay_range": (30, 400),
@@ -151,7 +151,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "tank_column",
         "name": "Tank Column",
-        "description": "Tanks + Zombie-Soldiers",
+        "description": "Tanks + zombie soldiers",
         "enemies": [("tank", 0.6), ("zombie-soldier", 0.4)],
         "count_range": (10, 150),
         "spawn_delay_range": (80, 800),
@@ -166,7 +166,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "bear_pack",
         "name": "Bear Pack",
-        "description": "Reines Bear-Rudel",
+        "description": "Pure bear pack",
         "enemies": [("bear", 1.0)],
         "count_range": (8, 120),
         "spawn_delay_range": (60, 600),
@@ -181,7 +181,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "mech_army",
         "name": "Mech Army",
-        "description": "Reine Mechs — Late-Game Stress",
+        "description": "Pure mechs — late-game stress test",
         "enemies": [("mech", 1.0)],
         "count_range": (5, 100),
         "spawn_delay_range": (100, 900),
@@ -196,7 +196,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "dragon_elite",
         "name": "Dragon Elite",
-        "description": "Dragons + Hornets",
+        "description": "Dragons + hornets — needs Anti-Air",
         "enemies": [("dragon", 0.6), ("hornet", 0.4)],
         "count_range": (5, 100),
         "spawn_delay_range": (80, 800),
@@ -211,7 +211,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "mammoth_siege",
         "name": "Mammoth Siege",
-        "description": "Mammoths + Wallsmashers",
+        "description": "Mammoths + wallsmashers",
         "enemies": [("mammoth", 0.7), ("wallsmasher", 0.3)],
         "count_range": (8, 120),
         "spawn_delay_range": (100, 1000),
@@ -226,7 +226,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "ghost_surge",
         "name": "Ghost Surge",
-        "description": "Ghosts + Wraiths — braucht Magic/Ice",
+        "description": "Ghosts + wraiths — needs Magic/Ice",
         "enemies": [("ghost", 0.8), ("wraith", 0.2)],
         "count_range": (20, 350),
         "spawn_delay_range": (30, 400),
@@ -241,7 +241,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "wraith_storm",
         "name": "Wraith Storm",
-        "description": "Reine Wraiths — braucht Magic/Ice",
+        "description": "Pure wraiths — needs Magic/Ice",
         "enemies": [("wraith", 1.0)],
         "count_range": (15, 300),
         "spawn_delay_range": (20, 350),
@@ -256,7 +256,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "chaos_wave",
         "name": "Chaos Wave",
-        "description": "Chaotischer 4-Typen-Mix",
+        "description": "Chaotic 4-type mix — needs Anti-Air",
         "enemies": [("zombie", 0.3), ("tank", 0.3), ("hornet", 0.2), ("bear", 0.2)],
         "count_range": (25, 500),
         "spawn_delay_range": (40, 500),
@@ -271,7 +271,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "armor_gauntlet",
         "name": "Armor Gauntlet",
-        "description": "Alle 4 Armor-Kategorien gleichzeitig",
+        "description": "All 4 armor categories at once",
         "enemies": [("rat", 0.25), ("tank", 0.25), ("mammoth", 0.25), ("ghost", 0.25)],
         "count_range": (30, 600),
         "spawn_delay_range": (40, 500),
@@ -286,7 +286,7 @@ TEMPLATES: list[dict[str, Any]] = [
     {
         "id": "boss_herbert",
         "name": "Boss: Herbert",
-        "description": "Herbert-Boss mit Support",
+        "description": "Herbert boss with support waves",
         "enemies": [("herbert", 0.0334), ("tank", 0.4833), ("zombie", 0.4833)],
         "count_range": (10, 100),
         "spawn_delay_range": (100, 1200),
