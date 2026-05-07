@@ -1287,44 +1287,36 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Update range indicator geometry with current terrain data
-   * Call this when terrain data might have changed
+   * Rebuild the range indicator (filled disc + gold edge ring) for this
+   * tower. Call when the tower's effective range changes (range upgrade)
+   * or when terrain data has changed under the disc. Pass `range` to use
+   * the current runtime range; without it, the base config range is used.
+   *
+   * The indicator is a Group of two child meshes/lines, so we can't
+   * just swap one geometry — we tear it down and rebuild via
+   * createRangeIndicator() to keep the construction logic in one place.
    */
-  updateRangeIndicatorTerrain(id: string): void {
+  updateRangeIndicatorTerrain(id: string, range?: number): void {
     const data = this.towers.get(id);
     if (!data || !data.rangeIndicator) return;
 
-    // Need either raycaster or height sampler
-    if (!this.terrainRaycaster && !this.terrainHeightSampler) return;
-
-    // Get terrain level position (without heightOffset - range indicator lies on terrain)
+    const wasVisible = data.rangeIndicator.visible;
+    const effectiveRange = range ?? data.typeConfig.range;
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
 
-    // Create new geometry using raycaster if available, otherwise fall back to height sampler
-    let newGeometry: BufferGeometry;
-    if (this.terrainRaycaster) {
-      newGeometry = this.createTerrainDiscGeometryRaycast(
-        terrainPos.x,
-        terrainPos.z,
-        data.typeConfig.range
-      );
-    } else {
-      newGeometry = this.createTerrainDiscGeometry(
-        data.lat,
-        data.lon,
-        data.height,
-        data.typeConfig.range,
-        terrainPos
-      );
-    }
+    this.scene.remove(data.rangeIndicator);
+    this.disposeObject(data.rangeIndicator);
 
-    // Dispose old geometry and replace
-    data.rangeIndicator.geometry.dispose();
-    data.rangeIndicator.geometry = newGeometry;
-
-    // Reset position (geometry is now in world coords)
-    data.rangeIndicator.position.set(0, 0, 0);
-    data.rangeIndicator.rotation.set(0, 0, 0);
+    const fresh = this.createRangeIndicator(
+      data.lat,
+      data.lon,
+      data.height,
+      effectiveRange,
+      terrainPos
+    );
+    fresh.visible = wasVisible;
+    this.scene.add(fresh);
+    data.rangeIndicator = fresh;
   }
 
   /**

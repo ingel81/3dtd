@@ -236,6 +236,9 @@ export type GameEvent =
       type: 'debug:complete-all-research';
     }
   | {
+      type: 'debug:max-upgrade-all-towers';
+    }
+  | {
       type: 'debug:toggle-movement';
       enabled: boolean;
     }
