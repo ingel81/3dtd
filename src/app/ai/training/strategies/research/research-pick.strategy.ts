@@ -27,6 +27,8 @@ import { ResearchId, ResearchEffect } from '../../../../configs/research/researc
 import { ArmorType, ARMOR_TYPES } from '../../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../../configs/combat/damage-matrix.config';
 import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config';
+import { templateObjectForWave } from '../../../core/wave-curriculum';
+import { ENEMY_TYPES, EnemyTypeId } from '../../../../models/enemy-types';
 
 export class ResearchPickStrategy extends BaseStrategy {
   constructor(private config: BotConfig) {
@@ -40,17 +42,32 @@ export class ResearchPickStrategy extends BaseStrategy {
       'gatling-tech', 'ice-magic', 'toxic-compounds',
       'siege-engineering', 'fire-alchemy',
     ],
+    // Phase 5.16: order aligned to wave-curriculum so the bot has the
+    // right counters by the time the curriculum forces a new armor type.
+    //   W7  bat_swarm     → needs Anti-Air → rocketry/aa-retrofit done by W6
+    //   W10 boss_herbert  → needs Cannon (Heavy/Boss) → siege-engineering
+    //   W13 ghost_surge   → needs Magic (Ethereal) → arcane-studies done by W12
     strategist: [
-      'gatling-tech', 'siege-engineering', 'ice-magic',
-      'arcane-studies', 'rocketry', 'fire-alchemy',
-      'toxic-compounds', 'tentacle-biology', 'aa-retrofit',
-      'advanced-weaponry', 'master-engineering',
+      'gatling-tech',           // W1 — Dual-Gatling early DPS
+      'ice-magic',              // W1-2 — Ice (slow, ethereal-decent later)
+      'tentacle-biology',       // W2-3 — chokepoint melee
+      'siege-engineering',      // W3-4 — Cannon for heavy/boss/fortified
+      'rocketry',               // W4-5 — Anti-Air ready before W7
+      'aa-retrofit',            // W5-6 — Gatling can shoot air
+      'arcane-studies',         // W6-9 — Magic for Ethereal W13
+      'toxic-compounds',        // W9+
+      'fire-alchemy',           // W10+
+      'advanced-weaponry',      // W11-15 — T2 upgrades
+      'master-engineering',     // W15-18 — T3 upgrades
+      'advanced-engineering',   // W19-23 — T4 upgrades (L16-20)
+      'transcendent-tech',      // W24-30 — T5 upgrades (L21-25)
     ],
     meta: [
-      'gatling-tech', 'siege-engineering', 'ice-magic',
-      'arcane-studies', 'rocketry', 'fire-alchemy',
-      'toxic-compounds', 'tentacle-biology', 'aa-retrofit',
+      'gatling-tech', 'ice-magic', 'tentacle-biology',
+      'siege-engineering', 'rocketry', 'aa-retrofit',
+      'arcane-studies', 'toxic-compounds', 'fire-alchemy',
       'advanced-weaponry', 'master-engineering',
+      'advanced-engineering', 'transcendent-tech',
     ],
   };
 
@@ -109,10 +126,19 @@ export class ResearchPickStrategy extends BaseStrategy {
   /**
    * Pick a research that unlocks a tower with good matchup against current armor distribution.
    * Scores each tower-unlock by its effective DPS-per-cost against the armor mix.
+   *
+   * Phase 5.16: when the upcoming wave contains AIR units and the bot has
+   * no anti-air capability yet, anti-air researches (rocketry, aa-retrofit)
+   * get a hard priority bump — without it, raw armor-matrix scoring picks
+   * Magic (1.0× vs light) over Rocket (0.7× vs light) and the bot enters a
+   * forced-air wave defenseless.
    */
   private pickByArmorGap(state: GameStateSnapshot): ResearchId | null {
     const r = state.research;
     const dist = state.expectedArmorDistribution!;
+    const upcomingHasAir = this.upcomingWaveHasAir(state);
+    const hasAntiAir = this.hasAntiAirCapability(state);
+    const airUrgent = upcomingHasAir && !hasAntiAir;
 
     let bestResearch: ResearchId | null = null;
     let bestScore = -Infinity;
@@ -130,6 +156,11 @@ export class ResearchPickStrategy extends BaseStrategy {
         score += this.scoreEffect(effect, dist, state);
       }
 
+      // Anti-Air urgency bump
+      if (airUrgent && (id === 'rocketry' || id === 'aa-retrofit')) {
+        score += 100;
+      }
+
       if (score > bestScore) {
         bestScore = score;
         bestResearch = id;
@@ -137,6 +168,27 @@ export class ResearchPickStrategy extends BaseStrategy {
     }
 
     return bestResearch;
+  }
+
+  /** True iff the upcoming wave's enemy mix includes any air unit. */
+  private upcomingWaveHasAir(state: GameStateSnapshot): boolean {
+    // expectedArmorDistribution doesn't expose air-vs-ground, so we look up
+    // the curriculum-forced template for the next wave (if in curriculum range)
+    // and check enemies.
+    const next = state.waveNumber + 1;
+    const forced = templateObjectForWave(next);
+    if (!forced) return false;
+    return forced.enemies.some(([typeId]) => {
+      const cfg = ENEMY_TYPES[typeId as EnemyTypeId];
+      return !!cfg?.isAirUnit;
+    });
+  }
+
+  /** True iff the bot already has any anti-air capability researched. */
+  private hasAntiAirCapability(state: GameStateSnapshot): boolean {
+    const r = state.research;
+    if (!r) return false;
+    return !!(r.towerUnlocked?.['rocket'] || r.airTargetingUnlocked);
   }
 
   private scoreEffect(

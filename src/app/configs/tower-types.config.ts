@@ -2,7 +2,7 @@ import { DamageType } from './combat/combat.types';
 
 export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'research-center';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob';
-export type UpgradeId = 'speed' | 'damage' | 'range' | 'research-slots';
+export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
 export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
@@ -29,6 +29,63 @@ export function getUpgradeCost(upgrade: TowerUpgrade, currentLevel: number): num
   const scaling = upgrade.costScaling ?? 1.0;
   return Math.round(upgrade.cost * Math.pow(scaling, currentLevel));
 }
+
+// =====================================================================
+// Phase 5.16: Standardized 25-level upgrade tracks for all combat towers.
+// Tier-Gating in the UI maps levels to research-tier locks:
+//   T1 = L1-5, T2 = L6-10, T3 = L11-15, T4 = L16-20, T5 = L21-25
+// Per-level multipliers compound — see UPGRADE_*_MULTIPLIER below.
+// Cost scaling 1.40^level keeps late-game tracks deliberately exorbitant
+// (L24 ≈ 4000× baseCost). Players will not max everything; that's the point.
+// =====================================================================
+const UPGRADE_BASE_COST = 50;
+const UPGRADE_COST_SCALING = 1.40;
+const UPGRADE_MAX_LEVEL = 25;
+
+const UPGRADE_DAMAGE_MULTIPLIER = 1.10; // +10%/level compounding (L25 ≈ 10.8×)
+const UPGRADE_SPEED_MULTIPLIER = 1.07;  // +7%/level (L25 ≈ 5.4×)
+const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
+const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
+
+const STD_DAMAGE_UPGRADE: TowerUpgrade = {
+  id: 'damage',
+  name: 'Damage',
+  description: `Increases damage (+${Math.round((UPGRADE_DAMAGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
+  cost: UPGRADE_BASE_COST,
+  costScaling: UPGRADE_COST_SCALING,
+  maxLevel: UPGRADE_MAX_LEVEL,
+  effect: { stat: 'damage', multiplier: UPGRADE_DAMAGE_MULTIPLIER },
+};
+
+const STD_SPEED_UPGRADE: TowerUpgrade = {
+  id: 'speed',
+  name: 'Fire Rate',
+  description: `Increases fire rate (+${Math.round((UPGRADE_SPEED_MULTIPLIER - 1) * 100)}% per level, compounding).`,
+  cost: UPGRADE_BASE_COST,
+  costScaling: UPGRADE_COST_SCALING,
+  maxLevel: UPGRADE_MAX_LEVEL,
+  effect: { stat: 'fireRate', multiplier: UPGRADE_SPEED_MULTIPLIER },
+};
+
+const STD_RANGE_UPGRADE: TowerUpgrade = {
+  id: 'range',
+  name: 'Range',
+  description: `Increases range (+${Math.round((UPGRADE_RANGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
+  cost: UPGRADE_BASE_COST,
+  costScaling: UPGRADE_COST_SCALING,
+  maxLevel: UPGRADE_MAX_LEVEL,
+  effect: { stat: 'range', multiplier: UPGRADE_RANGE_MULTIPLIER },
+};
+
+const STD_BEAM_WIDTH_UPGRADE: TowerUpgrade = {
+  id: 'beam-width',
+  name: 'Beam Width',
+  description: `Increases flame cone width (+${Math.round((UPGRADE_BEAM_WIDTH_MULTIPLIER - 1) * 100)}% per level, compounding).`,
+  cost: UPGRADE_BASE_COST,
+  costScaling: UPGRADE_COST_SCALING,
+  maxLevel: UPGRADE_MAX_LEVEL,
+  effect: { stat: 'beamWidth', multiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER },
+};
 
 export interface TowerTypeConfig {
   id: TowerTypeId;
@@ -106,19 +163,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     sellValue: 27, // 60% of cost
     hasAnimations: true, // archer_tower.glb has base animation
     animationPingPong: true, // Smooth loop: forward then backward
-    upgrades: [
-      {
-        id: 'speed',
-        name: 'Rapid Fire',
-        description: 'Doubles the fire rate',
-        cost: 40,
-        maxLevel: 1,
-        effect: {
-          stat: 'fireRate',
-          multiplier: 2.0,
-        },
-      },
-    ],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   'dual-gatling': {
     id: 'dual-gatling',
@@ -141,20 +186,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'bullet',
     cost: 90,
     sellValue: 60,
-    upgrades: [
-      {
-        id: 'speed',
-        name: 'Rapid Fire',
-        description: 'Doubles the fire rate',
-        cost: 90,
-        costScaling: 2.0,
-        maxLevel: 4,
-        effect: {
-          stat: 'fireRate',
-          multiplier: 2.0,
-        },
-      },
-    ],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   cannon: {
     id: 'cannon',
@@ -171,34 +203,9 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 80,
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
-    cost: 140, // Rebalanced: was 175 (Cost/DPS 4.67 -> 3.73)
-    sellValue: 84, // 60% of cost
-    upgrades: [
-      {
-        id: 'speed',
-        name: 'Rapid Fire',
-        description: 'Increases fire rate by 50%',
-        cost: 150,
-        costScaling: 1.8,
-        maxLevel: 2,
-        effect: {
-          stat: 'fireRate',
-          multiplier: 1.5,
-        },
-      },
-      {
-        id: 'damage',
-        name: 'Reinforced Charge',
-        description: 'Increases damage by 50%',
-        cost: 175,
-        costScaling: 1.8,
-        maxLevel: 3,
-        effect: {
-          stat: 'damage',
-          multiplier: 1.5,
-        },
-      },
-    ],
+    cost: 150, // Phase 5.16: heavy specialist (cannon vs fortified) — small premium
+    sellValue: 90, // 60% of cost
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   magic: {
     id: 'magic',
@@ -214,22 +221,9 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 70,
     fireRate: 1.5, // 1.5 shots/sec
     projectileType: 'fireball',
-    cost: 120, // Rebalanced: was 150 (more attractive)
-    sellValue: 72, // 60% of cost
-    upgrades: [
-      {
-        id: 'damage',
-        name: 'Arcane Power',
-        description: 'Increases magical damage by 50%',
-        cost: 120,
-        costScaling: 1.7,
-        maxLevel: 3,
-        effect: {
-          stat: 'damage',
-          multiplier: 1.5,
-        },
-      },
-    ],
+    cost: 140, // Phase 5.16: ethereal specialist — strong vs ghost/wraith, small premium
+    sellValue: 84, // 60% of cost
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   rocket: {
     id: 'rocket',
@@ -246,24 +240,11 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     range: 100,
     fireRate: 0.5,
     projectileType: 'rocket',
-    cost: 100,
-    sellValue: 60, // Fixed: was 120 (bug: > cost!)
+    cost: 120, // Phase 5.16: air specialist — large range premium
+    sellValue: 72, // 60% of cost
     canTargetAir: true, // Can only target air units
     canTargetGround: false, // Cannot target ground units
-    upgrades: [
-      {
-        id: 'speed',
-        name: 'Rapid Fire',
-        description: 'Doubles the fire rate',
-        cost: 130,
-        costScaling: 1.8,
-        maxLevel: 2,
-        effect: {
-          stat: 'fireRate',
-          multiplier: 2.0,
-        },
-      },
-    ],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   ice: {
     id: 'ice',
@@ -277,7 +258,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     rotationY: 3.1416, // 180°
     turretBarrelOffset: 1.047, // Barrels point ~60° from -Z in model space
     damageType: 'ice',
-    damage: 2, // Minimal damage - utility tower for slow effect
+    damage: 5, // Phase 5.16: small damage so Ice isn't pure utility
     range: 60,
     fireRate: 0.33, // 1 shot every 3s (matches slow duration, no stacking)
     projectileType: 'ice-shard',
@@ -285,7 +266,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     sellValue: 54, // 60% of cost
     canTargetAir: true,
     canTargetGround: true,
-    upgrades: [],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   fire: {
     id: 'fire',
@@ -313,32 +294,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     sellValue: 66, // 60% of cost
     canTargetAir: false, // Ground only - flames don't reach flyers
     canTargetGround: true,
-    upgrades: [
-      {
-        id: 'damage',
-        name: 'Inferno',
-        description: 'Increases fire damage by 50%',
-        cost: 100,
-        costScaling: 1.8,
-        maxLevel: 3,
-        effect: {
-          stat: 'damage',
-          multiplier: 1.5, // Applied to damagePerSecond
-        },
-      },
-      {
-        id: 'range',
-        name: 'Wide Burn',
-        description: 'Increases flame cone width by 30%',
-        cost: 80,
-        costScaling: 1.6,
-        maxLevel: 2,
-        effect: {
-          stat: 'beamWidth',
-          multiplier: 1.3, // Applied to beamWidth
-        },
-      },
-    ],
+    // Fire uses damage + range (detection) + beam-width — no fireRate (beam-based).
+    upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
   },
   tentacle: {
     id: 'tentacle',
@@ -362,31 +319,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
 
     cost: 80,
     sellValue: 48, // 60% of cost
-    upgrades: [
-      {
-        id: 'damage',
-        name: 'Barbed Tips',
-        description: 'Increases melee damage by 50%',
-        cost: 80,
-        costScaling: 1.8,
-        maxLevel: 3,
-        effect: {
-          stat: 'damage',
-          multiplier: 1.5,
-        },
-      },
-      {
-        id: 'speed',
-        name: 'Rapid Lash',
-        description: 'Doubles strike speed',
-        cost: 70,
-        maxLevel: 1,
-        effect: {
-          stat: 'fireRate',
-          multiplier: 2.0,
-        },
-      },
-    ],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   poison: {
     id: 'poison',
@@ -406,32 +339,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 100,
     sellValue: 60, // 60% of cost
     canTargetAir: false,
-    upgrades: [
-      {
-        id: 'damage',
-        name: 'Virulent Toxin',
-        description: 'Increases poison damage by 50%',
-        cost: 90,
-        costScaling: 1.8,
-        maxLevel: 3,
-        effect: {
-          stat: 'damage',
-          multiplier: 1.5,
-        },
-      },
-      {
-        id: 'range',
-        name: 'Extended Reach',
-        description: 'Increases range by 30%',
-        cost: 70,
-        costScaling: 1.6,
-        maxLevel: 2,
-        effect: {
-          stat: 'range',
-          multiplier: 1.3,
-        },
-      },
-    ],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   'research-center': {
     id: 'research-center',
