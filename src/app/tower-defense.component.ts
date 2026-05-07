@@ -524,6 +524,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   addDebugHealth(): void {
     this.debugFacade.addDebugHealth(this.gameState);
   }
+  completeAllResearch(): void {
+    this.debugFacade.completeAllResearch(this.gameState);
+  }
   clearDebugLog(): void {
     this.debugFacade.clearDebugLog();
   }

@@ -291,6 +291,27 @@ export class ResearchManager {
     }
   }
 
+  /**
+   * Debug: instantly complete every research in the tree. Cancels any
+   * in-flight research without refund and emits research:completed for each
+   * newly-finished node so listeners (research store, max-upgrade-tier sync,
+   * etc.) update correctly. Used by the trailer/recording cheat — gold
+   * spending still applies normally afterwards.
+   */
+  completeAllResearch(): void {
+    this.activeResearches.clear();
+    for (const id of Object.keys(RESEARCH_TREE)) {
+      if (this.completedResearches.has(id)) continue;
+      this.completedResearches.add(id);
+      const config = RESEARCH_TREE[id];
+      this.eventBus.emit({
+        type: 'research:completed',
+        researchId: id,
+        effects: config.effects,
+      });
+    }
+  }
+
   // ==================== Lifecycle ====================
 
   reset(): void {

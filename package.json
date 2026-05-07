@@ -12,7 +12,8 @@
     "test:coverage": "vitest run --coverage",
     "lint": "ng lint",
     "postinstall": "node -e \"const fs=require('fs');const src='node_modules/onnxruntime-web/dist';const dst='public/assets/onnx-wasm';fs.mkdirSync(dst,{recursive:true});fs.readdirSync(src).filter(f=>f.endsWith('.wasm')||f.startsWith('ort-wasm')&&f.endsWith('.mjs')).forEach(f=>fs.copyFileSync(src+'/'+f,dst+'/'+f));console.log('ONNX WASM files copied')\"",
-    "export-ai": "cd training-backend && python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_latest.pt --output ../public/assets/ai/wave-director"
+    "export-ai": "cd training-backend && python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_latest.pt --output ../public/assets/ai/wave-director",
+    "economy-chart": "vitest run tools/economy-chart/generate.spec.ts"
   },
   "prettier": {
     "printWidth": 100,
