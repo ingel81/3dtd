@@ -42,6 +42,14 @@ function createStubService(name: string): Record<string, unknown> {
     CombatEffectService: {
       initialize: vi.fn(),
     },
+    StatusEffectService: {
+      setGameClockProvider: vi.fn(),
+      applySlow: vi.fn(),
+      applyPoison: vi.fn(),
+      applyEffect: vi.fn(),
+      removeExpired: vi.fn(),
+      hasActiveEffect: vi.fn().mockReturnValue(false),
+    },
     HQDamageService: {
       initialize: vi.fn(),
       reset: vi.fn(),
@@ -55,10 +63,23 @@ function createStubService(name: string): Record<string, unknown> {
       updateTowerIdleRotations: vi.fn(),
       updateTowerShooting: vi.fn(),
       updateBeamTowers: vi.fn(),
+      updateMeleeTowers: vi.fn(),
       stopAllBeams: vi.fn(),
+      stopAllMelee: vi.fn(),
     },
     EntityPoolService: {},
     OsmStreetService: {},
+    ResearchStore: {
+      isTowerUnlocked: vi.fn().mockReturnValue(true),
+      centerLevel: vi.fn().mockReturnValue(0),
+      researchSlots: vi.fn().mockReturnValue(1),
+      maxUpgradeTier: vi.fn().mockReturnValue(1),
+      airTargetingUnlocked: vi.fn().mockReturnValue(false),
+      completedResearches: Object.assign(vi.fn().mockReturnValue(new Set()), { set: vi.fn(), update: vi.fn() }),
+      activeResearches: Object.assign(vi.fn().mockReturnValue([]), { set: vi.fn() }),
+      applyResearchEffects: vi.fn(),
+      resetResearchState: vi.fn(),
+    },
     WaveDebugService: {
       setCurrentWaveConfig: vi.fn(),
     },

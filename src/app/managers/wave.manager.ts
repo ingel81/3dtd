@@ -3,6 +3,7 @@ import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId } from '../models/enemy-types';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager } from '../game-engine';
+import { GAME_BALANCE } from '../configs/game-balance.config';
 
 // Re-export GamePhase for backward compatibility
 export type { GamePhase } from '../models/game.types';
@@ -57,33 +58,67 @@ export class WaveManager implements IGameManager {
   spawnPoints: SpawnPoint[] = [];
   private cachedPaths = new Map<string, GeoPosition[]>();
 
-  // Track active timeouts for cleanup on reset
-  private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
-
-  private timescaleProvider: (() => number) | null = null;
+  /**
+   * Active spawn controller — driven by tickSpawn() each sub-step in game-time.
+   * Sub-stepping guarantees each tick is small (~16ms game-time), so no
+   * sub-frame-advance compensation is needed.
+   */
+  private activeSpawner: {
+    waveId: number;
+    accumulatedMs: number;      // game-time since last spawn
+    nextDelayMs: number;        // game-time until next spawn
+    spawnAndAdvance: () => boolean;
+    recomputeDelay: () => number;
+  } | null = null;
 
   // Track spawning state to prevent premature wave completion
   private expectedEnemyCount = 0;
   private spawnedEnemyCount = 0;
+
+  // Track Perfect/CloseCall signals per wave
+  private damageTakenThisWave = 0;
+  private currentHealthProvider: (() => number) | null = null;
 
   constructor(
     private eventBus: GameEventBus,
     private enemyManager: EnemyManager
   ) {
     this.registerDebugHandlers();
+    // Accumulate damage-to-base during active waves (for Perfect-detection)
+    this.eventBus.on('enemy:reached-base', (e) => {
+      if (this.phase() === 'wave') {
+        this.damageTakenThisWave += e.damage;
+      }
+    });
+  }
+
+  /**
+   * Set the current-health provider (from GameStateManager).
+   * Used for CloseCall-detection at wave end.
+   */
+  setCurrentHealthProvider(provider: () => number): void {
+    this.currentHealthProvider = provider;
+  }
+
+  /**
+   * Expected number of enemies in the current wave.
+   * Used by EnemyManager for swarm-discount in kill-rewards.
+   */
+  getExpectedEnemyCount(): number {
+    return this.expectedEnemyCount;
   }
 
   private registerDebugHandlers(): void {
     this.eventBus.on('debug:kill-all', () => {
       this.stopSpawning();
-      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
+      // Phase 5.16: debug kill-all does NOT award credits — otherwise it'd be
+      // an instant gold farm during testing.
       for (const enemy of this.enemyManager.getAlive()) {
         if (enemy.alive) {
-          this.enemyManager.kill(enemy, timescale);
+          this.enemyManager.kill(enemy, /*awardCredits*/ false);
         }
       }
     });
-
   }
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
@@ -92,10 +127,12 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Set timescale provider for spawn delay scaling
+   * Deprecated no-op: timescale handling moved into the engine sub-step loop.
+   * Kept temporarily so legacy tests still compile; can be removed once specs
+   * are migrated.
    */
-  setTimescaleProvider(provider: () => number): void {
-    this.timescaleProvider = provider;
+  setTimescaleProvider(_provider: () => number): void {
+    /* no-op */
   }
 
   /**
@@ -108,6 +145,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking (manual mode - unlimited spawning)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+    this.damageTakenThisWave = 0;
 
     // Emit wave:started event
     this.eventBus.emit({
@@ -121,6 +159,7 @@ export class WaveManager implements IGameManager {
    * Start a new wave with auto-spawning
    */
   startWave(config: WaveConfig): void {
+    this._resetStuckDetector();
     // Mixed wave: use schedule-based spawning
     if (config.schedule) {
       this.startScheduledWave(config.schedule);
@@ -141,6 +180,7 @@ export class WaveManager implements IGameManager {
     // Initialize spawn tracking
     this.expectedEnemyCount = enemyCount;
     this.spawnedEnemyCount = 0;
+    this.damageTakenThisWave = 0;
 
     // Emit wave:started event with actual enemy count
     this.eventBus.emit({
@@ -151,65 +191,42 @@ export class WaveManager implements IGameManager {
 
     // Use getter if provided (allows live delay changes), otherwise use static value
     const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
-
     let spawnedCount = 0;
     let consecutiveFailures = 0;
-
-    // Capture wave number at start to detect reset
     const waveId = this.waveNumber();
 
-    const spawnNext = () => {
-      const currentPhase = this.phase();
-      const currentWave = this.waveNumber();
-
-      // Stop spawning if not in wave phase (reset or game over)
-      if (currentPhase !== 'wave') {
-        return;
-      }
-
-      // Stop if wave was reset (new wave started or game reset)
-      if (currentWave !== waveId) {
-        return;
-      }
-
-      if (spawnedCount >= enemyCount) {
-        return;
-      }
+    // Spawn callback: returns true while wave continues, false when done.
+    const spawnOne = (): boolean => {
+      if (this.phase() !== 'wave' || this.waveNumber() !== waveId) return false;
+      if (spawnedCount >= enemyCount) return false;
 
       const spawn = this.selectSpawnPoint(config.spawnMode, spawnedCount);
       const path = this.cachedPaths.get(spawn.id);
-
       if (path && path.length > 1) {
-        // Spawn enemy and start immediately
-        this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, false, config.enemyHealth);
+        this.enemyManager.spawn(
+          path, config.enemyType, config.enemySpeed, false, config.enemyHealth,
+        );
         spawnedCount++;
-        this.spawnedEnemyCount++; // Track globally for wave completion check
+        this.spawnedEnemyCount++;
         consecutiveFailures = 0;
       } else {
         consecutiveFailures++;
-        // Abort if no spawn point has a valid path (prevents infinite loop)
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
           console.error(`[WaveManager] No valid paths for spawn points, aborting spawn (${spawnedCount}/${enemyCount})`);
-          this.expectedEnemyCount = spawnedCount; // Adjust so wave can complete
-          return;
+          this.expectedEnemyCount = spawnedCount;
+          return false;
         }
       }
-
-      // Check phase again before scheduling next spawn (could have been reset during spawn)
-      if (this.phase() !== 'wave') return;
-
-      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-      const gameTimeDelay = getDelay();
-      const realTimeDelay = gameTimeDelay / timescale; // Scale spawn delay
-      const timeoutId = setTimeout(() => {
-        this.activeTimeouts.delete(timeoutId);
-        if (this.phase() !== 'wave') return; // Stop if reset/game over
-        spawnNext();
-      }, realTimeDelay);
-      this.activeTimeouts.add(timeoutId);
+      return spawnedCount < enemyCount;
     };
 
-    spawnNext();
+    this.activeSpawner = {
+      waveId,
+      accumulatedMs: getDelay(),  // spawn first enemy immediately on first tick
+      nextDelayMs: getDelay(),
+      spawnAndAdvance: spawnOne,
+      recomputeDelay: getDelay,
+    };
   }
 
   /**
@@ -224,6 +241,7 @@ export class WaveManager implements IGameManager {
 
     this.expectedEnemyCount = entries.length;
     this.spawnedEnemyCount = 0;
+    this.damageTakenThisWave = 0;
 
     this.eventBus.emit({
       type: 'wave:started',
@@ -236,15 +254,24 @@ export class WaveManager implements IGameManager {
     let consecutiveFailures = 0;
     const waveId = this.waveNumber();
 
-    const spawnNext = () => {
-      if (this.phase() !== 'wave') return;
-      if (this.waveNumber() !== waveId) return;
-      if (spawnIndex >= entries.length) return;
+    // Compute delay for the *current* entry about to be spawned (used to
+    // determine the gap BEFORE spawning this enemy, matching pre-refactor
+    // setTimeout semantics where pauseAfter extended the gap to the NEXT spawn).
+    const delayForEntry = (idx: number): number => {
+      if (idx <= 0) return getDelay();
+      const prev = entries[idx - 1];
+      const baseWait = prev.delay ?? getDelay();
+      const extraPause = prev.pauseAfter ?? 0;
+      return baseWait + extraPause;
+    };
+
+    const spawnOne = (): boolean => {
+      if (this.phase() !== 'wave' || this.waveNumber() !== waveId) return false;
+      if (spawnIndex >= entries.length) return false;
 
       const entry = entries[spawnIndex];
       const spawn = this.selectSpawnPoint('random', spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
-
       if (path && path.length > 1) {
         this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health);
         spawnIndex++;
@@ -255,27 +282,45 @@ export class WaveManager implements IGameManager {
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
           console.error(`[WaveManager] No valid paths, aborting scheduled wave (${spawnIndex}/${entries.length})`);
           this.expectedEnemyCount = spawnIndex;
-          return;
+          return false;
         }
       }
-
-      if (this.phase() !== 'wave') return;
-      if (spawnIndex >= entries.length) return;
-
-      const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-      const baseWait = entry.delay ?? getDelay();
-      const extraPause = entry.pauseAfter ?? 0;
-      const realTimeDelay = (baseWait + extraPause) / timescale;
-
-      const timeoutId = setTimeout(() => {
-        this.activeTimeouts.delete(timeoutId);
-        if (this.phase() !== 'wave') return;
-        spawnNext();
-      }, realTimeDelay);
-      this.activeTimeouts.add(timeoutId);
+      return spawnIndex < entries.length;
     };
 
-    spawnNext();
+    this.activeSpawner = {
+      waveId,
+      accumulatedMs: delayForEntry(0),  // spawn first immediately
+      nextDelayMs: delayForEntry(0),
+      spawnAndAdvance: spawnOne,
+      recomputeDelay: () => delayForEntry(spawnIndex),
+    };
+  }
+
+  /**
+   * Drive the active spawner forward by `gameTimeDeltaMs` (game-time of one
+   * sub-step, ~16ms). Called per sub-step from GameStateManager. With sub-
+   * stepping each tick is small, so a single sub-step usually triggers 0-1
+   * spawns — no sub-frame head-start gymnastics needed.
+   */
+  tickSpawn(gameTimeDeltaMs: number): void {
+    const spawner = this.activeSpawner;
+    if (!spawner) return;
+    if (this.phase() !== 'wave' || this.waveNumber() !== spawner.waveId) {
+      this.activeSpawner = null;
+      return;
+    }
+
+    spawner.accumulatedMs += gameTimeDeltaMs;
+    while (spawner.accumulatedMs >= spawner.nextDelayMs) {
+      spawner.accumulatedMs -= spawner.nextDelayMs;
+      const stillActive = spawner.spawnAndAdvance();
+      if (!stillActive) {
+        this.activeSpawner = null;
+        return;
+      }
+      spawner.nextDelayMs = spawner.recomputeDelay();
+    }
   }
 
   /**
@@ -295,46 +340,118 @@ export class WaveManager implements IGameManager {
   checkWaveComplete(): boolean {
     if (this.phase() !== 'wave') return false;
 
-    // Wave is complete when:
-    // 1. All enemies have been spawned (or manual mode with expectedCount = 0)
-    // 2. AND all spawned enemies are dead
     const allEnemiesSpawned = this.expectedEnemyCount === 0 || this.spawnedEnemyCount >= this.expectedEnemyCount;
-    // Check both alive AND killing (in death animation) — prevents premature wave completion
-    const allEnemiesDead = this.enemyManager.getAliveCount() === 0
-      && this.enemyManager.getKillingCount() === 0;
+    const aliveCount = this.enemyManager.getAliveCount();
+    const killingCount = this.enemyManager.getKillingCount();
+    const totalEntities = this.enemyManager.getAll().length;
+    const allEnemiesDead = aliveCount === 0 && killingCount === 0;
+
+    // Stuck-detection: log ONCE per wave when spawning is fully done but
+    // counters have been frozen for ≥5s. `_loggedStuckForWave` ensures we
+    // don't re-log if counters briefly advance then freeze again mid-wave.
+    const stuckCandidate = allEnemiesSpawned && !allEnemiesDead;
+    if (stuckCandidate) {
+      const progressChanged =
+        aliveCount !== this._lastAlive || killingCount !== this._lastKilling;
+      if (progressChanged) {
+        this._stuckFrames = 0;
+      } else {
+        this._stuckFrames++;
+      }
+      this._lastAlive = aliveCount;
+      this._lastKilling = killingCount;
+
+      if (
+        !this._loggedStuckForWave &&
+        this._stuckFrames > 300 // ~5s of no counter change
+      ) {
+        const enemies = this.enemyManager.getAll();
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        const pending = (this.enemyManager as any).pendingDeaths as
+          | { enemy: { id: string }; remainingMs: number }[]
+          | undefined;
+        console.warn(`[WaveManager] STUCK wave ${this.waveNumber()} (all spawned, counters frozen):`, {
+          waveNumber: this.waveNumber(),
+          aliveCount, killingCount, totalEntities,
+          expectedEnemyCount: this.expectedEnemyCount,
+          spawnedEnemyCount: this.spawnedEnemyCount,
+          phase: this.phase(),
+          activeSpawner: this.activeSpawner !== null,
+          pendingDeathsSample: (pending ?? []).slice(0, 3).map(p => ({
+            id: p.enemy.id,
+            remainingMs: p.remainingMs,
+          })),
+          entitySnapshot: enemies.slice(0, 5).map(e => ({
+            id: e.id,
+            type: e.typeConfig.id,
+            alive: e.alive,
+            hp: e.health.hp,
+            maxHp: e.health.maxHp,
+            paused: e.movement.paused,
+            active: e.active,
+            pathIndex: e.movement.currentIndex,
+            pathLength: e.movement.path.length,
+            progress: e.movement.progress,
+          })),
+        });
+        this._loggedStuckForWave = true;
+      }
+    } else {
+      // Wave not yet fully-spawned (or complete) — reset diagnostic state.
+      this._stuckFrames = 0;
+      this._lastAlive = aliveCount;
+      this._lastKilling = killingCount;
+    }
 
     return allEnemiesSpawned && allEnemiesDead;
   }
 
+  /** Reset stuck-detection flag on wave transitions (called from endWave + reset). */
+  private _resetStuckDetector(): void {
+    this._loggedStuckForWave = false;
+    this._stuckFrames = 0;
+    this._lastAlive = 0;
+    this._lastKilling = 0;
+  }
+
+  private _loggedStuckForWave = false;
+  private _stuckFrames = 0;
+  private _lastAlive = 0;
+  private _lastKilling = 0;
+
   /**
    * End the current wave
    */
-  endWave(): void {
+  endWave(): { wave: number; perfect: boolean; closeCall: boolean; hpLost: number } {
     const waveNum = this.waveNumber();
     this.enemyManager.clear();
     this.phase.set('setup');
+
+    // Compute Perfect/CloseCall quality signals
+    const hpLost = this.damageTakenThisWave;
+    const perfect = hpLost === 0;
+    const hpAtEnd = this.currentHealthProvider ? this.currentHealthProvider() : 100;
+    const closeCall = !perfect && hpAtEnd <= GAME_BALANCE.economy.closeCallHpThreshold;
 
     // Emit wave:completed event (credits are added by GameStateManager)
     this.eventBus.emitDeferred({
       type: 'wave:completed',
       wave: waveNum,
       credits: 0, // Credits are handled separately via GAME_BALANCE
+      perfect,
+      closeCall,
+      hpLost,
     });
+
+    return { wave: waveNum, perfect, closeCall, hpLost };
   }
 
   /**
-   * Stop all pending spawns (for Kill All functionality)
-   * Clears timeouts and adjusts expectedEnemyCount so wave can complete
+   * Stop all pending spawns (for Kill All functionality).
+   * Cancels the active spawner and adjusts expectedEnemyCount so wave can complete.
    */
   stopSpawning(): void {
-    // Clear all pending timeouts to prevent spawning after abort
-    for (const timeoutId of this.activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this.activeTimeouts.clear();
-
-    // Adjust expected count to match actually spawned enemies
-    // This allows checkWaveComplete() to succeed once all spawned enemies die
+    this.activeSpawner = null;
     this.expectedEnemyCount = this.spawnedEnemyCount;
   }
 
@@ -342,12 +459,7 @@ export class WaveManager implements IGameManager {
    * Reset wave manager
    */
   reset(): void {
-    // Clear all pending timeouts to prevent spawning after reset
-    for (const timeoutId of this.activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this.activeTimeouts.clear();
-
+    this.activeSpawner = null;
     this.enemyManager.clear();
     this.phase.set('setup');
     this.waveNumber.set(0);
@@ -355,6 +467,7 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking counters (prevents stale state after game over mid-wave)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+    this._resetStuckDetector();
   }
 
   /**

@@ -94,7 +94,7 @@ describe('Tower → Enemy Combat Integration', () => {
     const enemy = spawnEnemy();
 
     // Enemy starts at path[0] which is within range of tower
-    const target = tower.findTarget([enemy]);
+    const target = tower.findTarget([enemy], false);
     expect(target).toBe(enemy);
   });
 

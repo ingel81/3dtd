@@ -3,43 +3,62 @@
     <!-- WAVE Section -->
     <section class="td-panel td-wave-panel">
       <div class="td-panel-header">
-        WAVE {{ store.waveNumber() }}
+        WAVE {{ displayedWaveNumber() }}
         @if (isMixedWave()) {
           <span class="td-mixed-badge">MIX · {{ getMixedTotalCount() }}</span>
         }
       </div>
       <div class="td-panel-content td-wave-section">
-        <div class="td-enemy-group-list">
-          @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
-            <div class="td-enemy-group-row"
-                 [matTooltip]="'Spawn: ' + group.spawnDelay + 'ms'"
-                 matTooltipPosition="left">
-              <div class="td-group-preview-container">
-                <canvas #mixedEnemyCanvas class="td-group-preview-canvas"
-                        [attr.data-group-index]="i" width="64" height="64"></canvas>
+        @if (waveActive()) {
+          <div class="td-enemy-group-list">
+            @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
+              <div class="td-enemy-group-row"
+                   [matTooltip]="getGroupTooltip(group)"
+                   matTooltipClass="td-tooltip-multiline"
+                   matTooltipPosition="left">
+                <div class="td-group-preview-container">
+                  <canvas #mixedEnemyCanvas class="td-group-preview-canvas"
+                          [attr.data-group-index]="i" width="64" height="64"></canvas>
+                </div>
+                <div class="td-group-info">
+                  <div class="td-group-info-header">
+                    <span class="td-group-name">{{ group.name }}</span>
+                    <span class="td-group-count">×{{ group.count }}</span>
+                  </div>
+                  <div class="td-group-stats">
+                    <span class="td-group-stat">HP {{ group.actualHp }}</span>
+                    <span class="td-group-stat">{{ group.actualSpeed.toFixed(1) }}m/s</span>
+                  </div>
+                  <div class="td-group-armor">
+                    <span>{{ getArmorIcon(group.enemyType) }} {{ getArmorLabel(group.enemyType) }}</span>
+                    <span class="td-group-weak">{{ getArmorWeakTo(group.enemyType) }}</span>
+                  </div>
+                </div>
               </div>
-              <div class="td-group-info">
-                <div class="td-group-info-header">
-                  <span class="td-group-name">{{ group.name }}</span>
-                  <span class="td-group-count">×{{ group.count }}</span>
-                </div>
-                <div class="td-group-stats">
-                  <span class="td-group-stat">HP {{ group.actualHp }}</span>
-                  <span class="td-group-stat">{{ group.actualSpeed.toFixed(1) }}m/s</span>
-                </div>
-                <div class="td-group-armor">
-                  <span>{{ getArmorIcon(group.enemyType) }} {{ getArmorLabel(group.enemyType) }}</span>
-                  <span class="td-group-weak">{{ getArmorWeakTo(group.enemyType) }}</span>
-                </div>
-              </div>
-            </div>
-          }
-        </div>
+            }
+          </div>
+        }
         <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave.emit()"
                 [disabled]="waveActive() || buildMode() || isGameOver()">
           <mat-icon>{{ waveActive() ? 'pending' : 'play_arrow' }}</mat-icon>
           <span>{{ waveActive() ? 'Wave running...' : 'Next Wave' }}</span>
         </button>
+
+        <!-- Phase 5.16: Coming-Up curriculum preview -->
+        @if (upcomingWaves().length > 0) {
+          <div class="td-coming-up">
+            <div class="td-coming-up-label">COMING UP</div>
+            @for (peek of upcomingWaves(); track peek.wave) {
+              <div class="td-coming-up-row" [matTooltip]="peek.description" matTooltipPosition="left">
+                <span class="td-coming-up-wave">W{{ peek.wave }}</span>
+                <span class="td-coming-up-name">{{ peek.name }}</span>
+                @if (peek.armorIcons) {
+                  <span class="td-coming-up-icons">{{ peek.armorIcons }}</span>
+                }
+              </div>
+            }
+          </div>
+        }
       </div>
     </section>
 
@@ -62,7 +81,8 @@
                         [class.disabled]="store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
                         [disabled]="isGameOver() || store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
                         (click)="selectTower.emit(tower.id)"
-                        [matTooltip]="tower.id === 'research-center' ? (isResearchCenterPlaced() ? 'Already placed' : 'Research Center — Unlock new towers') : damageTypeUI[tower.damageType].icon + ' ' + damageTypeUI[tower.damageType].label + ' · ' + tower.damage + ' DMG | ' + tower.range + 'm | ' + tower.fireRate + '/s'"
+                        [matTooltip]="getTowerCardTooltip(tower)"
+                        matTooltipClass="td-tooltip-multiline"
                         matTooltipPosition="left">
                   <canvas #towerPreviewCanvas
                           class="td-tower-preview-canvas"
@@ -184,29 +204,49 @@
       } @else {
         <!-- NORMAL TOWER Panel -->
         <section class="td-panel td-tower-panel">
-          <div class="td-panel-header">{{ tower.typeConfig.name | uppercase }}</div>
+          <div class="td-panel-header td-tower-header">
+            <span class="td-tower-header-name">{{ tower.typeConfig.name | uppercase }}</span>
+            @if (tower.typeConfig.sellValue > 0) {
+              <button class="td-header-sell-btn"
+                      [matTooltip]="'Sell tower (refunds upgrades + base value)'"
+                      matTooltipPosition="left"
+                      (click)="sellTower.emit()">
+                <mat-icon>sell</mat-icon>
+                <span class="td-header-sell-value">+{{ tower.typeConfig.sellValue }}</span>
+              </button>
+            }
+          </div>
           <div class="td-panel-content td-tower-section">
-            <!-- Damage Type Badge -->
-            <div class="td-damage-type-badge" [style.border-color]="damageTypeUI[tower.typeConfig.damageType].color">
-              <span>{{ damageTypeUI[tower.typeConfig.damageType].icon }} {{ damageTypeUI[tower.typeConfig.damageType].label }}</span>
-            </div>
-
-            <!-- Stats as tile grid -->
-            <div class="td-stats-grid">
+            <!-- Stats grid: 3×2 — damage-type tile takes pos 0 -->
+            <div class="td-stats-grid td-stats-grid-3">
+              <div class="td-stat-tile td-stat-tile-dmgtype"
+                   [style.border-color]="damageTypeUI[tower.typeConfig.damageType].color">
+                <mat-icon class="td-stat-icon"
+                          [style.color]="damageTypeUI[tower.typeConfig.damageType].color">
+                  {{ damageTypeUI[tower.typeConfig.damageType].icon }}
+                </mat-icon>
+                <span class="td-stat-value td-stat-value-small">{{ damageTypeUI[tower.typeConfig.damageType].label }}</span>
+                <span class="td-stat-label">Type</span>
+              </div>
               <div class="td-stat-tile">
                 <mat-icon class="td-stat-icon td-icon-damage">local_fire_department</mat-icon>
-                <span class="td-stat-value td-val-damage">{{ tower.combat.damage }}</span>
+                <span class="td-stat-value td-val-damage">{{ tower.combat.damage | number:'1.0-0' }}</span>
                 <span class="td-stat-label">Damage</span>
               </div>
               <div class="td-stat-tile">
+                <mat-icon class="td-stat-icon td-icon-firerate">speed</mat-icon>
+                <span class="td-stat-value">{{ tower.combat.fireRate | number:'1.2-2' }}/s</span>
+                <span class="td-stat-label">Fire Rate</span>
+              </div>
+              <div class="td-stat-tile">
                 <mat-icon class="td-stat-icon td-icon-range">radar</mat-icon>
-                <span class="td-stat-value">{{ tower.combat.range }}m</span>
+                <span class="td-stat-value">{{ tower.combat.range | number:'1.0-0' }}m</span>
                 <span class="td-stat-label">Range</span>
               </div>
               <div class="td-stat-tile">
-                <mat-icon class="td-stat-icon td-icon-firerate">speed</mat-icon>
-                <span class="td-stat-value">{{ tower.combat.fireRate }}/s</span>
-                <span class="td-stat-label">Fire Rate</span>
+                <mat-icon class="td-stat-icon td-icon-firerate">flash_on</mat-icon>
+                <span class="td-stat-value">{{ getDps(tower) | number:'1.0-0' }}</span>
+                <span class="td-stat-label">DPS</span>
               </div>
               <div class="td-stat-tile">
                 <mat-icon class="td-stat-icon td-icon-kills">military_tech</mat-icon>
@@ -265,16 +305,6 @@
             }
           </div>
 
-          <!-- Sell button (subtle, hidden for research center) -->
-          @if (tower.typeConfig.sellValue > 0) {
-            <div class="td-sell-section">
-              <button class="td-sell-tile" (click)="sellTower.emit()">
-                <mat-icon>sell</mat-icon>
-                <span>Sell</span>
-                <span class="td-sell-value">+{{ tower.typeConfig.sellValue }}</span>
-              </button>
-            </div>
-          }
         </div>
       </section>
       }

@@ -54,15 +54,17 @@ type ClientMessage =
   | { type: 'result'; data: WaveResult }
   | { type: 'game_start'; difficulty: 'easy' | 'normal' | 'hard'; enemyBaseHp: Record<string, number> }
   | { type: 'game_over'; won: boolean; waves: number }
+  | { type: 'status'; wave: number; enemiesAlive: number; phase: string }
   | { type: 'request_stats' }
   | { type: 'request_export'; version: string };
 
 type ServerMessage =
-  | { type: 'connected'; sessionId: string; displayId?: number }
+  | { type: 'connected'; sessionId: string; displayId?: number; trainingState?: 'running' | 'paused' }
   | { type: 'wave_config'; data: WaveConfig }
   | { type: 'reset' }
   | { type: 'stats'; data: TrainingStats }
   | { type: 'model_exported'; path: string; version: string }
+  | { type: 'control'; action: 'start' | 'stop' | 'reload' | 'set_timescale' | 'set_rendering'; value?: number | boolean }
   | { type: 'error'; message: string };
 
 /**
@@ -81,6 +83,11 @@ export class TrainingClientService {
 
   private socket: WebSocket | null = null;
   private clientId = `client_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+
+  // Reconnect state
+  private intentionalDisconnect = false;
+  private reconnectTimer: number | null = null;
+  private reconnectAttempts = 0;
 
   // === CONNECTION SIGNALS ===
   readonly isConnected = signal(false);
@@ -189,6 +196,11 @@ export class TrainingClientService {
    * Update bot (called each frame from component's update loop)
    * @returns true if bot performed an action
    */
+  /**
+   * `deltaTime` is GAME-TIME ms passed by the engine sub-step loop —
+   * the bot's reactionTimeMs and strategy cooldowns are authored in
+   * game-time, so this matches semantics directly with no scaling.
+   */
   updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
     if (!this.botEnabled() || !this.currentBot || !this.gameState) return false;
 
@@ -225,10 +237,18 @@ export class TrainingClientService {
             break;
           }
 
+          // Use surface height (terrain or building rooftop, whichever is higher)
+          // so towers land on roofs in DevWorld instead of being hidden inside buildings.
+          const surfaceHeight = this.towerPlacement.getSurfaceHeightAt(
+            action.position.z,
+            action.position.x,
+            terrainHeight,
+          );
+
           const geoPos: GeoPosition = {
             lat: action.position.z,
             lon: action.position.x,
-            height: terrainHeight
+            height: surfaceHeight
           };
 
           // Validate using TowerPlacementService with height (prevents building on rooftops!)
@@ -249,15 +269,13 @@ export class TrainingClientService {
           const tower = this.gameState.placeTower(geoPos, action.towerType);
 
           if (tower) {
-
-            // Update stats
             this.botStats.update(stats => ({
               towersPlaced: stats.towersPlaced + 1,
               goldSpent: stats.goldSpent + towerConfig.cost
             }));
-          } else {
-            console.error(`[Bot] ⛔ Placement failed after validation passed! - ${action.reason}`);
           }
+          // Silent fail: bot strategies reason about LOS/collision themselves;
+          // placement failures happen and are recovered from naturally.
         }
         break;
 
@@ -309,8 +327,17 @@ export class TrainingClientService {
         break;
 
       case 'sell':
-        // Sell not implemented — no strategy generates sell actions currently.
-        // Would require: callbacks.sellTower(towerId) + botStats goldEarned tracking.
+        if (action.towerId) {
+          const tower = this.gameState.towerManager.getAll().find(t => t.id === action.towerId);
+          if (!tower) {
+            console.warn(`[Bot] ⛔ Sell: tower not found: ${action.towerId}`);
+            break;
+          }
+          // sellTower returns refund amount; we don't need to thread it into
+          // botStats (goldEarned) right now, but it feeds GameStateManager's
+          // credit tracking automatically via its own emission path.
+          this.gameState.sellTower(tower);
+        }
         break;
 
       case 'wait':
@@ -324,6 +351,27 @@ export class TrainingClientService {
           this.callbacks.startWave();
         } else {
           // Silently ignore - wave already active
+        }
+        break;
+      }
+
+      case 'research-start': {
+        // Start a research via EventBus command
+        if (action.researchId && this.gameState) {
+          this.gameState.getEventBus().emit({
+            type: 'command:start-research',
+            researchId: action.researchId,
+          });
+        }
+        break;
+      }
+
+      case 'research-cancel': {
+        if (action.researchId && this.gameState) {
+          this.gameState.getEventBus().emit({
+            type: 'command:cancel-research',
+            researchId: action.researchId,
+          });
         }
         break;
       }
@@ -348,16 +396,10 @@ export class TrainingClientService {
         // Notify backend of game start (sends enemy base HP config)
         this.notifyGameStart('normal');
 
-        // Only enable fast speed and bot if bot=auto mode is active
-        if (this.botAutoMode()) {
-          // Enable training mode with 75x timescale for maximum training speed (don't persist to localStorage)
-          this.gameState.setTrainingTimescale(75.0, false);
-
-          // Enable StrategyBot for automated training
-          this.enableBot('strategist');
-        } else {
-          // No training action needed
-        }
+        // Initial state is paused — the `connected` message from the backend
+        // carries the authoritative trainingState and handleConnected applies
+        // it (auto-starts the bot if backend is already 'running').
+        this.gameState.setTrainingTimescale(1.0, false);
 
         // Subscribe to wave completion events to send results to backend
         this.eventSubscriptions.push(this.gameState.getEventBus().on('wave:completed', async (_event) => {
@@ -444,8 +486,10 @@ export class TrainingClientService {
             gameVersion: '1.0.0',
           });
 
+          this.intentionalDisconnect = false;  // fresh connection → reconnect allowed
           this.isConnected.set(true);
           this.isConnecting.set(false);
+          this.startStatusPush();
           resolve(true);
         };
 
@@ -472,8 +516,13 @@ export class TrainingClientService {
             reason: event.reason,
             wasClean: event.wasClean
           });
-          console.trace('[WS-Debug] disconnect stacktrace');
           this.cleanup();
+          // Auto-reconnect unless this was an intentional disconnect().
+          // Backend might have been restarted — keep trying so dashboard can
+          // resume control once it comes back.
+          if (!this.intentionalDisconnect) {
+            this.scheduleReconnect(url);
+          }
         };
       } catch (error) {
         console.error('[Training] Failed to create WebSocket', error);
@@ -488,10 +537,37 @@ export class TrainingClientService {
    * Disconnect from backend
    */
   disconnect(): void {
+    this.intentionalDisconnect = true;
+    if (this.reconnectTimer !== null) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
     if (this.socket) {
       this.socket.close();
     }
     this.cleanup();
+  }
+
+  /**
+   * Schedule a reconnect with exponential backoff (1s → 2s → 4s → … → 30s).
+   * Runs until the connection succeeds or disconnect() is called. Calls the
+   * full connectToBackend() so event subscriptions get rebuilt.
+   */
+  private scheduleReconnect(_url: string): void {
+    if (this.reconnectTimer !== null) return;  // already scheduled
+    const attempt = ++this.reconnectAttempts;
+    const delay = Math.min(30000, 1000 * Math.pow(2, Math.min(5, attempt - 1)));
+    console.log(`[Training] Reconnect attempt ${attempt} in ${delay}ms`);
+    this.reconnectTimer = window.setTimeout(async () => {
+      this.reconnectTimer = null;
+      await this.connectToBackend();
+      if (this.isConnected()) {
+        console.log('[Training] Reconnected successfully');
+        this.reconnectAttempts = 0;
+      } else if (!this.intentionalDisconnect) {
+        this.scheduleReconnect(_url);
+      }
+    }, delay);
   }
 
   /**
@@ -588,6 +664,19 @@ export class TrainingClientService {
         if (msg.displayId !== undefined) {
           this.displayId.set(msg.displayId);
         }
+        // Phase 5.14: Training clients go headless by default. GPU/CPU cost
+        // drops to near-zero for the 3D scene, so many more tabs can train
+        // in parallel on one machine. User can re-enable via Game-Header
+        // toggle or dashboard per-client control.
+        this.store.renderingEnabled.set(false);
+
+        // Apply backend-authoritative training state. If backend says 'running',
+        // auto-enable bot; otherwise stay paused until Dashboard Start.
+        if (msg.trainingState === 'running') {
+          this.handleControlCommand('start');
+        } else {
+          this.handleControlCommand('stop');
+        }
         break;
 
       case 'wave_config':
@@ -607,10 +696,51 @@ export class TrainingClientService {
         this.pendingExport.next({ path: msg.path, version: msg.version });
         break;
 
+      case 'control':
+        this.handleControlCommand(msg.action, msg.value);
+        break;
+
       case 'error':
         console.error('[Training] Backend error:', msg.message);
         this.connectionError.set(msg.message);
         break;
+    }
+  }
+
+  /**
+   * Handle control commands from the dashboard.
+   * 'reload'        → hard-refresh tab (cleanest engine+tiles reset).
+   * 'stop'          → disable bot, timescale=1.
+   * 'start'         → enable bot, timescale=75.
+   * 'set_timescale' → set timescale to value (global speed control).
+   * 'set_rendering' → enable/disable per-frame 3D rendering (headless mode).
+   */
+  private handleControlCommand(
+    action: 'start' | 'stop' | 'reload' | 'set_timescale' | 'set_rendering',
+    value?: number | boolean,
+  ): void {
+    console.log('[Training] Control command received:', action, value);
+    if (action === 'reload') {
+      setTimeout(() => window.location.reload(), 100);
+      return;
+    }
+    if (action === 'stop') {
+      this.gameState.setTrainingTimescale(1.0, false);
+      this.disableBot();
+      return;
+    }
+    if (action === 'start') {
+      this.gameState.setTrainingTimescale(75.0, false);
+      this.enableBot('strategist');
+      return;
+    }
+    if (action === 'set_timescale' && typeof value === 'number' && value > 0) {
+      this.gameState.setTrainingTimescale(value, false);
+      return;
+    }
+    if (action === 'set_rendering' && typeof value === 'boolean') {
+      this.store.renderingEnabled.set(value);
+      return;
     }
   }
 
@@ -626,10 +756,36 @@ export class TrainingClientService {
 
   private cleanup(): void {
     this.disposeEventSubscriptions();
+    this.stopStatusPush();
     this.socket = null;
     this.sessionId.set(null);
     this.displayId.set(null);
     this.isConnected.set(false);
     this.isConnecting.set(false);
+  }
+
+  /**
+   * Phase 5.14: push a compact status snapshot to the backend once per
+   * wall-clock second so the dashboard can show live wave number +
+   * enemies-alive per client (without per-event flooding).
+   */
+  private statusPushTimer: ReturnType<typeof setInterval> | null = null;
+
+  private startStatusPush(): void {
+    if (this.statusPushTimer !== null) return;
+    this.statusPushTimer = setInterval(() => {
+      if (!this.isConnected() || !this.gameState) return;
+      const waveNum = this.gameState.waveNumber();
+      const enemiesAlive = this.gameState.enemyManager.getAliveCount();
+      const phase = this.gameState.phase();
+      this.send({ type: 'status', wave: waveNum, enemiesAlive, phase });
+    }, 1000);
+  }
+
+  private stopStatusPush(): void {
+    if (this.statusPushTimer !== null) {
+      clearInterval(this.statusPushTimer);
+      this.statusPushTimer = null;
+    }
   }
 }

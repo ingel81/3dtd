@@ -104,9 +104,12 @@ describe('EnemyManager', () => {
     expect(diedSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         enemy,
-        credits: 1,
       })
     );
+    // New kill-reward formula (Phase 5.5) — tank is Heavy (ArmorFactor 1.18)
+    // so credits > 1. Exact value depends on baseHP/speed/waveFactor.
+    const call = diedSpy.mock.calls[0][0];
+    expect(call.credits).toBeGreaterThan(0);
     expect(manager.getById(enemy.id)).toBeNull();
     expect(tilesEngine.enemies.remove).toHaveBeenCalledWith(enemy.id);
     expect(manager.getAliveCount()).toBe(0);
@@ -124,7 +127,7 @@ describe('EnemyManager', () => {
     const enemy = manager.spawn(path, 'zombie');
     vi.spyOn(enemy.movement, 'move').mockReturnValue('reached_end');
 
-    manager.update(16, 1);
+    manager.update(16, 0); // gameTimeMs=0
 
     expect(reachedSpy).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -160,9 +163,8 @@ describe('EnemyManager', () => {
     const enemy = manager.spawn(path, 'zombie');
     const statusSpy = vi.spyOn(enemy.movement, 'updateStatusEffects');
 
-    manager.update(16, 2);
-    // updateStatusEffects replaces removeExpiredEffects (single-pass optimization)
-    expect(statusSpy).toHaveBeenCalledWith(2, expect.any(Number));
+    manager.update(16, 1234); // gameTimeMs=1234
+    expect(statusSpy).toHaveBeenCalledWith(1234);
   });
 
   it('ignores debug spawn with invalid path', () => {

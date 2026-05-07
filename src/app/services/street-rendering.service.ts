@@ -311,10 +311,7 @@ export class StreetRenderingService {
       s.overlayGroup.add(this.streetLinesMesh);
     }
 
-    const totalNodes = s.allNodes.length;
-    console.warn(
-      `[PerfTrace] renderStreets: ${(performance.now() - s.t0).toFixed(1)}ms (progressive) | nodes=${totalNodes} segments=${allSegmentVertices.length / 6}`
-    );
+    // PerfTrace renderStreets disabled — fires per street build, noisy.
 
     this.streetBuildState = null;
     this.isRenderingStreets = false;

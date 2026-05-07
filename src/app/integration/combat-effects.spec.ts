@@ -32,11 +32,12 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 
 describe('Combat Effects Integration', () => {
   let m: TestManagers;
-  let nowValue: number;
+  /** Simulated engine game-clock. Tests advance it explicitly — matches
+   *  how GameStateManager increments `gameTimeMs` each sub-step. */
+  let gameTime: number;
 
   beforeEach(() => {
-    nowValue = 1000;
-    vi.spyOn(performance, 'now').mockImplementation(() => nowValue);
+    gameTime = 1000;
     m = createTestManagers();
   });
 
@@ -44,10 +45,8 @@ describe('Combat Effects Integration', () => {
     vi.restoreAllMocks();
   });
 
-  // ── Helpers ──────────────────────────────────────────────────────
-
   function advanceTime(ms: number) {
-    nowValue += ms;
+    gameTime += ms;
   }
 
   // ── Tests ────────────────────────────────────────────────────────
@@ -61,7 +60,7 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.5,
       duration: 3000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'tower-1',
     };
     enemy.movement.applyStatusEffect(slow);
@@ -79,7 +78,7 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.5,
       duration: 1000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'tower-1',
     };
     enemy.movement.applyStatusEffect(slow);
@@ -89,7 +88,7 @@ describe('Combat Effects Integration', () => {
 
     // Advance time past duration
     advanceTime(1100);
-    enemy.movement.removeExpiredEffects(1.0);
+    enemy.movement.removeExpiredEffects(gameTime);
 
     // Speed should be restored
     expect(enemy.movement.effectiveSpeed).toBe(baseSpeed);
@@ -104,7 +103,7 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: slowAmount,
       duration,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'ice-tower-1',
     };
     enemy.movement.applyStatusEffect(slow);
@@ -114,7 +113,7 @@ describe('Combat Effects Integration', () => {
 
     // After duration, speed restores
     advanceTime(duration + 100);
-    enemy.movement.removeExpiredEffects(1.0);
+    enemy.movement.removeExpiredEffects(gameTime);
     expect(enemy.movement.effectiveSpeed).toBe(baseSpeed);
   });
 
@@ -127,7 +126,7 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.3,
       duration: 2000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'tower-1',
     });
     expect(enemy.movement.effectiveSpeed).toBeCloseTo(baseSpeed * 0.7, 5);
@@ -137,7 +136,7 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.5,
       duration: 3000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'tower-2',
     });
 
@@ -152,32 +151,30 @@ describe('Combat Effects Integration', () => {
   it('should move enemy slower while slowed', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 50, false);
 
-    // Move without slow and record distance
     const startLat1 = enemy.position.lat;
-    m.enemyManager.update(500, 1.0);
+    m.enemyManager.update(500, gameTime);
     const normalDistance = enemy.position.lat - startLat1;
 
-    // Reset — spawn new enemy with slow
     const slowEnemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 50, false);
     slowEnemy.movement.applyStatusEffect({
       type: 'slow',
       value: 0.5,
       duration: 10000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'test',
     });
 
     const startLat2 = slowEnemy.position.lat;
-    m.enemyManager.update(500, 1.0);
+    m.enemyManager.update(500, gameTime);
     const slowDistance = slowEnemy.position.lat - startLat2;
 
-    // Slowed enemy should cover roughly half the distance
-    // (tolerance for rounding and discrete segment transitions)
     expect(slowDistance).toBeGreaterThan(0);
     expect(slowDistance).toBeLessThan(normalDistance);
   });
 
-  it('should respect timescale when checking effect expiry', () => {
+  it('status-effect duration is pure game-time (timescale-invariant)', () => {
+    // With sub-stepping, status-effects are compared against the engine
+    // game-clock directly — no /timescale compensation needed.
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
     const baseSpeed = enemy.movement.effectiveSpeed;
 
@@ -185,15 +182,13 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.5,
       duration: 2000, // 2s game-time
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'tower-1',
     });
 
-    // At 2x timescale, effective duration = 2000/2 = 1000ms real-time
-    advanceTime(1100); // Past 1000ms but before 2000ms
-    enemy.movement.removeExpiredEffects(2.0);
+    advanceTime(2100); // game-time past the 2s duration
+    enemy.movement.removeExpiredEffects(gameTime);
 
-    // Effect should have expired at 2x speed
     expect(enemy.movement.effectiveSpeed).toBe(baseSpeed);
   });
 
@@ -205,13 +200,13 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.5,
       duration: 3000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'tower-1',
     });
 
     // Advance only 1 second — effect has 3s duration
     advanceTime(1000);
-    enemy.movement.removeExpiredEffects(1.0);
+    enemy.movement.removeExpiredEffects(gameTime);
 
     // Still slowed
     expect(enemy.movement.effectiveSpeed).toBe(baseSpeed * 0.5);
@@ -226,7 +221,7 @@ describe('Combat Effects Integration', () => {
       type: 'slow',
       value: 0.5,
       duration: 5000,
-      startTime: performance.now(),
+      startTime: gameTime,
       sourceId: 'ice-tower',
     });
 

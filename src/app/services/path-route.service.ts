@@ -254,7 +254,7 @@ export class PathAndRouteService {
       this.showPathFromSpawn(spawn);
     }
 
-    console.warn(`[PerfTrace] refreshRouteLines: ${(performance.now() - tRefresh0).toFixed(1)}ms | spawns=${spawnPoints.length}`);
+    void tRefresh0;
 
     // Restore visibility state
     for (const line of this.routeLines) {

@@ -23,8 +23,12 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
   canExecute(state: GameStateSnapshot): boolean {
     if (state.defense.towerCount < 3 || state.player.credits < 50) return false;
 
-    // ~33% chance to fire (gives build/save strategies room)
-    if (Math.random() > 0.33) return false;
+    // Fire rate: 70% baseline, 90% when rich (>2000 credits) so gold-hoarding
+    // bots actively drain their coffers into upgrades instead of sitting on
+    // 300k+ credits.
+    const richThreshold = 2000;
+    const rate = state.player.credits >= richThreshold ? 0.9 : 0.7;
+    if (Math.random() > rate) return false;
 
     // Check if any tower actually has affordable upgrades (dynamic cost)
     const towers = this.gameState.towerManager.getAll();
@@ -63,21 +67,40 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
     // Try to upgrade closest tower
     const closest = towersWithDistance[0].tower;
     const upgrades = closest.getAvailableUpgrades();
-    const affordable = upgrades.filter(u => closest.getNextUpgradeCost(u.id) <= state.player.credits);
+    const maxTier = state.research?.maxUpgradeTier ?? 1;
+    const affordable = upgrades.filter(u => {
+      if (closest.getNextUpgradeCost(u.id) > state.player.credits) return false;
+      // Tier-Gate: T2 needs Advanced Weaponry, T3 needs Master Engineering
+      // research-slots (Research Center) is always allowed
+      if (u.id !== 'research-slots') {
+        const currentLevel = closest.getUpgradeLevel(u.id);
+        const requiredTier = currentLevel >= 2 ? 3 : currentLevel >= 1 ? 2 : 1;
+        if (maxTier < requiredTier) return false;
+      }
+      return true;
+    });
 
     if (affordable.length === 0) {
       return null;
     }
 
-    // Pick random affordable upgrade (variety for training)
-    const upgrade = affordable[Math.floor(Math.random() * affordable.length)];
+    // Tier-Priority: pick upgrade with LOWEST current level (T1 → T2 → T3).
+    // Keeps tier spread even across a tower's upgrades instead of random
+    // maxing one path. Among equal-tier upgrades, tie-break random.
+    affordable.sort((a, b) => {
+      const levelA = closest.getUpgradeLevel(a.id);
+      const levelB = closest.getUpgradeLevel(b.id);
+      if (levelA !== levelB) return levelA - levelB;
+      return Math.random() - 0.5;
+    });
+    const upgrade = affordable[0];
 
     return {
       type: 'upgrade',
       towerId: closest.id,
       upgradeId: upgrade.id,
       confidence: 0.8,
-      reason: `Upgrading ${closest.typeConfig.name} near spawn with ${upgrade.name}`
+      reason: `Upgrading ${closest.typeConfig.name} near spawn with ${upgrade.name} (T${closest.getUpgradeLevel(upgrade.id) + 1})`
     };
   }
 }

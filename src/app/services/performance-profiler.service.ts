@@ -68,6 +68,10 @@ const FRAME_BUDGET_MS = 16.67;
 export class PerformanceProfilerService {
   private engine: ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
+  // Profiling is opt-in: per-enemy performance.now() calls cost ~20% CPU
+  // at 10k enemies, so we only wire the timing hooks while the perf panel
+  // is open. Stays false until setProfilingActive(true) is called.
+  private profilingActive = false;
 
   /** Toggle for console profiling output */
   readonly consoleLogEnabled = signal(false);
@@ -97,6 +101,27 @@ export class PerformanceProfilerService {
   setEngine(engine: ThreeTilesEngine | null, gameState?: GameStateManager): void {
     this.engine = engine;
     if (gameState) this.gameState = gameState;
+  }
+
+  /**
+   * Wire / unwire the per-frame timing callbacks. Called by the perf panel
+   * on open/close so the hot-path (per-enemy performance.now()) is silent
+   * during normal gameplay.
+   */
+  setProfilingActive(active: boolean): void {
+    if (this.profilingActive === active) return;
+    this.profilingActive = active;
+    const gs = this.gameState;
+    if (!gs) return;
+    if (active) {
+      gs.enemyManager.onProfileTiming = (move, grid, height, render, total) =>
+        this.accumulateEnemyTiming(move, grid, height, render, total);
+      gs.setProfiler(this);
+    } else {
+      gs.enemyManager.onProfileTiming = null;
+      gs.setProfiler(null);
+      this.resetTimings();
+    }
   }
 
   /**

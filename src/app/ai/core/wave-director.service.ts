@@ -1,11 +1,12 @@
 /**
- * Wave Director Service
+ * Wave Director Service — Phase 5.10 Template-Based
  *
- * Central AI service that determines wave configurations.
- * Uses ONNX Runtime Web for inference, falls back to rules otherwise.
+ * Loads the ONNX model (optional) and decodes its output into a Template-Based
+ * WaveConfig. During training, the backend picks waves via WebSocket; the
+ * local ONNX path is only used in standalone play.
  *
- * IMPORTANT: This service is completely OPTIONAL.
- * The game works fine without it - WaveManager has its own default logic.
+ * If the model fails to load AND no backend is available, the service throws
+ * an explicit error — there is no rule-based fallback in Phase 5.10.
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
@@ -13,9 +14,21 @@ import { AIDataCollectorService } from './ai-data-collector.service';
 import { GameStateSnapshot } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
 import { WaveResult } from './models/wave-result';
-import { generateFallbackWave, getWaveDifficulty } from './fallback-rules';
 import { explainWaveDecision, DecisionExplanation, formatExplanationForUI } from './decision-explainer';
 import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
+import {
+  TEMPLATES,
+  MAX_TEMPLATE_SLOTS,
+  MAX_WAVE_DURATION_MS,
+  MIN_SPAWN_DELAY_MS,
+  DPS_RAMP_FLOOR,
+  DPS_RAMP_COUNT,
+  DPS_RAMP_HP_MULT,
+  getTemplate,
+  getAvailableTemplateMask,
+  lerpRange,
+} from './templates';
+import { templateForWave, endgameHpMultiplier } from './wave-curriculum';
 import { EnemyTypeId } from '../../models/enemy-types';
 
 /** Model loading states */
@@ -23,29 +36,6 @@ type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
 
 /** AI Mode */
 type AIMode = 'inference' | 'fallback' | 'training' | 'disabled';
-
-/** Constants matching backend config.py */
-const AI_CONSTANTS = {
-  KILL_TIME_MIN: 2.0,
-  KILL_TIME_MAX: 5.0,
-  SPAWN_DELAY_MIN: 500,
-  SPAWN_DELAY_MAX: 2000,
-  VARIATION_MAX: 0.3,
-  HEALTH_MULTIPLIER_MAX: 20.0,
-};
-
-/** Enemy base HP - must match config.py ENEMY_BASE_HP */
-const ENEMY_BASE_HP: Record<string, number> = {
-  zombie: 80,
-  bat: 25,
-  tank: 250,
-  wallsmasher: 200,
-  penguin: 30,
-  herbert: 500,
-};
-
-/** Enemy type order - must match backend model output */
-const ENEMY_TYPES: EnemyTypeId[] = ['zombie', 'bat', 'tank', 'wallsmasher', 'penguin', 'herbert'];
 
 /** ONNX Runtime types (lazy loaded) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -60,8 +50,8 @@ export class WaveDirectorService {
   // === STATE ===
   private session: InferenceSession | null = null; // ONNX Runtime session
   private ort: OrtModule | null = null; // ONNX Runtime (lazy loaded)
-  private recentEnemyTypes: EnemyTypeId[] = []; // Track recent types for variety
-  private readonly TYPE_COOLDOWN_WAVES = 4; // Don't repeat same type within N waves (synced with backend config.py)
+  /** Phase 5.10: template cooldown tracking (last 2 template indices) */
+  private recentTemplateIndices: number[] = [];
 
   // === SIGNALS ===
   readonly modelState = signal<ModelState>('not-loaded');
@@ -84,7 +74,7 @@ export class WaveDirectorService {
       case 'ready':
         return 'AI bereit (ONNX)';
       case 'fallback':
-        return 'Regelbasiert (kein Model)';
+        return 'Fehler: kein Model geladen';
       case 'error':
         return 'AI Fehler';
     }
@@ -173,55 +163,34 @@ export class WaveDirectorService {
   async getNextWave(): Promise<WaveConfig> {
     const startTime = performance.now();
 
-    try {
-      // Get current game state
-      const state = this.dataCollector.getStateSnapshot();
-      const history = this.dataCollector.getWaveHistory();
-      const recentDamage = history.map((h) => h.outcome.damagePercent);
-
-      let config: WaveConfig;
-
-      // Use AI if available, otherwise fallback
-      if (this.aiMode() === 'inference' && this.session && this.ort) {
-        config = await this.runInference(state);
-      } else {
-        config = generateFallbackWave(state, recentDamage);
-      }
-
-      // Generate explanation
-      const explanation = explainWaveDecision(state, config);
-      config.explanation = explanation.summary;
-      config.confidence = explanation.confidence;
-
-      // Store for UI
-      this.lastDecision.set(config);
-      this.lastExplanation.set(explanation);
-
-      // Tell data collector about this config
-      this.dataCollector.setCurrentWaveConfig(config);
-
-      // Track inference time
-      this.inferenceTimeMs.set(performance.now() - startTime);
-
-      // Debug logging
-      if (this.debugMode()) {
-        console.log('[AI] Wave decision:', config);
-        console.log('[AI] Explanation:', formatExplanationForUI(explanation));
-      }
-
-      return config;
-    } catch (error) {
-      console.error('[AI] Error generating wave, using emergency fallback', error);
-
-      // Emergency fallback - simple wave
-      return {
-        enemies: [{ type: 'zombie', count: 10 }],
-        totalCount: 10,
-        spawnDelay: 1000,
-        spawnDelayVariation: 0.2,
-        explanation: 'Notfall-Fallback (AI-Fehler)',
-      };
+    // Phase 5.10: no rule-based fallback — ONNX model is required for inference.
+    if (this.aiMode() !== 'inference' || !this.session || !this.ort) {
+      throw new Error(
+        '[AI] Wave Director model is not available. Fallback-rules were removed '
+        + 'in Phase 5.10; the ONNX model must load successfully for inference. '
+        + 'Check network/onnx-wasm assets and reload the page.'
+      );
     }
+
+    const state = this.dataCollector.getStateSnapshot();
+    const config = await this.runInference(state);
+
+    // Generate explanation
+    const explanation = explainWaveDecision(state, config);
+    config.explanation = explanation.summary;
+    config.confidence = explanation.confidence;
+
+    this.lastDecision.set(config);
+    this.lastExplanation.set(explanation);
+    this.dataCollector.setCurrentWaveConfig(config);
+    this.inferenceTimeMs.set(performance.now() - startTime);
+
+    if (this.debugMode()) {
+      console.log('[AI] Wave decision:', config);
+      console.log('[AI] Explanation:', formatExplanationForUI(explanation));
+    }
+
+    return config;
   }
 
   /**
@@ -261,79 +230,123 @@ export class WaveDirectorService {
   }
 
   /**
-   * Decode neural network output to WaveConfig
+   * Decode NN output to WaveConfig (Phase 5.11 Range-Based Templates).
    *
-   * Output format (10 values) - must match backend model.py:
-   * [0-5]  Enemy type logits (6 types)
-   * [6]    kill_time param (raw, apply sigmoid)
-   * [7]    count_factor param (raw, apply sigmoid)
-   * [8]    delay_factor param (raw, apply sigmoid)
-   * [9]    variation param (raw, apply sigmoid)
+   * Expected output layout (36 values) — must match backend model.py:
+   *   [0..MAX_TEMPLATE_SLOTS-1]                template logits (32 slots)
+   *   [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1]  4 raw continuous params
+   *                                            (count, spawn_delay, hp_mult, variation)
    */
   private decodeModelOutput(output: Float32Array, state: GameStateSnapshot): WaveConfig {
-    // Extract enemy logits and raw continuous params
-    const enemyLogits = Array.from(output.slice(0, 6));
-    const rawParams = output.slice(6, 10);
+    const templateLogits = Array.from(output.slice(0, MAX_TEMPLATE_SLOTS));
+    const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 4);
 
-    // Apply softmax to get enemy probabilities
-    const enemyProbs = this.softmax(enemyLogits);
+    // Apply template availability mask
+    const research = state.research;
+    const hasAntiAir = !!(
+      research?.towerUnlocked?.['ice']
+      || research?.towerUnlocked?.['rocket']
+      || research?.airTargetingUnlocked
+    );
+    const hasAntiEthereal = !!(
+      research?.towerUnlocked?.['magic']
+      || research?.towerUnlocked?.['ice']
+    );
+    const mask = getAvailableTemplateMask(
+      state.waveNumber + 1,
+      hasAntiAir,
+      hasAntiEthereal,
+      this.recentTemplateIndices,
+    );
 
-    // Apply sigmoid transforms to continuous params (matching backend server.py)
-    const killTime = AI_CONSTANTS.KILL_TIME_MIN +
-      this.sigmoid(rawParams[0]) * (AI_CONSTANTS.KILL_TIME_MAX - AI_CONSTANTS.KILL_TIME_MIN);
-    const countFactor = this.sigmoid(rawParams[1]);
-    const delayFactor = this.sigmoid(rawParams[2]);
-    const variation = this.sigmoid(rawParams[3]) * AI_CONSTANTS.VARIATION_MAX;
+    const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);
+    const probs = this.softmax(maskedLogits);
 
-    // Select enemy type with variety rules (like backend)
-    const enemyType = this.selectEnemyTypeWithVariety(enemyProbs, state.waveNumber);
-
-    // Track this type for future cooldown
-    this.recentEnemyTypes.push(enemyType);
-    if (this.recentEnemyTypes.length > this.TYPE_COOLDOWN_WAVES) {
-      this.recentEnemyTypes.shift();
+    let bestIdx = 0;
+    let bestProb = -1;
+    for (let i = 0; i < probs.length; i++) {
+      if (mask[i] && probs[i] > bestProb) {
+        bestProb = probs[i];
+        bestIdx = i;
+      }
     }
 
-    const maxProb = Math.max(...enemyProbs);
+    // Phase 5.16: Wave-Curriculum override. For waves 1..18 the designer
+    // picks the template; NN's continuous factors still tune difficulty.
+    // Bot/player has unlimited build-phase research time — capability
+    // alignment is their responsibility.
+    const upcomingWave = state.waveNumber + 1;
+    const forcedId = templateForWave(upcomingWave);
+    if (forcedId) {
+      const forcedIdx = TEMPLATES.findIndex((t) => t.id === forcedId);
+      if (forcedIdx >= 0) {
+        bestIdx = forcedIdx;
+        bestProb = 1.0;
+      }
+    }
 
-    // Calculate count based on tower count (matching backend server.py)
-    const towerCount = Math.max(1, state.defense.towerCount);
-    const minCount = Math.max(5, towerCount + 1);
-    const maxCount = Math.min(50, towerCount * 7);
-    const totalCount = Math.round(minCount + countFactor * (maxCount - minCount));
+    const template = getTemplate(bestIdx);
+    if (!template) {
+      throw new Error(`[AI] Decoder selected invalid template index ${bestIdx}`);
+    }
 
-    // Calculate spawn delay
-    const spawnDelay = Math.round(
-      AI_CONSTANTS.SPAWN_DELAY_MIN +
-      delayFactor * (AI_CONSTANTS.SPAWN_DELAY_MAX - AI_CONSTANTS.SPAWN_DELAY_MIN)
-    );
+    // Interpolate each factor into template's range.
+    const countFactor = this.sigmoid(rawParams[0]);
+    const spawnFactor = this.sigmoid(rawParams[1]);
+    const hpFactor = this.sigmoid(rawParams[2]);
+    const variationFactor = this.sigmoid(rawParams[3]);
 
-    // Calculate health multiplier (DPS-relative HP, matching backend)
-    const effectiveDPS = enemyType === 'bat'
-      ? Math.max(10, state.defense.antiAirDPS)
-      : Math.max(25, state.defense.totalDPS);
-    const enemyHP = effectiveDPS * killTime;
-    const baseHP = ENEMY_BASE_HP[enemyType];
-    const healthMultiplier = Math.min(
-      enemyHP / baseHP,
-      AI_CONSTANTS.HEALTH_MULTIPLIER_MAX
-    );
+    // DPS-scaled range caps for difficulty axes (count, hp_mult). Weak defense
+    // → narrow effective range; strong defense → full range.
+    const totalDPS = Math.max(0, state.defense?.totalDPS ?? 0);
+    const dpsFracCount = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDPS / DPS_RAMP_COUNT));
+    const dpsFracHp = Math.max(DPS_RAMP_FLOOR, Math.min(1.0, totalDPS / DPS_RAMP_HP_MULT));
+    const lerpCapped = (rng: readonly [number, number], factor: number, dpsFrac: number): number => {
+      const effMax = rng[0] + (rng[1] - rng[0]) * dpsFrac;
+      return rng[0] + (effMax - rng[0]) * factor;
+    };
 
-    // Determine archetype
-    const archetype = this.inferArchetypeFromType(enemyType, totalCount);
+    let totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
+    let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
+    // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
+    // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
+    const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
+    const hpMult = Math.round(baseHpMult * endgameHpMultiplier(upcomingWave) * 1000) / 1000;
+    const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
+
+    // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
+    const totalDuration = totalCount * spawnDelay;
+    if (totalDuration > MAX_WAVE_DURATION_MS) {
+      spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount));
+    }
+
+    // Expand template → enemy groups
+    const enemies: { type: string; count: number; healthMultiplier: number }[] = [];
+    let allocated = 0;
+    for (let i = 0; i < template.enemies.length; i++) {
+      const [type, share] = template.enemies[i];
+      const count = i === template.enemies.length - 1
+        ? Math.max(1, totalCount - allocated)
+        : Math.max(1, Math.round(totalCount * share));
+      allocated += count;
+      enemies.push({ type, count, healthMultiplier: hpMult });
+    }
+
+    this.recentTemplateIndices.push(bestIdx);
+    if (this.recentTemplateIndices.length > 5) {
+      this.recentTemplateIndices.shift();
+    }
 
     return {
-      enemies: [{
-        type: enemyType,
-        count: totalCount,
-        healthMultiplier: Math.round(healthMultiplier * 100) / 100,
-      }],
-      totalCount,
+      enemies,
+      totalCount: enemies.reduce((s, e) => s + e.count, 0),
       spawnDelay,
       spawnDelayVariation: variation,
-      archetype,
-      confidence: maxProb,
-      difficultyModifier: 0,
+      pattern: template.spawnPattern ?? undefined,
+      confidence: bestProb,
+      templateIdx: bestIdx,
+      templateName: template.name,
+      templateStrength: hpMult,
     };
   }
 
@@ -341,60 +354,10 @@ export class WaveDirectorService {
    * Softmax function for probability distribution
    */
   private softmax(values: number[]): number[] {
-    const max = Math.max(...values);
-    const exps = values.map((v) => Math.exp(v - max));
-    const sum = exps.reduce((a, b) => a + b, 0);
-    return exps.map((e) => e / sum);
-  }
-
-  /**
-   * Select enemy type with variety rules (matching backend server.py)
-   */
-  private selectEnemyTypeWithVariety(probs: number[], waveNumber: number): EnemyTypeId {
-    // Early waves: force zombie
-    if (waveNumber < 2) {
-      return 'zombie';
-    }
-
-    // Waves 2-3: limited selection (zombie, tank, penguin)
-    if (waveNumber < 4) {
-      const allowed = [0, 2, 4]; // zombie, tank, penguin indices
-      const allowedProbs = allowed.map(i => probs[i]);
-      const bestAllowedIdx = allowed[allowedProbs.indexOf(Math.max(...allowedProbs))];
-      return ENEMY_TYPES[bestAllowedIdx];
-    }
-
-    // Sort indices by probability (descending)
-    const sortedIndices = probs
-      .map((p, i) => ({ prob: p, idx: i }))
-      .sort((a, b) => b.prob - a.prob)
-      .map(x => x.idx);
-
-    // Find best type not on cooldown
-    for (const idx of sortedIndices) {
-      const candidateType = ENEMY_TYPES[idx];
-      if (!this.recentEnemyTypes.includes(candidateType)) {
-        return candidateType;
-      }
-    }
-
-    // All on cooldown, just pick the best
-    return ENEMY_TYPES[sortedIndices[0]];
-  }
-
-  /**
-   * Infer wave archetype from enemy type and count
-   */
-  private inferArchetypeFromType(
-    enemyType: EnemyTypeId,
-    totalCount: number
-  ): WaveConfig['archetype'] {
-    if (enemyType === 'herbert') return 'boss';
-    if (enemyType === 'bat') return 'air';
-    if (enemyType === 'tank' || enemyType === 'wallsmasher') return 'siege';
-    if (enemyType === 'penguin') return 'rush';
-    if (totalCount > 30) return 'swarm';
-    return 'mixed';
+    const finiteMax = Math.max(...values.filter(v => Number.isFinite(v)));
+    const exps = values.map(v => (Number.isFinite(v) ? Math.exp(v - finiteMax) : 0));
+    const sum = exps.reduce((a, b) => a + b, 0) || 1;
+    return exps.map(e => e / sum);
   }
 
   /**
@@ -470,13 +433,18 @@ export class WaveDirectorService {
   }
 
   /**
-   * Get difficulty rating for current decision
+   * Get a coarse difficulty rating for the current wave decision (0-1).
+   * Phase 5.10: derived from template strength + count factor + wave-number.
    */
   getCurrentDifficulty(): number {
     const config = this.lastDecision();
     if (!config) return 0;
-
-    return getWaveDifficulty(config, 1); // Wave number doesn't matter much
+    // Phase 5.11: derive from templateStrength (hp_mult) + count size.
+    // hp_mult ranges vary per template (up to 10× for mech/mammoth); normalize against 10.
+    const hpMult = config.templateStrength ?? 1.0;
+    const hpNorm = Math.min(1, hpMult / 10);
+    const countNorm = Math.min(1, config.totalCount / 1000);
+    return Math.min(1, hpNorm * 0.5 + countNorm * 0.5);
   }
 
   /**

@@ -5,7 +5,7 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'jsdom',
-    include: ['src/**/*.spec.ts'],
+    include: ['src/**/*.spec.ts', 'tools/**/*.spec.ts'],
     exclude: ['node_modules', 'dist', 'src/app/app.spec.ts'],
     alias: {
       // Three.js braucht ggf. Mocking — aber erstmal schauen ob's ohne geht

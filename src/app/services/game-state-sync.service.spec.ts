@@ -96,7 +96,7 @@ describe('GameStateSyncService (sync logic)', () => {
     eventBus.emit({ type: 'wave:started', wave: 1, enemyCount: 5 });
     expect(store.phase()).toBe('wave');
 
-    eventBus.emit({ type: 'wave:completed', wave: 1, credits: 50 });
+    eventBus.emit({ type: 'wave:completed', wave: 1, credits: 50, perfect: false, closeCall: false, hpLost: 0 });
     expect(store.phase()).toBe('setup');
     expect(store.enemiesAlive()).toBe(0);
   });
@@ -241,7 +241,7 @@ describe('GameStateSyncService (sync logic)', () => {
     expect(store.credits()).toBe(810);
 
     // Wave completes
-    eventBus.emit({ type: 'wave:completed', wave: 1, credits: 50 });
+    eventBus.emit({ type: 'wave:completed', wave: 1, credits: 50, perfect: false, closeCall: false, hpLost: 0 });
     expect(store.waveActive()).toBe(false);
     expect(store.phase()).toBe('setup');
   });

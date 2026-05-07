@@ -58,7 +58,7 @@ export class CoverageFillStrategy extends BaseStrategy {
     }
 
     // Find affordable towers
-    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes);
+    const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
     const missingTypes = this.config.knownTowerTypes.filter(t => !existingTypes.has(t));
     const missingAffordable = affordable.filter(t => !existingTypes.has(t));
 
@@ -108,6 +108,41 @@ export class CoverageFillStrategy extends BaseStrategy {
         (typeCounts.get(current) || 0) < (typeCounts.get(best) || 0) ? current : best
       );
       reason = 'reinforce';
+    }
+
+    // Archer dominance guard (see DistributedPlacement for rationale).
+    const archerCount = existingTowers.filter(t => t.typeConfig.id === 'archer').length;
+    if (chosen === 'archer' && archerCount > 0) {
+      let maxNonArcher = 0;
+      for (const [type, count] of typeCounts) {
+        if (type !== 'archer' && count > maxNonArcher) maxNonArcher = count;
+      }
+      const archerCap = Math.max(4, maxNonArcher * 2);
+      if (archerCount >= archerCap) {
+        const alternatives = affordable.filter(t => t !== 'archer');
+        if (alternatives.length > 0) {
+          chosen = alternatives[Math.floor(Math.random() * alternatives.length)];
+          reason = 'archer-ratio-cap';
+        } else {
+          const target = this.config.knownTowerTypes
+            .filter(t => t !== 'archer')
+            .reduce<TowerTypeId | null>(
+              (best, current) =>
+                best === null || TOWER_TYPES[current].cost < TOWER_TYPES[best].cost
+                  ? current
+                  : best,
+              null,
+            );
+          if (target) {
+            this.savingForType = target;
+            return {
+              type: 'wait',
+              reason: `Saving for ${TOWER_TYPES[target].name} (archer cap ${archerCap} hit)`,
+              confidence: 0.7,
+            };
+          }
+        }
+      }
     }
 
     return this.placeTower(chosen, existingTowers, reason);

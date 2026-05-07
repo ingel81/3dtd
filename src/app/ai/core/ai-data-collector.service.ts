@@ -20,11 +20,17 @@ import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { Enemy } from '../../entities/enemy.entity';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { ResearchStore } from '../../store/research.store';
 import {
   GameStateSnapshot,
   PlayerState,
   RecentHistory,
+  ResearchSnapshot,
 } from './models/game-state-snapshot';
+import { RESEARCH_TREE, getResearchForTower } from '../../configs/research/research-tree.config';
+import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
+import { ArmorType } from '../../configs/combat/combat.types';
+import { getEnemyType } from '../../models/enemy-types';
 import { WaveResult, WaveOutcome } from './models/wave-result';
 import { WaveConfig, createSimpleWaveConfig } from './models/wave-config';
 import {
@@ -33,7 +39,7 @@ import {
   estimatePathCoverage,
   estimateKillZoneStrength,
 } from './defense-analyzer';
-import { calculateWaveThreat } from './game-state-encoder';
+import { calculateWaveThreat, computeDpsByDamageType } from './game-state-encoder';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ComponentType } from '../../core/component';
 import { MovementComponent } from '../../game-components/movement.component';
@@ -51,6 +57,7 @@ const CLOSE_CALL_THRESHOLD = 0.3;
 export class AIDataCollectorService {
   private gameState = inject(GameStateManager);
   private store = inject(TowerDefenseStore);
+  private researchStore = inject(ResearchStore);
   private gridService = inject(GlobalRouteGridService);
   // Get eventBus from GameStateManager (not directly injectable)
   private get eventBus() {
@@ -76,6 +83,7 @@ export class AIDataCollectorService {
   private waveHistory: WaveResult[] = [];
   private damageHistory: number[] = [];
   private progressHistory: number[] = [];
+  private nearMissHistory: number[] = [];
   private enemyTypesHistory: string[][] = [];
   private threatHistory: number[] = [];
 
@@ -118,7 +126,8 @@ export class AIDataCollectorService {
    */
   getStateSnapshot(): GameStateSnapshot {
     const towers = this.gameState.towerManager.getAll();
-    const defense = analyzeDefense(towers);
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+    const defense = analyzeDefense(towers, airTargetingUnlocked);
 
     // Enhance defense with spatial metrics
     defense.pathCoverage = estimatePathCoverage(towers, 500); // Estimated 500m path
@@ -138,11 +147,65 @@ export class AIDataCollectorService {
       defense,
       vulnerabilities,
       recentHistory: this.getRecentHistory(),
-      dpsProfile: this.getDPSProfile(towers),
+      dpsProfile: this.getDPSProfile(towers, airTargetingUnlocked),
+      research: this.getResearchSnapshot(),
+      expectedArmorDistribution: this.getExpectedArmorDistribution(),
     };
+
+    // Pre-compute dpsByDamageType so Python backend receives it via WebSocket
+    // (encoder fallback also works, but pre-computing guarantees sync).
+    snapshot.dpsByDamageType = computeDpsByDamageType(snapshot);
 
     this.lastSnapshot.set(snapshot);
     return snapshot;
+  }
+
+  /** Build a research-state snapshot from ResearchStore. */
+  private getResearchSnapshot(): ResearchSnapshot {
+    const completed = this.researchStore.completedResearches();
+    const totalCount = Object.keys(RESEARCH_TREE).length;
+
+    // Build per-tower unlock map
+    const towerUnlocked: Record<TowerTypeId, boolean> = {} as Record<TowerTypeId, boolean>;
+    for (const id of Object.keys(TOWER_TYPES) as TowerTypeId[]) {
+      towerUnlocked[id] = this.researchStore.isTowerUnlocked(id);
+    }
+
+    const activeResearches = this.researchStore.activeResearches();
+    return {
+      completedIds: [...completed],
+      completedCount: completed.size,
+      totalCount,
+      activeIds: activeResearches.map(a => a.researchId),
+      centerLevel: this.researchStore.centerLevel(),
+      slotsUsed: activeResearches.length,
+      maxSlots: this.researchStore.researchSlots(),
+      airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
+      maxUpgradeTier: this.researchStore.maxUpgradeTier(),
+      towerUnlocked,
+    };
+  }
+
+  /** Approximate the armor distribution expected in the current wave config. */
+  private getExpectedArmorDistribution(): Record<ArmorType, number> | undefined {
+    const config = this.currentWaveConfig;
+    if (!config || !config.enemies || config.enemies.length === 0) return undefined;
+
+    const dist: Record<ArmorType, number> = {
+      unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0,
+    };
+    let total = 0;
+    for (const group of config.enemies) {
+      const enemyCfg = getEnemyType(group.type as any);
+      if (!enemyCfg?.armorType) continue;
+      dist[enemyCfg.armorType] += group.count;
+      total += group.count;
+    }
+    if (total === 0) return undefined;
+    for (const k of Object.keys(dist) as ArmorType[]) {
+      dist[k] /= total;
+    }
+    return dist;
   }
 
   /**
@@ -173,6 +236,7 @@ export class AIDataCollectorService {
     this.waveHistory = [];
     this.damageHistory = [];
     this.progressHistory = [];
+    this.nearMissHistory = [];
     this.enemyTypesHistory = [];
     this.threatHistory = [];
     this.waveResultCount.set(0);
@@ -486,6 +550,12 @@ export class AIDataCollectorService {
     this.waveHistory.push(result);
     this.damageHistory.push(result.outcome.damagePercent);
     this.progressHistory.push(result.outcome.avgPathProgressPercent);
+    // Derive near-miss ratio from enemyProgressValues: fraction reaching >0.8
+    const progressValues = result.outcome.enemyProgressValues ?? [];
+    const nearMissRatio = progressValues.length > 0
+      ? progressValues.filter((p) => p > 0.80).length / progressValues.length
+      : 0;
+    this.nearMissHistory.push(nearMissRatio);
     this.enemyTypesHistory.push(
       result.config.enemies.map((e) => e.type)
     );
@@ -499,6 +569,7 @@ export class AIDataCollectorService {
       this.waveHistory.shift();
       this.damageHistory.shift();
       this.progressHistory.shift();
+      this.nearMissHistory.shift();
       this.enemyTypesHistory.shift();
       this.threatHistory.shift();
     }
@@ -517,16 +588,19 @@ export class AIDataCollectorService {
    * Uses cached value if towers haven't changed.
    */
   getCurrentDPSProfile(): PathDPSProfile {
-    return this.getDPSProfile(this.gameState.towerManager.getAll());
+    return this.getDPSProfile(
+      this.gameState.towerManager.getAll(),
+      this.researchStore.airTargetingUnlocked(),
+    );
   }
 
   /**
    * Compute DPS profile with caching.
-   * Only recomputes when towers change (place/sell/upgrade).
+   * Only recomputes when towers change (place/sell/upgrade) or AA-Retrofit unlocks.
    */
-  private getDPSProfile(towers: Tower[]): PathDPSProfile {
-    // Compute a hash of tower state for cache invalidation
-    const hash = this.computeTowerHash(towers);
+  private getDPSProfile(towers: Tower[], airTargetingUnlocked: boolean): PathDPSProfile {
+    // Compute a hash of tower state for cache invalidation (retrofit changes air bins)
+    const hash = `${this.computeTowerHash(towers)}|aa:${airTargetingUnlocked ? 1 : 0}`;
 
     if (this.cachedDPSProfile && this.dpsProfileTowerHash === hash) {
       return this.cachedDPSProfile;
@@ -544,7 +618,13 @@ export class AIDataCollectorService {
       return createEmptyDPSProfile();
     }
 
-    this.cachedDPSProfile = computePathDPSProfile(routes, grid, towers, coordinateSync);
+    this.cachedDPSProfile = computePathDPSProfile(
+      routes,
+      grid,
+      towers,
+      coordinateSync,
+      airTargetingUnlocked,
+    );
     this.dpsProfileTowerHash = hash;
     return this.cachedDPSProfile;
   }
@@ -617,6 +697,7 @@ export class AIDataCollectorService {
     return {
       damagePerWave: [...this.damageHistory],
       progressPerWave: [...this.progressHistory],
+      nearMissPerWave: [...this.nearMissHistory],
       enemyTypesUsed: [...this.enemyTypesHistory],
       lastWaveThreat,
       avgWaveDuration: avgDuration,

@@ -7,6 +7,8 @@
 
 import { GameStateSnapshot } from '../../core/models/game-state-snapshot';
 import { TowerTypeId, TOWER_TYPES } from '../../../configs/tower-types.config';
+import { ArmorType, ARMOR_TYPES } from '../../../configs/combat/combat.types';
+import { DAMAGE_MATRIX } from '../../../configs/combat/damage-matrix.config';
 import {
   ITowerBot,
   TowerAction,
@@ -19,38 +21,47 @@ export abstract class BaseTowerBot implements ITowerBot {
   readonly config: BotConfig;
   readonly name: string;
 
-  protected lastActionTime = 0;
+  /**
+   * Phase 5.12: Game-time cooldown accumulator. Decrements by deltaTime (game-time
+   * from caller). Previous wall-clock `lastActionTime` made the bot make 75× fewer
+   * decisions per game-second at high training timescales — the major cause of
+   * "bot gets to wave 6 at 75× but wave 20 at 10×".
+   */
+  protected cooldownRemainingMs = 0;
   protected totalGoldSpent = 0;
   protected towersBuilt = 0;
 
-  constructor(skillLevel: BotSkillLevel, name?: string) {
-    this.config = { ...BOT_CONFIGS[skillLevel] };
+  /**
+   * @param skillLevel Baseline config from BOT_CONFIGS
+   * @param configOverrides Optional per-instance tweaks (used by factory to add
+   *   ±30% randomness to reactionTimeMs/maxTowers so concurrent training clients
+   *   don't all play identically).
+   * @param name Display name
+   */
+  constructor(skillLevel: BotSkillLevel, configOverrides?: Partial<BotConfig>, name?: string) {
+    this.config = { ...BOT_CONFIGS[skillLevel], ...(configOverrides ?? {}) };
     this.name = name ?? `${skillLevel.charAt(0).toUpperCase()}${skillLevel.slice(1)}Bot`;
   }
 
   /**
-   * Main update method - handles timing and delegates to subclass
+   * Main update method - handles timing and delegates to subclass.
+   * deltaTime is game-time ms (already timescale-scaled by TrainingClientService).
    */
-  update(state: GameStateSnapshot, _deltaTime: number): TowerAction | null {
-    const now = Date.now();
-
-    // Check cooldown
-    if (now - this.lastActionTime < this.config.reactionTimeMs) {
-      return null;
+  update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
+    // Tick cooldown in game-time. While cooldown is active, return early.
+    if (this.cooldownRemainingMs > 0) {
+      this.cooldownRemainingMs -= deltaTime;
+      if (this.cooldownRemainingMs > 0) return null;
+      this.cooldownRemainingMs = 0;
     }
 
     // Decide action (individual strategies handle tower limits)
-    let action = this.decideAction(state);
+    const action = this.decideAction(state);
 
-    // Maybe make a mistake
-    if (action && Math.random() < this.config.mistakeRate) {
-      action = this.makeSuboptimalAction(state, action);
-    }
-
-    // Record action time (always apply cooldown, even for 'wait',
-    // to prevent random-based decisions from being re-rolled every frame)
+    // Reset cooldown on any action (including 'wait') to prevent random-based
+    // decisions from being re-rolled every frame.
     if (action) {
-      this.lastActionTime = now;
+      this.cooldownRemainingMs = this.config.reactionTimeMs;
 
       if (action.type === 'place' && action.towerType) {
         const towerConfig = TOWER_TYPES[action.towerType];
@@ -68,7 +79,7 @@ export abstract class BaseTowerBot implements ITowerBot {
    * Reset bot state for new game
    */
   reset(): void {
-    this.lastActionTime = 0;
+    this.cooldownRemainingMs = 0;
     this.totalGoldSpent = 0;
     this.towersBuilt = 0;
   }
@@ -78,50 +89,47 @@ export abstract class BaseTowerBot implements ITowerBot {
    */
   protected abstract decideAction(state: GameStateSnapshot): TowerAction | null;
 
-  /**
-   * Make a suboptimal version of the action (for mistakes)
-   */
-  protected makeSuboptimalAction(
-    state: GameStateSnapshot,
-    originalAction: TowerAction
-  ): TowerAction {
-    // Default: just do the original action
-    // Subclasses can override for more specific mistakes
-    return originalAction;
-  }
-
   // === HELPER METHODS ===
 
   /**
-   * Get cheapest tower this bot can build that it can afford
+   * Get cheapest tower this bot can build that it can afford.
+   * Respects research unlock status when `state` is provided (optional for backwards compat).
    */
-  protected getCheapestAffordableTower(credits: number): TowerTypeId | null {
+  protected getCheapestAffordableTower(credits: number, state?: GameStateSnapshot): TowerTypeId | null {
     let cheapest: TowerTypeId | null = null;
     let lowestCost = Infinity;
 
     for (const typeId of this.config.knownTowerTypes) {
       const config = TOWER_TYPES[typeId];
-      if (config && config.cost <= credits && config.cost < lowestCost) {
-        lowestCost = config.cost;
-        cheapest = typeId;
-      }
+      if (!config || config.cost > credits || config.cost >= lowestCost) continue;
+      if (config.attackType === 'passive') continue;
+      if (state?.research && !state.research.towerUnlocked[typeId]) continue;
+      lowestCost = config.cost;
+      cheapest = typeId;
     }
 
     return cheapest;
   }
 
   /**
-   * Get best tower for current situation
+   * Get best tower for current situation.
+   * Respects:
+   * - knownTowerTypes (bot skill-limit)
+   * - research unlock status (only unlocked towers)
+   * - excludes passive buildings (research-center) — not a combat tower
    */
   protected getBestTowerForSituation(state: GameStateSnapshot, credits: number): TowerTypeId | null {
     const affordable = this.config.knownTowerTypes.filter((t) => {
       const config = TOWER_TYPES[t];
-      return config && config.cost <= credits;
+      if (!config || config.cost > credits) return false;
+      if (config.attackType === 'passive') return false;       // exclude research-center etc.
+      if (state.research && !state.research.towerUnlocked[t]) return false;
+      return true;
     });
 
     if (affordable.length === 0) return null;
 
-    // If adapts to enemies, check vulnerabilities
+    // If adapts to enemies, check vulnerabilities first (high-prio matchups)
     if (this.config.adaptsToEnemies) {
       // No anti-air? Build anti-air if affordable
       if (state.vulnerabilities.airDefenseGap) {
@@ -139,10 +147,50 @@ export abstract class BaseTowerBot implements ITowerBot {
       if (state.vulnerabilities.slowGap && affordable.includes('ice')) {
         return 'ice';
       }
+
+      // DamageType-aware pick: use armor distribution to weight effective DPS
+      if (state.expectedArmorDistribution) {
+        return this.pickTowerByDamageMatrix(affordable, state.expectedArmorDistribution);
+      }
     }
 
     // Default: pick based on DPS/cost ratio
     return this.getBestValueTower(affordable);
+  }
+
+  /**
+   * Pick the tower with highest effective DPS-per-cost against expected armor mix.
+   * effectiveDps = sum over armor-types: DAMAGE_MATRIX[damageType][armor] * dist[armor]
+   */
+  protected pickTowerByDamageMatrix(
+    affordable: TowerTypeId[],
+    armorDist: Record<ArmorType, number>
+  ): TowerTypeId {
+    let best: TowerTypeId = affordable[0];
+    let bestScore = -Infinity;
+
+    for (const typeId of affordable) {
+      const cfg = TOWER_TYPES[typeId];
+      if (!cfg) continue;
+
+      // DPS: beam towers use damagePerSecond, projectile/melee use damage * fireRate
+      const baseDps = cfg.attackType === 'beam'
+        ? (cfg.damagePerSecond ?? 0)
+        : cfg.damage * cfg.fireRate;
+      if (baseDps <= 0) continue;
+
+      const avgMultiplier = ARMOR_TYPES.reduce((sum, armor) => {
+        const m = DAMAGE_MATRIX[cfg.damageType]?.[armor] ?? 1.0;
+        return sum + m * (armorDist[armor] ?? 0);
+      }, 0);
+
+      const score = (baseDps * avgMultiplier) / cfg.cost;
+      if (score > bestScore) {
+        bestScore = score;
+        best = typeId;
+      }
+    }
+    return best;
   }
 
   /**

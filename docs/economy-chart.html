@@ -1,0 +1,1099 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>3DTD Economy Chart — Phase 5.16</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: 'JetBrains Mono', 'Consolas', monospace; background: #1a1f1a; color: #d8d4c8; margin: 24px; }
+  h1, h2 { color: #c9a44c; letter-spacing: 0.5px; }
+  h1 { border-bottom: 2px solid #6FB7A5; padding-bottom: 6px; }
+  .meta { color: #8a8a78; font-size: 12px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
+  .chart-container { background: #232a23; padding: 16px; border-radius: 4px; border-left: 3px solid #6FB7A5; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 8px; }
+  th, td { padding: 4px 8px; border-bottom: 1px solid #2a322a; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #2a322a; color: #c9a44c; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
+  td.l { text-align: left; }
+  tr.boss td { background: rgba(192,75,63,0.08); }
+  tr.milestone td { color: #c9a44c; font-weight: 600; }
+  .legend-row { display: flex; flex-wrap: wrap; gap: 12px; font-size: 11px; margin-top: 6px; }
+  .legend-row span { display: inline-flex; align-items: center; gap: 4px; }
+  .swatch { display: inline-block; width: 10px; height: 10px; border-radius: 2px; }
+  code { background: #2a322a; padding: 1px 4px; border-radius: 2px; color: #6FB7A5; }
+  .note { color: #8a8a78; font-size: 11px; margin: 6px 0 0 0; }
+</style>
+</head>
+<body>
+<h1>3DTD Economy Chart — Phase 5.16 (Wave-Curriculum Budget)</h1>
+<div class="meta">
+  Generated <code>2026-05-07T09:32:00.645Z</code> from
+  <code>wave-curriculum.ts</code>, <code>tower-types.config.ts</code>,
+  <code>research-tree.config.ts</code>, <code>research-center.config.ts</code>,
+  <code>game-balance.config.ts</code>.
+  Regenerate via <code>npm run economy-chart</code>.
+</div>
+
+<div class="grid">
+
+  <div class="chart-container">
+    <h2>Early-Game Zoom (W1–W12) — Milestone Visibility</h2>
+    <p class="note">
+      Same data as the full chart below but Y-axis capped so the early
+      milestone thresholds (Archer, Research-Center, Anti-Air, Cannon, Magic,
+      RC-Lv2) sit at readable heights. This is the chart you want when tuning
+      W1–W12 balance — late-game milestones are off-screen here on purpose.
+    </p>
+    <canvas id="earlyChart" height="110"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Full Progression (W1–W30) — Cumulative Player Gold vs. Cost Milestones</h2>
+    <p class="note">
+      Lower line = baseline run (no skill bonuses). Upper line = "perfect run"
+      (every wave 0 HP loss → Perfect-Bonus +35%
+      and Combo up to +30% on completion budget).
+      Dashed lines = costs the player has to clear to reach key gameplay states
+      (cumulative spending from game start, including prereq research).
+      The milestones look bunched at the bottom because cumulative income at W30
+      (~13k) dwarfs even the largest single-state cost (~1.2k); use the
+      early-game zoom above for readable W1–W12 inspection.
+    </p>
+    <canvas id="cumulChart" height="120"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Milestone Affordability — When Does The Player First Cross Each Threshold?</h2>
+    <p class="note">
+      Wave at which the baseline cumulative gold first equals or exceeds each
+      milestone cost. Tells you immediately whether a wave that <em>requires</em>
+      a capability is reachable in time (e.g. W7 needs Anti-Air → must cross
+      that milestone by W6 at the latest).
+    </p>
+    <canvas id="milestoneChart" height="90"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Per-Wave Income Breakdown</h2>
+    <p class="note">Stacked: kill-budget (split equally per spawned enemy) + completion-base + milestone-bonus.</p>
+    <canvas id="perWaveChart" height="100"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Difficulty Curve (Phase 5.16) — Endgame Pressure Multipliers</h2>
+    <p class="note">
+      Structural difficulty knobs that compound on top of the NN's continuous
+      factors. <strong>HP multiplier</strong> kicks in at W20 (+5%/wave, cap 4×) — applied
+      AFTER the NN's hp_mult so a strong checkpoint pushing 3× still gets the
+      ramp on top. <strong>Leak damage</strong> scales every 10 waves so late-game leaks
+      drain the base much faster (W11→2 HP, W21→3 HP, W31→4 HP per leak).
+    </p>
+    <canvas id="difficultyChart" height="90"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Wave-by-Wave Table</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Wave</th>
+          <th class="l">Template</th>
+          <th>Kill</th>
+          <th>Complete</th>
+          <th>Milestone</th>
+          <th>Total</th>
+          <th>Cumul (baseline)</th>
+          <th>Cumul (perfect)</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td class="l">zombie_horde</td>
+          <td>30</td>
+          <td>15</td>
+          <td>—</td>
+          <td>45</td>
+          <td>145</td>
+          <td>151</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td class="l">rat_tide</td>
+          <td>35</td>
+          <td>18</td>
+          <td>—</td>
+          <td>53</td>
+          <td>198</td>
+          <td>212</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td class="l">penguin_rush</td>
+          <td>42</td>
+          <td>22</td>
+          <td>—</td>
+          <td>64</td>
+          <td>262</td>
+          <td>287</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td class="l">light_mix</td>
+          <td>50</td>
+          <td>26</td>
+          <td>—</td>
+          <td>76</td>
+          <td>338</td>
+          <td>377</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td class="l">wallsmasher_crew</td>
+          <td>60</td>
+          <td>30</td>
+          <td>—</td>
+          <td>90</td>
+          <td>428</td>
+          <td>486</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td class="l">spider_swarm</td>
+          <td>70</td>
+          <td>35</td>
+          <td>—</td>
+          <td>105</td>
+          <td>533</td>
+          <td>614</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td class="l">bat_swarm</td>
+          <td>82</td>
+          <td>40</td>
+          <td>—</td>
+          <td>122</td>
+          <td>655</td>
+          <td>762</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td class="l">hornet_strike</td>
+          <td>95</td>
+          <td>45</td>
+          <td>—</td>
+          <td>140</td>
+          <td>795</td>
+          <td>932</td>
+        </tr>
+        <tr>
+          <td>9</td>
+          <td class="l">tank_column</td>
+          <td>110</td>
+          <td>52</td>
+          <td>—</td>
+          <td>162</td>
+          <td>957</td>
+          <td>1,128</td>
+        </tr>
+        <tr class="boss milestone">
+          <td>10</td>
+          <td class="l">boss_herbert</td>
+          <td>125</td>
+          <td>60</td>
+          <td>45</td>
+          <td>230</td>
+          <td>1,187</td>
+          <td>1,397</td>
+        </tr>
+        <tr>
+          <td>11</td>
+          <td class="l">bear_pack</td>
+          <td>142</td>
+          <td>68</td>
+          <td>—</td>
+          <td>210</td>
+          <td>1,397</td>
+          <td>1,651</td>
+        </tr>
+        <tr>
+          <td>12</td>
+          <td class="l">dragon_elite</td>
+          <td>160</td>
+          <td>76</td>
+          <td>—</td>
+          <td>236</td>
+          <td>1,633</td>
+          <td>1,937</td>
+        </tr>
+        <tr>
+          <td>13</td>
+          <td class="l">ghost_surge</td>
+          <td>180</td>
+          <td>85</td>
+          <td>—</td>
+          <td>265</td>
+          <td>1,898</td>
+          <td>2,258</td>
+        </tr>
+        <tr>
+          <td>14</td>
+          <td class="l">mammoth_siege</td>
+          <td>200</td>
+          <td>95</td>
+          <td>—</td>
+          <td>295</td>
+          <td>2,193</td>
+          <td>2,615</td>
+        </tr>
+        <tr>
+          <td>15</td>
+          <td class="l">mech_army</td>
+          <td>220</td>
+          <td>105</td>
+          <td>—</td>
+          <td>325</td>
+          <td>2,518</td>
+          <td>3,009</td>
+        </tr>
+        <tr>
+          <td>16</td>
+          <td class="l">chaos_wave</td>
+          <td>240</td>
+          <td>115</td>
+          <td>—</td>
+          <td>355</td>
+          <td>2,873</td>
+          <td>3,439</td>
+        </tr>
+        <tr>
+          <td>17</td>
+          <td class="l">wraith_storm</td>
+          <td>260</td>
+          <td>125</td>
+          <td>—</td>
+          <td>385</td>
+          <td>3,258</td>
+          <td>3,906</td>
+        </tr>
+        <tr>
+          <td>18</td>
+          <td class="l">armor_gauntlet</td>
+          <td>280</td>
+          <td>135</td>
+          <td>—</td>
+          <td>415</td>
+          <td>3,673</td>
+          <td>4,409</td>
+        </tr>
+        <tr>
+          <td>19</td>
+          <td class="l">rat_tide</td>
+          <td>305</td>
+          <td>145</td>
+          <td>—</td>
+          <td>450</td>
+          <td>4,123</td>
+          <td>4,954</td>
+        </tr>
+        <tr class="boss milestone">
+          <td>20</td>
+          <td class="l">boss_herbert</td>
+          <td>330</td>
+          <td>160</td>
+          <td>80</td>
+          <td>570</td>
+          <td>4,693</td>
+          <td>5,628</td>
+        </tr>
+        <tr>
+          <td>21</td>
+          <td class="l">bat_swarm</td>
+          <td>360</td>
+          <td>175</td>
+          <td>—</td>
+          <td>535</td>
+          <td>5,228</td>
+          <td>6,277</td>
+        </tr>
+        <tr>
+          <td>22</td>
+          <td class="l">tank_column</td>
+          <td>390</td>
+          <td>190</td>
+          <td>—</td>
+          <td>580</td>
+          <td>5,808</td>
+          <td>6,981</td>
+        </tr>
+        <tr>
+          <td>23</td>
+          <td class="l">ghost_surge</td>
+          <td>420</td>
+          <td>205</td>
+          <td>—</td>
+          <td>625</td>
+          <td>6,433</td>
+          <td>7,740</td>
+        </tr>
+        <tr>
+          <td>24</td>
+          <td class="l">dragon_elite</td>
+          <td>450</td>
+          <td>220</td>
+          <td>—</td>
+          <td>670</td>
+          <td>7,103</td>
+          <td>8,553</td>
+        </tr>
+        <tr>
+          <td>25</td>
+          <td class="l">mammoth_siege</td>
+          <td>480</td>
+          <td>235</td>
+          <td>—</td>
+          <td>715</td>
+          <td>7,818</td>
+          <td>9,421</td>
+        </tr>
+        <tr>
+          <td>26</td>
+          <td class="l">hornet_strike</td>
+          <td>510</td>
+          <td>250</td>
+          <td>—</td>
+          <td>760</td>
+          <td>8,578</td>
+          <td>10,344</td>
+        </tr>
+        <tr>
+          <td>27</td>
+          <td class="l">wraith_storm</td>
+          <td>540</td>
+          <td>265</td>
+          <td>—</td>
+          <td>805</td>
+          <td>9,383</td>
+          <td>11,322</td>
+        </tr>
+        <tr>
+          <td>28</td>
+          <td class="l">mech_army</td>
+          <td>575</td>
+          <td>285</td>
+          <td>—</td>
+          <td>860</td>
+          <td>10,243</td>
+          <td>12,368</td>
+        </tr>
+        <tr>
+          <td>29</td>
+          <td class="l">chaos_wave</td>
+          <td>610</td>
+          <td>305</td>
+          <td>—</td>
+          <td>915</td>
+          <td>11,158</td>
+          <td>13,482</td>
+        </tr>
+        <tr class="boss milestone">
+          <td>30</td>
+          <td class="l">boss_herbert</td>
+          <td>650</td>
+          <td>325</td>
+          <td>120</td>
+          <td>1,095</td>
+          <td>12,253</td>
+          <td>14,789</td>
+        </tr>
+        <tr>
+          <td>31</td>
+          <td class="l">zombie_horde</td>
+          <td>700</td>
+          <td>355</td>
+          <td>—</td>
+          <td>1,055</td>
+          <td>13,308</td>
+          <td>16,075</td>
+        </tr>
+        <tr>
+          <td>32</td>
+          <td class="l">rat_tide</td>
+          <td>750</td>
+          <td>385</td>
+          <td>—</td>
+          <td>1,135</td>
+          <td>14,443</td>
+          <td>17,461</td>
+        </tr>
+        <tr>
+          <td>33</td>
+          <td class="l">penguin_rush</td>
+          <td>800</td>
+          <td>415</td>
+          <td>—</td>
+          <td>1,215</td>
+          <td>15,658</td>
+          <td>18,946</td>
+        </tr>
+        <tr>
+          <td>34</td>
+          <td class="l">light_mix</td>
+          <td>850</td>
+          <td>445</td>
+          <td>—</td>
+          <td>1,295</td>
+          <td>16,953</td>
+          <td>20,531</td>
+        </tr>
+        <tr>
+          <td>35</td>
+          <td class="l">wallsmasher_crew</td>
+          <td>900</td>
+          <td>475</td>
+          <td>—</td>
+          <td>1,375</td>
+          <td>18,328</td>
+          <td>22,215</td>
+        </tr>
+        <tr>
+          <td>36</td>
+          <td class="l">spider_swarm</td>
+          <td>950</td>
+          <td>505</td>
+          <td>—</td>
+          <td>1,455</td>
+          <td>19,783</td>
+          <td>23,999</td>
+        </tr>
+        <tr>
+          <td>37</td>
+          <td class="l">bat_swarm</td>
+          <td>1,000</td>
+          <td>535</td>
+          <td>—</td>
+          <td>1,535</td>
+          <td>21,318</td>
+          <td>25,882</td>
+        </tr>
+        <tr>
+          <td>38</td>
+          <td class="l">hornet_strike</td>
+          <td>1,050</td>
+          <td>565</td>
+          <td>—</td>
+          <td>1,615</td>
+          <td>22,933</td>
+          <td>27,865</td>
+        </tr>
+        <tr>
+          <td>39</td>
+          <td class="l">tank_column</td>
+          <td>1,100</td>
+          <td>595</td>
+          <td>—</td>
+          <td>1,695</td>
+          <td>24,628</td>
+          <td>29,947</td>
+        </tr>
+        <tr class="boss milestone">
+          <td>40</td>
+          <td class="l">boss_herbert</td>
+          <td>1,150</td>
+          <td>625</td>
+          <td>170</td>
+          <td>1,945</td>
+          <td>26,573</td>
+          <td>32,299</td>
+        </tr>
+        <tr>
+          <td>41</td>
+          <td class="l">bear_pack</td>
+          <td>1,200</td>
+          <td>655</td>
+          <td>—</td>
+          <td>1,855</td>
+          <td>28,428</td>
+          <td>34,580</td>
+        </tr>
+        <tr>
+          <td>42</td>
+          <td class="l">dragon_elite</td>
+          <td>1,250</td>
+          <td>685</td>
+          <td>—</td>
+          <td>1,935</td>
+          <td>30,363</td>
+          <td>36,961</td>
+        </tr>
+        <tr>
+          <td>43</td>
+          <td class="l">ghost_surge</td>
+          <td>1,300</td>
+          <td>715</td>
+          <td>—</td>
+          <td>2,015</td>
+          <td>32,378</td>
+          <td>39,441</td>
+        </tr>
+        <tr>
+          <td>44</td>
+          <td class="l">mammoth_siege</td>
+          <td>1,350</td>
+          <td>745</td>
+          <td>—</td>
+          <td>2,095</td>
+          <td>34,473</td>
+          <td>42,021</td>
+        </tr>
+        <tr>
+          <td>45</td>
+          <td class="l">mech_army</td>
+          <td>1,400</td>
+          <td>775</td>
+          <td>—</td>
+          <td>2,175</td>
+          <td>36,648</td>
+          <td>44,700</td>
+        </tr>
+        <tr>
+          <td>46</td>
+          <td class="l">chaos_wave</td>
+          <td>1,450</td>
+          <td>805</td>
+          <td>—</td>
+          <td>2,255</td>
+          <td>38,903</td>
+          <td>47,479</td>
+        </tr>
+        <tr>
+          <td>47</td>
+          <td class="l">wraith_storm</td>
+          <td>1,500</td>
+          <td>835</td>
+          <td>—</td>
+          <td>2,335</td>
+          <td>41,238</td>
+          <td>50,357</td>
+        </tr>
+        <tr>
+          <td>48</td>
+          <td class="l">armor_gauntlet</td>
+          <td>1,550</td>
+          <td>865</td>
+          <td>—</td>
+          <td>2,415</td>
+          <td>43,653</td>
+          <td>53,335</td>
+        </tr>
+        <tr>
+          <td>49</td>
+          <td class="l">rat_tide</td>
+          <td>1,600</td>
+          <td>895</td>
+          <td>—</td>
+          <td>2,495</td>
+          <td>46,148</td>
+          <td>56,412</td>
+        </tr>
+        <tr class="boss">
+          <td>50</td>
+          <td class="l">boss_herbert</td>
+          <td>1,650</td>
+          <td>925</td>
+          <td>—</td>
+          <td>2,575</td>
+          <td>48,723</td>
+          <td>59,589</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Tower Costs</h2>
+    <table>
+      <thead>
+        <tr><th class="l">Tower</th><th>Cost</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="l">Archer Tower</td><td>45</td></tr>
+        <tr><td class="l">Research Center</td><td>75</td></tr>
+        <tr><td class="l">Tentacle Tower</td><td>80</td></tr>
+        <tr><td class="l">Dual-Gatling Tower</td><td>90</td></tr>
+        <tr><td class="l">Ice Tower</td><td>90</td></tr>
+        <tr><td class="l">Poison Tower</td><td>100</td></tr>
+        <tr><td class="l">Fire Tower</td><td>110</td></tr>
+        <tr><td class="l">Rocket Tower</td><td>120</td></tr>
+        <tr><td class="l">Magic Tower</td><td>140</td></tr>
+        <tr><td class="l">Cannon Tower</td><td>150</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Upgrade-Track Cost Curve (per stat, per tower)</h2>
+    <p class="note">
+      Cumulative cost to bring ONE stat (e.g. damage) on ONE tower from L0 to
+      the listed level. All combat towers use the same standard track:
+      base 50g, scaling ×1.40 per level,
+      maxLevel 25. Tier-Gating: T1=L1-5 (free), T2=L6-10
+      (Advanced Weaponry), T3=L11-15 (Master Engineering), T4=L16-20 (Advanced
+      Engineering), T5=L21-25 (Transcendent Tech). Note that the late tiers
+      cost more than a Wave-30 cumulative income, so players can never max
+      everything — that's the design.
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>Level</th>
+          <th>Tier</th>
+          <th>Step Cost</th>
+          <th>Cumul (one stat)</th>
+          <th>Cumul × 3 stats</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>L1</td>
+          <td>T1</td>
+          <td>50</td>
+          <td>50</td>
+          <td>150</td>
+        </tr>
+        <tr>
+          <td>L5</td>
+          <td>T1</td>
+          <td>192</td>
+          <td>547</td>
+          <td>1,641</td>
+        </tr>
+        <tr>
+          <td>L10</td>
+          <td>T2</td>
+          <td>1,033</td>
+          <td>3,490</td>
+          <td>10,470</td>
+        </tr>
+        <tr>
+          <td>L15</td>
+          <td>T3</td>
+          <td>5,556</td>
+          <td>19,321</td>
+          <td>57,963</td>
+        </tr>
+        <tr>
+          <td>L20</td>
+          <td>T4</td>
+          <td>29,882</td>
+          <td>104,461</td>
+          <td>313,383</td>
+        </tr>
+        <tr>
+          <td>L25</td>
+          <td>T5</td>
+          <td>160,710</td>
+          <td>562,361</td>
+          <td>1,687,083</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Research Tree (with cumulative cost-to-unlock)</h2>
+    <p class="note">
+      Cumul = cost to research <em>this node + all prereqs</em> from scratch.
+      Cumul-Time = same for duration. Both are minimums (no parallel-slot
+      speedup or research center upgrades factored in).
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th class="l">Research</th>
+          <th>Cost</th>
+          <th>Duration</th>
+          <th class="l">Prerequisites</th>
+          <th>Cumul Cost</th>
+          <th>Cumul Time</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="l">Gatling Technology</td>
+          <td>40</td>
+          <td>15s</td>
+          <td class="l">—</td>
+          <td>40</td>
+          <td>15s</td>
+        </tr>
+        <tr>
+          <td class="l">Ice Magic</td>
+          <td>40</td>
+          <td>15s</td>
+          <td class="l">—</td>
+          <td>40</td>
+          <td>15s</td>
+        </tr>
+        <tr>
+          <td class="l">Tentacle Biology</td>
+          <td>45</td>
+          <td>15s</td>
+          <td class="l">—</td>
+          <td>45</td>
+          <td>15s</td>
+        </tr>
+        <tr>
+          <td class="l">Toxic Compounds</td>
+          <td>45</td>
+          <td>15s</td>
+          <td class="l">—</td>
+          <td>45</td>
+          <td>15s</td>
+        </tr>
+        <tr>
+          <td class="l">Siege Engineering</td>
+          <td>50</td>
+          <td>20s</td>
+          <td class="l">gatling-tech</td>
+          <td>90</td>
+          <td>35s</td>
+        </tr>
+        <tr>
+          <td class="l">Fire Alchemy</td>
+          <td>55</td>
+          <td>20s</td>
+          <td class="l">toxic-compounds</td>
+          <td>100</td>
+          <td>35s</td>
+        </tr>
+        <tr>
+          <td class="l">Rocketry</td>
+          <td>60</td>
+          <td>18s</td>
+          <td class="l">gatling-tech</td>
+          <td>100</td>
+          <td>33s</td>
+        </tr>
+        <tr>
+          <td class="l">Arcane Studies</td>
+          <td>65</td>
+          <td>20s</td>
+          <td class="l">ice-magic</td>
+          <td>105</td>
+          <td>35s</td>
+        </tr>
+        <tr>
+          <td class="l">AA Retrofit</td>
+          <td>45</td>
+          <td>12s</td>
+          <td class="l">rocketry</td>
+          <td>145</td>
+          <td>45s</td>
+        </tr>
+        <tr>
+          <td class="l">Advanced Weaponry</td>
+          <td>130</td>
+          <td>35s</td>
+          <td class="l">siege-engineering, arcane-studies</td>
+          <td>325</td>
+          <td>105s</td>
+        </tr>
+        <tr>
+          <td class="l">Master Engineering</td>
+          <td>240</td>
+          <td>60s</td>
+          <td class="l">advanced-weaponry</td>
+          <td>565</td>
+          <td>165s</td>
+        </tr>
+        <tr>
+          <td class="l">Advanced Engineering</td>
+          <td>380</td>
+          <td>90s</td>
+          <td class="l">master-engineering</td>
+          <td>945</td>
+          <td>255s</td>
+        </tr>
+        <tr>
+          <td class="l">Transcendent Tech</td>
+          <td>600</td>
+          <td>150s</td>
+          <td class="l">advanced-engineering</td>
+          <td>1,545</td>
+          <td>405s</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Research Center</h2>
+    <table>
+      <thead>
+        <tr><th class="l">State</th><th>Cost</th><th>Slots</th></tr>
+      </thead>
+      <tbody>
+        <tr><td class="l">Place (Level 1)</td><td>75</td><td>1</td></tr>
+        <tr><td class="l">Upgrade to Level 2</td><td>180</td><td>2</td></tr>
+        <tr><td class="l">Upgrade to Level 3</td><td>350</td><td>3</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const milestoneLines = [{"label":"First Archer (45)","cost":45,"color":"#888"},{"label":"Research Center placed","cost":75,"color":"#6FB7A5"},{"label":"Research Center → Lv2","cost":255,"color":"#6FB7A5"},{"label":"Cannon unlocked + built (Siege-Eng + Cannon)","cost":315,"color":"#C04B3F"},{"label":"Magic unlocked + built (Ice-Magic + Arcane + Magic)","cost":320,"color":"#7B6BD9"},{"label":"Anti-Air ready (Rocketry+AA-Retrofit + Rocket tower)","cost":340,"color":"#E2A53D"},{"label":"T2 upgrades available (Advanced Weaponry path)","cost":580,"color":"#9B7BC2"},{"label":"Research Center → Lv3","cost":605,"color":"#6FB7A5"},{"label":"T3 upgrades available (Master Engineering full chain)","cost":1170,"color":"#D6A23A"},{"label":"T4 upgrades available (Advanced Engineering chain)","cost":1550,"color":"#E68A4D"},{"label":"T5 upgrades available (Transcendent Tech chain)","cost":2150,"color":"#F2D17A"}];
+const startCredits = 100;
+const numWaves = 50;
+const cumulData = [145,198,262,338,428,533,655,795,957,1187,1397,1633,1898,2193,2518,2873,3258,3673,4123,4693,5228,5808,6433,7103,7818,8578,9383,10243,11158,12253,13308,14443,15658,16953,18328,19783,21318,22933,24628,26573,28428,30363,32378,34473,36648,38903,41238,43653,46148,48723];
+const cumulPerfectData = [151,212,287,377,486,614,762,932,1128,1397,1651,1937,2258,2615,3009,3439,3906,4409,4954,5628,6277,6981,7740,8553,9421,10344,11322,12368,13482,14789,16075,17461,18946,20531,22215,23999,25882,27865,29947,32299,34580,36961,39441,42021,44700,47479,50357,53335,56412,59589];
+const waveLabels = ["W1","W2","W3","W4","W5","W6","W7","W8","W9","W10","W11","W12","W13","W14","W15","W16","W17","W18","W19","W20","W21","W22","W23","W24","W25","W26","W27","W28","W29","W30","W31","W32","W33","W34","W35","W36","W37","W38","W39","W40","W41","W42","W43","W44","W45","W46","W47","W48","W49","W50"];
+const hpMultData = [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1.05,1.1,1.15,1.2,1.25,1.3,1.35,1.4,1.45,1.5,1.55,1.6,1.65,1.7000000000000002,1.75,1.8,1.85,1.9,1.9500000000000002,2,2.05,2.1,2.1500000000000004,2.2,2.25,2.3,2.35,2.4000000000000004,2.45,2.5];
+const leakDamageData = [1,1,1,1,1,1,1,1,1,1,2,2,2,2,2,2,2,2,2,2,3,3,3,3,3,3,3,3,3,3,4,4,4,4,4,4,4,4,4,4,5,5,5,5,5,5,5,5,5,5];
+
+// Wave at which baseline cumul first reaches each milestone (1-indexed; null = never)
+function waveAffordable(cost) {
+  for (let i = 0; i < cumulData.length; i++) {
+    if (cumulData[i] >= cost) return i + 1;
+  }
+  return null;
+}
+
+const earlyWaves = 12;
+const earlyChartCtx = document.getElementById('earlyChart').getContext('2d');
+new Chart(earlyChartCtx, {
+  type: 'line',
+  data: {
+    labels: waveLabels.slice(0, earlyWaves),
+    datasets: [
+      {
+        label: 'Cumulative Gold (baseline)',
+        data: cumulData.slice(0, earlyWaves),
+        borderColor: '#6FB7A5',
+        backgroundColor: 'rgba(111,183,165,0.12)',
+        fill: true,
+        tension: 0.2,
+        pointRadius: 3,
+      },
+      {
+        label: 'Cumulative Gold (perfect run)',
+        data: cumulPerfectData.slice(0, earlyWaves),
+        borderColor: '#c9a44c',
+        fill: false,
+        tension: 0.2,
+        pointRadius: 2,
+        borderDash: [4, 3],
+      },
+      ...milestoneLines
+        .filter(m => m.cost <= 1500)
+        .map(m => ({
+          label: m.label + ' (' + m.cost + 'g)',
+          data: new Array(earlyWaves).fill(m.cost),
+          borderColor: m.color,
+          borderWidth: 1.5,
+          borderDash: [2, 4],
+          pointRadius: 0,
+          fill: false,
+          tension: 0,
+        })),
+    ],
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#d8d4c8', font: { size: 11 } } },
+      tooltip: { mode: 'index', intersect: false },
+    },
+    scales: {
+      x: { ticks: { color: '#8a8a78' }, grid: { color: '#2a322a' } },
+      y: {
+        max: 1500,
+        ticks: { color: '#8a8a78', callback: (v) => v.toLocaleString('en-US') + 'g' },
+        grid: { color: '#2a322a' },
+        beginAtZero: true,
+      },
+    },
+  },
+});
+
+const cumulChartCtx = document.getElementById('cumulChart').getContext('2d');
+new Chart(cumulChartCtx, {
+  type: 'line',
+  data: {
+    labels: waveLabels,
+    datasets: [
+      {
+        label: 'Cumulative Gold (baseline)',
+        data: cumulData,
+        borderColor: '#6FB7A5',
+        backgroundColor: 'rgba(111,183,165,0.12)',
+        fill: true,
+        tension: 0.2,
+        pointRadius: 3,
+      },
+      {
+        label: 'Cumulative Gold (perfect run)',
+        data: cumulPerfectData,
+        borderColor: '#c9a44c',
+        fill: false,
+        tension: 0.2,
+        pointRadius: 2,
+        borderDash: [4, 3],
+      },
+      ...milestoneLines.map(m => ({
+        label: m.label + ' (' + m.cost + 'g)',
+        data: new Array(numWaves).fill(m.cost),
+        borderColor: m.color,
+        borderWidth: 1,
+        borderDash: [2, 4],
+        pointRadius: 0,
+        fill: false,
+        tension: 0,
+      })),
+    ],
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#d8d4c8', font: { size: 11 } } },
+      tooltip: { mode: 'index', intersect: false },
+    },
+    scales: {
+      x: { ticks: { color: '#8a8a78' }, grid: { color: '#2a322a' } },
+      y: {
+        ticks: { color: '#8a8a78', callback: (v) => v.toLocaleString('en-US') + 'g' },
+        grid: { color: '#2a322a' },
+        beginAtZero: true,
+      },
+    },
+  },
+});
+
+const difficultyChartCtx = document.getElementById('difficultyChart').getContext('2d');
+new Chart(difficultyChartCtx, {
+  type: 'line',
+  data: {
+    labels: waveLabels,
+    datasets: [
+      {
+        label: 'HP multiplier (post-NN)',
+        data: hpMultData,
+        borderColor: '#C04B3F',
+        backgroundColor: 'rgba(192,75,63,0.10)',
+        fill: true,
+        tension: 0.0,
+        pointRadius: 2,
+        yAxisID: 'y',
+      },
+      {
+        label: 'Leak damage (HP per enemy reaching base)',
+        data: leakDamageData,
+        borderColor: '#E68A4D',
+        fill: false,
+        stepped: true,
+        pointRadius: 2,
+        yAxisID: 'y1',
+      },
+    ],
+  },
+  options: {
+    responsive: true,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: { labels: { color: '#d8d4c8', font: { size: 11 } } },
+      tooltip: { mode: 'index', intersect: false },
+    },
+    scales: {
+      x: { ticks: { color: '#8a8a78' }, grid: { color: '#2a322a' } },
+      y: {
+        type: 'linear',
+        position: 'left',
+        ticks: { color: '#C04B3F', callback: (v) => v.toFixed(1) + '×' },
+        grid: { color: '#2a322a' },
+        title: { display: true, text: 'HP multiplier', color: '#C04B3F' },
+        beginAtZero: true,
+      },
+      y1: {
+        type: 'linear',
+        position: 'right',
+        ticks: { color: '#E68A4D', callback: (v) => v + ' HP' },
+        grid: { drawOnChartArea: false },
+        title: { display: true, text: 'Leak damage', color: '#E68A4D' },
+        beginAtZero: true,
+      },
+    },
+  },
+});
+
+const milestoneChartCtx = document.getElementById('milestoneChart').getContext('2d');
+const milestoneAffordability = milestoneLines.map(m => ({
+  label: m.label,
+  cost: m.cost,
+  wave: waveAffordable(m.cost),
+  color: m.color,
+}));
+new Chart(milestoneChartCtx, {
+  type: 'bar',
+  data: {
+    labels: milestoneAffordability.map(m => m.label),
+    datasets: [{
+      label: 'Wave when first affordable',
+      data: milestoneAffordability.map(m => m.wave ?? 0),
+      backgroundColor: milestoneAffordability.map(m => m.color),
+    }],
+  },
+  options: {
+    indexAxis: 'y',
+    responsive: true,
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: (ctx) => {
+            const m = milestoneAffordability[ctx.dataIndex];
+            return 'Affordable at W' + (m.wave ?? '∞') + ' (cost: ' + m.cost + 'g)';
+          },
+        },
+      },
+    },
+    scales: {
+      x: {
+        ticks: { color: '#8a8a78', callback: (v) => 'W' + v },
+        grid: { color: '#2a322a' },
+        beginAtZero: true,
+        max: numWaves,
+      },
+      y: { ticks: { color: '#d8d4c8', font: { size: 10 } }, grid: { color: '#2a322a' } },
+    },
+  },
+});
+
+const perWaveCtx = document.getElementById('perWaveChart').getContext('2d');
+new Chart(perWaveCtx, {
+  type: 'bar',
+  data: {
+    labels: ["W1","W2","W3","W4","W5","W6","W7","W8","W9","W10","W11","W12","W13","W14","W15","W16","W17","W18","W19","W20","W21","W22","W23","W24","W25","W26","W27","W28","W29","W30","W31","W32","W33","W34","W35","W36","W37","W38","W39","W40","W41","W42","W43","W44","W45","W46","W47","W48","W49","W50"],
+    datasets: [
+      { label: 'Kill budget', data: [30,35,42,50,60,70,82,95,110,125,142,160,180,200,220,240,260,280,305,330,360,390,420,450,480,510,540,575,610,650,700,750,800,850,900,950,1000,1050,1100,1150,1200,1250,1300,1350,1400,1450,1500,1550,1600,1650], backgroundColor: '#6FB7A5' },
+      { label: 'Completion base', data: [15,18,22,26,30,35,40,45,52,60,68,76,85,95,105,115,125,135,145,160,175,190,205,220,235,250,265,285,305,325,355,385,415,445,475,505,535,565,595,625,655,685,715,745,775,805,835,865,895,925], backgroundColor: '#c9a44c' },
+      { label: 'Milestone bonus', data: [0,0,0,0,0,0,0,0,0,45,0,0,0,0,0,0,0,0,0,80,0,0,0,0,0,0,0,0,0,120,0,0,0,0,0,0,0,0,0,170,0,0,0,0,0,0,0,0,0,0], backgroundColor: '#C04B3F' },
+    ],
+  },
+  options: {
+    responsive: true,
+    plugins: { legend: { labels: { color: '#d8d4c8', font: { size: 11 } } } },
+    scales: {
+      x: { stacked: true, ticks: { color: '#8a8a78' }, grid: { color: '#2a322a' } },
+      y: { stacked: true, ticks: { color: '#8a8a78', callback: (v) => v + 'g' }, grid: { color: '#2a322a' } },
+    },
+  },
+});
+</script>
+</body>
+</html>

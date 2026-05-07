@@ -11,6 +11,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
+import { goldBudgetForWave, enemyBaseDamageForWave } from '../ai/core/wave-curriculum';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
@@ -24,8 +25,11 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies being killed to prevent double-kill
   private killingEnemies = new Set<string>();
 
-  // Track active timeouts for cleanup on destroy
-  private activeTimeouts = new Set<ReturnType<typeof setTimeout>>();
+  // Game-time pending removals: replaces wall-clock setTimeout for death-anim
+  // delays so behavior is identical at every training timescale.
+  private pendingDeaths: { enemy: Enemy; remainingMs: number }[] = [];
+  // Game-time pending start-moving: replaces setTimeout in startAll()
+  private pendingStarts: { enemy: Enemy; remainingMs: number }[] = [];
 
   // Reusable array to avoid allocations in update loop
   private toRemove: Enemy[] = [];
@@ -36,7 +40,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies with active poison visual
   private poisonVisualEnemies = new Set<string>();
 
-  // Track last poison tick time per enemy (for 500ms interval)
+  // Poison tick timestamps in GAME-TIME ms (engine game-clock).
   private poisonTickTimes = new Map<string, number>();
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
@@ -50,6 +54,10 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Cached alive enemies array (invalidated on spawn/kill/remove/clear)
   private cachedAliveEnemies: Enemy[] | null = null;
+
+  // Wave-number provider (for WaveFactor in kill-reward formula).
+  // Set via setWaveNumberProvider() after construction (loose coupling).
+  private getWaveNumber: () => number = () => 0;
 
   constructor(
     private eventBus: GameEventBus,
@@ -207,112 +215,116 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Calculate dynamic reward based on actual enemy HP and speed
-   * Scales with AI-generated healthMultiplier to keep rewards fair
+   * Set the wave-number provider (from WaveManager).
+   * Used in the kill-reward formula (WaveFactor component).
+   * Loose coupling — no direct WaveManager dependency.
    */
-  private calculateDynamicReward(enemy: Enemy): number {
-    const healthMultiplier = enemy.health.maxHp / enemy.typeConfig.baseHp;
-    const effectiveHP = enemy.health.maxHp;
-    const speedBonus = Math.floor(enemy.typeConfig.baseSpeed / 10); // Reduced from /5
-
-    // Sublinear scaling (sqrt) prevents inflation
-    // 150 HP per credit (was 50) - roughly 1/3 of previous rewards
-    const hpReward = Math.floor(effectiveHP / 150);
-    const scaleFactor = 1 + Math.sqrt(Math.max(0, healthMultiplier - 1)) * 0.4; // Reduced from 0.6
-
-    const baseReward = Math.max(1, hpReward + speedBonus);
-    const dynamicReward = Math.round(baseReward * Math.min(scaleFactor, 2.0)); // Reduced cap from 2.5
-
-    return Math.min(25, Math.max(1, dynamicReward)); // Cap: 1-25 (was 1-40)
+  setWaveNumberProvider(provider: () => number): void {
+    this.getWaveNumber = provider;
   }
 
   /**
-   * Kill an enemy - plays death animation then removes
-   * Emits enemy:died event with credits
-   * @param enemy Enemy to kill
-   * @param timescale Game speed multiplier (for death animation timing)
+   * Set the wave-size provider (expected enemy count) from WaveManager.
+   * Used for swarm-discount in the kill-reward formula.
    */
-  kill(enemy: Enemy, timescale = 1.0): void {
-    // Prevent double-kill
+  setWaveSizeProvider(provider: () => number): void {
+    this.getWaveSize = provider;
+  }
+
+  private getWaveSize: () => number = () => 1;
+
+  /**
+   * Calculate kill reward from the wave's deterministic kill-budget
+   * (Phase 5.16): the curriculum pins a total per-wave gold amount, which
+   * we split equally across the expected enemy count. Effect:
+   *  - Income predictable wave-by-wave → balanceable against tower/research costs
+   *  - Independent of NN's count/hp_mult choices (no swarm-flood, no boring-dribble)
+   *  - Leaks naturally reduce earnings (uncollected kills = lost gold)
+   *
+   * Per-enemy reward floor = 1 to keep tiny waves meaningful.
+   */
+  private calculateDynamicReward(_enemy: Enemy): number {
+    const wave = this.getWaveNumber();
+    const budget = goldBudgetForWave(wave).kill;
+    const count = Math.max(1, this.getWaveSize());
+    return Math.max(1, Math.round(budget / count));
+  }
+
+  /**
+   * Kill an enemy — plays death animation then removes after a game-time
+   * delay (no wall-clock setTimeout — sub-stepping ticks the delay each frame).
+   */
+  /**
+   * Kill an enemy. If `awardCredits` is false, no gold is awarded — used by
+   * debug kill-all so the player can't farm gold via the dev shortcut.
+   */
+  kill(enemy: Enemy, awardCredits: boolean = true): void {
     if (this.killingEnemies.has(enemy.id)) return;
     this.killingEnemies.add(enemy.id);
 
-    // Decrement alive count (killingEnemies set prevents double-counting)
     this.aliveCount.update(c => Math.max(0, c - 1));
-    this.cachedAliveEnemies = null; // Invalidate cache
+    this.cachedAliveEnemies = null;
 
-    // Ensure enemy is marked dead if not already
     if (!enemy.health.isDead) {
       enemy.health.takeDamage(enemy.health.hp);
     }
     enemy.stopMoving();
 
-    // Calculate dynamic reward based on actual enemy stats
-    const credits = this.calculateDynamicReward(enemy);
+    const credits = awardCredits ? this.calculateDynamicReward(enemy) : 0;
+    this.eventBus.emit({ type: 'enemy:died', enemy, credits });
 
-    // Emit enemy:died event
-    this.eventBus.emit({
-      type: 'enemy:died',
-      enemy,
-      credits,
-    });
-
-    // If enemy has death animation, play it and wait before removing
     if (enemy.typeConfig.deathAnimation) {
       this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
-      const realTimeDelay = TIMING.deathAnimationDuration / timescale; // Scale death animation duration
-      const timeoutId = setTimeout(() => {
-        this.activeTimeouts.delete(timeoutId);
-        this.killingEnemies.delete(enemy.id);
-        this.remove(enemy);
-      }, realTimeDelay);
-      this.activeTimeouts.add(timeoutId);
+      this.pendingDeaths.push({
+        enemy,
+        remainingMs: TIMING.deathAnimationDuration,
+      });
     } else {
-      // No death animation - remove immediately
       this.killingEnemies.delete(enemy.id);
       this.remove(enemy);
     }
   }
 
-  /**
-   * Update all enemies - movement and rendering
-   * @param deltaTime Delta time in milliseconds (already scaled by timescale)
-   * @param timescale Game speed multiplier (for status effect duration)
-   */
   // Performance profiling callback (set by PerformanceProfilerService)
   onProfileTiming: ((move: number, grid: number, height: number, render: number, total: number) => void) | null = null;
 
-  override update(deltaTime: number, timescale = 1.0): void {
-    // Skip all per-enemy work when movement is disabled (debug toggle)
+  /**
+   * Update all enemies — movement and rendering. Called once per gameplay
+   * sub-step (~16ms game-time). `gameTimeMs` is the engine game-clock used
+   * for DoT ticks, status-effect lookups, and pending death/start delays.
+   */
+  override update(deltaTime: number, gameTimeMs: number): void {
+    // Tick pending death-animation removals + pending start-moving delays
+    // FIRST so they remain accurate even if movement is disabled.
+    this.tickPendingDeaths(deltaTime);
+    this.tickPendingStarts(deltaTime);
+
     if (!this.movementEnabled) return;
 
     const profiling = this.onProfileTiming !== null;
     let tMove = 0, tGrid = 0, tHeight = 0, tRender = 0;
     const tTotal = profiling ? performance.now() : 0;
 
-    // Clear reusable array (no allocation)
     this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
-    // Cache performance.now() once per frame — avoid 9000+ calls at 3000 enemies
-    const now = performance.now();
 
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
 
-      // Update components + Move enemy along path
       let t0 = profiling ? performance.now() : 0;
       enemy.update(deltaTime);
-      // Single-pass: remove expired effects AND get slow/poison flags (replaces 3 separate calls)
-      const statusFlags = enemy.movement.updateStatusEffects(timescale, now);
-      const moveResult = enemy.movement.move(deltaTime, timescale, now, statusFlags.slowMultiplier);
+      // Single-pass: remove expired effects + get slow/poison flags (game-time)
+      const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
+      const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
       if (profiling) tMove += performance.now() - t0;
 
       if (moveResult === 'reached_end') {
-        // Emit enemy:reached-base event
+        // Emit enemy:reached-base event — leak damage scales with wave-number
+        // (Phase 5.16) so late-game leaks hurt more.
         this.eventBus.emit({
           type: 'enemy:reached-base',
           enemy,
-          damage: GAME_BALANCE.combat.enemyBaseDamage,
+          damage: enemyBaseDamageForWave(this.getWaveNumber()),
         });
         this.toRemove.push(enemy);
         continue;
@@ -420,20 +432,17 @@ export class EnemyManager extends EntityManager<Enemy> {
           this.poisonTickTimes.delete(enemy.id);
         }
 
-        // Poison DOT tick: emit damage every 500ms
+        // Poison DOT tick: emit damage every 500ms of GAME-TIME.
         if (isPoisoned) {
-          const lastTick = this.poisonTickTimes.get(enemy.id) ?? 0;
-          // 500ms in real-time (adjusted for timescale)
-          const tickInterval = 500 / timescale;
-          if (now - lastTick >= tickInterval) {
-            this.poisonTickTimes.set(enemy.id, now);
-            // Find active poison effect to get DPS value
+          const lastTick = this.poisonTickTimes.get(enemy.id) ?? gameTimeMs;
+          const POISON_TICK_INTERVAL_MS = 500;
+          if (gameTimeMs - lastTick >= POISON_TICK_INTERVAL_MS) {
+            this.poisonTickTimes.set(enemy.id, gameTimeMs);
             const poisonEffect = enemy.movement.statusEffects.find(
               (e) => e.type === 'poison'
             );
             if (poisonEffect) {
-              // 500ms tick = DPS * 0.5
-              const tickDamage = poisonEffect.value * 0.5;
+              const tickDamage = poisonEffect.value * 0.5;  // 500ms tick = DPS * 0.5
               this.eventBus.emit({
                 type: 'dot:damage',
                 enemy,
@@ -461,39 +470,73 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
-   * Start all paused enemies with configurable delay between each
-   * @param defaultDelayBetween Default delay in milliseconds (game-time)
-   * @param timescale Game speed multiplier (converts game-time to real-time)
+   * Start all paused enemies with a configurable game-time delay between each.
+   * Delays are accumulated as game-time pending-starts and ticked from
+   * update(deltaTime, …), matching 1× behavior at every training timescale.
    */
-  startAll(defaultDelayBetween = TIMING.defaultSpawnStartDelay, timescale = 1.0): void {
+  startAll(defaultDelayBetween = TIMING.defaultSpawnStartDelay): void {
     const paused = this.getAll().filter((e) => e.movement.paused);
-
     let accumulatedDelay = 0;
-    paused.forEach((enemy) => {
-      const gameTimeDelay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
-      const realTimeDelay = gameTimeDelay / timescale; // Convert to real-time
-      const timeoutId = setTimeout(() => {
-        this.activeTimeouts.delete(timeoutId);
-        // Check both alive (health) AND active (not destroyed)
-        if (enemy.alive && enemy.active) {
-          enemy.startMoving();
-          this.tilesEngine?.enemies.startWalkAnimation(enemy.id);
+    for (const enemy of paused) {
+      const delay = enemy.typeConfig.spawnStartDelay ?? defaultDelayBetween;
+      this.pendingStarts.push({ enemy, remainingMs: accumulatedDelay });
+      accumulatedDelay += delay;
+    }
+  }
+
+  /** Tick the game-time death-animation removals each sub-step. */
+  private tickPendingDeaths(deltaTime: number): void {
+    if (this.pendingDeaths.length === 0) return;
+    let writeIdx = 0;
+    for (let i = 0; i < this.pendingDeaths.length; i++) {
+      const entry = this.pendingDeaths[i];
+      entry.remainingMs -= deltaTime;
+      if (entry.remainingMs <= 0) {
+        this.killingEnemies.delete(entry.enemy.id);
+        this.remove(entry.enemy);
+      } else {
+        this.pendingDeaths[writeIdx++] = entry;
+      }
+    }
+    this.pendingDeaths.length = writeIdx;
+  }
+
+  /** Tick the game-time pending-start delays each sub-step. */
+  private tickPendingStarts(deltaTime: number): void {
+    if (this.pendingStarts.length === 0) return;
+    let writeIdx = 0;
+    for (let i = 0; i < this.pendingStarts.length; i++) {
+      const entry = this.pendingStarts[i];
+      entry.remainingMs -= deltaTime;
+      if (entry.remainingMs <= 0) {
+        if (entry.enemy.alive && entry.enemy.active) {
+          entry.enemy.startMoving();
+          this.tilesEngine?.enemies.startWalkAnimation(entry.enemy.id);
         }
-      }, accumulatedDelay);
-      this.activeTimeouts.add(timeoutId);
-      accumulatedDelay += realTimeDelay;
-    });
+      } else {
+        this.pendingStarts[writeIdx++] = entry;
+      }
+    }
+    this.pendingStarts.length = writeIdx;
   }
 
   /**
-   * Remove enemy and cleanup resources
+   * Remove enemy and cleanup resources.
+   *
+   * NOTE: does NOT splice the pendingDeaths / pendingStarts arrays — that
+   * would re-entrantly mutate tickPendingDeaths's iteration. The tick
+   * methods are the sole owners of those arrays and drop the id from
+   * killingEnemies themselves before calling remove(). The killingEnemies
+   * delete here is purely defensive in case some external path (debug
+   * event, direct remove) bypasses the pending-tick flow.
    */
   override remove(entity: Enemy): void {
-    // Decrement alive count if enemy was still alive (e.g., reached base)
     if (entity.alive) {
       this.aliveCount.update(c => Math.max(0, c - 1));
-      this.cachedAliveEnemies = null; // Invalidate cache
+      this.cachedAliveEnemies = null;
     }
+    // Safe: Set delete is not being iterated elsewhere in this call chain
+    this.killingEnemies.delete(entity.id);
     // Cleanup frost visual if active
     if (this.frozenVisualEnemies.has(entity.id)) {
       this.tilesEngine?.effects.stopFrostAura(entity.id);
@@ -516,13 +559,10 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Clear all enemies and cleanup resources
    */
   override clear(): void {
-    // Clear all pending timeouts (death animations, spawn delays)
-    for (const timeoutId of this.activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this.activeTimeouts.clear();
+    // Clear pending game-time death/start delays
+    this.pendingDeaths.length = 0;
+    this.pendingStarts.length = 0;
 
-    // Remove all enemies from global route grid before clearing
     for (const enemy of this.getAll()) {
       this.globalRouteGrid.removeEnemy(enemy);
     }
@@ -589,11 +629,8 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Destroy the enemy manager - cleanup all resources and timeouts
    */
   override destroy(): void {
-    // Clear all pending timeouts
-    for (const timeoutId of this.activeTimeouts) {
-      clearTimeout(timeoutId);
-    }
-    this.activeTimeouts.clear();
+    this.pendingDeaths.length = 0;
+    this.pendingStarts.length = 0;
     this.killingEnemies.clear();
     super.destroy();
   }

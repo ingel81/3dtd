@@ -30,6 +30,12 @@ export interface ITowerStrategy {
    * @returns TowerAction to perform, or null if strategy cannot execute
    */
   execute(state: GameStateSnapshot): TowerAction | null;
+
+  /**
+   * Optional: called once per frame with game-time delta. Override for
+   * strategies with internal cooldowns (e.g. sell-cooldown, wave-start-delay).
+   */
+  tickCooldowns?(deltaTime: number): void;
 }
 
 /**
@@ -44,15 +50,37 @@ export abstract class BaseStrategy implements ITowerStrategy {
   abstract canExecute(state: GameStateSnapshot): boolean;
   abstract execute(state: GameStateSnapshot): TowerAction | null;
 
+  /**
+   * Called once per frame by StrategyBot with game-time delta.
+   * Strategies with internal cooldowns override this to decrement them.
+   * Default: no-op so most strategies don't need to care.
+   */
+  tickCooldowns(_deltaTime: number): void {
+    /* no-op by default */
+  }
+
   // Helper methods shared by all strategies
 
   /**
-   * Get affordable towers from known types
+   * Get affordable towers from known types.
+   * Filters out:
+   * - Passive buildings (research-center) — not combat towers
+   * - Locked towers (if state provided) — respects research unlocks
+   *
+   * @param state Optional snapshot for research-gate check. Omit in contexts
+   *              where research isn't relevant (rare — nearly all callers have state).
    */
-  protected getAffordableTowers(credits: number, knownTypes: TowerTypeId[]): TowerTypeId[] {
+  protected getAffordableTowers(
+    credits: number,
+    knownTypes: TowerTypeId[],
+    state?: GameStateSnapshot
+  ): TowerTypeId[] {
     return knownTypes.filter(typeId => {
       const config = TOWER_TYPES[typeId];
-      return config && config.cost <= credits;
+      if (!config || config.cost > credits) return false;
+      if (config.attackType === 'passive') return false;
+      if (state?.research && !state.research.towerUnlocked[typeId]) return false;
+      return true;
     });
   }
 

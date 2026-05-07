@@ -83,9 +83,10 @@ export abstract class EntityManager<T extends GameObject> implements IGameManage
   }
 
   /**
-   * Update all active entities
+   * Update all active entities. `_extra` lets sub-classes accept an extra
+   * argument (e.g. EnemyManager passes `gameTimeMs`) without breaking variance.
    */
-  update(deltaTime: number): void {
+  update(deltaTime: number, _extra?: unknown): void {
     for (const entity of this.getAllActive()) {
       entity.update(deltaTime);
     }

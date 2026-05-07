@@ -18,8 +18,8 @@ export interface ResearchCenterLevelConfig {
  */
 export const RESEARCH_CENTER_LEVELS: ResearchCenterLevelConfig[] = [
   { level: 1, upgradeCost: 0,   researchSlots: 1, description: 'Basic Research (1 Slot)' },
-  { level: 2, upgradeCost: 120, researchSlots: 2, description: 'Expanded Research (2 Slots)' },
-  { level: 3, upgradeCost: 220, researchSlots: 3, description: 'Advanced Research (3 Slots)' },
+  { level: 2, upgradeCost: 180, researchSlots: 2, description: 'Expanded Research (2 Slots)' },
+  { level: 3, upgradeCost: 350, researchSlots: 3, description: 'Advanced Research (3 Slots)' },
 ];
 
 /**

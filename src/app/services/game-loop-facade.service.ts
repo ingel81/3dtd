@@ -257,7 +257,16 @@ export class GameLoopFacadeService {
         config: waveConfig,
       });
     } catch (error) {
-      console.error('[AI] Failed to generate wave, using fallback', error);
+      console.error('[AI] Failed to generate wave', error);
+      const msg = error instanceof Error ? error.message : String(error);
+      // Phase 5.10: ONNX model missing is a hard-fail. Set a user-visible error
+      // banner and disable AI so the manual wave path kicks in on the next call.
+      if (msg.includes('model is not available') || msg.includes('Model not loaded')) {
+        this.store.aiError.set(
+          'AI-Model konnte nicht geladen werden. Training läuft weiter über den '
+          + 'Server-Backend-Pfad; für Standalone-Play bitte die Seite neu laden.'
+        );
+      }
       this.store.useAIDirector.set(false);
       this.pendingAIWaveRequest = false;
       this.startWaveWithAI(retryCount + 1);
@@ -318,8 +327,10 @@ export class GameLoopFacadeService {
    * @param cleanupDpsViz Callback to clean up DPS visualization (owned by VisualizationFacade)
    */
   restartGame(cleanupDpsViz: () => void): void {
-    // Cleanup old debug visualization before reset
-    this.gameState.getGlobalRouteGrid().cleanupSpatialGridVisualization();
+    // NOTE: Do NOT dispose the spatial grid visualization here. The grid itself
+    // is preserved across restart (it's bound to the location), and the viz
+    // mesh self-updates from live cell state. Disposing it here made the
+    // overlay disappear after game-over until the user toggled it off/on.
 
     // Cleanup DPS profile visualization (delegated to VisualizationFacade)
     cleanupDpsViz();
@@ -389,16 +400,26 @@ export class GameLoopFacadeService {
     this.markerViz.animateMarkers(deltaTime);
     this.routeAnimation.update(deltaTime);
 
-    // Game logic tick
-    this.gameState.update(performance.now());
+    // Game logic tick — sub-step loop runs gameplay at fixed game-time
+    // granularity. Bot decisions and turret aim are per-sub-step so they
+    // stay framerate-independent at any training speed.
+    const tilesEngine = this.gameState.tilesEngine;
+    this.gameState.update(performance.now(), (gameTimeStepMs) => {
+      // Turret aim advances per sub-step in game-time (gameplay-relevant —
+      // alignment gates firing).
+      tilesEngine?.towers.advanceTurretAim(gameTimeStepMs);
+
+      // Bot decision tick per sub-step (game-time)
+      if (this.trainingClient.botEnabled()) {
+        this.trainingClient.updateBot(
+          this.aiDataCollector.getStateSnapshot(),
+          gameTimeStepMs,
+        );
+      }
+    });
 
     // Performance profiler tick (console log timer)
     this.profiler.tick(deltaTime);
-
-    // Bot update (if enabled)
-    if (this.trainingClient.botEnabled()) {
-      this.trainingClient.updateBot(this.aiDataCollector.getStateSnapshot(), deltaTime);
-    }
 
     // Route grid visualization
     const grid = this.gameState.getGlobalRouteGrid();

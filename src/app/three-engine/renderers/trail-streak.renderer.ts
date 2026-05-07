@@ -36,70 +36,84 @@ export interface TrailStreakStyle {
 
 const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
   rocket: {
-    maxPoints: 16,
-    widthHead: 1.8,
-    widthTail: 0.2,
-    alphaHead: 0.95,
-    alphaTail: 0.0,
-    colorHead: new Color(1.0, 0.6, 0.15),   // bright orange
-    colorTail: new Color(0.8, 0.15, 0.02),   // dark red
-    emissiveIntensity: 2.5,
-    minSegmentDistSq: 0.5,
-  },
-  arrow: {
-    maxPoints: 10,
+    // Phase 5.16: less wedge, less neon. The previous 1.8/0.2 widths +
+    // emissive 2.5 produced a sharp arrow shape that blew out to yellow
+    // through additive blending. This style is now a thin glow line —
+    // the particle layer (PROJECTILE_TYPES.rocket.trailParticles) does the
+    // smoke/volume, this just gives the projectile a hot core to pull.
+    maxPoints: 22,
     widthHead: 0.5,
-    widthTail: 0.05,
-    alphaHead: 0.85,
+    widthTail: 0.4,
+    alphaHead: 0.55,
+    alphaTail: 0.0,
+    colorHead: new Color(1.0, 0.55, 0.18),  // warm orange (less saturated than before)
+    colorTail: new Color(0.55, 0.12, 0.02), // dark red
+    emissiveIntensity: 0.85,                // was 2.5 — no more white-blowout
+    minSegmentDistSq: 0.25,
+  },
+  // Phase 5.16: arrow / magic / ice / cannonball share the rocket recipe —
+  // narrower head, thicker tail (no wedge), lower emissive (no white blowout),
+  // more ring points (longer + smoother trail). Particle layer carries the
+  // theme-specific volume (spiral arcs for magic, frost puffs for ice, smoke
+  // for cannon). Pool budget audited: ~73% additive / ~15% normal at peak.
+  arrow: {
+    maxPoints: 14,
+    widthHead: 0.2,
+    widthTail: 0.15,
+    alphaHead: 0.55,
     alphaTail: 0.0,
     colorHead: new Color(1.0, 1.0, 0.8),     // white-yellow
     colorTail: new Color(1.0, 0.9, 0.4),     // warm yellow
-    emissiveIntensity: 1.5,
-    minSegmentDistSq: 0.3,
+    emissiveIntensity: 0.7,
+    minSegmentDistSq: 0.25,
   },
   magic: {
-    maxPoints: 14,
-    widthHead: 1.2,
-    widthTail: 0.1,
-    alphaHead: 0.9,
+    maxPoints: 20,
+    widthHead: 0.4,
+    widthTail: 0.3,
+    alphaHead: 0.55,
     alphaTail: 0.0,
-    colorHead: new Color(1.0, 0.15, 0.05),    // vivid red
+    colorHead: new Color(1.0, 0.18, 0.05),   // vivid red, slightly less harsh
     colorTail: new Color(0.5, 0.02, 0.0),    // dark crimson
-    emissiveIntensity: 2.0,
-    minSegmentDistSq: 0.3,
+    emissiveIntensity: 0.7,
+    minSegmentDistSq: 0.2,
   },
   ice: {
-    maxPoints: 12,
-    widthHead: 0.9,
-    widthTail: 0.08,
-    alphaHead: 0.85,
+    maxPoints: 18,
+    widthHead: 0.35,
+    widthTail: 0.25,
+    alphaHead: 0.55,
     alphaTail: 0.0,
     colorHead: new Color(0.6, 0.95, 1.0),    // bright cyan
     colorTail: new Color(0.15, 0.4, 0.8),    // deep blue
-    emissiveIntensity: 1.8,
-    minSegmentDistSq: 0.3,
+    emissiveIntensity: 0.65,
+    minSegmentDistSq: 0.25,
   },
   cannonball: {
-    maxPoints: 8,
-    widthHead: 0.7,
-    widthTail: 0.1,
-    alphaHead: 0.5,
+    maxPoints: 12,
+    widthHead: 0.3,
+    widthTail: 0.2,
+    alphaHead: 0.45,
     alphaTail: 0.0,
     colorHead: new Color(0.35, 0.35, 0.35),  // grey
     colorTail: new Color(0.15, 0.15, 0.15),  // dark grey
-    emissiveIntensity: 0.3,
-    minSegmentDistSq: 0.5,
+    emissiveIntensity: 0.3,                  // already low — kept (smoke, not glow)
+    minSegmentDistSq: 0.3,
   },
   bullet: {
-    maxPoints: 6,
-    widthHead: 0.25,
-    widthTail: 0.02,
-    alphaHead: 0.9,
+    // Phase 5.16: was reading like a thin laser beam — pure-white blowout
+    // through emissive 2.0 + 0.25/0.02 wedge. Tracer now has volume
+    // (uniform thickness) and a warm orange fade so it feels like a
+    // proper tracer round, not a sci-fi laser.
+    maxPoints: 8,
+    widthHead: 0.4,
+    widthTail: 0.25,
+    alphaHead: 0.55,
     alphaTail: 0.0,
-    colorHead: new Color(1.0, 0.95, 0.5),    // bright yellow
-    colorTail: new Color(1.0, 0.7, 0.2),     // orange-yellow
-    emissiveIntensity: 2.0,
-    minSegmentDistSq: 0.1,
+    colorHead: new Color(1.0, 0.85, 0.35),   // warm yellow
+    colorTail: new Color(1.0, 0.5, 0.1),     // orange fade
+    emissiveIntensity: 0.8,
+    minSegmentDistSq: 0.2,
   },
 };
 

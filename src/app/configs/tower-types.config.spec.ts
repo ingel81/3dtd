@@ -8,7 +8,9 @@ import {
 } from './tower-types.config';
 
 describe('tower types config', () => {
-  const allIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison'];
+  // Combat towers + passive buildings (research-center)
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison'];
+  const allIds: TowerTypeId[] = [...combatIds, 'research-center'];
 
   it('contains all tower types', () => {
     allIds.forEach((id) => {
@@ -37,9 +39,12 @@ describe('tower types config', () => {
       expect(typeof tower.heightOffset).toBe('number');
       expect(typeof tower.shootHeight).toBe('number');
       expect(tower.damage).toBeGreaterThanOrEqual(0);
-      expect(tower.range).toBeGreaterThan(0);
+      // Passive buildings (research-center) legitimately have range=0
+      if (tower.attackType !== 'passive') {
+        expect(tower.range).toBeGreaterThan(0);
+      }
       expect(tower.cost).toBeGreaterThan(0);
-      expect(tower.sellValue).toBeGreaterThan(0);
+      expect(tower.sellValue).toBeGreaterThanOrEqual(0);
       expect(tower.sellValue).toBeLessThanOrEqual(tower.cost);
       expect(Array.isArray(tower.upgrades)).toBe(true);
     });
