@@ -69,19 +69,21 @@ export class DebugFacadeService {
   // ========================================
 
   /**
-   * Add 1000 debug credits via EventBus command
+   * Add debug credits via EventBus command. Default 1000; pass a custom
+   * amount (e.g. 100000 for Shift+Click) to override.
    */
-  addDebugCredits(gameState: GameStateManager): void {
-    gameState.getEventBus().emit({ type: 'debug:add-credits', amount: 1000 });
-    this.appendDebugLog('+1000 Credits (Debug)');
+  addDebugCredits(gameState: GameStateManager, amount = 1000): void {
+    gameState.getEventBus().emit({ type: 'debug:add-credits', amount });
+    this.appendDebugLog(`+${amount.toLocaleString()} Credits (Debug)`);
   }
 
   /**
-   * Add 1000 debug health via EventBus command
+   * Add debug health via EventBus command. Default 1000; pass a custom
+   * amount (e.g. 100000 for Shift+Click) to override.
    */
-  addDebugHealth(gameState: GameStateManager): void {
-    gameState.getEventBus().emit({ type: 'debug:add-health', amount: 1000 });
-    this.appendDebugLog('+1000 HP (Debug)');
+  addDebugHealth(gameState: GameStateManager, amount = 1000): void {
+    gameState.getEventBus().emit({ type: 'debug:add-health', amount });
+    this.appendDebugLog(`+${amount.toLocaleString()} HP (Debug)`);
   }
 
   /**
@@ -99,6 +101,16 @@ export class DebugFacadeService {
   completeAllResearch(gameState: GameStateManager): void {
     gameState.getEventBus().emit({ type: 'debug:complete-all-research' });
     this.appendDebugLog('All research completed (Debug)');
+  }
+
+  /**
+   * Max-upgrade every placed tower (free, ignores tier-gating).
+   * Used to skip the tedious manual upgrade clicks when setting up
+   * performance / stress-test scenarios.
+   */
+  maxUpgradeAllTowers(gameState: GameStateManager): void {
+    gameState.getEventBus().emit({ type: 'debug:max-upgrade-all-towers' });
+    this.appendDebugLog('All towers max upgraded (Debug)');
   }
 
   // ========================================

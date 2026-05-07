@@ -518,14 +518,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   killAllEnemies(): void {
     this.debugFacade.killAllEnemies(this.gameState);
   }
-  addDebugCredits(): void {
-    this.debugFacade.addDebugCredits(this.gameState);
+  addDebugCredits(event: MouseEvent): void {
+    this.debugFacade.addDebugCredits(this.gameState, event.shiftKey ? 100000 : 1000);
   }
-  addDebugHealth(): void {
-    this.debugFacade.addDebugHealth(this.gameState);
+  addDebugHealth(event: MouseEvent): void {
+    this.debugFacade.addDebugHealth(this.gameState, event.shiftKey ? 100000 : 1000);
   }
   completeAllResearch(): void {
     this.debugFacade.completeAllResearch(this.gameState);
+  }
+  maxUpgradeAllTowers(): void {
+    this.debugFacade.maxUpgradeAllTowers(this.gameState);
   }
   clearDebugLog(): void {
     this.debugFacade.clearDebugLog();

@@ -136,14 +136,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <mat-icon>skull</mat-icon>
           </button>
           <button class="td-dev-btn td-dev-btn-credits"
-                  (click)="addCredits.emit()"
-                  matTooltip="+1000 Credits"
+                  (click)="addCredits.emit($event)"
+                  matTooltip="+1000 Credits (Shift+Click: +100k)"
                   matTooltipPosition="left">
             <mat-icon>payments</mat-icon>
           </button>
           <button class="td-dev-btn td-dev-btn-health"
-                  (click)="addHealth.emit()"
-                  matTooltip="+1000 HP"
+                  (click)="addHealth.emit($event)"
+                  matTooltip="+1000 HP (Shift+Click: +100k)"
                   matTooltipPosition="left">
             <mat-icon>heart_plus</mat-icon>
           </button>
@@ -152,6 +152,12 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   matTooltip="Complete all research"
                   matTooltipPosition="left">
             <mat-icon>science</mat-icon>
+          </button>
+          <button class="td-dev-btn td-dev-btn-research"
+                  (click)="maxUpgradeAllTowers.emit()"
+                  matTooltip="Max-upgrade all towers"
+                  matTooltipPosition="left">
+            <mat-icon>arrow_circle_up</mat-icon>
           </button>
           <div class="td-dev-separator"></div>
           <!-- Terrain & Map -->
@@ -569,9 +575,10 @@ export class QuickActionsComponent {
   readonly playRouteAnimation = output<void>();
   readonly refreshHeights = output<void>();
   readonly killAllEnemies = output<void>();
-  readonly addCredits = output<void>();
-  readonly addHealth = output<void>();
+  readonly addCredits = output<MouseEvent>();
+  readonly addHealth = output<MouseEvent>();
   readonly completeAllResearch = output<void>();
+  readonly maxUpgradeAllTowers = output<void>();
 
   // Audio outputs
   readonly musicVolumeChanged = output<number>();

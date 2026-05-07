@@ -319,6 +319,9 @@ export class GameStateManager {
           const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
           const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
           tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
+          // Resize the visible range-indicator disc (only visible when the
+          // tower is selected, but we want it correct for the next click).
+          this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
         }
 
         this.eventBus.emit({
@@ -385,6 +388,35 @@ export class GameStateManager {
     this.eventBusSubs.add(this.eventBus.on('debug:complete-all-research', () => {
       this.researchManager.completeAllResearch();
       this.syncResearchStoreState();
+    }));
+
+    this.eventBusSubs.add(this.eventBus.on('debug:max-upgrade-all-towers', () => {
+      let researchSlotsChanged = false;
+      for (const tower of this.towerManager.getAll()) {
+        let rangeChanged = false;
+        for (const upgrade of tower.typeConfig.upgrades) {
+          while (tower.canUpgrade(upgrade.id)) {
+            if (!tower.applyUpgrade(upgrade.id)) break;
+            if (upgrade.effect.stat === 'range') rangeChanged = true;
+            if (upgrade.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
+              this.researchManager.upgradeCenter();
+              researchSlotsChanged = true;
+            }
+          }
+        }
+        if (rangeChanged) {
+          this.towerPlacement.recomputeTowerLOS(tower);
+          const pos = tower.position;
+          const metersPerDegreeLat = 111320;
+          const metersPerDegreeLon = 111320 * Math.cos(pos.lat * 0.0174533);
+          const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
+          const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
+          tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
+          this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
+        }
+        this.eventBus.emit({ type: 'tower:upgraded', tower, level: 0, cost: 0 });
+      }
+      if (researchSlotsChanged) this.syncResearchStoreState();
     }));
 
     // Initialize projectile manager (no callback - uses events)
