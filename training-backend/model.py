@@ -1,119 +1,125 @@
 """
-Wave Director Neural Network
+Wave Director Neural Network — Phase 5.11 Range-Based Templates
 
-PyTorch model with Conv1D spatial branch for DPS profile
-and Dense scalar branch for game state features.
+PyTorch model with Conv1D spatial branch for DPS profile and Dense scalar
+branch for game state features. Output heads:
+  - template_head: Categorical over MAX_TEMPLATE_SLOTS (32, 18 active)
+  - params_head:   4 continuous params in [0,1] via sigmoid
+                   (count, spawn_delay, hp_mult, variation — interpolated
+                    per template in the server-side decoder)
+  - value_head:    PPO critic baseline
+  - log_std:       learnable per-param std for exploration noise
 """
 
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from config import INPUT_SIZE, NUM_SCALAR, NUM_SPATIAL, KILL_TIME_MIN, KILL_TIME_MAX, VARIATION_MAX
+from config import (
+    INPUT_SIZE,
+    NUM_SCALAR,
+    NUM_SPATIAL,
+    MAX_TEMPLATE_SLOTS,
+    NUM_CONTINUOUS,
+)
 
 
 class WaveDirectorModel(nn.Module):
     """
-    Neural network for wave configuration prediction.
-
     Architecture:
-    - Spatial branch: Conv1D over DPS profile (2 channels x 20 bins)
-    - Scalar branch: Dense layers over game state (34 features)
-    - Combined: Merged features -> output heads
+      - Spatial branch: Conv1D over DPS profile (2 channels × 20 bins)
+      - Scalar branch: Dense layers over state features (NUM_SCALAR = 116)
+      - Combined: merged → policy heads
 
-    Input: 74 features = 34 scalar + 40 spatial (2x20 DPS bins)
-    Output: Enemy type (categorical) + continuous params (Gaussian) + value
+    Input:  156 features = 116 scalar + 40 spatial
+    Output: template logits (32) + 2 continuous params + value
     """
-
-    # Number of continuous action parameters
-    NUM_CONTINUOUS = 4  # kill_time, count_factor, delay_factor, variation
 
     def __init__(self):
         super().__init__()
 
-        # Spatial branch: Conv1D over DPS profile
-        # Input: (batch, 2, 20) - 2 channels (ground, air), 20 bins
+        # Spatial branch: Conv1D over DPS profile (2 channels × 20 bins)
         self.spatial = nn.Sequential(
-            nn.Conv1d(2, 16, kernel_size=3, padding=1),   # -> (batch, 16, 20)
+            nn.Conv1d(2, 16, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.Conv1d(16, 32, kernel_size=3, padding=1),  # -> (batch, 32, 20)
+            nn.Conv1d(16, 32, kernel_size=3, padding=1),
             nn.ReLU(),
-            nn.AdaptiveAvgPool1d(1),                       # -> (batch, 32, 1)
+            nn.AdaptiveAvgPool1d(1),
         )  # Output: 32 features
 
-        # Scalar branch: Dense
+        # Scalar branch
         self.scalar = nn.Sequential(
-            nn.Linear(NUM_SCALAR, 64),
-            nn.LayerNorm(64),
-            nn.ReLU(),
-        )  # Output: 64 features
-
-        # Combined: 32 + 64 = 96
-        self.combined = nn.Sequential(
-            nn.Linear(96, 128),
+            nn.Linear(NUM_SCALAR, 128),
             nn.LayerNorm(128),
             nn.ReLU(),
+        )  # Output: 128 features
+
+        # Combined: 32 + 128 = 160
+        self.combined = nn.Sequential(
+            nn.Linear(160, 192),
+            nn.LayerNorm(192),
+            nn.ReLU(),
             nn.Dropout(0.1),
-            nn.Linear(128, 64),
-            nn.LayerNorm(64),
+            nn.Linear(192, 96),
+            nn.LayerNorm(96),
             nn.ReLU(),
             nn.Dropout(0.1),
         )
 
         # Output heads
-        self.enemy_head = nn.Linear(64, 6)   # 6 enemy types
-        self.params_head = nn.Linear(64, 4)  # 4 continuous params
-
-        # Learnable log_std for continuous action exploration
-        self.log_std = nn.Parameter(torch.zeros(self.NUM_CONTINUOUS))
-
-        # Value head for PPO
-        self.value_head = nn.Linear(64, 1)
+        self.template_head = nn.Linear(96, MAX_TEMPLATE_SLOTS)
+        self.params_head = nn.Linear(96, NUM_CONTINUOUS)
+        self.log_std = nn.Parameter(torch.zeros(NUM_CONTINUOUS))
+        self.value_head = nn.Linear(96, 1)
 
     def forward(self, x):
-        """Forward pass returning policy and value."""
-        # Split input into scalar and spatial
-        scalars = x[:, :NUM_SCALAR]            # (batch, 34)
-        spatial = x[:, NUM_SCALAR:]            # (batch, 40)
-        spatial = spatial.view(-1, 2, 20)      # (batch, 2, 20) = 2 channels
+        """Forward pass returning policy logits/params and value."""
+        scalars = x[:, :NUM_SCALAR]          # (batch, 116)
+        spatial = x[:, NUM_SCALAR:]           # (batch, 40)
+        spatial = spatial.view(-1, 2, 20)     # (batch, 2, 20)
 
-        # Process branches
-        spatial_out = self.spatial(spatial).squeeze(-1)  # (batch, 32)
-        scalar_out = self.scalar(scalars)                # (batch, 64)
+        spatial_out = self.spatial(spatial).squeeze(-1)   # (batch, 32)
+        scalar_out = self.scalar(scalars)                 # (batch, 128)
 
-        # Combine
-        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 96)
-        features = self.combined(combined)                       # (batch, 64)
+        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 160)
+        features = self.combined(combined)                       # (batch, 96)
 
-        # Output heads
-        enemy_logits = self.enemy_head(features)
+        template_logits = self.template_head(features)
         params = self.params_head(features)
         value = self.value_head(features)
 
-        return enemy_logits, params, value
+        return template_logits, params, value
 
-    def get_action(self, state, deterministic=False):
+    def get_action(self, state, deterministic=False, template_mask=None):
         """
-        Get action from state.
+        Sample an action from the policy.
+
+        Args:
+            state:           (batch, INPUT_SIZE) tensor
+            deterministic:   if True, argmax template + mean params
+            template_mask:   optional (batch, MAX_TEMPLATE_SLOTS) bool tensor;
+                             True = allowed, False = blocked (logit set to -inf)
 
         Returns:
-            action: Dict with enemy_probs, continuous params, enemy_idx, raw_params
-            log_prob: Log probability of full action (categorical + continuous)
-            value: State value estimate
+            action dict, log_prob (sum over template + continuous), value
         """
-        enemy_logits, params, value = self(state)
+        template_logits, params, value = self(state)
 
-        # === Enemy type (proper Categorical sampling) ===
-        cat_dist = torch.distributions.Categorical(logits=enemy_logits)
+        # Apply template mask by setting blocked logits to -inf
+        if template_mask is not None:
+            template_logits = template_logits.masked_fill(~template_mask, float("-inf"))
+
+        # Template categorical
+        cat_dist = torch.distributions.Categorical(logits=template_logits)
         if deterministic:
-            enemy_idx = enemy_logits.argmax(dim=-1)
+            template_idx = template_logits.argmax(dim=-1)
         else:
-            enemy_idx = cat_dist.sample()
+            template_idx = cat_dist.sample()
 
-        enemy_probs = F.softmax(enemy_logits, dim=-1)
-        log_prob_cat = cat_dist.log_prob(enemy_idx)
+        template_probs = F.softmax(template_logits, dim=-1)
+        log_prob_cat = cat_dist.log_prob(template_idx)
 
-        # === Continuous params (Gaussian policy) ===
-        means = params[:, :self.NUM_CONTINUOUS]
+        # Continuous Gaussian (2 params)
+        means = params[:, :NUM_CONTINUOUS]
         std = torch.exp(torch.clamp(self.log_std, -5, 2)).unsqueeze(0).expand_as(means)
 
         if deterministic:
@@ -122,64 +128,65 @@ class WaveDirectorModel(nn.Module):
             noise = torch.randn_like(means)
             sampled_raw = means + noise * std
 
-        # Apply activations to sampled values
-        kill_time_range = KILL_TIME_MAX - KILL_TIME_MIN
-        kill_time = KILL_TIME_MIN + torch.sigmoid(sampled_raw[:, 0]) * kill_time_range  # [KILL_TIME_MIN, KILL_TIME_MAX]s
-        count_factor = torch.sigmoid(sampled_raw[:, 1])                 # [0, 1] -> mapped to [min_count, max]
-        delay_factor = torch.sigmoid(sampled_raw[:, 2])                 # [0, 1] -> mapped to [500, 2000]ms
-        variation = torch.sigmoid(sampled_raw[:, 3]) * VARIATION_MAX     # [0, VARIATION_MAX]
+        # All 4 continuous params normalised to [0, 1] via sigmoid.
+        # The server-side decoder interpolates each factor into the template's range.
+        factors = torch.sigmoid(sampled_raw)  # shape (batch, NUM_CONTINUOUS=4)
 
-        # === Continuous log probability ===
-        log_prob_cont = -0.5 * (((sampled_raw - means) / (std + 1e-8)) ** 2
-                                 + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0) + 1.8379)
+        # Continuous log-prob (Gaussian on raw logits, not scaled factors)
+        log_prob_cont = -0.5 * (
+            ((sampled_raw - means) / (std + 1e-8)) ** 2
+            + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0)
+            + 1.8379
+        )
         log_prob_cont = log_prob_cont.sum(dim=-1)
 
         log_prob = log_prob_cat + log_prob_cont
 
         return {
-            "enemy_probs": enemy_probs,
-            "enemy_idx": enemy_idx.detach(),
-            "kill_time": kill_time,
-            "count_factor": count_factor,
-            "delay_factor": delay_factor,
-            "variation": variation,
+            "template_probs": template_probs,
+            "template_idx": template_idx.detach(),
+            "count_factor": factors[:, 0],
+            "spawn_factor": factors[:, 1],
+            "hp_factor": factors[:, 2],
+            "variation_factor": factors[:, 3],
             "raw_params": sampled_raw.detach(),
         }, log_prob, value.squeeze(-1)
 
-    def evaluate_action(self, state, stored_actions, stored_enemy_idx=None):
+    def evaluate_action(self, state, stored_actions, stored_template_idx=None, template_mask=None):
         """
-        Evaluate stored actions under current policy.
+        Re-evaluate stored actions under current policy for PPO update.
 
         Args:
-            state: Batch of states (batch, INPUT_SIZE)
-            stored_actions: Batch of raw_params (batch, NUM_CONTINUOUS), or None
-            stored_enemy_idx: Batch of enemy type indices (batch,), or None
+            state:                (batch, INPUT_SIZE)
+            stored_actions:       (batch, NUM_CONTINUOUS) raw_params; if None, use mean
+            stored_template_idx:  (batch,) template indices; if None, use argmax
+            template_mask:        optional (batch, MAX_TEMPLATE_SLOTS) bool tensor
         """
-        enemy_logits, params, value = self(state)
+        template_logits, params, value = self(state)
 
-        # Categorical log_prob with proper distribution
-        cat_dist = torch.distributions.Categorical(logits=enemy_logits)
-        if stored_enemy_idx is not None:
-            log_prob_cat = cat_dist.log_prob(stored_enemy_idx)
+        if template_mask is not None:
+            template_logits = template_logits.masked_fill(~template_mask, float("-inf"))
+
+        cat_dist = torch.distributions.Categorical(logits=template_logits)
+        if stored_template_idx is not None:
+            log_prob_cat = cat_dist.log_prob(stored_template_idx)
         else:
-            log_prob_cat = cat_dist.log_prob(enemy_logits.argmax(dim=-1))
+            log_prob_cat = cat_dist.log_prob(template_logits.argmax(dim=-1))
 
-        # Continuous log_prob under current policy
-        means = params[:, :self.NUM_CONTINUOUS]
+        means = params[:, :NUM_CONTINUOUS]
         std = torch.exp(torch.clamp(self.log_std, -5, 2)).unsqueeze(0).expand_as(means)
 
-        if stored_actions is not None:
-            actions = stored_actions
-        else:
-            actions = means
+        actions = stored_actions if stored_actions is not None else means
 
-        log_prob_cont = -0.5 * (((actions - means) / (std + 1e-8)) ** 2
-                                 + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0) + 1.8379)
+        log_prob_cont = -0.5 * (
+            ((actions - means) / (std + 1e-8)) ** 2
+            + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0)
+            + 1.8379
+        )
         log_prob_cont = log_prob_cont.sum(dim=-1)
 
         log_prob = log_prob_cat + log_prob_cont
 
-        # Entropy: categorical + continuous
         entropy_cat = cat_dist.entropy()
         entropy_cont = 0.5 * (1 + 2 * torch.clamp(self.log_std, -5, 2) + 1.8379).sum()
         entropy = entropy_cat + entropy_cont
@@ -188,9 +195,8 @@ class WaveDirectorModel(nn.Module):
 
 
 def create_model():
-    """Create and initialize model."""
-    model = WaveDirectorModel()
-    return model
+    """Create and initialize a fresh model."""
+    return WaveDirectorModel()
 
 
 def save_model(model, path):

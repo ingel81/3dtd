@@ -4,6 +4,7 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
 
 @Component({
   selector: 'app-game-header',
@@ -69,6 +70,13 @@ import { FavoriteLocation } from '../../models/location.types';
           <a class="action-btn" href="/?l=49.17327,9.26859&s=49.17555,9.26387" matTooltip="Erlenbach">
             <mat-icon>home</mat-icon>
           </a>
+
+          <!-- Rendering Toggle (Phase 5.14) — headless mode for training -->
+          <button class="action-btn" (click)="toggleRendering()"
+                  [class.active]="!renderingEnabled()"
+                  [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'">
+            <mat-icon>{{ renderingEnabled() ? 'visibility' : 'visibility_off' }}</mat-icon>
+          </button>
 
           <!-- Placement Divider + Buttons -->
           <span class="action-divider"></span>
@@ -425,6 +433,14 @@ import { FavoriteLocation } from '../../models/location.types';
 })
 export class GameHeaderComponent {
   private readonly elementRef = inject(ElementRef);
+  private readonly store = inject(TowerDefenseStore);
+
+  /** Phase 5.14: headless rendering toggle (readable for template binding). */
+  readonly renderingEnabled = this.store.renderingEnabled;
+
+  toggleRendering(): void {
+    this.store.renderingEnabled.update((v) => !v);
+  }
 
   // Close favorites menu when clicking outside
   @HostListener('document:click', ['$event'])

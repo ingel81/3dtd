@@ -27,22 +27,21 @@ import {
   TestManagers,
   TEST_SPAWN_POINTS,
   createTestCachedPaths,
+  tickEngine,
 } from './test-helpers';
 import { WaveConfig } from '../managers/wave.manager';
 
 describe('Wave + Enemy Spawning Integration', () => {
   let m: TestManagers;
+  let clock: { now: number };
 
   beforeEach(() => {
-    vi.useFakeTimers();
-    vi.spyOn(performance, 'now').mockReturnValue(1000);
     m = createTestManagers();
     m.waveManager.initialize(TEST_SPAWN_POINTS, createTestCachedPaths());
-    m.waveManager.setTimescaleProvider(() => 1.0);
+    clock = { now: 0 };
   });
 
   afterEach(() => {
-    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -89,19 +88,16 @@ describe('Wave + Enemy Spawning Integration', () => {
 
     m.waveManager.startWave(config);
 
-    // First enemy spawns immediately
+    tickEngine(m, 16, clock); // first sub-step → first spawn
     expect(m.enemyManager.getAll().length).toBe(1);
 
-    // Advance time → second enemy spawns
-    vi.advanceTimersByTime(200);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll().length).toBe(2);
 
-    // Advance again → third enemy spawns
-    vi.advanceTimersByTime(200);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll().length).toBe(3);
 
-    // No more spawns after count reached
-    vi.advanceTimersByTime(200);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll().length).toBe(3);
   });
 
@@ -115,7 +111,7 @@ describe('Wave + Enemy Spawning Integration', () => {
     };
 
     m.waveManager.startWave(config);
-    vi.advanceTimersByTime(100); // spawn all
+    tickEngine(m, 200, clock);
 
     const enemies = m.enemyManager.getAll();
     expect(enemies).toHaveLength(2);
@@ -136,6 +132,7 @@ describe('Wave + Enemy Spawning Integration', () => {
     };
 
     m.waveManager.startWave(config);
+    tickEngine(m, 16, clock);
 
     const enemies = m.enemyManager.getAll();
     expect(enemies).toHaveLength(1);
@@ -153,23 +150,19 @@ describe('Wave + Enemy Spawning Integration', () => {
     };
 
     m.waveManager.startWave(config);
-    vi.advanceTimersByTime(100); // spawn all 2
+    tickEngine(m, 200, clock);
 
     expect(m.waveManager.checkWaveComplete()).toBe(false);
 
-    // Kill all enemies
-    const enemies = [...m.enemyManager.getAll()];
-    for (const enemy of enemies) {
-      m.enemyManager.kill(enemy, 1.0);
+    for (const enemy of [...m.enemyManager.getAll()]) {
+      m.enemyManager.kill(enemy);
     }
 
-    // Wave NOT complete yet — enemies in death animation (killingEnemies > 0)
+    // Death animation pending: not complete yet
     expect(m.waveManager.checkWaveComplete()).toBe(false);
 
-    // Advance past death animation duration (2000ms)
-    vi.advanceTimersByTime(2100);
+    tickEngine(m, 2100, clock); // tick past death-animation duration
 
-    // NOW wave should be complete (enemies removed after death animation)
     expect(m.waveManager.checkWaveComplete()).toBe(true);
   });
 
@@ -179,16 +172,15 @@ describe('Wave + Enemy Spawning Integration', () => {
       enemyType: 'zombie',
       enemySpeed: 5,
       spawnMode: 'each',
-      spawnDelay: 500, // Slow spawning
+      spawnDelay: 500,
     };
 
     m.waveManager.startWave(config);
+    tickEngine(m, 16, clock); // spawn first
 
-    // Only 1 enemy spawned, kill it
     const enemy = m.enemyManager.getAll()[0];
-    m.enemyManager.kill(enemy, 1.0);
+    m.enemyManager.kill(enemy);
 
-    // Wave should NOT be complete (2 more enemies to spawn)
     expect(m.waveManager.checkWaveComplete()).toBe(false);
   });
 
@@ -201,18 +193,16 @@ describe('Wave + Enemy Spawning Integration', () => {
       spawnDelay: 0,
     };
 
-    // Wave 1
     m.waveManager.startWave(config);
     expect(m.waveManager.waveNumber()).toBe(1);
+    tickEngine(m, 16, clock);
 
-    // Kill enemies and end wave
     for (const e of [...m.enemyManager.getAll()]) {
-      m.enemyManager.kill(e, 1.0);
+      m.enemyManager.kill(e);
     }
     m.waveManager.endWave();
     expect(m.waveManager.phase()).toBe('setup');
 
-    // Wave 2
     m.waveManager.startWave(config);
     expect(m.waveManager.waveNumber()).toBe(2);
   });
@@ -250,7 +240,7 @@ describe('Wave + Enemy Spawning Integration', () => {
     m.eventBus.on('enemy:spawned', spawnedHandler);
 
     m.waveManager.startWave(config);
-    vi.advanceTimersByTime(300); // spawn all 4
+    tickEngine(m, 300, clock);
 
     expect(spawnedHandler).toHaveBeenCalledTimes(4);
     expect(m.enemyManager.getAll()).toHaveLength(4);
@@ -266,7 +256,7 @@ describe('Wave + Enemy Spawning Integration', () => {
     };
 
     m.waveManager.startWave(config);
-    vi.advanceTimersByTime(50);
+    tickEngine(m, 50, clock);
 
     m.waveManager.reset();
 
@@ -274,31 +264,27 @@ describe('Wave + Enemy Spawning Integration', () => {
     expect(m.waveManager.waveNumber()).toBe(0);
     expect(m.enemyManager.getAll()).toHaveLength(0);
 
-    // No more spawns should happen
-    vi.advanceTimersByTime(1000);
+    tickEngine(m, 1000, clock);
     expect(m.enemyManager.getAll()).toHaveLength(0);
   });
 
-  it('should scale spawn delays with timescale', () => {
-    m.waveManager.setTimescaleProvider(() => 2.0); // 2x speed
-
+  it('spawn timing is identical at any timescale (engine sub-stepping)', () => {
+    // Sub-stepping makes spawn delays purely game-time. Whether wall-clock
+    // is 1× or 75× doesn't matter — tickSpawn drives off game-time deltas.
     const config: WaveConfig = {
       enemyCount: 3,
       enemyType: 'zombie',
       enemySpeed: 5,
       spawnMode: 'each',
-      spawnDelay: 200, // Game-time delay
+      spawnDelay: 200,
     };
 
     m.waveManager.startWave(config);
-
-    // At 2x, real-time delay = 200/2 = 100ms
-    expect(m.enemyManager.getAll()).toHaveLength(1); // first immediate
-
-    vi.advanceTimersByTime(100);
+    tickEngine(m, 16, clock);
+    expect(m.enemyManager.getAll()).toHaveLength(1);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll()).toHaveLength(2);
-
-    vi.advanceTimersByTime(100);
+    tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll()).toHaveLength(3);
   });
 });

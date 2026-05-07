@@ -16,7 +16,7 @@ export type BotSkillLevel = 'beginner' | 'casual' | 'strategist' | 'meta';
 /**
  * Tower action types
  */
-export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave';
+export type TowerActionType = 'place' | 'upgrade' | 'sell' | 'wait' | 'start-wave' | 'research-start' | 'research-cancel';
 
 /**
  * Tower action returned by bot
@@ -36,6 +36,9 @@ export interface TowerAction {
   /** For 'upgrade': Which upgrade to apply */
   upgradeId?: string;
 
+  /** For 'research-start' and 'research-cancel': Which research to act on */
+  researchId?: string;
+
   /** Confidence in this action (0-1) */
   confidence?: number;
 
@@ -53,17 +56,11 @@ export interface BotConfig {
   /** Reaction time in ms (time between decisions) */
   reactionTimeMs: number;
 
-  /** Mistake rate (0-1, probability of suboptimal action) */
-  mistakeRate: number;
-
   /** Tower types this bot knows how to use */
   knownTowerTypes: TowerTypeId[];
 
   /** Whether bot considers enemy types when building */
   adaptsToEnemies: boolean;
-
-  /** Whether bot plans ahead (multiple waves) */
-  plansAhead: boolean;
 
   /** Max towers bot will build (0 = unlimited) */
   maxTowers: number;
@@ -100,47 +97,49 @@ export interface ITowerBot {
 }
 
 /**
+ * All combat towers — Research Center is NOT a combat tower and excluded by
+ * base-tower-bot.ts (attackType === 'passive'). Research is the actual gate.
+ * Skill-level differences come from reactionTimeMs, mistakeRate, maxTowers,
+ * adaptsToEnemies, plansAhead — not knownTowerTypes.
+ */
+const ALL_COMBAT_TOWERS: TowerTypeId[] = [
+  'archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
+];
+
+/**
  * Default bot configurations by skill level
  */
 export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
   beginner: {
     skillLevel: 'beginner',
     reactionTimeMs: 3000,
-    mistakeRate: 0.4,
-    knownTowerTypes: ['archer', 'cannon'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: false,
-    plansAhead: false,
     maxTowers: 10,
   },
 
   casual: {
     skillLevel: 'casual',
     reactionTimeMs: 1500,
-    mistakeRate: 0.2,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'poison'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    plansAhead: false,
     maxTowers: 15,
   },
 
   strategist: {
     skillLevel: 'strategist',
     reactionTimeMs: 800,
-    mistakeRate: 0.05,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic', 'poison'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    plansAhead: true,
-    maxTowers: 50,
+    maxTowers: 300,  // Raised from 50 — bot was hitting cap and hoarding gold
   },
 
   meta: {
     skillLevel: 'meta',
     reactionTimeMs: 400,
-    mistakeRate: 0.01,
-    knownTowerTypes: ['archer', 'cannon', 'ice', 'dual-gatling', 'magic', 'rocket', 'poison'],
+    knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    plansAhead: true,
-    maxTowers: 0, // Unlimited
+    maxTowers: 300,  // Raised from 0 (unlimited) to match strategist with higher cap
   },
 };
 

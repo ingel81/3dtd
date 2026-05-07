@@ -1,42 +1,471 @@
 {
-  "version": "1.0.0",
-  "checkpoint": "checkpoint_6500.pt",
-  "trainingEpisodes": 6500,
-  "exportedAt": "2026-01-25T21:31:16.928929",
-  "inputSize": 74,
-  "outputSize": 10,
+  "version": "5.10.0",
+  "architecture": "template-based-wave-director",
+  "checkpoint": "checkpoint_7350.pt",
+  "trainingEpisodes": 7350,
+  "exportedAt": "2026-04-21T23:07:22.768995",
+  "inputSize": 156,
+  "outputSize": 36,
   "outputFormat": {
-    "enemyLogits": [
+    "templateLogits": [
       0,
-      6
+      32
     ],
     "params": [
-      6,
-      10
+      32,
+      36
     ]
   },
-  "enemyTypes": [
-    "zombie",
-    "bat",
-    "tank",
-    "wallsmasher",
-    "penguin",
-    "herbert"
+  "stateLayout": {
+    "scalarFeatures": 116,
+    "spatialFeatures": 40
+  },
+  "templateCount": {
+    "active": 18,
+    "maxSlots": 32
+  },
+  "templates": [
+    {
+      "slot": 0,
+      "id": "zombie_horde",
+      "name": "Zombie Horde",
+      "minWave": 1,
+      "requiresCapability": null,
+      "countRange": [
+        20,
+        2000
+      ],
+      "spawnDelayRange": [
+        15,
+        400
+      ],
+      "hpMultRange": [
+        0.5,
+        6.0
+      ],
+      "variationRange": [
+        0.05,
+        0.4
+      ]
+    },
+    {
+      "slot": 1,
+      "id": "rat_tide",
+      "name": "Rat Tide",
+      "minWave": 8,
+      "requiresCapability": null,
+      "countRange": [
+        100,
+        5000
+      ],
+      "spawnDelayRange": [
+        10,
+        200
+      ],
+      "hpMultRange": [
+        0.5,
+        5.0
+      ],
+      "variationRange": [
+        0.05,
+        0.3
+      ]
+    },
+    {
+      "slot": 2,
+      "id": "penguin_rush",
+      "name": "Penguin Rush",
+      "minWave": 5,
+      "requiresCapability": null,
+      "countRange": [
+        30,
+        500
+      ],
+      "spawnDelayRange": [
+        10,
+        300
+      ],
+      "hpMultRange": [
+        0.5,
+        4.0
+      ],
+      "variationRange": [
+        0.05,
+        0.35
+      ]
+    },
+    {
+      "slot": 3,
+      "id": "light_mix",
+      "name": "Light Mix",
+      "minWave": 4,
+      "requiresCapability": null,
+      "countRange": [
+        30,
+        400
+      ],
+      "spawnDelayRange": [
+        30,
+        500
+      ],
+      "hpMultRange": [
+        0.5,
+        5.0
+      ],
+      "variationRange": [
+        0.05,
+        0.4
+      ]
+    },
+    {
+      "slot": 4,
+      "id": "spider_swarm",
+      "name": "Spider Swarm",
+      "minWave": 8,
+      "requiresCapability": null,
+      "countRange": [
+        50,
+        800
+      ],
+      "spawnDelayRange": [
+        20,
+        350
+      ],
+      "hpMultRange": [
+        0.5,
+        4.0
+      ],
+      "variationRange": [
+        0.05,
+        0.35
+      ]
+    },
+    {
+      "slot": 5,
+      "id": "wallsmasher_crew",
+      "name": "Wallsmasher Crew",
+      "minWave": 6,
+      "requiresCapability": null,
+      "countRange": [
+        15,
+        200
+      ],
+      "spawnDelayRange": [
+        50,
+        600
+      ],
+      "hpMultRange": [
+        0.5,
+        6.0
+      ],
+      "variationRange": [
+        0.1,
+        0.4
+      ]
+    },
+    {
+      "slot": 6,
+      "id": "bat_swarm",
+      "name": "Bat Swarm",
+      "minWave": 7,
+      "requiresCapability": "antiAir",
+      "countRange": [
+        30,
+        600
+      ],
+      "spawnDelayRange": [
+        15,
+        300
+      ],
+      "hpMultRange": [
+        0.5,
+        4.0
+      ],
+      "variationRange": [
+        0.05,
+        0.3
+      ]
+    },
+    {
+      "slot": 7,
+      "id": "hornet_strike",
+      "name": "Hornet Strike",
+      "minWave": 9,
+      "requiresCapability": "antiAir",
+      "countRange": [
+        20,
+        300
+      ],
+      "spawnDelayRange": [
+        30,
+        400
+      ],
+      "hpMultRange": [
+        0.5,
+        5.0
+      ],
+      "variationRange": [
+        0.1,
+        0.4
+      ]
+    },
+    {
+      "slot": 8,
+      "id": "tank_column",
+      "name": "Tank Column",
+      "minWave": 10,
+      "requiresCapability": null,
+      "countRange": [
+        10,
+        150
+      ],
+      "spawnDelayRange": [
+        80,
+        800
+      ],
+      "hpMultRange": [
+        0.5,
+        8.0
+      ],
+      "variationRange": [
+        0.1,
+        0.35
+      ]
+    },
+    {
+      "slot": 9,
+      "id": "bear_pack",
+      "name": "Bear Pack",
+      "minWave": 12,
+      "requiresCapability": null,
+      "countRange": [
+        8,
+        120
+      ],
+      "spawnDelayRange": [
+        60,
+        600
+      ],
+      "hpMultRange": [
+        0.5,
+        7.0
+      ],
+      "variationRange": [
+        0.1,
+        0.35
+      ]
+    },
+    {
+      "slot": 10,
+      "id": "mech_army",
+      "name": "Mech Army",
+      "minWave": 20,
+      "requiresCapability": null,
+      "countRange": [
+        5,
+        100
+      ],
+      "spawnDelayRange": [
+        100,
+        900
+      ],
+      "hpMultRange": [
+        0.5,
+        10.0
+      ],
+      "variationRange": [
+        0.1,
+        0.4
+      ]
+    },
+    {
+      "slot": 11,
+      "id": "dragon_elite",
+      "name": "Dragon Elite",
+      "minWave": 15,
+      "requiresCapability": "antiAir",
+      "countRange": [
+        5,
+        100
+      ],
+      "spawnDelayRange": [
+        80,
+        800
+      ],
+      "hpMultRange": [
+        0.5,
+        8.0
+      ],
+      "variationRange": [
+        0.1,
+        0.4
+      ]
+    },
+    {
+      "slot": 12,
+      "id": "mammoth_siege",
+      "name": "Mammoth Siege",
+      "minWave": 14,
+      "requiresCapability": null,
+      "countRange": [
+        8,
+        120
+      ],
+      "spawnDelayRange": [
+        100,
+        1000
+      ],
+      "hpMultRange": [
+        0.5,
+        10.0
+      ],
+      "variationRange": [
+        0.1,
+        0.4
+      ]
+    },
+    {
+      "slot": 13,
+      "id": "ghost_surge",
+      "name": "Ghost Surge",
+      "minWave": 12,
+      "requiresCapability": "antiEthereal",
+      "countRange": [
+        20,
+        350
+      ],
+      "spawnDelayRange": [
+        30,
+        400
+      ],
+      "hpMultRange": [
+        0.5,
+        5.0
+      ],
+      "variationRange": [
+        0.1,
+        0.4
+      ]
+    },
+    {
+      "slot": 14,
+      "id": "wraith_storm",
+      "name": "Wraith Storm",
+      "minWave": 18,
+      "requiresCapability": "antiEthereal",
+      "countRange": [
+        15,
+        300
+      ],
+      "spawnDelayRange": [
+        20,
+        350
+      ],
+      "hpMultRange": [
+        0.5,
+        6.0
+      ],
+      "variationRange": [
+        0.05,
+        0.35
+      ]
+    },
+    {
+      "slot": 15,
+      "id": "chaos_wave",
+      "name": "Chaos Wave",
+      "minWave": 15,
+      "requiresCapability": "antiAir",
+      "countRange": [
+        25,
+        500
+      ],
+      "spawnDelayRange": [
+        40,
+        500
+      ],
+      "hpMultRange": [
+        0.5,
+        5.0
+      ],
+      "variationRange": [
+        0.15,
+        0.5
+      ]
+    },
+    {
+      "slot": 16,
+      "id": "armor_gauntlet",
+      "name": "Armor Gauntlet",
+      "minWave": 20,
+      "requiresCapability": "antiEthereal",
+      "countRange": [
+        30,
+        600
+      ],
+      "spawnDelayRange": [
+        40,
+        500
+      ],
+      "hpMultRange": [
+        0.5,
+        6.0
+      ],
+      "variationRange": [
+        0.15,
+        0.45
+      ]
+    },
+    {
+      "slot": 17,
+      "id": "boss_herbert",
+      "name": "Boss: Herbert",
+      "minWave": 20,
+      "requiresCapability": null,
+      "countRange": [
+        10,
+        100
+      ],
+      "spawnDelayRange": [
+        100,
+        1200
+      ],
+      "hpMultRange": [
+        0.5,
+        6.0
+      ],
+      "variationRange": [
+        0.1,
+        0.3
+      ]
+    }
   ],
-  "constants": {
-    "KILL_TIME_MIN": 2.0,
-    "KILL_TIME_MAX": 5.0,
-    "SPAWN_DELAY_MIN": 500,
-    "SPAWN_DELAY_MAX": 2000,
-    "VARIATION_MAX": 0.3,
-    "HEALTH_MULTIPLIER_MAX": 20.0
+  "continuousParams": [
+    "count",
+    "spawn_delay",
+    "hp_mult",
+    "variation"
+  ],
+  "waveDurationCap": {
+    "maxMs": 180000,
+    "minSpawnDelayMs": 5
   },
   "enemyBaseHP": {
     "zombie": 80,
-    "bat": 25,
-    "tank": 250,
-    "wallsmasher": 200,
+    "rat": 5,
     "penguin": 30,
-    "herbert": 500
+    "wallsmasher": 200,
+    "bat": 25,
+    "hornet": 80,
+    "spider": 60,
+    "zombie-soldier": 160,
+    "tank": 250,
+    "bear": 300,
+    "dragon": 450,
+    "mech": 500,
+    "mammoth": 400,
+    "herbert": 500,
+    "ghost": 120,
+    "wraith": 100
   }
 }

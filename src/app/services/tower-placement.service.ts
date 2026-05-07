@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial, Raycaster, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
@@ -307,6 +307,15 @@ export class TowerPlacementService {
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
     const hit = devProvider.raycastDown(local.x, local.z, 10000);
     return hit ? hit.y : fallbackHeight;
+  }
+
+  /**
+   * Public wrapper around resolvePlacementHeight — raycasts terrain+buildings
+   * and returns the highest surface (rooftop if building is below).
+   * Used by the bot so towers land on rooftops in DevWorld.
+   */
+  getSurfaceHeightAt(lat: number, lon: number, fallbackHeight: number): number {
+    return this.resolvePlacementHeight(lat, lon, fallbackHeight);
   }
 
   /**
@@ -629,6 +638,10 @@ export class TowerPlacementService {
     }
     // If no routes exist yet (before game start), allow placement anywhere
 
+    // Note: Buildings are NOT a collision obstacle — placement service raises
+    // tower height to roof level via raycastDown against terrain+buildings,
+    // so towers sit naturally on rooftops when positioned over a building.
+
     return { valid: true };
   }
 
@@ -686,6 +699,9 @@ export class TowerPlacementService {
       }
     }
     // If no routes exist yet (before game start), allow placement anywhere
+
+    // Note: see validateTowerPosition — buildings are not obstacles;
+    // towers are automatically raised to roof level.
 
     return { valid: true };
   }
@@ -756,9 +772,8 @@ export class TowerPlacementService {
           this.engine!.getScene().add(tower.losVisualization);
         }
 
-        console.warn(
-          `[PerfTrace] registerTowerOnGrid: LOS=${(performance.now() - tLos0).toFixed(1)}ms (progressive) | range=${config.range} visibleCells=${visibleCells.length} type=${typeId}`
-        );
+        // PerfTrace disabled — fired per tower placement (noisy during training)
+        void tLos0;
       }
     );
   }

@@ -1471,8 +1471,7 @@ export class ThreeEffectsRenderer {
       if (p.life <= 0) availableParticles++;
     }
 
-    console.log('[HQ Explosion] Spawning at local:', centerX.toFixed(1), centerY.toFixed(1), centerZ.toFixed(1));
-    console.log('[HQ Explosion] Input localY:', localY, '| Available particles:', availableParticles, '/', this.trailPoolAdditive.length);
+    void availableParticles;
 
     // Phase 1: Central bright flash - reduced count, larger size to compensate
     for (let i = 0; i < 150; i++) {
@@ -1588,7 +1587,6 @@ export class ThreeEffectsRenderer {
       }
     }
 
-    console.log('[HQ Explosion] Spawned ~450 particles');
   }
 
   /**

@@ -10,8 +10,59 @@
 - Attributions: stone-wall.jpg Quelle ermitteln und eintragen
 - Attributions: Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
 
+- **Tower-Upgrade-Skalierung feintunen**
+      Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
+      - Damage: ×1.10/Level (L25 ×10.83)
+      - Fire Rate: ×1.07/Level (L25 ×5.42)
+      - Range: ×1.04/Level (L25 ×2.67)
+      → kombiniert L25 ≈ ×58 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
+      Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
+
+- **Line-of-Sight für Air-Tower / Air-Targets**
+      Aktuell schießen Tower auf fliegende Enemies visuell durch Gebäude durch — kein LoS-Test.
+      Ground-LoS existiert bereits (`towerPlacement.recomputeTowerLOS`, `tower.visibleCells`, `tower.losReady`),
+      aber das System sampelt nur Boden-Zellen. Für Air-Targets braucht es einen Raycast gegen die 3D-Tile-Geometrie
+      (oder einen vorberechneten "sky-LoS"-Volumencheck) zwischen Tower-Mündung und Air-Enemy-Position.
+      Betroffene Tower: Rocket (canTargetAir), Ice (canTargetAir), ggf. weitere bei späterem Air-Targeting-Research-Unlock.
+      Stellen: `tower-combat.service.ts` (Targeting-Filter), `tower-placement.service.ts` (LoS-Berechnung), evtl. `enemy.entity.ts` (isAir-Flag).
+
 
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
+
+---
+
+# HOUSEKEEPING (Großaktion)
+
+> **Idee:** Eigener Sprint, viele parallele Agents — keine kleinen Hot-Fix-Sessions zwischendurch.
+> **Zeitpunkt:** Wenn die Phase-5/6-Substanz steht, bevor wir auf Polish gehen.
+
+- [ ] **Komplette Doku-Überarbeitung**
+      `docs/**` durchforsten: was ist veraltet (Phase-1/2-Reste), was widerspricht dem aktuellen Code, was fehlt.
+      Index aktualisieren, abgekoppelte Dokumente entfernen oder zusammenführen.
+
+- [ ] **Code-Review gegen Qualitätsstandards**
+      Gesamten `src/` durchgehen: Architektur-Konsistenz, Naming, ungenutzte Felder/Methoden, Magic Numbers,
+      ad-hoc-Pattern, halbfertige Abstraktionen. Pro Manager / Service ein Review-Pass.
+
+- [ ] **Test-Audit**
+      Alle bestehenden Tests anschauen: laufen sie noch, testen sie das Richtige, sind sie aussagekräftig?
+      Tote oder getriviall gewordene Tests entfernen.
+
+- [ ] **Test-Lücken identifizieren**
+      Pro kritischer Manager / Service prüfen: was ist nicht abgedeckt? Insbesondere
+      Game-Loop, Wave-Manager, Tower-Combat, Damage-Matrix, AI-Wave-Director, Spatial-Audio.
+
+- [ ] **Projektstruktur prüfen**
+      `src/app/` Layout sanity-checken: managers/services/entities/components-Trennung wirklich konsistent?
+      Doppelt belegte Verantwortlichkeiten (z.B. Facades vs. Manager) zusammenführen oder klar trennen.
+
+- [ ] **Verwaisten Code finden**
+      Ungenutzte Exports, tote Files, nicht referenzierte Assets. Tools: `ts-prune` für TypeScript,
+      `depcheck` für package.json, manuelle Sweeps für Assets.
+
+**Ausführung:** Mehrere Agents parallel — pro Punkt ein Agent mit klar abgegrenztem Scope und Reportback.
+Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwischt den Sprint.
 
 ---
 
@@ -206,6 +257,45 @@
 - [ ] **Enemy-Properties für Rüstung**
       AI lernt: "Nur Physical-Tower → Heavy Enemies effektiv"
 
+## 6.6 Wave-Curriculum (Designer-forced Variety) — POST-CKPT-7350-PLAYTEST
+
+**Problem (Live-Playtest mit Checkpoint 7350):**
+- Endgame ab Wave 15+ viel zu leicht — keine starken Wellen, Geld-Überfluss
+- Template-Loop: nur wallsmasher / spider / rat / spider — keine Variation
+- Keine Air-Units in 39 Wellen (bat / hornet / dragon nie)
+- Forschung viel zu schnell fertig — muss teurer/langsamer
+- NN findet Variety nicht von alleine über Reward, optimiert Sweet-Spot mit den 2-3 einfachsten Templates
+
+**Lösung A: Wave-Curriculum-Mask in `templates.py::get_available_template_mask`**
+
+Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates wählen, continuous params bleiben frei:
+
+| Wave | Mask-Constraint |
+|---|---|
+| 1-2 | unarmored only (zombie/rat/penguin) |
+| 3 | + light (wallsmasher/bat/hornet/spider) |
+| 5 | + heavy (tank/bear) |
+| 7 | **AIR forced** (bat_swarm/hornet_strike/dragon_elite) |
+| 10 | **BOSS forced** (boss_herbert) |
+| 12 | + fortified (mammoth_siege) |
+| 15 | + ethereal (ghost_surge/wraith_storm) |
+| 20 | mix-only forced (chaos_wave/armor_gauntlet) |
+| 25+ | mech_army oder mammoth_siege jede 5. Wave |
+| 30+ | boss alle 10 Waves |
+
+**Lösung B: Continuous-Param-Floor ab Wave 20**
+- `count_factor` clamped auf min 0.7
+- `hp_mult_factor` clamped auf min 0.5
+- → NN kann keine "easy" Wave mehr picken, Endgame wird automatisch fordernder
+
+**Game-Balance (separate von NN, in `game-balance.config.ts`):**
+- Research-Cost erhöhen (×2 oder ×3 pro Tier)
+- Research-Duration verlängern
+- Kill-Reward-Curve flacher (Wave-Multiplier reduzieren)
+- → bekämpft Geld-Überfluss + zu schnelle Forschung
+
+**Bonus:** Lösung A+B kompatibel mit existierendem Checkpoint — kein Retraining nötig, NN respektiert Masks bereits aus Phase 5.10. Optional Re-Training mit Curriculum aktiv damit NN die Constraints "lernt".
+
 ---
 
 # BACKLOG
@@ -292,6 +382,18 @@
       Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming
       Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
       ~20 Zeilen Core, optional UI-Setting in localStorage
+
+## Game-Loop Performance (Speed-Multiplikator)
+
+> **Kontext:** Beim AI-Training mit hohen Speed-Multiplikatoren (x75) wurde Mitte 2026-05 der Substep-Fix eingebaut — Movement/Hittest/Status-Restzeit laufen jetzt mathematisch korrekt N× pro Frame. Beim normalen Gameplay mit aktivem Rendering brachen daraufhin die FPS bei x2/x4 sichtbar ein. Erste Hypothese (microStep/frameStep-Refactor) wurde profilet (`.profiles/`, 2026-05-07) und **falsifiziert**: ~80% der x4-Cost waren **gar nicht der Game-Loop**, sondern der `ModelPreviewService` (rotierende 3D-Modelle in der Sidebar) der pro Frame `WebGLRenderer.setSize()` aufrief und damit den WebGL-Drawingbuffer reallozierte. Der Fix (Renderer auf Max-Size + setViewport pro Preview) hat den Hot-Path eliminiert: x4 läuft jetzt mit 10.8% Idle-Reserve und 1.3% Dropped-Frames (vorher 0% Idle, 46% Drops). Damit ist das Symptom weitgehend gelöst, die folgenden Punkte sind nur noch optionale Mini-Hebel.
+
+- [ ] **microStep/frameStep-Trennung** (LOW PRIO, nur bei Bedarf)
+      `update()`-Kette aufteilen: `microStep(dt)` läuft N× pro Frame und enthält nur substep-kritisches (Movement, Hittest, Status-Restzeit-Decrement). `frameStep(totalDt)` läuft 1× pro Frame und enthält Targeting, Spatial-Grid-Rebuild, VFX/Audio-Trigger, Three.js-Sync, Signal-Emits.
+      Aktuell **nicht dringend** — bei x4 mit ~1000 Enemies bleibt 10% Idle-Reserve. Erst bei extremen Setups (>2000 Enemies, x10+) wieder relevant. Determinismus für x75-Training muss erhalten bleiben.
+      Startpunkte: `src/app/services/game-loop-facade.service.ts`, `src/app/managers/enemy.manager.ts:285`, `src/app/managers/projectile.manager.ts`, `src/app/managers/status-effect.manager.ts`.
+
+- [ ] **Preview-RAF-Drosselung** (optional)
+      `ModelPreviewService` läuft mit voller Display-Refresh-Rate (60 fps). Auf 15–30 fps drosseln oder via IntersectionObserver pausieren wenn Sidebar-Canvas nicht im Viewport. Spart weitere ~5% bei sichtbarer Build-Sidebar.
 
 ## Visual Effects - Advanced
 

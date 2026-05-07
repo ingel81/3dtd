@@ -62,10 +62,15 @@ export const EFFECTIVENESS_COLORS: Record<DamageEffectiveness, string> = {
   devastating:  '#FFD700',  // Gold — massive bonus
 };
 
-/** Scale multiplier for floating damage numbers, keyed by effectiveness tier. */
+/**
+ * Scale multiplier for floating damage numbers, keyed by effectiveness tier.
+ * Phase 5.16: widened spread so matchup differences are obvious mid-fight.
+ *   weak hits → tiny grey numbers (almost a hint that you should reposition)
+ *   devastating hits → big gold numbers (clear "this is the right tower")
+ */
 export const EFFECTIVENESS_SCALES: Record<DamageEffectiveness, number> = {
-  weak:         0.8,   // Smaller text for weak hits
+  weak:         0.55,  // Significantly smaller — visually communicates "barely doing anything"
   normal:       1.0,   // Standard
-  strong:       1.15,  // Slightly larger
-  devastating:  1.3,   // Noticeably larger
+  strong:       1.35,  // Clearly bigger
+  devastating:  1.75,  // Huge — instant feedback that this matchup is great
 };

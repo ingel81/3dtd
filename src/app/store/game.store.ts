@@ -35,6 +35,14 @@ export class GameStore {
   /** Training mode timescale (1.0 = normal, up to 75x) */
   readonly trainingTimescale = signal<number>(1.0);
 
+  /**
+   * Phase 5.14: Skip 3D rendering to free CPU/GPU for more parallel training
+   * clients. Gameplay simulation still runs (sub-step loop is decoupled from
+   * render loop), but `renderer.render()` + `tilesRenderer.update()` + all
+   * per-frame visual updates are no-ops. Angular UI continues to update.
+   */
+  readonly renderingEnabled = signal<boolean>(true);
+
   // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by TrainingClientService
   // (the writer). Component reads them directly from that service.
 
@@ -43,6 +51,9 @@ export class GameStore {
 
   /** AI explanation text for current wave */
   readonly aiExplanation = signal<string | null>(null);
+
+  /** Fatal AI error message (shown as blocking banner, typically ONNX load fail) */
+  readonly aiError = signal<string | null>(null);
 
   /** DevWorld is regenerating terrain */
   readonly isDevWorldRegenerating = signal<boolean>(false);

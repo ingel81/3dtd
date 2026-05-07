@@ -8,327 +8,303 @@
   <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
 </head>
 <body>
-  <div class="dashboard">
-    <!-- Header -->
-    <div class="header">
-      <div class="header-left">
-        <h1>3DTD <span>Wave Director</span></h1>
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <!-- STICKY HEADER: Titel + KPIs + Controls + Tabs                  -->
+  <!-- ══════════════════════════════════════════════════════════════ -->
+  <header class="app-header">
+    <div class="app-header-top">
+      <div class="brand">
+        <h1>3DTD</h1>
+        <span class="brand-sub">Wave Director Training</span>
         <div class="connection-badge disconnected" id="ws-badge">
           <span class="connection-dot"></span>
-          <span id="ws-status">Connecting...</span>
+          <span id="ws-status">Connecting…</span>
         </div>
       </div>
-      <div class="header-stats">
-        <!-- Primary Stats -->
-        <div class="stat-group primary">
-          <div class="stat" title="Anzahl der trainierten Wellen (1 Episode = 1 Wave Result)">
-            <div class="stat-value blue" id="episode">0</div>
-            <div class="stat-label">Episode</div>
-          </div>
-          <div class="stat" title="Durchschnittlicher Reward über alle Episoden. Ziel: ~0.8-1.0">
-            <div class="stat-value green" id="avg-reward">0.000</div>
-            <div class="stat-label">Avg Reward</div>
-          </div>
-          <div class="stat" title="Höchster einzelner Reward. Max möglich: ~1.2">
-            <div class="stat-value purple" id="best-reward">0.000</div>
-            <div class="stat-label">Best</div>
-          </div>
-          <div class="stat" title="Anzahl verbundener Browser-Clients (parallel trainierende Spiele)">
-            <div class="stat-value cyan" id="clients">0</div>
-            <div class="stat-label">Clients</div>
-          </div>
-          <div class="stat" title="Anteil der Wellen im Sweet Spot (40-70% Progress). Ziel: >50%">
-            <div class="stat-value orange" id="sweet-spot">0%</div>
-            <div class="stat-label">Sweet Spot</div>
-          </div>
-          <div class="stat" title="Anteil der Wellen die zum Game Over führten. Ziel: <10%">
-            <div class="stat-value red" id="game-over-rate">0%</div>
-            <div class="stat-label">Game Over</div>
-          </div>
+      <div class="kpi-chips">
+        <div class="kpi-chip">
+          <div class="kpi-label">Episode</div>
+          <div class="kpi-value blue" id="episode">0</div>
         </div>
-
-        <!-- Divider -->
-        <div class="stat-divider"></div>
-
-        <!-- Secondary Stats (Model Metrics) -->
-        <div class="stat-group secondary">
-          <div class="stat mini" title="Policy Entropy - Maß für Exploration. Hoch = viel Variation, Niedrig = spezialisiert. Sollte langsam sinken.">
-            <div class="stat-value" id="header-entropy">--</div>
-            <div class="stat-label">Entropy</div>
-          </div>
-          <div class="stat mini" title="Gradient Norm - Stärke der Gewichts-Updates. Zu hoch = instabil, zu niedrig = kein Lernen.">
-            <div class="stat-value" id="header-grad-norm">--</div>
-            <div class="stat-label">Grad</div>
-          </div>
-          <div class="stat mini" title="Anzahl der PPO Model-Updates (1 Update = 1 Batch von 16 Episoden)">
-            <div class="stat-value" id="header-updates">0</div>
-            <div class="stat-label">Updates</div>
-          </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">PPO Updates</div>
+          <div class="kpi-value cyan" id="model-updates">0</div>
         </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Avg Reward</div>
+          <div class="kpi-value green" id="avg-reward">0.000</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Best</div>
+          <div class="kpi-value purple" id="best-reward">0.000</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Sweet %</div>
+          <div class="kpi-value orange" id="sweet-spot">0%</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Game Over</div>
+          <div class="kpi-value red" id="game-over-rate">0%</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Entropy</div>
+          <div class="kpi-value" id="header-entropy">--</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Grad</div>
+          <div class="kpi-value" id="header-grad-norm">--</div>
+        </div>
+        <div class="kpi-chip">
+          <div class="kpi-label">Clients</div>
+          <div class="kpi-value cyan" id="clients">0</div>
+        </div>
+      </div>
+      <div class="header-controls">
+        <button class="ctrl-btn ctrl-start" data-cmd="start" title="Bot + Zeitraffer starten">▶ Start</button>
+        <button class="ctrl-btn ctrl-stop" data-cmd="stop" title="Training pausieren">⏸ Stop</button>
+        <button class="ctrl-btn ctrl-reload" data-cmd="reload" title="Hard-Reload aller Client-Tabs">⟳ Reload</button>
+        <label class="ctrl-select-label" title="Timescale für alle Clients">
+          Speed
+          <select class="ctrl-select" id="speed-select">
+            <option value="1">1×</option>
+            <option value="4">4×</option>
+            <option value="10">10×</option>
+            <option value="25">25×</option>
+            <option value="50">50×</option>
+            <option value="75" selected>75×</option>
+          </select>
+        </label>
+        <button class="ctrl-btn ctrl-render" id="render-toggle" data-rendering="off"
+                title="3D-Rendering für alle Clients umschalten">👁 Render: OFF</button>
+        <span class="ctrl-status" id="ctrl-status"></span>
       </div>
     </div>
+    <nav class="tab-nav" role="tablist">
+      <button class="tab-button is-active" data-tab="training" role="tab">
+        <span class="tab-icon">▮</span> Training
+      </button>
+      <button class="tab-button" data-tab="clients" role="tab">
+        <span class="tab-icon">◉</span> Clients
+        <span class="tab-counter" id="tab-clients-counter">0</span>
+      </button>
+      <button class="tab-button" data-tab="nn" role="tab">
+        <span class="tab-icon">⌬</span> NN Internals
+      </button>
+      <button class="tab-button" data-tab="waves" role="tab">
+        <span class="tab-icon">≡</span> Waves
+      </button>
+    </nav>
+  </header>
 
-    <!-- Row 1: Reward Chart + Config Legend -->
-    <div class="card span-2">
-      <div class="card-header" title="Reward pro Episode. Gaussian Peak bei 55% Progress. Positiv = gute Welle, Negativ = zu leicht/schwer.">
-        <span class="card-title">Reward</span>
-        <span class="card-badge green" id="reward-badge">--</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="reward-chart"></canvas>
-      </div>
-    </div>
+  <main class="app-main">
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: TRAINING (Default)                                      -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section class="tab-panel is-active" data-tab="training">
 
-    <div class="card">
-      <div class="card-header">
-        <span class="card-title">Reward Config</span>
-      </div>
-      <div class="config-legend">
-        <div class="config-section">
-          <div class="config-section-title">Progress Reward</div>
-          <div class="config-item">
-            <span class="config-label">Target</span>
-            <span class="config-value green">55%</span>
-            <span class="config-desc">Gaussian Peak</span>
-          </div>
-          <div class="config-item">
-            <span class="config-label">Sigma</span>
-            <span class="config-value">±15%</span>
-            <span class="config-desc">Sweet Spot: 40-70%</span>
-          </div>
+      <div class="section-group section-accent--training">
+        <div class="section-title">
+          <span class="section-title-icon">▮</span>
+          Training Core
+          <span class="help" data-tooltip="Die drei zentralen Training-Signale: Reward (Note pro Wave), Progress-Verteilung (wo landen Waves), Near-Miss (wie knapp). Legitim über alle Clients aggregiert weil Outcome-Signale.">?</span>
         </div>
-        <div class="config-row">
-          <div class="config-section">
-            <div class="config-section-title">Penalties</div>
-            <div class="config-item compact" title="Welle zu leicht: Gegner sterben sofort (<20% Progress). Keine Spannung, keine Herausforderung.">
-              <span class="config-label">Boring</span>
-              <span class="config-value red">-0.30</span>
+        <div class="section-grid core-grid">
+          <div class="card card--reward">
+            <div class="card-header">
+              <span class="card-title">Reward</span>
+              <span class="card-badge green" id="reward-badge">--</span>
             </div>
-            <div class="config-item compact" title="Welle zu schwer: Fast alle Gegner erreichen die Basis (>85% Progress). Spieler wird überrannt.">
-              <span class="config-label">Overflow</span>
-              <span class="config-value red">-0.30</span>
-            </div>
-            <div class="config-item compact" title="Spieler verliert das Spiel. Strafe skaliert mit Welle: früher Game Over = härtere Strafe (bis -5.0).">
-              <span class="config-label">Game Over</span>
-              <span class="config-value red">-0.5×</span>
-            </div>
-            <div class="config-item compact" title="Gleicher Gegnertyp 3× in den letzten 5 Wellen. Fördert Abwechslung und verhindert Spam.">
-              <span class="config-label">Monotony</span>
-              <span class="config-value red">-0.20</span>
+            <div class="chart-container">
+              <canvas id="reward-chart"></canvas>
             </div>
           </div>
-          <div class="config-section">
-            <div class="config-section-title">Bonuses</div>
-            <div class="config-item compact" title="Spannende Momente: >50% der Gegner erreichen 80%+ des Pfades, sterben aber noch. Knapp aber geschafft!">
-              <span class="config-label">Near-Miss</span>
-              <span class="config-value green">+0.15</span>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Progress Distribution</span>
+              <span class="help" data-tooltip="Verteilung aller Waves in Progress-Zonen: Boring (&lt;20%), Low (20-Sweet), Sweet (Near-Miss-Band), Moderate (Sweet-Overflow), Danger (&gt;Overflow inkl. GameOver). Ziel: möglichst grüner Sweet-Anteil. Die Linie unten zeigt Sweet-% im Zeitverlauf.">?</span>
             </div>
-            <div class="config-item compact" title="Mindestens ein Gegner kommt sehr weit (>90%). Erzeugt dramatische Momente.">
-              <span class="config-label">Max Prog</span>
-              <span class="config-value green">+0.10</span>
+            <div class="distribution-bar" id="dist-bar"></div>
+            <div class="dist-legend compact">
+              <span class="dist-legend-item"><span class="dist-legend-dot" style="background:var(--accent-blue);opacity:0.5"></span><span id="legend-boring">Boring</span></span>
+              <span class="dist-legend-item"><span class="dist-legend-dot" style="background:var(--text-muted)"></span><span id="legend-low">Low</span></span>
+              <span class="dist-legend-item"><span class="dist-legend-dot" style="background:var(--accent-green)"></span><span id="legend-sweet">Sweet</span></span>
+              <span class="dist-legend-item"><span class="dist-legend-dot" style="background:var(--accent-orange)"></span><span id="legend-moderate">Moderate</span></span>
+              <span class="dist-legend-item"><span class="dist-legend-dot" style="background:var(--accent-red)"></span><span id="legend-danger">Danger</span></span>
             </div>
-            <div class="config-item compact" title="Gegner sterben an verschiedenen Stellen (hohe Varianz). Tower werden progressiv überlastet.">
-              <span class="config-label">Spread</span>
-              <span class="config-value green">+0.05</span>
-            </div>
-            <div class="config-item compact" title="Neuer Gegnertyp der in den letzten 5 Wellen nicht vorkam. Belohnt taktische Vielfalt.">
-              <span class="config-label">Variety</span>
-              <span class="config-value green">+0.15</span>
+            <div class="chart-container chart-container--slim">
+              <canvas id="dist-chart"></canvas>
             </div>
           </div>
-        </div>
-      </div>
-    </div>
 
-    <!-- Row 2: Progress Chart + Near-Miss Chart + Distribution -->
-    <div class="card">
-      <div class="card-header" title="Durchschnittlicher Pfad-Fortschritt der Gegner. Ziel: 55% (halb sterben, halb erreichen Basis).">
-        <span class="card-title">Avg Progress</span>
-        <span class="card-badge green" id="progress-badge">--</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="progress-chart"></canvas>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header" title="Anteil der Gegner die >80% des Pfades erreichten. Hohe Werte = spannende Wellen mit knappen Momenten.">
-        <span class="card-title">Near-Miss Ratio</span>
-        <span class="card-badge orange" id="nm-badge">--</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="near-miss-chart"></canvas>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header" title="Verteilung der Wellen nach Progress-Kategorie. Grün (Sweet) sollte dominieren.">
-        <span class="card-title">Progress Distribution</span>
-      </div>
-      <div class="distribution-bar" id="dist-bar"></div>
-      <div class="dist-legend">
-        <div class="dist-legend-item" title="Zu leicht - Gegner sterben sofort. Penalty: -0.3">
-          <div class="dist-legend-dot" style="background: var(--accent-blue); opacity:0.5"></div>
-          <span id="legend-boring">Boring (&lt;20%)</span>
-        </div>
-        <div class="dist-legend-item" title="Leicht - Gegner kommen nicht weit. Niedriger Reward.">
-          <div class="dist-legend-dot" style="background: var(--text-muted)"></div>
-          <span id="legend-low">Low (20-40%)</span>
-        </div>
-        <div class="dist-legend-item" title="Perfekt! Spannende Wellen wo etwa die Hälfte durchkommt. Max Reward.">
-          <div class="dist-legend-dot" style="background: var(--accent-green)"></div>
-          <span id="legend-sweet">Sweet (40-70%)</span>
-        </div>
-        <div class="dist-legend-item" title="Etwas zu schwer - viele Gegner kommen durch. Reduzierter Reward.">
-          <div class="dist-legend-dot" style="background: var(--accent-orange)"></div>
-          <span id="legend-moderate">Moderate (70-85%)</span>
-        </div>
-        <div class="dist-legend-item" title="Zu schwer - fast alle Gegner erreichen die Basis. Penalty: -0.3">
-          <div class="dist-legend-dot" style="background: var(--accent-red)"></div>
-          <span id="legend-danger">Danger/GO (&gt;85%)</span>
-        </div>
-      </div>
-      <div class="chart-container" style="margin-top: 4px;">
-        <canvas id="dist-chart"></canvas>
-      </div>
-    </div>
-
-    <!-- Row 3: AI Parameters (Kill Time, Enemy HP, Effective DPS) -->
-    <div class="card">
-      <div class="card-header" title="Kill Time: Wie lange (in Sekunden) soll ein Gegner theoretisch ueberleben bevor er stirbt. Die AI waehlt Werte zwischen 1.5s (schwache Gegner) und 4.0s (starke Gegner). Bestimmt zusammen mit dem DPS die Gegner-HP.">
-        <span class="card-title">Kill Time</span>
-        <span class="card-badge cyan" id="kill-time-badge">--</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="kill-time-chart"></canvas>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header" title="Enemy HP: Berechnete Lebenspunkte der Gegner (HP = DPS × kill_time). Hohe Werte bedeuten widerstandsfaehige Gegner die laenger durchhalten. Skaliert mit der Staerke der Verteidigung.">
-        <span class="card-title">Enemy HP</span>
-        <span class="card-badge purple" id="enemy-hp-badge">--</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="enemy-hp-chart"></canvas>
-      </div>
-    </div>
-
-    <div class="card">
-      <div class="card-header" title="Effective DPS: Der aktuelle Schadenswert der Verteidigung (Ground oder Air, je nach Gegnertyp). Wird vom Bot-Setup bestimmt. Die AI nutzt diesen Wert um passende Gegner-HP zu berechnen.">
-        <span class="card-title">Effective DPS</span>
-        <span class="card-badge orange" id="dps-badge">--</span>
-      </div>
-      <div class="chart-container">
-        <canvas id="dps-chart"></canvas>
-      </div>
-    </div>
-
-    <!-- Row 4: Type Probabilities + DPS Profiles + Wave Log -->
-    <div class="card">
-      <div class="card-header" title="Type Probabilities: Wahrscheinlichkeitsverteilung fuer jeden Gegnertyp. Zeigt welche Typen die AI aktuell bevorzugt. Gleichverteilung (~16.7% pro Typ) ist optimal. Type-Cooldown blockiert kuerzlich genutzte Typen.">
-        <span class="card-title">Type Probabilities</span>
-      </div>
-      <div class="type-probs-container" id="type-probs-container">
-        <div class="type-probs-bars">
-          <div class="type-prob-item" data-type="herbert">
-            <span class="type-prob-label">herbert</span>
-            <div class="type-prob-bar"><div class="type-prob-fill herbert" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Near-Miss Ratio</span>
+              <span class="card-badge orange" id="nm-badge">--</span>
+              <span class="help" data-tooltip="Anteil der Gegner pro Wave, die weiter als 80% des Pfades gekommen sind. Hoch (nahe 50%) = knappe, spannende Waves; niedrig = entweder zu easy (alle früh tot) oder zu hart (alle durch).">?</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="near-miss-chart"></canvas>
+            </div>
           </div>
-          <div class="type-prob-item" data-type="tank">
-            <span class="type-prob-label">tank</span>
-            <div class="type-prob-bar"><div class="type-prob-fill tank" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="zombie">
-            <span class="type-prob-label">zombie</span>
-            <div class="type-prob-bar"><div class="type-prob-fill zombie" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="bat">
-            <span class="type-prob-label">bat</span>
-            <div class="type-prob-bar"><div class="type-prob-fill bat" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="wallsmasher">
-            <span class="type-prob-label">wallsmasher</span>
-            <div class="type-prob-bar"><div class="type-prob-fill wallsmasher" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
-          </div>
-          <div class="type-prob-item" data-type="penguin">
-            <span class="type-prob-label">penguin</span>
-            <div class="type-prob-bar"><div class="type-prob-fill penguin" style="width: 0%"></div></div>
-            <span class="type-prob-value">0%</span>
+
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Avg Progress</span>
+              <span class="card-badge green" id="progress-badge">--</span>
+              <span class="help" data-tooltip="Durchschnittlicher Path-Progress aller Gegner pro Wave (0-100%). Das grüne Band ist die Near-Miss-Sweet-Zone — Waves die dort landen bekommen den Progression-Bonus. Unter dem Band: zu easy. Über dem Band: zu hart.">?</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="progress-chart"></canvas>
+            </div>
           </div>
         </div>
-        <div class="type-probs-footer">
-          <span class="cooldown-indicator" id="cooldown-indicator" style="display: none;">Cooldown Override</span>
-        </div>
       </div>
-    </div>
 
-    <div class="card">
-      <div class="card-header" title="DPS-Verteilung entlang des Pfades (20 Bins). Zeigt wo die Defense stark/schwach ist.">
-        <span class="card-title">DPS Profiles</span>
-        <span class="card-badge green" id="dps-client-count">0 clients</span>
-      </div>
-      <div class="dps-clients-container" id="dps-profiles-container">
-        <div class="dps-empty">No clients connected</div>
-      </div>
-    </div>
+      <div class="section-group section-accent--policy">
+        <div class="section-title">
+          <span class="section-title-icon">⚙</span>
+          Policy Output
+          <span class="help" data-tooltip="Was das Netz tatsächlich produziert: Welche Enemy-Typen, wie groß die Waves, wie oft Mixed. Hier siehst du Monotony/Wave-Size-Kollaps sofort.">?</span>
+        </div>
+        <div class="section-grid policy-grid">
+          <div class="card card--wide">
+            <div class="card-header">
+              <span class="card-title">Template Usage (Phase 5.11)</span>
+              <span class="help" data-tooltip="Wie oft der NN jedes Template ausgewählt hat. Saubere Verteilung = NN nutzt alle Templates; Peaks = Template-Bias. Phase 5.11: 18 aktive Templates, Rest Reserve-Slots.">?</span>
+            </div>
+            <div class="chart-container chart-container--tall">
+              <canvas id="template-usage-chart"></canvas>
+            </div>
+          </div>
 
-    <div class="card">
-      <div class="card-header" title="Letzte 50 Wellen: Gegnertyp, Anzahl, Progress (Balken), Reward. Gruen = Sweet Spot.">
-        <span class="card-title">Wave Log</span>
-      </div>
-      <div class="wave-log" id="wave-log">
-        <div class="wave-entry" style="color: var(--text-muted); grid-template-columns: 1fr;">
-          <span>Waiting for waves...</span>
-        </div>
-      </div>
-    </div>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Wave Size Distribution</span>
+              <span class="help" data-tooltip="Histogramm der Wave-Größen (totalCount). Ziel: Verteilung über alle Buckets. Alles im ersten Bucket → AI schickt zu kleine Waves.">?</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="wave-size-histogram-chart"></canvas>
+            </div>
+          </div>
 
-    <!-- Row 5: Training Log (full width) -->
-    <div class="card span-3">
-      <div class="card-header" title="PPO Updates: L=Policy Loss (sollte sinken), H=Entropy (sollte stabil bei ~7 bleiben), G=Grad Norm (sollte <10 sein), R=Batch Reward (durchschnittlicher Reward im Batch)">
-        <span class="card-title">Training Log</span>
-      </div>
-      <div class="training-log" id="training-log">
-        <div class="log-entry">
-          <span class="log-msg" style="color: var(--text-muted)">Waiting for training data...</span>
+          <div class="card">
+            <div class="card-header">
+              <span class="card-title">Mixed Wave Rate</span>
+              <span class="card-badge orange" id="mixed-rate-badge">--</span>
+              <span class="help" data-tooltip="Anteil Waves mit ≥2 Gruppen (z.B. Templates wie chaos_wave oder armor_gauntlet). Rolling-Avg(50) — wenn steigt: Netz nutzt Multi-Group-Templates öfter.">?</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="mixed-wave-rate-chart"></canvas>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
 
-    <!-- Footer -->
-    <div class="footer">
-      <div class="footer-left">
-        <div class="footer-item">
-          <span class="label">Runtime:</span>
-          <span class="value" id="runtime">0h 0m</span>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: CLIENTS (Per-Client Deep-Dive)                          -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section class="tab-panel" data-tab="clients">
+      <div class="section-group section-accent--clients">
+        <div class="section-title">
+          <span class="section-title-icon">◉</span>
+          Per-Client Analysis
+          <span class="help" data-tooltip="Jeder Client läuft sein eigenes Spiel mit eigenen Towern. Hier siehst du wie das Netz bei jedem individuell abschneidet. Divergenz zwischen Clients = Policy-Multimodal.">?</span>
         </div>
-        <div class="footer-item">
-          <span class="label">Model Updates:</span>
-          <span class="value" id="model-updates">0</span>
-        </div>
-        <div class="footer-item">
-          <span class="label">Batch Size:</span>
-          <span class="value">16</span>
-        </div>
-      </div>
-      <div class="footer-right">
-        <div class="footer-item">
-          <span class="label">WS:</span>
-          <span class="value">:3001</span>
-        </div>
-        <div class="footer-item">
-          <span class="label">Dashboard:</span>
-          <span class="value">:3002</span>
+        <div class="clients-vertical-stack" id="clients-vertical-stack">
+          <div class="clients-empty">Waiting for client data…</div>
         </div>
       </div>
-    </div>
-  </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 3: NN INTERNALS                                            -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section class="tab-panel" data-tab="nn">
+      <div class="section-group section-accent--nn">
+        <div class="section-title">
+          <span class="section-title-icon">⌬</span>
+          Neural Network Internals
+          <span class="help" data-tooltip="PPO-Training-Diagnostik. Policy-Loss sollte sinken, Entropy sollte langsam fallen (von ~8 Richtung 4), Grad-Norm 1-10 stabil, Batch-Reward der Schnitt der letzten 16 Episoden.">?</span>
+        </div>
+        <div class="section-grid nn-grid">
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Policy Loss</span>
+              <span class="card-badge" id="nn-policy-loss-badge">--</span>
+              <span class="help" data-tooltip="PPO Policy-Gradient-Loss pro Update-Step. Typischer Verlauf: fluktuiert um 0, kleine negative Werte sind OK. Große Spikes (&gt;1) = instabiles Update, meist weil Advantages zu groß oder clipping aktiv.">?</span>
+            </div>
+            <div class="chart-container chart-container--slim">
+              <canvas id="nn-policy-loss-chart"></canvas>
+            </div>
+          </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Entropy</span>
+              <span class="card-badge" id="nn-entropy-badge">--</span>
+              <span class="help" data-tooltip="Exploration-Indikator: wie breit streut das Netz noch seine Aktionen. Fresh-Model: hoch (~4 bei 32 Templates). Sollte langsam fallen während das Netz eine Policy committet. Fällt zu schnell = vorzeitiger Kollaps; bleibt konstant = Netz lernt nichts.">?</span>
+            </div>
+            <div class="chart-container chart-container--slim">
+              <canvas id="nn-entropy-chart"></canvas>
+            </div>
+          </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Gradient Norm</span>
+              <span class="card-badge" id="nn-grad-norm-badge">--</span>
+              <span class="help" data-tooltip="Euklidische Norm der Gradienten vor dem Clipping (max 0.5). Stabil: 1-10. Spikes &gt;50 = Reward-Outlier oder instabile Policy. Dauerhaft nahe 0 = gesättigter Lernprozess.">?</span>
+            </div>
+            <div class="chart-container chart-container--slim">
+              <canvas id="nn-grad-norm-chart"></canvas>
+            </div>
+          </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Batch Reward</span>
+              <span class="card-badge" id="nn-batch-reward-badge">--</span>
+              <span class="help" data-tooltip="Durchschnittlicher Reward über die aktuellen 16 Episoden die ins PPO-Update geflossen sind. Direkter Lernfortschritts-Indikator — sollte langfristig steigen Richtung 0+.">?</span>
+            </div>
+            <div class="chart-container chart-container--slim">
+              <canvas id="nn-batch-reward-chart"></canvas>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <!-- TAB 4: WAVES                                                   -->
+    <!-- ══════════════════════════════════════════════════════════════ -->
+    <section class="tab-panel" data-tab="waves">
+      <div class="section-group section-accent--waves">
+        <div class="section-title">
+          <span class="section-title-icon">≡</span>
+          Wave Log
+          <span class="help" data-tooltip="Live-Liste der letzten Waves. Filter nach Client oder Typ. Mixed-Waves zeigen alle Gruppen. Progress-Balken: blau=boring, grün=sweet, orange=moderate, rot=danger.">?</span>
+        </div>
+        <div class="wave-log-toolbar">
+          <label class="field-label">Client:</label>
+          <select id="wave-log-client-filter" class="client-selector">
+            <option value="all">All clients</option>
+          </select>
+          <label class="field-label">Type:</label>
+          <select id="wave-log-type-filter" class="client-selector">
+            <option value="all">All types</option>
+          </select>
+          <span class="spacer"></span>
+          <span class="wave-log-meta" id="wave-log-count">0 shown</span>
+        </div>
+        <div class="wave-log" id="wave-log">
+          <div class="wave-entry wave-entry--placeholder">
+            <span>Waiting for waves…</span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </main>
 
   <script src="/static/app.js"></script>
 </body>

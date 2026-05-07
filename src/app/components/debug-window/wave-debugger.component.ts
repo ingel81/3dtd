@@ -166,7 +166,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
                            [value]="group.speedMultiplier"
                            (change)="onGroupSpeedMultChange(group.id, $event)" />
                     <span class="mult-label">Delay</span>
-                    <input type="number" class="number-input delay-input" min="10" max="5000" step="10"
+                    <input type="number" class="number-input delay-input" min="1" max="5000" step="1"
                            [value]="group.spawnDelay ?? ''"
                            [placeholder]="'global'"
                            (change)="onGroupDelayChange(group.id, $event)" />

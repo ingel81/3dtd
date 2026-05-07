@@ -1,0 +1,42 @@
+{
+  "version": "1.0.0",
+  "checkpoint": "checkpoint_6500.pt",
+  "trainingEpisodes": 6500,
+  "exportedAt": "2026-01-25T21:31:16.928929",
+  "inputSize": 74,
+  "outputSize": 10,
+  "outputFormat": {
+    "enemyLogits": [
+      0,
+      6
+    ],
+    "params": [
+      6,
+      10
+    ]
+  },
+  "enemyTypes": [
+    "zombie",
+    "bat",
+    "tank",
+    "wallsmasher",
+    "penguin",
+    "herbert"
+  ],
+  "constants": {
+    "KILL_TIME_MIN": 2.0,
+    "KILL_TIME_MAX": 5.0,
+    "SPAWN_DELAY_MIN": 500,
+    "SPAWN_DELAY_MAX": 2000,
+    "VARIATION_MAX": 0.3,
+    "HEALTH_MULTIPLIER_MAX": 20.0
+  },
+  "enemyBaseHP": {
+    "zombie": 80,
+    "bat": 25,
+    "tank": 250,
+    "wallsmasher": 200,
+    "penguin": 30,
+    "herbert": 500
+  }
+}

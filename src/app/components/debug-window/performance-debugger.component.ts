@@ -237,7 +237,9 @@ export class PerformanceDebuggerComponent implements OnDestroy {
 
   constructor() {
     this.updateInterval = setInterval(() => {
-      if (this.windowService.performanceWindow().isOpen) {
+      const isOpen = this.windowService.performanceWindow().isOpen;
+      this.profiler.setProfilingActive(isOpen);
+      if (isOpen) {
         this.stats.set(this.profiler.collectStats());
         this.profiler.resetTimings();
       }
@@ -249,6 +251,7 @@ export class PerformanceDebuggerComponent implements OnDestroy {
       clearInterval(this.updateInterval);
       this.updateInterval = null;
     }
+    this.profiler.setProfilingActive(false);
   }
 
   toggleConsoleLog(): void {

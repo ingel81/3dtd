@@ -63,11 +63,16 @@ describe('Tower entity', () => {
   it('supports upgrade logic (canUpgrade/applyUpgrade)', () => {
     const tower = new Tower(position, 'archer');
     const baseFireRate = tower.combat.fireRate;
+    const speedUpgrade = getTowerType('archer').upgrades.find(u => u.id === 'speed')!;
 
     expect(tower.canUpgrade('speed')).toBe(true);
     expect(tower.applyUpgrade('speed')).toBe(true);
-    expect(tower.combat.fireRate).toBeCloseTo(baseFireRate * 2, 5);
+    expect(tower.combat.fireRate).toBeCloseTo(baseFireRate * speedUpgrade.effect.multiplier, 5);
 
+    // Apply remaining levels until maxLevel reached
+    for (let i = 1; i < speedUpgrade.maxLevel; i++) {
+      expect(tower.applyUpgrade('speed')).toBe(true);
+    }
     expect(tower.canUpgrade('speed')).toBe(false);
     expect(tower.applyUpgrade('speed')).toBe(false);
   });
@@ -110,9 +115,9 @@ describe('Tower entity', () => {
       { lat: position.lat + 0.0001, lon: position.lon, height: 0 },
     ]);
 
-    expect(tower.findTarget([farEnemy])).toBeNull();
-    expect(tower.findTarget([closeEnemy])).toBeNull();
-    expect(tower.findTarget([airEnemy, closeEnemy])).toBe(airEnemy);
+    expect(tower.findTarget([farEnemy], false)).toBeNull();
+    expect(tower.findTarget([closeEnemy], false)).toBeNull();
+    expect(tower.findTarget([airEnemy, closeEnemy], false)).toBe(airEnemy);
   });
 
   it('supports different tower archetypes (sniper/aoe/beam)', () => {

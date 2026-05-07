@@ -56,6 +56,11 @@ export class ModelPreviewService {
   private previews = new Map<string, PreviewInstance>();
   private animationFrameId: number | null = null;
   private lastTime = 0;
+  // Renderer buffer is sized to the largest preview we've ever seen.
+  // Smaller previews render into a viewport rect; we never reallocate
+  // (setSize is expensive because canvas.width = N reallocates the
+  // WebGL drawing buffer).
+  private rendererCapacityCss = 0;
 
   // Track loaded model URLs for this service
   private loadedModelUrls = new Set<string>();
@@ -251,27 +256,46 @@ export class ModelPreviewService {
   private renderPreview(preview: PreviewInstance): void {
     if (!this.renderer || !preview.animating) return;
 
-    const width = preview.canvas.width;
+    const width = preview.canvas.width;   // physical pixels
     const height = preview.canvas.height;
+    const pr = this.renderer.getPixelRatio();
+    const widthCss = width / pr;
+    const heightCss = height / pr;
 
-    // Set renderer size AND update internal canvas dimensions
-    this.renderer.setSize(width, height, true);
+    // Grow renderer buffer if a preview ever needs more pixels than we
+    // currently have. We never shrink, so setSize runs at most a handful
+    // of times in total.
+    const neededCss = Math.max(widthCss, heightCss);
+    if (neededCss > this.rendererCapacityCss) {
+      this.rendererCapacityCss = neededCss;
+      this.renderer.setSize(this.rendererCapacityCss, this.rendererCapacityCss, false);
+    }
 
-    // Update camera aspect
-    preview.camera.aspect = width / height;
-    preview.camera.updateProjectionMatrix();
+    const capCss = this.rendererCapacityCss;
 
-    // Render scene
+    // Render into the TOP of the buffer (high WebGL y == 2D-image y=0).
+    // setViewport is just a state change — no reallocation, basically free.
+    this.renderer.setViewport(0, capCss - heightCss, widthCss, heightCss);
+    this.renderer.setScissor(0, capCss - heightCss, widthCss, heightCss);
+    this.renderer.setScissorTest(true);
+
+    const aspect = width / height;
+    if (preview.camera.aspect !== aspect) {
+      preview.camera.aspect = aspect;
+      preview.camera.updateProjectionMatrix();
+    }
+
     this.renderer.render(preview.scene, preview.camera);
 
-    // Copy rendered image to target canvas
+    // drawImage reads from physical-pixel buffer; rendered region is at
+    // (0, 0, width, height) in 2D-image coordinates because we placed the
+    // viewport at the buffer top.
     const ctx = preview.canvas.getContext('2d');
     if (ctx) {
       ctx.clearRect(0, 0, width, height);
-      // Draw the entire source canvas to the entire target canvas
       ctx.drawImage(
         this.renderer.domElement,
-        0, 0, this.renderer.domElement.width, this.renderer.domElement.height,
+        0, 0, width, height,
         0, 0, width, height
       );
     }

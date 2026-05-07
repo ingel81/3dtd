@@ -108,6 +108,8 @@ export class ThreeTilesEngine {
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
+  /** Phase 5.14: headless mode — skips all per-frame rendering work. */
+  private _renderingEnabled = true;
 
   // DevWorld support
   private devWorld: DevWorldService | null = null;
@@ -371,6 +373,15 @@ export class ThreeTilesEngine {
 
   setTimescale(scale: number): void {
     this.gameTimescale = scale;
+  }
+
+  /**
+   * Phase 5.14: Enable/disable per-frame rendering (headless training mode).
+   * When disabled, `update()` and `render()` become no-ops — only the
+   * gameplay tick (`onUpdateCallback`) continues via the animate loop.
+   */
+  setRenderingEnabled(enabled: boolean): void {
+    this._renderingEnabled = enabled;
   }
 
   /**
@@ -1522,9 +1533,15 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Main render loop - call this each frame
+   * Main render loop - call this each frame.
+   * Headless-mode: when rendering is disabled, we skip all per-frame visual
+   * work (tilesRenderer.update, camera updates, renderer.render, FPS tracking).
+   * Gameplay still runs — it's driven by `onUpdateCallback` in `update()`,
+   * which is called from the animate loop regardless of rendering state.
    */
   render(): void {
+    if (!this._renderingEnabled) return;
+
     // DevWorld render path
     if (this.devTerrainProvider) {
       // Update controls (if any)
@@ -1605,16 +1622,32 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Update game entities (call before render)
+   * Update game entities (call before render).
+   * - Enemy walking animation runs in GAME-TIME so feet match foot-speed at
+   *   every training timescale (sub-stepping is invisible at the renderer).
+   * - Tower visuals (selection ring, magic hover, GLTF mixer) run in real-time;
+   *   gameplay-affecting turret aim is driven separately per sub-step from
+   *   GameStateManager via towers.advanceTurretAim().
    */
   update(deltaTime: number): void {
-    const deltaSeconds = deltaTime / 1000;
+    // Phase 5.14: Gameplay MUST run even in headless mode — it's driven by
+    // `onUpdateCallback` (game-loop-facade → GameStateManager sub-step loop).
+    // All other work here is purely visual and gets skipped when rendering
+    // is disabled.
+    if (this.onUpdateCallback) {
+      this.onUpdateCallback(deltaTime);
+    }
 
-    // Update enemy animations (with frustum culling)
-    this.enemies.updateAnimations(deltaSeconds, this.camera);
+    if (!this._renderingEnabled) return;
 
-    // Update tower animations (turret rotation scales with game speed)
-    this.towers.updateAnimations(deltaTime, this.camera, this.gameTimescale);
+    const realDeltaSeconds = deltaTime / 1000;
+    const gameDeltaSeconds = realDeltaSeconds * this.gameTimescale;
+
+    // Enemy animation walks at game-time → feet stay synced with ground speed
+    this.enemies.updateAnimations(gameDeltaSeconds, this.camera);
+
+    // Tower visuals only (selection ring pulse, magic hover, GLTF mixer LOD)
+    this.towers.updateAnimations(deltaTime, this.camera);
 
     // Commit projectile instance changes to GPU
     this.projectiles.commitToGPU();
@@ -1640,11 +1673,6 @@ export class ThreeTilesEngine {
     // Rotate test cube if exists
     if (this.testCube) {
       this.testCube.rotation.y += deltaTime * 0.001;
-    }
-
-    // Call external update callback (for component animations)
-    if (this.onUpdateCallback) {
-      this.onUpdateCallback(deltaTime);
     }
 
     // Screen shake (XZ plane only — no vertical shake to avoid nausea)

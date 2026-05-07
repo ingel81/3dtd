@@ -9,6 +9,8 @@
 
 import { GamePhase } from '../../../models/game.types';
 import { PathDPSProfile } from '../dps-profile';
+import { TowerTypeId } from '../../../configs/tower-types.config';
+import { ArmorType, DamageType } from '../../../configs/combat/combat.types';
 
 export interface GameStateSnapshot {
   // === META ===
@@ -31,6 +33,38 @@ export interface GameStateSnapshot {
 
   // === DPS PROFILE (spatial defense along path) ===
   dpsProfile: PathDPSProfile;
+
+  // === RESEARCH STATE ===
+  research: ResearchSnapshot;
+
+  /** Expected armor distribution in current or next wave (used by Bot for tower picks) */
+  expectedArmorDistribution?: Record<ArmorType, number>;
+
+  /**
+   * DPS aggregated by DamageType (normalized, pre-computed).
+   * MUST be in the snapshot so the Python backend gets it via WebSocket.
+   * If omitted, encoder falls back to computing from towerDistribution (frontend only).
+   */
+  dpsByDamageType?: Record<DamageType, number>;
+}
+
+export interface ResearchSnapshot {
+  /** IDs of completed researches */
+  completedIds: string[];
+  completedCount: number;
+  totalCount: number;
+  /** IDs of currently-active (in-progress) researches */
+  activeIds: string[];
+  /** Research Center building level (0 = not placed, 1-3 = placed + level) */
+  centerLevel: number;
+  /** Currently running researches */
+  slotsUsed: number;
+  maxSlots: number;
+  /** Perk flags derived from completed researches */
+  airTargetingUnlocked: boolean;
+  maxUpgradeTier: number;
+  /** Per-tower unlock map (true = unlocked or always-free) */
+  towerUnlocked: Record<TowerTypeId, boolean>;
 }
 
 export interface PlayerState {
@@ -72,6 +106,19 @@ export interface DefenseAnalysis {
 
   /** Tower distribution by type */
   towerDistribution: TowerDistribution;
+
+  /**
+   * Armor-matrix weighted effective DPS per armor category.
+   * Already multiplied with DAMAGE_MATRIX[towerDamageType][armor] so the
+   * network sees "how hard do I actually hit a heavy unit at this defense
+   * setup, separated by ground vs air targeting".
+   */
+  effectiveDPSPerArmor: EffectiveDPSPerArmor;
+}
+
+export interface EffectiveDPSPerArmor {
+  ground: Record<ArmorType, number>;
+  air: Record<ArmorType, number>;
 }
 
 export interface DefenseCapabilities {
@@ -121,6 +168,9 @@ export interface RecentHistory {
   /** Average enemy path progress per wave (0-1 each) */
   progressPerWave: number[];
 
+  /** Near-miss ratio per wave (fraction of enemies reaching >0.8 path, 0-1 each) */
+  nearMissPerWave: number[];
+
   /** Enemy types used in last N waves */
   enemyTypesUsed: string[][];
 
@@ -168,6 +218,10 @@ export function createEmptySnapshot(): GameStateSnapshot {
         hasDoT: false,
       },
       towerDistribution: {},
+      effectiveDPSPerArmor: {
+        ground: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
+        air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
+      },
     },
     vulnerabilities: {
       airDefenseGap: true,
@@ -179,6 +233,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
     recentHistory: {
       damagePerWave: [],
       progressPerWave: [],
+      nearMissPerWave: [],
       enemyTypesUsed: [],
       lastWaveThreat: 0,
       avgWaveDuration: 0,
@@ -189,6 +244,29 @@ export function createEmptySnapshot(): GameStateSnapshot {
       groundDPS: new Array(20).fill(0),
       airDPS: new Array(20).fill(0),
       binPositions: [],
+    },
+    research: {
+      completedIds: [],
+      completedCount: 0,
+      totalCount: 0,
+      activeIds: [],
+      centerLevel: 0,
+      slotsUsed: 0,
+      maxSlots: 0,
+      airTargetingUnlocked: false,
+      maxUpgradeTier: 1,
+      towerUnlocked: {
+        archer: true,
+        cannon: false,
+        magic: false,
+        'dual-gatling': false,
+        rocket: false,
+        ice: false,
+        fire: false,
+        tentacle: false,
+        poison: false,
+        'research-center': true,
+      },
     },
   };
 }

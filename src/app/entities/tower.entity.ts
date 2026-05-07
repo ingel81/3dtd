@@ -11,6 +11,7 @@ import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, ge
 import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
+import { canTargetAirEffective } from '../ai/core/tower-dps.util';
 
 /**
  * Tower entity - combines Transform, Combat, and Render components
@@ -150,22 +151,17 @@ export class Tower extends GameObject {
   }
 
   /**
-   * Check if LOS recheck is needed (time-based throttling)
-   * @param currentTime Current timestamp in ms
-   * @param timescale Game speed multiplier (1.0 = normal, 8.0 = 8x faster)
-   * @returns true if LOS should be rechecked
+   * Check if LOS recheck is needed (game-time throttle).
+   * `gameTimeMs` is the engine game-clock — no timescale compensation needed
+   * because the sub-step loop runs in game-time at every speed.
    */
-  needsLosRecheck(currentTime: number, timescale = 1.0): boolean {
-    const interval = this.LOS_RECHECK_INTERVAL / timescale;
-    return currentTime - this._lastLosCheckTime >= interval;
+  needsLosRecheck(gameTimeMs: number): boolean {
+    return gameTimeMs - this._lastLosCheckTime >= this.LOS_RECHECK_INTERVAL;
   }
 
-  /**
-   * Mark that LOS was just checked
-   * @param currentTime Current timestamp in ms
-   */
-  markLosChecked(currentTime: number): void {
-    this._lastLosCheckTime = currentTime;
+  /** Mark that LOS was just checked (game-time). */
+  markLosChecked(gameTimeMs: number): void {
+    this._lastLosCheckTime = gameTimeMs;
   }
 
   /**
@@ -175,13 +171,17 @@ export class Tower extends GameObject {
    * @param losCheck Optional line-of-sight check function (only called on target change)
    * @returns Best enemy based on targeting strategy that is in range and visible, or null
    */
-  findTarget(enemies: Enemy[], losCheck?: (enemy: Enemy) => boolean): Enemy | null {
+  findTarget(
+    enemies: Enemy[],
+    airTargetingUnlocked: boolean,
+    losCheck?: (enemy: Enemy) => boolean,
+  ): Enemy | null {
     // Fast path: Check if current target is still valid (no LOS check needed)
     if (this._currentTarget) {
       if (this._currentTarget.alive) {
         // Verify target type is still compatible (air/ground)
         const isAirEnemy = this._currentTarget.typeConfig.isAirUnit ?? false;
-        const canTargetAir = this.typeConfig.canTargetAir ?? false;
+        const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
         const canTargetGround = this.typeConfig.canTargetGround ?? true;
         const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
 
@@ -201,8 +201,8 @@ export class Tower extends GameObject {
     // Build list of valid candidates first
     const candidates: Enemy[] = [];
 
-    // Get targeting capabilities (defaults: canTargetGround=true, canTargetAir=false)
-    const canTargetAir = this.typeConfig.canTargetAir ?? false;
+    // Get targeting capabilities (AA-Retrofit research can extend air-targeting for Gatling).
+    const canTargetAir = canTargetAirEffective(this.typeConfig.id as TowerTypeId, airTargetingUnlocked);
     const canTargetGround = this.typeConfig.canTargetGround ?? true;
 
     for (const enemy of enemies) {

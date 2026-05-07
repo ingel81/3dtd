@@ -1,17 +1,23 @@
 #!/usr/bin/env python3
 """
-Export PyTorch model to TensorFlow.js format.
+Export PyTorch model to ONNX (for frontend inference).
 
 Usage:
     python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_5000.pt
     python scripts/export_to_tfjs.py --checkpoint checkpoints/checkpoint_5000.pt --output ../public/assets/ai/wave-director
+
+Phase 5.10 output format (34 values per sample):
+  [0..MAX_TEMPLATE_SLOTS-1]               = template_logits (32)
+  [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1] = raw continuous params (strength, count)
+
+The frontend WaveDirectorService consumes this tensor in decodeModelOutput().
 """
 
 import argparse
-import sys
-from pathlib import Path
-from datetime import datetime
 import json
+import sys
+from datetime import datetime
+from pathlib import Path
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -22,18 +28,27 @@ import torch.nn as nn
 from model import WaveDirectorModel
 from config import (
     INPUT_SIZE,
-    KILL_TIME_MIN,
-    KILL_TIME_MAX,
+    NUM_SCALAR,
+    NUM_SPATIAL,
+    MAX_TEMPLATE_SLOTS,
+    NUM_CONTINUOUS,
+    OUTPUT_SIZE,
+    CONTINUOUS_PARAM_NAMES,
+    MAX_WAVE_DURATION_MS,
+    MIN_SPAWN_DELAY_MS,
     ENEMY_BASE_HP,
 )
+from templates import TEMPLATES, NUM_ACTIVE_TEMPLATES
 
 
 class InferenceModel(nn.Module):
     """
-    Wrapper for inference-only export.
+    Inference wrapper for ONNX export.
 
-    Removes value head and log_std (not needed at inference time).
-    Output: [enemy_logits (6), params (4)] = 10 values
+    Strips value head and log_std (not needed at inference time). Returns the
+    raw policy outputs as a single concatenated tensor:
+      template_logits (MAX_TEMPLATE_SLOTS) + raw params (NUM_CONTINUOUS)
+      = OUTPUT_SIZE values per sample.
     """
 
     def __init__(self, base_model: WaveDirectorModel):
@@ -41,59 +56,51 @@ class InferenceModel(nn.Module):
         self.spatial = base_model.spatial
         self.scalar = base_model.scalar
         self.combined = base_model.combined
-        self.enemy_head = base_model.enemy_head
+        self.template_head = base_model.template_head
         self.params_head = base_model.params_head
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        """Forward pass for inference."""
-        # Split input into scalar and spatial
-        scalars = x[:, :34]                     # (batch, 34)
-        spatial = x[:, 34:]                     # (batch, 40)
-        spatial = spatial.view(-1, 2, 20)       # (batch, 2, 20)
+        scalars = x[:, :NUM_SCALAR]
+        spatial = x[:, NUM_SCALAR:]
+        spatial = spatial.view(-1, 2, 20)
 
-        # Process branches
-        spatial_out = self.spatial(spatial).squeeze(-1)  # (batch, 32)
-        scalar_out = self.scalar(scalars)                # (batch, 64)
+        spatial_out = self.spatial(spatial).squeeze(-1)
+        scalar_out = self.scalar(scalars)
 
-        # Combine
-        combined = torch.cat([scalar_out, spatial_out], dim=1)  # (batch, 96)
-        features = self.combined(combined)                       # (batch, 64)
+        combined = torch.cat([scalar_out, spatial_out], dim=1)
+        features = self.combined(combined)
 
-        # Output heads - concatenate for single output tensor
-        enemy_logits = self.enemy_head(features)  # (batch, 6)
-        params = self.params_head(features)       # (batch, 4)
+        template_logits = self.template_head(features)
+        params = self.params_head(features)
 
-        return torch.cat([enemy_logits, params], dim=1)  # (batch, 10)
+        return torch.cat([template_logits, params], dim=1)
 
 
 def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True):
-    """Export checkpoint to ONNX and TensorFlow.js."""
+    """Export checkpoint to ONNX."""
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
 
-    # Load model
     print(f"Loading checkpoint: {checkpoint_path}")
     model = WaveDirectorModel()
     model.load_state_dict(torch.load(checkpoint_path, map_location='cpu'))
     model.eval()
 
-    # Wrap for inference
     inference_model = InferenceModel(model)
     inference_model.eval()
 
-    # Validate model with test input
     if validate:
         print("Validating model...")
         test_input = torch.randn(1, INPUT_SIZE)
         with torch.no_grad():
             test_output = inference_model(test_input)
-        print(f"  Input shape: {test_input.shape}")
+        print(f"  Input shape:  {test_input.shape}")
         print(f"  Output shape: {test_output.shape}")
-        assert test_output.shape == (1, 10), f"Expected (1, 10), got {test_output.shape}"
-        print("  Validation passed!")
+        expected_shape = (1, OUTPUT_SIZE)
+        assert test_output.shape == expected_shape, f"Expected {expected_shape}, got {test_output.shape}"
+        print(f"  Validation passed! ({OUTPUT_SIZE} = {MAX_TEMPLATE_SLOTS} templates + {NUM_CONTINUOUS} params)")
 
-    # Export to ONNX
     onnx_path = output_path / "wave-director.onnx"
     dummy_input = torch.zeros(1, INPUT_SIZE)
 
@@ -106,15 +113,13 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
         output_names=['action'],
         dynamic_axes={
             'state': {0: 'batch'},
-            'action': {0: 'batch'}
+            'action': {0: 'batch'},
         },
         opset_version=13,
         do_constant_folding=True,
-        dynamo=False,  # Use legacy exporter (avoids Unicode issues on Windows)
+        dynamo=False,  # Legacy exporter — avoids Unicode issues on Windows.
     )
     print(f"  ONNX file size: {onnx_path.stat().st_size / 1024:.1f} KB")
-
-    # Note: We use ONNX Runtime Web directly in browser, no TF.js conversion needed
 
     # Extract episode number from checkpoint name
     ckpt_name = Path(checkpoint_path).stem
@@ -125,28 +130,47 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
         except ValueError:
             pass
 
-    # Write metadata
+    # Write metadata (Phase 5.10 schema)
     metadata = {
-        "version": "1.0.0",
+        "version": "5.10.0",
+        "architecture": "template-based-wave-director",
         "checkpoint": Path(checkpoint_path).name,
         "trainingEpisodes": episode,
         "exportedAt": datetime.now().isoformat(),
         "inputSize": INPUT_SIZE,
-        "outputSize": 10,
+        "outputSize": OUTPUT_SIZE,
         "outputFormat": {
-            "enemyLogits": [0, 6],
-            "params": [6, 10]
+            "templateLogits": [0, MAX_TEMPLATE_SLOTS],
+            "params": [MAX_TEMPLATE_SLOTS, OUTPUT_SIZE],
         },
-        "enemyTypes": ["zombie", "bat", "tank", "wallsmasher", "penguin", "herbert"],
-        "constants": {
-            "KILL_TIME_MIN": KILL_TIME_MIN,
-            "KILL_TIME_MAX": KILL_TIME_MAX,
-            "SPAWN_DELAY_MIN": 500,
-            "SPAWN_DELAY_MAX": 2000,
-            "VARIATION_MAX": 0.3,
-            "HEALTH_MULTIPLIER_MAX": 20.0
+        "stateLayout": {
+            "scalarFeatures": NUM_SCALAR,
+            "spatialFeatures": NUM_SPATIAL,
         },
-        "enemyBaseHP": ENEMY_BASE_HP
+        "templateCount": {
+            "active": NUM_ACTIVE_TEMPLATES,
+            "maxSlots": MAX_TEMPLATE_SLOTS,
+        },
+        "templates": [
+            {
+                "slot": i,
+                "id": t["id"],
+                "name": t["name"],
+                "minWave": t["min_wave"],
+                "requiresCapability": t.get("requires_capability"),
+                "countRange": list(t["count_range"]),
+                "spawnDelayRange": list(t["spawn_delay_range"]),
+                "hpMultRange": list(t["hp_mult_range"]),
+                "variationRange": list(t["variation_range"]),
+            }
+            for i, t in enumerate(TEMPLATES)
+        ],
+        "continuousParams": CONTINUOUS_PARAM_NAMES,
+        "waveDurationCap": {
+            "maxMs": MAX_WAVE_DURATION_MS,
+            "minSpawnDelayMs": MIN_SPAWN_DELAY_MS,
+        },
+        "enemyBaseHP": ENEMY_BASE_HP,
     }
 
     metadata_path = output_path / "metadata.json"
@@ -154,13 +178,10 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
         json.dump(metadata, f, indent=2)
     print(f"\nMetadata written to: {metadata_path}")
 
-    # Optionally clean up ONNX file (keep for debugging)
-    # onnx_path.unlink()
-
     print(f"\n{'=' * 50}")
-    print(f"Export complete!")
+    print("Export complete!")
     print(f"Output directory: {output_path}")
-    print(f"Files:")
+    print("Files:")
     for f in sorted(output_path.iterdir()):
         print(f"  - {f.name}")
     print(f"{'=' * 50}")
@@ -170,29 +191,27 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Export PyTorch model to TensorFlow.js format"
+        description="Export PyTorch Phase-5.10 model to ONNX"
     )
     parser.add_argument(
         '--checkpoint',
         required=True,
-        help='Path to .pt checkpoint file'
+        help='Path to .pt checkpoint file',
     )
     parser.add_argument(
         '--output',
         default='../public/assets/ai/wave-director',
-        help='Output directory for TF.js model (default: ../public/assets/ai/wave-director)'
+        help='Output directory (default: ../public/assets/ai/wave-director)',
     )
     parser.add_argument(
         '--no-validate',
         action='store_true',
-        help='Skip model validation'
+        help='Skip model validation',
     )
     args = parser.parse_args()
 
-    # Verify checkpoint exists
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.exists():
-        # Try relative to training-backend
         alt_path = Path(__file__).parent.parent / args.checkpoint
         if alt_path.exists():
             checkpoint_path = alt_path
@@ -203,7 +222,7 @@ def main():
     export_to_onnx(
         str(checkpoint_path),
         args.output,
-        validate=not args.no_validate
+        validate=not args.no_validate,
     )
 
 

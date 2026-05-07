@@ -86,6 +86,9 @@ export class TowerDefenseStore {
   /** Training mode timescale (1.0 = normal, up to 75x) */
   readonly trainingTimescale = this.gameStore.trainingTimescale;
 
+  /** Headless training mode: skip per-frame 3D rendering */
+  readonly renderingEnabled = this.gameStore.renderingEnabled;
+
   // ════════════════════════════════════════════════════════════
   // LOADING / INIT STATE
   // ════════════════════════════════════════════════════════════
@@ -230,6 +233,9 @@ export class TowerDefenseStore {
 
   /** AI explanation text for current wave */
   readonly aiExplanation = this.gameStore.aiExplanation;
+
+  /** Fatal AI error (blocking banner, e.g. ONNX model failed to load) */
+  readonly aiError = this.gameStore.aiError;
 
   // ════════════════════════════════════════════════════════════
   // DEVWORLD

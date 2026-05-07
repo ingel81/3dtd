@@ -122,18 +122,29 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Get effective speed (base speed × multiplier × slow effects)
-   * Note: timescale is handled separately in the move() method
+   * Effective speed INCLUDING any status effects whose duration is still
+   * unexpired. The check `gameTimeMs - startTime < duration` succeeds for
+   * any `gameTimeMs >= startTime` that hasn't yet elapsed the duration,
+   * so walking through the list directly picks up active slow effects.
    */
   get effectiveSpeed(): number {
-    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(1.0);
+    let slowMult = 1.0;
+    for (const effect of this.statusEffects) {
+      if (effect.type === 'slow') {
+        // Effect is considered "active" while its startTime + duration hasn't
+        // been consumed — we don't know the current game-clock here, so we
+        // assume it's still within the effect window. Callers that need an
+        // explicit game-time check should use `getEffectiveSpeed(gameTimeMs)`.
+        slowMult = 1 - effect.value;
+        break;
+      }
+    }
+    return this.speedMps * this.speedMultiplier * slowMult;
   }
 
-  /**
-   * Get effective speed with timescale
-   */
-  getEffectiveSpeed(timescale = 1.0, now?: number): number {
-    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(timescale, now);
+  /** Get effective speed including any active slow effect at `gameTimeMs`. */
+  getEffectiveSpeed(gameTimeMs: number): number {
+    return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(gameTimeMs);
   }
 
   /**
@@ -209,11 +220,13 @@ export class MovementComponent extends Component {
   /**
    * Single-pass status effect update: removes expired effects in-place
    * and returns active slow/poison flags + slow multiplier.
-   * Replaces 3 separate calls (removeExpiredEffects + isSlowed + isPoisoned).
-   * @param timescale Game speed multiplier (affects effective duration)
-   * @param now Current timestamp from performance.now() (cached per frame)
+   *
+   * `gameTimeMs` is the engine's monotonic game-clock (NOT performance.now()).
+   * `effect.startTime` is also stored as game-time ms — effect duration is
+   * compared in game-time, so it stays constant across all training timescales
+   * without any compensation.
    */
-  updateStatusEffects(timescale: number, now: number): {
+  updateStatusEffects(gameTimeMs: number): {
     isSlowed: boolean;
     isPoisoned: boolean;
     slowMultiplier: number;
@@ -227,8 +240,7 @@ export class MovementComponent extends Component {
     // eslint-disable-next-line @typescript-eslint/prefer-for-of -- in-place compact needs indexed write
     for (let i = 0; i < this.statusEffects.length; i++) {
       const effect = this.statusEffects[i];
-      const effectiveDuration = effect.duration / timescale;
-      if (now - effect.startTime < effectiveDuration) {
+      if (gameTimeMs - effect.startTime < effect.duration) {
         // Effect still active — keep it
         this.statusEffects[writeIdx++] = effect;
         if (effect.type === 'slow') {
@@ -246,96 +258,62 @@ export class MovementComponent extends Component {
     return result;
   }
 
-  /**
-   * Remove expired status effects
-   * @param timescale Game speed multiplier (affects effective duration)
-   * @param now Optional cached timestamp (avoids performance.now() call)
-   */
-  removeExpiredEffects(timescale = 1.0, now?: number): void {
-    const t = now ?? performance.now();
+  /** Remove expired status effects. `gameTimeMs` = engine game-clock. */
+  removeExpiredEffects(gameTimeMs: number): void {
     let writeIdx = 0;
     // eslint-disable-next-line @typescript-eslint/prefer-for-of -- in-place compact needs indexed write
     for (let i = 0; i < this.statusEffects.length; i++) {
       const effect = this.statusEffects[i];
-      const effectiveDuration = effect.duration / timescale;
-      if (t - effect.startTime < effectiveDuration) {
+      if (gameTimeMs - effect.startTime < effect.duration) {
         this.statusEffects[writeIdx++] = effect;
       }
     }
     this.statusEffects.length = writeIdx;
   }
 
-  /**
-   * Get slow multiplier from active slow effect (only one can be active)
-   * Returns 1.0 if not slowed, lower value if slowed (e.g. 0.5 = 50% speed)
-   * @param timescale Game speed multiplier (affects effective duration)
-   * @param now Optional cached timestamp (avoids performance.now() call)
-   */
-  getSlowMultiplier(timescale = 1.0, now?: number): number {
-    const t = now ?? performance.now();
-
+  /** Get current slow multiplier (1.0 = no slow). */
+  getSlowMultiplier(gameTimeMs: number): number {
     for (const effect of this.statusEffects) {
-      const effectiveDuration = effect.duration / timescale;
-      if (effect.type === 'slow' && t - effect.startTime < effectiveDuration) {
-        // Slow effect active - return reduced speed multiplier
+      if (effect.type === 'slow' && gameTimeMs - effect.startTime < effect.duration) {
         return 1 - effect.value;
       }
     }
-
-    return 1.0; // Not slowed
+    return 1.0;
   }
 
-  /**
-   * Check if entity has any active slow effects
-   * @param timescale Game speed multiplier (affects effective duration)
-   * @param now Optional cached timestamp (avoids performance.now() call)
-   */
-  isSlowed(timescale = 1.0, now?: number): boolean {
-    const t = now ?? performance.now();
+  /** Whether enemy has an active slow effect. */
+  isSlowed(gameTimeMs: number): boolean {
     return this.statusEffects.some(
-      (effect) => {
-        const effectiveDuration = effect.duration / timescale;
-        return effect.type === 'slow' && t - effect.startTime < effectiveDuration;
-      }
+      (effect) => effect.type === 'slow' && gameTimeMs - effect.startTime < effect.duration,
+    );
+  }
+
+  /** Whether enemy has an active poison effect. */
+  isPoisoned(gameTimeMs: number): boolean {
+    return this.statusEffects.some(
+      (effect) => effect.type === 'poison' && gameTimeMs - effect.startTime < effect.duration,
     );
   }
 
   /**
-   * Check if entity has any active poison effects
-   * @param timescale Game speed multiplier (affects effective duration)
-   * @param now Optional cached timestamp (avoids performance.now() call)
+   * Move along path. `deltaTime` is sub-step game-time ms (~16.67ms).
+   * `gameTimeMs` is the engine game-clock used for status-effect lookups.
+   * `cachedSlowMult` lets the caller share the slow multiplier across
+   * updateStatusEffects + move within the same sub-step (1 iteration).
    */
-  isPoisoned(timescale = 1.0, now?: number): boolean {
-    const t = now ?? performance.now();
-    return this.statusEffects.some(
-      (effect) => {
-        const effectiveDuration = effect.duration / timescale;
-        return effect.type === 'poison' && t - effect.startTime < effectiveDuration;
-      }
-    );
-  }
-
-  /**
-   * Move along path
-   * @param deltaTime Delta time in milliseconds (already scaled by timescale)
-   * @param timescale Game speed multiplier (for status effect duration)
-   * @param now Optional cached performance.now() timestamp
-   * @param cachedSlowMult Optional pre-computed slow multiplier from updateStatusEffects()
-   * @returns 'moving' if still moving, 'reached_end' if path complete
-   */
-  move(deltaTime: number, timescale = 1.0, now?: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
+  move(deltaTime: number, gameTimeMs: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
     if (this.paused || this.path.length < 2) return 'moving';
 
     const transform = this.gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM);
     if (!transform) return 'moving';
 
-    // Cap deltaTime to prevent huge jumps (scale cap with timescale to avoid limiting high-speed gameplay)
-    const maxDelta = 100 * Math.max(1, timescale);
+    // Sub-step is fixed (~16.67ms game-time), so a small constant cap is safe.
+    const maxDelta = 100;
     const cappedDelta = Math.min(deltaTime, maxDelta);
     const deltaSeconds = cappedDelta / 1000;
 
-    // Movement in meters per frame — use cached slow multiplier if available (avoids re-iterating statusEffects)
-    const slowMult = cachedSlowMult ?? this.getSlowMultiplier(timescale, now);
+    // Use cached slow multiplier from updateStatusEffects if provided
+    const slowMult = cachedSlowMult ?? this.getSlowMultiplier(gameTimeMs);
     const metersThisFrame = this.speedMps * this.speedMultiplier * slowMult * deltaSeconds;
 
     // Current segment length

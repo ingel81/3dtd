@@ -61,6 +61,8 @@ __pycache__/
 # AI Training (generated artifacts)
 training-backend/checkpoints/
 training-backend/logs/
+training-backend/.server.log
+training-backend/.server.pid
 logs/
 
 # AI Model intermediate files (ONNX model is committed)
@@ -68,3 +70,4 @@ logs/
 
 # ONNX Runtime WASM files (too large to commit - copy from node_modules)
 public/assets/onnx-wasm/
+.profiles/

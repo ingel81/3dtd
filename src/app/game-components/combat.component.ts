@@ -9,8 +9,13 @@ export interface CombatConfig {
 
 /**
  * CombatComponent handles damage dealing and targeting.
+ *
  * Combat logic (targeting, firing) is handled by TowerCombatService.
  * This component stores combat stats and firing state.
+ *
+ * Cooldown is driven by deltaTime (game-time ms). High-timescale correctness
+ * is handled at the GameStateManager level via fixed-timestep sub-stepping —
+ * the combat component itself behaves identically at every timescale.
  */
 export class CombatComponent extends Component {
   damage: number;
@@ -20,7 +25,8 @@ export class CombatComponent extends Component {
   /** Number of kills this unit has made */
   kills = 0;
 
-  private lastFireTime = 0;
+  /** Remaining cooldown in GAME-TIME ms (0 = can fire). */
+  private cooldownRemainingMs = 0;
 
   constructor(gameObject: GameObject, config: CombatConfig) {
     super(gameObject);
@@ -29,24 +35,20 @@ export class CombatComponent extends Component {
     this.fireRate = config.fireRate;
   }
 
-  /**
-   * Check if enough time has passed to fire again
-   * @param currentTime Current timestamp in milliseconds
-   * @param timescale Game speed multiplier (1.0 = normal, 8.0 = 8x faster)
-   */
-  canFire(currentTime: number, timescale = 1.0): boolean {
-    const fireInterval = (1000 / this.fireRate) / timescale;
-    return currentTime - this.lastFireTime >= fireInterval;
+  canFire(): boolean {
+    return this.fireRate > 0 && this.cooldownRemainingMs <= 0;
   }
 
-  /**
-   * Mark that a shot was fired
-   */
-  fire(currentTime: number): void {
-    this.lastFireTime = currentTime;
+  fire(): void {
+    if (this.fireRate > 0) {
+      this.cooldownRemainingMs = 1000 / this.fireRate;
+    }
   }
 
-  update(_deltaTime: number): void {
-    // Combat logic is handled by TowerCombatService
+  update(deltaTime: number): void {
+    if (this.cooldownRemainingMs > 0) {
+      this.cooldownRemainingMs -= deltaTime;
+      if (this.cooldownRemainingMs < 0) this.cooldownRemainingMs = 0;
+    }
   }
 }
