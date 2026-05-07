@@ -32,6 +32,40 @@
 
 ---
 
+# HOUSEKEEPING (Großaktion)
+
+> **Idee:** Eigener Sprint, viele parallele Agents — keine kleinen Hot-Fix-Sessions zwischendurch.
+> **Zeitpunkt:** Wenn die Phase-5/6-Substanz steht, bevor wir auf Polish gehen.
+
+- [ ] **Komplette Doku-Überarbeitung**
+      `docs/**` durchforsten: was ist veraltet (Phase-1/2-Reste), was widerspricht dem aktuellen Code, was fehlt.
+      Index aktualisieren, abgekoppelte Dokumente entfernen oder zusammenführen.
+
+- [ ] **Code-Review gegen Qualitätsstandards**
+      Gesamten `src/` durchgehen: Architektur-Konsistenz, Naming, ungenutzte Felder/Methoden, Magic Numbers,
+      ad-hoc-Pattern, halbfertige Abstraktionen. Pro Manager / Service ein Review-Pass.
+
+- [ ] **Test-Audit**
+      Alle bestehenden Tests anschauen: laufen sie noch, testen sie das Richtige, sind sie aussagekräftig?
+      Tote oder getriviall gewordene Tests entfernen.
+
+- [ ] **Test-Lücken identifizieren**
+      Pro kritischer Manager / Service prüfen: was ist nicht abgedeckt? Insbesondere
+      Game-Loop, Wave-Manager, Tower-Combat, Damage-Matrix, AI-Wave-Director, Spatial-Audio.
+
+- [ ] **Projektstruktur prüfen**
+      `src/app/` Layout sanity-checken: managers/services/entities/components-Trennung wirklich konsistent?
+      Doppelt belegte Verantwortlichkeiten (z.B. Facades vs. Manager) zusammenführen oder klar trennen.
+
+- [ ] **Verwaisten Code finden**
+      Ungenutzte Exports, tote Files, nicht referenzierte Assets. Tools: `ts-prune` für TypeScript,
+      `depcheck` für package.json, manuelle Sweeps für Assets.
+
+**Ausführung:** Mehrere Agents parallel — pro Punkt ein Agent mit klar abgegrenztem Scope und Reportback.
+Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwischt den Sprint.
+
+---
+
 ---
 
 # PHASE 4: GAME FEATURES
