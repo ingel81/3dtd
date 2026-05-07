@@ -10,6 +10,23 @@
 - Attributions: stone-wall.jpg Quelle ermitteln und eintragen
 - Attributions: Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
 
+- **Tower-Upgrade-Skalierung feintunen**
+      Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
+      - Damage: ×1.10/Level (L25 ×10.83)
+      - Fire Rate: ×1.07/Level (L25 ×5.42)
+      - Range: ×1.04/Level (L25 ×2.67)
+      → kombiniert L25 ≈ ×58 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
+      Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
+
+- **Line-of-Sight für Air-Tower / Air-Targets**
+      Aktuell schießen Tower auf fliegende Enemies visuell durch Gebäude durch — kein LoS-Test.
+      Ground-LoS existiert bereits (`towerPlacement.recomputeTowerLOS`, `tower.visibleCells`, `tower.losReady`),
+      aber das System sampelt nur Boden-Zellen. Für Air-Targets braucht es einen Raycast gegen die 3D-Tile-Geometrie
+      (oder einen vorberechneten "sky-LoS"-Volumencheck) zwischen Tower-Mündung und Air-Enemy-Position.
+      Betroffene Tower: Rocket (canTargetAir), Ice (canTargetAir), ggf. weitere bei späterem Air-Targeting-Research-Unlock.
+      Stellen: `tower-combat.service.ts` (Targeting-Filter), `tower-placement.service.ts` (LoS-Berechnung), evtl. `enemy.entity.ts` (isAir-Flag).
+
 
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
 
