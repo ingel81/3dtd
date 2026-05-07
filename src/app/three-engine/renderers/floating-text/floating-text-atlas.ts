@@ -149,9 +149,22 @@ export class FloatingTextAtlas {
     this.ctx.clearRect(x, y, SLOT_WIDTH, SLOT_HEIGHT);
 
     // Clamp fontSize to fit in slot height
-    const effectiveFontSize = Math.min(fontSize, SLOT_HEIGHT - outlineWidth * 2 - 4);
-    const font = `bold ${effectiveFontSize}px Arial, sans-serif`;
-    this.ctx.font = font;
+    let effectiveFontSize = Math.min(fontSize, SLOT_HEIGHT - outlineWidth * 2 - 4);
+
+    // Auto-shrink fontSize when the text would overflow slot width.
+    // Without this, long names like real-world OSM street labels get
+    // truncated on both sides by the centred fillText. We measure first,
+    // then scale fontSize down so the entire string fits — long labels
+    // simply render smaller, never cropped.
+    const maxTextWidth = SLOT_WIDTH - outlineWidth * 2 - 4;
+    this.ctx.font = `bold ${effectiveFontSize}px Arial, sans-serif`;
+    const measured = this.ctx.measureText(text).width;
+    if (measured > maxTextWidth) {
+      const scale = maxTextWidth / measured;
+      effectiveFontSize = Math.max(10, Math.floor(effectiveFontSize * scale));
+      this.ctx.font = `bold ${effectiveFontSize}px Arial, sans-serif`;
+    }
+
     this.ctx.textAlign = 'center';
     this.ctx.textBaseline = 'middle';
 
