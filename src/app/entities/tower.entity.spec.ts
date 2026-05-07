@@ -63,11 +63,16 @@ describe('Tower entity', () => {
   it('supports upgrade logic (canUpgrade/applyUpgrade)', () => {
     const tower = new Tower(position, 'archer');
     const baseFireRate = tower.combat.fireRate;
+    const speedUpgrade = getTowerType('archer').upgrades.find(u => u.id === 'speed')!;
 
     expect(tower.canUpgrade('speed')).toBe(true);
     expect(tower.applyUpgrade('speed')).toBe(true);
-    expect(tower.combat.fireRate).toBeCloseTo(baseFireRate * 2, 5);
+    expect(tower.combat.fireRate).toBeCloseTo(baseFireRate * speedUpgrade.effect.multiplier, 5);
 
+    // Apply remaining levels until maxLevel reached
+    for (let i = 1; i < speedUpgrade.maxLevel; i++) {
+      expect(tower.applyUpgrade('speed')).toBe(true);
+    }
     expect(tower.canUpgrade('speed')).toBe(false);
     expect(tower.applyUpgrade('speed')).toBe(false);
   });
