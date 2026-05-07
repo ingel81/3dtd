@@ -739,6 +739,21 @@ class TrainingServer:
         hp_factor = float(action["hp_factor"][0].detach().item())
         variation_factor = float(action["variation_factor"][0].detach().item())
 
+        # Phase 5.16: Wave-Curriculum override. For waves 1..18 the designer
+        # picks the template; NN's continuous factors still tune difficulty.
+        # Bot/player has lookahead-knowledge of the curriculum so unlimited
+        # build-phase research time prevents capability mismatches.
+        from wave_curriculum import template_for_wave
+        wave_num = int((state or {}).get("waveNumber", 0) or 0) + 1  # plan N+1
+        forced_id = template_for_wave(wave_num)
+        if forced_id is not None:
+            forced_idx = next(
+                (i for i, t in enumerate(TEMPLATES) if t["id"] == forced_id),
+                None,
+            )
+            if forced_idx is not None:
+                template_idx = forced_idx
+
         template = get_template(template_idx)
         if template is None:
             template = TEMPLATES[0]

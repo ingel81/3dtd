@@ -343,7 +343,9 @@ describe('WaveManager', () => {
 
       bus.emit({ type: 'debug:kill-all' });
 
-      expect(enemyManager.kill).toHaveBeenCalledWith(mockEnemy);
+      // Phase 5.16: debug kill-all passes awardCredits=false so the player
+       // can't farm gold via the dev shortcut.
+       expect(enemyManager.kill).toHaveBeenCalledWith(mockEnemy, false);
     });
 
     it('stops further spawning after kill-all', () => {

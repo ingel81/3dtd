@@ -81,7 +81,7 @@ export interface EnemyTypeConfig {
   // Air Unit
   isAirUnit?: boolean; // true = air unit, only attackable by air towers
 
-  // Elite flag — triggers eliteFactor (1.10x) in kill reward formula
+  // Elite flag — visual/UX marker for stronger variants of a base enemy
   isElite?: boolean;
 
   // Spawning

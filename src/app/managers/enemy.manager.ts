@@ -11,6 +11,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
+import { goldBudgetForWave, enemyBaseDamageForWave } from '../ai/core/wave-curriculum';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
@@ -233,43 +234,31 @@ export class EnemyManager extends EntityManager<Enemy> {
   private getWaveSize: () => number = () => 1;
 
   /**
-   * Calculate kill reward using the design-doc formula (MASTER_GAME_DESIGN 5.1):
-   *   BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor
-   *   * SwarmDiscount
+   * Calculate kill reward from the wave's deterministic kill-budget
+   * (Phase 5.16): the curriculum pins a total per-wave gold amount, which
+   * we split equally across the expected enemy count. Effect:
+   *  - Income predictable wave-by-wave → balanceable against tower/research costs
+   *  - Independent of NN's count/hp_mult choices (no swarm-flood, no boring-dribble)
+   *  - Leaks naturally reduce earnings (uncollected kills = lost gold)
    *
-   * SwarmDiscount = sqrt(threshold / count) when count > threshold, else 1.0.
-   * Caps total per-wave kill-credits at large enemy counts.
-   * All multipliers come from GAME_BALANCE.economy — tuneable without code changes.
+   * Per-enemy reward floor = 1 to keep tiny waves meaningful.
    */
-  private calculateDynamicReward(enemy: Enemy): number {
-    const cfg = GAME_BALANCE.economy;
-    const t = enemy.typeConfig;
-
-    const BaseHP = Math.max(1, t.baseHp / cfg.baseHpDivisor);
-    const HP_Scale = enemy.health.maxHp / t.baseHp;   // Wave-Director HP-Multiplier
-    const SpeedFactor = cfg.speedFactorBase + (t.baseSpeed / 10) * cfg.speedFactorSlope;
-    const ArmorFactor = cfg.armorFactor[t.armorType as keyof typeof cfg.armorFactor] ?? 1.0;
-    const AirFactor = t.isAirUnit ? cfg.airFactor : 1.0;
-    const FlagFactor =
-      (t.bossName ? cfg.bossFactor : 1.0) *
-      (t.isElite ? cfg.eliteFactor : 1.0);
-    const WaveFactor = 1.0 + cfg.waveFactorPerWave * Math.max(0, this.getWaveNumber() - 1);
-
-    // Swarm discount: keeps large waves from flooding the bot with credits
+  private calculateDynamicReward(_enemy: Enemy): number {
+    const wave = this.getWaveNumber();
+    const budget = goldBudgetForWave(wave).kill;
     const count = Math.max(1, this.getWaveSize());
-    const threshold = cfg.swarmDiscountThreshold;
-    const SwarmDiscount = count <= threshold ? 1.0 : Math.sqrt(threshold / count);
-
-    return Math.max(1, Math.round(
-      BaseHP * HP_Scale * SpeedFactor * ArmorFactor * AirFactor * FlagFactor * WaveFactor * SwarmDiscount
-    ));
+    return Math.max(1, Math.round(budget / count));
   }
 
   /**
    * Kill an enemy — plays death animation then removes after a game-time
    * delay (no wall-clock setTimeout — sub-stepping ticks the delay each frame).
    */
-  kill(enemy: Enemy): void {
+  /**
+   * Kill an enemy. If `awardCredits` is false, no gold is awarded — used by
+   * debug kill-all so the player can't farm gold via the dev shortcut.
+   */
+  kill(enemy: Enemy, awardCredits: boolean = true): void {
     if (this.killingEnemies.has(enemy.id)) return;
     this.killingEnemies.add(enemy.id);
 
@@ -281,7 +270,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
     enemy.stopMoving();
 
-    const credits = this.calculateDynamicReward(enemy);
+    const credits = awardCredits ? this.calculateDynamicReward(enemy) : 0;
     this.eventBus.emit({ type: 'enemy:died', enemy, credits });
 
     if (enemy.typeConfig.deathAnimation) {
@@ -330,11 +319,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       if (profiling) tMove += performance.now() - t0;
 
       if (moveResult === 'reached_end') {
-        // Emit enemy:reached-base event
+        // Emit enemy:reached-base event — leak damage scales with wave-number
+        // (Phase 5.16) so late-game leaks hurt more.
         this.eventBus.emit({
           type: 'enemy:reached-base',
           enemy,
-          damage: GAME_BALANCE.combat.enemyBaseDamage,
+          damage: enemyBaseDamageForWave(this.getWaveNumber()),
         });
         this.toRemove.push(enemy);
         continue;
