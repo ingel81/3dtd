@@ -275,6 +275,21 @@ Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates w
       Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
       ~20 Zeilen Core, optional UI-Setting in localStorage
 
+## Game-Loop Performance (Speed-Multiplikator)
+
+> **Kontext:** Beim AI-Training mit hohen Speed-Multiplikatoren (x75) wurde Mitte 2026-05 der Substep-Fix eingebaut — Movement/Hittest/Status-Restzeit laufen jetzt mathematisch korrekt N× pro Frame. Beim normalen Gameplay mit aktivem Rendering brachen daraufhin die FPS bei x2/x4 sichtbar ein. Erste Hypothese (microStep/frameStep-Refactor) wurde profilet (`.profiles/`, 2026-05-07) und **falsifiziert**: ~80% der x4-Cost waren **gar nicht der Game-Loop**, sondern der `ModelPreviewService` (rotierende 3D-Modelle in der Sidebar) der pro Frame `WebGLRenderer.setSize()` aufrief und damit den WebGL-Drawingbuffer reallozierte. Der Fix (Renderer auf Max-Size + setViewport pro Preview) hat den Hot-Path eliminiert: x4 läuft jetzt mit 10.8% Idle-Reserve und 1.3% Dropped-Frames (vorher 0% Idle, 46% Drops). Damit ist das Symptom weitgehend gelöst, die folgenden Punkte sind nur noch optionale Mini-Hebel.
+
+- [ ] **microStep/frameStep-Trennung** (LOW PRIO, nur bei Bedarf)
+      `update()`-Kette aufteilen: `microStep(dt)` läuft N× pro Frame und enthält nur substep-kritisches (Movement, Hittest, Status-Restzeit-Decrement). `frameStep(totalDt)` läuft 1× pro Frame und enthält Targeting, Spatial-Grid-Rebuild, VFX/Audio-Trigger, Three.js-Sync, Signal-Emits.
+      Aktuell **nicht dringend** — bei x4 mit ~1000 Enemies bleibt 10% Idle-Reserve. Erst bei extremen Setups (>2000 Enemies, x10+) wieder relevant. Determinismus für x75-Training muss erhalten bleiben.
+      Startpunkte: `src/app/services/game-loop-facade.service.ts`, `src/app/managers/enemy.manager.ts:285`, `src/app/managers/projectile.manager.ts`, `src/app/managers/status-effect.manager.ts`.
+
+- [ ] **`performance.now()` Frame-Caching** (Mini-Hebel)
+      Bei x4 frisst `now()` 15.3% Self-Time — wird in mehreren Managers/Substeps wiederholt aufgerufen. Einmal pro Frame in einer Variable cachen und durchreichen würde grob die Hälfte sparen.
+
+- [ ] **Preview-RAF-Drosselung** (optional)
+      `ModelPreviewService` läuft mit voller Display-Refresh-Rate (60 fps). Auf 15–30 fps drosseln oder via IntersectionObserver pausieren wenn Sidebar-Canvas nicht im Viewport. Spart weitere ~5% bei sichtbarer Build-Sidebar.
+
 ## Visual Effects - Advanced
 
 - [ ] **Advanced-Explosion-Staging** - 2-Stage Explosionen
