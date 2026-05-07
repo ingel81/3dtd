@@ -34,6 +34,8 @@ import {
   AIR_SUB_STRATEGIES,
 } from '../../configs/tower-types.config';
 import { DAMAGE_TYPE_UI, ARMOR_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
+import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
 import { ResearchConfig, ResearchId, RESEARCH_CATEGORIES } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
@@ -42,6 +44,7 @@ import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.se
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
+import { templateObjectForWave } from '../../ai/core/wave-curriculum';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 
@@ -203,9 +206,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       text-transform: uppercase;
     }
 
-    .td-wave-panel {
-      border-left: 3px solid var(--td-teal);
-    }
+    /* Phase 5.16: dropped left teal stripe — felt like AI-slop accent. */
 
     .td-wave-panel .td-panel-header {
       background: linear-gradient(90deg, rgba(111, 183, 165, 0.15) 0%, var(--td-panel-secondary) 100%);
@@ -337,6 +338,44 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
     .td-action-btn.td-btn-green.td-wave-btn:hover:not(:disabled) {
       background: linear-gradient(180deg, rgba(111, 183, 165, 0.3) 0%, rgba(111, 183, 165, 0.1) 100%);
       box-shadow: 0 0 12px rgba(111, 183, 165, 0.3);
+    }
+
+    /* Phase 5.16: Curriculum coming-up preview */
+    .td-coming-up {
+      margin-top: 6px;
+      padding: 6px 8px;
+      background: rgba(255, 255, 255, 0.02);
+      border-left: 2px solid var(--td-frame-dark);
+      border-radius: 2px;
+    }
+    .td-coming-up-label {
+      font-size: 9px;
+      letter-spacing: 0.6px;
+      color: var(--td-text-dim);
+      margin-bottom: 4px;
+    }
+    .td-coming-up-row {
+      display: grid;
+      grid-template-columns: 32px 1fr auto;
+      gap: 6px;
+      align-items: center;
+      font-size: 11px;
+      padding: 2px 0;
+      cursor: help;
+    }
+    .td-coming-up-wave {
+      color: var(--td-text-dim);
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+    }
+    .td-coming-up-name {
+      color: var(--td-text);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .td-coming-up-icons {
+      font-size: 12px;
     }
 
     .td-build-hint {
@@ -585,23 +624,69 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       background: linear-gradient(180deg, var(--td-teal) 0%, rgba(0, 188, 212, 0.3) 100%);
       color: var(--td-bg-dark);
     }
+    /* Phase 5.16: header layout with sell button on the right */
+    .td-tower-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      padding-right: 4px;
+    }
+    .td-tower-header-name {
+      flex: 1;
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+    .td-header-sell-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 2px 6px;
+      background: rgba(0, 0, 0, 0.25);
+      border: 1px solid rgba(0, 0, 0, 0.4);
+      border-radius: 3px;
+      color: var(--td-bg-dark);
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .td-header-sell-btn:hover {
+      background: rgba(244, 67, 54, 0.85);
+      color: #fff;
+      border-color: rgba(244, 67, 54, 1);
+    }
+    .td-header-sell-btn mat-icon {
+      font-size: 14px;
+      width: 14px;
+      height: 14px;
+    }
+    .td-header-sell-value {
+      font-variant-numeric: tabular-nums;
+    }
 
     .td-tower-section {
       position: relative;
       display: flex;
       flex-direction: column;
       gap: 10px;
-      padding-bottom: 52px;
       overflow-y: auto;
       flex: 1;
       min-height: 0;
     }
 
-    /* Stats Grid - 2x2 tiles */
+    /* Stats Grid — 3×2 (Phase 5.16) with damage-type tile at pos 0 */
     .td-stats-grid {
       display: grid;
       grid-template-columns: repeat(2, 1fr);
       gap: 6px;
+    }
+    .td-stats-grid.td-stats-grid-3 {
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
     }
 
     .td-stat-tile {
@@ -609,10 +694,20 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       flex-direction: column;
       align-items: center;
       gap: 2px;
-      padding: 8px 6px;
+      padding: 6px 4px;
       background: var(--td-panel-secondary);
       border: 1px solid var(--td-frame-dark);
       border-radius: 3px;
+      min-width: 0;
+    }
+    .td-stat-tile-dmgtype {
+      border-width: 1px;
+      border-style: solid;
+    }
+    .td-stat-value-small {
+      font-size: 11px !important;
+      font-weight: 700;
+      letter-spacing: 0.3px;
     }
 
     .td-stat-icon {
@@ -1005,26 +1100,56 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly waveActive = input.required<boolean>();
   readonly isGameOver = input.required<boolean>();
 
-  // Wave group display (with fallback for initial state before first wave)
-  readonly currentWaveGroups = computed(() => {
-    const groups = this.waveDebug.currentWaveGroups();
-    if (groups.length > 0) return groups;
-    // Fallback: show currently selected enemy type from debug panel
-    const config = this.waveDebug.currentEnemyConfig();
-    return [{
-      enemyType: config.id as EnemyTypeId,
-      name: config.name,
-      count: this.waveDebug.enemyCount(),
-      baseHp: config.baseHp,
-      actualHp: config.baseHp,
-      baseSpeed: config.baseSpeed,
-      actualSpeed: config.baseSpeed,
-      healthMultiplier: 1,
-      speedMultiplier: 1,
-      spawnDelay: this.waveDebug.spawnDelay(),
-    }];
-  });
+  // Wave group display — only consumed by the template while a wave is active,
+  // so we don't need curriculum-derived or debug-panel fallbacks. The COMING UP
+  // panel handles the setup-phase preview separately.
+  readonly currentWaveGroups = computed(() => this.waveDebug.currentWaveGroups());
   readonly isMixedWave = this.waveDebug.isMixedWave;
+
+  /**
+   * Wave-number shown in the panel header. During an active wave it's the
+   * running wave; during build/setup it's the UPCOMING wave (waveNumber+1)
+   * so the panel content (enemy preview, next-wave button) matches the label.
+   * Avoids the meaningless "WAVE 0" header at game start.
+   */
+  readonly displayedWaveNumber = computed(() => {
+    const n = this.store.waveNumber();
+    return this.waveActive() ? n : n + 1;
+  });
+
+  /**
+   * Phase 5.16: Show next 2 curriculum-forced waves so the player can
+   * prepare their defense (e.g. build Anti-Air before W7 bat_swarm).
+   * Returns empty array once we're past the curriculum (NN-loop range).
+   */
+  readonly upcomingWaves = computed(() => {
+    const currentWave = this.store.waveNumber();
+    const peeks: { wave: number; name: string; description: string; armorIcons: string }[] = [];
+    for (const offset of [1, 2]) {
+      const w = currentWave + offset;
+      const t = templateObjectForWave(w);
+      if (!t) continue;
+      const armors = new Set<string>();
+      let hasAir = false;
+      for (const [enemyId] of t.enemies) {
+        const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
+        if (!cfg) continue;
+        armors.add(cfg.armorType);
+        if (cfg.isAirUnit) hasAir = true;
+      }
+      const armorIcons = Array.from(armors)
+        .map((a) => ARMOR_TYPE_UI[a as keyof typeof ARMOR_TYPE_UI]?.icon ?? '')
+        .filter(Boolean)
+        .join(' ') + (hasAir ? ' ✈️' : '');
+      peeks.push({
+        wave: w,
+        name: t.name,
+        description: t.description,
+        armorIcons,
+      });
+    }
+    return peeks;
+  });
 
   // Research store reference
   readonly researchStore = inject(ResearchStore);
@@ -1055,6 +1180,38 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   getTowerLockTooltip(towerId: TowerTypeId): string {
     const name = this.researchStore.getRequiredResearchName(towerId);
     return name ? `Requires: ${name}` : 'Locked';
+  }
+
+  /**
+   * Phase 5.16: Tooltip showing the tower's damage-matrix row so players
+   * can plan matchups before placing. Effectiveness symbols communicate the
+   * matchup intuitively even at a glance:
+   *   ✓✓ devastating (≥1.5×)  ✓ strong (≥1.2×)  · normal (0.7-1.2×)  ✗ weak (<0.7×)
+   */
+  getTowerCardTooltip(tower: TowerTypeConfig): string {
+    if (tower.id === 'research-center') {
+      return this.isResearchCenterPlaced()
+        ? 'Already placed'
+        : 'Research Center — Unlocks new towers and upgrade tiers';
+    }
+    const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
+    const dps = tower.attackType === 'beam'
+      ? `${tower.damagePerSecond ?? 0} DPS`
+      : `${tower.damage} DMG · ${tower.fireRate}/s`;
+    const lines: string[] = [
+      `${dmgUi.icon} ${dmgUi.label}`,
+      `${dps} · ${tower.range}m`,
+      '',
+      'vs Armor:',
+    ];
+    const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
+    for (const armor of ARMOR_TYPES) {
+      const mul = matrix[armor as ArmorType];
+      const armorMeta = ARMOR_TYPE_UI[armor as ArmorType];
+      const symbol = mul >= 1.5 ? '✓✓' : mul >= 1.2 ? '✓' : mul < 0.7 ? '✗' : '·';
+      lines.push(`  ${symbol} ${armorMeta.icon} ${armorMeta.label}: ${mul.toFixed(2)}×`);
+    }
+    return lines.join('\n');
   }
 
   isResearchCenterPlaced(): boolean {
@@ -1088,14 +1245,19 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Get the required upgrade tier for the NEXT level of this upgrade.
-   * Level 0→1 = Tier 1 (always free)
-   * Level 1→2 = Tier 2 (requires Advanced Weaponry)
-   * Level 2+ = Tier 3 (requires Master Engineering)
+   * Phase 5.16: 25-level tracks gated in 5-level bands.
+   *   L1-5  = Tier 1 (always free)
+   *   L6-10 = Tier 2 (requires Advanced Weaponry)
+   *   L11-15 = Tier 3 (requires Master Engineering)
+   *   L16-20 = Tier 4 (requires Advanced Engineering)
+   *   L21-25 = Tier 5 (requires Transcendent Tech)
    */
   getRequiredUpgradeTier(tower: Tower, upgradeId: UpgradeId): number {
     const currentLevel = tower.getUpgradeLevel(upgradeId);
-    if (currentLevel >= 2) return 3;
-    if (currentLevel >= 1) return 2;
+    if (currentLevel >= 20) return 5;
+    if (currentLevel >= 15) return 4;
+    if (currentLevel >= 10) return 3;
+    if (currentLevel >= 5) return 2;
     return 1;
   }
 
@@ -1109,6 +1271,8 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     const tier = this.getRequiredUpgradeTier(tower, upgradeId);
     if (tier === 2) return 'Requires: Advanced Weaponry';
     if (tier === 3) return 'Requires: Master Engineering';
+    if (tier === 4) return 'Requires: Advanced Engineering';
+    if (tier === 5) return 'Requires: Transcendent Tech';
     return null;
   }
 
@@ -1256,6 +1420,18 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     this.upgradeTower.emit({ tower, upgradeId });
   }
 
+  /**
+   * Compute effective DPS for the tower-detail tile. Beam towers (Fire) use
+   * damagePerSecond directly; projectile towers use damage × fireRate.
+   */
+  getDps(tower: Tower): number {
+    const cfg = tower.typeConfig;
+    if (cfg.attackType === 'beam') {
+      return cfg.damagePerSecond ?? 0;
+    }
+    return tower.combat.damage * tower.combat.fireRate;
+  }
+
   getMixedTotalCount(): number {
     return this.currentWaveGroups().reduce((sum, g) => sum + g.count, 0);
   }
@@ -1284,12 +1460,23 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     if (group.speedMultiplier !== 1) {
       tip += ` (×${group.speedMultiplier.toFixed(2)})`;
     }
-    // Armor type + weakness info
     const enemyConfig = ENEMY_TYPES[group.enemyType];
     if (enemyConfig?.armorType) {
       const armorMeta = ARMOR_TYPE_UI[enemyConfig.armorType];
       tip += `\nArmor: ${armorMeta.icon} ${armorMeta.label}`;
-      tip += `\nWeak to: ${armorMeta.weakTo}`;
+      // Concrete damage multipliers — sorted by effectiveness so best/worst pop.
+      const armor = enemyConfig.armorType as ArmorType;
+      const rows: { type: string; icon: string; mul: number }[] = [];
+      for (const dt of Object.keys(DAMAGE_MATRIX) as DamageType[]) {
+        const dtUi = DAMAGE_TYPE_UI[dt];
+        rows.push({ type: dtUi.label, icon: dtUi.icon, mul: DAMAGE_MATRIX[dt][armor] });
+      }
+      rows.sort((a, b) => b.mul - a.mul);
+      tip += '\nDamage taken:';
+      for (const r of rows) {
+        const symbol = r.mul >= 1.5 ? '✓✓' : r.mul >= 1.2 ? '✓' : r.mul < 0.7 ? '✗' : '·';
+        tip += `\n  ${symbol} ${r.icon} ${r.type}: ${r.mul.toFixed(2)}×`;
+      }
     }
     return tip;
   }
