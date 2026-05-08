@@ -13,7 +13,6 @@ import { GameEventBus } from '../game-engine';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { EntityPoolService } from '../services/entity-pool.service';
 import type { ThreeTilesEngine } from '../three-engine';
 
 const createMockTilesEngine = () => ({
@@ -49,7 +48,7 @@ describe('ProjectileManager', () => {
   beforeEach(() => {
     eventBus = new GameEventBus();
     tilesEngine = createMockTilesEngine();
-    manager = new ProjectileManager(eventBus, {} as unknown as EntityPoolService);
+    manager = new ProjectileManager(eventBus);
     manager.initialize(tilesEngine as unknown as ThreeTilesEngine);
   });
 

@@ -18,7 +18,6 @@ import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StreetNetwork } from './services/osm-street.service';
-import { EntityPoolService } from './services/entity-pool.service';
 import { ModelPreviewService } from './services/model-preview.service';
 import { getAllEnemyTypes } from './models/enemy-types';
 import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
@@ -105,7 +104,6 @@ import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
   ],
   providers: [
     GameStateManager,
-    EntityPoolService,
     ModelPreviewService,
     // AI services (optional - game works without them)
     AIDataCollectorService,

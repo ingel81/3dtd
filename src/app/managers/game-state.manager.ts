@@ -12,7 +12,6 @@ import { CombatEffectService } from '../services/combat-effect.service';
 import { StatusEffectService } from '../services/status-effect.service';
 import { HQDamageService } from '../services/hq-damage.service';
 import { TowerCombatService } from '../services/tower-combat.service';
-import { EntityPoolService } from '../services/entity-pool.service';
 import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import { WaveDebugService } from '../services/wave-debug.service';
 import { EnemyDebugService } from '../services/enemy-debug.service';
@@ -49,7 +48,6 @@ export class GameStateManager {
   private readonly statusEffectService = inject(StatusEffectService);
   private readonly hqDamage = inject(HQDamageService);
   private readonly towerCombat = inject(TowerCombatService);
-  private readonly entityPool = inject(EntityPoolService);
   private readonly osmService = inject(OsmStreetService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly enemyDebug = inject(EnemyDebugService);
@@ -65,8 +63,8 @@ export class GameStateManager {
   screenShakeService!: ScreenShakeService;
   backgroundMusic!: BackgroundMusicService;
   readonly towerManager = new TowerManager(this.eventBus, this.osmService);
-  readonly enemyManager = new EnemyManager(this.eventBus, this.entityPool, this.globalRouteGrid, this.spatialGrid);
-  readonly projectileManager = new ProjectileManager(this.eventBus, this.entityPool);
+  readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid);
+  readonly projectileManager = new ProjectileManager(this.eventBus);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   readonly researchManager = new ResearchManager(this.eventBus);
   private readonly researchStore = inject(ResearchStore);
@@ -423,7 +421,6 @@ export class GameStateManager {
     this.projectileManager.initialize(tilesEngine);
 
     this.waveManager.initialize(spawnPoints, cachedPaths);
-    this.waveManager.setTimescaleProvider(() => this.trainingTimescale());
     // Wire health-provider for CloseCall detection at wave end
     this.waveManager.setCurrentHealthProvider(() => this.baseHealth());
   }

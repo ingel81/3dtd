@@ -10,7 +10,6 @@ import { WaveDebugService } from './wave-debug.service';
 import { SoundDebugService } from './sound-debug.service';
 import { DebugFacadeService } from './debug-facade.service';
 import { PerformanceProfilerService } from './performance-profiler.service';
-import { EntityPoolService } from './entity-pool.service';
 import { ModelPreviewService } from './model-preview.service';
 import { StrategicPlacementService } from './strategic-placement.service';
 import { GameStateManager } from '../managers/game-state.manager';
@@ -95,7 +94,6 @@ export class TowerDefenseFacadeService {
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
   private readonly profiler = inject(PerformanceProfilerService);
-  private readonly entityPool = inject(EntityPoolService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly strategicPlacement = inject(StrategicPlacementService);
   private readonly trainingClient = inject(TrainingClientService);
@@ -214,7 +212,6 @@ export class TowerDefenseFacadeService {
     this.locationFacade.dispose();
     this.vizFacade.dispose();
 
-    this.entityPool.destroy();
     this.modelPreview.dispose();
 
     if (this.initialized) {

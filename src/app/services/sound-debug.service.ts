@@ -52,13 +52,6 @@ export class SoundDebugService {
   }
 
   /**
-   * Mark as connected to SpatialAudioManager
-   */
-  setConnected(connected: boolean): void {
-    this.connected.set(connected);
-  }
-
-  /**
    * Subscribe to debug:sound events from the EventBus
    */
   subscribeToEventBus(eventBus: GameEventBus): void {

@@ -127,15 +127,6 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Deprecated no-op: timescale handling moved into the engine sub-step loop.
-   * Kept temporarily so legacy tests still compile; can be removed once specs
-   * are migrated.
-   */
-  setTimescaleProvider(_provider: () => number): void {
-    /* no-op */
-  }
-
-  /**
    * Begin wave phase (for manual enemy spawning)
    */
   beginWave(): void {
@@ -366,10 +357,7 @@ export class WaveManager implements IGameManager {
         this._stuckFrames > 300 // ~5s of no counter change
       ) {
         const enemies = this.enemyManager.getAll();
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const pending = (this.enemyManager as any).pendingDeaths as
-          | { enemy: { id: string }; remainingMs: number }[]
-          | undefined;
+        const pending = this.enemyManager.getPendingDeathsSnapshot();
         console.warn(`[WaveManager] STUCK wave ${this.waveNumber()} (all spawned, counters frozen):`, {
           waveNumber: this.waveNumber(),
           aliveCount, killingCount, totalEntities,
@@ -377,10 +365,7 @@ export class WaveManager implements IGameManager {
           spawnedEnemyCount: this.spawnedEnemyCount,
           phase: this.phase(),
           activeSpawner: this.activeSpawner !== null,
-          pendingDeathsSample: (pending ?? []).slice(0, 3).map(p => ({
-            id: p.enemy.id,
-            remainingMs: p.remainingMs,
-          })),
+          pendingDeathsSample: pending.slice(0, 3),
           entitySnapshot: enemies.slice(0, 5).map(e => ({
             id: e.id,
             type: e.typeConfig.id,

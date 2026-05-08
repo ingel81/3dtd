@@ -72,8 +72,10 @@ export class GameStore {
     Math.round((this.baseHealth() / GAME_BALANCE.player.startHealth) * 100)
   );
 
-  /** Health is critical (≤ 25%) */
-  readonly healthCritical = computed(() => this.healthPercent() <= 25);
+  /** Health is critical — same threshold the close-call bonus uses */
+  readonly healthCritical = computed(
+    () => this.healthPercent() <= GAME_BALANCE.economy.closeCallHpThreshold
+  );
 
   /**
    * Reset game state to initial values.
