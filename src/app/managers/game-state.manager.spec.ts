@@ -67,7 +67,6 @@ function createStubService(name: string): Record<string, unknown> {
       stopAllBeams: vi.fn(),
       stopAllMelee: vi.fn(),
     },
-    EntityPoolService: {},
     OsmStreetService: {},
     ResearchStore: {
       isTowerUnlocked: vi.fn().mockReturnValue(true),

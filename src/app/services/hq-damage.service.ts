@@ -125,7 +125,7 @@ export class HQDamageService {
     if (!this.basePosition || !this.tilesEngine) return;
 
     // No fire at full health
-    if (currentHealth >= 100) {
+    if (currentHealth >= GAME_BALANCE.player.startHealth) {
       if (this.activeFireId) {
         this.tilesEngine.effects.stopFire(this.activeFireId);
         this.activeFireId = null;

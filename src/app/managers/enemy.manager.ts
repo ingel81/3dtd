@@ -4,7 +4,6 @@ import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId } from '../models/enemy-types';
 import { GeoPosition } from '../models/game.types';
-import { EntityPoolService } from '../services/entity-pool.service';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { SpatialGridService } from '../services/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
@@ -61,7 +60,6 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   constructor(
     private eventBus: GameEventBus,
-    private entityPool: EntityPoolService,
     private globalRouteGrid: GlobalRouteGridService,
     private spatialGrid: SpatialGridService
   ) {
@@ -553,6 +551,14 @@ export class EnemyManager extends EntityManager<Enemy> {
     this.spatialGrid.removeEnemy(entity.id);
     this.tilesEngine?.enemies.remove(entity.id);
     super.remove(entity);
+  }
+
+  /**
+   * Read-only snapshot of pending death-animation entries for diagnostics.
+   * Each entry pairs an enemy id with the remaining game-time delay in ms.
+   */
+  getPendingDeathsSnapshot(): { id: string; remainingMs: number }[] {
+    return this.pendingDeaths.map((p) => ({ id: p.enemy.id, remainingMs: p.remainingMs }));
   }
 
   /**

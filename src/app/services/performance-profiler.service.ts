@@ -253,11 +253,6 @@ export class PerformanceProfilerService {
     this._frameAcc = { total: 0, frames: 0 };
   }
 
-  /** @deprecated Use resetTimings() instead */
-  resetEnemyTimings(): void {
-    this.resetTimings();
-  }
-
   /**
    * Called from game loop with deltaTime to handle console log timing.
    */

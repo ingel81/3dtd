@@ -215,16 +215,4 @@ export abstract class BaseTowerBot implements ITowerBot {
 
     return best;
   }
-
-  /**
-   * Generate random position near path (simplified)
-   */
-  protected getRandomPlacementPosition(): { x: number; z: number } {
-    // Simplified: random position in play area
-    // In real implementation, this should be near the path
-    return {
-      x: (Math.random() - 0.5) * 200,
-      z: (Math.random() - 0.5) * 200,
-    };
-  }
 }

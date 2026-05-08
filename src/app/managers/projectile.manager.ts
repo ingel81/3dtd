@@ -2,7 +2,6 @@ import { EntityManager } from './entity-manager';
 import { Projectile } from '../entities/projectile.entity';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
-import { EntityPoolService } from '../services/entity-pool.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
 import { GameEventBus } from '../game-engine';
@@ -21,8 +20,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
   private _trailFrameCount = 0;
 
   constructor(
-    private eventBus: GameEventBus,
-    private entityPool: EntityPoolService
+    private eventBus: GameEventBus
   ) {
     super();
   }
