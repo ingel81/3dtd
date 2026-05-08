@@ -27,7 +27,7 @@ import {
 import {
   MAGIC_ORB_VERTEX,
   MAGIC_ORB_FRAGMENT,
-} from '../../game/tower-defense/shaders/magic-orb.shaders';
+} from './magic-orb-shaders';
 
 /**
  * Projectile render data
