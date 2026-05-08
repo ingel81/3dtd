@@ -25,13 +25,14 @@ class TestReward(unittest.TestCase):
         self.assertGreater(total, 0.5)
 
     def test_mega_swarm_dominates_reward(self):
-        # Mega-swarm with sweet damage & near-miss progress — should reward strongly.
+        # Mega-swarm with sweet damage & near-miss progress — should hit the swarm cap
+        # and dominate the four-term breakdown. Phase 5.14 lowered SWARM_SIZE_CAP to 2.0.
         total, bd = calculate_reward(
             {"damagePercent": 0.04, "totalCount": 2000, "survived": True, "avgProgress": 0.80},
             {"wave_number": 30},
         )
-        self.assertGreater(bd["swarm_size"], 3.0)
-        self.assertGreater(total, 5.0)
+        self.assertGreaterEqual(bd["swarm_size"], 1.9)
+        self.assertGreater(total, 3.0)
 
     def test_death_penalty_applied(self):
         total, bd = calculate_reward(
