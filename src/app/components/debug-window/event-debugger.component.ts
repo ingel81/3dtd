@@ -9,11 +9,11 @@ import {
   effect,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { GameEventBus, GameEvent, EventSubscription } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 interface EventLogEntry {
   id: number;
@@ -37,14 +37,14 @@ const MAX_LOG_ENTRIES = 100;
 @Component({
   selector: 'app-event-debugger',
   standalone: true,
-  imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  imports: [CommonModule, DraggableDebugPanelComponent, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.eventsWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="events"
         title="Event Bus"
-        icon="cell_tower"
+        icon="share"
         [resizable]="true"
         [size]="windowService.eventsWindow().size ?? { width: 450, height: 400 }"
         [position]="windowService.eventsWindow().position"
@@ -79,7 +79,7 @@ const MAX_LOG_ENTRIES = 100;
               <span class="value">{{ filteredEvents().length }}</span>
             </span>
             <button class="clear-btn" (click)="clearLog()" title="Clear log">
-              <mat-icon>delete_outline</mat-icon>
+              <td-icon name="trash" [size]="14"></td-icon>
             </button>
             <button
               class="pause-btn"
@@ -87,7 +87,7 @@ const MAX_LOG_ENTRIES = 100;
               (click)="togglePause()"
               [title]="isPaused() ? 'Resume' : 'Pause'"
             >
-              <mat-icon>{{ isPaused() ? 'play_arrow' : 'pause' }}</mat-icon>
+              <td-icon [name]="isPaused() ? 'play' : 'pause'" [size]="14"></td-icon>
             </button>
           </div>
 

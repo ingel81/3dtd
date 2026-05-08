@@ -3,11 +3,11 @@ import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatDialogModule, MatDialogRef, MAT_DIALOG_DATA } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AddressAutocompleteComponent } from '../address-autocomplete.component';
 import { GeocodingService, NominatimAddress } from '../../services/geocoding.service';
+import { TdIconComponent } from '../icon/icon.component';
 import {
   LocationDialogData,
   LocationDialogResult,
@@ -28,17 +28,17 @@ type EditMode = 'full' | 'spawn-only';
     FormsModule,
     MatDialogModule,
     MatButtonModule,
-    MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
     AddressAutocompleteComponent,
+    TdIconComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="location-dialog">
       <!-- Header -->
       <div class="dialog-header">
-        <mat-icon class="header-icon">edit_location</mat-icon>
+        <td-icon class="header-icon" name="pin" [size]="20"></td-icon>
         <h2>Change Location</h2>
       </div>
 
@@ -49,7 +49,7 @@ type EditMode = 'full' | 'spawn-only';
           [class.active]="editMode() === 'full'"
           (click)="setEditMode('full')"
         >
-          <mat-icon>swap_horiz</mat-icon>
+          <td-icon name="shuffle" [size]="16"></td-icon>
           <span>New Location</span>
         </button>
         <button
@@ -58,7 +58,7 @@ type EditMode = 'full' | 'spawn-only';
           (click)="setEditMode('spawn-only')"
           [disabled]="!data.currentLocation"
         >
-          <mat-icon>flag</mat-icon>
+          <td-icon name="flag" [size]="16"></td-icon>
           <span>Spawn Only</span>
         </button>
       </div>
@@ -68,7 +68,7 @@ type EditMode = 'full' | 'spawn-only';
         <!-- Warning box (only for full mode with game in progress) -->
         @if (data.isGameInProgress && editMode() === 'full') {
           <div class="warning-box">
-            <mat-icon>warning</mat-icon>
+            <td-icon name="warn" [size]="16"></td-icon>
             <div class="warning-text">
               <strong>Warning!</strong> The current game will be ended.
             </div>
@@ -80,7 +80,7 @@ type EditMode = 'full' | 'spawn-only';
           <!-- HQ Section -->
           <div class="section hq-section">
             <div class="section-header">
-              <mat-icon>home</mat-icon>
+              <td-icon name="home" [size]="14"></td-icon>
               <span class="section-title">Headquarters (HQ)</span>
             </div>
             <div class="section-body">
@@ -92,7 +92,7 @@ type EditMode = 'full' | 'spawn-only';
               />
               <!-- Coordinates toggle -->
               <button class="coords-toggle" (click)="toggleCoordinates()">
-                <mat-icon>{{ showCoordinates() ? 'expand_less' : 'expand_more' }}</mat-icon>
+                <td-icon [name]="showCoordinates() ? 'caretU' : 'caret'" [size]="14"></td-icon>
                 <span>Enter coordinates</span>
               </button>
               @if (showCoordinates()) {
@@ -128,7 +128,7 @@ type EditMode = 'full' | 'spawn-only';
                     @if (isLoadingCoords()) {
                       <mat-spinner diameter="14"></mat-spinner>
                     } @else {
-                      <mat-icon>check</mat-icon>
+                      <td-icon name="check" [size]="14"></td-icon>
                     }
                   </button>
                 </div>
@@ -139,7 +139,7 @@ type EditMode = 'full' | 'spawn-only';
           <!-- Spawn Section (full mode) -->
           <div class="section spawn-section">
             <div class="section-header">
-              <mat-icon>flag</mat-icon>
+              <td-icon name="flag" [size]="14"></td-icon>
               <span class="section-title">Spawn Point</span>
               <span class="section-hint">Enemies appear here</span>
             </div>
@@ -150,7 +150,7 @@ type EditMode = 'full' | 'spawn-only';
                   [class.active]="spawnMode() === 'random'"
                   (click)="setSpawnMode('random')"
                 >
-                  <mat-icon>casino</mat-icon>
+                  <td-icon name="random" [size]="14"></td-icon>
                   <span>Random</span>
                 </button>
                 <button
@@ -158,13 +158,13 @@ type EditMode = 'full' | 'spawn-only';
                   [class.active]="spawnMode() === 'manual'"
                   (click)="setSpawnMode('manual')"
                 >
-                  <mat-icon>edit_location_alt</mat-icon>
+                  <td-icon name="edit" [size]="14"></td-icon>
                   <span>Manual</span>
                 </button>
               </div>
               @if (spawnMode() === 'random') {
                 <div class="spawn-info">
-                  <mat-icon>info_outline</mat-icon>
+                  <td-icon name="info" [size]="12"></td-icon>
                   <span>Automatically placed 500m-1km from HQ on a street</span>
                 </div>
               } @else {
@@ -177,7 +177,7 @@ type EditMode = 'full' | 'spawn-only';
                   />
                   @if (spawnDistance() !== null) {
                     <div class="distance-badge" [class.error]="isSpawnTooFar()">
-                      <mat-icon>{{ isSpawnTooFar() ? 'error' : 'straighten' }}</mat-icon>
+                      <td-icon [name]="isSpawnTooFar() ? 'warn' : 'sliders'" [size]="14"></td-icon>
                       <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km</span>
                       @if (isSpawnTooFar()) {
                         <span class="limit">(max 1.5 km)</span>
@@ -195,7 +195,7 @@ type EditMode = 'full' | 'spawn-only';
           <!-- Current HQ (readonly) -->
           @if (data.currentLocation) {
             <div class="current-hq-info">
-              <mat-icon>home</mat-icon>
+              <td-icon name="home" [size]="18"></td-icon>
               <div class="hq-details">
                 <span class="hq-label">HQ stays</span>
                 <span class="hq-name">{{ data.currentLocation.name }}</span>
@@ -206,7 +206,7 @@ type EditMode = 'full' | 'spawn-only';
           <!-- Spawn Section (spawn-only mode) -->
           <div class="section spawn-section">
             <div class="section-header">
-              <mat-icon>flag</mat-icon>
+              <td-icon name="flag" [size]="14"></td-icon>
               <span class="section-title">New Spawn Point</span>
             </div>
             <div class="section-body">
@@ -218,7 +218,7 @@ type EditMode = 'full' | 'spawn-only';
               />
               @if (spawnDistance() !== null) {
                 <div class="distance-badge" [class.error]="isSpawnTooFar()">
-                  <mat-icon>{{ isSpawnTooFar() ? 'error' : 'straighten' }}</mat-icon>
+                  <td-icon [name]="isSpawnTooFar() ? 'warn' : 'sliders'" [size]="14"></td-icon>
                   <span>{{ (spawnDistance()! / 1000).toFixed(1) }} km from HQ</span>
                   @if (isSpawnTooFar()) {
                     <span class="limit">(max 1.5 km)</span>
@@ -226,7 +226,7 @@ type EditMode = 'full' | 'spawn-only';
                 </div>
               }
               <div class="spawn-info">
-                <mat-icon>info_outline</mat-icon>
+                <td-icon name="info" [size]="12"></td-icon>
                 <span>Spawn must be max. 1.5 km from HQ</span>
               </div>
             </div>
@@ -238,7 +238,7 @@ type EditMode = 'full' | 'spawn-only';
       <div class="dialog-actions">
         <button class="cancel-btn" (click)="cancel()">Cancel</button>
         <button class="confirm-btn" [disabled]="!canConfirm()" (click)="confirm()">
-          <mat-icon>check</mat-icon>
+          <td-icon name="check" [size]="12"></td-icon>
           {{ editMode() === 'spawn-only' ? 'Change Spawn' : 'Change Location' }}
         </button>
       </div>
@@ -252,13 +252,14 @@ type EditMode = 'full' | 'spawn-only';
     .location-dialog {
       width: 420px;
       max-width: 90vw;
-      background: var(--td-bg-dark);
-      border-top: 1px solid var(--td-frame-light);
-      border-left: 1px solid var(--td-frame-mid);
-      border-right: 1px solid var(--td-frame-dark);
-      border-bottom: 2px solid var(--td-frame-dark);
+      background: var(--td-panel-main);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        0 1px 0 var(--td-panel-shadow);
       color: var(--td-text-primary);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--td-font-body);
     }
 
     .dialog-header {
@@ -272,9 +273,6 @@ type EditMode = 'full' | 'spawn-only';
 
     .header-icon {
       color: var(--td-gold);
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
     }
 
     h2 {
@@ -367,12 +365,13 @@ type EditMode = 'full' | 'spawn-only';
       color: var(--td-warn-orange);
     }
 
-    /* Sections */
+    /* Sections — refined inset bevel */
     .section {
       background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-dark);
-      border-left-color: var(--td-frame-dark);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.13),
+        inset 0 -1px 0 var(--td-panel-shadow);
     }
 
     .section-header {
@@ -483,24 +482,35 @@ type EditMode = 'full' | 'spawn-only';
       width: 28px;
       height: 28px;
       margin-top: auto;
-      background: var(--td-gold);
-      border: none;
-      border-top: 1px solid var(--td-edge-highlight);
-      border-bottom: 2px solid var(--td-gold-dark);
-      color: var(--td-bg-dark);
+      background: linear-gradient(
+        180deg,
+        var(--td-gold-light) 0%,
+        var(--td-gold) 55%,
+        var(--td-gold-dark) 100%
+      );
+      border: 1px solid #11140F;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-shadow-key);
+      color: #1A140A;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: box-shadow 0.18s ease;
     }
 
     .apply-coords-btn:hover:not(:disabled) {
-      background: var(--td-gold);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-gold-glow);
     }
 
     .apply-coords-btn:disabled {
-      background: var(--td-disabled);
+      background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
       color: var(--td-text-disabled);
       cursor: not-allowed;
-      border-color: var(--td-frame-dark);
+      border-color: #1F2420;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .apply-coords-btn mat-icon {
@@ -662,42 +672,60 @@ type EditMode = 'full' | 'spawn-only';
       gap: 6px;
       padding: 8px 14px;
       font-size: 11px;
-      font-weight: 500;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--td-font-mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       cursor: pointer;
-      transition: all 0.15s ease;
+      transition: box-shadow 0.18s ease, color 0.15s ease;
     }
 
     .cancel-btn {
-      background: transparent;
+      background: var(--td-panel-main);
       color: var(--td-text-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom: 2px solid var(--td-frame-dark);
+      font-weight: 500;
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        var(--td-shadow-key);
     }
 
     .cancel-btn:hover {
-      background: var(--td-panel-secondary);
       color: var(--td-text-primary);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        0 0 0 1px var(--td-frame-mid),
+        var(--td-shadow-key);
     }
 
     .confirm-btn {
-      background: var(--td-gold);
-      color: var(--td-bg-dark);
-      border: none;
-      border-top: 1px solid var(--td-edge-highlight);
-      border-bottom: 2px solid var(--td-gold-dark);
+      background: linear-gradient(
+        180deg,
+        var(--td-gold-light) 0%,
+        var(--td-gold) 55%,
+        var(--td-gold-dark) 100%
+      );
+      color: #1A140A;
+      font-weight: 700;
+      border: 1px solid #11140F;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-shadow-key);
     }
 
     .confirm-btn:hover:not(:disabled) {
-      background: var(--td-gold);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-gold-glow);
     }
 
     .confirm-btn:disabled {
-      background: var(--td-disabled);
+      background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
       color: var(--td-text-disabled);
       cursor: not-allowed;
-      border-color: var(--td-frame-dark);
+      border-color: #1F2420;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
     }
 
     .confirm-btn mat-icon {

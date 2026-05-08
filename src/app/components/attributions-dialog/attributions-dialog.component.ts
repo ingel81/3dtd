@@ -2,9 +2,9 @@ import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { ATTRIBUTIONS } from '../../configs/attributions.config';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-attributions-dialog',
@@ -13,14 +13,14 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
     CommonModule,
     MatDialogModule,
     MatButtonModule,
-    MatIconModule,
+    TdIconComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="attributions-dialog">
       <!-- Header -->
       <div class="dialog-header">
-        <mat-icon class="header-icon">copyright</mat-icon>
+        <td-icon class="header-icon" name="copyright" [size]="20"></td-icon>
         <h2>Attributions</h2>
       </div>
 
@@ -29,7 +29,7 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
         @for (category of attributions; track category.title) {
           <div class="section">
             <div class="section-header">
-              <mat-icon>{{ category.icon }}</mat-icon>
+              <td-icon [name]="$any(category.icon)" [size]="14"></td-icon>
               <span class="section-title">{{ category.title }}</span>
               <span class="section-count">{{ category.items.length }}</span>
             </div>
@@ -60,7 +60,7 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
                         class="source-link"
                         title="View source"
                       >
-                        <mat-icon>open_in_new</mat-icon>
+                        <td-icon name="externalLink" [size]="14"></td-icon>
                       </a>
                     }
                   </div>
@@ -88,13 +88,14 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
       max-height: 80vh;
       display: flex;
       flex-direction: column;
-      background: var(--td-bg-dark);
-      border-top: 1px solid var(--td-frame-light);
-      border-left: 1px solid var(--td-frame-mid);
-      border-right: 1px solid var(--td-frame-dark);
-      border-bottom: 2px solid var(--td-frame-dark);
+      background: var(--td-panel-main);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        0 1px 0 var(--td-panel-shadow);
       color: var(--td-text-primary);
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--td-font-body);
     }
 
     .dialog-header {
@@ -107,12 +108,6 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
       flex-shrink: 0;
     }
 
-    .header-icon {
-      color: var(--td-gold);
-      font-size: 20px;
-      width: 20px;
-      height: 20px;
-    }
 
     h2 {
       margin: 0;
@@ -145,12 +140,13 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
       background: var(--td-frame-light);
     }
 
-    /* Sections */
+    /* Sections — refined inset bevel */
     .section {
       background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-dark);
-      border-left-color: var(--td-frame-dark);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.13),
+        inset 0 -1px 0 var(--td-panel-shadow);
     }
 
     .section-header {
@@ -162,11 +158,11 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
       border-bottom: 1px solid var(--td-frame-dark);
     }
 
-    .section-header mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
+    .section-header td-icon {
       color: var(--td-teal);
+    }
+    .header-icon {
+      color: var(--td-gold);
     }
 
     .section-title {
@@ -265,11 +261,6 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
       color: var(--td-text-primary);
     }
 
-    .source-link mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
 
     /* Footer */
     .dialog-actions {
@@ -288,19 +279,25 @@ import { ATTRIBUTIONS } from '../../configs/attributions.config';
       padding: 6px 14px;
       font-size: 11px;
       font-weight: 500;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--td-font-mono);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
       cursor: pointer;
-      background: transparent;
+      background: var(--td-panel-main);
       color: var(--td-text-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom: 2px solid var(--td-frame-dark);
-      transition: all 0.15s ease;
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        var(--td-shadow-key);
+      transition: box-shadow 0.18s ease, color 0.15s ease;
     }
 
     .close-btn:hover {
-      background: var(--td-panel-secondary);
       color: var(--td-text-primary);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        0 0 0 1px var(--td-frame-mid),
+        var(--td-shadow-key);
     }
   `,
 })

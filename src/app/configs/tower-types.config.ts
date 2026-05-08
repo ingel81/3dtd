@@ -392,16 +392,16 @@ export interface AirSubStrategyConfig {
 }
 
 export const TARGETING_STRATEGIES: TargetingStrategyConfig[] = [
-  { id: 'closest', label: 'Closest', icon: 'near_me', tooltip: 'Attacks the nearest enemy' },
-  { id: 'lowest-hp', label: 'Weakest', icon: 'heart_broken', tooltip: 'Attacks the weakest enemy' },
+  { id: 'closest', label: 'Closest', icon: 'target', tooltip: 'Attacks the nearest enemy' },
+  { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Attacks the weakest enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Attacks the strongest enemy' },
   { id: 'first', label: 'First', icon: 'flag', tooltip: 'Attacks the enemy closest to the base' },
-  { id: 'air-priority', label: 'Air', icon: 'flight', tooltip: 'Prioritizes flying enemies' },
+  { id: 'air-priority', label: 'Air', icon: 'arrowUp', tooltip: 'Prioritizes flying enemies' },
 ];
 
 export const AIR_SUB_STRATEGIES: AirSubStrategyConfig[] = [
-  { id: 'closest', label: 'Closest', icon: 'near_me', tooltip: 'Targets the nearest air enemy' },
-  { id: 'lowest-hp', label: 'Weakest', icon: 'heart_broken', tooltip: 'Targets the weakest air enemy' },
+  { id: 'closest', label: 'Closest', icon: 'target', tooltip: 'Targets the nearest air enemy' },
+  { id: 'lowest-hp', label: 'Weakest', icon: 'heart', tooltip: 'Targets the weakest air enemy' },
   { id: 'highest-hp', label: 'Strongest', icon: 'shield', tooltip: 'Targets the strongest air enemy' },
 ];
 

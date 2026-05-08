@@ -14,7 +14,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StreetNetwork } from './services/osm-street.service';
@@ -73,6 +72,7 @@ import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
 import { TrainingClientService } from './ai/training/training-client.service';
 // AI Bot Training
 import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
+import { TdIconComponent } from './components/icon/icon.component';
 
 @Component({
   selector: 'app-tower-defense',
@@ -81,7 +81,6 @@ import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
     CommonModule,
     MatDialogModule,
     MatButtonModule,
-    MatIconModule,
     MatProgressSpinnerModule,
     MatTooltipModule,
     GameSidebarComponent,
@@ -101,6 +100,7 @@ import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
     InfoOverlayComponent,
     ContextHintComponent,
     GameSpeedComponent,
+    TdIconComponent,
   ],
   providers: [
     GameStateManager,

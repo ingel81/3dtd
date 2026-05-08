@@ -17,7 +17,6 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
@@ -47,6 +46,9 @@ import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
 import { templateObjectForWave } from '../../ai/core/wave-curriculum';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
+import { TdRichTooltipDirective } from '../tooltip/td-rich-tooltip.directive';
+import { TdTooltipData } from '../tooltip/tooltip-data.types';
 
 @Component({
   selector: 'app-game-sidebar',
@@ -54,8 +56,9 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
   imports: [
     CommonModule,
     MatDialogModule,
-    MatIconModule,
     MatTooltipModule,
+    TdIconComponent,
+    TdRichTooltipDirective,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
@@ -76,32 +79,33 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       overflow: hidden;
     }
 
+    /* Sidebar background — refined: NO stone texture, NO inner panel frames.
+     * Sidebar IS one panel; sections are split only by 1px border-bottom rules.
+     * (Mockup ref: tmp/td-artboards.jsx HudSidebar.) */
     .td-sidebar-content {
       flex: 1;
       min-height: 0;
-      background:
-        linear-gradient(rgba(15, 19, 15, 0.75), rgba(15, 19, 15, 0.75)),
-        url('/assets/images/backgrounds/stone-wall.jpg') repeat;
-      background-size: auto, 100px 100px;
+      background: var(--td-bg-dark);
       display: flex;
       flex-direction: column;
-      gap: 8px;
-      padding: 8px;
+      gap: 0;
+      padding: 0;
       overflow: hidden;
       position: relative;
       z-index: 1;
-      border-left: 4px solid var(--td-panel-shadow);
+      border-left: 1px solid var(--td-frame-dark);
       box-shadow:
-        -6px 0 12px rgba(0, 0, 0, 0.5),
-        -3px 0 6px rgba(0, 0, 0, 0.3),
-        inset 4px 0 8px rgba(0, 0, 0, 0.4);
+        inset 1px 0 0 rgba(122, 133, 128, 0.22),
+        -2px 0 12px rgba(0, 0, 0, 0.5);
     }
 
     .td-sidebar-footer {
       display: flex;
       flex-direction: column;
-      align-items: center;
+      align-items: stretch;
       margin-top: auto;
+      flex-shrink: 0;
+      width: 100%;
       font-size: 10px;
       color: var(--td-text-muted);
     }
@@ -154,19 +158,18 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       background: var(--td-panel-secondary);
     }
 
-    .td-attributions-btn mat-icon {
-      font-size: 12px;
-      width: 12px;
-      height: 12px;
-    }
 
-    /* === Panel (WC3 Style) === */
+    /* === Section (was .td-panel) — flat, no frames, just dividers ===
+     * The sidebar is a single panel; each section is just a vertical strip
+     * separated by a 1px frame-dark border-bottom. No bevel, no shadow. */
     .td-panel {
-      background: var(--td-panel-main);
-      border-top: 1px solid var(--td-frame-light);
-      border-left: 1px solid var(--td-frame-mid);
-      border-right: 1px solid var(--td-frame-dark);
-      border-bottom: 2px solid var(--td-frame-dark);
+      background: transparent;
+      border: 0;
+      box-shadow: none;
+      border-bottom: 1px solid var(--td-frame-dark);
+    }
+    .td-panel:last-of-type {
+      border-bottom: 0;
     }
     /* Non-wave panels fill available space and allow internal scroll */
     .td-panel:not(.td-wave-panel) {
@@ -195,21 +198,39 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       ${TD_SCROLLBAR_WEBKIT.thumbHover}
     }
 
+    /* Section heads — flat label with mono caps + rune-amber color. */
     .td-panel-header {
-      padding: 6px 10px;
-      background: var(--td-panel-secondary);
-      border-bottom: 1px solid var(--td-frame-dark);
-      font-size: 10px;
-      font-weight: 700;
-      letter-spacing: 1px;
-      color: var(--td-gold);
+      position: relative;
+      padding: 12px 14px 8px;
+      background: transparent;
+      border: 0;
+      flex-shrink: 0;
+      font-family: var(--td-font-mono);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.18em;
+      color: var(--td-rune-amber);
       text-transform: uppercase;
     }
 
-    /* Phase 5.16: dropped left teal stripe — felt like AI-slop accent. */
+    /* Build section gets a trailing gold gradient rule next to the label
+     * (matches tmp/td-artboards.jsx HudSidebar — only the BUILD header). */
+    .td-panel:not(.td-wave-panel):not(.td-tower-panel):not(.td-research-panel) .td-panel-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .td-panel:not(.td-wave-panel):not(.td-tower-panel):not(.td-research-panel) .td-panel-header::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: linear-gradient(90deg,
+        var(--td-rune-amber-muted) 0%,
+        transparent 100%);
+      pointer-events: none;
+    }
 
     .td-wave-panel .td-panel-header {
-      background: linear-gradient(90deg, rgba(111, 183, 165, 0.15) 0%, var(--td-panel-secondary) 100%);
       display: flex;
       justify-content: space-between;
       align-items: center;
@@ -225,12 +246,9 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       letter-spacing: 0.5px;
     }
 
-    .td-panel:not(.td-wave-panel):not(.td-tower-panel) .td-panel-header {
-      background: linear-gradient(90deg, rgba(201, 164, 76, 0.1) 0%, var(--td-panel-secondary) 100%);
-    }
 
     .td-panel-content {
-      padding: 8px;
+      padding: 4px 14px 14px;
     }
 
     /* === Status Panel === */
@@ -278,15 +296,18 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       width: 100%;
       padding: 8px 10px;
       background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.18),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        0 1px 0 rgba(0, 0, 0, 0.6);
       color: var(--td-text-primary);
-      font-family: inherit;
+      font-family: var(--td-font-body);
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 500;
+      letter-spacing: 0.02em;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: box-shadow 0.18s ease, background 0.15s ease, color 0.15s ease;
     }
 
     .td-action-btn mat-icon {
@@ -320,56 +341,72 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
     }
 
     .td-action-btn.td-btn-green.td-wave-btn:not(:disabled) {
-      background: linear-gradient(180deg, rgba(111, 183, 165, 0.2) 0%, var(--td-panel-secondary) 100%);
+      background: linear-gradient(
+        180deg,
+        var(--td-teal-light) 0%,
+        var(--td-teal) 55%,
+        var(--td-teal-dark) 100%
+      );
+      font-family: var(--td-font-mono);
       font-size: 13px;
       font-weight: 700;
       padding: 10px;
-      border: 1px solid var(--td-teal);
-      letter-spacing: 1px;
-      color: var(--td-teal);
+      border: 1px solid #11140F;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-shadow-key);
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #0E1612;
     }
 
     .td-action-btn.td-btn-green.td-wave-btn:not(:disabled) mat-icon {
       font-size: 22px;
       width: 22px;
       height: 22px;
+      color: #0E1612;
     }
 
     .td-action-btn.td-btn-green.td-wave-btn:hover:not(:disabled) {
-      background: linear-gradient(180deg, rgba(111, 183, 165, 0.3) 0%, rgba(111, 183, 165, 0.1) 100%);
-      box-shadow: 0 0 12px rgba(111, 183, 165, 0.3);
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-teal-glow);
     }
 
-    /* Phase 5.16: Curriculum coming-up preview */
+    /* Curriculum coming-up preview — flat, embedded directly under the
+     * Next-Wave button. No quote-block style (no bg, no border-left, no radius).
+     * Matches tmp/td-artboards.jsx HudSidebar Coming-Up section. */
     .td-coming-up {
-      margin-top: 6px;
-      padding: 6px 8px;
-      background: rgba(255, 255, 255, 0.02);
-      border-left: 2px solid var(--td-frame-dark);
-      border-radius: 2px;
+      margin-top: 10px;
+      padding: 0;
     }
     .td-coming-up-label {
+      font-family: var(--td-font-mono);
       font-size: 9px;
-      letter-spacing: 0.6px;
-      color: var(--td-text-dim);
-      margin-bottom: 4px;
+      letter-spacing: 0.18em;
+      color: var(--td-text-muted);
+      margin-bottom: 6px;
+      text-transform: uppercase;
     }
     .td-coming-up-row {
       display: grid;
-      grid-template-columns: 32px 1fr auto;
-      gap: 6px;
+      grid-template-columns: 26px 1fr auto;
+      gap: 8px;
       align-items: center;
+      font-family: var(--td-font-mono);
       font-size: 11px;
-      padding: 2px 0;
+      padding: 4px 0;
       cursor: help;
     }
     .td-coming-up-wave {
-      color: var(--td-text-dim);
+      color: var(--td-rune-amber);
       font-weight: 700;
       font-variant-numeric: tabular-nums;
     }
     .td-coming-up-name {
-      color: var(--td-text);
+      color: var(--td-text-secondary);
       overflow: hidden;
       text-overflow: ellipsis;
       white-space: nowrap;
@@ -506,24 +543,40 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
     }
 
     .td-tower-card {
+      /* Button user-agent reset — locked + unlocked share <button>, so heights
+       * stay identical in the grid. Without these, native button styles
+       * (line-height, intrinsic min-content, appearance) leak into rows. */
+      appearance: none;
+      -webkit-appearance: none;
+      margin: 0;
+      text-align: inherit;
+      color: inherit;
+      font-family: var(--td-font-body);
+      font-size: 11px;
+      line-height: 1;
+
       position: relative;
       display: flex;
       flex-direction: column;
       padding: 0;
       background: var(--td-panel-secondary);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.13),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        0 1px 0 rgba(0, 0, 0, 0.6);
       cursor: pointer;
-      transition: all 0.15s ease;
-      font-family: inherit;
+      transition: box-shadow 0.18s ease, border-color 0.18s ease;
       border-radius: 3px;
       overflow: hidden;
     }
 
     .td-tower-card:hover:not(:disabled) {
       border-color: var(--td-gold-dark);
-      box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.13),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        var(--td-gold-glow);
     }
 
     .td-tower-card:disabled,
@@ -532,17 +585,19 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       cursor: not-allowed;
     }
 
-    /* Locked tower — silhouette effect */
-    .td-tower-locked {
-      opacity: 0.5;
+    /* Locked tower — silhouette effect.
+     * Specificity .td-tower-card.td-tower-locked (0,2,0) ≥ :disabled (0,2,0)
+     * and order-after wins over the default :disabled rule above. */
+    .td-tower-card.td-tower-locked {
+      opacity: 0.55;
       cursor: default;
       pointer-events: auto;
     }
-    .td-tower-locked .td-silhouette {
+    .td-tower-card.td-tower-locked .td-silhouette {
       filter: brightness(0) saturate(0);
       opacity: 0.3;
     }
-    .td-tower-locked .td-tower-card-name {
+    .td-tower-card.td-tower-locked .td-tower-card-name {
       color: var(--td-text-muted);
     }
     .td-lock-icon {
@@ -576,21 +631,87 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       border-top: 1px solid var(--td-frame-dark);
     }
 
+    /* Cost badge — refined: panel-shadow background, coin glyph + value */
     .td-tower-card-cost {
       position: absolute;
-      top: 4px;
-      right: 4px;
-      padding: 3px 8px;
-      background: var(--td-gold);
-      color: var(--td-bg-dark);
+      top: 5px;
+      right: 5px;
+      display: inline-flex;
+      align-items: center;
+      gap: 3px;
+      padding: 2px 6px 2px 4px;
+      background: var(--td-panel-shadow);
+      color: var(--td-gold-light);
+      font-family: var(--td-font-mono);
       font-size: 11px;
       font-weight: 700;
-      border-radius: 2px;
-      box-shadow: 0 1px 4px rgba(0,0,0,0.5);
+      letter-spacing: 0.02em;
+      border: 1px solid var(--td-frame-dark);
+      box-shadow: inset 0 1px 0 rgba(74, 84, 77, 0.33);
+    }
+    .td-coin-glyph {
+      width: 9px;
+      height: 9px;
+      display: block;
+      flex-shrink: 0;
+    }
+    .td-tower-card-cost-value {
+      font-variant-numeric: tabular-nums;
+    }
+
+    /* Tier indicator — top-left rune-amber diamonds */
+    .td-tower-card-tier {
+      position: absolute;
+      top: 5px;
+      left: 5px;
+      display: flex;
+      gap: 2px;
+      pointer-events: none;
+      z-index: 2;
+    }
+    .td-tower-card-tier-mark {
+      width: 5px;
+      height: 5px;
+      background: var(--td-rune-amber);
+      transform: rotate(45deg);
+      box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
+    }
+
+    /* Hover corner brackets — gold accents at the edges, fade in on hover */
+    .td-tower-card-bracket {
+      position: absolute;
+      width: 8px;
+      height: 8px;
+      pointer-events: none;
+      opacity: 0;
+      transition: opacity 0.15s ease;
+    }
+    .td-tower-card-bracket-tl {
+      top: -1px; left: -1px;
+      border-top: 2px solid var(--td-gold-light);
+      border-left: 2px solid var(--td-gold-light);
+    }
+    .td-tower-card-bracket-tr {
+      top: -1px; right: -1px;
+      border-top: 2px solid var(--td-gold-light);
+      border-right: 2px solid var(--td-gold-light);
+    }
+    .td-tower-card-bracket-bl {
+      bottom: -1px; left: -1px;
+      border-bottom: 2px solid var(--td-gold-light);
+      border-left: 2px solid var(--td-gold-light);
+    }
+    .td-tower-card-bracket-br {
+      bottom: -1px; right: -1px;
+      border-bottom: 2px solid var(--td-gold-light);
+      border-right: 2px solid var(--td-gold-light);
+    }
+    .td-tower-card:hover:not(:disabled) .td-tower-card-bracket {
+      opacity: 1;
     }
 
     .td-tower-card:hover:not(:disabled) .td-tower-card-name {
-      color: var(--td-gold);
+      color: var(--td-gold-light);
     }
 
     .td-hidden {
@@ -619,10 +740,14 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       border-radius: 2px;
     }
 
-    /* === Tower Section === */
+    /* === Tower Section ===
+     * Header inherits the typographic divider style from .td-panel-header,
+     * with a teal accent for the title color (was a heavy teal gradient bar). */
     .td-tower-panel .td-panel-header {
-      background: linear-gradient(180deg, var(--td-teal) 0%, rgba(0, 188, 212, 0.3) 100%);
-      color: var(--td-bg-dark);
+      color: var(--td-teal-light);
+    }
+    .td-tower-panel .td-panel-header .td-tower-header-name {
+      color: var(--td-teal-light);
     }
     /* Phase 5.16: header layout with sell button on the right */
     .td-tower-header {
@@ -644,25 +769,19 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
       align-items: center;
       gap: 4px;
       padding: 2px 6px;
-      background: rgba(0, 0, 0, 0.25);
-      border: 1px solid rgba(0, 0, 0, 0.4);
+      background: var(--td-panel-shadow);
+      border: 1px solid var(--td-frame-dark);
       border-radius: 3px;
-      color: var(--td-bg-dark);
-      font-family: inherit;
+      color: var(--td-gold-light);
+      font-family: var(--td-font-mono);
       font-size: 10px;
       font-weight: 700;
       cursor: pointer;
-      transition: all 0.15s;
+      transition: color 0.15s, box-shadow 0.18s;
     }
     .td-header-sell-btn:hover {
-      background: rgba(244, 67, 54, 0.85);
-      color: #fff;
-      border-color: rgba(244, 67, 54, 1);
-    }
-    .td-header-sell-btn mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
+      color: var(--td-health-red);
+      box-shadow: 0 0 0 1px var(--td-health-red);
     }
     .td-header-sell-value {
       font-variant-numeric: tabular-nums;
@@ -1177,39 +1296,163 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     return this.researchStore.isTowerUnlocked(towerId);
   }
 
+  /**
+   * Resolve the td-icon name for a research node based on its current status.
+   * Status icons override the per-research config; available nodes use config.
+   */
+  researchNodeIconName(research: ResearchConfig): string {
+    const status = this.getResearchStatus(research.id);
+    if (status === 'completed') return 'check';
+    if (status === 'active') return 'refresh';
+    if (status === 'locked') return 'lock';
+    return research.icon; // td-icon name set in research-tree.config
+  }
+
+  /** Map a damage-type to its td-icon name (config holds an emoji glyph). */
+  private static readonly DAMAGE_TYPE_TD_ICON: Record<string, string> = {
+    physical: 'sword',
+    pierce: 'target',
+    siege: 'bolt',
+    magic: 'bolt',
+    fire: 'flame',
+    ice: 'splash',
+    poison: 'skull',
+  };
+  damageTypeTdIcon(type: string): string {
+    return GameSidebarComponent.DAMAGE_TYPE_TD_ICON[type] ?? 'sword';
+  }
+
   getTowerLockTooltip(towerId: TowerTypeId): string {
     const name = this.researchStore.getRequiredResearchName(towerId);
     return name ? `Requires: ${name}` : 'Locked';
   }
 
   /**
-   * Phase 5.16: Tooltip showing the tower's damage-matrix row so players
-   * can plan matchups before placing. Effectiveness symbols communicate the
-   * matchup intuitively even at a glance:
-   *   ✓✓ devastating (≥1.5×)  ✓ strong (≥1.2×)  · normal (0.7-1.2×)  ✗ weak (<0.7×)
+   * Tier hint for the small rune-amber diamonds in the tower-card top-left.
+   * Mirrors the research-tree progression depth, capped at 3:
+   *   T1 = starter (archer, research-center)
+   *   T2 = first unlock layer (gatling, ice, tentacle, poison)
+   *   T3 = deeper unlocks (cannon, fire, magic, rocket)
+   */
+  private static readonly TOWER_TIER: Record<TowerTypeId, number> = {
+    'archer': 1,
+    'research-center': 1,
+    'dual-gatling': 2,
+    'ice': 2,
+    'tentacle': 2,
+    'poison': 2,
+    'cannon': 3,
+    'fire': 3,
+    'magic': 3,
+    'rocket': 3,
+  };
+
+  getTowerTier(towerId: TowerTypeId): number {
+    return GameSidebarComponent.TOWER_TIER[towerId] ?? 0;
+  }
+
+  /**
+   * Returns an array sized to the tier, used purely for *ngFor / @for to
+   * render the right number of diamond marks. Content is irrelevant.
+   */
+  tierMarks(towerId: TowerTypeId): unknown[] {
+    return new Array(this.getTowerTier(towerId));
+  }
+
+  /**
+   * Structured tooltip payload for the tower-card rich tooltip.
+   * Matches the design refinement spec — header, stat triple, vs-armor table.
+   */
+  getTowerCardTooltipData(tower: TowerTypeConfig): TdTooltipData | null {
+    if (tower.id === 'research-center') {
+      return {
+        title: 'Research Center',
+        category: 'STRUCTURE',
+        accent: 'gold',
+        flavor: this.isResearchCenterPlaced()
+          ? 'Already placed.'
+          : 'Unlocks new towers and upgrade tiers.',
+      };
+    }
+    const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
+    const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
+    const stats = tower.attackType === 'beam'
+      ? [
+          { label: 'DPS', value: String(tower.damagePerSecond ?? 0) },
+          { label: 'TYPE', value: 'BEAM' },
+          { label: 'RANGE', value: `${tower.range}m` },
+        ]
+      : [
+          { label: 'DMG', value: String(tower.damage) },
+          { label: 'RATE', value: `${tower.fireRate}/s` },
+          { label: 'RANGE', value: `${tower.range}m` },
+        ];
+    // Armor identity colors per mockup (tmp/td-components.jsx ArmorChip).
+    // The dot color reflects the ARMOR TYPE, not the effectiveness; the dim
+    // flag (faded row) communicates "weak matchup" instead.
+    const armorColor: Record<string, string> = {
+      'unarmored': '#7DBE82',
+      'light': '#5BA4D9',
+      'heavy': '#C46B3A',
+      'fortified': '#5A6258',
+      'ethereal': '#9A78C7',
+    };
+    const armor = ARMOR_TYPES.map(a => {
+      const mul = matrix[a as ArmorType];
+      const meta = ARMOR_TYPE_UI[a as ArmorType];
+      return {
+        label: meta.label,
+        multiplier: `${mul.toFixed(2)}×`,
+        color: armorColor[a] ?? 'var(--td-text-muted)',
+        dim: mul < 0.7,
+      };
+    });
+    const accentMap: Record<string, TdTooltipData['accent']> = {
+      'physical': 'gold',
+      'magic': 'teal',
+      'fire': 'fire',
+      'cold': 'cold',
+      'poison': 'poison',
+    };
+    return {
+      title: tower.name,
+      category: dmgUi.label.toUpperCase(),
+      accent: accentMap[tower.damageType] ?? 'gold',
+      stats,
+      armorTitle: 'vs Armor',
+      armor,
+    };
+  }
+
+  /**
+   * Phase 5.16: Legacy string-based tooltip — kept as a fallback / for places
+   * that haven't migrated to the rich tooltip directive yet.
    */
   getTowerCardTooltip(tower: TowerTypeConfig): string {
     if (tower.id === 'research-center') {
       return this.isResearchCenterPlaced()
         ? 'Already placed'
-        : 'Research Center — Unlocks new towers and upgrade tiers';
+        : 'RESEARCH CENTER\nUnlocks new towers and upgrade tiers';
     }
     const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
     const dps = tower.attackType === 'beam'
       ? `${tower.damagePerSecond ?? 0} DPS`
       : `${tower.damage} DMG · ${tower.fireRate}/s`;
+    const sep = '────────────────────────';
     const lines: string[] = [
-      `${dmgUi.icon} ${dmgUi.label}`,
-      `${dps} · ${tower.range}m`,
-      '',
-      'vs Armor:',
+      `${tower.name.toUpperCase()}  ·  ${dmgUi.icon} ${dmgUi.label}`,
+      sep,
+      `${dps}    RANGE ${tower.range}m`,
+      sep,
+      'VS ARMOR',
     ];
     const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
     for (const armor of ARMOR_TYPES) {
       const mul = matrix[armor as ArmorType];
       const armorMeta = ARMOR_TYPE_UI[armor as ArmorType];
-      const symbol = mul >= 1.5 ? '✓✓' : mul >= 1.2 ? '✓' : mul < 0.7 ? '✗' : '·';
-      lines.push(`  ${symbol} ${armorMeta.icon} ${armorMeta.label}: ${mul.toFixed(2)}×`);
+      const symbol = mul >= 1.5 ? '✓✓' : mul >= 1.2 ? '✓ ' : mul < 0.7 ? '✗ ' : '· ';
+      const label = armorMeta.label.padEnd(10, ' ');
+      lines.push(`  ${symbol} ${armorMeta.icon} ${label} ${mul.toFixed(2)}×`);
     }
     return lines.join('\n');
   }

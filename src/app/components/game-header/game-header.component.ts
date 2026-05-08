@@ -1,15 +1,15 @@
 import { Component, input, output, signal, HostListener, ElementRef, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-game-header',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="header">
@@ -18,26 +18,26 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
         <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
           <span class="location-label">DEFEND</span>
           <span class="location-name">{{ locationName() }}</span>
-          <mat-icon class="location-edit">edit</mat-icon>
+          <td-icon class="location-edit" name="edit" [size]="16"></td-icon>
         </button>
 
         <!-- Location Actions -->
         <div class="location-actions">
           <!-- Share Button -->
           <button class="action-btn" (click)="onShare()" matTooltip="Copy link">
-            <mat-icon>{{ shareConfirmed() ? 'check' : 'link' }}</mat-icon>
+            <td-icon [name]="shareConfirmed() ? 'check' : 'share'" [size]="22"></td-icon>
           </button>
 
           <!-- Favorites Dropdown -->
           <div class="fav-wrapper">
             <button class="action-btn" [class.active]="favMenuExpanded()"
                     (click)="toggleFavMenu()" matTooltip="Favorites">
-              <mat-icon>bookmark</mat-icon>
+              <td-icon name="bookmark" [size]="22"></td-icon>
             </button>
             <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
               @if (canAddFavorite()) {
                 <button class="fav-item fav-add" (click)="onAddFavorite()">
-                  <mat-icon>add</mat-icon>
+                  <td-icon name="plus" [size]="14"></td-icon>
                   <span>Save location</span>
                 </button>
               }
@@ -48,7 +48,7 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
                     <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
                   </button>
                   <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete">
-                    <mat-icon>close</mat-icon>
+                    <td-icon name="cross" [size]="14"></td-icon>
                   </button>
                 </div>
               } @empty {
@@ -63,19 +63,19 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 
           <!-- World Dice -->
           <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location">
-            <mat-icon>explore</mat-icon>
+            <td-icon name="random" [size]="22"></td-icon>
           </button>
 
           <!-- Home Link -->
           <a class="action-btn" href="/?l=49.17327,9.26859&s=49.17555,9.26387" matTooltip="Erlenbach">
-            <mat-icon>home</mat-icon>
+            <td-icon name="home" [size]="22"></td-icon>
           </a>
 
           <!-- Rendering Toggle (Phase 5.14) — headless mode for training -->
           <button class="action-btn" (click)="toggleRendering()"
                   [class.active]="!renderingEnabled()"
                   [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'">
-            <mat-icon>{{ renderingEnabled() ? 'visibility' : 'visibility_off' }}</mat-icon>
+            <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="22"></td-icon>
           </button>
 
           <!-- Placement Divider + Buttons -->
@@ -84,39 +84,39 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
           <button class="action-btn" [class.active]="placementMode() === 'hq'"
                   (click)="placeHqClick.emit()" matTooltip="HQ versetzen"
                   [disabled]="!canPlace()">
-            <mat-icon>where_to_vote</mat-icon>
+            <td-icon name="pin" [size]="22"></td-icon>
           </button>
 
           <button class="action-btn" [class.active]="placementMode() === 'spawn'"
                   (click)="placeSpawnClick.emit()" matTooltip="Spawn setzen"
                   [disabled]="!canPlace()">
-            <mat-icon>add_location_alt</mat-icon>
+            <td-icon name="flag" [size]="22"></td-icon>
           </button>
         </div>
       </div>
       <div class="header-stats">
         <div class="stat hp">
-          <mat-icon>cardiology</mat-icon>
+          <td-icon name="heart" [size]="16" ariaLabel="Health"></td-icon>
           <span>{{ baseHealth() }}</span>
         </div>
         <div class="stat credits">
-          <mat-icon>savings</mat-icon>
+          <td-icon name="coin" [size]="16" ariaLabel="Credits"></td-icon>
           <span>{{ credits() }}</span>
         </div>
         <div class="stat wave">
-          <mat-icon>waves</mat-icon>
+          <td-icon name="wave" [size]="16" ariaLabel="Wave"></td-icon>
           <span>{{ waveNumber() }}</span>
         </div>
         @if (waveActive()) {
           <div class="stat enemies">
-            <mat-icon>pest_control</mat-icon>
+            <td-icon name="bug" [size]="16" ariaLabel="Enemies"></td-icon>
             <span>{{ enemiesAlive() }}</span>
           </div>
         }
       </div>
       @if (isDialog()) {
         <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close">
-          <mat-icon>close</mat-icon>
+          <td-icon name="cross" [size]="16"></td-icon>
         </button>
       }
     </header>
@@ -214,7 +214,9 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
       margin-right: 8px;
       background: var(--td-panel-shadow);
       border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-frame-mid);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.13),
+        inset 0 -1px 2px rgba(0, 0, 0, 0.5);
     }
 
     .stat {
@@ -238,6 +240,10 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
       height: 18px;
     }
 
+    .stat td-icon {
+      stroke-width: 1.6;
+    }
+
     .stat.hp { color: var(--td-health-red); }
     .stat.credits { color: var(--td-gold); }
     .stat.wave { color: var(--td-teal); }
@@ -250,12 +256,14 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
       width: 24px;
       height: 24px;
       background: var(--td-panel-shadow);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.18),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        var(--td-shadow-key);
       color: var(--td-text-secondary);
       cursor: pointer;
-      transition: all 0.15s;
+      transition: background 0.15s, color 0.15s, box-shadow 0.18s;
     }
 
     .close-btn mat-icon {
@@ -325,13 +333,15 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
       margin-top: 4px;
       min-width: 200px;
       background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        var(--td-shadow-soft);
       opacity: 0;
       visibility: hidden;
       transform: translateY(-4px);
-      transition: all 0.15s ease;
+      transition: opacity 0.15s ease, transform 0.15s ease, visibility 0.15s ease;
       z-index: 100;
     }
 

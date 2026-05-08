@@ -15,7 +15,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       <app-draggable-debug-panel
         windowId="camera"
         title="Camera"
-        icon="videocam"
+        icon="eye"
         [position]="windowService.cameraWindow().position"
         [zIndex]="windowService.cameraWindow().zIndex"
         (closed)="windowService.close('camera')"

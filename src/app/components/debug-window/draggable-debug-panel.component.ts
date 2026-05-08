@@ -12,9 +12,9 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DebugWindowService, DebugWindowId, WindowPosition } from '../../services/debug-window.service';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 export interface WindowSize {
   width: number;
@@ -24,7 +24,7 @@ export interface WindowSize {
 @Component({
   selector: 'app-draggable-debug-panel',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div
@@ -42,10 +42,10 @@ export interface WindowSize {
         class="debug-panel-header"
         (mousedown)="onHeaderMouseDown($event)"
       >
-        <mat-icon class="debug-panel-icon">{{ icon() }}</mat-icon>
+        <td-icon class="debug-panel-icon" [name]="$any(icon())" [size]="14"></td-icon>
         <span class="debug-panel-title">{{ title() }}</span>
         <button class="debug-panel-close" (click)="onClose($event)">
-          <mat-icon>close</mat-icon>
+          <td-icon name="cross" [size]="14"></td-icon>
         </button>
       </div>
       <div class="debug-panel-content" [class.resizable-content]="resizable()">
@@ -53,7 +53,7 @@ export interface WindowSize {
       </div>
       @if (resizable()) {
         <div class="resize-handle" (mousedown)="onResizeMouseDown($event)">
-          <mat-icon>drag_indicator</mat-icon>
+          <td-icon name="dragHandle" [size]="14"></td-icon>
         </div>
       }
     </div>

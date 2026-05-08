@@ -9,7 +9,20 @@
 @import '@fontsource/roboto/300.css';
 @import '@fontsource/roboto/400.css';
 @import '@fontsource/roboto/500.css';
-@import 'material-symbols/outlined.css';
+
+// Inter Tight — humanistic body / label typography
+@import '@fontsource/inter-tight/400.css';
+@import '@fontsource/inter-tight/500.css';
+@import '@fontsource/inter-tight/600.css';
+@import '@fontsource/inter-tight/700.css';
+
+// Global font tokens — also injected per-component via TD_CSS_VARS,
+// declared here for documents and components that don't include the host vars.
+:root {
+  --td-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+  --td-font-body: 'Inter Tight', system-ui, -apple-system, sans-serif;
+  --td-font-display: 'Cinzel', 'Inter Tight', serif;
+}
 
 html {
   height: 100%;
@@ -49,27 +62,44 @@ body {
 input, textarea {
   user-select: text;
 }
-// WC3-themed dialog panel (used via panelClass: 'td-dialog-panel' in MatDialog)
+
+// WC3-themed dialog panel — glass tint + refined bevel + Inter Tight body type
+// (used via panelClass: 'td-dialog-panel' in MatDialog)
 .td-dialog-panel .mdc-dialog__surface {
-  background: #141815;
-  border-top: 1px solid #6B756D;
-  border-left: 1px solid #4F5A53;
-  border-right: 1px solid #3A423C;
-  border-bottom: 2px solid #3A423C;
+  background: rgba(17, 22, 19, 0.88); // glassTint, slightly more opaque for legibility
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid #2F3631; // frame-dark (refined)
   border-radius: 4px;
-  color: #ECEFE9;
-  font-family: 'JetBrains Mono', monospace;
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.33),
+    0 6px 20px rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.5);
+  color: #EEF1EB;
+  font-family: 'Inter Tight', system-ui, -apple-system, sans-serif;
 }
 
-/* Phase 5.16: Multiline tooltip — preserves \n line breaks from getTowerCardTooltip etc. */
+// Multiline tooltip — refined glass look + structured layout.
+// String content uses tabular spacing; mono face keeps the armor table aligned.
 .td-tooltip-multiline .mdc-tooltip__surface {
   white-space: pre-line !important;
-  font-family: 'JetBrains Mono', monospace !important;
+  font-family: 'JetBrains Mono', ui-monospace, monospace !important;
   font-size: 11px !important;
   text-align: left !important;
-  max-width: 280px !important;
-  padding: 8px 10px !important;
-  line-height: 1.45 !important;
+  max-width: 300px !important;
+  padding: 10px 12px !important;
+  line-height: 1.55 !important;
+  letter-spacing: 0.01em !important;
+  color: #EEF1EB !important;
+  background: rgba(17, 22, 19, 0.92) !important;
+  backdrop-filter: blur(8px) saturate(1.1);
+  -webkit-backdrop-filter: blur(8px) saturate(1.1);
+  border: 1px solid #2F3631 !important;
+  border-radius: 0 !important;
+  box-shadow:
+    inset 0 1px 0 rgba(122, 133, 128, 0.33),
+    0 6px 20px rgba(0, 0, 0, 0.55),
+    0 2px 4px rgba(0, 0, 0, 0.5) !important;
 }
 
 /* You can add global styles to this file, and also import other style files */

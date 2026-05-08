@@ -1,24 +1,24 @@
 import { Component, inject, ChangeDetectionStrategy, output } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
 import { ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-enemy-debugger',
   standalone: true,
-  imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  imports: [CommonModule, DraggableDebugPanelComponent, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.enemyWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="enemy"
         title="Enemy Debug"
-        icon="bug_report"
+        icon="bug"
         [position]="windowService.enemyWindow().position"
         [zIndex]="windowService.enemyWindow().zIndex"
         [size]="windowService.enemyWindow().size ?? { width: 320, height: 650 }"
@@ -44,7 +44,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 (click)="enemyDebug.togglePlacementMode()"
                 title="Place enemy on route"
               >
-                <mat-icon>{{ enemyDebug.placementMode() ? 'close' : 'add_location' }}</mat-icon>
+                <td-icon [name]="enemyDebug.placementMode() ? 'cross' : 'pin'" [size]="14"></td-icon>
               </button>
             </div>
             @if (enemyDebug.placementMode()) {
@@ -65,18 +65,19 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                        tabindex="0"
                        role="button">
                     <span class="enemy-info">
-                      <mat-icon class="enemy-icon">{{ de.enemy.alive ? (de.enemy.movement.paused ? 'pause' : 'directions_run') : 'skull' }}</mat-icon>
+                      <td-icon class="enemy-icon" [size]="14"
+                        [name]="de.enemy.alive ? (de.enemy.movement.paused ? 'pause' : 'run') : 'skull'"></td-icon>
                       <span class="enemy-name">{{ getEnemyName(de.typeId) }}</span>
                       <span class="enemy-hp">{{ de.enemy.health.hp | number:'1.0-0' }}/{{ de.enemy.health.maxHp }}</span>
                     </span>
                     <button class="remove-btn" (click)="onRemoveEnemy($event, de.id)" title="Remove">
-                      <mat-icon>close</mat-icon>
+                      <td-icon name="cross" [size]="14"></td-icon>
                     </button>
                   </div>
                 }
               </div>
               <button class="action-btn danger small" (click)="onClearAll()">
-                <mat-icon>delete_sweep</mat-icon>
+                <td-icon name="trash" [size]="14"></td-icon>
                 Clear All
               </button>
             } @else {
@@ -88,7 +89,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
           @if (enemyDebug.selectedDebugEnemy(); as selected) {
             <div class="section selected-section">
               <div class="section-title">
-                <mat-icon class="title-icon">edit</mat-icon>
+                <td-icon class="title-icon" name="edit" [size]="14"></td-icon>
                 {{ getEnemyName(selected.typeId) }} #{{ selected.id.slice(-4) }}
               </div>
 
@@ -206,13 +207,13 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 <div class="control-label">Animation</div>
                 <div class="btn-row">
                   <button class="control-btn" (click)="playIdle.emit(selected.id)" title="Idle">
-                    <mat-icon>accessibility</mat-icon>
+                    <td-icon name="user" [size]="14"></td-icon>
                   </button>
                   <button class="control-btn" (click)="playWalk.emit(selected.id)" title="Walk">
-                    <mat-icon>directions_walk</mat-icon>
+                    <td-icon name="walk" [size]="14"></td-icon>
                   </button>
                   <button class="control-btn" (click)="playRun.emit(selected.id)" title="Run">
-                    <mat-icon>directions_run</mat-icon>
+                    <td-icon name="run" [size]="14"></td-icon>
                   </button>
                 </div>
               </div>
@@ -222,11 +223,11 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 <div class="control-label">Movement</div>
                 <div class="btn-row">
                   <button class="control-btn start" (click)="startMovement.emit(selected.id)" title="Start moving">
-                    <mat-icon>play_arrow</mat-icon>
+                    <td-icon name="play" [size]="14"></td-icon>
                     Start
                   </button>
                   <button class="control-btn stop" (click)="stopMovement.emit(selected.id)" title="Stop moving">
-                    <mat-icon>stop</mat-icon>
+                    <td-icon name="stop" [size]="14"></td-icon>
                     Stop
                   </button>
                 </div>
@@ -234,7 +235,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
 
               <!-- Reset Button -->
               <button class="action-btn small" (click)="enemyDebug.resetSelectedEnemy()" title="Reset to original values">
-                <mat-icon>undo</mat-icon>
+                <td-icon name="undo" [size]="14"></td-icon>
                 Reset Values
               </button>
             </div>
@@ -244,7 +245,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
           <div class="section">
             <div class="section-title">Export</div>
             <button class="action-btn primary" (click)="onCopyJson()" title="Copy selected enemy as JSON">
-              <mat-icon>content_copy</mat-icon>
+              <td-icon name="copy" [size]="14"></td-icon>
               Copy JSON
             </button>
           </div>

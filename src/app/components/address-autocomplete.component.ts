@@ -1,22 +1,22 @@
 import { Component, inject, input, output, signal, effect, ElementRef, ViewChild, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
-import { MatIconModule } from '@angular/material/icon';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/geocoding.service';
 import { TD_CSS_VARS } from '../styles/td-theme';
+import { TdIconComponent } from './icon/icon.component';
 
 type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results' | 'error' | 'selected';
 
 @Component({
   selector: 'app-td-address-autocomplete',
   standalone: true,
-  imports: [CommonModule, FormsModule, MatIconModule, MatProgressSpinnerModule],
+  imports: [CommonModule, FormsModule, MatProgressSpinnerModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="autocomplete-container" [class.has-focus]="hasFocus()">
       <div class="input-wrapper" [class.has-value]="currentValue()">
-        <mat-icon class="input-icon">{{ currentValue() ? 'place' : 'search' }}</mat-icon>
+        <td-icon class="input-icon" [name]="currentValue() ? 'pin' : 'search'" [size]="16"></td-icon>
         <input
           #inputElement
           type="text"
@@ -32,7 +32,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
         }
         @if (currentValue() && !geocoding.isLoading()) {
           <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear">
-            <mat-icon>close</mat-icon>
+            <td-icon name="cross" [size]="14"></td-icon>
           </button>
         }
       </div>
@@ -46,31 +46,31 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
             }
             @case ('too-short') {
               <span class="hint">
-                <mat-icon>keyboard</mat-icon>
+                <td-icon name="grid" [size]="12"></td-icon>
                 {{ 3 - searchText.length }} more characters
               </span>
             }
             @case ('searching') {
               <span class="hint searching">
-                <mat-icon>search</mat-icon>
+                <td-icon name="search" [size]="12"></td-icon>
                 Searching...
               </span>
             }
             @case ('results') {
               <span class="hint success">
-                <mat-icon>check_circle</mat-icon>
+                <td-icon name="check" [size]="12"></td-icon>
                 {{ geocoding.results().length }} results
               </span>
             }
             @case ('no-results') {
               <span class="hint warning">
-                <mat-icon>search_off</mat-icon>
+                <td-icon name="search" [size]="12"></td-icon>
                 No results
               </span>
             }
             @case ('error') {
               <span class="hint error">
-                <mat-icon>error</mat-icon>
+                <td-icon name="warn" [size]="12"></td-icon>
                 Search error
               </span>
             }
@@ -83,7 +83,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
         <div class="dropdown">
           @for (result of geocoding.results().slice(0, 5); track result.placeId) {
             <div class="result-item" (mousedown)="selectResult(result)">
-              <mat-icon class="result-icon">place</mat-icon>
+              <td-icon class="result-icon" name="pin" [size]="14"></td-icon>
               <span class="result-text">{{ formatResultLine(result) }}</span>
             </div>
           }

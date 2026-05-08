@@ -29,7 +29,7 @@ interface DisplayOptions {
       <app-draggable-debug-panel
         windowId="display"
         title="Display"
-        icon="tune"
+        icon="sliders"
         [position]="windowService.displayWindow().position"
         [zIndex]="windowService.displayWindow().zIndex"
         (closed)="windowService.close('display')"
