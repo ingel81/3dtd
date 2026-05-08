@@ -1,14 +1,18 @@
 # AI Training Backend
 
-## Ueberblick
+**Stand:** 2026-05-08 — Phase 5.11 Range-Based Templates (Phase 5.16 Wave-Curriculum-Override aktiv).
 
-Python-basiertes Training-System fuer den AI Wave Director. Besteht aus WebSocket-Server (Port 3001), PPO-Trainer, und Web-Dashboard (Port 3002) fuer Live-Monitoring.
+## Überblick
+
+Python-basiertes Trainingssystem für den AI Wave Director. Besteht aus
+WebSocket-Server (Port 3001), PPO-Trainer und Web-Dashboard (Port 3002)
+für Live-Monitoring.
 
 **Stack:**
 - Python 3.8+ / PyTorch 2.0+
-- WebSocket Server (websockets)
-- FastAPI + Chart.js Web-Dashboard
-- ONNX (Model Export)
+- WebSocket-Server (`websockets`)
+- FastAPI + Chart.js Dashboard
+- ONNX (Browser-Export)
 
 **Location:** `training-backend/`
 
@@ -20,36 +24,35 @@ Python-basiertes Training-System fuer den AI Wave Director. Besteht aus WebSocke
 ┌─────────────────────────────────────────────────────────────────┐
 │                    TRAINING BACKEND (Python)                     │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
-│  │   server.py  │─────▶│   model.py   │─────▶│  trainer.py  │  │
-│  │  (WebSocket) │      │ (Conv1D+Dense)│      │    (PPO)     │  │
-│  └──────┬───────┘      └──────────────┘      └──────────────┘  │
+│  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐       │
+│  │   server.py  │───▶│   model.py   │───▶│  trainer.py  │       │
+│  │  (WebSocket) │    │ (Template+4P)│    │    (PPO)     │       │
+│  └──────┬───────┘    └──────────────┘    └──────────────┘       │
 │         │                                                        │
-│         │              ┌──────────────┐      ┌──────────────┐  │
-│         └─────────────▶│  reward.py   │      │  config.py   │  │
-│                        │(DPS-Gaussian)│      │  (Settings)  │  │
-│                        └──────────────┘      └──────────────┘  │
-│                                                                 │
-│  ┌──────────────────────────────────────────────────────────┐  │
-│  │  dashboard/                                               │  │
-│  │  ├── app.py          (FastAPI, WebSocket broadcast)       │  │
-│  │  └── static/         (Chart.js, real-time UI)             │  │
-│  └──────────────────────────────────────────────────────────┘  │
-│                                                                 │
-│  ┌──────────────┐      ┌──────────────┐                        │
-│  │ tui_logger.py│      │auto_logger.py│                        │
-│  │(Console+JSONL)│◀────│(Logger Shim) │                        │
-│  └──────────────┘      └──────────────┘                        │
-│                                                                 │
+│         │            ┌────────────┐  ┌──────────────┐           │
+│         ├──────────▶│ templates.py │  │  reward.py   │           │
+│         │            │ (32 slots)   │  │ (4 terms)    │           │
+│         │            └────────────┘  └──────────────┘           │
+│         │                                                        │
+│         │            ┌──────────────────────┐                    │
+│         └──────────▶│ wave_curriculum.py    │                    │
+│                      │ (Phase 5.16 override) │                    │
+│                      └──────────────────────┘                    │
+│                                                                  │
+│  ┌──────────────────────────────────────────────────────────┐   │
+│  │  dashboard/                                               │   │
+│  │  ├── app.py     (FastAPI, WebSocket-Broadcast)            │   │
+│  │  └── static/    (Chart.js, Live-UI)                       │   │
+│  └──────────────────────────────────────────────────────────┘   │
+│                                                                  │
 └────────────────────────────────────┬────────────────────────────┘
         WebSocket :3001              │  HTTP :3002
               │                      │
               ▼                      ▼
 ┌─────────────────────────┐  ┌────────────────────┐
 │  BROWSER (Angular)      │  │  WEB DASHBOARD     │
-│  Game + Strategy Bot    │  │  (localhost:3002)   │
-│  + Training Client      │  │  Charts, Metrics   │
+│  Game + Strategy-Bot    │  │  (localhost:3002)   │
+│  + Training-Client      │  │  Charts, Metriken  │
 └─────────────────────────┘  └────────────────────┘
 ```
 
@@ -59,255 +62,271 @@ Python-basiertes Training-System fuer den AI Wave Director. Besteht aus WebSocke
 
 ```
 training-backend/
-├── server.py              # WebSocket Server & Hauptlogik
-├── model.py               # Conv1D + Dense Neural Network
-├── trainer.py             # PPO Training Algorithm
-├── reward.py              # Reward Function (DPS-normalized Gaussian)
-├── config.py              # Hyperparameter & Konfiguration
+├── server.py              # WebSocket-Server, State-Encoder, Action-Decoder
+├── model.py               # Conv1D + Dense — Template-Head + 4 Continuous-Params
+├── templates.py           # 32 Template-Slots (18 aktiv) mit Designer-Ranges
+├── wave_curriculum.py     # Phase-5.16 Wave-Curriculum-Override (W1-W18)
+├── trainer.py             # PPO-Training mit Mask-Aware-Reevaluation
+├── reward.py              # 4-Term-Reward (DEATH, DRAMA, SWARM_SIZE, PROGRESSION)
+├── config.py              # Hyperparameter, State-Layout, Enemy-Defs
 │
-├── tui_logger.py          # Console Logger + JSONL File Logging
-├── auto_logger.py         # Logger-Shim (importiert tui_logger)
+├── tui_logger.py          # Console-Logger + JSONL-File-Logging
+├── auto_logger.py         # Logger-Shim
+│
+├── inspect_training.py    # Interaktives Checkpoint-Inspect-Tool
+├── manage_server.py       # Start/Stop-Helper
 │
 ├── dashboard/
-│   ├── app.py             # FastAPI Dashboard Server
-│   ├── __init__.py
+│   ├── app.py             # FastAPI-Dashboard-Server
 │   └── static/
-│       ├── index.html     # Dashboard UI (3-Column Grid)
-│       ├── app.js         # Chart.js + WebSocket Live-Updates
-│       └── style.css      # Multi-Color Dark Theme
+│       ├── index.html     # Dashboard-UI
+│       ├── app.js         # Chart.js + WebSocket-Live-Updates
+│       └── style.css      # Dark-Theme
 │
-├── requirements.txt       # Python Dependencies
-├── start.bat              # Windows Start-Script
-├── checkpoints/           # Model Checkpoints (checkpoint_*.pt)
-└── logs/                  # JSONL Training Logs
+├── scripts/
+│   ├── export_to_tfjs.py  # ONNX-Export (Frontend-Inferenz)
+│   └── analyze_log.py     # Post-hoc JSONL-Analyse
+│
+├── tests/                 # pytest-Suite
+├── requirements.txt
+├── start.bat / start.sh   # Startup-Skripte
+├── checkpoints/           # checkpoint_*.pt (alle 10 Episoden) + archive-v3.5/
+└── logs/                  # JSONL-Trainingslogs
 ```
 
 ---
 
 ## Kern-Konzepte
 
-### 1. DPS-Profil (Raeumliche Verteidigung)
-
-Statt die Verteidigung auf einen einzigen Wert (totalDPS) zu reduzieren, wird der Pfad in **20 Bins** unterteilt und die DPS pro Bin berechnet (Ground + Air getrennt).
+### 1. State-Vektor (156 Features)
 
 ```
-Bin:    [0] [1] [2] [3] [4] [5] [6] [7] [8] [9] ... [19]
-Ground:  0   0  0.3 0.8 1.0 1.0 0.5  0   0   0  ...   0
-Air:     0   0   0  0.2 0.4 0.4  0   0   0   0  ...   0
+[0..52]    Base scalar (53)         — Spielerzustand, Tower-Stats, Enemy-Counter
+[53..105]  Phase 5.6 awareness (53) — Damage-History, Type-History, Skill-Heuristik
+[106..115] Effective DPS per armor (10) — DPS aufgeschlüsselt nach Armor-Effektivität
+[116..135] Ground DPS-Profile (20)   — DPS pro Bin entlang des Pfads
+[136..155] Air DPS-Profile (20)      — Air-DPS pro Bin
 ```
 
-**Berechnung (Frontend):** `src/app/ai/core/dps-profile.ts`
-- Pfad in 20 gleichmaessig verteilte Punkte samplen
-- Pro Punkt: RouteCell → sichtbare Towers → DPS aufsummieren
-- Normalisiert auf [0, 1] (MAX_DPS_PER_BIN = 500)
+Layout-Definitionen: `config.py` (Header-Kommentar) + `server.py::_build_state`.
+Frontend-Pendant: `src/app/ai/core/game-state-encoder.ts`.
 
-**Nutzung (Backend):**
-- Conv1D-Branch im Model verarbeitet das Profil raeumlich
-- `compute_effective_progress()` normalisiert den Path-Progress relativ zur DPS-Verteilung
+### 2. Template-Based Action-Space (Phase 5.10/5.11)
 
-### 2. DPS-Relative HP (Kill-Time)
-
-Das Model waehlt `kill_time` (2.0-5.0s) statt absoluter HP:
+Statt direkter Enemy-Type-Wahl pickt das NN aus 18 aktiven Templates
++ 4 Continuous-Params:
 
 ```
-enemy_hp = effective_dps * kill_time
-healthMultiplier = enemy_hp / base_hp_of_type
+template_head:  Categorical(32)            # 32 Slots, 18 aktiv (Rest reserviert)
+params_head:    sigmoid → [0,1] × 4        # count, spawn_delay, hp_mult, variation
+log_std:        learnable                  # Exploration-Noise pro Continuous-Param
 ```
 
-- Automatische Skalierung mit Spieler-DPS
-- Fuer Air-Enemies (Bat): `air_dps` statt `ground_dps`
-
-### 4. Action Decoding (Wave-Config Erzeugung)
-
-Die Model-Outputs werden wie folgt in Wave-Parameter umgewandelt:
-
-| Parameter | Model-Output | Umrechnung | Bereich |
-|-----------|-------------|------------|---------|
-| kill_time | sigmoid → [0,1] | 2.0 + x * 3.0 | 2.0 - 5.0s |
-| count | sigmoid → [0,1] | min_count + x * (max - min) | 5 - 30 |
-| delay | sigmoid → [0,1] | 150 + x * 450 | 150 - 600ms |
-| variation | sigmoid → [0,0.3] | Spawn-Delay-Variation | 0 - 30% |
-
-**Count-Berechnung:**
-```python
-min_count = max(5, tower_count + 1)  # Mindestens Towers+1 Enemies
-max_count = min(30, tower_count * 5)
-zone_time = max(8.0, defense_reach * 40.0)  # Min 8s Durchlaufzeit
-kill_capacity = max(8, int((zone_time / kill_time) * tower_count * 1.5))
-effective_max = min(max_count, kill_capacity)
-total_count = min_count + count_factor * (effective_max - min_count)
-```
-
-**Enemy-Typ Restriktion:**
-- Wave 0-1: Nur Zombie
-- Wave 2-3: Zombie oder Tank
-- Wave 4+: Alle Typen erlaubt
-
-### 3. Effective Progress (DPS-Normalisierung)
+Jedes Template hat designer-gesetzte Ranges. Der Decoder interpoliert die
+sigmoid-Faktoren in diese Ranges:
 
 ```python
-def compute_effective_progress(raw_progress, dps_profile):
-    bins_traversed = int(raw_progress * 20)
-    dps_traversed = sum(dps_profile[:bins_traversed])
-    return dps_traversed / sum(dps_profile)
+final_count = lerp(template.count_range, count_factor)
 ```
 
-**Beispiel:** Enemy bei 75% Pfad-Progress. Erste 50% stark verteidigt, zweite 50% leer.
-- raw_progress = 0.75
-- dps_traversed = 100% (alle Towers passiert)
-- effective_progress = 1.0 (hat gesamte Verteidigung durchlaufen)
+**Hard Constraints im Decoder:**
+- **Curriculum-Gate** (`min_wave`): Template gesperrt bis Wave N erreicht
+- **Capability-Gate** (`requires_capability`): "antiAir" / "antiEthereal" muss
+  vom Spieler erforscht sein
+- **Boss-only**: Nur an `wave % 10 == 0`
+- **Cooldown**: Template `TEMPLATE_COOLDOWN_WAVES = 2` Wellen lang gesperrt
+- **DPS-Scaled Range Caps** (Phase 5.11b): Bei niedriger Spieler-DPS wird das
+  obere Ende der Difficulty-Ranges (count, hp_mult) zusammengezogen
+- **Wave-Duration-Cap**: Wenn `count × spawn_delay > 180s`, wird `spawn_delay`
+  auf `max(5ms, cap/count)` komprimiert
+
+**Phase 5.16 Wave-Curriculum-Override:**
+Für Waves 1–18 erzwingt `wave_curriculum.py` bestimmte Templates / Mask-
+Constraints (Boss-Wellen, Air-Forced, etc.). Die NN-Entscheidung wird vor
+der Validierung durch den Curriculum-Layer gefiltert.
+
+### 3. DPS-Profil (räumliche Verteidigung)
+
+Pfad in **20 Bins** (Ground + Air separat). DPS pro Bin:
+
+```
+Bin:     [0] [1] [2] [3] [4] [5] ... [19]
+Ground:   0   0  0.3 0.8 1.0 1.0 ...   0
+Air:      0   0   0  0.2 0.4 0.4 ...   0
+```
+
+Frontend: `src/app/ai/core/dps-profile.ts` (sample 20 Punkte, sichtbare
+Tower aufaddieren, normalisiert).
+Backend: Conv1D-Branch verarbeitet das Profil räumlich (2 Channels × 20 Bins).
+
+### 4. HP-Multiplier statt absolute HP
+
+Das NN wählt `hp_mult` (interpoliert aus `template.hp_mult_range`).
+Finale Gegner-HP = `enemy_base_hp × hp_mult` (Frontend liefert Base-HP via
+`game_start`-Message als Single Source of Truth).
 
 ---
 
-## Model-Architektur
+## Modell-Architektur
 
-**Typ:** Actor-Critic PPO mit Hybrid Action Space
+**Typ:** Actor-Critic-PPO mit Hybrid-Action-Space.
 
 ```
-Input: 74 Features
-├── Scalar Branch [0-33]: 34 Features
-│   ├── Player: credits, lives%, wave, time (4)
-│   ├── Defense: towerCount, avgLevel (2)
-│   ├── Tower Types: 6 Typen normalisiert (6)
-│   ├── History Damage: letzte 5 Waves (5)
-│   ├── History Progress: letzte 5 Waves (5)
-│   ├── Wave Signals: momentum, avgDmg, duration, episodeProgress, variance (5)
-│   ├── Context: wave, trend, skill, lastThreat, winStreak (5)
-│   └── Reserved (2)
+Input: 156 Features
+├── Scalar Branch [0..115]: 116 Features
+│   → Linear(116, 128) + LayerNorm + ReLU → 128 Features
 │
-│   → Linear(34, 64) + LayerNorm + ReLU → 64 Features
-│
-├── Spatial Branch [34-73]: 40 Features = 2 Channels x 20 Bins
-│   ├── Ground DPS Profile: 20 Bins (normalized 0-1)
-│   └── Air DPS Profile: 20 Bins (normalized 0-1)
-│
-│   → Conv1d(2→16, k=3) + ReLU
-│   → Conv1d(16→32, k=3) + ReLU
+├── Spatial Branch [116..155]: 40 Features = 2 Channels × 20 Bins
+│   → Conv1d(2→16, k=3, padding=1) + ReLU
+│   → Conv1d(16→32, k=3, padding=1) + ReLU
 │   → AdaptiveAvgPool1d(1) → 32 Features
 │
-├── Combined: concat(64, 32) = 96
-│   → Linear(96, 128) + LayerNorm + ReLU + Dropout(0.1)
-│   → Linear(128, 64) + LayerNorm + ReLU + Dropout(0.1)
+├── Combined: concat(128, 32) = 160
+│   → Linear(160, 192) + LayerNorm + ReLU + Dropout(0.1)
+│   → Linear(192, 96)  + LayerNorm + ReLU + Dropout(0.1)
 │
-└── Output Heads:
-    ├── Enemy Head: Linear(64, 6) → Categorical(zombie, bat, tank, wallsmasher, penguin, herbert)
-    ├── Params Head: Linear(64, 4) → Gaussian(kill_time, count, delay, variation)
-    ├── Log-Std: Parameter(4) → Exploration noise
-    └── Value Head: Linear(64, 1) → State value estimate
+└── Output Heads (alle aus 96 Features):
+    ├── Template Head: Linear(96, 32)  → Categorical
+    ├── Params Head:   Linear(96, 4)   → 4 sigmoid-Faktoren
+    ├── log_std:       Parameter(4)    → Exploration-Noise
+    └── Value Head:    Linear(96, 1)   → State-Value
 ```
+
+ONNX-Export-Format: `concat(template_logits, raw_params)` →
+**36 Werte** pro Sample (`OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS`).
 
 ---
 
-## Reward-Funktion
+## Reward-Funktion (4 Terms)
 
-**Ziel:** Wellen generieren bei denen Enemies ca. 40-70% des Pfades erreichen (Sweet Spot).
+`reward.py::calculate_reward` summiert:
 
-### Gaussian Peak bei 55% Progress
+### Term 1: DEATH (`_death_penalty`)
 
-```python
-reward = exp(-((progress - 0.55)^2) / (2 * 0.15^2))
-
-# Hard cutoff: Base erreicht = negativ
-if avg_progress > 0.85:
-    reward = -0.30
-```
-
-| avg_progress | Reward | Beschreibung |
-|-------------|--------|--------------|
-| < 30% | -0.30 | Langweilig (Enemies sterben sofort) |
-| 30-40% | 0.3 - 0.7 | Moderat |
-| 40-70% | 0.7 - 1.0 | **Sweet Spot** |
-| > 85% | **-0.30** | Ueberfordernd (Base erreicht) |
-
-### Game-Over-Penalty (proportional)
-
-Fruehe Game-Overs werden staerker bestraft als spaete:
+One-Shot beim Game-Over, skaliert auf das frühe Spiel:
 
 ```python
-penalty = -0.5 * (EPISODE_LENGTH / wave_number)  # Cap: -5.0
+base    = REWARD_GAME_OVER_PENALTY * 10                      # -3.0
+scaling = max(0.5, 1.0 - wave_num * 0.02)                    # 1.0 (W1) → 0.5 (W25+)
+penalty = max(REWARD_GAME_OVER_CAP, base * scaling)          # cap -3.5
 ```
 
-| Wave | Penalty | Erklaerung |
-|------|---------|------------|
-| 3 | -3.33 | Sehr fruehe Niederlage |
-| 5 | -2.00 | Fruehe Niederlage |
-| 10 | -1.00 | Mittlere Niederlage |
-| 20 | -0.50 | Spaete Niederlage |
+### Term 2: DRAMA (`_drama_reward`)
 
-### Bonus-Signale (nur wenn avg_progress < 0.95)
+Damage-Zone × Path-Progress, in einem Signal verschmolzen.
 
-| Komponente | Bedingung | Bonus |
-|-----------|-----------|-------|
-| Near-Miss | >50% Enemies bei 80%+ Progress, player survived, progress < 95% | +0.15 |
-| Max Progress | Mind. 1 Enemy bei 90%+, player survived, progress < 95% | +0.10 |
-| Spread | Progress-StdDev > 0.05 | +0.05 |
-| Variety | Neuer Enemy-Typ in letzten 5 Waves | +0.15 |
+**Damage-Sub-Komponente** (Phase 5.11 enges Sweet-Band):
+| `damage_pct` | Score |
+|---|---|
+| < 1% | −0.10 (boring) |
+| 1–5% | **+0.40 (peak)** |
+| 5–20% | 0 (neutral) |
+| > 20% | −3.0 × overrun (linear) |
 
-**Wichtig:** Near-Miss und Max-Progress Bonuses werden NICHT vergeben wenn Enemies die Base erreichen (progress >= 0.95). Dies verhindert Reward-Exploitation durch unkillbare Enemies.
+**Progress-Sub-Komponente:**
+| `avg_progress` | Score |
+|---|---|
+| > 95% | −0.80 (overflow) |
+| 65–90% | **+0.50 (near-miss peak)** |
+| sonst | `progress × 0.30` (mild positiv) |
+
+### Term 3: SWARM_SIZE (`_swarm_size_reward`)
+
+Continuous-Bonus für Wave-Größe, **gated** auf Wave-Qualität:
+
+```python
+if total_count <= 20:               return -0.10           # too small
+if not survived:                    return 0.0
+if avg_progress > 0.95:             return 0.0             # all overflowed
+if damage_pct > 0.20:               return 0.0             # too hard
+return min(2.0, 0.0015 * (total_count - 20))               # cap +2.0
+```
+
+Phase-5.11-Hotfix: Slope von 0.003→0.0015 und Cap 8.0→2.0 reduziert,
+nachdem das NN Mega-Hordes als Path-of-Least-Resistance ausnutzte.
+
+### Term 4: PROGRESSION (`_progression_bonus`)
+
+Survival-Bonus skaliert mit Wave-Nummer, gated auf Mindest-Damage:
+
+```python
+if not survived or damage_pct < 0.01:  return 0.0
+return min(0.5, 0.02 * wave_num)                 # plateau ab Wave 25
+```
+
+**Hard-Constraints (Monotony, Armor-Dominance, Fairness)** sind nicht im Reward,
+sondern im Decoder (`server.py::_decode_action`) als Mask-Logic.
 
 ---
 
-## PPO Training
+## PPO-Training
 
 ### Hyperparameter
 
 | Parameter | Wert | Beschreibung |
-|-----------|------|--------------|
-| Learning Rate | 0.0003 | Adam Optimizer |
+|---|---|---|
+| Learning Rate | 0.0003 | Adam |
 | Clip Epsilon | 0.2 | PPO Surrogate Clip |
-| Entropy Coef | 0.08 | Exploration Bonus (hoch gegen Type-Kollaps) |
-| Value Coef | 0.5 | Value Loss Weight |
-| Batch Size | 16 | Episodes pro Update |
-| Update Epochs | 4 | PPO Epochs pro Batch |
-| Gamma | 0.99 | Discount Factor |
-| Grad Clip | 0.5 | Max Gradient Norm |
-| Episode Length | 100 | Waves pro Episode |
+| Entropy Coef | 0.05 | Exploration-Bonus |
+| Value Coef | 0.5 | Value-Loss-Gewicht |
+| Batch Size | 16 | Episoden pro Update |
+| Update Epochs | 4 | PPO-Epochs pro Batch |
+| Gamma | 0.99 | Discount |
+| Episode Length | 100 | Max. Wellen pro Episode |
 | Checkpoint | alle 10 Ep. | Auto-Save |
 
 ### Training-Loop
 
-1. Browser sendet Game State (74 Features inkl. DPS-Profil)
-2. Model generiert Action (Enemy-Typ + Params)
-3. Server dekodiert zu Wave-Config (DPS-relative HP)
-4. Browser spielt Wave, sendet Ergebnis
-5. `compute_effective_progress()` normalisiert Progress
-6. `calculate_reward()` berechnet Reward
-7. Transition gespeichert: (state, action, log_prob, reward)
-8. Bei BATCH_SIZE Transitions: PPO Update (4 Epochs)
+1. Browser sendet Game-State (156 Features) + verfügbare Templates (Mask)
+2. Modell sampled `template_idx` aus maskierter Categorical + 4 sigmoid-Params
+3. `wave_curriculum.py` filtert/forciert für W1–W18
+4. Server dekodiert zu Wave-Config (Range-Interpolation, DPS-Caps, Duration-Cap)
+5. Browser spielt Wave, sendet Result (`damagePercent`, `avgProgress`,
+   `totalCount`, `survived`)
+6. `calculate_reward()` berechnet 4-Term-Reward
+7. Transition gespeichert: `(state, template_idx, raw_params, log_prob, reward, mask)`
+8. Bei `BATCH_SIZE` Transitions: Mask-Aware-PPO-Update über 4 Epochs
+
+### PPO-Update mit Mask
+
+`model.evaluate_action()` akzeptiert die ursprüngliche Template-Mask, damit
+geblockte Logits korrekt re-evaluiert werden — sonst bekäme das NN
+Ratio-Werte für Templates, die es nie hätte wählen können.
 
 ---
 
-## Web Dashboard (Port 3002)
+## Web-Dashboard (Port 3002)
 
 ### Features
 
-- **Header:** Episode, Avg Reward, Best, Clients, Sweet Spot %, Game Over Rate
-- **Reward Chart:** Raw + Rolling Average (50) Trendlinie
-- **Progress Chart:** Avg Progress + Sweet Zone Band + Trend (30)
-- **Near-Miss Chart:** Ratio + Target-Linie + Trend (30)
-- **Distribution:** Progress-Verteilung (Boring/Low/Moderate/Sweet/Danger)
-- **Model Metrics:** Policy Loss, Entropy, Grad Norm, Batch Reward
-- **DPS Profiles:** Per-Client Ground/Air DPS-Profil (20 Bins)
-- **Wave Log:** Letzte Waves mit Typ, Progress, Reward
-- **Training Log:** PPO Updates mit Timestamps
+- **Header:** Episode, Avg-Reward, Best, Clients, Damage-Sweet %, Game-Over-Rate
+- **Reward-Chart:** Raw + Rolling Average (50)
+- **Damage-Chart:** Damage-Distribution + Sweet-Zone-Band
+- **Near-Miss-Chart:** Path-Progress + Target-Linie
+- **Damage-Distribution:** Boring / Sweet / Hard / Game-Over
+- **Modell-Metriken:** Policy-Loss, Entropy, Grad-Norm, Batch-Reward
+- **DPS-Profile:** Per-Client Ground/Air-Profil (20 Bins)
+- **Template-Histogram:** Welche Templates pickt das NN aktuell?
+- **Wave-Log + Training-Log**
 
-### API Endpoints
+### API-Endpoints
 
 | Endpoint | Methode | Beschreibung |
-|----------|---------|--------------|
-| `/` | GET | Dashboard HTML |
-| `/api/stats` | GET | Aktuelle Training-Stats |
-| `/api/history` | GET | Reward/Progress/NearMiss History |
+|----------|---------|---|
+| `/` | GET | Dashboard-HTML |
+| `/api/stats` | GET | Aktuelle Trainings-Stats |
+| `/api/history` | GET | Reward/Damage/Progress-History |
 | `/api/clients` | GET | Verbundene Clients + DPS-Profile |
 | `/api/profile/{id}` | GET | DPS-Profil eines Clients |
-| `/ws/live` | WebSocket | Real-Time Event Stream |
+| `/api/config` | GET | Reward-Schwellwerte (Frontend liest diese dynamisch) |
+| `/ws/live` | WebSocket | Real-Time-Event-Stream |
 
-### WebSocket Events
+### WebSocket-Events
 
-- `episode`: Neues Reward/Progress/NearMiss Datenpunkt
-- `wave`: Wave-Ergebnis (Typ, Count, Progress, Reward)
-- `stats`: Aktuelle Gesamt-Statistiken
-- `training_update`: PPO Metriken (Loss, Entropy, Grad)
+- `episode` — neuer Reward/Damage/Progress-Datenpunkt
+- `wave` — Wave-Ergebnis (Template, Count, Progress, Reward-Breakdown)
+- `stats` — Gesamt-Statistiken
+- `training_update` — PPO-Metriken (Loss, Entropy, Grad-Norm)
 
 ---
 
@@ -316,24 +335,27 @@ penalty = -0.5 * (EPISODE_LENGTH / wave_number)  # Cap: -5.0
 ### Browser → Backend
 
 | Type | Beschreibung |
-|------|-------------|
-| `connect` | Initial Connection |
-| `state` | Game State Snapshot (74 Features) |
-| `result` | Wave Outcome (Progress, Kills, etc.) |
-| `game_start` | Neues Spiel (+ enemyBaseHp) |
-| `game_over` | Spiel beendet (won/lost) |
+|------|---|
+| `connect` | Initial-Connection |
+| `state` | Game-State-Snapshot (156 Features) + Template-Mask |
+| `result` | Wave-Outcome (`damagePercent`, `avgProgress`, `totalCount`, …) |
+| `game_start` | Neues Spiel (+ `enemyBaseHp`-Map) |
+| `game_over` | Spiel beendet |
 | `request_stats` | Stats anfordern |
-| `request_export` | Model exportieren |
+| `request_export` | Modell-Export anfordern |
+| `client_status` | Phase-5.14 1Hz Live-Status (Wave, EnemiesAlive, Phase) |
 
 ### Backend → Browser
 
 | Type | Beschreibung |
-|------|-------------|
-| `connected` | Connection bestaetigt |
-| `wave_config` | Generierte Wave-Konfiguration |
-| `stats` | Training-Statistiken |
-| `reset` | Episode zuruecksetzen |
-| `select_bot` | Bot-Typ zuweisen |
+|------|---|
+| `connected` | Connection bestätigt |
+| `wave_config` | Generierte Wave-Konfiguration (Enemies + Spawn-Pattern) |
+| `stats` | Trainings-Statistiken |
+| `reset` | Episode zurücksetzen |
+| `select_bot` | Bot-Typ zuweisen (aus `BOT_WEIGHTS`) |
+| `model_exported` | ONNX-Export fertig |
+| `control` | Server-side Steuerung |
 
 ---
 
@@ -346,7 +368,7 @@ cd training-backend
 start.bat
 ```
 
-Startet: WebSocket :3001 + Dashboard :3002
+Startet WebSocket :3001 + Dashboard :3002.
 
 ### Manuell
 
@@ -356,16 +378,12 @@ pip install -r requirements.txt
 python server.py
 ```
 
-### Dashboard oeffnen
-
-```
-http://localhost:3002
-```
+`DASHBOARD=0 python server.py` startet ohne Dashboard (CI/Headless).
 
 ### Browser-Client verbinden
 
 1. `npm start` (Angular Dev-Server)
-2. Im Spiel: Training-Debugger oeffnen
+2. Im Spiel Training-Client einschalten (Debug-Panel)
 3. Auto-Connect zum WebSocket :3001
 
 ---
@@ -374,22 +392,23 @@ http://localhost:3002
 
 ### Console (stderr)
 
-Minimale Ausgabe: Jedes 10. Episode, Game Overs, PPO Updates, Checkpoints.
+Minimal: jede 10. Episode, Game-Overs, PPO-Updates, Checkpoints.
 
-### JSONL Logfile
+### JSONL-Logfile
 
-Alle Events strukturiert in `logs/training_YYYYMMDD_HHMMSS.jsonl`:
+Strukturierte Logs in `logs/training_YYYYMMDD_HHMMSS.jsonl`:
 
-| Entry Type | Felder |
-|-----------|--------|
-| `wave_state` | client_id, wave, towers, dps, bot_type |
-| `wave_generated` | enemy_type, count, enemy_hp, kill_time |
-| `wave_result` | wave, damage_pct, killed, avg_progress, near_miss |
-| `training_step` | episode, reward, avg_reward, breakdown |
-| `model_update` | policy_loss, entropy, grad_norm, batch_avg_reward |
-| `episode_start` | client_id, bot_type |
-| `episode_end` | client_id, waves, avg_progress, reason |
-| `checkpoint` | episode, path |
+| Entry-Type | Felder |
+|---|---|
+| `wave_state` | `client_id`, `wave`, `towers`, `dps`, `bot_type` |
+| `wave_generated` | `template_id`, `count`, `hp_mult`, `spawn_delay_ms`, `enemies` |
+| `wave_result` | `wave`, `damage_pct`, `killed`, `avg_progress`, `survived` |
+| `training_step` | `episode`, `reward`, `avg_reward`, `breakdown` |
+| `model_update` | `policy_loss`, `entropy`, `grad_norm`, `batch_avg_reward` |
+| `episode_start` / `episode_end` | `client_id`, `bot_type`, `waves`, `reason` |
+| `checkpoint` | `episode`, `path` |
+
+Analyse via `python scripts/analyze_log.py logs/training_*.jsonl`.
 
 ---
 
@@ -404,8 +423,25 @@ fastapi>=0.100.0
 uvicorn>=0.23.0
 ```
 
+Exakte Versionen siehe `requirements.txt`.
+
 ---
 
 ## Changelog
 
-Siehe [AI_TRAINING_SESSION_NOTES.md](AI_TRAINING_SESSION_NOTES.md) fuer die vollstaendige Entwicklungsgeschichte (v1 → v3.5).
+Vollständige Entwicklungsgeschichte: [AI_TRAINING_SESSION_NOTES.md](AI_TRAINING_SESSION_NOTES.md).
+
+Kurz-Timeline:
+- **v1.0** Damage-basiert
+- **v2.0** DPS-Relative HP + Path-Progress
+- **v3.0** DPS-Profil + Conv1D + Web-Dashboard
+- **v3.1–3.5** Anti-Exploitation, Anti-Kollaps, Reward-Skalierung
+- **Phase 5.5** State 74→93, Multi-Group-Decoder, Reward-Restart
+  (siehe `PHASE5.5_TRAINING_RUNBOOK.md`)
+- **Phase 5.10** Template-basiert, State 156, 4-Term-Reward
+  (siehe `docs/PHASE_5.10_TEMPLATES.md` im Projekt-Root)
+- **Phase 5.11 (aktuell)** Range-Based-Templates, 4 Continuous-Params,
+  Wave-Duration-Cap, narrower Sweet-Zone
+  (siehe `docs/PHASE_5.11_RANGES.md` im Projekt-Root)
+- **Phase 5.16** Wave-Curriculum-Override für Waves 1–18
+  (siehe `docs/HANDOVER_PLAYTEST_PHASE5.16.md` im Projekt-Root)

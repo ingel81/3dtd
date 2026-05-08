@@ -1,10 +1,33 @@
 # AI Training - Entwicklungsgeschichte
 
-Chronologische Zusammenfassung der Architektur-Iterationen des AI Wave Directors.
+Chronologische Zusammenfassung der Architektur-Iterationen des AI Wave
+Directors. Aktueller Stand siehe `docs/PHASE_5.11_RANGES.md` und
+`docs/HANDOVER_PLAYTEST_PHASE5.16.md` im Projekt-Root — diese Datei ist die
+**Backend-seitige Vorgeschichte** (v1 → v3.5) plus Kurz-Index der Phase-5.x-Notes.
 
 ---
 
-## Version 3.5 (aktuell) - Reward Reduction + Training Scaling
+## Phase 5.x — Aktuelle Iterationen
+
+Die Phase-5.x-Geschichte ist nicht hier dokumentiert — sie lebt in den Phase-
+spezifischen Dokumenten im Projekt-Root, weil dort gameplay-übergreifende
+Frontend-Änderungen (Damage-Matrix, Bot-Strategien, Encoder) gemeinsam mit
+den Backend-Änderungen behandelt werden:
+
+| Phase | Doku | Kern-Änderung |
+|---|---|---|
+| 5.5 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | State 74→93, Multi-Group-Decoder, Reward-Restart |
+| 5.10 | `docs/PHASE_5.10_TEMPLATES.md` | Template-basiert, State 156, 4-Term-Reward, 18 Templates |
+| 5.11 | `docs/PHASE_5.11_RANGES.md` | Range-Based-Templates, 4 Continuous-Params, Wave-Duration-Cap |
+| 5.16 | `docs/HANDOVER_PLAYTEST_PHASE5.16.md` | Wave-Curriculum-Override für W1–W18 |
+
+Die Versionen unten (v1 → v3.5) sind aus archivarischen Gründen erhalten —
+die dort beschriebene Architektur ist nicht mehr in Kraft. Lessons Learned
+am Ende sind weiterhin gültig und haben Phase 5.x mitgeprägt.
+
+---
+
+## Version 3.5 - Reward Reduction + Training Scaling
 
 ### Problem (v3.4 Training)
 Training lief stabil mit ~40% Sweet Spot, aber:
@@ -289,4 +312,5 @@ Game-Over-Penalty (-0.5) zu mild. 100% Game-Over-Rate, Sweet Spot nie getroffen.
 
 ---
 
-**Last Updated:** 2026-01-25
+**Last Updated (v1–v3.5 Inhalte):** 2026-01-25
+**Doku zuletzt strukturiert:** 2026-05-08 — Phase-5.x-Index oben ergänzt, Inhalte unverändert.

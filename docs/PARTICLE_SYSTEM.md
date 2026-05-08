@@ -2,10 +2,48 @@
 
 ## Übersicht
 
-Das Partikelsystem verwendet zwei separate Pools mit unterschiedlichen Blending-Modi:
+Das visuelle Effektsystem im `ThreeEffectsRenderer` umfasst mehrere Subsysteme,
+nicht nur klassische CPU-Partikel. Aktueller Stand:
+
+- **Trail Additive Pool** (3000 Partikel): Feuer, Tracer, Explosionen,
+  Glueheffekte, Rocket-/Bullet-Trails, Flame-Beam.
+- **Trail Normal Pool** (4000 Partikel): Rauch, Staub, opake Cannon-Trails,
+  Blood-Splatter.
+- **Tower Fire Pool** (800 Partikel, dediziert): Tower-Innenfeuer,
+  unabhaengig von Combat-VFX, immer verfuegbar.
+- **Sprite-Sheet Atlanten** (`generateExplosionAtlas`, `generateSmokeAtlas`):
+  4×4 prozedural generierte Texturen, Atlas-Frame-Animation via
+  `frameIndex` Attribut.
+- **GPU-instanzierte Decals** (`DecalInstanceManager`): Blood-Decals (max 100),
+  Ice-Decals (max 150) — 1 Draw Call pro Decal-Typ. Fade-In/Out per Shader.
+- **GPU-instanzierte Floating Text** (`FloatingTextInstanceManager`):
+  Floating Damage Numbers ueber Gegnern. 1 Draw Call fuer alle Texts.
+- **Frost-/Poison-Auren**: Pro-Enemy orbitierende Partikel-Cluster (Tracking
+  ueber Maps mit `localPosition` und `orbitAngle`).
+
+Pool-Limits zentral in `configs/visual-effects.config.ts` (`PARTICLE_LIMITS`,
+`BLOOD_DECAL_CONFIG`, `ICE_DECAL_CONFIG`, `FIRE_INTENSITY`, `EXPLOSION_PRESETS`,
+`EFFECT_COLORS`).
+
+---
+
+## Trail-Pools (CPU-driven, Points)
+
+Zwei klassische Three.js `Points` mit unterschiedlichen Blending-Modi:
 
 - **Additive Pool**: Für Feuer, Tracer, Explosionen, Glüheffekte
 - **Normal Pool**: Für Rauch, Staub, opake Partikel
+
+ShaderMaterial ist **default aktiv** (`useShaderMaterial = true`); per
+**P-Taste** kann auf `PointsMaterial` umgeschaltet werden (Fallback ohne
+Per-Partikel-Groessen, mit harten Quadrat-Kanten).
+
+### Free-Lists (O(1) Allocation)
+
+Jeder Pool hat eine Free-List (`freeIndicesAdditive`, `freeIndicesNormal`,
+`freeIndicesTowerFire`) als Stack freier Indizes plus einen Round-Robin-Cursor
+als Fallback. Aktivitaets-Tracking (`_poolDirtyAdditive` etc.) ueberspringt
+komplett inaktive Pools im Update-Loop.
 
 ## Grundlagen: Was ist ein Partikelsystem?
 
@@ -327,12 +365,55 @@ Features:
 - Size Slider
 - FPS und Partikel-Count Anzeige
 
+## Spawn-API (ThreeEffectsRenderer)
+
+Die wichtigsten Effekt-Spawner — alle als Methoden auf `ThreeEffectsRenderer`,
+typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
+
+| Methode | Zweck |
+|---------|-------|
+| `spawnBloodSplatter(lat, lon, h, count)` | Blut-Partikel (Normal Pool) |
+| `spawnBloodDecal(lat, lon, h, size)` | Boden-Decal (GPU-instanced) |
+| `spawnIceDecal(lat, lon, h, size)` | Eis-Decal (GPU-instanced) |
+| `spawnFire(...)` / `spawnFireOnTerrain(...)` / `spawnFireAtLocalY(...)` | Anhaltende Feuerquelle (Intensity-Preset) |
+| `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
+| `spawnExplosion(localX, localY, localZ, count, radius)` | Explosion am lokalen Punkt |
+| `spawnExplosionAtGeo(lat, lon, h, count)` | Explosion an Geo-Position |
+| `spawnMuzzleFlash(localX, localY, localZ)` | Muendungsfeuer |
+| `spawnTrailParticles(pos, config)` | Konfigurierbarer Projektil-Trail |
+| `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
+
+Decals nutzen Konfigurationen aus `BLOOD_DECAL_CONFIG` / `ICE_DECAL_CONFIG`
+(Fade-Delay, Fade-Duration, Base-Color, Color-Variation, Height-Offset).
+
+---
+
+## VFXService (Event-Bridge)
+
+Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
+
+- `vfx:blood` → `spawnBloodSplatter` + optional `spawnBloodDecal`
+  (Decal-Groesse haengt von `intensity` ab: ≥30 → 2.0, ≥10 → 0.8, sonst 0)
+- `vfx:explosion` → `spawnExplosionAtGeo`
+- `vfx:projectile-impact` → wahlweise rocket/cannon/bullet/poison/small/none
+  Preset (`EXPLOSION_PRESETS`)
+- `vfx:muzzle-flash` → Partikel + gepoolter `PointLight` (gefiltert: Beam-Tower
+  `ice`/`magic`/`fire` haben kein Muzzle-Flash)
+
+---
+
 ## Dateien
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `three-engine/renderers/three-effects.renderer.ts` | Haupt-Partikel-Renderer |
+| `three-engine/renderers/three-effects.renderer.ts` | Haupt-Partikel-Renderer (Trail-Pools, Tower-Fire, Sprite-Sheets, Auren) |
+| `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice-Decals |
+| `three-engine/renderers/decal-shaders.ts` | Decal-Shader (Fade, Color-Variation) |
+| `three-engine/renderers/floating-text/floating-text-instance.manager.ts` | GPU-instanced Floating Damage Numbers |
+| `three-engine/renderers/floating-text/floating-text-material.ts` | Custom ShaderMaterial fuer Text-Atlas |
+| `three-engine/renderers/floating-text/floating-text-atlas.ts` | Prozedurale Text-Atlas-Generierung |
+| `three-engine/renderers/sprite-atlas-generator.ts` | Sprite-Sheet-Atlanten (Explosion 4×4, Smoke 4×4) |
 | `configs/projectile-types.config.ts` | Trail-Partikel Konfiguration (TrailParticleConfig) |
-| `configs/visual-effects.config.ts` | Partikel-Limits, Explosion-Presets, Farben |
-| `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Projectile Impact) |
+| `configs/visual-effects.config.ts` | Partikel-Limits, Decal-Configs, Explosion-Presets, Farben |
+| `game-engine/vfx.service.ts` | VFX Event Handler (Blood, Explosion, Muzzle-Flash, Projectile Impact) |
 | `components/engine-test/engine-test.component.ts` | Engine Test Sandbox |

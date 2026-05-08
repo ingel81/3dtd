@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-02-25
+**Stand:** 2026-05-08
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -10,12 +10,16 @@ Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen
 
 Das Wave-System (`WaveManager`) steuert:
 - Spielphasen (Setup, Wave, Game Over)
-- Automatisches Enemy-Spawning (via `startWave()`)
+- Automatisches Enemy-Spawning via Sub-Step-Spawner in Game-Time (`tickSpawn(dtMs)`)
 - Manuelles Wave-Management (via `beginWave()`)
-- Wave-Konfiguration (Anzahl, Typ, Speed, Spawn-Modus)
+- Wave-Konfiguration (Anzahl, Typ, Speed, Spawn-Modus, **Mixed-Wave-Schedule**)
 - Wave-Completion-Detection (inkl. Spawn-Tracking)
-- Timescale-Support fuer Spawn-Delay-Skalierung
+- Damage-Tracking pro Wave (für Perfect/CloseCall-Detection)
 - Event-Emission (`wave:started`, `wave:completed`)
+
+> **Sub-Step Refactor (Phase 5.x):** Der Spawner läuft nicht mehr über `setTimeout` mit `timescaleProvider`,
+> sondern über einen Sub-Step-Akkumulator. `GameStateManager` ruft `waveManager.tickSpawn(gameTimeDeltaMs)` einmal pro Sub-Step auf. Das ist deterministisch über alle Speed-Multiplier (inkl. Training x75).
+> `setTimescaleProvider()` ist als deprecated No-Op erhalten geblieben, bis Tests migriert sind.
 
 ---
 
@@ -35,9 +39,13 @@ export class WaveManager implements IGameManager {
   constructor(eventBus: GameEventBus, enemyManager: EnemyManager);
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void;
-  setTimescaleProvider(provider: () => number): void;
+  setTimescaleProvider(_provider: () => number): void; // deprecated no-op
+  setCurrentHealthProvider(provider: () => number): void; // für CloseCall-Detection
+  getExpectedEnemyCount(): number; // genutzt vom EnemyManager (Swarm-Discount)
   beginWave(): void;
   startWave(config: WaveConfig): void;
+  /** Sub-step-driven spawner — called per sub-step from GameStateManager */
+  tickSpawn(gameTimeDeltaMs: number): void;
   checkWaveComplete(): boolean;
   endWave(): void;
   stopSpawning(): void;
@@ -173,30 +181,26 @@ this.waveManager.startWave({
 5. Spawn-Loop startet, Enemies spawnen im konfigurierten Abstand
 6. Jeder Enemy beginnt sofort zu laufen
 
-### setTimescaleProvider(provider)
+### setTimescaleProvider(provider) — deprecated
 
-Setzt einen Timescale-Provider fuer Spawn-Delay-Skalierung.
+Hat seit dem Sub-Step-Refactor keine Funktion mehr; bleibt als No-Op erhalten, bis Legacy-Tests migriert sind. Spawn-Delays werden inhärent korrekt skaliert, weil `tickSpawn(dtMs)` mit Game-Time arbeitet (Game-Clock läuft bei x2 doppelt so schnell, also wird auch das Delay-Limit doppelt so schnell erreicht).
 
-```typescript
-waveManager.setTimescaleProvider(() => gameState.timescale);
-```
+### setCurrentHealthProvider(provider)
 
-Bei aktiver Timescale wird der Spawn-Delay angepasst:
-- `realTimeDelay = gameTimeDelay / timescale`
-- Bei 2x Speed: Enemies spawnen doppelt so schnell
-- Bei 0.5x Speed: Enemies spawnen halb so schnell
+Verbindet den `WaveManager` mit dem aktuellen Base-Health-Wert aus `GameStateManager`. Wird am Wave-Ende für CloseCall-Detection ausgewertet.
+
+### getExpectedEnemyCount()
+
+Gibt die Anzahl Enemies zurück, die diese Wave tatsächlich enthält (post-Validation). Wird vom `EnemyManager` für den Swarm-Discount in der Kill-Reward-Formel benutzt.
 
 ### stopSpawning()
 
-Stoppt alle laufenden Spawn-Timeouts und passt `expectedEnemyCount` an die tatsaechlich gespawnten Enemies an, sodass `checkWaveComplete()` funktioniert sobald alle bereits gespawnten Enemies tot sind.
+Beendet den aktiven Sub-Step-Spawner sofort und passt `expectedEnemyCount` an die tatsaechlich gespawnten Enemies an, sodass `checkWaveComplete()` greift sobald die bereits gespawnten Enemies tot sind.
 
 ```typescript
 stopSpawning(): void {
-  for (const timeoutId of this.activeTimeouts) {
-    clearTimeout(timeoutId);
-  }
-  this.activeTimeouts.clear();
-  this.expectedEnemyCount = this.spawnedEnemyCount;
+  this.activeSpawner = null;                           // sub-step spawner deaktivieren
+  this.expectedEnemyCount = this.spawnedEnemyCount;    // wave kann mit dem bereits gespawnten Pool enden
 }
 ```
 
@@ -257,11 +261,8 @@ Setzt den WaveManager komplett zurueck.
 
 ```typescript
 reset(): void {
-  // Alle Spawn-Timeouts stoppen
-  for (const timeoutId of this.activeTimeouts) {
-    clearTimeout(timeoutId);
-  }
-  this.activeTimeouts.clear();
+  // Sub-Step-Spawner deaktivieren
+  this.activeSpawner = null;
 
   this.enemyManager.clear();
   this.phase.set('setup');
@@ -275,7 +276,7 @@ reset(): void {
 
 ### update(dt)
 
-Per-Frame Update. Aktuell no-op, da Wave-Spawning ueber Timeouts gesteuert wird.
+Per-Frame Update. Aktuell no-op — `tickSpawn(gameTimeDeltaMs)` wird stattdessen pro Sub-Step vom `GameStateManager` aufgerufen.
 
 ### destroy()
 
@@ -285,60 +286,40 @@ Raeumt alle Ressourcen auf: ruft `reset()` auf, leert `cachedPaths` und `spawnPo
 
 ## Spawn-Logik (Intern)
 
-### Spawn Loop
+### Sub-Step-Spawner (Phase 5.x)
+
+`startWave()` baut einen `activeSpawner`-Controller und initialisiert seinen Akkumulator. Der eigentliche Tick erfolgt in `tickSpawn(gameTimeDeltaMs)`, das `GameStateManager` jeden Sub-Step aufruft:
 
 ```typescript
-private startWave(config: WaveConfig): void {
-  const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
-  let spawnedCount = 0;
-  let consecutiveFailures = 0;
-  const waveId = this.waveNumber(); // Capture fuer Reset-Detection
+tickSpawn(gameTimeDeltaMs: number): void {
+  const spawner = this.activeSpawner;
+  if (!spawner) return;
+  if (this.phase() !== 'wave' || this.waveNumber() !== spawner.waveId) {
+    this.activeSpawner = null;
+    return;
+  }
 
-  const spawnNext = () => {
-    // Stop bei Phase-Wechsel (Reset oder Game Over)
-    if (this.phase() !== 'wave') return;
-
-    // Stop bei Wave-Reset (neue Wave gestartet)
-    if (this.waveNumber() !== waveId) return;
-
-    // Alle gespawnt?
-    if (spawnedCount >= enemyCount) return;
-
-    // Spawn-Point waehlen
-    const spawn = this.selectSpawnPoint(config.spawnMode, spawnedCount);
-    const path = this.cachedPaths.get(spawn.id);
-
-    if (path && path.length > 1) {
-      this.enemyManager.spawn(path, config.enemyType, config.enemySpeed, false, config.enemyHealth);
-      spawnedCount++;
-      this.spawnedEnemyCount++;
-      consecutiveFailures = 0;
-    } else {
-      consecutiveFailures++;
-      // Abbruch bei zu vielen Fehlschlaegen (kein valider Pfad)
-      if (consecutiveFailures >= this.spawnPoints.length * 2) {
-        this.expectedEnemyCount = spawnedCount;
-        return;
-      }
+  spawner.accumulatedMs += gameTimeDeltaMs;
+  while (spawner.accumulatedMs >= spawner.nextDelayMs) {
+    spawner.accumulatedMs -= spawner.nextDelayMs;
+    const stillActive = spawner.spawnAndAdvance();
+    if (!stillActive) {
+      this.activeSpawner = null;
+      return;
     }
-
-    // Naechster Spawn mit Timescale-Skalierung
-    if (this.phase() !== 'wave') return;
-
-    const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
-    const gameTimeDelay = getDelay();
-    const realTimeDelay = gameTimeDelay / timescale;
-    const timeoutId = setTimeout(() => {
-      this.activeTimeouts.delete(timeoutId);
-      if (this.phase() !== 'wave') return;
-      spawnNext();
-    }, realTimeDelay);
-    this.activeTimeouts.add(timeoutId);
-  };
-
-  spawnNext();
+    spawner.nextDelayMs = spawner.recomputeDelay();
+  }
 }
 ```
+
+Vorteile:
+- **Deterministisch** — jeder Sub-Step ist ~16 ms Game-Time, unabhängig vom Timescale-Multiplier
+- **Korrektes Verhalten bei x75-Training** — keine setTimeout-Drift bei extremen Geschwindigkeiten
+- **Saubere Pause-Semantik** — pausiertes Spiel = kein Tick = keine Spawns
+
+Die `spawnAndAdvance`-Closure ist je nach Mode unterschiedlich:
+- Single-Type: ruft `enemyManager.spawn(path, type, speed, false, health)` auf
+- Mixed-Schedule: iteriert `schedule.entries[]` und spawnt mit Per-Entry Type/Speed/Health/`pauseAfter`
 
 ### Spawn-Point-Auswahl
 
@@ -356,16 +337,15 @@ private selectSpawnPoint(mode: 'each' | 'random', index: number): SpawnPoint {
 
 ### Debug Event Handler
 
-Der WaveManager reagiert auf `debug:kill-all`:
+Der WaveManager reagiert auf `debug:kill-all` und kürzt dabei keine Credits zu (sonst Instant-Goldfarm beim Testen, Phase 5.16):
 
 ```typescript
 private registerDebugHandlers(): void {
   this.eventBus.on('debug:kill-all', () => {
     this.stopSpawning();
-    const timescale = this.timescaleProvider ? this.timescaleProvider() : 1.0;
     for (const enemy of this.enemyManager.getAlive()) {
       if (enemy.alive) {
-        this.enemyManager.kill(enemy, timescale);
+        this.enemyManager.kill(enemy, /*awardCredits*/ false);
       }
     }
   });
@@ -878,7 +858,7 @@ const tankCount = Math.floor(waveNum / 3);
 - Manuell: `this.waveManager.endWave()`
 
 ### Spawning stoppt nicht nach Kill All
-- `stopSpawning()` muss aufgerufen werden um Timeouts zu clearen
+- `stopSpawning()` muss aufgerufen werden, um den Sub-Step-Spawner zu deaktivieren
 - `debug:kill-all` Event macht dies automatisch
 
 ---

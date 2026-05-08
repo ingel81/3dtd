@@ -1,4 +1,10 @@
-# Phase 5.5 — Training Runbook
+# Phase 5.5 — Training Runbook (HISTORISCH)
+
+> **Status:** Historisches Runbook. Phase 5.5 ist mittlerweile durch
+> Phase 5.10 (Templates) und Phase 5.11 (Range-Based) ersetzt.
+> Aktueller State: 156 Features, 32 Template-Slots, 4 Continuous-Params.
+> Diese Datei beschreibt den Hard-Reset-Prozess von 5.5 — wird bei einem
+> künftigen architektur-brechenden Restart als Vorlage wiederverwendet.
 
 After the Phase 5.5 architecture changes (state-vector 74→93, enemy pool 6→16,
 top-K multi-group decoder, new reward signals), the neural network

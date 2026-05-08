@@ -1,5 +1,13 @@
 # 3DTD — Master Game Design Document
 
+**Stand:** 2026-05-08
+
+> **Implementierungsstatus:** Damage-Matrix (§2.3), Status-Effekte Slow/Burn/Mark
+> (§2.4), Tower-Katalog (§3) und Forschungszentrum (§6) sind implementiert
+> (`src/app/configs/combat/damage-matrix.config.ts`, `src/app/configs/research/`).
+> Status-Effekte Phase 2 (Armor Break, Stun) und einzelne Enemy-Flags
+> (Camo, Phasing, Aura) sind teilweise noch offen — siehe `TODO.md`.
+
 ## 1. Design-Philosophie
 - **Einfach zu lernen, schwer zu meistern**: klare Basisregeln + Veteranen-Tiefe (Matrix, Status, Flags).
 - **Fairness vor Überraschung**: neue Mechaniken werden **geteasert**, harte Checks nur nach Verfügbarkeit von Countern.

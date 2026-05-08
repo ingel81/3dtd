@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-03-15
+**Stand:** 2026-05-08
 
 ## Übersicht
 
@@ -54,10 +54,10 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 
 ---
 
-## Services (2026-01 Refactoring)
+## Services
 
-Die Komponente wurde durch Extraktion spezialisierter Services modularisiert.
-Die Komponente selbst ist von 4098 auf ~630 Zeilen reduziert worden.
+Die Haupt-Komponente wurde durch Extraktion spezialisierter Services modularisiert.
+Die Komponente selbst ist seit dem 2026-01 Refactoring auf ~655 Zeilen reduziert.
 
 **Hinweis:** Services liegen in `/src/app/services/`, nicht im tower-defense Subfolder.
 
@@ -86,6 +86,9 @@ Die Komponente selbst ist von 4098 auf ~630 Zeilen reduziert worden.
 |---------|---------------|
 | **TowerCombatService** | Tower Targeting, Turret-Rotation, Shooting |
 | **CombatEffectService** | Projectile Hits, Damage, Blood/Death/Slow Effects |
+| **CombatVfxService** | VFX-Trigger fuer Combat-Events (Hit-Sparks, Splash-Visuals) |
+| **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
+| **StatusEffectService** | Status-Effekte (Slow, Freeze, Burn, Poison) inkl. DOT-Ticks |
 | **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
 | **StrategicPlacementService** | Optimale Tower-Positionen entlang Enemy-Pfade |
 | **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
@@ -98,8 +101,12 @@ Die Komponente selbst ist von 4098 auf ~630 Zeilen reduziert worden.
 | **PathAndRouteService** | Pfad-Caching, Route-Visualisierung, Height Smoothing |
 | **RouteAnimationService** | Knight Rider Routen-Animation |
 | **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup |
+| **SpatialGridService** | Generischer Spatial Hash fuer Tower/Enemy Range-Queries |
 | **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
 | **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
+| **BuildingRenderingService** | OSM-Gebaeude rendern (DevWorld + Live) |
+| **MapPlacementService** | HQ-Placement, Spawn-Generation, Map-Bounds |
+| **PathfindingWorkerService** | A*-Pathfinding ueber Web Worker |
 | **LocationManagementService** | Location CRUD, LocalStorage Persistence |
 | **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Dialog, Spawns, Reset) |
 | **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
@@ -114,6 +121,12 @@ Die Komponente selbst ist von 4098 auf ~630 Zeilen reduziert worden.
 | Service | Verantwortung |
 |---------|---------------|
 | **GameStateSyncService** | Bridges GameStateManager Events zum Store |
+
+#### Performance
+
+| Service | Verantwortung |
+|---------|---------------|
+| **PerformanceProfilerService** | Frame-Time Sampling, Hot-Path-Profile (`.profiles/`) |
 
 #### UI & Preview
 
@@ -617,7 +630,7 @@ class ProjectileManager extends EntityManager<Projectile> {
 
 ```typescript
 // Kein @Injectable - Constructor Injection
-class WaveManager {
+class WaveManager implements IGameManager {
   constructor(eventBus: GameEventBus, enemyManager: EnemyManager);
 
   readonly phase = signal<GamePhase>('setup');
@@ -626,12 +639,27 @@ class WaveManager {
   initialize(spawnPoints, cachedPaths): void;
   startWave(config: WaveConfig): void;  // Emittiert 'wave:started'
   checkWaveComplete(): boolean;
-  endWave(): void;  // Emittiert 'wave:completed'
+  endWave(): void;  // Emittiert 'wave:completed' (perfect, closeCall, hpLost)
   reset(): void;
 }
 ```
 
-### 4.6 SpatialAudioManager
+### 4.6 ResearchManager (Framework-agnostic)
+
+```typescript
+// Kein @Injectable - Constructor Injection
+class ResearchManager {
+  constructor(eventBus: GameEventBus, researchStore: ResearchStore);
+
+  start(researchId: string): void;   // Emittiert 'research:started'
+  cancel(researchId: string): void;  // Emittiert 'research:cancelled'
+  update(deltaTime: number): void;   // Tick fuer aktive Forschungen, emittiert 'research:completed'
+}
+```
+
+ResearchEffects sind in `configs/research/research.types.ts` definiert und werden bei Completion an Tower- und Game-Systeme verteilt (z.B. unlockTowerType, multiplyDamage).
+
+### 4.7 SpatialAudioManager
 
 ```typescript
 // Framework-agnostic (kein @Injectable)
@@ -674,12 +702,13 @@ class GameEventBus {
 |-----------|--------|
 | Enemy | `enemy:died`, `enemy:reached-base`, `enemy:spawned` |
 | Tower | `tower:placed`, `tower:sold`, `tower:upgraded`, `tower:selected`, `tower:deselected` |
-| Combat | `projectile:hit` |
-| Wave | `wave:started`, `wave:completed` |
+| Combat | `projectile:hit`, `dot:damage` |
+| Wave | `wave:started`, `wave:completed` (mit `perfect`, `closeCall`, `hpLost`) |
 | Game | `game:started`, `game:over`, `game:reset`, `health:changed`, `credits:changed` |
+| Research | `research:started`, `research:completed`, `research:cancelled` |
 | Effects | `vfx:blood`, `vfx:explosion`, `vfx:projectile-impact`, `vfx:muzzle-flash`, `audio:play` |
-| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave` |
-| Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game` |
+| Debug | `debug:sound`, `debug:spawn-enemy`, `debug:kill-all`, `debug:start-custom-wave`, `debug:complete-all-research`, `debug:max-upgrade-all-towers` |
+| Commands | `command:place-tower`, `command:sell-tower`, `command:upgrade-tower`, `command:start-wave`, `command:restart-game`, `command:start-research`, `command:cancel-research` |
 
 ### Immediate vs Deferred
 
@@ -779,7 +808,22 @@ class ThreeProjectileRenderer {
 }
 ```
 
-### 6.4 ThreeEffectsRenderer
+### 6.4 Spezialisierte Renderer
+
+Zusaetzlich zum klassischen `ThreeEnemyRenderer` existieren mehrere spezialisierte Renderer:
+
+| Renderer | Datei | Zweck |
+|----------|-------|-------|
+| **InstancedEnemyRenderer** | `renderers/instanced-enemy/` | GPU-instancing fuer Enemies via VAT (Vertex Animation Textures) — siehe [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
+| **DecalInstanceManager** | `renderers/decal-instance.manager.ts` | Blut/Eis-Decals als InstancedMesh mit Free-List-Pool |
+| **ThreeFlameBeamRenderer** | `renderers/three-flame-beam.renderer.ts` | Fire-Tower-Beam (animierter Flammen-Kegel) |
+| **ThreeTentacleRenderer** | `renderers/three-tentacle.renderer.ts` | Bezier-basierte Tentakel fuer Tentacle-Tower |
+| **TrailStreakRenderer** | `renderers/trail-streak.renderer.ts` | Projektil-Trails als gestreckte Quads |
+| **FloatingTextManager** | `renderers/floating-text/` | GPU-instanzierte Schadenszahlen ueber Enemies |
+| **MarkerRenderers** | `renderers/marker/` | HQ-/Spawn-Marker, Range-Discs |
+| **SpriteAtlasGenerator** | `renderers/sprite-atlas-generator.ts` | Generiert Atlas-Texturen fuer GPU-instanzierte Floating-Texts |
+
+### 6.5 ThreeEffectsRenderer
 
 ```typescript
 class ThreeEffectsRenderer {
@@ -1020,7 +1064,11 @@ function onEngineUpdate(deltaTime: number) {
 
 ```
 src/app/
-├── tower-defense.component.ts    # Haupt-Component (~630 Zeilen)
+├── tower-defense.component.ts    # Haupt-Component (~655 Zeilen)
+│
+├── ai/                           # AI Wave Director, Bot System, Training Hooks
+│   ├── core/                     # Game-State-Capture, Data Collection
+│   └── training/                 # Bots (Strategy Pattern), Strategies
 │
 ├── services/                     # Angular Services
 │   ├── tower-defense-facade.service.ts  # Facades (5)
@@ -1028,33 +1076,61 @@ src/app/
 │   ├── visualization-facade.service.ts
 │   ├── location-facade.service.ts
 │   ├── debug-facade.service.ts
-│   ├── ...                              # Spezialisierte Services
+│   ├── damage-application.service.ts
+│   ├── status-effect.service.ts
+│   ├── combat-vfx.service.ts
+│   ├── building-rendering.service.ts
+│   ├── map-placement.service.ts
+│   ├── pathfinding-worker.service.ts
+│   ├── performance-profiler.service.ts
+│   ├── ...                              # Weitere spezialisierte Services
 │   └── (siehe Service-Übersicht oben)
 │
 ├── managers/                     # Manager-Dateien
 │   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts     # Orchestrator (~695 Zeilen)
+│   ├── game-state.manager.ts     # Orchestrator (~1020 Zeilen)
 │   ├── enemy.manager.ts          # Enemy Lifecycle
 │   ├── tower.manager.ts          # Tower Lifecycle
 │   ├── projectile.manager.ts     # Projectile Lifecycle
-│   ├── wave.manager.ts           # Wave Management
+│   ├── wave.manager.ts           # Wave Management (templates, mixed waves)
+│   ├── research.manager.ts       # Forschungs-System (Effects, Tick)
 │   └── audio/                    # Audio-Subsystem
 │       ├── spatial-audio.manager.ts    # 3D Audio Manager
 │       ├── spatial-audio-playback.ts   # Playback-Logik
 │       ├── audio-buffer-cache.ts       # LRU Buffer Cache
 │       └── audio-pool.manager.ts       # Audio Pool
 │
+├── game-engine/                  # Framework-agnostic Engine-Services
+│   ├── game-event-bus.ts         # Event Bus + GameEvent Union
+│   ├── vfx.service.ts            # VFX Event Handler
+│   ├── audio.service.ts          # Audio Event Handler
+│   ├── background-music.service.ts
+│   ├── screen-shake.service.ts
+│   └── game-manager.interface.ts # IGameManager
+│
 ├── three-engine/                 # Three.js Engine
 │   ├── three-tiles-engine.ts     # Haupt-Engine
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
+│   ├── post-processing/          # Bloom, Color-Grading, etc.
 │   └── renderers/
 │       ├── index.ts              # CoordinateSync Interface
 │       ├── three-enemy.renderer.ts
 │       ├── three-tower.renderer.ts
 │       ├── three-projectile.renderer.ts
-│       └── three-effects.renderer.ts
+│       ├── three-effects.renderer.ts
+│       ├── three-flame-beam.renderer.ts
+│       ├── three-tentacle.renderer.ts
+│       ├── trail-streak.renderer.ts
+│       ├── decal-instance.manager.ts
+│       ├── decal-shaders.ts
+│       ├── sprite-atlas-generator.ts
+│       ├── instanced-enemy/      # VAT-instanced enemy renderer
+│       ├── floating-text/        # GPU-instanzierte Schadenszahlen
+│       └── marker/               # HQ-/Spawn-Marker, Range-Discs
+│
+├── devworld/                     # DevWorld Offline-Entwicklungsumgebung
 │
 ├── entities/
 │   ├── enemy.entity.ts
@@ -1073,20 +1149,28 @@ src/app/
 │   ├── game-object.ts
 │   └── component.ts
 │
-├── store/                       # Signal Stores (Single Source of Truth)
-│   ├── tower-defense.store.ts   # Root-Store (Aggregat-Fassade)
-│   ├── game.store.ts            # Game State (credits, health, phase, wave)
-│   ├── ui.store.ts              # UI State (toggles, build mode, persistence)
-│   ├── engine.store.ts          # Engine Stats (fps, tiles, camera, loading)
-│   └── location.store.ts        # Location (coords, spawns, favorites)
+├── store/                        # Signal Stores (Single Source of Truth)
+│   ├── tower-defense.store.ts    # Root-Store (Aggregat-Fassade)
+│   ├── tower-defense.store.types.ts
+│   ├── game.store.ts             # Game State (credits, health, phase, wave)
+│   ├── ui.store.ts               # UI State (toggles, build mode, persistence)
+│   ├── engine.store.ts           # Engine Stats (fps, tiles, camera, loading)
+│   ├── location.store.ts         # Location (coords, spawns, favorites)
+│   └── research.store.ts         # Research-State (active, completed, locks)
 │
 ├── configs/
 │   ├── tower-types.config.ts
 │   ├── projectile-types.config.ts
 │   ├── visual-effects.config.ts
 │   ├── audio.config.ts
+│   ├── background-music.config.ts
+│   ├── attributions.config.ts
 │   ├── game-balance.config.ts
-│   └── placement.config.ts
+│   ├── map-constants.config.ts
+│   ├── placement.config.ts
+│   ├── timing.config.ts
+│   ├── combat/                   # Damage-Matrix, ArmorTypes, DamageTypes
+│   └── research/                 # Research-Tree, Effects, Types
 │
 ├── models/
 │   ├── enemy-types.ts
@@ -1094,32 +1178,33 @@ src/app/
 │   ├── location.types.ts
 │   └── status-effects.ts
 │
+├── styles/
+│   └── td-theme.ts               # Theme-Konstanten + CSS-Vars
+│
 ├── utils/
 │   └── geo-utils.ts              # Haversine, Fast Distance
 │
-├── components/
-│   ├── location-dialog/          # Location-Auswahl Dialog
-│   └── ...
+├── workers/                      # Web Workers (Pathfinding)
 │
-docs/
-├── INDEX.md                  # Dokumentations-Index
-├── ARCHITECTURE.md           # Dieses Dokument
-├── DESIGN_SYSTEM.md          # UI/UX Guidelines
-├── TOWER_CREATION.md         # Tower erstellen
-├── ENEMY_CREATION.md         # Enemy erstellen
-├── STATUS_EFFECTS.md         # Status-Effekt-System
-├── WAVE_SYSTEM.md            # Wave-System
-├── LOCATION_SYSTEM.md        # Location-System
-├── PROJECTILES.md            # Projektil-System
-├── SPATIAL_AUDIO.md          # 3D Audio System
-├── MODEL_PREVIEW.md          # Model Previews
-├── PARTICLE_SYSTEM.md        # Partikel-System
-├── DEVWORLD.md               # DevWorld Offline-Umgebung
-├── INSTANCED_ENEMY_RENDERING.md  # GPU Instancing
-├── SIGNAL-STORE-ARCHITECTURE.md  # Signal Store
-├── AI_WAVE_DIRECTOR_PLAN.md  # AI System
-├── BOT_SYSTEM.md             # Bot System
-└── TILES_LOADING_BUG.md      # 3D-Tiles Loading Bug
+├── interfaces/                   # Public Interfaces (IGameManager, etc.)
+│
+├── integration/                  # Cross-Manager Integration Tests
+│
+└── components/
+    ├── location-dialog/          # Location-Auswahl Dialog
+    ├── address-autocomplete.component.ts
+    ├── attributions-dialog/
+    ├── compass/
+    ├── context-hint/
+    ├── debug-window/
+    ├── engine-test/
+    ├── game-header/
+    ├── game-sidebar/
+    ├── game-speed/
+    ├── info-overlay/
+    └── quick-actions/
+
+docs/                              # siehe INDEX.md
 ```
 
 ---

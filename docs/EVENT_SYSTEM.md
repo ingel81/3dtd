@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-01-19
+**Stand:** 2026-05-08
 
 Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren ueber Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -34,22 +34,26 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `enemy:spawned` | EnemyManager | UI, GameStateSyncService | Enemy gespawnt |
-| `enemy:died` | EnemyManager | GameStateManager | Enemy gestorben, Credits vergeben |
-| `enemy:reached-base` | EnemyManager | GameStateManager | Enemy am Ziel, Base Damage |
-| `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft, Damage anwenden |
-| `tower:placed` | TowerManager | GameStateManager | Tower gebaut, Credits abziehen |
-| `tower:sold` | TowerManager | GameStateManager | Tower verkauft, Refund |
-| `tower:upgraded` | TowerManager | GameStateManager | Tower aufgewertet, Credits abziehen |
-| `tower:selected` | TowerManager | UI | Tower ausgewaehlt |
+| `enemy:spawned` | EnemyManager | UI, GameStateSyncService | Enemy gespawnt (`enemy`) |
+| `enemy:died` | EnemyManager | GameStateManager | Enemy gestorben (`enemy`, `credits`) |
+| `enemy:reached-base` | EnemyManager | GameStateManager | Enemy am Ziel (`enemy`, `damage`) |
+| `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft (`projectile`, `target`, `damage`, `damageType`) |
+| `dot:damage` | StatusEffectService | DamageApplicationService | DOT-Tick (Poison) (`enemy`, `damage`, `sourceId`, `effectType`, `damageType`) |
+| `tower:placed` | TowerManager | GameStateManager | Tower gebaut (`tower`, `position`, `cost`) |
+| `tower:upgraded` | TowerManager | GameStateManager | Tower aufgewertet (`tower`, `level`, `cost`) |
+| `tower:sold` | TowerManager | GameStateManager | Tower verkauft (`tower`, `refund`) |
+| `tower:selected` | TowerManager | UI | Tower ausgewaehlt (`tower`) |
 | `tower:deselected` | TowerManager | UI | Tower-Auswahl aufgehoben |
-| `wave:started` | WaveManager | UI | Neue Welle gestartet |
-| `wave:completed` | WaveManager | UI | Welle abgeschlossen |
+| `wave:started` | WaveManager | UI | Welle gestartet (`wave`, `enemyCount`) |
+| `wave:completed` | WaveManager | UI, GameLoopFacade | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`) |
 | `game:started` | GameStateManager | UI | Spiel gestartet |
-| `game:over` | GameStateManager | TowerDefenseComponent | Spiel beendet |
+| `game:over` | GameStateManager | TowerDefenseComponent | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`) |
 | `game:reset` | GameStateManager | All Managers | Spiel zurueckgesetzt |
-| `credits:changed` | GameStateManager | UI, GameStateSyncService | Credits geaendert |
-| `health:changed` | GameStateManager | HQDamageService | Base Health geaendert |
+| `credits:changed` | GameStateManager | UI, GameStateSyncService | Credits geaendert (`credits`, `delta`) |
+| `health:changed` | GameStateManager | HQDamageService | Base Health geaendert (`health`, `delta`) |
+| `research:started` | ResearchManager | UI, GameStateSyncService | Forschung gestartet (`researchId`, `cost`, `duration`) |
+| `research:completed` | ResearchManager | TowerManager, UI | Forschung fertig (`researchId`, `effects`) |
+| `research:cancelled` | ResearchManager | UI | Forschung abgebrochen (`researchId`, `refund`) |
 
 ### Deferred Events (nicht-kritisch, queued)
 
@@ -67,9 +71,11 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `debug:sound` | SpatialAudioManager | SoundDebugService | Sound-Debug-Events (play, stop, budget) |
+| `debug:sound` | SpatialAudioManager | SoundDebugService | Sound-Debug-Events (play, stop, budget, pool_exhausted, distance_culled) |
 | `debug:add-credits` | Debug UI | GameStateManager | Credits hinzufuegen |
 | `debug:add-health` | Debug UI | GameStateManager | Health hinzufuegen |
+| `debug:complete-all-research` | Debug UI | ResearchManager | Alle Forschungen sofort abschliessen |
+| `debug:max-upgrade-all-towers` | Debug UI | TowerManager | Alle Tower auf Max-Level setzen |
 | `debug:toggle-movement` | Debug UI | EnemyManager | Enemy-Bewegung an/aus |
 | `debug:remove-enemy` | Debug UI | EnemyManager | Einzelnen Enemy entfernen |
 | `debug:clear-enemies` | Debug UI | EnemyManager | Alle Enemies entfernen |
@@ -81,11 +87,13 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `command:place-tower` | UI / Bot | TowerManager | Tower platzieren |
-| `command:sell-tower` | UI / Bot | TowerManager | Tower verkaufen |
-| `command:upgrade-tower` | UI / Bot | TowerManager | Tower upgraden |
-| `command:start-wave` | UI / Bot | WaveManager | Welle starten |
+| `command:place-tower` | UI / Bot | TowerManager | Tower platzieren (`position`, `typeId`, `rotation?`) |
+| `command:sell-tower` | UI / Bot | TowerManager | Tower verkaufen (`towerId`) |
+| `command:upgrade-tower` | UI / Bot | TowerManager | Tower upgraden (`towerId`, `upgradeId`) |
+| `command:start-wave` | UI / Bot | WaveManager | Welle starten (`config?`) |
 | `command:restart-game` | UI | GameStateManager | Spiel neu starten |
+| `command:start-research` | UI | ResearchManager | Forschung starten (`researchId`) |
+| `command:cancel-research` | UI | ResearchManager | Forschung abbrechen (`researchId`) |
 
 ---
 
@@ -203,7 +211,7 @@ function gameLoop(deltaTime: number) {
 
 | Komponente | Angular DI | Events | Beschreibung |
 |------------|------------|--------|--------------|
-| **GameEventBus** | Nein | Core System | Event Bus mit 35 Event-Typen |
+| **GameEventBus** | Nein | Core System | Event Bus mit ~40 Event-Typen (incl. DOT, Research, Debug-Commands) |
 | **VFXService** | Nein | Subscriber | Reagiert auf `vfx:*` Events |
 | **AudioService** | Nein | Subscriber | Reagiert auf `audio:play` |
 | **ProjectileManager** | Nein | Producer | Emittiert `projectile:hit`, `vfx:*`, `audio:play` |
@@ -269,11 +277,13 @@ bag.disposeAll();
 
 | Datei | LOC | Beschreibung |
 |-------|-----|--------------|
-| `game-engine/game-event-bus.ts` | ~614 | Event Bus Core |
-| `game-engine/vfx.service.ts` | ~147 | VFX Event Handler |
-| `game-engine/audio.service.ts` | ~60 | Audio Event Handler |
+| `game-engine/game-event-bus.ts` | ~671 | Event Bus Core (GameEvent Union, Subscriptions, processQueue) |
+| `game-engine/vfx.service.ts` | ~153 | VFX Event Handler |
+| `game-engine/audio.service.ts` | ~61 | Audio Event Handler |
+| `game-engine/background-music.service.ts` | — | Phasen-basiertes Crossfade-System |
+| `game-engine/screen-shake.service.ts` | — | Camera-Shake auf VFX-Events |
 | `game-engine/index.ts` | ~26 | Barrel Exports |
-| `components/debug-window/event-debugger.component.ts` | ~449 | Debug Panel |
+| `components/debug-window/event-debugger.component.ts` | — | Debug Panel |
 
 ---
 

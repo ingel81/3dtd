@@ -8,6 +8,23 @@ Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Si
 - **Ein WebGL-Kontext** fuer alle Previews (performanter als multiple Kontexte)
 - Renderer rendert sequentiell zu verschiedenen Canvas-Elementen
 - Jedes Preview hat eigene Scene, Camera und optional AnimationMixer
+- **Off-Screen-Render + drawImage**: Renderer rendert in einen einzigen, gemeinsamen
+  Off-Screen-Canvas (`128×128` Init-Größe). Der Inhalt wird per
+  `ctx.drawImage(renderer.domElement, ...)` in das jeweilige Ziel-Canvas kopiert.
+
+### Renderer Buffer Capacity (kritisch fuer Performance)
+- Der Renderer-Drawingbuffer waechst monoton: `setSize(...)` wird nur dann
+  aufgerufen, wenn ein Preview groesser ist als alle bisherigen
+  (`rendererCapacityCss`). Es wird nie geschrumpft → in einer Session laeuft
+  `setSize` insgesamt nur eine Handvoll Mal.
+- Pro Preview-Render wird stattdessen `setViewport()` + `setScissor()` auf den
+  oberen Bereich des Buffers gesetzt — reine State-Aenderung, keine WebGL-Buffer-
+  Realloc.
+- **Hintergrund:** Frueher rief der Service pro Frame `setSize()` mit der
+  Canvas-Groesse auf. Das reallozierte den WebGL-Drawingbuffer in jedem
+  Frame und produzierte bei aktivem Tower-Sidebar-Preview unter Speed
+  x2/x4 messbare Frame-Drops (~80% der x4-Cost laut Profile vom 2026-05-07).
+  Mit Max-Size + Viewport laeuft x4 jetzt mit ~10% Idle-Reserve (vorher 0%).
 
 ### Dateien
 - `services/model-preview.service.ts` - Haupt-Service
@@ -27,6 +44,7 @@ interface PreviewConfig {
   backgroundColor?: number;   // Hex-Farbe oder transparent wenn nicht gesetzt
   lightIntensity?: number;    // Lichtstaerke (default: 1)
   groundModel?: boolean;      // true = Modell steht auf Boden (fuer Charaktere)
+  offsetY?: number;           // Vertikaler Offset fuer das Kamera-Target (Bild rauf/runter shiften)
 }
 ```
 
@@ -54,18 +72,36 @@ interface PreviewConfig {
 |-------------|----------------|
 | Enemy Preview | 72x72 pixel |
 | Tower Preview | 100%×70 pixel (flexible Breite) |
-| Shared Renderer (intern) | 128x128 pixel |
+| Shared Renderer (intern) | startet 128×128, waechst monoton bis zur groessten Preview-Groesse |
 
 ## Renderer Settings
 
 ```typescript
 this.renderer = new THREE.WebGLRenderer({
-  canvas,
-  alpha: true,              // Transparenter Hintergrund
-  antialias: true,          // Kantenglättung
+  canvas,                       // gemeinsamer off-screen Canvas
+  alpha: true,                  // Transparenter Hintergrund
+  antialias: true,              // Kantenglättung
   preserveDrawingBuffer: true,
 });
 this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+this.renderer.outputColorSpace = SRGBColorSpace;
+```
+
+Pro Preview-Frame:
+
+```typescript
+// Buffer nur vergroessern, niemals schrumpfen.
+if (neededCss > this.rendererCapacityCss) {
+  this.rendererCapacityCss = neededCss;
+  this.renderer.setSize(neededCss, neededCss, false);
+}
+// Viewport/Scissor auf oberen Bereich des Buffers — billig, keine Realloc.
+this.renderer.setViewport(0, capCss - heightCss, widthCss, heightCss);
+this.renderer.setScissor(0, capCss - heightCss, widthCss, heightCss);
+this.renderer.setScissorTest(true);
+this.renderer.render(preview.scene, preview.camera);
+// Ergebnis aus dem Off-Screen-Canvas in das Ziel-Canvas kopieren.
+ctx.drawImage(this.renderer.domElement, 0, 0, w, h, 0, 0, w, h);
 ```
 
 ## Beleuchtungs-Setup

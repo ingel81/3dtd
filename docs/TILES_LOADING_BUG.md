@@ -1,6 +1,14 @@
 # Bug: 3D-Tiles Loading hängt bei "0 Kacheln geladen"
 
 **Status:** Unter Beobachtung (Fix implementiert, sporadisches Auftreten möglich)
+**Stand:** 2026-05-08
+
+> **Verwandter Fix (separates Problem):** Die *Tile-Quality-Aware Route Protection*
+> in `path-route.service.ts` / `three-tiles-engine.ts` (Stand 2026-02-27) ist ein
+> getrenntes Thema — sie löst Routen-Höhen-Desync bei wechselnder Tile-LOD
+> (siehe DONE.md 2026-02-27 und Code: `tileQualityTracker`, `tileSceneMap`,
+> `forEachLoadedModel`). Sie hat **nichts** mit dem hier beschriebenen
+> 0-Kacheln-Hänger zu tun, ist aber im selben Engine-File angesiedelt.
 
 ## Problem
 

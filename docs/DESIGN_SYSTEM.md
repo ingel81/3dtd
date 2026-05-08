@@ -1,6 +1,6 @@
 # Tower Defense - Design System
 
-**Stand:** 2026-01-30
+**Stand:** 2026-05-08
 
 ## Uebersicht
 
@@ -12,7 +12,7 @@ Das Tower Defense UI basiert auf einem **WC3/Ancient Command** inspirierten Desi
 
 ## Theme-Datei
 
-**Pfad:** `styles/td-theme.ts`
+**Pfad:** `src/app/styles/td-theme.ts`
 
 Zentrale Theme-Definition mit TypeScript-Konstanten und CSS Custom Properties.
 
@@ -44,6 +44,8 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 |----------|-----|------------|
 | `--td-bg-dark` | `#141815` | Haupt-Sidebar, dunkler Stein |
 | `--td-bg-surface` | `#1A201C` | Allgemeine Oberflaeche (Overlay, Loading) |
+| `--td-panel-dark` | `#181D19` | Dark Panel Sections (Debugger Selected States) |
+| `--td-panel-primary` | `#232B25` | Alias fuer `--td-panel-main` |
 | `--td-panel-main` | `#232B25` | Primaere Panel-Flaeche |
 | `--td-panel-secondary` | `#1C221E` | Unterpanels, Slots |
 | `--td-panel-shadow` | `#0F130F` | Inset-Schatten, Tiefe |
@@ -66,8 +68,11 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
 | `--td-gold` | `#C9A44C` | Wichtiges, Buttons, Titel |
+| `--td-gold-light` | `#E0C06A` | Button Highlight (Hover, Top-Border) |
 | `--td-gold-dark` | `#9E7E32` | Gedrueckt, Inaktiv |
 | `--td-teal` | `#6FB7A5` | Magische Akzente |
+| `--td-teal-light` | `#5DE8C2` | Button Highlight (Hover, Top-Border) |
+| `--td-teal-dark` | `#1A9A7A` | Button Shadow (Bottom-Border) |
 | `--td-green` | `#9ED6A0` | Buffs, Positiv |
 | `--td-green-dark` | `#6AAB6C` | Gedrueckt, Button-Schatten |
 
@@ -75,6 +80,7 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
+| `--td-red` | `#B14436` | Alias fuer `--td-health-red` (allgemeines Rot) |
 | `--td-health-red` | `#B14436` | Health, Danger |
 | `--td-health-bg` | `#3A1B18` | HP-Bar Hintergrund |
 | `--td-warn-orange` | `#C96A3A` | Warnungen |
@@ -92,21 +98,14 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 | `--td-text-tertiary` | `#7A837A` | Zwischen muted/disabled, fuer pending/inactive Elemente |
 | `--td-text-disabled` | `#6A726A` | Deaktivierter Text |
 
-### Bekannte Probleme
-
-| Problem | Beschreibung |
-|---------|--------------|
-| ~~`--td-red` undefiniert~~ | **Geloest (2026-03-15):** `--td-red` wurde als Alias fuer `--td-health-red` in `td-theme.ts` hinzugefuegt. |
-
-### Bars (HP, Mana, Progress)
+### Debug & Performance
 
 | Variable | Hex | Verwendung |
 |----------|-----|------------|
-| `--td-hp-fill` | `#B14436` | HP-Balken Fuellung |
-| `--td-hp-bg` | `#3A1B18` | HP-Balken Hintergrund |
-| `--td-mana-fill` | `#4FB3C2` | Mana/Energy Fuellung |
-| `--td-mana-bg` | `#1A2B30` | Mana Hintergrund |
-| `--td-xp-fill` | `#9ED6A0` | XP/Progress Fuellung |
+| `--td-event-vfx` | `#a855f7` | Event-Debugger: VFX-Events (lila) |
+| `--td-event-audio` | `#3b82f6` | Event-Debugger: Audio-Events (blau) |
+| `--td-perf-critical` | `#ff4444` | Performance-Profiler: Kritische Schwelle |
+| `--td-perf-warning` | `#ff8844` | Performance-Profiler: Warnung/Bottleneck |
 
 ---
 
@@ -203,14 +202,14 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 
 ```css
 .td-hp-bar {
-  background: var(--td-hp-bg);
+  background: var(--td-health-bg);
   height: 6px;
   border-radius: 2px;
   overflow: hidden;
 }
 
 .td-hp-bar-fill {
-  background: var(--td-hp-fill);
+  background: var(--td-health-red);
   height: 100%;
   transition: width 0.3s ease;
 }
@@ -313,16 +312,20 @@ Verwendung:
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `styles/td-theme.ts` | Zentrale Theme-Definition |
+| `src/app/styles/td-theme.ts` | Zentrale Theme-Definition (Konstanten + CSS-Vars) |
 | `tower-defense.component.ts` | Haupt-UI mit Layout |
-| `components/game-header/game-header.component.ts` | Info-Header mit Spielstatus |
-| `components/game-sidebar/game-sidebar.component.ts` | Rechte Sidebar mit Aktionen |
-| `components/compass/compass.component.ts` | Kompass-Anzeige |
-| `components/quick-actions/quick-actions.component.ts` | Icon-Buttons (Kamera-Reset, Debug) |
-| `components/debug-window/draggable-debug-panel.component.ts` | Ziehbares Debug-Panel Container |
-| `components/debug-window/wave-debugger.component.ts` | Wave/Enemy Debug-Informationen |
-| `components/debug-window/camera-debugger.component.ts` | Kamera Debug-Informationen |
-| `components/context-hint/context-hint.component.ts` | Wiederverwendbare Kontext-Hinweis-Box |
+| `components/game-header/` | Info-Header mit Spielstatus |
+| `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview |
+| `components/compass/` | Kompass-Anzeige |
+| `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle ueber Caret) |
+| `components/quick-actions/` | Icon-Buttons (Kamera-Reset, Debug) |
+| `components/game-speed/` | Game-Speed-Slider (1x/2x/4x) |
+| `components/debug-window/` | Debug-Panel Container + alle Debug-Ansichten (Wave, Camera, Event, Performance, …) |
+| `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
+| `components/attributions-dialog/` | Attributions & Lizenzen Dialog |
+| `components/location-dialog/` | Location-Auswahl Dialog |
+| `components/address-autocomplete.component.ts` | Adress-Autocomplete (Nominatim) |
+| `components/engine-test/` | Standalone Engine-Test-View |
 
 ---
 
