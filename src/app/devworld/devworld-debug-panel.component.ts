@@ -1,8 +1,8 @@
 import { Component, ChangeDetectionStrategy, inject, output, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DevWorldService, TerrainPreset } from './devworld.service';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../styles/td-theme';
+import { TdIconComponent } from '../components/icon/icon.component';
 
 /**
  * Terrain categories for organized display
@@ -24,12 +24,12 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
 @Component({
   selector: 'app-devworld-debug-panel',
   standalone: true,
-  imports: [CommonModule, MatIconModule],
+  imports: [CommonModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="devworld-panel">
       <div class="badge">
-        <mat-icon>sports_esports</mat-icon>
+        <td-icon name="gamepad" [size]="16"></td-icon>
         <span>DevWorld</span>
       </div>
 
@@ -58,7 +58,7 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
             max="99999"
           />
           <button class="seed-btn" (click)="randomSeed()" title="Random Seed">
-            <mat-icon>shuffle</mat-icon>
+            <td-icon name="shuffle" [size]="14"></td-icon>
           </button>
         </div>
       </div>
@@ -81,11 +81,11 @@ const TERRAIN_CATEGORIES: { name: string; presets: TerrainPreset[] }[] = [
       <div class="section">
         <div class="section-title">Actions</div>
         <button class="regenerate-btn" [class.loading]="isRegenerating()" [disabled]="isRegenerating()" (click)="regenerate()" title="Regenerate world with current settings">
-          <mat-icon [class.spinning]="isRegenerating()">{{ isRegenerating() ? 'sync' : 'refresh' }}</mat-icon>
+          <td-icon name="refresh" [size]="14" [class.spinning]="isRegenerating()"></td-icon>
           {{ isRegenerating() ? 'Regenerating...' : 'Regenerate World' }}
         </button>
         <button class="copy-btn" (click)="copyUrl()" title="Copy shareable URL">
-          <mat-icon>share</mat-icon>
+          <td-icon name="share" [size]="14"></td-icon>
           Copy URL
         </button>
       </div>

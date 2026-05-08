@@ -58,7 +58,9 @@ export interface HintItem {
       bottom: 20px;
       left: 50%;
       transform: translateX(-50%);
-      background: var(--td-panel-main);
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(8px) saturate(1.1);
+      -webkit-backdrop-filter: blur(8px) saturate(1.1);
       border-radius: 4px;
       padding: 10px 16px;
       display: flex;
@@ -66,25 +68,20 @@ export interface HintItem {
       gap: 8px;
       z-index: 1000;
       pointer-events: none;
+      font-family: var(--td-font-body);
 
-      /* WC3-style frame: light top, dark bottom */
       border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-left-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
-      border-right-color: var(--td-frame-dark);
-
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 4px 12px rgba(0, 0, 0, 0.5);
+        inset 0 1px 0 rgba(122, 133, 128, 0.33),
+        var(--td-shadow-soft);
     }
 
     .context-hint-container.has-warning {
       border-color: var(--td-health-red);
       box-shadow:
-        inset 0 1px 0 rgba(255, 255, 255, 0.05),
-        0 4px 12px rgba(0, 0, 0, 0.5),
-        0 0 8px rgba(177, 68, 54, 0.3);
+        inset 0 1px 0 rgba(122, 133, 128, 0.33),
+        var(--td-shadow-soft),
+        0 0 12px rgba(184, 62, 50, 0.35);
     }
 
     .hints-row {
@@ -101,23 +98,22 @@ export interface HintItem {
     }
 
     .hint-key {
-      background: var(--td-panel-secondary);
-      color: var(--td-gold);
+      background: var(--td-panel-shadow);
+      color: var(--td-gold-light);
       padding: 3px 8px;
       border-radius: 3px;
-      font-family: 'JetBrains Mono', monospace;
+      font-family: var(--td-font-mono);
       font-size: 11px;
-      font-weight: 600;
+      font-weight: 700;
       text-transform: uppercase;
-      letter-spacing: 0.5px;
+      letter-spacing: 0.06em;
       min-width: 24px;
       text-align: center;
 
-      /* WC3-style inset */
       border: 1px solid var(--td-frame-dark);
-      border-top-color: var(--td-panel-shadow);
-      border-left-color: var(--td-panel-shadow);
-      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.3);
+      box-shadow:
+        inset 0 1px 2px rgba(0, 0, 0, 0.5),
+        inset 0 -1px 0 rgba(74, 84, 77, 0.13);
     }
 
     .hint-desc {

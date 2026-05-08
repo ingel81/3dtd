@@ -283,30 +283,77 @@
   color: var(--td-green);
 }
 
-/* Generic Buttons */
+/* Generic Buttons — refined gradient + glow-hover (no translate) */
 .td-btn {
   display: inline-flex;
   align-items: center;
   gap: 8px;
   padding: 10px 20px;
-  background: var(--td-gold);
-  border: none;
-  border-top: 1px solid var(--td-edge-highlight);
-  border-bottom: 2px solid var(--td-gold-dark);
-  color: var(--td-bg-dark);
-  font-family: inherit;
+  background: linear-gradient(
+    180deg,
+    var(--td-gold-light) 0%,
+    var(--td-gold) 55%,
+    var(--td-gold-dark) 100%
+  );
+  border: 1px solid #11140F;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-shadow-key);
+  color: #1A140A;
+  font-family: var(--td-font-mono);
   font-size: 12px;
   font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: box-shadow 0.18s ease;
 }
 
-.td-btn:hover { filter: brightness(1.1); }
+.td-btn:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-gold-glow);
+}
 
-.td-btn-gold { background: var(--td-gold); border-bottom-color: var(--td-gold-dark); }
+.td-btn:active {
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.td-btn:disabled {
+  background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
+  color: var(--td-text-disabled);
+  cursor: not-allowed;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.td-btn-gold {
+  background: linear-gradient(
+    180deg,
+    var(--td-gold-light) 0%,
+    var(--td-gold) 55%,
+    var(--td-gold-dark) 100%
+  );
+}
+
 .td-btn-green {
-  background: var(--td-green);
-  border-bottom-color: var(--td-green-dark);
+  background: linear-gradient(
+    180deg,
+    var(--td-teal-light) 0%,
+    var(--td-teal) 55%,
+    var(--td-teal-dark) 100%
+  );
+  color: #0E1612;
+}
+
+.td-btn-green:hover {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-teal-glow);
 }
 
 /* Game Over Overlay */

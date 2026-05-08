@@ -1,22 +1,22 @@
 import { Component, inject, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { SoundDebugService } from '../../services/sound-debug.service';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-sound-debugger',
   standalone: true,
-  imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  imports: [CommonModule, DraggableDebugPanelComponent, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.soundWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="sound"
         title="Sound Debug"
-        icon="volume_up"
+        icon="audio"
         [position]="windowService.soundWindow().position"
         [zIndex]="windowService.soundWindow().zIndex"
         (closed)="windowService.close('sound')"
@@ -70,7 +70,7 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
                 @if (soundDebug.connected()) {
                   Waiting for data...
                 } @else {
-                  <mat-icon>link_off</mat-icon>
+                  <td-icon name="cross" [size]="14"></td-icon>
                   Not connected
                 }
               </div>
@@ -84,10 +84,10 @@ import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../sty
               <div class="title-actions">
                 @if (soundDebug.events().length > 0) {
                   <button class="action-btn" (click)="copyLog()" title="Copy log">
-                    <mat-icon>content_copy</mat-icon>
+                    <td-icon name="copy" [size]="14"></td-icon>
                   </button>
                   <button class="action-btn danger" (click)="soundDebug.clearEvents()" title="Clear events">
-                    <mat-icon>delete_sweep</mat-icon>
+                    <td-icon name="trash" [size]="14"></td-icon>
                   </button>
                 }
               </div>

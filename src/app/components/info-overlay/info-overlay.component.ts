@@ -1,99 +1,105 @@
 import { Component, inject, input, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
+import { CommonModule, DecimalPipe } from '@angular/common';
 import { UIStore } from '../../store/ui.store';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 /**
- * InfoOverlayComponent
+ * Info overlay (top-left).
  *
- * Transparent text overlay in the top left of the game field.
- * Shows FPS (always visible) with a caret toggle for additional stats.
- * Clicking the FPS line expands/collapses Tiles, enemies, sounds, street count.
+ * Flat glass panel with runtime stats. FPS row is always visible; the rest
+ * (Tiles, Sounds, Streets) collapses behind a subtle caret toggle.
  *
- * Features:
- * - FPS display is always visible with clickable caret
- * - Rest (Tiles, enemies, sounds, streets) toggleable via caret
- * - No background - completely transparent
- * - Multi-layer text shadow for readability on all backgrounds
+ * Style follows tmp/td-artboards.jsx HudDebugStats — ambient info, not a
+ * "debug" label. `uiStore.infoOverlayVisible()` is reused as the
+ * expanded/collapsed state.
  */
 @Component({
   selector: 'app-info-overlay',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, DecimalPipe, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="info-overlay">
-      <!-- FPS always visible, caret toggles details -->
-      <div class="info-line fps-line" (click)="uiStore.toggleInfoOverlay()">
-        <span>FPS: {{ fps() }}</span>
-        <span class="caret" [class.expanded]="uiStore.infoOverlayVisible()">&#9656;</span>
+    <aside class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
+           (click)="uiStore.toggleInfoOverlay()"
+           role="button" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
+      <div class="td-info__row td-info__row--head">
+        <span class="k">FPS</span>
+        <span class="v">{{ fps() | number:'1.0-0' }}</span>
+        <td-icon class="caret"
+                 [name]="uiStore.infoOverlayVisible() ? 'caretU' : 'caret'"
+                 [size]="10"></td-icon>
       </div>
-      <!-- Rest only visible when info overlay is toggled -->
       @if (uiStore.infoOverlayVisible()) {
-        <div class="info-line">Tiles: {{ tileStats().visible }}/{{ tileStats().total }}</div>
-        <div class="info-line">Enemies: {{ enemiesAlive() }}</div>
-        <div class="info-line">Sounds: {{ activeSounds() }}</div>
-        <div class="info-line">Streets: {{ streetCount() }}</div>
+        <div class="td-info__row"><span class="k">Tiles</span><span class="v">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
+        <div class="td-info__row"><span class="k">Sounds</span><span class="v">{{ activeSounds() }}</span></div>
+        <div class="td-info__row"><span class="k">Streets</span><span class="v">{{ streetCount() }}</span></div>
       }
-    </div>
+    </aside>
   `,
   styles: `
     :host { ${TD_CSS_VARS} }
-    .info-overlay {
+
+    .td-info {
       position: absolute;
-      top: 10px;
-      left: 10px;
-      z-index: 15;
-      font-family: 'JetBrains Mono', monospace;
+      top: 12px;
+      left: 12px;
+      z-index: 50;
+      padding: 8px 12px;
+      font-family: var(--td-font-mono);
       font-size: 11px;
-      font-weight: 600;
-      line-height: 1.6;
-      pointer-events: none;
+      color: var(--td-text-secondary);
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(6px) saturate(1.1);
+      -webkit-backdrop-filter: blur(6px) saturate(1.1);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.33),
+        var(--td-shadow-key);
       user-select: none;
-    }
-
-    .info-line {
-      color: var(--td-text-primary);
-      text-shadow:
-        /* Black outline - 8 directions for clean edges */
-        -1px -1px 0 #000000,
-         1px -1px 0 #000000,
-        -1px  1px 0 #000000,
-         1px  1px 0 #000000,
-        -1px  0   0 #000000,
-         1px  0   0 #000000,
-         0   -1px 0 #000000,
-         0    1px 0 #000000,
-        /* Subtle glow for extra contrast */
-         0    0   4px rgba(0, 0, 0, 0.8);
-    }
-
-    .fps-line {
-      pointer-events: auto;
       cursor: pointer;
-      display: inline-flex;
+      transition: box-shadow 0.15s ease;
+    }
+    .td-info:hover {
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.45),
+        var(--td-shadow-key);
+    }
+
+    .td-info__row {
+      display: flex;
       align-items: center;
-      gap: 4px;
+      gap: 8px;
+      line-height: 1.5;
     }
 
-    .caret {
-      display: inline-block;
-      font-size: 10px;
-      transition: transform 0.15s ease;
+    .td-info__row .k {
+      color: var(--td-text-muted);
+      width: 56px;
     }
 
-    .caret.expanded {
-      transform: rotate(90deg);
+    .td-info__row .v {
+      color: var(--td-teal);
+      font-variant-numeric: tabular-nums;
+      flex: 1;
+    }
+
+    /* Caret only on the head row, subtle */
+    .td-info__row--head .caret {
+      color: var(--td-text-muted);
+      opacity: 0.6;
+      transition: opacity 0.15s ease;
+    }
+    .td-info:hover .td-info__row--head .caret {
+      opacity: 1;
     }
   `,
 })
 export class InfoOverlayComponent {
   readonly uiStore = inject(UIStore);
 
-  // Inputs from parent component
   readonly fps = input.required<number>();
   readonly tileStats = input.required<{ visible: number; total: number }>();
-  readonly enemiesAlive = input.required<number>();
   readonly activeSounds = input.required<number>();
   readonly streetCount = input.required<number>();
 }

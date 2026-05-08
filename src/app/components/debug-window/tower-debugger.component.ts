@@ -1,23 +1,23 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-tower-debugger',
   standalone: true,
-  imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  imports: [CommonModule, DraggableDebugPanelComponent, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.towerWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="tower"
         title="Tower Debug"
-        icon="settings"
+        icon="cog"
         [position]="windowService.towerWindow().position"
         [zIndex]="windowService.towerWindow().zIndex"
         [size]="windowService.towerWindow().size ?? { width: 300, height: 550 }"
@@ -110,11 +110,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
             <div class="section-title">Aktionen</div>
             <div class="btn-row">
               <button class="action-btn" (click)="towerDebug.resetCurrentTower()" title="Aktuellen Tower zurücksetzen">
-                <mat-icon>undo</mat-icon>
+                <td-icon name="undo" [size]="14"></td-icon>
                 Reset
               </button>
               <button class="action-btn primary" (click)="towerDebug.copyJsonToClipboard()" title="Alle Tower als JSON kopieren">
-                <mat-icon>content_copy</mat-icon>
+                <td-icon name="copy" [size]="14"></td-icon>
                 Copy JSON
               </button>
             </div>

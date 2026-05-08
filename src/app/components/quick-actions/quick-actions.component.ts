@@ -1,17 +1,17 @@
 import { Component, inject, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { DebugFacadeService } from '../../services/debug-facade.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-quick-actions',
   standalone: true,
-  imports: [CommonModule, MatIconModule, MatTooltipModule],
+  imports: [CommonModule, MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <div class="td-quick-actions">
@@ -20,36 +20,36 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
               (click)="playRouteAnimation.emit()"
               matTooltip="Play route animation"
               matTooltipPosition="left">
-        <mat-icon>moving</mat-icon>
+        <td-icon name="route" [size]="18"></td-icon>
       </button>
       <!-- Display Settings Menu (collapsible, expands upward) -->
       <div class="td-display-menu-wrapper">
         <div class="td-display-toggles" [class.expanded]="uiStore.displayMenuExpanded()">
           <button class="td-display-btn" [class.active]="screenShakeEnabled()"
                   (click)="toggleScreenShake()" matTooltip="Screen Shake" matTooltipPosition="left">
-            <mat-icon>vibration</mat-icon>
+            <td-icon name="vibration" [size]="18"></td-icon>
           </button>
           <button class="td-display-btn" [class.active]="healthBarsVisible()"
                   (click)="toggleHealthBars()" matTooltip="Health Bars" matTooltipPosition="left">
-            <mat-icon>monitor_heart</mat-icon>
+            <td-icon name="heart" [size]="18"></td-icon>
           </button>
           <button class="td-display-btn" [class.active]="damageNumbersVisible()"
                   (click)="toggleDamageNumbers()" matTooltip="Damage Numbers" matTooltipPosition="left">
-            <mat-icon>pin</mat-icon>
+            <td-icon name="pin" [size]="18"></td-icon>
           </button>
         </div>
         <button class="td-quick-btn td-display-toggle-btn"
                 [class.active]="uiStore.displayMenuExpanded()"
                 (click)="uiStore.toggleDisplayMenu()"
                 matTooltip="Display" matTooltipPosition="left">
-          <mat-icon>{{ uiStore.displayMenuExpanded() ? 'visibility_off' : 'visibility' }}</mat-icon>
+          <td-icon [name]="uiStore.displayMenuExpanded() ? 'eyeOff' : 'eye'" [size]="18"></td-icon>
         </button>
       </div>
       <!-- Audio Settings Menu (collapsible, expands upward) -->
       <div class="td-audio-menu-wrapper">
         <div class="td-audio-panel" [class.expanded]="uiStore.audioMenuExpanded()">
           <div class="td-audio-row">
-            <mat-icon class="td-audio-label">music_note</mat-icon>
+            <td-icon class="td-audio-label" name="audio" [size]="14"></td-icon>
             <input type="range" class="td-audio-slider"
                    min="0" max="100" step="1"
                    [value]="uiStore.musicVolume() * 100"
@@ -58,11 +58,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                     [class.muted]="uiStore.musicMuted()"
                     (click)="toggleMusicMute()"
                     matTooltip="Mute music" matTooltipPosition="left">
-              <mat-icon>{{ uiStore.musicMuted() ? 'music_off' : 'music_note' }}</mat-icon>
+              <td-icon [name]="uiStore.musicMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
             </button>
           </div>
           <div class="td-audio-row">
-            <mat-icon class="td-audio-label">graphic_eq</mat-icon>
+            <td-icon class="td-audio-label" name="sliders" [size]="14"></td-icon>
             <input type="range" class="td-audio-slider"
                    min="0" max="100" step="1"
                    [value]="uiStore.sfxVolume() * 100"
@@ -71,7 +71,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                     [class.muted]="uiStore.sfxMuted()"
                     (click)="toggleSfxMute()"
                     matTooltip="Mute SFX" matTooltipPosition="left">
-              <mat-icon>{{ uiStore.sfxMuted() ? 'volume_off' : 'volume_up' }}</mat-icon>
+              <td-icon [name]="uiStore.sfxMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
             </button>
           </div>
         </div>
@@ -79,7 +79,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 [class.active]="uiStore.audioMenuExpanded()"
                 (click)="uiStore.toggleAudioMenu()"
                 matTooltip="Audio" matTooltipPosition="left">
-          <mat-icon>{{ anyMuted() ? 'volume_off' : 'volume_up' }}</mat-icon>
+          <td-icon [name]="anyMuted() ? 'audioOff' : 'audio'" [size]="18"></td-icon>
         </button>
       </div>
       <!-- Layer Menu (collapsible, expands upward) -->
@@ -90,28 +90,28 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   (click)="spatialGridDebugToggled.emit()"
                   matTooltip="Route Grid Overlay"
                   matTooltipPosition="left">
-            <mat-icon>grid_on</mat-icon>
+            <td-icon name="grid" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.buildingsVisible()"
                   (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
                   matTooltip="Show buildings"
                   matTooltipPosition="left">
-            <mat-icon>domain</mat-icon>
+            <td-icon name="tower" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.streetsVisible()"
                   (click)="uiStore.toggleStreets(); streetsToggled.emit()"
                   matTooltip="Show streets"
                   matTooltipPosition="left">
-            <mat-icon>route</mat-icon>
+            <td-icon name="route" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.routesVisible()"
                   (click)="uiStore.toggleRoutes(); routesToggled.emit()"
                   matTooltip="Show routes"
                   matTooltipPosition="left">
-            <mat-icon>timeline</mat-icon>
+            <td-icon name="chart" [size]="18"></td-icon>
           </button>
         </div>
         <button class="td-quick-btn td-layer-toggle-btn"
@@ -119,11 +119,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 (click)="uiStore.toggleLayerMenu()"
                 matTooltip="Layers"
                 matTooltipPosition="left">
-          <mat-icon>{{ uiStore.layerMenuExpanded() ? 'layers_clear' : 'layers' }}</mat-icon>
+          <td-icon name="layers" [size]="18"></td-icon>
         </button>
       </div>
       <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left">
-        <mat-icon>my_location</mat-icon>
+        <td-icon name="target" [size]="18"></td-icon>
       </button>
       <!-- Dev Menu (expands upward) -->
       <div class="td-dev-menu-wrapper">
@@ -133,31 +133,31 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   (click)="killAllEnemies.emit()"
                   matTooltip="Kill all enemies"
                   matTooltipPosition="left">
-            <mat-icon>skull</mat-icon>
+            <td-icon name="skull" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn td-dev-btn-credits"
                   (click)="addCredits.emit($event)"
                   matTooltip="+1000 Credits (Shift+Click: +100k)"
                   matTooltipPosition="left">
-            <mat-icon>payments</mat-icon>
+            <td-icon name="coin" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn td-dev-btn-health"
                   (click)="addHealth.emit($event)"
                   matTooltip="+1000 HP (Shift+Click: +100k)"
                   matTooltipPosition="left">
-            <mat-icon>heart_plus</mat-icon>
+            <td-icon name="heart" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn td-dev-btn-research"
                   (click)="completeAllResearch.emit()"
                   matTooltip="Complete all research"
                   matTooltipPosition="left">
-            <mat-icon>science</mat-icon>
+            <td-icon name="flask" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn td-dev-btn-research"
                   (click)="maxUpgradeAllTowers.emit()"
                   matTooltip="Max-upgrade all towers"
                   matTooltipPosition="left">
-            <mat-icon>arrow_circle_up</mat-icon>
+            <td-icon name="arrowUp" [size]="18"></td-icon>
           </button>
           <div class="td-dev-separator"></div>
           <!-- Terrain & Map -->
@@ -166,20 +166,20 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   (click)="heightDebugToggled.emit()"
                   matTooltip="Height markers"
                   matTooltipPosition="left">
-            <mat-icon>terrain</mat-icon>
+            <td-icon name="terrain" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="uiStore.specialPointsDebugVisible()"
                   (click)="specialPointsDebugToggled.emit()"
                   matTooltip="Special points"
                   matTooltipPosition="left">
-            <mat-icon>place</mat-icon>
+            <td-icon name="pin" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   (click)="refreshHeights.emit()"
                   matTooltip="Re-raycast heights"
                   matTooltipPosition="left">
-            <mat-icon>sync</mat-icon>
+            <td-icon name="refresh" [size]="18"></td-icon>
           </button>
           <div class="td-dev-separator"></div>
           <!-- Camera -->
@@ -188,14 +188,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   (click)="debugWindows.toggle('camera')"
                   matTooltip="Camera info"
                   matTooltipPosition="left">
-            <mat-icon>videocam</mat-icon>
+            <td-icon name="eye" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="cameraFramingDebug()"
                   (click)="cameraFramingDebugToggled.emit()"
                   matTooltip="Framing guides"
                   matTooltipPosition="left">
-            <mat-icon>crop_free</mat-icon>
+            <td-icon name="fullscreen" [size]="18"></td-icon>
           </button>
           <div class="td-dev-separator"></div>
           <!-- Debug Panels -->
@@ -204,56 +204,56 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                   (click)="debugWindows.toggle('wave')"
                   matTooltip="Wave spawner"
                   matTooltipPosition="left">
-            <mat-icon>waves</mat-icon>
+            <td-icon name="wave" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.towerWindow().isOpen"
                   (click)="debugWindows.toggle('tower')"
                   matTooltip="Tower inspector"
                   matTooltipPosition="left">
-            <mat-icon>tower</mat-icon>
+            <td-icon name="tower" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.enemyWindow().isOpen"
                   (click)="debugWindows.toggle('enemy')"
                   matTooltip="Enemy inspector"
                   matTooltipPosition="left">
-            <mat-icon>pest_control</mat-icon>
+            <td-icon name="bug" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.soundWindow().isOpen"
                   (click)="debugWindows.toggle('sound')"
                   matTooltip="Spatial audio"
                   matTooltipPosition="left">
-            <mat-icon>spatial_audio</mat-icon>
+            <td-icon name="audio" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.displayWindow().isOpen"
                   (click)="debugWindows.toggle('display')"
                   matTooltip="Display options"
                   matTooltipPosition="left">
-            <mat-icon>tune</mat-icon>
+            <td-icon name="sliders" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.performanceWindow().isOpen"
                   (click)="debugWindows.toggle('performance')"
                   matTooltip="Performance"
                   matTooltipPosition="left">
-            <mat-icon>speed</mat-icon>
+            <td-icon name="speed" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.eventsWindow().isOpen"
                   (click)="debugWindows.toggle('events')"
                   matTooltip="Event bus"
                   matTooltipPosition="left">
-            <mat-icon>hub</mat-icon>
+            <td-icon name="share" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
                   [class.active]="debugWindows.trainingWindow().isOpen"
                   (click)="debugWindows.toggle('training')"
                   matTooltip="AI Training"
                   matTooltipPosition="left">
-            <mat-icon>smart_toy</mat-icon>
+            <td-icon name="bulb" [size]="18"></td-icon>
           </button>
           @if (devWorld.isActive) {
             <button class="td-dev-btn"
@@ -261,7 +261,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                     (click)="debugWindows.toggle('devworld')"
                     matTooltip="DevWorld"
                     matTooltipPosition="left">
-              <mat-icon>public</mat-icon>
+              <td-icon name="target" [size]="18"></td-icon>
             </button>
           }
         </div>
@@ -270,7 +270,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 (click)="uiStore.toggleDevMenu()"
                 matTooltip="Developer options"
                 matTooltipPosition="left">
-          <mat-icon>{{ uiStore.devMenuExpanded() ? 'code_off' : 'code' }}</mat-icon>
+          <td-icon name="text" [size]="18"></td-icon>
         </button>
       </div>
     </div>
@@ -324,7 +324,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       opacity: 1;
     }
 
-    /* === Shared: Icon button base === */
+    /* === Shared: Icon button base — refined glass + bevel === */
     .td-quick-btn,
     .td-layer-btn,
     .td-display-btn,
@@ -337,30 +337,30 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       min-width: 32px;
       min-height: 32px;
       box-sizing: border-box;
-      background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(8px) saturate(1.1);
+      -webkit-backdrop-filter: blur(8px) saturate(1.1);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        0 1px 0 rgba(0, 0, 0, 0.6);
       color: var(--td-text-secondary);
       cursor: pointer;
-      transition: all 0.15s;
+      transition: box-shadow 0.18s ease, background 0.15s, color 0.15s;
     }
 
-    .td-quick-btn mat-icon,
-    .td-layer-btn mat-icon,
-    .td-display-btn mat-icon,
-    .td-dev-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
-    }
 
     .td-quick-btn:hover,
     .td-layer-btn:hover,
     .td-display-btn:hover,
     .td-dev-btn:hover {
-      background: var(--td-frame-mid);
       color: var(--td-text-primary);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        0 0 0 1px var(--td-frame-mid),
+        0 1px 0 rgba(0, 0, 0, 0.6);
     }
 
     /* === Active states (teal for display/layer/audio, gold for dev) === */
@@ -369,13 +369,23 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
     .td-display-btn.active,
     .td-display-toggle-btn.active,
     .td-audio-toggle-btn.active {
-      background: var(--td-teal);
-      color: var(--td-bg-dark);
+      background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
+      color: #0E1612;
+      border-color: #11140F;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-teal-glow);
     }
 
     .td-layer-toggle-btn.active {
-      background: var(--td-gold-dark);
-      color: var(--td-text-primary);
+      background: linear-gradient(180deg, var(--td-gold-light) 0%, var(--td-gold) 55%, var(--td-gold-dark) 100%);
+      color: #1A140A;
+      border-color: #11140F;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+        var(--td-gold-glow);
     }
 
     .td-audio-menu-wrapper {
@@ -389,10 +399,14 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       display: flex;
       flex-direction: column;
       gap: 10px;
-      background: var(--td-panel-main);
-      border: 1px solid var(--td-frame-mid);
-      border-top-color: var(--td-frame-light);
-      border-bottom-color: var(--td-frame-dark);
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(8px) saturate(1.1);
+      -webkit-backdrop-filter: blur(8px) saturate(1.1);
+      border: 1px solid var(--td-frame-dark);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.2),
+        inset 0 -1px 0 var(--td-panel-shadow),
+        var(--td-shadow-soft);
       overflow: hidden;
       max-height: 0;
       opacity: 0;
@@ -467,11 +481,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       flex-shrink: 0;
     }
 
-    .td-audio-mute mat-icon {
-      font-size: 14px;
-      width: 14px;
-      height: 14px;
-    }
 
     .td-audio-mute:hover {
       color: var(--td-text-primary);

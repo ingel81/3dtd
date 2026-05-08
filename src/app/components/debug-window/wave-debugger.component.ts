@@ -1,6 +1,5 @@
 import { Component, inject, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
@@ -8,6 +7,7 @@ import { GameEventBus } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../models/enemy-types';
 import { SpawnPattern } from '../../ai/core/spawn-schedule-builder';
+import { TdIconComponent } from '../icon/icon.component';
 
 const PATTERN_LABELS: Record<SpawnPattern, string> = {
   'interleaved': 'Interleaved',
@@ -20,26 +20,26 @@ const PATTERN_LABELS: Record<SpawnPattern, string> = {
 };
 
 const PATTERN_ICONS: Record<SpawnPattern, string> = {
-  'interleaved': 'swap_vert',
-  'sequential': 'sort',
-  'clustered': 'view_module',
-  'random': 'shuffle',
-  'front-loaded': 'vertical_align_top',
-  'back-loaded': 'vertical_align_bottom',
-  'wave-in-wave': 'view_stream',
+  'interleaved': 'shuffle',
+  'sequential': 'sliders',
+  'clustered': 'grid',
+  'random': 'random',
+  'front-loaded': 'arrowUp',
+  'back-loaded': 'caret',
+  'wave-in-wave': 'wave',
 };
 
 @Component({
   selector: 'app-wave-debugger',
   standalone: true,
-  imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  imports: [CommonModule, DraggableDebugPanelComponent, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.waveWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="wave"
         title="Wave Debug"
-        icon="pest_control"
+        icon="bug"
         [position]="windowService.waveWindow().position"
         [zIndex]="windowService.waveWindow().zIndex"
         (closed)="windowService.close('wave')"
@@ -108,7 +108,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
               <div class="toggle-row">
                 <span class="label">Mode</span>
                 <button class="toggle-btn" [class.active]="waveDebug.spawnMode() === 'each'" (click)="waveDebug.toggleSpawnMode()">
-                  <mat-icon>{{ waveDebug.spawnMode() === 'each' ? 'call_split' : 'shuffle' }}</mat-icon>
+                  <td-icon [name]="waveDebug.spawnMode() === 'each' ? 'share' : 'shuffle'" [size]="14"></td-icon>
                   {{ waveDebug.spawnMode() === 'each' ? 'Distributed' : 'Random' }}
                 </button>
               </div>
@@ -124,7 +124,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
               <button class="start-wave-btn"
                       [disabled]="waveDebug.waveActive()"
                       (click)="onStartCustomWave()">
-                <mat-icon>play_arrow</mat-icon>
+                <td-icon name="play" [size]="14"></td-icon>
                 {{ waveDebug.waveActive() ? 'Wave running...' : 'Start Custom Wave' }}
               </button>
             </div>
@@ -139,7 +139,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
                     <span class="group-label">Group {{ $index + 1 }}</span>
                     <button class="remove-btn" (click)="waveDebug.removeGroup(group.id)"
                             [disabled]="waveDebug.mixedGroups().length <= 1">
-                      <mat-icon>close</mat-icon>
+                      <td-icon name="cross" [size]="14"></td-icon>
                     </button>
                   </div>
 
@@ -175,7 +175,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
               }
 
               <button class="add-group-btn" (click)="waveDebug.addGroup()">
-                <mat-icon>add</mat-icon> Add Group
+                <td-icon name="plus" [size]="14"></td-icon> Add Group
               </button>
             </div>
 
@@ -188,7 +188,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
                   <button class="pattern-btn" [class.active]="waveDebug.spawnPattern() === pattern"
                           (click)="waveDebug.setSpawnPattern(pattern)"
                           [title]="patternLabels[pattern]">
-                    <mat-icon>{{ patternIcons[pattern] }}</mat-icon>
+                    <td-icon [name]="$any(patternIcons[pattern])" [size]="14"></td-icon>
                     <span>{{ patternLabels[pattern] }}</span>
                   </button>
                 }
@@ -245,7 +245,7 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
               <button class="start-wave-btn mixed"
                       [disabled]="waveDebug.waveActive()"
                       (click)="onStartCustomWave()">
-                <mat-icon>play_arrow</mat-icon>
+                <td-icon name="play" [size]="14"></td-icon>
                 {{ waveDebug.waveActive() ? 'Wave running...' : 'Start Mixed Wave' }}
               </button>
             </div>

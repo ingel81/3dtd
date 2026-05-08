@@ -15,7 +15,7 @@ export interface AttributionCategory {
 export const ATTRIBUTIONS: AttributionCategory[] = [
   {
     title: '3D Models',
-    icon: 'view_in_ar',
+    icon: 'tower',
     items: [
       {
         name: 'Bat',
@@ -97,7 +97,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
   },
   {
     title: 'Fonts',
-    icon: 'text_fields',
+    icon: 'text',
     items: [
       {
         name: 'Roboto',
@@ -117,7 +117,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
   },
   {
     title: 'Sound Effects',
-    icon: 'volume_up',
+    icon: 'audio',
     items: [
       {
         name: 'Tentacle Slime',
@@ -128,7 +128,7 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
   },
   {
     title: 'Open Source',
-    icon: 'code',
+    icon: 'filing',
     items: [
       {
         name: 'Three.js',

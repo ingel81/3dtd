@@ -1,133 +1,167 @@
-import { Component, input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
+interface Tick {
+  x1: number;
+  y1: number;
+  x2: number;
+  y2: number;
+  isCardinal: boolean;
+}
+
+/**
+ * Compass — refined per design bundle (tmp/td-components.jsx, NewCompass).
+ *
+ * Round face with radial-gradient body, 32 punched tick marks (every 11.25°),
+ * cardinal letters (N gold, S/E/W muted), and a centered needle.
+ *
+ * Real-compass convention: the rose stays fixed (N always at top), only
+ * the needle rotates with the bearing.
+ */
 @Component({
   selector: 'app-compass',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
-    <div class="compass-container">
-      <!-- Rotating dial -->
-      <div class="compass" [style.transform]="'rotate(' + (-rotation()) + 'deg)'">
-        <svg class="compass-svg" viewBox="0 0 100 100">
-          <circle cx="50" cy="50" r="48" class="compass-bg"/>
-          <circle cx="50" cy="50" r="48" class="compass-ring"/>
-          <!-- Tick marks at intercardinal positions -->
-          <line x1="50" y1="5" x2="50" y2="12" class="compass-tick" transform="rotate(45 50 50)"/>
-          <line x1="50" y1="5" x2="50" y2="12" class="compass-tick" transform="rotate(135 50 50)"/>
-          <line x1="50" y1="5" x2="50" y2="12" class="compass-tick" transform="rotate(225 50 50)"/>
-          <line x1="50" y1="5" x2="50" y2="12" class="compass-tick" transform="rotate(315 50 50)"/>
-          <!-- Cardinal labels on the dial -->
-          <text x="50" y="16" class="compass-label-n">N</text>
-          <text x="50" y="89" class="compass-label-s">S</text>
-          <text x="87" y="53" class="compass-label-ew">O</text>
-          <text x="13" y="53" class="compass-label-ew">W</text>
-          <!-- Center dot -->
-          <circle cx="50" cy="50" r="3" class="compass-pivot"/>
-          <circle cx="50" cy="50" r="1.5" class="compass-pivot-inner"/>
+    <div class="td-compass-wrap">
+      <div class="td-compass">
+        <svg viewBox="0 0 100 100" class="td-compass__svg" aria-hidden="true">
+          <!-- Tick rosette: 32 ticks; every 8th (cardinals) is gold + thicker -->
+          <g stroke-linecap="round">
+            @for (t of ticks; track $index) {
+              <line [attr.x1]="t.x1" [attr.y1]="t.y1"
+                    [attr.x2]="t.x2" [attr.y2]="t.y2"
+                    [attr.stroke]="t.isCardinal ? 'var(--td-gold)' : 'var(--td-frame-light)'"
+                    [attr.stroke-width]="t.isCardinal ? 1.5 : 0.6"/>
+            }
+          </g>
+
+          <!-- Cardinal letters: N gold, S/E/W muted -->
+          <g font-family="var(--td-font-mono)" font-size="9" font-weight="700"
+             text-anchor="middle" dominant-baseline="central">
+            <text x="50" y="18" fill="var(--td-gold-light)">N</text>
+            <text x="82" y="52" fill="var(--td-text-muted)">E</text>
+            <text x="50" y="86" fill="var(--td-text-muted)">S</text>
+            <text x="18" y="52" fill="var(--td-text-muted)">W</text>
+          </g>
+
+          <!-- Needle rotates around the center (50,50); rose stays fixed.
+               Polygons are anchored at (50,50); rotate uses explicit pivot. -->
+          <g class="td-compass__needle"
+             [attr.transform]="'rotate(' + rotation() + ' 50 50)'">
+            <polygon points="50,28 54,50 50,53 46,50" fill="var(--td-health-red)"/>
+            <polygon points="50,72 54,50 50,47 46,50" fill="var(--td-text-secondary)"/>
+            <circle cx="50" cy="50" r="3" fill="var(--td-gold)"
+                    stroke="var(--td-gold-dark)" stroke-width="0.8"/>
+          </g>
         </svg>
       </div>
-      <!-- Fixed look-direction indicator (always points up) -->
-      <svg class="compass-indicator" viewBox="0 0 100 100">
-        <path d="M50 0 L44 10 L56 10 Z" class="compass-indicator-arrow"/>
-      </svg>
+
+      @if (rotation() !== 0) {
+        <button class="td-compass__reset" (click)="onReset()" title="Reset bearing">
+          <td-icon name="refresh" [size]="12"></td-icon>
+        </button>
+      }
     </div>
   `,
   styles: `
     :host {
       display: block;
       ${TD_CSS_VARS}
-    }
-
-    .compass-container {
       position: absolute;
       top: 12px;
       right: 12px;
       z-index: 5;
-      pointer-events: none;
     }
 
-    .compass {
+    .td-compass-wrap {
       position: relative;
-      width: 64px;
-      height: 64px;
-      transition: transform 0.15s ease-out;
-      filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.5));
+      width: 88px;
+      height: 88px;
     }
 
-    .compass-svg {
+    .td-compass {
       width: 100%;
       height: 100%;
+      border-radius: 50%;
+      background: radial-gradient(circle,
+        var(--td-panel-main) 0%,
+        var(--td-panel-shadow) 100%);
+      border: 1px solid var(--td-frame-mid);
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.4),
+        inset 0 -2px 4px rgba(0, 0, 0, 0.5),
+        var(--td-shadow-key),
+        0 4px 8px rgba(0, 0, 0, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
     }
 
-    .compass-bg {
-      fill: rgba(15, 18, 15, 0.75);
+    .td-compass__svg {
+      width: 100%;
+      height: 100%;
+      display: block;
     }
 
-    .compass-ring {
-      fill: none;
-      stroke: rgba(212, 175, 55, 0.5);
-      stroke-width: 2;
+    .td-compass__needle {
+      transition: transform 0.25s cubic-bezier(.4, 0, .2, 1);
     }
 
-    .compass-tick {
-      stroke: rgba(212, 175, 55, 0.3);
-      stroke-width: 1.5;
-      stroke-linecap: round;
-    }
-
-    .compass-pivot {
-      fill: rgba(212, 175, 55, 0.6);
-    }
-
-    .compass-pivot-inner {
-      fill: rgba(15, 18, 15, 0.9);
-    }
-
-    .compass-indicator {
+    .td-compass__reset {
       position: absolute;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
+      bottom: -2px;
+      right: -2px;
+      width: 22px;
+      height: 22px;
+      border-radius: 50%;
+      border: 1px solid var(--td-frame-dark);
+      background: var(--td-panel-main);
+      color: var(--td-gold-light);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.25),
+        0 1px 0 rgba(0, 0, 0, 0.6);
+      transition: color 0.15s, box-shadow 0.15s;
     }
 
-    .compass-indicator-arrow {
-      fill: rgba(255, 255, 255, 0.95);
-      filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.6));
-    }
-
-    .compass-label-n {
-      font-size: 14px;
-      font-weight: 700;
-      font-family: Arial, sans-serif;
-      fill: rgba(220, 70, 50, 1);
-      text-anchor: middle;
-      dominant-baseline: central;
-    }
-
-    .compass-label-s {
-      font-size: 12px;
-      font-weight: 600;
-      font-family: Arial, sans-serif;
-      fill: rgba(210, 210, 210, 0.85);
-      text-anchor: middle;
-      dominant-baseline: central;
-    }
-
-    .compass-label-ew {
-      font-size: 11px;
-      font-weight: 600;
-      font-family: Arial, sans-serif;
-      fill: rgba(180, 180, 180, 0.6);
-      text-anchor: middle;
-      dominant-baseline: central;
+    .td-compass__reset:hover {
+      color: #FFF;
+      box-shadow:
+        inset 0 1px 0 rgba(122, 133, 128, 0.25),
+        0 0 10px rgba(194, 160, 85, 0.4);
     }
   `,
 })
 export class CompassComponent {
+  /** Map bearing in degrees. Whole face rotates so N points actual north. */
   readonly rotation = input.required<number>();
+
+  /** Emitted when the user clicks the reset bearing button. */
+  readonly resetBearing = output<void>();
+
+  /** 32 tick marks pre-computed; every 8th is a cardinal (gold + thicker). */
+  protected readonly ticks: ReadonlyArray<Tick> = Array.from({ length: 32 }, (_, i) => {
+    const a = (i / 32) * Math.PI * 2 - Math.PI / 2; // start at top
+    const isCardinal = i % 8 === 0;
+    const r1 = isCardinal ? 38 : 42;
+    const r2 = 46;
+    return {
+      x1: 50 + Math.cos(a) * r1,
+      y1: 50 + Math.sin(a) * r1,
+      x2: 50 + Math.cos(a) * r2,
+      y2: 50 + Math.sin(a) * r2,
+      isCardinal,
+    };
+  });
+
+  onReset(): void {
+    this.resetBearing.emit();
+  }
 }

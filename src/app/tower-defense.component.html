@@ -45,15 +45,8 @@
             <div class="td-loading-steps">
               @for (step of loadingSteps(); track step.id) {
                 <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">
-                  <mat-icon class="td-step-icon">
-                    @if (step.status === 'done') {
-                      check_circle
-                    } @else if (step.status === 'active') {
-                      sync
-                    } @else {
-                      radio_button_unchecked
-                    }
-                  </mat-icon>
+                  <td-icon class="td-step-icon" [size]="16"
+                    [name]="step.status === 'done' ? 'check' : (step.status === 'active' ? 'refresh' : 'target')"></td-icon>
                   <span class="td-step-label">{{ step.label }}</span>
                   @if (step.detail) {
                     <span class="td-step-detail">({{ step.detail }})</span>
@@ -62,7 +55,7 @@
               }
             </div>
           } @else {
-            <mat-icon class="td-loading-error-icon">warning</mat-icon>
+            <td-icon class="td-loading-error-icon" name="warn" [size]="48"></td-icon>
             <div class="td-loading-title">Laden fehlgeschlagen</div>
             <p class="td-loading-error-msg">{{ error() }}</p>
             <button class="td-btn td-btn-gold" (click)="retryLoading()">Erneut versuchen</button>
@@ -72,7 +65,7 @@
 
       @if (error() && !loading()) {
         <div class="td-error-overlay">
-          <mat-icon class="td-error-icon">error_outline</mat-icon>
+          <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
           <h3>Fehler</h3>
           <p>{{ error() }}</p>
           <div class="td-token-instructions">
@@ -98,7 +91,7 @@
         <div class="td-map-attribution">{{ mapAttribution() }}</div>
 
         <!-- Compass Overlay -->
-        <app-compass [rotation]="compassRotation()" />
+        <app-compass [rotation]="compassRotation()" (resetBearing)="resetCamera()" />
 
         <!-- Debug Windows (draggable) -->
         <app-camera-debugger />
@@ -141,7 +134,6 @@
         <app-info-overlay
           [fps]="fps()"
           [tileStats]="tileStats()"
-          [enemiesAlive]="store.enemiesAlive()"
           [activeSounds]="activeSounds()"
           [streetCount]="streetCount()"
         />
@@ -207,7 +199,7 @@
             <h1>GAME OVER</h1>
             <p>The HQ was destroyed!</p>
             <button class="td-btn td-btn-green" (click)="restartGame()">
-              <mat-icon>replay</mat-icon>
+              <td-icon name="refresh" [size]="18"></td-icon>
               RESTART
             </button>
           </div>

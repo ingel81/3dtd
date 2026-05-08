@@ -1,6 +1,5 @@
 import { Component, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { MatIconModule } from '@angular/material/icon';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
 import { DebugWindowService } from '../../services/debug-window.service';
 import { GameStateManager } from '../../managers/game-state.manager';
@@ -11,14 +10,14 @@ import { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
 @Component({
   selector: 'app-training-debugger',
   standalone: true,
-  imports: [CommonModule, MatIconModule, DraggableDebugPanelComponent],
+  imports: [CommonModule, DraggableDebugPanelComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (windowService.trainingWindow().isOpen) {
       <app-draggable-debug-panel
         windowId="training"
         title="AI Training"
-        icon="psychology"
+        icon="bulb"
         [position]="windowService.trainingWindow().position"
         [zIndex]="windowService.trainingWindow().zIndex"
         (closed)="windowService.close('training')"

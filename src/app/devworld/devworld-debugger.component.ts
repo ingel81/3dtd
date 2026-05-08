@@ -21,7 +21,7 @@ import { DevWorldService } from './devworld.service';
       <app-draggable-debug-panel
         windowId="devworld"
         title="DevWorld"
-        icon="videogame_asset"
+        icon="gamepad"
         [position]="windowService.devworldWindow().position"
         [zIndex]="windowService.devworldWindow().zIndex"
         (closed)="windowService.close('devworld')"

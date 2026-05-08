@@ -1,13 +1,13 @@
 import { Component, inject, ChangeDetectionStrategy } from '@angular/core';
-import { MatIconModule } from '@angular/material/icon';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { GameStore } from '../../store/game.store';
 import { TD_CSS_VARS } from '../../styles/td-theme';
+import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
   selector: 'app-game-speed',
   standalone: true,
-  imports: [MatIconModule, MatTooltipModule],
+  imports: [MatTooltipModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <button
@@ -16,7 +16,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       (click)="cycleSpeed()"
       [matTooltip]="'Game Speed: ' + currentSpeed() + 'x'"
       matTooltipPosition="below">
-      <mat-icon>{{ currentSpeed() === 1 ? 'play_arrow' : 'fast_forward' }}</mat-icon>
+      <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
       {{ currentSpeed() }}x
     </button>
   `,
@@ -44,11 +44,6 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
       font-weight: 600;
       font-family: inherit;
       transition: all 0.15s;
-    }
-    .speed-btn mat-icon {
-      font-size: 18px;
-      width: 18px;
-      height: 18px;
     }
     .speed-btn:hover {
       background: var(--td-frame-mid);
