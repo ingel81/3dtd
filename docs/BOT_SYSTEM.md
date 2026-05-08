@@ -49,8 +49,9 @@ Das Bot System ist ein professionelles, erweiterbares Framework für automatisie
 
 **Core Konzept:** Jede Strategie repräsentiert eine einzelne Entscheidungs-Domain:
 
-- **Placement Strategies** → Wo soll ein Tower gebaut werden?
-- **Upgrade Strategies** → Welcher Tower soll upgraden werden?
+- **Placement Strategies** → Wo soll ein Tower / Research-Center gebaut werden?
+- **Research Strategies** → Welche Research-Node soll als nächstes gepickt werden?
+- **Upgrade Strategies** → Welcher Tower soll upgraden werden? Welcher gesellt werden?
 - **Wave Strategies** → Wann nächste Welle starten?
 
 **Execution Flow:**
@@ -86,10 +87,15 @@ src/app/ai/training/
 │   │   ├── anti-air-placement.strategy.ts
 │   │   ├── splash-defense-placement.strategy.ts
 │   │   ├── coverage-fill.strategy.ts
-│   │   └── distributed-placement.strategy.ts
+│   │   ├── distributed-placement.strategy.ts
+│   │   └── research-center-placement.strategy.ts
+│   │
+│   ├── research/                    # Research Strategies (Phase 5.5+)
+│   │   └── research-pick.strategy.ts
 │   │
 │   ├── upgrade/                     # Upgrade Strategies
-│   │   └── near-spawn-upgrade.strategy.ts
+│   │   ├── near-spawn-upgrade.strategy.ts
+│   │   └── sell-underperformer.strategy.ts
 │   │
 │   └── wave/                        # Wave Control Strategies
 │       └── auto-start-wave.strategy.ts
@@ -416,6 +422,8 @@ export class StrategyBotFactory {
     return new StrategyBot(skillLevel, strategies);
   }
 
+  // Phase 5.16: alle Skill-Levels bekommen Research-Strategien
+  // (Bootstrap + Tower-Lock-State respektieren).
   private getStrategiesForSkillLevel(
     skillLevel: BotSkillLevel,
     autoStartWaves: boolean
@@ -423,42 +431,55 @@ export class StrategyBotFactory {
     const strategies: ITowerStrategy[] = [];
     const config = BOT_CONFIGS[skillLevel];
 
+    const researchCenterPlacement = new ResearchCenterPlacementStrategy(
+      this.strategicPlacement, this.gameState
+    );
+    const researchPick = new ResearchPickStrategy(config);
+
     switch (skillLevel) {
       case 'beginner':
-        // Only basic placement
+        // Research-Center + minimaler Pick (gatling-tech) + basic Placement
         strategies.push(
+          researchCenterPlacement,
+          researchPick,
           new CoverageFillStrategy(...)
         );
         break;
 
       case 'casual':
-        // Basic placement + occasional upgrades
+        // Research + AntiAir/Splash + occasional Upgrades + Coverage
         strategies.push(
-          new AntiAirPlacementStrategy(...),      // Priority: 90
+          researchCenterPlacement,
+          new AntiAirPlacementStrategy(...),       // Priority: 90
           new SplashDefensePlacementStrategy(...), // Priority: 85
-          new CoverageFillStrategy(...),           // Priority: 60
-          new NearSpawnUpgradeStrategy(...)        // Priority: 75
+          researchPick,                             // Priority: 80
+          new NearSpawnUpgradeStrategy(...),        // Priority: 75
+          new CoverageFillStrategy(...)             // Priority: 60
         );
         break;
 
       case 'strategist':
-        // Distributed placement for even path coverage (AI training)
+        // Volle Tree-Auswahl + Distributed-Placement + Sell-Underperformer
         strategies.push(
+          researchCenterPlacement,
           new AntiAirPlacementStrategy(...),
           new SplashDefensePlacementStrategy(...),
+          researchPick,
           new NearSpawnUpgradeStrategy(...),
-          new DistributedPlacementStrategy(...)  // Zone-based distribution
+          new SellUnderperformerStrategy(...),
+          new DistributedPlacementStrategy(...)
         );
         break;
 
       case 'meta':
-        // Advanced strategies + all basic ones
+        // All-Round Setup ohne Sell, mit Coverage statt Distributed
         strategies.push(
+          researchCenterPlacement,
           new AntiAirPlacementStrategy(...),
           new SplashDefensePlacementStrategy(...),
+          researchPick,
           new NearSpawnUpgradeStrategy(...),
-          new CoverageFillStrategy(...),
-          // TODO: Advanced strategies
+          new CoverageFillStrategy(...)
         );
         break;
     }
@@ -472,7 +493,12 @@ export class StrategyBotFactory {
 }
 ```
 
-**Hinweis:** `NearSpawnUpgradeStrategy` erhält `(gameState, osmService)` als Parameter.
+**Hinweise:**
+- `NearSpawnUpgradeStrategy` erhält `(gameState, osmService)` als Parameter.
+- `SellUnderperformerStrategy(gameState, config)` — nur Strategist-Bot.
+- `ResearchPickStrategy(config)` ist skill-level-aware (siehe `researchOrderBySkill`).
+- Die Factory wendet zusätzlich ±30 % Jitter auf `reactionTimeMs` und `maxTowers` an
+  (`jitterConfig()`), damit parallele Training-Clients nicht alle identisch spielen.
 
 ---
 
@@ -680,6 +706,38 @@ export class CoverageFillStrategy extends BaseStrategy {
 **Triggers:** Credits >= 20 + Below maxTowers (oder aktiv beim Sparen)
 **Action:** Place tower with variety/reinforce logic
 
+#### ResearchCenterPlacementStrategy (Phase 5.5+)
+
+**Purpose:** Baut das Research-Center, sobald genug Credits da sind und kein Center
+existiert.
+
+**Priority:** 95 (höchste — über AntiAir/Splash)
+**Triggers:** `centerLevel === 0` + bezahlbar + valide Position via `findStrategicPositions`
+**Action:** `place` mit `towerType: 'research-center'`
+
+Code: `src/app/ai/training/strategies/placement/research-center-placement.strategy.ts`
+
+### Research Strategies (Phase 5.5+)
+
+#### ResearchPickStrategy
+
+**Purpose:** Pickt die nächste Research-Node — skill-level-aware Reihenfolge,
+wave-curriculum-aligned Prioritäten.
+
+**Priority:** 80 (zwischen NearSpawnUpgrade=75 und SplashDefense=85)
+**Triggers:** Research-Center vorhanden + freier Slot + bezahlbare Node + Prereqs erfüllt
+
+**Skill-Level-Order (Phase 5.16, aligned an `wave-curriculum.ts`):**
+
+| Skill       | Pick-Order |
+|------------|--------------------------------------------------|
+| beginner   | `gatling-tech` only |
+| casual     | `gatling-tech, ice-magic, toxic-compounds, siege-engineering, fire-alchemy` |
+| strategist | volle Tree (10+ Nodes), aligned an Wave-Curriculum: AA bis W6 (für `bat_swarm`@W7), Cannon bis W9 (für `boss_herbert`@W10), Magic bis W12 (für `ghost_surge`@W13) |
+| meta       | wie strategist |
+
+Code: `src/app/ai/training/strategies/research/research-pick.strategy.ts`
+
 ### Upgrade Strategies
 
 #### NearSpawnUpgradeStrategy
@@ -763,6 +821,16 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
 **Triggers:** 3+ towers + 50+ credits + ~33% Chance + bezahlbares Upgrade vorhanden
 **Action:** Upgrade tower closest to spawn
 **Upgrade-Kosten:** Dynamisch via `tower.getNextUpgradeCost(upgradeId)`
+
+#### SellUnderperformerStrategy (Phase 5.16, nur Strategist)
+
+**Purpose:** Verkauft Tower mit deutlich unterdurchschnittlicher Total-Damage-Bilanz,
+damit Credits für stärkere/passendere Tower freikommen.
+
+**Priority:** 55 (unter Upgrade-Strategien)
+**Triggers:** Mindest-Tower-Anzahl + Tower mit Total-Damage signifikant unter Median
+
+Code: `src/app/ai/training/strategies/upgrade/sell-underperformer.strategy.ts`
 
 ### Wave Strategies
 
@@ -1278,6 +1346,21 @@ for (const candidate of candidates) {
 
 ## Changelog
 
+### Version 2.3 (Phase 5.16, 2026-04 ff.) — Research-aware Bots
+- **ResearchCenterPlacementStrategy** (Priority 95): baut Center sobald bezahlbar.
+- **ResearchPickStrategy** (Priority 80): skill-level-aware Pick-Order, aligned an
+  Wave-Curriculum (`bat_swarm` W7 → AA bis W6, `boss_herbert` W10 → Cannon bis W9,
+  `ghost_surge` W13 → Magic bis W12).
+- **SellUnderperformerStrategy** (Priority 55, nur Strategist): verkauft schwache Tower
+  damit Credits für bessere frei werden.
+- Factory hängt jetzt allen Skill-Levels die Research-Strategien an + jittert
+  `reactionTimeMs` / `maxTowers` für parallele Training-Clients.
+
+### Version 2.2 (Phase 5.10, 2026-03 ff.) — Template-aware Bots
+- Bots koexistieren mit dem Template-basierten Wave-Director (siehe
+  [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md)).
+- Curriculum-aware Research-Reihenfolge sobald Phase 5.16 stable ist.
+
 ### Version 2.1 (2026-01-24) - Distributed Placement
 - DistributedPlacementStrategy: Zone-based tower distribution for AI training
 - Strategist bot uses distributed placement instead of CoverageFillStrategy
@@ -1320,5 +1403,5 @@ for (const candidate of candidates) {
 ---
 
 **Maintainer:** 3DTD Team
-**Last Updated:** 2026-01-30
+**Last Updated:** 2026-05-08 (Phase 5.16 — Research-Strategien + Curriculum-Alignment)
 **Status:** Production Ready ✅

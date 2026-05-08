@@ -9,11 +9,13 @@ Sounds werden leiser je weiter die Kamera entfernt ist - ohne harten Cutoff.
 
 ```
 ThreeTilesEngine
-    └── spatialAudio: SpatialAudioManager
+    └── spatialAudio: SpatialAudioManager  (Facade)
             ├── AudioListener (an Kamera)
-            ├── activeSounds[] (One-Shots)
-            ├── activeLoops Map (Loops)
-            └── bufferCache Map (LRU Cache)
+            ├── pool: AudioPoolManager           (PositionalAudio Lifecycle, Panner-Updates)
+            ├── bufferCache: AudioBufferCache    (LRU Cache, 50 Buffers)
+            ├── playback: SpatialAudioPlayback   (playAt, playAtGeo, playGlobal, One-Shots)
+            ├── activeLoops Map                  (Loops, zentral verwaltet)
+            └── enemy/projectile budgets         (Zaehler + Voice-Stealing)
 
 GameObject (Enemy, Tower, ...)
     └── AudioComponent (dünner Wrapper)
@@ -22,7 +24,16 @@ GameObject (Enemy, Tower, ...)
 
 ### SpatialAudioManager (`managers/audio/spatial-audio.manager.ts`)
 
-Zentrale Klasse für 3D-Audio. Verwaltet sowohl One-Shot-Sounds als auch Loops.
+Facade-Klasse fuer 3D-Audio. Delegiert an drei Helper:
+
+- `AudioBufferCache` (`audio-buffer-cache.ts`) — LRU-Cache, Buffer-Loading.
+- `AudioPoolManager` (`audio-pool.manager.ts`) — `PositionalAudio` Lifecycle,
+  Panner-Updates, Zugriffsstatistiken.
+- `SpatialAudioPlayback` (`spatial-audio-playback.ts`) — `playAt`, `playAtGeo`,
+  `playGlobal`, One-Shot-Verwaltung, Anti-Flood-Fenster, Polyphony-Caps.
+
+Die Manager-Klasse selbst kuemmert sich um: Sound-Registrierung, Loops,
+Enemy-/Projektil-Budget, Voice-Stealing, EventBus-Wiring.
 
 **Initialisierung:**
 ```typescript
@@ -112,18 +123,34 @@ enemy.audio.stop('moving');
 
 ## Sound Budget System
 
-Um Performance zu gewährleisten, begrenzt das System die Anzahl gleichzeitiger Enemy- und Projektil-Sounds.
+Um Performance und Audio-Klarheit zu gewährleisten, begrenzt das System die Anzahl
+gleichzeitiger Enemy-, Projektil- und globaler One-Shot-Sounds.
 
-**Konstanten (audio.config.ts):**
+**Konstanten (`configs/audio.config.ts`):**
 ```typescript
-const AUDIO_LIMITS = {
-  maxEnemySounds: 12,
-  maxProjectileSounds: 40,
+export const AUDIO_LIMITS = {
+  maxEnemySounds: 12,           // Loop-only Budget fuer Enemy-Ambient (walk/roar)
+  maxProjectileSounds: 25,      // Per-Kategorie-Cap fuer Projektil-Class One-Shots
+  maxConcurrentOneShots: 30,    // Globaler Cap ueber ALLE One-Shots — bei
+                                // Überschreitung Voice-Stealing (aeltester One-Shot wird
+                                // gestoppt, weicher als Reject).
   maxEffectSounds: 10,
-  maxAudibleDistance: 500,  // Sounds pausieren jenseits dieser Distanz
-};
-const ENEMY_SOUND_PATTERNS = ['zombie', 'tank', 'enemy', 'wallsmasher', 'big_arm', 'herbert', 'mammouth'];
+  maxAudibleDistance: 500,      // Sounds pausieren jenseits dieser Distanz
+} as const;
+
+export const ENEMY_SOUND_PATTERNS = [
+  'zombie', 'tank', 'enemy', 'wallsmasher', 'big_arm', 'herbert', 'mammouth',
+] as const;
+
+export const PROJECTILE_SOUND_IDS = [
+  'arrow', 'bullet', 'rocket', 'cannonball', 'ice-shard', 'fireball',
+] as const;
 ```
+
+Per-Sound-Anti-Flood-Fenster und Polyphony-Cap werden zur Laufzeit aus der
+Buffer-Dauer abgeleitet (kurze Combat-Samples → locker, lange Spawn-Samples
+→ strikt). Override pro Sound via `SpatialSoundConfig.minIntervalMs` /
+`maxInstances` beim `registerSound()`.
 
 **Methoden in SpatialAudioManager:**
 ```typescript
@@ -159,6 +186,24 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 - Bei Überschreitung: Ältester Eintrag (niedrigster Timestamp) wird evicted
 - Buffers die gerade laden werden nicht evicted
 
+## Hintergrundmusik (BackgroundMusicService)
+
+Hintergrundmusik laeuft separat zu Spatial Audio und ist **nicht-positional**
+(globale Lautstaerke), siehe `game-engine/background-music.service.ts`. Details:
+
+- **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanaele).
+- **Phasen-Logik**: Wave-Start fadet aktuelle Build-Musik aus; Wave-Ende
+  startet neue Build-Track. Wave-Phase aktuell ohne Tracks (TODO).
+- **Loop-Crossfade**: Vor Track-Ende startet derselbe Track auf dem anderen
+  Kanal mit Crossfade — ergibt nahtlose Loops ohne nativen `loop:true`-Gap.
+- **Main Theme**: Wird per statischer `BackgroundMusicService.playMainTheme()`
+  via `HTMLAudioElement` schon vor Engine-Init abgespielt. `onLoadingComplete()`
+  crossfadet den Main-Theme-HTMLAudio aus, waehrend Build-Musik anfaedet.
+- **Track-Auswahl**: `pickRandom()` schliesst den zuletzt gespielten Track aus,
+  sodass beim Wechsel ein neuer Track gewaehlt wird.
+- **Persistenz**: `td_music_enabled` (localStorage) merkt User-Toggle.
+- **Tracks**: `configs/background-music.config.ts` (1 Main, 2 Build, 13 Wave).
+
 ## Distanz-Modelle
 
 | Modell | Beschreibung |
@@ -179,9 +224,11 @@ interface SpatialSoundConfig {
   refDistance?: number;      // Default: 50m
   rolloffFactor?: number;    // Default: 1.5
   maxDistance?: number;      // Default: 0 (kein Limit)
-  distanceModel?: 'linear' | 'inverse' | 'exponential';
+  distanceModel?: 'linear' | 'inverse' | 'exponential'; // Default: 'inverse'
   volume?: number;           // Default: 1.0
   loop?: boolean;            // Default: false
+  minIntervalMs?: number;    // Anti-Flood: -1 = Heuristik aus Buffer-Dauer (5%, 10–80 ms)
+  maxInstances?: number;     // Polyphony-Cap: -1 = Heuristik (kurz=8, mittel=4, lang=2)
 }
 ```
 

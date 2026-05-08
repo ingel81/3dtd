@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-02-13
+**Stand:** 2026-05-08
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -23,10 +23,10 @@ Das klassische Rendering erzeugt pro Enemy 2 Draw Calls (Mesh + Health Bar Sprit
 ## Architektur
 
 ```
-instanced-enemy/
+src/app/three-engine/renderers/instanced-enemy/
 ├── instanced-enemy.renderer.ts   # Orchestrator (API-kompatibel mit ThreeEnemyRenderer)
 ├── enemy-instance.manager.ts     # Per-Typ InstancedMesh Pools + Animation State
-├── health-bar-instance.manager.ts # Instanzierte Health Bars (1 Draw Call)
+├── health-bar-instance.manager.ts # Instanzierte Health Bars (1 Draw Call, Two-Pass)
 ├── vat-baker.ts                  # Skeletal → VAT Baking (animiert + statisch)
 └── vat-material.ts               # VAT ShaderMaterial (Vertex + Fragment Shader)
 ```
@@ -218,6 +218,10 @@ Alle Health Bars in einem einzigen InstancedMesh:
 - Per-Instance: `aHealth` (0-1), `aBarColor` (RGB), `aIsBoss` (float)
 - Farbverlauf: Gruen (>60%) → Gelb (>30%) → Rot (<30%)
 - Max 20.000 Health Bars
+- **Two-Pass Rendering** für korrektes Depth-Testing: erst Pass mit
+  Tiefen-Test (Bars hinter Geometrie verdeckt), dann zweiter Pass mit
+  reduzierter Opazitaet (Bars schimmern leicht durch Verdeckungen).
+  Verhindert "Pop-Through"-Artefakte ohne komplettes Disablen des Z-Buffers.
 
 ---
 
@@ -318,4 +322,9 @@ Der JS-Overhead (Animation-Update, Matrix-Setzen) skaliert linear. Der GPU-Overh
 **Optimierungen (Stand 2026-03-15):** ~37% Reduktion des JS-Overheads pro Enemy durch:
 gecachtes `performance.now()`, Single-Pass Status-Effects, gebatchte GPU-Flags,
 Integer-Hash Spatial-Grid-Keys, inlined `geoToLocalSimple()` mit gecachtem Cosinus,
-eliminiertes `Math.pow`/`Math.sqrt` in Hot-Paths. Details: siehe ARCHITECTURE.md.
+eliminiertes `Math.pow`/`Math.sqrt` in Hot-Paths. 5000 Enemies @ 67 FPS
+(vorher 3000 @ 61 FPS). Details: siehe ARCHITECTURE.md / DONE.md.
+
+**VAT Shader Emissive (Stand 2026-02-14):** `emissiveIntensity` und `emissiveColor`
+Uniforms im Fragment Shader zur Korrektur dunkel dargestellter Modelle (Mammoth, Rat,
+Spider, Zombie Soldier). Werte stammen aus `EnemyTypeConfig`.

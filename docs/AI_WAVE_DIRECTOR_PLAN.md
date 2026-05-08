@@ -1,24 +1,27 @@
-# AI Wave Director
+# AI Wave Director — Übersicht & Historie
 
-> **⚠️ Stand Phase 5.10 (April 2026):** Die Architektur wurde grundlegend überarbeitet.
-> Der aktuelle Stand ist in [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md)
-> dokumentiert. Dieses Dokument beschreibt die historische Phase 5.x-Architektur
-> (16-Softmax × 4 Continuous + 13 Reward-Terms), die durch Template-Based Waves
-> ersetzt wurde.
+> **Aktueller Stand (Phase 5.16):** Range-Based Templates + Designer-Curriculum + Endgame-Difficulty-Knobs.
+> Architektur-Details: [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Templates/Decoder/Reward)
+> + [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) (Curriculum/Economy/Difficulty).
+>
+> Dieses Dokument fasst die übergreifende AI-Wave-Director-Architektur zusammen und
+> verweist auf die phase-spezifischen Dokumente für die Detail-Spezifikation.
 
-## Ueberblick
+## Überblick
 
-Machine-Learning-basierter Wave Director fuer 3DTD. Generiert adaptive Gegner-Wellen basierend auf der raeumlichen Verteidigung des Spielers. Ziel: avg raw progress ~55% (Haelfte der Enemies stirbt in der Defense, Haelfte kommt durch).
+Machine-Learning-basierter Wave Director für 3DTD. Generiert adaptive Gegner-Wellen
+basierend auf Wave-Curriculum (welcher Template-Charakter) + Spieler-DPS (wie hart).
+Ziel: durchgehend "fordernd" — pro Wave 1-5 % HP-Verlust + 65-90 % Path-Progress
+(near-miss Zone).
 
-**Stack:** Angular (Browser) + Python (Training Backend)
+**Stack:** Angular (Browser/Inference) + Python (PPO Training Backend)
 
-**Aktuelle Architektur (Phase 5.10):**
-- Action Space: `template_idx` (32 slots, 18 aktiv) + `strength` + `count`
-- State Vector: 156 Features (Phase 5.6 awareness + Gap-5 armor-matrix)
+**Aktueller Action-/State-Space (Phase 5.11+):**
+- State: 156 Features
+- Output: 36 (32 Template-Logits + 4 Continuous-Factors über Sigmoid)
 - 4 Reward-Terms: DEATH + DRAMA + SWARM_SIZE + PROGRESSION
-- Hard-Constraints im Decoder (Cooldown, Capability-Gates, Curriculum)
-
-Details siehe [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md).
+- Hard Constraints im Decoder (Curriculum-Override, Capability-Gates, Cooldown,
+  DPS-Ramp-Caps, Wave-Duration-Cap, Endgame-HP-Multiplier)
 
 ---
 
@@ -28,30 +31,43 @@ Details siehe [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md).
 ┌─────────────────────────────────────────────────────────────────┐
 │                     BROWSER (Angular)                            │
 ├─────────────────────────────────────────────────────────────────┤
-│                                                                 │
-│  ┌──────────────────┐      ┌──────────────────┐                 │
-│  │ AIDataCollector   │─────▶│ GameStateEncoder │                 │
-│  │ (State Snapshot)  │      │ (74 Features)    │                 │
-│  └──────────────────┘      └────────┬─────────┘                 │
+│                                                                  │
+│  ┌──────────────────┐      ┌──────────────────┐                  │
+│  │ AIDataCollector  │─────▶│ GameStateEncoder │                  │
+│  │ (State Snapshot) │      │ (156 Features)   │                  │
+│  └──────────────────┘      └────────┬─────────┘                  │
 │                                     │                            │
 │  ┌──────────────────┐               │                            │
 │  │ DPS Profile      │               │                            │
 │  │ (20 Bins along   │               │                            │
 │  │  path, G+A)      │               ▼                            │
-│  └──────────────────┘      ┌──────────────────┐                 │
-│                             │ TrainingClient   │                 │
-│  ┌──────────────────┐      │ (WebSocket :3001)│                 │
-│  │ WaveConfigAdapter │◀─────│                  │                 │
-│  │ (Config → Game)   │      └────────┬─────────┘                 │
-│  └──────────────────┘               │                            │
-│                                     │ WebSocket                  │
-│  ┌──────────────────┐               │                            │
-│  │ Bot System        │               │                            │
-│  │ (Tower Placement) │               │                            │
+│  └──────────────────┘      ┌──────────────────┐                  │
+│                            │ TrainingClient   │                  │
+│  ┌──────────────────┐      │ (WebSocket :3001)│                  │
+│  │ Wave-Curriculum  │      │  → Server        │                  │
+│  │ (Template-Pin    │      └────────┬─────────┘                  │
+│  │  + Gold-Budget)  │               │                            │
 │  └──────────────────┘               │                            │
 │                                     │                            │
-└─────────────────────────────────────┼────────────────────────────┘
-                                      │
+│  ┌──────────────────┐      ┌────────▼─────────┐                  │
+│  │ WaveDirectorSvc  │◀─────│  Decoder         │                  │
+│  │ (ONNX Inference  │      │  (lerp Range,    │                  │
+│  │  in Standalone-  │      │   Curriculum-    │                  │
+│  │  Modus)          │      │   Override,      │                  │
+│  └────────┬─────────┘      │   DPS-Cap,       │                  │
+│           ▼                │   Duration-Cap)  │                  │
+│  ┌──────────────────┐      └──────────────────┘                  │
+│  │ WaveConfigAdapter│                                            │
+│  │ (Decoded → Game) │                                            │
+│  └──────────────────┘                                            │
+│                                                                  │
+│  ┌──────────────────┐                                            │
+│  │ Bot System       │                                            │
+│  │ (Training-       │                                            │
+│  │  Strategist)     │                                            │
+│  └──────────────────┘                                            │
+└─────────────────────────────────────┬────────────────────────────┘
+                                      │ WebSocket
                                       ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                  TRAINING BACKEND (Python)                       │
@@ -59,18 +75,23 @@ Details siehe [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md).
 │                                                                 │
 │  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
 │  │  server.py   │─────▶│   model.py   │─────▶│  trainer.py  │  │
-│  │ (WebSocket)  │      │(Conv1D+Dense)│      │    (PPO)     │  │
+│  │ (WebSocket,  │      │(Conv1D+Dense)│      │    (PPO)     │  │
+│  │  Decoder)    │      │ 156→36       │      │              │  │
 │  └──────────────┘      └──────────────┘      └──────────────┘  │
 │         │                                                       │
 │         │              ┌──────────────┐      ┌──────────────┐   │
 │         └─────────────▶│  reward.py   │      │  config.py   │   │
-│                        │(DPS-Gaussian)│      │  (Settings)  │   │
+│                        │ (4 Terms)    │      │              │   │
 │                        └──────────────┘      └──────────────┘   │
+│                                                                 │
+│  ┌──────────────┐      ┌──────────────┐                         │
+│  │ templates.py │      │wave_curric.py│                         │
+│  │ (18 Ranges)  │      │ (30-Wave Seq)│                         │
+│  └──────────────┘      └──────────────┘                         │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  dashboard/ (FastAPI :3002, Chart.js, Live WebSocket)    │   │
 │  └──────────────────────────────────────────────────────────┘   │
-│                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
@@ -78,62 +99,82 @@ Details siehe [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md).
 
 ## Kern-Konzepte
 
-### 1. DPS-Profil (Raeumliche Verteidigung)
+### 1. DPS-Profil (Räumliche Verteidigung)
 
-Der Pfad wird in **20 Bins** unterteilt. Pro Bin wird die DPS berechnet (Ground + Air getrennt).
-
-```
-Bin:    [0] [1] [2] [3] [4] [5] [6] [7] [8] [9] ... [19]
-Ground:  0   0  0.3 0.8 1.0 1.0 0.5  0   0   0  ...   0
-Air:     0   0   0  0.2 0.4 0.4  0   0   0   0  ...   0
-```
+Der Pfad wird in **20 Bins** unterteilt. Pro Bin werden Ground-DPS und Air-DPS getrennt
+berechnet.
 
 **Berechnung:** `src/app/ai/core/dps-profile.ts`
-- Pfad in 20 gleichmaessig verteilte Punkte samplen
+- Pfad in 20 gleichmäßig verteilte Punkte samplen
 - Pro Punkt: RouteCell → sichtbare Towers → DPS aufsummieren
-- Normalisiert auf [0, 1] (MAX_DPS_PER_BIN = 500)
+- Normalisiert auf [0, 1]
 
 **Nutzen:**
-- Conv1D-Branch im Model erkennt raeumliche Muster (Luecken, Cluster)
-- Model lernt wo Verteidigung stark/schwach ist und waehlt Enemies entsprechend
-- Air-Enemies nutzen Air-Profil, Ground-Enemies das Ground-Profil
+- Conv1D-Branch im Model erkennt räumliche Muster (Lücken, Cluster)
+- Model lernt wo Verteidigung stark/schwach ist und wählt Range-Faktoren entsprechend
+- Air-Profil wird relevant wenn Capability-Gate Air-Templates erlaubt
 
-### 2. DPS-Relative HP (Kill-Time)
+### 2. Wave-Curriculum + DPS-Ramp (Difficulty)
 
-Das Model waehlt `kill_time` (0.5-4.0s) statt absoluter HP:
+**Curriculum:** 30 Waves explizit gepinnt (Phase 5.16). Der Decoder ignoriert das
+Template-Argmax des NN für Wave 1-30 und nimmt das Curriculum-Template; ab Wave 31
+loopt die Sequenz mod-30.
 
 ```
-enemy_hp = effective_dps * kill_time
-healthMultiplier = enemy_hp / base_hp_of_type
+Wave 1 → zombie_horde     (unarmored intro)
+Wave 7 → bat_swarm        (Air debut – Anti-Air required)
+Wave 10 → boss_herbert    (Boss 1)
+Wave 13 → ghost_surge     (Ethereal intro – Magic required)
+Wave 20 → boss_herbert    (Boss 2)
+Wave 30 → boss_herbert    (Boss 3 – season finale)
 ```
 
-- Automatische Skalierung mit Spieler-DPS
-- Fuer Air-Enemies: `air_dps` statt `ground_dps`
-- Alle Enemy-Typen inkl. Herbert nutzen DPS-relative HP (keine Spezialfaelle)
+**DPS-Ramp:** Die Continuous-Faktoren in [0,1] des NN werden im Decoder NICHT direkt
+über die volle Range gemappt — der obere Endpunkt von `count` und `hp_mult` wird auf
+Basis der aktuellen Spieler-DPS gerampt:
+- `count_max_eff = range_min + (range_max − range_min) × min(1, totalDPS / 500)`
+- `hp_mult_max_eff = range_min + (range_max − range_min) × min(1, totalDPS / 1000)`
+- Floor: 10 % der Range bleibt selbst bei 0 DPS erreichbar
 
-### 3. Raw Progress (Reward-Signal)
+Das verhindert "one-shot Wave 1" Pathologien wenn der NN aus altem Checkpoint sigmoid
+≈ 0.5 produziert.
 
-Reward basiert auf **raw path progress** (physische Distanz 0-1). Das DPS-Profil dient nur als Model-Input (Conv1D erkennt raeumliche Muster), nicht fuer Reward-Normalisierung.
+### 3. Wave-Duration-Cap
 
-Bei konzentrierter Verteidigung (Towers in 15-25% des Pfades): avg raw progress ~0.55 bedeutet die Haelfte der Enemies stirbt in der Defense-Zone, die andere Haelfte kommt durch. Das ist der Sweet Spot.
+Wenn `count × spawn_delay > 180_000 ms`, komprimiert der Decoder `spawn_delay` auf
+`max(5 ms, 180_000 / count)`. Mega-Swarms mit langem Delay werden so automatisch zu
+schnell-spawnenden Swarms — der NN wählt Stil, nicht Pathologie.
+
+### 4. Endgame HP Multiplier (Phase 5.16)
+
+Post-Decoder wird `hp_mult` mit `endgameHpMultiplier(wave)` multipliziert:
+- W1-19: ×1.0 (kein Effekt)
+- W20+: +5 %/Wave, Cap ×4.0 bei W80
+- Compoundet auf NN's `hp_mult` — ein Checkpoint der bei W30 ×3 hp_mult lernt liefert
+  effektiv ×3 × ×1.5 = ×4.5
+
+### 5. Gold-Budget (Phase 5.16)
+
+Pro Wave deterministisches Gold-Budget (`wave-curriculum.ts`):
+- `goldKill` (Summe aller Kill-Credits, geteilt durch waveSize)
+- `goldComplete` (Wave-Complete-Bonus + Skill-Bonuses)
+
+Income ist damit unabhängig vom NN's Continuous-Faktoren — nur vom Curriculum.
+Das ist die Grundlage für deterministische Tower-/Research-Cost-Balance.
 
 ---
 
-## State Vector (74 Features)
+## State Vector (156 Features)
 
-```
-[0-3]   Player: credits, lives%, wave, time (4)
-[4]     towerCount (1)
-[5]     avgTowerLevel (1)
-[6-11]  Tower Type Counts: 6 Typen, normalisiert (6)
-[12-16] History Damage: letzte 5 Waves (5)
-[17-21] History Progress: letzte 5 Waves avg_progress (5)
-[22-26] Wave Signals: momentum, avgDmg, duration, episodeProgress, variance (5)
-[27-31] Context: wave, trend, skill, lastThreat, winStreak (5)
-[32-33] Reserved/Padding (2)
-[34-53] Ground DPS Profile: 20 Bins (20)
-[54-73] Air DPS Profile: 20 Bins (20)
-```
+| Indizes      | Block                                               |
+|--------------|-----------------------------------------------------|
+| `[0-52]`     | Base Scalar (player, towers, signals, history)      |
+| `[53-105]`   | Phase 5.6 Awareness (types/armor/damage histories)  |
+| `[106-115]`  | Gap-5 effective-DPS per armor (5 ground + 5 air)    |
+| `[116-135]`  | Ground DPS Profile (20 Bins)                        |
+| `[136-155]`  | Air DPS Profile (20 Bins)                           |
+
+Implementation: `src/app/ai/core/game-state-encoder.ts` (Mirror in `server.py::_encode_state`).
 
 ---
 
@@ -142,158 +183,124 @@ Bei konzentrierter Verteidigung (Towers in 15-25% des Pfades): avg raw progress 
 **Actor-Critic PPO mit Hybrid Action Space**
 
 ```
-Input: 74 Features
-├── Scalar Branch [0-33]: Linear(34, 64) + LayerNorm + ReLU
-├── Spatial Branch [34-73]: Conv1d(2→16→32, k=3) + AdaptiveAvgPool → 32
-├── Combined: concat(64, 32) = 96
-│   → Linear(96, 128) + LayerNorm + ReLU + Dropout(0.1)
-│   → Linear(128, 64) + LayerNorm + ReLU + Dropout(0.1)
+Input: 156 Features
+├── Spatial Branch [116-155]: Conv1d(2→16→32, k=3) + AdaptiveAvgPool → 32
+├── Scalar  Branch [0-115]:   Linear(116, 128) + LayerNorm + ReLU
+├── Combined: concat(128, 32) = 160
+│   → Linear(160, 192) + LayerNorm + ReLU + Dropout(0.1)
+│   → Linear(192,  96) + LayerNorm + ReLU + Dropout(0.1)
 └── Output Heads:
-    ├── Enemy: Linear(64, 5) → Categorical(zombie, bat, tank, wallsmasher, herbert)
-    ├── Params: Linear(64, 4) → Gaussian(kill_time, count, delay, variation)
-    ├── Log-Std: Parameter(4) → Exploration noise
-    └── Value: Linear(64, 1) → State value estimate
+    ├── template_head: Linear(96, 32) → Categorical (18 active slots)
+    ├── params_head:   Linear(96, 4)  → Sigmoid → factors in [0,1]
+    │                                   for (count, spawn_delay, hp_mult, variation)
+    ├── log_std:       Parameter(4)   → exploration noise
+    └── value_head:    Linear(96, 1)  → critic baseline
 ```
 
----
-
-## Reward-Funktion
-
-**Ziel:** Sweet Spot bei ~55% raw path progress (Gaussian Peak). Haelfte der Enemies stirbt in der Defense-Zone, Haelfte kommt durch.
-
-```python
-reward = exp(-((progress - 0.55)^2) / (2 * 0.15^2))
-if avg_progress < 0.20:
-    reward = -0.30  # Langweilig (flat penalty)
-if avg_progress > 0.85:
-    reward = -0.30  # Zu viele kommen durch
-```
-
-**Wichtig:** Reward nutzt **raw path progress** (physische Distanz), NICHT DPS-normalized progress. DPS-Profil ist nur Model-Input.
-
-| avg_progress | Reward | Beschreibung |
-|-------------|--------|--------------|
-| < 20% | -0.30 | Langweilig |
-| 20-40% | 0.2 - 0.6 | Moderat |
-| 45-65% | 0.85 - 1.0 | Sweet Spot |
-| > 85% | **-0.30** | Zu gefaehrlich |
-| Game Over | -0.5*(20/wave) | Proportional zur Frueheit |
-
-**Bonus-Signale** (nur wenn avg_progress < 0.85):
-
-| Signal | Bedingung | Bonus |
-|--------|-----------|-------|
-| Near-Miss | >50% Enemies bei 80%+, survived, progress<85% | +0.15 |
-| Max Progress | 1 Enemy bei 90%+, survived, progress<85% | +0.10 |
-| Spread | Progress-StdDev > 0.05 | +0.05 |
-| Variety | Neuer Enemy-Typ in letzten 5 Waves | +0.15 |
+Total: **36 Outputs**. Code: `training-backend/model.py` und ONNX-Export
+`training-backend/scripts/export_to_tfjs.py`.
 
 ---
 
-## Frontend-Dateien
+## Reward-Funktion (4 Terms)
 
-| Datei | Funktion |
-|-------|----------|
-| `src/app/ai/core/dps-profile.ts` | DPS-Profil Berechnung (20 Bins) |
-| `src/app/ai/core/dps-profile-visualizer.ts` | 3D Bin-Visualisierung auf Pfad |
-| `src/app/ai/core/game-state-encoder.ts` | 74-Feature Encoding |
-| `src/app/ai/core/ai-data-collector.service.ts` | State Snapshot + DPS Cache |
-| `src/app/ai/core/wave-director.service.ts` | Inference + Fallback Rules |
-| `src/app/ai/core/wave-config-adapter.ts` | Backend-Config → Game WaveConfig |
-| `src/app/ai/core/defense-analyzer.ts` | Defense-Metriken berechnen |
-| `src/app/ai/core/fallback-rules.ts` | Fallback wenn kein Backend |
-| `src/app/ai/core/models/game-state-snapshot.ts` | State Interface |
-| `src/app/ai/core/models/wave-config.ts` | Wave Config Interface |
-| `src/app/ai/core/models/wave-result.ts` | Wave Result Interface |
-| `src/app/ai/core/decision-explainer.ts` | Entscheidungs-Erklaerungen |
-| `src/app/ai/training/training-client.service.ts` | WebSocket Client |
+Details + Formeln: [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Sweet-Zone-Tuning),
+Code: `training-backend/reward.py`.
+
+| Term         | Bereich                | Hot-Notes                                       |
+|--------------|------------------------|--------------------------------------------------|
+| DEATH        | -3.5 .. 0              | Early-game-Tod schmerzt mehr (lineare Skalierung) |
+| DRAMA        | -0.8 .. +0.9 (sweet)   | Damage 1-5 % + Progress 65-90 % = Sweet         |
+| SWARM_SIZE   | -0.10 .. +2.0          | Phase 5.14: Slope 0.0015, Cap 2.0 (gegen Exploits)|
+| PROGRESSION  | 0 .. +0.5              | Slope 0.02 × wave_num, gated auf Survival+Damage|
+
+**Wichtig:** SWARM_SIZE ist seit Phase 5.14 stark gedämpft + gegated auf
+Survival + Damage-Hard-Threshold + Progress-Overflow — verhindert dass das NN
+"riesige Swarms die alle durchlaufen" als Reward-Hack lernt.
 
 ---
 
-## Backend-Dateien
+## Frontend-Dateien (`src/app/ai/`)
 
-| Datei | Funktion |
-|-------|----------|
-| `training-backend/server.py` | WebSocket Server, State Encoding, Action Decoding |
-| `training-backend/model.py` | Conv1D + Dense Neural Network |
-| `training-backend/trainer.py` | PPO Training Algorithm |
-| `training-backend/reward.py` | Reward Function (DPS-Gaussian) |
-| `training-backend/config.py` | Hyperparameter & Settings |
-| `training-backend/tui_logger.py` | Console + JSONL Logging |
-| `training-backend/auto_logger.py` | Automatisches Logging |
-| `training-backend/dashboard/` | FastAPI Web Dashboard (Port 3002) |
+| Datei                                              | Funktion                                           |
+|---------------------------------------------------|----------------------------------------------------|
+| `core/dps-profile.ts`                              | DPS-Profil-Berechnung (20 Bins)                    |
+| `core/dps-profile-visualizer.ts`                  | 3D-Bin-Visualisierung auf Pfad                     |
+| `core/game-state-encoder.ts`                       | 156-Feature Encoding                               |
+| `core/ai-data-collector.service.ts`               | State Snapshot + DPS Cache                         |
+| `core/wave-director.service.ts`                    | ONNX Inference + Decoder (Curriculum-Override etc.)|
+| `core/wave-config-adapter.ts`                      | WaveConfig → Game-Format                           |
+| `core/templates.ts`                                | 18 Templates (Mirror von `templates.py`)           |
+| `core/wave-curriculum.ts`                          | 30-Wave-Sequenz + Gold-Budget + Difficulty-Knobs   |
+| `core/defense-analyzer.ts`                         | Defense-Metriken                                   |
+| `core/decision-explainer.ts`                       | Entscheidungs-Erklärungen (UI-Tooltip)             |
+| `core/spawn-schedule-builder.ts`                   | Pattern-basiertes Spawn-Schedule                   |
+| `core/tower-dps.util.ts`                           | DPS-Berechnung pro Tower-Typ                       |
+| `core/models/game-state-snapshot.ts`               | State-Interface                                    |
+| `core/models/wave-config.ts`                       | WaveConfig-Interface                               |
+| `core/models/wave-result.ts`                       | WaveResult-Interface                               |
+| `training/training-client.service.ts`              | WebSocket-Client für Live-Training                 |
+| `training/bots/`                                   | Bot-Klassen + Factory (siehe BOT_SYSTEM.md)        |
+| `training/strategies/{placement,research,upgrade,wave}/` | Strategien                                  |
 
----
-
-## Training Workflow
-
-1. Backend starten: `cd training-backend && start.bat`
-2. Frontend starten: `npm start` (Angular Dev-Server)
-3. Im Spiel: Training-Debugger aktivieren
-4. Bot platziert Towers, AI generiert Waves
-5. Dashboard ueberwachen: `http://localhost:3002`
-6. Checkpoints werden alle 10 Episoden gespeichert
-
----
-
-## WebSocket-Protokoll (Port 3001)
-
-### Browser → Backend
-
-| Type | Beschreibung |
-|------|-------------|
-| `connect` | Initial Connection |
-| `state` | Game State (74 Features + DPS-Profil) |
-| `result` | Wave Outcome (Progress, Kills, etc.) |
-| `game_start` | Neues Spiel (+ enemyBaseHp) |
-| `game_over` | Spiel beendet (won/lost) |
-
-### Backend → Browser
-
-| Type | Beschreibung |
-|------|-------------|
-| `connected` | Connection bestaetigt |
-| `wave_config` | Generierte Wave-Konfiguration |
-| `stats` | Training-Statistiken |
-| `reset` | Episode zuruecksetzen |
-| `select_bot` | Bot-Typ zuweisen |
+`fallback-rules.ts` wurde in Phase 5.10 entfernt — Standalone-Modus erfordert ein
+geladenes ONNX-Modell, sonst zeigt das UI eine rote Fehlermeldung.
 
 ---
 
-## Hyperparameter
+## Backend-Dateien (`training-backend/`)
 
-| Parameter | Wert |
-|-----------|------|
-| Learning Rate | 0.0003 |
-| Clip Epsilon | 0.2 |
-| Entropy Coef | 0.04 |
-| Value Coef | 0.5 |
-| Batch Size | 16 |
-| Update Epochs | 4 |
-| Gamma | 0.99 |
-| Grad Clip | 0.5 |
-| Episode Length | 20 Waves |
-| Checkpoint | alle 10 Ep. |
-| Progress Center | 0.55 (raw path progress) |
-| Progress Sigma | 0.15 |
-| Kill-Time Range | 1.0 - 4.0s |
-| Spawn Delay | 500 - 2000ms |
-| Enemy Base Damage | 1 (pro Enemy am HQ) |
-| Game-Over-Penalty | -0.5 * (20/wave) |
-| Boring-Penalty | -0.30 flat (progress < 0.20) |
-| Overflow-Penalty | -0.30 (progress > 0.85) |
-| Min Enemy Count | max(5, towers+1) |
+| Datei                       | Funktion                                                      |
+|----------------------------|---------------------------------------------------------------|
+| `server.py`                 | WebSocket-Server, State-Encoder, Decoder (`_decode_action`)   |
+| `model.py`                  | PyTorch Conv1D+Dense Modell (Phase 5.11 Range-Based)          |
+| `trainer.py`                | PPO + Running-Mean/Std-Reward-Normalisierung                  |
+| `reward.py`                 | 4-Term-Reward (DEATH, DRAMA, SWARM_SIZE, PROGRESSION)         |
+| `config.py`                 | Hyperparameter, Reward-Schwellen, DPS-Ramp-Caps               |
+| `templates.py`              | 18 Templates mit Ranges + Mask-Helper                         |
+| `wave_curriculum.py`        | 30-Wave Sequenz (Mirror von `wave-curriculum.ts`)             |
+| `tui_logger.py`             | Konsolen + JSONL-Log                                          |
+| `auto_logger.py`            | Auto-Snapshot des Konfigs in JSONL                            |
+| `manage_server.py`          | Start/Stop/Restart-CLI                                        |
+| `inspect_training.py`       | Dashboard-CLI (Template-Usage, Reward-Breakdown)              |
+| `dashboard/app.py`          | FastAPI Dashboard (Port 3002)                                 |
+| `dashboard/static/*`        | Chart.js Frontend                                             |
+| `scripts/export_to_tfjs.py` | ONNX-Export (Phase-5.11 Schema)                               |
+| `scripts/analyze_log.py`    | Log-Analyse                                                   |
+| `tests/test_templates.py`   | Template-Integrität                                           |
+| `tests/test_reward_v2.py`   | Reward-Function Sanity Tests                                  |
+
+Detail-Doku: [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md).
+
+---
+
+## Training-Workflow
+
+1. Backend starten: `cd training-backend && python manage_server.py start` (oder `start.bat`)
+2. Frontend starten: `npm start`
+3. Mehrere Browser-Tabs öffnen (4-8 für parallele Episodes)
+4. `curl -X POST http://localhost:3002/api/control/start`
+5. Dashboard: `http://localhost:3002`
+6. Checkpoints alle 10 Episoden in `training-backend/checkpoints/`
+7. ONNX-Export: `npm run export-ai`
+
+Training Notes + Erkenntnisse: [PHASE5.5_TRAINING_RUNBOOK.md](../training-backend/PHASE5.5_TRAINING_RUNBOOK.md)
++ [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md).
 
 ---
 
 ## Verwandte Dokumentation
 
-| Dokument | Inhalt |
-|----------|--------|
-| [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Detaillierte Backend-Doku |
-| [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy Bot Architektur |
-| [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte |
+| Dokument                                                 | Inhalt                                                         |
+|----------------------------------------------------------|----------------------------------------------------------------|
+| [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md)             | **Aktive Architektur:** Range-Templates, Decoder, Reward-Tuning|
+| [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) | Phase 5.16 Balance-Pass: Curriculum, Endgame-Knobs, Gold-Budget|
+| [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md)       | Historisch: Übergang von 16-Softmax zu Templates               |
+| [BOT_SYSTEM.md](BOT_SYSTEM.md)                           | Strategy-Pattern Bot-Architektur                               |
+| [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md) | Detaillierte Backend-Doku                          |
+| [AI_TRAINING_SESSION_NOTES.md](../training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte (v1→v2→v3 → Phase 5.x)|
+| [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) | ONNX Export Workflow                                   |
 
 ---
 
-**Last Updated:** 2026-01-25
+**Last Updated:** 2026-05-08 (Phase 5.16 — Curriculum + Endgame-Knobs)

@@ -1,5 +1,13 @@
 # Phase 5.11 — Range-Based Templates
 
+> **Hinweis:** Phase 5.11 ist die aktuell aktive Modell-Architektur (`OUTPUT_SIZE=36`,
+> 4 Continuous-Faktoren, Templates mit Ranges). Spätere Phasen 5.14 (SWARM-Reward
+> dampening) und 5.16 (Wave-Curriculum + Endgame-Knobs + Gold-Budget) bauen auf
+> diesem Schema auf, ohne Inkompatibilitäten an den Output-Tensoren.
+>
+> - Phase 5.14 / 5.16 Deltas: siehe Abschnitt am Ende dieses Dokuments.
+> - Vollständige Phase 5.16 Snapshot-Doku: [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md).
+
 ## Kontext
 
 Phase 5.10 hatte jedes Template mit **statischen** `base_count`, `base_spawn_delay_ms`,
@@ -83,3 +91,91 @@ statt gelegentlich-mild.
 - `src/app/ai/core/templates.ts` — 1:1 Mirror
 - `src/app/ai/core/wave-director.service.ts::decodeModelOutput` — lerp + Duration-Cap
 - `training-backend/scripts/export_to_tfjs.py` — Metadata mit Ranges + Duration-Cap-Config
+
+---
+
+## Phase 5.11b — DPS-scaled Range Caps
+
+Der NN gibt Faktoren in `[0,1]` aus. Ein frischer/leerer Spieler bei sigmoid≈0.5
+würde ohne Schutz die Mitte der Ranges treffen — bei `count=1010` (Mitte von
+20..2000) und `hp_mult≈3.25` ist Wave 1 unspielbar.
+
+Decoder-Side Schutz (`config.py`):
+
+```
+dps_frac      = max(FLOOR, min(1.0, totalDPS / DPS_RAMP))
+effective_max = range_min + (range_max − range_min) × dps_frac
+final_value   = lerp((range_min, effective_max), factor)
+```
+
+Nur auf **count** und **hp_mult** angewendet (Difficulty-Achsen). `spawn_delay` und
+`variation` bleiben über volle Range frei (Stil, nicht Difficulty).
+
+Konstanten:
+- `DPS_RAMP_FLOOR = 0.10` — auch bei 0 DPS sind 10 % der Range erreichbar
+- `DPS_RAMP_COUNT = 500.0`
+- `DPS_RAMP_HP_MULT = 1000.0`
+
+---
+
+## Phase 5.14 — SWARM-Reward Dampening
+
+Vorheriger SWARM_SIZE-Term (Slope `0.003`, Cap `8.0`) machte große unarmored Swarms
+zum dominierenden Reward-Signal. Beobachtetes NN-Verhalten:
+"2000 Zombies senden, alle laufen durch, +4.67 Swarm vs. -3.39 DRAMA = +1.28 net
+pro Wave — Bot verliert jede Wave, NN belohnt sich trotzdem."
+
+Änderungen in `config.py` + Reward-Gating:
+
+| Konstante                    | Alt    | Neu (5.14) |
+|-----------------------------|--------|------------|
+| `SWARM_SIZE_SLOPE`          | 0.003  | **0.0015** |
+| `SWARM_SIZE_CAP`            | 8.0    | **2.0**    |
+| `SWARM_SMALL_PENALTY`       | -0.10  | -0.10 (unverändert) |
+
+Zusätzliches Gating in `reward.py::_swarm_size_reward`: Bonus = 0 wenn
+- `survived == False`, oder
+- `avg_progress > PROGRESS_OVERFLOW_THRESHOLD (0.95)`, oder
+- `damage_pct > DAMAGE_HARD_THRESHOLD (0.20)`
+
+Damit muss das NN erst die DRAMA-Sweet-Zone treffen, bevor SWARM-Bonus überhaupt
+zählt.
+
+---
+
+## Phase 5.16 — Wave-Curriculum + Endgame-Knobs + Gold-Budget
+
+**Wave-Curriculum** (`wave_curriculum.py` / `wave-curriculum.ts`):
+- 30 Waves explizit gepinnt, danach mod-30-Loop
+- Decoder forciert das Curriculum-Template für Wave 1..N (NN's Template-Argmax wird
+  überschrieben)
+- NN's Continuous-Faktoren tunen weiterhin Difficulty
+- Bot/Player hat Foreknowledge → Capability-Gating bleibt Spieler-Verantwortung
+
+**Endgame HP-Multiplier** (`wave-curriculum.ts::endgameHpMultiplier`):
+- W1-19: ×1.0
+- W20+: +5 %/Wave
+- Cap: ×4.0 bei W80
+- Wirkt **post-NN**, compoundet auf NN's `hp_mult`
+
+**Per-Leak Damage-Skalierung** (`wave-curriculum.ts::enemyBaseDamageForWave`):
+- W1-10: 1 HP pro Leak
+- W11-20: 2 HP
+- W21-30: 3 HP
+- W31+: 4 HP+ (linear weiter)
+
+**Gold-Budget** (Frontend-only, `wave-curriculum.ts`):
+- Pro Wave deterministisch: `goldKill` (Summe aller Kill-Credits) + `goldComplete`
+- W1: 30 Kill / 15 Complete
+- W30: 650 Kill / 325 Complete
+- Linear extrapoliert ab W31: `KILL_DELTA_PER_WAVE=50`, `COMPLETE_DELTA_PER_WAVE=30`
+- Pro-Kill-Reward = `goldKill / waveSize` (NICHT pro-enemy-type-gewichtet)
+- Skill-Bonuses (Perfect, CloseCall, Milestone, Combo, Comeback) stacken oben drauf
+
+**Backend-Mirror** (`wave_curriculum.py`):
+- Nur die Template-Sequenz spiegelt sich ins Backend (für Decoder-Override)
+- Gold-Budget lebt nur im Frontend — der Reward des NN ist getrennt davon
+
+**Compatibility:** Das alte Phase-5.10/5.11 ONNX-Modell läuft mit den 5.14/5.16
+Decoder-Knobs ohne Retraining — die Architektur (156→36) ist identisch geblieben.
+Re-Training optional, sobald die neuen Difficulty/Economy-Werte live verifiziert sind.

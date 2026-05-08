@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-01-30
+**Stand:** 2026-05-08
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -10,14 +10,40 @@ Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen 
 
 Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. Das System unterstützt:
 
-- Verschiedene 3D-Modelle (GLB, FBX) mit Skelett-Animationen
+- Verschiedene 3D-Modelle (GLB, FBX) mit Skelett-Animationen (VAT-instanziert)
 - Walk-, Run- und Death-Animationen mit Speed-Coupling
-- Spatial Audio (Loop-Sounds, Random Sounds, Spawn Sounds)
-- Status-Effekte (Slow, Freeze, Burn)
+- Spatial Audio (Loop-Sounds, Random Sounds, Spawn Sounds, Random-Sounds-Pool mit Shuffle)
+- Status-Effekte (Slow, Poison — Freeze/Burn Typen reserviert)
 - Air und Ground Units
+- **Damage/Armor-Matrix** (`armorType` Pflichtfeld, Phase 5.x)
 - Lateral Offset und Height Variation für Bewegungsvariation
 - Boss-Enemies mit Custom Health Bar
-- Bluteffekte und visuelle Anpassungen
+- Bluteffekte (`canBleed`), Emissive Glow, Color Multiplier, Unlit Rendering
+- Konfigurierbare Sidebar-Preview (Camera Distance / Angle / Offset)
+- `isElite`-Flag für visuelle Markierung stärkerer Varianten
+
+---
+
+## Aktuelle Enemy-Typen (16)
+
+| Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
+|-------|-----------|--------|-------|------|--------------|
+| zombie | unarmored | 80 | 5 | – | Standard-Gegner |
+| zombie-soldier | heavy | 160 | 6 | – | Stärkere Variante mit Emissive |
+| rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
+| spider | light | 60 | 9 | – | Schneller, wenig HP |
+| penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
+| wallsmasher | light | 200 | 7 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` |
+| bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
+| hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
+| dragon | heavy | 450 | 6 | ✓ | Air-Boss-Tier, `heightOffset: 20` |
+| tank | heavy | 250 | 3 | – | Mechanisch, `canBleed: false` |
+| bear | heavy | 300 | 8 | – | Random Growl Sound |
+| mech | heavy | 500 | 3 | – | Mechanisch, idle/walk |
+| mammoth | fortified | 400 | 3 | – | Random Mammoth Call |
+| herbert | fortified | 500 | 4 | – | Boss, `immunityPercent: 100` |
+| ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
+| wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
 
 ---
 
@@ -30,10 +56,7 @@ Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. 
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
-  wallsmasher: { ... },
-  bat: { ... },
-  penguin: { ... },
-  herbert: { ... },
+  // ... (siehe Tabelle oben für alle 16 aktuellen Typen)
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -61,6 +84,9 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
   scale: 2.0,
   minimumPixelSize: 0, // 0 = echte Größe, kein Clamping
 
+  // Combat (Pflichtfeld seit Phase 5.x)
+  armorType: 'light',  // 'unarmored' | 'light' | 'medium' | 'heavy' | 'fortified' | 'ethereal'
+
   // Stats
   baseHp: 150,
   baseSpeed: 5,    // m/s
@@ -85,11 +111,21 @@ const NEW_ENEMY_MODEL_URL = '/assets/models/enemies/new_enemy.glb';
   canBleed: true,         // Bluteffekte
   headingOffset: 0,       // Rotations-Offset in Radians
 
+  // Visual-Tuning (optional)
+  emissiveIntensity: 0.15,    // 0 = aus, 0.1-0.5 dezent, 1+ stark
+  emissiveColor: '#ccddff',   // Default '#ffffff'
+  colorMultiplier: 1.3,       // Gesamt-Helligkeit (Default 1.0)
+  unlit: false,                // Cartoon-Style ohne Beleuchtung
+  isElite: false,              // Visueller Marker für stärkere Variante
+
   // Movement Variation
   lateralOffset: 2.0,     // ±2m seitlicher Versatz
 
   // Preview (optional)
-  previewScale: 1.5,      // Überschreibt Scale für Model-Preview (Sidebar)
+  previewScale: 1.5,            // Überschreibt Scale für Model-Preview (Sidebar)
+  previewCameraDistance: 7,     // Default 7
+  previewCameraAngle: Math.PI/12, // Default Math.PI/12 (~15°)
+  previewOffsetY: 0,            // Vertikaler Offset des Preview-Kamera-Targets
 },
 ```
 
@@ -226,11 +262,28 @@ unlit: true,  // Keine Beleuchtung - zeigt Originalfarben
 
 **Verwendung:** Für Cartoon-artige Modelle die keine Schatten brauchen
 
+### Color Multiplier (Helligkeit)
+
+```typescript
+colorMultiplier: 1.3,  // Gesamt-Helligkeit (Default 1.0; 1.3 = +30% heller)
+```
+
+**Verwendung:** Modelle die im VAT-Renderer dunkel wirken aufhellen (z.B. zombie-soldier, bear, dragon).
+
+### Elite-Flag
+
+```typescript
+isElite: true,  // Visueller Marker für stärkere Variante eines Base-Enemy
+```
+
+**Verwendung:** Z.B. von Wave-Director-Templates gesetzt; UI/Renderer können daran z.B. Glow-Aura zeigen.
+
 ### Boss Health Bar
 
 ```typescript
 immunityPercent: 100,        // "Immun 100%" Anzeige
-// healthBarColor und bossName: im Interface definiert, aber noch nicht implementiert
+healthBarColor: '#ff0000',   // Optional: feste Health-Bar-Farbe (z.B. Boss)
+bossName: 'Boss',            // Optional: Name über Health-Bar (UI-seitig noch nicht überall ausgewertet)
 ```
 
 ### Blood Effects
@@ -320,23 +373,19 @@ statusEffect: {
 - 1x Slow 50%: `slowMultiplier = 0.5`
 - 2x Slow 50%: Ersetzt vorherigen (Timer reset), weiterhin 50% langsamer
 
-### Freeze (Einfrieren)
+### Poison (DoT — aktiv)
+
+Vom Poison Tower angewendet. Kein Stacking — neuer Poison ersetzt vorherigen.
 
 ```typescript
-// Noch nicht implementiert
-type: 'freeze',
-value: 1.0,  // Komplett eingefroren
+type: 'poison',
+value: 5,         // Schaden pro Sekunde
+duration: 4000,   // Game-Time ms
 ```
 
-### Burn (Brennen - DoT)
+### Freeze / Burn (Reserviert)
 
-```typescript
-// Noch nicht implementiert
-type: 'burn',
-value: 10,   // Schaden pro Sekunde
-```
-
-Siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) für Details.
+`freeze` und `burn` sind als `StatusEffectType` definiert, aktuell aber nicht aktiv im Spiel verwendet. Siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) für Details.
 
 ---
 
@@ -351,6 +400,7 @@ zombie: {
   modelUrl: '/assets/models/enemies/zombie.glb',
   scale: 0.984,
   minimumPixelSize: 0,
+  armorType: 'unarmored',
   baseHp: 80,
   baseSpeed: 5,
   reward: 3,
@@ -382,6 +432,7 @@ bat: {
   modelUrl: '/assets/models/enemies/bat.glb',
   scale: 3.958,
   minimumPixelSize: 0,
+  armorType: 'light',
   baseHp: 25,
   baseSpeed: 8,
   reward: 2,
@@ -405,9 +456,10 @@ bat: {
 herbert: {
   id: 'herbert',
   name: 'Herbert',
-  modelUrl: '/assets/models/enemies/herbert.glb',
+  modelUrl: '/assets/models/enemies/herbert_optimized.glb', // optimiertes Mesh
   scale: 2.625,
   minimumPixelSize: 0,
+  armorType: 'fortified',
   baseHp: 500,
   baseSpeed: 4,
   reward: 15,
@@ -415,20 +467,8 @@ herbert: {
   walkAnimation: 'Armature|walking_man|baselayer',
   animationSpeed: 1.0,
 
-  // Spawn Sound
-  spawnSound: '/assets/sounds/enemies/herbert/spawn.mp3',
-  spawnSoundVolume: 0.6,
-  spawnSoundRefDistance: 40,
-
-  // Random Sounds Pool (13 Voice Lines)
-  randomSounds: [
-    '/assets/sounds/enemies/herbert/random-01.mp3',
-    // ... 12 weitere
-  ],
-  randomSoundsMinInterval: 10000,
-  randomSoundsMaxInterval: 25000,
-  randomSoundsVolume: 0.6,
-  randomSoundsRefDistance: 40,
+  // Speech-Sounds aktuell auskommentiert (siehe Datei).
+  // Random Sounds Pool (Shuffle ohne Wiederholung) wäre die Vorlage für künftige Voice Lines.
 
   heightOffset: 0.5,
   healthBarOffset: 7,
@@ -437,6 +477,10 @@ herbert: {
   headingOffset: -0.192,
   randomAnimationStart: true,
   lateralOffset: 2.0,
+  previewScale: 1.05,
+  previewCameraDistance: 3,
+  previewCameraAngle: 0,
+  previewOffsetY: 0.8,
 },
 ```
 
@@ -449,6 +493,7 @@ penguin: {
   modelUrl: '/assets/models/enemies/penguin.glb',
   scale: 0.005,
   minimumPixelSize: 0,
+  armorType: 'unarmored',
   baseHp: 30,
   baseSpeed: 9,
   reward: 2,
@@ -464,6 +509,9 @@ penguin: {
   randomAnimationStart: true,
   lateralOffset: 2.5,
   previewScale: 0.008,       // Eigener Scale für Sidebar-Preview
+  previewCameraDistance: 7,
+  previewCameraAngle: 0,
+  previewOffsetY: 1.8,
 },
 ```
 
@@ -476,6 +524,7 @@ wallsmasher: {
   modelUrl: '/assets/models/enemies/wallsmasher.fbx',
   scale: 0.037,
   minimumPixelSize: 0,
+  armorType: 'light',
   baseHp: 200,
   baseSpeed: 7,
   reward: 5,

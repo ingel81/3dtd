@@ -1,5 +1,7 @@
 # Location System
 
+**Stand:** 2026-05-08
+
 Das Location-System ermoeglicht es Spielern, ihren eigenen Spielort zu waehlen. Die URL ist die Single Source of Truth fuer die aktuelle Location.
 
 ## Uebersicht
@@ -297,6 +299,8 @@ STEP 3: Load Streets
   - OSM-Strassendaten laden (2000m Radius)
   - Cache-Check: Wenn gleiche Location (~100m), Cache wiederverwenden
   - Street-Count aktualisieren
+  - Street-Rendering laeuft progressiv (50 Nodes/Frame, alte Strassen
+    bleiben sichtbar bis neue fertig sind — `street-rendering.service.ts`)
 
   → Tiles-Loading abwarten (mit 15s Timeout-Fallback)
 
@@ -318,8 +322,13 @@ STEP 6: Calculate Routes
   - gameState.initialize() mit Engine, Streets, HQ, Spawns, Pfaden
   - Validierung: Mindestens 1 Route muss existieren
   - GlobalRouteGrid initialisieren
-  - TowerPlacement neu initialisieren
+  - TowerPlacement neu initialisieren (LOS wird beim Setzen progressiv
+    in 50-Cell-Batches berechnet, Tower bleibt `losReady=false` bis fertig)
   - Street-Network auf Route-Korridor filtern
+  - Hoehen-Updates respektieren Tile-LOD via `geometricError`-Tracking
+    (Tile-Quality-Aware Route Protection, siehe `path-route.service.ts`):
+    Neue Hoehen werden nur akzeptiert wenn die Tile-Qualitaet nicht
+    schlechter als 2x gegenueber der vorherigen Berechnung ist.
 
 STEP 7: Finalize
   - Hoehen-Updates durchfuehren (await)
@@ -445,11 +454,21 @@ Wenn das HQ ausserhalb der Bounds platziert wird (z.B. 10km entfernt):
 ### Relevante Konstanten (`map-constants.config.ts`)
 
 ```typescript
-SPAWN_DISCARD_DISTANCE = 1500   // Max Distanz bevor alter Spawn verworfen wird
-MIN_SPAWN_DISTANCE = 500        // Random Spawn: Mindestdistanz zum HQ
-MAX_SPAWN_DISTANCE = 1000       // Random Spawn: Maximaldistanz zum HQ
+SPAWN_DISCARD_DISTANCE = 1500     // Max Distanz bevor alter Spawn verworfen wird
+MIN_SPAWN_DISTANCE = 500          // Random Spawn: Mindestdistanz zum HQ
+MAX_SPAWN_DISTANCE = 1000         // Random Spawn: Maximaldistanz zum HQ
+MIN_MANUAL_SPAWN_DISTANCE = 200   // Manuelle Spawn-Eingabe: Mindestdistanz
+MAX_MANUAL_SPAWN_DISTANCE = 1500  // Manuelle Spawn-Eingabe: Maximaldistanz (Distanz-Badge im Dialog)
 MAX_PLACEMENT_STREET_DISTANCE = 150  // Max Distanz zur naechsten Strasse fuer Placement
+STREET_FILTER_RADIUS = 100        // Radius fuer Street-Filter um Routen
+SPAWN_COLORS = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff]  // bis zu 4 Spawns
 ```
+
+### Concurrent Location Changes Guard
+
+`LocationStore.isApplyingLocation` (Signal) wird waehrend STEP 1-7 auf `true`
+gesetzt; UI-Aktionen wie das Oeffnen des Location-Dialogs oder das Klicken auf
+Favoriten respektieren dieses Flag, um doppelte Pipelines zu verhindern.
 
 ## Bekannte Einschraenkungen
 

@@ -113,7 +113,7 @@ Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwisch
 # PHASE 5: DAMAGE & ARMOR SYSTEM
 
 > **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
-> **Konzept:** [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
+> **Konzept:** [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
 > **Reihenfolge:** Erst Tower-Schadenstypen, dann Enemy-Rüstungen
 
 ## 5.1 Infrastruktur
@@ -423,7 +423,7 @@ Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates w
 
 ## Tower-Ideen
 
-> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
+> Siehe auch: [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
 
 - [ ] Flame Tower (`fire`)
 - [ ] Tesla Tower (`magic`) - Kettenblitz
@@ -431,7 +431,7 @@ Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates w
 
 ## Enemy-Ideen
 
-> Siehe auch: [DAMAGE_ARMOR_SYSTEM.md](docs/DAMAGE_ARMOR_SYSTEM.md)
+> Siehe auch: [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
 
 - [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
       Model bereits vorhanden: `public/assets/models/enemies/candidates/mechacat_01.glb`

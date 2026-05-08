@@ -2,6 +2,7 @@
 
 **Status:** Implementiert
 **Zugriff:** `?devworld` URL-Parameter
+**Stand:** 2026-05-08
 
 ---
 
@@ -72,7 +73,7 @@ ThreeTilesEngine
 
 ## Terrain-Presets
 
-28 Presets in 11 Kategorien:
+30 Presets in 11 Kategorien (siehe `getTerrainCategories()` in `terrain-generator.ts`):
 
 | Kategorie | Presets |
 |-----------|---------|
@@ -99,13 +100,20 @@ Terrain-Features:
 
 ## Gebaeude-Dichte
 
+URL-akzeptierte Werte (`?devworld&buildings=…`, siehe `DevWorldService.parseBuildingsParam`):
+
 | Preset | Beschreibung |
 |--------|--------------|
 | `none` | Keine Gebaeude |
-| `sparse` | Wenige grosse Gebaeude (~150 Stueck) |
-| `medium` | Mittlere Dichte |
-| `dense` | Viele Gebaeude, Stadtgefuehl (~1200 Stueck) |
-| `maze` | Maximale Dichte, labyrinth-artig (~2000 Stueck) |
+| `sparse` | Wenige grosse Gebaeude |
+| `dense` | Viele Gebaeude, Stadtgefuehl (Default) |
+| `maze` | Labyrinth-artig (lange Wand-Strukturen aus statischer Preset-Config) |
+
+Hinweis: `building-generator.ts` definiert intern zusaetzlich eine Stufe `medium`
+(`BuildingDensity = 'none' | 'sparse' | 'medium' | 'dense' | 'maze'`).
+Diese ist aktuell nicht ueber den URL-Parameter erreichbar — `medium` wird vom
+Parser auf `dense` zurueckgesetzt. Bei Bedarf kann der Generator-Aufrufer den
+Wert direkt setzen.
 
 Platzierungslogik:
 - Alle Gebaeude entlang von Strassen platziert (keine isolierten Cluster)
@@ -161,7 +169,7 @@ DEV_WORLD_SIZE = 1000          // 1km x 1km Spielfeld
 DEV_WORLD_HEIGHTMAP_SIZE = 1024 // ~1m Aufloesung
 DEV_WORLD_MAX_HEIGHT = 150     // Max. Terrain-Hoehe in Metern
 DEV_WORLD_DEFAULT_SEED = 42    // Standard-Seed
-DEV_WORLD_ORIGIN = { lat: 0, lon: 0 }  // Fake Geo-Koordinaten
+DEV_WORLD_ORIGIN = { lat: 0.0, lon: 0.0, height: 0 }  // Fake Geo-Koordinaten
 ```
 
 ---

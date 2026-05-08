@@ -1,11 +1,17 @@
-# Phase 5.10 — Template-Based Wave Director
+# Phase 5.10 — Template-Based Wave Director (HISTORICAL)
 
-> **Superseded by Phase 5.11 (Range-Based Templates):** Siehe
-> [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md). Phase 5.11 ersetzt die
-> statischen `base_*`-Felder durch Ranges und erweitert den NN auf 4
-> Continuous-Parameter (count, spawn_delay, hp_mult, variation). Dieses
-> Dokument beschreibt den Phase-5.10-Übergangsstand (Action-Space 2
-> Continuous, statische Template-Werte).
+> **Status: SUPERSEDED — nur als historische Referenz erhalten.**
+>
+> - Phase 5.11 ersetzt statische `base_*`-Felder durch Ranges und erweitert den NN
+>   auf 4 Continuous-Parameter (count, spawn_delay, hp_mult, variation):
+>   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md).
+> - Phase 5.14 dämpft den SWARM-Reward (Slope 0.0015, Cap 2.0) — dokumentiert in
+>   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Abschnitt "Phase 5.14").
+> - Phase 5.16 fügt Wave-Curriculum-Override + Endgame-HP-Multiplier + Gold-Budget
+>   hinzu: [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md).
+>
+> Dieses Dokument beschreibt den Phase-5.10-Übergangsstand (Action-Space mit
+> 2 Continuous, statische Template-Werte) — nicht mehr aktuell.
 
 ## Overview
 

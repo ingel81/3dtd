@@ -1,19 +1,24 @@
 # Signal Store Architektur — TowerDefenseStore
 
+**Stand:** 2026-05-08
+
 ## Überblick
 
-Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **4 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
+Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **5 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
 
-## Aktuelle Struktur (Stand: Januar 2026)
+## Aktuelle Struktur
 
 ### Sub-Stores
 | Store | Datei | Domain | Signals |
 |-------|-------|--------|---------|
-| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies, towers |
-| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, build mode, menus |
+| `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies, towers, bot/AI |
+| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, build mode, wave debug, persistence |
 | `EngineStore` | `store/engine.store.ts` | Engine State | fps, tiles, camera, loading |
 | `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, favorites, streets |
+| `ResearchStore` | `store/research.store.ts` | Research State | active research, completed, in-progress timer, unlocks |
 | **`TowerDefenseStore`** | `store/tower-defense.store.ts` | **Root/Aggregat** | Re-exports, cross-cutting computeds, resetAll() |
+
+Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })` und werden vom Root-Store via `inject()` aggregiert.
 
 ### Sub-Facades
 | Facade | Datei | Verantwortung |
@@ -126,12 +131,12 @@ CombatComponent → enemy:died Event
 │  └─────────────┘ └──────────┘ └───────────────────┘  │
 │                                                        │
 │  ┌─────────────┐ ┌──────────────┐ ┌─────────────────┐│
-│  │ Engine       │ │ Bot/AI       │ │ Wave Debug      ││
-│  │ fps          │ │ useAIDir     │ │ enemySpeed      ││
-│  │ tileStats    │ │ aiExplain    │ │ enemyHealth     ││
-│  │ sounds       │ │ (rest in     │ │ enemyCount      ││
-│  │ compass      │ │ Training-    │ │ spawnMode       ││
-│  │ cameraDbg    │ │ Client-Svc)  │ │ ...             ││
+│  │ Engine       │ │ Research     │ │ Wave Debug      ││
+│  │ fps          │ │ active       │ │ enemySpeed      ││
+│  │ tileStats    │ │ completed    │ │ enemyHealth     ││
+│  │ sounds       │ │ progress     │ │ enemyCount      ││
+│  │ compass      │ │ unlocks      │ │ spawnMode       ││
+│  │ cameraDbg    │ │              │ │ ...             ││
 │  └─────────────┘ └──────────────┘ └─────────────────┘│
 │                                                        │
 │  ═══════ Computed ════════════════════════════════════ │
@@ -247,7 +252,7 @@ expect(store.canStartWave()).toBe(false);
 ### Phase 5: Cleanup ✅
 - [x] Dead code: Duplicate `activeSounds` entfernt
 - [x] GameSidebar: `gameState` Input entfernt, nutzt Store direkt
-- [x] Alle 223 Tests grün
+- [x] Tests grün (zuletzt 487/487 nach Code-Review-Sprint 2026-03)
 - [x] Lint clean, Build OK
 - [x] Dokumentation aktualisiert
 
@@ -261,7 +266,7 @@ expect(store.canStartWave()).toBe(false);
 
 ### Contra
 - **God Object Risiko** — Der Store hatte ~60 Signals in einer Klasse.
-  - *Gelöst:* Aufgeteilt in 4 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore). Root-Store aggregiert als Fassade.
+  - *Gelöst:* Aufgeteilt in 5 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore, ResearchStore). Root-Store aggregiert als Fassade.
 - **Performance** — Mehr Signals = mehr Change Detection?
   - *Mitigation:* Angular Signals sind lazy. Computed werden nur evaluiert wenn gelesen.
     OnPush + Signals = optimal. Kein Overhead gegenüber jetzigem Setup.
@@ -275,7 +280,7 @@ expect(store.canStartWave()).toBe(false);
 - **Performance** — NgRx Signal Store hat overhead für Features die wir nicht brauchen
 
 ### Sub-Store Architektur
-- **4 Sub-Stores:** `GameStore`, `UIStore`, `EngineStore`, `LocationStore`
+- **5 Sub-Stores:** `GameStore`, `UIStore`, `EngineStore`, `LocationStore`, `ResearchStore`
 - **Root-Store als Fassade:** `TowerDefenseStore` injiziert alle Sub-Stores und re-exportiert deren Signals
 - **Cross-Cutting Concerns** bleiben im Root-Store — `canStartWave` braucht Signals aus Game, Engine und Location
 - **Consumer-kompatibel** — Bestehender Code nutzt weiterhin `TowerDefenseStore`
@@ -300,6 +305,7 @@ src/app/store/
   ui.store.ts                     ← UI State (debug flags, layers, build mode, wave debug)
   engine.store.ts                 ← Engine State (fps, tiles, camera, loading)
   location.store.ts               ← Location State (coords, spawns, favorites)
+  research.store.ts               ← Research State (active, completed, in-progress timer)
   *.spec.ts                       ← Unit Tests
 
 src/app/services/

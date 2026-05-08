@@ -1,6 +1,6 @@
 # Status Effects System
 
-**Stand:** 2026-01-17
+**Stand:** 2026-05-08
 
 Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
@@ -8,14 +8,17 @@ Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
 ## Übersicht
 
-Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies anzuwenden (z.B. Verlangsamung, Einfrieren, Brennen).
+Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies anzuwenden (Verlangsamung, DoT, etc.). Effekte werden auf der `MovementComponent` jedes Enemies gespeichert und vom `StatusEffectService` (Angular `@Injectable`, in `services/status-effect.service.ts`) angewendet.
 
 **Aktuell implementiert:**
-- Slow (Verlangsamung)
+- **Slow** (Verlangsamung) — Ice Tower, Splash
+- **Poison** (DoT) — Poison Tower, Splash
 
-**Geplant:**
-- Freeze (Einfrieren)
-- Burn (Brennen / Damage over Time)
+**Reserviert (im `StatusEffectType` definiert, aber aktuell nicht aktiv genutzt):**
+- Freeze
+- Burn
+
+> **Wichtig — Game-Time statt Wall-Clock:** Seit dem Sub-Step-Refactor laufen Status-Effekt-Timer **in Game-Time-Millisekunden** (deterministisch, unabhängig vom Speed-Multiplier). `effect.startTime` wird über einen `gameClockProvider` aus dem `GameStateManager` bezogen — kein `performance.now()` mehr.
 
 ---
 
@@ -26,16 +29,35 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 ```typescript
 // models/status-effects.ts
 
-export type StatusEffectType = 'slow' | 'freeze' | 'burn';
+export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison';
 
 export interface StatusEffect {
   type: StatusEffectType;
-  value: number;        // Effekt-Stärke (z.B. 0.5 = 50% slow)
-  duration: number;     // Dauer in Millisekunden
-  startTime: number;    // performance.now() bei Anwendung
+  value: number;        // Effekt-Stärke (z.B. 0.5 = 50% slow, oder 5 = 5 DPS bei poison)
+  duration: number;     // Dauer in Game-Time ms
+  /** GameStateManager.gameTimeMs zum Zeitpunkt des Anwendens. */
+  startTime: number;
   sourceId?: string;    // Tower ID für Refresh-Logik
 }
 ```
+
+### StatusEffectService
+
+```typescript
+// services/status-effect.service.ts
+
+@Injectable({ providedIn: 'root' })
+export class StatusEffectService {
+  setGameClockProvider(provider: () => number): void;
+  applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void;
+  applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void;
+  applyEffect(enemy: Enemy, type: StatusEffectType, value: number, duration: number, sourceId: string): void;
+  removeExpired(enemy: Enemy): void;
+  hasActiveEffect(enemy: Enemy, type: StatusEffectType): boolean;
+}
+```
+
+`setGameClockProvider()` wird einmal beim `GameStateManager.initialize()` aufgerufen. Vermeidet zirkuläre DI (CombatEffectService → StatusEffectService → GameStateManager → CombatEffectService).
 
 ### Component-Integration
 
@@ -48,10 +70,13 @@ export class MovementComponent extends Component {
   statusEffects: StatusEffect[] = [];
 
   applyStatusEffect(effect: StatusEffect): void;
-  removeExpiredEffects(timescale?: number): void;
-  getSlowMultiplier(timescale?: number): number;
-  getEffectiveSpeed(timescale?: number): number;
-  isSlowed(timescale?: number): boolean;
+  /** Single-Pass Update: entfernt abgelaufene Effekte + gibt aktive Flags zurück. */
+  updateStatusEffects(gameTimeMs: number): { isSlowed: boolean; isPoisoned: boolean; slowMultiplier: number };
+  removeExpiredEffects(gameTimeMs: number): void;
+  getSlowMultiplier(gameTimeMs: number): number;
+  getEffectiveSpeed(gameTimeMs: number): number;
+  isSlowed(gameTimeMs: number): boolean;
+  isPoisoned(gameTimeMs: number): boolean;
 }
 ```
 
@@ -76,20 +101,17 @@ effectiveSpeed = baseSpeed × speedMultiplier × slowMultiplier
 ### Slow Multiplier Berechnung
 
 ```typescript
-getSlowMultiplier(timescale = 1.0): number {
-  const now = performance.now();
-
+getSlowMultiplier(gameTimeMs: number): number {
   for (const effect of this.statusEffects) {
-    const effectiveDuration = effect.duration / timescale;
-    if (effect.type === 'slow' && now - effect.startTime < effectiveDuration) {
-      // Slow effect active - return reduced speed multiplier
+    if (effect.type === 'slow' && gameTimeMs - effect.startTime < effect.duration) {
       return 1 - effect.value;
     }
   }
-
   return 1.0; // Not slowed
 }
 ```
+
+**Wichtig:** `effect.duration` ist Game-Time ms. Da Movement und Effekt-Timer beide in Game-Time laufen, ist keine `timescale`-Kompensation mehr nötig.
 
 ### Kein Stacking
 
@@ -112,14 +134,13 @@ Slow wird via `StatusEffectService` angewendet. `CombatEffectService` reagiert a
 ```typescript
 // In StatusEffectService (services/status-effect.service.ts)
 applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
-  const effect: StatusEffect = {
+  enemy.movement.applyStatusEffect({
     type: 'slow',
-    value: slowAmount,       // aus GAME_BALANCE.effects.ice.slowAmount (0.5)
-    duration,                // aus GAME_BALANCE.effects.ice.duration (3000ms)
-    startTime: performance.now(),
+    value: slowAmount,           // aus GAME_BALANCE.effects.ice.slowAmount (0.5)
+    duration,                    // aus GAME_BALANCE.effects.ice.duration (3000ms)
+    startTime: this.gameClockProvider(),
     sourceId,
-  };
-  enemy.movement.applyStatusEffect(effect);
+  });
 }
 
 // Aufruf aus CombatEffectService:
@@ -128,32 +149,33 @@ applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string):
 
 ### Refresh-Logik
 
-Slow-Effekte werden **immer ersetzt** - es gibt kein Stacking. Jeder neue Slow ersetzt den vorherigen, unabhängig von der Source:
+`slow` und `poison` werden **immer ersetzt** — es gibt kein Stacking. Jeder neue Effekt dieses Typs ersetzt den vorherigen, unabhängig von der Source.
+Andere Effekttypen werden pro `(type, sourceId)` deduplikiert (gleiche Quelle = Refresh, andere Quelle = neuer Eintrag).
 
 ```typescript
 applyStatusEffect(effect: StatusEffect): void {
-  // Slow: Nur ein Slow gleichzeitig (kein Stacking)
+  // Slow: nur einer aktiv (kein Stacking)
   if (effect.type === 'slow') {
-    const existingSlowIndex = this.statusEffects.findIndex((e) => e.type === 'slow');
-    if (existingSlowIndex >= 0) {
-      // Replace existing slow (refresh duration)
-      this.statusEffects[existingSlowIndex] = effect;
-    } else {
-      this.statusEffects.push(effect);
-    }
+    const idx = this.statusEffects.findIndex((e) => e.type === 'slow');
+    if (idx >= 0) this.statusEffects[idx] = effect;
+    else this.statusEffects.push(effect);
     return;
   }
 
-  // Andere Effekte: Gleicher Typ + gleiche Source = Refresh
-  const existingIndex = this.statusEffects.findIndex(
-    (e) => e.type === effect.type && e.sourceId === effect.sourceId
-  );
-
-  if (existingIndex >= 0) {
-    this.statusEffects[existingIndex] = effect;
-  } else {
-    this.statusEffects.push(effect);
+  // Poison: nur einer aktiv (kein Stacking)
+  if (effect.type === 'poison') {
+    const idx = this.statusEffects.findIndex((e) => e.type === 'poison');
+    if (idx >= 0) this.statusEffects[idx] = effect;
+    else this.statusEffects.push(effect);
+    return;
   }
+
+  // Andere Effekte: gleicher Typ + gleiche Source = Refresh
+  const idx = this.statusEffects.findIndex(
+    (e) => e.type === effect.type && e.sourceId === effect.sourceId,
+  );
+  if (idx >= 0) this.statusEffects[idx] = effect;
+  else this.statusEffects.push(effect);
 }
 ```
 
@@ -164,81 +186,69 @@ applyStatusEffect(effect: StatusEffect): void {
 
 ### Cleanup
 
-Abgelaufene Effekte werden jedes Frame entfernt. Die `timescale` beeinflusst die effektive Dauer (bei 2x Speed laufen Effekte doppelt so schnell ab):
+Abgelaufene Effekte werden im Single-Pass `updateStatusEffects(gameTimeMs)` entfernt (in-place Compact, keine Array-Allokation). Game-Time skaliert automatisch mit dem Timescale-Multiplier — bei 2× Speed läuft die Game-Clock doppelt so schnell, also auch die Effekt-Timer:
 
 ```typescript
-// In EnemyManager.update(deltaTime, timescale)
-enemy.movement.removeExpiredEffects(timescale);
+// In EnemyManager (Sub-Step Loop)
+const status = enemy.movement.updateStatusEffects(gameTimeMs);
+// status.isSlowed, status.isPoisoned, status.slowMultiplier können direkt
+// für Movement und DoT-Tick weiterverwendet werden.
 
 // In MovementComponent
-removeExpiredEffects(timescale = 1.0): void {
-  const now = performance.now();
-  this.statusEffects = this.statusEffects.filter(
-    (effect) => {
-      const effectiveDuration = effect.duration / timescale;
-      return now - effect.startTime < effectiveDuration;
+removeExpiredEffects(gameTimeMs: number): void {
+  let writeIdx = 0;
+  for (let i = 0; i < this.statusEffects.length; i++) {
+    const e = this.statusEffects[i];
+    if (gameTimeMs - e.startTime < e.duration) {
+      this.statusEffects[writeIdx++] = e;
     }
-  );
+  }
+  this.statusEffects.length = writeIdx; // In-place, no allocation
 }
 ```
 
 ---
 
-## Freeze Effect (Geplant)
+## Poison Effect (DoT)
 
-**Status:** Noch nicht implementiert
+**Status:** Aktiv — vom Poison Tower und dessen Splash angewendet.
 
-### Geplante Funktionsweise
+### Funktionsweise
 
 ```typescript
 {
-  type: 'freeze',
-  value: 1.0,           // 100% = komplett eingefroren
-  duration: 2000,       // 2 Sekunden
-  startTime: performance.now(),
+  type: 'poison',
+  value: 5,                          // 5 Schaden pro Sekunde
+  duration: 4000,                    // 4 Sekunden Game-Time
+  startTime: gameClockProvider(),
   sourceId: tower.id,
 }
 ```
 
 **Implementierung:**
-- `value: 1.0` → `slowMultiplier = 0` → Enemy stoppt komplett
-- Visual: Eis-Overlay auf Enemy-Model
-- Sound: Einfrieren-Sound beim Auftragen
+- DoT-Tick im Enemy-Sub-Step-Loop (Damage = `value × deltaSeconds`).
+- Kein Stacking — neuer Poison ersetzt den vorherigen (Timer-Refresh).
+- `updateStatusEffects()` setzt `isPoisoned: true` als aktiver Flag.
 
-**Unterschied zu Slow:**
-- Freeze = 100% Verlangsamung (Enemy steht still)
-- Kürzere Duration als Slow (zu stark)
-- Evtl. kein Stacking (max. 1 Freeze gleichzeitig)
+### Anwendung (StatusEffectService)
+
+```typescript
+applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void {
+  enemy.movement.applyStatusEffect({
+    type: 'poison',
+    value: dotDps,
+    duration,
+    startTime: this.gameClockProvider(),
+    sourceId,
+  });
+}
+```
 
 ---
 
-## Burn Effect (Geplant)
+## Freeze / Burn (Reserviert)
 
-**Status:** Noch nicht implementiert
-
-### Geplante Funktionsweise
-
-Damage over Time (DoT) - schadet Enemy kontinuierlich:
-
-```typescript
-{
-  type: 'burn',
-  value: 10,            // 10 Schaden pro Sekunde
-  duration: 5000,       // 5 Sekunden = 50 total damage
-  startTime: performance.now(),
-  sourceId: tower.id,
-}
-```
-
-**Implementierung:**
-- Eigene Update-Logik in EnemyManager
-- `damage = value × (deltaTime / 1000)` pro Frame
-- Visual: Feuer-Partikel auf Enemy
-- Sound: Brennen-Loop
-
-**Stacking:**
-- Burn-Effekte addieren sich (10 DPS + 10 DPS = 20 DPS)
-- Alternative: Refresh wie Slow (nur stärkster/längster gilt)
+`freeze` und `burn` sind als `StatusEffectType` definiert; im Update-Pfad behandelt `updateStatusEffects()` `freeze` zwar als `isSlowed = true`, aber es gibt aktuell keinen Tower, der sie ausspielt. Designs werden in [TODO.md](../TODO.md) und [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) verfolgt.
 
 ---
 
@@ -435,17 +445,16 @@ if (enemy.movement.isSlowed(timescale)) {
 
 ### Manual Testing
 
+`startTime` muss aus dem Game-Clock kommen (nicht `performance.now()`), sonst läuft der Timer asynchron zur Spiellogik:
+
 ```typescript
 // In Wave Debug Component
+constructor(private statusEffectService: StatusEffectService, ...) {}
+
 testSlowEffect(): void {
   const enemies = this.enemyManager.getAlive();
   for (const enemy of enemies) {
-    enemy.movement.applyStatusEffect({
-      type: 'slow',
-      value: 0.7, // 70% slow
-      duration: 10000, // 10s
-      startTime: performance.now(),
-    });
+    this.statusEffectService.applyEffect(enemy, 'slow', 0.7, 10000, 'debug');
   }
 }
 ```
@@ -453,14 +462,9 @@ testSlowEffect(): void {
 ### Console Commands
 
 ```typescript
-// Im Browser Console
-const enemy = gameState.enemyManager.getAlive()[0];
-enemy.movement.applyStatusEffect({
-  type: 'slow',
-  value: 0.9,
-  duration: 5000,
-  startTime: performance.now()
-});
+// Im Browser Console (ohne Game-Clock-Zugriff): nur grobe Tests, da
+// performance.now() vom Game-Clock abweicht. Besser: über DebugFacade einen
+// passenden Helper aufrufen.
 ```
 
 ---

@@ -1,5 +1,7 @@
 # Projektil-System
 
+**Stand:** 2026-05-08
+
 ## Architektur
 
 ### Entity: `projectile.entity.ts`
@@ -62,15 +64,16 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 - Modell ist sehr klein (~0.8m), daher Scale: 8
 - Fallback auf ConeGeometry falls Modell nicht lädt
 
-**Instancing-Limits:**
+**Instancing-Limits (Pool-Größen, siehe `three-projectile.renderer.ts`):**
 | Typ | Max Instanzen |
 |-----|---------------|
 | Arrow | 500 |
 | Cannonball | 200 |
-| Magic | 500 |
+| Magic (Fireball) | 500 |
 | Ice | 500 |
 | Bullet | 1000 |
 | Rocket | 100 |
+| Poison | 500 |
 
 **Rotation:**
 - Verwendet Quaternion: `setFromUnitVectors(+Y, direction)`
@@ -83,33 +86,59 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | Typ | Speed | Scale | Visual Type | Splash | Trail |
 |-----|-------|-------|-------------|--------|-------|
 | arrow | 80 m/s | 8 | arrow (GLB Model) | - | - |
-| cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 10m | Rauch (normal blending) |
-| fireball | 100 m/s | 0.4 | magic (Shader Orb) | - | Feuer-Spirale (additive) |
-| ice-shard | 90 m/s | 0.4 | ice (Shader Orb) | 12m | Eis-Partikel (additive) |
+| cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 10m | Grauer Rauch (normal blending) |
+| fireball | 100 m/s | 0.4 | magic (Shader Orb) | - | Feuer-Spirale (additive, `trailType: 'spiral'`) |
+| ice-shard | 90 m/s | 0.4 | ice (Shader Orb) | 8m | Eis-Partikel (additive) |
 | bullet | 150 m/s | 0.15 | bullet (Cylinder) | - | Gelber Tracer (additive) |
-| rocket | 120 m/s | 1.0 | rocket (Cylinder) | - | Feuer-Exhaust (additive) |
+| rocket | 120 m/s | 1.0 | rocket (Cylinder) | - | Warmer Exhaust (additive) |
+| poison-glob | 70 m/s | 0.5 | poison (Shader Orb) | 8m | Grüne Partikel (additive) |
 
-**Visuelle Typen:**
+**Visuelle Typen** (`ProjectileVisualType`):
 - `arrow` - GLB-Modell aus `/assets/models/projectiles/arrow.glb`
 - `cannonball` - SphereGeometry, dunkelgrau metallisch
 - `magic` - SphereGeometry mit ShaderMaterial (rot/orange Orb, Custom GLSL Shader)
 - `ice` - SphereGeometry mit ShaderMaterial (blau/cyan/weiss Orb, gleicher Shader wie magic mit anderen Farben)
 - `bullet` - CylinderGeometry, gelb/golden leuchtend
 - `rocket` - CylinderGeometry, weiss/hellgrau
+- `poison` - SphereGeometry mit ShaderMaterial (grün)
+
+**Splash-Damage-Konfiguration:**
+```typescript
+splashRadius?: number;          // Radius in Metern (0 oder undefined = kein Splash)
+splashDamageFalloff?: boolean;  // Damage skaliert mit Distanz (Default: true)
+```
+
+**Trail-Particle-Konfiguration** (`TrailParticleConfig`, in `projectile-types.config.ts`):
+
+| Feld | Beschreibung |
+|------|--------------|
+| `enabled` | Trail aktiv |
+| `spawnChance` | 0–1 Wahrscheinlichkeit pro Frame |
+| `countPerSpawn` | Partikel pro Spawn-Event |
+| `colorMin` / `colorMax` | RGB 0–1 — random in dem Bereich |
+| `sizeMin` / `sizeMax` | Größenbereich |
+| `lifetimeMin` / `lifetimeMax` | Lebensdauer in Sekunden |
+| `velocityX/Y/Z` | Geschwindigkeitsbereich pro Achse |
+| `spawnOffset` | Verteilungsradius um Projektil-Mitte |
+| `blending` | `'additive'` (Default — Feuer/Glow) oder `'normal'` (Rauch) |
+| `trailType` | `'default'` oder `'spiral'` (rotierende Bahn — Fireball) |
+| `spiralRadius` / `spiralSpeed` | nur für `'spiral'` |
 
 ## Tower-Projektil-Verknüpfung
 
 Definiert in `tower-types.config.ts`:
 
 ```typescript
-archer:       { projectileType: 'arrow' }
-cannon:       { projectileType: 'cannonball' }
-magic:        { projectileType: 'fireball' }
-'dual-gatling': { projectileType: 'bullet' }
-rocket:       { projectileType: 'rocket' }
-ice:          { projectileType: 'ice-shard' }
-fire:         { projectileType: 'fireball', attackType: 'beam' }  // Beam-Tower, kein Projektil
-tentacle:     { projectileType: 'arrow', attackType: 'melee' }  // Melee-Tower, kein Projektil
+archer:           { projectileType: 'arrow' }
+cannon:           { projectileType: 'cannonball' }
+magic:            { projectileType: 'fireball' }
+'dual-gatling':   { projectileType: 'bullet' }     // alterniert zw. firePoints
+rocket:           { projectileType: 'rocket' }
+ice:              { projectileType: 'ice-shard' }
+fire:             { projectileType: 'fireball', attackType: 'beam' }    // Beam-Tower, kein Projektil
+tentacle:         { projectileType: 'arrow',    attackType: 'melee' }   // Melee-Tower, kein Projektil
+poison:           { projectileType: 'poison-glob' }
+'research-center':{ projectileType: 'arrow',    attackType: 'passive' } // Passive Building, kein Combat
 ```
 
 ## Sound
@@ -124,6 +153,7 @@ Jeder Projektiltyp hat eigene Sound-Konfiguration in `PROJECTILE_SOUNDS`:
 | ice-shard | `/assets/sounds/towers/ice/cast.mp3` | 0.4 | 50 |
 | bullet | `/assets/sounds/towers/gatling/shoot.mp3` | 0.25 | 40 |
 | rocket | `/assets/sounds/towers/rocket/launch.mp3` | 0.7 | 60 |
+| poison-glob | `/assets/sounds/towers/poison/poison_spit.mp3` | 0.4 | 50 |
 
 Sounds werden als Events ueber den `GameEventBus` emittiert (`audio:play`), nicht direkt abgespielt.
 
@@ -173,4 +203,4 @@ public/assets/
 
 ## Bekannte Einschränkungen
 
-- [ ] Line-of-Sight Check fehlt (Projektile treffen durch Gebäude)
+- [ ] Line-of-Sight Check für Air-Targets fehlt — Tower schießen visuell durch Gebäude auf Air-Units. Ground-LOS existiert bereits via `tower.visibleCells`/`losReady`. Siehe TODO.md.

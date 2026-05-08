@@ -1,6 +1,6 @@
 # Tower Creation Guide
 
-**Stand:** 2026-01-30
+**Stand:** 2026-05-08
 
 Anleitung zum Erstellen neuer Tower-Typen mit optionalen rotierenden Teilen.
 
@@ -13,27 +13,32 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Verschiedene 3D-Modelle (GLB, FBX)
 - Rotierende Turret-Teile (z.B. Geschütztürme)
 - Eigene Projektiltypen
-- Upgrade-System mit optionalem Cost Scaling
+- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x)
+- **25-Level-Upgrade-System** mit Tier-Gating (Phase 5.16, alle Combat-Tower nutzen `STD_DAMAGE/SPEED/RANGE_UPGRADE`)
 - Separate Preview-Skalierung für die UI
-- Air/Ground Targeting
-- Animierte Tower-Modelle (GLTF-Animationen)
-- Beam-Angriffe (z.B. Flammenwerfer)
-- Melee-Angriffe (z.B. Tentacle Tower, `attackType: 'melee'`)
+- Air/Ground Targeting (5 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
+- Animierte Tower-Modelle (GLTF-Animationen, optional PingPong-Loop)
+- Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
+- Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
+- Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
+- Passive Buildings (Research Center, `attackType: 'passive'`)
 
 ---
 
 ## Aktuelle Tower-Typen
 
-| Tower | Typ | Schaden | Reichweite | Feuerrate | Kosten | Besonderheiten |
-|-------|-----|---------|------------|-----------|--------|----------------|
-| Archer | projectile | 25 | 60m | 1.0/s | 45 | Animiert (PingPong) |
-| Dual-Gatling | projectile | 10 | 50m | 5.0/s | 90 | Rotierender Turret |
-| Cannon | projectile | 75 | 80m | 0.5/s | 140 | Hoher Einzelschaden |
-| Magic | projectile | 40 | 70m | 1.5/s | 120 | Magischer Schaden |
-| Rocket | projectile | 40 | 100m | 0.5/s | 100 | Nur Luft-Ziele |
-| Ice | projectile | 2 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground |
-| Fire | beam | 35 DPS | 25m | - | 110 | Flächenschaden (Kegel), nur Boden |
-| Tentacle | melee | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering, Nahkampf (`meleeStrikeDuration`) |
+| Tower | attackType | damageType | Schaden | Reichweite | Feuerrate | Kosten | Besonderheiten |
+|-------|------------|------------|---------|------------|-----------|--------|----------------|
+| Archer | projectile | physical | 25 | 60m | 1.0/s | 45 | Animiert (PingPong), Air+Ground |
+| Dual-Gatling | projectile | pierce | 10 | 50m | 5.0/s | 90 | Rotierender Turret, 2 Fire-Points |
+| Cannon | projectile | siege | 55 | 80m | 0.5/s | 150 | Splash, default `highest-hp` |
+| Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
+| Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
+| Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |
+| Fire | **beam** | fire | 35 DPS | 25m (Detection) | — | 110 | Flammenkegel, nur Boden |
+| Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
+| Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
+| Research Center | **passive** | — | 0 | 0 | 0 | 75 | Kein Combat — siehe Research-System |
 
 ---
 
@@ -43,7 +48,10 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 
 ```typescript
 // configs/tower-types.config.ts
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'NEW_TYPE';
+export type TowerTypeId =
+  | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket'
+  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'research-center'
+  | 'NEW_TYPE';
 ```
 
 ### 2. Model-URL definieren
@@ -115,13 +123,14 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
-| `attackType` | AttackType | 'projectile' | 'projectile', 'beam' oder 'melee' |
+| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamRange` | number | - | Beam/Kegel-Länge in Metern |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
 | `defaultTargeting` | TargetingStrategy | - | Standard-Targeting-Strategie |
 | `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
-| `meleeStrikeDuration` | number | - | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
+| `meleeStrikeDuration` | number | 250 | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
+| `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/chaos |
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
@@ -278,36 +287,54 @@ Die Reihenfolge entspricht der Reihenfolge der Keys in `TOWER_TYPES`:
 
 ```typescript
 export const TOWER_TYPES = {
-  archer: { ... },         // 1. Position
-  'dual-gatling': { ... }, // 2. Position
-  cannon: { ... },         // 3. Position
-  magic: { ... },          // 4. Position
-  rocket: { ... },         // 5. Position
-  ice: { ... },            // 6. Position
-  fire: { ... },           // 7. Position
-  tentacle: { ... },       // 8. Position
+  archer: { ... },             // 1. Position
+  'dual-gatling': { ... },     // 2. Position
+  cannon: { ... },             // 3. Position
+  magic: { ... },              // 4. Position
+  rocket: { ... },             // 5. Position
+  ice: { ... },                // 6. Position
+  fire: { ... },               // 7. Position
+  tentacle: { ... },           // 8. Position
+  poison: { ... },             // 9. Position
+  'research-center': { ... },  // 10. Position (passives Building, kein Combat)
 };
 ```
 
 ---
 
-## Tower Upgrade System
+## Tower Upgrade System (Phase 5.16)
 
-Towers können Upgrades haben, die ihre Stats verbessern (Feuerrate, Schaden, Reichweite).
+Alle Combat-Tower nutzen seit Phase 5.16 ein **standardisiertes 25-Level-Upgrade-Schema**.
+Tier-Gating in der UI: T1 = L1–5, T2 = L6–10, T3 = L11–15, T4 = L16–20, T5 = L21–25.
 
-### Upgrade-Konfiguration
+### Standard-Upgrades (`tower-types.config.ts`)
+
+```typescript
+const UPGRADE_BASE_COST = 50;
+const UPGRADE_COST_SCALING = 1.40;   // L24 ≈ 4000× baseCost — späte Levels bewusst exorbitant
+const UPGRADE_MAX_LEVEL = 25;
+
+const UPGRADE_DAMAGE_MULTIPLIER = 1.10;    // +10%/Level kompoundierend (L25 ≈ 10.8×)
+const UPGRADE_SPEED_MULTIPLIER = 1.07;     // +7%/Level (L25 ≈ 5.4×)
+const UPGRADE_RANGE_MULTIPLIER = 1.04;     // +4%/Level (L25 ≈ 2.7×)
+const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
+```
+
+Vorgefertigte Konstanten: `STD_DAMAGE_UPGRADE`, `STD_SPEED_UPGRADE`, `STD_RANGE_UPGRADE`, `STD_BEAM_WIDTH_UPGRADE` — werden direkt in `upgrades: [...]` referenziert. Research Center ist die einzige Ausnahme (eigenes `research-slots`-Upgrade).
+
+### Upgrade-Konfiguration (Interface)
 
 ```typescript
 // TowerUpgrade Interface
 export interface TowerUpgrade {
-  id: UpgradeId;
+  id: UpgradeId;             // 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots'
   name: string;
   description: string;
   cost: number;              // Basiskosten für Level 1
   costScaling?: number;      // Kostenmultiplikator pro Level (default: 1.0 = flache Kosten)
   maxLevel: number;
   effect: {
-    stat: 'fireRate' | 'damage' | 'range';
+    stat: 'fireRate' | 'damage' | 'range' | 'beamWidth' | 'research-slots';
     multiplier: number;      // z.B. 2.0 = verdoppelt
   };
 }
@@ -335,14 +362,16 @@ upgrades: [
 ### Verfügbare Stats
 
 ```typescript
-stat: 'fireRate' | 'damage' | 'range'
+stat: 'fireRate' | 'damage' | 'range' | 'beamWidth' | 'research-slots'
 ```
 
 | Stat | Beschreibung | Multiplier-Beispiel |
 |------|--------------|---------------------|
 | `fireRate` | Schüsse pro Sekunde | 2.0 = doppelt so schnell |
 | `damage` | Schaden pro Schuss (bzw. DPS bei beam) | 1.5 = +50% Schaden |
-| `range` | Reichweite in Metern (bzw. beamWidth bei Fire Tower) | 1.3 = +30% Reichweite |
+| `range` | Reichweite in Metern | 1.3 = +30% Reichweite |
+| `beamWidth` | Fire-Tower-Kegel-Breite (eigener Stat seit Phase 5.16) | 1.3 = +30% breitere Flamme |
+| `research-slots` | Research-Center: zusätzliche Slots (Multiplier ungenutzt, Level entscheidet) | 1.0 |
 
 ### Cost Scaling
 
@@ -427,96 +456,61 @@ case 'range':
 
 **Siehe:** [TODO.md - Range-Upgrade System implementieren](TODO.md)
 
-### Beispiele aus dem Codebase
+### Beispiele aus dem Codebase (Phase 5.16)
 
-#### Archer Tower (Single Upgrade, kein Cost Scaling)
+#### Standard-Combat-Tower (Archer / Dual-Gatling / Cannon / Magic / Rocket / Ice / Tentacle / Poison)
+
+Alle nutzen die identischen drei Standard-Upgrades:
 
 ```typescript
-upgrades: [
-  {
-    id: 'speed',
-    name: 'Rapid Fire',
-    description: 'Doubles the fire rate',
-    cost: 40,
-    maxLevel: 1,
-    effect: { stat: 'fireRate', multiplier: 2.0 },
-  },
-],
+upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
 ```
 
-- **Effekt:** Archer schiesst 2x pro Sekunde statt 1x
-- **Kosten:** 40 Credits (einmalig)
+Damit hat jeder Combat-Tower drei Tracks à 25 Levels mit `cost: 50`, `costScaling: 1.40`, sowie Multiplikatoren `1.10` (Damage), `1.07` (Fire Rate), `1.04` (Range).
 
-#### Cannon Tower (Multi-Level + Cost Scaling)
+#### Fire Tower (Beam-Spezialfall)
+
+Fire nutzt einen eigenen `beam-width`-Track statt `speed` (kein fireRate bei Beam-Towern):
 
 ```typescript
-upgrades: [
-  {
-    id: 'speed',
-    name: 'Rapid Fire',
-    description: 'Increases fire rate by 50%',
-    cost: 150,
-    costScaling: 1.8,
-    maxLevel: 2,
-    effect: { stat: 'fireRate', multiplier: 1.5 },
-  },
-  {
-    id: 'damage',
-    name: 'Reinforced Charge',
-    description: 'Increases damage by 50%',
-    cost: 175,
-    costScaling: 1.8,
-    maxLevel: 3,
-    effect: { stat: 'damage', multiplier: 1.5 },
-  },
-],
+upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
 ```
 
-#### Magic Tower (Multi-Level + Cost Scaling)
+- `damage`-Stat wird auf `damagePerSecond` angewendet (Beam-DPS)
+- `range` skaliert die Detection-Range
+- `beam-width` skaliert nur `beamWidth` (Kegelbreite)
+
+#### Research Center (Sonderfall)
 
 ```typescript
 upgrades: [
   {
-    id: 'damage',
-    name: 'Arcane Power',
-    description: 'Increases magical damage by 50%',
+    id: 'research-slots' as UpgradeId,
+    name: 'Research Wing',
+    description: 'Adds an additional research slot',
     cost: 120,
-    costScaling: 1.7,
-    maxLevel: 3,
-    effect: { stat: 'damage', multiplier: 1.5 },
-  },
-],
-```
-
-- **Level 1:** 40 -> 60 Schaden (Kosten: 120)
-- **Level 2:** 60 -> 90 Schaden (Kosten: 204)
-- **Level 3:** 90 -> 135 Schaden (Kosten: 347)
-- **Total:** 40 -> 135 Schaden, Gesamtkosten: 671 Credits
-
-#### Fire Tower (Beam + Upgrades)
-
-```typescript
-upgrades: [
-  {
-    id: 'damage',
-    name: 'Inferno',
-    description: 'Increases fire damage by 50%',
-    cost: 100,
     costScaling: 1.8,
-    maxLevel: 3,
-    effect: { stat: 'damage', multiplier: 1.5 },  // Applied to damagePerSecond
-  },
-  {
-    id: 'range',
-    name: 'Wide Burn',
-    description: 'Increases flame cone width by 30%',
-    cost: 80,
-    costScaling: 1.6,
-    maxLevel: 2,
-    effect: { stat: 'range', multiplier: 1.3 },    // Applied to beamWidth
+    maxLevel: 2, // Level 1→2 Slots, Level 2→3 Slots
+    effect: { stat: 'research-slots', multiplier: 1 },
   },
 ],
 ```
+
+---
+
+## Targeting-Strategien
+
+Combat-Tower wählen ihr Ziel über eine `TargetingStrategy`. `defaultTargeting` im Config setzt den Startwert; der Spieler kann pro Tower in der Sidebar wechseln.
+
+| Strategy | Beschreibung |
+|----------|--------------|
+| `closest` | Nächstgelegener Feind (Default falls `defaultTargeting` fehlt) |
+| `lowest-hp` | Schwächster Feind |
+| `highest-hp` | Stärkster Feind (z.B. Cannon, Rocket Default) |
+| `first` | Feind, der der Basis am nächsten ist (z.B. Archer, Ice, Poison Default) |
+| `air-priority` | Bevorzugt fliegende Ziele; Sub-Strategy via `defaultAirSubStrategy` |
+
+`AirSubStrategy` (`closest` / `lowest-hp` / `highest-hp`) entscheidet, welches Air-Target gewählt wird, wenn `air-priority` aktiv ist und mehrere Air-Units in Reichweite sind.
 
 ---
 
@@ -577,23 +571,18 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
   shootHeight: 2.1,
   rotationY: -1.5708,            // -90° visuelles Alignment
   turretBarrelOffset: -1.5708,   // Barrels zeigen +X im Model Space
+  firePoints: [
+    { x: -0.9, z: 0 },           // linker Barrel-Cluster
+    { x:  0.9, z: 0 },           // rechter Barrel-Cluster (alternierend pro Schuss)
+  ],
+  damageType: 'pierce',
   damage: 10,
   range: 50,
   fireRate: 5.0,                 // Schnellfeuer
   projectileType: 'bullet',
   cost: 90,
   sellValue: 60,
-  upgrades: [
-    {
-      id: 'speed',
-      name: 'Rapid Fire',
-      description: 'Doubles the fire rate',
-      cost: 90,
-      costScaling: 2.0,
-      maxLevel: 4,
-      effect: { stat: 'fireRate', multiplier: 2.0 },
-    },
-  ],
+  upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
 },
 ```
 
@@ -620,6 +609,7 @@ fire: {
   turretBarrelOffset: 0.436,     // ~25° Barrel-Korrektur
 
   attackType: 'beam',
+  damageType: 'fire',
   damage: 0,
   damagePerSecond: 35,
   range: 25,
@@ -632,26 +622,8 @@ fire: {
   sellValue: 66,
   canTargetAir: false,
   canTargetGround: true,
-  upgrades: [
-    {
-      id: 'damage',
-      name: 'Inferno',
-      description: 'Increases fire damage by 50%',
-      cost: 100,
-      costScaling: 1.8,
-      maxLevel: 3,
-      effect: { stat: 'damage', multiplier: 1.5 },
-    },
-    {
-      id: 'range',
-      name: 'Wide Burn',
-      description: 'Increases flame cone width by 30%',
-      cost: 80,
-      costScaling: 1.6,
-      maxLevel: 2,
-      effect: { stat: 'range', multiplier: 1.3 },
-    },
-  ],
+  // Fire nutzt damage + range (Detection) + beam-width — kein fireRate (Beam-basiert)
+  upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
 },
 ```
 
