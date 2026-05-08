@@ -87,11 +87,6 @@ Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwisch
       Messen: tatsächlicher FPS-Impact, ggf. nur bei nahen Explosionen aktivieren
       Dateien: `screen-shake.service.ts`, Display Options Toggle
 
-- [ ] **Freeze-Effect Performance prüfen**
-      Instanced Enemies: gelöst via `aTintColor` Shader-Attribut (kein Material-Cloning)
-      Classic Renderer (nur Boss-Fallback): klont noch Materials pro Enemy
-      → Wird obsolet wenn Boss-Fallback entfernt wird (siehe BACKLOG)
-
 - [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
 
 - [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
@@ -114,44 +109,22 @@ Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwisch
 
 > **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
 > **Konzept:** [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
-> **Reihenfolge:** Erst Tower-Schadenstypen, dann Enemy-Rüstungen
+> **Status (2026-05-08):** Infrastruktur abgeschlossen (siehe DONE.md) — Types,
+> Schadensmatrix, damageType/armorType an allen Configs, Flame Tower,
+> Damage-Matchup-Tooltips. Offen: weitere Tower-Typen + Wave-Preview-UI.
 
-## 5.1 Infrastruktur
+## 5.2 Tower-Schadenstypen — offen
 
-- [ ] **DamageType und ArmorType Types definieren**
-      Types: `physical`, `pierce`, `siege`, `magic`, `fire`, `ice`, `chaos`
-      Armor: `unarmored`, `light`, `medium`, `heavy`, `fortified`, `ethereal`
+- [ ] **Tesla Tower (`magic`)** — Kettenblitz, springt zwischen Enemies
+- [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
+      (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
+      → Type erst erweitern, Matrix-Eintrag ergänzen)
 
-- [ ] **Schadensmatrix implementieren**
-      `calculateDamage(base, damageType, armorType)` in CombatEffectService
-      Erstmal alle Multiplikatoren = 1.0 (neutral)
-
-## 5.2 Tower-Schadenstypen
-
-- [ ] **damageType zu Tower-Configs hinzufügen**
-      Archer/Gatling: `physical`, Sniper: `pierce`, Cannon/Rocket: `siege`
-      Magic: `magic`, Ice: `ice`
-
-- [ ] **Neue Tower mit neuen Schadenstypen**
-      Flame Tower (`fire`), Tesla Tower (`magic`), Chaos Tower (`chaos`)
-
-- [ ] **UI: Schadenstyp im Tower-Panel anzeigen**
-      Icon + Label: "⚔️ Physical Damage"
-
-## 5.3 Enemy-Rüstungstypen
-
-- [ ] **armorType zu Enemy-Configs hinzufügen**
-      Zombie: `light`, Bat/Penguin: `unarmored`, Tank: `heavy`
-      Wallsmasher: `medium`, Herbert: `fortified`
-
-- [ ] **Schadensmatrix aktivieren**
-      Multiplikatoren gemäß Konzept-Doc
-
-- [ ] **Neue Enemies mit speziellen Rüstungen**
-      Ghost (`ethereal`), Golem (`fortified`), Dragon (`heavy` + Air)
+## 5.3 Enemy-Rüstungstypen — offen
 
 - [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
-      "🛡️ Heavy Armor - Weak to Siege"
+      "🛡️ Heavy Armor – Weak to Siege" o.ä.
+      Neue Enemy-Ideen mit speziellen Rüstungen siehe BACKLOG → Enemy-Ideen.
 
 ---
 
@@ -177,11 +150,6 @@ Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwisch
       `angular.json`: fileReplacements für Training-Code
       Production: Training-Module wird zu leerem Stub
       Bundle Size Check: AI < 300KB
-
-- [ ] **Model Conversion Script**
-      PyTorch → TensorFlow.js Format
-      Für Browser-Inference ohne Backend
-      Kopiert nach `public/assets/ai/`
 
 - [ ] **Model Validation**
       `scripts/validate-model.js`
@@ -217,22 +185,10 @@ Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwisch
       Problem: Im Endgame kann AI HP nicht mehr skalieren (Cap erreicht)
       Dateien: `config.py`, `wave-director.service.ts`
 
-- [ ] **Bot Tower-Limit entfernen**
-      `strategist.maxTowers`: 50 → 0 (unlimited)
-      Problem: Training sieht nie Endgame-DPS-Levels
-      Datei: `tower-bot.interface.ts`
-
 - [ ] **Kill-Time Range erweitern**
       `KILL_TIME_MAX`: 5.0 → 8.0
       Mehr Spielraum für HP-Skalierung bei hoher DPS
       Datei: `config.py`
-
-- [ ] **Wave-Schedule System implementieren**
-      Feste Typen für bestimmte Waves (z.B. Wave 7, 14, 21 = Air)
-      AI bestimmt nur Parameter (HP, Count, Delay), nicht Typ
-      Spieler kann sich auf Air/Boss-Waves vorbereiten
-      Frontend: `wave-director.service.ts`
-      Backend: `server.py` (forced_type im State)
 
 - [ ] **Enemy Properties System** (SPÄTER - wenn neue Gegner kommen)
       Statt Typ-Encoding: Property-basiertes Encoding
@@ -248,53 +204,6 @@ Vermeiden: einzelne Punkte tröpfchenweise zwischendurch erledigen, das verwisch
       ```
       State-Vektor: +6 Features (5 Properties + force_active)
       Model lernt Konzepte statt spezifische Typen
-
-## 6.5 AI-Training Anpassung für Damage/Armor
-
-- [ ] **State-Vektor erweitern: dpsByDamageType**
-      Aufschlüsselung der DPS nach Schadenstyp
-
-- [ ] **Enemy-Properties für Rüstung**
-      AI lernt: "Nur Physical-Tower → Heavy Enemies effektiv"
-
-## 6.6 Wave-Curriculum (Designer-forced Variety) — POST-CKPT-7350-PLAYTEST
-
-**Problem (Live-Playtest mit Checkpoint 7350):**
-- Endgame ab Wave 15+ viel zu leicht — keine starken Wellen, Geld-Überfluss
-- Template-Loop: nur wallsmasher / spider / rat / spider — keine Variation
-- Keine Air-Units in 39 Wellen (bat / hornet / dragon nie)
-- Forschung viel zu schnell fertig — muss teurer/langsamer
-- NN findet Variety nicht von alleine über Reward, optimiert Sweet-Spot mit den 2-3 einfachsten Templates
-
-**Lösung A: Wave-Curriculum-Mask in `templates.py::get_available_template_mask`**
-
-Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates wählen, continuous params bleiben frei:
-
-| Wave | Mask-Constraint |
-|---|---|
-| 1-2 | unarmored only (zombie/rat/penguin) |
-| 3 | + light (wallsmasher/bat/hornet/spider) |
-| 5 | + heavy (tank/bear) |
-| 7 | **AIR forced** (bat_swarm/hornet_strike/dragon_elite) |
-| 10 | **BOSS forced** (boss_herbert) |
-| 12 | + fortified (mammoth_siege) |
-| 15 | + ethereal (ghost_surge/wraith_storm) |
-| 20 | mix-only forced (chaos_wave/armor_gauntlet) |
-| 25+ | mech_army oder mammoth_siege jede 5. Wave |
-| 30+ | boss alle 10 Waves |
-
-**Lösung B: Continuous-Param-Floor ab Wave 20**
-- `count_factor` clamped auf min 0.7
-- `hp_mult_factor` clamped auf min 0.5
-- → NN kann keine "easy" Wave mehr picken, Endgame wird automatisch fordernder
-
-**Game-Balance (separate von NN, in `game-balance.config.ts`):**
-- Research-Cost erhöhen (×2 oder ×3 pro Tier)
-- Research-Duration verlängern
-- Kill-Reward-Curve flacher (Wave-Multiplier reduzieren)
-- → bekämpft Geld-Überfluss + zu schnelle Forschung
-
-**Bonus:** Lösung A+B kompatibel mit existierendem Checkpoint — kein Retraining nötig, NN respektiert Masks bereits aus Phase 5.10. Optional Re-Training mit Curriculum aktiv damit NN die Constraints "lernt".
 
 ---
 
@@ -424,10 +333,7 @@ Pro Wave-Nummer harte Mask-Constraints — NN darf NUR aus erlaubten Templates w
 ## Tower-Ideen
 
 > Siehe auch: [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
-
-- [ ] Flame Tower (`fire`)
-- [ ] Tesla Tower (`magic`) - Kettenblitz
-- [ ] Chaos Tower (`chaos`) - Teuer, voller Schaden vs alle
+> Tesla / Chaos sind bereits in Phase 5.2 oben gelistet — hier nur Verweis.
 
 ## Enemy-Ideen
 

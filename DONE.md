@@ -4,6 +4,70 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-08
+
+### Phase 5: Damage & Armor System (Infrastruktur komplett)
+- [x] **DamageType / ArmorType Types definiert**
+      Damage: `physical`, `pierce`, `siege`, `magic`, `fire`, `ice`, `poison`.
+      Armor: `unarmored`, `light`, `heavy`, `fortified`, `ethereal`.
+      Datei: `src/app/configs/combat/combat.types.ts`
+- [x] **Schadensmatrix mit echten Multiplikatoren**
+      Strategische Werte (z.B. `magic` vs `ethereal` ×1.75), keine
+      neutralen 1.0-Platzhalter mehr. Pipeline läuft über
+      `damage-application.service.ts` + `damage-calculator.ts`.
+      Datei: `src/app/configs/combat/damage-matrix.config.ts`
+- [x] **damageType an allen Tower-Configs**
+      Archer=physical, Gatling=pierce, Sniper=pierce, Cannon/Rocket=siege,
+      Magic=magic, Ice=ice, Fire=fire, Poison=poison.
+      Datei: `src/app/configs/tower-types.config.ts`
+- [x] **Flame Tower (`fire`)**
+      Kegel-Beam-Tower mit prozeduralem `ThreeFlameBeamRenderer`.
+      Wide-Burn-Upgrade modifiziert `beamWidth` (nicht Range).
+      Dateien: `tower-types.config.ts`, `tower-combat.service.ts`,
+      `three-engine/renderers/three-flame-beam.renderer.ts`
+- [x] **UI: Schadenstyp + Damage-Matchup-Tooltips im Tower-Panel**
+      Sidebar zeigt pro Tower welche Armor-Typen effektiv getroffen werden.
+      Dateien: `components/game-sidebar/game-sidebar.component.{ts,html}`
+- [x] **armorType an allen 16 Enemy-Configs**
+      zombie/rat/penguin (unarmored), bat/wallsmasher/hornet/spider (light),
+      tank/bear/zombie-soldier/dragon/mech (heavy), mammoth/herbert
+      (fortified), ghost/wraith (ethereal).
+      Datei: `src/app/models/enemy-types.ts`
+
+### Phase 6: AI Wave Director (Trainings-Pipeline)
+- [x] **PyTorch → ONNX Export Pipeline**
+      `npm run export-ai` exportiert das aktuelle Checkpoint nach
+      `public/assets/ai/`. Browser-Inferenz ohne Python-Backend.
+      Datei: `training-backend/scripts/export_to_tfjs.py`
+- [x] **Bot Tower-Limit erhöht (50 → 300)**
+      Strategist-Bot sieht im Training jetzt Endgame-DPS-Levels.
+      Voraussetzung für Phase-5.16-Curriculum + Endgame-Knobs.
+      Datei: `src/app/ai/training/bots/tower-bot.interface.ts`
+- [x] **Wave-Schedule / forced Templates pro Wave**
+      30 explizit gepinnte Waves, danach mod-30-Loop. Decoder forciert
+      das Curriculum-Template, NN tunt nur noch die 4 Continuous-Faktoren.
+      Dateien: `training-backend/wave_curriculum.py`,
+      `src/app/ai/core/wave-curriculum.ts`
+- [x] **State-Vektor: dpsByDamageType (Phase 5.9 Gap-5-Helper)**
+      10 Features im 156-State (Gap-5-effective-DPS-per-armor). NN
+      sieht direkt, gegen welche Armor-Klassen die verfügbare DPS
+      schwach ist — Voraussetzung für strategisches Tower-Mix-Lernen.
+      Datei: `src/app/ai/core/game-state-encoder.ts`
+- [x] **Phase 5.16 Wave-Curriculum + Endgame-Knobs + Gold-Budget**
+      Endgame-HP-Multiplier (W20+: +5 %/Wave, Cap ×4 bei W80),
+      Per-Leak-Damage-Skalierung (W1–10: 1 HP, …, W31+: 4 HP+),
+      deterministisches Gold-Budget (W1: 30/15, W30: 650/325, linear
+      extrapoliert). Frontend-Mirror in `wave-curriculum.ts`.
+
+### Visual / Performance
+- [x] **Freeze-Effect Performance via aTintColor**
+      Instanced VAT Shader nimmt Tint-Farbe pro Instanz (`aTintColor`-
+      Attribut) statt Material-Cloning. Kein FPS-Impact mehr beim
+      Einfrieren großer Mengen Enemies.
+      Datei: `src/app/three-engine/renderers/instanced-enemy/`
+
+---
+
 ## 2026-03-15
 
 ### Performance: Enemy System Optimierung (~37% schneller pro Enemy)
