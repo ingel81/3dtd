@@ -7,7 +7,7 @@ import {
   ShaderMaterial,
   FrontSide,
 } from 'three';
-import { TENTACLE_VERTEX, TENTACLE_FRAGMENT } from '../../game/tower-defense/shaders/tentacle.shaders';
+import { TENTACLE_VERTEX, TENTACLE_FRAGMENT } from './tentacle-shaders';
 
 /** Tube topology */
 const SEGMENTS = 32;
