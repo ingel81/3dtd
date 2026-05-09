@@ -102,6 +102,11 @@ function createStubService(name: string): Record<string, unknown> {
       clear: vi.fn(),
       getEnemyGrid: vi.fn().mockReturnValue({ size: 0 }),
     },
+    EconomyService: {
+      computeWaveCompletionBonus: vi.fn().mockReturnValue(0),
+      reset: vi.fn(),
+      perfectStreak: 0,
+    },
   };
   return stubs[name] ?? {};
 }

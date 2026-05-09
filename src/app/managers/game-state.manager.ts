@@ -22,16 +22,16 @@ import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { EconomyService } from '../services/economy.service';
+import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/performance-profiler.service';
 import { ResearchManager } from './research.manager';
 import { ResearchStore } from '../store/research.store';
-import { getResearch } from '../configs/research/research-tree.config';
 
 /**
  * Main game state orchestrator - coordinates all entity managers
@@ -56,6 +56,7 @@ export class GameStateManager {
   private readonly towerPlacement = inject(TowerPlacementService);
   private readonly gameStore = inject(GameStore);
   private readonly spatialGrid = inject(SpatialGridService);
+  private readonly economy = inject(EconomyService);
 
   // Game Engine (framework-agnostic)
   private readonly eventBus = new GameEventBus();
@@ -79,8 +80,8 @@ export class GameStateManager {
   /** Training mode timescale (1.0 = normal, 3.0 = 3x speed) */
   readonly trainingTimescale = signal<number>(1.0);
 
-  /** Combo-Streak: aufeinanderfolgende Perfect-Waves (reset bei Non-Perfect + reset()) */
-  private _perfectStreak = 0;
+  /** Command-Bus-Adapter — registriert sich bei initialize(). */
+  private commandsHandler: GameCommandsHandler | null = null;
 
   /** Sync timescale from GameStore (UI source of truth) → local signal */
   private readonly timescaleSyncEffect = effect(() => {
@@ -256,153 +257,9 @@ export class GameStateManager {
     }));
 
     // ══════════════════════════════════════════════════════════════
-    // Command event handlers (UI → Game Engine)
+    // Command-Bus-Adapter (UI → Game Engine) — extrahiert in eigene Klasse.
     // ══════════════════════════════════════════════════════════════
-
-    this.eventBusSubs.add(this.eventBus.on('command:place-tower', (event) => {
-      this.placeTower(
-        { lat: event.position.lat, lon: event.position.lon, height: event.position.height },
-        event.typeId,
-        event.rotation ?? 0
-      );
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('command:sell-tower', (event) => {
-      const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
-      if (tower) {
-        this.sellTower(tower);
-      }
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('command:upgrade-tower', (event) => {
-      const tower = this.towerManager.getAll().find(t => t.id === event.towerId);
-      if (!tower) return;
-
-      const upgradeId = event.upgradeId;
-      const cost = tower.getNextUpgradeCost(upgradeId);
-      if (cost <= 0 || !tower.canUpgrade(upgradeId)) return;
-
-      // Tier-Gating: research-slots (Research Center) is always allowed.
-      // Regular tower upgrades require matching upgrade tier research.
-      // Phase 5.16: 25-level tracks gated in 5-level bands (mirror of
-      // GameSidebarComponent.getRequiredUpgradeTier — keep in sync).
-      //   L1-5 = T1, L6-10 = T2, L11-15 = T3, L16-20 = T4, L21-25 = T5
-      if (upgradeId !== 'research-slots') {
-        const currentLevel = tower.getUpgradeLevel(upgradeId);
-        const requiredTier =
-          currentLevel >= 20 ? 5 :
-          currentLevel >= 15 ? 4 :
-          currentLevel >= 10 ? 3 :
-          currentLevel >= 5  ? 2 : 1;
-        if (this.researchManager.getMaxUpgradeTier() < requiredTier) return;
-      }
-
-      if (this.spendCredits(cost)) {
-        const upgrade = tower.typeConfig.upgrades.find(u => u.id === upgradeId);
-        const previousLevel = tower.getUpgradeLevel(upgradeId);
-        tower.applyUpgrade(upgradeId);
-
-        // Research Center slot upgrade
-        if (upgrade?.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
-          this.researchManager.upgradeCenter();
-        }
-
-        // If range changed, recompute LOS cells so targeting uses the new range
-        if (upgrade?.effect.stat === 'range') {
-          this.towerPlacement.recomputeTowerLOS(tower);
-          // Update rangeSquaredGeo for sleep/wake checks
-          const pos = tower.position;
-          const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
-          const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
-          const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
-          tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
-          // Resize the visible range-indicator disc (only visible when the
-          // tower is selected, but we want it correct for the next click).
-          this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
-        }
-
-        this.eventBus.emit({
-          type: 'tower:upgraded',
-          tower,
-          level: previousLevel + 1,
-          cost,
-        });
-      }
-    }));
-
-    // ── Research commands ────────────────────────────────────────
-    this.eventBusSubs.add(this.eventBus.on('command:start-research', (event) => {
-      const validation = this.researchManager.canStartResearch(event.researchId, this.credits());
-      if (!validation.canStart) return;
-
-      const research = getResearch(event.researchId);
-      if (research && this.spendCredits(research.cost)) {
-        this.researchManager.startResearch(event.researchId);
-      }
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('command:cancel-research', (event) => {
-      const refund = this.researchManager.cancelResearch(event.researchId);
-      if (refund > 0) {
-        this.addCredits(refund);
-      }
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('command:start-wave', (event) => {
-      if (event.config) {
-        this.startWave(event.config);
-      } else {
-        this.beginWave();
-      }
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('command:restart-game', () => {
-      this.reset();
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('debug:add-credits', (event) => {
-      this.updateCredits(event.amount);
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('debug:add-health', (event) => {
-      const oldHealth = this.baseHealth();
-      const newHealth = Math.max(0, oldHealth + event.amount);
-      this.baseHealth.set(newHealth);
-      this.eventBus.emit({
-        type: 'health:changed',
-        health: newHealth,
-        delta: newHealth - oldHealth,
-      });
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('debug:complete-all-research', () => {
-      this.researchManager.completeAllResearch();
-    }));
-
-    this.eventBusSubs.add(this.eventBus.on('debug:max-upgrade-all-towers', () => {
-      for (const tower of this.towerManager.getAll()) {
-        let rangeChanged = false;
-        for (const upgrade of tower.typeConfig.upgrades) {
-          while (tower.canUpgrade(upgrade.id)) {
-            if (!tower.applyUpgrade(upgrade.id)) break;
-            if (upgrade.effect.stat === 'range') rangeChanged = true;
-            if (upgrade.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
-              this.researchManager.upgradeCenter();
-            }
-          }
-        }
-        if (rangeChanged) {
-          this.towerPlacement.recomputeTowerLOS(tower);
-          const pos = tower.position;
-          const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
-          const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
-          const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
-          tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
-          this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
-        }
-        this.eventBus.emit({ type: 'tower:upgraded', tower, level: 0, cost: 0 });
-      }
-    }));
+    this.commandsHandler = new GameCommandsHandler(this, this.eventBus);
 
     // Initialize projectile manager (no callback - uses events)
     this.projectileManager.initialize(tilesEngine);
@@ -699,6 +556,8 @@ export class GameStateManager {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    this.commandsHandler?.dispose();
+    this.commandsHandler = null;
 
     // Destroy game-engine service instances (they hold EventBus subscriptions)
     this.combatEffect.destroy();
@@ -757,7 +616,7 @@ export class GameStateManager {
     this.lastUpdateTime = 0;
     this._gameTimeMs = 0;
     this.subStepRemainderMs = 0;
-    this._perfectStreak = 0;
+    this.economy.reset();
 
     GameObject.resetIdCounter();
 
@@ -775,33 +634,30 @@ export class GameStateManager {
     });
   }
 
-  /**
-   * Apply Wave-Completion-Bonus (Phase 5.16):
-   * - Base bonus comes from the curriculum's per-wave budget (deterministic).
-   * - Skill bonuses stack on top: Perfect (no HP loss), CloseCall, Milestone,
-   *   Combo (perfect-streak), Comeback (HP-lost penalty consolation).
-   */
+  /** Apply Wave-Completion-Bonus via EconomyService (delegates the math). */
   private applyWaveCompletionBonus(result: { wave: number; perfect: boolean; closeCall: boolean; hpLost: number }): void {
-    const cfg = GAME_BALANCE.economy;
-    const base = goldBudgetForWave(result.wave).complete;
-    const perfectBonus = result.perfect ? Math.round(base * cfg.perfectBonusRatio) : 0;
-    const closeCallBonus = result.closeCall ? Math.round(base * cfg.closeCallBonusRatio) : 0;
-    const milestoneBonus = cfg.milestoneBonuses[result.wave] ?? 0;
-    const comebackBonus = result.hpLost > 0
-      ? Math.min(cfg.comebackBonusCap, Math.round(result.hpLost * cfg.comebackBonusSlope))
-      : 0;
-
-    // Combo-Streak: Perfect-Wave erhoeht Streak, Non-Perfect resettet
-    this._perfectStreak = result.perfect ? this._perfectStreak + 1 : 0;
-    const comboMultiplier = Math.min(cfg.comboBonusMax, this._perfectStreak * cfg.comboBonusPerStreak);
-    const comboBonus = Math.round(base * comboMultiplier);
-
-    const total = base + perfectBonus + closeCallBonus + milestoneBonus + comebackBonus + comboBonus;
+    const total = this.economy.computeWaveCompletionBonus(result);
     this.updateCredits(total);
   }
 
-  private addCredits(amount: number): void {
+  /** Add credits to the player account (delta). Public for GameCommandsHandler. */
+  addCredits(amount: number): void {
     this.updateCredits(amount);
+  }
+
+  /**
+   * After a range-stat upgrade (manual or debug-max-upgrade), refresh the
+   * tower's LOS cells, geo-degree-squared range cache, and visual range disc.
+   * Pulled out of the upgrade-handler so the command handler can call it.
+   */
+  recomputeTowerRangeAfterUpgrade(tower: Tower): void {
+    this.towerPlacement.recomputeTowerLOS(tower);
+    const pos = tower.position;
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
+    const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
+    const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
+    tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
+    this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);
   }
 
   /**
