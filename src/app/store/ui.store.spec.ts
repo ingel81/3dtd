@@ -53,14 +53,6 @@ describe('UIStore', () => {
       expect(store.buildValidationReason()).toBeNull();
     });
 
-    it('debug enemy overrides have correct defaults', () => {
-      expect(store.enemySpeed()).toBe(2.0);
-      expect(store.enemyHealth()).toBe(100);
-      expect(store.enemyCount()).toBe(5);
-      expect(store.enemyType()).toBe('basic');
-      expect(store.spawnMode()).toBe('sequential');
-      expect(store.spawnDelay()).toBe(1000);
-    });
   });
 
   describe('toggleBuildings', () => {
@@ -146,12 +138,6 @@ describe('UIStore', () => {
       store.buildMode.set(true);
       store.selectedTowerType.set('cannon');
       store.buildValidationReason.set('blocked');
-      store.enemySpeed.set(10);
-      store.enemyHealth.set(500);
-      store.enemyCount.set(50);
-      store.enemyType.set('boss');
-      store.spawnMode.set('random');
-      store.spawnDelay.set(5000);
 
       store.resetAll();
 
@@ -171,12 +157,6 @@ describe('UIStore', () => {
       expect(store.buildMode()).toBe(false);
       expect(store.selectedTowerType()).toBeNull();
       expect(store.buildValidationReason()).toBeNull();
-      expect(store.enemySpeed()).toBe(2.0);
-      expect(store.enemyHealth()).toBe(100);
-      expect(store.enemyCount()).toBe(5);
-      expect(store.enemyType()).toBe('basic');
-      expect(store.spawnMode()).toBe('sequential');
-      expect(store.spawnDelay()).toBe(1000);
     });
   });
 });

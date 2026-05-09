@@ -88,24 +88,6 @@ export class UIStore {
   /** Map placement mode: 'hq' to place HQ, 'spawn' to place spawn, null when inactive */
   readonly mapPlacementMode = signal<'hq' | 'spawn' | null>(null);
 
-  /** Debug: enemy speed override */
-  readonly enemySpeed = signal<number>(2.0);
-
-  /** Debug: enemy health override */
-  readonly enemyHealth = signal<number>(100);
-
-  /** Debug: enemy count per wave */
-  readonly enemyCount = signal<number>(5);
-
-  /** Debug: enemy type */
-  readonly enemyType = signal<string>('basic');
-
-  /** Debug: spawn mode (sequential / random / all) */
-  readonly spawnMode = signal<string>('sequential');
-
-  /** Debug: spawn delay in ms */
-  readonly spawnDelay = signal<number>(1000);
-
   constructor() {
     this.loadPersistedState();
     this.setupPersistence();
@@ -223,11 +205,5 @@ export class UIStore {
     this.buildingsVisible.set(false);
     this.debugLog.set('');
     this.resetBuildState();
-    this.enemySpeed.set(2.0);
-    this.enemyHealth.set(100);
-    this.enemyCount.set(5);
-    this.enemyType.set('basic');
-    this.spawnMode.set('sequential');
-    this.spawnDelay.set(1000);
   }
 }
