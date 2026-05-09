@@ -305,7 +305,6 @@ export class GameStateManager {
         // Research Center slot upgrade
         if (upgrade?.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
           this.researchManager.upgradeCenter();
-          this.syncResearchStoreState();
         }
 
         // If range changed, recompute LOS cells so targeting uses the new range
@@ -340,7 +339,6 @@ export class GameStateManager {
       if (research && this.spendCredits(research.cost)) {
         this.researchManager.startResearch(event.researchId);
       }
-      this.syncResearchStoreState();
     }));
 
     this.eventBusSubs.add(this.eventBus.on('command:cancel-research', (event) => {
@@ -348,12 +346,6 @@ export class GameStateManager {
       if (refund > 0) {
         this.addCredits(refund);
       }
-      this.syncResearchStoreState();
-    }));
-
-    // ── Research completion listener ──────────────────────────────
-    this.eventBusSubs.add(this.eventBus.on('research:completed', (_event) => {
-      this.syncResearchStoreState();
     }));
 
     this.eventBusSubs.add(this.eventBus.on('command:start-wave', (event) => {
@@ -385,11 +377,9 @@ export class GameStateManager {
 
     this.eventBusSubs.add(this.eventBus.on('debug:complete-all-research', () => {
       this.researchManager.completeAllResearch();
-      this.syncResearchStoreState();
     }));
 
     this.eventBusSubs.add(this.eventBus.on('debug:max-upgrade-all-towers', () => {
-      let researchSlotsChanged = false;
       for (const tower of this.towerManager.getAll()) {
         let rangeChanged = false;
         for (const upgrade of tower.typeConfig.upgrades) {
@@ -398,7 +388,6 @@ export class GameStateManager {
             if (upgrade.effect.stat === 'range') rangeChanged = true;
             if (upgrade.effect.stat === 'research-slots' && tower.typeConfig.id === 'research-center') {
               this.researchManager.upgradeCenter();
-              researchSlotsChanged = true;
             }
           }
         }
@@ -413,7 +402,6 @@ export class GameStateManager {
         }
         this.eventBus.emit({ type: 'tower:upgraded', tower, level: 0, cost: 0 });
       }
-      if (researchSlotsChanged) this.syncResearchStoreState();
     }));
 
     // Initialize projectile manager (no callback - uses events)
@@ -817,17 +805,6 @@ export class GameStateManager {
   }
 
   /**
-   * Sync ResearchManager state to ResearchStore signals.
-   * Called after any research state change.
-   */
-  private syncResearchStoreState(): void {
-    this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
-    this.researchStore.completedResearches.set(this.researchManager.getCompletedResearches());
-    this.researchStore.centerLevel.set(this.researchManager.centerLevel);
-    this.researchStore.researchSlots.set(this.researchManager.maxSlots);
-  }
-
-  /**
    * Clear all tower overlays (LOS visualizations + GlobalRouteGrid registrations)
    * Called on reset to cleanup before starting fresh
    */
@@ -856,7 +833,6 @@ export class GameStateManager {
     // Notify ResearchManager when Research Center is sold
     if (tower.typeConfig.id === 'research-center') {
       this.researchManager.onCenterRemoved();
-      this.syncResearchStoreState();
     }
 
     // Sell tower (emits tower:sold event, returns refund)
@@ -917,7 +893,6 @@ export class GameStateManager {
       // Notify ResearchManager when Research Center is placed
       if (typeId === 'research-center') {
         this.researchManager.onCenterPlaced();
-        this.syncResearchStoreState();
       }
     }
     return tower;

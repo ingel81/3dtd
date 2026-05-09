@@ -107,6 +107,17 @@ export class ResearchManager {
     return new Set(this.completedResearches);
   }
 
+  /** Emit a `research:state-changed` snapshot covering every store-relevant field. */
+  private emitStateSnapshot(): void {
+    this.eventBus.emit({
+      type: 'research:state-changed',
+      activeResearches: this.getActiveResearches(),
+      completedResearches: this.getCompletedResearches(),
+      centerLevel: this._centerLevel,
+      maxSlots: this._maxSlots,
+    });
+  }
+
   /** Get the highest unlocked upgrade tier. */
   getMaxUpgradeTier(): number {
     let maxTier = 1; // T1 is always available
@@ -205,6 +216,7 @@ export class ResearchManager {
       cost: config.cost,
       duration: config.duration,
     });
+    this.emitStateSnapshot();
 
     return true;
   }
@@ -224,6 +236,7 @@ export class ResearchManager {
       researchId: id,
       refund,
     });
+    this.emitStateSnapshot();
 
     return refund;
   }
@@ -234,6 +247,7 @@ export class ResearchManager {
   onCenterPlaced(): void {
     this._centerLevel = 1;
     this._maxSlots = getMaxResearchSlots(1);
+    this.emitStateSnapshot();
   }
 
   /**
@@ -243,6 +257,7 @@ export class ResearchManager {
     if (this._centerLevel >= RESEARCH_CENTER_CONFIG.maxLevel) return;
     this._centerLevel++;
     this._maxSlots = getMaxResearchSlots(this._centerLevel);
+    this.emitStateSnapshot();
   }
 
   /**
@@ -254,6 +269,7 @@ export class ResearchManager {
     for (const [id] of this.activeResearches) {
       this.cancelResearch(id);
     }
+    this.emitStateSnapshot();
   }
 
   // ==================== Update Loop ====================
@@ -289,6 +305,10 @@ export class ResearchManager {
         });
       }
     }
+
+    if (completed.length > 0) {
+      this.emitStateSnapshot();
+    }
   }
 
   /**
@@ -310,6 +330,7 @@ export class ResearchManager {
         effects: config.effects,
       });
     }
+    this.emitStateSnapshot();
   }
 
   // ==================== Lifecycle ====================
