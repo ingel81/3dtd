@@ -28,7 +28,7 @@ import {
   getAvailableTemplateMask,
   lerpRange,
 } from './templates';
-import { templateForWave, endgameHpMultiplier } from './wave-curriculum';
+import { templateForWave, endgameHpMultiplier } from '../../configs/wave-curriculum.config';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';

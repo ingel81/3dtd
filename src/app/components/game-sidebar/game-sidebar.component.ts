@@ -41,7 +41,7 @@ import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.se
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { templateObjectForWave } from '../../ai/core/wave-curriculum';
+import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';

@@ -26,7 +26,7 @@ import { ResearchId, ResearchEffect } from '../../../../configs/research/researc
 import { ArmorType, ARMOR_TYPES } from '../../../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../../../configs/combat/damage-matrix.config';
 import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config';
-import { templateObjectForWave } from '../../../core/wave-curriculum';
+import { templateObjectForWave } from '../../../../configs/wave-curriculum.config';
 import { ENEMY_TYPES, EnemyTypeId } from '../../../../configs/enemy-types.config';
 
 export class ResearchPickStrategy extends BaseStrategy {

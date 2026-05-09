@@ -10,7 +10,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { AIR_CLEARANCE_M } from '../utils/global-route-grid';
-import { goldBudgetForWave, enemyBaseDamageForWave } from '../ai/core/wave-curriculum';
+import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 
 /**
  * Manages all enemy entities - spawning, updating, and lifecycle
