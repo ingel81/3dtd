@@ -446,21 +446,23 @@ export class TowerPlacementService {
     const local = this.engine.sync.geoToLocalSimple(lat, lon, height);
     const tipY = local.y + config.heightOffset + config.shootHeight;
 
-    // Check if this is a pure air tower (only targets air, not ground)
-    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+    const canTargetGround = config.canTargetGround ?? true;
+    const canTargetAir = config.canTargetAir ?? false;
 
     // Clean up old preview
     this.cleanupLosPreview();
 
-    // Start progressive preview build (mesh starts empty, fills progressively)
-    // Air towers skip LOS checks and show all cells as visible (green)
+    // Start progressive preview build — preview cell is "visible" if EITHER
+    // ground OR air LOS is clear, so an air-only tower's reach reflects
+    // skyline-based coverage.
     this.losPreviewMesh = this.globalRouteGrid.createPlacementPreview(
       local.x,
       local.z,
       tipY,
       config.range,
       losRaycaster,
-      isPureAirTower
+      canTargetGround,
+      canTargetAir
     );
 
     if (this.losPreviewMesh) {
@@ -739,8 +741,8 @@ export class TowerPlacementService {
       return;
     }
 
-    // Check if this is a pure air tower (only targets air, not ground)
-    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+    const canTargetGround = config.canTargetGround ?? true;
+    const canTargetAir = config.canTargetAir ?? false;
 
     // Progressive LOS registration — tower stays inactive until complete (no glitches)
     const tLos0 = performance.now();
@@ -754,7 +756,8 @@ export class TowerPlacementService {
       tipY,
       config.range,
       losRaycaster,
-      isPureAirTower,
+      canTargetGround,
+      canTargetAir,
       (visibleCells: import('../utils/global-route-grid').RouteCell[]) => {
         tower.visibleCells = visibleCells;
         tower.losReady = true;
@@ -821,7 +824,8 @@ export class TowerPlacementService {
       return;
     }
 
-    const isPureAirTower = (config.canTargetAir ?? false) && !(config.canTargetGround ?? true);
+    const canTargetGround = config.canTargetGround ?? true;
+    const canTargetAir = config.canTargetAir ?? false;
 
     // Use the tower's current combat range (already upgraded) instead of base config range
     tower.visibleCells = this.globalRouteGrid.registerTower(
@@ -831,7 +835,8 @@ export class TowerPlacementService {
       tipY,
       tower.combat.range,
       losRaycaster,
-      isPureAirTower
+      canTargetGround,
+      canTargetAir
     );
 
     // Recreate LOS visualization with new range

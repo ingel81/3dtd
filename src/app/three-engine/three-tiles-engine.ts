@@ -1359,6 +1359,50 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Get the skyline height at local coordinates — i.e. the highest hit
+   * (terrain or building roof) in a small neighbourhood around (x, z).
+   *
+   * In Real-World 3D-Tiles this samples the loaded tileset; the top-down
+   * raycast naturally hits whatever is highest, so the returned value is
+   * already "ground or roof, whichever wins". The 4-corner neighbourhood
+   * makes the result robust against tile-mesh seams and the cell granularity.
+   *
+   * In DevWorld this delegates to the provider's skyline sampler which
+   * raycasts against terrain + building meshes.
+   *
+   * @param localX - Local X coordinate (meters from origin)
+   * @param localZ - Local Z coordinate (meters from origin)
+   * @param sampleRadius - Neighbourhood radius in meters (default 1.5m, ~cell size)
+   * @returns Skyline Y in local coordinates, or null if no hit
+   */
+  getSkylineHeightAtLocal(localX: number, localZ: number, sampleRadius = 1.5): number | null {
+    // DevWorld: delegate to provider (top-down raycast against buildings + terrain)
+    if (this.devTerrainProvider) {
+      return this.devTerrainProvider.getSkylineHeightAtLocal(localX, localZ, sampleRadius);
+    }
+
+    if (!this.tilesRenderer) return null;
+
+    // 5-sample max: centre + 4 corner offsets at ±sampleRadius
+    const offsets: [number, number][] = [
+      [0, 0],
+      [sampleRadius, sampleRadius],
+      [sampleRadius, -sampleRadius],
+      [-sampleRadius, sampleRadius],
+      [-sampleRadius, -sampleRadius],
+    ];
+
+    let maxY: number | null = null;
+    for (const [dx, dz] of offsets) {
+      const y = this.raycastTerrainHeight(localX + dx, localZ + dz);
+      if (y !== null && (maxY === null || y > maxY)) {
+        maxY = y;
+      }
+    }
+    return maxY;
+  }
+
+  /**
    * @deprecated Use getTerrainHeightAtGeo() instead - this method uses incorrect local raycast
    */
   getOverlayTerrainHeight(_localX: number, _localZ: number): number | null {

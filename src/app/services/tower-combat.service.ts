@@ -10,8 +10,6 @@ import { Tower } from '../entities/tower.entity';
 import { TowerManager } from '../managers/tower.manager';
 import { EnemyManager } from '../managers/enemy.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
-import { TowerTypeId } from '../configs/tower-types.config';
-import { canTargetAirEffective } from '../ai/core/tower-dps.util';
 
 /**
  * TowerCombatService - Handles tower targeting, rotation, and shooting
@@ -118,19 +116,19 @@ export class TowerCombatService {
 
       // Determine if we can use GlobalRouteGrid optimization
       const hasVisibleCells = tower.visibleCells.length > 0;
-      const towerCanAir = canTargetAirEffective(
-        tower.typeConfig.id as TowerTypeId,
-        airTargetingUnlocked,
-      );
-      const isPureAirTower =
-        towerCanAir && !(tower.typeConfig.canTargetGround ?? true);
 
-      // Get candidate enemies based on tower type and available data
+      // Get candidate enemies based on tower type and available data.
+      // losCheck dispatches per-enemy on isAirUnit so air targets resolve
+      // against air-LoS (skyline + clearance) and ground targets against
+      // ground-LoS — picked up from cell.airVisibility / cell.towerVisibility
+      // pre-compute, with a runtime raycast fallback for both.
       let candidates: Enemy[];
       let losCheck: ((enemy: Enemy) => boolean) | undefined;
 
-      if (hasVisibleCells && !isPureAirTower) {
-        // FAST PATH: Use GlobalRouteGrid for ground towers with visibleCells
+      if (hasVisibleCells) {
+        // FAST PATH: Use GlobalRouteGrid for towers with visibleCells.
+        // Works for ground, air-only and dual-targeting towers — visibleCells
+        // is the union of ground + air visible cells.
         candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
 
         losCheck = this.tilesEngine
@@ -140,26 +138,27 @@ export class TowerCombatService {
                 enemy.position.lon,
                 enemy.transform.terrainHeight
               );
-              const visibility = this.globalRouteGrid.isPositionVisibleFromTower(
-                tower.id,
-                pos.x,
-                pos.z
-              );
+              const isAir = enemy.typeConfig.isAirUnit ?? false;
+              const visibility = isAir
+                ? this.globalRouteGrid.isAirPositionVisibleFromTower(tower.id, pos.x, pos.z)
+                : this.globalRouteGrid.isPositionVisibleFromTower(tower.id, pos.x, pos.z);
               if (visibility !== undefined) {
                 return visibility;
               }
+              // Runtime raycast fallback. For air targets aim at the visual
+              // air altitude (terrainHeight has been lifted to skyline +
+              // clearance for air enemies), for ground at eye height.
+              const targetLocalY = isAir
+                ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
+                : pos.y + 1.5;
               return this.tilesEngine!.towers.hasLineOfSight(
                 tower.id,
                 pos.x,
-                pos.y + 1.5,
+                targetLocalY,
                 pos.z
               );
             }
           : undefined;
-      } else if (isPureAirTower) {
-        // Air towers target all enemies (air units are always visible)
-        candidates = allEnemies;
-        losCheck = undefined;
       } else {
         // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
         // Returns Enemy[] directly — no ID resolution needed
@@ -194,10 +193,14 @@ export class TowerCombatService {
                 enemy.position.lon,
                 enemy.transform.terrainHeight
               );
+              const isAir = enemy.typeConfig.isAirUnit ?? false;
+              const targetLocalY = isAir
+                ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
+                : pos.y + 1.5;
               return this.tilesEngine!.towers.hasLineOfSight(
                 tower.id,
                 pos.x,
-                pos.y + 1.5,
+                targetLocalY,
                 pos.z
               );
             }
@@ -219,9 +222,9 @@ export class TowerCombatService {
         // Fire if cooldown is ready AND turret is aligned
         const turretAligned = this.tilesEngine?.towers.isTurretAligned(tower.id) ?? true;
         if (tower.combat.canFire() && turretAligned) {
-          // Periodic LOS recheck (throttled to max ~3/sec per tower) — game-time
-          const isAirTarget = target.typeConfig.isAirUnit ?? false;
-          if (losCheck && !isAirTarget && tower.needsLosRecheck(gameTimeMs)) {
+          // Periodic LOS recheck (throttled to max ~3/sec per tower) — runs
+          // for air targets too now that tall buildings can break air LOS.
+          if (losCheck && tower.needsLosRecheck(gameTimeMs)) {
             tower.markLosChecked(gameTimeMs);
             if (!losCheck(target)) {
               // Target no longer visible - find new target

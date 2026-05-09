@@ -27,6 +27,14 @@ export interface TerrainProvider {
   getHeightAtLocal(x: number, z: number): number | null;
 
   /**
+   * Get the local skyline Y at (x, z) — i.e. the highest hit (terrain or
+   * building roof) in a small neighbourhood. Used by air-LOS pre-compute
+   * and skyline-adaptive air enemy flight altitude.
+   * @returns Skyline height in meters (local Y), or null if not available
+   */
+  getSkylineHeightAtLocal(x: number, z: number, sampleRadius?: number): number | null;
+
+  /**
    * Raycast from screen coordinates to terrain.
    * Used for mouse picking / tower placement.
    * @returns World position of hit, or null if no hit
