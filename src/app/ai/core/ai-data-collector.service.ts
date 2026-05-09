@@ -30,7 +30,7 @@ import {
 import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { ArmorType } from '../../configs/combat/combat.types';
-import { getEnemyType, EnemyTypeId } from '../../models/enemy-types';
+import { getEnemyType, EnemyTypeId } from '../../configs/enemy-types.config';
 import { WaveResult, WaveOutcome } from './models/wave-result';
 import { WaveConfig, createSimpleWaveConfig } from './models/wave-config';
 import {

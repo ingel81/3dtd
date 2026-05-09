@@ -40,7 +40,7 @@ import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.service';
 import { TowerDebugService } from '../../services/tower-debug.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
-import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
+import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { templateObjectForWave } from '../../ai/core/wave-curriculum';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';

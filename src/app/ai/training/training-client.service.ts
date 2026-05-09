@@ -14,7 +14,7 @@ import { AIDataCollectorService } from '../core/ai-data-collector.service';
 import { GameStateSnapshot } from '../core/models/game-state-snapshot';
 import { WaveConfig } from '../core/models/wave-config';
 import { WaveResult } from '../core/models/wave-result';
-import { ENEMY_TYPES } from '../../models/enemy-types';
+import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { ITowerBot, TowerAction, BotSkillLevel } from './bots/tower-bot.interface';
 import { StrategyBotFactory } from './bots/strategy-bot.factory';
 import { TOWER_TYPES, UpgradeId } from '../../configs/tower-types.config';

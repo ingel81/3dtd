@@ -9,7 +9,7 @@ import {
 } from 'three';
 import { VATData } from './vat-baker';
 import { createVATMaterial } from './vat-material';
-import { EnemyTypeConfig } from '../../../models/enemy-types';
+import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
 
 const MAX_INSTANCES_PER_TYPE = 20000;
 const UP = new Vector3(0, 1, 0);

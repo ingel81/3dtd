@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
-import { EnemyTypeId } from '../models/enemy-types';
+import { EnemyTypeId } from '../configs/enemy-types.config';
 import { GeoPosition } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { SpatialGridService } from '../services/spatial-grid.service';

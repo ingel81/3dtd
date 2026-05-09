@@ -8,7 +8,7 @@ import {
   MovementComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../models/enemy-types';
+import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../configs/enemy-types.config';
 import { ArmorType } from '../configs/combat/combat.types';
 
 /**

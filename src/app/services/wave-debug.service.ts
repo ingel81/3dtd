@@ -1,5 +1,5 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../models/enemy-types';
+import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { UIStore } from '../store/ui.store';
 import { WaveConfig } from '../managers/wave.manager';
 import { SpawnPattern, ALL_SPAWN_PATTERNS, buildSpawnSchedule } from '../ai/core/spawn-schedule-builder';

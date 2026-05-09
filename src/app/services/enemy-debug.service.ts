@@ -1,5 +1,5 @@
 import { Injectable, Signal, signal, computed, inject } from '@angular/core';
-import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../models/enemy-types';
+import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../configs/enemy-types.config';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { GameStateManager } from '../managers/game-state.manager';

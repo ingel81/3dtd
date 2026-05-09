@@ -19,7 +19,7 @@ import { MarkerVisualizationService } from '../services/marker-visualization.ser
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
-import { ENEMY_TYPES } from '../models/enemy-types';
+import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { goldBudgetForWave } from '../ai/core/wave-curriculum';

@@ -7,7 +7,7 @@
 
 import { WaveConfig as AIWaveConfig } from './models/wave-config';
 import { WaveConfig as WaveManagerConfig } from '../../managers/wave.manager';
-import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
+import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { buildSpawnSchedule, DEFAULT_SPAWN_PATTERN } from './spawn-schedule-builder';
 
 /**

@@ -5,7 +5,7 @@ import { DebugWindowService } from '../../services/debug-window.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
-import { EnemyTypeId } from '../../models/enemy-types';
+import { EnemyTypeId } from '../../configs/enemy-types.config';
 import { SpawnPattern } from '../../ai/core/spawn-schedule-builder';
 import { TdIconComponent } from '../icon/icon.component';
 

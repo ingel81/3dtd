@@ -3,7 +3,7 @@ import {
   getAllEnemyTypes,
   getEnemyType,
   getEnemyTypeIds,
-} from './enemy-types';
+} from './enemy-types.config';
 
 describe('enemy types config', () => {
   it('all enemy types have required fields', () => {

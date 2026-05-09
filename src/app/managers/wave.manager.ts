@@ -1,6 +1,6 @@
 import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
-import { EnemyTypeId } from '../models/enemy-types';
+import { EnemyTypeId } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
 import { GameEventBus, IGameManager } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
