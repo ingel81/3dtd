@@ -15,14 +15,14 @@ import { DamageApplicationService } from './damage-application.service';
 import { ArmorType, DamageType } from '../configs/combat/combat.types';
 
 /** Minimal Enemy stub — only the fields/methods DamageApplicationService touches. */
-type EnemyStub = {
+interface EnemyStub {
   id: string;
   position: { lat: number; lon: number };
   transform: { terrainHeight: number };
   typeConfig: { canBleed: boolean; heightOffset: number; armorType: ArmorType };
   health: { takeDamage: (n: number) => boolean; hp: number };
   getEffectiveArmorType: () => ArmorType;
-};
+}
 
 function makeEnemy(opts: {
   id?: string;
