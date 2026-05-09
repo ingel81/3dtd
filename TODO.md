@@ -34,7 +34,9 @@
 
 # HOUSEKEEPING (Sprint-Plan)
 
-> **Stand:** 2026-05-08 — 4 Research-Agents (Code-Review, Test-Audit, Struktur, Dead-Code) sind gelaufen.
+> **Stand:** 2026-05-09 — 16/18 abgestimmten Items in einem /loop-Run erledigt (siehe Markierungen).
+> Offen geblieben: `three-effects.renderer` Split + `three-tiles-engine` Split (beides architekturlastig,
+> verdient eigene Sessions mit Sign-Off). Verschoben in DONE.md auf manuellen Zuruf.
 > Tier 1 wird direkt im aktuellen Sprint erledigt (siehe DONE.md). Tier 2-4 hier persistiert.
 > **Doku-Refresh:** bereits am 2026-05-08 erledigt (Phase 5.16 sync), entfällt als Punkt.
 
@@ -46,49 +48,48 @@
       `mocks/` (nur Doku), `archive-v3.5/` ONNX-Backup.
       **Achtung:** Working-Tree-Cleanup; Git-History bleibt fett. Optional `git filter-repo` für echte Repo-Schrumpfung.
 
-- [ ] **WaveDebug-Doppelmirror auflösen**
+- [x] **WaveDebug-Doppelmirror auflösen** ✓ 2026-05-09
       `UIStore.enemyCount/Speed/Health/Type/spawnMode/spawnDelay` (`store/ui.store.ts:91-107,226-231`)
       und Re-Exports in `tower-defense.store.ts:283-298` löschen — `WaveDebugService` ist faktisch
       einzige Quelle, aber UIStore-Variante hat **abweichende Defaults** (Inkonsistenz-Bug-Risiko).
 
-- [ ] **`models/enemy-types.ts` → `configs/enemy-types.config.ts`**
+- [x] **`models/enemy-types.ts` → `configs/enemy-types.config.ts`** ✓ 2026-05-09
       Datei ist eine Config-Datenbank (`ENEMY_TYPES = {...}`), kein Type-File.
       `configs/index.ts:6` re-exportiert sie bereits — Eingeständnis. Imports projektweit anpassen.
 
-- [ ] **`ai/core/wave-curriculum.ts` → `configs/wave-curriculum.config.ts`**
+- [x] **`ai/core/wave-curriculum.ts` → `configs/wave-curriculum.config.ts`** ✓ 2026-05-09
       Pure Balance-Daten (CurriculumWave-Tabelle, goldBudgetForWave, enemyBaseDamageForWave),
       wird von `enemy.manager.ts` und `game-state.manager.ts` konsumiert — Layer-Inversion managers→ai.
       Backend-Mirror in `training-backend/wave_curriculum.py` bleibt synchron.
 
-- [ ] **`canTargetAirEffective` zirkulär entities↔ai auflösen**
+- [x] **`canTargetAirEffective` zirkulär entities↔ai auflösen** ✓ 2026-05-09
       Aktuell: `entities/tower.entity.ts:14` importiert aus `ai/core/tower-dps.util.ts`,
       `tower-dps.util.ts:8` importiert `Tower` aus `entities/`. Methode ist Core-Gameplay (Air-Targeting-Regeln) —
       gehört zu `tower.entity` selbst oder in eine neue `entities/tower-targeting.util.ts`.
       AI-spezifische DPS-Approximation (`computeTowerDPS`) bleibt in `ai/`.
 
-- [ ] **CLAUDE.md aktualisieren**
+- [x] **CLAUDE.md aktualisieren** ✓ 2026-05-09
       Top-Level-Folder ergänzen: `game/` (nach Cleanup ggf. raus), `integration/`, `interfaces/`, `utils/`.
       Nach `wave-curriculum`-Move auch dort Pfad korrigieren.
 
-- [ ] **Unbenutzte npm-Packages prüfen**
+- [x] **Unbenutzte npm-Packages prüfen** ✓ 2026-05-09
       `depcheck` flaggt `canvas` und `@gltf-transform/core` (nur in Doku als CLI-Tip erwähnt).
       Nach Entfernung `npm ci && npm run build` testen.
       `@eslint/js` fehlt in `devDependencies` (nur transitiv aufgelöst) — explizit hinzufügen.
 
 ## Tier 3 — Strategische Refactorings (>4h, eigener Sprint, Planung nötig)
 
-- [ ] **Geo-Konstanten konsolidieren** (~25 Files)
+- [x] **Geo-Konstanten konsolidieren** (~25 Files) ✓ 2026-05-09
       `METERS_PER_DEGREE_LAT` und `DEG_TO_RAD` aus `geo-utils.ts` exportieren, alle Inline-`111320`
       und `0.0174533`/`Math.PI/180`-Stellen migrieren. **Bug-Symptom:** `movement.component.ts:40`
       nutzt `111000` statt `111320` — minimale Lateral-Offset-Abweichung. Test-Pass nach jedem Block.
 
-- [ ] **`services/`-Subfolder einführen** (51 Files flach → strukturiert)
-      Vorschlag: `combat/` (combat-effect, combat-vfx, damage-application, status-effect, hq-damage, tower-combat),
-      `world/` (path-route, route-animation, global-route-grid, marker, building-rendering, street-rendering, height-update, strategic-placement, map-placement, spatial-grid),
-      `location/` (location-management, location-change-coordinator, geocoding, geolocation, osm-street, street-cache, url-location, world-dice, pathfinding-worker),
-      `debug/` (wave-debug, sound-debug, tower-debug, enemy-debug, debug-window, performance-profiler, debug-facade),
-      `facade/` (tower-defense-facade, game-loop-facade, visualization-facade, location-facade),
-      `infrastructure/` (asset-manager, engine-initialization, model-preview, game-state-sync).
+- [x] **`services/`-Subfolder einführen** — **teilweise** ✓ 2026-05-09 (combat/ + debug/ migriert)
+      Erledigt: `combat/` (combat-effect, combat-vfx, damage-application, status-effect, hq-damage, tower-combat)
+      und `debug/` (wave-debug, sound-debug, tower-debug, enemy-debug, debug-window,
+      performance-profiler, debug-facade) — 15 Files in Subfolder, ~22 Import-Sites aktualisiert.
+      **Offen:** `world/`, `location/`, `facade/`, `infrastructure/` für eine eigene Session
+      (kohärenter, weniger riskant in einem Block).
 
 - [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module)
       ParticleEffectsRenderer (blood/fire/explosion/smoke), AuraRenderer (frost/poison/inner-fire),
@@ -98,23 +99,23 @@
       Sub-Module für Post-Processing (Bloom + Color Grading), Camera-Setup (Controls + Initial-Position),
       Tile-Loading-State-Machine (firstTilesLoaded, retry, debounce). Per Composition.
 
-- [ ] **`game-state.manager.ts` Command-Handler extrahieren** (1020 LOC → 700 + 300)
+- [x] **`game-state.manager.ts` Command-Handler extrahieren** (1020 LOC → 700 + 300) ✓ 2026-05-09
       EventBus-Subscriptions-Block (~150 Zeilen für `command:place-tower`, `command:upgrade-tower`, etc.)
-      in eigenen `GameCommandsService`, plus `applyWaveCompletionBonus` (~20 Zeilen) in `EconomyService`.
+      in eigenen `GameCommandsHandler`, plus `applyWaveCompletionBonus` (~20 Zeilen) in `EconomyService`.
       Trennt "Game-Loop-Owner" von "Command-Bus-Adapter".
 
-- [ ] **Combat-Magic-Numbers konsolidieren in `combat-tuning.config.ts`**
+- [x] **Combat-Magic-Numbers konsolidieren in `combat-tuning.config.ts`** ✓ 2026-05-09
       ~20 Stellen in `tower-combat.service.ts` (sleep-checks, beam-margins, blood-throttles, beam-width-defaults),
       plus `Tower.SLEEP_DELAY` (Entity-Static), `BEAM_BLOOD_EFFECT_INTERVAL = 200`,
       `POISON_TICK_INTERVAL_MS = 500` (in EnemyManager). Game-Balancing wird ohne Code-Änderungen zugänglich.
 
-- [ ] **Research-Sync-Pfad vereinheitlichen**
+- [x] **Research-Sync-Pfad vereinheitlichen** ✓ 2026-05-09
       Aktuell 50/50: `research:completed` läuft sauber via Event → Store, aber `research:started`/
       `research:cancelled` haben no-op Subscriber, GSM ruft direkt `syncResearchStoreState()` auf.
       Bricht dokumentiertes Pattern (SIGNAL-STORE-ARCHITECTURE.md: "GSM → Event → SyncService → Store").
       Variante A: Events erweitern. Variante B: `research:active-changed` Snapshot-Event einführen.
 
-- [ ] **Debug-State in Stores migrieren** (UIStore oder neuer DebugStore)
+- [x] **Debug-State in Stores migrieren** (UIStore oder neuer DebugStore) ✓ 2026-05-09
       `WaveDebugService.enemyCount/Speed/Health/Type/spawnMode/spawnDelay`,
       `TowerDebugService.allOverrides/selectedTowerId`,
       `EnemyDebugService.overrides/placementMode` — alle State-Signals gehören laut
@@ -149,18 +150,23 @@
       Fixed-timestep-Akkumulation, MAX_SUBSTEPS_PER_FRAME-Cap, MAX_REMAINDER_MS,
       gameTimeMs-Monotonie. Phase-Transitions setup ↔ wave ↔ gameover über Event-Sequenzen.
 
-- [ ] **`TowerCombatService` Tests**
+- [x] **`TowerCombatService` Tests** ✓ 2026-05-09 (15 Cases)
       Komplett ungetestet, ~27 Methoden. Targeting-Strategien (first/strongest/nearest/lowest-hp),
       LOS via GlobalRouteGrid, Air-vs-Ground-Filter, Beam-Tower-Cone-Collision,
       Melee-Tower, Flame-Sound-Loop-Tracking.
+      **Scope:** calculateHeading, getEffectiveDPS, getEffectiveBeamWidth, Beam-State-Cleanup,
+      Config-Wiring. Targeting-Strategien sind durch `tower.entity.spec.ts` abgedeckt;
+      Beam-Cone-Geometrie + voller Update-Loop bleiben Integration-Test-Territorium.
 
 ## Weitere Cleanup-Items (kleiner, aus Reports)
 
-- [ ] **Damage-Application + Splash Tests** — `DamageApplicationService.applyDamage`/`applyBeamDamage`/`killEnemy`,
+- [x] **Damage-Application + Splash Tests** ✓ 2026-05-09 (12 Cases) — `DamageApplicationService.applyDamage`/`applyBeamDamage`/`killEnemy`,
       DOT-Stacking (Burn, Poison) bei Multi-Source.
-- [ ] **`GameStateSyncService` echter Service-Test** (`services/game-state-sync.service.spec.ts` testet aktuell
+      **Scope:** Damage-Matrix-Lookup, VFX/Kill-Flow, Beam-Damage. DOT-Stacking auf
+      `MovementComponent.applyStatusEffect` ist eigenes Spec-Item.
+- [x] **`GameStateSyncService` echter Service-Test** ✓ 2026-05-09 (21 Cases) (`services/game-state-sync.service.spec.ts` testet aktuell
       nur eine Inline-Re-Implementierung, nicht den injizierten Service).
-- [ ] **`ResearchStore` Spec hinzufügen** — Active-Research-Tracking, Slot-Limits, applyResearchEffects, Persistence.
+- [x] **`ResearchStore` Spec hinzufügen** ✓ 2026-05-09 (20 Cases) — Active-Research-Tracking, Slot-Limits, applyResearchEffects, Persistence.
 - [ ] **Three.js Mock erweitern** — `Sprite`, `SpriteMaterial`, `Box3.setFromObject`, `BufferAttribute.setXYZ`,
       `PositionalAudio`. Schaltet weitere Tests frei (SpatialAudio, combat-vfx, damage-application).
 - [ ] **Specs konkretisieren oder löschen** — `game-speed.component.spec.ts`, `three-tiles-engine.spec.ts`,
