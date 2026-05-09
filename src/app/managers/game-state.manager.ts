@@ -22,7 +22,7 @@ import { GameObject } from '../core/game-object';
 import { ENEMY_TYPES } from '../configs/enemy-types.config';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
-import { goldBudgetForWave } from '../ai/core/wave-curriculum';
+import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
 import { ThreeTilesEngine } from '../three-engine';

@@ -17,7 +17,7 @@
  * reward function is its own thing in reward.py).
  */
 
-import { TEMPLATES, type Template } from './templates';
+import { TEMPLATES, type Template } from '../ai/core/templates';
 
 export interface CurriculumWave {
   /** Template id forced by the curriculum for this wave. */

@@ -24,7 +24,7 @@ import {
   goldBudgetForWave,
   endgameHpMultiplier,
   enemyBaseDamageForWave,
-} from '../../src/app/ai/core/wave-curriculum';
+} from '../../src/app/configs/wave-curriculum.config';
 import { TOWER_TYPES, type TowerTypeId } from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
 import {
