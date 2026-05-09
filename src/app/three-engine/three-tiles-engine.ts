@@ -50,6 +50,7 @@ import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPa
 import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 import { createColorGradingPass, ColorGradingPreset } from './post-processing/color-grading';
 import { EllipsoidSync } from './ellipsoid-sync';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -1167,8 +1168,8 @@ export class ThreeTilesEngine {
     const perpLon = dLat / len;
 
     // Convert meter offsets to degree offsets
-    const METERS_TO_DEG_LAT = 1 / 111320;
-    const cosLat = Math.cos(lat * Math.PI / 180);
+    const METERS_TO_DEG_LAT = 1 / METERS_PER_DEGREE_LAT;
+    const cosLat = Math.cos(lat * DEG_TO_RAD);
 
     // Sample at ±3m and ±6m perpendicular to path
     const OFFSETS_M = [3, 6];

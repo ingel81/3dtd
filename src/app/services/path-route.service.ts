@@ -8,6 +8,7 @@ import { GeoPosition } from '../models/game.types';
 import { Street, StreetNetwork, StreetNode } from './osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../devworld/devworld.service';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { UIStore } from '../store/ui.store';
 import { PathfindingWorkerService } from './pathfinding-worker.service';
 
@@ -945,7 +946,7 @@ export class PathAndRouteService {
   ): { lat: number; lon: number }[] {
     if (path.length < 2) return path;
 
-    const METERS_PER_DEGREE = 111320;
+    const METERS_PER_DEGREE = METERS_PER_DEGREE_LAT;
     const result: { lat: number; lon: number }[] = [];
 
     for (let i = 0; i < path.length - 1; i++) {

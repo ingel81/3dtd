@@ -5,6 +5,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { ThreeTilesEngine } from '../three-engine';
 import { PROJECTILE_SOUNDS } from '../configs/projectile-types.config';
 import { GameEventBus } from '../game-engine';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
 /**
  * Manages all projectile entities - spawning, updating, and collision
@@ -70,12 +71,11 @@ export class ProjectileManager extends EntityManager<Projectile> {
 
     const firePoint = tower.getNextFirePoint();
     if (firePoint && heading !== undefined) {
-      const metersPerDegreeLat = 111320;
-      const metersPerDegreeLon = 111320 * Math.cos(tower.position.lat * 0.0174533);
+      const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
       const cosH = Math.cos(heading);
       const sinH = Math.sin(heading);
       // Rotate fire point offset by heading (x=lateral, z=forward)
-      spawnLat += (-firePoint.x * sinH + firePoint.z * cosH) / metersPerDegreeLat;
+      spawnLat += (-firePoint.x * sinH + firePoint.z * cosH) / METERS_PER_DEGREE_LAT;
       spawnLon += (firePoint.x * cosH + firePoint.z * sinH) / metersPerDegreeLon;
     }
 

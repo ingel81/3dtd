@@ -11,13 +11,13 @@
  */
 
 /** Earth radius in meters (WGS84) */
-const EARTH_RADIUS = 6371000;
+export const EARTH_RADIUS = 6371000;
 
-/** Meters per degree latitude (constant) */
-const METERS_PER_DEGREE_LAT = 111320;
+/** Meters per degree latitude (constant). 1° latitude ≈ 111.32 km. */
+export const METERS_PER_DEGREE_LAT = 111320;
 
-/** Degrees to radians conversion factor */
-const DEG_TO_RAD = Math.PI / 180;
+/** Degrees to radians conversion factor (Math.PI / 180). */
+export const DEG_TO_RAD = Math.PI / 180;
 
 /**
  * Calculate distance between two geo positions using Haversine formula

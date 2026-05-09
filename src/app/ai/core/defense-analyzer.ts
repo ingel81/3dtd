@@ -18,6 +18,7 @@ import {
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
 import { computeTowerDPS, canTargetAirEffective, armorMultipliersFor } from './tower-dps.util';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
 /**
  * Tower capabilities mapping
@@ -326,8 +327,8 @@ export function estimateKillZoneStrength(towers: Tower[]): number {
       const t2 = towers[j].transform.position;
 
       // Simple Euclidean approximation (good enough for nearby towers)
-      const latDiff = (t1.lat - t2.lat) * 111000; // ~111km per degree
-      const lonDiff = (t1.lon - t2.lon) * 111000 * Math.cos((t1.lat * Math.PI) / 180);
+      const latDiff = (t1.lat - t2.lat) * METERS_PER_DEGREE_LAT;
+      const lonDiff = (t1.lon - t2.lon) * METERS_PER_DEGREE_LAT * Math.cos(t1.lat * DEG_TO_RAD);
       const distance = Math.sqrt(latDiff * latDiff + lonDiff * lonDiff);
 
       totalDistance += distance;
