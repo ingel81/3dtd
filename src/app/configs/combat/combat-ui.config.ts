@@ -22,7 +22,7 @@ export interface DamageTypeUIMeta {
 }
 
 /** UI metadata for each damage type. Compile-time complete. */
-export const DAMAGE_TYPE_UI: { readonly [K in DamageType]: DamageTypeUIMeta } = {
+export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
   physical: {
     id: 'physical',
     label: 'Physical',
@@ -93,7 +93,7 @@ export interface ArmorTypeUIMeta {
 }
 
 /** UI metadata for each armor type. Compile-time complete. */
-export const ARMOR_TYPE_UI: { readonly [K in ArmorType]: ArmorTypeUIMeta } = {
+export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   unarmored: {
     id: 'unarmored',
     label: 'Unarmored',

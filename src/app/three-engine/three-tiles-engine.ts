@@ -1272,7 +1272,7 @@ export class ThreeTilesEngine {
   startTileQualityTracking(): void {
     if (!this.tilesRenderer) return;
     this.tileSceneMap = new Map();
-    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: any) => {
+    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; __depth?: number }) => {
       this.tileSceneMap!.set(scene, {
         geometricError: tile.geometricError ?? Infinity,
         depth: tile.__depth ?? 0

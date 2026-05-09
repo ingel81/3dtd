@@ -38,7 +38,7 @@ export class ResearchCenterPlacementStrategy extends BaseStrategy {
     return true;
   }
 
-  execute(state: GameStateSnapshot): TowerAction | null {
+  execute(_state: GameStateSnapshot): TowerAction | null {
     // Reuse the standard strategic-placement logic — Research Center doesn't need
     // combat range, but the placement service already picks valid street-adjacent positions.
     const spawnPoints = this.gameState.getSpawnPoints();

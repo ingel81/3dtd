@@ -1,6 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect } from 'vitest';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
-import { findNearestRouteDistance, haversineDistance } from '../utils/geo-utils';
+import { findNearestRouteDistance } from '../utils/geo-utils';
 
 /**
  * Tests for route-based tower placement validation.
@@ -9,9 +9,6 @@ import { findNearestRouteDistance, haversineDistance } from '../utils/geo-utils'
  * we test the core validation logic via findNearestRouteDistance() and
  * verify the placement rules that the service implements.
  */
-
-// Base coords (Munich area)
-const BASE = { lat: 48.137, lon: 11.575 };
 
 // A simple route: south-north along lon=11.575
 const ROUTE: { lat: number; lon: number }[] = [

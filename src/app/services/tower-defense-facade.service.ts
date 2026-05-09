@@ -1,5 +1,5 @@
 import { Injectable, inject, Injector } from '@angular/core';
-import { SubscriptionBag } from '../game-engine/game-event-bus';
+import { SubscriptionBag, GameEventBus } from '../game-engine/game-event-bus';
 import { BackgroundMusicService } from '../game-engine/background-music.service';
 import { OsmStreetService } from './osm-street.service';
 import { TowerPlacementService } from './tower-placement.service';
@@ -489,7 +489,7 @@ export class TowerDefenseFacadeService {
   }
 
   /** Emit a command event on the GameEventBus. Used for research commands etc. */
-  emitCommand(event: { type: string; [key: string]: any }): void {
-    this.gameState.getEventBus().emit(event as any);
+  emitCommand(event: { type: string; [key: string]: unknown }): void {
+    this.gameState.getEventBus().emit(event as Parameters<GameEventBus['emit']>[0]);
   }
 }

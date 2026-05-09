@@ -367,7 +367,7 @@ export class LocationFacadeService {
    * Handle a map placement click.
    * Delegates validation to MapPlacementService, then applies the result.
    */
-  async handleMapPlacementClick(lat: number, lon: number, height: number): Promise<void> {
+  async handleMapPlacementClick(_lat: number, _lon: number, _height: number): Promise<void> {
     const result = this.mapPlacement.handlePlacementClick();
     if (!result) return;
 

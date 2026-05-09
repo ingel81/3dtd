@@ -146,7 +146,12 @@
 
       <!-- Controls Hint (auto-hides after 15s, click to dismiss) -->
       @if (!loading() && !error() && controlsHintVisible()) {
-        <div class="td-controls-hint" (click)="controlsHintVisible.set(false)">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
+        <div class="td-controls-hint"
+             (click)="controlsHintVisible.set(false)"
+             (keydown.enter)="controlsHintVisible.set(false)"
+             (keydown.space)="controlsHintVisible.set(false)"
+             tabindex="0"
+             role="button">LMB: Pan | RMB: Rotate | Scroll: Zoom | WASD/↑↓←→: Move</div>
       }
 
       @if (!loading() && !error()) {

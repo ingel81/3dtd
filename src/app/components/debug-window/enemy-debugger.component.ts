@@ -5,7 +5,7 @@ import { DebugWindowService } from '../../services/debug-window.service';
 import { EnemyDebugService } from '../../services/enemy-debug.service';
 import { WaveDebugService } from '../../services/wave-debug.service';
 import { ENEMY_TYPES, EnemyTypeId } from '../../models/enemy-types';
-import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
+import { TD_CSS_VARS, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({

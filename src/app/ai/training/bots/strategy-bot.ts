@@ -9,7 +9,6 @@ import { BaseTowerBot } from './base-tower-bot';
 import { ITowerStrategy } from '../strategies/tower-strategy.interface';
 import { GameStateSnapshot } from '../../core/models/game-state-snapshot';
 import { TowerAction, BotSkillLevel, BotConfig } from './tower-bot.interface';
-import { TowerTypeId } from '../../../configs/tower-types.config';
 
 export class StrategyBot extends BaseTowerBot {
   private strategies: ITowerStrategy[] = [];

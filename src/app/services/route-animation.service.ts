@@ -104,7 +104,7 @@ export class RouteAnimationService {
   startAnimation(
     cachedPaths: Map<string, GeoPosition[]>,
     _spawnPoints: SpawnPoint[],
-    originTerrainY: number = 0,
+    originTerrainY = 0,
   ): void {
     if (!this.engine || !this.overlayGroup || this.disposed) return;
     if (cachedPaths.size === 0) return;

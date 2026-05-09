@@ -9,9 +9,9 @@ vi.mock('@angular/core', async () => {
     inject: vi.fn(() => ({
       getCacheKey: vi.fn(() => 'mock-key'),
       load: vi.fn(async () => null),
-      save: vi.fn(async () => {}),
-      clear: vi.fn(async () => {}),
-      clearAll: vi.fn(async () => {}),
+      save: vi.fn(async () => { /* noop */ }),
+      clear: vi.fn(async () => { /* noop */ }),
+      clearAll: vi.fn(async () => { /* noop */ }),
     })),
   };
 });
@@ -29,7 +29,8 @@ describe('OsmStreetService', () => {
 
   describe('parseBuildingResponse', () => {
     const parse = (elements: unknown[]) =>
-      (service as any).parseBuildingResponse({ elements });
+      (service as unknown as { parseBuildingResponse: (r: { elements: unknown[] }) => BuildingFootprint[] })
+        .parseBuildingResponse({ elements });
 
     it('parses nodes and ways into building footprints', () => {
       const result: BuildingFootprint[] = parse([

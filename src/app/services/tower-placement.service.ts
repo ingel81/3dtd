@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial, Raycaster, Vector3 } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';

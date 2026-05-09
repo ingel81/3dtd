@@ -27,10 +27,10 @@ import {
   RecentHistory,
   ResearchSnapshot,
 } from './models/game-state-snapshot';
-import { RESEARCH_TREE, getResearchForTower } from '../../configs/research/research-tree.config';
+import { RESEARCH_TREE } from '../../configs/research/research-tree.config';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { ArmorType } from '../../configs/combat/combat.types';
-import { getEnemyType } from '../../models/enemy-types';
+import { getEnemyType, EnemyTypeId } from '../../models/enemy-types';
 import { WaveResult, WaveOutcome } from './models/wave-result';
 import { WaveConfig, createSimpleWaveConfig } from './models/wave-config';
 import {
@@ -196,7 +196,7 @@ export class AIDataCollectorService {
     };
     let total = 0;
     for (const group of config.enemies) {
-      const enemyCfg = getEnemyType(group.type as any);
+      const enemyCfg = getEnemyType(group.type as EnemyTypeId);
       if (!enemyCfg?.armorType) continue;
       dist[enemyCfg.armorType] += group.count;
       total += group.count;

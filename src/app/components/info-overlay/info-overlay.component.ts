@@ -22,6 +22,9 @@ import { TdIconComponent } from '../icon/icon.component';
   template: `
     <aside class="td-info" [class.td-info--expanded]="uiStore.infoOverlayVisible()"
            (click)="uiStore.toggleInfoOverlay()"
+           (keydown.enter)="uiStore.toggleInfoOverlay()"
+           (keydown.space)="uiStore.toggleInfoOverlay()"
+           tabindex="0"
            role="button" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
       <div class="td-info__row td-info__row--head">
         <span class="k">FPS</span>

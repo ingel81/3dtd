@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-empty-function, @typescript-eslint/no-unused-vars */
+/* eslint-disable @typescript-eslint/no-empty-function */
 
 // Minimal Three.js mock for unit tests that don't need real 3D rendering.
 // Add stubs as needed when tests fail with "No X export is defined".

@@ -1,4 +1,4 @@
-import { Component, input, output, ChangeDetectionStrategy, computed } from '@angular/core';
+import { Component, input, output, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -147,7 +147,7 @@ export class CompassComponent {
   readonly resetBearing = output<void>();
 
   /** 32 tick marks pre-computed; every 8th is a cardinal (gold + thicker). */
-  protected readonly ticks: ReadonlyArray<Tick> = Array.from({ length: 32 }, (_, i) => {
+  protected readonly ticks: readonly Tick[] = Array.from({ length: 32 }, (_, i) => {
     const a = (i / 32) * Math.PI * 2 - Math.PI / 2; // start at top
     const isCardinal = i % 8 === 0;
     const r1 = isCardinal ? 38 : 42;

@@ -22,11 +22,11 @@ export class EllipsoidSync {
   private originHeight: number;
 
   // Cached origin in degrees (avoid RAD2DEG multiplication per call in hot path)
-  private originLatDeg: number = 0;
-  private originLonDeg: number = 0;
+  private originLatDeg = 0;
+  private originLonDeg = 0;
 
   // Cached cosine of origin latitude (avoids 10000+ Math.cos() calls per frame in hot path)
-  private originLatCos: number = 1;
+  private originLatCos = 1;
 
   // Cached transformation matrices
   private originMatrix = new Matrix4();

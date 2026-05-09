@@ -1,7 +1,6 @@
 import {
   ShaderMaterial,
   DoubleSide,
-  BackSide,
   Vector3,
   Texture,
   AdditiveBlending,
