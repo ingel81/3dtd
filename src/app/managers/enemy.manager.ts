@@ -8,7 +8,6 @@ import { GlobalRouteGridService } from '../services/global-route-grid.service';
 import { SpatialGridService } from '../services/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
-import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { AIR_CLEARANCE_M } from '../utils/global-route-grid';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../ai/core/wave-curriculum';
@@ -257,7 +256,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Kill an enemy. If `awardCredits` is false, no gold is awarded — used by
    * debug kill-all so the player can't farm gold via the dev shortcut.
    */
-  kill(enemy: Enemy, awardCredits: boolean = true): void {
+  kill(enemy: Enemy, awardCredits = true): void {
     if (this.killingEnemies.has(enemy.id)) return;
     this.killingEnemies.add(enemy.id);
 
@@ -518,8 +517,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   private tickPendingDeaths(deltaTime: number): void {
     if (this.pendingDeaths.length === 0) return;
     let writeIdx = 0;
-    for (let i = 0; i < this.pendingDeaths.length; i++) {
-      const entry = this.pendingDeaths[i];
+    for (const entry of this.pendingDeaths) {
       entry.remainingMs -= deltaTime;
       if (entry.remainingMs <= 0) {
         this.killingEnemies.delete(entry.enemy.id);
@@ -535,8 +533,7 @@ export class EnemyManager extends EntityManager<Enemy> {
   private tickPendingStarts(deltaTime: number): void {
     if (this.pendingStarts.length === 0) return;
     let writeIdx = 0;
-    for (let i = 0; i < this.pendingStarts.length; i++) {
-      const entry = this.pendingStarts[i];
+    for (const entry of this.pendingStarts) {
       entry.remainingMs -= deltaTime;
       if (entry.remainingMs <= 0) {
         if (entry.enemy.alive && entry.enemy.active) {

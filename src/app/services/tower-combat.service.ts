@@ -550,7 +550,6 @@ export class TowerCombatService {
   ): void {
     if (!this.tilesEngine) return;
 
-    const allEnemies = enemyManager.getAlive();
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {

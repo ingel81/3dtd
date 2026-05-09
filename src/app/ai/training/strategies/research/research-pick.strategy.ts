@@ -21,7 +21,6 @@ import { TowerAction, BotConfig, BotSkillLevel } from '../../bots/tower-bot.inte
 import {
   getResearch,
   getAllResearchIds,
-  getResearchForTower,
 } from '../../../../configs/research/research-tree.config';
 import { ResearchId, ResearchEffect } from '../../../../configs/research/research.types';
 import { ArmorType, ARMOR_TYPES } from '../../../../configs/combat/combat.types';

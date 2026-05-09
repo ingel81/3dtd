@@ -29,7 +29,6 @@ import {
   lerpRange,
 } from './templates';
 import { templateForWave, endgameHpMultiplier } from './wave-curriculum';
-import { EnemyTypeId } from '../../models/enemy-types';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
@@ -306,7 +305,7 @@ export class WaveDirectorService {
       return rng[0] + (effMax - rng[0]) * factor;
     };
 
-    let totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
+    const totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
     let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
     // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
     // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).

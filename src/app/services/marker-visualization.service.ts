@@ -118,7 +118,7 @@ export class MarkerVisualizationService {
     const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
     const pos = new Vector3(local.x, HEIGHT_ABOVE_GROUND, local.z);
 
-    const proxy = this.markerManager.add('hq', 'hq', pos, 0x22c55e, 1.2, 0.001);
+    this.markerManager.add('hq', 'hq', pos, 0x22c55e, 1.2, 0.001);
     this.labelManager.addLabel('hq', 'HQ', pos, '#22c55e', this.getPhaseOffset('hq'));
   }
 
@@ -278,7 +278,7 @@ export class MarkerVisualizationService {
    * Animate markers (GPU shader handles rotation, pulsing, bobbing).
    * Updates shader uniforms via managers.
    */
-  animateMarkers(deltaTime: number): void {
+  animateMarkers(_deltaTime: number): void {
     if (!this.engine || !this.markerManager || !this.labelManager) return;
 
     const camera = this.engine.getCamera();

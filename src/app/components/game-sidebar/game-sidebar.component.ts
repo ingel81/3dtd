@@ -2,7 +2,6 @@ import {
   Component,
   input,
   output,
-  ViewChild,
   ViewChildren,
   QueryList,
   ElementRef,
@@ -22,7 +21,6 @@ import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { ResearchStore } from '../../store/research.store';
 import {
   TargetingStrategyConfig,
-  AirSubStrategyConfig,
   TowerTypeConfig,
   TowerTypeId,
   UpgradeId,
@@ -36,7 +34,7 @@ import { DAMAGE_TYPE_UI, ARMOR_TYPE_UI } from '../../configs/combat/combat-ui.co
 import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
-import { ResearchConfig, ResearchId, RESEARCH_CATEGORIES } from '../../configs/research/research.types';
+import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
 import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.service';
@@ -1190,8 +1188,9 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     effect(() => {
       const groups = this.currentWaveGroups();
       // Also track debug overrides for preview updates
+      const overrides = this.enemyDebug.allOverrides();
       for (const g of groups) {
-        this.enemyDebug.allOverrides()[g.enemyType];
+        void overrides[g.enemyType];
       }
       if (this.mixedEnemyCanvases?.length) {
         this.initMixedEnemyPreviews();

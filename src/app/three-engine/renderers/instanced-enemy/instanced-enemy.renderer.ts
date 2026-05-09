@@ -345,7 +345,7 @@ export class InstancedEnemyRenderer {
   // QUERIES
   // =====================================================
 
-  get(id: string): EnemyRenderData | undefined {
+  get(_id: string): EnemyRenderData | undefined {
     // Instanced enemies have no full render data — return undefined
     return undefined;
   }
@@ -401,11 +401,11 @@ export class InstancedEnemyRenderer {
 
   // Legacy display toggles — no-ops for instanced rendering, kept for API compat
   setTexturesEnabled(_enabled: boolean): void { /* no-op */ }
-  get showTextures(): boolean { return true; }
+  readonly showTextures = true;
   setSkeletonCloningEnabled(_enabled: boolean): void { /* no-op */ }
-  get useSkeletonClone(): boolean { return true; }
+  readonly useSkeletonClone = true;
   setAlphaBlendEnabled(_enabled: boolean): void { /* no-op */ }
-  get showAlphaBlend(): boolean { return true; }
+  readonly showAlphaBlend = true;
 
   // =====================================================
   // DEBUG OVERRIDES (native instanced support)

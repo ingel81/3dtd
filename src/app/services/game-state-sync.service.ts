@@ -100,7 +100,7 @@ export class GameStateSyncService {
     }));
 
     // ── Research lifecycle ────────────────────────────────────────
-    this.subs.add(eventBus.on('research:started', (event) => {
+    this.subs.add(eventBus.on('research:started', (_event) => {
       // Active researches are updated from ResearchManager snapshot via GSM
     }));
 

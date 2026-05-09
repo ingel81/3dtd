@@ -26,7 +26,7 @@ export type ArmorType = typeof ARMOR_TYPES[number];
  * Mapped type that enforces every DamageType row has every ArmorType column.
  * Missing entries are compile-time errors.
  */
-export type DamageMatrix = { readonly [D in DamageType]: { readonly [A in ArmorType]: number } };
+export type DamageMatrix = Readonly<Record<DamageType, Readonly<Record<ArmorType, number>>>>;
 
 // ==================== Effectiveness ====================
 
