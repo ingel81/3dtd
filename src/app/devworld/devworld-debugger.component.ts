@@ -2,7 +2,7 @@ import { Component, inject, ChangeDetectionStrategy, output, input } from '@angu
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from '../components/debug-window/draggable-debug-panel.component';
 import { DevWorldDebugPanelComponent } from './devworld-debug-panel.component';
-import { DebugWindowService } from '../services/debug-window.service';
+import { DebugWindowService } from '../services/debug/debug-window.service';
 import { DevWorldService } from './devworld.service';
 
 /**

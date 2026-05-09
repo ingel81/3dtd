@@ -1,7 +1,7 @@
 import { Injectable } from '@angular/core';
-import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus } from '../game-engine';
-import { Enemy } from '../entities/enemy.entity';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GameEventBus } from '../../game-engine';
+import { Enemy } from '../../entities/enemy.entity';
 
 /**
  * CombatVfxService - Visual effects for combat (blood, explosions, ice decals)

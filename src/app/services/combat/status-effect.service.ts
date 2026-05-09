@@ -1,6 +1,6 @@
 import { Injectable } from '@angular/core';
-import { Enemy } from '../entities/enemy.entity';
-import { StatusEffectType } from '../models/status-effects';
+import { Enemy } from '../../entities/enemy.entity';
+import { StatusEffectType } from '../../models/status-effects';
 
 /**
  * StatusEffectService — applies slow / poison / freeze / burn effects to enemies.

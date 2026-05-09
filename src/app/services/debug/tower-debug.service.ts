@@ -1,6 +1,6 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../configs/tower-types.config';
-import { DebugStore, TowerOverrides } from '../store/debug.store';
+import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../../configs/tower-types.config';
+import { DebugStore, TowerOverrides } from '../../store/debug.store';
 
 export type { TowerOverrides };
 

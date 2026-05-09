@@ -1,13 +1,13 @@
 import { Injectable, Signal, signal, computed, inject } from '@angular/core';
-import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../configs/enemy-types.config';
-import { Enemy } from '../entities/enemy.entity';
-import { GeoPosition } from '../models/game.types';
-import { GameStateManager } from '../managers/game-state.manager';
-import { EventSubscription } from '../game-engine';
-import { ThreeTilesEngine } from '../three-engine';
-import { PathAndRouteService } from './path-route.service';
-import { SpawnPoint } from './marker-visualization.service';
-import { DebugStore, EnemyOverrides } from '../store/debug.store';
+import { ENEMY_TYPES, EnemyTypeId, getEnemyTypeIds } from '../../configs/enemy-types.config';
+import { Enemy } from '../../entities/enemy.entity';
+import { GeoPosition } from '../../models/game.types';
+import { GameStateManager } from '../../managers/game-state.manager';
+import { EventSubscription } from '../../game-engine';
+import { ThreeTilesEngine } from '../../three-engine';
+import { PathAndRouteService } from '../path-route.service';
+import { SpawnPoint } from '../marker-visualization.service';
+import { DebugStore, EnemyOverrides } from '../../store/debug.store';
 
 export type { EnemyOverrides };
 

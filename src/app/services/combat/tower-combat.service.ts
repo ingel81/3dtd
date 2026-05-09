@@ -1,17 +1,17 @@
 import { Injectable, inject } from '@angular/core';
 import { Vector3 } from 'three';
-import { ThreeTilesEngine } from '../three-engine';
-import { GlobalRouteGridService } from './global-route-grid.service';
-import { SpatialGridService } from './spatial-grid.service';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GlobalRouteGridService } from '../global-route-grid.service';
+import { SpatialGridService } from '../spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
-import { ResearchStore } from '../store/research.store';
-import { Enemy } from '../entities/enemy.entity';
-import { Tower } from '../entities/tower.entity';
-import { TowerManager } from '../managers/tower.manager';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
-import { COMBAT_TUNING } from '../configs/combat-tuning.config';
-import { EnemyManager } from '../managers/enemy.manager';
-import { ProjectileManager } from '../managers/projectile.manager';
+import { ResearchStore } from '../../store/research.store';
+import { Enemy } from '../../entities/enemy.entity';
+import { Tower } from '../../entities/tower.entity';
+import { TowerManager } from '../../managers/tower.manager';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
+import { EnemyManager } from '../../managers/enemy.manager';
+import { ProjectileManager } from '../../managers/projectile.manager';
 
 /**
  * TowerCombatService - Handles tower targeting, rotation, and shooting

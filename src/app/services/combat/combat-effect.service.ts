@@ -1,19 +1,19 @@
 import { Injectable, inject } from '@angular/core';
-import { ThreeTilesEngine } from '../three-engine';
-import { GlobalRouteGridService } from './global-route-grid.service';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GlobalRouteGridService } from '../global-route-grid.service';
 import { StatusEffectService } from './status-effect.service';
 import { CombatVfxService } from './combat-vfx.service';
 import { DamageApplicationService } from './damage-application.service';
-import { Enemy } from '../entities/enemy.entity';
-import { Projectile } from '../entities/projectile.entity';
-import { GAME_BALANCE } from '../configs/game-balance.config';
-import { TIMING } from '../configs/timing.config';
-import { geoDistanceFast } from '../utils/geo-utils';
-import { TowerManager } from '../managers/tower.manager';
-import { EnemyManager } from '../managers/enemy.manager';
-import { GameEventBus, SubscriptionBag } from '../game-engine';
-import { DamageType, DamageResult } from '../configs/combat/combat.types';
-import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../configs/combat/damage-matrix.config';
+import { Enemy } from '../../entities/enemy.entity';
+import { Projectile } from '../../entities/projectile.entity';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { TIMING } from '../../configs/timing.config';
+import { geoDistanceFast } from '../../utils/geo-utils';
+import { TowerManager } from '../../managers/tower.manager';
+import { EnemyManager } from '../../managers/enemy.manager';
+import { GameEventBus, SubscriptionBag } from '../../game-engine';
+import { DamageType, DamageResult } from '../../configs/combat/combat.types';
+import { EFFECTIVENESS_COLORS, EFFECTIVENESS_SCALES } from '../../configs/combat/damage-matrix.config';
 
 /**
  * CombatEffectService - Orchestrates projectile hits

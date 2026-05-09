@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import { Enemy } from '../entities/enemy.entity';
-import { TowerManager } from '../managers/tower.manager';
-import { EnemyManager } from '../managers/enemy.manager';
+import { Enemy } from '../../entities/enemy.entity';
+import { TowerManager } from '../../managers/tower.manager';
+import { EnemyManager } from '../../managers/enemy.manager';
 import { CombatVfxService } from './combat-vfx.service';
-import { DamageType, DamageResult } from '../configs/combat/combat.types';
-import { calculateDamage } from '../utils/damage-calculator';
+import { DamageType, DamageResult } from '../../configs/combat/combat.types';
+import { calculateDamage } from '../../utils/damage-calculator';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
