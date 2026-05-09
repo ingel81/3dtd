@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import type { ThreeTilesEngine } from '../three-engine';
-import type { GameStateManager } from '../managers/game-state.manager';
+import type { ThreeTilesEngine } from '../../three-engine';
+import type { GameStateManager } from '../../managers/game-state.manager';
 
 /** Subsystem names for timing & bottleneck detection */
 export type Subsystem = 'enemy' | 'tower' | 'projectile' | 'combat' | 'events' | 'other';

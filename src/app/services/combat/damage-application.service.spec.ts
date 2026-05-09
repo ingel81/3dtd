@@ -12,7 +12,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { DamageApplicationService } from './damage-application.service';
-import { ArmorType, DamageType } from '../configs/combat/combat.types';
+import { ArmorType, DamageType } from '../../configs/combat/combat.types';
 
 /** Minimal Enemy stub — only the fields/methods DamageApplicationService touches. */
 interface EnemyStub {

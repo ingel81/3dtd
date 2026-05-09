@@ -37,9 +37,9 @@ import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree
 import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/model-preview.service';
-import { WaveDebugService, WaveGroupDisplay } from '../../services/wave-debug.service';
-import { TowerDebugService } from '../../services/tower-debug.service';
-import { EnemyDebugService } from '../../services/enemy-debug.service';
+import { WaveDebugService, WaveGroupDisplay } from '../../services/debug/wave-debug.service';
+import { TowerDebugService } from '../../services/debug/tower-debug.service';
+import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';

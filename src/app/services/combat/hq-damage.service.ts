@@ -1,10 +1,10 @@
 import { Injectable, signal } from '@angular/core';
-import { ThreeTilesEngine } from '../three-engine';
-import { GeoPosition } from '../models/game.types';
-import { GAME_BALANCE } from '../configs/game-balance.config';
-import { GAME_SOUNDS } from '../configs/audio.config';
-import { GameEventBus, SubscriptionBag } from '../game-engine';
-import { TIMING } from '../configs/timing.config';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GeoPosition } from '../../models/game.types';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
+import { GAME_SOUNDS } from '../../configs/audio.config';
+import { GameEventBus, SubscriptionBag } from '../../game-engine';
+import { TIMING } from '../../configs/timing.config';
 
 /**
  * HQDamageService - Handles HQ fire effects, damage sounds, and game over visuals

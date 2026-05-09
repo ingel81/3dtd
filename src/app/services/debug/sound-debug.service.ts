@@ -1,6 +1,6 @@
 import { Injectable, signal } from '@angular/core';
-import { SoundPoolStats, SoundDebugEvent } from '../managers/audio/spatial-audio.manager';
-import { GameEventBus, EventSubscription } from '../game-engine';
+import { SoundPoolStats, SoundDebugEvent } from '../../managers/audio/spatial-audio.manager';
+import { GameEventBus, EventSubscription } from '../../game-engine';
 
 const MAX_EVENTS = 30;
 

@@ -1,9 +1,9 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
-import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../configs/enemy-types.config';
-import { UIStore } from '../store/ui.store';
-import { DebugStore } from '../store/debug.store';
-import { WaveConfig } from '../managers/wave.manager';
-import { SpawnPattern, ALL_SPAWN_PATTERNS, buildSpawnSchedule } from '../ai/core/spawn-schedule-builder';
+import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { UIStore } from '../../store/ui.store';
+import { DebugStore } from '../../store/debug.store';
+import { WaveConfig } from '../../managers/wave.manager';
+import { SpawnPattern, ALL_SPAWN_PATTERNS, buildSpawnSchedule } from '../../ai/core/spawn-schedule-builder';
 
 /** Configuration for a single enemy group in a mixed wave */
 export interface MixedGroupConfig {

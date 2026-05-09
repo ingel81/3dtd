@@ -36,9 +36,9 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
-import { WaveDebugService } from './services/wave-debug.service';
-import { EnemyDebugService } from './services/enemy-debug.service';
-import { DebugFacadeService } from './services/debug-facade.service';
+import { WaveDebugService } from './services/debug/wave-debug.service';
+import { EnemyDebugService } from './services/debug/enemy-debug.service';
+import { DebugFacadeService } from './services/debug/debug-facade.service';
 import { LocationConfig, FavoriteLocation } from './models/location.types';
 // Refactoring services
 import { CameraControlService } from './services/camera-control.service';

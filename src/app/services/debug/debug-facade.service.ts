@@ -1,9 +1,9 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { UIStore } from '../store/ui.store';
+import { UIStore } from '../../store/ui.store';
 import { EnemyDebugService } from './enemy-debug.service';
-import { MarkerVisualizationService } from './marker-visualization.service';
-import { CombatEffectService } from './combat-effect.service';
-import { GameStateManager } from '../managers/game-state.manager';
+import { MarkerVisualizationService } from '../marker-visualization.service';
+import { CombatEffectService } from '../combat/combat-effect.service';
+import { GameStateManager } from '../../managers/game-state.manager';
 
 /**
  * DebugFacadeService
@@ -133,14 +133,14 @@ export class DebugFacadeService {
    * Engine reference holder for display option toggles.
    * Set by the component after engine initialization.
    */
-  private engine: import('../three-engine').ThreeTilesEngine | null = null;
+  private engine: import('../../three-engine').ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
 
   /**
    * Set engine reference for display option operations.
    * Must be called after engine initialization.
    */
-  setEngine(engine: import('../three-engine').ThreeTilesEngine | null, gameState?: GameStateManager): void {
+  setEngine(engine: import('../../three-engine').ThreeTilesEngine | null, gameState?: GameStateManager): void {
     this.engine = engine;
     if (gameState) this.gameState = gameState;
   }
@@ -208,7 +208,7 @@ export class DebugFacadeService {
    * Change color grading preset (persisted by display-options component)
    */
   onColorGradingChanged(preset: string): void {
-    this.engine?.setColorGradingPreset(preset as import('../three-engine/post-processing/color-grading').ColorGradingPreset);
+    this.engine?.setColorGradingPreset(preset as import('../../three-engine/post-processing/color-grading').ColorGradingPreset);
   }
 
   /**
@@ -294,7 +294,7 @@ export class DebugFacadeService {
   /**
    * Log camera position to debug log
    */
-  logCameraPosition(engine: import('../three-engine').ThreeTilesEngine, baseCoords: { lat: number; lon: number }): void {
+  logCameraPosition(engine: import('../../three-engine').ThreeTilesEngine, baseCoords: { lat: number; lon: number }): void {
     const camera = engine.getCamera();
     const data = {
       position: {

@@ -12,7 +12,7 @@ import {
   signal,
 } from '@angular/core';
 import { CommonModule } from '@angular/common';
-import { DebugWindowService, DebugWindowId, WindowPosition } from '../../services/debug-window.service';
+import { DebugWindowService, DebugWindowId, WindowPosition } from '../../services/debug/debug-window.service';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 

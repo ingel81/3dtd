@@ -5,10 +5,10 @@ import { TowerPlacementService } from './tower-placement.service';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { RouteAnimationService } from './route-animation.service';
-import { WaveDebugService } from './wave-debug.service';
-import { SoundDebugService } from './sound-debug.service';
-import { DebugWindowService } from './debug-window.service';
-import { EnemyDebugService } from './enemy-debug.service';
+import { WaveDebugService } from './debug/wave-debug.service';
+import { SoundDebugService } from './debug/sound-debug.service';
+import { DebugWindowService } from './debug/debug-window.service';
+import { EnemyDebugService } from './debug/enemy-debug.service';
 import { WaveDirectorService } from '../ai/core/wave-director.service';
 import { AIDataCollectorService } from '../ai/core/ai-data-collector.service';
 import { TrainingClientService } from '../ai/training/training-client.service';
@@ -21,7 +21,7 @@ import { FacadeComponentBridge } from './tower-defense-facade.service';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { EngineStore } from '../store/engine.store';
 import { SoundPoolStats } from '../managers/audio/spatial-audio.manager';
-import { PerformanceProfilerService } from './performance-profiler.service';
+import { PerformanceProfilerService } from './debug/performance-profiler.service';
 import { StreetRenderingService } from './street-rendering.service';
 
 /**

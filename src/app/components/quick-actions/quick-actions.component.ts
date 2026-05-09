@@ -1,8 +1,8 @@
 import { Component, inject, input, output, computed, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
-import { DebugWindowService } from '../../services/debug-window.service';
-import { DebugFacadeService } from '../../services/debug-facade.service';
+import { DebugWindowService } from '../../services/debug/debug-window.service';
+import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';

@@ -16,7 +16,7 @@ vi.mock('@angular/core', async () => {
 });
 
 import { TowerCombatService } from './tower-combat.service';
-import { COMBAT_TUNING } from '../configs/combat-tuning.config';
+import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 
 /**
  * Coverage:

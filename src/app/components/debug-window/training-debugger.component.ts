@@ -1,7 +1,7 @@
 import { Component, inject, input, output, signal, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
-import { DebugWindowService } from '../../services/debug-window.service';
+import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { TrainingClientService } from '../../ai/training/training-client.service';
 import { WaveDirectorService } from '../../ai/core/wave-director.service';

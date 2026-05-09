@@ -1,8 +1,8 @@
 import { Component, inject, ChangeDetectionStrategy, input } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
-import { DebugWindowService } from '../../services/debug-window.service';
-import { WaveDebugService } from '../../services/wave-debug.service';
+import { DebugWindowService } from '../../services/debug/debug-window.service';
+import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { GameEventBus } from '../../game-engine/game-event-bus';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { EnemyTypeId } from '../../configs/enemy-types.config';

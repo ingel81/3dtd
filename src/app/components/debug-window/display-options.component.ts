@@ -1,7 +1,7 @@
 import { Component, inject, signal, output, effect, ChangeDetectionStrategy } from '@angular/core';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
-import { DebugWindowService } from '../../services/debug-window.service';
-import { DebugFacadeService } from '../../services/debug-facade.service';
+import { DebugWindowService } from '../../services/debug/debug-window.service';
+import { DebugFacadeService } from '../../services/debug/debug-facade.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/post-processing/color-grading';
 

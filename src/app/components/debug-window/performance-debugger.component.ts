@@ -1,7 +1,7 @@
 import { Component, inject, signal, OnDestroy, ChangeDetectionStrategy } from '@angular/core';
 import { DraggableDebugPanelComponent } from './draggable-debug-panel.component';
-import { DebugWindowService } from '../../services/debug-window.service';
-import { PerformanceProfilerService, PerformanceStats } from '../../services/performance-profiler.service';
+import { DebugWindowService } from '../../services/debug/debug-window.service';
+import { PerformanceProfilerService, PerformanceStats } from '../../services/debug/performance-profiler.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 @Component({
