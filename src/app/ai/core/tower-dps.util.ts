@@ -7,14 +7,13 @@
  */
 
 import { Tower } from '../../entities/tower.entity';
-import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 import { DamageType, ArmorType, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 
-/** Tower types that gain air-targeting when the `aa-retrofit` research is complete. */
-const AA_RETROFIT_TOWERS: ReadonlySet<TowerTypeId> = new Set<TowerTypeId>(['dual-gatling']);
+// Re-export so existing AI consumers keep their import path working.
+export { canTargetAirEffective } from '../../entities/tower-targeting.util';
 
 /** Divisor used to turn splashRadius into a soft multiplier (radius 10 -> 2x, capped). */
 const SPLASH_NORM = 10;
@@ -71,22 +70,6 @@ export function computeTowerDPS(tower: Tower): number {
   }
 
   return base;
-}
-
-/**
- * Returns true if the tower can fire on air units.
- *
- * The static `canTargetAir` flag on the tower config is the baseline.
- * The `aa-retrofit` research whitelists `dual-gatling` to additionally fire
- * at air targets once unlocked.
- */
-export function canTargetAirEffective(
-  typeId: TowerTypeId,
-  airTargetingUnlocked: boolean,
-): boolean {
-  const cfg = TOWER_TYPES[typeId];
-  if (cfg.canTargetAir ?? false) return true;
-  return airTargetingUnlocked && AA_RETROFIT_TOWERS.has(typeId);
 }
 
 /**

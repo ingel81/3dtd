@@ -11,7 +11,7 @@ import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, ge
 import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
-import { canTargetAirEffective } from '../ai/core/tower-dps.util';
+import { canTargetAirEffective } from './tower-targeting.util';
 
 /**
  * Tower entity - combines Transform, Combat, and Render components
