@@ -276,28 +276,6 @@ export class TowerDefenseStore {
   readonly airTargetingUnlocked = this.researchStore.airTargetingUnlocked;
 
   // ════════════════════════════════════════════════════════════
-  // WAVE DEBUG OVERRIDES
-  // ════════════════════════════════════════════════════════════
-
-  /** Debug: enemy speed override */
-  readonly enemySpeed = this.uiStore.enemySpeed;
-
-  /** Debug: enemy health override */
-  readonly enemyHealth = this.uiStore.enemyHealth;
-
-  /** Debug: enemy count per wave */
-  readonly enemyCount = this.uiStore.enemyCount;
-
-  /** Debug: enemy type */
-  readonly enemyType = this.uiStore.enemyType;
-
-  /** Debug: spawn mode (sequential / random / all) */
-  readonly spawnMode = this.uiStore.spawnMode;
-
-  /** Debug: spawn delay in ms */
-  readonly spawnDelay = this.uiStore.spawnDelay;
-
-  // ════════════════════════════════════════════════════════════
   // COMPUTED VALUES — derived from signals above
   // ════════════════════════════════════════════════════════════
 
