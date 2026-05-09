@@ -9,7 +9,7 @@
  */
 
 import { SpawnEntry, SpawnSchedule } from '../../managers/wave.manager';
-import { EnemyTypeId, ENEMY_TYPES } from '../../models/enemy-types';
+import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { WaveEnemyGroup } from './models/wave-config';
 
 export type SpawnPattern =

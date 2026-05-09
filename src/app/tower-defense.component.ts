@@ -18,7 +18,7 @@ import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StreetNetwork } from './services/osm-street.service';
 import { ModelPreviewService } from './services/model-preview.service';
-import { getAllEnemyTypes } from './models/enemy-types';
+import { getAllEnemyTypes } from './configs/enemy-types.config';
 import { GameSidebarComponent } from './components/game-sidebar/game-sidebar.component';
 import { CompassComponent } from './components/compass/compass.component';
 import { GameHeaderComponent } from './components/game-header/game-header.component';

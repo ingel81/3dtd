@@ -5,7 +5,7 @@ import {
   Vector3,
 } from 'three';
 import { CoordinateSync } from '../index';
-import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../models/enemy-types';
+import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { AssetManagerService } from '../../../services/asset-manager.service';
 import { EnemyInstanceManager } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';

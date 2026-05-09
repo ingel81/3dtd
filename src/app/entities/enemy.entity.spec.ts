@@ -14,7 +14,7 @@ vi.mock('three', () => ({
 import { Enemy } from './enemy.entity';
 import { TransformComponent, HealthComponent, RenderComponent, MovementComponent, AudioComponent } from '../game-components';
 import { ComponentType } from '../core/component';
-import { getEnemyType } from '../models/enemy-types';
+import { getEnemyType } from '../configs/enemy-types.config';
 import { StatusEffect } from '../models/status-effects';
 
 const path = [
