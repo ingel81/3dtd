@@ -79,7 +79,7 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
   projectileType: 'arrow',       // Projektiltyp-ID
 
   cost: 100,
-  sellValue: 60,                 // 60% der Kosten (Konvention)
+  // Verkaufswert wird automatisch berechnet: SELL_RATIO (0.75) × (cost + investierte Upgrades)
 
   // Optional: Targeting (defaults: canTargetGround=true, canTargetAir=false)
   canTargetAir: false,
@@ -117,7 +117,6 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `fireRate` | number | - | Schüsse pro Sekunde (0 bei beam) |
 | `projectileType` | ProjectileTypeId | - | Projektiltyp |
 | `cost` | number | - | Baukosten |
-| `sellValue` | number | - | Verkaufswert (60% Konvention) |
 | `upgrades` | TowerUpgrade[] | - | Verfügbare Upgrades |
 | `canTargetAir` | boolean | false | Kann Luft-Einheiten angreifen |
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
@@ -581,7 +580,6 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
   fireRate: 5.0,                 // Schnellfeuer
   projectileType: 'bullet',
   cost: 90,
-  sellValue: 60,
   upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
 },
 ```
@@ -619,7 +617,6 @@ fire: {
   projectileType: 'fireball',
 
   cost: 110,
-  sellValue: 66,
   canTargetAir: false,
   canTargetGround: true,
   // Fire nutzt damage + range (Detection) + beam-width — kein fireRate (Beam-basiert)

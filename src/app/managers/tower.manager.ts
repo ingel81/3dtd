@@ -291,7 +291,7 @@ export class TowerManager extends EntityManager<Tower> {
    * @returns The refund amount
    */
   sell(tower: Tower): number {
-    const refund = tower.typeConfig.sellValue;
+    const refund = tower.getSellValue();
 
     // Emit tower:sold event before removal
     this.eventBus.emit({

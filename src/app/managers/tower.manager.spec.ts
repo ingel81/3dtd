@@ -114,13 +114,14 @@ describe('TowerManager', () => {
     const position: GeoPosition = { lat: 0.001, lon: 0.001, height: 2 };
     const tower = manager.placeTower(position, 'ice') as Tower;
 
+    const expectedRefund = tower.getSellValue();
     const refund = manager.sell(tower);
 
-    expect(refund).toBe(tower.typeConfig.sellValue);
+    expect(refund).toBe(expectedRefund);
     expect(soldSpy).toHaveBeenCalledWith(
       expect.objectContaining({
         tower,
-        refund: tower.typeConfig.sellValue,
+        refund: expectedRefund,
       })
     );
     expect(manager.getById(tower.id)).toBeNull();

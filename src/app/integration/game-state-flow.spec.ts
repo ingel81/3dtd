@@ -216,7 +216,7 @@ describe('Game State Flow Integration', () => {
 
   it('should handle selling tower and getting refund', () => {
     const tower = m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0)!;
-    const expectedRefund = tower.typeConfig.sellValue;
+    const expectedRefund = tower.getSellValue();
 
     const refund = m.towerManager.sell(tower);
 

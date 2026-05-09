@@ -30,6 +30,20 @@ export function getUpgradeCost(upgrade: TowerUpgrade, currentLevel: number): num
   return Math.round(upgrade.cost * Math.pow(scaling, currentLevel));
 }
 
+/**
+ * Sell-back ratio applied to (baseCost + totalUpgradeCost).
+ * Players recover 75% of total credits invested into a tower when selling it.
+ */
+export const SELL_RATIO = 0.75;
+
+/**
+ * Compute the sell value for a tower given its base cost and total credits
+ * invested in upgrades. Rounded to integer credits.
+ */
+export function calculateSellValue(baseCost: number, totalUpgradeCost: number): number {
+  return Math.round((baseCost + totalUpgradeCost) * SELL_RATIO);
+}
+
 // =====================================================================
 // Phase 5.16: Standardized 25-level upgrade tracks for all combat towers.
 // Tier-Gating in the UI maps levels to research-tier locks:
@@ -105,7 +119,6 @@ export interface TowerTypeConfig {
   projectileType: ProjectileTypeId;
 
   cost: number;
-  sellValue: number; // Credits returned when selling
   upgrades: TowerUpgrade[]; // Available upgrades for this tower type
 
   // Targeting capabilities
@@ -160,7 +173,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     canTargetAir: true,
     projectileType: 'arrow',
     cost: 45, // Rebalanced: was 20 (Cost/DPS 0.80 -> 1.80)
-    sellValue: 27, // 60% of cost
     hasAnimations: true, // archer_tower.glb has base animation
     animationPingPong: true, // Smooth loop: forward then backward
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
@@ -185,7 +197,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 5.0, // 5 shots/sec - rapid fire
     projectileType: 'bullet',
     cost: 90,
-    sellValue: 60,
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   cannon: {
@@ -204,7 +215,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
     cost: 150, // Phase 5.16: heavy specialist (cannon vs fortified) — small premium
-    sellValue: 90, // 60% of cost
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   magic: {
@@ -222,7 +232,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 1.5, // 1.5 shots/sec
     projectileType: 'fireball',
     cost: 140, // Phase 5.16: ethereal specialist — strong vs ghost/wraith, small premium
-    sellValue: 84, // 60% of cost
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   rocket: {
@@ -241,7 +250,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 0.5,
     projectileType: 'rocket',
     cost: 120, // Phase 5.16: air specialist — large range premium
-    sellValue: 72, // 60% of cost
     canTargetAir: true, // Can only target air units
     canTargetGround: false, // Cannot target ground units
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
@@ -263,7 +271,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 0.33, // 1 shot every 3s (matches slow duration, no stacking)
     projectileType: 'ice-shard',
     cost: 90, // Rebalanced: was 120 (utility cheaper)
-    sellValue: 54, // 60% of cost
     canTargetAir: true,
     canTargetGround: true,
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
@@ -291,7 +298,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'fireball', // Fallback visual type
 
     cost: 110,
-    sellValue: 66, // 60% of cost
     canTargetAir: false, // Ground only - flames don't reach flyers
     canTargetGround: true,
     // Fire uses damage + range (detection) + beam-width — no fireRate (beam-based).
@@ -318,7 +324,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     meleeStrikeDuration: 250, // 250ms strike animation
 
     cost: 80,
-    sellValue: 48, // 60% of cost
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   poison: {
@@ -337,7 +342,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 1, // 1 shot/sec
     projectileType: 'poison-glob',
     cost: 100,
-    sellValue: 60, // 60% of cost
     canTargetAir: false,
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
@@ -359,7 +363,6 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'arrow', // Fallback, unused
 
     cost: 75,
-    sellValue: 45, // 60% of cost — research progress is preserved on re-place
     upgrades: [
       {
         id: 'research-slots' as UpgradeId,

@@ -93,8 +93,9 @@ describe('Tower entity', () => {
 
     expect(tower.getTotalUpgradeCost()).toBe(expectedTotal);
 
-    const refundEstimate = tower.typeConfig.sellValue + tower.getTotalUpgradeCost();
-    expect(refundEstimate).toBe(tower.typeConfig.sellValue + expectedTotal);
+    // Sell value is 75% of (cost + total upgrade cost)
+    const expectedSellValue = Math.round((tower.typeConfig.cost + expectedTotal) * 0.75);
+    expect(tower.getSellValue()).toBe(expectedSellValue);
   });
 
   it('findTarget respects range and target type (air vs ground)', () => {
