@@ -37,9 +37,14 @@ export class GlobalRouteGridService {
    * Initialize the grid with required dependencies
    * @param terrainRaycaster Function to sample terrain height at local coordinates
    * @param coordinateSync Coordinate sync for geo <-> local conversions
+   * @param skylineRaycaster Optional top-down sampler for skyline (terrain + buildings)
    */
-  initialize(terrainRaycaster: TerrainRaycaster, coordinateSync: CoordinateSync): void {
-    this.grid.initialize(terrainRaycaster, coordinateSync);
+  initialize(
+    terrainRaycaster: TerrainRaycaster,
+    coordinateSync: CoordinateSync,
+    skylineRaycaster?: TerrainRaycaster
+  ): void {
+    this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster);
     this.initialized = true;
   }
 
@@ -73,15 +78,10 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Register a tower and compute LOS for all cells within range
-   * @param towerId Tower unique ID
-   * @param towerX Tower X position (local coordinates)
-   * @param towerZ Tower Z position (local coordinates)
-   * @param tipY Tower tip Y position (for LOS origin)
-   * @param range Tower targeting range
-   * @param losRaycaster LOS raycaster function
-   * @param isPureAirTower If true, skip LOS checks (air enemies are always visible)
-   * @returns Array of cells visible from this tower
+   * Register a tower and compute LOS for all cells within range.
+   * Pre-computes ground and/or air visibility based on the tower's
+   * targeting flags.
+   * @returns Array of cells visible from this tower (ground OR air)
    */
   registerTower(
     towerId: string,
@@ -90,9 +90,10 @@ export class GlobalRouteGridService {
     tipY: number,
     range: number,
     losRaycaster: LineOfSightRaycaster,
-    isPureAirTower = false
+    canTargetGround = true,
+    canTargetAir = false
   ): RouteCell[] {
-    return this.grid.registerTower(towerId, towerX, towerZ, tipY, range, losRaycaster, isPureAirTower);
+    return this.grid.registerTower(towerId, towerX, towerZ, tipY, range, losRaycaster, canTargetGround, canTargetAir);
   }
 
   /**
@@ -106,10 +107,11 @@ export class GlobalRouteGridService {
     tipY: number,
     range: number,
     losRaycaster: LineOfSightRaycaster,
-    isPureAirTower: boolean,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
     onComplete: (visibleCells: RouteCell[]) => void
   ): void {
-    this.grid.registerTowerProgressive(towerId, towerX, towerZ, tipY, range, losRaycaster, isPureAirTower, onComplete);
+    this.grid.registerTowerProgressive(towerId, towerX, towerZ, tipY, range, losRaycaster, canTargetGround, canTargetAir, onComplete);
   }
 
   /**
@@ -162,10 +164,28 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Check if position is visible from tower
+   * Check if position is visible from tower (ground LOS)
    */
   isPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
     return this.grid.isPositionVisibleFromTower(towerId, localX, localZ);
+  }
+
+  /**
+   * Check if position is visible from tower for air targets (raycast against
+   * cell skyline + clearance — distinct from ground because tall buildings
+   * may block one altitude but not the other).
+   */
+  isAirPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
+    return this.grid.isAirPositionVisibleFromTower(towerId, localX, localZ);
+  }
+
+  /**
+   * Get cell skyline height at a local position (local Y of highest geometry
+   * around the cell). Used to lift air-enemy flight altitude above local
+   * rooftops.
+   */
+  getSkylineHeightAt(localX: number, localZ: number): number | null {
+    return this.grid.getSkylineHeightAt(localX, localZ);
   }
 
   /**
@@ -267,9 +287,9 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Create placement preview visualization (for build mode)
-   * Returns mesh immediately, call continuePreviewBuild() each frame
-   * @param isPureAirTower If true, skip LOS checks (all cells visible)
+   * Create placement preview visualization (for build mode).
+   * Returns mesh immediately, call continuePreviewBuild() each frame.
+   * Cells are previewed as visible if EITHER ground or air LOS is clear.
    */
   createPlacementPreview(
     towerX: number,
@@ -277,9 +297,10 @@ export class GlobalRouteGridService {
     tipY: number,
     range: number,
     losRaycaster: LineOfSightRaycaster,
-    isPureAirTower = false
+    canTargetGround = true,
+    canTargetAir = false
   ): InstancedMesh | null {
-    return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster, isPureAirTower);
+    return this.grid.createPlacementPreview(towerX, towerZ, tipY, range, losRaycaster, canTargetGround, canTargetAir);
   }
 
   /**

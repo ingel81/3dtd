@@ -953,9 +953,11 @@ export class GameStateManager {
       return;
     }
 
-    // Initialize with terrain raycaster and coordinate sync
+    // Initialize with terrain raycaster, coordinate sync and skyline raycaster
+    // (skyline samples max-Y in a small neighbourhood — used for air LOS).
     const terrainRaycaster = (x: number, z: number) => this.tilesEngine!.getTerrainHeightAtLocal(x, z);
-    this.globalRouteGrid.initialize(terrainRaycaster, this.tilesEngine.sync);
+    const skylineRaycaster = (x: number, z: number) => this.tilesEngine!.getSkylineHeightAtLocal(x, z);
+    this.globalRouteGrid.initialize(terrainRaycaster, this.tilesEngine.sync, skylineRaycaster);
 
     // Generate cells from routes
     const routes = this.getCachedRoutes();

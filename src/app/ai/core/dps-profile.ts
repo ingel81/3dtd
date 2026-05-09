@@ -126,10 +126,16 @@ export function computePathDPSProfile(
     let binAirDPS = 0;
 
     if (cell) {
-      // Iterate tower visibility for this cell
-      for (const [towerId, visible] of cell.towerVisibility) {
-        if (!visible) continue;
+      // Combine ground + air visibility — a tower may show up in only one
+      // map (ground-only or air-only) or in both (dual-targeting). DPS
+      // contributes to a bin only along the layer whose LOS is actually
+      // clear, otherwise air-only and ground-only towers double-count or
+      // disappear entirely.
+      const seenTowers = new Set<string>();
+      for (const towerId of cell.towerVisibility.keys()) seenTowers.add(towerId);
+      for (const towerId of cell.airVisibility.keys()) seenTowers.add(towerId);
 
+      for (const towerId of seenTowers) {
         const tower = towerMap.get(towerId);
         if (!tower) continue;
 
@@ -138,8 +144,11 @@ export function computePathDPSProfile(
         const canGround = tower.typeConfig.canTargetGround ?? true;
         const canAir = canTargetAirEffective(typeId, airTargetingUnlocked);
 
-        if (canGround) binGroundDPS += dps;
-        if (canAir) binAirDPS += dps;
+        const groundVis = cell.towerVisibility.get(towerId) ?? false;
+        const airVis = cell.airVisibility.get(towerId) ?? false;
+
+        if (canGround && groundVis) binGroundDPS += dps;
+        if (canAir && airVis) binAirDPS += dps;
       }
     }
 

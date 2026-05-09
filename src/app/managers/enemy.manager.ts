@@ -10,6 +10,7 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
+import { AIR_CLEARANCE_M } from '../utils/global-route-grid';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../ai/core/wave-curriculum';
 
 /**
@@ -375,6 +376,37 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Set Y = (geoHeight + heightOffset) - originHeight to complete the local position
       t0 = profiling ? performance.now() : 0;
       const heightOffset = this.tilesEngine?.enemies.getHeightOffset(enemy.id) ?? 0;
+
+      // Skyline-adaptive flight height for air units: lift the visual Y to
+      // `cell.skylineHeight + AIR_CLEARANCE_M` whenever the local skyline
+      // (rooftops in tower-density areas) is higher than the default
+      // `geoHeight + heightOffset`. terrainHeight is rewritten so that
+      // combat code (which reads `transform.terrainHeight + heightOffset`)
+      // sees the same elevated visual altitude — keeps targeting,
+      // projectiles and the LOS fallback consistent with what the player
+      // sees on screen.
+      if (
+        enemy.typeConfig.isAirUnit &&
+        origin &&
+        this.globalRouteGrid.isInitialized()
+      ) {
+        const skylineLocalY = this.globalRouteGrid.getSkylineHeightAt(
+          this._tempLocalPos.x,
+          this._tempLocalPos.z
+        );
+        if (skylineLocalY !== null) {
+          const skylineGeo = skylineLocalY + origin.height;
+          const desiredAirGeo = Math.max(
+            geoHeight + heightOffset,
+            skylineGeo + AIR_CLEARANCE_M
+          );
+          // Combat reads `transform.terrainHeight + heightOffset` — pin the
+          // sum to desiredAirGeo by adjusting terrainHeight.
+          geoHeight = desiredAirGeo - heightOffset;
+          enemy.transform.terrainHeight = geoHeight;
+        }
+      }
+
       this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
       // Use pre-computed speed from statusFlags (avoids effectiveSpeed getter which re-iterates statusEffects)
       const currentSpeed = enemy.movement.speedMps * speedMultiplier * statusFlags.slowMultiplier;
