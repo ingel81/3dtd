@@ -1,13 +1,8 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, inject } from '@angular/core';
 import { TOWER_TYPES, TowerTypeConfig, TowerTypeId } from '../configs/tower-types.config';
+import { DebugStore, TowerOverrides } from '../store/debug.store';
 
-export interface TowerOverrides {
-  scale: number;
-  previewScale: number;
-  heightOffset: number;
-  shootHeight: number;
-  rotationY: number;
-}
+export type { TowerOverrides };
 
 /**
  * TowerDebugService - Live-Tuning von Tower-Konfigurationen
@@ -17,14 +12,16 @@ export interface TowerOverrides {
  */
 @Injectable({ providedIn: 'root' })
 export class TowerDebugService {
-  /** Aktuell ausgewählter Tower-Typ für Slider */
-  readonly selectedTowerId = signal<TowerTypeId>('archer');
+  private readonly debugStore = inject(DebugStore);
 
-  /** Shoot-Height Visualisierung anzeigen */
+  /** Aktuell ausgewählter Tower-Typ — State im DebugStore. */
+  readonly selectedTowerId = this.debugStore.towerSelectedId;
+
+  /** Shoot-Height Visualisierung anzeigen — UI-only, bleibt lokal. */
   readonly showShootHeight = signal(false);
 
-  /** Overrides für ALLE Tower-Typen */
-  readonly allOverrides = signal<Record<TowerTypeId, TowerOverrides>>(this.initAllOverrides());
+  /** Overrides für ALLE Tower-Typen — State im DebugStore. */
+  readonly allOverrides = this.debugStore.towerOverrides;
 
   /** Alle verfügbaren Tower-Typen */
   readonly towerTypes = computed(() => Object.keys(TOWER_TYPES) as TowerTypeId[]);
@@ -35,7 +32,7 @@ export class TowerDebugService {
     return this.allOverrides()[id];
   });
 
-  /** Initialisiert Overrides mit Original-Werten für alle Tower */
+  // Helper für Reset/Re-Init: produziert dieselbe Overrides-Map wie der Store.
   private initAllOverrides(): Record<TowerTypeId, TowerOverrides> {
     const result = {} as Record<TowerTypeId, TowerOverrides>;
     for (const id of Object.keys(TOWER_TYPES) as TowerTypeId[]) {

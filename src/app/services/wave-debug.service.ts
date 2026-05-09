@@ -1,6 +1,7 @@
 import { Injectable, signal, computed, inject } from '@angular/core';
 import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { UIStore } from '../store/ui.store';
+import { DebugStore } from '../store/debug.store';
 import { WaveConfig } from '../managers/wave.manager';
 import { SpawnPattern, ALL_SPAWN_PATTERNS, buildSpawnSchedule } from '../ai/core/spawn-schedule-builder';
 
@@ -29,27 +30,22 @@ export interface WaveGroupDisplay {
   spawnDelay: number;
 }
 
-/** Default enemy type for debug panel */
-const DEFAULT_ENEMY_TYPE: EnemyTypeId = 'zombie';
-
 /**
  * Service for wave debug settings.
- * Centralizes all debug-relevant signals for the wave debugger.
+ * Computed/Methods leben hier; State-Signals delegieren an DebugStore.
  */
 @Injectable({ providedIn: 'root' })
 export class WaveDebugService {
   private readonly uiStore = inject(UIStore);
+  private readonly debugStore = inject(DebugStore);
 
-  // Get initial values from enemy config (single source of truth)
-  private readonly initialConfig = ENEMY_TYPES[DEFAULT_ENEMY_TYPE];
-
-  // Spawn settings - initialized from enemy config
-  readonly enemyCount = signal(10);
-  readonly enemySpeed = signal(this.initialConfig.baseSpeed);
-  readonly enemyHealth = signal(this.initialConfig.baseHp);
-  readonly enemyType = signal<EnemyTypeId>(DEFAULT_ENEMY_TYPE);
-  readonly spawnMode = signal<'each' | 'random'>('each');
-  readonly spawnDelay = signal(1500);
+  // Spawn-Settings — kanonisch im DebugStore, hier nur als Re-Exports.
+  readonly enemyCount = this.debugStore.waveEnemyCount;
+  readonly enemySpeed = this.debugStore.waveEnemySpeed;
+  readonly enemyHealth = this.debugStore.waveEnemyHealth;
+  readonly enemyType = this.debugStore.waveEnemyType;
+  readonly spawnMode = this.debugStore.waveSpawnMode;
+  readonly spawnDelay = this.debugStore.waveSpawnDelay;
 
   // Mixed wave mode
   readonly mixedMode = signal(false);

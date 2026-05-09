@@ -7,20 +7,9 @@ import { EventSubscription } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
 import { PathAndRouteService } from './path-route.service';
 import { SpawnPoint } from './marker-visualization.service';
+import { DebugStore, EnemyOverrides } from '../store/debug.store';
 
-export interface EnemyOverrides {
-  scale: number;
-  baseHp: number;
-  baseSpeed: number;
-  heightOffset: number;
-  healthBarOffset: number;
-  previewScale: number;
-  previewCameraDistance: number;
-  previewCameraAngle: number;
-  previewOffsetY: number;
-  rotation: number; // Y rotation offset in radians
-  animationSpeed: number; // Animation timeScale multiplier
-}
+export type { EnemyOverrides };
 
 export interface DebugEnemy {
   id: string;
@@ -40,15 +29,16 @@ export interface DebugEnemy {
 @Injectable({ providedIn: 'root' })
 export class EnemyDebugService {
   private readonly pathRoute = inject(PathAndRouteService);
+  private readonly debugStore = inject(DebugStore);
 
-  /** Aktuell ausgewählter Enemy-Typ für Slider */
+  /** Aktuell ausgewählter Enemy-Typ für Slider — UI-Auswahl bleibt lokal. */
   readonly selectedEnemyId = signal<EnemyTypeId>('zombie');
 
-  /** Placement-Mode aktiv */
-  readonly placementMode = signal(false);
+  /** Placement-Mode aktiv — State im DebugStore. */
+  readonly placementMode = this.debugStore.enemyPlacementMode;
 
-  /** Overrides für ALLE Enemy-Typen */
-  readonly allOverrides = signal<Record<EnemyTypeId, EnemyOverrides>>(this.initAllOverrides());
+  /** Overrides für ALLE Enemy-Typen — State im DebugStore. */
+  readonly allOverrides = this.debugStore.enemyOverrides;
 
   /** Liste der platzierten Debug-Enemies */
   readonly debugEnemies = signal<DebugEnemy[]>([]);
