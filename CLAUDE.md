@@ -34,20 +34,23 @@ src/app/
 │   │   └── strategies/         # Placement, Upgrade, Wave, Research Strategies
 │   ├── wave-director/          # Onnx-basierter Wave-Director (Inference)
 │   └── core/                   # Game State Capture, Data Collection
-├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic Services (framework-agnostic)
+├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic Services (Three.js-coupled, Angular-frei)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
-├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio Configs
+├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Wave-Curriculum-Configs
 ├── core/                       # Config Service
 ├── devworld/                   # DevWorld Offline-Entwicklungsumgebung
-├── entities/                   # Enemy, Tower, Projectile
+├── entities/                   # Enemy, Tower, Projectile (+ tower-targeting.util)
 ├── game-components/            # ECS Components (transform, health, movement, combat, etc.)
+├── integration/                # Cross-System Integration-Tests
+├── interfaces/                 # Provider-Interfaces (StreetNetwork, Terrain)
 ├── managers/                   # Manager (Enemy, Tower, Wave, Research, etc. - event-driven)
-├── models/                     # Type Definitions
+├── models/                     # Type Definitions (game.types, location.types, status-effects)
 ├── services/                   # Angular Services (Facades, UI-Bindings)
 ├── store/                      # Signal Stores (Game, UI, Engine, Location, Research)
 ├── styles/                     # Theme & Global Styles
-├── workers/                    # Web Workers (Pathfinding)
-└── three-engine/               # 3D Rendering (renderers/, post-processing/, shaders)
+├── three-engine/               # 3D Rendering (renderers/, post-processing/, shaders)
+├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid)
+└── workers/                    # Web Workers (Pathfinding)
 
 training-backend/               # Python Training Backend
 ├── server.py                   # WebSocket Server (:3001)
