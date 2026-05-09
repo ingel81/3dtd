@@ -44,8 +44,6 @@ describe('tower types config', () => {
         expect(tower.range).toBeGreaterThan(0);
       }
       expect(tower.cost).toBeGreaterThan(0);
-      expect(tower.sellValue).toBeGreaterThanOrEqual(0);
-      expect(tower.sellValue).toBeLessThanOrEqual(tower.cost);
       expect(Array.isArray(tower.upgrades)).toBe(true);
     });
   });

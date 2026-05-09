@@ -7,7 +7,7 @@ import {
   RenderComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, TargetingStrategy, AirSubStrategy } from '../configs/tower-types.config';
+import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, calculateSellValue, TargetingStrategy, AirSubStrategy } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
@@ -452,6 +452,14 @@ export class Tower extends GameObject {
       }
     }
     return total;
+  }
+
+  /**
+   * Refund value when selling this tower: SELL_RATIO of (baseCost + totalUpgradeCost).
+   * Reflects upgrades that were paid for, not just the base cost.
+   */
+  getSellValue(): number {
+    return calculateSellValue(this.typeConfig.cost, this.getTotalUpgradeCost());
   }
 
   /**

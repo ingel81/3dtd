@@ -219,9 +219,10 @@ describe('Tower → Enemy Combat Integration', () => {
     const soldHandler = vi.fn();
     m.eventBus.on('tower:sold', soldHandler);
 
+    const expectedRefund = tower.getSellValue();
     const refund = m.towerManager.sell(tower);
 
-    expect(refund).toBe(tower.typeConfig.sellValue);
+    expect(refund).toBe(expectedRefund);
     expect(m.towerManager.getAll()).toHaveLength(0);
     expect(soldHandler).toHaveBeenCalledOnce();
     expect(soldHandler).toHaveBeenCalledWith(
