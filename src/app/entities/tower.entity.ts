@@ -9,6 +9,7 @@ import {
 import { GeoPosition } from '../models/game.types';
 import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, calculateSellValue, TargetingStrategy, AirSubStrategy } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
+import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
@@ -48,7 +49,7 @@ export class Tower extends GameObject {
   rangeSquaredGeo = 0;
 
   /** How long (ms) without a target before sleeping */
-  static readonly SLEEP_DELAY = 2000; // 2 seconds
+  static readonly SLEEP_DELAY = COMBAT_TUNING.towerSleepDelayMs;
 
   /** Custom rotation set by user during placement (radians) */
   customRotation = 0;
