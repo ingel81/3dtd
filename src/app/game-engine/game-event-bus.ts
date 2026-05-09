@@ -131,6 +131,16 @@ export type GameEvent =
       researchId: string;
       refund: number;
     }
+  | {
+      // Snapshot-Event nach jeder ResearchManager-Mutation. Trägt den
+      // vollen Active-/Completed-/Center-State, damit GameStateSyncService
+      // ohne direktes ResearchManager-Polling den Store updaten kann.
+      type: 'research:state-changed';
+      activeResearches: import('../configs/research/research.types').ActiveResearch[];
+      completedResearches: Set<import('../configs/research/research.types').ResearchId>;
+      centerLevel: number;
+      maxSlots: number;
+    }
 
   // ==================== Research Commands ====================
   | {

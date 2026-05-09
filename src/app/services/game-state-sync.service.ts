@@ -100,21 +100,19 @@ export class GameStateSyncService {
     }));
 
     // ── Research lifecycle ────────────────────────────────────────
-    this.subs.add(eventBus.on('research:started', (_event) => {
-      // Active researches are updated from ResearchManager snapshot via GSM
+    // research:state-changed ist der Single-Source-of-Truth-Sync-Pfad —
+    // ResearchManager emittiert ihn nach jeder State-Mutation.
+    this.subs.add(eventBus.on('research:state-changed', (event) => {
+      this.researchStore.activeResearches.set(event.activeResearches);
+      this.researchStore.completedResearches.set(event.completedResearches);
+      this.researchStore.centerLevel.set(event.centerLevel);
+      this.researchStore.researchSlots.set(event.maxSlots);
     }));
 
+    // research:completed bleibt zusätzlich, um Effects auf den Store anzuwenden
+    // (DamageMultiplier-Buffs etc.) — `state-changed` deckt nur die Pflicht-Felder ab.
     this.subs.add(eventBus.on('research:completed', (event) => {
-      this.researchStore.completedResearches.update(set => {
-        const next = new Set(set);
-        next.add(event.researchId);
-        return next;
-      });
       this.researchStore.applyResearchEffects(event.effects);
-    }));
-
-    this.subs.add(eventBus.on('research:cancelled', (_event) => {
-      // Active researches are updated from ResearchManager snapshot via GSM
     }));
   }
 
