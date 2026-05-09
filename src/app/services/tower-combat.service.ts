@@ -9,6 +9,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { TowerManager } from '../managers/tower.manager';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { EnemyManager } from '../managers/enemy.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
 
@@ -31,9 +32,9 @@ export class TowerCombatService {
 
   private tilesEngine: ThreeTilesEngine | null = null;
 
-  // Throttle blood effects for beam damage (every 200ms per enemy)
+  // Throttle blood effects for beam damage (per-enemy)
   private lastBeamBloodEffect = new Map<string, number>();
-  private readonly BEAM_BLOOD_EFFECT_INTERVAL = 200;
+  private readonly BEAM_BLOOD_EFFECT_INTERVAL = COMBAT_TUNING.beamBloodEffectIntervalMs;
 
   // Active flame sound loops per tower (towerId -> soundHandle)
   private activeFlameSounds = new Map<string, string>();
@@ -94,7 +95,7 @@ export class TowerCombatService {
       // Quick wake check for sleeping towers (every 500ms game-time).
       // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies.
       if (tower.isSleeping) {
-        if (gameTimeMs - tower.lastSleepCheck < 500) continue;
+        if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) continue;
         tower.lastSleepCheck = gameTimeMs;
 
         // Use spatial grid for fast proximity check (local coordinates, meters)
@@ -108,7 +109,7 @@ export class TowerCombatService {
           hasNearby = this.spatialGrid.hasEnemyInRadius(
             towerLocal.x,
             towerLocal.z,
-            tower.typeConfig.range * 1.1 // 10% margin for approaching enemies
+            tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard
           );
         }
         if (!hasNearby) continue;
@@ -173,13 +174,13 @@ export class TowerCombatService {
           candidates = this.globalRouteGrid.getEnemiesInRadius(
             towerLocal.x,
             towerLocal.z,
-            rangeMeters * 1.1 // 10% margin
+            rangeMeters * COMBAT_TUNING.rangeMargin.standard
           );
         } else {
           // Ultimate fallback: geo-distance filter (no engine available)
           const mPerDegLat = METERS_PER_DEGREE_LAT;
           const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
-          const rangeMarginSq = (rangeMeters * 1.1) ** 2;
+          const rangeMarginSq = (rangeMeters * COMBAT_TUNING.rangeMargin.standard) ** 2;
 
           candidates = allEnemies.filter(enemy => {
             const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
@@ -316,12 +317,12 @@ export class TowerCombatService {
           candidates = this.globalRouteGrid.getEnemiesInRadius(
             towerLocal.x,
             towerLocal.z,
-            rangeMeters * 1.2 // 20% margin for beam spread
+            rangeMeters * COMBAT_TUNING.rangeMargin.beam
           );
         } else {
           const mPerDegLat = METERS_PER_DEGREE_LAT;
           const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
-          const rangeMarginSq = (rangeMeters * 1.2) ** 2;
+          const rangeMarginSq = (rangeMeters * COMBAT_TUNING.rangeMargin.beam) ** 2;
 
           candidates = allEnemies.filter(enemy => {
             const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
@@ -561,7 +562,7 @@ export class TowerCombatService {
 
       // Wake check (game-time, no timescale compensation needed thanks to sub-stepping)
       if (tower.isSleeping) {
-        if (gameTimeMs - tower.lastSleepCheck < 500) continue;
+        if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) continue;
         tower.lastSleepCheck = gameTimeMs;
 
         const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
@@ -593,7 +594,7 @@ export class TowerCombatService {
         candidates = this.globalRouteGrid.getEnemiesInRadius(
           towerLocal.x,
           towerLocal.z,
-          rangeMeters * 1.1,
+          rangeMeters * COMBAT_TUNING.rangeMargin.standard,
         );
       }
 

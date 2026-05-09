@@ -9,6 +9,7 @@ import { SpatialGridService } from '../services/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
+import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { AIR_CLEARANCE_M } from '../utils/global-route-grid';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 
@@ -461,11 +462,10 @@ export class EnemyManager extends EntityManager<Enemy> {
           this.poisonTickTimes.delete(enemy.id);
         }
 
-        // Poison DOT tick: emit damage every 500ms of GAME-TIME.
+        // Poison DOT tick: emit damage at the configured interval of GAME-TIME.
         if (isPoisoned) {
           const lastTick = this.poisonTickTimes.get(enemy.id) ?? gameTimeMs;
-          const POISON_TICK_INTERVAL_MS = 500;
-          if (gameTimeMs - lastTick >= POISON_TICK_INTERVAL_MS) {
+          if (gameTimeMs - lastTick >= COMBAT_TUNING.poisonTickIntervalMs) {
             this.poisonTickTimes.set(enemy.id, gameTimeMs);
             const poisonEffect = enemy.movement.statusEffects.find(
               (e) => e.type === 'poison'
