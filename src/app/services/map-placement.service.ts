@@ -6,6 +6,7 @@ import {
 import { ThreeTilesEngine } from '../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
 import { OsmStreetService, StreetNetwork } from './osm-street.service';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { UIStore } from '../store/ui.store';
 import { GeoPosition } from '../models/game.types';
 import {
@@ -397,7 +398,7 @@ export class MapPlacementService {
   private metersToLocalRadius(meters: number): number {
     if (!this.engine || !this.baseCoords) return 0;
 
-    const deltaLat = meters / 111320; // ~111.32km per degree latitude
+    const deltaLat = meters / METERS_PER_DEGREE_LAT;
     const hqLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
     const offsetLocal = this.engine.sync.geoToLocalSimple(
       this.baseCoords.lat + deltaLat, this.baseCoords.lon, 0,

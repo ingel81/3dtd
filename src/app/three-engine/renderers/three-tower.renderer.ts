@@ -31,6 +31,7 @@ import {
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/asset-manager.service';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
 /**
  * Tower render data - stored per tower
@@ -1035,8 +1036,8 @@ export class ThreeTowerRenderer {
     const EDGE_OFFSET = 2.0; // Slightly higher than disc for visibility
 
     const points: Vector3[] = [];
-    const metersPerDegreeLat = 111320;
-    const metersPerDegreeLon = 111320 * Math.cos((centerLat * Math.PI) / 180);
+    const metersPerDegreeLat = METERS_PER_DEGREE_LAT;
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD);
 
     const centerTerrainHeight = this.terrainHeightSampler(centerLat, centerLon);
     const baseCenterY = centerTerrainHeight !== null ? centerTerrainHeight : centerHeight;
@@ -1085,8 +1086,8 @@ export class ThreeTowerRenderer {
     const TERRAIN_OFFSET = 1.5;
 
     // Meters per degree (approximate at this latitude)
-    const metersPerDegreeLat = 111320;
-    const metersPerDegreeLon = 111320 * Math.cos((centerLat * Math.PI) / 180);
+    const metersPerDegreeLat = METERS_PER_DEGREE_LAT;
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD);
 
     // Get center terrain height as reference for relative calculations
     const centerTerrainHeight = this.terrainHeightSampler(centerLat, centerLon);

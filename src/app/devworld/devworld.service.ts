@@ -1,4 +1,5 @@
 import { Injectable } from '@angular/core';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 
 /**
  * DevWorld Configuration
@@ -155,10 +156,9 @@ export class DevWorldService {
    * - 1 degree lat ≈ 111320m at equator
    */
   localToGeo(x: number, z: number): { lat: number; lon: number } {
-    const metersPerDegree = 111320;
     return {
-      lat: DEV_WORLD_ORIGIN.lat + z / metersPerDegree,
-      lon: DEV_WORLD_ORIGIN.lon - x / metersPerDegree, // -X = East = +lon
+      lat: DEV_WORLD_ORIGIN.lat + z / METERS_PER_DEGREE_LAT,
+      lon: DEV_WORLD_ORIGIN.lon - x / METERS_PER_DEGREE_LAT, // -X = East = +lon
     };
   }
 
@@ -170,10 +170,9 @@ export class DevWorldService {
    * - +Z = North, -Z = South
    */
   geoToLocal(lat: number, lon: number): { x: number; z: number } {
-    const metersPerDegree = 111320;
     return {
-      x: -(lon - DEV_WORLD_ORIGIN.lon) * metersPerDegree, // +lon = East = -X
-      z: (lat - DEV_WORLD_ORIGIN.lat) * metersPerDegree,
+      x: -(lon - DEV_WORLD_ORIGIN.lon) * METERS_PER_DEGREE_LAT, // +lon = East = -X
+      z: (lat - DEV_WORLD_ORIGIN.lat) * METERS_PER_DEGREE_LAT,
     };
   }
 

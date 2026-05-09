@@ -10,6 +10,7 @@ import { OsmStreetService, StreetNetwork } from './osm-street.service';
 import { PathAndRouteService } from './path-route.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
 import { GeoPosition } from '../models/game.types';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { SpawnPoint } from '../managers/wave.manager';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { Tower } from '../entities/tower.entity';
@@ -301,8 +302,8 @@ export class StrategicPlacementService {
     const px = -ny;  // Perpendicular
     const py = nx;
 
-    // 4. Offset in meters → degrees (approximately 1 degree ≈ 111km)
-    const offsetDegrees = offsetMeters / 111000;
+    // 4. Offset in meters → degrees
+    const offsetDegrees = offsetMeters / METERS_PER_DEGREE_LAT;
 
     // 5. Calculate new position
     return {

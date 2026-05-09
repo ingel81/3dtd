@@ -8,6 +8,7 @@ import { ResearchStore } from '../store/research.store';
 import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 import { TowerManager } from '../managers/tower.manager';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { EnemyManager } from '../managers/enemy.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
 
@@ -176,8 +177,8 @@ export class TowerCombatService {
           );
         } else {
           // Ultimate fallback: geo-distance filter (no engine available)
-          const mPerDegLat = 111320;
-          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+          const mPerDegLat = METERS_PER_DEGREE_LAT;
+          const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
           const rangeMarginSq = (rangeMeters * 1.1) ** 2;
 
           candidates = allEnemies.filter(enemy => {
@@ -318,8 +319,8 @@ export class TowerCombatService {
             rangeMeters * 1.2 // 20% margin for beam spread
           );
         } else {
-          const mPerDegLat = 111320;
-          const mPerDegLon = 111320 * Math.cos(tower.position.lat * Math.PI / 180);
+          const mPerDegLat = METERS_PER_DEGREE_LAT;
+          const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
           const rangeMarginSq = (rangeMeters * 1.2) ** 2;
 
           candidates = allEnemies.filter(enemy => {

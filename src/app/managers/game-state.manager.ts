@@ -25,6 +25,7 @@ import { GAME_BALANCE } from '../configs/game-balance.config';
 import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/performance-profiler.service';
@@ -312,9 +313,8 @@ export class GameStateManager {
           this.towerPlacement.recomputeTowerLOS(tower);
           // Update rangeSquaredGeo for sleep/wake checks
           const pos = tower.position;
-          const metersPerDegreeLat = 111320;
-          const metersPerDegreeLon = 111320 * Math.cos(pos.lat * 0.0174533);
-          const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
+          const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
+          const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
           const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
           tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
           // Resize the visible range-indicator disc (only visible when the
@@ -405,9 +405,8 @@ export class GameStateManager {
         if (rangeChanged) {
           this.towerPlacement.recomputeTowerLOS(tower);
           const pos = tower.position;
-          const metersPerDegreeLat = 111320;
-          const metersPerDegreeLon = 111320 * Math.cos(pos.lat * 0.0174533);
-          const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
+          const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos.lat * DEG_TO_RAD);
+          const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
           const rangeInDegrees = tower.combat.range / avgMetersPerDegree;
           tower.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
           this.tilesEngine?.towers.updateRangeIndicatorTerrain(tower.id, tower.combat.range);

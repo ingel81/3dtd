@@ -11,6 +11,7 @@ import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, ge
 import { TIMING } from '../configs/timing.config';
 import { Enemy } from './enemy.entity';
 import { RouteCell } from '../utils/global-route-grid';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
 
 /**
@@ -101,10 +102,9 @@ export class Tower extends GameObject {
     this._transform.setPosition(position.lat, position.lon, position.height);
 
     // Pre-compute range² in geo-degrees for quick sleep wake-checks
-    const metersPerDegreeLat = 111320;
-    const metersPerDegreeLon = 111320 * Math.cos(position.lat * 0.0174533);
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(position.lat * DEG_TO_RAD);
     // Use average of lat/lon scale for approximation
-    const avgMetersPerDegree = (metersPerDegreeLat + metersPerDegreeLon) / 2;
+    const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
     const rangeInDegrees = this.typeConfig.range / avgMetersPerDegree;
     this.rangeSquaredGeo = rangeInDegrees * rangeInDegrees;
   }
@@ -470,10 +470,9 @@ export class Tower extends GameObject {
     const dLat = pos2.lat - pos1.lat;
     const dLon = pos2.lon - pos1.lon;
     // Approximate meters per degree at mid-latitudes
-    const metersPerDegreeLat = 111320;
-    const metersPerDegreeLon = 111320 * Math.cos(pos1.lat * 0.0174533); // 0.0174533 = PI/180
+    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos1.lat * DEG_TO_RAD);
     const dx = dLon * metersPerDegreeLon;
-    const dy = dLat * metersPerDegreeLat;
+    const dy = dLat * METERS_PER_DEGREE_LAT;
     return Math.sqrt(dx * dx + dy * dy);
   }
 }

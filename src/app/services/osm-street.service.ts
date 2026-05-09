@@ -1,6 +1,7 @@
 import { inject, Injectable } from '@angular/core';
 import { RandomSpawnCandidate } from '../models/location.types';
 import { StreetCacheService } from './street-cache.service';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
 export interface StreetNode {
   id: number;
@@ -163,8 +164,8 @@ export class OsmStreetService {
     }
 
     // Calculate bounding box (approximate)
-    const latDelta = radiusMeters / 111320; // 1 degree lat ≈ 111.32 km
-    const lonDelta = radiusMeters / (111320 * Math.cos((centerLat * Math.PI) / 180));
+    const latDelta = radiusMeters / METERS_PER_DEGREE_LAT;
+    const lonDelta = radiusMeters / (METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD));
 
     const bounds = {
       minLat: centerLat - latDelta,
@@ -494,8 +495,7 @@ export class OsmStreetService {
     maxDistance: number
   ): boolean {
     // Quick bounding box check first (rough filter)
-    // ~0.001 degrees ≈ 111m at equator
-    const roughDelta = maxDistance / 111000 * 1.5; // Add 50% margin
+    const roughDelta = maxDistance / METERS_PER_DEGREE_LAT * 1.5; // Add 50% margin
 
     for (const rp of routePoints) {
       // Quick rejection based on lat/lon difference
@@ -654,8 +654,8 @@ export class OsmStreetService {
     centerLon: number,
     radiusMeters = 500
   ): Promise<BuildingData> {
-    const latDelta = radiusMeters / 111320;
-    const lonDelta = radiusMeters / (111320 * Math.cos((centerLat * Math.PI) / 180));
+    const latDelta = radiusMeters / METERS_PER_DEGREE_LAT;
+    const lonDelta = radiusMeters / (METERS_PER_DEGREE_LAT * Math.cos(centerLat * DEG_TO_RAD));
 
     const bounds = {
       minLat: centerLat - latDelta,

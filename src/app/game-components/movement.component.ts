@@ -3,7 +3,7 @@ import { GameObject } from '../core/game-object';
 import { GeoPosition } from '../models/game.types';
 import { StatusEffect } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
-import { haversineDistance } from '../utils/geo-utils';
+import { haversineDistance, METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
 /**
  * MovementComponent handles path-following movement
@@ -37,7 +37,7 @@ export class MovementComponent extends Component {
   private cachedPerpLon = 0;
   private cachedPerpSegIdx = -1;
   private cachedPerpValid = false;
-  private cachedMetersPerDegree = 111000; // Cached lat→meter conversion for lateral offset
+  private cachedMetersPerDegree = METERS_PER_DEGREE_LAT; // Cached lat→meter conversion for lateral offset
 
   // Reusable lookAt target (avoid object literal allocation per frame)
   private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
@@ -357,7 +357,7 @@ export class MovementComponent extends Component {
             this.cachedPerpLon = 0;
           }
           // Cache metersPerDegree at segment start (varies <0.01% within a segment)
-          this.cachedMetersPerDegree = 111000 * Math.cos((newLat * Math.PI) / 180);
+          this.cachedMetersPerDegree = METERS_PER_DEGREE_LAT * Math.cos(newLat * DEG_TO_RAD);
           this.cachedPerpSegIdx = this.currentIndex;
           this.cachedPerpValid = true;
         }

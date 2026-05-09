@@ -11,6 +11,7 @@ import {
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork, StreetNode } from './osm-street.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 import { PathAndRouteService } from './path-route.service';
 import { GeoPosition } from '../models/game.types';
 import { DevWorldService } from '../devworld/devworld.service';
@@ -375,7 +376,7 @@ export class StreetRenderingService {
   private subdivideSegment(a: StreetNode, b: StreetNode): StreetNode[] {
     const dLat = b.lat - a.lat;
     const dLon = b.lon - a.lon;
-    const approxDist = Math.sqrt(dLat * dLat + dLon * dLon) * 111000;
+    const approxDist = Math.sqrt(dLat * dLat + dLon * dLon) * METERS_PER_DEGREE_LAT;
 
     if (approxDist <= MAX_SEGMENT_LENGTH) {
       return [a];

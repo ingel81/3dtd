@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Vector3, Box3, MathUtils, PerspectiveCamera } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 
 /**
  * Represents a computed camera frame (position + lookAt target)
@@ -91,7 +92,7 @@ export class CameraFramingService {
   private static readonly DEFAULT_MIN_SPAN = 50;
 
   /** Approximate meters per degree latitude */
-  private static readonly METERS_PER_DEG_LAT = 111320;
+  private static readonly METERS_PER_DEG_LAT = METERS_PER_DEGREE_LAT;
 
   // ========================================
   // STATE

@@ -3,6 +3,7 @@ import { MathUtils } from 'three';
 import { WGS84_ELLIPSOID } from '3d-tiles-renderer';
 import { ENU_FRAME } from '3d-tiles-renderer/src/three/renderer/math/Ellipsoid.js';
 import type { TilesRenderer } from '3d-tiles-renderer';
+import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
 
 /**
  * EllipsoidSync - Coordinate transformation utilities for 3DTilesRendererJS
@@ -257,12 +258,11 @@ export class EllipsoidSync {
     // Uses cached originLatCos to avoid per-call Math.cos()
     const dLon = lon - this.originLonDeg;
     const dLat = lat - this.originLatDeg;
-    const METERS_PER_DEG = 111320;
 
     return new Vector3(
-      -dLon * METERS_PER_DEG * this.originLatCos, // -X = East
+      -dLon * METERS_PER_DEGREE_LAT * this.originLatCos, // -X = East
       height - this.originHeight,
-      dLat * METERS_PER_DEG // +Z = North
+      dLat * METERS_PER_DEGREE_LAT // +Z = North
     );
   }
 
@@ -275,12 +275,11 @@ export class EllipsoidSync {
     // Uses cached originLatCos to avoid per-call Math.cos()
     const dLon = lon - this.originLonDeg;
     const dLat = lat - this.originLatDeg;
-    const METERS_PER_DEG = 111320;
 
     target.set(
-      -dLon * METERS_PER_DEG * this.originLatCos, // -X = East
+      -dLon * METERS_PER_DEGREE_LAT * this.originLatCos, // -X = East
       height - this.originHeight,
-      dLat * METERS_PER_DEG // +Z = North
+      dLat * METERS_PER_DEGREE_LAT // +Z = North
     );
     return target;
   }
@@ -303,7 +302,6 @@ export class EllipsoidSync {
    * Uses flat-earth approximation - accurate for <200m (game distances)
    */
   private fastDistance(lat1: number, lon1: number, lat2: number, lon2: number): number {
-    const METERS_PER_DEGREE_LAT = 111320;
     const dLat = lat2 - lat1;
     const dLon = lon2 - lon1;
     const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(lat1 * MathUtils.DEG2RAD);
