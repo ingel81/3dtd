@@ -10,6 +10,19 @@
 - Attributions: stone-wall.jpg Quelle ermitteln und eintragen
 - Attributions: Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
 
+- **LOS-Overlay: Ground vs Air visuell trennen**
+      Seit `1f156a4` nutzen Air-Tower (Rocket, Ice, dual-gatling mit aa-retrofit) den
+      Skyline-adaptive Air-LOS-Pfad (`global-route-grid.ts:455-465`).
+      Im Tower-Selection-Overlay (`createTowerVisualization`, line 878) und im
+      Placement-Preview (`createPlacementPreview`, line 1135) wird ein Cell aktuell
+      als "visible/grün" markiert wenn **groundVis ODER airVis** frei ist (Zeile 901
+      bzw. 1265). Effekt: Air-fähige Tower wirken im Overlay deutlich „mächtiger",
+      weil Air-Rays über Gebäuden fast immer frei sind.
+      **Lösungsansatz:** 3-Wege-State im Shader-Attribut (statt `aIsBlocked` 0/1):
+      `0=ground-visible (grün)`, `1=blocked (rot)`, `2=air-only-visible (cyan/blau)`.
+      Beide Methoden + Fragment-Shader anpassen
+      (`TOWER_LOS_FRAGMENT`, `global-route-grid.ts:149`).
+
 - **Tower-Upgrade-Skalierung feintunen**
       Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
       - Damage: ×1.10/Level (L25 ×10.83)
