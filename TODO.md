@@ -107,10 +107,20 @@
 - [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module)
       ParticleEffectsRenderer (blood/fire/explosion/smoke), AuraRenderer (frost/poison/inner-fire),
       EnvironmentEffectsRenderer (HQ-Explosion, Tower-Inner-Fire). Single-File macht PR-Reviews unmöglich.
+      **Hinweis aus Loop 2026-05-09:** Naïver 3-Wege-Split scheitert am geteilten State —
+      `activeEffects`-Map, Trail-Pools (Additive + Normal), Tower-Fire-Pool, Shader-Materials,
+      Atlas-Texturen werden über alle Spawn-Methoden geteilt. Voraussetzung: erst einen
+      `ParticlePoolManager` extrahieren der die 3 Pools + Buffer-Attribute kapselt; dann
+      können die 3 Renderer die Spawn-Methoden auf diesen Manager delegieren. Erst danach
+      wird der Split risiko-arm.
 
-- [ ] **`three-tiles-engine.ts` schlanker** (2223 LOC → ~1200 + Helper)
-      Sub-Module für Post-Processing (Bloom + Color Grading), Camera-Setup (Controls + Initial-Position),
-      Tile-Loading-State-Machine (firstTilesLoaded, retry, debounce). Per Composition.
+- [x] **`three-tiles-engine.ts` schlanker** (2223 LOC → ~1200 + Helper) — **teilweise** ✓ 2026-05-10
+      Erledigt: Post-Processing-Pipeline (Bloom + Color Grading + Composer + alle 9 Setter)
+      in `three-engine/post-processing/post-processing-pipeline.ts` extrahiert, three-tiles-engine
+      –46 LOC. Helper-File 93 LOC, single-responsibility.
+      **Offen:** Camera-Setup (GlobeControls + Initial-Position) und Tile-Loading-State-Machine
+      (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
+      verzahnt — eigene Session mit Plan vorab.
 
 - [x] **`game-state.manager.ts` Command-Handler extrahieren** (1020 LOC → 700 + 300) ✓ 2026-05-09
       EventBus-Subscriptions-Block (~150 Zeilen für `command:place-tower`, `command:upgrade-tower`, etc.)
