@@ -44,11 +44,8 @@ import {
 } from '3d-tiles-renderer/plugins';
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
-import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
-import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
-import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
-import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
-import { createColorGradingPass, ColorGradingPreset } from './post-processing/color-grading';
+import { ColorGradingPreset } from './post-processing/color-grading';
+import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import {
@@ -98,14 +95,8 @@ export class ThreeTilesEngine {
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
 
-  // Post-processing
-  private composer: EffectComposer | null = null;
-  private bloomPass: UnrealBloomPass | null = null;
-  private bloomEnabled = false;
-
-  // Color grading (LUT post-processing)
-  private colorGrading: ReturnType<typeof createColorGradingPass> | null = null;
-  private colorGradingPreset: ColorGradingPreset = 'none';
+  // Post-processing pipeline (composer + bloom + color grading + output pass)
+  private postProcessing: PostProcessingPipeline | null = null;
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
@@ -836,26 +827,7 @@ export class ThreeTilesEngine {
   }
 
   private setupPostProcessing(): void {
-    this.composer = new EffectComposer(this.renderer);
-
-    const renderPass = new RenderPass(this.scene, this.camera);
-    this.composer.addPass(renderPass);
-
-    const bloomPass = new UnrealBloomPass(
-      new Vector2(window.innerWidth, window.innerHeight),
-      0.3,  // strength (subtle)
-      0.4,  // radius
-      0.85  // threshold (only bright things bloom)
-    );
-    this.bloomPass = bloomPass;
-    this.composer.addPass(bloomPass);
-
-    // Color grading LUT pass (inserted before output, disabled by default)
-    this.colorGrading = createColorGradingPass();
-    this.composer.addPass(this.colorGrading.pass);
-
-    const outputPass = new OutputPass();
-    this.composer.addPass(outputPass);
+    this.postProcessing = new PostProcessingPipeline(this.renderer, this.scene, this.camera);
   }
 
   private setupControls(): void {
@@ -1019,9 +991,7 @@ export class ThreeTilesEngine {
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
-    if (this.composer) {
-      this.composer.setSize(width, height);
-    }
+    this.postProcessing?.setSize(width, height);
   }
 
   /**
@@ -1601,8 +1571,8 @@ export class ThreeTilesEngine {
       this.overlayGroup.position.y = this.overlayBaseY;
 
       // Render scene (use composer if any post-processing is active)
-      if (this.needsPostProcessing() && this.composer) {
-        this.composer.render();
+      if (this.postProcessing?.needsRender()) {
+        this.postProcessing.render();
       } else {
         this.renderer.render(this.scene, this.camera);
       }
@@ -1656,8 +1626,8 @@ export class ThreeTilesEngine {
     }
 
     // Render scene (use composer if any post-processing is active)
-    if (this.needsPostProcessing() && this.composer) {
-      this.composer.render();
+    if (this.postProcessing?.needsRender()) {
+      this.postProcessing.render();
     } else {
       this.renderer.render(this.scene, this.camera);
     }
@@ -2116,46 +2086,36 @@ export class ThreeTilesEngine {
     return this.lastCameraMovement;
   }
 
-  // ---- Bloom post-processing controls ----
-
-  /** Check if any post-processing pass is active (bloom or color grading) */
-  private needsPostProcessing(): boolean {
-    return this.bloomEnabled || this.colorGradingPreset !== 'none';
-  }
+  // ---- Bloom post-processing controls (delegate to PostProcessingPipeline) ----
 
   setBloomEnabled(enabled: boolean): void {
-    this.bloomEnabled = enabled;
+    this.postProcessing?.setBloomEnabled(enabled);
   }
 
   isBloomEnabled(): boolean {
-    return this.bloomEnabled;
+    return this.postProcessing?.isBloomEnabled() ?? false;
   }
 
   setBloomStrength(strength: number): void {
-    if (this.bloomPass) this.bloomPass.strength = strength;
+    this.postProcessing?.setBloomStrength(strength);
   }
 
   setBloomThreshold(threshold: number): void {
-    if (this.bloomPass) this.bloomPass.threshold = threshold;
+    this.postProcessing?.setBloomThreshold(threshold);
   }
 
   // ---- Color Grading (LUT) ----
 
   setColorGradingPreset(preset: ColorGradingPreset): void {
-    this.colorGradingPreset = preset;
-    if (this.colorGrading) {
-      this.colorGrading.setPreset(preset);
-    }
+    this.postProcessing?.setColorGradingPreset(preset);
   }
 
   getColorGradingPreset(): ColorGradingPreset {
-    return this.colorGradingPreset;
+    return this.postProcessing?.getColorGradingPreset() ?? 'none';
   }
 
   setColorGradingIntensity(value: number): void {
-    if (this.colorGrading) {
-      this.colorGrading.setIntensity(value);
-    }
+    this.postProcessing?.setColorGradingIntensity(value);
   }
 
   /**
@@ -2250,16 +2210,10 @@ export class ThreeTilesEngine {
       }
     });
 
-    // Dispose color grading LUT textures
-    if (this.colorGrading) {
-      this.colorGrading.dispose();
-      this.colorGrading = null;
-    }
-
-    // Dispose post-processing composer
-    if (this.composer) {
-      this.composer.dispose();
-      this.composer = null;
+    // Dispose post-processing pipeline (composer + color grading LUT textures)
+    if (this.postProcessing) {
+      this.postProcessing.dispose();
+      this.postProcessing = null;
     }
 
     // Dispose renderer
