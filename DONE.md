@@ -4,6 +4,120 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-10
+
+### Refactor: PostProcessingPipeline aus three-tiles-engine extrahiert
+- [x] **Post-Processing-Pipeline (Bloom + Color Grading) als eigene Klasse**
+      EffectComposer + Render-/Bloom-/ColorGrading-/Output-Pass plus 9 Setter
+      aus `three-tiles-engine.ts` herausgelöst in
+      `three-engine/post-processing/post-processing-pipeline.ts`. three-tiles-engine
+      delegiert nur noch (`postProcessing.render()`, `setSize()`, `needsRender()`).
+      Net: −46 LOC im Mainfile, +93 LOC in eigener single-responsibility Klasse.
+      **Offen:** Camera-Setup (GlobeControls + Initial-Position) und Tile-Loading-State
+      sind noch im Mainfile — eigene Sessions, weil enger mit `tilesRenderer.initialize()`
+      verzahnt als Post-Processing. Bleibt als TODO.
+
+---
+
+## 2026-05-09
+
+### Housekeeping-Sprint (Tier 2 + Tier 3 + Tests, 16 Items in einem Loop)
+
+> 19 Commits, 556 Tests grün, Build clean. Zwei Items (`three-effects` Komplett-Split,
+> `services/` Komplett-Reorg in 6 Subfolder) bewusst zurückgestellt.
+
+#### Tier 2 — Cleanup-Aktionen
+- [x] **`canTargetAirEffective` Zirkular-Dep entities↔ai aufgelöst**
+      Funktion + `AA_RETROFIT_TOWERS`-Set aus `ai/core/tower-dps.util.ts` in eine neue
+      `entities/tower-targeting.util.ts` gezogen. tower.entity.ts importiert nicht mehr aus
+      ai/. ai/core/tower-dps.util.ts re-exportiert für bestehende Konsumenten
+      (dps-profile, defense-analyzer).
+- [x] **`canvas` + `@gltf-transform/core` aus npm entfernt**
+      depcheck-Treffer (in keinem Code referenziert, gltf-transform nur in Docs als CLI-Tip).
+      `@eslint/js` als explizite devDep gepinnt (vorher nur transitiv).
+- [x] **`enemy-types.ts` → `configs/enemy-types.config.ts`**
+      models/enemy-types.ts war eine Config-Datenbank (`ENEMY_TYPES = {…}`), kein Type-File —
+      configs/index.ts re-exportierte sie bereits als Eingeständnis. 18 Import-Sites umgezogen.
+- [x] **`ai/core/wave-curriculum.ts` → `configs/wave-curriculum.config.ts`**
+      Pure Balance-Daten — beendet die Layer-Inversion managers→ai. Backend-Mirror in
+      `training-backend/wave_curriculum.py` strukturell synchron, nur TS-Import-Pfade ändern sich.
+- [x] **CLAUDE.md Folder-Tree-Refresh**
+      `integration/`, `interfaces/`, `utils/` ergänzt; `models/`-Beschreibung präzisiert;
+      `entities/` zeigt jetzt auf `tower-targeting.util`; `game-engine/`-Wording auf
+      "Three.js-coupled, Angular-frei" korrigiert (vorher "framework-agnostic").
+- [x] **WaveDebug-Doppelmirror in UIStore entfernt**
+      6 Mirror-Signals (`enemyCount/Speed/Health/Type/spawnMode/spawnDelay`) auf UIStore
+      und Re-Exports in tower-defense.store gelöscht — `WaveDebugService` ist alleinige
+      Quelle. Beseitigt das Inkonsistenz-Bug-Risiko durch divergierende Defaults.
+
+#### Tier 3 — Strategische Refactorings
+- [x] **Geo-Konstanten zentralisiert (`METERS_PER_DEGREE_LAT`, `DEG_TO_RAD`)**
+      Aus `utils/geo-utils.ts` exportiert; ~14 Inline-Vorkommen (`111320`, `111000`,
+      `0.0174533`, `Math.PI/180`-in-Geo-Kontext) in managers, entities, three-engine,
+      services migriert. **Bug-Fix:** `movement.component.ts:40` und
+      `ai/core/defense-analyzer.ts:329-330` nutzten `111000` statt `111320` — ~0.3%
+      Lateral-Offset-Drift in Movement-Cache + Tower-Distance-Heuristik behoben.
+- [x] **Combat-Magic-Numbers in `combat-tuning.config.ts` extrahiert**
+      Sleep-Delay (Tower.SLEEP_DELAY), Sleep-Check-Intervall (500ms), Range-Margins
+      (standard 1.1×, beam 1.2×), Beam-Blood-Throttle (200ms), Poison-Tick-Intervall (500ms)
+      aus `tower-combat.service.ts`, `tower.entity.ts` und `enemy.manager.ts` in eine
+      Config gezogen. Game-Balancing ohne Code-Änderungen zugänglich.
+- [x] **Research-Sync via `research:state-changed` Snapshot-Event vereinheitlicht**
+      Vorher 50/50: completed via Event→Store, started/cancelled direkt von GSM via
+      `syncResearchStoreState()`. ResearchManager emittiert jetzt nach jeder State-Mutation
+      einen Snapshot-Event (active/completed/centerLevel/maxSlots); GameStateSyncService
+      konsumiert ihn. GSM hat 6 syncResearchStoreState-Calls + den Helper komplett verloren.
+- [x] **GameCommandsHandler + EconomyService aus GameStateManager extrahiert**
+      `managers/game-commands.handler.ts` ownt jetzt alle 11 `command:*`/`debug:*`-EventBus-
+      Subscriptions (~150 LOC). `services/economy.service.ts` ownt Wave-Completion-Bonus-
+      Mathematik + Perfect-Streak-Counter (~25 LOC). GSM hat einen neuen
+      `recomputeTowerRangeAfterUpgrade(tower)` Helper, der den geteilten LOS-/Range²-/
+      Range-Disc-Refresh-Pfad bündelt.
+- [x] **DebugStore eingeführt (10 Signals migriert)**
+      WaveDebugService/TowerDebugService/EnemyDebugService delegieren jetzt ihre State-
+      Signals an `store/debug.store.ts` (waveEnemy*, waveSpawnMode/Delay, towerSelectedId,
+      towerOverrides, enemyPlacementMode, enemyOverrides). Public API der Services
+      unverändert — Konsumenten lesen weiter `waveDebug.enemyCount()` etc., aber State
+      lebt in der Store-Schicht (SIGNAL-STORE-ARCHITECTURE.md).
+- [x] **`services/`-Subfolder eingeführt — teilweise (combat/ + debug/)**
+      `services/combat/` (8 Files: combat-effect, combat-vfx, damage-application+spec,
+      hq-damage, status-effect, tower-combat+spec) und `services/debug/` (7 Files:
+      wave-debug, tower-debug, enemy-debug, debug-window, sound-debug, performance-profiler,
+      debug-facade). 22 Import-Sites aktualisiert. **Offen:** `world/`, `location/`,
+      `facade/`, `infrastructure/` für eine separate Session.
+
+#### Tier 4 + Cleanup-Tests — 68 neue Test-Cases
+- [x] **ResearchStore Spec (20 Cases)**
+      Initial defaults (4), availableSlots/centerPlaced computed (4), isTowerUnlocked (5),
+      applyResearchEffects (6 — tier raise, no-regress, perk add, airTargeting,
+      unlock-tower no-op, multi-effect), resetResearchState (1).
+- [x] **GameStateSyncService echter Service-Test (21 Cases)**
+      Vorher testete der Spec eine Inline-Re-Implementierung der Subscriptions — jetzt
+      wird der echte Service mit gemockter Angular-DI instanziiert und durch echte
+      `eventBus.emit()`-Calls validiert. Inkl. tower:sold-clearing-selection-only-on-match,
+      research:state-changed-Snapshot, dispose()-detach.
+- [x] **DamageApplicationService Spec (12 Cases)**
+      Damage-Matrix-Passthrough, multiplier propagation, not-initialized→null, hit-blood-
+      gating, splash-flag forwarding, lethal-hit→deathBlood+kill, skipBloodEffects suppression,
+      kill-credit auf source tower, missing-tower no-throw, beam-damage canBleed-gating und
+      lethal-tick. DOT-Stacking auf MovementComponent ist eigenes Spec-Item.
+- [x] **TowerCombatService Spec (15 Cases)**
+      calculateHeading (4 — N/E/S/W), getEffectiveDPS (4 — config default, fallback,
+      damage-upgrade compounding, level-0), getEffectiveBeamWidth (3), Beam-State-Cleanup
+      (3 — stopTowerBeam removes per-tower entry, tolerates missing engine; stopAllBeams
+      clears throttle map), Config-Wiring (1 — BEAM_BLOOD_EFFECT_INTERVAL ⇔ COMBAT_TUNING).
+
+#### Lint-Pass (vor dem Sprint, gehört dazu)
+- [x] **60 ESLint-Errors bereinigt**
+      11 via `--fix` automatisch (Imports, const vs let). 49 manuell: unused imports/vars
+      entfernt oder mit `_` prefixed; `any` durch konkrete Typen ersetzt; `for-of` statt
+      Index-Loops in enemy.manager.ts; readonly Felder statt Getter mit Literalen in
+      instanced-enemy.renderer.ts; A11y (`tabindex`, `keydown`-Handler) bei click-only
+      Elementen; `td` als zusätzlicher Selector-Prefix in eslint.config.js zugelassen
+      (für TdIcon/TdRichTooltip aus dem UI-Refresh).
+
+---
+
 ## 2026-05-08
 
 ### Phase 5: Damage & Armor System (Infrastruktur komplett)
