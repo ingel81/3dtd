@@ -4,6 +4,9 @@ import { TowerTypeId } from '../configs/tower-types.config';
 /** LocalStorage key for persisted UI state */
 const STORAGE_KEY = 'td-ui-state';
 
+/** Trailing debounce window for localStorage writes (ms) */
+const PERSIST_DEBOUNCE_MS = 500;
+
 /** Shape of persisted UI state */
 interface PersistedUIState {
   infoOverlayVisible: boolean;
@@ -121,11 +124,14 @@ export class UIStore {
     }
   }
 
-  /** Persist state changes to localStorage via effect (no-op outside injection context) */
+  private persistTimer: ReturnType<typeof setTimeout> | null = null;
+  private pendingState: PersistedUIState | null = null;
+
+  /** Persist state changes to localStorage via effect with trailing debounce */
   private setupPersistence(): void {
     try {
       effect(() => {
-        const state: PersistedUIState = {
+        this.pendingState = {
           infoOverlayVisible: this.infoOverlayVisible(),
           streetsVisible: this.streetsVisible(),
           routesVisible: this.routesVisible(),
@@ -139,7 +145,13 @@ export class UIStore {
           musicMuted: this.musicMuted(),
           sfxMuted: this.sfxMuted(),
         };
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+        if (this.persistTimer !== null) return;
+        this.persistTimer = setTimeout(() => {
+          this.persistTimer = null;
+          if (this.pendingState) {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(this.pendingState));
+          }
+        }, PERSIST_DEBOUNCE_MS);
       });
     } catch {
       // Outside injection context (e.g. unit tests) — persistence disabled

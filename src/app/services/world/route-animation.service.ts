@@ -3,8 +3,8 @@ import { Color, Group, Vector3, Vector2, BufferGeometry, Float32BufferAttribute 
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-import { ThreeTilesEngine } from '../three-engine';
-import { GeoPosition } from '../models/game.types';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GeoPosition } from '../../models/game.types';
 import { SpawnPoint } from './marker-visualization.service';
 
 /**

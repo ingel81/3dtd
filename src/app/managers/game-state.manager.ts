@@ -5,17 +5,17 @@ import { ProjectileManager } from './projectile.manager';
 import { WaveManager, SpawnPoint, WaveConfig } from './wave.manager';
 import { UIStore } from '../store/ui.store';
 import { GameStore } from '../store/game.store';
-import { PathAndRouteService } from '../services/path-route.service';
-import { GlobalRouteGridService } from '../services/global-route-grid.service';
-import { SpatialGridService } from '../services/spatial-grid.service';
+import { PathAndRouteService } from '../services/world/path-route.service';
+import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
+import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { CombatEffectService } from '../services/combat/combat-effect.service';
 import { StatusEffectService } from '../services/combat/status-effect.service';
 import { HQDamageService } from '../services/combat/hq-damage.service';
 import { TowerCombatService } from '../services/combat/tower-combat.service';
-import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
+import { OsmStreetService, StreetNetwork } from '../services/location/osm-street.service';
 import { WaveDebugService } from '../services/debug/wave-debug.service';
 import { EnemyDebugService } from '../services/debug/enemy-debug.service';
-import { MarkerVisualizationService } from '../services/marker-visualization.service';
+import { MarkerVisualizationService } from '../services/world/marker-visualization.service';
 import { TowerPlacementService } from '../services/tower-placement.service';
 import { GeoPosition } from '../models/game.types';
 import { GameObject } from '../core/game-object';
@@ -28,7 +28,7 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { EconomyService } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
+import { GameEventBus, IGameManager, VFXService, AudioService, ScreenShakeService, BackgroundMusicService, SubscriptionBag } from '../game-engine';
 import { PerformanceProfilerService } from '../services/debug/performance-profiler.service';
 import { ResearchManager } from './research.manager';
 import { ResearchStore } from '../store/research.store';
@@ -74,6 +74,21 @@ export class GameStateManager {
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   readonly researchManager = new ResearchManager(this.eventBus);
   private readonly researchStore = inject(ResearchStore);
+
+  /**
+   * Canonical list of sub-managers that implement IGameManager. Iterated for
+   * lifecycle calls (destroy/reset/initialize batches). NOTE: the per-frame
+   * update sequence in runSubStep() stays hardcoded because it interleaves
+   * with eventBus.processQueue() and conditional towerCombat — order is
+   * load-bearing and not safely expressed as a simple forEach.
+   */
+  private readonly subManagers: IGameManager[] = [
+    this.towerManager,
+    this.enemyManager,
+    this.projectileManager,
+    this.waveManager,
+    this.researchManager,
+  ];
 
   // Game state signals
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
@@ -385,7 +400,7 @@ export class GameStateManager {
     this.projectileManager.update(stepMs);
     const tProjectile = profiling ? performance.now() - t0 : 0;
 
-    this.researchManager.update(stepMs / 1000);
+    this.researchManager.update(stepMs);
 
     t0 = profiling ? performance.now() : 0;
     this.eventBus.processQueue();
@@ -572,11 +587,12 @@ export class GameStateManager {
 
     this.hqDamage.reset();
 
-    this.enemyManager.clear();
-    this.towerManager.clear();
-    this.projectileManager.clear();
-    this.waveManager.reset();
-    this.researchManager.reset();
+    // Polymorphic teardown: every sub-manager implements IGameManager.destroy.
+    // EntityManager.destroy() clears entities + drops the tilesEngine ref;
+    // Wave/ResearchManager.destroy() drops their state.
+    for (const m of this.subManagers) {
+      m.destroy();
+    }
     this.globalRouteGrid.clear();
 
     if (this.tilesEngine) {

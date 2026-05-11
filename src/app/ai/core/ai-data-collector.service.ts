@@ -43,7 +43,7 @@ import { calculateWaveThreat, computeDpsByDamageType } from './game-state-encode
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ComponentType } from '../../core/component';
 import { MovementComponent } from '../../game-components/movement.component';
-import { GlobalRouteGridService } from '../../services/global-route-grid.service';
+import { GlobalRouteGridService } from '../../services/world/global-route-grid.service';
 import { computePathDPSProfile, createEmptyDPSProfile, PathDPSProfile } from './dps-profile';
 import { Tower } from '../../entities/tower.entity';
 

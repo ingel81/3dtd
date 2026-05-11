@@ -116,6 +116,65 @@ export class Audio {
   isPlaying = false;
 }
 
+export class PositionalAudio extends Audio {
+  setRefDistance() { return this; }
+  setRolloffFactor() { return this; }
+  setMaxDistance() { return this; }
+  setDistanceModel() { return this; }
+  setDirectionalCone() { return this; }
+  panner = { positionX: { value: 0 }, positionY: { value: 0 }, positionZ: { value: 0 } };
+}
+
+export class SpriteMaterial extends Material {
+  map: Texture | null = null;
+  color = new Color();
+  constructor(params?: { map?: Texture; color?: Color | number | string }) {
+    super();
+    if (params?.map) this.map = params.map;
+    if (params?.color !== undefined) {
+      this.color = params.color instanceof Color ? params.color : new Color();
+    }
+  }
+}
+
+export class Sprite extends Object3D {
+  material: SpriteMaterial;
+  center = new Vector2(0.5, 0.5);
+  constructor(material?: SpriteMaterial) {
+    super();
+    this.material = material ?? new SpriteMaterial();
+  }
+}
+
+export class Box3 {
+  min = new Vector3(Infinity, Infinity, Infinity);
+  max = new Vector3(-Infinity, -Infinity, -Infinity);
+  setFromObject(_obj: Object3D) {
+    // Stub: yields an empty bounding box; tests that exercise specific bounds
+    // should override .min/.max directly on the resulting Box3 instance.
+    return this;
+  }
+  isEmpty() {
+    return this.max.x < this.min.x;
+  }
+  getCenter(target: Vector3) {
+    target.set(
+      (this.min.x + this.max.x) / 2,
+      (this.min.y + this.max.y) / 2,
+      (this.min.z + this.max.z) / 2,
+    );
+    return target;
+  }
+  getSize(target: Vector3) {
+    target.set(
+      this.max.x - this.min.x,
+      this.max.y - this.min.y,
+      this.max.z - this.min.z,
+    );
+    return target;
+  }
+}
+
 export class InstancedBufferAttribute {
   needsUpdate = false;
   setX() {}
@@ -125,7 +184,13 @@ export class InstancedBufferAttribute {
 }
 
 export class BufferAttribute {
-  constructor(_array?: unknown, _itemSize?: number) {}
+  needsUpdate = false;
+  constructor(public array?: unknown, public itemSize?: number) {}
+  setX() { return this; }
+  setXY() { return this; }
+  setXYZ() { return this; }
+  setXYZW() { return this; }
+  copyArray() { return this; }
 }
 
 export const MathUtils = {
@@ -154,12 +219,12 @@ export class TextureLoader { load() { return new Texture(); } }
 export class AxesHelper extends Object3D {}
 
 export default {
-  Vector3, Vector2, Quaternion, Color, Matrix4,
-  Object3D, Group, Scene, Mesh, InstancedMesh, Points, Line,
+  Vector3, Vector2, Quaternion, Color, Matrix4, Box3,
+  Object3D, Group, Scene, Mesh, InstancedMesh, Points, Line, Sprite,
   Camera, PerspectiveCamera, WebGLRenderer, Raycaster,
   BufferGeometry, BoxGeometry, PlaneGeometry, SphereGeometry,
-  Material, MeshStandardMaterial, MeshBasicMaterial, ShaderMaterial, PointsMaterial,
-  DataTexture, Texture, AudioLoader, AudioListener, Audio,
+  Material, MeshStandardMaterial, MeshBasicMaterial, ShaderMaterial, PointsMaterial, SpriteMaterial,
+  DataTexture, Texture, AudioLoader, AudioListener, Audio, PositionalAudio,
   InstancedBufferAttribute, BufferAttribute, MathUtils,
   SRGBColorSpace, DoubleSide, FrontSide, NearestFilter, FloatType, RGBAFormat,
   StaticDrawUsage, DynamicDrawUsage, LoopOnce, EquirectangularReflectionMapping,

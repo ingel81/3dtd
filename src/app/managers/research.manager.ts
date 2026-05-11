@@ -7,7 +7,7 @@
  * always takes exactly 60s of game-time, regardless of training speed.
  */
 
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, IGameManager } from '../game-engine';
 import {
   ResearchId,
   ResearchConfig,
@@ -25,7 +25,7 @@ import {
 } from '../configs/research/research-center.config';
 import { TowerTypeId } from '../configs/tower-types.config';
 
-export class ResearchManager {
+export class ResearchManager implements IGameManager {
   private completedResearches = new Set<ResearchId>();
   private activeResearches = new Map<ResearchId, ActiveResearch>();
   private _centerLevel = 0; // 0 = not placed, 1-3 = placed + level
@@ -275,12 +275,14 @@ export class ResearchManager {
   // ==================== Update Loop ====================
 
   /**
-   * Tick all active researches. Called every gameplay sub-step with the
-   * step's GAME-TIME delta in seconds (engine sub-step is ~16ms game-time).
+   * Tick all active researches. Called every gameplay sub-step. `stepMs` is
+   * the GAME-TIME delta of the current sub-step (engine sub-step is ~16ms
+   * game-time). Signature kept compatible with `IGameManager.update`.
    */
-  update(gameDeltaSeconds: number): void {
+  update(stepMs: number): void {
     if (this.activeResearches.size === 0) return;
 
+    const gameDeltaSeconds = stepMs / 1000;
     const completed: ResearchId[] = [];
 
     for (const [id, active] of this.activeResearches) {
@@ -333,13 +335,21 @@ export class ResearchManager {
     this.emitStateSnapshot();
   }
 
-  // ==================== Lifecycle ====================
+  // ==================== Lifecycle (IGameManager) ====================
+
+  /** No-op — ResearchManager has no setup work beyond the constructor. */
+  initialize(): void { /* nothing to do */ }
 
   reset(): void {
     this.completedResearches.clear();
     this.activeResearches.clear();
     this._centerLevel = 0;
     this._maxSlots = 1;
+  }
+
+  /** IGameManager.destroy — alias for `reset()`. */
+  destroy(): void {
+    this.reset();
   }
 
   // ==================== Save/Load ====================

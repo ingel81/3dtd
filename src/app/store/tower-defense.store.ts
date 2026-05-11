@@ -35,7 +35,7 @@ import { LocationStore } from './location.store';
 import { UIStore } from './ui.store';
 import { ResearchStore } from './research.store';
 import { CameraDebugInfo, TileStats } from './tower-defense.store.types';
-import { EngineInitializationService } from '../services/engine-initialization.service';
+import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
 
 export * from './tower-defense.store.types';
 

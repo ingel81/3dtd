@@ -21,33 +21,16 @@
 
 ## 1.1 Engine-Bugs
 
-- [ ] **Route-Cell-Visualisierung: visueller Schliff**
-      Air/Ground-Trennung, Cell-Y-Plausibilisierung, Doppellage Global vs Per-Tower
-      und Preview-Performance sind erledigt (siehe DONE.md 2026-05-11). Offen als
-      Folge-Polish, am Stück angehen:
-      - Snap-to-Surface — Cells stehen aktuell konstant +0.5m über Terrain.
-        Auf Hängen / Treppen wirkt das schwebend. Entweder Offset reduzieren oder
-        Geometry flacher (z.B. 0.05m) als Decal-Look.
-      - Edge/Glow um Cell-Quadrate — derzeit reine Solid-Fill, schwer abgrenzbar.
-      - Per-State Pulse-Frequenz — alle States pulsen mit identischen 3 rad/s.
-        Rot (blocked) sollte hektischer pulsen / Grün ruhiger, für visuelle Hierarchie.
-      - Cell-Y-Anchor-Toleranz tunen — aktuell `GROUND_ANCHOR_TOLERANCE_M = 3` in
-        `three-tiles-engine.ts`. Hängt vom Map-Material ab; ggf. nachjustieren wenn
-        bei realen Karten weiterhin Cells auf flachen Strukturen kleben.
-
-- [ ] **Nominatim-Geocoding** gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
+_(keine offenen Punkte)_
 
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
-- [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module)
+- [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module, Entscheidung 2026-05-11: kompletter Split in einem Rutsch)
       ParticleEffectsRenderer (blood/fire/explosion/smoke), AuraRenderer (frost/poison/inner-fire),
       EnvironmentEffectsRenderer (HQ-Explosion, Tower-Inner-Fire). Single-File macht PR-Reviews unmöglich.
-      **Hinweis aus Loop 2026-05-09:** Naïver 3-Wege-Split scheitert am geteilten State —
-      `activeEffects`-Map, Trail-Pools (Additive + Normal), Tower-Fire-Pool, Shader-Materials,
-      Atlas-Texturen werden über alle Spawn-Methoden geteilt. Voraussetzung: erst einen
-      `ParticlePoolManager` extrahieren der die 3 Pools + Buffer-Attribute kapselt; dann
-      können die 3 Renderer die Spawn-Methoden auf diesen Manager delegieren. Erst danach
-      wird der Split risiko-arm.
+      **Vorgehen:** Erst `ParticlePoolManager` extrahieren (3 Pools + Buffer-Attribute,
+      Shader-Materials, Atlas-Texturen, `activeEffects`-Map), dann 3-Wege-Split der Renderer
+      die ihre Spawn-Methoden an den Manager delegieren — beides in einem Schritt.
 
 - [ ] **`three-tiles-engine.ts` weiter abspecken — Camera-Setup + Tile-Loading-State**
       Post-Processing ist 2026-05-10 raus (PostProcessingPipeline, siehe DONE.md).
@@ -62,16 +45,10 @@
       - `facade/` (tower-defense-facade, game-loop-facade, visualization-facade, location-facade)
       - `infrastructure/` (asset-manager, engine-initialization, model-preview, game-state-sync)
 
-- [ ] **`IGameManager` Entscheidung treffen**
-      Halbfertige Abstraktion: nur 2 von 6 Managern implementieren das Interface
-      (EntityManager, WaveManager). Entweder konsequent durchziehen (alle Manager + polymorphe
-      Iteration in GSM) oder Interface löschen.
-
-- [ ] **`game-engine/` Three.js-Coupling klären**
-      Anspruch laut `game-engine/index.ts`: framework-agnostic. Realität: voll Three.js-gekoppelt
-      (vfx.service, audio.service, screen-shake, background-music importieren `Vector3`, `ThreeTilesEngine`).
-      Doku in CLAUDE.md ist 2026-05-09 ehrlich gemacht; bleibt offen ob (b) Three-spezifische
-      Adapter nach `three-engine/services/` ziehen.
+- [ ] **`IGameManager` konsequent durchziehen** (Entscheidung 2026-05-11)
+      Aktuell nur 2 von 6 Managern (EntityManager, WaveManager) implementieren das Interface.
+      Vorgehen: alle 6 Manager auf `IGameManager` bringen + polymorphe Iteration in
+      `GameStateManager` (Init/Update/Reset über Manager-Array statt hardcoded Aufrufe).
 
 ## 1.3 Test-Coverage (Housekeeping Tier 4)
 
@@ -142,14 +119,6 @@
       Batch-Size Slider (1–100 spawns/frame, default 3) im Wave Debug Panel.
       `maxSpawnsPerFrame` als konfigurierbares Property auf WaveManager.
       Dateien: `wave-debugger.component.ts`, `wave.manager.ts`, `game-state.manager.ts`, `wave-debug.service.ts`
-
-## 1.5 Asset & Repo-Cleanup (Housekeeping Tier 2)
-
-- [ ] **Asset-Cleanup ~199 MB**
-      `public/assets/models/enemies/candidates/` (190 MB, 15 GLBs nirgends im Code referenziert),
-      `night.webp` (Skybox-Variante nicht geladen), `logo.psd`, `main01.mp3` (Music-Config zeigt nur auf main02),
-      `mocks/` (nur Doku), `archive-v3.5/` ONNX-Backup.
-      **Achtung:** Working-Tree-Cleanup; Git-History bleibt fett. Optional `git filter-repo` für echte Repo-Schrumpfung.
 
 ---
 
@@ -335,7 +304,8 @@
 > Schadensmatrix, damageType/armorType an allen Configs, Flame Tower,
 > Damage-Matchup-Tooltips. Offen: weitere Tower-Typen + Wave-Preview-UI.
 
-- [ ] **Tesla Tower (`magic`)** — Kettenblitz, springt zwischen Enemies
+- [ ] **Lightning / Tesla Tower (`magic`)** — Kettenblitz, springt zwischen Enemies
+      Model bereit: `public/assets/models/towers/lightning.glb` → kann implementiert werden.
 
 - [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
       (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum

@@ -5,8 +5,8 @@ import { GeoPosition } from '../../models/game.types';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { EventSubscription } from '../../game-engine';
 import { ThreeTilesEngine } from '../../three-engine';
-import { PathAndRouteService } from '../path-route.service';
-import { SpawnPoint } from '../marker-visualization.service';
+import { PathAndRouteService } from '../world/path-route.service';
+import { SpawnPoint } from '../world/marker-visualization.service';
 import { DebugStore, EnemyOverrides } from '../../store/debug.store';
 
 export type { EnemyOverrides };

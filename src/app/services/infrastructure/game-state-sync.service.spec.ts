@@ -17,13 +17,13 @@ vi.mock('@angular/core', async () => {
 });
 
 import { GameStateSyncService } from './game-state-sync.service';
-import { GameEventBus } from '../game-engine/game-event-bus';
-import { TowerDefenseStore } from '../store/tower-defense.store';
-import { ResearchStore } from '../store/research.store';
-import { GameStore } from '../store/game.store';
-import { UIStore } from '../store/ui.store';
-import { EngineStore } from '../store/engine.store';
-import { LocationStore } from '../store/location.store';
+import { GameEventBus } from '../../game-engine/game-event-bus';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { ResearchStore } from '../../store/research.store';
+import { GameStore } from '../../store/game.store';
+import { UIStore } from '../../store/ui.store';
+import { EngineStore } from '../../store/engine.store';
+import { LocationStore } from '../../store/location.store';
 
 /**
  * Echter Service-Test: instantiates GameStateSyncService und prüft, dass die

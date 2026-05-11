@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AddressAutocompleteComponent } from '../address-autocomplete.component';
-import { GeocodingService, NominatimAddress } from '../../services/geocoding.service';
+import { GeocodingService, NominatimAddress } from '../../services/location/geocoding.service';
 import { TdIconComponent } from '../icon/icon.component';
 import {
   LocationDialogData,

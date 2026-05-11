@@ -2,7 +2,7 @@ import { Component, inject, input, output, signal, effect, ElementRef, ViewChild
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
-import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/geocoding.service';
+import { GeocodingService, GeocodingResult, NominatimAddress } from '../services/location/geocoding.service';
 import { TD_CSS_VARS } from '../styles/td-theme';
 import { TdIconComponent } from './icon/icon.component';
 

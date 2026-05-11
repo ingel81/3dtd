@@ -4,11 +4,11 @@ import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GeoPosition } from '../models/game.types';
-import { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
+import { OsmStreetService, StreetNetwork } from '../services/location/osm-street.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { geoDistanceFastSq, findNearestRouteDistance } from '../utils/geo-utils';
 import { GameEventBus } from '../game-engine';
-import type { GlobalRouteGridService } from '../services/global-route-grid.service';
+import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { TOWER_TYPES } from '../configs/tower-types.config';
 
 /**

@@ -13,7 +13,7 @@ import { GameEventBus } from '../game-engine';
 import { Tower } from '../entities/tower.entity';
 import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
-import type { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
+import type { OsmStreetService, StreetNetwork } from '../services/location/osm-street.service';
 import type { ThreeTilesEngine } from '../three-engine';
 
 const basePosition: GeoPosition = { lat: 0, lon: 0, height: 0 };

@@ -1,7 +1,7 @@
 import { Injectable, inject } from '@angular/core';
-import { GameEventBus, SubscriptionBag } from '../game-engine/game-event-bus';
-import { TowerDefenseStore } from '../store/tower-defense.store';
-import { ResearchStore } from '../store/research.store';
+import { GameEventBus, SubscriptionBag } from '../../game-engine/game-event-bus';
+import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { ResearchStore } from '../../store/research.store';
 
 /**
  * GameStateSyncService — Bridges GSM (GameStateManager) events to the Store.

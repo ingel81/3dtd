@@ -1,7 +1,7 @@
 import { inject, Injectable } from '@angular/core';
-import { RandomSpawnCandidate } from '../models/location.types';
+import { RandomSpawnCandidate } from '../../models/location.types';
 import { StreetCacheService } from './street-cache.service';
-import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
 export interface StreetNode {
   id: number;

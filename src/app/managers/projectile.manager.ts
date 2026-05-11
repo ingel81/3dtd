@@ -16,9 +16,14 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
  * - Constructor injection
  * - Emits events instead of callbacks
  */
+/**
+ * Spawn one trail-particle burst per this many meters travelled.
+ * Distance-based gating gives uniform trails at any framerate / speed.
+ */
+const TRAIL_SPAWN_DISTANCE_M = 0.5;
+
 export class ProjectileManager extends EntityManager<Projectile> {
   private soundsRegistered = false;
-  private _trailFrameCount = 0;
 
   constructor(
     private eventBus: GameEventBus
@@ -125,7 +130,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * Update all projectiles - movement and collision detection
    */
   override update(deltaTime: number): void {
-    this._trailFrameCount++;
     const toRemove: Projectile[] = [];
 
     for (const projectile of this.getAllActive()) {
@@ -176,15 +180,21 @@ export class ProjectileManager extends EntityManager<Projectile> {
           );
         }
 
-        // Spawn trail particles if configured (throttle to every 2nd frame)
+        // Distance-based trail spawn: gate by accumulated travel distance so
+        // trails stay visually uniform across framerates / projectile speeds.
+        // The per-config spawnChance still applies on each gate hit.
         const trailConfig = projectile.typeConfig.trailParticles;
-        if (trailConfig?.enabled && this.tilesEngine && (this._trailFrameCount & 1) === 0) {
-          this.tilesEngine.effects.spawnConfigurableTrailAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            trailConfig
-          );
+        if (trailConfig?.enabled && this.tilesEngine) {
+          projectile.trailDistanceAcc += projectile.distanceThisFrame;
+          while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
+            projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
+            this.tilesEngine.effects.spawnConfigurableTrailAtGeo(
+              projectile.position.lat,
+              projectile.position.lon,
+              projectile.flightHeight,
+              trailConfig
+            );
+          }
         }
 
         // Push position to trail streak (ribbon renderer)

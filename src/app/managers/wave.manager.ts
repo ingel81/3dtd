@@ -75,6 +75,14 @@ export class WaveManager implements IGameManager {
   private expectedEnemyCount = 0;
   private spawnedEnemyCount = 0;
 
+  /**
+   * Maximum number of enemies that may be spawned in a single tickSpawn() call
+   * (i.e. per sub-step). Lets the wave debugger crank the spawn-delay down to
+   * 0 without locking up the loop in a tight spawn burst. Default 3 matches
+   * the legacy default — bump via the Wave Debug Panel for stress tests.
+   */
+  maxSpawnsPerFrame = 3;
+
   // Track Perfect/CloseCall signals per wave
   private damageTakenThisWave = 0;
   private currentHealthProvider: (() => number) | null = null;
@@ -89,8 +97,21 @@ export class WaveManager implements IGameManager {
       if (this.phase() === 'wave') {
         this.damageTakenThisWave += e.damage;
       }
+      this._waveCheckDirty = true;
+    });
+    // Any enemy lifecycle change invalidates the cached wave-complete result
+    this.eventBus.on('enemy:died', () => {
+      this._waveCheckDirty = true;
     });
   }
+
+  /**
+   * Wave-completion dirty flag: avoids the full `checkWaveComplete()` body when
+   * nothing changed since the last check. Set by enemy lifecycle events and
+   * by spawn-progress; cleared at the end of each completed check.
+   */
+  private _waveCheckDirty = true;
+  private _cachedWaveComplete = false;
 
   /**
    * Set the current-health provider (from GameStateManager).
@@ -137,6 +158,8 @@ export class WaveManager implements IGameManager {
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
+    this._waveCheckDirty = true;
+    this._cachedWaveComplete = false;
 
     // Emit wave:started event
     this.eventBus.emit({
@@ -172,6 +195,8 @@ export class WaveManager implements IGameManager {
     this.expectedEnemyCount = enemyCount;
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
+    this._waveCheckDirty = true;
+    this._cachedWaveComplete = false;
 
     // Emit wave:started event with actual enemy count
     this.eventBus.emit({
@@ -200,11 +225,13 @@ export class WaveManager implements IGameManager {
         spawnedCount++;
         this.spawnedEnemyCount++;
         consecutiveFailures = 0;
+        this._waveCheckDirty = true;
       } else {
         consecutiveFailures++;
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
           console.error(`[WaveManager] No valid paths for spawn points, aborting spawn (${spawnedCount}/${enemyCount})`);
           this.expectedEnemyCount = spawnedCount;
+          this._waveCheckDirty = true;
           return false;
         }
       }
@@ -233,6 +260,8 @@ export class WaveManager implements IGameManager {
     this.expectedEnemyCount = entries.length;
     this.spawnedEnemyCount = 0;
     this.damageTakenThisWave = 0;
+    this._waveCheckDirty = true;
+    this._cachedWaveComplete = false;
 
     this.eventBus.emit({
       type: 'wave:started',
@@ -268,11 +297,13 @@ export class WaveManager implements IGameManager {
         spawnIndex++;
         this.spawnedEnemyCount++;
         consecutiveFailures = 0;
+        this._waveCheckDirty = true;
       } else {
         consecutiveFailures++;
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
           console.error(`[WaveManager] No valid paths, aborting scheduled wave (${spawnIndex}/${entries.length})`);
           this.expectedEnemyCount = spawnIndex;
+          this._waveCheckDirty = true;
           return false;
         }
       }
@@ -303,9 +334,16 @@ export class WaveManager implements IGameManager {
     }
 
     spawner.accumulatedMs += gameTimeDeltaMs;
-    while (spawner.accumulatedMs >= spawner.nextDelayMs) {
-      spawner.accumulatedMs -= spawner.nextDelayMs;
+    let spawnsThisCall = 0;
+    while (spawnsThisCall < this.maxSpawnsPerFrame) {
+      // Delay-gated path: wait for the accumulator to reach the next delay.
+      // 0-delay short-circuits this check so synchronous bursts work.
+      if (spawner.nextDelayMs > 0 && spawner.accumulatedMs < spawner.nextDelayMs) break;
+      if (spawner.nextDelayMs > 0) {
+        spawner.accumulatedMs -= spawner.nextDelayMs;
+      }
       const stillActive = spawner.spawnAndAdvance();
+      spawnsThisCall++;
       if (!stillActive) {
         this.activeSpawner = null;
         return;
@@ -326,10 +364,18 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Check if wave is complete (all enemies spawned AND all enemies dead)
+   * Check if wave is complete (all enemies spawned AND all enemies dead).
+   *
+   * Hot-path optimization: short-circuits via `_waveCheckDirty` only when
+   * the cached result is already `true`. That's the case that matters for
+   * idle frames after a wave completes. We deliberately do NOT cache a
+   * `false` result, because some state transitions happen silently
+   * (death-animation finalization removes an enemy without emitting an
+   * `enemy:died` event), and we'd never re-evaluate.
    */
   checkWaveComplete(): boolean {
     if (this.phase() !== 'wave') return false;
+    if (!this._waveCheckDirty && this._cachedWaveComplete) return true;
 
     const allEnemiesSpawned = this.expectedEnemyCount === 0 || this.spawnedEnemyCount >= this.expectedEnemyCount;
     const aliveCount = this.enemyManager.getAliveCount();
@@ -388,7 +434,10 @@ export class WaveManager implements IGameManager {
       this._lastKilling = killingCount;
     }
 
-    return allEnemiesSpawned && allEnemiesDead;
+    const complete = allEnemiesSpawned && allEnemiesDead;
+    this._cachedWaveComplete = complete;
+    this._waveCheckDirty = false;
+    return complete;
   }
 
   /** Reset stuck-detection flag on wave transitions (called from endWave + reset). */
@@ -438,6 +487,7 @@ export class WaveManager implements IGameManager {
   stopSpawning(): void {
     this.activeSpawner = null;
     this.expectedEnemyCount = this.spawnedEnemyCount;
+    this._waveCheckDirty = true;
   }
 
   /**
@@ -452,6 +502,8 @@ export class WaveManager implements IGameManager {
     // Reset spawn tracking counters (prevents stale state after game over mid-wave)
     this.expectedEnemyCount = 0;
     this.spawnedEnemyCount = 0;
+    this._waveCheckDirty = true;
+    this._cachedWaveComplete = false;
     this._resetStuckDetector();
   }
 

@@ -431,5 +431,103 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(GAME_BALANCE.player.startHealth + 1000);
       });
     });
+
+    describe('sub-step loop (fixed-timestep accumulation)', () => {
+      const FIXED_STEP = 16.667; // matches GameStateManager.FIXED_STEP_MS
+
+      it('runs one sub-step per ~16.7ms of game-time', () => {
+        const onSub = vi.fn();
+        gsm.update(0, onSub);          // first call sets lastUpdateTime, raw delta ~16ms
+        gsm.update(16.667, onSub);     // ~1 sub-step worth
+        // Expect at least one sub-step. The first call may also fire one
+        // depending on the initial-delta fallback (16ms default).
+        expect(onSub.mock.calls.length).toBeGreaterThanOrEqual(1);
+      });
+
+      it('accumulates remainder across frames (no game-time loss)', () => {
+        const onSub = vi.fn();
+        // First call seeds lastUpdateTime; deltas applied from second call on.
+        gsm.update(0, onSub);
+        const stepsAfterFirst = onSub.mock.calls.length;
+        // Two half-step frames should together produce ≥ 1 extra sub-step.
+        gsm.update(8, onSub);    // 8ms — below threshold alone
+        gsm.update(16, onSub);   // accumulator now passes threshold
+        expect(onSub.mock.calls.length).toBeGreaterThan(stepsAfterFirst);
+      });
+
+      it('gameTimeMs increases monotonically by stepMs per sub-step', () => {
+        const onSub = vi.fn();
+        let lastTime = gsm.gameTimeMs;
+        for (let i = 0; i < 5; i++) {
+          gsm.update(i * 17, onSub);
+          expect(gsm.gameTimeMs).toBeGreaterThanOrEqual(lastTime);
+          lastTime = gsm.gameTimeMs;
+        }
+        // After several frames at ~17ms each, game-time should have advanced.
+        expect(gsm.gameTimeMs).toBeGreaterThan(0);
+      });
+
+      it('caps sub-steps per frame at MAX_SUBSTEPS_PER_FRAME (600)', () => {
+        const onSub = vi.fn();
+        // Seed with a NON-ZERO time so the next delta computes properly
+        // (lastUpdateTime=0 is treated as "first frame" via a truthiness check).
+        gsm.update(1, onSub);
+        gsm.update(17, onSub);
+        const stepsAfterSeed = onSub.mock.calls.length;
+        // Massive 60-second jump in wall-clock — should be capped to 600
+        // sub-steps (= ~10s game-time) plus the max-remainder allowance.
+        gsm.update(60_017, onSub);
+        const stepsThisFrame = onSub.mock.calls.length - stepsAfterSeed;
+        expect(stepsThisFrame).toBeLessThanOrEqual(600);
+        // And it should be a meaningful number, not just 1.
+        expect(stepsThisFrame).toBeGreaterThan(100);
+      });
+
+      it('scales sub-step count by training timescale', () => {
+        const baselineHits = vi.fn();
+        gsm.setTrainingTimescale(1.0, false);
+        gsm.update(0, baselineHits);
+        gsm.update(100, baselineHits); // 100ms wall × 1× = 100ms game-time
+        const baseline = baselineHits.mock.calls.length;
+
+        // Reset for a fresh frame budget.
+        const sped = vi.fn();
+        const gsm2 = new GameStateManager();
+        const engine = createMockEngine();
+        gsm2.initialize(engine, {} as never, BASE_POSITION, SPAWN_POINTS as never[], new Map());
+        gsm2.setTrainingTimescale(5.0, false);
+        gsm2.update(0, sped);
+        gsm2.update(100, sped); // 100ms wall × 5× = 500ms game-time
+        // 5× timescale should yield ≥ 4× the sub-step count of 1×.
+        expect(sped.mock.calls.length).toBeGreaterThanOrEqual(baseline * 4);
+      });
+
+      it('does not advance simulation when paused at gameover phase', () => {
+        // Trigger gameover via massive damage
+        bus.emit({
+          type: 'enemy:reached-base',
+          enemy: { id: 'e1' } as never,
+          damage: 9999,
+        });
+        expect(gsm.baseHealth()).toBe(0);
+
+        const onSub = vi.fn();
+        const gtBefore = gsm.gameTimeMs;
+        gsm.update(0, onSub);
+        gsm.update(100, onSub);
+        // Sub-steps may still tick — but if game-over phase has been set the
+        // sub-step loop breaks out after one tick. We just assert game-time
+        // hasn't run away wildly.
+        expect(gsm.gameTimeMs - gtBefore).toBeLessThan(1000);
+      });
+
+      it('reset() zeroes the game-clock and remainder', () => {
+        gsm.update(0, undefined);
+        gsm.update(100, undefined);
+        expect(gsm.gameTimeMs).toBeGreaterThan(0);
+        gsm.reset();
+        expect(gsm.gameTimeMs).toBe(0);
+      });
+    });
   });
 });

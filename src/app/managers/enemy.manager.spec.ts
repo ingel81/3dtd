@@ -10,8 +10,8 @@ vi.mock('three', async () => {
 import { EnemyManager } from './enemy.manager';
 import { GameEventBus } from '../game-engine';
 import type { GeoPosition } from '../models/game.types';
-import type { GlobalRouteGridService } from '../services/global-route-grid.service';
-import { SpatialGridService } from '../services/spatial-grid.service';
+import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
+import { SpatialGridService } from '../services/world/spatial-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
 
 const createMockTilesEngine = () => ({

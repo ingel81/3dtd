@@ -1,11 +1,11 @@
 import { inject, Injectable, NgZone, signal, WritableSignal } from '@angular/core';
-import { ThreeTilesEngine } from '../three-engine';
-import { GeoPosition } from '../models/game.types';
-import { CameraFramingService } from './camera-framing.service';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GeoPosition } from '../../models/game.types';
+import { CameraFramingService } from '../camera-framing.service';
 import { AssetManagerService } from './asset-manager.service';
-import { OsmStreetService, StreetNetwork } from './osm-street.service';
-import { DevWorldService } from '../devworld/devworld.service';
-import { DevStreetProvider } from '../devworld/dev-street.provider';
+import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
+import { DevWorldService } from '../../devworld/devworld.service';
+import { DevStreetProvider } from '../../devworld/dev-street.provider';
 
 /**
  * Loading step status

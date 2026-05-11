@@ -1,4 +1,4 @@
-import { NominatimAddress } from '../services/geocoding.service';
+import { NominatimAddress } from '../services/location/geocoding.service';
 import { GeoPosition } from './game.types';
 
 /**

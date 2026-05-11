@@ -37,8 +37,22 @@ export class Projectile extends GameObject {
   private _totalDistance = 0;
   private _traveledDistance = 0;
 
+  // Distance moved during the most recent updateTowardsTarget() — read by the
+  // projectile manager to drive distance-based trail spawning (so trail
+  // density is independent of framerate / projectile speed).
+  private _distanceThisFrame = 0;
+
+  // Accumulator used by the manager to gate distance-based trail spawning.
+  // Public-mutable on purpose: cheap, avoids a parallel Map<id, number>.
+  trailDistanceAcc = 0;
+
   // Homing projectiles (rockets) continuously update their direction
   private _isHoming = false;
+
+  // Frame counter used to throttle the homing-recalc / arc-tangent recalc.
+  // Both are smooth-changing values; reusing the last computed direction for
+  // a few frames is imperceptible and saves the trig/sqrt cost.
+  private _directionRecalcCounter = 0;
 
   // Target lost tracking - projectile continues to last known position
   private _targetLost = false;
@@ -165,6 +179,11 @@ export class Projectile extends GameObject {
     return this._totalDistance > 0 ? this._traveledDistance / this._totalDistance : 1;
   }
 
+  /** Distance (m) covered during the most recent updateTowardsTarget(). */
+  get distanceThisFrame(): number {
+    return this._distanceThisFrame;
+  }
+
   /**
    * Get the fixed direction vector (calculated once at spawn, never changes)
    * This is the normalized direction from start to target
@@ -218,6 +237,7 @@ export class Projectile extends GameObject {
 
     // Track traveled distance for progress calculation
     this._traveledDistance += moveDistance;
+    this._distanceThisFrame = moveDistance;
 
     if (distSq <= moveDistance * moveDistance) {
       // Hit target (or ground if target was lost)
@@ -240,21 +260,27 @@ export class Projectile extends GameObject {
     // Calculate flight height along trajectory
     this._flightHeight = this.calculateFlightHeight();
 
-    // Update direction for homing projectiles (rockets)
-    if (this._isHoming) {
-      this._direction = this.calculateDirectionVector(
-        { lat: newLat, lon: newLon },
-        this._flightHeight
-      );
-    }
-
-    // Update direction for arc trajectory projectiles (tangent to parabola)
-    if (this.hasArcTrajectory) {
-      this._direction = this.calculateArcTangentDirection();
+    // Recalc the direction every Nth tick — both homing and arc tangents
+    // change smoothly, so reusing the cached vector for a few frames is
+    // imperceptible and avoids the per-frame trig/sqrt.
+    this._directionRecalcCounter++;
+    if (this._directionRecalcCounter >= Projectile.DIRECTION_RECALC_EVERY_N) {
+      this._directionRecalcCounter = 0;
+      if (this._isHoming) {
+        this._direction = this.calculateDirectionVector(
+          { lat: newLat, lon: newLon },
+          this._flightHeight
+        );
+      } else if (this.hasArcTrajectory) {
+        this._direction = this.calculateArcTangentDirection();
+      }
     }
 
     return false;
   }
+
+  /** Recalc cadence for direction (homing + arc tangent). */
+  private static readonly DIRECTION_RECALC_EVERY_N = 3;
 
   /**
    * Calculate tangent direction for arc trajectory projectiles

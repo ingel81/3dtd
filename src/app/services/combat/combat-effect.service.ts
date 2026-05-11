@@ -1,6 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GlobalRouteGridService } from '../global-route-grid.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { StatusEffectService } from './status-effect.service';
 import { CombatVfxService } from './combat-vfx.service';
 import { DamageApplicationService } from './damage-application.service';

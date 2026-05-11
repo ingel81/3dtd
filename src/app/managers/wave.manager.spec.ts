@@ -59,7 +59,9 @@ describe('WaveManager', () => {
     bus = new GameEventBus();
     enemyManager = createMockEnemyManager();
     wm = new WaveManager(bus, enemyManager);
-    wm.initialize(SPAWN_POINTS, CACHED_PATHS);
+    // Clone the shared maps so destroy() in one test cannot mutate state for
+    // the next test (destroy() calls cachedPaths.clear()).
+    wm.initialize([...SPAWN_POINTS], new Map(CACHED_PATHS));
   });
 
   afterEach(() => {
@@ -359,6 +361,124 @@ describe('WaveManager', () => {
 
       wm.tickSpawn(1000);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(callsBefore);
+    });
+  });
+
+  describe('startScheduledWave() (mixed wave schedule)', () => {
+    function scheduledConfig(
+      entries: { enemyType: string; speed: number; health?: number; delay?: number; pauseAfter?: number }[],
+      baseDelay = 100,
+    ): WaveConfig {
+      return {
+        // legacy fields kept for type-compat — ignored when schedule is present
+        enemyCount: entries.length,
+        enemyType: 'basic',
+        enemySpeed: 5,
+        spawnMode: 'random',
+        spawnDelay: baseDelay,
+        schedule: {
+          entries: entries as never,
+          baseDelay,
+        },
+      } as WaveConfig;
+    }
+
+    it('emits wave:started with the schedule entry count', () => {
+      const handler = vi.fn();
+      bus.on('wave:started', handler);
+      wm.startWave(scheduledConfig([
+        { enemyType: 'a', speed: 5 },
+        { enemyType: 'b', speed: 6 },
+        { enemyType: 'c', speed: 7 },
+      ]));
+      expect(handler).toHaveBeenCalledWith(
+        expect.objectContaining({ type: 'wave:started', enemyCount: 3 }),
+      );
+    });
+
+    it('does nothing for an empty schedule', () => {
+      // wave-phase still flips? No — entries.length === 0 short-circuits.
+      wm.startWave(scheduledConfig([], 100));
+      expect(enemyManager.spawn).not.toHaveBeenCalled();
+      // phase stays at setup since the early return is before phase.set
+      expect(wm.phase()).toBe('setup');
+    });
+
+    it('spawns each entry with the configured enemy type, speed and health', () => {
+      wm.startWave(scheduledConfig([
+        { enemyType: 'a', speed: 5,  health: 100 },
+        { enemyType: 'b', speed: 6,  health: 200 },
+      ], 50));
+      wm.tickSpawn(0);
+      wm.tickSpawn(50);
+      const calls = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls;
+      expect(calls.length).toBe(2);
+      // spawn signature: (path, enemyType, speed, false, health)
+      expect(calls[0][1]).toBe('a');
+      expect(calls[0][2]).toBe(5);
+      expect(calls[0][4]).toBe(100);
+      expect(calls[1][1]).toBe('b');
+      expect(calls[1][2]).toBe(6);
+      expect(calls[1][4]).toBe(200);
+    });
+
+    it('uses per-entry delay override as the gap before the NEXT spawn', () => {
+      // First entry has delay=500 → 500ms gap before entry[1] spawns.
+      wm.startWave(scheduledConfig([
+        { enemyType: 'a', speed: 5, delay: 500 },
+        { enemyType: 'b', speed: 6 },
+      ], 100));
+      wm.tickSpawn(0);            // entry[0] fires immediately
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
+      wm.tickSpawn(100);          // baseDelay alone is not enough
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
+      wm.tickSpawn(400);          // total 500 → entry[1] fires
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
+    });
+
+    it('pauseAfter on an entry extends the gap to the next spawn', () => {
+      // entry[0] pauseAfter=500 → next spawn fires at baseDelay (100) + 500 = 600ms
+      wm.startWave(scheduledConfig([
+        { enemyType: 'a', speed: 5, pauseAfter: 500 },
+        { enemyType: 'b', speed: 6 },
+      ], 100));
+      wm.tickSpawn(0);            // entry[0]
+      wm.tickSpawn(100);          // would normally fire entry[1] — but pauseAfter delays it
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
+      wm.tickSpawn(500);          // total 600 → entry[1] fires
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(2);
+    });
+
+    it('completes after spawning all schedule entries', () => {
+      wm.startWave(scheduledConfig([
+        { enemyType: 'a', speed: 5 },
+        { enemyType: 'b', speed: 6 },
+      ], 50));
+      wm.tickSpawn(0);
+      wm.tickSpawn(50);
+      // Further ticks should be no-ops since the spawner is exhausted.
+      const callsBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
+      wm.tickSpawn(1000);
+      expect(enemyManager.spawn).toHaveBeenCalledTimes(callsBefore);
+      // checkWaveComplete returns true once all spawned and getAliveCount === 0
+      expect(wm.checkWaveComplete()).toBe(true);
+    });
+
+    it('routes schedule spawns through "random" spawn-point selection', () => {
+      // We don't assert the specific point chosen — Math.random — only that
+      // a valid SpawnPoint path was used. Cover both calls.
+      wm.startWave(scheduledConfig([
+        { enemyType: 'a', speed: 5 },
+        { enemyType: 'b', speed: 6 },
+      ], 50));
+      wm.tickSpawn(0);
+      wm.tickSpawn(50);
+      const calls = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls;
+      for (const call of calls) {
+        const path = call[0];
+        const isKnownPath = path === CACHED_PATHS.get('sp-1') || path === CACHED_PATHS.get('sp-2');
+        expect(isKnownPath).toBe(true);
+      }
     });
   });
 });

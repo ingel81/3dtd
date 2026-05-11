@@ -11,10 +11,10 @@ import {
   Shape,
   ShapeGeometry,
 } from 'three';
-import { ThreeTilesEngine } from '../three-engine';
-import { BuildingFootprint } from './osm-street.service';
-import { GeoPosition } from '../models/game.types';
-import { UIStore } from '../store/ui.store';
+import { ThreeTilesEngine } from '../../three-engine';
+import { BuildingFootprint } from '../location/osm-street.service';
+import { GeoPosition } from '../../models/game.types';
+import { UIStore } from '../../store/ui.store';
 
 /** Meters per building level */
 const METERS_PER_LEVEL = 3;

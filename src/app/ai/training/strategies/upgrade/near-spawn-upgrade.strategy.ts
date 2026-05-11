@@ -10,7 +10,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
 import { GameStateManager } from '../../../../managers/game-state.manager';
-import { OsmStreetService } from '../../../../services/osm-street.service';
+import { OsmStreetService } from '../../../../services/location/osm-street.service';
 
 export class NearSpawnUpgradeStrategy extends BaseStrategy {
   constructor(
