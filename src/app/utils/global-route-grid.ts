@@ -41,6 +41,13 @@ export interface RouteCell {
    * Falls back to terrainHeight when not yet sampled.
    */
   skylineHeight: number;
+  /**
+   * Route-anchor Y derived at generation time from the nearest route sample
+   * point's smoothed terrain height. Used to validate terrain raycasts —
+   * hits more than `GROUND_ANCHOR_TOLERANCE_M` from this anchor are discarded
+   * as bridge decks / tree canopies / mesh artifacts.
+   */
+  routeAnchorY: number;
   /** Set of enemies currently in this cell */
   enemies: Set<Enemy>;
   /** Map of tower ID -> visibility for ground targets (true = can see this cell) */
@@ -82,8 +89,10 @@ void main() {
 `;
 
 /**
- * Fragment shader with multi-color support
- * States: 0 = gray (no tower), 1 = green (visible), 2 = red (blocked), 3 = blue (enemy), 4 = yellow (enemy + visible)
+ * Fragment shader with multi-color support.
+ * States: 0 = gray (no tower), 1 = green (ground visible), 2 = red (blocked),
+ *         3 = muted blue (air-only visible), 4 = purple (enemy in cell),
+ *         5 = yellow (enemy + any visibility)
  */
 const LOS_CELL_FRAGMENT = /* glsl */ `
 precision highp float;
@@ -99,22 +108,27 @@ void main() {
     color = vec3(0.5, 0.5, 0.5);
     alpha = 0.3;
   }
-  // Green: At least one tower can see this cell
+  // Green: At least one tower has ground LoS
   else if (vCellState < 1.5) {
     color = vec3(0.133, 0.773, 0.369);
     alpha = 0.6;
   }
-  // Red: All towers blocked
+  // Red: Registered but every tower blocked (ground and air)
   else if (vCellState < 2.5) {
     color = vec3(0.863, 0.149, 0.149);
     alpha = 0.6;
   }
-  // Blue: Enemy in cell
+  // Muted blue: Only air LoS is clear (no ground LoS)
   else if (vCellState < 3.5) {
-    color = vec3(0.0, 0.5, 1.0);
+    color = vec3(0.231, 0.510, 0.965);
+    alpha = 0.6;
+  }
+  // Purple: Enemy in cell, not currently visible
+  else if (vCellState < 4.5) {
+    color = vec3(0.6, 0.3, 0.9);
     alpha = 0.7;
   }
-  // Yellow: Enemy + tower can see = active target
+  // Yellow: Enemy + any tower can see = active target
   else {
     color = vec3(1.0, 0.9, 0.0);
     alpha = 0.85;
@@ -126,14 +140,21 @@ void main() {
 `;
 
 /**
- * Per-tower LOS visualization shader (simple green/red)
+ * Per-tower LOS visualization shader.
+ * Three-way state per cell:
+ *   ground visible → green (best — tower can hit ground units here)
+ *   air-only visible → muted blue (only air units reachable, e.g. over a building)
+ *   neither → red (blocked)
  */
 const TOWER_LOS_VERTEX = /* glsl */ `
-attribute float aIsBlocked;
-varying float vIsBlocked;
+attribute float aGroundVisible;
+attribute float aAirVisible;
+varying float vGroundVisible;
+varying float vAirVisible;
 
 void main() {
-  vIsBlocked = aIsBlocked;
+  vGroundVisible = aGroundVisible;
+  vAirVisible = aAirVisible;
 
   vec4 mvPosition = vec4(position, 1.0);
 
@@ -149,12 +170,18 @@ void main() {
 const TOWER_LOS_FRAGMENT = /* glsl */ `
 precision highp float;
 uniform float uTime;
-varying float vIsBlocked;
+varying float vGroundVisible;
+varying float vAirVisible;
 
 void main() {
   vec3 greenColor = vec3(0.133, 0.773, 0.369);
   vec3 redColor = vec3(0.863, 0.149, 0.149);
-  vec3 color = mix(greenColor, redColor, vIsBlocked);
+  vec3 blueColor = vec3(0.231, 0.510, 0.965);
+
+  // Priority: ground > air > blocked
+  vec3 color = redColor;
+  color = mix(color, blueColor, step(0.5, vAirVisible));
+  color = mix(color, greenColor, step(0.5, vGroundVisible));
 
   float pulse = sin(uTime * 3.0) * 0.15 + 0.6;
 
@@ -287,20 +314,27 @@ export class GlobalRouteGrid {
           const t = s / numSamples;
           const sampleX = startLocal.x + (endLocal.x - startLocal.x) * t;
           const sampleZ = startLocal.z + (endLocal.z - startLocal.z) * t;
+          // Anchor Y from the smoothed route — used to validate cell raycasts
+          // against bridge decks / tree canopies.
+          const anchorY = startLocal.y + (endLocal.y - startLocal.y) * t;
 
           // Generate cells in corridor around this sample point
-          this.generateCorridorCells(sampleX, sampleZ, processedCells);
+          this.generateCorridorCells(sampleX, sampleZ, anchorY, processedCells);
         }
       }
     }
   }
 
   /**
-   * Generate cells in a circular corridor around a route sample point
+   * Generate cells in a circular corridor around a route sample point.
+   * @param anchorY Smoothed route Y at the corridor centre — stored on each
+   *   new cell as its `routeAnchorY` and used to validate the initial
+   *   terrain raycast against overhead clutter.
    */
   private generateCorridorCells(
     centerX: number,
     centerZ: number,
+    anchorY: number,
     processedCells: Set<number>
   ): number {
     const corridorWidthSq = this.CORRIDOR_WIDTH * this.CORRIDOR_WIDTH;
@@ -325,14 +359,15 @@ export class GlobalRouteGrid {
         if (processedCells.has(key)) continue;
         processedCells.add(key);
 
-        // Get terrain height at cell center
+        // Get terrain height at cell center, anchor-validated against the
+        // route Y so bridges / trees above the route don't pull the height up.
         const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
         const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
-        const terrainY = this.terrainRaycaster!(cellCenterX, cellCenterZ);
+        const terrainY = this.terrainRaycaster!(cellCenterX, cellCenterZ, anchorY);
 
-        // Use fallback height of 0 if terrain not yet loaded
-        // Height will be updated when terrain loads (via updateTerrainHeights)
-        const height = terrainY ?? 0;
+        // Use anchor as fallback when tiles not yet loaded — better than 0
+        // because the route Y is already a usable approximation.
+        const height = terrainY ?? anchorY;
 
         // Sample local skyline (max-Y over a small neighbourhood) for air-LOS.
         // Falls back to terrain height when no skyline sampler is wired.
@@ -348,6 +383,7 @@ export class GlobalRouteGrid {
           z: cellCenterZ,
           terrainHeight: height,
           skylineHeight: skyline,
+          routeAnchorY: anchorY,
           enemies: new Set(),
           towerVisibility: new Map(),
           airVisibility: new Map(),
@@ -370,7 +406,7 @@ export class GlobalRouteGrid {
     if (!this.terrainRaycaster) return;
 
     for (const cell of this.cells.values()) {
-      const terrainY = this.terrainRaycaster(cell.x, cell.z);
+      const terrainY = this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY);
       if (terrainY !== null && terrainY !== cell.terrainHeight) {
         cell.terrainHeight = terrainY;
       }
@@ -380,6 +416,12 @@ export class GlobalRouteGrid {
           cell.skylineHeight = skylineY;
         }
       }
+    }
+
+    // Refresh the active spatial-grid visualisation so cells snap to the
+    // newly sampled heights — fixes "Cell sticks in ground" on toggle-race.
+    if (this.visualization) {
+      this.initializePositions();
     }
   }
 
@@ -423,7 +465,7 @@ export class GlobalRouteGrid {
       if (distSq > rangeSq) continue;
 
       // Sample terrain height at tower placement time (tiles should be loaded)
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
       if (terrainY === null) continue;
 
       // Update cell heights from current samples (tiles may have streamed in
@@ -462,6 +504,103 @@ export class GlobalRouteGrid {
           airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
         }
         cell.airVisibility.set(towerId, airVisible);
+      }
+
+      if (groundVisible || airVisible) {
+        visibleCells.push(cell);
+      }
+    }
+
+    return visibleCells;
+  }
+
+  /**
+   * Re-register a tower after a range change (e.g. range upgrade) without
+   * discarding existing LOS data.
+   *
+   * Behaves like `registerTower`, but for cells already having an entry for
+   * this tower (in either visibility map), the cached value is reused — no
+   * raycast. Cells outside the new range with a stale entry get cleaned up.
+   *
+   * This means a range-upgrade only raycasts the *new* cells (the annulus
+   * between old and new range), not the entire disc.
+   */
+  registerTowerIncremental(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    losRaycaster: LineOfSightRaycaster,
+    canTargetGround = true,
+    canTargetAir = false,
+  ): RouteCell[] {
+    const visibleCells: RouteCell[] = [];
+    const rangeSq = range * range;
+
+    for (const cell of this.cells.values()) {
+      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
+      const inRange = distSq <= rangeSq;
+
+      if (!inRange) {
+        // Stale entry outside new range (e.g. range shrunk) — clean up.
+        cell.towerVisibility.delete(towerId);
+        cell.airVisibility.delete(towerId);
+        continue;
+      }
+
+      // Sample heights at current state (tile may have streamed since last call)
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
+      if (terrainY === null) {
+        // Can't position this cell — drop any stale entry so it doesn't ghost-target.
+        cell.towerVisibility.delete(towerId);
+        cell.airVisibility.delete(towerId);
+        continue;
+      }
+      cell.terrainHeight = terrainY;
+      const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
+      if (skylineY !== null) cell.skylineHeight = skylineY;
+
+      const dirX = cell.x - towerX;
+      const dirZ = cell.z - towerZ;
+      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
+      const atTower = dirLen < 0.1;
+      const originX = atTower ? towerX : towerX + (dirX / dirLen) * this.LOS_OFFSET;
+      const originZ = atTower ? towerZ : towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+
+      // Ground visibility — reuse cached value if present
+      let groundVisible = false;
+      if (canTargetGround) {
+        if (cell.towerVisibility.has(towerId)) {
+          groundVisible = cell.towerVisibility.get(towerId)!;
+        } else if (atTower) {
+          groundVisible = true;
+          cell.towerVisibility.set(towerId, groundVisible);
+        } else {
+          const targetY = cell.terrainHeight + 1.5;
+          groundVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          cell.towerVisibility.set(towerId, groundVisible);
+        }
+      } else {
+        // Capability removed — drop any stale entry
+        cell.towerVisibility.delete(towerId);
+      }
+
+      // Air visibility — reuse cached value if present
+      let airVisible = false;
+      if (canTargetAir) {
+        if (cell.airVisibility.has(towerId)) {
+          airVisible = cell.airVisibility.get(towerId)!;
+        } else if (atTower) {
+          airVisible = true;
+          cell.airVisibility.set(towerId, airVisible);
+        } else {
+          const targetY = cell.skylineHeight + AIR_CLEARANCE_M;
+          airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          cell.airVisibility.set(towerId, airVisible);
+        }
+      } else {
+        cell.airVisibility.delete(towerId);
       }
 
       if (groundVisible || airVisible) {
@@ -761,9 +900,11 @@ export class GlobalRouteGrid {
     for (const cell of this.cells.values()) {
       if (index >= this.visualization.count) break;
 
-      // Sample terrain height LIVE for accurate positioning
-      const liveTerrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
-      const y = (liveTerrainY ?? cell.terrainHeight) + 0.5;
+      // Use the cached terrain height — same source the per-tower / preview
+      // visualisations read, so all three systems stack on identical Y. The
+      // cache is anchor-validated at cell creation and refreshed by
+      // updateTerrainHeights() on tile-load (which re-calls this method).
+      const y = cell.terrainHeight + 0.5;
       matrix.setPosition(cell.x, y, cell.z);
       this.visualization.setMatrixAt(index, matrix);
 
@@ -790,18 +931,23 @@ export class GlobalRouteGrid {
       // Determine cell state for coloring (no expensive operations)
       let state: number;
       const hasEnemies = cell.enemies.size > 0;
-      const visibleByAnyTower = this.isVisibleByAnyTower(cell);
+      const groundVisibleByAny = this.isGroundVisibleByAnyTower(cell);
+      const airVisibleByAny = this.isAirVisibleByAnyTower(cell);
+      const anyVisible = groundVisibleByAny || airVisibleByAny;
+      const anyRegistered = cell.towerVisibility.size > 0 || cell.airVisibility.size > 0;
 
-      if (hasEnemies && visibleByAnyTower) {
-        state = 4; // Yellow: Enemy + visible = target
+      if (hasEnemies && anyVisible) {
+        state = 5; // Yellow: Enemy + visible = target
       } else if (hasEnemies) {
-        state = 3; // Blue: Enemy in cell
-      } else if (cell.towerVisibility.size === 0) {
+        state = 4; // Purple: Enemy in cell
+      } else if (!anyRegistered) {
         state = 0; // Gray: No tower registered
-      } else if (visibleByAnyTower) {
-        state = 1; // Green: Visible by at least one tower
+      } else if (groundVisibleByAny) {
+        state = 1; // Green: Ground LoS by at least one tower
+      } else if (airVisibleByAny) {
+        state = 3; // Muted blue: Air-only LoS
       } else {
-        state = 2; // Red: All towers blocked
+        state = 2; // Red: Registered but everywhere blocked
       }
 
       this.cellStateAttribute.setX(index, state);
@@ -812,10 +958,20 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Check if cell is visible by any registered tower
+   * Check if cell has ground LoS from any registered tower
    */
-  private isVisibleByAnyTower(cell: RouteCell): boolean {
+  private isGroundVisibleByAnyTower(cell: RouteCell): boolean {
     for (const visible of cell.towerVisibility.values()) {
+      if (visible) return true;
+    }
+    return false;
+  }
+
+  /**
+   * Check if cell has air LoS from any registered tower
+   */
+  private isAirVisibleByAnyTower(cell: RouteCell): boolean {
+    for (const visible of cell.airVisibility.values()) {
       if (visible) return true;
     }
     return false;
@@ -882,12 +1038,13 @@ export class GlobalRouteGrid {
     range: number
   ): InstancedMesh | null {
     const rangeSq = range * range;
-    const cellsInRange: { cell: RouteCell; isVisible: boolean }[] = [];
+    const cellsInRange: { cell: RouteCell; groundVis: boolean; airVis: boolean }[] = [];
 
     // Collect all cells within tower range that have visibility data.
-    // A cell is "visible" if EITHER ground OR air LOS is clear — matches
-    // the placement preview rule so the selection ring shows the tower's
-    // actual reach including air-only coverage on rooftops.
+    // Track ground and air visibility separately so the shader can render
+    // a three-way state (green / blue / red). Air-only cells only appear
+    // for towers registered with canTargetAir; ground-only towers have
+    // no entries in cell.airVisibility and therefore never show blue.
     for (const cell of this.cells.values()) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
@@ -898,7 +1055,7 @@ export class GlobalRouteGrid {
 
       const groundVis = hasGround ? cell.towerVisibility.get(towerId)! : false;
       const airVis = hasAir ? cell.airVisibility.get(towerId)! : false;
-      cellsInRange.push({ cell, isVisible: groundVis || airVis });
+      cellsInRange.push({ cell, groundVis, airVis });
     }
 
     if (cellsInRange.length === 0) return null;
@@ -925,24 +1082,28 @@ export class GlobalRouteGrid {
     mesh.frustumCulled = false;
     mesh.renderOrder = 3;
 
-    // Build instance matrices and blocked state attribute
-    const isBlockedArray = new Float32Array(cellsInRange.length);
+    // Build instance matrices and per-instance visibility attributes
+    const groundVisibleArray = new Float32Array(cellsInRange.length);
+    const airVisibleArray = new Float32Array(cellsInRange.length);
     const matrix = new Matrix4();
 
     for (let i = 0; i < cellsInRange.length; i++) {
-      const { cell, isVisible } = cellsInRange[i];
+      const { cell, groundVis, airVis } = cellsInRange[i];
       const y = cell.terrainHeight + 0.5;
       matrix.setPosition(cell.x, y, cell.z);
       mesh.setMatrixAt(i, matrix);
 
-      // 0 = visible (green), 1 = blocked (red)
-      isBlockedArray[i] = isVisible ? 0 : 1;
+      groundVisibleArray[i] = groundVis ? 1 : 0;
+      airVisibleArray[i] = airVis ? 1 : 0;
     }
 
-    // Add aIsBlocked as instanced attribute
     geometry.setAttribute(
-      'aIsBlocked',
-      new InstancedBufferAttribute(isBlockedArray, 1)
+      'aGroundVisible',
+      new InstancedBufferAttribute(groundVisibleArray, 1)
+    );
+    geometry.setAttribute(
+      'aAirVisible',
+      new InstancedBufferAttribute(airVisibleArray, 1)
     );
 
     mesh.instanceMatrix.needsUpdate = true;
@@ -1008,14 +1169,48 @@ export class GlobalRouteGrid {
       }
     }
 
-    if (cellsInRange.length === 0) {
-      onComplete([]);
+    this.registerTowerProgressiveForCells(
+      towerId,
+      cellsInRange,
+      towerX,
+      towerZ,
+      tipY,
+      losRaycaster,
+      canTargetGround,
+      canTargetAir,
+      [],
+      onComplete,
+    );
+  }
+
+  /**
+   * Start progressive tower LOS registration for a pre-filtered cell list.
+   * Used by `consumePreviewIntoTower` to register only the cells NOT already
+   * processed by an active placement preview.
+   *
+   * @param initialVisibleCells Cells already known visible from the preview
+   *   transfer (will be prepended to the final visibleCells array).
+   */
+  registerTowerProgressiveForCells(
+    towerId: string,
+    cells: RouteCell[],
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    losRaycaster: LineOfSightRaycaster,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+    initialVisibleCells: RouteCell[],
+    onComplete: (visibleCells: RouteCell[]) => void,
+  ): void {
+    if (cells.length === 0) {
+      onComplete(initialVisibleCells);
       return;
     }
 
     this.towerRegState = {
       towerId,
-      cells: cellsInRange,
+      cells,
       towerX,
       towerZ,
       tipY,
@@ -1024,9 +1219,52 @@ export class GlobalRouteGrid {
       canTargetAir,
       currentIndex: 0,
       batchSize: 50, // 50 cells/frame — faster than preview (tower already placed)
-      visibleCells: [],
+      visibleCells: initialVisibleCells.slice(),
       onComplete,
     };
+  }
+
+  /**
+   * Transfer the active placement preview's already-computed LOS data into the
+   * tower-visibility cell maps. Eliminates redundant raycasts when the player
+   * confirms placement at the exact preview position.
+   *
+   * Returns null when the preview cannot be reused (no active preview, or any
+   * of the placement parameters differ from the preview's). The caller must
+   * then fall back to a normal registration.
+   *
+   * On success, returns the cells already known visible from the preview
+   * (`consumedCells`) plus the cells still needing a raycast
+   * (`remainingCells`). The preview state is cleared afterwards.
+   */
+  consumePreviewIntoTower(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+  ): { consumedCells: RouteCell[]; remainingCells: RouteCell[] } | null {
+    const p = this.previewState;
+    if (!p) return null;
+    if (p.towerX !== towerX || p.towerZ !== towerZ) return null;
+    if (p.tipY !== tipY || p.range !== range) return null;
+    if (p.canTargetGround !== canTargetGround || p.canTargetAir !== canTargetAir) return null;
+
+    const consumedCells: RouteCell[] = [];
+    for (let i = 0; i < p.currentIndex; i++) {
+      const cell = p.cells[i];
+      const groundVis = p.groundVisibleArray[i] > 0.5;
+      const airVis = p.airVisibleArray[i] > 0.5;
+      if (canTargetGround) cell.towerVisibility.set(towerId, groundVis);
+      if (canTargetAir) cell.airVisibility.set(towerId, airVis);
+      if (groundVis || airVis) consumedCells.push(cell);
+    }
+
+    const remainingCells = p.cells.slice(p.currentIndex);
+    this.previewState = null;
+    return { consumedCells, remainingCells };
   }
 
   /**
@@ -1043,7 +1281,7 @@ export class GlobalRouteGrid {
       const cell = s.cells[i];
 
       // Sample heights
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
       if (terrainY === null) continue;
       cell.terrainHeight = terrainY;
       const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
@@ -1107,8 +1345,10 @@ export class GlobalRouteGrid {
     towerX: number;
     towerZ: number;
     tipY: number;
+    range: number;
     losRaycaster: LineOfSightRaycaster;
-    isBlockedArray: Float32Array;
+    groundVisibleArray: Float32Array;
+    airVisibleArray: Float32Array;
     currentIndex: number;
     batchSize: number;
     canTargetGround: boolean;
@@ -1188,10 +1428,13 @@ export class GlobalRouteGrid {
     mesh.renderOrder = 3;
     mesh.count = 0; // Start empty
 
-    // Pre-allocate attribute array
-    const isBlockedArray = new Float32Array(cellsInRange.length);
-    geometry.setAttribute('aIsBlocked', new InstancedBufferAttribute(isBlockedArray, 1));
-    (geometry.getAttribute('aIsBlocked') as BufferAttribute).setUsage(DynamicDrawUsage);
+    // Pre-allocate per-instance visibility attributes
+    const groundVisibleArray = new Float32Array(cellsInRange.length);
+    const airVisibleArray = new Float32Array(cellsInRange.length);
+    geometry.setAttribute('aGroundVisible', new InstancedBufferAttribute(groundVisibleArray, 1));
+    geometry.setAttribute('aAirVisible', new InstancedBufferAttribute(airVisibleArray, 1));
+    (geometry.getAttribute('aGroundVisible') as BufferAttribute).setUsage(DynamicDrawUsage);
+    (geometry.getAttribute('aAirVisible') as BufferAttribute).setUsage(DynamicDrawUsage);
 
     // Store state for progressive building
     this.previewState = {
@@ -1200,10 +1443,12 @@ export class GlobalRouteGrid {
       towerX,
       towerZ,
       tipY,
+      range,
       losRaycaster,
-      isBlockedArray,
+      groundVisibleArray,
+      airVisibleArray,
       currentIndex: 0,
-      batchSize: 25, // Process 25 cells per frame (~60fps = ~400 cells/sec)
+      batchSize: 50, // Cells per frame — raycast is the bottleneck, see continuePreviewBuild short-circuit
       canTargetGround,
       canTargetAir,
     };
@@ -1219,7 +1464,7 @@ export class GlobalRouteGrid {
   continuePreviewBuild(): boolean {
     if (!this.previewState) return true;
 
-    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, isBlockedArray, batchSize, currentIndex, canTargetGround, canTargetAir } = this.previewState;
+    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, groundVisibleArray, airVisibleArray, batchSize, currentIndex, canTargetGround, canTargetAir } = this.previewState;
 
     const matrix = new Matrix4();
     const endIndex = Math.min(currentIndex + batchSize, cells.length);
@@ -1228,7 +1473,7 @@ export class GlobalRouteGrid {
       const cell = cells[i];
 
       // Sample heights (terrain is required for cell positioning)
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z) : null;
+      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
       if (terrainY === null) continue;
       const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
       const skyline = skylineY ?? cell.skylineHeight;
@@ -1240,35 +1485,41 @@ export class GlobalRouteGrid {
       const originX = atTower ? towerX : towerX + (dirX / dirLen) * this.LOS_OFFSET;
       const originZ = atTower ? towerZ : towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
 
-      // Visible if either ground or air LOS is clear (tower can hit something here)
-      let isVisible = false;
+      // Compute ground and air visibility independently — shader paints
+      // green / blue / red based on the three-way state. Both flags reflect
+      // ground truth even when the current shader prioritises ground over air,
+      // so future visualisations / data consumers can rely on the full info.
+      let groundVisible = false;
       if (canTargetGround) {
         if (atTower) {
-          isVisible = true;
+          groundVisible = true;
         } else {
           const targetY = terrainY + 1.5;
-          isVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          groundVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
         }
       }
-      if (!isVisible && canTargetAir) {
+      let airVisible = false;
+      if (canTargetAir) {
         if (atTower) {
-          isVisible = true;
+          airVisible = true;
         } else {
           const targetY = skyline + AIR_CLEARANCE_M;
-          isVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
         }
       }
 
-      // Set matrix and attribute
+      // Set matrix and attributes
       matrix.setPosition(cell.x, terrainY + 0.5, cell.z);
       mesh.setMatrixAt(i, matrix);
-      isBlockedArray[i] = isVisible ? 0 : 1;
+      groundVisibleArray[i] = groundVisible ? 1 : 0;
+      airVisibleArray[i] = airVisible ? 1 : 0;
     }
 
     // Update mesh
     mesh.count = endIndex;
     mesh.instanceMatrix.needsUpdate = true;
-    (mesh.geometry.getAttribute('aIsBlocked') as BufferAttribute).needsUpdate = true;
+    (mesh.geometry.getAttribute('aGroundVisible') as BufferAttribute).needsUpdate = true;
+    (mesh.geometry.getAttribute('aAirVisible') as BufferAttribute).needsUpdate = true;
 
     this.previewState.currentIndex = endIndex;
 

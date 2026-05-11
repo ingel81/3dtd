@@ -65,6 +65,16 @@ import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 
 /**
+ * Vertical tolerance (meters) around a route anchor when validating
+ * top-down terrain raycasts. Hits more than this far from the anchor are
+ * treated as overhead clutter (bridge decks, tree canopies) or sub-ground
+ * artifacts (basements, mesh holes). 3m comfortably accepts curbs, low
+ * ramps and tile-seam noise while rejecting typical bridge decks (4-6m)
+ * and most tree crowns.
+ */
+const GROUND_ANCHOR_TOLERANCE_M = 3;
+
+/**
  * Initial camera position for pre-computed framing
  */
 export interface InitialCameraPosition {
@@ -1177,15 +1187,27 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Internal raycast for terrain height - no caching, just the raw raycast.
-   * Used for cache invalidation checks and actual height lookups.
+   * Internal raycast for terrain height. Top-down ray collects all hits;
+   * with an optional `anchorY` we filter to the route-anchored band and pick
+   * the highest valid hit (street-level under bridges / trees). Without
+   * `anchorY` the legacy first-hit behavior is preserved.
    *
    * @param localX - Local X coordinate (meters from origin)
    * @param localZ - Local Z coordinate (meters from origin)
+   * @param anchorY - Optional route-anchor Y; hits more than `tolerance`
+   *   meters away from it are discarded as overhead clutter (bridge deck,
+   *   tree canopy) or sub-ground artifacts (basement, hole in mesh).
+   * @param tolerance - Vertical tolerance around `anchorY` in meters
+   *   (default {@link GROUND_ANCHOR_TOLERANCE_M}).
    * @returns Height in local Y coordinates, or null if no hit
    */
-  private raycastTerrainHeight(localX: number, localZ: number): number | null {
-    // DevWorld: delegate to provider
+  private raycastTerrainHeight(
+    localX: number,
+    localZ: number,
+    anchorY?: number,
+    tolerance: number = GROUND_ANCHOR_TOLERANCE_M,
+  ): number | null {
+    // DevWorld: delegate to provider (no overhead clutter, anchor irrelevant)
     if (this.devTerrainProvider) {
       return this.devTerrainProvider.getHeightAtLocal(localX, localZ);
     }
@@ -1215,23 +1237,40 @@ export class ThreeTilesEngine {
 
     const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
 
-    if (results.length > 0) {
-      // If tile quality tracking is active, record tile info from hit
-      if (this.tileQualityTracker && this.tileSceneMap) {
-        let obj: Object3D | null = results[0].object;
-        while (obj && !this.tileSceneMap.has(obj)) {
-          obj = obj.parent;
-        }
-        const info = obj ? this.tileSceneMap.get(obj) : null;
-        if (info) {
-          this.tileQualityTracker.errors.push(info.geometricError);
-          this.tileQualityTracker.depths.push(info.depth);
-        }
-      }
-      return results[0].point.y;
+    if (results.length === 0) {
+      return null;
     }
 
-    return null;
+    // Default: first hit (legacy behaviour, highest-Y because the ray points
+    // down). When an anchor is provided we only OVERRIDE this if the first
+    // hit is clearly overhead clutter (more than `tolerance` above the
+    // anchor) AND we can find a lower hit closer to the anchor. We never
+    // return the anchor itself — an unreliable anchor must not silently
+    // drag cells down to Y=0; the first hit is always our worst-case.
+    let chosen = results[0];
+    if (anchorY !== undefined && results[0].point.y > anchorY + tolerance) {
+      for (let i = 1; i < results.length; i++) {
+        const r = results[i];
+        if (Math.abs(r.point.y - anchorY) <= tolerance) {
+          chosen = r;
+          break;
+        }
+      }
+    }
+
+    // If tile quality tracking is active, record tile info from the chosen hit
+    if (this.tileQualityTracker && this.tileSceneMap) {
+      let obj: Object3D | null = chosen.object;
+      while (obj && !this.tileSceneMap.has(obj)) {
+        obj = obj.parent;
+      }
+      const info = obj ? this.tileSceneMap.get(obj) : null;
+      if (info) {
+        this.tileQualityTracker.errors.push(info.geometricError);
+        this.tileQualityTracker.depths.push(info.depth);
+      }
+    }
+    return chosen.point.y;
   }
 
   /**
@@ -1276,8 +1315,10 @@ export class ThreeTilesEngine {
    * @param targetX, targetY, targetZ - End point (e.g., hex cell or enemy position)
    * @returns true if blocked, false if clear line of sight
    */
-  // Debug counter for LOS raycasts
-  private losDebugCounter = 0;
+  // Reused buffers for hot-path raycasts (called hundreds of times per LOS preview frame)
+  private readonly _losOrigin = new Vector3();
+  private readonly _losDirection = new Vector3();
+  private readonly _losResults: import('three').Intersection[] = [];
 
   private raycastLineOfSight(
     originX: number, originY: number, originZ: number,
@@ -1293,40 +1334,33 @@ export class ThreeTilesEngine {
 
     if (!this.tilesRenderer) return false;
 
-    // Calculate direction and distance
-    const origin = new Vector3(originX, originY, originZ);
-    const target = new Vector3(targetX, targetY, targetZ);
-    const direction = target.clone().sub(origin);
-    const distance = direction.length();
-    direction.normalize();
+    this._losOrigin.set(originX, originY, originZ);
+    this._losDirection.set(targetX - originX, targetY - originY, targetZ - originZ);
+    const distance = this._losDirection.length();
+    this._losDirection.multiplyScalar(1 / distance);
 
-    // Set up raycaster
-    this.raycaster.set(origin, direction);
+    this.raycaster.set(this._losOrigin, this._losDirection);
     this.raycaster.far = distance - 0.5; // Stop slightly before target
 
-    // Check for intersections
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
+    // Reuse intersection array — intersectObject appends, so clear first
+    this._losResults.length = 0;
+    this.raycaster.intersectObject(this.tilesRenderer.group, true, this._losResults);
 
-    // Debug: log first few raycasts
-    if (this.losDebugCounter < 5) {
-      console.log(`[LOS Raycast #${this.losDebugCounter}] origin=(${originX.toFixed(1)}, ${originY.toFixed(1)}, ${originZ.toFixed(1)}) → target=(${targetX.toFixed(1)}, ${targetY.toFixed(1)}, ${targetZ.toFixed(1)}) dist=${distance.toFixed(1)} hits=${results.length}`);
-      this.losDebugCounter++;
-    }
-
-    // If we hit something before reaching the target, LoS is blocked
-    return results.length > 0;
+    return this._losResults.length > 0;
   }
 
   /**
-   * Get terrain height at local coordinates (public wrapper for raycastTerrainHeight)
-   * Used for debug visualizations that work in local coordinate space.
+   * Get terrain height at local coordinates (public wrapper for raycastTerrainHeight).
+   * Pass `anchorY` to validate the hit against a route-anchored band so
+   * bridges/trees don't pull the result up to canopy/deck level.
    *
    * @param localX - Local X coordinate (meters from origin)
    * @param localZ - Local Z coordinate (meters from origin)
-   * @returns Height in local Y coordinates, or null if no hit
+   * @param anchorY - Optional route-anchor Y for validation
+   * @returns Height in local Y coordinates, or null if no hit (and no anchor)
    */
-  getTerrainHeightAtLocal(localX: number, localZ: number): number | null {
-    return this.raycastTerrainHeight(localX, localZ);
+  getTerrainHeightAtLocal(localX: number, localZ: number, anchorY?: number): number | null {
+    return this.raycastTerrainHeight(localX, localZ, anchorY);
   }
 
   /**

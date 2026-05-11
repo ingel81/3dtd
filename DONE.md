@@ -4,6 +4,110 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-11
+
+### Route-Cell-Grid Polish-Block — 4 zusammenhängende Themen
+
+> Eine Session, vier verzahnte Verbesserungen am Route-Cell-Grid und seinen
+> Visualisierungen. Reihenfolge entspricht der Implementation.
+
+- [x] **LOS-Overlay: Ground vs Air visuell trennen**
+      Vorher färbte der Shader Cells grün sobald **ground ODER air** sichtbar war —
+      Air-fähige Tower (Rocket/Ice/aa-Gatling) wirkten dadurch im Overlay überzeichnet
+      mächtig, weil Air-Rays über Gebäuden fast immer frei sind.
+      **Lösung:** Zwei InstancedBufferAttribute (`aGroundVisible`, `aAirVisible`),
+      Fragment-Shader rendert 3-Wege-State: grün=ground (Priorität), blau=air-only,
+      rot=blocked. Gleiche Logik in `createTowerVisualization`, `createPlacementPreview`,
+      `continuePreviewBuild`. Globaler Debug-Overlay (`LOS_CELL_FRAGMENT`) zusätzlich
+      erweitert: State 3 (muted blue) für air-only, Enemy-Color auf Lila verschoben
+      um Verwechslung mit Air-Blau zu vermeiden, `isAirVisibleByAnyTower` + Air-
+      Registration werden im State-Computing berücksichtigt.
+      Dateien: `src/app/utils/global-route-grid.ts` (Shaders + alle drei Cell-Viz-Pfade).
+
+- [x] **LOS-Raycast-Doppelarbeit eliminiert: Preview→Place Transfer + Range-Upgrade Diff**
+      Hot-Path-Optimierung. Zwei klare Doppel-Raycast-Quellen identifiziert per
+      systematischer Exploration aller LOS-Call-Sites:
+      1. **Preview→Place:** `continuePreviewBuild` raycastete alle Cells für die
+         Shader-Visualisierung, danach raycastete `continueTowerRegistration`
+         dieselben Cells mit identischen Origin/Target/tipY für die Cell-Maps.
+         **Fix:** Neue `consumePreviewIntoTower(towerId, ...)` validiert
+         Position/Range/Targeting-Flags der aktiven Preview gegen die Place-Params
+         und transferiert die bereits berechneten Float32-Arrays direkt in
+         `cell.towerVisibility` / `cell.airVisibility`. Restliche Cells (falls
+         Preview noch nicht fertig war) laufen durch neue
+         `registerTowerProgressiveForCells` weiter.
+      2. **Range-Upgrade:** `recomputeTowerLOS` rief vorher `unregisterTowerFromGrid`
+         (löschte alle Cell-Map-Einträge) und dann `registerTower` (raycastete
+         alle Cells im neuen Range). Da Range-Upgrades nur erhöhen, waren die
+         alten Daten korrekt aber wurden weggeworfen.
+         **Fix:** Neue `registerTowerIncremental(...)` — für Cells mit
+         existierendem Cache-Eintrag Raycast skippen, nur neue Cells im Annulus
+         raycasten. Stale Cells außerhalb new range werden gelöscht.
+         `recomputeTowerLOS` disposed nur noch das Visualization-Mesh, der
+         Cell-Map-Cache bleibt erhalten.
+      Zusätzlich: `raycastLineOfSight` (`three-tiles-engine.ts`) allokationsfrei
+      gemacht — drei wiederverwendete Member-Buffer (`_losOrigin`, `_losDirection`,
+      `_losResults`) statt `new Vector3()` + `clone()` pro Aufruf. `batchSize`
+      in `createPlacementPreview` von 25 → 50 (doppelte Cells/Frame).
+      Dateien: `src/app/utils/global-route-grid.ts`, `src/app/services/global-route-grid.service.ts`,
+      `src/app/services/tower-placement.service.ts`, `src/app/three-engine/three-tiles-engine.ts`.
+
+- [x] **Cell-Y-Plausibilisierung: Brücken / Bäume / Stale-Y bei Toggle-Race**
+      Top-Down-Raycaster trifft das jeweils höchste Objekt — bei Fußgängerbrücken
+      und Straßenbäumen klebten Cells optisch auf Deck/Krone statt auf der Straße
+      darunter. Zusätzlich behielten Cells nach dem ersten Debug-Toggle ihre
+      Stale-Y aus der initialen Sample-Phase wenn Tiles noch nicht geladen waren.
+      **Lösung — Route-anchored Multi-Hit Sampling:**
+      - `RouteCell.routeAnchorY` neu — pro Cell der lineare-interpolierte Y-Wert
+        des nächstgelegenen Route-Punkts (Routes haben in `path-route.service.ts`
+        bereits geglättete terrain-Y-Werte). Wird in `generateFromRoutes`
+        durchgereicht über `generateCorridorCells(centerX, centerZ, anchorY, ...)`.
+      - `raycastTerrainHeight` (`three-tiles-engine.ts`) erweitert um optionalen
+        `anchorY`: nutzt `intersectObject` das ohnehin alle Hits sortiert zurückgibt.
+        Default = erster Hit (Legacy). Wenn erster Hit **klar überhalb**
+        (`> anchorY + tolerance`) → suche unter den weiteren Hits den höchsten
+        innerhalb `±tolerance` des Anchors und nimm den. Fällt **nicht** auf den
+        Anchor selbst zurück (unzuverlässige Anchor dürfen nichts kaputt machen) —
+        Worst Case = Legacy.
+      - `TerrainRaycaster`-Typ erweitert um `anchorY?`-Parameter.
+        `getTerrainHeightAtLocal` Public-Wrapper analog.
+      - Alle Re-Sample-Sites geben jetzt `cell.routeAnchorY` mit:
+        `updateTerrainHeights`, `registerTower`, `registerTowerIncremental`,
+        `continueTowerRegistration`, `continuePreviewBuild`, `initializePositions`.
+      - `updateTerrainHeights` ruft am Ende `initializePositions` für aktive
+        Viz auf → Mesh-Y wird auf neue Cell-Y aktualisiert, fixt Stale-Y-Toggle-Race.
+      Konstante `GROUND_ANCHOR_TOLERANCE_M = 3m` in `three-tiles-engine.ts` —
+      typische Bürgersteig/Rampen passen rein, Brückendecks (4-6m) und Baumkronen
+      werden verworfen.
+
+- [x] **Y-Divergenz zwischen Global-Overlay und Per-Tower-Overlay behoben**
+      Symptom: Bei aktivem Global-Debug-Overlay + selektiertem Tower waren die
+      Cells im Tower-Range als zwei leicht versetzte Layer sichtbar.
+      Ursache: System A (`initializePositions`) machte einen Live-Raycast für
+      jede Cell, System B (`createTowerVisualization`) und C
+      (`createPlacementPreview`) nutzten den gecachten `cell.terrainHeight`.
+      Bei minimalen Tile-State-Unterschieden zwischen den Sample-Zeitpunkten
+      kamen leicht unterschiedliche Y heraus.
+      **Fix:** Live-Raycast in `initializePositions` entfernt — alle drei Systeme
+      lesen jetzt aus derselben Quelle `cell.terrainHeight`. Cache bleibt aktuell
+      durch `updateTerrainHeights → initializePositions` (siehe oben).
+      Die drei Viz-Systeme bleiben getrennt (unterschiedliche Daten, Lifecycles,
+      Shader), aber stacken jetzt auf identischer Y.
+
+### TODO-Cleanup: Air-LoS bereits umgesetzt
+- [x] **Line-of-Sight für Air-Tower / Air-Targets**
+      Bereits in `1f156a4` (2026-05-09) implementiert — TODO-Eintrag war veraltet.
+      Grid-Layer (`global-route-grid.ts:455-465`) berechnet pro Cell `airVisibility`
+      gegen `skylineHeight + AIR_CLEARANCE_M`. Targeting (`tower-combat.service.ts:122-163`)
+      dispatcht per `enemy.typeConfig.isAirUnit`: Air-Enemies gehen durch
+      `isAirPositionVisibleFromTower`, Ground durch `isPositionVisibleFromTower`,
+      mit Runtime-Raycast-Fallback auf die korrekte Air-Höhe (`hasLineOfSight`).
+      `visibleCells` ist seitdem Union aus Ground+Air-sichtbaren Zellen.
+      Verbleibendes Visualisierungs-Symptom (Overlay zeigt grün sobald Ground ODER Air frei)
+      wurde im selben Run mit erledigt (siehe oben „LOS-Overlay: Ground vs Air visuell trennen").
+
+---
+
 ## 2026-05-10
 
 ### Refactor: PostProcessingPipeline aus three-tiles-engine extrahiert

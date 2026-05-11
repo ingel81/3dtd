@@ -749,6 +749,63 @@ export class TowerPlacementService {
     tower.losReady = false;
     this.pendingTowerReg = tower;
 
+    const onComplete = (visibleCells: import('../utils/global-route-grid').RouteCell[]) => {
+      tower.visibleCells = visibleCells;
+      tower.losReady = true;
+      this.pendingTowerReg = null;
+
+      // Create LOS visualization (hidden by default, shown on selection)
+      tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
+        tower.id,
+        terrainPos.x,
+        terrainPos.z,
+        config.range
+      );
+      if (tower.losVisualization) {
+        tower.losVisualization.visible = tower.selected;
+        this.engine!.getScene().add(tower.losVisualization);
+      }
+
+      // PerfTrace disabled — fired per tower placement (noisy during training)
+      void tLos0;
+    };
+
+    // Reuse the active placement preview's already-computed LOS when the
+    // player confirms at the exact preview position. Halves work in the
+    // typical case (preview fully built before click).
+    const transfer = this.globalRouteGrid.consumePreviewIntoTower(
+      tower.id,
+      terrainPos.x,
+      terrainPos.z,
+      tipY,
+      config.range,
+      canTargetGround,
+      canTargetAir,
+    );
+
+    if (transfer && transfer.remainingCells.length === 0) {
+      // Preview was complete — no raycasts left to do.
+      this.pendingTowerReg = null;
+      onComplete(transfer.consumedCells);
+      return;
+    }
+
+    if (transfer) {
+      this.globalRouteGrid.registerTowerProgressiveForCells(
+        tower.id,
+        transfer.remainingCells,
+        terrainPos.x,
+        terrainPos.z,
+        tipY,
+        losRaycaster,
+        canTargetGround,
+        canTargetAir,
+        transfer.consumedCells,
+        onComplete,
+      );
+      return;
+    }
+
     this.globalRouteGrid.registerTowerProgressive(
       tower.id,
       terrainPos.x,
@@ -758,26 +815,7 @@ export class TowerPlacementService {
       losRaycaster,
       canTargetGround,
       canTargetAir,
-      (visibleCells: import('../utils/global-route-grid').RouteCell[]) => {
-        tower.visibleCells = visibleCells;
-        tower.losReady = true;
-        this.pendingTowerReg = null;
-
-        // Create LOS visualization (hidden by default, shown on selection)
-        tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
-          tower.id,
-          terrainPos.x,
-          terrainPos.z,
-          config.range
-        );
-        if (tower.losVisualization) {
-          tower.losVisualization.visible = tower.selected;
-          this.engine!.getScene().add(tower.losVisualization);
-        }
-
-        // PerfTrace disabled — fired per tower placement (noisy during training)
-        void tLos0;
-      }
+      onComplete,
     );
   }
 
@@ -802,7 +840,8 @@ export class TowerPlacementService {
 
   /**
    * Recompute LOS for a tower after its range has changed (e.g. range upgrade).
-   * Unregisters the tower from the grid, then re-registers with the current combat range.
+   * Uses incremental registration — cells already in the cell-visibility maps
+   * keep their cached LoS, only new cells in the annulus get raycasted.
    */
   recomputeTowerLOS(tower: Tower): void {
     if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
@@ -810,8 +849,13 @@ export class TowerPlacementService {
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
     if (!config) return;
 
-    // Unregister (cleans up old LOS visualization + grid cells)
-    this.unregisterTowerFromGrid(tower);
+    // Dispose old LOS visualization mesh — cell-map data stays for reuse below
+    if (tower.losVisualization) {
+      this.engine.getScene().remove(tower.losVisualization);
+      tower.losVisualization.geometry.dispose();
+      (tower.losVisualization.material as Material).dispose();
+      tower.losVisualization = null;
+    }
 
     // Re-register with current (upgraded) range
     const position = tower.position;
@@ -827,8 +871,8 @@ export class TowerPlacementService {
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = config.canTargetAir ?? false;
 
-    // Use the tower's current combat range (already upgraded) instead of base config range
-    tower.visibleCells = this.globalRouteGrid.registerTower(
+    // Incremental: only raycast cells that don't already have a cached entry
+    tower.visibleCells = this.globalRouteGrid.registerTowerIncremental(
       tower.id,
       terrainPos.x,
       terrainPos.z,

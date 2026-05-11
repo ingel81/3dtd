@@ -1,65 +1,46 @@
 # Offene TODOs
 
 > **Philosophie:** Engine first, Game second.
-> Erst die Engine stabil, performant und testbar machen - dann Features bauen.
-
-
-** NEU **
-
-- Attributions: Skybox (day.webp, night.webp) Quelle ermitteln und eintragen
-- Attributions: stone-wall.jpg Quelle ermitteln und eintragen
-- Attributions: Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
-
-- **LOS-Overlay: Ground vs Air visuell trennen**
-      Seit `1f156a4` nutzen Air-Tower (Rocket, Ice, dual-gatling mit aa-retrofit) den
-      Skyline-adaptive Air-LOS-Pfad (`global-route-grid.ts:455-465`).
-      Im Tower-Selection-Overlay (`createTowerVisualization`, line 878) und im
-      Placement-Preview (`createPlacementPreview`, line 1135) wird ein Cell aktuell
-      als "visible/grün" markiert wenn **groundVis ODER airVis** frei ist (Zeile 901
-      bzw. 1265). Effekt: Air-fähige Tower wirken im Overlay deutlich „mächtiger",
-      weil Air-Rays über Gebäuden fast immer frei sind.
-      **Lösungsansatz:** 3-Wege-State im Shader-Attribut (statt `aIsBlocked` 0/1):
-      `0=ground-visible (grün)`, `1=blocked (rot)`, `2=air-only-visible (cyan/blau)`.
-      Beide Methoden + Fragment-Shader anpassen
-      (`TOWER_LOS_FRAGMENT`, `global-route-grid.ts:149`).
-
-- **Tower-Upgrade-Skalierung feintunen**
-      Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
-      - Damage: ×1.10/Level (L25 ×10.83)
-      - Fire Rate: ×1.07/Level (L25 ×5.42)
-      - Range: ×1.04/Level (L25 ×2.67)
-      → kombiniert L25 ≈ ×58 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
-      Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
-      Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
-
-- **Line-of-Sight für Air-Tower / Air-Targets**
-      Aktuell schießen Tower auf fliegende Enemies visuell durch Gebäude durch — kein LoS-Test.
-      Ground-LoS existiert bereits (`towerPlacement.recomputeTowerLOS`, `tower.visibleCells`, `tower.losReady`),
-      aber das System sampelt nur Boden-Zellen. Für Air-Targets braucht es einen Raycast gegen die 3D-Tile-Geometrie
-      (oder einen vorberechneten "sky-LoS"-Volumencheck) zwischen Tower-Mündung und Air-Enemy-Position.
-      Betroffene Tower: Rocket (canTargetAir), Ice (canTargetAir), ggf. weitere bei späterem Air-Targeting-Research-Unlock.
-      Stellen: `tower-combat.service.ts` (Targeting-Filter), `tower-placement.service.ts` (LoS-Berechnung), evtl. `enemy.entity.ts` (isAir-Flag).
-
-
-> **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md
+> Erst die Engine stabil, performant und testbar machen — dann Features bauen.
+>
+> **Stand 2026-05-11:** Reorganisiert nach Prio-Layern.
+> - **PRIO 1:** Engine & Umbauten (Engine-Bugs, Refactoring, Test-Coverage, Hot-Path-Optimierungen, Cleanup)
+> - **PRIO 2:** Balance & Followups der parked Phase-5.16 + Pre-Production AI-Safeguards
+> - **PRIO 3:** Game-Features (Visual Polish, Damage & Armor, AI Build & Deploy, Attributions)
+> - **BACKLOG:** Langfristig, bei Bedarf
+>
+> **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md.
+> **Housekeeping 2026-05-09/10:** 16/18 Items + PostProcessingPipeline-Extract erledigt → DONE.md.
 
 ---
 
-# HOUSEKEEPING (verbleibend)
+# PRIO 1 — Engine & Umbauten
 
-> **Stand:** 2026-05-10 — 16/18 Items aus dem 2026-05-09-Loop sowie der PostProcessingPipeline-
-> Extract erledigt und in DONE.md verschoben. Hier persistiert nur, was noch offen ist
-> (inkl. der Folge-TODOs für die teilweise erledigten Items).
+> Engine zuerst stabil, performant und testbar machen. Hier sammeln sich die laufenden
+> Refactoring-, Test- und Bugfix-Themen.
 
-## Tier 2 — Verbleibend
+## 1.1 Engine-Bugs
 
-- [ ] **Asset-Cleanup ~199 MB**
-      `public/assets/models/enemies/candidates/` (190 MB, 15 GLBs nirgends im Code referenziert),
-      `night.webp` (Skybox-Variante nicht geladen), `logo.psd`, `main01.mp3` (Music-Config zeigt nur auf main02),
-      `mocks/` (nur Doku), `archive-v3.5/` ONNX-Backup.
-      **Achtung:** Working-Tree-Cleanup; Git-History bleibt fett. Optional `git filter-repo` für echte Repo-Schrumpfung.
+- [ ] **3D-Tiles Loading bei F5** — sporadisch "0 Kacheln geladen" nach Reload
+      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md)
 
-## Tier 3 — Verbleibend
+- [ ] **Route-Cell-Visualisierung: visueller Schliff**
+      Air/Ground-Trennung, Cell-Y-Plausibilisierung, Doppellage Global vs Per-Tower
+      und Preview-Performance sind erledigt (siehe DONE.md 2026-05-11). Offen als
+      Folge-Polish, am Stück angehen:
+      - Snap-to-Surface — Cells stehen aktuell konstant +0.5m über Terrain.
+        Auf Hängen / Treppen wirkt das schwebend. Entweder Offset reduzieren oder
+        Geometry flacher (z.B. 0.05m) als Decal-Look.
+      - Edge/Glow um Cell-Quadrate — derzeit reine Solid-Fill, schwer abgrenzbar.
+      - Per-State Pulse-Frequenz — alle States pulsen mit identischen 3 rad/s.
+        Rot (blocked) sollte hektischer pulsen / Grün ruhiger, für visuelle Hierarchie.
+      - Cell-Y-Anchor-Toleranz tunen — aktuell `GROUND_ANCHOR_TOLERANCE_M = 3` in
+        `three-tiles-engine.ts`. Hängt vom Map-Material ab; ggf. nachjustieren wenn
+        bei realen Karten weiterhin Cells auf flachen Strukturen kleben.
+
+- [ ] **Nominatim-Geocoding** gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten
+
+## 1.2 Refactoring (Housekeeping Tier 3)
 
 - [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module)
       ParticleEffectsRenderer (blood/fire/explosion/smoke), AuraRenderer (frost/poison/inner-fire),
@@ -95,7 +76,7 @@
       Doku in CLAUDE.md ist 2026-05-09 ehrlich gemacht; bleibt offen ob (b) Three-spezifische
       Adapter nach `three-engine/services/` ziehen.
 
-## Tier 4 — Verbleibende Test-Lücken
+## 1.3 Test-Coverage (Housekeeping Tier 4)
 
 - [ ] **DAMAGE_MATRIX + `calculateDamage()` Tests**
       35 Multiplier ungetestet, höchstes Balance-Risiko. `damage-matrix.config.ts` + `damage-calculator.ts`.
@@ -113,176 +94,21 @@
       Fixed-timestep-Akkumulation, MAX_SUBSTEPS_PER_FRAME-Cap, MAX_REMAINDER_MS,
       gameTimeMs-Monotonie. Phase-Transitions setup ↔ wave ↔ gameover über Event-Sequenzen.
 
-## Weitere Cleanup-Items (verbleibend)
-
 - [ ] **Three.js Mock erweitern** — `Sprite`, `SpriteMaterial`, `Box3.setFromObject`, `BufferAttribute.setXYZ`,
       `PositionalAudio`. Schaltet weitere Tests frei (SpatialAudio, combat-vfx, damage-application).
+
 - [ ] **Specs konkretisieren oder löschen** — `game-speed.component.spec.ts`, `three-tiles-engine.spec.ts`,
       `three-effects.renderer.spec.ts` testen Inline-Helper statt der echten Klasse.
+
 - [ ] **MovementComponent DOT-Stacking Spec** — applyStatusEffect-Refresh-Semantik (slow + poison
       no-stack-refresh-only, andere Effects same-source-Refresh). Aus Loop 2026-05-09 als Folge
       des Damage-Application-Specs identifiziert.
 
----
+## 1.4 CPU Hot-Path Optimierungen
 
----
-
-# PHASE 4: GAME FEATURES
-
-> **Ziel:** Spielbares, poliertes Tower Defense
-
-## 4.1a Visual Feintuning
-
-- [ ] **Muzzle Flash feintunen**
-      Grundsätzlich sichtbar, aber Intensität/Größe/Dauer anpassen
-      Prüfen: nur bei Projectile-Towern (Archer, Cannon, Gatling, Rocket), NICHT bei Ice/Magic/Fire
-
-- [ ] **Explosions-Partikel feintunen**
-      Sprite-Sheet Partikel (Flash→Fireball→Rauch) — Timing, Größe, Farben polieren
-      Betrifft Cannon- und Rocket-Einschläge
-
-- [ ] **Screen Shake Performance untersuchen**
-      Aktuell deaktiviert wegen Performance-Bedenken
-      Messen: tatsächlicher FPS-Impact, ggf. nur bei nahen Explosionen aktivieren
-      Dateien: `screen-shake.service.ts`, Display Options Toggle
-
-- [ ] **Wave Preview Model: Pinguin** - Kamera-Position und Modell-Größe anpassen
-
-- [ ] **Wave Preview Model: Herbert** - Kamera-Position und Modell-Größe anpassen
-
-- [ ] **Color Grading Anwendungsfall klären**
-      Feature funktioniert (Dark Fantasy, Noir, Warm Sunset)
-      Brainstorming: als Gameplay-Element? (z.B. Nacht-Modus, Wetter), oder rein kosmetisch?
-      Aktuell nur im Debug-Panel zugänglich — evtl. in Settings verschieben
-
-## 4.1b Visual Settings (Performance-Toggles)
-
-- [ ] **VFX Settings Menu** — Visuelle Effekte einzeln ein/ausschaltbar
-      Freeze-Tint, Muzzle Flash, Trail-Streaks, Sprite-Sheet Partikel,
-      Screen Shake, Bloom, Color-Grading
-      Ziel: Low-End-Geräte können teure Effekte deaktivieren
-
----
-
-# PHASE 5: DAMAGE & ARMOR SYSTEM
-
-> **Ziel:** Strategische Tiefe durch Schadens-/Rüstungstypen
-> **Konzept:** [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
-> **Status (2026-05-08):** Infrastruktur abgeschlossen (siehe DONE.md) — Types,
-> Schadensmatrix, damageType/armorType an allen Configs, Flame Tower,
-> Damage-Matchup-Tooltips. Offen: weitere Tower-Typen + Wave-Preview-UI.
-
-## 5.2 Tower-Schadenstypen — offen
-
-- [ ] **Tesla Tower (`magic`)** — Kettenblitz, springt zwischen Enemies
-- [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
-      (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
-      → Type erst erweitern, Matrix-Eintrag ergänzen)
-
-## 5.3 Enemy-Rüstungstypen — offen
-
-- [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
-      "🛡️ Heavy Armor – Weak to Siege" o.ä.
-      Neue Enemy-Ideen mit speziellen Rüstungen siehe BACKLOG → Enemy-Ideen.
-
----
-
-# PHASE 6: AI WAVE DIRECTOR
-
-> **Ziel:** Adaptive KI die spannende, faire Wellen generiert
-> **Voraussetzung:** Phase 5 (Damage/Armor) abgeschlossen — erst Spielinhalt, dann Training
-> **Plan:** [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
-
-## 6.1 Training UI
-
-- [ ] **Dashboard Header Styling verbessern**
-      Status/Header Metriken besser stylen
-      Model Metrics (Entropy, Grad Norm, etc.) als eigene Gruppe rechts
-      Dezenter als Hauptmetriken, nach "Game Over" Bereich
-      Dateien: `training-backend/dashboard/static/index.html`, `style.css`
-
-## 6.2 Build & Deployment
-
-> Training-Code nicht in Prod Bundle
-
-- [ ] **Build Configuration**
-      `angular.json`: fileReplacements für Training-Code
-      Production: Training-Module wird zu leerem Stub
-      Bundle Size Check: AI < 300KB
-
-- [ ] **Model Validation**
-      `scripts/validate-model.js`
-      Prüft: Format, Größe, Basis-Inference
-      Läuft vor Commit (optional)
-
-## 6.3 Training & Tuning ⏸️ PAUSIERT
-
-> Das eigentliche Training
-
-- [~] **Training Run v3.5** ← PAUSIERT
-      5267+ Episoden, 40.1% Sweet Spot erreicht
-      Reward-Formel auf ~1/3 reduziert
-      Tower-Limit: 50, Episode-Length: 100
-      Dashboard auf http://localhost:3002
-
-- [ ] **Model Selection**
-      Beste Version auswählen
-      Gegen alle Bots testen
-      Dokumentieren welches Model deployed
-
-- [ ] **Playtesting**
-      Interne Tests mit echten Spielern
-      Feedback sammeln
-      Reward Function anpassen wenn nötig
-
-## 6.4 Training Feintuning
-
-> Erkenntnisse aus Testspielen gegen exportiertes ONNX-Model
-
-- [ ] **HP-Skalierung erweitern**
-      `HEALTH_MULTIPLIER_MAX`: 20 → 100
-      Problem: Im Endgame kann AI HP nicht mehr skalieren (Cap erreicht)
-      Dateien: `config.py`, `wave-director.service.ts`
-
-- [ ] **Kill-Time Range erweitern**
-      `KILL_TIME_MAX`: 5.0 → 8.0
-      Mehr Spielraum für HP-Skalierung bei hoher DPS
-      Datei: `config.py`
-
-- [ ] **Enemy Properties System** (SPÄTER - wenn neue Gegner kommen)
-      Statt Typ-Encoding: Property-basiertes Encoding
-      Properties: `isAir`, `isTanky`, `isSwarm`, `isBoss`
-      Vorteil: Neue Gegner funktionieren ohne Neutraining
-      Voraussetzung: Properties in `EnemyTypeConfig` definieren
-      ```typescript
-      // Neue Felder in enemy-types.ts:
-      isTanky?: boolean;   // Viel HP, langsam (tank, wallsmasher)
-      isSwarm?: boolean;   // Wenig HP, viele (penguin)
-      isBoss?: boolean;    // Boss-Einheit (herbert)
-      // isAirUnit existiert bereits
-      ```
-      State-Vektor: +6 Features (5 Properties + force_active)
-      Model lernt Konzepte statt spezifische Typen
-
----
-
-# BACKLOG
-
-> Langfristig, bei Bedarf
-
-## Training Backend Refactoring
-
-- [ ] **training-backend Struktur verbessern**
-      Aktuell alles flach, besser in Module aufteilen:
-      - `core/` - model.py, trainer.py, reward.py
-      - `utils/` - logger (tui_logger + auto_logger mergen)
-      - `scripts/` - export, analyze (bereits teilweise)
-      Import-Pfade in server.py anpassen
-
-## CPU Hot-Path Optimierungen (neu aufsetzen)
-
-> Ideen aus lokalem `perf:` Commit (Feb 2026), der vor Merge mit origin aufgegeben wurde.
-> Enemy-Teile sind durch origin's "5000+ enemies"-Commit abgedeckt — folgende Punkte NICHT:
+> Kleine Hebel an Hot-Pathes. Ideen aus lokalem `perf:` Commit (Feb 2026), der vor Merge mit
+> origin aufgegeben wurde. Enemy-Teile sind durch origin's "5000+ enemies"-Commit abgedeckt —
+> folgende Punkte NICHT:
 
 - [ ] **Tower Placement Validation debouncen**
       60Hz → ~3Hz bei statischer Cursor-Position. Schwellwert ~1m Bewegung,
@@ -320,7 +146,255 @@
       `maxSpawnsPerFrame` als konfigurierbares Property auf WaveManager.
       Dateien: `wave-debugger.component.ts`, `wave.manager.ts`, `game-state.manager.ts`, `wave-debug.service.ts`
 
+## 1.5 Asset & Repo-Cleanup (Housekeeping Tier 2)
+
+- [ ] **Asset-Cleanup ~199 MB**
+      `public/assets/models/enemies/candidates/` (190 MB, 15 GLBs nirgends im Code referenziert),
+      `night.webp` (Skybox-Variante nicht geladen), `logo.psd`, `main01.mp3` (Music-Config zeigt nur auf main02),
+      `mocks/` (nur Doku), `archive-v3.5/` ONNX-Backup.
+      **Achtung:** Working-Tree-Cleanup; Git-History bleibt fett. Optional `git filter-repo` für echte Repo-Schrumpfung.
+
 ---
+
+# PRIO 2 — Balance & Phase-5.16-Followups
+
+> Aktueller Stand des parked Branches `feature/phase5.5-economy-ai-prep` — nach PRIO 1
+> oder zwischendurch wenn Engine-Themen blockiert sind.
+
+## 2.1 Tower-Balance
+
+- [ ] **Tower-Upgrade-Skalierung feintunen**
+      Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
+      - Damage: ×1.10/Level (L25 ×10.83)
+      - Fire Rate: ×1.07/Level (L25 ×5.42)
+      - Range: ×1.04/Level (L25 ×2.67)
+      → kombiniert L25 ≈ ×58 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
+      Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
+
+## 2.2 Phase 5.16 Playtest + Followups
+
+> **Stand 2026-05-11:** Branch `feature/phase5.5-economy-ai-prep`, geparkt für andere Themen.
+> Checkpoint ep 7350 (ONNX in `public/assets/ai/wave-director/`) wurde gegen das **alte**
+> Reward-System trainiert. Curriculum + Difficulty-Knobs (`endgameHpMultiplier`,
+> `enemyBaseDamageForWave`) sitzen post-NN — daher trotz alter Sweet-Damage-Kalibrierung
+> spielbar. Vollständiger Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md).
+>
+> **Architektur-Status:** Phase 5.10 hat das Template-System geshipped (18 Templates,
+> 4 Reward-Terme, State 156, Hard-Constraints im Decoder). Bei Tuning gilt:
+> **Templates zuerst, nicht Reward-Weights** — Reward-Landscape ist minimal (DEATH,
+> DRAMA, SWARM_SIZE, PROGRESSION) und sollte ohne neue Exploits stabil bleiben.
+
+- [ ] **Live-Playtest Phase-5.16-Balance**
+      Erwartete Knackpunkte: W1-7 zugänglich (Air-Debüt W7 mit AA-Forschung), W10 Boss
+      fordernd (Cannon nötig), W13 Ghost-Surge erfordert Magic, W15-20 sichtbare
+      HP-Steigerung, Gold zwischen W10-30 knapp. Notizen sammeln wo's hakt/zu leicht/teuer/billig
+      ist. Tool: `npm run economy-chart` regeneriert `docs/economy-chart.html` nach
+      jeder Curriculum-Änderung.
+
+- [ ] **Per-Kill-Budget-Rounding-Bug fixen**
+      `Math.max(1, Math.round(budget / count))` overshoot bei Mega-Swarms: W19 rat_tide
+      mit 5000 Ratten × 1g floor = 5000g statt 305g Budget. Saubere Lösung:
+      deterministischer Akkumulator.
+      Datei: `src/app/managers/enemy.manager.ts` (gold-budget per-kill-Logik).
+
+- [ ] **Boss-Frequenz ab W31 verdichten**
+      Plan war: ab W31 Bosse alle 5 Waves statt 10. Nicht implementiert — Curriculum
+      loopt einfach mod-30. Override in `templateForWave()` für
+      `wave > 30 && wave % 5 === 0`.
+      Datei: `src/app/ai/core/wave-curriculum.ts`.
+
+- [ ] **Wave-Curriculum Gold-Budget feinjustieren**
+      Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.ts` anpassen.
+      Nach jeder Änderung `npm run economy-chart` für Sanity-Check.
+
+- [ ] **Re-Training nach Balance-Verifikation** (Optional)
+      Checkpoint ep 7350 wurde gegen ALTES Reward-System trainiert. Re-Training optional,
+      ~30-45 min mit 8 headless Tabs. Nur sinnvoll **nachdem** Balance live verifiziert ist.
+      Bei Bedarf gleichzeitig 2.3-Safeguards einbauen (siehe unten).
+
+## 2.3 Pre-Production Wave-Deployment Safeguards
+
+> **Status:** Konzept festgehalten, **nicht implementiert**. Implementierung **nach**
+> erfolgreichem Training-Run, **vor** Production-Release. Ziel: verhindern dass die AI
+> auf einen einzelnen Enemy-Typ/Armor-Category kollabiert (Spider/Bat/Penguin-Spam)
+> ohne die AI komplett zu überschreiben.
+>
+> Hintergrund: Im Training-Betrieb (Phase 5.10) ist das durch Template-System +
+> Cooldowns strukturell gemildert. Beim **echten Spieler-Deployment** sind aber
+> zusätzliche Inference-seitige Schichten geplant, weil ein differenziertes Netz
+> trotzdem Single-Type-Waves erzeugen kann wenn Mixed-Wave-Threshold ungünstig liegt.
+
+- [ ] **Temperature-Sampling im Decoder**
+      Bei Inference `softmax(probs / T)` mit T=1.5-2.0 statt `argmax`. Secondary Types
+      bekommen mehr Raum ohne Neutraining. Null Training-Kosten, reiner Inference-Parameter.
+      Datei: `src/app/ai/wave-director/wave-director.service.ts` (Decoder-Pfad).
+
+- [ ] **Hard-Monotony-Cap im Decoder**
+      Notbremse: max. 3 Waves in Folge mit demselben dominanten Typ — über alle
+      Mixed-Groups hinweg getrackt, nicht nur `groups[0]`. Wenn Cap triggert:
+      nächst-stärkster Typ im Softmax wird promoted.
+
+- [ ] **Scripted Milestone-Waves (Constraint-based Blueprints)**
+      Statt fester Typen-Listen: Designer setzt Constraints, AI komponiert innerhalb frei.
+      Constraint-Typen kombinierbar:
+      - `category: 'air' | 'ethereal' | 'fortified' | 'swarm'` — Armor-Klassen-Lock
+      - `anchor: <EnemyTypeId>` — min. 1 Exemplar garantiert (z.B. Boss)
+      - `min-count: N` — Swarm-Pflicht (Typen egal)
+      - `exclude: <category | enemy>` — Blacklist
+      - `preferredPattern: 'burst' | 'drip' | 'interleaved'`
+
+      Beispiele: W10 `{ anchor: 'herbert' }`, W14 `{ category: 'air' }`,
+      W22 `{ category: 'ethereal', min-count: 150 }`, W30 `{ category: 'fortified', anchor: 'mammoth' }`,
+      W25 `{ min-count: 300 }`, W5 `{ exclude: 'boss' }`.
+
+      AI kontrolliert innerhalb: konkrete Typen (aus Category-erlaubten), Verhältnisse,
+      `totalCount`, `killTime`, `hpMultiplier`, `spawnDelay` + Variation, Boss-Verstärkungs-Level.
+      Designer pinselt nur die **Thematik**, nicht die Bausteine.
+
+      Skizze:
+      ```ts
+      interface WaveBlueprint {
+        triggerWave: number;
+        name: string;
+        composition: Array<{ type: EnemyTypeId; countWeight: number; minCount?: number }>;
+        archetype: 'boss' | 'elite' | 'mixed-heavy' | 'swarm' | 'ethereal-storm';
+        preferredPattern?: SpawnPattern;
+      }
+      // wave-director.service.ts:
+      const blueprint = blueprintLibrary.find(b => b.triggerWave === currentWave);
+      return blueprint ? buildFromBlueprint(blueprint, aiParams) : normalAIGenerate(aiParams);
+      ```
+
+      Bewusst NICHT gewählt: feste Wellenliste (killt den AI-Point), Ensemble mit
+      Preference-Switch (3× Training-Aufwand), rein Soft-Signals via Reward-Bonus
+      (Training-Runs zeigten: reicht nicht).
+
+---
+
+# PRIO 3 — Game Features
+
+> Spielbares, poliertes Tower Defense. Nach PRIO 1+2 oder als Lückenfüller.
+
+## 3.1 Visual Feintuning
+
+- [ ] **Muzzle Flash feintunen**
+      Grundsätzlich sichtbar, aber Intensität/Größe/Dauer anpassen
+      Prüfen: nur bei Projectile-Towern (Archer, Cannon, Gatling, Rocket), NICHT bei Ice/Magic/Fire
+
+- [ ] **Explosions-Partikel feintunen**
+      Sprite-Sheet Partikel (Flash→Fireball→Rauch) — Timing, Größe, Farben polieren
+      Betrifft Cannon- und Rocket-Einschläge
+
+- [ ] **Screen Shake Performance untersuchen**
+      Aktuell deaktiviert wegen Performance-Bedenken
+      Messen: tatsächlicher FPS-Impact, ggf. nur bei nahen Explosionen aktivieren
+      Dateien: `screen-shake.service.ts`, Display Options Toggle
+
+- [ ] **Color Grading Anwendungsfall klären**
+      Feature funktioniert (Dark Fantasy, Noir, Warm Sunset)
+      Brainstorming: als Gameplay-Element? (z.B. Nacht-Modus, Wetter), oder rein kosmetisch?
+      Aktuell nur im Debug-Panel zugänglich — evtl. in Settings verschieben
+
+- [ ] **InfoOverlay collapsed-State minimal halten**
+      Im zugeklappten Zustand soll die FPS-Anzeige nur die nackte Zahl zeigen — aktuell
+      ist da noch zu viel Schnickschnack drumherum. Datei:
+      `components/info-overlay/info-overlay.component.ts` (Template + Styles für den
+      Nicht-`infoOverlayVisible`-Pfad).
+
+- [ ] **Loading Screen optimieren**
+      Layout/Wirkung des Initial-Loading-Screens überarbeiten. Detaillierter Stats-Block
+      und 3D-Tiles-Counter sind 2026 vorhandene Basis (siehe DONE.md), aber Polish steht
+      aus. Konkretisieren beim Anpacken (Bullet-Liste was raus/rein soll).
+
+- [ ] **Kompass: Reset-Bearing-Button neu positionieren**
+      „Reset bearing"-Button gehört aus Sicht des Kompass nach oben rechts (statt aktueller
+      Position). Datei: `components/compass/compass.component.ts` (Template + Styles für
+      den Reset-Button).
+
+- [ ] **Enemy-Tooltip in laufender Wave wie Tower-Tooltip im Build-Menü stylen**
+      Der Tooltip der Enemies während der laufenden Wave soll optisch identisch zum
+      Tower-Tooltip im Build-Menü gestaltet werden (gleiche Card-Optik, Header,
+      Stat-Layout, Typografie). Aktuell weichen die beiden Tooltips visuell voneinander
+      ab — Stil vereinheitlichen für konsistentes UI-Empfinden.
+
+- [ ] **Wallsmasher: kein Spawn-Sound**
+      Der Wallsmasher soll beim Spawnen keinen Sound abspielen. Aktuell triggert er den
+      Spawn-Sound aus der Audio-Config. Vermutlich in `src/app/configs/audio.config.ts`
+      (Enemy-Spawn-Map) den Eintrag für wallsmasher entfernen / auf null setzen, bzw.
+      in `enemy-types.config.ts` den Spawn-Sound-Verweis prüfen.
+
+## 3.2 Visual Settings (Performance-Toggles)
+
+- [ ] **VFX Settings Menu** — Visuelle Effekte einzeln ein/ausschaltbar
+      Freeze-Tint, Muzzle Flash, Trail-Streaks, Sprite-Sheet Partikel,
+      Screen Shake, Bloom, Color-Grading
+      Ziel: Low-End-Geräte können teure Effekte deaktivieren
+
+## 3.3 Damage & Armor System
+
+> **Konzept:** [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
+> **Status (2026-05-08):** Infrastruktur abgeschlossen (siehe DONE.md) — Types,
+> Schadensmatrix, damageType/armorType an allen Configs, Flame Tower,
+> Damage-Matchup-Tooltips. Offen: weitere Tower-Typen + Wave-Preview-UI.
+
+- [ ] **Tesla Tower (`magic`)** — Kettenblitz, springt zwischen Enemies
+
+- [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
+      (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
+      → Type erst erweitern, Matrix-Eintrag ergänzen)
+
+- [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
+      "🛡️ Heavy Armor – Weak to Siege" o.ä.
+      Neue Enemy-Ideen mit speziellen Rüstungen siehe BACKLOG → Enemy-Ideen.
+
+- [ ] **Globale Damage-Matrix-Übersicht im UI** (Optional, niedrige Priorität)
+      Tooltips zeigen aktuell nur Multiplier per Tower und per Enemy. Eine globale
+      "vs"-Tabelle (alle Tower × alle Armor) gibt es nicht. Eigener Sidebar-Tab oder
+      Hilfe-Dialog möglich.
+
+## 3.4 AI Wave Director — Build & Deployment
+
+> Training-Code nicht in Prod Bundle
+
+- [ ] **Build Configuration**
+      `angular.json`: fileReplacements für Training-Code
+      Production: Training-Module wird zu leerem Stub
+      Bundle Size Check: AI < 300KB
+
+- [ ] **Model Validation**
+      `scripts/validate-model.js`
+      Prüft: Format, Größe, Basis-Inference
+      Läuft vor Commit (optional)
+
+## 3.5 AI Training UI
+
+- [ ] **Dashboard Header Styling verbessern**
+      Status/Header Metriken besser stylen
+      Model Metrics (Entropy, Grad Norm, etc.) als eigene Gruppe rechts
+      Dezenter als Hauptmetriken, nach "Game Over" Bereich
+      Dateien: `training-backend/dashboard/static/index.html`, `style.css`
+
+## 3.6 Attributions
+
+- [ ] Skybox (day.webp, night.webp) Quelle ermitteln und eintragen
+- [ ] stone-wall.jpg Quelle ermitteln und eintragen
+- [ ] Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
+
+---
+
+# BACKLOG
+
+> Langfristig, bei Bedarf.
+
+## Training Backend Refactoring
+
+- [ ] **training-backend Struktur verbessern**
+      Aktuell alles flach, besser in Module aufteilen:
+      - `core/` - model.py, trainer.py, reward.py
+      - `utils/` - logger (tui_logger + auto_logger mergen)
+      - `scripts/` - export, analyze (bereits teilweise)
+      Import-Pfade in server.py anpassen
 
 ## Performance - Advanced
 
@@ -392,7 +466,7 @@
 ## Tower-Ideen
 
 > Siehe auch: [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md)
-> Tesla / Chaos sind bereits in Phase 5.2 oben gelistet — hier nur Verweis.
+> Tesla / Chaos sind bereits in PRIO 3.3 (Damage & Armor) gelistet — hier nur Verweis.
 
 ## Enemy-Ideen
 
@@ -404,13 +478,3 @@
 - [ ] **Skeleton** - `unarmored`, Swarm
 - [ ] **Golem** - `fortified`, Boss
 - [ ] **Dragon** - `heavy` + Air, fliegender Boss
-
----
-
-# BEKANNTE ISSUES
-
-> Beobachten, bei Reproduktion fixen
-
-- [ ] **3D-Tiles Loading bei F5** - sporadisch "0 Kacheln geladen" nach Reload
-      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md)
-- [ ] Nominatim-Geocoding gibt oft Straßen-Koordinaten statt Gebäude-Koordinaten

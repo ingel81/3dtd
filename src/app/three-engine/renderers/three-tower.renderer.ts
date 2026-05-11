@@ -80,10 +80,12 @@ export interface TowerRenderData {
 export type TerrainHeightSampler = (lat: number, lon: number) => number | null;
 
 /**
- * Function type for direct terrain raycasting at local coordinates
- * More accurate than TerrainHeightSampler as it uses actual mesh intersection
+ * Function type for direct terrain raycasting at local coordinates.
+ * More accurate than TerrainHeightSampler — uses actual mesh intersection.
+ * Pass `anchorY` to validate the hit against a route-anchored band, rejecting
+ * bridge decks and tree canopies in favour of street-level geometry.
  */
-export type TerrainRaycaster = (localX: number, localZ: number) => number | null;
+export type TerrainRaycaster = (localX: number, localZ: number, anchorY?: number) => number | null;
 
 /**
  * Function type for Line-of-Sight raycasting between two 3D points
