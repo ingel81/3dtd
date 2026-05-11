@@ -15,7 +15,6 @@ import { Enemy } from '../entities/enemy.entity';
 import type { GeoPosition } from '../models/game.types';
 import type { OsmStreetService, StreetNetwork } from '../services/osm-street.service';
 import type { ThreeTilesEngine } from '../three-engine';
-import type { InstancedMesh } from 'three';
 
 const basePosition: GeoPosition = { lat: 0, lon: 0, height: 0 };
 const spawnPoints: GeoPosition[] = [{ lat: 0.01, lon: 0, height: 0 }];
@@ -136,21 +135,22 @@ describe('TowerManager', () => {
 
     const tower1 = manager.placeTower({ lat: 0.002, lon: 0, height: 1 }, 'ice') as Tower;
     const tower2 = manager.placeTower({ lat: 0.003, lon: 0, height: 1 }, 'ice') as Tower;
-    tower1.losVisualization = { visible: false } as unknown as InstancedMesh;
-    tower2.losVisualization = { visible: false } as unknown as InstancedMesh;
+
+    // Phase 4 refactor: per-tower viz mesh is now owned by the grid service
+    // (shared single mesh, swapped on selection). The Tower entity no longer
+    // carries a `losVisualization` property — the test asserts only the
+    // observable selectTower behaviour: tower.selected flag + engine
+    // select/deselect + emitted events.
 
     manager.selectTower(tower1.id);
     expect(tower1.selected).toBe(true);
-    expect(tower1.losVisualization?.visible).toBe(true);
     expect(tilesEngine.towers.select).toHaveBeenCalledWith(tower1.id);
     expect(selectedSpy).toHaveBeenCalledWith(expect.objectContaining({ tower: tower1 }));
 
     manager.selectTower(tower2.id);
     expect(tower1.selected).toBe(false);
-    expect(tower1.losVisualization?.visible).toBe(false);
     expect(tilesEngine.towers.deselect).toHaveBeenCalledWith(tower1.id);
     expect(tower2.selected).toBe(true);
-    expect(tower2.losVisualization?.visible).toBe(true);
 
     manager.deselectAll();
     expect(tower2.selected).toBe(false);
