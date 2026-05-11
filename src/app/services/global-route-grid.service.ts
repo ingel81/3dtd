@@ -115,6 +115,68 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Start progressive tower LOS registration for a pre-filtered cell list.
+   * Used after consumePreviewIntoTower to register only the leftover cells.
+   */
+  registerTowerProgressiveForCells(
+    towerId: string,
+    cells: RouteCell[],
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    losRaycaster: LineOfSightRaycaster,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+    initialVisibleCells: RouteCell[],
+    onComplete: (visibleCells: RouteCell[]) => void,
+  ): void {
+    this.grid.registerTowerProgressiveForCells(
+      towerId, cells, towerX, towerZ, tipY,
+      losRaycaster, canTargetGround, canTargetAir,
+      initialVisibleCells, onComplete,
+    );
+  }
+
+  /**
+   * Transfer an active placement preview's already-computed LOS into the cell
+   * maps for the given tower. Returns null on parameter mismatch.
+   */
+  consumePreviewIntoTower(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    canTargetGround: boolean,
+    canTargetAir: boolean,
+  ): { consumedCells: RouteCell[]; remainingCells: RouteCell[] } | null {
+    return this.grid.consumePreviewIntoTower(
+      towerId, towerX, towerZ, tipY, range, canTargetGround, canTargetAir,
+    );
+  }
+
+  /**
+   * Re-register a tower with a new range, preserving cached LoS for cells
+   * already registered. Only the cells in the annulus (new range minus old)
+   * need fresh raycasts.
+   */
+  registerTowerIncremental(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    tipY: number,
+    range: number,
+    losRaycaster: LineOfSightRaycaster,
+    canTargetGround = true,
+    canTargetAir = false,
+  ): RouteCell[] {
+    return this.grid.registerTowerIncremental(
+      towerId, towerX, towerZ, tipY, range,
+      losRaycaster, canTargetGround, canTargetAir,
+    );
+  }
+
+  /**
    * Continue progressive tower LOS computation. Returns true when complete.
    */
   continueTowerRegistration(): boolean {

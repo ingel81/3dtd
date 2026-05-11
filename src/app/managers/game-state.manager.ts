@@ -785,7 +785,8 @@ export class GameStateManager {
 
     // Initialize with terrain raycaster, coordinate sync and skyline raycaster
     // (skyline samples max-Y in a small neighbourhood — used for air LOS).
-    const terrainRaycaster = (x: number, z: number) => this.tilesEngine!.getTerrainHeightAtLocal(x, z);
+    const terrainRaycaster = (x: number, z: number, anchorY?: number) =>
+      this.tilesEngine!.getTerrainHeightAtLocal(x, z, anchorY);
     const skylineRaycaster = (x: number, z: number) => this.tilesEngine!.getSkylineHeightAtLocal(x, z);
     this.globalRouteGrid.initialize(terrainRaycaster, this.tilesEngine.sync, skylineRaycaster);
 
