@@ -1,6 +1,7 @@
 import { Injectable, signal, inject, computed } from '@angular/core';
 import { SpawnLocationConfig, FavoriteLocation } from '../../models/location.types';
-import { GeocodingService } from './geocoding.service';
+import { GeocodingService, NominatimAddress } from './geocoding.service';
+import { MissionInfo } from '../../components/loading-screen/boot-step.model';
 
 const FAVORITES_KEY = 'td_favorites_v2';
 const MAX_FAVORITES = 10;
@@ -27,6 +28,30 @@ export class LocationManagementService {
 
   // Display name - resolved async via geocoding
   readonly displayName = signal<string>('Kein Ort');
+
+  // Structured address (road, postcode, city) — resolved async via geocoding,
+  // needed by the loading screen's mission strip which renders each part on
+  // its own line. Null until the first reverse-geocode completes.
+  readonly address = signal<NominatimAddress | null>(null);
+
+  // Composed mission info for the loading screen. Combines current HQ coords
+  // with the latest resolved address — null until both are available.
+  readonly missionInfo = computed<MissionInfo | null>(() => {
+    const hq = this.hq();
+    if (!hq) return null;
+    const addr = this.address();
+    const street = addr?.road
+      ? (addr.house_number ? `${addr.road} ${addr.house_number}` : addr.road)
+      : '';
+    const city = addr?.city ?? addr?.town ?? addr?.village ?? addr?.municipality ?? '';
+    return {
+      address: street,
+      postal: addr?.postcode ?? '',
+      city,
+      lat: hq.lat,
+      lng: hq.lon,
+    };
+  });
 
   // Loading state
   readonly isApplyingLocation = signal(false);
@@ -89,6 +114,7 @@ export class LocationManagementService {
    */
   private async resolveDisplayName(lat: number, lon: number): Promise<void> {
     this.displayName.set('Loading...');
+    this.address.set(null);
 
     try {
       const result = await this.geocoding.reverseGeocodeDetailed(lat, lon);
@@ -97,6 +123,7 @@ export class LocationManagementService {
       if (current && current.lat === lat && current.lon === lon) {
         if (result?.address) {
           this.displayName.set(this.geocoding.formatAddressShort(result.address));
+          this.address.set(result.address);
         } else {
           this.displayName.set(`${lat.toFixed(4)}, ${lon.toFixed(4)}`);
         }

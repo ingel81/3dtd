@@ -36,31 +36,13 @@
   <div class="td-main">
     <!-- Canvas Area -->
     <div class="td-canvas-area">
-      @if (loading()) {
-        <div class="td-loading-overlay">
-          @if (!error()) {
-            <img class="td-loading-logo" src="/assets/images/logo/logo.png" alt="3DTD">
-            <mat-spinner diameter="48"></mat-spinner>
-            <div class="td-loading-title">Lade...</div>
-            <div class="td-loading-steps">
-              @for (step of loadingSteps(); track step.id) {
-                <div class="td-loading-step" [class.active]="step.status === 'active'" [class.done]="step.status === 'done'">
-                  <td-icon class="td-step-icon" [size]="16"
-                    [name]="step.status === 'done' ? 'check' : (step.status === 'active' ? 'refresh' : 'target')"></td-icon>
-                  <span class="td-step-label">{{ step.label }}</span>
-                  @if (step.detail) {
-                    <span class="td-step-detail">({{ step.detail }})</span>
-                  }
-                </div>
-              }
-            </div>
-          } @else {
-            <td-icon class="td-loading-error-icon" name="warn" [size]="48"></td-icon>
-            <div class="td-loading-title">Laden fehlgeschlagen</div>
-            <p class="td-loading-error-msg">{{ error() }}</p>
-            <button class="td-btn td-btn-gold" (click)="retryLoading()">Erneut versuchen</button>
-          }
-        </div>
+      @if (loading() && !error()) {
+        <td-loading-screen
+          [mission]="missionInfo()"
+          [steps]="loadingSteps()"
+          [buildVersion]="buildVersion"
+          [tilesVersion]="tilesVersionLabel()"
+          [devWorldSeed]="devWorldSeed()" />
       }
 
       @if (error() && !loading()) {
