@@ -13,9 +13,8 @@
           <div class="td-enemy-group-list">
             @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
               <div class="td-enemy-group-row"
-                   [matTooltip]="getGroupTooltip(group)"
-                   matTooltipClass="td-tooltip-multiline"
-                   matTooltipPosition="left">
+                   [tdRichTooltip]="getGroupTooltipData(group)"
+                   tdRichTooltipPosition="left">
                 <div class="td-group-preview-container">
                   <canvas #mixedEnemyCanvas class="td-group-preview-canvas"
                           [attr.data-group-index]="i" width="64" height="64"></canvas>

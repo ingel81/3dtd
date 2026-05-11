@@ -1694,34 +1694,60 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     return config?.armorType ? ARMOR_TYPE_UI[config.armorType].weakTo : '';
   }
 
-  getGroupTooltip(group: WaveGroupDisplay): string {
-    let tip = `HP: ${group.actualHp}`;
-    if (group.healthMultiplier !== 1) {
-      tip += ` (×${group.healthMultiplier.toFixed(1)})`;
-    }
-    tip += `\nSpeed: ${group.actualSpeed.toFixed(1)}m/s`;
-    if (group.speedMultiplier !== 1) {
-      tip += ` (×${group.speedMultiplier.toFixed(2)})`;
-    }
+  /**
+   * Structured tooltip payload for the enemy-group rich tooltip.
+   * Mirrors the tower-card tooltip layout — header (name + armor category),
+   * 3-column stats (HP / SPEED / COUNT), and a "vs Damage" table sorted by
+   * effectiveness against this enemy's armor. Reuses the armor-row structure
+   * for the damage rows so both tooltips share the same visual language.
+   */
+  getGroupTooltipData(group: WaveGroupDisplay): TdTooltipData | null {
     const enemyConfig = ENEMY_TYPES[group.enemyType];
-    if (enemyConfig?.armorType) {
-      const armorMeta = ARMOR_TYPE_UI[enemyConfig.armorType];
-      tip += `\nArmor: ${armorMeta.icon} ${armorMeta.label}`;
-      // Concrete damage multipliers — sorted by effectiveness so best/worst pop.
-      const armor = enemyConfig.armorType as ArmorType;
-      const rows: { type: string; icon: string; mul: number }[] = [];
-      for (const dt of Object.keys(DAMAGE_MATRIX) as DamageType[]) {
-        const dtUi = DAMAGE_TYPE_UI[dt];
-        rows.push({ type: dtUi.label, icon: dtUi.icon, mul: DAMAGE_MATRIX[dt][armor] });
-      }
-      rows.sort((a, b) => b.mul - a.mul);
-      tip += '\nDamage taken:';
-      for (const r of rows) {
-        const symbol = r.mul >= 1.5 ? '✓✓' : r.mul >= 1.2 ? '✓' : r.mul < 0.7 ? '✗' : '·';
-        tip += `\n  ${symbol} ${r.icon} ${r.type}: ${r.mul.toFixed(2)}×`;
-      }
-    }
-    return tip;
+    if (!enemyConfig) return null;
+
+    const armor = enemyConfig.armorType as ArmorType;
+    const armorMeta = ARMOR_TYPE_UI[armor];
+
+    const stats = [
+      { label: 'HP', value: String(group.actualHp) },
+      { label: 'SPEED', value: `${group.actualSpeed.toFixed(1)}m/s` },
+      { label: 'COUNT', value: `×${group.count}` },
+    ];
+
+    const damageRows = (Object.keys(DAMAGE_MATRIX) as DamageType[])
+      .map((dt) => ({ ui: DAMAGE_TYPE_UI[dt], mul: DAMAGE_MATRIX[dt][armor] }))
+      .sort((a, b) => b.mul - a.mul)
+      .map((row) => ({
+        label: row.ui.label,
+        multiplier: `${row.mul.toFixed(2)}×`,
+        color: row.ui.color,
+        dim: row.mul < 0.7,
+      }));
+
+    const armorAccentMap: Record<ArmorType, TdTooltipData['accent']> = {
+      unarmored: 'neutral',
+      light: 'teal',
+      heavy: 'gold',
+      fortified: 'health',
+      ethereal: 'poison',
+    };
+
+    // Surface wave-scaling multipliers as flavor when they differ from 1,
+    // so the player can see why HP/speed look inflated mid-run.
+    const flavorParts: string[] = [];
+    if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
+    if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
+    const flavor = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : undefined;
+
+    return {
+      title: group.name,
+      category: armorMeta.label.toUpperCase(),
+      accent: armorAccentMap[armor] ?? 'neutral',
+      stats,
+      armorTitle: 'vs Damage',
+      armor: damageRows,
+      flavor,
+    };
   }
 
   private initMixedEnemyPreviews(): void {
