@@ -134,6 +134,15 @@ export class ThreeTilesEngine {
   private tileQualityTracker: { errors: number[], depths: number[] } | null = null;
   private tileSceneMap: Map<Object3D, { geometricError: number, depth: number }> | null = null;
 
+  /**
+   * Persistent tile-info map for per-raycast LOD lookup. Rebuilt on every
+   * tile-load-end event (debounced) so any caller of
+   * `getTerrainSampleAtLocal` gets accurate LOD info for the hit tile.
+   * Separate from the lazy `tileSceneMap` used by `startTileQualityTracking`
+   * (which is opt-in around route generation).
+   */
+  private persistentTileInfoMap: Map<Object3D, { geometricError: number, depth: number }> | null = null;
+
   // Pre-computed initial camera position (set before initialize())
   private initialCameraPosition: InitialCameraPosition | null = null;
 
@@ -659,11 +668,15 @@ export class ThreeTilesEngine {
       if (!this.firstTilesLoaded) {
         if (freshOriginHeight !== null) {
           this.firstTilesLoaded = true;
+          // Build the persistent tile-info map for the first time so any
+          // detailed terrain raycast right after this can attach LOD info.
+          this.rebuildPersistentTileInfoMap();
           if (this.onFirstTilesLoadedCallback) {
             this.onFirstTilesLoadedCallback();
           }
         } else if (stats.visible >= MIN_VISIBLE_TILES) {
           this.firstTilesLoaded = true;
+          this.rebuildPersistentTileInfoMap();
           if (this.onFirstTilesLoadedCallback) {
             this.onFirstTilesLoadedCallback();
           }
@@ -685,6 +698,11 @@ export class ThreeTilesEngine {
           // Clear cache and notify for full refresh
           const cacheSize = this.heightCache.size;
           this.heightCache.clear();
+
+          // Rebuild the persistent tile-info map so any subsequent
+          // getTerrainSampleAtLocal call has accurate LOD metadata for
+          // the currently-loaded tile set.
+          this.rebuildPersistentTileInfoMap();
 
           if (this.onTilesLoadCallback) {
             const t0 = performance.now();
@@ -1271,6 +1289,101 @@ export class ThreeTilesEngine {
       }
     }
     return chosen.point.y;
+  }
+
+  /**
+   * Rebuild the persistent tile-info map. Should be called whenever the
+   * loaded-tile set changes — typically on tile-load-end events. Cheap
+   * (one iteration over loaded tiles). The map is consumed by
+   * `getTerrainSampleAtLocal` for per-raycast LOD lookup.
+   */
+  rebuildPersistentTileInfoMap(): void {
+    if (!this.tilesRenderer) {
+      this.persistentTileInfoMap = null;
+      return;
+    }
+    const map = new Map<Object3D, { geometricError: number, depth: number }>();
+    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; __depth?: number }) => {
+      map.set(scene, {
+        geometricError: tile.geometricError ?? Infinity,
+        depth: tile.__depth ?? 0,
+      });
+    });
+    this.persistentTileInfoMap = map;
+  }
+
+  /**
+   * Resolve tile LOD info for a raycast hit. Walks up the hit object's
+   * parent chain until it finds a node in `persistentTileInfoMap`.
+   * Returns null if the map is not built or the hit doesn't belong to
+   * any tracked tile (e.g. non-tile geometry).
+   */
+  private getTileInfoForObject(obj: Object3D | null): { geometricError: number; depth: number } | null {
+    if (!this.persistentTileInfoMap) return null;
+    let cursor: Object3D | null = obj;
+    while (cursor && !this.persistentTileInfoMap.has(cursor)) {
+      cursor = cursor.parent;
+    }
+    return cursor ? this.persistentTileInfoMap.get(cursor) ?? null : null;
+  }
+
+  /**
+   * Detailed terrain raycast: same hit-selection logic as
+   * `raycastTerrainHeight` (top-down + anchor validation) but additionally
+   * resolves the tile LOD info for the chosen hit. Used by the
+   * route-cell-grid to attach tile-quality metadata to each sample.
+   *
+   * Returns null when no hit was made (e.g. tiles for this position not
+   * yet streamed).
+   */
+  getTerrainSampleAtLocal(
+    localX: number,
+    localZ: number,
+    anchorY?: number,
+  ): { y: number; tileDepth: number; tileGeometricError: number } | null {
+    if (this.devTerrainProvider) {
+      const y = this.devTerrainProvider.getHeightAtLocal(localX, localZ);
+      if (y === null) return null;
+      // DevWorld has no streaming LOD — synthetic high quality.
+      return { y, tileDepth: 99, tileGeometricError: 0 };
+    }
+
+    if (!this.tilesRenderer) return null;
+
+    if (!this.tilesWereLoaded) {
+      let meshCount = 0;
+      this.tilesRenderer.group.traverse((obj) => {
+        if ((obj as Mesh).isMesh) meshCount++;
+      });
+      if (meshCount === 0) return null;
+      this.tilesWereLoaded = true;
+    }
+
+    const rayOrigin = new Vector3(localX, 10000, localZ);
+    const direction = new Vector3(0, -1, 0);
+    this.raycaster.set(rayOrigin, direction);
+    this.raycaster.far = 20000;
+
+    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
+    if (results.length === 0) return null;
+
+    let chosen = results[0];
+    if (anchorY !== undefined && results[0].point.y > anchorY + GROUND_ANCHOR_TOLERANCE_M) {
+      for (let i = 1; i < results.length; i++) {
+        const r = results[i];
+        if (Math.abs(r.point.y - anchorY) <= GROUND_ANCHOR_TOLERANCE_M) {
+          chosen = r;
+          break;
+        }
+      }
+    }
+
+    const tileInfo = this.getTileInfoForObject(chosen.object);
+    return {
+      y: chosen.point.y,
+      tileDepth: tileInfo?.depth ?? 0,
+      tileGeometricError: tileInfo?.geometricError ?? Infinity,
+    };
   }
 
   /**

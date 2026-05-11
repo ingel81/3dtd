@@ -783,12 +783,22 @@ export class GameStateManager {
       return;
     }
 
-    // Initialize with terrain raycaster, coordinate sync and skyline raycaster
-    // (skyline samples max-Y in a small neighbourhood — used for air LOS).
+    // Initialize with terrain raycaster, coordinate sync, skyline raycaster
+    // (skyline samples max-Y in a small neighbourhood — used for air LOS)
+    // AND a detailed terrain-sample raycaster that returns tile LOD info.
+    // The detailed variant feeds the quality-versioned idempotency in
+    // sampleCellY; the plain one stays for legacy callers.
     const terrainRaycaster = (x: number, z: number, anchorY?: number) =>
       this.tilesEngine!.getTerrainHeightAtLocal(x, z, anchorY);
     const skylineRaycaster = (x: number, z: number) => this.tilesEngine!.getSkylineHeightAtLocal(x, z);
-    this.globalRouteGrid.initialize(terrainRaycaster, this.tilesEngine.sync, skylineRaycaster);
+    const terrainSampleRaycaster = (x: number, z: number, anchorY?: number) =>
+      this.tilesEngine!.getTerrainSampleAtLocal(x, z, anchorY);
+    this.globalRouteGrid.initialize(
+      terrainRaycaster,
+      this.tilesEngine.sync,
+      skylineRaycaster,
+      terrainSampleRaycaster,
+    );
 
     // Generate cells from routes
     const routes = this.getCachedRoutes();

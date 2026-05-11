@@ -3,7 +3,7 @@ import { GlobalRouteGrid, RouteCell } from '../utils/global-route-grid';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
-import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
+import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
 import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 import { UIStore } from '../store/ui.store';
 
@@ -42,10 +42,19 @@ export class GlobalRouteGridService {
   initialize(
     terrainRaycaster: TerrainRaycaster,
     coordinateSync: CoordinateSync,
-    skylineRaycaster?: TerrainRaycaster
+    skylineRaycaster?: TerrainRaycaster,
+    terrainSampleRaycaster?: TerrainSampleRaycaster,
   ): void {
-    this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster);
+    this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster, terrainSampleRaycaster);
     this.initialized = true;
+  }
+
+  /**
+   * Retry sampling for cells that have never had a real raycast hit.
+   * Cheap — only walks unsampled cells. Call from tile-load-end events.
+   */
+  retryUnsampledCells(): void {
+    this.grid.retryUnsampledCells();
   }
 
   /**
@@ -393,6 +402,15 @@ export class GlobalRouteGridService {
    */
   updateTerrainHeights(): void {
     this.grid.updateTerrainHeights();
+  }
+
+  /**
+   * Subscribe to cell promotion events (heightSampled false → true).
+   * Consumers can use the promoted cell list to recompute per-tower LOS
+   * + viz meshes so the system self-heals as tiles stream in.
+   */
+  setCellsPromotedListener(listener: (promoted: RouteCell[]) => void): void {
+    this.grid.setCellsPromotedListener(listener);
   }
 
   // ========================================
