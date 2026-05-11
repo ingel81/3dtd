@@ -59,6 +59,11 @@ export class VFXService {
    * to stand out — auto-enabling bloom turned out to make every emissive
    * material on the map glow permanently, so we explicitly do NOT touch
    * the global bloom pass here.
+   *
+   * Each bolt also requests a pooled local PointLight at its end (= impact
+   * point on the hit enemy). The light fades with the bolt's lifetime and
+   * briefly brightens the surrounding geometry — a local-scope substitute
+   * for global bloom.
    */
   private handleChainLightning(points: { x: number; y: number; z: number }[]): void {
     if (points.length < 2) return;
@@ -67,7 +72,9 @@ export class VFXService {
     for (let i = 0; i < points.length - 1; i++) {
       this.tmpA.set(points[i].x, points[i].y, points[i].z);
       this.tmpB.set(points[i + 1].x, points[i + 1].y, points[i + 1].z);
-      this.tilesEngine.lightningBolts.spawnBolt(this.tmpA, this.tmpB, now);
+      this.tilesEngine.lightningBolts.spawnBolt(this.tmpA, this.tmpB, now, {
+        attachLight: true,
+      });
     }
   }
 

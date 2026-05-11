@@ -14,10 +14,13 @@
 import {
   BufferAttribute,
   BufferGeometry,
+  CanvasTexture,
   Color,
   Mesh,
   Scene,
   ShaderMaterial,
+  Sprite,
+  SpriteMaterial,
   Vector3,
   AdditiveBlending,
   DoubleSide,
@@ -35,6 +38,18 @@ export interface BoltOptions {
   jaggedness?: number;
   /** Overall brightness multiplier (default 1.0). */
   intensity?: number;
+  /**
+   * If true, attach a pooled additive billboard halo at the bolt's end. The
+   * halo paints brightness on top of whatever is behind it (tiles, buildings,
+   * ground, enemies) regardless of material — Google Photorealistic 3D Tiles
+   * ignore dynamic Three.js lights, so an additive overlay is the only way
+   * to brighten the local environment at the impact point.
+   */
+  attachLight?: boolean;
+  /** Peak halo opacity at spawn (default 1.2 — additive, can exceed 1). */
+  lightIntensity?: number;
+  /** Halo diameter in meters (default 22). */
+  lightDistance?: number;
 }
 
 // ─── Constants ──────────────────────────────────────────────────────
@@ -46,6 +61,32 @@ const INDEX_COUNT = SEGMENTS * 6;
 
 const COLOR_CORE = new Color(0.78, 0.92, 1.0);   // slightly blue-tinted white core
 const COLOR_OUTER = new Color(0.18, 0.42, 1.0);  // deep saturated electric blue
+const HALO_COLOR = 0xb8d8ff;                     // electric blue-white tint for impact halos
+const HALO_POOL_SIZE = 16;
+
+/**
+ * Build a 128×128 radial-gradient texture used as the halo sprite map.
+ * Center is fully white, fading to fully transparent at the edge with a
+ * slight cyan bias mid-gradient for an "electric" feel.
+ */
+function createHaloTexture(): CanvasTexture {
+  const size = 128;
+  const canvas = document.createElement('canvas');
+  canvas.width = canvas.height = size;
+  const ctx = canvas.getContext('2d');
+  if (ctx) {
+    const grad = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+    grad.addColorStop(0.00, 'rgba(255, 255, 255, 1.0)');
+    grad.addColorStop(0.25, 'rgba(200, 230, 255, 0.55)');
+    grad.addColorStop(0.60, 'rgba(120, 170, 255, 0.18)');
+    grad.addColorStop(1.00, 'rgba(60,  100, 255, 0.0)');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, size, size);
+  }
+  const tex = new CanvasTexture(canvas);
+  tex.needsUpdate = true;
+  return tex;
+}
 
 // ─── Single Bolt ────────────────────────────────────────────────────
 
@@ -53,6 +94,11 @@ class LightningBolt {
   readonly mesh: Mesh;
   active = false;
   spawnTime = 0;
+
+  // Optional pooled additive halo sprite that follows this bolt's lifetime.
+  // -1 means "no halo attached" — set by the renderer at acquire time.
+  haloIdx = -1;
+  haloPeak = 0;
 
   // Sort key — older bolts get stolen first when the pool is exhausted.
   acquireCounter = 0;
@@ -196,6 +242,13 @@ export class LightningBoltRenderer {
   private readonly idleEmitters = new Map<string, IdleEmitter>();
   private counter = 0;
 
+  // Local-scope halo sprite pool. Additive-blended billboards that paint
+  // brightness on top of whatever the camera sees behind them — works on
+  // Photorealistic 3D Tiles where dynamic lights have no visible effect.
+  private readonly haloTexture: CanvasTexture;
+  private readonly haloPool: Sprite[] = [];
+  private readonly haloFreeIndices: number[] = [];
+
   constructor(scene: Scene, poolSize = 192) {
     this.scene = scene;
     for (let i = 0; i < poolSize; i++) {
@@ -203,6 +256,24 @@ export class LightningBoltRenderer {
       scene.add(bolt.mesh);
       this.pool.push(bolt);
       this.freeIndices.push(i);
+    }
+    this.haloTexture = createHaloTexture();
+    for (let i = 0; i < HALO_POOL_SIZE; i++) {
+      const mat = new SpriteMaterial({
+        map: this.haloTexture,
+        color: HALO_COLOR,
+        blending: AdditiveBlending,
+        depthWrite: false,
+        transparent: true,
+        opacity: 0,
+      });
+      const sprite = new Sprite(mat);
+      sprite.scale.set(22, 22, 1);
+      sprite.visible = false;
+      sprite.renderOrder = 1000;
+      scene.add(sprite);
+      this.haloPool.push(sprite);
+      this.haloFreeIndices.push(i);
     }
   }
 
@@ -216,8 +287,24 @@ export class LightningBoltRenderer {
       idx = this.stealOldest();
       if (idx === undefined) return;
     }
-    this.pool[idx].acquire(start, end, now, opts, this.counter++);
+    const bolt = this.pool[idx];
+    bolt.acquire(start, end, now, opts, this.counter++);
     this.activeIndices.add(idx);
+
+    if (opts.attachLight) {
+      const haloIdx = this.haloFreeIndices.pop();
+      if (haloIdx !== undefined) {
+        const halo = this.haloPool[haloIdx];
+        const diameter = opts.lightDistance ?? 22;
+        const peak = opts.lightIntensity ?? 1.2;
+        halo.position.copy(end);
+        halo.scale.set(diameter, diameter, 1);
+        (halo.material as SpriteMaterial).opacity = peak;
+        halo.visible = true;
+        bolt.haloIdx = haloIdx;
+        bolt.haloPeak = peak;
+      }
+    }
   }
 
   /**
@@ -263,9 +350,24 @@ export class LightningBoltRenderer {
       }
     }
 
-    // Tick active bolts; release expired ones back to the free-list
+    // Tick active bolts; release expired ones back to the free-list.
+    // Per active bolt with an attached halo, fade opacity with bolt age.
     for (const idx of [...this.activeIndices]) {
-      if (!this.pool[idx].update(now)) {
+      const bolt = this.pool[idx];
+      if (bolt.haloIdx >= 0) {
+        const age = Math.min((now - bolt.spawnTime) / Math.max(bolt.uniforms.uLifetime.value, 0.0001), 1);
+        const k = 1 - age;
+        (this.haloPool[bolt.haloIdx].material as SpriteMaterial).opacity = bolt.haloPeak * k * k;
+      }
+      if (!bolt.update(now)) {
+        // Bolt expired — release any attached halo back to the pool.
+        if (bolt.haloIdx >= 0) {
+          const halo = this.haloPool[bolt.haloIdx];
+          (halo.material as SpriteMaterial).opacity = 0;
+          halo.visible = false;
+          this.haloFreeIndices.push(bolt.haloIdx);
+          bolt.haloIdx = -1;
+        }
         this.activeIndices.delete(idx);
         this.freeIndices.push(idx);
       }
@@ -287,7 +389,15 @@ export class LightningBoltRenderer {
       }
     }
     if (oldestIdx === undefined) return undefined;
-    this.pool[oldestIdx].release();
+    const bolt = this.pool[oldestIdx];
+    if (bolt.haloIdx >= 0) {
+      const halo = this.haloPool[bolt.haloIdx];
+      (halo.material as SpriteMaterial).opacity = 0;
+      halo.visible = false;
+      this.haloFreeIndices.push(bolt.haloIdx);
+      bolt.haloIdx = -1;
+    }
+    bolt.release();
     this.activeIndices.delete(oldestIdx);
     return oldestIdx;
   }
@@ -300,7 +410,15 @@ export class LightningBoltRenderer {
   /** Release everything (e.g. on wave end). Idle emitters remain registered. */
   clear(): void {
     for (const idx of this.activeIndices) {
-      this.pool[idx].release();
+      const bolt = this.pool[idx];
+      if (bolt.haloIdx >= 0) {
+        const halo = this.haloPool[bolt.haloIdx];
+        (halo.material as SpriteMaterial).opacity = 0;
+        halo.visible = false;
+        this.haloFreeIndices.push(bolt.haloIdx);
+        bolt.haloIdx = -1;
+      }
+      bolt.release();
       this.freeIndices.push(idx);
     }
     this.activeIndices.clear();
@@ -314,7 +432,14 @@ export class LightningBoltRenderer {
       this.scene.remove(bolt.mesh);
       bolt.dispose();
     }
+    for (const halo of this.haloPool) {
+      this.scene.remove(halo);
+      (halo.material as SpriteMaterial).dispose();
+    }
+    this.haloTexture.dispose();
     this.pool.length = 0;
     this.freeIndices.length = 0;
+    this.haloPool.length = 0;
+    this.haloFreeIndices.length = 0;
   }
 }
