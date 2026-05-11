@@ -1344,6 +1344,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     'fire': 3,
     'magic': 3,
     'rocket': 3,
+    'lightning': 3,
   };
 
   getTowerTier(towerId: TowerTypeId): number {

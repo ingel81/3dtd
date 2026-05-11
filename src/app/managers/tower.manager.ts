@@ -85,6 +85,13 @@ export class TowerManager extends EntityManager<Tower> {
         volume: 0.7,
       });
 
+      // Register lightning chain shot sound
+      tilesEngine.spatialAudio.registerSound('lightning-chain', '/assets/sounds/towers/lightning/lightning_chain.mp3', {
+        refDistance: 40,
+        rolloffFactor: 1.2,
+        volume: 0.6,
+      });
+
       this.placementSoundRegistered = true;
     }
   }
@@ -152,6 +159,21 @@ export class TowerManager extends EntityManager<Tower> {
         localPos,
         fireHeight,
         0.5 // Medium intensity
+      );
+    }
+
+    // Start permanent idle-crackle at tip for Lightning Towers
+    if (typeId === 'lightning') {
+      const tipPos = this.tilesEngine.sync.geoToLocalSimple(
+        position.lat,
+        position.lon,
+        terrainHeight,
+      );
+      tipPos.y += tower.typeConfig.heightOffset + tower.typeConfig.shootHeight;
+      this.tilesEngine.lightningBolts.registerIdleCrackle(
+        tower.id,
+        tipPos,
+        performance.now() / 1000,
       );
     }
 
@@ -343,6 +365,10 @@ export class TowerManager extends EntityManager<Tower> {
     // Remove tentacle visual for Tentacle Towers
     if (entity.typeConfig.id === 'tentacle') {
       this.tilesEngine?.tentacles.remove(entity.id);
+    }
+    // Stop idle-crackle for Lightning Towers
+    if (entity.typeConfig.id === 'lightning') {
+      this.tilesEngine?.lightningBolts.deregisterIdleCrackle(entity.id);
     }
     this.tilesEngine?.towers.remove(entity.id);
     super.remove(entity);

@@ -108,6 +108,18 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
     effects: [{ kind: 'unlock-tower', towerId: 'magic' }],
   },
 
+  'storm-mastery': {
+    id: 'storm-mastery',
+    name: 'Storm Mastery',
+    description: 'Unlocks the Lightning Tower — chain hitscan, anti-swarm/air',
+    category: 'tower-unlock',
+    icon: 'bolt',
+    cost: 60,
+    duration: 20,
+    prerequisites: ['arcane-studies'],
+    effects: [{ kind: 'unlock-tower', towerId: 'lightning' }],
+  },
+
   // ==================== Tower Unlocks (Tier 2) ====================
 
   'rocketry': {

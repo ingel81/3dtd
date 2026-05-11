@@ -199,9 +199,23 @@ export class ResearchPickStrategy extends BaseStrategy {
       const towerCfg = TOWER_TYPES[effect.towerId as TowerTypeId];
       if (!towerCfg) return 0;
       // Score: avg damage multiplier against current armor mix, weighted by DPS/cost
-      const dps = towerCfg.attackType === 'beam'
-        ? (towerCfg.damagePerSecond ?? 0)
-        : towerCfg.damage * towerCfg.fireRate;
+      let dps: number;
+      if (towerCfg.attackType === 'beam') {
+        dps = towerCfg.damagePerSecond ?? 0;
+      } else if (towerCfg.attackType === 'chain') {
+        // Chain hits primary + N jumps with falloff per hop.
+        const maxJumps = towerCfg.maxJumps ?? 0;
+        const falloff = towerCfg.chainFalloff ?? 1.0;
+        let chainMult = 1;
+        let term = 1;
+        for (let i = 0; i < maxJumps; i++) {
+          term *= falloff;
+          chainMult += term;
+        }
+        dps = towerCfg.damage * towerCfg.fireRate * chainMult;
+      } else {
+        dps = towerCfg.damage * towerCfg.fireRate;
+      }
       const avgMult = ARMOR_TYPES.reduce((s, a) =>
         s + (DAMAGE_MATRIX[towerCfg.damageType]?.[a] ?? 1) * (dist[a] ?? 0), 0);
       return (dps * avgMult) / Math.max(1, towerCfg.cost);

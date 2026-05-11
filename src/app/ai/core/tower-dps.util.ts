@@ -48,6 +48,20 @@ export function computeTowerDPS(tower: Tower): number {
     base = tower.combat.damage * tower.combat.fireRate;
   }
 
+  // Chain hitscan multiplies effective DPS via per-jump damage carryover.
+  // Sum = 1 + f + f^2 + … + f^maxJumps (geometric series, primary + jumps).
+  if (cfg.attackType === 'chain') {
+    const maxJumps = cfg.maxJumps ?? 0;
+    const falloff = cfg.chainFalloff ?? 1.0;
+    let chainMult = 1;
+    let term = 1;
+    for (let i = 0; i < maxJumps; i++) {
+      term *= falloff;
+      chainMult += term;
+    }
+    base *= chainMult;
+  }
+
   if (cfg.id === 'poison') {
     base += GAME_BALANCE.effects.poison.dotDamagePerSecond;
   }

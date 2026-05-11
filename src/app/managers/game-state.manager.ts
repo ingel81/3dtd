@@ -441,6 +441,12 @@ export class GameStateManager {
         this.enemyManager,
         this._gameTimeMs,
       );
+      this.towerCombat.updateChainTowers(
+        stepMs,
+        this.towerManager,
+        this.enemyManager,
+        this._gameTimeMs,
+      );
       tCombat = profiling ? performance.now() - t0 : 0;
     }
 

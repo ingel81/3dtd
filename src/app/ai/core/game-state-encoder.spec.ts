@@ -175,9 +175,9 @@ describe('encodeGameState() schema', () => {
       expect(out[34]).toBeLessThanOrEqual(1);
     });
 
-    it('[35-41] DPS-by-damage-type — 7 slots, one per DamageType', () => {
-      // Whatever the encoder computes, all 7 should be valid finite numbers.
-      expect(DAMAGE_TYPES.length).toBe(7);
+    it('[35-41] DPS-by-damage-type — 7 slots, one per DamageType in the encoder order', () => {
+      // Encoder hardcodes 7 damage-type slots so the trained model stays compatible
+      // even when DAMAGE_TYPES grows (e.g. 'lightning' added later — invisible to the AI).
       for (let i = 0; i < 7; i++) {
         expect(Number.isFinite(out[35 + i])).toBe(true);
       }

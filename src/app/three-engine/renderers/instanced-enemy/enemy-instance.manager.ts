@@ -27,6 +27,8 @@ export interface EnemyInstanceState {
   isDead: boolean;
   frozen: boolean;
   poisoned: boolean;
+  /** performance.now() timestamp when an active hit-flash expires (0 = no flash). */
+  hitFlashEnd: number;
   config: EnemyTypeConfig;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
@@ -66,6 +68,11 @@ const FREEZE_TINT_B = 1.0;
 const POISON_TINT_R = 0.2;
 const POISON_TINT_G = 0.8;
 const POISON_TINT_B = 0.1;
+
+// Hit-flash tint color (electric blue-white, used for lightning chain hits)
+const HIT_FLASH_R = 0.85;
+const HIT_FLASH_G = 0.95;
+const HIT_FLASH_B = 1.0;
 
 /**
  * EnemyInstanceManager
@@ -194,6 +201,7 @@ export class EnemyInstanceManager {
       isDead: false,
       frozen: false,
       poisoned: false,
+      hitFlashEnd: 0,
       config,
     };
 
@@ -310,41 +318,48 @@ export class EnemyInstanceManager {
   setFreezeVisual(id: string, active: boolean): void {
     const state = this.getState(id);
     if (!state) return;
-
     state.frozen = active;
     const pool = this.pools.get(state.typeId);
     if (!pool) return;
-
-    if (active) {
-      pool.tintColorAttr.setXYZ(state.index, FREEZE_TINT_R, FREEZE_TINT_G, FREEZE_TINT_B);
-    } else {
-      // When deactivating freeze, keep poison tint if poisoned
-      if (state.poisoned) {
-        pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
-      } else {
-        pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
-      }
-    }
-    pool.tintDirty = true;
+    this.applyTint(state, pool);
   }
 
   setPoisonVisual(id: string, active: boolean): void {
     const state = this.getState(id);
     if (!state) return;
-
     state.poisoned = active;
     const pool = this.pools.get(state.typeId);
     if (!pool) return;
+    this.applyTint(state, pool);
+  }
 
-    if (active) {
-      // Don't override freeze tint (freeze takes visual priority)
-      if (!state.frozen) {
-        pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
-      }
+  /**
+   * Trigger a transient hit-flash on a single enemy (e.g. lightning chain hit).
+   * Overrides freeze/poison briefly, then auto-reverts in updateAnimations()
+   * once `durationMs` has elapsed.
+   */
+  triggerHitFlash(id: string, durationMs = 130): void {
+    const state = this.getState(id);
+    if (!state) return;
+    state.hitFlashEnd = performance.now() + durationMs;
+    const pool = this.pools.get(state.typeId);
+    if (!pool) return;
+    this.applyTint(state, pool);
+  }
+
+  /**
+   * Compute the correct tint colour for an enemy given its state and write
+   * it into the instance attribute. Priority: hit-flash > freeze > poison > none.
+   */
+  private applyTint(state: EnemyInstanceState, pool: TypePool): void {
+    if (state.hitFlashEnd > performance.now()) {
+      pool.tintColorAttr.setXYZ(state.index, HIT_FLASH_R, HIT_FLASH_G, HIT_FLASH_B);
+    } else if (state.frozen) {
+      pool.tintColorAttr.setXYZ(state.index, FREEZE_TINT_R, FREEZE_TINT_G, FREEZE_TINT_B);
+    } else if (state.poisoned) {
+      pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
     } else {
-      if (!state.frozen) {
-        pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
-      }
+      pool.tintColorAttr.setXYZ(state.index, 0, 0, 0);
     }
     pool.tintDirty = true;
   }
@@ -365,12 +380,20 @@ export class EnemyInstanceManager {
    * Update all animation frames. Called once per render frame.
    */
   updateAnimations(deltaTime: number): void {
+    const now = performance.now();
     for (const pool of this.pools.values()) {
       if (pool.instances.size === 0) continue;
 
       let framesDirty = false;
 
       for (const state of pool.instances.values()) {
+        // Expire hit-flash tints: clear the flag and recompute the persistent
+        // tint (freeze/poison/none) so per-frame state stays consistent.
+        if (state.hitFlashEnd > 0 && now >= state.hitFlashEnd) {
+          state.hitFlashEnd = 0;
+          this.applyTint(state, pool);
+        }
+
         const entry = pool.vatData.animations.get(state.currentAnim);
         if (!entry) continue;
 

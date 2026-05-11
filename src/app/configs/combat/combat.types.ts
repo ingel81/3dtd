@@ -11,7 +11,7 @@
 // ==================== Damage Types ====================
 
 /** All damage types in the game. Add new types here — matrix/UI/configs must follow. */
-export const DAMAGE_TYPES = ['physical', 'pierce', 'siege', 'magic', 'fire', 'ice', 'poison'] as const;
+export const DAMAGE_TYPES = ['physical', 'pierce', 'siege', 'magic', 'fire', 'ice', 'poison', 'lightning'] as const;
 export type DamageType = typeof DAMAGE_TYPES[number];
 
 // ==================== Armor Types ====================

@@ -64,6 +64,7 @@ function createStubService(name: string): Record<string, unknown> {
       updateTowerShooting: vi.fn(),
       updateBeamTowers: vi.fn(),
       updateMeleeTowers: vi.fn(),
+      updateChainTowers: vi.fn(),
       stopAllBeams: vi.fn(),
       stopAllMelee: vi.fn(),
     },

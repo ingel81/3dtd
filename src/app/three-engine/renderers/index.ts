@@ -17,3 +17,4 @@ export { ThreeEffectsRenderer } from './three-effects.renderer';
 export { ThreeFlameBeamRenderer } from './three-flame-beam.renderer';
 export { ThreeTentacleRenderer } from './three-tentacle.renderer';
 export { TrailStreakRenderer } from './trail-streak.renderer';
+export { LightningBoltRenderer, type BoltOptions } from './lightning-bolt.renderer';

@@ -310,4 +310,31 @@ export class CombatEffectService {
   ): void {
     this.damageService.applyBeamDamage(this.vfx, enemy, damage, damageType, sourceTowerId, showBloodEffects);
   }
+
+  /**
+   * Apply chain-lightning damage to a single enemy. No blood effects (electric, not physical).
+   * Used by Lightning Tower hitscan chain. Spawns a damage number per hit and
+   * triggers a brief electric-blue tint flash on the target.
+   */
+  applyChainDamage(
+    enemy: Enemy,
+    damage: number,
+    damageType: DamageType,
+    sourceTowerId: string,
+  ): void {
+    const result = this.damageService.applyBeamDamage(this.vfx, enemy, damage, damageType, sourceTowerId, false);
+    if (result) {
+      this.spawnDamageNumberFromResult(enemy, result);
+    }
+    this.tilesEngine?.enemies.triggerHitFlash(enemy.id);
+  }
+
+  /**
+   * Emit a 'vfx:chain-lightning' event with the polyline of hit points
+   * (tower tip → primary → jump1 → …) in local space.
+   */
+  emitChainLightningVfx(points: { x: number; y: number; z: number }[], sourceTowerId: string): void {
+    if (!this.eventBus || points.length < 2) return;
+    this.eventBus.emit({ type: 'vfx:chain-lightning', points, sourceTowerId });
+  }
 }
