@@ -27,7 +27,9 @@ import { TdIconComponent } from '../icon/icon.component';
            tabindex="0"
            role="button" [attr.aria-expanded]="uiStore.infoOverlayVisible()">
       <div class="td-info__row td-info__row--head">
-        <span class="k">FPS</span>
+        @if (uiStore.infoOverlayVisible()) {
+          <span class="k">FPS</span>
+        }
         <span class="v">{{ fps() | number:'1.0-0' }}</span>
         <td-icon class="caret"
                  [name]="uiStore.infoOverlayVisible() ? 'caretU' : 'caret'"
@@ -95,6 +97,48 @@ import { TdIconComponent } from '../icon/icon.component';
     }
     .td-info:hover .td-info__row--head .caret {
       opacity: 1;
+    }
+
+    /* Collapsed: shrink to just the FPS value + caret. Label is hidden in
+     * the template; drop the fixed-width column flex and tighten padding
+     * so the panel intrinsic-sizes around its contents. Background,
+     * border, shadow, and blur are stripped — only a text-shadow gives the
+     * value enough contrast against bright map tiles. The caret stays as
+     * the affordance that this is expandable; on hover a faint background
+     * fades in so the click target is discoverable. */
+    .td-info:not(.td-info--expanded) {
+      padding: 2px 6px;
+      background: transparent;
+      backdrop-filter: none;
+      -webkit-backdrop-filter: none;
+      border-color: transparent;
+      box-shadow: none;
+      /* 1px dark outline (4 cardinal offsets) + soft drop — keeps the
+       * value/caret legible against bright sky, water, or any mixed map
+       * tile without falling back to a panel background. */
+      text-shadow:
+        -1px -1px 0 rgba(0, 0, 0, 0.9),
+         1px -1px 0 rgba(0, 0, 0, 0.9),
+        -1px  1px 0 rgba(0, 0, 0, 0.9),
+         1px  1px 0 rgba(0, 0, 0, 0.9),
+         0 1px 3px rgba(0, 0, 0, 0.7);
+    }
+    .td-info:not(.td-info--expanded):hover {
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(4px);
+      -webkit-backdrop-filter: blur(4px);
+      box-shadow: none;
+    }
+    .td-info:not(.td-info--expanded) .td-info__row {
+      gap: 6px;
+    }
+    .td-info:not(.td-info--expanded) .td-info__row .v {
+      flex: 0 0 auto;
+      width: auto;
+    }
+    .td-info:not(.td-info--expanded) .td-info__row--head .caret {
+      opacity: 0.85;
+      filter: drop-shadow(0 0 2px rgba(0, 0, 0, 0.9));
     }
   `,
 })
