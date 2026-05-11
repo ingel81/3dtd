@@ -511,6 +511,12 @@ export class GlobalRouteGrid {
       }
     }
 
+    // Tower-reg re-sampled cell.terrainHeight for each visited cell — refresh
+    // the global viz so its mesh positions match the new cached values,
+    // preventing a visible Y-drift between global overlay and per-tower
+    // overlay for the same cells.
+    if (this.visualization) this.initializePositions();
+
     return visibleCells;
   }
 
@@ -607,6 +613,10 @@ export class GlobalRouteGrid {
         visibleCells.push(cell);
       }
     }
+
+    // Same rationale as in registerTower — incremental re-sampling may have
+    // updated cell.terrainHeight, keep the global viz mesh in sync.
+    if (this.visualization) this.initializePositions();
 
     return visibleCells;
   }
@@ -1327,6 +1337,11 @@ export class GlobalRouteGrid {
       const visibleCells = s.visibleCells;
       const onComplete = s.onComplete;
       this.towerRegState = null;
+      // Refresh the global viz mesh so its positions reflect the cell
+      // terrainHeight values written during this progressive registration.
+      // Without this, the global overlay and the per-tower overlay can
+      // sit on slightly different Y for the same cells.
+      if (this.visualization) this.initializePositions();
       onComplete(visibleCells);
       return true;
     }
