@@ -944,20 +944,21 @@ export class GlobalRouteGrid {
       const groundVisibleByAny = this.isGroundVisibleByAnyTower(cell);
       const airVisibleByAny = this.isAirVisibleByAnyTower(cell);
       const anyVisible = groundVisibleByAny || airVisibleByAny;
-      const anyRegistered = cell.towerVisibility.size > 0 || cell.airVisibility.size > 0;
 
       if (hasEnemies && anyVisible) {
         state = 5; // Yellow: Enemy + visible = target
       } else if (hasEnemies) {
         state = 4; // Purple: Enemy in cell
-      } else if (!anyRegistered) {
-        state = 0; // Gray: No tower registered
       } else if (groundVisibleByAny) {
         state = 1; // Green: Ground LoS by at least one tower
       } else if (airVisibleByAny) {
         state = 3; // Muted blue: Air-only LoS
       } else {
-        state = 2; // Red: Registered but everywhere blocked
+        // Gray: either not in any tower's range, or in range but blocked.
+        // We don't surface a distinct red "registered-but-blocked" state in
+        // the global debug view — that level of detail belongs on the
+        // per-tower overlay, not on the always-on global toggle.
+        state = 0;
       }
 
       this.cellStateAttribute.setX(index, state);

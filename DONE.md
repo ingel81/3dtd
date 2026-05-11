@@ -103,6 +103,13 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       Die drei Viz-Systeme bleiben getrennt (unterschiedliche Daten, Lifecycles,
       Shader), aber stacken jetzt auf identischer Y.
 
+- [x] **Rote „registered-but-blocked" Cells aus Global-Debug-Overlay entfernt**
+      `updateVisualization` markierte vorher Cells als rot wenn min. ein Tower
+      sie in Range hatte aber jeder Tower blockiert ist. Semantisch korrekt,
+      visuell zu laut auf dem globalen Toggle (rote Stellen ohne Kontext welcher
+      Tower betroffen). Jetzt fallen diese Cells auf Grau zurück — die rote
+      „blocked"-Info bleibt im Per-Tower-Overlay verfügbar wo der Kontext eindeutig ist.
+
 ### TODO-Cleanup: Air-LoS bereits umgesetzt
 - [x] **Line-of-Sight für Air-Tower / Air-Targets**
       Bereits in `1f156a4` (2026-05-09) implementiert — TODO-Eintrag war veraltet.
