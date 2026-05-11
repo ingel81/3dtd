@@ -6,6 +6,36 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-05-11
 
+### Lightning Tower — Hitscan-Chain + Idle-Crackle + lokale Impact-Halos
+
+> Neuer Tower-Typ `lightning` (eigene Tower-Type-ID, **nicht** der existierende
+> `magic` Tower). Kettenblitz springt Hitscan-basiert zwischen Enemies, am Turm
+> sitzt durchgehend ein Idle-Crackle-Effekt am Tip. Jedes getroffene Ziel
+> bekommt zusätzlich einen kurzen lokalen Aufhell-Effekt am Aufschlagspunkt
+> (Workaround weil Google Photorealistic Tiles dynamische Lichter ignorieren).
+
+- [x] **Lightning Tower mit Hitscan-Chain + Idle-Crackle**
+      Eigener `lightning` Tower-Type (`tower-types.config.ts:354`).
+      `LightningBoltRenderer` mit Pool von 192 Bolts, Vertex-Shader rechnet
+      jagged shape aus zwei Endpunkten und seedbasiertem Noise, Fragment-Shader
+      faded über Lifetime. `registerIdleCrackle()` spawnt durchgehend Mikro-Bolts
+      am Tip. `vfx:chain-lightning` Event übergibt Polyline (Tip → primary →
+      jump1 → …), `VFXService.handleChainLightning` spawnt einen Bolt pro Segment.
+      Commit a5ba204.
+
+- [x] **Lokale Impact-Halos (additive Billboard-Overlays)**
+      Erste Iteration mit Auto-Bloom global war Sackgasse (alle emissiven
+      Materialien glühten dauerhaft). Zweite Iteration mit pooled PointLights
+      hatte null sichtbaren Effekt — Photorealistic 3D Tiles haben das Licht
+      im Albedo eingebrannt und reagieren nicht auf dynamische Three.js Lichter.
+      Final: `LightningBoltRenderer` hält einen Pool von 16 `Sprite`s mit
+      AdditiveBlending + Radial-Gradient-CanvasTexture, permanent in der Scene
+      mit Opacity 0 wenn frei (vermeidet Material-Recompiles). `BoltOptions.attachLight`
+      triggert pro Segment einen Halo am End-Punkt, der mit `(1-age)²` über die
+      Bolt-Lifetime ausfaded. Steal-oldest, clear() und dispose() geben Halos
+      sauber frei. Tuning: `lightDistance` (Durchmesser m, default 22),
+      `lightIntensity` (Peak-Opacity, default 1.2). Commit 4fb96ec.
+
 ### Route-Cell-Grid Single-Source-Of-Truth Refactor (4 Phasen, ULTRA HIGH PRIO)
 
 > Vollständige architektonische Konsolidierung des Cell-Grids nach
