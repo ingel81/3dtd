@@ -477,8 +477,11 @@ export class GameEventBus {
       this.metrics.eventsEmitted++;
     }
 
-    // Notify debug listeners (catch-all)
-    this.debugListeners.forEach((handler) => handler(event as GameEvent));
+    // Notify debug listeners (catch-all) — skip the forEach allocation/iteration
+    // entirely when no debug subscribers are attached (the hot path 99% of the time).
+    if (this.debugListeners.size > 0) {
+      this.debugListeners.forEach((handler) => handler(event as GameEvent));
+    }
 
     const handlers = this.listeners.get(event.type);
     if (handlers && handlers.size > 0) {

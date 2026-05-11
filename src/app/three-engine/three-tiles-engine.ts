@@ -59,7 +59,7 @@ import {
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
-import { AssetManagerService } from '../services/asset-manager.service';
+import { AssetManagerService } from '../services/infrastructure/asset-manager.service';
 import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';

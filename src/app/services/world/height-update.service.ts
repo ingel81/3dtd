@@ -1,7 +1,7 @@
 import { Injectable, signal, WritableSignal } from '@angular/core';
 import { Group, Vector3 } from 'three';
-import { ThreeTilesEngine } from '../three-engine';
-import { GeoPosition } from '../models/game.types';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GeoPosition } from '../../models/game.types';
 
 /**
  * HeightUpdateService

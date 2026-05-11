@@ -30,7 +30,7 @@ import {
 } from 'three';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
-import { AssetManagerService } from '../../services/asset-manager.service';
+import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
 /**

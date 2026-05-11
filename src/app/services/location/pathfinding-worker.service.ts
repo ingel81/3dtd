@@ -1,10 +1,10 @@
 import { Injectable } from '@angular/core';
-import { StreetNetwork, StreetNode } from '../interfaces/street-network-provider.interface';
+import { StreetNetwork, StreetNode } from '../../interfaces/street-network-provider.interface';
 import type {
   SerializedStreetNetwork,
   WorkerInMessage,
   WorkerOutMessage,
-} from '../workers/pathfinding.worker';
+} from '../../workers/pathfinding.worker';
 
 /**
  * PathfindingWorkerService
@@ -74,7 +74,7 @@ export class PathfindingWorkerService {
 
       // Create worker using Angular's worker syntax
       this.worker = new Worker(
-        new URL('../workers/pathfinding.worker', import.meta.url),
+        new URL('../../workers/pathfinding.worker', import.meta.url),
         { type: 'module' }
       );
 

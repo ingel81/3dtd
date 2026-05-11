@@ -3,17 +3,17 @@ import {
   Group, Mesh, MeshPhongMaterial, MeshBasicMaterial, Color,
   BufferGeometry, Vector3, LineLoop, LineDashedMaterial, Line,
 } from 'three';
-import { ThreeTilesEngine } from '../three-engine';
+import { ThreeTilesEngine } from '../../three-engine';
 import { MarkerVisualizationService } from './marker-visualization.service';
-import { OsmStreetService, StreetNetwork } from './osm-street.service';
-import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import { UIStore } from '../store/ui.store';
-import { GeoPosition } from '../models/game.types';
+import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { UIStore } from '../../store/ui.store';
+import { GeoPosition } from '../../models/game.types';
 import {
   MIN_MANUAL_SPAWN_DISTANCE,
   MAX_MANUAL_SPAWN_DISTANCE,
   MAX_PLACEMENT_STREET_DISTANCE,
-} from '../configs/map-constants.config';
+} from '../../configs/map-constants.config';
 
 /**
  * Result of a successful placement click

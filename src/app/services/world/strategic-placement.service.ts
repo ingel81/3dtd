@@ -6,15 +6,15 @@
  */
 
 import { Injectable, inject } from '@angular/core';
-import { OsmStreetService, StreetNetwork } from './osm-street.service';
+import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
 import { PathAndRouteService } from './path-route.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
-import { GeoPosition } from '../models/game.types';
-import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import { SpawnPoint } from '../managers/wave.manager';
-import { PLACEMENT_CONFIG } from '../configs/placement.config';
-import { Tower } from '../entities/tower.entity';
-import { findNearestRouteDistance } from '../utils/geo-utils';
+import { GeoPosition } from '../../models/game.types';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { SpawnPoint } from '../../managers/wave.manager';
+import { PLACEMENT_CONFIG } from '../../configs/placement.config';
+import { Tower } from '../../entities/tower.entity';
+import { findNearestRouteDistance } from '../../utils/geo-utils';
 
 export interface PlacementCandidate {
   position: GeoPosition;

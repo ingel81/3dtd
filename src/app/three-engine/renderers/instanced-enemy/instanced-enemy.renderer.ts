@@ -6,7 +6,7 @@ import {
 } from 'three';
 import { CoordinateSync } from '../index';
 import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enemy-types.config';
-import { AssetManagerService } from '../../../services/asset-manager.service';
+import { AssetManagerService } from '../../../services/infrastructure/asset-manager.service';
 import { EnemyInstanceManager } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';

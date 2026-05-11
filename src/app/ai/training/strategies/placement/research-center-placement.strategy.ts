@@ -14,7 +14,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
 import { TOWER_TYPES } from '../../../../configs/tower-types.config';
-import { StrategicPlacementService } from '../../../../services/strategic-placement.service';
+import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 
 export class ResearchCenterPlacementStrategy extends BaseStrategy {

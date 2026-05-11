@@ -1,8 +1,8 @@
 import { Injectable, inject } from '@angular/core';
 import { Vector3 } from 'three';
 import { ThreeTilesEngine } from '../../three-engine';
-import { GlobalRouteGridService } from '../global-route-grid.service';
-import { SpatialGridService } from '../spatial-grid.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
+import { SpatialGridService } from '../world/spatial-grid.service';
 import { CombatEffectService } from './combat-effect.service';
 import { ResearchStore } from '../../store/research.store';
 import { Enemy } from '../../entities/enemy.entity';

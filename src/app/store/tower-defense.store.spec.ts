@@ -7,7 +7,7 @@ import { UIStore } from './ui.store';
 import { EngineStore } from './engine.store';
 import { LocationStore } from './location.store';
 import { ResearchStore } from './research.store';
-import { EngineInitializationService } from '../services/engine-initialization.service';
+import { EngineInitializationService } from '../services/infrastructure/engine-initialization.service';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 
 /** Minimal stub for EngineInitializationService (only the signals TowerDefenseStore proxies) */

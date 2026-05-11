@@ -8,14 +8,14 @@ import {
   LineBasicMaterial,
   Group,
 } from 'three';
-import { ThreeTilesEngine } from '../three-engine';
-import { StreetNetwork, StreetNode } from './osm-street.service';
+import { ThreeTilesEngine } from '../../three-engine';
+import { StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { MarkerVisualizationService } from './marker-visualization.service';
-import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { PathAndRouteService } from './path-route.service';
-import { GeoPosition } from '../models/game.types';
-import { DevWorldService } from '../devworld/devworld.service';
-import { UIStore } from '../store/ui.store';
+import { GeoPosition } from '../../models/game.types';
+import { DevWorldService } from '../../devworld/devworld.service';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * Maximum distance between street points (in meters).

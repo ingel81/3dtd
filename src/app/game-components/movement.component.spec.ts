@@ -93,6 +93,114 @@ describe('MovementComponent', () => {
     expect(movement.statusEffects.length).toBe(0);
   });
 
+  describe('applyStatusEffect — DOT/refresh stacking semantics', () => {
+    it('slow effects do NOT stack — a new slow replaces the existing one', () => {
+      const slowA: StatusEffect = {
+        type: 'slow', value: 0.3, duration: 1000, startTime: 0, sourceId: 'tower-A',
+      };
+      const slowB: StatusEffect = {
+        type: 'slow', value: 0.7, duration: 2000, startTime: 500, sourceId: 'tower-B',
+      };
+      movement.applyStatusEffect(slowA);
+      movement.applyStatusEffect(slowB);
+      // Only ONE slow entry survives — the second one (refresh)
+      expect(movement.statusEffects.filter(e => e.type === 'slow').length).toBe(1);
+      const surviving = movement.statusEffects.find(e => e.type === 'slow')!;
+      expect(surviving.value).toBe(0.7);
+      expect(surviving.duration).toBe(2000);
+      expect(surviving.startTime).toBe(500);
+      expect(surviving.sourceId).toBe('tower-B');
+    });
+
+    it('poison effects do NOT stack — a new poison replaces the existing one', () => {
+      const poisonA: StatusEffect = {
+        type: 'poison', value: 5, duration: 3000, startTime: 0, sourceId: 'tower-A',
+      };
+      const poisonB: StatusEffect = {
+        type: 'poison', value: 12, duration: 4000, startTime: 1000, sourceId: 'tower-B',
+      };
+      movement.applyStatusEffect(poisonA);
+      movement.applyStatusEffect(poisonB);
+      expect(movement.statusEffects.filter(e => e.type === 'poison').length).toBe(1);
+      const surviving = movement.statusEffects.find(e => e.type === 'poison')!;
+      expect(surviving.value).toBe(12);
+      expect(surviving.duration).toBe(4000);
+      expect(surviving.sourceId).toBe('tower-B');
+    });
+
+    it('slow and poison live independently — applying one does not displace the other', () => {
+      const slow: StatusEffect  = { type: 'slow',   value: 0.4, duration: 1000, startTime: 0 };
+      const poison: StatusEffect = { type: 'poison', value: 5,   duration: 2000, startTime: 0 };
+      movement.applyStatusEffect(slow);
+      movement.applyStatusEffect(poison);
+      expect(movement.statusEffects.length).toBe(2);
+      expect(movement.statusEffects.some(e => e.type === 'slow')).toBe(true);
+      expect(movement.statusEffects.some(e => e.type === 'poison')).toBe(true);
+    });
+
+    it('non-slow/poison effects from the SAME source refresh in place', () => {
+      const burnA: StatusEffect = {
+        type: 'burn', value: 3, duration: 500, startTime: 0, sourceId: 'flame-tower-1',
+      };
+      const burnRefresh: StatusEffect = {
+        type: 'burn', value: 7, duration: 1200, startTime: 400, sourceId: 'flame-tower-1',
+      };
+      movement.applyStatusEffect(burnA);
+      movement.applyStatusEffect(burnRefresh);
+      expect(movement.statusEffects.length).toBe(1);
+      expect(movement.statusEffects[0].value).toBe(7);
+      expect(movement.statusEffects[0].duration).toBe(1200);
+    });
+
+    it('non-slow/poison effects from DIFFERENT sources stack independently', () => {
+      const burnA: StatusEffect = {
+        type: 'burn', value: 3, duration: 1000, startTime: 0, sourceId: 'flame-tower-1',
+      };
+      const burnB: StatusEffect = {
+        type: 'burn', value: 5, duration: 1500, startTime: 0, sourceId: 'flame-tower-2',
+      };
+      movement.applyStatusEffect(burnA);
+      movement.applyStatusEffect(burnB);
+      expect(movement.statusEffects.length).toBe(2);
+    });
+
+    it('updateStatusEffects reports slow + poison flags simultaneously', () => {
+      movement.applyStatusEffect({
+        type: 'slow', value: 0.6, duration: 1000, startTime: 0,
+      });
+      movement.applyStatusEffect({
+        type: 'poison', value: 5, duration: 1000, startTime: 0,
+      });
+      const result = movement.updateStatusEffects(500);
+      expect(result.isSlowed).toBe(true);
+      expect(result.isPoisoned).toBe(true);
+      expect(result.slowMultiplier).toBeCloseTo(0.4, 6); // 1 - 0.6
+    });
+
+    it('expired effects are compacted out by updateStatusEffects', () => {
+      movement.applyStatusEffect({
+        type: 'slow', value: 0.5, duration: 1000, startTime: 0,
+      });
+      movement.applyStatusEffect({
+        type: 'poison', value: 3, duration: 5000, startTime: 0,
+      });
+      // gameTime 2000: slow expired (>= 1000 elapsed), poison still active
+      const result = movement.updateStatusEffects(2000);
+      expect(result.isSlowed).toBe(false);
+      expect(result.isPoisoned).toBe(true);
+      expect(movement.statusEffects.length).toBe(1);
+      expect(movement.statusEffects[0].type).toBe('poison');
+    });
+
+    it('freeze counts as slowed for movement purposes', () => {
+      movement.applyStatusEffect({
+        type: 'freeze', value: 1.0, duration: 1000, startTime: 0, sourceId: 'ice',
+      });
+      const result = movement.updateStatusEffects(500);
+      expect(result.isSlowed).toBe(true);
+    });
+  });
+
   it('handles edge cases for empty and single-point paths', () => {
     const transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
     const initialPosition = { ...transform.position };

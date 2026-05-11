@@ -23,8 +23,8 @@ import { GameStateManager } from '../../managers/game-state.manager';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
 import { EventSubscription } from '../../game-engine';
 import { TowerPlacementService } from '../../services/tower-placement.service';
-import { StrategicPlacementService } from '../../services/strategic-placement.service';
-import { OsmStreetService } from '../../services/osm-street.service';
+import { StrategicPlacementService } from '../../services/world/strategic-placement.service';
+import { OsmStreetService } from '../../services/location/osm-street.service';
 import { ThreeTilesEngine } from '../../three-engine';
 import { Tower } from '../../entities/tower.entity';
 

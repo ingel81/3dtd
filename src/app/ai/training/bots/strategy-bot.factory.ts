@@ -7,9 +7,9 @@
 import { StrategyBot } from './strategy-bot';
 import { BotSkillLevel, BOT_CONFIGS, BotConfig } from './tower-bot.interface';
 import { ITowerStrategy } from '../strategies/tower-strategy.interface';
-import { StrategicPlacementService } from '../../../services/strategic-placement.service';
+import { StrategicPlacementService } from '../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../managers/game-state.manager';
-import { OsmStreetService } from '../../../services/osm-street.service';
+import { OsmStreetService } from '../../../services/location/osm-street.service';
 
 // Strategy imports
 import { AntiAirPlacementStrategy } from '../strategies/placement/anti-air-placement.strategy';

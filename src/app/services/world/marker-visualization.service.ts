@@ -12,12 +12,12 @@ import {
   SphereGeometry,
   Color,
 } from 'three';
-import { ThreeTilesEngine } from '../three-engine';
-import { GeoPosition } from '../models/game.types';
-import { HQDamageService } from './combat/hq-damage.service';
-import { UIStore } from '../store/ui.store';
-import { MarkerInstanceManager } from '../three-engine/renderers/marker/marker-instance.manager';
-import { MarkerLabelManager } from '../three-engine/renderers/marker/marker-label.manager';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GeoPosition } from '../../models/game.types';
+import { HQDamageService } from '../combat/hq-damage.service';
+import { UIStore } from '../../store/ui.store';
+import { MarkerInstanceManager } from '../../three-engine/renderers/marker/marker-instance.manager';
+import { MarkerLabelManager } from '../../three-engine/renderers/marker/marker-label.manager';
 
 /**
  * SpawnPoint definition - extends GeoPosition for consistent coordinate handling

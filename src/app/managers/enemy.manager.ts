@@ -4,8 +4,8 @@ import { EntityManager } from './entity-manager';
 import { Enemy } from '../entities/enemy.entity';
 import { EnemyTypeId } from '../configs/enemy-types.config';
 import { GeoPosition } from '../models/game.types';
-import { GlobalRouteGridService } from '../services/global-route-grid.service';
-import { SpatialGridService } from '../services/spatial-grid.service';
+import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
+import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
@@ -40,8 +40,11 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies with active poison visual
   private poisonVisualEnemies = new Set<string>();
 
-  // Poison tick timestamps in GAME-TIME ms (engine game-clock).
-  private poisonTickTimes = new Map<string, number>();
+  // Poison tick accumulator in GAME-TIME ms per enemy. Increments by the
+  // per-sub-step deltaTime; each time it crosses poisonTickIntervalMs we fire
+  // one tick and subtract the interval. Robust at any timescale because we
+  // never tie ticks to wall-clock time.
+  private poisonTickAccum = new Map<string, number>();
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
@@ -459,29 +462,38 @@ export class EnemyManager extends EntityManager<Enemy> {
           this.tilesEngine.enemies.setPoisonVisual(enemy.id, false);
           this.tilesEngine.effects.stopPoisonAura(enemy.id);
           this.poisonVisualEnemies.delete(enemy.id);
-          this.poisonTickTimes.delete(enemy.id);
+          this.poisonTickAccum.delete(enemy.id);
         }
 
-        // Poison DOT tick: emit damage at the configured interval of GAME-TIME.
+        // Poison DOT tick: pure accumulator on game-time deltaTime. Avoids
+        // drift on long frames and naturally fires multiple ticks per sub-step
+        // at high timescales.
         if (isPoisoned) {
-          const lastTick = this.poisonTickTimes.get(enemy.id) ?? gameTimeMs;
-          if (gameTimeMs - lastTick >= COMBAT_TUNING.poisonTickIntervalMs) {
-            this.poisonTickTimes.set(enemy.id, gameTimeMs);
+          const interval = COMBAT_TUNING.poisonTickIntervalMs;
+          let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime * 1000;
+          if (acc >= interval) {
             const poisonEffect = enemy.movement.statusEffects.find(
               (e) => e.type === 'poison'
             );
             if (poisonEffect) {
               const tickDamage = poisonEffect.value * 0.5;  // 500ms tick = DPS * 0.5
-              this.eventBus.emit({
-                type: 'dot:damage',
-                enemy,
-                damage: tickDamage,
-                sourceId: poisonEffect.sourceId ?? '',
-                effectType: 'poison',
-                damageType: 'poison',
-              });
+              while (acc >= interval) {
+                this.eventBus.emit({
+                  type: 'dot:damage',
+                  enemy,
+                  damage: tickDamage,
+                  sourceId: poisonEffect.sourceId ?? '',
+                  effectType: 'poison',
+                  damageType: 'poison',
+                });
+                acc -= interval;
+              }
+            } else {
+              // No active poison effect — drop the surplus rather than burning ticks.
+              acc = 0;
             }
           }
+          this.poisonTickAccum.set(enemy.id, acc);
         }
       }
       if (profiling) tRender += performance.now() - t0;
@@ -573,7 +585,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (this.poisonVisualEnemies.has(entity.id)) {
       this.tilesEngine?.effects.stopPoisonAura(entity.id);
       this.poisonVisualEnemies.delete(entity.id);
-      this.poisonTickTimes.delete(entity.id);
+      this.poisonTickAccum.delete(entity.id);
     }
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
@@ -619,7 +631,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopPoisonAura(enemyId);
     }
     this.poisonVisualEnemies.clear();
-    this.poisonTickTimes.clear();
+    this.poisonTickAccum.clear();
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache

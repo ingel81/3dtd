@@ -1,5 +1,5 @@
 import { Injectable, signal, inject, computed } from '@angular/core';
-import { SpawnLocationConfig, FavoriteLocation } from '../models/location.types';
+import { SpawnLocationConfig, FavoriteLocation } from '../../models/location.types';
 import { GeocodingService } from './geocoding.service';
 
 const FAVORITES_KEY = 'td_favorites_v2';

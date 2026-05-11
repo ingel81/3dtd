@@ -1,16 +1,16 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { Object3D, InstancedMesh, Mesh, Color, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
-import { StreetNetwork } from './osm-street.service';
-import { OsmStreetService } from './osm-street.service';
-import { PathAndRouteService } from './path-route.service';
+import { StreetNetwork } from './location/osm-street.service';
+import { OsmStreetService } from './location/osm-street.service';
+import { PathAndRouteService } from './world/path-route.service';
 import { GeoPosition } from '../models/game.types';
 import { Tower } from '../entities/tower.entity';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { PLACEMENT_CONFIG } from '../configs/placement.config';
-import { GlobalRouteGridService } from './global-route-grid.service';
-import { AssetManagerService } from './asset-manager.service';
+import { GlobalRouteGridService } from './world/global-route-grid.service';
+import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { findNearestRouteDistance } from '../utils/geo-utils';
@@ -82,8 +82,13 @@ export class TowerPlacementService {
   /** Is currently rotating (R key held) */
   private isRotating = false;
 
-  /** Last validated position */
-  private lastValidation: { lat: number; lon: number; valid: boolean } | null = null;
+  /** Last validated position (with cached resolvedHeight + validation result) */
+  private lastValidation:
+    | { lat: number; lon: number; resolvedHeight: number; valid: boolean; reason: string | null }
+    | null = null;
+
+  /** Distance (m) the cursor must travel before validation re-runs */
+  private static readonly VALIDATION_MOVEMENT_THRESHOLD_M = 1.0;
 
   /** Debounce timer for LoS updates */
   private losDebounceTimer: number | null = null;
@@ -377,18 +382,41 @@ export class TowerPlacementService {
       return;
     }
 
-    const resolvedHeight = this.resolvePlacementHeight(lat, lon, terrainHeight);
-
-    // If model is still loading, queue this position for later
-    if (this.modelLoading) {
-      this.queuedPosition = { lat, lon, height: resolvedHeight };
+    // If model is still loading, queue this position for later.
+    if (this.modelLoading || !this.previewTowerMesh) {
+      this.queuedPosition = { lat, lon, height: terrainHeight };
       return;
     }
 
-    if (!this.previewTowerMesh) {
-      this.queuedPosition = { lat, lon, height: resolvedHeight };
-      return;
+    // Skip the expensive raycast + validation if the cursor barely moved.
+    // Distance approximation (good for <100m at typical latitudes): treat
+    // lat-lon deltas as metric via 111320 m/deg and a cos(lat) longitude
+    // scale. Cheaper than haversine and allocation-free.
+    let resolvedHeight: number;
+    let validValid: boolean;
+    let validReason: string | null;
+
+    const reuseCache = this.lastValidation !== null
+      && this.metersFromLastValidated(lat, lon) < TowerPlacementService.VALIDATION_MOVEMENT_THRESHOLD_M;
+
+    if (reuseCache && this.lastValidation) {
+      resolvedHeight = this.lastValidation.resolvedHeight;
+      validValid = this.lastValidation.valid;
+      validReason = this.lastValidation.reason;
+    } else {
+      resolvedHeight = this.resolvePlacementHeight(lat, lon, terrainHeight);
+      const validation = this.validateTowerPosition(lat, lon);
+      validValid = validation.valid;
+      validReason = validation.valid ? null : (validation.reason ?? 'Invalid position');
+      const previousValid = this.lastValidation?.valid ?? null;
+      this.lastValidation = { lat, lon, resolvedHeight, valid: validValid, reason: validReason };
+      // Material tint only flips when the valid/invalid result changes.
+      if (previousValid === null || previousValid !== validValid) {
+        this.colorizePreviewModel(validValid);
+      }
     }
+
+    this.validationReason.set(validValid ? null : (validReason ?? 'Invalid position'));
 
     // Store current position for placement
     this.currentPosition = { lat, lon, height: resolvedHeight };
@@ -419,22 +447,21 @@ export class TowerPlacementService {
     this.previewTowerMesh.rotation.y = baseRotation + this.currentRotation();
     this.previewTowerMesh.visible = true;
 
-    // Validate and colorize
-    const validation = this.validateTowerPosition(lat, lon);
-    this.validationReason.set(validation.valid ? null : (validation.reason ?? 'Invalid position'));
-
-    if (!this.lastValidation || this.lastValidation.valid !== validation.valid) {
-      this.colorizePreviewModel(validation.valid);
-      this.lastValidation = { lat, lon, valid: validation.valid };
-    }
-
     // Update LoS preview only for valid positions (skip calculation for invalid spots)
-    if (validation.valid) {
+    if (validValid) {
       this.updateLoSPreviewDebounced(lat, lon, resolvedHeight, typeId);
     } else {
       // Invalid position - cancel any ongoing preview and hide
       this.cancelAndHideLosPreview();
     }
+  }
+
+  /** Approximate meters between (lat, lon) and the last validated sample. */
+  private metersFromLastValidated(lat: number, lon: number): number {
+    const cache = this.lastValidation!;
+    const dLat = (lat - cache.lat) * 111320;
+    const dLon = (lon - cache.lon) * 111320 * Math.cos(lat * Math.PI / 180);
+    return Math.sqrt(dLat * dLat + dLon * dLon);
   }
 
   /**

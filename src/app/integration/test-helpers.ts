@@ -12,9 +12,9 @@ import { EnemyManager } from '../managers/enemy.manager';
 import { TowerManager } from '../managers/tower.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
 import { WaveManager, SpawnPoint } from '../managers/wave.manager';
-import { OsmStreetService } from '../services/osm-street.service';
-import { GlobalRouteGridService } from '../services/global-route-grid.service';
-import { SpatialGridService } from '../services/spatial-grid.service';
+import { OsmStreetService } from '../services/location/osm-street.service';
+import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
+import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { GameObject } from '../core/game-object';
 
 // ─── Test Path Data ───────────────────────────────────────────────

@@ -115,10 +115,18 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
 
               <div class="slider-row">
                 <span class="label">Delay</span>
-                <input type="range" min="0.01" max="5000" step="0.1"
+                <input type="range" min="0" max="5000" step="0.1"
                        [value]="waveDebug.spawnDelay()"
                        (input)="onSpawnDelayChange($event)" />
                 <span class="value">{{ formatDelay(waveDebug.spawnDelay()) }}</span>
+              </div>
+
+              <div class="slider-row">
+                <span class="label">Batch</span>
+                <input type="range" min="1" max="100" step="1"
+                       [value]="waveDebug.maxSpawnsPerFrame()"
+                       (input)="onMaxSpawnsPerFrameChange($event)" />
+                <span class="value">{{ waveDebug.maxSpawnsPerFrame() }}/frame</span>
               </div>
 
               <button class="start-wave-btn"
@@ -223,10 +231,18 @@ const PATTERN_ICONS: Record<SpawnPattern, string> = {
 
               <div class="slider-row">
                 <span class="label">Delay</span>
-                <input type="range" min="0.01" max="5000" step="0.1"
+                <input type="range" min="0" max="5000" step="0.1"
                        [value]="waveDebug.spawnDelay()"
                        (input)="onSpawnDelayChange($event)" />
                 <span class="value">{{ formatDelay(waveDebug.spawnDelay()) }}</span>
+              </div>
+
+              <div class="slider-row">
+                <span class="label">Batch</span>
+                <input type="range" min="1" max="100" step="1"
+                       [value]="waveDebug.maxSpawnsPerFrame()"
+                       (input)="onMaxSpawnsPerFrameChange($event)" />
+                <span class="value">{{ waveDebug.maxSpawnsPerFrame() }}/frame</span>
               </div>
 
               <div class="slider-row">
@@ -828,6 +844,11 @@ export class WaveDebuggerComponent {
   onSpawnDelayChange(event: Event): void {
     const value = parseFloat((event.target as HTMLInputElement).value);
     this.waveDebug.setSpawnDelay(this.roundTo(value, 2));
+  }
+
+  onMaxSpawnsPerFrameChange(event: Event): void {
+    const value = parseInt((event.target as HTMLInputElement).value, 10);
+    this.waveDebug.setMaxSpawnsPerFrame(value);
   }
 
   // === Mixed Mode Handlers ===

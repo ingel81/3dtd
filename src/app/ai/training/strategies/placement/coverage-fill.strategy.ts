@@ -10,7 +10,7 @@ import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config';
-import { StrategicPlacementService } from '../../../../services/strategic-placement.service';
+import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { Tower } from '../../../../entities/tower.entity';
 

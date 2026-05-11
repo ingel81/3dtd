@@ -1,7 +1,7 @@
 import { Injectable, inject, signal } from '@angular/core';
 import { UIStore } from '../../store/ui.store';
 import { EnemyDebugService } from './enemy-debug.service';
-import { MarkerVisualizationService } from '../marker-visualization.service';
+import { MarkerVisualizationService } from '../world/marker-visualization.service';
 import { CombatEffectService } from '../combat/combat-effect.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 

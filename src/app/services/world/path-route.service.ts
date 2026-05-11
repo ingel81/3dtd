@@ -3,14 +3,14 @@ import { Group, Vector3, Vector2 } from 'three';
 import { Line2 } from 'three/examples/jsm/lines/Line2.js';
 import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
-import { ThreeTilesEngine } from '../three-engine';
-import { GeoPosition } from '../models/game.types';
-import { Street, StreetNetwork, StreetNode } from './osm-street.service';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GeoPosition } from '../../models/game.types';
+import { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
-import { DevWorldService } from '../devworld/devworld.service';
-import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
-import { UIStore } from '../store/ui.store';
-import { PathfindingWorkerService } from './pathfinding-worker.service';
+import { DevWorldService } from '../../devworld/devworld.service';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { UIStore } from '../../store/ui.store';
+import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)

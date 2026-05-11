@@ -1,26 +1,26 @@
 import { Injectable, inject, signal, WritableSignal } from '@angular/core';
 import { MatDialog } from '@angular/material/dialog';
 import { take } from 'rxjs';
-import { ThreeTilesEngine } from '../three-engine';
-import { GameStateManager } from '../managers/game-state.manager';
-import { SPAWN_COLORS } from '../configs/map-constants.config';
-import { SpawnPoint as WaveSpawnPoint } from '../managers/wave.manager';
+import { ThreeTilesEngine } from '../../three-engine';
+import { GameStateManager } from '../../managers/game-state.manager';
+import { SPAWN_COLORS } from '../../configs/map-constants.config';
+import { SpawnPoint as WaveSpawnPoint } from '../../managers/wave.manager';
 import { StreetNetwork, OsmStreetService } from './osm-street.service';
-import { EngineInitializationService } from './engine-initialization.service';
-import { HeightUpdateService } from './height-update.service';
-import { MarkerVisualizationService, SpawnPoint } from './marker-visualization.service';
-import { PathAndRouteService } from './path-route.service';
-import { CameraControlService } from './camera-control.service';
-import { CameraFramingService, GeoPoint } from './camera-framing.service';
-import { RouteAnimationService } from './route-animation.service';
-import { KeyboardPanService } from './keyboard-pan.service';
+import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
+import { HeightUpdateService } from '../world/height-update.service';
+import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualization.service';
+import { PathAndRouteService } from '../world/path-route.service';
+import { CameraControlService } from '../camera-control.service';
+import { CameraFramingService, GeoPoint } from '../camera-framing.service';
+import { RouteAnimationService } from '../world/route-animation.service';
+import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
 import { UrlLocationService } from './url-location.service';
 import { WorldDiceService } from './world-dice.service';
-import { UIStore } from '../store/ui.store';
-import { LocationDialogComponent } from '../components/location-dialog/location-dialog.component';
-import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../models/location.types';
-import { GeoPosition } from '../models/game.types';
+import { UIStore } from '../../store/ui.store';
+import { LocationDialogComponent } from '../../components/location-dialog/location-dialog.component';
+import { LocationConfig, LocationDialogData, LocationDialogResult, FavoriteLocation } from '../../models/location.types';
+import { GeoPosition } from '../../models/game.types';
 
 /**
  * Input data for location change

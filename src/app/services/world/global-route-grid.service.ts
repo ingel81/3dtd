@@ -1,11 +1,11 @@
 import { Injectable, inject } from '@angular/core';
-import { GlobalRouteGrid, RouteCell } from '../utils/global-route-grid';
-import { Enemy } from '../entities/enemy.entity';
-import { GeoPosition } from '../models/game.types';
-import { CoordinateSync } from '../three-engine/renderers';
-import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
+import { GlobalRouteGrid, RouteCell } from '../../utils/global-route-grid';
+import { Enemy } from '../../entities/enemy.entity';
+import { GeoPosition } from '../../models/game.types';
+import { CoordinateSync } from '../../three-engine/renderers';
+import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../../three-engine/renderers/three-tower.renderer';
 import { InstancedMesh, Material, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
-import { UIStore } from '../store/ui.store';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * GlobalRouteGridService - Angular service wrapper for GlobalRouteGrid
