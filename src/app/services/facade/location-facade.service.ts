@@ -163,7 +163,7 @@ export class LocationFacadeService {
    * Initialize location from URL or geolocation cascade.
    */
   async initializeLocation(): Promise<void> {
-    await this.engineInit.setStepActive('location');
+    await this.engineInit.setStepCurrent('location');
 
     // DevWorld mode: Use fake origin, skip real location
     if (this.devWorld.isActive) {
@@ -185,7 +185,7 @@ export class LocationFacadeService {
       await this.engineInit.setStepDone('location', 'from URL');
     } else {
       // No URL params → try geolocation cascade
-      this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepDetail('location', detail);
+      this.geolocation.onStepDetail = (detail) => this.engineInit.updateStepMeta('location', detail);
       const detected = await this.geolocation.detectLocation();
 
       if (detected) {
@@ -193,7 +193,7 @@ export class LocationFacadeService {
         const sourceLabel = detected.source === 'browser' ? 'Browser' : 'IP-based';
         await this.engineInit.setStepDone('location', sourceLabel);
       } else {
-        this.engineInit.updateStepDetail('location', 'Select location...');
+        this.engineInit.updateStepMeta('location', 'Select location...');
         try {
           await this.waitForLocationFromDialog();
         } catch {

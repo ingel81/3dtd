@@ -6,21 +6,14 @@ import { AssetManagerService } from './asset-manager.service';
 import { OsmStreetService, StreetNetwork } from '../location/osm-street.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { DevStreetProvider } from '../../devworld/dev-street.provider';
+import { BootStep, BootStepStatus } from '../../components/loading-screen/boot-step.model';
 
 /**
- * Loading step status
+ * Re-export for legacy import paths. The status / step types now live in the
+ * loading-screen component folder so the screen owns its own data shape.
  */
-export type LoadingStepStatus = 'pending' | 'active' | 'done';
-
-/**
- * Loading step definition
- */
-export interface LoadingStep {
-  id: string;
-  label: string;
-  status: LoadingStepStatus;
-  detail?: string;
-}
+export type LoadingStepStatus = BootStepStatus;
+export type LoadingStep = BootStep;
 
 /**
  * EngineInitializationService
@@ -60,16 +53,16 @@ export class EngineInitializationService {
   readonly error = signal<string | null>(null);
 
   /** Loading steps for detailed progress display */
-  readonly loadingSteps = signal<LoadingStep[]>([
-    { id: 'location', label: 'Determining Location', status: 'pending' },
-    { id: 'init', label: 'Initializing Engine', status: 'pending' },
-    { id: 'streets', label: 'Loading Street Network', status: 'pending' },
-    { id: 'hq', label: 'Placing Headquarters', status: 'pending' },
-    { id: 'spawn', label: 'Placing Spawns', status: 'pending' },
-    { id: 'route', label: 'Calculating Routes', status: 'pending' },
-    { id: 'grid', label: 'Generating Route Grid', status: 'pending' },
-    { id: 'finalize', label: 'Finalizing 3D View', status: 'pending' },
-    { id: 'tiles', label: 'Waiting for 3D Tiles', status: 'pending' },
+  readonly loadingSteps = signal<BootStep[]>([
+    { id: 'location', title: 'Determining Location', status: 'pending' },
+    { id: 'engine', title: 'Initializing Engine', status: 'pending' },
+    { id: 'streets', title: 'Loading Street Network', status: 'pending' },
+    { id: 'hq', title: 'Placing Headquarters', status: 'pending' },
+    { id: 'spawns', title: 'Placing Spawns', status: 'pending' },
+    { id: 'routes', title: 'Calculating Routes', status: 'pending' },
+    { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
+    { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
+    { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
   ]);
 
   // ========================================
@@ -147,41 +140,43 @@ export class EngineInitializationService {
   // ========================================
 
   /**
-   * Set a loading step to 'active' status and update loadingStatus text
+   * Set a loading step to 'current' status and update loadingStatus text.
+   * Any previously-current step that wasn't this one is rolled back to
+   * 'pending' so only one step is ever 'current' at a time.
    * @param stepId Step identifier
    */
-  async setStepActive(stepId: string): Promise<void> {
+  async setStepCurrent(stepId: string): Promise<void> {
     this.loadingSteps.update((steps) =>
       steps.map((s) => ({
         ...s,
-        status: s.id === stepId ? ('active' as const) : s.status === 'active' ? ('pending' as const) : s.status,
+        status: s.id === stepId ? ('current' as const) : s.status === 'current' ? ('pending' as const) : s.status,
       }))
     );
     const step = this.loadingSteps().find((s) => s.id === stepId);
     if (step) {
-      this.loadingStatus.set(step.label + '...');
+      this.loadingStatus.set(step.title + '...');
     }
     await this.tick();
   }
 
   /**
-   * Set a loading step to 'done' status with optional detail
+   * Set a loading step to 'done' status with optional meta text
    * @param stepId Step identifier
-   * @param detail Optional detail text (e.g., "5 Streets")
+   * @param meta Optional meta text (e.g., "5 Streets")
    */
-  async setStepDone(stepId: string, detail?: string): Promise<void> {
-    this.loadingSteps.update((steps) => steps.map((s) => (s.id === stepId ? { ...s, status: 'done' as const, detail } : s)));
+  async setStepDone(stepId: string, meta?: string): Promise<void> {
+    this.loadingSteps.update((steps) => steps.map((s) => (s.id === stepId ? { ...s, status: 'done' as const, meta } : s)));
     await this.tick();
   }
 
   /**
-   * Update the detail text for a step without changing its status
-   * Useful for showing live progress during an 'active' step
+   * Update the meta text for a step without changing its status.
+   * Useful for showing live progress during a 'current' step.
    * @param stepId Step identifier
-   * @param detail Detail text to display
+   * @param meta Meta text to display
    */
-  updateStepDetail(stepId: string, detail: string): void {
-    this.loadingSteps.update((steps) => steps.map((s) => (s.id === stepId ? { ...s, detail } : s)));
+  updateStepMeta(stepId: string, meta: string): void {
+    this.loadingSteps.update((steps) => steps.map((s) => (s.id === stepId ? { ...s, meta } : s)));
   }
 
   /**
@@ -192,15 +187,15 @@ export class EngineInitializationService {
     this.loading.set(true);
     this.loadingStatus.set('Rolling random city...');
     this.loadingSteps.set([
-      { id: 'dice-city', label: 'Rolling City', status: 'active', detail: 'Loading city pool...' },
+      { id: 'dice-city', title: 'Rolling City', status: 'current', meta: 'Loading city pool...' },
     ]);
   }
 
   /**
-   * Update World Dice loading step detail
+   * Update World Dice loading step meta
    */
-  updateWorldDiceDetail(detail: string): void {
-    this.updateStepDetail('dice-city', detail);
+  updateWorldDiceDetail(meta: string): void {
+    this.updateStepMeta('dice-city', meta);
   }
 
   /**
@@ -208,12 +203,12 @@ export class EngineInitializationService {
    */
   finishWorldDiceLoading(cityName: string): void {
     this.loadingSteps.update(steps => steps.map(s =>
-      s.id === 'dice-city' ? { ...s, status: 'done' as const, detail: cityName } : s
+      s.id === 'dice-city' ? { ...s, status: 'done' as const, meta: cityName } : s
     ));
     // Add "loading map" step that will be visible until page reloads
     this.loadingSteps.update(steps => [
       ...steps,
-      { id: 'dice-reload', label: 'Loading Map', status: 'active' as const }
+      { id: 'dice-reload', title: 'Loading Map', status: 'current' as const }
     ]);
     this.loadingStatus.set('Loading map...');
   }
@@ -226,18 +221,18 @@ export class EngineInitializationService {
     const currentLocationStep = this.loadingSteps().find(s => s.id === 'location');
     const locationStep = currentLocationStep?.status === 'done'
       ? currentLocationStep
-      : { id: 'location', label: 'Determining Location', status: 'pending' as const };
+      : { id: 'location', title: 'Determining Location', status: 'pending' as const };
 
     this.loadingSteps.set([
       locationStep,
-      { id: 'init', label: 'Initializing Engine', status: 'pending' },
-      { id: 'streets', label: 'Loading Street Network', status: 'pending' },
-      { id: 'hq', label: 'Placing Headquarters', status: 'pending' },
-      { id: 'spawn', label: 'Placing Spawns', status: 'pending' },
-      { id: 'route', label: 'Calculating Routes', status: 'pending' },
-      { id: 'grid', label: 'Generating Route Grid', status: 'pending' },
-      { id: 'finalize', label: 'Finalizing 3D View', status: 'pending' },
-      { id: 'tiles', label: 'Waiting for 3D Tiles', status: 'pending' },
+      { id: 'engine', title: 'Initializing Engine', status: 'pending' },
+      { id: 'streets', title: 'Loading Street Network', status: 'pending' },
+      { id: 'hq', title: 'Placing Headquarters', status: 'pending' },
+      { id: 'spawns', title: 'Placing Spawns', status: 'pending' },
+      { id: 'routes', title: 'Calculating Routes', status: 'pending' },
+      { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
+      { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
+      { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
     ]);
   }
 
@@ -286,8 +281,8 @@ export class EngineInitializationService {
       this.canvas.height = rect.height;
 
       // Step 1: Initialize Engine
-      await this.setStepActive('init');
-      this.updateStepDetail('init', 'Three.js Engine...');
+      await this.setStepCurrent('engine');
+      this.updateStepMeta('engine', 'Three.js Engine...');
 
       // Engine starts with default camera on HQ - final framing happens after routes are calculated
       this.engine = new ThreeTilesEngine(
@@ -303,13 +298,13 @@ export class EngineInitializationService {
         this.googleMapsApiKey ?? '',
       );
 
-      this.updateStepDetail('init', '3D-Tiles Renderer...');
+      this.updateStepMeta('engine', '3D-Tiles Renderer...');
 
       // Initialize 3D Tiles (camera position is now set optimally)
       await this.engine.initialize();
       this.engine.resize(rect.width, rect.height);
 
-      await this.setStepDone('init');
+      await this.setStepDone('engine');
 
       // Register callback for first tiles loaded
       this.engine.setOnFirstTilesLoadedCallback(() => {
@@ -331,8 +326,8 @@ export class EngineInitializationService {
       });
 
       // Step 2: Load OSM streets
-      await this.setStepActive('streets');
-      this.updateStepDetail('streets', 'Loading OSM data...');
+      await this.setStepCurrent('streets');
+      this.updateStepMeta('streets', 'Loading OSM data...');
       const streetCnt = await callbacks.onLoadStreets();
       await this.setStepDone('streets', streetCnt > 0 ? `${streetCnt} Streets` : undefined);
 
@@ -341,20 +336,20 @@ export class EngineInitializationService {
       callbacks.onInitializeServices();
 
       // Step 3: Place HQ marker
-      await this.setStepActive('hq');
+      await this.setStepCurrent('hq');
       callbacks.onAddBaseMarker();
       await this.setStepDone('hq');
 
       // Step 4: Place spawn points
-      await this.setStepActive('spawn');
+      await this.setStepCurrent('spawns');
       const spawnCnt = callbacks.onAddPredefinedSpawns();
-      await this.setStepDone('spawn', spawnCnt > 0 ? `${spawnCnt} Point${spawnCnt > 1 ? 's' : ''}` : undefined);
+      await this.setStepDone('spawns', spawnCnt > 0 ? `${spawnCnt} Point${spawnCnt > 1 ? 's' : ''}` : undefined);
 
       // Step 5: Calculate routes
-      await this.setStepActive('route');
-      this.updateStepDetail('route', 'A* Pathfinding...');
+      await this.setStepCurrent('routes');
+      this.updateStepMeta('routes', 'A* Pathfinding...');
       const routeDetail = callbacks.onInitializeGameState();
-      await this.setStepDone('route', routeDetail);
+      await this.setStepDone('routes', routeDetail);
 
       // OSM loading done (streets + routes calculated)
       this.osmLoading.set(false);
@@ -362,13 +357,13 @@ export class EngineInitializationService {
       // Step 6: Finalize 3D view (waits for tiles + height sync)
       // Camera correction and saveInitialCameraPosition are now handled by
       // HeightUpdateService callback (runs BEFORE overlay hides)
-      await this.setStepActive('finalize');
+      await this.setStepCurrent('view');
       await callbacks.onScheduleHeightUpdate();
-      await this.setStepDone('finalize');
+      await this.setStepDone('view');
 
       // Step 7: Wait for 3D tiles (if still loading)
       if (this.tilesLoading()) {
-        await this.setStepActive('tiles');
+        await this.setStepCurrent('tiles');
       }
 
       // Final check (heights should trigger hiding overlay)
@@ -399,7 +394,7 @@ export class EngineInitializationService {
       const detail = pending > 0
         ? `${stats.visible} loaded, ${pending} pending`
         : `${stats.visible} tiles loaded`;
-      this.updateStepDetail('tiles', detail);
+      this.updateStepMeta('tiles', detail);
     }, 500);
   }
 
@@ -499,7 +494,7 @@ export class EngineInitializationService {
 
     // If heights are done but tiles still loading, show the tiles step
     if (!heights && !osm && tiles) {
-      void this.setStepActive('tiles');
+      void this.setStepCurrent('tiles');
     }
 
     if (!tiles && !osm && !heights) {

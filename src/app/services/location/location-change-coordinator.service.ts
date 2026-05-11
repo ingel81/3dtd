@@ -431,8 +431,8 @@ export class LocationChangeCoordinatorService {
     ctx: LocationChangeContext,
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
-    await this.engineInit.setStepActive('init');
-    this.engineInit.updateStepDetail('init', 'Resetting game state...');
+    await this.engineInit.setStepCurrent('engine');
+    this.engineInit.updateStepMeta('engine', 'Resetting game state...');
 
     // Stop running updates
     this.heightUpdate.stopHeightUpdates();
@@ -461,7 +461,7 @@ export class LocationChangeCoordinatorService {
     callbacks.syncUrlWithLocation();
 
     // Compute and apply optimal camera framing IMMEDIATELY (before tiles load)
-    this.engineInit.updateStepDetail('init', 'Positioning camera...');
+    this.engineInit.updateStepMeta('engine', 'Positioning camera...');
     const hqCoord: GeoPoint = { lat: input.hq.lat, lon: input.hq.lon };
     const spawnCoords: GeoPoint[] = [{ lat: input.spawn.lat, lon: input.spawn.lon }];
 
@@ -477,7 +477,7 @@ export class LocationChangeCoordinatorService {
     this.cameraFraming.setEngine(ctx.engine);
     this.cameraFraming.applyFrame(initialFrame);
 
-    await this.engineInit.setStepDone('init');
+    await this.engineInit.setStepDone('engine');
   }
 
   /**
@@ -488,18 +488,18 @@ export class LocationChangeCoordinatorService {
     ctx: LocationChangeContext,
     callbacks: LocationChangeCallbacks
   ): Promise<StreetNetwork> {
-    await this.engineInit.setStepActive('streets');
+    await this.engineInit.setStepCurrent('streets');
 
     let streetNetwork: StreetNetwork;
 
     // Check if we can reuse cached street network
     if (!this.isSameStreetNetworkLocation(ctx, input.hq.lat, input.hq.lon)) {
-      this.engineInit.updateStepDetail('streets', 'Loading OSM data...');
+      this.engineInit.updateStepMeta('streets', 'Loading OSM data...');
       streetNetwork = await this.osmService.loadStreets(input.hq.lat, input.hq.lon, 2000);
       callbacks.setStreetNetwork(streetNetwork);
       callbacks.setStreetNetworkLocation({ lat: input.hq.lat, lon: input.hq.lon });
     } else {
-      this.engineInit.updateStepDetail('streets', 'Using cache...');
+      this.engineInit.updateStepMeta('streets', 'Using cache...');
       streetNetwork = ctx.streetNetwork!;
     }
 
@@ -547,7 +547,7 @@ export class LocationChangeCoordinatorService {
     ctx: LocationChangeContext,
     streetNetwork: StreetNetwork
   ): Promise<void> {
-    await this.engineInit.setStepActive('hq');
+    await this.engineInit.setStepCurrent('hq');
 
     // Initialize visualization services (ORDER IS CRITICAL!)
     this.markerViz.initialize(
@@ -582,13 +582,13 @@ export class LocationChangeCoordinatorService {
     input: LocationChangeInput,
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
-    await this.engineInit.setStepActive('spawn');
+    await this.engineInit.setStepCurrent('spawns');
 
     // Add spawn point (component handles signal update and visualization)
     const spawnName = input.spawn.name?.split(',')[0] || 'Spawn';
     callbacks.addSpawnPoint('spawn-1', spawnName, input.spawn.lat, input.spawn.lon, SPAWN_COLORS[0]);
 
-    await this.engineInit.setStepDone('spawn', '1 point');
+    await this.engineInit.setStepDone('spawns', '1 point');
   }
 
   /**
@@ -599,8 +599,8 @@ export class LocationChangeCoordinatorService {
     streetNetwork: StreetNetwork,
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
-    await this.engineInit.setStepActive('route');
-    this.engineInit.updateStepDetail('route', 'A* Pathfinding...');
+    await this.engineInit.setStepCurrent('routes');
+    this.engineInit.updateStepMeta('routes', 'A* Pathfinding...');
 
     const base = callbacks.getBaseCoords();
     const waveSpawnPoints: WaveSpawnPoint[] = callbacks.getSpawnPoints().map((sp) => ({
@@ -625,8 +625,8 @@ export class LocationChangeCoordinatorService {
     }
 
     // Initialize GlobalRouteGrid after routes are computed
-    await this.engineInit.setStepActive('grid');
-    this.engineInit.updateStepDetail('grid', 'Calculating grid...');
+    await this.engineInit.setStepCurrent('grid');
+    this.engineInit.updateStepMeta('grid', 'Calculating grid...');
     ctx.gameState.initializeGlobalRouteGrid();
     await this.engineInit.setStepDone('grid');
 
@@ -638,7 +638,7 @@ export class LocationChangeCoordinatorService {
 
     // Get route details for display
     const routeDetail = this.pathRoute.getRouteDetail();
-    await this.engineInit.setStepDone('route', routeDetail);
+    await this.engineInit.setStepDone('routes', routeDetail);
   }
 
   /**
@@ -648,7 +648,7 @@ export class LocationChangeCoordinatorService {
     ctx: LocationChangeContext,
     callbacks: LocationChangeCallbacks
   ): Promise<void> {
-    await this.engineInit.setStepActive('finalize');
+    await this.engineInit.setStepCurrent('view');
 
     // CRITICAL: Must await height updates to complete
     await callbacks.scheduleOverlayHeightUpdate();

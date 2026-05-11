@@ -285,8 +285,8 @@ export class VisualizationFacadeService {
     }
 
     // Initialize GlobalRouteGrid
-    void this.engineInit.setStepActive('grid');
-    this.engineInit.updateStepDetail('grid', 'Calculating grid...');
+    void this.engineInit.setStepCurrent('grid');
+    this.engineInit.updateStepMeta('grid', 'Calculating grid...');
     this.gameState.initializeGlobalRouteGrid();
     void this.engineInit.setStepDone('grid');
 
@@ -406,8 +406,8 @@ export class VisualizationFacadeService {
         this.gameState.getGlobalRouteGrid().updateTerrainHeights();
       },
       () => this.renderStreets(),
-      (detail: string) => this.engineInit.setStepDone('finalize', detail),
-      (detail: string) => this.engineInit.updateStepDetail('finalize', detail),
+      (detail: string) => this.engineInit.setStepDone('view', detail),
+      (detail: string) => this.engineInit.updateStepMeta('view', detail),
       () => this.checkAllLoaded(),
       () => {
         this.cameraFraming.setEngine(engine);
