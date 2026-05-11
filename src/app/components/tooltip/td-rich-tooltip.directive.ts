@@ -127,7 +127,11 @@ export class TdRichTooltipDirective implements OnDestroy {
       .flexibleConnectedTo(this.host)
       .withPositions(positions)
       .withFlexibleDimensions(false)
-      .withPush(false);
+      // Push overlay back into the viewport when an edge would clip it.
+      // Needed for tooltips on host elements near the top of the screen
+      // (e.g. enemy-group rows at the very top of the sidebar) where the
+      // ~300px tall card would otherwise overflow above the viewport.
+      .withPush(true);
 
     this.overlayRef = this.overlay.create({
       positionStrategy,
