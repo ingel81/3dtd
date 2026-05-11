@@ -113,8 +113,8 @@ interface Tick {
 
     .td-compass__reset {
       position: absolute;
-      bottom: -2px;
-      right: -2px;
+      top: -6px;
+      right: -6px;
       width: 22px;
       height: 22px;
       border-radius: 50%;
