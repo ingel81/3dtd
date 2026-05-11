@@ -16,7 +16,7 @@ function createEngineInitStub() {
     loading: signal(true),
     error: signal<string | null>(null),
     loadingStatus: signal('Initializing...'),
-    loadingSteps: signal<{ id: string; label: string; status: string; detail?: string }[]>([]),
+    loadingSteps: signal<{ id: string; title: string; status: string; meta?: string }[]>([]),
     reset: () => {
       engineInitStub.loading.set(true);
       engineInitStub.error.set(null);
