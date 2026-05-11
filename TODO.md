@@ -21,8 +21,36 @@
 
 ## 1.1 Engine-Bugs
 
-- [ ] **3D-Tiles Loading bei F5** — sporadisch "0 Kacheln geladen" nach Reload
-      Fix: Retry-Mechanismus + Force-Update, siehe [TILES_LOADING_BUG.md](docs/TILES_LOADING_BUG.md)
+- [ ] ⚠️ **[ULTRA HIGH PRIO] Route-Cell-Grid Single-Source-Of-Truth Refactor**
+      Key-Feature des Spiels — Combat-Targeting, Enemy-Tracking, Tower-LOS,
+      Visualisierung und AI-State-Encoding hängen direkt vom Cell-Grid ab.
+      Aktueller Zustand laut 4-Agent-Analyse: 5 Tower-Reg-Varianten, 6 Schreib-
+      Stellen für `cell.terrainHeight`, 3 unabhängige InstancedMesh-Pfade,
+      Self-Healing-Schicht nachträglich draufgepatcht. Symptome: Cells weit
+      unter der Karte, Cells auf Bäumen/Brücken, fehlende Cells nach Tower-
+      Selektion, doppelte Layer, AI-Training nicht-deterministisch
+      (DPS-Profile-Slots im State-Vector hängen von cell.terrainHeight ab).
+      **Vier-Phasen-Plan:**
+      1. **Cell-Quality-Tracking-Datenmodell** — `CellSample` mit `state`/
+         `tileGeneration`/`geometricError` pro Cell, `sampleCellY()` als
+         alleinige Y-Schreibfunktion (idempotent, akzeptiert nur bessere LOD)
+      2. **Deterministischer Bootup-Hook** — neuer `corridor-stability` Step
+         zwischen Route-Gen und Grid-Gen, wartet auf Tile-Stability analog zu
+         `path-route.service`'s Quality-Gating (`QUALITY_REJECT_FACTOR`)
+      3. **`refineCellsInRadius` als First-Class-API** + Tower-Reg-Konsolidierung
+         (5 Varianten auf 3 schlanke kollabieren, einer einzigen `computeCellLOS`
+         Funktion folgend). Self-Healing-Callback entfällt.
+      4. **Single Viz-Mesh mit Mode-System** — `setVizMode('off'|'global'|'tower'|'preview')`,
+         3 Meshes → 1 Mesh, 2 Shader → 1 Shader. `Tower.losVisualization` entfällt.
+      **Einheitliches Log-Prefix:** `[CELL-GRID]` mit Sub-Tags
+      (`BOOTUP`, `SAMPLE`, `REFINE`, `VIZ-MODE`, `TOWER-REG`, `HEIGHT-UPDATE`,
+      `DISPOSE`, `CELL-GEN`). Single `logGrid(subtag, ...args)` Helper, damit
+      kein Prefix-Drift möglich ist.
+      **Feature-Erhalt-Garantie:** Combat O(1) Fast-Path, Enemy-Tracking,
+      AA-Retrofit, Preview→Place Transfer, Range-Upgrade Diff, allocation-free
+      Raycaster — alle bleiben unangetastet.
+      **Detailplan:** `~/.claude/plans/das-h-rt-sich-gesamt-fluffy-orbit.md`.
+      Aufwand: ~16 h, vier separate Commits, jede Phase einzeln testbar.
 
 - [ ] **Route-Cell-Visualisierung: visueller Schliff**
       Air/Ground-Trennung, Cell-Y-Plausibilisierung, Doppellage Global vs Per-Tower
