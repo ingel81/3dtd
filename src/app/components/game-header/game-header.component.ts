@@ -4,6 +4,7 @@ import { MatTooltipModule } from '@angular/material/tooltip';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { FavoriteLocation } from '../../models/location.types';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
+import { DevWorldService } from '../../devworld/devworld.service';
 import { TdIconComponent } from '../icon/icon.component';
 
 @Component({
@@ -71,12 +72,14 @@ import { TdIconComponent } from '../icon/icon.component';
             <td-icon name="home" [size]="22"></td-icon>
           </a>
 
-          <!-- Rendering Toggle (Phase 5.14) — headless mode for training -->
-          <button class="action-btn" (click)="toggleRendering()"
-                  [class.active]="!renderingEnabled()"
-                  [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'">
-            <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="22"></td-icon>
-          </button>
+          <!-- Rendering Toggle (Phase 5.14) — headless mode for training, DevWorld only -->
+          @if (isDevWorld) {
+            <button class="action-btn" (click)="toggleRendering()"
+                    [class.active]="!renderingEnabled()"
+                    [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'">
+              <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="22"></td-icon>
+            </button>
+          }
 
           <!-- Placement Divider + Buttons -->
           <span class="action-divider"></span>
@@ -444,6 +447,10 @@ import { TdIconComponent } from '../icon/icon.component';
 export class GameHeaderComponent {
   private readonly elementRef = inject(ElementRef);
   private readonly store = inject(TowerDefenseStore);
+
+  /** True when the app runs in DevWorld mode (URL `?devworld`). Used to gate
+   *  the headless-rendering toggle, which is a training-only debug control. */
+  readonly isDevWorld = inject(DevWorldService).isActive;
 
   /** Phase 5.14: headless rendering toggle (readable for template binding). */
   readonly renderingEnabled = this.store.renderingEnabled;
