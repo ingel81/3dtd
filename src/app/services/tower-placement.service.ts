@@ -114,6 +114,55 @@ export class TowerPlacementService {
     this.osmService = osmService;
     this.baseCoords = baseCoords;
     this.gameState = gameState;
+
+    // When tile-loading promotes previously-unsampled cells (heightSampled
+    // flips false → true), any tower whose range covers them has stale LOS
+    // data based on the old fallback terrainHeight. Listen for promotions
+    // and recompute LOS + viz mesh for each affected tower so the system
+    // self-heals as tiles stream in.
+    this.globalRouteGrid.setCellsPromotedListener((promoted) =>
+      this.onCellsPromoted(promoted),
+    );
+  }
+
+  private onCellsPromoted(promoted: import('../utils/global-route-grid').RouteCell[]): void {
+    if (!this.gameState || !this.engine || promoted.length === 0) return;
+    const towers = this.gameState.towerManager.getAll();
+    if (towers.length === 0) return;
+
+    // Precompute tower local positions to avoid N*M geo-to-local conversions.
+    const towerPositions: { tower: Tower; x: number; z: number; rangeSq: number }[] = [];
+    for (const tower of towers) {
+      const lp = this.engine.sync.geoToLocalSimple(
+        tower.position.lat, tower.position.lon, tower.position.height ?? 0,
+      );
+      towerPositions.push({
+        tower, x: lp.x, z: lp.z,
+        rangeSq: tower.combat.range * tower.combat.range,
+      });
+    }
+
+    // For each promoted cell, find towers whose range covers it and
+    // invalidate their cached LOS entry so the upcoming recompute re-raycasts
+    // the cell with the now-correct terrainHeight.
+    const affectedTowers = new Set<Tower>();
+    for (const cell of promoted) {
+      for (const t of towerPositions) {
+        const distSq = (cell.x - t.x) ** 2 + (cell.z - t.z) ** 2;
+        if (distSq > t.rangeSq) continue;
+        cell.towerVisibility.delete(t.tower.id);
+        cell.airVisibility.delete(t.tower.id);
+        affectedTowers.add(t.tower);
+      }
+    }
+
+    // recomputeTowerLOS disposes the per-tower viz mesh, runs
+    // registerTowerIncremental (which raycasts only the cells we just
+    // invalidated — cached entries on other cells are reused), then
+    // creates a fresh viz mesh that includes the now-sampled cells.
+    for (const tower of affectedTowers) {
+      this.recomputeTowerLOS(tower);
+    }
   }
 
   updateStreetNetwork(streetNetwork: StreetNetwork): void {
@@ -452,6 +501,11 @@ export class TowerPlacementService {
     // Clean up old preview
     this.cleanupLosPreview();
 
+    // Refine cell-Y in the hypothetical tower's range BEFORE the preview
+    // raycasts run — so the preview reflects accurate coverage instead
+    // of skipping unsampled cells. Cheap: only cells inside the radius.
+    this.globalRouteGrid.refineCellsInRadius(local.x, local.z, config.range);
+
     // Start progressive preview build — preview cell is "visible" if EITHER
     // ground OR air LOS is clear, so an air-only tower's reach reflects
     // skyline-based coverage.
@@ -743,6 +797,12 @@ export class TowerPlacementService {
 
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = config.canTargetAir ?? false;
+
+    // Refine cell-Y in the tower's range BEFORE LOS computation. This
+    // promotes any still-unsampled cells in the tower's reach using the
+    // current tile state, so the LOS raycasts run against accurate
+    // terrainHeight values. Cheap: only walks cells inside the radius.
+    this.globalRouteGrid.refineCellsInRadius(terrainPos.x, terrainPos.z, config.range);
 
     // Progressive LOS registration — tower stays inactive until complete (no glitches)
     const tLos0 = performance.now();

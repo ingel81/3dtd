@@ -58,6 +58,16 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Locally refine cells in `radius` around (x, z) via sampleCellY.
+   * Promotes unsampled and refreshes stable cells when LOD improved.
+   * Call before tower placement / preview to ensure fresh heights in
+   * the affected region.
+   */
+  refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
+    return this.grid.refineCellsInRadius(x, z, radius);
+  }
+
+  /**
    * Check if grid is initialized
    */
   isInitialized(): boolean {

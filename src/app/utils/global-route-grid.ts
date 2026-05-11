@@ -702,6 +702,53 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Locally refine cell-Y for all cells within `radius` of (x, z). Walks
+   * the candidate set, calls `sampleCellY` on each — promoting unsampled
+   * cells and refreshing stable cells if the tile-LOD improved.
+   *
+   * Cheap relative to a full grid sweep: only cells inside the radius
+   * are touched. Used right before tower placement / preview so the
+   * tower's range gets the freshest possible per-cell heights without
+   * waiting for a global tile-load-driven refresh.
+   *
+   * Returns counts for logging / verification. Triggers viz refresh +
+   * onCellsPromoted when at least one cell flipped from unsampled.
+   */
+  refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
+    if (!this.terrainRaycaster && !this.terrainSampleRaycaster) {
+      return { promoted: 0, refreshed: 0, inRange: 0 };
+    }
+    const rangeSq = radius * radius;
+    const promoted: RouteCell[] = [];
+    let refreshed = 0;
+    let inRange = 0;
+
+    for (const cell of this.cells.values()) {
+      const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
+      if (distSq > rangeSq) continue;
+      inRange++;
+      const wasUnsampled = !cell.heightSampled;
+      const accepted = this.sampleCellY(cell);
+      if (accepted) {
+        if (wasUnsampled) promoted.push(cell);
+        else refreshed++;
+      }
+    }
+
+    logGrid(
+      'REFINE',
+      `at=(${x.toFixed(1)},${z.toFixed(1)}) r=${radius.toFixed(1)} inRange=${inRange} promoted=${promoted.length} refreshed=${refreshed}`,
+    );
+
+    if (promoted.length > 0) {
+      if (this.visualization) this.initializePositions();
+      this.onCellsPromoted?.(promoted);
+    }
+
+    return { promoted: promoted.length, refreshed, inRange };
+  }
+
+  /**
    * Register a tower and compute LOS for all cells within range.
    * Pre-computes ground LOS and/or air LOS depending on the tower's
    * targeting capabilities. Samples terrain + skyline at registration time
