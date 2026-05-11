@@ -36,6 +36,85 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       sauber frei. Tuning: `lightDistance` (Durchmesser m, default 22),
       `lightIntensity` (Peak-Opacity, default 1.2). Commit 4fb96ec.
 
+### Engine Cleanup-Pass — PRIO 1.2 / 1.3 / 1.4 (Commit f26fbe3)
+
+> Loop-driven Sammel-Commit, der den Großteil von PRIO 1 aus der TODO.md
+> abgeräumt hat. Build green, 642/642 vitest green.
+
+**1.4 CPU Hot-Path (8 items):**
+
+- [x] **GameEventBus empty debug-listeners skip** — forEach über `debugListeners`
+      übersprungen wenn Set leer ist (Hot-Path mit hoher Event-Rate).
+
+- [x] **UIStore localStorage Persistenz debouncen (500ms)** — Trailing-Debounce
+      um localStorage-Writes statt Sofort-Write bei jeder Store-Mutation.
+
+- [x] **Tower Placement Validation debouncen** — 1m Cursor-Bewegungs-Threshold +
+      gecachte resolvedHeight/Validation in `tower-placement.service.ts`.
+
+- [x] **Wave Completion Dirty-Flag statt Polling** — `checkWaveComplete`
+      short-circuit via Dirty-Flag (TRUE-Cache nur — silent death finalisation
+      macht FALSE-Caches unsicher).
+
+- [x] **Poison DOT deltaTime-Accumulator** — Per-Enemy ms-Akkumulator getrieben
+      von Sub-Step-deltaTime, multi-tick-safe bei hohen Timescales.
+
+- [x] **Projectile Trails distance-basiert** — Trail-Partikel spawnen pro 0.5m
+      gereister Strecke statt jeden 2. Frame; `trailDistanceAcc` auf der Entity.
+
+- [x] **Projectile Arc Tangent + Homing Recalc Rate** — Homing + Arc-Tangenten-
+      Richtung gecached, Recalc alle 3 Updates statt jedem Frame.
+
+- [x] **Wave Debugger 0ms Spawn + Batching-Slider** — Minimum Spawn-Delay
+      0.01ms → 0ms, neue `maxSpawnsPerFrame`-Property (default 3) + Slider im
+      Wave-Debug-Panel.
+
+**1.3 Test-Coverage (7 items, +99 Tests, -3 stale Specs):**
+
+- [x] **DAMAGE_MATRIX + `calculateDamage()` Tests** — +50 Tests, alle 7×5
+      Multiplier gepinnt + `getEffectiveness` Tier-Boundaries + `bonusMultiplier`-
+      Semantik.
+
+- [x] **`game-state-encoder.encode()` Schema-Test** — +26 Tests, jeder Slot des
+      156-Float-Feature-Vektors am dokumentierten Index verifiziert (DPS-Profile,
+      History, Capabilities).
+
+- [x] **`WaveManager.startScheduledWave()` Tests** — +7 Tests (Mixed-Wave-Delays,
+      Per-Entry delay/pauseAfter, Completion-Path).
+
+- [x] **`GameStateManager` Sub-Step-Loop Tests** — +7 Tests (Fixed-Timestep-
+      Akkumulation, MAX_SUBSTEPS Cap, Timescale-Skalierung, Game-Clock-Monotonie).
+
+- [x] **MovementComponent DOT-Stacking Spec** — +9 Tests für `applyStatusEffect`-
+      Refresh-Semantik.
+
+- [x] **Three.js Mock erweitern** — `Sprite`, `SpriteMaterial`, `Box3`
+      (setFromObject/getCenter/getSize), `PositionalAudio`, `BufferAttribute`
+      set-x/y/z-Methoden ergänzt. Schaltet SpatialAudio/combat-vfx/damage-
+      application-Tests frei.
+
+- [x] **Specs konkretisieren oder löschen** — 3 stale Specs entfernt
+      (`game-speed`, `three-tiles-engine`, `three-effects.renderer`) — testeten
+      Inline-Helper statt der echten Klasse.
+
+**1.2 Refactoring (Teil):**
+
+- [x] **`services/`-Subfolder-Split — `facade/`, `infrastructure/`, `location/`,
+      `world/`** — 38 Files in 4 thematische Subfolder verschoben, Cross-Tree-
+      Imports in ~50 externen Files umgeschrieben. Idempotenter Helper
+      `tools/split-services.mjs` (rewriting internal + external paths pro
+      Subfolder). Root-Level-Files (`tower-placement`, `camera-control`,
+      `camera-framing`, `economy`, `input-handler`, `keyboard-pan`) bewusst auf
+      `services/` Root belassen.
+
+- [x] **`IGameManager` durchziehen — Teilrollout (3 von 6 Managern)** —
+      ResearchManager auf IGameManager (`initialize/destroy` + `update(stepMs)`).
+      `GameStateManager` führt typisiertes `subManagers[]`, `dispose()` iteriert
+      polymorph über `.destroy()` statt hardcoded Aufruf-Liste. Verbleibende
+      Manager (EnemyManager, ProjectileManager, TowerManager — EntityManager +
+      WaveManager hatten IGameManager schon vorher) + komplette polymorphe
+      Init/Update-Iteration im Folge-Ticket.
+
 ### Route-Cell-Grid Single-Source-Of-Truth Refactor (4 Phasen, ULTRA HIGH PRIO)
 
 > Vollständige architektonische Konsolidierung des Cell-Grids nach

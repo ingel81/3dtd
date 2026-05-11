@@ -11,6 +11,8 @@
 >
 > **Phase 1 (Engine Foundation) und Phase 2 (Engine Performance) abgeschlossen** → siehe DONE.md.
 > **Housekeeping 2026-05-09/10:** 16/18 Items + PostProcessingPipeline-Extract erledigt → DONE.md.
+> **Engine Cleanup-Pass 2026-05-11 (Commit f26fbe3):** komplette 1.3 Test-Coverage (+99 Tests),
+> komplette 1.4 CPU Hot-Path (8 Items), services/-Subfolder-Split, IGameManager-Teilrollout → DONE.md.
 
 ---
 
@@ -38,87 +40,19 @@ _(keine offenen Punkte)_
       (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
       verzahnt — eigene Session mit Plan vorab.
 
-- [ ] **`services/`-Subfolder weiter — `world/`, `location/`, `facade/`, `infrastructure/`**
-      `combat/` und `debug/` sind 2026-05-09 raus (siehe DONE.md). Noch flach in services/:
-      - `world/` (path-route, route-animation, global-route-grid, marker, building-rendering, street-rendering, height-update, strategic-placement, map-placement, spatial-grid)
-      - `location/` (location-management, location-change-coordinator, geocoding, geolocation, osm-street, street-cache, url-location, world-dice, pathfinding-worker)
-      - `facade/` (tower-defense-facade, game-loop-facade, visualization-facade, location-facade)
-      - `infrastructure/` (asset-manager, engine-initialization, model-preview, game-state-sync)
-
-- [ ] **`IGameManager` konsequent durchziehen** (Entscheidung 2026-05-11)
-      Aktuell nur 2 von 6 Managern (EntityManager, WaveManager) implementieren das Interface.
-      Vorgehen: alle 6 Manager auf `IGameManager` bringen + polymorphe Iteration in
-      `GameStateManager` (Init/Update/Reset über Manager-Array statt hardcoded Aufrufe).
+- [ ] **`IGameManager` durchziehen — Restrollout (3 von 6 Managern offen)**
+      Stand 2026-05-11 (siehe DONE.md): ResearchManager + `GameStateManager.subManagers[]`
+      + polymorphe `dispose()` sind drin. Offen: EnemyManager, ProjectileManager, TowerManager
+      auf `IGameManager` bringen, und Init/Update ebenfalls polymorph über das Manager-Array
+      statt hardcoded Aufrufe.
 
 ## 1.3 Test-Coverage (Housekeeping Tier 4)
 
-- [ ] **DAMAGE_MATRIX + `calculateDamage()` Tests**
-      35 Multiplier ungetestet, höchstes Balance-Risiko. `damage-matrix.config.ts` + `damage-calculator.ts`.
-      EFFECTIVENESS_THRESHOLDS-Klassifizierung mitabdecken.
-
-- [ ] **`game-state-encoder.encode()` Schema-Test**
-      156-Slot-Vektor — silently breakt das ONNX-Model bei Schema-Drift. Slot-Indices verifizieren,
-      DPS-Profile/History/Capabilities-Sektionen abgrenzen. Höchster Impact bei AI-Refactoring.
-
-- [ ] **`WaveManager.startScheduledWave()` Tests**
-      Mixed-Wave-Schedule ist Production-Default für AI-Director — null Tests. Pause-After,
-      Variation-Anwendung, hp_mult-Skalierung, Stuck-Detection.
-
-- [ ] **`GameStateManager` Sub-Step-Loop Tests**
-      Fixed-timestep-Akkumulation, MAX_SUBSTEPS_PER_FRAME-Cap, MAX_REMAINDER_MS,
-      gameTimeMs-Monotonie. Phase-Transitions setup ↔ wave ↔ gameover über Event-Sequenzen.
-
-- [ ] **Three.js Mock erweitern** — `Sprite`, `SpriteMaterial`, `Box3.setFromObject`, `BufferAttribute.setXYZ`,
-      `PositionalAudio`. Schaltet weitere Tests frei (SpatialAudio, combat-vfx, damage-application).
-
-- [ ] **Specs konkretisieren oder löschen** — `game-speed.component.spec.ts`, `three-tiles-engine.spec.ts`,
-      `three-effects.renderer.spec.ts` testen Inline-Helper statt der echten Klasse.
-
-- [ ] **MovementComponent DOT-Stacking Spec** — applyStatusEffect-Refresh-Semantik (slow + poison
-      no-stack-refresh-only, andere Effects same-source-Refresh). Aus Loop 2026-05-09 als Folge
-      des Damage-Application-Specs identifiziert.
+_(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 
 ## 1.4 CPU Hot-Path Optimierungen
 
-> Kleine Hebel an Hot-Pathes. Ideen aus lokalem `perf:` Commit (Feb 2026), der vor Merge mit
-> origin aufgegeben wurde. Enemy-Teile sind durch origin's "5000+ enemies"-Commit abgedeckt —
-> folgende Punkte NICHT:
-
-- [ ] **Tower Placement Validation debouncen**
-      60Hz → ~3Hz bei statischer Cursor-Position. Schwellwert ~1m Bewegung,
-      Validierung nur bei Überschreitung erneut ausführen.
-      Datei: `src/app/services/tower-placement.service.ts`
-
-- [ ] **Projectile Trails distance-basiert statt frame-basiert**
-      Trail-Partikel spawnen pro gereister Strecke (z.B. alle 0.5m), nicht pro N Frames.
-      Gleichmäßigere Trails bei schwankender Framerate und variabler Projektil-Geschwindigkeit.
-      Datei: `src/app/entities/projectile.entity.ts`
-
-- [ ] **Projectile Arc Tangent + Homing Recalc Rate**
-      Cachen der Arc-Tangenten-Richtung zwischen Frames, Homing-Richtung nicht jeden Frame neu berechnen.
-
-- [ ] **UIStore localStorage Persistenz debouncen (500ms)**
-      Aktuell wird bei jeder Store-Mutation sofort geschrieben — stattdessen Trailing-Debounce.
-      Datei: `src/app/store/ui.store.ts`
-
-- [ ] **GameEventBus: Empty debugListeners Set Iteration überspringen**
-      Guard: wenn Set leer ist, `for`-Loop komplett überspringen (Hot Path mit hoher Event-Rate).
-      Datei: `src/app/game-engine/game-event-bus.ts`
-
-- [ ] **Wave Completion Dirty-Flag statt Polling**
-      Statt jeden Frame prüfen: Flag setzen bei enemy:died/reached-base, prüfen nur wenn dirty.
-      Datei: `src/app/managers/wave.manager.ts`
-
-- [ ] **Poison DOT Tick: deltaTime-Accumulator statt performance.now()**
-      Pro Enemy einen Akkumulator hochzählen, bei 500ms Tick feuern und resetten.
-      Robuster bei pausiertem Spiel / timescale ≠ 1.
-      Datei: `src/app/managers/enemy.manager.ts`
-
-- [ ] **Wave Debugger: 0ms Spawn + konfigurierbares Batching**
-      Spawn-Delay-Minimum von 0.01ms auf 0ms (synchrones Spawnen statt setTimeout(0)).
-      Batch-Size Slider (1–100 spawns/frame, default 3) im Wave Debug Panel.
-      `maxSpawnsPerFrame` als konfigurierbares Property auf WaveManager.
-      Dateien: `wave-debugger.component.ts`, `wave.manager.ts`, `game-state.manager.ts`, `wave-debug.service.ts`
+_(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 
 ---
 
