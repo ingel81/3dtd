@@ -25,6 +25,27 @@ import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderer
  * - Map of tower visibility for ground LOS (LOS check results per tower)
  * - Map of tower visibility for air LOS (raycast against cell air-height)
  */
+/**
+ * Per-cell sampling metadata. Maintained exclusively by `sampleCellY` —
+ * never write from anywhere else, otherwise the single-source-of-truth
+ * invariant breaks.
+ *
+ * Phase 1 of the Cell-Grid refactor keeps this minimal (state + frame
+ * counter). Phase 2 will extend it with `tileGeneration` and
+ * `geometricError` for quality-versioned idempotency.
+ */
+export interface CellSample {
+  /**
+   * `unsampled` — terrain raycast hasn't returned a hit yet, `terrainHeight`
+   *   is still a fallback (route-anchor Y). Viz call sites skip these cells.
+   * `stable` — terrain raycast returned a hit; `terrainHeight` is real.
+   * (`preliminary` is reserved for Phase 2 when tile-LOD tracking arrives.)
+   */
+  state: 'unsampled' | 'stable';
+  /** Internal frame counter at last successful sample (debug only). */
+  sampledAt: number;
+}
+
 export interface RouteCell {
   /** Unique cell key (integer hash) */
   key: number;
@@ -48,6 +69,16 @@ export interface RouteCell {
    * as bridge decks / tree canopies / mesh artifacts.
    */
   routeAnchorY: number;
+  /**
+   * Sampling state of `terrainHeight`. See `CellSample`. Written only by
+   * `sampleCellY`. Convenience read: `cell.sample.state === 'stable'`.
+   */
+  sample: CellSample;
+  /**
+   * Mirror of `sample.state === 'stable'`. Kept as a property (rather than
+   * a getter) for hot-path read access. Set in lockstep by `sampleCellY`.
+   */
+  heightSampled: boolean;
   /** Set of enemies currently in this cell */
   enemies: Set<Enemy>;
   /** Map of tower ID -> visibility for ground targets (true = can see this cell) */
@@ -66,6 +97,50 @@ export interface RouteCell {
  * Tokyo-class skyscraper roof.
  */
 export const AIR_CLEARANCE_M = 10;
+
+/**
+ * ──────────────────────────────────────────────────────────────────────────
+ * Debug-Logging — unified prefix `[CELL-GRID]` so the entire subsystem can
+ * be filtered as one stream in DevTools / log output. Each sub-tag is a
+ * single token after the prefix to keep the format greppable:
+ *
+ *   [CELL-GRID] BOOTUP  ...
+ *   [CELL-GRID] SAMPLE  ...
+ *   [CELL-GRID] REFINE  ...
+ *
+ * Sub-tag toggles control verbosity per category. Keep BOOTUP / REFINE /
+ * VIZ-MODE / DISPOSE on for production-light tracing; the rest fires
+ * very often and stays off unless investigating.
+ * ──────────────────────────────────────────────────────────────────────────
+ */
+const CELL_GRID_LOG = {
+  BOOTUP: true,
+  CELL_GEN: false,
+  SAMPLE: false,
+  REFINE: true,
+  VIZ_MODE: true,
+  TOWER_REG: false,
+  HEIGHT_UPDATE: false,
+  DISPOSE: true,
+} as const;
+
+type CellGridLogTag = keyof typeof CELL_GRID_LOG;
+
+/** Single helper so the `[CELL-GRID]` prefix never drifts. */
+function logGrid(tag: CellGridLogTag, ...args: unknown[]): void {
+  if (!CELL_GRID_LOG[tag]) return;
+  // eslint-disable-next-line no-console
+  console.log(`[CELL-GRID] ${tag}`, ...args);
+}
+
+/**
+ * Visualisation geometry — decal-like flat plates that hug the surface.
+ * Increase `HEIGHT_M` to give the cells perceptible thickness; raise
+ * `Y_OFFSET_M` if Z-fighting reappears (currently depthTest is off, so
+ * even +0.05m is safe). Modern-Minimal target: barely noticeable plates.
+ */
+const CELL_VIZ_HEIGHT_M = 0.02;
+const CELL_VIZ_Y_OFFSET_M = 0.05;
 
 /**
  * Shader for LOS cell visualization with multi-color support
@@ -103,38 +178,41 @@ void main() {
   vec3 color;
   float alpha;
 
-  // Gray: No tower sees this cell
+  // Modern-Minimal palette: desaturated, low alpha, gentle pulse.
+
+  // Gray: No tower in range (or blocked everywhere)
   if (vCellState < 0.5) {
-    color = vec3(0.5, 0.5, 0.5);
-    alpha = 0.3;
+    color = vec3(0.60, 0.60, 0.63);
+    alpha = 0.15;
   }
   // Green: At least one tower has ground LoS
   else if (vCellState < 1.5) {
-    color = vec3(0.133, 0.773, 0.369);
-    alpha = 0.6;
+    color = vec3(0.35, 0.70, 0.52);
+    alpha = 0.35;
   }
-  // Red: Registered but every tower blocked (ground and air)
+  // Red: legacy state, no longer written for the global overlay but kept
+  // for shader stability if a future caller re-enables it.
   else if (vCellState < 2.5) {
-    color = vec3(0.863, 0.149, 0.149);
-    alpha = 0.6;
+    color = vec3(0.70, 0.35, 0.35);
+    alpha = 0.35;
   }
   // Muted blue: Only air LoS is clear (no ground LoS)
   else if (vCellState < 3.5) {
-    color = vec3(0.231, 0.510, 0.965);
-    alpha = 0.6;
+    color = vec3(0.35, 0.55, 0.85);
+    alpha = 0.35;
   }
   // Purple: Enemy in cell, not currently visible
   else if (vCellState < 4.5) {
-    color = vec3(0.6, 0.3, 0.9);
-    alpha = 0.7;
+    color = vec3(0.55, 0.35, 0.75);
+    alpha = 0.45;
   }
-  // Yellow: Enemy + any tower can see = active target
+  // Muted gold: Enemy + tower can see = active target
   else {
-    color = vec3(1.0, 0.9, 0.0);
-    alpha = 0.85;
+    color = vec3(0.85, 0.72, 0.25);
+    alpha = 0.55;
   }
 
-  float pulse = sin(uTime * 3.0) * 0.15 + 0.85;
+  float pulse = sin(uTime * 2.0) * 0.05 + 0.95;
   gl_FragColor = vec4(color, alpha * pulse);
 }
 `;
@@ -174,18 +252,27 @@ varying float vGroundVisible;
 varying float vAirVisible;
 
 void main() {
-  vec3 greenColor = vec3(0.133, 0.773, 0.369);
-  vec3 redColor = vec3(0.863, 0.149, 0.149);
-  vec3 blueColor = vec3(0.231, 0.510, 0.965);
+  // Modern-Minimal palette — same tones as the global overlay so both
+  // visualisations read as one design language.
+  vec3 greenColor = vec3(0.35, 0.70, 0.52);
+  vec3 blueColor  = vec3(0.35, 0.55, 0.85);
+  vec3 redColor   = vec3(0.70, 0.35, 0.35);
 
-  // Priority: ground > air > blocked
+  float gVis = step(0.5, vGroundVisible);
+  float aVis = step(0.5, vAirVisible);
+
+  // Priority: ground > air > blocked (red)
   vec3 color = redColor;
-  color = mix(color, blueColor, step(0.5, vAirVisible));
-  color = mix(color, greenColor, step(0.5, vGroundVisible));
+  color = mix(color, blueColor, aVis);
+  color = mix(color, greenColor, gVis);
 
-  float pulse = sin(uTime * 3.0) * 0.15 + 0.6;
+  // Per-state alpha — blocked sits back, visible reads strongest.
+  float alpha = 0.40;
+  alpha = mix(alpha, 0.35, aVis);
+  alpha = mix(alpha, 0.45, gVis);
 
-  gl_FragColor = vec4(color, pulse);
+  float pulse = sin(uTime * 2.0) * 0.05 + 0.95;
+  gl_FragColor = vec4(color, alpha * pulse);
 }
 `;
 
@@ -207,6 +294,14 @@ void main() {
 export class GlobalRouteGrid {
   /** Map of cell keys to RouteCell data */
   private cells = new Map<number, RouteCell>();
+
+  /**
+   * Listener called when `updateTerrainHeights` promotes cells from
+   * unsampled to sampled (heightSampled flipped false→true). Consumers
+   * (e.g. tower-placement-service) use this to re-compute LOS for the
+   * affected cells per placed tower and to refresh per-tower viz meshes.
+   */
+  private onCellsPromoted: ((promoted: RouteCell[]) => void) | null = null;
 
   /** Map of enemy ID to current cell key (for fast cell transitions) */
   private enemyCellKeys = new Map<string, number>();
@@ -251,6 +346,52 @@ export class GlobalRouteGrid {
 
   /** Maximum cells for visualization (pre-allocated) */
   private readonly MAX_VIZ_CELLS = 5000;
+
+  /** Monotonic counter incremented on each successful sample (debug only). */
+  private sampleFrame = 0;
+
+  // ========================================
+  // SAMPLE — SINGLE SOURCE OF TRUTH FOR cell.terrainHeight
+  // ========================================
+
+  /**
+   * Attempt to write `cell.terrainHeight` from a fresh terrain raycast.
+   *
+   * **This is the ONLY function in the codebase that writes
+   * `cell.terrainHeight` after a cell has been added to `this.cells`.** All
+   * other call sites read the cached value. The single-source-of-truth
+   * invariant lets us reason about cell state without tracking who-wrote-
+   * what-when across the grid / tower-reg / viz pathways.
+   *
+   * Phase 1 semantics:
+   *  - If raycast misses: `cell.sample.state` stays `unsampled`,
+   *    `cell.terrainHeight` keeps its previous value (anchor fallback).
+   *  - If raycast hits: `cell.terrainHeight` and `cell.sample` are updated,
+   *    `cell.heightSampled` mirrors `state === 'stable'`.
+   *
+   * Phase 2 will add tile-LOD versioning (reject samples with strictly
+   * worse `geometricError` than the cached one), making this fully
+   * idempotent under streaming.
+   *
+   * @returns `true` when the cell was promoted to / refreshed in `stable`.
+   */
+  private sampleCellY(cell: RouteCell): boolean {
+    if (!this.terrainRaycaster) return false;
+    const hit = this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY);
+    if (hit === null) {
+      logGrid('SAMPLE', `miss key=${cell.key} anchor=${cell.routeAnchorY.toFixed(2)}`);
+      return false;
+    }
+    const wasStable = cell.sample.state === 'stable';
+    cell.terrainHeight = hit;
+    cell.sample = { state: 'stable', sampledAt: ++this.sampleFrame };
+    cell.heightSampled = true;
+    logGrid(
+      'SAMPLE',
+      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.toFixed(2)}`,
+    );
+    return true;
+  }
 
   /**
    * Initialize the grid with required dependencies
@@ -359,31 +500,22 @@ export class GlobalRouteGrid {
         if (processedCells.has(key)) continue;
         processedCells.add(key);
 
-        // Get terrain height at cell center, anchor-validated against the
-        // route Y so bridges / trees above the route don't pull the height up.
+        // Construct the cell in unsampled state with anchorY as a temporary
+        // terrain-Y fallback (combat-side reads need *some* value). Then
+        // funnel through sampleCellY — the sole writer of terrainHeight —
+        // which promotes the cell to `stable` iff the raycast hits.
         const cellCenterX = (cellKeyX + 0.5) * this.CELL_SIZE;
         const cellCenterZ = (cellKeyZ + 0.5) * this.CELL_SIZE;
-        const terrainY = this.terrainRaycaster!(cellCenterX, cellCenterZ, anchorY);
 
-        // Use anchor as fallback when tiles not yet loaded — better than 0
-        // because the route Y is already a usable approximation.
-        const height = terrainY ?? anchorY;
-
-        // Sample local skyline (max-Y over a small neighbourhood) for air-LOS.
-        // Falls back to terrain height when no skyline sampler is wired.
-        const skylineY = this.skylineRaycaster
-          ? this.skylineRaycaster(cellCenterX, cellCenterZ)
-          : null;
-        const skyline = skylineY ?? height;
-
-        // Create cell
         const cell: RouteCell = {
           key,
           x: cellCenterX,
           z: cellCenterZ,
-          terrainHeight: height,
-          skylineHeight: skyline,
+          terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
+          skylineHeight: anchorY,        // Refined below if skylineRaycaster set.
           routeAnchorY: anchorY,
+          sample: { state: 'unsampled', sampledAt: 0 },
+          heightSampled: false,
           enemies: new Set(),
           towerVisibility: new Map(),
           airVisibility: new Map(),
@@ -391,6 +523,16 @@ export class GlobalRouteGrid {
 
         this.cells.set(key, cell);
         newCells++;
+
+        // Promote to `stable` if tiles are loaded at this position.
+        this.sampleCellY(cell);
+
+        // Sample local skyline (max-Y over a small neighbourhood) for air-LOS.
+        // Falls back to terrainHeight when no skyline sampler is wired.
+        const skylineY = this.skylineRaycaster
+          ? this.skylineRaycaster(cellCenterX, cellCenterZ)
+          : null;
+        cell.skylineHeight = skylineY ?? cell.terrainHeight;
       }
     }
 
@@ -405,10 +547,22 @@ export class GlobalRouteGrid {
   updateTerrainHeights(): void {
     if (!this.terrainRaycaster) return;
 
+    const promoted: RouteCell[] = [];
+    let total = 0;
+    let promotedCount = 0;
+    let refreshedCount = 0;
+
     for (const cell of this.cells.values()) {
-      const terrainY = this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY);
-      if (terrainY !== null && terrainY !== cell.terrainHeight) {
-        cell.terrainHeight = terrainY;
+      total++;
+      const wasUnsampled = !cell.heightSampled;
+      const accepted = this.sampleCellY(cell);
+      if (accepted) {
+        if (wasUnsampled) {
+          promoted.push(cell);
+          promotedCount++;
+        } else {
+          refreshedCount++;
+        }
       }
       if (this.skylineRaycaster) {
         const skylineY = this.skylineRaycaster(cell.x, cell.z);
@@ -418,11 +572,31 @@ export class GlobalRouteGrid {
       }
     }
 
+    logGrid(
+      'HEIGHT_UPDATE',
+      `cells=${total} promoted=${promotedCount} refreshed=${refreshedCount}`,
+    );
+
     // Refresh the active spatial-grid visualisation so cells snap to the
     // newly sampled heights — fixes "Cell sticks in ground" on toggle-race.
     if (this.visualization) {
       this.initializePositions();
     }
+
+    // Notify listeners about promoted cells so per-tower LOS / viz can
+    // be recomputed for them. Cells that had heightSampled=true already
+    // are not included — their data was already valid.
+    if (promoted.length > 0) {
+      this.onCellsPromoted?.(promoted);
+    }
+  }
+
+  /**
+   * Subscribe to terrain-promotion events. Called by tower-placement-service
+   * to keep per-tower LOS / viz in sync with cell heightSampled flips.
+   */
+  setCellsPromotedListener(listener: (promoted: RouteCell[]) => void): void {
+    this.onCellsPromoted = listener;
   }
 
   /**
@@ -464,13 +638,13 @@ export class GlobalRouteGrid {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
 
-      // Sample terrain height at tower placement time (tiles should be loaded)
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
-      if (terrainY === null) continue;
-
-      // Update cell heights from current samples (tiles may have streamed in
-      // between cell creation and tower placement)
-      cell.terrainHeight = terrainY;
+      // Try to refresh terrain height from current tile state via the
+      // single-source-of-truth sampler. When the raycast fails, the cell
+      // keeps its previous terrainHeight (anchor fallback) — register the
+      // cell defensively so a later terrain promotion via
+      // setCellsPromotedListener can recompute LOS for it instead of
+      // leaving holes in tower coverage.
+      this.sampleCellY(cell);
       const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
       if (skylineY !== null) cell.skylineHeight = skylineY;
 
@@ -555,15 +729,10 @@ export class GlobalRouteGrid {
         continue;
       }
 
-      // Sample heights at current state (tile may have streamed since last call)
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
-      if (terrainY === null) {
-        // Can't position this cell — drop any stale entry so it doesn't ghost-target.
-        cell.towerVisibility.delete(towerId);
-        cell.airVisibility.delete(towerId);
-        continue;
-      }
-      cell.terrainHeight = terrainY;
+      // Refresh heights via single-source-of-truth sampler. If raycast
+      // fails, the cached value is kept and a later promotion via
+      // setCellsPromotedListener will recompute LOS for this cell.
+      this.sampleCellY(cell);
       const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
       if (skylineY !== null) cell.skylineHeight = skylineY;
 
@@ -857,7 +1026,7 @@ export class GlobalRouteGrid {
     this.disposeVisualization();
 
     const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new BoxGeometry(cellSize, 0.15, cellSize);
+    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
 
     this.visualizationMaterial = new ShaderMaterial({
       vertexShader: LOS_CELL_VERTEX,
@@ -903,18 +1072,21 @@ export class GlobalRouteGrid {
   private initializePositions(): void {
     if (!this.visualization) return;
 
+    const maxCells = this.visualization.instanceMatrix.count;
     const matrix = new Matrix4();
     let index = 0;
     this.cellIndexMap.clear();
 
     for (const cell of this.cells.values()) {
-      if (index >= this.visualization.count) break;
+      if (index >= maxCells) break;
 
-      // Use the cached terrain height — same source the per-tower / preview
-      // visualisations read, so all three systems stack on identical Y. The
-      // cache is anchor-validated at cell creation and refreshed by
-      // updateTerrainHeights() on tile-load (which re-calls this method).
-      const y = cell.terrainHeight + 0.5;
+      // Only include cells whose terrainHeight came from a real raycast.
+      // Unsampled cells (fallback to anchorY at gen-time) would otherwise
+      // render far below the map until tiles stream in. They re-enter
+      // the viz once updateTerrainHeights promotes them.
+      if (!cell.heightSampled) continue;
+
+      const y = cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
       matrix.setPosition(cell.x, y, cell.z);
       this.visualization.setMatrixAt(index, matrix);
 
@@ -937,6 +1109,9 @@ export class GlobalRouteGrid {
     let index = 0;
     for (const cell of this.cells.values()) {
       if (index >= this.visualization.count) break;
+      // Same skip-rule as initializePositions — keeps the state buffer
+      // aligned with the matrix buffer (both indexed by sampled cells only).
+      if (!cell.heightSampled) continue;
 
       // Determine cell state for coloring (no expensive operations)
       let state: number;
@@ -1060,6 +1235,11 @@ export class GlobalRouteGrid {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
 
+      // Unsampled cells: skip — their cell.terrainHeight is still anchor
+      // fallback and would render at a wrong Y. They'll appear once
+      // updateTerrainHeights promotes them and the per-tower viz is rebuilt.
+      if (!cell.heightSampled) continue;
+
       const hasGround = cell.towerVisibility.has(towerId);
       const hasAir = cell.airVisibility.has(towerId);
       if (!hasGround && !hasAir) continue;
@@ -1072,7 +1252,7 @@ export class GlobalRouteGrid {
     if (cellsInRange.length === 0) return null;
 
     const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new BoxGeometry(cellSize, 0.15, cellSize);
+    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
 
     const material = new ShaderMaterial({
       vertexShader: TOWER_LOS_VERTEX,
@@ -1100,7 +1280,7 @@ export class GlobalRouteGrid {
 
     for (let i = 0; i < cellsInRange.length; i++) {
       const { cell, groundVis, airVis } = cellsInRange[i];
-      const y = cell.terrainHeight + 0.5;
+      const y = cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
       matrix.setPosition(cell.x, y, cell.z);
       mesh.setMatrixAt(i, matrix);
 
@@ -1291,10 +1471,11 @@ export class GlobalRouteGrid {
     for (let i = s.currentIndex; i < endIndex; i++) {
       const cell = s.cells[i];
 
-      // Sample heights
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
-      if (terrainY === null) continue;
-      cell.terrainHeight = terrainY;
+      // Refresh heights from current tile state. If the raycast fails we
+      // keep the cached value and proceed — defensively registering the
+      // cell so a later terrain promotion can recompute LOS without
+      // leaving holes in tower coverage.
+      this.sampleCellY(cell);
       const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
       if (skylineY !== null) cell.skylineHeight = skylineY;
 
@@ -1422,7 +1603,7 @@ export class GlobalRouteGrid {
 
     // Create mesh with full capacity but count=0
     const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new BoxGeometry(cellSize, 0.15, cellSize);
+    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
 
     const material = new ShaderMaterial({
       vertexShader: TOWER_LOS_VERTEX,
@@ -1488,9 +1669,19 @@ export class GlobalRouteGrid {
     for (let i = currentIndex; i < endIndex; i++) {
       const cell = cells[i];
 
-      // Sample heights (terrain is required for cell positioning)
-      const terrainY = this.terrainRaycaster ? this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY) : null;
-      if (terrainY === null) continue;
+      // Refresh cell-Y via single-source-of-truth sampler. If raycast
+      // fails AND the cell was never sampled, we hide its preview
+      // instance via a degenerate matrix below.
+      this.sampleCellY(cell);
+      const terrainY = cell.heightSampled ? cell.terrainHeight : null;
+      if (terrainY === null) {
+        // Collapse instance to a point off-screen until cell is sampled.
+        matrix.makeScale(0, 0, 0);
+        mesh.setMatrixAt(i, matrix);
+        groundVisibleArray[i] = 0;
+        airVisibleArray[i] = 0;
+        continue;
+      }
       const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
       const skyline = skylineY ?? cell.skylineHeight;
 
@@ -1524,8 +1715,10 @@ export class GlobalRouteGrid {
         }
       }
 
-      // Set matrix and attributes
-      matrix.setPosition(cell.x, terrainY + 0.5, cell.z);
+      // Set matrix and attributes — identity() first because the previous
+      // iteration may have left scale=0 for an unsampled cell.
+      matrix.identity();
+      matrix.setPosition(cell.x, terrainY + CELL_VIZ_Y_OFFSET_M, cell.z);
       mesh.setMatrixAt(i, matrix);
       groundVisibleArray[i] = groundVisible ? 1 : 0;
       airVisibleArray[i] = airVisible ? 1 : 0;
