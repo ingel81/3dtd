@@ -1,0 +1,141 @@
+<div class="td-loading" role="status" aria-live="polite">
+
+  <div class="td-loading__map"></div>
+  <div class="td-loading__scan"></div>
+  <div class="td-loading__vignette"></div>
+
+  <span class="td-loading__corner td-loading__corner--tl"></span>
+  <span class="td-loading__corner td-loading__corner--tr"></span>
+  <span class="td-loading__corner td-loading__corner--bl"></span>
+  <span class="td-loading__corner td-loading__corner--br"></span>
+
+  <div class="td-loading__chip td-loading__chip--tr">
+    BUILD <b>{{ buildVersion }}</b> · TILES <b>{{ tilesVersion }}</b>
+  </div>
+  <div class="td-loading__chip td-loading__chip--bl">
+    TIP · <b>{{ currentTipIndex + 1 | number:'2.0-0' }} / {{ tips.length }}</b>
+  </div>
+
+  <div class="td-loading__pulse"><i></i></div>
+
+  <div class="td-loading__stack">
+
+    <div class="td-loading__logo">
+      <img class="td-loading__logo-mark" src="/assets/images/logo/logo.png" alt="" width="56" height="56">
+      <span class="td-loading__logo-word">3DTD</span>
+    </div>
+
+    <div class="td-loading__mission">
+      <span class="td-loading__mission-label">Mission</span>
+      @if (devWorldSeed != null) {
+        <span class="td-loading__mission-addr">DEV WORLD</span>
+        <span class="td-loading__mission-sep" aria-hidden="true"></span>
+        <span class="td-loading__mission-coords">seed {{ devWorldSeed }}</span>
+      } @else if (mission) {
+        <span class="td-loading__mission-addr">{{ mission.address || '—' }}</span>
+        <span class="td-loading__mission-sep" aria-hidden="true"></span>
+        <span class="td-loading__mission-addr">{{ mission.postal }} {{ mission.city }}</span>
+        <span class="td-loading__mission-sep" aria-hidden="true"></span>
+        <span class="td-loading__mission-coords">
+          {{ mission.lat | number:'1.4-4' }}° N ·
+          {{ mission.lng | number:'1.4-4' }}° E
+          @if (mission.alt != null) { · {{ mission.alt }} m }
+        </span>
+      } @else {
+        <span class="td-loading__mission-coords">Awaiting location…</span>
+      }
+    </div>
+
+    <div class="td-loading__status">
+      <span class="td-loading__status-dot"></span>
+      <span>Synchronizing the battlefield · <b>{{ currentStep?.title ?? 'Standby' }}</b></span>
+    </div>
+
+    <section class="td-loading__panel" aria-label="Boot sequence">
+      <header class="td-loading__panel-head">
+        <span class="td-loading__panel-icon">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+            <circle cx="12" cy="12" r="8"/>
+            <line x1="12" y1="2" x2="12" y2="6"/>
+            <line x1="12" y1="18" x2="12" y2="22"/>
+            <line x1="2" y1="12" x2="6" y2="12"/>
+            <line x1="18" y1="12" x2="22" y2="12"/>
+            <circle cx="12" cy="12" r="2" fill="currentColor"/>
+          </svg>
+        </span>
+        <span class="td-loading__panel-title">Boot Sequence</span>
+        <span class="td-loading__panel-pct">
+          {{ percent }}<span>% · {{ doneCount }}/{{ steps.length }}</span>
+        </span>
+      </header>
+
+      <div class="td-loading__seg" aria-hidden="true">
+        @for (s of steps; track s.id) {
+          <i [class.on]="s.status === 'done'"
+             [class.cur]="s.status === 'current'"></i>
+        }
+      </div>
+
+      <ol class="td-loading__steps">
+        @for (s of steps; track s.id) {
+          <li class="td-loading__step"
+              [class.td-loading__step--done]="s.status === 'done'"
+              [class.td-loading__step--cur]="s.status === 'current'"
+              [class.td-loading__step--pending]="s.status === 'pending'">
+            <span class="td-loading__step-icon">
+              @switch (s.status) {
+                @case ('done') {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                       stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M5 12.5l4.5 4.5L19 7"/>
+                  </svg>
+                }
+                @case ('current') {
+                  <svg class="td-loading__spin" viewBox="0 0 24 24"
+                       fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round">
+                    <path d="M12 3a9 9 0 1 0 9 9"/>
+                  </svg>
+                }
+                @default {
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="12" r="9"/>
+                    <circle cx="12" cy="12" r="2.5" fill="currentColor"/>
+                  </svg>
+                }
+              }
+            </span>
+            <span class="td-loading__step-title">{{ s.title }}</span>
+            @if (s.meta) {
+              <span class="td-loading__step-meta">{{ s.meta }}</span>
+            }
+          </li>
+        }
+      </ol>
+    </section>
+
+    <div class="td-loading__tip">
+      <span class="td-loading__tip-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+             stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M9 21h6m-3-18a7 7 0 0 0-4 12.7c1 .8 1.5 2 1.5 3.3M14.5 19c0-1.3.5-2.5 1.5-3.3A7 7 0 0 0 12 3"/>
+        </svg>
+      </span>
+      <div class="td-loading__tip-body">
+        <span class="td-loading__tip-label">Field Tip</span>
+        <span [innerHTML]="currentTip.html"></span>
+      </div>
+      <div class="td-loading__tip-cycler">
+        <button type="button" class="td-loading__tip-arrow" (click)="prevTip()" aria-label="Previous tip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        {{ currentTipIndex + 1 | number:'2.0-0' }} / {{ tips.length }}
+        <button type="button" class="td-loading__tip-arrow" (click)="nextTip()" aria-label="Next tip">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"
+               stroke-linecap="round" stroke-linejoin="round"><path d="M9 6l6 6-6 6"/></svg>
+        </button>
+      </div>
+    </div>
+
+  </div>
+</div>

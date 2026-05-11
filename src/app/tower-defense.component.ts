@@ -14,7 +14,6 @@ import {
 import { CommonModule } from '@angular/common';
 import { MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { MatButtonModule } from '@angular/material/button';
-import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { StreetNetwork } from './services/location/osm-street.service';
 import { ModelPreviewService } from './services/infrastructure/model-preview.service';
@@ -36,6 +35,8 @@ import { QuickActionsComponent } from './components/quick-actions/quick-actions.
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
 import { GameSpeedComponent } from './components/game-speed/game-speed.component';
+import { LoadingScreenComponent } from './components/loading-screen/loading-screen.component';
+import { DevWorldService } from './devworld/devworld.service';
 import { WaveDebugService } from './services/debug/wave-debug.service';
 import { EnemyDebugService } from './services/debug/enemy-debug.service';
 import { DebugFacadeService } from './services/debug/debug-facade.service';
@@ -81,7 +82,6 @@ import { TdIconComponent } from './components/icon/icon.component';
     CommonModule,
     MatDialogModule,
     MatButtonModule,
-    MatProgressSpinnerModule,
     MatTooltipModule,
     GameSidebarComponent,
     CompassComponent,
@@ -100,6 +100,7 @@ import { TdIconComponent } from './components/icon/icon.component';
     InfoOverlayComponent,
     ContextHintComponent,
     GameSpeedComponent,
+    LoadingScreenComponent,
     TdIconComponent,
   ],
   providers: [
@@ -143,8 +144,17 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly heightUpdate = inject(HeightUpdateService);
   private readonly engineInit = inject(EngineInitializationService);
   private readonly locationCoordinator = inject(LocationChangeCoordinatorService);
+  private readonly devWorld = inject(DevWorldService);
   readonly facade = inject(TowerDefenseFacadeService);
   readonly store = inject(TowerDefenseStore);
+
+  // Build / tiles version chips shown in the loading screen corners.
+  readonly buildVersion = 'v0.2.0';
+  readonly tilesVersionLabel = computed(
+    () => this.configService.tileProvider() === 'cesium' ? 'cesium · v3' : 'google · v3'
+  );
+  readonly missionInfo = this.locationMgmt.missionInfo;
+  readonly devWorldSeed = computed(() => this.devWorld.isActive ? this.devWorld.config.seed : null);
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
