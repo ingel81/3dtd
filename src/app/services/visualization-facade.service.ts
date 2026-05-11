@@ -583,6 +583,11 @@ export class VisualizationFacadeService {
     }
 
     this.gameState.onTilesLoaded();
+    // Self-heal cells that were `unsampled` because tiles weren't streamed
+    // in for them yet. Cheap — only walks unsampled cells. Triggers
+    // viz refresh + onCellsPromoted (tower-LOS recompute) when any
+    // cell flipped from unsampled → stable.
+    this.gameState.getGlobalRouteGrid().retryUnsampledCells();
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
 
     console.warn(

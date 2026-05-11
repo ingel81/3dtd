@@ -88,6 +88,26 @@ export type TerrainHeightSampler = (lat: number, lon: number) => number | null;
 export type TerrainRaycaster = (localX: number, localZ: number, anchorY?: number) => number | null;
 
 /**
+ * Detailed terrain raycast result: hit Y plus tile LOD info for the tile
+ * that produced the hit. Used by the route-cell-grid to track per-cell
+ * sample quality and reject LOD-regression overwrites.
+ */
+export interface TerrainSample {
+  /** Local Y of the hit. */
+  y: number;
+  /** Tile depth (3DTilesRendererJS `__depth`). Higher = better LOD. */
+  tileDepth: number;
+  /** Tile geometricError. Lower = better LOD. */
+  tileGeometricError: number;
+}
+
+/**
+ * Same as TerrainRaycaster but returns a {@link TerrainSample} including
+ * tile LOD info — used by `sampleCellY` for quality-versioned idempotency.
+ */
+export type TerrainSampleRaycaster = (localX: number, localZ: number, anchorY?: number) => TerrainSample | null;
+
+/**
  * Function type for Line-of-Sight raycasting between two 3D points
  * Returns true if line of sight is BLOCKED (ray hits something before target)
  */

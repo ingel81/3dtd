@@ -12,7 +12,7 @@ import {
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
-import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
+import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
 
 /**
  * RouteCell - Single cell in the global route grid
@@ -30,20 +30,25 @@ import { TerrainRaycaster, LineOfSightRaycaster } from '../three-engine/renderer
  * never write from anywhere else, otherwise the single-source-of-truth
  * invariant breaks.
  *
- * Phase 1 of the Cell-Grid refactor keeps this minimal (state + frame
- * counter). Phase 2 will extend it with `tileGeneration` and
- * `geometricError` for quality-versioned idempotency.
+ * `tileDepth` and `tileGeometricError` are the LOD metadata of the tile
+ * that produced the last successful sample. They drive the quality-
+ * versioned idempotency in `sampleCellY`: a new sample at strictly worse
+ * LOD (lower depth, higher geometricError) does not overwrite a cached
+ * good sample. Stable under tile streaming.
  */
 export interface CellSample {
   /**
    * `unsampled` — terrain raycast hasn't returned a hit yet, `terrainHeight`
    *   is still a fallback (route-anchor Y). Viz call sites skip these cells.
    * `stable` — terrain raycast returned a hit; `terrainHeight` is real.
-   * (`preliminary` is reserved for Phase 2 when tile-LOD tracking arrives.)
    */
   state: 'unsampled' | 'stable';
   /** Internal frame counter at last successful sample (debug only). */
   sampledAt: number;
+  /** 3D Tiles tile depth at last sample. Higher = better LOD. 0 if unknown. */
+  tileDepth: number;
+  /** Tile geometricError at last sample. Lower = better LOD. Infinity if unknown. */
+  tileGeometricError: number;
 }
 
 export interface RouteCell {
@@ -327,6 +332,14 @@ export class GlobalRouteGrid {
   private terrainRaycaster: TerrainRaycaster | null = null;
 
   /**
+   * Detailed terrain sample raycaster — returns hit Y plus tile LOD info.
+   * Used by `sampleCellY` for quality-versioned idempotency. Set
+   * alongside `terrainRaycaster` in `initialize()`. When null,
+   * `sampleCellY` falls back to the plain raycaster without LOD tracking.
+   */
+  private terrainSampleRaycaster: TerrainSampleRaycaster | null = null;
+
+  /**
    * Skyline raycaster — top-down sample of the highest geometry (terrain or
    * building roof) around a local position. Used to give cells a skyline
    * altitude for air-LOS pre-compute and adaptive air flight height.
@@ -376,19 +389,64 @@ export class GlobalRouteGrid {
    * @returns `true` when the cell was promoted to / refreshed in `stable`.
    */
   private sampleCellY(cell: RouteCell): boolean {
-    if (!this.terrainRaycaster) return false;
-    const hit = this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY);
+    // Prefer the detailed raycaster (returns LOD info) so we can implement
+    // quality-versioned idempotency. Falls back to the plain raycaster
+    // when only that is wired (legacy tests, DevWorld bootstrap).
+    let hit: { y: number; tileDepth: number; tileGeometricError: number } | null = null;
+
+    if (this.terrainSampleRaycaster) {
+      hit = this.terrainSampleRaycaster(cell.x, cell.z, cell.routeAnchorY);
+    } else if (this.terrainRaycaster) {
+      const y = this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY);
+      if (y !== null) {
+        hit = { y, tileDepth: 0, tileGeometricError: Infinity };
+      }
+    }
+
     if (hit === null) {
       logGrid('SAMPLE', `miss key=${cell.key} anchor=${cell.routeAnchorY.toFixed(2)}`);
       return false;
     }
+
+    // Quality-versioned idempotency: if the cell already has a stable sample
+    // from a strictly better tile (deeper LOD), refuse to overwrite with
+    // potentially-degraded data. This keeps the grid robust against LOD
+    // drops during streaming (e.g. user zooms out and tiles re-stream at
+    // coarser detail).
+    if (cell.sample.state === 'stable') {
+      const oldDepth = cell.sample.tileDepth;
+      const oldErr = cell.sample.tileGeometricError;
+      const newDepth = hit.tileDepth;
+      const newErr = hit.tileGeometricError;
+      // Strictly worse LOD: lower depth AND higher geometricError.
+      if (newDepth < oldDepth && newErr > oldErr) {
+        logGrid(
+          'SAMPLE',
+          `reject reason=worseLOD key=${cell.key} oldDepth=${oldDepth} newDepth=${newDepth} oldErr=${oldErr.toFixed(2)} newErr=${newErr.toFixed(2)}`,
+        );
+        return false;
+      }
+      // Same Y and same LOD: nothing to do.
+      if (
+        Math.abs(hit.y - cell.terrainHeight) < 0.01 &&
+        newDepth === oldDepth
+      ) {
+        return false;
+      }
+    }
+
     const wasStable = cell.sample.state === 'stable';
-    cell.terrainHeight = hit;
-    cell.sample = { state: 'stable', sampledAt: ++this.sampleFrame };
+    cell.terrainHeight = hit.y;
+    cell.sample = {
+      state: 'stable',
+      sampledAt: ++this.sampleFrame,
+      tileDepth: hit.tileDepth,
+      tileGeometricError: hit.tileGeometricError,
+    };
     cell.heightSampled = true;
     logGrid(
       'SAMPLE',
-      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.toFixed(2)}`,
+      `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}`,
     );
     return true;
   }
@@ -403,9 +461,11 @@ export class GlobalRouteGrid {
   initialize(
     terrainRaycaster: TerrainRaycaster,
     coordinateSync: CoordinateSync,
-    skylineRaycaster?: TerrainRaycaster
+    skylineRaycaster?: TerrainRaycaster,
+    terrainSampleRaycaster?: TerrainSampleRaycaster,
   ): void {
     this.terrainRaycaster = terrainRaycaster;
+    this.terrainSampleRaycaster = terrainSampleRaycaster ?? null;
     this.coordinateSync = coordinateSync;
     this.skylineRaycaster = skylineRaycaster ?? terrainRaycaster;
   }
@@ -514,7 +574,12 @@ export class GlobalRouteGrid {
           terrainHeight: anchorY,        // Fallback until sampleCellY succeeds.
           skylineHeight: anchorY,        // Refined below if skylineRaycaster set.
           routeAnchorY: anchorY,
-          sample: { state: 'unsampled', sampledAt: 0 },
+          sample: {
+            state: 'unsampled',
+            sampledAt: 0,
+            tileDepth: 0,
+            tileGeometricError: Infinity,
+          },
           heightSampled: false,
           enemies: new Set(),
           towerVisibility: new Map(),
@@ -597,6 +662,43 @@ export class GlobalRouteGrid {
    */
   setCellsPromotedListener(listener: (promoted: RouteCell[]) => void): void {
     this.onCellsPromoted = listener;
+  }
+
+  /**
+   * Retry sampling for cells that have never had a real raycast hit
+   * (`state === 'unsampled'`). Cheap — only walks the unsampled subset.
+   *
+   * Intended to be called from tile-load-end callbacks so cells self-heal
+   * as tiles stream in, without re-sampling already-stable cells.
+   *
+   * Triggers `onCellsPromoted` and refreshes the global viz mesh when at
+   * least one cell flipped from `unsampled` → `stable`.
+   */
+  retryUnsampledCells(): void {
+    if (!this.terrainRaycaster && !this.terrainSampleRaycaster) return;
+
+    const promoted: RouteCell[] = [];
+    let totalUnsampled = 0;
+
+    for (const cell of this.cells.values()) {
+      if (cell.sample.state !== 'unsampled') continue;
+      totalUnsampled++;
+      if (this.sampleCellY(cell)) {
+        promoted.push(cell);
+      }
+    }
+
+    logGrid(
+      'HEIGHT_UPDATE',
+      `retryUnsampled unsampledBefore=${totalUnsampled} promoted=${promoted.length}`,
+    );
+
+    if (promoted.length === 0) return;
+
+    if (this.visualization) {
+      this.initializePositions();
+    }
+    this.onCellsPromoted?.(promoted);
   }
 
   /**
