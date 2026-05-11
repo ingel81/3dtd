@@ -196,33 +196,10 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
       Brainstorming: als Gameplay-Element? (z.B. Nacht-Modus, Wetter), oder rein kosmetisch?
       Aktuell nur im Debug-Panel zugänglich — evtl. in Settings verschieben
 
-- [ ] **InfoOverlay collapsed-State minimal halten**
-      Im zugeklappten Zustand soll die FPS-Anzeige nur die nackte Zahl zeigen — aktuell
-      ist da noch zu viel Schnickschnack drumherum. Datei:
-      `components/info-overlay/info-overlay.component.ts` (Template + Styles für den
-      Nicht-`infoOverlayVisible`-Pfad).
-
 - [ ] **Loading Screen optimieren**
       Layout/Wirkung des Initial-Loading-Screens überarbeiten. Detaillierter Stats-Block
       und 3D-Tiles-Counter sind 2026 vorhandene Basis (siehe DONE.md), aber Polish steht
       aus. Konkretisieren beim Anpacken (Bullet-Liste was raus/rein soll).
-
-- [ ] **Kompass: Reset-Bearing-Button neu positionieren**
-      „Reset bearing"-Button gehört aus Sicht des Kompass nach oben rechts (statt aktueller
-      Position). Datei: `components/compass/compass.component.ts` (Template + Styles für
-      den Reset-Button).
-
-- [ ] **Enemy-Tooltip in laufender Wave wie Tower-Tooltip im Build-Menü stylen**
-      Der Tooltip der Enemies während der laufenden Wave soll optisch identisch zum
-      Tower-Tooltip im Build-Menü gestaltet werden (gleiche Card-Optik, Header,
-      Stat-Layout, Typografie). Aktuell weichen die beiden Tooltips visuell voneinander
-      ab — Stil vereinheitlichen für konsistentes UI-Empfinden.
-
-- [ ] **Wallsmasher: kein Spawn-Sound**
-      Der Wallsmasher soll beim Spawnen keinen Sound abspielen. Aktuell triggert er den
-      Spawn-Sound aus der Audio-Config. Vermutlich in `src/app/configs/audio.config.ts`
-      (Enemy-Spawn-Map) den Eintrag für wallsmasher entfernen / auf null setzen, bzw.
-      in `enemy-types.config.ts` den Spawn-Sound-Verweis prüfen.
 
 ## 3.2 Visual Settings (Performance-Toggles)
 
@@ -241,10 +218,6 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 - [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
       (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
       → Type erst erweitern, Matrix-Eintrag ergänzen)
-
-- [ ] **UI: Rüstungstyp im Wave-Preview anzeigen**
-      "🛡️ Heavy Armor – Weak to Siege" o.ä.
-      Neue Enemy-Ideen mit speziellen Rüstungen siehe BACKLOG → Enemy-Ideen.
 
 - [ ] **Globale Damage-Matrix-Übersicht im UI** (Optional, niedrige Priorität)
       Tooltips zeigen aktuell nur Multiplier per Tower und per Enemy. Eine globale

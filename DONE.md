@@ -6,6 +6,69 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-05-11
 
+### InfoOverlay collapsed-State minimal
+
+- [x] **Nur die nackte FPS-Zahl im zugeklappten State**
+      `info-overlay.component.ts`: "FPS"-Label nur noch bei expanded gerendert,
+      `.v` verliert im collapsed `flex: 1` + 56px-Spaltenbreite — das Panel
+      intrinsic-sized um Zahl + Caret. Padding 2px 6px, Row-Gap 6px.
+
+- [x] **Background, Border, Shadow im collapsed entfernt**
+      Glass-Tint, Backdrop-Filter, Border und Box-Shadow sind im collapsed
+      transparent; ein 4-fach Cardinal-text-shadow (1px Outline) + weicher
+      Drop-Shadow hält Zahl + Caret (via `filter: drop-shadow`) auf hellem
+      Himmel, Wasser und bunten Map-Tiles lesbar. Auf Hover faded ein
+      schwacher Glass-Tint mit 4px-Blur ein, damit der Klick-Target
+      discoverable bleibt. Caret-Opacity bei 0.85 als Aufklapp-Affordance.
+
+### Kompass: Reset-Bearing-Button nach oben rechts
+
+- [x] **Reset-Button von unten-rechts auf oben-rechts verschoben**
+      `compass.component.ts`: Style-Selector `.td-compass__reset` von
+      `bottom: -2px` auf `top: -6px; right: -6px`. Der Button hängt jetzt
+      sichtbar getrennt am oberen-rechten Kompass-Rand, mit etwas mehr
+      Abstand zum runden Face.
+
+### Wallsmasher spawnt geräuschlos + eckige Armor-Glyphen
+
+- [x] **Wallsmasher: kein Spawn-Sound**
+      `enemy-types.config.ts`: `spawnSound` / `spawnSoundVolume` /
+      `spawnSoundRefDistance` beim Wallsmasher entfernt. `enemy.entity.ts:88,114`
+      gateet beide Pfade (Register + Play) durch `if (this.typeConfig.spawnSound)`,
+      ohne Property bleibt der Spawn lautlos. Gameplay-Entscheidung: Wallsmasher-
+      Rush soll visuelle Überraschung sein.
+
+- [x] **Armor-Glyphen quadratisch statt rund**
+      `combat-ui.config.ts`: Circle-Emojis 🟢🔵🟠🔴🟣 durch Square-Equivalents
+      🟩🟦🟧🟥🟪 ersetzt. Wirkt automatisch in Enemy-Group-Row und
+      Coming-Up-Wave-Preview. Tower-Tooltip nutzt weiterhin den CSS-Dot;
+      Formvokabular ist jetzt durchgehend eckig.
+
+### Enemy-Tooltip in laufender Wave auf Tower-Tooltip-Stil vereinheitlicht
+
+> Wave-Section zeigte Enemy-Details bislang über `[matTooltip]` als reine Pre-Line-
+> Stringbox an, während Tower-Cards im Build-Menü längst die strukturierte
+> `TdRichTooltipDirective` mit Card-Optik nutzen. Beide Tooltips teilen sich nun
+> Layout, Header-Typografie und das vs-Tabellen-Schema.
+
+- [x] **Enemy-Group-Row nutzt `tdRichTooltip` statt `matTooltip`**
+      `game-sidebar.component.html`: Enemy-Group-Row bindet `[tdRichTooltip]="getGroupTooltipData(group)"`.
+      Neue Methode `getGroupTooltipData()` liefert `TdTooltipData` analog zu
+      `getTowerCardTooltipData()` — Header (Enemy-Name + Armor-Kategorie, Accent
+      aus Armor-Typ), 3-Spalten-Stats `HP / SPEED / COUNT`, "vs Damage"-Tabelle
+      mit allen Schadenstypen sortiert nach Effektivität (Damage-Type-Farbe als
+      Dot, schwache Matchups gedimmt), und Scaling-Multiplikatoren als Flavor-Line
+      falls HP/Speed-Multiplier ≠ 1. Damit ergänzt das Tooltip die im Row bereits
+      sichtbare `🛡️ Heavy – Weak to Siege`-Zeile um die vollständige Damage-Matrix
+      für das jeweilige Enemy (deckt zugleich das TODO "UI: Rüstungstyp im
+      Wave-Preview anzeigen" ab).
+
+- [x] **`withPush(true)` für `TdRichTooltipDirective` aktiviert**
+      CDK-Overlay schiebt Tooltips jetzt zurück in den Viewport, wenn das Host-
+      Element nahe am oberen/unteren Bildschirmrand sitzt. Vorher klebte der
+      ~300px hohe Tooltip an den ersten Enemy-Group-Rows oben in der Sidebar am
+      Viewport-Rand und wurde abgeschnitten. Profitiert auch Tower-Cards.
+
 ### Lightning Tower — Hitscan-Chain + Idle-Crackle + lokale Impact-Halos
 
 > Neuer Tower-Typ `lightning` (eigene Tower-Type-ID, **nicht** der existierende
