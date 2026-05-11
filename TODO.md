@@ -304,9 +304,6 @@ _(keine offenen Punkte)_
 > Schadensmatrix, damageType/armorType an allen Configs, Flame Tower,
 > Damage-Matchup-Tooltips. Offen: weitere Tower-Typen + Wave-Preview-UI.
 
-- [ ] **Lightning / Tesla Tower (`magic`)** — Kettenblitz, springt zwischen Enemies
-      Model bereit: `public/assets/models/towers/lightning.glb` → kann implementiert werden.
-
 - [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
       (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
       → Type erst erweitern, Matrix-Eintrag ergänzen)
@@ -411,6 +408,23 @@ _(keine offenen Punkte)_
       Basiert auf existierendem GPU-Instanced Decal System (Blood/Ice Decals)
       Neue Shader in `decal-shaders.ts`, Configs in `visual-effects.config.ts`
       Dateien: `decal-instance.manager.ts`, `three-effects.renderer.ts`, `vfx.service.ts`
+
+- [ ] **Selective / lokales Post-Processing für Effekt-Hotspots**
+      Bloom (und ggf. weitere Post-FX) nur an konkreten Effekt-Positionen statt global.
+      Hintergrund: erste Lightning-Tower-Iteration hat Auto-Bloom global eingeschaltet —
+      Fullscreen-Pass mit Threshold 0.75 ließ alle emissiven Materialien dauerhaft leuchten
+      (Gegner, Health-Bars, Particles). Sauberer Weg: Three.js Selective Bloom via
+      Render-Layers — Bolts/Hotspot-Meshes auf eigener Bloom-Layer, zweiter EffectComposer
+      rendert nur diese Layer in ein Off-Screen-Render-Target, das additiv über die normale
+      Szene komponiert wird. Erst experimentell evaluieren (Lightning-Bolts, Explosions-Cores,
+      ggf. Magic-Orb-Highlights) bevor in die Pipeline gehoben.
+      **Stand 2026-05-11:** Pragmatischer Workaround für Lightning-Impacts sitzt in
+      `lightning-bolt.renderer.ts` (additive Billboard-Halos via Sprite-Pool, AdditiveBlending,
+      Radial-Gradient-CanvasTexture). Funktioniert weil additiv komponiert wird — Tiles
+      reagieren bekanntlich nicht auf dynamische Lichter. Echtes Selective-Bloom-Setup für
+      weitere Effekt-Kategorien (Explosions-Cores, Magic-Orb-Highlights) steht weiterhin aus.
+      Dateien: `three-engine/post-processing/post-processing-pipeline.ts`,
+      `three-engine/renderers/lightning-bolt.renderer.ts`, `three-engine/three-tiles-engine.ts`.
 
 ## Mobile Support & Accessibility
 
