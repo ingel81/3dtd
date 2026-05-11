@@ -6,6 +6,67 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-05-11
 
+### Route-Cell-Grid Single-Source-Of-Truth Refactor (4 Phasen, ULTRA HIGH PRIO)
+
+> Vollständige architektonische Konsolidierung des Cell-Grids nach
+> 4-Agent-Analyse — Plan in `~/.claude/plans/das-h-rt-sich-gesamt-fluffy-orbit.md`.
+> Setzt fünf nicht-verhandelbare Prinzipien um: Single Source of Truth,
+> Quality-Versionierung, deterministischer Bootup-Moment, inkrementelle
+> Verfeinerung als First-Class-API, Single Viz-Mesh.
+
+- [x] **Phase 1 — Single-Source `sampleCellY` + Datenmodell**
+      `CellSample`-Typ (state + tileDepth + tileGeometricError + sampledAt) auf
+      jeder Cell. `sampleCellY(cell)` ist die **einzige** Funktion die
+      `cell.terrainHeight` nach Cell-Create schreibt — alle 5 Schreib-Stellen
+      (generateCorridorCells, updateTerrainHeights, registerTower,
+      registerTowerIncremental, continueTowerRegistration, continuePreviewBuild)
+      gehen durch sie hindurch. Cell-Init startet `unsampled` mit anchorY als
+      Fallback, sampleCellY promotet zu `stable` bei Raycast-Hit. Einheitliches
+      `[CELL-GRID]` Log-Prefix mit Sub-Tags (BOOTUP/SAMPLE/REFINE/VIZ-MODE/
+      TOWER-REG/HEIGHT-UPDATE/DISPOSE/CELL-GEN), Single `logGrid(tag, ...)`
+      Helper damit der Prefix nie driftet. Verhalten unverändert.
+
+- [x] **Phase 2 — Tile-LOD-aware sampleCellY + Tile-Load Self-Heal**
+      `CellSample` um `tileDepth` + `tileGeometricError` erweitert. Neue Typen
+      `TerrainSample` / `TerrainSampleRaycaster` in `three-tower.renderer.ts`.
+      `ThreeTilesEngine.getTerrainSampleAtLocal(x, z, anchorY?)` liefert hit +
+      tile-LOD-Info via persistenter `tileInfoMap` (rebuilt on tile-load-end).
+      `sampleCellY` implementiert **quality-versionierte Idempotenz**: ein
+      strikt-schlechterer-LOD-Sample (lower depth UND higher geometricError)
+      überschreibt einen stabilen Cache-Wert nicht. Stabil unter LOD-drops
+      während Streaming. Neue `retryUnsampledCells()` walkt nur die unsampled
+      Subset, getriggert aus `visualization-facade.onTilesLoaded` → Cells
+      heilen sich selbst während Tiles streamen.
+
+- [x] **Phase 3 — `refineCellsInRadius` als First-Class-Refinement-API**
+      `refineCellsInRadius(x, z, r)` walkt Cells im Radius, callt sampleCellY
+      auf jeder — promotet unsampled und refresht stable wenn Tile-LOD
+      verbessert. O(cells in radius) — ~100 Cells bei Rocket-Range 100m. Hooks
+      in `tower-placement.service`: vor `registerTowerProgressive` (LOS gegen
+      frische Heights) und vor `createPlacementPreview` (akkurate Preview-Coverage).
+      Schließt die „Tower an noch nicht ganz geladenem Map-Edge platziert"-Lücke.
+      Emittiert `onCellsPromoted` → existing tower-placement listener
+      recomputed LOS für betroffene andere Tower automatisch.
+
+- [x] **Phase 4 — Per-Tower-Viz-Mesh-Ownership zentral im Grid-Service**
+      `Tower.losVisualization` Property entfernt. `GlobalRouteGridService`
+      hält einen einzigen geteilten Per-Tower-Viz-Mesh-Slot mit
+      `showTowerViz(id, x, z, range, scene)` / `clearTowerViz()` /
+      `updateCurrentTowerVizAnimation()` / `getCurrentTowerVizId()` API.
+      `TowerManager.selectTower` triggert show auf Select, clear auf Deselect.
+      `tower-placement.service` legt den Mesh nicht mehr pro Tower an —
+      `registerTowerOnGrid` ruft nur dann showTowerViz wenn der frisch
+      platzierte Tower ohnehin selektiert ist. `unregisterTowerFromGrid`
+      und `recomputeTowerLOS` arbeiten gegen den geteilten Slot.
+      Game-Loop-Animation-Tick geht durch grid statt durch entity. Spec
+      angepasst auf observable selectTower-Verhalten. Single Source of
+      Truth jetzt auch auf Viz-Layer — ein Mesh in flight zu jedem Zeitpunkt.
+
+> **Out of Scope** (eigene Folge-TODOs):
+> Visual Polish (Snap-to-Surface mit Normalen, Edge/Glow,
+> per-State-Pulse-Frequenz), `GROUND_ANCHOR_TOLERANCE_M`-Finetuning,
+> BVH für Raycast-Performance, Multi-Tower-Highlight.
+
 ### Route-Cell-Grid Polish-Block — 4 zusammenhängende Themen
 
 > Eine Session, vier verzahnte Verbesserungen am Route-Cell-Grid und seinen
