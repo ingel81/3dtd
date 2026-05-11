@@ -1,4 +1,3 @@
-import { InstancedMesh } from 'three';
 import { GameObject } from '../core/game-object';
 import { ComponentType } from '../core/component';
 import {
@@ -62,9 +61,6 @@ export class Tower extends GameObject {
 
   /** Whether LOS computation is complete (tower won't fire until true) */
   losReady = false;
-
-  /** LOS visualization mesh (shown when tower is selected) */
-  losVisualization: InstancedMesh | null = null;
 
   /** Cached current target - avoid re-searching every frame */
   private _currentTarget: Enemy | null = null;

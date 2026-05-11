@@ -64,7 +64,11 @@ export class GameStateManager {
   private audioService!: AudioService;
   screenShakeService!: ScreenShakeService;
   backgroundMusic!: BackgroundMusicService;
-  readonly towerManager = new TowerManager(this.eventBus, this.osmService);
+  readonly towerManager = (() => {
+    const mgr = new TowerManager(this.eventBus, this.osmService);
+    mgr.setGlobalRouteGrid(this.globalRouteGrid);
+    return mgr;
+  })();
   readonly enemyManager = new EnemyManager(this.eventBus, this.globalRouteGrid, this.spatialGrid);
   readonly projectileManager = new ProjectileManager(this.eventBus);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);

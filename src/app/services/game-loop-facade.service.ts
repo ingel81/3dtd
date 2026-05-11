@@ -428,11 +428,9 @@ export class GameLoopFacadeService {
     }
     grid.updateAnimation(deltaTime);
 
-    // Selected tower LOS animation
-    const selectedTower = this.gameState.towerManager.getSelected();
-    if (selectedTower?.losVisualization?.visible) {
-      grid.updateTowerVisualizationTime(selectedTower.losVisualization);
-    }
+    // Phase 4 single-source: the per-tower viz mesh is owned by the grid
+    // service. Tick its uTime uniform if a tower's viz is currently shown.
+    grid.updateCurrentTowerVizAnimation();
 
     // Throttled UI stats (~10Hz)
     const now = performance.now();

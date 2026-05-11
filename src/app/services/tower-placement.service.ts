@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, Material, MeshStandardMaterial } from 'three';
+import { Object3D, InstancedMesh, Mesh, Color, MeshStandardMaterial } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './osm-street.service';
 import { OsmStreetService } from './osm-street.service';
@@ -814,16 +814,18 @@ export class TowerPlacementService {
       tower.losReady = true;
       this.pendingTowerReg = null;
 
-      // Create LOS visualization (hidden by default, shown on selection)
-      tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
-        tower.id,
-        terrainPos.x,
-        terrainPos.z,
-        config.range
-      );
-      if (tower.losVisualization) {
-        tower.losVisualization.visible = tower.selected;
-        this.engine!.getScene().add(tower.losVisualization);
+      // Phase 4 single-source: per-tower viz is created on selection by
+      // TowerManager via grid.showTowerViz — no per-tower mesh property
+      // on the Tower entity. If THIS tower happens to be selected right
+      // now (e.g. user placed and is hovering), trigger the show now.
+      if (tower.selected && this.engine) {
+        this.globalRouteGrid.showTowerViz(
+          tower.id,
+          terrainPos.x,
+          terrainPos.z,
+          config.range,
+          this.engine.getScene(),
+        );
       }
 
       // PerfTrace disabled — fired per tower placement (noisy during training)
@@ -881,18 +883,15 @@ export class TowerPlacementService {
 
   /**
    * Unregister a tower from the GlobalRouteGrid:
-   * - Dispose LOS visualization mesh
+   * - Clear shared per-tower viz if this tower is the currently-shown one
    * - Unregister from grid (removes tower visibility from cells)
    */
   unregisterTowerFromGrid(tower: Tower): void {
-    // Dispose LOS visualization
-    if (tower.losVisualization && this.engine) {
-      this.engine.getScene().remove(tower.losVisualization);
-      tower.losVisualization.geometry.dispose();
-      (tower.losVisualization.material as Material).dispose();
-      tower.losVisualization = null;
+    // If the soon-to-be-removed tower currently owns the shared per-tower
+    // viz mesh, hide it. Other towers' selection state is unaffected.
+    if (this.globalRouteGrid.getCurrentTowerVizId() === tower.id) {
+      this.globalRouteGrid.clearTowerViz();
     }
-
     // Unregister from GlobalRouteGrid
     this.globalRouteGrid.unregisterTower(tower.id);
     tower.visibleCells = [];
@@ -908,14 +907,6 @@ export class TowerPlacementService {
 
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
     if (!config) return;
-
-    // Dispose old LOS visualization mesh — cell-map data stays for reuse below
-    if (tower.losVisualization) {
-      this.engine.getScene().remove(tower.losVisualization);
-      tower.losVisualization.geometry.dispose();
-      (tower.losVisualization.material as Material).dispose();
-      tower.losVisualization = null;
-    }
 
     // Re-register with current (upgraded) range
     const position = tower.position;
@@ -943,18 +934,17 @@ export class TowerPlacementService {
       canTargetAir
     );
 
-    // Recreate LOS visualization with new range
-    tower.losVisualization = this.globalRouteGrid.createTowerVisualization(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      tower.combat.range
-    );
-
-    if (tower.losVisualization) {
-      // Keep visibility state consistent with selection
-      tower.losVisualization.visible = tower.selected;
-      this.engine.getScene().add(tower.losVisualization);
+    // If this tower is currently selected, refresh the shared viz mesh
+    // with the new range. Otherwise no mesh exists for this tower.
+    if (this.globalRouteGrid.getCurrentTowerVizId() === tower.id) {
+      this.globalRouteGrid.clearTowerViz();
+      this.globalRouteGrid.showTowerViz(
+        tower.id,
+        terrainPos.x,
+        terrainPos.z,
+        tower.combat.range,
+        this.engine.getScene(),
+      );
     }
   }
 

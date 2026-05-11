@@ -8,6 +8,8 @@ import { OsmStreetService, StreetNetwork } from '../services/osm-street.service'
 import { ThreeTilesEngine } from '../three-engine';
 import { geoDistanceFastSq, findNearestRouteDistance } from '../utils/geo-utils';
 import { GameEventBus } from '../game-engine';
+import type { GlobalRouteGridService } from '../services/global-route-grid.service';
+import { TOWER_TYPES } from '../configs/tower-types.config';
 
 /**
  * Manages all tower entities
@@ -33,6 +35,18 @@ export class TowerManager extends EntityManager<Tower> {
   private spawnPoints: GeoPosition[] = [];
   private placementSoundRegistered = false;
   private activeRoutesGetter: (() => GeoPosition[][]) | null = null;
+
+  /**
+   * GlobalRouteGridService reference for per-tower viz management.
+   * Wired late (setGlobalRouteGrid) since the grid service is constructed
+   * elsewhere. When null, selectTower silently skips viz updates so the
+   * manager remains usable in test contexts without a viz hookup.
+   */
+  private globalRouteGrid: GlobalRouteGridService | null = null;
+
+  setGlobalRouteGrid(grid: GlobalRouteGridService): void {
+    this.globalRouteGrid = grid;
+  }
 
   /**
    * Initialize with ThreeTilesEngine and street network context
@@ -237,10 +251,6 @@ export class TowerManager extends EntityManager<Tower> {
       if (prev) {
         prev.deselect();
         this.tilesEngine?.towers.deselect(currentId);
-        // Hide LOS visualization
-        if (prev.losVisualization) {
-          prev.losVisualization.visible = false;
-        }
       }
     }
 
@@ -251,14 +261,32 @@ export class TowerManager extends EntityManager<Tower> {
       if (tower) {
         tower.select();
         this.tilesEngine?.towers.select(id);
-        // Show LOS visualization
-        if (tower.losVisualization) {
-          tower.losVisualization.visible = true;
+        // Phase 4 single-source: ask grid service to show the tower's LOS
+        // viz. The grid owns the single shared mesh — no per-tower
+        // property on Tower entity, no mesh-create/dispose dance here.
+        if (this.globalRouteGrid && this.tilesEngine && tower.losReady) {
+          const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
+          if (config) {
+            const localPos = this.tilesEngine.sync.geoToLocalSimple(
+              tower.position.lat,
+              tower.position.lon,
+              tower.position.height ?? 0,
+            );
+            this.globalRouteGrid.showTowerViz(
+              tower.id,
+              localPos.x,
+              localPos.z,
+              tower.combat.range,
+              this.tilesEngine.getScene(),
+            );
+          }
         }
         // Emit tower:selected event
         this.eventBus.emit({ type: 'tower:selected', tower });
       }
     } else if (currentId) {
+      // Hide per-tower viz on deselect.
+      this.globalRouteGrid?.clearTowerViz();
       // Emit tower:deselected event only if something was previously selected
       this.eventBus.emit({ type: 'tower:deselected' });
     }

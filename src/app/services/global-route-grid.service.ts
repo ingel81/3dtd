@@ -4,7 +4,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
-import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
+import { InstancedMesh, Material, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 import { UIStore } from '../store/ui.store';
 
 /**
@@ -28,6 +28,16 @@ export class GlobalRouteGridService {
 
   // Spatial grid debug visualization mesh (owned by this service)
   private spatialGridVizMesh: InstancedMesh | null = null;
+
+  /**
+   * Per-tower viz mesh — exactly one exists at a time, owned by the
+   * service. Created when a tower is selected, disposed when the tower
+   * is deselected. Replaces the per-tower `Tower.losVisualization`
+   * property as part of the Phase 4 single-source-of-truth refactor.
+   */
+  private currentTowerVizMesh: InstancedMesh | null = null;
+  private currentTowerVizId: string | null = null;
+  private currentTowerVizScene: Scene | null = null;
 
   constructor() {
     this.grid = new GlobalRouteGrid();
@@ -365,6 +375,59 @@ export class GlobalRouteGridService {
    */
   updateTowerVisualizationTime(mesh: InstancedMesh): void {
     this.grid.updateTowerVisualizationTime(mesh);
+  }
+
+  /**
+   * Phase 4 single-source: show the per-tower LOS overlay for `towerId`.
+   * Disposes any previously-shown tower's mesh and creates a fresh one
+   * for the new tower. Pass `null` (or call `clearTowerViz`) to hide.
+   *
+   * The service owns the single shared mesh — callers (TowerManager,
+   * tower-placement.service) do NOT manage their own per-tower meshes.
+   */
+  showTowerViz(
+    towerId: string,
+    towerX: number,
+    towerZ: number,
+    range: number,
+    scene: Scene,
+  ): void {
+    // Same tower already showing → no-op
+    if (this.currentTowerVizId === towerId && this.currentTowerVizMesh) {
+      return;
+    }
+    this.clearTowerViz();
+    const mesh = this.grid.createTowerVisualization(towerId, towerX, towerZ, range);
+    if (!mesh) return;
+    scene.add(mesh);
+    this.currentTowerVizMesh = mesh;
+    this.currentTowerVizId = towerId;
+    this.currentTowerVizScene = scene;
+  }
+
+  /** Hide and dispose the currently-shown per-tower viz, if any. */
+  clearTowerViz(): void {
+    if (!this.currentTowerVizMesh) return;
+    if (this.currentTowerVizScene) {
+      this.currentTowerVizScene.remove(this.currentTowerVizMesh);
+    }
+    this.currentTowerVizMesh.geometry.dispose();
+    (this.currentTowerVizMesh.material as Material).dispose();
+    this.currentTowerVizMesh = null;
+    this.currentTowerVizId = null;
+    this.currentTowerVizScene = null;
+  }
+
+  /** Animation tick — call each frame to advance the uTime uniform. */
+  updateCurrentTowerVizAnimation(): void {
+    if (this.currentTowerVizMesh) {
+      this.grid.updateTowerVisualizationTime(this.currentTowerVizMesh);
+    }
+  }
+
+  /** Returns the ID of the tower whose viz is currently shown, or null. */
+  getCurrentTowerVizId(): string | null {
+    return this.currentTowerVizId;
   }
 
   /**
