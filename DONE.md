@@ -88,9 +88,18 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       (`createPlacementPreview`) nutzten den gecachten `cell.terrainHeight`.
       Bei minimalen Tile-State-Unterschieden zwischen den Sample-Zeitpunkten
       kamen leicht unterschiedliche Y heraus.
-      **Fix:** Live-Raycast in `initializePositions` entfernt — alle drei Systeme
+      **Fix Teil 1:** Live-Raycast in `initializePositions` entfernt — alle drei Systeme
       lesen jetzt aus derselben Quelle `cell.terrainHeight`. Cache bleibt aktuell
       durch `updateTerrainHeights → initializePositions` (siehe oben).
+      **Fix Teil 2 (Folge-Iteration):** Tower-Reg-Pfade (`registerTower`,
+      `registerTowerIncremental`, `continueTowerRegistration`) überschreiben
+      `cell.terrainHeight` mit frischen Samples (für aktuelle LOS-Berechnung
+      nachdem ggf. weitere Tiles gestreamt sind). Wenn diese vom Initial-Sample
+      abweichen, hatte System A weiterhin alte Y. Jetzt rufen die drei Pfade
+      am Ende `initializePositions()` auf, sodass Global-Viz mit Per-Tower-Viz
+      synchron bleibt. Sichtbar gemerkt bei Tower in Baum-Nähe — Per-Tower-Cells
+      „auf dem Baum" waren in Wahrheit korrekt-positioniert, während Global-Viz
+      noch alte Höhen anzeigte.
       Die drei Viz-Systeme bleiben getrennt (unterschiedliche Daten, Lifecycles,
       Shader), aber stacken jetzt auf identischer Y.
 
