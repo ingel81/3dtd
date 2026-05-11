@@ -185,6 +185,16 @@ export type GameEvent =
       towerId: string;
       towerTypeId: string;
     }
+  | {
+      /**
+       * Chain-lightning visual fired by Lightning Tower. `points` is the chain
+       * polyline in local-space (length 2..(maxJumps+1)): first point is the
+       * tower tip, subsequent points are hit positions in jump order.
+       */
+      type: 'vfx:chain-lightning';
+      points: { x: number; y: number; z: number }[];
+      sourceTowerId: string;
+    }
 
   // ==================== Debug Events ====================
   | {

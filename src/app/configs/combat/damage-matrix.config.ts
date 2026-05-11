@@ -27,6 +27,7 @@ export const DAMAGE_MATRIX: DamageMatrix = {
   fire:            { unarmored: 1.15, light: 1.0,  heavy: 0.9,  fortified: 0.6,  ethereal: 0.15 },
   ice:             { unarmored: 1.0,  light: 1.2,  heavy: 1.0,  fortified: 0.75, ethereal: 1.5  },
   poison:          { unarmored: 1.1,  light: 1.1,  heavy: 0.6,  fortified: 0.6,  ethereal: 0.5  },
+  lightning:       { unarmored: 1.0,  light: 1.25, heavy: 1.0,  fortified: 0.6,  ethereal: 1.5  },
 };
 
 // ==================== Effectiveness Thresholds ====================

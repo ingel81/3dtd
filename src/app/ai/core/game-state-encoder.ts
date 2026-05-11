@@ -77,8 +77,15 @@ const TOWER_TYPE_ORDER: TowerTypeId[] = [
   'archer', 'cannon', 'magic', 'dual-gatling', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
 ];
 
-/** DamageType order for encoding (must be stable) */
-const DAMAGE_TYPE_ORDER: readonly DamageType[] = DAMAGE_TYPES;
+/**
+ * DamageType order for encoding — must be stable so the trained ONNX model
+ * (input dim 156) keeps working. Adding new types here means re-training.
+ * 'lightning' is intentionally excluded; the AI doesn't see Lightning Towers
+ * yet, but humans can still build them.
+ */
+const DAMAGE_TYPE_ORDER: readonly DamageType[] = [
+  'physical', 'pierce', 'siege', 'magic', 'fire', 'ice', 'poison',
+];
 
 /** ArmorType order for encoding (must be stable) */
 const ARMOR_TYPE_ORDER: readonly ArmorType[] = ARMOR_TYPES;

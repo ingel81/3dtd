@@ -9,7 +9,7 @@ import {
 
 describe('tower types config', () => {
   // Combat towers + passive buildings (research-center)
-  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison'];
+  const combatIds: TowerTypeId[] = ['archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison', 'lightning'];
   const allIds: TowerTypeId[] = [...combatIds, 'research-center'];
 
   it('contains all tower types', () => {

@@ -1,9 +1,9 @@
 import { DamageType } from './combat/combat.types';
 
-export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'research-center';
+export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'research-center';
 export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
-export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive';
+export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
 export type AirSubStrategy = 'closest' | 'lowest-hp' | 'highest-hp';
 
@@ -143,6 +143,11 @@ export interface TowerTypeConfig {
 
   // Melee attack settings (for tentacle-type towers)
   meleeStrikeDuration?: number; // Strike animation duration in ms (default: 250)
+
+  // Chain attack settings (for lightning-type towers — hitscan chain)
+  maxJumps?: number;      // Number of additional targets after the primary (e.g. 2 = 3 total hits)
+  chainFalloff?: number;  // Damage multiplier applied per jump (e.g. 0.7 = -30% per hop)
+  jumpRange?: number;     // Max meters between successive chain links
 }
 
 // Tower model URLs
@@ -154,6 +159,7 @@ const ICE_MODEL_URL = '/assets/models/towers/ice.glb';
 const MAGIC_MODEL_URL = '/assets/models/towers/magic.glb';
 const FIRE_MODEL_URL = '/assets/models/towers/fire.glb';
 const POISON_MODEL_URL = '/assets/models/towers/poison_tower.glb';
+const LIGHTNING_MODEL_URL = '/assets/models/towers/lightning.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -343,6 +349,33 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'poison-glob',
     cost: 100,
     canTargetAir: false,
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+  },
+  lightning: {
+    id: 'lightning',
+    name: 'Lightning Tower',
+    modelUrl: LIGHTNING_MODEL_URL,
+    scale: 11,
+    previewScale: 14,
+    heightOffset: 0,
+    shootHeight: 9.65,
+    rotationY: 0,
+
+    // Chain hitscan — primary + N jumps, damage falloff per hop
+    attackType: 'chain',
+    damageType: 'lightning',
+    damage: 35,        // Primary-hit damage (jumps scaled by chainFalloff)
+    range: 65,         // Primary target acquisition range
+    fireRate: 0.8,     // 0.8 shots/sec
+    projectileType: 'fireball', // Fallback, unused for chain attackType
+
+    maxJumps: 2,       // Primary + 2 = 3 total hits
+    chainFalloff: 0.7, // 100% → 70% → 49%
+    jumpRange: 15,     // Max meters between chain links
+
+    cost: 130,
+    canTargetAir: true,
+    canTargetGround: true,
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
   'research-center': {

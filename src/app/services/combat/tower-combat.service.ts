@@ -52,6 +52,51 @@ export class TowerCombatService {
   }
 
   /**
+   * Build a per-enemy LoS predicate for a tower. Air enemies resolve against
+   * air-LoS (skyline + clearance), ground enemies against ground-LoS — picked
+   * up from cell.airVisibility / cell.towerVisibility pre-compute, with a
+   * runtime raycast fallback for both.
+   *
+   * `useGridLookup=true` enables the pre-computed cell-visibility fast path
+   * (only safe when the tower's visibleCells set is populated). When false,
+   * we go straight to raycast — used by the radius-query fallback.
+   */
+  private buildLosCheck(
+    tower: Tower,
+    useGridLookup: boolean,
+  ): ((enemy: Enemy) => boolean) | undefined {
+    if (!this.tilesEngine) return undefined;
+    return (enemy: Enemy) => {
+      const pos = this.tilesEngine!.sync.geoToLocalSimple(
+        enemy.position.lat,
+        enemy.position.lon,
+        enemy.transform.terrainHeight,
+      );
+      const isAir = enemy.typeConfig.isAirUnit ?? false;
+      if (useGridLookup) {
+        const visibility = isAir
+          ? this.globalRouteGrid.isAirPositionVisibleFromTower(tower.id, pos.x, pos.z)
+          : this.globalRouteGrid.isPositionVisibleFromTower(tower.id, pos.x, pos.z);
+        if (visibility !== undefined) {
+          return visibility;
+        }
+      }
+      // Raycast fallback. Air targets aim at the visual air altitude
+      // (terrainHeight already lifted to skyline + clearance for air enemies),
+      // ground targets at eye height.
+      const targetLocalY = isAir
+        ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
+        : pos.y + 1.5;
+      return this.tilesEngine!.towers.hasLineOfSight(
+        tower.id,
+        pos.x,
+        targetLocalY,
+        pos.z,
+      );
+    };
+  }
+
+  /**
    * Update tower idle rotations - smooth return to base position
    * Call this when NOT in wave phase
    */
@@ -130,37 +175,10 @@ export class TowerCombatService {
       if (hasVisibleCells) {
         // FAST PATH: Use GlobalRouteGrid for towers with visibleCells.
         // Works for ground, air-only and dual-targeting towers — visibleCells
-        // is the union of ground + air visible cells.
+        // is the union of ground + air visible cells, so a "blue-only" cell
+        // would still produce candidates; buildLosCheck filters those per-enemy.
         candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
-
-        losCheck = this.tilesEngine
-          ? (enemy: Enemy) => {
-              const pos = this.tilesEngine!.sync.geoToLocalSimple(
-                enemy.position.lat,
-                enemy.position.lon,
-                enemy.transform.terrainHeight
-              );
-              const isAir = enemy.typeConfig.isAirUnit ?? false;
-              const visibility = isAir
-                ? this.globalRouteGrid.isAirPositionVisibleFromTower(tower.id, pos.x, pos.z)
-                : this.globalRouteGrid.isPositionVisibleFromTower(tower.id, pos.x, pos.z);
-              if (visibility !== undefined) {
-                return visibility;
-              }
-              // Runtime raycast fallback. For air targets aim at the visual
-              // air altitude (terrainHeight has been lifted to skyline +
-              // clearance for air enemies), for ground at eye height.
-              const targetLocalY = isAir
-                ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
-                : pos.y + 1.5;
-              return this.tilesEngine!.towers.hasLineOfSight(
-                tower.id,
-                pos.x,
-                targetLocalY,
-                pos.z
-              );
-            }
-          : undefined;
+        losCheck = this.buildLosCheck(tower, true);
       } else {
         // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
         // Returns Enemy[] directly — no ID resolution needed
@@ -188,25 +206,7 @@ export class TowerCombatService {
             return dx * dx + dy * dy <= rangeMarginSq;
           });
         }
-        losCheck = this.tilesEngine
-          ? (enemy: Enemy) => {
-              const pos = this.tilesEngine!.sync.geoToLocalSimple(
-                enemy.position.lat,
-                enemy.position.lon,
-                enemy.transform.terrainHeight
-              );
-              const isAir = enemy.typeConfig.isAirUnit ?? false;
-              const targetLocalY = isAir
-                ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
-                : pos.y + 1.5;
-              return this.tilesEngine!.towers.hasLineOfSight(
-                tower.id,
-                pos.x,
-                targetLocalY,
-                pos.z
-              );
-            }
-          : undefined;
+        losCheck = this.buildLosCheck(tower, false);
       }
 
       // Fast path: get cached target or find new one
@@ -598,7 +598,8 @@ export class TowerCombatService {
         );
       }
 
-      const target = tower.findTarget(candidates, airTargetingUnlocked);
+      const losCheck = this.buildLosCheck(tower, hasVisibleCells);
+      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
       if (target) {
         tower.lastTargetTime = gameTimeMs;
@@ -641,6 +642,181 @@ export class TowerCombatService {
    */
   stopAllMelee(): void {
     this.tilesEngine?.tentacles?.resetAllToIdle();
+  }
+
+  // =====================================================
+  // CHAIN TOWER COMBAT (Lightning Tower)
+  // =====================================================
+
+  /**
+   * Update chain-attack towers — hitscan primary + N jumps with damage falloff.
+   * Called once per gameplay sub-step (game-time).
+   */
+  updateChainTowers(
+    deltaTime: number,
+    towerManager: TowerManager,
+    enemyManager: EnemyManager,
+    gameTimeMs: number,
+  ): void {
+    if (!this.tilesEngine) return;
+
+    const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
+
+    for (const tower of towerManager.getAllActive()) {
+      tower.combat.update(deltaTime);
+
+      if (!tower.losReady) continue;
+      if (tower.typeConfig.attackType !== 'chain') continue;
+
+      // Wake check
+      if (tower.isSleeping) {
+        if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) continue;
+        tower.lastSleepCheck = gameTimeMs;
+
+        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+          tower.position.lat,
+          tower.position.lon,
+          0,
+        );
+        const hasNearby = this.spatialGrid.hasEnemyInRadius(
+          towerLocal.x,
+          towerLocal.z,
+          tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        );
+        if (!hasNearby) continue;
+        tower.isSleeping = false;
+      }
+
+      const hasVisibleCells = tower.visibleCells.length > 0;
+      let candidates: Enemy[];
+
+      if (hasVisibleCells) {
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+      } else {
+        const rangeMeters = tower.typeConfig.range;
+        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
+          tower.position.lat,
+          tower.position.lon,
+          0,
+        );
+        candidates = this.globalRouteGrid.getEnemiesInRadius(
+          towerLocal.x,
+          towerLocal.z,
+          rangeMeters * COMBAT_TUNING.rangeMargin.standard,
+        );
+      }
+
+      const losCheck = this.buildLosCheck(tower, hasVisibleCells);
+      const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+
+      if (!target) {
+        if (gameTimeMs - tower.lastTargetTime > Tower.SLEEP_DELAY) {
+          tower.isSleeping = true;
+        }
+        continue;
+      }
+
+      tower.lastTargetTime = gameTimeMs;
+      tower.isSleeping = false;
+
+      if (!tower.combat.canFire()) continue;
+      tower.combat.fire();
+
+      // Build chain hit list: primary + up to maxJumps additional unique targets
+      const maxJumps = tower.typeConfig.maxJumps ?? 0;
+      const jumpRange = tower.typeConfig.jumpRange ?? 15;
+      const hits: Enemy[] = [target];
+      const hitIds = new Set<string>([target.id]);
+      let lastEnemy: Enemy = target;
+
+      for (let i = 0; i < maxJumps; i++) {
+        const next = this.findNearestUnhit(lastEnemy, candidates, hitIds, jumpRange);
+        if (!next) break;
+        hits.push(next);
+        hitIds.add(next.id);
+        lastEnemy = next;
+      }
+
+      // Apply damage with falloff per jump
+      const falloff = tower.typeConfig.chainFalloff ?? 1.0;
+      const baseDamage = tower.combat.damage;
+      const damageType = tower.typeConfig.damageType;
+      for (let i = 0; i < hits.length; i++) {
+        const dmg = baseDamage * Math.pow(falloff, i);
+        this.combatEffectService.applyChainDamage(hits[i], dmg, damageType, tower.id);
+      }
+
+      // Phase 3 hook — emit VFX event with bolt endpoints
+      this.emitChainFireEvent(tower, hits);
+    }
+  }
+
+  /**
+   * Find the nearest enemy (in flat-earth meters) to `from` that has not been
+   * hit yet by the current chain and is within `maxDist` meters. Returns null
+   * if no candidate qualifies.
+   */
+  private findNearestUnhit(
+    from: Enemy,
+    candidates: Enemy[],
+    hitIds: Set<string>,
+    maxDist: number,
+  ): Enemy | null {
+    const mPerDegLat = METERS_PER_DEGREE_LAT;
+    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(from.position.lat * DEG_TO_RAD);
+    let best: Enemy | null = null;
+    let bestSq = maxDist * maxDist;
+    for (const e of candidates) {
+      if (hitIds.has(e.id) || !e.alive) continue;
+      const dx = (e.position.lat - from.position.lat) * mPerDegLat;
+      const dy = (e.position.lon - from.position.lon) * mPerDegLon;
+      const dSq = dx * dx + dy * dy;
+      if (dSq < bestSq) {
+        bestSq = dSq;
+        best = e;
+      }
+    }
+    return best;
+  }
+
+  /**
+   * Emit a 'vfx:chain-lightning' event with the local-space points of the
+   * chain (tower tip → primary → jump1 → ...). One bolt mesh spawns per
+   * consecutive pair in the VFX handler. Also plays the chain-fire sound
+   * spatialised at the tower tip.
+   */
+  private emitChainFireEvent(tower: Tower, hits: Enemy[]): void {
+    if (!this.tilesEngine || hits.length === 0) return;
+
+    const towerData = this.tilesEngine.towers.get(tower.id);
+    if (!towerData) return;
+
+    const points: { x: number; y: number; z: number }[] = [];
+
+    // Tower tip in local space
+    const tipLocal = this.tilesEngine.sync.geoToLocalSimple(
+      tower.position.lat,
+      tower.position.lon,
+      towerData.height,
+    );
+    const tipY = towerData.tipY;
+    points.push({ x: tipLocal.x, y: tipY, z: tipLocal.z });
+
+    // Hits, center-of-mass
+    for (const e of hits) {
+      const p = this.tilesEngine.sync.geoToLocalSimple(
+        e.position.lat,
+        e.position.lon,
+        e.transform.terrainHeight + (e.typeConfig.heightOffset ?? 0),
+      );
+      points.push({ x: p.x, y: p.y + 1.5, z: p.z });
+    }
+
+    this.combatEffectService.emitChainLightningVfx(points, tower.id);
+
+    // Chain sound from the tower tip (spatialised so distant towers feel quieter)
+    this.tempSoundPos.set(tipLocal.x, tipY, tipLocal.z);
+    this.tilesEngine.spatialAudio?.playAt('lightning-chain', this.tempSoundPos);
   }
 
   // =====================================================

@@ -12,6 +12,10 @@ import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
 export class VFXService {
   private readonly subs = new SubscriptionBag();
 
+  // Scratch vectors to avoid per-event allocations in the chain-lightning handler.
+  private readonly tmpA = new Vector3();
+  private readonly tmpB = new Vector3();
+
   constructor(
     private eventBus: GameEventBus,
     private tilesEngine: ThreeTilesEngine
@@ -42,6 +46,29 @@ export class VFXService {
     this.subs.add(this.eventBus.on('vfx:muzzle-flash', (event) => {
       this.handleMuzzleFlash(event.towerId, event.towerTypeId);
     }));
+
+    // Chain-lightning bolts: spawn one bolt per segment (tip→primary→jump→…)
+    this.subs.add(this.eventBus.on('vfx:chain-lightning', (event) => {
+      this.handleChainLightning(event.points);
+    }));
+  }
+
+  /**
+   * Spawn lightning bolts for a chain fire. Each successive pair of points
+   * gets one bolt mesh. Bolts rely on additive blending + boosted intensity
+   * to stand out — auto-enabling bloom turned out to make every emissive
+   * material on the map glow permanently, so we explicitly do NOT touch
+   * the global bloom pass here.
+   */
+  private handleChainLightning(points: { x: number; y: number; z: number }[]): void {
+    if (points.length < 2) return;
+
+    const now = performance.now() / 1000;
+    for (let i = 0; i < points.length - 1; i++) {
+      this.tmpA.set(points[i].x, points[i].y, points[i].z);
+      this.tmpB.set(points[i + 1].x, points[i + 1].y, points[i + 1].z);
+      this.tilesEngine.lightningBolts.spawnBolt(this.tmpA, this.tmpB, now);
+    }
   }
 
   private handleBloodEffect(position: Vector3, intensity: number, skipGroundDecal?: boolean): void {

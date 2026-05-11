@@ -341,6 +341,14 @@ export class InstancedEnemyRenderer {
     this.instanceManager.setPoisonVisual(id, active);
   }
 
+  /**
+   * Trigger a short electric blue-white tint flash on an enemy (lightning chain hit).
+   * Auto-reverts after `durationMs` (default 130ms).
+   */
+  triggerHitFlash(id: string, durationMs?: number): void {
+    this.instanceManager.triggerHitFlash(id, durationMs);
+  }
+
   // =====================================================
   // QUERIES
   // =====================================================

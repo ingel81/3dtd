@@ -56,6 +56,7 @@ import {
   ThreeFlameBeamRenderer,
   ThreeTentacleRenderer,
   TrailStreakRenderer,
+  LightningBoltRenderer,
 } from './renderers';
 import { InstancedEnemyRenderer } from './renderers/instanced-enemy/instanced-enemy.renderer';
 import { SpatialAudioManager } from '../managers/audio/spatial-audio.manager';
@@ -154,6 +155,7 @@ export class ThreeTilesEngine {
   readonly flameBeams: ThreeFlameBeamRenderer;
   readonly tentacles: ThreeTentacleRenderer;
   readonly trailStreaks: TrailStreakRenderer;
+  readonly lightningBolts: LightningBoltRenderer;
 
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
@@ -340,6 +342,7 @@ export class ThreeTilesEngine {
     this.flameBeams.setEffectsRenderer(this.effects);
     this.tentacles = new ThreeTentacleRenderer(this.scene);
     this.trailStreaks = new TrailStreakRenderer(this.scene);
+    this.lightningBolts = new LightningBoltRenderer(this.scene);
 
     // Initialize spatial audio with camera listener
     this.spatialAudio = new SpatialAudioManager(this.scene, this.camera);
@@ -1832,6 +1835,9 @@ export class ThreeTilesEngine {
     // Rebuild trail streak geometries
     this.trailStreaks.updateAll();
 
+    // Tick lightning bolt shader clocks and spawn idle-crackle micro-bolts
+    this.lightningBolts.update(performance.now() / 1000);
+
     // Rotate test cube if exists
     if (this.testCube) {
       this.testCube.rotation.y += deltaTime * 0.001;
@@ -2305,6 +2311,7 @@ export class ThreeTilesEngine {
     this.flameBeams.clear();
     this.tentacles.clear();
     this.trailStreaks.clear();
+    this.lightningBolts.clear();
   }
 
   /**
@@ -2331,6 +2338,7 @@ export class ThreeTilesEngine {
     this.flameBeams.dispose();
     this.tentacles.dispose();
     this.trailStreaks.dispose();
+    this.lightningBolts.dispose();
 
     // Dispose spatial audio
     this.spatialAudio.dispose();

@@ -173,10 +173,24 @@ export abstract class BaseTowerBot implements ITowerBot {
       const cfg = TOWER_TYPES[typeId];
       if (!cfg) continue;
 
-      // DPS: beam towers use damagePerSecond, projectile/melee use damage * fireRate
-      const baseDps = cfg.attackType === 'beam'
-        ? (cfg.damagePerSecond ?? 0)
-        : cfg.damage * cfg.fireRate;
+      // DPS: beam towers use damagePerSecond, projectile/melee use damage * fireRate,
+      // chain hitscan multiplies by sum of damage-falloff terms (primary + N jumps).
+      let baseDps: number;
+      if (cfg.attackType === 'beam') {
+        baseDps = cfg.damagePerSecond ?? 0;
+      } else if (cfg.attackType === 'chain') {
+        const maxJumps = cfg.maxJumps ?? 0;
+        const falloff = cfg.chainFalloff ?? 1.0;
+        let chainMult = 1;
+        let term = 1;
+        for (let i = 0; i < maxJumps; i++) {
+          term *= falloff;
+          chainMult += term;
+        }
+        baseDps = cfg.damage * cfg.fireRate * chainMult;
+      } else {
+        baseDps = cfg.damage * cfg.fireRate;
+      }
       if (baseDps <= 0) continue;
 
       const avgMultiplier = ARMOR_TYPES.reduce((sum, armor) => {

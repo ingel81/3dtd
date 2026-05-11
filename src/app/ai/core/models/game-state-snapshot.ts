@@ -265,6 +265,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
         fire: false,
         tentacle: false,
         poison: false,
+        lightning: false,
         'research-center': true,
       },
     },

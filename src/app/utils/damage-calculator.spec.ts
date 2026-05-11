@@ -27,16 +27,16 @@ describe('damage-matrix.config', () => {
       }
     });
 
-    it('covers exactly 35 multiplier entries (7 damage × 5 armor)', () => {
+    it('covers exactly 40 multiplier entries (8 damage × 5 armor)', () => {
       const totalEntries = DAMAGE_TYPES.length * ARMOR_TYPES.length;
-      expect(totalEntries).toBe(35);
+      expect(totalEntries).toBe(40);
       let count = 0;
       for (const dmg of DAMAGE_TYPES) {
         for (const armor of ARMOR_TYPES) {
           if (typeof DAMAGE_MATRIX[dmg][armor] === 'number') count++;
         }
       }
-      expect(count).toBe(35);
+      expect(count).toBe(40);
     });
 
     // Pinning tests for the canonical balance values — guards against silent

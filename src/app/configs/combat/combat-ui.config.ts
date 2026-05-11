@@ -79,6 +79,14 @@ export const DAMAGE_TYPE_UI: Readonly<Record<DamageType, DamageTypeUIMeta>> = {
     shortLabel: 'POIS',
     description: 'DoT specialist, anti-regen',
   },
+  lightning: {
+    id: 'lightning',
+    label: 'Lightning',
+    icon: '\u26A1',
+    color: '#7DD3FC',
+    shortLabel: 'LTNG',
+    description: 'Chain hitscan, anti-swarm/air',
+  },
 };
 
 // ==================== Armor Type UI ====================
