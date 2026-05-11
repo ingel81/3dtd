@@ -168,10 +168,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 1.31,
     animationVariation: true,
     runSpeedMultiplier: 2.5, // 2.5x speed when running
-    // Spawn Sound
-    spawnSound: '/assets/sounds/enemies/wallsmasher/spawn.mp3',
-    spawnSoundVolume: 0.7,
-    spawnSoundRefDistance: 40,
+    // No spawn sound (gameplay decision — wallsmasher rush should be visual surprise)
     // Random sound while moving
     randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
     randomSoundMinInterval: 8000,

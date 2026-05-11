@@ -105,7 +105,7 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   unarmored: {
     id: 'unarmored',
     label: 'Unarmored',
-    icon: '\uD83D\uDFE2',
+    icon: '\uD83D\uDFE9',
     color: '#4CAF50',
     description: 'No damage resistance',
     weakTo: 'Pierce, Fire',
@@ -113,7 +113,7 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   light: {
     id: 'light',
     label: 'Light',
-    icon: '\uD83D\uDD35',
+    icon: '\uD83D\uDFE6',
     color: '#2196F3',
     description: 'Fast, vulnerable to pierce',
     weakTo: 'Pierce, Ice',
@@ -121,7 +121,7 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   heavy: {
     id: 'heavy',
     label: 'Heavy',
-    icon: '\uD83D\uDFE0',
+    icon: '\uD83D\uDFE7',
     color: '#FF9800',
     description: 'Tough, requires siege',
     weakTo: 'Siege',
@@ -129,7 +129,7 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   fortified: {
     id: 'fortified',
     label: 'Fortified',
-    icon: '\uD83D\uDD34',
+    icon: '\uD83D\uDFE5',
     color: '#F44336',
     description: 'Very tough, DPS check',
     weakTo: 'Siege',
@@ -137,7 +137,7 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   ethereal: {
     id: 'ethereal',
     label: 'Ethereal',
-    icon: '\uD83D\uDFE3',
+    icon: '\uD83D\uDFEA',
     color: '#9C27B0',
     description: 'Resists most, weak to magic/ice',
     weakTo: 'Magic, Ice',
