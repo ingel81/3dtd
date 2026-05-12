@@ -186,6 +186,15 @@ export class GameStateManager {
     this.audioService?.destroy();
     this.screenShakeService?.destroy();
     this.backgroundMusic?.destroy();
+    // Dispose previous command-bus adapter — otherwise its subscriptions on
+    // command:* / debug:* events stack on top of the new handler below,
+    // causing every command (place-tower, sell-tower, restart-game, …) to
+    // run N times after N in-app location changes. This was the cause of
+    // duplicate tower placements + duplicate placement sounds, which in
+    // turn left half the towers stuck at losReady=false because
+    // pendingTowerReg is a single slot and gets overwritten by the second
+    // placeTower call.
+    this.commandsHandler?.dispose();
 
     this.tilesEngine = tilesEngine;
     this.basePosition = basePosition;
