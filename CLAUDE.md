@@ -16,7 +16,7 @@ npm run build   # Production Build
 - Angular 21 Standalone Components (nur UI)
 - Three.js + 3DTilesRendererJS fuer 3D-Rendering
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
-- **Signal Store** - 5 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research)
+- **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
 - Kein Backend im Spiel-Client - komplett clientseitig (Python-Backend nur fuer AI-Training)
 - Google Maps API Key in environment.ts
 
@@ -45,8 +45,8 @@ src/app/
 ├── interfaces/                 # Provider-Interfaces (StreetNetwork, Terrain)
 ├── managers/                   # Manager (Enemy, Tower, Wave, Research, etc. - event-driven)
 ├── models/                     # Type Definitions (game.types, location.types, status-effects)
-├── services/                   # Angular Services (Facades, UI-Bindings)
-├── store/                      # Signal Stores (Game, UI, Engine, Location, Research)
+├── services/                   # Angular Services (Subfolders: combat/, debug/, facade/, infrastructure/, location/, world/)
+├── store/                      # Signal Stores (Game, UI, Engine, Location, Research, Debug)
 ├── styles/                     # Theme & Global Styles
 ├── three-engine/               # 3D Rendering (renderers/, post-processing/, shaders)
 ├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid)
@@ -100,7 +100,8 @@ training-backend/               # Python Training Backend
 | [MASTER_GAME_DESIGN.md](docs/game-design/MASTER_GAME_DESIGN.md) | Game Design (Schadenstypen, Ruestung, Balance) |
 | [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
 | **Architektur & Store** | |
-| [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (5 Sub-Stores: Game/UI/Engine/Location/Research) |
+| [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug) |
+| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | **Geplant:** GPU-Cubemap-basierter LOS-Rewrite fuer Route-Cell-Grid |
 | **AI System (Frontend)** | |
 | **[PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md)** | **Aktuelle AI-Architektur** (Range-Based Templates + 5.11b/5.14/5.16-Erweiterungen) |
 | **[HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md)** | **Aktueller Balance-Stand** (Wave-Curriculum, Endgame-Knobs, Gold-Budget) |

@@ -1,6 +1,6 @@
 # Tower Defense - Dokumentation
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense Minispiel.
 
@@ -12,9 +12,9 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 
 | Dokument | Beschreibung |
 |----------|--------------|
-| [ARCHITECTURE.md](ARCHITECTURE.md) | System-Architektur, Component-System, Renderer, Services |
+| [ARCHITECTURE.md](ARCHITECTURE.md) | System-Architektur, Component-System, Renderer, Services (mit `combat/`, `debug/`, `facade/`, `infrastructure/`, `location/`, `world/` Subfoldern) |
 | [EVENT_SYSTEM.md](EVENT_SYSTEM.md) | Event Bus, Event-Typen, Manager-Kommunikation |
-| [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) | Signal Store (5 Sub-Stores: Game/UI/Engine/Location/Research), Facade Pattern, Persistence |
+| [SIGNAL-STORE-ARCHITECTURE.md](SIGNAL-STORE-ARCHITECTURE.md) | Signal Store (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug), Facade Pattern, Persistence |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | UI/UX Design Guidelines, Farbschema, Komponenten-Styling |
 | [TODO.md](../TODO.md) | Offene Aufgaben und bekannte Bugs |
 | [DONE.md](../DONE.md) | Abgeschlossene Features und Fixes |
@@ -43,6 +43,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 |----------|--------------|
 | **[PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md)** | **Aktuelle Architektur:** Range-Based Templates, 4 Continuous-Params, Wave-Duration-Cap, plus Phase-5.11b/5.14/5.16-Erweiterungen |
 | **[HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md)** | **Aktueller Balance-Stand:** Wave-Curriculum, Endgame-Knobs, Gold-Budget — Companion zu Phase 5.11 |
+| [HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md) | **Geplant:** GPU-Cubemap-basierter LOS-Rewrite fuer Route-Cell-Grid (Status: Plan, nicht implementiert) |
 | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - konsolidierte Gesamtuebersicht (verlinkt 5.11 + 5.16) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Based Bot System fuer AI Training (8 Strategien inkl. Research) |
 | [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md) | _Historical:_ Template-Based (superseded by 5.11) |
@@ -87,6 +88,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...ein neues Modell exportieren | [AI_MODEL_EXPORT.md](../training-backend/docs/AI_MODEL_EXPORT.md) |
 | ...das Schadens-/Ruestungssystem verstehen | [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) |
 | ...das GPU-instanzierte Enemy-Rendering verstehen | [INSTANCED_ENEMY_RENDERING.md](INSTANCED_ENEMY_RENDERING.md) |
+| ...den geplanten GPU-LOS-Rewrite einschaetzen | [HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md) |
 
 ---
 

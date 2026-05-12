@@ -1,6 +1,6 @@
 # Tower Creation Guide
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Anleitung zum Erstellen neuer Tower-Typen mit optionalen rotierenden Teilen.
 
@@ -13,7 +13,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Verschiedene 3D-Modelle (GLB, FBX)
 - Rotierende Turret-Teile (z.B. Geschütztürme)
 - Eigene Projektiltypen
-- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x)
+- **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x — 8 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning)
 - **25-Level-Upgrade-System** mit Tier-Gating (Phase 5.16, alle Combat-Tower nutzen `STD_DAMAGE/SPEED/RANGE_UPGRADE`)
 - Separate Preview-Skalierung für die UI
 - Air/Ground Targeting (5 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
@@ -21,6 +21,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Projektil-Angriffe mit optionalen mehreren Fire Points (Dual-Gatling)
 - Beam-Angriffe (Fire Tower, `attackType: 'beam'`)
 - Melee-Angriffe (Tentacle Tower, `attackType: 'melee'`)
+- **Chain-Hitscan-Angriffe** (Lightning Tower, `attackType: 'chain'` — Primary + N Jumps mit `chainFalloff` zwischen Hits, eigener `LightningBoltRenderer`)
 - Passive Buildings (Research Center, `attackType: 'passive'`)
 
 ---
@@ -35,9 +36,10 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
 | Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
 | Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |
-| Fire | **beam** | fire | 35 DPS | 25m (Detection) | — | 110 | Flammenkegel, nur Boden |
+| Fire | **beam** | fire | 35 DPS | 25m (Detection) | — | 110 | Flammenkegel, nur Boden, `wide-burn` modifiziert `beamWidth` statt `range` |
 | Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
+| Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
 | Research Center | **passive** | — | 0 | 0 | 0 | 75 | Kein Combat — siehe Research-System |
 
 ---
@@ -50,7 +52,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 // configs/tower-types.config.ts
 export type TowerTypeId =
   | 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket'
-  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'research-center'
+  | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'research-center'
   | 'NEW_TYPE';
 ```
 
@@ -122,14 +124,17 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `canTargetGround` | boolean | true | Kann Boden-Einheiten angreifen |
 | `hasAnimations` | boolean | false | GLTF-Animationen vorhanden |
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
-| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee' oder 'passive' |
+| `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
 | `beamRange` | number | - | Beam/Kegel-Länge in Metern |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
 | `defaultTargeting` | TargetingStrategy | - | Standard-Targeting-Strategie |
 | `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
 | `meleeStrikeDuration` | number | 250 | Melee-Angriffs-Dauer in ms (z.B. Tentacle) |
-| `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/chaos |
+| `maxJumps` | number | - | **Chain-only:** Anzahl zusaetzlicher Ziele nach Primary (Lightning: 2 → 3 Hits) |
+| `chainFalloff` | number | - | **Chain-only:** Schaden-Multiplier pro Jump (Lightning: 0.7 → 100%/70%/49%) |
+| `jumpRange` | number | - | **Chain-only:** Max. Distanz zwischen zwei Chain-Links in Metern |
+| `damageType` | DamageType | - | Pflichtfeld: physical/pierce/siege/magic/fire/ice/poison/lightning |
 
 ### 4. Projektiltyp hinzufügen (falls neu)
 
@@ -543,9 +548,11 @@ fire: {
 - [ ] TowerTypeId erweitert
 - [ ] Model in `/public/assets/models/towers/` abgelegt
 - [ ] Tower-Config in `TOWER_TYPES` hinzugefügt
-- [ ] `attackType` gesetzt falls Beam-Tower
+- [ ] `attackType` gesetzt falls Beam-/Melee-/Chain-Tower
 - [ ] `canTargetAir`/`canTargetGround` gesetzt falls nicht default
-- [ ] Projektiltyp vorhanden (oder neuen erstellt)
+- [ ] `damageType` gewählt + Damage-Matrix-Eintrag pruefen (`combat/damage-matrix.config.ts`)
+- [ ] Projektiltyp vorhanden (oder neuen erstellt) — bei `chain`/`beam` Fallback-`projectileType` ok
+- [ ] Bei `chain`: `maxJumps`, `chainFalloff`, `jumpRange` gesetzt
 - [ ] Sound-Datei in `/public/assets/sounds/` (optional)
 - [ ] Sound in `PROJECTILE_SOUNDS` registriert (optional)
 - [ ] Bei rotierendem Turret: `turret_top` Mesh im Model benannt
@@ -623,6 +630,51 @@ fire: {
   upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
 },
 ```
+
+---
+
+## Beispiel: Lightning Tower (Chain Attack)
+
+Vollständiges Beispiel eines `chain`-Towers — Hitscan-Kette zwischen mehreren Enemies,
+gerendert über den dedizierten `LightningBoltRenderer` (Pool von 192 Bolts mit
+Vertex-Shader-generierter Jagged-Polyline) plus additive Aufhell-Halos pro Hit
+(Workaround weil Photorealistic 3D Tiles dynamische Lichter ignorieren — siehe
+[[feedback_tiles_dynamic_lights]] im Memory).
+
+```typescript
+lightning: {
+  id: 'lightning',
+  name: 'Lightning Tower',
+  modelUrl: '/assets/models/towers/lightning.glb',
+  scale: 11,
+  previewScale: 14,
+  heightOffset: 0,
+  shootHeight: 9.65,
+  rotationY: 0,
+
+  attackType: 'chain',          // Hitscan, kein Projektil
+  damageType: 'lightning',
+  damage: 35,                   // Primary-Hit-Damage
+  range: 65,                    // Primary-Target-Acquisition-Range
+  fireRate: 0.8,                // 0.8 Schuss/s
+  projectileType: 'fireball',   // Fallback, fuer chain ungenutzt
+
+  maxJumps: 2,                  // Primary + 2 = 3 Total-Hits
+  chainFalloff: 0.7,            // 100% → 70% → 49%
+  jumpRange: 15,                // Max. Meter zwischen Chain-Links
+
+  cost: 130,
+  canTargetAir: true,
+  canTargetGround: true,
+  upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+},
+```
+
+VFX-Integration:
+- `TowerCombatService` emittiert `vfx:chain-lightning` mit `points`-Polyline (Tip → primary → jumpN)
+- `VFXService.handleChainLightning` spawnt einen Bolt pro Segment im `LightningBoltRenderer`
+- `registerIdleCrackle()` hält durchgehende Mikro-Bolts am Turm-Tip
+- Pro Hit triggert ein additiver Sprite-Halo am Endpunkt (Opacity faded `(1-age)²`)
 
 ---
 

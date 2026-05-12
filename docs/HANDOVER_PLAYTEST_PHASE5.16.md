@@ -1,11 +1,21 @@
 # Handover — Phase 5.16 Balance Pass
 
-**Stand:** Geparkt — 1-3 andere Themen werden zuerst eingeschoben.
-**Branch:** `feature/phase5.5-economy-ai-prep`
-**Build-Status:** grün, 506/506 Tests pass
-**Uncommitted:** ja, alle Änderungen unten gelistet sind im Working Tree, noch nicht committed.
+**Stand:** Geparkt — Branch ist auf `main` gemerged, offene Followups warten auf Live-Playtest.
+**Branch:** `feature/phase5.5-economy-ai-prep` (gemerged 2026-05-08)
+**Build-Status:** grün, zuletzt 642/642 Tests pass (Engine Cleanup-Pass 2026-05-11)
+**Letzte Aktualisierung:** 2026-05-12
 
-> **Beim Wiederaufsetzen:** Diese Datei + `docs/economy-chart.html` öffnen, dann den **Offene Punkte**-Block weiter unten abarbeiten.
+> **Beim Wiederaufsetzen:** Diese Datei + `docs/economy-chart.html` öffnen, dann
+> den **Offene Punkte**-Block weiter unten + `TODO.md` PRIO 2 abarbeiten. Konkret
+> noch offen: Live-Playtest, Per-Kill-Budget-Rounding-Bug, Boss-Frequenz ab W31,
+> Stone-Golem-Aufnahme ins Curriculum, optionales Re-Training, Wave-Deployment-Safeguards.
+
+> **Pfadänderungen seit dem Handover (2026-05-10):**
+> - `src/app/models/enemy-types.ts` → `src/app/configs/enemy-types.config.ts`
+> - `src/app/ai/core/wave-curriculum.ts` → `src/app/configs/wave-curriculum.config.ts`
+>
+> Wenn unten Datei-Pfade noch auf die alten Locations zeigen, gelten sinngemäß die
+> neuen — die TS-Datei wurde 1:1 verschoben, der Inhalt ist identisch.
 
 ---
 

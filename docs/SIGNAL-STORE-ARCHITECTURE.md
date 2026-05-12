@@ -1,10 +1,15 @@
 # Signal Store Architektur — TowerDefenseStore
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 ## Überblick
 
-Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **5 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
+Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentralen Store, aufgeteilt in **6 Sub-Stores** nach Domain. Keine externen Libraries (kein NgRx, kein NGXS) — nur pure Angular `signal()`, `computed()`, `effect()`.
+
+> **Hinweis (2026-05-10):** Der `DebugStore` wurde als 6. Sub-Store eingeführt. Vorher
+> lagen die Debug-Panel-Signals direkt auf `WaveDebugService` / `TowerDebugService` /
+> `EnemyDebugService` — laut Store/Facade-Trennung gehört State in Stores; die Services
+> bleiben als API-Schicht erhalten und delegieren intern an den `DebugStore`.
 
 ## Aktuelle Struktur
 
@@ -12,10 +17,11 @@ Der `TowerDefenseStore` konsolidiert **alle verstreuten Signals** in einen zentr
 | Store | Datei | Domain | Signals |
 |-------|-------|--------|---------|
 | `GameStore` | `store/game.store.ts` | Game State | credits, health, phase, wave, enemies, towers, bot/AI |
-| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, build mode, wave debug, persistence |
+| `UIStore` | `store/ui.store.ts` | UI State | debug flags, layer toggles, build mode, persistence |
 | `EngineStore` | `store/engine.store.ts` | Engine State | fps, tiles, camera, loading |
 | `LocationStore` | `store/location.store.ts` | Location State | coords, spawns, favorites, streets |
 | `ResearchStore` | `store/research.store.ts` | Research State | active research, completed, in-progress timer, unlocks |
+| `DebugStore` | `store/debug.store.ts` | Debug-Panel State | waveEnemy{Count,Speed,Health,Type}, waveSpawn{Mode,Delay}, towerSelectedId, towerOverrides, enemyPlacementMode, enemyOverrides |
 | **`TowerDefenseStore`** | `store/tower-defense.store.ts` | **Root/Aggregat** | Re-exports, cross-cutting computeds, resetAll() |
 
 Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })` und werden vom Root-Store via `inject()` aggregiert.
@@ -23,16 +29,16 @@ Alle Sub-Stores sind `@Injectable({ providedIn: 'root' })` und werden vom Root-S
 ### Sub-Facades
 | Facade | Datei | Verantwortung |
 |--------|-------|--------------|
-| `GameLoopFacade` | `services/game-loop-facade.service.ts` | Wave-Management, Game-Loop, Restart, Tower-Upgrades, AI Director |
-| `LocationFacade` | `services/location-facade.service.ts` | Location-Erkennung, DevWorld, Spawns, Map-Cleanup |
-| `VisualizationFacade` | `services/visualization-facade.service.ts` | Rendering, Kamera, DPS-Viz, Height-Updates, Click-Handler, Toggles |
-| `DebugFacade` | `services/debug-facade.service.ts` | Debug-Log, Height-Debug, Display Options, Enemy-Debug |
-| **`TowerDefenseFacade`** | `services/tower-defense-facade.service.ts` | **Orchestrierung** — Init, Engine-Setup, delegiert an Sub-Facades |
+| `GameLoopFacade` | `services/facade/game-loop-facade.service.ts` | Wave-Management, Game-Loop, Restart, Tower-Upgrades, AI Director |
+| `LocationFacade` | `services/facade/location-facade.service.ts` | Location-Erkennung, DevWorld, Spawns, Map-Cleanup |
+| `VisualizationFacade` | `services/facade/visualization-facade.service.ts` | Rendering, Kamera, DPS-Viz, Height-Updates, Click-Handler, Toggles |
+| `DebugFacade` | `services/debug/debug-facade.service.ts` | Debug-Log, Height-Debug, Display Options, Enemy-Debug |
+| **`TowerDefenseFacade`** | `services/facade/tower-defense-facade.service.ts` | **Orchestrierung** — Init, Engine-Setup, delegiert an Sub-Facades |
 
 ### GSM→Store Sync Layer
 | Service | Datei | Verantwortung |
 |---------|-------|--------------|
-| `GameStateSyncService` | `services/game-state-sync.service.ts` | EventBus → Store: Sync aller Game-State-Events |
+| `GameStateSyncService` | `services/infrastructure/game-state-sync.service.ts` | EventBus → Store: Sync aller Game-State-Events |
 
 ## Architektur-Prinzip: Store/Facade-Trennung
 
@@ -131,12 +137,13 @@ CombatComponent → enemy:died Event
 │  └─────────────┘ └──────────┘ └───────────────────┘  │
 │                                                        │
 │  ┌─────────────┐ ┌──────────────┐ ┌─────────────────┐│
-│  │ Engine       │ │ Research     │ │ Wave Debug      ││
-│  │ fps          │ │ active       │ │ enemySpeed      ││
-│  │ tileStats    │ │ completed    │ │ enemyHealth     ││
-│  │ sounds       │ │ progress     │ │ enemyCount      ││
-│  │ compass      │ │ unlocks      │ │ spawnMode       ││
-│  │ cameraDbg    │ │              │ │ ...             ││
+│  │ Engine       │ │ Research     │ │ Debug           ││
+│  │ fps          │ │ active       │ │ waveEnemyCount  ││
+│  │ tileStats    │ │ completed    │ │ waveEnemySpeed  ││
+│  │ sounds       │ │ progress     │ │ waveEnemyHealth ││
+│  │ compass      │ │ unlocks      │ │ waveSpawnMode   ││
+│  │ cameraDbg    │ │              │ │ towerOverrides  ││
+│  │              │ │              │ │ enemyOverrides  ││
 │  └─────────────┘ └──────────────┘ └─────────────────┘│
 │                                                        │
 │  ═══════ Computed ════════════════════════════════════ │
@@ -214,10 +221,12 @@ expect(store.canStartWave()).toBe(false);
 
 | Signal-Kategorie | Owner | Wer liest | Wer schreibt |
 |------------------|-------|-----------|-------------|
-| UI-State (debug, toggles) | Store (UIStore) | Component (Template) | Store direkt, Facade |
+| UI-State (toggles, persistence) | Store (UIStore) | Component (Template) | Store direkt, Facade |
 | Game-State (credits, health) | Store (GameStore) | Component, Facade, AI | GameStateSyncService (via EventBus) |
 | Location (coords, spawns) | Store (LocationStore) | Component, Facade | Facade (nach Location-Change) |
 | Engine-Stats (fps, tiles) | Store (EngineStore) | Component (Template) | Facade (aus Game-Loop) |
+| Research-State | Store (ResearchStore) | Component, ResearchManager | GameStateSyncService (`research:state-changed`) |
+| Debug-Panel (wave/tower/enemy overrides) | Store (DebugStore) | WaveDebug/TowerDebug/EnemyDebug Services | Services intern (delegieren an Store) |
 | Bot/AI (useAIDirector, aiExplanation) | Store (GameStore) | Component (Template) | Facade (nach Bot-Events) |
 | Bot/AI (botEnabled, botSkillLevel, botAutoMode) | TrainingClientService | Component, Facade | TrainingClientService intern |
 
@@ -226,7 +235,8 @@ expect(store.canStartWave()).toBe(false);
 ### Phase 1: Store erstellen ✅
 - [x] `TowerDefenseStore` mit allen Signals und Interfaces
 - [x] Computed Values definieren
-- [x] Sub-Stores erstellt: `GameStore`, `UIStore`, `EngineStore`, `LocationStore`
+- [x] Sub-Stores erstellt: `GameStore`, `UIStore`, `EngineStore`, `LocationStore`, `ResearchStore`
+- [x] `DebugStore` als 6. Sub-Store ergänzt (2026-05-10) — Migration der Wave/Tower/Enemy-Debug-Signals aus den jeweiligen Services
 - [x] Root-Store als Aggregate-Fassade refactored
 - [x] Types in `tower-defense.store.types.ts` extrahiert
 
@@ -266,7 +276,7 @@ expect(store.canStartWave()).toBe(false);
 
 ### Contra
 - **God Object Risiko** — Der Store hatte ~60 Signals in einer Klasse.
-  - *Gelöst:* Aufgeteilt in 5 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore, ResearchStore). Root-Store aggregiert als Fassade.
+  - *Gelöst:* Aufgeteilt in 6 Sub-Stores (GameStore, UIStore, EngineStore, LocationStore, ResearchStore, DebugStore). Root-Store aggregiert als Fassade.
 - **Performance** — Mehr Signals = mehr Change Detection?
   - *Mitigation:* Angular Signals sind lazy. Computed werden nur evaluiert wenn gelesen.
     OnPush + Signals = optimal. Kein Overhead gegenüber jetzigem Setup.
@@ -280,10 +290,11 @@ expect(store.canStartWave()).toBe(false);
 - **Performance** — NgRx Signal Store hat overhead für Features die wir nicht brauchen
 
 ### Sub-Store Architektur
-- **5 Sub-Stores:** `GameStore`, `UIStore`, `EngineStore`, `LocationStore`, `ResearchStore`
+- **6 Sub-Stores:** `GameStore`, `UIStore`, `EngineStore`, `LocationStore`, `ResearchStore`, `DebugStore`
 - **Root-Store als Fassade:** `TowerDefenseStore` injiziert alle Sub-Stores und re-exportiert deren Signals
 - **Cross-Cutting Concerns** bleiben im Root-Store — `canStartWave` braucht Signals aus Game, Engine und Location
 - **Consumer-kompatibel** — Bestehender Code nutzt weiterhin `TowerDefenseStore`
+- **`DebugStore`-Sonderrolle:** Hält ausschließlich Debug-Panel-State (Wave/Tower/Enemy-Overrides). `WaveDebugService` / `TowerDebugService` / `EnemyDebugService` bleiben als Service-Schicht und delegieren ihre Signals an den Store. Konsumenten lesen weiterhin z.B. `waveDebug.enemyCount()` — die Quelle ist transparent verlegt.
 
 ### GameStateSyncService (EventBus → Store)
 - **Warum nicht direkt im Store?** — Store soll keine EventBus-Dependency haben (pure state)

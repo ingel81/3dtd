@@ -1,6 +1,6 @@
 # Location System
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Das Location-System ermoeglicht es Spielern, ihren eigenen Spielort zu waehlen. Die URL ist die Single Source of Truth fuer die aktuelle Location.
 
@@ -23,14 +23,14 @@ LocationDialogComponent             ← UI fuer Ortswahl
 ## Dateien
 
 ```
-models/location.types.ts                            - Interfaces (LocationConfig, LocationInfo, etc.)
-store/location.store.ts                             - LocationStore (Angular Signals)
-services/location-management.service.ts             - Location State & Favorites
-services/location-change-coordinator.service.ts     - 7-Step Change Sequence
-services/location-facade.service.ts                 - Sub-Facade (Detection, Spawns, Cleanup)
-services/url-location.service.ts                    - URL als Source of Truth
-services/geocoding.service.ts                       - Nominatim Forward/Reverse Geocoding
-services/geolocation.service.ts                     - Browser/IP Geolocation Cascade
+models/location.types.ts                                    - Interfaces (LocationConfig, LocationInfo, etc.)
+store/location.store.ts                                     - LocationStore (Angular Signals)
+services/location/location-management.service.ts            - Location State & Favorites
+services/location/location-change-coordinator.service.ts    - 7-Step Change Sequence
+services/facade/location-facade.service.ts                  - Sub-Facade (Detection, Spawns, Cleanup)
+services/location/url-location.service.ts                   - URL als Source of Truth
+services/location/geocoding.service.ts                      - Nominatim Forward/Reverse Geocoding
+services/location/geolocation.service.ts                    - Browser/IP Geolocation Cascade
 components/location-dialog/location-dialog.component.ts  - Dialog UI
 components/address-autocomplete.component.ts        - Adress-Autocomplete
 ```
