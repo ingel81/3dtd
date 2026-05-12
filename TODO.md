@@ -108,6 +108,13 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
       Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.ts` anpassen.
       Nach jeder Änderung `npm run economy-chart` für Sanity-Check.
 
+- [ ] **Stone Golem ins Wave-Curriculum aufnehmen** (vor Re-Training)
+      Stone Golem ist als Config registriert (`enemy-types.config.ts`, Fortified, 480 HP, Speed 2.5),
+      aber AI-Wave-Director kennt ihn nicht. Vor Re-Training: Template in
+      `src/app/ai/core/templates.ts` ergänzen (z.B. `stone_golem_squad`) + ggf. Slot im
+      `wave-curriculum.ts` öffnen. Sonst lernt das Netz nichts über die neue Fortified-Variante
+      und Stone Golem taucht im AI-Mode nie auf.
+
 - [ ] **Re-Training nach Balance-Verifikation** (Optional)
       Checkpoint ep 7350 wurde gegen ALTES Reward-System trainiert. Re-Training optional,
       ~30-45 min mit 8 headless Tabs. Nur sinnvoll **nachdem** Balance live verifiziert ist.
@@ -200,6 +207,14 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
       Layout/Wirkung des Initial-Loading-Screens überarbeiten. Detaillierter Stats-Block
       und 3D-Tiles-Counter sind 2026 vorhandene Basis (siehe DONE.md), aber Polish steht
       aus. Konkretisieren beim Anpacken (Bullet-Liste was raus/rein soll).
+
+- [ ] **Loading-Screen-Tipps inhaltlich überarbeiten**
+      In `src/app/components/loading-screen/field-tips.ts` stehen Tipps, die sachlich nicht
+      stimmen (z.B. falsche Werte, veraltete Mechaniken, nicht-existierende Features).
+      Alle Tipps gegen aktuellen Spielstand prüfen (Schadenstypen, Armor-Matrix, Tower-Stats,
+      Forschungs-Effekte) und falsche Aussagen entfernen oder korrigieren. Wenn beim Drüber-
+      gehen Lücken auffallen (z.B. Stone Golem fehlt, Magic-vs-Fortified-Hinweis fehlt),
+      gerne ergänzen — aber Korrektheit zuerst.
 
 ## 3.2 Visual Settings (Performance-Toggles)
 
