@@ -42,7 +42,8 @@
           [steps]="loadingSteps()"
           [buildVersion]="buildVersion"
           [tilesVersion]="tilesVersionLabel()"
-          [devWorldSeed]="devWorldSeed()" />
+          [devWorldSeed]="devWorldSeed()"
+          [tilesReady]="tilesReady()" />
       }
 
       @if (error() && !loading()) {

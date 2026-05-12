@@ -155,6 +155,16 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   );
   readonly missionInfo = this.locationMgmt.missionInfo;
   readonly devWorldSeed = computed(() => this.devWorld.isActive ? this.devWorld.config.seed : null);
+  // Flips true the moment ANY 3D-Tile is in the visible set — the loading
+  // screen uses this to fade out its dark backdrop layers and reveal the
+  // live map underneath while the boot panel finishes. We deliberately
+  // don't gate on engineInit.tilesLoading because that flag only flips
+  // after 50+ tiles or a successful terrain raycast, which is way past
+  // the point where the user can already see something. The DevWorld
+  // fallback path drops tilesLoading immediately so we OR both signals.
+  readonly tilesReady = computed(
+    () => this.tileStats().visible > 0 || !this.engineInit.tilesLoading()
+  );
 
   // Debug services
   readonly waveDebug = inject(WaveDebugService);
