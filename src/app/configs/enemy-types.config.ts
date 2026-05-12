@@ -189,6 +189,38 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     previewOffsetY: 0,
   },
 
+  'stone-golem': {
+    id: 'stone-golem',
+    name: 'Stone Golem',
+    modelUrl: '/assets/models/enemies/stone_golem.glb',
+    scale: 7.312,
+    minimumPixelSize: 0,
+
+    armorType: 'fortified',
+    baseHp: 480,
+    baseSpeed: 2.5,
+    reward: 12,
+
+    hasAnimations: true,
+    walkAnimation: 'Casual_Walk',
+    deathAnimation: 'dying_backwards',
+    animationSpeed: 0.75,
+
+    heightOffset: 0,
+    healthBarOffset: 15,
+    canBleed: false,
+    headingOffset: 0,
+
+    randomAnimationStart: true,
+    lateralOffset: 2.0,
+    spawnStartDelay: 1200,
+
+    previewScale: 2.149,
+    previewCameraDistance: 6,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 1.9,
+  },
+
   bat: {
     id: 'bat',
     name: 'Bat',
