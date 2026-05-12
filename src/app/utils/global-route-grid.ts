@@ -84,6 +84,15 @@ export interface RouteCell {
    * a getter) for hot-path read access. Set in lockstep by `sampleCellY`.
    */
   heightSampled: boolean;
+  /**
+   * True once `skylineHeight` has been written from a successful raycast
+   * (rather than the anchor fallback). Flipped only by `sampleCellSkyline`.
+   * Treated as terminal — the skyline is robust against LOD changes
+   * (rooftops stay rooftops), so we never re-sample once stable. If the
+   * initial raycast fails (tile not loaded), the flag stays false and
+   * subsequent calls retry until success → self-heal under tile streaming.
+   */
+  skylineSampled: boolean;
   /** Set of enemies currently in this cell */
   enemies: Set<Enemy>;
   /** Map of tower ID -> visibility for ground targets (true = can see this cell) */
@@ -452,6 +461,32 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Single source of truth for `cell.skylineHeight`.
+   *
+   * Idempotent: once a successful raycast has written the skyline height
+   * (`skylineSampled = true`), further calls are no-ops. Unlike
+   * `sampleCellY`, we don't LOD-version this — rooftops don't move
+   * between tile LODs in any way that matters for air-LOS (±0.5 m is
+   * irrelevant against AIR_CLEARANCE_M = 10 m). If you ever need that,
+   * mirror the `terrainSampleRaycaster` pattern here.
+   *
+   * Before this existed, every `registerTower` / `continuePreviewBuild`
+   * iteration re-raycast the skyline for every cell every frame — ~33 %
+   * of all raycasts during placement preview were redundant.
+   *
+   * @returns `true` when the cell was promoted from unsampled to sampled.
+   */
+  private sampleCellSkyline(cell: RouteCell): boolean {
+    if (cell.skylineSampled) return false;
+    if (!this.skylineRaycaster) return false;
+    const skylineY = this.skylineRaycaster(cell.x, cell.z);
+    if (skylineY === null) return false;
+    cell.skylineHeight = skylineY;
+    cell.skylineSampled = true;
+    return true;
+  }
+
+  /**
    * Initialize the grid with required dependencies
    * @param terrainRaycaster Function to sample terrain height at local coordinates
    * @param coordinateSync Coordinate sync for geo <-> local conversions
@@ -581,6 +616,7 @@ export class GlobalRouteGrid {
             tileGeometricError: Infinity,
           },
           heightSampled: false,
+          skylineSampled: false,
           enemies: new Set(),
           towerVisibility: new Map(),
           airVisibility: new Map(),
@@ -591,13 +627,7 @@ export class GlobalRouteGrid {
 
         // Promote to `stable` if tiles are loaded at this position.
         this.sampleCellY(cell);
-
-        // Sample local skyline (max-Y over a small neighbourhood) for air-LOS.
-        // Falls back to terrainHeight when no skyline sampler is wired.
-        const skylineY = this.skylineRaycaster
-          ? this.skylineRaycaster(cellCenterX, cellCenterZ)
-          : null;
-        cell.skylineHeight = skylineY ?? cell.terrainHeight;
+        this.sampleCellSkyline(cell);
       }
     }
 
@@ -629,12 +659,7 @@ export class GlobalRouteGrid {
           refreshedCount++;
         }
       }
-      if (this.skylineRaycaster) {
-        const skylineY = this.skylineRaycaster(cell.x, cell.z);
-        if (skylineY !== null && skylineY !== cell.skylineHeight) {
-          cell.skylineHeight = skylineY;
-        }
-      }
+      this.sampleCellSkyline(cell);
     }
 
     logGrid(
@@ -681,6 +706,10 @@ export class GlobalRouteGrid {
     let totalUnsampled = 0;
 
     for (const cell of this.cells.values()) {
+      // Skyline can be unsampled independently from terrain (e.g. building
+      // tiles stream after ground tiles). Retry it for any cell that needs it.
+      if (!cell.skylineSampled) this.sampleCellSkyline(cell);
+
       if (cell.sample.state !== 'unsampled') continue;
       totalUnsampled++;
       if (this.sampleCellY(cell)) {
@@ -794,8 +823,7 @@ export class GlobalRouteGrid {
       // setCellsPromotedListener can recompute LOS for it instead of
       // leaving holes in tower coverage.
       this.sampleCellY(cell);
-      const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
-      if (skylineY !== null) cell.skylineHeight = skylineY;
+      this.sampleCellSkyline(cell);
 
       // LOS origin offset from tower centre toward cell (raycast from edge)
       const dirX = cell.x - towerX;
@@ -882,8 +910,7 @@ export class GlobalRouteGrid {
       // fails, the cached value is kept and a later promotion via
       // setCellsPromotedListener will recompute LOS for this cell.
       this.sampleCellY(cell);
-      const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
-      if (skylineY !== null) cell.skylineHeight = skylineY;
+      this.sampleCellSkyline(cell);
 
       const dirX = cell.x - towerX;
       const dirZ = cell.z - towerZ;
@@ -1625,8 +1652,7 @@ export class GlobalRouteGrid {
       // cell so a later terrain promotion can recompute LOS without
       // leaving holes in tower coverage.
       this.sampleCellY(cell);
-      const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
-      if (skylineY !== null) cell.skylineHeight = skylineY;
+      this.sampleCellSkyline(cell);
 
       const dirX = cell.x - s.towerX;
       const dirZ = cell.z - s.towerZ;
@@ -1831,8 +1857,7 @@ export class GlobalRouteGrid {
         airVisibleArray[i] = 0;
         continue;
       }
-      const skylineY = this.skylineRaycaster ? this.skylineRaycaster(cell.x, cell.z) : null;
-      const skyline = skylineY ?? cell.skylineHeight;
+      this.sampleCellSkyline(cell);
 
       const dirX = cell.x - towerX;
       const dirZ = cell.z - towerZ;
@@ -1859,7 +1884,7 @@ export class GlobalRouteGrid {
         if (atTower) {
           airVisible = true;
         } else {
-          const targetY = skyline + AIR_CLEARANCE_M;
+          const targetY = cell.skylineHeight + AIR_CLEARANCE_M;
           airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
         }
       }
