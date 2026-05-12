@@ -216,6 +216,13 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
       gehen Lücken auffallen (z.B. Stone Golem fehlt, Magic-vs-Fortified-Hinweis fehlt),
       gerne ergänzen — aber Korrektheit zuerst.
 
+- [ ] **Anti-Air-Indikator im Build-Menü**
+      Tower-Karten im Build-Menü zeigen aktuell nicht ob ein Tower Air-Targets treffen kann.
+      Icon/Badge ergänzen für Tower mit `canTargetAir=true` (Rocket, Ice, Sniper) bzw. für
+      Air-only-Tower einen anderen Farb-Akzent — damit der Spieler beim Bauen direkt erkennt
+      welcher Tower für Air-Waves taugt. Datei: `src/app/components/game-sidebar/game-sidebar.component.html`
+      (Tower-Karten-Template). Flag-Quelle: `TOWER_TYPES[id].canTargetAir` in `tower-types.config.ts`.
+
 ## 3.2 Visual Settings (Performance-Toggles)
 
 - [ ] **VFX Settings Menu** — Visuelle Effekte einzeln ein/ausschaltbar
