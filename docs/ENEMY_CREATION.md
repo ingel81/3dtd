@@ -1,6 +1,6 @@
 # Enemy Creation Guide
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen Effekten.
 
@@ -8,7 +8,7 @@ Anleitung zum Erstellen neuer Enemy-Typen mit Animationen, Sounds und visuellen 
 
 ## Übersicht
 
-Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. Das System unterstützt:
+Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` definiert (vorher `models/enemy-types.ts`, 2026-05-10 umgezogen — siehe DONE.md). Das System unterstützt:
 
 - Verschiedene 3D-Modelle (GLB, FBX) mit Skelett-Animationen (VAT-instanziert)
 - Walk-, Run- und Death-Animationen mit Speed-Coupling
@@ -24,7 +24,7 @@ Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. 
 
 ---
 
-## Aktuelle Enemy-Typen (16)
+## Aktuelle Enemy-Typen (17)
 
 | Enemy | armorType | baseHp | Speed | Air? | Besonderheit |
 |-------|-----------|--------|-------|------|--------------|
@@ -33,7 +33,7 @@ Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. 
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
-| wallsmasher | light | 200 | 7 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` |
+| wallsmasher | light | 200 | 7 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5`, **silent-spawn** (kein `spawnSound`) |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
 | dragon | heavy | 450 | 6 | ✓ | Air-Boss-Tier, `heightOffset: 20` |
@@ -42,8 +42,14 @@ Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. 
 | mech | heavy | 500 | 3 | – | Mechanisch, idle/walk |
 | mammoth | fortified | 400 | 3 | – | Random Mammoth Call |
 | herbert | fortified | 500 | 4 | – | Boss, `immunityPercent: 100` |
+| **stone-golem** | fortified | 480 | 2.5 | – | Neuer Fortified-Gegner (2026-05-12), `canBleed: false`, `randomAnimationStart: true`, `lateralOffset: 2.0`, `spawnStartDelay: 1200` |
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
+
+> **Wichtig (AI-Wave-Director):** Stone Golem ist in der Config registriert, aber im
+> Wave-Curriculum (`configs/wave-curriculum.config.ts`) und in den Templates
+> (`src/app/ai/core/templates.ts`) **noch nicht** eingebaut — siehe TODO 2.2.
+> Im AI-Mode taucht er deshalb aktuell nicht auf.
 
 ---
 
@@ -52,11 +58,11 @@ Enemies werden über die Konfigurationsdatei `models/enemy-types.ts` definiert. 
 ### 1. EnemyTypeId erweitern
 
 ```typescript
-// models/enemy-types.ts
+// configs/enemy-types.config.ts
 export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: { ... },
   tank: { ... },
-  // ... (siehe Tabelle oben für alle 16 aktuellen Typen)
+  // ... (siehe Tabelle oben für alle 17 aktuellen Typen)
   'new-enemy': { ... }, // Neuer Enemy
 };
 
@@ -536,9 +542,9 @@ wallsmasher: {
   animationVariation: true,    // Wechselt zwischen Walk/Run
   runSpeedMultiplier: 2.5,     // 2.5x Speed bei Run
 
-  spawnSound: '/assets/sounds/enemies/wallsmasher/spawn.mp3',
-  spawnSoundVolume: 0.7,
-  spawnSoundRefDistance: 40,
+  // Kein spawnSound — Wallsmasher-Rush ist als visuelle Überraschung gedacht.
+  // `enemy.entity.ts` gateet beide Pfade (Register + Play) durch
+  // `if (this.typeConfig.spawnSound)`, also bleibt der Spawn ohne Property lautlos.
   randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
   randomSoundMinInterval: 8000,
   randomSoundMaxInterval: 25000,

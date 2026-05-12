@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren ueber Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -54,6 +54,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `research:started` | ResearchManager | UI, GameStateSyncService | Forschung gestartet (`researchId`, `cost`, `duration`) |
 | `research:completed` | ResearchManager | TowerManager, UI | Forschung fertig (`researchId`, `effects`) |
 | `research:cancelled` | ResearchManager | UI | Forschung abgebrochen (`researchId`, `refund`) |
+| `research:state-changed` | ResearchManager | GameStateSyncService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth fuer Store-Sync — ersetzt 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager. |
 
 ### Deferred Events (nicht-kritisch, queued)
 
@@ -65,6 +66,7 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:explosion` | CombatEffectService | VFXService | Explosion VFX spawnen |
 | `vfx:projectile-impact` | ProjectileManager | VFXService | Projektil-Einschlag VFX spawnen |
 | `vfx:muzzle-flash` | TowerManager | VFXService | Muzzle-Flash VFX am Tower spawnen |
+| `vfx:chain-lightning` | TowerCombatService (Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
 
 ### Debug Events
@@ -85,15 +87,20 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 
 ### Command Events (UI → Game Engine)
 
+> **Routing (2026-05-10):** Alle `command:*`- und `debug:*`-Subscriptions sind seit dem
+> Refactor in `GameCommandsHandler` (`managers/game-commands.handler.ts`) gebündelt.
+> Vorher hingen die 11 Listener direkt am `GameStateManager`. Der Handler dispatcht
+> jetzt an EnemyManager / TowerManager / WaveManager / ResearchManager / EconomyService.
+
 | Event | Producer | Consumer | Beschreibung |
 |-------|----------|----------|--------------|
-| `command:place-tower` | UI / Bot | TowerManager | Tower platzieren (`position`, `typeId`, `rotation?`) |
-| `command:sell-tower` | UI / Bot | TowerManager | Tower verkaufen (`towerId`) |
-| `command:upgrade-tower` | UI / Bot | TowerManager | Tower upgraden (`towerId`, `upgradeId`) |
-| `command:start-wave` | UI / Bot | WaveManager | Welle starten (`config?`) |
-| `command:restart-game` | UI | GameStateManager | Spiel neu starten |
-| `command:start-research` | UI | ResearchManager | Forschung starten (`researchId`) |
-| `command:cancel-research` | UI | ResearchManager | Forschung abbrechen (`researchId`) |
+| `command:place-tower` | UI / Bot | GameCommandsHandler → TowerManager | Tower platzieren (`position`, `typeId`, `rotation?`) |
+| `command:sell-tower` | UI / Bot | GameCommandsHandler → TowerManager | Tower verkaufen (`towerId`) |
+| `command:upgrade-tower` | UI / Bot | GameCommandsHandler → TowerManager | Tower upgraden (`towerId`, `upgradeId`) |
+| `command:start-wave` | UI / Bot | GameCommandsHandler → WaveManager | Welle starten (`config?`) |
+| `command:restart-game` | UI | GameCommandsHandler → GameStateManager | Spiel neu starten |
+| `command:start-research` | UI | GameCommandsHandler → ResearchManager | Forschung starten (`researchId`) |
+| `command:cancel-research` | UI | GameCommandsHandler → ResearchManager | Forschung abbrechen (`researchId`) |
 
 ---
 

@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 ## Übersicht
 
@@ -25,6 +25,9 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 - [x] Feuer-Effekte (bei Basis-Schaden + Game Over)
 - [x] Location-System (Dialog, Random Spawn, Reset-Fix)
 - [x] Air Units (Fledermaus mit heightOffset + heightVariation)
+- [x] Air-LOS (skyline-adaptive Cell-Layer, `airVisibility` pro Cell, `canTargetAir`-Tower routen via `isAirPositionVisibleFromTower`)
+- [x] LOS-Overlay Ground vs Air visuell getrennt (grün=ground, blau=air-only, rot=blocked)
+- [x] Post-Processing-Pipeline (Bloom + Color Grading) als eigene `three-engine/post-processing/` Klasse
 - [ ] Projektil-LoS (nur bei Sichtverbindung treffen)
 
 ## Design Prinzipien
@@ -59,19 +62,81 @@ const spawnMarker = this.createDiamondMarker({ color: 0xef4444, size: 0.5, showR
 Die Haupt-Komponente wurde durch Extraktion spezialisierter Services modularisiert.
 Die Komponente selbst ist seit dem 2026-01 Refactoring auf ~655 Zeilen reduziert.
 
-**Hinweis:** Services liegen in `/src/app/services/`, nicht im tower-defense Subfolder.
+**Hinweis:** Services liegen in `/src/app/services/`. Seit dem **services/-Subfolder-Split
+am 2026-05-10** sind sie thematisch in 6 Subfolder gruppiert; Root-Files
+bleiben einige zentrale Service-Klassen, die keinem Subfolder eindeutig zuzuordnen sind.
 
-### Service-Übersicht
+### Verzeichnisstruktur
 
-#### Engine & Initialization
+```
+src/app/services/
+├── (Root)
+│   ├── camera-control.service.ts
+│   ├── camera-framing.service.ts
+│   ├── economy.service.ts          ← Wave-Completion-Bonus, Perfect-Streak (extrahiert aus GSM, 2026-05-10)
+│   ├── input-handler.service.ts
+│   ├── keyboard-pan.service.ts
+│   └── tower-placement.service.ts
+├── combat/
+│   ├── combat-effect.service.ts
+│   ├── combat-vfx.service.ts
+│   ├── damage-application.service.ts
+│   ├── hq-damage.service.ts
+│   ├── status-effect.service.ts
+│   └── tower-combat.service.ts
+├── debug/
+│   ├── debug-facade.service.ts
+│   ├── debug-window.service.ts
+│   ├── enemy-debug.service.ts
+│   ├── performance-profiler.service.ts
+│   ├── sound-debug.service.ts
+│   ├── tower-debug.service.ts
+│   └── wave-debug.service.ts
+├── facade/
+│   ├── game-loop-facade.service.ts
+│   ├── location-facade.service.ts
+│   ├── tower-defense-facade.service.ts
+│   └── visualization-facade.service.ts
+├── infrastructure/
+│   ├── asset-manager.service.ts
+│   ├── engine-initialization.service.ts
+│   ├── game-state-sync.service.ts
+│   └── model-preview.service.ts
+├── location/
+│   ├── geocoding.service.ts
+│   ├── geolocation.service.ts
+│   ├── location-change-coordinator.service.ts
+│   ├── location-management.service.ts
+│   ├── osm-street.service.ts
+│   ├── pathfinding-worker.service.ts
+│   ├── street-cache.service.ts
+│   ├── url-location.service.ts
+│   └── world-dice.service.ts
+└── world/
+    ├── building-rendering.service.ts
+    ├── global-route-grid.service.ts
+    ├── height-update.service.ts
+    ├── map-placement.service.ts
+    ├── marker-visualization.service.ts
+    ├── path-route.service.ts
+    ├── route-animation.service.ts
+    ├── spatial-grid.service.ts
+    ├── strategic-placement.service.ts
+    └── street-rendering.service.ts
+```
+
+### Service-Übersicht (nach Subfolder)
+
+#### infrastructure/
 
 | Service | Verantwortung |
 |---------|---------------|
 | **AssetManagerService** | Zentraler GLTF/FBX Loader mit Reference Counting |
 | **EngineInitializationService** | 6-Step Loading Sequence, Progress Tracking |
-| **EntityPoolService** | Object Pooling (Placeholder, Backwards Compatibility) |
+| **ModelPreviewService** | 3D Model Previews für Sidebar (Max-Renderer + setViewport pro Preview, kein Re-`setSize()` pro Frame) |
+| **GameStateSyncService** | EventBus → Store Bridge — wave/game/credits/health/tower/enemy/research:state-changed |
 
-#### Camera & Input
+#### (Root) — Camera & Input + zentrale Services
 
 | Service | Verantwortung |
 |---------|---------------|
@@ -79,82 +144,73 @@ Die Komponente selbst ist seit dem 2026-01 Refactoring auf ~655 Zeilen reduziert
 | **CameraFramingService** | Viewport-basierte Kamera-Positionierung |
 | **InputHandlerService** | Click/Pan Detection, Terrain Raycasting |
 | **KeyboardPanService** | WASD/Pfeiltasten Kamera-Steuerung |
+| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh, refineCellsInRadius vor LOS-Reg |
+| **EconomyService** | Wave-Completion-Bonus + Perfect-Streak (extrahiert aus GameStateManager, 2026-05-10) |
 
-#### Combat & Gameplay
+#### combat/
 
 | Service | Verantwortung |
 |---------|---------------|
-| **TowerCombatService** | Tower Targeting, Turret-Rotation, Shooting |
+| **TowerCombatService** | Tower Targeting, Turret-Rotation, Shooting, Chain-Hitscan (Lightning) |
 | **CombatEffectService** | Projectile Hits, Damage, Blood/Death/Slow Effects |
 | **CombatVfxService** | VFX-Trigger fuer Combat-Events (Hit-Sparks, Splash-Visuals) |
 | **DamageApplicationService** | Damage-Pipeline: Schadensmatrix, Resistances, DOT-Application |
 | **StatusEffectService** | Status-Effekte (Slow, Freeze, Burn, Poison) inkl. DOT-Ticks |
-| **TowerPlacementService** | Build Mode, Placement Validation, Preview Mesh |
-| **StrategicPlacementService** | Optimale Tower-Positionen entlang Enemy-Pfade |
 | **HQDamageService** | HQ Fire Effects, Damage Sounds, Game Over Visuals |
 
-#### World & Location
+#### world/
 
 | Service | Verantwortung |
 |---------|---------------|
 | **MarkerVisualizationService** | 3D Marker (HQ, Spawn, Debug), Animation |
-| **PathAndRouteService** | Pfad-Caching, Route-Visualisierung, Height Smoothing |
+| **PathAndRouteService** (`path-route.service.ts`) | Pfad-Caching, Route-Visualisierung, Height Smoothing |
 | **RouteAnimationService** | Knight Rider Routen-Animation |
-| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup |
+| **GlobalRouteGridService** | 2m Grid entlang Route, O(1) LOS Lookup, owns Per-Tower-Viz-Mesh (showTowerViz/clearTowerViz, 2026-05-11) |
 | **SpatialGridService** | Generischer Spatial Hash fuer Tower/Enemy Range-Queries |
 | **HeightUpdateService** | Terrain Height Sync, Stabilization Loop |
 | **StreetRenderingService** | Street Network Visualisierung mit Terrain-Following |
 | **BuildingRenderingService** | OSM-Gebaeude rendern (DevWorld + Live) |
 | **MapPlacementService** | HQ-Placement, Spawn-Generation, Map-Bounds |
-| **PathfindingWorkerService** | A*-Pathfinding ueber Web Worker |
+| **StrategicPlacementService** | Optimale Tower-Positionen entlang Enemy-Pfade |
+
+#### location/
+
+| Service | Verantwortung |
+|---------|---------------|
 | **LocationManagementService** | Location CRUD, LocalStorage Persistence |
 | **LocationChangeCoordinatorService** | Koordiniert Location-Wechsel (Dialog, Spawns, Reset) |
 | **GeocodingService** | Nominatim Geocoding & Reverse-Geocoding |
 | **GeolocationService** | Browser Geolocation API Wrapper |
 | **OsmStreetService** | OpenStreetMap Straßen-Loading, A* Pathfinding |
 | **StreetCacheService** | IndexedDB Cache für Straßendaten |
+| **PathfindingWorkerService** | A*-Pathfinding ueber Web Worker |
 | **UrlLocationService** | URL-Parameter für Location-Sharing |
 | **WorldDiceService** | Zufällige Städte für Random-Location |
 
-#### State & Sync
+#### debug/
 
 | Service | Verantwortung |
 |---------|---------------|
-| **GameStateSyncService** | Bridges GameStateManager Events zum Store |
-
-#### Performance
-
-| Service | Verantwortung |
-|---------|---------------|
-| **PerformanceProfilerService** | Frame-Time Sampling, Hot-Path-Profile (`.profiles/`) |
-
-#### UI & Preview
-
-| Service | Verantwortung |
-|---------|---------------|
-| **ModelPreviewService** | 3D Model Previews für Sidebar |
-| **DebugWindowService** | Debug-Window Verwaltung |
-
-#### Debug
-
-| Service | Verantwortung |
-|---------|---------------|
-| **WaveDebugService** | Wave-Debugging Utilities |
+| **DebugFacadeService** | Debug Log, Height Debug, Display Options, Enemy Debug |
+| **WaveDebugService** | Wave-Debugging Utilities — delegiert State an `DebugStore` |
 | **SoundDebugService** | Sound-Debug Stats & Events von SpatialAudioManager |
-| **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation) |
-| **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung) |
+| **TowerDebugService** | Tower-Parameter Overrides (Scale, Height, Rotation) — delegiert State an `DebugStore` |
+| **EnemyDebugService** | Enemy-Debug (Spawn, Type-Config, Live-Visualisierung) — delegiert State an `DebugStore` |
+| **DebugWindowService** | Debug-Window Verwaltung |
+| **PerformanceProfilerService** | Frame-Time Sampling, Hot-Path-Profile (`.profiles/`) |
 
 ### Facade Services
 
-Fünf Facade Services orchestrieren die spezialisierten Services und bilden die Schnittstelle zur Komponente:
+Fünf Facade Services orchestrieren die spezialisierten Services und bilden die Schnittstelle zur Komponente.
+Vier davon liegen in `services/facade/`, der Debug-Facade in `services/debug/`.
 
-| Facade | Verantwortung |
-|--------|---------------|
-| **TowerDefenseFacadeService** | Haupt-Orchestrator: Initialisierung, Service-Wiring, Lifecycle |
-| **GameLoopFacadeService** | Wave-Management, Game Loop, Upgrades, AI-Integration |
-| **VisualizationFacadeService** | Rendering, Kamera, Toggle-Steuerung, DPS-Visualisierung |
-| **LocationFacadeService** | Location Detection, DevWorld, Spawn-Management |
-| **DebugFacadeService** | Debug Log, Height Debug, Display Options, Enemy Debug |
+| Facade | Datei | Verantwortung |
+|--------|-------|---------------|
+| **TowerDefenseFacadeService** | `facade/tower-defense-facade.service.ts` | Haupt-Orchestrator: Initialisierung, Service-Wiring, Lifecycle |
+| **GameLoopFacadeService** | `facade/game-loop-facade.service.ts` | Wave-Management, Game Loop, Upgrades, AI-Integration |
+| **VisualizationFacadeService** | `facade/visualization-facade.service.ts` | Rendering, Kamera, Toggle-Steuerung, DPS-Visualisierung |
+| **LocationFacadeService** | `facade/location-facade.service.ts` | Location Detection, DevWorld, Spawn-Management |
+| **DebugFacadeService** | `debug/debug-facade.service.ts` | Debug Log, Height Debug, Display Options, Enemy Debug |
 
 ### Service-Architektur
 
@@ -196,15 +252,23 @@ tower-defense.component.ts
     │   └── WorldDiceService ──────────── Random Cities
     │
     ├── DebugFacadeService ───────────── Debug Operations
-    │   ├── WaveDebugService ──────────── Wave Debugging
+    │   ├── WaveDebugService ──────────── Wave Debugging (→ DebugStore)
     │   ├── SoundDebugService ─────────── Sound Debug Stats
-    │   ├── TowerDebugService ─────────── Tower Parameter Overrides
-    │   └── EnemyDebugService ─────────── Enemy Debug
+    │   ├── TowerDebugService ─────────── Tower Parameter Overrides (→ DebugStore)
+    │   └── EnemyDebugService ─────────── Enemy Debug (→ DebugStore)
     │
     ├── UI Services
     │   ├── UIStore ───────────────────── UI State & Toggles
+    │   ├── DebugStore ────────────────── Wave/Tower/Enemy Debug Signals (2026-05-10)
     │   ├── DebugWindowService ────────── Debug Windows
     │   └── ModelPreviewService ───────── 3D Previews
+    │
+    ├── Managers (event-driven)
+    │   ├── GameStateManager ──────────── Game-Logic-Orchestrator + Sub-Manager-Lifecycle
+    │   ├── GameCommandsHandler ───────── Bündelt 11 `command:*`/`debug:*` Subscriptions (2026-05-10)
+    │   ├── EconomyService ────────────── Wave-Completion-Bonus + Streak (extrahiert aus GSM)
+    │   ├── EnemyManager / TowerManager / ProjectileManager / WaveManager / ResearchManager
+    │   └── EntityManager ─────────────── Generischer Entity-Container
     │
     └── Shared
         └── EntityPoolService ─────────── Object Pooling
@@ -1070,31 +1134,25 @@ src/app/
 │   ├── core/                     # Game-State-Capture, Data Collection
 │   └── training/                 # Bots (Strategy Pattern), Strategies
 │
-├── services/                     # Angular Services
-│   ├── tower-defense-facade.service.ts  # Facades (5)
-│   ├── game-loop-facade.service.ts
-│   ├── visualization-facade.service.ts
-│   ├── location-facade.service.ts
-│   ├── debug-facade.service.ts
-│   ├── damage-application.service.ts
-│   ├── status-effect.service.ts
-│   ├── combat-vfx.service.ts
-│   ├── building-rendering.service.ts
-│   ├── map-placement.service.ts
-│   ├── pathfinding-worker.service.ts
-│   ├── performance-profiler.service.ts
-│   ├── ...                              # Weitere spezialisierte Services
-│   └── (siehe Service-Übersicht oben)
+├── services/                     # Angular Services — vollstaendige Liste oben unter "Verzeichnisstruktur"
+│   ├── (Root)                    # economy, tower-placement, camera-*, keyboard-pan, input-handler
+│   ├── combat/                   # Tower-Combat, Damage-Application, Status-Effect, Combat-Effect/Vfx, HQ-Damage
+│   ├── debug/                    # Debug-Facade + Wave/Tower/Enemy/Sound-Debug, Performance-Profiler, Debug-Window
+│   ├── facade/                   # TowerDefense/GameLoop/Visualization/Location-Facades
+│   ├── infrastructure/           # Asset-Manager, EngineInit, GameStateSync, ModelPreview
+│   ├── location/                 # Geocoding, Geolocation, OsmStreet, PathfindingWorker, etc.
+│   └── world/                    # Marker, Path/Route, Grid (Global/Spatial), Height, Streets, Buildings
 │
-├── managers/                     # Manager-Dateien
+├── managers/                     # Manager-Dateien (event-driven, Angular-frei)
 │   ├── index.ts                  # Manager Exports
 │   ├── entity-manager.ts         # Base class
-│   ├── game-state.manager.ts     # Orchestrator (~1020 Zeilen)
+│   ├── game-state.manager.ts     # Orchestrator + subManagers[] + dispose()
+│   ├── game-commands.handler.ts  # 11 `command:*`/`debug:*` Subscriptions (extrahiert aus GSM, 2026-05-10)
 │   ├── enemy.manager.ts          # Enemy Lifecycle
 │   ├── tower.manager.ts          # Tower Lifecycle
 │   ├── projectile.manager.ts     # Projectile Lifecycle
 │   ├── wave.manager.ts           # Wave Management (templates, mixed waves)
-│   ├── research.manager.ts       # Forschungs-System (Effects, Tick)
+│   ├── research.manager.ts       # Forschungs-System (Effects, Tick) — emittiert `research:state-changed`
 │   └── audio/                    # Audio-Subsystem
 │       ├── spatial-audio.manager.ts    # 3D Audio Manager
 │       ├── spatial-audio-playback.ts   # Playback-Logik
@@ -1110,21 +1168,26 @@ src/app/
 │   └── game-manager.interface.ts # IGameManager
 │
 ├── three-engine/                 # Three.js Engine
-│   ├── three-tiles-engine.ts     # Haupt-Engine
+│   ├── three-tiles-engine.ts     # Haupt-Engine (Camera-Setup + Tile-Loading-State noch hier)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
-│   ├── post-processing/          # Bloom, Color-Grading, etc.
+│   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
+│   │   ├── post-processing-pipeline.ts
+│   │   └── color-grading.ts
 │   └── renderers/
 │       ├── index.ts              # CoordinateSync Interface
-│       ├── three-enemy.renderer.ts
 │       ├── three-tower.renderer.ts
 │       ├── three-projectile.renderer.ts
-│       ├── three-effects.renderer.ts
+│       ├── three-effects.renderer.ts        # ParticlePools + Auras + Environment FX
 │       ├── three-flame-beam.renderer.ts
 │       ├── three-tentacle.renderer.ts
+│       ├── lightning-bolt.renderer.ts       # Chain-Bolts + Idle-Crackle + Impact-Halos (Lightning Tower)
+│       ├── lightning-bolt-shaders.ts
 │       ├── trail-streak.renderer.ts
 │       ├── decal-instance.manager.ts
 │       ├── decal-shaders.ts
+│       ├── magic-orb-shaders.ts
+│       ├── tentacle-shaders.ts
 │       ├── sprite-atlas-generator.ts
 │       ├── instanced-enemy/      # VAT-instanced enemy renderer
 │       ├── floating-text/        # GPU-instanzierte Schadenszahlen
@@ -1160,6 +1223,7 @@ src/app/
 │
 ├── configs/
 │   ├── tower-types.config.ts
+│   ├── enemy-types.config.ts     # (2026-05-10 aus models/ migriert)
 │   ├── projectile-types.config.ts
 │   ├── visual-effects.config.ts
 │   ├── audio.config.ts
@@ -1169,14 +1233,15 @@ src/app/
 │   ├── map-constants.config.ts
 │   ├── placement.config.ts
 │   ├── timing.config.ts
-│   ├── combat/                   # Damage-Matrix, ArmorTypes, DamageTypes
+│   ├── wave-curriculum.config.ts # (2026-05-10 aus ai/core/ migriert)
+│   ├── combat/                   # Damage-Matrix, ArmorTypes, DamageTypes, combat-tuning
 │   └── research/                 # Research-Tree, Effects, Types
 │
 ├── models/
-│   ├── enemy-types.ts
 │   ├── game.types.ts
 │   ├── location.types.ts
 │   └── status-effects.ts
+│   # (enemy-types.ts ist 2026-05-10 nach configs/enemy-types.config.ts umgezogen)
 │
 ├── styles/
 │   └── td-theme.ts               # Theme-Konstanten + CSS-Vars

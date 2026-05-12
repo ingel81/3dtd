@@ -1,6 +1,6 @@
 # Status Effects System
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
@@ -8,7 +8,7 @@ Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
 ## Übersicht
 
-Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies anzuwenden (Verlangsamung, DoT, etc.). Effekte werden auf der `MovementComponent` jedes Enemies gespeichert und vom `StatusEffectService` (Angular `@Injectable`, in `services/status-effect.service.ts`) angewendet.
+Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies anzuwenden (Verlangsamung, DoT, etc.). Effekte werden auf der `MovementComponent` jedes Enemies gespeichert und vom `StatusEffectService` (Angular `@Injectable`, in `services/combat/status-effect.service.ts`) angewendet.
 
 **Aktuell implementiert:**
 - **Slow** (Verlangsamung) — Ice Tower, Splash
@@ -44,7 +44,7 @@ export interface StatusEffect {
 ### StatusEffectService
 
 ```typescript
-// services/status-effect.service.ts
+// services/combat/status-effect.service.ts
 
 @Injectable({ providedIn: 'root' })
 export class StatusEffectService {
@@ -132,7 +132,7 @@ Slow-Effekte **stacken nicht** - es kann nur ein Slow gleichzeitig aktiv sein. J
 Slow wird via `StatusEffectService` angewendet. `CombatEffectService` reagiert auf `projectile:hit` Events und delegiert an `StatusEffectService`:
 
 ```typescript
-// In StatusEffectService (services/status-effect.service.ts)
+// In StatusEffectService (services/combat/status-effect.service.ts)
 applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void {
   enemy.movement.applyStatusEffect({
     type: 'slow',

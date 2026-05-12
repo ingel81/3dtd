@@ -1,12 +1,16 @@
 # 3DTD — Master Game Design Document
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 > **Implementierungsstatus:** Damage-Matrix (§2.3), Status-Effekte Slow/Burn/Mark
 > (§2.4), Tower-Katalog (§3) und Forschungszentrum (§6) sind implementiert
 > (`src/app/configs/combat/damage-matrix.config.ts`, `src/app/configs/research/`).
 > Status-Effekte Phase 2 (Armor Break, Stun) und einzelne Enemy-Flags
 > (Camo, Phasing, Aura) sind teilweise noch offen — siehe `TODO.md`.
+>
+> **Erweitert seit 2026-05-11:** Der **Lightning Tower** mit eigenem `damageType: 'lightning'`
+> (8. Schadenstyp im Code, `DAMAGE_TYPES` in `configs/combat/combat.types.ts`) ist
+> ausgeliefert und in §2.1 / §2.3 / §3.12 integriert.
 
 ## 1. Design-Philosophie
 - **Einfach zu lernen, schwer zu meistern**: klare Basisregeln + Veteranen-Tiefe (Matrix, Status, Flags).
@@ -19,7 +23,7 @@
 
 ## 2. Damage & Armor System (Matrix + Status + Flags)
 
-### 2.1 Schadenstypen (7)
+### 2.1 Schadenstypen (8)
 - **Physical (⚔️)**: solider Allrounder, fällt vs. Armor ab.
 - **Pierce (🎯)**: hohe Feuerrate, Anti-Swarm.
 - **Siege (💥)**: langsame AoE, Anti-Heavy/Fortified.
@@ -27,6 +31,7 @@
 - **Fire (🔥)**: DoT/Burn, Anti-Regen.
 - **Ice (❄️)**: Low-DPS, starker Slow/CC.
 - **Poison (☠️)**: DoT-Spezialist, Anti-Regen, eigenstaendiger Schadenstyp.
+- **Lightning (⚡)**: Hitscan-Chain (Primary + Jumps mit Falloff), starker Light-Bonus + Ethereal-Counter, schwach gegen Fortified.
 
 ### 2.2 Rüstungstypen (5)
 - **Unarmored**
@@ -48,10 +53,16 @@ Magic     ✨       1.0×      1.0×     0.85×    0.75×       1.75×
 Fire      🔥       1.15×     1.0×     0.9×     0.6×        0.15×
 Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
 Poison    ☠️       1.1×      1.1×     0.6×     0.6×        0.5×
+Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 ```
 
+> **Quelle der Wahrheit:** `src/app/configs/combat/damage-matrix.config.ts`. Bei
+> Anpassungen dort gilt es, diese Tabelle synchron zu halten — die TypeScript-
+> Mapped-Types erzwingen Vollständigkeit auf Code-Seite, nicht in der Doku.
+
 **Interpretation:**
-- **Ethereal** ist **hart, aber nicht unbesiegbar**. Magic/Ice bleiben beste Konter, aber Notlösungen existieren.
+- **Ethereal** ist **hart, aber nicht unbesiegbar**. Magic/Ice/Lightning bleiben beste Konter, aber Notlösungen existieren.
+- **Lightning** ist neben Magic der zweite glaubwürdige Ethereal-Counter (1.5×) — gleichzeitig stark gegen Light-Swarms (1.25×) dank Chain-Jumps, aber schwach gegen Fortified-Bossen (0.6×). Dort bleibt Cannon/Siege Pflicht.
 
 ### 2.4 Status-Effekte (Schicht 2)
 | Effekt | Wirkung | Standarddauer | Gegenmittel (Enemy Flag) |
@@ -88,6 +99,7 @@ Poison    ☠️       1.1×      1.1×     0.6×     0.6×        0.5×
 | **Fire** | Fire | 35 DPS Beam, Range 25 | 170 | per Upgrade |
 | **Tentacle** | Physical (+20% True) | 30 dmg, 1.5/s, Range 25 | 185 | nein |
 | **Poison** | Poison | DoT-Projektil, Splash, Range 65 | 100 | nein |
+| **Lightning** | Lightning | 35 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 
 ### 3.2 Upgrade-Kosten-Regel (vereinheitlicht)
 - **Upgrade-Kosten-Skalierung:** **1.5× pro Tier** (alle Tower, alle Pfade). 
@@ -130,6 +142,12 @@ Poison    ☠️       1.1×      1.1×     0.6×     0.6×        0.5×
 - DoT-Spezialist mit Splash-Projektil.
 - Eigenstaendiger Schadenstyp (nicht Fire-Subtyp).
 - Poison-DoT und Burn-DoT sind getrennte Effekte, koennen gleichzeitig wirken.
+
+### 3.12 Lightning — Lightning
+- **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
+- **Air + Ground** ab Basis — Anti-Air ohne Forschungspflicht.
+- **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×) und stark gegen Light-Swarms (1.25×, profitiert zusätzlich vom Chain-Pattern). **Schwach gegen Fortified** (0.6×) — Cannon/Siege bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
+- Visuell: dauerhaftes Idle-Crackle am Turm-Tip, additive Aufhell-Halos pro Hit (Workaround, weil Photorealistic 3D Tiles dynamische Lichter ignorieren).
 
 ---
 

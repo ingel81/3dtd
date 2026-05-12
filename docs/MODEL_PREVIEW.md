@@ -1,5 +1,7 @@
 # 3D Model Preview System
 
+**Stand:** 2026-05-12
+
 Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Sidebar.
 
 ## Architektur
@@ -27,7 +29,7 @@ Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Si
   Mit Max-Size + Viewport laeuft x4 jetzt mit ~10% Idle-Reserve (vorher 0%).
 
 ### Dateien
-- `services/model-preview.service.ts` - Haupt-Service
+- `services/infrastructure/model-preview.service.ts` - Haupt-Service
 - `components/game-sidebar/game-sidebar.component.ts` - Integration (initPreviews, initEnemyPreview, initTowerPreviews)
 
 ## PreviewConfig Optionen

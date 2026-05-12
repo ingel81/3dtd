@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-05-08
+**Stand:** 2026-05-12
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -629,9 +629,9 @@ buildMixedWaveConfig(): WaveConfig { ... }
 | `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, Helpers |
 | `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfigMixed()` — AI-zu-WaveManager Konvertierung |
 | `ai/core/models/wave-config.ts` | Optionales `pattern` Feld fuer AI Config |
-| `services/wave-debug.service.ts` | Mixed-Mode Signals, `buildMixedWaveConfig()` |
+| `services/debug/wave-debug.service.ts` | Mixed-Mode Signals (delegiert State an `DebugStore`), `buildMixedWaveConfig()` |
 | `components/debug-window/wave-debugger.component.ts` | Mixed Wave Designer UI |
-| `services/game-loop-facade.service.ts` | Mixed-Mode Weiche in `startCustomWave()` |
+| `services/facade/game-loop-facade.service.ts` | Mixed-Mode Weiche in `startCustomWave()` |
 
 ---
 
