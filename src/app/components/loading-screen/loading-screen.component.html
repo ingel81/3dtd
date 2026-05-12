@@ -1,4 +1,4 @@
-<div class="td-loading" role="status" aria-live="polite">
+<div class="td-loading" [class.td-loading--tiles-ready]="tilesReady" role="status" aria-live="polite">
 
   <div class="td-loading__map"></div>
   <div class="td-loading__scan"></div>
@@ -21,8 +21,7 @@
   <div class="td-loading__stack">
 
     <div class="td-loading__logo">
-      <img class="td-loading__logo-mark" src="/assets/images/logo/logo.png" alt="" width="56" height="56">
-      <span class="td-loading__logo-word">3DTD</span>
+      <img class="td-loading__logo-mark" src="/assets/images/logo/logo.png" alt="3DTD" width="127" height="72">
     </div>
 
     <div class="td-loading__mission">

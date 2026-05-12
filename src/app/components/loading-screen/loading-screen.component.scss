@@ -1,7 +1,7 @@
 :host {
-  position: fixed;
+  position: absolute;
   inset: 0;
-  z-index: 9000;
+  z-index: 10;
   display: block;
 }
 
@@ -12,9 +12,15 @@
   background: var(--td-bg-dark);
   font-family: var(--td-font-body);
   color: var(--td-text-primary);
+  // Reveal transition: once the first 3D tiles render, the dark backdrop
+  // (panel-bg + faux-map + vignette + radar pulse) fades out so the real
+  // map shows through while the boot panel + field tip stay readable on
+  // top. Triggered by .td-loading--tiles-ready below.
+  transition: background-color 600ms ease-in;
 
   &__map {
     position: absolute; inset: 0;
+    transition: opacity 600ms ease-in;
     background-color: #0E1310;
     background-image:
       linear-gradient(72deg,  transparent 0 49.7%, rgba(140,150,140,0.22) 49.7% 50.3%, transparent 50.3%),
@@ -46,6 +52,7 @@
       radial-gradient(ellipse 55% 50% at 50% 48%, transparent 30%, rgba(0,0,0,0.78) 95%),
       linear-gradient(180deg, rgba(0,0,0,0.45) 0, transparent 18%, transparent 82%, rgba(0,0,0,0.5) 100%);
     pointer-events: none;
+    transition: opacity 600ms ease-in;
   }
 
   &__corner {
@@ -91,6 +98,7 @@
     transform: translate(-50%, -50%);
     width: 8px; height: 8px;
     pointer-events: none;
+    transition: opacity 600ms ease-in;
     > i {
       position: absolute; inset: 0;
       background: var(--td-gold-light);
@@ -120,15 +128,15 @@
   }
 
   &__logo {
-    display: flex; align-items: center; gap: 14px;
+    display: flex; align-items: center; justify-content: center;
     margin-bottom: 28px;
     filter: drop-shadow(0 6px 20px rgba(194,160,85,0.22));
   }
-  &__logo-mark { width: 56px; height: 56px; display: block; }
-  &__logo-word {
-    font: 800 28px/1 var(--td-font-body);
-    letter-spacing: 1px;
-    color: var(--td-gold-light);
+  &__logo-mark {
+    height: 72px;
+    width: auto;
+    display: block;
+    object-fit: contain;
   }
 
   &__mission {
@@ -139,6 +147,7 @@
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     margin-bottom: 22px;
+    transition: background-color 600ms ease-in, backdrop-filter 600ms ease-in;
   }
   &__mission-label {
     font: 700 9.5px/1 var(--td-font-mono);
@@ -305,6 +314,7 @@
     border-left: 2px solid var(--td-teal);
     backdrop-filter: blur(6px);
     -webkit-backdrop-filter: blur(6px);
+    transition: background-color 600ms ease-in, backdrop-filter 600ms ease-in;
   }
   &__tip-icon {
     color: var(--td-teal-light); display: flex; align-items: center;
@@ -340,6 +350,47 @@
     svg { width: 9px; height: 9px; }
     &:hover { color: var(--td-teal-light); }
     &:focus-visible { outline: 1px solid var(--td-teal); outline-offset: 1px; }
+  }
+
+  // Tiles-ready state — fade out the dark backdrop layers so the real
+  // map underneath shows through. Boot panel already uses glass-tint
+  // (0.78), so it stays readable. Mission strip + field tip default
+  // backgrounds (0.42 / 0.35) are too weak against bright daylight
+  // tiles — beef them up to the same glass-tint here. Status line has
+  // no background at all, so it gets a 4-cardinal text shadow (same
+  // pattern as the info-overlay collapsed state).
+  &--tiles-ready {
+    background-color: transparent;
+
+    .td-loading__map,
+    .td-loading__vignette,
+    .td-loading__pulse {
+      opacity: 0;
+    }
+
+    .td-loading__mission,
+    .td-loading__tip {
+      background: var(--td-glass-tint);
+      backdrop-filter: blur(12px) saturate(1.1);
+      -webkit-backdrop-filter: blur(12px) saturate(1.1);
+    }
+
+    .td-loading__status {
+      text-shadow:
+        -1px -1px 0 rgba(0, 0, 0, 0.85),
+         1px -1px 0 rgba(0, 0, 0, 0.85),
+        -1px  1px 0 rgba(0, 0, 0, 0.85),
+         1px  1px 0 rgba(0, 0, 0, 0.85),
+         0 1px 4px rgba(0, 0, 0, 0.7);
+    }
+
+    // Logo can sit against bright sky / water — add a dark drop shadow
+    // on top of the existing gold glow so the gold pixels keep contrast.
+    .td-loading__logo {
+      filter:
+        drop-shadow(0 6px 20px rgba(194, 160, 85, 0.22))
+        drop-shadow(0 0 6px rgba(0, 0, 0, 0.7));
+    }
   }
 }
 

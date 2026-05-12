@@ -27,6 +27,13 @@ export class LoadingScreenComponent implements OnInit, OnDestroy {
   /** When set, the mission strip switches to "DEV WORLD · seed N". */
   @Input() devWorldSeed: number | null = null;
   @Input() tipRotateMs = 6000;
+  /**
+   * When true, fade out the dark background layers (faux-map, vignette,
+   * radar pulse) so the real 3D-Tiles canvas underneath shows through —
+   * the boot panel + field tip stay on top. Wire to engineInit.tilesLoading
+   * so the reveal happens the moment first tiles render.
+   */
+  @Input() tilesReady = false;
 
   readonly tips: FieldTip[] = FIELD_TIPS;
   currentTipIndex = 0;
