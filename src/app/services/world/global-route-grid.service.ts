@@ -68,6 +68,15 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Schmal-Variante: promoviert nur unsampled Cells im Radius, lässt
+   * bereits stabile Cells in Ruhe. Für den Build-Preview-Pfad gedacht,
+   * wo wir per Mouse-Move keine LOD-Upgrades ausführen wollen.
+   */
+  promoteUnsampledCellsInRadius(x: number, z: number, radius: number): { promoted: number } {
+    return this.grid.promoteUnsampledCellsInRadius(x, z, radius);
+  }
+
+  /**
    * Check if grid is initialized
    */
   isInitialized(): boolean {

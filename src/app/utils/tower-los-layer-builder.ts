@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import type { RouteCell } from './global-route-grid';
+import { losPerf } from './los-perf';
 
 /**
  * Eingang für `TowerLosLayerBuilder.build()`.
@@ -163,6 +164,7 @@ const FRAGMENT_SHADER = /* glsl */ `
  */
 export class TowerLosLayerBuilder {
   static build(opts: TowerLosLayerOptions): TowerLosLayer | null {
+    const tBuildStart = performance.now();
     const { cells, towerTip, groundRange, airRange, canTargetGround, canTargetAir,
             cubemap, cubemapFarDistance, gridCellSize } = opts;
 
@@ -237,6 +239,8 @@ export class TowerLosLayerBuilder {
     geometry.setAttribute('aAirSampleY', airAttr);
 
     mesh.instanceMatrix.needsUpdate = true;
+
+    losPerf.sample('mesh/build', performance.now() - tBuildStart, cells.length);
 
     return {
       mesh,

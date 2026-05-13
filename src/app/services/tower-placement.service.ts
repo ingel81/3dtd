@@ -17,6 +17,7 @@ import { findNearestRouteDistance } from '../utils/geo-utils';
 import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
+import { losPerf } from '../utils/los-perf';
 
 /**
  * TowerPlacementService
@@ -476,8 +477,16 @@ export class TowerPlacementService {
     const range = config.range;
     const airRange = range; // TODO: airRangeMultiplier wenn Config-Feld ergänzt
 
-    // Cell-Y in Range nachsampeln (cheap: nur cells im radius)
-    this.globalRouteGrid.refineCellsInRadius(local.x, local.z, Math.max(range, airRange));
+    // Cells in der Cursor-Region zu `stable` promoten falls noch nicht
+    // gesampelt — sonst tauchen sie nicht in der Viz auf (getCellsInRange
+    // filtert auf `heightSampled`). Schmal-Variante: stabile Cells werden
+    // übersprungen, also kein Raycast pro Move. LOD-Upgrades für stabile
+    // Cells laufen separat über den Tile-Streaming-Pfad.
+    const tPromoteStart = performance.now();
+    this.globalRouteGrid.promoteUnsampledCellsInRadius(
+      local.x, local.z, Math.max(range, airRange),
+    );
+    losPerf.sample('preview/promote', performance.now() - tPromoteStart);
 
     // Move-Schwelle: nur bei größerer Bewegung neu bauen
     const movedSq =
@@ -491,7 +500,9 @@ export class TowerPlacementService {
     const tipWorld = new Vector3(local.x, tipY, local.z);
 
     if (!needsRebuild && this.buildPreviewViz) {
+      const tTipStart = performance.now();
       this.buildPreviewViz.updateTowerTip(tipWorld);
+      losPerf.sample('preview/tip-only', performance.now() - tTipStart);
       return;
     }
 
@@ -500,9 +511,11 @@ export class TowerPlacementService {
 
     const blockerGroup = this.engine.getLosBlockerGroup();
     if (!blockerGroup) return;
+    const tGetStart = performance.now();
     const cells = this.globalRouteGrid.getCellsInRange(
       local.x, local.z, Math.max(range, airRange),
     );
+    losPerf.sample('preview/getCells', performance.now() - tGetStart, cells.length);
     if (cells.length === 0) return;
 
     this.buildPreviewViz = new TowerLosViz({
