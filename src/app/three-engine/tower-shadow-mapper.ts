@@ -16,6 +16,7 @@ import {
   Material,
 } from 'three';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import { losPerf } from '../utils/los-perf';
 
 /**
  * TowerShadowMapper — rendert eine Tiefen-Cubemap vom Tower-Tip aus.
@@ -167,6 +168,8 @@ export class TowerShadowMapper {
 
     if (!moved) return false;
 
+    const tUpdateStart = performance.now();
+
     this.cubeCamera.position.copy(tip);
     this.cubeCamera.updateMatrixWorld();
     // CubeCamera's 6 face cameras are PerspectiveCameras; aktualisiere far
@@ -208,6 +211,7 @@ export class TowerShadowMapper {
     const noop: Mesh['onBeforeRender'] = () => {
       /* neutralisiert Plugin-Mutations am Override-Material (Lesson 2). */
     };
+    const tTraverseStart = performance.now();
     includeOnly.traverse((obj) => {
       if (!(obj instanceof Mesh)) return;
       meshBackup.push({
@@ -218,27 +222,33 @@ export class TowerShadowMapper {
       obj.material = this.distanceMaterial;
       obj.onBeforeRender = noop;
     });
+    losPerf.sample('cube/traverse', performance.now() - tTraverseStart, meshBackup.length);
 
     // Lesson 7 — ClearColor save/restore.
     this.renderer.getClearColor(this.prevClearColor);
     const prevClearAlpha = this.renderer.getClearAlpha();
     this.renderer.setClearColor(0x000000, 0);
 
+    const tRenderStart = performance.now();
     try {
       this.cubeCamera.update(this.renderer, this.scene);
     } finally {
+      losPerf.sample('cube/render', performance.now() - tRenderStart);
       this.renderer.setClearColor(this.prevClearColor, prevClearAlpha);
+      const tRestoreStart = performance.now();
       for (const entry of meshBackup) {
         entry.mesh.material = entry.material;
         entry.mesh.onBeforeRender = entry.onBeforeRender;
       }
       for (const obj of hiddenSiblings) obj.visible = true;
+      losPerf.sample('cube/restore', performance.now() - tRestoreStart);
     }
 
     this.lastRenderedTip.copy(tip);
     this.lastEncodedFar = range;
     this.hasRendered = true;
     this.invalidated = false;
+    losPerf.sample('cube/total', performance.now() - tUpdateStart);
     return true;
   }
 

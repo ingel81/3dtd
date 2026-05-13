@@ -698,6 +698,44 @@ export class GlobalRouteGrid {
    * Returns counts for logging / verification. Triggers viz refresh +
    * onCellsPromoted when at least one cell flipped from unsampled.
    */
+  /**
+   * Schmal-Variante von `refineCellsInRadius`: ruft `sampleCellY` NUR
+   * für Cells im Radius, die noch nicht `stable` sind. Skip-Pfad für
+   * bereits-gesampelte Cells = kein Raycast.
+   *
+   * Use case: per-frame Build-Preview-Aufrufe, wo wir Cells in der
+   * Cursor-Region zu `stable` bringen müssen damit sie in der Viz
+   * erscheinen, aber wir keine LOD-Upgrades für bereits stabile Cells
+   * brauchen (Y-Drift durch LOD bewegt sich im Sub-Meter-Bereich, was
+   * für die Coverage-Viz und LOS-Raycasts irrelevant ist).
+   *
+   * Tile-Streaming-getriebene LOD-Upgrades laufen weiterhin über die
+   * volle `refineCellsInRadius` aus dem Tile-Load-End-Pfad.
+   */
+  promoteUnsampledCellsInRadius(x: number, z: number, radius: number): { promoted: number } {
+    if (!this.terrainRaycaster && !this.terrainSampleRaycaster) {
+      return { promoted: 0 };
+    }
+    const rangeSq = radius * radius;
+    const promoted: RouteCell[] = [];
+
+    for (const cell of this.cells.values()) {
+      if (cell.heightSampled) continue;
+      const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
+      if (distSq > rangeSq) continue;
+      if (this.sampleCellY(cell)) {
+        promoted.push(cell);
+      }
+    }
+
+    if (promoted.length > 0) {
+      if (this.visualization) this.initializePositions();
+      this.onCellsPromoted?.(promoted);
+    }
+
+    return { promoted: promoted.length };
+  }
+
   refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
     if (!this.terrainRaycaster && !this.terrainSampleRaycaster) {
       return { promoted: 0, refreshed: 0, inRange: 0 };
