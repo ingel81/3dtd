@@ -1831,11 +1831,272 @@ sie divergieren wenn:
   die Höhen-Divergenz alles andere.
 - **Sub-Voxel-Geometrie-Unterschiede:** der GPU-Sampler trifft eine
   andere Mesh-Edge als der CPU-Raycaster wegen Float-Präzision.
+- **Tile-Streaming-Staleness:** GPU-Cube wird per `invalidate()` neu
+  gerendert sobald neue Tiles geladen sind. Combat-Cache wird nur via
+  `setCellsPromotedListener` für Cells nachgezogen die von unsampled
+  → sampled gesprungen sind. Cells deren `terrainHeight` einfach
+  präziser geworden ist, werden nicht re-registriert. → Combat-Cache
+  hängt potenziell der GPU-Realität hinterher. Für Ground meist
+  praxis-unproblematisch, theoretisch auch dort ein Divergenz-Pfad.
 
-**Empfehlung:** Nach der Höhen-Vereinheitlichung explizit testen ob
-Combat-Cache und Cubemap-Sample für DENSELBEN Punkt dasselbe Ergebnis
-liefern. Falls ja → fertig. Falls nein → echter Cubemap-Bug, dann
-H2/H5-Analyse anstoßen.
+## Architektur-Frage: GPU als Single Source of Truth (Option 1)
+
+Diese Sektion dokumentiert die **strukturell richtige Lösung** für die
+gesamte LOS-Pipeline — über die Höhen-Frage hinaus. Sie wurde im v3-Plan
+als "Variant B" angerissen aber bewusst verschoben ("komplexer, aber
+strikt GPU. Erst wenn Variant A messbar zu langsam ist."). Der jetzt
+gefundene Air-Divergenz-Bug zeigt: die Pragmatik der Doppel-Pipeline
+hat eine Hypothek aufgenommen die irgendwann fällig wird.
+
+### Warum Doppel-Pipeline überhaupt entstand
+
+| Constraint | Pipeline | Warum |
+|---|---|---|
+| Combat (50 Tower × 200 Enemies / Frame = 10k LOS-Checks) | Map-Lookup O(1) | Pro-Frame-Raycast wäre 10k × ~7μs = 70 ms/Frame — unmöglich |
+| Build-Preview (Mouse-Move 17×/s) | GPU-Cubemap live | CPU-Raycast pro Cell × ~500 Cells × 17 Moves/s = ~50 ms/s mit 150ms-Debounce-UI-Lag in v1/v2 |
+
+→ **Jede Pipeline gut für ihren Use-Case, aber zwei Quellen für dieselbe
+logische Frage "ist Cell sichtbar".** Die Air-Divergenz die wir jetzt
+sehen ist die Quittung.
+
+### Was Option 1 strukturell ist
+
+EINE Berechnung pro Tower-Build, ZWEI Konsumenten:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│  TowerShadowMapper.update(tip, range, includeOnly)             │
+│  ────────────────────────────────────────────────              │
+│  Rendert Depth-Cubemap vom Tower-Tip aus.                      │
+│  (Existiert heute schon, wird aktuell nur für Viz benutzt.)    │
+└────────────────────────────────────────────────────────────────┘
+                │
+                ├──────────────────────────────────┐
+                │                                  │
+                ▼                                  ▼
+┌──────────────────────────────────┐  ┌─────────────────────────┐
+│  Resolve-Pass (NEU)              │  │  Viz-Pass               │
+│  ──────────────                  │  │  ────────               │
+│  Pro Cell in Range:              │  │  Cell-Shader sampelt    │
+│    Sample-Direction berechnen    │  │  textureCube live, color│
+│    GPU-Cube samplen → distance   │  │  per Cell.              │
+│    Mit cellDistance vergleichen  │  │  (Heute schon so.)      │
+│    → boolean visibility          │  │                         │
+│  Ergebnis in cell.towerVisibility│  │                         │
+│  + cell.airVisibility schreiben  │  │                         │
+└──────────────────────────────────┘  └─────────────────────────┘
+                │                                  │
+                ▼                                  ▼
+        Combat-Lookup (O(1))             Plate-Color (live)
+        (Heute schon so.)                (Heute schon so.)
+```
+
+**Kern-Idee:** der Resolve-Pass tut DAS GLEICHE wie der Viz-Cell-Shader,
+nur einmal pro Build statt jeden Frame, und schreibt das Ergebnis in den
+existierenden Combat-Cache.
+
+### Implementierungs-Skizze
+
+Option 1a — **CPU-iteriert mit `readRenderTargetPixels`:**
+
+```ts
+// In GlobalRouteGrid.registerTower() ODER in einer neuen
+// resolveTowerCellsFromCubemap()-Methode:
+function resolveTowerCellsFromCubemap(
+  towerId: string,
+  towerTip: Vector3,
+  cellsInRange: RouteCell[],
+  cubemap: WebGLCubeRenderTarget,
+  farDistance: number,
+  canTargetGround: boolean,
+  canTargetAir: boolean,
+): RouteCell[] {
+  const visibleCells: RouteCell[] = [];
+  const buf = new Uint8Array(4);
+
+  for (const cell of cellsInRange) {
+    // GROUND
+    if (canTargetGround) {
+      const gnd = sampleCubeAtPoint(
+        towerTip,
+        cell.x, cell.terrainHeight + 1.5, cell.z,
+        cubemap, farDistance, buf,
+      );
+      cell.towerVisibility.set(towerId, gnd);
+      if (gnd) visibleCells.push(cell);
+    }
+    // AIR (selber Code, nur andere Y)
+    if (canTargetAir) {
+      const air = sampleCubeAtPoint(
+        towerTip,
+        cell.x, getAirTargetY(cell), cell.z,
+        cubemap, farDistance, buf,
+      );
+      cell.airVisibility.set(towerId, air);
+      if (air && !visibleCells.includes(cell)) visibleCells.push(cell);
+    }
+  }
+  return visibleCells;
+}
+
+function sampleCubeAtPoint(
+  tip: Vector3,
+  px: number, py: number, pz: number,
+  cubemap: WebGLCubeRenderTarget,
+  farDistance: number,
+  buf: Uint8Array,
+): boolean {
+  // 1. Direction von Tip zum Sample-Punkt
+  // 2. Direction → (face, s, t) per GL-Cubemap-Konvention
+  //    (Code-Vorlage aus v2-Probe, siehe Handover §Lessons-Learned-v2
+  //     Punkt 8 — Achtung: y-flip ist DA falsch, siehe H5-Section)
+  // 3. readRenderTargetPixels(cubemap, px, py, 1, 1, buf, faceIndex)
+  // 4. Unpacked-Depth aus buf (R+G/255+B/65025+A/16M-Pattern, gleich wie Cell-Shader)
+  // 5. distance = packed * farDistance
+  // 6. cellDist = length(samplePoint - tip)
+  // 7. return cellDist < distance - 0.5  (Visibility-Bias)
+}
+```
+
+**Kosten:** ~500 Cells × 1 readPixel (oder 2 für ground+air) = 500-1000
+readRenderTargetPixels-Calls pro Tower-Build. Jeder ~10μs (GPU-CPU-
+Synchronisation). Pro Tower-Build ~5-10ms. Akzeptabel weil one-shot
+beim Build, nicht per Frame.
+
+Option 1b — **Atlas-Render + Single Readback:**
+
+Statt N Calls einmalig in ein 2D-RenderTarget rendern: ein Fullscreen-
+Quad mit Geometry-Shader (oder N kleine Quads in einem Pass) sampelt
+die Cubemap an allen Cell-Positionen, schreibt result als Pixel ins
+Atlas. Dann **einmal** `readRenderTargetPixels(atlasRT, 0, 0, N, 1, buf)`.
+
+Schneller (~1-2 ms statt 5-10 ms) aber komplexer Code. Lohnt sich falls
+beim Build mehr als ~10 Tower neu registriert werden (z.B. AI-Director
+Build-Spree) und der Build-Lag stört.
+
+→ **Empfehlung: Option 1a (CPU-iteriert)** für die erste Umsetzung. Wenn
+Profiling unter Heavy-Build später >20 ms zeigt, auf 1b migrieren.
+
+### Was sich am bestehenden Code ändert
+
+**Bleibt unverändert:**
+- `cell.towerVisibility` / `cell.airVisibility` als Combat-Cache-Map
+- `TowerShadowMapper.update()` Render-Logik
+- `isPositionVisibleFromTower` / `isAirPositionVisibleFromTower` Lookup
+- Combat-Hot-Path in `tower-combat.service.ts`
+- Per-Tower-Viz (`TowerLosViz` mit Live-Cube-Sample im Shader)
+- Aggregate-Viz (`createVisualization` / `createAirVisualization` lesen
+  weiterhin den Cache)
+
+**Wird umgestellt:**
+- `GlobalRouteGrid.registerTower()` und `registerTowerIncremental()`:
+  - CPU-`losRaycaster` Parameter ENTFÄLLT
+  - Stattdessen: shadowMapper.update() im Service oder Caller, dann
+    `resolveTowerCellsFromCubemap()` befüllt den Cache
+- `TowerPlacementService.registerTowerOnGrid`: ruft Resolve-Pass statt
+  CPU-Raycast-basiertes registerTower auf
+- `tower-combat.service.ts:buildLosCheck` Fallback-Raycast bei "Enemy
+  zwischen Cells": entweder bleibt CPU-Raycast (für Enemies ausserhalb
+  Cell-Grid, selten) oder auch via Cube — pragmatisch CPU lassen, der
+  Common-Path ist eh Map-Lookup
+
+**Entfällt komplett:**
+- Der gesamte CPU-Raycast-Pfad in `registerTower` (Lines ~916-936 für
+  Ground + Air) — wird durch Cubemap-Sample ersetzt
+- `LineOfSightRaycaster` Parameter durch Cubemap+farDistance ersetzt
+- Damit fällt der gesamte CPU-vs-GPU-Divergenz-Vektor weg
+
+### Wie löst Option 1 die konkreten Probleme
+
+**Air-Strukturelle-Divergenz (Hauptbug):**
+- Per-Tower-Viz und Combat-Cache lesen aus DEMSELBEN Cube
+- Same render → same sample → same result. Identisch per Konstruktion.
+- Die Höhen-Frage (A/B/C) muss noch gelöst werden — aber nur EINMAL,
+  weil es nur noch einen Sample-Punkt gibt (in `resolveTowerCellsFromCubemap`).
+- Air-Plate-Color (Per-Tower-Viz) und Air-Aggregate-Color (Combat-Cache)
+  zeigen dasselbe.
+
+**Ground-Tile-Streaming-Staleness:**
+- Bei `onTilesLoadEnd`: `shadowMapper.invalidate()` markiert Cube als stale
+- **NEU:** Resolve-Pass auch re-triggern für alle Tower (oder zumindest
+  die nahe der neuen Tiles). Cache wird automatisch aktuell.
+- Heute deckt der `setCellsPromotedListener` nur das "unsampled→sampled"-
+  Event ab, nicht "sampled→sampled mit präziserer Höhe". Option 1 deckt
+  beides ab weil ALLE Cells via Cube neu resolved werden.
+
+**Phantom-Blocker-Hypothesen (H2-Variant TilesFadePlugin etc.):**
+- Wenn die Cube WIRKLICH Phantom-Blocker liefert: BEIDE Pipelines
+  zeigen sie (Combat + Viz). Nicht mehr "Viz zeigt was, Combat sagt was
+  anderes". Bug wird damit klar lokalisiert: liegt im Cube.
+- → Macht H2-Verifizierung erst sinnvoll. Heute maskiert die Divergenz
+  Cube-Bugs partiell.
+
+**Maintenance-Burden für künftige LOS-Features:**
+- Partial-cover, weather-visibility, turret-occlusion etc. müssen nur
+  in EINEM Code-Pfad implementiert werden (entweder im Cube-Shader oder
+  im Resolve-Pass).
+- Heute: doppelte Implementation, sonst Divergenz-Bug.
+
+### Risiken / Open Issues bei Option 1
+
+1. **Range-Upgrade-Performance:** Range vergrössert → mehr Cells → mehr
+   Resolve-Arbeit. Heute schon ein Problem (CPU-Raycast pro neue Cell).
+   Option 1 ist nicht schneller, aber auch nicht langsamer.
+2. **Cube-Resolution vs Cell-Genauigkeit:** Cube mit 512² hat 5.7 px/°.
+   Bei 50m Distanz entspricht das ~10cm Granularität. Cells sind 2m.
+   Sample-Punkt-Genauigkeit reicht aus.
+3. **Multi-Tower-Render bei Build-Spree:** Bei AI-Director der 5 Tower
+   gleichzeitig baut, fallen 5 Cube-Renders + 5 Resolve-Passes an.
+   ~5 × (1 ms + 10 ms) = 55 ms peak. Spürbar als Mikro-Lag. Mitigation:
+   Resolve-Pass über mehrere Frames spreaden (~20 Cells/Frame statt
+   alle auf einmal) — wieder zurück zum "progressiven Pfad" der in v3
+   wegen "kein paralleles System" gestrichen wurde. Pragmatisch akzeptabel.
+4. **Probe-Direction-to-Pixel-Formel:** Die v2-Probe-Formel mit
+   `py = size - 1 - floor(t*size)` ist laut H5-Agent möglicherweise
+   falsch (y-flip). MUSS vor Production-Use durch Side-by-Side-Vergleich
+   mit Cell-Shader-Sample-Result verifiziert werden. Mismatch hier =
+   Resolve-Pass sieht andere Bytes als die Live-Viz → Option 1 würde
+   neue Divergenz produzieren statt sie zu eliminieren.
+
+### Migrationspfad — wie kommt man dahin
+
+**Phase A:** Resolve-Funktion neben dem CPU-Raycast bauen, beide laufen
+parallel, Ergebnisse vergleichen → Divergenzen loggen → bestätigen dass
+Cube-Resolve identische Ergebnisse liefert wie CPU-Raycast (für GROUND).
+Wenn ja → vertrauenswürdig.
+
+**Phase B:** CPU-Raycast-Pfad löschen, Resolve ist alleinige Quelle.
+Lesson aus User-Memory: "alte Code-Pfade direkt mit der neuen
+Implementierung entfernen, niemals zwei Systeme parallel". Phase A ist
+nur ein temporärer Verifikations-Schritt — KEIN dauerhaftes Parallel-System.
+
+**Phase C:** Air-Höhen-Wahl (A/B/C) treffen und im `getAirTargetY`
+implementieren. Resolve-Pass nutzt Helper. Per-Tower-Viz und Aggregate
+nutzen denselben Helper. Combat-Cache wird per Resolve gefüllt.
+**Air-Pipeline ist jetzt technisch identisch zu Ground.**
+
+**Phase D:** Smoke-Test: Global-Aggregate vs Per-Tower-Viz pro Tower
+**bit-identisch**. Wenn nicht → Probe-Direction-to-Pixel-Formel-Bug
+(siehe H5).
+
+### Warum nicht jetzt direkt machen statt Option 3 (status quo + Disziplin)
+
+Bin auch ehrlich: Option 1 ist nicht trivial. Erfordert:
+- Direction-to-pixel-Math im Resolve sauber (H5-Risiko)
+- `readRenderTargetPixels` Performance-Validation
+- Test-Coverage für die neuen Pfade
+
+Wenn die Zeit knapp ist und der Air-Bug schnell weg muss: Option 3
+(Höhen-Vereinheitlichung via `getAirTargetY`) ist 2-3 Stunden Arbeit.
+Option 1 ist eher Tag-Werk plus Verifizierung.
+
+**Aber:** Option 1 ist die Lösung die in 6 Monaten den nächsten LOS-
+Feature-Bug verhindert. Option 3 macht den nächsten Bug nur 6 Monate
+später unvermeidbar.
+
+→ **Empfehlung: Option 1 als nächsten grossen Schritt.** Wenn das nicht
+in den Schedule passt, dann Option 3 mit hartem TODO im Code +
+Handover-Eintrag.
 
 ## Welche Files das betrifft
 
