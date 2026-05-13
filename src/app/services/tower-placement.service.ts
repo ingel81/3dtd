@@ -1,5 +1,5 @@
 import { Injectable, inject, signal } from '@angular/core';
-import { Object3D, InstancedMesh, Mesh, Color, MeshStandardMaterial } from 'three';
+import { Object3D, Mesh, Color, MeshStandardMaterial, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './location/osm-street.service';
 import { OsmStreetService } from './location/osm-street.service';
@@ -14,6 +14,9 @@ import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { findNearestRouteDistance } from '../utils/geo-utils';
+import { TowerLosViz } from '../utils/tower-los-viz';
+import { canTargetAirEffective } from '../entities/tower-targeting.util';
+import { ResearchStore } from '../store/research.store';
 
 /**
  * TowerPlacementService
@@ -31,6 +34,7 @@ export class TowerPlacementService {
   private uiStore = inject(UIStore);
   private store = inject(TowerDefenseStore);
   private pathRouteService = inject(PathAndRouteService);
+  private researchStore = inject(ResearchStore);
 
   // ========================================
   // SIGNALS (UIStore-backed)
@@ -58,14 +62,18 @@ export class TowerPlacementService {
   /** Single preview tower mesh - used throughout placement */
   private previewTowerMesh: Object3D | null = null;
 
-  /** LOS preview mesh for placement */
-  private losPreviewMesh: InstancedMesh | null = null;
-
-  /** Is LOS preview currently building progressively */
-  private losPreviewBuilding = false;
-
-  /** Tower with pending progressive LOS registration */
-  private pendingTowerReg: import('../entities/tower.entity').Tower | null = null;
+  /**
+   * GPU-LOS-Viz für die Build-Preview. Lifecycle: erzeugt bei erstem
+   * validen Cursor-Hover, neu gebaut bei jedem Mouse-Move (das Cell-Set
+   * ändert sich mit der Tower-Position), disposed beim Verlassen des
+   * Build-Mode. Lesson 9 — niemals parallel zur Selection-Viz.
+   */
+  private buildPreviewViz: TowerLosViz | null = null;
+  /** Zuletzt für die Preview-Viz verwendete Tower-XZ — als Move-Schwelle. */
+  private buildPreviewLastX = 0;
+  private buildPreviewLastZ = 0;
+  /** Bewegung in m bevor das Cell-Set neu gebaut wird. */
+  private static readonly BUILD_PREVIEW_REBUILD_THRESHOLD_M = 1.0;
 
   /** Flag indicating model is being loaded */
   private modelLoading = false;
@@ -89,9 +97,6 @@ export class TowerPlacementService {
 
   /** Distance (m) the cursor must travel before validation re-runs */
   private static readonly VALIDATION_MOVEMENT_THRESHOLD_M = 1.0;
-
-  /** Debounce timer for LoS updates */
-  private losDebounceTimer: number | null = null;
 
   /** Track loaded model URLs for reference counting */
   private loadedModelUrls = new Set<string>();
@@ -214,32 +219,19 @@ export class TowerPlacementService {
     // Clean up preview tower
     this.cleanupPreviewTower();
 
-    // Clean up LOS preview
-    this.cleanupLosPreview();
-
-    // Clear debounce timer
-    if (this.losDebounceTimer !== null) {
-      clearTimeout(this.losDebounceTimer);
-      this.losDebounceTimer = null;
-    }
+    // GPU-LOS-Preview-Viz auflösen
+    this.disposeBuildPreviewViz();
 
     this.buildMode.set(false);
   }
 
   /**
-   * Clean up LOS preview mesh
+   * Dispose the active GPU-LOS preview viz, if any.
    */
-  private cleanupLosPreview(): void {
-    // Cancel any ongoing progressive build
-    if (this.losPreviewBuilding) {
-      this.globalRouteGrid.cancelPreviewBuild();
-      this.losPreviewBuilding = false;
-    }
-
-    if (this.losPreviewMesh && this.engine) {
-      this.engine.getScene().remove(this.losPreviewMesh);
-      this.globalRouteGrid.disposePlacementPreview(this.losPreviewMesh);
-      this.losPreviewMesh = null;
+  private disposeBuildPreviewViz(): void {
+    if (this.buildPreviewViz) {
+      this.buildPreviewViz.dispose();
+      this.buildPreviewViz = null;
     }
   }
 
@@ -449,10 +441,10 @@ export class TowerPlacementService {
 
     // Update LoS preview only for valid positions (skip calculation for invalid spots)
     if (validValid) {
-      this.updateLoSPreviewDebounced(lat, lon, resolvedHeight, typeId);
+      this.updateLosPreview(lat, lon, resolvedHeight, typeId);
     } else {
-      // Invalid position - cancel any ongoing preview and hide
-      this.cancelAndHideLosPreview();
+      // Invalid position — Preview-Viz auflösen (kein Debounce mehr).
+      this.disposeBuildPreviewViz();
     }
   }
 
@@ -465,114 +457,73 @@ export class TowerPlacementService {
   }
 
   /**
-   * Cancel and hide LOS preview (for invalid positions)
+   * GPU-LOS-Preview-Viz aktualisieren. Wenn die Tower-XZ-Position sich
+   * mehr als REBUILD_THRESHOLD verschoben hat → Cell-Set ändert sich,
+   * also komplett neu bauen. Sonst nur den TowerTip-Uniform refreshen
+   * (triggert auch das move-gated Cube-Render im Mapper).
    */
-  private cancelAndHideLosPreview(): void {
-    if (this.losDebounceTimer !== null) {
-      clearTimeout(this.losDebounceTimer);
-      this.losDebounceTimer = null;
-    }
-    if (this.losPreviewBuilding) {
-      this.globalRouteGrid.cancelPreviewBuild();
-      this.losPreviewBuilding = false;
-    }
-    if (this.losPreviewMesh) {
-      this.losPreviewMesh.visible = false;
-    }
-  }
-
-  /**
-   * Update LoS preview with debounce (shows after mouse stops moving)
-   */
-  private updateLoSPreviewDebounced(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
-    // Clear existing timer
-    if (this.losDebounceTimer !== null) {
-      clearTimeout(this.losDebounceTimer);
-    }
-
-    // Cancel ongoing preview build and hide when moving
-    if (this.losPreviewBuilding) {
-      this.globalRouteGrid.cancelPreviewBuild();
-      this.losPreviewBuilding = false;
-    }
-    if (this.losPreviewMesh) {
-      this.losPreviewMesh.visible = false;
-    }
-
-    // Debounce: wait 150ms before starting preview build at new position
-    this.losDebounceTimer = window.setTimeout(() => {
-      this.createLosPreview(lat, lon, height, typeId);
-      this.losDebounceTimer = null;
-    }, 150);
-  }
-
-  /**
-   * Create LOS preview at position (starts progressive build)
-   */
-  private createLosPreview(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
+  private updateLosPreview(lat: number, lon: number, height: number, typeId: TowerTypeId): void {
     if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
 
     const config = TOWER_TYPES[typeId];
     if (!config) return;
 
-    const losRaycaster = this.engine.towers.getLosRaycaster();
-    if (!losRaycaster) return;
-
-    // Calculate tower position in local coordinates
     const local = this.engine.sync.geoToLocalSimple(lat, lon, height);
     const tipY = local.y + config.heightOffset + config.shootHeight;
 
     const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = config.canTargetAir ?? false;
+    const canTargetAir = canTargetAirEffective(typeId, this.researchStore.airTargetingUnlocked());
+    const range = config.range;
+    const airRange = range; // TODO: airRangeMultiplier wenn Config-Feld ergänzt
 
-    // Clean up old preview
-    this.cleanupLosPreview();
+    // Cell-Y in Range nachsampeln (cheap: nur cells im radius)
+    this.globalRouteGrid.refineCellsInRadius(local.x, local.z, Math.max(range, airRange));
 
-    // Refine cell-Y in the hypothetical tower's range BEFORE the preview
-    // raycasts run — so the preview reflects accurate coverage instead
-    // of skipping unsampled cells. Cheap: only cells inside the radius.
-    this.globalRouteGrid.refineCellsInRadius(local.x, local.z, config.range);
+    // Move-Schwelle: nur bei größerer Bewegung neu bauen
+    const movedSq =
+      (local.x - this.buildPreviewLastX) ** 2 +
+      (local.z - this.buildPreviewLastZ) ** 2;
+    const threshold = TowerPlacementService.BUILD_PREVIEW_REBUILD_THRESHOLD_M;
+    const needsRebuild =
+      !this.buildPreviewViz ||
+      movedSq > threshold * threshold;
 
-    // Start progressive preview build — preview cell is "visible" if EITHER
-    // ground OR air LOS is clear, so an air-only tower's reach reflects
-    // skyline-based coverage.
-    this.losPreviewMesh = this.globalRouteGrid.createPlacementPreview(
-      local.x,
-      local.z,
-      tipY,
-      config.range,
-      losRaycaster,
-      canTargetGround,
-      canTargetAir
+    const tipWorld = new Vector3(local.x, tipY, local.z);
+
+    if (!needsRebuild && this.buildPreviewViz) {
+      this.buildPreviewViz.updateTowerTip(tipWorld);
+      return;
+    }
+
+    // Komplett neu bauen — Cell-Set neu sammeln.
+    this.disposeBuildPreviewViz();
+
+    const blockerGroup = this.engine.getLosBlockerGroup();
+    if (!blockerGroup) return;
+    const cells = this.globalRouteGrid.getCellsInRange(
+      local.x, local.z, Math.max(range, airRange),
     );
+    if (cells.length === 0) return;
 
-    if (this.losPreviewMesh) {
-      this.engine.getScene().add(this.losPreviewMesh);
-      this.losPreviewBuilding = true;
-    }
+    this.buildPreviewViz = new TowerLosViz({
+      cells,
+      towerTip: tipWorld,
+      groundRange: range,
+      airRange,
+      canTargetGround,
+      canTargetAir,
+      gridCellSize: this.globalRouteGrid.getCellSize(),
+      shadowMapper: this.engine.getTowerShadowMapper(),
+      blockerGroup,
+    });
+    this.buildPreviewViz.addTo(this.engine.getScene());
+    this.buildPreviewLastX = local.x;
+    this.buildPreviewLastZ = local.z;
   }
 
-  /**
-   * Update method - call each frame
-   * Continues progressive tower LOS registration (after placement)
-   */
-  updateTowerRegistration(): void {
-    if (this.pendingTowerReg) {
-      this.globalRouteGrid.continueTowerRegistration();
-    }
-  }
-
-  /**
-   * Update method - call each frame during build mode
-   * Continues progressive LOS preview building
-   */
-  updatePreviewBuild(): void {
-    if (this.losPreviewBuilding && this.losPreviewMesh) {
-      const complete = this.globalRouteGrid.continuePreviewBuild();
-      if (complete) {
-        this.losPreviewBuilding = false;
-      }
-    }
+  /** Per-Frame-Tick für die GPU-LOS-Preview-Pulse-Animation. */
+  tickBuildPreviewViz(timeSeconds: number): void {
+    this.buildPreviewViz?.tick(timeSeconds);
   }
 
   // ========================================
@@ -823,7 +774,10 @@ export class TowerPlacementService {
     }
 
     const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = config.canTargetAir ?? false;
+    const canTargetAir = canTargetAirEffective(
+      tower.typeConfig.id as TowerTypeId,
+      this.researchStore.airTargetingUnlocked(),
+    );
 
     // Refine cell-Y in the tower's range BEFORE LOS computation. This
     // promotes any still-unsampled cells in the tower's reach using the
@@ -831,71 +785,12 @@ export class TowerPlacementService {
     // terrainHeight values. Cheap: only walks cells inside the radius.
     this.globalRouteGrid.refineCellsInRadius(terrainPos.x, terrainPos.z, config.range);
 
-    // Progressive LOS registration — tower stays inactive until complete (no glitches)
-    const tLos0 = performance.now();
-    tower.losReady = false;
-    this.pendingTowerReg = tower;
-
-    const onComplete = (visibleCells: import('../utils/global-route-grid').RouteCell[]) => {
-      tower.visibleCells = visibleCells;
-      tower.losReady = true;
-      this.pendingTowerReg = null;
-
-      // Phase 4 single-source: per-tower viz is created on selection by
-      // TowerManager via grid.showTowerViz — no per-tower mesh property
-      // on the Tower entity. If THIS tower happens to be selected right
-      // now (e.g. user placed and is hovering), trigger the show now.
-      if (tower.selected && this.engine) {
-        this.globalRouteGrid.showTowerViz(
-          tower.id,
-          terrainPos.x,
-          terrainPos.z,
-          config.range,
-          this.engine.getScene(),
-        );
-      }
-
-      // PerfTrace disabled — fired per tower placement (noisy during training)
-      void tLos0;
-    };
-
-    // Reuse the active placement preview's already-computed LOS when the
-    // player confirms at the exact preview position. Halves work in the
-    // typical case (preview fully built before click).
-    const transfer = this.globalRouteGrid.consumePreviewIntoTower(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      tipY,
-      config.range,
-      canTargetGround,
-      canTargetAir,
-    );
-
-    if (transfer && transfer.remainingCells.length === 0) {
-      // Preview was complete — no raycasts left to do.
-      this.pendingTowerReg = null;
-      onComplete(transfer.consumedCells);
-      return;
-    }
-
-    if (transfer) {
-      this.globalRouteGrid.registerTowerProgressiveForCells(
-        tower.id,
-        transfer.remainingCells,
-        terrainPos.x,
-        terrainPos.z,
-        tipY,
-        losRaycaster,
-        canTargetGround,
-        canTargetAir,
-        transfer.consumedCells,
-        onComplete,
-      );
-      return;
-    }
-
-    this.globalRouteGrid.registerTowerProgressive(
+    // Synchroner CPU-Raycast-Pass (Variant A aus dem Handover) — ein
+    // einmaliger Aufwand pro Tower-Build, kein 50-Cells-pro-Frame-Batch.
+    // Cubemap-LOS-Viz für Selection wird vom TowerManager bei Selection
+    // separat gebaut; hier nur die Cell-Visibility-Maps füllen, die das
+    // Tower-Targeting nutzt.
+    const visibleCells = this.globalRouteGrid.registerTower(
       tower.id,
       terrainPos.x,
       terrainPos.z,
@@ -904,22 +799,23 @@ export class TowerPlacementService {
       losRaycaster,
       canTargetGround,
       canTargetAir,
-      onComplete,
     );
+    tower.visibleCells = visibleCells;
+    tower.losReady = true;
+
+    // Wenn dieser Tower bereits selected ist (z.B. nach Auto-Select beim
+    // Place), die Selection-Viz vom TowerManager refreshen lassen.
+    if (tower.selected) {
+      this.gameState?.towerManager.refreshSelectionViz(tower);
+    }
   }
 
   /**
-   * Unregister a tower from the GlobalRouteGrid:
-   * - Clear shared per-tower viz if this tower is the currently-shown one
-   * - Unregister from grid (removes tower visibility from cells)
+   * Unregister a tower from the GlobalRouteGrid.
    */
   unregisterTowerFromGrid(tower: Tower): void {
-    // If the soon-to-be-removed tower currently owns the shared per-tower
-    // viz mesh, hide it. Other towers' selection state is unaffected.
-    if (this.globalRouteGrid.getCurrentTowerVizId() === tower.id) {
-      this.globalRouteGrid.clearTowerViz();
-    }
-    // Unregister from GlobalRouteGrid
+    // Selection-Viz wird vom TowerManager bereinigt (Owner-Pattern).
+    this.gameState?.towerManager.onTowerUnregistered(tower);
     this.globalRouteGrid.unregisterTower(tower.id);
     tower.visibleCells = [];
   }
@@ -947,7 +843,10 @@ export class TowerPlacementService {
     }
 
     const canTargetGround = config.canTargetGround ?? true;
-    const canTargetAir = config.canTargetAir ?? false;
+    const canTargetAir = canTargetAirEffective(
+      tower.typeConfig.id as TowerTypeId,
+      this.researchStore.airTargetingUnlocked(),
+    );
 
     // Incremental: only raycast cells that don't already have a cached entry
     tower.visibleCells = this.globalRouteGrid.registerTowerIncremental(
@@ -961,17 +860,9 @@ export class TowerPlacementService {
       canTargetAir
     );
 
-    // If this tower is currently selected, refresh the shared viz mesh
-    // with the new range. Otherwise no mesh exists for this tower.
-    if (this.globalRouteGrid.getCurrentTowerVizId() === tower.id) {
-      this.globalRouteGrid.clearTowerViz();
-      this.globalRouteGrid.showTowerViz(
-        tower.id,
-        terrainPos.x,
-        terrainPos.z,
-        tower.combat.range,
-        this.engine.getScene(),
-      );
+    // Selection-Viz refreshen, falls dieser Tower selected ist.
+    if (tower.selected) {
+      this.gameState?.towerManager.refreshSelectionViz(tower);
     }
   }
 

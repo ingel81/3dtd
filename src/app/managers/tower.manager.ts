@@ -1,4 +1,5 @@
 import { signal } from '@angular/core';
+import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
@@ -10,6 +11,9 @@ import { geoDistanceFastSq, findNearestRouteDistance } from '../utils/geo-utils'
 import { GameEventBus } from '../game-engine';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { TOWER_TYPES } from '../configs/tower-types.config';
+import { TowerLosViz } from '../utils/tower-los-viz';
+import { canTargetAirEffective } from '../entities/tower-targeting.util';
+import { ResearchStore } from '../store/research.store';
 
 /**
  * Manages all tower entities
@@ -23,7 +27,8 @@ import { TOWER_TYPES } from '../configs/tower-types.config';
 export class TowerManager extends EntityManager<Tower> {
   constructor(
     private eventBus: GameEventBus,
-    private osmService: OsmStreetService
+    private osmService: OsmStreetService,
+    private researchStore: ResearchStore,
   ) {
     super();
   }
@@ -37,16 +42,21 @@ export class TowerManager extends EntityManager<Tower> {
   private activeRoutesGetter: (() => GeoPosition[][]) | null = null;
 
   /**
-   * GlobalRouteGridService reference for per-tower viz management.
-   * Wired late (setGlobalRouteGrid) since the grid service is constructed
-   * elsewhere. When null, selectTower silently skips viz updates so the
-   * manager remains usable in test contexts without a viz hookup.
+   * GlobalRouteGridService — Quelle für Cells-in-Range und Cell-Size beim
+   * Bauen der Selection-LOS-Viz.
    */
   private globalRouteGrid: GlobalRouteGridService | null = null;
 
   setGlobalRouteGrid(grid: GlobalRouteGridService): void {
     this.globalRouteGrid = grid;
   }
+
+  /**
+   * Aktuell aktive Selection-LOS-Viz. Lebt solange ein Tower selected
+   * ist und vor allem Build-Mode NICHT aktiv (siehe Lesson 9).
+   */
+  private selectionViz: TowerLosViz | null = null;
+  private selectionVizTowerId: string | null = null;
 
   /**
    * Initialize with ThreeTilesEngine and street network context
@@ -276,6 +286,10 @@ export class TowerManager extends EntityManager<Tower> {
       }
     }
 
+    // Bei jedem Selection-Wechsel die vorige Viz disposen — wir behalten
+    // nicht mehrere parallel.
+    this.disposeSelectionViz();
+
     // Select new
     this._selectedTowerId.set(id);
     if (id) {
@@ -283,35 +297,93 @@ export class TowerManager extends EntityManager<Tower> {
       if (tower) {
         tower.select();
         this.tilesEngine?.towers.select(id);
-        // Phase 4 single-source: ask grid service to show the tower's LOS
-        // viz. The grid owns the single shared mesh — no per-tower
-        // property on Tower entity, no mesh-create/dispose dance here.
-        if (this.globalRouteGrid && this.tilesEngine && tower.losReady) {
-          const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
-          if (config) {
-            const localPos = this.tilesEngine.sync.geoToLocalSimple(
-              tower.position.lat,
-              tower.position.lon,
-              tower.position.height ?? 0,
-            );
-            this.globalRouteGrid.showTowerViz(
-              tower.id,
-              localPos.x,
-              localPos.z,
-              tower.combat.range,
-              this.tilesEngine.getScene(),
-            );
-          }
-        }
-        // Emit tower:selected event
+        if (tower.losReady) this.buildSelectionViz(tower);
         this.eventBus.emit({ type: 'tower:selected', tower });
       }
     } else if (currentId) {
-      // Hide per-tower viz on deselect.
-      this.globalRouteGrid?.clearTowerViz();
-      // Emit tower:deselected event only if something was previously selected
       this.eventBus.emit({ type: 'tower:deselected' });
     }
+  }
+
+  /**
+   * Selection-LOS-Viz für `tower` bauen. No-op wenn nicht alle
+   * Dependencies bereit sind.
+   */
+  private buildSelectionViz(tower: Tower): void {
+    if (!this.globalRouteGrid || !this.tilesEngine) return;
+    const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
+    if (!config) return;
+
+    const localPos = this.tilesEngine.sync.geoToLocalSimple(
+      tower.position.lat,
+      tower.position.lon,
+      tower.position.height ?? 0,
+    );
+    const tipY = localPos.y + config.heightOffset + config.shootHeight;
+    const towerTip = new Vector3(localPos.x, tipY, localPos.z);
+
+    const canTargetGround = config.canTargetGround ?? true;
+    const canTargetAir = canTargetAirEffective(
+      tower.typeConfig.id as TowerTypeId,
+      this.researchStore.airTargetingUnlocked(),
+    );
+    const range = tower.combat.range;
+    const airRange = range; // TODO: airRangeMultiplier wenn Config-Feld ergänzt
+
+    const blockerGroup = this.tilesEngine.getLosBlockerGroup();
+    if (!blockerGroup) return;
+    const cells = this.globalRouteGrid.getCellsInRange(
+      localPos.x, localPos.z, Math.max(range, airRange),
+    );
+    if (cells.length === 0) return;
+
+    this.selectionViz = new TowerLosViz({
+      cells,
+      towerTip,
+      groundRange: range,
+      airRange,
+      canTargetGround,
+      canTargetAir,
+      gridCellSize: this.globalRouteGrid.getCellSize(),
+      shadowMapper: this.tilesEngine.getTowerShadowMapper(),
+      blockerGroup,
+    });
+    this.selectionViz.addTo(this.tilesEngine.getScene());
+    this.selectionVizTowerId = tower.id;
+  }
+
+  private disposeSelectionViz(): void {
+    if (this.selectionViz) {
+      this.selectionViz.dispose();
+      this.selectionViz = null;
+      this.selectionVizTowerId = null;
+    }
+  }
+
+  /**
+   * Wird vom TowerPlacementService nach `registerTowerOnGrid` /
+   * `recomputeTowerLOS` aufgerufen, wenn dieser Tower selected ist.
+   * Baut die Viz mit dem aktuellen Cell-Set + Range neu.
+   */
+  refreshSelectionViz(tower: Tower): void {
+    if (this._selectedTowerId() !== tower.id) return;
+    this.disposeSelectionViz();
+    if (tower.losReady) this.buildSelectionViz(tower);
+  }
+
+  /**
+   * Wird beim Sell aufgerufen — bereinigt die Selection-Viz, falls dieser
+   * Tower gerade dargestellt wurde.
+   */
+  onTowerUnregistered(tower: Tower): void {
+    if (this.selectionVizTowerId === tower.id) {
+      this.disposeSelectionViz();
+    }
+  }
+
+  /** Per-Frame-Tick — pulse animation. */
+  tickSelectionViz(timeSeconds: number): void {
+    this.selectionViz?.tick(timeSeconds);
   }
 
   /**

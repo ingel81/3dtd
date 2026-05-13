@@ -64,6 +64,7 @@ import { AssetManagerService } from '../services/infrastructure/asset-manager.se
 import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
+import { TowerShadowMapper } from './tower-shadow-mapper';
 
 /**
  * Vertical tolerance (meters) around a route anchor when validating
@@ -169,6 +170,11 @@ export class ThreeTilesEngine {
   // Test entities (for debugging)
   private testCube: Mesh | null = null;
   private debugHelpers: Object3D[] = [];
+
+  // GPU-LOS-Pipeline: lazy-initialised auf erste Anforderung. Shared
+  // zwischen Build-Preview und Tower-Selection-Viz (Lesson 9 — beide
+  // dürfen nicht gleichzeitig aktiv sein).
+  private towerShadowMapper: TowerShadowMapper | null = null;
 
   // Event handlers (stored for cleanup in dispose)
   private tilesLoadEndHandler = () => this.onTilesLoadEnd();
@@ -706,6 +712,10 @@ export class ThreeTilesEngine {
           // getTerrainSampleAtLocal call has accurate LOD metadata for
           // the currently-loaded tile set.
           this.rebuildPersistentTileInfoMap();
+
+          // Invalidate Cubemap-LOS so der nächste Update neu rendert mit
+          // den frisch geladenen Tiles.
+          this.towerShadowMapper?.invalidate();
 
           if (this.onTilesLoadCallback) {
             const t0 = performance.now();
@@ -2124,6 +2134,35 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Lazy-getter für den shared TowerShadowMapper. Erste Anforderung
+   * instanziiert (passiert in Tower-Placement-Service / TowerManager-
+   * Selection — nicht beim Engine-Boot, um die Initialisierung schlank
+   * zu halten).
+   */
+  getTowerShadowMapper(): TowerShadowMapper {
+    if (!this.towerShadowMapper) {
+      this.towerShadowMapper = new TowerShadowMapper(this.renderer, this.scene);
+    }
+    return this.towerShadowMapper;
+  }
+
+  /**
+   * Group die bei einem Cube-Render als `includeOnly` durchgereicht
+   * wird. In DevWorld der DevTerrain-Mesh-Container, sonst die
+   * 3DTilesRenderer-Group.
+   */
+  getLosBlockerGroup(): Object3D | null {
+    if (this.devWorld?.isActive) {
+      // DevWorld: devWorldGroup ist der direkte Scene-Child, der den
+      // gesamten DevWorld-Inhalt enthält. Der TowerShadowMapper hidet
+      // alle Scene-Children außer dem includeOnly-Argument; ein nested
+      // child wie terrainGroup würde versehentlich mit-hidden werden.
+      return this.devWorldGroup;
+    }
+    return this.tilesRenderer?.group ?? null;
+  }
+
+  /**
    * Toggle 3D tiles visibility (for debugging particle rendering issues)
    * When hidden, tiles are removed from scene but still update in background
    */
@@ -2328,6 +2367,12 @@ export class ThreeTilesEngine {
     if (this.controls) {
       this.controls.removeEventListener('start', this.controlsStartHandler);
       this.controls.removeEventListener('end', this.controlsEndHandler);
+    }
+
+    // Dispose GPU-LOS resources
+    if (this.towerShadowMapper) {
+      this.towerShadowMapper.dispose();
+      this.towerShadowMapper = null;
     }
 
     // Dispose entity renderers

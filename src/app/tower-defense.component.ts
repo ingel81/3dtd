@@ -74,6 +74,9 @@ import { TrainingClientService } from './ai/training/training-client.service';
 // AI Bot Training
 import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
+import { LosLegendComponent } from './components/los-legend/los-legend.component';
+import { canTargetAirEffective } from './entities/tower-targeting.util';
+import { ResearchStore } from './store/research.store';
 
 @Component({
   selector: 'app-tower-defense',
@@ -102,6 +105,7 @@ import { TdIconComponent } from './components/icon/icon.component';
     GameSpeedComponent,
     LoadingScreenComponent,
     TdIconComponent,
+    LosLegendComponent,
   ],
   providers: [
     GameStateManager,
@@ -228,6 +232,35 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // Game state signals — sourced from Store (single source of truth via GSM→Store sync)
   readonly waveActive = this.store.waveActive;
   readonly isGameOver = this.store.isGameOver;
+
+  // LOS-Legend: sichtbar während Build-Mode ODER bei selektiertem Tower.
+  // Capabilities aus dem jeweils relevanten Tower(-Type) gelesen, mit
+  // AA-Retrofit-Research im Air-Bit (mixed Tower wie dual-gatling
+  // werden erst nach Research zu canTargetAir=true).
+  private readonly researchStore = inject(ResearchStore);
+  readonly losLegendVisible = computed(() => {
+    if (this.buildMode() && this.store.selectedTowerType()) return true;
+    if (this.store.selectedTower()) return true;
+    return false;
+  });
+  readonly losLegendCanGround = computed(() => {
+    const typeId = this.activeLosTowerTypeId();
+    if (!typeId) return false;
+    // canTargetGround ist optional und defaultet auf true (siehe Tower-Config).
+    return TOWER_TYPES[typeId]?.canTargetGround ?? true;
+  });
+  readonly losLegendCanAir = computed(() => {
+    const typeId = this.activeLosTowerTypeId();
+    if (!typeId) return false;
+    return canTargetAirEffective(typeId, this.researchStore.airTargetingUnlocked());
+  });
+
+  /** Tower-Type-Id für die LOS-Legende: Build-Mode-Type oder selektierter Tower-Type. */
+  private activeLosTowerTypeId = computed<TowerTypeId | null>(() => {
+    if (this.buildMode()) return this.store.selectedTowerType();
+    const tower = this.store.selectedTower();
+    return tower ? (tower.typeConfig.id as TowerTypeId) : null;
+  });
 
   // Build mode hints for context hint box
   readonly buildModeHints: HintItem[] = [

@@ -54,7 +54,11 @@ describe('TowerManager', () => {
     eventBus = new GameEventBus();
     tilesEngine = createMockTilesEngine();
     osmService = createOsmService();
-    manager = new TowerManager(eventBus, osmService as unknown as OsmStreetService);
+    manager = new TowerManager(
+      eventBus,
+      osmService as unknown as OsmStreetService,
+      { airTargetingUnlocked: () => false } as unknown as import('../store/research.store').ResearchStore,
+    );
     manager.initializeWithContext(
       tilesEngine as unknown as ThreeTilesEngine,
       {} as unknown as StreetNetwork,

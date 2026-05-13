@@ -2,7 +2,6 @@ import {
   InstancedMesh,
   ShaderMaterial,
   InstancedBufferAttribute,
-  BufferAttribute,
   BoxGeometry,
   Matrix4,
   DoubleSide,
@@ -13,6 +12,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
+import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 /**
  * RouteCell - Single cell in the global route grid
@@ -157,7 +157,20 @@ const CELL_VIZ_HEIGHT_M = 0.02;
 const CELL_VIZ_Y_OFFSET_M = 0.05;
 
 /**
- * Shader for LOS cell visualization with multi-color support
+ * Globaler Debug-Route-Grid-Shader.
+ *
+ * Teilt sich die 3-State-Coverage-Palette mit der per-Tower-Viz (green /
+ * cyan / gold) — single source of truth. "Keine Coverage" hat im Aggregat
+ * eine andere Semantik (kein Tower in Range) als im per-Tower-Viz (rot =
+ * in Reichweite aber blockiert), daher hier ein neutrales Grau statt rot.
+ *
+ * State-Codes (von updateVisualization gesetzt):
+ *   0 → uncovered   (grau, niedrige Alpha — kein Tower in Range)
+ *   1 → groundOnly  (grün)
+ *   2 → airOnly     (cyan)
+ *   3 → both        (gold)
+ *   4 → enemyInCell (purple — enemy hier, kein Tower sieht ihn)
+ *   5 → enemyVisible(stronger gold — enemy + sichtbar = aktives Ziel)
  */
 const LOS_CELL_VERTEX = /* glsl */ `
 attribute float aCellState;
@@ -177,13 +190,12 @@ void main() {
 }
 `;
 
-/**
- * Fragment shader with multi-color support.
- * States: 0 = gray (no tower), 1 = green (ground visible), 2 = red (blocked),
- *         3 = muted blue (air-only visible), 4 = purple (enemy in cell),
- *         5 = yellow (enemy + any visibility)
- */
-const LOS_CELL_FRAGMENT = /* glsl */ `
+function buildLosCellFragment(): string {
+  const s = LOS_VIZ_CONFIG.states;
+  const g = LOS_VIZ_CONFIG.globalStates;
+  const c = (col: { color: { r: number; g: number; b: number } }) =>
+    `vec3(${col.color.r.toFixed(4)}, ${col.color.g.toFixed(4)}, ${col.color.b.toFixed(4)})`;
+  return /* glsl */ `
 precision highp float;
 uniform float uTime;
 varying float vCellState;
@@ -192,103 +204,46 @@ void main() {
   vec3 color;
   float alpha;
 
-  // Modern-Minimal palette: desaturated, low alpha, gentle pulse.
-
-  // Gray: No tower in range (or blocked everywhere)
+  // 0 → uncovered (kein Tower in Range)
   if (vCellState < 0.5) {
-    color = vec3(0.60, 0.60, 0.63);
-    alpha = 0.15;
+    color = ${c(g.uncovered)};
+    alpha = ${g.uncovered.alpha.toFixed(3)};
   }
-  // Green: At least one tower has ground LoS
+  // 1 → groundOnly
   else if (vCellState < 1.5) {
-    color = vec3(0.35, 0.70, 0.52);
-    alpha = 0.35;
+    color = ${c(s.groundOnly)};
+    alpha = ${s.groundOnly.alpha.toFixed(3)};
   }
-  // Red: legacy state, no longer written for the global overlay but kept
-  // for shader stability if a future caller re-enables it.
+  // 2 → airOnly
   else if (vCellState < 2.5) {
-    color = vec3(0.70, 0.35, 0.35);
-    alpha = 0.35;
+    color = ${c(s.airOnly)};
+    alpha = ${s.airOnly.alpha.toFixed(3)};
   }
-  // Muted blue: Only air LoS is clear (no ground LoS)
+  // 3 → both
   else if (vCellState < 3.5) {
-    color = vec3(0.35, 0.55, 0.85);
-    alpha = 0.35;
+    color = ${c(s.both)};
+    alpha = ${s.both.alpha.toFixed(3)};
   }
-  // Purple: Enemy in cell, not currently visible
+  // 4 → enemyInCell
   else if (vCellState < 4.5) {
-    color = vec3(0.55, 0.35, 0.75);
-    alpha = 0.45;
+    color = ${c(g.enemyInCell)};
+    alpha = ${g.enemyInCell.alpha.toFixed(3)};
   }
-  // Muted gold: Enemy + tower can see = active target
+  // 5 → enemyVisible
   else {
-    color = vec3(0.85, 0.72, 0.25);
-    alpha = 0.55;
+    color = ${c(g.enemyVisible)};
+    alpha = ${g.enemyVisible.alpha.toFixed(3)};
   }
 
-  float pulse = sin(uTime * 2.0) * 0.05 + 0.95;
+  float pulse = sin(uTime * ${LOS_VIZ_CONFIG.pulseSpeed.toFixed(2)}) *
+                ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} +
+                (1.0 - ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} * 0.5);
   gl_FragColor = vec4(color, alpha * pulse);
 }
 `;
-
-/**
- * Per-tower LOS visualization shader.
- * Three-way state per cell:
- *   ground visible → green (best — tower can hit ground units here)
- *   air-only visible → muted blue (only air units reachable, e.g. over a building)
- *   neither → red (blocked)
- */
-const TOWER_LOS_VERTEX = /* glsl */ `
-attribute float aGroundVisible;
-attribute float aAirVisible;
-varying float vGroundVisible;
-varying float vAirVisible;
-
-void main() {
-  vGroundVisible = aGroundVisible;
-  vAirVisible = aAirVisible;
-
-  vec4 mvPosition = vec4(position, 1.0);
-
-  #ifdef USE_INSTANCING
-    mvPosition = instanceMatrix * mvPosition;
-  #endif
-
-  mvPosition = modelViewMatrix * mvPosition;
-  gl_Position = projectionMatrix * mvPosition;
 }
-`;
 
-const TOWER_LOS_FRAGMENT = /* glsl */ `
-precision highp float;
-uniform float uTime;
-varying float vGroundVisible;
-varying float vAirVisible;
-
-void main() {
-  // Modern-Minimal palette — same tones as the global overlay so both
-  // visualisations read as one design language.
-  vec3 greenColor = vec3(0.35, 0.70, 0.52);
-  vec3 blueColor  = vec3(0.35, 0.55, 0.85);
-  vec3 redColor   = vec3(0.70, 0.35, 0.35);
-
-  float gVis = step(0.5, vGroundVisible);
-  float aVis = step(0.5, vAirVisible);
-
-  // Priority: ground > air > blocked (red)
-  vec3 color = redColor;
-  color = mix(color, blueColor, aVis);
-  color = mix(color, greenColor, gVis);
-
-  // Per-state alpha — blocked sits back, visible reads strongest.
-  float alpha = 0.40;
-  alpha = mix(alpha, 0.35, aVis);
-  alpha = mix(alpha, 0.45, gVis);
-
-  float pulse = sin(uTime * 2.0) * 0.05 + 0.95;
-  gl_FragColor = vec4(color, alpha * pulse);
-}
-`;
+const LOS_CELL_FRAGMENT = buildLosCellFragment();
 
 /**
  * GlobalRouteGrid - Unified Cell System for Enemy Tracking and LOS
@@ -1289,27 +1244,25 @@ export class GlobalRouteGrid {
       // aligned with the matrix buffer (both indexed by sampled cells only).
       if (!cell.heightSampled) continue;
 
-      // Determine cell state for coloring (no expensive operations)
-      let state: number;
+      // 4-State Aggregate (shared palette with per-tower viz) + Enemy-Overlays.
+      // State-Codes siehe buildLosCellFragment() oben.
       const hasEnemies = cell.enemies.size > 0;
-      const groundVisibleByAny = this.isGroundVisibleByAnyTower(cell);
-      const airVisibleByAny = this.isAirVisibleByAnyTower(cell);
-      const anyVisible = groundVisibleByAny || airVisibleByAny;
+      const groundByAny = this.isGroundVisibleByAnyTower(cell);
+      const airByAny = this.isAirVisibleByAnyTower(cell);
 
-      if (hasEnemies && anyVisible) {
-        state = 5; // Yellow: Enemy + visible = target
+      let state: number;
+      if (hasEnemies && (groundByAny || airByAny)) {
+        state = 5; // enemyVisible — aktives Ziel
       } else if (hasEnemies) {
-        state = 4; // Purple: Enemy in cell
-      } else if (groundVisibleByAny) {
-        state = 1; // Green: Ground LoS by at least one tower
-      } else if (airVisibleByAny) {
-        state = 3; // Muted blue: Air-only LoS
+        state = 4; // enemyInCell — Enemy, kein Tower sieht ihn
+      } else if (groundByAny && airByAny) {
+        state = 3; // both
+      } else if (groundByAny) {
+        state = 1; // groundOnly
+      } else if (airByAny) {
+        state = 2; // airOnly
       } else {
-        // Gray: either not in any tower's range, or in range but blocked.
-        // We don't surface a distinct red "registered-but-blocked" state in
-        // the global debug view — that level of detail belongs on the
-        // per-tower overlay, not on the always-on global toggle.
-        state = 0;
+        state = 0; // neither
       }
 
       this.cellStateAttribute.setX(index, state);
@@ -1379,557 +1332,30 @@ export class GlobalRouteGrid {
   }
 
   // ========================================
-  // PER-TOWER VISUALIZATION
+  // CELLS-IN-RANGE QUERY (GPU-LOS-Pipeline)
   // ========================================
 
   /**
-   * Create visualization for a specific tower's LOS coverage
-   * Shows all cells within range: green = visible, red = blocked
-   * Used when tower is selected (always visible, not just debug mode)
-   *
-   * @param towerId Tower ID
-   * @param towerX Tower X position (local coordinates)
-   * @param towerZ Tower Z position (local coordinates)
-   * @param range Tower targeting range
-   * @returns InstancedMesh visualization or null if no cells
+   * Liefert alle Cells deren Center innerhalb `range` von (x, z) liegt
+   * UND deren Terrain-Sample stabil ist. Wird von der GPU-LOS-Viz-
+   * Pipeline (TowerLosViz / TowerLosLayerBuilder) als Cell-Set genutzt.
    */
-  createTowerVisualization(
-    towerId: string,
-    towerX: number,
-    towerZ: number,
-    range: number
-  ): InstancedMesh | null {
+  getCellsInRange(x: number, z: number, range: number): RouteCell[] {
     const rangeSq = range * range;
-    const cellsInRange: { cell: RouteCell; groundVis: boolean; airVis: boolean }[] = [];
-
-    // Collect all cells within tower range that have visibility data.
-    // Track ground and air visibility separately so the shader can render
-    // a three-way state (green / blue / red). Air-only cells only appear
-    // for towers registered with canTargetAir; ground-only towers have
-    // no entries in cell.airVisibility and therefore never show blue.
+    const result: RouteCell[] = [];
     for (const cell of this.cells.values()) {
-      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-      if (distSq > rangeSq) continue;
-
-      // Unsampled cells: skip — their cell.terrainHeight is still anchor
-      // fallback and would render at a wrong Y. They'll appear once
-      // updateTerrainHeights promotes them and the per-tower viz is rebuilt.
       if (!cell.heightSampled) continue;
-
-      const hasGround = cell.towerVisibility.has(towerId);
-      const hasAir = cell.airVisibility.has(towerId);
-      if (!hasGround && !hasAir) continue;
-
-      const groundVis = hasGround ? cell.towerVisibility.get(towerId)! : false;
-      const airVis = hasAir ? cell.airVisibility.get(towerId)! : false;
-      cellsInRange.push({ cell, groundVis, airVis });
+      const distSq = (cell.x - x) ** 2 + (cell.z - z) ** 2;
+      if (distSq <= rangeSq) result.push(cell);
     }
-
-    if (cellsInRange.length === 0) return null;
-
-    const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
-
-    const material = new ShaderMaterial({
-      vertexShader: TOWER_LOS_VERTEX,
-      fragmentShader: TOWER_LOS_FRAGMENT,
-      uniforms: {
-        uTime: { value: this.animationTime },
-      },
-      defines: {
-        USE_INSTANCING: '',
-      },
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      side: DoubleSide,
-    });
-
-    const mesh = new InstancedMesh(geometry, material, cellsInRange.length);
-    mesh.frustumCulled = false;
-    mesh.renderOrder = 3;
-
-    // Build instance matrices and per-instance visibility attributes
-    const groundVisibleArray = new Float32Array(cellsInRange.length);
-    const airVisibleArray = new Float32Array(cellsInRange.length);
-    const matrix = new Matrix4();
-
-    for (let i = 0; i < cellsInRange.length; i++) {
-      const { cell, groundVis, airVis } = cellsInRange[i];
-      const y = cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
-      matrix.setPosition(cell.x, y, cell.z);
-      mesh.setMatrixAt(i, matrix);
-
-      groundVisibleArray[i] = groundVis ? 1 : 0;
-      airVisibleArray[i] = airVis ? 1 : 0;
-    }
-
-    geometry.setAttribute(
-      'aGroundVisible',
-      new InstancedBufferAttribute(groundVisibleArray, 1)
-    );
-    geometry.setAttribute(
-      'aAirVisible',
-      new InstancedBufferAttribute(airVisibleArray, 1)
-    );
-
-    mesh.instanceMatrix.needsUpdate = true;
-
-    return mesh;
+    return result;
   }
 
-  /**
-   * Update tower visualization animation time
-   * Call this each frame for selected tower's visualization
-   */
-  updateTowerVisualizationTime(mesh: InstancedMesh): void {
-    const material = mesh.material as ShaderMaterial;
-    if (material?.uniforms?.['uTime']) {
-      material.uniforms['uTime'].value = this.animationTime;
-    }
+  /** Grid-Cell-Size (m). */
+  getCellSize(): number {
+    return this.CELL_SIZE;
   }
 
-  // ========================================
-  // PROGRESSIVE TOWER REGISTRATION
-  // ========================================
-
-  /** State for progressive tower LOS computation */
-  private towerRegState: {
-    towerId: string;
-    cells: RouteCell[];
-    towerX: number;
-    towerZ: number;
-    tipY: number;
-    losRaycaster: LineOfSightRaycaster;
-    canTargetGround: boolean;
-    canTargetAir: boolean;
-    currentIndex: number;
-    batchSize: number;
-    visibleCells: RouteCell[];
-    onComplete: (visibleCells: RouteCell[]) => void;
-  } | null = null;
-
-  /**
-   * Start progressive tower LOS registration.
-   * Returns immediately — LOS computed over multiple frames via continueTowerRegistration().
-   * @param onComplete Called when LOS is fully computed, with final visibleCells array
-   */
-  registerTowerProgressive(
-    towerId: string,
-    towerX: number,
-    towerZ: number,
-    tipY: number,
-    range: number,
-    losRaycaster: LineOfSightRaycaster,
-    canTargetGround: boolean,
-    canTargetAir: boolean,
-    onComplete: (visibleCells: RouteCell[]) => void
-  ): void {
-    const rangeSq = range * range;
-    const cellsInRange: RouteCell[] = [];
-
-    // Collect cells in range (quick distance check, no raycasts)
-    for (const cell of this.cells.values()) {
-      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-      if (distSq <= rangeSq) {
-        cellsInRange.push(cell);
-      }
-    }
-
-    this.registerTowerProgressiveForCells(
-      towerId,
-      cellsInRange,
-      towerX,
-      towerZ,
-      tipY,
-      losRaycaster,
-      canTargetGround,
-      canTargetAir,
-      [],
-      onComplete,
-    );
-  }
-
-  /**
-   * Start progressive tower LOS registration for a pre-filtered cell list.
-   * Used by `consumePreviewIntoTower` to register only the cells NOT already
-   * processed by an active placement preview.
-   *
-   * @param initialVisibleCells Cells already known visible from the preview
-   *   transfer (will be prepended to the final visibleCells array).
-   */
-  registerTowerProgressiveForCells(
-    towerId: string,
-    cells: RouteCell[],
-    towerX: number,
-    towerZ: number,
-    tipY: number,
-    losRaycaster: LineOfSightRaycaster,
-    canTargetGround: boolean,
-    canTargetAir: boolean,
-    initialVisibleCells: RouteCell[],
-    onComplete: (visibleCells: RouteCell[]) => void,
-  ): void {
-    if (cells.length === 0) {
-      onComplete(initialVisibleCells);
-      return;
-    }
-
-    this.towerRegState = {
-      towerId,
-      cells,
-      towerX,
-      towerZ,
-      tipY,
-      losRaycaster,
-      canTargetGround,
-      canTargetAir,
-      currentIndex: 0,
-      batchSize: 50, // 50 cells/frame — faster than preview (tower already placed)
-      visibleCells: initialVisibleCells.slice(),
-      onComplete,
-    };
-  }
-
-  /**
-   * Transfer the active placement preview's already-computed LOS data into the
-   * tower-visibility cell maps. Eliminates redundant raycasts when the player
-   * confirms placement at the exact preview position.
-   *
-   * Returns null when the preview cannot be reused (no active preview, or any
-   * of the placement parameters differ from the preview's). The caller must
-   * then fall back to a normal registration.
-   *
-   * On success, returns the cells already known visible from the preview
-   * (`consumedCells`) plus the cells still needing a raycast
-   * (`remainingCells`). The preview state is cleared afterwards.
-   */
-  consumePreviewIntoTower(
-    towerId: string,
-    towerX: number,
-    towerZ: number,
-    tipY: number,
-    range: number,
-    canTargetGround: boolean,
-    canTargetAir: boolean,
-  ): { consumedCells: RouteCell[]; remainingCells: RouteCell[] } | null {
-    const p = this.previewState;
-    if (!p) return null;
-    if (p.towerX !== towerX || p.towerZ !== towerZ) return null;
-    if (p.tipY !== tipY || p.range !== range) return null;
-    if (p.canTargetGround !== canTargetGround || p.canTargetAir !== canTargetAir) return null;
-
-    const consumedCells: RouteCell[] = [];
-    for (let i = 0; i < p.currentIndex; i++) {
-      const cell = p.cells[i];
-      const groundVis = p.groundVisibleArray[i] > 0.5;
-      const airVis = p.airVisibleArray[i] > 0.5;
-      if (canTargetGround) cell.towerVisibility.set(towerId, groundVis);
-      if (canTargetAir) cell.airVisibility.set(towerId, airVis);
-      if (groundVis || airVis) consumedCells.push(cell);
-    }
-
-    const remainingCells = p.cells.slice(p.currentIndex);
-    this.previewState = null;
-    return { consumedCells, remainingCells };
-  }
-
-  /**
-   * Continue progressive tower LOS computation.
-   * Call each frame from game loop. Returns true when complete.
-   */
-  continueTowerRegistration(): boolean {
-    if (!this.towerRegState) return true;
-
-    const s = this.towerRegState;
-    const endIndex = Math.min(s.currentIndex + s.batchSize, s.cells.length);
-
-    for (let i = s.currentIndex; i < endIndex; i++) {
-      const cell = s.cells[i];
-
-      // Refresh heights from current tile state. If the raycast fails we
-      // keep the cached value and proceed — defensively registering the
-      // cell so a later terrain promotion can recompute LOS without
-      // leaving holes in tower coverage.
-      this.sampleCellY(cell);
-      this.sampleCellSkyline(cell);
-
-      const dirX = cell.x - s.towerX;
-      const dirZ = cell.z - s.towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
-      const atTower = dirLen < 0.1;
-      const originX = atTower ? s.towerX : s.towerX + (dirX / dirLen) * this.LOS_OFFSET;
-      const originZ = atTower ? s.towerZ : s.towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
-
-      let groundVisible = false;
-      if (s.canTargetGround) {
-        if (atTower) {
-          groundVisible = true;
-        } else {
-          const targetY = cell.terrainHeight + 1.5;
-          groundVisible = !s.losRaycaster(originX, s.tipY, originZ, cell.x, targetY, cell.z);
-        }
-        cell.towerVisibility.set(s.towerId, groundVisible);
-      }
-
-      let airVisible = false;
-      if (s.canTargetAir) {
-        if (atTower) {
-          airVisible = true;
-        } else {
-          const targetY = cell.skylineHeight + AIR_CLEARANCE_M;
-          airVisible = !s.losRaycaster(originX, s.tipY, originZ, cell.x, targetY, cell.z);
-        }
-        cell.airVisibility.set(s.towerId, airVisible);
-      }
-
-      if (groundVisible || airVisible) {
-        s.visibleCells.push(cell);
-      }
-    }
-
-    s.currentIndex = endIndex;
-
-    if (endIndex >= s.cells.length) {
-      const visibleCells = s.visibleCells;
-      const onComplete = s.onComplete;
-      this.towerRegState = null;
-      // Refresh the global viz mesh so its positions reflect the cell
-      // terrainHeight values written during this progressive registration.
-      // Without this, the global overlay and the per-tower overlay can
-      // sit on slightly different Y for the same cells.
-      if (this.visualization) this.initializePositions();
-      onComplete(visibleCells);
-      return true;
-    }
-
-    return false;
-  }
-
-  // ========================================
-  // PROGRESSIVE PLACEMENT PREVIEW
-  // ========================================
-
-  /** State for progressive preview building */
-  private previewState: {
-    mesh: InstancedMesh;
-    cells: RouteCell[];
-    towerX: number;
-    towerZ: number;
-    tipY: number;
-    range: number;
-    losRaycaster: LineOfSightRaycaster;
-    groundVisibleArray: Float32Array;
-    airVisibleArray: Float32Array;
-    currentIndex: number;
-    batchSize: number;
-    canTargetGround: boolean;
-    canTargetAir: boolean;
-  } | null = null;
-
-  /**
-   * Start progressive placement preview (for build mode).
-   * Returns mesh immediately, call continuePreviewBuild() each frame to populate.
-   *
-   * Preview "visible" colour: cell is shown green if either ground OR air
-   * LOS is clear — i.e. the tower can hit *something* in that cell. For an
-   * air-only tower this means the green disc reflects skyline-based reach.
-   *
-   * @param towerX Tower X position (local coordinates)
-   * @param towerZ Tower Z position (local coordinates)
-   * @param tipY Tower tip Y position (for LOS origin)
-   * @param range Tower targeting range
-   * @param losRaycaster LOS raycaster function
-   * @param canTargetGround Whether the previewed tower targets ground
-   * @param canTargetAir Whether the previewed tower targets air
-   * @returns InstancedMesh (empty initially) or null if no cells
-   */
-  createPlacementPreview(
-    towerX: number,
-    towerZ: number,
-    tipY: number,
-    range: number,
-    losRaycaster: LineOfSightRaycaster,
-    canTargetGround = true,
-    canTargetAir = false
-  ): InstancedMesh | null {
-    // Cancel any ongoing preview build
-    this.previewState = null;
-
-    const rangeSq = range * range;
-    const cellsInRange: RouteCell[] = [];
-
-    // Collect cells in range (no LOS computation yet)
-    for (const cell of this.cells.values()) {
-      const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
-      if (distSq <= rangeSq) {
-        cellsInRange.push(cell);
-      }
-    }
-
-    if (cellsInRange.length === 0) return null;
-
-    // Sort by distance from tower (radiates outward from center)
-    cellsInRange.sort((a, b) => {
-      const distA = (a.x - towerX) ** 2 + (a.z - towerZ) ** 2;
-      const distB = (b.x - towerX) ** 2 + (b.z - towerZ) ** 2;
-      return distA - distB;
-    });
-
-    // Create mesh with full capacity but count=0
-    const cellSize = this.CELL_SIZE * 0.85;
-    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
-
-    const material = new ShaderMaterial({
-      vertexShader: TOWER_LOS_VERTEX,
-      fragmentShader: TOWER_LOS_FRAGMENT,
-      uniforms: {
-        uTime: { value: this.animationTime },
-      },
-      defines: {
-        USE_INSTANCING: '',
-      },
-      transparent: true,
-      depthTest: false,
-      depthWrite: false,
-      side: DoubleSide,
-    });
-
-    const mesh = new InstancedMesh(geometry, material, cellsInRange.length);
-    mesh.frustumCulled = false;
-    mesh.renderOrder = 3;
-    mesh.count = 0; // Start empty
-
-    // Pre-allocate per-instance visibility attributes
-    const groundVisibleArray = new Float32Array(cellsInRange.length);
-    const airVisibleArray = new Float32Array(cellsInRange.length);
-    geometry.setAttribute('aGroundVisible', new InstancedBufferAttribute(groundVisibleArray, 1));
-    geometry.setAttribute('aAirVisible', new InstancedBufferAttribute(airVisibleArray, 1));
-    (geometry.getAttribute('aGroundVisible') as BufferAttribute).setUsage(DynamicDrawUsage);
-    (geometry.getAttribute('aAirVisible') as BufferAttribute).setUsage(DynamicDrawUsage);
-
-    // Store state for progressive building
-    this.previewState = {
-      mesh,
-      cells: cellsInRange,
-      towerX,
-      towerZ,
-      tipY,
-      range,
-      losRaycaster,
-      groundVisibleArray,
-      airVisibleArray,
-      currentIndex: 0,
-      batchSize: 50, // Cells per frame — raycast is the bottleneck, see continuePreviewBuild short-circuit
-      canTargetGround,
-      canTargetAir,
-    };
-
-    return mesh;
-  }
-
-  /**
-   * Continue building the placement preview
-   * Call each frame until it returns true (complete)
-   * @returns true when preview is fully built
-   */
-  continuePreviewBuild(): boolean {
-    if (!this.previewState) return true;
-
-    const { mesh, cells, towerX, towerZ, tipY, losRaycaster, groundVisibleArray, airVisibleArray, batchSize, currentIndex, canTargetGround, canTargetAir } = this.previewState;
-
-    const matrix = new Matrix4();
-    const endIndex = Math.min(currentIndex + batchSize, cells.length);
-
-    for (let i = currentIndex; i < endIndex; i++) {
-      const cell = cells[i];
-
-      // Refresh cell-Y via single-source-of-truth sampler. If raycast
-      // fails AND the cell was never sampled, we hide its preview
-      // instance via a degenerate matrix below.
-      this.sampleCellY(cell);
-      const terrainY = cell.heightSampled ? cell.terrainHeight : null;
-      if (terrainY === null) {
-        // Collapse instance to a point off-screen until cell is sampled.
-        matrix.makeScale(0, 0, 0);
-        mesh.setMatrixAt(i, matrix);
-        groundVisibleArray[i] = 0;
-        airVisibleArray[i] = 0;
-        continue;
-      }
-      this.sampleCellSkyline(cell);
-
-      const dirX = cell.x - towerX;
-      const dirZ = cell.z - towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
-      const atTower = dirLen < 0.1;
-      const originX = atTower ? towerX : towerX + (dirX / dirLen) * this.LOS_OFFSET;
-      const originZ = atTower ? towerZ : towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
-
-      // Compute ground and air visibility independently — shader paints
-      // green / blue / red based on the three-way state. Both flags reflect
-      // ground truth even when the current shader prioritises ground over air,
-      // so future visualisations / data consumers can rely on the full info.
-      let groundVisible = false;
-      if (canTargetGround) {
-        if (atTower) {
-          groundVisible = true;
-        } else {
-          const targetY = terrainY + 1.5;
-          groundVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
-        }
-      }
-      let airVisible = false;
-      if (canTargetAir) {
-        if (atTower) {
-          airVisible = true;
-        } else {
-          const targetY = cell.skylineHeight + AIR_CLEARANCE_M;
-          airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
-        }
-      }
-
-      // Set matrix and attributes — identity() first because the previous
-      // iteration may have left scale=0 for an unsampled cell.
-      matrix.identity();
-      matrix.setPosition(cell.x, terrainY + CELL_VIZ_Y_OFFSET_M, cell.z);
-      mesh.setMatrixAt(i, matrix);
-      groundVisibleArray[i] = groundVisible ? 1 : 0;
-      airVisibleArray[i] = airVisible ? 1 : 0;
-    }
-
-    // Update mesh
-    mesh.count = endIndex;
-    mesh.instanceMatrix.needsUpdate = true;
-    (mesh.geometry.getAttribute('aGroundVisible') as BufferAttribute).needsUpdate = true;
-    (mesh.geometry.getAttribute('aAirVisible') as BufferAttribute).needsUpdate = true;
-
-    this.previewState.currentIndex = endIndex;
-
-    // Check if complete
-    if (endIndex >= cells.length) {
-      this.previewState = null;
-      return true;
-    }
-
-    return false;
-  }
-
-  /**
-   * Cancel ongoing preview build
-   */
-  cancelPreviewBuild(): void {
-    this.previewState = null;
-  }
-
-  /**
-   * Dispose a placement preview mesh
-   */
-  disposePlacementPreview(mesh: InstancedMesh): void {
-    this.previewState = null;
-    mesh.geometry.dispose();
-    (mesh.material as ShaderMaterial).dispose();
-  }
 
   /**
    * Clear all data

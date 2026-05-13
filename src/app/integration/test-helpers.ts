@@ -167,6 +167,12 @@ export function createMockGlobalRouteGrid(): GlobalRouteGridService {
   } as any;
 }
 
+export function createMockResearchStore(): any {
+  return {
+    airTargetingUnlocked: vi.fn(() => false),
+  };
+}
+
 // ─── Factory: create wired-up managers ────────────────────────────
 
 export interface TestManagers {
@@ -191,7 +197,7 @@ export function createTestManagers(): TestManagers {
   const spatialGrid = new SpatialGridService();
 
   const enemyManager = new EnemyManager(eventBus, globalRouteGrid, spatialGrid);
-  const towerManager = new TowerManager(eventBus, osmService);
+  const towerManager = new TowerManager(eventBus, osmService, createMockResearchStore());
   const projectileManager = new ProjectileManager(eventBus);
   const waveManager = new WaveManager(eventBus, enemyManager);
 
