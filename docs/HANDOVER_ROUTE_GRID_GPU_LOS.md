@@ -1611,3 +1611,281 @@ grid.initAirRouteLayerIfEnabled();                 // NEW
 3. Filter-Cycle → Plates schalten richtig
 4. Beide Aggregate gleichzeitig → keine goldenen Cells, gestapelte grün/blau
 5. Ground/Air-Tower auswählen → Legend zeigt korrekte Swatches
+
+---
+
+# CRITICAL DISCOVERY: Drei inkonsistente Air-Höhen-Modelle (2026-05-13)
+
+> **Lese DIESEN Abschnitt BEVOR du irgendwas an der Air-LOS-Pipeline
+> machst.** Die nächste Session sollte NICHT direkt auf Phantom-Blocker-
+> Bug-Hunt gehen. Es gibt einen strukturellen Bug der höher liegt.
+
+## Was der User visuell beobachtet hat
+
+User-Zitat (2026-05-13):
+> "hatte da vorhin einen großen unterschied gesehen zwischen preview
+> und towerselection sowie dem globalen air overlay. global war da sehr
+> viel mehr durch einen turm gecovered als in der preview oder wenn man
+> in selected"
+
+→ Global `gridAir` zeigt für einen platzierten Tower **viel mehr Cells als
+covered (blau)** als die Per-Tower-Viz (Preview/Selection) für denselben
+Tower. **Beides sind aus demselben Tower berechnete Coverage-Maps und
+sollten identisch sein. Sind sie nicht.**
+
+## Root Cause: zwei verschiedene Air-LOS-Pipelines parallel aktiv
+
+Die Per-Tower-Viz und das Global-Aggregate lesen aus **komplett
+unterschiedlichen Datenquellen mit unterschiedlichen Sample-Höhen und
+unterschiedlichen Mechanismen**:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│ GLOBAL Air-Aggregate (gridAir)                                      │
+│ ──────────────────────────────                                      │
+│   Quelle:      cell.airVisibility.get(towerId) Map                  │
+│   Geschrieben: registerTower() / registerTowerIncremental() —       │
+│                EINMAL pro Tower-Build via CPU-Raycast               │
+│   Target-Y:    cell.skylineHeight + AIR_CLEARANCE_M (10m)           │
+│                ↑ skyline-adaptiv: höher in Hochhausvierteln,        │
+│                  niedriger auf offenem Boden                        │
+│   Code:        global-route-grid.ts:932                             │
+│     airVisible = !losRaycaster(originX, tipY, originZ,              │
+│                                 cell.x, targetY, cell.z);           │
+└─────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────┐
+│ PER-TOWER Air-Viz (Build-Preview + Selection)                       │
+│ ──────────────────────────────────────────────                      │
+│   Quelle:      Live-Sampling der GPU-Cubemap im Fragment-Shader     │
+│   Geschrieben: shadowMapper.update() — JEDES Mal wenn Tower-Tip     │
+│                sich >0.5m bewegt, plus invalidate()                 │
+│   Target-Y:    cell.terrainHeight + airSampleYOffset (15m)          │
+│                ↑ feste Höhe: IMMER 15m über lokalem Terrain         │
+│   Code:        tower-los-layer-builder.ts:230                       │
+│     airSampleYArr[i] = cell.terrainHeight + airSampleYOffset;       │
+│     // und im Fragment-Shader:                                      │
+│     vec3 airSampleWorld = vec3(vCellCenterWorld.x,                  │
+│                                vAirSampleY, vCellCenterWorld.z);    │
+│     bool airVis = isVisible(airSampleWorld);                        │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Die beiden Layer rendern auf derselben Y-Position (das Plate sitzt auf
++15m für beide), aber die FARB-Logik basiert auf zwei verschiedenen
+Coverage-Berechnungen, die unterschiedliche Geometrie-Punkte testen.**
+
+## Drittes Modell: die Enemy-Flughöhe
+
+Air-Enemies fliegen NICHT bei der per-Tower-Viz-Höhe. Sie fliegen bei der
+Combat-LOS-Höhe — `enemy.manager.ts:404`:
+
+```ts
+const skylineGeo = skylineLocalY + origin.height;
+const desiredAirGeo = Math.max(
+  geoHeight + heightOffset,
+  skylineGeo + AIR_CLEARANCE_M
+);
+```
+
+→ Enemy-Flughöhe = `max(path-height + heightOffset, skylineHeight + 10m)`,
+also derselbe skyline-adaptive Mode wie das Combat. Die Per-Tower-Viz
+zeigt die Coverage gegen einen Punkt **wo der Enemy gar nicht fliegt**.
+
+## Zusammenfassung der drei aktuellen Modelle
+
+| Komponente | Y-Höhe | Mechanismus | Konsistent mit? |
+|---|---|---|---|
+| **Enemy-Flughöhe** | `skylineHeight + 10m` (adaptiv) | enemy.manager.ts:404 | ↓ Combat |
+| **Combat-LOS-Target** | `skylineHeight + 10m` (adaptiv) | CPU-Raycast, registerTower:932 | ↑ Enemy |
+| **Combat-LOS-Cache** | (Ergebnis von oben) | `cell.airVisibility.get(towerId)` | Liest Combat-Daten |
+| **Global-Aggregate-Viz** | Plate auf `terrain + 15m`, Farbe aus airVisibility-Map | Liest Combat-Cache | ↑ Combat |
+| **Per-Tower-Viz** | Sample bei `terrain + 15m` (fest) | GPU-Cubemap-Sample | **Alleinstellung** |
+
+→ Enemy + Combat + Global-Aggregate sind in einem Team ("skyline-adaptiv").
+Per-Tower-Viz ist alleine ("feste Höhe, GPU-Cubemap").
+
+## Was der User für die Per-Tower-Viz REPORTET — sind das echte Bugs?
+
+Wahrscheinlich nicht (oder nur teilweise). Die "Phantom-Blocker" die der
+User im Per-Tower-Viz sieht, sind möglicherweise **legitime Blocker auf
+einer falschen Höhe**: das Cubemap-Sample bei `terrain+15` trifft ein
+Building-Dach, das tatsächlich da ist — nur fliegt der Enemy **darüber**
+(bei `skyline+10` = vielleicht +25m), also gar nicht durch dieses Dach.
+
+D.h. die User-bestätigten "Phantom-Blocker" könnten in Wahrheit
+**legitime Blocker für eine Sample-Höhe die niemand sonst benutzt**
+sein. Der Cubemap arbeitet korrekt — die Sample-Position passt nur
+nicht zum Game-State.
+
+Die 5 Hypothesen-Untersuchung aus der Research-Session bleibt valide für
+"falls Cubemap WIRKLICH Phantom-Blocker hat" — aber das ist erst der
+ZWEITE Schritt.
+
+## Warum Ground-LOS dasselbe Problem NICHT hat
+
+Ground-Pipeline ist konsistent:
+
+| Komponente | Y-Höhe | Mechanismus |
+|---|---|---|
+| Enemy-Position | `terrainHeight + heightOffset` (boden-nah, ~0-2m) | — |
+| Combat-LOS-Target | `terrainHeight + 1.5m` | CPU-Raycast |
+| Global-Aggregate Ground-Viz | Liest cell.towerVisibility | aus Combat |
+| Per-Tower Ground-Viz | Sample bei `terrain + 1.5m` | GPU-Cubemap |
+
+→ Combat und Viz sampeln **dieselbe Höhe (1.5m)** mit verschiedenen
+Mechanismen (CPU vs GPU) — Ergebnisse stimmen überein weil sie an
+demselben Punkt fragen.
+
+## NÄCHSTE-SESSION-ZIEL: Air-LOS strukturell wie Ground machen
+
+Das ist das eigentliche "Eingemachte" — bevor irgendwelche Phantom-
+Blocker gejagt werden. Die Air-LOS-Pipeline muss aus den drei
+divergierenden Modellen auf **eine** Single-Source-of-Truth gebracht
+werden. Drei Optionen (eine MUSS gewählt werden):
+
+### Option A: Skyline-adaptiv überall
+
+Alle drei Komponenten nutzen `skylineHeight + AIR_CLEARANCE_M (10m)`:
+
+- Enemy bleibt wo er ist ✓
+- Combat-LOS bleibt wie es ist ✓
+- **Per-Tower-Viz** umstellen: airSampleY = `cell.skylineHeight + 10`
+  (statt terrain + 15)
+- Air-Plate Y umstellen: bei `cell.skylineHeight + 10` (statt terrain + 15)
+- `getAirTargetY` Helper umschreiben: `cell.skylineHeight + AIR_CLEARANCE_M`
+- Air-Route-Tube zieht von alleine nach (nutzt getAirTargetY)
+- Global-Aggregate-Plate Y umstellen: dasselbe
+
+**Pro:** Air fliegt immer SICHER über dem lokalen Skyline. LOS gegen
+Buildings ist garantiert clear (10m Abstand). Combat = Enemy = Viz.
+
+**Contra:**
+- Plates haben verschiedene Y-Werte je nach Skyline → visuell "wellig"
+- v2-User-Feedback-Veto: "warum blockiert das Hochhaus meinen Air-Tower
+  über der Straße davor" — also visuell überraschend
+- Bei Cells unter sehr hohen Buildings (Skyline=80m) fliegen Enemies
+  bei 90m — möglicherweise außerhalb sichtbarer Range
+
+### Option B: Feste Höhe überall
+
+Alle drei Komponenten nutzen `terrainHeight + 15m` (oder ähnlich):
+
+- Per-Tower-Viz unverändert ✓
+- **Combat-LOS** umstellen: `registerTower` target Y = `terrainHeight + 15`
+  (statt skyline + 10)
+- **Enemy-Flughöhe** umstellen: `enemy.manager.ts:391-411` Block entfernen
+  oder auf terrain+15 anpassen — Enemy fliegt nicht mehr skyline-adaptiv
+- `getAirTargetY` bleibt wie er ist
+- Plates Y bleiben
+
+**Pro:**
+- Visuell konstante Höhe — Plates bilden eine flache Schicht
+- Per-Tower-Viz heute schon korrekt
+- v2-User-Decision-konform
+
+**Contra:**
+- In Hochhausvierteln (Skyline = 40-80m) fliegen Air-Enemies bei nur 15m
+  → **INSIDE Buildings** → unspielbar in Manhattan-Szenen
+- airSampleYOffset müsste auf einen Wert hoch genug für die meisten
+  Szenen gesetzt werden (50m? 100m?) — Wolkenkratzer-tauglich
+
+### Option C: Max-of-both (kompromiss-orientiert)
+
+Alle drei nutzen `max(skylineHeight + AIR_CLEARANCE_M, terrainHeight + airSampleYOffset)`:
+
+- Helper: `getAirTargetY(cell) = max(cell.skylineHeight + 10, cell.terrainHeight + 15)`
+- Combat + Enemy + Viz nutzen alle diesen Helper
+- Bei flachen Cells: terrain+15 dominiert (feste Mindesthöhe)
+- Bei Hochhäusern: skyline+10 dominiert (über lokalem Skyline)
+
+**Pro:**
+- Sicher über Buildings UND Mindesthöhe von 15m
+- Plates "wellig" nur dort wo Skyline >5m über Terrain — sonst konstant
+
+**Contra:**
+- Komplexer als A oder B
+- Plates trotzdem nicht ganz flach in Hochhausvierteln (v2-Feedback-Risiko)
+
+### Empfehlung (subjektiv)
+
+**Option C (Max-of-both)** ist gameplay-mässig am robustesten. Es löst
+v2's Sorge "Hochhaus blockiert weit-entfernten Air-Tower" weil bei
+weit-entfernten Cells das Skyline-Maximum ohnehin nur den lokalen
+Hochhäusern entspricht, nicht denen am Tower. Und es vermeidet die
+"Enemy fliegt in Wand"-Gefahr von Option B.
+
+**ABER:** das ist eine User-Entscheidung. Die nächste Session sollte
+mit `AskUserQuestion` starten und Option A/B/C zur Wahl stellen.
+
+## Zweiter Schritt nach der Höhen-Entscheidung: Mechanismus-Frage
+
+Auch wenn alle drei Komponenten dieselbe Y-Höhe haben — Combat nutzt
+CPU-Raycast (einmalig pro Build), Viz nutzt GPU-Cubemap (live). Beide
+testen am SELBEN Geometrie-Punkt aber mit unterschiedlichen Techniken.
+
+Theoretisch sollten beide dasselbe Ergebnis liefern. Praktisch können
+sie divergieren wenn:
+- **Cubemap-Phantom-Blocker** auftreten (siehe 5-Hypothesen-Sektion oben).
+  Aber nur RELEVANT solange die Y-Höhen übereinstimmen — sonst maskiert
+  die Höhen-Divergenz alles andere.
+- **Sub-Voxel-Geometrie-Unterschiede:** der GPU-Sampler trifft eine
+  andere Mesh-Edge als der CPU-Raycaster wegen Float-Präzision.
+
+**Empfehlung:** Nach der Höhen-Vereinheitlichung explizit testen ob
+Combat-Cache und Cubemap-Sample für DENSELBEN Punkt dasselbe Ergebnis
+liefern. Falls ja → fertig. Falls nein → echter Cubemap-Bug, dann
+H2/H5-Analyse anstoßen.
+
+## Welche Files das betrifft
+
+Abhängig von der gewählten Option:
+
+| File | Option A | Option B | Option C |
+|---|---|---|---|
+| `global-route-grid.ts:getAirTargetY` | skyline+10 | terrain+15 (bleibt) | max(...) |
+| `global-route-grid.ts:registerTower:932` | bleibt | terrain+15 | max(...) |
+| `global-route-grid.ts:registerTowerIncremental` (analog) | bleibt | terrain+15 | max(...) |
+| `global-route-grid.ts:initializePositions (Air)` | skyline+10 | bleibt | max(...) |
+| `enemy.manager.ts:391-411` (Skyline-Block) | bleibt | entfernen | bleibt |
+| `tower-los-layer-builder.ts:230 airSampleYArr` | skyline+10 | bleibt | max(...) |
+| `tower-los-layer-builder.ts:airMeshY` | skyline+10 | bleibt | max(...) |
+| `route-altitude-tubes.ts:addSample` | nutzt getAirTargetY → ok | nutzt getAirTargetY → ok | nutzt getAirTargetY → ok |
+
+→ Wenn `getAirTargetY` der einzige Single-Source-of-Truth wird, müssen
+alle anderen Call-Sites über diesen Helper laufen — dann ist die
+Option-Wahl auf eine Datei reduziert.
+
+## Empfehlung für die nächste Session: Schritt-für-Schritt
+
+1. **Höhen-Entscheidung mit User klären** (AskUserQuestion mit Option A/B/C)
+2. **`getAirTargetY` Helper** als einziges Source-of-Truth einführen — alle
+   Inline-Formeln (`cell.skylineHeight + AIR_CLEARANCE_M`,
+   `cell.terrainHeight + airSampleYOffset`) durch Call ersetzen
+3. **Combat-LOS-Raycast** (`registerTower` + `registerTowerIncremental`)
+   auf `getAirTargetY` umstellen
+4. **Enemy-Flughöhe** (`enemy.manager.ts:404`) auf `getAirTargetY`
+   umstellen — oder Block entfernen wenn neue Höhe direkt aus
+   `geoHeight + heightOffset` kommt
+5. **Visualization** (Plates + Sample) auf `getAirTargetY` umstellen —
+   beide globalen und per-Tower
+6. **Smoke-Test:** Tower platzieren, Global-Aggregate vs Per-Tower-Viz
+   sollten jetzt **identisch** sein. Wenn nicht → echter Cubemap-Bug,
+   dann erst H2/H5 angehen.
+7. **Wenn identisch und Combat funktioniert:** Air-LOS strukturell
+   "wie Ground" → fertig.
+
+## Was wir mit der Air-Research-Infrastruktur erreicht haben
+
+- 4 Toggle-Buttons (chart/wind/grid/gridAir) + per-Tower-Filter Cycle
+- Universelle Cell-Palette mit konsistenter Bedeutung pro Farbe
+- Aggregate strikt 2-State pro Layer (keine Gold-Verwirrung)
+- Depth-Test + logdepthbuf für Air-Plates (Z-Fighting gelöst)
+- LocalStorage-Persistierung aller Toggles
+- Dynamische LOS-Legend je Filter
+- **Plus:** durch das Bauen dieser Infrastruktur wurde die strukturelle
+  Air-LOS-Divergenz erst sichtbar — der User konnte visuell den
+  Unterschied zwischen Global-Aggregate und Per-Tower-Viz wahrnehmen.
+
+Diese Infrastruktur bleibt nach der Höhen-Vereinheitlichung in
+Production-Code als Debug-Helfer (User-Entscheidung).
