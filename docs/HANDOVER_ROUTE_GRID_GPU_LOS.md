@@ -1241,21 +1241,83 @@ parallel zur `createVisualization()` (Ground-Layer). **Geteiltes
 `aCellState`-Buffer** zwischen beiden Meshes — Single-Source-of-Truth-
 Update, ein `updateVisualization()`-Call refresht beide Layer simultan.
 
+**Aggregate ist strikt 2-State pro Layer** (Layer-Primärfarbe + Grau).
+Gold gibt es im Aggregat NICHT — Gold ist Per-Tower-Both-Filter-only.
+Wenn der Spieler beide Aggregate gleichzeitig sieht (grid + gridAir
+gleichzeitig an), liest er "both" implizit aus dem visuellen Stapeln
+(grünes Plate am Boden + blaues Plate auf +15m für dieselbe Cell).
+
 Layer-spezifische Interpretation derselben State-Codes (0..5) im
 Fragment-Shader-Build (`buildLosCellFragment({ airLayer: boolean })`):
 
 ```
                 Ground-Layer    Air-Layer
 state 0 (none)  → grau          → grau
-state 1 (g.only)→ grün          → grau   (kein Air-Coverage)
+state 1 (g.only)→ grün          → grau   (Air NICHT covered)
 state 2 (a.only)→ grau          → blau
-state 3 (both)  → gold          → gold
+state 3 (both)  → grün          → blau   (Layer-Primärfarbe, NICHT gold)
 state 4 (eIC)   → grau          → grau
-state 5 (eVis)  → gold          → gold
+state 5 (eVis)  → grün          → blau   (covered → Primärfarbe)
 ```
 
-Keine neuen Farben — nur Re-Routing pro Layer welcher State welche
-Palette-Farbe bekommt.
+**Wichtig:** Der State-Buffer kennt weiterhin Code 3 (both). Nur die
+Shader-Interpretation collapsed `state 3` auf die Layer-Primärfarbe.
+Eine spätere "Merged View"-Variante (Gold im Aggregat bei state 3) kann
+als 3. Shader-Variante neben den 2 bestehenden gebaut werden — keine
+Daten-Migration nötig.
+
+## Z-Fighting / Depth-Test bei Air-Plates (KRITISCH)
+
+Die Air-Cell-Plates sitzen bei EXAKT der Y-Position auf der auch die
+Air-Enemies fliegen (`cell.terrainHeight + 15m`). Ohne Sonderbehandlung
+malt das transparente Plate (renderOrder=4) über die opaken Enemies
+(renderOrder=0): Three.js rendert Transparent-Pass IMMER nach Opaque-
+Pass. Air-Enemies werden komplett unsichtbar.
+
+Ground-Enemies sind 3D-extrudiert — ihr Körper ragt oben aus dem flachen
+Plate raus, der Rest ist sichtbar. Air-Enemies wie Hornet (scale 0.063)
+sind kleiner als das Plate — komplett verdeckt.
+
+**Lösung — pro Layer unterschiedlich:**
+
+| Material | depthTest | depthWrite | polygonOffset | Warum |
+|---|---|---|---|---|
+| Ground-Plate | `false` | `false` | nein | depth-egal → kein Z-Fight mit Terrain |
+| Air-Plate (per-tower + aggregate) | **`true`** | `false` | **`(1, 1)`** | Plate muss hinter Air-Enemy depth-test'en, polygonOffset bricht LEQUAL-Tie bei identischem Y |
+
+Implementiert in:
+- `tower-los-layer-builder.ts`: `airMaterial.depthTest = true; airMaterial.polygonOffset = true; airMaterial.polygonOffsetFactor = 1.0; airMaterial.polygonOffsetUnits = 1.0;`
+- `global-route-grid.ts:createAirVisualization`: ShaderMaterial mit gleichen Settings
+
+## logdepthbuf-Chunks PFLICHT bei depthTest:true
+
+Der Renderer läuft mit `logarithmicDepthBuffer: true`. Custom-Shader die
+**depthTest:true** nutzen MÜSSEN die `<logdepthbuf>` Chunks einbinden,
+sonst ist `gl_FragDepth` falsch berechnet und ALLE Depth-Tests
+schlagen fehl (Plate komplett unsichtbar).
+
+Erforderliche Includes:
+```glsl
+// Vertex Shader
+#include <common>
+#include <logdepthbuf_pars_vertex>
+// ... in main() nach gl_Position:
+#include <logdepthbuf_vertex>
+
+// Fragment Shader
+#include <common>
+#include <logdepthbuf_pars_fragment>
+// ... in main() als ERSTE Anweisung:
+#include <logdepthbuf_fragment>
+```
+
+Eingebaut in:
+- `tower-los-layer-builder.ts:VERTEX_SHADER` + `FRAGMENT_SHADER`
+- `global-route-grid.ts:LOS_CELL_VERTEX` + `buildLosCellFragment()`
+
+**Lesson:** Wenn jemand neue Custom-Shader für Cells / Plates baut die
+depth-getested werden sollen — logdepthbuf-Chunks NICHT vergessen. Bei
+depthTest:false (wie Ground-Plates) sind sie nicht zwingend.
 
 ## Air-Route-Tube (Quick-Actions Toggle)
 
@@ -1331,6 +1393,50 @@ Parallel-Agenten haben die Hypothesen aus dem v2-Handover §5
 | `src/app/configs/los-viz.config.ts:airRouteTube` | Magenta-dashed Tube-Config |
 | `src/app/components/icon/icon.component.ts:wind,gridAir` | Neue Icons für Air-Toggles |
 
+## LocalStorage-Persistierung (UIStore)
+
+Alle neuen Layer-Toggles + der Per-Tower-Filter sind komplett persistent
+via `localStorage` unter dem Key `'td-ui-state'`. Schema-Erweiterung in
+`src/app/store/ui.store.ts:PersistedUIState`:
+
+```ts
+interface PersistedUIState {
+  // bestehend...
+  spatialGridDebugVisible: boolean;        // Ground-Cells aggregate
+  airSpatialGridDebugVisible?: boolean;    // NEW — Air-Cells aggregate
+  airRouteVisible?: boolean;               // NEW — Air-Route-Tube
+  perTowerLosFilter?: 'both' | 'ground' | 'air';  // NEW — Filter-Cycle
+}
+```
+
+Load/Save sind round-trip:
+- `loadPersistedState()`: liest aus localStorage in Signals (optionale
+  Felder mit `if (state.X !== undefined) this.X.set(state.X)`)
+- `setupPersistence()`: `effect()` watcht alle Signals + trailing
+  debounce 500ms → JSON-Stringify nach localStorage
+- `resetAll()`: alle Signals + neue Felder auf Defaults zurück
+  (`false` / `'both'`)
+
+**Konsequenz:** Nach Page-Reload steht der vorherige Layer-Zustand
+wieder. Wer ein neues Toggle hinzufügt — schema erweitern + load + save
++ resetAll + Default-Wert im Signal, sonst geht's beim Reload verloren.
+
+## Universelle Bedeutung pro Modus (Cheatsheet)
+
+```
+              Aggregate           Per-Tower-Viz (Filter=X)
+              (grid / gridAir)    Both          Ground-only    Air-only
+              ─────────────────   ──────────    ───────────    ─────────
+🟢 Grün       Ground covered      groundOnly    covered        —
+🔵 Blau       Air covered         airOnly       —              covered
+🟡 Gold       —                   both          —              —
+🔴 Rot        —                   neither       blocked        blocked
+⬜ Grau       uncovered           —             —              —
+```
+
+`—` heisst: dieser Modus zeigt diese Farbe nicht. Wenn er sie zeigen
+WÜRDE: Bug oder neue Semantik die hier dokumentiert werden muss.
+
 ## Wenn der Air-Bug gelöst ist
 
 1. **Real-Blocker-Dot** kann per Per-State-Gating wieder rein
@@ -1343,3 +1449,165 @@ Parallel-Agenten haben die Hypothesen aus dem v2-Handover §5
 4. Stripes/Texturen-Differenzierung zwischen Ground und Air Plates ist
    **bewusst NICHT** drin (User-Entscheidung): identische Textur, nur
    die Y-Höhe unterscheidet.
+
+## Rebuild-Recipe (falls dieser Branch verworfen werden muss)
+
+Wenn die Air-Research-Session-Infrastruktur (Air-Tube, Air-Cells-
+Aggregate, Per-Tower-Filter) auf einem frischen v3-Basis neu gebaut
+werden muss — z.B. weil dieser Branch durch ein anderes Refactoring
+unbrauchbar wurde — folgt die Reihenfolge unten. Jeder Schritt mit
+Build-Check vor dem nächsten.
+
+**Voraussetzung:** v3-Basis aus `c5d27eb` (GPU-LOS-Pipeline) muss da
+sein. Falls nicht: v3-Re-Build aus dem v2-Handover-Plan oben (Phasen
+1-7) first.
+
+### Schritt 1 — Konfiguration erweitern (`src/app/configs/los-viz.config.ts`)
+
+```ts
+// states.airOnly: cyan → blue (siehe Universelle Palette oben)
+airOnly: { color: new Color(0.30, 0.55, 0.95), alpha: 0.45 }
+
+// Neue Sektionen:
+airCells: { alphaScale: 1.0 }  // gleiche Textur wie Ground, nur Y-Höhe
+
+airRouteTube: {
+  radius: 0.55,
+  samplesPerWaypoint: 4,
+  color: new Color(1.0, 0.0, 0.67),  // magenta
+  dashFrequency: 0.6,
+  dashDuty: 0.55,
+  opacityOn: 0.9,
+  opacityOff: 0.05,
+}
+```
+
+### Schritt 2 — `getAirTargetY` Helper + cachedRoutes (`global-route-grid.ts`)
+
+```ts
+export function getAirTargetY(cell: RouteCell): number {
+  return cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
+}
+
+// In Klasse: cachedRoutes-Storage
+private cachedRoutes: GeoPosition[][] = [];
+getCachedRoutes(): GeoPosition[][] { return this.cachedRoutes; }
+// In generateFromRoutes(): this.cachedRoutes = routes;
+```
+
+### Schritt 3 — `route-altitude-tubes.ts` (NEU)
+
+`buildRouteAltitudeTubes(grid)` baut eine `Group` mit InstancedMesh aus
+Unit-Cylindern, Y aus `getAirTargetY(cell)`, ShaderMaterial mit
+per-Instance `aSegLength` für dash-modulation in World-Meter (nicht
+UV). `depthTest:false`, `renderOrder:5`. Dispose-Helper:
+`disposeRouteAltitudeTubes(group)`.
+
+### Schritt 4 — Per-Tower Air-Mesh + Filter (`tower-los-layer-builder.ts`)
+
+- `TowerLosLayer` interface: zwei Meshes (`groundMesh` + `airMesh`)
+  statt einem
+- Fragment-Shader: `uFilterMode` Uniform (0/1/2), 4-state für Both,
+  2-state für Ground/Air-only
+- **`logdepthbuf`-Chunks PFLICHT** in Vertex+Fragment-Shadern
+- Air-Material setzt: `depthTest:true`, `polygonOffset:true`,
+  `polygonOffsetFactor:1.0`, `polygonOffsetUnits:1.0`
+- `setFilterMode(mode)` API: setzt `uFilterMode`-Uniform + Mesh-
+  Visibility (irrelevant mesh hidden)
+
+### Schritt 5 — `TowerLosViz` Wrapper (`tower-los-viz.ts`)
+
+`setFilterMode(mode)` durchreichen an den Layer. Beide Meshes der
+Layer ins `group.add()` einhängen + im `dispose()` entfernen.
+
+### Schritt 6 — Air-Cells Aggregate (`global-route-grid.ts`)
+
+- `airVisualization: InstancedMesh | null` Feld + `airVisualizationMaterial`
+- `createAirVisualization()` — analog zu `createVisualization()`, aber:
+  - Y aus `cell.terrainHeight + airSampleYOffset` (statt + cellYOffset)
+  - Material mit `depthTest:true`, `polygonOffset:(1,1)`, **logdepthbuf**
+  - Fragment-Shader-Variante mit `airLayer:true` Branch
+- `buildLosCellFragment({ airLayer })` — strikt 2-State pro Layer, KEIN
+  Gold im Aggregat (siehe Aggregate-Tabelle oben)
+- `cellStateAttribute` zwischen Ground- und Air-Mesh SHAREN — beide
+  geometry.setAttribute('aCellState', sameBufferAttr)
+- `disposeAirVisualization()` parallel zu `disposeVisualization()` —
+  `cellStateAttribute = null` erst wenn beide weg
+- `refreshAggregateVizPositions()` Helper — aktualisiert Y-Positionen
+  beider extant-Meshes
+
+### Schritt 7 — Service-Wiring (`global-route-grid.service.ts`)
+
+Methoden hinzufügen (analog zu spatialGridDebug):
+- `toggleAirRouteLayer / initAirRouteLayerIfEnabled / showAirRouteLayer /
+   hideAirRouteLayer / rebuildAirRouteLayer / cleanupAirRouteLayer`
+- `toggleAirSpatialGridDebug / initAirSpatialGridVisualizationIfEnabled /
+   updateAirSpatialGridVisualization / isAirSpatialGridVizVisible /
+   cleanupAirSpatialGridVisualization`
+- In `generateFromRoutes()`: nach `grid.generateFromRoutes` → wenn
+  airRouteTube existiert, `rebuildAirRouteLayer()` triggern
+- In `clear()` und `dispose()`: cleanupAirSpatialGridVisualization +
+  cleanupAirRouteLayer mitnehmen
+
+### Schritt 8 — UIStore (`ui.store.ts`)
+
+Signals: `airSpatialGridDebugVisible`, `airRouteVisible`,
+`perTowerLosFilter` ('both'|'ground'|'air'). Toggle-Methoden
++ `cyclePerTowerLosFilter()`. PersistedUIState erweitern (siehe
+LocalStorage-Sektion oben). loadPersistedState + setupPersistence +
+resetAll mitnehmen.
+
+### Schritt 9 — Filter-Bridge (Angular ↔ TowerManager)
+
+- `TowerPlacementService`: eigenes `effect(() => buildPreviewViz?.setFilterMode(mode))`
+  + Initial-Apply nach `new TowerLosViz` (effect feuert nicht bei Konstruktion)
+- `TowerManager` (framework-agnostic): `applyLosFilter(mode)` Methode +
+  `losFilterMode` Field. Initial-Apply analog nach `new TowerLosViz`.
+- `GameLoopFacade.initEffects`: `effect(() => towerManager.applyLosFilter(uiStore.perTowerLosFilter()))`
+
+### Schritt 10 — Game-Loop (`game-loop-facade.service.ts`)
+
+```ts
+if (grid.isSpatialGridVizVisible() || grid.isAirSpatialGridVizVisible()) {
+  grid.updateVisualization();  // refresht shared state-buffer für beide
+}
+```
+
+### Schritt 11 — `updateAnimation()` ergänzen
+
+`global-route-grid.ts:updateAnimation()` muss auch `airVisualizationMaterial.uniforms.uTime` setzen (sonst keine Pulse-Animation auf Air-Aggregat).
+
+### Schritt 12 — UI (Quick-Actions + Component)
+
+- `icon.component.ts`: neue Icons `wind` + `gridAir`
+- `quick-actions.component.ts`: 2 neue Layer-Toggle-Buttons + 1 Cycle-
+  Button für perTowerLosFilter. Cycle-Button mit `computed`s für
+  dynamisches Icon + Tooltip
+- `tower-defense.component.ts/.html`: Handler `onAirRouteToggled`,
+  `onAirSpatialGridDebugToggled`, `onPerTowerLosFilterCycled` +
+  Event-Wiring
+
+### Schritt 13 — Legend (`los-legend.component.ts`)
+
+`entries` computed wird dynamisch je `uiStore.perTowerLosFilter()`:
+- both: alle 4 States (gold/grün/blau/rot) — Capability-gated
+- ground: nur grün + rot
+- air: nur blau + rot
+
+### Schritt 14 — Init-Restore (`visualization-facade.service.ts`)
+
+Im post-Tiles-Load:
+```ts
+grid.initSpatialGridVisualizationIfEnabled();
+grid.initAirSpatialGridVisualizationIfEnabled();  // NEW
+grid.initAirRouteLayerIfEnabled();                 // NEW
+```
+
+### Build-Check
+
+`npm run build` — muss grün sein. Smoke-Test:
+1. Page-Reload → Toggles bleiben in vorherigem Zustand
+2. Air-Enemies spawnen → sichtbar trotz gridAir an
+3. Filter-Cycle → Plates schalten richtig
+4. Beide Aggregate gleichzeitig → keine goldenen Cells, gestapelte grün/blau
+5. Ground/Air-Tower auswählen → Legend zeigt korrekte Swatches
