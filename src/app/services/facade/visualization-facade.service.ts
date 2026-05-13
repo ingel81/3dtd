@@ -589,6 +589,8 @@ export class VisualizationFacadeService {
     // cell flipped from unsampled → stable.
     this.gameState.getGlobalRouteGrid().retryUnsampledCells();
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
+    this.gameState.getGlobalRouteGrid().initAirSpatialGridVisualizationIfEnabled();
+    this.gameState.getGlobalRouteGrid().initAirRouteLayerIfEnabled();
 
     console.warn(
       `[PerfTrace] onTilesLoaded: ${(performance.now() - t0).toFixed(1)}ms total | streets=${(tStreets - t0).toFixed(1)}ms buildings=${(tBuildings - tStreets).toFixed(1)}ms markers=${(tMarkers - tBuildings).toFixed(1)}ms routes=${(tRoutes - tMarkers).toFixed(1)}ms`

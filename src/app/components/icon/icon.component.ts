@@ -28,7 +28,7 @@ export type TdIconName =
   | 'lock' | 'bookmark' | 'plus' | 'minus' | 'terrain' | 'copyright'
   | 'vibration' | 'fastForward' | 'gamepad' | 'trash' | 'copy' | 'dragHandle'
   | 'externalLink' | 'shuffle' | 'arrowUp' | 'walk' | 'run'
-  | 'splash' | 'route' | 'undo';
+  | 'splash' | 'route' | 'undo' | 'wind' | 'gridAir';
 
 interface IconDef {
   /** Inner SVG markup. Stroke uses currentColor; fill defaults to none unless set explicitly per <path>. */
@@ -108,6 +108,12 @@ const ICONS: Record<TdIconName, IconDef> = {
   splash: { body: '<path d="M12 4c-3 4-5 7-5 10a5 5 0 0 0 10 0c0-3-2-6-5-10Z" /><path d="M5 18c1 1 2 1.5 3 1.5M19 18c-1 1-2 1.5-3 1.5" />' },
   route: { body: '<circle cx="6" cy="19" r="2.5" /><circle cx="18" cy="5" r="2.5" /><path d="M6 16.5V12a4 4 0 0 1 4-4h4a4 4 0 0 0 4-4" />' },
   undo: { body: '<path d="M9 14l-5-5 5-5M4 9h11a5 5 0 0 1 0 10h-2" />' },
+  // Wind: three horizontal flowing lines suggesting air currents.
+  // Used for the air-route altitude tube toggle.
+  wind: { body: '<path d="M4 8h10a3 3 0 1 0-3-3M3 12h14a3 3 0 1 1-3 3M4 16h6a2.5 2.5 0 1 1-2.5 2.5" />' },
+  // Grid-air: a flat grid pattern lifted upward, suggesting an
+  // elevated cell mesh. Used for the air-cell debug overlay.
+  gridAir: { body: '<path d="M3 14h18M3 17h18M3 20h18M6 14v6M12 14v6M18 14v6M12 4l3 4H9l3-4Z" />' },
 };
 
 @Component({

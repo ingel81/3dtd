@@ -527,6 +527,32 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Toggle the air-route tube — magenta dashed tube at air flight
+   * altitude along every enemy route. Persistent in UIStore.
+   */
+  onAirRouteToggled(): void {
+    this.gameState.getGlobalRouteGrid().toggleAirRouteLayer();
+  }
+
+  /**
+   * Toggle the global air-cell debug overlay — same cell set as the
+   * spatial grid debug, but elevated to terrainY + airSampleYOffset
+   * and rendered with a stripe pattern. Persistent in UIStore.
+   */
+  onAirSpatialGridDebugToggled(): void {
+    this.gameState.getGlobalRouteGrid().toggleAirSpatialGridDebug();
+  }
+
+  /**
+   * Cycle the per-tower LOS filter (Both → Ground only → Air only).
+   * Pure UIStore mutation — TowerPlacementService and TowerManager
+   * react via their own effects.
+   */
+  onPerTowerLosFilterCycled(): void {
+    this.uiStore.cyclePerTowerLosFilter();
+  }
+
+  /**
    * Manually trigger route animation playback
    */
   onDpsBinsToggled(visible: boolean): void {

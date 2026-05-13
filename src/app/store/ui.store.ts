@@ -13,6 +13,9 @@ interface PersistedUIState {
   streetsVisible: boolean;
   routesVisible: boolean;
   spatialGridDebugVisible: boolean;
+  airSpatialGridDebugVisible?: boolean;
+  airRouteVisible?: boolean;
+  perTowerLosFilter?: 'both' | 'ground' | 'air';
   devMenuExpanded: boolean;
   layerMenuExpanded: boolean;
   displayMenuExpanded: boolean;
@@ -67,8 +70,23 @@ export class UIStore {
   /** Info overlay (FPS, tiles, enemies, sounds) */
   readonly infoOverlayVisible = signal<boolean>(false);
 
-  /** Spatial grid debug */
+  /** Spatial grid debug (ground cells) */
   readonly spatialGridDebugVisible = signal<boolean>(false);
+
+  /** Spatial grid debug at air altitude (mirror of spatialGridDebugVisible) */
+  readonly airSpatialGridDebugVisible = signal<boolean>(false);
+
+  /** Air-route tube debug overlay (magenta dashed tube at air altitude) */
+  readonly airRouteVisible = signal<boolean>(false);
+
+  /**
+   * Per-tower LOS layer filter for Build-Preview + Tower-Selection
+   * visualisation. 'both' shows the ground + air plates as today;
+   * 'ground' hides the airMesh, 'air' hides the groundMesh. Pure-debug
+   * helper while the Air-LOS-pipeline is being researched; long-term
+   * the Production-Air-Display will collapse the two layers into one.
+   */
+  readonly perTowerLosFilter = signal<'both' | 'ground' | 'air'>('both');
 
   /** DPS bins visualization */
   readonly dpsBinsVisible = signal<boolean>(false);
@@ -110,6 +128,9 @@ export class UIStore {
         if (state.streetsVisible !== undefined) this.streetsVisible.set(state.streetsVisible);
         if (state.routesVisible !== undefined) this.routesVisible.set(state.routesVisible);
         if (state.spatialGridDebugVisible !== undefined) this.spatialGridDebugVisible.set(state.spatialGridDebugVisible);
+        if (state.airSpatialGridDebugVisible !== undefined) this.airSpatialGridDebugVisible.set(state.airSpatialGridDebugVisible);
+        if (state.airRouteVisible !== undefined) this.airRouteVisible.set(state.airRouteVisible);
+        if (state.perTowerLosFilter !== undefined) this.perTowerLosFilter.set(state.perTowerLosFilter);
         if (state.devMenuExpanded !== undefined) this.devMenuExpanded.set(state.devMenuExpanded);
         if (state.layerMenuExpanded !== undefined) this.layerMenuExpanded.set(state.layerMenuExpanded);
         if (state.displayMenuExpanded !== undefined) this.displayMenuExpanded.set(state.displayMenuExpanded);
@@ -136,6 +157,9 @@ export class UIStore {
           streetsVisible: this.streetsVisible(),
           routesVisible: this.routesVisible(),
           spatialGridDebugVisible: this.spatialGridDebugVisible(),
+          airSpatialGridDebugVisible: this.airSpatialGridDebugVisible(),
+          airRouteVisible: this.airRouteVisible(),
+          perTowerLosFilter: this.perTowerLosFilter(),
           devMenuExpanded: this.devMenuExpanded(),
           layerMenuExpanded: this.layerMenuExpanded(),
           displayMenuExpanded: this.displayMenuExpanded(),
@@ -173,6 +197,14 @@ export class UIStore {
   toggleSpecialPointsDebug(): void { this.specialPointsDebugVisible.update(v => !v); }
   toggleInfoOverlay(): void { this.infoOverlayVisible.update(v => !v); }
   toggleSpatialGridDebug(): void { this.spatialGridDebugVisible.update(v => !v); }
+  toggleAirSpatialGridDebug(): void { this.airSpatialGridDebugVisible.update(v => !v); }
+  toggleAirRoute(): void { this.airRouteVisible.update(v => !v); }
+  /** Cycle the per-tower LOS filter: both → ground → air → both. */
+  cyclePerTowerLosFilter(): void {
+    this.perTowerLosFilter.update(v =>
+      v === 'both' ? 'ground' : v === 'ground' ? 'air' : 'both'
+    );
+  }
   toggleBuildings(): void { this.buildingsVisible.update(v => !v); }
 
   // ════════════════════════════════════════════════════════════
@@ -213,6 +245,9 @@ export class UIStore {
     this.specialPointsDebugVisible.set(false);
     this.infoOverlayVisible.set(false);
     this.spatialGridDebugVisible.set(false);
+    this.airSpatialGridDebugVisible.set(false);
+    this.airRouteVisible.set(false);
+    this.perTowerLosFilter.set('both');
     this.dpsBinsVisible.set(false);
     this.buildingsVisible.set(false);
     this.debugLog.set('');

@@ -348,8 +348,31 @@ export class TowerManager extends EntityManager<Tower> {
       shadowMapper: this.tilesEngine.getTowerShadowMapper(),
       blockerGroup,
     });
+    // Restore the persisted per-tower-LOS filter on the fresh viz —
+    // applyLosFilter() is also called externally on signal changes by
+    // GameLoopFacade.
+    this.selectionViz.setFilterMode(this.losFilterMode);
     this.selectionViz.addTo(this.tilesEngine.getScene());
     this.selectionVizTowerId = tower.id;
+  }
+
+  /**
+   * Current per-tower-LOS filter for the SELECTION viz. Owned by
+   * UIStore.perTowerLosFilter — the GameLoopFacade pushes changes in
+   * via `applyLosFilter()`. Mirrored here so that newly built selection
+   * vizes (after a tower-click or refreshSelectionViz) start with the
+   * correct state.
+   */
+  private losFilterMode: 'both' | 'ground' | 'air' = 'both';
+
+  /**
+   * Apply the per-tower-LOS filter to the active selection viz (if any)
+   * and remember the mode for any future viz built during the same
+   * session. Idempotent.
+   */
+  applyLosFilter(mode: 'both' | 'ground' | 'air'): void {
+    this.losFilterMode = mode;
+    this.selectionViz?.setFilterMode(mode);
   }
 
   private disposeSelectionViz(): void {

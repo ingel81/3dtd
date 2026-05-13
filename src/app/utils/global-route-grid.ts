@@ -175,64 +175,98 @@ const CELL_VIZ_Y_OFFSET_M = 0.05;
 const LOS_CELL_VERTEX = /* glsl */ `
 attribute float aCellState;
 varying float vCellState;
+varying vec3 vWorldPosition;
 
 void main() {
   vCellState = aCellState;
 
-  vec4 mvPosition = vec4(position, 1.0);
+  vec4 localPos = vec4(position, 1.0);
 
   #ifdef USE_INSTANCING
-    mvPosition = instanceMatrix * mvPosition;
+    localPos = instanceMatrix * localPos;
   #endif
 
-  mvPosition = modelViewMatrix * mvPosition;
-  gl_Position = projectionMatrix * mvPosition;
+  vec4 worldPos = modelMatrix * localPos;
+  vWorldPosition = worldPos.xyz;
+  gl_Position = projectionMatrix * viewMatrix * worldPos;
 }
 `;
 
-function buildLosCellFragment(): string {
+/**
+ * Build the per-cell fragment shader for the global aggregate viz.
+ *
+ * Per-Layer-Interpretation der `aCellState`-Codes (0..5) damit jede
+ * Layer-Mesh nur das zeigt was für sie relevant ist — KEINE Farbe wird
+ * zwischen Layern oder zwischen aggregate/per-tower wiederverwendet:
+ *
+ *   Ground-Layer (gridLayer):
+ *     state 0 (neither)       → grey  (uncovered)
+ *     state 1 (groundOnly)    → green (ground-coverage by some tower)
+ *     state 2 (airOnly)       → grey  (no ground-coverage on this layer)
+ *     state 3 (both)          → gold  (both ground+air covered)
+ *     state 4 (enemyInCell)   → grey  (enemy info handled by per-tower viz)
+ *     state 5 (enemyVisible)  → gold  (enemy targeted)
+ *
+ *   Air-Layer (airLayer):
+ *     state 0 (neither)       → grey
+ *     state 1 (groundOnly)    → grey  (no air-coverage from this layer's perspective)
+ *     state 2 (airOnly)       → blue  (air-coverage by some tower)
+ *     state 3 (both)          → gold
+ *     state 4 (enemyInCell)   → grey
+ *     state 5 (enemyVisible)  → gold
+ */
+function buildLosCellFragment(opts: { airLayer: boolean }): string {
   const s = LOS_VIZ_CONFIG.states;
   const g = LOS_VIZ_CONFIG.globalStates;
   const c = (col: { color: { r: number; g: number; b: number } }) =>
     `vec3(${col.color.r.toFixed(4)}, ${col.color.g.toFixed(4)}, ${col.color.b.toFixed(4)})`;
+
+  // Per-Layer-Interpretation: was zeigt das gridLayer-Mesh für State X,
+  // was zeigt das airLayer-Mesh für State X.
+  // Beide nutzen DIESELBE Palette aus `LOS_VIZ_CONFIG.states` /
+  // `globalStates` — keine neuen Farben, nur Re-Routing welcher State
+  // welche Palette-Farbe bekommt.
+  const grey = `color = ${c(g.uncovered)}; alpha = ${g.uncovered.alpha.toFixed(3)};`;
+  const green = `color = ${c(s.groundOnly)}; alpha = ${s.groundOnly.alpha.toFixed(3)};`;
+  const blue = `color = ${c(s.airOnly)}; alpha = ${s.airOnly.alpha.toFixed(3)};`;
+  const gold = `color = ${c(s.both)}; alpha = ${s.both.alpha.toFixed(3)};`;
+
+  const groundLayerOnly = opts.airLayer ? grey : green;
+  const airLayerOnly    = opts.airLayer ? blue : grey;
+
   return /* glsl */ `
 precision highp float;
 uniform float uTime;
 varying float vCellState;
+varying vec3 vWorldPosition;
 
 void main() {
   vec3 color;
   float alpha;
 
-  // 0 → uncovered (kein Tower in Range)
+  // 0 → uncovered
   if (vCellState < 0.5) {
-    color = ${c(g.uncovered)};
-    alpha = ${g.uncovered.alpha.toFixed(3)};
+    ${grey}
   }
   // 1 → groundOnly
   else if (vCellState < 1.5) {
-    color = ${c(s.groundOnly)};
-    alpha = ${s.groundOnly.alpha.toFixed(3)};
+    ${groundLayerOnly}
   }
   // 2 → airOnly
   else if (vCellState < 2.5) {
-    color = ${c(s.airOnly)};
-    alpha = ${s.airOnly.alpha.toFixed(3)};
+    ${airLayerOnly}
   }
-  // 3 → both
+  // 3 → both ground+air
   else if (vCellState < 3.5) {
-    color = ${c(s.both)};
-    alpha = ${s.both.alpha.toFixed(3)};
+    ${gold}
   }
-  // 4 → enemyInCell
+  // 4 → enemyInCell (kein Tower covered → grey auf jeder Layer)
   else if (vCellState < 4.5) {
-    color = ${c(g.enemyInCell)};
-    alpha = ${g.enemyInCell.alpha.toFixed(3)};
+    ${grey}
   }
-  // 5 → enemyVisible
+  // 5 → enemyVisible (Enemy + irgendein Tower covered → gold)
   else {
-    color = ${c(g.enemyVisible)};
-    alpha = ${g.enemyVisible.alpha.toFixed(3)};
+    ${gold}
   }
 
   float pulse = sin(uTime * ${LOS_VIZ_CONFIG.pulseSpeed.toFixed(2)}) *
@@ -243,7 +277,19 @@ void main() {
 `;
 }
 
-const LOS_CELL_FRAGMENT = buildLosCellFragment();
+const LOS_CELL_FRAGMENT = buildLosCellFragment({ airLayer: false });
+const LOS_CELL_FRAGMENT_AIR = buildLosCellFragment({ airLayer: true });
+
+/**
+ * Single-source-of-truth for the LOS air-sample altitude of a cell.
+ * Used by the layer-builder (per-tower visibility shader), the
+ * air-route-tube debug overlay, and any future air-targeting code that
+ * needs the canonical sample-Y. Keep this in lock-step with
+ * `tower-los-layer-builder.ts` which inlines the same formula.
+ */
+export function getAirTargetY(cell: RouteCell): number {
+  return cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
+}
 
 /**
  * GlobalRouteGrid - Unified Cell System for Enemy Tracking and LOS
@@ -274,6 +320,19 @@ export class GlobalRouteGrid {
 
   /** Map of enemy ID to current cell key (for fast cell transitions) */
   private enemyCellKeys = new Map<string, number>();
+
+  /**
+   * Last set of routes that `generateFromRoutes` was called with. Used
+   * by the air-route-tube debug overlay to re-render along the same
+   * geometry the grid was built from. Empty until `generateFromRoutes`
+   * runs at least once.
+   */
+  private cachedRoutes: GeoPosition[][] = [];
+
+  /** Cached enemy routes (geo-coordinate polylines) for debug overlays. */
+  getCachedRoutes(): GeoPosition[][] {
+    return this.cachedRoutes;
+  }
 
   /** Grid cell size in meters (matches original CELL_SIZE) */
   private readonly CELL_SIZE = 2;
@@ -317,6 +376,16 @@ export class GlobalRouteGrid {
   private visualization: InstancedMesh | null = null;
   private visualizationMaterial: ShaderMaterial | null = null;
   private cellStateAttribute: InstancedBufferAttribute | null = null;
+
+  /**
+   * Optional air-altitude mirror of the global Aggregate-Viz — same cell
+   * set, same `aCellState` buffer (shared!), positioned at
+   * `cell.terrainHeight + airSampleYOffset` with a stripe-pattern shader.
+   * Built lazily by `createAirVisualization()` when the corresponding
+   * toggle goes ON.
+   */
+  private airVisualization: InstancedMesh | null = null;
+  private airVisualizationMaterial: ShaderMaterial | null = null;
 
   /** Animation time accumulator */
   private animationTime = 0;
@@ -480,6 +549,7 @@ export class GlobalRouteGrid {
 
     this.cells.clear();
     this.enemyCellKeys.clear();
+    this.cachedRoutes = routes;
 
     const processedCells = new Set<number>();
 
@@ -624,9 +694,7 @@ export class GlobalRouteGrid {
 
     // Refresh the active spatial-grid visualisation so cells snap to the
     // newly sampled heights — fixes "Cell sticks in ground" on toggle-race.
-    if (this.visualization) {
-      this.initializePositions();
-    }
+    this.refreshAggregateVizPositions();
 
     // Notify listeners about promoted cells so per-tower LOS / viz can
     // be recomputed for them. Cells that had heightSampled=true already
@@ -679,9 +747,7 @@ export class GlobalRouteGrid {
 
     if (promoted.length === 0) return;
 
-    if (this.visualization) {
-      this.initializePositions();
-    }
+    this.refreshAggregateVizPositions();
     this.onCellsPromoted?.(promoted);
   }
 
@@ -729,7 +795,7 @@ export class GlobalRouteGrid {
     }
 
     if (promoted.length > 0) {
-      if (this.visualization) this.initializePositions();
+      this.refreshAggregateVizPositions();
       this.onCellsPromoted?.(promoted);
     }
 
@@ -763,7 +829,7 @@ export class GlobalRouteGrid {
     );
 
     if (promoted.length > 0) {
-      if (this.visualization) this.initializePositions();
+      this.refreshAggregateVizPositions();
       this.onCellsPromoted?.(promoted);
     }
 
@@ -859,7 +925,7 @@ export class GlobalRouteGrid {
     // the global viz so its mesh positions match the new cached values,
     // preventing a visible Y-drift between global overlay and per-tower
     // overlay for the same cells.
-    if (this.visualization) this.initializePositions();
+    this.refreshAggregateVizPositions();
 
     return visibleCells;
   }
@@ -954,7 +1020,7 @@ export class GlobalRouteGrid {
 
     // Same rationale as in registerTower — incremental re-sampling may have
     // updated cell.terrainHeight, keep the global viz mesh in sync.
-    if (this.visualization) this.initializePositions();
+    this.refreshAggregateVizPositions();
 
     return visibleCells;
   }
@@ -1225,8 +1291,15 @@ export class GlobalRouteGrid {
     this.cellStateAttribute.setUsage(DynamicDrawUsage);
     geometry.setAttribute('aCellState', this.cellStateAttribute);
 
-    // Initialize positions ONCE with live terrain sampling
-    this.initializePositions();
+    // Initialize positions ONCE with live terrain sampling (ground Y)
+    this.initializePositions(this.visualization, /* airLayer */ false);
+
+    // If an air visualization already exists (toggle ordering: air ON
+    // before ground), keep it consistent with the same cell index map.
+    if (this.airVisualization) {
+      this.initializePositions(this.airVisualization, /* airLayer */ true);
+      this.airVisualization.geometry.setAttribute('aCellState', this.cellStateAttribute);
+    }
 
     // Initial state update
     this.updateVisualization();
@@ -1235,16 +1308,92 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Initialize cell positions (called once when visualization is created)
-   * Samples terrain heights live for accurate positioning
+   * Create the air-layer mirror of the global aggregate viz. Same cell
+   * set, same state buffer (shared with `visualization`), positioned at
+   * `terrainHeight + airSampleYOffset` with a stripe-pattern fragment.
+   *
+   * Lazily created on first toggle; if `createVisualization()` has not
+   * been called yet (no ground layer), the state attribute is created
+   * here and re-used when the ground layer comes online later.
    */
-  private initializePositions(): void {
-    if (!this.visualization) return;
+  createAirVisualization(): InstancedMesh {
+    this.disposeAirVisualization();
 
-    const maxCells = this.visualization.instanceMatrix.count;
+    const cellSize = this.CELL_SIZE * 0.85;
+    const geometry = new BoxGeometry(cellSize, CELL_VIZ_HEIGHT_M, cellSize);
+
+    this.airVisualizationMaterial = new ShaderMaterial({
+      vertexShader: LOS_CELL_VERTEX,
+      fragmentShader: LOS_CELL_FRAGMENT_AIR,
+      uniforms: {
+        uTime: { value: 0 },
+      },
+      defines: {
+        USE_INSTANCING: '',
+      },
+      transparent: true,
+      depthTest: false,
+      depthWrite: false,
+      side: DoubleSide,
+    });
+
+    const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS);
+    this.airVisualization = new InstancedMesh(geometry, this.airVisualizationMaterial, maxCells);
+    this.airVisualization.frustumCulled = false;
+    this.airVisualization.renderOrder = 4;
+    this.airVisualization.instanceMatrix.setUsage(StaticDrawUsage);
+
+    // State attribute: re-use the ground-layer buffer if it exists, else
+    // create it here. Ground-layer-creation will re-bind when it runs.
+    if (!this.cellStateAttribute) {
+      const stateArray = new Float32Array(maxCells);
+      this.cellStateAttribute = new InstancedBufferAttribute(stateArray, 1);
+      this.cellStateAttribute.setUsage(DynamicDrawUsage);
+    }
+    geometry.setAttribute('aCellState', this.cellStateAttribute);
+
+    this.initializePositions(this.airVisualization, /* airLayer */ true);
+    this.updateVisualization();
+
+    return this.airVisualization;
+  }
+
+  /**
+   * Initialize cell positions for one of the two layer-meshes. Ground
+   * uses `terrainHeight + CELL_VIZ_Y_OFFSET_M`, Air uses
+   * `terrainHeight + airSampleYOffset`. Both layers share the same
+   * `cellIndexMap` ordering — instance N on both meshes refers to the
+   * same `RouteCell`, so the shared state attribute aligns correctly.
+   */
+  /**
+   * Refresh the cell positions of WHICHEVER aggregate-viz meshes are
+   * currently built (ground, air, both, or neither). Cheap idempotent
+   * helper for the three "cells were re-sampled, sync the viz" sites
+   * in registerTower / refineCellsInRadius / registerTowerIncremental.
+   */
+  private refreshAggregateVizPositions(): void {
+    if (this.visualization) {
+      this.initializePositions(this.visualization, /* airLayer */ false);
+    }
+    if (this.airVisualization) {
+      this.initializePositions(this.airVisualization, /* airLayer */ true);
+      // Re-bind the (possibly re-built) state attribute so both layers
+      // stay aligned.
+      if (this.cellStateAttribute) {
+        this.airVisualization.geometry.setAttribute('aCellState', this.cellStateAttribute);
+      }
+    }
+  }
+
+  private initializePositions(mesh: InstancedMesh, airLayer: boolean): void {
+    const maxCells = mesh.instanceMatrix.count;
     const matrix = new Matrix4();
     let index = 0;
-    this.cellIndexMap.clear();
+
+    // The ground-layer call is authoritative for the index map. The
+    // air-layer call (called second) just re-walks in the same order.
+    const writeIndexMap = !airLayer;
+    if (writeIndexMap) this.cellIndexMap.clear();
 
     for (const cell of this.cells.values()) {
       if (index >= maxCells) break;
@@ -1255,17 +1404,18 @@ export class GlobalRouteGrid {
       // the viz once updateTerrainHeights promotes them.
       if (!cell.heightSampled) continue;
 
-      const y = cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
+      const y = airLayer
+        ? cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset
+        : cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
       matrix.setPosition(cell.x, y, cell.z);
-      this.visualization.setMatrixAt(index, matrix);
+      mesh.setMatrixAt(index, matrix);
 
-      // Store mapping for fast state updates
-      this.cellIndexMap.set(cell.key, index);
+      if (writeIndexMap) this.cellIndexMap.set(cell.key, index);
       index++;
     }
 
-    this.visualization.count = index;
-    this.visualization.instanceMatrix.needsUpdate = true;
+    mesh.count = index;
+    mesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -1273,11 +1423,16 @@ export class GlobalRouteGrid {
    * FAST: Only updates state attribute, no terrain sampling or matrix updates
    */
   updateVisualization(): void {
-    if (!this.visualization || !this.cellStateAttribute) return;
+    if (!this.cellStateAttribute) return;
+    // State buffer is shared between ground & air meshes — write once,
+    // both layers read it. We need at least one of the two meshes for
+    // the per-mesh `count` (cap of the loop).
+    const meshCount = this.visualization?.count ?? this.airVisualization?.count ?? 0;
+    if (meshCount === 0) return;
 
     let index = 0;
     for (const cell of this.cells.values()) {
-      if (index >= this.visualization.count) break;
+      if (index >= meshCount) break;
       // Same skip-rule as initializePositions — keeps the state buffer
       // aligned with the matrix buffer (both indexed by sampled cells only).
       if (!cell.heightSampled) continue;
@@ -1344,6 +1499,9 @@ export class GlobalRouteGrid {
     if (this.visualizationMaterial?.uniforms?.['uTime']) {
       this.visualizationMaterial.uniforms['uTime'].value = this.animationTime;
     }
+    if (this.airVisualizationMaterial?.uniforms?.['uTime']) {
+      this.airVisualizationMaterial.uniforms['uTime'].value = this.animationTime;
+    }
   }
 
   /**
@@ -1353,8 +1511,15 @@ export class GlobalRouteGrid {
     return this.visualization;
   }
 
+  /** Get the optional air-layer aggregate viz (NULL until toggled on). */
+  getAirVisualization(): InstancedMesh | null {
+    return this.airVisualization;
+  }
+
   /**
-   * Dispose visualization resources
+   * Dispose ground visualization resources. The shared state attribute
+   * stays alive as long as the air layer references it — only cleared
+   * when BOTH layers are disposed.
    */
   disposeVisualization(): void {
     if (this.visualization) {
@@ -1365,8 +1530,27 @@ export class GlobalRouteGrid {
       this.visualizationMaterial.dispose();
       this.visualizationMaterial = null;
     }
-    this.cellStateAttribute = null;
-    this.cellIndexMap.clear();
+    if (!this.airVisualization) {
+      // No more consumers of the shared state buffer → safe to drop.
+      this.cellStateAttribute = null;
+      this.cellIndexMap.clear();
+    }
+  }
+
+  /** Dispose air-layer aggregate viz (mirror of disposeVisualization). */
+  disposeAirVisualization(): void {
+    if (this.airVisualization) {
+      this.airVisualization.geometry.dispose();
+      this.airVisualization = null;
+    }
+    if (this.airVisualizationMaterial) {
+      this.airVisualizationMaterial.dispose();
+      this.airVisualizationMaterial = null;
+    }
+    if (!this.visualization) {
+      this.cellStateAttribute = null;
+      this.cellIndexMap.clear();
+    }
   }
 
   // ========================================
@@ -1402,6 +1586,7 @@ export class GlobalRouteGrid {
     this.cells.clear();
     this.enemyCellKeys.clear();
     this.disposeVisualization();
+    this.disposeAirVisualization();
   }
 
   /**
