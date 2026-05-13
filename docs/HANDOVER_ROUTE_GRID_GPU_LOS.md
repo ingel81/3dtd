@@ -2117,24 +2117,114 @@ Abhängig von der gewählten Option:
 alle anderen Call-Sites über diesen Helper laufen — dann ist die
 Option-Wahl auf eine Datei reduziert.
 
-## Empfehlung für die nächste Session: Schritt-für-Schritt
+## Reihenfolge: Ground-zuerst, dann Air (PFLICHT bei Option 1)
 
-1. **Höhen-Entscheidung mit User klären** (AskUserQuestion mit Option A/B/C)
-2. **`getAirTargetY` Helper** als einziges Source-of-Truth einführen — alle
-   Inline-Formeln (`cell.skylineHeight + AIR_CLEARANCE_M`,
-   `cell.terrainHeight + airSampleYOffset`) durch Call ersetzen
-3. **Combat-LOS-Raycast** (`registerTower` + `registerTowerIncremental`)
-   auf `getAirTargetY` umstellen
-4. **Enemy-Flughöhe** (`enemy.manager.ts:404`) auf `getAirTargetY`
-   umstellen — oder Block entfernen wenn neue Höhe direkt aus
-   `geoHeight + heightOffset` kommt
-5. **Visualization** (Plates + Sample) auf `getAirTargetY` umstellen —
-   beide globalen und per-Tower
-6. **Smoke-Test:** Tower platzieren, Global-Aggregate vs Per-Tower-Viz
-   sollten jetzt **identisch** sein. Wenn nicht → echter Cubemap-Bug,
-   dann erst H2/H5 angehen.
-7. **Wenn identisch und Combat funktioniert:** Air-LOS strukturell
-   "wie Ground" → fertig.
+Wenn Option 1 (GPU als Single Source) das Ziel ist — und das ist die
+empfohlene Architektur — dann **muss Ground zuerst migriert werden,
+NICHT Air zuerst**. Das ist nicht Geschmack, das ist mechanisch
+zwingend.
+
+### Warum Ground-zuerst
+
+**1. Verifikations-Baseline.** Ground hat heute eine funktionierende
+CPU-Raycast-Implementation. Wenn der Cube-Resolve-Pass für Ground
+gebaut wird, kann sein Output gegen den CPU-Raycast-Output 1:1
+verglichen werden. Mismatches deuten auf Bugs in der Resolve-Mechanik
+(insbesondere die H5-y-flip-Frage in der Direction-to-Pixel-Math). Das
+ist die einzige Möglichkeit den Resolve zu validieren BEVOR er
+Air-Combat anvertraut wird.
+
+Air hat KEINE Baseline weil Combat (skyline+10) und Viz (terrain+15)
+heute schon andere Sample-Punkte testen. Du kannst nicht sagen "stimmt
+der Resolve mit Combat überein" — beide würden andere Punkte fragen.
+
+**2. Doppelarbeit vermeiden.** Air-zuerst (Option 3 Status-Quo
+Höhen-Disziplin) bedeutet: jetzt 3-4 Files für `getAirTargetY`-Routing
+ändern. Dann später nochmal alle Air-Files anfassen für den
+Cube-Resolve-Pfad. Ground-zuerst touched Air genau **einmal**, in
+finaler Form.
+
+**3. Air ist nach Ground-Migration trivial.** Sobald
+`resolveTowerCellsFromCubemap` für Ground läuft, ist Air ein
+1-Zeilen-Add:
+
+```ts
+if (canTargetAir) {
+  cell.airVisibility.set(towerId,
+    sampleCube(cell.x, getAirTargetY(cell), cell.z));
+}
+```
+
+Air ist dann **per Konstruktion identisch zu Ground**, weil sie
+denselben Code-Pfad nutzen, nur eine andere Sample-Y-Funktion. Die
+gesamte "Air strukturell wie Ground"-Frage löst sich von selbst.
+
+**4. Der Air-Bug blockt KEIN Gameplay.** Air-Combat funktioniert heute
+(skyline+10 CPU-Raycast intern konsistent, Enemy-Flughöhe matched).
+Was kaputt ist, ist die per-Tower-Visualisierung (Cube zeigt
+Phantom-Blocker bei terrain+15 wo niemand sonst sampled). Player können
+weiter Air-Tower bauen, Tower treffen weiter Air-Enemies. Kein Druck
+Air sofort zu fixen — Zeit für die richtige Architektur.
+
+### Konkreter Schritt-für-Schritt-Pfad (Option 1, Ground-zuerst)
+
+**Phase 1 — Resolve-Pass für GROUND (Cube → cell.towerVisibility)**
+
+1. `resolveTowerCellsFromCubemap(towerId, tip, cells, cube, far, canTargetGround, canTargetAir)` in `global-route-grid.ts` implementieren — siehe Code-Sketch in §"Architektur-Frage: GPU als Single Source of Truth". Erstmal NUR Ground-Branch (canTargetAir auch wenn übergeben → in dieser Phase ignorieren oder hart durch CPU-Pfad routen).
+2. `sampleCubeAtPoint(tip, sampleX, sampleY, sampleZ, cube, far, buf)` Helper: Direction-to-(face, s, t)-Math, `readRenderTargetPixels`, Unpack-Depth, Visibility-Test mit Bias 0.5m.
+3. **Achtung H5:** Die Direction-to-Pixel-Formel aus v2 (`py = size - 1 - floor(t*size)`) ist laut H5-Agent-Report möglicherweise falsch (y-flip-Bug für Cube-Face-Reads). VOR Phase 2: Side-by-Side-Vergleich Cube-Resolve-Output vs Cell-Shader-Output für DENSELBEN Punkt. Wenn Mismatch → Formel fixen.
+
+**Phase 2 — Parallel-Verify**
+
+4. In `registerTower`/`registerTowerIncremental` NICHT den CPU-Pfad ersetzen, sondern den Resolve-Pass DANEBEN laufen lassen. Beide Ergebnisse pro Cell vergleichen, Mismatches in Console loggen (z.B. `console.warn('[LOS] resolve disagree at cell X,Z', { cpu, gpu })`).
+5. Spiele eine Wave durch, beobachte Logs. Erwartung: 0 oder vernachlässigbar wenig Mismatches.
+6. **WICHTIG (User-Memory):** Phase 2 ist TEMPORÄR. Wenn Mismatches ≈0: weiter zu Phase 3. NICHT als dauerhaftes Parallel-System stehen lassen.
+
+**Phase 3 — CPU-Raycast-Pfad löschen (Single Source erreicht)**
+
+7. `losRaycaster`-Parameter aus `registerTower` und `registerTowerIncremental` entfernen.
+8. Den ganzen CPU-Raycast-Block in `registerTower:910-936` löschen, durch `resolveTowerCellsFromCubemap`-Call ersetzen.
+9. `LineOfSightRaycaster`-Type-Definition prüfen — bleibt für Fallback-Combat-Raycast in `tower-combat.service.ts:90` (Enemy zwischen Cells, selten). Dort darf CPU-Raycast bleiben — Hot-Path ist eh Map-Lookup, Fallback ist Edge-Case.
+10. `TowerPlacementService.registerTowerOnGrid`: Cube-Render (`shadowMapper.update`) muss VOR `globalRouteGrid.registerTower` aufgerufen werden (Resolve braucht aktuellen Cube). Aktuell macht das die Build-Preview, aber registerTower wird auch beim AI-Director-Build aufgerufen → Cube-Update-Call explizit hier reinziehen.
+
+**Phase 4 — Smoke-Test Ground**
+
+11. Bestehende Wave spielen, Tower bauen, Combat-Verhalten verifizieren: keine Regression in Targeting, Killraten, etc. (Vergleich gegen Recordings / Erinnerung).
+12. Tile-Streaming-Staleness-Test: Tower früh platzieren, dann mehr Tiles streamen lassen, Selection-Viz anschauen — Global-Aggregate-Ground vs Per-Tower-Viz-Ground sollten konsistent sein.
+
+**Phase 5 — Höhen-Entscheidung Air**
+
+13. AskUserQuestion mit Option A/B/C (Skyline-adaptiv, feste Höhe, Max-of-both) — siehe §"Option A/B/C".
+14. `getAirTargetY` Helper entsprechend implementieren (heute: feste Höhe — je nach Wahl ändern).
+
+**Phase 6 — Air in Resolve-Pass aufnehmen**
+
+15. Im `resolveTowerCellsFromCubemap`: Air-Branch aktivieren. `cell.airVisibility.set(towerId, sampleCube(cell.x, getAirTargetY(cell), cell.z))`.
+16. `enemy.manager.ts:391-411` Skyline-Block: durch `getAirTargetY` ersetzen (statt direkt `cell.skylineHeight + AIR_CLEARANCE_M`). Damit fliegt Enemy bei selber Y wie der Resolve und die Viz.
+17. `tower-los-layer-builder.ts:230` airSampleYArr: über `getAirTargetY` befüllen.
+18. `global-route-grid.ts:initializePositions` (Air-Layer): airMesh-Y über `getAirTargetY` setzen.
+19. `route-altitude-tubes.ts`: nutzt schon `getAirTargetY` → von selbst korrekt.
+
+**Phase 7 — Smoke-Test Air**
+
+20. Air-Tower bauen, Per-Tower-Viz und Global-Aggregate-Air-Cells anschauen: müssen **bit-identisch** sein (gleiche Coverage-Cells).
+21. Wenn identisch UND Air-Combat funktioniert: **Air-LOS ist strukturell identisch zu Ground**. Ziel erreicht.
+22. Wenn Mismatch oder Combat-Bugs: H2/H5 anhand der jetzt vereinheitlichten Pipeline neu prüfen — die Phantom-Blocker-Hypothesen werden ERST JETZT verifizierbar (vorher waren sie maskiert durch die Pipeline-Divergenz).
+
+### Wenn doch Option 3 (status quo + Höhen-Disziplin) gewählt wird
+
+Falls Bandbreite knapp ist und Option 1 verschoben wird, dann der
+kürzere Pfad (NUR Air, KEIN Ground-Refactor):
+
+1. Höhen-Entscheidung mit User klären (Option A/B/C)
+2. `getAirTargetY` Helper als einziges Source-of-Truth — alle Inline-Formeln durch Call ersetzen
+3. Combat-LOS-Raycast (`registerTower` + Incremental) auf `getAirTargetY` umstellen
+4. Enemy-Flughöhe (`enemy.manager.ts:404`) auf `getAirTargetY` umstellen
+5. Visualization (Plates + Sample) auf `getAirTargetY` umstellen — beide globalen und per-Tower
+6. Smoke-Test: Tower platzieren, Global-Aggregate vs Per-Tower-Viz sollten identisch sein. Wenn nicht → Cubemap-Bug (jetzt verifizierbar), H2/H5 angehen.
+7. Wenn identisch und Combat funktioniert: Air-LOS strukturell "wie Ground" auf Höhen-Ebene, aber Doppel-Pipeline bleibt → harte TODO im Code + neuer Handover-Eintrag dass Option 1 noch aussteht.
+
+→ Option 3 ist Bandaide. Sauberer ist Option 1 — siehe oben.
 
 ## Was wir mit der Air-Research-Infrastruktur erreicht haben
 
