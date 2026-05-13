@@ -199,25 +199,34 @@ void main() {
 /**
  * Build the per-cell fragment shader for the global aggregate viz.
  *
- * Per-Layer-Interpretation der `aCellState`-Codes (0..5) damit jede
- * Layer-Mesh nur das zeigt was für sie relevant ist — KEINE Farbe wird
- * zwischen Layern oder zwischen aggregate/per-tower wiederverwendet:
+ * Strikt 2-State pro Layer: jede Aggregate-Mesh zeigt NUR ihre Layer-
+ * Coverage (Layer-Primärfarbe) oder uncovered (grau). Gold gibt es im
+ * Aggregat NICHT — Gold ist Per-Tower-Both-Filter-only.
  *
- *   Ground-Layer (gridLayer):
- *     state 0 (neither)       → grey  (uncovered)
- *     state 1 (groundOnly)    → green (ground-coverage by some tower)
- *     state 2 (airOnly)       → grey  (no ground-coverage on this layer)
- *     state 3 (both)          → gold  (both ground+air covered)
- *     state 4 (enemyInCell)   → grey  (enemy info handled by per-tower viz)
- *     state 5 (enemyVisible)  → gold  (enemy targeted)
+ * Wenn beide Aggregate gleichzeitig sichtbar sind, sieht der Spieler
+ * "both ground+air" implizit durch das visuelle Stapeln zweier
+ * Schichten (grün am Boden + blau auf +15m für dieselbe Cell).
  *
- *   Air-Layer (airLayer):
+ * Zukünftige Merged-View (gold in Aggregat) kann als dritte Variante
+ * dieses Shaders gebaut werden — der State-Buffer enthält state 3
+ * (both) weiterhin, nur die Interpretation hier collapsed ihn auf die
+ * Layer-Primärfarbe.
+ *
+ *   Ground-Layer (gridLayer) — 2-State:
  *     state 0 (neither)       → grey
- *     state 1 (groundOnly)    → grey  (no air-coverage from this layer's perspective)
- *     state 2 (airOnly)       → blue  (air-coverage by some tower)
- *     state 3 (both)          → gold
+ *     state 1 (groundOnly)    → green (ground covered)
+ *     state 2 (airOnly)       → grey  (ground NICHT covered)
+ *     state 3 (both)          → green (ground IS covered, ignore air info)
  *     state 4 (enemyInCell)   → grey
- *     state 5 (enemyVisible)  → gold
+ *     state 5 (enemyVisible)  → green (covered → use layer color)
+ *
+ *   Air-Layer (airLayer) — 2-State:
+ *     state 0 → grey
+ *     state 1 → grey  (air NICHT covered)
+ *     state 2 → blue  (air covered)
+ *     state 3 → blue  (air IS covered, ignore ground info)
+ *     state 4 → grey
+ *     state 5 → blue
  */
 function buildLosCellFragment(opts: { airLayer: boolean }): string {
   const s = LOS_VIZ_CONFIG.states;
@@ -225,18 +234,20 @@ function buildLosCellFragment(opts: { airLayer: boolean }): string {
   const c = (col: { color: { r: number; g: number; b: number } }) =>
     `vec3(${col.color.r.toFixed(4)}, ${col.color.g.toFixed(4)}, ${col.color.b.toFixed(4)})`;
 
-  // Per-Layer-Interpretation: was zeigt das gridLayer-Mesh für State X,
-  // was zeigt das airLayer-Mesh für State X.
-  // Beide nutzen DIESELBE Palette aus `LOS_VIZ_CONFIG.states` /
-  // `globalStates` — keine neuen Farben, nur Re-Routing welcher State
-  // welche Palette-Farbe bekommt.
   const grey = `color = ${c(g.uncovered)}; alpha = ${g.uncovered.alpha.toFixed(3)};`;
-  const green = `color = ${c(s.groundOnly)}; alpha = ${s.groundOnly.alpha.toFixed(3)};`;
-  const blue = `color = ${c(s.airOnly)}; alpha = ${s.airOnly.alpha.toFixed(3)};`;
-  const gold = `color = ${c(s.both)}; alpha = ${s.both.alpha.toFixed(3)};`;
+  // Layer-Primärfarbe (green für Ground-Layer, blue für Air-Layer):
+  const primary = opts.airLayer
+    ? `color = ${c(s.airOnly)}; alpha = ${s.airOnly.alpha.toFixed(3)};`
+    : `color = ${c(s.groundOnly)}; alpha = ${s.groundOnly.alpha.toFixed(3)};`;
 
-  const groundLayerOnly = opts.airLayer ? grey : green;
-  const airLayerOnly    = opts.airLayer ? blue : grey;
+  // Per-Layer-Coverage-Test: ground-grid zeigt primary für state 1 (groundOnly)
+  // UND state 3 (both); air-grid zeigt primary für state 2 (airOnly) UND state
+  // 3 (both). state 5 (enemyVisible) = covered → primary auf beiden Layern.
+  // Alle anderen States → grey.
+  const groundLayerOnly = opts.airLayer ? grey : primary;
+  const airLayerOnly    = opts.airLayer ? primary : grey;
+  const both            = primary;          // beide Layer covered → ihre primary
+  const enemyVisible    = primary;          // enemy + covered → covered
 
   return /* glsl */ `
 precision highp float;
@@ -263,17 +274,18 @@ void main() {
   else if (vCellState < 2.5) {
     ${airLayerOnly}
   }
-  // 3 → both ground+air
+  // 3 → both ground+air (Aggregate: collapsed auf Layer-Primärfarbe,
+  //                       Gold ausschliesslich Per-Tower-Both-Filter)
   else if (vCellState < 3.5) {
-    ${gold}
+    ${both}
   }
   // 4 → enemyInCell (kein Tower covered → grey auf jeder Layer)
   else if (vCellState < 4.5) {
     ${grey}
   }
-  // 5 → enemyVisible (Enemy + irgendein Tower covered → gold)
+  // 5 → enemyVisible (Enemy + covered → Layer-Primärfarbe)
   else {
-    ${gold}
+    ${enemyVisible}
   }
 
   float pulse = sin(uTime * ${LOS_VIZ_CONFIG.pulseSpeed.toFixed(2)}) *
