@@ -1,19 +1,22 @@
 # Handover: GPU-LOS-Pipeline für das Route-Grid
 
-> **Status:** **TEIL-IMPLEMENTIERT — AIR-LOS BUG UNGELÖST**
+> **Status:** **v3 GROUND PRODUCTION-READY — AIR-LOS BUG WEITER OFFEN**
 >
-> Ground-LOS funktioniert in Praxis sauber (User-bestätigt). Air-LOS produziert
-> weiterhin Phantom-Blocker — **die Sicht ist real frei** (User-bestätigt) aber
-> das Cube meldet trotzdem einen Blocker. Das ist KEIN semantisches Problem mit
-> der Air-Sample-Höhe; es ist ein echter Sampling-/Rendering-Bug im
-> GPU-Cubemap-Pfad der trotz aller Fixes (BatchedMesh-Transform, NearestFilter,
-> NoColorSpace, ClearColor=(0,0,0,0), onBeforeRender-Neutralisierung) bei
-> bestimmten Tower-Konfigurationen reproduzierbar Phantom-Distanzen liefert.
+> v3 (`feat/route-grid-gpu-los-v3`) hat die Phasen 2-7 abgeschlossen.
+> Ground-LOS läuft sauber und smooth bei 144 Hz auch bei aggressivem Drag
+> (User-bestätigt). Build-Preview, Tower-Selection und globales Debug-Grid
+> teilen sich denselben 4-State-Shader + Single-Source-of-Truth-Palette.
+> Performance-Pitfall aus dem ursprünglichen Code (refineCellsInRadius pro
+> Mouse-Move) ist gefixt.
+>
+> Air-LOS-Bug aus v2 ist NICHT angegangen worden — der User hat ihn
+> explizit als eigene Research-Session vertagt. Die airRange-Pipeline ist
+> aktuell ein Platzhalter (airRange == groundRange).
 >
 > **Datum (Original):** 2026-05-12 · **Datum letzter Update:** 2026-05-13
 >
-> **Empfehlung:** Branch verwerfen, von main neu starten, dieses Dokument als
-> Spec, **die "Lessons Learned v2"-Sektion unten als Pflicht-Checkliste**.
+> **Empfehlung:** Auf v3 weiterbauen, NICHT verwerfen. Air-Research mit
+> den 5 Hypothesen im v2-Abschnitt als nächste dedizierte Session.
 
 ## TL;DR
 
@@ -28,9 +31,11 @@ löst die Frame-Drops beim Tower-Placement auf komplexen Karten.
   ersten v1-Handover als Spec. Ground-LOS funktioniert. Air-LOS produziert
   weiterhin Phantom-Blocker (s. Lessons Learned v2). Code im finalen Stand
   durch iterative Debug-Versuche wieder polluted.
-- **v3** (`feat/route-grid-gpu-los-v3`, geplant) — main-basierter Re-Build
-  mit DIESEM Dokument als Spec. Lessons Learned v2 als Pflicht-Checkliste.
-  Air-LOS-Bug gezielt mit den 5 Hypothesen am Ende angehen.
+- **v3** (`feat/route-grid-gpu-los-v3`, **AKTIV**) — main-basierter Re-Build
+  mit DIESEM Dokument als Spec. Phasen 2-7 in einem Commit (`c5d27eb`),
+  Performance-Fix nachgezogen (`b47bff2`). Air-LOS-Bug weiter offen
+  (User-Entscheidung: separate Research-Session). Lessons Learned v3 weiter
+  unten.
 
 ## Worum es geht
 
@@ -308,9 +313,23 @@ Reihenfolge, jede Phase als sauberer Commit, kein Debug-Code in
 Production-Path. Gotchas-Checkliste v2 (alle 10 Lessons) MUSS vor jedem
 Commit abgehakt sein.
 
+> **v3-Stand 2026-05-13:** Phasen 2-7 sind **in einem konsolidierten
+> Commit** (`c5d27eb feat(los): GPU-cubemap-driven LOS pipeline …`)
+> umgesetzt — die User-Direktive "keine zwei Systeme parallel" hat das
+> Aufteilen in viele Commits ad absurdum geführt, weil zwischen Phase 5
+> und Phase 7 sonst der Legacy-CPU-Pfad neben dem GPU-Pfad gestanden
+> hätte. Performance-Optimierung als `b47bff2 perf(los): skip stable-cell
+> re-sampling on preview drag` nachgezogen. Phasen 8 (Debug-Overlay) und
+> 9 (Optik-Polish) sind vom User explizit zurückgestellt — die Debug-
+> Aggregat-Viz nutzt jetzt die gleiche Palette (s. Lessons v3) und
+> Volumen-3D / Holo-Effekte sind nicht gewünscht (Optik bewusst subtil).
+>
+> Die Phasen-Beschreibungen unten bleiben als Referenz wie der Code
+> aufgebaut wurde — nicht als To-do.
+
 **Phase 1: ~~Skyline-Cache~~** — abgelöst, entfällt für v3.
 
-**Phase 2: TowerShadowMapper** (clean):
+**Phase 2: TowerShadowMapper** (clean) ✅ **DONE in v3**:
 - Eigene Klasse in `src/app/three-engine/tower-shadow-mapper.ts`
 - API: `update(towerTip, range, opts?: { includeOnly?: Object3D })`
 - Render-Gate >0.5 m Bewegung, Invalidation-Token für Tile-Streaming
@@ -324,7 +343,7 @@ Commit abgehakt sein.
   console.logs
 - Instantiiert in `ThreeTilesEngine`, exposed via `getTowerShadowMapper()`
 
-**Phase 3: TowerLosLayerBuilder** + Cell-Shader:
+**Phase 3: TowerLosLayerBuilder** + Cell-Shader ✅ **DONE in v3** (Real-Blocker-Dot entfernt, s. Lessons v3):
 - Eigene Klasse in `src/app/utils/tower-los-layer-builder.ts` (NICHT in
   `global-route-grid.ts` — das Routegrid ist Daten-Modell, nicht Renderer)
 - `build({cells, towerX, towerZ, range, airRange, gridCellSize,
@@ -338,26 +357,26 @@ Commit abgehakt sein.
 - Sample-Logik: zwei `sampleVisible()` Calls (ground + air), beide Sample-Punkte
   haben gleiche XZ (cell.center), nur unterschiedliche Y
 
-**Phase 4: TowerLosViz-Composite**:
+**Phase 4: TowerLosViz-Composite** ✅ **DONE in v3**:
 - Wrapper-Klasse `src/app/utils/tower-los-viz.ts`
 - Konstruktor: `shadowMapper.update()` + `LayerBuilder.build()` → Group
 - `tick(t)`: refresh uTowerTip / uFarDistance / uTime uniforms each frame
 - `dispose()`: free layer + remove group from parent
 - Wird von Preview, Selection genutzt
 
-**Phase 5: TowerPlacementService auf neue Pipeline**:
+**Phase 5: TowerPlacementService auf neue Pipeline** ✅ **DONE in v3**:
 - `createLosPreview` erzeugt TowerLosViz statt direkt Mesh
 - Kein 150 ms Debounce mehr (Cubemap-Update ist instant)
 - Kein DevWorld-Fallback (DevWorld nutzt auch den Mapper)
 - Komplette Entfernung der alten `createPlacementPreview`-Methode
 
-**Phase 6: Per-Tower-Viz auf GPU**:
+**Phase 6: Per-Tower-Viz auf GPU** ✅ **DONE in v3** (Cubemap pro Selection neu, kein Caching):
 - `TowerManager.selectTower` → erzeugt TowerLosViz mit Tower-Position
 - Cubemap entweder pro Tower cached oder pro Selection neu — Entscheidung nach
   Memory-Test bei N Tower
 - Alte `createTowerVisualization`-Methode entfernen
 
-**Phase 7: registerTower auf GPU** (Tower-Build-Resolve):
+**Phase 7: registerTower auf GPU** (Tower-Build-Resolve) ✅ **DONE in v3** (Variant A umgesetzt):
 - Beim Tower-Build: 1 Cubemap-Render
 - Resolve-Pass: für jede Cell in Range den GPU-Visibility-Test reproduzieren
   und Ergebnis in `cell.towerVisibility` / `cell.airVisibility` schreiben
@@ -373,15 +392,16 @@ Commit abgehakt sein.
   **Empfehlung:** A zuerst (saubere Abkehr vom Per-Frame-Batch ohne neue
   Komplexität), B nur wenn A messbar zu langsam ist.
 
-**Phase 8: Debug-Overlay**:
-- Entweder kompletter Re-Build auf GPU (Aggregat aller Tower-Cubemaps)
-- Oder Debug-Overlay komplett rausnehmen (wird vermutlich selten gebraucht
-  wenn alle anderen Wege funktionieren)
-- Entscheidung nach Test der Phasen 5-7
+**Phase 8: Debug-Overlay** — in v3 anders gelöst: bestehender globaler
+LOS_CELL-Shader bleibt erhalten, aber die Farben werden zur Compile-Zeit
+aus `LOS_VIZ_CONFIG.states` + `LOS_VIZ_CONFIG.globalStates` interpoliert
+(siehe Lessons v3 §1). Single Source of Truth für Palette zwischen
+per-Tower-Viz und Aggregat-Viz. Kein GPU-Aggregat über alle Tower-
+Cubemaps nötig.
 
-**Phase 9 (Optional): Optik-Polish**:
-- Volumen-3D, Holo-Shader, Activation-Wave aus altem Branch portieren.
-- **Erst wenn alles andere stabil läuft.**
+**Phase 9 (Optional): Optik-Polish** — vom User explizit zurückgestellt:
+"Subtil bleiben". Volumen-3D, Holo-Shader, Activation-Wave nicht
+portiert.
 
 ## Konkrete Gotchas-Checkliste v1 (für Phasen 2-9)
 
@@ -815,3 +835,340 @@ auf der Distance-Material-Seite:
 
 **Air-LOS-Korrektheit:** offen — Option 1/2/3 oben mit dem User klären
 BEVOR die Air-Pipeline implementiert wird.
+
+---
+
+# Lessons Learned v3 (Implementation, 2026-05-13)
+
+Diese Sektion dokumentiert was beim dritten Versuch (`feat/route-grid-gpu-los-v3`)
+gelernt wurde. Phase 2-7 sind in einem konsolidierten Commit (`c5d27eb`)
+umgesetzt; Performance-Optimierung in einem Follow-up-Commit (`b47bff2`).
+Ground-LOS läuft sauber bei 144 Hz auch unter aggressivem Drag. Air-LOS-Bug
+aus v2 wurde explizit auf eine eigene Research-Session vertagt (User-Direktive).
+
+## v3-Stand bei Session-Ende
+
+**Was funktioniert:**
+- Build-Preview mit instantem Cell-Set-Refresh ohne Debounce, smooth bei 144 FPS.
+- Tower-Selection-Viz mit derselben Pipeline, automatisch bei Selection-Wechsel
+  neu gebaut, beim Deselect / Sell disposed.
+- Globales Debug-Cell-Grid mit derselben Farbpalette und 4-State-Logik
+  (`groundOnly / airOnly / both / uncovered`) plus Enemy-Overlay-States
+  (`enemyInCell / enemyVisible`).
+- Color-Legende am Bildschirmrand während Build-Preview UND Tower-Selection,
+  best-to-worst-Reihenfolge, Capability-gated (nur relevante States werden
+  angezeigt).
+- Per-Frame-CPU-Budget unter Heavy Drag: ~50 ms/s (≈ 5% eines Cores).
+
+**Was offen ist:**
+- Air-LOS-Phantom-Blocker-Bug aus v2 ist NICHT angegangen. Cells in der
+  Cubemap des Towers können bei Air-Sample-Punkten weiterhin falsche
+  Distanzen liefern. Mit AA-Retrofit-Research aktiv → Mixed Tower
+  (Dual-Gatling, Archer) zeigen Cells unzuverlässig im "Air" / "Both"-State.
+- `airRangeMultiplier` ist NICHT in `TowerConfig`. Aktueller Workaround:
+  `airRange = groundRange` als Platzhalter. Sobald Air-Pipeline produktionsreif
+  ist, Multiplier-Feld einführen (1.5× für Pure-Air-Tower, 1.2× für Mixed).
+- Real-Blocker-Dot (schwarzer Punkt im Cell-Zentrum) ist im Shader auskommentiert,
+  nicht ganz entfernt — User hat angedeutet, das später vielleicht wieder
+  einzuführen für ausgewählte States nach Air-Fix.
+- Cubemap-First-Call hat Shader-Compile-Spike von ~14 ms. Pre-Warm bei
+  Engine-Init mit Dummy-Tip wäre möglich, aber unnötig (einmalig, beim ersten
+  Build-Mode-Eintritt).
+
+## Hart erkaufte Erkenntnisse
+
+### 1. Single Source of Truth für die Cell-Palette
+
+Der User hat explizit gefordert dass Build-Preview, Selection-Viz UND globales
+Debug-Grid **dieselbe** Farbpalette verwenden. Implementation:
+
+- `src/app/configs/los-viz.config.ts` ist die einzige Quelle für alle Farben
+  und Alphas. Drei Gruppen:
+  - `states` — 4 per-Tower-States (`both`, `groundOnly`, `airOnly`, `neither`)
+  - `globalStates` — globale Aggregat-States (`uncovered`, `enemyInCell`,
+    `enemyVisible`)
+- Per-Tower-Shader (`tower-los-layer-builder.ts`) liest die Farben als
+  Uniforms (`uColorBoth`, `uAlphaBoth`, …).
+- Globaler Debug-Shader (`global-route-grid.ts`) baut sein Fragment-Shader-
+  String zur **Compile-Zeit** aus den gleichen Config-Werten — Template-Literal-
+  Interpolation in `buildLosCellFragment()`. Vermeidet Uniform-Overhead für
+  Aggregat-Mesh ohne die Single-Source-of-Truth-Garantie zu brechen.
+
+**Wichtige Semantik-Unterscheidung:** Per-Tower-State `neither` (rot, alpha
+0.25) heißt "Tower hat diese Cell in Range aber kann sie nicht erreichen
+(durch Geometrie blockiert)". Globaler Aggregat-State `uncovered` (grau,
+alpha 0.15) heißt "kein einziger Tower hat diese Cell überhaupt in Range".
+Das sind verschiedene Konzepte — daher **bewusst** unterschiedliche Farben,
+auch wenn die Pipeline gemeinsam ist. **Niemals beide vermischen.**
+
+### 2. Real-Blocker-Dot wegen Air-Bug deaktiviert
+
+Erster Wurf des Cell-Shaders hatte einen schwarzen Punkt im Cell-Zentrum für
+"durch Geometrie blockiert" (vs "außerhalb der Reichweite verblasst"). Logik:
+wenn `groundBlocker < uFarDistance * 0.99` oder `airBlocker < 0.99 * far` →
+Dot. Funktionell korrekt für Ground.
+
+**Problem:** mit dem ungelösten v2-Phantom-Air-Blocker-Bug feuert der Dot auf
+jeden Air-Capable Tower IMMER, weil die Air-Sample-Cubemap-Distanz fast immer
+unter 99% liegt. Resultat: Cells haben überall einen Dot, der nichts mehr
+unterscheidet.
+
+**Fix:** Dot aus dem Shader entfernt + zugehörige Uniforms (`uBlockerDot*`,
+`uRealBlockerThreshold`, `uCellHalfWidth`) raus + Legenden-Footer raus + die
+Config-Felder gelöscht. Code in den Commit-History (`c5d27eb` → Folge-Edit)
+zurückverfolgbar wenn er für die Re-Aktivierung gebraucht wird.
+
+**Was es heißen würde wenn es wieder rein soll:** Per-State-Gating —
+Dot nur für **ground-only** oder **neither**, nicht für Air-States. Solange
+Air-Bug offen ist, ist das die einzige sinnvolle Variante. **Erst nach
+Air-Research-Session** entscheiden.
+
+### 3. Performance: `refineCellsInRadius` ist NICHT cheap
+
+Der Kommentar im Code behauptete "cheap relative to a full grid sweep — only
+cells inside the radius are touched". Das stimmt im Vergleich zur globalen
+Sweep, aber pro Mouse-Move ist es trotzdem teuer:
+
+```
+~500 cells in range × sampleCellY() × ~7 µs raycast = ~60 ms pro Call
+× 17 Mouse-Events/s während Drag = ~1000 ms/s CPU
+```
+
+**Pitfall in `sampleCellY`:** die Funktion macht den teuren Raycast FIRST
+(Zeile 361-368) und checkt DANN auf LOD-Versionierung / Same-Y-Idempotenz.
+Stable Cells mit identischem LOD zahlen also den vollen Raycast und kriegen
+ihre Schreib-Operation verworfen. Die Idempotenz ist auf Daten-Konsistenz
+ausgelegt, NICHT auf Performance.
+
+**Fix:** Neue Methode `promoteUnsampledCellsInRadius` in `GlobalRouteGrid` —
+skippt explizit `cell.heightSampled === true`. Stable Cells = O(1) no-op,
+nur unsampled Cells zahlen den Raycast. Für die Build-Preview reicht das, weil
+Cell-Y sich nicht durch Cursor-Bewegung ändert, sondern nur durch
+Tile-Streaming (was über `onTilesLoadEnd` und `setCellsPromotedListener`
+ohnehin separat gehandelt wird).
+
+**Lehre für künftige Refactorings:** Wenn ein Hot-Path eine Funktion mit
+"cheap" / "idempotent"-Kommentar aufruft, trotzdem profilen. Idempotenz
+heißt nicht "schnell", sondern nur "darf mehrfach laufen ohne Schaden".
+
+### 4. DevWorld-Blocker-Group muss ein direkter Scene-Child sein
+
+Der `TowerShadowMapper` versteckt für jeden Cube-Render alle Scene-Children
+außer dem `includeOnly`-Argument (Lesson 8). Wenn `includeOnly` ein **nested**
+Child ist (z.B. `terrainGroup` innerhalb von `devWorldGroup`), dann wird
+sein Parent (`devWorldGroup`) versteckt → der nested Child verschwindet
+mit. → Cube rendert in eine leere Szene.
+
+**Fix:** In DevWorld-Mode gibt `engine.getLosBlockerGroup()` den `devWorldGroup`
+zurück (direkter Scene-Child), nicht den nested `terrainGroup` aus dem
+`DevTerrainProvider`. Im Normal-Mode bleibt `tilesRenderer.group` korrekt
+(ist direkter Scene-Child).
+
+### 5. `canTargetGround` defaultet auf `true` — `?? true` nicht `?? false`
+
+In `TowerConfig` ist `canTargetGround?: boolean` optional mit semantischem
+Default `true` (siehe Archer-Config: nur `canTargetAir: true` gesetzt, kein
+`canTargetGround`-Eintrag — Archer kann trotzdem Ground treffen).
+
+**Pitfall:** Die LOS-Legend-Component hat initial `?? false` benutzt → Archer
+zeigte nur "Air", kein "Ground" in der Legende.
+
+**Fix:** Überall wo `TOWER_TYPES[id].canTargetGround` gelesen wird ohne
+explizite Tower-Instanz: `?? true`. Hartcodierte Konvention im gesamten
+Codebase.
+
+### 6. Build-Preview ↔ Selection-Mutex schon vorhanden
+
+Lesson 9 aus v2: "Build-Preview und Selection-Viz dürfen nicht gleichzeitig
+leben sonst Cubemap-Konflikt." → Keine neue Wiring nötig: `selectTowerType`
+ruft bereits `selectTower(null)` vor Build-Mode-Aktivierung. Der umgekehrte
+Pfad (Tower selektieren während Build-Mode) ist im aktuellen UI-Flow durch
+den Click-Handler ausgeschlossen (Click in Build-Mode = Place, nicht
+Select).
+
+**Bei künftigen UI-Änderungen darauf achten:** wenn ein neuer Click-Pfad
+beide gleichzeitig aktiv haben könnte, explizit eine Mutex einführen.
+
+### 7. Cell-Mesh-Build ist billig genug für Per-Move-Rebuild
+
+500 Cells × InstancedMesh-Allocation + ShaderMaterial-Compile = ~0.1 ms.
+Geprüft via `los-perf.ts`. Mesh-Pooling (Reuse einer Max-Capacity-Mesh mit
+dynamischem Count) wäre Engineering-Overhead ohne messbaren Win. Material-
+Compile passiert einmal per Build-Mode-Eintritt, danach gecacht.
+
+### 8. Cubemap-GPU-Budget bei 512² ist trivial
+
+Ein Cube-Render (6 Faces × ~150 Tiles) braucht ~0.7-1.0 ms GPU-Zeit. 50
+Renders/s während Heavy Drag = 50 ms/s = ~5% Frame-Budget bei 144 Hz. Wir
+brauchen weder 256² noch async-face-rendering noch Layer-Filter. Die
+Material-Swap-Traversierung über 150 Meshes kostet ~0.08 ms pro Render —
+nicht messbar.
+
+**Falls in einer komplexeren Szene (deutlich >300 Tiles) doch zu langsam:**
+Layer-System ist die saubere Lösung (Tiles auf Layer X, Cube-Camera rendert
+nur Layer X). Erspart die material-swap-Choreographie komplett. Aktuell
+nicht nötig.
+
+### 9. Cubemap-First-Call hat einen ~14 ms Compile-Spike
+
+Erstes `cubeCamera.update()` triggert Shader-Compile des Distance-Materials
+plus die Tile-Shader-Compile mit dem neuen Material-Override. Danach
+~1 ms/Call. Einmaliger Effekt beim ersten Build-Mode-Eintritt oder ersten
+Tower-Select. **Mitigation möglich:** Pre-Warm in `EngineInit` durch einen
+Dummy-`mapper.update(origin, 1, tilesGroup)`-Call sobald Tiles initial
+geladen sind. **Aktuell nicht umgesetzt** — User hat keine Beschwerde
+darüber geäußert, der Spike ist visuell kaum wahrnehmbar (einmaliger
+17-ms-Frame statt 7-ms-Frame).
+
+### 10. Profiler-Infrastructure als permanentes Werkzeug
+
+`src/app/utils/los-perf.ts` ist ein leichtgewichtiger Phase-Profiler:
+
+```typescript
+import { losPerf } from './los-perf';
+losPerf.sample('mesh/build', performance.now() - t0, cells.length);
+```
+
+Aggregiert über ein 1-Sekunden-Fenster, loggt sortiert nach dominantester
+Phase in die Console. Default **off** (Overhead = 1 Boolean-Vergleich pro
+Call). DevTools-Toggle:
+
+```javascript
+losPerfEnable()   // aktivieren
+losPerfDisable()  // deaktivieren
+```
+
+Instrumentierte Phasen: `cube/total`, `cube/render`, `cube/traverse`,
+`cube/restore`, `mesh/build`, `preview/promote`, `preview/getCells`,
+`preview/tip-only`. Stehen lassen für künftige Performance-Untersuchungen,
+nicht entfernen.
+
+## Architektur-Update v3
+
+```
+Scene
+├── tilesRenderer.group       (oder devWorldGroup im DevWorld-Mode)
+│     └── { Tile-Meshes, BatchedMesh }
+│
+├── overlayGroup              (Streets, Routes, Markers)
+│
+├── TowerLosViz.group         (Build-Preview ODER Selection — exclusive)
+│     └── InstancedMesh       (4-State 4-color cells)
+│            ↑ samples uCubeMap (shared via TowerShadowMapper)
+│
+└── globalRouteGrid.visualization  (Debug-Aggregat, eigene Palette)
+       └── InstancedMesh      (6-State: 4 LOS + 2 enemy)
+
+TowerShadowMapper             (singleton in ThreeTilesEngine)
+├── WebGLCubeRenderTarget     (512² × 6 faces, NearestFilter, NoColorSpace)
+├── CubeCamera                (90° FOV per face, far = tower range)
+└── distanceMaterial          (packDepthToRGBA, USE_BATCHING + USE_INSTANCING)
+
+Render-Flow pro update():
+  1. Hide all scene children except `includeOnly`
+  2. Traverse `includeOnly`: swap material → distanceMaterial,
+     swap onBeforeRender → noop, push to backup
+  3. Save ClearColor, set to (0,0,0,0)
+  4. cubeCamera.update(renderer, scene)
+  5. Restore ClearColor, materials, onBeforeRender, visibility
+```
+
+**Owner-Map:**
+| Komponente | Owner | Lebenszeit |
+|---|---|---|
+| TowerShadowMapper | `ThreeTilesEngine` (lazy) | Engine-Lifetime |
+| Build-Preview TowerLosViz | `TowerPlacementService` | aktives Build-Mode |
+| Selection TowerLosViz | `TowerManager` | aktive Tower-Selektion |
+| Debug-Aggregat-Mesh | `GlobalRouteGrid` | wenn Display-Option an |
+| Cell-Visibility-Maps | `RouteCell` (in `GlobalRouteGrid.cells`) | Game-Lifetime |
+
+**Daten-Flüsse bei Tower-Build:**
+1. `gameState.commands.placeTower` → `TowerManager.placeTower` → Tower-Entity
+2. `TowerPlacementService.registerTowerOnGrid(tower, …)`:
+   a. `globalRouteGrid.refineCellsInRadius` (one-shot, OK)
+   b. `globalRouteGrid.registerTower` (synchroner CPU-Raycast-Pass, Variant A)
+      → schreibt `cell.towerVisibility.set(towerId, vis)` und
+        `cell.airVisibility.set(towerId, vis)`
+   c. `tower.losReady = true`, `tower.visibleCells = visibleCells`
+   d. Falls Tower selected: `towerManager.refreshSelectionViz(tower)`
+
+**Daten-Fluss bei Range-Upgrade:**
+1. Tower-combat.range geändert
+2. `TowerPlacementService.recomputeTowerLOS(tower)`:
+   a. `globalRouteGrid.registerTowerIncremental` (raycast nur neue Cells im
+      Annulus, gecachte Cells behalten visibility)
+   b. Falls selected: `towerManager.refreshSelectionViz(tower)`
+
+**Daten-Fluss bei Tile-Streaming:**
+1. `tilesRenderer.tiles-load-end` → `engine.onTilesLoadEnd`
+2. `towerShadowMapper.invalidate()` → nächster cube-render wird forced
+3. (existing) `globalRouteGrid.retryUnsampledCells` promotet ggf. Cells
+4. (existing) `setCellsPromotedListener` → `recomputeTowerLOS` für betroffene
+   Tower
+
+## Welche Phasen-Plan-Beschreibungen oben sind veraltet
+
+Die ursprüngliche Phase-9-Vision (Volumen-3D, Holo-Effekte, Activation-Wave)
+ist gestrichen. User-Wunsch: **subtile** Optik (flache 2cm-Plates, sanfter
+Pulse, ~0.45 Alpha). Falls jemand in Zukunft Holo-Effekte willl: aus v1-Branch
+(`feat/route-grid-gpu-los`) portierbar.
+
+Die ursprüngliche Phase-8 (GPU-Aggregat über alle Tower-Cubemaps) ist nicht
+umgesetzt — der bestehende globale Shader plus Palette-Sync war einfacher
+und ausreichend.
+
+## Was definitiv NICHT mehr in den Branch gehört
+
+- **Real-Blocker-Dot ohne Per-State-Gating** — siehe Lesson v3 §2. Wenn er
+  zurückkommt, dann nur für `groundOnly` / `neither`, nicht für Air-States,
+  bis der Air-Bug gelöst ist.
+- **`refineCellsInRadius` pro Mouse-Move** — siehe Lesson v3 §3. Wer das
+  wieder einbaut, lest den Profile-Output unten.
+- **`losPreviewMesh` / `losPreviewBuilding` / progressive Pfad** — komplett
+  ersetzt durch `TowerLosViz` (single-instance per Owner).
+- **Per-tower-Viz-State im `GlobalRouteGridService`** (`currentTowerVizMesh`,
+  `showTowerViz`, `clearTowerViz`) — gelöscht. Owner ist jetzt
+  `TowerManager.selectionViz`.
+
+## Verwertbarer v3-Code (Stand 2026-05-13)
+
+| Datei | Verantwortung |
+|---|---|
+| `src/app/configs/los-viz.config.ts` | Single source of truth: cube size, threshold, sample offsets, alle Farben + Alphas |
+| `src/app/three-engine/tower-shadow-mapper.ts` | Cube-Render-Engine mit Mesh-Material-Swap + Move-Gate + invalidate() |
+| `src/app/utils/tower-los-layer-builder.ts` | Statische `build()`-Methode → InstancedMesh + 4-State-Shader |
+| `src/app/utils/tower-los-viz.ts` | Composite: Mapper + LayerBuilder, addTo/dispose/tick API |
+| `src/app/utils/global-route-grid.ts` | RouteCell-Daten + Aggregat-Viz + `promoteUnsampledCellsInRadius` + `getCellsInRange` + `getCellSize` |
+| `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper, exposed nur was außen benötigt wird |
+| `src/app/services/tower-placement.service.ts` | Build-Preview-Owner, `registerTowerOnGrid` synchron, `tickBuildPreviewViz` |
+| `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `onTowerUnregistered`, `tickSelectionViz` |
+| `src/app/components/los-legend/los-legend.component.ts` | Capability-gated Legende, best-to-worst, kompakt nur Swatch + Label |
+| `src/app/utils/los-perf.ts` | Phase-Profiler, default off, DevTools-Toggle |
+
+## Wenn ein Neustart (v4) nötig wird
+
+Wenn der Air-LOS-Bug v3 grundlegend zerstört, oder das Layer-System sich
+nachträglich als zwingend erweist:
+
+1. **v3 nicht verwerfen** — die Architektur ist tragfähig. Nur das Air-
+   Sampling muss anders sein.
+2. Air-Hypothesen-Sektion oben (v2 Section §5) systematisch abarbeiten —
+   das ist die Forschungsarbeit für die nächste Session.
+3. `airRangeMultiplier` Feld in `TowerConfig` einführen sobald Air
+   sinnvoll separate Reichweite haben darf.
+4. Falls Real-Blocker-Dot wiederkommt: per Capability gaten (`groundOnly`-
+   Dot okay, `airOnly`-Dot erst wenn Air zuverlässig).
+
+## v3 Gotchas-Checkliste (vor jedem Touch der LOS-Pipeline)
+
+- [ ] Palette ändern? Nur in `LOS_VIZ_CONFIG`, nirgendwo anders.
+- [ ] Cubemap-Sample-Funktion ergänzt/geändert? Auch im globalen Shader
+  (oder über Config-Werte). Single Source of Truth.
+- [ ] Pro Mouse-Move-Pfad einen neuen Call hinzugefügt? Profilen mit
+  `losPerfEnable()` vor Commit, sicherstellen dass Total <50 ms/s bleibt.
+- [ ] Neuen Cell-Visibility-Pfad? Sicherstellen dass die Owner-Map oben
+  konsistent bleibt — niemand außer dem Owner darf `dispose` rufen.
+- [ ] DevWorld-Pfad gleichzeitig getestet? `getLosBlockerGroup()` muss
+  immer einen direkten Scene-Child liefern.
+- [ ] Tile-Streaming-Path beachtet? `mapper.invalidate()` muss bei allen
+  Events feuern die Tile-Geometrie ändern können.
