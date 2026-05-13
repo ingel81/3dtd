@@ -177,6 +177,9 @@ attribute float aCellState;
 varying float vCellState;
 varying vec3 vWorldPosition;
 
+#include <common>
+#include <logdepthbuf_pars_vertex>
+
 void main() {
   vCellState = aCellState;
 
@@ -189,6 +192,7 @@ void main() {
   vec4 worldPos = modelMatrix * localPos;
   vWorldPosition = worldPos.xyz;
   gl_Position = projectionMatrix * viewMatrix * worldPos;
+  #include <logdepthbuf_vertex>
 }
 `;
 
@@ -236,11 +240,14 @@ function buildLosCellFragment(opts: { airLayer: boolean }): string {
 
   return /* glsl */ `
 precision highp float;
+#include <common>
+#include <logdepthbuf_pars_fragment>
 uniform float uTime;
 varying float vCellState;
 varying vec3 vWorldPosition;
 
 void main() {
+  #include <logdepthbuf_fragment>
   vec3 color;
   float alpha;
 
@@ -1332,8 +1339,15 @@ export class GlobalRouteGrid {
         USE_INSTANCING: '',
       },
       transparent: true,
-      depthTest: false,
+      // Air-Plate auf gleicher Y wie Air-Enemies (terrainHeight + 15m).
+      // depthTest:true + polygonOffset schiebt die Plate hinter den vor-
+      // gerenderten Enemy, sonst paint-over → Enemy unsichtbar. Siehe
+      // Begründung in tower-los-layer-builder.ts.
+      depthTest: true,
       depthWrite: false,
+      polygonOffset: true,
+      polygonOffsetFactor: 1.0,
+      polygonOffsetUnits: 1.0,
       side: DoubleSide,
     });
 

@@ -85,6 +85,9 @@ const VERTEX_SHADER = /* glsl */ `
   varying float vGroundSampleY;
   varying float vAirSampleY;
 
+  #include <common>
+  #include <logdepthbuf_pars_vertex>
+
   void main() {
     vec4 worldPos4 = modelMatrix * instanceMatrix * vec4(position, 1.0);
 
@@ -97,12 +100,15 @@ const VERTEX_SHADER = /* glsl */ `
     vAirSampleY = aAirSampleY;
 
     gl_Position = projectionMatrix * viewMatrix * worldPos4;
+    #include <logdepthbuf_vertex>
   }
 `;
 
 const FRAGMENT_SHADER = /* glsl */ `
   precision highp float;
+  #include <common>
   #include <packing>
+  #include <logdepthbuf_pars_fragment>
 
   uniform samplerCube uCubeMap;
   uniform vec3  uTowerTip;
@@ -136,6 +142,11 @@ const FRAGMENT_SHADER = /* glsl */ `
   varying float vGroundSampleY;
   varying float vAirSampleY;
 
+  // Vorwärts-Deklaration des isVisible/sampleBlockerDistance erfolgt
+  // weiter unten; logdepthbuf_fragment wird im main() VOR jeglicher
+  // Diskardierung eingebunden damit gl_FragDepth korrekt geschrieben
+  // wird.
+
   // Entpacken: gibt Distanz (Meter) zurück. Empty-texel-Safeguard hebt
   // depth < epsilon auf 1.0 (= farDistance) — gegen Clear-Color-Leaks.
   float sampleBlockerDistance(vec3 sampleWorld) {
@@ -155,6 +166,7 @@ const FRAGMENT_SHADER = /* glsl */ `
   }
 
   void main() {
+    #include <logdepthbuf_fragment>
     vec3 groundSampleWorld = vec3(vCellCenterWorld.x, vGroundSampleY, vCellCenterWorld.z);
     vec3 airSampleWorld    = vec3(vCellCenterWorld.x, vAirSampleY,    vCellCenterWorld.z);
 
@@ -261,6 +273,20 @@ export class TowerLosLayerBuilder {
 
     const groundMaterial = buildMaterial(false);
     const airMaterial = buildMaterial(true);
+
+    // Air-Plates sitzen auf exakt der gleichen Y-Höhe wie die Air-
+    // Enemies (beide `terrainHeight + 15m`). Mit `depthTest:false` würde
+    // der transparente Plate beim Render immer ÜBER dem Enemy landen
+    // → Air-Enemy unsichtbar. Lösung: depthTest:true + polygonOffset
+    // schiebt die Plate-Tiefe minimal zurück, sodass die LEQUAL-Tests
+    // gegen den vor-gerenderten Enemy fehlschlagen. Ground-Plates
+    // brauchen das NICHT, weil Ground-Enemies vertikal ausgedehnt sind
+    // — die Plate bedeckt nur die Füße, der Körper ragt sichtbar oben
+    // raus.
+    airMaterial.depthTest = true;
+    airMaterial.polygonOffset = true;
+    airMaterial.polygonOffsetFactor = 1.0;
+    airMaterial.polygonOffsetUnits = 1.0;
 
     // Ground- und Air-Mesh teilen sich KEINE Geometry (jedes Mesh hat
     // sein eigenes Geometry-Objekt damit die instance-attributes
