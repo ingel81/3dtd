@@ -164,6 +164,14 @@
         />
       }
 
+      <!-- LOS Coverage Legend (Build Preview + Tower Selection) -->
+      @if (losLegendVisible()) {
+        <app-los-legend
+          [canTargetGround]="losLegendCanGround()"
+          [canTargetAir]="losLegendCanAir()"
+        />
+      }
+
       <!-- Build Mode Context Hints -->
       @if (buildMode()) {
         <app-context-hint

@@ -64,8 +64,9 @@ export class GameStateManager {
   private audioService!: AudioService;
   screenShakeService!: ScreenShakeService;
   backgroundMusic!: BackgroundMusicService;
+  private readonly researchStore = inject(ResearchStore);
   readonly towerManager = (() => {
-    const mgr = new TowerManager(this.eventBus, this.osmService);
+    const mgr = new TowerManager(this.eventBus, this.osmService, this.researchStore);
     mgr.setGlobalRouteGrid(this.globalRouteGrid);
     return mgr;
   })();
@@ -73,7 +74,6 @@ export class GameStateManager {
   readonly projectileManager = new ProjectileManager(this.eventBus);
   readonly waveManager = new WaveManager(this.eventBus, this.enemyManager);
   readonly researchManager = new ResearchManager(this.eventBus);
-  private readonly researchStore = inject(ResearchStore);
 
   /**
    * Canonical list of sub-managers that implement IGameManager. Iterated for

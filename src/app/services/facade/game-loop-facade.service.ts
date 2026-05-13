@@ -393,8 +393,6 @@ export class GameLoopFacadeService {
 
     // Per-frame delegation calls
     this.towerPlacement.updateRotation(dtSec);
-    this.towerPlacement.updateTowerRegistration();
-    this.towerPlacement.updatePreviewBuild();
     this.streetRendering.continueStreetRender();
     this.keyboardPan.update(dtSec);
     this.markerViz.animateMarkers(deltaTime);
@@ -428,9 +426,11 @@ export class GameLoopFacadeService {
     }
     grid.updateAnimation(deltaTime);
 
-    // Phase 4 single-source: the per-tower viz mesh is owned by the grid
-    // service. Tick its uTime uniform if a tower's viz is currently shown.
-    grid.updateCurrentTowerVizAnimation();
+    // GPU-LOS-Viz: Build-Preview (TowerPlacementService) und Selection
+    // (TowerManager) ticken pulse-uniform mit gemeinsamer Zeitbasis.
+    const losTimeSec = performance.now() * 0.001;
+    this.towerPlacement.tickBuildPreviewViz(losTimeSec);
+    this.gameState.towerManager.tickSelectionViz(losTimeSec);
 
     // Throttled UI stats (~10Hz)
     const now = performance.now();
