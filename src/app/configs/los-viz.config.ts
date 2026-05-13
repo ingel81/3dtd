@@ -58,17 +58,18 @@ export const LOS_VIZ_CONFIG = {
   emptyDepthEpsilon: 0.001,
 
   /**
-   * 4-State-Palette mit Pulse + Alpha pro State. Same Palette wird auch
-   * vom globalen Debug-Route-Grid genutzt — single source of truth.
-   * - both       — Tower kann Ground UND Air treffen (gold)
-   * - groundOnly — nur Ground (grün)
-   * - airOnly    — nur Air (cyan)
-   * - neither    — beides blockiert (gedämpftes Rot, niedriger Alpha)
+   * Universelle Cell-Palette — single source of truth. Eine Farbe = eine
+   * Bedeutung über ALLE Modi (per-Tower-Viz, globaler Aggregate-Viz,
+   * Legend). Kein Re-Use einer Farbe mit anderer Semantik pro Modus.
+   *  - both       — Ground UND Air covered (gold)
+   *  - groundOnly — nur Ground covered (grün)
+   *  - airOnly    — nur Air covered (blau)
+   *  - neither    — (per-Tower only) in Range aber blockiert (rot)
    */
   states: {
     both:       { color: new Color(0.85, 0.72, 0.25), alpha: 0.55 } as StateAppearance,
     groundOnly: { color: new Color(0.35, 0.70, 0.52), alpha: 0.45 } as StateAppearance,
-    airOnly:    { color: new Color(0.35, 0.65, 0.85), alpha: 0.45 } as StateAppearance,
+    airOnly:    { color: new Color(0.30, 0.55, 0.95), alpha: 0.45 } as StateAppearance,
     neither:    { color: new Color(0.70, 0.35, 0.35), alpha: 0.25 } as StateAppearance,
   },
 
@@ -100,4 +101,38 @@ export const LOS_VIZ_CONFIG = {
   /** Pulse-Frequenz und -Tiefe des Alphas. */
   pulseSpeed: 2.0,
   pulseDepth: 0.05,
+
+  /**
+   * Air-Cells overlay — zweite Plate pro Cell auf
+   * `terrainHeight + airSampleYOffset`. Identische Textur zur Ground-
+   * Plate; unterscheidbar nur durch die Y-Höhe + die Layer-spezifische
+   * Farb-Interpretation (blau = air, grün = ground).
+   */
+  airCells: {
+    /** Alpha-Multiplikator für die Air-Plate. 1.0 = identisch zu Ground. */
+    alphaScale: 1.0,
+  },
+
+  /**
+   * Air-Route-Tube — globaler Debug-Layer der die ENEMY-Routen auf der
+   * Air-Flughöhe (= `terrainHeight + airSampleYOffset`) anzeigt. Toggle
+   * via QuickActions. Bewusst farblich vom 4-State-Palette getrennt
+   * (Magenta) und gestrichelt damit man "Pfad" vs "Wand" sofort sieht.
+   */
+  airRouteTube: {
+    /** Cylinder-Radius (m). */
+    radius: 0.55,
+    /** Sub-Samples zwischen Waypoints — denser = smoother polyline. */
+    samplesPerWaypoint: 4,
+    /** Tube-Farbe. */
+    color: new Color(1.0, 0.0, 0.67),  // magenta/pink
+    /** Streifen-Frequenz entlang der Tube (period per meter). */
+    dashFrequency: 0.6,
+    /** Anteil "an" pro Streifen-Periode (0.5 = symmetrisch). */
+    dashDuty: 0.55,
+    /** Render-Opacity bei "an"-Streifen. */
+    opacityOn: 0.9,
+    /** Render-Opacity bei "aus"-Streifen (>0 für sanfteres Pattern). */
+    opacityOff: 0.05,
+  },
 } as const;

@@ -113,6 +113,26 @@ import { TdIconComponent } from '../icon/icon.component';
                   matTooltipPosition="left">
             <td-icon name="chart" [size]="18"></td-icon>
           </button>
+          <button class="td-layer-btn"
+                  [class.active]="uiStore.airRouteVisible()"
+                  (click)="airRouteToggled.emit()"
+                  matTooltip="Air-route altitude"
+                  matTooltipPosition="left">
+            <td-icon name="wind" [size]="18"></td-icon>
+          </button>
+          <button class="td-layer-btn"
+                  [class.active]="uiStore.airSpatialGridDebugVisible()"
+                  (click)="airSpatialGridDebugToggled.emit()"
+                  matTooltip="Air Route Grid Overlay"
+                  matTooltipPosition="left">
+            <td-icon name="gridAir" [size]="18"></td-icon>
+          </button>
+          <button class="td-layer-btn td-layer-btn-cycle"
+                  (click)="perTowerLosFilterCycled.emit()"
+                  [matTooltip]="perTowerLosFilterTooltip()"
+                  matTooltipPosition="left">
+            <td-icon [name]="perTowerLosFilterIcon()" [size]="18"></td-icon>
+          </button>
         </div>
         <button class="td-quick-btn td-layer-toggle-btn"
                 [class.active]="uiStore.layerMenuExpanded()"
@@ -567,6 +587,19 @@ export class QuickActionsComponent {
   readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
   readonly damageNumbersVisible = this.debugFacade.damageNumbersVisible;
 
+  // Per-tower-LOS filter — icon + tooltip computed from the UIStore signal
+  // so the button reflects the current mode (both / ground / air).
+  readonly perTowerLosFilterIcon = computed<'layers' | 'grid' | 'gridAir'>(() => {
+    const mode = this.uiStore.perTowerLosFilter();
+    return mode === 'both' ? 'layers' : mode === 'ground' ? 'grid' : 'gridAir';
+  });
+  readonly perTowerLosFilterTooltip = computed(() => {
+    const mode = this.uiStore.perTowerLosFilter();
+    const current = mode === 'both' ? 'Both layers' : mode === 'ground' ? 'Ground only' : 'Air only';
+    const next = mode === 'both' ? 'Ground only' : mode === 'ground' ? 'Air only' : 'Both layers';
+    return `Per-tower LOS: ${current} (click → ${next})`;
+  });
+
   // Display settings outputs
   readonly screenShakeToggled = output<boolean>();
   readonly healthBarsToggled = output<boolean>();
@@ -581,6 +614,9 @@ export class QuickActionsComponent {
   readonly cameraFramingDebugToggled = output<void>();
   readonly specialPointsDebugToggled = output<void>();
   readonly spatialGridDebugToggled = output<void>();
+  readonly airSpatialGridDebugToggled = output<void>();
+  readonly airRouteToggled = output<void>();
+  readonly perTowerLosFilterCycled = output<void>();
   readonly playRouteAnimation = output<void>();
   readonly refreshHeights = output<void>();
   readonly killAllEnemies = output<void>();

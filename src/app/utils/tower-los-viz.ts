@@ -67,7 +67,8 @@ export class TowerLosViz {
     });
 
     if (this.layer) {
-      this.group.add(this.layer.mesh);
+      this.group.add(this.layer.groundMesh);
+      this.group.add(this.layer.airMesh);
     }
   }
 
@@ -92,6 +93,16 @@ export class TowerLosViz {
     this.layer?.tick(timeSeconds);
   }
 
+  /**
+   * Layer-Filter: setzt Shader-Filter-Mode + Mesh-Visibility in
+   * Lockstep. Owner (TowerPlacementService / TowerManager) ruft das
+   * auf wenn der `perTowerLosFilter`-Signal sich ändert oder direkt
+   * nach Konstruktion um den persistierten Zustand anzuwenden.
+   */
+  setFilterMode(mode: 'both' | 'ground' | 'air'): void {
+    this.layer?.setFilterMode(mode);
+  }
+
   /** In die Scene einhängen. Caller entscheidet wo (Scene-Root vs Group). */
   addTo(scene: Scene | Object3D): void {
     scene.add(this.group);
@@ -106,7 +117,8 @@ export class TowerLosViz {
     if (this.disposed) return;
     this.disposed = true;
     if (this.layer) {
-      this.group.remove(this.layer.mesh);
+      this.group.remove(this.layer.groundMesh);
+      this.group.remove(this.layer.airMesh);
       this.layer.dispose();
       this.layer = null;
     }

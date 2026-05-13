@@ -1,5 +1,6 @@
-import { Component, computed, input, ChangeDetectionStrategy } from '@angular/core';
+import { Component, computed, inject, input, ChangeDetectionStrategy } from '@angular/core';
 import { LOS_VIZ_CONFIG, StateAppearance } from '../../configs/los-viz.config';
+import { UIStore } from '../../store/ui.store';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 
 interface LegendEntry {
@@ -122,34 +123,47 @@ function swatch(state: StateAppearance): string {
   `],
 })
 export class LosLegendComponent {
+  private readonly uiStore = inject(UIStore);
+
   /** Tower kann Ground-Einheiten treffen. */
   canTargetGround = input(true);
   /** Tower kann Air-Einheiten treffen. */
   canTargetAir = input(false);
 
   /**
-   * Berechnet die anzuzeigenden Einträge in best-to-worst Reihenfolge:
-   *   1. Both (Ground + Air sichtbar) — nur bei Mixed-Towern
-   *   2. Ground only — nur bei Towern mit canTargetGround
-   *   3. Air only — nur bei Towern mit canTargetAir
-   *   4. Blocked — immer
+   * Berechnet die anzuzeigenden Einträge dynamisch je Filter-Mode.
+   * Universelle Palette: gold/grün/blau/rot/grau — gleiche Bedeutung
+   * unabhängig vom Modus, Legend zeigt nur die Swatches die in dem
+   * aktiven Modus überhaupt vorkommen.
+   *
+   * Filter=Both (4-State): Both / Ground / Air / Blocked
+   * Filter=Ground-only:    Ground / Blocked
+   * Filter=Air-only:       Air    / Blocked
+   * Capability-Gating: Pure-Ground-Tower → kein Air-Swatch usw.
    */
   readonly entries = computed<LegendEntry[]>(() => {
     const states = LOS_VIZ_CONFIG.states;
+    const filter = this.uiStore.perTowerLosFilter();
     const g = this.canTargetGround();
     const a = this.canTargetAir();
     const list: LegendEntry[] = [];
 
-    if (g && a) {
-      list.push({ label: 'Ground + Air', swatch: swatch(states.both) });
+    if (filter === 'both') {
+      if (g && a) list.push({ label: 'Ground + Air', swatch: swatch(states.both) });
+      if (g)      list.push({ label: 'Ground',       swatch: swatch(states.groundOnly) });
+      if (a)      list.push({ label: 'Air',          swatch: swatch(states.airOnly) });
+      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
+    } else if (filter === 'ground' && g) {
+      list.push({ label: 'Ground',  swatch: swatch(states.groundOnly) });
+      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
+    } else if (filter === 'air' && a) {
+      list.push({ label: 'Air',     swatch: swatch(states.airOnly) });
+      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
+    } else {
+      // Filter trifft Tower-Capabilities nicht (z.B. Air-only-Filter
+      // bei Pure-Ground-Tower) → nur Blocked, leerer Layer.
+      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
     }
-    if (g) {
-      list.push({ label: 'Ground', swatch: swatch(states.groundOnly) });
-    }
-    if (a) {
-      list.push({ label: 'Air', swatch: swatch(states.airOnly) });
-    }
-    list.push({ label: 'Blocked', swatch: swatch(states.neither) });
 
     return list;
   });

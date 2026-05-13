@@ -1172,3 +1172,174 @@ nachträglich als zwingend erweist:
   immer einen direkten Scene-Child liefern.
 - [ ] Tile-Streaming-Path beachtet? `mapper.invalidate()` muss bei allen
   Events feuern die Tile-Geometrie ändern können.
+
+---
+
+# Air-Research-Session Infrastruktur (2026-05-13)
+
+Vor Beginn der eigentlichen Air-Bug-Hunt wurde die Debug-Infrastruktur
+aufgebaut. Die unten genannten Toggles und Filter bleiben dauerhaft im
+Production-Code als Debug-Helfer. Wenn die Air-LOS-Pipeline produktions-
+reif ist, kommt zusätzlich ein vereinheitlichtes "Combined View"-Display;
+das hier dokumentierte Debug-System bleibt parallel verfügbar.
+
+## Universelle Cell-Palette (Single Source of Truth)
+
+Eine Farbe = eine Bedeutung über ALLE Modi (per-Tower-Viz, globale
+Aggregate, Legend). Definiert in `LOS_VIZ_CONFIG.states` +
+`globalStates`:
+
+| Farbe | Bedeutung |
+|---|---|
+| 🟡 Gold | Ground UND Air covered |
+| 🟢 Grün | Ground covered |
+| 🔵 Blau | Air covered (war v2 cyan — auf Blau umgestellt) |
+| ⬜ Grau | Uncovered (kein Tower covered) |
+| 🔴 Rot | (Per-Tower only) in Range aber blockiert |
+
+**Regel:** Keine Farbe darf in einem anderen Modus eine andere Bedeutung
+haben. Bei neuen Features die Cells einfärben: erst LOS_VIZ_CONFIG prüfen
+ob die Farbe semantisch passt, sonst NEUE Farbe einführen — niemals eine
+bestehende umwidmen.
+
+## Vier Layer-Toggles + ein Filter (Quick-Actions Layer-Menu)
+
+| Icon | UIStore-Signal | Toggle-Methode | Was es zeigt |
+|---|---|---|---|
+| `chart` | `routesVisible` | `pathRoute.toggleRouteLinesVisibility` | Ground-Route — 2px Line2 entlang Polyline |
+| `wind` | `airRouteVisible` | `globalRouteGridService.toggleAirRouteLayer` | Air-Route-Tube (magenta dashed, +15m) |
+| `grid` | `spatialGridDebugVisible` | `globalRouteGridService.toggleSpatialGridDebug` | Ground-Cells aggregate (alle Cells am Boden) |
+| `gridAir` | `airSpatialGridDebugVisible` | `globalRouteGridService.toggleAirSpatialGridDebug` | Air-Cells aggregate (alle Cells +15m) |
+| dynamisch | `perTowerLosFilter` | `uiStore.cyclePerTowerLosFilter` | Per-Tower-Filter Cycle: Both/Ground/Air |
+
+Per-Tower-Filter-Button: Icon ändert sich je State (`layers` / `grid` /
+`gridAir`), Tooltip zeigt aktuellen + nächsten Mode. State persistent.
+
+## Per-Tower-Filter Implementation
+
+`UIStore.perTowerLosFilter: 'both' | 'ground' | 'air'`. Bridge zur
+non-Angular `TowerManager` läuft über `GameLoopFacade` per `effect()`
+das `towerManager.applyLosFilter(mode)` aufruft. Build-Preview-Owner
+(`TowerPlacementService`) hat sein eigenes `effect()` — kein Owner
+abhängig von einem anderen.
+
+`TowerLosViz.setFilterMode(mode)` setzt zwei Dinge in Lockstep:
+1. Shader-Uniform `uFilterMode` (0=both / 1=ground / 2=air) — der
+   Fragment-Shader entscheidet 4-state vs. 2-state-Reduktion
+2. `groundMesh.visible` / `airMesh.visible` — die irrelevante Mesh wird
+   gehidet (spart Draw-Call, fokussiert die 3D-Stack visuell)
+
+**Wichtig:** Initial-Apply nach `new TowerLosViz` ist explizit nötig.
+Der reagierende Effect feuert nur bei Signal-Änderungen, nicht bei
+Viz-Re-Construction. Siehe `tower-placement.service.ts:registerLosPreview`
+und `tower.manager.ts:applyLosFilter`.
+
+## Air-Cells Aggregate Viz (gridAir)
+
+Zweite InstancedMesh in `GlobalRouteGrid.createAirVisualization()`,
+parallel zur `createVisualization()` (Ground-Layer). **Geteiltes
+`aCellState`-Buffer** zwischen beiden Meshes — Single-Source-of-Truth-
+Update, ein `updateVisualization()`-Call refresht beide Layer simultan.
+
+Layer-spezifische Interpretation derselben State-Codes (0..5) im
+Fragment-Shader-Build (`buildLosCellFragment({ airLayer: boolean })`):
+
+```
+                Ground-Layer    Air-Layer
+state 0 (none)  → grau          → grau
+state 1 (g.only)→ grün          → grau   (kein Air-Coverage)
+state 2 (a.only)→ grau          → blau
+state 3 (both)  → gold          → gold
+state 4 (eIC)   → grau          → grau
+state 5 (eVis)  → gold          → gold
+```
+
+Keine neuen Farben — nur Re-Routing pro Layer welcher State welche
+Palette-Farbe bekommt.
+
+## Air-Route-Tube (Quick-Actions Toggle)
+
+`src/app/utils/route-altitude-tubes.ts` — Polyline aus Unit-Cylinder-
+Segmenten entlang der Enemy-Routen auf `getAirTargetY(cell) =
+cell.terrainHeight + airSampleYOffset (15m)`. Terrain-adaptiv: jeder
+Polyline-Sample greift die Cell unter dem Waypoint.
+
+Material: ShaderMaterial mit per-Instance `aSegLength` für längen-
+korrekte Dash-Modulation in World-Meter (nicht UV). Farbe `0xff00aa`
+magenta, `depthTest:false`, `renderOrder=5`.
+
+Bewusst farblich von der Cell-Palette getrennt (Magenta ≠ Blau) damit
+"Route-Mittellinie" vs. "Cell-Coverage" sofort visuell unterscheidbar
+sind.
+
+## getAirTargetY Helper
+
+`src/app/utils/global-route-grid.ts` exportiert
+`getAirTargetY(cell: RouteCell): number`. Single-Source-of-Truth für
+die Air-Sample-Y. Bisherige Inline-Formel
+`cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset` an drei Call-
+Sites ersetzt. Bei Änderungen der Air-Altitude **nur diesen Helper
+ändern** — der Tower-Los-Layer-Builder und die Tube müssen synchron
+bleiben.
+
+## cachedRoutes auf GlobalRouteGrid
+
+`GlobalRouteGrid.cachedRoutes` / `getCachedRoutes()` — die letzte
+Route-Polyline-Liste die `generateFromRoutes()` gesehen hat. Wird vom
+Air-Route-Tube-Builder genutzt. Bei Route-Regeneration triggert die
+Service-Wrapper-Schicht `rebuildAirRouteLayer()` automatisch.
+
+## 5 Hypothesen-Status nach Research-Session
+
+Parallel-Agenten haben die Hypothesen aus dem v2-Handover §5
+(Lines 737-769) durchgeprüft:
+
+| Hyp | Likelihood | Status | Notiz |
+|---|---|---|---|
+| H1 FadeBatchedMesh | 2/10 | **OUT** | `BatchedTilesPlugin` ist gar nicht registriert → kein FadeBatchedMesh-Sibling |
+| H2 LOD-Wechsel literal | 3/10 | OUT | CubeCamera-Loop ist synchron, kein async-Boundary |
+| **H2 TilesFadePlugin Variant** | **8/10** | **STRONG LEAD** | Material-Swap umgeht dither-discard → fadende Tiles rendern voll opak in Cube |
+| H3 WebGL2 textureCube | 2/10 | OUT | Three.js r182 source: `#define textureCube texture` API-identisch |
+| H4 Face/Axis-Convention | 3/10 | OUT | v2-Probe-Formel matched Khronos-Spec exakt für alle 6 Faces |
+| H5 Half-Pixel-Offset isolated | 3/10 | OUT | Isolierte sub-pixel-Edge-Case unwahrscheinlich deterministisch |
+| **H5 y-flip im v2-Probe** | **8/10 für v2-Debug-Output** | Separater Bug | `py = size - 1 - floor(t*size)` ist falsch für CubeFace-Reads — erklärt v2-Probe-Bytes-Inkonsistenz, **NICHT** den eigentlichen Air-Bug |
+
+**Nächste Test-Schritte (priorisiert):**
+
+1. **H2-Fade-Plugin-Disable-Test:** `TilesFadePlugin` temporär unregistern
+   oder per-Frame disablen während `cubeCamera.update()`. Wenn Air-Cells
+   dann konsistent rendern → bewiesen. Einfacher One-Liner-Test im Mapper.
+2. **Tiles-Stable-Wait-Test:** Tower fix lassen, ≥1s warten bis
+   `loadProgress === 1` UND keine pending fades, dann Cube rendern.
+   Bug weg → ebenfalls Fade-related.
+3. **6-Faces-Atlas-Dump (H4 visuell ausschliessen):** `readRenderTargetPixels`
+   für alle 6 Faces in eine 2D-Atlas-Canvas-Texture, als PNG downloaden,
+   visuell prüfen. Code-Sketch aus H4-Agent-Report.
+
+## Verwertbarer Code aus Research-Session (Stand 2026-05-13)
+
+| Datei | Was es macht |
+|---|---|
+| `src/app/utils/route-altitude-tubes.ts` | Air-Route-Tube ShaderMaterial mit dash-modulation, terrain-adaptiv |
+| `src/app/utils/global-route-grid.ts:getAirTargetY` | Single source of truth für Air-Sample-Y |
+| `src/app/utils/global-route-grid.ts:createAirVisualization` | Air-Cells aggregate mit shared state buffer |
+| `src/app/utils/global-route-grid.ts:buildLosCellFragment` | Layer-spezifische State-Interpretation |
+| `src/app/utils/tower-los-layer-builder.ts` | uFilterMode-Uniform + 2-state/4-state Coloring-Logik |
+| `src/app/utils/tower-los-viz.ts:setFilterMode` | Filter-Mode-Setter, Shader + Mesh-Visibility in Lockstep |
+| `src/app/components/los-legend/los-legend.component.ts` | Dynamische Entries je Filter |
+| `src/app/configs/los-viz.config.ts:states.airOnly` | Cyan → Blau (universelle Palette) |
+| `src/app/configs/los-viz.config.ts:airRouteTube` | Magenta-dashed Tube-Config |
+| `src/app/components/icon/icon.component.ts:wind,gridAir` | Neue Icons für Air-Toggles |
+
+## Wenn der Air-Bug gelöst ist
+
+1. **Real-Blocker-Dot** kann per Per-State-Gating wieder rein
+   (groundOnly+blocked und neither bekommen Dot; airOnly+blocked nicht).
+2. **airRangeMultiplier** in `TowerConfig` einführen (1.5× pure-air,
+   1.2× mixed) sobald Air zuverlässig.
+3. **Combined Production-View** dazubauen — die Debug-Layer (4 globale
+   Toggles + per-Tower-Filter) bleiben in der Codebase, aber das
+   Default-UI für Spieler zeigt die unified View.
+4. Stripes/Texturen-Differenzierung zwischen Ground und Air Plates ist
+   **bewusst NICHT** drin (User-Entscheidung): identische Textur, nur
+   die Y-Höhe unterscheidet.

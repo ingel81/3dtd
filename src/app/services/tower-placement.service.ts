@@ -1,4 +1,4 @@
-import { Injectable, inject, signal } from '@angular/core';
+import { Injectable, inject, signal, effect } from '@angular/core';
 import { Object3D, Mesh, Color, MeshStandardMaterial, Vector3 } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { StreetNetwork } from './location/osm-street.service';
@@ -73,6 +73,16 @@ export class TowerPlacementService {
   /** Zuletzt für die Preview-Viz verwendete Tower-XZ — als Move-Schwelle. */
   private buildPreviewLastX = 0;
   private buildPreviewLastZ = 0;
+
+  /**
+   * Reactive sync: jedes Mal wenn der User `perTowerLosFilter` im
+   * UIStore cycled, applien wir den neuen Mode auf die aktive Build-
+   * Preview-Viz. Selection-Viz hat ihr eigenes Pendant in TowerManager.
+   */
+  private readonly losFilterSync = effect(() => {
+    const mode = this.uiStore.perTowerLosFilter();
+    this.buildPreviewViz?.setFilterMode(mode);
+  });
   /** Bewegung in m bevor das Cell-Set neu gebaut wird. */
   private static readonly BUILD_PREVIEW_REBUILD_THRESHOLD_M = 1.0;
 
@@ -529,6 +539,9 @@ export class TowerPlacementService {
       shadowMapper: this.engine.getTowerShadowMapper(),
       blockerGroup,
     });
+    // Apply current per-tower-LOS filter directly — the reactive effect
+    // would only fire on signal changes, not on viz (re)creation.
+    this.buildPreviewViz.setFilterMode(this.uiStore.perTowerLosFilter());
     this.buildPreviewViz.addTo(this.engine.getScene());
     this.buildPreviewLastX = local.x;
     this.buildPreviewLastZ = local.z;

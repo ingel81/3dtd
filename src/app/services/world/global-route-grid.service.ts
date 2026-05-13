@@ -1,10 +1,11 @@
 import { Injectable, inject } from '@angular/core';
 import { GlobalRouteGrid, RouteCell } from '../../utils/global-route-grid';
+import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/route-altitude-tubes';
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
 import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../../three-engine/renderers/three-tower.renderer';
-import { InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
+import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 import { UIStore } from '../../store/ui.store';
 
 /**
@@ -28,6 +29,14 @@ export class GlobalRouteGridService {
 
   // Spatial grid debug visualization mesh (owned by this service)
   private spatialGridVizMesh: InstancedMesh | null = null;
+
+  // Air-cell debug visualization mesh — same cell set as spatialGridVizMesh
+  // but elevated to terrainY + airSampleYOffset with stripe pattern.
+  private airSpatialGridVizMesh: InstancedMesh | null = null;
+
+  // Air-route tube debug overlay (owned by this service)
+  private airRouteTube: Group | null = null;
+  private airRouteTubeScene: Scene | null = null;
 
   constructor() {
     this.grid = new GlobalRouteGrid();
@@ -103,6 +112,10 @@ export class GlobalRouteGridService {
    */
   generateFromRoutes(routes: GeoPosition[][]): void {
     this.grid.generateFromRoutes(routes);
+    // Routes changed → existing tube geometry is stale, rebuild if shown
+    if (this.airRouteTube) {
+      this.rebuildAirRouteLayer();
+    }
   }
 
   /**
@@ -382,6 +395,137 @@ export class GlobalRouteGridService {
   }
 
   // ========================================
+  // AIR-CELL DEBUG (mirror of spatial-grid-debug at air altitude)
+  // ========================================
+
+  /** Toggle the air-cell debug overlay. Persisted via UIStore. */
+  toggleAirSpatialGridDebug(): void {
+    this.uiStore.toggleAirSpatialGridDebug();
+    this.updateAirSpatialGridVisualization();
+  }
+
+  /** Restore from persisted state. Call after grid init. */
+  initAirSpatialGridVisualizationIfEnabled(): void {
+    if (this.uiStore.airSpatialGridDebugVisible()) {
+      this.updateAirSpatialGridVisualization();
+    }
+  }
+
+  /**
+   * Reflect the current UIStore state on the scene — show or hide.
+   * Idempotent; manages create/dispose lifecycle internally.
+   */
+  updateAirSpatialGridVisualization(): void {
+    const visible = this.uiStore.airSpatialGridDebugVisible();
+
+    if (visible) {
+      if (!this.airSpatialGridVizMesh && this.scene && this.initialized) {
+        this.airSpatialGridVizMesh = this.grid.createAirVisualization();
+        this.scene.add(this.airSpatialGridVizMesh);
+      }
+      if (this.airSpatialGridVizMesh) {
+        this.airSpatialGridVizMesh.visible = true;
+      }
+    } else {
+      if (this.airSpatialGridVizMesh) {
+        this.airSpatialGridVizMesh.visible = false;
+      }
+    }
+  }
+
+  /** True if the air-cell-mesh is built and currently visible. */
+  isAirSpatialGridVizVisible(): boolean {
+    return this.uiStore.airSpatialGridDebugVisible() && this.airSpatialGridVizMesh !== null;
+  }
+
+  /** Dispose the air-cell-mesh — invoked on grid clear / dispose. */
+  cleanupAirSpatialGridVisualization(): void {
+    if (this.airSpatialGridVizMesh) {
+      if (this.scene) {
+        this.scene.remove(this.airSpatialGridVizMesh);
+      }
+      this.grid.disposeAirVisualization();
+      this.airSpatialGridVizMesh = null;
+    }
+  }
+
+  // ========================================
+  // AIR-ROUTE TUBE (Quick-Actions toggle)
+  // ========================================
+
+  /** Toggle the air-route tube overlay. Persisted via UIStore. */
+  toggleAirRouteLayer(): void {
+    this.uiStore.toggleAirRoute();
+    this.updateAirRouteLayer();
+  }
+
+  /** Re-instantiate the tube if the persisted state was enabled. */
+  initAirRouteLayerIfEnabled(): void {
+    if (this.uiStore.airRouteVisible()) {
+      this.updateAirRouteLayer();
+    }
+  }
+
+  /**
+   * Reflect the current UIStore state on the scene — show or hide.
+   * Idempotent; calls into the show/hide methods which manage their
+   * own create/dispose lifecycle.
+   */
+  updateAirRouteLayer(): void {
+    if (!this.scene) return;
+    if (this.uiStore.airRouteVisible()) {
+      this.showAirRouteLayer(this.scene);
+    } else {
+      this.hideAirRouteLayer();
+    }
+  }
+
+  /** Build (lazy) and show the tube. Idempotent. */
+  private showAirRouteLayer(scene: Scene): void {
+    if (!this.airRouteTube) {
+      this.airRouteTube = buildRouteAltitudeTubes(this.grid);
+    }
+    if (this.airRouteTubeScene !== scene) {
+      this.airRouteTube.removeFromParent();
+      scene.add(this.airRouteTube);
+      this.airRouteTubeScene = scene;
+    }
+    this.airRouteTube.visible = true;
+  }
+
+  /** Hide without disposing. Idempotent. */
+  private hideAirRouteLayer(): void {
+    if (this.airRouteTube) {
+      this.airRouteTube.visible = false;
+    }
+  }
+
+  /**
+   * Force re-build of the tube — used after a location switch or new
+   * route generation where the polyline geometry has changed.
+   */
+  rebuildAirRouteLayer(): void {
+    if (!this.airRouteTube) return;
+    const wasVisible = this.airRouteTube.visible;
+    const scene = this.airRouteTubeScene;
+    disposeRouteAltitudeTubes(this.airRouteTube);
+    this.airRouteTube = null;
+    this.airRouteTubeScene = null;
+    if (wasVisible && scene) {
+      this.showAirRouteLayer(scene);
+    }
+  }
+
+  /** Disposes the cached tube — invoked on full grid clear. */
+  cleanupAirRouteLayer(): void {
+    if (this.airRouteTube) {
+      disposeRouteAltitudeTubes(this.airRouteTube);
+      this.airRouteTube = null;
+      this.airRouteTubeScene = null;
+    }
+  }
+
+  // ========================================
   // DEFENSE REACH
   // ========================================
 
@@ -482,6 +626,8 @@ export class GlobalRouteGridService {
    */
   clear(): void {
     this.cleanupSpatialGridVisualization();
+    this.cleanupAirSpatialGridVisualization();
+    this.cleanupAirRouteLayer();
     this.grid.clear();
     this.initialized = false;
     this.hideDefenseReachMarker();
@@ -492,6 +638,8 @@ export class GlobalRouteGridService {
    */
   dispose(): void {
     this.cleanupSpatialGridVisualization();
+    this.cleanupAirSpatialGridVisualization();
+    this.cleanupAirRouteLayer();
     this.grid.dispose();
     this.initialized = false;
     if (this.defenseReachMarker) {

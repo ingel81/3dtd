@@ -23,6 +23,7 @@ import { EngineStore } from '../../store/engine.store';
 import { SoundPoolStats } from '../../managers/audio/spatial-audio.manager';
 import { PerformanceProfilerService } from '../debug/performance-profiler.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
+import { UIStore } from '../../store/ui.store';
 
 /**
  * Sub-facade for game loop, wave management, game lifecycle, and tower upgrades.
@@ -54,6 +55,7 @@ export class GameLoopFacadeService {
   private readonly store = inject(TowerDefenseStore);
   private readonly profiler = inject(PerformanceProfilerService);
   private readonly streetRendering = inject(StreetRenderingService);
+  private readonly uiStore = inject(UIStore);
 
   /** Component bridge — set via initialize() */
   private bridge!: FacadeComponentBridge;
@@ -138,6 +140,15 @@ export class GameLoopFacadeService {
           }
         }
       }
+    }, { injector });
+
+    // Effect: Bridge UIStore.perTowerLosFilter → TowerManager selection
+    // viz. TowerManager is framework-agnostic, so we push the change
+    // in from this Angular facade rather than letting the manager
+    // subscribe.
+    effect(() => {
+      const mode = this.uiStore.perTowerLosFilter();
+      this.gameState?.towerManager?.applyLosFilter(mode);
     }, { injector });
 
     // Effect: Apply debug overrides to selected enemy (live update)
@@ -419,9 +430,11 @@ export class GameLoopFacadeService {
     // Performance profiler tick (console log timer)
     this.profiler.tick(deltaTime);
 
-    // Route grid visualization
+    // Route grid visualization — both ground- and air-layer share the
+    // same cell-state buffer, so a single updateVisualization() call
+    // refreshes whichever of the two meshes is currently shown.
     const grid = this.gameState.getGlobalRouteGrid();
-    if (grid.isSpatialGridVizVisible()) {
+    if (grid.isSpatialGridVizVisible() || grid.isAirSpatialGridVizVisible()) {
       grid.updateVisualization();
     }
     grid.updateAnimation(deltaTime);
