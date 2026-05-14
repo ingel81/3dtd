@@ -72,6 +72,7 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
       Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
       Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
 
+
 ## 2.2 Phase 5.16 Playtest + Followups
 
 > **Stand 2026-05-11:** Branch `feature/phase5.5-economy-ai-prep`, geparkt für andere Themen.

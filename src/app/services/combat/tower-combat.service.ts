@@ -128,14 +128,18 @@ export class TowerCombatService {
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
+      // Skip non-projectile towers (beam, melee, chain) — they have their
+      // own update methods. MUST happen before combat.update so the cooldown
+      // is only ticked once per sub-step (by the matching method) — otherwise
+      // each tower gets its cooldown drained N× per sub-step, with N = number
+      // of update*Towers methods, which inflates the effective fire rate.
+      if (tower.typeConfig.attackType && tower.typeConfig.attackType !== 'projectile') continue;
+
       // Advance per-tower fire cooldown in game-time
       tower.combat.update(deltaTime);
 
       // Skip towers with pending LOS computation (progressive registration not yet complete)
       if (!tower.losReady) continue;
-
-      // Skip non-projectile towers (beam, melee) — they have their own update methods
-      if (tower.typeConfig.attackType && tower.typeConfig.attackType !== 'projectile') continue;
 
       // Quick wake check for sleeping towers (every 500ms game-time).
       // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies.
@@ -555,10 +559,13 @@ export class TowerCombatService {
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
+      // Type-filter MUST be before combat.update — see comment in
+      // updateTowerShooting for the cooldown-double-tick bug.
+      if (tower.typeConfig.attackType !== 'melee') continue;
+
       tower.combat.update(deltaTime);
 
       if (!tower.losReady) continue;
-      if (tower.typeConfig.attackType !== 'melee') continue;
 
       // Wake check (game-time, no timescale compensation needed thanks to sub-stepping)
       if (tower.isSleeping) {
@@ -663,10 +670,13 @@ export class TowerCombatService {
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
+      // Type-filter MUST be before combat.update — see comment in
+      // updateTowerShooting for the cooldown-double-tick bug.
+      if (tower.typeConfig.attackType !== 'chain') continue;
+
       tower.combat.update(deltaTime);
 
       if (!tower.losReady) continue;
-      if (tower.typeConfig.attackType !== 'chain') continue;
 
       // Wake check
       if (tower.isSleeping) {
