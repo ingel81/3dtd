@@ -98,6 +98,40 @@
         Nachbar-Cells / Polyline-Höhe machen, krasse Sprünge ablehnen
         statt zu cachen.
 
+- [ ] **Route-Grid-Aggregate hat MAX_VIZ_CELLS=5000 Hard-Cap → letzte Cells fehlen**
+      In `global-route-grid.ts:411` ist `MAX_VIZ_CELLS = 5000`. `createVisualization`
+      und `createAirVisualization` allokieren `InstancedMesh` mit
+      `min(cells.size, MAX_VIZ_CELLS)`. `initializePositions` bricht bei
+      `index >= maxCells` ab. Überzählige Cells werden NICHT gerendert.
+
+      Cells werden in `generateFromRoutes` in Pfad-Reihenfolge eingefügt
+      (Spawn → HQ). Bei Überschreitung kappt das Cap immer das Ende der
+      Strecke. User-Beobachtung 2026-05-14 auf langer Hang-Route: letzte
+      ~10% der Strecke zeigen kein Aggregate-Grid → ~5500 Cells in der
+      Szene insgesamt, davon 5000 sichtbar.
+
+      Nicht LOS-Pipeline-spezifisch — der Cap war seit dem Aggregate-Mesh
+      drin, bisher nur nicht aufgefallen weil Test-Karten kleiner waren.
+
+      **Fix-Optionen:**
+      - **Schnell:** Cap auf 10000 oder 20000 erhöhen. VRAM-Kosten
+        moderat (~2.8 MB bei 20000 × 2 Layer × ~70 Bytes). Maskiert
+        das Symptom auf typischen Karten, bricht bei sehr langen
+        Routen weiter.
+      - **Sauber:** Dynamische Mesh-Reallokation wenn `cells.size`
+        wächst. Trickier weil InstancedMesh capacity ist immutable —
+        bei Überschreitung muss komplett neu instanziiert werden,
+        dispose der alten Geometrie, Material-Re-Bind, State-Buffer-
+        Migration.
+      - **Alternativ:** Bei sehr langen Routen Cell-Größe automatisch
+        gröber wählen (z.B. 4m statt 2m), damit `cells.size` unter
+        Cap bleibt. Auswirkung auf LOS-Auflösung sollte messbar
+        geprüft werden.
+
+      Datei: `src/app/utils/global-route-grid.ts:411` (Konstante),
+      `createVisualization` / `createAirVisualization` / `initializePositions`
+      (Mesh-Allokation und Loop-Cap).
+
 - [ ] **Air-Enemy-Flughöhe divergiert von Air-LOS-Sample-Höhe am Hang**
       Drei Modelle laufen heute parallel, die in flachem Terrain
       übereinstimmen, am Hang aber auseinander gehen:
