@@ -98,6 +98,62 @@
         Nachbar-Cells / Polyline-Höhe machen, krasse Sprünge ablehnen
         statt zu cachen.
 
+- [ ] **Air-Enemy-Flughöhe divergiert von Air-LOS-Sample-Höhe am Hang**
+      Drei Modelle laufen heute parallel, die in flachem Terrain
+      übereinstimmen, am Hang aber auseinander gehen:
+      - **Air-Route-Tube** (Debug-Viz): `getAirTargetY(cell) = cell.terrainHeight
+        + 15m` pro Cell-Mitte
+      - **Air-Enemy-Flughöhe** (was der Spieler sieht): `geoHeight + heightOffset`,
+        wobei `geoHeight` aus der Pfad-Polyline interpoliert wird (folgt dem
+        Pfad, nicht der Cell-Mitte)
+      - **Combat-Sample des Towers**: liest `cell.airVisibility`, das wurde mit
+        `getAirTargetY(cell)` (= Cell-Mitte + 15m) gefüllt
+
+      Folge: Air-Tower an einem Hang zielt auf einen Punkt 15m über der
+      Cell-Mitte am Berg, aber der Enemy fliegt 15m über der Pfad-Höhe im
+      Tal. Projektil-Miss möglich, LOS-Disagreement möglich (Tower sieht
+      Enemy als blockiert weil der Cell-Sample-Punkt im Berg steckt,
+      obwohl der Enemy frei in der Talluft fliegt — oder umgekehrt).
+
+      Visuell sichtbar wenn ein Air-Enemy entlang eines Talpfads fliegt
+      während die Air-Route-Tube oben am Hang zackelt (siehe Screenshot
+      aus 2026-05-14 Session: zwei Bats folgen Pfad in ~10-15m Höhe über
+      Straße, Tube zickzackt 30-40m über ihnen).
+
+      **Vergleich zu Option-B-Wahl in der LOS-Migration**: bei der Wahl
+      ausgegangen davon dass Enemy + Combat-Sample + Viz alle auf
+      `terrain + 15m` liegen würden. Das stimmt für flaches Terrain.
+      Für Hang-Cells war der Fall nicht explizit durchgedacht: die
+      Annahme war "`getAirTargetY` ist Single-Source-of-Truth, alle
+      drei lesen daraus". Aber Enemy liest `getAirTargetY` NICHT — er
+      nutzt seine eigene path-relative `geoHeight`-Berechnung.
+
+      **Fix-Richtungen** (zur Entscheidung in eigener Session):
+      - **Option α: Enemy-Y an Cell-Grid binden.** `enemy.position.height
+        = cell_unter_enemy.terrainHeight + heightOffset` statt path-
+        waypoint-basiert. Enemy zickzackt am Hang sichtbar — möglicherweise
+        unschön, aber Combat-konsistent.
+      - **Option β: Combat-Sample an Pfad binden.** `getAirTargetY` wird
+        bei Tower-Sample mit der nächstgelegenen Pfad-Höhe statt Cell-
+        terrainHeight aufgerufen. Aber: Cells haben keine direkte Pfad-
+        Korrespondenz, das müsste pro Cell eine "nächstgelegene Polyline-
+        Höhe" cachen.
+      - **Option γ: Akzeptieren als kosmetischer Visual-Drift.** Combat
+        funktioniert mit dem heutigen Mix in der Praxis "gut genug" weil
+        Tower-Range typischerweise größer ist als der Höhen-Drift. Air-
+        Route-Tube als Debug-Viz dokumentiert "Cell-Sample-Höhe" und
+        ist visuell vom Enemy entkoppelt — das wird in der Legende
+        klargestellt.
+
+      Test-Plan: Combat tatsächlich messen in einer Hang-Szene. Tower
+      auf flachem Bereich, Enemy fliegt am gegenüberliegenden Hang vorbei.
+      Tower sollte treffen wenn LOS frei ist. Wenn Misses → Option α
+      oder β nötig. Wenn Treffer → Option γ ist hinreichend.
+
+      Datei-Anker: `src/app/managers/enemy.manager.ts` (Enemy-Y),
+      `src/app/utils/global-route-grid.ts` (`getAirTargetY`),
+      `src/app/services/combat/tower-combat.service.ts` (Targeting).
+
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
 - [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module, Entscheidung 2026-05-11: kompletter Split in einem Rutsch)
