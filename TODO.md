@@ -63,6 +63,41 @@
       Tracking-Hinweis: nicht mit der LOS-Pipeline vermischen — eigener Sample-
       Layer-Bug, der durch die Air-Cells nur visuell sichtbarer wird.
 
+      **Zweite Manifestation (lokale Variante, leichter zu reproduzieren):**
+      Auch wenn das Grid initial korrekt am Boden liegt, treten gelegentlich
+      LOKALE Cell-Lücken auf — eine schmale Reihe (~2-3 Cells breit) fehlt
+      im Aggregate-Mesh komplett. An genau dieser Stelle taucht die Air-Route-
+      Tube steil in den Boden (manchmal extrem in den Himmel). Korrelation
+      Cell-Lücke ↔ Tube-Outlier ist exakt → dieselbe Bug-Wurzel.
+
+      Erklärung: Cells in dem Streifen haben `heightSampled = false` (vermutlich
+      Raycast trifft an der Stelle eine Tile-Lücke / Backface / transparente
+      Wasserfläche zwischen Häusern). Aggregate-Mesh skipped sie (heightSampled-
+      Filter → sichtbare Lücke). Air-Route-Tube hingegen sampled per Polyline-
+      Waypoint via `getAirTargetY(cell)` ohne heightSampled-Check → nimmt den
+      Init-Fallback der Cell (anchorY oder ähnlich, kann je nach Map-Origin
+      stark abweichen vom echten Terrain).
+
+      Die rote Ground-Route bleibt heil weil sie pro Frame direkt gegen die
+      Tile-Geometrie sampled (kein cell-Cache-Lookup), und bei einem Miss
+      vermutlich linearinterpoliert oder die letzte gültige Höhe behält.
+
+      Diese lokale Form ist der **bessere Reproduktions-Pfad** für die
+      Bug-Hunt: deutlich isolierter als "alle Cells sind hoch", die betroffenen
+      Cells sind im DevTools direkt auswählbar. Erweiterung von Schritt 1
+      des Diagnose-Plans: an der Stelle wo Tube abtaucht in
+      `globalRouteGrid.cells` greifen, prüfen ob die Cell-Reihe
+      `heightSampled=false` mit Fallback-`terrainHeight` ist, ODER
+      `heightSampled=true` mit Outlier-Wert.
+
+      Fix-Richtungen pro Sub-Fall:
+      - heightSampled=false + Fallback: die Air-Route-Tube (und ggf. andere
+        Konsumenten) muss heightSampled-Cells skippen oder per Nachbar-Cell
+        interpolieren. Plus: `retryUnsampledCells` aggressiver triggern.
+      - heightSampled=true + Outlier: `sampleCellY` muss Sanity-Check gegen
+        Nachbar-Cells / Polyline-Höhe machen, krasse Sprünge ablehnen
+        statt zu cachen.
+
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
 - [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module, Entscheidung 2026-05-11: kompletter Split in einem Rutsch)
