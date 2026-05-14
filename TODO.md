@@ -23,7 +23,45 @@
 
 ## 1.1 Engine-Bugs
 
-_(keine offenen Punkte)_
+- [ ] **Route-Grid + Air-Route schweben über Boden bei flachen Karten ohne Tile-Geometrie**
+      Beim Map-Reload tritt sporadisch auf, dass das komplette Route-Grid (Ground-
+      Aggregate + Air-Aggregate) und die Air-Route-Tube auf einer falschen,
+      konstanten Y-Höhe schweben — typisch 20-30m über dem tatsächlichen Terrain.
+      Die rote Ground-Route-Polyline ist immer korrekt am Boden (deutet darauf hin,
+      dass sie ihre Y pro Frame direkt sampled, nicht aus `cell.terrainHeight`-Cache).
+      "Manchmal klappt's" → klares Tile-LOD-Streaming-Race.
+
+      **Tritt vor allem in flachen Karten ohne detaillierte 3D-Tile-Gebäude auf**
+      (Photorealistic-Tile zeigt nur eine flache Textur, kein extrudiertes Mesh).
+      In Manhattan/Tokyo nicht beobachtet — vermutlich weil dort die Tile-Geometrie
+      so dicht ist dass der Erst-Sample-Raycast immer einen gültigen Treffer hat.
+
+      **Vermutung:** Erster `sampleCellY`-Raycast trifft eine grobe Übergangs-LOD
+      (z.B. bounding-box-approximation während Tile-Streaming) → `cell.terrainHeight`
+      wird mit der approximierten Höhe befüllt, `cell.heightSampled = true`,
+      `tileDepth`/`tileGeometricError` gespeichert. Nachträgliches Tile-LOD-Refining
+      triggert `setCellsPromotedListener` NICHT, weil der Listener nur bei
+      `unsampled → sampled`-Übergängen feuert, nicht bei `sampled → sampled-mit-
+      besserer-LOD`. Cells bleiben auf falscher Erst-Sample-Höhe.
+
+      **Diagnose-Plan:**
+      1. `tileDepth` / `tileGeometricError` pro Cell ausloggen — vergleiche
+         betroffene vs saubere Cells.
+      2. DevTools-Hack: alle Cells `heightSampled = false` setzen + `retryUnsampled
+         Cells()` aufrufen. Wenn Route dann auf korrekter Höhe landet → bestätigt.
+      3. Manhattan-Szene als Gegenprobe — wenn dort nie reproduzierbar → LOD-Race
+         spezifisch für tile-arme Regionen.
+
+      **Fix-Richtung:** `sampleCellY` muss bei vorhandener besserer Tile-LOD
+      re-sampeln (Vergleich mit gespeicherter `tileGeometricError`), und das
+      Listener-System muss diesen Re-Sample propagieren — analog zu wie
+      `recomputeAllTowersGroundLOS` heute den Combat-Cache refresht.
+      Dateien: `src/app/utils/global-route-grid.ts` (`sampleCellY`,
+      `retryUnsampledCells`, `setCellsPromotedListener`),
+      `src/app/services/facade/visualization-facade.service.ts` (`onTilesLoaded`).
+
+      Tracking-Hinweis: nicht mit der LOS-Pipeline vermischen — eigener Sample-
+      Layer-Bug, der durch die Air-Cells nur visuell sichtbarer wird.
 
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
