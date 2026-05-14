@@ -588,6 +588,14 @@ export class VisualizationFacadeService {
     // viz refresh + onCellsPromoted (tower-LOS recompute) when any
     // cell flipped from unsampled → stable.
     this.gameState.getGlobalRouteGrid().retryUnsampledCells();
+
+    // Re-resolve every tower's GPU-cubemap LOS against the newly-streamed
+    // tile geometry. The promotion-listener path above only covers
+    // unsampled→sampled transitions; this catches sampled→sampled-with-
+    // higher-LOD too, so per-tower viz and combat cache stay aligned
+    // with what the player sees. Spike: ~5-10 ms per tower; rare event.
+    this.towerPlacement.recomputeAllTowersGroundLOS();
+
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
     this.gameState.getGlobalRouteGrid().initAirSpatialGridVisualizationIfEnabled();
     this.gameState.getGlobalRouteGrid().initAirRouteLayerIfEnabled();

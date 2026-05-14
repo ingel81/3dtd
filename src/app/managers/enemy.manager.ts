@@ -10,7 +10,6 @@ import { ThreeTilesEngine } from '../three-engine';
 import { GameEventBus } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
-import { AIR_CLEARANCE_M } from '../utils/global-route-grid';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 
 /**
@@ -380,36 +379,14 @@ export class EnemyManager extends EntityManager<Enemy> {
       t0 = profiling ? performance.now() : 0;
       const heightOffset = this.tilesEngine?.enemies.getHeightOffset(enemy.id) ?? 0;
 
-      // Skyline-adaptive flight height for air units: lift the visual Y to
-      // `cell.skylineHeight + AIR_CLEARANCE_M` whenever the local skyline
-      // (rooftops in tower-density areas) is higher than the default
-      // `geoHeight + heightOffset`. terrainHeight is rewritten so that
-      // combat code (which reads `transform.terrainHeight + heightOffset`)
-      // sees the same elevated visual altitude — keeps targeting,
-      // projectiles and the LOS fallback consistent with what the player
-      // sees on screen.
-      if (
-        enemy.typeConfig.isAirUnit &&
-        origin &&
-        this.globalRouteGrid.isInitialized()
-      ) {
-        const skylineLocalY = this.globalRouteGrid.getSkylineHeightAt(
-          this._tempLocalPos.x,
-          this._tempLocalPos.z
-        );
-        if (skylineLocalY !== null) {
-          const skylineGeo = skylineLocalY + origin.height;
-          const desiredAirGeo = Math.max(
-            geoHeight + heightOffset,
-            skylineGeo + AIR_CLEARANCE_M
-          );
-          // Combat reads `transform.terrainHeight + heightOffset` — pin the
-          // sum to desiredAirGeo by adjusting terrainHeight.
-          geoHeight = desiredAirGeo - heightOffset;
-          enemy.transform.terrainHeight = geoHeight;
-        }
-      }
-
+      // Air units fly at fixed altitude over local terrain — `terrainHeight
+      // + heightOffset` (air-unit configs set heightOffset to ≈15-20m).
+      // Single-source-of-truth: matches `getAirTargetY(cell)` from the LOS
+      // pipeline. Caveat (Option B): in dense skyscraper scenes, air units
+      // may clip through facades — accepted trade-off for predictable
+      // coverage visualization. (Previously skyline-adaptive; reverted to
+      // fixed altitude to remove the three-way divergence between enemy
+      // flight, combat sample, and viz sample.)
       this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
       // Use pre-computed speed from statusFlags (avoids effectiveSpeed getter which re-iterates statusEffects)
       const currentSpeed = enemy.movement.speedMps * speedMultiplier * statusFlags.slowMultiplier;

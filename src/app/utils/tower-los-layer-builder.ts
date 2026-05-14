@@ -12,6 +12,7 @@ import {
 } from 'three';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import type { RouteCell } from './global-route-grid';
+import { getAirTargetY } from './global-route-grid';
 import { losPerf } from './los-perf';
 
 /**
@@ -326,13 +327,14 @@ export class TowerLosLayerBuilder {
       groundMesh.setMatrixAt(i, matrix);
 
       // Air-Mesh sitzt direkt auf dem Air-Sample-Punkt — visualisiert
-      // EXAKT wo die Cubemap-Sample-Position liegt.
-      const airMeshY = cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
+      // EXAKT wo die Cubemap-Sample-Position liegt. Single source of
+      // truth: getAirTargetY (siehe global-route-grid.ts).
+      const airMeshY = getAirTargetY(cell);
       matrix.setPosition(cell.x, airMeshY, cell.z);
       airMesh.setMatrixAt(i, matrix);
 
       groundSampleYArr[i] = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-      airSampleYArr[i]    = cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
+      airSampleYArr[i]    = airMeshY;
     }
 
     // beide Meshes brauchen aGroundSampleY/aAirSampleY damit der Shader

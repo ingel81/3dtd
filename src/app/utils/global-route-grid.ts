@@ -11,8 +11,9 @@ import {
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
-import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../three-engine/renderers/three-tower.renderer';
+import { TerrainRaycaster, TerrainSampleRaycaster } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
 
 /**
  * RouteCell - Single cell in the global route grid
@@ -366,9 +367,6 @@ export class GlobalRouteGrid {
   private intCellKey(cx: number, cz: number): number {
     return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
   }
-
-  /** LOS offset from tower center (raycast starts from tower edge) */
-  private readonly LOS_OFFSET = 2.4;
 
   /** Terrain raycaster for height sampling */
   private terrainRaycaster: TerrainRaycaster | null = null;
@@ -869,9 +867,8 @@ export class GlobalRouteGrid {
    * @param towerId Tower unique ID
    * @param towerX Tower X position (local coordinates)
    * @param towerZ Tower Z position (local coordinates)
-   * @param tipY Tower tip Y position (for LOS origin)
    * @param range Tower targeting range
-   * @param losRaycaster LOS raycaster function
+   * @param ctx GPU-cube resolve context (built by caller via TowerShadowMapper)
    * @param canTargetGround Whether tower targets ground enemies (default true)
    * @param canTargetAir Whether tower targets air enemies (default false)
    * @returns Array of cells visible from this tower (ground or air)
@@ -880,17 +877,19 @@ export class GlobalRouteGrid {
     towerId: string,
     towerX: number,
     towerZ: number,
-    tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster,
+    ctx: LosResolveContext,
     canTargetGround = true,
     canTargetAir = false
   ): RouteCell[] {
     const visibleCells: RouteCell[] = [];
     const rangeSq = range * range;
+    const tipX = ctx.referencePos.x;
+    const tipY = ctx.referencePos.y;
+    const tipZ = ctx.referencePos.z;
+    const buf = new Uint8Array(4);
 
     for (const cell of this.cells.values()) {
-      // Check if cell is within tower range
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
 
@@ -901,36 +900,29 @@ export class GlobalRouteGrid {
       // setCellsPromotedListener can recompute LOS for it instead of
       // leaving holes in tower coverage.
       this.sampleCellY(cell);
-      this.sampleCellSkyline(cell);
 
-      // LOS origin offset from tower centre toward cell (raycast from edge)
-      const dirX = cell.x - towerX;
-      const dirZ = cell.z - towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
-      const atTower = dirLen < 0.1;
-      const originX = atTower ? towerX : towerX + (dirX / dirLen) * this.LOS_OFFSET;
-      const originZ = atTower ? towerZ : towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+      const atTower = distSq < 0.01;
 
-      // Ground visibility: target eye height above terrain
+      // Ground visibility — GPU-cube sample at cell.terrainHeight + 1.5m
       let groundVisible = false;
       if (canTargetGround) {
         if (atTower) {
           groundVisible = true;
         } else {
-          const targetY = cell.terrainHeight + 1.5;
-          groundVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
         }
         cell.towerVisibility.set(towerId, groundVisible);
       }
 
-      // Air visibility: target altitude is local skyline + clearance
+      // Air visibility — GPU-cube sample at getAirTargetY(cell) (terrain + 15m)
       let airVisible = false;
       if (canTargetAir) {
         if (atTower) {
           airVisible = true;
         } else {
-          const targetY = cell.skylineHeight + AIR_CLEARANCE_M;
-          airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          const targetY = getAirTargetY(cell);
+          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
         }
         cell.airVisibility.set(towerId, airVisible);
       }
@@ -964,14 +956,17 @@ export class GlobalRouteGrid {
     towerId: string,
     towerX: number,
     towerZ: number,
-    tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster,
+    ctx: LosResolveContext,
     canTargetGround = true,
     canTargetAir = false,
   ): RouteCell[] {
     const visibleCells: RouteCell[] = [];
     const rangeSq = range * range;
+    const tipX = ctx.referencePos.x;
+    const tipY = ctx.referencePos.y;
+    const tipZ = ctx.referencePos.z;
+    const buf = new Uint8Array(4);
 
     for (const cell of this.cells.values()) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
@@ -988,16 +983,10 @@ export class GlobalRouteGrid {
       // fails, the cached value is kept and a later promotion via
       // setCellsPromotedListener will recompute LOS for this cell.
       this.sampleCellY(cell);
-      this.sampleCellSkyline(cell);
 
-      const dirX = cell.x - towerX;
-      const dirZ = cell.z - towerZ;
-      const dirLen = Math.sqrt(dirX * dirX + dirZ * dirZ);
-      const atTower = dirLen < 0.1;
-      const originX = atTower ? towerX : towerX + (dirX / dirLen) * this.LOS_OFFSET;
-      const originZ = atTower ? towerZ : towerZ + (dirZ / dirLen) * this.LOS_OFFSET;
+      const atTower = distSq < 0.01;
 
-      // Ground visibility — reuse cached value if present
+      // Ground visibility — reuse cached value if present, otherwise GPU-sample
       let groundVisible = false;
       if (canTargetGround) {
         if (cell.towerVisibility.has(towerId)) {
@@ -1006,8 +995,8 @@ export class GlobalRouteGrid {
           groundVisible = true;
           cell.towerVisibility.set(towerId, groundVisible);
         } else {
-          const targetY = cell.terrainHeight + 1.5;
-          groundVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
+          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
           cell.towerVisibility.set(towerId, groundVisible);
         }
       } else {
@@ -1015,7 +1004,7 @@ export class GlobalRouteGrid {
         cell.towerVisibility.delete(towerId);
       }
 
-      // Air visibility — reuse cached value if present
+      // Air visibility — reuse cached value if present, otherwise GPU-sample
       let airVisible = false;
       if (canTargetAir) {
         if (cell.airVisibility.has(towerId)) {
@@ -1024,8 +1013,8 @@ export class GlobalRouteGrid {
           airVisible = true;
           cell.airVisibility.set(towerId, airVisible);
         } else {
-          const targetY = cell.skylineHeight + AIR_CLEARANCE_M;
-          airVisible = !losRaycaster(originX, tipY, originZ, cell.x, targetY, cell.z);
+          const targetY = getAirTargetY(cell);
+          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
           cell.airVisibility.set(towerId, airVisible);
         }
       } else {
@@ -1049,6 +1038,22 @@ export class GlobalRouteGrid {
    * @param towerId Tower ID to unregister
    */
   unregisterTower(towerId: string): void {
+    for (const cell of this.cells.values()) {
+      cell.towerVisibility.delete(towerId);
+      cell.airVisibility.delete(towerId);
+    }
+  }
+
+  /**
+   * Drop only the ground-visibility cache for this tower. The next
+   * registerTowerIncremental call will re-resolve them from a fresh
+   * cubemap render. Used by recomputeAllTowersGroundLOS on tile-streaming
+   * events so stale tile-LOD geometry can't keep the cache outdated.
+   *
+   * Air-visibility is wiped too because the same render serves both —
+   * keeping them in lock-step avoids divergence between the two maps.
+   */
+  clearGroundVisibilityForTower(towerId: string): void {
     for (const cell of this.cells.values()) {
       cell.towerVisibility.delete(towerId);
       cell.airVisibility.delete(towerId);
@@ -1431,7 +1436,7 @@ export class GlobalRouteGrid {
       if (!cell.heightSampled) continue;
 
       const y = airLayer
-        ? cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset
+        ? getAirTargetY(cell)
         : cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
       matrix.setPosition(cell.x, y, cell.z);
       mesh.setMatrixAt(index, matrix);
