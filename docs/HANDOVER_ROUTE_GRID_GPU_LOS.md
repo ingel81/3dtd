@@ -2240,3 +2240,267 @@ kürzere Pfad (NUR Air, KEIN Ground-Refactor):
 
 Diese Infrastruktur bleibt nach der Höhen-Vereinheitlichung in
 Production-Code als Debug-Helfer (User-Entscheidung).
+
+---
+
+# Session 2026-05-13 — Versuch der GPU-LOS-Migration + Pipeline-Vereinheitlichung (verworfen)
+
+Eine ganze Session wurde investiert um (a) den CPU-Raycast für Combat durch
+GPU-Cubemap-Resolve zu ersetzen und (b) die zwei Cell-Plate-Pipelines
+(`TowerLosViz` + Aggregate-Mesh) auf eine unified `RouteCellViz` zu
+konsolidieren. **Beides wurde am Ende per `git reset --hard
+pre-gpu-migration` zurückgerollt** weil das Endergebnis spürbar
+schlechter war als der Ausgangsstand (Performance, Farben, visuelle Dichte).
+
+Diese Sektion hält die hart erkauften Erkenntnisse fest, damit der nächste
+Versuch nicht in dieselben Fallen tappt.
+
+## Was technisch funktioniert hat (≠ produktiv)
+
+### GPU-Cube-Resolve für Combat-Cache — technisch valide
+
+`registerTower`/`registerTowerIncremental` können den CPU-`LineOfSightRaycaster`
+durch ein `readRenderTargetPixels` auf der TowerShadowMapper-Cube ersetzen.
+Die diagnostische `probeLiveVsCache`-Methode bestätigte **match=428,
+mismatch=0** über alle in-range Cells — Cache-Werte aus dem Cube-Sample
+sind bit-identisch zum Live-Cube-Sample des Cell-Shaders, vorausgesetzt
+beide nutzen dieselbe Cube, dasselbe Sample-Y und denselben Predicate.
+
+**Code-Skizze die funktioniert hat** (gelöscht, aber dokumentiert):
+
+```ts
+function sampleCubeAtPoint(tipX, tipY, tipZ, sampleX, sampleY, sampleZ, ctx, buf):
+  CubeSampleResult {
+  const d = [sampleX-tipX, sampleY-tipY, sampleZ-tipZ];
+  const dirLen = length(d);
+  if (dirLen < 1e-4) return { cellDist: 0, blockerDist: ctx.farDistance };
+  // direction → (face, s, t) — GL cube convention aus Lessons-Learned v2 §8
+  // px = floor(s * size); py = size - 1 - floor(t * size)   // v2-y-flip
+  ctx.renderer.readRenderTargetPixels(ctx.cube, px, py, 1, 1, buf, faceIndex);
+  let packed = buf[0]/255 + buf[1]/65025 + buf[2]/16581375 + buf[3]/4228250625;
+  if (packed < emptyDepthEpsilon) packed = 1.0;
+  return { cellDist: dirLen, blockerDist: packed * ctx.farDistance };
+}
+// strict-Predicate: visible wenn cellDist < blockerDist - visibilityBias
+```
+
+**Voraussetzung**: `mapper.invalidate()` MUSS vor `mapper.update(tip, range, ...)`
+aufgerufen werden, sonst kann der Move-Gate den Render skippen und der
+Cube zeigt den vorigen Tower-Tip. Diagnostic `cubeOriginDelta` validiert
+das. Diese Erkenntnis bleibt nützlich.
+
+### Tile-Streaming-Staleness-Fix
+
+Bei einem cache-basierten Combat-LOS müssen bei jedem `onTilesLoadEnd`
+**alle Tower neu resolved werden**:
+
+```ts
+recomputeAllTowersGroundLOS(): void {
+  for (const tower of towers) {
+    grid.clearGroundVisibilityForTower(tower.id);
+    recomputeTowerLOS(tower);  // → buildLosResolveContext + register
+  }
+}
+// In VisualizationFacadeService.onTilesLoaded() nach retryUnsampledCells aufrufen.
+```
+
+Kostet ~5–10 ms pro Tower; bei 10 Towern ~50–100 ms Spike pro Tile-Load.
+Akzeptabel weil Tile-Load selten ist. Diese Funktion war ein konkreter
+Bug-Fix gegen den „Selected vs Global divergiert nach Pannen"-Effekt.
+**Sollte beim nächsten GPU-Migrations-Versuch erhalten bleiben.**
+
+## Was wir verbrannt haben (Anti-Patterns)
+
+### 1. „Eine Pipeline mit Filter" ist verlockend, aber zerstört Use-Cases
+
+Versucht: Aggregate-Mesh und Per-Tower-Selection-Mesh auf eine geteilte
+`RouteCellViz` zu konsolidieren, mit Mode-Uniform 0=aggregate / 1=perTower.
+
+**Was schiefging:**
+
+- **Mode-Mutex** bricht den User-Workflow „Aggregate-Toggle UND Selection
+  gleichzeitig sehen". Beide konkurrieren um den gleichen State-Buffer →
+  Selection übersteuert die Aggregate-Anzeige. User-Feedback: „die overlays
+  mit den farben die wir mühsam definiert hatten sind jetzt alle leicht
+  anders".
+- **State-Code-Semantik** ist NICHT mergeable: Per-Tower-`state 0` = neither
+  (rot, in-range-blocked), Aggregate-`state 0` = uncovered (grau, kein
+  Tower in Range). Eine unified Konstante kann nicht beides korrekt
+  rendern.
+- **Aggregate hat zusätzliche Enemy-Overlay-States** (state 4 enemyHidden,
+  state 5 enemyVisible), die im Per-Tower-Modus nicht existieren. Ein
+  Mode-Switch im Shader rettet's nicht — die Compute-Logik unterscheidet
+  sich strukturell.
+
+**Konsequenz**: die zwei Pipelines codieren **unterschiedliche
+Konzepte**. Sie teilen sich höchstens das Mesh-Geometrie-Layout
+(Plate-Größe, Y-Offset) und den TowerShadowMapper als Cube-Quelle. Mehr
+nicht.
+
+### 2. Per-Tower-Viz und Build-Preview MÜSSEN beim Live-Cube-Sample im Shader bleiben
+
+Versucht: Build-Preview als `__preview__`-Tower via `registerTowerIncremental`
+zu modellieren — Cache füllen, RouteCellViz im perTower-Mode liest aus Cache.
+
+**Was schiefging:**
+
+- `registerTowerIncremental` ruft pro Cell `sampleCellSkyline` (5 Raycasts
+  pro Cell) + `sampleCellY` + GPU-Cube-Resolve. Bei 500 Cells × Move-Gate-
+  Übertretung = **mehrere tausend Raycasts pro Mouse-Move**.
+- Resultat: starke FPS-Einbrüche beim Build-Preview-Cursor-Move. User-
+  Beobachtung: „performance beim build preview ist schlecht…starke FPS
+  einbrüche".
+- Beim alten `TowerLosViz` rief der Build-Preview-Move bei sub-threshold-
+  Move NUR `mapper.update()` (ein Cube-Re-Render), bei threshold-
+  Übertretung NUR den Cell-Set + ein Cube-Re-Render — kein CPU-Raycast
+  pro Cell.
+
+**Konsequenz**: Build-Preview UND Selection-Viz brauchen Live-Cube-Sample
+im Fragment-Shader (`textureCube` pro Cell pro Frame). Kein Cache-Lookup.
+Das ist KEIN Architektur-Smell — es ist die korrekte Trennung von „heavy
+one-time Combat-Setup" und „cheap per-frame Live-Viz".
+
+### 3. State-Code-Vereinheitlichung im Shader bricht subtile Farb-Konventionen
+
+Versucht: einen unified Fragment-Shader mit beiden Mode-Branches. Die
+Aggregate-Konventionen waren historisch:
+
+- Ground-Layer rendert state 1+3 als primary (green), state 2 als grey
+  (kein Gold im Aggregate — Gold ist Per-Tower-Both-Filter-only).
+
+Mein neuer Shader hat das technisch reproduziert aber die Subtilität der
+**State 2/3-Interpretation pro Layer** ist anfällig für Off-by-one-
+Farbverschiebungen. User-Feedback: „farben stimmen nicht mehr mit der
+legende überein".
+
+**Konsequenz**: jede Pipeline behält ihren eigenen Fragment-Shader.
+Code-Duplikation hier ist akzeptabel weil die Semantik unterschiedlich
+ist.
+
+### 4. „Selected vs Global Diskrepanz" war kein Bug
+
+Die ursprüngliche User-Beschwerde („Selected zeigt mehr Cells als Global")
+war keine technische Inkonsistenz, sondern eine **legitime semantische
+Differenz**:
+
+- **Selected** (Per-Tower-Viz): 4-state, in-range-blocked sichtbar als
+  ROT mit alpha 0.25 → wirkt visuell dicht und coverage-reich.
+- **Global** (Aggregate): 2-state pro Layer, uncovered = GRAU mit alpha
+  0.15 → wirkt visuell schwach und coverage-arm.
+
+Beide rendern **dieselbe Menge grüner Cells** (bestätigt durch DIAG-
+Counter: `cache.ground.true=90`, `state1(groundOnly)=90`, `live-vs-cache
+match=428 mismatch=0`). Der visuelle Unterschied entsteht durch die
+prominenter sichtbaren ROTEN Cells im Per-Tower-Viz vs den
+zurückhaltenden grauen im Aggregate.
+
+**Konsequenz**: kein Refactor löst das. Wenn der User wünscht dass Global
+mehr „aussieht" wie Selected, ist die ECHTE Lösung eine **Alpha-Erhöhung
+für `globalStates.uncovered`** oder eine optionale „in-range-blocked"-
+Färbung im Aggregate-Shader für Cells die `cell.towerVisibility.size > 0
+&& !groundByAny` haben. Eine reine UI-Tweak, kein Architektur-Refactor.
+
+### 5. Bias-Konventions-Asymmetrie zwischen CPU und GPU
+
+CPU-Raycaster: `raycaster.far = dist - 0.5` (stoppt 0.5 m **vor** Ziel).
+GPU-strict-Predicate: `cellDist < blockerDist - 0.5` (Blocker muss 0.5 m
+**hinter** Cell sein).
+
+Beide haben 0.5 m Bias, aber in **entgegengesetzte Richtungen** → 1 m
+breites Toleranz-Band an Building-Wänden wo CPU „frei" und GPU „blocked"
+sagt. In dieser Session in Tests gesehen: 60–80 % Mismatch beim
+Parallel-Verify, davon der allermeiste Anteil im Bias-Toleranz-Band. Nach
+User-Entscheidung wurde strict gewählt (Combat schießt nicht „halb durch
+Wand"). Daraus ergibt sich: Combat-Range wird an Wand-Kanten ~1 m
+konservativer.
+
+**Konsequenz**: bei einem erneuten Migrations-Versuch muss diese
+Entscheidung explizit dokumentiert sein. Vergleiche zwischen alten und
+neuen Cell-Counts sind nur sinnvoll wenn die Predicate-Konvention identisch
+ist.
+
+## Empfohlene Architektur für den nächsten Versuch
+
+```
+TowerShadowMapper  —  shared Cube-Render-Engine
+(eine Instanz, Cube-Render auf Bedarf via .update())
+        │                          │
+        ▼                          ▼
+Combat-Cache                Live-Per-Tower-Viz
+─────────────               ────────────────────
+cell.towerVis +             TowerLosViz (Selection/Preview)
+cell.airVis Maps            Cell-Shader sampelt textureCube
+                            live pro Cell pro Frame
+Filled by:
+registerTower() per         Cube-Update: TowerLosViz ruft
+Build (1×)                  mapper.update() bei Build/Move
+                            (move-gated)
+Read by Combat
+hot-path (O(1) lookup       Renders: 4-state per-cell
+pro frame pro Tower×        Plates (eigenes Mesh)
+Enemy)
+        │
+        ▼
+Aggregate-Viz
+─────────────
+Liest cell.tower
+Visibility-Maps per Frame.
+6-state Aggregate Plates
+(eigenes Mesh, eigener Shader)
+```
+
+**Drei Konsumenten, eine Cube-Engine. Drei Meshes, drei Shader.**
+Code-Duplikation ist akzeptabel weil die Semantik jeweils unterschiedlich
+ist. Die einzige geteilte Resource ist die Cube selbst (via
+TowerShadowMapper).
+
+## Schritt-für-Schritt für den nächsten Migrations-Versuch
+
+1. **Phase A** (Tile-Streaming-Staleness vorbereiten): `recomputeAllTowersGroundLOS`-
+   Mechanismus implementieren (siehe Code oben). Wird auch ohne Migration
+   schon nützlich, da der CPU-Raycaster auf veralteten Tile-LOD raycasten
+   könnte (heute durch live-raycast unproblematisch). **Nicht** vor der
+   Migration nötig, aber direkt Phase 1 zugeordnet.
+
+2. **Phase B** (Parallel-Verify): GPU-Cube-Resolve neben CPU-Raycast laufen
+   lassen, `[LOS-VERIFY]`-Logs für alle Tower-Builds, User wählt strict vs
+   lenient. **Strict ist die richtige Wahl** für „Combat schießt nicht
+   durch Wand"-Garantie. Lenient nur wenn User explizit zustimmt.
+
+3. **Phase C** (CPU-Raycast löschen): `losRaycaster`-Parameter aus
+   `registerTower` entfernen, alleinige Quelle ist GPU-Cube-Resolve.
+   `mapper.invalidate()` vor jedem `mapper.update()` in
+   `buildLosResolveContext` — Pflicht.
+
+4. **Phase D** (Smoke-Test Combat): Build-Preview UND Selection-Viz
+   bleiben **unberührt** — sie nutzen weiter `TowerLosViz` mit
+   Live-Cube-Sample. Combat liest jetzt aus Cache der via GPU-Cube
+   befüllt wird. Test: keine FPS-Einbrüche im Build-Preview, Targeting-
+   Patterns deterministisch.
+
+5. **Phase E** (Air-Höhen-Entscheidung): A/B/C-Frage an User
+   (skyline-adaptiv / fest / max-of-both). Air-CPU-Raycast bleibt
+   im Combat-Pfad bis zu dieser Entscheidung — analog zu Ground in
+   Phase B/C migrieren.
+
+**Was NICHT zu tun ist:**
+
+- Build-Preview NICHT via `registerTowerIncremental('__preview__')`
+  modellieren — zu teuer.
+- Aggregate UND Per-Tower-Viz NICHT auf einem Mesh konsolidieren — die
+  State-Code-Semantik ist unterschiedlich.
+- `TowerLosViz`-Klasse NICHT löschen — sie bleibt als Live-Sample-Pipeline
+  für Build-Preview und Selection.
+
+## Konkrete Files die bei Phase B/C zu touchen sind (Combat-Migration)
+
+- `src/app/utils/global-route-grid.ts` — `registerTower`/`registerTowerIncremental`:
+  CPU-Raycast-Block durch Cube-Sample ersetzen. Code-Vorlage in dieser
+  Lessons-Section.
+- `src/app/services/tower-placement.service.ts` — `buildLosResolveContext`:
+  `mapper.invalidate()` + `mapper.update()` + Context-Bau.
+- `src/app/services/facade/visualization-facade.service.ts` — `onTilesLoaded`:
+  `recomputeAllTowersGroundLOS()` aufrufen nach `retryUnsampledCells()`.
+
+`TowerLosViz` + `TowerLosLayerBuilder` BLEIBEN unverändert (sie sind die
+Live-Viz-Pipeline und brauchen keinen Migrations-Touch).
