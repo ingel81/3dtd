@@ -4,7 +4,8 @@ import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
-import { TerrainRaycaster, TerrainSampleRaycaster, LineOfSightRaycaster } from '../../three-engine/renderers/three-tower.renderer';
+import { TerrainRaycaster, TerrainSampleRaycaster } from '../../three-engine/renderers/three-tower.renderer';
+import { LosResolveContext } from '../../utils/gpu-cube-resolve';
 import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 import { UIStore } from '../../store/ui.store';
 
@@ -128,13 +129,12 @@ export class GlobalRouteGridService {
     towerId: string,
     towerX: number,
     towerZ: number,
-    tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster,
+    ctx: LosResolveContext,
     canTargetGround = true,
     canTargetAir = false
   ): RouteCell[] {
-    return this.grid.registerTower(towerId, towerX, towerZ, tipY, range, losRaycaster, canTargetGround, canTargetAir);
+    return this.grid.registerTower(towerId, towerX, towerZ, range, ctx, canTargetGround, canTargetAir);
   }
 
   /**
@@ -146,16 +146,25 @@ export class GlobalRouteGridService {
     towerId: string,
     towerX: number,
     towerZ: number,
-    tipY: number,
     range: number,
-    losRaycaster: LineOfSightRaycaster,
+    ctx: LosResolveContext,
     canTargetGround = true,
     canTargetAir = false,
   ): RouteCell[] {
     return this.grid.registerTowerIncremental(
-      towerId, towerX, towerZ, tipY, range,
-      losRaycaster, canTargetGround, canTargetAir,
+      towerId, towerX, towerZ, range, ctx,
+      canTargetGround, canTargetAir,
     );
+  }
+
+  /**
+   * Drop the visibility cache for one tower. Used by the tile-streaming
+   * staleness fix — recomputeAllTowersGroundLOS in TowerManager invalidates
+   * each tower's cache before re-resolving against the freshly streamed
+   * tile geometry.
+   */
+  clearGroundVisibilityForTower(towerId: string): void {
+    this.grid.clearGroundVisibilityForTower(towerId);
   }
 
   /**

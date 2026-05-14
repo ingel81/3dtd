@@ -18,6 +18,8 @@ import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
 import { losPerf } from '../utils/los-perf';
+import { LosResolveContext } from '../utils/gpu-cube-resolve';
+import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 /**
  * TowerPlacementService
@@ -793,12 +795,6 @@ export class TowerPlacementService {
     const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
     const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
 
-    const losRaycaster = this.engine.towers.getLosRaycaster();
-    if (!losRaycaster) {
-      console.warn('[TowerPlacementService] registerTowerOnGrid: no losRaycaster!');
-      return;
-    }
-
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
       tower.typeConfig.id as TowerTypeId,
@@ -807,22 +803,24 @@ export class TowerPlacementService {
 
     // Refine cell-Y in the tower's range BEFORE LOS computation. This
     // promotes any still-unsampled cells in the tower's reach using the
-    // current tile state, so the LOS raycasts run against accurate
-    // terrainHeight values. Cheap: only walks cells inside the radius.
+    // current tile state, so the cubemap render sees accurate
+    // terrainHeight values for sample-Y computation. Cheap: only walks
+    // cells inside the radius.
     this.globalRouteGrid.refineCellsInRadius(terrainPos.x, terrainPos.z, config.range);
 
-    // Synchroner CPU-Raycast-Pass (Variant A aus dem Handover) — ein
-    // einmaliger Aufwand pro Tower-Build, kein 50-Cells-pro-Frame-Batch.
-    // Cubemap-LOS-Viz für Selection wird vom TowerManager bei Selection
-    // separat gebaut; hier nur die Cell-Visibility-Maps füllen, die das
-    // Tower-Targeting nutzt.
+    const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
+    const ctx = this.buildLosResolveContext(tipWorld, config.range);
+    if (!ctx) {
+      console.warn('[TowerPlacementService] registerTowerOnGrid: no LOS blocker group');
+      return;
+    }
+
     const visibleCells = this.globalRouteGrid.registerTower(
       tower.id,
       terrainPos.x,
       terrainPos.z,
-      tipY,
       config.range,
-      losRaycaster,
+      ctx,
       canTargetGround,
       canTargetAir,
     );
@@ -834,6 +832,30 @@ export class TowerPlacementService {
     if (tower.selected) {
       this.gameState?.towerManager.refreshSelectionViz(tower);
     }
+  }
+
+  /**
+   * Renders the tower-shadow cubemap from `tipWorld` with `range` as far,
+   * then returns a context the GlobalRouteGrid uses to GPU-resolve cell
+   * visibility. `mapper.invalidate()` is hardcoded here so the move-gate
+   * never skips a render that the caller needs (a previous build-preview
+   * call may have left the cube cached for a different tip).
+   */
+  private buildLosResolveContext(tipWorld: Vector3, range: number): LosResolveContext | null {
+    if (!this.engine) return null;
+    const blockerGroup = this.engine.getLosBlockerGroup();
+    if (!blockerGroup) return null;
+    const mapper = this.engine.getTowerShadowMapper();
+    mapper.invalidate();
+    mapper.update(tipWorld, range, blockerGroup);
+    return {
+      cube: mapper.getRenderTarget(),
+      referencePos: mapper.getReferencePos(),
+      farDistance: mapper.getFarDistance(),
+      renderer: mapper.getRenderer(),
+      visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
+      emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
+    };
   }
 
   /**
@@ -857,16 +879,9 @@ export class TowerPlacementService {
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
     if (!config) return;
 
-    // Re-register with current (upgraded) range
     const position = tower.position;
     const terrainPos = this.engine.sync.geoToLocalSimple(position.lat, position.lon, position.height ?? 0);
     const tipY = terrainPos.y + config.heightOffset + config.shootHeight;
-
-    const losRaycaster = this.engine.towers.getLosRaycaster();
-    if (!losRaycaster) {
-      console.warn('[TowerPlacementService] recomputeTowerLOS: no losRaycaster!');
-      return;
-    }
 
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(
@@ -874,14 +889,20 @@ export class TowerPlacementService {
       this.researchStore.airTargetingUnlocked(),
     );
 
-    // Incremental: only raycast cells that don't already have a cached entry
+    const tipWorld = new Vector3(terrainPos.x, tipY, terrainPos.z);
+    const ctx = this.buildLosResolveContext(tipWorld, tower.combat.range);
+    if (!ctx) {
+      console.warn('[TowerPlacementService] recomputeTowerLOS: no LOS blocker group');
+      return;
+    }
+
+    // Incremental: only sample cells that don't already have a cached entry
     tower.visibleCells = this.globalRouteGrid.registerTowerIncremental(
       tower.id,
       terrainPos.x,
       terrainPos.z,
-      tipY,
       tower.combat.range,
-      losRaycaster,
+      ctx,
       canTargetGround,
       canTargetAir
     );
@@ -889,6 +910,28 @@ export class TowerPlacementService {
     // Selection-Viz refreshen, falls dieser Tower selected ist.
     if (tower.selected) {
       this.gameState?.towerManager.refreshSelectionViz(tower);
+    }
+  }
+
+  /**
+   * Drop every tower's GPU-resolved visibility cache and rebuild it
+   * against the current tile state. Used by the tile-streaming handler
+   * because cubemap renders against newly-streamed (or LOD-promoted)
+   * tile geometry need to overwrite the previous results — the per-cell
+   * promotion listener only covers unsampled→sampled transitions, not
+   * sampled→sampled-with-better-LOD.
+   *
+   * Cost: one cubemap render + ~500 readPixels per tower. At 10 towers
+   * that's a ~50-100 ms spike per tile-load event. Tile loads are rare
+   * (a few per minute under aggressive panning) so the spike is OK.
+   */
+  recomputeAllTowersGroundLOS(): void {
+    const towers = this.gameState?.towerManager.getAll();
+    if (!towers) return;
+    for (const tower of towers) {
+      if (!tower.losReady) continue;
+      this.globalRouteGrid.clearGroundVisibilityForTower(tower.id);
+      this.recomputeTowerLOS(tower);
     }
   }
 

@@ -275,6 +275,11 @@ export class TowerShadowMapper {
     return this.lastEncodedFar;
   }
 
+  /** Renderer-Referenz für CPU-Readback-Konsumenten (GPU-Cube-Resolve). */
+  getRenderer(): WebGLRenderer {
+    return this.renderer;
+  }
+
   /** True, wenn `update()` mindestens einmal real gerendert hat. */
   isReady(): boolean {
     return this.hasRendered;

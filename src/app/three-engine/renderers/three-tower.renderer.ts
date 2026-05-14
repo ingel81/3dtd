@@ -233,13 +233,6 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Get Line-of-Sight raycaster (for GlobalRouteGrid registration)
-   */
-  getLosRaycaster(): LineOfSightRaycaster | null {
-    return this.losRaycaster;
-  }
-
-  /**
    * Make tower model brighter by increasing emissive intensity
    * Used to enhance visibility of darker models like the rocket tower
    */
