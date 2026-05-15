@@ -589,6 +589,7 @@ export class VisualizationFacadeService {
     // enemy feet, tower-LOS), so the line snap-up after a tile-load
     // depends on this refresh happening first.
     this.gameState.getGlobalRouteGrid().updateTerrainHeights();
+    const tTerrainHeights = performance.now();
 
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
     const tRoutes = performance.now();
@@ -600,8 +601,11 @@ export class VisualizationFacadeService {
         this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
       }
     }
+    const tRouteAnim = performance.now();
 
     this.gameState.onTilesLoaded();
+    const tGameState = performance.now();
+
     // Self-heal cells that were `unsampled` either because tiles weren't
     // streamed yet OR because the strict sampleCellY rejected a fallback
     // hit / sanity-outlier in an earlier pass. Tile-mesh decoding is
@@ -610,6 +614,7 @@ export class VisualizationFacadeService {
     // or a safety cap is hit. No magic-number timeout — the loop
     // self-adjusts to hardware and cache state.
     this.scheduleRouteGridConvergence();
+    const tConvergence = performance.now();
 
     // Re-resolve every tower's GPU-cubemap LOS against the newly-streamed
     // tile geometry. The promotion-listener path above only covers
@@ -617,13 +622,25 @@ export class VisualizationFacadeService {
     // higher-LOD too, so per-tower viz and combat cache stay aligned
     // with what the player sees. Spike: ~5-10 ms per tower; rare event.
     this.towerPlacement.recomputeAllTowersGroundLOS();
+    const tTowerLOS = performance.now();
 
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
     this.gameState.getGlobalRouteGrid().initAirSpatialGridVisualizationIfEnabled();
     this.gameState.getGlobalRouteGrid().initAirRouteLayerIfEnabled();
+    const tDebugViz = performance.now();
 
     console.warn(
-      `[PerfTrace] onTilesLoaded: ${(performance.now() - t0).toFixed(1)}ms total | streets=${(tStreets - t0).toFixed(1)}ms buildings=${(tBuildings - tStreets).toFixed(1)}ms markers=${(tMarkers - tBuildings).toFixed(1)}ms routes=${(tRoutes - tMarkers).toFixed(1)}ms`
+      `[PerfTrace] onTilesLoaded: ${(tDebugViz - t0).toFixed(1)}ms total | ` +
+      `streets=${(tStreets - t0).toFixed(1)} ` +
+      `buildings=${(tBuildings - tStreets).toFixed(1)} ` +
+      `markers=${(tMarkers - tBuildings).toFixed(1)} ` +
+      `terrainHeights=${(tTerrainHeights - tMarkers).toFixed(1)} ` +
+      `refreshRoutes=${(tRoutes - tTerrainHeights).toFixed(1)} ` +
+      `routeAnim=${(tRouteAnim - tRoutes).toFixed(1)} ` +
+      `gameState=${(tGameState - tRouteAnim).toFixed(1)} ` +
+      `convergence=${(tConvergence - tGameState).toFixed(1)} ` +
+      `towerLOS=${(tTowerLOS - tConvergence).toFixed(1)} ` +
+      `debugViz=${(tDebugViz - tTowerLOS).toFixed(1)}ms`
     );
   }
 

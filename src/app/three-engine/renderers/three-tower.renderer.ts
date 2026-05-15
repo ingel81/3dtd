@@ -108,6 +108,16 @@ export interface TerrainSample {
 export type TerrainSampleRaycaster = (localX: number, localZ: number, anchorY?: number) => TerrainSample | null;
 
 /**
+ * Cheap LOD-probe at a local (x,z) position WITHOUT raycasting. Returns the
+ * best (deepest depth / lowest geometric error) tile that horizontally
+ * contains (x,z), based on the persistent tile-info map. Used by
+ * `sampleCellY` to skip stable cells whose tile LOD has NOT improved since
+ * the last sample — eliminates the per-cell raycast in the full-sweep
+ * triggered by `updateTerrainHeights`.
+ */
+export type TerrainPeekLOD = (localX: number, localZ: number) => { depth: number; geometricError: number } | null;
+
+/**
  * Function type for Line-of-Sight raycasting between two 3D points
  * Returns true if line of sight is BLOCKED (ray hits something before target)
  */
