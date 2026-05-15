@@ -93,6 +93,18 @@
                       }
                     </div>
                   }
+                  <!-- Anti-air capability badge (bottom-left over canvas). Shown
+                       for any tower that can target air units — including via
+                       AA-retrofit research (canTowerTargetAir resolves the
+                       effective capability). Air-only towers additionally get
+                       a teal border accent below. -->
+                  @if (canTowerTargetAir(tower)) {
+                    <span class="td-tower-card-aa"
+                          [class.td-tower-card-aa-only]="isAirOnlyTower(tower)"
+                          [attr.aria-label]="isAirOnlyTower(tower) ? 'Air-only target' : 'Anti-air capable'">
+                      <td-icon name="wind" [size]="11"></td-icon>
+                    </span>
+                  }
                   <span class="td-tower-card-name">{{ tower.name }}</span>
                   <!-- Cost badge with coin glyph -->
                   <span class="td-tower-card-cost">

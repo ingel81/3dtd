@@ -36,6 +36,7 @@ import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
 import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
+import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { WaveDebugService, WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 import { TowerDebugService } from '../../services/debug/tower-debug.service';
@@ -712,6 +713,41 @@ import { TdTooltipData } from '../tooltip/tooltip-data.types';
       color: var(--td-gold-light);
     }
 
+    /* Anti-air badge — small wind-icon chip pinned to the bottom-left of the
+     * preview canvas. Sits over canvas, not over the name-strip, so it
+     * doesn't compete with the cost badge (top-right) or tier marks
+     * (top-left). Canvas height is 80px (see .td-tower-preview-canvas);
+     * 16px badge + 4px inset → top = 80 - 16 - 4. */
+    .td-tower-card-aa {
+      position: absolute;
+      top: 60px;
+      left: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 16px;
+      height: 16px;
+      padding: 0;
+      background: var(--td-panel-shadow);
+      color: var(--td-teal-light);
+      border: 1px solid var(--td-frame-dark);
+      border-radius: 2px;
+      box-shadow: inset 0 1px 0 rgba(74, 84, 77, 0.33);
+      pointer-events: none;
+      z-index: 2;
+    }
+    /* Air-only specialisation — stronger teal so the chip visually pops
+     * against the regular AA-capable badge. */
+    .td-tower-card-aa.td-tower-card-aa-only {
+      background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
+      color: #0E1612;
+      border-color: #11140F;
+      box-shadow:
+        inset 0 1px 0 rgba(255, 255, 255, 0.28),
+        inset 0 -1px 0 rgba(0, 0, 0, 0.35);
+    }
+
+
     .td-hidden {
       display: none !important;
     }
@@ -1296,6 +1332,28 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Tower targets ONLY air units (e.g. Rocket). Used to give the build-menu
+   * card a distinct teal accent so the player sees the specialisation
+   * before clicking. Uses `canTargetAirEffective` so research-driven
+   * AA-retrofits flip the indicator automatically.
+   */
+  isAirOnlyTower(tower: TowerTypeConfig): boolean {
+    const air = canTargetAirEffective(tower.id, this.researchStore.airTargetingUnlocked());
+    const ground = tower.canTargetGround !== false;
+    return air && !ground;
+  }
+
+  /**
+   * Effective air-targeting capability (base config OR unlocked via research).
+   * Template uses this for the AA badge on the build-menu card so towers
+   * that get AA via aa-retrofit (currently `dual-gatling`) light up the
+   * indicator after the research completes.
+   */
+  canTowerTargetAir(tower: TowerTypeConfig): boolean {
+    return canTargetAirEffective(tower.id, this.researchStore.airTargetingUnlocked());
+  }
+
+  /**
    * Resolve the td-icon name for a research node based on its current status.
    * Status icons override the per-research config; available nodes use config.
    */
@@ -1414,11 +1472,24 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       'cold': 'cold',
       'poison': 'poison',
     };
+    // Targeting capability — resolved via canTargetAirEffective so the banner
+    // reflects AA-retrofit research (e.g. dual-gatling after aa-retrofit
+    // completes flips from ground-only to air-ground with a "via Research"
+    // note). Single source of truth shared with combat + AI bots.
+    const aaUnlocked = this.researchStore.airTargetingUnlocked();
+    const effectiveAir = canTargetAirEffective(tower.id, aaUnlocked);
+    const baseAir = tower.canTargetAir === true;
+    const ground = tower.canTargetGround !== false;
+    const targeting: TdTooltipData['targeting'] =
+      effectiveAir && !ground ? { mode: 'air-only' } :
+      effectiveAir && ground  ? { mode: 'air-ground', viaResearch: !baseAir } :
+                                { mode: 'ground-only' };
     return {
       title: tower.name,
       category: dmgUi.label.toUpperCase(),
       accent: accentMap[tower.damageType] ?? 'gold',
       stats,
+      targeting,
       armorTitle: 'vs Armor',
       armor,
     };

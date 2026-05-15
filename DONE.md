@@ -4,6 +4,30 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-15
+
+### Anti-Air-Indikator im Build-Menü
+
+- [x] **Wind-Icon-Badge auf Tower-Card + Targeting-Banner im Tooltip**
+      Tower-Karten im Build-Menü zeigen jetzt Air-Capability sofort.
+      Wind-Icon-Chip bottom-left auf der Preview-Canvas bei allen Tower
+      mit Air-Targeting; Air-only-Tower (Rocket) bekommen die stärkere
+      Teal-Gradient-Variante (`td-tower-card-aa-only`). Rich-Tooltip
+      bekommt einen neuen `targeting`-Block zwischen Stats und Armor-
+      Matrix mit drei Modi: "Ground-only" (tower-Icon, grauer Border-
+      Akzent), "Ground and Air" (wind-Icon, teal-dark Border), "Air-only"
+      (wind-Icon, teal-light Border + leichtes Background-Tint). Bei
+      AA-via-Research erscheint zusätzlich ein "via Research"-Chip.
+      Single source of truth ist `canTargetAirEffective` aus
+      `entities/tower-targeting.util.ts` — Card-Badge, Tooltip-Banner
+      und Combat lesen dieselbe Funktion, sodass die Anzeige bei
+      `aa-retrofit`-Research (aktuell `dual-gatling`) automatisch flippt.
+      Dateien: `components/game-sidebar/game-sidebar.component.{html,ts}`,
+      `components/tooltip/td-tooltip-content.component.ts`,
+      `components/tooltip/tooltip-data.types.ts`.
+
+---
+
 ## 2026-05-11
 
 ### InfoOverlay collapsed-State minimal
