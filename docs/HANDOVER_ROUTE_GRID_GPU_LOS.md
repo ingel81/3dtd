@@ -38,12 +38,7 @@ Pipeline. Damit kann es nicht von der Combat-Wahrheit abweichen.
   alle laufen über diesen einen Helper.
 - Enemy-Flughöhe: `geoHeight + heightOffset` mit `heightOffset` per
   Type-Config (15–20 m). Skyline-adaptiver Block in
-  `enemy.manager.ts:391-411` wurde entfernt → **Caveat**: Air-Enemies
-  können in Hochhaus-Szenen visuell durch Wände fliegen. Bewusste
-  Wahl: Single-Source-of-Truth wichtiger als visuelles Vermeiden in
-  dichten Skyline-Szenen. **Dies ist KEIN LOS-Bug** — die Cubemap
-  weiß ob das Gebäude im Weg ist und blockiert korrekt. Nur die
-  Enemy-Position-Wahrnehmung weicht visuell ab.
+  `enemy.manager.ts:391-411` wurde entfernt.
 
 **LOS-Debug-Panel** (seit 2026-05-15, im dev-menu):
 Cubemap des aktiven Towers als 4×3-Face-Cross. Bidirektionales Hover
@@ -552,35 +547,15 @@ zeigen ab Fix identische Cell-Sets.
 - Air-Enemy-Flughöhe ist auf `geoHeight + heightOffset` (heightOffset
   per Type-Config 15–20m) — passt zum Sample-Y bei flachen Cells.
 
-### Verbleibende Caveats (kein LOS-Bug, sind bewusste Trade-offs)
+### Spätere Ideen (nicht jetzt — Debug-Layer ground/air bleiben getrennt)
 
-- **Enemy-vs-Tower-Höhen-Drift im Hochhausviertel.** Sample-Y =
-  `terrain + 15`. Enemy-Y = `geoHeight + heightOffset`. In flachen
-  Cells decken sich beide auf ±5m. Wenn Pfade-Wegpunkte aber durch
-  enge Cells gehen mit hohen Buildings drumherum, kann der Tower
-  geometrisch durch ein Gebäude schießen während der Enemy auf einer
-  anderen y-Position fliegt. **LOS ist korrekt** (Cubemap kennt das
-  Gebäude), die Diskrepanz liegt nur in der visuellen Enemy-Position.
-  Bewusster Trade-off zugunsten Single-Source-of-Truth — siehe TL;DR.
-
-### Pre-Production (offen, jetzt unblocked durch Air-Verify)
-
-- **`airRangeMultiplier` in `TowerConfig`** — aktuell ist `airRange =
-  groundRange` als Platzhalter. Pure-Air-Tower (Rocket) sollen 1.5×,
-  Mixed-Tower (Dual-Gatling AA-Retrofit) 1.2×. Stellen sind markiert
-  in `tower.manager.ts:331` und in `tower-placement.service.ts`.
-- **Real-Blocker-Dot mit Per-State-Gating** — kann zurückkommen jetzt
-  wo Air sauber läuft (keine false-Blocker mehr, also keine Dot-Flut).
-  Siehe Sackgassen-Galerie zu Per-State-Gating.
-
----
-
-## Weitere Pre-Production-TODOs (kein LOS-Blocker mehr)
-
-- "Combined View" überlegen: Per-Tower-Viz mit Filter='both' und
-  Aggregate-Gold-State auf 3. Shader-Variante (Gold im Aggregat).
-  Aktuell strikt 2-state pro Layer — User kann gold-Cells im
-  Aggregate nicht erkennen, muss visuell stapeln (`grid` + `gridAir`).
+- **"Combined View" für den Spieler-Layer** (nicht die Debug-Toggles).
+  Per-Tower-Viz mit Filter='both' und Aggregate-Gold-State auf 3.
+  Shader-Variante (Gold im Aggregat). Aktuell strikt 2-state pro
+  Layer — User kann gold-Cells im Aggregate nicht erkennen, muss
+  visuell stapeln (`grid` + `gridAir`). Erst angehen, wenn die
+  zugrunde liegenden Engine-Themen abgeräumt sind; die Debug-Layer
+  für Ground und Air sollen sauber getrennt bleiben.
 
 ---
 
@@ -651,8 +626,14 @@ nochmal nötig:
 - `setLineOfSightRaycaster` Setter in `three-tower.renderer.ts` bleibt
   für den `hasLineOfSight`-Combat-Fallback (Enemies zwischen Cells).
   `getLosRaycaster` Getter wurde entfernt (nie aufgerufen).
-- `MAX_VIZ_CELLS = 5000` in `global-route-grid.ts` ist der Hard-Cap
-  fürs Aggregate-Mesh. Bei 1763 Cells in der Test-Szene unkritisch.
+- `MAX_VIZ_CELLS_HARDLIMIT = 50_000` in `global-route-grid.ts` ist nur
+  noch eine Safety-Obergrenze; die InstancedMesh-Capacity wird dynamisch
+  als `min(cells.size, hardlimit)` allokiert. Test-Szene mit 1763 Cells
+  bekommt 1763 Slots, eine Manhattan-große Karte würde bis 50k mitwachsen.
+  InstancedMesh-Capacity ist nicht runtime-growable — wenn das Grid sich
+  nachträglich vergrößert (Location-Switch / Route-Regen), läuft
+  `clear()` → `disposeVisualization` → frischer Build beim nächsten
+  Toggle.
 
 ---
 
