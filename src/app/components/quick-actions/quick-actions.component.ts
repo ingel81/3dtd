@@ -325,10 +325,14 @@ import { TdIconComponent } from '../icon/icon.component';
       align-items: flex-end;
       gap: 4px;
       z-index: 5;
+      /* Container is sized by the tallest expanded sub-menu; the empty area
+         above shorter columns must not eat map drags/clicks. */
+      pointer-events: none;
     }
 
     .td-quick-actions > * {
       flex-shrink: 0;
+      pointer-events: auto;
     }
 
     /* === Shared: Accordion wrapper + collapse === */
