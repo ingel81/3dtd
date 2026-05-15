@@ -18,6 +18,7 @@ import {
   EquirectangularReflectionMapping,
   Color,
   BoxGeometry,
+  Box3,
   MeshStandardMaterial,
   MeshBasicMaterial,
   DoubleSide,
@@ -144,6 +145,14 @@ export class ThreeTilesEngine {
    * (which is opt-in around route generation).
    */
   private persistentTileInfoMap: Map<Object3D, { geometricError: number, depth: number }> | null = null;
+  /**
+   * Lazy cache of per-tile horizontal AABB (min/max x,z). Built on demand
+   * by `peekBestTileLODAtLocal` and cached for the lifetime of each tile
+   * scene — tile geometry is immutable once loaded, so the AABB never
+   * changes until the scene unloads. WeakMap keys die with their scene,
+   * so no manual eviction needed.
+   */
+  private tileBoundsCache: WeakMap<Object3D, { minX: number; maxX: number; minZ: number; maxZ: number }> = new WeakMap();
 
   // Pre-computed initial camera position (set before initialize())
   private initialCameraPosition: InitialCameraPosition | null = null;
@@ -706,21 +715,33 @@ export class ThreeTilesEngine {
 
           // Clear cache and notify for full refresh
           const cacheSize = this.heightCache.size;
+          const tPre0 = performance.now();
           this.heightCache.clear();
+          const tCacheClear = performance.now();
 
           // Rebuild the persistent tile-info map so any subsequent
           // getTerrainSampleAtLocal call has accurate LOD metadata for
           // the currently-loaded tile set.
           this.rebuildPersistentTileInfoMap();
+          const tRebuildMap = performance.now();
 
           // Invalidate Cubemap-LOS so der nächste Update neu rendert mit
           // den frisch geladenen Tiles.
           this.towerShadowMapper?.invalidate();
+          const tShadowInvalidate = performance.now();
 
           if (this.onTilesLoadCallback) {
             const t0 = performance.now();
             this.onTilesLoadCallback();
-            console.warn(`[PerfTrace] onTilesLoadCallback: ${(performance.now() - t0).toFixed(1)}ms (cleared ${cacheSize} cache entries, delta=${heightDelta.toFixed(2)}m)`);
+            const tEnd = performance.now();
+            console.warn(
+              `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
+              `cacheClear=${(tCacheClear - tPre0).toFixed(1)} ` +
+              `rebuildTileMap=${(tRebuildMap - tCacheClear).toFixed(1)} ` +
+              `shadowInvalidate=${(tShadowInvalidate - tRebuildMap).toFixed(1)} ` +
+              `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
+              `(cleared ${cacheSize} cache entries, delta=${heightDelta.toFixed(2)}m)`
+            );
           }
         }
       }
@@ -1323,6 +1344,54 @@ export class ThreeTilesEngine {
       });
     });
     this.persistentTileInfoMap = map;
+  }
+
+  /**
+   * Tile-LOD peek WITHOUT raycast. Walks the persistent tile-info map and
+   * returns the best (deepest / lowest geometricError) tile whose horizontal
+   * AABB contains the local (x,z). Used by the route-grid to skip stable
+   * cells whose Tile-LOD hasn't improved since the last sample — eliminates
+   * the per-cell raycast cost in the post-tile-load full-sweep.
+   *
+   * Returns `null` when:
+   *  - tile info map not yet built (first frame)
+   *  - no loaded tile horizontally contains (x,z)
+   *
+   * Cost: O(loaded tiles), typically ~50-200. AABB computed lazily on first
+   * touch per scene and cached in `tileBoundsCache` until the scene unloads.
+   */
+  peekBestTileLODAtLocal(localX: number, localZ: number): { depth: number; geometricError: number } | null {
+    if (this.devTerrainProvider) {
+      // DevWorld has no streaming LOD — synthetic high quality so the
+      // route-grid never re-raycasts stable cells in dev mode.
+      return { depth: 99, geometricError: 0 };
+    }
+    if (!this.persistentTileInfoMap) return null;
+    let bestDepth = -1;
+    let bestErr = Infinity;
+    let any = false;
+    for (const [scene, info] of this.persistentTileInfoMap.entries()) {
+      let bounds = this.tileBoundsCache.get(scene);
+      if (!bounds) {
+        const box = new Box3().setFromObject(scene);
+        bounds = {
+          minX: box.min.x,
+          maxX: box.max.x,
+          minZ: box.min.z,
+          maxZ: box.max.z,
+        };
+        this.tileBoundsCache.set(scene, bounds);
+      }
+      if (localX < bounds.minX || localX > bounds.maxX) continue;
+      if (localZ < bounds.minZ || localZ > bounds.maxZ) continue;
+      any = true;
+      // "Better" = strictly deeper depth, or same depth + lower geom-error.
+      if (info.depth > bestDepth || (info.depth === bestDepth && info.geometricError < bestErr)) {
+        bestDepth = info.depth;
+        bestErr = info.geometricError;
+      }
+    }
+    return any ? { depth: bestDepth, geometricError: bestErr } : null;
   }
 
   /**
