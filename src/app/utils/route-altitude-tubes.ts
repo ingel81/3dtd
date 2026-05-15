@@ -111,13 +111,20 @@ export function buildRouteAltitudeTubes(grid: GlobalRouteGrid): Group {
 
     function addSample(x: number, z: number, fallbackY: number): void {
       const cell = grid.getCellAt(x, z);
-      // Inside grid: use the cell's terrainY + offset (same source the
-      // LOS air-sample point reads). Outside (route endpoints can sit
-      // just past the corridor): fall back to waypoint Y + same offset
-      // so the tube stays continuous.
-      const targetY = cell
-        ? getAirTargetY(cell)
-        : fallbackY + LOS_VIZ_CONFIG.airSampleYOffset;
+      let targetY: number;
+      if (cell && cell.heightSampled) {
+        // Reliable: cell has a real terrain raycast.
+        targetY = getAirTargetY(cell);
+      } else {
+        // Cell missing (endpoint past corridor) or unsampled (tile-gap /
+        // pre-streaming race). Reading `cell.terrainHeight` here would
+        // yield `routeAnchorY`, which is often 0 on height-less routes —
+        // producing a 165m downward kink in the tube. Interpolate from
+        // sampled neighbours instead; only if no neighbour exists do we
+        // fall back to the polyline Y.
+        const interpolated = grid.estimateTerrainY(x, z);
+        targetY = (interpolated ?? fallbackY) + LOS_VIZ_CONFIG.airSampleYOffset;
+      }
       pts.push(new Vector3(x, targetY, z));
     }
   }

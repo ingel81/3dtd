@@ -595,11 +595,14 @@ export class VisualizationFacadeService {
     }
 
     this.gameState.onTilesLoaded();
-    // Self-heal cells that were `unsampled` because tiles weren't streamed
-    // in for them yet. Cheap — only walks unsampled cells. Triggers
-    // viz refresh + onCellsPromoted (tower-LOS recompute) when any
-    // cell flipped from unsampled → stable.
-    this.gameState.getGlobalRouteGrid().retryUnsampledCells();
+    // Self-heal cells that were `unsampled` either because tiles weren't
+    // streamed yet OR because the strict sampleCellY rejected a fallback
+    // hit / sanity-outlier in an earlier pass. Tile-mesh decoding is
+    // asynchronous to the load-end event, so we keep retrying across rAF
+    // ticks until two consecutive frames promote nothing (= converged)
+    // or a safety cap is hit. No magic-number timeout — the loop
+    // self-adjusts to hardware and cache state.
+    this.scheduleRouteGridConvergence();
 
     // Re-resolve every tower's GPU-cubemap LOS against the newly-streamed
     // tile geometry. The promotion-listener path above only covers
@@ -620,6 +623,48 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
   // Private Helpers (deduplication)
   // ══════════════════════════════════════════════════════════════
+
+  private routeGridConvergenceScheduled = false;
+
+  /**
+   * Run `retryUnsampledCells` across rAF ticks until convergence — i.e.
+   * two consecutive frames promote zero cells, or the safety cap is hit.
+   * Replaces the previous single-shot retry, which assumed tile mesh
+   * decoding finishes synchronously with the tile-load-end event (it
+   * doesn't; cf. cases 2/5/6/10/12/14 in the bug hunt).
+   *
+   * `MAX_FRAMES = 120` (~2s at 60fps) is purely a safety guard against
+   * pathological loops; on normal hardware the loop exits within a
+   * handful of frames once the engine has decoded the mesh.
+   */
+  private scheduleRouteGridConvergence(): void {
+    if (this.routeGridConvergenceScheduled) return;
+    this.routeGridConvergenceScheduled = true;
+    const MAX_FRAMES = 120;
+    const grid = this.gameState.getGlobalRouteGrid();
+    let frames = 0;
+    let zeroFrames = 0;
+
+    const tick = () => {
+      if (frames++ >= MAX_FRAMES) {
+        this.routeGridConvergenceScheduled = false;
+        return;
+      }
+      const { promoted } = grid.retryUnsampledCells();
+      if (promoted > 0) {
+        zeroFrames = 0;
+        requestAnimationFrame(tick);
+      } else if (zeroFrames < 1) {
+        // One empty frame may just be the gap between tile-decode bursts —
+        // give it one more chance before declaring convergence.
+        zeroFrames++;
+        requestAnimationFrame(tick);
+      } else {
+        this.routeGridConvergenceScheduled = false;
+      }
+    };
+    requestAnimationFrame(tick);
+  }
 
   /**
    * Map store spawn points to DTOs with color (for marker viz, tower placement, etc.).

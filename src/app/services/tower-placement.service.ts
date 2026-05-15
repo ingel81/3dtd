@@ -148,8 +148,23 @@ export class TowerPlacementService {
     );
   }
 
+  private tubeRebuildScheduled = false;
+
   private onCellsPromoted(promoted: import('../utils/global-route-grid').RouteCell[]): void {
     if (!this.gameState || !this.engine || promoted.length === 0) return;
+
+    // The air-route tube caches cell terrainHeights at build time; without
+    // a rebuild it visibly stays on the old (wrong) heights even after
+    // cell promotions correct them. Debounced via rAF so a streaming burst
+    // collapses to a single rebuild.
+    if (!this.tubeRebuildScheduled) {
+      this.tubeRebuildScheduled = true;
+      requestAnimationFrame(() => {
+        this.tubeRebuildScheduled = false;
+        this.globalRouteGrid.rebuildAirRouteLayer();
+      });
+    }
+
     const towers = this.gameState.towerManager.getAll();
     if (towers.length === 0) return;
 
