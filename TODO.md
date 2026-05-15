@@ -510,6 +510,14 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 
 ## Performance - Advanced
 
+- [ ] **zombie_v2-Modell extern weiter optimieren**
+      Frames gegenüber dem alten `zombie.glb` aktuell deutlich schlechter, sichtbar
+      vor allem bei sehr großen Waves (>2k Enemies). Externe Mesh-/Material-/
+      Animations-Optimierung am Modell selbst (Polycount, Skeleton-Komplexität,
+      Texturgrößen, VAT-Frame-Count, ggf. Splitting in LOD-Stufen) — kein
+      Code-Fix, sondern Asset-Pass. Backup liegt als
+      `public/assets/models/enemies/zombie_v2.original.glb.bak` vor.
+
 - [ ] **Enemy Movement auf SoA (Structure of Arrays) umziehen**
       Ziel: Cache-freundliche Batch-Verarbeitung für Movement + Koordinaten-Konvertierung.
       Idee aus lokalem Experiment (vor Merge aufgegeben, da origin den klassischen Renderer entfernt hat):
