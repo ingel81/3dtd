@@ -101,7 +101,7 @@ training-backend/               # Python Training Backend
 | [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
 | **Architektur & Store** | |
 | [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug) |
-| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | **Geplant:** GPU-Cubemap-basierter LOS-Rewrite fuer Route-Cell-Grid |
+| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | GPU-Cubemap-LOS-Pipeline (Ground + Air produktiv, Stand 2026-05-15) |
 | **AI System (Frontend)** | |
 | **[PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md)** | **Aktuelle AI-Architektur** (Range-Based Templates + 5.11b/5.14/5.16-Erweiterungen) |
 | **[HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md)** | **Aktueller Balance-Stand** (Wave-Curriculum, Endgame-Knobs, Gold-Budget) |
