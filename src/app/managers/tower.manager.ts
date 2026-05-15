@@ -328,12 +328,11 @@ export class TowerManager extends EntityManager<Tower> {
       this.researchStore.airTargetingUnlocked(),
     );
     const range = tower.combat.range;
-    const airRange = range; // TODO: airRangeMultiplier wenn Config-Feld ergänzt
 
     const blockerGroup = this.tilesEngine.getLosBlockerGroup();
     if (!blockerGroup) return;
     const cells = this.globalRouteGrid.getCellsInRange(
-      localPos.x, localPos.z, Math.max(range, airRange),
+      localPos.x, localPos.z, range,
     );
     if (cells.length === 0) return;
 
@@ -341,7 +340,7 @@ export class TowerManager extends EntityManager<Tower> {
       cells,
       towerTip,
       groundRange: range,
-      airRange,
+      airRange: range,
       canTargetGround,
       canTargetAir,
       gridCellSize: this.globalRouteGrid.getCellSize(),
