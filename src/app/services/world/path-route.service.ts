@@ -11,6 +11,7 @@ import { DevWorldService } from '../../devworld/devworld.service';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 import { UIStore } from '../../store/ui.store';
 import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
+import { GlobalRouteGridService } from './global-route-grid.service';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -31,6 +32,7 @@ export class PathAndRouteService {
   private readonly devWorld = inject(DevWorldService);
   private readonly uiStore = inject(UIStore);
   private readonly pathfindingWorker = inject(PathfindingWorkerService);
+  private readonly globalRouteGrid = inject(GlobalRouteGridService);
 
   // ========================================
   // STATE
@@ -41,13 +43,6 @@ export class PathAndRouteService {
 
   /** originTerrainY used when building cached paths (needed for geo→local conversion) */
   private cachedOriginTerrainY = 0;
-
-  /** Tile quality metrics from last accepted route calculation per spawn */
-  private cachedPathQuality = new Map<string, { avgGeometricError: number }>();
-
-  /** Reject route if tile geometric error increased by more than this factor.
-   *  LOD drops cause 3-10× increase, normal variation is <1.5×. */
-  private readonly QUALITY_REJECT_FACTOR = 2.0;
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
   private routeLines: Line2[] = [];
@@ -150,7 +145,6 @@ export class PathAndRouteService {
    */
   clearCache(): void {
     this.cachedPaths.clear();
-    this.cachedPathQuality.clear();
   }
 
   /**
@@ -409,92 +403,44 @@ export class PathAndRouteService {
     const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
     this.cachedOriginTerrainY = originTerrainY;
 
-    // Start tile quality tracking (piggybacks on raycasts to record tile LOD info)
-    this.engine.startTileQualityTracking();
-
-    // Track which positions got valid terrain samples
-    const validIndices: number[] = [];
-    const terrainHeights: number[] = [];
+    // Resolve per-waypoint heights from the route-grid cell at each position.
+    // Single source of truth — same cells drive enemy movement and tower-LOS,
+    // so the red line, the enemy feet and the LOS rays now share one ground
+    // model. No more parallel raycast/smoothing pipeline.
+    //
+    // Bootstrap fallback: on the very first build, cells aren't generated
+    // yet (initializeGlobalRouteGrid runs AFTER the first showPathFromSpawn).
+    // We draw a flat line at originTerrainY; refreshRouteLines runs after
+    // onTilesLoaded / grid init and snaps the line up to real heights.
+    const cellsReady = this.globalRouteGrid.isInitialized();
+    const pathWithHeights: GeoPosition[] = new Array(geoPath.length);
 
     for (let i = 0; i < geoPath.length; i++) {
       const pos = geoPath[i];
-      const prev = geoPath[Math.max(0, i - 1)];
-      const next = geoPath[Math.min(geoPath.length - 1, i + 1)];
-
-      // Use lateral sampling in real world to detect tree/building hits
-      let terrainY: number | null;
-      if (this.devWorld.isActive) {
-        terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon);
-      } else {
-        terrainY = this.engine.getGroundHeightEstimate(
-          pos.lat, pos.lon,
-          prev.lat, prev.lon,
-          next.lat, next.lon
-        );
-      }
-      terrainY = terrainY ?? originTerrainY;
-
       const local = this.engine.sync.geoToLocalSimple(pos.lat, pos.lon, 0);
-      // Y = height difference from origin + offset above ground
+
+      let cellY: number | null = null;
+      if (cellsReady) {
+        cellY = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
+      }
+      const terrainY = cellY ?? originTerrainY;
+
+      // Line geometry: local frame, relative to origin's terrain Y, plus the
+      // small lift so the line stays visible above ground.
       local.y = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
       points.push(local);
-      validIndices.push(i);
-      terrainHeights.push(terrainY);
+
+      // Cached path keeps an absolute geo height for any legacy reader.
+      // Enemy movement/spawn no longer use this field — they read cells
+      // directly — but route-animation and external consumers may rely on it.
+      pathWithHeights[i] = { ...pos, height: terrainY + origin.height };
     }
 
-    // Smooth out height anomalies
-    const smoothedPoints = this.smoothPathHeights(points);
-
-    // Convert smoothed heights back to geo heights and update cached path
-    // For the last point (HQ), always use the terrain height of the second-to-last point
-    // so enemies stay on ground level instead of climbing to the beacon
-    let lastValidGeoHeight = origin.height;
-    let secondToLastGeoHeight = origin.height;
-
-    const pathWithHeights: GeoPosition[] = geoPath.map((pos, i) => {
-      const isLastPoint = i === geoPath.length - 1;
-      const smoothedIdx = validIndices.indexOf(i);
-
-      if (smoothedIdx !== -1 && smoothedIdx < smoothedPoints.length) {
-        const smoothedLocalY = smoothedPoints[smoothedIdx].y;
-        const localTerrainY = smoothedLocalY - HEIGHT_ABOVE_GROUND + originTerrainY;
-        const geoHeight = localTerrainY + origin.height;
-
-        // Track heights for HQ fallback
-        secondToLastGeoHeight = lastValidGeoHeight;
-        lastValidGeoHeight = geoHeight;
-
-        // For the last point (HQ), use the previous point's height
-        // to ensure enemies walk on ground level into the building
-        if (isLastPoint) {
-          return { ...pos, height: secondToLastGeoHeight };
-        }
-        return { ...pos, height: geoHeight };
-      } else {
-        // For points without valid terrain (like HQ on a building),
-        // use the last valid terrain height so enemies stay on ground
-        return { ...pos, height: lastValidGeoHeight };
-      }
-    });
-    // Stop tile quality tracking and check if route should be accepted
-    const quality = this.engine.stopTileQualityTracking();
-    const prevQuality = this.cachedPathQuality.get(spawn.id);
-
-    // Reject if tiles are significantly worse (lower LOD) than previous calculation
-    if (prevQuality && quality &&
-        quality.avgGeometricError > prevQuality.avgGeometricError * this.QUALITY_REJECT_FACTOR) {
-      // Keep old cachedPaths (gameplay-critical), visual route line below is still recreated
-    } else {
-      this.cachedPaths.set(spawn.id, pathWithHeights);
-      if (quality) {
-        this.cachedPathQuality.set(spawn.id, { avgGeometricError: quality.avgGeometricError });
-      }
-
-    }
+    this.cachedPaths.set(spawn.id, pathWithHeights);
 
     // Convert points to flat array for LineGeometry
     const positions: number[] = [];
-    for (const pt of smoothedPoints) {
+    for (const pt of points) {
       positions.push(pt.x, pt.y, pt.z);
     }
 
