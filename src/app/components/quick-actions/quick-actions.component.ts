@@ -3,6 +3,7 @@ import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { DebugFacadeService } from '../../services/debug/debug-facade.service';
+import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
@@ -281,6 +282,14 @@ import { TdIconComponent } from '../icon/icon.component';
                   matTooltip="AI Training"
                   matTooltipPosition="left">
             <td-icon name="bulb" [size]="18"></td-icon>
+          </button>
+          <div class="td-dev-separator"></div>
+          <!-- State Dump (JSON download for bug reports) -->
+          <button class="td-dev-btn"
+                  (click)="debugStateDump.dumpAndDownload()"
+                  matTooltip="Download state dump (JSON)"
+                  matTooltipPosition="left">
+            <td-icon name="copy" [size]="18"></td-icon>
           </button>
           @if (devWorld.isActive) {
             <button class="td-dev-btn"
@@ -584,6 +593,7 @@ export class QuickActionsComponent {
   readonly debugWindows = inject(DebugWindowService);
   readonly uiStore = inject(UIStore);
   readonly devWorld = inject(DevWorldService);
+  readonly debugStateDump = inject(DebugStateDumpService);
   private readonly debugFacade = inject(DebugFacadeService);
 
   // Input for camera framing debug state (component-local in parent)
