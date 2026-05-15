@@ -13,7 +13,7 @@
  * Keep in sync with ENEMY_TYPES in models/enemy-types.ts
  */
 export type KnownEnemyTypeId =
-  | 'zombie' | 'rat' | 'penguin'
+  | 'zombie' | 'zombie-v2' | 'rat' | 'penguin'
   | 'wallsmasher' | 'bat' | 'hornet' | 'spider'
   | 'zombie-soldier' | 'tank' | 'bear' | 'dragon' | 'mech'
   | 'mammoth' | 'herbert'

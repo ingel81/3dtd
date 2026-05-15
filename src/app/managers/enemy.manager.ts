@@ -274,7 +274,10 @@ export class EnemyManager extends EntityManager<Enemy> {
     const credits = awardCredits ? this.calculateDynamicReward(enemy) : 0;
     this.eventBus.emit({ type: 'enemy:died', enemy, credits });
 
-    if (enemy.typeConfig.deathAnimation) {
+    const hasDeathAnim =
+      !!enemy.typeConfig.deathAnimation ||
+      (enemy.typeConfig.deathAnimations?.length ?? 0) > 0;
+    if (hasDeathAnim) {
       this.tilesEngine?.enemies.playDeathAnimation(enemy.id);
       this.pendingDeaths.push({
         enemy,
