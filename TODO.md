@@ -98,6 +98,102 @@
         Nachbar-Cells / Polyline-Höhe machen, krasse Sprünge ablehnen
         statt zu cachen.
 
+      ---
+
+      **Stand 2026-05-15 — Fix implementiert, in Beobachtung**
+
+      Diagnose-Sammlung über 14 reproduzierbare Cases (`tmp/case 1` …
+      `case 14`, je BEFORE/AFTER-JSON-Dump + Screenshot + info.txt). Diagnose-
+      API in DevTools via `__rg.*` und State-Dump-Button im Dev-Menü (Commit
+      `9df8f3c feat(debug): route-grid diagnostics + JSON state-dump`).
+
+      **Empirisch bestätigte Wurzeln (zum Teil abweichend von der ursprünglichen
+      Hypothese oben):**
+
+      - **Defekt I — Init-Race zwischen `generateFromRoutes` und Tile-Mesh-
+        Dekodierung.** Hauptmechanismus: bei aktivem Browser-Cache liefert
+        die Tile-Engine schon Hits zurück, bevor das Mesh dekodiert ist —
+        BBox/Center-Approximationen werden als Ground gemeldet. Smoking-Gun-
+        Indikator: alle Cells mit `tileDepth=0 + tileGeometricError=Infinity`
+        bei konsistent falschem Y (z.B. SF Cases 10/12: alle stable @ 504m
+        statt -10..52m). Die TODO-These "LOD-Race nach sampled→besseres-LOD-
+        Refresh" hat sich in den Daten NICHT bestätigt — kein einziger Case
+        zeigte einen `tileDepth=20 → tileDepth=23 mit anderem Y`-Übergang.
+      - **Defekt II — Anker=0 / Air-Tube-Knick nach unten bei Tile-Lücken
+        (Wasser/Tunnel).** `routeAnchorY` ist in den meisten Karten 0 (Route-
+        Polyline ohne Höhen, Ausnahme: Salzburg liefert echte Anker). Unsampled
+        Cells fallen visuell auf 0m, die Air-Tube nimmt naiv
+        `cell.terrainHeight + 15m = 15m` → 165m unter dem Rest.
+      - **Defekt III — Air-Route-Tube wird nicht rebuildet bei Cell-Promotion.**
+        Reset/Promotion heilt die Aggregate-Meshes, aber die Magenta-Tube
+        bleibt visuell auf alten Höhen stehen (Cases 2/5/6/10/12).
+      - **Defekt IV — `resetHeightsAndRetry` zerstörte gute LOD-Daten.** Wenn
+        BEFORE-Cells bereits `tileDepth≥18` hatten, machte der Wholesale-Reset
+        sie schlechter (Cases 1/7/8: depth → 0 nach Reset). Wegwerfen + Retry
+        ist nicht produktiv.
+
+      **Fix (Commit nach diesem TODO-Update):**
+
+      - `sampleCellY` (`src/app/utils/global-route-grid.ts`) lehnt zwei
+        Hit-Klassen jetzt ab und lässt Cells `unsampled`:
+        1. "noLOD" — Sample-Raycaster wired, aber Hit hat `tileDepth=0` oder
+           `tileGeomErr=Infinity` (= Mesh nicht dekodiert)
+        2. "outlier" — Hit divergiert >50m vom Median der stable Nachbarn
+           (Sub-Fall B / Tunnel-Outlier)
+        Beide Pfade greifen nur wenn `terrainSampleRaycaster` verkabelt ist
+        (DevWorld/Tests bleiben unverändert).
+      - Neuer Helper `medianOfStableNeighbourY` (private) + `estimateTerrainY`
+        (public) — 3×3, dann 5×5 Ring, ≥3 stable Nachbarn für Sanity-Check
+        nötig (sonst null = keine false positives beim Erst-Sample).
+      - `retryUnsampledCells()` returnt jetzt `{ promoted: number }`.
+      - **Convergence-Loop** in `visualization-facade.service.ts`
+        (`scheduleRouteGridConvergence`): rAF-getakteter Retry nach Tile-Load-
+        End; stoppt nach 2 aufeinanderfolgenden Frames mit 0 Promotions, oder
+        bei 120 Frames Safety-Cap (~2s @ 60fps). Ersetzt den vorherigen Single-
+        Shot-Retry — keine harte Wartekonstante mehr, passt sich an Hardware
+        und Cache-State an.
+      - `route-altitude-tubes.ts` benutzt `estimateTerrainY` statt naiv
+        `cell.terrainHeight` für unsampled-Cells → kein Knick nach unten mehr
+        auch wenn Cells dauerhaft unsampled bleiben.
+      - `tower-placement.service.ts onCellsPromoted` triggert jetzt zusätzlich
+        `rebuildAirRouteLayer()` mit rAF-Debounce (Defekt III).
+      - `resetHeightsAndRetry`: nur noch Cells mit `tileDepth=0 ||
+        tileGeomErr=Infinity` zurücksetzen, gute Cells bleiben (Defekt IV).
+
+      **Tuning-Konstanten** (eine Stelle, leicht justierbar):
+      - Sanity-Threshold: 50m gegen Nachbar-Median in `sampleCellY`. Salzburg-
+        Tunnel hatte max 63m Drift → wird vom Filter abgelehnt (gewollt: dort
+        bleibt die Cell unsampled statt 63m Müll zu cachen).
+      - Convergence-Cap: 120 Frames in `scheduleRouteGridConvergence`.
+
+      **Bewusst NICHT gefixt:**
+      - Aggregate-Mesh-Lücken bei dauerhaft unsampled Cells (Wasserflächen,
+        Tunnel) — bleiben sichtbar. UX-Entscheidung: keine geratenen Cell-
+        Quadrate auf Wasser zeigen. Air-Tube interpoliert trotzdem darüber.
+      - Anker-Resample (z.B. terrain-getrieben in `generateCorridorCells`) —
+        zu unsicher (Tile-Engine zu Init-Zeit nicht verlässlich). Defekt II
+        wird visuell durch Tube-Interpolation entschärft; Combat-LOS für
+        dauerhaft-unsampled Cells kann theoretisch noch falsche Cache-Werte
+        haben, wurde aber in den 14 Cases nicht als Spielproblem sichtbar.
+      - Tunnel/Brücke (Case 7 Salzburg, 63m Drift) — separates Topic mit
+        Photorealistic-Tiles-Limitationen, kein eigentlicher Bug.
+
+      **Verifikations-Plan (offen, daher TODO in Beobachtung):**
+      Die 14 archivierten Cases mit dem neuen Code nachspielen, BEFORE-Dump
+      (sofort nach Reload) und AFTER-Dump (nach ~2s Wartezeit, ohne Reset)
+      ziehen. Erwartung pro Case-Familie:
+      - Cases 2/5/6/10/12 (alles 200m verschoben): BEFORE viele unsampled,
+        AFTER alle stable und korrekt
+      - Cases 1/4 (Lücke + Knick nach unten): Aggregate-Lücke bleibt, Air-Tube
+        interpoliert glatt
+      - Case 14 Dump 1 (lokaler Peak nach oben): Outlier-Cluster bleibt
+        unsampled, Air-Tube interpoliert; kein Peak mehr
+      - Cases 3/7/8/9/11/13 (gut): bleiben gut, Reset zerstört nichts mehr
+
+      **Rollback-Hinweis falls nötig:** Fix ist in einem Commit gebündelt
+      (folgt nach diesem TODO-Update). Diagnose-Infrastruktur (`9df8f3c`)
+      bleibt davon unabhängig.
+
 - [ ] **Air-Enemy-Flughöhe divergiert von Air-LOS-Sample-Höhe am Hang**
       Drei Modelle laufen heute parallel, die in flachem Terrain
       übereinstimmen, am Hang aber auseinander gehen:

@@ -480,6 +480,16 @@ export class GlobalRouteGrid {
 
     if (this.terrainSampleRaycaster) {
       hit = this.terrainSampleRaycaster(cell.x, cell.z, cell.routeAnchorY);
+      // When the detailed sampler IS wired but its hit comes back without
+      // LOD info (tileDepth=0 + tileGeomErr=Infinity), the tile mesh is
+      // not yet decoded — the engine is returning a BBox/approximation
+      // hit. Accepting it would cement a wrong terrain Y. Leave the cell
+      // unsampled; the post-load convergence loop will retry until the
+      // sampler returns a real mesh hit.
+      if (hit !== null && (hit.tileDepth === 0 || hit.tileGeometricError === Infinity)) {
+        logGrid('SAMPLE', `reject reason=noLOD key=${cell.key} y=${hit.y.toFixed(2)}`);
+        return false;
+      }
     } else if (this.terrainRaycaster) {
       const y = this.terrainRaycaster(cell.x, cell.z, cell.routeAnchorY);
       if (y !== null) {
@@ -489,6 +499,20 @@ export class GlobalRouteGrid {
 
     if (hit === null) {
       logGrid('SAMPLE', `miss key=${cell.key} anchor=${cell.routeAnchorY.toFixed(2)}`);
+      return false;
+    }
+
+    // Reject hits that diverge >50m from the local stable-neighbour median.
+    // Catches localised outlier clusters where the tile engine returns a
+    // bad hit (BBox / backface / water) for one region while surrounding
+    // cells are correct. 50m is comfortable above realistic slopes
+    // (Salzburg case: max 63m at a tunnel, which we want to reject).
+    const neighbourMedian = this.medianOfStableNeighbourY(cell);
+    if (neighbourMedian !== null && Math.abs(hit.y - neighbourMedian) > 50) {
+      logGrid(
+        'SAMPLE',
+        `reject reason=outlier key=${cell.key} y=${hit.y.toFixed(2)} medianN=${neighbourMedian.toFixed(2)}`,
+      );
       return false;
     }
 
@@ -559,6 +583,61 @@ export class GlobalRouteGrid {
     cell.skylineHeight = skylineY;
     cell.skylineSampled = true;
     return true;
+  }
+
+  /**
+   * Median `terrainHeight` of the 8 adjacent stable cells. Returns `null`
+   * when fewer than 3 stable neighbours exist — not enough signal for a
+   * meaningful sanity check. Used by `sampleCellY` to reject hits that
+   * diverge wildly from the local terrain.
+   */
+  private medianOfStableNeighbourY(cell: RouteCell): number | null {
+    const gx = Math.floor(cell.x * this.INV_CELL_SIZE);
+    const gz = Math.floor(cell.z * this.INV_CELL_SIZE);
+    const samples: number[] = [];
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        if (dx === 0 && dz === 0) continue;
+        const n = this.cells.get(this.intCellKey(gx + dx, gz + dz));
+        if (n && n.sample.state === 'stable') samples.push(n.terrainHeight);
+      }
+    }
+    if (samples.length < 3) return null;
+    samples.sort((a, b) => a - b);
+    return samples[Math.floor(samples.length / 2)];
+  }
+
+  /**
+   * Best-effort terrain-Y estimate at an arbitrary local (x, z) using
+   * the nearest sampled cells. Falls back through 3×3 then 5×5 ring
+   * before giving up. Used by visual consumers (air-route tube, future
+   * fallback paths) so a single unsampled cell in an otherwise-sampled
+   * grid doesn't pull the viz down to `routeAnchorY` (which is often 0).
+   */
+  estimateTerrainY(x: number, z: number): number | null {
+    const gx = Math.floor(x * this.INV_CELL_SIZE);
+    const gz = Math.floor(z * this.INV_CELL_SIZE);
+    const samples: number[] = [];
+    // 3×3 ring around the target cell (incl. centre).
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dz = -1; dz <= 1; dz++) {
+        const n = this.cells.get(this.intCellKey(gx + dx, gz + dz));
+        if (n && n.heightSampled) samples.push(n.terrainHeight);
+      }
+    }
+    if (samples.length === 0) {
+      // Expand to 5×5 ring (skip cells already visited).
+      for (let dx = -2; dx <= 2; dx++) {
+        for (let dz = -2; dz <= 2; dz++) {
+          if (Math.abs(dx) <= 1 && Math.abs(dz) <= 1) continue;
+          const n = this.cells.get(this.intCellKey(gx + dx, gz + dz));
+          if (n && n.heightSampled) samples.push(n.terrainHeight);
+        }
+      }
+    }
+    if (samples.length === 0) return null;
+    samples.sort((a, b) => a - b);
+    return samples[Math.floor(samples.length / 2)];
   }
 
   /**
@@ -773,8 +852,10 @@ export class GlobalRouteGrid {
    * Triggers `onCellsPromoted` and refreshes the global viz mesh when at
    * least one cell flipped from `unsampled` → `stable`.
    */
-  retryUnsampledCells(): void {
-    if (!this.terrainRaycaster && !this.terrainSampleRaycaster) return;
+  retryUnsampledCells(): { promoted: number } {
+    if (!this.terrainRaycaster && !this.terrainSampleRaycaster) {
+      return { promoted: 0 };
+    }
 
     const promoted: RouteCell[] = [];
     let totalUnsampled = 0;
@@ -796,10 +877,11 @@ export class GlobalRouteGrid {
       `retryUnsampled unsampledBefore=${totalUnsampled} promoted=${promoted.length}`,
     );
 
-    if (promoted.length === 0) return;
+    if (promoted.length === 0) return { promoted: 0 };
 
     this.refreshAggregateVizPositions();
     this.onCellsPromoted?.(promoted);
+    return { promoted: promoted.length };
   }
 
   /**
@@ -1450,18 +1532,18 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Demote every stable cell back to `unsampled` and run a fresh
-   * `retryUnsampledCells()` pass. Behavior: if the LOD-race hypothesis
-   * holds, the second sweep hits the already-streamed-in fine tiles and
-   * cells land on the correct height; if the cells stay wrong, the bug
-   * is downstream (tile engine itself returns a bad hit).
+   * Demote stable cells with low-quality samples back to `unsampled` and
+   * run a fresh `retryUnsampledCells()` pass.
    *
-   * Returns before/after Y-deltas so the LOD-race can be confirmed in a
-   * single call without needing a separate `dumpStats` round-trip.
+   * Resets only cells that came from the legacy fallback path (no LOD
+   * info: `tileDepth=0` or `tileGeomErr=Infinity`). Productive samples
+   * with real tile-LOD are kept — wholesale reset destroyed them in
+   * cases 1/7/8 of the bug hunt. The strict `sampleCellY` now rejects
+   * fallback hits up front, so this method is now mostly a debug helper
+   * for legacy data still in the cache from a previous build.
    *
-   * Pure debug helper — not wired into any production path. Don't graft
-   * this into `retryUnsampledCells` itself; the proper fix re-samples
-   * selectively on real LOD-upgrade events, not by wholesale reset.
+   * Returns before/after Y-deltas so the user can see the magnitude of
+   * the correction in one call.
    */
   resetHeightsAndRetry(): {
     reset: number;
@@ -1473,18 +1555,19 @@ export class GlobalRouteGrid {
     const before = new Map<number, number>();
     let reset = 0;
     for (const cell of this.cells.values()) {
-      if (cell.sample.state === 'stable') {
-        before.set(cell.key, cell.terrainHeight);
-        cell.sample = {
-          state: 'unsampled',
-          sampledAt: 0,
-          tileDepth: 0,
-          tileGeometricError: Infinity,
-        };
-        cell.heightSampled = false;
-        cell.terrainHeight = cell.routeAnchorY;
-        reset++;
-      }
+      if (cell.sample.state !== 'stable') continue;
+      const isFallback = cell.sample.tileDepth === 0 || cell.sample.tileGeometricError === Infinity;
+      if (!isFallback) continue;
+      before.set(cell.key, cell.terrainHeight);
+      cell.sample = {
+        state: 'unsampled',
+        sampledAt: 0,
+        tileDepth: 0,
+        tileGeometricError: Infinity,
+      };
+      cell.heightSampled = false;
+      cell.terrainHeight = cell.routeAnchorY;
+      reset++;
     }
     this.retryUnsampledCells();
 

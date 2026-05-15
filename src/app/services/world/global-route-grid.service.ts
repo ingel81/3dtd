@@ -75,9 +75,22 @@ export class GlobalRouteGridService {
   /**
    * Retry sampling for cells that have never had a real raycast hit.
    * Cheap — only walks unsampled cells. Call from tile-load-end events.
+   * Returns the number of cells promoted in this pass so a convergence
+   * loop can stop when nothing changes.
    */
-  retryUnsampledCells(): void {
-    this.grid.retryUnsampledCells();
+  retryUnsampledCells(): { promoted: number } {
+    return this.grid.retryUnsampledCells();
+  }
+
+  /**
+   * Best-effort terrain-Y at a local position via neighbour interpolation.
+   * Used by visual consumers (e.g. air-route tube) to avoid reading
+   * `cell.terrainHeight` from unsampled cells (which equals `routeAnchorY`
+   * and is often 0 on height-less routes — would yield a 165m downward
+   * kink on flat maps).
+   */
+  estimateTerrainY(x: number, z: number): number | null {
+    return this.grid.estimateTerrainY(x, z);
   }
 
   /**
