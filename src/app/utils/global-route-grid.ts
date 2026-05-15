@@ -148,6 +148,30 @@ function logGrid(tag: CellGridLogTag, ...args: unknown[]): void {
   console.log(`[CELL-GRID] ${tag}`, ...args);
 }
 
+/** Compact histogram summary used by diagnostics dump methods. */
+interface HistogramSummary {
+  count: number;
+  min: number;
+  max: number;
+  mean: number;
+  median: number;
+  p95: number;
+}
+
+function histogramSummary(vals: number[]): HistogramSummary | null {
+  if (vals.length === 0) return null;
+  const sorted = [...vals].sort((a, b) => a - b);
+  const sum = sorted.reduce((s, v) => s + v, 0);
+  return {
+    count: sorted.length,
+    min: sorted[0],
+    max: sorted[sorted.length - 1],
+    mean: sum / sorted.length,
+    median: sorted[Math.floor(sorted.length / 2)],
+    p95: sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))],
+  };
+}
+
 /**
  * Visualisation geometry — decal-like flat plates that hug the surface.
  * Increase `HEIGHT_M` to give the cells perceptible thickness; raise
@@ -1277,6 +1301,215 @@ export class GlobalRouteGrid {
       totalCells: this.cells.size,
       trackedEnemies: this.enemyCellKeys.size,
       occupiedCells,
+    };
+  }
+
+  // ========================================
+  // DIAGNOSTICS — temporary debug API for the route-grid height-anomaly hunt
+  // (plans/wir-wollen-einen-engine-typed-cray.md). Surfaced via __rg.* by
+  // GlobalRouteGridService. Safe to delete once the cell-height-caching bug
+  // is rooted out.
+  // ========================================
+
+  /**
+   * Per-cell snapshot of the sample state — used by `dumpCellsInBox` /
+   * `__rg.dumpCellsInBox(...)` to classify Sub-Fall A (unsampled+fallback)
+   * vs Sub-Fall B (stable+outlier) in DevTools.
+   */
+  dumpCellsInBox(box: { xMin: number; xMax: number; zMin: number; zMax: number }): Array<{
+    key: number;
+    x: number;
+    z: number;
+    terrainHeight: number;
+    routeAnchorY: number;
+    deltaFromAnchor: number;
+    state: 'unsampled' | 'stable';
+    tileDepth: number;
+    tileGeometricError: number;
+    heightSampled: boolean;
+    skylineSampled: boolean;
+    skylineHeight: number;
+  }> {
+    const out = [];
+    for (const cell of this.cells.values()) {
+      if (cell.x < box.xMin || cell.x > box.xMax) continue;
+      if (cell.z < box.zMin || cell.z > box.zMax) continue;
+      out.push({
+        key: cell.key,
+        x: cell.x,
+        z: cell.z,
+        terrainHeight: cell.terrainHeight,
+        routeAnchorY: cell.routeAnchorY,
+        deltaFromAnchor: cell.terrainHeight - cell.routeAnchorY,
+        state: cell.sample.state,
+        tileDepth: cell.sample.tileDepth,
+        tileGeometricError: cell.sample.tileGeometricError,
+        heightSampled: cell.heightSampled,
+        skylineSampled: cell.skylineSampled,
+        skylineHeight: cell.skylineHeight,
+      });
+    }
+    out.sort((a, b) => (a.x - b.x) || (a.z - b.z));
+    return out;
+  }
+
+  /**
+   * Aggregate histogram across all cells — used by `__rg.dumpStats()` to
+   * compare runs against each other (Mailand vs Manhattan, pre vs post
+   * resetHeightsAndRetry). Includes `deltaFromAnchorAbs` which is the
+   * most diagnostic single value: when this is large for many stable
+   * cells, the LOD-race hypothesis is supported.
+   */
+  dumpStats(): {
+    totalCells: number;
+    unsampled: number;
+    stable: number;
+    sampleFrame: number;
+    tileDepth: HistogramSummary | null;
+    tileGeometricError: HistogramSummary | null;
+    terrainHeight: HistogramSummary | null;
+    deltaFromAnchorAbs: HistogramSummary | null;
+    routeAnchorY: HistogramSummary | null;
+    unsampledCells: Array<{ key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }>;
+  } {
+    let unsampled = 0;
+    let stable = 0;
+    const depths: number[] = [];
+    const errors: number[] = [];
+    const heights: number[] = [];
+    const deltas: number[] = [];
+    const anchors: number[] = [];
+    const unsampledCells: Array<{ key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }> = [];
+
+    for (const cell of this.cells.values()) {
+      if (cell.sample.state === 'unsampled') {
+        unsampled++;
+        unsampledCells.push({
+          key: cell.key,
+          x: cell.x,
+          z: cell.z,
+          routeAnchorY: cell.routeAnchorY,
+          terrainHeight: cell.terrainHeight,
+        });
+      } else {
+        stable++;
+        depths.push(cell.sample.tileDepth);
+        if (Number.isFinite(cell.sample.tileGeometricError)) {
+          errors.push(cell.sample.tileGeometricError);
+        }
+      }
+      heights.push(cell.terrainHeight);
+      deltas.push(Math.abs(cell.terrainHeight - cell.routeAnchorY));
+      anchors.push(cell.routeAnchorY);
+    }
+
+    unsampledCells.sort((a, b) => (a.x - b.x) || (a.z - b.z));
+
+    return {
+      totalCells: this.cells.size,
+      unsampled,
+      stable,
+      sampleFrame: this.sampleFrame,
+      tileDepth: histogramSummary(depths),
+      tileGeometricError: histogramSummary(errors),
+      terrainHeight: histogramSummary(heights),
+      deltaFromAnchorAbs: histogramSummary(deltas),
+      routeAnchorY: histogramSummary(anchors),
+      unsampledCells,
+    };
+  }
+
+  /**
+   * Convenience filter — `dumpCellsInBox` over the whole grid, restricted
+   * to cells with `|terrainHeight - routeAnchorY| > thresholdM`. Spares
+   * the user having to pick a bounding box when they just want to see
+   * "which cells are anomalous". Sorted by magnitude descending.
+   */
+  dumpOutliers(thresholdM = 20): ReturnType<GlobalRouteGrid['dumpCellsInBox']> {
+    const out: ReturnType<GlobalRouteGrid['dumpCellsInBox']> = [];
+    for (const cell of this.cells.values()) {
+      const delta = cell.terrainHeight - cell.routeAnchorY;
+      if (Math.abs(delta) <= thresholdM) continue;
+      out.push({
+        key: cell.key,
+        x: cell.x,
+        z: cell.z,
+        terrainHeight: cell.terrainHeight,
+        routeAnchorY: cell.routeAnchorY,
+        deltaFromAnchor: delta,
+        state: cell.sample.state,
+        tileDepth: cell.sample.tileDepth,
+        tileGeometricError: cell.sample.tileGeometricError,
+        heightSampled: cell.heightSampled,
+        skylineSampled: cell.skylineSampled,
+        skylineHeight: cell.skylineHeight,
+      });
+    }
+    out.sort((a, b) => Math.abs(b.deltaFromAnchor) - Math.abs(a.deltaFromAnchor));
+    return out;
+  }
+
+  /**
+   * Demote every stable cell back to `unsampled` and run a fresh
+   * `retryUnsampledCells()` pass. Behavior: if the LOD-race hypothesis
+   * holds, the second sweep hits the already-streamed-in fine tiles and
+   * cells land on the correct height; if the cells stay wrong, the bug
+   * is downstream (tile engine itself returns a bad hit).
+   *
+   * Returns before/after Y-deltas so the LOD-race can be confirmed in a
+   * single call without needing a separate `dumpStats` round-trip.
+   *
+   * Pure debug helper — not wired into any production path. Don't graft
+   * this into `retryUnsampledCells` itself; the proper fix re-samples
+   * selectively on real LOD-upgrade events, not by wholesale reset.
+   */
+  resetHeightsAndRetry(): {
+    reset: number;
+    promotedAfter: number;
+    avgAbsYDelta: number;
+    maxAbsYDelta: number;
+    topMoves: Array<{ key: number; x: number; z: number; before: number; after: number; delta: number }>;
+  } {
+    const before = new Map<number, number>();
+    let reset = 0;
+    for (const cell of this.cells.values()) {
+      if (cell.sample.state === 'stable') {
+        before.set(cell.key, cell.terrainHeight);
+        cell.sample = {
+          state: 'unsampled',
+          sampledAt: 0,
+          tileDepth: 0,
+          tileGeometricError: Infinity,
+        };
+        cell.heightSampled = false;
+        cell.terrainHeight = cell.routeAnchorY;
+        reset++;
+      }
+    }
+    this.retryUnsampledCells();
+
+    let promotedAfter = 0;
+    let sumAbs = 0;
+    let maxAbs = 0;
+    const moves: Array<{ key: number; x: number; z: number; before: number; after: number; delta: number }> = [];
+    for (const cell of this.cells.values()) {
+      if (cell.sample.state === 'stable') promotedAfter++;
+      const prev = before.get(cell.key);
+      if (prev === undefined) continue;
+      const delta = cell.terrainHeight - prev;
+      const abs = Math.abs(delta);
+      sumAbs += abs;
+      if (abs > maxAbs) maxAbs = abs;
+      moves.push({ key: cell.key, x: cell.x, z: cell.z, before: prev, after: cell.terrainHeight, delta });
+    }
+    moves.sort((a, b) => Math.abs(b.delta) - Math.abs(a.delta));
+
+    return {
+      reset,
+      promotedAfter,
+      avgAbsYDelta: moves.length > 0 ? sumAbs / moves.length : 0,
+      maxAbsYDelta: maxAbs,
+      topMoves: moves.slice(0, 10),
     };
   }
 

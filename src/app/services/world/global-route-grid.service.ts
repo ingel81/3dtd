@@ -57,6 +57,19 @@ export class GlobalRouteGridService {
   ): void {
     this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster, terrainSampleRaycaster);
     this.initialized = true;
+
+    // Diagnose-API für Route-Grid-Höhen-Anomalien
+    // (plans/wir-wollen-einen-engine-typed-cray.md).
+    // In DevTools aufrufbar als `__rg.dumpStats()` /
+    // `__rg.dumpCellsInBox({xMin,xMax,zMin,zMax})` /
+    // `__rg.resetHeightsAndRetry()`.
+    (globalThis as Record<string, unknown>)['__rg'] = {
+      dumpStats: () => this.grid.dumpStats(),
+      dumpCellsInBox: (box: { xMin: number; xMax: number; zMin: number; zMax: number }) =>
+        this.grid.dumpCellsInBox(box),
+      resetHeightsAndRetry: () => this.grid.resetHeightsAndRetry(),
+      grid: this.grid,
+    };
   }
 
   /**
