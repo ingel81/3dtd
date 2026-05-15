@@ -47,6 +47,10 @@ import { losPerf } from '../utils/los-perf';
  *       bewegt oder `invalidate()` aufgerufen wurde.
  *   10. textureCube(map, worldDir) ohne X-Flip — kein flipEnvMap für
  *       CubeRenderTarget.
+ *   11. scene.background / scene.environment save/restore. Three.js
+ *       rendert Background-Texturen unabhängig vom child.visible-Filter
+ *       und ohne overrideMaterial — Skybox-RGBA-Bytes leaken sonst als
+ *       false-Blocker in jede Cubemap-Face.
  */
 export class TowerShadowMapper {
   private readonly renderer: WebGLRenderer;
@@ -251,12 +255,27 @@ export class TowerShadowMapper {
     const prevClearAlpha = this.renderer.getClearAlpha();
     this.renderer.setClearColor(0x000000, 0);
 
+    // Lesson 11 — scene.background / scene.environment save/restore.
+    // Three.js rendert beide UNABHÄNGIG vom child.visible-Filter (Lesson 8)
+    // und der overrideMaterial / per-Mesh-Material-Swap (Lesson 4) wird
+    // auf den Background NICHT angewendet. Eine Equirectangular-Skybox-
+    // Texture wandert ihre RGBA-Bytes also direkt in jedes Cube-Face —
+    // unpackRGBAToDepth auf eine blau-weiße Wolke (z.B. RGB=(140,180,200))
+    // ergibt depth ≈ 0.55, was bei far=40m als 22m-"Wolken-Blocker"
+    // erscheint. Auf null setzen während des Renders, dann restoren.
+    const prevBackground = this.scene.background;
+    const prevEnvironment = this.scene.environment;
+    this.scene.background = null;
+    this.scene.environment = null;
+
     const tRenderStart = performance.now();
     try {
       this.cubeCamera.update(this.renderer, this.scene);
     } finally {
       losPerf.sample('cube/render', performance.now() - tRenderStart);
       this.renderer.setClearColor(this.prevClearColor, prevClearAlpha);
+      this.scene.background = prevBackground;
+      this.scene.environment = prevEnvironment;
       const tRestoreStart = performance.now();
       for (const entry of meshBackup) {
         entry.mesh.material = entry.material;
