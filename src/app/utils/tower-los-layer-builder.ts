@@ -58,6 +58,12 @@ export interface TowerLosLayer {
   groundMesh: InstancedMesh;
   /** Air-Layer InstancedMesh (auf +airSampleYOffset, mit Stripe-Pattern). */
   airMesh: InstancedMesh;
+  /**
+   * Cells in der gleichen Reihenfolge wie die InstancedMesh-Instanzen.
+   * `cells[instanceId]` ist die zur Instance gehörige RouteCell — wird vom
+   * LOS-Debug-Panel für Reverse-Hover-Picking gebraucht.
+   */
+  cells: readonly RouteCell[];
   /** Animation-Tick — refresht das `uTime`-Uniform für Pulse. */
   tick(timeSeconds: number): void;
   /**
@@ -365,6 +371,7 @@ export class TowerLosLayerBuilder {
     return {
       groundMesh,
       airMesh,
+      cells,
       tick: (timeSeconds: number) => {
         groundMaterial.uniforms['uTime'].value = timeSeconds;
         airMaterial.uniforms['uTime'].value = timeSeconds;

@@ -262,6 +262,13 @@ import { TdIconComponent } from '../icon/icon.component';
             <td-icon name="speed" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="debugWindows.losWindow().isOpen"
+                  (click)="debugWindows.toggle('los')"
+                  matTooltip="LOS Cubemap"
+                  matTooltipPosition="left">
+            <td-icon name="layers" [size]="18"></td-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="debugWindows.eventsWindow().isOpen"
                   (click)="debugWindows.toggle('events')"
                   matTooltip="Event bus"
