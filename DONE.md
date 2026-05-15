@@ -6,6 +6,122 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-05-15
 
+### Cells als Single Source of Truth für Boden-Y (Pfad + Linie)
+
+- [x] **Rote Linie und gecachte Pfad-Heights kommen jetzt aus dem Route-Grid statt aus einer eigenen Raycast-Pipeline**
+      `path-route.service.ts buildRouteFromPath`: der per-Waypoint-Raycast-Loop
+      (`getGroundHeightEstimate` / `getTerrainHeightAtGeo` lateral sampling),
+      der nachgelagerte `smoothPathHeights`-Call, das Tile-Quality-Tracking
+      (`startTileQualityTracking`/`stopTileQualityTracking` + `QUALITY_REJECT_FACTOR`)
+      und der HQ-Sonderfall (letzter Waypoint nimmt vorletzte Höhe) sind alle weg.
+      Stattdessen liest jeder Waypoint seine Höhe aus `globalRouteGrid.getGroundLocalYAt(local.x, local.z)`.
+      Cells sind durch `sampleCellY` schon sanity-checked, LOD-versioniert und
+      self-heal-fähig — also genau die Eigenschaften, die das alte Smoothing
+      mühsam nachgebaut hat. `−108 LoC` in `path-route.service.ts`.
+- [x] **Neue API `getGroundLocalYAt(x, z)` auf `GlobalRouteGrid` + Service-Delegator**
+      Cell-first lookup mit Fallback auf `estimateTerrainY` (3×3 → 5×5 Median
+      der stabilen Nachbarn). Single `Map.get` + 2 Integer-Casts, billig genug
+      für Hot-Path-Konsumenten. Datei: `src/app/utils/global-route-grid.ts`.
+- [x] **`onTilesLoaded` refresht Cells bevor die Route-Linie liest**
+      `visualization-facade.service.ts`: `globalRouteGrid.updateTerrainHeights()`
+      läuft direkt vor `pathRoute.refreshRouteLines()`, sodass die Linie nach
+      einem Tile-Reload garantiert auf der frischen LOD landet (vorher passte
+      es nur durch Glück, da Cells eine separate Stabilisations-Loop hatten).
+- [x] **Movement bleibt bewusst auf Wegpunkt-Interpolation**
+      Erster Versuch las pro Frame direkt aus der Cell unter dem Gegner —
+      visuell zeigten sich kleine Höhensprünge bei jedem Cell-Grenzübergang
+      (Cell-Größe 2 m × ~5 m/s = ~0.4 Hz Sprünge). Rollback auf die alte
+      lineare Interpolation zwischen `path[i].height` und `path[i+1].height`.
+      Da Pfad-Heights jetzt aus Cells kommen, ist die Linie weiterhin
+      exakt mit den Gegnerfüssen aligned (minus die 1 m HEIGHT_ABOVE_GROUND-
+      Anhebung) — nur eben ohne 2-m-Treppen-Artefakt.
+      Trade-off: Gegner mit lateralem Offset haben weiterhin die Linien-Höhe,
+      nicht die Bürgersteig-Höhe. Akzeptiert, da das auch der Stand vor dem
+      Refactor war.
+- [x] **Doku angepasst**
+      `docs/ARCHITECTURE.md` Section "Pfad-Höhen": altes 3-stufiges Pipeline-
+      Diagramm + komplette "Tile-Quality Route Protection"-Section ersetzt
+      durch das neue Cells-as-SoT-Diagramm. `smoothPathHeights` als heute
+      noch von `street-rendering` verwendete Public-Methode klargestellt.
+
+### Strict `sampleCellY` + Convergence Loop + Tube Rebuild (Route-Grid-Schwebe-Bug)
+
+> Hintergrund: über 14 reproduzierbare Cases (`tmp/case 1..14` mit BEFORE/AFTER
+> JSON-Dump, Screenshot und info.txt) wurden die Wurzeln des "Route-Grid und
+> Air-Tube schweben über Boden" / "lokale Cell-Lücken"-Bugs vermessen. Die
+> ursprüngliche TODO-Hypothese ("LOD-Race nach sampled → besseres-LOD-Refresh")
+> hat sich in den Daten **nicht** bestätigt — keine einzige LOD-Promotion mit
+> abweichendem Y-Wert. Stattdessen vier eigenständige Defekte.
+
+- [x] **`sampleCellY` lehnt jetzt zwei Hit-Klassen ab und lässt Cells `unsampled`**
+      Datei: `src/app/utils/global-route-grid.ts`.
+      1. **"noLOD"** — Sample-Raycaster wired, aber Hit hat `tileDepth=0` oder
+         `tileGeometricError=Infinity` (= Mesh noch nicht dekodiert; Smoking-Gun
+         der Init-Race aus Cases 10/12 mit allen Cells stable @ 504 m statt
+         echtem -10..52 m).
+      2. **"outlier"** — Hit divergiert >50 m vom Median der stable 3×3-Nachbarn
+         (Tunnel/Brücke-Outlier, Sub-Fall B des Bugs).
+      Beide Pfade greifen nur wenn `terrainSampleRaycaster` verkabelt ist
+      (DevWorld/Tests bleiben unverändert). Neuer Helper `medianOfStableNeighbourY`
+      (private) + `estimateTerrainY` (public, 3×3 → 5×5 Median) — ≥3 stable
+      Nachbarn nötig, sonst `null` (keine false positives beim Erst-Sample).
+- [x] **rAF-getakteter Convergence-Loop nach Tile-Load-End**
+      `visualization-facade.service.ts scheduleRouteGridConvergence`: ruft
+      `retryUnsampledCells()` pro Frame, stoppt nach 2 aufeinanderfolgenden
+      Frames mit 0 Promotions oder bei 120 Frames Safety-Cap (~2s @ 60fps).
+      Ersetzt den vorherigen Single-Shot-Retry — keine harte Wartekonstante
+      mehr, passt sich an Hardware und Cache-State an.
+      `retryUnsampledCells()` returnt jetzt `{ promoted: number }`.
+- [x] **Air-Route-Tube wird bei Cell-Promotion neu gebaut (Defekt III)**
+      `tower-placement.service.ts onCellsPromoted`: triggert zusätzlich
+      `rebuildAirRouteLayer()` mit rAF-Debounce. Vorher heilte die Promotion
+      die Aggregate-Meshes, aber die Magenta-Tube blieb auf alten Höhen
+      stehen (Cases 2/5/6/10/12).
+- [x] **`route-altitude-tubes.ts` nutzt `estimateTerrainY` für unsampled Cells**
+      Vorher naive `cell.terrainHeight` → Knick nach unten auf
+      `routeAnchorY` (oft 0 → ~165 m unter Rest). Jetzt Neighbour-Median-
+      Interpolation auch wenn Cells dauerhaft unsampled bleiben (Wasser,
+      Tunnel).
+- [x] **`resetHeightsAndRetry` zerstört keine guten LOD-Daten mehr (Defekt IV)**
+      Nur noch Cells mit `tileDepth=0 || tileGeomErr=Infinity` werden zurückgesetzt,
+      gute Cells (Cases 1/7/8 mit `tileDepth≥18`) bleiben.
+
+### Route-Grid-Diagnose-Infrastruktur
+
+- [x] **DevTools-API `__rg.*` für Live-Inspektion**
+      `globalThis.__rg = { dumpStats, dumpCellsInBox, resetHeightsAndRetry, grid }`.
+      `dumpStats()` gibt Histogramme über Cell-States, Tile-Depths und
+      Geometric-Errors aus. `dumpCellsInBox({xMin,xMax,zMin,zMax})` listet
+      jede Cell im Bereich mit allen Sample-Metadaten. `resetHeightsAndRetry()`
+      wirft schlechte Cells weg und retriggert Sampling.
+      Datei: `src/app/services/world/global-route-grid.service.ts`.
+- [x] **State-Dump-Button im Dev-Menü** für reproduzierbare Bug-Cases
+      Schreibt einen vollständigen JSON-Snapshot des Cell-Grids (alle
+      Cells mit Position, Heights, Sample-State, Tile-Metadaten) zusammen
+      mit Screenshot in `tmp/case N/`. Hat die 14-Case-Analyse für den
+      sampleCellY-Fix erst möglich gemacht.
+
+### LOS-Pipeline: dynamischer Viz-Cap + Cubemap-Debug-Panel
+
+- [x] **`airRangeMultiplier`-Platzhalter raus, Viz-Cap dynamisch**
+      `refactor(los)`: Range-Berechnung läuft jetzt direkt mit dem Tower-
+      Range; die Viz nutzt einen aus der Engine berechneten dynamischen Cap
+      statt fest verdrahteter Konstanten. Vereinfacht den Code-Pfad und
+      entfernt Stale-Konstanten aus dem Air-Targeting-Refactor.
+- [x] **Cube-Render-Fix: `scene.background` + `environment` während Cube-Pass null**
+      Der versteckte 2-Tages-Bug der Air-LOS-Migration: die Skybox leakte
+      RGBA-Bytes als falsche "Depth"-Werte in die Cube-Faces, ignorierte
+      sowohl `child.visible` als auch `overrideMaterial`. Fix in
+      `tower-shadow-mapper.ts`: vor jedem Cube-Render `scene.background` und
+      `scene.environment` auf `null` setzen, danach wiederherstellen.
+      (Feedback-Memo: [feedback_cube_render_background.md] für künftige
+      Cube-Render-Sessions.)
+- [x] **Debug-Panel für Live-Cubemap-Inspektion**
+      Neuer Tab im Dev-Menü visualisiert die 6 Cube-Faces des gerade
+      ausgewählten Towers in Echtzeit, mit Pixel-Inspektor + Range-Visualisierung.
+      Zusammen mit dem Sub-Fix oben fertig — vorher gab's keinen sinnvollen
+      Weg, einen falschen Cube-Sample zu diagnostizieren.
+
 ### Anti-Air-Indikator im Build-Menü
 
 - [x] **Wind-Icon-Badge auf Tower-Card + Targeting-Banner im Tooltip**
@@ -25,6 +141,126 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       Dateien: `components/game-sidebar/game-sidebar.component.{html,ts}`,
       `components/tooltip/td-tooltip-content.component.ts`,
       `components/tooltip/tooltip-data.types.ts`.
+
+---
+
+## 2026-05-14
+
+### GPU-Cube Combat-Resolve + Air-Height-Unification (Option B) — LOS-Migration finale Stage
+
+- [x] **Air-LOS und Air-Enemy-Flughöhe vereinheitlicht auf `terrain + 15 m` (Option B)**
+      Vor der Migration liefen drei verschiedene Air-Höhen parallel (Enemy-
+      Flughöhe, Cell-Sample-Höhe für Tower-LOS, Air-Route-Tube-Viz), die
+      auf flachem Terrain übereinstimmten, am Hang aber bis zu 30 m
+      auseinander driften konnten. Nach Diskussion zwischen Option A
+      (Enemy-Y an Cells binden, sichtbares Zickzackeln am Hang) und
+      Option B (alle drei auf `getAirTargetY(cell) = cell.terrainHeight +
+      airSampleYOffset`) → Option B. Caveat: in dichten Skyscraper-Szenen
+      kann ein Air-Unit durch eine Fassade clippen — bewusster Trade-off
+      für vorhersehbare Coverage-Visualisierung.
+- [x] **Combat-LOS-Resolve auf GPU-Cubemap-Pixel-Lesen umgestellt**
+      Vorher: pro Schuss synchroner Three.js-Raycast vom Tower-Tip zum
+      Ziel. Jetzt: jeder Tower hat einen pre-rendered Cubemap (Phase aus
+      Migration vom 13.05); das Combat-Resolve liest am Schuss-Zeitpunkt
+      ein einziges RGBA-Byte per `readPixels` aus der entsprechenden Face/
+      UV. Ein-Pixel-Read im Worst-Case ~50 µs, gegen ~95-600 ms vorher
+      bei Burst-Placement. Auch die Air-Sicht (höheres Sample-Y) nutzt
+      denselben Cubemap — eine einzige LOS-Quelle für Ground- und Air-
+      Targeting.
+- [x] **Combat-Tower Cooldown war 3× pro Sub-Step gedeckelt — Fire-Rate-Config wurde ignoriert**
+      Game-Loop-Substep-Bug: `tower.combat.update(dt)` lief N-mal pro Frame
+      (für x-Speed-Determinismus seit Mitte 2026-05), aber das Cooldown-
+      Decrement war noch im Per-Frame-Pfad. Folge: Towers feuerten exakt
+      so oft wie Frames gerendert wurden, nicht wie ihre Fire-Rate-Config
+      vorgab. Fix: Cooldown wird jetzt pro Sub-Step abgebaut, nicht pro
+      Frame. AI-Training mit x75 sieht jetzt die korrekte DPS-Kurve.
+
+---
+
+## 2026-05-13
+
+### GPU-Cubemap-driven LOS Pipeline (Ground production-ready) — die GROSSE Architektur-Änderung
+
+> Hintergrund: bei jeder Tower-Platzierung lief vorher ein synchroner
+> Three.js-Raycast-Burst über alle Cells im Range (95-600 ms Frame-Drop).
+> Selbst bei Camera-Bewegung wurde Tower-LOS neu berechnet (Stale-Tiles-
+> Fix). Auf langen Maps wurde das Game beim Bauen unspielbar.
+>
+> Lösung-Skizze in zwei Handover-Dokumenten (12./13.05): GPU-Cubemap als
+> Single Source of Truth — jeder Tower hat 6 vorgerenderte Faces seines
+> Sichtbereichs in einer kleinen Render-Target-Cubemap. Per-Cell-Sichtbarkeit
+> wird aus einem einzelnen Pixel-Lookup gewonnen. Eine Cubemap ist nach
+> Tower-Platzierung statisch (Geometrie bewegt sich nicht); Re-Render nur
+> bei Tile-Reload oder Range-Upgrade.
+
+- [x] **GPU-Cubemap-LOS-Pipeline für Ground-Targeting produktiv**
+      Jeder Tower rendert beim Platzieren einmal 6 Cube-Faces seines
+      Range-Würfels in ein `WebGLCubeRenderTarget`. Cells im Range
+      sampeln per `readPixels` an `(face, u, v)` ein 1×1-Pixel und
+      lesen daraus Sichtbarkeit. Pro Tower-Reg: 1 Cube-Render (~5-10 ms),
+      dann ~500 readPixels (~20 µs/each). Vorher: 500 synchrone Raycasts
+      à 1-2 ms = 500-1000 ms Frame-Drop. Architektur in
+      `tower-shadow-mapper.ts`, `gpu-cube-resolve.ts`.
+- [x] **Aggregate-Grids auf 2-State-Modell simplifiziert**
+      Vorher 4 Aggregate-Visualisierungen für jede Kombination aus
+      ground/air × visible/blocked. Mit GPU-Cube als Wahrheits-Quelle
+      reichten 2 (ground-aggregate, air-aggregate) — jede Cell zeigt
+      ihren maximalen Sichtbarkeitszustand über alle registrierten Tower
+      hinweg. Vereinfacht den Code und reduziert InstancedMesh-Capacity-
+      Druck.
+- [x] **Air-Research Debug-Infrastructure — 4 Layer-Toggles + Per-Tower-Filter**
+      Dev-Menü-Tab "LOS Debug" mit Layer-Schaltern für: Tower-Cubemap-
+      Render, Aggregate-Ground, Aggregate-Air, Per-Tower-Filter (nur den
+      ausgewählten Tower anzeigen). War essentiell, um die Air-LOS-Stage
+      einen Tag später überhaupt validieren zu können.
+- [x] **Air-Enemies + Air-Cells gemeinsam sichtbar (`depth-test` + `logdepthbuf`)**
+      Z-Fighting zwischen Air-Cell-Quads und durchfliegenden Air-Enemies
+      ergab unleserliche Viz. Fix: Air-Cell-Material nutzt `depthTest:
+      true` mit Three.js `logdepthbuf`-Chunk und einer kleinen
+      `polygonOffset` — Cells werden korrekt hinter Enemies gezeichnet.
+      (Memo: alle eigenen Shader brauchen den `logdepthbuf`-Chunk wegen
+      3D-Tiles-Logarithmic-Depth — bekannt aus früheren Sessions.)
+- [x] **Stable-Cells werden beim Preview-Drag nicht mehr resampled**
+      `perf(los)`: während des Mouse-Move bei Tower-Platzierung wurde
+      `sampleCellY` für jede Cell im Preview-Range gefeuert (~500 cells
+      × Drag-Frames = 30k Raycasts pro Sekunde). Stable Cells sind aber
+      schon korrekt — Re-Sample bringt nichts ausser einen Cache-Miss.
+      Neue `promoteUnsampledCellsInRadius`-Variante macht nur Promotion
+      (unsampled → sampled), Refresh bleibt der Tile-Load-Pipeline überlassen.
+
+---
+
+## 2026-05-12
+
+### Vorbereitung der GPU-LOS-Migration + Stone Golem + Polish
+
+- [x] **GPU-LOS-Pipeline-Rewrite Handover-Dokumente**
+      Zwei Handover-Docs (12./13.05) skizzieren die GPU-Cubemap-Architektur
+      vor der Implementierung: Konsumenten, Datenfluss, Migrations-
+      Reihenfolge, Tile-LOD-Race-Edge-Cases. Doku in `docs/`. Hat die
+      mehrtägige Migration koordiniert.
+- [x] **Skyline-Raycast als Single Source of Truth gecached**
+      `perf(route-grid)`: vorher rief jede `registerTower` /
+      `continuePreviewBuild`-Iteration den Skyline-Raycast für jede Cell
+      neu auf — ~33 % aller Raycasts während Placement-Preview waren
+      redundant. Jetzt: `sampleCellSkyline` idempotent (write-once), Cell
+      trackt `skylineSampled`-Flag, Re-Sampling nur wenn Flag false.
+      Datei: `src/app/utils/global-route-grid.ts`.
+- [x] **Stone Golem als neuer Enemy-Typ**
+      Fortified-Armor, massive, slow (Speed 2.5, 480 HP). Config in
+      `enemy-types.config.ts` registriert. **Hinweis:** Stone Golem ist
+      noch nicht im AI-Wave-Director-Curriculum (TODO 2.2) — taucht
+      aktuell nur per Manual-Spawn / Tests auf.
+- [x] **Loading-Screen fade-in beim ersten Tile-Render + Logo-Only Header**
+      Der dunkle Backdrop des Loading-Screens fadet jetzt sanft aus,
+      sobald die ersten Tiles in die Szene gemalt wurden — vorher harter
+      Schwarz/Welt-Cut. Header während des Ladens auf Logo-only reduziert
+      (kein Text). Dateien: `loading-screen.component.{html,ts,scss}`.
+- [x] **`fix(game-state)`: Command-Bus-Adapter wird bei Re-Init disposed**
+      Bei Location-Change wurde ein zweiter Adapter ohne Cleanup des
+      ersten gestartet — Doppel-Listener auf dem Event-Bus, sichtbar als
+      doppelter Tower-Damage in Re-Init-Szenarien. Dispose-Hook in
+      `game-state.manager.ts` bei jedem `initialize()`.
 
 ---
 

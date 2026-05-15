@@ -407,86 +407,66 @@ getTerrainHeightAtGeo(lat: number, lon: number): number | null {
 }
 ```
 
-### Pfad-Höhen und Smoothing
+### Pfad-Höhen und Route-Grid-Cells
 
-Gegner folgen gecachten Pfaden mit **geglätteten Höhen** statt live vom Terrain zu samplen.
+Gegner folgen gecachten Pfaden mit Höhen, die aus dem **Route-Grid** stammen.
+Cells sind die Single Source of Truth für Boden-Y — dieselben Cells, die auch
+Tower-LOS und Air-Routing bedienen.
 
-**Problem ohne Smoothing:**
-- Live-Terrain-Sampling würde Gegner über Bäume/Gebäude laufen lassen
-- Routen sollen aber DURCH Hindernisse gehen (geglättete Linie)
+**Problem ohne zentrale Quelle:**
+- Live-Terrain-Sampling pro Frame würde Gegner über Bäume/Gebäude laufen lassen
+- Routen sollen DURCH Hindernisse gehen (geglättete Linie auf Strassenniveau)
+- Doppelpipeline (eigene Pfad-Raycasts neben Cell-Raycasts) führt zu Drift
+  zwischen sichtbarer Linie, Gegner-Position und Tower-LOS-Sample
 
-**Lösung:**
+**Lösung — eine Quelle, drei Konsumenten:**
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Route Creation (tower-defense.component.ts)                │
-│  1. Sample terrain height per path point                    │
-│  2. Smooth heights with smoothPathHeights()                 │
-│  3. Convert back to geo heights                             │
-│  4. Store in cachedPaths with smoothed heights              │
+│  Route Grid (global-route-grid.ts)                          │
+│  - sampleCellY: strict raycast + sanity-check + LOD-versioned│
+│  - cell.terrainHeight = single source of truth              │
+│  - getGroundLocalYAt(x,z): cell-first + neighbour fallback  │
+└─────────────────────────────────────────────────────────────┘
+           │
+           ▼
+┌─────────────────────────────────────────────────────────────┐
+│  Route Build (path-route.service.ts: buildRouteFromPath)    │
+│  1. A* pathfinding on street network                        │
+│  2. Per waypoint: getGroundLocalYAt(geoToLocal(pos))        │
+│  3. Cache pathWithHeights with cell-sourced geo heights     │
+│  4. Build Line2 with the same cell heights                  │
 └─────────────────────────────────────────────────────────────┘
            │
            ▼
 ┌─────────────────────────────────────────────────────────────┐
 │  Enemy Movement (movement.component.ts)                     │
 │  - Interpolates height between path waypoints               │
-│  - Sets transform.terrainHeight from path data              │
-└─────────────────────────────────────────────────────────────┘
-           │
-           ▼
-┌─────────────────────────────────────────────────────────────┐
-│  Enemy Update (enemy.manager.ts)                            │
-│  - Checks if path segment has valid heights                 │
-│  - If yes: uses interpolated path height                    │
-│  - If no: falls back to live terrain sampling               │
+│  - Waypoint heights came from cells (Step 2 above)          │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Height Conversion:**
-```typescript
-// Path creation: local Y → geo height
-const localTerrainY = smoothedPoint.y - HEIGHT_ABOVE_GROUND + originTerrainY;
-const geoHeight = localTerrainY + origin.height;
+**onTilesLoaded sequence:**
+1. `engine.clearHeightCache()` (signalled before callback)
+2. `globalRouteGrid.updateTerrainHeights()` — re-sample all cells against
+   freshly streamed tile geometry; quality-versioned idempotency skips
+   stable cells unless LOD improved
+3. `pathRoute.refreshRouteLines()` — line + cachedPaths rebuilt from
+   the now-fresh cells
+4. `scheduleRouteGridConvergence()` — rAF self-heal loop for cells
+   still `unsampled` (async tile-mesh decode)
 
-// Enemy update: check for valid path heights
-const pathHasHeights = segment.from.height !== 0 && segment.to.height !== 0;
-if (pathHasHeights) {
-  geoHeight = enemy.transform.terrainHeight; // From MovementComponent interpolation
-}
-```
+**Sanity & sampling rules (in `sampleCellY`):**
+- Rejects raycast hits with `tileDepth=0` / `tileGeomErr=Infinity` (mesh
+  not yet decoded → keeps cell `unsampled` instead of caching garbage)
+- Rejects outliers >50 m from the median of stable 3×3 neighbours
+- LOD-versioned idempotency: stable cells are only resampled when the
+  hit comes from a strictly better LOD
 
-**smoothPathHeights():**
-- Erkennt Höhenanomalien (Sprünge > 10m, Steigung > 50%)
-- Ersetzt Ausreißer durch interpolierte Werte
-- Verhindert dass Gebäude/Bäume die Route beeinflussen
-
-### Tile-Quality Route Protection
-
-Beim Zoomen wechseln 3D Tiles ihr LOD-Level. Low-LOD Tiles liefern bis zu 20m+ niedrigere
-Terrain-Höhen. Ohne Schutz würden Route-Neuberechnungen gegen diese Low-LOD Tiles falsche
-Höhen in `cachedPaths` speichern → Gegner spawnen unter dem Terrain.
-
-**Lösung:** Tile-Qualitäts-Tracking per `geometricError` (3D-Tiles-Standard):
-
-```
-┌──────────────────────────────────────────────────────────────┐
-│  Route Calculation (path-route.service.ts)                    │
-│  1. startTileQualityTracking()                                │
-│     → forEachLoadedModel() baut Map<Scene, TileInfo>          │
-│  2. Height raycasts (normal, gecacht)                         │
-│     → Bei jedem Raycast-Hit: Mesh → parent walk → Tile       │
-│     → geometricError + __depth aufzeichnen                    │
-│  3. stopTileQualityTracking() → avgGeometricError             │
-│  4. Vergleich mit vorheriger Berechnung:                      │
-│     - Wenn >2× schlechter → REJECT (alte cachedPaths behalten)│
-│     - Sonst → ACCEPT (neue cachedPaths speichern)             │
-│  5. Visuelle Route-Linie wird IMMER aktualisiert              │
-└──────────────────────────────────────────────────────────────┘
-```
-
-`geometricError`: niedrig = detailliert (5–50), hoch = grob (200–500).
-LOD-Wechsel verursacht 3–10× Sprung → klar detektierbar.
-Performance-Impact: < 0.1ms (kein zusätzlicher Raycast).
+**smoothPathHeights():** existiert noch in `path-route.service.ts`, wird aber
+ausschliesslich von `street-rendering.service.ts` für gerenderte Strassenmesh-
+Vertices genutzt. Der Pfad-Bau braucht es nicht mehr — Cells sind schon
+sanity-checked.
 
 ### Progressive LOS & Street Rendering
 
