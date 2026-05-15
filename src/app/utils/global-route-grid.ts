@@ -407,8 +407,18 @@ export class GlobalRouteGrid {
   /** Animation time accumulator */
   private animationTime = 0;
 
-  /** Maximum cells for visualization (pre-allocated) */
-  private readonly MAX_VIZ_CELLS = 5000;
+  /**
+   * Safety hard-limit for the viz InstancedMesh capacity. Real cell counts
+   * are passed directly via `this.cells.size` — this cap only fires if the
+   * grid grows pathologically (e.g. a Manhattan-scale route fan-out) and
+   * keeps the buffer allocation bounded. 50k × (Matrix4 + Float32) ≈ 4 MB
+   * per layer worst-case, which is fine.
+   *
+   * Three.js InstancedMesh cannot grow at runtime; if a grid genuinely
+   * needs more than this, `disposeVisualization` + `createVisualization`
+   * is the path forward (already invoked on toggle / location change).
+   */
+  private readonly MAX_VIZ_CELLS_HARDLIMIT = 50_000;
 
   /** Monotonic counter incremented on each successful sample (debug only). */
   private sampleFrame = 0;
@@ -1302,7 +1312,7 @@ export class GlobalRouteGrid {
       side: DoubleSide,
     });
 
-    const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS);
+    const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS_HARDLIMIT);
     this.visualization = new InstancedMesh(geometry, this.visualizationMaterial, maxCells);
     this.visualization.frustumCulled = false;
     this.visualization.renderOrder = 3;
@@ -1368,7 +1378,7 @@ export class GlobalRouteGrid {
       side: DoubleSide,
     });
 
-    const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS);
+    const maxCells = Math.min(this.cells.size, this.MAX_VIZ_CELLS_HARDLIMIT);
     this.airVisualization = new InstancedMesh(geometry, this.airVisualizationMaterial, maxCells);
     this.airVisualization.frustumCulled = false;
     this.airVisualization.renderOrder = 4;

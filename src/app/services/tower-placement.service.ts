@@ -487,7 +487,6 @@ export class TowerPlacementService {
     const canTargetGround = config.canTargetGround ?? true;
     const canTargetAir = canTargetAirEffective(typeId, this.researchStore.airTargetingUnlocked());
     const range = config.range;
-    const airRange = range; // TODO: airRangeMultiplier wenn Config-Feld ergänzt
 
     // Cells in der Cursor-Region zu `stable` promoten falls noch nicht
     // gesampelt — sonst tauchen sie nicht in der Viz auf (getCellsInRange
@@ -496,7 +495,7 @@ export class TowerPlacementService {
     // Cells laufen separat über den Tile-Streaming-Pfad.
     const tPromoteStart = performance.now();
     this.globalRouteGrid.promoteUnsampledCellsInRadius(
-      local.x, local.z, Math.max(range, airRange),
+      local.x, local.z, range,
     );
     losPerf.sample('preview/promote', performance.now() - tPromoteStart);
 
@@ -525,7 +524,7 @@ export class TowerPlacementService {
     if (!blockerGroup) return;
     const tGetStart = performance.now();
     const cells = this.globalRouteGrid.getCellsInRange(
-      local.x, local.z, Math.max(range, airRange),
+      local.x, local.z, range,
     );
     losPerf.sample('preview/getCells', performance.now() - tGetStart, cells.length);
     if (cells.length === 0) return;
@@ -534,7 +533,7 @@ export class TowerPlacementService {
       cells,
       towerTip: tipWorld,
       groundRange: range,
-      airRange,
+      airRange: range,
       canTargetGround,
       canTargetAir,
       gridCellSize: this.globalRouteGrid.getCellSize(),
