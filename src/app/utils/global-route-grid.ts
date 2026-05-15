@@ -11,7 +11,7 @@ import {
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
-import { TerrainRaycaster, TerrainSampleRaycaster } from '../three-engine/renderers/three-tower.renderer';
+import { TerrainRaycaster, TerrainSampleRaycaster, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
 
@@ -404,6 +404,23 @@ export class GlobalRouteGrid {
   private terrainSampleRaycaster: TerrainSampleRaycaster | null = null;
 
   /**
+   * Cheap LOD probe — returns the best tile LOD currently loaded at
+   * (x,z) WITHOUT raycasting. Used by `sampleCellY` to skip the full
+   * raycast when a stable cell's tile-LOD has not improved. When null,
+   * `updateTerrainHeights` falls back to the legacy raycast-every-cell
+   * behaviour.
+   */
+  private terrainPeekLOD: TerrainPeekLOD | null = null;
+
+  // ── Per-batch diagnostic counters ───────────────────────────────────
+  // Reset at the start of `updateTerrainHeights` (and `retryUnsampledCells`)
+  // and incremented from `sampleCellY`. Read by the caller after the sweep
+  // to log the skip-vs-raycast ratio — that's how we verify Option C is
+  // actually doing what it claims.
+  private peekSkipCount = 0;
+  private raycastCount = 0;
+
+  /**
    * Skyline raycaster — top-down sample of the highest geometry (terrain or
    * building roof) around a local position. Used to give cells a skyline
    * altitude for air-LOS pre-compute and adaptive air flight height.
@@ -473,10 +490,48 @@ export class GlobalRouteGrid {
    * @returns `true` when the cell was promoted to / refreshed in `stable`.
    */
   private sampleCellY(cell: RouteCell): boolean {
+    // Tile-LOD-aware early exit (Option C, perf/route-grid-tile-aware-update):
+    // Peek the best LOD currently loaded at this (x,z) WITHOUT raycasting.
+    // Skip the raycast when ANY of the following is true:
+    //
+    //  - peek === null: no loaded tile horizontally contains (x,z) → raycast
+    //    would miss anyway.
+    //  - peek.depth === 0 or geometricError === Infinity: tile is in the map
+    //    but its mesh isn't decoded yet → raycast would land in the noLOD
+    //    reject branch below. Catches the bootstrap-phase spike where
+    //    1700+ raycasts run before any tile has usable LOD info.
+    //  - stable cell + peek LOD NOT strictly better than cell.sample: raycast
+    //    result would be rejected by the worseLOD or noChange branch below.
+    //
+    // "Strictly better" mirrors the acceptance criterion: deeper depth (primary)
+    // or same depth with lower geometricError.
+    if (this.terrainPeekLOD !== null && this.terrainSampleRaycaster !== null) {
+      const peek = this.terrainPeekLOD(cell.x, cell.z);
+
+      // No usable LOD info at this point → raycast cannot succeed.
+      if (peek === null || peek.depth === 0 || peek.geometricError === Infinity) {
+        this.peekSkipCount++;
+        return false;
+      }
+
+      // Stable cell + peek LOD not better than what we have → would be rejected.
+      if (cell.sample.state === 'stable') {
+        const peekIsBetter =
+          peek.depth > cell.sample.tileDepth ||
+          (peek.depth === cell.sample.tileDepth &&
+            peek.geometricError < cell.sample.tileGeometricError);
+        if (!peekIsBetter) {
+          this.peekSkipCount++;
+          return false;
+        }
+      }
+    }
+
     // Prefer the detailed raycaster (returns LOD info) so we can implement
     // quality-versioned idempotency. Falls back to the plain raycaster
     // when only that is wired (legacy tests, DevWorld bootstrap).
     let hit: { y: number; tileDepth: number; tileGeometricError: number } | null = null;
+    this.raycastCount++;
 
     if (this.terrainSampleRaycaster) {
       hit = this.terrainSampleRaycaster(cell.x, cell.z, cell.routeAnchorY);
@@ -652,9 +707,11 @@ export class GlobalRouteGrid {
     coordinateSync: CoordinateSync,
     skylineRaycaster?: TerrainRaycaster,
     terrainSampleRaycaster?: TerrainSampleRaycaster,
+    terrainPeekLOD?: TerrainPeekLOD,
   ): void {
     this.terrainRaycaster = terrainRaycaster;
     this.terrainSampleRaycaster = terrainSampleRaycaster ?? null;
+    this.terrainPeekLOD = terrainPeekLOD ?? null;
     this.coordinateSync = coordinateSync;
     this.skylineRaycaster = skylineRaycaster ?? terrainRaycaster;
   }
@@ -797,6 +854,13 @@ export class GlobalRouteGrid {
   updateTerrainHeights(): void {
     if (!this.terrainRaycaster) return;
 
+    const t0 = performance.now();
+
+    // Reset per-batch diagnostic counters. `sampleCellY` increments them as
+    // it decides skip-vs-raycast — read after the loop to log the ratio.
+    this.peekSkipCount = 0;
+    this.raycastCount = 0;
+
     const promoted: RouteCell[] = [];
     let total = 0;
     let promotedCount = 0;
@@ -816,10 +880,26 @@ export class GlobalRouteGrid {
       }
       this.sampleCellSkyline(cell);
     }
+    const tLoop = performance.now();
+
+    // Detailed perf log — visible alongside the visualization-facade
+    // [PerfTrace] line. `peekSkipped` is the headline savings number.
+    const skipped = this.peekSkipCount;
+    const raycasted = this.raycastCount;
+    const skipRatio = total > 0 ? ((skipped / total) * 100).toFixed(1) : '0.0';
+    console.warn(
+      `[PerfTrace] updateTerrainHeights: ${(tLoop - t0).toFixed(1)}ms | ` +
+      `cells=${total} ` +
+      `peekSkipped=${skipped} (${skipRatio}%) ` +
+      `raycasted=${raycasted} ` +
+      `promoted=${promotedCount} ` +
+      `refreshed=${refreshedCount} ` +
+      `peekAvailable=${this.terrainPeekLOD !== null}`
+    );
 
     logGrid(
       'HEIGHT_UPDATE',
-      `cells=${total} promoted=${promotedCount} refreshed=${refreshedCount}`,
+      `cells=${total} promoted=${promotedCount} refreshed=${refreshedCount} skipped=${skipped}`,
     );
 
     // Refresh the active spatial-grid visualisation so cells snap to the

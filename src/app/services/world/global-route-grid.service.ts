@@ -4,7 +4,7 @@ import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
-import { TerrainRaycaster, TerrainSampleRaycaster } from '../../three-engine/renderers/three-tower.renderer';
+import { TerrainRaycaster, TerrainSampleRaycaster, TerrainPeekLOD } from '../../three-engine/renderers/three-tower.renderer';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
 import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 import { UIStore } from '../../store/ui.store';
@@ -54,8 +54,9 @@ export class GlobalRouteGridService {
     coordinateSync: CoordinateSync,
     skylineRaycaster?: TerrainRaycaster,
     terrainSampleRaycaster?: TerrainSampleRaycaster,
+    terrainPeekLOD?: TerrainPeekLOD,
   ): void {
-    this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster, terrainSampleRaycaster);
+    this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster, terrainSampleRaycaster, terrainPeekLOD);
     this.initialized = true;
 
     // Diagnose-API für Route-Grid-Höhen-Anomalien
