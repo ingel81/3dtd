@@ -1257,6 +1257,28 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Single source of truth for ground terrain Y at an arbitrary local
+   * (x, z) position. Used by enemy movement (per-frame), spawn
+   * initialization and the red route-line builder so every consumer
+   * reads the SAME height the LOS pipeline reads.
+   *
+   * Resolution chain:
+   *   1. Cell at (x,z) with `heightSampled === true` → `cell.terrainHeight`.
+   *   2. `estimateTerrainY` (3×3 then 5×5 median of stable neighbours).
+   *   3. `null` when no stable neighbour exists at all.
+   *
+   * Lookup is a single `Map.get` + 2 int casts → ~50 ns. Safe to call
+   * per-frame for every enemy.
+   */
+  getGroundLocalYAt(localX: number, localZ: number): number | null {
+    const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
+    const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
+    const cell = this.cells.get(this.intCellKey(cellKeyX, cellKeyZ));
+    if (cell && cell.heightSampled) return cell.terrainHeight;
+    return this.estimateTerrainY(localX, localZ);
+  }
+
+  /**
    * Get all alive enemies within a radius of a local position
    * Optimized: O(cells_in_radius) instead of O(all_enemies)
    *

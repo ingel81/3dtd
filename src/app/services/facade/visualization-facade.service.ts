@@ -583,6 +583,13 @@ export class VisualizationFacadeService {
     this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
     const tMarkers = performance.now();
 
+    // Refresh cell terrain heights against the just-streamed tile geometry
+    // BEFORE the route-line / route-animation rebuild reads from them.
+    // Cells are now the single source of truth for ground Y (red line,
+    // enemy feet, tower-LOS), so the line snap-up after a tile-load
+    // depends on this refresh happening first.
+    this.gameState.getGlobalRouteGrid().updateTerrainHeights();
+
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
     const tRoutes = performance.now();
 

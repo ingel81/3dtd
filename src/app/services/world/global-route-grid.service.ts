@@ -250,6 +250,17 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Resolve ground terrain-Y (local frame) at an arbitrary local (x, z)
+   * position. Cell-first, falls back to neighbour median. Returns `null`
+   * when no stable neighbour exists yet (very early bootstrap or cells
+   * not yet initialized). Single source of truth for enemy heights, the
+   * red route line, and spawn initialization.
+   */
+  getGroundLocalYAt(localX: number, localZ: number): number | null {
+    return this.grid.getGroundLocalYAt(localX, localZ);
+  }
+
+  /**
    * Check if position is visible from tower (ground LOS)
    */
   isPositionVisibleFromTower(towerId: string, localX: number, localZ: number): boolean | undefined {
