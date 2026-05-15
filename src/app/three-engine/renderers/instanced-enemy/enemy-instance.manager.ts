@@ -74,6 +74,23 @@ const HIT_FLASH_R = 0.85;
 const HIT_FLASH_G = 0.95;
 const HIT_FLASH_B = 1.0;
 
+/** Pick a death animation: random entry from deathAnimations pool, falling back to deathAnimation. Only returns clips the pool actually baked. */
+function pickDeathAnimation(config: EnemyTypeConfig, pool: TypePool): string | undefined {
+  const candidates: string[] = [];
+  if (config.deathAnimations) {
+    for (const name of config.deathAnimations) {
+      if (pool.vatData.animations.has(name)) candidates.push(name);
+    }
+  }
+  if (candidates.length > 0) {
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+  if (config.deathAnimation && pool.vatData.animations.has(config.deathAnimation)) {
+    return config.deathAnimation;
+  }
+  return undefined;
+}
+
 /**
  * EnemyInstanceManager
  *
@@ -303,12 +320,12 @@ export class EnemyInstanceManager {
     state.isDead = true;
     state.animTime = 0;
 
-    const deathAnim = state.config.deathAnimation;
-    if (deathAnim) {
-      const pool = this.pools.get(state.typeId);
-      if (pool && pool.vatData.animations.has(deathAnim)) {
-        state.currentAnim = deathAnim;
-      }
+    const pool = this.pools.get(state.typeId);
+    if (!pool) return;
+
+    const pickedDeath = pickDeathAnimation(state.config, pool);
+    if (pickedDeath) {
+      state.currentAnim = pickedDeath;
     }
   }
 

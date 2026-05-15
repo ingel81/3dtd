@@ -28,6 +28,8 @@ export interface EnemyTypeConfig {
   walkAnimation?: string;
   runAnimation?: string; // Alternative to walk animation (variation)
   deathAnimation?: string;
+  /** Optional pool of death animations — one is picked at random per kill. Falls back to `deathAnimation` if empty/unset. */
+  deathAnimations?: string[];
   animationSpeed?: number;
   animationVariation?: boolean; // Switches between walk and run animation
   runSpeedMultiplier?: number; // Speed multiplier for run animation (default: 1.0)
@@ -121,6 +123,36 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     randomSoundStart: true, // Start sound at random position
     lateralOffset: 3.0, // Max 3m lateral offset,
     previewScale: 1
+  },
+
+  'zombie-v2': {
+    id: 'zombie-v2',
+    name: 'Zombie v2',
+    modelUrl: '/assets/models/enemies/zombie_v2.glb',
+    scale: 2.432,
+    minimumPixelSize: 0,
+    armorType: 'unarmored',
+    baseHp: 80,
+    baseSpeed: 3,
+    reward: 3,
+    hasAnimations: true,
+    walkAnimation: 'Unsteady_Walk',
+    deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall'],
+    animationSpeed: 1,
+    movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
+    movingSoundVolume: 0.4,
+    movingSoundRefDistance: 25,
+    heightOffset: 0.0,
+    healthBarOffset: 5.5,
+    canBleed: true,
+    headingOffset: 0,
+    randomAnimationStart: true,
+    randomSoundStart: true,
+    lateralOffset: 3.0,
+    previewScale: 1,
+    previewCameraDistance: 7,
+    previewCameraAngle: 0.26,
+    previewOffsetY: 0,
   },
 
   tank: {
