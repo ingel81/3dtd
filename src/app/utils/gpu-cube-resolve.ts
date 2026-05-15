@@ -32,10 +32,13 @@ const FALLBACK_RESULT: CubeSampleResult = { cellDist: 0, blockerDist: 0 };
  * cell-distance + decoded-blocker-distance zurück. Für Visibility-Tests
  * den Convenience-Wrapper {@link isCubeVisible} nutzen.
  *
- * Direction→(face, s, t) folgt der GL-Cubemap-Konvention. Die `py = size -
- * 1 - floor(t*size)` y-Flip-Konvention wurde in einer früheren Migrations-
- * Session gegen den Cell-Shader-Output bit-validiert (match=428,
- * mismatch=0 für Ground).
+ * Direction→(face, s, t) folgt der GL-Cubemap-Konvention. **`py = floor
+ * (t*size)` — KEIN y-Flip.** Three.js' `textureCube` auf einem
+ * `WebGLCubeRenderTarget` sampelt direkt mit framebuffer-bottom-up t-
+ * Koordinate (siehe Lesson 11 + H5-Sackgasse im HANDOVER). Ground-Truth-
+ * Verifikation muss über einen unabhängigen GPU-Pfad laufen (1×1-RT-
+ * Quad-Shader mit `textureCube`), NICHT über einen zweiten CPU-readPixels-
+ * Call.
  */
 export function sampleCubeAtPoint(
   tipX: number,

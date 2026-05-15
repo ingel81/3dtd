@@ -31,6 +31,7 @@ import { TowerDebuggerComponent } from './components/debug-window/tower-debugger
 import { EnemyDebuggerComponent } from './components/debug-window/enemy-debugger.component';
 import { DisplayOptionsComponent } from './components/debug-window/display-options.component';
 import { PerformanceDebuggerComponent } from './components/debug-window/performance-debugger.component';
+import { LosDebuggerComponent } from './components/debug-window/los-debugger.component';
 import { QuickActionsComponent } from './components/quick-actions/quick-actions.component';
 import { InfoOverlayComponent } from './components/info-overlay/info-overlay.component';
 import { ContextHintComponent, HintItem } from './components/context-hint/context-hint.component';
@@ -99,6 +100,7 @@ import { ResearchStore } from './store/research.store';
     EnemyDebuggerComponent,
     DisplayOptionsComponent,
     PerformanceDebuggerComponent,
+    LosDebuggerComponent,
     QuickActionsComponent,
     InfoOverlayComponent,
     ContextHintComponent,

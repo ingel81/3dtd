@@ -375,6 +375,15 @@ export class TowerManager extends EntityManager<Tower> {
     this.selectionViz?.setFilterMode(mode);
   }
 
+  /**
+   * Aktive Selection-LOS-Viz (oder null wenn kein Tower selected oder Viz
+   * noch nicht gebaut). Vom LOS-Debug-Panel benutzt um die Plate-Meshes
+   * für 3D-Picking zu raycasten.
+   */
+  getSelectionViz(): TowerLosViz | null {
+    return this.selectionViz;
+  }
+
   private disposeSelectionViz(): void {
     if (this.selectionViz) {
       this.selectionViz.dispose();

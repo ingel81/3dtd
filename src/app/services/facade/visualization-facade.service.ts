@@ -20,6 +20,8 @@ import { StrategicPlacementService } from '../world/strategic-placement.service'
 import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { TowerDebugService } from '../debug/tower-debug.service';
 import { DebugFacadeService } from '../debug/debug-facade.service';
+import { LosDebugService } from '../debug/los-debug.service';
+import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationManagementService } from '../location/location-management.service';
 import { SubscriptionBag } from '../../game-engine/game-event-bus';
 import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
@@ -69,6 +71,8 @@ export class VisualizationFacadeService {
   private readonly enemyDebug = inject(EnemyDebugService);
   private readonly towerDebug = inject(TowerDebugService);
   private readonly debugFacade = inject(DebugFacadeService);
+  private readonly losDebug = inject(LosDebugService);
+  private readonly globalRouteGridService = inject(GlobalRouteGridService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly aiDataCollector = inject(AIDataCollectorService);
   private readonly mapPlacement = inject(MapPlacementService);
@@ -325,6 +329,14 @@ export class VisualizationFacadeService {
 
     // Initialize map placement service (HQ/Spawn click-to-place)
     this.mapPlacement.initialize(engine, streetNetwork, { lat: base.lat, lon: base.lon });
+
+    // LOS-Debug-Panel — beobachtet TowerManager-Selection + Cubemap
+    this.losDebug.initialize(
+      engine,
+      this.gameState.towerManager,
+      this.gameState.getEventBus(),
+      this.globalRouteGridService,
+    );
   }
 
   // ══════════════════════════════════════════════════════════════

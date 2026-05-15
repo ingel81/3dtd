@@ -113,6 +113,12 @@ export class TowerLosViz {
     scene.remove(this.group);
   }
 
+  /** Active layer (cells + meshes) — null if viz wurde noch nicht/nicht
+   * mehr gebaut. Für Reverse-Hover-Picking im LOS-Debug-Panel. */
+  getLayer(): TowerLosLayer | null {
+    return this.layer;
+  }
+
   dispose(): void {
     if (this.disposed) return;
     this.disposed = true;
