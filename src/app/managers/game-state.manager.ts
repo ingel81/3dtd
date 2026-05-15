@@ -828,11 +828,18 @@ export class GameStateManager {
     const skylineRaycaster = (x: number, z: number) => this.tilesEngine!.getSkylineHeightAtLocal(x, z);
     const terrainSampleRaycaster = (x: number, z: number, anchorY?: number) =>
       this.tilesEngine!.getTerrainSampleAtLocal(x, z, anchorY);
+    // Cheap LOD-probe used by the route-grid full-sweep to skip stable
+    // cells whose tile-LOD has not improved (Option C, perf/route-grid-
+    // tile-aware-update). Falls back to legacy raycast-every-cell if the
+    // engine returns null on every call.
+    const terrainPeekLOD = (x: number, z: number) =>
+      this.tilesEngine!.peekBestTileLODAtLocal(x, z);
     this.globalRouteGrid.initialize(
       terrainRaycaster,
       this.tilesEngine.sync,
       skylineRaycaster,
       terrainSampleRaycaster,
+      terrainPeekLOD,
     );
 
     // Generate cells from routes

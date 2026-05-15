@@ -123,6 +123,9 @@ export class InstancedEnemyRenderer {
         if (config.walkAnimation) clipNames.push(config.walkAnimation);
         if (config.runAnimation) clipNames.push(config.runAnimation);
         if (config.deathAnimation) clipNames.push(config.deathAnimation);
+        if (config.deathAnimations) {
+          for (const n of config.deathAnimations) clipNames.push(n);
+        }
         if (config.idleAnimation) clipNames.push(config.idleAnimation);
 
         let vatData = bakeVAT(clone, cached.animations, clipNames);

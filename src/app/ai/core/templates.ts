@@ -36,7 +36,7 @@ export const TEMPLATES: readonly Template[] = [
     id: 'zombie_horde',
     name: 'Zombie Horde',
     description: 'Pure zombie horde — unarmored intro, from easy to mega-swarm',
-    enemies: [['zombie', 1.0]],
+    enemies: [['zombie', 0.5], ['zombie-v2', 0.5]],
     countRange: [20, 2000],
     spawnDelayRange: [15, 400],
     hpMultRange: [0.5, 6.0],
