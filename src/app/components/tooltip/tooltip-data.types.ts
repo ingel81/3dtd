@@ -27,6 +27,18 @@ export interface TdTooltipArmorRow {
   dim?: boolean;
 }
 
+/**
+ * Tower targeting capability — rendered as a banner row in tower tooltips
+ * so the player sees the spec at a glance. `via-research` indicates the
+ * air capability was unlocked through a research (currently aa-retrofit
+ * for dual-gatling) rather than declared in the base config — drives a
+ * small "via Research" note next to the label.
+ */
+export interface TdTooltipTargeting {
+  mode: 'air-only' | 'air-ground' | 'ground-only';
+  viaResearch?: boolean;
+}
+
 export interface TdTooltipData {
   /** Title, typically the tower or enemy name in caps. */
   title: string;
@@ -36,6 +48,8 @@ export interface TdTooltipData {
   accent?: TdTooltipAccent;
   /** Stat row — flexible column count (1–4). */
   stats?: TdTooltipStat[];
+  /** Targeting capability banner (rendered between stats and armor). */
+  targeting?: TdTooltipTargeting;
   /** Armor table title (e.g. "vs Armor"). Optional — header is rendered only if rows present. */
   armorTitle?: string;
   /** Armor effectiveness rows. */

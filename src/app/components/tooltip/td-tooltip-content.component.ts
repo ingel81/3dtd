@@ -1,7 +1,8 @@
 import { Component, ChangeDetectionStrategy, input, computed } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { TD_CSS_VARS } from '../../styles/td-theme';
-import { TdTooltipAccent, TdTooltipData } from './tooltip-data.types';
+import { TdTooltipAccent, TdTooltipData, TdTooltipTargeting } from './tooltip-data.types';
+import { TdIconComponent, TdIconName } from '../icon/icon.component';
 
 const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
   gold: 'var(--td-gold-light)',
@@ -20,7 +21,7 @@ const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
 @Component({
   selector: 'td-tooltip-content',
   standalone: true,
-  imports: [CommonModule],
+  imports: [CommonModule, TdIconComponent],
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     @if (data(); as d) {
@@ -39,6 +40,20 @@ const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
                 <dt>{{ stat.label }}</dt>
                 <dd>{{ stat.value }}</dd>
               </div>
+            }
+          </div>
+        }
+
+        @if (d.targeting; as t) {
+          <div class="td-tooltip__targeting"
+               [class.td-tooltip__targeting--air-only]="t.mode === 'air-only'"
+               [class.td-tooltip__targeting--air-ground]="t.mode === 'air-ground'"
+               [class.td-tooltip__targeting--ground-only]="t.mode === 'ground-only'">
+            <td-icon class="td-tooltip__targeting-icon"
+                     [name]="targetingIcon(t)" [size]="14"></td-icon>
+            <span class="td-tooltip__targeting-label">{{ targetingLabel(t) }}</span>
+            @if (t.viaResearch) {
+              <span class="td-tooltip__targeting-note">via Research</span>
             }
           </div>
         }
@@ -139,6 +154,56 @@ const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
       margin: 0;
     }
 
+    /* Targeting capability banner — sits between stats and armor. Non-dezent
+     * by design: icon + full label + accent stripe on the left edge so the
+     * spec is readable at a glance. Three modes get distinct accents:
+     *   ground-only → neutral grey
+     *   air-ground  → teal-dark   (anti-air capable)
+     *   air-only    → teal-light  (specialist) */
+    .td-tooltip__targeting {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 8px 10px;
+      border-bottom: 1px solid var(--td-frame-dark);
+      font: 11px/1.2 var(--td-font-mono);
+      color: var(--td-text-primary);
+      border-left: 3px solid var(--td-frame-mid);
+    }
+    .td-tooltip__targeting--air-ground {
+      border-left-color: var(--td-teal-dark);
+    }
+    .td-tooltip__targeting--air-only {
+      border-left-color: var(--td-teal-light);
+      background: color-mix(in srgb, var(--td-teal) 8%, transparent);
+    }
+    .td-tooltip__targeting-icon {
+      flex-shrink: 0;
+      color: var(--td-text-muted);
+    }
+    .td-tooltip__targeting--air-ground .td-tooltip__targeting-icon {
+      color: var(--td-teal-light);
+    }
+    .td-tooltip__targeting--air-only .td-tooltip__targeting-icon {
+      color: var(--td-teal-light);
+    }
+    .td-tooltip__targeting-label {
+      flex: 1;
+      letter-spacing: 0.05em;
+      text-transform: uppercase;
+      font-weight: 700;
+    }
+    .td-tooltip__targeting-note {
+      font: 9px/1 var(--td-font-mono);
+      color: var(--td-text-muted);
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      padding: 2px 5px;
+      border: 1px solid var(--td-frame-dark);
+      background: var(--td-panel-shadow);
+      flex-shrink: 0;
+    }
+
     .td-tooltip__armor {
       padding: 8px 10px;
       border-bottom: 1px solid var(--td-frame-dark);
@@ -218,4 +283,18 @@ export class TdTooltipContentComponent {
     if (count === 2) return '1fr 1fr';
     return 'repeat(3, 1fr)';
   });
+
+  /** Icon for the targeting banner — wind for any air capability, tower (ground unit) otherwise. */
+  protected targetingIcon(t: TdTooltipTargeting): TdIconName {
+    return t.mode === 'ground-only' ? 'tower' : 'wind';
+  }
+
+  /** Spelled-out label for the targeting banner. */
+  protected targetingLabel(t: TdTooltipTargeting): string {
+    switch (t.mode) {
+      case 'air-only':    return 'Air-only';
+      case 'air-ground':  return 'Ground and Air';
+      case 'ground-only': return 'Ground-only';
+    }
+  }
 }
