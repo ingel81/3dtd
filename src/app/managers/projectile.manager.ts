@@ -1,3 +1,4 @@
+import { Vector3 } from 'three';
 import { EntityManager } from './entity-manager';
 import { Projectile } from '../entities/projectile.entity';
 import { Tower } from '../entities/tower.entity';
@@ -24,6 +25,10 @@ const TRAIL_SPAWN_DISTANCE_M = 0.5;
 
 export class ProjectileManager extends EntityManager<Projectile> {
   private soundsRegistered = false;
+
+  /** Reused per-frame scratch buffers — avoids per-update allocation. */
+  private readonly toRemove: Projectile[] = [];
+  private readonly trailPos = new Vector3();
 
   constructor(
     private eventBus: GameEventBus
@@ -130,7 +135,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
    * Update all projectiles - movement and collision detection
    */
   override update(deltaTime: number): void {
-    const toRemove: Projectile[] = [];
+    this.toRemove.length = 0;
 
     for (const projectile of this.getAllActive()) {
       const hit = projectile.updateTowardsTarget(deltaTime);
@@ -157,7 +162,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
           targetLost: projectile.targetLost,
         });
 
-        toRemove.push(projectile);
+        this.toRemove.push(projectile);
       } else {
         // Projectile still in flight (including when target died - continues to last position)
         // Update visual position
@@ -197,19 +202,21 @@ export class ProjectileManager extends EntityManager<Projectile> {
           }
         }
 
-        // Push position to trail streak (ribbon renderer)
+        // Push position to trail streak (ribbon renderer). pushPosition copies
+        // the vector into its ring buffer, so the scratch buffer is safe to reuse.
         if (this.tilesEngine) {
-          const localPos = this.tilesEngine.sync.geoToLocalSimple(
+          this.tilesEngine.sync.geoToLocalSimpleInto(
             projectile.position.lat,
             projectile.position.lon,
-            projectile.flightHeight
+            projectile.flightHeight,
+            this.trailPos
           );
-          this.tilesEngine.trailStreaks?.pushPosition(projectile.id, localPos);
+          this.tilesEngine.trailStreaks?.pushPosition(projectile.id, this.trailPos);
         }
       }
     }
 
-    toRemove.forEach((p) => this.remove(p));
+    this.toRemove.forEach((p) => this.remove(p));
   }
 
   /**

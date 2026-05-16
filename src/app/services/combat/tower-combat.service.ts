@@ -65,12 +65,18 @@ export class TowerCombatService {
     tower: Tower,
     useGridLookup: boolean,
   ): ((enemy: Enemy) => boolean) | undefined {
-    if (!this.tilesEngine) return undefined;
+    const engine = this.tilesEngine;
+    if (!engine) return undefined;
+    // One reusable vector per predicate — avoids a per-enemy Vector3 allocation
+    // while the LoS check sweeps the candidate list. Capturing `engine` also
+    // removes the non-null assertion on the (nullable) tilesEngine field.
+    const pos = new Vector3();
     return (enemy: Enemy) => {
-      const pos = this.tilesEngine!.sync.geoToLocalSimple(
+      engine.sync.geoToLocalSimpleInto(
         enemy.position.lat,
         enemy.position.lon,
         enemy.transform.terrainHeight,
+        pos,
       );
       const isAir = enemy.typeConfig.isAirUnit ?? false;
       if (useGridLookup) {
@@ -87,7 +93,7 @@ export class TowerCombatService {
       const targetLocalY = isAir
         ? pos.y + (enemy.typeConfig.heightOffset ?? 0)
         : pos.y + 1.5;
-      return this.tilesEngine!.towers.hasLineOfSight(
+      return engine.towers.hasLineOfSight(
         tower.id,
         pos.x,
         targetLocalY,

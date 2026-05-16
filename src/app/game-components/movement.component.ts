@@ -16,6 +16,8 @@ export class MovementComponent extends Component {
   progress = 0; // 0-1 within current segment
 
   private segmentLengths: number[] = [];
+  /** Sum of all segment lengths — cached in precomputeSegmentLengths(). */
+  private totalPathLength = 0;
   paused = false;
 
   // Status effects (slow, freeze, etc.)
@@ -96,6 +98,7 @@ export class MovementComponent extends Component {
    */
   private precomputeSegmentLengths(): void {
     this.segmentLengths = [];
+    let total = 0;
     for (let i = 0; i < this.path.length - 1; i++) {
       const dist = haversineDistance(
         this.path[i].lat,
@@ -104,7 +107,9 @@ export class MovementComponent extends Component {
         this.path[i + 1].lon
       );
       this.segmentLengths.push(dist);
+      total += dist;
     }
+    this.totalPathLength = total;
   }
 
   /**
@@ -155,8 +160,8 @@ export class MovementComponent extends Component {
       return 0;
     }
 
-    // Calculate total path length
-    const totalLength = this.segmentLengths.reduce((sum, len) => sum + len, 0);
+    // Total path length is pre-summed in precomputeSegmentLengths().
+    const totalLength = this.totalPathLength;
     if (totalLength === 0) return 1;
 
     // Calculate distance covered
