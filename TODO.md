@@ -594,6 +594,16 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 - [ ] **ARIA-Labels zu Icon-Buttons**
       Accessibility (Screen Reader)
 
+## Electron Desktop-Build
+
+- [ ] **3DTD als Windows-Desktop-App (Electron) ausliefern**
+      Eigenes `desktop/`-Unterprojekt mit `app://`-Protokoll, Dev-/Prod-Modus und
+      NSIS-Installer. Proof-of-Concept am 2026-05-16 erfolgreich durchgespielt
+      (Spiel lief im Fenster, Installer gebaut) und wieder zurueckgebaut. Vollstaendiger
+      Plan inkl. Architektur-Entscheidungen, Best-Practice-Haertung, Cesium-Token-
+      Runtime-Config und Code-Signing-Kostenuebersicht:
+      [ELECTRON_DESKTOP_PLAN.md](docs/ELECTRON_DESKTOP_PLAN.md).
+
 ## Terrain & Routing Experimente
 
 - [ ] **OSM bridge/tunnel Tags abfragen** - `bridge=yes`/`tunnel=yes`/`layer=*` in Overpass-Query mitabfragen, im Street-Interface speichern, bei Höhenkorrektur berücksichtigen (bridge → Korrektur überspringen)
