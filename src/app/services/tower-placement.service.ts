@@ -138,20 +138,21 @@ export class TowerPlacementService {
     this.baseCoords = baseCoords;
     this.gameState = gameState;
 
-    // When tile-loading promotes previously-unsampled cells (heightSampled
-    // flips false → true), any tower whose range covers them has stale LOS
-    // data based on the old fallback terrainHeight. Listen for promotions
-    // and recompute LOS + viz mesh for each affected tower so the system
-    // self-heals as tiles stream in.
-    this.globalRouteGrid.setCellsPromotedListener((promoted) =>
-      this.onCellsPromoted(promoted),
+    // When tile-loading changes a cell's terrain sample — promoted
+    // (heightSampled false → true) or refreshed (sampled → strictly-better
+    // tile LOD) — any tower whose range covers it has stale LOS resolved
+    // against the old terrainHeight. Listen for changed cells and recompute
+    // LOS + viz mesh for just the affected towers, so the system self-heals
+    // as tiles stream in without a full per-tower cache rebuild.
+    this.globalRouteGrid.setCellsChangedListener((changed) =>
+      this.onCellsChanged(changed),
     );
   }
 
   private tubeRebuildScheduled = false;
 
-  private onCellsPromoted(promoted: import('../utils/global-route-grid').RouteCell[]): void {
-    if (!this.gameState || !this.engine || promoted.length === 0) return;
+  private onCellsChanged(changed: import('../utils/global-route-grid').RouteCell[]): void {
+    if (!this.gameState || !this.engine || changed.length === 0) return;
 
     // The air-route tube caches cell terrainHeights at build time; without
     // a rebuild it visibly stays on the old (wrong) heights even after
@@ -180,11 +181,11 @@ export class TowerPlacementService {
       });
     }
 
-    // For each promoted cell, find towers whose range covers it and
+    // For each changed cell, find towers whose range covers it and
     // invalidate their cached LOS entry so the upcoming recompute re-raycasts
     // the cell with the now-correct terrainHeight.
     const affectedTowers = new Set<Tower>();
-    for (const cell of promoted) {
+    for (const cell of changed) {
       for (const t of towerPositions) {
         const distSq = (cell.x - t.x) ** 2 + (cell.z - t.z) ** 2;
         if (distSq > t.rangeSq) continue;
@@ -883,9 +884,10 @@ export class TowerPlacementService {
   }
 
   /**
-   * Recompute LOS for a tower after its range has changed (e.g. range upgrade).
-   * Uses incremental registration — cells already in the cell-visibility maps
-   * keep their cached LoS, only new cells in the annulus get raycasted.
+   * Recompute a tower's LOS after some cells in its range changed their
+   * terrain sample. Uses incremental registration — cells that still hold
+   * a cached entry for this tower keep it (no raycast); only cells whose
+   * entry the caller invalidated get re-resolved against a fresh cubemap.
    */
   recomputeTowerLOS(tower: Tower): void {
     if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
@@ -924,28 +926,6 @@ export class TowerPlacementService {
     // Selection-Viz refreshen, falls dieser Tower selected ist.
     if (tower.selected) {
       this.gameState?.towerManager.refreshSelectionViz(tower);
-    }
-  }
-
-  /**
-   * Drop every tower's GPU-resolved visibility cache and rebuild it
-   * against the current tile state. Used by the tile-streaming handler
-   * because cubemap renders against newly-streamed (or LOD-promoted)
-   * tile geometry need to overwrite the previous results — the per-cell
-   * promotion listener only covers unsampled→sampled transitions, not
-   * sampled→sampled-with-better-LOD.
-   *
-   * Cost: one cubemap render + ~500 readPixels per tower. At 10 towers
-   * that's a ~50-100 ms spike per tile-load event. Tile loads are rare
-   * (a few per minute under aggressive panning) so the spike is OK.
-   */
-  recomputeAllTowersGroundLOS(): void {
-    const towers = this.gameState?.towerManager.getAll();
-    if (!towers) return;
-    for (const tower of towers) {
-      if (!tower.losReady) continue;
-      this.globalRouteGrid.clearGroundVisibilityForTower(tower.id);
-      this.recomputeTowerLOS(tower);
     }
   }
 

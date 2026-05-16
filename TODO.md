@@ -277,7 +277,21 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 
 ## 1.4 CPU Hot-Path Optimierungen
 
-_(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
+- [ ] **Tower-LOS Zoom-In-Spike glätten** (optional, niedrige Priorität)
+      Beim großen Reinzoomen aus Distanz refreshen 800+ Route-Grid-Cells
+      gleichzeitig (echte Massen-LOD-Promotion durch nachstreamende Google-
+      Tiles). Der `onCellsChanged`-Listener recomputed die LOS für die
+      betroffenen Tower dann synchron in einem ~1-2s Frame-Block.
+      Gemessen 2026-05-16: `refreshed=861` → `onTilesLoaded` 2197ms,
+      `refreshed=812` → 1038ms. Tritt nur 1-2 Frames nach einem großen
+      Zoom-Sprung auf, nicht beim normalen Spielen während einer Wave.
+      **Lösung:** LOS-Recompute rAF-budgetiert über mehrere Frames verteilen
+      (~150 Cells/Frame) statt synchron — gleiche Gesamtarbeit, aber kein
+      einzelner Frame-Stall.
+      Nur angehen, falls es im Spielbetrieb auffällig stört — der häufige
+      Pan/Zoom-Fall ohne LOD-Wechsel ist bereits gefixt (~8000ms → ~30ms).
+      Dateien: `src/app/services/tower-placement.service.ts` (`onCellsChanged`),
+      `src/app/utils/global-route-grid.ts` (`updateTerrainHeights`).
 
 ---
 
