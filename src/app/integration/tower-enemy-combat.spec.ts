@@ -8,20 +8,10 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 // Mock Three.js before any imports that use it
-vi.mock('three', () => ({
-  Vector3: class {
-    x = 0; y = 0; z = 0;
-    constructor(x?: number, y?: number, z?: number) {
-      this.x = x ?? 0; this.y = y ?? 0; this.z = z ?? 0;
-    }
-  },
-  InstancedMesh: class {},
-  Mesh: class {},
-  MeshBasicMaterial: class {},
-  SphereGeometry: class {},
-  Scene: class {},
-  Object3D: class {},
-}));
+vi.mock('three', async () => {
+  const mod = await import('@/test/mocks/three.mock');
+  return { ...mod };
+});
 
 import {
   createTestManagers,
