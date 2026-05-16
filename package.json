@@ -41,11 +41,11 @@
     "@angular/router": "^21.0.0",
     "@fontsource/inter-tight": "^5.2.7",
     "@fontsource/roboto": "^5.1.1",
-    "@types/three": "^0.182.0",
+    "@types/three": "^0.184.0",
     "3d-tiles-renderer": "0.4.24",
     "onnxruntime-web": "^1.23.2",
     "rxjs": "~7.8.0",
-    "three": "^0.182.0",
+    "three": "^0.184.0",
     "tslib": "^2.3.0",
     "zone.js": "^0.16.0"
   },
