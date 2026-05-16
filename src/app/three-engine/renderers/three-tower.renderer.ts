@@ -95,7 +95,7 @@ export type TerrainRaycaster = (localX: number, localZ: number, anchorY?: number
 export interface TerrainSample {
   /** Local Y of the hit. */
   y: number;
-  /** Tile depth (3DTilesRendererJS `__depth`). Higher = better LOD. */
+  /** Tile depth (3DTilesRendererJS `tile.internal.depth`). Higher = better LOD. */
   tileDepth: number;
   /** Tile geometricError. Lower = better LOD. */
   tileGeometricError: number;

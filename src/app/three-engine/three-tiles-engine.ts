@@ -1337,10 +1337,13 @@ export class ThreeTilesEngine {
       return;
     }
     const map = new Map<Object3D, { geometricError: number, depth: number }>();
-    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; __depth?: number }) => {
+    // `tile.internal.depth` is the 3d-tiles-renderer tile depth. It was named
+    // `tile.__depth` until the 0.4.20+ internal tile-data refactor (which also
+    // renamed `tile.cached` → `tile.engineData`, `tile.__used` → `tile.traversal`).
+    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; internal?: { depth?: number } }) => {
       map.set(scene, {
         geometricError: tile.geometricError ?? Infinity,
-        depth: tile.__depth ?? 0,
+        depth: tile.internal?.depth ?? 0,
       });
     });
     this.persistentTileInfoMap = map;
@@ -1477,10 +1480,10 @@ export class ThreeTilesEngine {
   startTileQualityTracking(): void {
     if (!this.tilesRenderer) return;
     this.tileSceneMap = new Map();
-    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; __depth?: number }) => {
+    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; internal?: { depth?: number } }) => {
       this.tileSceneMap!.set(scene, {
         geometricError: tile.geometricError ?? Infinity,
-        depth: tile.__depth ?? 0
+        depth: tile.internal?.depth ?? 0
       });
     });
     this.tileQualityTracker = { errors: [], depths: [] };
