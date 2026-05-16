@@ -34,6 +34,10 @@ const createMockTilesEngine = () => ({
   },
   sync: {
     geoToLocalSimple: vi.fn().mockReturnValue({ x: 0, y: 0, z: 0 }),
+    geoToLocalSimpleInto: vi.fn((_lat: number, _lon: number, _height: number, target: { x: number; y: number; z: number }) => {
+      if (target) { target.x = 0; target.y = 0; target.z = 0; }
+      return target;
+    }),
   },
   spatialAudio: {
     registerSound: vi.fn(),
