@@ -13,7 +13,7 @@ import {
 import { TowerShadowMapper } from '../../three-engine/tower-shadow-mapper';
 import { ThreeTilesEngine } from '../../three-engine';
 import { TowerManager } from '../../managers/tower.manager';
-import { GameEventBus } from '../../game-engine';
+import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { Tower } from '../../entities/tower.entity';
 import { RouteCell, getAirTargetY } from '../../utils/global-route-grid';
@@ -132,26 +132,37 @@ export class LosDebugService {
   private pickListener: ((event: MouseEvent) => void) | null = null;
   private pickHostCanvas: HTMLCanvasElement | null = null;
 
+  /** Event-bus subscriptions — disposed and rebuilt on every initialize(). */
+  private readonly subs = new SubscriptionBag();
+
   initialize(
     engine: ThreeTilesEngine,
     towerManager: TowerManager,
     eventBus: GameEventBus,
     globalRouteGrid: GlobalRouteGridService,
   ): void {
+    // initialize() runs again on every location change — drop the previous
+    // subscriptions so listeners don't accumulate (N×3 leak otherwise).
+    this.subs.disposeAll();
+
     this.engine = engine;
     this.towerManager = towerManager;
     this.eventBus = eventBus;
     this.globalRouteGrid = globalRouteGrid;
 
-    eventBus.on('tower:selected', (e) => {
-      const tower = (e as { tower: Tower }).tower;
-      this.onTowerSelected(tower);
-    });
-    eventBus.on('tower:deselected', () => this.onTowerDeselected());
-    eventBus.on('tower:sold', (e) => {
-      const sold = e as { tower: Tower };
-      if (this._activeTower()?.id === sold.tower.id) this.onTowerDeselected();
-    });
+    this.subs.add(
+      eventBus.on('tower:selected', (e) => {
+        const tower = (e as { tower: Tower }).tower;
+        this.onTowerSelected(tower);
+      }),
+    );
+    this.subs.add(eventBus.on('tower:deselected', () => this.onTowerDeselected()));
+    this.subs.add(
+      eventBus.on('tower:sold', (e) => {
+        const sold = e as { tower: Tower };
+        if (this._activeTower()?.id === sold.tower.id) this.onTowerDeselected();
+      }),
+    );
 
     // If a tower is already selected at init time pull its state.
     const preSelected = towerManager.getSelected();

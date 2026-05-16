@@ -456,7 +456,8 @@ export class EnemyManager extends EntityManager<Enemy> {
               (e) => e.type === 'poison'
             );
             if (poisonEffect) {
-              const tickDamage = poisonEffect.value * 0.5;  // 500ms tick = DPS * 0.5
+              // DPS scaled to the tick interval (e.g. 500ms tick = DPS * 0.5).
+              const tickDamage = poisonEffect.value * (COMBAT_TUNING.poisonTickIntervalMs / 1000);
               while (acc >= interval) {
                 this.eventBus.emit({
                   type: 'dot:damage',

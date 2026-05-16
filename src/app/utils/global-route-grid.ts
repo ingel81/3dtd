@@ -385,7 +385,7 @@ export class GlobalRouteGrid {
   private readonly CORRIDOR_WIDTH = 7;
 
   /** Cached inverse cell size for fast multiplication instead of division */
-  private readonly INV_CELL_SIZE = 1 / 2; // 1 / CELL_SIZE
+  private readonly INV_CELL_SIZE = 1 / this.CELL_SIZE;
 
   /** Integer hash for cell key (avoids string allocation in hot path) */
   private intCellKey(cx: number, cz: number): number {
