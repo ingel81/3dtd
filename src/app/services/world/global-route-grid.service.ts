@@ -185,16 +185,6 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Drop the visibility cache for one tower. Used by the tile-streaming
-   * staleness fix — recomputeAllTowersGroundLOS in TowerManager invalidates
-   * each tower's cache before re-resolving against the freshly streamed
-   * tile geometry.
-   */
-  clearGroundVisibilityForTower(towerId: string): void {
-    this.grid.clearGroundVisibilityForTower(towerId);
-  }
-
-  /**
    * Liefert alle Cells deren Center innerhalb \`range\` von (x, z) liegt
    * UND deren Terrain-Sample stabil ist. Wird von der GPU-LOS-Viz-
    * Pipeline (TowerLosViz / TowerLosLayerBuilder) als Cell-Set genutzt.
@@ -364,12 +354,12 @@ export class GlobalRouteGridService {
   }
 
   /**
-   * Subscribe to cell promotion events (heightSampled false → true).
-   * Consumers can use the promoted cell list to recompute per-tower LOS
-   * + viz meshes so the system self-heals as tiles stream in.
+   * Subscribe to cell terrain-sample-change events (promote + refresh).
+   * Consumers use the changed-cell list to recompute per-tower LOS + viz
+   * meshes so the system self-heals as tiles stream in.
    */
-  setCellsPromotedListener(listener: (promoted: RouteCell[]) => void): void {
-    this.grid.setCellsPromotedListener(listener);
+  setCellsChangedListener(listener: (changed: RouteCell[]) => void): void {
+    this.grid.setCellsChangedListener(listener);
   }
 
   // ========================================

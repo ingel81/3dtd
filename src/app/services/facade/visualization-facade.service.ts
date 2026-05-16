@@ -588,6 +588,14 @@ export class VisualizationFacadeService {
     // Cells are now the single source of truth for ground Y (red line,
     // enemy feet, tower-LOS), so the line snap-up after a tile-load
     // depends on this refresh happening first.
+    //
+    // This also drives per-tower LOS: updateTerrainHeights fires the
+    // cells-changed listener for every promoted/refreshed cell, and the
+    // tower-placement handler re-resolves LOS for just those cells on the
+    // towers that cover them. When no cell changed LOD (the common
+    // pan/zoom case) the listener never fires — so the cost shown in the
+    // `terrainHeights` PerfTrace term stays at a few ms instead of the
+    // multi-second cubemap-readback spike the old full sweep produced.
     this.gameState.getGlobalRouteGrid().updateTerrainHeights();
     const tTerrainHeights = performance.now();
 
@@ -616,13 +624,13 @@ export class VisualizationFacadeService {
     this.scheduleRouteGridConvergence();
     const tConvergence = performance.now();
 
-    // Re-resolve every tower's GPU-cubemap LOS against the newly-streamed
-    // tile geometry. The promotion-listener path above only covers
-    // unsampled→sampled transitions; this catches sampled→sampled-with-
-    // higher-LOD too, so per-tower viz and combat cache stay aligned
-    // with what the player sees. Spike: ~5-10 ms per tower; rare event.
-    this.towerPlacement.recomputeAllTowersGroundLOS();
-    const tTowerLOS = performance.now();
+    // Per-tower LOS is no longer re-resolved here. It used to run a full
+    // sweep (clear every tower's visibility cache, then re-raycast every
+    // in-range cell via per-cell GPU readPixels) on every tile-load — a
+    // multi-second main-thread stall even when no cell had actually
+    // changed LOD. The cells-changed listener wired up in updateTerrainHeights
+    // now covers both promoted and refreshed cells incrementally, so a
+    // tile-load with no LOD change costs nothing.
 
     this.gameState.getGlobalRouteGrid().initSpatialGridVisualizationIfEnabled();
     this.gameState.getGlobalRouteGrid().initAirSpatialGridVisualizationIfEnabled();
@@ -639,8 +647,7 @@ export class VisualizationFacadeService {
       `routeAnim=${(tRouteAnim - tRoutes).toFixed(1)} ` +
       `gameState=${(tGameState - tRouteAnim).toFixed(1)} ` +
       `convergence=${(tConvergence - tGameState).toFixed(1)} ` +
-      `towerLOS=${(tTowerLOS - tConvergence).toFixed(1)} ` +
-      `debugViz=${(tDebugViz - tTowerLOS).toFixed(1)}ms`
+      `debugViz=${(tDebugViz - tConvergence).toFixed(1)}ms`
     );
   }
 

@@ -355,12 +355,15 @@ export class GlobalRouteGrid {
   private cells = new Map<number, RouteCell>();
 
   /**
-   * Listener called when `updateTerrainHeights` promotes cells from
-   * unsampled to sampled (heightSampled flipped false→true). Consumers
-   * (e.g. tower-placement-service) use this to re-compute LOS for the
-   * affected cells per placed tower and to refresh per-tower viz meshes.
+   * Listener called when cells change their terrain sample — either
+   * promoted (unsampled→sampled) or refreshed (sampled→strictly-better
+   * tile LOD). Both shift `cell.terrainHeight`, so per-tower LOS resolved
+   * against the old height is stale for exactly those cells. Consumers
+   * (e.g. tower-placement-service) use the changed-cell list to re-resolve
+   * LOS for just those cells per placed tower and to refresh per-tower viz
+   * meshes — instead of rebuilding every tower's whole visibility cache.
    */
-  private onCellsPromoted: ((promoted: RouteCell[]) => void) | null = null;
+  private onCellsChanged: ((changed: RouteCell[]) => void) | null = null;
 
   /** Map of enemy ID to current cell key (for fast cell transitions) */
   private enemyCellKeys = new Map<string, number>();
@@ -862,9 +865,8 @@ export class GlobalRouteGrid {
     this.raycastCount = 0;
 
     const promoted: RouteCell[] = [];
+    const refreshed: RouteCell[] = [];
     let total = 0;
-    let promotedCount = 0;
-    let refreshedCount = 0;
 
     for (const cell of this.cells.values()) {
       total++;
@@ -873,9 +875,8 @@ export class GlobalRouteGrid {
       if (accepted) {
         if (wasUnsampled) {
           promoted.push(cell);
-          promotedCount++;
         } else {
-          refreshedCount++;
+          refreshed.push(cell);
         }
       }
       this.sampleCellSkyline(cell);
@@ -892,34 +893,39 @@ export class GlobalRouteGrid {
       `cells=${total} ` +
       `peekSkipped=${skipped} (${skipRatio}%) ` +
       `raycasted=${raycasted} ` +
-      `promoted=${promotedCount} ` +
-      `refreshed=${refreshedCount} ` +
+      `promoted=${promoted.length} ` +
+      `refreshed=${refreshed.length} ` +
       `peekAvailable=${this.terrainPeekLOD !== null}`
     );
 
     logGrid(
       'HEIGHT_UPDATE',
-      `cells=${total} promoted=${promotedCount} refreshed=${refreshedCount} skipped=${skipped}`,
+      `cells=${total} promoted=${promoted.length} refreshed=${refreshed.length} skipped=${skipped}`,
     );
 
     // Refresh the active spatial-grid visualisation so cells snap to the
     // newly sampled heights — fixes "Cell sticks in ground" on toggle-race.
     this.refreshAggregateVizPositions();
 
-    // Notify listeners about promoted cells so per-tower LOS / viz can
-    // be recomputed for them. Cells that had heightSampled=true already
-    // are not included — their data was already valid.
-    if (promoted.length > 0) {
-      this.onCellsPromoted?.(promoted);
+    // Notify listeners about every cell whose terrain sample changed —
+    // promoted (unsampled→sampled) AND refreshed (sampled→better tile
+    // LOD). `sampleCellY` only returns true for a stable cell when the
+    // tile LOD or the Y actually moved (it rejects same-Y-same-LOD hits),
+    // so this list never carries false positives. When nothing changed
+    // (the common pan/zoom-without-LOD-change case) the listener is not
+    // called at all — no per-tower LOS work, no spike.
+    if (promoted.length > 0 || refreshed.length > 0) {
+      this.onCellsChanged?.([...promoted, ...refreshed]);
     }
   }
 
   /**
-   * Subscribe to terrain-promotion events. Called by tower-placement-service
-   * to keep per-tower LOS / viz in sync with cell heightSampled flips.
+   * Subscribe to terrain-sample-change events (promote + refresh). Called
+   * by tower-placement-service to keep per-tower LOS / viz in sync with
+   * cell terrainHeight changes as tiles stream in.
    */
-  setCellsPromotedListener(listener: (promoted: RouteCell[]) => void): void {
-    this.onCellsPromoted = listener;
+  setCellsChangedListener(listener: (changed: RouteCell[]) => void): void {
+    this.onCellsChanged = listener;
   }
 
   /**
@@ -929,7 +935,7 @@ export class GlobalRouteGrid {
    * Intended to be called from tile-load-end callbacks so cells self-heal
    * as tiles stream in, without re-sampling already-stable cells.
    *
-   * Triggers `onCellsPromoted` and refreshes the global viz mesh when at
+   * Triggers `onCellsChanged` and refreshes the global viz mesh when at
    * least one cell flipped from `unsampled` → `stable`.
    */
   retryUnsampledCells(): { promoted: number } {
@@ -960,7 +966,7 @@ export class GlobalRouteGrid {
     if (promoted.length === 0) return { promoted: 0 };
 
     this.refreshAggregateVizPositions();
-    this.onCellsPromoted?.(promoted);
+    this.onCellsChanged?.(promoted);
     return { promoted: promoted.length };
   }
 
@@ -975,7 +981,7 @@ export class GlobalRouteGrid {
    * waiting for a global tile-load-driven refresh.
    *
    * Returns counts for logging / verification. Triggers viz refresh +
-   * onCellsPromoted when at least one cell flipped from unsampled.
+   * onCellsChanged when at least one cell flipped from unsampled.
    */
   /**
    * Schmal-Variante von `refineCellsInRadius`: ruft `sampleCellY` NUR
@@ -1009,7 +1015,7 @@ export class GlobalRouteGrid {
 
     if (promoted.length > 0) {
       this.refreshAggregateVizPositions();
-      this.onCellsPromoted?.(promoted);
+      this.onCellsChanged?.(promoted);
     }
 
     return { promoted: promoted.length };
@@ -1043,7 +1049,7 @@ export class GlobalRouteGrid {
 
     if (promoted.length > 0) {
       this.refreshAggregateVizPositions();
-      this.onCellsPromoted?.(promoted);
+      this.onCellsChanged?.(promoted);
     }
 
     return { promoted: promoted.length, refreshed, inRange };
@@ -1093,7 +1099,7 @@ export class GlobalRouteGrid {
       // single-source-of-truth sampler. When the raycast fails, the cell
       // keeps its previous terrainHeight (anchor fallback) — register the
       // cell defensively so a later terrain promotion via
-      // setCellsPromotedListener can recompute LOS for it instead of
+      // setCellsChangedListener can recompute LOS for it instead of
       // leaving holes in tower coverage.
       this.sampleCellY(cell);
 
@@ -1177,7 +1183,7 @@ export class GlobalRouteGrid {
 
       // Refresh heights via single-source-of-truth sampler. If raycast
       // fails, the cached value is kept and a later promotion via
-      // setCellsPromotedListener will recompute LOS for this cell.
+      // setCellsChangedListener will recompute LOS for this cell.
       this.sampleCellY(cell);
 
       const atTower = distSq < 0.01;
@@ -1234,22 +1240,6 @@ export class GlobalRouteGrid {
    * @param towerId Tower ID to unregister
    */
   unregisterTower(towerId: string): void {
-    for (const cell of this.cells.values()) {
-      cell.towerVisibility.delete(towerId);
-      cell.airVisibility.delete(towerId);
-    }
-  }
-
-  /**
-   * Drop only the ground-visibility cache for this tower. The next
-   * registerTowerIncremental call will re-resolve them from a fresh
-   * cubemap render. Used by recomputeAllTowersGroundLOS on tile-streaming
-   * events so stale tile-LOD geometry can't keep the cache outdated.
-   *
-   * Air-visibility is wiped too because the same render serves both —
-   * keeping them in lock-step avoids divergence between the two maps.
-   */
-  clearGroundVisibilityForTower(towerId: string): void {
     for (const cell of this.cells.values()) {
       cell.towerVisibility.delete(towerId);
       cell.airVisibility.delete(towerId);
