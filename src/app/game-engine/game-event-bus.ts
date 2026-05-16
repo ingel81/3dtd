@@ -499,7 +499,14 @@ export class GameEventBus {
         if (this.metricsEnabled) {
           this.metrics.listenerCalls++;
         }
-        handler(event);
+        // Isolate handler failures: a throwing listener must not abort the
+        // remaining subscribers of the same event (e.g. a VFX handler error
+        // must not skip the credits/health state updates).
+        try {
+          handler(event);
+        } catch (err) {
+          console.error(`[GameEventBus] Handler for '${event.type}' threw:`, err);
+        }
       });
     }
   }

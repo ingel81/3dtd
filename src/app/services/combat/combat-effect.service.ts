@@ -335,6 +335,8 @@ export class CombatEffectService {
    */
   emitChainLightningVfx(points: { x: number; y: number; z: number }[], sourceTowerId: string): void {
     if (!this.eventBus || points.length < 2) return;
-    this.eventBus.emit({ type: 'vfx:chain-lightning', points, sourceTowerId });
+    // Deferred like all other vfx:* events — processed at the stable frame-end
+    // point, not synchronously inside the tower-combat update.
+    this.eventBus.emitDeferred({ type: 'vfx:chain-lightning', points, sourceTowerId });
   }
 }

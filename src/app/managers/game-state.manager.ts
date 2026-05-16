@@ -580,7 +580,7 @@ export class GameStateManager {
    * Heal base to full health
    */
   healBase(): void {
-    this.baseHealth.set(100);
+    this.baseHealth.set(GAME_BALANCE.player.startHealth);
     this.hqDamage.healBase();
   }
 
