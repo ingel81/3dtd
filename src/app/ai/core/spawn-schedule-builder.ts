@@ -92,38 +92,6 @@ export function buildSpawnSchedule(config: ScheduleBuildConfig): SpawnSchedule {
  */
 export const DEFAULT_SPAWN_PATTERN: SpawnPattern = 'interleaved';
 
-/**
- * Create WaveEnemyGroups from ratio-based definition.
- * Example: fromRatio(20, { zombie: 0.6, bat: 0.3, tank: 0.1 })
- *   → [{ type: 'zombie', count: 12 }, { type: 'bat', count: 6 }, { type: 'tank', count: 2 }]
- */
-export function fromRatio(
-  totalCount: number,
-  ratios: Record<string, number>
-): WaveEnemyGroup[] {
-  const entries = Object.entries(ratios);
-  const totalRatio = entries.reduce((sum, [, r]) => sum + r, 0);
-
-  const groups: WaveEnemyGroup[] = [];
-  let assigned = 0;
-
-  for (let i = 0; i < entries.length; i++) {
-    const [type, ratio] = entries[i];
-    const isLast = i === entries.length - 1;
-    const count = isLast
-      ? totalCount - assigned // last group gets remainder
-      : Math.floor((ratio / totalRatio) * totalCount);
-    assigned += count;
-
-    if (count > 0) {
-      groups.push({ type, count });
-    }
-  }
-
-  return groups;
-}
-
-
 // === Pattern Implementations ===
 
 function groupToEntry(group: WaveEnemyGroup): SpawnEntry {

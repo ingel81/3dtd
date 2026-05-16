@@ -1,5 +1,3 @@
-import { Vector3 } from 'three';
-
 /**
  * Vorwärts- und Inverse-Math zwischen einem 3D-Direction-Vektor und der
  * (face, px, py)-Koordinate auf einer Cubemap.
@@ -71,50 +69,6 @@ export function directionToFacePixel(
   const py = Math.min(size - 1, Math.max(0, Math.floor(t * size)));
 
   return { face, px, py, sc: ncS, tc: ncT };
-}
-
-/**
- * Inverse: gegeben (face, px, py) berechne den normalisierten World-
- * Direction-Vektor in Texel-Mitte. Die Pixel-Mitte ist (px+0.5, py+0.5)
- * — bei (0,0) entspricht das nicht der Ecke, sondern dem ersten Sample.
- *
- * Symmetrisch zu {@link directionToFacePixel} aufgesetzt.
- */
-export function facePixelToDirection(
-  face: number,
-  px: number,
-  py: number,
-  size: number,
-  out: Vector3 = new Vector3(),
-): Vector3 {
-  // Texel-Center: (px + 0.5)/size → 0..1 → 2× -1 → sc/ma bzw. tc/ma
-  const ncS = ((px + 0.5) / size) * 2 - 1;
-  const ncT = ((py + 0.5) / size) * 2 - 1;
-
-  // Inverse der Face-Branch-Logik:
-  switch (face) {
-    case 0: // POS_X: ma=ax, sc=-dz, tc=-dy
-      out.set(1, -ncT, -ncS);
-      break;
-    case 1: // NEG_X: ma=ax (dx<0), sc=dz, tc=-dy
-      out.set(-1, -ncT, ncS);
-      break;
-    case 2: // POS_Y: ma=ay, sc=dx, tc=dz
-      out.set(ncS, 1, ncT);
-      break;
-    case 3: // NEG_Y: ma=ay (dy<0), sc=dx, tc=-dz
-      out.set(ncS, -1, -ncT);
-      break;
-    case 4: // POS_Z: ma=az, sc=dx, tc=-dy
-      out.set(ncS, -ncT, 1);
-      break;
-    case 5: // NEG_Z: ma=az (dz<0), sc=-dx, tc=-dy
-      out.set(-ncS, -ncT, -1);
-      break;
-    default:
-      out.set(0, 0, 1);
-  }
-  return out.normalize();
 }
 
 /** Einprägsame Face-Labels für die UI. */

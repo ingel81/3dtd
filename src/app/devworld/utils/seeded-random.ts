@@ -268,55 +268,6 @@ export interface CellularResult {
 }
 
 /**
- * Cellular/Voronoi Noise - Creates cell-like patterns.
- * Useful for canyons, cracks, and organic boundaries.
- *
- * Uses spatial hashing for performance (faster than naive approach).
- *
- * @param x - X coordinate
- * @param z - Z coordinate
- * @param scale - Cell density (higher = more cells)
- * @param seed - Seed for cell point positions
- * @returns Distances to nearest and second-nearest cell points
- */
-export function cellular(
-  x: number,
-  z: number,
-  scale: number,
-  seed: number
-): CellularResult {
-  const cellX = Math.floor(x * scale);
-  const cellZ = Math.floor(z * scale);
-  let minDist = Infinity;
-  let secondDist = Infinity;
-
-  // Check 3x3 neighborhood
-  for (let dx = -1; dx <= 1; dx++) {
-    for (let dz = -1; dz <= 1; dz++) {
-      const cx = cellX + dx;
-      const cz = cellZ + dz;
-
-      // Hash cell coordinates to get deterministic random point
-      const cellSeed = cx * 73856093 + cz * 19349663 + seed;
-      const cellRng = mulberry32(cellSeed);
-      const px = cx + cellRng();
-      const pz = cz + cellRng();
-
-      const dist = Math.hypot(x * scale - px, z * scale - pz);
-
-      if (dist < minDist) {
-        secondDist = minDist;
-        minDist = dist;
-      } else if (dist < secondDist) {
-        secondDist = dist;
-      }
-    }
-  }
-
-  return { f1: minDist, f2: secondDist };
-}
-
-/**
  * Fast Voronoi with spatial hash - optimized version.
  * Uses pre-computed jitter for consistent cell positions.
  *
@@ -368,46 +319,6 @@ export function fastCellular(
 
   // Return actual distances (sqrt)
   return { f1: Math.sqrt(minDist), f2: Math.sqrt(secondDist) };
-}
-
-// ========================================
-// Utility Functions
-// ========================================
-
-/**
- * Clamp value between min and max.
- */
-export function clamp(value: number, min: number, max: number): number {
-  return Math.max(min, Math.min(max, value));
-}
-
-/**
- * Smoothstep interpolation (cubic Hermite).
- * Returns 0 for x <= edge0, 1 for x >= edge1, smooth interpolation between.
- */
-export function smoothstep(edge0: number, edge1: number, x: number): number {
-  const t = clamp((x - edge0) / (edge1 - edge0), 0, 1);
-  return t * t * (3 - 2 * t);
-}
-
-/**
- * Remap value from one range to another.
- */
-export function remap(
-  value: number,
-  inMin: number,
-  inMax: number,
-  outMin: number,
-  outMax: number
-): number {
-  return outMin + ((value - inMin) / (inMax - inMin)) * (outMax - outMin);
-}
-
-/**
- * Mix/lerp between two values.
- */
-export function mix(a: number, b: number, t: number): number {
-  return a + (b - a) * t;
 }
 
 /**
