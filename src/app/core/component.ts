@@ -36,10 +36,4 @@ export abstract class Component {
     // Optional cleanup in derived classes
   }
 
-  /**
-   * Get the GameObject this component is attached to
-   */
-  getGameObject(): GameObject {
-    return this.gameObject;
-  }
 }

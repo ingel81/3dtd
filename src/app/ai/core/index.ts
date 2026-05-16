@@ -29,7 +29,6 @@ export {
 export {
   explainWaveDecision,
   formatExplanationForUI,
-  getShortExplanation,
   type DecisionExplanation,
   type DecisionFactor,
 } from './decision-explainer';

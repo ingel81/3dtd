@@ -322,14 +322,3 @@ export function formatExplanationForUI(explanation: DecisionExplanation): string
 
   return lines.join('\n');
 }
-
-/**
- * Get short explanation (for HUD overlay)
- */
-export function getShortExplanation(explanation: DecisionExplanation): string {
-  if (explanation.reasons.length === 0) {
-    return explanation.summary;
-  }
-
-  return `${explanation.summary}\n${explanation.reasons[0]}`;
-}
