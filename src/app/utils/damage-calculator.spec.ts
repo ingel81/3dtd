@@ -41,7 +41,7 @@ describe('damage-matrix.config', () => {
 
     // Pinning tests for the canonical balance values — guards against silent
     // regressions during balance tuning. Update these when the design changes.
-    const expectedMultipliers: Array<[DamageType, ArmorType, number]> = [
+    const expectedMultipliers: [DamageType, ArmorType, number][] = [
       // physical
       ['physical',  'unarmored', 1.0],
       ['physical',  'light',     1.0],

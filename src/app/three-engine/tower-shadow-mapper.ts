@@ -81,7 +81,7 @@ export class TowerShadowMapper {
   // Pro-Face Cache: separater Uint8Array+ImageData, sodass mehrere Faces
   // gleichzeitig gelesen werden können ohne dass sich die Buffer
   // überschreiben.
-  private debugFaceCaches: Array<{ buf: Uint8Array; img: ImageData; renderVersion: number }> | null = null;
+  private debugFaceCaches: { buf: Uint8Array; img: ImageData; renderVersion: number }[] | null = null;
 
   /**
    * Inkrement pro erfolgreichem `update()`-Render — Konsumenten (z.B. das

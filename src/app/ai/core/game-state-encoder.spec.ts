@@ -6,7 +6,7 @@ import {
 } from './game-state-encoder';
 import { createEmptySnapshot, GameStateSnapshot } from './models/game-state-snapshot';
 import { NUM_BINS } from './dps-profile';
-import { ARMOR_TYPES, DAMAGE_TYPES } from '../../configs/combat/combat.types';
+import { ARMOR_TYPES } from '../../configs/combat/combat.types';
 
 /**
  * Schema test for the 156-slot Float32 vector emitted by encodeGameState().

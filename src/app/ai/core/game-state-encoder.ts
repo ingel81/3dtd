@@ -41,7 +41,7 @@
 import { GameStateSnapshot, RecentHistory } from './models/game-state-snapshot';
 import { WaveConfig } from './models/wave-config';
 import { NUM_BINS } from './dps-profile';
-import { DamageType, ArmorType, DAMAGE_TYPES, ARMOR_TYPES } from '../../configs/combat/combat.types';
+import { DamageType, ArmorType, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 
 /** Total number of features in the encoded state (Gap-5 Fix: 146 → 156) */

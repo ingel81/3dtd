@@ -434,8 +434,6 @@ describe('GameStateManager', () => {
     });
 
     describe('sub-step loop (fixed-timestep accumulation)', () => {
-      const FIXED_STEP = 16.667; // matches GameStateManager.FIXED_STEP_MS
-
       it('runs one sub-step per ~16.7ms of game-time', () => {
         const onSub = vi.fn();
         gsm.update(0, onSub);          // first call sets lastUpdateTime, raw delta ~16ms
