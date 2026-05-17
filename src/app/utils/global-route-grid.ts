@@ -144,7 +144,7 @@ type CellGridLogTag = keyof typeof CELL_GRID_LOG;
 /** Single helper so the `[CELL-GRID]` prefix never drifts. */
 function logGrid(tag: CellGridLogTag, ...args: unknown[]): void {
   if (!CELL_GRID_LOG[tag]) return;
-  // eslint-disable-next-line no-console
+   
   console.log(`[CELL-GRID] ${tag}`, ...args);
 }
 
@@ -1490,7 +1490,7 @@ export class GlobalRouteGrid {
    * `__rg.dumpCellsInBox(...)` to classify Sub-Fall A (unsampled+fallback)
    * vs Sub-Fall B (stable+outlier) in DevTools.
    */
-  dumpCellsInBox(box: { xMin: number; xMax: number; zMin: number; zMax: number }): Array<{
+  dumpCellsInBox(box: { xMin: number; xMax: number; zMin: number; zMax: number }): {
     key: number;
     x: number;
     z: number;
@@ -1503,7 +1503,7 @@ export class GlobalRouteGrid {
     heightSampled: boolean;
     skylineSampled: boolean;
     skylineHeight: number;
-  }> {
+  }[] {
     const out = [];
     for (const cell of this.cells.values()) {
       if (cell.x < box.xMin || cell.x > box.xMax) continue;
@@ -1544,7 +1544,7 @@ export class GlobalRouteGrid {
     terrainHeight: HistogramSummary | null;
     deltaFromAnchorAbs: HistogramSummary | null;
     routeAnchorY: HistogramSummary | null;
-    unsampledCells: Array<{ key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }>;
+    unsampledCells: { key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }[];
   } {
     let unsampled = 0;
     let stable = 0;
@@ -1553,7 +1553,7 @@ export class GlobalRouteGrid {
     const heights: number[] = [];
     const deltas: number[] = [];
     const anchors: number[] = [];
-    const unsampledCells: Array<{ key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }> = [];
+    const unsampledCells: { key: number; x: number; z: number; routeAnchorY: number; terrainHeight: number }[] = [];
 
     for (const cell of this.cells.values()) {
       if (cell.sample.state === 'unsampled') {
@@ -1642,7 +1642,7 @@ export class GlobalRouteGrid {
     promotedAfter: number;
     avgAbsYDelta: number;
     maxAbsYDelta: number;
-    topMoves: Array<{ key: number; x: number; z: number; before: number; after: number; delta: number }>;
+    topMoves: { key: number; x: number; z: number; before: number; after: number; delta: number }[];
   } {
     const before = new Map<number, number>();
     let reset = 0;
@@ -1666,7 +1666,7 @@ export class GlobalRouteGrid {
     let promotedAfter = 0;
     let sumAbs = 0;
     let maxAbs = 0;
-    const moves: Array<{ key: number; x: number; z: number; before: number; after: number; delta: number }> = [];
+    const moves: { key: number; x: number; z: number; before: number; after: number; delta: number }[] = [];
     for (const cell of this.cells.values()) {
       if (cell.sample.state === 'stable') promotedAfter++;
       const prev = before.get(cell.key);

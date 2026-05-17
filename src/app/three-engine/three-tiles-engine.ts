@@ -152,7 +152,7 @@ export class ThreeTilesEngine {
    * changes until the scene unloads. WeakMap keys die with their scene,
    * so no manual eviction needed.
    */
-  private tileBoundsCache: WeakMap<Object3D, { minX: number; maxX: number; minZ: number; maxZ: number }> = new WeakMap();
+  private tileBoundsCache = new WeakMap<Object3D, { minX: number; maxX: number; minZ: number; maxZ: number }>();
 
   // Pre-computed initial camera position (set before initialize())
   private initialCameraPosition: InitialCameraPosition | null = null;
@@ -731,7 +731,6 @@ export class ThreeTilesEngine {
           const tShadowInvalidate = performance.now();
 
           if (this.onTilesLoadCallback) {
-            const t0 = performance.now();
             this.onTilesLoadCallback();
             const tEnd = performance.now();
             console.warn(

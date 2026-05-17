@@ -75,7 +75,7 @@ export function directionToFacePixel(
 export const FACE_LABELS: readonly string[] = ['+X', '-X', '+Y', '-Y', '+Z', '-Z'] as const;
 
 /** Cross-Layout-Position (col,row) je Face im 4×3-Raster. */
-export const FACE_CROSS_LAYOUT: ReadonlyArray<{ col: number; row: number }> = [
+export const FACE_CROSS_LAYOUT: readonly { col: number; row: number }[] = [
   { col: 2, row: 1 }, // +X (rechts)
   { col: 0, row: 1 }, // -X (links)
   { col: 1, row: 0 }, // +Y (oben)

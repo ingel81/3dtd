@@ -83,7 +83,7 @@ class LosPerf {
         `total=${totalMs.toFixed(1)}ms/s calls=${n}${suffix}`
       );
     }
-    // eslint-disable-next-line no-console
+     
     console.log('[LOS-PERF]', parts.join(' | '));
     this.phases.clear();
   }
