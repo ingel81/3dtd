@@ -79,6 +79,25 @@
       `src/app/utils/global-route-grid.ts` (`getAirTargetY`),
       `src/app/services/combat/tower-combat.service.ts` (Targeting).
 
+- [ ] **Ice/Frost-VFX an Air-Gegnern sitzt auf Bodenhöhe statt um den Gegner**
+      Wird ein fliegender Gegner (Bat, Hornet, Dragon) vom Ice Tower
+      verlangsamt, erscheinen manche Frost-Effekte — u.a. die um den
+      Gegner kreisenden Orbs — auf der darunterliegenden Bodenposition
+      statt auf Flughöhe um den Gegner herum.
+
+      Verdacht: in `enemy.manager.ts` wird die Frost-Aura (und analog die
+      Poison-Aura) mit `_tempLocalPos.y = geoHeight - origin.height`
+      positioniert — also OHNE `heightOffset`. Der Gegner-Mesh selbst
+      sitzt dagegen auf `(geoHeight + heightOffset) - origin.height`
+      (`enemy.manager.ts:393`). Für Air-Units mit heightOffset 15-20m
+      landet die Aura damit ~15-20m zu tief, am Boden.
+
+      Fix-Richtung: Aura-Y auf dieselbe Höhe wie den Enemy-Mesh setzen
+      (`geoHeight + heightOffset`). Frost UND Poison gleichermaßen prüfen.
+
+      Datei-Anker: `src/app/managers/enemy.manager.ts` (Frost-/Poison-
+      Aura-Positionierung, ~Z. 413-440).
+
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
 - [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module, Entscheidung 2026-05-11: kompletter Split in einem Rutsch)
@@ -308,6 +327,18 @@
       Forschungs-Effekte) und falsche Aussagen entfernen oder korrigieren. Wenn beim Drüber-
       gehen Lücken auffallen (z.B. Stone Golem fehlt, Magic-vs-Fortified-Hinweis fehlt),
       gerne ergänzen — aber Korrektheit zuerst.
+
+- [ ] **Diskussion: Türme nach Wegfall des Ziels nicht in Grundstellung zurückdrehen**
+      Aktuell drehen Türme ihren Turret zurück in die Grundausrichtung,
+      sobald kein Gegner mehr in Sichtweite ist (`updateTowerIdleRotations`
+      → `resetRotation` in `tower-combat.service.ts`).
+      Vorschlag/TBD: stattdessen in der zuletzt eingenommenen Ausrichtung
+      stehen bleiben — wirkt „wacher" und spart die Rück-Animation.
+      Erst als Diskussionspunkt aufnehmen: die Grundstellung kann auch
+      gewollt sein (aufgeräumtes Bild zwischen Waves). Pro/Contra klären,
+      bevor implementiert wird.
+      Datei-Anker: `src/app/services/combat/tower-combat.service.ts`
+      (`updateTowerIdleRotations`, `resetRotation`).
 
 ## 3.2 Visual Settings (Performance-Toggles)
 
