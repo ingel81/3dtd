@@ -268,7 +268,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 2.79,
     heightOffset: 15, // 15m above terrain
     healthBarOffset: 3.5,
-    canBleed: false,
+    canBleed: true,
     headingOffset: 0,
     isAirUnit: true, // Only attackable by air towers
     heightVariation: 3, // ±3m variation between enemies
@@ -296,7 +296,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 5.6,
     heightOffset: 0.5,
     healthBarOffset: 4.5,
-    canBleed: false,
+    canBleed: true,
     unlit: true,
     headingOffset: 0,
     randomAnimationStart: true,
