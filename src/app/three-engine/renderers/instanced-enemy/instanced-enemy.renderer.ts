@@ -10,6 +10,7 @@ import { AssetManagerService } from '../../../services/infrastructure/asset-mana
 import { EnemyInstanceManager } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';
+import { registerEnemyModelCenterY } from '../../../utils/enemy-aim.util';
 
 // Dummy Object3D shared across all instanced enemy stubs
 const DUMMY_OBJECT = new Object3D();
@@ -138,6 +139,7 @@ export class InstancedEnemyRenderer {
         if (vatData) {
           // Use config's unlit flag (material detection is unreliable before conversion)
           if (config.unlit) vatData.isUnlit = true;
+          registerEnemyModelCenterY(typeId, (vatData.modelMinY + vatData.modelMaxY) / 2);
           this.instanceManager.createPool(typeId, vatData, config);
           this.loadedTypes.add(typeId);
         } else {
@@ -156,6 +158,7 @@ export class InstancedEnemyRenderer {
         const vatData = bakeStaticVAT(clone);
         if (vatData) {
           if (config.unlit) vatData.isUnlit = true;
+          registerEnemyModelCenterY(typeId, (vatData.modelMinY + vatData.modelMaxY) / 2);
           this.instanceManager.createPool(typeId, vatData, config);
           this.loadedTypes.add(typeId);
         } else {

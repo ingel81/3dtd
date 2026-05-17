@@ -9,6 +9,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { Tower } from '../../entities/tower.entity';
 import { TowerManager } from '../../managers/tower.manager';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { EnemyManager } from '../../managers/enemy.manager';
 import { ProjectileManager } from '../../managers/projectile.manager';
@@ -365,7 +366,7 @@ export class TowerCombatService {
           target.position.lon,
           target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0)
         );
-        targetLocalPos.y += 1.5; // Target center mass
+        targetLocalPos.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
 
         // Start/update flame beam visual
         const beamLength = tower.typeConfig.beamRange ?? 35;
@@ -502,7 +503,7 @@ export class TowerCombatService {
         enemy.position.lon,
         enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0)
       );
-      enemyLocalPos.y += 1.0; // Approximate center
+      enemyLocalPos.y += getEnemyAimOffsetY(enemy); // model's visual centre
 
       // Vector from source to enemy
       this.tempToEnemy.subVectors(enemyLocalPos, source);
@@ -636,7 +637,7 @@ export class TowerCombatService {
             target.position.lon,
             target.transform.terrainHeight + (target.typeConfig.heightOffset ?? 0),
           );
-          targetLocalPos.y += 1.5;
+          targetLocalPos.y += getEnemyAimOffsetY(target); // model's visual centre
           this.tilesEngine.tentacles?.startStrike(tower.id, targetLocalPos);
           this.tilesEngine.spatialAudio?.playAt('tentacle-grab', targetLocalPos);
         }
@@ -825,7 +826,7 @@ export class TowerCombatService {
         e.position.lon,
         e.transform.terrainHeight + (e.typeConfig.heightOffset ?? 0),
       );
-      points.push({ x: p.x, y: p.y + 1.5, z: p.z });
+      points.push({ x: p.x, y: p.y + getEnemyAimOffsetY(e), z: p.z });
     }
 
     this.combatEffectService.emitChainLightningVfx(points, tower.id);
