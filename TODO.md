@@ -23,177 +23,6 @@
 
 ## 1.1 Engine-Bugs
 
-- [ ] **Route-Grid + Air-Route schweben über Boden bei flachen Karten ohne Tile-Geometrie**
-      Beim Map-Reload tritt sporadisch auf, dass das komplette Route-Grid (Ground-
-      Aggregate + Air-Aggregate) und die Air-Route-Tube auf einer falschen,
-      konstanten Y-Höhe schweben — typisch 20-30m über dem tatsächlichen Terrain.
-      Die rote Ground-Route-Polyline ist immer korrekt am Boden (deutet darauf hin,
-      dass sie ihre Y pro Frame direkt sampled, nicht aus `cell.terrainHeight`-Cache).
-      "Manchmal klappt's" → klares Tile-LOD-Streaming-Race.
-
-      **Tritt vor allem in flachen Karten ohne detaillierte 3D-Tile-Gebäude auf**
-      (Photorealistic-Tile zeigt nur eine flache Textur, kein extrudiertes Mesh).
-      In Manhattan/Tokyo nicht beobachtet — vermutlich weil dort die Tile-Geometrie
-      so dicht ist dass der Erst-Sample-Raycast immer einen gültigen Treffer hat.
-
-      **Vermutung:** Erster `sampleCellY`-Raycast trifft eine grobe Übergangs-LOD
-      (z.B. bounding-box-approximation während Tile-Streaming) → `cell.terrainHeight`
-      wird mit der approximierten Höhe befüllt, `cell.heightSampled = true`,
-      `tileDepth`/`tileGeometricError` gespeichert. Nachträgliches Tile-LOD-Refining
-      triggert `setCellsPromotedListener` NICHT, weil der Listener nur bei
-      `unsampled → sampled`-Übergängen feuert, nicht bei `sampled → sampled-mit-
-      besserer-LOD`. Cells bleiben auf falscher Erst-Sample-Höhe.
-
-      **Diagnose-Plan:**
-      1. `tileDepth` / `tileGeometricError` pro Cell ausloggen — vergleiche
-         betroffene vs saubere Cells.
-      2. DevTools-Hack: alle Cells `heightSampled = false` setzen + `retryUnsampled
-         Cells()` aufrufen. Wenn Route dann auf korrekter Höhe landet → bestätigt.
-      3. Manhattan-Szene als Gegenprobe — wenn dort nie reproduzierbar → LOD-Race
-         spezifisch für tile-arme Regionen.
-
-      **Fix-Richtung:** `sampleCellY` muss bei vorhandener besserer Tile-LOD
-      re-sampeln (Vergleich mit gespeicherter `tileGeometricError`), und das
-      Listener-System muss diesen Re-Sample propagieren — analog zu wie
-      `recomputeAllTowersGroundLOS` heute den Combat-Cache refresht.
-      Dateien: `src/app/utils/global-route-grid.ts` (`sampleCellY`,
-      `retryUnsampledCells`, `setCellsPromotedListener`),
-      `src/app/services/facade/visualization-facade.service.ts` (`onTilesLoaded`).
-
-      Tracking-Hinweis: nicht mit der LOS-Pipeline vermischen — eigener Sample-
-      Layer-Bug, der durch die Air-Cells nur visuell sichtbarer wird.
-
-      **Zweite Manifestation (lokale Variante, leichter zu reproduzieren):**
-      Auch wenn das Grid initial korrekt am Boden liegt, treten gelegentlich
-      LOKALE Cell-Lücken auf — eine schmale Reihe (~2-3 Cells breit) fehlt
-      im Aggregate-Mesh komplett. An genau dieser Stelle taucht die Air-Route-
-      Tube steil in den Boden (manchmal extrem in den Himmel). Korrelation
-      Cell-Lücke ↔ Tube-Outlier ist exakt → dieselbe Bug-Wurzel.
-
-      Erklärung: Cells in dem Streifen haben `heightSampled = false` (vermutlich
-      Raycast trifft an der Stelle eine Tile-Lücke / Backface / transparente
-      Wasserfläche zwischen Häusern). Aggregate-Mesh skipped sie (heightSampled-
-      Filter → sichtbare Lücke). Air-Route-Tube hingegen sampled per Polyline-
-      Waypoint via `getAirTargetY(cell)` ohne heightSampled-Check → nimmt den
-      Init-Fallback der Cell (anchorY oder ähnlich, kann je nach Map-Origin
-      stark abweichen vom echten Terrain).
-
-      Die rote Ground-Route bleibt heil weil sie pro Frame direkt gegen die
-      Tile-Geometrie sampled (kein cell-Cache-Lookup), und bei einem Miss
-      vermutlich linearinterpoliert oder die letzte gültige Höhe behält.
-
-      Diese lokale Form ist der **bessere Reproduktions-Pfad** für die
-      Bug-Hunt: deutlich isolierter als "alle Cells sind hoch", die betroffenen
-      Cells sind im DevTools direkt auswählbar. Erweiterung von Schritt 1
-      des Diagnose-Plans: an der Stelle wo Tube abtaucht in
-      `globalRouteGrid.cells` greifen, prüfen ob die Cell-Reihe
-      `heightSampled=false` mit Fallback-`terrainHeight` ist, ODER
-      `heightSampled=true` mit Outlier-Wert.
-
-      Fix-Richtungen pro Sub-Fall:
-      - heightSampled=false + Fallback: die Air-Route-Tube (und ggf. andere
-        Konsumenten) muss heightSampled-Cells skippen oder per Nachbar-Cell
-        interpolieren. Plus: `retryUnsampledCells` aggressiver triggern.
-      - heightSampled=true + Outlier: `sampleCellY` muss Sanity-Check gegen
-        Nachbar-Cells / Polyline-Höhe machen, krasse Sprünge ablehnen
-        statt zu cachen.
-
-      ---
-
-      **Stand 2026-05-15 — Fix implementiert, in Beobachtung**
-
-      Diagnose-Sammlung über 14 reproduzierbare Cases (`tmp/case 1` …
-      `case 14`, je BEFORE/AFTER-JSON-Dump + Screenshot + info.txt). Diagnose-
-      API in DevTools via `__rg.*` und State-Dump-Button im Dev-Menü (Commit
-      `9df8f3c feat(debug): route-grid diagnostics + JSON state-dump`).
-
-      **Empirisch bestätigte Wurzeln (zum Teil abweichend von der ursprünglichen
-      Hypothese oben):**
-
-      - **Defekt I — Init-Race zwischen `generateFromRoutes` und Tile-Mesh-
-        Dekodierung.** Hauptmechanismus: bei aktivem Browser-Cache liefert
-        die Tile-Engine schon Hits zurück, bevor das Mesh dekodiert ist —
-        BBox/Center-Approximationen werden als Ground gemeldet. Smoking-Gun-
-        Indikator: alle Cells mit `tileDepth=0 + tileGeometricError=Infinity`
-        bei konsistent falschem Y (z.B. SF Cases 10/12: alle stable @ 504m
-        statt -10..52m). Die TODO-These "LOD-Race nach sampled→besseres-LOD-
-        Refresh" hat sich in den Daten NICHT bestätigt — kein einziger Case
-        zeigte einen `tileDepth=20 → tileDepth=23 mit anderem Y`-Übergang.
-      - **Defekt II — Anker=0 / Air-Tube-Knick nach unten bei Tile-Lücken
-        (Wasser/Tunnel).** `routeAnchorY` ist in den meisten Karten 0 (Route-
-        Polyline ohne Höhen, Ausnahme: Salzburg liefert echte Anker). Unsampled
-        Cells fallen visuell auf 0m, die Air-Tube nimmt naiv
-        `cell.terrainHeight + 15m = 15m` → 165m unter dem Rest.
-      - **Defekt III — Air-Route-Tube wird nicht rebuildet bei Cell-Promotion.**
-        Reset/Promotion heilt die Aggregate-Meshes, aber die Magenta-Tube
-        bleibt visuell auf alten Höhen stehen (Cases 2/5/6/10/12).
-      - **Defekt IV — `resetHeightsAndRetry` zerstörte gute LOD-Daten.** Wenn
-        BEFORE-Cells bereits `tileDepth≥18` hatten, machte der Wholesale-Reset
-        sie schlechter (Cases 1/7/8: depth → 0 nach Reset). Wegwerfen + Retry
-        ist nicht produktiv.
-
-      **Fix (Commit nach diesem TODO-Update):**
-
-      - `sampleCellY` (`src/app/utils/global-route-grid.ts`) lehnt zwei
-        Hit-Klassen jetzt ab und lässt Cells `unsampled`:
-        1. "noLOD" — Sample-Raycaster wired, aber Hit hat `tileDepth=0` oder
-           `tileGeomErr=Infinity` (= Mesh nicht dekodiert)
-        2. "outlier" — Hit divergiert >50m vom Median der stable Nachbarn
-           (Sub-Fall B / Tunnel-Outlier)
-        Beide Pfade greifen nur wenn `terrainSampleRaycaster` verkabelt ist
-        (DevWorld/Tests bleiben unverändert).
-      - Neuer Helper `medianOfStableNeighbourY` (private) + `estimateTerrainY`
-        (public) — 3×3, dann 5×5 Ring, ≥3 stable Nachbarn für Sanity-Check
-        nötig (sonst null = keine false positives beim Erst-Sample).
-      - `retryUnsampledCells()` returnt jetzt `{ promoted: number }`.
-      - **Convergence-Loop** in `visualization-facade.service.ts`
-        (`scheduleRouteGridConvergence`): rAF-getakteter Retry nach Tile-Load-
-        End; stoppt nach 2 aufeinanderfolgenden Frames mit 0 Promotions, oder
-        bei 120 Frames Safety-Cap (~2s @ 60fps). Ersetzt den vorherigen Single-
-        Shot-Retry — keine harte Wartekonstante mehr, passt sich an Hardware
-        und Cache-State an.
-      - `route-altitude-tubes.ts` benutzt `estimateTerrainY` statt naiv
-        `cell.terrainHeight` für unsampled-Cells → kein Knick nach unten mehr
-        auch wenn Cells dauerhaft unsampled bleiben.
-      - `tower-placement.service.ts onCellsPromoted` triggert jetzt zusätzlich
-        `rebuildAirRouteLayer()` mit rAF-Debounce (Defekt III).
-      - `resetHeightsAndRetry`: nur noch Cells mit `tileDepth=0 ||
-        tileGeomErr=Infinity` zurücksetzen, gute Cells bleiben (Defekt IV).
-
-      **Tuning-Konstanten** (eine Stelle, leicht justierbar):
-      - Sanity-Threshold: 50m gegen Nachbar-Median in `sampleCellY`. Salzburg-
-        Tunnel hatte max 63m Drift → wird vom Filter abgelehnt (gewollt: dort
-        bleibt die Cell unsampled statt 63m Müll zu cachen).
-      - Convergence-Cap: 120 Frames in `scheduleRouteGridConvergence`.
-
-      **Bewusst NICHT gefixt:**
-      - Aggregate-Mesh-Lücken bei dauerhaft unsampled Cells (Wasserflächen,
-        Tunnel) — bleiben sichtbar. UX-Entscheidung: keine geratenen Cell-
-        Quadrate auf Wasser zeigen. Air-Tube interpoliert trotzdem darüber.
-      - Anker-Resample (z.B. terrain-getrieben in `generateCorridorCells`) —
-        zu unsicher (Tile-Engine zu Init-Zeit nicht verlässlich). Defekt II
-        wird visuell durch Tube-Interpolation entschärft; Combat-LOS für
-        dauerhaft-unsampled Cells kann theoretisch noch falsche Cache-Werte
-        haben, wurde aber in den 14 Cases nicht als Spielproblem sichtbar.
-      - Tunnel/Brücke (Case 7 Salzburg, 63m Drift) — separates Topic mit
-        Photorealistic-Tiles-Limitationen, kein eigentlicher Bug.
-
-      **Verifikations-Plan (offen, daher TODO in Beobachtung):**
-      Die 14 archivierten Cases mit dem neuen Code nachspielen, BEFORE-Dump
-      (sofort nach Reload) und AFTER-Dump (nach ~2s Wartezeit, ohne Reset)
-      ziehen. Erwartung pro Case-Familie:
-      - Cases 2/5/6/10/12 (alles 200m verschoben): BEFORE viele unsampled,
-        AFTER alle stable und korrekt
-      - Cases 1/4 (Lücke + Knick nach unten): Aggregate-Lücke bleibt, Air-Tube
-        interpoliert glatt
-      - Case 14 Dump 1 (lokaler Peak nach oben): Outlier-Cluster bleibt
-        unsampled, Air-Tube interpoliert; kein Peak mehr
-      - Cases 3/7/8/9/11/13 (gut): bleiben gut, Reset zerstört nichts mehr
-
-      **Rollback-Hinweis falls nötig:** Fix ist in einem Commit gebündelt
-      (folgt nach diesem TODO-Update). Diagnose-Infrastruktur (`9df8f3c`)
-      bleibt davon unabhängig.
-
 - [ ] **Air-Enemy-Flughöhe divergiert von Air-LOS-Sample-Höhe am Hang**
       Drei Modelle laufen heute parallel, die in flachem Terrain
       übereinstimmen, am Hang aber auseinander gehen:
@@ -265,15 +94,39 @@
       (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
       verzahnt — eigene Session mit Plan vorab.
 
-- [ ] **`IGameManager` durchziehen — Restrollout (3 von 6 Managern offen)**
-      Stand 2026-05-11 (siehe DONE.md): ResearchManager + `GameStateManager.subManagers[]`
-      + polymorphe `dispose()` sind drin. Offen: EnemyManager, ProjectileManager, TowerManager
-      auf `IGameManager` bringen, und Init/Update ebenfalls polymorph über das Manager-Array
-      statt hardcoded Aufrufe.
+- [ ] **`IGameManager` — `initialize()`/`update()` polymorph über das Manager-Array**
+      Erledigt: alle Manager implementieren `IGameManager` (EnemyManager,
+      ProjectileManager, TowerManager über `EntityManager`; ResearchManager,
+      WaveManager direkt), und `destroy()` läuft bereits polymorph über
+      `GameStateManager.subManagers[]`. Offen ist nur noch der Rest: auch
+      `initialize()` und `update()` über `subManagers[]` iterieren statt jeden
+      Manager einzeln hardcodiert aufzurufen.
+      Datei: `src/app/managers/game-state.manager.ts`.
+
+- [ ] **`game-sidebar.component.ts` aufsplitten** (1693 LOC — Engine-Deep-Review MOD-2)
+      ~800 LOC Inline-CSS + 4 vermischte Fachdomänen in einer Component. Inline-Styles
+      in eine `.scss` auslagern, die Fachdomänen (Tower-Detail, Wave-Panel, Research,
+      Damage-Tooltips) in eigene Sub-Components trennen.
+
+- [ ] **`global-route-grid.ts` aufsplitten** (Engine-Deep-Review MOD-4)
+      Daten (`RouteCell`-Modell), Algorithmus (Sampling/LOS-Resolve), Debug-API (`__rg.*`)
+      und Viz (Aggregate-Mesh) in getrennte Module ziehen. Hot-Path-Klasse — Split muss
+      verhaltenserhaltend bleiben, eigene Session mit Plan vorab.
+
+- [ ] **Lint-Cleanup-Pass** (Engine-Deep-Review — 17 vorbestehende Probleme)
+      `npm run lint` ist bereits auf `main` rot: 15 Errors + 2 Warnings. Überwiegend
+      auto-fixbare Stil-Verstöße (`array-type`, `consistent-generic-constructors`).
+      Die `eqeqeq`-Template-Errors (`!=` → `!==`) einzeln prüfen — kann
+      Coercion-Verhalten ändern, also NICHT pauschal `--fix`.
 
 ## 1.3 Test-Coverage (Housekeeping Tier 4)
 
-_(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
+> Cleanup-Pass 2026-05-11 + Engine-Deep-Review 2026-05-16 (160 neue Tests) → DONE.md.
+
+- [ ] **Test-Coverage-Lücken aus dem Engine-Deep-Review schließen** (TEST-6..10)
+      Noch ungetestet: `HQDamageService`, `StatusEffectService`, `canTargetAirEffective`
+      und der Pathfinding-Worker. Zusätzlich die flaky Wall-Clock-Performance-Tests
+      entschärfen (TEST-10).
 
 ## 1.4 CPU Hot-Path Optimierungen
 
@@ -342,17 +195,17 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
       Plan war: ab W31 Bosse alle 5 Waves statt 10. Nicht implementiert — Curriculum
       loopt einfach mod-30. Override in `templateForWave()` für
       `wave > 30 && wave % 5 === 0`.
-      Datei: `src/app/ai/core/wave-curriculum.ts`.
+      Datei: `src/app/configs/wave-curriculum.config.ts`.
 
 - [ ] **Wave-Curriculum Gold-Budget feinjustieren**
-      Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.ts` anpassen.
+      Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.config.ts` anpassen.
       Nach jeder Änderung `npm run economy-chart` für Sanity-Check.
 
 - [ ] **Stone Golem ins Wave-Curriculum aufnehmen** (vor Re-Training)
       Stone Golem ist als Config registriert (`enemy-types.config.ts`, Fortified, 480 HP, Speed 2.5),
       aber AI-Wave-Director kennt ihn nicht. Vor Re-Training: Template in
       `src/app/ai/core/templates.ts` ergänzen (z.B. `stone_golem_squad`) + ggf. Slot im
-      `wave-curriculum.ts` öffnen. Sonst lernt das Netz nichts über die neue Fortified-Variante
+      `wave-curriculum.config.ts` öffnen. Sonst lernt das Netz nichts über die neue Fortified-Variante
       und Stone Golem taucht im AI-Mode nie auf.
 
 - [ ] **Re-Training nach Balance-Verifikation** (Optional)
@@ -512,6 +365,14 @@ _(keine offenen Punkte — Cleanup-Pass 2026-05-11, siehe DONE.md)_
 # BACKLOG
 
 > Langfristig, bei Bedarf.
+
+## Dependency-Migrationen
+
+- [ ] **TypeScript 6 + Angular 22 Migration** (Engine-Deep-Review Empfehlung 6)
+      Eigener Migrations-Pass. `typescript` 6.0 ist nicht Angular-21-kompatibel,
+      `eslint` 10 wartet noch auf typescript-/angular-eslint. Erst zusammen mit
+      einem Angular-22-Upgrade angehen. (three.js 0.184 ist bereits erledigt,
+      Commit `332b29e`.)
 
 ## Training Backend Refactoring
 

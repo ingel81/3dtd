@@ -127,8 +127,8 @@ training-backend/               # Python Training Backend
 | Teil | Technologie |
 |------|-------------|
 | Framework | Angular 21 |
-| 3D Engine | Three.js 0.182 |
-| 3D Tiles | 3DTilesRendererJS 0.4.19 |
+| 3D Engine | Three.js 0.184 |
+| 3D Tiles | 3DTilesRendererJS 0.4.24 |
 | UI | Angular Material 21 |
 | Maps | Google Maps 3D Tiles API |
 | Geocoding | OpenStreetMap Nominatim |

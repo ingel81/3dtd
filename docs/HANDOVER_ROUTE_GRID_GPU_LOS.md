@@ -176,10 +176,10 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible` — CPU-readPixels-Pfad für Combat-Cache-Fill |
 | `src/app/utils/tower-los-viz.ts` | Composite-Wrapper für Build-Preview und Selection-Viz, `getLayer()` für Debug-Panel-Picking |
 | `src/app/utils/tower-los-layer-builder.ts` | InstancedMesh + Fragment-Shader für Live-Sample, 4-state + Filter-Mode, `cells`-Array für instanceId→Cell |
-| `src/app/utils/global-route-grid.ts` | `RouteCell`-Daten + `registerTower`/`Incremental` mit GPU-Cube-Resolve + `getAirTargetY` Helper + Aggregate-Mesh + `clearGroundVisibilityForTower` |
-| `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `recomputeAllTowersGroundLOS` |
+| `src/app/utils/global-route-grid.ts` | `RouteCell`-Daten + `registerTower`/`Incremental` mit GPU-Cube-Resolve + `getAirTargetY` Helper + Aggregate-Mesh + `setCellsChangedListener` (promoted/refreshed Cells) |
+| `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` (private — inkrementeller LOS-Refresh für geänderte Cells) |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
-| `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` ruft `recomputeAllTowersGroundLOS`, initialisiert `LosDebugService` |
+| `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `scheduleRouteGridConvergence`), initialisiert `LosDebugService` |
 | `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
 | `src/app/managers/enemy.manager.ts` | Air-Enemy-Flughöhe — Skyline-Block entfernt 2026-05-14 |
 | `src/app/configs/los-viz.config.ts` | Single-Source-of-Truth-Magic-Numbers |
@@ -232,22 +232,36 @@ der Annulus wird via Cube neu gesampled.
 ```
 1. tilesRenderer event → engine.onTilesLoadCallback
 2. visualization-facade:onTilesLoaded:
-   a. UI updates (streets, buildings, markers, routes)
-   b. gameState.onTilesLoaded()
-   c. globalRouteGrid.retryUnsampledCells()
-      — promote noch-unsampled Cells via Listener-Pfad
-      (ruft recomputeTowerLOS per affected Tower über
-       setCellsPromotedListener)
-   d. towerPlacementService.recomputeAllTowersGroundLOS()
-      — NEU: für JEDEN Tower clearGroundVisibility + recomputeTowerLOS,
-      damit auch sampled→sampled-mit-höherem-LOD abgedeckt ist
-   e. spatialGrid- + Air-Layer-Viz initialisieren
+   a. UI updates (streets, buildings, markers)
+   b. globalRouteGrid.updateTerrainHeights()
+      — re-sampelt Cell-Heights gegen die frisch gestreamte Tile-
+      Geometrie. Sammelt promoted (unsampled→sampled) UND refreshed
+      (sampled→strikt-besseres-LOD) Cells und feuert EINMAL den
+      cells-changed-Listener mit beiden Listen.
+   c. pathRoute.refreshRouteLines() — liest die frischen Cell-Heights
+   d. gameState.onTilesLoaded()
+   e. scheduleRouteGridConvergence()
+      — rAF-getakteter retryUnsampledCells()-Loop; stoppt nach 2
+      Frames ohne Promotion oder bei 120-Frame-Safety-Cap. Jede
+      Promotion feuert erneut den cells-changed-Listener.
+   f. spatialGrid- + Air-Layer-Viz initialisieren
 ```
 
-Performance-Bemerkung: `recomputeAllTowersGroundLOS` macht
-1 Cube-Render + ~500 readPixels pro Tower. Bei 10 Tower also
-~50–100 ms Spike pro Tile-Load. Tile-Loads sind selten (wenige
-pro Minute unter aggressivem Panning), Spike ist akzeptiert.
+Der cells-changed-Listener (`setCellsChangedListener`, behandelt in
+`tower-placement.service.ts onCellsChanged`) macht **keinen** Full-Sweep:
+er invalidiert nur die tatsächlich geänderten Cells auf nur den Towern
+die sie abdecken und löst deren LOS inkrementell neu auf — plus ein
+rAF-debounced `rebuildAirRouteLayer()`. Wenn kein Cell sein LOD ändert
+(der häufige Pan/Zoom-Fall) feuert der Listener nie, der Tile-Load
+kostet dann ~30 ms.
+
+Performance-Bemerkung: der frühere Full-Sweep
+(`recomputeAllTowersGroundLOS` — jeden Tower-Cache leeren + jede
+in-Range-Cell per GPU-readPixels neu auflösen) ist seit 2026-05-16
+(Commit `a7cb2c5`) entfernt; er stallte den Main-Thread mehrere
+Sekunden bei JEDEM Tile-Load, auch ganz ohne LOD-Wechsel.
+Verbleibend: ein großer Zoom-In mit Massen-LOD-Promotion (~800 Cells)
+spiked noch ~1–2 s — als optionaler Follow-up in TODO.md 1.4 getrackt.
 
 ### Combat-Frame (`updateTowerShooting`)
 
