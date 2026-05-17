@@ -52,6 +52,10 @@ export interface VATData {
   rowsPerFrame: number;
   /** Material base color (fallback when no diffuse map) */
   baseColor: { r: number; g: number; b: number };
+  /** Lowest baked vertex Y across all frames (unscaled bake/root space). */
+  modelMinY: number;
+  /** Highest baked vertex Y across all frames (unscaled bake/root space). */
+  modelMaxY: number;
 }
 
 const DEFAULT_BAKE_FPS = 30;
@@ -142,6 +146,8 @@ export function bakeVAT(
   // Allocate VAT data (width=texWidth, height=texHeight, RGBA32F)
   const data = new Float32Array(texWidth * texHeight * 4);
   const tempVec = new Vector3();
+  let modelMinY = Infinity;
+  let modelMaxY = -Infinity;
 
   // Bake each clip using a fresh mixer
   for (const name of validClipNames) {
@@ -169,6 +175,9 @@ export function bakeVAT(
           tempVec.fromBufferAttribute(posAttr, v);
           skin.mesh.applyBoneTransform(v, tempVec);
           tempVec.applyMatrix4(skin.meshToRoot);
+
+          if (tempVec.y < modelMinY) modelMinY = tempVec.y;
+          if (tempVec.y > modelMaxY) modelMaxY = tempVec.y;
 
           const globalV = skin.vertexOffset + v;
           const col = globalV % texWidth;
@@ -364,6 +373,8 @@ export function bakeVAT(
   mergedGeometry.setAttribute('aVertexAlpha', new BufferAttribute(mergedAlpha, 1));
   mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
 
+  if (!Number.isFinite(modelMinY)) { modelMinY = 0; modelMaxY = 0; }
+
   return {
     positionTexture,
     vertexCount: totalVertices,
@@ -376,6 +387,8 @@ export function bakeVAT(
     baseColor,
     isUnlit,
     fps,
+    modelMinY,
+    modelMaxY,
   };
 }
 
@@ -465,6 +478,8 @@ export function bakeObjectAnimVAT(
   const tempVec = new Vector3();
   const meshToRoot = new Matrix4();
   const rootInverse = new Matrix4();
+  let modelMinY = Infinity;
+  let modelMaxY = -Infinity;
 
   // Bake each clip
   for (const name of validClipNames) {
@@ -492,6 +507,9 @@ export function bakeObjectAnimVAT(
         for (let v = 0; v < info.vertexCount; v++) {
           tempVec.fromBufferAttribute(posAttr, v);
           tempVec.applyMatrix4(meshToRoot);
+
+          if (tempVec.y < modelMinY) modelMinY = tempVec.y;
+          if (tempVec.y > modelMaxY) modelMaxY = tempVec.y;
 
           const globalV = info.vertexOffset + v;
           const col = globalV % texWidth;
@@ -687,6 +705,8 @@ export function bakeObjectAnimVAT(
   mergedGeometry.setAttribute('aVertexAlpha', new BufferAttribute(mergedAlpha, 1));
   mergedGeometry.setAttribute('aUseMap', new BufferAttribute(mergedUseMap, 1));
 
+  if (!Number.isFinite(modelMinY)) { modelMinY = 0; modelMaxY = 0; }
+
   return {
     positionTexture,
     vertexCount: totalVertices,
@@ -699,6 +719,8 @@ export function bakeObjectAnimVAT(
     baseColor,
     isUnlit,
     fps,
+    modelMinY,
+    modelMaxY,
   };
 }
 
@@ -777,6 +799,8 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
   const mergedIndices: number[] = [];
   const tempVec = new Vector3();
   const tempNormal = new Vector3();
+  let modelMinY = Infinity;
+  let modelMaxY = -Infinity;
 
   // Cache CPU texture samplers for meshes with unique textures
   const staticSamplerCache = new Map<Texture, Uint8ClampedArray | null>();
@@ -835,6 +859,8 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
       // Position → root space
       tempVec.set(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i));
       tempVec.applyMatrix4(info.meshToRoot);
+      if (tempVec.y < modelMinY) modelMinY = tempVec.y;
+      if (tempVec.y > modelMaxY) modelMaxY = tempVec.y;
       mergedPositions[vi * 3] = tempVec.x;
       mergedPositions[vi * 3 + 1] = tempVec.y;
       mergedPositions[vi * 3 + 2] = tempVec.z;
@@ -946,6 +972,8 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
     totalTime: 1, // Static: single frame
   });
 
+  if (!Number.isFinite(modelMinY)) { modelMinY = 0; modelMaxY = 0; }
+
   return {
     positionTexture,
     vertexCount: totalVertices,
@@ -958,5 +986,7 @@ export function bakeStaticVAT(modelRoot: Object3D): VATData | null {
     baseColor,
     isUnlit,
     fps: DEFAULT_BAKE_FPS,
+    modelMinY,
+    modelMaxY,
   };
 }

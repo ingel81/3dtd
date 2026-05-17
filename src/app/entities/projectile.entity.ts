@@ -14,6 +14,7 @@ import {
 } from '../configs/projectile-types.config';
 import { Enemy } from './enemy.entity';
 import { geoDistanceFast, geoDistanceFastSq } from '../utils/geo-utils';
+import { getEnemyAimOffsetY } from '../utils/enemy-aim.util';
 
 /**
  * Projectile entity - combines Transform, Combat, Movement, and Render components
@@ -375,13 +376,17 @@ export class Projectile extends GameObject {
   }
 
   /**
-   * Get target height (enemy position + model offset + head height)
+   * Get target height (enemy position + model offset + visual centre).
+   *
+   * The aim offset is the model's measured vertical centre (see
+   * enemy-aim.util), so the shot converges on the body for tiny flyers
+   * (bat) and giant bosses (dragon) alike — instead of a fixed offset
+   * that overshoots small models and undershoots large ones.
    */
   private getTargetHeight(): number {
     const enemyTerrainHeight = this.targetEnemy.transform.terrainHeight ?? 0;
     // Include enemy's heightOffset (e.g., 15m for flying units like bats)
     const heightOffset = this.targetEnemy.typeConfig.heightOffset ?? 0;
-    // Target head height (approximately 2-3m above model base)
-    return enemyTerrainHeight + heightOffset + 3;
+    return enemyTerrainHeight + heightOffset + getEnemyAimOffsetY(this.targetEnemy);
   }
 }

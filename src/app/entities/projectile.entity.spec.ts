@@ -16,6 +16,7 @@ import { Enemy } from './enemy.entity';
 import { ComponentType } from '../core/component';
 import { TransformComponent, CombatComponent, MovementComponent, RenderComponent } from '../game-components';
 import { getProjectileType } from '../configs/projectile-types.config';
+import { DEFAULT_AIM_OFFSET_Y } from '../utils/enemy-aim.util';
 
 const targetPath = [
   { lat: 0.001, lon: 0, height: 0 },
@@ -47,7 +48,8 @@ describe('Projectile entity', () => {
 
     const direction = projectile.direction;
 
-    const targetHeight = (enemy.transform.terrainHeight ?? 0) + (enemy.typeConfig.heightOffset ?? 0) + 3;
+    // No VAT bake runs in unit tests → getEnemyAimOffsetY falls back to DEFAULT_AIM_OFFSET_Y.
+    const targetHeight = (enemy.transform.terrainHeight ?? 0) + (enemy.typeConfig.heightOffset ?? 0) + DEFAULT_AIM_OFFSET_Y;
     const dy = targetHeight - 1;
     const dz = 0.001 * 100000;
     const length = Math.sqrt(dz * dz + dy * dy);
