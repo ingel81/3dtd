@@ -238,6 +238,11 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     deathAnimation: 'dying_backwards',
     animationSpeed: 0.75,
 
+    // Audio (Spatial) — heavy stone footstep loop while moving
+    movingSound: '/assets/sounds/enemies/golem/golem_walk_loop.mp3',
+    movingSoundVolume: 0.4,
+    movingSoundRefDistance: 45,
+
     heightOffset: 0,
     healthBarOffset: 15,
     canBleed: false,
@@ -403,12 +408,17 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'Run',
     animationSpeed: 2.0,
+    // Audio (Spatial) — swarm chittering loop while moving
+    movingSound: '/assets/sounds/enemies/rat/rat_swarm.mp3',
+    movingSoundVolume: 0.3,
+    movingSoundRefDistance: 25,
     heightOffset: 0.3,
     healthBarOffset: 2.5,
     canBleed: true,
     headingOffset: 1.449,
     emissiveIntensity: 0.2,
     randomAnimationStart: true,
+    randomSoundStart: true,
     lateralOffset: 3.0,
     spawnStartDelay: 150,
     previewScale: 3.473,
@@ -594,6 +604,10 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     hasAnimations: true,
     walkAnimation: 'Take 001',
     animationSpeed: 4.07,
+    // Audio (Spatial) — buzzing loop while flying
+    movingSound: '/assets/sounds/enemies/hornet/hornet.mp3',
+    movingSoundVolume: 0.45,
+    movingSoundRefDistance: 30,
     heightOffset: 18,
     heightVariation: 3,
     healthBarOffset: 4.5,
