@@ -191,18 +191,22 @@ private readonly MAX_CACHED_BUFFERS = 50;  // ~50 Sounds max in Memory
 Hintergrundmusik laeuft separat zu Spatial Audio und ist **nicht-positional**
 (globale Lautstaerke), siehe `game-engine/background-music.service.ts`. Details:
 
-- **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanaele).
-- **Phasen-Logik**: Wave-Start fadet aktuelle Build-Musik aus; Wave-Ende
-  startet neue Build-Track. Wave-Phase aktuell ohne Tracks (TODO).
+- **Two-Channel A/B Crossfade-System** (zwei `THREE.Audio` Kanaele) fuer
+  Build- und Wave-Musik.
+- **Phasen-Logik**: Wave-Start crossfadet auf einen Wave-Track; Wave-Ende
+  zurueck auf einen Build-Track; Game-Over fadet aus.
 - **Loop-Crossfade**: Vor Track-Ende startet derselbe Track auf dem anderen
   Kanal mit Crossfade — ergibt nahtlose Loops ohne nativen `loop:true`-Gap.
 - **Main Theme**: Wird per statischer `BackgroundMusicService.playMainTheme()`
-  via `HTMLAudioElement` schon vor Engine-Init abgespielt. `onLoadingComplete()`
-  crossfadet den Main-Theme-HTMLAudio aus, waehrend Build-Musik anfaedet.
+  via `HTMLAudioElement` schon vor Engine-Init abgespielt. Optionale
+  Track-Felder `startOffset` (Startzeit in s) und `loop`. `onLoadingComplete()`
+  loest einen **sequenziellen** Uebergang aus: Main-Theme langsam ausfaden
+  (`mainThemeFadeOutDuration`) → kurze Stille (`mainThemeGapDuration`) →
+  Build-Musik einfaden — kein ueberlappender Crossfade.
 - **Track-Auswahl**: `pickRandom()` schliesst den zuletzt gespielten Track aus,
   sodass beim Wechsel ein neuer Track gewaehlt wird.
 - **Persistenz**: `td_music_enabled` (localStorage) merkt User-Toggle.
-- **Tracks**: `configs/background-music.config.ts` (1 Main, 2 Build, 13 Wave).
+- **Tracks**: `configs/background-music.config.ts` (1 Main, 1 Build, 4 Wave).
 
 ## Distanz-Modelle
 
@@ -326,32 +330,42 @@ spatialAudio.playAtGeo('hq_damage', hqLat, hqLon, hqHeight);
 3. **Stereo-Panning**: Three.js AudioListener sorgt automatisch für Stereo-Effekte
    basierend auf der Position relativ zur Kamera.
 
-4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds, max. 40 Projektil-Sounds.
-   Enemy-Budget wird bei Distance-Culling temporär freigegeben.
+4. **Sound Budget**: Max. 12 gleichzeitige Enemy-Sounds, max. 25 Projektil-Sounds,
+   max. 30 globale One-Shots. Enemy-Budget wird bei Distance-Culling temporär freigegeben.
 
 ## Assets
 
-Alle Sound-Dateien befinden sich in:
+Sound-Dateien befinden sich unter `public/assets/sounds/` (Auszug — nicht
+vollstaendig). Hintergrundmusik liegt separat unter `public/assets/music/`:
 ```
 public/assets/sounds/
 ├── towers/
-│   ├── archer/shoot.mp3            # Pfeil-Schuss-Sound
-│   ├── gatling/shoot.mp3           # Gatling-Schuss-Sound
-│   ├── rocket/launch.mp3           # Raketen-Start-Sound
-│   ├── cannon/shoot.mp3            # Kanonen-Schuss-Sound
-│   ├── ice/cast.mp3                # Eis-Zauber-Sound
-│   ├── magic/cast.mp3              # Magie-Zauber-Sound
-│   └── fire/flame_loop.mp3         # Flammenwerfer-Loop-Sound
+│   ├── archer/shoot.mp3               # Pfeil-Schuss-Sound
+│   ├── gatling/shoot.mp3              # Gatling-Schuss-Sound
+│   ├── rocket/launch.mp3              # Raketen-Start-Sound
+│   ├── cannon/shoot.mp3               # Kanonen-Schuss-Sound
+│   ├── ice/cast.mp3                   # Eis-Zauber-Sound
+│   ├── magic/cast.mp3                 # Magie-Zauber-Sound
+│   ├── fire/flame_loop.mp3            # Flammenwerfer-Loop-Sound
+│   ├── tentacle/tentacle-01.mp3       # Tentacle-Strike-Sound
+│   └── lightning/lightning_chain.mp3  # Lightning-Chain-Sound
 ├── enemies/
-│   ├── zombie/ambient.mp3          # Zombie-Bewegungs-Sound
-│   ├── tank/moving.mp3             # Tank-Bewegungs-Sound
-│   ├── wallsmasher/attack.mp3      # Wallsmasher-Angriff-Sound
-│   ├── wallsmasher/spawn.mp3       # Wallsmasher-Spawn-Sound
-│   ├── herbert/spawn.mp3           # Herbert-Spawn-Sound
-│   └── herbert/random-01..13.mp3   # Herbert-Random-Sounds
+│   ├── zombie/ambient.mp3             # Zombie-Bewegungs-Loop
+│   ├── tank/moving.mp3                # Tank-Bewegungs-Loop
+│   ├── golem/golem_walk_loop.mp3      # Stone-Golem-Bewegungs-Loop
+│   ├── hornet/hornet.mp3              # Hornet-Summ-Loop
+│   ├── rat/rat_swarm.mp3              # Ratten-Schwarm-Loop
+│   ├── wallsmasher/attack.mp3         # Wallsmasher-Angriff-Sound
+│   ├── wallsmasher/spawn.mp3          # Wallsmasher-Spawn-Sound
+│   ├── herbert/spawn.mp3              # Herbert-Spawn-Sound
+│   ├── herbert/random-01..13.mp3      # Herbert-Random-Sounds
+│   ├── mammouth/mammouth01.mp3        # Mammouth-Random-Sound
+│   ├── bear/bear01.mp3                # Bear-Random-Sound
+│   └── dragon/dragon01.mp3            # Dragon-Random-Sound
 └── effects/
-    ├── explosion.mp3               # HQ-Schadens-Sound
-    └── building_placed.mp3         # Gebäude-Platziert-Sound
+    ├── explosion.mp3                  # HQ-Schadens-Sound
+    ├── building_placed.mp3            # Tower-Platziert-Sound
+    └── building_selled.mp3            # Tower-Verkauft-Sound
 ```
 
 ## Beispiel: Neuen Sound hinzufügen
