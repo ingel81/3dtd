@@ -64,8 +64,10 @@ export class BackgroundMusicService {
   private fadeOutStartVol = 0;
   private fadeInTargetVol = 0;
 
-  // Main theme HTMLAudioElement fade-out (running concurrently with channel fade-in)
+  // Main theme HTMLAudioElement slow fade-out before the build phase starts
   private mainThemeFadeRafId: number | null = null;
+  // Mini-pause timer between the main-theme fade-out and the build fade-in
+  private mainThemeGapTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Enable/disable
   private _enabled: boolean;
@@ -97,11 +99,31 @@ export class BackgroundMusicService {
     if (!track) return;
 
     const audio = new window.Audio(track.url);
-    audio.loop = true;
+    audio.loop = track.loop ?? true;
     audio.volume = (track.volume ?? 0.5) * BACKGROUND_MUSIC.masterVolume;
-    audio.play().catch(() => {
-      // Autoplay blocked — will be silent until user interaction
-    });
+
+    const startOffset = track.startOffset ?? 0;
+    const begin = () => {
+      if (startOffset > 0) {
+        try {
+          audio.currentTime = startOffset;
+        } catch {
+          /* seek not ready — falls back to start */
+        }
+      }
+      audio.play().catch(() => {
+        // Autoplay blocked — will be silent until user interaction
+      });
+    };
+
+    // Seeking needs the duration metadata. Wait for it so we don't briefly
+    // play from 0:00 before jumping to the offset.
+    if (startOffset > 0 && audio.readyState < HTMLMediaElement.HAVE_METADATA) {
+      audio.addEventListener('loadedmetadata', begin, { once: true });
+    } else {
+      begin();
+    }
+
     BackgroundMusicService.mainThemeAudio = audio;
   }
 
@@ -253,19 +275,30 @@ export class BackgroundMusicService {
   // =====================================================
 
   /**
-   * Crossfade from the static HTMLAudioElement main theme to build music.
-   * If no main theme is playing, just start build music directly.
+   * Transition from the static HTMLAudioElement main theme to build music.
+   * Sequential — NOT an overlapping crossfade:
+   *   1. slow fade-out of the main theme
+   *   2. short silent mini-pause
+   *   3. fade-in of the build track
+   * If no main theme is playing, skip step 1 and start with the mini-pause.
    */
   private transitionFromMainTheme(): void {
     const htmlAudio = BackgroundMusicService.mainThemeAudio;
-    if (htmlAudio && !htmlAudio.paused) {
-      // Start build music (will fade in via crossfadeToTrack)
-      this.playBuildPhase();
 
-      // Concurrently fade out the HTML audio element
+    // Steps 2+3: once the main theme is gone, wait the mini-pause, then build.
+    const startBuildAfterGap = (): void => {
+      BackgroundMusicService.stopMainTheme();
+      this.mainThemeGapTimer = setTimeout(() => {
+        this.mainThemeGapTimer = null;
+        this.playBuildPhase();
+      }, BACKGROUND_MUSIC.mainThemeGapDuration);
+    };
+
+    if (htmlAudio && !htmlAudio.paused) {
+      // Step 1: slowly fade out the main theme HTML audio element.
       const startVol = htmlAudio.volume;
       const fadeStart = performance.now();
-      const dur = BACKGROUND_MUSIC.phaseFadeDuration;
+      const dur = BACKGROUND_MUSIC.mainThemeFadeOutDuration;
 
       const step = (now: number) => {
         const t = Math.min(1, (now - fadeStart) / dur);
@@ -273,15 +306,14 @@ export class BackgroundMusicService {
         if (t < 1) {
           this.mainThemeFadeRafId = requestAnimationFrame(step);
         } else {
-          BackgroundMusicService.stopMainTheme();
           this.mainThemeFadeRafId = null;
+          startBuildAfterGap();
         }
       };
       this.mainThemeFadeRafId = requestAnimationFrame(step);
     } else {
-      // No main theme playing — start build music directly
-      BackgroundMusicService.stopMainTheme();
-      this.playBuildPhase();
+      // Main theme already ended (loop: false) — just mini-pause, then build.
+      startBuildAfterGap();
     }
   }
 
@@ -289,6 +321,10 @@ export class BackgroundMusicService {
     if (this.mainThemeFadeRafId !== null) {
       cancelAnimationFrame(this.mainThemeFadeRafId);
       this.mainThemeFadeRafId = null;
+    }
+    if (this.mainThemeGapTimer !== null) {
+      clearTimeout(this.mainThemeGapTimer);
+      this.mainThemeGapTimer = null;
     }
     BackgroundMusicService.stopMainTheme();
   }
@@ -298,11 +334,10 @@ export class BackgroundMusicService {
   // =====================================================
 
   private setupEventHandlers(): void {
-    // Wave started → fade out music (no wave music during gameplay)
-    // TODO: Re-enable with better wave music: this.playWavePhase()
+    // Wave started → switch to a wave-phase track
     this.subs.add(
       this.eventBus.on('wave:started', () => {
-        this.fadeOutForWave();
+        this.playWavePhase();
       }),
     );
 
@@ -348,27 +383,6 @@ export class BackgroundMusicService {
     if (!track) return;
     this.lastWaveTrackId = track.id;
     this.crossfadeToTrack(track, BACKGROUND_MUSIC.phaseFadeDuration);
-  }
-
-  /**
-   * Fade out current music for wave phase without starting new music.
-   * Wave music is temporarily disabled — will be re-enabled with better tracks.
-   */
-  private fadeOutForWave(): void {
-    if (!this._enabled) return;
-    this.currentPhase = 'wave';
-
-    const active = this.getActiveChannel();
-    if (!active.audio.isPlaying) return;
-
-    this.cancelFade();
-    this.fadeOutChannel = active;
-    this.fadeInChannel = null;
-    this.fadeOutStartVol = active.currentVolume;
-    this.fadeInTargetVol = 0;
-    this.fadeDuration = BACKGROUND_MUSIC.phaseFadeDuration;
-    this.fadeStartTime = performance.now();
-    this.fadeRafId = requestAnimationFrame(this.fadeStep);
   }
 
   private fadeOutAndStop(): void {
