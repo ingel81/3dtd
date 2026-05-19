@@ -12,6 +12,16 @@ export interface MusicTrack {
   url: string;
   /** Per-track volume multiplier 0-1 (default: 0.5) */
   volume?: number;
+  /**
+   * Start playback at this offset in seconds (main theme only).
+   * Build/wave tracks always start at 0. Default: 0.
+   */
+  startOffset?: number;
+  /**
+   * Whether the track loops (main theme only).
+   * Build/wave tracks use the crossfade loop engine regardless. Default: true.
+   */
+  loop?: boolean;
 }
 
 export interface BackgroundMusicConfig {
@@ -25,35 +35,30 @@ export interface BackgroundMusicConfig {
   loopCrossfadeDuration: number;
   /** Fade duration in ms when switching phases (wave<->build) */
   phaseFadeDuration: number;
+  /** Main theme → build: slow fade-out duration of the main theme (ms) */
+  mainThemeFadeOutDuration: number;
+  /** Main theme → build: silent mini-pause before the build track fades in (ms) */
+  mainThemeGapDuration: number;
   /** Master music volume multiplier (applied on top of per-track volume) */
   masterVolume: number;
 }
 
 export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   main: [
-    { id: 'music-main-01', url: '/assets/music/main/main02.mp3', volume: 0.5 },
+    { id: 'music-main-03', url: '/assets/music/main/main03.mp3', volume: 0.5, startOffset: 20, loop: false },
   ],
   build: [
-    { id: 'music-build-01', url: '/assets/music/build/build01.mp3', volume: 0.5 },
-    { id: 'music-build-02', url: '/assets/music/build/build02.mp3', volume: 0.5 },
-    { id: 'music-build-03', url: '/assets/music/build/build03.mp3', volume: 0.5 },
+    { id: 'music-build-04', url: '/assets/music/build/build04.mp3', volume: 0.5 },
   ],
   wave: [
     { id: 'music-wave-01', url: '/assets/music/wave/wave01.mp3' },
     { id: 'music-wave-02', url: '/assets/music/wave/wave02.mp3' },
     { id: 'music-wave-03', url: '/assets/music/wave/wave03.mp3' },
     { id: 'music-wave-04', url: '/assets/music/wave/wave04.mp3' },
-    { id: 'music-wave-05', url: '/assets/music/wave/wave05.mp3' },
-    { id: 'music-wave-06', url: '/assets/music/wave/wave06.mp3' },
-    { id: 'music-wave-07', url: '/assets/music/wave/wave07.mp3' },
-    { id: 'music-wave-08', url: '/assets/music/wave/wave08.mp3' },
-    { id: 'music-wave-09', url: '/assets/music/wave/wave09.mp3' },
-    { id: 'music-wave-10', url: '/assets/music/wave/wave10.mp3' },
-    { id: 'music-wave-11', url: '/assets/music/wave/wave11.mp3' },
-    { id: 'music-wave-12', url: '/assets/music/wave/wave12.mp3' },
-    { id: 'music-wave-13', url: '/assets/music/wave/wave13.mp3' },
   ],
   loopCrossfadeDuration: 2000,
   phaseFadeDuration: 1500,
+  mainThemeFadeOutDuration: 3000,
+  mainThemeGapDuration: 600,
   masterVolume: 0.4,
 };
