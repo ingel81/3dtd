@@ -80,6 +80,13 @@ export class TowerManager extends EntityManager<Tower> {
         volume: 0.6,
       });
 
+      // Register sell sound
+      tilesEngine.spatialAudio.registerSound('tower-sold', '/assets/sounds/effects/building_selled.mp3', {
+        refDistance: 50,
+        rolloffFactor: 1,
+        volume: 0.6,
+      });
+
       // Register fire tower flame loop sound
       tilesEngine.spatialAudio.registerSound('flame-loop', '/assets/sounds/towers/fire/flame_loop.mp3', {
         refDistance: 30,
@@ -445,12 +452,22 @@ export class TowerManager extends EntityManager<Tower> {
    */
   sell(tower: Tower): number {
     const refund = tower.getSellValue();
+    const position = tower.position;
 
     // Emit tower:sold event before removal
     this.eventBus.emit({
       type: 'tower:sold',
       tower,
       refund,
+    });
+
+    // Play sell sound
+    this.eventBus.emit({
+      type: 'audio:play',
+      sound: 'tower-sold',
+      lat: position.lat,
+      lon: position.lon,
+      height: position.height ?? 0,
     });
 
     this.remove(tower);
