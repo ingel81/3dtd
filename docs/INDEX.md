@@ -27,6 +27,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | [ENEMY_CREATION.md](ENEMY_CREATION.md) | Enemies erstellen, Animationen, Audio-System |
 | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) | Status-Effekt-System (Slow, Burn, Poison; Freeze reserviert) |
 | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) | Wave-Management, Sub-Step-Spawner, Mixed Waves, Game Phases |
+| [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) | Static-Curriculum-Fallback (AI-off Debug-Pfad): STATIC_WAVE_PROFILES, UI-Toggle, Post-W30-Loop |
 | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) | Location Dialog, Geocoding, Spawn-Generierung |
 | [PROJECTILES.md](PROJECTILES.md) | Projektil-System, Flugbahnen, Konfiguration |
 | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) | 3D Audio System, Positionsabhängige Sounds, Hintergrundmusik |
@@ -75,6 +76,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | ...Enemy-Animationen konfigurieren | [ENEMY_CREATION.md](ENEMY_CREATION.md) → Animation-System |
 | ...Status-Effekte verstehen | [STATUS_EFFECTS.md](STATUS_EFFECTS.md) |
 | ...Waves konfigurieren / Mixed Waves bauen | [WAVE_SYSTEM.md](WAVE_SYSTEM.md) |
+| ...ohne AI durchspielen (Static-Fallback) | [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) |
 | ...das Location-System anpassen | [LOCATION_SYSTEM.md](LOCATION_SYSTEM.md) |
 | ...Sounds hinzufuegen | [SPATIAL_AUDIO.md](SPATIAL_AUDIO.md) |
 | ...neue Projektiltypen erstellen | [PROJECTILES.md](PROJECTILES.md) |

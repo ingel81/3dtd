@@ -895,6 +895,7 @@ if (enemyCount > 100) {
 
 ## Siehe auch
 
+- [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) - AI-off Debug-Pfad: feste Per-Wave-Profile + UI-Toggle
 - [ENEMY_CREATION.md](ENEMY_CREATION.md) - Enemy-Typen erstellen
 - [STATUS_EFFECTS.md](STATUS_EFFECTS.md) - Status-Effekte
 - [ARCHITECTURE.md](ARCHITECTURE.md) - Manager-System Uebersicht
