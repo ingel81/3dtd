@@ -226,6 +226,23 @@
       `src/app/ai/core/templates.ts` ergänzen (z.B. `stone_golem_squad`) + ggf. Slot im
       `wave-curriculum.config.ts` öffnen. Sonst lernt das Netz nichts über die neue Fortified-Variante
       und Stone Golem taucht im AI-Mode nie auf.
+      **Stand 2026-05-20:** Template `golem_squad` ist in `templates.ts` ergänzt (`minWave: 999`
+      blockt AI bis Re-Training), und im statischen Fallback-Curriculum auf W15 verdrahtet.
+      Im AI-Pfad noch ungenutzt — beim Re-Training `minWave` runtersetzen + Python-Mirror
+      ergänzen.
+
+- [ ] **Static-Curriculum-Fallback aufwerten — Boss-Support & Mixed-Waves**
+      Aktuelle Limitation: `STATIC_WAVE_PROFILES` (wave-curriculum.config.ts) ist
+      single-enemy-per-wave (Datentyp `StaticWaveProfile`). Folgen im Spieltest:
+      Boss-Wellen (W10/W20/W30) spawnen nur Herbert solo, ohne die zugehörigen Tanks +
+      Zombies aus dem AI-Template. „Mixed"-Wellen wie `dragon_elite` (Dragons + Hornets)
+      werden zum Mono-Typ — der Sekundär-Gegner verschwindet komplett.
+      Aufwerten: `StaticWaveProfile` auf eine Liste von Einträgen oder ein Schedule-Objekt
+      erweitern (analog `MixedWaveConfig` / `SpawnSchedule` in `wave.manager.ts`).
+      Anschließend bei Boss-Wellen Boss + Support modellieren, bei Air-Mix-Wellen den
+      Templates-Mix nachbauen.
+      Datei-Anker: `wave-curriculum.config.ts` (Typdef + Profile),
+      `game-loop-facade.service.ts` (`buildStaticCurriculumWaveConfig`).
 
 - [ ] **Re-Training nach Balance-Verifikation** (Optional)
       Checkpoint ep 7350 wurde gegen ALTES Reward-System trainiert. Re-Training optional,
@@ -296,6 +313,20 @@
 > Spielbares, poliertes Tower Defense. Nach PRIO 1+2 oder als Lückenfüller.
 
 ## 3.1 Visual Feintuning
+
+- [ ] **Damage- und Reward-Floating-Texts räumlich trennen**
+      Beim Spielen sieht's chaotisch aus: Damage-Zahlen (rot) und Reward-Coins (gelb) überlagern
+      sich an derselben Stelle über dem getroffenen Gegner. Vorschlag: Damage-Zahlen leicht
+      nach **links** versetzt spawnen, Rewards nach **rechts** — gleicher Vertical-Trail,
+      aber visuell zwei Spalten. Reduziert das „Durcheinander" gerade bei großen Waves.
+      Datei-Anker: `three-engine/renderers/three-effects.renderer.ts` (FloatingText spawn),
+      ggf. eine kleine x-Offset-Konstante pro Text-Typ.
+
+- [ ] **Research-Center: Sell-Button im selben Stil wie bei Tower**
+      Aktuell hat das Research Center einen eigenen „Sell"-Button irgendwo unten in der
+      Sidebar, der visuell aus der Reihe tanzt. Sollte exakt das gleiche Sell-Component
+      sein, das die anderen Tower nutzen — gleicher Style, gleiche Position.
+      Datei-Anker: `src/app/components/game-sidebar/...` (Tower- vs RC-Detail-Pane).
 
 - [ ] **Muzzle Flash feintunen**
       Grundsätzlich sichtbar, aber Intensität/Größe/Dauer anpassen
