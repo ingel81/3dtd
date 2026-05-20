@@ -369,6 +369,11 @@ export class TowerDefenseFacadeService {
     this.gameLoopFacade.toggleAIDirector();
   }
 
+  /** Toggle static-curriculum fallback (debug; used when AI is off). */
+  toggleStaticCurriculum(): void {
+    this.gameLoopFacade.toggleStaticCurriculum();
+  }
+
   /** Get AI Director status text. */
   getAIStatusText(): string {
     return this.gameLoopFacade.getAIStatusText();

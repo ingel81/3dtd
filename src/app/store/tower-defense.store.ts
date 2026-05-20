@@ -231,6 +231,9 @@ export class TowerDefenseStore {
   /** AI Wave Director enabled */
   readonly useAIDirector = this.gameStore.useAIDirector;
 
+  /** Static curriculum fallback (debug toggle; used when AI is off). */
+  readonly useStaticCurriculum = this.gameStore.useStaticCurriculum;
+
   /** AI explanation text for current wave */
   readonly aiExplanation = this.gameStore.aiExplanation;
 

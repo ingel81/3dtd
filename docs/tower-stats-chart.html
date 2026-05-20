@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<title>3DTD Tower-Stats Chart</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+<style>
+  body { font-family: 'JetBrains Mono', 'Consolas', monospace; background: #1a1f1a; color: #d8d4c8; margin: 24px; }
+  h1, h2 { color: #c9a44c; letter-spacing: 0.5px; }
+  h1 { border-bottom: 2px solid #6FB7A5; padding-bottom: 6px; }
+  .meta { color: #8a8a78; font-size: 12px; margin-bottom: 16px; }
+  .grid { display: grid; grid-template-columns: 1fr; gap: 32px; }
+  .chart-container { background: #232a23; padding: 16px; border-radius: 4px; border-left: 3px solid #6FB7A5; }
+  table { border-collapse: collapse; width: 100%; font-size: 12px; margin-top: 8px; }
+  th, td { padding: 4px 8px; border-bottom: 1px solid #2a322a; text-align: right; }
+  th:first-child, td:first-child { text-align: left; }
+  th { background: #2a322a; color: #c9a44c; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; font-size: 11px; }
+  td.l, th.l { text-align: left; }
+  code { background: #2a322a; padding: 1px 4px; border-radius: 2px; color: #6FB7A5; }
+  .note { color: #8a8a78; font-size: 11px; margin: 6px 0 0 0; }
+</style>
+</head>
+<body>
+<h1>3DTD Tower-Stats Chart</h1>
+<div class="meta">
+  Generated <code>2026-05-20T20:46:41.378Z</code> from
+  <code>tower-types.config.ts</code> and <code>tower-dps.util.ts</code>
+  (same DPS formula the game uses). Regenerate via
+  <code>npm run tower-stats-chart</code>.
+</div>
+<div class="meta">
+  <strong>Modell:</strong> Der „Level" auf der X-Achse ist ein <em>uniformer</em>
+  Upgrade-Stand — alle Upgrade-Tracks eines Towers (Damage / Fire Rate / Range
+  bzw. Beam-Width) stehen gleichzeitig auf diesem Level. Ein realer Spieler
+  verteilt die Tracks ungleich; das Chart zeigt das Referenz-Szenario, keine
+  optimale Strategie. „Gold investiert" = Basiskosten + alle Upgrade-Kosten
+  bis zu diesem Level. Beam-Tower (Fire): „Damage" = effektiver DPS-Wert
+  (damagePerSecond), keine Fire-Rate. Poison-DoT ist ein flacher Additiv
+  (AI-Approximation, nicht damage-skaliert).
+</div>
+
+<div class="grid">
+
+  <div class="chart-container">
+    <h2>DPS über Upgrade-Level</h2>
+    <p class="note">Effektiver DPS jedes Combat-Towers über alle 25 Level. Linear — zeigt die absolute Late-Game-Skalierung. Linien per Legende ein/ausblenden.</p>
+    <canvas id="dpsChart" height="120"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>DPS / Gold — Effizienz</h2>
+    <p class="note">DPS pro investiertem Gold (Basiskosten + kumulierte Upgrade-Kosten). Fällt typischerweise mit steigendem Level, weil die Upgrade-Kosten (×1.40/Level) schneller wachsen als der DPS.</p>
+    <canvas id="dpsPerGoldChart" height="120"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Damage über Level</h2>
+    <p class="note">Roh-Damage pro Treffer. Beam-Tower (Fire) zeigen hier ihren effektiven damagePerSecond-Wert.</p>
+    <canvas id="damageChart" height="110"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Range über Level</h2>
+    <p class="note">Reichweite in Metern. Achtung: Archer hat ein eigenes, abgeschwächtes Range-Upgrade.</p>
+    <canvas id="rangeChart" height="110"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Fire Rate über Level</h2>
+    <p class="note">Schüsse pro Sekunde. Beam-Tower (Fire) sind ausgeschlossen — sie haben keine Fire-Rate.</p>
+    <canvas id="fireRateChart" height="110"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Step-Cost pro Level</h2>
+    <p class="note">Gold-Kosten für DIESES Level über alle Upgrade-Tracks zusammen. Logarithmische Y-Achse (Kosten-Scaling ×1.40/Level). Alle Combat-Tower teilen denselben Standard-Track — die Linien liegen übereinander.</p>
+    <canvas id="stepCostChart" height="100"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Kumulierte Gesamtinvestition</h2>
+    <p class="note">Basiskosten + alle Upgrade-Kosten bis zu diesem Level. Logarithmische Y-Achse. Unterschiede zwischen Towern kommen nur von den Basiskosten.</p>
+    <canvas id="cumulGoldChart" height="100"></canvas>
+  </div>
+
+  <div class="chart-container">
+    <h2>Base-Stats (Level 0)</h2>
+    <table>
+      <thead>
+        <tr>
+          <th class="l">Tower</th>
+          <th class="l">Attack</th>
+          <th class="l">Damage Type</th>
+          <th>Cost</th>
+          <th>Damage</th>
+          <th>Fire Rate</th>
+          <th>Range</th>
+          <th>DPS</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="l" style="color:#6FB7A5">Archer Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">physical</td>
+          <td>45</td>
+          <td>25</td>
+          <td>1</td>
+          <td>30</td>
+          <td>25</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#C9A44C">Dual-Gatling Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">pierce</td>
+          <td>90</td>
+          <td>10</td>
+          <td>5</td>
+          <td>50</td>
+          <td>50</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#C04B3F">Cannon Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">siege</td>
+          <td>150</td>
+          <td>55</td>
+          <td>0.5</td>
+          <td>80</td>
+          <td>55</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#9B7BD9">Magic Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">magic</td>
+          <td>140</td>
+          <td>40</td>
+          <td>1.5</td>
+          <td>70</td>
+          <td>60</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#E68A4D">Rocket Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">siege</td>
+          <td>120</td>
+          <td>40</td>
+          <td>0.5</td>
+          <td>100</td>
+          <td>20</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#5FA8D3">Ice Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">ice</td>
+          <td>90</td>
+          <td>5</td>
+          <td>0.33</td>
+          <td>60</td>
+          <td>3</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#EE6C4D">Fire Tower</td>
+          <td class="l">beam</td>
+          <td class="l">fire</td>
+          <td>110</td>
+          <td>35</td>
+          <td>—</td>
+          <td>25</td>
+          <td>52.5</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#8FB339">Tentacle Tower</td>
+          <td class="l">melee</td>
+          <td class="l">physical</td>
+          <td>80</td>
+          <td>30</td>
+          <td>1.5</td>
+          <td>25</td>
+          <td>45</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#5FBF8F">Poison Tower</td>
+          <td class="l">projectile</td>
+          <td class="l">poison</td>
+          <td>100</td>
+          <td>5</td>
+          <td>1</td>
+          <td>55</td>
+          <td>23.4</td>
+        </tr>
+        <tr>
+          <td class="l" style="color:#E8D44D">Lightning Tower</td>
+          <td class="l">chain</td>
+          <td class="l">lightning</td>
+          <td>130</td>
+          <td>35</td>
+          <td>0.8</td>
+          <td>65</td>
+          <td>61.3</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>DPS-Snapshots</h2>
+    <p class="note">Effektiver DPS bei den Tier-Grenzen (uniformer Level).</p>
+    <table>
+      <thead><tr><th class="l">Tower</th><th>L0</th><th>L5</th><th>L10</th><th>L15</th><th>L20</th><th>L25</th></tr></thead>
+      <tbody>
+        <tr><td class="l" style="color:#6FB7A5">Archer Tower</td><td>25</td><td>43</td><td>73</td><td>125</td><td>213</td><td>363</td></tr>
+        <tr><td class="l" style="color:#C9A44C">Dual-Gatling Tower</td><td>50</td><td>85</td><td>146</td><td>249</td><td>426</td><td>727</td></tr>
+        <tr><td class="l" style="color:#C04B3F">Cannon Tower</td><td>55</td><td>94</td><td>160</td><td>274</td><td>468</td><td>799</td></tr>
+        <tr><td class="l" style="color:#9B7BD9">Magic Tower</td><td>60</td><td>103</td><td>175</td><td>299</td><td>511</td><td>872</td></tr>
+        <tr><td class="l" style="color:#E68A4D">Rocket Tower</td><td>20</td><td>34</td><td>58</td><td>100</td><td>170</td><td>291</td></tr>
+        <tr><td class="l" style="color:#5FA8D3">Ice Tower</td><td>3</td><td>5</td><td>9</td><td>15</td><td>25</td><td>43</td></tr>
+        <tr><td class="l" style="color:#EE6C4D">Fire Tower</td><td>53</td><td>73</td><td>103</td><td>146</td><td>186</td><td>237</td></tr>
+        <tr><td class="l" style="color:#8FB339">Tentacle Tower</td><td>45</td><td>77</td><td>131</td><td>224</td><td>383</td><td>654</td></tr>
+        <tr><td class="l" style="color:#5FBF8F">Poison Tower</td><td>23</td><td>30</td><td>41</td><td>59</td><td>91</td><td>145</td></tr>
+        <tr><td class="l" style="color:#E8D44D">Lightning Tower</td><td>61</td><td>105</td><td>179</td><td>306</td><td>522</td><td>891</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Gesamtinvestition-Snapshots</h2>
+    <p class="note">Kumuliertes Gold (Basis + alle Tracks) bei den Tier-Grenzen.</p>
+    <table>
+      <thead><tr><th class="l">Tower</th><th>L0</th><th>L5</th><th>L10</th><th>L15</th><th>L20</th><th>L25</th></tr></thead>
+      <tbody>
+        <tr><td class="l" style="color:#6FB7A5">Archer Tower</td><td>45</td><td>1,278</td><td>5,037</td><td>16,503</td><td>51,489</td><td>158,265</td></tr>
+        <tr><td class="l" style="color:#C9A44C">Dual-Gatling Tower</td><td>90</td><td>1,323</td><td>5,082</td><td>16,548</td><td>51,534</td><td>158,310</td></tr>
+        <tr><td class="l" style="color:#C04B3F">Cannon Tower</td><td>150</td><td>1,383</td><td>5,142</td><td>16,608</td><td>51,594</td><td>158,370</td></tr>
+        <tr><td class="l" style="color:#9B7BD9">Magic Tower</td><td>140</td><td>1,373</td><td>5,132</td><td>16,598</td><td>51,584</td><td>158,360</td></tr>
+        <tr><td class="l" style="color:#E68A4D">Rocket Tower</td><td>120</td><td>1,353</td><td>5,112</td><td>16,578</td><td>51,564</td><td>158,340</td></tr>
+        <tr><td class="l" style="color:#5FA8D3">Ice Tower</td><td>90</td><td>1,323</td><td>5,082</td><td>16,548</td><td>51,534</td><td>158,310</td></tr>
+        <tr><td class="l" style="color:#EE6C4D">Fire Tower</td><td>110</td><td>1,343</td><td>5,102</td><td>16,568</td><td>51,554</td><td>158,330</td></tr>
+        <tr><td class="l" style="color:#8FB339">Tentacle Tower</td><td>80</td><td>1,313</td><td>5,072</td><td>16,538</td><td>51,524</td><td>158,300</td></tr>
+        <tr><td class="l" style="color:#5FBF8F">Poison Tower</td><td>100</td><td>1,333</td><td>5,092</td><td>16,558</td><td>51,544</td><td>158,320</td></tr>
+        <tr><td class="l" style="color:#E8D44D">Lightning Tower</td><td>130</td><td>1,363</td><td>5,122</td><td>16,588</td><td>51,574</td><td>158,350</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<script>
+const SERIES = [{"id":"archer","name":"Archer Tower","attackType":"projectile","color":"#6FB7A5","points":[{"level":0,"dps":25,"damage":25,"fireRate":1,"range":30,"stepCost":0,"cumulativeGold":45,"dpsPerGold":0.5556},{"level":1,"dps":27.8,"damage":26.3,"fireRate":1.06,"range":30.6,"stepCost":150,"cumulativeGold":195,"dpsPerGold":0.1427},{"level":2,"dps":31,"damage":27.6,"fireRate":1.12,"range":31.2,"stepCost":189,"cumulativeGold":384,"dpsPerGold":0.0806},{"level":3,"dps":34.5,"damage":28.9,"fireRate":1.19,"range":31.8,"stepCost":234,"cumulativeGold":618,"dpsPerGold":0.0558},{"level":4,"dps":38.4,"damage":30.4,"fireRate":1.26,"range":32.5,"stepCost":294,"cumulativeGold":912,"dpsPerGold":0.0421},{"level":5,"dps":42.7,"damage":31.9,"fireRate":1.34,"range":33.1,"stepCost":366,"cumulativeGold":1278,"dpsPerGold":0.0334},{"level":6,"dps":47.5,"damage":33.5,"fireRate":1.42,"range":33.8,"stepCost":459,"cumulativeGold":1737,"dpsPerGold":0.0274},{"level":7,"dps":52.9,"damage":35.2,"fireRate":1.5,"range":34.5,"stepCost":573,"cumulativeGold":2310,"dpsPerGold":0.0229},{"level":8,"dps":58.9,"damage":36.9,"fireRate":1.59,"range":35.1,"stepCost":714,"cumulativeGold":3024,"dpsPerGold":0.0195},{"level":9,"dps":65.5,"damage":38.8,"fireRate":1.69,"range":35.9,"stepCost":894,"cumulativeGold":3918,"dpsPerGold":0.0167},{"level":10,"dps":72.9,"damage":40.7,"fireRate":1.79,"range":36.6,"stepCost":1119,"cumulativeGold":5037,"dpsPerGold":0.0145},{"level":11,"dps":81.2,"damage":42.8,"fireRate":1.9,"range":37.3,"stepCost":1398,"cumulativeGold":6435,"dpsPerGold":0.0126},{"level":12,"dps":90.3,"damage":44.9,"fireRate":2.01,"range":38,"stepCost":1746,"cumulativeGold":8181,"dpsPerGold":0.011},{"level":13,"dps":100.5,"damage":47.1,"fireRate":2.13,"range":38.8,"stepCost":2184,"cumulativeGold":10365,"dpsPerGold":0.0097},{"level":14,"dps":111.9,"damage":49.5,"fireRate":2.26,"range":39.6,"stepCost":2727,"cumulativeGold":13092,"dpsPerGold":0.0085},{"level":15,"dps":124.6,"damage":52,"fireRate":2.4,"range":40.4,"stepCost":3411,"cumulativeGold":16503,"dpsPerGold":0.0075},{"level":16,"dps":138.6,"damage":54.6,"fireRate":2.54,"range":41.2,"stepCost":4263,"cumulativeGold":20766,"dpsPerGold":0.0067},{"level":17,"dps":154.3,"damage":57.3,"fireRate":2.69,"range":42,"stepCost":5328,"cumulativeGold":26094,"dpsPerGold":0.0059},{"level":18,"dps":171.7,"damage":60.2,"fireRate":2.85,"range":42.8,"stepCost":6660,"cumulativeGold":32754,"dpsPerGold":0.0052},{"level":19,"dps":191.1,"damage":63.2,"fireRate":3.03,"range":43.7,"stepCost":8328,"cumulativeGold":41082,"dpsPerGold":0.0047},{"level":20,"dps":212.7,"damage":66.3,"fireRate":3.21,"range":44.6,"stepCost":10407,"cumulativeGold":51489,"dpsPerGold":0.0041},{"level":21,"dps":236.8,"damage":69.6,"fireRate":3.4,"range":45.5,"stepCost":13011,"cumulativeGold":64500,"dpsPerGold":0.0037},{"level":22,"dps":263.5,"damage":73.1,"fireRate":3.6,"range":46.4,"stepCost":16263,"cumulativeGold":80763,"dpsPerGold":0.0033},{"level":23,"dps":293.3,"damage":76.8,"fireRate":3.82,"range":47.3,"stepCost":20328,"cumulativeGold":101091,"dpsPerGold":0.0029},{"level":24,"dps":326.5,"damage":80.6,"fireRate":4.05,"range":48.3,"stepCost":25410,"cumulativeGold":126501,"dpsPerGold":0.0026},{"level":25,"dps":363.3,"damage":84.7,"fireRate":4.29,"range":49.2,"stepCost":31764,"cumulativeGold":158265,"dpsPerGold":0.0023}]},{"id":"dual-gatling","name":"Dual-Gatling Tower","attackType":"projectile","color":"#C9A44C","points":[{"level":0,"dps":50,"damage":10,"fireRate":5,"range":50,"stepCost":0,"cumulativeGold":90,"dpsPerGold":0.5556},{"level":1,"dps":55.7,"damage":10.5,"fireRate":5.3,"range":52,"stepCost":150,"cumulativeGold":240,"dpsPerGold":0.2319},{"level":2,"dps":61.9,"damage":11,"fireRate":5.62,"range":54.1,"stepCost":189,"cumulativeGold":429,"dpsPerGold":0.1444},{"level":3,"dps":68.9,"damage":11.6,"fireRate":5.96,"range":56.2,"stepCost":234,"cumulativeGold":663,"dpsPerGold":0.104},{"level":4,"dps":76.7,"damage":12.2,"fireRate":6.31,"range":58.5,"stepCost":294,"cumulativeGold":957,"dpsPerGold":0.0802},{"level":5,"dps":85.4,"damage":12.8,"fireRate":6.69,"range":60.8,"stepCost":366,"cumulativeGold":1323,"dpsPerGold":0.0645},{"level":6,"dps":95,"damage":13.4,"fireRate":7.09,"range":63.3,"stepCost":459,"cumulativeGold":1782,"dpsPerGold":0.0533},{"level":7,"dps":105.8,"damage":14.1,"fireRate":7.52,"range":65.8,"stepCost":573,"cumulativeGold":2355,"dpsPerGold":0.0449},{"level":8,"dps":117.7,"damage":14.8,"fireRate":7.97,"range":68.4,"stepCost":714,"cumulativeGold":3069,"dpsPerGold":0.0384},{"level":9,"dps":131,"damage":15.5,"fireRate":8.45,"range":71.2,"stepCost":894,"cumulativeGold":3963,"dpsPerGold":0.0331},{"level":10,"dps":145.9,"damage":16.3,"fireRate":8.95,"range":74,"stepCost":1119,"cumulativeGold":5082,"dpsPerGold":0.0287},{"level":11,"dps":162.3,"damage":17.1,"fireRate":9.49,"range":77,"stepCost":1398,"cumulativeGold":6480,"dpsPerGold":0.0251},{"level":12,"dps":180.7,"damage":18,"fireRate":10.06,"range":80.1,"stepCost":1746,"cumulativeGold":8226,"dpsPerGold":0.022},{"level":13,"dps":201.1,"damage":18.9,"fireRate":10.66,"range":83.3,"stepCost":2184,"cumulativeGold":10410,"dpsPerGold":0.0193},{"level":14,"dps":223.8,"damage":19.8,"fireRate":11.3,"range":86.6,"stepCost":2727,"cumulativeGold":13137,"dpsPerGold":0.017},{"level":15,"dps":249.1,"damage":20.8,"fireRate":11.98,"range":90,"stepCost":3411,"cumulativeGold":16548,"dpsPerGold":0.0151},{"level":16,"dps":277.3,"damage":21.8,"fireRate":12.7,"range":93.6,"stepCost":4263,"cumulativeGold":20811,"dpsPerGold":0.0133},{"level":17,"dps":308.6,"damage":22.9,"fireRate":13.46,"range":97.4,"stepCost":5328,"cumulativeGold":26139,"dpsPerGold":0.0118},{"level":18,"dps":343.5,"damage":24.1,"fireRate":14.27,"range":101.3,"stepCost":6660,"cumulativeGold":32799,"dpsPerGold":0.0105},{"level":19,"dps":382.3,"damage":25.3,"fireRate":15.13,"range":105.3,"stepCost":8328,"cumulativeGold":41127,"dpsPerGold":0.0093},{"level":20,"dps":425.5,"damage":26.5,"fireRate":16.04,"range":109.6,"stepCost":10407,"cumulativeGold":51534,"dpsPerGold":0.0083},{"level":21,"dps":473.6,"damage":27.9,"fireRate":17,"range":113.9,"stepCost":13011,"cumulativeGold":64545,"dpsPerGold":0.0073},{"level":22,"dps":527.1,"damage":29.3,"fireRate":18.02,"range":118.5,"stepCost":16263,"cumulativeGold":80808,"dpsPerGold":0.0065},{"level":23,"dps":586.6,"damage":30.7,"fireRate":19.1,"range":123.2,"stepCost":20328,"cumulativeGold":101136,"dpsPerGold":0.0058},{"level":24,"dps":652.9,"damage":32.3,"fireRate":20.24,"range":128.2,"stepCost":25410,"cumulativeGold":126546,"dpsPerGold":0.0052},{"level":25,"dps":726.7,"damage":33.9,"fireRate":21.46,"range":133.3,"stepCost":31764,"cumulativeGold":158310,"dpsPerGold":0.0046}]},{"id":"cannon","name":"Cannon Tower","attackType":"projectile","color":"#C04B3F","points":[{"level":0,"dps":55,"damage":55,"fireRate":0.5,"range":80,"stepCost":0,"cumulativeGold":150,"dpsPerGold":0.3667},{"level":1,"dps":61.2,"damage":57.8,"fireRate":0.53,"range":83.2,"stepCost":150,"cumulativeGold":300,"dpsPerGold":0.2041},{"level":2,"dps":68.1,"damage":60.6,"fireRate":0.56,"range":86.5,"stepCost":189,"cumulativeGold":489,"dpsPerGold":0.1393},{"level":3,"dps":75.8,"damage":63.7,"fireRate":0.6,"range":90,"stepCost":234,"cumulativeGold":723,"dpsPerGold":0.1049},{"level":4,"dps":84.4,"damage":66.9,"fireRate":0.63,"range":93.6,"stepCost":294,"cumulativeGold":1017,"dpsPerGold":0.083},{"level":5,"dps":93.9,"damage":70.2,"fireRate":0.67,"range":97.3,"stepCost":366,"cumulativeGold":1383,"dpsPerGold":0.0679},{"level":6,"dps":104.6,"damage":73.7,"fireRate":0.71,"range":101.2,"stepCost":459,"cumulativeGold":1842,"dpsPerGold":0.0568},{"level":7,"dps":116.4,"damage":77.4,"fireRate":0.75,"range":105.3,"stepCost":573,"cumulativeGold":2415,"dpsPerGold":0.0482},{"level":8,"dps":129.5,"damage":81.3,"fireRate":0.8,"range":109.5,"stepCost":714,"cumulativeGold":3129,"dpsPerGold":0.0414},{"level":9,"dps":144.2,"damage":85.3,"fireRate":0.84,"range":113.9,"stepCost":894,"cumulativeGold":4023,"dpsPerGold":0.0358},{"level":10,"dps":160.4,"damage":89.6,"fireRate":0.9,"range":118.4,"stepCost":1119,"cumulativeGold":5142,"dpsPerGold":0.0312},{"level":11,"dps":178.6,"damage":94.1,"fireRate":0.95,"range":123.2,"stepCost":1398,"cumulativeGold":6540,"dpsPerGold":0.0273},{"level":12,"dps":198.7,"damage":98.8,"fireRate":1.01,"range":128.1,"stepCost":1746,"cumulativeGold":8286,"dpsPerGold":0.024},{"level":13,"dps":221.2,"damage":103.7,"fireRate":1.07,"range":133.2,"stepCost":2184,"cumulativeGold":10470,"dpsPerGold":0.0211},{"level":14,"dps":246.2,"damage":108.9,"fireRate":1.13,"range":138.5,"stepCost":2727,"cumulativeGold":13197,"dpsPerGold":0.0187},{"level":15,"dps":274,"damage":114.3,"fireRate":1.2,"range":144.1,"stepCost":3411,"cumulativeGold":16608,"dpsPerGold":0.0165},{"level":16,"dps":305,"damage":120.1,"fireRate":1.27,"range":149.8,"stepCost":4263,"cumulativeGold":20871,"dpsPerGold":0.0146},{"level":17,"dps":339.5,"damage":126.1,"fireRate":1.35,"range":155.8,"stepCost":5328,"cumulativeGold":26199,"dpsPerGold":0.013},{"level":18,"dps":377.8,"damage":132.4,"fireRate":1.43,"range":162.1,"stepCost":6660,"cumulativeGold":32859,"dpsPerGold":0.0115},{"level":19,"dps":420.5,"damage":139,"fireRate":1.51,"range":168.5,"stepCost":8328,"cumulativeGold":41187,"dpsPerGold":0.0102},{"level":20,"dps":468,"damage":145.9,"fireRate":1.6,"range":175.3,"stepCost":10407,"cumulativeGold":51594,"dpsPerGold":0.0091},{"level":21,"dps":520.9,"damage":153.2,"fireRate":1.7,"range":182.3,"stepCost":13011,"cumulativeGold":64605,"dpsPerGold":0.0081},{"level":22,"dps":579.8,"damage":160.9,"fireRate":1.8,"range":189.6,"stepCost":16263,"cumulativeGold":80868,"dpsPerGold":0.0072},{"level":23,"dps":645.3,"damage":168.9,"fireRate":1.91,"range":197.2,"stepCost":20328,"cumulativeGold":101196,"dpsPerGold":0.0064},{"level":24,"dps":718.2,"damage":177.4,"fireRate":2.02,"range":205.1,"stepCost":25410,"cumulativeGold":126606,"dpsPerGold":0.0057},{"level":25,"dps":799.4,"damage":186.2,"fireRate":2.15,"range":213.3,"stepCost":31764,"cumulativeGold":158370,"dpsPerGold":0.005}]},{"id":"magic","name":"Magic Tower","attackType":"projectile","color":"#9B7BD9","points":[{"level":0,"dps":60,"damage":40,"fireRate":1.5,"range":70,"stepCost":0,"cumulativeGold":140,"dpsPerGold":0.4286},{"level":1,"dps":66.8,"damage":42,"fireRate":1.59,"range":72.8,"stepCost":150,"cumulativeGold":290,"dpsPerGold":0.2303},{"level":2,"dps":74.3,"damage":44.1,"fireRate":1.69,"range":75.7,"stepCost":189,"cumulativeGold":479,"dpsPerGold":0.1552},{"level":3,"dps":82.7,"damage":46.3,"fireRate":1.79,"range":78.7,"stepCost":234,"cumulativeGold":713,"dpsPerGold":0.116},{"level":4,"dps":92.1,"damage":48.6,"fireRate":1.89,"range":81.9,"stepCost":294,"cumulativeGold":1007,"dpsPerGold":0.0914},{"level":5,"dps":102.5,"damage":51.1,"fireRate":2.01,"range":85.2,"stepCost":366,"cumulativeGold":1373,"dpsPerGold":0.0746},{"level":6,"dps":114.1,"damage":53.6,"fireRate":2.13,"range":88.6,"stepCost":459,"cumulativeGold":1832,"dpsPerGold":0.0623},{"level":7,"dps":126.9,"damage":56.3,"fireRate":2.26,"range":92.1,"stepCost":573,"cumulativeGold":2405,"dpsPerGold":0.0528},{"level":8,"dps":141.3,"damage":59.1,"fireRate":2.39,"range":95.8,"stepCost":714,"cumulativeGold":3119,"dpsPerGold":0.0453},{"level":9,"dps":157.3,"damage":62.1,"fireRate":2.53,"range":99.6,"stepCost":894,"cumulativeGold":4013,"dpsPerGold":0.0392},{"level":10,"dps":175,"damage":65.2,"fireRate":2.69,"range":103.6,"stepCost":1119,"cumulativeGold":5132,"dpsPerGold":0.0341},{"level":11,"dps":194.8,"damage":68.4,"fireRate":2.85,"range":107.8,"stepCost":1398,"cumulativeGold":6530,"dpsPerGold":0.0298},{"level":12,"dps":216.8,"damage":71.8,"fireRate":3.02,"range":112.1,"stepCost":1746,"cumulativeGold":8276,"dpsPerGold":0.0262},{"level":13,"dps":241.3,"damage":75.4,"fireRate":3.2,"range":116.6,"stepCost":2184,"cumulativeGold":10460,"dpsPerGold":0.0231},{"level":14,"dps":268.6,"damage":79.2,"fireRate":3.39,"range":121.2,"stepCost":2727,"cumulativeGold":13187,"dpsPerGold":0.0204},{"level":15,"dps":298.9,"damage":83.2,"fireRate":3.59,"range":126.1,"stepCost":3411,"cumulativeGold":16598,"dpsPerGold":0.018},{"level":16,"dps":332.7,"damage":87.3,"fireRate":3.81,"range":131.1,"stepCost":4263,"cumulativeGold":20861,"dpsPerGold":0.0159},{"level":17,"dps":370.3,"damage":91.7,"fireRate":4.04,"range":136.4,"stepCost":5328,"cumulativeGold":26189,"dpsPerGold":0.0141},{"level":18,"dps":412.2,"damage":96.3,"fireRate":4.28,"range":141.8,"stepCost":6660,"cumulativeGold":32849,"dpsPerGold":0.0125},{"level":19,"dps":458.7,"damage":101.1,"fireRate":4.54,"range":147.5,"stepCost":8328,"cumulativeGold":41177,"dpsPerGold":0.0111},{"level":20,"dps":510.6,"damage":106.1,"fireRate":4.81,"range":153.4,"stepCost":10407,"cumulativeGold":51584,"dpsPerGold":0.0099},{"level":21,"dps":568.3,"damage":111.4,"fireRate":5.1,"range":159.5,"stepCost":13011,"cumulativeGold":64595,"dpsPerGold":0.0088},{"level":22,"dps":632.5,"damage":117,"fireRate":5.41,"range":165.9,"stepCost":16263,"cumulativeGold":80858,"dpsPerGold":0.0078},{"level":23,"dps":703.9,"damage":122.9,"fireRate":5.73,"range":172.5,"stepCost":20328,"cumulativeGold":101186,"dpsPerGold":0.007},{"level":24,"dps":783.5,"damage":129,"fireRate":6.07,"range":179.4,"stepCost":25410,"cumulativeGold":126596,"dpsPerGold":0.0062},{"level":25,"dps":872,"damage":135.5,"fireRate":6.44,"range":186.6,"stepCost":31764,"cumulativeGold":158360,"dpsPerGold":0.0055}]},{"id":"rocket","name":"Rocket Tower","attackType":"projectile","color":"#E68A4D","points":[{"level":0,"dps":20,"damage":40,"fireRate":0.5,"range":100,"stepCost":0,"cumulativeGold":120,"dpsPerGold":0.1667},{"level":1,"dps":22.3,"damage":42,"fireRate":0.53,"range":104,"stepCost":150,"cumulativeGold":270,"dpsPerGold":0.0824},{"level":2,"dps":24.8,"damage":44.1,"fireRate":0.56,"range":108.2,"stepCost":189,"cumulativeGold":459,"dpsPerGold":0.054},{"level":3,"dps":27.6,"damage":46.3,"fireRate":0.6,"range":112.5,"stepCost":234,"cumulativeGold":693,"dpsPerGold":0.0398},{"level":4,"dps":30.7,"damage":48.6,"fireRate":0.63,"range":117,"stepCost":294,"cumulativeGold":987,"dpsPerGold":0.0311},{"level":5,"dps":34.2,"damage":51.1,"fireRate":0.67,"range":121.7,"stepCost":366,"cumulativeGold":1353,"dpsPerGold":0.0252},{"level":6,"dps":38,"damage":53.6,"fireRate":0.71,"range":126.5,"stepCost":459,"cumulativeGold":1812,"dpsPerGold":0.021},{"level":7,"dps":42.3,"damage":56.3,"fireRate":0.75,"range":131.6,"stepCost":573,"cumulativeGold":2385,"dpsPerGold":0.0177},{"level":8,"dps":47.1,"damage":59.1,"fireRate":0.8,"range":136.9,"stepCost":714,"cumulativeGold":3099,"dpsPerGold":0.0152},{"level":9,"dps":52.4,"damage":62.1,"fireRate":0.84,"range":142.3,"stepCost":894,"cumulativeGold":3993,"dpsPerGold":0.0131},{"level":10,"dps":58.3,"damage":65.2,"fireRate":0.9,"range":148,"stepCost":1119,"cumulativeGold":5112,"dpsPerGold":0.0114},{"level":11,"dps":64.9,"damage":68.4,"fireRate":0.95,"range":153.9,"stepCost":1398,"cumulativeGold":6510,"dpsPerGold":0.01},{"level":12,"dps":72.3,"damage":71.8,"fireRate":1.01,"range":160.1,"stepCost":1746,"cumulativeGold":8256,"dpsPerGold":0.0088},{"level":13,"dps":80.4,"damage":75.4,"fireRate":1.07,"range":166.5,"stepCost":2184,"cumulativeGold":10440,"dpsPerGold":0.0077},{"level":14,"dps":89.5,"damage":79.2,"fireRate":1.13,"range":173.2,"stepCost":2727,"cumulativeGold":13167,"dpsPerGold":0.0068},{"level":15,"dps":99.6,"damage":83.2,"fireRate":1.2,"range":180.1,"stepCost":3411,"cumulativeGold":16578,"dpsPerGold":0.006},{"level":16,"dps":110.9,"damage":87.3,"fireRate":1.27,"range":187.3,"stepCost":4263,"cumulativeGold":20841,"dpsPerGold":0.0053},{"level":17,"dps":123.4,"damage":91.7,"fireRate":1.35,"range":194.8,"stepCost":5328,"cumulativeGold":26169,"dpsPerGold":0.0047},{"level":18,"dps":137.4,"damage":96.3,"fireRate":1.43,"range":202.6,"stepCost":6660,"cumulativeGold":32829,"dpsPerGold":0.0042},{"level":19,"dps":152.9,"damage":101.1,"fireRate":1.51,"range":210.7,"stepCost":8328,"cumulativeGold":41157,"dpsPerGold":0.0037},{"level":20,"dps":170.2,"damage":106.1,"fireRate":1.6,"range":219.1,"stepCost":10407,"cumulativeGold":51564,"dpsPerGold":0.0033},{"level":21,"dps":189.4,"damage":111.4,"fireRate":1.7,"range":227.9,"stepCost":13011,"cumulativeGold":64575,"dpsPerGold":0.0029},{"level":22,"dps":210.8,"damage":117,"fireRate":1.8,"range":237,"stepCost":16263,"cumulativeGold":80838,"dpsPerGold":0.0026},{"level":23,"dps":234.6,"damage":122.9,"fireRate":1.91,"range":246.5,"stepCost":20328,"cumulativeGold":101166,"dpsPerGold":0.0023},{"level":24,"dps":261.2,"damage":129,"fireRate":2.02,"range":256.3,"stepCost":25410,"cumulativeGold":126576,"dpsPerGold":0.0021},{"level":25,"dps":290.7,"damage":135.5,"fireRate":2.15,"range":266.6,"stepCost":31764,"cumulativeGold":158340,"dpsPerGold":0.0018}]},{"id":"ice","name":"Ice Tower","attackType":"projectile","color":"#5FA8D3","points":[{"level":0,"dps":3,"damage":5,"fireRate":0.33,"range":60,"stepCost":0,"cumulativeGold":90,"dpsPerGold":0.033},{"level":1,"dps":3.3,"damage":5.3,"fireRate":0.35,"range":62.4,"stepCost":150,"cumulativeGold":240,"dpsPerGold":0.0138},{"level":2,"dps":3.7,"damage":5.5,"fireRate":0.37,"range":64.9,"stepCost":189,"cumulativeGold":429,"dpsPerGold":0.0086},{"level":3,"dps":4.1,"damage":5.8,"fireRate":0.39,"range":67.5,"stepCost":234,"cumulativeGold":663,"dpsPerGold":0.0062},{"level":4,"dps":4.6,"damage":6.1,"fireRate":0.42,"range":70.2,"stepCost":294,"cumulativeGold":957,"dpsPerGold":0.0048},{"level":5,"dps":5.1,"damage":6.4,"fireRate":0.44,"range":73,"stepCost":366,"cumulativeGold":1323,"dpsPerGold":0.0038},{"level":6,"dps":5.6,"damage":6.7,"fireRate":0.47,"range":75.9,"stepCost":459,"cumulativeGold":1782,"dpsPerGold":0.0032},{"level":7,"dps":6.3,"damage":7,"fireRate":0.5,"range":79,"stepCost":573,"cumulativeGold":2355,"dpsPerGold":0.0027},{"level":8,"dps":7,"damage":7.4,"fireRate":0.53,"range":82.1,"stepCost":714,"cumulativeGold":3069,"dpsPerGold":0.0023},{"level":9,"dps":7.8,"damage":7.8,"fireRate":0.56,"range":85.4,"stepCost":894,"cumulativeGold":3963,"dpsPerGold":0.002},{"level":10,"dps":8.7,"damage":8.1,"fireRate":0.59,"range":88.8,"stepCost":1119,"cumulativeGold":5082,"dpsPerGold":0.0017},{"level":11,"dps":9.6,"damage":8.6,"fireRate":0.63,"range":92.4,"stepCost":1398,"cumulativeGold":6480,"dpsPerGold":0.0015},{"level":12,"dps":10.7,"damage":9,"fireRate":0.66,"range":96.1,"stepCost":1746,"cumulativeGold":8226,"dpsPerGold":0.0013},{"level":13,"dps":11.9,"damage":9.4,"fireRate":0.7,"range":99.9,"stepCost":2184,"cumulativeGold":10410,"dpsPerGold":0.0011},{"level":14,"dps":13.3,"damage":9.9,"fireRate":0.75,"range":103.9,"stepCost":2727,"cumulativeGold":13137,"dpsPerGold":0.001},{"level":15,"dps":14.8,"damage":10.4,"fireRate":0.79,"range":108.1,"stepCost":3411,"cumulativeGold":16548,"dpsPerGold":0.0009},{"level":16,"dps":16.5,"damage":10.9,"fireRate":0.84,"range":112.4,"stepCost":4263,"cumulativeGold":20811,"dpsPerGold":0.0008},{"level":17,"dps":18.3,"damage":11.5,"fireRate":0.89,"range":116.9,"stepCost":5328,"cumulativeGold":26139,"dpsPerGold":0.0007},{"level":18,"dps":20.4,"damage":12,"fireRate":0.94,"range":121.5,"stepCost":6660,"cumulativeGold":32799,"dpsPerGold":0.0006},{"level":19,"dps":22.7,"damage":12.6,"fireRate":1,"range":126.4,"stepCost":8328,"cumulativeGold":41127,"dpsPerGold":0.0006},{"level":20,"dps":25.3,"damage":13.3,"fireRate":1.06,"range":131.5,"stepCost":10407,"cumulativeGold":51534,"dpsPerGold":0.0005},{"level":21,"dps":28.1,"damage":13.9,"fireRate":1.12,"range":136.7,"stepCost":13011,"cumulativeGold":64545,"dpsPerGold":0.0004},{"level":22,"dps":31.3,"damage":14.6,"fireRate":1.19,"range":142.2,"stepCost":16263,"cumulativeGold":80808,"dpsPerGold":0.0004},{"level":23,"dps":34.8,"damage":15.4,"fireRate":1.26,"range":147.9,"stepCost":20328,"cumulativeGold":101136,"dpsPerGold":0.0003},{"level":24,"dps":38.8,"damage":16.1,"fireRate":1.34,"range":153.8,"stepCost":25410,"cumulativeGold":126546,"dpsPerGold":0.0003},{"level":25,"dps":43.2,"damage":16.9,"fireRate":1.42,"range":160,"stepCost":31764,"cumulativeGold":158310,"dpsPerGold":0.0003}]},{"id":"fire","name":"Fire Tower","attackType":"beam","color":"#EE6C4D","points":[{"level":0,"dps":52.5,"damage":35,"fireRate":0,"range":25,"stepCost":0,"cumulativeGold":110,"dpsPerGold":0.4773},{"level":1,"dps":56,"damage":36.8,"fireRate":0,"range":26,"stepCost":150,"cumulativeGold":260,"dpsPerGold":0.2156},{"level":2,"dps":59.9,"damage":38.6,"fireRate":0,"range":27,"stepCost":189,"cumulativeGold":449,"dpsPerGold":0.1333},{"level":3,"dps":64,"damage":40.5,"fireRate":0,"range":28.1,"stepCost":234,"cumulativeGold":683,"dpsPerGold":0.0937},{"level":4,"dps":68.4,"damage":42.5,"fireRate":0,"range":29.2,"stepCost":294,"cumulativeGold":977,"dpsPerGold":0.07},{"level":5,"dps":73.2,"damage":44.7,"fireRate":0,"range":30.4,"stepCost":366,"cumulativeGold":1343,"dpsPerGold":0.0545},{"level":6,"dps":78.3,"damage":46.9,"fireRate":0,"range":31.6,"stepCost":459,"cumulativeGold":1802,"dpsPerGold":0.0435},{"level":7,"dps":83.9,"damage":49.2,"fireRate":0,"range":32.9,"stepCost":573,"cumulativeGold":2375,"dpsPerGold":0.0353},{"level":8,"dps":89.9,"damage":51.7,"fireRate":0,"range":34.2,"stepCost":714,"cumulativeGold":3089,"dpsPerGold":0.0291},{"level":9,"dps":96.4,"damage":54.3,"fireRate":0,"range":35.6,"stepCost":894,"cumulativeGold":3983,"dpsPerGold":0.0242},{"level":10,"dps":103.4,"damage":57,"fireRate":0,"range":37,"stepCost":1119,"cumulativeGold":5102,"dpsPerGold":0.0203},{"level":11,"dps":111.1,"damage":59.9,"fireRate":0,"range":38.5,"stepCost":1398,"cumulativeGold":6500,"dpsPerGold":0.0171},{"level":12,"dps":119.3,"damage":62.9,"fireRate":0,"range":40,"stepCost":1746,"cumulativeGold":8246,"dpsPerGold":0.0145},{"level":13,"dps":128.2,"damage":66,"fireRate":0,"range":41.6,"stepCost":2184,"cumulativeGold":10430,"dpsPerGold":0.0123},{"level":14,"dps":137.9,"damage":69.3,"fireRate":0,"range":43.3,"stepCost":2727,"cumulativeGold":13157,"dpsPerGold":0.0105},{"level":15,"dps":145.5,"damage":72.8,"fireRate":0,"range":45,"stepCost":3411,"cumulativeGold":16568,"dpsPerGold":0.0088},{"level":16,"dps":152.8,"damage":76.4,"fireRate":0,"range":46.8,"stepCost":4263,"cumulativeGold":20831,"dpsPerGold":0.0073},{"level":17,"dps":160.4,"damage":80.2,"fireRate":0,"range":48.7,"stepCost":5328,"cumulativeGold":26159,"dpsPerGold":0.0061},{"level":18,"dps":168.5,"damage":84.2,"fireRate":0,"range":50.6,"stepCost":6660,"cumulativeGold":32819,"dpsPerGold":0.0051},{"level":19,"dps":176.9,"damage":88.4,"fireRate":0,"range":52.7,"stepCost":8328,"cumulativeGold":41147,"dpsPerGold":0.0043},{"level":20,"dps":185.7,"damage":92.9,"fireRate":0,"range":54.8,"stepCost":10407,"cumulativeGold":51554,"dpsPerGold":0.0036},{"level":21,"dps":195,"damage":97.5,"fireRate":0,"range":57,"stepCost":13011,"cumulativeGold":64565,"dpsPerGold":0.003},{"level":22,"dps":204.8,"damage":102.4,"fireRate":0,"range":59.2,"stepCost":16263,"cumulativeGold":80828,"dpsPerGold":0.0025},{"level":23,"dps":215,"damage":107.5,"fireRate":0,"range":61.6,"stepCost":20328,"cumulativeGold":101156,"dpsPerGold":0.0021},{"level":24,"dps":225.8,"damage":112.9,"fireRate":0,"range":64.1,"stepCost":25410,"cumulativeGold":126566,"dpsPerGold":0.0018},{"level":25,"dps":237,"damage":118.5,"fireRate":0,"range":66.6,"stepCost":31764,"cumulativeGold":158330,"dpsPerGold":0.0015}]},{"id":"tentacle","name":"Tentacle Tower","attackType":"melee","color":"#8FB339","points":[{"level":0,"dps":45,"damage":30,"fireRate":1.5,"range":25,"stepCost":0,"cumulativeGold":80,"dpsPerGold":0.5625},{"level":1,"dps":50.1,"damage":31.5,"fireRate":1.59,"range":26,"stepCost":150,"cumulativeGold":230,"dpsPerGold":0.2178},{"level":2,"dps":55.7,"damage":33.1,"fireRate":1.69,"range":27,"stepCost":189,"cumulativeGold":419,"dpsPerGold":0.133},{"level":3,"dps":62,"damage":34.7,"fireRate":1.79,"range":28.1,"stepCost":234,"cumulativeGold":653,"dpsPerGold":0.095},{"level":4,"dps":69.1,"damage":36.5,"fireRate":1.89,"range":29.2,"stepCost":294,"cumulativeGold":947,"dpsPerGold":0.0729},{"level":5,"dps":76.9,"damage":38.3,"fireRate":2.01,"range":30.4,"stepCost":366,"cumulativeGold":1313,"dpsPerGold":0.0585},{"level":6,"dps":85.5,"damage":40.2,"fireRate":2.13,"range":31.6,"stepCost":459,"cumulativeGold":1772,"dpsPerGold":0.0483},{"level":7,"dps":95.2,"damage":42.2,"fireRate":2.26,"range":32.9,"stepCost":573,"cumulativeGold":2345,"dpsPerGold":0.0406},{"level":8,"dps":106,"damage":44.3,"fireRate":2.39,"range":34.2,"stepCost":714,"cumulativeGold":3059,"dpsPerGold":0.0346},{"level":9,"dps":117.9,"damage":46.5,"fireRate":2.53,"range":35.6,"stepCost":894,"cumulativeGold":3953,"dpsPerGold":0.0298},{"level":10,"dps":131.3,"damage":48.9,"fireRate":2.69,"range":37,"stepCost":1119,"cumulativeGold":5072,"dpsPerGold":0.0259},{"level":11,"dps":146.1,"damage":51.3,"fireRate":2.85,"range":38.5,"stepCost":1398,"cumulativeGold":6470,"dpsPerGold":0.0226},{"level":12,"dps":162.6,"damage":53.9,"fireRate":3.02,"range":40,"stepCost":1746,"cumulativeGold":8216,"dpsPerGold":0.0198},{"level":13,"dps":181,"damage":56.6,"fireRate":3.2,"range":41.6,"stepCost":2184,"cumulativeGold":10400,"dpsPerGold":0.0174},{"level":14,"dps":201.4,"damage":59.4,"fireRate":3.39,"range":43.3,"stepCost":2727,"cumulativeGold":13127,"dpsPerGold":0.0153},{"level":15,"dps":224.2,"damage":62.4,"fireRate":3.59,"range":45,"stepCost":3411,"cumulativeGold":16538,"dpsPerGold":0.0136},{"level":16,"dps":249.5,"damage":65.5,"fireRate":3.81,"range":46.8,"stepCost":4263,"cumulativeGold":20801,"dpsPerGold":0.012},{"level":17,"dps":277.7,"damage":68.8,"fireRate":4.04,"range":48.7,"stepCost":5328,"cumulativeGold":26129,"dpsPerGold":0.0106},{"level":18,"dps":309.1,"damage":72.2,"fireRate":4.28,"range":50.6,"stepCost":6660,"cumulativeGold":32789,"dpsPerGold":0.0094},{"level":19,"dps":344,"damage":75.8,"fireRate":4.54,"range":52.7,"stepCost":8328,"cumulativeGold":41117,"dpsPerGold":0.0084},{"level":20,"dps":382.9,"damage":79.6,"fireRate":4.81,"range":54.8,"stepCost":10407,"cumulativeGold":51524,"dpsPerGold":0.0074},{"level":21,"dps":426.2,"damage":83.6,"fireRate":5.1,"range":57,"stepCost":13011,"cumulativeGold":64535,"dpsPerGold":0.0066},{"level":22,"dps":474.4,"damage":87.8,"fireRate":5.41,"range":59.2,"stepCost":16263,"cumulativeGold":80798,"dpsPerGold":0.0059},{"level":23,"dps":528,"damage":92.1,"fireRate":5.73,"range":61.6,"stepCost":20328,"cumulativeGold":101126,"dpsPerGold":0.0052},{"level":24,"dps":587.6,"damage":96.8,"fireRate":6.07,"range":64.1,"stepCost":25410,"cumulativeGold":126536,"dpsPerGold":0.0046},{"level":25,"dps":654,"damage":101.6,"fireRate":6.44,"range":66.6,"stepCost":31764,"cumulativeGold":158300,"dpsPerGold":0.0041}]},{"id":"poison","name":"Poison Tower","attackType":"projectile","color":"#5FBF8F","points":[{"level":0,"dps":23.4,"damage":5,"fireRate":1,"range":55,"stepCost":0,"cumulativeGold":100,"dpsPerGold":0.234},{"level":1,"dps":24.4,"damage":5.3,"fireRate":1.06,"range":57.2,"stepCost":150,"cumulativeGold":250,"dpsPerGold":0.0977},{"level":2,"dps":25.5,"damage":5.5,"fireRate":1.12,"range":59.5,"stepCost":189,"cumulativeGold":439,"dpsPerGold":0.0582},{"level":3,"dps":26.8,"damage":5.8,"fireRate":1.19,"range":61.9,"stepCost":234,"cumulativeGold":673,"dpsPerGold":0.0398},{"level":4,"dps":28.2,"damage":6.1,"fireRate":1.26,"range":64.3,"stepCost":294,"cumulativeGold":967,"dpsPerGold":0.0292},{"level":5,"dps":29.8,"damage":6.4,"fireRate":1.34,"range":66.9,"stepCost":366,"cumulativeGold":1333,"dpsPerGold":0.0223},{"level":6,"dps":31.5,"damage":6.7,"fireRate":1.42,"range":69.6,"stepCost":459,"cumulativeGold":1792,"dpsPerGold":0.0176},{"level":7,"dps":33.4,"damage":7,"fireRate":1.5,"range":72.4,"stepCost":573,"cumulativeGold":2365,"dpsPerGold":0.0141},{"level":8,"dps":35.6,"damage":7.4,"fireRate":1.59,"range":75.3,"stepCost":714,"cumulativeGold":3079,"dpsPerGold":0.0116},{"level":9,"dps":38,"damage":7.8,"fireRate":1.69,"range":78.3,"stepCost":894,"cumulativeGold":3973,"dpsPerGold":0.0096},{"level":10,"dps":40.7,"damage":8.1,"fireRate":1.79,"range":81.4,"stepCost":1119,"cumulativeGold":5092,"dpsPerGold":0.008},{"level":11,"dps":43.6,"damage":8.6,"fireRate":1.9,"range":84.7,"stepCost":1398,"cumulativeGold":6490,"dpsPerGold":0.0067},{"level":12,"dps":46.9,"damage":9,"fireRate":2.01,"range":88.1,"stepCost":1746,"cumulativeGold":8236,"dpsPerGold":0.0057},{"level":13,"dps":50.6,"damage":9.4,"fireRate":2.13,"range":91.6,"stepCost":2184,"cumulativeGold":10420,"dpsPerGold":0.0049},{"level":14,"dps":54.7,"damage":9.9,"fireRate":2.26,"range":95.2,"stepCost":2727,"cumulativeGold":13147,"dpsPerGold":0.0042},{"level":15,"dps":59.2,"damage":10.4,"fireRate":2.4,"range":99.1,"stepCost":3411,"cumulativeGold":16558,"dpsPerGold":0.0036},{"level":16,"dps":64.3,"damage":10.9,"fireRate":2.54,"range":103,"stepCost":4263,"cumulativeGold":20821,"dpsPerGold":0.0031},{"level":17,"dps":69.9,"damage":11.5,"fireRate":2.69,"range":107.1,"stepCost":5328,"cumulativeGold":26149,"dpsPerGold":0.0027},{"level":18,"dps":76.2,"damage":12,"fireRate":2.85,"range":111.4,"stepCost":6660,"cumulativeGold":32809,"dpsPerGold":0.0023},{"level":19,"dps":83.2,"damage":12.6,"fireRate":3.03,"range":115.9,"stepCost":8328,"cumulativeGold":41137,"dpsPerGold":0.002},{"level":20,"dps":91,"damage":13.3,"fireRate":3.21,"range":120.5,"stepCost":10407,"cumulativeGold":51544,"dpsPerGold":0.0018},{"level":21,"dps":99.6,"damage":13.9,"fireRate":3.4,"range":125.3,"stepCost":13011,"cumulativeGold":64555,"dpsPerGold":0.0015},{"level":22,"dps":109.3,"damage":14.6,"fireRate":3.6,"range":130.3,"stepCost":16263,"cumulativeGold":80818,"dpsPerGold":0.0014},{"level":23,"dps":120,"damage":15.4,"fireRate":3.82,"range":135.6,"stepCost":20328,"cumulativeGold":101146,"dpsPerGold":0.0012},{"level":24,"dps":131.9,"damage":16.1,"fireRate":4.05,"range":141,"stepCost":25410,"cumulativeGold":126556,"dpsPerGold":0.001},{"level":25,"dps":145.2,"damage":16.9,"fireRate":4.29,"range":146.6,"stepCost":31764,"cumulativeGold":158320,"dpsPerGold":0.0009}]},{"id":"lightning","name":"Lightning Tower","attackType":"chain","color":"#E8D44D","points":[{"level":0,"dps":61.3,"damage":35,"fireRate":0.8,"range":65,"stepCost":0,"cumulativeGold":130,"dpsPerGold":0.4717},{"level":1,"dps":68.2,"damage":36.8,"fireRate":0.85,"range":67.6,"stepCost":150,"cumulativeGold":280,"dpsPerGold":0.2437},{"level":2,"dps":76,"damage":38.6,"fireRate":0.9,"range":70.3,"stepCost":189,"cumulativeGold":469,"dpsPerGold":0.162},{"level":3,"dps":84.5,"damage":40.5,"fireRate":0.95,"range":73.1,"stepCost":234,"cumulativeGold":703,"dpsPerGold":0.1203},{"level":4,"dps":94.1,"damage":42.5,"fireRate":1.01,"range":76,"stepCost":294,"cumulativeGold":997,"dpsPerGold":0.0944},{"level":5,"dps":104.7,"damage":44.7,"fireRate":1.07,"range":79.1,"stepCost":366,"cumulativeGold":1363,"dpsPerGold":0.0768},{"level":6,"dps":116.6,"damage":46.9,"fireRate":1.13,"range":82.2,"stepCost":459,"cumulativeGold":1822,"dpsPerGold":0.064},{"level":7,"dps":129.7,"damage":49.2,"fireRate":1.2,"range":85.5,"stepCost":573,"cumulativeGold":2395,"dpsPerGold":0.0542},{"level":8,"dps":144.4,"damage":51.7,"fireRate":1.28,"range":89,"stepCost":714,"cumulativeGold":3109,"dpsPerGold":0.0464},{"level":9,"dps":160.7,"damage":54.3,"fireRate":1.35,"range":92.5,"stepCost":894,"cumulativeGold":4003,"dpsPerGold":0.0401},{"level":10,"dps":178.9,"damage":57,"fireRate":1.43,"range":96.2,"stepCost":1119,"cumulativeGold":5122,"dpsPerGold":0.0349},{"level":11,"dps":199.1,"damage":59.9,"fireRate":1.52,"range":100.1,"stepCost":1398,"cumulativeGold":6520,"dpsPerGold":0.0305},{"level":12,"dps":221.6,"damage":62.9,"fireRate":1.61,"range":104.1,"stepCost":1746,"cumulativeGold":8266,"dpsPerGold":0.0268},{"level":13,"dps":246.6,"damage":66,"fireRate":1.71,"range":108.2,"stepCost":2184,"cumulativeGold":10450,"dpsPerGold":0.0236},{"level":14,"dps":274.5,"damage":69.3,"fireRate":1.81,"range":112.6,"stepCost":2727,"cumulativeGold":13177,"dpsPerGold":0.0208},{"level":15,"dps":305.5,"damage":72.8,"fireRate":1.92,"range":117.1,"stepCost":3411,"cumulativeGold":16588,"dpsPerGold":0.0184},{"level":16,"dps":340,"damage":76.4,"fireRate":2.03,"range":121.7,"stepCost":4263,"cumulativeGold":20851,"dpsPerGold":0.0163},{"level":17,"dps":378.5,"damage":80.2,"fireRate":2.15,"range":126.6,"stepCost":5328,"cumulativeGold":26179,"dpsPerGold":0.0145},{"level":18,"dps":421.2,"damage":84.2,"fireRate":2.28,"range":131.7,"stepCost":6660,"cumulativeGold":32839,"dpsPerGold":0.0128},{"level":19,"dps":468.8,"damage":88.4,"fireRate":2.42,"range":136.9,"stepCost":8328,"cumulativeGold":41167,"dpsPerGold":0.0114},{"level":20,"dps":521.8,"damage":92.9,"fireRate":2.57,"range":142.4,"stepCost":10407,"cumulativeGold":51574,"dpsPerGold":0.0101},{"level":21,"dps":580.8,"damage":97.5,"fireRate":2.72,"range":148.1,"stepCost":13011,"cumulativeGold":64585,"dpsPerGold":0.009},{"level":22,"dps":646.4,"damage":102.4,"fireRate":2.88,"range":154,"stepCost":16263,"cumulativeGold":80848,"dpsPerGold":0.008},{"level":23,"dps":719.4,"damage":107.5,"fireRate":3.06,"range":160.2,"stepCost":20328,"cumulativeGold":101176,"dpsPerGold":0.0071},{"level":24,"dps":800.7,"damage":112.9,"fireRate":3.24,"range":166.6,"stepCost":25410,"cumulativeGold":126586,"dpsPerGold":0.0063},{"level":25,"dps":891.2,"damage":118.5,"fireRate":3.43,"range":173.3,"stepCost":31764,"cumulativeGold":158350,"dpsPerGold":0.0056}]}];
+const LEVELS = SERIES[0].points.map(function (p) { return p.level; });
+
+const AXIS = '#8a8a78';
+const GRID = '#2a322a';
+const TEXT = '#d8d4c8';
+
+function makeLineChart(canvasId, key, yTitle, opts) {
+  opts = opts || {};
+  const datasets = SERIES
+    .filter(function (s) { return opts.skipBeam ? s.attackType !== 'beam' : true; })
+    .map(function (s) {
+      return {
+        label: s.name,
+        data: s.points.map(function (p) {
+          const v = p[key];
+          // Log axis can't plot 0 (e.g. step-cost at level 0) — drop to a gap.
+          return (opts.log && v <= 0) ? null : v;
+        }),
+        borderColor: s.color,
+        backgroundColor: s.color + '22',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 3,
+        tension: 0.15,
+      };
+    });
+
+  const yScale = {
+    title: { display: true, text: yTitle, color: AXIS },
+    ticks: { color: AXIS },
+    grid: { color: GRID },
+  };
+  if (opts.log) { yScale.type = 'logarithmic'; } else { yScale.beginAtZero = true; }
+
+  new Chart(document.getElementById(canvasId).getContext('2d'), {
+    type: 'line',
+    data: { labels: LEVELS, datasets: datasets },
+    options: {
+      responsive: true,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { labels: { color: TEXT, font: { size: 11 }, boxWidth: 12 } },
+        tooltip: { mode: 'index', intersect: false },
+      },
+      scales: {
+        x: {
+          title: { display: true, text: 'Upgrade Level', color: AXIS },
+          ticks: { color: AXIS },
+          grid: { color: GRID },
+        },
+        y: yScale,
+      },
+    },
+  });
+}
+
+makeLineChart('dpsChart', 'dps', 'DPS');
+makeLineChart('dpsPerGoldChart', 'dpsPerGold', 'DPS pro Gold');
+makeLineChart('damageChart', 'damage', 'Damage');
+makeLineChart('rangeChart', 'range', 'Range (m)');
+makeLineChart('fireRateChart', 'fireRate', 'Fire Rate (Schuss/s)', { skipBeam: true });
+makeLineChart('stepCostChart', 'stepCost', 'Step-Cost (Gold)', { log: true });
+makeLineChart('cumulGoldChart', 'cumulativeGold', 'Gold investiert', { log: true });
+</script>
+</body>
+</html>

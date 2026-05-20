@@ -14,7 +14,7 @@ export interface ResearchCenterLevelConfig {
 
 /**
  * Research Center level progression.
- * Level 1 = base (placed at cost 75), Level 2-3 = upgrades.
+ * Level 1 = base (placed at cost 150), Level 2-3 = upgrades.
  */
 export const RESEARCH_CENTER_LEVELS: ResearchCenterLevelConfig[] = [
   { level: 1, upgradeCost: 0,   researchSlots: 1, description: 'Basic Research (1 Slot)' },
@@ -27,7 +27,7 @@ export const RESEARCH_CENTER_LEVELS: ResearchCenterLevelConfig[] = [
  */
 export const RESEARCH_CENTER_CONFIG = {
   /** Cost to place the Research Center */
-  baseCost: 75,
+  baseCost: 150,
   /** Maximum building level */
   maxLevel: 3,
   /** Percentage of credits refunded when cancelling active research (0.0 - 1.0) */

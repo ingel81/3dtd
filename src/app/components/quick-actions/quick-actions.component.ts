@@ -228,6 +228,13 @@ import { TdIconComponent } from '../icon/icon.component';
             <td-icon name="wave" [size]="18"></td-icon>
           </button>
           <button class="td-dev-btn"
+                  [class.active]="useStaticCurriculum()"
+                  (click)="staticCurriculumToggled.emit()"
+                  matTooltip="Static curriculum waves (AI-off fallback)"
+                  matTooltipPosition="left">
+            <td-icon name="filing" [size]="18"></td-icon>
+          </button>
+          <button class="td-dev-btn"
                   [class.active]="debugWindows.towerWindow().isOpen"
                   (click)="debugWindows.toggle('tower')"
                   matTooltip="Tower inspector"
@@ -603,6 +610,9 @@ export class QuickActionsComponent {
   // Input for camera framing debug state (component-local in parent)
   readonly cameraFramingDebug = input.required<boolean>();
 
+  // Static curriculum fallback state (game-store driven, parent passes in)
+  readonly useStaticCurriculum = input.required<boolean>();
+
   // Display settings — read from shared signals in DebugFacadeService (single source of truth)
   readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
   readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
@@ -634,6 +644,7 @@ export class QuickActionsComponent {
   readonly heightDebugToggled = output<void>();
   readonly cameraFramingDebugToggled = output<void>();
   readonly specialPointsDebugToggled = output<void>();
+  readonly staticCurriculumToggled = output<void>();
   readonly spatialGridDebugToggled = output<void>();
   readonly airSpatialGridDebugToggled = output<void>();
   readonly airRouteToggled = output<void>();

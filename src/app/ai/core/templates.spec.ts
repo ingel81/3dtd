@@ -8,14 +8,14 @@ import {
 } from './templates';
 
 describe('Phase 5.11 Range-Based Templates', () => {
-  it('has exactly 18 active templates', () => {
-    expect(NUM_ACTIVE_TEMPLATES).toBe(18);
-    expect(TEMPLATES.length).toBe(18);
+  it('has exactly 19 active templates (incl. golem_squad, gated via minWave:999)', () => {
+    expect(NUM_ACTIVE_TEMPLATES).toBe(19);
+    expect(TEMPLATES.length).toBe(19);
   });
 
-  it('has 32 max slots (14 reserved for future expansion)', () => {
+  it('has 32 max slots (13 reserved for future expansion)', () => {
     expect(MAX_TEMPLATE_SLOTS).toBe(32);
-    expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(14);
+    expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(13);
   });
 
   it('every template has enemy shares summing to ~1.0', () => {

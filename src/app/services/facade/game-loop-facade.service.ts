@@ -15,6 +15,7 @@ import { TrainingClientService } from '../../ai/training/training-client.service
 import { adaptAIWaveConfigMixed } from '../../ai/core/wave-config-adapter';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { WaveConfig } from '../../managers/wave.manager';
+import { staticWaveResolvedFor } from '../../configs/wave-curriculum.config';
 import { Tower } from '../../entities/tower.entity';
 import { UpgradeId } from '../../configs/tower-types.config';
 import { FacadeComponentBridge } from './tower-defense-facade.service';
@@ -211,12 +212,46 @@ export class GameLoopFacadeService {
   }
 
   /**
+   * Build a WaveConfig from the static curriculum profile for `waveNum`.
+   * Used as the AI-off fallback when `useStaticCurriculum` is enabled.
+   * Returns null when the wave number is invalid.
+   */
+  buildStaticCurriculumWaveConfig(waveNum: number): WaveConfig | null {
+    const resolved = staticWaveResolvedFor(waveNum);
+    if (!resolved) return null;
+    return {
+      enemyCount: resolved.count,
+      enemyType: resolved.enemyType,
+      enemySpeed: resolved.enemySpeed,
+      enemyHealth: resolved.enemyHealth,
+      spawnMode: 'each',
+      spawnDelay: resolved.spawnDelayMs,
+    };
+  }
+
+  /**
    * Start a new wave (manual or AI-directed).
    */
   startWave(): void {
     if (!this.initialized) return;
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
+
+    // Source priority for the wave config:
+    //   1. Static curriculum toggle (explicit debug override — beats AI even
+    //      if it's auto-enabled after the ONNX model loaded). Single-click UX.
+    //   2. AI Director (production default).
+    //   3. Debug panel's custom-wave settings (last fallback).
+    if (this.store.useStaticCurriculum()) {
+      const nextWave = this.store.waveNumber() + 1;
+      const waveConfig = this.buildStaticCurriculumWaveConfig(nextWave) ?? this.buildWaveConfig();
+      this.store.aiExplanation.set(null);
+      this.gameState.getEventBus().emit({
+        type: 'command:start-wave',
+        config: waveConfig,
+      });
+      return;
+    }
 
     if (this.store.useAIDirector()) {
       if (this.pendingAIWaveRequest) return;
@@ -312,6 +347,16 @@ export class GameLoopFacadeService {
   toggleAIDirector(): void {
     const newValue = !this.store.useAIDirector();
     this.store.useAIDirector.set(newValue);
+  }
+
+  /**
+   * Toggle static-curriculum fallback (debug). When ON and `useAIDirector`
+   * is OFF, waves spawn from `STATIC_WAVE_PROFILES` instead of the debug
+   * panel's custom-wave settings.
+   */
+  toggleStaticCurriculum(): void {
+    const newValue = !this.store.useStaticCurriculum();
+    this.store.useStaticCurriculum.set(newValue);
   }
 
   /**

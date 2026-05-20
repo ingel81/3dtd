@@ -26,11 +26,16 @@ describe('wave-curriculum.config', () => {
       }
     });
 
-    it('gold budgets are strictly increasing across the 30 waves', () => {
-      for (let i = 1; i < WAVE_CURRICULUM.length; i++) {
-        expect(WAVE_CURRICULUM[i].goldKill).toBeGreaterThan(WAVE_CURRICULUM[i - 1].goldKill);
-        expect(WAVE_CURRICULUM[i].goldComplete).toBeGreaterThan(WAVE_CURRICULUM[i - 1].goldComplete);
+    it('gold budgets trend upward over the 30 waves (boss bonus dips allowed)', () => {
+      // Boss waves (W10/W20/W30) get a bonus peak, so the wave AFTER a boss
+      // can be lower than the boss wave itself. Verify the trend by comparing
+      // each wave to the wave two before — that absorbs single-step boss dips.
+      for (let i = 2; i < WAVE_CURRICULUM.length; i++) {
+        expect(WAVE_CURRICULUM[i].goldKill).toBeGreaterThan(WAVE_CURRICULUM[i - 2].goldKill);
+        expect(WAVE_CURRICULUM[i].goldComplete).toBeGreaterThan(WAVE_CURRICULUM[i - 2].goldComplete);
       }
+      // And the final wave is much bigger than the first.
+      expect(WAVE_CURRICULUM[29].goldKill).toBeGreaterThan(WAVE_CURRICULUM[0].goldKill * 100);
     });
 
     it('wave 1 is zombie_horde and wave 10 is boss_herbert', () => {
@@ -58,30 +63,30 @@ describe('wave-curriculum.config', () => {
       expect(goldBudgetForWave(30)).toEqual({ kill: w30.goldKill, complete: w30.goldComplete });
     });
 
-    it('mid-curriculum wave 10 returns expected values', () => {
-      // Wave 10 is boss_herbert: goldKill: 125, goldComplete: 60
-      expect(goldBudgetForWave(10)).toEqual({ kill: 125, complete: 60 });
+    it('mid-curriculum wave 10 returns the boss_herbert entry values', () => {
+      // Wave 10 = boss_herbert (BOSS 1, bonus peak in the rebalanced curriculum)
+      const w10 = WAVE_CURRICULUM[9];
+      expect(goldBudgetForWave(10)).toEqual({ kill: w10.goldKill, complete: w10.goldComplete });
     });
 
-    it('wave 31 extrapolates linearly beyond the 30-entry curriculum', () => {
-      const last = WAVE_CURRICULUM[29];
+    it('wave 31 loops to wave 1 budget (templateForWave also loops mod 30)', () => {
+      const w1 = WAVE_CURRICULUM[0];
       const w31 = goldBudgetForWave(31);
-      expect(w31.kill).toBe(last.goldKill + 50);
-      expect(w31.complete).toBe(last.goldComplete + 30);
+      expect(w31.kill).toBe(w1.goldKill);
+      expect(w31.complete).toBe(w1.goldComplete);
     });
 
-    it('wave 35 extrapolates correctly (5 extra waves)', () => {
-      const last = WAVE_CURRICULUM[29];
+    it('wave 35 = wave 5 budget (loop continuation)', () => {
+      const w5 = WAVE_CURRICULUM[4];
       const w35 = goldBudgetForWave(35);
-      expect(w35.kill).toBe(last.goldKill + 5 * 50);
-      expect(w35.complete).toBe(last.goldComplete + 5 * 30);
+      expect(w35.kill).toBe(w5.goldKill);
+      expect(w35.complete).toBe(w5.goldComplete);
     });
 
-    it('extrapolated budgets are strictly larger than wave 30 values', () => {
+    it('wave 60 = wave 30 budget (full loop), boss-bonus peak repeats', () => {
       const w30 = goldBudgetForWave(30);
-      const w50 = goldBudgetForWave(50);
-      expect(w50.kill).toBeGreaterThan(w30.kill);
-      expect(w50.complete).toBeGreaterThan(w30.complete);
+      const w60 = goldBudgetForWave(60);
+      expect(w60).toEqual(w30);
     });
   });
 

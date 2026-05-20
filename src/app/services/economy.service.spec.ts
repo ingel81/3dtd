@@ -394,7 +394,7 @@ describe('EconomyService', () => {
       ).not.toThrow();
     });
 
-    it('handles extrapolated budget for waves beyond curriculum (wave 31+)', () => {
+    it('handles looped budget for waves beyond curriculum (wave 31 = wave 1)', () => {
       const base31 = goldBudgetForWave(31).complete;
       const result = service.computeWaveCompletionBonus({
         wave: 31,
@@ -403,7 +403,8 @@ describe('EconomyService', () => {
         hpLost: 0,
       });
       expect(result).toBe(base31); // no extra bonuses
-      expect(base31).toBeGreaterThan(waveBase(30)); // must be extrapolated upward
+      // Post-W30 loops mod 30 — wave 31 mirrors wave 1's completion budget.
+      expect(base31).toBe(waveBase(1));
     });
   });
 });

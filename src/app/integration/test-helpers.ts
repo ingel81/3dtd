@@ -48,6 +48,18 @@ export const TEST_TOWER_POSITION: GeoPosition = {
   height: 300,
 };
 
+/**
+ * Tower position right next to the spawn point (TEST_PATH[0]) — ≈7m away.
+ * Keeps a freshly-spawned enemy in range of any tower regardless of
+ * per-tower range tuning. Use this for findTarget tests; TEST_TOWER_POSITION
+ * sits at the path midpoint (≈56m from the spawn).
+ */
+export const TEST_TOWER_NEAR_SPAWN: GeoPosition = {
+  lat: 48.7758,
+  lon: 9.1830, // ≈7m east of TEST_PATH[0]
+  height: 300,
+};
+
 /** Spawn points for wave manager */
 export const TEST_SPAWN_POINTS: SpawnPoint[] = [
   {
