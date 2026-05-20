@@ -456,6 +456,13 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
+   * Toggle static-curriculum fallback (debug button in quick-actions).
+   */
+  onStaticCurriculumToggled(): void {
+    this.facade.toggleStaticCurriculum();
+  }
+
+  /**
    * Start custom wave — delegates to facade
    */
   startCustomWave(): void {

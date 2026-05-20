@@ -49,6 +49,17 @@ export class GameStore {
   /** AI Wave Director enabled */
   readonly useAIDirector = signal<boolean>(false);
 
+  /**
+   * Static curriculum fallback enabled.
+   *
+   * When `useAIDirector === false` AND this flag is true, waves are spawned
+   * from `STATIC_WAVE_PROFILES` (one fixed enemy-count + hp_mult per wave)
+   * instead of the debug-panel custom-wave settings. Used for offline
+   * playtests and when no AI model is loaded. AI remains the production
+   * default — this is a debug toggle.
+   */
+  readonly useStaticCurriculum = signal<boolean>(false);
+
   /** AI explanation text for current wave */
   readonly aiExplanation = signal<string | null>(null);
 

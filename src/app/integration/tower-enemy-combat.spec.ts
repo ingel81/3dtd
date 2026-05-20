@@ -18,9 +18,11 @@ import {
   TestManagers,
   TEST_PATH,
   TEST_TOWER_POSITION,
+  TEST_TOWER_NEAR_SPAWN,
   TEST_BASE_POSITION,
   TEST_SPAWN_POINTS,
 } from './test-helpers';
+import { GeoPosition } from '../models/game.types';
 import { Enemy } from '../entities/enemy.entity';
 import { Tower } from '../entities/tower.entity';
 
@@ -42,7 +44,7 @@ describe('Tower → Enemy Combat Integration', () => {
     return m.enemyManager.spawn(TEST_PATH, 'zombie', speedMps, true);
   }
 
-  function placeTower(): Tower {
+  function placeTower(position: GeoPosition = TEST_TOWER_POSITION): Tower {
     // Initialize tower manager first
     m.towerManager.initializeWithContext(
       m.tilesEngine,
@@ -50,7 +52,7 @@ describe('Tower → Enemy Combat Integration', () => {
       TEST_BASE_POSITION,
       TEST_SPAWN_POINTS.map(s => ({ lat: s.lat, lon: s.lon }))
     );
-    return m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0)!;
+    return m.towerManager.placeTower(position, 'archer', 0)!;
   }
 
   // ── Tests ────────────────────────────────────────────────────────
@@ -80,7 +82,9 @@ describe('Tower → Enemy Combat Integration', () => {
   });
 
   it('should find enemy target when enemy is within range', () => {
-    const tower = placeTower();
+    // Tower placed next to the spawn point so the freshly-spawned enemy is
+    // in range regardless of per-tower range tuning.
+    const tower = placeTower(TEST_TOWER_NEAR_SPAWN);
     const enemy = spawnEnemy();
 
     // Enemy starts at path[0] which is within range of tower

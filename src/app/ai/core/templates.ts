@@ -284,6 +284,24 @@ export const TEMPLATES: readonly Template[] = [
     requiresCapability: null,
     bossOnly: true,
   },
+  {
+    // Stone Golem squad — fortified, slow, very tough. Used by the static
+    // fallback curriculum (W15). minWave: 999 keeps it invisible to the
+    // current AI (which hasn't been trained on this slot — see TODO 2.2);
+    // re-training will lower this gate.
+    id: 'golem_squad',
+    name: 'Golem Squad',
+    description: 'Stone Golems — fortified DPS check, slow but very tough',
+    enemies: [['stone-golem', 1.0]],
+    countRange: [5, 60],
+    spawnDelayRange: [200, 1500],
+    hpMultRange: [0.8, 6.0],
+    variationRange: [0.10, 0.30],
+    minWave: 999,
+    spawnPattern: null,
+    requiresCapability: null,
+    bossOnly: false,
+  },
 ];
 
 /** Permanent output-slot count (must match MAX_TEMPLATE_SLOTS in backend). */

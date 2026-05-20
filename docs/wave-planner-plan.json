@@ -1,0 +1,2324 @@
+{
+  "overrides": {
+    "bufferFactor": 1,
+    "rcBaseCost": 150,
+    "upgradeCostScaling": 1.25,
+    "upgradeSpeedMultiplier": 1.06,
+    "upgradeDamageMultiplier": 1.05,
+    "researchCosts": {
+      "gatling-tech": 400,
+      "toxic-compounds": 450,
+      "arcane-studies": 650,
+      "aa-retrofit": 450,
+      "advanced-engineering": 900,
+      "ice-magic": 400,
+      "siege-engineering": 500,
+      "storm-mastery": 600,
+      "advanced-weaponry": 650,
+      "transcendent-tech": 999,
+      "tentacle-biology": 550,
+      "fire-alchemy": 550,
+      "rocketry": 600,
+      "master-engineering": 1200
+    }
+  },
+  "plan": [
+    {
+      "towers": {
+        "archer": {
+          "count": 2,
+          "levels": {}
+        }
+      },
+      "researches": [],
+      "rcLevel": 0
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 2,
+          "levels": {}
+        }
+      },
+      "researches": [],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        },
+        "poison": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        },
+        "poison": {
+          "count": 1,
+          "levels": {}
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        },
+        "poison": {
+          "count": 1,
+          "levels": {}
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {}
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        },
+        "poison": {
+          "count": 1,
+          "levels": {}
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {}
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {}
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies"
+      ],
+      "rcLevel": 1
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        },
+        "poison": {
+          "count": 1,
+          "levels": {}
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {}
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {}
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {}
+        },
+        "magic": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {}
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {}
+        },
+        "ice": {
+          "count": 1,
+          "levels": {}
+        },
+        "poison": {
+          "count": 1,
+          "levels": {}
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {}
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {}
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {}
+        },
+        "magic": {
+          "count": 1,
+          "levels": {}
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {}
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "range": 0,
+            "beam-width": 0
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 0,
+            "speed": 0,
+            "range": 0
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "range": 1,
+            "beam-width": 1
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 1,
+            "speed": 1,
+            "range": 1
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "range": 2,
+            "beam-width": 2
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 2,
+            "speed": 2,
+            "range": 2
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "range": 3,
+            "beam-width": 3
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 3,
+            "speed": 3,
+            "range": 3
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "range": 5,
+            "beam-width": 5
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "range": 5,
+            "beam-width": 5
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 5,
+            "speed": 5,
+            "range": 5
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "range": 6,
+            "beam-width": 6
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 6,
+            "speed": 6,
+            "range": 6
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "range": 7,
+            "beam-width": 7
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 7,
+            "speed": 7,
+            "range": 7
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "range": 8,
+            "beam-width": 8
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 8,
+            "speed": 8,
+            "range": 8
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "range": 10,
+            "beam-width": 10
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 10,
+            "speed": 10,
+            "range": 10
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering"
+      ],
+      "rcLevel": 2
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "range": 11,
+            "beam-width": 11
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 11,
+            "speed": 11,
+            "range": 11
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "range": 12,
+            "beam-width": 12
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 12,
+            "speed": 12,
+            "range": 12
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "range": 13,
+            "beam-width": 13
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 13,
+            "speed": 13,
+            "range": 13
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "range": 14,
+            "beam-width": 14
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 14,
+            "speed": 14,
+            "range": 14
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "range": 15,
+            "beam-width": 15
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 15,
+            "speed": 15,
+            "range": 15
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "range": 16,
+            "beam-width": 16
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 16,
+            "speed": 16,
+            "range": 16
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering",
+        "transcendent-tech"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "range": 18,
+            "beam-width": 18
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 18,
+            "speed": 18,
+            "range": 18
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering",
+        "transcendent-tech"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "range": 19,
+            "beam-width": 19
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 19,
+            "speed": 19,
+            "range": 19
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering",
+        "transcendent-tech"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "range": 20,
+            "beam-width": 20
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering",
+        "transcendent-tech"
+      ],
+      "rcLevel": 3
+    },
+    {
+      "towers": {
+        "archer": {
+          "count": 3,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "dual-gatling": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "cannon": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "magic": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "rocket": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "ice": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "fire": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "range": 20,
+            "beam-width": 20
+          }
+        },
+        "tentacle": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "poison": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        },
+        "lightning": {
+          "count": 1,
+          "levels": {
+            "damage": 20,
+            "speed": 20,
+            "range": 20
+          }
+        }
+      },
+      "researches": [
+        "gatling-tech",
+        "ice-magic",
+        "toxic-compounds",
+        "tentacle-biology",
+        "rocketry",
+        "siege-engineering",
+        "arcane-studies",
+        "storm-mastery",
+        "fire-alchemy",
+        "aa-retrofit",
+        "advanced-weaponry",
+        "master-engineering",
+        "advanced-engineering",
+        "transcendent-tech"
+      ],
+      "rcLevel": 3
+    }
+  ]
+}

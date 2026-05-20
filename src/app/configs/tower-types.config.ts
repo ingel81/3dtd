@@ -49,15 +49,16 @@ export function calculateSellValue(baseCost: number, totalUpgradeCost: number): 
 // Tier-Gating in the UI maps levels to research-tier locks:
 //   T1 = L1-5, T2 = L6-10, T3 = L11-15, T4 = L16-20, T5 = L21-25
 // Per-level multipliers compound — see UPGRADE_*_MULTIPLIER below.
-// Cost scaling 1.40^level keeps late-game tracks deliberately exorbitant
-// (L24 ≈ 4000× baseCost). Players will not max everything; that's the point.
+// Cost scaling 1.25^level (rebalanced baseline) — L20 ≈ 73× baseCost,
+// L25 ≈ 211× baseCost. Steep enough that maxing every tower stays a stretch
+// goal but reachable with the rebalanced wave-curriculum economy.
 // =====================================================================
 const UPGRADE_BASE_COST = 50;
-const UPGRADE_COST_SCALING = 1.40;
+const UPGRADE_COST_SCALING = 1.25;
 const UPGRADE_MAX_LEVEL = 25;
 
-const UPGRADE_DAMAGE_MULTIPLIER = 1.10; // +10%/level compounding (L25 ≈ 10.8×)
-const UPGRADE_SPEED_MULTIPLIER = 1.07;  // +7%/level (L25 ≈ 5.4×)
+const UPGRADE_DAMAGE_MULTIPLIER = 1.05; // +5%/level compounding (L20 ≈ 2.65×, L25 ≈ 3.39×)
+const UPGRADE_SPEED_MULTIPLIER = 1.06;  // +6%/level (L20 ≈ 3.21×, L25 ≈ 4.29×)
 const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
 const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
 
@@ -99,6 +100,18 @@ const STD_BEAM_WIDTH_UPGRADE: TowerUpgrade = {
   costScaling: UPGRADE_COST_SCALING,
   maxLevel: UPGRADE_MAX_LEVEL,
   effect: { stat: 'beamWidth', multiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER },
+};
+
+// Archer-specific range upgrade: nerfed to +0.5%/level (per-tower tuning;
+// shared STD_RANGE_UPGRADE stays at +4%/level for the other towers).
+const ARCHER_RANGE_UPGRADE: TowerUpgrade = {
+  id: 'range',
+  name: 'Range',
+  description: 'Increases range (+0.5% per level, compounding).',
+  cost: UPGRADE_BASE_COST,
+  costScaling: UPGRADE_COST_SCALING,
+  maxLevel: UPGRADE_MAX_LEVEL,
+  effect: { stat: 'range', multiplier: 1.02 },
 };
 
 export interface TowerTypeConfig {
@@ -174,18 +187,19 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     rotationY: 0,
     damageType: 'physical',
     damage: 25,
-    range: 60,
+    range: 30,
     fireRate: 1, // 1 shot/sec
     canTargetAir: true,
     projectileType: 'arrow',
     cost: 45, // Rebalanced: was 20 (Cost/DPS 0.80 -> 1.80)
     hasAnimations: true, // archer_tower.glb has base animation
     animationPingPong: true, // Smooth loop: forward then backward
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, ARCHER_RANGE_UPGRADE],
   },
   'dual-gatling': {
     id: 'dual-gatling',
     name: 'Dual-Gatling Tower',
+    defaultTargeting: 'first',
     modelUrl: TURRET_MODEL_URL,
     scale: 2.5,
     previewScale: 5.5,
@@ -208,7 +222,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   cannon: {
     id: 'cannon',
     name: 'Cannon Tower',
-    defaultTargeting: 'highest-hp',
+    defaultTargeting: 'first',
     modelUrl: CANNON_MODEL_URL,
     scale: 3,
     previewScale: 5.5,
@@ -226,6 +240,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   magic: {
     id: 'magic',
     name: 'Magic Tower',
+    defaultTargeting: 'first',
     modelUrl: MAGIC_MODEL_URL,
     scale: 11,
     previewScale: 14,
@@ -243,7 +258,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   rocket: {
     id: 'rocket',
     name: 'Rocket Tower',
-    defaultTargeting: 'highest-hp',
+    defaultTargeting: 'first',
     modelUrl: ROCKET_MODEL_URL,
     scale: 3.4,
     previewScale: 5.5,
@@ -284,6 +299,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   fire: {
     id: 'fire',
     name: 'Fire Tower',
+    defaultTargeting: 'first',
     modelUrl: FIRE_MODEL_URL,
     scale: 8,
     previewScale: 9.8,
@@ -354,6 +370,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   lightning: {
     id: 'lightning',
     name: 'Lightning Tower',
+    defaultTargeting: 'first',
     modelUrl: LIGHTNING_MODEL_URL,
     scale: 11,
     previewScale: 14,

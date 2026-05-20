@@ -21,6 +21,7 @@ import {
   TestManagers,
   TEST_PATH,
   TEST_TOWER_POSITION,
+  TEST_TOWER_NEAR_SPAWN,
   TEST_BASE_POSITION,
   TEST_SPAWN_POINTS,
   createTestCachedPaths,
@@ -163,7 +164,9 @@ describe('Game State Flow Integration', () => {
   });
 
   it('should wire tower targeting + projectile + kill through real objects', () => {
-    const tower = m.towerManager.placeTower(TEST_TOWER_POSITION, 'archer', 0)!;
+    // Tower next to the spawn point — keeps the freshly-spawned enemy in
+    // range regardless of per-tower range tuning.
+    const tower = m.towerManager.placeTower(TEST_TOWER_NEAR_SPAWN, 'archer', 0)!;
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 5, true);
 
     // Wire damage handler
