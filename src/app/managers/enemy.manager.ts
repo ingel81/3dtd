@@ -412,12 +412,12 @@ export class EnemyManager extends EntityManager<Enemy> {
         if (isSlowed && !hasFrost) {
           // Apply frost visual — reuse _tempLocalPos (set Y for correct height)
           this.tilesEngine.enemies.setFreezeVisual(enemy.id, true);
-          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
           this.tilesEngine.effects.spawnFrostAura(enemy.id, this._tempLocalPos);
           this.frozenVisualEnemies.add(enemy.id);
         } else if (isSlowed && hasFrost) {
           // Update frost aura position — reuse _tempLocalPos
-          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
           this.tilesEngine.effects.updateFrostAuraPosition(enemy.id, this._tempLocalPos);
         } else if (!isSlowed && hasFrost) {
           // Remove frost visual
@@ -432,11 +432,11 @@ export class EnemyManager extends EntityManager<Enemy> {
 
         if (isPoisoned && !hasPoison) {
           this.tilesEngine.enemies.setPoisonVisual(enemy.id, true);
-          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
           this.tilesEngine.effects.spawnPoisonAura(enemy.id, this._tempLocalPos);
           this.poisonVisualEnemies.add(enemy.id);
         } else if (isPoisoned && hasPoison) {
-          this._tempLocalPos.y = origin ? geoHeight - origin.height : 0;
+          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
           this.tilesEngine.effects.updatePoisonAuraPosition(enemy.id, this._tempLocalPos);
         } else if (!isPoisoned && hasPoison) {
           this.tilesEngine.enemies.setPoisonVisual(enemy.id, false);
@@ -450,7 +450,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         // at high timescales.
         if (isPoisoned) {
           const interval = COMBAT_TUNING.poisonTickIntervalMs;
-          let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime * 1000;
+          let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime;
           if (acc >= interval) {
             const poisonEffect = enemy.movement.statusEffects.find(
               (e) => e.type === 'poison'
