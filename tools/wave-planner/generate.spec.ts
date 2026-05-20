@@ -33,6 +33,13 @@ import { fileURLToPath } from 'node:url';
 
 import {
   TOWER_TYPES,
+  UPGRADE_BASE_COST,
+  UPGRADE_COST_SCALING,
+  UPGRADE_DAMAGE_MULTIPLIER,
+  UPGRADE_SPEED_MULTIPLIER,
+  UPGRADE_RANGE_MULTIPLIER,
+  UPGRADE_BEAM_WIDTH_MULTIPLIER,
+  ARCHER_RANGE_MULTIPLIER,
   type TowerTypeId,
 } from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
@@ -214,13 +221,13 @@ function buildPayload(): Payload {
   return {
     startCredits: GAME_BALANCE.player.startCredits,
     defaults: {
-      upgradeBaseCost: 50,
-      upgradeCostScaling: 1.40,
-      upgradeDamageMultiplier: 1.10,
-      upgradeSpeedMultiplier: 1.07,
-      upgradeRangeMultiplier: 1.04,
-      upgradeBeamWidthMultiplier: 1.05,
-      archerRangeMultiplier: 1.02,
+      upgradeBaseCost: UPGRADE_BASE_COST,
+      upgradeCostScaling: UPGRADE_COST_SCALING,
+      upgradeDamageMultiplier: UPGRADE_DAMAGE_MULTIPLIER,
+      upgradeSpeedMultiplier: UPGRADE_SPEED_MULTIPLIER,
+      upgradeRangeMultiplier: UPGRADE_RANGE_MULTIPLIER,
+      upgradeBeamWidthMultiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER,
+      archerRangeMultiplier: ARCHER_RANGE_MULTIPLIER,
       rcBaseCost: RESEARCH_CENTER_CONFIG.baseCost,
     },
     towers,

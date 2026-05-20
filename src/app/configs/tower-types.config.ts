@@ -53,14 +53,20 @@ export function calculateSellValue(baseCost: number, totalUpgradeCost: number): 
 // L25 ≈ 211× baseCost. Steep enough that maxing every tower stays a stretch
 // goal but reachable with the rebalanced wave-curriculum economy.
 // =====================================================================
-const UPGRADE_BASE_COST = 50;
-const UPGRADE_COST_SCALING = 1.25;
-const UPGRADE_MAX_LEVEL = 25;
+// Exported so offline balance tools (wave-planner, tower-stats-chart) can
+// read the live values instead of duplicating them.
+export const UPGRADE_BASE_COST = 50;
+export const UPGRADE_COST_SCALING = 1.25;
+export const UPGRADE_MAX_LEVEL = 25;
 
-const UPGRADE_DAMAGE_MULTIPLIER = 1.05; // +5%/level compounding (L20 ≈ 2.65×, L25 ≈ 3.39×)
-const UPGRADE_SPEED_MULTIPLIER = 1.06;  // +6%/level (L20 ≈ 3.21×, L25 ≈ 4.29×)
-const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
-const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
+export const UPGRADE_DAMAGE_MULTIPLIER = 1.05; // +5%/level compounding (L20 ≈ 2.65×, L25 ≈ 3.39×)
+export const UPGRADE_SPEED_MULTIPLIER = 1.06;  // +6%/level (L20 ≈ 3.21×, L25 ≈ 4.29×)
+export const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
+export const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
+
+/** Archer's range upgrade is a per-tower variant (see ARCHER_RANGE_UPGRADE
+ *  below); offline tools that show it separately read it from this constant. */
+export const ARCHER_RANGE_MULTIPLIER = 1.02;
 
 const STD_DAMAGE_UPGRADE: TowerUpgrade = {
   id: 'damage',
@@ -111,7 +117,7 @@ const ARCHER_RANGE_UPGRADE: TowerUpgrade = {
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
   maxLevel: UPGRADE_MAX_LEVEL,
-  effect: { stat: 'range', multiplier: 1.02 },
+  effect: { stat: 'range', multiplier: ARCHER_RANGE_MULTIPLIER },
 };
 
 export interface TowerTypeConfig {
