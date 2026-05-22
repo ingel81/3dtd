@@ -34,10 +34,11 @@
       (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
       verzahnt — eigene Session mit Plan vorab.
 
-- [ ] **`game-sidebar.component.ts` aufsplitten** (1693 LOC — Engine-Deep-Review MOD-2)
-      ~800 LOC Inline-CSS + 4 vermischte Fachdomänen in einer Component. Inline-Styles
-      in eine `.scss` auslagern, die Fachdomänen (Tower-Detail, Wave-Panel, Research,
-      Damage-Tooltips) in eigene Sub-Components trennen.
+- [ ] **`game-sidebar.component.ts` in Sub-Components aufteilen** (Engine-Deep-Review MOD-2)
+      Inline-CSS ist 2026-05-22 in `game-sidebar.component.scss` ausgelagert (→ DONE.md),
+      die Component ist dadurch von 1868 auf 725 LOC geschrumpft. Noch offen: die 4
+      vermischten Fachdomänen (Tower-Detail, Wave-Panel, Research, Damage-Tooltips)
+      in eigene Sub-Components trennen.
 
 - [ ] **`global-route-grid.ts` aufsplitten** (Engine-Deep-Review MOD-4)
       Daten (`RouteCell`-Modell), Algorithmus (Sampling/LOS-Resolve), Debug-API (`__rg.*`)
