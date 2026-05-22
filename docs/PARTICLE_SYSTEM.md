@@ -2,8 +2,9 @@
 
 ## Übersicht
 
-Das visuelle Effektsystem im `ThreeEffectsRenderer` umfasst mehrere Subsysteme,
-nicht nur klassische CPU-Partikel. Aktueller Stand:
+Das visuelle Effektsystem umfasst mehrere Subsysteme, nicht nur klassische
+CPU-Partikel. `ThreeEffectsRenderer` ist seit 2026-05-21 eine Delegations-Facade
+ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
 
 - **Trail Additive Pool** (3000 Partikel): Feuer, Tracer, Explosionen,
   Glueheffekte, Rocket-/Bullet-Trails, Flame-Beam.
@@ -406,7 +407,12 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 
 | Datei | Beschreibung |
 |-------|--------------|
-| `three-engine/renderers/three-effects.renderer.ts` | Haupt-Partikel-Renderer (Trail-Pools, Tower-Fire, Sprite-Sheets, Auren) |
+| `three-engine/renderers/three-effects.renderer.ts` | Delegations-Facade (FloatingText, Debug-Spheres, `update`/`clear`/`dispose`-Orchestrierung) |
+| `three-engine/renderers/particle-pool-manager.ts` | 3 GPU-Partikel-Pools (Trail-Additive/Normal, Tower-Fire), Free-Lists, Buffer-Caches, Atlas, Shader-Toggle |
+| `three-engine/renderers/particle-shaders.ts` | GLSL-Vertex/Fragment-Shader + ShaderMaterial-Factory fuer die Partikel-Pools |
+| `three-engine/renderers/particle-effects-renderer.ts` | Combat-VFX (Blood/Fire/Explosion/Smoke/Trails/Muzzle), Decals, `activeEffects`-Lifecycle |
+| `three-engine/renderers/environment-effects-renderer.ts` | HQ-Explosion, Fire-Flash, Tower-Inner-Fire |
+| `three-engine/renderers/aura-renderer.ts` | Orbitierende Frost-/Poison-Status-Auren |
 | `three-engine/renderers/decal-instance.manager.ts` | GPU-instanced Blood/Ice-Decals |
 | `three-engine/renderers/decal-shaders.ts` | Decal-Shader (Fade, Color-Variation) |
 | `three-engine/renderers/floating-text/floating-text-instance.manager.ts` | GPU-instanced Floating Damage Numbers |
