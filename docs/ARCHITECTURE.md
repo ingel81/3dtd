@@ -888,6 +888,14 @@ class ThreeEffectsRenderer {
 }
 ```
 
+**Architektur (Stand 2026-05-21):** `ThreeEffectsRenderer` ist eine duenne
+Delegations-Facade — die Konsumenten-API (`tilesEngine.effects.*`) bleibt stabil,
+die Implementierung liegt in fokussierten Modulen: `ParticlePoolManager`
+(GPU-Pools, Free-Lists, Buffer-Caches, Atlas), `ParticleEffectsRenderer`
+(Blood/Fire/Explosion/Smoke/Trails/Decals + `activeEffects`-Lifecycle),
+`EnvironmentEffectsRenderer` (HQ-Explosion, Fire-Flash, Tower-Inner-Fire),
+`AuraRenderer` (Frost-/Poison-Auren) und `particle-shaders.ts` (GLSL).
+
 ---
 
 ## 7. Type Configuration
