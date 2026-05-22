@@ -4,6 +4,117 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-21
+
+### `three-effects.renderer.ts` aufgesplittet — 2675-LOC-Monolith → Facade + 5 Module (TODO 1.2)
+
+- [x] **`ThreeEffectsRenderer` ist jetzt eine dünne Delegations-Facade; die Logik liegt in fokussierten Modulen**
+      Schrittweise extrahiert, jeder Schritt verhaltenserhaltend mit Build+Lint-Gate:
+      - `particle-shaders.ts` (176 LOC) — GLSL-Vertex/Fragment-Shader + Material-Factory
+        (analog `decal-shaders.ts`).
+      - `particle-pool-manager.ts` (679 LOC) — `ParticlePoolManager`: die 3 GPU-Pools
+        (trailAdditive/trailNormal/towerFire), Free-Lists, Buffer-Caches, Atlas-Texturen,
+        `updateBuffers`, `setUseShaderMaterial`.
+      - `aura-renderer.ts` (262 LOC) — `AuraRenderer`: orbitierende Frost-/Poison-Auren.
+      - `environment-effects-renderer.ts` (378 LOC) — `EnvironmentEffectsRenderer`:
+        HQ-Explosion, Fire-Flash, Tower-Inner-Fire.
+      - `particle-effects-renderer.ts` (1234 LOC) — `ParticleEffectsRenderer`:
+        Combat-VFX (blood/fire/explosion/smoke/trails/muzzle), Blut-/Eis-Decals,
+        zentrale `activeEffects`-Lifecycle-Map.
+      `three-effects.renderer.ts` selbst: **2675 → 644 LOC** — reine Facade
+      (FloatingText, Debug-Spheres, Konstruktor + `update`/`clear`/`dispose`-
+      Orchestrierung in load-bearing Reihenfolge). Konsumenten-API
+      (`tilesEngine.effects.*`) unverändert — kein Call-Site-Umbau nötig.
+      Verhaltenserhaltend: Build + Lint grün, volle Test-Suite 863 Tests grün.
+
+### Test-Coverage-Lücken TEST-6..10 geschlossen (+59 Tests)
+
+- [x] **TODO 1.3: HQDamageService, StatusEffectService, canTargetAirEffective und Pathfinding-Worker getestet; flaky Performance-Tests entschärft**
+      - `entities/tower-targeting.util.spec.ts` (13 Tests): `canTargetAirEffective`
+        — statisches `canTargetAir`-Flag, `aa-retrofit`-Whitelist (`dual-gatling`),
+        Ground-only-Tower.
+      - `services/combat/status-effect.service.spec.ts` (13 Tests): Game-Clock-
+        Provider-Stamping, `applySlow/applyPoison/applyEffect`-Delegation,
+        `removeExpired`, `hasActiveEffect`-Logik inkl. Duration-Boundary.
+      - `services/combat/hq-damage.service.spec.ts` (25 Tests): `initialize`
+        (Sound-Registrierung, Listener-Leak-Schutz bei Re-Init), `health:changed`-
+        Handler, `updateFireIntensity` (Flash vs. permanentes skaliertes Feuer),
+        `playDamageSound`-Throttle, `onTilesLoaded`-Caching, `triggerGameOverEffects`
+        (mit Fake-Timern), `healBase`, `reset`, `spawnDebugPoint`.
+      - `workers/pathfinding.worker.spec.ts` (8 Tests): Worker über sein
+        `message`-Protokoll getrieben (`init`/`findPath`/`clearGraph`) — A* auf
+        gerader Straße, disjunkte Komponenten, Fehler-Reply bei kaputtem Payload.
+      - `game-engine/performance.spec.ts` (TEST-10): harte Wall-Clock-Budgets
+        (5–50 ms) durch einen großzügigen Sanity-Cap (500 ms) ersetzt — funktionale
+        Assertions (Entity-Counts, Handler-Call-Counts, Listener-Leak) bleiben
+        strikt; Timing dient nur noch als Katastrophen-Guard. Beendet die
+        CI-Flakiness durch GC-/Scheduling-Jitter.
+      Volle Suite: 863 Tests grün (55 Dateien), `npm run lint` sauber.
+
+### IGameManager-Polymorphie — abgeschlossen (`destroy()` polymorph, Rest bewusst hardcoded)
+
+- [x] **TODO 1.2 „initialize()/update() polymorph übers Manager-Array" geklärt — nicht weiter umsetzbar**
+      `destroy()` läuft bereits polymorph über `GameStateManager.subManagers[]`
+      (parameterlos → iteriert sauber). `initialize()` und die per-Frame-
+      `update()`-Sequenz bleiben bewusst hardcoded:
+      - **initialize()**: jeder Manager hat eine andere Signatur — `TowerManager`
+        nutzt `initializeWithContext(...)`, `WaveManager` nimmt `spawnPoints +
+        paths`, `EnemyManager` braucht Folge-Wiring (`setWaveNumberProvider` …),
+        `ResearchManager` hat gar kein Lifecycle-`initialize`. Ein uniformer
+        `forEach` bräuchte unsichere `...unknown[]`-Casts und würde die
+        Per-Manager-Typprüfung verlieren — der explizite Code ist hier sauberer.
+      - **update()**: `runSubStep()` verschränkt die Manager mit
+        `eventBus.processQueue()` und bedingtem `towerCombat`; die Reihenfolge
+        ist load-bearing.
+      Die Design-Entscheidung ist jetzt im `subManagers`-Doc-Kommentar
+      (`game-state.manager.ts`) dauerhaft dokumentiert. Kein Verhaltens-Change.
+
+### Air-Enemy-Flughöhe-Drift am Hang — als kosmetisch akzeptiert (Option γ)
+
+- [x] **Offener Engine-Bug „Air-Flughöhe vs. LOS-Sample-Höhe am Hang" geschlossen — wontfix**
+      Air-Enemy fliegt path-relativ (`geoHeight + heightOffset`), während
+      Combat-Sample und Debug-Tube `getAirTargetY` (Cell-Mitte + 15m) nutzen;
+      am Hang driften die drei Höhenmodelle auseinander. Entscheidung: Option γ
+      — der Drift bleibt kosmetisch, Tower-Range ist typischerweise größer als
+      der Höhen-Drift, Combat funktioniert in der Praxis „gut genug". Kein
+      Code-Fix; Punkt aus TODO 1.1 entfernt. Wiedereinstieg falls bei einem
+      späteren Hang-Playtest doch Projektil-Misses auffallen: Option α (Enemy-Y
+      ans Cell-Grid binden) bzw. Option β (Combat-Sample an Pfad binden).
+
+---
+
+## 2026-05-20
+
+### Frost-/Poison-Aura folgt Air-Gegnern auf Flughöhe
+
+- [x] **Frost- und Poison-Aura sitzen jetzt auf Enemy-Mesh-Höhe statt am Boden**
+      Wurde ein fliegender Gegner (Bat, Hornet, Dragon) vom Ice Tower
+      verlangsamt, erschienen die kreisenden Frost-Orbs auf der
+      darunterliegenden Bodenposition statt um den Gegner herum. Ursache:
+      die Aura-Positionierung in `enemy.manager.ts` setzte `_tempLocalPos.y`
+      auf `geoHeight - origin.height` — also OHNE `heightOffset`, während
+      der Gegner-Mesh auf `(geoHeight + heightOffset) - origin.height` sitzt.
+      Bei Air-Units mit heightOffset 15-20m landete die Aura entsprechend
+      ~15-20m zu tief. Alle vier Aura-Pfade (Frost spawn/update, Poison
+      spawn/update) nutzen jetzt `(geoHeight + heightOffset) - origin.height`.
+      Im selben Commit: Poison-DoT-Tick-Einheiten korrigiert.
+      Datei: `src/app/managers/enemy.manager.ts`. (Commit `68b18c6`)
+
+---
+
+## 2026-05-18
+
+### Lint-Cleanup-Pass — `main` ist wieder grün
+
+- [x] **17 vorbestehende Lint-Probleme behoben (15 Errors + 2 Warnings)**
+      `npm run lint` war auf `main` rot — überwiegend auto-fixbare
+      Stil-Verstöße (`array-type`, `consistent-generic-constructors`),
+      die `eqeqeq`-Errors (`!=` → `!==`) einzeln auf Coercion-Verhalten
+      geprüft. `npm run lint` läuft jetzt sauber durch
+      (*„All files pass linting."*). (Commit `4da052e`)
+
+---
+
 ## 2026-05-15
 
 ### Cells als Single Source of Truth für Boden-Y (Pfad + Linie)

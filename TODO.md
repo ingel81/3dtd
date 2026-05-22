@@ -23,104 +23,16 @@
 
 ## 1.1 Engine-Bugs
 
-- [ ] **Air-Enemy-Flughöhe divergiert von Air-LOS-Sample-Höhe am Hang**
-      Drei Modelle laufen heute parallel, die in flachem Terrain
-      übereinstimmen, am Hang aber auseinander gehen:
-      - **Air-Route-Tube** (Debug-Viz): `getAirTargetY(cell) = cell.terrainHeight
-        + 15m` pro Cell-Mitte
-      - **Air-Enemy-Flughöhe** (was der Spieler sieht): `geoHeight + heightOffset`,
-        wobei `geoHeight` aus der Pfad-Polyline interpoliert wird (folgt dem
-        Pfad, nicht der Cell-Mitte)
-      - **Combat-Sample des Towers**: liest `cell.airVisibility`, das wurde mit
-        `getAirTargetY(cell)` (= Cell-Mitte + 15m) gefüllt
-
-      Folge: Air-Tower an einem Hang zielt auf einen Punkt 15m über der
-      Cell-Mitte am Berg, aber der Enemy fliegt 15m über der Pfad-Höhe im
-      Tal. Projektil-Miss möglich, LOS-Disagreement möglich (Tower sieht
-      Enemy als blockiert weil der Cell-Sample-Punkt im Berg steckt,
-      obwohl der Enemy frei in der Talluft fliegt — oder umgekehrt).
-
-      Visuell sichtbar wenn ein Air-Enemy entlang eines Talpfads fliegt
-      während die Air-Route-Tube oben am Hang zackelt (siehe Screenshot
-      aus 2026-05-14 Session: zwei Bats folgen Pfad in ~10-15m Höhe über
-      Straße, Tube zickzackt 30-40m über ihnen).
-
-      **Vergleich zu Option-B-Wahl in der LOS-Migration**: bei der Wahl
-      ausgegangen davon dass Enemy + Combat-Sample + Viz alle auf
-      `terrain + 15m` liegen würden. Das stimmt für flaches Terrain.
-      Für Hang-Cells war der Fall nicht explizit durchgedacht: die
-      Annahme war "`getAirTargetY` ist Single-Source-of-Truth, alle
-      drei lesen daraus". Aber Enemy liest `getAirTargetY` NICHT — er
-      nutzt seine eigene path-relative `geoHeight`-Berechnung.
-
-      **Fix-Richtungen** (zur Entscheidung in eigener Session):
-      - **Option α: Enemy-Y an Cell-Grid binden.** `enemy.position.height
-        = cell_unter_enemy.terrainHeight + heightOffset` statt path-
-        waypoint-basiert. Enemy zickzackt am Hang sichtbar — möglicherweise
-        unschön, aber Combat-konsistent.
-      - **Option β: Combat-Sample an Pfad binden.** `getAirTargetY` wird
-        bei Tower-Sample mit der nächstgelegenen Pfad-Höhe statt Cell-
-        terrainHeight aufgerufen. Aber: Cells haben keine direkte Pfad-
-        Korrespondenz, das müsste pro Cell eine "nächstgelegene Polyline-
-        Höhe" cachen.
-      - **Option γ: Akzeptieren als kosmetischer Visual-Drift.** Combat
-        funktioniert mit dem heutigen Mix in der Praxis "gut genug" weil
-        Tower-Range typischerweise größer ist als der Höhen-Drift. Air-
-        Route-Tube als Debug-Viz dokumentiert "Cell-Sample-Höhe" und
-        ist visuell vom Enemy entkoppelt — das wird in der Legende
-        klargestellt.
-
-      Test-Plan: Combat tatsächlich messen in einer Hang-Szene. Tower
-      auf flachem Bereich, Enemy fliegt am gegenüberliegenden Hang vorbei.
-      Tower sollte treffen wenn LOS frei ist. Wenn Misses → Option α
-      oder β nötig. Wenn Treffer → Option γ ist hinreichend.
-
-      Datei-Anker: `src/app/managers/enemy.manager.ts` (Enemy-Y),
-      `src/app/utils/global-route-grid.ts` (`getAirTargetY`),
-      `src/app/services/combat/tower-combat.service.ts` (Targeting).
-
-- [ ] **Ice/Frost-VFX an Air-Gegnern sitzt auf Bodenhöhe statt um den Gegner**
-      Wird ein fliegender Gegner (Bat, Hornet, Dragon) vom Ice Tower
-      verlangsamt, erscheinen manche Frost-Effekte — u.a. die um den
-      Gegner kreisenden Orbs — auf der darunterliegenden Bodenposition
-      statt auf Flughöhe um den Gegner herum.
-
-      Verdacht: in `enemy.manager.ts` wird die Frost-Aura (und analog die
-      Poison-Aura) mit `_tempLocalPos.y = geoHeight - origin.height`
-      positioniert — also OHNE `heightOffset`. Der Gegner-Mesh selbst
-      sitzt dagegen auf `(geoHeight + heightOffset) - origin.height`
-      (`enemy.manager.ts:393`). Für Air-Units mit heightOffset 15-20m
-      landet die Aura damit ~15-20m zu tief, am Boden.
-
-      Fix-Richtung: Aura-Y auf dieselbe Höhe wie den Enemy-Mesh setzen
-      (`geoHeight + heightOffset`). Frost UND Poison gleichermaßen prüfen.
-
-      Datei-Anker: `src/app/managers/enemy.manager.ts` (Frost-/Poison-
-      Aura-Positionierung, ~Z. 413-440).
+> Keine offenen Engine-Bugs. (Air-Enemy-Flughöhe-Drift am Hang wurde
+> 2026-05-21 als kosmetisch akzeptiert — Option γ, siehe DONE.md.)
 
 ## 1.2 Refactoring (Housekeeping Tier 3)
-
-- [ ] **`three-effects.renderer.ts` aufsplitten** (2675 LOC → 3 Module, Entscheidung 2026-05-11: kompletter Split in einem Rutsch)
-      ParticleEffectsRenderer (blood/fire/explosion/smoke), AuraRenderer (frost/poison/inner-fire),
-      EnvironmentEffectsRenderer (HQ-Explosion, Tower-Inner-Fire). Single-File macht PR-Reviews unmöglich.
-      **Vorgehen:** Erst `ParticlePoolManager` extrahieren (3 Pools + Buffer-Attribute,
-      Shader-Materials, Atlas-Texturen, `activeEffects`-Map), dann 3-Wege-Split der Renderer
-      die ihre Spawn-Methoden an den Manager delegieren — beides in einem Schritt.
 
 - [ ] **`three-tiles-engine.ts` weiter abspecken — Camera-Setup + Tile-Loading-State**
       Post-Processing ist 2026-05-10 raus (PostProcessingPipeline, siehe DONE.md).
       Noch offen: Camera-Setup (GlobeControls + Initial-Position) und Tile-Loading-State-Machine
       (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
       verzahnt — eigene Session mit Plan vorab.
-
-- [ ] **`IGameManager` — `initialize()`/`update()` polymorph über das Manager-Array**
-      Erledigt: alle Manager implementieren `IGameManager` (EnemyManager,
-      ProjectileManager, TowerManager über `EntityManager`; ResearchManager,
-      WaveManager direkt), und `destroy()` läuft bereits polymorph über
-      `GameStateManager.subManagers[]`. Offen ist nur noch der Rest: auch
-      `initialize()` und `update()` über `subManagers[]` iterieren statt jeden
-      Manager einzeln hardcodiert aufzurufen.
-      Datei: `src/app/managers/game-state.manager.ts`.
 
 - [ ] **`game-sidebar.component.ts` aufsplitten** (1693 LOC — Engine-Deep-Review MOD-2)
       ~800 LOC Inline-CSS + 4 vermischte Fachdomänen in einer Component. Inline-Styles
@@ -132,20 +44,11 @@
       und Viz (Aggregate-Mesh) in getrennte Module ziehen. Hot-Path-Klasse — Split muss
       verhaltenserhaltend bleiben, eigene Session mit Plan vorab.
 
-- [ ] **Lint-Cleanup-Pass** (Engine-Deep-Review — 17 vorbestehende Probleme)
-      `npm run lint` ist bereits auf `main` rot: 15 Errors + 2 Warnings. Überwiegend
-      auto-fixbare Stil-Verstöße (`array-type`, `consistent-generic-constructors`).
-      Die `eqeqeq`-Template-Errors (`!=` → `!==`) einzeln prüfen — kann
-      Coercion-Verhalten ändern, also NICHT pauschal `--fix`.
-
 ## 1.3 Test-Coverage (Housekeeping Tier 4)
 
-> Cleanup-Pass 2026-05-11 + Engine-Deep-Review 2026-05-16 (160 neue Tests) → DONE.md.
-
-- [ ] **Test-Coverage-Lücken aus dem Engine-Deep-Review schließen** (TEST-6..10)
-      Noch ungetestet: `HQDamageService`, `StatusEffectService`, `canTargetAirEffective`
-      und der Pathfinding-Worker. Zusätzlich die flaky Wall-Clock-Performance-Tests
-      entschärfen (TEST-10).
+> Cleanup-Pass 2026-05-11 + Engine-Deep-Review 2026-05-16 (160 neue Tests) +
+> TEST-6..10-Lücken 2026-05-21 (59 neue Tests) → DONE.md.
+> Keine offenen Test-Coverage-Lücken.
 
 ## 1.4 CPU Hot-Path Optimierungen
 
