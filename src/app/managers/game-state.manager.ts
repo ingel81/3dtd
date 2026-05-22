@@ -76,11 +76,20 @@ export class GameStateManager {
   readonly researchManager = new ResearchManager(this.eventBus);
 
   /**
-   * Canonical list of sub-managers that implement IGameManager. Iterated for
-   * lifecycle calls (destroy/reset/initialize batches). NOTE: the per-frame
-   * update sequence in runSubStep() stays hardcoded because it interleaves
-   * with eventBus.processQueue() and conditional towerCombat — order is
-   * load-bearing and not safely expressed as a simple forEach.
+   * Canonical list of sub-managers that implement IGameManager. Used for the
+   * polymorphic teardown loop in dispose() — destroy() is parameterless and
+   * is therefore the only lifecycle call that iterates cleanly off this array.
+   *
+   * initialize(), reset() and the per-frame update() sequence stay hardcoded
+   * on purpose and are deliberately NOT driven off this array:
+   *  - initialize(): every manager takes a different signature (TowerManager
+   *    uses initializeWithContext(), WaveManager takes spawnPoints + paths,
+   *    EnemyManager needs follow-up provider wiring, ResearchManager has no
+   *    lifecycle initialize at all). A uniform forEach would require unsafe
+   *    `...unknown[]` casts and lose all per-manager type-checking.
+   *  - update(): runSubStep() interleaves the managers with
+   *    eventBus.processQueue() and conditional towerCombat — the order is
+   *    load-bearing and not safely expressed as a simple forEach.
    */
   private readonly subManagers: IGameManager[] = [
     this.towerManager,
