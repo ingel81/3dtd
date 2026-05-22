@@ -4,6 +4,23 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-22
+
+### `game-sidebar.component.ts` — Inline-CSS in Component-Stylesheet ausgelagert (TODO 1.2)
+
+- [x] **~1140 LOC Inline-`styles` raus aus der Component, jetzt in `game-sidebar.component.scss`**
+      Der Inline-CSS-Block aus dem `@Component`-Decorator (`styles`) ist in eine
+      dedizierte `game-sidebar.component.scss` gewandert, eingebunden via `styleUrl`.
+      Der `:host`-Block mit `${TD_CSS_VARS}` bleibt im `styles` — TS-Konstanten
+      lassen sich in einem externen Stylesheet nicht interpolieren, und `styles.scss`
+      setzt diese Custom Properties nicht global (nur die Font-Tokens).
+      Die 5 Scrollbar-Interpolationen (`TD_SCROLLBAR_STYLES` / `TD_SCROLLBAR_WEBKIT`)
+      sind statisch im `.scss` aufgelöst — sie referenzieren nur `var(--td-*)`,
+      es wird kein Theme-Wert dupliziert.
+      `game-sidebar.component.ts`: **1868 → 725 LOC**. Verhaltens- und optikneutral,
+      Production-Build verifiziert grün. Der zweite Teil von MOD-2 (Fachdomänen in
+      Sub-Components trennen) bleibt offen → TODO 1.2.
+
 ## 2026-05-21
 
 ### `three-effects.renderer.ts` aufgesplittet — 2675-LOC-Monolith → Facade + 5 Module (TODO 1.2)
