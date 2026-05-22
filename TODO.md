@@ -109,9 +109,23 @@
       jeder Curriculum-Änderung.
 
 - [ ] **Per-Kill-Budget-Rounding-Bug fixen**
-      `Math.max(1, Math.round(budget / count))` overshoot bei Mega-Swarms: W19 rat_tide
-      mit 5000 Ratten × 1g floor = 5000g statt 305g Budget. Saubere Lösung:
-      deterministischer Akkumulator.
+      `Math.max(1, Math.round(budget / count))` (`enemy.manager.ts:251`,
+      `calculateDynamicReward`) overshoot bei Mega-Swarms: W19 rat_tide mit 5000 Ratten
+      × 1g floor = 5000g statt 305g Budget. Saubere Lösung: deterministischer
+      Akkumulator pro Wave.
+      **Umsetzungsskizze** (aus todo_new.md-Review 2026-05-22):
+      - Felder im `EnemyManager`: `rewardWaveNumber`, `remainingKillBudget`,
+        `remainingRewardSlots`.
+      - Bei Wave-Wechsel / erster bezahlter Kill-Abrechnung:
+        `remainingKillBudget = goldBudgetForWave(wave).kill`,
+        `remainingRewardSlots = max(1, getWaveSize())`.
+      - Pro bezahltem Kill: `reward = floor(remainingKillBudget / remainingRewardSlots)`,
+        dann `remainingKillBudget -= reward`, `remainingRewardSlots -= 1`. Der letzte Slot
+        zahlt automatisch den Rest → Summe aller Kills = exakt Budget wenn alle sterben.
+      - Randfälle: `awardCredits = false` lässt den Akkumulator unangetastet;
+        Budget 0 → Reward 0 (Curriculum-exakt statt Floor 1); mehr Kills als Slots → 0.
+      - Tests (`enemy.manager.spec.ts`): Summe = `goldBudgetForWave(wave).kill`;
+        Leaks reduzieren verdientes Gold; Wave-Wechsel resetet den Akkumulator.
       Datei: `src/app/managers/enemy.manager.ts` (gold-budget per-kill-Logik).
 
 - [ ] **Boss-Frequenz ab W31 verdichten**
@@ -145,8 +159,46 @@
       erweitern (analog `MixedWaveConfig` / `SpawnSchedule` in `wave.manager.ts`).
       Anschließend bei Boss-Wellen Boss + Support modellieren, bei Air-Mix-Wellen den
       Templates-Mix nachbauen.
+      **Umsetzungsskizze** (aus todo_new.md-Review 2026-05-22):
+      ```ts
+      interface StaticWaveGroup { enemyType: EnemyTypeId; count: number; hpMult: number; speedMult?: number; }
+      interface StaticWaveProfile { wave: number; groups: readonly StaticWaveGroup[]; spawnDelayMs: number; pattern?: SpawnPattern; }
+      ```
+      - `staticWaveResolvedFor(waveNum)` gibt eine AI-ähnliche Config zurück
+        (`totalCount`, `enemies: [{type,count,healthMultiplier,speedMultiplier}]`,
+        `spawnDelay`, `pattern`) statt eines Single-Type-Payloads.
+      - In `buildStaticCurriculumWaveConfig` über `adaptAIWaveConfigMixed(...)` in die
+        WaveManagerConfig wandeln → `SpawnSchedule` entsteht automatisch.
+      - Profitierende Waves: W10/W20/W30 Boss + Support, W15 Golem-Squad-Mix,
+        W19 Mega-Swarm ggf. mit Heavy-Checks.
+      - Tests: Multi-Group erzeugt `schedule.entries`; `enemyCount` = Summe der Gruppen;
+        dominanter Typ bleibt für Legacy-Debugfelder gesetzt; W31 looped weiter zu W1.
       Datei-Anker: `wave-curriculum.config.ts` (Typdef + Profile),
       `game-loop-facade.service.ts` (`buildStaticCurriculumWaveConfig`).
+
+- [ ] **Frontend/Backend Wave-Template-Drift beheben** (vor Re-Training)
+      `zombie_horde` divergiert zwischen Runtime und Training: Frontend `templates.ts:39`
+      mischt 50 % `zombie-v2`, Backend `templates.py:35` nutzt 100 % klassische `zombie`.
+      Training, Inference und Runtime sehen damit unterschiedliche Enemy-Mischungen.
+      `zombie-v2` ist bei großen Mengen zudem teurer (siehe BACKLOG „zombie_v2-Modell
+      extern weiter optimieren") — eine 50-%-Beimischung in Mega-Hordes ist ein Perf-Risiko.
+      Lösung: Templates zwischen `src/app/ai/core/templates.ts` und
+      `training-backend/templates.py` synchronisieren; `zombie-v2`-Anteil in
+      High-Volume-Templates entfernen oder deutlich senken (ggf. nur als kleine
+      Showcase-/Early-Wave-Gruppe). Optional Template-Parity-Test.
+
+- [ ] **Lightning in AI/Bot integrieren** (vor Re-Training)
+      Lightning Tower ist gameplayseitig vorhanden, aber AI-/Bot-seitig ausgeklammert:
+      Der Encoder schließt Lightning explizit aus (`game-state-encoder.ts:83`, „AI doesn't
+      see Lightning Towers" — altes ONNX-Schema), und `ALL_COMBAT_TOWERS` im Bot
+      (`tower-bot.interface.ts:106`) enthält kein `lightning`. AI und Bot können Lightning
+      daher weder bauen noch in Defensiv-Einschätzungen bewerten.
+      Lösung: Encoder-Schema versionieren oder Lightning zunächst in Effective-DPS
+      aggregieren; Bot-Tower-Liste um `lightning` erweitern (Research-Unlock beachten).
+      Erst danach neu trainieren, damit Runtime und Training zusammenpassen.
+      Dateien: `src/app/ai/core/game-state-encoder.ts`,
+      `src/app/ai/training/bots/tower-bot.interface.ts`,
+      `src/app/configs/research/research-tree.config.ts`.
 
 - [ ] **Re-Training nach Balance-Verifikation** (Optional)
       Checkpoint ep 7350 wurde gegen ALTES Reward-System trainiert. Re-Training optional,
@@ -298,6 +350,18 @@
       "vs"-Tabelle (alle Tower × alle Armor) gibt es nicht. Eigener Sidebar-Tab oder
       Hilfe-Dialog möglich.
 
+- [ ] **`burn` Status-Effekt: totlegen oder fertig bauen**
+      `burn` ist im `StatusEffectType`-Union (`status-effects.ts:4`), wird aber von
+      `MovementComponent.updateStatusEffects` nicht behandelt — nur slow/freeze/poison
+      haben Tick-/Gameplay-Logik. `burn` ist damit aktuell ein toter Typ ohne Wirkung.
+      Erst prüfen, ob überhaupt etwas `burn` appliziert (Flame Tower?). Dann entscheiden:
+      entweder vollwertigen DOT-Tick analog `poison` implementieren (Game-Time-skaliert,
+      kein Wall-Clock — High-Timescale muss identische Ergebnisse liefern) — oder den Typ
+      ersatzlos entfernen. Größerer Status-Effekt-/Enemy-Trait-Ausbau (Regen, Shielded,
+      Camo, Mark) ist ein separates Game-Design-Thema (MASTER_GAME_DESIGN.md).
+      Dateien: `models/status-effects.ts`, `game-components/movement.component.ts`,
+      `entities/enemy.entity.ts`.
+
 ## 3.4 AI Wave Director — Build & Deployment
 
 > Training-Code nicht in Prod Bundle
@@ -397,6 +461,18 @@
 
 - [ ] **Preview-RAF-Drosselung** (optional)
       `ModelPreviewService` läuft mit voller Display-Refresh-Rate (60 fps). Auf 15–30 fps drosseln oder via IntersectionObserver pausieren wenn Sidebar-Canvas nicht im Viewport. Spart weitere ~5% bei sichtbarer Build-Sidebar.
+
+- [ ] **Training-Bot-Snapshots lazy berechnen** (LOW PRIO)
+      Im Substep wird für den Bot ein kompletter State-Snapshot erzeugt, bevor klar ist,
+      ob der Bot wegen Reaction-Cooldown überhaupt eine Entscheidung trifft. Bei x75 viele
+      teure Snapshots pro gerendertem Frame.
+      Lösung: Lazy-API (`needsBotDecision(dt)` oder `updateBotLazy(() => snapshot, dt)`) —
+      der Cooldown tickt weiter pro Substep, der Snapshot wird erst nach Cooldown-Ablauf
+      gebaut. Tests: Bot im Cooldown → Snapshot-Funktion nicht aufgerufen; nach Cooldown
+      → genau einmal.
+      Dateien: `src/app/services/facade/game-loop-facade.service.ts`,
+      `src/app/ai/core/ai-data-collector.service.ts`,
+      `src/app/ai/training/bots/base-tower-bot.ts`.
 
 ## Visual Effects - Advanced
 
