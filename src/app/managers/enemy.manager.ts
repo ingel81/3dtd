@@ -61,6 +61,15 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Set via setWaveNumberProvider() after construction (loose coupling).
   private getWaveNumber: () => number = () => 0;
 
+  // Deterministic kill-reward accumulator. Splits the wave's gold-budget
+  // exactly across expected enemy slots — last paid kill picks up the
+  // floor-rounding remainder so the total never exceeds the budget.
+  // Tracked across kills via remainingKillBudget/Slots; rewardWaveNumber
+  // triggers a reset when the wave changes.
+  private rewardWaveNumber = -1;
+  private remainingKillBudget = 0;
+  private remainingRewardSlots = 0;
+
   constructor(
     private eventBus: GameEventBus,
     private globalRouteGrid: GlobalRouteGridService,
@@ -236,19 +245,36 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   /**
    * Calculate kill reward from the wave's deterministic kill-budget
-   * (Phase 5.16): the curriculum pins a total per-wave gold amount, which
-   * we split equally across the expected enemy count. Effect:
+   * (Phase 5.16): the curriculum pins a total per-wave gold amount which
+   * we split deterministically across the expected enemy count. Effect:
    *  - Income predictable wave-by-wave → balanceable against tower/research costs
    *  - Independent of NN's count/hp_mult choices (no swarm-flood, no boring-dribble)
    *  - Leaks naturally reduce earnings (uncollected kills = lost gold)
    *
-   * Per-enemy reward floor = 1 to keep tiny waves meaningful.
+   * Accumulator pattern: `floor(remainingBudget / remainingSlots)` per paid
+   * kill, then decrement both. The last slot picks up the rounding remainder
+   * so the SUM of rewards equals the budget exactly when every enemy dies —
+   * fixes the W19 rat_tide bug where `Math.max(1, round(305/5000))` × 5000
+   * paid out 5000g instead of the budgeted 305g. Extra kills past the slot
+   * count (e.g. boss spawning more sub-units than budgeted) pay 0g.
    */
   private calculateDynamicReward(_enemy: Enemy): number {
     const wave = this.getWaveNumber();
-    const budget = goldBudgetForWave(wave).kill;
-    const count = Math.max(1, this.getWaveSize());
-    return Math.max(1, Math.round(budget / count));
+
+    if (wave !== this.rewardWaveNumber) {
+      this.rewardWaveNumber = wave;
+      this.remainingKillBudget = goldBudgetForWave(wave).kill;
+      this.remainingRewardSlots = Math.max(1, this.getWaveSize());
+    }
+
+    if (this.remainingRewardSlots <= 0 || this.remainingKillBudget <= 0) {
+      return 0;
+    }
+
+    const reward = Math.floor(this.remainingKillBudget / this.remainingRewardSlots);
+    this.remainingKillBudget -= reward;
+    this.remainingRewardSlots -= 1;
+    return reward;
   }
 
   /**
