@@ -6,6 +6,64 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-05-23
 
+### Loading-Screen-Tipps faktisch überarbeitet (TODO 3.1)
+
+- [x] **5 falsche Tipps korrigiert, 2 neue Code-gestützte ergänzt**
+      Alle Tipps in `src/app/components/loading-screen/field-tips.ts`
+      gegen aktuelle Configs/Komponenten geprüft:
+      - **Frost "deals no damage"** — falsch, Ice Tower hat
+        `damage: 5` (`tower-types.config.ts:296`). Neu: "tiny chip damage,
+        treat as a slower".
+      - **Compass "click it to reset"** — falsch, Compass-Body ist nicht
+        klickbar; ein kleiner Refresh-Button erscheint daneben wenn
+        rotiert (`compass.component.ts:63-67`). Tipp beschreibt jetzt
+        den Reset-Button.
+      - **Research "permanent across runs"** — falsch, `resetGameState()`
+        ruft `resetResearchState()` (`tower-defense.store.ts:363`,
+        `research.store.ts:99`) und cleart alles. Tipp sagt jetzt
+        "carries through to the next wave" + Reset-Hinweis.
+      - **Range "diminishing returns"** — irreführend, Upgrade-Math ist
+        pures Compounding `1.04^level` ohne Falloff. Ersetzt durch das
+        echte Skalierungs-Argument: Cost ×1.25/Level → zweite Tower-Type
+        oft besser als Max-Out.
+      - **Chain/Splash "where two routes converge"** — falsch, das Spiel
+        hat aktuell nur einen Spawn. Tipp jetzt swarm-fokussiert.
+      - Neu: Damage-Number-Farbe/Größe signalisiert Matchup-Effectiveness
+        (`damage-matrix.config.ts EFFECTIVENESS_COLORS/SCALES`).
+      - Neu: Sell-Back ist 75 % vom Invest (`tower-types.config.ts SELL_RATIO`).
+      Commits `06b7418`, `4041bd7`.
+
+### `game-sidebar`: Research-Center Sell-Button vereinheitlicht (TODO 3.1)
+
+- [x] **RC-Sell-Button vom Inline-Tile am Tree-Ende in den Panel-Header verschoben**
+      Der Research Center hatte einen eigenen `td-sell-tile` als
+      Inline-Block unter dem Research-Tree — visuell aus der Reihe
+      gegenüber den Normal-Towern, deren Sell-Button (`td-header-sell-btn`)
+      im Panel-Header sitzt. Header der RC-Panel jetzt analog zum
+      Tower-Header (`td-tower-header` + Sell-Button rechts). Tote Styles
+      `.td-sell-section`, `.td-sell-section-inline`, `.td-sell-tile`,
+      `.td-sell-value` aus `game-sidebar.component.scss` entfernt (−60 LOC,
+      keine HTML-Referenzen mehr). Commit `db97298`.
+
+### VFX: Damage- und Reward-Floating-Texts räumlich getrennt (TODO 3.1)
+
+- [x] **Per-Instance `aLateralOffset`-Attribut in der Floating-Text-Pipeline**
+      Damage-Popups (rot, aus `combat-effect.service.ts`) und Reward-Popups
+      (gold, aus `game-state.manager.ts`) spawnten an exakt derselben
+      Welt-Position über dem getroffenen Gegner und überlagerten sich bei
+      großen Waves zu einem unleserlichen Blob.
+      Neuer `lateralOffset`-Config-Wert (Welt-Einheiten in Screen-Right-
+      Richtung) wird durch die Spawn-API in den GPU-Instance-Manager
+      gereicht und im Billboard-Vertex-Shader als neues Per-Instance-
+      Attribut `aLateralOffset` entlang `uCameraRight` addiert. Damit
+      bleibt der Split kamera-orientation-stabil.
+      Call-Sites: Damage-Numbers `-1.2` (links), Poison-DOT `-1.2` (links),
+      Reward-Popups `+1.2` (rechts). Zusätzlich zwei pre-existing
+      Integration-Tests (`enemy-movement-path.spec.ts`,
+      `game-state-flow.spec.ts`) gefixt, die seit `e4a3400` rot waren —
+      sie hatten keinen Wave-Number-Provider gesetzt → Wave 0 → 0g-Budget.
+      Test-Suite wieder 870/870 grün. Commit `c6f25e0`.
+
 ### Per-Kill-Reward — deterministischer Akkumulator (TODO 2.2, W19 rat_tide Overshoot)
 
 - [x] **Reward-Floor 1g bei Mega-Swarms ersetzt durch Per-Wave-Akkumulator**
