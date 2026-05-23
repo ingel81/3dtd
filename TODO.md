@@ -108,26 +108,6 @@
       ist. Tool: `npm run economy-chart` regeneriert `docs/economy-chart.html` nach
       jeder Curriculum-Änderung.
 
-- [ ] **Per-Kill-Budget-Rounding-Bug fixen**
-      `Math.max(1, Math.round(budget / count))` (`enemy.manager.ts:251`,
-      `calculateDynamicReward`) overshoot bei Mega-Swarms: W19 rat_tide mit 5000 Ratten
-      × 1g floor = 5000g statt 305g Budget. Saubere Lösung: deterministischer
-      Akkumulator pro Wave.
-      **Umsetzungsskizze** (aus todo_new.md-Review 2026-05-22):
-      - Felder im `EnemyManager`: `rewardWaveNumber`, `remainingKillBudget`,
-        `remainingRewardSlots`.
-      - Bei Wave-Wechsel / erster bezahlter Kill-Abrechnung:
-        `remainingKillBudget = goldBudgetForWave(wave).kill`,
-        `remainingRewardSlots = max(1, getWaveSize())`.
-      - Pro bezahltem Kill: `reward = floor(remainingKillBudget / remainingRewardSlots)`,
-        dann `remainingKillBudget -= reward`, `remainingRewardSlots -= 1`. Der letzte Slot
-        zahlt automatisch den Rest → Summe aller Kills = exakt Budget wenn alle sterben.
-      - Randfälle: `awardCredits = false` lässt den Akkumulator unangetastet;
-        Budget 0 → Reward 0 (Curriculum-exakt statt Floor 1); mehr Kills als Slots → 0.
-      - Tests (`enemy.manager.spec.ts`): Summe = `goldBudgetForWave(wave).kill`;
-        Leaks reduzieren verdientes Gold; Wave-Wechsel resetet den Akkumulator.
-      Datei: `src/app/managers/enemy.manager.ts` (gold-budget per-kill-Logik).
-
 - [ ] **Boss-Frequenz ab W31 verdichten**
       Plan war: ab W31 Bosse alle 5 Waves statt 10. Nicht implementiert — Curriculum
       loopt einfach mod-30. Override in `templateForWave()` für
