@@ -6,6 +6,70 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-05-23
 
+### WaveConfig schedule-only — Static-Curriculum nativ multi-group (TODO 2.2)
+
+- [x] **WaveManager + Adapter auf einen einzigen Spawn-Pfad reduziert; Static-Curriculum spiegelt jetzt die AI-Templates inkl. Boss-Support und Mixed-Wellen**
+      Vorher hatte der WaveManager zwei parallele Spawn-Pipelines: einen
+      Schedule-Pfad (für mixed AI-Wellen) und einen Legacy-Single-Type-Pfad
+      (für statische Curriculum-Wellen + Debug-Panel). Der Static-Curriculum
+      konnte deswegen Boss-Wellen W10/W20/W30 nur als solo Herbert spawnen
+      und Mixed-Templates wie `dragon_elite` kollabierten zu Mono-Typ-Wellen
+      (Sekundär-Gegner verschwand komplett).
+      Refactor entlang des Memory-Eintrags „No parallel systems in refactors":
+      - **`WaveConfig` neu**: `{ schedule: SpawnSchedule }` — keine
+        Top-Level-`enemyCount`/`enemyType`/`enemySpeed`/`enemyHealth`/
+        `spawnMode`/`spawnDelay`/`getSpawnDelay`-Felder mehr.
+        `WaveManager.startWave` ist ein dünner Wrapper um den existierenden
+        scheduled-Pfad; Legacy-Branch (~65 LOC) raus.
+      - **`SpawnSchedule` erweitert** um optionales `spawnMode?: 'each' | 'random'`
+        damit die Round-Robin-Spawn-Point-Selection des alten Single-Pfads
+        erhalten bleibt.
+      - **Adapter** `wave-config-adapter.ts` von 3 Funktionen
+        (`adaptAIWaveConfigMixed/Single/Array` + Fallback) auf eine
+        konsolidiert: `adaptAIWaveConfig(aiConfig)` baut **immer** ein
+        Schedule, auch für 1-Group-Inputs (1 Group → N Schedule-Entries
+        desselben Typs, funktional identisch zum alten Single-Pfad).
+      - **`AIWaveConfig`** um optionales `spawnMode?` ergänzt; alle anderen
+        Felder unverändert → AI Director, ONNX-Inference, WebSocket-Backend
+        sehen keine Schnittstellen-Änderung.
+      - **`StaticWaveProfile` neu** mit `groups: readonly StaticWaveGroup[]`
+        + `pattern?: SpawnPattern`. 30 Profile umgeschrieben:
+        - Boss-Wellen W10/W20/W30 = Herbert + Tank- + Zombie-Support (analog
+          Template `boss_herbert`), Pattern `clustered`.
+        - Mixed-Templates W8 (`hornet_strike`), W12/W24 (`dragon_elite`),
+          W13/W23 (`ghost_surge`), W14/W25 (`mammoth_siege`), W16/W29
+          (`chaos_wave`), W18 (`armor_gauntlet`) als echte Multi-Group-
+          Profile mit `interleaved` Pattern.
+        - Single-Templates (W1-7, W11, W15, W17, W19, W21, W22, W26-28)
+          bleiben Single-Group.
+      - **`staticWaveResolvedFor(waveNum)`** returnt jetzt eine `AIWaveConfig`
+        — der Facade-Aufruf wird zu `adaptAIWaveConfig(staticWaveResolvedFor(w))`.
+        Endgame-HP-Ramp wird pro Gruppe in `healthMultiplier` gebaken.
+      - **`WaveDebugService`** kriegt `toAIWaveConfig()` (single- + mixed-Modus
+        in einer Methode); die alte `buildMixedWaveConfig`-Methode mit
+        Legacy-Feldern ist raus.
+      - **`GameLoopFacadeService.buildWaveConfig` + `buildStaticCurriculumWaveConfig`**
+        gehen beide durch `adaptAIWaveConfig(...)`. `startCustomWave` ruft
+        nur noch `buildWaveConfig` (kein mixed-mode-Fork mehr).
+      - **`GameStateManager.startWave`**: Single-Type-Display-Branch raus —
+        nur noch der Schedule-Aggregations-Branch, der die Sidebar mit den
+        Gruppen-Compositions füllt.
+      - **Test-Migration**: `wave.manager.spec.ts` Helper auf
+        `{ count, type, speed, health, spawnDelay, spawnMode }` umgebaut
+        (intern Schedule-Bau); die zwei NaN/negative-Guard-Tests entfernt
+        (existieren nicht mehr im scheduled-Pfad) und durch einen
+        Empty-Schedule-Test ersetzt. Integration-Tests
+        (`wave-enemy-spawning.spec.ts`, `game-state-flow.spec.ts`) nutzen
+        neuen `makeSingleTypeWaveConfig`-Helper in `test-helpers.ts`.
+      - **Neue Tests in `wave-curriculum.config.spec.ts`**: 30-Profile-
+        Integrität, Boss-Multi-Group + clustered-Pattern, Multi-Group-Resolve,
+        Endgame-HP-Ramp pro Gruppe, W31-Loop, Pattern-Pass-Through.
+      AI-Training-Pipeline ist null berührt: Python-Backend, ONNX-Model,
+      AIWaveConfig-Schema, Templates, Decoder, State-Encoder, Bots, Wave-
+      Outcome-Logging bleiben 1:1. Refactor sitzt komplett unterhalb des
+      AI-Outputs. Test-Suite 884/884 grün, Lint sauber. Docs:
+      `STATIC_WAVE_FALLBACK.md` + `WAVE_SYSTEM.md` aktualisiert.
+
 ### Loading-Screen-Tipps faktisch überarbeitet (TODO 3.1)
 
 - [x] **5 falsche Tipps korrigiert, 2 neue Code-gestützte ergänzt**

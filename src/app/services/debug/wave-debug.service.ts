@@ -2,8 +2,8 @@ import { Injectable, signal, computed, inject } from '@angular/core';
 import { EnemyTypeId, getAllEnemyTypes, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { UIStore } from '../../store/ui.store';
 import { DebugStore } from '../../store/debug.store';
-import { WaveConfig } from '../../managers/wave.manager';
-import { SpawnPattern, ALL_SPAWN_PATTERNS, buildSpawnSchedule } from '../../ai/core/spawn-schedule-builder';
+import { WaveConfig as AIWaveConfig } from '../../ai/core/models/wave-config';
+import { SpawnPattern, ALL_SPAWN_PATTERNS } from '../../ai/core/spawn-schedule-builder';
 
 /** Configuration for a single enemy group in a mixed wave */
 export interface MixedGroupConfig {
@@ -190,38 +190,51 @@ export class WaveDebugService {
   }
 
   /**
-   * Build a WaveConfig with SpawnSchedule from current mixed-mode settings.
+   * Build an AIWaveConfig from the current debug-panel settings.
+   *
+   * Returns a multi-group config when mixed-mode is active, otherwise a
+   * single-group config built from the single-type debug values. The Facade
+   * pipes this through `adaptAIWaveConfig` to get the runtime WaveConfig —
+   * single source of truth for wave-spawning, no parallel pipelines.
    */
-  buildMixedWaveConfig(): WaveConfig {
-    const groups = this.mixedGroups().map(g => ({
-      type: g.enemyType,
-      count: g.count,
-      healthMultiplier: g.healthMultiplier !== 1 ? g.healthMultiplier : undefined,
-      speedMultiplier: g.speedMultiplier !== 1 ? g.speedMultiplier : undefined,
-      spawnDelay: g.spawnDelay,
-    }));
+  toAIWaveConfig(): AIWaveConfig {
+    if (this.mixedMode()) {
+      const groups = this.mixedGroups().map((g) => ({
+        type: g.enemyType,
+        count: g.count,
+        healthMultiplier: g.healthMultiplier !== 1 ? g.healthMultiplier : undefined,
+        speedMultiplier: g.speedMultiplier !== 1 ? g.speedMultiplier : undefined,
+        spawnDelay: g.spawnDelay,
+      }));
+      return {
+        enemies: groups,
+        totalCount: this.mixedTotalCount(),
+        spawnDelay: this.spawnDelay(),
+        spawnDelayVariation: this.delayVariation(),
+        pattern: this.spawnPattern(),
+      };
+    }
 
-    const schedule = buildSpawnSchedule({
-      groups,
-      pattern: this.spawnPattern(),
-      baseDelay: this.spawnDelay(),
-      delayVariation: this.delayVariation(),
-      clusterSize: this.clusterSize(),
-      subWavePause: this.subWavePause(),
-    });
-
-    // Legacy fields (ignored when schedule is present, but needed for type compatibility)
-    const dominant = this.mixedGroups().reduce((best, curr) =>
-      curr.count > best.count ? curr : best
-    );
-
+    // Single-mode: 1 group from the single-enemy debug values. Health override
+    // is encoded as a healthMultiplier so the shared adapter can apply it.
+    const enemyType = this.enemyType();
+    const baseHp = ENEMY_TYPES[enemyType]?.baseHp ?? 80;
+    const baseSpeed = ENEMY_TYPES[enemyType]?.baseSpeed ?? 5;
+    const healthMultiplier = baseHp > 0 ? this.enemyHealth() / baseHp : 1;
+    const speedMultiplier = baseSpeed > 0 ? this.enemySpeed() / baseSpeed : 1;
     return {
-      enemyCount: this.mixedTotalCount(),
-      enemyType: dominant.enemyType,
-      enemySpeed: ENEMY_TYPES[dominant.enemyType]?.baseSpeed ?? 5,
-      spawnMode: 'random',
+      enemies: [
+        {
+          type: enemyType,
+          count: this.enemyCount(),
+          healthMultiplier: healthMultiplier !== 1 ? healthMultiplier : undefined,
+          speedMultiplier: speedMultiplier !== 1 ? speedMultiplier : undefined,
+        },
+      ],
+      totalCount: this.enemyCount(),
       spawnDelay: this.spawnDelay(),
-      schedule,
+      pattern: 'sequential',
+      spawnMode: this.spawnMode(),
     };
   }
 

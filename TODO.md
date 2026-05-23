@@ -129,33 +129,6 @@
       Im AI-Pfad noch ungenutzt — beim Re-Training `minWave` runtersetzen + Python-Mirror
       ergänzen.
 
-- [ ] **Static-Curriculum-Fallback aufwerten — Boss-Support & Mixed-Waves**
-      Aktuelle Limitation: `STATIC_WAVE_PROFILES` (wave-curriculum.config.ts) ist
-      single-enemy-per-wave (Datentyp `StaticWaveProfile`). Folgen im Spieltest:
-      Boss-Wellen (W10/W20/W30) spawnen nur Herbert solo, ohne die zugehörigen Tanks +
-      Zombies aus dem AI-Template. „Mixed"-Wellen wie `dragon_elite` (Dragons + Hornets)
-      werden zum Mono-Typ — der Sekundär-Gegner verschwindet komplett.
-      Aufwerten: `StaticWaveProfile` auf eine Liste von Einträgen oder ein Schedule-Objekt
-      erweitern (analog `MixedWaveConfig` / `SpawnSchedule` in `wave.manager.ts`).
-      Anschließend bei Boss-Wellen Boss + Support modellieren, bei Air-Mix-Wellen den
-      Templates-Mix nachbauen.
-      **Umsetzungsskizze** (aus todo_new.md-Review 2026-05-22):
-      ```ts
-      interface StaticWaveGroup { enemyType: EnemyTypeId; count: number; hpMult: number; speedMult?: number; }
-      interface StaticWaveProfile { wave: number; groups: readonly StaticWaveGroup[]; spawnDelayMs: number; pattern?: SpawnPattern; }
-      ```
-      - `staticWaveResolvedFor(waveNum)` gibt eine AI-ähnliche Config zurück
-        (`totalCount`, `enemies: [{type,count,healthMultiplier,speedMultiplier}]`,
-        `spawnDelay`, `pattern`) statt eines Single-Type-Payloads.
-      - In `buildStaticCurriculumWaveConfig` über `adaptAIWaveConfigMixed(...)` in die
-        WaveManagerConfig wandeln → `SpawnSchedule` entsteht automatisch.
-      - Profitierende Waves: W10/W20/W30 Boss + Support, W15 Golem-Squad-Mix,
-        W19 Mega-Swarm ggf. mit Heavy-Checks.
-      - Tests: Multi-Group erzeugt `schedule.entries`; `enemyCount` = Summe der Gruppen;
-        dominanter Typ bleibt für Legacy-Debugfelder gesetzt; W31 looped weiter zu W1.
-      Datei-Anker: `wave-curriculum.config.ts` (Typdef + Profile),
-      `game-loop-facade.service.ts` (`buildStaticCurriculumWaveConfig`).
-
 - [ ] **Frontend/Backend Wave-Template-Drift beheben** (vor Re-Training)
       `zombie_horde` divergiert zwischen Runtime und Training: Frontend `templates.ts:39`
       mischt 50 % `zombie-v2`, Backend `templates.py:35` nutzt 100 % klassische `zombie`.

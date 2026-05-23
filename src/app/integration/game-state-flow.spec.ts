@@ -26,6 +26,7 @@ import {
   TEST_SPAWN_POINTS,
   createTestCachedPaths,
   tickEngine,
+  makeSingleTypeWaveConfig,
 } from './test-helpers';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TOWER_TYPES } from '../configs/tower-types.config';
@@ -63,13 +64,12 @@ describe('Game State Flow Integration', () => {
     expect(events).toContain('tower:placed');
 
     // 2. Start wave
-    m.waveManager.startWave({
-      enemyCount: 1,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    m.waveManager.startWave(makeSingleTypeWaveConfig({
+      count: 1,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 0,
-    });
+    }));
     expect(events).toContain('wave:started');
     tickEngine(m, 16, clock);
     expect(events).toContain('enemy:spawned');
@@ -123,13 +123,12 @@ describe('Game State Flow Integration', () => {
   });
 
   it('should complete full wave lifecycle: start → spawn → kill all → complete', () => {
-    m.waveManager.startWave({
-      enemyCount: 2,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    m.waveManager.startWave(makeSingleTypeWaveConfig({
+      count: 2,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 50,
-    });
+    }));
 
     tickEngine(m, 200, clock);
     expect(m.enemyManager.getAll()).toHaveLength(2);
@@ -220,13 +219,12 @@ describe('Game State Flow Integration', () => {
 
   it('should handle multiple waves sequentially', () => {
     // Wave 1
-    m.waveManager.startWave({
-      enemyCount: 1,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    m.waveManager.startWave(makeSingleTypeWaveConfig({
+      count: 1,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 0,
-    });
+    }));
     tickEngine(m, 16, clock);
     expect(m.waveManager.waveNumber()).toBe(1);
 
@@ -235,13 +233,12 @@ describe('Game State Flow Integration', () => {
     m.waveManager.endWave();
 
     // Wave 2
-    m.waveManager.startWave({
-      enemyCount: 2,
-      enemyType: 'zombie',
-      enemySpeed: 8,
-      spawnMode: 'each',
+    m.waveManager.startWave(makeSingleTypeWaveConfig({
+      count: 2,
+      type: 'zombie',
+      speed: 8,
       spawnDelay: 50,
-    });
+    }));
     expect(m.waveManager.waveNumber()).toBe(2);
 
     tickEngine(m, 200, clock);

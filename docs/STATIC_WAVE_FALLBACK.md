@@ -1,12 +1,17 @@
 # Static Wave Fallback
 
-**Stand:** 2026-05-20
+**Stand:** 2026-05-23
 
 Static-Wave-Fallback ist ein Debug-/Playtest-Modus, der Wellen aus einer
 festen Per-Wave-Tabelle spawnt — als Alternative zum AI Wave Director.
 Gedacht für Offline-Playtests, Headless-Tests, und Situationen in denen
 das ONNX-Modell nicht geladen ist. **AI bleibt der Production-Default**;
 dies ist ein bewusst opt-in Debug-Pfad.
+
+Seit 2026-05-23 nativ multi-group: Boss-Wellen kommen mit Tank/Zombie-
+Support, Mixed-Templates wie `dragon_elite` werden tatsächlich gemixt
+gespawnt. Der Static-Pfad nutzt dafür dieselbe Spawn-Pipeline wie der AI
+(siehe „Unified Pipeline" unten).
 
 ---
 
@@ -32,55 +37,79 @@ Static reichte nicht, man musste AI manuell abdrehen. Das ist gefixt.
 
 ---
 
-## STATIC_WAVE_PROFILES
+## STATIC_WAVE_PROFILES (multi-group nativ)
 
 Definiert in `src/app/configs/wave-curriculum.config.ts`:
 
 ```ts
-export interface StaticWaveProfile {
-  wave: number;              // 1-indexed
+export interface StaticWaveGroup {
   enemyType: EnemyTypeId;
   count: number;
   hpMult: number;            // baseHp × hpMult = per-enemy HP
+  speedMult?: number;        // optional, default 1.0
+}
+
+export interface StaticWaveProfile {
+  wave: number;              // 1-indexed
+  groups: readonly StaticWaveGroup[];  // ≥1 group
   spawnDelayMs: number;
+  pattern?: SpawnPattern;    // enemy ordering ('interleaved', 'clustered', ...)
 }
 
 export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
   // ── Early game (W1-W9) ──
-  { wave:  1, enemyType: 'zombie',      count:  20, hpMult: 0.8, spawnDelayMs: 1000 },
-  { wave:  2, enemyType: 'rat',         count:  60, hpMult: 1.0, spawnDelayMs:  400 },
-  { wave:  3, enemyType: 'penguin',     count:  25, hpMult: 1.0, spawnDelayMs:  500 },
+  { wave:  1, groups: [{ enemyType: 'zombie', count: 20, hpMult: 0.8 }], spawnDelayMs: 1000 },
+  { wave:  2, groups: [{ enemyType: 'rat',    count: 60, hpMult: 1.0 }], spawnDelayMs:  400 },
   ...
-  // ── Mid game (W10-W19) ──
-  { wave: 10, enemyType: 'herbert',     count:   1, hpMult:  8.0, spawnDelayMs: 1500 },
+  // W8 hornet_strike mirror — hornet + bat mix
+  { wave:  8, groups: [
+    { enemyType: 'hornet', count: 15, hpMult: 0.9 },
+    { enemyType: 'bat',    count:  6, hpMult: 1.0 },
+  ], spawnDelayMs: 500, pattern: 'interleaved' },
   ...
-  { wave: 15, enemyType: 'stone-golem', count:   6, hpMult: 1.5, spawnDelayMs: 1100 },
+  // ── Mid game (W10-W19) — Boss W10 mit Support ──
+  { wave: 10, groups: [
+    { enemyType: 'herbert', count:  1, hpMult: 8.0 },
+    { enemyType: 'tank',    count: 12, hpMult: 1.0 },
+    { enemyType: 'zombie',  count: 18, hpMult: 0.6 },
+  ], spawnDelayMs: 700, pattern: 'clustered' },
+  // W16 chaos_wave mirror — 4-Mix
+  { wave: 16, groups: [
+    { enemyType: 'zombie', count: 18, hpMult: 1.0 },
+    { enemyType: 'tank',   count: 12, hpMult: 1.5 },
+    { enemyType: 'hornet', count:  8, hpMult: 1.2 },
+    { enemyType: 'bear',   count:  4, hpMult: 1.0 },
+  ], spawnDelayMs: 400, pattern: 'interleaved' },
   ...
-  // ── Late game (W20-W30) ──
-  { wave: 30, enemyType: 'herbert',     count:   3, hpMult: 35.0, spawnDelayMs: 1800 },
+  // ── Late game (W20-W30) — Boss W30 mit max Support ──
+  { wave: 30, groups: [
+    { enemyType: 'herbert', count:  3, hpMult: 35.0 },
+    { enemyType: 'tank',    count: 25, hpMult:  2.5 },
+    { enemyType: 'zombie',  count: 30, hpMult:  1.5 },
+  ], spawnDelayMs: 600, pattern: 'clustered' },
 ];
 ```
 
-Rough sizing: Gesamt-Wave-HP ≈ Player-DPS × 10–30 s, kalibriert gegen den
-Player-DPS aus dem Wave-Planner-Roster-Plan. Boss-Wellen (W10/W20/W30)
-nutzen 1 Herbert mit hohem `hpMult` als Stand-In für den AI-Boss + Support
-(siehe Limitations unten).
+Boss-Wellen (W10/W20/W30) und Mixed-Templates (W8/W12/W13/W14/W16/W18/
+W23/W24/W25/W29) spiegeln jetzt die AI-Template-Komposition direkt.
+Single-Group-Wellen (W1-7, W11, W15, W17, W19, W21, W22, W26-28) bleiben
+single-group.
 
 ### HP-Berechnung zur Laufzeit
 
 ```ts
-enemyHealth = baseHp × hpMult × endgameHpMultiplier(waveNum)
+healthMultiplier(group) = group.hpMult × endgameHpMultiplier(waveNum)
 ```
 
-`endgameHpMultiplier` (auch in `wave-curriculum.config.ts`) rampt ab W20
-mit +5%/Welle hoch und cappt bei 4× (W80). So bleiben spätere Loop-
+Der `endgameHpMultiplier` (auch in `wave-curriculum.config.ts`) rampt ab
+W20 mit +5%/Welle hoch und cappt bei 4× (W80). So bleiben spätere Loop-
 Iterationen herausfordernd, obwohl das Template wieder vorne anfängt.
+Der Ramp wird beim Resolven pro Gruppe in `healthMultiplier` gebaken —
+der WaveManager bekommt fertige Per-Enemy-HPs.
 
 ### Speed
 
-`enemySpeed = ENEMY_TYPES[enemyType].baseSpeed` — kein Speed-Override pro
-Welle (Vereinheitlichungsentscheidung; die Variation kommt aus dem
-HP-Mult und der Anzahl, nicht aus Spawn-Speed).
+`speedMult?` pro Gruppe optional, sonst `ENEMY_TYPES[enemyType].baseSpeed`.
 
 ---
 
@@ -213,59 +242,47 @@ Chronologisch (Mai 2026):
 
 ---
 
+## Unified Pipeline (kein Parallel-Code mehr)
+
+Seit 2026-05-23 läuft Static-Curriculum durch dieselbe Spawn-Pipeline
+wie der AI Director. Der WaveManager hat genau einen `startWave`-Pfad
+— `WaveConfig = { schedule }`, schedule-only, kein Single-Type-Fast-
+Path. `staticWaveResolvedFor(waveNum)` baut eine `AIWaveConfig` (gleicher
+Shape wie das, was der NN ausspuckt), die Facade gibt das an
+`adaptAIWaveConfig(...)` → fertige `WaveConfig` mit Schedule.
+
+```
+staticWaveResolvedFor(10)
+  → { enemies: [{type:'herbert', count:1, hM:8}, {type:'tank', count:12, hM:1}, ...],
+      totalCount: 31, spawnDelay: 700, pattern: 'clustered' }
+  → adaptAIWaveConfig(…) → { schedule: { entries: [...31 SpawnEntries], baseDelay: 700 } }
+  → WaveManager.startWave(...)
+```
+
+Single-Group-Wellen sind einfach Schedules mit 1 Group → N SpawnEntries
+desselben Typs. Funktional identisch zum alten Single-Type-Pfad, aber
+keine zweite Code-Welt mehr.
+
 ## Bekannte Limitationen (= aktuelle TODOs)
 
-1. **Single-Enemy-per-Wave.** `StaticWaveProfile.enemyType: EnemyTypeId`
-   ist genau einer. Der Template-Pfad unterstützt Mixed-Waves
-   (z.B. `dragon_elite` = 60% Dragons + 40% Hornets), der Static-Pfad
-   kollabiert das auf den Primary-Type. Sichtbar bei W12 / W24
-   (dragon_elite ohne Hornet-Begleitung), W8 / W26 (hornet_strike ohne
-   Bats).
-
-2. **Keine Boss-mit-Support.** Boss-Wellen W10/W20/W30 spawnen im
-   AI/Template-Pfad 1 Herbert + Tanks + Zombies (rund 4.83 / 4.83 / 0.03
-   Anteil). Im Static-Pfad: solo Herbert mit hohem `hpMult`. Spielbar,
-   aber leblos.
-
-3. **Kein Per-Spawn-Variation.** Der `WaveManager` unterstützt
-   `SpawnEntry.delay`-Overrides und `pauseAfter` für „Welle-in-Welle"-
-   Pattern. Static nutzt einen einzigen `spawnDelayMs` für alle Spawns
-   einer Welle.
-
-4. **Golem-Template ist AI-unsichtbar.** `golem_squad.minWave: 999` ist
+1. **Golem-Template ist AI-unsichtbar.** `golem_squad.minWave: 999` ist
    ein temporärer Gate-Mechanismus für die untrainierte AI. Beim
    nächsten AI-Re-Training muss das Gate runter UND der Python-Mirror
    in `training-backend/wave_curriculum.py` parallel ergänzt werden
    (TODO 2.2 in [TODO.md](../TODO.md)).
 
-5. **Per-Wave-Tuning ist iterativ.** Die aktuellen Counts/HP-Mults sind
+2. **Per-Wave-Tuning ist iterativ.** Die aktuellen Counts/HP-Mults sind
    gegen die optimistische Player-DPS aus dem Wave-Planner kalibriert.
    Real abweichende Builds (z.B. nur Archer-Spam, kein Magic gegen
    Ethereal) leaken früher. Erwartet — Static-Fallback ist „rough
    playtest", nicht eine balancierte Gegen-AI.
 
-### Geplante Erweiterung — Boss-Support & Mixed-Waves
-
-```ts
-// Vorschlag (noch nicht implementiert):
-interface StaticWaveProfile {
-  wave: number;
-  // Statt:  enemyType + count + hpMult
-  // Neu:    Liste von Einträgen, oder direkter SpawnSchedule
-  entries: ReadonlyArray<{
-    enemyType: EnemyTypeId;
-    count: number;
-    hpMult: number;
-    delayMs?: number;        // optional override pro Eintrag
-  }>;
-  spawnDelayMs: number;      // default zwischen den Spawns
-  pattern?: 'sequential' | 'interleaved' | 'clustered';
-}
-```
-
-`buildStaticCurriculumWaveConfig` würde dann entweder einen
-`MixedWaveConfig` oder einen `SpawnSchedule` (siehe `wave.manager.ts`)
-generieren. Die existierenden Mixed-Wave-Code-Pfade greifen dafür schon.
+3. **Per-Group Spawn-Delay-Override.** Die Pipeline unterstützt
+   `SpawnEntry.delay` und `pauseAfter` via `buildSpawnSchedule`, das
+   Static-Schema setzt aber nur einen `spawnDelayMs` pro Welle. Für
+   „Welle-in-Welle"-Pattern müsste man `pattern: 'wave-in-wave'` setzen
+   und `subWavePause` durchreichen (heute fest auf den
+   spawn-schedule-builder-Default).
 
 ---
 

@@ -18,8 +18,8 @@ import {
   TEST_SPAWN_POINTS,
   createTestCachedPaths,
   tickEngine,
+  makeSingleTypeWaveConfig,
 } from './test-helpers';
-import { WaveConfig } from '../managers/wave.manager';
 
 describe('Wave + Enemy Spawning Integration', () => {
   let m: TestManagers;
@@ -43,13 +43,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should transition to wave phase when startWave is called', () => {
-    const config: WaveConfig = {
-      enemyCount: 3,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 3,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 100,
-    };
+    });
 
     const waveStartedHandler = vi.fn();
     m.eventBus.on('wave:started', waveStartedHandler);
@@ -68,13 +67,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should spawn enemies over time based on spawnDelay', () => {
-    const config: WaveConfig = {
-      enemyCount: 3,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 3,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 200,
-    };
+    });
 
     m.waveManager.startWave(config);
 
@@ -92,13 +90,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should spawn enemies of the correct type', () => {
-    const config: WaveConfig = {
-      enemyCount: 2,
-      enemyType: 'zombie',
-      enemySpeed: 8,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 2,
+      type: 'zombie',
+      speed: 8,
       spawnDelay: 50,
-    };
+    });
 
     m.waveManager.startWave(config);
     tickEngine(m, 200, clock);
@@ -112,14 +109,13 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should apply custom health override to spawned enemies', () => {
-    const config: WaveConfig = {
-      enemyCount: 1,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      enemyHealth: 500,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 1,
+      type: 'zombie',
+      speed: 5,
+      health: 500,
       spawnDelay: 0,
-    };
+    });
 
     m.waveManager.startWave(config);
     tickEngine(m, 16, clock);
@@ -131,13 +127,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should detect wave completion when all enemies are dead', () => {
-    const config: WaveConfig = {
-      enemyCount: 2,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 2,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 50,
-    };
+    });
 
     m.waveManager.startWave(config);
     tickEngine(m, 200, clock);
@@ -157,13 +152,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should NOT mark wave complete while enemies are still spawning', () => {
-    const config: WaveConfig = {
-      enemyCount: 3,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 3,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 500,
-    };
+    });
 
     m.waveManager.startWave(config);
     tickEngine(m, 16, clock); // spawn first
@@ -175,13 +169,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should increment wave number with each wave', () => {
-    const config: WaveConfig = {
-      enemyCount: 1,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 1,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 0,
-    };
+    });
 
     m.waveManager.startWave(config);
     expect(m.waveManager.waveNumber()).toBe(1);
@@ -218,13 +211,13 @@ describe('Wave + Enemy Spawning Integration', () => {
 
     m.waveManager.initialize(multiSpawnPoints, cachedPaths);
 
-    const config: WaveConfig = {
-      enemyCount: 4,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 4,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 50,
-    };
+      spawnMode: 'each',
+    });
 
     const spawnedHandler = vi.fn();
     m.eventBus.on('enemy:spawned', spawnedHandler);
@@ -237,13 +230,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   });
 
   it('should reset cleanly', () => {
-    const config: WaveConfig = {
-      enemyCount: 3,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 3,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 100,
-    };
+    });
 
     m.waveManager.startWave(config);
     tickEngine(m, 50, clock);
@@ -261,13 +253,12 @@ describe('Wave + Enemy Spawning Integration', () => {
   it('spawn timing is identical at any timescale (engine sub-stepping)', () => {
     // Sub-stepping makes spawn delays purely game-time. Whether wall-clock
     // is 1× or 75× doesn't matter — tickSpawn drives off game-time deltas.
-    const config: WaveConfig = {
-      enemyCount: 3,
-      enemyType: 'zombie',
-      enemySpeed: 5,
-      spawnMode: 'each',
+    const config = makeSingleTypeWaveConfig({
+      count: 3,
+      type: 'zombie',
+      speed: 5,
       spawnDelay: 200,
-    };
+    });
 
     m.waveManager.startWave(config);
     tickEngine(m, 16, clock);

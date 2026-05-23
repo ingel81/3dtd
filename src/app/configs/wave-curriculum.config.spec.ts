@@ -1,13 +1,17 @@
 import { describe, it, expect } from 'vitest';
 import {
   WAVE_CURRICULUM,
+  STATIC_WAVE_PROFILES,
   goldBudgetForWave,
   endgameHpMultiplier,
   enemyBaseDamageForWave,
   templateForWave,
   templateObjectForWave,
+  staticWaveProfileForWave,
+  staticWaveResolvedFor,
 } from './wave-curriculum.config';
 import { TEMPLATES } from '../ai/core/templates';
+import { ENEMY_TYPES } from './enemy-types.config';
 
 describe('wave-curriculum.config', () => {
   // ===================================================================
@@ -233,6 +237,130 @@ describe('wave-curriculum.config', () => {
         const obj = templateObjectForWave(w);
         expect(TEMPLATES.find(t => t.id === obj!.id)).toBeDefined();
       }
+    });
+  });
+
+  // ===================================================================
+  // STATIC_WAVE_PROFILES data integrity (multi-group native)
+  // ===================================================================
+  describe('STATIC_WAVE_PROFILES data', () => {
+    it('has 30 entries', () => {
+      expect(STATIC_WAVE_PROFILES.length).toBe(30);
+    });
+
+    it('every profile has wave === index+1, at least 1 group, positive counts', () => {
+      STATIC_WAVE_PROFILES.forEach((p, i) => {
+        expect(p.wave).toBe(i + 1);
+        expect(p.groups.length).toBeGreaterThan(0);
+        for (const g of p.groups) {
+          expect(g.count).toBeGreaterThan(0);
+          expect(g.hpMult).toBeGreaterThan(0);
+          expect(ENEMY_TYPES[g.enemyType]).toBeDefined();
+        }
+        expect(p.spawnDelayMs).toBeGreaterThan(0);
+      });
+    });
+
+    it('boss waves (W10/W20/W30) carry herbert + support groups', () => {
+      for (const waveNum of [10, 20, 30]) {
+        const p = STATIC_WAVE_PROFILES[waveNum - 1];
+        const types = p.groups.map(g => g.enemyType);
+        expect(types).toContain('herbert');
+        // Boss waves are multi-group (boss + support), not solo Herbert
+        expect(p.groups.length).toBeGreaterThan(1);
+        expect(p.pattern).toBe('clustered');
+      }
+    });
+
+    it('mixed-template waves expose multiple groups (W12 dragon_elite, W16 chaos_wave)', () => {
+      const w12 = STATIC_WAVE_PROFILES[11];
+      const w12Types = w12.groups.map(g => g.enemyType);
+      expect(w12Types).toContain('dragon');
+      expect(w12Types).toContain('hornet');
+
+      const w16 = STATIC_WAVE_PROFILES[15];
+      expect(w16.groups.length).toBe(4); // chaos_wave 4-mix
+    });
+  });
+
+  // ===================================================================
+  // staticWaveProfileForWave / staticWaveResolvedFor
+  // ===================================================================
+  describe('staticWaveProfileForWave()', () => {
+    it('wave 0 and negative wave numbers return null', () => {
+      expect(staticWaveProfileForWave(0)).toBeNull();
+      expect(staticWaveProfileForWave(-1)).toBeNull();
+    });
+
+    it('wave 1 returns first profile', () => {
+      expect(staticWaveProfileForWave(1)).toBe(STATIC_WAVE_PROFILES[0]);
+    });
+
+    it('wave 31 loops to wave 1 profile (mod-30)', () => {
+      expect(staticWaveProfileForWave(31)).toBe(STATIC_WAVE_PROFILES[0]);
+    });
+
+    it('wave 60 loops to wave 30 profile (full loop)', () => {
+      expect(staticWaveProfileForWave(60)).toBe(STATIC_WAVE_PROFILES[29]);
+    });
+  });
+
+  describe('staticWaveResolvedFor()', () => {
+    it('wave 0 returns null', () => {
+      expect(staticWaveResolvedFor(0)).toBeNull();
+    });
+
+    it('single-group profile resolves to 1-entry AIWaveConfig', () => {
+      const resolved = staticWaveResolvedFor(1);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.enemies.length).toBe(1);
+      expect(resolved!.enemies[0].type).toBe('zombie');
+      expect(resolved!.enemies[0].count).toBe(20);
+      expect(resolved!.totalCount).toBe(20);
+    });
+
+    it('multi-group profile (W10 boss) resolves to multi-entry AIWaveConfig with totalCount = sum', () => {
+      const resolved = staticWaveResolvedFor(10);
+      expect(resolved).not.toBeNull();
+      expect(resolved!.enemies.length).toBeGreaterThan(1);
+      const types = resolved!.enemies.map(e => e.type);
+      expect(types).toContain('herbert');
+      const expectedTotal = STATIC_WAVE_PROFILES[9].groups.reduce((s, g) => s + g.count, 0);
+      expect(resolved!.totalCount).toBe(expectedTotal);
+    });
+
+    it('endgame HP ramp is baked into each group healthMultiplier post-W20', () => {
+      // W30 boss: profile.hpMult 35 × endgameHpMultiplier(30)=1.5 = 52.5
+      const resolved = staticWaveResolvedFor(30);
+      expect(resolved).not.toBeNull();
+      const boss = resolved!.enemies.find(e => e.type === 'herbert');
+      expect(boss).toBeDefined();
+      expect(boss!.healthMultiplier).toBeCloseTo(35 * endgameHpMultiplier(30), 5);
+    });
+
+    it('W1-20 see no endgame HP ramp (multiplier × 1.0)', () => {
+      const resolved = staticWaveResolvedFor(1);
+      const g = resolved!.enemies[0];
+      // W1 zombie hpMult 0.8 × endgameHpMultiplier(1)=1.0 = 0.8
+      expect(g.healthMultiplier).toBeCloseTo(0.8, 5);
+    });
+
+    it('W31 loops to W1 resolved shape (multi-group inclusive for boss loops)', () => {
+      const w1 = staticWaveResolvedFor(1);
+      const w31 = staticWaveResolvedFor(31);
+      expect(w1).not.toBeNull();
+      expect(w31).not.toBeNull();
+      expect(w31!.enemies.length).toBe(w1!.enemies.length);
+      expect(w31!.totalCount).toBe(w1!.totalCount);
+      // Endgame ramp still flat at W31 (ramp starts post-W20 but loops at W31 mod 30=1 in template; ramp is per-wave-num, not per-profile)
+      expect(w31!.enemies[0].healthMultiplier).toBeCloseTo(0.8 * endgameHpMultiplier(31), 5);
+    });
+
+    it('spawn pattern from profile is passed through to AIWaveConfig', () => {
+      // W10 boss has pattern 'clustered'
+      expect(staticWaveResolvedFor(10)!.pattern).toBe('clustered');
+      // W6 spider is single-group with no pattern → undefined
+      expect(staticWaveResolvedFor(6)!.pattern).toBeUndefined();
     });
   });
 });

@@ -4,7 +4,7 @@ vi.mock('three', async () => await import('@/test/mocks/three.mock'));
 
 import { GameEventBus } from '../game-engine';
 import { EnemyManager } from './enemy.manager';
-import { WaveManager, WaveConfig, SpawnPoint } from './wave.manager';
+import { WaveManager, WaveConfig, SpawnPoint, SpawnEntry } from './wave.manager';
 import { GeoPosition } from '../models/game.types';
 
 // Create a minimal mock for EnemyManager
@@ -38,15 +38,34 @@ const CACHED_PATHS = new Map<string, GeoPosition[]>([
   ]],
 ]);
 
-function makeWaveConfig(overrides?: Partial<WaveConfig>): WaveConfig {
+/**
+ * Helper to build a WaveConfig (schedule-only — no legacy single-type path).
+ * Accepts familiar single-type knobs (count/type/speed/spawnDelay/spawnMode)
+ * and synthesises a SpawnSchedule with one entry per enemy.
+ */
+function makeWaveConfig(opts?: {
+  count?: number;
+  type?: string;
+  speed?: number;
+  health?: number;
+  spawnDelay?: number;
+  spawnMode?: 'each' | 'random';
+}): WaveConfig {
+  const count = opts?.count ?? 3;
+  const type = opts?.type ?? 'basic';
+  const speed = opts?.speed ?? 5;
+  const health = opts?.health;
+  const entries: SpawnEntry[] = [];
+  for (let i = 0; i < count; i++) {
+    entries.push({ enemyType: type as never, speed, health });
+  }
   return {
-    enemyCount: 3,
-    enemyType: 'basic',
-    enemySpeed: 5,
-    spawnMode: 'each',
-    spawnDelay: 100,
-    ...overrides,
-  } as WaveConfig;
+    schedule: {
+      entries,
+      baseDelay: opts?.spawnDelay ?? 100,
+      spawnMode: opts?.spawnMode ?? 'each',
+    },
+  };
 }
 
 describe('WaveManager', () => {
@@ -121,7 +140,7 @@ describe('WaveManager', () => {
     it('emits wave:started with correct enemy count', () => {
       const handler = vi.fn();
       bus.on('wave:started', handler);
-      wm.startWave(makeWaveConfig({ enemyCount: 5 }));
+      wm.startWave(makeWaveConfig({ count: 5 }));
 
       expect(handler).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -133,13 +152,13 @@ describe('WaveManager', () => {
     });
 
     it('spawns first enemy on first tickSpawn', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 2 }));
+      wm.startWave(makeWaveConfig({ count: 2 }));
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
     });
 
     it('spawns enemies with game-time delay between them', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 3, spawnDelay: 200 }));
+      wm.startWave(makeWaveConfig({ count: 3, spawnDelay: 200 }));
 
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
@@ -156,7 +175,7 @@ describe('WaveManager', () => {
     });
 
     it('uses "each" spawn mode (round-robin)', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 3, spawnMode: 'each', spawnDelay: 50 }));
+      wm.startWave(makeWaveConfig({ count: 3, spawnMode: 'each', spawnDelay: 50 }));
 
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledWith(
@@ -177,35 +196,20 @@ describe('WaveManager', () => {
       );
     });
 
-    it('handles invalid enemyCount gracefully (falls back to 10)', () => {
+    it('does nothing for an empty schedule (no event, stays in setup)', () => {
       const handler = vi.fn();
       bus.on('wave:started', handler);
-      wm.startWave(makeWaveConfig({ enemyCount: NaN }));
-
-      expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          enemyCount: 10,
-        })
-      );
-    });
-
-    it('handles negative enemyCount gracefully', () => {
-      const handler = vi.fn();
-      bus.on('wave:started', handler);
-      wm.startWave(makeWaveConfig({ enemyCount: -5 }));
-
-      expect(handler).toHaveBeenCalledWith(
-        expect.objectContaining({
-          enemyCount: 10,
-        })
-      );
+      wm.startWave({ schedule: { entries: [], baseDelay: 100 } });
+      expect(handler).not.toHaveBeenCalled();
+      expect(wm.phase()).toBe('setup');
+      expect(wm.waveNumber()).toBe(0);
     });
 
     it('spawning is timescale-agnostic — advanced via game-time tickSpawn', () => {
       // Sub-stepping: the engine ticks game-time in fixed 16ms steps. Two
       // 100ms-each ticks together cover one 200ms spawn delay regardless
       // of training timescale.
-      wm.startWave(makeWaveConfig({ enemyCount: 2, spawnDelay: 200 }));
+      wm.startWave(makeWaveConfig({ count: 2, spawnDelay: 200 }));
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
       wm.tickSpawn(100);
@@ -221,20 +225,20 @@ describe('WaveManager', () => {
     });
 
     it('returns false during spawning (not all enemies spawned)', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 3, spawnDelay: 1000 }));
+      wm.startWave(makeWaveConfig({ count: 3, spawnDelay: 1000 }));
       // Only 1 spawned so far, 2 pending
       expect(wm.checkWaveComplete()).toBe(false);
     });
 
     it('returns true when all enemies spawned AND all dead', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 1, spawnDelay: 50 }));
+      wm.startWave(makeWaveConfig({ count: 1, spawnDelay: 50 }));
       wm.tickSpawn(0); // spawn the 1 enemy
       expect(wm.checkWaveComplete()).toBe(true);
     });
 
     it('returns false when all spawned but some alive', () => {
       (enemyManager.getAliveCount as ReturnType<typeof vi.fn>).mockReturnValue(2);
-      wm.startWave(makeWaveConfig({ enemyCount: 1, spawnDelay: 50 }));
+      wm.startWave(makeWaveConfig({ count: 1, spawnDelay: 50 }));
       wm.tickSpawn(0);
       expect(wm.checkWaveComplete()).toBe(false);
     });
@@ -294,7 +298,7 @@ describe('WaveManager', () => {
     });
 
     it('stops pending spawns on reset', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 10, spawnDelay: 100 }));
+      wm.startWave(makeWaveConfig({ count: 10, spawnDelay: 100 }));
       wm.tickSpawn(0);
       const spawnCountBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
 
@@ -307,7 +311,7 @@ describe('WaveManager', () => {
 
   describe('stopSpawning()', () => {
     it('prevents further spawns', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 5, spawnDelay: 100 }));
+      wm.startWave(makeWaveConfig({ count: 5, spawnDelay: 100 }));
       wm.tickSpawn(0);
       expect(enemyManager.spawn).toHaveBeenCalledTimes(1);
 
@@ -317,7 +321,7 @@ describe('WaveManager', () => {
     });
 
     it('adjusts expected count so wave can complete', () => {
-      wm.startWave(makeWaveConfig({ enemyCount: 5, spawnDelay: 100 }));
+      wm.startWave(makeWaveConfig({ count: 5, spawnDelay: 100 }));
       wm.stopSpawning();
 
       // Now checkWaveComplete should reflect adjusted counts
@@ -353,7 +357,7 @@ describe('WaveManager', () => {
     it('stops further spawning after kill-all', () => {
       (enemyManager.getAlive as ReturnType<typeof vi.fn>).mockReturnValue([]);
 
-      wm.startWave(makeWaveConfig({ enemyCount: 5, spawnDelay: 100 }));
+      wm.startWave(makeWaveConfig({ count: 5, spawnDelay: 100 }));
       wm.tickSpawn(0);
       const callsBefore = (enemyManager.spawn as ReturnType<typeof vi.fn>).mock.calls.length;
 
@@ -364,23 +368,17 @@ describe('WaveManager', () => {
     });
   });
 
-  describe('startScheduledWave() (mixed wave schedule)', () => {
+  describe('startWave() (mixed-schedule features)', () => {
     function scheduledConfig(
       entries: { enemyType: string; speed: number; health?: number; delay?: number; pauseAfter?: number }[],
       baseDelay = 100,
     ): WaveConfig {
       return {
-        // legacy fields kept for type-compat — ignored when schedule is present
-        enemyCount: entries.length,
-        enemyType: 'basic',
-        enemySpeed: 5,
-        spawnMode: 'random',
-        spawnDelay: baseDelay,
         schedule: {
           entries: entries as never,
           baseDelay,
         },
-      } as WaveConfig;
+      };
     }
 
     it('emits wave:started with the schedule entry count', () => {

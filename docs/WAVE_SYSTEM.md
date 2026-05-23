@@ -80,19 +80,43 @@ export type GamePhase = 'setup' | 'wave' | 'gameover';
 
 ## Wave-Konfiguration
 
-### WaveConfig Interface
+### WaveConfig Interface (Schedule-only seit 2026-05-23)
+
+`WaveConfig` ist schedule-only — der WaveManager hat genau einen
+Spawn-Pfad. Single-Enemy-Wellen sind Schedules mit einer Gruppe → N
+Entries desselben Typs; Mixed-Wellen interleaven mehrere Gruppen per
+Spawn-Pattern (siehe unten).
 
 ```typescript
 export interface WaveConfig {
-  enemyCount: number;      // Anzahl Enemies
-  enemyType: EnemyTypeId;  // Enemy-Typ (z.B. 'zombie', 'tank')
-  enemySpeed: number;      // Geschwindigkeit (m/s) - PFLICHT
-  enemyHealth?: number;    // Health override (optional, Default = Enemy-Typ Health)
-  spawnMode: 'each' | 'random';  // Spawn-Verteilung
-  spawnDelay: number;      // Delay zwischen Spawns (ms)
-  getSpawnDelay?: () => number;  // Optionale dynamische Delay-Funktion
+  schedule: SpawnSchedule;
+}
+
+export interface SpawnSchedule {
+  entries: SpawnEntry[];
+  baseDelay: number;                    // ms zwischen Spawns
+  getDelay?: () => number;              // dynamische Delay-Funktion (Live-Tune Debug)
+  spawnMode?: 'each' | 'random';        // Spawn-Point-Wahl (default 'random')
+}
+
+export interface SpawnEntry {
+  enemyType: EnemyTypeId;
+  speed: number;                        // m/s
+  health?: number;                      // Per-Enemy-HP-Override
+  delay?: number;                       // ms — Gap VOR dem nächsten Spawn (überschreibt baseDelay)
+  pauseAfter?: number;                  // ms — Extra-Pause NACH diesem Spawn (wave-in-wave)
 }
 ```
+
+**Producer:** Niemand baut `WaveConfig` direkt — alle gehen durch
+`adaptAIWaveConfig(AIWaveConfig)` in
+`src/app/ai/core/wave-config-adapter.ts`. Quellen für die `AIWaveConfig`:
+
+| Quelle | Funktion |
+|---|---|
+| AI Wave Director | `WaveDirectorService.getNextWave()` / `trainingClient.requestWaveConfig()` |
+| Static Curriculum | `staticWaveResolvedFor(waveNum)` (siehe [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md)) |
+| Debug-Panel | `WaveDebugService.toAIWaveConfig()` |
 
 ### SpawnPoint Interface
 
@@ -161,21 +185,22 @@ beginWave(): void {
 
 ### startWave(config)
 
-Startet eine Wave MIT automatischem Spawning gemaess `WaveConfig`.
+Startet eine Wave MIT automatischem Spawning gemäß `WaveConfig`.
 
 ```typescript
-this.waveManager.startWave({
-  enemyCount: 10,
-  enemyType: 'zombie',
-  enemySpeed: 5,
-  spawnMode: 'random',
-  spawnDelay: 500,        // 500ms zwischen Spawns
+import { adaptAIWaveConfig } from './ai/core/wave-config-adapter';
+
+const waveConfig = adaptAIWaveConfig({
+  enemies: [{ type: 'zombie', count: 10 }],
+  totalCount: 10,
+  spawnDelay: 500,
 });
+this.waveManager.startWave(waveConfig);
 ```
 
 **Verhalten:**
-1. Validiert `enemyCount` (NaN, Infinity, negativ -> Fallback auf 10)
-2. Wave-Nummer erhoet sich
+1. Empty-Schedule (`entries.length === 0`) → early-return, kein Event
+2. Wave-Nummer erhöht sich
 3. Phase wechselt zu `'wave'`
 4. Emitted `wave:started` Event mit tatsaechlicher Enemy-Anzahl
 5. Spawn-Loop startet, Enemies spawnen im konfigurierten Abstand

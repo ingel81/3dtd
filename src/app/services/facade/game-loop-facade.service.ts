@@ -12,7 +12,7 @@ import { EnemyDebugService } from '../debug/enemy-debug.service';
 import { WaveDirectorService } from '../../ai/core/wave-director.service';
 import { AIDataCollectorService } from '../../ai/core/ai-data-collector.service';
 import { TrainingClientService } from '../../ai/training/training-client.service';
-import { adaptAIWaveConfigMixed } from '../../ai/core/wave-config-adapter';
+import { adaptAIWaveConfig } from '../../ai/core/wave-config-adapter';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { WaveConfig } from '../../managers/wave.manager';
 import { staticWaveResolvedFor } from '../../configs/wave-curriculum.config';
@@ -200,15 +200,7 @@ export class GameLoopFacadeService {
    * Shared helper to avoid duplication between startWave() and startCustomWave().
    */
   buildWaveConfig(): WaveConfig {
-    return {
-      enemyCount: this.waveDebug.enemyCount(),
-      enemyType: this.waveDebug.enemyType(),
-      enemySpeed: this.waveDebug.enemySpeed(),
-      enemyHealth: this.waveDebug.enemyHealth(),
-      spawnMode: this.waveDebug.spawnMode(),
-      spawnDelay: this.waveDebug.spawnDelay(),
-      getSpawnDelay: this.waveDebug.spawnDelay,
-    };
+    return adaptAIWaveConfig(this.waveDebug.toAIWaveConfig());
   }
 
   /**
@@ -219,14 +211,7 @@ export class GameLoopFacadeService {
   buildStaticCurriculumWaveConfig(waveNum: number): WaveConfig | null {
     const resolved = staticWaveResolvedFor(waveNum);
     if (!resolved) return null;
-    return {
-      enemyCount: resolved.count,
-      enemyType: resolved.enemyType,
-      enemySpeed: resolved.enemySpeed,
-      enemyHealth: resolved.enemyHealth,
-      spawnMode: 'each',
-      spawnDelay: resolved.spawnDelayMs,
-    };
+    return adaptAIWaveConfig(resolved);
   }
 
   /**
@@ -296,7 +281,7 @@ export class GameLoopFacadeService {
       }
 
       this.store.aiExplanation.set(aiConfig.explanation ?? null);
-      const waveConfig = adaptAIWaveConfigMixed(aiConfig);
+      const waveConfig = adaptAIWaveConfig(aiConfig);
 
       this.gameState.getEventBus().emit({
         type: 'command:start-wave',
@@ -330,9 +315,7 @@ export class GameLoopFacadeService {
     if (!this.bridge.getEngine() || this.store.phase() === 'wave' || this.store.phase() === 'gameover') return;
     if (this.store.spawnPoints().length === 0) return;
 
-    const waveConfig = this.waveDebug.mixedMode()
-      ? this.waveDebug.buildMixedWaveConfig()
-      : this.buildWaveConfig();
+    const waveConfig = this.buildWaveConfig();
 
     this.store.aiExplanation.set(null);
     this.gameState.getEventBus().emit({

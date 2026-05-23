@@ -64,6 +64,13 @@ export interface WaveConfig {
   /** Which spawn point to use (if multiple exist) */
   spawnPointIndex?: number;
 
+  /**
+   * Spawn-point selection mode for the runtime schedule.
+   * 'each' = round-robin across spawn points; 'random' = uniform pick.
+   * Default 'random' (used by AI Director + static curriculum).
+   */
+  spawnMode?: 'each' | 'random';
+
   // === METADATA ===
 
   /** AI confidence in this configuration (0-1) */
