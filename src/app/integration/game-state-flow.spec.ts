@@ -114,6 +114,7 @@ describe('Game State Flow Integration', () => {
       totalCredits += event.credits;
     });
 
+    m.enemyManager.setWaveNumberProvider(() => 1);
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 5, true);
     m.enemyManager.kill(enemy);
 

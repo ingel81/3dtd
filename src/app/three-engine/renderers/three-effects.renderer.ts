@@ -34,6 +34,8 @@ export interface FloatingTextConfig {
   outlineColor?: string;
   /** Outline width (default: 3) */
   outlineWidth?: number;
+  /** Screen-right offset in world units (negative = left). Default 0. */
+  lateralOffset?: number;
 }
 
 /**

@@ -137,6 +137,7 @@ describe('Enemy Movement Path Integration', () => {
     const diedHandler = vi.fn();
     m.eventBus.on('enemy:died', diedHandler);
 
+    m.enemyManager.setWaveNumberProvider(() => 1);
     m.enemyManager.kill(enemy, 1.0);
 
     expect(diedHandler).toHaveBeenCalledOnce();
