@@ -4,6 +4,28 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-05-23
+
+### Per-Kill-Reward — deterministischer Akkumulator (TODO 2.2, W19 rat_tide Overshoot)
+
+- [x] **Reward-Floor 1g bei Mega-Swarms ersetzt durch Per-Wave-Akkumulator**
+      Alte Formel `Math.max(1, Math.round(budget / count))` (`enemy.manager.ts`)
+      floorte jeden Reward bei 1g — W19 `rat_tide` (Budget 8000, 5000 Enemies)
+      zahlte 5000g statt der vom Curriculum gewollten Cap aus und brach die
+      Economy-Balance.
+      Neuer Flow: pro Wave `remainingKillBudget` + `remainingRewardSlots` als
+      Felder im `EnemyManager`; jeder bezahlte Kill claimt
+      `floor(remainingBudget / remainingSlots)` und dekrementiert beide Zähler,
+      der letzte Slot bekommt den Rounding-Rest. Summe aller Kills = exakt
+      `goldBudgetForWave(wave).kill` wenn alle Enemies sterben; Extra-Kills
+      über die erwartete Wave-Size zahlen 0g; Leaks reduzieren das verdiente
+      Gold natürlich.
+      `awardCredits=false` (Debug-Kill-All) lässt den Akkumulator unangetastet
+      — Dev-Shortcuts verbrennen keine Budget-Slots.
+      Tests (`enemy.manager.spec.ts`, +137 LOC): Summe = Budget, W19-Regression,
+      Overshoot-Kills, Wave-Wechsel-Reset, Debug-Kill-Isolation, Zero-Budget,
+      Leaks. Commit `e4a3400`.
+
 ## 2026-05-22
 
 ### `game-sidebar.component.ts` — Inline-CSS in Component-Stylesheet ausgelagert (TODO 1.2)
