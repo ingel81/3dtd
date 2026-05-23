@@ -22,6 +22,8 @@ export interface FloatingTextSpawnConfig {
   scale?: number;
   outlineColor?: string;
   outlineWidth?: number;
+  /** Screen-right offset in world units (negative = left). Used to split overlapping popup categories. */
+  lateralOffset?: number;
 }
 
 interface ActiveInstance {
@@ -53,6 +55,7 @@ export class FloatingTextInstanceManager {
   private durationAttr!: InstancedBufferAttribute;
   private floatSpeedAttr!: InstancedBufferAttribute;
   private baseScaleAttr!: InstancedBufferAttribute;
+  private lateralOffsetAttr!: InstancedBufferAttribute;
 
   // Reusable temp
   private readonly tempMatrix = new Matrix4();
@@ -75,12 +78,14 @@ export class FloatingTextInstanceManager {
     this.durationAttr = new InstancedBufferAttribute(new Float32Array(MAX_INSTANCES), 1);
     this.floatSpeedAttr = new InstancedBufferAttribute(new Float32Array(MAX_INSTANCES), 1);
     this.baseScaleAttr = new InstancedBufferAttribute(new Float32Array(MAX_INSTANCES * 2), 2);
+    this.lateralOffsetAttr = new InstancedBufferAttribute(new Float32Array(MAX_INSTANCES), 1);
 
     geometry.setAttribute('aAtlasRect', this.atlasRectAttr);
     geometry.setAttribute('aStartTime', this.startTimeAttr);
     geometry.setAttribute('aDuration', this.durationAttr);
     geometry.setAttribute('aFloatSpeed', this.floatSpeedAttr);
     geometry.setAttribute('aBaseScale', this.baseScaleAttr);
+    geometry.setAttribute('aLateralOffset', this.lateralOffsetAttr);
 
     this.instancedMesh = new InstancedMesh(geometry, this.material, MAX_INSTANCES);
     this.instancedMesh.count = 0;
@@ -116,6 +121,7 @@ export class FloatingTextInstanceManager {
       scale = 1,
       outlineColor = '#000000',
       outlineWidth = 3,
+      lateralOffset = 0,
     } = config;
 
     // Get or allocate atlas slot (cache hit = no canvas work)
@@ -149,12 +155,15 @@ export class FloatingTextInstanceManager {
     const baseSize = scale * 3;
     this.baseScaleAttr.setXY(index, baseSize * slot.textAspect, baseSize);
 
+    this.lateralOffsetAttr.setX(index, lateralOffset);
+
     // Mark attributes dirty
     this.atlasRectAttr.needsUpdate = true;
     this.startTimeAttr.needsUpdate = true;
     this.durationAttr.needsUpdate = true;
     this.floatSpeedAttr.needsUpdate = true;
     this.baseScaleAttr.needsUpdate = true;
+    this.lateralOffsetAttr.needsUpdate = true;
 
     // Track active instance
     this.activeInstances.set(index, { atlasSlot: slot, expiresAt: now + durationSec });

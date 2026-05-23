@@ -29,6 +29,7 @@ export function createFloatingTextMaterial(atlasTexture: Texture): ShaderMateria
       attribute float aDuration;
       attribute float aFloatSpeed;
       attribute vec2 aBaseScale;
+      attribute float aLateralOffset;
 
       // Uniforms
       uniform float uTime;
@@ -72,9 +73,11 @@ export function createFloatingTextMaterial(atlasTexture: Texture): ShaderMateria
         // Float upward over time
         vec3 worldPos = basePos + vec3(0.0, elapsed * aFloatSpeed, 0.0);
 
-        // Billboard: offset quad vertices by camera-aligned axes
-        // position.xy is the quad vertex from PlaneGeometry (-0.5 to 0.5)
-        vec3 offset = uCameraRight * position.x * scaledSize.x
+        // Billboard: offset quad vertices by camera-aligned axes.
+        // position.xy is the quad vertex from PlaneGeometry (-0.5 to 0.5).
+        // aLateralOffset shifts the whole quad along screen-right so damage
+        // and reward popups don't overlap at the same enemy position.
+        vec3 offset = uCameraRight * (position.x * scaledSize.x + aLateralOffset)
                     + uCameraUp    * position.y * scaledSize.y;
         vec3 finalPos = worldPos + offset;
 

@@ -287,6 +287,7 @@ export class GameStateManager {
               duration: TIMING.rewardPopupDuration,
               floatSpeed: 1.5,
               scale: 0.75,
+              lateralOffset: 1.2,
             }
           );
         }

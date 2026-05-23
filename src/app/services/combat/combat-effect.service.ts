@@ -236,6 +236,7 @@ export class CombatEffectService {
         duration: TIMING.damagePopupDuration,
         floatSpeed: 1.2,
         scale,
+        lateralOffset: -1.2,
       }
     );
   }
@@ -270,6 +271,7 @@ export class CombatEffectService {
           duration: TIMING.damagePopupDuration,
           floatSpeed: 1.2,
           scale: 0.2,
+          lateralOffset: -1.2,
         }
       );
     }
