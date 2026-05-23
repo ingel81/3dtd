@@ -34,8 +34,10 @@ export interface FloatingTextConfig {
   outlineColor?: string;
   /** Outline width (default: 3) */
   outlineWidth?: number;
-  /** Screen-right offset in world units (negative = left). Default 0. */
+  /** Screen-right spawn offset in world units (negative = left). Default 0. */
   lateralOffset?: number;
+  /** Screen-right drift in world units per second (negative = left). Default 0. */
+  lateralDrift?: number;
 }
 
 /**

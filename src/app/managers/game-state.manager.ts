@@ -288,6 +288,7 @@ export class GameStateManager {
               floatSpeed: 1.5,
               scale: 0.75,
               lateralOffset: 1.2,
+              lateralDrift: 1.0,
             }
           );
         }

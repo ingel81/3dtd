@@ -30,6 +30,7 @@ export function createFloatingTextMaterial(atlasTexture: Texture): ShaderMateria
       attribute float aFloatSpeed;
       attribute vec2 aBaseScale;
       attribute float aLateralOffset;
+      attribute float aLateralDrift;
 
       // Uniforms
       uniform float uTime;
@@ -70,13 +71,16 @@ export function createFloatingTextMaterial(atlasTexture: Texture): ShaderMateria
           instanceMatrix[3][2]
         );
 
-        // Float upward over time
-        vec3 worldPos = basePos + vec3(0.0, elapsed * aFloatSpeed, 0.0);
+        // Float upward over time + drift sideways along screen-right so
+        // damage (negative drift) and reward (positive drift) trails fan
+        // out diagonally as they fade. aLateralOffset is the static spawn
+        // separation; aLateralDrift is the per-second sideways velocity.
+        vec3 worldPos = basePos
+                      + vec3(0.0, elapsed * aFloatSpeed, 0.0)
+                      + uCameraRight * elapsed * aLateralDrift;
 
         // Billboard: offset quad vertices by camera-aligned axes.
         // position.xy is the quad vertex from PlaneGeometry (-0.5 to 0.5).
-        // aLateralOffset shifts the whole quad along screen-right so damage
-        // and reward popups don't overlap at the same enemy position.
         vec3 offset = uCameraRight * (position.x * scaledSize.x + aLateralOffset)
                     + uCameraUp    * position.y * scaledSize.y;
         vec3 finalPos = worldPos + offset;
