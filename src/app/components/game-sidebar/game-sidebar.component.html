@@ -145,7 +145,18 @@
       @if (isResearchCenter()) {
         <!-- RESEARCH CENTER Panel -->
         <section class="td-panel td-research-panel">
-          <div class="td-panel-header">RESEARCH CENTER · Lv.{{ researchStore.centerLevel() }}</div>
+          <div class="td-panel-header td-tower-header">
+            <span class="td-tower-header-name">RESEARCH CENTER · Lv.{{ researchStore.centerLevel() }}</span>
+            @if (tower.getSellValue() > 0) {
+              <button class="td-header-sell-btn"
+                      [matTooltip]="'Sell — refunds 75% of total invested (base + upgrades)'"
+                      matTooltipPosition="left"
+                      (click)="sellTower.emit()">
+                <td-icon name="coin" [size]="14"></td-icon>
+                <span class="td-header-sell-value">+{{ tower.getSellValue() }}</span>
+              </button>
+            }
+          </div>
           <div class="td-panel-content td-tower-section">
             <!-- Active Research Slots -->
             <div class="td-research-slots-header">
@@ -217,17 +228,6 @@
               }
             </div>
 
-            <!-- Sell Research Center (inline, flows after tree) -->
-            <div class="td-sell-section-inline">
-              <button class="td-sell-tile"
-                      [matTooltip]="'Sell — refunds 75% of total invested (base + upgrades)'"
-                      matTooltipPosition="above"
-                      (click)="sellTower.emit()">
-                <td-icon name="coin" [size]="16"></td-icon>
-                <span>Sell</span>
-                <span class="td-sell-value">+{{ tower.getSellValue() }}</span>
-              </button>
-            </div>
           </div>
         </section>
       } @else {
