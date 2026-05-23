@@ -11,7 +11,8 @@ import { GameEventBus } from '../game-engine/game-event-bus';
 import { EnemyManager } from '../managers/enemy.manager';
 import { TowerManager } from '../managers/tower.manager';
 import { ProjectileManager } from '../managers/projectile.manager';
-import { WaveManager, SpawnPoint } from '../managers/wave.manager';
+import { WaveManager, SpawnPoint, WaveConfig, SpawnEntry } from '../managers/wave.manager';
+import { EnemyTypeId, ENEMY_TYPES } from '../configs/enemy-types.config';
 import { OsmStreetService } from '../services/location/osm-street.service';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
@@ -76,6 +77,35 @@ export function createTestCachedPaths(): Map<string, GeoPosition[]> {
   const map = new Map<string, GeoPosition[]>();
   map.set('spawn-1', TEST_PATH);
   return map;
+}
+
+/**
+ * Build a single-enemy-type WaveConfig from familiar legacy knobs.
+ *
+ * The WaveManager is now schedule-only — this helper synthesises a schedule
+ * with one entry per enemy so integration tests keep reading naturally.
+ */
+export function makeSingleTypeWaveConfig(opts: {
+  count: number;
+  type: EnemyTypeId;
+  speed?: number;
+  health?: number;
+  spawnDelay?: number;
+  spawnMode?: 'each' | 'random';
+}): WaveConfig {
+  const baseSpeed = ENEMY_TYPES[opts.type]?.baseSpeed ?? 5;
+  const speed = opts.speed ?? baseSpeed;
+  const entries: SpawnEntry[] = [];
+  for (let i = 0; i < opts.count; i++) {
+    entries.push({ enemyType: opts.type, speed, health: opts.health });
+  }
+  return {
+    schedule: {
+      entries,
+      baseDelay: opts.spawnDelay ?? 100,
+      spawnMode: opts.spawnMode ?? 'each',
+    },
+  };
 }
 
 // ─── Mock ThreeTilesEngine ────────────────────────────────────────

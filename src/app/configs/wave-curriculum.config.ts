@@ -18,7 +18,9 @@
  */
 
 import { TEMPLATES, type Template } from '../ai/core/templates';
-import { ENEMY_TYPES, type EnemyTypeId } from './enemy-types.config';
+import { type EnemyTypeId } from './enemy-types.config';
+import { WaveConfig as AIWaveConfig, WaveEnemyGroup } from '../ai/core/models/wave-config';
+import { SpawnPattern } from '../ai/core/spawn-schedule-builder';
 
 export interface CurriculumWave {
   /** Template id forced by the curriculum for this wave. */
@@ -137,67 +139,142 @@ export function templateObjectForWave(waveNum: number): Template | null {
 // =====================================================================
 // Static Wave Fallback Profiles
 //
-// One concrete enemy-count + hp-multiplier per wave — used when the AI
-// Wave Director is OFF (debug toggle) so the game can still spawn a
-// sensible wave from the config without any neural-net inference.
+// Concrete enemy composition per wave — used when the AI Wave Director is
+// OFF (debug toggle / no model loaded) so the game can still spawn sensible
+// waves without any neural-net inference.
 //
-// Rough sizing: each wave aims for ~10-30 seconds against the planned
-// player DPS at that wave (see docs/wave-planner.html). Numbers are
-// hand-tuned for "playable rough baseline", not optimal. AI remains the
-// production default — these are for offline testing and a fallback when
-// no model is loaded.
+// Multi-group native: each profile lists one or more enemy groups (analog to
+// the Template `enemies: [[id, ratio], …]` shape), so boss waves can carry
+// their support waves and mixed-template waves stay mixed at runtime. The
+// shape mirrors `WaveEnemyGroup` from `models/wave-config.ts` so it pipes
+// straight through `adaptAIWaveConfig` into the WaveManager's one true
+// spawn pipeline — no parallel single-type fast path.
 //
-// Single-type per wave for simplicity. Boss waves use 'herbert' with
-// high hpMult for a single-target boss feel.
+// Sizing target: ~10-30 seconds per wave against the planned player DPS at
+// that wave (see docs/wave-planner.html). Hand-tuned baselines, not optimal.
 // =====================================================================
+
+export interface StaticWaveGroup {
+  /** Enemy type spawned by this group. */
+  enemyType: EnemyTypeId;
+  /** Number of enemies in this group. */
+  count: number;
+  /** HP multiplier applied to the enemy's baseHp (stacks with endgame ramp). */
+  hpMult: number;
+  /** Optional speed multiplier applied to the enemy's baseSpeed. */
+  speedMult?: number;
+}
 
 export interface StaticWaveProfile {
   /** Wave number (1-indexed). */
   wave: number;
-  /** Primary enemy type spawned during this wave. */
-  enemyType: EnemyTypeId;
-  /** Number of enemies to spawn. */
-  count: number;
-  /** HP multiplier applied to the enemy's baseHp. */
-  hpMult: number;
-  /** Delay between spawns in ms. */
+  /** Enemy groups making up the wave. ≥1 group; multi-group waves get a schedule. */
+  groups: readonly StaticWaveGroup[];
+  /** Base delay between spawns in ms. */
   spawnDelayMs: number;
+  /** Spawn pattern (enemy ordering) — defaults to 'interleaved' when omitted. */
+  pattern?: SpawnPattern;
 }
 
 export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
   // ── Early game (W1-W9): bootstrap, single-armor tests ────────────────
-  { wave:  1, enemyType: 'zombie',      count:  20, hpMult: 0.8, spawnDelayMs: 1000 },
-  { wave:  2, enemyType: 'rat',         count:  60, hpMult: 1.0, spawnDelayMs: 400 },
-  { wave:  3, enemyType: 'penguin',     count:  25, hpMult: 1.0, spawnDelayMs: 500 },
-  { wave:  4, enemyType: 'wallsmasher', count:  12, hpMult: 0.7, spawnDelayMs: 700 },
-  { wave:  5, enemyType: 'wallsmasher', count:  15, hpMult: 0.9, spawnDelayMs: 600 },
-  { wave:  6, enemyType: 'spider',      count:  35, hpMult: 0.9, spawnDelayMs: 450 },
-  { wave:  7, enemyType: 'bat',         count:  30, hpMult: 1.0, spawnDelayMs: 450 },     // AIR debut
-  { wave:  8, enemyType: 'hornet',      count:  18, hpMult: 0.9, spawnDelayMs: 500 },
-  { wave:  9, enemyType: 'tank',        count:  10, hpMult: 1.2, spawnDelayMs: 900 },
+  { wave:  1, groups: [{ enemyType: 'zombie',      count:  20, hpMult: 0.8 }], spawnDelayMs: 1000 },
+  { wave:  2, groups: [{ enemyType: 'rat',         count:  60, hpMult: 1.0 }], spawnDelayMs:  400 },
+  { wave:  3, groups: [{ enemyType: 'penguin',     count:  25, hpMult: 1.0 }], spawnDelayMs:  500 },
+  { wave:  4, groups: [{ enemyType: 'wallsmasher', count:  12, hpMult: 0.7 }], spawnDelayMs:  700 },
+  { wave:  5, groups: [{ enemyType: 'wallsmasher', count:  15, hpMult: 0.9 }], spawnDelayMs:  600 },
+  { wave:  6, groups: [{ enemyType: 'spider',      count:  35, hpMult: 0.9 }], spawnDelayMs:  450 },
+  { wave:  7, groups: [{ enemyType: 'bat',         count:  30, hpMult: 1.0 }], spawnDelayMs:  450 },     // AIR debut
+  // W8 mirrors template `hornet_strike` — hornet 70% + bat 30%
+  { wave:  8, groups: [
+    { enemyType: 'hornet', count: 15, hpMult: 0.9 },
+    { enemyType: 'bat',    count:  6, hpMult: 1.0 },
+  ], spawnDelayMs: 500, pattern: 'interleaved' },
+  // W9 mirrors template `tank_column` — tank 60% + zombie-soldier 40%
+  { wave:  9, groups: [
+    { enemyType: 'tank',           count:  8, hpMult: 1.2 },
+    { enemyType: 'zombie-soldier', count:  6, hpMult: 1.0 },
+  ], spawnDelayMs: 800, pattern: 'interleaved' },
   // ── Mid game (W10-W19): boss + first ethereal/fortified ─────────────
-  { wave: 10, enemyType: 'herbert',     count:   1, hpMult:  8.0, spawnDelayMs: 1500 },   // BOSS 1
-  { wave: 11, enemyType: 'bear',        count:  10, hpMult: 1.2, spawnDelayMs: 850 },
-  { wave: 12, enemyType: 'dragon',      count:   6, hpMult: 1.4, spawnDelayMs: 1000 },
-  { wave: 13, enemyType: 'ghost',       count:  22, hpMult: 1.3, spawnDelayMs: 450 },     // ETHEREAL intro
-  { wave: 14, enemyType: 'mammoth',     count:   8, hpMult: 1.6, spawnDelayMs: 1100 },
-  { wave: 15, enemyType: 'stone-golem', count:   6, hpMult: 1.5, spawnDelayMs: 1100 },     // golem squad
-  { wave: 16, enemyType: 'tank',        count:  25, hpMult: 2.0, spawnDelayMs: 400 },
-  { wave: 17, enemyType: 'wraith',      count:  30, hpMult: 2.0, spawnDelayMs: 280 },
-  { wave: 18, enemyType: 'tank',        count:  25, hpMult: 2.5, spawnDelayMs: 400 },
-  { wave: 19, enemyType: 'rat',         count: 500, hpMult: 2.0, spawnDelayMs:  50 },     // mega-swarm
+  // W10 BOSS 1 — Herbert with tank + zombie support per template `boss_herbert`
+  { wave: 10, groups: [
+    { enemyType: 'herbert', count:  1, hpMult: 8.0 },
+    { enemyType: 'tank',    count: 12, hpMult: 1.0 },
+    { enemyType: 'zombie',  count: 18, hpMult: 0.6 },
+  ], spawnDelayMs: 700, pattern: 'clustered' },
+  { wave: 11, groups: [{ enemyType: 'bear',  count: 10, hpMult: 1.2 }], spawnDelayMs: 850 },
+  // W12 mirrors template `dragon_elite` — dragon 60% + hornet 40%
+  { wave: 12, groups: [
+    { enemyType: 'dragon', count:  6, hpMult: 1.4 },
+    { enemyType: 'hornet', count:  4, hpMult: 1.0 },
+  ], spawnDelayMs: 1000, pattern: 'interleaved' },
+  // W13 mirrors template `ghost_surge` — ghost 80% + wraith 20%
+  { wave: 13, groups: [
+    { enemyType: 'ghost',  count: 18, hpMult: 1.3 },
+    { enemyType: 'wraith', count:  5, hpMult: 1.2 },
+  ], spawnDelayMs: 450, pattern: 'interleaved' },     // ETHEREAL intro
+  // W14 mirrors template `mammoth_siege` — mammoth 70% + wallsmasher 30%
+  { wave: 14, groups: [
+    { enemyType: 'mammoth',     count:  6, hpMult: 1.6 },
+    { enemyType: 'wallsmasher', count:  4, hpMult: 1.0 },
+  ], spawnDelayMs: 1000, pattern: 'interleaved' },
+  { wave: 15, groups: [{ enemyType: 'stone-golem', count:  6, hpMult: 1.5 }], spawnDelayMs: 1100 },     // golem squad
+  // W16 mirrors template `chaos_wave` — zombie 30% + tank 30% + hornet 20% + bear 20%
+  { wave: 16, groups: [
+    { enemyType: 'zombie', count: 18, hpMult: 1.0 },
+    { enemyType: 'tank',   count: 12, hpMult: 1.5 },
+    { enemyType: 'hornet', count:  8, hpMult: 1.2 },
+    { enemyType: 'bear',   count:  4, hpMult: 1.0 },
+  ], spawnDelayMs: 400, pattern: 'interleaved' },
+  { wave: 17, groups: [{ enemyType: 'wraith', count:  30, hpMult: 2.0 }], spawnDelayMs:  280 },
+  // W18 mirrors template `armor_gauntlet` — rat 25% + tank 25% + mammoth 25% + ghost 25%
+  { wave: 18, groups: [
+    { enemyType: 'rat',     count: 20, hpMult: 1.5 },
+    { enemyType: 'tank',    count: 10, hpMult: 1.8 },
+    { enemyType: 'mammoth', count:  4, hpMult: 1.8 },
+    { enemyType: 'ghost',   count: 12, hpMult: 1.5 },
+  ], spawnDelayMs: 400, pattern: 'interleaved' },
+  { wave: 19, groups: [{ enemyType: 'rat',     count: 500, hpMult: 2.0 }], spawnDelayMs:   50 },     // mega-swarm
   // ── Late game (W20-W30): pressure phase, boss spikes ─────────────────
-  { wave: 20, enemyType: 'herbert',     count:   1, hpMult: 30.0, spawnDelayMs: 1500 },   // BOSS 2
-  { wave: 21, enemyType: 'bat',         count: 150, hpMult: 3.0, spawnDelayMs: 100 },
-  { wave: 22, enemyType: 'tank',        count:  20, hpMult: 3.5, spawnDelayMs: 400 },
-  { wave: 23, enemyType: 'ghost',       count:  50, hpMult: 3.0, spawnDelayMs: 250 },
-  { wave: 24, enemyType: 'dragon',      count:  15, hpMult: 3.0, spawnDelayMs: 600 },
-  { wave: 25, enemyType: 'mammoth',     count:  18, hpMult: 3.5, spawnDelayMs: 700 },
-  { wave: 26, enemyType: 'hornet',      count:  80, hpMult: 4.0, spawnDelayMs: 150 },
-  { wave: 27, enemyType: 'wraith',      count:  80, hpMult: 5.0, spawnDelayMs: 200 },
-  { wave: 28, enemyType: 'mech',        count:  20, hpMult: 4.0, spawnDelayMs: 500 },
-  { wave: 29, enemyType: 'zombie',      count: 100, hpMult: 4.0, spawnDelayMs: 150 },
-  { wave: 30, enemyType: 'herbert',     count:   3, hpMult: 35.0, spawnDelayMs: 1800 },   // BOSS 3 (season finale)
+  // W20 BOSS 2 — Herbert with bigger support
+  { wave: 20, groups: [
+    { enemyType: 'herbert', count:  1, hpMult: 30.0 },
+    { enemyType: 'tank',    count: 20, hpMult: 1.8 },
+    { enemyType: 'zombie',  count: 24, hpMult: 1.0 },
+  ], spawnDelayMs: 600, pattern: 'clustered' },
+  { wave: 21, groups: [{ enemyType: 'bat',     count: 150, hpMult: 3.0 }], spawnDelayMs:  100 },
+  { wave: 22, groups: [{ enemyType: 'tank',    count:  20, hpMult: 3.5 }], spawnDelayMs:  400 },
+  // W23 mirrors template `ghost_surge` at higher pressure
+  { wave: 23, groups: [
+    { enemyType: 'ghost',  count: 40, hpMult: 3.0 },
+    { enemyType: 'wraith', count: 10, hpMult: 2.5 },
+  ], spawnDelayMs: 250, pattern: 'interleaved' },
+  // W24 mirrors template `dragon_elite` at higher pressure
+  { wave: 24, groups: [
+    { enemyType: 'dragon', count:  9, hpMult: 3.0 },
+    { enemyType: 'hornet', count:  6, hpMult: 2.5 },
+  ], spawnDelayMs: 600, pattern: 'interleaved' },
+  // W25 mirrors template `mammoth_siege` at higher pressure
+  { wave: 25, groups: [
+    { enemyType: 'mammoth',     count: 12, hpMult: 3.5 },
+    { enemyType: 'wallsmasher', count:  6, hpMult: 2.5 },
+  ], spawnDelayMs: 700, pattern: 'interleaved' },
+  { wave: 26, groups: [{ enemyType: 'hornet',  count:  80, hpMult: 4.0 }], spawnDelayMs:  150 },
+  { wave: 27, groups: [{ enemyType: 'wraith',  count:  80, hpMult: 5.0 }], spawnDelayMs:  200 },
+  { wave: 28, groups: [{ enemyType: 'mech',    count:  20, hpMult: 4.0 }], spawnDelayMs:  500 },
+  // W29 mirrors template `chaos_wave` at pressure
+  { wave: 29, groups: [
+    { enemyType: 'zombie', count: 60, hpMult: 4.0 },
+    { enemyType: 'tank',   count: 20, hpMult: 4.0 },
+    { enemyType: 'hornet', count: 15, hpMult: 3.5 },
+    { enemyType: 'bear',   count:  8, hpMult: 3.0 },
+  ], spawnDelayMs: 150, pattern: 'interleaved' },
+  // W30 BOSS 3 (season finale) — 3 Herberts + heaviest support
+  { wave: 30, groups: [
+    { enemyType: 'herbert', count:  3, hpMult: 35.0 },
+    { enemyType: 'tank',    count: 25, hpMult: 2.5 },
+    { enemyType: 'zombie',  count: 30, hpMult: 1.5 },
+  ], spawnDelayMs: 600, pattern: 'clustered' },
 ] as const;
 
 /**
@@ -205,7 +282,7 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
  * profile **loops** alongside `templateForWave` (wave 31 = wave 1, etc.) so
  * the static fallback stays in lockstep with the looping enemy templates.
  * Late-game difficulty escalates via `endgameHpMultiplier` (applied at
- * build-time in the game-loop facade), not via runaway count/hp here.
+ * resolve-time), not via runaway count/hp here.
  */
 export function staticWaveProfileForWave(waveNum: number): StaticWaveProfile | null {
   if (waveNum < 1) return null;
@@ -213,29 +290,31 @@ export function staticWaveProfileForWave(waveNum: number): StaticWaveProfile | n
 }
 
 /**
- * Build a single-type WaveConfig-ish payload from a static profile.
- * The game-loop facade adapts this into a full WaveConfig.
+ * Resolve a static profile into an AIWaveConfig (the same shape the AI
+ * Director and training-backend emit). The facade pipes the result through
+ * `adaptAIWaveConfig` to get the runtime WaveConfig — single spawn pipeline
+ * for AI, training, and static fallback. Endgame HP ramp is baked into each
+ * group's `healthMultiplier` so post-W20 waves keep escalating even while
+ * the curriculum loops mod-30.
+ *
  * Returns null for waveNum < 1.
  */
-export function staticWaveResolvedFor(waveNum: number): {
-  enemyType: EnemyTypeId;
-  count: number;
-  enemyHealth: number;
-  enemySpeed: number;
-  spawnDelayMs: number;
-} | null {
+export function staticWaveResolvedFor(waveNum: number): AIWaveConfig | null {
   const profile = staticWaveProfileForWave(waveNum);
   if (!profile) return null;
-  const enemy = ENEMY_TYPES[profile.enemyType];
-  // Apply endgame HP ramp on top of the profile's own hpMult so post-W20
-  // waves keep getting tougher even while the template loops mod 30.
   const endgameHp = endgameHpMultiplier(waveNum);
+  const enemies: WaveEnemyGroup[] = profile.groups.map((g) => ({
+    type: g.enemyType,
+    count: g.count,
+    healthMultiplier: g.hpMult * endgameHp,
+    speedMultiplier: g.speedMult,
+  }));
+  const totalCount = enemies.reduce((sum, g) => sum + g.count, 0);
   return {
-    enemyType: profile.enemyType,
-    count: profile.count,
-    enemyHealth: Math.round(enemy.baseHp * profile.hpMult * endgameHp),
-    enemySpeed: enemy.baseSpeed,
-    spawnDelayMs: profile.spawnDelayMs,
+    enemies,
+    totalCount,
+    spawnDelay: profile.spawnDelayMs,
+    pattern: profile.pattern,
   };
 }
 

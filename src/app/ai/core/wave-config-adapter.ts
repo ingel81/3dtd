@@ -1,8 +1,15 @@
 /**
  * Wave Config Adapter
  *
- * Converts AI WaveConfig to WaveManager WaveConfig format.
- * This adapter ensures AI doesn't break existing game logic.
+ * Single conversion point from AI/curriculum WaveConfig (AIWaveConfig — what
+ * the wave-director, training-backend, or static curriculum produces) into
+ * the runtime WaveManager WaveConfig consumed by `WaveManager.startWave()`.
+ *
+ * Architecture invariant (no parallel systems): the WaveManager has exactly
+ * one spawn pipeline — schedule-based. This adapter always builds a
+ * SpawnSchedule, even for single-group waves. A 1-group AIWaveConfig becomes
+ * a schedule with one entry per enemy; functionally identical to the old
+ * single-type path that lived inside WaveManager.
  */
 
 import { WaveConfig as AIWaveConfig } from './models/wave-config';
@@ -11,118 +18,38 @@ import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { buildSpawnSchedule, DEFAULT_SPAWN_PATTERN } from './spawn-schedule-builder';
 
 /**
- * Convert AI WaveConfig to WaveManager WaveConfig (with mixed wave support)
+ * Convert an AIWaveConfig into a WaveManagerConfig.
  *
- * Single enemy group → uses classic single-type spawning.
- * Multiple groups → builds a SpawnSchedule for mixed spawning.
+ * Always emits a schedule — even for 1-group inputs. The WaveManager has no
+ * single-type fast path, so this is the only entry point for wave spawning.
  */
-export function adaptAIWaveConfigMixed(aiConfig: AIWaveConfig): WaveManagerConfig {
-  const validGroups = aiConfig.enemies.filter(g => g.count > 0);
+export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig {
+  const groups = aiConfig.enemies
+    .filter((g) => g.count > 0)
+    .map((g) => ({
+      ...g,
+      type: validateEnemyType(g.type) ?? 'zombie',
+    }));
 
-  // Single group or empty: use classic single-type path
-  if (validGroups.length <= 1) {
-    return adaptAIWaveConfigSingle(aiConfig);
-  }
-
-  // Multiple groups: build a mixed wave schedule (Template supplies pattern; fall back to default)
   const pattern = aiConfig.pattern ?? DEFAULT_SPAWN_PATTERN;
 
   const schedule = buildSpawnSchedule({
-    groups: validGroups,
+    groups,
     pattern,
     baseDelay: aiConfig.spawnDelay,
     delayVariation: aiConfig.spawnDelayVariation,
   });
 
-  // Get dominant type for legacy fields
-  const dominant = validGroups.reduce((best, current) =>
-    current.count > best.count ? current : best
-  );
-  const dominantType = validateEnemyType(dominant.type) ?? 'zombie';
-  const dominantConfig = ENEMY_TYPES[dominantType];
-
-  return {
-    enemyCount: aiConfig.totalCount,
-    enemyType: dominantType,
-    enemySpeed: dominantConfig?.baseSpeed ?? 5,
-    spawnMode: 'random',
-    spawnDelay: aiConfig.spawnDelay,
-    schedule,
-  };
-}
-
-/**
- * Convert AI WaveConfig to array of WaveManager configs (one per group)
- */
-export function adaptAIWaveConfig(aiConfig: AIWaveConfig): WaveManagerConfig[] {
-  const configs: WaveManagerConfig[] = [];
-
-  for (const group of aiConfig.enemies) {
-    if (group.count <= 0) continue;
-
-    const enemyType = validateEnemyType(group.type);
-    if (!enemyType) {
-      console.warn(`[AI Adapter] Unknown enemy type: ${group.type}, skipping`);
-      continue;
-    }
-
-    const enemyConfig = ENEMY_TYPES[enemyType];
-    if (!enemyConfig) continue;
-
-    const adjustedSpeed = enemyConfig.baseSpeed * (group.speedMultiplier ?? 1);
-    const adjustedHealth = group.healthMultiplier
-      ? Math.round(enemyConfig.baseHp * group.healthMultiplier)
-      : undefined;
-
-    const baseDelay = aiConfig.spawnDelay;
-    const variation = aiConfig.spawnDelayVariation ?? 0;
-    const getSpawnDelay = variation > 0
-      ? () => {
-          const min = baseDelay * (1 - variation);
-          const max = baseDelay * (1 + variation);
-          return Math.round(min + Math.random() * (max - min));
-        }
-      : undefined;
-
-    configs.push({
-      enemyCount: group.count,
-      enemyType,
-      enemySpeed: adjustedSpeed,
-      enemyHealth: adjustedHealth,
-      spawnMode: 'random',
-      spawnDelay: baseDelay,
-      getSpawnDelay,
-    });
+  if (aiConfig.spawnMode) {
+    schedule.spawnMode = aiConfig.spawnMode;
   }
 
-  if (configs.length === 0) {
-    configs.push(createDefaultConfig(aiConfig));
-  }
-
-  return configs;
+  return { schedule };
 }
 
 /**
- * Get single dominant wave config (for simple integration)
- *
- * Returns config for the enemy type with highest count, but uses totalCount
- * to ensure all enemies are spawned (even if different types were specified).
- */
-export function adaptAIWaveConfigSingle(aiConfig: AIWaveConfig): WaveManagerConfig {
-  const configs = adaptAIWaveConfig(aiConfig);
-
-  const dominant = configs.reduce((best, current) =>
-    current.enemyCount > best.enemyCount ? current : best
-  );
-
-  return {
-    ...dominant,
-    enemyCount: aiConfig.totalCount,
-  };
-}
-
-/**
- * Validate and convert enemy type string to EnemyTypeId
+ * Validate and convert enemy type string to EnemyTypeId.
+ * Honors a few historical aliases used by the Python training backend.
  */
 function validateEnemyType(type: string): EnemyTypeId | null {
   if (type in ENEMY_TYPES) {
@@ -138,25 +65,4 @@ function validateEnemyType(type: string): EnemyTypeId | null {
   };
 
   return aliases[type] ?? null;
-}
-
-/**
- * Create default fallback config
- */
-function createDefaultConfig(aiConfig: AIWaveConfig): WaveManagerConfig {
-  const baseDelay = aiConfig.spawnDelay || 800;
-  const variation = aiConfig.spawnDelayVariation ?? 0.2;
-
-  return {
-    enemyCount: Math.max(5, aiConfig.totalCount),
-    enemyType: 'zombie',
-    enemySpeed: 5,
-    spawnMode: 'random',
-    spawnDelay: baseDelay,
-    getSpawnDelay: () => {
-      const min = baseDelay * (1 - variation);
-      const max = baseDelay * (1 + variation);
-      return Math.round(min + Math.random() * (max - min));
-    },
-  };
 }

@@ -13,7 +13,7 @@ export interface SpawnPoint extends GeoPosition {
   name: string;
 }
 
-/** A single spawn entry in a mixed-wave schedule */
+/** A single spawn entry in a wave schedule */
 export interface SpawnEntry {
   enemyType: EnemyTypeId;
   speed: number;
@@ -24,23 +24,33 @@ export interface SpawnEntry {
   pauseAfter?: number;
 }
 
-/** Pre-built spawn schedule for mixed enemy waves */
+/**
+ * Pre-built spawn schedule — the WaveManager's only spawn pipeline.
+ *
+ * Single-enemy waves are simply schedules with one entry per spawn.
+ * Mixed-enemy waves are schedules whose entries interleave types per the
+ * chosen spawn-pattern (built upstream by `buildSpawnSchedule`).
+ */
 export interface SpawnSchedule {
   entries: SpawnEntry[];
   baseDelay: number;
+  /** Optional dynamic delay getter (e.g. live-tunable debug delay). */
   getDelay?: () => number;
+  /**
+   * Spawn-point selection mode. 'each' = round-robin across spawn points,
+   * 'random' = uniform pick. Default 'random'. Maps with one spawn point
+   * behave identically under both modes.
+   */
+  spawnMode?: 'each' | 'random';
 }
 
+/**
+ * Runtime wave configuration. Schedule-only — no parallel single-type path.
+ * Producers (AI Director, static curriculum, debug-panel) all funnel through
+ * `adaptAIWaveConfig` which always emits a Schedule.
+ */
 export interface WaveConfig {
-  enemyCount: number;
-  enemyType: EnemyTypeId;
-  enemySpeed: number;
-  enemyHealth?: number; // Optional custom health (defaults to enemy type's health)
-  spawnMode: 'each' | 'random';
-  spawnDelay: number; // Delay in ms between spawning each enemy
-  getSpawnDelay?: () => number; // Optional: Dynamic getter for live delay updates during wave
-  /** Mixed wave schedule - when present, overrides single-type spawning */
-  schedule?: SpawnSchedule;
+  schedule: SpawnSchedule;
 }
 
 /**
@@ -170,87 +180,17 @@ export class WaveManager implements IGameManager {
   }
 
   /**
-   * Start a new wave with auto-spawning
+   * Start a new wave from a pre-built SpawnSchedule.
+   *
+   * The schedule is the single source of truth — entries determine count,
+   * order, types, per-entry speed/health overrides; schedule.baseDelay (or
+   * getDelay()) determines the gap between spawns; schedule.spawnMode
+   * determines spawn-point selection.
    */
   startWave(config: WaveConfig): void {
     this._resetStuckDetector();
-    // Mixed wave: use schedule-based spawning
-    if (config.schedule) {
-      this.startScheduledWave(config.schedule);
-      return;
-    }
 
-    // Guard against invalid enemyCount (NaN, Infinity, negative)
-    const enemyCount = Number.isFinite(config.enemyCount) && config.enemyCount > 0
-      ? config.enemyCount
-      : 10; // Safe fallback
-    if (enemyCount !== config.enemyCount) {
-      console.warn(`[WaveManager] Invalid enemyCount ${config.enemyCount}, using ${enemyCount}`);
-    }
-
-    this.waveNumber.update((n) => n + 1);
-    this.phase.set('wave');
-
-    // Initialize spawn tracking
-    this.expectedEnemyCount = enemyCount;
-    this.spawnedEnemyCount = 0;
-    this.damageTakenThisWave = 0;
-    this._waveCheckDirty = true;
-    this._cachedWaveComplete = false;
-
-    // Emit wave:started event with actual enemy count
-    this.eventBus.emit({
-      type: 'wave:started',
-      wave: this.waveNumber(),
-      enemyCount, // This is the actual count being spawned
-    });
-
-    // Use getter if provided (allows live delay changes), otherwise use static value
-    const getDelay = config.getSpawnDelay ?? (() => config.spawnDelay);
-    let spawnedCount = 0;
-    let consecutiveFailures = 0;
-    const waveId = this.waveNumber();
-
-    // Spawn callback: returns true while wave continues, false when done.
-    const spawnOne = (): boolean => {
-      if (this.phase() !== 'wave' || this.waveNumber() !== waveId) return false;
-      if (spawnedCount >= enemyCount) return false;
-
-      const spawn = this.selectSpawnPoint(config.spawnMode, spawnedCount);
-      const path = this.cachedPaths.get(spawn.id);
-      if (path && path.length > 1) {
-        this.enemyManager.spawn(
-          path, config.enemyType, config.enemySpeed, false, config.enemyHealth,
-        );
-        spawnedCount++;
-        this.spawnedEnemyCount++;
-        consecutiveFailures = 0;
-        this._waveCheckDirty = true;
-      } else {
-        consecutiveFailures++;
-        if (consecutiveFailures >= this.spawnPoints.length * 2) {
-          console.error(`[WaveManager] No valid paths for spawn points, aborting spawn (${spawnedCount}/${enemyCount})`);
-          this.expectedEnemyCount = spawnedCount;
-          this._waveCheckDirty = true;
-          return false;
-        }
-      }
-      return spawnedCount < enemyCount;
-    };
-
-    this.activeSpawner = {
-      waveId,
-      accumulatedMs: getDelay(),  // spawn first enemy immediately on first tick
-      nextDelayMs: getDelay(),
-      spawnAndAdvance: spawnOne,
-      recomputeDelay: getDelay,
-    };
-  }
-
-  /**
-   * Start wave from pre-built spawn schedule (mixed enemy types)
-   */
-  private startScheduledWave(schedule: SpawnSchedule): void {
+    const schedule = config.schedule;
     const entries = schedule.entries;
     if (entries.length === 0) return;
 
@@ -270,6 +210,7 @@ export class WaveManager implements IGameManager {
     });
 
     const getDelay = schedule.getDelay ?? (() => schedule.baseDelay);
+    const spawnMode = schedule.spawnMode ?? 'random';
     let spawnIndex = 0;
     let consecutiveFailures = 0;
     const waveId = this.waveNumber();
@@ -290,7 +231,7 @@ export class WaveManager implements IGameManager {
       if (spawnIndex >= entries.length) return false;
 
       const entry = entries[spawnIndex];
-      const spawn = this.selectSpawnPoint('random', spawnIndex);
+      const spawn = this.selectSpawnPoint(spawnMode, spawnIndex);
       const path = this.cachedPaths.get(spawn.id);
       if (path && path.length > 1) {
         this.enemyManager.spawn(path, entry.enemyType, entry.speed, false, entry.health);
@@ -301,7 +242,7 @@ export class WaveManager implements IGameManager {
       } else {
         consecutiveFailures++;
         if (consecutiveFailures >= this.spawnPoints.length * 2) {
-          console.error(`[WaveManager] No valid paths, aborting scheduled wave (${spawnIndex}/${entries.length})`);
+          console.error(`[WaveManager] No valid paths, aborting wave (${spawnIndex}/${entries.length})`);
           this.expectedEnemyCount = spawnIndex;
           this._waveCheckDirty = true;
           return false;
