@@ -237,6 +237,7 @@ export class CombatEffectService {
         floatSpeed: 1.2,
         scale,
         lateralOffset: -1.2,
+        lateralDrift: -1.0,
       }
     );
   }
@@ -272,6 +273,7 @@ export class CombatEffectService {
           floatSpeed: 1.2,
           scale: 0.2,
           lateralOffset: -1.2,
+          lateralDrift: -1.0,
         }
       );
     }
