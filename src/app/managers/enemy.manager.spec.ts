@@ -13,6 +13,7 @@ import type { GeoPosition } from '../models/game.types';
 import type { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import type { ThreeTilesEngine } from '../three-engine';
+import { goldBudgetForWave } from '../configs/wave-curriculum.config';
 
 const createMockTilesEngine = () => ({
   enemies: {
@@ -91,6 +92,11 @@ describe('EnemyManager', () => {
     const diedSpy = vi.fn();
     eventBus.on('enemy:died', diedSpy);
 
+    // Wire wave-context so the kill-budget accumulator pays out a real reward
+    // (default providers return 0 → goldBudget 0 → credits 0).
+    manager.setWaveNumberProvider(() => 1);
+    manager.setWaveSizeProvider(() => 1);
+
     const path: GeoPosition[] = [
       { lat: 0, lon: 0, height: 0 },
       { lat: 0.001, lon: 0, height: 0 },
@@ -104,13 +110,138 @@ describe('EnemyManager', () => {
         enemy,
       })
     );
-    // New kill-reward formula (Phase 5.5) — tank is Heavy (ArmorFactor 1.18)
-    // so credits > 1. Exact value depends on baseHP/speed/waveFactor.
+    // Single-slot wave on W1 → the one paid kill picks up the full budget.
     const call = diedSpy.mock.calls[0][0];
-    expect(call.credits).toBeGreaterThan(0);
+    expect(call.credits).toBe(goldBudgetForWave(1).kill);
     expect(manager.getById(enemy.id)).toBeNull();
     expect(tilesEngine.enemies.remove).toHaveBeenCalledWith(enemy.id);
     expect(manager.getAliveCount()).toBe(0);
+  });
+
+  describe('kill-budget accumulator', () => {
+    const straightPath: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+
+    const collectCredits = (): number[] => {
+      const credits: number[] = [];
+      eventBus.on('enemy:died', (ev) => credits.push(ev.credits ?? 0));
+      return credits;
+    };
+
+    it('per-kill rewards sum exactly to the wave budget when every enemy dies', () => {
+      manager.setWaveNumberProvider(() => 1);
+      manager.setWaveSizeProvider(() => 10);
+      const credits = collectCredits();
+
+      for (let i = 0; i < 10; i++) {
+        manager.kill(manager.spawn(straightPath, 'zombie'));
+      }
+
+      const sum = credits.reduce((a, b) => a + b, 0);
+      expect(sum).toBe(goldBudgetForWave(1).kill);
+    });
+
+    it('handles mega-swarm without overshooting (W19 rat_tide regression)', () => {
+      // The bug: Math.max(1, round(8000/5000)) × 5000 = 5000 (or 8000 with round=2)
+      // capped at floor → still ≥ budget. Accumulator must clamp at exactly budget.
+      manager.setWaveNumberProvider(() => 19);
+      manager.setWaveSizeProvider(() => 5000);
+      const credits = collectCredits();
+
+      // Use a fraction of the wave (300 kills) — sum must stay ≤ proportional share
+      for (let i = 0; i < 300; i++) {
+        manager.kill(manager.spawn(straightPath, 'rat'));
+      }
+
+      const sum = credits.reduce((a, b) => a + b, 0);
+      const budget = goldBudgetForWave(19).kill;
+      const fairShare = Math.ceil((budget * 300) / 5000);
+      expect(sum).toBeLessThanOrEqual(fairShare);
+    });
+
+    it('extra kills past expected wave size pay 0 gold', () => {
+      manager.setWaveNumberProvider(() => 1);
+      manager.setWaveSizeProvider(() => 3);
+      const credits = collectCredits();
+
+      for (let i = 0; i < 5; i++) {
+        manager.kill(manager.spawn(straightPath, 'zombie'));
+      }
+
+      expect(credits[3]).toBe(0);
+      expect(credits[4]).toBe(0);
+      const sum = credits.reduce((a, b) => a + b, 0);
+      expect(sum).toBe(goldBudgetForWave(1).kill);
+    });
+
+    it('wave change resets the accumulator', () => {
+      let waveNum = 1;
+      manager.setWaveNumberProvider(() => waveNum);
+      manager.setWaveSizeProvider(() => 2);
+      const credits = collectCredits();
+
+      // Drain wave 1 completely
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+      const wave1Sum = credits.reduce((a, b) => a + b, 0);
+      expect(wave1Sum).toBe(goldBudgetForWave(1).kill);
+
+      // Switch to wave 2 — fresh budget regardless of wave-1 state
+      waveNum = 2;
+      credits.length = 0;
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+      const wave2Sum = credits.reduce((a, b) => a + b, 0);
+      expect(wave2Sum).toBe(goldBudgetForWave(2).kill);
+    });
+
+    it('awardCredits=false does not consume slots from the budget', () => {
+      manager.setWaveNumberProvider(() => 1);
+      manager.setWaveSizeProvider(() => 3);
+      const credits = collectCredits();
+
+      // Debug-kill first — must not eat into the budget
+      manager.kill(manager.spawn(straightPath, 'zombie'), false);
+
+      // Three paid kills then drain the full wave-1 budget
+      for (let i = 0; i < 3; i++) {
+        manager.kill(manager.spawn(straightPath, 'zombie'));
+      }
+
+      expect(credits[0]).toBe(0);
+      const paidSum = credits.slice(1).reduce((a, b) => a + b, 0);
+      expect(paidSum).toBe(goldBudgetForWave(1).kill);
+    });
+
+    it('zero gold budget pays zero per kill', () => {
+      // waveNum=0 returns { kill: 0, complete: 0 } from goldBudgetForWave
+      manager.setWaveNumberProvider(() => 0);
+      manager.setWaveSizeProvider(() => 5);
+      const credits = collectCredits();
+
+      for (let i = 0; i < 5; i++) {
+        manager.kill(manager.spawn(straightPath, 'zombie'));
+      }
+
+      expect(credits.every((c) => c === 0)).toBe(true);
+    });
+
+    it('leaks reduce earned gold (uncollected kills = lost budget)', () => {
+      manager.setWaveNumberProvider(() => 1);
+      manager.setWaveSizeProvider(() => 4);
+      const credits = collectCredits();
+
+      // Only 2 of 4 enemies die — accumulator should pay out partial budget
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+      manager.kill(manager.spawn(straightPath, 'zombie'));
+
+      const earned = credits.reduce((a, b) => a + b, 0);
+      const fullBudget = goldBudgetForWave(1).kill;
+      expect(earned).toBeLessThan(fullBudget);
+      expect(earned).toBeGreaterThanOrEqual(0);
+    });
   });
 
   it('emits reached-base event and removes enemy when path ends', () => {
