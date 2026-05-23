@@ -21,7 +21,7 @@ export const FIELD_TIPS: FieldTip[] = [
     html: 'The compass shows true map north. When the map is rotated, a small reset button appears next to it — click that to face north again.',
   },
   {
-    html: 'Chain and splash towers love <b style="color:var(--td-teal-light)">clustered enemies</b>. Place them where two routes converge.',
+    html: 'Chain and splash towers chew through <b style="color:var(--td-teal-light)">swarm waves</b> where single-target towers fall behind. The denser the group, the bigger the payoff.',
   },
   {
     html: 'Heavy armor shrugs off most damage but folds to <b style="color:var(--td-teal-light)">siege</b>. Check the wave preview for the next armor mix before you spend.',
