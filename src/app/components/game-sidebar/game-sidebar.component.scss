@@ -969,66 +969,6 @@
   border-radius: 3px;
 }
 
-/* === Sell Button (subtle) === */
-.td-sell-section {
-  position: absolute;
-  left: 8px;
-  right: 8px;
-  bottom: 8px;
-  margin-top: 0;
-  padding-top: 6px;
-  border-top: 1px dashed var(--td-frame-dark);
-}
-
-/* Inline variant for Research Center — flows after tree, no overlay */
-.td-sell-section-inline {
-  margin-top: 8px;
-  padding-top: 6px;
-  border-top: 1px dashed var(--td-frame-dark);
-}
-
-.td-sell-tile {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
-  background: transparent;
-  border: 1px solid var(--td-frame-dark);
-  border-radius: 3px;
-  color: var(--td-text-muted);
-  font-family: inherit;
-  font-size: 11px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.td-sell-tile mat-icon {
-  font-size: 16px;
-  width: 16px;
-  height: 16px;
-  color: var(--td-text-muted);
-}
-
-.td-sell-tile:hover {
-  background: rgba(244, 67, 54, 0.1);
-  border-color: var(--td-red);
-  color: var(--td-text-secondary);
-}
-
-.td-sell-tile:hover mat-icon {
-  color: var(--td-red);
-}
-
-.td-sell-value {
-  margin-left: auto;
-  padding: 2px 6px;
-  background: var(--td-green);
-  color: var(--td-bg-dark);
-  font-size: 10px;
-  font-weight: 600;
-  border-radius: 2px;
-}
-
 /* === Damage Type Badge === */
 .td-damage-type-badge {
   display: flex;
