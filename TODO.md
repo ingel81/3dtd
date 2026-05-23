@@ -250,20 +250,6 @@
 
 ## 3.1 Visual Feintuning
 
-- [ ] **Damage- und Reward-Floating-Texts räumlich trennen**
-      Beim Spielen sieht's chaotisch aus: Damage-Zahlen (rot) und Reward-Coins (gelb) überlagern
-      sich an derselben Stelle über dem getroffenen Gegner. Vorschlag: Damage-Zahlen leicht
-      nach **links** versetzt spawnen, Rewards nach **rechts** — gleicher Vertical-Trail,
-      aber visuell zwei Spalten. Reduziert das „Durcheinander" gerade bei großen Waves.
-      Datei-Anker: `three-engine/renderers/three-effects.renderer.ts` (FloatingText spawn),
-      ggf. eine kleine x-Offset-Konstante pro Text-Typ.
-
-- [ ] **Research-Center: Sell-Button im selben Stil wie bei Tower**
-      Aktuell hat das Research Center einen eigenen „Sell"-Button irgendwo unten in der
-      Sidebar, der visuell aus der Reihe tanzt. Sollte exakt das gleiche Sell-Component
-      sein, das die anderen Tower nutzen — gleicher Style, gleiche Position.
-      Datei-Anker: `src/app/components/game-sidebar/...` (Tower- vs RC-Detail-Pane).
-
 - [ ] **Muzzle Flash feintunen**
       Grundsätzlich sichtbar, aber Intensität/Größe/Dauer anpassen
       Prüfen: nur bei Projectile-Towern (Archer, Cannon, Gatling, Rocket), NICHT bei Ice/Magic/Fire
@@ -286,14 +272,6 @@
       Layout/Wirkung des Initial-Loading-Screens überarbeiten. Detaillierter Stats-Block
       und 3D-Tiles-Counter sind 2026 vorhandene Basis (siehe DONE.md), aber Polish steht
       aus. Konkretisieren beim Anpacken (Bullet-Liste was raus/rein soll).
-
-- [ ] **Loading-Screen-Tipps inhaltlich überarbeiten**
-      In `src/app/components/loading-screen/field-tips.ts` stehen Tipps, die sachlich nicht
-      stimmen (z.B. falsche Werte, veraltete Mechaniken, nicht-existierende Features).
-      Alle Tipps gegen aktuellen Spielstand prüfen (Schadenstypen, Armor-Matrix, Tower-Stats,
-      Forschungs-Effekte) und falsche Aussagen entfernen oder korrigieren. Wenn beim Drüber-
-      gehen Lücken auffallen (z.B. Stone Golem fehlt, Magic-vs-Fortified-Hinweis fehlt),
-      gerne ergänzen — aber Korrektheit zuerst.
 
 - [ ] **Diskussion: Türme nach Wegfall des Ziels nicht in Grundstellung zurückdrehen**
       Aktuell drehen Türme ihren Turret zurück in die Grundausrichtung,
