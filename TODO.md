@@ -16,7 +16,7 @@
 
 ---
 
-# PRIO 1 — Engine & Umbauten
+# PRIO 1 — Engine & Umbauten und Co.
 
 > Engine zuerst stabil, performant und testbar machen. Hier sammeln sich die laufenden
 > Refactoring-, Test- und Bugfix-Themen.
