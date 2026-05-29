@@ -45,6 +45,15 @@ export class TowerCombatService {
   private readonly tempToEnemy = new Vector3();
   private readonly tempSoundPos = new Vector3();
 
+  // Reused scratch buffers to avoid per-tower / per-sub-step allocations.
+  // Safe to share across the four update*Towers methods: each consumes its
+  // candidate list within one tower iteration before the next runs, and
+  // nested grid queries (splash/chain damage) allocate their own arrays.
+  private readonly _candidateScratch: Enemy[] = [];
+  private readonly _coneScratch: Enemy[] = [];
+  private readonly _losScratch = new Vector3();
+  private readonly _coneEnemyPos = new Vector3();
+
   /**
    * Initialize with engine reference
    */
@@ -68,10 +77,11 @@ export class TowerCombatService {
   ): ((enemy: Enemy) => boolean) | undefined {
     const engine = this.tilesEngine;
     if (!engine) return undefined;
-    // One reusable vector per predicate — avoids a per-enemy Vector3 allocation
-    // while the LoS check sweeps the candidate list. Capturing `engine` also
-    // removes the non-null assertion on the (nullable) tilesEngine field.
-    const pos = new Vector3();
+    // Shared reusable vector — avoids both a per-enemy AND a per-predicate
+    // Vector3 allocation. Safe because predicates are built and consumed
+    // sequentially per tower (never retained across tower iterations).
+    // Capturing `engine` also removes the non-null assertion on the field.
+    const pos = this._losScratch;
     return (enemy: Enemy) => {
       engine.sync.geoToLocalSimpleInto(
         enemy.position.lat,
@@ -188,7 +198,7 @@ export class TowerCombatService {
         // Works for ground, air-only and dual-targeting towers — visibleCells
         // is the union of ground + air visible cells, so a "blue-only" cell
         // would still produce candidates; buildLosCheck filters those per-enemy.
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
         losCheck = this.buildLosCheck(tower, true);
       } else {
         // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
@@ -203,7 +213,9 @@ export class TowerCombatService {
           candidates = this.globalRouteGrid.getEnemiesInRadius(
             towerLocal.x,
             towerLocal.z,
-            rangeMeters * COMBAT_TUNING.rangeMargin.standard
+            rangeMeters * COMBAT_TUNING.rangeMargin.standard,
+            undefined,
+            this._candidateScratch
           );
         } else {
           // Ultimate fallback: geo-distance filter (no engine available)
@@ -314,7 +326,7 @@ export class TowerCombatService {
       let candidates: Enemy[];
 
       if (hasVisibleCells) {
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
       } else {
         // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
         // Returns Enemy[] directly — no ID resolution needed
@@ -328,7 +340,9 @@ export class TowerCombatService {
           candidates = this.globalRouteGrid.getEnemiesInRadius(
             towerLocal.x,
             towerLocal.z,
-            rangeMeters * COMBAT_TUNING.rangeMargin.beam
+            rangeMeters * COMBAT_TUNING.rangeMargin.beam,
+            undefined,
+            this._candidateScratch
           );
         } else {
           const mPerDegLat = METERS_PER_DEGREE_LAT;
@@ -491,17 +505,19 @@ export class TowerCombatService {
     const halfAngle = Math.atan2(endWidth / 2, coneLength);
     const cosHalfAngle = Math.cos(halfAngle);
 
-    const result: Enemy[] = [];
+    const result = this._coneScratch;
+    result.length = 0;
 
     for (const enemy of candidates) {
       // Skip air units for fire tower (ground only)
       if (enemy.typeConfig.isAirUnit) continue;
 
-      // Get enemy local position
-      const enemyLocalPos = this.tilesEngine.sync.geoToLocalSimple(
+      // Get enemy local position (reuse scratch — runs per candidate per beam)
+      const enemyLocalPos = this.tilesEngine.sync.geoToLocalSimpleInto(
         enemy.position.lat,
         enemy.position.lon,
-        enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0)
+        enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0),
+        this._coneEnemyPos
       );
       enemyLocalPos.y += getEnemyAimOffsetY(enemy); // model's visual centre
 
@@ -597,7 +613,7 @@ export class TowerCombatService {
       let candidates: Enemy[];
 
       if (hasVisibleCells) {
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
       } else {
         const rangeMeters = tower.typeConfig.range;
         const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
@@ -609,6 +625,8 @@ export class TowerCombatService {
           towerLocal.x,
           towerLocal.z,
           rangeMeters * COMBAT_TUNING.rangeMargin.standard,
+          undefined,
+          this._candidateScratch,
         );
       }
 
@@ -708,7 +726,7 @@ export class TowerCombatService {
       let candidates: Enemy[];
 
       if (hasVisibleCells) {
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells);
+        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
       } else {
         const rangeMeters = tower.typeConfig.range;
         const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
@@ -720,6 +738,8 @@ export class TowerCombatService {
           towerLocal.x,
           towerLocal.z,
           rangeMeters * COMBAT_TUNING.rangeMargin.standard,
+          undefined,
+          this._candidateScratch,
         );
       }
 

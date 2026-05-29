@@ -1342,8 +1342,9 @@ export class GlobalRouteGrid {
    * @param visibleCells Array of cells the tower can see
    * @returns Array of alive enemies in those cells
    */
-  getEnemiesForTower(visibleCells: RouteCell[]): Enemy[] {
-    const enemies: Enemy[] = [];
+  getEnemiesForTower(visibleCells: RouteCell[], out?: Enemy[]): Enemy[] {
+    const enemies = out ?? [];
+    if (out) out.length = 0;
     for (const cell of visibleCells) {
       for (const enemy of cell.enemies) {
         if (enemy.alive) {
@@ -1402,11 +1403,13 @@ export class GlobalRouteGrid {
     localX: number,
     localZ: number,
     radiusMeters: number,
-    excludeId?: string
+    excludeId?: string,
+    out?: Enemy[]
   ): Enemy[] {
-    if (!this.coordinateSync) return [];
+    if (out) out.length = 0;
+    if (!this.coordinateSync) return out ?? [];
 
-    const enemies: Enemy[] = [];
+    const enemies = out ?? [];
     const radiusSq = radiusMeters * radiusMeters;
 
     // Calculate cell range to check
