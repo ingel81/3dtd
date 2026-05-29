@@ -158,6 +158,11 @@ export class HealthBarInstanceManager {
     this.foregroundMesh.count = 0;
     this.foregroundMesh.frustumCulled = false;
     this.foregroundMesh.renderOrder = 1000;
+    // Background and foreground always carry IDENTICAL matrices at identical
+    // indices (the foreground discards full-health bars in the shader, not via
+    // separate transforms). Share the instanceMatrix buffer so we compose +
+    // upload once instead of twice per frame.
+    this.foregroundMesh.instanceMatrix = this.instancedMesh.instanceMatrix;
 
     // Position/scale caches
     this.posCache = new Float32Array(MAX_HEALTH_BARS * 3);
@@ -205,7 +210,6 @@ export class HealthBarInstanceManager {
     // Build matrix
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.foregroundMesh.setMatrixAt(index, this.matrix);
 
     // Set attributes
     this.healthAttribute.setX(index, 1.0);
@@ -222,7 +226,6 @@ export class HealthBarInstanceManager {
     this.barColorAttribute.needsUpdate = true;
     this.isBossAttribute.needsUpdate = true;
     this.instancedMesh.instanceMatrix.needsUpdate = true;
-    this.foregroundMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -272,11 +275,9 @@ export class HealthBarInstanceManager {
     for (const [, index] of this.instances) {
       this.composeFromCache(index);
       this.instancedMesh.setMatrixAt(index, this.matrix);
-      this.foregroundMesh.setMatrixAt(index, this.matrix);
     }
     // Flush GPU buffer flags once per frame
     this.instancedMesh.instanceMatrix.needsUpdate = true;
-    this.foregroundMesh.instanceMatrix.needsUpdate = true;
     if (this.healthDirty) {
       this.healthAttribute.needsUpdate = true;
       this.healthDirty = false;
@@ -298,9 +299,8 @@ export class HealthBarInstanceManager {
 
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.foregroundMesh.setMatrixAt(index, this.matrix);
+    // foregroundMesh shares this buffer → single write + single upload.
     this.instancedMesh.instanceMatrix.needsUpdate = true;
-    this.foregroundMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -318,9 +318,8 @@ export class HealthBarInstanceManager {
 
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.foregroundMesh.setMatrixAt(index, this.matrix);
+    // foregroundMesh shares this buffer → single write + single upload.
     this.instancedMesh.instanceMatrix.needsUpdate = true;
-    this.foregroundMesh.instanceMatrix.needsUpdate = true;
 
     this.instances.delete(enemyId);
     this.freeIndices.push(index);

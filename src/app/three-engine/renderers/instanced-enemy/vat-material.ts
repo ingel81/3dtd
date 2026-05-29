@@ -165,14 +165,17 @@ export function createVATMaterial(vatData: VATData, options?: VATMaterialOptions
           // Scene lighting: sun + fill + hemi + ambient (cooler, brighter)
           vec3 N = normalize(vNormal);
 
-          // Sun (key light): slightly warm, from SW high
-          vec3 sunDir = normalize(vec3(-0.44, 0.89, -0.27));
+          // Sun (key light): slightly warm, from SW high.
+          // Pre-normalized literal of vec3(-0.44, 0.89, -0.27) — avoids a
+          // per-fragment normalize() of a compile-time constant.
+          const vec3 sunDir = vec3(-0.42765, 0.86505, -0.26242);
           float sunNdotL = max(dot(N, sunDir), 0.0);
           vec3 sunColor = vec3(1.0, 0.95, 0.88);
           vec3 sun = sunColor * sunNdotL * 1.5;
 
-          // Fill light: neutral-warm, from NE
-          vec3 fillDir = normalize(vec3(0.63, 0.63, 0.38));
+          // Fill light: neutral-warm, from NE.
+          // Pre-normalized literal of vec3(0.63, 0.63, 0.38).
+          const vec3 fillDir = vec3(0.65041, 0.65041, 0.39231);
           float fillNdotL = max(dot(N, fillDir), 0.0);
           vec3 fillColor = vec3(1.0, 0.96, 0.92);
           vec3 fill = fillColor * fillNdotL * 0.8;
