@@ -31,6 +31,9 @@ export class GameStateSyncService {
    * Must be called after GameStateManager.initialize() so the EventBus is ready.
    */
   initialize(eventBus: GameEventBus): void {
+    // Defensive: clear any prior subscriptions so a future re-init path can't
+    // double-subscribe (consistent with combat-effect/hq-damage/game-state).
+    this.subs.disposeAll();
     // ── Wave lifecycle ────────────────────────────────────────────
     this.subs.add(eventBus.on('wave:started', (event) => {
       this.store.phase.set('wave');
