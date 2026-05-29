@@ -40,21 +40,28 @@ const FALLBACK_RESULT: CubeSampleResult = { cellDist: 0, blockerDist: 0 };
  * Quad-Shader mit `textureCube`), NICHT über einen zweiten CPU-readPixels-
  * Call.
  */
-export function sampleCubeAtPoint(
-  tipX: number,
-  tipY: number,
-  tipZ: number,
-  sampleX: number,
-  sampleY: number,
-  sampleZ: number,
-  ctx: LosResolveContext,
-  buf: Uint8Array,
-): CubeSampleResult {
-  const dx = sampleX - tipX;
-  const dy = sampleY - tipY;
-  const dz = sampleZ - tipZ;
+/** Resolved cube address for a direction: which face + which texel + tip distance. */
+interface CubeAddr {
+  face: number;
+  px: number;
+  py: number;
+  cellDist: number;
+}
+
+/**
+ * Direction (tip→sample) → (face, px, py) following the GL-cubemap convention.
+ * Shared by the single-readback path and the batched-faces path so the
+ * sampling math stays identical (no y-flip — see file header / HANDOVER H5).
+ * Returns null for a degenerate (zero-length) direction.
+ */
+function resolveCubeAddr(
+  dx: number,
+  dy: number,
+  dz: number,
+  size: number,
+): CubeAddr | null {
   const cellDist = Math.sqrt(dx * dx + dy * dy + dz * dz);
-  if (cellDist < 1e-4) return FALLBACK_RESULT;
+  if (cellDist < 1e-4) return null;
 
   const ax = Math.abs(dx);
   const ay = Math.abs(dy);
@@ -81,30 +88,112 @@ export function sampleCubeAtPoint(
     ma = az;
   }
 
-  const size = ctx.cube.width;
   const s = (sc / ma + 1) * 0.5;
   const t = (tc / ma + 1) * 0.5;
   const px = Math.min(size - 1, Math.max(0, Math.floor(s * size)));
-  // NB: kein y-flip. Three.js' textureCube auf einem WebGLCubeRenderTarget
-  // sampelt direkt mit framebuffer-bottom-up t-Koordinate. Der "py = size-1
-  // - floor(t*size)"-Flip aus der v2-Probe war FALSCH und produzierte
-  // systematisch divergierende Visibility-Werte zwischen CPU-readPixels
-  // und GPU-textureCube (siehe H5 im HANDOVER_ROUTE_GRID_GPU_LOS.md).
   const py = Math.min(size - 1, Math.max(0, Math.floor(t * size)));
+  return { face, px, py, cellDist };
+}
 
-  ctx.renderer.readRenderTargetPixels(ctx.cube, px, py, 1, 1, buf, face);
-
+function packedToResult(
+  buf: Uint8Array,
+  offset: number,
+  cellDist: number,
+  ctx: LosResolveContext,
+): CubeSampleResult {
   let packed =
-    buf[0] / 255 +
-    buf[1] / 65025 +
-    buf[2] / 16581375 +
-    buf[3] / 4228250625;
+    buf[offset] / 255 +
+    buf[offset + 1] / 65025 +
+    buf[offset + 2] / 16581375 +
+    buf[offset + 3] / 4228250625;
   if (packed < ctx.emptyDepthEpsilon) packed = 1.0;
+  return { cellDist, blockerDist: packed * ctx.farDistance };
+}
 
-  return {
-    cellDist,
-    blockerDist: packed * ctx.farDistance,
-  };
+export function sampleCubeAtPoint(
+  tipX: number,
+  tipY: number,
+  tipZ: number,
+  sampleX: number,
+  sampleY: number,
+  sampleZ: number,
+  ctx: LosResolveContext,
+  buf: Uint8Array,
+): CubeSampleResult {
+  const addr = resolveCubeAddr(sampleX - tipX, sampleY - tipY, sampleZ - tipZ, ctx.cube.width);
+  if (!addr) return FALLBACK_RESULT;
+
+  ctx.renderer.readRenderTargetPixels(ctx.cube, addr.px, addr.py, 1, 1, buf, addr.face);
+  return packedToResult(buf, 0, addr.cellDist, ctx);
+}
+
+/**
+ * Holds the 6 cube faces read back to CPU memory in one batch, so per-cell
+ * LOS sampling becomes an array index instead of a readRenderTargetPixels
+ * GPU stall. Allocate/reuse one per grid (see {@link readCubeFaces}).
+ */
+export interface CubeFaceCache {
+  /** 6 buffers, each size*size*4 bytes (RGBA, framebuffer bottom-up). */
+  faces: Uint8Array[];
+  /** Face edge length in texels. */
+  size: number;
+}
+
+/** Allocate a CubeFaceCache for the given face size (size*size*4 per face). */
+export function allocCubeFaceCache(size: number): CubeFaceCache {
+  const faces: Uint8Array[] = [];
+  for (let f = 0; f < 6; f++) faces.push(new Uint8Array(size * size * 4));
+  return { faces, size };
+}
+
+/**
+ * Read all 6 cube faces into the cache in one batch (6 readbacks total) and
+ * return it. Reallocates the cache if the cube face size changed. This
+ * replaces up to ~1400 individual 1×1 readbacks per tower build (one per
+ * sampled cell × ground/air) with a constant 6 — the dominant cost of a build.
+ */
+export function readCubeFaces(ctx: LosResolveContext, cache: CubeFaceCache | null): CubeFaceCache {
+  const size = ctx.cube.width;
+  if (!cache || cache.size !== size) {
+    cache = allocCubeFaceCache(size);
+  }
+  for (let f = 0; f < 6; f++) {
+    ctx.renderer.readRenderTargetPixels(ctx.cube, 0, 0, size, size, cache.faces[f], f);
+  }
+  return cache;
+}
+
+/** Like {@link sampleCubeAtPoint} but reads from a pre-fetched {@link CubeFaceCache}. */
+export function sampleCubeAtPointFromFaces(
+  tipX: number,
+  tipY: number,
+  tipZ: number,
+  sampleX: number,
+  sampleY: number,
+  sampleZ: number,
+  ctx: LosResolveContext,
+  cache: CubeFaceCache,
+): CubeSampleResult {
+  const addr = resolveCubeAddr(sampleX - tipX, sampleY - tipY, sampleZ - tipZ, cache.size);
+  if (!addr) return FALLBACK_RESULT;
+  const offset = (addr.py * cache.size + addr.px) * 4;
+  return packedToResult(cache.faces[addr.face], offset, addr.cellDist, ctx);
+}
+
+/** Like {@link isCubeVisible} but reads from a pre-fetched {@link CubeFaceCache}. */
+export function isCubeVisibleFromFaces(
+  tipX: number,
+  tipY: number,
+  tipZ: number,
+  sampleX: number,
+  sampleY: number,
+  sampleZ: number,
+  ctx: LosResolveContext,
+  cache: CubeFaceCache,
+): boolean {
+  const r = sampleCubeAtPointFromFaces(tipX, tipY, tipZ, sampleX, sampleY, sampleZ, ctx, cache);
+  if (r.cellDist === 0) return true;
+  return r.cellDist < r.blockerDist - ctx.visibilityBias;
 }
 
 /**

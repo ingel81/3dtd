@@ -7,13 +7,14 @@ import {
   DoubleSide,
   StaticDrawUsage,
   DynamicDrawUsage,
+  Vector3,
 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { TerrainRaycaster, TerrainSampleRaycaster, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
+import { LosResolveContext, readCubeFaces, isCubeVisibleFromFaces, CubeFaceCache } from './gpu-cube-resolve';
 
 /**
  * RouteCell - Single cell in the global route grid
@@ -389,6 +390,16 @@ export class GlobalRouteGrid {
 
   /** Cached inverse cell size for fast multiplication instead of division */
   private readonly INV_CELL_SIZE = 1 / this.CELL_SIZE;
+
+  /** Reused scratch for per-enemy geo→local conversion in getEnemiesInRadius. */
+  private readonly _radiusScanScratch = new Vector3();
+
+  /**
+   * Persistent CPU-side copy of the 6 LOS cube faces, reused across tower
+   * builds. Filled once per registerTower(Incremental) call so per-cell LOS
+   * sampling is an array index, not a per-cell GPU readback stall.
+   */
+  private _cubeFaceCache: CubeFaceCache | null = null;
 
   /** Integer hash for cell key (avoids string allocation in hot path) */
   private intCellKey(cx: number, cz: number): number {
@@ -1075,6 +1086,32 @@ export class GlobalRouteGrid {
    * @param canTargetAir Whether tower targets air enemies (default false)
    * @returns Array of cells visible from this tower (ground or air)
    */
+  /**
+   * Iterate only the grid cells whose centre can lie within `range` of
+   * (centerX, centerZ), using the integer cell-key index. Replaces a full
+   * Map scan (O(total cells), tens of thousands) with O(cells in the
+   * bounding box). Callers still do the exact squared-distance check, so a
+   * 1-cell margin (for the floor/|0 keying discrepancy) is harmless.
+   *
+   * Safe for both registerTower and registerTowerIncremental: tower range is
+   * monotonic non-decreasing (range upgrades only grow; terrain-promotion
+   * recompute keeps range), so the new range's box always covers every cell
+   * that previously held this tower's entry — there are no stale cells
+   * outside the box to clean up.
+   */
+  private *cellsInRange(centerX: number, centerZ: number, range: number): IterableIterator<RouteCell> {
+    const gx0 = Math.floor((centerX - range) * this.INV_CELL_SIZE) - 1;
+    const gx1 = Math.floor((centerX + range) * this.INV_CELL_SIZE) + 1;
+    const gz0 = Math.floor((centerZ - range) * this.INV_CELL_SIZE) - 1;
+    const gz1 = Math.floor((centerZ + range) * this.INV_CELL_SIZE) + 1;
+    for (let gx = gx0; gx <= gx1; gx++) {
+      for (let gz = gz0; gz <= gz1; gz++) {
+        const cell = this.cells.get(this.intCellKey(gx, gz));
+        if (cell) yield cell;
+      }
+    }
+  }
+
   registerTower(
     towerId: string,
     towerX: number,
@@ -1089,9 +1126,11 @@ export class GlobalRouteGrid {
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
-    const buf = new Uint8Array(4);
+    // Batch-read the 6 cube faces once (6 GPU readbacks) instead of one 1×1
+    // readback per sampled cell × ground/air (up to ~1400 stalls/build).
+    const faces = (this._cubeFaceCache = readCubeFaces(ctx, this._cubeFaceCache));
 
-    for (const cell of this.cells.values()) {
+    for (const cell of this.cellsInRange(towerX, towerZ, range)) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
 
@@ -1112,7 +1151,7 @@ export class GlobalRouteGrid {
           groundVisible = true;
         } else {
           const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          groundVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
         }
         cell.towerVisibility.set(towerId, groundVisible);
       }
@@ -1124,7 +1163,7 @@ export class GlobalRouteGrid {
           airVisible = true;
         } else {
           const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          airVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
         }
         cell.airVisibility.set(towerId, airVisible);
       }
@@ -1168,14 +1207,15 @@ export class GlobalRouteGrid {
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
-    const buf = new Uint8Array(4);
+    // Batch-read the 6 cube faces once (see registerTower).
+    const faces = (this._cubeFaceCache = readCubeFaces(ctx, this._cubeFaceCache));
 
-    for (const cell of this.cells.values()) {
+    for (const cell of this.cellsInRange(towerX, towerZ, range)) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       const inRange = distSq <= rangeSq;
 
       if (!inRange) {
-        // Stale entry outside new range (e.g. range shrunk) — clean up.
+        // In-box but outside the exact circle — clean up any stale entry.
         cell.towerVisibility.delete(towerId);
         cell.airVisibility.delete(towerId);
         continue;
@@ -1198,7 +1238,7 @@ export class GlobalRouteGrid {
           cell.towerVisibility.set(towerId, groundVisible);
         } else {
           const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          groundVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
           cell.towerVisibility.set(towerId, groundVisible);
         }
       } else {
@@ -1216,7 +1256,7 @@ export class GlobalRouteGrid {
           cell.airVisibility.set(towerId, airVisible);
         } else {
           const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          airVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
           cell.airVisibility.set(towerId, airVisible);
         }
       } else {
@@ -1386,11 +1426,14 @@ export class GlobalRouteGrid {
           if (!enemy.alive) continue;
           if (excludeId && enemy.id === excludeId) continue;
 
-          // Convert enemy geo position to local for precise distance check
-          const enemyLocal = this.coordinateSync.geoToLocalSimple(
+          // Convert enemy geo position to local for precise distance check.
+          // Use the allocation-free *Into variant with a reused scratch —
+          // this runs for every enemy in every scanned cell.
+          const enemyLocal = this.coordinateSync.geoToLocalSimpleInto(
             enemy.position.lat,
             enemy.position.lon,
-            0
+            0,
+            this._radiusScanScratch
           );
           const distSq = (enemyLocal.x - localX) ** 2 + (enemyLocal.z - localZ) ** 2;
           if (distSq <= radiusSq) {
