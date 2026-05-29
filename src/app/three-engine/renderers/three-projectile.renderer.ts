@@ -414,6 +414,7 @@ export class ThreeProjectileRenderer {
   private static readonly UP = new Vector3(0, 1, 0);
   private static readonly tempQuat = new Quaternion();
   private static readonly tempDir = new Vector3();
+  private static readonly tempEuler = new Euler();
 
   /**
    * Create a new projectile with direction vector
@@ -467,11 +468,9 @@ export class ThreeProjectileRenderer {
       ThreeProjectileRenderer.tempDir
     );
 
-    // Convert to Euler
-    const euler = new Euler();
-    euler.setFromQuaternion(ThreeProjectileRenderer.tempQuat);
-
-    return euler;
+    // Convert to Euler. Reuse a static instance — the result is consumed
+    // synchronously by manager.update() (composed into a matrix), never retained.
+    return ThreeProjectileRenderer.tempEuler.setFromQuaternion(ThreeProjectileRenderer.tempQuat);
   }
 
   /**

@@ -239,6 +239,8 @@ export class LightningBoltRenderer {
   private readonly pool: LightningBolt[] = [];
   private readonly freeIndices: number[] = [];
   private readonly activeIndices = new Set<number>();
+  /** Reused scratch for expired bolt indices — avoids a per-frame [...set] copy. */
+  private readonly _expiredScratch: number[] = [];
   private readonly idleEmitters = new Map<string, IdleEmitter>();
   private counter = 0;
 
@@ -352,7 +354,10 @@ export class LightningBoltRenderer {
 
     // Tick active bolts; release expired ones back to the free-list.
     // Per active bolt with an attached halo, fade opacity with bolt age.
-    for (const idx of [...this.activeIndices]) {
+    // Iterate the Set directly (no per-frame [...copy]); collect expired
+    // indices in a reused scratch and mutate the Set only after the loop.
+    this._expiredScratch.length = 0;
+    for (const idx of this.activeIndices) {
       const bolt = this.pool[idx];
       if (bolt.haloIdx >= 0) {
         const age = Math.min((now - bolt.spawnTime) / Math.max(bolt.uniforms.uLifetime.value, 0.0001), 1);
@@ -368,9 +373,12 @@ export class LightningBoltRenderer {
           this.haloFreeIndices.push(bolt.haloIdx);
           bolt.haloIdx = -1;
         }
-        this.activeIndices.delete(idx);
-        this.freeIndices.push(idx);
+        this._expiredScratch.push(idx);
       }
+    }
+    for (const idx of this._expiredScratch) {
+      this.activeIndices.delete(idx);
+      this.freeIndices.push(idx);
     }
   }
 
