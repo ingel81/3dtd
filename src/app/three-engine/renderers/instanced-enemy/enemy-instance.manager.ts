@@ -29,6 +29,11 @@ export interface EnemyInstanceState {
   poisoned: boolean;
   /** performance.now() timestamp when an active hit-flash expires (0 = no flash). */
   hitFlashEnd: number;
+  /** Last global VAT frame written to the GPU attr — gate redundant writes/uploads. */
+  lastFrame: number;
+  /** Cached heading quaternion + the total angle it was built for (skips sin/cos when heading is unchanged). */
+  headingQuat?: Quaternion;
+  lastTotalHeading?: number;
   config: EnemyTypeConfig;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
@@ -219,6 +224,7 @@ export class EnemyInstanceManager {
       frozen: false,
       poisoned: false,
       hitFlashEnd: 0,
+      lastFrame: -1,
       config,
     };
 
@@ -440,8 +446,15 @@ export class EnemyInstanceManager {
         }
 
         const globalFrame = entry.frameStart + localFrame;
-        pool.animFrameAttr.setX(state.index, globalFrame);
-        framesDirty = true;
+        // Only write + flag dirty when the integer frame actually changed.
+        // VAT frames are integers, so at 60fps a 30-frame clip changes only
+        // ~every 2nd frame (slower clips less often) — when nothing changed,
+        // the whole-buffer upload is skipped entirely.
+        if (globalFrame !== state.lastFrame) {
+          state.lastFrame = globalFrame;
+          pool.animFrameAttr.setX(state.index, globalFrame);
+          framesDirty = true;
+        }
       }
 
       if (framesDirty) {
@@ -584,7 +597,21 @@ export class EnemyInstanceManager {
   ): void {
     const configOffset = pool.config.headingOffset ?? 0;
     const rotationOffset = state?.debugRotation ?? 0;
-    EnemyInstanceManager._tempQuat.setFromAxisAngle(UP, heading + configOffset + rotationOffset);
+    const totalHeading = heading + configOffset + rotationOffset;
+    // Position changes every frame (enemy moving) so compose() always runs, but
+    // the rotation quaternion only needs rebuilding (sin/cos) when the heading
+    // actually changed — cache it per instance.
+    let quat: Quaternion;
+    if (state) {
+      if (!state.headingQuat) state.headingQuat = new Quaternion();
+      if (state.lastTotalHeading !== totalHeading) {
+        state.headingQuat.setFromAxisAngle(UP, totalHeading);
+        state.lastTotalHeading = totalHeading;
+      }
+      quat = state.headingQuat;
+    } else {
+      quat = EnemyInstanceManager._tempQuat.setFromAxisAngle(UP, totalHeading);
+    }
 
     const scale = state?.debugScale ?? pool.config.scale;
     EnemyInstanceManager._tempScale.set(scale, scale, scale);
@@ -596,13 +623,13 @@ export class EnemyInstanceManager {
       EnemyInstanceManager._tempPos.y += heightDelta;
       this.matrix.compose(
         EnemyInstanceManager._tempPos,
-        EnemyInstanceManager._tempQuat,
+        quat,
         EnemyInstanceManager._tempScale,
       );
     } else {
       this.matrix.compose(
         position,
-        EnemyInstanceManager._tempQuat,
+        quat,
         EnemyInstanceManager._tempScale,
       );
     }
