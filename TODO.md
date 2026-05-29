@@ -69,6 +69,63 @@
       Dateien: `src/app/services/tower-placement.service.ts` (`onCellsChanged`),
       `src/app/utils/global-route-grid.ts` (`updateTerrainHeights`).
 
+## 1.5 Render-/GPU-Hebel aus Deep-Dive 2026-05 (verschoben, messgestützt)
+
+> Aus PR #5 / [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md).
+> Die risikoarmen High-Value-Findings sind umgesetzt (Bugs, LOS-Readback-Batching,
+> Bounding-Box-Tower-Reg, Targeting-Hot-Path, Health-Bar-Buffer-Sharing, Trail-Material-
+> Sharing u.a.). Die folgenden sind größere Shader-/Buffer-Umbauten oder visuelle/
+> balance-relevante Änderungen — **vor Umsetzung Frame-Time im echten Render messen**
+> (davor/danach), da hier kein Headless-/GPU-Test greift. Sichere Teilvarianten sind
+> jeweils bereits drin.
+
+- [ ] **P2 — Lightning-Bolts auf `InstancedMesh`** (größter offener VFX-Hebel)
+      192 Mesh+Material dauerhaft in der Szene; Geometrie wird komplett im Shader aus
+      `uStart/uEnd/uSeed` erzeugt → ideal für 1 InstancedMesh mit Per-Instance-Attributen.
+      Bis zu 192 Draw Calls → 1, 192 Materialien → 1. Voller Rewrite des Renderers.
+      Datei: `src/app/three-engine/renderers/lightning-bolt.renderer.ts`.
+
+- [ ] **R1 — `scene.matrixWorldAutoUpdate` für statische Subtrees abschalten**
+      Ganzer Overlay-Graph (Marker/Straßen/Decals) wird pro Frame durchmultipliziert.
+      Statische Subtree-Roots auf `matrixWorldAutoUpdate=false`, einmalig
+      `updateMatrixWorld(true)`. Braucht Per-Subtree-Audit (welche Gruppen sind wirklich
+      statisch) + Frame-Time-Messung. Datei: `src/app/three-engine/three-tiles-engine.ts`.
+
+- [ ] **R4-Experiment — `logarithmicDepthBuffer` evaluieren**
+      logDepth schreibt `gl_FragDepth` → deaktiviert Early-Z auf vielen GPUs über die
+      gesamte Tile-Geometrie. Experiment: entfernen + `camera.near` 1→5-10m anheben (Spiel-
+      Skala ~150m, Fern-Z im Fog). Z-Fighting-Risiko → nur mit visuellem Vorher/Nachher.
+      Sichere Teilmaßnahme (`powerPreference`/`stencil:false`) ist bereits drin.
+
+- [ ] **G3-Vollausbau — Health-Bar-Billboard in den Vertex-Shader**
+      Position+Scale als statische Instance-Attribute, Ausrichtung über `uCameraRight/Up`
+      (wie FloatingText) → pro Frame nur 2 Uniform-Sets statt `instanceMatrix`-Uploads.
+      Buffer-Sharing-Teil (1× compose+upload) ist bereits drin.
+      Datei: `.../instanced-enemy/health-bar-instance.manager.ts`.
+
+- [ ] **G5-`addUpdateRange` — partielle GPU-Uploads (querschnittlich)**
+      Kein Manager nutzt bisher `BufferAttribute.addUpdateRange()`; jedes `needsUpdate`
+      lädt den vollen Buffer (Enemy/Health-Bar je 20k). Dirty-min/max-Pattern über die
+      großen Pools. Change-gate (nur bei Frame-Wechsel schreiben) ist bereits drin.
+      Vorsicht: partial-upload-Korrektheit (sonst stale GPU-Daten).
+
+- [ ] **Render-Kleinkram (LOW)** — R6 Empty-Frame-Guards, R9 Skybox als CubeTexture/weglassen,
+      R10 Lichtquellen reduzieren, G8 gecachte Instanz-Arrays, P6 Decal-Fade-Idle-Skip,
+      P8 `markPoolDirty`-Edge-Case (erst zentralen Pool-Flush-Mechanismus verifizieren —
+      die im Report genannte API existiert im Renderer nicht direkt).
+
+- [ ] **L3 — 3D-Range für Luftziele** (balance-relevant)
+      Range-Check ist rein horizontal (2D). Für Air ggf. echte 3D-Distanz inkl. Flughöhe
+      (~15-20m) — würde Air-Türme nerfen. Aktuell bewusst als horizontale Reichweite
+      dokumentiert; bei Bedarf als bewusste Balance-Entscheidung umstellen.
+
+- [ ] **cellsInRange — Range-Monotonie absichern, falls Range-Debuffs kommen**
+      Die Bounding-Box-Tower-Registrierung (`global-route-grid.ts`) setzt voraus, dass
+      Tower-Range nie schrumpft (aktuell garantiert: `range *= 1.04/1.02`). Wird je ein
+      Range-Debuff / Downgrade eingeführt, müssen Stale-Visibility-Entries für Zellen
+      außerhalb der neuen (kleineren) Box wieder bereinigt werden (z.B. alte Range merken
+      und die Differenz-Annulus aufräumen, oder `unregisterTower`+full re-register).
+
 ---
 
 # PRIO 2 — Balance & Phase-5.16-Followups
