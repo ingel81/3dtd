@@ -557,10 +557,15 @@ export class GameEventBus {
    * ```
    */
   processQueue(): void {
-    while (this.deferredQueue.length > 0) {
-      const event = this.deferredQueue.shift()!;
-      this.emit(event);
+    // Index-walk instead of shift() (O(n) per element → O(n²)). Events that
+    // emit() enqueues during processing extend the same array and are still
+    // drained this call, preserving the previous drain-until-empty semantics.
+    const q = this.deferredQueue;
+    let i = 0;
+    while (i < q.length) {
+      this.emit(q[i++]);
     }
+    q.length = 0;
   }
 
   /**

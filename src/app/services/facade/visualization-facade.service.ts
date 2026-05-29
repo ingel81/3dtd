@@ -112,6 +112,11 @@ export class VisualizationFacadeService {
    */
   dispose(): void {
     this.eventBusSubs.disposeAll();
+    if (this.routeGridConvergenceRaf !== null) {
+      cancelAnimationFrame(this.routeGridConvergenceRaf);
+      this.routeGridConvergenceRaf = null;
+    }
+    this.routeGridConvergenceScheduled = false;
     const engine = this.initialized ? this.bridge.getEngine() : null;
     this.disposeDpsVisualization(engine);
     this.cachedBuildings = null;
@@ -150,6 +155,9 @@ export class VisualizationFacadeService {
    * Called from the main facade after game state is initialized.
    */
   subscribeToEventBus(): void {
+    // Defensive: clear any prior subscriptions so a future re-init path can't
+    // double-subscribe (consistent with combat-effect/hq-damage/game-state).
+    this.eventBusSubs.disposeAll();
     const eventBus = this.gameState.getEventBus();
 
     // Subscribe to tower:selected event — sync debug panel dropdown
@@ -656,6 +664,8 @@ export class VisualizationFacadeService {
   // ══════════════════════════════════════════════════════════════
 
   private routeGridConvergenceScheduled = false;
+  /** rAF handle for the convergence loop — cancelled in dispose(). */
+  private routeGridConvergenceRaf: number | null = null;
 
   /**
    * Run `retryUnsampledCells` across rAF ticks until convergence — i.e.
@@ -677,6 +687,9 @@ export class VisualizationFacadeService {
     let zeroFrames = 0;
 
     const tick = () => {
+      this.routeGridConvergenceRaf = null;
+      // dispose() may have torn down the engine/grid between frames.
+      if (!this.routeGridConvergenceScheduled) return;
       if (frames++ >= MAX_FRAMES) {
         this.routeGridConvergenceScheduled = false;
         return;
@@ -684,17 +697,17 @@ export class VisualizationFacadeService {
       const { promoted } = grid.retryUnsampledCells();
       if (promoted > 0) {
         zeroFrames = 0;
-        requestAnimationFrame(tick);
+        this.routeGridConvergenceRaf = requestAnimationFrame(tick);
       } else if (zeroFrames < 1) {
         // One empty frame may just be the gap between tile-decode bursts —
         // give it one more chance before declaring convergence.
         zeroFrames++;
-        requestAnimationFrame(tick);
+        this.routeGridConvergenceRaf = requestAnimationFrame(tick);
       } else {
         this.routeGridConvergenceScheduled = false;
       }
     };
-    requestAnimationFrame(tick);
+    this.routeGridConvergenceRaf = requestAnimationFrame(tick);
   }
 
   /**

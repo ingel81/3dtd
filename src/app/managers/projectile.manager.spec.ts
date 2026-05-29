@@ -125,11 +125,12 @@ describe('ProjectileManager', () => {
     );
   });
 
-  it('does not emit hit event when target died before impact', () => {
+  it('does not emit hit event when a non-splash target died before impact', () => {
     const hitSpy = vi.fn();
     eventBus.on('projectile:hit', hitSpy);
 
-    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
+    // archer → 'arrow' projectile has no splashRadius
+    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'archer');
     const enemy = new Enemy('zombie', [
       { lat: 0.0005, lon: 0, height: 0 },
       { lat: 0.0006, lon: 0, height: 0 },
@@ -141,6 +142,30 @@ describe('ProjectileManager', () => {
     manager.update(2000);
 
     expect(hitSpy).not.toHaveBeenCalled();
+    expect(manager.getById(projectile.id)).toBeNull();
+    expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(projectile.id);
+  });
+
+  it('still emits hit event for a splash projectile when target died before impact', () => {
+    // Splash must detonate at the impact point even if the primary target
+    // dies mid-flight — otherwise AoE towers lose their area effect in packs.
+    const hitSpy = vi.fn();
+    eventBus.on('projectile:hit', hitSpy);
+
+    // ice → 'ice-shard' projectile has splashRadius 8
+    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'ice');
+    const enemy = new Enemy('zombie', [
+      { lat: 0.0005, lon: 0, height: 0 },
+      { lat: 0.0006, lon: 0, height: 0 },
+    ]);
+
+    const projectile = manager.spawn(tower, enemy);
+    enemy.health.takeDamage(enemy.health.hp); // kill target before hit
+
+    manager.update(2000);
+
+    expect(hitSpy).toHaveBeenCalledTimes(1);
+    expect(projectile.targetLost).toBe(true);
     expect(manager.getById(projectile.id)).toBeNull();
     expect(tilesEngine.projectiles.remove).toHaveBeenCalledWith(projectile.id);
   });

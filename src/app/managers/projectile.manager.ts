@@ -141,8 +141,15 @@ export class ProjectileManager extends EntityManager<Projectile> {
       const hit = projectile.updateTowardsTarget(deltaTime);
 
       if (hit) {
-        // Emit projectile:hit event if target is still alive
-        if (!projectile.targetLost) {
+        // Emit projectile:hit when the target is still alive, OR when the
+        // projectile carries splash — splash must still detonate at the impact
+        // point even if the primary target died mid-flight (otherwise AoE
+        // towers silently lose their whole area effect in dense packs, exactly
+        // where it matters most). The handler skips direct damage on a dead
+        // target and only applies the splash. Non-splash projectiles keep the
+        // old behaviour (no hit event once the target is gone).
+        const splashRadius = projectile.typeConfig.splashRadius ?? 0;
+        if (!projectile.targetLost || splashRadius > 0) {
           this.eventBus.emit({
             type: 'projectile:hit',
             projectile,
