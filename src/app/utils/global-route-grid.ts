@@ -1126,9 +1126,13 @@ export class GlobalRouteGrid {
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
-    // Batch-read the 6 cube faces once (6 GPU readbacks) instead of one 1×1
-    // readback per sampled cell × ground/air (up to ~1400 stalls/build).
-    const faces = (this._cubeFaceCache = readCubeFaces(ctx, this._cubeFaceCache));
+    // Lazily batch-read the 6 cube faces on the first cell that actually needs
+    // a GPU sample (6 readbacks instead of one 1×1 readback per sampled cell ×
+    // ground/air). Lazy so a call that hits 100% cached cells — or only
+    // at-tower cells — never pays the 6×faceSize readback at all.
+    let faces: CubeFaceCache | null = null;
+    const getFaces = (): CubeFaceCache =>
+      faces ?? (faces = this._cubeFaceCache = readCubeFaces(ctx, this._cubeFaceCache));
 
     for (const cell of this.cellsInRange(towerX, towerZ, range)) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
@@ -1151,7 +1155,7 @@ export class GlobalRouteGrid {
           groundVisible = true;
         } else {
           const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
+          groundVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, getFaces());
         }
         cell.towerVisibility.set(towerId, groundVisible);
       }
@@ -1163,7 +1167,7 @@ export class GlobalRouteGrid {
           airVisible = true;
         } else {
           const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
+          airVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, getFaces());
         }
         cell.airVisibility.set(towerId, airVisible);
       }
@@ -1207,8 +1211,12 @@ export class GlobalRouteGrid {
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
-    // Batch-read the 6 cube faces once (see registerTower).
-    const faces = (this._cubeFaceCache = readCubeFaces(ctx, this._cubeFaceCache));
+    // Lazily batch-read the 6 cube faces (see registerTower). The incremental
+    // path reuses cached cell visibility for most cells, so this only fires for
+    // the newly-added annulus — and not at all when every cell is already cached.
+    let faces: CubeFaceCache | null = null;
+    const getFaces = (): CubeFaceCache =>
+      faces ?? (faces = this._cubeFaceCache = readCubeFaces(ctx, this._cubeFaceCache));
 
     for (const cell of this.cellsInRange(towerX, towerZ, range)) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
@@ -1238,7 +1246,7 @@ export class GlobalRouteGrid {
           cell.towerVisibility.set(towerId, groundVisible);
         } else {
           const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
+          groundVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, getFaces());
           cell.towerVisibility.set(towerId, groundVisible);
         }
       } else {
@@ -1256,7 +1264,7 @@ export class GlobalRouteGrid {
           cell.airVisibility.set(towerId, airVisible);
         } else {
           const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, faces);
+          airVisible = isCubeVisibleFromFaces(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, getFaces());
           cell.airVisibility.set(towerId, airVisible);
         }
       } else {
