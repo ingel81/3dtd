@@ -205,6 +205,8 @@ export class ThreeTilesEngine {
 
   // Track initial tiles position to calculate movement delta
   private initialTilesPos = new Vector3();
+  /** Reused scratch for the per-frame overlay-sync delta (avoids clone()). */
+  private readonly _overlayDelta = new Vector3();
   private tilesPosInitialized = false;
 
   // Base Y position for overlay group (terrain height at origin)
@@ -299,7 +301,11 @@ export class ThreeTilesEngine {
       this.renderer = new WebGLRenderer({
         canvas,
         antialias: true,
+        // Required for the 1m..8000m depth range over the 3D tiles (kept to
+        // avoid far-field z-fighting). The remaining flags are pure wins:
         logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance', // prefer dGPU on hybrid laptops
+        stencil: false, // no stencil buffer in use → save bandwidth
       });
     } catch {
       throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
@@ -1053,6 +1059,9 @@ export class ThreeTilesEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     this.postProcessing?.setSize(width, height);
+    // Drawing-buffer size changed → refresh the tiles renderer resolution here
+    // (moved out of the per-frame render() path).
+    this.tilesRenderer?.setResolutionFromRenderer(this.camera, this.renderer);
   }
 
   /**
@@ -1828,10 +1837,12 @@ export class ThreeTilesEngine {
       this.camera.updateProjectionMatrix();
     }
 
-    // Update tiles
+    // Update tiles. Camera matrix must be current before tilesRenderer.update()
+    // reads it for LOD/frustum (controls.update() above moved the camera).
+    // setResolutionFromRenderer / setCamera are NOT per-frame work — resolution
+    // only changes on resize() and the camera reference is registered once at
+    // init (and on the no-tiles nudge); calling them every frame was wasted work.
     this.camera.updateMatrixWorld();
-    this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
-    this.tilesRenderer.setCamera(this.camera);
 
     // TODO: Tiles throttling was here (only update when camera moves >5m) but broke
     // initial tile loading — tiles never loaded because update() was never called.
@@ -1850,7 +1861,9 @@ export class ThreeTilesEngine {
 
     // Sync overlayGroup with tiles movement (only after initial pos is captured)
     if (this.tilesPosInitialized) {
-      const deltaPos = this.tilesRenderer.group.position.clone().sub(this.initialTilesPos);
+      const deltaPos = this._overlayDelta
+        .copy(this.tilesRenderer.group.position)
+        .sub(this.initialTilesPos);
 
       // Apply delta X/Z, but Y = delta + base terrain height
       this.overlayGroup.position.set(deltaPos.x, deltaPos.y + this.overlayBaseY, deltaPos.z);
@@ -1963,21 +1976,30 @@ export class ThreeTilesEngine {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    let lastTime = performance.now();
+    let lastRender = performance.now(); // for deltaTime
+    let anchor = lastRender; // frame-pacing phase anchor
     const animate = (currentTime: number) => {
       if (!this.isRunning) return;
 
       // FPS limiting: skip frame if not enough time has elapsed
       if (this._minFrameInterval > 0) {
-        const elapsed = currentTime - lastTime;
-        if (elapsed < this._minFrameInterval) {
+        if (currentTime - anchor < this._minFrameInterval) {
           this.animationFrameId = requestAnimationFrame(animate);
           return;
         }
+        // Advance the anchor by whole intervals instead of snapping to
+        // currentTime, so the effective rate doesn't collapse to a vsync
+        // divisor (e.g. a 50fps limit degrading to 30fps on a 60Hz display).
+        const intervals = Math.floor((currentTime - anchor) / this._minFrameInterval);
+        anchor += intervals * this._minFrameInterval;
+        // Resync after a long stall (e.g. backgrounded tab) to avoid catch-up bursts.
+        if (currentTime - anchor > this._minFrameInterval * 4) {
+          anchor = currentTime;
+        }
       }
 
-      const deltaTime = currentTime - lastTime;
-      lastTime = currentTime;
+      const deltaTime = currentTime - lastRender;
+      lastRender = currentTime;
 
       this.update(deltaTime);
       this.render();

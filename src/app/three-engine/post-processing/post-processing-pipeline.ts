@@ -35,10 +35,15 @@ export class PostProcessingPipeline {
       0.4,  // radius
       0.85, // threshold (only bright things bloom)
     );
+    // Disabled until explicitly turned on — otherwise the 5 bloom mip passes
+    // would run on every composer.render() even when only color grading is
+    // active (the bloomEnabled flag was previously not wired to pass.enabled).
+    this.bloomPass.enabled = false;
     this.composer.addPass(this.bloomPass);
 
     // Color grading LUT pass (inserted before output, disabled by default)
     this.colorGrading = createColorGradingPass();
+    this.colorGrading.pass.enabled = false;
     this.composer.addPass(this.colorGrading.pass);
 
     this.composer.addPass(new OutputPass());
@@ -62,6 +67,7 @@ export class PostProcessingPipeline {
   // ── Bloom ────────────────────────────────────────────────────────
   setBloomEnabled(enabled: boolean): void {
     this.bloomEnabled = enabled;
+    this.bloomPass.enabled = enabled;
   }
   isBloomEnabled(): boolean {
     return this.bloomEnabled;
@@ -77,6 +83,7 @@ export class PostProcessingPipeline {
   setColorGradingPreset(preset: ColorGradingPreset): void {
     this.colorGradingPreset = preset;
     this.colorGrading.setPreset(preset);
+    this.colorGrading.pass.enabled = preset !== 'none';
   }
   getColorGradingPreset(): ColorGradingPreset {
     return this.colorGradingPreset;
