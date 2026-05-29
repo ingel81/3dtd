@@ -141,3 +141,22 @@ Falls eine konkrete Umsetzungsrunde gewünscht ist, bieten sich diese als kohär
 6. **B1 + B2** — Worker-Null-Guard + rAF-Cleanup. Defensive Stabilität.
 
 P1/P2 (Trail/Lightning-Material-Sharing bzw. -Instancing) und R1 (matrixWorldAutoUpdate) sind größere Hebel, aber breitere Eingriffe → eigene Runde mit Frame-Time-Messung davor/danach.
+
+---
+
+## Umsetzungsstand (2026-05-29)
+
+Implementiert und committet auf `claude/3d-engine-performance-analysis-NHoDA` (Tests 885/885 grün, Typecheck sauber):
+
+**Bugs (alle):** B1 (Worker-Race-Null-Deref), B2 (rAF-Cleanup in dispose), B3 (disposeAll in 3 Subscribe-Pfaden), B4 (Wave/Enemy-Manager Ctor-Subs), B5 (Audio-One-Shot-Timer), C8 (EventBus shift→index-walk), L1 (Splash-on-targetLost + Regressionstest), L2 (Air-LOS bei Akquise), L4 (Freeze→Stillstand defensiv).
+
+**Performance:** R2, R3, R4 (powerPreference/stencil — logDepth bewusst behalten), R5 (Bloom/Grading pass.enabled verdrahtet), R7, R8 · G1 (Bounding-Box-Tower-Reg), G2 (6 Cube-Face-Readbacks statt ~1.400), G3 (geteilter Health-Bar-Matrix-Buffer), G4 (const Light-Dirs), G5 (Anim-Frame change-gate), G6 (Heading-Quat-Cache) · C1 (Candidate-Scratch-Buffer), C2 (geoToLocalSimpleInto), C3 (cos/sqrt eliminiert, squared-Vergleich), C4 (Prefix-Summen), C5 (LoS-Vector3-Scratch), C6 (Cone-Scratch), C7 (flache Komponentenliste) · P1 (Trail-Material-Sharing 360→6), P3 (Euler-Scratch), P4 (activeIndices ohne Spread), P5 (Flame-Spawn-Cap).
+
+**Bewusst aufgeschoben** (messgestützte Render-Folgerunde / Balance-Entscheidung — Begründung jeweils im Finding):
+- **R1** (`scene.matrixWorldAutoUpdate` global) — braucht Per-Subtree-Audit + Frame-Time-Messung; Risiko für dynamische Transforms.
+- **R4-Experiment** (`logarithmicDepthBuffer` entfernen) — Z-Fighting-Risiko, nur mit visueller Messung; sichere Teilmaßnahme erledigt.
+- **R6** (Empty-Frame-Guards) — `commitToGPU` ist bereits No-op, `updateShaderUniforms` minimal; breiter Eingriff über 6 Renderer für geringen Idle-Gewinn.
+- **R9/R10** (Skybox-Cubemap, Licht reduzieren) — rein visuelle Änderungen.
+- **G3-Vollausbau** (Billboard im Vertex-Shader), **G5-`addUpdateRange`** (partielle Uploads), **P2** (Lightning→InstancedMesh) — größere Shader-/Buffer-Umbauten mit Regressionsrisiko, ohne Headless-/GPU-Verifikation hier nicht sicher prüfbar; sichere Teilvarianten (G3-Buffer-Sharing, G5-change-gate) sind drin.
+- **G8, P6, P8** — LOW; P8 referenziert eine API, die im betroffenen Renderer nicht existiert (Pool-Flush liegt zentral) → erst Mechanismus verifizieren.
+- **L3** (3D-Range für Air) — balance-relevant; als horizontale Reichweite dokumentiert statt Air-Türme zu nerfen.
