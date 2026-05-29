@@ -229,8 +229,8 @@ export class GlobalRouteGridService {
    * @param visibleCells Array of cells the tower can see
    * @returns Array of alive enemies in those cells
    */
-  getEnemiesForTower(visibleCells: RouteCell[]): Enemy[] {
-    return this.grid.getEnemiesForTower(visibleCells);
+  getEnemiesForTower(visibleCells: RouteCell[], out?: Enemy[]): Enemy[] {
+    return this.grid.getEnemiesForTower(visibleCells, out);
   }
 
   /**
@@ -286,8 +286,8 @@ export class GlobalRouteGridService {
    * @param excludeId Optional enemy ID to exclude (e.g., the primary target)
    * @returns Array of alive enemies within radius
    */
-  getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string): Enemy[] {
-    return this.grid.getEnemiesInRadius(localX, localZ, radiusMeters, excludeId);
+  getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string, out?: Enemy[]): Enemy[] {
+    return this.grid.getEnemiesInRadius(localX, localZ, radiusMeters, excludeId, out);
   }
 
   /**

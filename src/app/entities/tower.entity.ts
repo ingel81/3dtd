@@ -47,6 +47,12 @@ export class Tower extends GameObject {
   /** Pre-computed range² in geo-degrees for quick sleep checks */
   rangeSquaredGeo = 0;
 
+  /**
+   * Meters-per-degree-longitude at this tower's (constant) latitude. Cached so
+   * the targeting hot path avoids a Math.cos() per distance check.
+   */
+  private readonly _mPerDegLon: number;
+
   /** How long (ms) without a target before sleeping */
   static readonly SLEEP_DELAY = COMBAT_TUNING.towerSleepDelayMs;
 
@@ -100,6 +106,7 @@ export class Tower extends GameObject {
 
     // Pre-compute range² in geo-degrees for quick sleep wake-checks
     const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(position.lat * DEG_TO_RAD);
+    this._mPerDegLon = metersPerDegreeLon;
     // Use average of lat/lon scale for approximation
     const avgMetersPerDegree = (METERS_PER_DEGREE_LAT + metersPerDegreeLon) / 2;
     const rangeInDegrees = this.typeConfig.range / avgMetersPerDegree;
@@ -173,6 +180,10 @@ export class Tower extends GameObject {
     airTargetingUnlocked: boolean,
     losCheck?: (enemy: Enemy) => boolean,
   ): Enemy | null {
+    // Squared range for all distance comparisons below (range is stable within
+    // a frame; comparisons against distance² avoid sqrt in the hot path).
+    const rangeSq = this.combat.range * this.combat.range;
+
     // Fast path: Check if current target is still valid (no LOS check needed)
     if (this._currentTarget) {
       if (this._currentTarget.alive) {
@@ -183,8 +194,8 @@ export class Tower extends GameObject {
         const typeValid = (isAirEnemy && canTargetAir) || (!isAirEnemy && canTargetGround);
 
         if (typeValid) {
-          const dist = this.calculateDistanceFast(this.position, this._currentTarget.position);
-          if (dist <= this.combat.range) {
+          const distSq = this.calculateDistanceFastSq(this._currentTarget.position);
+          if (distSq <= rangeSq) {
             // Target still valid - keep it without expensive LOS recheck
             return this._currentTarget;
           }
@@ -210,12 +221,16 @@ export class Tower extends GameObject {
       if (isAirEnemy && !canTargetAir) continue;
       if (!isAirEnemy && !canTargetGround) continue;
 
-      const dist = this.calculateDistanceFast(this.position, enemy.position);
-      if (dist > this.combat.range) continue;
+      // Range is intentionally HORIZONTAL coverage (flat-earth distance²);
+      // air units' flight height does not shrink a tower's reach.
+      const distSq = this.calculateDistanceFastSq(enemy.position);
+      if (distSq > rangeSq) continue;
 
-      // LOS check only when selecting NEW target
-      // Skip LOS for air enemies - they fly high enough to always be visible
-      if (losCheck && !isAirEnemy && !losCheck(enemy)) continue;
+      // LOS check only when selecting a NEW target. Applied to air too: tall
+      // buildings can break air LOS, and the periodic recheck in
+      // updateTowerShooting already drops air targets that lose LOS — checking
+      // at acquisition keeps the two paths consistent (no acquire-then-drop).
+      if (losCheck && !losCheck(enemy)) continue;
 
       candidates.push(enemy);
     }
@@ -240,11 +255,11 @@ export class Tower extends GameObject {
     switch (this.targetingStrategy) {
       case 'closest': {
         let best: Enemy | null = null;
-        let bestDist = Infinity;
+        let bestDistSq = Infinity;
         for (const enemy of candidates) {
-          const dist = this.calculateDistanceFast(this.position, enemy.position);
-          if (dist < bestDist) {
-            bestDist = dist;
+          const distSq = this.calculateDistanceFastSq(enemy.position);
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
             best = enemy;
           }
         }
@@ -319,11 +334,11 @@ export class Tower extends GameObject {
     switch (strategy) {
       case 'closest': {
         let best: Enemy | null = null;
-        let bestDist = Infinity;
+        let bestDistSq = Infinity;
         for (const enemy of pool) {
-          const dist = this.calculateDistanceFast(this.position, enemy.position);
-          if (dist < bestDist) {
-            bestDist = dist;
+          const distSq = this.calculateDistanceFastSq(enemy.position);
+          if (distSq < bestDistSq) {
+            bestDistSq = distSq;
             best = enemy;
           }
         }
@@ -460,16 +475,17 @@ export class Tower extends GameObject {
   }
 
   /**
-   * Fast distance calculation using flat-earth approximation
-   * Accurate enough for tower range checks (< 200m)
+   * Fast SQUARED distance (m²) from this tower to a target, flat-earth
+   * approximation. Avoids the sqrt + per-call Math.cos of a true distance:
+   * range checks and 'closest' selection are monotonic in distance², so the
+   * squared value is sufficient. Uses the cached _mPerDegLon (tower latitude
+   * is constant). Accurate enough for tower range checks (< 200m).
    */
-  private calculateDistanceFast(pos1: GeoPosition, pos2: GeoPosition): number {
-    const dLat = pos2.lat - pos1.lat;
-    const dLon = pos2.lon - pos1.lon;
-    // Approximate meters per degree at mid-latitudes
-    const metersPerDegreeLon = METERS_PER_DEGREE_LAT * Math.cos(pos1.lat * DEG_TO_RAD);
-    const dx = dLon * metersPerDegreeLon;
+  private calculateDistanceFastSq(target: GeoPosition): number {
+    const dLat = target.lat - this.position.lat;
+    const dLon = target.lon - this.position.lon;
+    const dx = dLon * this._mPerDegLon;
     const dy = dLat * METERS_PER_DEGREE_LAT;
-    return Math.sqrt(dx * dx + dy * dy);
+    return dx * dx + dy * dy;
   }
 }
