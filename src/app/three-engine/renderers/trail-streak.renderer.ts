@@ -199,7 +199,7 @@ class TrailStreak {
   private static _next = new Vector3();
   private static _tangent = new Vector3();
 
-  constructor(style: TrailStreakStyle) {
+  constructor(style: TrailStreakStyle, sharedMaterial: ShaderMaterial) {
     this.style = style;
     const n = style.maxPoints;
 
@@ -242,19 +242,10 @@ class TrailStreak {
     }
     this.indexAttr.needsUpdate = true;
 
-    const mat = new ShaderMaterial({
-      vertexShader: TRAIL_VERTEX,
-      fragmentShader: TRAIL_FRAGMENT,
-      uniforms: {
-        uEmissiveIntensity: { value: style.emissiveIntensity },
-      },
-      transparent: true,
-      depthWrite: false,
-      blending: AdditiveBlending,
-      side: DoubleSide,
-    });
-
-    this.mesh = new Mesh(geom, mat);
+    // Material is shared across all trails of the same visual type (its only
+    // variation, uEmissiveIntensity, is constant per type) — created once by
+    // the renderer instead of per trail (was 60×6 = 360 ShaderMaterials).
+    this.mesh = new Mesh(geom, sharedMaterial);
     this.mesh.frustumCulled = false;
     this.mesh.renderOrder = 998; // Just below particle effects
     this.mesh.visible = false;
@@ -407,6 +398,9 @@ export class TrailStreakRenderer {
   /** All pooled trail instances, keyed by visual type */
   private pools = new Map<string, TrailStreak[]>();
 
+  /** One shared ShaderMaterial per visual type (disposed once in dispose()). */
+  private materials = new Map<string, ShaderMaterial>();
+
   /** Active projectile → trail mapping */
   private active = new Map<string, TrailStreak>();
 
@@ -422,9 +416,22 @@ export class TrailStreakRenderer {
     const types: ProjectileVisualType[] = ['rocket', 'arrow', 'magic', 'ice', 'cannonball', 'bullet'];
     for (const vt of types) {
       const style = getTrailStyle(vt);
+      // One material per type, shared by all trails of that type.
+      const material = new ShaderMaterial({
+        vertexShader: TRAIL_VERTEX,
+        fragmentShader: TRAIL_FRAGMENT,
+        uniforms: {
+          uEmissiveIntensity: { value: style.emissiveIntensity },
+        },
+        transparent: true,
+        depthWrite: false,
+        blending: AdditiveBlending,
+        side: DoubleSide,
+      });
+      this.materials.set(vt, material);
       const pool: TrailStreak[] = [];
       for (let i = 0; i < this.POOL_SIZE_PER_TYPE; i++) {
-        const trail = new TrailStreak(style);
+        const trail = new TrailStreak(style, material);
         this.scene.add(trail.mesh);
         pool.push(trail);
       }
@@ -515,9 +522,13 @@ export class TrailStreakRenderer {
       for (const trail of pool) {
         this.scene.remove(trail.mesh);
         trail.mesh.geometry.dispose();
-        (trail.mesh.material as ShaderMaterial).dispose();
+        // Material is shared per type — disposed once below, not per trail.
       }
     }
+    for (const material of this.materials.values()) {
+      material.dispose();
+    }
+    this.materials.clear();
     this.pools.clear();
   }
 
