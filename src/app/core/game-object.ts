@@ -77,9 +77,9 @@ export abstract class GameObject {
    * Update all enabled components
    */
   update(deltaTime: number): void {
-    const list = this._componentList;
-    for (let i = 0; i < list.length; i++) {
-      const component = list[i];
+    // Iterate the flat array (V8 optimizes array for-of with no allocation),
+    // not the components Map (whose .values() iterator allocates each call).
+    for (const component of this._componentList) {
       if (component.enabled) {
         component.update(deltaTime);
       }

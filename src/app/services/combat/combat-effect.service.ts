@@ -89,7 +89,10 @@ export class CombatEffectService {
     // detonate splash at the impact point (see projectile.manager emit guard).
     const targetLost = projectile.targetLost;
 
-    // Spawn explosion/ice effects for splash projectiles
+    // Spawn explosion/ice effects for splash projectiles. When targetLost, the
+    // projectile homed to the target's death position (_lastTargetPosition) and
+    // the dead enemy doesn't move, so enemy.position == the impact point —
+    // explosion VFX and the splash centre (projectile.position, below) coincide.
     if (hasSplash) {
       if (isIceShard) {
         this.vfx.emitIceExplosion(enemy);
