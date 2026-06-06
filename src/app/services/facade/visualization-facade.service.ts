@@ -604,7 +604,14 @@ export class VisualizationFacadeService {
     // pan/zoom case) the listener never fires — so the cost shown in the
     // `terrainHeights` PerfTrace term stays at a few ms instead of the
     // multi-second cubemap-readback spike the old full sweep produced.
-    this.gameState.getGlobalRouteGrid().updateTerrainHeights();
+    // Kick off a FRAME-BUDGETED refresh instead of the old synchronous full
+    // sweep. The sweep used to raycast all ~3600 cells in one blocking call
+    // (~900ms main-thread freeze on every tile-load = the pan/zoom stutter).
+    // `scheduleRouteGridConvergence` below now drives the sweep across rAF
+    // ticks at ~5ms/frame, then falls back to unsampled self-heal. The route
+    // lines / animation below read the current (for refresh-cases already
+    // usable) cell heights; the small LOD deltas snap in over the next frames.
+    this.gameState.getGlobalRouteGrid().beginTerrainHeightRefresh();
     const tTerrainHeights = performance.now();
 
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
@@ -667,12 +674,24 @@ export class VisualizationFacadeService {
   /** rAF handle for the convergence loop — cancelled in dispose(). */
   private routeGridConvergenceRaf: number | null = null;
 
+  /** Per-frame time budget (ms) for the budgeted terrain-refresh sweep.
+   * ~5ms keeps frames at ~55fps while ~1300 raycasts converge over ~1.5–2s
+   * in the background, instead of one ~900ms blocking sweep. Central tuning
+   * knob: smaller = smoother but slower convergence. */
+  private readonly TERRAIN_REFRESH_BUDGET_MS = 5;
+
   /**
-   * Run `retryUnsampledCells` across rAF ticks until convergence — i.e.
-   * two consecutive frames promote zero cells, or the safety cap is hit.
-   * Replaces the previous single-shot retry, which assumed tile mesh
-   * decoding finishes synchronously with the tile-load-end event (it
-   * doesn't; cf. cases 2/5/6/10/12/14 in the bug hunt).
+   * Unified rAF refresh loop. Each tick first advances the frame-budgeted
+   * terrain-refresh sweep (kicked off by `beginTerrainHeightRefresh` in
+   * `onTilesLoaded`); once that sweep is done it falls back to
+   * `retryUnsampledCells` self-heal until convergence — i.e. two consecutive
+   * frames promote zero cells, or the safety cap is hit.
+   *
+   * A single loop (rather than two competing rAF loops) avoids two raycast
+   * passes racing each frame. The retry phase handles cells whose tile mesh
+   * decodes asynchronously AFTER the budgeted sweep already passed them
+   * (tile-mesh decoding is async to the tile-load-end event; cf. cases
+   * 2/5/6/10/12/14 in the bug hunt).
    *
    * `MAX_FRAMES = 120` (~2s at 60fps) is purely a safety guard against
    * pathological loops; on normal hardware the loop exits within a
@@ -694,6 +713,21 @@ export class VisualizationFacadeService {
         this.routeGridConvergenceScheduled = false;
         return;
       }
+
+      // Phase 1: advance the budgeted terrain-refresh sweep. While it's in
+      // flight, keep ticking and skip the unsampled-retry (the sweep already
+      // covers promotion + refresh for every cell).
+      if (grid.isTerrainRefreshActive()) {
+        grid.stepTerrainHeightRefresh(this.TERRAIN_REFRESH_BUDGET_MS);
+        // The MAX_FRAMES cap guards the unsampled-retry tail only — don't let
+        // it abandon an in-flight (or panning-restarted) sweep.
+        frames = 0;
+        zeroFrames = 0;
+        this.routeGridConvergenceRaf = requestAnimationFrame(tick);
+        return;
+      }
+
+      // Phase 2: self-heal cells whose mesh decoded after the sweep passed.
       const { promoted } = grid.retryUnsampledCells();
       if (promoted > 0) {
         zeroFrames = 0;

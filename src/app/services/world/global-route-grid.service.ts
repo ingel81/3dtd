@@ -354,6 +354,25 @@ export class GlobalRouteGridService {
   }
 
   /**
+   * Begin a frame-budgeted terrain-height refresh (non-blocking replacement
+   * for the synchronous `updateTerrainHeights` on the tile-load hot path).
+   * Drive `stepTerrainHeightRefresh` once per rAF tick until done.
+   */
+  beginTerrainHeightRefresh(): void {
+    this.grid.beginTerrainHeightRefresh();
+  }
+
+  /** Process one frame's slice of the budgeted terrain-refresh sweep. */
+  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number } {
+    return this.grid.stepTerrainHeightRefresh(budgetMs);
+  }
+
+  /** True while a budgeted terrain-refresh sweep is in flight. */
+  isTerrainRefreshActive(): boolean {
+    return this.grid.isTerrainRefreshActive();
+  }
+
+  /**
    * Subscribe to cell terrain-sample-change events (promote + refresh).
    * Consumers use the changed-cell list to recompute per-tower LOS + viz
    * meshes so the system self-heals as tiles stream in.
