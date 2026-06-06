@@ -614,16 +614,14 @@ export class VisualizationFacadeService {
     this.gameState.getGlobalRouteGrid().beginTerrainHeightRefresh();
     const tTerrainHeights = performance.now();
 
-    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
+    // Immediate refresh: lines read cell heights live, which at this instant
+    // are still last-load's values (the budgeted sweep above hasn't sampled
+    // yet). That keeps the lines visible / topology-correct right away; the
+    // convergence loop re-runs this ONCE more after the sweep finishes so the
+    // heights snap to the freshly-streamed tiles (otherwise the red line /
+    // animation sit a few metres inside the terrain until the next tile-load).
+    this.refreshRoutesAndAnimation();
     const tRoutes = performance.now();
-
-    // Restart running route animation so it uses the updated overlayBaseY and refreshed paths
-    if (this.routeAnimation.isRunning()) {
-      const cachedPaths = this.pathRoute.getCachedPaths();
-      if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
-      }
-    }
     const tRouteAnim = performance.now();
 
     this.gameState.onTilesLoaded();
@@ -704,13 +702,26 @@ export class VisualizationFacadeService {
     const grid = this.gameState.getGlobalRouteGrid();
     let frames = 0;
     let zeroFrames = 0;
+    // Did any cell height actually move during this convergence session? If
+    // so, re-snap the route lines + animation once at the end — they read
+    // cell heights live but have no per-cell change listener, so without this
+    // the red line / animated route stay at their stale pre-sweep heights
+    // (a few metres inside the terrain) until the next tile-load.
+    let anyChanged = false;
+
+    const finish = () => {
+      this.routeGridConvergenceScheduled = false;
+      if (anyChanged) {
+        this.refreshRoutesAndAnimation();
+      }
+    };
 
     const tick = () => {
       this.routeGridConvergenceRaf = null;
       // dispose() may have torn down the engine/grid between frames.
       if (!this.routeGridConvergenceScheduled) return;
       if (frames++ >= MAX_FRAMES) {
-        this.routeGridConvergenceScheduled = false;
+        finish();
         return;
       }
 
@@ -718,7 +729,8 @@ export class VisualizationFacadeService {
       // flight, keep ticking and skip the unsampled-retry (the sweep already
       // covers promotion + refresh for every cell).
       if (grid.isTerrainRefreshActive()) {
-        grid.stepTerrainHeightRefresh(this.TERRAIN_REFRESH_BUDGET_MS);
+        const { changed } = grid.stepTerrainHeightRefresh(this.TERRAIN_REFRESH_BUDGET_MS);
+        if (changed > 0) anyChanged = true;
         // The MAX_FRAMES cap guards the unsampled-retry tail only — don't let
         // it abandon an in-flight (or panning-restarted) sweep.
         frames = 0;
@@ -730,6 +742,7 @@ export class VisualizationFacadeService {
       // Phase 2: self-heal cells whose mesh decoded after the sweep passed.
       const { promoted } = grid.retryUnsampledCells();
       if (promoted > 0) {
+        anyChanged = true;
         zeroFrames = 0;
         this.routeGridConvergenceRaf = requestAnimationFrame(tick);
       } else if (zeroFrames < 1) {
@@ -738,10 +751,31 @@ export class VisualizationFacadeService {
         zeroFrames++;
         this.routeGridConvergenceRaf = requestAnimationFrame(tick);
       } else {
-        this.routeGridConvergenceScheduled = false;
+        finish();
       }
     };
     this.routeGridConvergenceRaf = requestAnimationFrame(tick);
+  }
+
+  /**
+   * Rebuild the route lines (system 3) and restart the route animation
+   * (system 4) from the current cell-grid heights. Both read ground Y live
+   * via `getGroundLocalYAt`, so calling this after terrain heights settle
+   * snaps them onto the freshly-streamed tile surface. Shared by the
+   * immediate refresh in `onTilesLoaded` and the post-convergence re-snap.
+   */
+  private refreshRoutesAndAnimation(): void {
+    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
+    if (this.routeAnimation.isRunning()) {
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.routeAnimation.startAnimation(
+          cachedPaths,
+          this.store.spawnPoints(),
+          this.pathRoute.getCachedOriginTerrainY(),
+        );
+      }
+    }
   }
 
   /**

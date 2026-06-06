@@ -985,10 +985,10 @@ export class GlobalRouteGrid {
    * Returns `done=true` once the queue is exhausted (or there is no sweep
    * in flight) — at which point the aggregated `[PerfTrace]` line is logged.
    */
-  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number } {
+  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
     const queue = this.terrainSweepQueue;
     if (!this.terrainRaycaster || queue === null) {
-      return { done: true, processed: 0 };
+      return { done: true, processed: 0, changed: 0 };
     }
 
     const t0 = performance.now();
@@ -1016,7 +1016,12 @@ export class GlobalRouteGrid {
     const done = this.terrainSweepIndex >= queue.length;
 
     // Snap viz + drive LOS for this slice's changes, then clear the buffer.
-    if (this.terrainSweepChanged.length > 0) {
+    // `changedThisSlice` is reported back so the caller (convergence loop)
+    // knows whether any cell height moved — it re-snaps the route lines /
+    // animation once the whole sweep converges (they read cell heights live
+    // but have no per-cell change listener of their own).
+    const changedThisSlice = this.terrainSweepChanged.length;
+    if (changedThisSlice > 0) {
       this.refreshAggregateVizPositions();
       this.onCellsChanged?.(this.terrainSweepChanged.slice());
       this.terrainSweepChanged.length = 0;
@@ -1046,7 +1051,7 @@ export class GlobalRouteGrid {
       this.terrainSweepQueue = null;
     }
 
-    return { done, processed };
+    return { done, processed, changed: changedThisSlice };
   }
 
   /** True while a budgeted terrain-refresh sweep is in flight. */

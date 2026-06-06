@@ -363,7 +363,7 @@ export class GlobalRouteGridService {
   }
 
   /** Process one frame's slice of the budgeted terrain-refresh sweep. */
-  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number } {
+  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
     return this.grid.stepTerrainHeightRefresh(budgetMs);
   }
 
