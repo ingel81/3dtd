@@ -434,6 +434,20 @@ export class GlobalRouteGrid {
   private peekSkipCount = 0;
   private raycastCount = 0;
 
+  // ── Frame-budgeted terrain-refresh sweep state ──────────────────────
+  // `beginTerrainHeightRefresh` snapshots the cell set into this queue;
+  // `stepTerrainHeightRefresh` chews through it across rAF ticks within a
+  // per-frame time budget. Replaces the synchronous full sweep of
+  // `updateTerrainHeights` on the tile-load hot path (it produced ~900ms
+  // main-thread freezes). `null` queue = no sweep in flight.
+  private terrainSweepQueue: RouteCell[] | null = null;
+  private terrainSweepIndex = 0;
+  private terrainSweepChanged: RouteCell[] = [];
+  private terrainSweepPromoted = 0;
+  private terrainSweepRefreshed = 0;
+  private terrainSweepSlices = 0;
+  private terrainSweepStart = 0;
+
   /**
    * Skyline raycaster — top-down sample of the highest geometry (terrain or
    * building roof) around a local position. Used to give cells a skyline
@@ -928,6 +942,116 @@ export class GlobalRouteGrid {
     if (promoted.length > 0 || refreshed.length > 0) {
       this.onCellsChanged?.([...promoted, ...refreshed]);
     }
+  }
+
+  /**
+   * Begin a frame-budgeted terrain-height refresh over all cells. Snapshots
+   * the current cell set into a sweep queue; the caller then drives
+   * `stepTerrainHeightRefresh(budgetMs)` once per rAF tick until it reports
+   * `done`. This is the non-blocking replacement for the synchronous
+   * `updateTerrainHeights` full sweep on the tile-load hot path — same work
+   * (promote + LOD-refresh every cell), just spread across frames so a
+   * tile-load no longer freezes the main thread for ~900ms.
+   *
+   * Re-calling while a sweep is already in flight restarts it from scratch
+   * (a fresh tile-load means newer LOD is available). The peek-skip fast
+   * path in `sampleCellY` makes re-sweeping already-current cells cheap, so
+   * restarting is not wasteful.
+   */
+  beginTerrainHeightRefresh(): void {
+    if (!this.terrainRaycaster) return;
+    this.terrainSweepQueue = Array.from(this.cells.values());
+    this.terrainSweepIndex = 0;
+    this.terrainSweepChanged.length = 0;
+    this.terrainSweepPromoted = 0;
+    this.terrainSweepRefreshed = 0;
+    this.terrainSweepSlices = 0;
+    this.terrainSweepStart = performance.now();
+    // Reset the skip/raycast diagnostic counters so the aggregated
+    // PerfTrace logged at `done` reflects this sweep only.
+    this.peekSkipCount = 0;
+    this.raycastCount = 0;
+  }
+
+  /**
+   * Process one frame's worth of the terrain-refresh sweep started by
+   * `beginTerrainHeightRefresh`. Raycasts cells from the cursor until the
+   * `budgetMs` time budget is exhausted (checked every ~32 cells to keep
+   * `performance.now()` overhead negligible), then yields. Fires
+   * `refreshAggregateVizPositions` + `onCellsChanged` for THIS slice's
+   * changed cells, so per-tower LOS re-resolution is also spread across
+   * frames instead of landing in one block.
+   *
+   * Returns `done=true` once the queue is exhausted (or there is no sweep
+   * in flight) — at which point the aggregated `[PerfTrace]` line is logged.
+   */
+  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number } {
+    const queue = this.terrainSweepQueue;
+    if (!this.terrainRaycaster || queue === null) {
+      return { done: true, processed: 0 };
+    }
+
+    const t0 = performance.now();
+    let processed = 0;
+    this.terrainSweepSlices++;
+
+    while (this.terrainSweepIndex < queue.length) {
+      const cell = queue[this.terrainSweepIndex++];
+      const wasUnsampled = !cell.heightSampled;
+      if (this.sampleCellY(cell)) {
+        this.terrainSweepChanged.push(cell);
+        if (wasUnsampled) {
+          this.terrainSweepPromoted++;
+        } else {
+          this.terrainSweepRefreshed++;
+        }
+      }
+      this.sampleCellSkyline(cell);
+      processed++;
+      // Budget check only every 32 cells — peek-skipped cells are so cheap
+      // that a per-cell performance.now() would dominate their cost.
+      if ((processed & 31) === 0 && performance.now() - t0 >= budgetMs) break;
+    }
+
+    const done = this.terrainSweepIndex >= queue.length;
+
+    // Snap viz + drive LOS for this slice's changes, then clear the buffer.
+    if (this.terrainSweepChanged.length > 0) {
+      this.refreshAggregateVizPositions();
+      this.onCellsChanged?.(this.terrainSweepChanged.slice());
+      this.terrainSweepChanged.length = 0;
+    }
+
+    if (done) {
+      const total = queue.length;
+      const skipped = this.peekSkipCount;
+      const raycasted = this.raycastCount;
+      const skipRatio = total > 0 ? ((skipped / total) * 100).toFixed(1) : '0.0';
+      const spanMs = performance.now() - this.terrainSweepStart;
+      console.warn(
+        `[PerfTrace] updateTerrainHeights (budgeted): spanMs=${spanMs.toFixed(1)} ` +
+        `slices=${this.terrainSweepSlices} | ` +
+        `cells=${total} ` +
+        `peekSkipped=${skipped} (${skipRatio}%) ` +
+        `raycasted=${raycasted} ` +
+        `promoted=${this.terrainSweepPromoted} ` +
+        `refreshed=${this.terrainSweepRefreshed} ` +
+        `peekAvailable=${this.terrainPeekLOD !== null}`
+      );
+      logGrid(
+        'HEIGHT_UPDATE',
+        `budgeted cells=${total} promoted=${this.terrainSweepPromoted} ` +
+        `refreshed=${this.terrainSweepRefreshed} skipped=${skipped} slices=${this.terrainSweepSlices}`,
+      );
+      this.terrainSweepQueue = null;
+    }
+
+    return { done, processed };
+  }
+
+  /** True while a budgeted terrain-refresh sweep is in flight. */
+  isTerrainRefreshActive(): boolean {
+    return this.terrainSweepQueue !== null;
   }
 
   /**
