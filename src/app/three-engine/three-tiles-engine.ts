@@ -324,6 +324,14 @@ export class ThreeTilesEngine {
     const fogColor = 0x1a1f25; // Slightly lighter than background for depth
     this.scene.fog = new Fog(fogColor, FOG_START, FOG_END);
 
+    // R1: the scene root is permanently at the origin. Disabling matrixAutoUpdate
+    // stops Three.js from re-composing its (identity) matrix every frame and, more
+    // importantly, force-propagating a matrixWorld refresh down to every child.
+    // Children that still need updates keep matrixWorldAutoUpdate=true (the dynamic
+    // overlay/tiles/entity roots); genuinely static children (lights, lightning
+    // pool, health-bar roots) opt out and are skipped entirely each frame.
+    this.scene.matrixAutoUpdate = false;
+
     // Create overlay group for markers, streets, routes
     // Will be added to SCENE (not tilesGroup) and synced each frame
     this.overlayGroup = new Group();
@@ -870,6 +878,15 @@ export class ThreeTilesEngine {
     // Warm ambient for overall brightness
     const ambient = new AmbientLight(0xffe8d0, 0.8); // Warm tint
     this.scene.add(ambient);
+
+    // R1: lights never move after setup — compute their world matrix once and
+    // opt out of the per-frame matrixWorld pass.
+    for (const light of [hemi, sun, fill, ambient]) {
+      light.updateMatrix();
+      light.updateMatrixWorld(true);
+      light.matrixAutoUpdate = false;
+      light.matrixWorldAutoUpdate = false;
+    }
   }
 
   /**

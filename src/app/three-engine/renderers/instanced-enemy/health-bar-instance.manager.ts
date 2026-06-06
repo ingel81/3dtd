@@ -3,9 +3,7 @@ import {
   InstancedBufferAttribute,
   PlaneGeometry,
   ShaderMaterial,
-  Matrix4,
   Vector3,
-  Quaternion,
   Scene,
   Camera,
   DoubleSide,
@@ -13,11 +11,22 @@ import {
 
 const MAX_HEALTH_BARS = 20000;
 
-// Shared GLSL for the health bar vertex shader
+// Shared GLSL for the health bar vertex shader.
+//
+// G3 (full): the billboard is built entirely on the GPU. Position and size are
+// per-instance attributes; the quad is oriented to face the camera via the
+// uCameraRight / uCameraUp uniforms (same pattern as FloatingText). Per frame
+// the manager only writes 2 uniforms + the moving aCenter buffer — no Matrix4
+// compose and no full instanceMatrix upload per instance.
 const HEALTH_BAR_VERTEX = /* glsl */ `
+  attribute vec3 aCenter;   // world-space (scene-local) bar center
+  attribute vec2 aSize;     // bar width / height; aSize.x <= 0 → hidden slot
   attribute float aHealth;
   attribute vec3 aBarColor;
   attribute float aIsBoss;
+
+  uniform vec3 uCameraRight;
+  uniform vec3 uCameraUp;
 
   varying float vHealth;
   varying vec3 vBarColor;
@@ -28,13 +37,29 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
   #include <logdepthbuf_pars_vertex>
 
   void main() {
+    // Hidden / free slots collapse to a clipped vertex so they never rasterize.
+    if (aSize.x <= 0.0) {
+      gl_Position = vec4(0.0, 0.0, -2.0, 1.0);
+      vUv = vec2(0.0);
+      vHealth = 0.0;
+      vBarColor = vec3(0.0);
+      vIsBoss = 0.0;
+      return;
+    }
+
     vUv = uv;
     vHealth = aHealth;
     vBarColor = aBarColor;
     vIsBoss = aIsBoss;
 
-    vec4 worldPosition = instanceMatrix * vec4(position, 1.0);
-    vec4 mvPosition = modelViewMatrix * worldPosition;
+    // Billboard: offset the unit-quad vertex (position.xy ∈ [-0.5, 0.5] from
+    // PlaneGeometry(1,1)) along the camera-aligned axes. The InstancedMesh root
+    // sits at the origin (identity), so aCenter is already in world space.
+    vec3 worldPos = aCenter
+                  + uCameraRight * (position.x * aSize.x)
+                  + uCameraUp    * (position.y * aSize.y);
+
+    vec4 mvPosition = modelViewMatrix * vec4(worldPos, 1.0);
     gl_Position = projectionMatrix * mvPosition;
 
     #include <logdepthbuf_vertex>
@@ -101,8 +126,11 @@ const HEALTH_BAR_BODY = /* glsl */ `
  * This ensures full-health bars render normally while damaged bars
  * are always visible in the foreground.
  *
- * Billboard optimization: position and scale are cached in flat arrays
- * so updateBillboard() only needs compose (no decompose per instance).
+ * G3 billboard optimization (full): orientation happens in the vertex shader
+ * from uCameraRight / uCameraUp. Per slot we keep only the world center
+ * (aCenter) and size (aSize) as instanced attributes — updateBillboard() sets
+ * 2 uniforms and flushes the moving aCenter buffer instead of composing a
+ * Matrix4 + uploading instanceMatrix per instance.
  */
 export class HealthBarInstanceManager {
   /** Background pass — all bars with depth test */
@@ -114,33 +142,40 @@ export class HealthBarInstanceManager {
   private freeIndices: number[] = [];
   private activeCount = 0;
 
-  // Per-instance attributes (shared between both meshes via same geometry)
+  // Per-instance attributes (shared between both meshes via the same geometry)
+  private centerAttribute: InstancedBufferAttribute; // world center (x, y, z)
+  private sizeAttribute: InstancedBufferAttribute;   // width, height (0 = hidden)
   private healthAttribute: InstancedBufferAttribute;
   private barColorAttribute: InstancedBufferAttribute; // fixed color override (boss etc.)
   private isBossAttribute: InstancedBufferAttribute;
 
-  // Cached position/scale per slot (avoids decompose in updateBillboard)
-  private readonly posCache: Float32Array;   // [x, y, z] per slot
-  private readonly scaleCache: Float32Array; // [w, h] per slot
+  // Billboard axes, shared by reference with both materials' uniforms so a
+  // single set per frame updates both passes.
+  private readonly cameraRight = new Vector3(1, 0, 0);
+  private readonly cameraUp = new Vector3(0, 1, 0);
 
-  // Reusable temp objects
-  private readonly matrix = new Matrix4();
-  private static readonly _tempPos = new Vector3();
-  private static readonly _tempScale = new Vector3();
-  private static readonly _billboardQuat = new Quaternion();
+  // Dirty flags for batched per-frame uploads
+  private centerDirty = false;
+  private healthDirty = false;
 
   constructor(private readonly scene: Scene) {
     const geometry = new PlaneGeometry(1, 1);
 
     // Per-instance attributes
+    const centerData = new Float32Array(MAX_HEALTH_BARS * 3);
+    const sizeData = new Float32Array(MAX_HEALTH_BARS * 2); // 0 → hidden by default
     const healthData = new Float32Array(MAX_HEALTH_BARS);
     const barColorData = new Float32Array(MAX_HEALTH_BARS * 3);
     const isBossData = new Float32Array(MAX_HEALTH_BARS);
 
+    this.centerAttribute = new InstancedBufferAttribute(centerData, 3);
+    this.sizeAttribute = new InstancedBufferAttribute(sizeData, 2);
     this.healthAttribute = new InstancedBufferAttribute(healthData, 1);
     this.barColorAttribute = new InstancedBufferAttribute(barColorData, 3);
     this.isBossAttribute = new InstancedBufferAttribute(isBossData, 1);
 
+    geometry.setAttribute('aCenter', this.centerAttribute);
+    geometry.setAttribute('aSize', this.sizeAttribute);
     geometry.setAttribute('aHealth', this.healthAttribute);
     geometry.setAttribute('aBarColor', this.barColorAttribute);
     geometry.setAttribute('aIsBoss', this.isBossAttribute);
@@ -158,15 +193,16 @@ export class HealthBarInstanceManager {
     this.foregroundMesh.count = 0;
     this.foregroundMesh.frustumCulled = false;
     this.foregroundMesh.renderOrder = 1000;
-    // Background and foreground always carry IDENTICAL matrices at identical
-    // indices (the foreground discards full-health bars in the shader, not via
-    // separate transforms). Share the instanceMatrix buffer so we compose +
-    // upload once instead of twice per frame.
-    this.foregroundMesh.instanceMatrix = this.instancedMesh.instanceMatrix;
 
-    // Position/scale caches
-    this.posCache = new Float32Array(MAX_HEALTH_BARS * 3);
-    this.scaleCache = new Float32Array(MAX_HEALTH_BARS * 2);
+    // Both roots stay at the identity origin (position comes from aCenter), so
+    // their world matrix never changes → skip the per-frame matrixWorld pass
+    // (R1). instanceMatrix is unused by the shader.
+    this.instancedMesh.matrixAutoUpdate = false;
+    this.instancedMesh.matrixWorldAutoUpdate = false;
+    this.instancedMesh.updateMatrix();
+    this.foregroundMesh.matrixAutoUpdate = false;
+    this.foregroundMesh.matrixWorldAutoUpdate = false;
+    this.foregroundMesh.updateMatrix();
 
     this.scene.add(this.instancedMesh);
     this.scene.add(this.foregroundMesh);
@@ -198,23 +234,13 @@ export class HealthBarInstanceManager {
     this.instancedMesh.count = this.activeCount;
     this.foregroundMesh.count = this.activeCount;
 
-    // Cache position and scale
-    const pi = index * 3;
-    this.posCache[pi] = position.x;
-    this.posCache[pi + 1] = position.y + yOffset;
-    this.posCache[pi + 2] = position.z;
-    const si = index * 2;
-    this.scaleCache[si] = barWidth;
-    this.scaleCache[si + 1] = barHeight;
+    // Position + size
+    this.centerAttribute.setXYZ(index, position.x, position.y + yOffset, position.z);
+    this.sizeAttribute.setXY(index, barWidth, barHeight);
 
-    // Build matrix
-    this.composeFromCache(index);
-    this.instancedMesh.setMatrixAt(index, this.matrix);
-
-    // Set attributes
+    // Health + color
     this.healthAttribute.setX(index, 1.0);
     this.isBossAttribute.setX(index, isBoss ? 1.0 : 0.0);
-
     if (fixedColor) {
       this.barColorAttribute.setXYZ(index, fixedColor.r, fixedColor.g, fixedColor.b);
     } else {
@@ -222,10 +248,11 @@ export class HealthBarInstanceManager {
       this.barColorAttribute.setXYZ(index, 0, 0, 0);
     }
 
+    this.centerAttribute.needsUpdate = true;
+    this.sizeAttribute.needsUpdate = true;
     this.healthAttribute.needsUpdate = true;
     this.barColorAttribute.needsUpdate = true;
     this.isBossAttribute.needsUpdate = true;
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
   }
 
   /**
@@ -242,42 +269,36 @@ export class HealthBarInstanceManager {
     const index = this.instances.get(enemyId);
     if (index === undefined) return;
 
-    // Update cache
-    const pi = index * 3;
-    this.posCache[pi] = position.x;
-    this.posCache[pi + 1] = position.y + yOffset;
-    this.posCache[pi + 2] = position.z;
-    const si = index * 2;
-    this.scaleCache[si] = barWidth;
-    this.scaleCache[si + 1] = barHeight;
+    // Position moves every frame → write into the instanced buffer; flushed
+    // once per frame in updateBillboard().
+    this.centerAttribute.setXYZ(index, position.x, position.y + yOffset, position.z);
+    this.centerDirty = true;
 
-    // Position/scale cached — matrix will be composed in updateBillboard()
-    // Only update health attribute here
+    // Size may change (debug offset / scaling); cheap to keep in sync.
+    this.sizeAttribute.setXY(index, barWidth, barHeight);
+    this.sizeAttribute.needsUpdate = true;
+
     this.healthAttribute.setX(index, healthPercent);
     this.healthDirty = true;
   }
 
-  // Dirty flag for batched health attribute update
-  private healthDirty = false;
-
   /**
-   * Update billboard orientation to face camera and flush all dirty flags.
-   * Called once per frame before render. Composes matrices from cached
-   * position/scale data with the current billboard quaternion.
+   * Update billboard orientation to face camera and flush dirty buffers.
+   * Called once per frame before render. No per-instance compose — just two
+   * uniform writes (shared by both passes) and at most two buffer flushes.
    */
   updateBillboard(camera: Camera): void {
     if (this.instances.size === 0) return;
 
-    // Extract camera quaternion for billboard
-    camera.getWorldQuaternion(HealthBarInstanceManager._billboardQuat);
+    // Camera right (col 0) and up (col 1) from the world matrix.
+    const e = camera.matrixWorld.elements;
+    this.cameraRight.set(e[0], e[1], e[2]);
+    this.cameraUp.set(e[4], e[5], e[6]);
 
-    // Single pass: compose matrices from cache with billboard quaternion
-    for (const [, index] of this.instances) {
-      this.composeFromCache(index);
-      this.instancedMesh.setMatrixAt(index, this.matrix);
+    if (this.centerDirty) {
+      this.centerAttribute.needsUpdate = true;
+      this.centerDirty = false;
     }
-    // Flush GPU buffer flags once per frame
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
     if (this.healthDirty) {
       this.healthAttribute.needsUpdate = true;
       this.healthDirty = false;
@@ -291,16 +312,9 @@ export class HealthBarInstanceManager {
     const index = this.instances.get(enemyId);
     if (index === undefined) return;
 
-    // Update cache to hidden position
-    const pi = index * 3;
-    this.posCache[pi] = 0;
-    this.posCache[pi + 1] = -10000;
-    this.posCache[pi + 2] = 0;
-
-    this.composeFromCache(index);
-    this.instancedMesh.setMatrixAt(index, this.matrix);
-    // foregroundMesh shares this buffer → single write + single upload.
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    // Zero size → shader collapses the slot offscreen.
+    this.sizeAttribute.setXY(index, 0, 0);
+    this.sizeAttribute.needsUpdate = true;
   }
 
   /**
@@ -310,16 +324,8 @@ export class HealthBarInstanceManager {
     const index = this.instances.get(enemyId);
     if (index === undefined) return;
 
-    // Update cache to hidden position
-    const pi = index * 3;
-    this.posCache[pi] = 0;
-    this.posCache[pi + 1] = -10000;
-    this.posCache[pi + 2] = 0;
-
-    this.composeFromCache(index);
-    this.instancedMesh.setMatrixAt(index, this.matrix);
-    // foregroundMesh shares this buffer → single write + single upload.
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.sizeAttribute.setXY(index, 0, 0);
+    this.sizeAttribute.needsUpdate = true;
 
     this.instances.delete(enemyId);
     this.freeIndices.push(index);
@@ -343,6 +349,9 @@ export class HealthBarInstanceManager {
     this.activeCount = 0;
     this.instancedMesh.count = 0;
     this.foregroundMesh.count = 0;
+    // Reset all sizes to hidden so stale slots never reappear after reuse.
+    (this.sizeAttribute.array as Float32Array).fill(0);
+    this.sizeAttribute.needsUpdate = true;
   }
 
   dispose(): void {
@@ -352,31 +361,6 @@ export class HealthBarInstanceManager {
     this.instancedMesh.geometry.dispose();
     (this.instancedMesh.material as ShaderMaterial).dispose();
     (this.foregroundMesh.material as ShaderMaterial).dispose();
-  }
-
-  // =====================================================
-  // PRIVATE
-  // =====================================================
-
-  /** Compose matrix from cached position + scale + current billboard quaternion */
-  private composeFromCache(index: number): void {
-    const pi = index * 3;
-    const si = index * 2;
-    HealthBarInstanceManager._tempPos.set(
-      this.posCache[pi],
-      this.posCache[pi + 1],
-      this.posCache[pi + 2],
-    );
-    HealthBarInstanceManager._tempScale.set(
-      this.scaleCache[si],
-      this.scaleCache[si + 1],
-      1,
-    );
-    this.matrix.compose(
-      HealthBarInstanceManager._tempPos,
-      HealthBarInstanceManager._billboardQuat,
-      HealthBarInstanceManager._tempScale,
-    );
   }
 
   // =====================================================
@@ -393,6 +377,11 @@ export class HealthBarInstanceManager {
       : '';
 
     return new ShaderMaterial({
+      uniforms: {
+        // Shared Vector3 instances → one set per frame updates both passes.
+        uCameraRight: { value: this.cameraRight },
+        uCameraUp: { value: this.cameraUp },
+      },
       vertexShader: HEALTH_BAR_VERTEX,
       fragmentShader: /* glsl */ `
         precision highp float;

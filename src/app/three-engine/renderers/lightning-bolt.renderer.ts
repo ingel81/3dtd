@@ -256,6 +256,14 @@ export class LightningBoltRenderer {
     for (let i = 0; i < poolSize; i++) {
       const bolt = new LightningBolt();
       scene.add(bolt.mesh);
+      // R1: a bolt's geometry is generated in the vertex shader from uStart/uEnd
+      // uniforms — the mesh root never moves (stays at identity). With ~192 pooled
+      // bolts this otherwise costs 192 updateMatrix + matrixWorld multiplies every
+      // frame even while invisible. Compute the world matrix once and opt out.
+      bolt.mesh.updateMatrix();
+      bolt.mesh.updateMatrixWorld(true);
+      bolt.mesh.matrixAutoUpdate = false;
+      bolt.mesh.matrixWorldAutoUpdate = false;
       this.pool.push(bolt);
       this.freeIndices.push(i);
     }

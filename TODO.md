@@ -85,23 +85,11 @@
       Bis zu 192 Draw Calls → 1, 192 Materialien → 1. Voller Rewrite des Renderers.
       Datei: `src/app/three-engine/renderers/lightning-bolt.renderer.ts`.
 
-- [ ] **R1 — `scene.matrixWorldAutoUpdate` für statische Subtrees abschalten**
-      Ganzer Overlay-Graph (Marker/Straßen/Decals) wird pro Frame durchmultipliziert.
-      Statische Subtree-Roots auf `matrixWorldAutoUpdate=false`, einmalig
-      `updateMatrixWorld(true)`. Braucht Per-Subtree-Audit (welche Gruppen sind wirklich
-      statisch) + Frame-Time-Messung. Datei: `src/app/three-engine/three-tiles-engine.ts`.
-
 - [ ] **R4-Experiment — `logarithmicDepthBuffer` evaluieren**
       logDepth schreibt `gl_FragDepth` → deaktiviert Early-Z auf vielen GPUs über die
       gesamte Tile-Geometrie. Experiment: entfernen + `camera.near` 1→5-10m anheben (Spiel-
       Skala ~150m, Fern-Z im Fog). Z-Fighting-Risiko → nur mit visuellem Vorher/Nachher.
       Sichere Teilmaßnahme (`powerPreference`/`stencil:false`) ist bereits drin.
-
-- [ ] **G3-Vollausbau — Health-Bar-Billboard in den Vertex-Shader**
-      Position+Scale als statische Instance-Attribute, Ausrichtung über `uCameraRight/Up`
-      (wie FloatingText) → pro Frame nur 2 Uniform-Sets statt `instanceMatrix`-Uploads.
-      Buffer-Sharing-Teil (1× compose+upload) ist bereits drin.
-      Datei: `.../instanced-enemy/health-bar-instance.manager.ts`.
 
 - [ ] **G5-`addUpdateRange` — partielle GPU-Uploads (querschnittlich)**
       Kein Manager nutzt bisher `BufferAttribute.addUpdateRange()`; jedes `needsUpdate`
