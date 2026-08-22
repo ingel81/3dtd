@@ -132,7 +132,9 @@ export class ProjectileManager extends EntityManager<Projectile> {
   }
 
   /**
-   * Update all projectiles - movement and collision detection
+   * Update all projectiles — movement and collision detection. Called once
+   * per gameplay sub-step (~16ms game-time). Pure simulation: the renderer
+   * push lives in {@link presentFrame}, once per render frame.
    */
   override update(deltaTime: number): void {
     this.toRemove.length = 0;
@@ -163,60 +165,83 @@ export class ProjectileManager extends EntityManager<Projectile> {
         });
 
         this.toRemove.push(projectile);
-      } else {
-        // Projectile still in flight (including when target died - continues to last position)
-        // Update visual position
-        if (projectile.isHoming || projectile.hasArcTrajectory) {
-          // Homing and arc projectiles update rotation continuously
-          this.tilesEngine?.projectiles.updateWithRotation(
-            projectile.id,
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            projectile.direction
-          );
-        } else {
-          // Regular projectiles keep fixed rotation
-          this.tilesEngine?.projectiles.update(
-            projectile.id,
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight
-          );
-        }
-
-        // Distance-based trail spawn: gate by accumulated travel distance so
-        // trails stay visually uniform across framerates / projectile speeds.
-        // The per-config spawnChance still applies on each gate hit.
-        const trailConfig = projectile.typeConfig.trailParticles;
-        if (trailConfig?.enabled && this.tilesEngine) {
-          projectile.trailDistanceAcc += projectile.distanceThisFrame;
-          while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
-            projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
-            this.tilesEngine.effects.spawnConfigurableTrailAtGeo(
-              projectile.position.lat,
-              projectile.position.lon,
-              projectile.flightHeight,
-              trailConfig
-            );
-          }
-        }
-
-        // Push position to trail streak (ribbon renderer). pushPosition copies
-        // the vector into its ring buffer, so the scratch buffer is safe to reuse.
-        if (this.tilesEngine) {
-          this.tilesEngine.sync.geoToLocalSimpleInto(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            this.trailPos
-          );
-          this.tilesEngine.trailStreaks?.pushPosition(projectile.id, this.trailPos);
-        }
+      } else if (projectile.typeConfig.trailParticles?.enabled) {
+        // Accumulate travel distance on the sub-step so the trail-particle
+        // density stays framerate-independent; the spawns themselves are
+        // visual and happen in presentFrame.
+        projectile.trailDistanceAcc += projectile.distanceThisFrame;
       }
     }
 
     this.toRemove.forEach((p) => this.remove(p));
+  }
+
+  /**
+   * Push projectile state to the renderer. Call once per render frame, after
+   * the sub-step loop, and only when at least one sub-step actually ran —
+   * same contract as `EnemyManager.presentFrame`.
+   *
+   * This work used to sit inside the per-sub-step loop, where instance
+   * positions, trail particles and streak points were re-pushed for every
+   * step even though `commitToGPU` runs once per frame and only the last
+   * push is ever seen. Headless training (rendering off, high timescale)
+   * paid for all of it per sub-step; now it is skipped entirely there.
+   */
+  presentFrame(): void {
+    const engine = this.tilesEngine;
+    if (!engine) return;
+
+    for (const projectile of this.getAllActive()) {
+      // Update visual position (projectiles whose target died keep flying
+      // to the last known position and stay visible until impact).
+      if (projectile.isHoming || projectile.hasArcTrajectory) {
+        // Homing and arc projectiles update rotation continuously
+        engine.projectiles.updateWithRotation(
+          projectile.id,
+          projectile.position.lat,
+          projectile.position.lon,
+          projectile.flightHeight,
+          projectile.direction
+        );
+      } else {
+        // Regular projectiles keep fixed rotation
+        engine.projectiles.update(
+          projectile.id,
+          projectile.position.lat,
+          projectile.position.lon,
+          projectile.flightHeight
+        );
+      }
+
+      // Distance-based trail spawn: drain the distance accumulated on the
+      // sub-steps so trails stay visually uniform across framerates /
+      // projectile speeds. The per-config spawnChance still applies on each
+      // gate hit. Spawns collapse onto the current frame position — below
+      // 60 FPS the intermediate sub-step positions are no longer sampled,
+      // same trade-off the enemy present split made.
+      const trailConfig = projectile.typeConfig.trailParticles;
+      if (trailConfig?.enabled) {
+        while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
+          projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
+          engine.effects.spawnConfigurableTrailAtGeo(
+            projectile.position.lat,
+            projectile.position.lon,
+            projectile.flightHeight,
+            trailConfig
+          );
+        }
+      }
+
+      // Push position to trail streak (ribbon renderer). pushPosition copies
+      // the vector into its ring buffer, so the scratch buffer is safe to reuse.
+      engine.sync.geoToLocalSimpleInto(
+        projectile.position.lat,
+        projectile.position.lon,
+        projectile.flightHeight,
+        this.trailPos
+      );
+      engine.trailStreaks?.pushPosition(projectile.id, this.trailPos);
+    }
   }
 
   /**
