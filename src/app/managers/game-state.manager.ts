@@ -806,27 +806,18 @@ export class GameStateManager {
       return;
     }
 
-    // Initialize with terrain raycaster, coordinate sync, skyline raycaster
-    // (skyline samples max-Y in a small neighbourhood — used for air LOS)
-    // AND a detailed terrain-sample raycaster that returns tile LOD info.
-    // The detailed variant feeds the quality-versioned idempotency in
-    // sampleCellY; the plain one stays for legacy callers.
-    const terrainRaycaster = (x: number, z: number, anchorY?: number) =>
-      this.tilesEngine!.getTerrainHeightAtLocal(x, z, anchorY);
-    const skylineRaycaster = (x: number, z: number) => this.tilesEngine!.getSkylineHeightAtLocal(x, z);
-    const terrainSampleRaycaster = (x: number, z: number, anchorY?: number) =>
-      this.tilesEngine!.getTerrainSampleAtLocal(x, z, anchorY);
+    // One terrain probe for the grid: ground plus the tile LOD it came from,
+    // which `sampleCellY` uses so a coarse streaming pass cannot overwrite a
+    // finer sample. The engine caches per column, so repeated cells are free.
+    const columnSampler = (x: number, z: number) => this.tilesEngine!.sampleColumn(x, z);
     // Cheap LOD-probe used by the route-grid full-sweep to skip stable
     // cells whose tile-LOD has not improved (Option C, perf/route-grid-
-    // tile-aware-update). Falls back to legacy raycast-every-cell if the
-    // engine returns null on every call.
+    // tile-aware-update).
     const terrainPeekLOD = (x: number, z: number) =>
       this.tilesEngine!.peekBestTileLODAtLocal(x, z);
     this.globalRouteGrid.initialize(
-      terrainRaycaster,
+      columnSampler,
       this.tilesEngine.sync,
-      skylineRaycaster,
-      terrainSampleRaycaster,
       terrainPeekLOD,
     );
 
