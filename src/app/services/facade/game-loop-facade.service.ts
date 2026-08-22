@@ -4,6 +4,7 @@ import { CameraControlService } from '../camera-control.service';
 import { TowerPlacementService } from '../tower-placement.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { MarkerVisualizationService } from '../world/marker-visualization.service';
+import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { WaveDebugService } from '../debug/wave-debug.service';
 import { SoundDebugService } from '../debug/sound-debug.service';
@@ -45,6 +46,7 @@ export class GameLoopFacadeService {
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly markerViz = inject(MarkerVisualizationService);
   private readonly routeAnimation = inject(RouteAnimationService);
+  private readonly introFlight = inject(IntroCameraFlightService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly soundDebug = inject(SoundDebugService);
   private readonly debugWindows = inject(DebugWindowService);
@@ -436,6 +438,8 @@ export class GameLoopFacadeService {
     this.keyboardPan.update(dtSec);
     this.markerViz.animateMarkers(deltaTime);
     this.routeAnimation.update(deltaTime);
+    // After keyboardPan so a scripted flight wins the frame if both run.
+    this.introFlight.update(deltaTime);
 
     // Game logic tick — sub-step loop runs gameplay at fixed game-time
     // granularity. Bot decisions and turret aim are per-sub-step so they
