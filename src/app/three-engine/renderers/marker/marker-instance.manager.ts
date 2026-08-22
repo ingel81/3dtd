@@ -273,6 +273,15 @@ export class MarkerInstanceManager {
   }
 
   /**
+   * Current position of a marker, or null if it does not exist.
+   * Lets callers keep a marker where it is when a fresh terrain sample is
+   * not available instead of dropping it to a bare offset.
+   */
+  getPosition(id: string): Vector3 | null {
+    return this.markers.get(id)?.position ?? null;
+  }
+
+  /**
    * Update position for a marker (e.g., terrain height change).
    */
   updatePosition(id: string, position: Vector3): void {
