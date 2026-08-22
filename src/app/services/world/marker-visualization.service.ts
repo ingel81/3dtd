@@ -45,6 +45,9 @@ export interface DiamondMarkerOptions {
  * Uses GPU-instanced rendering for diamond bodies, rings, ground glow, and labels.
  * Total: 4 draw calls for all markers (diamond + ring + ground + label).
  */
+/** Metres the HQ / spawn diamonds float above the ground beneath them. */
+const HQ_MARKER_HEIGHT = 30;
+
 @Injectable({ providedIn: 'root' })
 export class MarkerVisualizationService {
   // ========================================
@@ -114,15 +117,32 @@ export class MarkerVisualizationService {
     this.markerManager.remove('hq');
     this.labelManager.removeLabel('hq');
 
-    const HEIGHT_ABOVE_GROUND = 30;
-    const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    // Absolute scene Y: the overlay group carries no terrain offset any more,
-    // so the marker has to include the ground under the HQ itself.
-    const terrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
-    const pos = new Vector3(local.x, terrainY + HEIGHT_ABOVE_GROUND, local.z);
+    const pos = this.hqMarkerPos();
 
     this.markerManager.add('hq', 'hq', pos, 0x22c55e, 1.2, 0.001);
     this.labelManager.addLabel('hq', 'HQ', pos, '#22c55e', this.getPhaseOffset('hq'));
+  }
+
+  /**
+   * Scene-space position of the HQ marker.
+   *
+   * Absolute Y: the overlay group carries no terrain offset any more, so the
+   * ground under the HQ has to be part of the position. `addBaseMarker` runs
+   * before tiles are guaranteed to be streamed — falling back to 0 there put
+   * the marker ~135 m below the surface, i.e. invisible inside the terrain,
+   * which is why bookmarked locations came up without their HQ pylon. When
+   * the sample is not available yet the marker keeps its current height and
+   * the tile-load refresh corrects it.
+   */
+  private hqMarkerPos(): Vector3 {
+    const base = this.baseCoords!;
+    const local = this.engine!.sync.geoToLocalSimple(base.lat, base.lon, 0);
+    const terrainY = this.engine!.getTerrainHeightAtGeo(base.lat, base.lon);
+    const currentY = this.markerManager?.getPosition('hq')?.y;
+    const y = terrainY !== null
+      ? terrainY + HQ_MARKER_HEIGHT
+      : currentY ?? HQ_MARKER_HEIGHT;
+    return new Vector3(local.x, y, local.z);
   }
 
   /**
@@ -303,12 +323,10 @@ export class MarkerVisualizationService {
   updateMarkerHeights(spawnPoints: SpawnPoint[]): void {
     if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return;
 
-    const HQ_MARKER_HEIGHT = 30;
     const SPAWN_MARKER_HEIGHT = 30;
 
     // Update base marker
-    const baseLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    const basePos = new Vector3(baseLocal.x, HQ_MARKER_HEIGHT, baseLocal.z);
+    const basePos = this.hqMarkerPos();
     this.markerManager.updatePosition('hq', basePos);
     this.labelManager.updatePosition('hq', basePos);
 
