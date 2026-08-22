@@ -38,6 +38,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 <span class="value" [class.warn]="s.frameBudgetPct > 70" [class.crit]="s.frameBudgetPct > 95">{{ s.frameBudgetPct.toFixed(0) }}%</span>
               </div>
               <div class="row">
+                <span class="key">Substeps/Frame</span>
+                <span class="value" [class.warn]="s.substepsPerFrame > 2" [class.crit]="s.substepsPerFrame > 4">{{ s.substepsPerFrame.toFixed(1) }}</span>
+              </div>
+              <div class="row">
                 <span class="key">Bottleneck</span>
                 <span class="value bottleneck">{{ s.bottleneck }} ({{ s.bottleneckMs.toFixed(2) }}ms)</span>
               </div>

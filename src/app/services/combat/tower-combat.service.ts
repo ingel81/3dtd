@@ -130,8 +130,11 @@ export class TowerCombatService {
     enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
   ): void {
-    // Fallback: full enemy list (used when spatial optimization isn't available)
-    const allEnemies = enemyManager.getAlive();
+    // Only touched by the engine-less fallback branch below. Built lazily
+    // because `getAlive()` re-filters the whole enemy list whenever the cache
+    // was invalidated — which, while a wave is spawning, is every sub-step.
+    // Fetching it up front cost several ms per frame with zero towers placed.
+    let allEnemies: Enemy[] | null = null;
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
@@ -211,6 +214,7 @@ export class TowerCombatService {
           const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
           const rangeMarginSq = (rangeMeters * COMBAT_TUNING.rangeMargin.standard) ** 2;
 
+          allEnemies ??= enemyManager.getAlive();
           candidates = allEnemies.filter(enemy => {
             const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
             const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
@@ -300,7 +304,8 @@ export class TowerCombatService {
     const now = performance.now();
     // deltaTime is sub-step game-time ms — convert to seconds for DPS math.
     const dt = deltaTime / 1000;
-    const allEnemies = enemyManager.getAlive();
+    // Lazy for the same reason as in updateTowerShooting.
+    let allEnemies: Enemy[] | null = null;
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
@@ -335,6 +340,7 @@ export class TowerCombatService {
           const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
           const rangeMarginSq = (rangeMeters * COMBAT_TUNING.rangeMargin.beam) ** 2;
 
+          allEnemies ??= enemyManager.getAlive();
           candidates = allEnemies.filter(enemy => {
             const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
             const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
@@ -423,8 +429,10 @@ export class TowerCombatService {
       }
     }
 
-    // Update flame beam shader animations
-    this.tilesEngine?.flameBeams.update(deltaTime);
+    // Flame-beam shader animation is NOT advanced here. `ThreeTilesEngine`
+    // already ticks it once per render frame; doing it again per sub-step
+    // advanced the effect by the sub-step count on top, so the flames ran
+    // several times too fast whenever the frame rate dropped.
   }
 
   /**
