@@ -71,7 +71,6 @@ export class StreetRenderingService {
     engine: ThreeTilesEngine;
     overlayGroup: Group;
     visible: boolean;
-    originTerrainY: number;
     heightAboveGround: number;
     streets: StreetNetwork['streets'];
     /** Flat list of all nodes to process (across all streets) */
@@ -122,15 +121,12 @@ export class StreetRenderingService {
     // Height offset above terrain
     const heightAboveGround = this.devWorld.isActive ? 3 : 0.5;
 
-    // Get terrain height at HQ as reference
-    const originTerrainY = engine.getTerrainHeightAtGeo(baseCoords.lat, baseCoords.lon);
-    if (originTerrainY === null) {
+    // Tiles have to be far enough along that the ground can be sampled at
+    // all — the per-point heights below come from their own columns.
+    if (engine.getTerrainHeightAtGeo(baseCoords.lat, baseCoords.lon) === null) {
       this.isRenderingStreets = false;
       return;
     }
-
-    // Set overlay base Y
-    engine.setOverlayBaseY(originTerrainY);
 
     // Clear height debug markers
     this.markerViz.clearHeightDebugMarkers();
@@ -181,7 +177,6 @@ export class StreetRenderingService {
       engine,
       overlayGroup,
       visible,
-      originTerrainY,
       heightAboveGround,
       streets: networkToRender.streets,
       allNodes,
@@ -227,7 +222,7 @@ export class StreetRenderingService {
 
       if (terrainY !== null) {
         const local = s.engine.sync.geoToLocalSimple(prepared.node.lat, prepared.node.lon, 0);
-        local.y = (terrainY - s.originTerrainY) + s.heightAboveGround;
+        local.y = terrainY + s.heightAboveGround;
 
         // Add to street's point list
         let points = s.streetPoints.get(streetIdx);

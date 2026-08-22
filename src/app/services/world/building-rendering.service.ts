@@ -40,9 +40,6 @@ export class BuildingRenderingService {
     const overlayGroup = engine.getOverlayGroup();
     this.disposeMeshes(overlayGroup);
 
-    const originTerrainY = engine.getTerrainHeightAtGeo(baseCoords.lat, baseCoords.lon);
-    if (originTerrainY === null) return;
-
     const HEIGHT_ABOVE_GROUND = 0.8;
     const allLineVertices: number[] = [];
     const allFillVertices: number[] = [];
@@ -62,7 +59,7 @@ export class BuildingRenderingService {
       }
       if (validCount < 3 || minTerrainY === Infinity) continue;
 
-      const groundY = (minTerrainY - originTerrainY) + HEIGHT_ABOVE_GROUND;
+      const groundY = minTerrainY + HEIGHT_ABOVE_GROUND;
       const buildingHeight = building.levels * METERS_PER_LEVEL;
       const topY = groundY + buildingHeight;
 

@@ -28,6 +28,7 @@ import {
   Camera,
   Sphere,
 } from 'three';
+import type { ColumnSample } from '../column-sample';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
@@ -82,30 +83,15 @@ export type TerrainHeightSampler = (lat: number, lon: number) => number | null;
 /**
  * Function type for direct terrain raycasting at local coordinates.
  * More accurate than TerrainHeightSampler — uses actual mesh intersection.
- * Pass `anchorY` to validate the hit against a route-anchored band, rejecting
- * bridge decks and tree canopies in favour of street-level geometry.
  */
-export type TerrainRaycaster = (localX: number, localZ: number, anchorY?: number) => number | null;
+export type TerrainRaycaster = (localX: number, localZ: number) => number | null;
 
 /**
- * Detailed terrain raycast result: hit Y plus tile LOD info for the tile
- * that produced the hit. Used by the route-cell-grid to track per-cell
- * sample quality and reject LOD-regression overwrites.
+ * Vertical terrain probe: ground plus the tile LOD it came from. Injected
+ * into the route-cell grid, which uses the LOD for quality-versioned
+ * idempotency so a coarse streaming pass cannot overwrite a finer sample.
  */
-export interface TerrainSample {
-  /** Local Y of the hit. */
-  y: number;
-  /** Tile depth (3DTilesRendererJS `tile.internal.depth`). Higher = better LOD. */
-  tileDepth: number;
-  /** Tile geometricError. Lower = better LOD. */
-  tileGeometricError: number;
-}
-
-/**
- * Same as TerrainRaycaster but returns a {@link TerrainSample} including
- * tile LOD info — used by `sampleCellY` for quality-versioned idempotency.
- */
-export type TerrainSampleRaycaster = (localX: number, localZ: number, anchorY?: number) => TerrainSample | null;
+export type ColumnSampler = (localX: number, localZ: number) => ColumnSample | null;
 
 /**
  * Cheap LOD-probe at a local (x,z) position WITHOUT raycasting. Returns the
