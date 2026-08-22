@@ -158,6 +158,17 @@ export class GameStateManager {
    *  worth of timescale lets spikes recover but bounds the debt. */
   private static readonly MAX_REMAINDER_MS = 2000;
 
+  /**
+   * Upper bound on the wall-clock delta a single frame may carry into the
+   * sub-step loop (ms), applied before the timescale scales it.
+   *
+   * 50 ms ≈ three sub-steps, i.e. real-time is held down to 20 FPS. Below
+   * that the simulation runs slower than the wall clock instead of trying
+   * to catch up — a consistent slow-motion rather than a spiral. Everything
+   * in gameplay reasons in game-time, so nothing observes the difference.
+   */
+  private static readonly MAX_CATCHUP_MS = 50;
+
   /** Read-only access to the game-clock for any consumer that needs
    *  game-time (status effects, sleep checks, AI bot ticks, etc). */
   get gameTimeMs(): number {
@@ -323,7 +334,24 @@ export class GameStateManager {
     const frameStart = performance.now();
     const profiling = this.profiler !== null;
 
-    const rawDeltaTime = this.lastUpdateTime ? currentTime - this.lastUpdateTime : 16;
+    // Clamp the wall-clock delta BEFORE the timescale multiplies it. The
+    // sub-step loop exists to keep game-time in step with wall-clock, so an
+    // unclamped delta means a slow frame is fully caught up on the next one:
+    // more sub-steps, more work, a slower frame still. Measured at 11.7k
+    // enemies with rendering off: 40.5 sub-steps per frame and climbing.
+    //
+    // Clamping the real delta rather than the sub-step count keeps timescale
+    // semantics exact — 20x still runs its 20 steps for a healthy frame,
+    // because the multiplication happens after. Only catch-up debt from
+    // frames that ran long is dropped, which the loop already did via
+    // `maxBudget`, just at a ~12 second threshold.
+    //
+    // This also covers a case that has nothing to do with load: rAF is
+    // throttled in a background tab, so returning to one produced a delta of
+    // minutes and a multi-second hang while the loop worked it off.
+    const rawDeltaTime = this.lastUpdateTime
+      ? Math.min(currentTime - this.lastUpdateTime, GameStateManager.MAX_CATCHUP_MS)
+      : 16;
     this.lastUpdateTime = currentTime;
 
     const timescale = this.trainingTimescale();
