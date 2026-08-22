@@ -71,6 +71,12 @@ export class TowerShadowMapper {
   /** Backup-Slots für ClearColor save/restore (Lesson 7). */
   private readonly prevClearColor = new Color();
 
+  // CPU-Mirror der 6 Cube-Faces für den LOS-Resolve-Pfad (gpu-cube-resolve).
+  // Einmal allokiert (6 × size² × 4 Bytes = 6 MiB bei 512²), pro
+  // renderVersion genau einmal via readRenderTargetPixels gefüllt.
+  private faceReadBuffers: Uint8Array[] | null = null;
+  private faceReadVersion = -1;
+
   // Lazy-allocated Debug-Resources für face → ImageData Visualisierung.
   // Aufgebaut bei erstem `getFaceImageData`-Call, danach wiederverwendet.
   private debugFaceRT: WebGLRenderTarget | null = null;
@@ -325,6 +331,45 @@ export class TowerShadowMapper {
   /** Renderer-Referenz für CPU-Readback-Konsumenten (GPU-Cube-Resolve). */
   getRenderer(): WebGLRenderer {
     return this.renderer;
+  }
+
+  /**
+   * Liest alle 6 Cube-Faces einmal in persistente CPU-Buffer und gibt sie
+   * zurück — Datenquelle für `sampleCubeAtPoint` (gpu-cube-resolve.ts).
+   *
+   * Ein voller Read pro Face statt einem synchronen 1×1-Readback pro Cell:
+   * jedes `readRenderTargetPixels` ist ein GPU→CPU-Roundtrip, der erste
+   * nach dem Cube-Render erzwingt zusätzlich einen Pipeline-Flush. Bei
+   * mehreren hundert Cells pro Tower-Registration (ground + air je bis zu
+   * ein Sample) war das der dominante Kostenblock beim Placement.
+   *
+   * Der Buffer-Index `(py * size + px) * 4` liefert exakt dieselben Bytes
+   * wie der bisherige 1×1-Read an (px, py): readPixels ist framebuffer-
+   * bottom-up, identisch zur no-y-flip-Konvention aus H5 — hier ändert
+   * sich nur die Granularität des Reads, nicht die Pixel-Math.
+   *
+   * Gecached per renderVersion: mehrere Context-Builds über demselben
+   * Render zahlen die 6 Readbacks nur einmal.
+   */
+  readFacesToCpu(): readonly Uint8Array[] {
+    const size = this.renderTarget.width;
+    if (!this.faceReadBuffers) {
+      this.faceReadBuffers = [];
+      for (let i = 0; i < 6; i++) {
+        this.faceReadBuffers.push(new Uint8Array(size * size * 4));
+      }
+    }
+    if (this.faceReadVersion !== this.renderVersion) {
+      const tReadStart = performance.now();
+      for (let face = 0; face < 6; face++) {
+        this.renderer.readRenderTargetPixels(
+          this.renderTarget, 0, 0, size, size, this.faceReadBuffers[face], face,
+        );
+      }
+      this.faceReadVersion = this.renderVersion;
+      losPerf.sample('cube/faceReadback', performance.now() - tReadStart);
+    }
+    return this.faceReadBuffers;
   }
 
   /** True, wenn `update()` mindestens einmal real gerendert hat. */

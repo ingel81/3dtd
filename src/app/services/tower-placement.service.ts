@@ -864,7 +864,9 @@ export class TowerPlacementService {
       cube: mapper.getRenderTarget(),
       referencePos: mapper.getReferencePos(),
       farDistance: mapper.getFarDistance(),
-      renderer: mapper.getRenderer(),
+      // Alle 6 Faces einmal in die CPU-Buffer holen — statt einem
+      // synchronen 1×1-Readback pro Cell beim anschließenden Resolve.
+      faces: mapper.readFacesToCpu(),
       visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
       emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
     };
