@@ -213,9 +213,10 @@ export class Tower extends GameObject {
       const dist = this.calculateDistanceFast(this.position, enemy.position);
       if (dist > this.combat.range) continue;
 
-      // LOS check only when selecting NEW target
-      // Skip LOS for air enemies - they fly high enough to always be visible
-      if (losCheck && !isAirEnemy && !losCheck(enemy)) continue;
+      // LOS check only when selecting NEW target. The predicate dispatches
+      // per-enemy on isAirUnit (buildLosCheck) — air targets resolve against
+      // the air-LOS pipeline, ground targets against ground-LOS.
+      if (losCheck && !losCheck(enemy)) continue;
 
       candidates.push(enemy);
     }
