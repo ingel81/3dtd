@@ -358,7 +358,14 @@ export class EnemyManager extends EntityManager<Enemy> {
       if (!enemy.alive) continue;
 
       let t0 = profiling ? performance.now() : 0;
-      enemy.update(deltaTime);
+      // Deliberately NOT the generic enemy.update(): of the five enemy
+      // components only transform (rotation lerp) and audio (loop positions)
+      // do per-tick work — health, render and movement have empty update()
+      // bodies, and iterating the component Map with five polymorphic calls
+      // per enemy per sub-step was pure overhead at 10k+ enemies.
+      // GameObject.update() remains for towers/projectiles.
+      enemy.transform.update(deltaTime);
+      enemy.audio.update(deltaTime);
       // Single-pass: remove expired effects + get slow/poison flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
       const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
