@@ -950,7 +950,7 @@ Tiles werden auf den Origin (HQ) zentriert. Lokale Koordinaten in Metern:
 
 ```
 X = East/West Offset (-X = East, +X = West)
-Y = Höhe (relativ zu Origin-Terrain + overlayBaseY)
+Y = Höhe (absolut in Scene-Koordinaten)
 Z = North/South Offset (+Z = North, -Z = South)
 ```
 
