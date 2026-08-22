@@ -12,6 +12,7 @@ import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
 import { CoordinateSync } from '../three-engine/renderers';
 import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-tower.renderer';
+import { isBetterLod } from '../three-engine/column-sample';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
 
@@ -336,7 +337,7 @@ export class GlobalRouteGrid {
    * LOS for just those cells per placed tower and to refresh per-tower viz
    * meshes — instead of rebuilding every tower's whole visibility cache.
    */
-  private onCellsChanged: ((changed: RouteCell[]) => void) | null = null;
+  private cellsChangedListeners: ((changed: RouteCell[]) => void)[] = [];
 
   /** Map of enemy ID to current cell key (for fast cell transitions) */
   private enemyCellKeys = new Map<string, number>();
@@ -516,13 +517,28 @@ export class GlobalRouteGrid {
     // bad hit (BBox / backface / water) for one region while surrounding
     // cells are correct. 50m is comfortable above realistic slopes
     // (Salzburg case: max 63m at a tunnel, which we want to reject).
-    const neighbourMedian = this.medianOfStableNeighbourY(cell);
-    if (neighbourMedian !== null && Math.abs(hit.y - neighbourMedian) > 50) {
-      logGrid(
-        'SAMPLE',
-        `reject reason=outlier key=${cell.key} y=${hit.y.toFixed(2)} medianN=${neighbourMedian.toFixed(2)}`,
+    //
+    // Skipped when this sample comes from a strictly better tile than the
+    // cell already had. The neighbours were sampled from the same coarse
+    // tiles as this cell, so their median agrees with the old wrong value —
+    // letting it veto an upgrade is how a whole corridor stays pinned to the
+    // block-level hull it was first sampled from. The guard is there to catch
+    // a bad hit among comparable ones, not to defend a coarse consensus.
+    const isUpgrade =
+      cell.sample.state !== 'stable' ||
+      isBetterLod(
+        { depth: hit.tileDepth, geometricError: hit.tileGeometricError },
+        cell.sample,
       );
-      return false;
+    if (!isUpgrade) {
+      const neighbourMedian = this.medianOfStableNeighbourY(cell);
+      if (neighbourMedian !== null && Math.abs(hit.y - neighbourMedian) > 50) {
+        logGrid(
+          'SAMPLE',
+          `reject reason=outlier key=${cell.key} y=${hit.y.toFixed(2)} medianN=${neighbourMedian.toFixed(2)}`,
+        );
+        return false;
+      }
     }
 
     // Quality-versioned idempotency: if the cell already has a stable sample
@@ -832,17 +848,33 @@ export class GlobalRouteGrid {
     // (the common pan/zoom-without-LOD-change case) the listener is not
     // called at all — no per-tower LOS work, no spike.
     if (promoted.length > 0 || refreshed.length > 0) {
-      this.onCellsChanged?.([...promoted, ...refreshed]);
+      this.emitCellsChanged([...promoted, ...refreshed]);
     }
   }
 
   /**
-   * Subscribe to terrain-sample-change events (promote + refresh). Called
-   * by tower-placement-service to keep per-tower LOS / viz in sync with
-   * cell terrainHeight changes as tiles stream in.
+   * Subscribe to terrain-sample-change events (promote + refresh).
+   *
+   * More than one system depends on cell heights and each has to self-heal
+   * as tiles stream in: per-tower LOS and its viz, and everything baked off
+   * the cells (route line, markers). A list rather than a single slot —
+   * the previous single-listener design is what left the route line
+   * pinned to the heights it was first built with.
+   *
+   * @returns unsubscribe
    */
-  setCellsChangedListener(listener: (changed: RouteCell[]) => void): void {
-    this.onCellsChanged = listener;
+  addCellsChangedListener(listener: (changed: RouteCell[]) => void): () => void {
+    this.cellsChangedListeners.push(listener);
+    return () => {
+      const i = this.cellsChangedListeners.indexOf(listener);
+      if (i >= 0) this.cellsChangedListeners.splice(i, 1);
+    };
+  }
+
+  /** Fan a change batch out to every subscriber. */
+  private emitCellsChanged(changed: RouteCell[]): void {
+    if (changed.length === 0) return;
+    for (const listener of this.cellsChangedListeners) listener(changed);
   }
 
   /**
@@ -881,7 +913,7 @@ export class GlobalRouteGrid {
     if (promoted.length === 0) return { promoted: 0 };
 
     this.refreshAggregateVizPositions();
-    this.onCellsChanged?.(promoted);
+    this.emitCellsChanged(promoted);
     return { promoted: promoted.length };
   }
 
@@ -930,7 +962,7 @@ export class GlobalRouteGrid {
 
     if (promoted.length > 0) {
       this.refreshAggregateVizPositions();
-      this.onCellsChanged?.(promoted);
+      this.emitCellsChanged(promoted);
     }
 
     return { promoted: promoted.length };
@@ -964,7 +996,7 @@ export class GlobalRouteGrid {
 
     if (promoted.length > 0) {
       this.refreshAggregateVizPositions();
-      this.onCellsChanged?.(promoted);
+      this.emitCellsChanged(promoted);
     }
 
     return { promoted: promoted.length, refreshed, inRange };
@@ -1014,7 +1046,7 @@ export class GlobalRouteGrid {
       // single-source-of-truth sampler. When the raycast fails, the cell
       // keeps its previous terrainHeight (anchor fallback) — register the
       // cell defensively so a later terrain promotion via
-      // setCellsChangedListener can recompute LOS for it instead of
+      // the cells-changed listeners can recompute LOS for it instead of
       // leaving holes in tower coverage.
       this.sampleCellY(cell);
 
@@ -1098,7 +1130,7 @@ export class GlobalRouteGrid {
 
       // Refresh heights via single-source-of-truth sampler. If raycast
       // fails, the cached value is kept and a later promotion via
-      // setCellsChangedListener will recompute LOS for this cell.
+      // the cells-changed listeners will recompute LOS for this cell.
       this.sampleCellY(cell);
 
       const atTower = distSq < 0.01;

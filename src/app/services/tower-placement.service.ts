@@ -144,7 +144,7 @@ export class TowerPlacementService {
     // against the old terrainHeight. Listen for changed cells and recompute
     // LOS + viz mesh for just the affected towers, so the system self-heals
     // as tiles stream in without a full per-tower cache rebuild.
-    this.globalRouteGrid.setCellsChangedListener((changed) =>
+    this.globalRouteGrid.addCellsChangedListener((changed) =>
       this.onCellsChanged(changed),
     );
   }
@@ -450,11 +450,8 @@ export class TowerPlacementService {
     // Get local X/Z position (same as marker service)
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
 
-    // Calculate relative Y - height difference from base + tower offset
-    const baseTerrainY = this.baseCoords
-      ? this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon)
-      : 0;
-    const relativeY = resolvedHeight - (baseTerrainY ?? 0);
+    // Absolute scene Y — the overlay group no longer carries a terrain offset.
+    const relativeY = resolvedHeight;
 
     // Position the preview tower
     this.previewTowerMesh.position.set(

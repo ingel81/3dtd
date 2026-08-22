@@ -267,19 +267,14 @@ export class HeightUpdateService {
     const HQ_MARKER_HEIGHT = 30; // HQ marker floats higher (animated diamond)
     const SPAWN_MARKER_HEIGHT = 30; // Spawn markers ~30m above ground
 
-    // Get origin terrain height as reference
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
-    if (originTerrainY === null) {
-      return;
-    }
-
-    // Set the overlay base Y so overlayGroup is positioned at terrain surface
-    this.engine.setOverlayBaseY(originTerrainY);
-
-    // Update base marker - at origin, so relative height = 0
+    // Each marker follows its own column — absolute scene Y, no shared
+    // origin reference to drift against.
     if (baseMarker) {
       const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-      baseMarker.position.set(local.x, HQ_MARKER_HEIGHT, local.z);
+      const hqTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
+      if (hqTerrainY !== null) {
+        baseMarker.position.set(local.x, hqTerrainY + HQ_MARKER_HEIGHT, local.z);
+      }
     }
 
     // Update spawn markers - use relative heights
@@ -295,8 +290,7 @@ export class HeightUpdateService {
       // Get terrain height at spawn location
       const spawnTerrainY = this.engine.getTerrainHeightAtGeo(geoPos.lat, geoPos.lon);
       if (spawnTerrainY !== null) {
-        // Calculate relative Y (height difference from origin + marker height)
-        const relativeY = spawnTerrainY - originTerrainY + SPAWN_MARKER_HEIGHT;
+        const relativeY = spawnTerrainY + SPAWN_MARKER_HEIGHT;
         marker.position.y = relativeY;
       }
     }

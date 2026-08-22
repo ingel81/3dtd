@@ -348,8 +348,8 @@ export class GlobalRouteGridService {
    * Consumers use the changed-cell list to recompute per-tower LOS + viz
    * meshes so the system self-heals as tiles stream in.
    */
-  setCellsChangedListener(listener: (changed: RouteCell[]) => void): void {
-    this.grid.setCellsChangedListener(listener);
+  addCellsChangedListener(listener: (changed: RouteCell[]) => void): () => void {
+    return this.grid.addCellsChangedListener(listener);
   }
 
   // ========================================

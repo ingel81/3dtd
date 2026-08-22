@@ -13,6 +13,14 @@ import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
 
 /**
+ * How fast an enemy's feet may follow a corrected ground height (m/s).
+ *
+ * Cell samples can jump by metres when a finer tile lands. Easing into the
+ * new value keeps that reading as the model settling rather than snapping.
+ */
+const ENEMY_GROUND_ADJUST_MPS = 8;
+
+/**
  * Manages all enemy entities - spawning, updating, and lifecycle
  *
  * Framework-agnostic, event-based:
@@ -378,24 +386,35 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
       if (profiling) tGrid += performance.now() - t0;
 
-      // Check if path has valid heights (no object allocation)
+      // Ground comes from the route grid, per frame.
+      //
+      // It used to come from heights baked into the path at route-build time.
+      // Those never updated: the grid self-heals as tiles refine, the bake did
+      // not, so a route built during the coarse-LOD phase kept walking enemies
+      // at whatever height that phase reported — rooftop level in a dense city.
+      // The grid is the single ground truth for feet, route line and LOS, so
+      // read it directly (a cell lookup, no raycast) and let the same healing
+      // carry the enemies.
       t0 = profiling ? performance.now() : 0;
-      const pathHasHeights = enemy.movement.hasCurrentSegmentHeights();
 
-      let geoHeight: number;
-      if (pathHasHeights) {
-        // Path has smoothed heights - use the interpolated height from MovementComponent
-        geoHeight = enemy.transform.terrainHeight;
-      } else {
-        // Path doesn't have heights - sample terrain live (fallback)
-        const localTerrainY = this.tilesEngine?.getTerrainHeightAtGeo(
-          enemy.position.lat,
-          enemy.position.lon
+      let geoHeight = enemy.transform.terrainHeight;
+      if (origin && this.globalRouteGrid.isInitialized()) {
+        const cellY = this.globalRouteGrid.getGroundLocalYAt(
+          this._tempLocalPos.x,
+          this._tempLocalPos.z,
         );
-        geoHeight = localTerrainY != null && origin
-          ? localTerrainY + origin.height
-          : enemy.transform.terrainHeight;
-        enemy.transform.terrainHeight = geoHeight;
+        if (cellY !== null) {
+          // Air units carry their spread here rather than in the movement
+          // component, where it used to be folded into terrainHeight each step.
+          const target = cellY + origin.height + enemy.movement.getHeightVariation();
+          // Cell refreshes can move ground by metres in one frame. Ease into
+          // it so a streaming correction reads as the enemy settling rather
+          // than teleporting.
+          const delta = target - geoHeight;
+          const maxStep = ENEMY_GROUND_ADJUST_MPS * (Math.min(deltaTime, 100) / 1000);
+          geoHeight += Math.abs(delta) <= maxStep ? delta : Math.sign(delta) * maxStep;
+          enemy.transform.terrainHeight = geoHeight;
+        }
       }
       if (profiling) tHeight += performance.now() - t0;
 
