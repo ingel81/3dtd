@@ -1,6 +1,7 @@
-import { Injectable, signal } from '@angular/core';
+import { Injectable, inject, signal } from '@angular/core';
 import type { ThreeTilesEngine } from '../../three-engine';
 import type { GameStateManager } from '../../managers/game-state.manager';
+import { GameStore } from '../../store/game.store';
 
 /** Subsystem names for timing & bottleneck detection */
 export type Subsystem = 'enemy' | 'tower' | 'projectile' | 'combat' | 'events' | 'other';
@@ -31,6 +32,13 @@ export interface PerformanceStats {
   // Frame Budget
   frameTime: number;           // Total game-loop time (ms)
   frameBudgetPct: number;      // % of 16.67ms budget used
+  /**
+   * Gameplay sub-steps executed per render frame. 0-1 above 60 FPS, and
+   * `timescale` at speed-ups. Rises below 60 FPS, which multiplies every
+   * per-sub-step cost — the single most important number for reading the
+   * rest of this panel.
+   */
+  substepsPerFrame: number;
   // Bottleneck Detection
   bottleneck: Subsystem;       // Which subsystem took the most time
   bottleneckMs: number;        // How much time that subsystem took
@@ -42,7 +50,7 @@ const EMPTY_STATS: PerformanceStats = {
   geometries: 0, textures: 0,
   enemyMove: 0, enemyGrid: 0, enemyHeight: 0, enemyRender: 0, enemyTotal: 0,
   towerUpdate: 0, projectileUpdate: 0, combatUpdate: 0, eventProcessing: 0,
-  frameTime: 0, frameBudgetPct: 0,
+  frameTime: 0, frameBudgetPct: 0, substepsPerFrame: 0,
   bottleneck: 'other', bottleneckMs: 0,
 };
 
@@ -66,11 +74,14 @@ const FRAME_BUDGET_MS = 16.67;
  */
 @Injectable({ providedIn: 'root' })
 export class PerformanceProfilerService {
+  private readonly gameStore = inject(GameStore);
   private engine: ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
-  // Profiling is opt-in: per-enemy performance.now() calls cost ~20% CPU
-  // at 10k enemies, so we only wire the timing hooks while the perf panel
-  // is open. Stays false until setProfilingActive(true) is called.
+  // Profiling is opt-in. The enemy loop takes EIGHT performance.now()
+  // readings per enemy per sub-step, so at 9k enemies and a dozen sub-steps
+  // that is over a million calls a frame — measurably more than some of the
+  // things being measured. Hooks are only wired while the panel is open;
+  // treat any number read with it open as inflated.
   private profilingActive = false;
 
   /** Toggle for console profiling output */
@@ -79,8 +90,18 @@ export class PerformanceProfilerService {
   /** Latest collected stats (updated ~10 Hz by the component) */
   readonly stats = signal<PerformanceStats>(EMPTY_STATS);
 
-  // Enemy timing accumulator (written by EnemyManager every frame)
+  /**
+   * Enemy timing accumulator. `EnemyManager` reports once per SUB-STEP, so
+   * the totals here are sums across sub-steps; `frames` is advanced by
+   * `accumulateFrameTiming` instead, once per render frame. Dividing by it
+   * yields ms per frame — the same unit as every other number in the panel.
+   * Reporting per sub-step (as this used to) understated the enemy cost by
+   * the sub-step count, which at 5 FPS is a factor of twelve.
+   */
   private _enemyAcc = { move: 0, grid: 0, height: 0, render: 0, total: 0, frames: 0 };
+
+  /** Sub-steps executed, summed over the same window as `_frameAcc`. */
+  private _substepAcc = { total: 0, frames: 0 };
 
   // Manager timing accumulators (written by GameStateManager every frame)
   private _towerAcc = { total: 0, frames: 0 };
@@ -101,6 +122,30 @@ export class PerformanceProfilerService {
   setEngine(engine: ThreeTilesEngine | null, gameState?: GameStateManager): void {
     this.engine = engine;
     if (gameState) this.gameState = gameState;
+    this.exposeDebugApi();
+  }
+
+  /**
+   * DevTools handle for performance work: `__perf.setRendering(false)`
+   * keeps the simulation running while the render path is skipped, which
+   * separates JS cost from render + GPU cost without any new instrumentation.
+   *
+   * The header has a button for this too, but only in DevWorld — and the
+   * split is exactly as interesting on real tiles.
+   *
+   * `__perf.stats()` returns the same numbers the panel shows; note they are
+   * only collected while the panel is open, and the per-enemy timers inflate
+   * them while it is.
+   */
+  private exposeDebugApi(): void {
+    (globalThis as Record<string, unknown>)['__perf'] = {
+      setRendering: (enabled: boolean) => {
+        this.gameStore.renderingEnabled.set(enabled);
+        return enabled;
+      },
+      isRendering: () => this.gameStore.renderingEnabled(),
+      stats: () => this.stats(),
+    };
   }
 
   /**
@@ -116,9 +161,15 @@ export class PerformanceProfilerService {
     if (active) {
       gs.enemyManager.onProfileTiming = (move, grid, height, render, total) =>
         this.accumulateEnemyTiming(move, grid, height, render, total);
+      // Visual push runs once per frame now, so it reports separately.
+      gs.enemyManager.onPresentTiming = (ms) => {
+        this._enemyAcc.render += ms;
+        this._enemyAcc.total += ms;
+      };
       gs.setProfiler(this);
     } else {
       gs.enemyManager.onProfileTiming = null;
+      gs.enemyManager.onPresentTiming = null;
       gs.setProfiler(null);
       this.resetTimings();
     }
@@ -135,7 +186,7 @@ export class PerformanceProfilerService {
     a.height += height;
     a.render += render;
     a.total += total;
-    a.frames++;
+    // NOTE: no `frames++` here — see the field doc.
   }
 
   /**
@@ -148,6 +199,7 @@ export class PerformanceProfilerService {
     combatMs: number,
     eventsMs: number,
     totalFrameMs: number,
+    substeps: number,
   ): void {
     this._towerAcc.total += towerMs;
     this._towerAcc.frames++;
@@ -159,6 +211,10 @@ export class PerformanceProfilerService {
     this._eventsAcc.frames++;
     this._frameAcc.total += totalFrameMs;
     this._frameAcc.frames++;
+    this._substepAcc.total += substeps;
+    this._substepAcc.frames++;
+    // Enemy timings are reported per sub-step but averaged per frame.
+    this._enemyAcc.frames++;
   }
 
   /**
@@ -185,6 +241,7 @@ export class PerformanceProfilerService {
     const ff = this._frameAcc.frames || 1;
 
     const enemyTotal = ea.total / ef;
+    const substepsPerFrame = this._substepAcc.total / (this._substepAcc.frames || 1);
     const towerUpdate = this._towerAcc.total / tf;
     const projectileUpdate = this._projectileAcc.total / pf;
     const combatUpdate = this._combatAcc.total / cf;
@@ -231,6 +288,7 @@ export class PerformanceProfilerService {
       // Frame budget
       frameTime,
       frameBudgetPct: (frameTime / FRAME_BUDGET_MS) * 100,
+      substepsPerFrame,
       // Bottleneck
       bottleneck,
       bottleneckMs,
@@ -246,6 +304,7 @@ export class PerformanceProfilerService {
    */
   resetTimings(): void {
     this._enemyAcc = { move: 0, grid: 0, height: 0, render: 0, total: 0, frames: 0 };
+    this._substepAcc = { total: 0, frames: 0 };
     this._towerAcc = { total: 0, frames: 0 };
     this._projectileAcc = { total: 0, frames: 0 };
     this._combatAcc = { total: 0, frames: 0 };
