@@ -445,6 +445,11 @@ export class ThreeTilesEngine {
    * When disabled, `update()` and `render()` become no-ops — only the
    * gameplay tick (`onUpdateCallback`) continues via the animate loop.
    */
+  /** True while the render path runs; false in headless training. */
+  get renderingEnabled(): boolean {
+    return this._renderingEnabled;
+  }
+
   setRenderingEnabled(enabled: boolean): void {
     this._renderingEnabled = enabled;
   }
