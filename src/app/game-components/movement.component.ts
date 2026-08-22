@@ -47,6 +47,7 @@ export class MovementComponent extends Component {
   // Reusable status result object (avoid per-enemy allocation in updateStatusEffects)
   private static readonly _statusResult = { isSlowed: false, isPoisoned: false, slowMultiplier: 1.0 };
 
+
   constructor(gameObject: GameObject) {
     super(gameObject);
   }

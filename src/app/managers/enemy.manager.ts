@@ -327,6 +327,14 @@ export class EnemyManager extends EntityManager<Enemy> {
   onProfileTiming: ((move: number, grid: number, height: number, render: number, total: number) => void) | null = null;
 
   /**
+   * Reports the cost of {@link presentFrame} (ms), once per render frame.
+   * Separate from `onProfileTiming` because the visual push no longer runs
+   * per sub-step — mixing the two would resurrect the unit confusion the
+   * panel just got rid of.
+   */
+  onPresentTiming: ((ms: number) => void) | null = null;
+
+  /**
    * Update all enemies — movement and rendering. Called once per gameplay
    * sub-step (~16ms game-time). `gameTimeMs` is the engine game-clock used
    * for DoT ticks, status-effect lookups, and pending death/start delays.
@@ -340,7 +348,7 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (!this.movementEnabled) return;
 
     const profiling = this.onProfileTiming !== null;
-    let tMove = 0, tGrid = 0, tHeight = 0, tRender = 0;
+    let tMove = 0, tGrid = 0, tHeight = 0;
     const tTotal = profiling ? performance.now() : 0;
 
     this.toRemove.length = 0;
@@ -418,111 +426,42 @@ export class EnemyManager extends EntityManager<Enemy> {
       }
       if (profiling) tHeight += performance.now() - t0;
 
-      // Get speed multiplier from animation state (walk vs run)
-      const speedMultiplier = this.tilesEngine?.enemies.getSpeedMultiplier(enemy.id) ?? 1.0;
-      enemy.movement.speedMultiplier = speedMultiplier;
+      // Animation state (walk vs run) feeds movement speed, so it is read
+      // during simulation rather than in the visual pass.
+      enemy.movement.speedMultiplier =
+        this.tilesEngine?.enemies.getSpeedMultiplier(enemy.id) ?? 1.0;
 
-      // Update visual representation — reuse _tempLocalPos (X/Z already set from grid update)
-      // Set Y = (geoHeight + heightOffset) - originHeight to complete the local position
-      t0 = profiling ? performance.now() : 0;
-      const heightOffset = this.tilesEngine?.enemies.getHeightOffset(enemy.id) ?? 0;
-
-      // Air units fly at fixed altitude over local terrain — `terrainHeight
-      // + heightOffset` (air-unit configs set heightOffset to ≈15-20m).
-      // Single-source-of-truth: matches `getAirTargetY(cell)` from the LOS
-      // pipeline. Caveat (Option B): in dense skyscraper scenes, air units
-      // may clip through facades — accepted trade-off for predictable
-      // coverage visualization. (Previously skyline-adaptive; reverted to
-      // fixed altitude to remove the three-way divergence between enemy
-      // flight, combat sample, and viz sample.)
-      this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
-      // Use pre-computed speed from statusFlags (avoids effectiveSpeed getter which re-iterates statusEffects)
-      const currentSpeed = enemy.movement.speedMps * speedMultiplier * statusFlags.slowMultiplier;
-      this.tilesEngine?.enemies.update(
-        enemy.id,
-        enemy.position.lat,
-        enemy.position.lon,
-        geoHeight,
-        enemy.transform.rotation,
-        enemy.health.healthPercent,
-        currentSpeed,
-        this._tempLocalPos
-      );
-
-      // Frost visual: toggle blue tint + particle aura based on slow state
-      if (this.tilesEngine) {
-        const isSlowed = statusFlags.isSlowed;
-        const hasFrost = this.frozenVisualEnemies.has(enemy.id);
-
-        if (isSlowed && !hasFrost) {
-          // Apply frost visual — reuse _tempLocalPos (set Y for correct height)
-          this.tilesEngine.enemies.setFreezeVisual(enemy.id, true);
-          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
-          this.tilesEngine.effects.spawnFrostAura(enemy.id, this._tempLocalPos);
-          this.frozenVisualEnemies.add(enemy.id);
-        } else if (isSlowed && hasFrost) {
-          // Update frost aura position — reuse _tempLocalPos
-          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
-          this.tilesEngine.effects.updateFrostAuraPosition(enemy.id, this._tempLocalPos);
-        } else if (!isSlowed && hasFrost) {
-          // Remove frost visual
-          this.tilesEngine.enemies.setFreezeVisual(enemy.id, false);
-          this.tilesEngine.effects.stopFrostAura(enemy.id);
-          this.frozenVisualEnemies.delete(enemy.id);
-        }
-
-        // Poison visual: toggle green tint + particle aura based on poison state
-        const isPoisoned = statusFlags.isPoisoned;
-        const hasPoison = this.poisonVisualEnemies.has(enemy.id);
-
-        if (isPoisoned && !hasPoison) {
-          this.tilesEngine.enemies.setPoisonVisual(enemy.id, true);
-          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
-          this.tilesEngine.effects.spawnPoisonAura(enemy.id, this._tempLocalPos);
-          this.poisonVisualEnemies.add(enemy.id);
-        } else if (isPoisoned && hasPoison) {
-          this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
-          this.tilesEngine.effects.updatePoisonAuraPosition(enemy.id, this._tempLocalPos);
-        } else if (!isPoisoned && hasPoison) {
-          this.tilesEngine.enemies.setPoisonVisual(enemy.id, false);
-          this.tilesEngine.effects.stopPoisonAura(enemy.id);
-          this.poisonVisualEnemies.delete(enemy.id);
-          this.poisonTickAccum.delete(enemy.id);
-        }
-
-        // Poison DOT tick: pure accumulator on game-time deltaTime. Avoids
-        // drift on long frames and naturally fires multiple ticks per sub-step
-        // at high timescales.
-        if (isPoisoned) {
-          const interval = COMBAT_TUNING.poisonTickIntervalMs;
-          let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime;
-          if (acc >= interval) {
-            const poisonEffect = enemy.movement.statusEffects.find(
-              (e) => e.type === 'poison'
-            );
-            if (poisonEffect) {
-              // DPS scaled to the tick interval (e.g. 500ms tick = DPS * 0.5).
-              const tickDamage = poisonEffect.value * (COMBAT_TUNING.poisonTickIntervalMs / 1000);
-              while (acc >= interval) {
-                this.eventBus.emit({
-                  type: 'dot:damage',
-                  enemy,
-                  damage: tickDamage,
-                  sourceId: poisonEffect.sourceId ?? '',
-                  effectType: 'poison',
-                  damageType: 'poison',
-                });
-                acc -= interval;
-              }
-            } else {
-              // No active poison effect — drop the surplus rather than burning ticks.
-              acc = 0;
+      // Poison damage-over-time. This lives here and NOT in the visual pass:
+      // it emits `dot:damage`, so it is gameplay, and it has to tick once per
+      // sub-step or poison damage would change with the frame rate.
+      if (statusFlags.isPoisoned) {
+        const interval = COMBAT_TUNING.poisonTickIntervalMs;
+        let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime;
+        if (acc >= interval) {
+          const poisonEffect = enemy.movement.statusEffects.find(
+            (e) => e.type === 'poison'
+          );
+          if (poisonEffect) {
+            // DPS scaled to the tick interval (e.g. 500ms tick = DPS * 0.5).
+            const tickDamage = poisonEffect.value * (COMBAT_TUNING.poisonTickIntervalMs / 1000);
+            while (acc >= interval) {
+              this.eventBus.emit({
+                type: 'dot:damage',
+                enemy,
+                damage: tickDamage,
+                sourceId: poisonEffect.sourceId ?? '',
+                effectType: 'poison',
+                damageType: 'poison',
+              });
+              acc -= interval;
             }
+          } else {
+            // No active poison effect — drop the surplus rather than burning ticks.
+            acc = 0;
           }
-          this.poisonTickAccum.set(enemy.id, acc);
         }
+        this.poisonTickAccum.set(enemy.id, acc);
       }
-      if (profiling) tRender += performance.now() - t0;
     }
 
     // Remove enemies that reached base
@@ -532,8 +471,111 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     // Send profiling data to PerformanceProfilerService
     if (profiling) {
-      this.onProfileTiming!(tMove, tGrid, tHeight, tRender, performance.now() - tTotal);
+      // Render is reported by presentFrame — it no longer happens here.
+      this.onProfileTiming!(tMove, tGrid, tHeight, 0, performance.now() - tTotal);
     }
+  }
+
+  /**
+   * Push simulation state to the renderer. Call once per render frame, after
+   * the sub-step loop, and only when at least one sub-step actually ran.
+   *
+   * This work used to sit inside the per-sub-step loop, where it was redone
+   * for every step even though only the last one is ever seen. Below 60 FPS
+   * the loop runs several times a frame — measured at 5.8 sub-steps at 10k
+   * enemies, and above 40 once the frame rate collapsed — so most of it was
+   * thrown away. Skipping frames with no sub-step keeps the update rate
+   * exactly where it was: at 144 FPS the simulation ticks roughly every
+   * second frame, and the visuals now follow that same cadence rather than
+   * running ahead of it.
+   *
+   * Deliberately NOT here: poison damage-over-time (emits `dot:damage`),
+   * ground-height easing (combat and targeting read `terrainHeight`) and the
+   * animation-speed read (feeds movement). Those are gameplay and stay on the
+   * sub-step, or their outcome would depend on the frame rate.
+   */
+  presentFrame(gameTimeMs: number): void {
+    const engine = this.tilesEngine;
+    if (!engine) return;
+
+    const profiling = this.onPresentTiming !== null;
+    const t0 = profiling ? performance.now() : 0;
+    const origin = engine.sync.getOrigin();
+
+    for (const enemy of this.getAllActive()) {
+      if (!enemy.alive) continue;
+
+      // X/Z is re-derived rather than carried over from the sub-step: one
+      // conversion per enemy per frame, against the whole visual push per
+      // enemy per sub-step that it replaces.
+      engine.sync.geoToLocalSimpleInto(
+        enemy.position.lat,
+        enemy.position.lon,
+        0,
+        this._tempLocalPos,
+      );
+
+      const geoHeight = enemy.transform.terrainHeight;
+      const heightOffset = engine.enemies.getHeightOffset(enemy.id);
+
+      // Air units fly at fixed altitude over local terrain — `terrainHeight
+      // + heightOffset` (air-unit configs set heightOffset to ≈15-20m).
+      // Single-source-of-truth: matches `getAirTargetY(cell)` from the LOS
+      // pipeline. Caveat (Option B): in dense skyscraper scenes, air units
+      // may clip through facades — accepted trade-off for predictable
+      // coverage visualization.
+      this._tempLocalPos.y = origin ? (geoHeight + heightOffset) - origin.height : 0;
+
+      const currentSpeed =
+        enemy.movement.speedMps *
+        enemy.movement.speedMultiplier *
+        enemy.movement.getSlowMultiplier(gameTimeMs);
+
+      engine.enemies.update(
+        enemy.id,
+        enemy.position.lat,
+        enemy.position.lon,
+        geoHeight,
+        enemy.transform.rotation,
+        enemy.health.healthPercent,
+        currentSpeed,
+        this._tempLocalPos,
+      );
+
+      // Frost / poison visuals are edge-triggered against a Set, so running
+      // them once per frame instead of once per sub-step changes nothing but
+      // the number of times the same state is re-checked.
+      const isSlowed = enemy.movement.isSlowed(gameTimeMs);
+      const hasFrost = this.frozenVisualEnemies.has(enemy.id);
+      if (isSlowed && !hasFrost) {
+        engine.enemies.setFreezeVisual(enemy.id, true);
+        engine.effects.spawnFrostAura(enemy.id, this._tempLocalPos);
+        this.frozenVisualEnemies.add(enemy.id);
+      } else if (isSlowed && hasFrost) {
+        engine.effects.updateFrostAuraPosition(enemy.id, this._tempLocalPos);
+      } else if (!isSlowed && hasFrost) {
+        engine.enemies.setFreezeVisual(enemy.id, false);
+        engine.effects.stopFrostAura(enemy.id);
+        this.frozenVisualEnemies.delete(enemy.id);
+      }
+
+      const isPoisoned = enemy.movement.isPoisoned(gameTimeMs);
+      const hasPoison = this.poisonVisualEnemies.has(enemy.id);
+      if (isPoisoned && !hasPoison) {
+        engine.enemies.setPoisonVisual(enemy.id, true);
+        engine.effects.spawnPoisonAura(enemy.id, this._tempLocalPos);
+        this.poisonVisualEnemies.add(enemy.id);
+      } else if (isPoisoned && hasPoison) {
+        engine.effects.updatePoisonAuraPosition(enemy.id, this._tempLocalPos);
+      } else if (!isPoisoned && hasPoison) {
+        engine.enemies.setPoisonVisual(enemy.id, false);
+        engine.effects.stopPoisonAura(enemy.id);
+        this.poisonVisualEnemies.delete(enemy.id);
+        this.poisonTickAccum.delete(enemy.id);
+      }
+    }
+
+    if (profiling) this.onPresentTiming!(performance.now() - t0);
   }
 
   /**

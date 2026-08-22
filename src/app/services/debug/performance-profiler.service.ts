@@ -161,9 +161,15 @@ export class PerformanceProfilerService {
     if (active) {
       gs.enemyManager.onProfileTiming = (move, grid, height, render, total) =>
         this.accumulateEnemyTiming(move, grid, height, render, total);
+      // Visual push runs once per frame now, so it reports separately.
+      gs.enemyManager.onPresentTiming = (ms) => {
+        this._enemyAcc.render += ms;
+        this._enemyAcc.total += ms;
+      };
       gs.setProfiler(this);
     } else {
       gs.enemyManager.onProfileTiming = null;
+      gs.enemyManager.onPresentTiming = null;
       gs.setProfiler(null);
       this.resetTimings();
     }
