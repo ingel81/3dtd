@@ -466,20 +466,24 @@ describe('GameStateManager', () => {
         expect(gsm.gameTimeMs).toBeGreaterThan(0);
       });
 
-      it('caps sub-steps per frame at MAX_SUBSTEPS_PER_FRAME (600)', () => {
+      it('does not try to catch up an arbitrarily large wall-clock gap', () => {
         const onSub = vi.fn();
         // Seed with a NON-ZERO time so the next delta computes properly
         // (lastUpdateTime=0 is treated as "first frame" via a truthiness check).
         gsm.update(1, onSub);
         gsm.update(17, onSub);
         const stepsAfterSeed = onSub.mock.calls.length;
-        // Massive 60-second jump in wall-clock — should be capped to 600
-        // sub-steps (= ~10s game-time) plus the max-remainder allowance.
+
+        // A 60-second jump — what a background tab produces on return, and
+        // what a stalled frame produces under load. The delta is clamped
+        // before it becomes game-time, so the loop works off a few steps
+        // rather than thousands. Catching it all up is what turned one slow
+        // frame into a slower next one.
         gsm.update(60_017, onSub);
+
         const stepsThisFrame = onSub.mock.calls.length - stepsAfterSeed;
-        expect(stepsThisFrame).toBeLessThanOrEqual(600);
-        // And it should be a meaningful number, not just 1.
-        expect(stepsThisFrame).toBeGreaterThan(100);
+        expect(stepsThisFrame).toBeGreaterThan(0);
+        expect(stepsThisFrame).toBeLessThanOrEqual(4);
       });
 
       it('scales sub-step count by training timescale', () => {
