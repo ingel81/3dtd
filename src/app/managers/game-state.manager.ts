@@ -496,6 +496,7 @@ export class GameStateManager {
         stepMs,
         this.towerManager,
         this.enemyManager,
+        this._gameTimeMs,
       );
       this.towerCombat.updateMeleeTowers(
         stepMs,

@@ -297,6 +297,7 @@ export class TowerCombatService {
     deltaTime: number,
     towerManager: TowerManager,
     enemyManager: EnemyManager,
+    gameTimeMs: number,
   ): void {
     if (!this.tilesEngine || !this.tilesEngine?.flameBeams) return;
 
@@ -349,8 +350,26 @@ export class TowerCombatService {
         }
       }
 
-      // Find primary target (closest/lowest HP in range)
-      const target = tower.findTarget(candidates, airTargetingUnlocked);
+      // Find primary target (closest/lowest HP in range). Same LOS predicate
+      // as the projectile/melee/chain paths — beam towers must not acquire
+      // targets behind buildings either. beamRange (20m) is inside the
+      // detection range (25m) the LOS cells were registered with, so the
+      // grid fast path covers the whole beam reach.
+      const losCheck = this.buildLosCheck(tower, hasVisibleCells);
+      let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+
+      // Periodic LOS recheck (throttled, same interval as the projectile
+      // path). A beam HOLDS its target: findTarget's fast path keeps the
+      // cached target without a LOS check, and unlike projectile towers
+      // there is no canFire gate where the recheck would naturally run —
+      // without this, a target drifting behind a building kept burning.
+      if (target && losCheck && tower.needsLosRecheck(gameTimeMs)) {
+        tower.markLosChecked(gameTimeMs);
+        if (!losCheck(target)) {
+          tower.clearTarget();
+          target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
+        }
+      }
 
       if (target) {
         // Rotate turret towards target
