@@ -47,9 +47,19 @@ export class MovementComponent extends Component {
   // Reusable status result object (avoid per-enemy allocation in updateStatusEffects)
   private static readonly _statusResult = { isSlowed: false, isPoisoned: false, slowMultiplier: 1.0 };
 
+  // Cached transform — move() runs per enemy per sub-step, and the generic
+  // getComponent() Map lookup was measurable at 10k+ enemies. Resolved lazily
+  // so the component stays constructible before a transform exists.
+  private _transform: TransformComponent | null = null;
 
   constructor(gameObject: GameObject) {
     super(gameObject);
+  }
+
+  private get transformRef(): TransformComponent | null {
+    return (this._transform ??= this.gameObject.getComponent<TransformComponent>(
+      ComponentType.TRANSFORM,
+    ));
   }
 
   /**
@@ -85,7 +95,7 @@ export class MovementComponent extends Component {
     this.precomputeSegmentLengths();
 
     // Set initial position
-    const transform = this.gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM);
+    const transform = this.transformRef;
     if (transform && path.length > 0) {
       transform.setPosition(path[0].lat, path[0].lon, path[0].height);
       if (path[0].height !== undefined) {
@@ -311,7 +321,7 @@ export class MovementComponent extends Component {
   move(deltaTime: number, gameTimeMs: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
     if (this.paused || this.path.length < 2) return 'moving';
 
-    const transform = this.gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM);
+    const transform = this.transformRef;
     if (!transform) return 'moving';
 
     // Sub-step is fixed (~16.67ms game-time), so a small constant cap is safe.
