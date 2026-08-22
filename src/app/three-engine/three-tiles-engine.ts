@@ -3,6 +3,7 @@ import {
   Scene,
   PerspectiveCamera,
   Raycaster,
+  type Intersection,
   Vector3,
   Vector2,
   Matrix4,
@@ -19,7 +20,6 @@ import {
   Color,
   BoxGeometry,
   Box3,
-  MeshStandardMaterial,
   MeshBasicMaterial,
   DoubleSide,
   ShaderMaterial,
@@ -49,6 +49,7 @@ import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
 import {
   CoordinateSync,
   ThreeTowerRenderer,
@@ -75,7 +76,18 @@ import { TowerShadowMapper } from './tower-shadow-mapper';
  * ramps and tile-seam noise while rejecting typical bridge decks (4-6m)
  * and most tree crowns.
  */
-const GROUND_ANCHOR_TOLERANCE_M = 3;
+/** Shape of a 3D-Tiles tile as far as the tile-info map needs it. */
+interface ActiveTile {
+  geometricError?: number;
+  internal?: { depth?: number };
+  engineData?: { scene?: Object3D | null } | null;
+}
+
+/** Straight down — the terrain probe is always vertical. */
+const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
+
+/** Column cache granularity: 2 buckets per metre (0.5 m grid). */
+const COLUMN_CACHE_SCALE = 2;
 
 /**
  * Initial camera position for pre-computed framing
@@ -125,7 +137,6 @@ export class ThreeTilesEngine {
 
   // Raycaster for terrain height queries
   private raycaster: Raycaster;
-  private heightCache = new Map<number, number>();
   private readonly CACHE_PRECISION = 5;
   private readonly CACHE_SCALE = 1e5; // 10^CACHE_PRECISION
   private readonly HEIGHT_CHANGE_THRESHOLD = 2.0; // Only refresh if height changed by >2m
@@ -134,8 +145,6 @@ export class ThreeTilesEngine {
   // Debug flag: reset when tiles are loaded so we get debug output
   private tilesWereLoaded = false;
   // Tile quality tracking for route protection (active only during route calculation)
-  private tileQualityTracker: { errors: number[], depths: number[] } | null = null;
-  private tileSceneMap: Map<Object3D, { geometricError: number, depth: number }> | null = null;
 
   /**
    * Persistent tile-info map for per-raycast LOD lookup. Rebuilt on every
@@ -153,6 +162,34 @@ export class ThreeTilesEngine {
    * so no manual eviction needed.
    */
   private tileBoundsCache = new WeakMap<Object3D, { minX: number; maxX: number; minZ: number; maxZ: number }>();
+
+  /** Tiles-group position the cached AABBs were taken at. */
+  private readonly boundsCacheGroupPos = new Vector3(NaN, NaN, NaN);
+
+  /**
+   * Column samples keyed by quantised local (x,z), each stamped with the
+   * {@link lodVersion} it was taken at. Replaces the old lat/lon height cache
+   * and its all-or-nothing clear.
+   */
+  private columnCache = new Map<number, { sample: ColumnSample; lodVersion: number }>();
+
+  /**
+   * Raycaster reserved for terrain columns. Separate from `this.raycaster`
+   * because LOS checks set `far` to their segment length and screen picking
+   * sets its own origin — sharing one instance made the effective range
+   * depend on whatever ran last.
+   */
+  private readonly terrainRaycaster = new Raycaster();
+  private readonly _columnRayOrigin = new Vector3();
+  private readonly _columnResults: Intersection[] = [];
+  private readonly _columnHits: ColumnHit[] = [];
+
+  /**
+   * Monotonic counter of loaded-tile-set changes. Every cached column sample
+   * records the version it was taken at; a newer version means "re-verify",
+   * which replaces the old all-or-nothing `heightCache.clear()`.
+   */
+  private lodVersion = 0;
 
   // Pre-computed initial camera position (set before initialize())
   private initialCameraPosition: InitialCameraPosition | null = null;
@@ -704,45 +741,42 @@ export class ThreeTilesEngine {
         }
       }
 
-      // HEIGHT REFRESH - only if raycast succeeded
+      // The loaded-tile set has changed — that is true on EVERY settled
+      // load-end, not only when the origin column happens to shift.
+      //
+      // This used to sit behind a `heightDelta > HEIGHT_CHANGE_THRESHOLD`
+      // gate measured at (0,0). LOD refinement anywhere else in the world
+      // — the whole enemy corridor, for instance — never moves the origin
+      // column, so the tile-info map went stale, `peekBestTileLODAtLocal`
+      // reported outdated LODs, `sampleCellY`'s skip gate then refused to
+      // re-sample, and the convergence loop spun without healing anything.
+      // The same gate also withheld the cubemap invalidation and the route
+      // refresh, which is how a route baked during the coarse phase stayed
+      // baked (enemies walking at rooftop height in dense cities).
+      const tPre0 = performance.now();
+
+      // Bumps `lodVersion`, which is what invalidates individual column
+      // samples — no global cache clear needed.
+      this.rebuildPersistentTileInfoMap();
+      const tRebuildMap = performance.now();
+
+      this.towerShadowMapper?.invalidate();
+      const tShadowInvalidate = performance.now();
+
       if (freshOriginHeight !== null) {
-        const heightDelta = this.lastOriginHeight !== null
-          ? Math.abs(freshOriginHeight - this.lastOriginHeight)
-          : Infinity; // First load always triggers refresh
+        this.lastOriginHeight = freshOriginHeight;
+      }
 
-        if (heightDelta > this.HEIGHT_CHANGE_THRESHOLD) {
-          this.lastOriginHeight = freshOriginHeight;
-
-          // Clear cache and notify for full refresh
-          const cacheSize = this.heightCache.size;
-          const tPre0 = performance.now();
-          this.heightCache.clear();
-          const tCacheClear = performance.now();
-
-          // Rebuild the persistent tile-info map so any subsequent
-          // getTerrainSampleAtLocal call has accurate LOD metadata for
-          // the currently-loaded tile set.
-          this.rebuildPersistentTileInfoMap();
-          const tRebuildMap = performance.now();
-
-          // Invalidate Cubemap-LOS so der nächste Update neu rendert mit
-          // den frisch geladenen Tiles.
-          this.towerShadowMapper?.invalidate();
-          const tShadowInvalidate = performance.now();
-
-          if (this.onTilesLoadCallback) {
-            this.onTilesLoadCallback();
-            const tEnd = performance.now();
-            console.warn(
-              `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
-              `cacheClear=${(tCacheClear - tPre0).toFixed(1)} ` +
-              `rebuildTileMap=${(tRebuildMap - tCacheClear).toFixed(1)} ` +
-              `shadowInvalidate=${(tShadowInvalidate - tRebuildMap).toFixed(1)} ` +
-              `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
-              `(cleared ${cacheSize} cache entries, delta=${heightDelta.toFixed(2)}m)`
-            );
-          }
-        }
+      if (this.onTilesLoadCallback) {
+        this.onTilesLoadCallback();
+        const tEnd = performance.now();
+        console.warn(
+          `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
+          `rebuildTileMap=${(tRebuildMap - tPre0).toFixed(1)} ` +
+          `shadowInvalidate=${(tShadowInvalidate - tRebuildMap).toFixed(1)} ` +
+          `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
+          `(lodVersion=${this.lodVersion})`
+        );
       }
     }, this.TILES_LOAD_DEBOUNCE_MS);
   }
@@ -1056,26 +1090,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Get ground Y position at scene X,Z coordinates using raycasting
-   * Returns the Y value where the ray hits the terrain
-   */
-  getGroundYAtScenePos(x: number, z: number): number | null {
-    if (!this.tilesRenderer) return null;
-
-    // Cast ray from high above straight down
-    const rayOrigin = new Vector3(x, 5000, z);
-    const rayDir = new Vector3(0, -1, 0);
-
-    this.raycaster.set(rayOrigin, rayDir);
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
-
-    if (results.length > 0) {
-      return results[0].point.y;
-    }
-    return null;
-  }
-
-  /**
    * Get terrain height for overlay objects at a given local X,Z position
    * Returns the Y value in overlayGroup local coordinates
    *
@@ -1088,26 +1102,6 @@ export class ThreeTilesEngine {
    * @returns Y position for the overlay, or null if terrain not hit
    */
   private tilesLoadedForRaycast = false;
-
-  /**
-   * Check if tiles are loaded enough for raycasting
-   */
-  areTilesReadyForRaycast(): boolean {
-    // DevWorld: always ready
-    if (this.devTerrainProvider) {
-      return this.devTerrainProvider.isReady();
-    }
-
-    if (!this.tilesRenderer) return false;
-
-    // Cast from camera toward origin
-    const camPos = this.camera.position.clone();
-    const direction = new Vector3(0, 0, 0).sub(camPos).normalize();
-    this.raycaster.set(camPos, direction);
-
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
-    return results.length > 0;
-  }
 
   /**
    * Get DevTerrainProvider for wiring up street provider.
@@ -1137,24 +1131,10 @@ export class ThreeTilesEngine {
       return this.devTerrainProvider.getHeightAtGeo(lat, lon);
     }
 
-    // Check cache first
-    const cacheKey = this.getHeightCacheKey(lat, lon);
-    if (this.heightCache.has(cacheKey)) {
-      return this.heightCache.get(cacheKey)!;
-    }
-
-    // Get local position
+    // Caching happens per column in `sampleColumn`, keyed on local (x,z) —
+    // one keyspace for the whole engine instead of a second lat/lon one.
     const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
-
-    // Do the raycast
-    const height = this.raycastTerrainHeight(localPos.x, localPos.z);
-
-    // Cache the result (even nulls as a special value)
-    if (height !== null) {
-      this.heightCache.set(cacheKey, height);
-    }
-
-    return height;
+    return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
   }
 
   /**
@@ -1238,31 +1218,50 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Internal raycast for terrain height. Top-down ray collects all hits;
-   * with an optional `anchorY` we filter to the route-anchored band and pick
-   * the highest valid hit (street-level under bridges / trees). Without
-   * `anchorY` the legacy first-hit behavior is preserved.
+   * The one vertical terrain probe. Everything that needs to know how high
+   * the ground is goes through here.
    *
-   * @param localX - Local X coordinate (meters from origin)
-   * @param localZ - Local Z coordinate (meters from origin)
-   * @param anchorY - Optional route-anchor Y; hits more than `tolerance`
-   *   meters away from it are discarded as overhead clutter (bridge deck,
-   *   tree canopy) or sub-ground artifacts (basement, hole in mesh).
-   * @param tolerance - Vertical tolerance around `anchorY` in meters
-   *   (default {@link GROUND_ANCHOR_TOLERANCE_M}).
-   * @returns Height in local Y coordinates, or null if no hit
+   * Casts a single top-down ray, resolves each hit to its tile's LOD, and
+   * hands the set to {@link selectColumnSample}, which keeps only the finest
+   * LOD present and reads ground and top off that. See that function for why
+   * the finest-LOD filter is the whole point.
+   *
+   * Results are cached per 0.5 m column and invalidated per entry via
+   * {@link lodVersion} — a stale entry is only re-raycast when the peek says
+   * better tile data actually exists, otherwise it is just re-stamped.
+   *
+   * @returns null if nothing usable was hit; the cache is left untouched so
+   *   callers keep whatever value they already had.
    */
-  private raycastTerrainHeight(
-    localX: number,
-    localZ: number,
-    anchorY?: number,
-    tolerance: number = GROUND_ANCHOR_TOLERANCE_M,
-  ): number | null {
-    // DevWorld: delegate to provider (no overhead clutter, anchor irrelevant)
+  sampleColumn(localX: number, localZ: number): ColumnSample | null {
     if (this.devTerrainProvider) {
-      return this.devTerrainProvider.getHeightAtLocal(localX, localZ);
+      const y = this.devTerrainProvider.getHeightAtLocal(localX, localZ);
+      if (y === null) return null;
+      // DevWorld has no streaming LOD and no overhead clutter.
+      return { groundY: y, topY: y, tileDepth: 99, tileGeometricError: 0 };
     }
 
+    const key = this.columnCacheKey(localX, localZ);
+    const entry = this.columnCache.get(key);
+    if (entry) {
+      if (entry.lodVersion === this.lodVersion) return entry.sample;
+      // Tile set changed. Only pay for a ray if finer data is actually there.
+      const peek = this.peekBestTileLODAtLocal(localX, localZ);
+      if (peek && !isBetterLod(peek, entry.sample)) {
+        entry.lodVersion = this.lodVersion;
+        return entry.sample;
+      }
+    }
+
+    const sample = this.raycastColumn(localX, localZ);
+    if (sample === null) return null;
+
+    this.columnCache.set(key, { sample, lodVersion: this.lodVersion });
+    return sample;
+  }
+
+  /** Uncached ray + LOD resolution behind {@link sampleColumn}. */
+  private raycastColumn(localX: number, localZ: number): ColumnSample | null {
     if (!this.tilesRenderer) return null;
 
     // Check if tiles are loaded (only on first call)
@@ -1271,64 +1270,59 @@ export class ThreeTilesEngine {
       this.tilesRenderer.group.traverse((obj) => {
         if ((obj as Mesh).isMesh) meshCount++;
       });
-
-      if (meshCount === 0) {
-        return null;
-      }
-
+      if (meshCount === 0) return null;
       this.tilesWereLoaded = true;
     }
 
-    // Raycast from high above straight down
-    const rayOrigin = new Vector3(localX, 10000, localZ);
-    const direction = new Vector3(0, -1, 0);
+    this._columnRayOrigin.set(localX, 10000, localZ);
+    this.terrainRaycaster.set(this._columnRayOrigin, COLUMN_RAY_DIRECTION);
+    this.terrainRaycaster.far = 20000;
 
-    this.raycaster.set(rayOrigin, direction);
-    this.raycaster.far = 20000;
+    this._columnResults.length = 0;
+    this.terrainRaycaster.intersectObject(this.tilesRenderer.group, true, this._columnResults);
+    if (this._columnResults.length === 0) return null;
 
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
-
-    if (results.length === 0) {
-      return null;
+    this._columnHits.length = 0;
+    for (const r of this._columnResults) {
+      const info = this.getTileInfoForObject(r.object);
+      this._columnHits.push({
+        y: r.point.y,
+        depth: info?.depth ?? 0,
+        geometricError: info?.geometricError ?? Infinity,
+      });
     }
 
-    // Default: first hit (legacy behaviour, highest-Y because the ray points
-    // down). When an anchor is provided we only OVERRIDE this if the first
-    // hit is clearly overhead clutter (more than `tolerance` above the
-    // anchor) AND we can find a lower hit closer to the anchor. We never
-    // return the anchor itself — an unreliable anchor must not silently
-    // drag cells down to Y=0; the first hit is always our worst-case.
-    let chosen = results[0];
-    if (anchorY !== undefined && results[0].point.y > anchorY + tolerance) {
-      for (let i = 1; i < results.length; i++) {
-        const r = results[i];
-        if (Math.abs(r.point.y - anchorY) <= tolerance) {
-          chosen = r;
-          break;
-        }
-      }
-    }
+    return selectColumnSample(this._columnHits);
+  }
 
-    // If tile quality tracking is active, record tile info from the chosen hit
-    if (this.tileQualityTracker && this.tileSceneMap) {
-      let obj: Object3D | null = chosen.object;
-      while (obj && !this.tileSceneMap.has(obj)) {
-        obj = obj.parent;
-      }
-      const info = obj ? this.tileSceneMap.get(obj) : null;
-      if (info) {
-        this.tileQualityTracker.errors.push(info.geometricError);
-        this.tileQualityTracker.depths.push(info.depth);
-      }
-    }
-    return chosen.point.y;
+  /** Quantised column key — 0.5 m grid, Szudzik pairing (negatives safe). */
+  private columnCacheKey(localX: number, localZ: number): number {
+    const xi = Math.round(localX * COLUMN_CACHE_SCALE);
+    const zi = Math.round(localZ * COLUMN_CACHE_SCALE);
+    const a = xi >= 0 ? 2 * xi : -2 * xi - 1;
+    const b = zi >= 0 ? 2 * zi : -2 * zi - 1;
+    return a >= b ? a * a + a + b : b * b + a;
   }
 
   /**
-   * Rebuild the persistent tile-info map. Should be called whenever the
-   * loaded-tile set changes — typically on tile-load-end events. Cheap
-   * (one iteration over loaded tiles). The map is consumed by
-   * `getTerrainSampleAtLocal` for per-raycast LOD lookup.
+   * Ground height at a local position. Thin read of {@link sampleColumn}.
+   */
+  private raycastTerrainHeight(localX: number, localZ: number): number | null {
+    return this.sampleColumn(localX, localZ)?.groundY ?? null;
+  }
+
+  /**
+   * Rebuild the persistent tile-info map. Called on every settled
+   * tile-load-end. Cheap (one iteration over the active tile set) and it is
+   * what bumps {@link lodVersion}, which in turn invalidates cached column
+   * samples one entry at a time instead of by a global cache wipe.
+   *
+   * Built from `activeTiles`, NOT `forEachLoadedModel`: the latter also
+   * yields LRU-cached tiles that are loaded but not part of the current
+   * refinement, and those are invisible to the raycast
+   * (`TilesRenderer.raycast` walks the active traversal only). Reporting
+   * their LOD made the peek promise a quality the ray could never deliver —
+   * cells were re-sampled for nothing and then accepted the coarse hit.
    */
   rebuildPersistentTileInfoMap(): void {
     if (!this.tilesRenderer) {
@@ -1339,13 +1333,20 @@ export class ThreeTilesEngine {
     // `tile.internal.depth` is the 3d-tiles-renderer tile depth. It was named
     // `tile.__depth` until the 0.4.20+ internal tile-data refactor (which also
     // renamed `tile.cached` → `tile.engineData`, `tile.__used` → `tile.traversal`).
-    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; internal?: { depth?: number } }) => {
+    for (const tile of this.tilesRenderer.activeTiles as Set<ActiveTile>) {
+      const scene = tile.engineData?.scene;
+      if (!scene) continue;
       map.set(scene, {
         geometricError: tile.geometricError ?? Infinity,
         depth: tile.internal?.depth ?? 0,
       });
-    });
+    }
     this.persistentTileInfoMap = map;
+
+    // Tile churn invalidates the lazily-computed AABBs, and a new version
+    // marks every cached column sample as "verify against the new LOD".
+    this.tileBoundsCache = new WeakMap();
+    this.lodVersion++;
   }
 
   /**
@@ -1369,13 +1370,29 @@ export class ThreeTilesEngine {
       return { depth: 99, geometricError: 0 };
     }
     if (!this.persistentTileInfoMap) return null;
+
+    // Bounds are world-space, so they are only valid while the tiles group
+    // sits where it did when they were taken. The group re-centres as the
+    // camera travels; without this check the cache would quietly answer for
+    // the wrong patch of ground.
+    if (this.tilesRenderer && !this.tilesRenderer.group.position.equals(this.boundsCacheGroupPos)) {
+      this.tileBoundsCache = new WeakMap();
+      this.boundsCacheGroupPos.copy(this.tilesRenderer.group.position);
+    }
+
     let bestDepth = -1;
     let bestErr = Infinity;
     let any = false;
     for (const [scene, info] of this.persistentTileInfoMap.entries()) {
       let bounds = this.tileBoundsCache.get(scene);
       if (!bounds) {
+        // `setFromObject` reads matrixWorld. Touching a scene before the
+        // renderer has updated it bakes an AABB around an identity
+        // transform — permanently wrong, since the WeakMap has no eviction
+        // short of the scene unloading.
+        scene.updateWorldMatrix(true, true);
         const box = new Box3().setFromObject(scene);
+        if (box.isEmpty()) continue;
         bounds = {
           minX: box.min.x,
           maxX: box.max.x,
@@ -1411,98 +1428,6 @@ export class ThreeTilesEngine {
     return cursor ? this.persistentTileInfoMap.get(cursor) ?? null : null;
   }
 
-  /**
-   * Detailed terrain raycast: same hit-selection logic as
-   * `raycastTerrainHeight` (top-down + anchor validation) but additionally
-   * resolves the tile LOD info for the chosen hit. Used by the
-   * route-cell-grid to attach tile-quality metadata to each sample.
-   *
-   * Returns null when no hit was made (e.g. tiles for this position not
-   * yet streamed).
-   */
-  getTerrainSampleAtLocal(
-    localX: number,
-    localZ: number,
-    anchorY?: number,
-  ): { y: number; tileDepth: number; tileGeometricError: number } | null {
-    if (this.devTerrainProvider) {
-      const y = this.devTerrainProvider.getHeightAtLocal(localX, localZ);
-      if (y === null) return null;
-      // DevWorld has no streaming LOD — synthetic high quality.
-      return { y, tileDepth: 99, tileGeometricError: 0 };
-    }
-
-    if (!this.tilesRenderer) return null;
-
-    if (!this.tilesWereLoaded) {
-      let meshCount = 0;
-      this.tilesRenderer.group.traverse((obj) => {
-        if ((obj as Mesh).isMesh) meshCount++;
-      });
-      if (meshCount === 0) return null;
-      this.tilesWereLoaded = true;
-    }
-
-    const rayOrigin = new Vector3(localX, 10000, localZ);
-    const direction = new Vector3(0, -1, 0);
-    this.raycaster.set(rayOrigin, direction);
-    this.raycaster.far = 20000;
-
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
-    if (results.length === 0) return null;
-
-    let chosen = results[0];
-    if (anchorY !== undefined && results[0].point.y > anchorY + GROUND_ANCHOR_TOLERANCE_M) {
-      for (let i = 1; i < results.length; i++) {
-        const r = results[i];
-        if (Math.abs(r.point.y - anchorY) <= GROUND_ANCHOR_TOLERANCE_M) {
-          chosen = r;
-          break;
-        }
-      }
-    }
-
-    const tileInfo = this.getTileInfoForObject(chosen.object);
-    return {
-      y: chosen.point.y,
-      tileDepth: tileInfo?.depth ?? 0,
-      tileGeometricError: tileInfo?.geometricError ?? Infinity,
-    };
-  }
-
-  /**
-   * Start tracking tile quality during raycasts.
-   * Builds a Scene→TileInfo lookup from all loaded tiles, then records
-   * geometricError/depth for each subsequent raycast hit.
-   * Call stopTileQualityTracking() after raycasts to get results.
-   */
-  startTileQualityTracking(): void {
-    if (!this.tilesRenderer) return;
-    this.tileSceneMap = new Map();
-    this.tilesRenderer.forEachLoadedModel((scene: Object3D, tile: { geometricError?: number; internal?: { depth?: number } }) => {
-      this.tileSceneMap!.set(scene, {
-        geometricError: tile.geometricError ?? Infinity,
-        depth: tile.internal?.depth ?? 0
-      });
-    });
-    this.tileQualityTracker = { errors: [], depths: [] };
-  }
-
-  /**
-   * Stop tile quality tracking and return aggregated results.
-   * Returns null if no raycasts were tracked.
-   */
-  stopTileQualityTracking(): { avgGeometricError: number, minDepth: number, samples: number } | null {
-    const tracker = this.tileQualityTracker;
-    this.tileQualityTracker = null;
-    this.tileSceneMap = null;
-    if (!tracker || tracker.errors.length === 0) return null;
-    return {
-      avgGeometricError: tracker.errors.reduce((a, b) => a + b, 0) / tracker.errors.length,
-      minDepth: Math.min(...tracker.depths),
-      samples: tracker.errors.length
-    };
-  }
 
   /**
    * Raycast between two 3D points to check Line-of-Sight
@@ -1556,136 +1481,10 @@ export class ThreeTilesEngine {
    * @param anchorY - Optional route-anchor Y for validation
    * @returns Height in local Y coordinates, or null if no hit (and no anchor)
    */
-  getTerrainHeightAtLocal(localX: number, localZ: number, anchorY?: number): number | null {
-    return this.raycastTerrainHeight(localX, localZ, anchorY);
+  getTerrainHeightAtLocal(localX: number, localZ: number): number | null {
+    return this.raycastTerrainHeight(localX, localZ);
   }
 
-  /**
-   * Get the skyline height at local coordinates — i.e. the highest hit
-   * (terrain or building roof) in a small neighbourhood around (x, z).
-   *
-   * In Real-World 3D-Tiles this samples the loaded tileset; the top-down
-   * raycast naturally hits whatever is highest, so the returned value is
-   * already "ground or roof, whichever wins". The 4-corner neighbourhood
-   * makes the result robust against tile-mesh seams and the cell granularity.
-   *
-   * In DevWorld this delegates to the provider's skyline sampler which
-   * raycasts against terrain + building meshes.
-   *
-   * @param localX - Local X coordinate (meters from origin)
-   * @param localZ - Local Z coordinate (meters from origin)
-   * @param sampleRadius - Neighbourhood radius in meters (default 1.5m, ~cell size)
-   * @returns Skyline Y in local coordinates, or null if no hit
-   */
-  getSkylineHeightAtLocal(localX: number, localZ: number, sampleRadius = 1.5): number | null {
-    // DevWorld: delegate to provider (top-down raycast against buildings + terrain)
-    if (this.devTerrainProvider) {
-      return this.devTerrainProvider.getSkylineHeightAtLocal(localX, localZ, sampleRadius);
-    }
-
-    if (!this.tilesRenderer) return null;
-
-    // 5-sample max: centre + 4 corner offsets at ±sampleRadius
-    const offsets: [number, number][] = [
-      [0, 0],
-      [sampleRadius, sampleRadius],
-      [sampleRadius, -sampleRadius],
-      [-sampleRadius, sampleRadius],
-      [-sampleRadius, -sampleRadius],
-    ];
-
-    let maxY: number | null = null;
-    for (const [dx, dz] of offsets) {
-      const y = this.raycastTerrainHeight(localX + dx, localZ + dz);
-      if (y !== null && (maxY === null || y > maxY)) {
-        maxY = y;
-      }
-    }
-    return maxY;
-  }
-
-  /**
-   * @deprecated Use getTerrainHeightAtGeo() instead - this method uses incorrect local raycast
-   */
-  getOverlayTerrainHeight(_localX: number, _localZ: number): number | null {
-    console.warn('[Terrain] getOverlayTerrainHeight is deprecated - use getTerrainHeightAtGeo');
-    return null;
-  }
-
-  /**
-   * Get terrain height at geo coordinates for overlay objects.
-   * Uses correct ECEF raycast via getTerrainHeightAtGeo.
-   *
-   * @param lat - Latitude in degrees
-   * @param lon - Longitude in degrees
-   * @param heightAboveGround - Additional height above terrain (default 0)
-   * @returns Height above ellipsoid + offset, or null if tiles not loaded
-   */
-  getOverlayTerrainHeightAtGeo(lat: number, lon: number, heightAboveGround = 0): number | null {
-    const terrainHeight = this.getTerrainHeightAtGeo(lat, lon);
-
-    if (terrainHeight !== null) {
-      return terrainHeight + heightAboveGround;
-    }
-
-    // No fallback - return null so caller knows tiles aren't ready
-    return null;
-  }
-
-  /**
-   * Get terrain height at geo position using raycasting
-   */
-  async getTerrainHeight(lat: number, lon: number): Promise<number> {
-    const key = this.getHeightCacheKey(lat, lon);
-    if (this.heightCache.has(key)) {
-      return this.heightCache.get(key)!;
-    }
-
-    if (!this.tilesRenderer) return 0;
-
-    // Position 10km above the point
-    const position = new Vector3();
-    WGS84_ELLIPSOID.getCartographicToPosition(
-      lat * MathUtils.DEG2RAD,
-      lon * MathUtils.DEG2RAD,
-      10000,
-      position
-    );
-
-    // Apply tiles group transform
-    position.applyMatrix4(this.tilesRenderer.group.matrixWorld);
-
-    // Direction toward ellipsoid center (down)
-    const direction = position.clone().negate().normalize();
-
-    this.raycaster.set(position, direction);
-
-    const results = this.raycaster.intersectObject(this.tilesRenderer.group, true);
-
-    if (results.length > 0) {
-      // Convert hit point back to cartographic to get height
-      const hitPoint = results[0].point.clone();
-      const invMatrix = this.tilesRenderer.group.matrixWorld.clone().invert();
-      hitPoint.applyMatrix4(invMatrix);
-
-      const cartographic: { lat: number; lon: number; height: number } = { lat: 0, lon: 0, height: 0 };
-      WGS84_ELLIPSOID.getPositionToCartographic(hitPoint, cartographic);
-
-      const height = cartographic.height;
-      this.heightCache.set(key, height);
-      return height;
-    }
-
-    return 0;
-  }
-
-  /**
-   * Get terrain height synchronously (from cache only)
-   */
-  getTerrainHeightSync(lat: number, lon: number): number | null {
-    const key = this.getHeightCacheKey(lat, lon);
-    return this.heightCache.get(key) ?? null;
-  }
 
   private getHeightCacheKey(lat: number, lon: number): number {
     // Integer key via Cantor pairing — avoids toFixed() string allocation
@@ -1701,16 +1500,8 @@ export class ThreeTilesEngine {
    * Clear height cache
    */
   clearHeightCache(): void {
-    this.heightCache.clear();
-  }
-
-  /**
-   * Preload heights for a path
-   */
-  async preloadHeightsForPath(path: { lat: number; lon: number }[]): Promise<void> {
-    for (const point of path) {
-      await this.getTerrainHeight(point.lat, point.lon);
-    }
+    this.columnCache.clear();
+    this.tileBoundsCache = new WeakMap();
   }
 
   /**
@@ -2000,28 +1791,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Add a test cube at a geo position (for debugging)
-   */
-  async addTestCube(lat: number, lon: number): Promise<Mesh> {
-    const height = await this.getTerrainHeight(lat, lon);
-    const localPos = this.sync.geoToLocal(lat, lon, height + 5);
-
-    const geometry = new BoxGeometry(10, 10, 10);
-    const material = new MeshStandardMaterial({
-      color: 0x22c55e,
-      metalness: 0.3,
-      roughness: 0.7,
-    });
-    const cube = new Mesh(geometry, material);
-    cube.position.copy(localPos);
-
-    this.scene.add(cube);
-    this.testCube = cube;
-
-    return cube;
-  }
-
-  /**
    * Add a test cube at the origin (0, height, 0) inside tilesRenderer.group
    * This cube should stay fixed relative to the tiles when using GlobeControls
    *
@@ -2055,30 +1824,6 @@ export class ThreeTilesEngine {
     this.testCube = cube;
 
     return cube;
-  }
-
-  /**
-   * Add test cubes at spawn positions
-   */
-  async addTestCubesAtSpawns(spawns: { lat: number; lon: number }[]): Promise<void> {
-    const colors = [0xef4444, 0xf97316, 0x3b82f6, 0x8b5cf6];
-
-    for (let i = 0; i < spawns.length; i++) {
-      const spawn = spawns[i];
-      const height = await this.getTerrainHeight(spawn.lat, spawn.lon);
-      const localPos = this.sync.geoToLocal(spawn.lat, spawn.lon, height + 5);
-
-      const geometry = new BoxGeometry(8, 8, 8);
-      const material = new MeshStandardMaterial({
-        color: colors[i % colors.length],
-        metalness: 0.3,
-        roughness: 0.7,
-      });
-      const cube = new Mesh(geometry, material);
-      cube.position.copy(localPos);
-      this.scene.add(cube);
-      this.debugHelpers.push(cube);
-    }
   }
 
   /**

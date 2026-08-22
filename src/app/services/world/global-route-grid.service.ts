@@ -4,7 +4,7 @@ import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition } from '../../models/game.types';
 import { CoordinateSync } from '../../three-engine/renderers';
-import { TerrainRaycaster, TerrainSampleRaycaster, TerrainPeekLOD } from '../../three-engine/renderers/three-tower.renderer';
+import { ColumnSampler, TerrainPeekLOD } from '../../three-engine/renderers/three-tower.renderer';
 import { LosResolveContext } from '../../utils/gpu-cube-resolve';
 import { Group, InstancedMesh, Mesh, MeshBasicMaterial, Scene, SphereGeometry } from 'three';
 import { UIStore } from '../../store/ui.store';
@@ -45,18 +45,16 @@ export class GlobalRouteGridService {
 
   /**
    * Initialize the grid with required dependencies
-   * @param terrainRaycaster Function to sample terrain height at local coordinates
+   * @param columnSampler Vertical terrain probe (ground + tile LOD)
    * @param coordinateSync Coordinate sync for geo <-> local conversions
-   * @param skylineRaycaster Optional top-down sampler for skyline (terrain + buildings)
+   * @param terrainPeekLOD Optional cheap LOD probe used to skip re-sampling
    */
   initialize(
-    terrainRaycaster: TerrainRaycaster,
+    columnSampler: ColumnSampler,
     coordinateSync: CoordinateSync,
-    skylineRaycaster?: TerrainRaycaster,
-    terrainSampleRaycaster?: TerrainSampleRaycaster,
     terrainPeekLOD?: TerrainPeekLOD,
   ): void {
-    this.grid.initialize(terrainRaycaster, coordinateSync, skylineRaycaster, terrainSampleRaycaster, terrainPeekLOD);
+    this.grid.initialize(columnSampler, coordinateSync, terrainPeekLOD);
     this.initialized = true;
 
     // Diagnose-API für Route-Grid-Höhen-Anomalien
@@ -267,14 +265,6 @@ export class GlobalRouteGridService {
     return this.grid.isAirPositionVisibleFromTower(towerId, localX, localZ);
   }
 
-  /**
-   * Get cell skyline height at a local position (local Y of highest geometry
-   * around the cell). Used to lift air-enemy flight altitude above local
-   * rooftops.
-   */
-  getSkylineHeightAt(localX: number, localZ: number): number | null {
-    return this.grid.getSkylineHeightAt(localX, localZ);
-  }
 
   /**
    * Get all alive enemies within a radius of a local position
