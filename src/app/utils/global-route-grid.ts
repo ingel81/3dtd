@@ -1210,8 +1210,8 @@ export class GlobalRouteGrid {
     // If enemy is in same cell, nothing to do
     if (currentCellKey === newCellKey) return;
 
-    // Remove from old cell
-    if (currentCellKey) {
+    // Remove from old cell (key 0 is the valid cell (0,0) — test definedness, not truthiness)
+    if (currentCellKey !== undefined) {
       const oldCell = this.cells.get(currentCellKey);
       if (oldCell) {
         oldCell.enemies.delete(enemy);
@@ -1235,7 +1235,7 @@ export class GlobalRouteGrid {
    */
   removeEnemy(enemy: Enemy): void {
     const currentCellKey = this.enemyCellKeys.get(enemy.id);
-    if (currentCellKey) {
+    if (currentCellKey !== undefined) {
       const cell = this.cells.get(currentCellKey);
       if (cell) {
         cell.enemies.delete(enemy);
