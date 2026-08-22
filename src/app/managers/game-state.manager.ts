@@ -403,6 +403,7 @@ export class GameStateManager {
       this.profiler!.accumulateFrameTiming(
         tTower, tProjectile, tCombat, tEvents,
         performance.now() - frameStart,
+        stepsExecuted,
       );
     }
   }
