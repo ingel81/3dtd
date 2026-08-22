@@ -1036,7 +1036,6 @@ export class GlobalRouteGrid {
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
-    const buf = new Uint8Array(4);
 
     for (const cell of this.cells.values()) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
@@ -1059,7 +1058,7 @@ export class GlobalRouteGrid {
           groundVisible = true;
         } else {
           const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
         }
         cell.towerVisibility.set(towerId, groundVisible);
       }
@@ -1071,7 +1070,7 @@ export class GlobalRouteGrid {
           airVisible = true;
         } else {
           const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
         }
         cell.airVisibility.set(towerId, airVisible);
       }
@@ -1115,7 +1114,6 @@ export class GlobalRouteGrid {
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
-    const buf = new Uint8Array(4);
 
     for (const cell of this.cells.values()) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
@@ -1145,7 +1143,7 @@ export class GlobalRouteGrid {
           cell.towerVisibility.set(towerId, groundVisible);
         } else {
           const targetY = cell.terrainHeight + LOS_VIZ_CONFIG.groundSampleYOffset;
-          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          groundVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
           cell.towerVisibility.set(towerId, groundVisible);
         }
       } else {
@@ -1163,7 +1161,7 @@ export class GlobalRouteGrid {
           cell.airVisibility.set(towerId, airVisible);
         } else {
           const targetY = getAirTargetY(cell);
-          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx, buf);
+          airVisible = isCubeVisible(tipX, tipY, tipZ, cell.x, targetY, cell.z, ctx);
           cell.airVisibility.set(towerId, airVisible);
         }
       } else {

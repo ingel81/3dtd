@@ -1,4 +1,4 @@
-import { Vector3, WebGLCubeRenderTarget, WebGLRenderer } from 'three';
+import { Vector3, WebGLCubeRenderTarget } from 'three';
 
 /**
  * Kontext für einen GPU-Cube-basierten LOS-Resolve-Pass.
@@ -6,16 +6,22 @@ import { Vector3, WebGLCubeRenderTarget, WebGLRenderer } from 'three';
  * Wird vom Caller (typisch TowerPlacementService.buildLosResolveContext)
  * zusammen gebaut: erst `shadowMapper.invalidate()` + `shadowMapper.update()`
  * aufrufen, dann die Mapper-Getter (`getRenderTarget`, `getReferencePos`,
- * `getFarDistance`) einsammeln und hier als Context bündeln.
+ * `getFarDistance`) einsammeln, die 6 Faces via `readFacesToCpu()` einmal
+ * in die CPU-Buffer holen und alles hier als Context bündeln.
  *
- * Strikt one-shot: nicht über mehrere Tower hinweg cachen — `referencePos`
- * und `farDistance` gelten exakt für den Render der gerade lief.
+ * Strikt one-shot: nicht über mehrere Tower hinweg cachen — `referencePos`,
+ * `farDistance` und `faces` gelten exakt für den Render der gerade lief.
  */
 export interface LosResolveContext {
   readonly cube: WebGLCubeRenderTarget;
   readonly referencePos: Readonly<Vector3>;
   readonly farDistance: number;
-  readonly renderer: WebGLRenderer;
+  /**
+   * CPU-Mirror der 6 Cube-Faces (je width² × 4 Bytes), gefüllt vom
+   * TowerShadowMapper nach dem Cube-Render. Die Buffer sind persistent
+   * auf dem Mapper allokiert — nicht pro Context.
+   */
+  readonly faces: readonly Uint8Array[];
   readonly visibilityBias: number;
   readonly emptyDepthEpsilon: number;
 }
@@ -39,6 +45,12 @@ const FALLBACK_RESULT: CubeSampleResult = { cellDist: 0, blockerDist: 0 };
  * Verifikation muss über einen unabhängigen GPU-Pfad laufen (1×1-RT-
  * Quad-Shader mit `textureCube`), NICHT über einen zweiten CPU-readPixels-
  * Call.
+ *
+ * Datenquelle ist `ctx.faces` — der CPU-Mirror, den der TowerShadowMapper
+ * nach dem Cube-Render mit einem readRenderTargetPixels pro Face gefüllt
+ * hat. `readPixels` schreibt framebuffer-bottom-up in den Buffer, also ist
+ * `(py * size + px) * 4` byte-identisch mit dem früheren synchronen
+ * 1×1-Readback an (px, py) — die Pixel-Math bleibt unverändert.
  */
 export function sampleCubeAtPoint(
   tipX: number,
@@ -48,7 +60,6 @@ export function sampleCubeAtPoint(
   sampleY: number,
   sampleZ: number,
   ctx: LosResolveContext,
-  buf: Uint8Array,
 ): CubeSampleResult {
   const dx = sampleX - tipX;
   const dy = sampleY - tipY;
@@ -92,13 +103,14 @@ export function sampleCubeAtPoint(
   // und GPU-textureCube (siehe H5 im HANDOVER_ROUTE_GRID_GPU_LOS.md).
   const py = Math.min(size - 1, Math.max(0, Math.floor(t * size)));
 
-  ctx.renderer.readRenderTargetPixels(ctx.cube, px, py, 1, 1, buf, face);
+  const faceBuf = ctx.faces[face];
+  const o = (py * size + px) * 4;
 
   let packed =
-    buf[0] / 255 +
-    buf[1] / 65025 +
-    buf[2] / 16581375 +
-    buf[3] / 4228250625;
+    faceBuf[o] / 255 +
+    faceBuf[o + 1] / 65025 +
+    faceBuf[o + 2] / 16581375 +
+    faceBuf[o + 3] / 4228250625;
   if (packed < ctx.emptyDepthEpsilon) packed = 1.0;
 
   return {
@@ -126,9 +138,8 @@ export function isCubeVisible(
   sampleY: number,
   sampleZ: number,
   ctx: LosResolveContext,
-  buf: Uint8Array,
 ): boolean {
-  const r = sampleCubeAtPoint(tipX, tipY, tipZ, sampleX, sampleY, sampleZ, ctx, buf);
+  const r = sampleCubeAtPoint(tipX, tipY, tipZ, sampleX, sampleY, sampleZ, ctx);
   if (r.cellDist === 0) return true;
   return r.cellDist < r.blockerDist - ctx.visibilityBias;
 }
