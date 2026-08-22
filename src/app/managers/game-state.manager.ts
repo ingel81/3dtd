@@ -415,6 +415,18 @@ export class GameStateManager {
     // ONCE PER RENDER-FRAME (visuals + UI sync)
     // ══════════════════════════════════════════════════════════════
 
+    // Push enemy state to the renderer once, after the sub-step loop.
+    //
+    // Only when a sub-step actually ran: above 60 FPS the simulation ticks
+    // less often than the frame rate, and the visuals should keep following
+    // the simulation rather than re-pushing unchanged state. Skipped entirely
+    // when rendering is off, which is what headless training runs at — the
+    // per-enemy matrix work used to happen there too, for a frame that is
+    // never drawn.
+    if (stepsExecuted > 0 && this.tilesEngine?.renderingEnabled) {
+      this.enemyManager.presentFrame(this._gameTimeMs);
+    }
+
     // Sync active research progress to store for UI (cheap, batched once/frame)
     if (this.researchManager.usedSlots > 0) {
       this.researchStore.activeResearches.set(this.researchManager.getActiveResearches());
