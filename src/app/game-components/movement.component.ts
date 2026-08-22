@@ -3,57 +3,48 @@ import { GameObject } from '../core/game-object';
 import { GeoPosition } from '../models/game.types';
 import { StatusEffect } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
-import { haversineDistance, METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { movementStore } from './movement-soa.store';
 
 /**
- * MovementComponent handles path-following movement
+ * MovementComponent handles path-following movement.
+ *
+ * The per-entity movement scalars (progress, speed, lateral offset, …) and
+ * the flattened path live in {@link movementStore}'s typed arrays — this
+ * component is a thin view over its slot there, keeping the object API for
+ * everything that addresses enemies as objects (combat, targeting, events,
+ * tests) while the hot loop advances all slots in one batch pass.
+ *
+ * Status effects stay here as plain objects: per-enemy arrays that are
+ * usually empty and not part of the hot loop.
  */
 export class MovementComponent extends Component {
-  speedMps = 0; // Base meters per second
-  speedMultiplier = 1.0; // Multiplier for run animation etc.
-  path: GeoPosition[] = [];
-  currentIndex = 0;
-  progress = 0; // 0-1 within current segment
+  /** Slot index in the shared movement store. */
+  readonly slot: number;
 
-  private segmentLengths: number[] = [];
-  /** Sum of all segment lengths — cached in precomputeSegmentLengths(). */
-  private totalPathLength = 0;
-  paused = false;
+  // Original path array — kept by reference for API/debug readers
+  // (wave-manager diagnostics, tests). The hot loop reads the flattened
+  // copy in the store instead.
+  private _path: GeoPosition[] = [];
 
   // Status effects (slow, freeze, etc.)
   statusEffects: StatusEffect[] = [];
 
-  // Lateral offset for path variety (perpendicular to movement direction)
-  private lateralOffsetMeters = 0;
-
-  // Height variation for air units (persistent offset per enemy)
+  // Height variation for air units (persistent offset per enemy) — read by
+  // EnemyManager's ground-height pass, not by the movement hot loop.
   private heightVariationMeters = 0;
-
-  // Track previous position for direction-based heading calculation
-  private previousLat = 0;
-  private previousLon = 0;
-  private hasMovedOnce = false;
-
-  // Cached segment perpendicular vector (recalculated on segment change only)
-  private cachedPerpLat = 0;
-  private cachedPerpLon = 0;
-  private cachedPerpSegIdx = -1;
-  private cachedPerpValid = false;
-  private cachedMetersPerDegree = METERS_PER_DEGREE_LAT; // Cached lat→meter conversion for lateral offset
-
-  // Reusable lookAt target (avoid object literal allocation per frame)
-  private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
 
   // Reusable status result object (avoid per-enemy allocation in updateStatusEffects)
   private static readonly _statusResult = { isSlowed: false, isPoisoned: false, slowMultiplier: 1.0 };
 
-  // Cached transform — move() runs per enemy per sub-step, and the generic
-  // getComponent() Map lookup was measurable at 10k+ enemies. Resolved lazily
-  // so the component stays constructible before a transform exists.
+  // Cached transform — resolved lazily so the component stays constructible
+  // before a transform exists.
   private _transform: TransformComponent | null = null;
+
+  private _slotFreed = false;
 
   constructor(gameObject: GameObject) {
     super(gameObject);
+    this.slot = movementStore.allocSlot();
   }
 
   private get transformRef(): TransformComponent | null {
@@ -62,11 +53,52 @@ export class MovementComponent extends Component {
     ));
   }
 
+  // --- Store-backed fields (public API unchanged) ---
+
+  get speedMps(): number {
+    return movementStore.speedMps[this.slot];
+  }
+  set speedMps(value: number) {
+    if (this._slotFreed) return;
+    movementStore.speedMps[this.slot] = value;
+  }
+
+  get speedMultiplier(): number {
+    return movementStore.speedMultiplier[this.slot];
+  }
+  set speedMultiplier(value: number) {
+    if (this._slotFreed) return;
+    movementStore.speedMultiplier[this.slot] = value;
+  }
+
+  get currentIndex(): number {
+    return movementStore.currentIndex[this.slot];
+  }
+  set currentIndex(value: number) {
+    movementStore.currentIndex[this.slot] = value;
+  }
+
+  get progress(): number {
+    return movementStore.progress[this.slot];
+  }
+  set progress(value: number) {
+    movementStore.progress[this.slot] = value;
+  }
+
+  get paused(): boolean {
+    return movementStore.isPaused(this.slot);
+  }
+
+  get path(): GeoPosition[] {
+    return this._path;
+  }
+
   /**
    * Set lateral offset in meters (positive = right, negative = left of path)
    */
   setLateralOffset(offsetMeters: number): void {
-    this.lateralOffsetMeters = offsetMeters;
+    if (this._slotFreed) return;
+    movementStore.lateralOffset[this.slot] = offsetMeters;
   }
 
   /**
@@ -84,18 +116,18 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Set the path and pre-compute segment lengths
+   * Set the path. The store flattens it into typed arrays (interned — all
+   * entities on the same route share one flat copy) and precomputes segment
+   * lengths; the source array is treated as immutable from here on.
    */
   setPath(path: GeoPosition[]): void {
-    this.path = path;
-    this.currentIndex = 0;
-    this.progress = 0;
-    this.cachedPerpSegIdx = -1;
-    this.cachedPerpValid = false;
-    this.precomputeSegmentLengths();
+    if (this._slotFreed) return;
+    this._path = path;
+    movementStore.setPath(this.slot, movementStore.flattenPath(path));
 
     // Set initial position
     const transform = this.transformRef;
+    movementStore.transforms[this.slot] = transform;
     if (transform && path.length > 0) {
       transform.setPosition(path[0].lat, path[0].lon, path[0].height);
       if (path[0].height !== undefined) {
@@ -106,36 +138,19 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Pre-compute segment lengths for accurate speed-based movement
-   */
-  private precomputeSegmentLengths(): void {
-    this.segmentLengths = [];
-    let total = 0;
-    for (let i = 0; i < this.path.length - 1; i++) {
-      const dist = haversineDistance(
-        this.path[i].lat,
-        this.path[i].lon,
-        this.path[i + 1].lat,
-        this.path[i + 1].lon
-      );
-      this.segmentLengths.push(dist);
-      total += dist;
-    }
-    this.totalPathLength = total;
-  }
-
-  /**
    * Pause movement
    */
   pause(): void {
-    this.paused = true;
+    if (this._slotFreed) return;
+    movementStore.setPaused(this.slot, true);
   }
 
   /**
    * Resume movement
    */
   resume(): void {
-    this.paused = false;
+    if (this._slotFreed) return;
+    movementStore.setPaused(this.slot, false);
   }
 
   /**
@@ -168,28 +183,7 @@ export class MovementComponent extends Component {
    * Get overall path progress (0 = start, 1 = reached end)
    */
   getPathProgress(): number {
-    if (this.path.length === 0 || this.segmentLengths.length === 0) {
-      return 0;
-    }
-
-    // Total path length is pre-summed in precomputeSegmentLengths().
-    const totalLength = this.totalPathLength;
-    if (totalLength === 0) return 1;
-
-    // Calculate distance covered
-    let coveredDistance = 0;
-
-    // Add all completed segments
-    for (let i = 0; i < this.currentIndex && i < this.segmentLengths.length; i++) {
-      coveredDistance += this.segmentLengths[i];
-    }
-
-    // Add progress within current segment
-    if (this.currentIndex < this.segmentLengths.length) {
-      coveredDistance += this.segmentLengths[this.currentIndex] * this.progress;
-    }
-
-    return Math.min(1, coveredDistance / totalLength);
+    return movementStore.getPathProgress(this.slot);
   }
 
   /**
@@ -317,119 +311,28 @@ export class MovementComponent extends Component {
    * `gameTimeMs` is the engine game-clock used for status-effect lookups.
    * `cachedSlowMult` lets the caller share the slow multiplier across
    * updateStatusEffects + move within the same sub-step (1 iteration).
+   *
+   * Thin wrapper over the store's advanceSlot — EnemyManager advances all
+   * enemies through the batch pass instead; this stays for everything that
+   * moves a single entity (tests, potential scripted movers).
    */
   move(deltaTime: number, gameTimeMs: number, cachedSlowMult?: number): 'moving' | 'reached_end' {
-    if (this.paused || this.path.length < 2) return 'moving';
-
-    const transform = this.transformRef;
-    if (!transform) return 'moving';
-
-    // Sub-step is fixed (~16.67ms game-time), so a small constant cap is safe.
-    const maxDelta = 100;
-    const cappedDelta = Math.min(deltaTime, maxDelta);
-    const deltaSeconds = cappedDelta / 1000;
-
-    // Use cached slow multiplier from updateStatusEffects if provided
+    if (this._slotFreed) return 'moving';
     const slowMult = cachedSlowMult ?? this.getSlowMultiplier(gameTimeMs);
-    const metersThisFrame = this.speedMps * this.speedMultiplier * slowMult * deltaSeconds;
-
-    // Current segment length
-    const segmentLength = this.segmentLengths[this.currentIndex] || 1;
-
-    // Update progress based on actual segment length
-    this.progress += metersThisFrame / segmentLength;
-
-    // Handle segment transitions, keeping overflow for smooth movement
-    while (this.progress >= 1) {
-      this.progress -= 1;
-      this.currentIndex++;
-      this.cachedPerpValid = false; // Invalidate cached perpendicular on segment change
-
-      if (this.currentIndex >= this.path.length - 1) {
-        return 'reached_end';
-      }
-    }
-
-    // Interpolate position
-    const current = this.path[this.currentIndex];
-    const next = this.path[this.currentIndex + 1];
-
-    if (current && next) {
-      let newLat = current.lat + (next.lat - current.lat) * this.progress;
-      let newLon = current.lon + (next.lon - current.lon) * this.progress;
-
-      // Apply lateral offset perpendicular to movement direction
-      if (this.lateralOffsetMeters !== 0) {
-        // Cache perpendicular vector per segment (recalc only on segment change)
-        if (!this.cachedPerpValid || this.cachedPerpSegIdx !== this.currentIndex) {
-          const dLat = next.lat - current.lat;
-          const dLon = next.lon - current.lon;
-          const lenSq = dLat * dLat + dLon * dLon;
-          if (lenSq > 0) {
-            const len = Math.sqrt(lenSq);
-            this.cachedPerpLat = -dLon / len;
-            this.cachedPerpLon = dLat / len;
-          } else {
-            this.cachedPerpLat = 0;
-            this.cachedPerpLon = 0;
-          }
-          // Cache metersPerDegree at segment start (varies <0.01% within a segment)
-          this.cachedMetersPerDegree = METERS_PER_DEGREE_LAT * Math.cos(newLat * DEG_TO_RAD);
-          this.cachedPerpSegIdx = this.currentIndex;
-          this.cachedPerpValid = true;
-        }
-        if (this.cachedPerpLat !== 0 || this.cachedPerpLon !== 0) {
-          const offsetDegrees = this.lateralOffsetMeters / this.cachedMetersPerDegree;
-          newLat += this.cachedPerpLat * offsetDegrees;
-          newLon += this.cachedPerpLon * offsetDegrees;
-        }
-      }
-
-      transform.setPosition(newLat, newLon);
-
-      // Height is NOT derived here. Interpolating the path's baked heights
-      // was a second ground model beside the route grid, and the stale one:
-      // the grid re-samples as tiles refine, the bake never did. EnemyManager
-      // reads the grid per frame instead and applies `heightVariationMeters`
-      // there, so air units keep their spread without this accumulating it
-      // into `terrainHeight` on every step.
-
-      // Update rotation based on actual movement direction (not next waypoint)
-      // This prevents sudden heading jumps at segment transitions
-      if (this.hasMovedOnce) {
-        const dLat = newLat - this.previousLat;
-        const dLon = newLon - this.previousLon;
-        // Use squared distance to avoid sqrt (only checking threshold)
-        const moveDistSq = dLat * dLat + dLon * dLon;
-        if (moveDistSq > 1e-14) {
-          // Reuse static object to avoid per-frame allocation
-          const target = MovementComponent._lookAtTarget;
-          target.lat = newLat + dLat;
-          target.lon = newLon + dLon;
-          transform.lookAt(target);
-        }
-      } else {
-        // First frame: look at next waypoint
-        transform.lookAt(next);
-        this.hasMovedOnce = true;
-      }
-
-      // Store current position for next frame's direction calculation
-      this.previousLat = newLat;
-      this.previousLon = newLon;
-    }
-
-    return 'moving';
+    return movementStore.advanceSlot(this.slot, deltaTime, slowMult) === 1
+      ? 'reached_end'
+      : 'moving';
   }
 
   /**
    * Get current segment
    */
   getCurrentSegment(): { from: GeoPosition; to: GeoPosition } | null {
-    if (this.currentIndex >= this.path.length - 1) return null;
+    const idx = this.currentIndex;
+    if (idx >= this._path.length - 1) return null;
     return {
-      from: this.path[this.currentIndex],
-      to: this.path[this.currentIndex + 1],
+      from: this._path[idx],
+      to: this._path[idx + 1],
     };
   }
 
@@ -438,11 +341,19 @@ export class MovementComponent extends Component {
    * Get next waypoint
    */
   getNextWaypoint(): GeoPosition | null {
-    if (this.currentIndex + 1 >= this.path.length) return null;
-    return this.path[this.currentIndex + 1];
+    const idx = this.currentIndex;
+    if (idx + 1 >= this._path.length) return null;
+    return this._path[idx + 1];
   }
 
   update(_deltaTime: number): void {
     // Movement is triggered explicitly via move() method
+  }
+
+  override onDestroy(): void {
+    if (!this._slotFreed) {
+      this._slotFreed = true;
+      movementStore.freeSlot(this.slot);
+    }
   }
 }

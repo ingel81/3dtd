@@ -11,6 +11,7 @@ import { GameEventBus } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import { movementStore } from '../game-components/movement-soa.store';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -55,6 +56,12 @@ export class EnemyManager extends EntityManager<Enemy> {
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
+
+  // Reusable staging buffers for the three-pass sub-step (see update()).
+  // Cleared after each pass 3 so dead enemies are not retained between steps.
+  private _batchEnemies: Enemy[] = [];
+  private _batchSlots: number[] = [];
+  private _batchPoisoned: number[] = [];
 
   // Reactive signal for alive count (for UI bindings)
   readonly aliveCount = signal(0);
@@ -353,25 +360,51 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
+    const store = movementStore;
 
+    // The sub-step is split into three passes so the movement math can run
+    // as one batch over the SoA store's contiguous typed arrays instead of
+    // one virtual call per enemy:
+    //   1. per-enemy ticks (rotation lerp, audio) + status effects, staging
+    //      each enemy's slot and slow multiplier for the batch
+    //   2. store.advanceBatch — the movement hot loop, objects untouched
+    //   3. per-enemy consequences: reached-base, grids, ground height, poison
+    //
+    // Pass 1 deliberately does NOT call the generic enemy.update(): of the
+    // five enemy components only transform and audio do per-tick work —
+    // health, render and movement have empty update() bodies, and iterating
+    // the component Map with five polymorphic calls per enemy per sub-step
+    // was pure overhead at 10k+ enemies. GameObject.update() remains for
+    // towers/projectiles.
+    let t0 = profiling ? performance.now() : 0;
+    const batchEnemies = this._batchEnemies;
+    const batchSlots = this._batchSlots;
+    const batchPoisoned = this._batchPoisoned;
+    let batchN = 0;
     for (const enemy of this.getAllActive()) {
       if (!enemy.alive) continue;
 
-      let t0 = profiling ? performance.now() : 0;
-      // Deliberately NOT the generic enemy.update(): of the five enemy
-      // components only transform (rotation lerp) and audio (loop positions)
-      // do per-tick work — health, render and movement have empty update()
-      // bodies, and iterating the component Map with five polymorphic calls
-      // per enemy per sub-step was pure overhead at 10k+ enemies.
-      // GameObject.update() remains for towers/projectiles.
       enemy.transform.update(deltaTime);
       enemy.audio.update(deltaTime);
       // Single-pass: remove expired effects + get slow/poison flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
-      const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
-      if (profiling) tMove += performance.now() - t0;
+      const slot = enemy.movement.slot;
+      store.slowMult[slot] = statusFlags.slowMultiplier;
+      batchEnemies[batchN] = enemy;
+      batchSlots[batchN] = slot;
+      // The shared statusFlags object is overwritten per enemy — the poison
+      // flag has to survive until pass 3, so stage it per index.
+      batchPoisoned[batchN] = statusFlags.isPoisoned ? 1 : 0;
+      batchN++;
+    }
 
-      if (moveResult === 'reached_end') {
+    store.advanceBatch(batchSlots, batchN, deltaTime);
+    if (profiling) tMove += performance.now() - t0;
+
+    for (let i = 0; i < batchN; i++) {
+      const enemy = batchEnemies[i];
+
+      if (store.moveResult[batchSlots[i]] === 1) {
         // Emit enemy:reached-base event — leak damage scales with wave-number
         // (Phase 5.16) so late-game leaks hurt more.
         this.eventBus.emit({
@@ -441,7 +474,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       // Poison damage-over-time. This lives here and NOT in the visual pass:
       // it emits `dot:damage`, so it is gameplay, and it has to tick once per
       // sub-step or poison damage would change with the frame rate.
-      if (statusFlags.isPoisoned) {
+      if (batchPoisoned[i] === 1) {
         const interval = COMBAT_TUNING.poisonTickIntervalMs;
         let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime;
         if (acc >= interval) {
@@ -470,6 +503,10 @@ export class EnemyManager extends EntityManager<Enemy> {
         this.poisonTickAccum.set(enemy.id, acc);
       }
     }
+
+    // Drop the staged enemy references — the buffer is reused next sub-step
+    // and must not keep dead enemies alive in between.
+    batchEnemies.length = 0;
 
     // Remove enemies that reached base
     for (const enemy of this.toRemove) {
