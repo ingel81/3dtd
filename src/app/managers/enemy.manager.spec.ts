@@ -253,11 +253,8 @@ describe('EnemyManager', () => {
       { lat: 0.001, lon: 0, height: 0 },
     ];
 
-    // Fast enough to cover the ~111m path in a single 16ms sub-step. The
-    // previous version mocked movement.move() instead, but the manager now
-    // advances movement through the store's batch pass, so the mock would
-    // never be consulted — driving the real movement is also the honest test.
-    const enemy = manager.spawn(path, 'zombie', 10000);
+    const enemy = manager.spawn(path, 'zombie');
+    vi.spyOn(enemy.movement, 'move').mockReturnValue('reached_end');
 
     manager.update(16, 0); // gameTimeMs=0
 
