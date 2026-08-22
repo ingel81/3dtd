@@ -26,6 +26,29 @@
 > Keine offenen Engine-Bugs. (Air-Enemy-Flughöhe-Drift am Hang wurde
 > 2026-05-21 als kosmetisch akzeptiert — Option γ, siehe DONE.md.)
 
+- [ ] **Verhaltensprüfung nach Terrain- + Performance-Umbau (2026-08-22)**
+      Beide Umbauten sind auf `main`, statisch abgesichert (903 Tests, Lint,
+      Build), aber im laufenden Spiel nicht durchgeprüft. Fällt beim normalen
+      Spielen mit ab — hier nur als Erinnerung, worauf zu achten ist:
+      - **Gift bei Timescale > 1**: in *Spielzeit* messen, nicht mit der
+        Stoppuhr. Gleiche Anzahl Ticks und gleicher Gesamtschaden bei 1× und
+        10×; die Wanduhr-Zeit unterscheidet sich um den Faktor. Der DOT-
+        Akkumulator liegt bewusst im Sub-Step (`enemy.manager.ts`) — wäre er
+        im Present-Pass gelandet, würde Gift bei hohem Timescale still
+        schwächer.
+      - **Frost-Aura, Todesanimation, Healthbars** bei niedriger Framerate:
+        die visuellen Toggles laufen jetzt einmal pro Frame statt pro
+        Sub-Step.
+      - **Luft-Einheiten** auf korrekter Flughöhe (`terrainHeight +
+        heightOffset`).
+      - **Headless-Trainingslauf**: der Visual-Push ist jetzt auf
+        `renderingEnabled` gegatet — vorher lief er bei 75× pro Sub-Step für
+        ein Bild, das nie entsteht.
+      - **Terrain-Höhen an mehreren Standorten**: der Wegfall des
+        Overlay-Space verschiebt Y von Straßen, Gebäuden, Markern, Route-Linie
+        und Tower-Preview auf absolute Scene-Koordinaten. Flaches Gelände und
+        eine Großstadt gegenprüfen.
+
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
 - [ ] **`three-tiles-engine.ts` weiter abspecken — Camera-Setup + Tile-Loading-State**
