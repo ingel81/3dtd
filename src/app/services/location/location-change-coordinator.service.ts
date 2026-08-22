@@ -12,6 +12,7 @@ import { MarkerVisualizationService, SpawnPoint } from '../world/marker-visualiz
 import { PathAndRouteService } from '../world/path-route.service';
 import { CameraControlService } from '../camera-control.service';
 import { CameraFramingService, GeoPoint } from '../camera-framing.service';
+import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { LocationManagementService } from './location-management.service';
@@ -110,6 +111,7 @@ export class LocationChangeCoordinatorService {
   private readonly cameraControl = inject(CameraControlService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
+  private readonly introFlight = inject(IntroCameraFlightService);
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly locationMgmt = inject(LocationManagementService);
   private readonly urlLocation = inject(UrlLocationService);
@@ -437,6 +439,7 @@ export class LocationChangeCoordinatorService {
     // Stop running updates
     this.heightUpdate.stopHeightUpdates();
     this.routeAnimation.stopAnimation();
+    this.introFlight.stop();
 
     // Reset game state (handles stopping spawns via waveManager.reset())
     ctx.gameState.reset();
@@ -567,6 +570,7 @@ export class LocationChangeCoordinatorService {
 
     this.cameraControl.initialize(ctx.engine, { lat: input.hq.lat, lon: input.hq.lon });
     this.routeAnimation.initialize(ctx.engine);
+    this.introFlight.initialize(ctx.engine);
     this.keyboardPan.initialize(ctx.engine);
 
     // Add HQ marker
@@ -666,6 +670,16 @@ export class LocationChangeCoordinatorService {
       const cachedPaths = this.pathRoute.getCachedPaths();
       if (cachedPaths.size > 0) {
         this.routeAnimation.startAnimation(cachedPaths, callbacks.getSpawnPoints(), this.pathRoute.getCachedOriginTerrainY());
+      }
+    }
+
+    // Spike: intro flight also runs on location change — it is a tile prewarm
+    // for the new route corridor, not just an opening titles gag. Separate
+    // guard, see the note in VisualizationFacadeService.checkAllLoaded().
+    if (!this.introFlight.isRunning()) {
+      const cachedPaths = this.pathRoute.getCachedPaths();
+      if (cachedPaths.size > 0) {
+        this.introFlight.start(cachedPaths, this.pathRoute.getCachedOriginTerrainY());
       }
     }
   }
