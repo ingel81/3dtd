@@ -76,6 +76,8 @@ import { TrainingClientService } from './ai/training/training-client.service';
 import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
+import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
+import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
 
@@ -108,6 +110,7 @@ import { ResearchStore } from './store/research.store';
     LoadingScreenComponent,
     TdIconComponent,
     LosLegendComponent,
+    IntroSkipComponent,
   ],
   providers: [
     GameStateManager,
@@ -240,6 +243,9 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // AA-Retrofit-Research im Air-Bit (mixed Tower wie dual-gatling
   // werden erst nach Research zu canTargetAir=true).
   private readonly researchStore = inject(ResearchStore);
+  /** Intro camera flight is playing — gates the Skip control. */
+  readonly introFlightActive = inject(IntroCameraFlightService).active;
+
   readonly losLegendVisible = computed(() => {
     if (this.buildMode() && this.store.selectedTowerType()) return true;
     if (this.store.selectedTower()) return true;

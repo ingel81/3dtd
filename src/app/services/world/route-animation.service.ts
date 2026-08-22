@@ -5,6 +5,7 @@ import { LineMaterial } from 'three/examples/jsm/lines/LineMaterial.js';
 import { LineGeometry } from 'three/examples/jsm/lines/LineGeometry.js';
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
+import { routePathToLocalPoints } from '../../utils/route-path.util';
 import { SpawnPoint } from './marker-visualization.service';
 
 /**
@@ -78,6 +79,16 @@ export class RouteAnimationService {
   private disposed = false;
   private cachedOriginTerrainY = 0;
 
+  /**
+   * While true the animation loops instead of fading out. Held by the intro
+   * camera flight so the route stays lit for the whole cinematic, which can
+   * easily outlast the animation's own single pass.
+   */
+  private holdUntilReleased = false;
+
+  /** When the hold was lifted — anchors the fade so it actually plays. */
+  private releasedAt: number | null = null;
+
   // ========================================
   // INITIALIZATION
   // ========================================
@@ -130,6 +141,9 @@ export class RouteAnimationService {
     // Start animation
     this.isAnimating = true;
     this.startTime = performance.now();
+    // A release timestamp from a previous run would sit in the past and make
+    // this fresh animation fade out on its very first frame.
+    this.releasedAt = null;
   }
 
   /**
@@ -157,9 +171,23 @@ export class RouteAnimationService {
       // Glow stays steady pink-red
       route.glowMaterial.color.setHSL(0.0, 0.6, 0.55);
 
-      if (elapsedTime >= totalDuration) {
+      // While held (intro camera flight is running) the animation keeps
+      // cycling instead of fading — the dash offset grows unbounded and the
+      // dashed material repeats, so it simply loops. On release the fade
+      // starts from `releasedAt`, not from `totalDuration`, which by then is
+      // long past and would otherwise skip the fade entirely.
+      if (this.holdUntilReleased) {
+        route.mainMaterial.opacity = 0.9;
+        route.glowMaterial.opacity = 0.35;
+        continue;
+      }
+
+      const fadeAnchor = this.releasedAt ?? (this.startTime + totalDuration);
+      const now = this.startTime + elapsedTime;
+
+      if (now >= fadeAnchor) {
         // Fade out phase - subtle fade, stays visible
-        const fadeElapsed = elapsedTime - totalDuration;
+        const fadeElapsed = now - fadeAnchor;
         const fadeProgress = Math.min(fadeElapsed / this.FADE_DURATION, 1);
         // Ease-out curve for smoother fade
         const easedFade = 1 - Math.pow(1 - fadeProgress, 2);
@@ -200,6 +228,13 @@ export class RouteAnimationService {
 
     this.animatedRoutes = [];
     this.isAnimating = false;
+    // NOTE: `holdUntilReleased` deliberately survives a stop/restart.
+    // `onTilesLoaded` restarts this animation on every tile batch so it picks
+    // up the refreshed overlayBaseY and paths — during the intro flight that
+    // fires constantly. Clearing the hold here made the restarted animation
+    // fade after its single pass, so the red line vanished mid-cinematic.
+    // Only `setHoldUntilReleased(false)` lifts it, and the flight always
+    // does that in its own stop().
   }
 
   /**
@@ -207,6 +242,18 @@ export class RouteAnimationService {
    */
   isRunning(): boolean {
     return this.isAnimating;
+  }
+
+  /**
+   * Keep the animation looping instead of letting it fade after its single
+   * pass. Releasing it starts the normal fade from that moment.
+   *
+   * Owned by `IntroCameraFlightService` for the duration of the intro flight.
+   */
+  setHoldUntilReleased(hold: boolean): void {
+    if (hold === this.holdUntilReleased) return;
+    this.holdUntilReleased = hold;
+    this.releasedAt = hold ? null : performance.now();
   }
 
   // ========================================
@@ -285,35 +332,14 @@ export class RouteAnimationService {
    */
   private convertPathToLocalPoints(path: GeoPosition[]): Vector3[] {
     if (!this.engine) return [];
-
-    const points: Vector3[] = [];
-    const origin = this.engine.sync.getOrigin();
-    // Use the originTerrainY from route build time (not live raycast which may fail)
-    const originTerrainY = this.cachedOriginTerrainY;
-
-    for (const pos of path) {
-      const local = this.engine.sync.geoToLocalSimple(pos.lat, pos.lon, 0);
-
-      // Prefer pre-computed path height (from cachedPaths, always available)
-      // Avoids live raycast which can return null during tile loading → vertical spikes
-      // geoHeight was stored as: (localY - HAG + originTerrainY) + origin.height
-      // So to recover localY: (geoHeight - origin.height) - originTerrainY + HAG
-      if (pos.height !== undefined && pos.height !== 0) {
-        local.y = (pos.height - origin.height) - originTerrainY + this.HEIGHT_OFFSET;
-      } else {
-        // Fallback: live terrain sample
-        const terrainY = this.engine.getTerrainHeightAtGeo(pos.lat, pos.lon);
-        if (terrainY !== null) {
-          local.y = terrainY - originTerrainY + this.HEIGHT_OFFSET;
-        } else {
-          local.y = this.HEIGHT_OFFSET;
-        }
-      }
-
-      points.push(local);
-    }
-
-    return points;
+    // Uses the originTerrainY captured at route build time (not a live
+    // raycast, which may fail while tiles stream).
+    return routePathToLocalPoints(
+      this.engine,
+      path,
+      this.cachedOriginTerrainY,
+      this.HEIGHT_OFFSET,
+    );
   }
 
   /**
@@ -443,6 +469,11 @@ export class RouteAnimationService {
   dispose(): void {
     this.disposed = true;
     this.stopAnimation();
+    // stopAnimation deliberately keeps the hold across restarts; on teardown
+    // it must go, or a later animation would loop forever with no flight
+    // around to release it.
+    this.holdUntilReleased = false;
+    this.releasedAt = null;
     this.engine = null;
     this.overlayGroup = null;
   }

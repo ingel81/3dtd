@@ -114,6 +114,24 @@ export class CameraControlService {
   }
 
   /**
+   * The stored initial view (position + look-at target) in local coordinates,
+   * or null before `saveInitialPosition()` has run.
+   *
+   * Used by scripted camera moves that need to land exactly in the normal
+   * game view when they finish (intro flight outro blend).
+   */
+  getInitialView(): {
+    position: { x: number; y: number; z: number };
+    target: { x: number; y: number; z: number };
+  } | null {
+    if (!this.initialCameraPosition || !this.initialCameraTarget) return null;
+    return {
+      position: { ...this.initialCameraPosition },
+      target: { ...this.initialCameraTarget },
+    };
+  }
+
+  /**
    * Reset camera to initial position or fallback to base coordinates
    */
   resetCamera(): void {

@@ -2274,6 +2274,20 @@ export class ThreeTilesEngine {
     return this.camera;
   }
 
+  /**
+   * Get the active camera controls (GlobeControls in the tiles path,
+   * EnvironmentControls in DevWorld — both share the same base class).
+   *
+   * Needed by scripted camera moves (intro flight) which take over the
+   * camera for the duration of the move: setting `controls.enabled = false`
+   * clears inertia + pending state and makes `controls.update()` a no-op,
+   * so manual per-frame camera writes are not fought. Re-enabling resets
+   * the control state, which re-derives the pivot from the camera.
+   */
+  getControls(): GlobeControls | null {
+    return this.controls;
+  }
+
   // Cached tile stats (updated every 500ms to avoid performance overhead)
   private cachedTileStats = { parsing: 0, downloading: 0, total: 0, visible: 0 };
   private lastTileStatsUpdate = 0;
