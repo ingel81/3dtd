@@ -246,7 +246,6 @@ export class ThreeTilesEngine {
 
   // Base Y position for overlay group (terrain height at origin)
   // This ensures overlays are placed on the terrain surface, not at world Y=0
-  private overlayBaseY = 0;
 
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
@@ -1070,7 +1069,6 @@ export class ThreeTilesEngine {
     this.tilesWereLoaded = false;
     this.lastOriginHeight = null;
     this.tilesLoadedForRaycast = false;
-    this.overlayBaseY = 0; // Reset overlay offset - will be set when new terrain loads
 
     // CRITICAL: Reset tiles position tracking - otherwise overlay delta calculation
     // will use old location's initialTilesPos and position overlays incorrectly
@@ -1590,7 +1588,7 @@ export class ThreeTilesEngine {
       this.camera.updateMatrixWorld();
 
       // Position overlayGroup at terrain base height (no tiles movement in DevWorld)
-      this.overlayGroup.position.y = this.overlayBaseY;
+      this.overlayGroup.position.y = 0;
 
       // Render scene (use composer if any post-processing is active)
       if (this.postProcessing?.needsRender()) {
@@ -1644,7 +1642,7 @@ export class ThreeTilesEngine {
       const deltaPos = this.tilesRenderer.group.position.clone().sub(this.initialTilesPos);
 
       // Apply delta X/Z, but Y = delta + base terrain height
-      this.overlayGroup.position.set(deltaPos.x, deltaPos.y + this.overlayBaseY, deltaPos.z);
+      this.overlayGroup.position.copy(deltaPos);
     }
 
     // Render scene (use composer if any post-processing is active)
@@ -1931,16 +1929,6 @@ export class ThreeTilesEngine {
     return this.overlayGroup;
   }
 
-  /**
-   * Set the base Y position for the overlay group
-   * This should be set to the terrain height at the origin point
-   * so that overlays with Y=0 appear at terrain surface level
-   *
-   * @param y - Terrain Y at origin (from getTerrainHeightAtGeo at HQ)
-   */
-  setOverlayBaseY(y: number): void {
-    this.overlayBaseY = y;
-  }
 
   /**
    * Get tiles renderer group (for debugging)

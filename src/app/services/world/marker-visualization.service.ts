@@ -116,7 +116,10 @@ export class MarkerVisualizationService {
 
     const HEIGHT_ABOVE_GROUND = 30;
     const local = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    const pos = new Vector3(local.x, HEIGHT_ABOVE_GROUND, local.z);
+    // Absolute scene Y: the overlay group carries no terrain offset any more,
+    // so the marker has to include the ground under the HQ itself.
+    const terrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
+    const pos = new Vector3(local.x, terrainY + HEIGHT_ABOVE_GROUND, local.z);
 
     this.markerManager.add('hq', 'hq', pos, 0x22c55e, 1.2, 0.001);
     this.labelManager.addLabel('hq', 'HQ', pos, '#22c55e', this.getPhaseOffset('hq'));
@@ -142,14 +145,13 @@ export class MarkerVisualizationService {
     if (!this.engine || !this.baseCoords || !this.markerManager || !this.labelManager) return null;
 
     const HEIGHT_ABOVE_GROUND = 30;
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
     const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
 
-    let markerY = HEIGHT_ABOVE_GROUND;
-    if (originTerrainY !== null && terrainY !== null) {
-      markerY = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
-    }
+    // Only this spawn's own column matters — it used to also require the HQ
+    // column to have resolved, which left the marker at a bare offset
+    // whenever that unrelated raycast happened to miss.
+    const markerY = (terrainY ?? 0) + HEIGHT_ABOVE_GROUND;
 
     const pos = new Vector3(local.x, markerY, local.z);
     this.spawnCounter++;
@@ -304,9 +306,6 @@ export class MarkerVisualizationService {
     const HQ_MARKER_HEIGHT = 30;
     const SPAWN_MARKER_HEIGHT = 30;
 
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
-    if (originTerrainY === null) return;
-
     // Update base marker
     const baseLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
     const basePos = new Vector3(baseLocal.x, HQ_MARKER_HEIGHT, baseLocal.z);
@@ -318,7 +317,7 @@ export class MarkerVisualizationService {
       const terrainY = this.engine.getTerrainHeightAtGeo(spawn.lat, spawn.lon);
       if (terrainY !== null) {
         const local = this.engine.sync.geoToLocalSimple(spawn.lat, spawn.lon, 0);
-        const relativeY = terrainY - originTerrainY + SPAWN_MARKER_HEIGHT;
+        const relativeY = terrainY + SPAWN_MARKER_HEIGHT;
         const pos = new Vector3(local.x, relativeY, local.z);
         this.markerManager.updatePosition(spawn.id, pos);
         this.labelManager.updatePosition(spawn.id, pos);

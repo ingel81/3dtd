@@ -88,6 +88,7 @@ export class MovementComponent extends Component {
     if (transform && path.length > 0) {
       transform.setPosition(path[0].lat, path[0].lon, path[0].height);
       if (path[0].height !== undefined) {
+        // Seed only — replaced by the grid read on the first update tick.
         transform.terrainHeight = path[0].height;
       }
     }
@@ -375,15 +376,12 @@ export class MovementComponent extends Component {
 
       transform.setPosition(newLat, newLon);
 
-      // Interpolate height if available
-      if (current.height !== undefined && next.height !== undefined) {
-        transform.terrainHeight = current.height + (next.height - current.height) * this.progress;
-      }
-
-      // Apply height variation for air units
-      if (this.heightVariationMeters !== 0) {
-        transform.terrainHeight += this.heightVariationMeters;
-      }
+      // Height is NOT derived here. Interpolating the path's baked heights
+      // was a second ground model beside the route grid, and the stale one:
+      // the grid re-samples as tiles refine, the bake never did. EnemyManager
+      // reads the grid per frame instead and applies `heightVariationMeters`
+      // there, so air units keep their spread without this accumulating it
+      // into `terrainHeight` on every step.
 
       // Update rotation based on actual movement direction (not next waypoint)
       // This prevents sudden heading jumps at segment transitions
@@ -424,15 +422,6 @@ export class MovementComponent extends Component {
     };
   }
 
-  /**
-   * Check if current segment has valid heights (no object allocation)
-   */
-  hasCurrentSegmentHeights(): boolean {
-    if (this.currentIndex >= this.path.length - 1) return false;
-    const from = this.path[this.currentIndex];
-    const to = this.path[this.currentIndex + 1];
-    return from.height != null && to.height != null;
-  }
 
   /**
    * Get next waypoint
