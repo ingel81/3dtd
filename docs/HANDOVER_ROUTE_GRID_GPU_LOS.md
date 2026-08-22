@@ -328,18 +328,24 @@ aus dem drei-Optionen-Vergleich A/B/C — Skyline-adaptiv / fest /
 Max-of-both). Trade-off: in echten Manhattan-Szenen fliegen Air-
 Enemies durch Wände. Bewusst akzeptiert.
 
-`AIR_CLEARANCE_M` Konstante existiert noch in `global-route-grid.ts`
-für historischen Combat-Fallback, ist aber inaktiv. **Nicht wieder
+`AIR_CLEARANCE_M`, `cell.skylineHeight`, `cell.skylineSampled`,
+`sampleCellSkyline` und `getSkylineHeightAtLocal` sind 2026-08-22 mit der
+Terrain-Konsolidierung entfernt worden — sie hatten seit Option B keinen
+produktiven Leser mehr und kosteten fünf von sechs Raycasts pro Zelle im
+Grid-Sweep. Der Intro-Kameraflug, der als einziger noch eine
+Oberkanten-Höhe brauchte, liest sie aus `sampleColumn(...).topY` derselben
+Säulen-Abfrage, die er ohnehin für den Boden macht. **Nicht wieder
 einbauen** ohne expliziten Plan.
 
 ### ⚠️ SACKGASSE: Skyline-Cache als eigene Datenstruktur
 
 Es gab in v2 ein Refactoring-Commit der `cell.skylineHeight` durch
 einen separaten `skylineCache` ersetzte. **Ist abgelöst.** Mit der
-fixen Air-Höhe (Option B) braucht es keine Skyline-Daten mehr. Falls
-in einem späteren Versuch wieder skyline-adaptiv: alte Implementation
-wäre ein guter Startpunkt, aber sehr wahrscheinlich besser komplett
-neu konzipiert (Cube-basiert statt CPU-Raycast).
+fixen Air-Höhe (Option B) braucht es keine Skyline-Daten mehr, und seit
+der Terrain-Konsolidierung existiert das Feld nicht mehr. Falls
+in einem späteren Versuch wieder skyline-adaptiv: `sampleColumn` liefert
+mit `topY` bereits die Oberkante derselben Säule, aus der der Boden kommt
+— eine getrennte Skyline-Datenstruktur braucht es dafür nicht.
 
 ### ⚠️ SACKGASSE: Pipeline-Konsolidierung (verworfene Session 2026-05-13)
 
