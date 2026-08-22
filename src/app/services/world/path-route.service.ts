@@ -41,8 +41,6 @@ export class PathAndRouteService {
   /** Cached paths from spawn to base (key: spawnId) */
   private cachedPaths = new Map<string, GeoPosition[]>();
 
-  /** originTerrainY used when building cached paths (needed for geo→local conversion) */
-  private cachedOriginTerrainY = 0;
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
   private routeLines: Line2[] = [];
@@ -162,14 +160,6 @@ export class PathAndRouteService {
     return this.cachedPaths;
   }
 
-  /**
-   * Get the originTerrainY that was used when building cached paths.
-   * Needed by route animation to convert geo heights back to overlay-local Y
-   * without re-raycasting (which may fail if tiles aren't loaded yet).
-   */
-  getCachedOriginTerrainY(): number {
-    return this.cachedOriginTerrainY;
-  }
 
   /**
    * Get detail string for route loading status
@@ -400,8 +390,9 @@ export class PathAndRouteService {
 
     // Get origin terrain height as reference (fallback to 0 if terrain not loaded yet)
     const origin = this.engine.sync.getOrigin();
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
-    this.cachedOriginTerrainY = originTerrainY;
+    // Bootstrap fallback only: before any cell exists the line is drawn flat
+    // at HQ level and snapped to real heights by the first refresh.
+    const fallbackTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
 
     // Resolve per-waypoint heights from the route-grid cell at each position.
     // Single source of truth — same cells drive enemy movement and tower-LOS,
@@ -410,7 +401,7 @@ export class PathAndRouteService {
     //
     // Bootstrap fallback: on the very first build, cells aren't generated
     // yet (initializeGlobalRouteGrid runs AFTER the first showPathFromSpawn).
-    // We draw a flat line at originTerrainY; refreshRouteLines runs after
+    // We draw a flat line at HQ level; refreshRouteLines runs after
     // onTilesLoaded / grid init and snaps the line up to real heights.
     const cellsReady = this.globalRouteGrid.isInitialized();
     const pathWithHeights: GeoPosition[] = new Array(geoPath.length);
@@ -423,11 +414,11 @@ export class PathAndRouteService {
       if (cellsReady) {
         cellY = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
       }
-      const terrainY = cellY ?? originTerrainY;
+      const terrainY = cellY ?? fallbackTerrainY;
 
       // Line geometry: local frame, relative to origin's terrain Y, plus the
       // small lift so the line stays visible above ground.
-      local.y = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
+      local.y = terrainY + HEIGHT_ABOVE_GROUND;
       points.push(local);
 
       // Cached path keeps an absolute geo height for any legacy reader.

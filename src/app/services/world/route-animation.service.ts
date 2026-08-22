@@ -77,7 +77,6 @@ export class RouteAnimationService {
   private isAnimating = false;
   private startTime = 0;
   private disposed = false;
-  private cachedOriginTerrainY = 0;
 
   /**
    * While true the animation loops instead of fading out. Held by the intro
@@ -110,18 +109,14 @@ export class RouteAnimationService {
   /**
    * Start the route animation
    * @param cachedPaths Map of spawn ID to path (GeoPosition[])
-   * @param spawnPoints Array of spawn points (for colors)
+   * @param _spawnPoints Array of spawn points (for colors)
    */
   startAnimation(
     cachedPaths: Map<string, GeoPosition[]>,
     _spawnPoints: SpawnPoint[],
-    originTerrainY = 0,
   ): void {
     if (!this.engine || !this.overlayGroup || this.disposed) return;
     if (cachedPaths.size === 0) return;
-
-    // Store for use in convertPathToLocalPoints
-    this.cachedOriginTerrainY = originTerrainY;
 
     // Clean up any existing animation
     this.stopAnimation();
@@ -230,7 +225,7 @@ export class RouteAnimationService {
     this.isAnimating = false;
     // NOTE: `holdUntilReleased` deliberately survives a stop/restart.
     // `onTilesLoaded` restarts this animation on every tile batch so it picks
-    // up the refreshed overlayBaseY and paths — during the intro flight that
+    // up the refreshed paths — during the intro flight that
     // fires constantly. Clearing the hold here made the restarted animation
     // fade after its single pass, so the red line vanished mid-cinematic.
     // Only `setHoldUntilReleased(false)` lifts it, and the flight always
@@ -332,14 +327,7 @@ export class RouteAnimationService {
    */
   private convertPathToLocalPoints(path: GeoPosition[]): Vector3[] {
     if (!this.engine) return [];
-    // Uses the originTerrainY captured at route build time (not a live
-    // raycast, which may fail while tiles stream).
-    return routePathToLocalPoints(
-      this.engine,
-      path,
-      this.cachedOriginTerrainY,
-      this.HEIGHT_OFFSET,
-    );
+    return routePathToLocalPoints(this.engine, path, this.HEIGHT_OFFSET);
   }
 
   /**

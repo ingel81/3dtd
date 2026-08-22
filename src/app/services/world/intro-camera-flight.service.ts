@@ -79,17 +79,7 @@ interface FlightConfig {
 
   /** Distance between profile samples (m). */
   sampleSpacing: number;
-  /**
-   * Half-width of the box handed to getSkylineHeightAtLocal (m).
-   *
-   * Deliberately small. The camera is a point on the centreline, so it only
-   * needs clearance over the road itself — sampling a full street width
-   * would pick up the facades on both sides and push the flight to rooftop
-   * altitude everywhere, which kills the whole point of flying low.
-   * Lateral safety comes from staying on the centreline instead.
-   */
-  sampleRadius: number;
-  /** New profile samples taken per frame (each = 6 raycasts). */
+  /** New profile samples taken per frame (one column probe each). */
   samplesPerFrame: number;
 
   /**
@@ -131,7 +121,6 @@ const DEFAULT_CONFIG: FlightConfig = {
   lookAtLift: 8,
 
   sampleSpacing: 10,
-  sampleRadius: 3,
   samplesPerFrame: 2,
   aimDamping: 2.2,
   posDamping: 10,
@@ -356,10 +345,9 @@ export class IntroCameraFlightService {
   /**
    * Start the flight along the longest cached route, flown HQ → spawn.
    *
-   * @param cachedPaths    Routes keyed by spawn id (`PathRouteService.getCachedPaths()`)
-   * @param originTerrainY Terrain Y at the origin, captured at route build time
+   * @param cachedPaths Routes keyed by spawn id (`PathRouteService.getCachedPaths()`)
    */
-  start(cachedPaths: Map<string, GeoPosition[]>, originTerrainY = 0): void {
+  start(cachedPaths: Map<string, GeoPosition[]>): void {
     const engine = this.engine;
     if (!this.enabled) return this.skip('disabled');
     if (!engine) return this.skip('no-engine');
@@ -367,7 +355,7 @@ export class IntroCameraFlightService {
 
     this.stop();
 
-    const points = this.pickLongestRoute(engine, cachedPaths, originTerrainY);
+    const points = this.pickLongestRoute(engine, cachedPaths);
     if (!points || points.length < 2) return this.skip('route-too-short');
 
     const curve = new CatmullRomCurve3(points, false, 'centripetal');
@@ -779,31 +767,22 @@ export class IntroCameraFlightService {
   }
 
   /**
-   * One profile sample: skyline (5 raycasts) plus bare terrain (1 raycast).
+   * One profile sample: a single column probe yields both the top surface
+   * (for obstacle clearance) and the bare ground (for the aim and the floor).
    *
-   * IMPORTANT — coordinate space. Both raycasters return **scene-space** Y,
-   * while the curve's own Y comes from `routePathToLocalPoints` and is in
-   * **overlay space** (it has `originTerrainY` subtracted and is meant to be
-   * added to the shifted `overlayGroup`). The two differ by the terrain base,
-   * which is ~165 m in a typical location. The flight therefore uses only the
-   * curve's X/Z and takes every altitude from these samples — mixing the two
-   * spaces once made the camera aim 160 m below the ground and stare straight
-   * down.
+   * Altitudes come from these samples rather than from the curve's own Y so
+   * the flight stays independent of how the route line happens to be built.
    */
   private sampleIndex(i: number): void {
     const engine = this.engine;
     if (!engine) return;
     if (!this.pointAtDistance(this.indexToDistance(i), this.samplePoint)) return;
 
-    const skyline = engine.getSkylineHeightAtLocal(
-      this.samplePoint.x,
-      this.samplePoint.z,
-      this.cfg.sampleRadius,
-    );
-    if (skyline !== null) this.profile[i] = skyline;
-
-    const ground = engine.getTerrainHeightAtLocal(this.samplePoint.x, this.samplePoint.z);
-    if (ground !== null) this.groundProfile[i] = ground;
+    const column = engine.sampleColumn(this.samplePoint.x, this.samplePoint.z);
+    if (column !== null) {
+      this.profile[i] = column.topY;
+      this.groundProfile[i] = column.groundY;
+    }
 
     this.applyMarkerObstacles(i);
   }
@@ -884,14 +863,13 @@ export class IntroCameraFlightService {
   private pickLongestRoute(
     engine: ThreeTilesEngine,
     cachedPaths: Map<string, GeoPosition[]>,
-    originTerrainY: number,
   ): Vector3[] | null {
     let best: Vector3[] | null = null;
     let bestLength = 0;
 
     for (const path of cachedPaths.values()) {
       if (path.length < 2) continue;
-      const points = routePathToLocalPoints(engine, path, originTerrainY, PATH_HEIGHT_OFFSET);
+      const points = routePathToLocalPoints(engine, path, PATH_HEIGHT_OFFSET);
       if (points.length < 2) continue;
 
       let length = 0;

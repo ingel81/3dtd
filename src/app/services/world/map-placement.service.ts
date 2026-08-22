@@ -152,15 +152,8 @@ export class MapPlacementService {
 
     // Position the marker
     const local = this.engine.sync.geoToLocalSimple(lat, lon, 0);
-    const originTerrainY = this.baseCoords
-      ? this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon)
-      : 0;
     const terrainY = this.engine.getTerrainHeightAtGeo(lat, lon);
-
-    let markerY = HEIGHT_ABOVE_GROUND;
-    if (originTerrainY !== null && terrainY !== null) {
-      markerY = terrainY - originTerrainY + HEIGHT_ABOVE_GROUND;
-    }
+    const markerY = (terrainY ?? 0) + HEIGHT_ABOVE_GROUND;
 
     this.previewMarker.position.set(local.x, markerY, local.z);
     this.previewMarker.visible = true;
@@ -328,8 +321,8 @@ export class MapPlacementService {
 
     // HQ position in local coordinates
     const hqLocal = this.engine.sync.geoToLocalSimple(this.baseCoords.lat, this.baseCoords.lon, 0);
-    const originTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon);
-    const ringY = HEIGHT_ABOVE_GROUND + (originTerrainY ? 0 : 0); // Relative to overlay origin
+    const hqTerrainY = this.engine.getTerrainHeightAtGeo(this.baseCoords.lat, this.baseCoords.lon) ?? 0;
+    const ringY = hqTerrainY + HEIGHT_ABOVE_GROUND;
 
     // Inner ring (min distance) — red/orange, shows "too close" boundary
     const minRadius = this.metersToLocalRadius(MIN_MANUAL_SPAWN_DISTANCE);

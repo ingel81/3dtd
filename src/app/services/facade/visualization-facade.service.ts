@@ -66,6 +66,9 @@ export class VisualizationFacadeService {
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
   private readonly introFlight = inject(IntroCameraFlightService);
+
+  /** rAF debounce for {@link scheduleBakedHeightRefresh}. */
+  private bakedRefreshScheduled = false;
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly buildingRendering = inject(BuildingRenderingService);
@@ -205,6 +208,11 @@ export class VisualizationFacadeService {
 
     // Initialize intro camera flight (spike)
     this.introFlight.initialize(engine);
+
+    // Anything baked off cell heights has to follow the cells as they heal.
+    this.gameState.getGlobalRouteGrid().addCellsChangedListener(() =>
+      this.scheduleBakedHeightRefresh(),
+    );
 
     // Initialize keyboard panning service
     this.keyboardPan.initialize(engine);
@@ -440,6 +448,39 @@ export class VisualizationFacadeService {
   }
 
   /**
+   * Rebuild everything that was baked off cell heights, once a streaming
+   * batch has settled.
+   *
+   * The route line and the markers copy cell / terrain heights at build
+   * time. Cells self-heal as tiles refine, but the copies did not: the only
+   * thing that rebuilt them was the tile-load callback, which used to fire
+   * solely when the terrain column under the HQ moved by more than 2 m.
+   * Refinement out along the corridor never moves that column, so a route
+   * baked during the coarse phase stayed baked — the line, the spawn marker
+   * and the enemies walking that path all stuck at the height the coarse
+   * tiles reported, which in a dense city is roof level.
+   *
+   * Driven by the grid itself now, and debounced through rAF so a burst of
+   * promotions collapses into one rebuild.
+   */
+  private scheduleBakedHeightRefresh(): void {
+    if (this.bakedRefreshScheduled) return;
+    this.bakedRefreshScheduled = true;
+    requestAnimationFrame(() => {
+      this.bakedRefreshScheduled = false;
+      const spawns = this.store.spawnPoints();
+      this.pathRoute.refreshRouteLines(spawns);
+      this.markerViz.updateMarkerHeights(this.toSpawnPointDTOs());
+      if (this.routeAnimation.isRunning()) {
+        const cachedPaths = this.pathRoute.getCachedPaths();
+        if (cachedPaths.size > 0) {
+          this.routeAnimation.startAnimation(cachedPaths, spawns);
+        }
+      }
+    });
+  }
+
+  /**
    * Check if all loading is complete.
    */
   checkAllLoaded(): void {
@@ -456,7 +497,7 @@ export class VisualizationFacadeService {
       if (!this.routeAnimation.isRunning() && !isApplying) {
         const cachedPaths = this.pathRoute.getCachedPaths();
         if (cachedPaths.size > 0) {
-          this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
+          this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
         }
       }
 
@@ -469,7 +510,7 @@ export class VisualizationFacadeService {
       if (!this.introFlight.isRunning() && !isApplying) {
         const cachedPaths = this.pathRoute.getCachedPaths();
         if (cachedPaths.size > 0) {
-          this.introFlight.start(cachedPaths, this.pathRoute.getCachedOriginTerrainY());
+          this.introFlight.start(cachedPaths);
         }
       }
     }
@@ -574,13 +615,6 @@ export class VisualizationFacadeService {
     const engine = this.bridge.getEngine();
     if (!engine || !this.bridge.getFilteredStreetNetwork()) return;
 
-    // Always update overlay base Y (must happen even if streets are still building progressively)
-    const base = this.store.baseCoords();
-    const originTerrainY = engine.getTerrainHeightAtGeo(base.lat, base.lon);
-    if (originTerrainY !== null) {
-      engine.setOverlayBaseY(originTerrainY);
-    }
-
     const t0 = performance.now();
 
     this.renderStreets();
@@ -620,11 +654,11 @@ export class VisualizationFacadeService {
     this.pathRoute.refreshRouteLines(this.store.spawnPoints());
     const tRoutes = performance.now();
 
-    // Restart running route animation so it uses the updated overlayBaseY and refreshed paths
+    // Restart running route animation so it picks up the refreshed paths
     if (this.routeAnimation.isRunning()) {
       const cachedPaths = this.pathRoute.getCachedPaths();
       if (cachedPaths.size > 0) {
-        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
+        this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
       }
     }
     const tRouteAnim = performance.now();
@@ -823,7 +857,7 @@ export class VisualizationFacadeService {
   onPlayRouteAnimation(): void {
     const cachedPaths = this.pathRoute.getCachedPaths();
     if (cachedPaths.size > 0) {
-      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
+      this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints());
     }
   }
 
