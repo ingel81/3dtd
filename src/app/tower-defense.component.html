@@ -170,6 +170,11 @@
         />
       }
 
+      <!-- Intro camera flight skip control -->
+      @if (introFlightActive()) {
+        <app-intro-skip />
+      }
+
       <!-- LOS Coverage Legend (Build Preview + Tower Selection) -->
       @if (losLegendVisible()) {
         <app-los-legend

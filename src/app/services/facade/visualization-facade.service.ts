@@ -11,6 +11,7 @@ import { HeightUpdateService } from '../world/height-update.service';
 import { EngineInitializationService } from '../infrastructure/engine-initialization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { CameraFramingService, GeoPoint } from '../camera-framing.service';
+import { IntroCameraFlightService } from '../world/intro-camera-flight.service';
 import { RouteAnimationService } from '../world/route-animation.service';
 import { KeyboardPanService } from '../keyboard-pan.service';
 import { StreetRenderingService } from '../world/street-rendering.service';
@@ -64,6 +65,7 @@ export class VisualizationFacadeService {
   private readonly devWorld = inject(DevWorldService);
   private readonly cameraFraming = inject(CameraFramingService);
   private readonly routeAnimation = inject(RouteAnimationService);
+  private readonly introFlight = inject(IntroCameraFlightService);
   private readonly keyboardPan = inject(KeyboardPanService);
   private readonly streetRendering = inject(StreetRenderingService);
   private readonly buildingRendering = inject(BuildingRenderingService);
@@ -200,6 +202,9 @@ export class VisualizationFacadeService {
 
     // Initialize route animation service
     this.routeAnimation.initialize(engine);
+
+    // Initialize intro camera flight (spike)
+    this.introFlight.initialize(engine);
 
     // Initialize keyboard panning service
     this.keyboardPan.initialize(engine);
@@ -452,6 +457,19 @@ export class VisualizationFacadeService {
         const cachedPaths = this.pathRoute.getCachedPaths();
         if (cachedPaths.size > 0) {
           this.routeAnimation.startAnimation(cachedPaths, this.store.spawnPoints(), this.pathRoute.getCachedOriginTerrainY());
+        }
+      }
+
+      // Spike: intro camera flight HQ → spawn. Doubles as a tile prewarm for
+      // the route corridor. Guarded separately from the route animation —
+      // that one is often already running by the time loading completes
+      // (started from one of the spawn/location paths), and sharing its
+      // guard would silently swallow the flight.
+      // Toggle in DevTools via `__flight.setEnabled(false)`.
+      if (!this.introFlight.isRunning() && !isApplying) {
+        const cachedPaths = this.pathRoute.getCachedPaths();
+        if (cachedPaths.size > 0) {
+          this.introFlight.start(cachedPaths, this.pathRoute.getCachedOriginTerrainY());
         }
       }
     }
