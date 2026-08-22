@@ -193,12 +193,15 @@ export class EnemyInstanceManager {
     // Set instance matrix
     this.setInstanceMatrix(pool, index, position, heading);
 
-    // Set initial attributes
+    // Set initial attributes. Partial upload: only this slot changed —
+    // without a range Three.js re-uploads the full MAX-sized buffer.
     pool.animFrameAttr.setX(index, 0);
     pool.tintColorAttr.setXYZ(index, 0, 0, 0);
     pool.opacityAttr.setX(index, 1.0);
+    pool.animFrameAttr.addUpdateRange(index, 1);
     pool.animFrameAttr.needsUpdate = true;
     pool.tintDirty = true;
+    pool.opacityAttr.addUpdateRange(index, 1);
     pool.opacityAttr.needsUpdate = true;
 
     // Determine initial animation
@@ -445,6 +448,11 @@ export class EnemyInstanceManager {
       }
 
       if (framesDirty) {
+        // Full-active range instead of full-MAX upload. Clearing first keeps
+        // the ranges array from accumulating across frames and supersedes
+        // any per-slot range addEnemy left this frame (index < activeCount).
+        pool.animFrameAttr.clearUpdateRanges();
+        pool.animFrameAttr.addUpdateRange(0, pool.activeCount);
         pool.animFrameAttr.needsUpdate = true;
       }
     }
@@ -465,6 +473,7 @@ export class EnemyInstanceManager {
     // Hide instance
     this.matrix.makeTranslation(0, -10000, 0);
     pool.instancedMesh.setMatrixAt(state.index, this.matrix);
+    pool.instancedMesh.instanceMatrix.addUpdateRange(state.index * 16, 16);
     pool.instancedMesh.instanceMatrix.needsUpdate = true;
 
     pool.instances.delete(id);
@@ -615,11 +624,20 @@ export class EnemyInstanceManager {
    */
   flushDirtyFlags(): void {
     for (const pool of this.pools.values()) {
+      // (0, activeCount) covers every live slot, so it supersedes any
+      // per-slot ranges added since the last flush; clearing first keeps
+      // the ranges array from accumulating when the renderer skips an
+      // upload (e.g. mesh toggled invisible). Without a range Three.js
+      // would upload the full MAX_INSTANCES_PER_TYPE-sized buffer.
       if (pool.matrixDirty) {
+        pool.instancedMesh.instanceMatrix.clearUpdateRanges();
+        pool.instancedMesh.instanceMatrix.addUpdateRange(0, pool.activeCount * 16);
         pool.instancedMesh.instanceMatrix.needsUpdate = true;
         pool.matrixDirty = false;
       }
       if (pool.tintDirty) {
+        pool.tintColorAttr.clearUpdateRanges();
+        pool.tintColorAttr.addUpdateRange(0, pool.activeCount * 3);
         pool.tintColorAttr.needsUpdate = true;
         pool.tintDirty = false;
       }
