@@ -362,8 +362,18 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    * Handle mouse move in build mode (for build preview)
    */
   private onMouseMove(lat: number, lon: number, hitPoint: Vector3): void {
-    const terrainHeight = this.engine?.getTerrainHeightAtGeo(lat, lon) ?? hitPoint.y;
-    this.towerPlacement.updatePreviewPosition(lat, lon, terrainHeight);
+    // The cursor ray already hit the exact surface the player is pointing at
+    // — a rooftop, a bridge deck, the street. Use it.
+    //
+    // This used to re-derive the height with `getTerrainHeightAtGeo`, which
+    // throws that away and answers for the column instead. That was tolerable
+    // while the column returned its topmost hit, but it now returns the
+    // walkable ground of the finest LOD, which is the right answer for where
+    // enemies walk and the wrong one here: over a tall building the column's
+    // ground is the street far below, so the preview sank to street level and
+    // placing on rooftops stopped working. Low buildings still mostly worked
+    // because the error was only a few metres.
+    this.towerPlacement.updatePreviewPosition(lat, lon, hitPoint.y);
   }
 
   /**

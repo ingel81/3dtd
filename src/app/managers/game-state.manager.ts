@@ -425,6 +425,7 @@ export class GameStateManager {
     // never drawn.
     if (stepsExecuted > 0 && this.tilesEngine?.renderingEnabled) {
       this.enemyManager.presentFrame(this._gameTimeMs);
+      this.projectileManager.presentFrame();
     }
 
     // Sync active research progress to store for UI (cheap, batched once/frame)
@@ -495,6 +496,7 @@ export class GameStateManager {
         stepMs,
         this.towerManager,
         this.enemyManager,
+        this._gameTimeMs,
       );
       this.towerCombat.updateMeleeTowers(
         stepMs,
