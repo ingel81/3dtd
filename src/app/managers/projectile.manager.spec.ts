@@ -115,6 +115,10 @@ describe('ProjectileManager', () => {
     const projectile = manager.spawn(tower, enemy);
 
     manager.update(16);
+    // Visual push moved out of the sub-step: update() simulates only,
+    // presentFrame() feeds the renderer once per frame.
+    expect(tilesEngine.projectiles.updateWithRotation).not.toHaveBeenCalled();
+    manager.presentFrame();
 
     expect(tilesEngine.projectiles.updateWithRotation).toHaveBeenCalledWith(
       projectile.id,

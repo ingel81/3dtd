@@ -177,20 +177,26 @@ export class Box3 {
 
 export class InstancedBufferAttribute {
   needsUpdate = false;
+  updateRanges: { start: number; count: number }[] = [];
   setX() {}
   setXY() {}
   setXYZ() {}
   setXYZW() {}
+  addUpdateRange(start: number, count: number) { this.updateRanges.push({ start, count }); }
+  clearUpdateRanges() { this.updateRanges.length = 0; }
 }
 
 export class BufferAttribute {
   needsUpdate = false;
+  updateRanges: { start: number; count: number }[] = [];
   constructor(public array?: unknown, public itemSize?: number) {}
   setX() { return this; }
   setXY() { return this; }
   setXYZ() { return this; }
   setXYZW() { return this; }
   copyArray() { return this; }
+  addUpdateRange(start: number, count: number) { this.updateRanges.push({ start, count }); }
+  clearUpdateRanges() { this.updateRanges.length = 0; }
 }
 
 export const MathUtils = {

@@ -218,6 +218,13 @@ export class HealthBarInstanceManager {
       this.barColorAttribute.setXYZ(index, 0, 0, 0);
     }
 
+    // Partial upload: only this slot changed. Without a range Three.js
+    // re-uploads the full MAX-sized buffer on needsUpdate.
+    this.healthAttribute.addUpdateRange(index, 1);
+    this.barColorAttribute.addUpdateRange(index * 3, 3);
+    this.isBossAttribute.addUpdateRange(index, 1);
+    this.instancedMesh.instanceMatrix.addUpdateRange(index * 16, 16);
+    this.foregroundMesh.instanceMatrix.addUpdateRange(index * 16, 16);
     this.healthAttribute.needsUpdate = true;
     this.barColorAttribute.needsUpdate = true;
     this.isBossAttribute.needsUpdate = true;
@@ -274,10 +281,22 @@ export class HealthBarInstanceManager {
       this.instancedMesh.setMatrixAt(index, this.matrix);
       this.foregroundMesh.setMatrixAt(index, this.matrix);
     }
-    // Flush GPU buffer flags once per frame
+    // Flush GPU buffer flags once per frame. The (0, activeCount) range
+    // covers every live slot (all indices are < activeCount), so it
+    // supersedes any per-slot ranges added by add/hide/remove this frame —
+    // clearing first keeps the ranges array from accumulating when the
+    // renderer skips an upload (e.g. bars toggled invisible). Without a
+    // range Three.js would upload the full MAX_HEALTH_BARS-sized buffer.
+    const matrixCount = this.activeCount * 16;
+    this.instancedMesh.instanceMatrix.clearUpdateRanges();
+    this.instancedMesh.instanceMatrix.addUpdateRange(0, matrixCount);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.foregroundMesh.instanceMatrix.clearUpdateRanges();
+    this.foregroundMesh.instanceMatrix.addUpdateRange(0, matrixCount);
     this.foregroundMesh.instanceMatrix.needsUpdate = true;
     if (this.healthDirty) {
+      this.healthAttribute.clearUpdateRanges();
+      this.healthAttribute.addUpdateRange(0, this.activeCount);
       this.healthAttribute.needsUpdate = true;
       this.healthDirty = false;
     }
@@ -299,6 +318,8 @@ export class HealthBarInstanceManager {
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.foregroundMesh.setMatrixAt(index, this.matrix);
+    this.instancedMesh.instanceMatrix.addUpdateRange(index * 16, 16);
+    this.foregroundMesh.instanceMatrix.addUpdateRange(index * 16, 16);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
     this.foregroundMesh.instanceMatrix.needsUpdate = true;
   }
@@ -319,6 +340,8 @@ export class HealthBarInstanceManager {
     this.composeFromCache(index);
     this.instancedMesh.setMatrixAt(index, this.matrix);
     this.foregroundMesh.setMatrixAt(index, this.matrix);
+    this.instancedMesh.instanceMatrix.addUpdateRange(index * 16, 16);
+    this.foregroundMesh.instanceMatrix.addUpdateRange(index * 16, 16);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
     this.foregroundMesh.instanceMatrix.needsUpdate = true;
 
