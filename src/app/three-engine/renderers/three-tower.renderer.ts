@@ -160,6 +160,8 @@ export class ThreeTowerRenderer {
 
   // Animation time accumulator for frame-independent animations
   private animationTime = 0;
+  /** Reused scratch for the debug aim-arrow direction (avoids per-frame alloc). */
+  private readonly _aimDir = new Vector3();
   private frustum = new Frustum();
   private projScreenMatrix = new Matrix4();
   private boundingSphere = new Sphere();
@@ -898,7 +900,7 @@ export class ThreeTowerRenderer {
       if (data.aimArrow) {
         const parentRotation = data.mesh.rotation.y;
         const worldRot = data.currentLocalRotation + parentRotation;
-        const dir = new Vector3(Math.sin(worldRot), 0, Math.cos(worldRot));
+        const dir = this._aimDir.set(Math.sin(worldRot), 0, Math.cos(worldRot));
         data.aimArrow.setDirection(dir);
       }
     }

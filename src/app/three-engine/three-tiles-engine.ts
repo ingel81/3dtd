@@ -137,10 +137,6 @@ export class ThreeTilesEngine {
 
   // Raycaster for terrain height queries
   private raycaster: Raycaster;
-  private readonly CACHE_PRECISION = 5;
-  private readonly CACHE_SCALE = 1e5; // 10^CACHE_PRECISION
-  private readonly HEIGHT_CHANGE_THRESHOLD = 2.0; // Only refresh if height changed by >2m
-  private lastOriginHeight: number | null = null;
 
   // Debug flag: reset when tiles are loaded so we get debug output
   private tilesWereLoaded = false;
@@ -242,10 +238,9 @@ export class ThreeTilesEngine {
 
   // Track initial tiles position to calculate movement delta
   private initialTilesPos = new Vector3();
+  /** Reused scratch for the per-frame overlay-sync delta (avoids clone()). */
+  private readonly _overlayDelta = new Vector3();
   private tilesPosInitialized = false;
-
-  // Base Y position for overlay group (terrain height at origin)
-  // This ensures overlays are placed on the terrain surface, not at world Y=0
 
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
@@ -335,7 +330,11 @@ export class ThreeTilesEngine {
       this.renderer = new WebGLRenderer({
         canvas,
         antialias: true,
+        // Required for the 1m..8000m depth range over the 3D tiles (kept to
+        // avoid far-field z-fighting). The remaining flags are pure wins:
         logarithmicDepthBuffer: true,
+        powerPreference: 'high-performance', // prefer dGPU on hybrid laptops
+        stencil: false, // no stencil buffer in use → save bandwidth
       });
     } catch {
       throw new Error('WebGL is not supported. Enable hardware acceleration in your browser.');
@@ -353,6 +352,14 @@ export class ThreeTilesEngine {
     this.scene = new Scene();
     const fogColor = 0x1a1f25; // Slightly lighter than background for depth
     this.scene.fog = new Fog(fogColor, FOG_START, FOG_END);
+
+    // R1: the scene root is permanently at the origin. Disabling matrixAutoUpdate
+    // stops Three.js from re-composing its (identity) matrix every frame and, more
+    // importantly, force-propagating a matrixWorld refresh down to every child.
+    // Children that still need updates keep matrixWorldAutoUpdate=true (the dynamic
+    // overlay/tiles/entity roots); genuinely static children (lights, lightning
+    // pool, health-bar roots) opt out and are skipped entirely each frame.
+    this.scene.matrixAutoUpdate = false;
 
     // Create overlay group for markers, streets, routes
     // Will be added to SCENE (not tilesGroup) and synced each frame
@@ -748,8 +755,7 @@ export class ThreeTilesEngine {
       // The loaded-tile set has changed — that is true on EVERY settled
       // load-end, not only when the origin column happens to shift.
       //
-      // This used to sit behind a `heightDelta > HEIGHT_CHANGE_THRESHOLD`
-      // gate measured at (0,0). LOD refinement anywhere else in the world
+      // This used to sit behind a 2 m height-delta gate measured at (0,0). LOD refinement anywhere else in the world
       // — the whole enemy corridor, for instance — never moves the origin
       // column, so the tile-info map went stale, `peekBestTileLODAtLocal`
       // reported outdated LODs, `sampleCellY`'s skip gate then refused to
@@ -766,10 +772,6 @@ export class ThreeTilesEngine {
 
       this.towerShadowMapper?.invalidate();
       const tShadowInvalidate = performance.now();
-
-      if (freshOriginHeight !== null) {
-        this.lastOriginHeight = freshOriginHeight;
-      }
 
       if (this.onTilesLoadCallback) {
         this.onTilesLoadCallback();
@@ -902,6 +904,15 @@ export class ThreeTilesEngine {
     // Warm ambient for overall brightness
     const ambient = new AmbientLight(0xffe8d0, 0.8); // Warm tint
     this.scene.add(ambient);
+
+    // R1: lights never move after setup — compute their world matrix once and
+    // opt out of the per-frame matrixWorld pass.
+    for (const light of [hemi, sun, fill, ambient]) {
+      light.updateMatrix();
+      light.updateMatrixWorld(true);
+      light.matrixAutoUpdate = false;
+      light.matrixWorldAutoUpdate = false;
+    }
   }
 
   /**
@@ -1072,7 +1083,6 @@ export class ThreeTilesEngine {
       this.firstTilesRetryTimer = null;
     }
     this.tilesWereLoaded = false;
-    this.lastOriginHeight = null;
     this.tilesLoadedForRaycast = false;
 
     // CRITICAL: Reset tiles position tracking - otherwise overlay delta calculation
@@ -1090,6 +1100,9 @@ export class ThreeTilesEngine {
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height, false);
     this.postProcessing?.setSize(width, height);
+    // Drawing-buffer size changed → refresh the tiles renderer resolution here
+    // (moved out of the per-frame render() path).
+    this.tilesRenderer?.setResolutionFromRenderer(this.camera, this.renderer);
   }
 
   /**
@@ -1489,16 +1502,6 @@ export class ThreeTilesEngine {
   }
 
 
-  private getHeightCacheKey(lat: number, lon: number): number {
-    // Integer key via Cantor pairing — avoids toFixed() string allocation
-    const latI = (lat * this.CACHE_SCALE) | 0;
-    const lonI = (lon * this.CACHE_SCALE) | 0;
-    // Szudzik pairing (handles negatives better than Cantor)
-    const a = latI >= 0 ? 2 * latI : -2 * latI - 1;
-    const b = lonI >= 0 ? 2 * lonI : -2 * lonI - 1;
-    return a >= b ? a * a + a + b : b * b + a;
-  }
-
   /**
    * Clear height cache
    */
@@ -1622,10 +1625,12 @@ export class ThreeTilesEngine {
       this.camera.updateProjectionMatrix();
     }
 
-    // Update tiles
+    // Update tiles. Camera matrix must be current before tilesRenderer.update()
+    // reads it for LOD/frustum (controls.update() above moved the camera).
+    // setResolutionFromRenderer / setCamera are NOT per-frame work — resolution
+    // only changes on resize() and the camera reference is registered once at
+    // init (and on the no-tiles nudge); calling them every frame was wasted work.
     this.camera.updateMatrixWorld();
-    this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
-    this.tilesRenderer.setCamera(this.camera);
 
     // TODO: Tiles throttling was here (only update when camera moves >5m) but broke
     // initial tile loading — tiles never loaded because update() was never called.
@@ -1644,9 +1649,12 @@ export class ThreeTilesEngine {
 
     // Sync overlayGroup with tiles movement (only after initial pos is captured)
     if (this.tilesPosInitialized) {
-      const deltaPos = this.tilesRenderer.group.position.clone().sub(this.initialTilesPos);
+      const deltaPos = this._overlayDelta
+        .copy(this.tilesRenderer.group.position)
+        .sub(this.initialTilesPos);
 
-      // Apply delta X/Z, but Y = delta + base terrain height
+      // Straight delta on all three axes — the overlay lives in absolute
+      // scene-Y now, there is no separate base-terrain offset any more.
       this.overlayGroup.position.copy(deltaPos);
     }
 
@@ -1757,21 +1765,30 @@ export class ThreeTilesEngine {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    let lastTime = performance.now();
+    let lastRender = performance.now(); // for deltaTime
+    let anchor = lastRender; // frame-pacing phase anchor
     const animate = (currentTime: number) => {
       if (!this.isRunning) return;
 
       // FPS limiting: skip frame if not enough time has elapsed
       if (this._minFrameInterval > 0) {
-        const elapsed = currentTime - lastTime;
-        if (elapsed < this._minFrameInterval) {
+        if (currentTime - anchor < this._minFrameInterval) {
           this.animationFrameId = requestAnimationFrame(animate);
           return;
         }
+        // Advance the anchor by whole intervals instead of snapping to
+        // currentTime, so the effective rate doesn't collapse to a vsync
+        // divisor (e.g. a 50fps limit degrading to 30fps on a 60Hz display).
+        const intervals = Math.floor((currentTime - anchor) / this._minFrameInterval);
+        anchor += intervals * this._minFrameInterval;
+        // Resync after a long stall (e.g. backgrounded tab) to avoid catch-up bursts.
+        if (currentTime - anchor > this._minFrameInterval * 4) {
+          anchor = currentTime;
+        }
       }
 
-      const deltaTime = currentTime - lastTime;
-      lastTime = currentTime;
+      const deltaTime = currentTime - lastRender;
+      lastRender = currentTime;
 
       this.update(deltaTime);
       this.render();

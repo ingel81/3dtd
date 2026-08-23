@@ -144,10 +144,18 @@ export class TowerPlacementService {
     // against the old terrainHeight. Listen for changed cells and recompute
     // LOS + viz mesh for just the affected towers, so the system self-heals
     // as tiles stream in without a full per-tower cache rebuild.
-    this.globalRouteGrid.addCellsChangedListener((changed) =>
+    // initialize() runs again on every location change while the grid is a
+    // root singleton, so drop the previous subscription first — otherwise the
+    // handler stacks up and each emit recomputes every affected tower's LOS
+    // once per past location (a forced cubemap render each time).
+    this.cellsChangedOff?.();
+    this.cellsChangedOff = this.globalRouteGrid.addCellsChangedListener((changed) =>
       this.onCellsChanged(changed),
     );
   }
+
+  /** Unsubscribe for the cells-changed listener registered in initialize(). */
+  private cellsChangedOff: (() => void) | null = null;
 
   private tubeRebuildScheduled = false;
 
@@ -195,10 +203,9 @@ export class TowerPlacementService {
       }
     }
 
-    // recomputeTowerLOS disposes the per-tower viz mesh, runs
-    // registerTowerIncremental (which raycasts only the cells we just
-    // invalidated — cached entries on other cells are reused), then
-    // creates a fresh viz mesh that includes the now-sampled cells.
+    // recomputeTowerLOS runs registerTowerIncremental (which raycasts only
+    // the cells we just invalidated — cached entries on other cells are
+    // reused) and refreshes the per-tower viz mesh for the selected tower.
     for (const tower of affectedTowers) {
       this.recomputeTowerLOS(tower);
     }
@@ -866,7 +873,12 @@ export class TowerPlacementService {
       farDistance: mapper.getFarDistance(),
       // Alle 6 Faces einmal in die CPU-Buffer holen — statt einem
       // synchronen 1×1-Readback pro Cell beim anschließenden Resolve.
-      faces: mapper.readFacesToCpu(),
+      // Lazy: erst wenn der Resolve wirklich eine Zelle sampelt. Eine
+      // inkrementelle Registrierung, die nur gecachte Zellen sieht,
+      // löst damit gar keinen GPU→CPU-Roundtrip aus.
+      get faces() {
+        return mapper.readFacesToCpu();
+      },
       visibilityBias: LOS_VIZ_CONFIG.visibilityBiasMeters,
       emptyDepthEpsilon: LOS_VIZ_CONFIG.emptyDepthEpsilon,
     };
@@ -944,6 +956,8 @@ export class TowerPlacementService {
 
   dispose(): void {
     this.exitBuildMode();
+    this.cellsChangedOff?.();
+    this.cellsChangedOff = null;
 
     // Release model references from AssetManager
     for (const url of this.loadedModelUrls) {

@@ -24,6 +24,7 @@ import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 import { TIMING } from '../configs/timing.config';
 import { Tower } from '../entities/tower.entity';
+import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { EconomyService } from '../services/economy.service';
 import { GameCommandsHandler } from './game-commands.handler';
@@ -280,6 +281,30 @@ export class GameStateManager {
         health: newHealth,
         delta: newHealth - oldHealth,
       });
+    }));
+
+    // AA-Retrofit unlocks air targeting for towers that were placed WITHOUT
+    // it. Their per-cell air visibility was never resolved (registerTower ran
+    // with canTargetAir=false), so `cell.airVisibility` has no entry for them:
+    // air-only cells are missing from `visibleCells` entirely, and for the
+    // rest `buildLosCheck` finds no cached answer and falls back to a
+    // synchronous CPU raycast per candidate. Harmless while air LOS was not
+    // enforced in `findTarget` — now that it is, re-register the affected
+    // towers so the grid answers for them. registerTowerIncremental only
+    // samples the entries that are actually missing.
+    this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
+      const unlocksAir = event.effects.some(
+        e => e.kind === 'enable-targeting' && e.capability === 'air',
+      );
+      if (!unlocksAir) return;
+      for (const tower of this.towerManager.getAll()) {
+        const typeId = tower.typeConfig.id as TowerTypeId;
+        // Only the retrofit-gated types — everything else already registered
+        // with its final air capability.
+        if (canTargetAirEffective(typeId, false)) continue;
+        if (!canTargetAirEffective(typeId, true)) continue;
+        this.towerPlacement.recomputeTowerLOS(tower);
+      }
     }));
 
     this.eventBusSubs.add(this.eventBus.on('enemy:died', (event) => {

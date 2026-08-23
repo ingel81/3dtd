@@ -16,24 +16,97 @@
 
 ---
 
-# PRIO 1 — Engine & Umbauten
+# PRIO 1 — Engine & Umbauten und Co.
 
 > Engine zuerst stabil, performant und testbar machen. Hier sammeln sich die laufenden
 > Refactoring-, Test- und Bugfix-Themen.
 
-## 1.0 BLOCKER — Merge lokal ↔ origin/main
+## 1.0 Merge lokal ↔ origin/main — aufgelöst, Spieltest offen
 
-- [ ] **`main` und `origin/main` sind divergiert — Push abgelehnt**
-      25 lokale Commits (Session 2026-08-22/23) gegen 14 auf dem Remote
-      (2026-05-25 bis 06-07), 17 Dateien von beiden Seiten angefasst.
-      Beide Seiten haben teils dieselbe Performance-Arbeit gemacht
-      (Cube-Readback-Batching, Instancing-Uploads, Terrain-Sweep,
-      Route-Refresh) — ein blinder Merge stellt zwei Implementierungen
-      derselben Sache nebeneinander.
-      **Weder `push --force` noch `reset --hard`** — beide Seiten enthalten
-      Arbeit, die die andere nicht hat.
-      Vollständige Analyse mit Vorschlag pro Kollision:
-      [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](docs/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md)
+- [ ] **Merge im laufenden Spiel gegenprüfen, dann pushen**
+      Der Merge liegt auf `merge/local-into-origin`, statisch grün (tsc, Lint,
+      904 Tests, Build). Entscheidung pro Kollision und die Review-Funde stehen
+      in [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](docs/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md).
+      Zu prüfen: Turm auf Hochhaus, Flammenturm hinter Wand, Flak hinter
+      Hochhaus, Welle mit vielen Gegnern, Location-Wechsel (Listener + Sweep-
+      Abbruch), AA-Retrofit auf einem bereits platzierten dual-gatling,
+      Health-Bar-Toggle an/aus.
+
+## 1.0b Aus dem Merge-Review — bewusst nicht im Merge behoben
+
+> Alle vorbestehend (nicht durch den Merge verursacht), alle mit Datei-Fundstelle
+> belegt. Reihenfolge = Einschätzung des Reviews.
+
+- [ ] **Stille Höhenänderungen ohne Emit → dauerhaft stale Tower-LOS**
+      `refineCellsInRadius` emittiert nur `promoted`, obwohl es `refreshed`
+      mitzählt; `registerTower` / `registerTowerIncremental` rufen `sampleCellY`
+      pro Zelle und emittieren nie. Ein LOD-Refresh verschiebt damit
+      `terrainHeight`, ohne dass jemand es erfährt — und der Peek-Skip in
+      `sampleCellY` sorgt dafür, dass der nächste Sweep für diese Zelle `false`
+      liefert. Ein zweiter Turm, dessen Range die Zelle abdeckt, behält seine
+      LOS gegen die alte Höhe **permanent**.
+      Vorsicht beim Fix: Emit aus `registerTower*` heraus ist reentrant
+      (der Listener ruft `recomputeTowerLOS`).
+      Datei: `src/app/utils/global-route-grid.ts`.
+
+- [ ] **Tower-LOS-Recompute pro Sweep-Slice statt pro Sweep**
+      Das Frame-Budget des Sweeps begrenzt nur die Raycasts. `emitCellsChanged`
+      läuft synchron im Slice, und der Handler macht pro betroffenem Turm ein
+      `recomputeTowerLOS` → erzwungener Cubemap-Render plus Face-Readbacks.
+      Derselbe Turm wird einmal pro Slice neu gerendert. Analog zum
+      Route-Refresh über den Sweep akkumulieren und einmal am Ende laufen
+      lassen (oder pro Turm pro Sweep dedupen).
+      Dateien: `global-route-grid.ts`, `tower-placement.service.ts:onCellsChanged`.
+
+- [ ] **`updateAnimations()` gated auch den GPU-Flush**
+      `if (!this._showEnemies || !this._showAnimations) return;` überspringt
+      `flushDirtyFlags()` und `updateBillboard()`. Bei „Animationen aus" laufen
+      die Gameplay-Positionen weiter, aber `needsUpdate` wird nie gesetzt →
+      Gegner und Health-Bars frieren sichtbar ein, Türme schießen scheinbar ins
+      Leere. Nur `instanceManager.updateAnimations()` gehört hinter das Gate.
+      Datei: `src/app/three-engine/renderers/instanced-enemy/instanced-enemy.renderer.ts`.
+
+- [ ] **Weitere LOS-invalidierende Research-Effekte suchen**
+      `recomputeTowerLOS` läuft heute bei Range-Upgrade, Terrain-Änderung und
+      (neu im Merge) AA-Retrofit. Prüfen, ob es weitere Effekte gibt, die die
+      Registrierung eines platzierten Turms entwerten, ohne einen Recompute
+      auszulösen.
+
+- [ ] **`activeCount` schrumpft nie (Instancing)**
+      In Health-Bar-, Enemy- und Projectile-Manager ist `activeCount` eine reine
+      High-Water-Mark; `remove()` dekrementiert nicht. Nach einer Peak-Wave
+      laden die Frame-Flushes dauerhaft Peak-große Ranges hoch (bei 20k-Peak
+      ~1,25 MB `instanceMatrix` + ~240 KB `aCenter` pro Frame, bis `clear()`).
+      Fix: beim Freigeben des obersten Slots über die trailing freien Indizes
+      schrumpfen.
+
+- [ ] **`ProjectileInstanceManager` hat gar keine Update-Ranges**
+      Jedes `needsUpdate` lädt den vollen `maxCount`-Buffer (Bullet-Pool
+      1000×16×4 = 64 KB pro Frame bei aktiven Projektilen). Gleiche Behandlung
+      wie in Enemy-/Health-Bar-Manager.
+
+- [ ] **Health-Bar-Meshes tragen 2,56 MB ungenutztes `instanceMatrix`**
+      Seit dem GPU-Billboard nutzt der Shader `instanceMatrix` nicht mehr, der
+      Renderer lädt es für jedes `InstancedMesh` trotzdem hoch: 2 × 20 000 × 16
+      Floats. Kein Logikfehler, nur Ballast — Ausweg wäre `Mesh` +
+      `InstancedBufferGeometry` statt `InstancedMesh`.
+
+- [ ] **Beam-Fallback-Query nutzt den falschen Radius**
+      `updateBeamTowers` fragt das Grid mit `beamRange` (20 m) ab, `findTarget`
+      prüft aber gegen `combat.range` (25 m) — im Fallback ohne `visibleCells`
+      sind Gegner im Ring dazwischen unsichtbar.
+      Datei: `src/app/services/combat/tower-combat.service.ts`.
+
+- [ ] **Kleinkram aus dem Review**
+      `stopTowerBeam` löscht `lastBeamBloodEffect` per Tower-ID, die Map ist per
+      Enemy-ID gekeyt (No-op, Einträge bleiben bis Wave-Ende) ·
+      `damage-application.service` zählt `kills++` auch wenn `kill()` am
+      `killingEnemies`-Guard early-returnt (heute unerreichbar, künftig eine
+      Falle) · `movement.effectiveSpeed`-Getter ist ein Legacy-Duplikat von
+      `getEffectiveSpeed` mit falscher Semantik, nur noch von Specs benutzt ·
+      Melee-Wake-Check nutzt Literal `* 1.1` statt
+      `COMBAT_TUNING.rangeMargin.standard` · die vier `update*Towers`-Methoden
+      teilen einen fast identischen Kandidaten-Block (Helper-Extraktion).
 
 ## 1.1 Engine-Bugs
 
@@ -105,6 +178,51 @@
       Pan/Zoom-Fall ohne LOD-Wechsel ist bereits gefixt (~8000ms → ~30ms).
       Dateien: `src/app/services/tower-placement.service.ts` (`onCellsChanged`),
       `src/app/utils/global-route-grid.ts` (`updateTerrainHeights`).
+
+## 1.5 Render-/GPU-Hebel aus Deep-Dive 2026-05 (verschoben, messgestützt)
+
+> Aus PR #5 / [PERF_BUG_ANALYSIS_2026-05-28.md](docs/PERF_BUG_ANALYSIS_2026-05-28.md).
+> Die risikoarmen High-Value-Findings sind umgesetzt (Bugs, LOS-Readback-Batching,
+> Bounding-Box-Tower-Reg, Targeting-Hot-Path, Health-Bar-Buffer-Sharing, Trail-Material-
+> Sharing u.a.). Die folgenden sind größere Shader-/Buffer-Umbauten oder visuelle/
+> balance-relevante Änderungen — **vor Umsetzung Frame-Time im echten Render messen**
+> (davor/danach), da hier kein Headless-/GPU-Test greift. Sichere Teilvarianten sind
+> jeweils bereits drin.
+
+- [ ] **P2 — Lightning-Bolts auf `InstancedMesh`** (größter offener VFX-Hebel)
+      192 Mesh+Material dauerhaft in der Szene; Geometrie wird komplett im Shader aus
+      `uStart/uEnd/uSeed` erzeugt → ideal für 1 InstancedMesh mit Per-Instance-Attributen.
+      Bis zu 192 Draw Calls → 1, 192 Materialien → 1. Voller Rewrite des Renderers.
+      Datei: `src/app/three-engine/renderers/lightning-bolt.renderer.ts`.
+
+- [ ] **R4-Experiment — `logarithmicDepthBuffer` evaluieren**
+      logDepth schreibt `gl_FragDepth` → deaktiviert Early-Z auf vielen GPUs über die
+      gesamte Tile-Geometrie. Experiment: entfernen + `camera.near` 1→5-10m anheben (Spiel-
+      Skala ~150m, Fern-Z im Fog). Z-Fighting-Risiko → nur mit visuellem Vorher/Nachher.
+      Sichere Teilmaßnahme (`powerPreference`/`stencil:false`) ist bereits drin.
+
+- [ ] **G5-`addUpdateRange` — Rest: `ProjectileInstanceManager`**
+      Enemy- und Health-Bar-Manager laden seit dem Merge nur noch die aktive
+      Scheibe hoch (`clearUpdateRanges()` + `addUpdateRange(0, activeCount*n)`
+      im Frame-Flush, per-Slot-Ranges auf den Einzelpfaden). Offen ist nur noch
+      der Projektil-Pool — siehe 1.0b.
+
+- [ ] **Render-Kleinkram (LOW)** — R6 Empty-Frame-Guards, R9 Skybox als CubeTexture/weglassen,
+      R10 Lichtquellen reduzieren, G8 gecachte Instanz-Arrays, P6 Decal-Fade-Idle-Skip,
+      P8 `markPoolDirty`-Edge-Case (erst zentralen Pool-Flush-Mechanismus verifizieren —
+      die im Report genannte API existiert im Renderer nicht direkt).
+
+- [ ] **L3 — 3D-Range für Luftziele** (balance-relevant)
+      Range-Check ist rein horizontal (2D). Für Air ggf. echte 3D-Distanz inkl. Flughöhe
+      (~15-20m) — würde Air-Türme nerfen. Aktuell bewusst als horizontale Reichweite
+      dokumentiert; bei Bedarf als bewusste Balance-Entscheidung umstellen.
+
+- [ ] **cellsInRange — Range-Monotonie absichern, falls Range-Debuffs kommen**
+      Die Bounding-Box-Tower-Registrierung (`global-route-grid.ts`) setzt voraus, dass
+      Tower-Range nie schrumpft (aktuell garantiert: `range *= 1.04/1.02`). Wird je ein
+      Range-Debuff / Downgrade eingeführt, müssen Stale-Visibility-Entries für Zellen
+      außerhalb der neuen (kleineren) Box wieder bereinigt werden (z.B. alte Range merken
+      und die Differenz-Annulus aufräumen, oder `unregisterTower`+full re-register).
 
 ---
 

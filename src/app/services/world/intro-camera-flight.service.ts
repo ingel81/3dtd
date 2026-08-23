@@ -735,8 +735,8 @@ export class IntroCameraFlightService {
    * Take up to `samplesPerFrame` new samples in the window around and ahead
    * of the camera. Failed samples (tile not loaded yet) are left as NaN and
    * retried on a later frame — same self-healing shape as the route grid's
-   * `sampleCellSkyline`. The attempt still costs budget so a persistently
-   * cold region cannot spin the loop.
+   * cell sampling. The attempt still costs budget so a persistently cold
+   * region cannot spin the loop.
    */
   private sampleProfileAhead(): void {
     if (!this.engine || !this.curve) return;

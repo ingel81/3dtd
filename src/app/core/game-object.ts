@@ -14,6 +14,13 @@ export abstract class GameObject {
   readonly type: GameObjectType;
 
   protected components = new Map<ComponentType, Component>();
+  /**
+   * Flat mirror of `components` for the per-frame update() hot path: iterating
+   * an array (no Map iterator allocation, indexed access) is materially cheaper
+   * than `components.values()` per enemy per sub-step. Kept in sync by
+   * addComponent/removeComponent/destroy.
+   */
+  private _componentList: Component[] = [];
   private _active = true;
 
   private static idCounter = 0;
@@ -27,8 +34,13 @@ export abstract class GameObject {
    * Add a component to this GameObject
    */
   addComponent<T extends Component>(component: T, type: ComponentType): T {
-    if (this.components.has(type)) {
+    const existing = this.components.get(type);
+    if (existing) {
       console.warn(`GameObject ${this.id} already has component of type ${type}`);
+      const idx = this._componentList.indexOf(existing);
+      if (idx !== -1) this._componentList[idx] = component;
+    } else {
+      this._componentList.push(component);
     }
     this.components.set(type, component);
     return component;
@@ -56,6 +68,8 @@ export abstract class GameObject {
     if (component) {
       component.onDestroy();
       this.components.delete(type);
+      const idx = this._componentList.indexOf(component);
+      if (idx !== -1) this._componentList.splice(idx, 1);
     }
   }
 
@@ -63,7 +77,9 @@ export abstract class GameObject {
    * Update all enabled components
    */
   update(deltaTime: number): void {
-    for (const component of this.components.values()) {
+    // Iterate the flat array (V8 optimizes array for-of with no allocation),
+    // not the components Map (whose .values() iterator allocates each call).
+    for (const component of this._componentList) {
       if (component.enabled) {
         component.update(deltaTime);
       }
@@ -78,6 +94,7 @@ export abstract class GameObject {
       component.onDestroy();
     }
     this.components.clear();
+    this._componentList.length = 0;
     this._active = false;
   }
 

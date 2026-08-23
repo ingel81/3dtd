@@ -95,16 +95,23 @@ export class PathfindingWorkerService {
       return new Promise<void>((resolve, _reject) => {
         // Set up one-time init listener
         const originalHandler = this.worker!.onmessage;
+        // Guards against a race between a late worker init response and the
+        // 5s timeout below: the timeout calls handleWorkerFailure() which sets
+        // this.worker = null, so a late message must not deref it (TypeError).
+        let settled = false;
         this.worker!.onmessage = (event: MessageEvent<WorkerOutMessage>) => {
+          if (settled || !this.worker) return;
           const msg = event.data;
           if (msg.type === 'initDone') {
+            settled = true;
             this.workerReady = true;
-            this.worker!.onmessage = originalHandler;
+            this.worker.onmessage = originalHandler;
             console.log('[PathfindingWorker] Worker initialized and ready');
             resolve();
           } else if (msg.type === 'error') {
+            settled = true;
             console.error('[PathfindingWorker] Init error:', msg.message);
-            this.worker!.onmessage = originalHandler;
+            this.worker.onmessage = originalHandler;
             this.handleWorkerFailure();
             resolve(); // Resolve anyway - we'll use fallback
           }
@@ -114,11 +121,11 @@ export class PathfindingWorkerService {
 
         // Timeout: if worker doesn't respond in 5s, fall back
         setTimeout(() => {
-          if (!this.workerReady) {
-            console.warn('[PathfindingWorker] Init timeout, using fallback');
-            this.handleWorkerFailure();
-            resolve();
-          }
+          if (settled) return;
+          settled = true;
+          console.warn('[PathfindingWorker] Init timeout, using fallback');
+          this.handleWorkerFailure();
+          resolve();
         }, 5000);
       });
     } catch (e) {

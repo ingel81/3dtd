@@ -2,7 +2,7 @@ import { signal } from '@angular/core';
 import { EnemyManager } from './enemy.manager';
 import { EnemyTypeId } from '../configs/enemy-types.config';
 import { GamePhase, GeoPosition } from '../models/game.types';
-import { GameEventBus, IGameManager } from '../game-engine';
+import { GameEventBus, IGameManager, SubscriptionBag } from '../game-engine';
 import { GAME_BALANCE } from '../configs/game-balance.config';
 
 // Re-export GamePhase for backward compatibility
@@ -97,22 +97,25 @@ export class WaveManager implements IGameManager {
   private damageTakenThisWave = 0;
   private currentHealthProvider: (() => number) | null = null;
 
+  /** EventBus subscriptions — disposed in destroy(). */
+  private readonly subs = new SubscriptionBag();
+
   constructor(
     private eventBus: GameEventBus,
     private enemyManager: EnemyManager
   ) {
     this.registerDebugHandlers();
     // Accumulate damage-to-base during active waves (for Perfect-detection)
-    this.eventBus.on('enemy:reached-base', (e) => {
+    this.subs.add(this.eventBus.on('enemy:reached-base', (e) => {
       if (this.phase() === 'wave') {
         this.damageTakenThisWave += e.damage;
       }
       this._waveCheckDirty = true;
-    });
+    }));
     // Any enemy lifecycle change invalidates the cached wave-complete result
-    this.eventBus.on('enemy:died', () => {
+    this.subs.add(this.eventBus.on('enemy:died', () => {
       this._waveCheckDirty = true;
-    });
+    }));
   }
 
   /**
@@ -140,7 +143,7 @@ export class WaveManager implements IGameManager {
   }
 
   private registerDebugHandlers(): void {
-    this.eventBus.on('debug:kill-all', () => {
+    this.subs.add(this.eventBus.on('debug:kill-all', () => {
       this.stopSpawning();
       // Phase 5.16: debug kill-all does NOT award credits — otherwise it'd be
       // an instant gold farm during testing.
@@ -149,7 +152,7 @@ export class WaveManager implements IGameManager {
           this.enemyManager.kill(enemy, /*awardCredits*/ false);
         }
       }
-    });
+    }));
   }
 
   initialize(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
@@ -459,6 +462,7 @@ export class WaveManager implements IGameManager {
    * Destroy the wave manager - cleanup all resources
    */
   destroy(): void {
+    this.subs.disposeAll();
     this.reset();
     this.cachedPaths.clear();
     this.spawnPoints = [];

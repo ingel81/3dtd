@@ -175,6 +175,9 @@ export class GameLoopFacadeService {
    * Called from the main facade after game state is initialized.
    */
   subscribeToEventBus(callbacks: { onGameOverExtra: () => void }): void {
+    // Defensive: clear any prior subscriptions so a future re-init path can't
+    // double-subscribe (consistent with combat-effect/hq-damage/game-state).
+    this.eventBusSubs.disposeAll();
     const eventBus = this.gameState.getEventBus();
 
     // Subscribe to debug:start-custom-wave event

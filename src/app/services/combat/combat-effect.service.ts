@@ -6,6 +6,7 @@ import { CombatVfxService } from './combat-vfx.service';
 import { DamageApplicationService } from './damage-application.service';
 import { Enemy } from '../../entities/enemy.entity';
 import { Projectile } from '../../entities/projectile.entity';
+import { GeoPosition } from '../../models/game.types';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { TIMING } from '../../configs/timing.config';
 import { geoDistanceFast } from '../../utils/geo-utils';
@@ -84,8 +85,14 @@ export class CombatEffectService {
     const hasSplash = splashRadius && splashRadius > 0;
     const isIceShard = projectile.typeConfig.id === 'ice-shard';
     const isPoisonGlob = projectile.typeConfig.id === 'poison-glob';
+    // Primary target died mid-flight: skip direct-hit effects, but still
+    // detonate splash at the impact point (see projectile.manager emit guard).
+    const targetLost = projectile.targetLost;
 
-    // Spawn explosion/ice effects for splash projectiles
+    // Spawn explosion/ice effects for splash projectiles. When targetLost, the
+    // projectile homed to the target's death position (_lastTargetPosition) and
+    // the dead enemy doesn't move, so enemy.position == the impact point —
+    // explosion VFX and the splash centre (projectile.position, below) coincide.
     if (hasSplash) {
       if (isIceShard) {
         this.vfx.emitIceExplosion(enemy);
@@ -94,51 +101,57 @@ export class CombatEffectService {
       }
     }
 
-    // Apply damage to primary target (suppress blood for ice and poison)
-    const suppressBlood = isIceShard || isPoisonGlob;
-    const result = this.damageService.applyDamage(
-      this.vfx,
-      enemy,
-      projectile.damage,
-      damageType,
-      projectile.sourceTowerId,
-      false,
-      suppressBlood
-    );
-
-    // Spawn damage number for direct hit (color/size based on effectiveness)
-    if (result) {
-      this.spawnDamageNumberFromResult(enemy, result);
-    }
-
-    // Apply slow effect for ice-shard
-    if (isIceShard) {
-      this.statusEffectService.applySlow(
+    if (!targetLost) {
+      // Apply damage to primary target (suppress blood for ice and poison)
+      const suppressBlood = isIceShard || isPoisonGlob;
+      const result = this.damageService.applyDamage(
+        this.vfx,
         enemy,
-        GAME_BALANCE.effects.ice.slowAmount,
-        GAME_BALANCE.effects.ice.duration,
-        projectile.sourceTowerId
+        projectile.damage,
+        damageType,
+        projectile.sourceTowerId,
+        false,
+        suppressBlood
       );
+
+      // Spawn damage number for direct hit (color/size based on effectiveness)
+      if (result) {
+        this.spawnDamageNumberFromResult(enemy, result);
+      }
+
+      // Apply slow effect for ice-shard
+      if (isIceShard) {
+        this.statusEffectService.applySlow(
+          enemy,
+          GAME_BALANCE.effects.ice.slowAmount,
+          GAME_BALANCE.effects.ice.duration,
+          projectile.sourceTowerId
+        );
+      }
+
+      // Apply poison DOT for poison-glob
+      if (isPoisonGlob) {
+        // Scale DOT DPS with tower damage upgrade multiplier
+        const baseDamage = 5; // Poison tower base damage
+        const upgradeMultiplier = projectile.damage / baseDamage;
+        const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
+
+        this.statusEffectService.applyPoison(
+          enemy,
+          dotDps,
+          GAME_BALANCE.effects.poison.duration,
+          projectile.sourceTowerId
+        );
+      }
     }
 
-    // Apply poison DOT for poison-glob
-    if (isPoisonGlob) {
-      // Scale DOT DPS with tower damage upgrade multiplier
-      const baseDamage = 5; // Poison tower base damage
-      const upgradeMultiplier = projectile.damage / baseDamage;
-      const dotDps = GAME_BALANCE.effects.poison.dotDamagePerSecond * upgradeMultiplier;
-
-      this.statusEffectService.applyPoison(
-        enemy,
-        dotDps,
-        GAME_BALANCE.effects.poison.duration,
-        projectile.sourceTowerId
-      );
-    }
-
-    // Apply splash damage to nearby enemies
+    // Apply splash damage to nearby enemies. When the primary target is gone,
+    // centre the splash on the projectile's actual impact position instead of
+    // the (now stale) target, and don't exclude any enemy.
     if (hasSplash) {
-      this.applySplashDamage(projectile, enemy, splashRadius, damageType, isIceShard, isPoisonGlob);
+      const originPos = targetLost ? projectile.position : enemy.position;
+      const excludeId = targetLost ? undefined : enemy.id;
+      this.applySplashDamage(projectile, originPos, excludeId, splashRadius, damageType, isIceShard, isPoisonGlob);
     }
   }
 
@@ -147,16 +160,17 @@ export class CombatEffectService {
    */
   private applySplashDamage(
     projectile: Projectile,
-    origin: Enemy,
+    originPos: GeoPosition,
+    excludeId: string | undefined,
     splashRadius: number,
     damageType: DamageType,
     isIceShard: boolean,
     isPoisonGlob = false
   ): void {
     const nearbyEnemies = this.globalRouteGrid.getEnemiesInRadiusGeo(
-      origin.position,
+      originPos,
       splashRadius,
-      origin.id
+      excludeId
     );
 
     const useFalloff = projectile.typeConfig.splashDamageFalloff !== false;
@@ -165,7 +179,7 @@ export class CombatEffectService {
       let splashDamage = projectile.damage;
 
       if (useFalloff) {
-        const dist = geoDistanceFast(origin.position, nearbyEnemy.position);
+        const dist = geoDistanceFast(originPos, nearbyEnemy.position);
         const falloff = 1 - (dist / splashRadius);
         splashDamage = Math.floor(projectile.damage * falloff);
       }

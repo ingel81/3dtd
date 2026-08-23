@@ -7,7 +7,7 @@ import { GeoPosition } from '../models/game.types';
 import { GlobalRouteGridService } from '../services/world/global-route-grid.service';
 import { SpatialGridService } from '../services/world/spatial-grid.service';
 import { ThreeTilesEngine } from '../three-engine';
-import { GameEventBus } from '../game-engine';
+import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
@@ -78,6 +78,9 @@ export class EnemyManager extends EntityManager<Enemy> {
   private remainingKillBudget = 0;
   private remainingRewardSlots = 0;
 
+  /** EventBus subscriptions — disposed in destroy(). */
+  private readonly subs = new SubscriptionBag();
+
   constructor(
     private eventBus: GameEventBus,
     private globalRouteGrid: GlobalRouteGridService,
@@ -88,22 +91,22 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   private registerDebugHandlers(): void {
-    this.eventBus.on('debug:toggle-movement', (event) => {
+    this.subs.add(this.eventBus.on('debug:toggle-movement', (event) => {
       this.movementEnabled = event.enabled;
-    });
+    }));
 
-    this.eventBus.on('debug:remove-enemy', (event) => {
+    this.subs.add(this.eventBus.on('debug:remove-enemy', (event) => {
       const enemy = this.getAll().find(e => e.id === event.enemyId);
       if (enemy) {
         this.remove(enemy);
       }
-    });
+    }));
 
-    this.eventBus.on('debug:clear-enemies', () => {
+    this.subs.add(this.eventBus.on('debug:clear-enemies', () => {
       this.clear();
-    });
+    }));
 
-    this.eventBus.on('debug:spawn-enemy', (event) => {
+    this.subs.add(this.eventBus.on('debug:spawn-enemy', (event) => {
       if (!this.tilesEngine) {
         console.warn('[EnemyManager] Debug spawn ignored - not initialized');
         return;
@@ -124,7 +127,7 @@ export class EnemyManager extends EntityManager<Enemy> {
           event.health,
         );
       }
-    });
+    }));
   }
 
   /**
@@ -753,6 +756,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * Destroy the enemy manager - cleanup all resources and timeouts
    */
   override destroy(): void {
+    this.subs.disposeAll();
     this.pendingDeaths.length = 0;
     this.pendingStarts.length = 0;
     this.killingEnemies.clear();
