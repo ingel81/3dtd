@@ -16,6 +16,13 @@ export class MovementComponent extends Component {
   progress = 0; // 0-1 within current segment
 
   private segmentLengths: number[] = [];
+  /**
+   * Prefix sums of segment lengths: cumulativeLength[i] = sum of segments
+   * [0..i-1] (so [0]=0, length = segmentLengths.length+1). Lets getPathProgress
+   * run O(1) instead of summing completed segments every call (it's hit per
+   * candidate in 'first'-strategy targeting).
+   */
+  private cumulativeLength: number[] = [0];
   /** Sum of all segment lengths — cached in precomputeSegmentLengths(). */
   private totalPathLength = 0;
   paused = false;
@@ -110,6 +117,7 @@ export class MovementComponent extends Component {
    */
   private precomputeSegmentLengths(): void {
     this.segmentLengths = [];
+    this.cumulativeLength = [0];
     let total = 0;
     for (let i = 0; i < this.path.length - 1; i++) {
       const dist = haversineDistance(
@@ -120,6 +128,7 @@ export class MovementComponent extends Component {
       );
       this.segmentLengths.push(dist);
       total += dist;
+      this.cumulativeLength.push(total); // cumulativeLength[i+1] = sum [0..i]
     }
     this.totalPathLength = total;
   }
@@ -176,16 +185,13 @@ export class MovementComponent extends Component {
     const totalLength = this.totalPathLength;
     if (totalLength === 0) return 1;
 
-    // Calculate distance covered
-    let coveredDistance = 0;
-
-    // Add all completed segments
-    for (let i = 0; i < this.currentIndex && i < this.segmentLengths.length; i++) {
-      coveredDistance += this.segmentLengths[i];
-    }
+    // Completed segments via prefix sum (O(1)); clamp index past the end.
+    const segCount = this.segmentLengths.length;
+    const idx = this.currentIndex < segCount ? this.currentIndex : segCount;
+    let coveredDistance = this.cumulativeLength[idx];
 
     // Add progress within current segment
-    if (this.currentIndex < this.segmentLengths.length) {
+    if (this.currentIndex < segCount) {
       coveredDistance += this.segmentLengths[this.currentIndex] * this.progress;
     }
 
@@ -264,7 +270,12 @@ export class MovementComponent extends Component {
           result.isSlowed = true;
           result.slowMultiplier = 1 - effect.value;
         } else if (effect.type === 'freeze') {
+          // Freeze = full stop. Currently RESERVED/unused (no tower applies it),
+          // but set the multiplier to 0 so the reserved effect is correct by
+          // construction if it's ever enabled — previously it only tinted the
+          // enemy blue while letting it move at full speed.
           result.isSlowed = true;
+          result.slowMultiplier = 0;
         } else if (effect.type === 'poison') {
           result.isPoisoned = true;
         }
@@ -288,20 +299,28 @@ export class MovementComponent extends Component {
     this.statusEffects.length = writeIdx;
   }
 
-  /** Get current slow multiplier (1.0 = no slow). */
+  /**
+   * Get current slow multiplier (1.0 = no slow, 0 = frozen solid).
+   *
+   * Mirrors the 'slow'/'freeze' handling of `updateStatusEffects` — the two
+   * must not disagree, or the simulation stops the enemy while the renderer
+   * keeps its walk cycle running at full speed.
+   */
   getSlowMultiplier(gameTimeMs: number): number {
     for (const effect of this.statusEffects) {
-      if (effect.type === 'slow' && gameTimeMs - effect.startTime < effect.duration) {
-        return 1 - effect.value;
-      }
+      if (gameTimeMs - effect.startTime >= effect.duration) continue;
+      if (effect.type === 'freeze') return 0;
+      if (effect.type === 'slow') return 1 - effect.value;
     }
     return 1.0;
   }
 
-  /** Whether enemy has an active slow effect. */
+  /** Whether enemy has an active slow or freeze effect. */
   isSlowed(gameTimeMs: number): boolean {
     return this.statusEffects.some(
-      (effect) => effect.type === 'slow' && gameTimeMs - effect.startTime < effect.duration,
+      (effect) =>
+        (effect.type === 'slow' || effect.type === 'freeze') &&
+        gameTimeMs - effect.startTime < effect.duration,
     );
   }
 

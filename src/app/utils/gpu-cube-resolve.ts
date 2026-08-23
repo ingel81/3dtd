@@ -20,6 +20,12 @@ export interface LosResolveContext {
    * CPU-Mirror der 6 Cube-Faces (je width² × 4 Bytes), gefüllt vom
    * TowerShadowMapper nach dem Cube-Render. Die Buffer sind persistent
    * auf dem Mapper allokiert — nicht pro Context.
+   *
+   * **Lazy.** Der Context-Builder hängt hier einen Getter ein, der
+   * `readFacesToCpu()` erst beim ersten Zugriff auslöst — eine
+   * Registrierung, die gar keine Zelle sampelt (alles gecached oder
+   * out-of-range), zahlt die 6 Readbacks damit nicht. Wiederholte
+   * Zugriffe sind billig: der Mapper cached per `renderVersion`.
    */
   readonly faces: readonly Uint8Array[];
   readonly visibilityBias: number;

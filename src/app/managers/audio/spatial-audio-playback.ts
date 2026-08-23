@@ -46,6 +46,8 @@ export class SpatialAudioPlayback {
   private sounds: Map<string, RegisteredSound>;
   private activeSounds: ActiveSound[] = [];
   private projectileSoundCount = 0;
+  /** Tracked auto-disconnect timers for non-looping global one-shots. */
+  private globalOneShotTimers = new Set<ReturnType<typeof setTimeout>>();
   private eventBus: GameEventBus | null = null;
   /**
    * Last play timestamp per AudioBuffer — used for anti-flood filtering.
@@ -348,9 +350,11 @@ export class SpatialAudioPlayback {
 
     if (!sound.config.loop) {
       const duration = sound.buffer.duration * 1000;
-      setTimeout(() => {
+      const timer = setTimeout(() => {
+        this.globalOneShotTimers.delete(timer);
         audio.disconnect();
       }, duration + 100);
+      this.globalOneShotTimers.add(timer);
     }
 
     return audio;
@@ -372,6 +376,10 @@ export class SpatialAudioPlayback {
       this.cleanupActiveSound(active);
     }
     this.activeSounds = [];
+    for (const timer of this.globalOneShotTimers) {
+      clearTimeout(timer);
+    }
+    this.globalOneShotTimers.clear();
   }
 
   /**

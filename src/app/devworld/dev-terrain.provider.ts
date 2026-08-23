@@ -883,34 +883,6 @@ export class DevTerrainProvider implements TerrainProvider {
     return null;
   }
 
-  /**
-   * Skyline height = local Y of the highest hit (terrain or building roof)
-   * over a 5-sample neighbourhood around (x, z). Used for air-LOS pre-compute
-   * and skyline-adaptive air enemy flight altitude. Mirrors
-   * ThreeTilesEngine.getSkylineHeightAtLocal for the DevWorld backend so
-   * the game-state plumbing is symmetric across engines.
-   */
-  getSkylineHeightAtLocal(x: number, z: number, sampleRadius = 1.5): number | null {
-    if (!this.terrainMesh) return null;
-
-    const offsets: [number, number][] = [
-      [0, 0],
-      [sampleRadius, sampleRadius],
-      [sampleRadius, -sampleRadius],
-      [-sampleRadius, sampleRadius],
-      [-sampleRadius, -sampleRadius],
-    ];
-
-    let maxY: number | null = null;
-    for (const [dx, dz] of offsets) {
-      const hit = this.raycastDown(x + dx, z + dz);
-      if (hit && (maxY === null || hit.y > maxY)) {
-        maxY = hit.y;
-      }
-    }
-    return maxY;
-  }
-
   hasLineOfSightBlocked(
     originX: number,
     originY: number,

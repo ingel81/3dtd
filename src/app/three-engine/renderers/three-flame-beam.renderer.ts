@@ -26,6 +26,13 @@ export class ThreeFlameBeamRenderer {
 
   // Particle spawn configuration
   private readonly PARTICLES_PER_SECOND = 120; // How many particles to spawn per second
+  /**
+   * Hard cap on particles spawned per frame per beam. Bounds frame spikes after
+   * a long frame (large dt) and prevents several flame towers from draining the
+   * shared additive particle pool (which would make other VFX vanish). At 60fps
+   * the steady rate is ~2/frame, so this only clamps catch-up bursts.
+   */
+  private readonly MAX_PARTICLES_PER_FRAME = 5;
   private readonly PARTICLE_SPEED = 45; // Meters per second toward target
   private readonly PARTICLE_SPREAD = 0.8; // Random spread perpendicular to beam
   private readonly PARTICLE_LIFE_MIN = 0.15; // Minimum lifetime in seconds
@@ -125,7 +132,10 @@ export class ThreeFlameBeamRenderer {
 
     // Calculate how many particles to spawn this frame
     const timeSinceLastSpawn = (now - beam.lastSpawnTime) / 1000;
-    const particlesToSpawn = Math.floor(timeSinceLastSpawn * this.PARTICLES_PER_SECOND);
+    const particlesToSpawn = Math.min(
+      Math.floor(timeSinceLastSpawn * this.PARTICLES_PER_SECOND),
+      this.MAX_PARTICLES_PER_FRAME,
+    );
 
     if (particlesToSpawn <= 0) return;
 

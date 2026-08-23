@@ -328,11 +328,6 @@ export class TowerShadowMapper {
     return this.lastEncodedFar;
   }
 
-  /** Renderer-Referenz für CPU-Readback-Konsumenten (GPU-Cube-Resolve). */
-  getRenderer(): WebGLRenderer {
-    return this.renderer;
-  }
-
   /**
    * Liest alle 6 Cube-Faces einmal in persistente CPU-Buffer und gibt sie
    * zurück — Datenquelle für `sampleCubeAtPoint` (gpu-cube-resolve.ts).

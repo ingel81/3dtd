@@ -1,12 +1,87 @@
 # Handover: lokales `main` gegen `origin/main` zusammenführen
 
-**Stand:** 2026-08-23
-**Blocker:** `git push origin main` wird abgelehnt. Lokal und Remote sind divergiert.
-**Nichts wurde gepusht, nichts gemerged, nichts überschrieben.**
+**Stand:** 2026-08-23 — **aufgelöst.** Der Merge liegt auf `merge/local-into-origin`.
+**Statisch grün:** tsc, `ng lint`, 904 Tests, `npm run build`.
+**Noch offen:** Gegenprobe im laufenden Spiel (Abschnitt 0.4). Nichts gepusht.
 
 ---
 
-## 1. Die Lage in einem Satz
+## 0. Wie aufgelöst wurde
+
+`git checkout -b merge/local-into-origin main && git merge origin/main` — fünf echte
+Textkonflikte, zwölf weitere Dateien textuell auto-gemergt und danach inhaltlich
+nachgeprüft. Ein sauberer Auto-Merge sagt nichts darüber, ob am Ende zwei
+Implementierungen derselben Sache nebeneinander stehen.
+
+### 0.1 Entscheidung pro Kollision
+
+| Bereich | Entscheidung |
+|---|---|
+| `gpu-cube-resolve.ts` | **lokal.** `origin/main` hatte den 1×1-Readback-Pfad *und* den Batch-Pfad nebeneinander — der alte war dort schon tot (kein Aufrufer). Die lokale Fassung hat nur einen Pfad: die Faces liegen auf `LosResolveContext.faces`, gefüllt von `TowerShadowMapper.readFacesToCpu()`. Die Lazyness aus `e069845` ist übernommen, aber ohne zweite API: `buildLosResolveContext` hängt `faces` als **Getter** ein, die 6 Readbacks laufen erst beim ersten wirklich gesampelten Cell. |
+| `global-route-grid.ts` — Sweep | **beides.** Der frame-budgetierte Sweep aus `beae782` sitzt jetzt auf dem LOD-gefilterten Sampling: `sampleCellSkyline` raus, `onCellsChanged?.()` → `emitCellsChanged()`, `terrainRaycaster`-Guards → `columnSampler`. Danach war `updateTerrainHeights()` eine zweite vollständige Sweep-Implementierung — sie ist jetzt ein Wrapper, der dieselbe Queue mit `Infinity`-Budget leerdrainiert. Ein Sweep, zwei Einstiegspunkte (blockierend beim Initial-Load, budgetiert beim Tile-Load). |
+| `global-route-grid.ts` — Tower-Reg | **remote.** Die Bounding-Box-Registrierung über `cellsInRange` (`0ccab8c`) ersetzt den Map-Scan über zehntausende Zellen. |
+| `visualization-facade.service.ts` | **lokal, Trigger von remote eingearbeitet.** `refreshRoutesAndAnimation()` gelöscht; einzige Implementierung ist `scheduleBakedHeightRefresh()` (rAF-entprellt, refresht zusätzlich die Marker), angestoßen über `addCellsChangedListener`. |
+| `health-bar-instance.manager.ts` | **remote.** Das GPU-Billboard (`a73c1fe`) ist die gründlichere Lösung: Ausrichtung im Vertex-Shader über `uCameraRight`/`uCameraUp`, `aCenter`/`aSize` als Instanz-Attribute, `instanceMatrix` ungenutzt. Die lokalen `addUpdateRange`-Uploads wurden **darauf gelegt** statt verworfen — remote lud sonst pro `needsUpdate` den vollen 20 000-Slot-Buffer. |
+| `enemy-instance.manager.ts` | **beides.** Remotes Frame-Gate (`state.lastFrame`) und gecachtes Heading-Quaternion plus die lokalen Update-Ranges. |
+| `tower.entity.ts` | **beides.** Beide Seiten hatten denselben Air-LOS-Bug unabhängig gefixt, kollidiert ist nur der Kommentar. Remotes `calculateDistanceFastSq` + gecachtes `_mPerDegLon` sind übernommen. |
+| `tower-combat.service.ts` | **beides.** Remotes Scratch-Buffer und `out`-Parameter sind orthogonal zu den lokalen LOS-Fixes (Air-LOS, Beam-LOS samt periodischem Recheck, entfernter Flame-Beam-Doppeltick) und zum lazy `getAlive()`. |
+| `TODO.md` / `DONE.md` / `three.mock.ts` | zusammengeführt, nichts verworfen. |
+
+Nicht kollidierende Remote-Arbeit ist vollständig übernommen: Lifecycle-/Race-Fixes
+(`c068e7b`), Render-Loop-Trimmen (`d2c42f6`), VFX (`9f5f74e`), Pathfinding-Worker,
+Post-Processing-Pass-Gating, Frame-Pacing, `scene.matrixAutoUpdate = false`.
+Ein Verlust-Audit über alle 14 Remote-Commits fand keine fehlende Änderung; 13 der
+32 remote-berührten Dateien sind byte-identisch mit `origin/main`.
+
+### 0.2 Was das Review danach gefunden hat (behoben)
+
+- **Route-Rebuild-Storm.** Die erste Auflösung hatte remotes „einmal am Sweep-Ende"
+  durch „jede Frame" ersetzt: der Budget-Sweep emittiert pro Slice, und
+  `scheduleBakedHeightRefresh` hing direkt daran — voller A\* pro Spawn,
+  Line2-Neuallokation und `startAnimation()` (das `startTime` zurücksetzt) pro
+  Frame. Die Dash-Animation wäre für die Dauer des Sweeps bei Offset 0
+  eingefroren und das 5-ms-Budget wäre Fiktion gewesen. Der Refresh koalesziert
+  jetzt bei aktivem Sweep und läuft einmal bei Konvergenz.
+- **Listener-Leck.** Der lokale Wechsel von `setCellsChangedListener` (Overwrite)
+  auf `addCellsChangedListener` (Liste) hatte an beiden Call-Sites das Unsubscribe
+  verworfen. Das Grid ist ein Root-Singleton, `initialize()` läuft pro
+  Location-Wechsel erneut → pro Wechsel zwei Listener mehr, also N-fache
+  Tower-LOS-Neuberechnung inklusive N erzwungener Cubemap-Renders pro Emit.
+- **Sweep-State über `clear()` hinweg.** Ein Location-Wechsel während laufendem
+  Sweep hätte verwaiste Alt-Zellen mit dem neuen Sampler geraycastet und
+  Cells-Changed für Zellen emittiert, die es nicht mehr gibt.
+- **Health-Bar-Update-Ranges.** `aSize` wurde pro Enemy pro Frame unbedingt
+  geschrieben. `clearUpdateRanges()` läuft nur, wenn der Renderer das Attribut
+  wirklich hochlädt — bei ausgeblendeten Bars wuchs das Ranges-Array also
+  unbegrenzt. Jetzt Schreibvorgang nur bei echter Änderung, plus ein
+  `hiddenFlags`-Array, damit `update()` tote Slots überspringt statt die Bar über
+  der Leiche wieder aufpoppen zu lassen.
+- **AA-Retrofit.** Vor dem Research platzierte `dual-gatling` wurden nie
+  neu registriert, hatten also keinen Eintrag in `cell.airVisibility`. Solange
+  Air-LOS in `findTarget` nicht durchgesetzt war, fiel das nicht auf; jetzt
+  löst `research:completed` ein `recomputeTowerLOS` für die betroffenen Türme aus.
+- **Freeze.** Remotes `slowMultiplier = 0` in `updateStatusEffects` hatte kein
+  Gegenstück in `getSlowMultiplier`/`isSlowed` — die Simulation hätte gestoppt,
+  die Walk-Animation wäre weitergelaufen.
+
+### 0.3 Gelöschter toter Code
+
+`getHeightCacheKey` + `CACHE_PRECISION`/`CACHE_SCALE`/`lastOriginHeight`
+(three-tiles-engine), `TowerShadowMapper.getRenderer()`, `getSkylineHeightAtLocal`
+aus `TerrainProvider` und DevWorld-Provider, der per-Spawn-`hide()` für den
+globalen Health-Bar-Toggle. Dazu mehrere Kommentare korrigiert, die nach dem
+Merge etwas anderes behaupteten als der Code tut.
+
+### 0.4 Was noch fehlt
+
+Die Gegenprobe im laufenden Spiel — Turm auf Hochhaus, Flammenturm hinter Wand,
+Flak hinter Hochhaus, Welle mit vielen Gegnern, Location-Wechsel, AA-Retrofit auf
+einem bereits platzierten dual-gatling. Die im Review gefundenen, aber bewusst
+nicht im Merge behobenen Punkte stehen in `TODO.md`.
+
+---
+
+## 1. Die Lage in einem Satz — historisch, Stand vor dem Merge
 
 Der lokale Klon stand seit Sessionbeginn auf `f6a7a48` und war **von Anfang an 14 Commits hinter `origin/main`** — das ist erst beim Push aufgefallen. Die gesamte Arbeit dieser Session (25 Commits) ist damit auf einem 2,5 Monate alten Stand gewachsen.
 

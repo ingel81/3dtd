@@ -227,8 +227,8 @@ export class GlobalRouteGridService {
    * @param visibleCells Array of cells the tower can see
    * @returns Array of alive enemies in those cells
    */
-  getEnemiesForTower(visibleCells: RouteCell[]): Enemy[] {
-    return this.grid.getEnemiesForTower(visibleCells);
+  getEnemiesForTower(visibleCells: RouteCell[], out?: Enemy[]): Enemy[] {
+    return this.grid.getEnemiesForTower(visibleCells, out);
   }
 
   /**
@@ -276,8 +276,8 @@ export class GlobalRouteGridService {
    * @param excludeId Optional enemy ID to exclude (e.g., the primary target)
    * @returns Array of alive enemies within radius
    */
-  getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string): Enemy[] {
-    return this.grid.getEnemiesInRadius(localX, localZ, radiusMeters, excludeId);
+  getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string, out?: Enemy[]): Enemy[] {
+    return this.grid.getEnemiesInRadius(localX, localZ, radiusMeters, excludeId, out);
   }
 
   /**
@@ -341,6 +341,25 @@ export class GlobalRouteGridService {
    */
   updateTerrainHeights(): void {
     this.grid.updateTerrainHeights();
+  }
+
+  /**
+   * Begin a frame-budgeted terrain-height refresh (non-blocking replacement
+   * for the synchronous `updateTerrainHeights` on the tile-load hot path).
+   * Drive `stepTerrainHeightRefresh` once per rAF tick until done.
+   */
+  beginTerrainHeightRefresh(): void {
+    this.grid.beginTerrainHeightRefresh();
+  }
+
+  /** Process one frame's slice of the budgeted terrain-refresh sweep. */
+  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
+    return this.grid.stepTerrainHeightRefresh(budgetMs);
+  }
+
+  /** True while a budgeted terrain-refresh sweep is in flight. */
+  isTerrainRefreshActive(): boolean {
+    return this.grid.isTerrainRefreshActive();
   }
 
   /**

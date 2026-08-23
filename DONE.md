@@ -4,6 +4,61 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-06-06
+
+### Render-Hebel G3 + R1 aus Deep-Dive 2026-05 umgesetzt (TODO 1.5)
+
+- [x] **G3-Vollausbau — Health-Bar-Billboard komplett in den Vertex-Shader**
+      Die Health-Bars richteten sich bisher pro Frame über einen CPU-`Matrix4.compose()`
+      (Quaternion→Matrix + Scale) **pro lebendem Gegner** aus, plus `setMatrixAt` +
+      vollem 16-Float-`instanceMatrix`-Upload. `updateBillboard()` iterierte dafür alle
+      aktiven Instanzen.
+      Umbau analog FloatingText (`floating-text-material.ts`):
+      - Neue per-instance Attribute `aCenter` (vec3 Weltzentrum) und `aSize`
+        (vec2 Breite/Höhe) auf der geteilten `PlaneGeometry`; `instanceMatrix` wird
+        nicht mehr genutzt.
+      - Billboard-Ausrichtung im Vertex-Shader über die Uniforms `uCameraRight`/
+        `uCameraUp` (aus `camera.matrixWorld`-Spalten 0/1). Beide Pass-Materials
+        (Background/Foreground) teilen dieselben Uniform-`Vector3`-Instanzen → ein
+        Set pro Frame deckt beide Pässe ab.
+      - `updateBillboard()` iteriert **nicht mehr** über die Instanzen: nur 2 Uniform-
+        Writes + Flush des bewegten `aCenter`-Buffers (3 statt 16 Float/Instanz).
+        Kein `compose()`, kein `_billboardQuat`, kein `posCache`/`scaleCache` mehr.
+      - Versteckte/freie Slots: `aSize.x <= 0` → Early-Return im Vertex-Shader
+        (statt Position −10000). `clear()` füllt alle Sizes auf 0.
+      Öffentliche API (`add`/`update`/`hide`/`remove`/`updateBillboard`/`setVisible`/
+      `count`/`clear`/`dispose`) unverändert.
+      Datei: `src/app/three-engine/renderers/instanced-enemy/health-bar-instance.manager.ts`.
+
+- [x] **R1 — `matrixAutoUpdate`/`matrixWorldAutoUpdate` für statische Subtrees**
+      Der Szenengraph wurde pro Frame komplett durchmultipliziert. Umgesetzt wurde der
+      **sicher statische** Anteil (Subtree-Audit vorab):
+      - `scene.matrixAutoUpdate = false` — die Wurzel sitzt permanent am Origin und
+        propagiert kein unnötiges `force` mehr an alle Kinder; dynamische Kinder
+        (overlayGroup, tilesRenderer.group, Türme, Enemies, Projektile, VFX) behalten
+        `matrixWorldAutoUpdate=true` und werden unverändert aktualisiert.
+      - 4 Lights (Hemisphere/Sun/Fill/Ambient) nach einmaligem `updateMatrixWorld`
+        auf static → pro Frame übersprungen.
+      - **192 Lightning-Bolt-Pool-Meshes** auf static. Deren Geometrie kommt aus dem
+        Vertex-Shader (`uStart`/`uEnd`), der Mesh-Root bleibt identity — sie kosteten
+        bisher 192× `updateMatrix`+`matrixWorld`-Multiply **jeden Frame, auch unsichtbar**
+        (der dickste R1-Posten). Halo-Sprites bleiben dynamisch (bewegen sich).
+      - Die 2 Health-Bar-InstancedMesh-Roots auf static (Position kommt jetzt aus
+        `aCenter`, Root ist identity).
+      **Bewusst nicht umgesetzt** (Architektur, kein Versäumnis): Die Overlay-Objekte
+      (Straßen/Routen/Marker/Gebäude — je aggregierte Meshes, nicht „tausende") hängen
+      unter der pro Frame mit der ECEF-Tiles-Bewegung gesyncten `overlayGroup`. Three.js
+      propagiert dadurch zwangsläufig `force=true` an alle ihre Kinder; `matrixWorldAutoUpdate=false`
+      darauf wäre wirkungslos bzw. würde die Overlays von den Tiles desyncen. Der im
+      Report angenommene Massen-Hebel existiert in dieser Sync-Architektur nicht.
+      Dateien: `src/app/three-engine/three-tiles-engine.ts`,
+      `src/app/three-engine/renderers/lightning-bolt.renderer.ts`,
+      `.../instanced-enemy/health-bar-instance.manager.ts`.
+      Verifikation: Build + Lint + 885 Tests grün; visuell bestätigt (Health-Bars
+      korrekt kamerazugewandt + mitbewegt, Lightning unverändert).
+
+---
+
 ## 2026-05-23
 
 ### WaveConfig schedule-only — Static-Curriculum nativ multi-group (TODO 2.2)

@@ -7,6 +7,7 @@ import {
   DoubleSide,
   StaticDrawUsage,
   DynamicDrawUsage,
+  Vector3,
 } from 'three';
 import { Enemy } from '../entities/enemy.entity';
 import { GeoPosition } from '../models/game.types';
@@ -364,6 +365,9 @@ export class GlobalRouteGrid {
   /** Cached inverse cell size for fast multiplication instead of division */
   private readonly INV_CELL_SIZE = 1 / this.CELL_SIZE;
 
+  /** Reused scratch for per-enemy geo→local conversion in getEnemiesInRadius. */
+  private readonly _radiusScanScratch = new Vector3();
+
   /** Integer hash for cell key (avoids string allocation in hot path) */
   private intCellKey(cx: number, cz: number): number {
     return ((cx & 0xFFFF) << 16) | (cz & 0xFFFF);
@@ -393,6 +397,20 @@ export class GlobalRouteGrid {
   // actually doing what it claims.
   private peekSkipCount = 0;
   private raycastCount = 0;
+
+  // ── Frame-budgeted terrain-refresh sweep state ──────────────────────
+  // `beginTerrainHeightRefresh` snapshots the cell set into this queue;
+  // `stepTerrainHeightRefresh` chews through it across rAF ticks within a
+  // per-frame time budget. The only sweep implementation there is —
+  // `updateTerrainHeights` drains this same queue with an infinite budget.
+  // `null` queue = no sweep in flight.
+  private terrainSweepQueue: RouteCell[] | null = null;
+  private terrainSweepIndex = 0;
+  private terrainSweepChanged: RouteCell[] = [];
+  private terrainSweepPromoted = 0;
+  private terrainSweepRefreshed = 0;
+  private terrainSweepSlices = 0;
+  private terrainSweepStart = 0;
 
   /** Coordinate sync for geo <-> local conversions */
   private coordinateSync: CoordinateSync | null = null;
@@ -784,72 +802,150 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Update terrain heights for all cells.
+   * Update terrain heights for all cells in one blocking pass.
    * Call this after terrain tiles have loaded for accurate visualization
    * and for valid air-LOS pre-compute. Uses ABSOLUTE raycast heights.
+   *
+   * This is NOT a second sweep implementation — it drives the exact same
+   * queue as {@link beginTerrainHeightRefresh} / {@link
+   * stepTerrainHeightRefresh}, just with an unlimited per-slice budget so it
+   * finishes in one call. Used for the initial load, where the stall sits
+   * behind the loading screen; the recurring tile-load path uses the
+   * frame-budgeted driver so it can't freeze the main thread.
    */
   updateTerrainHeights(): void {
     if (!this.columnSampler) return;
+    this.beginTerrainHeightRefresh();
+    this.stepTerrainHeightRefresh(Infinity);
+    // The budgeted driver only re-snaps the viz for slices that moved a cell.
+    // The blocking path always wants it — cells may have been generated since
+    // the last snap, and "cell sticks in ground" on toggle-race lives here.
+    this.refreshAggregateVizPositions();
+  }
 
-    const t0 = performance.now();
-
-    // Reset per-batch diagnostic counters. `sampleCellY` increments them as
-    // it decides skip-vs-raycast — read after the loop to log the ratio.
+  /**
+   * Begin a frame-budgeted terrain-height refresh over all cells. Snapshots
+   * the current cell set into a sweep queue; the caller then drives
+   * `stepTerrainHeightRefresh(budgetMs)` once per rAF tick until it reports
+   * `done`. This is the non-blocking driver for the tile-load hot path —
+   * same work as the blocking `updateTerrainHeights` (promote + LOD-refresh
+   * every cell), just spread across frames so a tile-load no longer freezes
+   * the main thread for ~900ms.
+   *
+   * Re-calling while a sweep is already in flight restarts it from scratch
+   * (a fresh tile-load means newer LOD is available). The peek-skip fast
+   * path in `sampleCellY` makes re-sweeping already-current cells cheap, so
+   * restarting is not wasteful.
+   */
+  beginTerrainHeightRefresh(): void {
+    if (!this.columnSampler) return;
+    this.terrainSweepQueue = Array.from(this.cells.values());
+    this.terrainSweepIndex = 0;
+    this.terrainSweepChanged.length = 0;
+    this.terrainSweepPromoted = 0;
+    this.terrainSweepRefreshed = 0;
+    this.terrainSweepSlices = 0;
+    this.terrainSweepStart = performance.now();
+    // Reset the skip/raycast diagnostic counters so the aggregated
+    // PerfTrace logged at `done` reflects this sweep only.
     this.peekSkipCount = 0;
     this.raycastCount = 0;
+  }
 
-    const promoted: RouteCell[] = [];
-    const refreshed: RouteCell[] = [];
-    let total = 0;
+  /**
+   * Process one frame's worth of the terrain-refresh sweep started by
+   * `beginTerrainHeightRefresh`. Raycasts cells from the cursor until the
+   * `budgetMs` time budget is exhausted (checked every ~32 cells to keep
+   * `performance.now()` overhead negligible), then yields. Fires
+   * `refreshAggregateVizPositions` + `emitCellsChanged` for THIS slice's
+   * changed cells, so per-tower LOS re-resolution is also spread across
+   * frames instead of landing in one block.
+   *
+   * Returns `done=true` once the queue is exhausted (or there is no sweep
+   * in flight) — at which point the aggregated `[PerfTrace]` line is logged.
+   */
+  stepTerrainHeightRefresh(budgetMs: number): { done: boolean; processed: number; changed: number } {
+    const queue = this.terrainSweepQueue;
+    if (!this.columnSampler || queue === null) {
+      return { done: true, processed: 0, changed: 0 };
+    }
 
-    for (const cell of this.cells.values()) {
-      total++;
+    const t0 = performance.now();
+    let processed = 0;
+    this.terrainSweepSlices++;
+
+    while (this.terrainSweepIndex < queue.length) {
+      const cell = queue[this.terrainSweepIndex++];
       const wasUnsampled = !cell.heightSampled;
-      const accepted = this.sampleCellY(cell);
-      if (accepted) {
+      if (this.sampleCellY(cell)) {
+        this.terrainSweepChanged.push(cell);
         if (wasUnsampled) {
-          promoted.push(cell);
+          this.terrainSweepPromoted++;
         } else {
-          refreshed.push(cell);
+          this.terrainSweepRefreshed++;
         }
       }
+      processed++;
+      // Budget check only every 32 cells — peek-skipped cells are so cheap
+      // that a per-cell performance.now() would dominate their cost.
+      if ((processed & 31) === 0 && performance.now() - t0 >= budgetMs) break;
     }
-    const tLoop = performance.now();
 
-    // Detailed perf log — visible alongside the visualization-facade
-    // [PerfTrace] line. `peekSkipped` is the headline savings number.
-    const skipped = this.peekSkipCount;
-    const raycasted = this.raycastCount;
-    const skipRatio = total > 0 ? ((skipped / total) * 100).toFixed(1) : '0.0';
-    console.warn(
-      `[PerfTrace] updateTerrainHeights: ${(tLoop - t0).toFixed(1)}ms | ` +
-      `cells=${total} ` +
-      `peekSkipped=${skipped} (${skipRatio}%) ` +
-      `raycasted=${raycasted} ` +
-      `promoted=${promoted.length} ` +
-      `refreshed=${refreshed.length} ` +
-      `peekAvailable=${this.terrainPeekLOD !== null}`
-    );
+    const done = this.terrainSweepIndex >= queue.length;
 
-    logGrid(
-      'HEIGHT_UPDATE',
-      `cells=${total} promoted=${promoted.length} refreshed=${refreshed.length} skipped=${skipped}`,
-    );
-
-    // Refresh the active spatial-grid visualisation so cells snap to the
-    // newly sampled heights — fixes "Cell sticks in ground" on toggle-race.
-    this.refreshAggregateVizPositions();
-
-    // Notify listeners about every cell whose terrain sample changed —
-    // promoted (unsampled→sampled) AND refreshed (sampled→better tile
-    // LOD). `sampleCellY` only returns true for a stable cell when the
-    // tile LOD or the Y actually moved (it rejects same-Y-same-LOD hits),
-    // so this list never carries false positives. When nothing changed
-    // (the common pan/zoom-without-LOD-change case) the listener is not
-    // called at all — no per-tower LOS work, no spike.
-    if (promoted.length > 0 || refreshed.length > 0) {
-      this.emitCellsChanged([...promoted, ...refreshed]);
+    // Snap viz + drive LOS for this slice's changes, then clear the buffer.
+    // `changedThisSlice` is reported back purely as caller diagnostics — the
+    // route line / animation subscribe to cells-changed like everyone else
+    // and coalesce their (expensive) rebuild to the end of the sweep
+    // themselves; nothing here needs to re-snap them.
+    const changedThisSlice = this.terrainSweepChanged.length;
+    if (changedThisSlice > 0) {
+      this.refreshAggregateVizPositions();
+      this.emitCellsChanged(this.terrainSweepChanged.slice());
+      this.terrainSweepChanged.length = 0;
     }
+
+    if (done) {
+      const total = queue.length;
+      const skipped = this.peekSkipCount;
+      const raycasted = this.raycastCount;
+      const skipRatio = total > 0 ? ((skipped / total) * 100).toFixed(1) : '0.0';
+      const spanMs = performance.now() - this.terrainSweepStart;
+      console.warn(
+        `[PerfTrace] updateTerrainHeights: spanMs=${spanMs.toFixed(1)} ` +
+        `slices=${this.terrainSweepSlices} | ` +
+        `cells=${total} ` +
+        `peekSkipped=${skipped} (${skipRatio}%) ` +
+        `raycasted=${raycasted} ` +
+        `promoted=${this.terrainSweepPromoted} ` +
+        `refreshed=${this.terrainSweepRefreshed} ` +
+        `peekAvailable=${this.terrainPeekLOD !== null}`
+      );
+      logGrid(
+        'HEIGHT_UPDATE',
+        `cells=${total} promoted=${this.terrainSweepPromoted} ` +
+        `refreshed=${this.terrainSweepRefreshed} skipped=${skipped} slices=${this.terrainSweepSlices}`,
+      );
+      this.terrainSweepQueue = null;
+    }
+
+    return { done, processed, changed: changedThisSlice };
+  }
+
+  /** True while a budgeted terrain-refresh sweep is in flight. */
+  isTerrainRefreshActive(): boolean {
+    return this.terrainSweepQueue !== null;
+  }
+
+  /**
+   * Drop an in-flight sweep without running its remaining cells. Used by
+   * `clear()` on a location change — the queued cells belong to the grid that
+   * is being torn down.
+   */
+  private abortTerrainHeightRefresh(): void {
+    this.terrainSweepQueue = null;
+    this.terrainSweepIndex = 0;
+    this.terrainSweepChanged.length = 0;
   }
 
   /**
@@ -918,19 +1014,6 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Locally refine cell-Y for all cells within `radius` of (x, z). Walks
-   * the candidate set, calls `sampleCellY` on each — promoting unsampled
-   * cells and refreshing stable cells if the tile-LOD improved.
-   *
-   * Cheap relative to a full grid sweep: only cells inside the radius
-   * are touched. Used right before tower placement / preview so the
-   * tower's range gets the freshest possible per-cell heights without
-   * waiting for a global tile-load-driven refresh.
-   *
-   * Returns counts for logging / verification. Triggers viz refresh +
-   * onCellsChanged when at least one cell flipped from unsampled.
-   */
-  /**
    * Schmal-Variante von `refineCellsInRadius`: ruft `sampleCellY` NUR
    * für Cells im Radius, die noch nicht `stable` sind. Skip-Pfad für
    * bereits-gesampelte Cells = kein Raycast.
@@ -968,6 +1051,19 @@ export class GlobalRouteGrid {
     return { promoted: promoted.length };
   }
 
+  /**
+   * Locally refine cell-Y for all cells within `radius` of (x, z). Walks
+   * the candidate set, calls `sampleCellY` on each — promoting unsampled
+   * cells and refreshing stable cells if the tile-LOD improved.
+   *
+   * Cheap relative to a full grid sweep: only cells inside the radius
+   * are touched. Used right before tower placement / preview so the
+   * tower's range gets the freshest possible per-cell heights without
+   * waiting for a global tile-load-driven refresh.
+   *
+   * Returns counts for logging / verification. Triggers viz refresh +
+   * the cells-changed listeners when at least one cell flipped from unsampled.
+   */
   refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
     if (!this.columnSampler) {
       return { promoted: 0, refreshed: 0, inRange: 0 };
@@ -1022,6 +1118,32 @@ export class GlobalRouteGrid {
    * @param canTargetAir Whether tower targets air enemies (default false)
    * @returns Array of cells visible from this tower (ground or air)
    */
+  /**
+   * Iterate only the grid cells whose centre can lie within `range` of
+   * (centerX, centerZ), using the integer cell-key index. Replaces a full
+   * Map scan (O(total cells), tens of thousands) with O(cells in the
+   * bounding box). Callers still do the exact squared-distance check, so a
+   * 1-cell margin (for the floor/|0 keying discrepancy) is harmless.
+   *
+   * Safe for both registerTower and registerTowerIncremental: tower range is
+   * monotonic non-decreasing (range upgrades only grow; terrain-promotion
+   * recompute keeps range), so the new range's box always covers every cell
+   * that previously held this tower's entry — there are no stale cells
+   * outside the box to clean up.
+   */
+  private *cellsInRange(centerX: number, centerZ: number, range: number): IterableIterator<RouteCell> {
+    const gx0 = Math.floor((centerX - range) * this.INV_CELL_SIZE) - 1;
+    const gx1 = Math.floor((centerX + range) * this.INV_CELL_SIZE) + 1;
+    const gz0 = Math.floor((centerZ - range) * this.INV_CELL_SIZE) - 1;
+    const gz1 = Math.floor((centerZ + range) * this.INV_CELL_SIZE) + 1;
+    for (let gx = gx0; gx <= gx1; gx++) {
+      for (let gz = gz0; gz <= gz1; gz++) {
+        const cell = this.cells.get(this.intCellKey(gx, gz));
+        if (cell) yield cell;
+      }
+    }
+  }
+
   registerTower(
     towerId: string,
     towerX: number,
@@ -1037,7 +1159,7 @@ export class GlobalRouteGrid {
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
 
-    for (const cell of this.cells.values()) {
+    for (const cell of this.cellsInRange(towerX, towerZ, range)) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       if (distSq > rangeSq) continue;
 
@@ -1115,12 +1237,12 @@ export class GlobalRouteGrid {
     const tipY = ctx.referencePos.y;
     const tipZ = ctx.referencePos.z;
 
-    for (const cell of this.cells.values()) {
+    for (const cell of this.cellsInRange(towerX, towerZ, range)) {
       const distSq = (cell.x - towerX) ** 2 + (cell.z - towerZ) ** 2;
       const inRange = distSq <= rangeSq;
 
       if (!inRange) {
-        // Stale entry outside new range (e.g. range shrunk) — clean up.
+        // In-box but outside the exact circle — clean up any stale entry.
         cell.towerVisibility.delete(towerId);
         cell.airVisibility.delete(towerId);
         continue;
@@ -1247,8 +1369,9 @@ export class GlobalRouteGrid {
    * @param visibleCells Array of cells the tower can see
    * @returns Array of alive enemies in those cells
    */
-  getEnemiesForTower(visibleCells: RouteCell[]): Enemy[] {
-    const enemies: Enemy[] = [];
+  getEnemiesForTower(visibleCells: RouteCell[], out?: Enemy[]): Enemy[] {
+    const enemies = out ?? [];
+    if (out) out.length = 0;
     for (const cell of visibleCells) {
       for (const enemy of cell.enemies) {
         if (enemy.alive) {
@@ -1307,11 +1430,13 @@ export class GlobalRouteGrid {
     localX: number,
     localZ: number,
     radiusMeters: number,
-    excludeId?: string
+    excludeId?: string,
+    out?: Enemy[]
   ): Enemy[] {
-    if (!this.coordinateSync) return [];
+    if (out) out.length = 0;
+    if (!this.coordinateSync) return out ?? [];
 
-    const enemies: Enemy[] = [];
+    const enemies = out ?? [];
     const radiusSq = radiusMeters * radiusMeters;
 
     // Calculate cell range to check
@@ -1331,11 +1456,14 @@ export class GlobalRouteGrid {
           if (!enemy.alive) continue;
           if (excludeId && enemy.id === excludeId) continue;
 
-          // Convert enemy geo position to local for precise distance check
-          const enemyLocal = this.coordinateSync.geoToLocalSimple(
+          // Convert enemy geo position to local for precise distance check.
+          // Use the allocation-free *Into variant with a reused scratch —
+          // this runs for every enemy in every scanned cell.
+          const enemyLocal = this.coordinateSync.geoToLocalSimpleInto(
             enemy.position.lat,
             enemy.position.lon,
-            0
+            0,
+            this._radiusScanScratch
           );
           const distSq = (enemyLocal.x - localX) ** 2 + (enemyLocal.z - localZ) ** 2;
           if (distSq <= radiusSq) {
@@ -1963,6 +2091,11 @@ export class GlobalRouteGrid {
   clear(): void {
     this.cells.clear();
     this.enemyCellKeys.clear();
+    // Abandon any sweep in flight. Its queue holds hard references to the
+    // cells we just dropped, and a driver that keeps stepping would raycast
+    // those orphans with the NEW location's sampler and emit cells-changed
+    // for cells that are no longer in the grid.
+    this.abortTerrainHeightRefresh();
     this.disposeVisualization();
     this.disposeAirVisualization();
   }

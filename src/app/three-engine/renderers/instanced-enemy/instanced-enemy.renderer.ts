@@ -229,9 +229,9 @@ export class InstancedEnemyRenderer {
       1, // barHeight
     );
 
-    if (!this._showHealthBars) {
-      this.healthBarManager.hide(id);
-    }
+    // No per-slot hide for the global health-bar toggle — that runs at mesh
+    // level via setVisible(), and marking the fresh slot hidden would retire
+    // its bar for good (hide() is the "this enemy died" signal).
 
     this.instancedEnemies.add(id);
 
