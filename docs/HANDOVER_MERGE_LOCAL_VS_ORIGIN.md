@@ -1,8 +1,8 @@
 # Handover: lokales `main` gegen `origin/main` zusammenführen
 
-**Stand:** 2026-08-23 — **aufgelöst.** Der Merge liegt auf `merge/local-into-origin`.
-**Statisch grün:** tsc, `ng lint`, 904 Tests, `npm run build`.
-**Noch offen:** Gegenprobe im laufenden Spiel (Abschnitt 0.4). Nichts gepusht.
+**Stand:** 2026-08-23 — **erledigt.** Der Merge ist auf `main` (`54d910b`).
+**Grün:** tsc, `ng lint`, 904 Tests, `npm run build` — und mehrere Spielrunden
+ohne Auffälligkeiten.
 
 ---
 
@@ -72,12 +72,13 @@ aus `TerrainProvider` und DevWorld-Provider, der per-Spawn-`hide()` für den
 globalen Health-Bar-Toggle. Dazu mehrere Kommentare korrigiert, die nach dem
 Merge etwas anderes behaupteten als der Code tut.
 
-### 0.4 Was noch fehlt
+### 0.4 Gegenprobe
 
-Die Gegenprobe im laufenden Spiel — Turm auf Hochhaus, Flammenturm hinter Wand,
-Flak hinter Hochhaus, Welle mit vielen Gegnern, Location-Wechsel, AA-Retrofit auf
-einem bereits platzierten dual-gatling. Die im Review gefundenen, aber bewusst
-nicht im Merge behobenen Punkte stehen in `TODO.md`.
+Mehrere Spielrunden gespielt, nichts aufgefallen. Die im Review gefundenen, aber
+bewusst nicht im Merge behobenen Punkte stehen in `TODO.md` unter 1.0 — allen
+voran die stillen Höhenänderungen ohne Emit, die eine stale Tower-LOS dauerhaft
+machen können. Die sind allesamt vorbestehend und nicht durch den Merge
+entstanden.
 
 ---
 

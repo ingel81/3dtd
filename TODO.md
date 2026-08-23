@@ -21,18 +21,7 @@
 > Engine zuerst stabil, performant und testbar machen. Hier sammeln sich die laufenden
 > Refactoring-, Test- und Bugfix-Themen.
 
-## 1.0 Merge lokal ↔ origin/main — aufgelöst, Spieltest offen
-
-- [ ] **Merge im laufenden Spiel gegenprüfen, dann pushen**
-      Der Merge liegt auf `merge/local-into-origin`, statisch grün (tsc, Lint,
-      904 Tests, Build). Entscheidung pro Kollision und die Review-Funde stehen
-      in [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](docs/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md).
-      Zu prüfen: Turm auf Hochhaus, Flammenturm hinter Wand, Flak hinter
-      Hochhaus, Welle mit vielen Gegnern, Location-Wechsel (Listener + Sweep-
-      Abbruch), AA-Retrofit auf einem bereits platzierten dual-gatling,
-      Health-Bar-Toggle an/aus.
-
-## 1.0b Aus dem Merge-Review — bewusst nicht im Merge behoben
+## 1.0 Aus dem Merge-Review — bewusst nicht im Merge behoben
 
 > Alle vorbestehend (nicht durch den Merge verursacht), alle mit Datei-Fundstelle
 > belegt. Reihenfolge = Einschätzung des Reviews.
