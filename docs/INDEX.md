@@ -45,6 +45,7 @@ Dieses Verzeichnis enthaelt die technische Dokumentation fuer das Tower Defense 
 | **[PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md)** | **Aktuelle Architektur:** Range-Based Templates, 4 Continuous-Params, Wave-Duration-Cap, plus Phase-5.11b/5.14/5.16-Erweiterungen |
 | **[HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md)** | **Aktueller Balance-Stand:** Wave-Curriculum, Endgame-Knobs, Gold-Budget — Companion zu Phase 5.11 |
 | [HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md) | **Geplant:** GPU-Cubemap-basierter LOS-Rewrite fuer Route-Cell-Grid (Status: Plan, nicht implementiert) |
+| [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | **Offener Merge lokal ↔ origin/main** (2026-08-23) — Divergenz, Kollisionen pro Bereich, Vorgehen |
 | [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - konsolidierte Gesamtuebersicht (verlinkt 5.11 + 5.16) |
 | [BOT_SYSTEM.md](BOT_SYSTEM.md) | Strategy-Based Bot System fuer AI Training (8 Strategien inkl. Research) |
 | [PHASE_5.10_TEMPLATES.md](PHASE_5.10_TEMPLATES.md) | _Historical:_ Template-Based (superseded by 5.11) |

@@ -21,6 +21,20 @@
 > Engine zuerst stabil, performant und testbar machen. Hier sammeln sich die laufenden
 > Refactoring-, Test- und Bugfix-Themen.
 
+## 1.0 BLOCKER — Merge lokal ↔ origin/main
+
+- [ ] **`main` und `origin/main` sind divergiert — Push abgelehnt**
+      25 lokale Commits (Session 2026-08-22/23) gegen 14 auf dem Remote
+      (2026-05-25 bis 06-07), 17 Dateien von beiden Seiten angefasst.
+      Beide Seiten haben teils dieselbe Performance-Arbeit gemacht
+      (Cube-Readback-Batching, Instancing-Uploads, Terrain-Sweep,
+      Route-Refresh) — ein blinder Merge stellt zwei Implementierungen
+      derselben Sache nebeneinander.
+      **Weder `push --force` noch `reset --hard`** — beide Seiten enthalten
+      Arbeit, die die andere nicht hat.
+      Vollständige Analyse mit Vorschlag pro Kollision:
+      [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](docs/HANDOVER_MERGE_LOCAL_VS_ORIGIN.md)
+
 ## 1.1 Engine-Bugs
 
 > Keine offenen Engine-Bugs. (Air-Enemy-Flughöhe-Drift am Hang wurde
