@@ -537,21 +537,21 @@ export class ThreeTilesEngine {
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
     this.tilesRenderer.setCamera(this.camera);
 
-    // === QUALITY SETTINGS (keep high - critical for raycasting!) ===
-    this.tilesRenderer.errorTarget = 20; // High quality for accurate terrain raycasting
+    // === STREAMING BUDGET (all values below the library defaults) ===
+    // Max screen-space error in px before a tile is refined. Higher = coarser.
+    // Lib default is 16, so we run slightly below default detail.
+    this.tilesRenderer.errorTarget = 20;
 
-    // === ASYNC LOADING STRATEGY ===
-    // Limit concurrent downloads to prevent network congestion
-    this.tilesRenderer.downloadQueue.maxJobs = 4; // Reduced from 6
+    // Lib defaults: 25 downloads, 5 parses. Parsing is async but finalization
+    // lands on the main thread, so one at a time keeps frame times flat.
+    this.tilesRenderer.downloadQueue.maxJobs = 4;
+    this.tilesRenderer.parseQueue.maxJobs = 1;
 
-    // Reduce concurrent parsing to prevent main thread blocking
-    // Tiles parse asynchronously but still block on finalization
-    this.tilesRenderer.parseQueue.maxJobs = 1; // Process one at a time for smoother frames
-
-    // === CACHE OPTIMIZATION ===
-    // Increase LRU cache to reduce re-loading when camera returns to previous area
-    this.tilesRenderer.lruCache.minSize = 1000; // Default is much lower
-    this.tilesRenderer.lruCache.maxSize = 2000; // Keep more tiles in memory
+    // Lib defaults: 6000/8000 items, plus a 0.3-0.4 GB byte cap that usually
+    // hits first on photorealistic tiles. TODO: intent here was "cache more",
+    // but these values cache less - verify against VRAM before changing.
+    this.tilesRenderer.lruCache.minSize = 1000;
+    this.tilesRenderer.lruCache.maxSize = 2000;
 
     // Listen for tile loading events to refresh terrain heights
     // 'tiles-load-end' fires when ALL currently visible tiles have finished loading
