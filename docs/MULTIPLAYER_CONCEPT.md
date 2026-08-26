@@ -393,3 +393,183 @@ spielbar, beweist die Infrastruktur und braucht keinen der drei
 Determinismus-Blocker geloest. **Phase 2** danach als eigenstaendiges
 Engine-Projekt fahren, weil es unabhaengig vom Multiplayer wertvoll ist. Coop
 erst, wenn Checksums gruen bleiben.
+
+---
+
+# Teil II — Das volle Programm: echter Server
+
+> Nachtrag zur Frage "was braeuchte man fuer einen richtigen Server?".
+> Abschnitt 7 hatte server-autoritative Simulation bewusst ausgeklammert —
+> hier steht, was sie tatsaechlich kostet.
+
+"Server" meint zwei unabhaengige Dinge, die oft vermischt werden:
+
+- **A — Autoritative Simulation:** Der Server rechnet das Spiel und ist die
+  Wahrheit. Loest Cheating.
+- **B — Online-Dienst:** Accounts, Matchmaking, Ladder, Replays, Live-Ops,
+  Betrieb. Loest "es fuehlt sich nach Produkt an".
+
+Man braucht beides fuer das volle Programm, aber sie sind getrennt baubar und
+unterschiedlich teuer. B ist mehr Arbeit als A — und vor allem **dauerhafte**
+Arbeit.
+
+---
+
+## 11. Teil A — Headless-Simulation
+
+### 11.1 Die gute Nachricht
+
+Die Sim ist deutlich naeher an lauffaehig-in-Node als erwartet:
+
+| Schicht | Kopplung | Bewertung |
+|---------|----------|-----------|
+| `entities/`, `game-components/` | **keine** Three.js-Importe | laeuft sofort in Node |
+| `managers/enemy|tower|projectile` | nur `Vector3` aus three | reine Mathe, kein WebGL noetig |
+| `managers/*` | nur `signal` aus `@angular/core` | funktioniert in Node; sauberer waere ein 30-Zeilen-Signal-Shim |
+| `game-state.manager.ts` | `Injectable`/`inject`/`effect` | einziger echter DI-Knoten — auf Konstruktor-Injektion umbauen |
+| `utils/global-route-grid.ts` | `CoordinateSync`, `ColumnSampler`, `gpu-cube-resolve` | **die Bruchstelle** |
+
+Es blockieren also drei konkrete Dinge, nicht "das ganze Rendering":
+
+1. **Angular-DI im `GameStateManager`** → Plain-TS-Konstruktor mit expliziter
+   Verdrahtung. Der Client injiziert weiterhin per DI, der Server konstruiert
+   direkt.
+2. **`tilesEngine`-Aufrufe** — schon `| null`, aber `advanceTurretAim()` ist
+   gameplay-relevant (Turret-Alignment gated das Feuern, siehe
+   `game-loop-facade.service.ts:454`). Muss aus dem Renderer in die Sim-Schicht
+   wandern; der Renderer liest die Rotation dann nur noch ab.
+3. **Occlusion** — siehe 11.2. Das ist die eigentliche Entscheidung.
+
+Struktureller Umbau: ein plattformneutrales `src/app/sim/` (oder eigenes
+Workspace-Paket), das Client **und** Server konsumieren. Kein Angular, kein
+Three ausser Vektor-Mathe, keine Browser-APIs.
+
+### 11.2 Der Kern: Occlusion ohne GPU
+
+Der Server hat keine 3D-Tiles und keine GPU. Damit faellt die heutige
+LOS-Pipeline weg. Drei Wege:
+
+**Weg 1 — OSM-Gebaeudemodell als Gameplay-Wahrheit** ← Empfehlung
+
+`BuildingFootprint { id, type, levels, nodes }` wird **bereits geholt**
+(`services/location/osm-street.service.ts:30`) und gerendert
+(`services/world/building-rendering.service.ts`, `levels × METERS_PER_LEVEL`).
+Daraus laesst sich ein CPU-Occlusion-Modell bauen: extrudierte Polygonprismen,
+LOS als Segment-vs-Prisma-Test, Bodenhoehe aus grobem DEM oder aus dem
+Strassennetz interpoliert.
+
+- Deterministisch, serverfaehig, versionierbar, klein (ein paar hundert KB pro
+  Stadt), CPU-guenstig mit einem 2D-Index ueber die Grundrisse.
+- Loest gleichzeitig **alle drei Determinismus-Blocker aus Teil I** — der
+  World Seal wird zum blossen Ausliefern des Gebaeudemodells.
+- **Preis:** Gameplay-Sichtlinie weicht sichtbar von der Optik ab. Baeume,
+  Brueckenkonstruktionen, unregelmaessige Daecher, alles was OSM nicht kennt,
+  blockt dann nicht mehr — und `building:levels` fehlt in vielen Gegenden
+  (Default 2 im Code) und ist ohnehin nur eine Naeherung.
+
+Das ist ein **Game-Design-Preis, kein technischer**: Man tauscht "Sichtlinie
+stimmt exakt mit dem Bild" gegen "Sichtlinie ist erklaerbar, fair und ueberall
+gleich". Fuer kompetitives PvP ist das ohnehin die richtige Richtung — heute
+kann derselbe Turm bei zwei Spielern unterschiedlich schiessen, je nachdem
+welche Tile-LOD beim Bauen geladen war.
+
+**Weg 2 — Server rendert mit** (Headless-GL, SwiftShader oder GPU-Instanz)
+
+Technisch machbar, aber: Tiles-Traffic pro Match auf Serverseite,
+Google-ToS-Frage, GPU-Instanzen kosten ein Vielfaches, und die
+LOD-Nichtdeterminismus-Frage kommt durch die Hintertuer zurueck. **Nicht
+empfohlen.**
+
+**Weg 3 — Precompute-Service (Bake-Pipeline)**
+
+Ein Batch-Job baked pro Stadt einmal ein Hoehen- und Occlusion-Feld aus den
+3D-Tiles und legt es in Object Storage. Server und Clients laden dasselbe
+Artefakt. Exakt passend zur Optik, deterministisch, ohne GPU zur Laufzeit.
+Kosten: Bake-Pipeline, Storage, Invalidierung bei Tile-Updates — und ein Match
+in einer ungebakten Stadt muss warten oder auf Weg 1 zurueckfallen.
+
+**Realistischer Pfad: Weg 1 jetzt, Weg 3 spaeter fuer Ranked-Karten.**
+
+### 11.3 Was der Server repliziert — nicht Entities
+
+Volle Entity-Replikation bleibt bei 10k Gegnern tot (Rechnung in Abschnitt 3).
+Der autoritative Server ist deshalb kein State-Broadcaster, sondern ein
+**autoritativer Lockstep-Peer**:
+
+- Er ordnet Commands, vergibt Tick-Nummern, haelt den RNG-Seed, rechnet
+  Wave-Schedules, verteilt LOS-Masken.
+- Er laeuft dieselbe Sim als **Schattenrechnung** und vergleicht Checksums.
+- Clients simulieren und rendern weiterhin selbst.
+- Nur bei Divergenz: Full-Snapshot-Korrektur, im Wiederholungsfall Kick.
+
+Cheat-Erkennung heisst dann "Client weicht von der Serverwahrheit ab" — und das
+faengt genau die Klasse, die zaehlt: Gold, Baukosten, Platzierungsregeln,
+Reichweiten, Wellenmanipulation. Was es **nicht** faengt, sind reine
+Informations-Cheats (Wallhack-Aequivalente), weil jeder Client ohnehin den
+vollen Zustand kennt. Bei einem TD ist das akzeptabel.
+
+### 11.4 Serverkosten der Sim — eine Mess-, keine Schaetzaufgabe
+
+Die Sim ist single-threaded und laeuft mit 60 Hz Game-Time. Ein Node-
+Worker-Thread pro Match, Matches pro vCPU muss **gemessen** werden. Die
+Werkzeuge dafuer existieren bereits im Repo:
+
+- `PerformanceProfilerService` misst die Sub-Step-Anteile getrennt
+  (`tProjectile`, `tCombat`, `tEvents`, `tTower`).
+- Der Bot-Modus mit `trainingTimescale` spielt ganze Matches im Zeitraffer —
+  ein 20-Minuten-Match bei 75× dauert 16 Sekunden.
+- `renderingEnabled = false` (Phase 5.14) trennt Sim-Zeit von Render-Zeit
+  bereits sauber.
+
+Wichtig fuer die Erwartungshaltung: Der Client ist heute **GPU-limitiert, nicht
+sim-limitiert**. Ohne Rendering ist ein Match erheblich billiger, als das
+Spielgefuehl vermuten laesst.
+
+---
+
+## 12. Teil B — Der Dienst drumherum
+
+| Baustein | Was konkret | Aufwand |
+|----------|-------------|---------|
+| **Identitaet** | OAuth ueber Google/Discord statt eigener Passwoerter — spart Sicherheits- und DSGVO-Aufwand erheblich | S |
+| **Persistenz** | Postgres (Profile, Matches, Ladder, Freunde), Object Storage (Snapshots, Replays) | M |
+| **Matchmaking** | Queue, ELO/Glicko, Regionswahl, Party-Handling | M |
+| **Replays** | Command-Log + Seed + Snapshot-Referenz = vollstaendiges Replay. **Faellt bei Lockstep gratis ab** und ist gleichzeitig Anti-Cheat-Beweismittel und Balance-Werkzeug | S |
+| **Live-Ops** | Balance-Configs serverseitig ausliefern, `balanceHash` erzwingen, Versions-Gate, Wartungsfenster | M |
+| **Observability** | Ticks/s, Desync-Rate, RTT-Verteilung, strukturierte Logs, Alerting, automatischer Replay-Upload bei Divergenz | M |
+| **Skalierung** | Room-Allocator, Autoscaling, Region-Auswahl (EU zuerst), Session-Affinitaet | M |
+| **Ausfallsicherheit** | Reconnect-Fenster, Match-Wiederaufnahme, Graceful Drain beim Deploy | M |
+| **Sicherheit** | Token-Rotation, Rate-Limits, serverseitige Input-Validierung, DDoS-Schutz vor dem Room-Server | M |
+| **Recht & Betrieb** | DSGVO (AVV, Loeschkonzept, Datenschutzerklaerung), ToS, Namens-/Chat-Moderation | M, laeuft nie aus |
+| **Google-3D-Tiles** | Kosten pro Client-Session und ToS in einem kommerziellen Multiplayer-Dienst | **groesste unbekannte Aussenabhaengigkeit** |
+| **CI/CD & Lasttest** | Server-Pipeline, Staging, synthetische Last — **der `StrategyBot` ist bereits ein fertiger Lastgenerator** | S–M |
+
+### Der ehrliche Teil
+
+Teil B ist kein Feature, sondern Dauerbetrieb. Nach dem Launch frisst er
+kontinuierlich Zeit — Deploys, Missbrauch, Support, Kostenkontrolle — waehrend
+am Spiel selbst nichts vorangeht. Das ist die eigentliche Entscheidung, nicht
+die Technikwahl.
+
+---
+
+## 13. Staffelung: vier Server-Stufen
+
+| Stufe | Was der Server tut | Cheat-Schutz | Aufwand |
+|-------|--------------------|--------------|---------|
+| **S1 — Relay** (Teil I) | Nur Weiterleiten, Rooms, Tick-Stempel | keiner | S |
+| **S2 — Validierend** | Keine Sim, aber Regelpruefung: Gold, Baukosten, Cooldowns, Platzierungsregeln. Plus Seed, Wave-Schedules, LOS-Masken | **faengt naives Cheating fast vollstaendig** | M |
+| **S3 — Schatten-Sim** | Volle Sim als Wahrheit, Checksum-Vergleich, Snapshot-Korrektur | echte Autoritaet | L, **braucht die Occlusion-Entscheidung** |
+| **S4 — Voller Dienst** | Accounts, Ladder, Replays, Live-Ops, Betrieb | — | L, dauerhaft |
+
+**S2 ist das beste Preis-Leistungs-Verhaeltnis im ganzen Konzept:** rund
+90 % des realistischen Cheatings zu einem Bruchteil der Kosten einer
+Server-Sim, ohne dass irgendetwas headless laufen muss. Wer nicht Ranked-PvP
+mit Preisgeld plant, kann bei S2 stehenbleiben.
+
+**Der eigentliche Fork im Projekt ist 11.2:** OSM-Gebaeudemodell statt
+GPU-Occlusion als Gameplay-Wahrheit. Diese Entscheidung faellt einmal und
+bestimmt danach, ob S3 ueberhaupt erreichbar ist — sie ist gleichzeitig die
+Loesung fuer alle drei Determinismus-Blocker aus Teil I und fuer die
+Stale-LOS-Bugs in der `TODO.md`. Sie kostet aber die exakte Uebereinstimmung
+von Sichtlinie und Stadtbild.
