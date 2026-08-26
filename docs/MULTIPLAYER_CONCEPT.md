@@ -398,6 +398,15 @@ erst, wenn Checksums gruen bleiben.
 
 # Teil II — Das volle Programm: echter Server
 
+> **Entscheidung gefallen (2026-08-26): Die Simulation bleibt vollstaendig im
+> Client.** Der Server vermittelt, verwaltet und ueberwacht — er rechnet nicht.
+> Damit sind die Stufen S3/S4 aus Abschnitt 13 **verworfen**, und die
+> Occlusion-Grundsatzfrage aus 11.2 ist **nicht mehr blockierend** (siehe
+> Teil III, Abschnitt 21). Teil II bleibt als Bewertung der verworfenen
+> Alternative stehen — die Aufwandsgegenueberstellung ist weiterhin die
+> Begruendung fuer die Entscheidung.
+
+
 > Nachtrag zur Frage "was braeuchte man fuer einen richtigen Server?".
 > Abschnitt 7 hatte server-autoritative Simulation bewusst ausgeklammert —
 > hier steht, was sie tatsaechlich kostet.
@@ -573,3 +582,282 @@ bestimmt danach, ob S3 ueberhaupt erreichbar ist — sie ist gleichzeitig die
 Loesung fuer alle drei Determinismus-Blocker aus Teil I und fuer die
 Stale-LOS-Bugs in der `TODO.md`. Sie kostet aber die exakte Uebereinstimmung
 von Sichtlinie und Stadtbild.
+
+---
+
+# Teil III — Der Server, den wir tatsaechlich bauen
+
+> **Praemisse:** Die Simulation laeuft auf jedem Client. Der Server ist
+> Vermittlung, Matchmaking, Verwaltung und Ueberwachung — **niemals Rechner**.
+> Das entspricht S1+S2 aus Abschnitt 13, ohne S3/S4.
+
+Der Leitsatz dahinter: **Der Server ist das Gedaechtnis des Matches, nicht sein
+Gehirn.** Er ordnet, speichert und verteilt — und genau daraus ergeben sich
+Faehigkeiten, die ein reiner Weiterleiter nicht haette (Host-Migration,
+Rejoin, Replays, Desync-Forensik).
+
+---
+
+## 14. Rollenverteilung
+
+Drei Rollen, klar getrennt. "Host" ist **ein Client mit Sonderaufgaben**, kein
+Serverprozess.
+
+| | **Server** | **Host-Client** | **Peer-Client** |
+|---|---|---|---|
+| Simulation | — | ja (wie alle) | ja |
+| Rendering | — | ja | ja |
+| Command-Reihenfolge & Tick-Nummern | **besitzt** | — | — |
+| RNG-Seed, Match-ID | **besitzt** | — | — |
+| World-Snapshot (Strassen, Routen, World Seal) | speichert & verteilt | **erzeugt** | laedt |
+| LOS-Masken beim Turmbau | speichert & verteilt | **rechnet (GPU)** | uebernimmt |
+| Wave-Schedule (ONNX oder Curriculum) | speichert & verteilt | **rechnet** | uebernimmt |
+| Regelpruefung der Commands | **fuehrt aus** | — | — |
+| Checksum-Sammlung & Quorum | **fuehrt aus** | meldet | meldet |
+| Match-Ergebnis, Ladder | **besitzt** | meldet | meldet |
+
+Der Host ist damit die einzige Stelle, an der GPU-abhaengige Groessen entstehen —
+und weil der Server **jede** davon zwischenspeichert, sind sie ab dem Moment der
+Verteilung serverseitige Wahrheit. Das ist der Trick, der die
+Determinismus-Blocker aus Teil I entschaerft, ohne dass der Server rechnen muss.
+
+---
+
+## 15. Server-Komponenten
+
+Acht Bausteine. Die ersten vier sind das Minimum fuer ein spielbares Match, die
+letzten vier machen daraus einen Dienst.
+
+### 15.1 Gateway & Session (Minimum)
+- Verbindungsannahme, Auth-Token, Heartbeat, Reconnect-Fenster.
+- **Versions-Gate:** Client-Build-Hash **und** `balanceHash` (Fingerprint ueber
+  `configs/`) muessen zum Room passen. Ein Client mit abweichenden
+  Tower-/Enemy-Configs divergiert sofort — hier abzulehnen ist billiger als
+  jede spaetere Desync-Analyse.
+- *Macht nicht:* eigene Passwoerter. OAuth (Google/Discord) oder in v1 gar
+  nichts ausser einem anonymen Gast-Token.
+
+### 15.2 Room-Service (Minimum)
+- Room anlegen/beitreten per Code, Spielerliste, Ready-States, Modusauswahl,
+  Kick, Room-Lifecycle.
+- Haelt die Host-Zuweisung und faellt bei Host-Verlust auf einen Peer zurueck
+  (siehe 19).
+
+### 15.3 Tick-Relay (Minimum, das Herzstueck)
+- Nimmt Commands entgegen, stempelt `(netTick, playerId, seq)`, ordnet
+  **deterministisch** (stabil nach `playerId`, dann `seq`) und faechert an alle
+  aus — inklusive an den Absender.
+- Verwaltet den Input-Delay (Default 3 Net-Ticks ≈ 200 ms) und passt ihn an den
+  schlechtesten RTT im Raum an.
+- Sammelt leere Tick-Bestaetigungen, erkennt haengende Clients, setzt
+  Stall-Warnungen ab und dropt nach Schwellwert.
+- *Macht nicht:* Spiellogik. Er weiss, dass ein `place-tower` durchgeht, nicht
+  ob der Turm dort sinnvoll steht.
+
+### 15.4 Artefakt-Store (Minimum)
+- Nimmt vom Host `WorldSnapshot`, LOS-Masken und Wave-Schedules entgegen,
+  speichert sie unter der Match-ID und liefert sie an Joiner, Rejoiner und
+  neue Hosts aus.
+- Groessenordnung pro Match: Snapshot 15–30 KB gzip, Masken einige hundert Byte
+  pro Turm, Schedules ein paar KB. **Ein Match passt bequem in ein einzelnes
+  Objekt von unter einem Megabyte.**
+
+### 15.5 Validator ("Ueberwachung", Stufe S2)
+Fuehrt ein **schlankes Spiegelmodell** des Matchzustands — Turmliste mit
+Besitzer und Level, Research-Stand, Gold-Ledger pro Spieler, Wellennummer,
+Phase. Das ist Buchhaltung, keine Simulation: es aktualisiert sich bei
+Command-Events (wenige pro Minute), nicht pro Frame.
+
+Damit pruefbar:
+- Existiert der Turm? Gehoert er dem Absender? (`sell`, `upgrade`)
+- Stimmt der Preis gegen die Server-Config? Reicht das gebuchte Gold?
+- Ist das Upgrade-Tier per Research freigeschaltet? (Spiegel der Tier-Logik aus
+  `game-commands.handler.ts`)
+- Sind Research-Voraussetzungen erfuellt, laeuft schon eine Forschung?
+- Passt der Bauplatz in den Room-Snapshot (Zelle existiert, nicht belegt)?
+- Plausibilitaets- und Rate-Limits: Commands pro Sekunde, Tuerme pro Welle.
+
+Nicht pruefbar (und das ehrlich benennen): alles, was aus der Sim kommt —
+Reichweite, Sichtlinie, Schaden, Kill-Zuordnung. **Und damit auch die
+Gold-Einnahmen**, denn die entstehen aus Kills. Der Server kennt Ausgaben
+exakt, Einnahmen nur aus Client-Meldungen. Dagegen hilft nur 15.6.
+
+### 15.6 Desync-Waechter (Ueberwachung, Teil 2)
+- Sammelt alle 30 Net-Ticks die Client-Checksums (Abschnitt 4.5).
+- **Ab drei Spielern echte Autoritaet per Quorum:** Wenn 3 von 4 uebereinstimmen,
+  ist der Ausreisser falsch — der Server ordnet einen Snapshot-Reload an, im
+  Wiederholungsfall Kick. Damit bekommt Coop echte Cheat-Resistenz, **ohne dass
+  der Server simuliert.**
+- Bei zwei Spielern gibt es kein Quorum: dann entscheidet der Host, und das
+  Match wird als "unverifiziert" markiert.
+- Jede Divergenz zieht automatisch beide Command-Logs und den Snapshot in die
+  Forensik-Ablage. Das ist gleichzeitig **das Debugging-Werkzeug** fuer den
+  gesamten Determinismus-Umbau.
+
+### 15.7 Matchmaking & Ladder (Dienst)
+- Queue pro Modus, Rating (Glicko-2), Regionswahl, Party-Handling,
+  Reconnect-Vorrang.
+- Ergebnisannahme: Wer hat gewonnen, wie viele Leaks, welche Welle. Bei
+  Ranked-Modi nur akzeptieren, wenn der Desync-Waechter das Match als sauber
+  markiert hat.
+
+### 15.8 Telemetrie & Ops (Dienst)
+- Metriken: Ticks/s pro Room, Stall-Haeufigkeit, RTT-Verteilung, Desync-Rate
+  pro Client-Version, Abbruchgruende.
+- Admin-Sicht auf laufende Rooms — im Kern dasselbe wie das bestehende
+  Training-Dashboard.
+- Alerting auf Desync-Rate: Ein Anstieg nach einem Deploy bedeutet fast immer,
+  dass eine Balance- oder Sim-Aenderung den Determinismus gebrochen hat.
+
+---
+
+## 16. Protokoll
+
+Ein einziger WebSocket pro Client. JSON reicht — das Volumen ist winzig; Binaer
+nur fuer Masken und Snapshot (als separater HTTP-Download, nicht durch den
+Socket).
+
+| Richtung | Nachricht | Inhalt |
+|----------|-----------|--------|
+| C→S | `hello` | Token, Client-Build-Hash, `balanceHash`, Region |
+| C→S | `room:create` / `room:join` / `room:leave` / `room:ready` | Modus, Room-Code |
+| C→S | `world:publish` | *(nur Host)* Snapshot-Upload → gibt Artefakt-URL zurueck |
+| C→S | `command` | Command-Typ + Payload (die 7 aus `game-event-bus.ts`) |
+| C→S | `tick:ack` | Net-Tick bestaetigt, auch ohne Input |
+| C→S | `los:publish` | *(nur Host)* Turm-ID + Masken-Blob |
+| C→S | `wave:publish` | *(nur Host)* Wellennummer + Spawn-Schedule |
+| C→S | `checksum` | Net-Tick + Hash |
+| C→S | `result` | Ergebnis am Matchende |
+| S→C | `room:state` | Spielerliste, Host, Ready-States, Modus |
+| S→C | `match:start` | Match-ID, Seed, Artefakt-URLs, Startzeitpunkt, Input-Delay |
+| S→C | `tick` | Net-Tick + geordnete Commandliste (leer, wenn nichts passiert) |
+| S→C | `los` / `wave` | Weitergereichte Host-Artefakte |
+| S→C | `stall` | Wer haengt, wie lange |
+| S→C | `desync` | Snapshot-Reload angeordnet, Grund |
+| S→C | `host:changed` | Neuer Host, ab welchem Tick |
+| S→C | `error` | Command abgelehnt + Grund (Validator) |
+
+Ein abgelehntes Command ist **kein Fehlerfall im Client, sondern der Normalfall
+bei Latenz** (zwei Spieler kaufen gleichzeitig, das Gold reicht nur einmal). Die
+UI muss das als "Kauf fehlgeschlagen" darstellen koennen, nicht als Absturz.
+
+---
+
+## 17. Was persistiert wird
+
+| Datum | Ablage | Aufbewahrung |
+|-------|--------|--------------|
+| Profile, Rating, Freunde | Postgres | dauerhaft |
+| Matchergebnisse | Postgres | dauerhaft |
+| WorldSnapshot pro Match | Object Storage | Tage bis Wochen |
+| **Command-Log + Seed** | Object Storage | siehe 18 |
+| Desync-Forensik (Logs + Checksums) | Object Storage | Wochen |
+
+---
+
+## 18. Der Command-Log ist die wichtigste Entscheidung
+
+Command-Log + Seed + Snapshot-Referenz sind zusammen **das vollstaendige
+Match**. Bei Lockstep faellt das ohne Zusatzaufwand an — es ist derselbe Strom,
+den das Relay ohnehin durchreicht.
+
+Was daraus wird, kann spaeter entschieden werden:
+- **Replay-Wiedergabe** im Client (kostet nur UI).
+- **Zuschauermodus** — ein Client, der den Tick-Strom live mitliest.
+- **Nachtraegliche Verifikation** fuer Ranked: Ein Verifizierer spielt den Log
+  nach und vergleicht das Ergebnis. Das braucht irgendwann doch eine
+  headless-faehige Sim — aber **asynchron, ausserhalb des Matches, nur fuer die
+  Spitze der Ladder**, und ohne dass ein Live-Server je simulieren muesste.
+- **Balance-Analyse** ueber echte Matches statt nur ueber Bot-Laeufe.
+
+**Deshalb: den Log von Tag eins an speichern, auch wenn ihn zunaechst niemand
+liest.** Er kostet Kilobytes und haelt jede dieser Optionen offen. Nachtraeglich
+laesst sich das nicht rekonstruieren.
+
+---
+
+## 19. Host-Migration
+
+Weil der Server jede Host-Ausgabe zwischenspeichert (Snapshot, alle bisherigen
+LOS-Masken, alle Wave-Schedules), ist der Host austauschbar:
+
+1. Host-Verbindung bricht ab.
+2. Relay pausiert den Tick-Vorlauf.
+3. Server ernennt den Peer mit der besten Verbindung, sendet `host:changed`.
+4. Der neue Host uebernimmt ab dem naechsten Bau-/Wellen-Event; alle bereits
+   verteilten Artefakte bleiben gueltig.
+
+Einschraenkung, die man kennen muss: Der neue Host rechnet kuenftige LOS-Masken
+auf **seiner** GPU mit **seinem** Tile-Ladezustand. Die Masken aus der ersten
+Haelfte des Matches stammen also von einer anderen Maschine als die aus der
+zweiten. Fuer die Konsistenz zwischen Clients ist das egal — alle bekommen
+dieselben Masken. Es kann nur bedeuten, dass zwei baugleiche Tuerme
+unterschiedlich sehen, je nachdem wann sie gebaut wurden. Fuer Coop
+verschmerzbar, fuer Ranked-PvP ein Argument, den Host dort nicht zu wechseln
+sondern das Match abzubrechen.
+
+---
+
+## 20. Technik und Betrieb
+
+**Sprache: TypeScript**, obwohl Python im Projekt etabliert ist
+(`training-backend/server.py`, 1041 Zeilen, mit Multi-Client-Handling und
+Broadcast — die Vorlage waere da).
+
+Der Grund ist nicht Geschmack, sondern **geteilte Typen**: Das Relay muss die
+`GameEvent`-Union und die Config-Werte kennen, um Commands zu validieren
+(15.5). In TypeScript ist das ein Import aus dem bestehenden Code; in Python
+ist es eine handgepflegte Zweitfassung, die bei jeder Balance-Aenderung still
+auseinanderlaeuft — und genau das ist die Fehlerklasse, die Desyncs erzeugt.
+
+| Aspekt | Empfehlung |
+|--------|-----------|
+| Runtime | Node oder Bun + `ws`, ein Prozess, Rooms im Speicher |
+| Alternative | Cloudflare Durable Objects / PartyKit — Room-Modell und Persistenz eingebaut, bei kleiner Nutzerzahl praktisch kostenlos, kein Betrieb |
+| DB | Postgres, erst ab Matchmaking noetig — v1 laeuft ohne |
+| Storage | S3-kompatibel (R2 ist am guenstigsten) |
+| Region | EU zuerst; ein zweiter Standort erst bei echtem Bedarf |
+| Deploy | Container, Graceful Drain (laufende Matches nicht mittendrin kappen) |
+| Lasttest | **`StrategyBot` als synthetischer Spieler** — der Lastgenerator existiert bereits |
+
+**Ressourcenbedarf:** Ein Room kostet ein paar Kilobyte Speicher und
+Nachrichten-Fan-out im niedrigen zweistelligen Hertz-Bereich. Kein Rechnen,
+keine GPU, kein Zustand pro Frame. Hunderte gleichzeitige Matches auf einer
+kleinen Instanz sind realistisch — der begrenzende Faktor wird lange die
+Anzahl offener Sockets sein, nicht CPU.
+
+---
+
+## 21. Was durch diese Entscheidung wegfaellt
+
+Gegenueber Teil II entfaellt ersatzlos:
+
+- Der Headless-Refactor der Sim (Angular-DI, Turret-Aim aus dem Renderer,
+  plattformneutrales `sim/`-Paket).
+- **Der Zwang zum OSM-Gebaeudemodell.** Die Occlusion-Frage aus 11.2 war nur
+  deshalb blockierend, weil ein Server ohne GPU LOS rechnen muesste. Da der
+  Host-Client eine GPU hat, bleibt die bestehende Cubemap-Pipeline die
+  Gameplay-Wahrheit — sie wird nur einmal statt N-mal ausgewertet. Der
+  Design-Preis (Sichtlinie passt nicht mehr zum Stadtbild) entfaellt damit.
+- GPU-Instanzen, Sim-Kosten pro Match, Server-Tickrate als Skalierungsgrenze.
+
+Bestehen bleibt aus Teil I unveraendert:
+- Seeded RNG (2.3) — der Seed kommt jetzt vom Server statt vom Host.
+- World Seal (2.2) — erzeugt vom Host, verteilt vom Server.
+- Tick-Barriere im Sub-Step-Loop (4.2).
+- Per-Spieler-Oekonomie und `Tower.ownerId` (Abschnitt 6, Punkte 10–11).
+
+---
+
+## 22. Reihenfolge
+
+| Stufe | Server-Umfang | Client-Umfang | Ergebnis |
+|-------|---------------|---------------|----------|
+| **1** | Gateway, Room-Service, Artefakt-Store | Lobby-UI, Snapshot-Publish/Load | Zwei Clients in derselben Welt — **Versus Race spielbar** |
+| **2** | Tick-Relay, Checksum-Sammlung | Netzwerk-Interceptor, Tick-Barriere, seeded RNG | Lockstep laeuft — **Coop spielbar** |
+| **3** | Validator, Desync-Waechter, Host-Migration | Rejoin-Flow, abgelehnte Commands in der UI | Robust und cheat-resistent genug fuer Oeffentlichkeit |
+| **4** | Matchmaking, Ladder, Persistenz, Telemetrie | Profil, Queue-UI, Replay-Ansicht | Dienst |
+
+Stufe 1 ist erstaunlich klein: Room-Verwaltung plus Dateiablage, **kein Relay,
+kein Determinismus**. Und sie liefert bereits einen vollstaendig spielbaren
+PvP-Modus.
