@@ -425,14 +425,24 @@ export class TrainingClientService {
         // Subscribe to game over events
         this.eventSubscriptions.push(this.gameState.getEventBus().on('game:over', async (_event) => {
           if (this.isConnected()) {
-            // Send game over notification
-
-            // Also send the final wave result if available
+            // Send the fatal wave's result. The data collector finalises the
+            // outcome on game-over (wave:completed never fires), so this is the
+            // wave that ended the run — the single most valuable training
+            // sample there is, since it is the only source of the DEATH term.
+            //
+            // `stateAfter` must be included: without it the backend has to
+            // infer survival from the outcome alone, and for a long time it
+            // read a field that did not exist and concluded "survived" on
+            // every fatal wave.
             const history = this.dataCollector.getWaveHistory();
             if (history.length > 0) {
               const latestResult = history[history.length - 1];
-              await this.sendWaveResult(latestResult);
+              await this.sendWaveResult({
+                ...latestResult,
+                stateAfter: this.dataCollector.getStateSnapshot(),
+              });
             }
+            this.notifyGameOver(false, this.store.waveNumber());
           }
         }));
 

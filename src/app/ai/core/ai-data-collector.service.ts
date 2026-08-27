@@ -40,6 +40,8 @@ import {
   estimateKillZoneStrength,
 } from './defense-analyzer';
 import { calculateWaveThreat, computeDpsByDamageType } from './game-state-encoder';
+import { computeTowerDPS } from './tower-dps.util';
+import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ComponentType } from '../../core/component';
 import { MovementComponent } from '../../game-components/movement.component';
@@ -73,6 +75,8 @@ export class AIDataCollectorService {
   // === CURRENT WAVE TRACKING ===
   private currentWaveNumber = 0;
   private currentWaveStartTime = 0;
+  /** Wall-clock start of the current run, for the encoder's gameTime feature. */
+  private gameStartTime = Date.now();
   private currentWaveConfig: WaveConfig | null = null;
   private currentWaveOutcome: Partial<WaveOutcome> = {};
   private lowestHealthThisWave = 100;
@@ -140,7 +144,10 @@ export class AIDataCollectorService {
     const snapshot: GameStateSnapshot = {
       timestamp: Date.now(),
       waveNumber: this.store.waveNumber(),
-      gameTimeSeconds: (Date.now() - this.currentWaveStartTime) / 1000,
+      // Time since the RUN started, not since the current wave started — the
+      // encoder normalises this against a one-hour horizon, so a per-wave value
+      // made the feature a near-constant.
+      gameTimeSeconds: (Date.now() - this.gameStartTime) / 1000,
       phase: this.store.phase() as GamePhase,
 
       player: this.getPlayerState(),
@@ -186,26 +193,44 @@ export class AIDataCollectorService {
     };
   }
 
-  /** Approximate the armor distribution expected in the current wave config. */
+  /**
+   * Armor distribution the player should prepare for.
+   *
+   * During a wave this is the wave actually running. Between waves
+   * `currentWaveConfig` is null (it is cleared once a wave resolves), and that
+   * is exactly when both the bot and the Wave Director look at this feature —
+   * so an empty value there meant the AI planned against a uniform-armor
+   * fallback for the entire build phase. Fall back to the curriculum's next
+   * template instead, which is what will actually spawn.
+   */
   private getExpectedArmorDistribution(): Record<ArmorType, number> | undefined {
-    const config = this.currentWaveConfig;
-    if (!config || !config.enemies || config.enemies.length === 0) return undefined;
+    const groups = this.currentWaveConfig?.enemies?.length
+      ? this.currentWaveConfig.enemies.map((g) => ({ type: g.type, weight: g.count }))
+      : this.upcomingTemplateGroups();
+    if (!groups || groups.length === 0) return undefined;
 
     const dist: Record<ArmorType, number> = {
       unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0,
     };
     let total = 0;
-    for (const group of config.enemies) {
+    for (const group of groups) {
       const enemyCfg = getEnemyType(group.type as EnemyTypeId);
       if (!enemyCfg?.armorType) continue;
-      dist[enemyCfg.armorType] += group.count;
-      total += group.count;
+      dist[enemyCfg.armorType] += group.weight;
+      total += group.weight;
     }
     if (total === 0) return undefined;
     for (const k of Object.keys(dist) as ArmorType[]) {
       dist[k] /= total;
     }
     return dist;
+  }
+
+  /** Enemy shares of the template the curriculum pins to the next wave. */
+  private upcomingTemplateGroups(): { type: string; weight: number }[] | undefined {
+    const template = templateObjectForWave(this.store.waveNumber() + 1);
+    if (!template) return undefined;
+    return template.enemies.map(([type, share]) => ({ type, weight: share }));
   }
 
   /**
@@ -449,6 +474,7 @@ export class AIDataCollectorService {
 
   private onGameStarted(): void {
     this.clearHistory();
+    this.gameStartTime = Date.now();
     this.currentWaveStartTime = Date.now();
   }
 
@@ -478,13 +504,21 @@ export class AIDataCollectorService {
           this.currentWaveOutcome.avgEnemyLifetimeMs = (totalLifetime / count) / timescale;
         }
 
-        // Calculate average path progress
+        // Calculate path progress metrics. The per-enemy list matters as much
+        // as the average: the training backend derives its near-miss ratio and
+        // progress spread from it, and without it a fatal wave arrives with a
+        // synthesised single-value distribution.
         if (this.enemyPathProgress.size > 0) {
+          const progressValues = Array.from(this.enemyPathProgress.values());
           let totalProgress = 0;
-          for (const progress of this.enemyPathProgress.values()) {
+          for (const progress of progressValues) {
             totalProgress += progress;
           }
-          this.currentWaveOutcome.avgPathProgressPercent = totalProgress / this.enemyPathProgress.size;
+          this.currentWaveOutcome.avgPathProgressPercent = totalProgress / progressValues.length;
+          this.currentWaveOutcome.enemyProgressValues = progressValues;
+        } else {
+          this.currentWaveOutcome.avgPathProgressPercent = 0;
+          this.currentWaveOutcome.enemyProgressValues = [];
         }
 
         // Normalize per-enemy-type lifetimes
@@ -635,12 +669,16 @@ export class AIDataCollectorService {
   }
 
   private computeTowerHash(towers: Tower[]): string {
-    // Simple hash: tower count + sum of IDs + total DPS
-    // Changes on place/sell/upgrade
+    // Cache key for the DPS profile: changes on place, sell and upgrade.
+    //
+    // Uses the real DPS function rather than `damage * fireRate`. That shortcut
+    // is 0 for beam towers (Fire keeps its damage in `damagePerSecond`) and
+    // ignores chain falloff, splash and DoT — so upgrading a Fire or Lightning
+    // tower left the hash unchanged and the profile stale.
     let hash = towers.length.toString();
     let dpsSum = 0;
     for (const t of towers) {
-      dpsSum += t.combat.damage * t.combat.fireRate;
+      dpsSum += computeTowerDPS(t);
     }
     hash += '_' + Math.round(dpsSum);
     return hash;

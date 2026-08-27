@@ -1,23 +1,32 @@
 """
-Reward Calculation — Phase 5.10 Template-Based (4 Terms)
+Reward Calculation — 4 terms.
 
-Minimal 4-term reward after the Phase 5.10 big-wurf overhaul.
-
-  DEATH:        one-shot penalty when player's lives hit 0. Scaled so
-                early-game death hurts more than late-game death.
-  DRAMA:        merged damage-zone + path-progress. Player should take
-                mild damage (1-10%) while enemies get far on the path
-                (65-90%). Overflow (>95%) is penalized.
-  SWARM_SIZE:   continuous bonus scaling with enemy count. Rewards actual
-                swarms (cap at ~2700 enemies). Small waves (<20) penalized.
+  DEATH:        one-shot penalty when the player's lives hit 0. Scaled so an
+                early-game death hurts more than a late-game one.
+  DRAMA:        merged damage-zone + path-progress. The player should take
+                mild damage (1-5% of max HP) while enemies get far along the
+                path (65-90%). Overflow (>95%) is penalised.
+  SWARM_SIZE:   continuous bonus scaling with enemy count, gated on the wave
+                actually having been survived well. Saturates at 1353 enemies
+                (SWARM_SIZE_CAP / SWARM_SIZE_SLOPE + SWARM_SMALL_THRESHOLD).
+                Waves under 20 enemies are penalised.
   PROGRESSION:  survival bonus scaling with wave number. Gated on minimal
-                damage so boring low-damage runs don't farm progression.
+                damage so boring zero-damage runs cannot farm it.
 
-Hard Constraints (Monotony, Armor-Dominance, Fairness) live in the decoder
-(server.py::_decode_action). Reward is only about the 3 user goals:
-  1. Player survives
-  2. Enemies come far + minimal damage
-  3. Large swarms with matching enemies
+What constrains the waves themselves is NOT in here:
+  - which template may run at all → the availability mask
+    (schema.get_available_template_mask): curriculum, min-wave gates,
+    capability requirements, reuse cooldown, boss cadence.
+  - how big/hard a wave may get → the decoder (server.py::_decode_action):
+    DPS ramp on count and HP, the 3-minute duration cap, the spawn-delay floor.
+
+Earlier revisions also had monotony and armor-dominance rules in the decoder;
+those were removed when the template system replaced free enemy composition,
+because a template already fixes the armor mix and the cooldown already blocks
+repeats. The reward is therefore only about the three goals:
+  1. the player survives
+  2. enemies get far, with minimal damage
+  3. large swarms of matching enemies
 """
 
 from config import (
@@ -62,9 +71,10 @@ def _death_penalty(wave_num: int, survived: bool) -> float:
 def _drama_reward(damage_pct: float, avg_progress: float) -> float:
     """Drama = damage-zone + path-progress, merged into one signal.
 
-    Phase 5.11: sweet zone tightened to 1-5% HP loss for "permanent fordernd".
-    Zero-damage waves now cost REWARD_DAMAGE_ZERO_PENALTY (−0.10) so the NN
-    has a gradient toward "at least a bit of damage every wave".
+    The sweet zone is 1-5% HP loss — "permanently demanding" without being
+    punishing. Zero-damage waves cost REWARD_DAMAGE_ZERO_PENALTY (-0.10) so the
+    net has a gradient toward "at least a little damage every wave" instead of
+    settling on trivially clearable hordes.
     """
     # Damage sub-component
     if damage_pct < DAMAGE_SWEET_MIN:
@@ -92,12 +102,12 @@ def _swarm_size_reward(total_count: int, damage_pct: float,
                         avg_progress: float, survived: bool) -> float:
     """Continuous bonus for wave size, gated on wave quality.
 
-    Phase 5.11 hotfix: ungated swarm_size got over-exploited — NN sent 2000
-    zombies knowing they'd ALL overflow, scoring +4.67 swarm vs −3.39 drama
-    for net +1.28 per wave, while the bot actually lost every wave. The gate
-    removes the bonus on waves that failed the user's goals ("player lives,
-    enemies come far with minimal damage") so the NN has to learn to hit the
-    drama-sweet first, then maximise count within that envelope.
+    Ungated, this term was heavily exploited: the net sent 2000 zombies knowing
+    they would ALL overflow, scoring +4.67 swarm against -3.39 drama for a net
+    +1.28 per wave while the bot lost every single one. The gates below remove
+    the bonus from any wave that failed the actual goals, so the net has to hit
+    the drama sweet spot first and only then maximise count inside that
+    envelope.
     """
     if total_count <= SWARM_SMALL_THRESHOLD:
         return SWARM_SMALL_PENALTY
@@ -132,8 +142,7 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
         wave_result: {
             damagePercent: float,   # 0..1, fraction of max HP lost this wave
             totalCount: int,        # enemies in the wave
-            enemies: list,          # unused in Phase 5.10 reward
-            survived: bool,         # did bot survive this wave?
+            survived: bool,         # did the bot survive this wave?
             avgProgress: float,     # 0..1, mean enemy path-progress at death
         }
         context: {

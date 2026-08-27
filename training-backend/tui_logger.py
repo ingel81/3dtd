@@ -117,12 +117,15 @@ class TUILogger:
                 "kill_time": round(wave_info.get("kill_time", 0), 2),
                 "effective_dps": round(wave_info.get("effective_dps", 0), 1),
                 "count_factor": round(wave_info.get("count_factor", 0), 3),
-                "delay_factor": round(wave_info.get("delay_factor", 0), 3),
+                "spawn_factor": round(wave_info.get("spawn_factor", 0), 3),
+                "hp_factor": round(wave_info.get("hp_factor", 0), 3),
                 "variation": round(wave_info.get("variation", 0), 3),
                 "spawn_delay": wave_info.get("spawn_delay", 0),
-                "type_probs": wave_info.get("type_probs", {}),
-                "sampled_type": wave_info.get("sampled_type", "?"),
-                "cooldown_override": wave_info.get("cooldown_override", False),
+                "health_mult": wave_info.get("health_mult", 1.0),
+                "endgame_hp_mult": wave_info.get("endgame_hp_mult", 1.0),
+                "template_id": wave_info.get("template_id", "?"),
+                "template_probs": wave_info.get("template_probs", {}),
+                "curriculum_forced": wave_info.get("curriculum_forced", False),
             })
         else:
             # Legacy format

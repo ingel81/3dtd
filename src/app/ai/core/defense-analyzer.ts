@@ -24,6 +24,9 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
  * Tower capabilities mapping
  * Maps tower types to their special capabilities
  */
+/** Ethereal armor multiplier at which a tower counts as anti-ethereal. */
+const ANTI_ETHEREAL_MIN_MULTIPLIER = 1.0;
+
 const TOWER_CAPABILITIES: Record<
   TowerTypeId,
   { antiAir?: boolean; splash?: boolean; slow?: boolean; dot?: boolean }
@@ -83,13 +86,17 @@ export function analyzeVulnerabilities(
     airDefenseGap: !capabilities.hasAntiAir,
     splashGap: !capabilities.hasSplash,
     slowGap: !capabilities.hasSlow,
+    etherealGap: !capabilities.hasAntiEthereal,
     uncoveredPathSegments: [], // Requires path data
     overallVulnerability: 0,
   };
 
-  // Calculate overall vulnerability score
+  // Calculate overall vulnerability score. The ethereal gap weighs as heavily
+  // as the air gap: both are hard walls rather than soft weaknesses — without
+  // the right damage type the wave simply cannot be killed.
   let vulnScore = 0;
   if (vulnerabilities.airDefenseGap) vulnScore += 0.3;
+  if (vulnerabilities.etherealGap) vulnScore += 0.3;
   if (vulnerabilities.splashGap) vulnScore += 0.25;
   if (vulnerabilities.slowGap) vulnScore += 0.2;
 
@@ -148,6 +155,7 @@ function detectCapabilities(
     hasSplash: false,
     hasSlow: false,
     hasDoT: false,
+    hasAntiEthereal: false,
   };
 
   for (const tower of towers) {
@@ -156,6 +164,9 @@ function detectCapabilities(
 
     if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
       capabilities.hasAntiAir = true;
+    }
+    if (isAntiEtherealTower(typeId)) {
+      capabilities.hasAntiEthereal = true;
     }
 
     if (towerCaps) {
@@ -166,6 +177,24 @@ function detectCapabilities(
   }
 
   return capabilities;
+}
+
+/** Does this tower type deal area damage? Read from the capability table. */
+export function isSplashTower(typeId: TowerTypeId): boolean {
+  return TOWER_CAPABILITIES[typeId]?.splash === true;
+}
+
+/**
+ * Ethereal armor is the one category that cannot be brute-forced: physical,
+ * pierce and fire are all at 0.15, so only magic (1.75), ice (1.5) and
+ * lightning (1.5) actually threaten ghosts and wraiths. Read the multiplier
+ * from the damage matrix rather than listing tower ids, so a new tower with a
+ * suitable damage type counts automatically.
+ */
+export function isAntiEtherealTower(typeId: TowerTypeId): boolean {
+  const cfg = TOWER_TYPES[typeId];
+  if (!cfg || cfg.attackType === 'passive') return false;
+  return armorMultipliersFor(cfg.damageType).ethereal >= ANTI_ETHEREAL_MIN_MULTIPLIER;
 }
 
 /**
@@ -291,6 +320,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
       hasSplash: false,
       hasSlow: false,
       hasDoT: false,
+      hasAntiEthereal: false,
     },
     towerDistribution: {},
     effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },

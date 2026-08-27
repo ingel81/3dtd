@@ -133,6 +133,14 @@ export interface DefenseCapabilities {
 
   /** Has towers with damage over time */
   hasDoT: boolean;
+
+  /**
+   * Has towers that hurt ethereal enemies (armor multiplier >= 1.0).
+   * Physical, pierce and fire all read 0.15 against ethereal, so a defense
+   * built purely from archers and gatlings is effectively unarmed against
+   * ghosts and wraiths no matter how much raw DPS it has.
+   */
+  hasAntiEthereal: boolean;
 }
 
 export type TowerDistribution = Record<string, TowerTypeStats>;
@@ -153,6 +161,9 @@ export interface VulnerabilityAnalysis {
 
   /** No slow towers - vulnerable to fast enemies */
   slowGap: boolean;
+
+  /** No tower deals meaningful damage to ethereal enemies */
+  etherealGap: boolean;
 
   /** Path segments not covered by any tower (indices) */
   uncoveredPathSegments: number[];
@@ -216,6 +227,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
         hasSplash: false,
         hasSlow: false,
         hasDoT: false,
+        hasAntiEthereal: false,
       },
       towerDistribution: {},
       effectiveDPSPerArmor: {
@@ -227,6 +239,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
       airDefenseGap: true,
       splashGap: true,
       slowGap: true,
+      etherealGap: true,
       uncoveredPathSegments: [],
       overallVulnerability: 1,
     },
