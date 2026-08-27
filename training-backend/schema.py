@@ -88,6 +88,9 @@ MIN_SPAWN_DELAY_MS: int = SCHEMA["decoder"]["minSpawnDelayMs"]
 DPS_RAMP_FLOOR: float = SCHEMA["decoder"]["dpsRamp"]["floor"]
 DPS_RAMP_COUNT: float = SCHEMA["decoder"]["dpsRamp"]["count"]
 DPS_RAMP_HP_MULT: float = SCHEMA["decoder"]["dpsRamp"]["hpMult"]
+FAIRNESS_HEADROOM: float = SCHEMA["decoder"]["fairness"]["headroom"]
+FAIRNESS_ENGAGEMENT_SECONDS: float = SCHEMA["decoder"]["fairness"]["engagementSeconds"]
+FAIRNESS_MIN_COUNT: int = SCHEMA["decoder"]["fairness"]["minCount"]
 
 # === ENDGAME DIFFICULTY RAMPS ===
 # Pre-computed tables so the backend applies the SAME curves the game ships.
@@ -155,6 +158,71 @@ def template_index(template_id: str) -> Optional[int]:
         if t["id"] == template_id:
             return i
     return None
+
+
+def fair_max_count(
+    template: dict[str, Any],
+    hp_mult: float,
+    spawn_delay_ms: float,
+    effective_dps_per_armor: dict[str, Any],
+) -> Optional[int]:
+    """Largest enemy count the defense can plausibly handle, or None if unbounded.
+
+    The DPS ramp scales a wave against its template's own range, so its floor is
+    relative — 10% of zombie_horde's 20-2000 span is 218 enemies, which at wave 1
+    (two archers, 50 DPS) is unkillable by an order of magnitude. This is the
+    absolute counterpart: work out the HP the defense can actually chew through
+    and allow the wave to carry FAIRNESS_HEADROOM times that much. The overshoot
+    is the leak that produces the damage the reward is asking for.
+
+    Uses armor-weighted effective DPS, not raw DPS: an archer contributes fully
+    against unarmored and almost nothing (0.15x) against ethereal, and a wave of
+    ghosts must be judged by the latter. Air and ground are read separately so a
+    defense that cannot shoot upward is not credited for a bat swarm.
+
+    Closed form, because the wave's duration itself depends on the count:
+
+        killable_hp = dps * (count * delay_s + ENGAGEMENT) * HEADROOM
+        want:  count * hp_per_enemy <= killable_hp
+        =>     count * (hp_per_enemy - dps * HEADROOM * delay_s)
+                   <= dps * HEADROOM * ENGAGEMENT
+
+    If the bracket is <= 0 the defense out-damages the spawn rate and no cap
+    applies — that is a strong defense, and the ramp stays in charge.
+    """
+    ground = (effective_dps_per_armor or {}).get("ground") or {}
+    air = (effective_dps_per_armor or {}).get("air") or {}
+
+    total_share = 0.0
+    weighted_dps = 0.0
+    weighted_hp = 0.0
+    for group in template["enemies"]:
+        enemy, share = group["type"], float(group["share"])
+        if share <= 0:
+            continue
+        armor = ENEMY_ARMOR.get(enemy, "unarmored")
+        source = air if enemy in AIR_ENEMIES else ground
+        weighted_dps += share * float(source.get(armor, 0.0) or 0.0)
+        weighted_hp += share * float(ENEMY_BASE_HP.get(enemy, 80)) * hp_mult
+        total_share += share
+
+    if total_share <= 0:
+        return None
+    dps = weighted_dps / total_share
+    hp_per_enemy = weighted_hp / total_share
+    if dps <= 0 or hp_per_enemy <= 0:
+        # No effective damage at all against this wave. The capability mask is
+        # what protects the player here; capping the count would only turn an
+        # unwinnable wave into a smaller unwinnable wave.
+        return None
+
+    delay_s = max(0.0, spawn_delay_ms) / 1000.0
+    budget = dps * FAIRNESS_HEADROOM
+    denominator = hp_per_enemy - budget * delay_s
+    if denominator <= 0:
+        return None
+
+    return max(FAIRNESS_MIN_COUNT, int(budget * FAIRNESS_ENGAGEMENT_SECONDS / denominator))
 
 
 def get_available_template_mask(

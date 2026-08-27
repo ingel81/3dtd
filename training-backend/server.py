@@ -47,6 +47,7 @@ from schema import (
     template_for_wave,
     template_index,
     endgame_hp_multiplier,
+    fair_max_count,
 )
 from model import create_model, save_model, load_model
 from reward import calculate_reward
@@ -832,6 +833,20 @@ class TrainingServer:
         endgame_hp = endgame_hp_multiplier(wave_num)
         hp_mult = round(nn_hp_mult * endgame_hp, 3)
 
+        # Fairness gate: never ship a wave the defense cannot plausibly fight.
+        # Applied after the HP multipliers so it judges the enemies as they will
+        # actually spawn, and before the duration cap so the compression below
+        # works on the final count.
+        fair_cap = fair_max_count(
+            template,
+            hp_mult,
+            spawn_delay,
+            defense.get("effectiveDPSPerArmor") or {},
+        )
+        gated = fair_cap is not None and fair_cap < total_count
+        if gated:
+            total_count = fair_cap
+
         # Wave-duration cap: compress spawn_delay if (count × spawn_delay) would exceed 3 min.
         total_duration = total_count * spawn_delay
         if total_duration > MAX_WAVE_DURATION_MS:
@@ -885,6 +900,8 @@ class TrainingServer:
             "nn_health_mult": round(nn_hp_mult, 3),
             "endgame_hp_mult": round(endgame_hp, 3),
             "curriculum_forced": forced_id is not None,
+            "fairness_capped": gated,
+            "fairness_max_count": fair_cap,
             "num_groups": len(enemies),
             "groups": enemies,
             "armor_dist": _compute_armor_dist(enemies),

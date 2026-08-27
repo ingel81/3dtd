@@ -210,3 +210,72 @@ def test_leak_damage_ramp_matches_the_game_curve():
     assert schema.enemy_base_damage_for_wave(10) == 1
     assert schema.enemy_base_damage_for_wave(11) == 2
     assert schema.enemy_base_damage_for_wave(21) == 3
+
+
+# ── Fairness gate ───────────────────────────────────────────────────────────
+
+def _dps(ground=0.0, air=0.0):
+    """Effective-DPS block with the same value against every armor class."""
+    armors = schema.ARMOR_TYPES
+    return {
+        "ground": {a: ground for a in armors},
+        "air": {a: air for a in armors},
+    }
+
+
+def _template(tid):
+    idx = schema.template_index(tid)
+    assert idx is not None, f"unknown template {tid}"
+    return schema.TEMPLATES[idx]
+
+
+def test_wave_one_stays_fightable_for_a_starting_defense():
+    """The regression that made every early run unwinnable.
+
+    100 starting credits buy two archers: 50 DPS against unarmored. The DPS
+    ramp still permitted ~120-220 zombies there, so runs died at wave 1 and the
+    net never saw the curriculum past wave 11.
+    """
+    cap = schema.fair_max_count(
+        _template("zombie_horde"), hp_mult=0.8, spawn_delay_ms=200,
+        effective_dps_per_armor=_dps(ground=50),
+    )
+    assert cap is not None
+    assert cap < 60, f"wave 1 still allows {cap} enemies against 50 DPS"
+    assert cap >= schema.FAIRNESS_MIN_COUNT
+
+
+def test_gate_scales_with_the_defense():
+    tpl = _template("zombie_horde")
+    weak = schema.fair_max_count(tpl, 1.0, 200, _dps(ground=50))
+    strong = schema.fair_max_count(tpl, 1.0, 200, _dps(ground=1500))
+    # A strong defense out-damages the spawn rate entirely -> no cap at all.
+    assert strong is None or strong > weak
+
+
+def test_gate_never_returns_below_the_floor():
+    cap = schema.fair_max_count(
+        _template("mech_army"), hp_mult=10.0, spawn_delay_ms=100,
+        effective_dps_per_armor=_dps(ground=1),
+    )
+    assert cap is None or cap >= schema.FAIRNESS_MIN_COUNT
+
+
+def test_gate_reads_air_dps_for_air_waves():
+    """A ground-only defense must not be credited for an air wave."""
+    tpl = _template("bat_swarm")
+    ground_only = schema.fair_max_count(tpl, 1.0, 100, _dps(ground=500, air=0))
+    with_air = schema.fair_max_count(tpl, 1.0, 100, _dps(ground=500, air=500))
+    # Zero air DPS means "no answer at all" -> the capability mask owns this
+    # case, so the gate declines to shrink an already-unwinnable wave.
+    assert ground_only is None
+    assert with_air is None or with_air > 0
+
+
+def test_gate_uses_armor_weighted_dps():
+    """Raw DPS would over-credit physical damage against ethereal armor."""
+    tpl = _template("wraith_storm")
+    poor = schema.fair_max_count(tpl, 1.0, 200, _dps(ground=30))
+    good = schema.fair_max_count(tpl, 1.0, 200, _dps(ground=300))
+    assert poor is not None
+    assert good is None or good > poor

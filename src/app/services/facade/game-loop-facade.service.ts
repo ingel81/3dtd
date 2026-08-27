@@ -453,10 +453,12 @@ export class GameLoopFacadeService {
       // alignment gates firing).
       tilesEngine?.towers.advanceTurretAim(gameTimeStepMs);
 
-      // Bot decision tick per sub-step (game-time)
+      // Bot decision tick per sub-step (game-time). The snapshot is passed as
+      // a thunk so it is only built on the ticks where the bot's reaction
+      // cooldown has actually elapsed.
       if (this.trainingClient.botEnabled()) {
         this.trainingClient.updateBot(
-          this.aiDataCollector.getStateSnapshot(),
+          () => this.aiDataCollector.getStateSnapshot(),
           gameTimeStepMs,
         );
       }

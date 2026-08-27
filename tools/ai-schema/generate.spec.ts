@@ -56,6 +56,9 @@ import {
   DPS_RAMP_FLOOR,
   DPS_RAMP_COUNT,
   DPS_RAMP_HP_MULT,
+  FAIRNESS_HEADROOM,
+  FAIRNESS_ENGAGEMENT_SECONDS,
+  FAIRNESS_MIN_COUNT,
 } from '../../src/app/ai/core/templates';
 import {
   WAVE_CURRICULUM,
@@ -172,6 +175,11 @@ function buildSchema() {
       maxWaveDurationMs: MAX_WAVE_DURATION_MS,
       minSpawnDelayMs: MIN_SPAWN_DELAY_MS,
       dpsRamp: { floor: DPS_RAMP_FLOOR, count: DPS_RAMP_COUNT, hpMult: DPS_RAMP_HP_MULT },
+      fairness: {
+        headroom: FAIRNESS_HEADROOM,
+        engagementSeconds: FAIRNESS_ENGAGEMENT_SECONDS,
+        minCount: FAIRNESS_MIN_COUNT,
+      },
     },
 
     difficultyRamps: buildRamps(),
