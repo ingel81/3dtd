@@ -52,8 +52,17 @@ Vor `start`:
 
 Datenquellen (keine Log-Datei tailen, die Transkripte sind riesig):
 - `GET http://localhost:3002/api/stats` — episode, avgReward, bestReward,
-  gamesPlayed, clientCount, trainingState, sweetSpotPct, gameOverRate,
-  templateUsageCounts, modelMetrics
+  gamesPlayed, clientCount, trainingState, gameOverRate, templateUsageCounts,
+  modelMetrics und die v4-Kennzahlen:
+  - `nearMissBandPct` / `avgNearMissRatio` — **Leitmetrik.** Anteil der Gegner
+    über 80 % Pfad, Ziel 0,25. Das ist die Größe, auf der DRAMA rechnet.
+  - `hpCurveError` — Abweichung der Spieler-HP von der Ziel-Zerfallskurve.
+    Positiv = Spieler zu gesund, die AI greift zu wenig an (v3-Kollaps).
+    Negativ = Runs enden zu früh.
+  - `avgDamagePct` / `damageSweetPct` — tatsächlicher HP-Verlust pro Wave.
+  - `sweetSpotPct` heißt nach dem Reward-Sweet-Spot, misst aber den **mittleren
+    Pfad-Progress** — nicht die Größe, auf der der Reward rechnet. Nicht als
+    Leitmetrik verwenden.
 - `GET http://localhost:3002/api/clients/summary` — pro Client avgReward50 /
   avgProgress50 / avgDamage50
 - `training-backend/venv/Scripts/python.exe inspect_training.py --summary`
@@ -62,9 +71,22 @@ Datenquellen (keine Log-Datei tailen, die Transkripte sind riesig):
 Bericht an den User pro Check (kurz halten):
 - Episode-Zähler + Änderung seit letztem Check
 - avgReward-Trend, bestReward
-- Game-Over-Rate, Sweet-Spot-Anteil
+- Game-Over-Rate, `nearMissBandPct`, `hpCurveError`
 - Template-Verteilung: kollabiert die AI auf wenige Templates?
 - Auffälligkeiten: Clients abgestürzt, Reward stagniert/NaN, Entropy → 0
+
+Zwei Fehlerbilder, die von außen wie ein gesunder Lauf aussehen:
+
+1. **Eingefrorene Tabs.** Chrome friert `requestAnimationFrame` in unsichtbaren
+   Tabs komplett ein. Der Status-Push läuft auf `setInterval` und meldet die
+   Clients weiter als gesund, während nichts mehr passiert. Symptom: `episode`
+   steht still, `clientStatuses` bleiben in `phase: setup` oder auf derselben
+   Wave. Ein Heartbeat-Worker treibt die Loop inzwischen auch versteckt
+   (`three-tiles-engine.ts`), aber wenn der Zähler stillsteht, ist das die
+   erste Vermutung.
+2. **Passivitäts-Kollaps.** `avgNearMissRatio` gegen 0 und `hpCurveError` klar
+   positiv heißt: die AI schickt harmlose Waves, weil Risiko sich nicht lohnt.
+   Das war das v3-Versagen; `avgReward` kann dabei *steigen*.
 
 Wenn `watch`: nach jedem Bericht ein sinnvolles Intervall wählen (Training
 bewegt sich langsam — 10-20 min sind normal) und weiter beobachten.
