@@ -264,3 +264,66 @@ Lösung des gestellten Optimierungsproblems ist.
 | G8 | **Der diskrete Kopf lernt, der kontinuierliche nicht.** `template_probs` sind klar differenziert (`wraith_storm` 0,108 … `boss_herbert` 0,0 — die AI bevorzugt Ethereal-Gegner, was gegen diese Verteidigung sinnvoll ist). Die *Faktor-Mittelwerte je Template* sind dagegen über alle 19 Templates uniform (`count` 0,38–0,47, `variation` 0,46–0,60 ≈ Initialisierung 0,5). Template-Wahl verändert die Ergebnisverteilung genug, um den flachen Reward zu überleben; Count/Delay/HP waschen sich alle zu −0,08 aus. | `templateFactors`, `template_probs` |
 | G9 | **`variation_factor` ist eine wirkungsarme Aktionsdimension.** Er jittert den Spawn-Delay um ±v bei gleichbleibendem Erwartungswert. Kein messbarer Reward-Effekt, kein Gradient — der Kopf bleibt zurecht auf der Initialisierung. Effektiv sind nur drei der vier Faktoren nutzbar. | `spawn-schedule-builder.ts:76-83` |
 | G10 | **Messlücke:** `sweetSpotPct` ist nach dem Reward-Sweet-Spot benannt, misst aber den **Pfad-Progress** (0,65–0,90). Der Damage-Anteil, an dem drei Terme hängen, wurde nie gemessen. Behoben durch `damageSweetPct` und `avgDamagePct`. | `dashboard/app.py:_calc_sweet_spot_pct` |
+
+### H. Der Befund, der alles davor relativiert: eingefrorene Tabs (2026-08-28)
+
+Beim Neustart des Laufs nach dem Reward-Umbau blieben alle vier Clients in der
+Setup-Phase stehen. Die Ursache stellte sich als gravierender heraus als der
+gesamte Reward-Befund aus Abschnitt G:
+
+**Chrome friert `requestAnimationFrame` in unsichtbaren Tabs vollständig ein.**
+Gemessen in einem Hintergrund-Tab: `document.hidden === true`, **0 rAF-Callbacks
+in 2 Sekunden**. Die Render-Loop hängt an rAF, der Bot tickt in der Loop
+(`game-loop-facade.service.ts:460`, innerhalb `gameState.update`). Ein
+Trainings-Tab, der die Sichtbarkeit verliert, wird also nicht langsamer — er
+steht.
+
+Von außen war davon nichts zu sehen. Der Status-Push läuft auf `setInterval`,
+das weiterläuft: vier eingefrorene Clients meldeten sich sekündlich als
+verbunden und gesund ans Dashboard.
+
+Konsequenzen:
+
+- **Nächtliches Training produzierte bisher nichts.** Der Lauf lief nur, solange
+  jemand die Tabs sichtbar hatte.
+- Jede bisherige Messung — auch die aus Abschnitt G — entstand unter
+  Beobachtung. Die Zahlen sind gültig, aber die Datenmenge pro Nacht war null.
+
+**Fix** (`three-tiles-engine.ts`, `workers/heartbeat.worker.ts`): Ein dedizierter
+Worker treibt die Loop, solange der Tab versteckt ist. Worker-Timer hängen nicht
+am Frame-Clock. Details:
+
+- Der Heartbeat-Pfad überspringt `render()` — nichts ist sichtbar, und die
+  GPU-Hälfte ist die teure.
+- Jeder Schritt ist auf 50 ms Wall-Clock gedeckelt. Ohne Deckel liefert ein
+  gedrosselter Tab Lücken von Sekunden; bei Timescale 75 sind 1 s Lücke
+  75 s Spielzeit in einem Schritt — genau der Substep-Stau, der früher als
+  225 Substeps/Frame und 2 FPS auffiel. Spielzeit läuft im Hintergrund also
+  langsamer als die Wall-Clock, was der richtige Tausch ist.
+- rAF und Heartbeat treiben die Welt nie gleichzeitig. Ein Tab kann einen
+  nachlaufenden Frame liefern, während er unsichtbar wird; zwei Treiber auf
+  derselben Fixed-Substep-Loop würden die Spielgeschwindigkeit verdoppeln.
+- Nur DevWorld schaltet das ein.
+
+Zusätzlich behoben: `enableBot` kehrte still zurück, wenn es vor `initialize()`
+aufgerufen wurde — genau die Reihenfolge, die ein `reload` erzeugt (gemessen:
+`[Training] Control command received: start` um 01:42:43, DevWorld-Init um
+01:42:45). Der Wunsch wird jetzt gepuffert, und ein DevWorld-Tab aktiviert
+seinen Bot selbst, statt auf einen `start`-Broadcast zu warten, den er
+möglicherweise verpasst hat.
+
+**Erste Messung nach beiden Fixes** (Episode 170, erst 1 Model-Update, also
+praktisch untrainiert) gegen den v3-Endstand (Episode 9800, 72 Updates):
+
+| Metrik | v3 | v4 |
+|---|---|---|
+| `avgProgress50` | 0,06–0,27 | **0,70–0,77** |
+| `avgDamagePct` | 0,000 | 0,124 |
+| `nearMissBandPct` | — | 35 % |
+| aktive Reward-Terme | nur `drama` | alle vier |
+| `drama`-Spanne | konstant −0,08 | −0,26 … +0,72 |
+
+Die letzte Zeile ist die entscheidende: Es existiert wieder ein Gradient. Die
+AI ist zum Startzeitpunkt deutlich zu aggressiv (`avgNearMissRatio` 0,52 gegen
+Ziel 0,25, `hpCurveError` −0,43, Game-Over-Rate 20 %) — erwartbar bei einem
+untrainierten Modell, und der Gradient zeigt in die Gegenrichtung.
