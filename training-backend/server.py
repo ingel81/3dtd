@@ -1062,11 +1062,31 @@ class TrainingServer:
             ctx.win_streak = 0
             self.waves_lost += 1
         self.waves_survived += 1 if survived else 0
+        # Player HP after the wave, as a fraction. This drives the PACING term,
+        # which replaced v3's per-wave damage band. On the game-over path
+        # `stateAfter` reports 0 lives, which is exactly right: the run ended.
+        hp_after = 1.0
+        if state_after:
+            player_after = state_after.get("player") or {}
+            if player_after.get("livesPercent") is not None:
+                hp_after = float(player_after["livesPercent"])
+            elif player_after.get("lives") is not None:
+                max_lives = float(player_after.get("maxLives") or 100) or 100.0
+                hp_after = float(player_after["lives"]) / max_lives
+        elif not survived:
+            hp_after = 0.0
+        hp_after = max(0.0, min(1.0, hp_after))
+
         wave_result = {
-            "damagePercent": damage_pct,
+            # Drama now reads the upper tail of the progress distribution.
+            # `near_miss_ratio` was already computed here and discarded; the
+            # mean it was passed over is dominated by the enemies that die
+            # early, which is precisely the part of the wave nobody watches.
+            "nearMissRatio": near_miss_ratio,
+            "avgProgress": avg_progress,
             "totalCount": int(result.get("enemiesSpawned", 0)),
             "survived": survived,
-            "avgProgress": avg_progress,
+            "hpAfter": hp_after,
         }
         context = {"wave_number": wave_num}
 

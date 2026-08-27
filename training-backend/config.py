@@ -109,49 +109,94 @@ GAMMA = 0.9
 GAE_LAMBDA = 0.95
 
 # === REWARD — Term 1: DEATH ===
-# Dying has to cost more than everything earned on the way there. With the old
-# -3.5 cap, a policy that ground the player down over 30 waves collected ~+3 per
-# wave and paid a single -3.5 for the kill — a large net profit. Discounting
-# (GAMMA) now spreads that cost backward, and the magnitude is set so the
-# discounted sum dominates the accumulated per-wave gain.
-REWARD_GAME_OVER_PENALTY = -3.0   # multiplied by early-wave scaling in reward._death_penalty
-REWARD_GAME_OVER_CAP = -30.0      # absolute floor for the death term
+# === REWARD v4 ================================================================
+#
+# v3 expressed the design goal as "the player should lose 1-5% of max HP every
+# wave". Measured over ~9900 episodes that turned out to be unreachable and
+# self-contradictory, and the agent correctly responded by doing nothing:
+#
+#   - Leak damage is `1 + floor((w-1)/10)` HP against 100 max HP, so damage is
+#     QUANTISED. From wave 51 a single leak costs 6% and zero leaks cost 0%.
+#     No value inside [1%, 5%] exists. Three of the four terms gated on that
+#     band, so from W51 they were structurally dead.
+#   - The player never heals (`healBase()` has only test callers, no research
+#     restores lives) and the game has no win condition. 100 HP is the budget
+#     for the entire run, so "1-5% every wave" IS death within 100 waves — the
+#     very thing the DEATH term punished with -15..-30.
+#   - Drama was read off `avg_progress`, the MEAN path progress. Drama lives in
+#     the upper tail: 270 rats of which 5 reach 95% is tense, and the mean
+#     reports 0.1. `near_miss_ratio` was already computed and thrown away.
+#
+# v4 therefore splits the two questions that v3 conflated:
+#
+#   DRAMA  — "was this wave exciting?"  Measured per wave on near_miss_ratio,
+#            a fine-grained (step 1/count) upper-tail statistic.
+#   PACING — "is the run the right length?"  Measured against an HP decay curve
+#            across the whole run, where a 6-HP leak is a small step instead of
+#            a jump across a band.
+#
+# === REWARD — Term 1: DEATH ===
+# Relative to the target curve, not absolute. The run is SUPPOSED to end: an
+# endless game with no healing has exactly one ending. Dying on schedule is
+# free; dying at wave 10 is not. This removes v3's contradiction, where the
+# reward's own optimum was an outcome the reward also punished.
+TARGET_RUN_WAVES = 80             # the HP curve is drawn to hit zero here
+# Cost of dying at wave 0, falling quadratically to 0.0 at TARGET_RUN_WAVES.
+# Sized so a death outweighs the waves inside the discount horizon that set it
+# up (1/(1-GAMMA) ~ 10 waves at ~1.3 each) — the property v3's -3.5 cap lacked,
+# which made "bleed them out, then cash in" the winning line.
+REWARD_DEATH_MAX = -40.0
 
-# === REWARD — Term 2: DRAMA (damage + path-progress merged) ===
-# Sweet zone: 1-5% HP loss per wave = "permanently demanding".
-DAMAGE_SWEET_MIN = 0.01           # >= 1% HP lost = into sweet zone
-DAMAGE_SWEET_MAX = 0.05           # <= 5% = peak
-DAMAGE_HARD_THRESHOLD = 0.20      # damage > 20% starts linear penalty
-REWARD_DAMAGE_SWEET_PEAK = 0.40   # peak reward for exact targeting
-REWARD_DAMAGE_ZERO_PENALTY = -0.10  # small penalty below SWEET_MIN (boring wave)
-REWARD_DAMAGE_HARD_SLOPE = 3.0    # penalty factor per full HP overrun
-PROGRESS_NEAR_MISS_LOW = 0.65     # enemies reached 65-90% path = near-miss sweet
-PROGRESS_NEAR_MISS_HIGH = 0.90
-PROGRESS_OVERFLOW_THRESHOLD = 0.95
-REWARD_NEAR_MISS_PEAK = 0.50
-REWARD_OVERFLOW = -0.80
-REWARD_PROGRESS_SLOPE = 0.30      # mild positive for intermediate progress
+# === REWARD — Term 2: DRAMA (near-miss distribution) ===
+# Target a BAND of the fraction of enemies that get past 80% of the path.
+# 0.25 means: a quarter of the wave nearly makes it. Zero is a walkover, 1.0 is
+# a breach. A Gaussian, not a step: every wave gets a gradient telling it which
+# way to move, which is what v3's cliff-shaped gates destroyed.
+NEAR_MISS_TARGET = 0.25
+NEAR_MISS_SIGMA = 0.18
+REWARD_DRAMA_PEAK = 1.00          # value at exactly NEAR_MISS_TARGET
+REWARD_DRAMA_IDLE = -0.30         # value as near_miss_ratio -> far from target
+# A ratio is scale-free, so 1 leaker out of 4 would score as well as 25 out of
+# 100. Damp small waves so the band cannot be farmed with a handful of enemies.
+# Boss templates start at countRange [10,100], so full credit at 40 is reachable
+# for every template in the set.
+DRAMA_FULL_COUNT = 40
 
-# === REWARD — Term 3: SWARM_SIZE ===
-# Phase 5.14 dampening: earlier values (slope=0.003, cap=8.0) made big
-# unarmored swarms net +1-8 reward, dwarfing the sweet-spot peak (+0.4) and
-# the progression cap (+0.5). The net exploited the path of least resistance
-# (huge zombie waves the bot trivially clears → 0 damage → max swarm bonus,
-# 77% zero-damage waves observed). Halved slope + 4x lower cap puts swarm
-# reward back in line so the sweet spot is the attractive target again.
-# Cap lowered from 2.0: at five times the sweet-damage peak (+0.4), swarm size
-# WAS the objective rather than a tiebreaker within it. A wave of 1350 weak
-# enemies that all died at 20% of the path scored +2.0 at zero risk — safer and
-# richer than actually hitting the 1-5% damage band. Size should now break ties
-# inside the drama envelope, not replace it.
+# === REWARD — Term 3: PACING (HP decay curve) ===
+# Where the player's HP should be by now, and how sharply we insist on it.
+# At 100 HP and TARGET_RUN_WAVES=80 the curve asks for ~1.25 HP per wave, which
+# past W51 means one leak every four to five waves — coarse, but steerable via
+# count and spawn delay, unlike the old per-wave band.
+PACING_SIGMA = 0.18               # in HP fraction; ~18 HP of tolerance
+# Magnitude of the PENALTY for being off the curve; 0 when exactly on it.
+# Deliberately not a bonus: paying for being on schedule meant a policy that
+# sent nothing still scored positive whenever the player happened to sit on the
+# curve, which is the v3 collapse re-entering through a different door.
+REWARD_PACING_PEAK = 0.60
+
+# === REWARD — Term 4: SWARM_SIZE ===
+# Unchanged in spirit: a tiebreaker inside the drama envelope, never the goal.
+# Now gated on drama being positive rather than on the dead damage band.
 SWARM_SMALL_THRESHOLD = 20        # below this = tiny wave (penalty)
 SWARM_SMALL_PENALTY = -0.10
-SWARM_SIZE_SLOPE = 0.0004         # saturates around 1270 enemies
-SWARM_SIZE_CAP = 0.5              # max swarm bonus
+SWARM_SIZE_SLOPE = 0.0004
+SWARM_SIZE_CAP = 0.30             # below the drama peak by design
 
-# === REWARD — Term 4: PROGRESSION ===
-PROGRESSION_SLOPE = 0.02          # +0.02 per wave_num
-PROGRESSION_CAP = 0.5             # plateau at wave 25+
+# === OVERFLOW ===
+# Everyone reached the base. That is a breach, not a near-miss, whatever the
+# near-miss ratio says about it.
+PROGRESS_OVERFLOW_THRESHOLD = 0.95
+REWARD_OVERFLOW = -0.80
+
+# === Damage bands — DISPLAY ONLY as of v4 ===
+# No reward term gates on these any more. The dashboard still buckets waves by
+# them (`damageSweetPct`, the damage-zone histogram) because "how much HP did
+# that wave actually cost" stays the number a human wants to see.
+DAMAGE_SWEET_MIN = 0.01
+DAMAGE_SWEET_MAX = 0.05
+DAMAGE_HARD_THRESHOLD = 0.20
+PROGRESS_NEAR_MISS_LOW = 0.65     # still used by the progress histogram
+PROGRESS_NEAR_MISS_HIGH = 0.90
 
 # === BOT DISTRIBUTION (client-side selection weight) ===
 BOT_WEIGHTS = {"strategist": 1.0}
