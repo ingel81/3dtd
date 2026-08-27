@@ -7,6 +7,7 @@
  */
 
 import { BaseStrategy } from '../tower-strategy.interface';
+import { requiredUpgradeTier } from '../../../../configs/tower-types.config';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction } from '../../bots/tower-bot.interface';
 import { GameStateManager } from '../../../../managers/game-state.manager';
@@ -70,12 +71,13 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
     const maxTier = state.research?.maxUpgradeTier ?? 1;
     const affordable = upgrades.filter(u => {
       if (closest.getNextUpgradeCost(u.id) > state.player.credits) return false;
-      // Tier-Gate: T2 needs Advanced Weaponry, T3 needs Master Engineering
-      // research-slots (Research Center) is always allowed
+      // Tier gate, using the same band rule the engine enforces. The bot used
+      // to carry a much stricter local copy (tier 2 already at level 1, tier 3
+      // at level 2, nothing above that), so it declined upgrades the engine
+      // would have accepted and never reached tiers 4 and 5 at all.
+      // research-slots (Research Center) is exempt.
       if (u.id !== 'research-slots') {
-        const currentLevel = closest.getUpgradeLevel(u.id);
-        const requiredTier = currentLevel >= 2 ? 3 : currentLevel >= 1 ? 2 : 1;
-        if (maxTier < requiredTier) return false;
+        if (maxTier < requiredUpgradeTier(closest.getUpgradeLevel(u.id))) return false;
       }
       return true;
     });

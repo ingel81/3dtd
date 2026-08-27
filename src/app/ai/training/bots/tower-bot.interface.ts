@@ -97,13 +97,16 @@ export interface ITowerBot {
 }
 
 /**
- * All combat towers — Research Center is NOT a combat tower and excluded by
- * base-tower-bot.ts (attackType === 'passive'). Research is the actual gate.
- * Skill-level differences come from reactionTimeMs, mistakeRate, maxTowers,
- * adaptsToEnemies, plansAhead — not knownTowerTypes.
+ * All combat towers. The Research Center is not one and is filtered out by
+ * `attackType === 'passive'`; research unlocks are the actual gate on what the
+ * bot can build. Skill levels differ in reaction time and tower cap, not in
+ * which towers they know about.
  */
 const ALL_COMBAT_TOWERS: TowerTypeId[] = [
   'archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
+  // Lightning was missing here, so the bot could never build it even after
+  // researching storm-mastery — and the AI therefore never saw it played.
+  'lightning',
 ];
 
 /**

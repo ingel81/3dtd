@@ -13,6 +13,7 @@ import { OsmStreetService } from '../../../services/location/osm-street.service'
 
 // Strategy imports
 import { AntiAirPlacementStrategy } from '../strategies/placement/anti-air-placement.strategy';
+import { AntiEtherealPlacementStrategy } from '../strategies/placement/anti-ethereal-placement.strategy';
 import { SplashDefensePlacementStrategy } from '../strategies/placement/splash-defense-placement.strategy';
 import { CoverageFillStrategy } from '../strategies/placement/coverage-fill.strategy';
 import { DistributedPlacementStrategy } from '../strategies/placement/distributed-placement.strategy';
@@ -88,6 +89,7 @@ export class StrategyBotFactory {
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
+          new AntiEtherealPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
           new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
@@ -100,6 +102,7 @@ export class StrategyBotFactory {
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
+          new AntiEtherealPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
           new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
@@ -113,6 +116,7 @@ export class StrategyBotFactory {
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
+          new AntiEtherealPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
           new NearSpawnUpgradeStrategy(this.gameState, this.osmService),

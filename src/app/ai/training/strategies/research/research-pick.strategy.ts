@@ -57,6 +57,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'toxic-compounds',        // W9+
       'fire-alchemy',           // W10+
       'advanced-weaponry',      // W11-15 — T2 upgrades
+      'storm-mastery',          // W12+ — Lightning: chain, anti-air, anti-ethereal
       'master-engineering',     // W15-18 — T3 upgrades
       'advanced-engineering',   // W19-23 — T4 upgrades (L16-20)
       'transcendent-tech',      // W24-30 — T5 upgrades (L21-25)
@@ -65,7 +66,7 @@ export class ResearchPickStrategy extends BaseStrategy {
       'gatling-tech', 'ice-magic', 'tentacle-biology',
       'siege-engineering', 'rocketry', 'aa-retrofit',
       'arcane-studies', 'toxic-compounds', 'fire-alchemy',
-      'advanced-weaponry', 'master-engineering',
+      'advanced-weaponry', 'storm-mastery', 'master-engineering',
       'advanced-engineering', 'transcendent-tech',
     ],
   };
@@ -183,11 +184,22 @@ export class ResearchPickStrategy extends BaseStrategy {
     });
   }
 
-  /** True iff the bot already has any anti-air capability researched. */
+  /**
+   * Does the defense already have an answer to air?
+   *
+   * Prefers the analysed capability, which accounts for what is actually built
+   * and can reach. Falls back to unlock flags across every air-capable tower —
+   * the old check looked only at `rocket`, so a defense full of archers (which
+   * do target air) still read as "no anti-air" and kept buying rocketry.
+   */
   private hasAntiAirCapability(state: GameStateSnapshot): boolean {
+    if (state.defense?.capabilities) return state.defense.capabilities.hasAntiAir;
     const r = state.research;
     if (!r) return false;
-    return !!(r.towerUnlocked?.['rocket'] || r.airTargetingUnlocked);
+    if (r.airTargetingUnlocked) return true;
+    return (Object.keys(TOWER_TYPES) as TowerTypeId[]).some(
+      (id) => TOWER_TYPES[id].canTargetAir && r.towerUnlocked?.[id],
+    );
   }
 
   private scoreEffect(
