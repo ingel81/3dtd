@@ -107,6 +107,8 @@ export class TrainingClientService {
   // === BOT STATE ===
   private currentBot: ITowerBot | null = null;
   private botFactory!: StrategyBotFactory;
+  /** enableBot() called before initialize(); applied as soon as it runs. */
+  private pendingBotSkill: BotSkillLevel | null = null;
 
   // === EXTERNAL DEPENDENCIES (set via initialize()) ===
   private readonly store = inject(TowerDefenseStore);
@@ -148,6 +150,12 @@ export class TrainingClientService {
       deps.gameState,
       deps.osmService
     );
+
+    if (this.pendingBotSkill) {
+      const skill = this.pendingBotSkill;
+      this.pendingBotSkill = null;
+      this.enableBot(skill);
+    }
   }
 
   /**
@@ -163,7 +171,14 @@ export class TrainingClientService {
    * Enable StrategyBot for automated training
    */
   enableBot(skillLevel: BotSkillLevel): void {
-    if (!this.botFactory) return;
+    if (!this.botFactory) {
+      // `initialize()` has not run yet — the tab is still building its engine.
+      // Remember the request rather than dropping it. Returning silently here
+      // is what left four reloaded clients connected, pushing healthy status to
+      // the dashboard, and idle in setup indefinitely.
+      this.pendingBotSkill = skillLevel;
+      return;
+    }
     this.currentBot = this.botFactory.createBot(
       skillLevel,
       this.botAutoMode() // autoStartWaves
