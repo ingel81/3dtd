@@ -1,7 +1,7 @@
 # Handover: Training-Backend Refresh (From-Scratch-Retraining)
 
 **Branch:** `feat/training-backend-refresh`
-**Stand:** 2026-08-27 — in Arbeit
+**Stand:** 2026-08-27 — Trainingslauf aktiv
 
 Ziel: Das Training-Backend auf den aktuellen Spielstand bringen, damit ein
 From-Scratch-Trainingslauf überhaupt sinnvolle Gradienten bekommt. Ausgangslage
@@ -12,6 +12,26 @@ Vollständiger Analysebefund mit Zeilenreferenzen: siehe Abschnitt
 [Befunde](#befunde) unten.
 
 ---
+
+## Was sich beim Umsetzen als der eigentliche Kern herausstellte
+
+Die ursprüngliche Analyse (Drift, Schema, Bot, DevWorld) war richtig, aber
+nicht der Grund, warum das Training nichts taugte. Zwei Reviews und der
+Messbetrieb haben drei tiefere Ursachen freigelegt:
+
+1. **Die Reward-Funktion machte es optimal, den Spieler zu töten.** Der Spieler
+   heilt nie (`healBase()` hat keinen Produktivaufruf), das Wave-Optimum
+   verlangt aber 1-5 % HP-Verlust — nach ~33 Waves ist er konstruktionsbedingt
+   tot. Der Tod kostete einmalig −3,5, der Weg dorthin brachte ~+3 pro Wave.
+   „Ausbluten und erledigen" schlug jede nachhaltige Strategie.
+2. **Waves wurden isoliert bewertet.** Ein Tod in Wave 11 entsteht aus den
+   Entscheidungen in Wave 8-10; keine davon wurde dafür belangt. Der Value-Head
+   war kein Value-Head, sondern ein Reward-Prediktor.
+3. **Das Fairness-Gate rechnete zweimal falsch.** Erst in Schaden statt in
+   Tötungen (ein Turm trifft ein Ziel pro Schuss und verwirft den Überschuss),
+   dann mit einer festen Feuerzeit von 30 s statt der Zeit, die ein Gegner
+   tatsächlich in Reichweite ist. Beides ließ Schwärme durch, die rechnerisch
+   trivial aussahen.
 
 ## Getroffene Grundsatzentscheidungen
 
@@ -33,90 +53,98 @@ Vollständiger Analysebefund mit Zeilenreferenzen: siehe Abschnitt
 
 ## Phasen
 
-### P0 — Training-Korrektheit
-Ohne diese Fixes trainiert der Lauf auf falschen Signalen.
+### P0 — Training-Korrektheit — **erledigt**
 
-- [ ] `survived` aus `outcome.playerSurvived` lesen statt aus dem nicht
-      existierenden `outcome.gameOver` (`server.py:856`).
-- [ ] Frontend sendet auch auf dem `game:over`-Pfad `stateAfter`
-      (`training-client.service.ts:425-437`).
-- [ ] `enemyProgressValues` im Game-Over-Finalize setzen
-      (`ai-data-collector.service.ts:455-513`).
-- [ ] Curriculum-Forcing in die Maske ziehen: bis W30 Maske = genau ein Template;
-      Decoder-Override entfällt und wird zum Assert.
-- [ ] Checkpoint um Optimizer-State, Episode-Zähler und Reward-Normalizer
-      erweitern; Resume nutzt sie.
-- [ ] `transitions` korrekt konsumieren statt die Liste komplett zu leeren
-      (`trainer.py:84,185`).
-- [ ] `win_streak` aus dem Wave-Ergebnis ableiten (Feature [34] ist sonst konstant 0).
-- [ ] `GAMMA` entweder anwenden oder als bewusst ungenutzt dokumentieren.
-- [ ] Längen-Assert auf den State-Vektor statt stiller Trunkierung
-      (`server.py:721`).
+- [x] `survived` aus `outcome.playerSurvived` statt aus dem nicht existierenden
+      `outcome.gameOver`. Der DEATH-Term hatte deshalb **nie** gefeuert.
+- [x] Frontend sendet `stateAfter` auch auf dem `game:over`-Pfad.
+- [x] `enemyProgressValues` im Game-Over-Finalize gesetzt.
+- [x] Curriculum-Forcing sitzt in der Maske: bis W30 genau ein Template, damit
+      die gesampelte Aktion die gelieferte Wave IST. Der Decoder-Override
+      trainierte den Template-Head zuvor auf nie gespielte Aktionen.
+- [x] Checkpoint trägt Optimizer-State, Episode und Reward-Statistik.
+- [x] `transitions` verbrauchen die ältesten statt die Liste zu leeren.
+- [x] `win_streak` aus dem Wave-Ergebnis abgeleitet.
+- [x] Discounting ist da (GAMMA 0.9 + GAE), nicht mehr nur ein toter Parameter.
+- [x] Längen-Assert statt stiller Trunkierung.
 
-### P1 — Content-Sync via SSOT
-- [ ] Generator `tools/ai-schema/generate.spec.ts` → `training-backend/generated/ai-schema.json`
-      (Enemies inkl. HP/Armor/Air-Flag, Templates, Curriculum-Sequenz, Decoder-Konstanten).
-- [ ] `npm run ai-schema` in `package.json`; Generator läuft mit `npm test` mit.
-- [ ] `config.py`, `templates.py`, `wave_curriculum.py` lesen die JSON.
-- [ ] `golem_squad` bekommt ein echtes `minWave` (statt 999) und wird Slot 18.
-- [ ] `zombie_horde`-Mix vereinheitlichen; `zombie-v2`-Anteil in High-Volume-
-      Templates niedrig halten (Perf-Risiko laut TODO.md:276-285).
-- [ ] `endgameHpMultiplier` und `enemyBaseDamageForWave` ins Backend spiegeln und
-      im Decoder anwenden, damit Training und Spiel dieselbe HP-/Leak-Kurve sehen.
-- [ ] Rundungs-Parität bei `spawn_delay` (`Math.round` vs. `int()`).
+### P1 — Content-Sync via SSOT — **erledigt**
+- [x] Generator `tools/ai-schema/generate.spec.ts` → `training-backend/generated/ai-schema.json`.
+- [x] `npm run ai-schema`; läuft mit `npm test` mit, eine stale JSON zeigt sich als dirty tree.
+- [x] `templates.py`, `wave_curriculum.py` und die Enemy-Tabellen in `config.py`
+      **gelöscht** — Python liest nur noch die generierte JSON.
+- [x] `golem_squad` mit `minWave: 14` statt 999.
+- [x] `zombie_horde` auf 90 % `zombie` / 10 % `zombie-v2` (Perf-Risiko bei Mega-Hordes).
+- [x] `endgameHpMultiplier` im Backend-Decoder angewandt.
+- [x] Rundungs-Parität bei `spawn_delay`.
 
-### P2 — Encoder-Erweiterung (156 → 162)
-- [ ] `zombie-v2` + `stone-golem` in Enemy-Order, Armor-Map und Threat-Rating
-      (beide Seiten) → Types-History 16 → 18.
-- [ ] `lightning` als 10. Tower (Counts, Avg-Level, Unlock-Flags) und 8.
-      Damage-Type → +1 je Block.
-- [ ] `maxUpgradeTier / 5` statt `/ 3`.
-- [ ] Episodenfortschritt gegen `EPISODE_LENGTH` statt `/ 20`.
-- [ ] History-Padding-Bug (negative Indizes bei < 5 Einträgen).
-- [ ] `gameTimeSeconds` = Zeit seit Spielstart, nicht seit Wave-Start.
-- [ ] `expectedArmorDistribution` in der Planungsphase aus dem Curriculum-Template
-      ableiten statt Uniform-Fallback.
-- [ ] `computeTowerHash` über `computeTowerDPSFromLevels` statt `damage * fireRate`.
+### P2 — Encoder-Erweiterung — **erledigt** (156 → 203, Schema v3)
+- [x] `zombie-v2` + `stone-golem` in Enemy-Order, Armor-Map und Threat-Rating.
+- [x] `lightning` als 10. Tower und 8. Damage-Type.
+- [x] `maxUpgradeTier / 5`; Episodenfortschritt gegen `EPISODE_LENGTH`.
+- [x] `gameTimeSeconds` ab Spielstart statt ab Wave-Start.
+- [x] `expectedArmorDistribution` aus dem Curriculum-Template statt Uniform-Fallback.
+- [x] `computeTowerHash` über die echte DPS-Funktion.
+- [x] Wave-Kontext (Maske + Ranges + Fairness-Headroom) und AoE-Anteil ergänzt.
+- Nicht gemacht: der „History-Padding-Bug" war ein Fehlalarm — beide Seiten
+  fangen den negativen Index ab und padden korrekt links.
 
-### P3 — Bot
-- [ ] `lightning` in `ALL_COMBAT_TOWERS`; `storm-mastery` in die Research-Listen.
-- [ ] `etherealGap` in `defense-analyzer` + Anti-Ethereal-Placement-Strategie
-      (Curriculum erzwingt W13 `ghost_surge`).
-- [ ] `getTowerValue` über `computeTowerDPSFromLevels`, damit Beam (`fire`) und
-      Chain (`lightning`) nicht mit 0 bewertet werden.
-- [ ] Anti-Air-Auswahl nach effektiver Anti-Air-DPS statt `damage * fireRate / cost`.
-- [ ] Splash-Auswahl aus `TOWER_CAPABILITIES` statt hardcodierter `cannon`/`rocket`-Liste.
-- [ ] Upgrade-Tier-Mapping bis 5.
-- [ ] `hasAntiAirCapability` generalisieren (aktuell nur `rocket`).
-- [ ] Toten Auswahl-Code in `base-tower-bot.ts:98-231` entfernen oder aktivieren.
+### P3 — Bot — **erledigt**
+- [x] `lightning` in `ALL_COMBAT_TOWERS`, `storm-mastery` in den Research-Listen.
+- [x] `etherealGap` + `AntiEtherealPlacementStrategy`.
+- [x] Tower-Bewertung über `computeTowerDPSFromLevels` (Beam/Chain zählten mit 0).
+- [x] Anti-Air und Splash nach Wirksamkeit statt hartkodierter Liste.
+- [x] Upgrade-Tier-Regel geteilt (`requiredUpgradeTier`) und bis Tier 5.
+- [x] Toter Auswahl-Code entfernt.
+- [x] `maxTowers` 300 → 80 und Upgrade-Strategie über 8 statt 1 Tower — der Bot
+      baute 298 Tower und drückte damit den Sub-Step-Loop auf 2 FPS.
 
-### P4 — DevWorld trainingstauglich
-- [ ] `getHeightAtLocal` auf die Mesh-Auflösung ausrichten, damit Grundwahrheit
-      und GPU-Cubemap-Blocker übereinstimmen.
-- [ ] Straßen und Terrain-Skirt aus dem LOS-Blocker-Set nehmen bzw. in beiden
-      Pfaden gleich behandeln.
-- [ ] Alle generierten Spawn-Punkte übernehmen statt nur `generatedSpawns[0]`.
-- [ ] `DevTerrainProvider.dispose()` beim Engine-Dispose aufrufen (Worker-Leak).
-- [ ] `onDevWorldRegenerated` re-seedet die WaveManager-Spawns/Pfade.
-- [ ] `areTilesVisible()` in DevWorld korrekt `false`.
+### P4 — DevWorld — **erledigt**
+- [x] Höhenabfragen auf die Mesh-Auflösung ausgerichtet (Grundwahrheit vs. LOS-Blocker).
+- [x] Straßen und Skirt über `userData.losTransparent` aus dem Cube-Render.
+- [x] `dispose()` beim Engine-Teardown (Worker-Leak).
+- [x] `onDevWorldRegenerated` re-seedet die Wave-Pipeline.
+- [x] `areTilesVisible()` korrekt.
+- Bewusst **nicht** gemacht: alle vier Spawns übernehmen. Der Realwelt-Pfad
+  erzeugt ebenfalls genau einen; die vier im Generator sind Vorarbeit für einen
+  späteren Multi-Lane-Modus. Vier Routen gegen dasselbe Tower-Budget wäre ein
+  anderes Spiel als das ausgelieferte.
 
-### P5 — Infrastruktur
-- [ ] `--fresh`-Flag in `server.py` (Checkpoints archivieren statt manuell verschieben).
-- [ ] `export-ai` auf das höchste vorhandene Checkpoint zeigen lassen
-      (`checkpoint_latest.pt` existiert nicht).
-- [ ] `pytest` in `requirements.txt`; Tests darauf umstellen.
-- [ ] Key-Drift in `tui_logger.py` und `dashboard/app.py` beheben
-      (`delay_factor`, `type_probs`, `sampled_type`, `cooldown_override`).
-- [ ] Doppelte `PPOTrainer`-Instanziierung bei Resume.
-- [ ] Tote Imports und `ExperienceBuffer` entfernen.
+### P5 — Infrastruktur — **erledigt**
+- [x] `--fresh` in `server.py` und `manage_server.py` (archiviert, löscht nicht).
+- [x] `checkpoint_latest.pt` wird geschrieben — `export-ai` lief vorher immer auf Fehler.
+- [x] `pytest` in `requirements.txt`, Tests umgestellt und erweitert.
+- [x] Key-Drift in `tui_logger.py` und `dashboard/app.py`.
+- [x] Doppelte `PPOTrainer`-Instanziierung, tote Imports, `ExperienceBuffer`.
 
-### P6 — Dokumentation
-Alle unter [Doku-Fehler](#f-doku-fehler) gelisteten Punkte.
+### P6 — Dokumentation — **erledigt**
+Alle unter [Doku-Fehler](#f-doku-fehler) gelisteten Punkte korrigiert.
 
 ### P7 — Trainingslauf
 `/training fresh` — Backend + Dashboard + Dev-Server + N sichtbare Chrome-Tabs
 auf `?devworld`, headless (Rendering aus), Timescale 75. Beobachtung über
 `http://localhost:3002`.
+
+### P8 — RL-Umbau (aus zwei Reviews) — **erledigt**
+
+- [x] Trajektorien pro Client, discounted Returns + GAE, `done`-Flag.
+- [x] Death-Penalty −3,5 → −30, dominiert den Run der ihn verursacht hat.
+- [x] Swarm und Progression nur noch im 1-5 %-Band; Swarm zusätzlich an
+      Mindest-Progress gekoppelt. Swarm-Cap 2,0 → 0,5.
+- [x] Batch 16 → 128 mit Minibatches, KL-Early-Stop, Advantages einmal
+      standardisiert, Reward-Normalisierung nur skalierend und einmalig beim
+      Einsammeln (vorher rechnete GAE roh gegen skalierte Values — der Critic
+      war damit wirkungslos).
+- [x] Entropie nur auf dem Template-Head, `log_std` geklemmt und unterhalb der
+      Grenze initialisiert.
+- [x] Deterministische Evaluation alle 25 Runs, getrennt ausgewiesen.
+- [x] Fairness-Gate in Kills/s statt Schaden/s, Feuerzeit aus Gegnergeschwindigkeit.
+
+### Offene Punkte
+
+- [ ] Wave 1 bleibt die Schwachstelle — dort sterben noch die meisten Runs.
+- [ ] Zielwerte festzurren, sobald der Lauf stabil ist (siehe Abnahmekriterien).
+- [ ] ONNX exportieren und im Browser gegen den Backend-freien Pfad prüfen.
 
 ---
 
