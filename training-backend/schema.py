@@ -67,6 +67,7 @@ _ENEMIES: list[dict[str, Any]] = SCHEMA["enemies"]
 ENEMY_BASE_HP: dict[str, float] = {e["id"]: e["baseHp"] for e in _ENEMIES}
 ENEMY_ARMOR: dict[str, str] = {e["id"]: e["armor"] for e in _ENEMIES}
 ENEMY_THREAT: dict[str, float] = {e["id"]: e["threat"] for e in _ENEMIES}
+ENEMY_BASE_SPEED: dict[str, float] = {e["id"]: e["baseSpeed"] for e in _ENEMIES}
 AIR_ENEMIES: set[str] = {e["id"] for e in _ENEMIES if e["isAir"]}
 ETHEREAL_ENEMIES: set[str] = {e["id"] for e in _ENEMIES if e["armor"] == "ethereal"}
 
@@ -90,7 +91,9 @@ DPS_RAMP_FLOOR: float = SCHEMA["decoder"]["dpsRamp"]["floor"]
 DPS_RAMP_COUNT: float = SCHEMA["decoder"]["dpsRamp"]["count"]
 DPS_RAMP_HP_MULT: float = SCHEMA["decoder"]["dpsRamp"]["hpMult"]
 FAIRNESS_HEADROOM: float = SCHEMA["decoder"]["fairness"]["headroom"]
-FAIRNESS_ENGAGEMENT_SECONDS: float = SCHEMA["decoder"]["fairness"]["engagementSeconds"]
+FAIRNESS_ENGAGEMENT_REACH_M: float = SCHEMA["decoder"]["fairness"]["engagementReachM"]
+FAIRNESS_ENGAGEMENT_MIN_S: float = SCHEMA["decoder"]["fairness"]["engagementMinSeconds"]
+FAIRNESS_ENGAGEMENT_MAX_S: float = SCHEMA["decoder"]["fairness"]["engagementMaxSeconds"]
 FAIRNESS_MIN_COUNT: int = SCHEMA["decoder"]["fairness"]["minCount"]
 
 # === ENDGAME DIFFICULTY RAMPS ===
@@ -198,6 +201,7 @@ def fair_max_count(
     weighted_dps = 0.0
     weighted_hp = 0.0
     weighted_throughput = 0.0
+    weighted_speed = 0.0
     for group in template["enemies"]:
         enemy, share = group["type"], float(group["share"])
         if share <= 0:
@@ -209,6 +213,7 @@ def fair_max_count(
             throughput_src.get("air" if is_air else "ground", 0.0) or 0.0
         )
         weighted_hp += share * float(ENEMY_BASE_HP.get(enemy, 80)) * hp_mult
+        weighted_speed += share * max(0.1, float(ENEMY_BASE_SPEED.get(enemy, 5)))
         total_share += share
 
     if total_share <= 0:
@@ -232,12 +237,22 @@ def fair_max_count(
     # Closed form, since the wave's duration depends on the count:
     #   killable = kills_per_second * (count * delay_s + ENGAGEMENT) * HEADROOM
     #   want:  count <= killable
+    # Seconds an enemy actually spends under fire, from its own speed. Fast
+    # swarms give the defense far less time than the wave's nominal duration
+    # suggests — a rat at 10 m/s crosses a 60 m engagement envelope in six
+    # seconds, not the thirty a flat allowance assumed.
+    speed = weighted_speed / total_share
+    engagement_seconds = min(
+        FAIRNESS_ENGAGEMENT_MAX_S,
+        max(FAIRNESS_ENGAGEMENT_MIN_S, FAIRNESS_ENGAGEMENT_REACH_M / speed),
+    )
+
     budget = kills_per_second * FAIRNESS_HEADROOM
     denominator = 1.0 - budget * (max(0.0, spawn_delay_ms) / 1000.0)
     if denominator <= 0:
         return None
 
-    return max(FAIRNESS_MIN_COUNT, int(budget * FAIRNESS_ENGAGEMENT_SECONDS / denominator))
+    return max(FAIRNESS_MIN_COUNT, int(budget * engagement_seconds / denominator))
 
 
 def build_wave_context(

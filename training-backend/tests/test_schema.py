@@ -301,7 +301,7 @@ def test_rat_tide_is_capped_by_fire_rate_not_damage():
         kill_throughput=_throughput(ground=2.0),
     )
     assert cap is not None, "a fire-rate-limited defense must still get a cap"
-    assert cap < 300, f"gate still allows {cap} rats against 2 kills/sec"
+    assert cap < 60, f"gate still allows {cap} rats against 2 kills/sec"
 
 
 def test_throughput_is_ignored_when_damage_is_the_scarcer_resource():
@@ -339,3 +339,50 @@ def test_a_wave_the_defense_cannot_touch_is_shrunk_to_the_floor():
         kill_throughput=_throughput(ground=10, air=0),
     )
     assert cap == schema.FAIRNESS_MIN_COUNT
+
+
+def test_fast_enemies_get_less_engagement_time_than_slow_ones():
+    """Time under fire comes from enemy speed, not from the wave's length.
+
+    A flat allowance assumed the towers keep shooting long after the last
+    spawn. They do not — the enemies walk on, and a fast swarm is out of range
+    in a fraction of the time.
+
+    `zombie` and `zombie-v2` isolate this cleanly: identical 80 HP, 5 m/s
+    versus 3 m/s. Anything built from real templates would confound speed with
+    health.
+    """
+    def synthetic(enemy):
+        return {
+            "id": f"synthetic_{enemy}",
+            "enemies": [{"type": enemy, "share": 1.0}],
+            "countRange": [10, 2000],
+            "spawnDelayRange": [10, 400],
+            "hpMultRange": [0.5, 6.0],
+            "variationRange": [0.05, 0.4],
+            "minWave": 1,
+            "spawnPattern": None,
+            "requiresCapability": None,
+            "bossOnly": False,
+        }
+
+    assert schema.ENEMY_BASE_HP["zombie"] == schema.ENEMY_BASE_HP["zombie-v2"]
+    assert schema.ENEMY_BASE_SPEED["zombie"] > schema.ENEMY_BASE_SPEED["zombie-v2"]
+
+    dps = _dps(ground=120)
+    thr = _throughput(ground=3.0)
+    fast = schema.fair_max_count(synthetic("zombie"), 1.0, 100, dps, thr)
+    slow = schema.fair_max_count(synthetic("zombie-v2"), 1.0, 100, dps, thr)
+
+    assert fast is not None and slow is not None
+    assert slow > fast, f"slower enemies stay in range longer (fast={fast}, slow={slow})"
+
+
+def test_a_strong_defense_is_not_capped_at_all():
+    """The gate is a floor on fairness, not the difficulty knob."""
+    cap = schema.fair_max_count(
+        _template("rat_tide"), hp_mult=1.0, spawn_delay_ms=30,
+        effective_dps_per_armor=_dps(ground=3000),
+        kill_throughput=_throughput(ground=40.0),
+    )
+    assert cap is None
