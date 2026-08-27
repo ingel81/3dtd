@@ -28,7 +28,7 @@ import {
   lerpRange,
   fairMaxCount,
 } from './templates';
-import { buildWaveContext } from './wave-context';
+import { buildWaveContext, type WaveContext } from './wave-context';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { endgameHpMultiplier } from '../../configs/wave-curriculum.config';
 
@@ -202,8 +202,11 @@ export class WaveDirectorService {
       throw new Error('Model not loaded');
     }
 
-    // Encode state to Float32Array
-    const encoded = encodeGameState(state);
+    // One context for the whole decision: it feeds the model's wave-context
+    // features AND filters the model's template output, so the two cannot
+    // describe different sets of legal templates.
+    const waveContext = buildWaveContext(state, this.recentTemplateIndices);
+    const encoded = encodeGameState(state, waveContext);
 
 
     // Create ONNX tensor (shape: [1, ENCODED_STATE_SIZE])
@@ -220,7 +223,7 @@ export class WaveDirectorService {
     // Debug: Log raw model output
 
     // Decode output to WaveConfig
-    return this.decodeModelOutput(output, state);
+    return this.decodeModelOutput(output, state, waveContext);
   }
 
   /**
@@ -238,7 +241,11 @@ export class WaveDirectorService {
    *   [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1]  4 raw continuous params
    *                                            (count, spawn_delay, hp_mult, variation)
    */
-  private decodeModelOutput(output: Float32Array, state: GameStateSnapshot): WaveConfig {
+  private decodeModelOutput(
+    output: Float32Array,
+    state: GameStateSnapshot,
+    waveContext: WaveContext,
+  ): WaveConfig {
     const templateLogits = Array.from(output.slice(0, MAX_TEMPLATE_SLOTS));
     const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 4);
 
@@ -249,7 +256,6 @@ export class WaveDirectorService {
     // ships is the one the designer pinned. Past the curriculum it is a real
     // choice.
     const upcomingWave = state.waveNumber + 1;
-    const waveContext = buildWaveContext(state, this.recentTemplateIndices);
     const mask = waveContext.mask;
 
     const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);

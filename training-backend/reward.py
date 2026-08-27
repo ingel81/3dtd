@@ -59,10 +59,15 @@ from config import (
 
 
 def _death_penalty(wave_num: int, survived: bool) -> float:
-    """One-shot death penalty. Harsher when bot dies early."""
+    """One-shot death penalty, harsher when the run ends early.
+
+    REWARD_GAME_OVER_PENALTY is the per-wave-equivalent cost; the x10 turns it
+    into a run-ending one. At the current constants that lands between -15
+    (late) and -30 (wave 1, where the cap binds), which is what the discounted
+    trajectory needs to outweigh the waves that produced the death.
+    """
     if survived:
         return 0.0
-    # Base -0.3 scaled by 10 → -3.0; × early-game factor; capped at -3.5
     early_scaling = max(0.5, 1.0 - wave_num * 0.02)
     value = REWARD_GAME_OVER_PENALTY * 10 * early_scaling
     return max(REWARD_GAME_OVER_CAP, value)
@@ -103,7 +108,7 @@ def _drama_reward(damage_pct: float, avg_progress: float) -> float:
         progress_score = REWARD_OVERFLOW
     elif (
         PROGRESS_NEAR_MISS_LOW <= avg_progress <= PROGRESS_NEAR_MISS_HIGH
-        and damage_pct >= DAMAGE_SWEET_MIN
+        and DAMAGE_SWEET_MIN <= damage_pct <= DAMAGE_SWEET_MAX
     ):
         progress_score = REWARD_NEAR_MISS_PEAK
     else:
@@ -145,7 +150,8 @@ def _swarm_size_reward(total_count: int, damage_pct: float,
     return min(SWARM_SIZE_CAP, SWARM_SIZE_SLOPE * over)
 
 
-def _progression_bonus(wave_num: int, survived: bool, damage_pct: float) -> float:
+def _progression_bonus(wave_num: int, survived: bool, damage_pct: float,
+                       avg_progress: float) -> float:
     """Wave-number progression bonus, gated on the wave being a good one.
 
     The upper bound matters as much as the lower one: with only a `>= 0.01`
@@ -156,6 +162,9 @@ def _progression_bonus(wave_num: int, survived: bool, damage_pct: float) -> floa
     if not survived:
         return 0.0
     if damage_pct < DAMAGE_SWEET_MIN or damage_pct > DAMAGE_SWEET_MAX:
+        return 0.0
+    if avg_progress > PROGRESS_OVERFLOW_THRESHOLD:
+        # Everyone reached the base. Surviving that is luck, not pacing.
         return 0.0
     return min(PROGRESSION_CAP, PROGRESSION_SLOPE * wave_num)
 
@@ -187,7 +196,7 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
     death = _death_penalty(wave_num, survived)
     drama = _drama_reward(damage_pct, avg_progress)
     swarm = _swarm_size_reward(total_count, damage_pct, avg_progress, survived)
-    progression = _progression_bonus(wave_num, survived, damage_pct)
+    progression = _progression_bonus(wave_num, survived, damage_pct, avg_progress)
 
     total = death + drama + swarm + progression
 

@@ -29,6 +29,7 @@ import torch.nn.functional as F
 # where the sigmoid still spreads mass across the interior.
 LOG_STD_MIN = -3.0
 LOG_STD_MAX = 0.0
+LOG_STD_INIT = -0.5
 from config import (
     NUM_SCALAR,
     NUM_BINS,
@@ -82,7 +83,11 @@ class WaveDirectorModel(nn.Module):
         # Output heads
         self.template_head = nn.Linear(96, MAX_TEMPLATE_SLOTS)
         self.params_head = nn.Linear(96, NUM_CONTINUOUS)
-        self.log_std = nn.Parameter(torch.zeros(NUM_CONTINUOUS))
+        # Initialised below the upper clamp. At exactly LOG_STD_MAX a single
+        # optimiser step past the bound leaves the parameter in the flat region
+        # of `clamp`, where its gradient is zero — std would pin at 1.0 with no
+        # way back and exploration could never anneal.
+        self.log_std = nn.Parameter(torch.full((NUM_CONTINUOUS,), LOG_STD_INIT))
         self.value_head = nn.Linear(96, 1)
 
     def forward(self, x):

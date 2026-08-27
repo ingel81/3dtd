@@ -42,7 +42,7 @@ import { WaveConfig } from './models/wave-config';
 import { DamageType, ArmorType } from '../../configs/combat/combat.types';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
-import { buildWaveContext } from './wave-context';
+import { buildWaveContext, type WaveContext } from './wave-context';
 import { MAX_TEMPLATE_SLOTS } from './templates';
 import {
   AI_ENEMY_ORDER,
@@ -112,7 +112,10 @@ export function calculateWaveThreat(waveConfig: WaveConfig): number {
  * written here any more, because they shift with every schema bump and the
  * stale ones were actively misleading.
  */
-export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
+export function encodeGameState(
+  snapshot: GameStateSnapshot,
+  waveContext?: WaveContext,
+): Float32Array {
   const encoded = new Float32Array(ENCODED_STATE_SIZE);
   let idx = 0;
 
@@ -283,7 +286,12 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
   // The availability mask covers both cases with one mechanism. Inside the
   // curriculum it has collapsed to exactly one slot, so it IS a one-hot of the
   // wave that will ship; past the curriculum it is the set of legal choices.
-  const ctx = buildWaveContext(snapshot);
+  // Must be the SAME context the decoder filters the output with. Building it
+  // here with a default (empty) cooldown history while the decoder used the
+  // real one meant the mask fed to the net and the mask its output was judged
+  // against disagreed whenever the cooldown bound — and training had taught it
+  // that the cooldown IS visible in these features.
+  const ctx = waveContext ?? buildWaveContext(snapshot);
   for (let i = 0; i < MAX_TEMPLATE_SLOTS; i++) {
     encoded[idx++] = ctx.mask[i] ? 1 : 0;
   }

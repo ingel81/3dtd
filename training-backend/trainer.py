@@ -20,6 +20,7 @@ from config import (
     UPDATE_EPOCHS,
     TARGET_KL,
     TRAJECTORY_FLUSH_LENGTH,
+    REWARD_SCALE_WINDOW,
 )
 from auto_logger import logger
 
@@ -55,12 +56,9 @@ class PPOTrainer:
         # Running statistics
         self.reward_history = deque(maxlen=100)
 
-        # Reward scaling. Scale only, never centre: subtracting a lifetime mean
-        # from a non-stationary reward (the policy improves, the progression
-        # bonus grows with wave number, curriculum and free-choice waves have
-        # different regimes) flips a wave's sign based on an average that no
-        # longer describes it. Centring is the value baseline's job.
-        self.reward_running_var = 1.0
+        # Running second moment of the reward, used to scale it at collection
+        # time (see _scale_reward).
+        self.reward_sq_sum = 0.0
         self.reward_count = 0
 
         # Diagnostics: pairs dropped because a result arrived with no matching
@@ -91,22 +89,55 @@ class PPOTrainer:
         pending = self.pending.pop((client_id, wave_num), None)
         if pending is None:
             self.dropped_pairs += 1
+            # Still close the run. Returning early here left the trajectory open
+            # forever: the death was never charged back to the waves that caused
+            # it — the exact thing this machinery exists for — and the next
+            # game's transitions were appended onto the dead one, eventually
+            # chaining a wave-40 state to a wave-1 state inside one trajectory.
+            if done:
+                self._close_trajectory(client_id, bootstrap=False)
             return
 
         state, action, enemy_idx, old_log_prob, template_mask = pending
         self.trajectories.setdefault(client_id, []).append(
-            (state, action, enemy_idx, old_log_prob, reward, template_mask)
+            (state, action, enemy_idx, old_log_prob, self._scale_reward(reward), template_mask)
         )
 
         if done:
             self._close_trajectory(client_id, bootstrap=False)
-        elif len(self.trajectories[client_id]) >= TRAJECTORY_FLUSH_LENGTH:
-            # Long survivors would otherwise never contribute. Bootstrap off the
-            # value head so the cut is not mistaken for an ending.
-            self._close_trajectory(client_id, bootstrap=True)
+        elif len(self.trajectories[client_id]) > TRAJECTORY_FLUSH_LENGTH:
+            # Long survivors would otherwise never contribute. Cut, but hold the
+            # newest transition back: its state is the "next state" the flushed
+            # tail needs to bootstrap against, and it seeds the next segment.
+            self._close_trajectory(client_id, bootstrap=True, hold_back_last=True)
 
         while len(self.transitions) >= BATCH_SIZE:
             self._update()
+
+    def _scale_reward(self, reward):
+        """Put a raw reward into the unit everything downstream works in.
+
+        Scale only, never centre: the reward distribution is non-stationary in
+        three ways at once (the policy improves, the progression bonus grows
+        with wave number, and curriculum waves differ from free-choice waves),
+        so subtracting a lifetime mean flips a wave's sign based on an average
+        that no longer describes it. Centring is the value baseline's job.
+
+        Applied HERE rather than at update time because GAE mixes rewards and
+        value estimates in the same expression. Scaling the returns afterwards
+        while the critic had been trained on scaled targets left
+        `delta = r_raw + gamma*V_scaled - V_scaled`, which for a large scale is
+        almost exactly `r_raw` — the baseline subtracted nothing and the
+        advantages degenerated into raw Monte-Carlo returns.
+        """
+        self.reward_sq_sum += reward * reward
+        self.reward_count += 1
+        # EMA-ish: a lifetime count would stop adapting to a moving reward.
+        if self.reward_count > REWARD_SCALE_WINDOW:
+            self.reward_sq_sum *= REWARD_SCALE_WINDOW / self.reward_count
+            self.reward_count = REWARD_SCALE_WINDOW
+        scale = max((self.reward_sq_sum / max(1, self.reward_count)) ** 0.5, 1e-3)
+        return reward / scale
 
     def drop_client(self, client_id):
         """Flush whatever a disconnecting client had in flight."""
@@ -114,25 +145,48 @@ class PPOTrainer:
             self._close_trajectory(client_id, bootstrap=True)
         self.trajectories.pop(client_id, None)
 
-    def _close_trajectory(self, client_id, bootstrap):
+    def _close_trajectory(self, client_id, bootstrap, hold_back_last=False):
         """Turn a finished trajectory into returns + GAE advantages.
 
         `bootstrap` distinguishes a cut from an ending: when the run really
         ended (death) there is no future value, so the terminal value is 0 and
         the death penalty propagates back undiluted. When we merely truncated a
         long survivor, the value head estimates what came next.
+
+        `hold_back_last` keeps the newest transition out of the flush and leaves
+        it as the seed of the next segment. Its state IS the next state of the
+        flushed tail, which is what the bootstrap needs: using the value of the
+        last *flushed* state instead makes the final delta
+        `r + gamma*V(s_T) - V(s_T)`, a bias that the GAE recursion then spreads
+        backwards over the whole segment.
         """
         traj = self.trajectories.pop(client_id, None)
         if not traj:
             return
 
+        carry = None
+        if hold_back_last and len(traj) > 1:
+            carry = traj[-1]
+            traj = traj[:-1]
+
         states = torch.stack([t[0] for t in traj])
+        if carry is not None:
+            states = torch.cat([states, carry[0].unsqueeze(0)])
+
         with torch.no_grad():
             self.model.eval()
             _, _, values = self.model(states)
             values = values.squeeze(-1)
 
-        next_value = values[-1].item() if bootstrap else 0.0
+        if carry is not None:
+            next_value = values[-1].item()
+            values = values[:-1]
+        elif bootstrap:
+            # No held-back state to bootstrap against (a disconnect, say).
+            # V(s_T) is the best estimate available; note it is an approximation.
+            next_value = values[-1].item()
+        else:
+            next_value = 0.0
 
         advantages = [0.0] * len(traj)
         gae = 0.0
@@ -153,6 +207,9 @@ class PPOTrainer:
                 (state, action, enemy_idx, old_log_prob, reward,
                  mask, advantages[i] + values[i].item(), advantages[i])
             )
+
+        if carry is not None:
+            self.trajectories[client_id] = [carry]
 
     def _update(self):
         """Perform PPO update with clipped surrogate objective."""
@@ -193,25 +250,10 @@ class PPOTrainer:
             logger.error(f"[Trainer] Failed to stack batch, dropping it: {e}")
             return
 
+        # Already in scaled units — the reward was normalised at collection time
+        # so GAE, the returns and the value target all share one scale.
         returns = torch.tensor(returns_list, dtype=torch.float32)
         advantages = torch.tensor(advantages_list, dtype=torch.float32)
-
-        # Scale-only normalisation. Track the second moment of returns and
-        # divide; do NOT subtract a lifetime mean. The reward distribution is
-        # non-stationary in three ways at once (the policy improves, the
-        # progression bonus grows with wave number, and curriculum waves differ
-        # from free-choice waves), so a global mean flips the sign of a wave
-        # based on an average that no longer describes it. The value baseline
-        # does the centring.
-        batch_sq_mean = float((returns ** 2).mean().item())
-        new_count = self.reward_count + len(returns)
-        self.reward_running_var = (
-            self.reward_running_var * self.reward_count + batch_sq_mean * len(returns)
-        ) / max(1, new_count)
-        self.reward_count = new_count
-        scale = max(self.reward_running_var ** 0.5, 1e-3)
-        returns = returns / scale
-        advantages = advantages / scale
 
         # Standardise advantages ONCE, over the whole batch, before the epoch
         # loop. Recomputing them per epoch from freshly-updated values made the
@@ -220,7 +262,6 @@ class PPOTrainer:
 
         self.model.train()
 
-        indices = torch.randperm(len(batch))
         approx_kl = 0.0
         policy_loss = value_loss = entropy = None
         grad_norm = 0.0
@@ -229,6 +270,9 @@ class PPOTrainer:
         for epoch in range(UPDATE_EPOCHS):
             if stop:
                 break
+            # Reshuffle each epoch so minibatch composition varies.
+            indices = torch.randperm(len(batch))
+            epoch_kls = []
             for start_i in range(0, len(batch), MINIBATCH_SIZE):
                 mb = indices[start_i:start_i + MINIBATCH_SIZE]
                 if len(mb) < 2:
@@ -250,7 +294,7 @@ class PPOTrainer:
                     policy_loss = -torch.min(surr1, surr2).mean()
                     # Schulman's low-variance KL estimator.
                     with torch.no_grad():
-                        approx_kl = float(((ratio - 1) - log_ratio).mean().item())
+                        epoch_kls.append(float(((ratio - 1) - log_ratio).mean().item()))
                 else:
                     policy_loss = -(log_probs * mb_adv).mean()
 
@@ -262,11 +306,15 @@ class PPOTrainer:
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
                 self.optimizer.step()
 
+            # Averaged over the epoch's minibatches: a single 32-sample estimate
+            # is noisy enough to both miss real drift and trigger spuriously.
             # Stop once the policy has drifted too far from the one that
             # collected this data — otherwise the later epochs are effectively
             # unclipped off-policy steps.
-            if approx_kl > TARGET_KL:
-                stop = True
+            if epoch_kls:
+                approx_kl = sum(epoch_kls) / len(epoch_kls)
+                if approx_kl > TARGET_KL:
+                    stop = True
 
         self.model.eval()
 
@@ -304,7 +352,7 @@ class PPOTrainer:
         """
         return {
             "optimizer": self.optimizer.state_dict(),
-            "reward_running_var": self.reward_running_var,
+            "reward_sq_sum": self.reward_sq_sum,
             "reward_count": self.reward_count,
             "reward_history": list(self.reward_history),
         }
@@ -315,6 +363,6 @@ class PPOTrainer:
             return
         if "optimizer" in state:
             self.optimizer.load_state_dict(state["optimizer"])
-        self.reward_running_var = state.get("reward_running_var", 1.0)
+        self.reward_sq_sum = state.get("reward_sq_sum", 0.0)
         self.reward_count = state.get("reward_count", 0)
         self.reward_history = deque(state.get("reward_history", []), maxlen=100)
