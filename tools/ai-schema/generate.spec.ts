@@ -42,6 +42,8 @@ import {
   NUM_BASE_FEATURES,
   NUM_AWARENESS_FEATURES,
   NUM_EFFECTIVE_DPS_FEATURES,
+  NUM_WAVE_CONTEXT_FEATURES,
+  NUM_TEMPLATE_RANGE_FEATURES,
   NUM_SCALAR_FEATURES,
   NUM_SPATIAL_FEATURES,
   ENCODED_STATE_SIZE,
@@ -138,7 +140,9 @@ function buildSchema() {
         base: NUM_BASE_FEATURES,
         awareness: NUM_AWARENESS_FEATURES,
         effectiveDps: NUM_EFFECTIVE_DPS_FEATURES,
+        waveContext: NUM_WAVE_CONTEXT_FEATURES,
       },
+      templateRangeFeatures: NUM_TEMPLATE_RANGE_FEATURES,
     },
 
     orders: {
@@ -211,7 +215,8 @@ describe('ai schema generator', () => {
     expect(schema.state.numScalar).toBe(
       schema.state.blocks.base +
         schema.state.blocks.awareness +
-        schema.state.blocks.effectiveDps,
+        schema.state.blocks.effectiveDps +
+        schema.state.blocks.waveContext,
     );
     expect(schema.state.numSpatial).toBe(2 * schema.state.numBins);
   });

@@ -25,12 +25,12 @@ import {
   DPS_RAMP_COUNT,
   DPS_RAMP_HP_MULT,
   getTemplate,
-  getAvailableTemplateMask,
   lerpRange,
   fairMaxCount,
 } from './templates';
+import { buildWaveContext } from './wave-context';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
-import { templateForWave, endgameHpMultiplier } from '../../configs/wave-curriculum.config';
+import { endgameHpMultiplier } from '../../configs/wave-curriculum.config';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
@@ -242,33 +242,15 @@ export class WaveDirectorService {
     const templateLogits = Array.from(output.slice(0, MAX_TEMPLATE_SLOTS));
     const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 4);
 
-    // Availability mask. Inside the curriculum this collapses to a single slot,
-    // so the argmax below has exactly one candidate and the wave that ships is
-    // the one the designer pinned. Past the curriculum it is a real choice.
-    // Same construction as the training backend, so inference and training
-    // agree on what was allowed.
+    // Availability mask, built by the shared wave-context helper so the mask
+    // the model was *fed* (see game-state-encoder) and the mask its output is
+    // *filtered by* here can never disagree. Inside the curriculum it collapses
+    // to a single slot, so the argmax below has one candidate and the wave that
+    // ships is the one the designer pinned. Past the curriculum it is a real
+    // choice.
     const upcomingWave = state.waveNumber + 1;
-    const research = state.research;
-    const caps = state.defense?.capabilities;
-    const hasAntiAir = caps?.hasAntiAir ?? !!(
-      research?.towerUnlocked?.['archer']
-      || research?.towerUnlocked?.['ice']
-      || research?.towerUnlocked?.['rocket']
-      || research?.towerUnlocked?.['lightning']
-      || research?.airTargetingUnlocked
-    );
-    const hasAntiEthereal = caps?.hasAntiEthereal ?? !!(
-      research?.towerUnlocked?.['magic']
-      || research?.towerUnlocked?.['ice']
-      || research?.towerUnlocked?.['lightning']
-    );
-    const mask = getAvailableTemplateMask(
-      upcomingWave,
-      hasAntiAir,
-      hasAntiEthereal,
-      this.recentTemplateIndices,
-      templateForWave(upcomingWave),
-    );
+    const waveContext = buildWaveContext(state, this.recentTemplateIndices);
+    const mask = waveContext.mask;
 
     const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);
     const probs = this.softmax(maskedLogits);
@@ -314,6 +296,9 @@ export class WaveDirectorService {
     // Fairness gate: never ship a wave the defense cannot plausibly fight.
     // Applied after the HP multipliers so it judges the enemies as they will
     // actually spawn, and before the duration cap below.
+    // Recomputed against the template that was actually chosen and the factors
+    // that were actually emitted — the context's value is a coarse ceiling
+    // signal for the model, this is the binding decision.
     const fairCap = fairMaxCount(
       template,
       hpMult,

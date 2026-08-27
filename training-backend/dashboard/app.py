@@ -9,6 +9,7 @@ Runs in the same asyncio event loop as the WebSocket training server.
 
 import asyncio
 import json
+import math
 import time
 from pathlib import Path
 from collections import deque
@@ -86,6 +87,12 @@ class Dashboard:
             "policyLoss": 0, "entropy": 0, "gradNorm": 0, "batchReward": 0,
         }
         self.model_updates = 0
+        # Decision telemetry (see record_wave).
+        self.factor_history = deque(maxlen=400)
+        self.template_factors: dict[str, dict] = {}
+        self.gate_total = 0
+        self.gate_capped = 0
+        self.free_template_counts: dict[str, int] = {}
 
         # Timing
         self.start_time = time.time()
@@ -133,6 +140,24 @@ class Dashboard:
             # Policy-output diagnostics
             stats["enemyTypeCounts"] = dict(self.enemy_type_counts)
             stats["templateUsageCounts"] = dict(self.template_usage_counts)
+
+            # ── Decision telemetry ──────────────────────────────────────────
+            stats["factorHistory"] = list(self.factor_history)
+            stats["templateFactors"] = {
+                tid: {
+                    "n": a["n"],
+                    "count": round(a["count"] / a["n"], 3),
+                    "spawn": round(a["spawn"] / a["n"], 3),
+                    "hp": round(a["hp"] / a["n"], 3),
+                    "variation": round(a["variation"] / a["n"], 3),
+                }
+                for tid, a in self.template_factors.items() if a["n"] > 0
+            }
+            stats["fairnessCappedPct"] = round(
+                100.0 * self.gate_capped / max(1, self.gate_total), 1
+            )
+            stats["freeTemplateCounts"] = dict(self.free_template_counts)
+            stats["freeTemplateEntropy"] = self._free_template_entropy()
             stats["waveSizeHistogram"] = self._calc_wave_size_histogram()
             stats["mixedWaveRate"] = self._calc_mixed_wave_rate()
             stats["modelMetrics"] = dict(self.model_metrics)
@@ -452,6 +477,45 @@ class Dashboard:
         }
         self.wave_log.append(entry)
 
+        # ── Decision telemetry ──────────────────────────────────────────────
+        # The wave log shows OUTCOMES (200 enemies), these show DECISIONS (the
+        # net turned count_factor to 0.9). Without them there is no way to tell
+        # whether a big wave was chosen or merely fell out of a wide template.
+        if count_factor is not None:
+            self.factor_history.append({
+                "wave": wave_num,
+                "count": count_factor,
+                "spawn": spawn_factor,
+                "hp": hp_factor,
+                "variation": variation_factor,
+            })
+
+            if template_id:
+                acc = self.template_factors.setdefault(
+                    template_id,
+                    {"n": 0, "count": 0.0, "spawn": 0.0, "hp": 0.0, "variation": 0.0},
+                )
+                acc["n"] += 1
+                acc["count"] += count_factor or 0.0
+                acc["spawn"] += spawn_factor or 0.0
+                acc["hp"] += hp_factor or 0.0
+                acc["variation"] += variation_factor or 0.0
+
+        # How often the fairness gate actually binds. A high rate means the net
+        # keeps asking for waves the defense cannot fight and its count gradient
+        # is largely being clipped away.
+        if wave_info is not None:
+            self.gate_total += 1
+            if wave_info.get("fairness_capped"):
+                self.gate_capped += 1
+
+            # Template choices past the curriculum, where the net is actually
+            # free. Collapse here is the documented deployment risk.
+            if not wave_info.get("curriculum_forced") and template_id:
+                self.free_template_counts[template_id] = (
+                    self.free_template_counts.get(template_id, 0) + 1
+                )
+
         # Latest NN policy output (legitim global — Netz hat shared weights)
         if type_probs:
             self.type_probs_history.append(type_probs)
@@ -526,16 +590,44 @@ class Dashboard:
         self.game_over_count += 1
 
     def record_training_update(self, policy_loss: float, entropy: float,
-                               grad_norm: float, batch_avg_reward: float):
-        """Record model training update (PPO internals)."""
+                               grad_norm: float, batch_avg_reward: float,
+                               approx_kl: float = 0.0, log_std: float = 0.0,
+                               dropped_pairs: int = 0):
+        """Record model training update (PPO internals).
+
+        `approx_kl` shows how far each update moved the policy off the data that
+        produced it — the early-stop trigger. `log_std` is the learned
+        exploration width: it used to be pushed upward by an entropy bonus
+        measured in the wrong space, which drove the wave factors to their range
+        endpoints. `dropped_pairs` counts results that arrived with no matching
+        stored action; it should stay flat.
+        """
         self.model_updates += 1
         self.model_metrics = {
             "policyLoss": round(policy_loss, 5),
             "entropy": round(entropy, 4),
             "gradNorm": round(grad_norm, 4),
             "batchReward": round(batch_avg_reward, 3),
+            "approxKl": round(approx_kl, 5),
+            "logStd": round(log_std, 4),
+            "droppedPairs": dropped_pairs,
         }
         self._broadcast_event("training_update", self.model_metrics)
+
+    def _free_template_entropy(self) -> float:
+        """Shannon entropy of free-choice template picks, normalised to 0..1.
+
+        1.0 means the net spreads evenly over everything it is allowed to pick;
+        values near 0 mean it has collapsed onto one or two templates. This is
+        the early warning for the monotony risk — waves 1-30 are pinned by the
+        curriculum, so only the free picks say anything about variety.
+        """
+        counts = [c for c in self.free_template_counts.values() if c > 0]
+        if len(counts) < 2:
+            return 0.0
+        total = sum(counts)
+        entropy = -sum((c / total) * math.log(c / total) for c in counts)
+        return round(entropy / math.log(len(counts)), 3)
 
     def _classify_progress(self, progress: float) -> str:
         if progress < 0.20: return "boring"

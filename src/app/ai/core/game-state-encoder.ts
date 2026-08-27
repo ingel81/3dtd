@@ -42,6 +42,8 @@ import { WaveConfig } from './models/wave-config';
 import { DamageType, ArmorType } from '../../configs/combat/combat.types';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
+import { buildWaveContext } from './wave-context';
+import { MAX_TEMPLATE_SLOTS } from './templates';
 import {
   AI_ENEMY_ORDER,
   AI_TOWER_ORDER,
@@ -266,6 +268,36 @@ export function encodeGameState(snapshot: GameStateSnapshot): Float32Array {
   for (const a of ARMOR_TYPE_ORDER) {
     encoded[idx++] = normalize(eff?.air?.[a] ?? 0, MAX_EFFECTIVE_DPS_PER_ARMOR);
   }
+  // === AOE SHARE OF DPS (ground, air) ===
+  // Already a 0..1 fraction, so no normalisation.
+  encoded[idx++] = snapshot.defense.aoeDpsShare?.ground ?? 0;
+  encoded[idx++] = snapshot.defense.aoeDpsShare?.air ?? 0;
+
+  // ─── WAVE CONTEXT (mask + ranges + fairness headroom) ────────────────
+  //
+  // What the factors will be applied to. Without this the params head emits a
+  // 0..1 `count_factor` blind: the same value means 20-2000 enemies for
+  // zombie_horde and 5-100 for mech_army, and past the curriculum the net picks
+  // the template in the very same forward pass.
+  //
+  // The availability mask covers both cases with one mechanism. Inside the
+  // curriculum it has collapsed to exactly one slot, so it IS a one-hot of the
+  // wave that will ship; past the curriculum it is the set of legal choices.
+  const ctx = buildWaveContext(snapshot);
+  for (let i = 0; i < MAX_TEMPLATE_SLOTS; i++) {
+    encoded[idx++] = ctx.mask[i] ? 1 : 0;
+  }
+  encoded[idx++] = normalize(ctx.countRange[0], MAX_VALUES.templateCount);
+  encoded[idx++] = normalize(ctx.countRange[1], MAX_VALUES.templateCount);
+  encoded[idx++] = normalize(ctx.hpMultRange[0], MAX_VALUES.templateHpMult);
+  encoded[idx++] = normalize(ctx.hpMultRange[1], MAX_VALUES.templateHpMult);
+  encoded[idx++] = normalize(ctx.spawnDelayRange[0], MAX_VALUES.templateSpawnDelayMs);
+  encoded[idx++] = normalize(ctx.spawnDelayRange[1], MAX_VALUES.templateSpawnDelayMs);
+  // Where the fairness gate will clamp, expressed on the same 0..1 scale as
+  // `count_factor` itself: 1.0 means "nothing will be clamped". Without it the
+  // gradient above the cap is flat and the net cannot see the ceiling it keeps
+  // hitting.
+  encoded[idx++] = ctx.fairnessHeadroom;
 
   // ─── ORIGINAL SPATIAL BLOCK ──────────────────────────────────────────
 

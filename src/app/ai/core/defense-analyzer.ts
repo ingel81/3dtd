@@ -59,6 +59,7 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
   const avgLevel = calculateAvgLevel(towers);
   const towerVariety = calculateTowerVariety(towers);
   const effectiveDPSPerArmor = calculateEffectiveDPSPerArmor(towers, airTargetingUnlocked);
+  const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
 
   return {
     towerCount: towers.length,
@@ -72,6 +73,51 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
     capabilities,
     towerDistribution,
     effectiveDPSPerArmor,
+    aoeDpsShare,
+  };
+}
+
+/**
+ * Fraction of the defense's DPS that comes from area-of-effect towers.
+ *
+ * Splash, chain and beam width are baked into `computeTowerDPS` as constant
+ * multipliers, so a cannon looks like "more DPS" rather than "DPS that hits
+ * many enemies at once". The distinction matters to the wave director more
+ * than to anyone else: it chooses enemy density directly through count and
+ * spawn delay, and against an AoE-heavy defense a dense swarm is worth far
+ * less than the raw DPS number suggests.
+ */
+function calculateAoeDpsShare(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+): { ground: number; air: number } {
+  let groundTotal = 0;
+  let groundAoe = 0;
+  let airTotal = 0;
+  let airAoe = 0;
+
+  for (const tower of towers) {
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    const cfg = TOWER_TYPES[typeId];
+    if (!cfg || cfg.attackType === 'passive') continue;
+
+    const dps = computeTowerDPS(tower);
+    if (dps <= 0) continue;
+    const isAoe = isSplashTower(typeId) || cfg.attackType === 'chain';
+
+    if (cfg.canTargetGround !== false) {
+      groundTotal += dps;
+      if (isAoe) groundAoe += dps;
+    }
+    if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
+      airTotal += dps;
+      if (isAoe) airAoe += dps;
+    }
+  }
+
+  return {
+    ground: groundTotal > 0 ? groundAoe / groundTotal : 0,
+    air: airTotal > 0 ? airAoe / airTotal : 0,
   };
 }
 
@@ -324,6 +370,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
     },
     towerDistribution: {},
     effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },
+    aoeDpsShare: { ground: 0, air: 0 },
   };
 }
 

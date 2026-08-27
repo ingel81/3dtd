@@ -13,7 +13,9 @@ import {
   AI_MAX_VALUES,
   AI_EPISODE_LENGTH,
   NUM_DPS_BINS,
+  NUM_TEMPLATE_RANGE_FEATURES,
 } from './ai-schema';
+import { MAX_TEMPLATE_SLOTS } from './templates';
 
 /**
  * Schema test for the Float32 vector emitted by encodeGameState().
@@ -63,6 +65,11 @@ describe('encodeGameState() schema', () => {
       nearMissHistory: take(5),
       effectiveDpsGround: take(A),
       effectiveDpsAir: take(A),
+      aoeDpsShare: take(2),
+      // schema v3: what the continuous factors will be applied to
+      templateMask: take(MAX_TEMPLATE_SLOTS),
+      templateRanges: take(NUM_TEMPLATE_RANGE_FEATURES),
+      fairnessHeadroom: take(1),
       groundProfile: take(NUM_DPS_BINS),
       airProfile: take(NUM_DPS_BINS),
       end: at,
@@ -125,6 +132,7 @@ describe('encodeGameState() schema', () => {
         lightning: false, 'research-center': true,
       },
     };
+    s.defense.aoeDpsShare = { ground: 0.4, air: 0.25 };
     s.defense.effectiveDPSPerArmor = {
       ground: { unarmored: 100, light: 80, heavy: 60, fortified: 40, ethereal: 20 },
       air:    { unarmored: 50,  light: 40, heavy: 30, fortified: 20, ethereal: 10 },
@@ -343,6 +351,11 @@ describe('encodeGameState() schema', () => {
       expect(at('ethereal')).toBeCloseTo(10 / max, 5);
     });
 
+    it('AoE share is passed through as a plain fraction', () => {
+      expect(out[OFF.aoeDpsShare + 0]).toBeCloseTo(0.4, 5);
+      expect(out[OFF.aoeDpsShare + 1]).toBeCloseTo(0.25, 5);
+    });
+
     it('ground DPS profile fills NUM_DPS_BINS slots', () => {
       for (let i = 0; i < NUM_DPS_BINS; i++) {
         expect(out[OFF.groundProfile + i]).toBeCloseTo(i / NUM_DPS_BINS, 5);
@@ -353,6 +366,34 @@ describe('encodeGameState() schema', () => {
       for (let i = 0; i < NUM_DPS_BINS; i++) {
         expect(out[OFF.airProfile + i]).toBeCloseTo((NUM_DPS_BINS - i) / NUM_DPS_BINS, 5);
       }
+    });
+
+    it('the template mask marks exactly one slot inside the curriculum', () => {
+      // The fixture sits at wave 10, so wave 11 is still curriculum-pinned and
+      // the mask is effectively a one-hot of the template that will ship.
+      const live = [];
+      for (let i = 0; i < MAX_TEMPLATE_SLOTS; i++) {
+        if (out[OFF.templateMask + i] === 1) live.push(i);
+      }
+      expect(live.length).toBe(1);
+    });
+
+    it('template range features are normalised into 0..1', () => {
+      for (let i = 0; i < NUM_TEMPLATE_RANGE_FEATURES; i++) {
+        const v = out[OFF.templateRanges + i];
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+      // Each pair is (min, max), so the low bound never exceeds the high one.
+      for (let i = 0; i < NUM_TEMPLATE_RANGE_FEATURES; i += 2) {
+        expect(out[OFF.templateRanges + i]).toBeLessThanOrEqual(out[OFF.templateRanges + i + 1]);
+      }
+    });
+
+    it('fairness headroom is a 0..1 position on the count-factor scale', () => {
+      const v = out[OFF.fairnessHeadroom];
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
     });
   });
 

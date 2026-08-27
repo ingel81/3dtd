@@ -114,6 +114,18 @@ export interface DefenseAnalysis {
    * setup, separated by ground vs air targeting".
    */
   effectiveDPSPerArmor: EffectiveDPSPerArmor;
+
+  /**
+   * Share of DPS that comes from area-of-effect sources, ground and air.
+   *
+   * Splash, chain and beam-width are folded into each tower's DPS as a fixed
+   * multiplier, which is independent of how many enemies are actually in the
+   * blast — and enemy density is precisely what the wave director controls via
+   * count and spawn delay. A cannon battery and an archer nest can show the
+   * same DPS while behaving completely differently against a packed swarm.
+   * This tells the net whether the defense scales with density at all.
+   */
+  aoeDpsShare: { ground: number; air: number };
 }
 
 export interface EffectiveDPSPerArmor {
@@ -234,6 +246,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
         ground: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
         air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
       },
+      aoeDpsShare: { ground: 0, air: 0 },
     },
     vulnerabilities: {
       airDefenseGap: true,

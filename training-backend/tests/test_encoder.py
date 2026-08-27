@@ -35,6 +35,9 @@ def server():
     s.waves_survived = 0
     s.waves_lost = 0
     s.best_reward = float("-inf")
+    s.eval_rewards = []
+    s.eval_deaths = 0
+    s.eval_waves = 0
     s.trainer = _NullTrainer()
     return s
 
@@ -45,10 +48,11 @@ class _NullTrainer:
 
 
 class _Ctx:
-    def __init__(self):
+    def __init__(self, deterministic=False):
         self.recent_damages = []
         self.recent_progress = []
         self.win_streak = 0
+        self.deterministic = deterministic
 
 
 def _full_state():
@@ -95,19 +99,69 @@ def _full_state():
     }
 
 
+def _context(state, wave=None):
+    """Wave context as _get_action builds it."""
+    defense = state.get("defense") or {}
+    return schema.build_wave_context(
+        upcoming_wave=(wave if wave is not None else state.get("waveNumber", 0)) + 1,
+        has_anti_air=True,
+        has_anti_ethereal=True,
+        recent_template_indices=[],
+        effective_dps_per_armor=defense.get("effectiveDPSPerArmor") or {},
+    )
+
+
 def test_encoder_emits_exactly_input_size_features(server):
-    encoded = server._encode_state(_full_state(), _Ctx())
+    state = _full_state()
+    encoded = server._encode_state(state, _Ctx(), _context(state))
     assert len(encoded) == schema.INPUT_SIZE
+
+
+def test_wave_context_block_is_a_one_hot_inside_the_curriculum(server):
+    """The block that tells the params head what its factors apply to.
+
+    Inside the curriculum the availability mask has collapsed to a single
+    template, so this block is a one-hot of the wave that will ship.
+    """
+    state = _full_state()
+    encoded = server._encode_state(state, _Ctx(), _context(state))
+
+    start = (
+        schema.NUM_SCALAR
+        - schema.MAX_TEMPLATE_SLOTS
+        - schema.NUM_TEMPLATE_RANGE_FEATURES
+        - 1
+    )
+    block = encoded[start:start + schema.MAX_TEMPLATE_SLOTS]
+    assert sum(block) == 1.0, "curriculum wave should mark exactly one template"
+
+    live = block.index(1.0)
+    expected = schema.template_for_wave(state["waveNumber"] + 1)
+    assert schema.TEMPLATES[live]["id"] == expected
+
+
+def test_wave_context_ranges_and_headroom_stay_normalised(server):
+    state = _full_state()
+    encoded = server._encode_state(state, _Ctx(), _context(state))
+    tail = encoded[schema.NUM_SCALAR - schema.NUM_TEMPLATE_RANGE_FEATURES - 1:schema.NUM_SCALAR]
+    for v in tail:
+        assert 0.0 <= v <= 1.0
 
 
 def test_encoder_handles_a_completely_empty_snapshot(server):
     """A fresh client sends almost nothing; that must not shift the layout."""
-    encoded = server._encode_state({}, _Ctx())
+    encoded = server._encode_state({}, _Ctx(), _context({}))
     assert len(encoded) == schema.INPUT_SIZE
 
 
+def test_encoder_tolerates_a_missing_wave_context(server):
+    """Layout must hold even if a caller forgets the context entirely."""
+    assert len(server._encode_state(_full_state(), _Ctx())) == schema.INPUT_SIZE
+
+
 def test_encoder_output_stays_in_range(server):
-    encoded = server._encode_state(_full_state(), _Ctx())
+    state = _full_state()
+    encoded = server._encode_state(state, _Ctx(), _context(state))
     for i, v in enumerate(encoded):
         assert isinstance(v, (int, float)), f"feature {i} is {type(v)}"
         # Damage momentum is the one deliberately signed feature.
@@ -118,7 +172,7 @@ def test_max_upgrade_tier_does_not_overflow(server):
     """Tier 5 exists (transcendent-tech); dividing by 3 used to exceed 1.0."""
     state = _full_state()
     state["research"]["maxUpgradeTier"] = 5
-    encoded = server._encode_state(state, _Ctx())
+    encoded = server._encode_state(state, _Ctx(), _context(state))
     assert max(encoded) <= 1.0
 
 
@@ -126,7 +180,7 @@ def test_short_histories_are_left_padded(server):
     """Index 0 of a history window is the OLDEST entry, zero-padded in front."""
     state = _full_state()
     state["recentHistory"]["damagePerWave"] = [0.9]
-    encoded = server._encode_state(state, _Ctx())
+    encoded = server._encode_state(state, _Ctx(), _context(state))
     # Damage history starts right after player(4) + tower(2) + tower counts.
     start = 4 + 2 + len(schema.TOWER_TYPES)
     window = encoded[start:start + 5]
@@ -136,8 +190,9 @@ def test_short_histories_are_left_padded(server):
 def test_encoder_rejects_a_truncated_vocabulary(server, monkeypatch):
     """A stale schema must fail loudly instead of silently shifting features."""
     monkeypatch.setattr("server.TOWER_TYPES", schema.TOWER_TYPES[:-1])
+    state = _full_state()
     with pytest.raises(ValueError, match="expected"):
-        server._encode_state(_full_state(), _Ctx())
+        server._encode_state(state, _Ctx(), _context(state))
 
 
 # ── survival derivation ─────────────────────────────────────────────────────

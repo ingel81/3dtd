@@ -1,4 +1,9 @@
-"""Phase 5.10 reward.py — 4-term reward sanity checks."""
+"""reward.py — 4-term reward sanity checks.
+
+Several of these pin the *shape* of the reward landscape rather than exact
+numbers, because the landscape is what kept getting exploited: the terms are
+only meaningful relative to each other.
+"""
 
 import sys
 import unittest
@@ -6,6 +11,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
+from config import GAMMA, REWARD_GAME_OVER_CAP
 from reward import calculate_reward
 
 
@@ -24,15 +30,20 @@ class TestReward(unittest.TestCase):
         )
         self.assertGreater(total, 0.5)
 
-    def test_mega_swarm_dominates_reward(self):
-        # Mega-swarm with sweet damage & near-miss progress — should hit the swarm cap
-        # and dominate the four-term breakdown. Phase 5.14 lowered SWARM_SIZE_CAP to 2.0.
+    def test_swarm_size_breaks_ties_but_does_not_dominate(self):
+        """Size is a tiebreaker inside the drama envelope, not the objective.
+
+        The cap used to be 2.0 — five times the sweet-damage peak (+0.4) — so
+        the net optimised for size and treated the damage band as incidental.
+        """
         total, bd = calculate_reward(
             {"damagePercent": 0.04, "totalCount": 2000, "survived": True, "avgProgress": 0.80},
             {"wave_number": 30},
         )
-        self.assertGreaterEqual(bd["swarm_size"], 1.9)
-        self.assertGreater(total, 3.0)
+        self.assertGreater(bd["swarm_size"], 0)
+        self.assertLessEqual(bd["swarm_size"], bd["drama"],
+                             "swarm must not outweigh the drama it is supposed to garnish")
+        self.assertGreater(total, 1.0)
 
     def test_death_penalty_applied(self):
         total, bd = calculate_reward(
@@ -48,8 +59,47 @@ class TestReward(unittest.TestCase):
             {"damagePercent": 1.0, "totalCount": 1, "survived": False, "avgProgress": 0.5},
             {"wave_number": 1},
         )
-        # Cap -3.5, early-wave harshness scaling
-        self.assertGreaterEqual(bd["death"], -3.5)
+        self.assertGreaterEqual(bd["death"], REWARD_GAME_OVER_CAP)
+
+    def test_death_outweighs_the_run_that_led_to_it(self):
+        """The exploit that inverted the whole objective.
+
+        The player never heals, so a policy that takes the per-wave optimum
+        (1-5% HP) every wave kills them in ~33 waves by construction. With the
+        old -3.5 cap, thirty good waves plus one death was a large net profit,
+        so "bleed them out and finish them" beat any sustainable policy.
+        """
+        good_wave, _ = calculate_reward(
+            {"damagePercent": 0.03, "totalCount": 200, "survived": True, "avgProgress": 0.80},
+            {"wave_number": 15},
+        )
+        _, death = calculate_reward(
+            {"damagePercent": 0.5, "totalCount": 200, "survived": False, "avgProgress": 1.0},
+            {"wave_number": 30},
+        )
+        # With discounting the death only has to outweigh the waves inside the
+        # effective horizon, 1/(1-GAMMA) waves back — not the entire run.
+        horizon = 1.0 / (1.0 - GAMMA)
+        self.assertLess(death["death"], -good_wave * horizon,
+                        "a death must cost more than the waves that set it up")
+
+    def test_swarm_pays_nothing_without_real_damage(self):
+        """The safe-farm exploit: mass that dies harmlessly early on the path."""
+        _, bd = calculate_reward(
+            {"damagePercent": 0.0, "totalCount": 1350, "survived": True, "avgProgress": 0.25},
+            {"wave_number": 20},
+        )
+        self.assertEqual(bd["swarm_size"], 0.0)
+        self.assertEqual(bd["progression"], 0.0)
+
+    def test_grinding_damage_earns_no_progression(self):
+        """15% HP a wave kills the player in ~7 waves; it must not pay."""
+        _, bd = calculate_reward(
+            {"damagePercent": 0.15, "totalCount": 300, "survived": True, "avgProgress": 0.80},
+            {"wave_number": 20},
+        )
+        self.assertEqual(bd["progression"], 0.0)
+        self.assertEqual(bd["swarm_size"], 0.0)
 
     def test_boring_wave_near_zero(self):
         total, _ = calculate_reward(
