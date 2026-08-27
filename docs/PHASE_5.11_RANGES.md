@@ -42,7 +42,7 @@ Obere Enden sind **aggressiv** hoch. NN muss lernen Context-passende Ranges zu w
 | mech_army | (5, 100) | (100, 900) | (0.5, **10.0**) | (0.10, 0.40) |
 | mammoth_siege | (8, 120) | (100, 1000) | (0.5, **10.0**) | (0.10, 0.40) |
 
-Full list: `training-backend/templates.py` und `src/app/ai/core/templates.ts`.
+Full list: `src/app/ai/core/templates.ts` (Single Source of Truth; das Backend liest den Generat-Mirror `training-backend/generated/ai-schema.json`).
 
 ## Decoder-Pipeline (Server + Frontend)
 
@@ -83,7 +83,7 @@ statt gelegentlich-mild.
 
 ## Kritische Dateien
 
-- `training-backend/templates.py` — 18 Templates mit Ranges
+- `src/app/ai/core/templates.ts` — 19 Templates mit Ranges (Backend liest sie über das generierte Schema)
 - `training-backend/config.py` — NUM_CONTINUOUS=4, MAX_WAVE_DURATION_MS, Damage-Thresholds
 - `training-backend/model.py` — params_head (4,), factors in [0,1] via sigmoid
 - `training-backend/server.py::_decode_action` — lerp + Duration-Cap
@@ -145,7 +145,7 @@ zählt.
 
 ## Phase 5.16 — Wave-Curriculum + Endgame-Knobs + Gold-Budget
 
-**Wave-Curriculum** (`wave_curriculum.py` / `wave-curriculum.ts`):
+**Wave-Curriculum** (`src/app/configs/wave-curriculum.config.ts`):
 - 30 Waves explizit gepinnt, danach mod-30-Loop
 - Decoder forciert das Curriculum-Template für Wave 1..N (NN's Template-Argmax wird
   überschrieben)
@@ -172,10 +172,10 @@ zählt.
 - Pro-Kill-Reward = `goldKill / waveSize` (NICHT pro-enemy-type-gewichtet)
 - Skill-Bonuses (Perfect, CloseCall, Milestone, Combo, Comeback) stacken oben drauf
 
-**Backend-Mirror** (`wave_curriculum.py`):
+**Backend-Mirror** (`training-backend/generated/ai-schema.json`, generiert):
 - Nur die Template-Sequenz spiegelt sich ins Backend (für Decoder-Override)
 - Gold-Budget lebt nur im Frontend — der Reward des NN ist getrennt davon
 
 **Compatibility:** Das alte Phase-5.10/5.11 ONNX-Modell läuft mit den 5.14/5.16
-Decoder-Knobs ohne Retraining — die Architektur (156→36) ist identisch geblieben.
+Decoder-Knobs ohne Retraining — die Architektur (156→36) war damals identisch geblieben. Seit dem Training-Refresh gilt Schema v2 (162→36), alte Checkpoints sind nicht mehr ladbar.
 Re-Training optional, sobald die neuen Difficulty/Economy-Werte live verifiziert sind.

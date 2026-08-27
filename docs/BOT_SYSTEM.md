@@ -4,6 +4,13 @@
 
 Das Bot System ist ein professionelles, erweiterbares Framework für automatisierte Tower-Platzierung und -Management in 3DTD. Es basiert auf dem **Strategy Pattern** mit **Composition**, was maximale Flexibilität und Erweiterbarkeit ermöglicht.
 
+> **Aktualisiert 2026-08-27 (Training-Refresh).** Diese Datei war gegenüber dem
+> Code deutlich veraltet: `mistakeRate`, `plansAhead` und per-Skill-Level
+> `knownTowerTypes` existieren nicht (mehr), der Cooldown läuft in Game-Time
+> statt über `Date.now()`, und mehrere Prioritäten und Schwellwerte stimmten
+> nicht. Die Kern-Abschnitte sind korrigiert; wo unten noch Code-Blöcke stehen,
+> gilt im Zweifel der Code.
+
 **Key Features:**
 - 🎯 Strategy Pattern Architecture - Pluggable Entscheidungsstrategien
 - 🔧 Hochgradig erweiterbar - Neue Strategien ohne Core-Code-Änderungen
@@ -61,8 +68,12 @@ Das Bot System ist ein professionelles, erweiterbares Framework für automatisie
 3. `StrategyBot.decideAction()` iteriert über Strategien (sortiert nach Priority)
 4. Erste Strategie mit `canExecute() === true` und konkreter Action wird ausgeführt
 5. `wait`-Actions werden als Fallback gespeichert, blockieren aber nicht niedrigere Strategien
-6. `BaseTowerBot.update()` wendet optional Fehler an (`mistakeRate`)
-7. `TowerDefenseComponent` führt Action aus
+6. `TrainingClientService.executeBotAction()` führt die Action aus
+
+Der Cooldown tickt in **Game-Time**: `updateBot()` bekommt den Sub-Step-Delta
+des Fixed-Timestep-Loops, nicht Wall-Clock. Damit verhält sich der Bot bei
+Timescale 75 identisch zu 1× — früher lief er über `Date.now()` und traf im
+Schnelldurchlauf pro Spielminute ein Vielfaches an Entscheidungen.
 
 ---
 
@@ -195,11 +206,11 @@ export interface TowerAction {
 ```typescript
 export interface BotConfig {
   skillLevel: BotSkillLevel;
+  /** Game-time ms between decisions. */
   reactionTimeMs: number;
-  mistakeRate: number;              // 0-1, probability of suboptimal action
+  /** Same list for every skill level; research unlocks are the real gate. */
   knownTowerTypes: TowerTypeId[];
   adaptsToEnemies: boolean;
-  plansAhead: boolean;
   maxTowers: number;                // 0 = unlimited
 }
 ```
@@ -339,7 +350,8 @@ export class StrategyBot extends BaseTowerBot {
 - ✅ `notifyStrategies()` benachrichtigt alle Strategien bei konkreten Actions
 - ✅ Runtime strategy modification
 - ✅ Detailed logging
-- ✅ `makeSuboptimalAction()` Override für Fehler-Simulation
+- (entfernt) Fehler-Simulation über `makeSuboptimalAction()` gibt es nicht mehr —
+  Variation kommt aus dem Reaktionszeit-Jitter der Factory.
 
 ### BaseTowerBot
 
@@ -648,7 +660,9 @@ export class DistributedPlacementStrategy extends BaseStrategy {
 **Priority:** 65 (Medium-High)
 **Triggers:** Credits >= 20 + Tower count below max (oder aktiv beim Sparen)
 **Action:** Place tower in under-defended path zone
-**Archer Limit:** Max 4 Archer-Tower, danach Alternativen erzwungen
+**Archer Limit:** dynamisch — `max(4, anzahlNichtArcher * 2)`. Der Bot darf also
+mit wachsendem Mix mehr Archer halten, kann aber nicht in reinen Archer-Spam
+verfallen.
 
 **Zone Algorithm:**
 1. `findDistributedPositions()` verteilt Kandidaten über die gesamte Pfadlänge
@@ -818,7 +832,9 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
 ```
 
 **Priority:** 75 (Medium-High)
-**Triggers:** 3+ towers + 50+ credits + ~33% Chance + bezahlbares Upgrade vorhanden
+**Triggers:** 3+ Tower, 50+ Credits, ein bezahlbares Upgrade — und eine
+Feuerrate von 70 % pro Entscheidung, bzw. 90 % wenn der Bot über 2000 Credits
+gehortet hat.
 **Action:** Upgrade tower closest to spawn
 **Upgrade-Kosten:** Dynamisch via `tower.getNextUpgradeCost(upgradeId)`
 
@@ -827,7 +843,7 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
 **Purpose:** Verkauft Tower mit deutlich unterdurchschnittlicher Total-Damage-Bilanz,
 damit Credits für stärkere/passendere Tower freikommen.
 
-**Priority:** 55 (unter Upgrade-Strategien)
+**Priority:** 72 (unter Upgrade-Strategien)
 **Triggers:** Mindest-Tower-Anzahl + Tower mit Total-Damage signifikant unter Median
 
 Code: `src/app/ai/training/strategies/upgrade/sell-underperformer.strategy.ts`
@@ -905,53 +921,41 @@ export class AutoStartWaveStrategy extends BaseStrategy {
 
 ---
 
+### AntiEtherealPlacement (Priority 88)
+
+Seit dem Training-Refresh. Schliesst die Ethereal-Luecke: physical, pierce und
+fire liegen alle bei 0.15x gegen Ethereal, nur magic (1.75x), ice (1.5x) und
+lightning (1.5x) treffen wirklich. Das Curriculum forciert `ghost_surge` auf
+W13 und `wraith_storm` auf W17, und ein forciertes Template ignoriert das
+Capability-Gate — ohne diese Strategie verliert der Bot dort schlicht.
+
+Waehlt nach effektiver DPS pro Credit **gegen Ethereal**, nicht nach roher DPS.
+Aktiv ab Wave 9, damit Forschung und Bau rechtzeitig fertig werden.
+
+---
+
 ## Bot Configurations
 
 ### BOT_CONFIGS
 
 ```typescript
+// Alle Skill-Level kennen dieselben Combat-Tower. Was ein Bot bauen KANN,
+// entscheidet der Research-Unlock, nicht die Config.
+const ALL_COMBAT_TOWERS: TowerTypeId[] = [
+  'archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire',
+  'tentacle', 'poison', 'lightning',
+];
+
 export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
-  beginner: {
-    skillLevel: 'beginner',
-    reactionTimeMs: 3000,                            // Slow
-    mistakeRate: 0.4,                                // Viele Fehler
-    knownTowerTypes: ['archer', 'cannon'],            // Limited types
-    adaptsToEnemies: false,
-    plansAhead: false,
-    maxTowers: 10,
-  },
-
-  casual: {
-    skillLevel: 'casual',
-    reactionTimeMs: 1500,
-    mistakeRate: 0.2,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling'],
-    adaptsToEnemies: true,
-    plansAhead: false,
-    maxTowers: 15,
-  },
-
-  strategist: {
-    skillLevel: 'strategist',
-    reactionTimeMs: 800,
-    mistakeRate: 0.05,
-    knownTowerTypes: ['archer', 'cannon', 'rocket', 'ice', 'dual-gatling', 'magic'],
-    adaptsToEnemies: true,
-    plansAhead: true,
-    maxTowers: 50,
-  },
-
-  meta: {
-    skillLevel: 'meta',
-    reactionTimeMs: 400,                             // Fast
-    mistakeRate: 0.01,                               // Fast keine Fehler
-    knownTowerTypes: ['archer', 'cannon', 'ice', 'dual-gatling', 'magic', 'rocket'],
-    adaptsToEnemies: true,
-    plansAhead: true,
-    maxTowers: 0,                                    // Unlimited
-  }
+  beginner:   { skillLevel: 'beginner',   reactionTimeMs: 3000, knownTowerTypes: ALL_COMBAT_TOWERS, adaptsToEnemies: false, maxTowers: 10 },
+  casual:     { skillLevel: 'casual',     reactionTimeMs: 1500, knownTowerTypes: ALL_COMBAT_TOWERS, adaptsToEnemies: true,  maxTowers: 15 },
+  strategist: { skillLevel: 'strategist', reactionTimeMs: 800,  knownTowerTypes: ALL_COMBAT_TOWERS, adaptsToEnemies: true,  maxTowers: 300 },
+  meta:       { skillLevel: 'meta',       reactionTimeMs: 400,  knownTowerTypes: ALL_COMBAT_TOWERS, adaptsToEnemies: true,  maxTowers: 300 },
 };
 ```
+
+Die Factory legt beim Erzeugen ±30 % Jitter auf `reactionTimeMs` und
+`maxTowers`, damit parallele Trainings-Tabs nicht identisch spielen.
 
 ### Strategy Priority Ranges
 
@@ -1351,7 +1355,7 @@ for (const candidate of candidates) {
 - **ResearchPickStrategy** (Priority 80): skill-level-aware Pick-Order, aligned an
   Wave-Curriculum (`bat_swarm` W7 → AA bis W6, `boss_herbert` W10 → Cannon bis W9,
   `ghost_surge` W13 → Magic bis W12).
-- **SellUnderperformerStrategy** (Priority 55, nur Strategist): verkauft schwache Tower
+- **SellUnderperformer — Priority 72, nur Strategist): verkauft schwache Tower
   damit Credits für bessere frei werden.
 - Factory hängt jetzt allen Skill-Levels die Research-Strategien an + jittert
   `reactionTimeMs` / `maxTowers` für parallele Training-Clients.

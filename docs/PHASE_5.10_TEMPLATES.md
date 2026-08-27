@@ -2,6 +2,12 @@
 
 > **Status: SUPERSEDED — nur als historische Referenz erhalten.**
 >
+> - Der Training-Refresh (2026-08) hat `templates.py`, `wave_curriculum.py` und die
+>   Enemy-Tabellen in `config.py` gelöscht: Templates, Curriculum und Vokabulare
+>   kommen jetzt aus den TypeScript-Configs über
+>   `training-backend/generated/ai-schema.json`. Dateiverweise unten sind veraltet:
+>   [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
+>
 > - Phase 5.11 ersetzt statische `base_*`-Felder durch Ranges und erweitert den NN
 >   auf 4 Continuous-Parameter (count, spawn_delay, hp_mult, variation):
 >   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md).

@@ -265,11 +265,10 @@ keine zweite Code-Welt mehr.
 
 ## Bekannte Limitationen (= aktuelle TODOs)
 
-1. **Golem-Template ist AI-unsichtbar.** `golem_squad.minWave: 999` ist
-   ein temporärer Gate-Mechanismus für die untrainierte AI. Beim
-   nächsten AI-Re-Training muss das Gate runter UND der Python-Mirror
-   in `training-backend/wave_curriculum.py` parallel ergänzt werden
-   (TODO 2.2 in [TODO.md](../TODO.md)).
+1. ~~**Golem-Template ist AI-unsichtbar.**~~ **Erledigt.** `golem_squad` hat
+   jetzt `minWave: 14` und steht dem Wave Director offen. Ein Python-Mirror ist
+   nicht mehr nötig: das Backend liest Templates und Curriculum aus
+   `training-backend/generated/ai-schema.json`, erzeugt via `npm run ai-schema`.
 
 2. **Per-Wave-Tuning ist iterativ.** Die aktuellen Counts/HP-Mults sind
    gegen die optimistische Player-DPS aus dem Wave-Planner kalibriert.

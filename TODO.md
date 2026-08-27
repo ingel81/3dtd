@@ -223,11 +223,13 @@
 ## 2.1 Tower-Balance
 
 - [ ] **Tower-Upgrade-Skalierung feintunen**
-      Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
-      - Damage: ×1.10/Level (L25 ×10.83)
-      - Fire Rate: ×1.07/Level (L25 ×5.42)
-      - Range: ×1.04/Level (L25 ×2.67)
-      → kombiniert L25 ≈ ×58 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      Aktuell teilen sich fast alle Combat-Tower dieselben Standard-Multiplikatoren
+      (`tower-types.config.ts:62-65`; Archer hat eine eigene Range-Kurve ×1.02):
+      - Damage: ×1.05/Level (L25 ≈ ×3.39)
+      - Fire Rate: ×1.06/Level (L25 ≈ ×4.29)
+      - Range: ×1.04/Level (L25 ≈ ×2.67)
+      → kombiniert L25 ≈ ×14.5 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      (costScaling ist 1.25, nicht 1.40 — die früher hier notierten Werte waren veraltet.)
       Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
       Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
 
@@ -262,45 +264,26 @@
       Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.config.ts` anpassen.
       Nach jeder Änderung `npm run economy-chart` für Sanity-Check.
 
-- [ ] **Stone Golem ins Wave-Curriculum aufnehmen** (vor Re-Training)
-      Stone Golem ist als Config registriert (`enemy-types.config.ts`, Fortified, 480 HP, Speed 2.5),
-      aber AI-Wave-Director kennt ihn nicht. Vor Re-Training: Template in
-      `src/app/ai/core/templates.ts` ergänzen (z.B. `stone_golem_squad`) + ggf. Slot im
-      `wave-curriculum.config.ts` öffnen. Sonst lernt das Netz nichts über die neue Fortified-Variante
-      und Stone Golem taucht im AI-Mode nie auf.
-      **Stand 2026-05-20:** Template `golem_squad` ist in `templates.ts` ergänzt (`minWave: 999`
-      blockt AI bis Re-Training), und im statischen Fallback-Curriculum auf W15 verdrahtet.
-      Im AI-Pfad noch ungenutzt — beim Re-Training `minWave` runtersetzen + Python-Mirror
-      ergänzen.
-
-- [ ] **Frontend/Backend Wave-Template-Drift beheben** (vor Re-Training)
-      `zombie_horde` divergiert zwischen Runtime und Training: Frontend `templates.ts:39`
-      mischt 50 % `zombie-v2`, Backend `templates.py:35` nutzt 100 % klassische `zombie`.
-      Training, Inference und Runtime sehen damit unterschiedliche Enemy-Mischungen.
-      `zombie-v2` ist bei großen Mengen zudem teurer (siehe BACKLOG „zombie_v2-Modell
-      extern weiter optimieren") — eine 50-%-Beimischung in Mega-Hordes ist ein Perf-Risiko.
-      Lösung: Templates zwischen `src/app/ai/core/templates.ts` und
-      `training-backend/templates.py` synchronisieren; `zombie-v2`-Anteil in
-      High-Volume-Templates entfernen oder deutlich senken (ggf. nur als kleine
-      Showcase-/Early-Wave-Gruppe). Optional Template-Parity-Test.
-
-- [ ] **Lightning in AI/Bot integrieren** (vor Re-Training)
-      Lightning Tower ist gameplayseitig vorhanden, aber AI-/Bot-seitig ausgeklammert:
-      Der Encoder schließt Lightning explizit aus (`game-state-encoder.ts:83`, „AI doesn't
-      see Lightning Towers" — altes ONNX-Schema), und `ALL_COMBAT_TOWERS` im Bot
-      (`tower-bot.interface.ts:106`) enthält kein `lightning`. AI und Bot können Lightning
-      daher weder bauen noch in Defensiv-Einschätzungen bewerten.
-      Lösung: Encoder-Schema versionieren oder Lightning zunächst in Effective-DPS
-      aggregieren; Bot-Tower-Liste um `lightning` erweitern (Research-Unlock beachten).
-      Erst danach neu trainieren, damit Runtime und Training zusammenpassen.
-      Dateien: `src/app/ai/core/game-state-encoder.ts`,
-      `src/app/ai/training/bots/tower-bot.interface.ts`,
-      `src/app/configs/research/research-tree.config.ts`.
-
-- [ ] **Re-Training nach Balance-Verifikation** (Optional)
-      Checkpoint ep 7350 wurde gegen ALTES Reward-System trainiert. Re-Training optional,
-      ~30-45 min mit 8 headless Tabs. Nur sinnvoll **nachdem** Balance live verifiziert ist.
-      Bei Bedarf gleichzeitig 2.3-Safeguards einbauen (siehe unten).
+- [x] **Stone Golem ins Wave-Curriculum aufnehmen** — erledigt 2026-08-27.
+      `golem_squad` hat `minWave: 14`, steht auf W15 im Curriculum und ist über
+      das generierte Schema auch im Backend sichtbar.
+- [x] **Frontend/Backend Wave-Template-Drift beheben** — erledigt 2026-08-27.
+      Strukturell gelöst statt nur synchronisiert: `templates.py`,
+      `wave_curriculum.py` und die Enemy-Tabellen in `config.py` sind gelöscht.
+      Das Backend liest `training-backend/generated/ai-schema.json`, erzeugt von
+      `npm run ai-schema` aus den TS-Configs. `zombie_horde` mischt jetzt
+      90 % `zombie` / 10 % `zombie-v2`.
+- [x] **Lightning in AI/Bot integrieren** — erledigt 2026-08-27. Schema v2 nimmt
+      Lightning als 10. Tower und 8. Damage-Type auf (162 statt 156 Features);
+      der Bot hat es in `ALL_COMBAT_TOWERS` und `storm-mastery` in der
+      Research-Reihenfolge.
+- [ ] **Re-Training auswerten**
+      Nicht mehr optional: Schema v2 (162 Features) macht Checkpoint 7350 unladbar,
+      und der alte Lauf war ohnehin wertlos — der DEATH-Term hat nie gefeuert
+      (`server.py` las `outcome.gameOver`, das Feld heisst `playerSurvived`), und
+      der Template-Head bekam Gradienten für nie gespielte Aktionen.
+      Beides ist gefixt, der From-Scratch-Lauf läuft. Start/Überwachung: `/training`.
+      Vollständiger Befund: [docs/HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md).
 
 ## 2.3 Pre-Production Wave-Deployment Safeguards
 
@@ -317,7 +300,7 @@
 - [ ] **Temperature-Sampling im Decoder**
       Bei Inference `softmax(probs / T)` mit T=1.5-2.0 statt `argmax`. Secondary Types
       bekommen mehr Raum ohne Neutraining. Null Training-Kosten, reiner Inference-Parameter.
-      Datei: `src/app/ai/wave-director/wave-director.service.ts` (Decoder-Pfad).
+      Datei: `src/app/ai/core/wave-director.service.ts` (Decoder-Pfad).
 
 - [ ] **Hard-Monotony-Cap im Decoder**
       Notbremse: max. 3 Waves in Folge mit demselben dominanten Typ — über alle
