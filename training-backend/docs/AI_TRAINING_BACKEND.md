@@ -70,7 +70,7 @@ training-backend/
 │                         #   Enemy-Tabellen, Feature-Layout) — generiert aus den TS-Configs
 ├── generated/             # ai-schema.json, erzeugt von `npm run ai-schema`
 ├── trainer.py             # PPO-Training mit Mask-Aware-Reevaluation
-├── reward.py              # 4-Term-Reward (DEATH, DRAMA, SWARM_SIZE, PROGRESSION)
+├── reward.py              # 4-Term-Reward v4 (DEATH, DRAMA, PACING, SWARM_SIZE)
 ├── config.py              # Hyperparameter, State-Layout, Enemy-Defs
 │
 ├── tui_logger.py          # Console-Logger + JSONL-File-Logging
@@ -200,65 +200,97 @@ ONNX-Export-Format: `concat(template_logits, raw_params)` →
 
 ---
 
-## Reward-Funktion (4 Terms)
+## Reward-Funktion (v4, 4 Terms)
 
-`reward.py::calculate_reward` summiert:
+`reward.py::calculate_reward` summiert DEATH + DRAMA + PACING + SWARM_SIZE.
+
+> **v3 wurde ersetzt, weil sie nicht erfüllbar war.** v3 verlangte 1–5 % HP-Verlust
+> *pro Wave* und gatete drei ihrer vier Terme auf dieses Band. Der Leak-Schaden
+> ist `1 + floor((w-1)/10)` HP bei 100 max HP, also quantisiert: ab Wave 51 sind
+> 0 Leaks = 0 % und 1 Leak = 6 %, dazwischen existiert nichts. Die drei gegateten
+> Terme lieferten ab W51 strukturell 0. Dazu heilt der Spieler nie und das Spiel
+> hat kein Sieg-Ziel — 100 HP sind das Budget des gesamten Runs, 1–5 % pro Wave
+> sind also der Tod, den der DEATH-Term mit −15…−30 bestrafte. Gemessenes
+> Ergebnis nach 9.800 Episoden: die AI schickte nichts mehr (avgProgress 0,06–0,27
+> gegen Zielband 0,65–0,90; ein Client mit 133 Waves ohne einen HP-Verlust).
+> Details in `docs/HANDOVER_TRAINING_REFRESH.md`, Abschnitt G.
+
+v4 trennt die zwei Fragen, die v3 vermischt hatte:
+
+* **DRAMA** — „war diese Wave spannend?" — pro Wave, auf `near_miss_ratio`.
+* **PACING** — „hat der Run die richtige Länge?" — über den ganzen Run, auf der HP-Kurve.
+
+Alle Terme sind Gauss-Kurven statt Stufen, damit auch eine verfehlte Wave einen
+Gradienten trägt. v3s Stufenfunktionen lieferten über ganze Regionen denselben
+Wert und sagten der Policy damit nichts.
 
 ### Term 1: DEATH (`_death_penalty`)
 
-One-Shot beim Game-Over, skaliert auf das frühe Spiel:
+Relativ zur Ziel-Rundenlänge, nicht absolut. Der Run *soll* enden — ein endloses
+Spiel ohne Heilung hat genau einen Ausgang. Planmäßig zu enden ist gratis:
 
 ```python
-base    = REWARD_GAME_OVER_PENALTY * 10                      # -3.0
-scaling = max(0.5, 1.0 - wave_num * 0.02)                    # 1.0 (W1) → 0.5 (W25+)
-penalty = max(REWARD_GAME_OVER_CAP, base * scaling)          # cap -3.5
+shortfall = max(0.0, (TARGET_RUN_WAVES - wave_num) / TARGET_RUN_WAVES)
+penalty   = REWARD_DEATH_MAX * shortfall ** 2      # -40 bei W0, 0 ab W80
 ```
+
+Die Größenordnung folgt aus einer Bedingung: ein Tod muss die Waves im
+Discount-Horizont überwiegen (1/(1−GAMMA) ≈ 10 Waves à ~1,3), sonst wird
+„ausbluten lassen und dann kassieren" wieder die beste Strategie — dieser Exploit
+war in v3 real.
 
 ### Term 2: DRAMA (`_drama_reward`)
 
-Damage-Zone × Path-Progress, in einem Signal verschmolzen.
-
-**Damage-Sub-Komponente** (Phase 5.11 enges Sweet-Band):
-| `damage_pct` | Score |
-|---|---|
-| < 1% | −0.10 (boring) |
-| 1–5% | **+0.40 (peak)** |
-| 5–20% | 0 (neutral) |
-| > 20% | −3.0 × overrun (linear) |
-
-**Progress-Sub-Komponente:**
-| `avg_progress` | Score |
-|---|---|
-| > 95% | −0.80 (overflow) |
-| 65–90% | **+0.50 (near-miss peak)** |
-| sonst | `progress × 0.30` (mild positiv) |
-
-### Term 3: SWARM_SIZE (`_swarm_size_reward`)
-
-Continuous-Bonus für Wave-Größe, **gated** auf Wave-Qualität:
+Gelesen aus `near_miss_ratio` = Anteil der Gegner, die über 80 % des Pfades kamen.
+Das ist aus drei Gründen die richtige Größe: sie beschreibt den *oberen Rand* der
+Verteilung statt des Mittelwerts, ihre Schrittweite ist 1/count statt 6 % pro
+Leak, und sie ist genau das, was ein Spieler als knappe Sache wahrnimmt.
 
 ```python
-if total_count <= 20:               return -0.10           # too small
-if not survived:                    return 0.0
-if avg_progress > 0.95:             return 0.0             # all overflowed
-if damage_pct > 0.20:               return 0.0             # too hard
-return min(2.0, 0.0015 * (total_count - 20))               # cap +2.0
+if avg_progress > 0.95: return -0.80                       # Overflow = Durchbruch
+bell  = exp(-((near_miss_ratio - 0.25) / 0.18) ** 2)
+score = 1.00 * bell + (-0.30) * (1 - bell)                 # +1.00 im Ziel, -0.30 weit weg
+if total_count < 40:                                       # Anteile sind skalenfrei
+    if score > 0: score *= sqrt(total_count / 40)          # Strafen NIE dämpfen
 ```
 
-Phase-5.11-Hotfix: Slope von 0.003→0.0015 und Cap 8.0→2.0 reduziert,
-nachdem das NN Mega-Hordes als Path-of-Least-Resistance ausnutzte.
+Die Dämpfung schließt ein Schlupfloch: 1 Durchkommer von 4 trifft das Band so
+sauber wie 25 von 100. Eine *Strafe* wird nicht gedämpft, sonst wären Mini-Waves
+der billige Ausweg.
 
-### Term 4: PROGRESSION (`_progression_bonus`)
+### Term 3: PACING (`_pacing_reward`)
 
-Survival-Bonus skaliert mit Wave-Nummer, gated auf Mindest-Damage:
+HP-Zerfallskurve über den Run statt eines Per-Wave-Bandes:
 
 ```python
-if not survived or damage_pct < 0.01:  return 0.0
-return min(0.5, 0.02 * wave_num)                 # plateau ab Wave 25
+target = max(0.0, 1.0 - wave_num / TARGET_RUN_WAVES)       # linear 1.0 -> 0.0
+err    = hp_after - target
+return 0.60 * (exp(-(err / 0.18) ** 2) - 1.0)              # [-0.60, 0]
 ```
 
-**Hard-Constraints (Monotony, Armor-Dominance, Fairness)** sind nicht im Reward,
-sondern im Decoder (`server.py::_decode_action`) als Mask-Logic.
+**Eine Strafe, kein Bonus.** Für das Sitzen auf der Kurve zu zahlen bedeutete,
+dass Nichtstun positiv punktet, solange der Spieler zufällig auf der Kurve liegt —
+der v3-Kollaps durch eine andere Tür. Auf Kurve zu sein ist jetzt lediglich
+kostenlos; nur DRAMA zahlt.
+
+Der Term macht Stillstand teuer: ein Client mit 100 % HP auf Wave 92 ist maximal
+weit von der Kurve entfernt, also verbessert jeder Schadenspunkt den Score — der
+Gradient zeigt auf Angriff, was er unter v3 nie tat.
+
+### Term 4: SWARM_SIZE (`_swarm_size_reward`)
+
+Tiebreaker innerhalb der Drama-Hülle, nie das Ziel. Gate ist jetzt DRAMA selbst,
+weil das Damage-Band, für das es stand, nicht mehr existiert:
+
+```python
+if total_count <= 20: return -0.10
+if drama <= 0:        return 0.0
+return min(0.30, 0.0004 * (total_count - 20))
+```
+
+**Hard-Constraints** (Verfügbarkeits-Maske, DPS-Ramp, Dauer-Cap, Spawn-Delay-Floor,
+Fairness-Gate) sind nicht im Reward, sondern im Decoder (`server.py::_decode_action`)
+bzw. in `schema.get_available_template_mask`.
 
 ---
 
