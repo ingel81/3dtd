@@ -953,7 +953,9 @@
     },
     "fairness": {
       "headroom": 1.25,
-      "engagementSeconds": 30,
+      "engagementReachM": 60,
+      "engagementMinSeconds": 2,
+      "engagementMaxSeconds": 40,
       "minCount": 5
     }
   },

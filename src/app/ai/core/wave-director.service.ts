@@ -314,6 +314,7 @@ export class WaveDirectorService {
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
     );
     if (fairCap !== null && fairCap < totalCount) {
       totalCount = fairCap;

@@ -350,11 +350,23 @@ export const DPS_RAMP_HP_MULT = 1000.0;
 export const FAIRNESS_HEADROOM = 1.25;
 
 /**
- * Seconds of fire the defense gets beyond the spawn window — enemies keep
- * walking (and dying) after the last one spawns. A coarse stand-in for path
- * length, which the training backend has no view of.
+ * How far along the path a defense can engage, in metres.
+ *
+ * Combined with enemy speed this gives the seconds each enemy actually spends
+ * under fire — which is the real limit, not the length of the wave. A flat
+ * 30-second allowance assumed the towers keep shooting long after the last
+ * spawn, but the enemies do not wait around: a rat at 10 m/s is inside a 40 m
+ * engagement envelope for four seconds and then it is at the base. That
+ * mistake let 217 rats through a gate that thought they were clearable.
+ *
+ * Deliberately larger than a single tower's radius, since a defense is spread
+ * along the route and an enemy passes several.
  */
-export const FAIRNESS_ENGAGEMENT_SECONDS = 30;
+export const FAIRNESS_ENGAGEMENT_REACH_M = 60;
+
+/** Clamp on the derived engagement window, so extreme speeds stay sane. */
+export const FAIRNESS_ENGAGEMENT_MIN_S = 2;
+export const FAIRNESS_ENGAGEMENT_MAX_S = 40;
 
 /** The gate never clamps below this; a wave of one enemy is not a wave. */
 export const FAIRNESS_MIN_COUNT = 5;
@@ -388,6 +400,7 @@ export function fairMaxCount(
   enemyArmor: (enemyId: string) => ArmorType,
   enemyIsAir: (enemyId: string) => boolean,
   enemyBaseHp: (enemyId: string) => number,
+  enemyBaseSpeed: (enemyId: string) => number,
 ): number | null {
   const ground = effectiveDps?.ground ?? {};
   const air = effectiveDps?.air ?? {};
@@ -396,6 +409,7 @@ export function fairMaxCount(
   let weightedDps = 0;
   let weightedHp = 0;
   let weightedThroughput = 0;
+  let weightedSpeed = 0;
   for (const [enemy, share] of template.enemies) {
     if (share <= 0) continue;
     const isAir = enemyIsAir(enemy);
@@ -403,6 +417,7 @@ export function fairMaxCount(
     weightedDps += share * (dpsSource[enemyArmor(enemy)] ?? 0);
     weightedThroughput += share * (isAir ? (killThroughput?.air ?? 0) : (killThroughput?.ground ?? 0));
     weightedHp += share * enemyBaseHp(enemy) * hpMult;
+    weightedSpeed += share * Math.max(0.1, enemyBaseSpeed(enemy));
     totalShare += share;
   }
   if (totalShare <= 0) return null;
@@ -430,13 +445,21 @@ export function fairMaxCount(
   // Closed form, since the wave's duration depends on the count:
   //   killable = killsPerSecond * (count * delaySeconds + ENGAGEMENT) * HEADROOM
   //   want:  count <= killable
+  // Seconds an enemy spends under fire, from its own speed. Fast swarms give
+  // the defense far less time than the wave's nominal duration suggests.
+  const speed = weightedSpeed / totalShare;
+  const engagementSeconds = Math.min(
+    FAIRNESS_ENGAGEMENT_MAX_S,
+    Math.max(FAIRNESS_ENGAGEMENT_MIN_S, FAIRNESS_ENGAGEMENT_REACH_M / speed),
+  );
+
   const budget = killsPerSecond * FAIRNESS_HEADROOM;
   const denominator = 1 - budget * (Math.max(0, spawnDelayMs) / 1000);
   if (denominator <= 0) return null;
 
   return Math.max(
     FAIRNESS_MIN_COUNT,
-    Math.floor((budget * FAIRNESS_ENGAGEMENT_SECONDS) / denominator),
+    Math.floor((budget * engagementSeconds) / denominator),
   );
 }
 

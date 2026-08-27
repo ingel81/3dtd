@@ -130,6 +130,7 @@ export function buildWaveContext(
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
     );
     if (cap !== null) {
       const span = countRange[1] - countRange[0];

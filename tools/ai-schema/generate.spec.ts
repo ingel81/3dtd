@@ -59,7 +59,9 @@ import {
   DPS_RAMP_COUNT,
   DPS_RAMP_HP_MULT,
   FAIRNESS_HEADROOM,
-  FAIRNESS_ENGAGEMENT_SECONDS,
+  FAIRNESS_ENGAGEMENT_REACH_M,
+  FAIRNESS_ENGAGEMENT_MIN_S,
+  FAIRNESS_ENGAGEMENT_MAX_S,
   FAIRNESS_MIN_COUNT,
 } from '../../src/app/ai/core/templates';
 import {
@@ -181,7 +183,9 @@ function buildSchema() {
       dpsRamp: { floor: DPS_RAMP_FLOOR, count: DPS_RAMP_COUNT, hpMult: DPS_RAMP_HP_MULT },
       fairness: {
         headroom: FAIRNESS_HEADROOM,
-        engagementSeconds: FAIRNESS_ENGAGEMENT_SECONDS,
+        engagementReachM: FAIRNESS_ENGAGEMENT_REACH_M,
+        engagementMinSeconds: FAIRNESS_ENGAGEMENT_MIN_S,
+        engagementMaxSeconds: FAIRNESS_ENGAGEMENT_MAX_S,
         minCount: FAIRNESS_MIN_COUNT,
       },
     },
