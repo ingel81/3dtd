@@ -1,4 +1,5 @@
 import { GameEventBus, SubscriptionBag } from '../game-engine';
+import { requiredUpgradeTier } from '../configs/tower-types.config';
 import { GameStateManager } from './game-state.manager';
 import { getResearch } from '../configs/research/research-tree.config';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
@@ -57,16 +58,10 @@ export class GameCommandsHandler {
 
       // Tier-Gating: research-slots (Research Center) ist immer erlaubt.
       // Reguläre Tower-Upgrades brauchen ein passendes Upgrade-Tier-Research.
-      // Phase 5.16: 25-Level-Tracks in 5er-Bändern (Mirror von
-      // GameSidebarComponent.getRequiredUpgradeTier — synchron halten).
-      //   L1-5 = T1, L6-10 = T2, L11-15 = T3, L16-20 = T4, L21-25 = T5
+      // Die Bandregel lebt in requiredUpgradeTier() — Sidebar und Trainings-Bot
+      // nutzen dieselbe Funktion, damit die drei nicht auseinanderlaufen.
       if (upgradeId !== 'research-slots') {
-        const currentLevel = tower.getUpgradeLevel(upgradeId);
-        const requiredTier =
-          currentLevel >= 20 ? 5 :
-          currentLevel >= 15 ? 4 :
-          currentLevel >= 10 ? 3 :
-          currentLevel >= 5  ? 2 : 1;
+        const requiredTier = requiredUpgradeTier(tower.getUpgradeLevel(upgradeId));
         if (this.gsm.researchManager.getMaxUpgradeTier() < requiredTier) return;
       }
 

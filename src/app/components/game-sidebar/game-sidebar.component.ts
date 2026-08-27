@@ -29,6 +29,7 @@ import {
   TARGETING_STRATEGIES,
   AirSubStrategy,
   AIR_SUB_STRATEGIES,
+  requiredUpgradeTier,
 } from '../../configs/tower-types.config';
 import { DAMAGE_TYPE_UI, ARMOR_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
@@ -425,12 +426,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
    *   L21-25 = Tier 5 (requires Transcendent Tech)
    */
   getRequiredUpgradeTier(tower: Tower, upgradeId: UpgradeId): number {
-    const currentLevel = tower.getUpgradeLevel(upgradeId);
-    if (currentLevel >= 20) return 5;
-    if (currentLevel >= 15) return 4;
-    if (currentLevel >= 10) return 3;
-    if (currentLevel >= 5) return 2;
-    return 1;
+    return requiredUpgradeTier(tower.getUpgradeLevel(upgradeId));
   }
 
   isUpgradeTierUnlocked(tower: Tower, upgradeId: UpgradeId): boolean {

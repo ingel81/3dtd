@@ -27,6 +27,9 @@ export const RESEARCH_CENTER_LEVELS: ResearchCenterLevelConfig[] = [
  */
 export const RESEARCH_CENTER_CONFIG = {
   /** Cost to place the Research Center */
+  // Placement cost actually comes from TOWER_TYPES['research-center'].cost
+  // (75). This field has no consumers and is kept only as documentation of
+  // the level-1 price in the cost table below.
   baseCost: 150,
   /** Maximum building level */
   maxLevel: 3,

@@ -64,6 +64,28 @@ export const UPGRADE_SPEED_MULTIPLIER = 1.06;  // +6%/level (L20 ≈ 3.21×, L25
 export const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
 export const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
 
+/**
+ * Research tier required to push an upgrade past its current level.
+ *
+ * The 25-level tracks are split into 5-level bands, each gated behind a
+ * research: L0-4 free, L5-9 Advanced Weaponry, L10-14 Master Engineering,
+ * L15-19 Advanced Engineering, L20+ Transcendent Tech.
+ *
+ * Single source of truth for the game's command handler, the sidebar UI and
+ * the training bot. They each used to carry their own copy, and the bot's was
+ * far stricter (tier 2 already at level 1), so it quietly declined upgrades
+ * the engine would have accepted.
+ *
+ * `research-slots` (Research Center) is exempt — callers skip this check for it.
+ */
+export function requiredUpgradeTier(currentLevel: number): number {
+  if (currentLevel >= 20) return 5;
+  if (currentLevel >= 15) return 4;
+  if (currentLevel >= 10) return 3;
+  if (currentLevel >= 5) return 2;
+  return 1;
+}
+
 /** Archer's range upgrade is a per-tower variant (see ARCHER_RANGE_UPGRADE
  *  below); offline tools that show it separately read it from this constant. */
 export const ARCHER_RANGE_MULTIPLIER = 1.02;
