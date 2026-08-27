@@ -277,6 +277,17 @@ export class ThreeTilesEngine {
 
   // Animation
   private animationFrameId: number | null = null;
+  /**
+   * Hidden-tab loop driver. Chrome freezes requestAnimationFrame outright
+   * while a tab is not visible, so the render loop — and with it the bot, the
+   * wave logic and every training episode — stops dead rather than slowing
+   * down. Opt in via `setBackgroundLoopEnabled(true)`; training does.
+   */
+  private heartbeatWorker: Worker | null = null;
+  private backgroundLoopEnabled = false;
+  private onVisibilityChange: (() => void) | null = null;
+  /** Shared between the rAF and heartbeat drivers so deltas stay continuous. */
+  private lastLoopTime = 0;
   private isRunning = false;
 
   /** Target FPS limit (0 = unlimited/vsync) */
@@ -1759,16 +1770,118 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Longest game-time step a single background tick may advance.
+   *
+   * A throttled hidden tab can hand us gaps of seconds. At a training
+   * timescale of 75 a one-second gap is 75 seconds of game time in one step,
+   * which the fixed sub-step loop would try to catch up in a single frame —
+   * the same sub-step pile-up that showed up as 225 sub-steps per frame and
+   * 2 FPS. Capping means game time runs slower than wall-clock while hidden,
+   * which is the right trade: slower beats stopped.
+   */
+  private static readonly MAX_BACKGROUND_STEP_MS = 50;
+
+  /**
+   * Drive the loop from a worker timer while the tab is hidden.
+   *
+   * Only training turns this on. The normal game has no reason to run in a
+   * tab nobody is looking at, and the browser's throttling is a feature there.
+   */
+  setBackgroundLoopEnabled(enabled: boolean): void {
+    if (this.backgroundLoopEnabled === enabled) return;
+    this.backgroundLoopEnabled = enabled;
+    if (!enabled) {
+      this.stopHeartbeat();
+      if (this.onVisibilityChange) {
+        document.removeEventListener('visibilitychange', this.onVisibilityChange);
+        this.onVisibilityChange = null;
+      }
+      return;
+    }
+    this.onVisibilityChange = () => this.syncLoopDriver();
+    document.addEventListener('visibilitychange', this.onVisibilityChange);
+    this.syncLoopDriver();
+  }
+
+  /** Pick the driver that actually ticks under the current visibility. */
+  private syncLoopDriver(): void {
+    if (!this.backgroundLoopEnabled || !this.isRunning) {
+      this.stopHeartbeat();
+      return;
+    }
+    if (document.hidden) {
+      this.startHeartbeat();
+    } else {
+      this.stopHeartbeat();
+    }
+  }
+
+  private startHeartbeat(): void {
+    if (this.heartbeatWorker) return;
+    try {
+      this.heartbeatWorker = new Worker(
+        new URL('../workers/heartbeat.worker', import.meta.url),
+        { type: 'module' },
+      );
+    } catch (err) {
+      console.warn('[ThreeTilesEngine] Heartbeat worker unavailable:', err);
+      this.heartbeatWorker = null;
+      return;
+    }
+    this.heartbeatWorker.onmessage = ({ data }) => {
+      if (data?.type === 'tick') this.tickFromHeartbeat();
+    };
+    this.lastLoopTime = performance.now();
+    this.heartbeatWorker.postMessage({ type: 'start', intervalMs: 16 });
+  }
+
+  private stopHeartbeat(): void {
+    if (!this.heartbeatWorker) return;
+    this.heartbeatWorker.postMessage({ type: 'stop' });
+    this.heartbeatWorker.terminate();
+    this.heartbeatWorker = null;
+    // Hand the clock back to rAF without a giant catch-up delta.
+    this.lastLoopTime = performance.now();
+  }
+
+  /**
+   * One loop step driven by the heartbeat instead of a frame.
+   *
+   * Deliberately skips `render()`: nothing is visible, and the GPU half is the
+   * expensive one. Gameplay, the bot and the wave logic all hang off
+   * `update()`.
+   */
+  private tickFromHeartbeat(): void {
+    if (!this.isRunning || !document.hidden) return;
+    const currentTime = performance.now();
+    const deltaTime = Math.min(
+      currentTime - this.lastLoopTime,
+      ThreeTilesEngine.MAX_BACKGROUND_STEP_MS,
+    );
+    this.lastLoopTime = currentTime;
+    if (deltaTime <= 0) return;
+    this.update(deltaTime);
+  }
+
+  /**
    * Start the render loop
    */
   startRenderLoop(): void {
     if (this.isRunning) return;
     this.isRunning = true;
 
-    let lastRender = performance.now(); // for deltaTime
-    let anchor = lastRender; // frame-pacing phase anchor
+    this.lastLoopTime = performance.now();
+    let anchor = this.lastLoopTime; // frame-pacing phase anchor
     const animate = (currentTime: number) => {
       if (!this.isRunning) return;
+
+      // While the heartbeat owns the clock, rAF must not also step the world.
+      // A tab can deliver a straggling frame right as it goes hidden, and two
+      // drivers stepping the same fixed sub-step loop double gameplay speed.
+      if (this.heartbeatWorker) {
+        this.animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
 
       // FPS limiting: skip frame if not enough time has elapsed
       if (this._minFrameInterval > 0) {
@@ -1787,8 +1900,8 @@ export class ThreeTilesEngine {
         }
       }
 
-      const deltaTime = currentTime - lastRender;
-      lastRender = currentTime;
+      const deltaTime = currentTime - this.lastLoopTime;
+      this.lastLoopTime = currentTime;
 
       this.update(deltaTime);
       this.render();
@@ -1797,6 +1910,7 @@ export class ThreeTilesEngine {
     };
 
     this.animationFrameId = requestAnimationFrame(animate);
+    this.syncLoopDriver();
   }
 
   /**
@@ -1804,6 +1918,7 @@ export class ThreeTilesEngine {
    */
   stopRenderLoop(): void {
     this.isRunning = false;
+    this.stopHeartbeat();
     if (this.animationFrameId !== null) {
       cancelAnimationFrame(this.animationFrameId);
       this.animationFrameId = null;

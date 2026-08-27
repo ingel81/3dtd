@@ -186,6 +186,14 @@ export class TowerDefenseFacadeService {
       // towers, never started a wave, and the run produced no training data at
       // all while still looking connected and healthy on the dashboard.
       this.trainingClient.botAutoMode.set(botMode !== 'manual');
+      // ...and it plays on its own too. Waiting for the dashboard's `start`
+      // meant a tab that reloaded — whether by hand or via the `reload` control
+      // command — sat in setup forever: `start` had already been broadcast, and
+      // nothing broadcasts it again. `enableBot` is safe to call before
+      // `initialize()`; it queues the request until the factory exists.
+      if (botMode !== 'manual') {
+        this.trainingClient.enableBot('strategist');
+      }
     } else if (botMode === 'auto') {
       this.trainingClient.botAutoMode.set(true);
     }
@@ -279,6 +287,14 @@ export class TowerDefenseFacadeService {
       if (engine) {
         engine.setOnTilesLoadCallback(() => this.vizFacade.onTilesLoaded());
         engine.setOnUpdateCallback((deltaTime) => this.gameLoopFacade.onEngineUpdate(deltaTime));
+
+        // A training tab spends its life in the background. Chrome freezes
+        // requestAnimationFrame in hidden tabs completely, so without this the
+        // whole run stops the moment the window loses visibility — while the
+        // once-a-second status push keeps reporting the client as healthy.
+        // The normal game keeps the browser's throttling; it should not run
+        // when nobody is watching.
+        engine.setBackgroundLoopEnabled(this.devWorld.isActive);
 
         // Fix race condition: if tiles loaded during initEngine() before the
         // onTilesLoadCallback was set, the route refresh was skipped.
