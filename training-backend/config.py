@@ -77,6 +77,11 @@ TARGET_KL = 0.02
 # model.py) and only the categorical head keeps a bonus.
 ENTROPY_COEF = 0.02
 
+# Effective window for the reward-scaling statistic. A lifetime count would
+# stop adapting once it grew large, which is wrong for a reward that keeps
+# shifting as the policy improves and the wave numbers climb.
+REWARD_SCALE_WINDOW = 2000
+
 # How many waves a single client may accumulate before its trajectory is cut
 # and bootstrapped. Long survivors would otherwise contribute nothing.
 TRAJECTORY_FLUSH_LENGTH = 32

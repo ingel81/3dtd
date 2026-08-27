@@ -410,9 +410,11 @@ export function fairMaxCount(
   const dps = weightedDps / totalShare;
   const hpPerEnemy = weightedHp / totalShare;
   const throughput = weightedThroughput / totalShare;
-  // No effective damage at all: the capability mask owns that case. Shrinking
-  // an unwinnable wave only makes it a smaller unwinnable wave.
-  if (dps <= 0 || hpPerEnemy <= 0) return null;
+  // No effective damage against this wave at all — a curriculum-forced air wave
+  // against a ground-only defense, say, since forcing bypasses the capability
+  // mask. Every enemy will leak and leak damage scales with the count, so the
+  // smallest legal wave is the right answer, not an uncapped one.
+  if (dps <= 0 || hpPerEnemy <= 0) return FAIRNESS_MIN_COUNT;
 
   // Kills per second, not damage per second.
   //

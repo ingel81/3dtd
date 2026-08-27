@@ -266,10 +266,10 @@ def test_gate_reads_air_dps_for_air_waves():
     tpl = _template("bat_swarm")
     ground_only = schema.fair_max_count(tpl, 1.0, 100, _dps(ground=500, air=0))
     with_air = schema.fair_max_count(tpl, 1.0, 100, _dps(ground=500, air=500))
-    # Zero air DPS means "no answer at all" -> the capability mask owns this
-    # case, so the gate declines to shrink an already-unwinnable wave.
-    assert ground_only is None
-    assert with_air is None or with_air > 0
+    # Ground DPS must not be credited against an air wave: with none of it
+    # reaching, the gate falls back to the floor.
+    assert ground_only == schema.FAIRNESS_MIN_COUNT
+    assert with_air is None or with_air > ground_only
 
 
 def test_gate_uses_armor_weighted_dps():
@@ -324,3 +324,18 @@ def test_more_towers_raise_the_cap():
     big = schema.fair_max_count(tpl, 1.0, 50, _dps(ground=760), _throughput(ground=20.0))
     assert small is not None
     assert big is None or big > small
+
+
+def test_a_wave_the_defense_cannot_touch_is_shrunk_to_the_floor():
+    """Curriculum forcing bypasses the capability mask.
+
+    Wave 7 is `bat_swarm` whether or not the player can shoot upward. With no
+    effective damage every enemy leaks, and leak damage scales with the count —
+    so the smallest legal wave is the right answer, not an uncapped one.
+    """
+    cap = schema.fair_max_count(
+        _template("bat_swarm"), hp_mult=1.0, spawn_delay_ms=100,
+        effective_dps_per_armor=_dps(ground=500, air=0),
+        kill_throughput=_throughput(ground=10, air=0),
+    )
+    assert cap == schema.FAIRNESS_MIN_COUNT

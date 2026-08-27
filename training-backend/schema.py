@@ -217,10 +217,12 @@ def fair_max_count(
     hp_per_enemy = weighted_hp / total_share
     throughput = weighted_throughput / total_share
     if dps <= 0 or hp_per_enemy <= 0:
-        # No effective damage at all against this wave. The capability mask is
-        # what protects the player here; capping the count would only turn an
-        # unwinnable wave into a smaller unwinnable wave.
-        return None
+        # No effective damage against this wave at all — a curriculum-forced air
+        # wave against a ground-only defense, say, since forcing bypasses the
+        # capability mask. Every enemy will leak, and leak damage scales with
+        # the count, so the smallest legal wave is exactly the right answer: it
+        # still teaches the lesson without ending the run outright.
+        return FAIRNESS_MIN_COUNT
 
     dps_limited = dps / hp_per_enemy
     kills_per_second = min(dps_limited, throughput) if throughput > 0 else dps_limited

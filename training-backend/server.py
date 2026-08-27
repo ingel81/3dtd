@@ -453,9 +453,9 @@ class TrainingServer:
                 await ws.send(json.dumps({"type": "reset"}))
                 self._reset_context(ctx)
                 self._select_bot(ctx)
-                self.games_played += 1
-                logger.update_games(self.games_played)
-                logger.episode_start(client_id, ctx.current_bot)
+                # The counter is bumped by the `game_start` the client sends in
+                # response to this reset — incrementing here too double-counted
+                # every episode and skewed the deterministic-eval cadence.
 
         elif msg_type == "game_start":
             # New game starting - receive enemy base HP from frontend
@@ -464,6 +464,20 @@ class TrainingServer:
                 ctx.enemy_base_hp = enemy_base_hp
             self._select_bot(ctx)
             self._reset_context(ctx)
+
+            # Discard anything left over from the previous game.
+            #
+            # A stale pending entry survives whenever the last wave's result
+            # never arrived. Since a deterministic run never calls
+            # store_action, nothing overwrites it — so the eval run's reward
+            # would pair with the PREVIOUS game's state and land in a training
+            # trajectory. That was the one path by which measurement data
+            # leaked into PPO. An unclosed trajectory would likewise chain the
+            # old game onto the new one.
+            for key in [k for k in self.trainer.pending if k[0] == client_id]:
+                del self.trainer.pending[key]
+            self.trainer.drop_client(client_id)
+
             self.games_played += 1
             # Every Nth run is a measurement run.
             ctx.deterministic = (
@@ -630,6 +644,16 @@ class TrainingServer:
         """
         encoded = []
 
+        def clamp01(v):
+            """Mirror of the frontend `normalize()`, which clamps to [0,1].
+
+            Without this the backend fed values above 1.0 whenever a raw number
+            exceeded its ceiling — routine for tower counts late in a run —
+            while inference clamped them. Same net, two different input
+            distributions.
+            """
+            return max(0.0, min(1.0, float(v)))
+
         def last_n(seq, n=5):
             """Last n entries, left-padded with 0 so index 0 is the oldest."""
             seq = seq or []
@@ -639,24 +663,24 @@ class TrainingServer:
         # === Player state ===
         player = state.get("player", {})
         encoded.extend([
-            player.get("credits", 0) / MAX_VALUES["credits"],
-            player.get("livesPercent", 1),
-            state.get("waveNumber", 0) / MAX_VALUES["wave"],
-            min(1.0, state.get("gameTimeSeconds", 0) / MAX_VALUES["gameTime"]),
+            clamp01(player.get("credits", 0) / MAX_VALUES["credits"]),
+            clamp01(player.get("livesPercent", 1)),
+            clamp01(state.get("waveNumber", 0) / MAX_VALUES["wave"]),
+            clamp01(state.get("gameTimeSeconds", 0) / MAX_VALUES["gameTime"]),
         ])
 
         # === Tower stats ===
         defense = state.get("defense", {})
         encoded.extend([
-            defense.get("towerCount", 0) / MAX_VALUES["towerCount"],
-            defense.get("avgTowerLevel", 0) / MAX_VALUES["towerLevel"],
+            clamp01(defense.get("towerCount", 0) / MAX_VALUES["towerCount"]),
+            clamp01(defense.get("avgTowerLevel", 0) / MAX_VALUES["towerLevel"]),
         ])
 
         # === Tower type counts ===
         dist = defense.get("towerDistribution", {})
         for t in TOWER_TYPES:
             stats = dist.get(t, {}) or {}
-            encoded.append((stats.get("count", 0) or 0) / 10)
+            encoded.append(clamp01((stats.get("count", 0) or 0) / 10))
 
         # === Damage + progress history ===
         history = state.get("recentHistory", {})
@@ -690,9 +714,11 @@ class TrainingServer:
         encoded.extend([
             wave_num / MAX_VALUES["wave"],
             self._calculate_difficulty_trend(damages),
-            _estimate_player_skill(ctx.recent_damages if ctx else [], ctx.win_streak if ctx else 0),
-            history.get("lastWaveThreat", 0) / MAX_VALUES["waveThreat"],
-            history.get("winStreak", 0) / MAX_VALUES["winStreak"],
+            # Same inputs the frontend encoder uses, so training and inference
+            # see one definition of "skill" rather than two.
+            _estimate_player_skill(damages[-5:], history.get("winStreak", 0)),
+            clamp01(history.get("lastWaveThreat", 0) / MAX_VALUES["waveThreat"]),
+            clamp01(history.get("winStreak", 0) / MAX_VALUES["winStreak"]),
         ])
 
         # === DPS by damage type ===
@@ -732,7 +758,10 @@ class TrainingServer:
         # Frontend sends enemyTypesUsed: string[][] (outer = wave, inner = types).
         enemy_types_history = history.get("enemyTypesUsed", []) or []
         recent_waves = enemy_types_history[-5:] if enemy_types_history else []
-        window = max(1, len(recent_waves))
+        # Fixed window, matching the frontend. Dividing by the number of waves
+        # actually present made the first four waves of every game encode
+        # differently on the two sides.
+        window = 5
         for t in ENEMY_TYPES:
             encoded.append(sum(1 for w in recent_waves if t in w) / window)
 
@@ -904,25 +933,33 @@ class TrainingServer:
         endgame_hp = endgame_hp_multiplier(wave_num)
         hp_mult = round(nn_hp_mult * endgame_hp, 3)
 
+        def apply_fairness_gate(count, delay):
+            cap = fair_max_count(
+                template,
+                hp_mult,
+                delay,
+                defense.get("effectiveDPSPerArmor") or {},
+                defense.get("killThroughput") or {},
+            )
+            if cap is not None and cap < count:
+                return cap, cap, True
+            return count, cap, False
+
         # Fairness gate: never ship a wave the defense cannot plausibly fight.
         # Applied after the HP multipliers so it judges the enemies as they will
-        # actually spawn, and before the duration cap so the compression below
-        # works on the final count.
-        fair_cap = fair_max_count(
-            template,
-            hp_mult,
-            spawn_delay,
-            defense.get("effectiveDPSPerArmor") or {},
-            defense.get("killThroughput") or {},
-        )
-        gated = fair_cap is not None and fair_cap < total_count
-        if gated:
-            total_count = fair_cap
+        # actually spawn.
+        total_count, fair_cap, gated = apply_fairness_gate(total_count, spawn_delay)
 
         # Wave-duration cap: compress spawn_delay if (count × spawn_delay) would exceed 3 min.
         total_duration = total_count * spawn_delay
         if total_duration > MAX_WAVE_DURATION_MS:
             spawn_delay = max(MIN_SPAWN_DELAY_MS, MAX_WAVE_DURATION_MS // total_count)
+            # Re-check: a slow mega-wave can clear the gate precisely BECAUSE its
+            # long spawn window gives the defense time, and the compression then
+            # multiplies the spawn rate. Without a second pass the gate is
+            # bypassed by exactly the waves it exists to stop.
+            total_count, fair_cap, regated = apply_fairness_gate(total_count, spawn_delay)
+            gated = gated or regated
 
         # Expand template → enemy groups
         enemies = []
