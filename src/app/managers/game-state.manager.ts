@@ -345,6 +345,19 @@ export class GameStateManager {
   }
 
   /**
+   * Re-seat the wave pipeline with new spawn points and routes.
+   *
+   * Needed after a DevWorld regeneration, which builds an entirely new map but
+   * does not re-run {@link initialize}. `WaveManager.reset()` deliberately
+   * keeps its spawn points (a normal game restart reuses the same map), so
+   * without this the next wave still spawned at the previous world's
+   * coordinates and walked the previous world's path.
+   */
+  reseatWavePipeline(spawnPoints: SpawnPoint[], cachedPaths: Map<string, GeoPosition[]>): void {
+    this.waveManager.initialize(spawnPoints, cachedPaths);
+  }
+
+  /**
    * Main update loop — called EVERY FRAME by the renderer.
    *
    * Architecture: outer wrapper handles wall-clock → game-time conversion and

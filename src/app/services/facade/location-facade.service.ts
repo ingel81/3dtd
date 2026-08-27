@@ -291,13 +291,29 @@ export class LocationFacadeService {
         const devTerrainProvider = engine?.getDevTerrainProvider();
 
         if (devTerrainProvider) {
+          // Take every generated spawn, not just the first. The street
+          // generator emits up to 4 and DevWorld is where the AI trains — a
+          // single-spawn topology teaches it a map shape the real world does
+          // not have.
           const generatedSpawns = devTerrainProvider.getSpawnPoints();
           if (generatedSpawns.length > 0) {
-            const spawn = generatedSpawns[0];
-            const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-            this.locationMgmt.setGeneratedSpawns([{ lat: spawnGeo.lat, lon: spawnGeo.lon }]);
-            this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
-            return 1;
+            const geos = generatedSpawns.map((spawn) =>
+              this.devWorld.localToGeo(spawn.position.x, spawn.position.z),
+            );
+            this.locationMgmt.setGeneratedSpawns(
+              geos.map((g) => ({ lat: g.lat, lon: g.lon })),
+            );
+            generatedSpawns.forEach((spawn, i) => {
+              const geo = geos[i];
+              this.addSpawnPoint(
+                spawn.id,
+                spawn.name,
+                geo.lat,
+                geo.lon,
+                SPAWN_COLORS[i % SPAWN_COLORS.length],
+              );
+            });
+            return generatedSpawns.length;
           }
         }
 
@@ -726,13 +742,19 @@ export class LocationFacadeService {
     // Re-create base marker
     this.markerViz.addBaseMarker();
 
-    // Create new spawn from terrain provider
+    // Create new spawns from the terrain provider — all of them, matching the
+    // initial-load path.
     const generatedSpawns = devTerrainProvider.getSpawnPoints();
-    if (generatedSpawns.length > 0) {
-      const spawn = generatedSpawns[0];
+    generatedSpawns.forEach((spawn, i) => {
       const spawnGeo = this.devWorld.localToGeo(spawn.position.x, spawn.position.z);
-      this.addSpawnPoint(spawn.id, spawn.name, spawnGeo.lat, spawnGeo.lon, SPAWN_COLORS[0]);
-    }
+      this.addSpawnPoint(
+        spawn.id,
+        spawn.name,
+        spawnGeo.lat,
+        spawnGeo.lon,
+        SPAWN_COLORS[i % SPAWN_COLORS.length],
+      );
+    });
 
     this.pathRoute.updateSpawnMarkers(this.markerViz.getSpawnMarkers());
 
@@ -748,11 +770,26 @@ export class LocationFacadeService {
       color: sp.color,
     }));
     this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
 
-    // Re-initialize game state
+    // Rebuild the route-cell grid BEFORE resolving route-line heights: the
+    // grid is what `getGroundLocalYAt` reads, and until it is regenerated it
+    // still holds the previous world's cells.
     this.gameState.initializeGlobalRouteGrid();
+    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
     this.gameState.onTilesLoaded();
+
+    // Hand the new spawns and routes to the wave pipeline. Without this the
+    // WaveManager kept spawning at the old world's coordinates.
+    this.gameState.reseatWavePipeline(
+      this.store.spawnPoints().map((sp) => ({
+        id: sp.id,
+        name: sp.name,
+        lat: sp.lat,
+        lon: sp.lon,
+        color: sp.color,
+      })),
+      this.pathRoute.getCachedPaths(),
+    );
 
     // Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();

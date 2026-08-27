@@ -2012,7 +2012,11 @@ export class ThreeTilesEngine {
    * Check if 3D tiles are currently visible
    */
   areTilesVisible(): boolean {
-    return this.tilesRenderer?.group.parent !== null;
+    // `?.` yields undefined when there is no tiles renderer at all (DevWorld),
+    // and `undefined !== null` is true — so this used to claim tiles were
+    // visible in a world that has none.
+    const group = this.tilesRenderer?.group;
+    return !!group && group.parent !== null;
   }
 
   /**
@@ -2199,6 +2203,11 @@ export class ThreeTilesEngine {
   dispose(): void {
     this.stopRenderLoop();
     this.clearDebugHelpers();
+
+    // DevWorld owns a generation Web Worker and a set of raycast-only building
+    // meshes that live outside the scene graph. Nothing else disposes them, so
+    // every engine teardown (a training tab reload, for instance) leaked one.
+    this.devTerrainProvider?.dispose();
 
     // Remove event listeners to prevent memory leaks
     if (this.tilesRenderer) {

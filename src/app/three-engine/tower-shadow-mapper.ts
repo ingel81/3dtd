@@ -243,8 +243,20 @@ export class TowerShadowMapper {
     const noop: Mesh['onBeforeRender'] = () => {
       /* neutralisiert Plugin-Mutations am Override-Material (Lesson 2). */
     };
+    // Meshes inside the blocker group that must not occlude — flagged with
+    // `userData.losTransparent`. Ground decals (DevWorld road stamps sitting
+    // 0.5 m above the terrain) and the terrain skirt are geometry for the eye,
+    // not for line of sight. The CPU raycast path never included them, so
+    // without this the two disagreed about what blocks a shot.
+    const hiddenNonOccluders: Object3D[] = [];
+
     const tTraverseStart = performance.now();
     includeOnly.traverse((obj) => {
+      if (obj.userData?.['losTransparent'] && obj.visible) {
+        obj.visible = false;
+        hiddenNonOccluders.push(obj);
+        return;
+      }
       if (!(obj instanceof Mesh)) return;
       meshBackup.push({
         mesh: obj,
@@ -288,6 +300,7 @@ export class TowerShadowMapper {
         entry.mesh.onBeforeRender = entry.onBeforeRender;
       }
       for (const obj of hiddenSiblings) obj.visible = true;
+      for (const obj of hiddenNonOccluders) obj.visible = true;
       losPerf.sample('cube/restore', performance.now() - tRestoreStart);
     }
 
