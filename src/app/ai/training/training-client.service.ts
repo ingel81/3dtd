@@ -201,13 +201,21 @@ export class TrainingClientService {
    * the bot's reactionTimeMs and strategy cooldowns are authored in
    * game-time, so this matches semantics directly with no scaling.
    */
-  updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
+  updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean {
     if (!this.botEnabled() || !this.currentBot || !this.gameState) return false;
 
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;
 
-    const action = this.currentBot.update(snapshot, deltaTime);
+    // Tick timers first and bail before touching the snapshot. At timescale 75
+    // the sub-step loop runs ~200 ticks per rendered frame, and a snapshot is
+    // an expensive thing to build (full defense analysis, per-armor effective
+    // DPS, a route-grid reach query) — building one per tick just to discover
+    // the bot is still in reaction cooldown was pure waste.
+    if (!this.currentBot.tickCooldown(deltaTime)) return false;
+
+    // Cooldown already advanced above, so pass 0 to avoid double-ticking.
+    const action = this.currentBot.update(getSnapshot(), 0);
     if (action) {
       this.executeBotAction(action);
       return true;

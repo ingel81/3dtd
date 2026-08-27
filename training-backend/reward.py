@@ -87,10 +87,24 @@ def _drama_reward(damage_pct: float, avg_progress: float) -> float:
         overrun = damage_pct - DAMAGE_HARD_THRESHOLD
         damage_score = -1.0 * REWARD_DAMAGE_HARD_SLOPE * overrun  # >20% = penalty
 
-    # Progress sub-component
+    # Progress sub-component.
+    #
+    # The near-miss peak is gated on the wave having actually cost the player
+    # something, exactly as the swarm and progression bonuses already are.
+    # Ungated it was the cheapest reward in the function: a huge wave that walks
+    # to 90% of the path and dies there scored -0.10 (no damage) +0.50
+    # (near-miss) + swarm + progression, so the net learned to avoid damage
+    # entirely. Observed directly — rolling reward climbed to +0.65 while the
+    # share of waves in the 1-5% damage band collapsed from 63% to 6%.
+    #
+    # Below the sweet minimum the wave still earns the mild slope, so getting
+    # enemies far remains worth something and the gradient stays smooth.
     if avg_progress > PROGRESS_OVERFLOW_THRESHOLD:
         progress_score = REWARD_OVERFLOW
-    elif PROGRESS_NEAR_MISS_LOW <= avg_progress <= PROGRESS_NEAR_MISS_HIGH:
+    elif (
+        PROGRESS_NEAR_MISS_LOW <= avg_progress <= PROGRESS_NEAR_MISS_HIGH
+        and damage_pct >= DAMAGE_SWEET_MIN
+    ):
         progress_score = REWARD_NEAR_MISS_PEAK
     else:
         progress_score = avg_progress * REWARD_PROGRESS_SLOPE

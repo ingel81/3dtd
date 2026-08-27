@@ -16,6 +16,8 @@
  * there is no hand-maintained `templates.py` any more.
  */
 
+import { type ArmorType } from '../../configs/combat/combat.types';
+
 export type TemplateSpawnPattern = 'interleaved' | 'sequential' | 'clustered' | null;
 export type TemplateCapability = 'antiAir' | 'antiEthereal' | null;
 export type NumberRange = readonly [number, number];
@@ -323,10 +325,99 @@ export const TEMPLATE_COOLDOWN_WAVES = 2;
 export const MAX_WAVE_DURATION_MS = 180_000;
 export const MIN_SPAWN_DELAY_MS = 5;
 
-/** DPS-scaled range caps (Phase 5.11b) — keep in sync with config.py. */
+/** DPS-scaled range caps (Phase 5.11b). Mirrored into the generated schema. */
 export const DPS_RAMP_FLOOR = 0.10;
 export const DPS_RAMP_COUNT = 500.0;
 export const DPS_RAMP_HP_MULT = 1000.0;
+
+/**
+ * Fairness gate — how far a wave may exceed what the defense can actually kill.
+ *
+ * The DPS ramp scales a wave against the *template's* range, so its floor is
+ * relative: 10% of zombie_horde's 20-2000 span is still 218 enemies, which at
+ * wave 1 (100 credits = two archers = 50 DPS) is unkillable by an order of
+ * magnitude. Every run died in the first few waves and the net never saw the
+ * curriculum past wave 11.
+ *
+ * This gate is absolute instead: estimate the HP the defense can chew through
+ * over the wave, allow the wave to carry `HEADROOM` times that much — the
+ * overshoot is exactly the leak that produces the 1-5% damage the reward wants
+ * — and clamp the count to fit.
+ *
+ * It is a floor on fairness, not the difficulty knob. On a well-built defense
+ * it does not bind at all; the ramp and the net's own factors stay in charge.
+ */
+export const FAIRNESS_HEADROOM = 1.25;
+
+/**
+ * Seconds of fire the defense gets beyond the spawn window — enemies keep
+ * walking (and dying) after the last one spawns. A coarse stand-in for path
+ * length, which the training backend has no view of.
+ */
+export const FAIRNESS_ENGAGEMENT_SECONDS = 30;
+
+/** The gate never clamps below this; a wave of one enemy is not a wave. */
+export const FAIRNESS_MIN_COUNT = 5;
+
+/**
+ * Largest enemy count the defense can plausibly fight, or null if unbounded.
+ *
+ * Mirrors `schema.fair_max_count` in the training backend — inference has to
+ * apply the same gate the net was trained under, or the shipped game hands out
+ * waves the training run never produced.
+ *
+ * Uses armor-weighted effective DPS rather than raw DPS: an archer counts fully
+ * against unarmored and barely at all (0.15x) against ethereal, and a wave of
+ * wraiths has to be judged by the latter. Ground and air are read separately so
+ * a defense that cannot shoot upward gets no credit for a bat swarm.
+ *
+ * Closed form, since the wave's duration depends on the count itself:
+ *
+ *     killable = dps * (count * delaySeconds + ENGAGEMENT) * HEADROOM
+ *     want:  count * hpPerEnemy <= killable
+ *
+ * A non-positive denominator means the defense out-damages the spawn rate, so
+ * nothing needs capping.
+ */
+export function fairMaxCount(
+  template: Template,
+  hpMult: number,
+  spawnDelayMs: number,
+  effectiveDps: { ground?: Record<string, number>; air?: Record<string, number> } | undefined,
+  enemyArmor: (enemyId: string) => ArmorType,
+  enemyIsAir: (enemyId: string) => boolean,
+  enemyBaseHp: (enemyId: string) => number,
+): number | null {
+  const ground = effectiveDps?.ground ?? {};
+  const air = effectiveDps?.air ?? {};
+
+  let totalShare = 0;
+  let weightedDps = 0;
+  let weightedHp = 0;
+  for (const [enemy, share] of template.enemies) {
+    if (share <= 0) continue;
+    const source = enemyIsAir(enemy) ? air : ground;
+    weightedDps += share * (source[enemyArmor(enemy)] ?? 0);
+    weightedHp += share * enemyBaseHp(enemy) * hpMult;
+    totalShare += share;
+  }
+  if (totalShare <= 0) return null;
+
+  const dps = weightedDps / totalShare;
+  const hpPerEnemy = weightedHp / totalShare;
+  // No effective damage at all: the capability mask owns that case. Shrinking
+  // an unwinnable wave only makes it a smaller unwinnable wave.
+  if (dps <= 0 || hpPerEnemy <= 0) return null;
+
+  const budget = dps * FAIRNESS_HEADROOM;
+  const denominator = hpPerEnemy - budget * (Math.max(0, spawnDelayMs) / 1000);
+  if (denominator <= 0) return null;
+
+  return Math.max(
+    FAIRNESS_MIN_COUNT,
+    Math.floor((budget * FAIRNESS_ENGAGEMENT_SECONDS) / denominator),
+  );
+}
 
 export function getTemplate(idx: number): Template | null {
   if (idx < 0 || idx >= NUM_ACTIVE_TEMPLATES) return null;

@@ -944,6 +944,11 @@
       "floor": 0.1,
       "count": 500,
       "hpMult": 1000
+    },
+    "fairness": {
+      "headroom": 1.25,
+      "engagementSeconds": 30,
+      "minCount": 5
     }
   },
   "difficultyRamps": {

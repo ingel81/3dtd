@@ -27,7 +27,9 @@ import {
   getTemplate,
   getAvailableTemplateMask,
   lerpRange,
+  fairMaxCount,
 } from './templates';
+import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { templateForWave, endgameHpMultiplier } from '../../configs/wave-curriculum.config';
 
 /** Model loading states */
@@ -301,13 +303,29 @@ export class WaveDirectorService {
       return rng[0] + (effMax - rng[0]) * factor;
     };
 
-    const totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
+    let totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
     let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
     // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
     // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
     const baseHpMult = lerpCapped(template.hpMultRange, hpFactor, dpsFracHp);
     const hpMult = Math.round(baseHpMult * endgameHpMultiplier(upcomingWave) * 1000) / 1000;
     const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
+
+    // Fairness gate: never ship a wave the defense cannot plausibly fight.
+    // Applied after the HP multipliers so it judges the enemies as they will
+    // actually spawn, and before the duration cap below.
+    const fairCap = fairMaxCount(
+      template,
+      hpMult,
+      spawnDelay,
+      state.defense?.effectiveDPSPerArmor,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
+      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
+    );
+    if (fairCap !== null && fairCap < totalCount) {
+      totalCount = fairCap;
+    }
 
     // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
     const totalDuration = totalCount * spawnDelay;

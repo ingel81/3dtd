@@ -13,6 +13,12 @@ import { TowerAction } from '../../bots/tower-bot.interface';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { OsmStreetService } from '../../../../services/location/osm-street.service';
 
+/**
+ * How many of the spawn-nearest towers are considered for an upgrade before
+ * giving up. Bounded so the strategy stays cheap in the sub-step loop.
+ */
+const UPGRADE_CANDIDATE_COUNT = 8;
+
 export class NearSpawnUpgradeStrategy extends BaseStrategy {
   constructor(
     private gameState: GameStateManager,
@@ -65,44 +71,50 @@ export class NearSpawnUpgradeStrategy extends BaseStrategy {
 
     towersWithDistance.sort((a, b) => a.distance - b.distance);
 
-    // Try to upgrade closest tower
-    const closest = towersWithDistance[0].tower;
-    const upgrades = closest.getAvailableUpgrades();
+    // Walk the closest N towers, not just the closest one.
+    //
+    // Considering only towersWithDistance[0] meant that as soon as that single
+    // tower's next upgrade was unaffordable or tier-locked, this strategy
+    // returned null and the placement strategies (lower priority, but always
+    // applicable) took every turn. With the late-game gold curve that produced
+    // a defense of ~300 towers at low levels instead of a compact upgraded one
+    // — and 300 towers is what pushes combat resolution into multi-millisecond
+    // territory per sub-step.
     const maxTier = state.research?.maxUpgradeTier ?? 1;
-    const affordable = upgrades.filter(u => {
-      if (closest.getNextUpgradeCost(u.id) > state.player.credits) return false;
-      // Tier gate, using the same band rule the engine enforces. The bot used
-      // to carry a much stricter local copy (tier 2 already at level 1, tier 3
-      // at level 2, nothing above that), so it declined upgrades the engine
-      // would have accepted and never reached tiers 4 and 5 at all.
-      // research-slots (Research Center) is exempt.
-      if (u.id !== 'research-slots') {
-        if (maxTier < requiredUpgradeTier(closest.getUpgradeLevel(u.id))) return false;
-      }
-      return true;
-    });
 
-    if (affordable.length === 0) {
-      return null;
+    for (const { tower } of towersWithDistance.slice(0, UPGRADE_CANDIDATE_COUNT)) {
+      const affordable = tower.getAvailableUpgrades().filter((u) => {
+        if (tower.getNextUpgradeCost(u.id) > state.player.credits) return false;
+        // Tier gate, using the same band rule the engine enforces. The bot used
+        // to carry a much stricter local copy (tier 2 already at level 1, tier 3
+        // at level 2, nothing above that), so it declined upgrades the engine
+        // would have accepted and never reached tiers 4 and 5 at all.
+        // research-slots (Research Center) is exempt.
+        if (u.id === 'research-slots') return true;
+        return maxTier >= requiredUpgradeTier(tower.getUpgradeLevel(u.id));
+      });
+
+      if (affordable.length === 0) continue;
+
+      // Pick the upgrade with the LOWEST current level so tracks stay spread
+      // instead of one path being maxed. Random tie-break among equals.
+      affordable.sort((a, b) => {
+        const levelA = tower.getUpgradeLevel(a.id);
+        const levelB = tower.getUpgradeLevel(b.id);
+        if (levelA !== levelB) return levelA - levelB;
+        return Math.random() - 0.5;
+      });
+      const upgrade = affordable[0];
+
+      return {
+        type: 'upgrade',
+        towerId: tower.id,
+        upgradeId: upgrade.id,
+        confidence: 0.8,
+        reason: `Upgrading ${tower.typeConfig.name} near spawn with ${upgrade.name} (T${tower.getUpgradeLevel(upgrade.id) + 1})`,
+      };
     }
 
-    // Tier-Priority: pick upgrade with LOWEST current level (T1 → T2 → T3).
-    // Keeps tier spread even across a tower's upgrades instead of random
-    // maxing one path. Among equal-tier upgrades, tie-break random.
-    affordable.sort((a, b) => {
-      const levelA = closest.getUpgradeLevel(a.id);
-      const levelB = closest.getUpgradeLevel(b.id);
-      if (levelA !== levelB) return levelA - levelB;
-      return Math.random() - 0.5;
-    });
-    const upgrade = affordable[0];
-
-    return {
-      type: 'upgrade',
-      towerId: closest.id,
-      upgradeId: upgrade.id,
-      confidence: 0.8,
-      reason: `Upgrading ${closest.typeConfig.name} near spawn with ${upgrade.name} (T${closest.getUpgradeLevel(upgrade.id) + 1})`
-    };
+    return null;
   }
 }

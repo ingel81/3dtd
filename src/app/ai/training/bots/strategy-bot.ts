@@ -37,9 +37,19 @@ export class StrategyBot extends BaseTowerBot {
    * the bot itself is in reaction cooldown. Without this, strategy cooldowns
    * would be starved at high timescales exactly like the bot was pre-5.12.
    */
-  override update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
+  override tickCooldown(deltaTime: number): boolean {
     for (const strategy of this.strategies) {
       strategy.tickCooldowns?.(deltaTime);
+    }
+    return super.tickCooldown(deltaTime);
+  }
+
+  override update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
+    // deltaTime is 0 when the caller already ticked via tickCooldown().
+    if (deltaTime > 0) {
+      for (const strategy of this.strategies) {
+        strategy.tickCooldowns?.(deltaTime);
+      }
     }
     return super.update(state, deltaTime);
   }

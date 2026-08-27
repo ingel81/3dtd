@@ -42,16 +42,31 @@ export abstract class BaseTowerBot implements ITowerBot {
   }
 
   /**
-   * Main update method - handles timing and delegates to subclass.
-   * deltaTime is game-time ms (already timescale-scaled by TrainingClientService).
+   * Advance the reaction cooldown in game-time; true when a decision is due.
+   *
+   * Callers should gate snapshot construction on this — see
+   * {@link ITowerBot.tickCooldown}.
    */
-  update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
-    // Tick cooldown in game-time. While cooldown is active, return early.
+  tickCooldown(deltaTime: number): boolean {
     if (this.cooldownRemainingMs > 0) {
       this.cooldownRemainingMs -= deltaTime;
-      if (this.cooldownRemainingMs > 0) return null;
+      if (this.cooldownRemainingMs > 0) return false;
       this.cooldownRemainingMs = 0;
     }
+    return true;
+  }
+
+  /**
+   * Main update method - handles timing and delegates to subclass.
+   * deltaTime is game-time ms (already timescale-scaled by TrainingClientService).
+   *
+   * Safe to call without a preceding {@link tickCooldown}: it ticks itself and
+   * returns null while still on cooldown. Callers that want to skip building a
+   * snapshot should call `tickCooldown` first and only then `update`, passing 0
+   * so the cooldown is not advanced twice.
+   */
+  update(state: GameStateSnapshot, deltaTime: number): TowerAction | null {
+    if (!this.tickCooldown(deltaTime)) return null;
 
     // Decide action (individual strategies handle tower limits)
     const action = this.decideAction(state);

@@ -86,6 +86,17 @@ export interface ITowerBot {
   update(state: GameStateSnapshot, deltaTime: number): TowerAction | null;
 
   /**
+   * Advance internal timers by `deltaTime` (game-time ms) and report whether a
+   * decision is due this tick.
+   *
+   * Split out from {@link update} so callers can avoid building a state
+   * snapshot on ticks where the bot is still in reaction cooldown. At training
+   * timescales the sub-step loop runs hundreds of ticks per rendered frame and
+   * the snapshot is by far the most expensive thing in it.
+   */
+  tickCooldown(deltaTime: number): boolean;
+
+  /**
    * Reset bot state for new game
    */
   reset(): void;
@@ -134,7 +145,14 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     reactionTimeMs: 800,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    maxTowers: 300,  // Raised from 50 — bot was hitting cap and hoarding gold
+    // The design target roster is ~13 towers (one of each type, archer x3) at
+    // level 20 — see docs/wave-planner.html. This cap sits well above that
+    // while keeping combat resolution affordable: at 300 the bot actually
+    // built 298 towers and combat alone cost 6ms per sub-step, which at
+    // timescale 75 (~225 sub-steps per frame) collapsed the loop to 2 FPS.
+    // The gold-hoarding that motivated raising it to 300 had a different
+    // cause: the upgrade strategy only ever looked at a single tower.
+    maxTowers: 80,
   },
 
   meta: {
@@ -142,7 +160,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     reactionTimeMs: 400,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    maxTowers: 300,  // Raised from 0 (unlimited) to match strategist with higher cap
+    maxTowers: 80,  // Matches strategist; see the note there.
   },
 };
 
