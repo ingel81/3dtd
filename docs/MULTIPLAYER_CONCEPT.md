@@ -861,3 +861,401 @@ Bestehen bleibt aus Teil I unveraendert:
 Stufe 1 ist erstaunlich klein: Room-Verwaltung plus Dateiablage, **kein Relay,
 kein Determinismus**. Und sie liefert bereits einen vollstaendig spielbaren
 PvP-Modus.
+
+---
+
+# Teil IV — Die zwei Zielmodi
+
+> Zwei konkrete Modi, durchentworfen. **Modus B ist netzwerktechnisch fast
+> geschenkt, Modus A ist der teure** — und zwar nicht wegen der Netzwerktechnik,
+> sondern wegen der Renderlast.
+
+---
+
+## 23. Modus A — "Vier Tore": eigene Lane, gemeinsames HQ
+
+### 23.1 Der Kernbefund: die Lane existiert bereits
+
+Das ist kein neues Konzept, sondern eine Zuordnung:
+
+| Vorhandenes Bauteil | Fundstelle | Wird zu |
+|---------------------|-----------|---------|
+| `SpawnPoint[]` mit eigener Route je Spawn | `wave.manager.ts:68`, `path-route.service.ts:206` | **die Lane** |
+| `selectSpawnPoint('each' \| 'random')` | `wave.manager.ts:302` | Verteilung der Welle auf Lanes |
+| `SPAWN_COLORS` — **exakt vier Farben** | `configs/map-constants.config.ts:27` | Spielerfarben |
+| `MIN/MAX_SPAWN_DISTANCE` 500–1000 m | ebenda | Lane-Laenge und -Abstand |
+| Route-Berechnung pro Spawn zum HQ | `path-route.service.ts` | Lane-Geometrie |
+
+Die Engine ist also bereits fuer bis zu vier farblich getrennte Lanes gebaut,
+die alle auf ein HQ zulaufen. **Die Mechanik von Modus A ist im Kern eine
+Zuordnung `playerId ↔ spawnPointId`** — plus die Regeln drumherum.
+
+### 23.2 Spielregeln
+
+| Frage | Entscheidung | Warum |
+|-------|-------------|-------|
+| Lane-Zuweisung | Ein Spawn pro Spieler, Farbe = Spielerfarbe | Bereits im Renderer vorhanden |
+| HQ-Leben | **geteilt** | Der Coop-Kern: dein Leak tut mir weh |
+| Gold | **getrennt** | Siehe unten — das ist die wichtigste Entscheidung |
+| Bauen in fremder Lane | **erlaubt** | Helfen wird dadurch zum echten Opfer, nicht zur Geste |
+| Turm verkaufen | nur Besitzer | Kein Griefing |
+| Turm upgraden | jeder, mit eigenem Gold | Gemeinsames Aufruesten eines Schluesselturms |
+| Research | **geteilt**, Kosten beim Ausloeser | Der Tech-Tree ist global; erzeugt natuerlichen Rollen-Split |
+| Wellennummer | **global** | `checkWaveComplete()` ist heute schon global |
+| Wellen-Schedule | **pro Lane**, aus demselben Seed, gleiche Staerke | "Meine Lane, mein Problem" |
+| Wellenstart | alle muessen bereit sein | Nutzt `command:start-wave` unveraendert |
+
+**Getrenntes Gold plus Bauen-ueberall ist der interessanteste Hebel im ganzen
+Modus.** Es erzeugt Carry-Dynamik ohne eine einzige Sonderregel: Wer gut steht,
+kann sein Gold in die Lane des Schwaechsten stecken — und zahlt dafuer mit der
+eigenen Verteidigung. Ein geteilter Goldpool haette diese Entscheidung
+wegoptimiert.
+
+### 23.3 Die konvergierende Zone — bewusst gestalten
+
+Alle Lanes laufen auf dasselbe HQ zu, also ueberlappen sich die letzten ~100 m.
+Ein Turm dort deckt **alle** Lanes ab. Das ist keine Panne, sondern der
+interessanteste Ort der Karte — aber es braucht eine Regel, sonst baut einer
+den Kern voll und die anderen fahren Trittbrett:
+
+- **Empfehlung:** Der Kernbereich ist eine ausgewiesene Zone mit eigenem
+  Bau-Limit (z. B. maximal N Tuerme, unabhaengig vom Besitzer). Damit wird er
+  zur knappen gemeinsamen Ressource, ueber die das Team verhandeln muss.
+- Alternative (langweiliger): Bauverbot im Kernradius, jede Lane muss allein
+  halten.
+
+### 23.4 Skalierung mit der Spielerzahl
+
+Naiv waere "HQ-HP × Spielerzahl" — das macht das Spiel **leichter**, weil vier
+Verteidiger mehr leisten als einer. Vorschlag stattdessen:
+
+- HQ-HP bleibt konstant, Leak-Schaden pro Gegner bleibt konstant.
+- Wellenstaerke **pro Lane** bleibt ebenfalls konstant.
+- Ergebnis: Mehr Spieler = mehr gleichzeitige Fronten = mehr Leak-Gelegenheiten
+  bei gleichem HQ-Puffer. Vier Spieler ist die harte Variante, nicht die
+  leichte.
+- Balance-Regler, falls das zu hart ist: Leak-Schaden ÷ Spielerzahl.
+
+### 23.5 Der Schwachstellen-Spieler
+
+Der offensichtliche Frust-Modus: Ein Spieler leakt dauernd und kostet dem Team
+das HQ. Drei Gegenmittel, alle billig:
+
+1. **Lane-Kollaps statt Matchende beim Disconnect.** Geht ein Spieler,
+   wird seine Lane geschlossen (kein Spawn mehr) statt das Match zu beenden.
+   Das ist gleichzeitig die saubere Antwort auf Verbindungsabbrueche — der
+   Rest spielt weiter.
+2. **Gold-Transfer** zwischen Spielern erlauben (eigener Command).
+3. **Lane-Druck-HUD**: Alle sehen die HP-Summe und Leak-Rate jeder Lane. Ein
+   Problem sichtbar zu machen ist billiger, als es zu regulieren.
+
+### 23.6 Netzwerk: volles Lockstep, kein Weg drumherum
+
+Gemeinsames HQ = gemeinsamer Zustand = alle Clients muessen sich ueber jeden
+Leak einig sein. Damit gilt das komplette Programm aus Teil I und III:
+Tick-Relay, Tick-Barriere, seeded RNG, World Seal, Host-LOS-Masken,
+Checksum-Quorum.
+
+Immerhin: **Ab drei Spielern liefert das Quorum aus 15.6 echte Autoritaet.**
+Modus A ist damit der Modus, der am meisten von der Serverarchitektur
+profitiert.
+
+### 23.7 Performance — der eigentliche Engpass
+
+**Das ist die zentrale Erkenntnis fuer Modus A: Die Grenze ist nicht das
+Netzwerk, sondern der Renderer.**
+
+Vier Lanes bedeuten die vierfache Gegnerzahl **in jedem einzelnen Client**.
+Gemessener Ist-Stand (`docs/INSTANCED_ENEMY_RENDERING.md:325`):
+
+> 5000 Enemies @ 67 FPS · 500 Enemies ≈ 1,3 ms JS-Zeit, linear skalierend
+
+Daraus folgt das Budget direkt: **bei vier Spielern rund 1200 Gegner pro Lane**,
+wenn 5000 die Obergrenze bleiben soll. Die JS-Sim-Zeit liegt bei 5000 Gegnern
+schon bei grob 13 ms — also **nicht** vernachlaessigbar, die Sim ist bei vier
+Lanes selbst ein Frame-Budget-Posten.
+
+Fuenf Hebel, nach Wirkung sortiert:
+
+1. **Hartes Lane-Enemy-Budget.** Bei hoher Spielerzahl setzen die Wellen auf
+   Staerke statt Masse. Das ist eine **Balance-Entscheidung, keine
+   Technikaufgabe** — und die Wave-Curriculum-Config ist der richtige Ort dafuer.
+2. **Per-Instance-Culling pruefen.** Die Kamera haengt ueber der eigenen Lane,
+   die anderen sind 500–1000 m entfernt und meist ausserhalb des Frustums.
+   Aber: `InstancedMesh` mit `frustumCulled = false` rendert trotzdem alles.
+   **Konkreter Pruefpunkt im Instanced-Renderer** — hier liegt vermutlich der
+   groesste einzelne Gewinn.
+3. **Distanz-LOD fuer fremde Lanes.** Jenseits X Meter: VAT-Animation aus,
+   Health-Bars aus, Partikel aus. Die Toggles existieren teilweise schon
+   (`_showAnimations`, `_showEnemies`).
+4. **Spatial-Grid pro Lane.** Existiert (`spatial-grid.service.ts`); Lanes sind
+   raeumlich sauber getrennt, das Grid profitiert automatisch.
+5. **Tick-Barriere-Realitaet:** Der langsamste Client bestimmt das Tempo
+   **aller**. Bei heterogener Hardware ist das der spuerbarste Effekt im ganzen
+   Modus.
+
+### 23.8 Lobby-Benchmark
+
+Aus Punkt 5 folgt eine Massnahme, die ich fuer wichtiger halte als sie klingt:
+**Der Client misst beim Laden seine eigene Kapazitaet und meldet sie.**
+
+Das Werkzeug existiert: Der Bot-Modus mit `trainingTimescale` und
+`renderingEnabled` spielt in Sekunden ein Referenzszenario und der
+`PerformanceProfilerService` liefert die Zahlen. Der Server kann daraufhin
+warnen ("dieser Spieler wird das Match ausbremsen"), das Lane-Budget senken
+oder die Spielerzahl begrenzen.
+
+Nebeneffekt: Dasselbe Messergebnis taugt im Singleplayer als
+Auto-Qualitaetsstufe.
+
+---
+
+## 24. Modus B — "Rush": Wellen kaufen, Defense halten
+
+### 24.1 Der Kernbefund: kostenlos in jeder Hinsicht
+
+Zwei getrennte Spielfelder, verbunden durch einen duennen Ereignisstrom.
+Daraus folgt:
+
+- **Kein Lockstep.** Jeder simuliert nur sein eigenes Brett.
+- **Kein Determinismus noetig.** Divergenz zwischen den Clients ist
+  bedeutungslos, weil es nichts Gemeinsames gibt.
+- **Keine zusaetzliche Renderlast.** Ein Brett = Singleplayer-Kosten.
+- **Kein World Seal, keine LOS-Masken, keine Checksums.**
+
+Modus B laeuft damit auf **Server-Stufe 1** aus Teil III (Rooms +
+Artefakt-Store), plus einem Ereigniskanal. Er ist vor allen
+Determinismus-Arbeiten spielbar.
+
+Einzige Fairness-Anforderung: **dieselbe Stadt und dieselbe Lane-Geometrie fuer
+beide**, sonst sind die Ergebnisse nicht vergleichbar. Derselbe Seed sorgt
+zusaetzlich dafuer, dass ein gekaufter Angriff bei beiden gleich ausfaellt.
+
+### 24.2 Die Oekonomie ist der Modus
+
+Zwei Waehrungen, klassisch und erprobt:
+
+- **Gold** — aus Kills, fuer Tuerme und fuer Angriffe.
+- **Einkommen** — passiver Zufluss pro Intervall. **Steigt dauerhaft, wenn man
+  Gegner schickt.**
+
+Daraus entsteht die zentrale Spannung des Modus:
+
+```
+Gegner schicken  →  kostet Gold jetzt
+                 →  erhoeht Einkommen dauerhaft      (Investition)
+                 →  setzt den Gegner unter Druck     (Angriff)
+                 →  fuettert den Gegner mit Kill-Gold (Risiko)
+
+Nur bauen    → sicher, aber wirtschaftlich abgehaengt
+Nur schicken → reich und tot
+```
+
+Der dritte Pfeil ist der wichtige: **Ein Send gibt dem Gegner Kill-Gold.** Das
+ist der Regler, der "einfach dauernd schicken" ausbalanciert, und er laesst sich
+pro Gegnertyp feinjustieren.
+
+### 24.3 Kaufen und Upgraden — beide Achsen
+
+Der Nutzer-Wunsch "kauf- oder upgradebar" wird zu zwei getrennten Systemen:
+
+**Kaufen — der Send-Katalog.** Pro Gegnertyp aus den bestehenden Enemy-Configs:
+Preis, Einkommens-Ertrag, Kill-Gold fuer den Gegner, Spawn-Anzahl. Der Katalog
+ist eine Config-Datei, keine Mechanik.
+
+**Upgraden — Tier-Tracks pro Gegnertyp.** Analog zu den Tower-Upgrades
+(25 Level in 5er-Baendern, `game-commands.handler.ts`). Ein Tier-Upgrade
+verstaerkt alle kuenftigen Sends dieses Typs. Zwei Gruende, das genau so zu
+bauen:
+
+1. Die Mechanik ist im Code etabliert und den Spielern bereits vertraut.
+2. **Die Wave-Curriculum-Config liefert schon Skalierungskurven fuer
+   Gegnerstaerke** — die Tier-Werte muessen nicht neu erfunden werden.
+
+Damit hat der Angreifer dieselbe Entscheidungstiefe wie der Verteidiger:
+Breite (viele Typen) gegen Tiefe (ein Typ hochgezogen), und beides gegen
+Einkommen.
+
+### 24.4 Das Anti-Cheat-Geschenk
+
+Hier faellt etwas ab, das in einem Client-Sim-Modell sonst unerreichbar ist:
+
+**Der Server sieht jeden Send. Das Einkommen ist eine reine Funktion der
+Sends. Also kann der Server das Einkommen jedes Spielers exakt nachrechnen —
+ohne zu simulieren.**
+
+Und weiter: Kill-Gold entsteht nur aus Gegnern, die geschickt wurden — und die
+kennt der Server ebenfalls. Er kann damit eine **exakte Obergrenze fuer das Gold
+jedes Spielers** fuehren und jeden Kauf dagegen pruefen.
+
+Das ist praktisch vollstaendiger Wirtschafts-Anti-Cheat ohne eine Zeile
+Simulation auf dem Server. Modus B ist damit **der Modus, der sich am besten
+fuer Ranked eignet** — und das ist genau umgekehrt zu dem, was man erwarten
+wuerde.
+
+Was offen bleibt: Reichweiten- und Schadensmanipulation auf dem eigenen Brett.
+Dagegen hilft nur der Replay-Log aus Abschnitt 18 — asynchron, spaeter, fuer die
+Ladder-Spitze.
+
+### 24.5 Was der Gegner sieht
+
+Das gegnerische Brett mitzusimulieren wuerde die Kosten verdoppeln und den
+groessten Vorteil des Modus wegwerfen. Stattdessen gestaffelt:
+
+- **Immer:** HUD mit HQ-HP, Einkommen, Wellennummer, Leaks, Turmzahl. Kostet
+  ein paar Byte pro Sekunde.
+- **Auf Wunsch ("Peek"):** Low-Rate-Zustandsschnappschuss, ~5 Hz, ein paar
+  hundert Positionen — grob 20 KB/s, und nur solange jemand hinsieht.
+- **Bewusst nicht:** Vollwertiger Zuschauermodus. Der braucht die zweite Sim.
+  Fuer Zuschauer gibt es das Replay.
+
+### 24.6 Matchende
+
+Erster mit HQ ≤ 0 verliert. Gegen Endlospartien ein Sudden-Death-Regler: ab
+Minute X eine automatisch eskalierende Grundwelle fuer beide, oder ein
+Einkommens-Deckel. Ohne so einen Regler enden zwei gleich starke, defensive
+Spieler nie.
+
+---
+
+## 25. Leichtes Setup — ein eigenes Problem
+
+Die groesste UX-Gefahr ist nicht die Netzwerktechnik, sondern die **Ladezeit vor
+dem Match**: Overpass-Abfrage, Routenberechnung, Tile-Streaming,
+Hoehen-Sampling. Fuenf Massnahmen, in dieser Reihenfolge:
+
+1. **Kuratierter Kartenpool mit vorgebackenen Snapshots.** Matchmaking waehlt
+   nur aus geprueften Karten, deren `WorldSnapshot` fertig im Storage liegt.
+   Kein Overpass, keine Routenberechnung, kein Warten. **Freie Staedte bleiben
+   privaten Raeumen vorbehalten** — dort darf es dauern.
+2. **Laden beginnt beim Room-Join, nicht beim Match-Start.** Das Ready-Gate
+   greift erst, wenn geladen ist. Die Lobby-Zeit wird zur Ladezeit.
+3. **Snapshot statt Fremd-API** (Abschnitt 4.4) — spart den Overpass-Roundtrip
+   und dessen Rate-Limits gleich mit.
+4. **Join per Link:** `?room=ABC123`. Die URL-Location-Mechanik existiert
+   bereits (`services/location/url-location.service.ts`).
+5. **Match startet, waehrend Tiles noch streamen.** Tiles sind das langsamste
+   Element und lassen sich nicht vorbacken — aber nach dem World Seal haengt
+   **kein Gameplay** mehr an ihnen. Was als Determinismus-Massnahme gedacht war,
+   wird hier zum Ladezeit-Feature.
+
+---
+
+## 26. Servertechnologie fuer genau diese zwei Modi
+
+| | **Modus B (Rush)** | **Modus A (Vier Tore)** |
+|---|---|---|
+| Serverrolle | Rooms + Send-Relay + Ergebnis | Voller Tick-Relay + Quorum |
+| Nachrichtenrate | ein paar Events pro Minute | 15 Hz Fan-out pro Room |
+| Zustand pro Room | Send-Historie, Gold-Obergrenze | + Command-Log, Checksums, Artefakte |
+| Passende Technik | **Cloudflare Durable Objects / PartyKit** — ein Objekt pro Match, Persistenz eingebaut, bei kleiner Nutzerzahl praktisch kostenlos | **Node/Bun + `ws`** — Tick-Ordnung und Stall-Handling sind in einem klassischen Prozess einfacher zu debuggen |
+| Matchmaking | Glicko-2, Kartenpool, Sekunden | Lobby-Browser + Quick-Join, **kein Rating noetig** |
+
+Beides bleibt **ein TypeScript-Codebase** (Begruendung in Abschnitt 20:
+geteilte Typen mit den Client-Configs). Ob am Ende zwei Deploy-Ziele oder ein
+Node-Prozess fuer beide Modi stehen, ist eine Betriebsentscheidung, keine
+Architekturfrage.
+
+Pragmatischer Start: **Node/Bun fuer beides.** Ein Prozess, zwei Room-Typen,
+ein Deployment. Die Aufspaltung lohnt erst, wenn Modus B nennenswerte Last
+erzeugt.
+
+---
+
+## 27. Was dabei sonst noch abfaellt
+
+Der Teil, der ueber die zwei Modi hinaus Wert schafft:
+
+1. **Bots fuellen leere Plaetze.** Der `StrategyBot` existiert und ist
+   sofort einsetzbar: leere Lanes im Coop, Trainingsgegner in PvP. Damit
+   funktioniert Modus A auch zu zweit plus zwei Bots — **die wichtigste
+   einzelne Massnahme fuer "leichtes Setup"**, weil sie das
+   Vier-Spieler-Problem aufloest.
+2. **Menschliche Sends als Trainingsdaten.** Der Wave-Director trainiert heute
+   gegen Bots. Modus B produziert echte menschliche Angriffsentscheidungen im
+   selben Aktionsraum — deutlich besseres Trainingsmaterial, und es faellt im
+   Betrieb an.
+3. **Der AI-Director als PvP-Gegner** (Teil I, Modus C) — dieselbe UI, dieselbe
+   Aktionsraum-Anbindung wie der menschliche Angreifer in Modus B.
+4. **Replays** aus dem Command-Log — beide Modi, ohne Zusatzaufwand.
+5. **Determinismus-Arbeit zahlt auf Singleplayer ein:** reproduzierbare Bugs,
+   deterministisches AI-Training, Save/Load.
+6. **Der Lobby-Benchmark** wird im Singleplayer zur Auto-Qualitaetsstufe.
+7. **Per-Instance-Culling und Lane-LOD** (23.7) verbessern auch die
+   Singleplayer-Performance bei grossen Wellen.
+
+---
+
+## 28. Reihenfolge
+
+| Schritt | Inhalt | Vorbedingung |
+|---------|--------|--------------|
+| **1** | Server-Stufe 1 (Rooms, Artefakt-Store), Lobby, Join-per-Link | — |
+| **2** | **Modus B komplett** — Send-Katalog, Zwei-Waehrungs-Oekonomie, Tier-Upgrades, Gegner-HUD | Schritt 1. **Kein Determinismus noetig** |
+| **3** | Gold-Obergrenzen-Validator + Ladder fuer Modus B | Schritt 2 |
+| **4** | Determinismus-Fundament (seeded RNG, World Seal, Serializer, Checksums) | — |
+| **5** | Tick-Relay, Tick-Barriere, Per-Spieler-Oekonomie, `Tower.ownerId` | Schritt 4 |
+| **6** | **Modus A** — Lane-Zuweisung, geteiltes HQ, Kernzonen-Regel, Lane-Kollaps | Schritt 5 |
+| **7** | Renderlast-Arbeit: Per-Instance-Culling, Lane-LOD, Lane-Budget, Lobby-Benchmark | parallel zu 6, **bestimmt die Spielerzahl** |
+
+**Modus B kommt zuerst — nicht weil er einfacher zu entwerfen ist, sondern weil
+er keinen einzigen der Determinismus-Blocker beruehrt.** Er ist spielbar,
+bevor irgendetwas an der Sim angefasst wurde, und er ist gleichzeitig der
+Modus mit dem besseren Anti-Cheat-Profil.
+
+---
+
+## 29. FAQ
+
+**Warum nicht Modus A zuerst? Coop klingt doch harmloser als PvP.**
+Umgekehrt. Coop teilt ein HQ, also teilt es Zustand, also braucht es Lockstep
+und damit alle drei Determinismus-Blocker. Modus B teilt nichts ausser einem
+Ereignisstrom.
+
+**Wie viele Spieler gehen in Modus A?**
+Vier ist die Obergrenze — und zwar durch drei unabhaengige Dinge, die alle bei
+vier landen: `SPAWN_COLORS` hat vier Eintraege, die Tick-Barriere macht jeden
+weiteren Client zum Risiko, und das Renderbudget von ~5000 Gegnern ergibt bei
+vier Lanes noch spielbare ~1200 pro Lane. Zwei bis drei duerfte der
+angenehmere Bereich sein.
+
+**Was passiert, wenn in Modus A jemand rausfliegt?**
+Seine Lane schliesst, das Match laeuft weiter (23.5). Das ist bewusst kein
+Pausieren und kein Abbruch — bei vier Leuten faellt sonst zu oft jemand aus.
+
+**Und in Modus B?**
+Verbindungsverlust ist eine Niederlage nach Reconnect-Frist. Weil jeder sein
+eigenes Brett simuliert, gibt es nichts zu synchronisieren — der Rejoin laedt
+den eigenen Zustand aus dem letzten Snapshot plus die verpassten Sends.
+
+**Kann ich in Modus B sehen, was der Gegner baut?**
+HUD immer, Peek auf Wunsch, voller Zuschauermodus nie (24.5). Letzterer
+kostet eine zweite Simulation und damit den Hauptvorteil des Modus.
+
+**Was hindert jemanden daran, in Modus B sein Gold zu manipulieren?**
+Der Server rechnet die Obergrenze exakt mit (24.4). Manipulation an Reichweite
+oder Schaden auf dem eigenen Brett bleibt moeglich und wird erst durch
+nachtraegliche Replay-Verifikation gefasst — bewusst nur fuer die Ladder-Spitze.
+
+**Brauchen beide Spieler denselben Google-API-Key oder dieselben Tiles?**
+Jeder laedt Tiles selbst; sie sind nach dem World Seal rein optisch. Die
+Kostenfrage pro Client-Session bleibt die groesste ungeklaerte
+Aussenabhaengigkeit (Abschnitt 9, Punkt 2).
+
+**Muss das Match warten, bis alle Tiles geladen sind?**
+Nein — genau das ist der Nebeneffekt des World Seal (25.5). Gameplay haengt
+nach dem Seal nicht mehr an der Optik.
+
+**Kann man Modus A allein oder zu zweit spielen?**
+Ja, mit Bots auf den freien Lanes (27.1). Der `StrategyBot` existiert bereits;
+das ist die guenstigste Massnahme im ganzen Konzept.
+
+**Lohnt sich Matchmaking ueberhaupt bei kleiner Spielerzahl?**
+Fuer Modus A nein — Lobby-Browser plus Join-Link reicht und ist ein Bruchteil
+der Arbeit. Fuer Modus B ja, sobald es eine Ladder gibt, weil ungleiche
+Paarungen dort direkt den Spass kosten.
+
+**Was ist der groesste unterschaetzte Aufwandsposten?**
+Die Renderlast in Modus A (23.7). Die Netzwerkarbeit ist absehbar, die
+Balance-Arbeit auch — aber "vier Lanes gleichzeitig fluessig darstellen" ist
+eine offene Optimierungsaufgabe, deren Ergebnis die Spielerzahl bestimmt.
