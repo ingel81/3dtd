@@ -17,7 +17,7 @@ Ziel: durchgehend "fordernd" — pro Wave 1-5 % HP-Verlust + 65-90 % Path-Progre
 **Stack:** Angular (Browser/Inference) + Python (PPO Training Backend)
 
 **Aktueller Action-/State-Space (Phase 5.11+):**
-- State: 156 Features
+- State: 162 Features (Schema v2)
 - Output: 36 (32 Template-Logits + 4 Continuous-Factors über Sigmoid)
 - 4 Reward-Terms: DEATH + DRAMA + SWARM_SIZE + PROGRESSION
 - Hard Constraints im Decoder (Curriculum-Override, Capability-Gates, Cooldown,
@@ -34,7 +34,7 @@ Ziel: durchgehend "fordernd" — pro Wave 1-5 % HP-Verlust + 65-90 % Path-Progre
 │                                                                  │
 │  ┌──────────────────┐      ┌──────────────────┐                  │
 │  │ AIDataCollector  │─────▶│ GameStateEncoder │                  │
-│  │ (State Snapshot) │      │ (156 Features)   │                  │
+│  │ (State Snapshot) │      │ (162 Features)   │                  │
 │  └──────────────────┘      └────────┬─────────┘                  │
 │                                     │                            │
 │  ┌──────────────────┐               │                            │
@@ -76,7 +76,7 @@ Ziel: durchgehend "fordernd" — pro Wave 1-5 % HP-Verlust + 65-90 % Path-Progre
 │  ┌──────────────┐      ┌──────────────┐      ┌──────────────┐  │
 │  │  server.py   │─────▶│   model.py   │─────▶│  trainer.py  │  │
 │  │ (WebSocket,  │      │(Conv1D+Dense)│      │    (PPO)     │  │
-│  │  Decoder)    │      │ 156→36       │      │              │  │
+│  │  Decoder)    │      │ 162→36       │      │              │  │
 │  └──────────────┘      └──────────────┘      └──────────────┘  │
 │         │                                                       │
 │         │              ┌──────────────┐      ┌──────────────┐   │
@@ -85,7 +85,7 @@ Ziel: durchgehend "fordernd" — pro Wave 1-5 % HP-Verlust + 65-90 % Path-Progre
 │                        └──────────────┘      └──────────────┘   │
 │                                                                 │
 │  ┌──────────────┐      ┌──────────────┐                         │
-│  │ templates.py │      │wave_curric.py│                         │
+│  │  schema.py   │      │ ai-schema.json                         │
 │  │ (18 Ranges)  │      │ (30-Wave Seq)│                         │
 │  └──────────────┘      └──────────────┘                         │
 │                                                                 │
@@ -164,7 +164,7 @@ Das ist die Grundlage für deterministische Tower-/Research-Cost-Balance.
 
 ---
 
-## State Vector (156 Features)
+## State Vector (162 Features, Schema v2)
 
 | Indizes      | Block                                               |
 |--------------|-----------------------------------------------------|
@@ -183,14 +183,14 @@ Implementation: `src/app/ai/core/game-state-encoder.ts` (Mirror in `server.py::_
 **Actor-Critic PPO mit Hybrid Action Space**
 
 ```
-Input: 156 Features
+Input: 162 Features
 ├── Spatial Branch [116-155]: Conv1d(2→16→32, k=3) + AdaptiveAvgPool → 32
 ├── Scalar  Branch [0-115]:   Linear(116, 128) + LayerNorm + ReLU
 ├── Combined: concat(128, 32) = 160
 │   → Linear(160, 192) + LayerNorm + ReLU + Dropout(0.1)
 │   → Linear(192,  96) + LayerNorm + ReLU + Dropout(0.1)
 └── Output Heads:
-    ├── template_head: Linear(96, 32) → Categorical (18 active slots)
+    ├── template_head: Linear(96, 32) → Categorical (19 active slots)
     ├── params_head:   Linear(96, 4)  → Sigmoid → factors in [0,1]
     │                                   for (count, spawn_delay, hp_mult, variation)
     ├── log_std:       Parameter(4)   → exploration noise
@@ -226,11 +226,12 @@ Survival + Damage-Hard-Threshold + Progress-Overflow — verhindert dass das NN
 |---------------------------------------------------|----------------------------------------------------|
 | `core/dps-profile.ts`                              | DPS-Profil-Berechnung (20 Bins)                    |
 | `core/dps-profile-visualizer.ts`                  | 3D-Bin-Visualisierung auf Pfad                     |
-| `core/game-state-encoder.ts`                       | 156-Feature Encoding                               |
+| `core/ai-schema.ts`                                | Feature-Vokabulare + abgeleitete Blockgrößen (SSOT) |
+| `core/game-state-encoder.ts`                       | 162-Feature Encoding                               |
 | `core/ai-data-collector.service.ts`               | State Snapshot + DPS Cache                         |
 | `core/wave-director.service.ts`                    | ONNX Inference + Decoder (Curriculum-Override etc.)|
 | `core/wave-config-adapter.ts`                      | WaveConfig → Game-Format                           |
-| `core/templates.ts`                                | 18 Templates (Mirror von `templates.py`)           |
+| `core/templates.ts`                                | 19 Templates (Single Source of Truth)              |
 | `core/wave-curriculum.ts`                          | 30-Wave-Sequenz + Gold-Budget + Difficulty-Knobs   |
 | `core/defense-analyzer.ts`                         | Defense-Metriken                                   |
 | `core/decision-explainer.ts`                       | Entscheidungs-Erklärungen (UI-Tooltip)             |
@@ -257,8 +258,7 @@ geladenes ONNX-Modell, sonst zeigt das UI eine rote Fehlermeldung.
 | `trainer.py`                | PPO + Running-Mean/Std-Reward-Normalisierung                  |
 | `reward.py`                 | 4-Term-Reward (DEATH, DRAMA, SWARM_SIZE, PROGRESSION)         |
 | `config.py`                 | Hyperparameter, Reward-Schwellen, DPS-Ramp-Caps               |
-| `templates.py`              | 18 Templates mit Ranges + Mask-Helper                         |
-| `wave_curriculum.py`        | 30-Wave Sequenz (Mirror von `wave-curriculum.ts`)             |
+| `schema.py`                 | Lädt `generated/ai-schema.json`: Templates, Curriculum, Mask-Helper |
 | `tui_logger.py`             | Konsolen + JSONL-Log                                          |
 | `auto_logger.py`            | Auto-Snapshot des Konfigs in JSONL                            |
 | `manage_server.py`          | Start/Stop/Restart-CLI                                        |
@@ -267,7 +267,8 @@ geladenes ONNX-Modell, sonst zeigt das UI eine rote Fehlermeldung.
 | `dashboard/static/*`        | Chart.js Frontend                                             |
 | `scripts/export_to_tfjs.py` | ONNX-Export (Phase-5.11 Schema)                               |
 | `scripts/analyze_log.py`    | Log-Analyse                                                   |
-| `tests/test_templates.py`   | Template-Integrität                                           |
+| `tests/test_schema.py`      | Schema-, Template- und Mask-Integrität                        |
+| `tests/test_encoder.py`     | Feature-Länge + Survival-Ableitung                            |
 | `tests/test_reward_v2.py`   | Reward-Function Sanity Tests                                  |
 
 Detail-Doku: [AI_TRAINING_BACKEND.md](../training-backend/docs/AI_TRAINING_BACKEND.md).

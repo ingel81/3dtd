@@ -29,15 +29,17 @@ für Live-Monitoring.
 │  │  (WebSocket) │    │ (Template+4P)│    │    (PPO)     │       │
 │  └──────┬───────┘    └──────────────┘    └──────────────┘       │
 │         │                                                        │
-│         │            ┌────────────┐  ┌──────────────┐           │
-│         ├──────────▶│ templates.py │  │  reward.py   │           │
-│         │            │ (32 slots)   │  │ (4 terms)    │           │
-│         │            └────────────┘  └──────────────┘           │
-│         │                                                        │
-│         │            ┌──────────────────────┐                    │
-│         └──────────▶│ wave_curriculum.py    │                    │
-│                      │ (Phase 5.16 override) │                    │
-│                      └──────────────────────┘                    │
+│         │            ┌──────────────┐  ┌──────────────┐         │
+│         ├──────────▶│  schema.py   │  │  reward.py   │         │
+│         │            │ (32 slots,   │  │ (4 terms)    │         │
+│         │            │  curriculum) │  └──────────────┘         │
+│         │            └──────┬───────┘                            │
+│         │                   │ liest                              │
+│         │            ┌──────▼────────────────┐                   │
+│         └──────────▶│ generated/             │                   │
+│                      │   ai-schema.json      │                   │
+│                      │ (npm run ai-schema)   │                   │
+│                      └───────────────────────┘                   │
 │                                                                  │
 │  ┌──────────────────────────────────────────────────────────┐   │
 │  │  dashboard/                                               │   │
@@ -64,8 +66,9 @@ für Live-Monitoring.
 training-backend/
 ├── server.py              # WebSocket-Server, State-Encoder, Action-Decoder
 ├── model.py               # Conv1D + Dense — Template-Head + 4 Continuous-Params
-├── templates.py           # 32 Template-Slots (18 aktiv) mit Designer-Ranges
-├── wave_curriculum.py     # Phase-5.16 Wave-Curriculum-Override (W1-W18)
+├── schema.py              # Lädt generated/ai-schema.json (Templates, Curriculum,
+│                         #   Enemy-Tabellen, Feature-Layout) — generiert aus den TS-Configs
+├── generated/             # ai-schema.json, erzeugt von `npm run ai-schema`
 ├── trainer.py             # PPO-Training mit Mask-Aware-Reevaluation
 ├── reward.py              # 4-Term-Reward (DEATH, DRAMA, SWARM_SIZE, PROGRESSION)
 ├── config.py              # Hyperparameter, State-Layout, Enemy-Defs
@@ -90,7 +93,7 @@ training-backend/
 ├── tests/                 # pytest-Suite
 ├── requirements.txt
 ├── start.bat / start.sh   # Startup-Skripte
-├── checkpoints/           # checkpoint_*.pt (alle 10 Episoden) + archive-v3.5/
+├── checkpoints/           # checkpoint_*.pt (alle 10 Episoden) + checkpoint_latest.pt
 └── logs/                  # JSONL-Trainingslogs
 ```
 
@@ -98,7 +101,7 @@ training-backend/
 
 ## Kern-Konzepte
 
-### 1. State-Vektor (156 Features)
+### 1. State-Vektor (162 Features, Schema v2)
 
 ```
 [0..52]    Base scalar (53)         — Spielerzustand, Tower-Stats, Enemy-Counter
@@ -113,11 +116,11 @@ Frontend-Pendant: `src/app/ai/core/game-state-encoder.ts`.
 
 ### 2. Template-Based Action-Space (Phase 5.10/5.11)
 
-Statt direkter Enemy-Type-Wahl pickt das NN aus 18 aktiven Templates
+Statt direkter Enemy-Type-Wahl pickt das NN aus 19 aktiven Templates
 + 4 Continuous-Params:
 
 ```
-template_head:  Categorical(32)            # 32 Slots, 18 aktiv (Rest reserviert)
+template_head:  Categorical(32)            # 32 Slots, 19 aktiv (Rest reserviert)
 params_head:    sigmoid → [0,1] × 4        # count, spawn_delay, hp_mult, variation
 log_std:        learnable                  # Exploration-Noise pro Continuous-Param
 ```
@@ -141,7 +144,7 @@ final_count = lerp(template.count_range, count_factor)
   auf `max(5ms, cap/count)` komprimiert
 
 **Phase 5.16 Wave-Curriculum-Override:**
-Für Waves 1–18 erzwingt `wave_curriculum.py` bestimmte Templates / Mask-
+Für Waves 1–30 verengt `schema.get_available_template_mask` die Maske auf genau ein Template / Mask-
 Constraints (Boss-Wellen, Air-Forced, etc.). Die NN-Entscheidung wird vor
 der Validierung durch den Curriculum-Layer gefiltert.
 
@@ -172,7 +175,7 @@ Finale Gegner-HP = `enemy_base_hp × hp_mult` (Frontend liefert Base-HP via
 **Typ:** Actor-Critic-PPO mit Hybrid-Action-Space.
 
 ```
-Input: 156 Features
+Input: 162 Features
 ├── Scalar Branch [0..115]: 116 Features
 │   → Linear(116, 128) + LayerNorm + ReLU → 128 Features
 │
@@ -277,9 +280,9 @@ sondern im Decoder (`server.py::_decode_action`) als Mask-Logic.
 
 ### Training-Loop
 
-1. Browser sendet Game-State (156 Features) + verfügbare Templates (Mask)
+1. Browser sendet den Game-State-Snapshot; der Server kodiert ihn zu 162 Features und baut die Template-Mask
 2. Modell sampled `template_idx` aus maskierter Categorical + 4 sigmoid-Params
-3. `wave_curriculum.py` filtert/forciert für W1–W18
+3. Die Mask ist innerhalb des Curriculums (W1–W30) auf ein Template verengt
 4. Server dekodiert zu Wave-Config (Range-Interpolation, DPS-Caps, Duration-Cap)
 5. Browser spielt Wave, sendet Result (`damagePercent`, `avgProgress`,
    `totalCount`, `survived`)
@@ -337,7 +340,7 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 | Type | Beschreibung |
 |------|---|
 | `connect` | Initial-Connection |
-| `state` | Game-State-Snapshot (156 Features) + Template-Mask |
+| `state` | Game-State-Snapshot (wird serverseitig zu 162 Features kodiert) |
 | `result` | Wave-Outcome (`damagePercent`, `avgProgress`, `totalCount`, …) |
 | `game_start` | Neues Spiel (+ `enemyBaseHp`-Map) |
 | `game_over` | Spiel beendet |
@@ -438,7 +441,7 @@ Kurz-Timeline:
 - **v3.1–3.5** Anti-Exploitation, Anti-Kollaps, Reward-Skalierung
 - **Phase 5.5** State 74→93, Multi-Group-Decoder, Reward-Restart
   (siehe `PHASE5.5_TRAINING_RUNBOOK.md`)
-- **Phase 5.10** Template-basiert, State 156, 4-Term-Reward
+- **Phase 5.10** Template-basiert, State 156, 4-Term-Reward (Schema v1)
   (siehe `docs/PHASE_5.10_TEMPLATES.md` im Projekt-Root)
 - **Phase 5.11 (aktuell)** Range-Based-Templates, 4 Continuous-Params,
   Wave-Duration-Cap, narrower Sweet-Zone

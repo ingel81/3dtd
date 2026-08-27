@@ -3,12 +3,19 @@
 **Stand:** Geparkt — Branch ist auf `main` gemerged, offene Followups warten auf Live-Playtest.
 **Branch:** `feature/phase5.5-economy-ai-prep` (gemerged 2026-05-08)
 **Build-Status:** grün, zuletzt 642/642 Tests pass (Engine Cleanup-Pass 2026-05-11)
-**Letzte Aktualisierung:** 2026-05-12
+**Letzte Aktualisierung:** 2026-08-27 (Korrekturen, siehe Kasten)
+
+> **Überholt durch [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).**
+> Dieses Dokument bleibt als Protokoll des Phase-5.16-Balance-Passes stehen,
+> beschreibt den Code aber nicht mehr durchgehend korrekt. Beim Wiederaufsetzen
+> gilt der Training-Refresh-Handover; hier stehen nur noch die Design-Absichten
+> von damals. Die im Text gefundenen Zahlendreher sind unten korrigiert.
 
 > **Beim Wiederaufsetzen:** Diese Datei + `docs/economy-chart.html` öffnen, dann
 > den **Offene Punkte**-Block weiter unten + `TODO.md` PRIO 2 abarbeiten. Konkret
-> noch offen: Live-Playtest, Per-Kill-Budget-Rounding-Bug, Boss-Frequenz ab W31,
-> Stone-Golem-Aufnahme ins Curriculum, optionales Re-Training, Wave-Deployment-Safeguards.
+> noch offen: Live-Playtest, Boss-Frequenz ab W31, Wave-Deployment-Safeguards.
+> Erledigt seither: Per-Kill-Budget-Rounding-Bug, Stone-Golem im Curriculum,
+> Re-Training (siehe Training-Refresh-Handover).
 
 > **Pfadänderungen seit dem Handover (2026-05-10):**
 > - `src/app/models/enemy-types.ts` → `src/app/configs/enemy-types.config.ts`
@@ -22,15 +29,28 @@
 ## 1. Was abgeschlossen ist
 
 ### Wave-Curriculum + deterministisches Gold-Budget
-- 30 Waves explizit, danach mod-30 Loop für Templates; Gold-Budget linear extrapoliert (`KILL_DELTA_PER_WAVE=50`, `COMPLETE_DELTA_PER_WAVE=30`).
+- 30 Waves explizit. **Korrektur:** Das Gold-Budget wird nicht linear extrapoliert
+  (`KILL_DELTA_PER_WAVE`/`COMPLETE_DELTA_PER_WAVE` gibt es nicht mehr) — es loopt
+  mod-30 zusammen mit dem statischen Fallback. Die Template-Sequenz loopt seit dem
+  Training-Refresh **gar nicht** mehr: ab W31 wählt der Wave Director selbst.
+  Werte real: W1 133/67 … W30 120000/60000, nicht 30/15 … 650/325.
 - Per-Kill-Reward = `goldKill / waveSize` (Gesamtsumme durch Gegneranzahl, **NICHT** per-enemy-type-gewichtet).
 - Wave-Complete-Reward = `goldComplete + Skill-Bonuses` (Perfect, CloseCall, Milestone, Combo, Comeback).
-- Files: `src/app/ai/core/wave-curriculum.ts` (+ Backend-Mirror `training-backend/wave_curriculum.py` — Backend hat nur Template-Sequenz, kein Gold).
+- Files: `src/app/configs/wave-curriculum.config.ts`. **Korrektur:** Den
+  Backend-Mirror `training-backend/wave_curriculum.py` gibt es nicht mehr — das
+  Backend liest die Sequenz aus `training-backend/generated/ai-schema.json`,
+  erzeugt von `npm run ai-schema`. Gold bleibt frontend-only.
 
 ### Tower-Upgrades — 25 Stufen, alle Tower symmetrisch
-- Pro Combat-Tower 3 Slots: `damage` (×1.10/Lvl), `speed` (×1.07/Lvl), `range` (×1.04/Lvl). Fire bekommt `beam-width` statt `speed` (Beam-basiert).
-- maxLevel **25**, costScaling **1.40**, base 50g. L25 ≈ 7000× base.
+- Pro Combat-Tower 3 Slots: `damage`, `speed`, `range`. Fire bekommt `beam-width`
+  statt `speed` (Beam-basiert).
+- **Korrektur:** Die Multiplikatoren sind ×1.05 (damage), ×1.06 (speed), ×1.04 (range),
+  nicht ×1.10/×1.07. costScaling ist **1.25**, nicht 1.40 → L20 ≈ 73× base, L25 ≈ 211×,
+  nicht 7000×. Archer hat zusätzlich eine eigene Range-Kurve (×1.02), die Tower sind
+  also nicht vollständig symmetrisch. Quelle: `tower-types.config.ts:58-69`.
 - Tier-Gating in 5er-Bändern: T1=L1-5, T2=L6-10, T3=L11-15, T4=L16-20, T5=L21-25.
+  Die Regel lebt seit dem Training-Refresh in `requiredUpgradeTier()` und wird von
+  Command-Handler, Sidebar und Trainings-Bot gemeinsam genutzt.
 - Files: `src/app/configs/tower-types.config.ts` (STD_*_UPGRADE Helpers).
 
 ### Research-Tree
@@ -41,12 +61,17 @@
 - Files: `src/app/configs/research/research-tree.config.ts`.
 
 ### Research-Center
-- T2: 120 → 180g, T3: 220 → 350g.
+- T2: 120 → 180g, T3: 220 → 350g. **Korrektur:** Diese Werte in
+  `research-center.config.ts` werden nur für die Slot-Zählung gelesen; der real
+  bezahlte Upgrade-Preis kommt aus `tower-types.config.ts` (`research-slots`:
+  120, ×1.8). `RESEARCH_CENTER_CONFIG.baseCost = 150` ist unreferenziert — der
+  Baupreis ist `TOWER_TYPES['research-center'].cost = 75`.
 - Files: `src/app/configs/research/research-center.config.ts`.
 
 ### Tower-Costs
 - Cannon 140 → 150, Magic 120 → 140, Rocket 100 → 120, Ice damage 2 → 5 (sonst pure Utility).
-- Sell-Values an Cost-Erhöhung angepasst (60% Refund-Quote).
+- Sell-Values an Cost-Erhöhung angepasst. **Korrektur:** `SELL_RATIO` ist 0.75,
+  also 75 % Refund, nicht 60 %.
 - Files: `src/app/configs/tower-types.config.ts`.
 
 ### Damage-Matrix-Differenzierung
@@ -96,13 +121,19 @@ Stand: Bot/Spieler-Test mit den neuen Werten ist noch nicht durchlaufen. Erwarte
 ### B) Eventuelles Re-Training
 - Aktueller Checkpoint (Episode 7350, ONNX in `public/assets/ai/wave-director/`) wurde gegen das ALTE Reward-System trainiert.
 - Mit den neuen Difficulty-Knobs (post-NN HP-Multi, Leak-Damage) und Curriculum-Override sollte er trotzdem spielbar sein, aber die Sweet-Damage-Kalibrierung passt nicht mehr exakt.
-- Re-Training optional, ~30-45 min mit 8 headless Tabs. Nur sinnvoll **nachdem** Balance live verifiziert ist.
+- **Überholt:** Das Re-Training ist inzwischen nicht mehr optional. Mit Schema v2
+  (162 statt 156 Features) ist Checkpoint 7350 nicht mehr ladbar, und mehrere
+  Trainingsbugs machten den alten Lauf ohnehin wertlos — allen voran ein nie
+  feuernder DEATH-Term. Details: [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
 
 ### C) Boss-Frequenz ab W31
 Im Plan war: ab W31 Bosse alle 5 Waves statt 10. **Nicht implementiert** — Curriculum loopt einfach. Falls gewünscht, in `templateForWave()` ein Override für `wave > 30 && wave % 5 === 0` einbauen.
 
 ### D) Per-Kill-Budget-Rounding-Bug
-**Bekannt offen.** `Math.max(1, Math.round(budget / count))` overshoot bei Mega-Swarms (z.B. W19 rat_tide 5000 Ratten × 1g floor = 5000g statt 305g Budget). Saubere Lösung: deterministischer Akkumulator (im Verlaufsgespräch als Option 1 vorgeschlagen).
+**Erledigt** (Commit `e4a3400`, 2026-05-23). `enemy.manager.ts:265-289` verteilt das
+Budget über einen deterministischen Akkumulator
+(`Math.floor(remainingKillBudget / remainingRewardSlots)`), der Overshoot bei
+Mega-Swarms ist damit weg.
 
 ### E) Wave-Curriculum Gold-Budget feinjustieren
 Falls Live-Test zeigt dass Spieler zu viel/wenig Gold hat: `goldKill`/`goldComplete` in `wave-curriculum.ts` direkt anpassen, danach `npm run economy-chart` für aktualisierte Visualisierung.

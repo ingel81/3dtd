@@ -36,8 +36,7 @@ Dashboard wird automatisch mitgestartet (kann via `DASHBOARD=0` deaktiviert werd
 |------|---------|
 | `server.py` | WebSocket-Server, State-Encoding, Range-Based Action-Decoding |
 | `model.py` | Conv1D + Dense-Netz, Template-Head + 4 Continuous-Params + Value-Head |
-| `templates.py` | 32 Wave-Templates (18 aktiv) mit Designer-Ranges + Curriculum-Gates |
-| `wave_curriculum.py` | Phase-5.16 Designer-Forced-Variety für Waves 1–18 |
+| `schema.py` | Lädt `generated/ai-schema.json`: Enemy-Tabellen, Templates, Curriculum, Feature-Layout, Decoder-Konstanten. Erzeugt aus den TS-Configs via `npm run ai-schema` — nicht von Hand pflegen. |
 | `trainer.py` | PPO-Training-Algorithmus |
 | `reward.py` | 4-Term-Reward (DEATH, DRAMA, SWARM_SIZE, PROGRESSION) |
 | `config.py` | Hyperparameter, State-Layout, Enemy-Definitions |
@@ -86,8 +85,8 @@ Editiere `config.py`:
 | Parameter | Default | Bedeutung |
 |---|---|---|
 | `SERVER_PORT` | 3001 | WebSocket-Port |
-| `INPUT_SIZE` | 156 | State-Vektor-Größe (116 scalar + 40 spatial) |
-| `MAX_TEMPLATE_SLOTS` | 32 | Reservierte Template-Slots (18 aktiv) |
+| `INPUT_SIZE` | 162 | State-Vektor-Größe (122 scalar + 40 spatial), aus dem Schema |
+| `MAX_TEMPLATE_SLOTS` | 32 | Reservierte Template-Slots (19 aktiv) |
 | `NUM_CONTINUOUS` | 4 | Continuous-Params (count, spawn_delay, hp_mult, variation) |
 | `LEARNING_RATE` | 0.0003 | Adam-LR |
 | `ENTROPY_COEF` | 0.05 | Exploration-Bonus |
@@ -102,7 +101,7 @@ Editiere `config.py`:
 Auto-Save nach `checkpoints/checkpoint_*.pt` alle 10 Episoden.
 Server lädt beim Start automatisch den jüngsten Checkpoint.
 
-`checkpoints/archive-v3.5/` enthält die Pre-Phase-5.5-Checkpoints
+`server.py --fresh` verschiebt vorhandene Checkpoints nach `checkpoints/archive-<datum>/`
 (inkompatibel mit aktueller Architektur, nur für Reward-Kurven-Vergleich).
 
 ## Logs
