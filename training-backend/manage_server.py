@@ -102,7 +102,7 @@ def _read_pid() -> int | None:
 
 # ─── Actions ──────────────────────────────────────────────────────────────────
 
-def cmd_start() -> int:
+def cmd_start(fresh: bool = False) -> int:
     existing = _read_pid()
     if existing and _is_alive(existing):
         print(f"[manage] Already running (PID {existing}).")
@@ -120,8 +120,14 @@ def cmd_start() -> int:
         creationflags = subprocess.CREATE_NEW_PROCESS_GROUP | subprocess.CREATE_NO_WINDOW
 
     python = _python_executable()
+    argv = [python, "-u", f"{SERVER_MODULE}.py"]
+    if fresh:
+        # server.py archives existing checkpoints (moves, never deletes) before
+        # constructing the model, so training starts at episode 0.
+        argv.append("--fresh")
+
     proc = subprocess.Popen(
-        [python, "-u", f"{SERVER_MODULE}.py"],
+        argv,
         cwd=HERE,
         stdout=log,
         stderr=subprocess.STDOUT,
@@ -159,12 +165,12 @@ def cmd_stop() -> int:
     return 1
 
 
-def cmd_restart() -> int:
+def cmd_restart(fresh: bool = False) -> int:
     rc = cmd_stop()
     if rc != 0:
         return rc
     time.sleep(0.3)
-    return cmd_start()
+    return cmd_start(fresh=fresh)
 
 
 def cmd_status() -> int:
@@ -216,14 +222,19 @@ def main() -> int:
     p = argparse.ArgumentParser()
     p.add_argument("action", choices=["start", "stop", "restart", "status", "tail"])
     p.add_argument("--lines", type=int, default=40, help="tail line count")
+    p.add_argument(
+        "--fresh",
+        action="store_true",
+        help="start from scratch: archive existing checkpoints first (start/restart only)",
+    )
     args = p.parse_args()
 
     if args.action == "start":
-        return cmd_start()
+        return cmd_start(fresh=args.fresh)
     if args.action == "stop":
         return cmd_stop()
     if args.action == "restart":
-        return cmd_restart()
+        return cmd_restart(fresh=args.fresh)
     if args.action == "status":
         return cmd_status()
     if args.action == "tail":
