@@ -26,6 +26,9 @@ from config import (
     PROGRESS_NEAR_MISS_LOW,
     PROGRESS_NEAR_MISS_HIGH,
     PROGRESS_OVERFLOW_THRESHOLD,
+    NEAR_MISS_TARGET,
+    NEAR_MISS_SIGMA,
+    TARGET_RUN_WAVES,
 )
 
 # Wave-size histogram buckets. Upper bound exclusive, last bucket is "+inf".
@@ -49,6 +52,13 @@ class Dashboard:
         self.reward_history = deque(maxlen=2000)
         self.progress_history = deque(maxlen=2000)
         self.near_miss_history = deque(maxlen=2000)
+        # Damage actually taken per wave. `sweetSpotPct` is named after the
+        # reward's sweet spot but measures PATH PROGRESS; the damage band that
+        # three of the four reward terms gate on was never measured at all.
+        self.damage_history = deque(maxlen=2000)
+        # (wave_number, hp_fraction) pairs, for the deviation from the pacing
+        # curve that the PACING reward term is computed against.
+        self.hp_curve_history = deque(maxlen=2000)
         self.wave_log = deque(maxlen=200)  # larger to keep per-client entries visible
 
         # Latest NN policy output — for shared "Type Probabilities" chart.
@@ -133,6 +143,11 @@ class Dashboard:
                 return {"error": "Server not initialized"}
             stats = self.server_ref._get_stats()
             stats["sweetSpotPct"] = self._calc_sweet_spot_pct()
+            stats["damageSweetPct"] = self._calc_damage_sweet_pct()
+            stats["avgDamagePct"] = self._calc_avg_damage_pct()
+            stats["nearMissBandPct"] = self._calc_near_miss_band_pct()
+            stats["avgNearMissRatio"] = self._calc_avg_near_miss()
+            stats["hpCurveError"] = self._calc_hp_curve_error()
             stats["gameOverRate"] = self._calc_game_over_rate()
             stats["nearMissPct"] = self._calc_near_miss_pct()
             stats["modelUpdates"] = self.model_updates
@@ -401,6 +416,11 @@ class Dashboard:
         if self.server_ref:
             stats = self.server_ref._get_stats()
             stats["sweetSpotPct"] = sweet_pct
+            stats["damageSweetPct"] = self._calc_damage_sweet_pct()
+            stats["avgDamagePct"] = self._calc_avg_damage_pct()
+            stats["nearMissBandPct"] = self._calc_near_miss_band_pct()
+            stats["avgNearMissRatio"] = self._calc_avg_near_miss()
+            stats["hpCurveError"] = self._calc_hp_curve_error()
             stats["gameOverRate"] = self._calc_game_over_rate()
             stats["nearMissPct"] = self._calc_near_miss_pct()
             stats["modelUpdates"] = self.model_updates
@@ -551,8 +571,10 @@ class Dashboard:
                 c["player_credits"].append(int(player_credits))
             if player_health is not None:
                 c["player_health"].append(int(player_health))
+                self.hp_curve_history.append((int(wave_num), player_health / 100.0))
             if damage_pct is not None:
                 c["damage_pct"].append(round(damage_pct, 4))
+                self.damage_history.append(round(damage_pct, 4))
                 # Bucket into damage zones for histogram
                 bucket = self._damage_bucket(damage_pct)
                 c["damage_zones"][bucket] = c["damage_zones"].get(bucket, 0) + 1
@@ -645,6 +667,68 @@ class Dashboard:
         in_spot = sum(1 for p in recent
                        if PROGRESS_NEAR_MISS_LOW <= p <= PROGRESS_NEAR_MISS_HIGH)
         return round(in_spot / len(recent) * 100, 1)
+
+    def _calc_damage_sweet_pct(self) -> float:
+        """Percentage of recent waves inside the reward's DAMAGE band.
+
+        This is the gate on the near-miss peak, the swarm bonus and the
+        progression bonus. When it reads 0 the agent is collecting the
+        boring-wave penalty and nothing else, no matter how good the path
+        progress looks.
+        """
+        if not self.damage_history:
+            return 0
+        recent = list(self.damage_history)[-100:]
+        inside = sum(1 for d in recent if DAMAGE_SWEET_MIN <= d <= DAMAGE_SWEET_MAX)
+        return round(inside / len(recent) * 100, 1)
+
+    def _calc_avg_damage_pct(self) -> float:
+        """Mean HP fraction lost per wave, recently.
+
+        The player never heals, so this times the waves survived is the whole
+        run. At 100 HP a value of 0.0125 means a ~80-wave run.
+        """
+        if not self.damage_history:
+            return 0
+        recent = list(self.damage_history)[-100:]
+        return round(sum(recent) / len(recent), 5)
+
+    def _calc_near_miss_band_pct(self) -> float:
+        """Share of recent waves whose near-miss ratio sits in the DRAMA band.
+
+        This is the v4 headline number. `sweetSpotPct` measures the *mean* path
+        progress, which the bulk of early-dying enemies drags down; the reward
+        is computed on the upper tail instead, and this measures that.
+        """
+        if not self.near_miss_history:
+            return 0
+        recent = list(self.near_miss_history)[-100:]
+        lo, hi = NEAR_MISS_TARGET - NEAR_MISS_SIGMA, NEAR_MISS_TARGET + NEAR_MISS_SIGMA
+        inside = sum(1 for n in recent if lo <= n <= hi)
+        return round(inside / len(recent) * 100, 1)
+
+    def _calc_avg_near_miss(self) -> float:
+        if not self.near_miss_history:
+            return 0
+        recent = list(self.near_miss_history)[-100:]
+        return round(sum(recent) / len(recent), 4)
+
+    def _calc_hp_curve_error(self) -> float:
+        """Mean signed deviation of player HP from the pacing curve.
+
+        Positive means the players are healthier than the curve wants — the
+        failure mode v3 converged on, where one client reached a 133-wave
+        streak without losing a single HP. Negative means runs are being ended
+        too fast.
+        """
+        if not self.hp_curve_history:
+            return 0
+        recent = list(self.hp_curve_history)[-100:]
+        errs = []
+        for wave_num, hp in recent:
+            target = max(0.0, 1.0 - wave_num / TARGET_RUN_WAVES) if TARGET_RUN_WAVES > 0 else 0.0
+            errs.append(hp - target)
+        return round(sum(errs) / len(errs), 4)
 
     def _calc_game_over_rate(self) -> float:
         """Percentage of waves that resulted in game over."""

@@ -48,12 +48,14 @@ const ARMOR_TYPE_COLORS = {
   unarmored: '#4CAF50', light: '#2196F3', heavy: '#FF9800',
   fortified: '#F44336', ethereal: '#9C27B0',
 };
-// Phase 5.10: only 4 reward terms remain.
+// Reward v4: death + drama + pacing + swarm. `progression` is gone — it was a
+// wave counter bonus gated on a damage band that no longer exists, and PACING
+// now carries run-length on its own.
 const BREAKDOWN_KEY_LABELS = {
   death: 'Death',
   drama: 'Drama',
+  pacing: 'Pacing',
   swarm_size: 'Swarm Size',
-  progression: 'Progression',
 };
 // Phase 5.10: 18 active templates (slot-order). Mirror of backend templates.py.
 const TEMPLATE_ID_ORDER = [

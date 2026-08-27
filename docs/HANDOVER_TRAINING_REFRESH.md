@@ -243,3 +243,24 @@ auf `?devworld`, headless (Rendering aus), Timescale 75. Beobachtung über
 | F18 | `visualization-facade.service.ts:698`: "DevWorld path (no column sampler)" — seit `b8df8d0` falsch. |
 | F19 | `devworld.service.ts:9`: Presets `hills`/`valleys` existieren nicht. |
 | F20 | `README.md:105` / `AI_TRAINING_BACKEND.md:93`: `checkpoints/archive-v3.5/` existiert nicht. |
+
+### G. Reward-Struktur — Befund aus dem ersten vollständigen Lauf (2026-08-28)
+
+Der Lauf mit allen Fixes aus A–F lief bis Episode ~9.900 / 72 Model-Updates,
+vier parallele Clients. `avgReward` stieg von −1,99 auf −1,00 und
+`gameOverRate` fiel von 100 % auf 9,3 %. Die AI hat also gelernt — aber sie hat
+gelernt, *nichts zu tun*. Die folgenden Befunde erklären, warum das die korrekte
+Lösung des gestellten Optimierungsproblems ist.
+
+| # | Befund | Beleg |
+|---|---|---|
+| G1 | **Das Damage-Sweet-Band ist ab Wave 51 mathematisch unerreichbar.** Leak-Schaden ist `1 + floor((w-1)/10)` HP bei 100 max HP, das Band ist [1 %, 5 %]. Ab W51 kostet ein Leak 6 %: 0 Leaks = 0 % (unter MIN), 1 Leak = 6 % (über MAX). Es gibt keinen Wert dazwischen. | `wave-curriculum.config.ts:116`, `config.py:122-123` |
+| G2 | **Drei der vier Reward-Terme gaten auf dieses Band.** Near-Miss-Peak, Swarm-Bonus und Progression liefern ab W51 strukturell 0. Übrig bleibt `-0,10 + progress·0,30`. | `reward.py` `_drama_reward`, `_swarm_size_reward`, `_progression_bonus` |
+| G3 | **Gemessene Folge: die Reward-Landschaft ist flach.** `lastBreakdown` bei allen vier Clients gleichzeitig: `death 0, drama −0,07…−0,10, swarm 0, progression 0`. Garantierte −0,08/Wave schlagen jeden Versuch mit Risiko −20. | `/api/clients/summary` |
+| G4 | **Das Verhalten ist entsprechend kollabiert.** `avgProgress50` = 0,06 / 0,08 / 0,14 / 0,27 gegen ein Zielband von 0,65–0,90. `avgDamage50` = 0,000 / 0,000 / 0,003 / 0,018. Ein Client stand bei `winStreak 133` — 133 Waves ohne einen einzigen HP-Verlust. | `/api/clients/summary` |
+| G5 | **Es ist kein Physik-Problem.** Historisch lagen 28 % der Waves im Progress-Sweet-Band (`dist.sweet` 624–774 von ~2.500). Die AI *kann* Near-Miss-Waves bauen und hat damit aufgehört. | `dist` je Client |
+| G6 | **Auch die Fairness-Gate ist nicht die Ursache.** Sie bindet auf 40 % der Waves, aber die AI wählt `count_factor` ≈ 0,42 bei `countRange [30,600]` und `spawn_factor` ≈ 0,93 bei `spawnDelayRange [40,500]` — also 270 Gegner à 467 ms statt möglicher 600 à 40 ms. Sie nutzt ihren Spielraum freiwillig nicht aus. | `wave_generated`-Logeintrag W61 |
+| G7 | **Grundwiderspruch im Design.** Das Spiel hat keinen Sieg-Zustand (endlos) und keine Heilung — `healBase()` hat nur Test-Aufrufer, im Research-Tree gibt es keine Lebensregeneration. 100 HP sind das Budget des gesamten Runs. Ein Ziel von 1–5 % HP-Verlust *pro Wave* bedeutet den Tod nach spätestens 100 Waves, den der DEATH-Term mit −15…−30 bestraft. Das Reward-Optimum und die Reward-Strafe zeigen in entgegengesetzte Richtungen. | `game-state.manager.ts:651`, `game-balance.config.ts:12` |
+| G8 | **Der diskrete Kopf lernt, der kontinuierliche nicht.** `template_probs` sind klar differenziert (`wraith_storm` 0,108 … `boss_herbert` 0,0 — die AI bevorzugt Ethereal-Gegner, was gegen diese Verteidigung sinnvoll ist). Die *Faktor-Mittelwerte je Template* sind dagegen über alle 19 Templates uniform (`count` 0,38–0,47, `variation` 0,46–0,60 ≈ Initialisierung 0,5). Template-Wahl verändert die Ergebnisverteilung genug, um den flachen Reward zu überleben; Count/Delay/HP waschen sich alle zu −0,08 aus. | `templateFactors`, `template_probs` |
+| G9 | **`variation_factor` ist eine wirkungsarme Aktionsdimension.** Er jittert den Spawn-Delay um ±v bei gleichbleibendem Erwartungswert. Kein messbarer Reward-Effekt, kein Gradient — der Kopf bleibt zurecht auf der Initialisierung. Effektiv sind nur drei der vier Faktoren nutzbar. | `spawn-schedule-builder.ts:76-83` |
+| G10 | **Messlücke:** `sweetSpotPct` ist nach dem Reward-Sweet-Spot benannt, misst aber den **Pfad-Progress** (0,65–0,90). Der Damage-Anteil, an dem drei Terme hängen, wurde nie gemessen. Behoben durch `damageSweetPct` und `avgDamagePct`. | `dashboard/app.py:_calc_sweet_spot_pct` |
