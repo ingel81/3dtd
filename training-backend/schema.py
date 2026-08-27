@@ -166,44 +166,48 @@ def fair_max_count(
     hp_mult: float,
     spawn_delay_ms: float,
     effective_dps_per_armor: dict[str, Any],
+    kill_throughput: Optional[dict[str, Any]] = None,
 ) -> Optional[int]:
     """Largest enemy count the defense can plausibly handle, or None if unbounded.
 
     The DPS ramp scales a wave against its template's own range, so its floor is
     relative — 10% of zombie_horde's 20-2000 span is 218 enemies, which at wave 1
     (two archers, 50 DPS) is unkillable by an order of magnitude. This is the
-    absolute counterpart: work out the HP the defense can actually chew through
-    and allow the wave to carry FAIRNESS_HEADROOM times that much. The overshoot
-    is the leak that produces the damage the reward is asking for.
+    absolute counterpart: work out how many enemies the defense can actually
+    destroy and allow FAIRNESS_HEADROOM times that many. The overshoot is the
+    leak that produces the damage the reward is asking for.
 
-    Uses armor-weighted effective DPS, not raw DPS: an archer contributes fully
-    against unarmored and almost nothing (0.15x) against ethereal, and a wave of
-    ghosts must be judged by the latter. Air and ground are read separately so a
-    defense that cannot shoot upward is not credited for a bat swarm.
+    Measured in KILLS per second, not damage per second. Damage alone said a
+    76-DPS defense could clear 848 rats of 3.4 HP twice over; it could not,
+    because a tower engages one target per shot and discards the surplus. Two
+    archers kill two rats a second no matter how hard each shot hits, and the
+    other 700 rats walked through — which is exactly what the training run did.
+    Against tanky enemies the damage term binds instead and throughput is
+    irrelevant; whichever is scarcer wins.
 
-    Closed form, because the wave's duration itself depends on the count:
-
-        killable_hp = dps * (count * delay_s + ENGAGEMENT) * HEADROOM
-        want:  count * hp_per_enemy <= killable_hp
-        =>     count * (hp_per_enemy - dps * HEADROOM * delay_s)
-                   <= dps * HEADROOM * ENGAGEMENT
-
-    If the bracket is <= 0 the defense out-damages the spawn rate and no cap
-    applies — that is a strong defense, and the ramp stays in charge.
+    Uses armor-weighted effective DPS: an archer contributes fully against
+    unarmored and almost nothing (0.15x) against ethereal. Air and ground are
+    read separately so a defense that cannot shoot upward is not credited for a
+    bat swarm.
     """
     ground = (effective_dps_per_armor or {}).get("ground") or {}
     air = (effective_dps_per_armor or {}).get("air") or {}
+    throughput_src = kill_throughput or {}
 
     total_share = 0.0
     weighted_dps = 0.0
     weighted_hp = 0.0
+    weighted_throughput = 0.0
     for group in template["enemies"]:
         enemy, share = group["type"], float(group["share"])
         if share <= 0:
             continue
         armor = ENEMY_ARMOR.get(enemy, "unarmored")
-        source = air if enemy in AIR_ENEMIES else ground
-        weighted_dps += share * float(source.get(armor, 0.0) or 0.0)
+        is_air = enemy in AIR_ENEMIES
+        weighted_dps += share * float((air if is_air else ground).get(armor, 0.0) or 0.0)
+        weighted_throughput += share * float(
+            throughput_src.get("air" if is_air else "ground", 0.0) or 0.0
+        )
         weighted_hp += share * float(ENEMY_BASE_HP.get(enemy, 80)) * hp_mult
         total_share += share
 
@@ -211,15 +215,23 @@ def fair_max_count(
         return None
     dps = weighted_dps / total_share
     hp_per_enemy = weighted_hp / total_share
+    throughput = weighted_throughput / total_share
     if dps <= 0 or hp_per_enemy <= 0:
         # No effective damage at all against this wave. The capability mask is
         # what protects the player here; capping the count would only turn an
         # unwinnable wave into a smaller unwinnable wave.
         return None
 
-    delay_s = max(0.0, spawn_delay_ms) / 1000.0
-    budget = dps * FAIRNESS_HEADROOM
-    denominator = hp_per_enemy - budget * delay_s
+    dps_limited = dps / hp_per_enemy
+    kills_per_second = min(dps_limited, throughput) if throughput > 0 else dps_limited
+    if kills_per_second <= 0:
+        return None
+
+    # Closed form, since the wave's duration depends on the count:
+    #   killable = kills_per_second * (count * delay_s + ENGAGEMENT) * HEADROOM
+    #   want:  count <= killable
+    budget = kills_per_second * FAIRNESS_HEADROOM
+    denominator = 1.0 - budget * (max(0.0, spawn_delay_ms) / 1000.0)
     if denominator <= 0:
         return None
 
@@ -232,6 +244,7 @@ def build_wave_context(
     has_anti_ethereal: bool,
     recent_template_indices: list[int],
     effective_dps_per_armor: dict[str, Any],
+    kill_throughput: Optional[dict[str, Any]] = None,
 ) -> dict[str, Any]:
     """Context for the wave about to be decided: mask, ranges, fairness ceiling.
 
@@ -272,7 +285,9 @@ def build_wave_context(
     if allowed:
         mid_hp = (hp_range[0] + hp_range[1]) / 2
         mid_delay = (delay_range[0] + delay_range[1]) / 2
-        cap = fair_max_count(allowed[0], mid_hp, mid_delay, effective_dps_per_armor)
+        cap = fair_max_count(
+            allowed[0], mid_hp, mid_delay, effective_dps_per_armor, kill_throughput
+        )
         if cap is not None:
             span = count_range[1] - count_range[0]
             headroom = (cap - count_range[0]) / span if span > 0 else 1.0

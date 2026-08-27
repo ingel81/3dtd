@@ -279,3 +279,48 @@ def test_gate_uses_armor_weighted_dps():
     good = schema.fair_max_count(tpl, 1.0, 200, _dps(ground=300))
     assert poor is not None
     assert good is None or good > poor
+
+
+def _throughput(ground=0.0, air=0.0):
+    return {"ground": ground, "air": air}
+
+
+def test_rat_tide_is_capped_by_fire_rate_not_damage():
+    """The wave that killed every run at wave 2.
+
+    Observed: 848 rats at 3.4 HP against a 76-DPS defense (two archers plus a
+    little). On damage alone that is trivially clearable — 76 DPS over a
+    ~72-second wave is 5500 HP against 2900 HP of rats — and the gate let it
+    through. But a tower engages one target per shot and throws away the
+    surplus, so two archers kill two rats a second, roughly 144 of them, and
+    the other 700 walked into the base for 75% damage.
+    """
+    cap = schema.fair_max_count(
+        _template("rat_tide"), hp_mult=0.68, spawn_delay_ms=50,
+        effective_dps_per_armor=_dps(ground=76),
+        kill_throughput=_throughput(ground=2.0),
+    )
+    assert cap is not None, "a fire-rate-limited defense must still get a cap"
+    assert cap < 300, f"gate still allows {cap} rats against 2 kills/sec"
+
+
+def test_throughput_is_ignored_when_damage_is_the_scarcer_resource():
+    """Against tanky enemies the damage term binds and throughput is moot."""
+    tanky = schema.fair_max_count(
+        _template("mech_army"), hp_mult=1.0, spawn_delay_ms=300,
+        effective_dps_per_armor=_dps(ground=200),
+        kill_throughput=_throughput(ground=50.0),
+    )
+    no_throughput = schema.fair_max_count(
+        _template("mech_army"), hp_mult=1.0, spawn_delay_ms=300,
+        effective_dps_per_armor=_dps(ground=200),
+    )
+    assert tanky == no_throughput
+
+
+def test_more_towers_raise_the_cap():
+    tpl = _template("rat_tide")
+    small = schema.fair_max_count(tpl, 1.0, 50, _dps(ground=76), _throughput(ground=2.0))
+    big = schema.fair_max_count(tpl, 1.0, 50, _dps(ground=760), _throughput(ground=20.0))
+    assert small is not None
+    assert big is None or big > small

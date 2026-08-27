@@ -384,6 +384,7 @@ export function fairMaxCount(
   hpMult: number,
   spawnDelayMs: number,
   effectiveDps: { ground?: Record<string, number>; air?: Record<string, number> } | undefined,
+  killThroughput: { ground: number; air: number } | undefined,
   enemyArmor: (enemyId: string) => ArmorType,
   enemyIsAir: (enemyId: string) => boolean,
   enemyBaseHp: (enemyId: string) => number,
@@ -394,10 +395,13 @@ export function fairMaxCount(
   let totalShare = 0;
   let weightedDps = 0;
   let weightedHp = 0;
+  let weightedThroughput = 0;
   for (const [enemy, share] of template.enemies) {
     if (share <= 0) continue;
-    const source = enemyIsAir(enemy) ? air : ground;
-    weightedDps += share * (source[enemyArmor(enemy)] ?? 0);
+    const isAir = enemyIsAir(enemy);
+    const dpsSource = isAir ? air : ground;
+    weightedDps += share * (dpsSource[enemyArmor(enemy)] ?? 0);
+    weightedThroughput += share * (isAir ? (killThroughput?.air ?? 0) : (killThroughput?.ground ?? 0));
     weightedHp += share * enemyBaseHp(enemy) * hpMult;
     totalShare += share;
   }
@@ -405,12 +409,27 @@ export function fairMaxCount(
 
   const dps = weightedDps / totalShare;
   const hpPerEnemy = weightedHp / totalShare;
+  const throughput = weightedThroughput / totalShare;
   // No effective damage at all: the capability mask owns that case. Shrinking
   // an unwinnable wave only makes it a smaller unwinnable wave.
   if (dps <= 0 || hpPerEnemy <= 0) return null;
 
-  const budget = dps * FAIRNESS_HEADROOM;
-  const denominator = hpPerEnemy - budget * (Math.max(0, spawnDelayMs) / 1000);
+  // Kills per second, not damage per second.
+  //
+  // Damage alone said a defense doing 76 DPS could clear 848 rats of 3.4 HP —
+  // twice over. It could not: a tower engages one target per shot and throws
+  // away the surplus, so two archers kill two rats a second regardless of how
+  // much damage each shot carries. Against tanky enemies the damage term binds
+  // instead, and throughput is irrelevant. Whichever is scarcer wins.
+  const dpsLimited = dps / hpPerEnemy;
+  const killsPerSecond = throughput > 0 ? Math.min(dpsLimited, throughput) : dpsLimited;
+  if (killsPerSecond <= 0) return null;
+
+  // Closed form, since the wave's duration depends on the count:
+  //   killable = killsPerSecond * (count * delaySeconds + ENGAGEMENT) * HEADROOM
+  //   want:  count <= killable
+  const budget = killsPerSecond * FAIRNESS_HEADROOM;
+  const denominator = 1 - budget * (Math.max(0, spawnDelayMs) / 1000);
   if (denominator <= 0) return null;
 
   return Math.max(

@@ -304,6 +304,7 @@ export class WaveDirectorService {
       hpMult,
       spawnDelay,
       state.defense?.effectiveDPSPerArmor,
+      state.defense?.killThroughput,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,

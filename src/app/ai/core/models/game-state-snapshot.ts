@@ -126,6 +126,17 @@ export interface DefenseAnalysis {
    * This tells the net whether the defense scales with density at all.
    */
   aoeDpsShare: { ground: number; air: number };
+
+  /**
+   * Aggregate kill throughput ceiling, in targets per second.
+   *
+   * Raw DPS overstates what a defense can do against a swarm of individually
+   * weak enemies, because a tower engages one target at a time and the surplus
+   * damage of each shot is wasted. Two archers at 25 damage and 1 shot/s kill
+   * two 3 HP rats per second, not the fifteen their 50 DPS suggests. Splash and
+   * chain towers count for more than one target per shot.
+   */
+  killThroughput: { ground: number; air: number };
 }
 
 export interface EffectiveDPSPerArmor {
@@ -247,6 +258,7 @@ export function createEmptySnapshot(): GameStateSnapshot {
         air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
       },
       aoeDpsShare: { ground: 0, air: 0 },
+      killThroughput: { ground: 0, air: 0 },
     },
     vulnerabilities: {
       airDefenseGap: true,

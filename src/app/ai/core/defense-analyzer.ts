@@ -24,6 +24,13 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
  * Tower capabilities mapping
  * Maps tower types to their special capabilities
  */
+/**
+ * Enemies an area-of-effect shot is assumed to catch. A rough stand-in for
+ * blast radius against unknown enemy spacing — deliberately conservative,
+ * since overestimating it reopens the swarm hole this models.
+ */
+const SPLASH_TARGETS_PER_SHOT = 3;
+
 /** Ethereal armor multiplier at which a tower counts as anti-ethereal. */
 const ANTI_ETHEREAL_MIN_MULTIPLIER = 1.0;
 
@@ -60,6 +67,7 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
   const towerVariety = calculateTowerVariety(towers);
   const effectiveDPSPerArmor = calculateEffectiveDPSPerArmor(towers, airTargetingUnlocked);
   const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
+  const killThroughput = calculateKillThroughput(towers, airTargetingUnlocked);
 
   return {
     towerCount: towers.length,
@@ -74,7 +82,55 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
     towerDistribution,
     effectiveDPSPerArmor,
     aoeDpsShare,
+    killThroughput,
   };
+}
+
+/**
+ * Targets a defense can destroy per second, ignoring their health.
+ *
+ * This is the ceiling raw DPS cannot express. A tower shoots one target at a
+ * time, so against enemies that die to a single shot the kill rate is set by
+ * fire rate, not damage — an archer doing 25 damage per shot at 1 shot/s kills
+ * one 3 HP rat per second and wastes 22 damage doing it. That is precisely how
+ * a wave of 848 rats walked through a defense whose DPS said it could handle
+ * twice their total health.
+ *
+ * Splash and chain towers hit more than one target per activation, so they
+ * count for a multiple. Beam towers have no discrete shots; they are damage-
+ * limited rather than rate-limited, so they are excluded here and the DPS side
+ * of the comparison covers them.
+ */
+function calculateKillThroughput(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+): { ground: number; air: number } {
+  let ground = 0;
+  let air = 0;
+
+  for (const tower of towers) {
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    const cfg = TOWER_TYPES[typeId];
+    if (!cfg || cfg.attackType === 'passive' || cfg.attackType === 'beam') continue;
+
+    const shotsPerSecond = tower.combat?.fireRate ?? cfg.fireRate ?? 0;
+    if (shotsPerSecond <= 0) continue;
+
+    // Targets hit per activation. Chain towers reach maxJumps extra enemies;
+    // splash is approximated by the same soft multiplier used for DPS.
+    let targetsPerShot = 1;
+    if (cfg.attackType === 'chain') {
+      targetsPerShot = 1 + (cfg.maxJumps ?? 0);
+    } else if (isSplashTower(typeId)) {
+      targetsPerShot = SPLASH_TARGETS_PER_SHOT;
+    }
+
+    const rate = shotsPerSecond * targetsPerShot;
+    if (cfg.canTargetGround !== false) ground += rate;
+    if (canTargetAirEffective(typeId, airTargetingUnlocked)) air += rate;
+  }
+
+  return { ground, air };
 }
 
 /**
@@ -371,6 +427,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
     towerDistribution: {},
     effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },
     aoeDpsShare: { ground: 0, air: 0 },
+    killThroughput: { ground: 0, air: 0 },
   };
 }
 
