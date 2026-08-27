@@ -175,16 +175,19 @@ export class TowerDefenseFacadeService {
     });
 
     const params = new URLSearchParams(window.location.search);
-    if (params.has('bot')) {
-      const botMode = params.get('bot');
-      if (botMode === 'auto') {
-        this.trainingClient.botAutoMode.set(true);
-      }
-    }
+    const botMode = params.get('bot');
 
     if (this.devWorld.isActive) {
       this.store.useAIDirector.set(true);
       this.trainingClient.connectToBackend();
+      // DevWorld exists to train against the backend, so the bot runs waves on
+      // its own unless explicitly told not to (`?bot=manual`). Requiring
+      // `?bot=auto` on top of `?devworld` was a silent trap: the bot built
+      // towers, never started a wave, and the run produced no training data at
+      // all while still looking connected and healthy on the dashboard.
+      this.trainingClient.botAutoMode.set(botMode !== 'manual');
+    } else if (botMode === 'auto') {
+      this.trainingClient.botAutoMode.set(true);
     }
 
     // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
