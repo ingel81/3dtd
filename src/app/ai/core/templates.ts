@@ -8,8 +8,12 @@
  * The NN produces template_idx + 4 factors in [0,1]; the decoder
  * interpolates each factor into the template's designer-set range.
  *
- * Slots 0-17 are active. Slots 18-31 are reserved for future expansion
+ * Slots 0-18 are active. Slots 19-31 are reserved for future expansion
  * without retraining (blocked by slot-availability mask).
+ *
+ * This file is the source of truth. `npm run ai-schema` mirrors it into
+ * `training-backend/generated/ai-schema.json`, which the Python backend reads —
+ * there is no hand-maintained `templates.py` any more.
  */
 
 export type TemplateSpawnPattern = 'interleaved' | 'sequential' | 'clustered' | null;
@@ -36,7 +40,10 @@ export const TEMPLATES: readonly Template[] = [
     id: 'zombie_horde',
     name: 'Zombie Horde',
     description: 'Pure zombie horde — unarmored intro, from easy to mega-swarm',
-    enemies: [['zombie', 0.5], ['zombie-v2', 0.5]],
+    // zombie-v2 stays a garnish rather than half the horde: at the top of the
+    // count range (2000) it is measurably more expensive to render than the
+    // classic zombie, and this template is the mega-swarm slot.
+    enemies: [['zombie', 0.9], ['zombie-v2', 0.1]],
     countRange: [20, 2000],
     spawnDelayRange: [15, 400],
     hpMultRange: [0.5, 6.0],
@@ -285,10 +292,9 @@ export const TEMPLATES: readonly Template[] = [
     bossOnly: true,
   },
   {
-    // Stone Golem squad — fortified, slow, very tough. Used by the static
-    // fallback curriculum (W15). minWave: 999 keeps it invisible to the
-    // current AI (which hasn't been trained on this slot — see TODO 2.2);
-    // re-training will lower this gate.
+    // Stone Golem squad — fortified, slow, very tough. Curriculum slot W15.
+    // minWave matches mammoth_siege (14): both are fortified DPS checks, and
+    // the curriculum reaches this template one wave later.
     id: 'golem_squad',
     name: 'Golem Squad',
     description: 'Stone Golems — fortified DPS check, slow but very tough',
@@ -297,7 +303,7 @@ export const TEMPLATES: readonly Template[] = [
     spawnDelayRange: [200, 1500],
     hpMultRange: [0.8, 6.0],
     variationRange: [0.10, 0.30],
-    minWave: 999,
+    minWave: 14,
     spawnPattern: null,
     requiresCapability: null,
     bossOnly: false,
@@ -333,40 +339,70 @@ export function lerpRange(range: NumberRange, t: number): number {
 }
 
 /**
- * Compute the template availability mask for the given wave + capabilities.
- * Returns array of length MAX_TEMPLATE_SLOTS; true = allowed, false = blocked.
+ * Template availability mask for a wave. Length MAX_TEMPLATE_SLOTS;
+ * true = the model may pick this slot.
+ *
+ * Inside the curriculum the mask collapses to the single pinned template. That
+ * is deliberate and it is what keeps training honest: the backend samples under
+ * this same mask, so the sampled action is always the wave that ships. The
+ * previous design masked freely and then overwrote the choice in the decoder,
+ * which trained the template head on decisions that never happened.
+ *
+ * Past the curriculum the designer gates apply: `minWave`, capability
+ * requirements, the reuse cooldown and the boss cadence.
+ *
+ * `forcedTemplateId` comes from the wave curriculum. It is passed in rather
+ * than imported so this module stays free of a dependency on
+ * `wave-curriculum.config`, which already imports TEMPLATES from here.
+ *
+ * Mirrors `schema.get_available_template_mask` in the training backend.
  */
 export function getAvailableTemplateMask(
   currentWave: number,
   hasAntiAir: boolean,
   hasAntiEthereal: boolean,
   recentTemplateIndices: readonly number[],
+  forcedTemplateId: string | null = null,
 ): boolean[] {
   const mask = new Array<boolean>(MAX_TEMPLATE_SLOTS).fill(false);
+
+  const forcedId = forcedTemplateId;
+  if (forcedId) {
+    const forcedIdx = TEMPLATES.findIndex((t) => t.id === forcedId);
+    if (forcedIdx >= 0) {
+      mask[forcedIdx] = true;
+      return mask;
+    }
+    // An unknown curriculum id is a config bug; fall through to free choice
+    // rather than returning an all-false mask.
+  }
+
   const recent = new Set(recentTemplateIndices.slice(-TEMPLATE_COOLDOWN_WAVES));
+  const passesGates = (t: Template, allowBoss: boolean): boolean => {
+    if (currentWave < t.minWave) return false;
+    if (t.requiresCapability === 'antiAir' && !hasAntiAir) return false;
+    if (t.requiresCapability === 'antiEthereal' && !hasAntiEthereal) return false;
+    if (t.bossOnly) return allowBoss && currentWave % 10 === 0;
+    return true;
+  };
 
   for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
-    const t = TEMPLATES[i];
-    if (currentWave < t.minWave) continue;
-    if (t.requiresCapability === 'antiAir' && !hasAntiAir) continue;
-    if (t.requiresCapability === 'antiEthereal' && !hasAntiEthereal) continue;
+    if (!passesGates(TEMPLATES[i], true)) continue;
     if (recent.has(i)) continue;
-    if (t.bossOnly && currentWave % 10 !== 0) continue;
     mask[i] = true;
   }
 
-  if (!mask.some(x => x)) {
+  // Fallbacks: the cooldown must never be able to starve the mask, and an
+  // all-false mask would make the masked softmax produce NaN.
+  if (!mask.some((x) => x)) {
     for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
-      const t = TEMPLATES[i];
-      if (currentWave < t.minWave) continue;
-      if (t.requiresCapability === 'antiAir' && !hasAntiAir) continue;
-      if (t.requiresCapability === 'antiEthereal' && !hasAntiEthereal) continue;
-      if (t.bossOnly) continue;
-      mask[i] = true;
-      break;
+      if (passesGates(TEMPLATES[i], false)) {
+        mask[i] = true;
+        break;
+      }
     }
   }
-  if (!mask.some(x => x)) mask[0] = true;
+  if (!mask.some((x) => x)) mask[0] = true;
 
   return mask;
 }

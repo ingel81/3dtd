@@ -7,10 +7,12 @@ WebSocket server that:
 - Trains the model on results
 """
 
+import argparse
 import asyncio
 import json
 import os
 import random
+import shutil
 import time
 from datetime import datetime
 from pathlib import Path
@@ -21,20 +23,31 @@ import torch
 from config import (
     SERVER_HOST,
     SERVER_PORT,
+    DASHBOARD_PORT,
     BOT_WEIGHTS,
     CHECKPOINT_DIR,
     CHECKPOINT_INTERVAL,
     EPISODE_LENGTH,
+)
+import schema as schema_module
+from schema import (
     INPUT_SIZE,
-    MAX_TEMPLATE_SLOTS,
-    ENEMY_BASE_HP,
+    NUM_BINS,
+    TEMPLATE_COOLDOWN_WAVES,
     ENEMY_TYPES,
     ENEMY_ARMOR,
-    AIR_ENEMIES,
-    ETHEREAL_ENEMIES,
-    TEMPLATE_COOLDOWN_WAVES,
+    TOWER_TYPES,
+    DAMAGE_TYPES,
+    ARMOR_TYPES,
+    MAX_VALUES,
+    TEMPLATES,
+    NUM_ACTIVE_TEMPLATES,
+    get_template,
+    get_available_template_mask,
+    template_for_wave,
+    template_index,
+    endgame_hp_multiplier,
 )
-from templates import TEMPLATES, get_template, get_available_template_mask, NUM_ACTIVE_TEMPLATES
 from model import create_model, save_model, load_model
 from reward import calculate_reward
 from trainer import PPOTrainer
@@ -122,6 +135,9 @@ class TrainingServer:
         self.games_played = 0
         self.total_reward = 0
         self.best_reward = float("-inf")
+        # Win-rate tracking, fed from wave results (see _process_result).
+        self.waves_survived = 0
+        self.waves_lost = 0
         # Training run-state: clients join paused. Dashboard Start button flips
         # this to 'running' and broadcasts. Reload keeps the current state.
         self.training_state = 'paused'  # 'paused' | 'running'
@@ -132,16 +148,37 @@ class TrainingServer:
         # Try to load latest checkpoint
         self._load_latest_checkpoint()
 
+    @staticmethod
+    def _numbered_checkpoints():
+        """Every `checkpoint_<n>.pt`, excluding the `checkpoint_latest.pt` alias."""
+        found = []
+        for path in Path(CHECKPOINT_DIR).glob("checkpoint_*.pt"):
+            suffix = path.stem.split("_", 1)[1]
+            if suffix.isdigit():
+                found.append(path)
+        return found
+
     def _load_latest_checkpoint(self):
-        """Load most recent checkpoint if exists."""
-        checkpoints = list(Path(CHECKPOINT_DIR).glob("checkpoint_*.pt"))
-        if checkpoints:
-            latest = max(checkpoints, key=lambda p: int(p.stem.split("_")[1]))
-            self.model = load_model(str(latest))
-            # Keep eval mode (load_model sets it) - trainer switches to train only during updates
-            self.trainer = PPOTrainer(self.model, dashboard=self.dashboard)
-            self.episode = int(latest.stem.split("_")[1])
-            logger.model_resumed(self.episode, str(latest))
+        """Resume from the most recent checkpoint, if there is one."""
+        checkpoints = self._numbered_checkpoints()
+        if not checkpoints:
+            logger.debug("No checkpoints found — starting from scratch")
+            return
+
+        latest = max(checkpoints, key=lambda p: int(p.stem.split("_")[1]))
+        self.model, episode, trainer_state = load_model(str(latest))
+        # Keep eval mode (load_model sets it); the trainer flips to train() only
+        # for the duration of an update.
+        self.trainer = PPOTrainer(self.model, dashboard=self.dashboard)
+        self.trainer.load_state_dict(trainer_state)
+        # Prefer the episode recorded inside the file; fall back to the filename
+        # for legacy v1 checkpoints that carried no metadata.
+        self.episode = episode if episode is not None else int(latest.stem.split("_")[1])
+        if trainer_state is None:
+            logger.debug(
+                f"{latest.name} is a legacy checkpoint — optimizer state starts fresh"
+            )
+        logger.model_resumed(self.episode, str(latest))
 
     async def handle_client(self, websocket):
         """Handle a connected client."""
@@ -385,9 +422,7 @@ class TrainingServer:
 
             # Save checkpoint periodically
             if self.episode % CHECKPOINT_INTERVAL == 0:
-                checkpoint_path = f"{CHECKPOINT_DIR}/checkpoint_{self.episode}.pt"
-                save_model(self.model, checkpoint_path)
-                logger.checkpoint_saved(self.episode, checkpoint_path)
+                self._save_checkpoint()
 
             # Send stats to all clients
             await self._broadcast_stats()
@@ -451,24 +486,45 @@ class TrainingServer:
             }))
 
     def _get_action(self, state, ctx=None, client_id=None):
-        """Get action from model (Phase 5.10: template-based with mask)."""
+        """Sample a wave action from the model under the availability mask.
+
+        Inside the curriculum the mask has exactly one live slot, so the
+        sampled template IS the template that ships. That equality is what
+        makes the stored PPO action honest — previously the decoder overrode
+        the sampled index afterwards and the categorical head was trained on a
+        choice that never happened.
+        """
         # Convert state to tensor
         state_tensor = torch.tensor(
             self._encode_state(state, ctx),
             dtype=torch.float32,
         ).unsqueeze(0)
 
-        # Build template availability mask based on current wave + capabilities
+        # Build template availability mask based on current wave + capabilities.
+        # Prefer the capabilities the frontend actually computed (they account
+        # for line-of-sight and effective anti-air reach); fall back to the
+        # research flags only when an older client omits them.
         wave_num = state.get("waveNumber", 0)
         research = state.get("research", {}) or {}
         tower_unlocked = research.get("towerUnlocked", {}) or {}
         air_targeting = research.get("airTargetingUnlocked", False)
-        has_anti_air = bool(
-            tower_unlocked.get("ice") or tower_unlocked.get("rocket") or air_targeting
-        )
-        has_anti_ethereal = bool(
-            tower_unlocked.get("magic") or tower_unlocked.get("ice")
-        )
+        caps = (state.get("defense") or {}).get("capabilities") or {}
+
+        if "hasAntiAir" in caps:
+            has_anti_air = bool(caps.get("hasAntiAir"))
+        else:
+            has_anti_air = bool(
+                tower_unlocked.get("archer") or tower_unlocked.get("ice")
+                or tower_unlocked.get("rocket") or tower_unlocked.get("lightning")
+                or air_targeting
+            )
+        if "hasAntiEthereal" in caps:
+            has_anti_ethereal = bool(caps.get("hasAntiEthereal"))
+        else:
+            has_anti_ethereal = bool(
+                tower_unlocked.get("magic") or tower_unlocked.get("ice")
+                or tower_unlocked.get("lightning")
+            )
         recent_tpls = ctx.recent_template_indices if ctx else []
         mask_list = get_available_template_mask(
             current_wave=wave_num + 1,  # state.waveNumber is "current", we plan N+1
@@ -499,95 +555,92 @@ class TrainingServer:
         return action
 
     def _encode_state(self, state, ctx=None):
-        """Convert game state dict to flat 156-feature array (Phase 5.10).
+        """Convert a game-state snapshot into the flat feature vector.
 
-        Layout (156 features):
-        [0-3]     Player: credits, lives%, wave, time (4)
-        [4-5]     Tower: count, avgLevel (2)
-        [6-14]    Tower Type Counts: 9 types (9)
-        [15-19]   History Damage: last 5 waves (5)
-        [20-24]   History Progress: last 5 waves avg_progress (5)
-        [25-29]   Wave Signals: momentum, avgDmg, duration, episodeProgress, variance (5)
-        [30-34]   Context: wave, trend, skill, lastThreat, winStreak (5)
-        [35-41]   DPS by Damage Type (7)
-        [42-46]   Enemy Armor Distribution (5)
-        [47-51]   Research State (5)
-        [52]      Reserved (1)
-        --- Phase 5.6 Awareness Block ---
-        [53-68]   Types-History: per-type frequency over last 5 waves (16)
-        [69-73]   Armor-History (5)
-        [74-78]   Damage-Pct-History (5)
-        [79-87]   Tower-Type Avg-Levels (9)
-        [88-91]   Defense Capabilities (4)
-        [92-100]  Tower-Unlock-Status (9)
-        [101-105] Near-Miss-History (5)
-        --- Gap-5 Armor-Matrix Block ---
-        [106-110] Effective DPS vs Armor (ground) (5)
-        [111-115] Effective DPS vs Armor (air) (5)
-        --- Spatial Block ---
-        [116-135] Ground DPS Profile (20)
-        [136-155] Air DPS Profile (20)
+        Every vocabulary and every block size comes from `schema.py`, which is
+        generated from the TypeScript configs — so this stays in lockstep with
+        `game-state-encoder.ts` by construction rather than by discipline.
+
+        Layout at schema v2 (162 features), with
+        T = towers (10), D = damage types (8), A = armor types (5), E = enemies (18):
+
+        [0-3]     Player: credits, lives%, wave, time                     (4)
+        [4-5]     Tower: count, avgLevel                                  (2)
+        [6..]     Tower type counts                                       (T)
+        [..]      Damage history, last 5 waves                            (5)
+        [..]      Progress history, last 5 waves                          (5)
+        [..]      Wave signals: momentum, avgDmg, duration, episode, var   (5)
+        [..]      Context: wave, trend, skill, lastThreat, winStreak       (5)
+        [..]      DPS by damage type                                       (D)
+        [..]      Expected enemy armor distribution                        (A)
+        [..]      Research state                                            (5)
+        [..]      Reserved                                                  (1)
+        --- Awareness block ---
+        [..]      Types-history: per-type frequency over last 5 waves       (E)
+        [..]      Armor-history                                             (A)
+        [..]      Damage-pct history (mirrors the earlier block)            (5)
+        [..]      Tower-type average levels                                 (T)
+        [..]      Defense capabilities                                      (4)
+        [..]      Tower unlock status                                       (T)
+        [..]      Near-miss history                                         (5)
+        --- Armor-matrix block ---
+        [..]      Effective DPS vs armor, ground                            (A)
+        [..]      Effective DPS vs armor, air                               (A)
+        --- Spatial block ---
+        [..]      Ground DPS profile                                (NUM_BINS)
+        [..]      Air DPS profile                                   (NUM_BINS)
         """
         encoded = []
 
-        # === Player state [0-3] ===
+        def last_n(seq, n=5):
+            """Last n entries, left-padded with 0 so index 0 is the oldest."""
+            seq = seq or []
+            pad = max(0, n - len(seq))
+            return [0.0] * pad + [float(v) for v in seq[-n:]]
+
+        # === Player state ===
         player = state.get("player", {})
         encoded.extend([
-            player.get("credits", 0) / 5000,
+            player.get("credits", 0) / MAX_VALUES["credits"],
             player.get("livesPercent", 1),
-            state.get("waveNumber", 0) / 50,
-            state.get("gameTimeSeconds", 0) / 3600,
+            state.get("waveNumber", 0) / MAX_VALUES["wave"],
+            min(1.0, state.get("gameTimeSeconds", 0) / MAX_VALUES["gameTime"]),
         ])
 
-        # === Tower stats [4-5] ===
+        # === Tower stats ===
         defense = state.get("defense", {})
         encoded.extend([
-            defense.get("towerCount", 0) / 30,
-            defense.get("avgTowerLevel", 0) / 5,
+            defense.get("towerCount", 0) / MAX_VALUES["towerCount"],
+            defense.get("avgTowerLevel", 0) / MAX_VALUES["towerLevel"],
         ])
 
-        # === Tower Type Counts [6-14] (9 types — added fire, tentacle) ===
-        tower_types = ["archer", "cannon", "magic", "dual-gatling", "rocket", "ice", "fire", "tentacle", "poison"]
+        # === Tower type counts ===
         dist = defense.get("towerDistribution", {})
-        for t in tower_types:
-            stats = dist.get(t, {})
-            encoded.append(stats.get("count", 0) / 10)
+        for t in TOWER_TYPES:
+            stats = dist.get(t, {}) or {}
+            encoded.append((stats.get("count", 0) or 0) / 10)
 
-        # === History Damage [15-19] ===
+        # === Damage + progress history ===
         history = state.get("recentHistory", {})
-        damages = history.get("damagePerWave", [])
-        for i in range(5):
-            idx = len(damages) - 5 + i
-            encoded.append(damages[idx] if 0 <= idx < len(damages) else 0)
+        damages = history.get("damagePerWave", []) or []
+        encoded.extend(last_n(damages))
+        encoded.extend(last_n(history.get("progressPerWave", [])))
 
-        # === History Progress [20-24] ===
-        progresses = history.get("progressPerWave", [])
-        for i in range(5):
-            idx = len(progresses) - 5 + i
-            encoded.append(progresses[idx] if 0 <= idx < len(progresses) else 0)
-
-        # === Wave Signals [25-29] ===
+        # === Wave signals ===
         wave_num = state.get("waveNumber", 0)
 
-        # [25] Damage momentum
-        if len(damages) >= 2:
-            momentum = (damages[-1] - damages[-2]) * 10
-        else:
-            momentum = 0.0
+        momentum = (damages[-1] - damages[-2]) * 10 if len(damages) >= 2 else 0.0
         encoded.append(max(-1.0, min(1.0, momentum)))
 
-        # [26] Average recent damage
         recent_5 = damages[-5:] if damages else []
-        avg_recent = sum(recent_5) / max(1, len(recent_5))
-        encoded.append(min(1.0, avg_recent))
+        encoded.append(min(1.0, sum(recent_5) / max(1, len(recent_5))))
 
-        # [27] Wave duration
-        encoded.append(min(1.0, history.get("avgWaveDuration", 0) / 300))
+        encoded.append(min(1.0, history.get("avgWaveDuration", 0) / MAX_VALUES["waveDuration"]))
 
-        # [28] Episode progress
-        encoded.append(wave_num / 20.0)
+        # Episode progress, measured against the episode length that actually
+        # triggers the reset — not the hardcoded /20 this used to divide by.
+        encoded.append(min(1.0, wave_num / EPISODE_LENGTH))
 
-        # [29] Damage variance
         if len(recent_5) >= 2:
             mean_d = sum(recent_5) / len(recent_5)
             variance = sum((d - mean_d) ** 2 for d in recent_5) / len(recent_5)
@@ -595,34 +648,30 @@ class TrainingServer:
         else:
             encoded.append(0.0)
 
-        # === Context [30-34] ===
+        # === Context ===
         encoded.extend([
-            wave_num / 50,
+            wave_num / MAX_VALUES["wave"],
             self._calculate_difficulty_trend(damages),
             _estimate_player_skill(ctx.recent_damages if ctx else [], ctx.win_streak if ctx else 0),
-            history.get("lastWaveThreat", 0) / 100,
-            history.get("winStreak", 0) / 10,
+            history.get("lastWaveThreat", 0) / MAX_VALUES["waveThreat"],
+            history.get("winStreak", 0) / MAX_VALUES["winStreak"],
         ])
 
-        # === DPS by Damage Type [35-41] (Phase 5.5) ===
-        damage_types = ["physical", "pierce", "siege", "magic", "fire", "ice", "poison"]
-        dps_by_type = {dt: 0.0 for dt in damage_types}
-        # Frontend pre-computes this via computeDpsByDamageType — if not in state, fall back to 0
-        dps_by_type_state = state.get("dpsByDamageType", {})
-        for dt in damage_types:
+        # === DPS by damage type ===
+        # Frontend pre-computes this via computeDpsByDamageType.
+        dps_by_type_state = state.get("dpsByDamageType", {}) or {}
+        for dt in DAMAGE_TYPES:
             encoded.append(min(1.0, dps_by_type_state.get(dt, 0.0)))
 
-        # === Enemy Armor Distribution [42-46] (Phase 5.5) ===
-        armor_types = ["unarmored", "light", "heavy", "fortified", "ethereal"]
+        # === Expected enemy armor distribution ===
         armor_dist = state.get("expectedArmorDistribution") or {}
         if not armor_dist:
-            # Uniform fallback
-            share = 1.0 / len(armor_types)
-            armor_dist = {a: share for a in armor_types}
-        for a in armor_types:
+            share = 1.0 / len(ARMOR_TYPES)
+            armor_dist = {a: share for a in ARMOR_TYPES}
+        for a in ARMOR_TYPES:
             encoded.append(armor_dist.get(a, 0))
 
-        # === Research State [47-51] (Phase 5.5) ===
+        # === Research state ===
         research = state.get("research", {}) or {}
         total_count = research.get("totalCount", 0)
         completed_count = research.get("completedCount", 0)
@@ -632,103 +681,98 @@ class TrainingServer:
         slots_used = research.get("slotsUsed", 0)
         encoded.append(slots_used / max_slots if max_slots > 0 else 0)
         encoded.append(1.0 if research.get("airTargetingUnlocked", False) else 0.0)
-        encoded.append(research.get("maxUpgradeTier", 1) / 3)
+        # The research tree reaches tier 5 (transcendent-tech); dividing by 3
+        # used to push the feature past 1.0 once tier 4 was unlocked.
+        encoded.append(min(1.0, research.get("maxUpgradeTier", 1) / MAX_VALUES["upgradeTier"]))
 
-        # === Reserved [52] ===
+        # === Reserved ===
         encoded.append(0)
 
-        # ─── PHASE 5.6 AWARENESS BLOCK [53-105] (53 features) ───────────────
+        # ─── AWARENESS BLOCK ────────────────────────────────────────────────
 
-        # === Types-History [53-68] (16) ===
-        # Each entry = fraction of last 5 waves in which this enemy type appeared.
-        # Frontend sends enemyTypesUsed: string[][] (outer = wave, inner = types used that wave).
+        # Types-history: fraction of the last 5 waves each enemy type appeared in.
+        # Frontend sends enemyTypesUsed: string[][] (outer = wave, inner = types).
         enemy_types_history = history.get("enemyTypesUsed", []) or []
         recent_waves = enemy_types_history[-5:] if enemy_types_history else []
         window = max(1, len(recent_waves))
         for t in ENEMY_TYPES:
-            count_in_window = sum(1 for wave_types in recent_waves if t in wave_types)
-            encoded.append(count_in_window / window)
+            encoded.append(sum(1 for w in recent_waves if t in w) / window)
 
-        # === Armor-History [69-73] (5) ===
-        # Fraction of last 5 waves that contained each armor category.
-        for a in armor_types:
-            count_in_window = sum(
-                1 for wave_types in recent_waves
-                if any(ENEMY_ARMOR.get(t) == a for t in wave_types)
+        # Armor-history: fraction of the last 5 waves containing each armor class.
+        for a in ARMOR_TYPES:
+            encoded.append(
+                sum(1 for w in recent_waves if any(ENEMY_ARMOR.get(t) == a for t in w)) / window
             )
-            encoded.append(count_in_window / window)
 
-        # === Damage-Pct-History [74-78] (5) ===
-        # Same semantics as [15-19] — explicit duplication mirrors frontend.
-        for i in range(5):
-            idx = len(damages) - 5 + i
-            encoded.append(damages[idx] if 0 <= idx < len(damages) else 0)
+        # Damage-pct history — deliberate duplicate of the earlier block; the
+        # frontend encoder has the same repeat and the orders must match.
+        encoded.extend(last_n(damages))
 
-        # === Tower-Type Avg-Levels [79-87] (9) ===
-        for t in tower_types:
+        # Tower-type average levels
+        for t in TOWER_TYPES:
             stats = dist.get(t, {}) or {}
-            avg_lvl = stats.get("avgLevel", 0)
-            encoded.append(min(1.0, (avg_lvl or 0) / 5))
+            encoded.append(min(1.0, (stats.get("avgLevel", 0) or 0) / MAX_VALUES["towerLevel"]))
 
-        # === Defense Capabilities [88-91] (4) ===
+        # Defense capabilities
         caps = defense.get("capabilities", {}) or {}
         encoded.append(1.0 if caps.get("hasAntiAir") else 0.0)
         encoded.append(1.0 if caps.get("hasSplash") else 0.0)
         encoded.append(1.0 if caps.get("hasSlow") else 0.0)
         encoded.append(1.0 if caps.get("hasDoT") else 0.0)
 
-        # === Tower-Unlock Status [92-100] (9) ===
-        tower_unlocked_map = (research or {}).get("towerUnlocked", {}) or {}
-        for t in tower_types:
+        # Tower unlock status
+        tower_unlocked_map = research.get("towerUnlocked", {}) or {}
+        for t in TOWER_TYPES:
             encoded.append(1.0 if tower_unlocked_map.get(t) else 0.0)
 
-        # === Near-Miss History [101-105] (5) ===
-        near_miss_hist = history.get("nearMissPerWave", []) or []
-        for i in range(5):
-            idx = len(near_miss_hist) - 5 + i
-            encoded.append(near_miss_hist[idx] if 0 <= idx < len(near_miss_hist) else 0)
+        # Near-miss history
+        encoded.extend(last_n(history.get("nearMissPerWave", [])))
 
-        # ─── GAP-5 EFFECTIVE-DPS-PER-ARMOR [106-115] (10 features) ──────────
-        # Armor-matrix weighted effective DPS, split into ground/air. Gives the
-        # net an explicit per-armor view of the player's damage pipeline (closes
-        # the armor-agnostic gap of the raw DPS profile).
-        eff = (state.get("defense") or {}).get("effectiveDPSPerArmor") or {}
+        # ─── EFFECTIVE-DPS-PER-ARMOR ────────────────────────────────────────
+        # Armor-matrix weighted effective DPS, split ground/air. Gives the net
+        # an explicit per-armor view of the player's damage pipeline, which the
+        # raw DPS profile is blind to.
+        eff = defense.get("effectiveDPSPerArmor") or {}
         eff_ground = eff.get("ground") or {}
         eff_air = eff.get("air") or {}
-        MAX_EFF_DPS = 500.0
-        # Ground [106-110]
-        for a in armor_types:
-            val = float(eff_ground.get(a, 0.0))
-            encoded.append(max(0.0, min(1.0, val / MAX_EFF_DPS)))
-        # Air [111-115]
-        for a in armor_types:
-            val = float(eff_air.get(a, 0.0))
-            encoded.append(max(0.0, min(1.0, val / MAX_EFF_DPS)))
+        max_eff = MAX_VALUES["effectiveDpsPerArmor"]
+        for source in (eff_ground, eff_air):
+            for a in ARMOR_TYPES:
+                encoded.append(max(0.0, min(1.0, float(source.get(a, 0.0)) / max_eff)))
 
-        # ─── SPATIAL BLOCK [116-155] (40 features) ──────────────────────────
-        dps_profile = state.get("dpsProfile", {})
-        ground_dps = dps_profile.get("groundDPS", [0] * 20)
-        air_dps = dps_profile.get("airDPS", [0] * 20)
+        # ─── SPATIAL BLOCK ──────────────────────────────────────────────────
+        dps_profile = state.get("dpsProfile", {}) or {}
+        for key in ("groundDPS", "airDPS"):
+            values = dps_profile.get(key) or []
+            for i in range(NUM_BINS):
+                encoded.append(values[i] if i < len(values) else 0)
 
-        # Ground DPS [116-135]
-        for i in range(20):
-            encoded.append(ground_dps[i] if i < len(ground_dps) else 0)
-
-        # Air DPS [136-155]
-        for i in range(20):
-            encoded.append(air_dps[i] if i < len(air_dps) else 0)
-
-        return encoded[:INPUT_SIZE]
+        # A wrong length means the encoder and the model disagree about where
+        # every feature lives. Truncating silently (as this used to) turns that
+        # into weeks of training on shifted inputs, so fail loudly instead.
+        if len(encoded) != INPUT_SIZE:
+            raise ValueError(
+                f"state encoder produced {len(encoded)} features, expected {INPUT_SIZE} "
+                f"(schema v{schema_module.EXPECTED_SCHEMA_VERSION}) — "
+                f"regenerate with `npm run ai-schema`"
+            )
+        return encoded
 
     def _decode_action(self, action, state=None, ctx=None):
-        """Phase 5.11: Range-based template decoding with DPS-scaled difficulty caps.
+        """Range-based template decoding with DPS-scaled difficulty caps.
 
-        NN produces template_idx + 4 factors in [0,1]. The decoder interpolates
-        each factor into the template's designer-set range. For COUNT and
-        HP_MULT the upper end is scaled by defense.totalDPS so wave 1 (low
-        DPS) can't oversized — prevents "everything overflows" lock-in early.
+        The net produces template_idx + 4 factors in [0,1]; the decoder
+        interpolates each factor into the template's designer-set range. For
+        COUNT and HP_MULT the upper end is scaled by defense.totalDPS so wave 1
+        (low DPS) cannot be oversized — that prevents an early
+        "everything overflows" lock-in.
+
+        The template index is taken as-is. Curriculum forcing happens earlier,
+        by narrowing the availability mask to a single slot (see
+        `schema.get_available_template_mask`), so the action the trainer stored
+        is always the action that shipped.
         """
-        from config import (
+        from schema import (
             MAX_WAVE_DURATION_MS, MIN_SPAWN_DELAY_MS,
             DPS_RAMP_FLOOR, DPS_RAMP_COUNT, DPS_RAMP_HP_MULT,
         )
@@ -739,25 +783,27 @@ class TrainingServer:
         hp_factor = float(action["hp_factor"][0].detach().item())
         variation_factor = float(action["variation_factor"][0].detach().item())
 
-        # Phase 5.16: Wave-Curriculum override. For waves 1..18 the designer
-        # picks the template; NN's continuous factors still tune difficulty.
-        # Bot/player has lookahead-knowledge of the curriculum so unlimited
-        # build-phase research time prevents capability mismatches.
-        from wave_curriculum import template_for_wave
         wave_num = int((state or {}).get("waveNumber", 0) or 0) + 1  # plan N+1
-        forced_id = template_for_wave(wave_num)
-        if forced_id is not None:
-            forced_idx = next(
-                (i for i, t in enumerate(TEMPLATES) if t["id"] == forced_id),
-                None,
-            )
-            if forced_idx is not None:
-                template_idx = forced_idx
 
         template = get_template(template_idx)
         if template is None:
+            # Masking guarantees a valid slot; a miss here means the mask and
+            # the template table disagree, which is worth shouting about.
+            logger.error(
+                f"[decode] model picked reserved slot {template_idx} "
+                f"(active={NUM_ACTIVE_TEMPLATES}) — falling back to slot 0"
+            )
             template = TEMPLATES[0]
             template_idx = 0
+
+        forced_id = template_for_wave(wave_num)
+        if forced_id is not None and template["id"] != forced_id:
+            # Only reachable if the mask was built for a different wave number
+            # than the one we are decoding — a real bug, not a design choice.
+            logger.error(
+                f"[decode] wave {wave_num} shipped '{template['id']}' but the "
+                f"curriculum pins '{forced_id}' — mask/decode disagree"
+            )
 
         # DPS-scaled frac: 0 DPS → FLOOR, DPS_RAMP_X → 1.0.
         defense = (state or {}).get("defense") or {}
@@ -773,10 +819,18 @@ class TrainingServer:
             eff_max = rng[0] + (rng[1] - rng[0]) * dps_frac
             return rng[0] + (eff_max - rng[0]) * factor
 
-        total_count = max(1, round(lerp_capped(template["count_range"], count_factor, dps_frac_count)))
-        spawn_delay = max(MIN_SPAWN_DELAY_MS, int(lerp(template["spawn_delay_range"], spawn_factor)))
-        hp_mult = round(lerp_capped(template["hp_mult_range"], hp_factor, dps_frac_hp), 3)
-        variation = round(lerp(template["variation_range"], variation_factor), 3)
+        total_count = max(1, round(lerp_capped(template["countRange"], count_factor, dps_frac_count)))
+        # round(), not int(): the frontend decoder rounds, and a half-millisecond
+        # of truncation drift compounds over a 5000-enemy wave.
+        spawn_delay = max(MIN_SPAWN_DELAY_MS, round(lerp(template["spawnDelayRange"], spawn_factor)))
+        nn_hp_mult = lerp_capped(template["hpMultRange"], hp_factor, dps_frac_hp)
+        variation = round(lerp(template["variationRange"], variation_factor), 3)
+
+        # Structural late-game HP ramp, applied AFTER the net's factor exactly
+        # as the shipped game does (wave-curriculum.config.ts). Without this the
+        # net would train against a flatter difficulty curve than players see.
+        endgame_hp = endgame_hp_multiplier(wave_num)
+        hp_mult = round(nn_hp_mult * endgame_hp, 3)
 
         # Wave-duration cap: compress spawn_delay if (count × spawn_delay) would exceed 3 min.
         total_duration = total_count * spawn_delay
@@ -786,8 +840,10 @@ class TrainingServer:
         # Expand template → enemy groups
         enemies = []
         allocated = 0
-        for i, (enemy_type, share) in enumerate(template["enemies"]):
-            if i == len(template["enemies"]) - 1:
+        groups = template["enemies"]
+        for i, group in enumerate(groups):
+            enemy_type, share = group["type"], group["share"]
+            if i == len(groups) - 1:
                 count = max(1, total_count - allocated)
             else:
                 count = max(1, round(total_count * share))
@@ -806,8 +862,7 @@ class TrainingServer:
             "totalCount": final_total,
             "spawnDelay": spawn_delay,
             "spawnDelayVariation": variation,
-            "pattern": template.get("spawn_pattern"),
-            "useGathering": False,
+            "pattern": template.get("spawnPattern"),
             "confidence": round(float(action["template_probs"][0, template_idx].item()), 4),
             "templateIdx": template_idx,
             "templateName": template["name"],
@@ -827,6 +882,9 @@ class TrainingServer:
             "spawn_delay": spawn_delay,
             "variation": variation,
             "health_mult": hp_mult,
+            "nn_health_mult": round(nn_hp_mult, 3),
+            "endgame_hp_mult": round(endgame_hp, 3),
+            "curriculum_forced": forced_id is not None,
             "num_groups": len(enemies),
             "groups": enemies,
             "armor_dist": _compute_armor_dist(enemies),
@@ -852,9 +910,31 @@ class TrainingServer:
         if len(ctx.recent_progress) > 20:
             ctx.recent_progress.pop(0)
 
-        # Build reward input
-        survived = bool(state_after and state_after.get("player", {}).get("lives", 0) > 0) \
-            if state_after else not bool(result.get("gameOver", False))
+        # Did the player survive this wave?
+        #
+        # `stateAfter` is the authoritative source when present. On the
+        # game-over path the frontend historically sent the result without it,
+        # and this fell back to `result["gameOver"]` — a key that does not exist
+        # on WaveOutcome. `.get(..., False)` therefore reported "survived" on
+        # exactly the waves that ended the run, so the DEATH term (the largest
+        # in the reward, up to -3.5) never once fired during training.
+        # `playerSurvived` is the real field (wave-result.ts), and the frontend
+        # now sends `stateAfter` on both paths.
+        if state_after:
+            survived = bool(state_after.get("player", {}).get("lives", 0) > 0)
+        else:
+            survived = bool(result.get("playerSurvived", True))
+
+        # Win-streak is maintained here rather than in the `game_over` handler:
+        # the frontend defines `notifyGameOver` but never calls it, so that
+        # handler never ran and feature [34] was a hard-coded 0 for the whole
+        # of training. A cleared wave is a win, a wave that ends the run is not.
+        if survived:
+            ctx.win_streak += 1
+        else:
+            ctx.win_streak = 0
+            self.waves_lost += 1
+        self.waves_survived += 1 if survived else 0
         wave_result = {
             "damagePercent": damage_pct,
             "totalCount": int(result.get("enemiesSpawned", 0)),
@@ -964,27 +1044,93 @@ class TrainingServer:
             "avgReward": round(avg_reward, 3),
             "bestReward": round(best, 3),
             "gamesPlayed": self.games_played,
-            "winRate": 0,  # TODO: Track
+            "winRate": round(
+                self.waves_survived / max(1, self.waves_survived + self.waves_lost), 3
+            ),
             "clientCount": len(self.clients),
             "trainingState": self.training_state,
             "activeClientIds": active_display_ids,
+            "currentBotType": next(
+                (c.current_bot for c in self.client_contexts.values()), "strategist"
+            ),
         }
 
+    def _save_checkpoint(self):
+        """Write a checkpoint plus the `checkpoint_latest.pt` convenience copy.
+
+        `npm run export-ai` points at `checkpoint_latest.pt`; that file never
+        existed before, so the export script always exited 1.
+        """
+        checkpoint_path = f"{CHECKPOINT_DIR}/checkpoint_{self.episode}.pt"
+        save_model(
+            self.model,
+            checkpoint_path,
+            episode=self.episode,
+            trainer_state=self.trainer.state_dict(),
+            schema_version=schema_module.EXPECTED_SCHEMA_VERSION,
+        )
+        try:
+            shutil.copyfile(checkpoint_path, f"{CHECKPOINT_DIR}/checkpoint_latest.pt")
+        except OSError as e:
+            logger.error(f"[checkpoint] could not refresh checkpoint_latest.pt: {e}")
+        logger.checkpoint_saved(self.episode, checkpoint_path)
+
     def _export_model(self, version):
-        """Export model to TensorFlow.js format."""
-        # Save PyTorch model
+        """Write a standalone PyTorch snapshot for offline ONNX export.
+
+        The ONNX conversion itself lives in `scripts/export_to_tfjs.py`
+        (`npm run export-ai`), which reads a checkpoint file — this endpoint
+        only pins a named copy of the current weights.
+        """
         path = f"exports/wave-director-{version}.pt"
         Path("exports").mkdir(exist_ok=True)
-        save_model(self.model, path)
-
-        # TODO: Convert to ONNX then TF.js
-        # For now, just save PyTorch model
-
+        save_model(
+            self.model,
+            path,
+            episode=self.episode,
+            trainer_state=self.trainer.state_dict(),
+            schema_version=schema_module.EXPECTED_SCHEMA_VERSION,
+        )
         return path
 
 
-async def main():
+def _archive_checkpoints() -> int:
+    """Move every existing checkpoint into a dated archive folder.
+
+    Used by `--fresh`. Checkpoints are moved, never deleted — a training run
+    that turns out badly should not cost you the previous one.
+    Returns the number of files archived.
+    """
+    ckpt_dir = Path(CHECKPOINT_DIR)
+    ckpt_dir.mkdir(exist_ok=True)
+    existing = sorted(ckpt_dir.glob("checkpoint_*.pt"))
+    if not existing:
+        return 0
+
+    stamp = datetime.now().strftime("%Y-%m-%d_%H%M%S")
+    archive = ckpt_dir / f"archive-{stamp}"
+    archive.mkdir(parents=True, exist_ok=True)
+    for path in existing:
+        shutil.move(str(path), str(archive / path.name))
+    print(f"[fresh] archived {len(existing)} checkpoints -> {archive}")
+    return len(existing)
+
+
+def _parse_args():
+    parser = argparse.ArgumentParser(description="3DTD Wave-Director training backend")
+    parser.add_argument(
+        "--fresh",
+        action="store_true",
+        help="start from scratch: move existing checkpoints into a dated archive folder first",
+    )
+    return parser.parse_args()
+
+
+async def main(fresh: bool = False):
     """Start the training server + optional dashboard."""
+    if fresh:
+        _archive_checkpoints()
+
     server = TrainingServer()
 
     # Start TUI
@@ -1012,12 +1158,12 @@ async def main():
                 config = uvicorn.Config(
                     _dashboard.app,
                     host="0.0.0.0",
-                    port=3002,
+                    port=DASHBOARD_PORT,
                     log_level="warning",
                 )
                 dashboard_server = uvicorn.Server(config)
                 dashboard_task = asyncio.create_task(dashboard_server.serve())
-                logger.debug("Dashboard started on http://0.0.0.0:3002")
+                logger.debug(f"Dashboard started on http://0.0.0.0:{DASHBOARD_PORT}")
             except ImportError:
                 logger.debug("uvicorn not installed, dashboard disabled")
 
@@ -1031,8 +1177,9 @@ async def main():
 
 
 if __name__ == "__main__":
+    args = _parse_args()
     try:
-        asyncio.run(main())
+        asyncio.run(main(fresh=args.fresh))
     except KeyboardInterrupt:
         logger.server_shutdown()
         logger.stop()

@@ -7,6 +7,7 @@ import {
   enemyBaseDamageForWave,
   templateForWave,
   templateObjectForWave,
+  CURRICULUM_FORCED_THROUGH_WAVE,
   staticWaveProfileForWave,
   staticWaveResolvedFor,
 } from './wave-curriculum.config';
@@ -189,16 +190,20 @@ describe('wave-curriculum.config', () => {
       expect(templateForWave(30)).toBe('boss_herbert');
     });
 
-    it('wave 31 loops back to wave 1 template (zombie_horde)', () => {
-      expect(templateForWave(31)).toBe(templateForWave(1));
+    it('returns null past the scripted run so the AI picks for itself', () => {
+      // The curriculum used to loop mod-30. It no longer does: the designer
+      // owns content through wave 30, and from wave 31 the Wave Director's
+      // template head chooses under the normal availability mask. Gold budget
+      // and the AI-off static fallback still loop — those need a value at every
+      // wave number and are asserted separately.
+      expect(CURRICULUM_FORCED_THROUGH_WAVE).toBe(30);
+      expect(templateForWave(31)).toBeNull();
+      expect(templateForWave(32)).toBeNull();
+      expect(templateForWave(60)).toBeNull();
     });
 
-    it('wave 32 loops back to wave 2 template', () => {
-      expect(templateForWave(32)).toBe(templateForWave(2));
-    });
-
-    it('wave 60 (30+30) maps to wave 30 template', () => {
-      expect(templateForWave(60)).toBe(templateForWave(30));
+    it('templateObjectForWave is null past the scripted run too', () => {
+      expect(templateObjectForWave(31)).toBeNull();
     });
 
     it('all 30 waves return non-null non-empty strings', () => {

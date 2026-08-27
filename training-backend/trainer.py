@@ -5,13 +5,11 @@ Proximal Policy Optimization trainer for the Wave Director.
 """
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from collections import deque
 
 from config import (
     LEARNING_RATE,
-    GAMMA,
     CLIP_EPSILON,
     ENTROPY_COEF,
     VALUE_COEF,
@@ -72,8 +70,9 @@ class PPOTrainer:
         state, action, enemy_idx, old_log_prob, template_mask = pending
         self.transitions.append((state, action, enemy_idx, old_log_prob, reward, template_mask))
 
-        # Update when we have enough paired samples
-        if len(self.transitions) >= BATCH_SIZE:
+        # Drain the backlog: several clients can pair results in the same tick,
+        # so a single store_result may complete more than one batch.
+        while len(self.transitions) >= BATCH_SIZE:
             self._update()
 
     def _update(self):
@@ -81,7 +80,12 @@ class PPOTrainer:
         if len(self.transitions) < BATCH_SIZE:
             return
 
-        batch = self.transitions[-BATCH_SIZE:]
+        # Consume the OLDEST BATCH_SIZE transitions and keep the rest for the
+        # next update. This used to take the newest slice and then clear the
+        # whole list, silently discarding every transition that arrived while a
+        # batch was filling up.
+        batch = self.transitions[:BATCH_SIZE]
+        self.transitions = self.transitions[BATCH_SIZE:]
 
         # Unpack paired transitions
         states_list = []
@@ -105,10 +109,12 @@ class PPOTrainer:
             old_log_probs_batch = torch.stack(old_log_probs_list) if old_log_probs_list[0] is not None else None
             template_mask_batch = torch.stack(template_mask_list) if template_mask_list[0] is not None else None
         except Exception as e:
-            print(f"[Trainer] Failed to stack: {e}")
-            self.transitions = []
+            logger.error(f"[Trainer] Failed to stack batch, dropping it: {e}")
             return
 
+        # One wave is one self-contained decision whose reward is fully observed
+        # when the wave ends — a contextual bandit, not a trajectory. So the
+        # return IS the reward; there is nothing downstream to discount toward.
         returns = torch.tensor(rewards_list, dtype=torch.float32)
 
         # Update running reward statistics
@@ -181,39 +187,35 @@ class PPOTrainer:
         if self.dashboard:
             self.dashboard.record_training_update(pl, ent, gn, avg_reward)
 
-        # Clear processed transitions
-        self.transitions = []
-
     def get_avg_reward(self):
         """Get average reward from recent episodes."""
         if not self.reward_history:
             return 0
         return sum(self.reward_history) / len(self.reward_history)
 
+    def state_dict(self):
+        """Optimizer + reward-normaliser state, for the checkpoint.
 
-class ExperienceBuffer:
-    """Buffer for storing training experiences."""
+        Without this, every server restart reset the Adam moments and the
+        running reward statistics to zero while keeping trained weights — the
+        first updates after a resume were effectively un-normalised and had no
+        momentum, which shows up as a reward dip after every restart.
+        """
+        return {
+            "optimizer": self.optimizer.state_dict(),
+            "reward_running_mean": self.reward_running_mean,
+            "reward_running_var": self.reward_running_var,
+            "reward_count": self.reward_count,
+            "reward_history": list(self.reward_history),
+        }
 
-    def __init__(self, max_size=10000):
-        self.max_size = max_size
-        self.buffer = deque(maxlen=max_size)
-
-    def add(self, state, action, reward, next_state, done):
-        """Add experience to buffer."""
-        self.buffer.append((state, action, reward, next_state, done))
-
-    def sample(self, batch_size):
-        """Sample random batch from buffer."""
-        import random
-        batch = random.sample(self.buffer, min(batch_size, len(self.buffer)))
-        states, actions, rewards, next_states, dones = zip(*batch)
-        return (
-            torch.stack(states),
-            torch.stack(actions),
-            torch.tensor(rewards),
-            torch.stack(next_states),
-            torch.tensor(dones),
-        )
-
-    def __len__(self):
-        return len(self.buffer)
+    def load_state_dict(self, state):
+        """Restore optimizer + reward-normaliser state from a checkpoint."""
+        if not state:
+            return
+        if "optimizer" in state:
+            self.optimizer.load_state_dict(state["optimizer"])
+        self.reward_running_mean = state.get("reward_running_mean", 0.0)
+        self.reward_running_var = state.get("reward_running_var", 1.0)
+        self.reward_count = state.get("reward_count", 0)
+        self.reward_history = deque(state.get("reward_history", []), maxlen=100)

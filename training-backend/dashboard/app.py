@@ -393,8 +393,10 @@ class Dashboard:
         kill_time = wave_info.get("kill_time", 0) if wave_info else 0
         enemy_hp = wave_info.get("enemy_hp", 0) if wave_info else 0
         effective_dps = wave_info.get("effective_dps", 0) if wave_info else 0
-        type_probs = wave_info.get("type_probs", {}) if wave_info else {}
-        cooldown_override = wave_info.get("cooldown_override", False) if wave_info else False
+        # Named `type_probs` downstream for backwards compatibility with the
+        # dashboard UI; the decoder emits them as `template_probs`.
+        type_probs = wave_info.get("template_probs", {}) if wave_info else {}
+        cooldown_override = wave_info.get("curriculum_forced", False) if wave_info else False
 
         # Phase 5.5 signals
         num_groups = wave_info.get("num_groups", 1) if wave_info else 1

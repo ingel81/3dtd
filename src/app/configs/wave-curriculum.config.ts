@@ -118,13 +118,24 @@ export function enemyBaseDamageForWave(waveNum: number): number {
   return 1 + Math.floor((waveNum - 1) / 10);
 }
 
+/** Last wave the curriculum pins a template to. Beyond this the AI chooses. */
+export const CURRICULUM_FORCED_THROUGH_WAVE = WAVE_CURRICULUM.length;
+
 /**
- * Curriculum-forced template id for `waveNum` (1-indexed). Loops indefinitely:
- * wave 31 reuses wave 1's template, wave 32 reuses wave 2's, etc.
+ * Curriculum-forced template id for `waveNum` (1-indexed), or null.
+ *
+ * Returns null past wave {@link CURRICULUM_FORCED_THROUGH_WAVE} — from there
+ * the Wave Director's template head chooses for itself under the normal
+ * availability mask. The designer owns content and pacing through the scripted
+ * run; the AI owns the open-ended tail.
+ *
+ * Note this does NOT loop, unlike {@link goldBudgetForWave} and
+ * {@link staticWaveProfileForWave}: those describe the economy and the AI-off
+ * fallback, which both still need a defined value at every wave number.
  */
 export function templateForWave(waveNum: number): string | null {
-  if (waveNum < 1) return null;
-  return WAVE_CURRICULUM[(waveNum - 1) % WAVE_CURRICULUM.length].template;
+  if (waveNum < 1 || waveNum > CURRICULUM_FORCED_THROUGH_WAVE) return null;
+  return WAVE_CURRICULUM[waveNum - 1].template;
 }
 
 /**

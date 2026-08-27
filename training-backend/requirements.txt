@@ -16,3 +16,6 @@ onnx>=1.14.0
 # Web Dashboard
 fastapi>=0.100.0
 uvicorn>=0.23.0
+
+# Tests
+pytest>=8.0.0

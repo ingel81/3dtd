@@ -1,12 +1,13 @@
 /**
- * Wave Director Service — Phase 5.10 Template-Based
+ * Wave Director Service — template-based wave generation.
  *
- * Loads the ONNX model (optional) and decodes its output into a Template-Based
- * WaveConfig. During training, the backend picks waves via WebSocket; the
+ * Loads the ONNX model and decodes its output into a WaveConfig. During
+ * training the Python backend picks waves over the WebSocket instead; this
  * local ONNX path is only used in standalone play.
  *
- * If the model fails to load AND no backend is available, the service throws
- * an explicit error — there is no rule-based fallback in Phase 5.10.
+ * If the model fails to load and no backend is available the service throws.
+ * There is no rule-based fallback — the AI-off path is the static wave
+ * profiles in `wave-curriculum.config.ts`, selected upstream.
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
@@ -17,7 +18,6 @@ import { WaveResult } from './models/wave-result';
 import { explainWaveDecision, DecisionExplanation, formatExplanationForUI } from './decision-explainer';
 import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
 import {
-  TEMPLATES,
   MAX_TEMPLATE_SLOTS,
   MAX_WAVE_DURATION_MS,
   MIN_SPAWN_DELAY_MS,
@@ -204,7 +204,7 @@ export class WaveDirectorService {
     const encoded = encodeGameState(state);
 
 
-    // Create ONNX tensor (shape: [1, 74])
+    // Create ONNX tensor (shape: [1, ENCODED_STATE_SIZE])
     const inputTensor = new this.ort.Tensor('float32', encoded, [1, ENCODED_STATE_SIZE]);
 
     // Run inference
@@ -240,28 +240,38 @@ export class WaveDirectorService {
     const templateLogits = Array.from(output.slice(0, MAX_TEMPLATE_SLOTS));
     const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 4);
 
-    // Apply template availability mask
+    // Availability mask. Inside the curriculum this collapses to a single slot,
+    // so the argmax below has exactly one candidate and the wave that ships is
+    // the one the designer pinned. Past the curriculum it is a real choice.
+    // Same construction as the training backend, so inference and training
+    // agree on what was allowed.
+    const upcomingWave = state.waveNumber + 1;
     const research = state.research;
-    const hasAntiAir = !!(
-      research?.towerUnlocked?.['ice']
+    const caps = state.defense?.capabilities;
+    const hasAntiAir = caps?.hasAntiAir ?? !!(
+      research?.towerUnlocked?.['archer']
+      || research?.towerUnlocked?.['ice']
       || research?.towerUnlocked?.['rocket']
+      || research?.towerUnlocked?.['lightning']
       || research?.airTargetingUnlocked
     );
-    const hasAntiEthereal = !!(
+    const hasAntiEthereal = caps?.hasAntiEthereal ?? !!(
       research?.towerUnlocked?.['magic']
       || research?.towerUnlocked?.['ice']
+      || research?.towerUnlocked?.['lightning']
     );
     const mask = getAvailableTemplateMask(
-      state.waveNumber + 1,
+      upcomingWave,
       hasAntiAir,
       hasAntiEthereal,
       this.recentTemplateIndices,
+      templateForWave(upcomingWave),
     );
 
     const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);
     const probs = this.softmax(maskedLogits);
 
-    let bestIdx = 0;
+    let bestIdx = -1;
     let bestProb = -1;
     for (let i = 0; i < probs.length; i++) {
       if (mask[i] && probs[i] > bestProb) {
@@ -270,21 +280,7 @@ export class WaveDirectorService {
       }
     }
 
-    // Phase 5.16: Wave-Curriculum override. For waves 1..18 the designer
-    // picks the template; NN's continuous factors still tune difficulty.
-    // Bot/player has unlimited build-phase research time — capability
-    // alignment is their responsibility.
-    const upcomingWave = state.waveNumber + 1;
-    const forcedId = templateForWave(upcomingWave);
-    if (forcedId) {
-      const forcedIdx = TEMPLATES.findIndex((t) => t.id === forcedId);
-      if (forcedIdx >= 0) {
-        bestIdx = forcedIdx;
-        bestProb = 1.0;
-      }
-    }
-
-    const template = getTemplate(bestIdx);
+    const template = bestIdx >= 0 ? getTemplate(bestIdx) : null;
     if (!template) {
       throw new Error(`[AI] Decoder selected invalid template index ${bestIdx}`);
     }
