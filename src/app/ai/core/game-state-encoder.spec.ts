@@ -133,6 +133,7 @@ describe('encodeGameState() schema', () => {
       },
     };
     s.defense.aoeDpsShare = { ground: 0.4, air: 0.25 };
+    s.defense.killThroughput = { ground: 6, air: 2 };
     s.defense.effectiveDPSPerArmor = {
       ground: { unarmored: 100, light: 80, heavy: 60, fortified: 40, ethereal: 20 },
       air:    { unarmored: 50,  light: 40, heavy: 30, fortified: 20, ethereal: 10 },

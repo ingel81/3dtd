@@ -556,6 +556,7 @@ class TrainingServer:
             has_anti_ethereal=has_anti_ethereal,
             recent_template_indices=recent_tpls,
             effective_dps_per_armor=defense.get("effectiveDPSPerArmor") or {},
+            kill_throughput=defense.get("killThroughput") or {},
         )
         mask_list = wave_context["mask"]
 
@@ -912,6 +913,7 @@ class TrainingServer:
             hp_mult,
             spawn_delay,
             defense.get("effectiveDPSPerArmor") or {},
+            defense.get("killThroughput") or {},
         )
         gated = fair_cap is not None and fair_cap < total_count
         if gated:
