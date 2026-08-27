@@ -451,6 +451,18 @@ export class TrainingClientService {
               });
             }
             this.notifyGameOver(false, this.store.waveNumber());
+
+            // Start the next run. Nothing else does: `restartGame` was only
+            // wired to the backend's episode reset, which fires at wave 100 and
+            // therefore never, since runs end far earlier. Clients sat in the
+            // game-over phase indefinitely — three of four at one point — so
+            // most of the training capacity was idle, and `game_start` never
+            // fired again either, which left the deterministic-eval cadence
+            // stuck at the first game forever.
+            if (this.botEnabled()) {
+              this.callbacks.restartGame();
+              this.notifyGameStart('normal');
+            }
           }
         }));
 
