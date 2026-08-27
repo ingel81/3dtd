@@ -126,24 +126,36 @@ def _swarm_size_reward(total_count: int, damage_pct: float,
     if total_count <= SWARM_SMALL_THRESHOLD:
         return SWARM_SMALL_PENALTY
 
-    # Gate conditions — any failure → swarm-bonus neutralised.
+    # Gates. These used to be one-sided — survived, progress <= 0.95,
+    # damage <= 0.20 — with no MINIMUM on either. That left a completely safe
+    # exploit: drip-feed ~1350 weak enemies that all die at 20% of the path.
+    # Zero damage, zero risk, and the full bonus every single wave, which beat
+    # actually hitting the narrow 1-5% damage band. Size is meant to break ties
+    # inside the drama envelope, so it now only pays inside that envelope.
     if not survived:
         return 0.0
     if avg_progress > PROGRESS_OVERFLOW_THRESHOLD:
         return 0.0  # everyone reached base → "big wave" is meaningless
-    if damage_pct > DAMAGE_HARD_THRESHOLD:
-        return 0.0  # wave too hard → already penalised by DRAMA
+    if damage_pct < DAMAGE_SWEET_MIN or damage_pct > DAMAGE_SWEET_MAX:
+        return 0.0  # outside the band this term has nothing to reward
+    if avg_progress < PROGRESS_NEAR_MISS_LOW:
+        return 0.0  # died early on the path → not a threatening swarm
 
     over = total_count - SWARM_SMALL_THRESHOLD
     return min(SWARM_SIZE_CAP, SWARM_SIZE_SLOPE * over)
 
 
 def _progression_bonus(wave_num: int, survived: bool, damage_pct: float) -> float:
-    """Wave-number progression bonus. Gated on survival + minimal damage."""
+    """Wave-number progression bonus, gated on the wave being a good one.
+
+    The upper bound matters as much as the lower one: with only a `>= 0.01`
+    gate, a wave costing 15% of the player's HP still collected full
+    progression credit. Sustained, that kills the player in about seven waves —
+    which is exactly where runs were dying.
+    """
     if not survived:
         return 0.0
-    if damage_pct < DAMAGE_SWEET_MIN:
-        # Boring zero-damage wave — no progression credit
+    if damage_pct < DAMAGE_SWEET_MIN or damage_pct > DAMAGE_SWEET_MAX:
         return 0.0
     return min(PROGRESSION_CAP, PROGRESSION_SLOPE * wave_num)
 

@@ -20,7 +20,7 @@ from typing import Any, Optional
 # Schema version this backend understands. Bumped together with
 # AI_SCHEMA_VERSION in src/app/ai/core/ai-schema.ts whenever a feature order
 # or block size changes (which invalidates every checkpoint).
-EXPECTED_SCHEMA_VERSION = 2
+EXPECTED_SCHEMA_VERSION = 3
 
 SCHEMA_PATH = Path(__file__).parent / "generated" / "ai-schema.json"
 
@@ -53,6 +53,7 @@ INPUT_SIZE: int = SCHEMA["state"]["inputSize"]
 NUM_SCALAR: int = SCHEMA["state"]["numScalar"]
 NUM_SPATIAL: int = SCHEMA["state"]["numSpatial"]
 NUM_BINS: int = SCHEMA["state"]["numBins"]
+NUM_TEMPLATE_RANGE_FEATURES: int = SCHEMA["state"]["templateRangeFeatures"]
 
 # === ORDERED VOCABULARIES (positional — order is the contract) ===
 ENEMY_TYPES: list[str] = list(SCHEMA["orders"]["enemies"])
@@ -223,6 +224,68 @@ def fair_max_count(
         return None
 
     return max(FAIRNESS_MIN_COUNT, int(budget * FAIRNESS_ENGAGEMENT_SECONDS / denominator))
+
+
+def build_wave_context(
+    upcoming_wave: int,
+    has_anti_air: bool,
+    has_anti_ethereal: bool,
+    recent_template_indices: list[int],
+    effective_dps_per_armor: dict[str, Any],
+) -> dict[str, Any]:
+    """Context for the wave about to be decided: mask, ranges, fairness ceiling.
+
+    The params head emits four values in [0,1] that mean nothing on their own —
+    `count_factor = 0.5` is ~1000 enemies for zombie_horde and ~50 for
+    mech_army. Inside the curriculum the template follows from the wave number,
+    but past it the model picks the template in the same forward pass that
+    produces the factors, so it was genuinely blind there.
+
+    The availability mask covers both cases with one mechanism: inside the
+    curriculum it has collapsed to a single slot and IS a one-hot of the wave
+    that will ship; past it, it is the set of legal choices. Ranges are the
+    single template's, or the average over what is still legal.
+
+    Mirrored by `buildWaveContext` in src/app/ai/core/wave-context.ts.
+    """
+    mask = get_available_template_mask(
+        upcoming_wave, has_anti_air, has_anti_ethereal, recent_template_indices
+    )
+    allowed = [TEMPLATES[i] for i in range(NUM_ACTIVE_TEMPLATES) if mask[i]]
+
+    def avg_range(key: str) -> tuple[float, float]:
+        if not allowed:
+            return (0.0, 0.0)
+        lo = sum(float(t[key][0]) for t in allowed) / len(allowed)
+        hi = sum(float(t[key][1]) for t in allowed) / len(allowed)
+        return (lo, hi)
+
+    count_range = avg_range("countRange")
+    hp_range = avg_range("hpMultRange")
+    delay_range = avg_range("spawnDelayRange")
+
+    # Evaluate the gate against a representative wave — the midpoint of the HP
+    # and delay ranges. The real factors are what the model is about to emit, so
+    # this is a signal about the ceiling, not a prediction of it.
+    cap = None
+    headroom = 1.0
+    if allowed:
+        mid_hp = (hp_range[0] + hp_range[1]) / 2
+        mid_delay = (delay_range[0] + delay_range[1]) / 2
+        cap = fair_max_count(allowed[0], mid_hp, mid_delay, effective_dps_per_armor)
+        if cap is not None:
+            span = count_range[1] - count_range[0]
+            headroom = (cap - count_range[0]) / span if span > 0 else 1.0
+            headroom = max(0.0, min(1.0, headroom))
+
+    return {
+        "mask": mask,
+        "count_range": count_range,
+        "hp_mult_range": hp_range,
+        "spawn_delay_range": delay_range,
+        "fairness_headroom": headroom,
+        "fair_max_count": cap,
+    }
 
 
 def get_available_template_mask(

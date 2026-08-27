@@ -17,6 +17,18 @@ network width without any edit here.
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+# Bounds on the learned exploration noise.
+#
+# The upper bound used to be 2 (std ~7.4). Combined with an entropy bonus
+# measured on the PRE-sigmoid Gaussian, that was a standing incentive to widen
+# the distribution — and a wide Gaussian squashed through a sigmoid piles its
+# mass on the range ENDPOINTS. The result is anti-exploration in factor space:
+# waves collapse to min/max count and min/max HP instead of covering the range,
+# which is the opposite of the "varied waves" goal. Capping at 0 keeps std <= 1,
+# where the sigmoid still spreads mass across the interior.
+LOG_STD_MIN = -3.0
+LOG_STD_MAX = 0.0
 from config import (
     NUM_SCALAR,
     NUM_BINS,
@@ -122,7 +134,7 @@ class WaveDirectorModel(nn.Module):
 
         # Continuous Gaussian over the NUM_CONTINUOUS raw params
         means = params[:, :NUM_CONTINUOUS]
-        std = torch.exp(torch.clamp(self.log_std, -5, 2)).unsqueeze(0).expand_as(means)
+        std = torch.exp(torch.clamp(self.log_std, LOG_STD_MIN, LOG_STD_MAX)).unsqueeze(0).expand_as(means)
 
         if deterministic:
             sampled_raw = means
@@ -137,7 +149,7 @@ class WaveDirectorModel(nn.Module):
         # Continuous log-prob (Gaussian on raw logits, not scaled factors)
         log_prob_cont = -0.5 * (
             ((sampled_raw - means) / (std + 1e-8)) ** 2
-            + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0)
+            + 2 * torch.clamp(self.log_std, LOG_STD_MIN, LOG_STD_MAX).unsqueeze(0)
             + 1.8379
         )
         log_prob_cont = log_prob_cont.sum(dim=-1)
@@ -176,24 +188,30 @@ class WaveDirectorModel(nn.Module):
             log_prob_cat = cat_dist.log_prob(template_logits.argmax(dim=-1))
 
         means = params[:, :NUM_CONTINUOUS]
-        std = torch.exp(torch.clamp(self.log_std, -5, 2)).unsqueeze(0).expand_as(means)
+        std = torch.exp(torch.clamp(self.log_std, LOG_STD_MIN, LOG_STD_MAX)).unsqueeze(0).expand_as(means)
 
         actions = stored_actions if stored_actions is not None else means
 
         log_prob_cont = -0.5 * (
             ((actions - means) / (std + 1e-8)) ** 2
-            + 2 * torch.clamp(self.log_std, -5, 2).unsqueeze(0)
+            + 2 * torch.clamp(self.log_std, LOG_STD_MIN, LOG_STD_MAX).unsqueeze(0)
             + 1.8379
         )
         log_prob_cont = log_prob_cont.sum(dim=-1)
 
         log_prob = log_prob_cat + log_prob_cont
 
+        # Entropy bonus on the TEMPLATE head only.
+        #
+        # The continuous term used to be the Gaussian's entropy in pre-sigmoid
+        # space, which is state-independent — literally a bonus for a larger
+        # log_std. Maximising it widened the Gaussian, and a wide Gaussian
+        # through a sigmoid concentrates mass at the range endpoints, so waves
+        # drifted toward min/max count and min/max HP. Exploration on the
+        # continuous factors now comes from the clamped log_std alone.
         entropy_cat = cat_dist.entropy()
-        entropy_cont = 0.5 * (1 + 2 * torch.clamp(self.log_std, -5, 2) + 1.8379).sum()
-        entropy = entropy_cat + entropy_cont
 
-        return log_prob, value.squeeze(-1), entropy
+        return log_prob, value.squeeze(-1), entropy_cat
 
 
 def create_model():

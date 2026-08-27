@@ -28,6 +28,7 @@ from config import (
     CHECKPOINT_DIR,
     CHECKPOINT_INTERVAL,
     EPISODE_LENGTH,
+    DETERMINISTIC_EVAL_EVERY,
 )
 import schema as schema_module
 from schema import (
@@ -48,6 +49,9 @@ from schema import (
     template_index,
     endgame_hp_multiplier,
     fair_max_count,
+    build_wave_context,
+    MAX_TEMPLATE_SLOTS,
+    MAX_VALUES as SCHEMA_MAX_VALUES,
 )
 from model import create_model, save_model, load_model
 from reward import calculate_reward
@@ -111,6 +115,11 @@ class ClientContext:
         self.last_template_idx = None   # Last template idx (for dashboard)
         self.last_wave_info = None      # Last wave info (for dashboard)
         self.enemy_base_hp = None       # Set from game_start (frontend is source of truth)
+        # Deterministic-evaluation flag. When set, this client's waves are
+        # generated from the policy mean rather than a sample, so the metrics
+        # describe the policy we actually export instead of the exploration
+        # noise around it.
+        self.deterministic = False
 
 
 class TrainingServer:
@@ -139,6 +148,11 @@ class TrainingServer:
         # Win-rate tracking, fed from wave results (see _process_result).
         self.waves_survived = 0
         self.waves_lost = 0
+        # Deterministic-evaluation metrics, kept apart from training rollouts so
+        # we can report the policy we ship rather than the one we explore with.
+        self.eval_rewards: list[float] = []
+        self.eval_deaths = 0
+        self.eval_waves = 0
         # Training run-state: clients join paused. Dashboard Start button flips
         # this to 'running' and broadcasts. Reload keeps the current state.
         self.training_state = 'paused'  # 'paused' | 'running'
@@ -207,6 +221,9 @@ class TrainingServer:
             stale_keys = [k for k in self.trainer.pending if k[0] == client_id]
             for k in stale_keys:
                 del self.trainer.pending[k]
+            # Flush whatever trajectory the client had in flight, bootstrapped —
+            # a disconnect is a truncation, not an ending.
+            self.trainer.drop_client(client_id)
             # Drop dashboard per-client history so the UI's stats broadcast
             # (activeClientIds) can prune the card without stale data resurrection.
             if self.dashboard:
@@ -341,7 +358,8 @@ class TrainingServer:
                                                        effective_progress=avg_progress,
                                                        max_progress=max_progress,
                                                        near_miss_ratio=near_miss_ratio,
-                                                       progress_std=progress_std)
+                                                       progress_std=progress_std,
+                                                       episode_done=wave_num >= EPISODE_LENGTH)
 
             self.episode += 1
             self.total_reward += reward
@@ -447,6 +465,11 @@ class TrainingServer:
             self._select_bot(ctx)
             self._reset_context(ctx)
             self.games_played += 1
+            # Every Nth run is a measurement run.
+            ctx.deterministic = (
+                DETERMINISTIC_EVAL_EVERY > 0
+                and self.games_played % DETERMINISTIC_EVAL_EVERY == 0
+            )
             logger.update_games(self.games_played)
             logger.episode_start(client_id, ctx.current_bot)
 
@@ -495,21 +518,20 @@ class TrainingServer:
         the sampled index afterwards and the categorical head was trained on a
         choice that never happened.
         """
-        # Convert state to tensor
-        state_tensor = torch.tensor(
-            self._encode_state(state, ctx),
-            dtype=torch.float32,
-        ).unsqueeze(0)
-
-        # Build template availability mask based on current wave + capabilities.
-        # Prefer the capabilities the frontend actually computed (they account
-        # for line-of-sight and effective anti-air reach); fall back to the
-        # research flags only when an older client omits them.
+        # Build the availability mask FIRST: it is both an input to the model
+        # (the wave-context block tells the params head what its factors will be
+        # applied to) and the filter on the model's template output. One source,
+        # so the two can never disagree.
+        #
+        # Prefer the capabilities the frontend actually computed — they account
+        # for line-of-sight and effective anti-air reach; fall back to research
+        # flags only when an older client omits them.
         wave_num = state.get("waveNumber", 0)
         research = state.get("research", {}) or {}
         tower_unlocked = research.get("towerUnlocked", {}) or {}
         air_targeting = research.get("airTargetingUnlocked", False)
-        caps = (state.get("defense") or {}).get("capabilities") or {}
+        defense = state.get("defense") or {}
+        caps = defense.get("capabilities") or {}
 
         if "hasAntiAir" in caps:
             has_anti_air = bool(caps.get("hasAntiAir"))
@@ -526,22 +548,36 @@ class TrainingServer:
                 tower_unlocked.get("magic") or tower_unlocked.get("ice")
                 or tower_unlocked.get("lightning")
             )
+
         recent_tpls = ctx.recent_template_indices if ctx else []
-        mask_list = get_available_template_mask(
-            current_wave=wave_num + 1,  # state.waveNumber is "current", we plan N+1
+        wave_context = build_wave_context(
+            upcoming_wave=wave_num + 1,  # state.waveNumber is "current", we plan N+1
             has_anti_air=has_anti_air,
             has_anti_ethereal=has_anti_ethereal,
             recent_template_indices=recent_tpls,
-            cooldown_waves=TEMPLATE_COOLDOWN_WAVES,
+            effective_dps_per_armor=defense.get("effectiveDPSPerArmor") or {},
         )
+        mask_list = wave_context["mask"]
+
+        state_tensor = torch.tensor(
+            self._encode_state(state, ctx, wave_context),
+            dtype=torch.float32,
+        ).unsqueeze(0)
+
         mask_tensor = torch.tensor([mask_list], dtype=torch.bool)
 
         # Get action with log_prob for PPO ratio
+        deterministic = bool(ctx and ctx.deterministic)
         with torch.no_grad():
-            action, log_prob, _ = self.model.get_action(state_tensor, template_mask=mask_tensor)
+            action, log_prob, _ = self.model.get_action(
+                state_tensor, template_mask=mask_tensor, deterministic=deterministic
+            )
 
         # Store state paired with (client_id, wave_num+1) for proper result pairing
-        if client_id is not None and ctx is not None:
+        # Deterministic rollouts are measurement, not experience: their actions
+        # carry no exploration noise, so feeding them to PPO would bias the
+        # ratio. Collect them for metrics only.
+        if client_id is not None and ctx is not None and not deterministic:
             raw_params = action.get("raw_params")
             template_idx = action.get("template_idx")
             self.trainer.store_action(
@@ -555,7 +591,7 @@ class TrainingServer:
 
         return action
 
-    def _encode_state(self, state, ctx=None):
+    def _encode_state(self, state, ctx=None, wave_context=None):
         """Convert a game-state snapshot into the flat feature vector.
 
         Every vocabulary and every block size comes from `schema.py`, which is
@@ -741,6 +777,40 @@ class TrainingServer:
             for a in ARMOR_TYPES:
                 encoded.append(max(0.0, min(1.0, float(source.get(a, 0.0)) / max_eff)))
 
+        # Share of that DPS which is area-of-effect, ground and air. Splash,
+        # chain and beam width are constant multipliers inside each tower's DPS,
+        # so the raw numbers cannot express "this defense scales with enemy
+        # density" — and density is what the director sets via count and delay.
+        aoe = defense.get("aoeDpsShare") or {}
+        encoded.append(max(0.0, min(1.0, float(aoe.get("ground", 0.0) or 0.0))))
+        encoded.append(max(0.0, min(1.0, float(aoe.get("air", 0.0) or 0.0))))
+
+        # ─── WAVE CONTEXT ───────────────────────────────────────────────────
+        # What the continuous factors will be applied to. See
+        # `schema.build_wave_context` for why the availability mask is the right
+        # signal here for both the curriculum and the free-choice range.
+        wc = wave_context or {}
+        mask = wc.get("mask") or [False] * MAX_TEMPLATE_SLOTS
+        for i in range(MAX_TEMPLATE_SLOTS):
+            encoded.append(1.0 if (i < len(mask) and mask[i]) else 0.0)
+
+        def _norm(value, ceiling):
+            return max(0.0, min(1.0, float(value) / ceiling))
+
+        count_range = wc.get("count_range") or (0.0, 0.0)
+        hp_range = wc.get("hp_mult_range") or (0.0, 0.0)
+        delay_range = wc.get("spawn_delay_range") or (0.0, 0.0)
+        encoded.append(_norm(count_range[0], SCHEMA_MAX_VALUES["templateCount"]))
+        encoded.append(_norm(count_range[1], SCHEMA_MAX_VALUES["templateCount"]))
+        encoded.append(_norm(hp_range[0], SCHEMA_MAX_VALUES["templateHpMult"]))
+        encoded.append(_norm(hp_range[1], SCHEMA_MAX_VALUES["templateHpMult"]))
+        encoded.append(_norm(delay_range[0], SCHEMA_MAX_VALUES["templateSpawnDelayMs"]))
+        encoded.append(_norm(delay_range[1], SCHEMA_MAX_VALUES["templateSpawnDelayMs"]))
+        # Where the fairness gate will clamp, on the same 0..1 scale as
+        # count_factor. Without it the gradient above the cap is flat and the
+        # net cannot see the ceiling it keeps hitting.
+        encoded.append(max(0.0, min(1.0, float(wc.get("fairness_headroom", 1.0)))))
+
         # ─── SPATIAL BLOCK ──────────────────────────────────────────────────
         dps_profile = state.get("dpsProfile", {}) or {}
         for key in ("groundDPS", "airDPS"):
@@ -914,7 +984,8 @@ class TrainingServer:
         return config, wave_info
 
     def _process_result(self, ctx, client_id, wave_num, result, state_after=None,
-                        effective_progress=None, max_progress=0, near_miss_ratio=0, progress_std=0):
+                        effective_progress=None, max_progress=0, near_miss_ratio=0,
+                        progress_std=0, episode_done=False):
         """Phase 5.10: simplified reward pipeline (4 terms only)."""
         damage_pct = result.get("damagePercent", 0)
         avg_progress = effective_progress if effective_progress is not None else result.get("avgPathProgressPercent", 0)
@@ -965,8 +1036,23 @@ class TrainingServer:
         if reward > self.best_reward:
             self.best_reward = reward
 
-        # Pair reward with this client+wave's pending state
-        self.trainer.store_result(client_id, wave_num, reward)
+        # Pair reward with this client+wave's pending state. `done` closes the
+        # trajectory so the death cost can be discounted back onto the waves
+        # that produced it — the player never heals, so a run is one long
+        # sequence, not a series of independent bets.
+        if ctx is not None and ctx.deterministic:
+            # Measurement run: no stored action to pair with, and its noise-free
+            # actions would bias the PPO ratio. Metrics only.
+            self.eval_rewards.append(reward)
+            if len(self.eval_rewards) > 200:
+                self.eval_rewards.pop(0)
+            if not survived:
+                self.eval_deaths += 1
+            self.eval_waves += 1
+        else:
+            self.trainer.store_result(
+                client_id, wave_num, reward, done=(not survived) or episode_done
+            )
 
         return reward, breakdown
 
@@ -1070,6 +1156,13 @@ class TrainingServer:
             "currentBotType": next(
                 (c.current_bot for c in self.client_contexts.values()), "strategist"
             ),
+            # Deterministic evaluation — the policy as exported, not as explored.
+            "evalAvgReward": round(
+                sum(self.eval_rewards) / len(self.eval_rewards), 3
+            ) if self.eval_rewards else 0.0,
+            "evalWaves": self.eval_waves,
+            "evalDeathRate": round(self.eval_deaths / max(1, self.eval_waves), 3),
+            "droppedPairs": self.trainer.dropped_pairs,
         }
 
     def _save_checkpoint(self):

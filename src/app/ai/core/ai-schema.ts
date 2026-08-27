@@ -17,14 +17,22 @@
  *   2 — Training refresh 2026-08: 162 features. Adds `zombie-v2` + `stone-golem`
  *       (enemy order 16 → 18), `lightning` as a buildable tower (tower order
  *       9 → 10) and as a damage type (7 → 8).
+ *   3 — Wave context 2026-08: 203 features. Adds the AoE share of ground and
+ *       air DPS, plus: The net previously emitted
+ *       `count_factor` without knowing which template it would be applied to —
+ *       the same 0..1 value means 20-2000 enemies for zombie_horde and 5-100
+ *       for mech_army. Adds the availability mask, the effective template's
+ *       ranges and the fairness headroom. Also repurposes two dead blocks: a
+ *       hardcoded zero and a verbatim copy of the damage history.
  */
 
 import { ARMOR_TYPES, type ArmorType, type DamageType } from '../../configs/combat/combat.types';
 import { type EnemyTypeId } from '../../configs/enemy-types.config';
 import { type TowerTypeId } from '../../configs/tower-types.config';
+import { MAX_TEMPLATE_SLOTS } from './templates';
 
 /** Bumped whenever a length or an order below changes. */
-export const AI_SCHEMA_VERSION = 2;
+export const AI_SCHEMA_VERSION = 3;
 
 /**
  * Enemy order — 18 entries. Append-only: new enemies go at the end so the
@@ -103,11 +111,18 @@ export const NUM_DPS_BINS = 20;
 export const AI_EPISODE_LENGTH = 100;
 
 /**
+ * Range descriptors handed to the net alongside the mask: normalised
+ * count min/max, hp-multiplier min/max and spawn-delay min/max.
+ */
+export const NUM_TEMPLATE_RANGE_FEATURES = 6;
+
+/**
  * Scalar feature count, derived so it can never drift from the orders above.
  *
  *   Base block          — 4 + 2 + T + 5 + 5 + 1 + 1 + 1 + 1 + 1 + 5 + D + A + 5 + 1
  *   Awareness block     — E + A + 5 + T + 4 + T + 5
  *   Effective-DPS block — 2 * A
+ *   Wave-context block  — MAX_TEMPLATE_SLOTS + ranges + 1 fairness headroom
  *
  * with T = towers, D = damage types, A = armor types, E = enemy types.
  */
@@ -118,11 +133,23 @@ const E = AI_ENEMY_ORDER.length;
 
 export const NUM_BASE_FEATURES = 4 + 2 + T + 5 + 5 + 1 + 1 + 1 + 1 + 1 + 5 + D + A + 5 + 1;
 export const NUM_AWARENESS_FEATURES = E + A + 5 + T + 4 + T + 5;
-export const NUM_EFFECTIVE_DPS_FEATURES = 2 * A;
+// Per-armor effective DPS, ground and air, plus the AoE share of each.
+//
+// The AoE share is what tells the net whether the defense scales with enemy
+// density. Splash, chain and beam width are constant multipliers inside each
+// tower's DPS, so a cannon battery and an archer nest can report the same
+// number while behaving completely differently against a packed swarm — and
+// density is exactly what the director sets through count and spawn delay.
+export const NUM_EFFECTIVE_DPS_FEATURES = 2 * A + 2;
+export const NUM_WAVE_CONTEXT_FEATURES =
+  MAX_TEMPLATE_SLOTS + NUM_TEMPLATE_RANGE_FEATURES + 1;
 
 /** Total scalar features fed to the dense branch of the net. */
 export const NUM_SCALAR_FEATURES =
-  NUM_BASE_FEATURES + NUM_AWARENESS_FEATURES + NUM_EFFECTIVE_DPS_FEATURES;
+  NUM_BASE_FEATURES +
+  NUM_AWARENESS_FEATURES +
+  NUM_EFFECTIVE_DPS_FEATURES +
+  NUM_WAVE_CONTEXT_FEATURES;
 
 /** Total spatial features fed to the conv branch (ground + air DPS profile). */
 export const NUM_SPATIAL_FEATURES = 2 * NUM_DPS_BINS;
@@ -147,4 +174,12 @@ export const AI_MAX_VALUES = {
   effectiveDpsPerArmor: 500,
   /** DPS per path bin that saturates a bin. */
   dpsPerBin: 500,
+  /** Enemy count that saturates a normalised template count-range bound. */
+  templateCount: 5000,
+  /** HP multiplier that saturates a normalised template hp-range bound. */
+  templateHpMult: 10,
+  /** Spawn delay (ms) that saturates a normalised template delay-range bound. */
+  templateSpawnDelayMs: 1500,
+  /** Gold per wave that saturates the income-rate feature. */
+  goldPerWave: 5000,
 } as const;

@@ -50,20 +50,67 @@ CONTINUOUS_PARAM_NAMES = ["count", "spawn_delay", "hp_mult", "variation"]
 # === TRAINING ===
 LEARNING_RATE = 0.0003
 CLIP_EPSILON = 0.2
-ENTROPY_COEF = 0.05
 VALUE_COEF = 0.5
-BATCH_SIZE = 16
+
+# Batch raised from 16. Sixteen samples of a reward that ranges roughly -30..+2,
+# drawn from four clients contributing consecutive correlated waves, gave a
+# gradient direction that was mostly noise — and during the curriculum (waves
+# 1-30, where the mask has a single option) the categorical head gets no signal
+# at all while still filling batch slots. At timescale 75 with four clients this
+# is a couple of minutes of wall time.
+BATCH_SIZE = 128
+MINIBATCH_SIZE = 32
 UPDATE_EPOCHS = 4
 
-# No discounting: one wave = one independent decision, and the reward for a
-# wave is fully observed the moment it ends. There is no bootstrapping across
-# waves, so the setup is a contextual bandit rather than a horizon-1 MDP.
-# Kept explicit so nobody re-adds a GAMMA that silently does nothing.
-USE_DISCOUNTING = False
+# Stop the epoch loop early once the policy has moved too far from the one that
+# collected the data. Four epochs over the same samples with no KL guard is how
+# PPO quietly turns into an unclipped policy-gradient step.
+TARGET_KL = 0.02
+
+# Entropy bonus on the template head only.
+#
+# The continuous entropy term was measured on the pre-sigmoid Gaussian, so
+# maximising it simply pushed `log_std` up — and a wide Gaussian squashed
+# through a sigmoid piles mass on the range ENDPOINTS. That is anti-exploration
+# in factor space: waves collapse to min/max count and min/max HP, which is the
+# opposite of the "varied waves" goal. `log_std` is clamped instead (see
+# model.py) and only the categorical head keeps a bonus.
+ENTROPY_COEF = 0.02
+
+# How many waves a single client may accumulate before its trajectory is cut
+# and bootstrapped. Long survivors would otherwise contribute nothing.
+TRAJECTORY_FLUSH_LENGTH = 32
+
+# Run one client deterministically every N episodes so the metrics describe the
+# policy we actually export, not the exploration noise around it.
+DETERMINISTIC_EVAL_EVERY = 25
+
+# Waves are NOT independent, and treating them as such inverted the objective.
+#
+# The player never heals (`healBase()` has no production caller), so HP is a
+# one-way resource across a whole run. The per-wave optimum requires 1-5% HP
+# loss, which at ~3% per wave kills the player in ~33 waves — and the old
+# bandit framing paid the full sweet-spot reward the entire way down, charging
+# only a single -3.5 at the end. "Bleed the player out and kill them at wave 30"
+# scored ~+83 and beat every sustainable policy. That is why runs died at waves
+# 5, 10 and 11 with the reward curve still climbing.
+#
+# Returns are now discounted along each client's trajectory, so the waves that
+# set up a death are charged for it.
+GAMMA = 0.9
+
+# Generalised advantage estimation. 0.95 is the usual compromise between the
+# bias of pure bootstrapping and the variance of full Monte-Carlo returns.
+GAE_LAMBDA = 0.95
 
 # === REWARD — Term 1: DEATH ===
-REWARD_GAME_OVER_PENALTY = -0.3   # multiplied by early-wave scaling in reward._death_penalty
-REWARD_GAME_OVER_CAP = -3.5       # absolute floor for the death term
+# Dying has to cost more than everything earned on the way there. With the old
+# -3.5 cap, a policy that ground the player down over 30 waves collected ~+3 per
+# wave and paid a single -3.5 for the kill — a large net profit. Discounting
+# (GAMMA) now spreads that cost backward, and the magnitude is set so the
+# discounted sum dominates the accumulated per-wave gain.
+REWARD_GAME_OVER_PENALTY = -3.0   # multiplied by early-wave scaling in reward._death_penalty
+REWARD_GAME_OVER_CAP = -30.0      # absolute floor for the death term
 
 # === REWARD — Term 2: DRAMA (damage + path-progress merged) ===
 # Sweet zone: 1-5% HP loss per wave = "permanently demanding".
@@ -87,11 +134,15 @@ REWARD_PROGRESS_SLOPE = 0.30      # mild positive for intermediate progress
 # (huge zombie waves the bot trivially clears → 0 damage → max swarm bonus,
 # 77% zero-damage waves observed). Halved slope + 4x lower cap puts swarm
 # reward back in line so the sweet spot is the attractive target again.
-# With slope 0.0015 and cap 2.0 the bonus saturates at 1353 enemies.
+# Cap lowered from 2.0: at five times the sweet-damage peak (+0.4), swarm size
+# WAS the objective rather than a tiebreaker within it. A wave of 1350 weak
+# enemies that all died at 20% of the path scored +2.0 at zero risk — safer and
+# richer than actually hitting the 1-5% damage band. Size should now break ties
+# inside the drama envelope, not replace it.
 SWARM_SMALL_THRESHOLD = 20        # below this = tiny wave (penalty)
 SWARM_SMALL_PENALTY = -0.10
-SWARM_SIZE_SLOPE = 0.0015         # +0.0015 per enemy above threshold
-SWARM_SIZE_CAP = 2.0              # max swarm bonus
+SWARM_SIZE_SLOPE = 0.0004         # saturates around 1270 enemies
+SWARM_SIZE_CAP = 0.5              # max swarm bonus
 
 # === REWARD — Term 4: PROGRESSION ===
 PROGRESSION_SLOPE = 0.02          # +0.02 per wave_num
