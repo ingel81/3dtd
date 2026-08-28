@@ -327,3 +327,61 @@ Die letzte Zeile ist die entscheidende: Es existiert wieder ein Gradient. Die
 AI ist zum Startzeitpunkt deutlich zu aggressiv (`avgNearMissRatio` 0,52 gegen
 Ziel 0,25, `hpCurveError` −0,43, Game-Over-Rate 20 %) — erwartbar bei einem
 untrainierten Modell, und der Gradient zeigt in die Gegenrichtung.
+
+### I. Nachjustierung am v4-Lauf (2026-08-28, Nacht)
+
+Zwei Eingriffe nach der ersten belastbaren Messung. Beide entstanden aus Zahlen,
+nicht aus Vermutung — die Reihenfolge war bewusst: erst messen, dann eine Größe
+ändern, dann nachmessen.
+
+**I1 — Die Death-Strafe erdrückte den Reward, den sie schützen soll.**
+
+Gemessen über 1.304 Steps bei `REWARD_DEATH_MAX = -40`:
+
+| | Mittel | Std |
+|---|---|---|
+| überlebte Waves | −0,50 | 0,40 |
+| Tode (8,7 %) | −32,7 | — |
+| **gesamt** | −3,29 | **9,13** |
+| davon `death` | −2,79 | 9,12 |
+| `drama` | −0,004 | 0,367 |
+
+Rewards werden durch eine gefensterte Std normalisiert. Die Tode *setzen* diese
+Std, alles andere wird durch sie zu Rauschen dividiert: ein voller
+Drama-Ausschlag von 1,30 kam als 0,142 an, ein Tod als −3,58 — **25:1**. Bei dem
+Verhältnis lernt die AI nicht, gute Waves zu bauen, sondern Tode zu vermeiden.
+Das ist die Form des v3-Kollapses auf einem anderen Weg. Sichtbar auch im
+Optimierer: `approxKl` 0,24 gegen Ziel 0,02 und `gradNorm` 17 gegen Clip 0,5.
+
+Die −40 stammten aus einer zu strengen Lesart der Exploit-Bedingung. Ein Tod muss
+die guten Waves überwiegen, die zu ihm führten — aber der Run dorthin ist
+*endlich*. Maßstab ist die diskontierte Summe über die zehn Waves im Horizont
+(8,47 beim Peak von 1,30), nicht die unendliche Reihe 1/(1−GAMMA) = 10.
+
+`REWARD_DEATH_MAX = -15` erfüllt beide Schranken: −9,9 bei Wave 15 schlägt die
+8,47, und die Std fiel gemessen von 9,13 auf 4,50 — Verhältnis **10,2:1** statt
+25:1, der Drama-Ausschlag kommt als 0,289 statt 0,142 an. PACING trägt hier
+ohnehin mit: ein zu früh beendeter Run hinterlässt eine Spur von
+Kurvenabweichungs-Strafen, die Death-Strafe ist nicht mehr das einzige Argument
+für Rundenlänge.
+
+**I2 — `UPDATE_EPOCHS = 4` war faktisch 1.**
+
+Der KL-Early-Stop lief einmal pro Epoche. Bei `BATCH_SIZE 128` / `MINIBATCH 32`
+landeten damit vier ungeklippte Minibatch-Schritte, bevor er greifen konnte, und
+er feuerte danach *jedes Mal*. Die Policy machte also vier übergroße Schritte pro
+Update statt mehrerer kleiner — instabiler und ein Viertel des beabsichtigten
+Lernens je gesammelter Erfahrung. Die Prüfung läuft jetzt nach jedem Minibatch
+(gemittelt über die bisherigen der Epoche, weil eine 32-Sample-Schätzung allein
+zu verrauscht ist). `gradNorm` fiel daraufhin von 6,5 auf 3,8.
+
+`approxKl` bleibt bei ~0,24: ein *einzelner* Gradientenschritt bewegt die Policy
+schon so weit. Das ist eine Schrittweiten-Frage (schiefe Advantage-Verteilung
+durch die verbliebenen Tod-Ausreißer), keine Epochen-Frage. Der Early-Stop
+begrenzt den Schaden jetzt korrekt — bewusst *nicht* gleichzeitig an der
+Lernrate gedreht, um die Wirkung zuordenbar zu halten.
+
+**Nicht erledigt:** Zweimal ein Fable-Modell für ein Review des RL-Setups
+angesetzt (Design und Implementierung), beide Agenten haben über insgesamt vier
+Nachrichten nichts zugestellt. Die Analyse und beide Eingriffe oben stammen
+daher aus eigener Messung. Ein Review durch ein zweites Modell steht weiter aus.
