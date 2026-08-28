@@ -140,8 +140,24 @@ def _drama_reward(near_miss_ratio: float, leak_ratio: float,
     avoid. A wave leaking 40% of its enemies has a mean near 0.6 and sailed
     past that guard untouched.
     """
-    bell = _bell(near_miss_ratio, NEAR_MISS_TARGET, NEAR_MISS_SIGMA)
-    score = REWARD_DRAMA_PEAK * bell + REWARD_DRAMA_IDLE * (1.0 - bell)
+    # Linear on the way UP to the target, Gaussian on the way down.
+    #
+    # A pure bell is still 14.5% of its peak at ratio 0 (the target sits 1.4
+    # sigma above it), so a wave that threatened nothing at all scored -0.11
+    # instead of the full -0.30 idle penalty. Measured consequence: 52.5% of
+    # waves parked in that band — cheaper than any attempt that risks a leak,
+    # so the policy oscillated between harmless and breach and skipped the
+    # near-miss in between.
+    #
+    # The ramp makes every step toward the target pay, and makes doing nothing
+    # cost what it is supposed to cost. Overshooting still falls off on the
+    # bell, because a wave where most of the horde is at the gate is a breach
+    # in the making, not a better near-miss.
+    if near_miss_ratio <= NEAR_MISS_TARGET and NEAR_MISS_TARGET > 0:
+        shape = near_miss_ratio / NEAR_MISS_TARGET
+    else:
+        shape = _bell(near_miss_ratio, NEAR_MISS_TARGET, NEAR_MISS_SIGMA)
+    score = REWARD_DRAMA_PEAK * shape + REWARD_DRAMA_IDLE * (1.0 - shape)
 
     # A ratio is scale-free: one near-misser out of four hits the band as neatly
     # as 25 out of 100. Below DRAMA_MIN_COUNT a wave earns no positive drama at
