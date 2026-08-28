@@ -21,6 +21,12 @@ import websockets
 import torch
 
 from config import (
+    GATE_ADAPT_WINDOW,
+    GATE_SATURATED_SHARE,
+    GATE_MULT_UP,
+    GATE_MULT_DOWN,
+    GATE_MULT_MIN,
+    GATE_MULT_MAX,
     SERVER_HOST,
     SERVER_PORT,
     DASHBOARD_PORT,
@@ -106,6 +112,20 @@ class ClientContext:
         self.current_bot = "casual"
         # Reward-relevant history
         self.recent_damages = []        # last 10 damagePercent for skill estimation
+        # Closed-loop calibration of the fairness gate.
+        #
+        # FAIRNESS_KILL_REALISM was measured on waves 1-10, where defenses kill
+        # 64% of what the DPS model predicts. From wave 11 they kill 100%, so
+        # the same discount there caps waves far below what the defense can
+        # actually fight — measured caps of 5-14 enemies against a 6700-DPS
+        # defense. That makes the reward's near-miss target unreachable inside
+        # the action space, and an unreachable optimum trains nothing.
+        #
+        # Rather than guess a second constant, track what the defense really
+        # does and steer the cap: kill everything, get bigger waves; start
+        # leaking, hold; start dying, back off.
+        self.kill_shares = []           # realised killed/sent, recent waves
+        self.gate_multiplier = 1.0      # closed-loop budget scale for the gate
         self.recent_progress = []       # last 20 avg_progress values
         self.enemy_types_used = []      # history of types per wave (for Phase 5.6 encoder features)
         # Phase 5.10: template-cooldown tracking
@@ -337,6 +357,14 @@ class TrainingServer:
             # the design goal.
             near_miss_ratio = sum(1 for v in raw_values if 0.80 < v < 1.0) / len(raw_values)
             leak_ratio = sum(1 for v in raw_values if v >= 1.0) / len(raw_values)
+            # Upper tail of how far the wave got, as a DENSE signal. 88-91% of
+            # waves have a near-miss ratio of exactly 0, and there the drama
+            # term is constant — no gradient toward pushing harder. p90 moves
+            # whenever the wave gets anywhere further, so the agent can climb
+            # from "everything dies at 40%" to "everything dies at 79%" and be
+            # paid for it, long before the first near-miss exists.
+            _sorted = sorted(raw_values)
+            p90_progress = _sorted[min(len(_sorted) - 1, int(0.9 * len(_sorted)))]
             progress_std = (sum((v - avg_progress)**2 for v in raw_values) / len(raw_values)) ** 0.5
 
             display_id_for_log = client_id % 10000
@@ -368,6 +396,7 @@ class TrainingServer:
                                                        near_miss_ratio=near_miss_ratio,
                                                        progress_std=progress_std,
                                                        leak_ratio=leak_ratio,
+                                                       p90_progress=p90_progress,
                                                        episode_done=wave_num >= EPISODE_LENGTH)
 
             self.episode += 1
@@ -969,6 +998,7 @@ class TrainingServer:
                 defense.get("killThroughput") or {},
                 float(((state or {}).get("player") or {}).get("lives", 100) or 100),
                 enemy_base_damage_for_wave(wave_num),
+                getattr(ctx, "gate_multiplier", 1.0) if ctx is not None else 1.0,
             )
             # The gate outranks the template minimum. A cap BELOW countRange[0]
             # means the defense cannot handle even the smallest wave the
@@ -994,6 +1024,20 @@ class TrainingServer:
             # bypassed by exactly the waves it exists to stop. Re-interpolating
             # (rather than clamping) keeps chosen == executed through this too.
             total_count, fair_cap, eff_max = count_for(spawn_delay)
+
+        # Diagnostic: the gate collapsed count_factor into a no-op (every factor
+        # band produced ~20 enemies), so log what it is actually working from.
+        _thr = defense.get("killThroughput") or {}
+        wave_dbg = {
+            "cap": fair_cap,
+            "effMax": round(eff_max, 1),
+            "dpsScaledMax": round(dps_scaled_max, 1),
+            "throughputGround": round(float(_thr.get("ground", 0) or 0), 2),
+            "throughputAir": round(float(_thr.get("air", 0) or 0), 2),
+            "mult": round(getattr(ctx, "gate_multiplier", 1.0) if ctx is not None else 1.0, 2),
+            "totalDps": round(float(defense.get("totalDPS", 0) or 0), 0),
+            "towers": int(defense.get("towerCount", 0) or 0),
+        }
 
         # Telemetry: the gate no longer rewrites anything, so "was it clamped"
         # is not a question any more. What still matters is how often it
@@ -1053,6 +1097,8 @@ class TrainingServer:
             "num_groups": len(enemies),
             "groups": enemies,
             "armor_dist": _compute_armor_dist(enemies),
+            "gate": wave_dbg,
+            "wave": wave_num,
             "template_probs": {
                 TEMPLATES[i]["id"]: round(float(action["template_probs"][0, i].item()), 4)
                 for i in range(NUM_ACTIVE_TEMPLATES)
@@ -1063,7 +1109,8 @@ class TrainingServer:
 
     def _process_result(self, ctx, client_id, wave_num, result, state_after=None,
                         effective_progress=None, max_progress=0, near_miss_ratio=0,
-                        progress_std=0, episode_done=False, leak_ratio=0.0):
+                        progress_std=0, episode_done=False, leak_ratio=0.0,
+                        p90_progress=0.0):
         """Phase 5.10: simplified reward pipeline (4 terms only)."""
         damage_pct = result.get("damagePercent", 0)
         avg_progress = effective_progress if effective_progress is not None else result.get("avgPathProgressPercent", 0)
@@ -1116,6 +1163,25 @@ class TrainingServer:
             hp_after = 0.0
         hp_after = max(0.0, min(1.0, hp_after))
 
+        # Steer the fairness gate from what the defense actually achieved.
+        sent = int(result.get("enemiesSpawned", 0) or 0)
+        killed = int(result.get("enemiesKilled", result.get("killed", 0)) or 0)
+        if sent > 0:
+            ctx.kill_shares.append(min(1.0, killed / sent))
+            if len(ctx.kill_shares) > GATE_ADAPT_WINDOW:
+                ctx.kill_shares.pop(0)
+        if len(ctx.kill_shares) >= GATE_ADAPT_WINDOW:
+            share = sum(ctx.kill_shares) / len(ctx.kill_shares)
+            if not survived:
+                # Overshot: the run ended. Back off hard, this is the one
+                # outcome the gate exists to prevent.
+                ctx.gate_multiplier = max(GATE_MULT_MIN, ctx.gate_multiplier * GATE_MULT_DOWN)
+            elif share >= GATE_SATURATED_SHARE:
+                # Nothing survives the defense; there is room for more.
+                ctx.gate_multiplier = min(GATE_MULT_MAX, ctx.gate_multiplier * GATE_MULT_UP)
+            # In between — enemies are getting through but the player lives —
+            # is exactly the target state. Hold.
+
         wave_result = {
             # Drama now reads the upper tail of the progress distribution.
             # `near_miss_ratio` was already computed here and discarded; the
@@ -1123,6 +1189,7 @@ class TrainingServer:
             # early, which is precisely the part of the wave nobody watches.
             "nearMissRatio": near_miss_ratio,
             "leakRatio": leak_ratio,
+            "p90Progress": p90_progress,
             "totalCount": int(result.get("enemiesSpawned", 0)),
             "survived": survived,
             "hpAfter": hp_after,

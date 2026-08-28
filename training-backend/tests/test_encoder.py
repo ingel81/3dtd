@@ -53,6 +53,9 @@ class _Ctx:
         self.recent_progress = []
         self.win_streak = 0
         self.deterministic = deterministic
+        # Closed-loop fairness-gate state, mirrored from ClientContext.
+        self.kill_shares = []
+        self.gate_multiplier = 1.0
 
 
 def _full_state():

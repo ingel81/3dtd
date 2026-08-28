@@ -174,6 +174,7 @@ def fair_max_count(
     kill_throughput: Optional[dict[str, Any]] = None,
     hp_remaining: float = 100.0,
     leak_damage: float = 1.0,
+    budget_multiplier: float = 1.0,
 ) -> Optional[int]:
     """Largest enemy count the defense can plausibly handle, or None if unbounded.
 
@@ -257,7 +258,10 @@ def fair_max_count(
     # manage. Measured kill share over 15k waves: 0.64 through waves 1-10, 1.00
     # from wave 11 — so undiscounted the gate permitted about twice the real
     # capacity in exactly the phase where the player has no HP buffer.
-    budget = kills_per_second * FAIRNESS_KILL_REALISM
+    # `budget_multiplier` is the closed loop: the caller raises it while the
+    # defense kills everything and lowers it when a run ends. The static
+    # realism discount was measured on waves 1-10 and is wrong past wave 11.
+    budget = kills_per_second * FAIRNESS_KILL_REALISM * max(0.01, budget_multiplier)
     denominator = 1.0 - budget * (max(0.0, spawn_delay_ms) / 1000.0)
     if denominator <= 0:
         return None

@@ -126,6 +126,26 @@ GAMMA = 0.9
 GAE_LAMBDA = 0.95
 
 # === REWARD — Term 1: DEATH ===
+# === FAIRNESS GATE — closed-loop calibration ===
+#
+# FAIRNESS_KILL_REALISM (in the generated schema) was measured on waves 1-10,
+# where defenses kill 64% of what the DPS model predicts. From wave 11 they kill
+# 100%. Applying one discount to both regimes capped waves at 5-14 enemies
+# against a 6700-DPS defense, which put the reward's near-miss target outside
+# the action space entirely: every count_factor shipped the same ~20 enemies and
+# all of them died, so the expected policy gradient for that dimension was zero
+# and it never left its initialisation.
+#
+# Instead of a second hand-tuned constant, steer the cap from what the defense
+# actually achieves. It re-calibrates itself when the bot gets better or worse,
+# and it will hold for a human player too.
+GATE_ADAPT_WINDOW = 8          # waves of kill-share history before steering
+GATE_SATURATED_SHARE = 0.98    # "the defense killed everything" threshold
+GATE_MULT_UP = 1.15            # saturated -> allow bigger waves
+GATE_MULT_DOWN = 0.80          # the run ended -> back off hard
+GATE_MULT_MIN = 0.5
+GATE_MULT_MAX = 40.0           # generous: the cap can be off by an order of magnitude
+
 # === REWARD v4 ================================================================
 #
 # v3 expressed the design goal as "the player should lose 1-5% of max HP every
@@ -243,6 +263,18 @@ DRAMA_FULL_COUNT = 20
 # way. At -2.0 that arithmetic left a near-target wave at +0.08 instead of
 # +0.675, so attempting drama barely paid at all.
 REWARD_LEAK_SLOPE = -0.8
+
+# Dense shaping on the upper tail of path progress.
+#
+# 88-91% of waves have a near-miss ratio of exactly 0, and across that whole
+# region DRAMA is a constant — the gradient toward "push harder" is zero even
+# when the gate is open. This pays a little for every wave that gets the horde
+# further, so the agent can climb from "everything dies at 40% of the path" to
+# "everything dies at 79%" and be told it is improving, long before the first
+# near-miss exists. Kept well under the drama peak so it stays a tiebreaker and
+# cannot be farmed on its own; p90 rather than the mean, for the same reason
+# drama uses the tail.
+REWARD_P90_PROGRESS_WEIGHT = 0.12
 
 # PACING tail. A pure Gaussian saturates: beyond ~2 sigma the bell is flat and
 # the term becomes a constant tax with NO gradient. Measured: 58.4% of waves sat

@@ -614,7 +614,7 @@ class Dashboard:
     def record_training_update(self, policy_loss: float, entropy: float,
                                grad_norm: float, batch_avg_reward: float,
                                approx_kl: float = 0.0, log_std: float = 0.0,
-                               dropped_pairs: int = 0):
+                               dropped_pairs: int = 0, action_corr=None):
         """Record model training update (PPO internals).
 
         `approx_kl` shows how far each update moved the policy off the data that
@@ -624,6 +624,8 @@ class Dashboard:
         endpoints. `dropped_pairs` counts results that arrived with no matching
         stored action; it should stay flat.
         """
+        if action_corr is not None:
+            self.last_action_corr = [round(float(x), 4) for x in action_corr]
         self.model_updates += 1
         self.model_metrics = {
             "policyLoss": round(policy_loss, 5),
@@ -633,6 +635,7 @@ class Dashboard:
             "approxKl": round(approx_kl, 5),
             "logStd": round(log_std, 4),
             "droppedPairs": dropped_pairs,
+            "actionCorr": getattr(self, "last_action_corr", None),
         }
         self._broadcast_event("training_update", self.model_metrics)
 
