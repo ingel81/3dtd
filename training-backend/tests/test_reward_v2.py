@@ -95,6 +95,27 @@ class TestRewardShape(unittest.TestCase):
         self.assertGreater(tried["drama"], idle["drama"])
         self.assertGreater(tried["drama"], 0.0)
 
+    def test_pushing_pays_at_the_leak_ratio_the_game_actually_produces(self):
+        """Leaks come bundled with near-misses; the reward must survive that.
+
+        An enemy that survives the kill zone usually goes all the way, so
+        near-misses are bought with leaks. Measured over 3912 waves: leak_ratio
+        averaged 0.223 against near_miss 0.071, and waves near the target band
+        ran at roughly two leaks per near-miss. If the leak slope prices that
+        bundle at more than the drama is worth, attempting drama never pays and
+        the agent correctly stops trying.
+        """
+        scores = [wave(near_miss=nm, leak=2 * nm, count=44)[1]["drama"]
+                  for nm in (0.0, 0.05, 0.10, 0.15, 0.20)]
+        for earlier, later in zip(scores, scores[1:]):
+            self.assertLess(earlier, later)
+        self.assertGreater(scores[-1], 0.4)
+
+    def test_a_breach_is_still_clearly_negative(self):
+        """Mildness has a limit: mass arrival must never read as drama."""
+        _, bd = wave(near_miss=0.0, leak=0.8, count=200)
+        self.assertLess(bd["drama"], -0.5)
+
     def test_an_empty_wave_pays_the_full_idle_penalty(self):
         _, bd = wave(near_miss=0.0, leak=0.0, count=200)
         self.assertAlmostEqual(bd["drama"], -0.30, places=4)

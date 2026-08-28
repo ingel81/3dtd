@@ -216,7 +216,19 @@ DRAMA_FULL_COUNT = 30
 # `avg_progress > 0.95` — the MEAN, the very statistic v4 rejected for drama.
 # A catastrophic wave leaking 40% of its enemies has a mean around 0.6 and
 # sailed straight past that guard.
-REWARD_LEAK_SLOPE = -2.0
+# Kept deliberately mild, because a leak is already charged twice elsewhere:
+# it drops the player off the PACING curve, and enough of them reach DEATH.
+# This slope exists only so a breach cannot read as drama, not as a third
+# punishment for the same event — pricing it like one recreates v3's mistake of
+# mixing "was it exciting" with "was it too much" in a single term.
+#
+# The measured ratio decides the magnitude. Over 3912 waves, estimated
+# leak_ratio averaged 0.223 against a near_miss_ratio of 0.071, and among waves
+# that nearly reached the target band leaks ran at 0.296 — roughly two leaks per
+# near-miss, because an enemy that survives the kill zone usually goes all the
+# way. At -2.0 that arithmetic left a near-target wave at +0.08 instead of
+# +0.675, so attempting drama barely paid at all.
+REWARD_LEAK_SLOPE = -0.8
 
 # PACING tail. A pure Gaussian saturates: beyond ~2 sigma the bell is flat and
 # the term becomes a constant tax with NO gradient. Measured: 58.4% of waves sat
