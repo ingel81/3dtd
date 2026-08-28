@@ -378,11 +378,46 @@ def test_fast_enemies_get_less_engagement_time_than_slow_ones():
     assert slow > fast, f"slower enemies stay in range longer (fast={fast}, slow={slow})"
 
 
-def test_a_strong_defense_is_not_capped_at_all():
-    """The gate is a floor on fairness, not the difficulty knob."""
+def test_a_strong_defense_is_barely_constrained():
+    """The gate is a floor on fairness, not the difficulty knob.
+
+    It used to return None here — genuinely unbounded — because a defense that
+    out-damages the spawn rate drove the closed form's denominator negative.
+    Discounting the kill estimate by FAIRNESS_KILL_REALISM keeps the
+    denominator positive, so there is now always a number; on a strong defense
+    it simply lands far above anything a template can ask for.
+    """
     cap = schema.fair_max_count(
         _template("rat_tide"), hp_mult=1.0, spawn_delay_ms=30,
         effective_dps_per_armor=_dps(ground=3000),
         kill_throughput=_throughput(ground=40.0),
     )
-    assert cap is None
+    assert cap is not None
+    assert cap > _template("rat_tide")["countRange"][0], "must not bind below the template minimum"
+    assert cap > 500, f"a 3000-DPS defense should be allowed a huge wave, got {cap}"
+
+
+def test_the_gate_tightens_as_the_player_bleeds():
+    """Leak budget scales with REMAINING hp, which is what ends runs."""
+    kwargs = dict(
+        template=_template("rat_tide"), hp_mult=1.0, spawn_delay_ms=200,
+        effective_dps_per_armor=_dps(ground=80),
+        kill_throughput=_throughput(ground=1.0),
+        leak_damage=1.0,
+    )
+    healthy = schema.fair_max_count(hp_remaining=100.0, **kwargs)
+    hurt = schema.fair_max_count(hp_remaining=20.0, **kwargs)
+    assert healthy > hurt, "a wounded player must be sent less"
+
+
+def test_a_costlier_leak_shrinks_the_allowance():
+    """Past wave 51 one leak costs 6 HP, so fewer are affordable."""
+    kwargs = dict(
+        template=_template("rat_tide"), hp_mult=1.0, spawn_delay_ms=200,
+        effective_dps_per_armor=_dps(ground=80),
+        kill_throughput=_throughput(ground=1.0),
+        hp_remaining=100.0,
+    )
+    cheap = schema.fair_max_count(leak_damage=1.0, **kwargs)
+    dear = schema.fair_max_count(leak_damage=6.0, **kwargs)
+    assert cheap > dear

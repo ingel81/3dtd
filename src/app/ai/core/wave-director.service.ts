@@ -30,7 +30,7 @@ import {
 } from './templates';
 import { buildWaveContext, type WaveContext } from './wave-context';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
-import { endgameHpMultiplier } from '../../configs/wave-curriculum.config';
+import { endgameHpMultiplier, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 
 /** Model loading states */
 type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
@@ -327,6 +327,8 @@ export class WaveDirectorService {
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+        state.player?.lives ?? 100,
+        enemyBaseDamageForWave(upcomingWave),
       );
       // The gate outranks the template minimum. A cap BELOW countRange[0] means
       // the defense cannot handle even the smallest wave the designer wrote,

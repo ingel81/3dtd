@@ -331,23 +331,47 @@ export const DPS_RAMP_COUNT = 500.0;
 export const DPS_RAMP_HP_MULT = 1000.0;
 
 /**
- * Fairness gate — how far a wave may exceed what the defense can actually kill.
+ * Fairness gate — how much damage a wave is allowed to be worth.
  *
- * The DPS ramp scales a wave against the *template's* range, so its floor is
- * relative: 10% of zombie_horde's 20-2000 span is still 218 enemies, which at
- * wave 1 (100 credits = two archers = 50 DPS) is unkillable by an order of
- * magnitude. Every run died in the first few waves and the net never saw the
- * curriculum past wave 11.
+ * The gate used to cap the count at what the defense could theoretically kill,
+ * plus 25% headroom. Measured against 15k waves, that model was wrong exactly
+ * where it mattered: defenses actually killed 64% of what it predicted through
+ * waves 1-10, and 100% from wave 11 on. So in the only phase where the player
+ * has no HP buffer, the gate permitted roughly twice what the towers could
+ * handle — 42 rats in wave 2 against a defense that kills 27, i.e. 15 HP gone
+ * in one early wave. 85% of all runs ended between waves 6 and 10.
  *
- * This gate is absolute instead: estimate the HP the defense can chew through
- * over the wave, allow the wave to carry `HEADROOM` times that much — the
- * overshoot is exactly the leak that produces the 1-5% damage the reward wants
- * — and clamp the count to fit.
+ * It now caps on the thing that actually ends runs: expected LEAK DAMAGE. Take
+ * what the defense can realistically kill, then allow enough overshoot that the
+ * expected leaks cost at most a slice of the player's remaining HP. The
+ * overshoot is still what produces drama — it is just priced in HP now rather
+ * than assumed away.
  *
- * It is a floor on fairness, not the difficulty knob. On a well-built defense
- * it does not bind at all; the ramp and the net's own factors stay in charge.
+ * Still a floor on fairness, not the difficulty knob: on a strong defense the
+ * kill term dominates and the gate does not bind.
  */
-export const FAIRNESS_HEADROOM = 1.25;
+
+/**
+ * Fraction of the DPS model's prediction a defense actually achieves.
+ *
+ * Measured kill share (killed / sent) over 15k waves: 0.64 in waves 1-10, 1.00
+ * from wave 11. The model overestimates because it assumes every point of DPS
+ * lands on a live target — no reload gaps, no travel time, no overkill on the
+ * last hit of a swarm, no enemy slipping between two towers' radii.
+ */
+export const FAIRNESS_KILL_REALISM = 0.65;
+
+/**
+ * Share of the player's REMAINING HP a single wave may be expected to cost.
+ *
+ * Scaling by what is left rather than by max HP makes the gate tighten as a run
+ * wears down, which is what stops the late-game death spiral without needing a
+ * separate rule for it.
+ */
+export const FAIRNESS_WAVE_HP_BUDGET = 0.06;
+
+/** ...but always at least this much, so a wave is never a guaranteed shutout. */
+export const FAIRNESS_MIN_LEAK_HP = 1.0;
 
 /**
  * How far along the path a defense can engage, in metres.
@@ -385,8 +409,8 @@ export const FAIRNESS_MIN_COUNT = 5;
  *
  * Closed form, since the wave's duration depends on the count itself:
  *
- *     killable = dps * (count * delaySeconds + ENGAGEMENT) * HEADROOM
- *     want:  count * hpPerEnemy <= killable
+ *     killable = dps * (count * delaySeconds + ENGAGEMENT) * KILL_REALISM
+ *     allowed  = killable + (leak HP budget / damage per leak)
  *
  * A non-positive denominator means the defense out-damages the spawn rate, so
  * nothing needs capping.
@@ -401,6 +425,10 @@ export function fairMaxCount(
   enemyIsAir: (enemyId: string) => boolean,
   enemyBaseHp: (enemyId: string) => number,
   enemyBaseSpeed: (enemyId: string) => number,
+  /** Player HP still on the clock, in HP points (not a fraction). */
+  hpRemaining: number,
+  /** HP the player loses per enemy that reaches the base, at this wave. */
+  leakDamage: number,
 ): number | null {
   const ground = effectiveDps?.ground ?? {};
   const air = effectiveDps?.air ?? {};
@@ -443,8 +471,7 @@ export function fairMaxCount(
   if (killsPerSecond <= 0) return null;
 
   // Closed form, since the wave's duration depends on the count:
-  //   killable = killsPerSecond * (count * delaySeconds + ENGAGEMENT) * HEADROOM
-  //   want:  count <= killable
+  //   killable = killsPerSecond * (count * delaySeconds + ENGAGEMENT) * REALISM
   // Seconds an enemy spends under fire, from its own speed. Fast swarms give
   // the defense far less time than the wave's nominal duration suggests.
   const speed = weightedSpeed / totalShare;
@@ -453,14 +480,20 @@ export function fairMaxCount(
     Math.max(FAIRNESS_ENGAGEMENT_MIN_S, FAIRNESS_ENGAGEMENT_REACH_M / speed),
   );
 
-  const budget = killsPerSecond * FAIRNESS_HEADROOM;
+  // What the model says is killable, discounted by what defenses actually
+  // manage. Without the discount the gate permits about twice the real capacity
+  // through waves 1-10, which is where every run was ending.
+  const budget = killsPerSecond * FAIRNESS_KILL_REALISM;
   const denominator = 1 - budget * (Math.max(0, spawnDelayMs) / 1000);
   if (denominator <= 0) return null;
+  const killable = (budget * engagementSeconds) / denominator;
 
-  return Math.max(
-    FAIRNESS_MIN_COUNT,
-    Math.floor((budget * engagementSeconds) / denominator),
-  );
+  // Allow an overshoot priced in HP rather than assumed away. The leaks are
+  // what make a wave dramatic; the budget is what stops them ending the run.
+  const leakHpBudget = Math.max(FAIRNESS_MIN_LEAK_HP, hpRemaining * FAIRNESS_WAVE_HP_BUDGET);
+  const allowedLeaks = leakDamage > 0 ? leakHpBudget / leakDamage : leakHpBudget;
+
+  return Math.max(FAIRNESS_MIN_COUNT, Math.floor(killable + allowedLeaks));
 }
 
 export function getTemplate(idx: number): Template | null {

@@ -47,6 +47,7 @@ from schema import (
     get_available_template_mask,
     template_for_wave,
     template_index,
+    enemy_base_damage_for_wave,
     endgame_hp_multiplier,
     fair_max_count,
     build_wave_context,
@@ -579,6 +580,7 @@ class TrainingServer:
             recent_template_indices=recent_tpls,
             effective_dps_per_armor=defense.get("effectiveDPSPerArmor") or {},
             kill_throughput=defense.get("killThroughput") or {},
+            hp_remaining=float(((state or {}).get("player") or {}).get("lives", 100) or 100),
         )
         mask_list = wave_context["mask"]
 
@@ -965,6 +967,8 @@ class TrainingServer:
                 delay,
                 defense.get("effectiveDPSPerArmor") or {},
                 defense.get("killThroughput") or {},
+                float(((state or {}).get("player") or {}).get("lives", 100) or 100),
+                enemy_base_damage_for_wave(wave_num),
             )
             # The gate outranks the template minimum. A cap BELOW countRange[0]
             # means the defense cannot handle even the smallest wave the

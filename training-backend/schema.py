@@ -90,11 +90,13 @@ MIN_SPAWN_DELAY_MS: int = SCHEMA["decoder"]["minSpawnDelayMs"]
 DPS_RAMP_FLOOR: float = SCHEMA["decoder"]["dpsRamp"]["floor"]
 DPS_RAMP_COUNT: float = SCHEMA["decoder"]["dpsRamp"]["count"]
 DPS_RAMP_HP_MULT: float = SCHEMA["decoder"]["dpsRamp"]["hpMult"]
-FAIRNESS_HEADROOM: float = SCHEMA["decoder"]["fairness"]["headroom"]
 FAIRNESS_ENGAGEMENT_REACH_M: float = SCHEMA["decoder"]["fairness"]["engagementReachM"]
 FAIRNESS_ENGAGEMENT_MIN_S: float = SCHEMA["decoder"]["fairness"]["engagementMinSeconds"]
 FAIRNESS_ENGAGEMENT_MAX_S: float = SCHEMA["decoder"]["fairness"]["engagementMaxSeconds"]
 FAIRNESS_MIN_COUNT: int = SCHEMA["decoder"]["fairness"]["minCount"]
+FAIRNESS_KILL_REALISM: float = SCHEMA["decoder"]["fairness"]["killRealism"]
+FAIRNESS_WAVE_HP_BUDGET: float = SCHEMA["decoder"]["fairness"]["waveHpBudget"]
+FAIRNESS_MIN_LEAK_HP: float = SCHEMA["decoder"]["fairness"]["minLeakHp"]
 
 # === ENDGAME DIFFICULTY RAMPS ===
 # Pre-computed tables so the backend applies the SAME curves the game ships.
@@ -170,6 +172,8 @@ def fair_max_count(
     spawn_delay_ms: float,
     effective_dps_per_armor: dict[str, Any],
     kill_throughput: Optional[dict[str, Any]] = None,
+    hp_remaining: float = 100.0,
+    leak_damage: float = 1.0,
 ) -> Optional[int]:
     """Largest enemy count the defense can plausibly handle, or None if unbounded.
 
@@ -177,8 +181,10 @@ def fair_max_count(
     relative — 10% of zombie_horde's 20-2000 span is 218 enemies, which at wave 1
     (two archers, 50 DPS) is unkillable by an order of magnitude. This is the
     absolute counterpart: work out how many enemies the defense can actually
-    destroy and allow FAIRNESS_HEADROOM times that many. The overshoot is the
-    leak that produces the damage the reward is asking for.
+    destroy, discount it by what defenses measurably achieve, and add an
+    overshoot sized by how much HP the wave is allowed to cost. The overshoot is
+    the leak that produces the drama the reward is asking for — now priced in HP
+    instead of assumed away.
 
     Measured in KILLS per second, not damage per second. Damage alone said a
     76-DPS defense could clear 848 rats of 3.4 HP twice over; it could not,
@@ -247,12 +253,22 @@ def fair_max_count(
         max(FAIRNESS_ENGAGEMENT_MIN_S, FAIRNESS_ENGAGEMENT_REACH_M / speed),
     )
 
-    budget = kills_per_second * FAIRNESS_HEADROOM
+    # What the model says is killable, discounted by what defenses actually
+    # manage. Measured kill share over 15k waves: 0.64 through waves 1-10, 1.00
+    # from wave 11 — so undiscounted the gate permitted about twice the real
+    # capacity in exactly the phase where the player has no HP buffer.
+    budget = kills_per_second * FAIRNESS_KILL_REALISM
     denominator = 1.0 - budget * (max(0.0, spawn_delay_ms) / 1000.0)
     if denominator <= 0:
         return None
+    killable = budget * engagement_seconds / denominator
 
-    return max(FAIRNESS_MIN_COUNT, int(budget * engagement_seconds / denominator))
+    # Allow an overshoot priced in HP rather than assumed away. The leaks are
+    # what make a wave dramatic; the budget is what stops them ending the run.
+    leak_hp_budget = max(FAIRNESS_MIN_LEAK_HP, hp_remaining * FAIRNESS_WAVE_HP_BUDGET)
+    allowed_leaks = leak_hp_budget / leak_damage if leak_damage > 0 else leak_hp_budget
+
+    return max(FAIRNESS_MIN_COUNT, int(killable + allowed_leaks))
 
 
 def build_wave_context(
@@ -262,6 +278,7 @@ def build_wave_context(
     recent_template_indices: list[int],
     effective_dps_per_armor: dict[str, Any],
     kill_throughput: Optional[dict[str, Any]] = None,
+    hp_remaining: float = 100.0,
 ) -> dict[str, Any]:
     """Context for the wave about to be decided: mask, ranges, fairness ceiling.
 
@@ -303,7 +320,8 @@ def build_wave_context(
         mid_hp = (hp_range[0] + hp_range[1]) / 2
         mid_delay = (delay_range[0] + delay_range[1]) / 2
         cap = fair_max_count(
-            allowed[0], mid_hp, mid_delay, effective_dps_per_armor, kill_throughput
+            allowed[0], mid_hp, mid_delay, effective_dps_per_armor, kill_throughput,
+            hp_remaining, enemy_base_damage_for_wave(upcoming_wave),
         )
         if cap is not None:
             span = count_range[1] - count_range[0]

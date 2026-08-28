@@ -23,7 +23,7 @@ import {
   type NumberRange,
   type Template,
 } from './templates';
-import { templateForWave } from '../../configs/wave-curriculum.config';
+import { templateForWave, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { GameStateSnapshot } from './models/game-state-snapshot';
 
@@ -131,6 +131,8 @@ export function buildWaveContext(
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
       (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+      state.player?.lives ?? 100,
+      enemyBaseDamageForWave(upcomingWave),
     );
     if (cap !== null) {
       const span = countRange[1] - countRange[0];

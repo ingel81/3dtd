@@ -952,7 +952,9 @@
       "hpMult": 1000
     },
     "fairness": {
-      "headroom": 1.25,
+      "killRealism": 0.65,
+      "waveHpBudget": 0.06,
+      "minLeakHp": 1,
       "engagementReachM": 60,
       "engagementMinSeconds": 2,
       "engagementMaxSeconds": 40,
