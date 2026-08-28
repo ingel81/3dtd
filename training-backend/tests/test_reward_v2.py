@@ -322,10 +322,23 @@ class TestExploitsStayDead(unittest.TestCase):
         # series 1/(1-GAMMA). Using the infinite one forced REWARD_DEATH_MAX so
         # high that deaths dominated the reward scaler and drowned out every
         # other term at 25:1 — see the note on REWARD_DEATH_MAX in config.
+        # DEATH is not the only thing opposing the exploit, and testing it alone
+        # forced the term so high that it drowned out drama entirely — the agent
+        # then collapsed to zero-risk waves over 56 updates. Bleeding a player
+        # out inside the horizon means running far below the HP curve the whole
+        # way, so PACING charges for it every single wave. The honest test is
+        # whether the COMBINED cost outweighs the run.
         horizon_waves = 10
         discounted_run = good_wave * (1 - GAMMA ** horizon_waves) / (1 - GAMMA)
-        self.assertLess(death["death"], -discounted_run,
-                        "a death must cost more than the waves that set it up")
+        bleed_hp = [1.0 - (i + 1) / horizon_waves for i in range(horizon_waves)]
+        pacing_toll = sum(
+            wave(near_miss=NEAR_MISS_TARGET, count=200, wave_number=w + 1,
+                 hp_after=hp)[1]["pacing"]
+            for w, hp in enumerate(bleed_hp)
+        )
+        self.assertLess(death["death"] + pacing_toll, -discounted_run,
+                        "a death plus the bleed that produced it must cost more "
+                        "than the waves that set it up")
 
 
 class TestDeathCurve(unittest.TestCase):
