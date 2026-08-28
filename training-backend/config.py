@@ -69,7 +69,14 @@ VALUE_COEF = 0.5
 # at all while still filling batch slots. At timescale 75 with four clients this
 # is a couple of minutes of wall time.
 BATCH_SIZE = 128
-MINIBATCH_SIZE = 32
+# Raised from 32. The per-minibatch KL stop fires on the first minibatch of
+# nearly every update (approx-KL 0.14-0.20 against a 0.02 target), so at 32 only
+# a quarter of each collected batch was ever used and three quarters were thrown
+# away. A bigger minibatch is the conservative fix: averaging over more samples
+# cuts gradient variance, which lowers the KL of each step directly, rather than
+# loosening TARGET_KL and simply permitting larger jumps. At 64 a single
+# surviving step already covers half the batch.
+MINIBATCH_SIZE = 64
 UPDATE_EPOCHS = 4
 
 # Stop the epoch loop early once the policy has moved too far from the one that
