@@ -176,7 +176,13 @@ REWARD_DEATH_MAX = -15.0
 # 0.25 means: a quarter of the wave nearly makes it. Zero is a walkover, 1.0 is
 # a breach. A Gaussian, not a step: every wave gets a gradient telling it which
 # way to move, which is what v3's cliff-shaped gates destroyed.
-NEAR_MISS_TARGET = 0.25
+# Measured over 4002 waves spanning several policies: p50 0.000, p75 0.165,
+# p90 0.200, p95 0.217, p99 0.375, max 0.667. A target of 0.25 sat at the 97th
+# percentile — reachable in principle, never in practice, so the peak was
+# decoration and the policy optimised the reachable slope beside it. That is v3's
+# unreachable-band failure in a milder form. 0.20 is the 90th percentile:
+# demanding, and actually hit.
+NEAR_MISS_TARGET = 0.20
 NEAR_MISS_SIGMA = 0.18
 REWARD_DRAMA_PEAK = 1.00          # value at exactly NEAR_MISS_TARGET
 REWARD_DRAMA_IDLE = -0.30         # value as near_miss_ratio -> far from target
@@ -190,7 +196,13 @@ REWARD_DRAMA_IDLE = -0.30         # value as near_miss_ratio -> far from target
 # bell~0.99 x sqrt(21/40) = +0.71 per wave at no risk, and 48% of observed waves
 # came in at 20 enemies or fewer. Nothing in the function pushed size upward.
 DRAMA_MIN_COUNT = 20
-DRAMA_FULL_COUNT = 40
+# Waves that actually reach the target band have a median count of 30; waves
+# below 0.05 near-miss have a median of 39. Near-misses come from a FEW TOUGH
+# enemies surviving the gauntlet, not from mass — a big rat swarm gets shredded
+# early and scores a low ratio. Full credit at 40 therefore halved the reward
+# exactly where the behaviour we want originates. The floor at 20 still blocks
+# the farming case (one near-misser out of four).
+DRAMA_FULL_COUNT = 30
 
 # Leaks are charged inside DRAMA, as a slope on the fraction of the wave that
 # reached the base. This replaces the old overflow guard, which tested

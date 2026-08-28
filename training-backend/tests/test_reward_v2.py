@@ -101,8 +101,8 @@ class TestRewardShape(unittest.TestCase):
 
     def test_every_step_toward_the_target_pays(self):
         """Monotone on the way up: no flat stretch to get stuck on."""
-        scores = [wave(near_miss=nm, count=200)[1]["drama"]
-                  for nm in (0.0, 0.05, 0.10, 0.15, 0.20, NEAR_MISS_TARGET)]
+        steps = [NEAR_MISS_TARGET * f for f in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)]
+        scores = [wave(near_miss=nm, count=200)[1]["drama"] for nm in steps]
         for earlier, later in zip(scores, scores[1:]):
             self.assertLess(earlier, later)
 
@@ -119,8 +119,8 @@ class TestRewardShape(unittest.TestCase):
         moves. Walking the near-miss ratio up toward the target must strictly
         improve the score at every step.
         """
-        scores = [wave(near_miss=nm, count=200)[0]
-                  for nm in (0.0, 0.05, 0.10, 0.15, 0.20, NEAR_MISS_TARGET)]
+        steps = [NEAR_MISS_TARGET * f for f in (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)]
+        scores = [wave(near_miss=nm, count=200)[0] for nm in steps]
         for earlier, later in zip(scores, scores[1:]):
             self.assertLess(earlier, later)
 
@@ -241,8 +241,9 @@ class TestExploitsStayDead(unittest.TestCase):
         self.assertLessEqual(floor["drama"], 0.0)
 
     def test_size_credit_ramps_up_rather_than_jumping(self):
-        scores = [wave(near_miss=NEAR_MISS_TARGET, count=c)[1]["drama"]
-                  for c in (DRAMA_MIN_COUNT, 25, 30, 35, DRAMA_FULL_COUNT)]
+        span = DRAMA_FULL_COUNT - DRAMA_MIN_COUNT
+        counts = sorted({DRAMA_MIN_COUNT + round(span * f) for f in (0.0, 0.25, 0.5, 0.75, 1.0)})
+        scores = [wave(near_miss=NEAR_MISS_TARGET, count=c)[1]["drama"] for c in counts]
         for earlier, later in zip(scores, scores[1:]):
             self.assertLess(earlier, later)
 
