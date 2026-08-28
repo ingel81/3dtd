@@ -48,7 +48,17 @@ OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS  # 36
 CONTINUOUS_PARAM_NAMES = ["count", "spawn_delay", "hp_mult", "variation"]
 
 # === TRAINING ===
-LEARNING_RATE = 0.0003
+# Lowered from 3e-4 after the death-outlier fix failed to bring approx-KL down.
+# Measured at 3e-4: KL 0.23-0.37 against a 0.02 target, i.e. a SINGLE minibatch
+# step moved the policy more than ten times the intended amount, so the
+# per-minibatch early stop fired after the first one on every update. That is a
+# sixteenth of the configured learning (4 epochs x 4 minibatches), and it showed
+# in the policy: after 21 updates the continuous factors still sat at their
+# initial 0.5 +/- 0.14 with log_std unmoved.
+#
+# KL grows roughly with the square of the step, so a third of the rate should
+# land near 0.04. Lower rate, but far more of each batch is actually used.
+LEARNING_RATE = 0.0001
 CLIP_EPSILON = 0.2
 VALUE_COEF = 0.5
 
