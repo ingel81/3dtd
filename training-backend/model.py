@@ -69,15 +69,29 @@ class WaveDirectorModel(nn.Module):
         )  # Output: 128 features
 
         # Combined: 32 + 128 = 160
+        # No dropout here, deliberately.
+        #
+        # Actions are sampled under model.eval() and the PPO update runs under
+        # model.train(), so dropout made the ratio pi_new/pi_old compare a
+        # dropped-out network against a full one. Most of the measured
+        # divergence was then sampling noise rather than actual policy change:
+        # approx-KL sat at 0.14-0.24 against a 0.02 target and would not respond
+        # to a 3x smaller learning rate or a doubled minibatch, because neither
+        # touches the real cause. With the stop firing on the first minibatch of
+        # every update, three quarters of each batch was being discarded over an
+        # artefact.
+        #
+        # Dropout also breaks PPO's on-policy assumption more generally: the
+        # behaviour policy that collected the data is not the distribution the
+        # ratio is evaluated against. Reference PPO implementations do not use
+        # it, and the LayerNorms already regularise this network.
         self.combined = nn.Sequential(
             nn.Linear(160, 192),
             nn.LayerNorm(192),
             nn.ReLU(),
-            nn.Dropout(0.1),
             nn.Linear(192, 96),
             nn.LayerNorm(96),
             nn.ReLU(),
-            nn.Dropout(0.1),
         )
 
         # Output heads
