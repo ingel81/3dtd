@@ -928,7 +928,6 @@ class TrainingServer:
             eff_max = rng[0] + (rng[1] - rng[0]) * dps_frac
             return rng[0] + (eff_max - rng[0]) * factor
 
-        total_count = max(1, round(lerp_capped(template["countRange"], count_factor, dps_frac_count)))
         # round(), not int(): the frontend decoder rounds, and a half-millisecond
         # of truncation drift compounds over a 5000-enemy wave.
         spawn_delay = max(MIN_SPAWN_DELAY_MS, round(lerp(template["spawnDelayRange"], spawn_factor)))
@@ -941,7 +940,25 @@ class TrainingServer:
         endgame_hp = endgame_hp_multiplier(wave_num)
         hp_mult = round(nn_hp_mult * endgame_hp, 3)
 
-        def apply_fairness_gate(count, delay):
+        # Fairness gate: never ship a wave the defense cannot plausibly fight.
+        #
+        # The gate INTERPOLATES rather than clamps. Clamping after the fact
+        # rewrote the sampled action on 65% of waves, so PPO paired a chosen
+        # count with the outcome of a different, smaller one. Every count_factor
+        # above the cap mapped to an identical wave, which is a flat region with
+        # no gradient — the policy could not express a preference there, and the
+        # count dimension's log_std sat unmoved at its initial value for the
+        # whole run. Storing the executed action instead is not an option: the
+        # PPO ratio needs a value actually sampled from the old policy.
+        #
+        # Folding the cap into the range means `chosen == executed` always. The
+        # factor now reads "how far into what is currently allowed", and the cap
+        # is already an observation (`fairnessHeadroom`), so the net can learn
+        # what the range means for this defense.
+        count_lo = template["countRange"][0]
+        dps_scaled_max = lerp(template["countRange"], dps_frac_count)
+
+        def count_for(delay):
             cap = fair_max_count(
                 template,
                 hp_mult,
@@ -949,25 +966,29 @@ class TrainingServer:
                 defense.get("effectiveDPSPerArmor") or {},
                 defense.get("killThroughput") or {},
             )
-            if cap is not None and cap < count:
-                return cap, cap, True
-            return count, cap, False
+            eff_max = dps_scaled_max
+            if cap is not None:
+                eff_max = min(eff_max, max(count_lo, cap))
+            chosen = max(1, round(count_lo + (eff_max - count_lo) * count_factor))
+            return chosen, cap, eff_max
 
-        # Fairness gate: never ship a wave the defense cannot plausibly fight.
-        # Applied after the HP multipliers so it judges the enemies as they will
-        # actually spawn.
-        total_count, fair_cap, gated = apply_fairness_gate(total_count, spawn_delay)
+        total_count, fair_cap, eff_max = count_for(spawn_delay)
 
         # Wave-duration cap: compress spawn_delay if (count × spawn_delay) would exceed 3 min.
         total_duration = total_count * spawn_delay
         if total_duration > MAX_WAVE_DURATION_MS:
             spawn_delay = max(MIN_SPAWN_DELAY_MS, MAX_WAVE_DURATION_MS // total_count)
-            # Re-check: a slow mega-wave can clear the gate precisely BECAUSE its
+            # Re-derive: a slow mega-wave can clear the gate precisely BECAUSE its
             # long spawn window gives the defense time, and the compression then
             # multiplies the spawn rate. Without a second pass the gate is
-            # bypassed by exactly the waves it exists to stop.
-            total_count, fair_cap, regated = apply_fairness_gate(total_count, spawn_delay)
-            gated = gated or regated
+            # bypassed by exactly the waves it exists to stop. Re-interpolating
+            # (rather than clamping) keeps chosen == executed through this too.
+            total_count, fair_cap, eff_max = count_for(spawn_delay)
+
+        # Telemetry: the gate no longer rewrites anything, so "was it clamped"
+        # is not a question any more. What still matters is how often it
+        # narrows the range the policy gets to choose from.
+        gated = fair_cap is not None and fair_cap < dps_scaled_max
 
         # Expand template → enemy groups
         enemies = []
