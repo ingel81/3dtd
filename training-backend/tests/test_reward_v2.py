@@ -25,27 +25,32 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from config import (  # noqa: E402
     GAMMA,
     NEAR_MISS_TARGET,
+    DRAMA_MIN_COUNT,
+    DRAMA_FULL_COUNT,
+    PACING_SIGMA,
     TARGET_RUN_WAVES,
 )
 from reward import calculate_reward, hp_target  # noqa: E402
 
 
-def wave(near_miss=0.0, progress=0.3, count=100, survived=True, hp_after=None,
-         wave_number=10):
+def wave(near_miss=0.0, leak=0.0, count=100, survived=True, hp_after=None,
+         damage=0.0, wave_number=10, progress=None):
     """A wave result, defaulting `hp_after` to whatever the curve wants.
 
     Defaulting to on-curve keeps the PACING term out of the way of tests that
-    are about DRAMA, and vice versa.
+    are about DRAMA, and vice versa. `progress` is accepted and ignored: the
+    reward no longer reads mean path progress at all.
     """
     if hp_after is None:
         hp_after = hp_target(wave_number)
     return calculate_reward(
         {
             "nearMissRatio": near_miss,
-            "avgProgress": progress,
+            "leakRatio": leak,
             "totalCount": count,
             "survived": survived,
             "hpAfter": hp_after,
+            "damagePercent": damage,
         },
         {"wave_number": wave_number},
     )
@@ -121,6 +126,24 @@ class TestReachability(unittest.TestCase):
         self.assertGreater(on_curve, drifted)
         self.assertGreater(drifted, far)
 
+    def test_pacing_keeps_a_gradient_far_from_the_curve(self):
+        """The dead-term hole.
+
+        A pure Gaussian is flat past about two sigma, so the term that steers
+        run length became a constant tax carrying no gradient — measured at
+        58.4% of waves pinned to exactly -0.60, and specifically the waves
+        furthest off the curve, which are the ones that most need telling which
+        way to move.
+        """
+        wave_number = 40
+        target = hp_target(wave_number)
+        far = [target + k * PACING_SIGMA for k in (1.5, 2.0, 2.5, 3.0)]
+        scores = [wave(count=200, wave_number=wave_number, hp_after=min(1.0, hp))[1]["pacing"]
+                  for hp in far]
+        for earlier, later in zip(scores, scores[1:]):
+            self.assertLess(later, earlier,
+                            "pacing must keep discriminating beyond 2 sigma")
+
     def test_an_untouched_player_late_in_the_run_scores_badly(self):
         """Measured reality: a client sat at 100% HP on wave 92.
 
@@ -142,21 +165,72 @@ class TestExploitsStayDead(unittest.TestCase):
         Zero risk, and under an earlier revision it collected the full swarm
         bonus every wave.
         """
-        total, bd = wave(near_miss=0.0, progress=0.20, count=1350)
+        total, bd = wave(near_miss=0.0, leak=0.0, count=1350)
         self.assertEqual(bd["swarm_size"], 0.0)
         self.assertLess(bd["drama"], 0.0)
 
-    def test_overflow_is_punished_however_large(self):
+    def test_a_full_breach_is_punished_however_large(self):
         """2000 enemies that all reach the base scored +4.67 swarm once."""
-        total, bd = wave(near_miss=1.0, progress=0.99, count=2000)
+        total, bd = wave(near_miss=0.0, leak=1.0, count=2000, damage=0.9)
         self.assertLess(bd["drama"], 0.0)
         self.assertEqual(bd["swarm_size"], 0.0)
         self.assertLess(total, 0.0)
 
-    def test_a_tiny_wave_cannot_farm_the_ratio(self):
-        """`near_miss_ratio` is scale-free: 1 leaker out of 4 reads as 0.25.
+    def test_leaks_do_not_count_as_near_misses(self):
+        """The hole both reviewers found independently.
 
-        Without damping, four enemies would score as well as two hundred.
+        `near_miss_ratio` was `p > 0.80`, which includes p == 1.0. A wave where
+        a quarter of 200 enemies walked into the base — fifty leaks, lethal
+        several times over — produced the same ratio as one where a quarter
+        died at 85% of the path, and scored the same full drama peak.
+        """
+        _, real = wave(near_miss=NEAR_MISS_TARGET, leak=0.0, count=200)
+        _, breach = wave(near_miss=0.0, leak=NEAR_MISS_TARGET, count=200)
+        self.assertGreater(real["drama"], 0.9)
+        self.assertLess(breach["drama"], 0.0)
+
+    def test_leaking_more_always_scores_worse(self):
+        """Leaks are charged on their own slope, so the gradient is monotone."""
+        scores = [wave(near_miss=NEAR_MISS_TARGET, leak=lk, count=200)[1]["drama"]
+                  for lk in (0.0, 0.1, 0.25, 0.5, 1.0)]
+        for earlier, later in zip(scores, scores[1:]):
+            self.assertGreater(earlier, later)
+
+    def test_a_wave_below_the_size_floor_earns_no_positive_drama(self):
+        """The relocated exploit.
+
+        sqrt-damping alone still paid +0.71 for five near-missers out of 21
+        enemies, at no risk, and 48% of measured waves came in at 20 or fewer.
+        """
+        _, tiny = wave(near_miss=NEAR_MISS_TARGET, count=4)
+        _, floor = wave(near_miss=NEAR_MISS_TARGET, count=DRAMA_MIN_COUNT - 1)
+        self.assertLessEqual(tiny["drama"], 0.0)
+        self.assertLessEqual(floor["drama"], 0.0)
+
+    def test_size_credit_ramps_up_rather_than_jumping(self):
+        scores = [wave(near_miss=NEAR_MISS_TARGET, count=c)[1]["drama"]
+                  for c in (DRAMA_MIN_COUNT, 25, 30, 35, DRAMA_FULL_COUNT)]
+        for earlier, later in zip(scores, scores[1:]):
+            self.assertLess(earlier, later)
+
+    def test_a_late_wipe_is_still_punished(self):
+        """The free-wipe hole.
+
+        The shortfall term decays to -0.6 by wave 70 and -0.006 by wave 79, so
+        deleting a healthy player in one wave was free exactly where the agent
+        has the firepower to do it — the unfair wipe this design rules out.
+        """
+        _, graceful = wave(survived=False, hp_after=0.0, damage=0.05,
+                           wave_number=75)
+        _, wipe = wave(survived=False, hp_after=0.0, damage=0.60,
+                       wave_number=75)
+        self.assertLess(wipe["death"], graceful["death"] - 1.0)
+        self.assertLess(wipe["death"], -1.0)
+
+    def test_a_tiny_wave_cannot_farm_the_ratio(self):
+        """`near_miss_ratio` is scale-free: 1 near-misser out of 4 reads as 0.25.
+
+        Without a floor, four enemies would score as well as two hundred.
         """
         _, tiny = wave(near_miss=NEAR_MISS_TARGET, count=4)
         _, real = wave(near_miss=NEAR_MISS_TARGET, count=200)
@@ -168,8 +242,8 @@ class TestExploitsStayDead(unittest.TestCase):
         If it did, the cheapest way to avoid the boring-wave penalty would be
         to send almost nothing — reintroducing the collapse from the other end.
         """
-        _, tiny = wave(near_miss=0.0, progress=0.1, count=4)
-        _, big = wave(near_miss=0.0, progress=0.1, count=200)
+        _, tiny = wave(near_miss=0.0, count=4)
+        _, big = wave(near_miss=0.0, count=200)
         self.assertLessEqual(tiny["drama"], big["drama"])
         self.assertLess(tiny["drama"], 0.0)
 

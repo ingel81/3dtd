@@ -670,7 +670,7 @@ def _suggest_actions(flags, cfg, fire_sums, total_steps):
 
     # Progress saturation
     if any("Progress saturated" in f for f in red_flags):
-        actions.append("Progress saturated. Strengthen OVERFLOW_PROGRESS_THRESHOLD (0.95) or REWARD_OVERFLOW_SLOPE (0.8)")
+        actions.append("Progress saturated. Breaches are charged on REWARD_LEAK_SLOPE in DRAMA — steepen that, not the retired overflow guard")
 
     # Count dimension
     if any("Count dim unused" in f for f in yellow_flags):

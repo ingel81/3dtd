@@ -328,7 +328,14 @@ class TrainingServer:
             # Compute distribution metrics on raw progress values
             avg_progress = sum(raw_values) / len(raw_values)
             max_progress = max(raw_values)
-            near_miss_ratio = sum(1 for v in raw_values if v > 0.80) / len(raw_values)
+            # A near-miss is an enemy that got CLOSE, not one that arrived.
+            # `v > 0.80` included v == 1.0, so a breach counted as drama: a wave
+            # where a quarter of the enemies reached the base scored the same
+            # near-miss ratio as one where a quarter died at 85% of the path.
+            # The first is lethal (25% of 200 enemies is 50 leaks), the second is
+            # the design goal.
+            near_miss_ratio = sum(1 for v in raw_values if 0.80 < v < 1.0) / len(raw_values)
+            leak_ratio = sum(1 for v in raw_values if v >= 1.0) / len(raw_values)
             progress_std = (sum((v - avg_progress)**2 for v in raw_values) / len(raw_values)) ** 0.5
 
             display_id_for_log = client_id % 10000
@@ -359,6 +366,7 @@ class TrainingServer:
                                                        max_progress=max_progress,
                                                        near_miss_ratio=near_miss_ratio,
                                                        progress_std=progress_std,
+                                                       leak_ratio=leak_ratio,
                                                        episode_done=wave_num >= EPISODE_LENGTH)
 
             self.episode += 1
@@ -1024,7 +1032,7 @@ class TrainingServer:
 
     def _process_result(self, ctx, client_id, wave_num, result, state_after=None,
                         effective_progress=None, max_progress=0, near_miss_ratio=0,
-                        progress_std=0, episode_done=False):
+                        progress_std=0, episode_done=False, leak_ratio=0.0):
         """Phase 5.10: simplified reward pipeline (4 terms only)."""
         damage_pct = result.get("damagePercent", 0)
         avg_progress = effective_progress if effective_progress is not None else result.get("avgPathProgressPercent", 0)
@@ -1083,10 +1091,11 @@ class TrainingServer:
             # mean it was passed over is dominated by the enemies that die
             # early, which is precisely the part of the wave nobody watches.
             "nearMissRatio": near_miss_ratio,
-            "avgProgress": avg_progress,
+            "leakRatio": leak_ratio,
             "totalCount": int(result.get("enemiesSpawned", 0)),
             "survived": survived,
             "hpAfter": hp_after,
+            "damagePercent": damage_pct,
         }
         context = {"wave_number": wave_num}
 
