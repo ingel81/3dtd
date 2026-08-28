@@ -420,3 +420,45 @@ ist erst ab hier überhaupt gestellt.
 - *GAMMA 0.9 → 0.97*, damit der Terminal-Wert über ~30 Waves zurückwirkt.
 - *`TARGET_RUN_WAVES = 80` ist eine Game-Design-Zahl*, keine RL-Konstante: Wie
   weit soll ein kompetenter Spieler kommen? Das gehört bewusst entschieden.
+
+### K. Action-Aliasing an der Fairness-Gate — und der Fehler dabei (2026-08-28)
+
+Der letzte Punkt aus dem Review: die Gate schrieb die gesampelte Aktion auf 65 %
+der Waves nach dem Sampling um. PPO paarte damit eine *gewählte* Aktion mit der
+Wirkung einer *anderen*, kleineren — und jeder `count_factor` oberhalb des Caps
+bildete auf dieselbe Wave ab, also ein flacher Bereich ohne Gradient. Das ist
+vermutlich der Grund, warum `logStd` der count-Dimension über den gesamten Lauf
+unbewegt auf dem Initialwert stand.
+
+„Die ausgeführte Aktion speichern" ist keine Lösung: die PPO-Ratio braucht einen
+Wert, der tatsächlich aus der alten Policy gezogen wurde.
+
+**Fix:** Die Gate *interpoliert* jetzt, statt zu klemmen — der Cap geht in die
+Range ein, über die der Faktor abbildet, also gilt immer `chosen == executed`.
+Der Faktor bedeutet damit „wie weit in das, was gerade erlaubt ist", und der Cap
+ist ohnehin Teil der Beobachtung (`fairnessHeadroom`). Im Frontend gespiegelt,
+das dabei die Nachprüfung nach der Dauer-Kompression bekommt, die nur das
+Backend hatte.
+
+**Dabei einen Regressionsfehler eingebaut — und gemessen gefunden.** Die untere
+Range-Grenze wurde auf `max(countRange[0], cap)` geklemmt, wodurch ein Cap
+*unterhalb* des Template-Minimums wirkungslos war und trotzdem das Minimum
+verschickt wurde. Vorher gewann in dem Fall schlicht die Gate. Genau das ist die
+Lage in frühen Waves, wo ein oder zwei Türme nicht einmal die kleinste
+Designer-Wave halten:
+
+| Metrik | mit Fehler | korrigiert |
+|---|---|---|
+| `gameOverRate` | 40,2 % | **15,0 %** |
+| `hpCurveError` | −0,64 | **−0,28** |
+| `avgReward` | −4,44 | −2,16 |
+| `fairnessCappedPct` | 88 % | 66 % |
+
+Die Range kollabiert jetzt auf den Cap statt auf das Template-Minimum: weiterhin
+ein einziger legaler Wert, wenn die Gate so eng ist — aber der legale.
+
+**Ebenfalls korrigiert:** der erste Pacing-Tail-Fix verschob die Sättigung nur.
+Slope 0,5 mit Cap 2,0 bindet bei 3σ, und gemessen lagen 69 % der Waves exakt
+darauf. Mit Slope 0,3 und Cap 5,0 ist der Term über den real auftretenden
+Bereich streng monoton (−0,78 bei 2σ, −1,03 bei 3,4σ, −1,32 bei 5σ) und bleibt
+dabei unter dem Drama-Peak.
