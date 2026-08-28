@@ -211,14 +211,19 @@ REWARD_DRAMA_IDLE = -0.30         # value as near_miss_ratio -> far from target
 # exploit instead of closing it: 5 near-missers out of 21 enemies scored
 # bell~0.99 x sqrt(21/40) = +0.71 per wave at no risk, and 48% of observed waves
 # came in at 20 enemies or fewer. Nothing in the function pushed size upward.
-DRAMA_MIN_COUNT = 20
+# Lowered from 20 together with the leak-budget gate. That gate now caps early
+# waves at 16-23 enemies, because that is what a two-to-five-tower defense can
+# actually fight; at a floor of 20 the agent could not earn positive drama at
+# all through the opening waves, which is where 85% of runs are decided. The
+# floor still blocks what it was built for — one near-misser out of four.
+DRAMA_MIN_COUNT = 10
 # Waves that actually reach the target band have a median count of 30; waves
 # below 0.05 near-miss have a median of 39. Near-misses come from a FEW TOUGH
 # enemies surviving the gauntlet, not from mass — a big rat swarm gets shredded
 # early and scores a low ratio. Full credit at 40 therefore halved the reward
 # exactly where the behaviour we want originates. The floor at 20 still blocks
 # the farming case (one near-misser out of four).
-DRAMA_FULL_COUNT = 30
+DRAMA_FULL_COUNT = 20
 
 # Leaks are charged inside DRAMA, as a slope on the fraction of the wave that
 # reached the base. This replaces the old overflow guard, which tested
