@@ -502,3 +502,45 @@ verwenden kein Dropout.
 **Lehre für die Fehlersuche:** Wenn eine Optimierer-Metrik feststeckt und auf
 Hyperparameter-Änderungen nicht reagiert, zuerst eine train/eval-Diskrepanz
 (Dropout, BatchNorm) verdächtigen, statt weiter zu tunen.
+
+### M. Warum die AI kleine Waves wählt: Anteil vs. absoluter Schaden (2026-08-28)
+
+Nach allen Korrekturen läuft die Optimierung sauber (`approxKl` 0,022,
+`gradNorm` 4,2) und die Ergebnisse sind die besten der Nacht — `avgReward`
+−1,61, `gameOverRate` 10,7 %, `hpCurveError` −0,28. `avgNearMissRatio` bleibt
+aber bei 0,04–0,10 statt der angestrebten 0,20, und `count_factor` *sinkt*
+(0,41 → 0,31).
+
+**Die Fairness-Gate ist nicht die Ursache.** Gemessen über 600 Waves:
+`count_factor` mean 0,315, max 0,762 — die AI hat in **keiner einzigen** Wave
+mehr als 0,8 verlangt. Sie drückt nicht gegen den Cap, sie will selbst weniger.
+(Die zwischenzeitliche Vermutung, die Gate sei der Deckel, ist damit widerlegt.)
+
+**Die Ursache ist eine Skalen-Inkonsistenz im Reward-Design:**
+`near_miss_ratio` und `leak_ratio` sind **Anteile**, der HP-Schaden eines Leaks
+ist **absolut**.
+
+| Wave | Leak-Anteil | Leaks | HP-Schaden (W51+) |
+|---|---|---|---|
+| 49 Gegner | 10 % | 5 | 30 — überlebbar |
+| 300 Gegner | 10 % | 30 | 180 — tödlich |
+
+Bei gleichem Anteil ist die große Wave um den Faktor der Gegnerzahl gefährlicher.
+Da DRAMA in Anteilen rechnet, PACING und DEATH aber in absoluter HP, ist „klein
+und gestreut" die korrekte Antwort auf den Reward, wie er geschrieben ist. Die
+AI spielt ihn richtig.
+
+Folge: Templates mit `countRange` bis 600 bleiben faktisch ungenutzt
+(Median-Count 49, p90 356).
+
+**Das ist eine Design-Entscheidung, kein Defekt** — und sie gehört dem Menschen:
+
+1. Wie groß sollen Waves sein dürfen? Wenn große Schwärme zum Spielgefühl
+   gehören, muss DRAMA sie tragen (z. B. Leak-Toleranz, die mit der Wave-Größe
+   wächst, oder ein deutlich stärkerer SWARM-Term als die aktuellen 0,3).
+2. Wie viel absoluten Schaden darf eine einzelne Wave kosten? Erst diese Zahl
+   macht „Anteil" und „HP" kommensurabel.
+3. `TARGET_RUN_WAVES` (aktuell 80): Wie weit soll ein kompetenter Spieler
+   kommen? Das Review schlägt 70 vor. Diese Zahl definiert Terminal-Shaping,
+   Pacing-Kurve und indirekt die Leak-Eskalation — sie sollte bewusst gesetzt
+   werden, nicht implizit über eine Konstante.
