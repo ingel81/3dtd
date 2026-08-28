@@ -328,8 +328,17 @@ export class WaveDirectorService {
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
       );
-      const effMax = cap !== null ? Math.min(dpsScaledMax, Math.max(countLo, cap)) : dpsScaledMax;
-      return { count: Math.max(1, Math.round(countLo + (effMax - countLo) * countFactor)), cap };
+      // The gate outranks the template minimum. A cap BELOW countRange[0] means
+      // the defense cannot handle even the smallest wave the designer wrote,
+      // and shipping the minimum anyway makes early runs far more lethal than
+      // intended. Collapse the range onto the cap instead.
+      let lo = countLo;
+      let hi = dpsScaledMax;
+      if (cap !== null) {
+        lo = Math.min(lo, cap);
+        hi = Math.max(lo, Math.min(hi, cap));
+      }
+      return { count: Math.max(1, Math.round(lo + (hi - lo) * countFactor)), cap };
     };
 
     let totalCount = countFor(spawnDelay).count;

@@ -966,11 +966,17 @@ class TrainingServer:
                 defense.get("effectiveDPSPerArmor") or {},
                 defense.get("killThroughput") or {},
             )
-            eff_max = dps_scaled_max
+            # The gate outranks the template minimum. A cap BELOW countRange[0]
+            # means the defense cannot handle even the smallest wave the
+            # designer wrote, and shipping the minimum anyway is how early runs
+            # got far more lethal than intended. Collapse the range onto the cap
+            # instead: still a single legal value, but the legal one.
+            lo, hi = count_lo, dps_scaled_max
             if cap is not None:
-                eff_max = min(eff_max, max(count_lo, cap))
-            chosen = max(1, round(count_lo + (eff_max - count_lo) * count_factor))
-            return chosen, cap, eff_max
+                lo = min(lo, cap)
+                hi = max(lo, min(hi, cap))
+            chosen = max(1, round(lo + (hi - lo) * count_factor))
+            return chosen, cap, hi
 
         total_count, fair_cap, eff_max = count_for(spawn_delay)
 
