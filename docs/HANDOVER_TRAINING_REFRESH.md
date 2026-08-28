@@ -385,3 +385,38 @@ Lernrate gedreht, um die Wirkung zuordenbar zu halten.
 angesetzt (Design und Implementierung), beide Agenten haben über insgesamt vier
 Nachrichten nichts zugestellt. Die Analyse und beide Eingriffe oben stammen
 daher aus eigener Messung. Ein Review durch ein zweites Modell steht weiter aus.
+
+### J. Zweitmodell-Review von v4 — vier Löcher (2026-08-28)
+
+Zwei Fable-Agenten (Design und Implementierung) haben v4 gegengelesen. Vier
+Befunde hielten der Prüfung an den Logs stand, einer nicht.
+
+| # | Befund | Beleg | Status |
+|---|---|---|---|
+| J1 | **Leaks zählten als Near-Miss.** `near_miss_ratio` war `p > 0.80`, was `p == 1.0` einschließt. Ein Durchbruch und eine knappe Sache waren dasselbe Ereignis: eine Wave, bei der ein Viertel von 200 Gegnern die Basis erreicht — 50 Leaks, mehrfach tödlich — bekam denselben vollen Drama-Peak wie eine, bei der ein Viertel bei 85 % Pfad stirbt. | `server.py:331` | behoben: `0.80 < p < 1.0`, Leaks auf eigener Slope in DRAMA |
+| J2 | **PACING war ein toter Term.** Eine Gauss-Kurve ist jenseits ~2σ flach, liefert dort also einen konstanten Wert ohne Gradient. Gemessen: **58,4 % aller Waves exakt auf −0,60** — der Term, der die Rundenlänge steuern soll, war auf der Mehrheit der Waves stumm, und zwar genau auf denen, die am weitesten von der Kurve weg sind. | eigene Log-Auswertung, n=849 | behoben: quadratisch bis 1σ, linear darüber |
+| J3 | **Die Größen-Dämpfung verlagerte ihren Exploit.** `sqrt` zahlte für 5 Near-Misser aus 21 Gegnern immer noch +0,71 risikofrei; **48 % der gemessenen Waves hatten ≤ 20 Gegner**. Nichts in der Funktion drückte die Größe nach oben. | eigene Log-Auswertung, n=962 | behoben: kein positives Drama unter `DRAMA_MIN_COUNT`, danach linear |
+| J4 | **Späte Wipes waren gratis.** Der Shortfall-Term fällt auf −0,6 bei W70 und −0,006 bei W79. Einen Spieler bei gesunder HP in einer Wave auszulöschen kostete dort nichts — genau der unfaire Wipe, den das Design ausschließen soll, und verfügbar exakt dort, wo die AI die Feuerkraft dazu hat. | `reward.py::_death_penalty` | behoben: Overkill-Zuschlag, wellenunabhängig |
+| — | *Nicht bestätigt:* „Die Fairness-Gate deckelt nur `count`, `hp_mult` ist der ungedeckelte Letalitätskanal." | `templates.ts:419` — `weightedHp += share * enemyBaseHp(enemy) * hpMult` | Gate rechnet mit effektiver HP |
+
+Der Overflow-Guard (`avg_progress > 0.95`) wurde bei J1 mit ersetzt: er testete
+den **Mittelwert** — genau die Statistik, die v4 für Drama verworfen hat. Eine
+Wave, die 40 % ihrer Gegner durchlässt, hat einen Mittelwert um 0,6 und passierte
+ihn unbehelligt. Breaches werden jetzt am gemessenen Leak-Anteil bestraft.
+
+**Sofortige Messwirkung von J1:** `avgNearMissRatio` fiel von 0,52 auf **0,074**.
+Der weit überwiegende Teil dessen, was die AI als Near-Miss belohnt bekam, waren
+tatsächlich durchgekommene Gegner. Die Metrik zeigt jetzt den echten Wert, und
+die eigentliche Aufgabe — Gegner weit kommen lassen, *ohne* sie durchzulassen —
+ist erst ab hier überhaupt gestellt.
+
+**Offen aus dem Review, bewusst zurückgestellt:**
+- *Action-Aliasing an der Fairness-Gate.* Die Gate schreibt die Aktion nach dem
+  Sampling um (65 % der Waves), PPO paart also die gewählte mit der ausgeführten
+  Wirkung. Sauberer Fix: den Cap in den Decoder ziehen, sodass der
+  `count`-Faktor in `[min, min(max, cap)]` interpoliert und `chosen == executed`
+  gilt. Nicht „die ausgeführte Aktion speichern" — das verzerrt die PPO-Ratio.
+- *Reward-Normalisierung zentrieren* statt nur zu skalieren.
+- *GAMMA 0.9 → 0.97*, damit der Terminal-Wert über ~30 Waves zurückwirkt.
+- *`TARGET_RUN_WAVES = 80` ist eine Game-Design-Zahl*, keine RL-Konstante: Wie
+  weit soll ein kompetenter Spieler kommen? Das gehört bewusst entschieden.
