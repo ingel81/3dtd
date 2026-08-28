@@ -79,6 +79,39 @@ class TestRewardShape(unittest.TestCase):
         self.assertLess(nothing, 0.0)
         self.assertGreater(real, nothing + 0.8)
 
+    def test_trying_beats_idling_even_when_some_enemies_leak(self):
+        """The bimodality trap, stated as a test.
+
+        A pure bell is still 14.5% of its peak at ratio 0, so a wave that
+        threatened nothing scored -0.11 rather than the full -0.30. That made
+        harmless waves cheaper than any attempt that risks a leak, and the
+        policy oscillated between harmless and breach: 52.5% of waves parked in
+        the idle band, 30% leaked heavily, and only 11.5% scored positive.
+
+        A real attempt that leaks a little has to beat sending nothing.
+        """
+        _, idle = wave(near_miss=0.0, leak=0.0, count=200)
+        _, tried = wave(near_miss=0.15, leak=0.10, count=200)
+        self.assertGreater(tried["drama"], idle["drama"])
+        self.assertGreater(tried["drama"], 0.0)
+
+    def test_an_empty_wave_pays_the_full_idle_penalty(self):
+        _, bd = wave(near_miss=0.0, leak=0.0, count=200)
+        self.assertAlmostEqual(bd["drama"], -0.30, places=4)
+
+    def test_every_step_toward_the_target_pays(self):
+        """Monotone on the way up: no flat stretch to get stuck on."""
+        scores = [wave(near_miss=nm, count=200)[1]["drama"]
+                  for nm in (0.0, 0.05, 0.10, 0.15, 0.20, NEAR_MISS_TARGET)]
+        for earlier, later in zip(scores, scores[1:]):
+            self.assertLess(earlier, later)
+
+    def test_overshooting_the_target_falls_off(self):
+        """Most of the horde at the gate is a breach forming, not more drama."""
+        peak = wave(near_miss=NEAR_MISS_TARGET, count=200)[1]["drama"]
+        over = wave(near_miss=0.6, count=200)[1]["drama"]
+        self.assertLess(over, peak)
+
     def test_every_wave_carries_a_gradient(self):
         """v3's step functions returned identical values across whole regions.
 
