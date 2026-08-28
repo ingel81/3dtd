@@ -306,15 +306,22 @@ class PPOTrainer:
                 grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
                 self.optimizer.step()
 
-            # Averaged over the epoch's minibatches: a single 32-sample estimate
-            # is noisy enough to both miss real drift and trigger spuriously.
-            # Stop once the policy has drifted too far from the one that
-            # collected this data — otherwise the later epochs are effectively
-            # unclipped off-policy steps.
-            if epoch_kls:
-                approx_kl = sum(epoch_kls) / len(epoch_kls)
-                if approx_kl > TARGET_KL:
-                    stop = True
+                # Check drift after EVERY minibatch, not once per epoch.
+                #
+                # Checking only at the epoch boundary let four unclipped
+                # minibatch steps land before the stop could fire, and measured
+                # approx-KL then sat at 0.19-0.24 against a 0.02 target on every
+                # single update. The early stop was firing after epoch 1 every
+                # time, so UPDATE_EPOCHS=4 was really 1 — the policy took four
+                # oversized steps and then quit, instead of several small ones.
+                # Averaged over the epoch so far rather than per minibatch: a
+                # single 32-sample estimate is noisy enough to trigger
+                # spuriously, but waiting a whole epoch overshoots.
+                if epoch_kls:
+                    approx_kl = sum(epoch_kls) / len(epoch_kls)
+                    if approx_kl > TARGET_KL:
+                        stop = True
+                        break
 
         self.model.eval()
 
