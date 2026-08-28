@@ -187,9 +187,15 @@ class TestExploitsStayDead(unittest.TestCase):
         good_wave, _ = wave(near_miss=NEAR_MISS_TARGET, progress=0.5,
                             count=200, wave_number=15)
         _, death = wave(near_miss=1.0, progress=1.0, count=200, survived=False,
-                        hp_after=0.0, wave_number=30)
-        horizon = 1.0 / (1.0 - GAMMA)
-        self.assertLess(death["death"], -good_wave * horizon,
+                        hp_after=0.0, wave_number=15)
+        # The run that sets up a death is finite, so the yardstick is the
+        # discounted sum of the ten waves inside the horizon, not the infinite
+        # series 1/(1-GAMMA). Using the infinite one forced REWARD_DEATH_MAX so
+        # high that deaths dominated the reward scaler and drowned out every
+        # other term at 25:1 — see the note on REWARD_DEATH_MAX in config.
+        horizon_waves = 10
+        discounted_run = good_wave * (1 - GAMMA ** horizon_waves) / (1 - GAMMA)
+        self.assertLess(death["death"], -discounted_run,
                         "a death must cost more than the waves that set it up")
 
 

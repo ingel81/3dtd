@@ -142,10 +142,24 @@ GAE_LAMBDA = 0.95
 # reward's own optimum was an outcome the reward also punished.
 TARGET_RUN_WAVES = 80             # the HP curve is drawn to hit zero here
 # Cost of dying at wave 0, falling quadratically to 0.0 at TARGET_RUN_WAVES.
-# Sized so a death outweighs the waves inside the discount horizon that set it
-# up (1/(1-GAMMA) ~ 10 waves at ~1.3 each) — the property v3's -3.5 cap lacked,
-# which made "bleed them out, then cash in" the winning line.
-REWARD_DEATH_MAX = -40.0
+#
+# Bounded from BELOW by the exploit it exists to kill: a death must outweigh the
+# good waves that set it up, or "bleed them out, then cash in" wins again (it
+# did, under v3's -3.5 cap). Ten waves at the +1.3 peak, discounted at GAMMA,
+# is 8.47 — so a death around wave 15 has to cost more than that.
+#
+# Bounded from ABOVE by the reward scaler. Rewards are normalised by a windowed
+# std, and deaths are rare and huge, so THEY set that std and everything else
+# gets divided into noise. Measured at -40 over 1304 steps: surviving waves had
+# mean -0.50 and std 0.40, deaths mean -32.7 at an 8.7% rate, and the combined
+# std was 9.13 — of which the death term contributed 9.12. A full drama swing
+# of 1.30 came out at 0.142 after scaling while a death came out at -3.58, a
+# 25:1 ratio. At that ratio the agent is not learning to build good waves, it
+# is learning to avoid deaths, which is how v3 collapsed.
+#
+# -15 satisfies both: -9.9 at wave 15 still beats the 8.47, and the estimated
+# std drops to ~3.2, putting the ratio at ~8:1.
+REWARD_DEATH_MAX = -15.0
 
 # === REWARD — Term 2: DRAMA (near-miss distribution) ===
 # Target a BAND of the fraction of enemies that get past 80% of the path.
