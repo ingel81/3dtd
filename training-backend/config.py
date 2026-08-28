@@ -174,9 +174,18 @@ TARGET_RUN_WAVES = 80             # the HP curve is drawn to hit zero here
 # 25:1 ratio. At that ratio the agent is not learning to build good waves, it
 # is learning to avoid deaths, which is how v3 collapsed.
 #
-# -15 satisfies both: -9.9 at wave 15 still beats the 8.47, and the estimated
-# std drops to ~3.2, putting the ratio at ~8:1.
-REWARD_DEATH_MAX = -15.0
+# Lowered again to -8 after the run collapsed to zero drama over 56 updates.
+# The per-wave arithmetic explains it: at -15 and a 9% death rate, expected
+# death cost is ~0.7 per wave against a drama span of only 1.3 (from -0.3 idle
+# to +1.0 peak), so pushing never paid and near-miss fell monotonically
+# 0.104 -> 0.082 -> 0.058 -> 0.042 -> 0.017 -> 0.000.
+#
+# The bleed-them-out exploit stays dead because DEATH is not the only thing
+# opposing it. Killing a player inside ~15 waves means running far below the HP
+# curve the whole way, which accumulates roughly -10 of PACING before the death
+# is even collected. The reward test now checks that combined cost rather than
+# the death term alone, which is what forced the earlier, oversized values.
+REWARD_DEATH_MAX = -8.0
 
 # === REWARD — Term 2: DRAMA (near-miss distribution) ===
 # Target a BAND of the fraction of enemies that get past 80% of the path.
