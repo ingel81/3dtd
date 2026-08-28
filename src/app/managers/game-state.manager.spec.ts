@@ -269,12 +269,33 @@ describe('GameStateManager', () => {
         expect(gsm.baseHealth()).toBe(initialHealth - 10);
       });
 
-      it('health does not go below 0', () => {
+      it('a single wave cannot cost more than the leak budget', () => {
+        // Late-game leaks are 10 HP each and nothing heals, so one wave with a
+        // missing counter could otherwise erase half a run. See
+        // GAME_BALANCE.combat.maxLeakDamagePerWave.
+        const before = gsm.baseHealth();
         bus.emit({
           type: 'enemy:reached-base',
           enemy: { id: 'e1' } as never,
           damage: 9999,
         });
+        expect(gsm.baseHealth()).toBe(before - GAME_BALANCE.combat.maxLeakDamagePerWave);
+      });
+
+      it('the leak budget refills when the next wave starts', () => {
+        const cap = GAME_BALANCE.combat.maxLeakDamagePerWave;
+        const before = gsm.baseHealth();
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e1' } as never, damage: 9999 });
+        gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
+        bus.emit({ type: 'enemy:reached-base', enemy: { id: 'e2' } as never, damage: 9999 });
+        expect(gsm.baseHealth()).toBe(before - 2 * cap);
+      });
+
+      it('health does not go below 0 across repeated waves', () => {
+        for (let w = 0; w < 20; w++) {
+          gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
+          bus.emit({ type: 'enemy:reached-base', enemy: { id: `e${w}` } as never, damage: 9999 });
+        }
         expect(gsm.baseHealth()).toBe(0);
       });
 
@@ -375,12 +396,13 @@ describe('GameStateManager', () => {
 
     describe('healBase()', () => {
       it('restores health to 100', () => {
+        // Within the per-wave leak cap, so the damage lands in full.
         bus.emit({
           type: 'enemy:reached-base',
           enemy: { id: 'e1' } as never,
-          damage: 60,
+          damage: 10,
         });
-        expect(gsm.baseHealth()).toBe(40);
+        expect(gsm.baseHealth()).toBe(90);
         gsm.healBase();
         expect(gsm.baseHealth()).toBe(100);
       });
@@ -417,13 +439,14 @@ describe('GameStateManager', () => {
       });
 
       it('debug:add-health changes health (clamped)', () => {
+        // 15 is inside the per-wave leak cap, so it lands in full.
         bus.emit({
           type: 'enemy:reached-base',
           enemy: { id: 'e1' } as never,
-          damage: 30,
+          damage: 15,
         });
-        expect(gsm.baseHealth()).toBe(70);
-        bus.emit({ type: 'debug:add-health', amount: 20 } as never);
+        expect(gsm.baseHealth()).toBe(85);
+        bus.emit({ type: 'debug:add-health', amount: 5 } as never);
         expect(gsm.baseHealth()).toBe(90);
       });
 
@@ -506,12 +529,16 @@ describe('GameStateManager', () => {
       });
 
       it('does not advance simulation when paused at gameover phase', () => {
-        // Trigger gameover via massive damage
-        bus.emit({
-          type: 'enemy:reached-base',
-          enemy: { id: 'e1' } as never,
-          damage: 9999,
-        });
+        // Trigger gameover. Damage is capped per wave, so drain it across
+        // several waves rather than in one hit.
+        for (let w = 0; w < 20; w++) {
+          gsm.startWave({ schedule: { entries: [] }, baseDelay: 100 } as never);
+          bus.emit({
+            type: 'enemy:reached-base',
+            enemy: { id: `e${w}` } as never,
+            damage: 9999,
+          });
+        }
         expect(gsm.baseHealth()).toBe(0);
 
         const onSub = vi.fn();

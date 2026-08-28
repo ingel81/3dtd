@@ -74,24 +74,42 @@ describe('wave-curriculum.config', () => {
       expect(goldBudgetForWave(10)).toEqual({ kill: w10.goldKill, complete: w10.goldComplete });
     });
 
-    it('wave 31 loops to wave 1 budget (templateForWave also loops mod 30)', () => {
-      const w1 = WAVE_CURRICULUM[0];
-      const w31 = goldBudgetForWave(31);
-      expect(w31.kill).toBe(w1.goldKill);
-      expect(w31.complete).toBe(w1.goldComplete);
-    });
-
-    it('wave 35 = wave 5 budget (loop continuation)', () => {
-      const w5 = WAVE_CURRICULUM[4];
-      const w35 = goldBudgetForWave(35);
-      expect(w35.kill).toBe(w5.goldKill);
-      expect(w35.complete).toBe(w5.goldComplete);
-    });
-
-    it('wave 60 = wave 30 budget (full loop), boss-bonus peak repeats', () => {
+    it('income tapers past the curriculum instead of restarting it', () => {
+      // It used to loop: wave 31 dropped from 180,000 gold back to 200 and
+      // climbed all over again. Incoherent mid-run, and across 100 waves it
+      // paid out 2.64M against a design roster costing 1.39M — enough for a
+      // defense to finish its build-out and keep going.
       const w30 = goldBudgetForWave(30);
-      const w60 = goldBudgetForWave(60);
-      expect(w60).toEqual(w30);
+      const w31 = goldBudgetForWave(31);
+      const w1 = WAVE_CURRICULUM[0];
+      expect(w31.kill).toBeLessThan(w30.kill);
+      expect(w31.kill).toBeGreaterThan(w1.goldKill);
+    });
+
+    it('income decreases monotonically past the curriculum', () => {
+      const waves = [31, 32, 33, 34, 40, 60, 100].map((w) => goldBudgetForWave(w).kill);
+      for (let i = 1; i < waves.length; i++) {
+        expect(waves[i]).toBeLessThanOrEqual(waves[i - 1]);
+      }
+    });
+
+    it('income settles on a sustain floor rather than reaching zero', () => {
+      const late = goldBudgetForWave(100);
+      expect(late.kill).toBeGreaterThan(0);
+      expect(goldBudgetForWave(200).kill).toBe(late.kill);
+    });
+
+    it('a 100-wave run funds the design roster without doubling it', () => {
+      // The roster — one of each tower plus three archers, every upgrade track
+      // maxed, all research — costs about 1.39M. The run should pay for it with
+      // a working reserve, not for two of them.
+      let total = 0;
+      for (let w = 1; w <= 100; w++) {
+        const g = goldBudgetForWave(w);
+        total += g.kill + g.complete;
+      }
+      expect(total).toBeGreaterThan(1_400_000);
+      expect(total).toBeLessThan(1_800_000);
     });
   });
 
