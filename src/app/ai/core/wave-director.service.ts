@@ -291,7 +291,6 @@ export class WaveDirectorService {
       return rng[0] + (effMax - rng[0]) * factor;
     };
 
-    let totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
     let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
     // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
     // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
@@ -301,29 +300,50 @@ export class WaveDirectorService {
 
     // Fairness gate: never ship a wave the defense cannot plausibly fight.
     // Applied after the HP multipliers so it judges the enemies as they will
-    // actually spawn, and before the duration cap below.
+    // actually spawn.
+    //
+    // The gate INTERPOLATES rather than clamps, mirroring `_decode_action` in
+    // the training backend. Clamping after the fact discarded the model's
+    // choice on most waves and mapped every count factor above the cap onto an
+    // identical wave — a flat region the policy cannot express a preference in,
+    // and during training a chosen action paired with a different executed one.
+    // Folding the cap into the range keeps chosen == executed; the factor means
+    // "how far into what is currently allowed", and the cap is already part of
+    // the model's observation.
+    //
     // Recomputed against the template that was actually chosen and the factors
     // that were actually emitted — the context's value is a coarse ceiling
     // signal for the model, this is the binding decision.
-    const fairCap = fairMaxCount(
-      template,
-      hpMult,
-      spawnDelay,
-      state.defense?.effectiveDPSPerArmor,
-      state.defense?.killThroughput,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
-      (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
-    );
-    if (fairCap !== null && fairCap < totalCount) {
-      totalCount = fairCap;
-    }
+    const countLo = template.countRange[0];
+    const dpsScaledMax = lerpRange(template.countRange, dpsFracCount);
+    const countFor = (delay: number): { count: number; cap: number | null } => {
+      const cap = fairMaxCount(
+        template,
+        hpMult,
+        delay,
+        state.defense?.effectiveDPSPerArmor,
+        state.defense?.killThroughput,
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+      );
+      const effMax = cap !== null ? Math.min(dpsScaledMax, Math.max(countLo, cap)) : dpsScaledMax;
+      return { count: Math.max(1, Math.round(countLo + (effMax - countLo) * countFactor)), cap };
+    };
+
+    let totalCount = countFor(spawnDelay).count;
 
     // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
     const totalDuration = totalCount * spawnDelay;
     if (totalDuration > MAX_WAVE_DURATION_MS) {
       spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount));
+      // Re-derive against the compressed delay. A slow mega-wave can clear the
+      // gate precisely BECAUSE its long spawn window gives the defense time,
+      // and the compression then multiplies the spawn rate — so without this
+      // the gate is bypassed by exactly the waves it exists to stop. The
+      // backend has always done this second pass; the frontend did not.
+      totalCount = countFor(spawnDelay).count;
     }
 
     // Expand template → enemy groups
