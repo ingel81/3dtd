@@ -127,6 +127,10 @@ class TUILogger:
                 "template_probs": wave_info.get("template_probs", {}),
                 "curriculum_forced": wave_info.get("curriculum_forced", False),
             })
+            if wave_info.get("gate") is not None:
+                log_data["gate"] = wave_info["gate"]
+            if wave_info.get("wave") is not None:
+                log_data["wave"] = wave_info["wave"]
         else:
             # Legacy format
             log_data["enemy_hp"] = round(enemy_hp, 1) if enemy_hp else None

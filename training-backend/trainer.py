@@ -260,6 +260,28 @@ class PPOTrainer:
         # policy chase a target that moved underneath it mid-update.
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
+        # Per-dimension correlation between the sampled action noise and the
+        # advantage. This IS the expected policy gradient for each continuous
+        # dimension, measured directly.
+        #
+        # PPO differentiates through log pi, not through the environment, so a
+        # per-sample gradient is never zero — but if the environment ignores a
+        # dimension (a decoder cap collapsing the range to a point, say), the
+        # advantage is statistically independent of that dimension's noise, the
+        # EXPECTED gradient is zero, and the head just random-walks around its
+        # initialisation. That is indistinguishable from "still learning" in
+        # every other metric, which cost a long time to spot. Near-zero here
+        # means the dimension is dead; it has to move off zero before the mean
+        # can go anywhere.
+        action_corr = None
+        if actions_batch is not None and len(batch) > 8:
+            with torch.no_grad():
+                a = actions_batch.float()
+                noise = a - a.mean(dim=0, keepdim=True)
+                adv = (advantages - advantages.mean()).unsqueeze(-1)
+                denom = (noise.std(dim=0) * advantages.std() + 1e-8)
+                action_corr = ((noise * adv).mean(dim=0) / denom).tolist()
+
         self.model.train()
 
         approx_kl = 0.0
@@ -339,6 +361,7 @@ class PPOTrainer:
             self.dashboard.record_training_update(
                 pl, ent, gn, avg_reward,
                 approx_kl=approx_kl,
+                action_corr=action_corr,
                 log_std=float(self.model.log_std.mean().item()),
                 dropped_pairs=self.dropped_pairs,
             )

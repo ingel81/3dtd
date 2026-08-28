@@ -57,6 +57,7 @@ from config import (
     DRAMA_MIN_COUNT,
     DRAMA_FULL_COUNT,
     REWARD_LEAK_SLOPE,
+    REWARD_P90_PROGRESS_WEIGHT,
     # PACING
     PACING_SIGMA,
     PACING_TAIL_SLOPE,
@@ -121,7 +122,7 @@ def _death_penalty(wave_num: int, survived: bool, damage_pct: float) -> float:
 
 
 def _drama_reward(near_miss_ratio: float, leak_ratio: float,
-                  total_count: int) -> float:
+                  total_count: int, p90_progress: float = 0.0) -> float:
     """How exciting the wave was, from the upper tail of the progress spread.
 
     `near_miss_ratio` is the fraction of enemies that got past 80% of the path
@@ -174,7 +175,12 @@ def _drama_reward(near_miss_ratio: float, leak_ratio: float,
             span = DRAMA_FULL_COUNT - DRAMA_MIN_COUNT
             score *= (total_count - DRAMA_MIN_COUNT) / span
 
-    return score + REWARD_LEAK_SLOPE * leak_ratio
+    # Dense tail-shaping so the region below the near-miss threshold is not
+    # flat. Without it the agent cannot tell "everything died at 40%" from
+    # "everything died at 79%", and both score identically at zero near-miss.
+    return (score
+            + REWARD_LEAK_SLOPE * leak_ratio
+            + REWARD_P90_PROGRESS_WEIGHT * max(0.0, min(1.0, p90_progress)))
 
 
 def _pacing_reward(wave_num: int, hp_after: float) -> float:
@@ -235,6 +241,7 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
         wave_result: {
             nearMissRatio: float,   # 0..1, past 80% path but NOT arrived
             leakRatio: float,       # 0..1, fraction that reached the base
+            p90Progress: float,     # 0..1, 90th percentile of path progress
             totalCount: int,        # enemies in the wave
             survived: bool,         # did the bot survive this wave?
             hpAfter: float,         # 0..1, player HP fraction after the wave
@@ -256,7 +263,8 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
     wave_num = int(context.get("wave_number", 0))
 
     death = _death_penalty(wave_num, survived, damage_pct)
-    drama = _drama_reward(near_miss_ratio, leak_ratio, total_count)
+    p90_progress = float(wave_result.get("p90Progress", 0.0))
+    drama = _drama_reward(near_miss_ratio, leak_ratio, total_count, p90_progress)
     pacing = _pacing_reward(wave_num, hp_after)
     swarm = _swarm_size_reward(total_count, drama)
 
