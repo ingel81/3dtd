@@ -462,3 +462,43 @@ Slope 0,5 mit Cap 2,0 bindet bei 3σ, und gemessen lagen 69 % der Waves exakt
 darauf. Mit Slope 0,3 und Cap 5,0 ist der Term über den real auftretenden
 Bereich streng monoton (−0,78 bei 2σ, −1,03 bei 3,4σ, −1,32 bei 5σ) und bleibt
 dabei unter dem Drama-Peak.
+
+### L. Der Optimierer war die ganze Zeit blockiert: Dropout im Torso (2026-08-28)
+
+Nach den Reward-Korrekturen blieb ein Rätsel: `approxKl` lag konstant bei
+0,14–0,24 gegen ein Ziel von 0,02, und reagierte weder auf eine dreifach
+kleinere Lernrate (3e-4 → 1e-4) noch auf einen verdoppelten Minibatch (32 → 64).
+
+Die Arithmetik ging nie auf: Bei auf 0,5 geclippten Gradienten und LR 1e-4
+beträgt die Parameteränderung ~5e-5. Das kann vier Gauß-Mittelwerte unmöglich um
+die ~0,16 verschieben, die eine KL von 0,14 impliziert.
+
+**Ursache:** `nn.Dropout(0.1)` im geteilten Torso von `WaveDirectorModel`.
+Aktionen werden unter `model.eval()` gesampelt (Dropout aus), das PPO-Update
+läuft unter `model.train()` (Dropout an). Die Ratio `π_new/π_old` verglich also
+ein ausgedünntes Netz mit einem vollständigen — die gemessene Divergenz war
+überwiegend Sampling-Rauschen, keine Policy-Änderung. Dropout bricht damit auch
+die On-Policy-Annahme von PPO generell: die Verhaltens-Policy, die die Daten
+gesammelt hat, ist nicht die Verteilung, gegen die die Ratio ausgewertet wird.
+
+**Wirkung des Entfernens, sofort messbar:**
+
+| | mit Dropout | ohne |
+|---|---|---|
+| `approxKl` | 0,14–0,24 | **0,021** |
+| `gradNorm` | 24,9 | **4,74** |
+
+**Was das erklärt:** Der Per-Minibatch-Early-Stop feuerte beim *ersten*
+Minibatch nahezu jedes Updates, also wurden drei Viertel jeder gesammelten
+Batch über ein Artefakt verworfen. Und der kontinuierliche Kopf stand
+21 Updates lang auf seiner Initialisierung (0,5 ± 0,14, `logStd` unbewegt),
+während der diskrete Template-Kopf normal lernte — die Asymmetrie, die vorher
+als „flache Reward-Landschaft im Faktor-Raum" gedeutet wurde, war zu großen
+Teilen einfach ein blockierter Optimierer.
+
+Die LayerNorms regularisieren das Netz ohnehin; Referenz-PPO-Implementierungen
+verwenden kein Dropout.
+
+**Lehre für die Fehlersuche:** Wenn eine Optimierer-Metrik feststeckt und auf
+Hyperparameter-Änderungen nicht reagiert, zuerst eine train/eval-Diskrepanz
+(Dropout, BatchNorm) verdächtigen, statt weiter zu tunen.
