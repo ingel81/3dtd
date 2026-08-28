@@ -195,8 +195,13 @@ REWARD_LEAK_SLOPE = -2.0
 # dead on the majority of waves — precisely the ones furthest off the curve.
 # Quadratic inside 1 sigma for fine control, linear beyond it so the gradient
 # survives where it is actually needed.
-PACING_TAIL_SLOPE = 0.5
-PACING_SHAPE_CAP = 2.0
+# The tail must stay gentle AND stay long. A first attempt used slope 0.5 with
+# a cap at 2.0, which merely moved the flat spot: the cap binds at 3 sigma, and
+# measured 69% of waves sat on it because runs were ending far off the curve.
+# A shallower slope with a much later cap keeps a live gradient out to ~6 sigma
+# without letting the term outweigh DRAMA in the range that actually occurs.
+PACING_TAIL_SLOPE = 0.3
+PACING_SHAPE_CAP = 5.0
 
 # A wipe is a wipe whenever it lands. The shortfall term alone falls to -0.6 by
 # wave 70 and -0.006 by wave 79, so deleting a healthy player in one wave was
