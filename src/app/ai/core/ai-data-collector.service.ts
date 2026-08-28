@@ -450,13 +450,12 @@ export class AIDataCollectorService {
   private onEnemyReachedBase(event: { enemy: { id: string; typeConfig: { id: string } }; damage: number }): void {
     this.currentWaveOutcome.enemiesReachedBase =
       (this.currentWaveOutcome.enemiesReachedBase || 0) + 1;
-    this.currentWaveOutcome.damageToPlayer =
-      (this.currentWaveOutcome.damageToPlayer || 0) + event.damage;
-
-    // Update damage percent
-    const maxHealth = GAME_BALANCE.player.startHealth;
-    this.currentWaveOutcome.damagePercent =
-      (this.currentWaveOutcome.damageToPlayer || 0) / maxHealth;
+    // NOTE: `event.damage` is the NOMINAL leak cost. What the player actually
+    // loses is capped per wave (GAME_BALANCE.combat.maxLeakDamagePerWave), so
+    // the real figure is accumulated in `onHealthChanged` from the health
+    // delta. Counting the nominal value here reported 74% HP lost on waves
+    // that cost at most 18%, and the wave director would have been trained on
+    // damage that never happened.
 
     // Track per-enemy-type performance
     const enemyType = event.enemy.typeConfig.id;
@@ -467,6 +466,15 @@ export class AIDataCollectorService {
   }
 
   private onHealthChanged(event: { health: number; delta: number }): void {
+    // Actual HP lost, after the per-wave leak cap. This is the figure the
+    // reward is computed from; the nominal per-enemy cost is not.
+    if (event.delta < 0) {
+      this.currentWaveOutcome.damageToPlayer =
+        (this.currentWaveOutcome.damageToPlayer || 0) - event.delta;
+      this.currentWaveOutcome.damagePercent =
+        (this.currentWaveOutcome.damageToPlayer || 0) / GAME_BALANCE.player.startHealth;
+    }
+
     if (event.health < this.lowestHealthThisWave) {
       this.lowestHealthThisWave = event.health;
     }
