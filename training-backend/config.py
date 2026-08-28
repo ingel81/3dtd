@@ -293,8 +293,13 @@ PACING_SHAPE_CAP = 5.0
 # A wipe is a wipe whenever it lands. The shortfall term alone falls to -0.6 by
 # wave 70 and -0.006 by wave 79, so deleting a healthy player in one wave was
 # free there — the exact "unfair wipe" this whole design is meant to exclude.
-OVERKILL_DAMAGE_FRACTION = 0.25
-REWARD_OVERKILL = -3.0
+#
+# Relaxed once the game itself capped leak damage per wave
+# (GAME_BALANCE.combat.maxLeakDamagePerWave). The rule now forbids the
+# one-wave erasure structurally, so this no longer has to carry it alone; it
+# stays as a nudge against pushing right up against that cap every wave.
+OVERKILL_DAMAGE_FRACTION = 0.15
+REWARD_OVERKILL = -1.5
 
 # === REWARD — Term 3: PACING (HP decay curve) ===
 # Where the player's HP should be by now, and how sharply we insist on it.

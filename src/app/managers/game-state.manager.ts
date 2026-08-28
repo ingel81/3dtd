@@ -102,6 +102,8 @@ export class GameStateManager {
 
   // Game state signals
   readonly baseHealth = signal<number>(GAME_BALANCE.player.startHealth);
+  /** HP already lost to leaks in the current wave; capped per wave. */
+  private waveLeakDamage = 0;
   readonly credits = signal<number>(GAME_BALANCE.player.startCredits);
   /** Game over screen signal - delegated to HQDamageService */
   readonly showGameOverScreen = computed(() => this.hqDamage.showGameOverScreen());
@@ -271,8 +273,19 @@ export class GameStateManager {
 
     // Register event handlers (tracked via SubscriptionBag for cleanup in reset())
     this.eventBusSubs.add(this.eventBus.on('enemy:reached-base', (event) => {
+      // Cap the damage a single wave can do. See `maxLeakDamagePerWave`:
+      // late-game leaks cost 10 HP each and nothing heals, so one wave with a
+      // missing counter could otherwise erase half a run in ninety seconds.
+      const budgetLeft = Math.max(
+        0,
+        GAME_BALANCE.combat.maxLeakDamagePerWave - this.waveLeakDamage,
+      );
+      const applied = Math.min(event.damage, budgetLeft);
+      this.waveLeakDamage += applied;
+      if (applied <= 0) return;
+
       const oldHealth = this.baseHealth();
-      const newHealth = Math.max(0, oldHealth - event.damage);
+      const newHealth = Math.max(0, oldHealth - applied);
       this.baseHealth.set(newHealth);
 
       // Emit health:changed - HQDamageService subscribes
@@ -282,6 +295,7 @@ export class GameStateManager {
         delta: newHealth - oldHealth,
       });
     }));
+
 
     // AA-Retrofit unlocks air targeting for towers that were placed WITHOUT
     // it. Their per-cell air visibility was never resolved (registerTower ran
@@ -627,6 +641,8 @@ export class GameStateManager {
       this.eventBus.emit({ type: 'game:started' });
     }
 
+    // Fresh leak budget for the new wave (see maxLeakDamagePerWave).
+    this.waveLeakDamage = 0;
     this.waveManager.startWave(config);
   }
 
@@ -650,6 +666,7 @@ export class GameStateManager {
    */
   healBase(): void {
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
+    this.waveLeakDamage = 0;
     this.hqDamage.healBase();
   }
 
@@ -716,6 +733,7 @@ export class GameStateManager {
     }
 
     this.baseHealth.set(GAME_BALANCE.player.startHealth);
+    this.waveLeakDamage = 0;
     this.updateCredits(GAME_BALANCE.player.startCredits - this.credits());
     this.lastUpdateTime = 0;
     this._gameTimeMs = 0;
