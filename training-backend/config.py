@@ -174,7 +174,35 @@ REWARD_DRAMA_IDLE = -0.30         # value as near_miss_ratio -> far from target
 # 100. Damp small waves so the band cannot be farmed with a handful of enemies.
 # Boss templates start at countRange [10,100], so full credit at 40 is reachable
 # for every template in the set.
+# Below this a wave gets no positive drama at all, and from here it ramps
+# LINEARLY to full credit at DRAMA_FULL_COUNT. sqrt-damping alone relocated the
+# exploit instead of closing it: 5 near-missers out of 21 enemies scored
+# bell~0.99 x sqrt(21/40) = +0.71 per wave at no risk, and 48% of observed waves
+# came in at 20 enemies or fewer. Nothing in the function pushed size upward.
+DRAMA_MIN_COUNT = 20
 DRAMA_FULL_COUNT = 40
+
+# Leaks are charged inside DRAMA, as a slope on the fraction of the wave that
+# reached the base. This replaces the old overflow guard, which tested
+# `avg_progress > 0.95` — the MEAN, the very statistic v4 rejected for drama.
+# A catastrophic wave leaking 40% of its enemies has a mean around 0.6 and
+# sailed straight past that guard.
+REWARD_LEAK_SLOPE = -2.0
+
+# PACING tail. A pure Gaussian saturates: beyond ~2 sigma the bell is flat and
+# the term becomes a constant tax with NO gradient. Measured: 58.4% of waves sat
+# at exactly -0.60, i.e. the term that is supposed to steer the run length was
+# dead on the majority of waves — precisely the ones furthest off the curve.
+# Quadratic inside 1 sigma for fine control, linear beyond it so the gradient
+# survives where it is actually needed.
+PACING_TAIL_SLOPE = 0.5
+PACING_SHAPE_CAP = 2.0
+
+# A wipe is a wipe whenever it lands. The shortfall term alone falls to -0.6 by
+# wave 70 and -0.006 by wave 79, so deleting a healthy player in one wave was
+# free there — the exact "unfair wipe" this whole design is meant to exclude.
+OVERKILL_DAMAGE_FRACTION = 0.25
+REWARD_OVERKILL = -3.0
 
 # === REWARD — Term 3: PACING (HP decay curve) ===
 # Where the player's HP should be by now, and how sharply we insist on it.
@@ -196,11 +224,14 @@ SWARM_SMALL_PENALTY = -0.10
 SWARM_SIZE_SLOPE = 0.0004
 SWARM_SIZE_CAP = 0.30             # below the drama peak by design
 
-# === OVERFLOW ===
-# Everyone reached the base. That is a breach, not a near-miss, whatever the
-# near-miss ratio says about it.
+# === OVERFLOW — DISPLAY ONLY as of the leak-slope change ===
+# The reward no longer guards overflow via mean path progress. That guard asked
+# `avg_progress > 0.95` — the mean, the exact statistic v4 rejected for drama —
+# and a wave leaking 40% of its enemies has a mean near 0.6 and passed it
+# untouched. Breaches are now charged in DRAMA on REWARD_LEAK_SLOPE, against the
+# measured fraction that actually reached the base. This threshold survives only
+# to bucket the dashboard's progress histogram.
 PROGRESS_OVERFLOW_THRESHOLD = 0.95
-REWARD_OVERFLOW = -0.80
 
 # === Damage bands — DISPLAY ONLY as of v4 ===
 # No reward term gates on these any more. The dashboard still buckets waves by

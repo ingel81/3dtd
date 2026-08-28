@@ -2,13 +2,13 @@
 Reward Calculation — v4, four terms.
 
   DEATH:   one-shot penalty, measured against the TARGET run length rather than
-           in absolute terms. The run is supposed to end; ending it on schedule
-           is free, ending it at wave 10 is not.
+           in absolute terms, plus a surcharge for wiping the player out of
+           healthy HP in a single wave.
   DRAMA:   per-wave excitement, read off `near_miss_ratio` — the fraction of the
-           wave that got past 80% of the path. A Gaussian around a target band,
-           damped for waves too small to make the ratio meaningful.
+           wave that got past 80% of the path without arriving. Leaks are
+           charged here on their own slope.
   PACING:  run-length control, read off the player's remaining HP against a
-           decay curve. This is where "how hard should waves hit" now lives.
+           decay curve.
   SWARM:   tiebreaker inside the drama envelope. Never the goal.
 
 Why v3 was replaced (measured over ~9900 episodes, four parallel clients):
@@ -25,7 +25,7 @@ Why v3 was replaced (measured over ~9900 episodes, four parallel clients):
      opposite directions.
   3. Drama was read off the MEAN path progress, which the bulk of early-dying
      enemies dominates. A wave of 270 rats where five reach 95% scores 0.1 and
-     read as boring.
+     reads as boring.
 
   The agent's response was correct play: it collected a guaranteed -0.08 per
   wave by sending nothing. Measured `avgProgress50` of 0.06-0.27 against a
@@ -47,23 +47,26 @@ from config import (
     # DEATH
     TARGET_RUN_WAVES,
     REWARD_DEATH_MAX,
+    OVERKILL_DAMAGE_FRACTION,
+    REWARD_OVERKILL,
     # DRAMA
     NEAR_MISS_TARGET,
     NEAR_MISS_SIGMA,
     REWARD_DRAMA_PEAK,
     REWARD_DRAMA_IDLE,
+    DRAMA_MIN_COUNT,
     DRAMA_FULL_COUNT,
+    REWARD_LEAK_SLOPE,
     # PACING
     PACING_SIGMA,
+    PACING_TAIL_SLOPE,
+    PACING_SHAPE_CAP,
     REWARD_PACING_PEAK,
     # SWARM_SIZE
     SWARM_SMALL_THRESHOLD,
     SWARM_SMALL_PENALTY,
     SWARM_SIZE_SLOPE,
     SWARM_SIZE_CAP,
-    # OVERFLOW
-    PROGRESS_OVERFLOW_THRESHOLD,
-    REWARD_OVERFLOW,
 )
 
 
@@ -90,52 +93,72 @@ def hp_target(wave_num: int) -> float:
     return max(0.0, 1.0 - wave_num / TARGET_RUN_WAVES)
 
 
-def _death_penalty(wave_num: int, survived: bool) -> float:
-    """Cost of ending the run, scaled by how early it ended.
+def _death_penalty(wave_num: int, survived: bool, damage_pct: float) -> float:
+    """Cost of ending the run: how early it ended, and how brutally.
 
     Quadratic in the shortfall so that dying near the target is nearly free
     while dying in the opening waves is catastrophic. At TARGET_RUN_WAVES and
-    beyond this is exactly 0: the run reached its intended length.
+    beyond the shortfall term is exactly 0 — the run reached its intended
+    length, and in a game with no win condition that is a finished run, not a
+    failure.
+
+    The shortfall term alone is not enough. It decays to -0.6 by wave 70 and
+    -0.006 by wave 79, so deleting a player who was at healthy HP in a single
+    wave costs nothing there — which is exactly the unfair wipe this design
+    exists to rule out, available precisely where the agent has the firepower
+    to do it. Reaching the intended length is fine; ending someone from a
+    quarter of their HP in one wave is not, whenever it happens.
     """
     if survived:
         return 0.0
     if TARGET_RUN_WAVES <= 0:
         return 0.0
     shortfall = max(0.0, (TARGET_RUN_WAVES - wave_num) / TARGET_RUN_WAVES)
-    return REWARD_DEATH_MAX * shortfall * shortfall
+    penalty = REWARD_DEATH_MAX * shortfall * shortfall
+    if damage_pct > OVERKILL_DAMAGE_FRACTION:
+        penalty += REWARD_OVERKILL
+    return penalty
 
 
-def _drama_reward(near_miss_ratio: float, avg_progress: float,
+def _drama_reward(near_miss_ratio: float, leak_ratio: float,
                   total_count: int) -> float:
     """How exciting the wave was, from the upper tail of the progress spread.
 
-    `near_miss_ratio` is the fraction of enemies that got past 80% of the path.
-    It is the right statistic for three reasons: it describes the tail rather
-    than the mean, its step size is 1/count rather than the 6%-per-leak of the
-    HP measure, and it is exactly the thing a player perceives as a close call.
+    `near_miss_ratio` is the fraction of enemies that got past 80% of the path
+    WITHOUT reaching the base. It is the right statistic for three reasons: it
+    describes the tail rather than the mean, its step size is 1/count rather
+    than the 6%-per-leak of the HP measure, and it is exactly the thing a player
+    perceives as a close call.
 
-    An overflowing wave short-circuits this. Everyone reaching the base is a
-    breach, and a breach has a near_miss_ratio of 1.0 that would otherwise be
-    scored on the same curve as a genuine near-miss.
+    Excluding arrivals matters more than it looks. Counting `p > 0.80` scored a
+    breach and a near-miss identically, so a wave where a quarter of 200 enemies
+    walked into the base — fifty leaks, lethal several times over — read as
+    perfectly on target. Leaks are charged here instead, on their own slope.
+
+    That slope also replaces the old overflow guard, which tested
+    `avg_progress > 0.95`: the mean, the very statistic this term exists to
+    avoid. A wave leaking 40% of its enemies has a mean near 0.6 and sailed
+    past that guard untouched.
     """
-    if avg_progress > PROGRESS_OVERFLOW_THRESHOLD:
-        return REWARD_OVERFLOW
-
     bell = _bell(near_miss_ratio, NEAR_MISS_TARGET, NEAR_MISS_SIGMA)
     score = REWARD_DRAMA_PEAK * bell + REWARD_DRAMA_IDLE * (1.0 - bell)
 
-    # A ratio is scale-free: one leaker out of four hits the band as neatly as
-    # 25 out of 100. Damp waves too small for the ratio to mean anything, so
-    # the band cannot be farmed with a handful of enemies. Square-root so the
-    # damping is gentle — boss templates legitimately run at count 10.
-    if DRAMA_FULL_COUNT > 0 and total_count < DRAMA_FULL_COUNT:
-        scale = math.sqrt(max(0, total_count) / DRAMA_FULL_COUNT)
-        # Only damp a positive score. Scaling a penalty toward zero would make
-        # tiny waves the cheap way to avoid one.
-        if score > 0:
-            score *= scale
+    # A ratio is scale-free: one near-misser out of four hits the band as neatly
+    # as 25 out of 100. Below DRAMA_MIN_COUNT a wave earns no positive drama at
+    # all, and from there credit ramps linearly to DRAMA_FULL_COUNT.
+    #
+    # sqrt-damping was not enough on its own: five near-missers out of 21
+    # enemies still paid +0.71 at no risk, and 48% of measured waves came in at
+    # 20 enemies or fewer. Damping only ever applies to a positive score —
+    # scaling a PENALTY toward zero would make tiny waves the cheap way out.
+    if score > 0:
+        if total_count < DRAMA_MIN_COUNT:
+            score = 0.0
+        elif total_count < DRAMA_FULL_COUNT:
+            span = DRAMA_FULL_COUNT - DRAMA_MIN_COUNT
+            score *= (total_count - DRAMA_MIN_COUNT) / span
 
-    return score
+    return score + REWARD_LEAK_SLOPE * leak_ratio
 
 
 def _pacing_reward(wave_num: int, hp_after: float) -> float:
@@ -146,20 +169,29 @@ def _pacing_reward(wave_num: int, hp_after: float) -> float:
     than per wave against a window, so the 6-HP granularity of a single leak is
     a small step along the curve instead of a jump clean over a 4-point band.
 
-    It is also the term that makes standing still expensive. A client sitting at
-    100% HP on wave 92 is maximally far from the curve, so every point of damage
-    improves the score — the gradient points at attacking, which under v3 it
-    never did.
+    A PENALTY for drifting off the curve, not a bonus for sitting on it. Paying
+    a bonus here reopened the collapse from a new angle: a policy that sent
+    nothing still collected the full pacing reward for as long as the player
+    happened to be on the curve, so idling scored positive. Being on schedule is
+    merely free, and DRAMA is the only term that pays.
 
-    Returns a value in [-REWARD_PACING_PEAK, 0].
+    Quadratic inside one sigma, LINEAR beyond it. A Gaussian was the obvious
+    shape and the wrong one: past about two sigma it is flat, so the term became
+    a constant tax carrying no gradient. Measured at 58.4% of waves pinned to
+    exactly -0.60 — the steering signal was dead on the majority of waves, and
+    specifically on the ones furthest off the curve, which are the ones that
+    most need telling which way to move.
+
+    It is also the term that makes standing still expensive. A client sitting at
+    100% HP on wave 92 is far off the curve, so every point of damage improves
+    the score — the gradient points at attacking, which under v3 it never did.
+
+    Returns a value in [-REWARD_PACING_PEAK * PACING_SHAPE_CAP, 0].
     """
-    err = hp_after - hp_target(wave_num)
-    # A PENALTY for being off the curve, not a bonus for being on it. Paying a
-    # bonus here re-opened the collapse from a new angle: a policy that sent
-    # nothing still collected the full pacing reward for as long as the player
-    # happened to sit on the curve, so idling scored positive. Being on schedule
-    # is now merely free, and DRAMA is the only term that pays.
-    return REWARD_PACING_PEAK * (_bell(err, 0.0, PACING_SIGMA) - 1.0)
+    err = abs(hp_after - hp_target(wave_num))
+    u = err / PACING_SIGMA
+    shape = u * u if u <= 1.0 else 1.0 + PACING_TAIL_SLOPE * (u - 1.0)
+    return -REWARD_PACING_PEAK * min(shape, PACING_SHAPE_CAP)
 
 
 def _swarm_size_reward(total_count: int, drama: float) -> float:
@@ -185,11 +217,12 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
 
     Args:
         wave_result: {
-            nearMissRatio: float,   # 0..1, fraction of enemies past 80% path
-            avgProgress: float,     # 0..1, mean enemy path-progress at death
+            nearMissRatio: float,   # 0..1, past 80% path but NOT arrived
+            leakRatio: float,       # 0..1, fraction that reached the base
             totalCount: int,        # enemies in the wave
             survived: bool,         # did the bot survive this wave?
             hpAfter: float,         # 0..1, player HP fraction after the wave
+            damagePercent: float,   # 0..1, HP fraction lost this wave
         }
         context: {
             wave_number: int,
@@ -199,14 +232,15 @@ def calculate_reward(wave_result: dict, context: dict) -> tuple[float, dict]:
         (total_reward, breakdown_dict) — breakdown has exactly 4 keys.
     """
     near_miss_ratio = float(wave_result.get("nearMissRatio", 0.0))
-    avg_progress = float(wave_result.get("avgProgress", 0.0))
+    leak_ratio = float(wave_result.get("leakRatio", 0.0))
     total_count = int(wave_result.get("totalCount", 0))
     survived = bool(wave_result.get("survived", True))
     hp_after = float(wave_result.get("hpAfter", 1.0))
+    damage_pct = float(wave_result.get("damagePercent", 0.0))
     wave_num = int(context.get("wave_number", 0))
 
-    death = _death_penalty(wave_num, survived)
-    drama = _drama_reward(near_miss_ratio, avg_progress, total_count)
+    death = _death_penalty(wave_num, survived, damage_pct)
+    drama = _drama_reward(near_miss_ratio, leak_ratio, total_count)
     pacing = _pacing_reward(wave_num, hp_after)
     swarm = _swarm_size_reward(total_count, drama)
 
