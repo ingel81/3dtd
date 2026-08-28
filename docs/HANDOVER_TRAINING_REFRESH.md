@@ -544,3 +544,53 @@ Folge: Templates mit `countRange` bis 600 bleiben faktisch ungenutzt
    kommen? Das Review schlägt 70 vor. Diese Zahl definiert Terminal-Shaping,
    Pacing-Kurve und indirekt die Leak-Eskalation — sie sollte bewusst gesetzt
    werden, nicht implizit über eine Konstante.
+
+### N. Ergebnis nach 100 Updates: Drama erreicht, Rundenlänge verfehlt (2026-08-28)
+
+Lauf mit `REWARD_DEATH_MAX = -8`, 13.464 Episoden, 101 Updates, vier Clients.
+
+**Was funktioniert:**
+
+| | v3-Endstand | v4 nach 100 Updates |
+|---|---|---|
+| `avgProgress` (je Client) | 0,06–0,27 | **0,74 / 0,74 / 0,74 / 0,24** |
+| Progress im Sweet-Band | ~25 % | **44–50 %** |
+| `avgDamage` je Wave | 0,000 | 0,115 |
+| `nearMissBandPct` | — | 60 % |
+| `approxKl` | 0,16 | 0,022 |
+| `gradNorm` | 17 | 3,76 |
+
+Die Hälfte aller Waves landet im Progress-Zielband, der mittlere Pfad-Progress
+liegt bei 0,74 — mitten im gewünschten 0,65–0,90. Die Optimierung ist sauber.
+Das ist das Gegenteil des v3-Endstands, wo ein Client 133 Waves ohne einen
+einzigen HP-Verlust überstand.
+
+**Was nicht funktioniert:** `avgDamage50` liegt bei 0,12–0,14, also 12–14 HP je
+Wave. Bei 100 HP ohne Heilung sind das ~7 Waves bis zum Tod gegen eine
+Ziel-Rundenlänge von 80. Die HP-Kurve verlangt 1,25 HP/Wave; geliefert wird das
+Zehnfache. `hpCurveError` −0,34 und `gameOverRate` 18,3 % bestätigen es.
+
+**Der Konflikt ist damit vermessen statt vermutet.** Bei dieser Spielphysik
+stehen Drama und Rundenlänge in direktem Widerspruch: Ein Gegner, der 74 % des
+Pfades schafft, ist genau deshalb spannend, weil er fast durchkommt — und bei
+einem gemessenen Verhältnis von etwa zwei Leaks je Near-Miss kommt ein
+erheblicher Teil eben durch. Bei 6 HP je Leak ab Wave 51 ist „viele Gegner sehr
+weit kommen lassen" und „der Spieler überlebt 80 Waves" nicht gleichzeitig
+erfüllbar, solange die Leak-Kosten so hoch sind.
+
+**Auflösbar nur über eine der folgenden Design-Entscheidungen** (alle betreffen
+das Spiel, nicht das RL-Setup):
+
+1. **Leak-Schaden senken oder abflachen.** Bei 2 HP statt 6 ab W51 wären
+   dieselben Waves bei dreifacher Rundenlänge möglich. Ändert das Spielgefühl
+   für Menschen direkt.
+2. **Heilung einführen.** Macht einen stationären Zustand aus stetigem Schaden
+   erst möglich; heute ist jeder HP-Verlust endgültig.
+3. **Kürzere Ziel-Rundenlänge akzeptieren.** Wenn ein Run 20–30 Waves dauern
+   soll statt 80, passt das aktuelle Verhalten bereits.
+4. **Near-Miss-Fenster verschieben.** Drama bei 0,60–0,75 Pfad statt 0,80+
+   erzeugt weniger Leaks je Near-Miss — weniger knapp, aber billiger.
+
+Ohne eine dieser Entscheidungen pendelt jede weitere Reward-Justierung nur
+zwischen „zu langweilig" und „zu tödlich" hin und her; beide Enden sind heute
+Nacht mehrfach durchlaufen worden.
