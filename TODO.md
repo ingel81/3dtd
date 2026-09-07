@@ -236,11 +236,16 @@
 
 ## 2.2 Phase 5.16 Playtest + Followups
 
-> **Stand 2026-05-11:** Branch `feature/phase5.5-economy-ai-prep`, geparkt für andere Themen.
-> Checkpoint ep 7350 (ONNX in `public/assets/ai/wave-director/`) wurde gegen das **alte**
-> Reward-System trainiert. Curriculum + Difficulty-Knobs (`endgameHpMultiplier`,
-> `enemyBaseDamageForWave`) sitzen post-NN — daher trotz alter Sweet-Damage-Kalibrierung
-> spielbar. Vollständiger Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md).
+> **Stand 2026-09-07:** Der Wave Director ist **regelbasiert und clientseitig**
+> (`src/app/ai/core/rule-director.ts` + `gate-controller.ts`). Das ONNX-Modell
+> liegt noch unter `public/assets/ai/wave-director/`, wird aber nicht mehr geladen
+> — nur noch per explizitem `WaveDirectorService.loadModel()`. Die Difficulty-Knobs
+> (`endgameHpMultiplier`, `enemyBaseDamageForWave`) und das Curriculum sitzen
+> unverändert **hinter** dem Director und gelten für beide Pfade.
+>
+> **Ältere Notiz (2026-05-11):** Checkpoint ep 7350 wurde gegen das alte
+> Reward-System trainiert; Schema v2 (162 Features) macht ihn ohnehin unladbar.
+> Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md).
 >
 > **Architektur-Status:** Phase 5.10 hat das Template-System geshipped (18 Templates,
 > 4 Reward-Terme, State 156, Hard-Constraints im Decoder). Bei Tuning gilt:
@@ -277,12 +282,18 @@
       Lightning als 10. Tower und 8. Damage-Type auf (162 statt 156 Features);
       der Bot hat es in `ALL_COMBAT_TOWERS` und `storm-mastery` in der
       Research-Reihenfolge.
-- [ ] **Re-Training auswerten**
-      Nicht mehr optional: Schema v2 (162 Features) macht Checkpoint 7350 unladbar,
-      und der alte Lauf war ohnehin wertlos — der DEATH-Term hat nie gefeuert
-      (`server.py` las `outcome.gameOver`, das Feld heisst `playerSurvived`), und
-      der Template-Head bekam Gradienten für nie gespielte Aktionen.
-      Beides ist gefixt, der From-Scratch-Lauf läuft. Start/Überwachung: `/training`.
+- [ ] **Re-Training auswerten** — *Ergebnis liegt vor, Konsequenz gezogen (2026-09-07)*
+      Der From-Scratch-Lauf ist ausgewertet: das trainierte Netz war in A/B-Runs
+      dreimal statistisch ununterscheidbar von gleichverteiltem Zufall (mittlere
+      Run-Länge 45,6 [42,49] gegen 44,7 [41,48]), während zwei triviale Heuristiken
+      messbar mehr Spannung erzeugten (Near-Miss 0,067–0,069 gegen 0,045). Das Netz
+      hatte nie gelernt — `log_std` unverändert, alle Faktor-Mittel auf sigmoid(0).
+      Ursache lag **vor** dem Lernen: das Curriculum pinnt auf 49% der Wellen das
+      Template, der Fairness-Cap bindet auf 63% — die volle Spanne des
+      count-Faktors bewegte eine Welle von 19 auf 28 Gegner.
+      Konsequenz: Betrieb läuft auf dem Regel-Director. Offen bleibt nur noch die
+      **Entscheidung**, ob das Training weiterverfolgt wird (dann zuerst
+      Aktionsraum aufmachen, nicht Reward tunen) oder ob der ONNX-Pfad entfällt.
       Vollständiger Befund: [docs/HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md).
 
 ## 2.3 Pre-Production Wave-Deployment Safeguards
@@ -296,13 +307,19 @@
 > Cooldowns strukturell gemildert. Beim **echten Spieler-Deployment** sind aber
 > zusätzliche Inference-seitige Schichten geplant, weil ein differenziertes Netz
 > trotzdem Single-Type-Waves erzeugen kann wenn Mixed-Wave-Threshold ungünstig liegt.
+>
+> **Hinfällig für den Regel-Director (2026-09-07):** Die beiden Decoder-Punkte
+> unten adressieren beide Monotonie im Softmax des Netzes. Der Regel-Director hat
+> gar keinen Softmax — er wählt das *älteste erlaubte* Template, Wiederholung ist
+> damit strukturell ausgeschlossen statt nur bestraft. Relevant bleiben die Punkte
+> ausschließlich, falls der ONNX-Pfad wieder produktiv wird.
 
-- [ ] **Temperature-Sampling im Decoder**
+- [ ] ~~**Temperature-Sampling im Decoder**~~ — nur bei ONNX relevant
       Bei Inference `softmax(probs / T)` mit T=1.5-2.0 statt `argmax`. Secondary Types
       bekommen mehr Raum ohne Neutraining. Null Training-Kosten, reiner Inference-Parameter.
-      Datei: `src/app/ai/core/wave-director.service.ts` (Decoder-Pfad).
+      Datei: `src/app/ai/core/wave-director.service.ts` (`decodeModelOutput()`).
 
-- [ ] **Hard-Monotony-Cap im Decoder**
+- [ ] ~~**Hard-Monotony-Cap im Decoder**~~ — durch die Stalest-Template-Regel erledigt
       Notbremse: max. 3 Waves in Folge mit demselben dominanten Typ — über alle
       Mixed-Groups hinweg getrackt, nicht nur `groups[0]`. Wenn Cap triggert:
       nächst-stärkster Typ im Softmax wird promoted.
@@ -420,7 +437,7 @@
       Dateien: `models/status-effects.ts`, `game-components/movement.component.ts`,
       `entities/enemy.entity.ts`.
 
-## 3.4 AI Wave Director — Build & Deployment
+## 3.4 Wave Director — Build & Deployment
 
 > Training-Code nicht in Prod Bundle
 
@@ -428,8 +445,12 @@
       `angular.json`: fileReplacements für Training-Code
       Production: Training-Module wird zu leerem Stub
       Bundle Size Check: AI < 300KB
+      *Teilweise entschärft (2026-09-07):* `onnxruntime-web` wird nicht mehr beim
+      Start importiert, sondern nur in `loadModel()` — die 404 kB liegen damit
+      hinter einem Lazy-Chunk, den niemand mehr anfordert. Offen bleibt der
+      Training-Code (`ai/training/`).
 
-- [ ] **Model Validation**
+- [ ] **Model Validation** — nur relevant, falls der ONNX-Pfad produktiv wird
       `scripts/validate-model.js`
       Prüft: Format, Größe, Basis-Inference
       Läuft vor Commit (optional)

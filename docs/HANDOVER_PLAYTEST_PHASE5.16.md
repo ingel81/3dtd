@@ -10,6 +10,24 @@
 > beschreibt den Code aber nicht mehr durchgehend korrekt. Beim Wiederaufsetzen
 > gilt der Training-Refresh-Handover; hier stehen nur noch die Design-Absichten
 > von damals. Die im Text gefundenen Zahlendreher sind unten korrigiert.
+>
+> **Was seit 2026-09 zusätzlich nicht mehr stimmt:** Überall, wo unten „NN",
+> „Modell" oder „Checkpoint" steht, ist heute ein **regelbasierter Director**
+> gemeint (`src/app/ai/core/rule-director.ts`), der Template und die vier
+> Formfaktoren im Client wählt. Es wird kein Modell geladen. Der Decoder
+> darunter — Templates, Maske, Ranges, DPS-Ramp, `endgameHpMultiplier`,
+> `enemyBaseDamageForWave`, Fairness-Cap — ist unverändert, deshalb gelten die
+> **Balance-Aussagen** dieses Dokuments weiter, die **AI-Aussagen** nicht.
+> Konkret hinfällig: Abschnitt 2 B) (Re-Training) und alles über
+> Checkpoint 7350. Neu dazugekommen ist ein clientseitiger Regelkreis auf den
+> Fairness-Cap (`src/app/ai/core/gate-controller.ts`), den es damals nur
+> serverseitig gab.
+>
+> **Was in Abschnitt 1 weiterhin gilt** (gegen den Code geprüft, 2026-09):
+> Upgrade-Multiplikatoren und Tier-Bänder, `endgameHpMultiplier`,
+> `enemyBaseDamageForWave`, Tower-Kosten, `SELL_RATIO = 0.75`, Damage-Matrix,
+> Research-Tree inkl. T4/T5. Nicht mehr gültig: die Aussage zum Gold-Loop
+> (siehe Korrektur direkt unten) und die Template-Sequenz ab W31.
 
 > **Beim Wiederaufsetzen:** Diese Datei + `docs/economy-chart.html` öffnen, dann
 > den **Offene Punkte**-Block weiter unten + `TODO.md` PRIO 2 abarbeiten. Konkret
@@ -29,11 +47,15 @@
 ## 1. Was abgeschlossen ist
 
 ### Wave-Curriculum + deterministisches Gold-Budget
-- 30 Waves explizit. **Korrektur:** Das Gold-Budget wird nicht linear extrapoliert
-  (`KILL_DELTA_PER_WAVE`/`COMPLETE_DELTA_PER_WAVE` gibt es nicht mehr) — es loopt
-  mod-30 zusammen mit dem statischen Fallback. Die Template-Sequenz loopt seit dem
-  Training-Refresh **gar nicht** mehr: ab W31 wählt der Wave Director selbst.
-  Werte real: W1 133/67 … W30 120000/60000, nicht 30/15 … 650/325.
+- 30 Waves explizit. **Korrektur (Stand 2026-09):** Werte real W1 = 133/67 …
+  W30 = 120000/60000, nicht 30/15 … 650/325. Ab W31 wird das Gold-Budget weder
+  linear extrapoliert (`KILL_DELTA_PER_WAVE`/`COMPLETE_DELTA_PER_WAVE` existieren
+  nicht mehr) **noch mod-30 geloopt** — es **verfällt** geometrisch: `×0.5` je
+  Welle, Boden bei 5 % der W30-Werte (6000/3000, erreicht ab ~W35). Grund: der
+  mod-30-Loop zahlte über 100 Wellen 2,64 M gegen ein Design-Roster von 1,39 M,
+  wodurch der Trainings-Bot voll ausgebaut ab Welle 11 jede Welle zu 100 %
+  tötete. Die Template-Sequenz loopt ebenfalls nicht: ab W31 wählt der Director
+  selbst. Nur `staticWaveProfileForWave` loopt noch mod 30.
 - Per-Kill-Reward = `goldKill / waveSize` (Gesamtsumme durch Gegneranzahl, **NICHT** per-enemy-type-gewichtet).
 - Wave-Complete-Reward = `goldComplete + Skill-Bonuses` (Perfect, CloseCall, Milestone, Combo, Comeback).
 - Files: `src/app/configs/wave-curriculum.config.ts`. **Korrektur:** Den
@@ -118,16 +140,31 @@ Stand: Bot/Spieler-Test mit den neuen Werten ist noch nicht durchlaufen. Erwarte
 - Wave 15-20 sollten noch sichtbar Schwierigkeit hochziehen (HP-Multi setzt ein).
 - Gold zwischen W10 und W30 sollte knapp wirken (T2/T3-Research konkurriert mit Tower-Maxing).
 
-### B) Eventuelles Re-Training
-- Aktueller Checkpoint (Episode 7350, ONNX in `public/assets/ai/wave-director/`) wurde gegen das ALTE Reward-System trainiert.
-- Mit den neuen Difficulty-Knobs (post-NN HP-Multi, Leak-Damage) und Curriculum-Override sollte er trotzdem spielbar sein, aber die Sweet-Damage-Kalibrierung passt nicht mehr exakt.
-- **Überholt:** Das Re-Training ist inzwischen nicht mehr optional. Mit Schema v2
-  (162 statt 156 Features) ist Checkpoint 7350 nicht mehr ladbar, und mehrere
-  Trainingsbugs machten den alten Lauf ohnehin wertlos — allen voran ein nie
-  feuernder DEATH-Term. Details: [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
+### B) Eventuelles Re-Training — **hinfällig**
+Historischer Wortlaut: Checkpoint Episode 7350 (ONNX in
+`public/assets/ai/wave-director/`) wurde gegen das alte Reward-System trainiert
+und sollte mit den neuen Difficulty-Knobs trotzdem spielbar sein.
+
+Zwei Stufen haben das überholt:
+
+1. **Training-Refresh (2026-08):** Schema-Wechsel (heute v3, 203 Features) machte
+   den Checkpoint unladbar, und mehrere Trainingsbugs — allen voran ein nie
+   feuernder DEATH-Term — machten den alten Lauf ohnehin wertlos.
+2. **Regel-Director (2026-09):** Es wird gar kein Modell mehr geladen. Das Netz
+   war in A/B-Läufen dreimal statistisch nicht von uniformem Zufall zu
+   unterscheiden; die Regeln sind seither das Produkt und ein Modell das
+   Opt-in. Ein Re-Training ist damit kein offener Punkt mehr, sondern eine
+   Grundsatzentscheidung.
+
+Details: [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
 
 ### C) Boss-Frequenz ab W31
-Im Plan war: ab W31 Bosse alle 5 Waves statt 10. **Nicht implementiert** — Curriculum loopt einfach. Falls gewünscht, in `templateForWave()` ein Override für `wave > 30 && wave % 5 === 0` einbauen.
+Im Plan war: ab W31 Bosse alle 5 Waves statt 10. **Nicht implementiert** — und die
+Ausgangslage hat sich geändert: Das Curriculum loopt nicht mehr, `templateForWave()`
+liefert ab W31 `null` und der Director wählt frei unter der Maske. `boss_herbert`
+ist dort über `bossOnly` an `wave % 10 === 0` gebunden. Eine höhere Boss-Frequenz
+wäre also eine Änderung an der Maske (`getAvailableTemplateMask` in
+`templates.ts`), nicht an `templateForWave()`.
 
 ### D) Per-Kill-Budget-Rounding-Bug
 **Erledigt** (Commit `e4a3400`, 2026-05-23). `enemy.manager.ts:265-289` verteilt das

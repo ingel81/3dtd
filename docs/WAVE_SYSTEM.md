@@ -1,6 +1,6 @@
 # Wave System
 
-**Stand:** 2026-05-12
+**Stand:** 2026-05-12 (Wave-Erzeugung/Fairness-Gate + Game-Over-Pfad: 2026-09-07)
 
 Dokumentation des Wave-Systems fuer automatisches Enemy-Spawning und Spielphasen.
 
@@ -74,7 +74,7 @@ export type GamePhase = 'setup' | 'wave' | 'gameover';
 | Event | Emitted von | Beschreibung |
 |-------|-------------|--------------|
 | `wave:started` | `beginWave()`, `startWave()` | Wave beginnt, enthaelt `wave` (Nummer) und `enemyCount` |
-| `wave:completed` | `endWave()` | Wave abgeschlossen, emitted via `emitDeferred()` |
+| `wave:completed` | `endWave()` | Wave abgeschlossen, emitted via `emitDeferred()`. **Nicht** emittiert, wenn die Basis faellt — siehe [Game Over Integration](#base-destroyed). |
 
 ---
 
@@ -114,7 +114,8 @@ export interface SpawnEntry {
 
 | Quelle | Funktion |
 |---|---|
-| AI Wave Director | `WaveDirectorService.getNextWave()` / `trainingClient.requestWaveConfig()` |
+| Wave Director (Default) | `WaveDirectorService.getNextWave()` — regelbasiert, siehe unten |
+| Training-Backend | `trainingClient.requestWaveConfig()`, solange die WebSocket-Verbindung steht |
 | Static Curriculum | `staticWaveResolvedFor(waveNum)` (siehe [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md)) |
 | Debug-Panel | `WaveDebugService.toAIWaveConfig()` |
 
@@ -154,6 +155,147 @@ Spawn Point C: Enemy 2, 6, 8, 11, ...
 ```
 
 **Verwendung:** Unvorhersehbar, schwieriger
+
+---
+
+## Wave-Erzeugung: Director → WaveConfig
+
+> **Stand 2026-09-07:** Der Director ist **regelbasiert und laeuft im Client**.
+> Das ONNX-Modell ist nicht mehr der Default; es bleibt als Opt-in erhalten
+> (`WaveDirectorService.loadModel()`). Fuer den Betrieb braucht das Spiel weder
+> Modell noch Python-Server.
+
+`WaveDirectorService.getNextWave()` erzeugt fuenf Zahlen — einen Template-Index
+und vier Formfaktoren in `[0,1]` (`count`, `spawn`, `hp`, `variation`) — und
+schickt sie durch einen Decoder, der fuer Regeln und Modell **derselbe** ist.
+Nur die Herkunft der fuenf Zahlen unterscheidet sich, was den A/B-Vergleich
+zwischen beiden ueberhaupt erst aussagekraeftig macht.
+
+```
+getStateSnapshot()                     ai/core/ai-data-collector.service.ts
+   │
+   ▼
+buildWaveContext(state, recent)        ai/core/wave-context.ts
+   │   mask[32]  = Curriculum-Pin, sonst minWave/Capability/Boss/Cooldown
+   │   ranges    = count / hpMult / spawnDelay des tatsaechlichen Templates
+   ▼
+RuleDirector.decide(mask, wave, recent)   ai/core/rule-director.ts
+   │   templateIdx + countFactor / spawnFactor / hpFactor / variationFactor
+   ▼
+buildWaveConfig(decision, state, conf)    ai/core/wave-director.service.ts
+   │   DPS-Ramp → endgameHpMultiplier → Fairness-Cap → Dauer-Cap → Gruppen
+   ▼
+AIWaveConfig ──adaptAIWaveConfig()──► WaveConfig (SpawnSchedule) ──► WaveManager
+```
+
+### Regel-Director: Abwechslung und Kurve
+
+Der `RuleDirector` trifft genau zwei Entscheidungen, beide bewusst ohne Lernen:
+
+- **Abwechslung wird erzwungen, nicht belohnt.** Gewaehlt wird das *aelteste
+  erlaubte* Template (Gleichstand zufaellig). Reward-Term und Cooldown-Maske
+  haben Wiederholung nur teuer gemacht — die Regel macht sie unmoeglich.
+- **Schwierigkeit ist eine geschriebene Kurve, kein Pro-Wave-Urteil.** Der
+  Spieler heilt nie, seine HP sind also ein Budget fuer den ganzen Run; das ist
+  etwas, das man aufschreibt, nicht aus einem Skalar-Reward pro Welle ableitet.
+
+| Faktor | Rampenstart | ab Wave 60 | Wirkung |
+|---|---|---|---|
+| `countFactor` | 0.45 | 0.85 | mehr Gegner |
+| `spawnFactor` | 0.55 | 0.30 | kuerzeres Spawn-Delay |
+| `hpFactor` | 0.40 | 0.75 | zaehere Gegner |
+| `variationFactor` | 0.60 | 0.60 | konstante Streuung |
+
+Rampe linear bis `RAMP_FULL_WAVE = 60`, danach gehalten; auf jeden Faktor kommt
+`JITTER = ±0.12`, damit aufeinanderfolgende Wellen nicht identisch sind.
+
+Die Maske selbst kommt aus `getAvailableTemplateMask()`: **innerhalb** des
+Curriculums (bis `CURRICULUM_FORCED_THROUGH_WAVE`) kollabiert sie auf das eine
+gepinnte Template — die Gates greifen dort gar nicht, weil der Designer die
+Welle bereits gewaehlt hat. Erst danach gelten `minWave`,
+Capability-Anforderungen (Anti-Air, Anti-Ethereal), die Boss-Kadenz
+(`bossOnly` nur auf Vielfachen von 10) und der Cooldown
+(`TEMPLATE_COOLDOWN_WAVES = 2`). Zwei Fallbacks garantieren, dass nie alle
+Slots gesperrt sind; der Leerfall im `RuleDirector` (Slot 0 mit festen
+Mittelwerten) ist deshalb rein defensiv.
+
+### Decoder: von den Faktoren zur Welle
+
+`buildWaveConfig()` ist der geteilte Teil und wendet in dieser Reihenfolge an:
+
+1. **DPS-Ramp** — `count`- und `hpMult`-Range werden am Defense-DPS gedeckelt
+   (`DPS_RAMP_COUNT = 500`, `DPS_RAMP_HP_MULT = 1000`, Untergrenze
+   `DPS_RAMP_FLOOR = 0.10`). Schwache Defense → schmaler effektiver Bereich.
+2. **`endgameHpMultiplier(wave)`** — multipliziert *nach* dem Faktor auf
+   `hpMult` (ab W20 +5%/Wave, Cap 4×, siehe `wave-curriculum.config.ts`).
+3. **Fairness-Cap** (`fairMaxCount`, siehe unten).
+4. **Dauer-Cap** — `MAX_WAVE_DURATION_MS = 180_000`. Wird er gerissen, wird
+   `spawnDelay` komprimiert **und der Count danach neu abgeleitet**: eine
+   langsame Mega-Welle besteht den Fairness-Check gerade *weil* ihr langes
+   Spawn-Fenster der Defense Zeit gibt, und die Kompression vervielfacht
+   anschliessend die Spawn-Rate. Ohne den zweiten Durchlauf umgehen genau die
+   Wellen das Gate, wegen derer es existiert.
+5. **Gruppen-Aufteilung** — `template.enemies` liefert die Anteile; die letzte
+   Gruppe bekommt den Rest, damit `totalCount` exakt aufgeht.
+
+### Fairness-Cap (`fairMaxCount`)
+
+Der Cap begrenzt, **wie gross eine Welle werden darf**. Er schaetzt aus
+Defense-DPS, Kill-Throughput, Gegner-HP, -Ruestung und -Tempo, wie viele Gegner
+die Verteidigung in der Spawn-Zeit plus Engagement-Fenster toeten kann, und
+addiert eine in HP bepreiste Leck-Toleranz
+(`FAIRNESS_WAVE_HP_BUDGET = 6%` der Rest-HP, mindestens `FAIRNESS_MIN_LEAK_HP`,
+geteilt durch `enemyBaseDamageForWave(wave)`).
+
+Zwei Eigenschaften sind wichtig:
+
+- Der Cap **interpoliert, statt zu clampen**: er verengt die `count`-Range,
+  bevor der Faktor angewandt wird. Nachtraegliches Clampen bildete jeden Faktor
+  oberhalb des Caps auf dieselbe Welle ab — eine flache Zone, in der keine
+  Praeferenz mehr ausdrueckbar ist.
+- Der Cap **schlaegt das Template-Minimum**. Liegt er unter `countRange[0]`,
+  kann die Defense nicht einmal die kleinste vorgesehene Welle halten; dann
+  kollabiert die Range auf den Cap, statt trotzdem das Minimum zu schicken.
+
+### Gate-Controller: Regelkreis auf der Leck-Quote
+
+`fairMaxCount` diskontiert die Kill-Schaetzung mit `FAIRNESS_KILL_REALISM = 0.65`.
+Dieser Wert wurde auf den Wellen 1–10 gemessen und ist ab Wave 11 zu
+pessimistisch — der Cap hat also einen stehenden Bias und keine Moeglichkeit,
+ihn zu bemerken. Der `GateController` (`ai/core/gate-controller.ts`) korrigiert
+das aus der einzigen belastbaren Evidenz: **was tatsaechlich die Basis erreicht
+hat**.
+
+| Groesse | Wert | Bedeutung |
+|---|---|---|
+| `GATE_ADAPT_WINDOW` | 4 | Wellen Leck-Historie, bevor ueberhaupt geregelt wird |
+| `GATE_LEAK_TARGET_LO/HI` | 0.08 / 0.16 | Zielband fuer den durchgelassenen Anteil |
+| `GATE_GAIN` | 0.35 | Proportional-Verstaerkung auf den relativen Fehler |
+| `GATE_MULT_DOWN` | 0.8 | Ruecknahme, wenn ein Run endet (bewusst haerter als der Gain) |
+| `GATE_MULT_MIN/MAX` | 0.5 / 8 | Klammer des `budgetMultiplier` |
+
+Innerhalb des Bandes wird gehalten. Zwei Fehlerformen sind bewusst vermieden:
+
+- **Nicht auf die Kill-Quote regeln.** „Die Defense hat alles getoetet, also
+  mehr erlauben" liest die eigene Vorsicht des Reglers als Spielraum — eine
+  kleine Welle wird geraeumt, *weil* sie klein ist. Einseitiger Druck; im
+  Python-Original lief der Multiplikator dabei an seine Obergrenze und schaltete
+  das Gate praktisch ab. Die Leck-Quote ist zweiseitig und konvergiert.
+- **Keine feste Schrittweite.** Der Multiplikator muss ~1.6 erreichen, nur um
+  den veralteten Realism-Discount aufzuheben. Bei 5% pro Fenster sind das ~170
+  Wellen bei Runs von ~60.
+
+**Verdrahtung (der Teil, der beim ersten Anlauf gefehlt hat):** Der Controller
+haengt an `AIDataCollectorService.onWaveResult()`, **nicht** am Event
+`wave:completed`. Beim Fall der Basis wird `wave:completed` nicht emittiert
+(siehe [EVENT_SYSTEM.md](EVENT_SYSTEM.md#event-typen)) — die Todes-Ruecknahme
+waere ueber das Event nie erreichbar gewesen. `onWaveResult` haengt an
+`addToHistory()`, dem einzigen Punkt, den beide Pfade passieren.
+
+Der Zustand ist **pro Run**: `GameLoopFacadeService.restartGame()` ruft
+`waveDirector.resetForNewGame()`. Lief der Multiplikator ueber Runs hinweg
+weiter, wurde er zur Ratsche — neue Runs starteten gegen Wellen, die fuer eine
+laengst abgebaute Verteidigung dimensioniert waren.
 
 ---
 
@@ -433,53 +575,27 @@ startNextWave(): void {
 
 ### Konzept
 
-Jede Wave wird schwieriger:
+Der `WaveManager` kennt **keine** Schwierigkeitskurve — er spielt einen fertigen
+`SpawnSchedule` ab. Die Kurve entsteht an vier Stellen weiter oben und
+multipliziert sich:
 
-```typescript
-private getWaveConfig(): WaveConfig {
-  const waveNum = this.waveManager.waveNumber();
+| Ebene | Wo | Wirkung |
+|---|---|---|
+| Content/Pacing | `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts` | pinnt Template + Gold-Budget pro Wave (W1–W30, danach Loop) |
+| Formfaktoren | `RuleDirector` (`RAMP_FULL_WAVE = 60`) | Count/HP hoch, Spawn-Delay runter |
+| Endgame-HP | `endgameHpMultiplier(wave)` | ab W20 +5%/Wave auf `hpMult`, Cap 4× |
+| Leck-Schaden | `enemyBaseDamageForWave(wave)` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
 
-  return {
-    // Mehr Enemies pro Wave
-    enemyCount: 10 + waveNum * 5,
-
-    // Staerkere Enemy-Typen
-    enemyType: this.getEnemyTypeForWave(waveNum),
-
-    // Schnellere Enemies
-    enemySpeed: 5 + waveNum * 0.5,
-
-    // Schnellere Spawns
-    spawnDelay: Math.max(200, 500 - waveNum * 20),
-
-    spawnMode: 'random',
-  };
-}
-
-private getEnemyTypeForWave(waveNum: number): EnemyTypeId {
-  if (waveNum >= 10) return 'tank';
-  if (waveNum >= 5) return 'wallsmasher';
-  return 'zombie';
-}
-```
+Nach oben gedeckelt wird die Kurve durch den Fairness-Cap und den
+Gate-Controller (siehe [Wave-Erzeugung](#wave-erzeugung-director--waveconfig))
+sowie durch `GAME_BALANCE.combat.maxLeakDamagePerWave` — eine einzelne Welle
+kann den Spieler nie mehr als 18 HP kosten.
 
 ### Boss Waves
 
-```typescript
-private isBossWave(waveNum: number): boolean {
-  return waveNum % 10 === 0;  // Wave 10, 20, 30, ...
-}
-
-private getBossConfig(): WaveConfig {
-  return {
-    enemyCount: 1,
-    enemyType: 'herbert',  // Boss
-    enemySpeed: 4,
-    spawnMode: 'random',
-    spawnDelay: 0,
-  };
-}
-```
+Boss-Wellen sind Templates mit `bossOnly: true`. Die Maske laesst sie nur auf
+Wave-Nummern zu, die durch 10 teilbar sind; innerhalb des Curriculums stehen sie
+ausserdem fest auf W10/W20/W30 (`boss_herbert` usw. in `WAVE_CURRICULUM`).
 
 ---
 
@@ -604,18 +720,19 @@ startWave(config: WaveConfig): void {
 
 `startScheduledWave()` iteriert ueber `schedule.entries[]` und spawnt jeden Entry mit dem richtigen Typ, Speed und Health. `pauseAfter` wird als Extra-Delay zum Standard-Delay addiert. Die bestehenden Mechanismen (Timescale, `stopSpawning()`, `checkWaveComplete()`) funktionieren unveraendert.
 
-### AI Director Integration
+### Director Integration
 
-Der `adaptAIWaveConfigMixed()` Adapter (`src/app/ai/core/wave-config-adapter.ts`) konvertiert AI-generierte Configs:
-
-- **Einzelne Gruppe:** Delegiert an `adaptAIWaveConfigSingle()` (unveraendertes Verhalten)
-- **Mehrere Gruppen:** Nutzt `buildSpawnSchedule()` mit Pattern aus `getRecommendedPattern(archetype)`
+`adaptAIWaveConfig()` (`src/app/ai/core/wave-config-adapter.ts`) ist der einzige
+Adapter — seit dem Schedule-only-Umbau (2026-05-23) gibt es keine
+Single/Mixed-Weiche mehr. Er baut aus den Enemy-Gruppen ueber
+`buildSpawnSchedule()` immer einen `SpawnSchedule`; eine Single-Type-Welle ist
+dabei schlicht ein Schedule mit einer Gruppe.
 
 ```typescript
-import { adaptAIWaveConfigMixed } from '../ai/core/wave-config-adapter';
+import { adaptAIWaveConfig } from '../ai/core/wave-config-adapter';
 
-const waveConfig = adaptAIWaveConfigMixed(aiConfig);
-// -> WaveConfig mit schedule (bei Multi-Group) oder ohne (bei Single-Group)
+const waveConfig = adaptAIWaveConfig(aiConfig);
+// -> WaveConfig { schedule }
 ```
 
 ### Debug Panel: Mixed Wave Designer
@@ -652,7 +769,7 @@ buildMixedWaveConfig(): WaveConfig { ... }
 |-------|-------|
 | `managers/wave.manager.ts` | `SpawnEntry`, `SpawnSchedule` Interfaces, `startScheduledWave()` |
 | `ai/core/spawn-schedule-builder.ts` | 7 Pattern-Builder, `buildSpawnSchedule()`, Helpers |
-| `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfigMixed()` — AI-zu-WaveManager Konvertierung |
+| `ai/core/wave-config-adapter.ts` | `adaptAIWaveConfig()` — einziger Konverter AIWaveConfig → WaveManager-Config |
 | `ai/core/models/wave-config.ts` | Optionales `pattern` Feld fuer AI Config |
 | `services/debug/wave-debug.service.ts` | Mixed-Mode Signals (delegiert State an `DebugStore`), `buildMixedWaveConfig()` |
 | `components/debug-window/wave-debugger.component.ts` | Mixed Wave Designer UI |
@@ -701,53 +818,47 @@ skipWave(): void {
 
 ### Base Destroyed
 
+Wave-Completion- und Game-Over-Check liegen beide **in der Sub-Step-Schleife**
+von `GameStateManager.update()`, in dieser Reihenfolge:
+
 ```typescript
-// In GameStateManager
-onEnemyReachedBase(enemy: Enemy): void {
-  const damage = enemy.typeConfig.damage;
-  const newHealth = Math.max(0, this.baseHealth() - damage);
-  this.baseHealth.set(newHealth);
-
-  if (newHealth === 0) {
-    this.handleGameOver();
-  }
+// managers/game-state.manager.ts (Sub-Step-Schleife)
+if (isWavePhase && this.waveManager.checkWaveComplete()) {
+  const result = this.waveManager.endWave();   // emittiert wave:completed (deferred)
+  ...
+  this.applyWaveCompletionBonus(result);
 }
-
-private handleGameOver(): void {
-  // Stop wave spawning
-  this.waveManager.reset();
-  this.waveManager.phase.set('gameover');
-
-  // Visual effects
-  this.spawnHQExplosion();
-
-  // UI
-  setTimeout(() => {
-    this.showGameOverScreen();
-  }, 3000);
+if (this.baseHealth() <= 0 && this.waveManager.phase() !== 'gameover') {
+  this.triggerGameOver();                       // emittiert game:over (immediate)
+  break;
 }
 ```
+
+`triggerGameOver()` setzt die Phase auf `gameover`, leert den EnemyManager,
+loest die Tower-Selektion, startet die HQ-Effekte und emittiert `game:over`.
+
+> **`wave:completed` wird beim Game Over NICHT emittiert.** `endWave()` laeuft
+> nur, wenn die Welle regulaer fertig wird; faellt die Basis, wird die Phase
+> direkt auf `gameover` gesetzt. Alles, was **jede** Welle sehen muss — der
+> Gate-Controller ist der Anlassfall — darf deshalb nicht am Event haengen,
+> sondern muss an `AIDataCollectorService.onWaveResult()` haengen. Details:
+> [EVENT_SYSTEM.md](EVENT_SYSTEM.md#event-typen).
+>
+> Der Sonderfall, in dem beides fuer dieselbe Welle feuert: der letzte Leaker
+> zerstoert die Basis. Dann laeuft der Wave-Complete-Check zuerst, aber
+> `wave:completed` ist deferred und `game:over` immediate — der Game-Over-Pfad
+> ist also **zuerst** zugestellt. Der Collector merkt sich die bereits
+> finalisierte Wave-Nummer und verwirft das nachlaufende Event.
 
 ### Wave Reset bei Game Over
 
-```typescript
-reset(): void {
-  // Alle Spawn-Timeouts stoppen
-  for (const timeoutId of this.activeTimeouts) {
-    clearTimeout(timeoutId);
-  }
-  this.activeTimeouts.clear();
+`WaveManager.reset()` verwirft den aktiven Spawner (`activeSpawner = null`),
+leert den EnemyManager, setzt Phase auf `setup`, `waveNumber` auf 0 und die
+Spawn-Tracking-Zaehler zurueck. Es gibt keine Timeouts mehr zu stoppen — der
+Spawner laeuft seit dem Sub-Step-Refactor ueber `tickSpawn()`.
 
-  this.enemyManager.clear();
-  this.phase.set('setup');
-  this.waveNumber.set(0);
-
-  this.expectedEnemyCount = 0;
-  this.spawnedEnemyCount = 0;
-}
-```
-
-**WICHTIG:** Spawn-Loop prueft `phase() !== 'wave'` und `waveNumber() !== waveId` und bricht bei Reset/Game Over ab.
+**WICHTIG:** `tickSpawn()` ist ein No-Op ohne `activeSpawner` und ausserhalb der
+`wave`-Phase; Reset und Game Over stoppen das Spawning damit sofort.
 
 ---
 

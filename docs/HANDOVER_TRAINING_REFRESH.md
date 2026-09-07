@@ -1,12 +1,23 @@
 # Handover: Training-Backend Refresh (From-Scratch-Retraining)
 
 **Branch:** `feat/training-backend-refresh`
-**Stand:** 2026-08-27 — Trainingslauf aktiv
+**Stand:** 2026-09-07 — abgeschlossen, Ergebnis: kein Modell im Produkt
 
 Ziel: Das Training-Backend auf den aktuellen Spielstand bringen, damit ein
 From-Scratch-Trainingslauf überhaupt sinnvolle Gradienten bekommt. Ausgangslage
 war eine Drift von ~3,5 Monaten zwischen `training-backend/` (letzter Stand
 2026-05-08), dem Frontend-AI-Code (2026-05-23) und der Engine (2026-08-22).
+
+> **Wie es ausgegangen ist.** Nach allen Korrekturen aus A–N lief das Training
+> sauber, und genau das machte die entscheidende Messung erst möglich: In einem
+> A/B über vier Wave-Designer (`model`, `rules`, `random`, `maxgate`) bei
+> gleichen Bots, gleichem Curriculum und gleichem Gate war das trainierte Netz
+> **dreimal statistisch nicht von uniformem Zufall zu unterscheiden**. Zwei
+> triviale Heuristiken erzeugten mehr Spannung. Konsequenz: Der Wave Director ist
+> heute **regelbasiert und clientseitig** (`src/app/ai/core/rule-director.ts` +
+> `gate-controller.ts`); das Spiel braucht im Betrieb weder Python-Server noch
+> Modell noch ONNX-Runtime. Details in [Abschnitt O](#o-das-netz-war-nicht-von-zufall-zu-unterscheiden-2026-09)
+> und [Abschnitt P](#p-die-verteidigung-war-binär-2026-09).
 
 Vollständiger Analysebefund mit Zeilenreferenzen: siehe Abschnitt
 [Befunde](#befunde) unten.
@@ -140,11 +151,23 @@ auf `?devworld`, headless (Rendering aus), Timescale 75. Beobachtung über
 - [x] Deterministische Evaluation alle 25 Runs, getrennt ausgewiesen.
 - [x] Fairness-Gate in Kills/s statt Schaden/s, Feuerzeit aus Gegnergeschwindigkeit.
 
-### Offene Punkte
+### Offene Punkte (Stand 2026-09-07)
 
-- [ ] Wave 1 bleibt die Schwachstelle — dort sterben noch die meisten Runs.
-- [ ] Zielwerte festzurren, sobald der Lauf stabil ist (siehe Abnahmekriterien).
-- [ ] ONNX exportieren und im Browser gegen den Backend-freien Pfad prüfen.
+- [x] ~~ONNX exportieren und im Browser gegen den Backend-freien Pfad prüfen.~~
+      Erledigt in anderer Form: Der Backend-freie Pfad ist jetzt der
+      **Regel-Director**, der Export ist kein Blocker mehr. `loadModel()` bleibt
+      als Opt-in bestehen, wird beim Start aber nicht mehr aufgerufen.
+- [x] ~~Zielwerte festzurren.~~ Ersetzt durch die A/B-Messung in Abschnitt O:
+      der Vergleich läuft gegen alternative Designer, nicht gegen absolute
+      Zielwerte.
+- [ ] Wave 1 bleibt die Schwachstelle — dort sterben noch die meisten Runs. Der
+      Gate-Controller steuert erst ab `GATE_ADAPT_WINDOW = 4` Wellen, davor
+      trägt allein `fairMaxCount`.
+- [ ] Die Design-Fragen aus [Abschnitt M](#m-warum-die-ai-kleine-waves-wählt-anteil-vs-absoluter-schaden-2026-08-28)
+      und [N](#n-ergebnis-nach-100-updates-drama-erreicht-rundenlänge-verfehlt-2026-08-28)
+      sind unbeantwortet und betreffen jetzt die **Regelkurve** statt eines
+      Rewards: maximale Wellengröße, erlaubter Schaden je Welle,
+      Ziel-Rundenlänge.
 
 ---
 
@@ -207,6 +230,10 @@ auf `?devworld`, headless (Rendering aus), Timescale 75. Beobachtung über
 | D7 | `hasAntiAirCapability` prüft nur `rocket`. | `research-pick.strategy.ts:190` |
 | D8 | Damage-Matrix-Auswahl ist toter Code. | `base-tower-bot.ts:98-231` |
 
+> Pfadhinweis: `near-spawn-upgrade.strategy.ts` (D6) heißt seit 2026-09
+> `path-coverage-upgrade.strategy.ts`, Klasse `PathCoverageUpgradeStrategy` —
+> siehe [Abschnitt P](#p-die-verteidigung-war-binär-2026-09).
+
 ### E. DevWorld
 
 | # | Befund | Ort |
@@ -237,7 +264,7 @@ auf `?devworld`, headless (Rendering aus), Timescale 75. Beobachtung über
 | F12 | `HANDOVER:49`: "60% Refund" → real `SELL_RATIO = 0.75`. |
 | F13 | `HANDOVER:104-105`: Per-Kill-Rounding-Bug "bekannt offen" → gefixt in `enemy.manager.ts:265-289`. |
 | F14 | `PHASE5.5_TRAINING_RUNBOOK.md`: Banner INPUT_SIZE=93/OUTPUT_SIZE=20; Dashboard-Start `cd dashboard && python app.py` ist nicht lauffähig. |
-| F15 | `docs/BOT_SYSTEM.md` breit veraltet: `mistakeRate`/`plansAhead`/`knownTowerTypes` existieren nicht, Prioritäten falsch, Archer-Limit dynamisch statt 4, NearSpawn 70/90 % statt 33 %, Game-Time- statt `Date.now()`-Cooldown, `research-start`/`research-cancel` fehlen. |
+| F15 | `docs/BOT_SYSTEM.md` breit veraltet: `mistakeRate`/`plansAhead`/`knownTowerTypes` existieren nicht, Prioritäten falsch, Archer-Limit dynamisch statt 4, NearSpawn 70/90 % statt 33 %, Game-Time- statt `Date.now()`-Cooldown, `research-start`/`research-cancel` fehlen. **(2026-09 vollständig neu geschrieben.)** |
 | F16 | `model.py:34,121`: "2 continuous params" → 4. |
 | F17 | `RESEARCH_CENTER_CONFIG.baseCost = 150` unreferenziert; realer Preis 75. |
 | F18 | `visualization-facade.service.ts:698`: "DevWorld path (no column sampler)" — seit `b8df8d0` falsch. |
@@ -594,3 +621,146 @@ das Spiel, nicht das RL-Setup):
 Ohne eine dieser Entscheidungen pendelt jede weitere Reward-Justierung nur
 zwischen „zu langweilig" und „zu tödlich" hin und her; beide Enden sind heute
 Nacht mehrfach durchlaufen worden.
+
+### O. Das Netz war nicht von Zufall zu unterscheiden (2026-09)
+
+Die Messung, die in all den Läufen davor nie gemacht wurde: **Ist die gelernte
+Policy besser als gar nicht zu lernen?** Es gab keine Baseline. Jede Verbesserung
+war gegen den vorherigen eigenen Stand gemessen, nie gegen etwas anderes.
+
+`training-backend/directors.py` macht vier Wave-Designer austauschbar an
+derselben Aufrufstelle im Server (`DIRECTOR_ROSTER` in `config.py`):
+
+| Director | Verhalten |
+|---|---|
+| `model` | die Policy (Status quo) |
+| `random` | uniform über die erlaubten Templates, uniforme Faktoren — der ehrliche Boden |
+| `rules` | am längsten nicht benutztes Template, Faktoren aus fester Heuristik |
+| `maxgate` | zufälliges Template, aber immer so groß wie das Fairness-Gate erlaubt — isoliert, ob allein die Größe die Schwierigkeit trägt |
+
+Gleiche Bots, gleiches Curriculum, gleiches Gate, gleiche Metriken, parallel über
+die Clients.
+
+**Ergebnis — dreimal wiederholt, dreimal dasselbe:**
+
+| | Runlänge (Mittel, 95 % CI) | Near-Miss |
+|---|---|---|
+| `model` | 45,6 [42, 49] | 0,045 |
+| `random` | 44,7 [41, 48] | — |
+| `rules` / `maxgate` | — | 0,067–0,069 |
+
+Das Netz war statistisch nicht von uniformem Zufall zu trennen, und zwei triviale
+Heuristiken erzeugten mehr Spannung als es.
+
+**Es hatte nie gelernt.** `log_std` stand nach tausenden Episoden unverändert auf
+dem Initialwert, alle Faktor-Mittelwerte auf sigmoid(0) = 0,5 — die Policy war
+statistisch immer noch ihre eigene Initialisierung. (Ein Lauf über 1400 Episoden
+endete mit `log_std` bei −0,5001 gegen einen Startwert von −0,5.)
+
+**Die Ursache liegt vor dem Lernen, nicht im Lernen.** Der Aktionsraum ist
+weitgehend determiniert:
+
+- Das Curriculum pinnt das Template auf **49 %** der Wellen.
+- Der Fairness-Cap band auf **63 %** der Wellen.
+- Was blieb: Der volle Regelbereich des count-Faktors bewegte eine Welle von
+  **19 auf 28 Gegner**.
+
+Damit gab es fast nichts zu entscheiden und deshalb nichts zu lernen. Das
+erklärt rückwirkend auch, warum die Reward-Reparaturen aus G–N zwar jedes Mal
+messbar etwas verbesserten, aber nie das Netz: die Verbesserungen kamen aus
+deterministischem Code (fehlender State-Reset, korrigiertes Steuersignal), nicht
+aus Gradienten.
+
+**Konsequenz im Produkt.** Zwei neue Client-Dateien ersetzen, was vorher Modell
+und Server taten:
+
+- `src/app/ai/core/rule-director.ts` — wählt Template plus die vier
+  Formfaktoren. Zwei bewusste Entscheidungen:
+  - **Abwechslung wird erzwungen, nicht belohnt.** Der Reward hatte einen
+    variation-Faktor und die Maske einen Template-Cooldown, und die Wellen kamen
+    trotzdem repetitiv heraus. Das älteste erlaubte Template zu nehmen macht
+    Wiederholung unmöglich statt nur teuer.
+  - **Schwierigkeit ist eine Kurve, keine Einzelfallentscheidung.** Der Spieler
+    heilt nie, seine HP sind also ein Run-Budget. Das schreibt man auf
+    (`countFactor 0.45 → 0.85`, `spawnFactor 0.55 → 0.30`, `hpFactor 0.4 → 0.75`
+    über `RAMP_FULL_WAVE = 60`, je ±0,12 Jitter), statt es aus einem skalaren
+    Reward Welle für Welle zu erschließen.
+- `src/app/ai/core/gate-controller.ts` — der Regelkreis auf den Fairness-Cap, den
+  es vorher nur serverseitig gab. Steuert auf die **Leak-Quote** mit Zielband
+  8–16 %, proportional (`GATE_GAIN = 0.35`), harter Rückzug bei Tod
+  (`×0.8`), Zustand **pro Run** (`reset()` bei neuem Spiel).
+
+  Zwei Fehlerformen, die die Python-Fassung durchgemacht hat und die diese Form
+  vermeidet: Steuern auf die **Kill-Quote** liest die eigene Vorsicht als
+  Spielraum (eine kleine Welle wird geräumt, *weil* sie klein ist) — einseitiger
+  Druck, der den Multiplikator an seine Decke nagelte (bei Cap 40: Wellen von
+  4761 Gegnern, Gate faktisch aus). Und eine **feste Schrittweite** kommt nicht
+  an: allein den veralteten `FAIRNESS_KILL_REALISM`-Abschlag aufzuheben braucht
+  ~1,6, bei 5 % pro Fenster also ~170 Wellen gegen Runs von ~60 (gemessener
+  Median: 1,28).
+
+Wichtig für die Einordnung: **Alles unterhalb der Entscheidung blieb gleich** —
+Templates, Verfügbarkeitsmaske, Range-Interpolation, DPS-Ramp,
+`endgameHpMultiplier`, Fairness-Cap, Duration-Cap. Genau das machte das A/B
+überhaupt aussagekräftig. `templates.ts::fairMaxCount` hat dafür einen neuen
+letzten Parameter `budgetMultiplier` (Default 1) bekommen, über den der
+Gate-Controller korrigiert.
+
+Der Modus `'rules'` ist im `WaveDirectorService` der **Default**, kein
+Degradationszustand. Der frühere Zustand „Fehler, kein Modell", der eine
+Exception warf, existiert nicht mehr: beim Start wird nichts geladen,
+`loadModel()` ist ein ausdrückliches Opt-in, und schlägt es fehl, laufen die
+Regeln weiter.
+
+### P. Die Verteidigung war binär (2026-09)
+
+Der zweite Befund derselben Messreihe, und der Grund, warum das Reward-Design von
+Anfang an etwas verlangte, das die Spielphysik gar nicht hergab.
+
+Gemessen über **1834 Wellen**:
+
+| | |
+|---|---:|
+| Wellen, in denen die Verteidigung **alles** tötete | 70 % |
+| Wellen, in denen > 5 % durchkamen | 28 % |
+| dazwischen | 2 % |
+
+In Wellen ohne Durchbruch starb der weiteste Gegner bei median **12 %** des
+Pfades. Sobald ein Gegner 80 % passierte, kam in **95 %** der Fälle einer an. Es
+gab kein „knapp abgefangen" — eine Killzone am Spawn, dahinter ein
+unverteidigter Korridor.
+
+Die Reward-Funktion verlangt aber genau das: Near-Misses, der Anteil, der 80 %
+passiert **ohne** anzukommen. Erreichbar war das in **2,2 %** der Wellen. Ein
+Ziel, das in 2 % der Fälle überhaupt vorkommt, erzeugt keinen brauchbaren
+Gradienten — unabhängig davon, wie gut der Optimierer läuft.
+
+Ursache war der Bot, also die Verteidigung, gegen die gemessen wird: lineares
+Platzierungsgewicht auf Spawn-Nähe **plus** eine Upgrade-Strategie, die nur den
+spawn-nächsten Turm fütterte und wegen ihrer Priorität fast jeden Zug bekam.
+Beides zusammen konzentrierte Bau *und* Gold auf denselben Punkt.
+
+**Änderung** (Details und Begründung: [BOT_SYSTEM.md](BOT_SYSTEM.md#warum-die-platzierung-so-aussieht)):
+
+- `strategic-placement.service.ts`: U-förmiges Gewicht `endZoneProximity(t)`
+  statt linearer Spawn-Nähe — beide Pfadenden schlagen die Mitte, der Spawn
+  behält knapp die Nase vorn (`END_ZONE_HQ_WEIGHT = 0.8`), damit die
+  Eröffnungswellen unverändert bleiben.
+- `NearSpawnUpgradeStrategy` → **`PathCoverageUpgradeStrategy`**: Kandidaten
+  abwechselnd von beiden Enden der spawn-sortierten Turmliste.
+
+**Wirkung:**
+
+| | vorher | nachher |
+|---|---:|---:|
+| Gegner, die 80 % passieren und ankommen | 95 % | 75 % |
+| Near-Miss-Quote | 0,031 | 0,058 |
+
+Die Kill-Quoten-Verteilung blieb bimodal — das ist eine **Kapazitäts**- und
+keine Platzierungseigenschaft.
+
+**Was ausdrücklich nicht die Lösung ist:** gleichmäßiges Verteilen. Fünf Türme
+decken bei Reichweiten von 30–100 m und 15–25 m Straßenabstand Pfad-Sehnen von
+~45 m (Archer) bis ~196 m (Rocket) ab, bei Spawn-HQ-Distanzen von 500–1000 m also
+grob 25–50 % des Pfades. Überall dünn heißt überall durchlässig. Die spielbare
+Antwort ist eine **zweite Killzone vor dem HQ**, nicht Gleichverteilung.

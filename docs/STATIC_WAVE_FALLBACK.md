@@ -1,12 +1,21 @@
 # Static Wave Fallback
 
-**Stand:** 2026-05-23
+**Stand:** 2026-09-07 (Prioritätskette und Begründung gegen den Code geprüft)
 
 Static-Wave-Fallback ist ein Debug-/Playtest-Modus, der Wellen aus einer
-festen Per-Wave-Tabelle spawnt — als Alternative zum AI Wave Director.
-Gedacht für Offline-Playtests, Headless-Tests, und Situationen in denen
-das ONNX-Modell nicht geladen ist. **AI bleibt der Production-Default**;
+festen Per-Wave-Tabelle spawnt — als Alternative zum Wave Director.
+Gedacht für Offline-Playtests und Headless-Tests, wo man **dieselbe** Wellenfolge
+mehrfach durchspielen will. **Der Director bleibt der Production-Default**;
 dies ist ein bewusst opt-in Debug-Pfad.
+
+> **Der ursprüngliche Hauptzweck ist entfallen.** Diese Datei entstand als Weg,
+> das Curriculum ohne geladenes ONNX-Modell durchspielen zu können. Seit 2026-09
+> ist der Wave Director **regelbasiert** (`src/app/ai/core/rule-director.ts`) und
+> braucht weder Modell noch Server noch ONNX-Runtime — „kein Modell geladen" ist
+> kein Zustand mehr, der existiert. Was bleibt, ist der eigentliche Wert des
+> Modus: eine **deterministische, unveränderliche** Wellenfolge. Der
+> Regel-Director erzwingt Abwechslung und jittert seine Faktoren, ist also
+> bewusst nicht reproduzierbar.
 
 Seit 2026-05-23 nativ multi-group: Boss-Wellen kommen mit Tank/Zombie-
 Support, Mixed-Templates wie `dragon_elite` werden tatsächlich gemixt
@@ -23,17 +32,33 @@ In `game-loop-facade.service.ts` `startWave()` läuft folgende Prioritätskette:
    → `buildStaticCurriculumWaveConfig(nextWave)`
    → fällt auf Debug-Panel-Werte zurück nur falls die Wellennummer ungültig ist.
 2. **AI Wave Director** (wenn `useAIDirector() === true`)
-   → `startWaveWithAI(0)`.
+   → `startWaveWithAI(0)`. Nutzt den Trainings-Backend-Client, wenn einer
+     verbunden ist, sonst `waveDirector.getNextWave()` (Regel-Director).
 3. **Debug Panel** (sonst)
    → `buildWaveConfig()` aus `WaveDebugService`-Signals.
 
-**Wichtig:** Der Static-Toggle **schlägt** den AI-Director. Das ONNX-Modell
-schaltet beim Laden `useAIDirector` automatisch ein (Effect in
-`game-loop-facade.service.ts`); ohne diese Prioritätsumkehr würde ein
-Klick auf den Static-Toggle nicht wirken sobald das Modell geladen ist.
+**Wichtig:** Der Static-Toggle **schlägt** den Director, bedingungslos — der
+`useStaticCurriculum`-Zweig kehrt vor dem `useAIDirector`-Check zurück.
 
-Vorher (vor 2026-05-20): AI-Director-Check kam zuerst → ein Klick auf
-Static reichte nicht, man musste AI manuell abdrehen. Das ist gefixt.
+Der Grund dafür ist heute stärker als früher: `useAIDirector` ist per Default
+**`true`** (`game.store.ts`). Käme der Director-Check zuerst, wäre der
+Static-Toggle in einer frischen Session wirkungslos, bis man den Director
+zusätzlich abschaltet.
+
+Historisch: Bis 2026-05-20 kam der AI-Check zuerst. Damals startete
+`useAIDirector` auf `false` und ein Effect schaltete es ein, sobald das
+ONNX-Modell geladen war — der Static-Klick verpuffte also, sobald das Modell da
+war. Diesen Effect gibt es nicht mehr: mit einem immer verfügbaren
+Regel-Director war seine Bedingung dauerhaft wahr, er feuerte auf seinen eigenen
+Schreibvorgang und machte den UI-Toggle inert. Stattdessen ist der Default
+schlicht `true`.
+
+**Widerspruch, den man beim Lesen trifft:** Der JSDoc-Kommentar an
+`useStaticCurriculum` (`game.store.ts`) und an `toggleStaticCurriculum()`
+(`game-loop-facade.service.ts`) behauptet, der Static-Pfad greife nur „wenn
+`useAIDirector === false` **und** dieses Flag true ist". Der Code in
+`startWave()` prüft `useAIDirector` an dieser Stelle nicht. Die Prioritätskette
+oben ist maßgeblich.
 
 ---
 
@@ -90,8 +115,8 @@ export const STATIC_WAVE_PROFILES: readonly StaticWaveProfile[] = [
 ];
 ```
 
-Boss-Wellen (W10/W20/W30) und Mixed-Templates (W8/W12/W13/W14/W16/W18/
-W23/W24/W25/W29) spiegeln jetzt die AI-Template-Komposition direkt.
+Boss-Wellen (W10/W20/W30) und Mixed-Templates (W8/W9/W12/W13/W14/W16/W18/
+W23/W24/W25/W29) spiegeln jetzt die Template-Komposition direkt.
 Single-Group-Wellen (W1-7, W11, W15, W17, W19, W21, W22, W26-28) bleiben
 single-group.
 
@@ -115,8 +140,7 @@ der WaveManager bekommt fertige Per-Enemy-HPs.
 
 ## Post-W30 Loop
 
-Statt linear zu extrapolieren, **loopt** der Static-Pfad modulo 30 in
-Lockstep mit `templateForWave` und `goldBudgetForWave`:
+Statt linear zu extrapolieren, **loopt** der Static-Pfad modulo 30:
 
 ```ts
 export function staticWaveProfileForWave(waveNum: number) {
@@ -137,14 +161,26 @@ bei W80 cappt er bei 4×.
 **Historisch:** Vor 2026-05-20 nutzte `staticWaveProfileForWave` für
 `waveNum > 30` eine lineare Extrapolation der letzten Entry (W30 = Herbert),
 mit `count *= 1.15^extra` und `hpMult += 0.5 × extra`. Das degenerierte
-zu endlosen Herbert-Schwärmen ab W31. Der Loop-Fix bringt die statische
-Welle wieder in Sync mit dem AI-Pfad (der schon mod 30 loopte).
+zu endlosen Herbert-Schwärmen ab W31. Der Loop-Fix behob das.
 
-Genauso wurde `goldBudgetForWave` umgestellt: vorher
-`last.goldKill + extra × KILL_DELTA_PER_WAVE` (linear, +20k/Welle nach W30)
-— nach der Korrektur einfach `WAVE_CURRICULUM[(waveNum - 1) % 30]`. Die
-Konstanten `KILL_DELTA_PER_WAVE` und `COMPLETE_DELTA_PER_WAVE` sind
-entfernt.
+**Der Static-Pfad ist damit heute der einzige, der loopt.** Zwei Dinge, mit denen
+er früher im Lockstep lief, tun das nicht mehr:
+
+- **`templateForWave` loopt nicht.** Ab W31 (`CURRICULUM_FORCED_THROUGH_WAVE`)
+  gibt es kein forciertes Template mehr — dort wählt der Wave Director unter der
+  normalen Maske selbst. Der Docstring an `staticWaveProfileForWave` behauptet
+  noch, der Loop laufe „alongside `templateForWave`"; das stimmt nicht mehr.
+- **`goldBudgetForWave` loopt nicht.** Ab W31 **verfällt** das Budget
+  geometrisch: `×0.5` je Welle, mit Boden bei 5 % der W30-Werte (6000 Kill /
+  3000 Complete, erreicht ab ~W35). Der frühere mod-30-Loop ließ Welle 31 von
+  180 000 auf 200 Gold fallen und wieder hochklettern, und zahlte über 100 Wellen
+  2,64 M aus — gegen ein Design-Roster von 1,39 M. Der Trainings-Bot erreichte
+  damit ~6700 DPS über die ganze Route und tötete ab Welle 11 100 % jeder Welle.
+  Die Konstanten `KILL_DELTA_PER_WAVE` / `COMPLETE_DELTA_PER_WAVE` der noch
+  früheren linearen Extrapolation sind ebenfalls weg.
+
+Praktische Folge für Static-Playtests jenseits W30: Die Wellen wiederholen sich,
+das Einkommen tut es nicht. Ein Static-Run über W31+ ist absichtlich knapp.
 
 ---
 
@@ -182,7 +218,14 @@ readonly useStaticCurriculum = signal<boolean>(false);
 ```
 
 Default: aus. Wird nicht persistiert (existiert nur in-Memory pro Session).
-Über `TowerDefenseStore` re-exportiert.
+Über `TowerDefenseStore` re-exportiert. `resetAll()` fasst es **nicht** an —
+zurückgesetzt werden dort nur `trainingTimescale`, `useAIDirector` (auf `true`)
+und `isDevWorldRegenerating`.
+
+Zum Vergleich das Nachbar-Signal `useAIDirector`: Default **`true`**, Reset in
+`resetAll()` auf `true`. Es ist der Toggle, den die UI als „AI an/aus" zeigt;
+`startWaveWithAI` schaltet es zusätzlich auf `false`, wenn die Wellenerzeugung
+wirft (dann läuft der Debug-Panel-Pfad, und `aiError` trägt die Meldung).
 
 ---
 
@@ -198,7 +241,7 @@ Default: aus. Wird nicht persistiert (existiert nur in-Memory pro Session).
 | `src/app/store/tower-defense.store.ts` | Re-Export |
 | `src/app/components/quick-actions/quick-actions.component.ts` | UI-Button + Input/Output |
 | `src/app/tower-defense.component.{html,ts}` | Binding + Handler |
-| `src/app/ai/core/templates.ts` | `golem_squad` Template (mit `minWave: 999` AI-Gate) |
+| `src/app/ai/core/templates.ts` | `golem_squad` Template (`minWave: 14` — der frühere 999er-Block gegen die untrainierte AI ist weg) |
 | `tools/wave-planner/generate.spec.ts` | Wave-Planner-Tool (zeigt das Curriculum visuell, inkl. Gates für golem_squad) |
 
 ---
@@ -307,10 +350,12 @@ Wenn sich beim Static-Spiel etwas falsch anfühlt:
 
 - [WAVE_SYSTEM.md](WAVE_SYSTEM.md) — gesamtes Wave-Management, Spawn-Logik,
   Mixed Waves, Phasen, Sub-Step-Spawner.
-- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) — die AI-Seite, die
-  der Static-Fallback ersetzt.
-- [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) — Template-System, das die
-  Static-Profiles spiegeln (single-type-Limitation siehe oben).
+- [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) — die Director-Seite, die
+  der Static-Fallback ersetzt (heute regelbasiert, kein Modell).
+- [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) — _historisch:_ das
+  Range-Template-System, das die Static-Profiles spiegeln. Templates, Maske und
+  Ranges gelten weiter, die NN-Teile nicht.
 - [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md) —
-  Curriculum + Gold-Budget-Stand (rebalanced May 2026).
+  _historisch:_ Curriculum- und Gold-Stand vom Mai 2026, Gold-Zahlen dort
+  überholt.
 - [TODO.md](../TODO.md) §2.2 — offene Static-Fallback-Erweiterungen.
