@@ -1,25 +1,169 @@
 # AI Training - Entwicklungsgeschichte
 
 Chronologische Zusammenfassung der Architektur-Iterationen des AI Wave
-Directors. Aktueller Stand siehe `docs/PHASE_5.11_RANGES.md` und
-`docs/HANDOVER_PLAYTEST_PHASE5.16.md` im Projekt-Root — diese Datei ist die
-**Backend-seitige Vorgeschichte** (v1 → v3.5) plus Kurz-Index der Phase-5.x-Notes.
+Directors, neueste zuerst. Aktueller Stand:
+`docs/HANDOVER_RULE_DIRECTOR.md` im Projekt-Root.
 
 ---
 
-## Phase 5.x — Aktuelle Iterationen
+## 2026-09-07 — Die Messung, und was sie beendet hat
 
-Die Phase-5.x-Geschichte ist nicht hier dokumentiert — sie lebt in den Phase-
-spezifischen Dokumenten im Projekt-Root, weil dort gameplay-übergreifende
-Frontend-Änderungen (Damage-Matrix, Bot-Strategien, Encoder) gemeinsam mit
-den Backend-Änderungen behandelt werden:
+**Ergebnis:** Der Wave Director im Spiel ist ab hier regelbasiert und
+clientseitig. Das trainierte Netz war nicht besser als Würfeln, und die Ursache
+lag vor dem Lernen. Vollständiger Handover mit Wiederaufsetz-Anleitung:
+`docs/HANDOVER_RULE_DIRECTOR.md`.
+
+### Voraussetzung: zwei Fehler im Fairness-Gate
+
+Vor dieser Messung war der Gate kein Regelkreis, sondern eine Ratsche. Beide
+Fehler mussten weg, bevor überhaupt etwas vergleichbar war.
+
+**1. Kein Reset zwischen Episoden.** `server.py::_reset_context` setzte
+`gate_multiplier` und `leak_shares` nicht zurück. Der Multiplikator war damit
+eine Ratsche *pro Client* statt pro Run: er stieg bei jeder gemeisterten Wave
+und wurde nur bei einem Tod heruntergeteilt.
+
+| Messung | Wert |
+|---|---|
+| `gate_multiplier`, Mittel | 7,0 |
+| `gate_multiplier`, Max | 40,0 |
+| resultierende Caps | bis 4761 Gegner |
+| mediane Runlänge | 6 Waves (Ziel: 80) |
+| mediane Runlänge nach dem Fix | 62 Waves |
+
+Der Gate war faktisch aus, und frische Runs starteten gegen Wellen, die für eine
+längst abgebaute Verteidigung dimensioniert waren.
+
+**2. Falsches Regelsignal.** Gesteuert wurde auf die Kill-Quote: „die
+Verteidigung hat alles getötet, also mehr erlauben". Das liest die eigene
+Vorsicht als Spielraum — eine kleine Wave wird gemeistert, *weil* sie klein ist.
+Einseitiger Druck, der den Multiplikator an jede gegebene Obergrenze klebte
+(bei Ceiling 2,0: 52 % der Wellen am Anschlag).
+
+**Fix:** zweiseitige Steuerung auf die **Leak-Quote** gegen ein Zielband
+(`GATE_LEAK_TARGET_LO/HI = 0.08 / 0.16`) — zu wenig heißt harmlos, zu viel heißt
+der Run endet. Konvergiert statt zu klettern.
+
+**3. Feste Schrittweite ersetzt durch Proportionalregler** (`GATE_GAIN = 0.35`).
+`FAIRNESS_KILL_REALISM = 0.65` wurde auf den Waves 1–10 gemessen; ab Wave 11
+töten Verteidigungen fast die volle Vorhersage. Der Multiplikator muss also ~1,6
+erreichen, nur um einen **bekannten Bias** auszugleichen. Bei 5 % pro Fenster
+sind das ~170 Waves gegen Runs von ~60, die nach dem Reset bei 1,0 starten —
+gemessener Median 1,28, er kam nie an. Der Cap landete exakt auf dem, was die
+Verteidigung töten konnte (`cap/effMax = 1.00`), 80 % der Wellen richteten
+keinen Schaden an.
+
+### Voraussetzung: PPO verwarf den Großteil jedes Batches
+
+`trainer.py` klemmt standardisierte Advantages auf ±3 σ (`ADVANTAGE_CLIP = 3.0`).
+Die −8 Todesstrafe gegen ~−0,6 typische Wellen setzte pro Batch einige Samples
+jenseits −3 σ; diese allein dominierten den Gradienten (Grad-Norm 3,6–51,7 gegen
+einen Clip von 0,5) und trieben den Schritt bereits im ersten Minibatch über
+`TARGET_KL`. Der Early-Stop verwarf daraufhin den Rest: **16 Updates ergaben
+etwa 20–30 echte Gradientenschritte über 1200 Episoden.**
+
+Vorher waren in derselben Sache schon Lernrate (3e-4 → 1e-4), Batch (16 → 128),
+Minibatch (32 → 64) und der Dropout im Torso (entfernt) angefasst worden. Jede
+dieser Änderungen war für sich richtig; keine hat die Ursache getroffen.
+
+### Der Aufbau: mehrere Directors gleichzeitig
+
+Neu: `directors.py` + `DIRECTOR_ROSTER` in `config.py`. Vier Wave-Designer laufen
+gleichzeitig gegen dieselben Bots, dasselbe Curriculum, denselben Gate —
+`model`, `rules`, `random`, `maxgate`. Clients werden beim Verbinden reihum
+zugewiesen. Nicht-lernende Directors speisen PPO nicht, sonst wären es
+Off-Policy-Daten mit On-Policy-Etikett.
+
+Das ist eine Messung, die in diesem Projekt nie stattgefunden hatte: **Ist die
+gelernte Policy besser als gar nicht lernen?** Ohne diesen Boden waren mehrere
+Reward-Rewrites nicht beurteilbar.
+
+Neue Tests: `tests/test_gate_loop.py` (ruft den echten Regelkreis auf statt ihn
+zu spiegeln), `tests/test_directors.py` (Decoder-Contract — `template_probs` war
+bei den Nicht-Modell-Directors `None`, der Decoder warf auf jeder Wave, und die
+verschluckte Exception ließ einen A/B-Lauf als „drei flache Linien" erscheinen).
+
+### Das Ergebnis
+
+**Das Netz war dreimal statistisch nicht von uniformem Zufall zu unterscheiden:**
+
+| Metrik | `model` | `random` | `rules` / `maxgate` |
+|---|---|---|---|
+| mittlere Runlänge | 45,6 [42, 49] | 44,7 [41, 48] | — |
+| near-miss | 0,045 | — | 0,067–0,069 |
+
+Zwei triviale Heuristiken erzeugten mehr Spannung als die Policy.
+
+**Das Netz hatte nie gelernt.** Nach mehreren tausend Episoden stand `log_std`
+unverändert auf dem Initialwert −0,5, und alle vier Faktor-Mittelwerte lagen auf
+`sigmoid(0) = 0.5`. Statistisch war die Policy noch ihre eigene Initialisierung.
+
+**Die Ursache liegt vor dem Lernen.** Der Aktionsraum war praktisch leer:
+
+- Das Curriculum nagelt das Template fest — strukturell auf W1–W30, über die
+  beobachteten Runs gemessen auf **49 % aller Wellen**.
+- Der Fairness-Cap band auf **63 %** der Wellen. Ein Deckel, der auf der Mehrheit
+  greift, ist keine Sicherheitsgrenze — er *ist* die Policy.
+- Was übrig blieb: der volle Regelbereich des `count`-Faktors bewegte eine Wave
+  von **19 auf 28 Gegner**.
+
+Es gab fast nichts zu entscheiden, also nichts zu lernen. Reward-Redesign und
+Hyperparameter-Tuning sitzen beide hinter diesem Problem.
+
+**Dazu:** Trainiert wurde gegen **einen** scripted Bot
+(`BOT_WEIGHTS = {"strategist": 1.0}`). Alles, was ein Agent über dessen
+Schwächen lernt, ist gegen einen Menschen wertlos.
+
+### Konsequenz
+
+Der Regel-Director (`src/app/ai/core/rule-director.ts`) und der Gate-Regelkreis
+(`src/app/ai/core/gate-controller.ts`) laufen im Client. Das Spiel braucht im
+Betrieb keinen Server, kein Modell und keine ONNX-Runtime. Der ONNX-Pfad bleibt
+als Opt-in-Knopf im Debug-Fenster erreichbar. Das Backend bleibt bestehen — als
+Messinstrument.
+
+**Lesson:** Bevor man einen Reward repariert, prüft man, ob die Aktionen
+überhaupt das Ergebnis beeinflussen. Die Prüfung kostet einen Roster-Eintrag.
+
+---
+
+## 2026-08 — Training-Refresh: Schema v3, Reward v4
+
+Details: `docs/HANDOVER_TRAINING_REFRESH.md`.
+
+- **Schema v2 → v3, 162 → 203 Features.** Neu: der Wave-Context-Block
+  (Availability-Maske 32 + effektive Ranges 6 + Fairness-Headroom 1). Das Netz
+  gab vorher `count_factor` aus, ohne zu wissen, worauf es angewendet wird —
+  derselbe 0..1-Wert bedeutet 20–2000 Gegner für `zombie_horde` und 5–100 für
+  `mech_army`. Dazu der AoE-Anteil der Ground-/Air-DPS.
+- **Reward v3 → v4.** v3 verlangte 1–5 % HP-Verlust *pro Wave* und gatete drei
+  ihrer vier Terme auf dieses Band. Leak-Schaden ist quantisiert
+  (`1 + floor((w-1)/10)` HP von 100), ab W51 existiert kein Wert im Band; der
+  Spieler heilt nie, 100 HP sind das Budget des ganzen Runs. Die Terme
+  widersprachen sich. v4 trennt **DRAMA** (war die Wave spannend, per Wave auf
+  `near_miss_ratio`) von **PACING** (hat der Run die richtige Länge, über den
+  ganzen Run auf der HP-Kurve).
+- **Schema als Single Source of Truth.** `training-backend/generated/ai-schema.json`
+  wird per `npm run ai-schema` aus den TS-Configs erzeugt; das Backend
+  deklariert Enemy-Tabellen, Templates und Curriculum nicht mehr selbst. Diese
+  Duplikation war zwischen `templates.py` und `templates.ts` drei Monate lang
+  auseinandergedriftet.
+
+---
+
+## Phase 5.x — Frühere Iterationen
+
+Die Phase-5.x-Geschichte lebt in den phasenspezifischen Dokumenten im
+Projekt-Root, weil dort gameplay-übergreifende Frontend-Änderungen
+(Damage-Matrix, Bot-Strategien, Encoder) gemeinsam mit den Backend-Änderungen
+behandelt werden:
 
 | Phase | Doku | Kern-Änderung |
 |---|---|---|
 | 5.5 | `training-backend/PHASE5.5_TRAINING_RUNBOOK.md` | State 74→93, Multi-Group-Decoder, Reward-Restart |
 | 5.10 | `docs/PHASE_5.10_TEMPLATES.md` | Template-basiert, State 156, 4-Term-Reward, 18 Templates |
 | 5.11 | `docs/PHASE_5.11_RANGES.md` | Range-Based-Templates, 4 Continuous-Params, Wave-Duration-Cap |
-| 5.16 | `docs/HANDOVER_PLAYTEST_PHASE5.16.md` | Wave-Curriculum-Override für W1–W18 |
+| 5.16 | `docs/HANDOVER_PLAYTEST_PHASE5.16.md` | Wave-Curriculum-Override |
 
 Die Versionen unten (v1 → v3.5) sind aus archivarischen Gründen erhalten —
 die dort beschriebene Architektur ist nicht mehr in Kraft. Lessons Learned

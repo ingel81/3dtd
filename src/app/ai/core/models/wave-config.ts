@@ -10,7 +10,7 @@
 
 /**
  * Known enemy type IDs in the game.
- * Keep in sync with ENEMY_TYPES in models/enemy-types.ts
+ * Keep in sync with ENEMY_TYPES in configs/enemy-types.config.ts
  */
 export type KnownEnemyTypeId =
   | 'zombie' | 'zombie-v2' | 'rat' | 'penguin'

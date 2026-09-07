@@ -25,6 +25,19 @@ const _ROAD_THICKNESS = 0.3; // Reserved for future use
 /** Road height offset above terrain */
 const ROAD_HEIGHT_OFFSET = 0.5;
 
+/**
+ * Terrain mesh resolution. Deliberately coarse (65x65 vertices) so CPU
+ * raycasts stay cheap — the heightmap behind it is 1024x1024.
+ *
+ * Height queries sample the MESH surface, not the raw heightmap, because the
+ * mesh is what the player walks on, what raycasts hit and what the GPU
+ * line-of-sight cubemap renders as an occluder. Sampling the finer heightmap
+ * gave ground heights that disagreed with the blocker geometry by tens of
+ * metres on hilly presets, which made tower line-of-sight in DevWorld
+ * effectively random.
+ */
+const TERRAIN_MESH_SEGMENTS = 64;
+
 export class DevTerrainProvider implements TerrainProvider {
   private scene: THREE.Scene | null = null;
   private terrainMesh: THREE.Mesh | null = null;
@@ -305,14 +318,12 @@ export class DevTerrainProvider implements TerrainProvider {
     const u = (x + halfSize) / DEV_WORLD_SIZE;
     const v = (z + halfSize) / DEV_WORLD_SIZE;
 
-    return this.sampleHeightmap(u, v);
+    return this.sampleMeshSurface(u, v);
   }
 
   private createTerrainMesh(): void {
     const size = DEV_WORLD_SIZE;
-    // Use LOW segment count for fast raycasting (64x64 = 4096 vertices vs 512x512 = 262144!)
-    // Height sampling uses heightmap directly, not mesh vertices
-    const segments = 64;
+    const segments = TERRAIN_MESH_SEGMENTS;
 
     // Create plane geometry
     const geometry = new THREE.PlaneGeometry(size, size, segments, segments);
@@ -445,6 +456,10 @@ export class DevTerrainProvider implements TerrainProvider {
 
     this.terrainSkirt = new THREE.Mesh(geometry, material);
     this.terrainSkirt.name = 'DevWorldTerrainSkirt';
+    // The skirt is a visual wall hanging below the world edge. It never sits
+    // between a tower and an enemy, but it does write depth into the
+    // line-of-sight cube — exclude it, as the CPU raycast path already does.
+    this.terrainSkirt.userData['losTransparent'] = true;
     this.terrainGroup.add(this.terrainSkirt);
 
   }
@@ -557,12 +572,57 @@ export class DevTerrainProvider implements TerrainProvider {
     // Store as roadMesh (it's actually an InstancedMesh but compatible)
     this.roadMesh = instancedRoads as unknown as THREE.Mesh;
     this.roadMesh.renderOrder = 1;
+    // Road stamps sit 0.5 m above the terrain purely so they don't z-fight.
+    // They are decoration, not cover — keep them out of the line-of-sight
+    // cube render so GPU and CPU visibility agree.
+    this.roadMesh.userData['losTransparent'] = true;
     this.terrainGroup.add(this.roadMesh);
 
   }
 
   /**
-   * Sample heightmap with bilinear interpolation
+   * Height of the rendered terrain SURFACE at a UV position.
+   *
+   * The mesh interpolates linearly between its vertices, and each vertex sits
+   * at `sampleHeightmap` of its own UV. Reproducing that here — quantise to the
+   * vertex grid, then bilinear-blend the four corner vertices — makes the
+   * returned height exactly the surface a raycast would hit and the GPU
+   * cubemap would rasterise.
+   */
+  private sampleMeshSurface(u: number, v: number): number {
+    if (!this.heightData) return 0;
+
+    u = Math.max(0, Math.min(1, u));
+    v = Math.max(0, Math.min(1, v));
+
+    const seg = TERRAIN_MESH_SEGMENTS;
+    const fx = u * seg;
+    const fz = v * seg;
+    const x0 = Math.floor(fx);
+    const z0 = Math.floor(fz);
+    const x1 = Math.min(x0 + 1, seg);
+    const z1 = Math.min(z0 + 1, seg);
+    const tx = fx - x0;
+    const tz = fz - z0;
+
+    const vertexHeight = (ix: number, iz: number) =>
+      this.sampleHeightmap(ix / seg, iz / seg);
+
+    const h00 = vertexHeight(x0, z0);
+    const h10 = vertexHeight(x1, z0);
+    const h01 = vertexHeight(x0, z1);
+    const h11 = vertexHeight(x1, z1);
+
+    const h0 = h00 * (1 - tx) + h10 * tx;
+    const h1 = h01 * (1 - tx) + h11 * tx;
+    return h0 * (1 - tz) + h1 * tz;
+  }
+
+  /**
+   * Sample the raw heightmap with bilinear interpolation.
+   *
+   * This is the generator's data, at full 1024x1024 resolution. Use
+   * {@link sampleMeshSurface} for anything that has to agree with geometry.
    */
   private sampleHeightmap(u: number, v: number): number {
     if (!this.heightData) return 0;
@@ -822,11 +882,9 @@ export class DevTerrainProvider implements TerrainProvider {
       return null;
     }
 
-    // Use direct heightmap sampling (O(1) bilinear interpolation)
-    // The heightmap (1024x1024) is more accurate than the terrain mesh (64x64)
     const u = (x + halfSize) / DEV_WORLD_SIZE;
     const v = (z + halfSize) / DEV_WORLD_SIZE;
-    return this.sampleHeightmap(u, v);
+    return this.sampleMeshSurface(u, v);
   }
 
   raycastFromScreen(

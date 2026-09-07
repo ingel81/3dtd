@@ -81,7 +81,7 @@ src/app/
 ├── entities/          enemies, towers, projectiles
 ├── store/             signal stores, single source of truth
 ├── services/          Angular side: location, combat, world, debug
-├── ai/                bots and the ONNX wave director
+├── ai/                the wave director and the training bots
 └── devworld/          offline dev environment
 
 training-backend/      optional Python side, PPO training for the wave director
@@ -91,14 +91,23 @@ Managers talk to each other over an event bus rather than calling into each othe
 directly. [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) and
 [docs/EVENT_SYSTEM.md](docs/EVENT_SYSTEM.md) explain why.
 
-## The AI part
+## Where the waves come from
 
-Waves aren't a fixed table. A small neural net picks what to send at you based on how
-the run is going. It's trained offline with PPO in `training-backend/` (Python,
-PyTorch), exported to ONNX, and runs in the browser via onnxruntime-web.
+Waves aren't a fixed table. A director picks a template and four shape factors (how
+many, how fast, how tough, how mixed) each wave, and a closed loop on the fraction of
+enemies that actually reach your base keeps the size honest.
 
-This is entirely optional to the game and a rabbit hole of its own. Start at
-[docs/AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md) if that sounds fun.
+That director used to be a small neural net, trained with PPO in `training-backend/`
+and run in the browser through onnxruntime-web. It got replaced by a page of rules,
+because an A/B against a uniform random sampler said the net wasn't doing
+anything: three runs, statistically indistinguishable, and two trivial heuristics beat
+both. The interesting part is *why* — the curriculum and the fairness cap between them
+had left almost nothing to decide. Full write-up in
+[docs/AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md).
+
+So the game needs no Python, no model file and no ONNX runtime to run. The model path
+is still there behind a button in the debug window, kept for a future run trained on
+real player data instead of against a scripted bot.
 
 ## Docs
 

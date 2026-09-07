@@ -124,13 +124,15 @@ export class GameLoopFacadeService {
       this.waveDebug.syncWaveState(waveActive, baseHealth, enemiesAlive);
     }, { injector });
 
-    // Effect: Auto-enable AI Director when ONNX model loads successfully
-    effect(() => {
-      const state = this.waveDirector.modelState();
-      if (state === 'ready' && !this.store.useAIDirector()) {
-        this.store.useAIDirector.set(true);
-      }
-    }, { injector });
+    // No auto-enable effect here any more.
+    //
+    // It existed to switch the director on once the ONNX model had loaded, and
+    // it read `useAIDirector()` as well as the model state. With the rule
+    // director always available that condition is permanently true, so the
+    // effect re-fired on its own write and forced the flag back on: the UI
+    // toggle became inert, the error path could not disable the director, and
+    // a store reset was immediately overridden. `useAIDirector` now simply
+    // defaults to on.
 
     // Effect: Start paused debug enemies when wave starts
     effect(() => {
@@ -294,15 +296,13 @@ export class GameLoopFacadeService {
       });
     } catch (error) {
       console.error('[AI] Failed to generate wave', error);
-      const msg = error instanceof Error ? error.message : String(error);
-      // Phase 5.10: ONNX model missing is a hard-fail. Set a user-visible error
-      // banner and disable AI so the manual wave path kicks in on the next call.
-      if (msg.includes('model is not available') || msg.includes('Model not loaded')) {
-        this.store.aiError.set(
-          'AI-Model konnte nicht geladen werden. Training läuft weiter über den '
-          + 'Server-Backend-Pfad; für Standalone-Play bitte die Seite neu laden.'
-        );
-      }
+      // A missing ONNX model is no longer a failure mode: the rule director is
+      // the default and needs nothing to load. Anything that reaches here is a
+      // real bug, so surface it rather than silently dropping to manual waves.
+      this.store.aiError.set(
+        'Could not generate a wave. Falling back to manual waves; see the console '
+        + 'for details.'
+      );
       this.store.useAIDirector.set(false);
       this.pendingAIWaveRequest = false;
       this.startWaveWithAI(retryCount + 1);
@@ -351,7 +351,7 @@ export class GameLoopFacadeService {
    * Get AI Director status text.
    */
   getAIStatusText(): string {
-    if (!this.store.useAIDirector()) return 'AI deaktiviert';
+    if (!this.store.useAIDirector()) return 'Director off';
     return this.waveDirector.statusText();
   }
 
@@ -383,6 +383,13 @@ export class GameLoopFacadeService {
 
     // Reset pending AI wave request flag
     this.pendingAIWaveRequest = false;
+
+    // Reset the wave director's per-run state. The fairness gate's multiplier
+    // is a per-RUN correction; carrying it into the next game made it a ratchet
+    // that climbed on every cleared wave and fell only on a death, so fresh
+    // runs opened against waves sized for a defense that no longer existed.
+    // That bug held median run length at 6 waves against a target of 80.
+    this.waveDirector.resetForNewGame();
 
     // Reset bot state
     this.trainingClient.resetBot();
@@ -453,10 +460,12 @@ export class GameLoopFacadeService {
       // alignment gates firing).
       tilesEngine?.towers.advanceTurretAim(gameTimeStepMs);
 
-      // Bot decision tick per sub-step (game-time)
+      // Bot decision tick per sub-step (game-time). The snapshot is passed as
+      // a thunk so it is only built on the ticks where the bot's reaction
+      // cooldown has actually elapsed.
       if (this.trainingClient.botEnabled()) {
         this.trainingClient.updateBot(
-          this.aiDataCollector.getStateSnapshot(),
+          () => this.aiDataCollector.getStateSnapshot(),
           gameTimeStepMs,
         );
       }

@@ -31,7 +31,7 @@ Diese Entscheidungen wurden im PoC getroffen und sollten uebernommen werden:
 | Run-Modi | Dev (`localhost:4200`, Live-Reload) **und** Prod (`app://`) | Dev fuer Entwicklung, Prod fuer Auslieferung |
 | Installer | electron-builder, **NSIS**-Target | Standard fuer Windows-Installer |
 | Tile-Provider | `cesium` (Bearer-Token) beibehalten | Origin-unabhaengig; Google-Maps-Key waere wegen HTTP-Referrer-Restriktion unter `app://` problematisch |
-| Cross-Origin-Isolation | Bewusst **AUS** | `COEP: require-corp` wuerde die externen 3D-Tiles-Fetches (Cesium/Google) blockieren. ONNX laeuft dann single-threaded — fuer das kleine Wave-Director-Modell unkritisch |
+| Cross-Origin-Isolation | Bewusst **AUS** | `COEP: require-corp` wuerde die externen 3D-Tiles-Fetches (Cesium/Google) blockieren. ONNX laeuft dann single-threaded — seit dem Wechsel auf den Regel-Director (2026-09-07) ohnehin irrelevant: das Modell wird im Betrieb nicht mehr geladen |
 
 ## Verzeichnisstruktur
 

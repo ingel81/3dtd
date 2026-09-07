@@ -696,7 +696,9 @@ export class VisualizationFacadeService {
     // so nothing disappears in the meantime: the existing lines simply keep
     // last load's heights for the ~1-2 s the sweep takes. Called explicitly
     // rather than relying on the cells-changed listener so the DevWorld path
-    // (no column sampler → no sweep, no emit) still gets its refresh.
+    // still gets its refresh: its heights come from the generated heightmap in
+    // one shot rather than converging over several tile loads, so it never
+    // emits a cells-changed event.
     this.scheduleBakedHeightRefresh();
     const tRoutes = performance.now();
     const tRouteAnim = performance.now();

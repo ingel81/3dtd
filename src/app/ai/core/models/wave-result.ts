@@ -18,6 +18,15 @@ export interface WaveResult {
   /** The game state snapshot before the wave started */
   preWaveSnapshot?: import('./game-state-snapshot').GameStateSnapshot;
 
+  /**
+   * Game state right after the wave resolved.
+   *
+   * The training backend treats this as the authoritative source for "did the
+   * player survive" — `player.lives > 0`. It must be sent on the game-over path
+   * too, otherwise the backend has to guess from the outcome alone.
+   */
+  stateAfter?: import('./game-state-snapshot').GameStateSnapshot;
+
   // === OUTCOME METRICS ===
   outcome: WaveOutcome;
 

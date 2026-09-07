@@ -5,18 +5,81 @@ import {
   NUM_SCALAR_FEATURES,
 } from './game-state-encoder';
 import { createEmptySnapshot, GameStateSnapshot } from './models/game-state-snapshot';
-import { NUM_BINS } from './dps-profile';
-import { ARMOR_TYPES } from '../../configs/combat/combat.types';
+import {
+  AI_ENEMY_ORDER,
+  AI_TOWER_ORDER,
+  AI_DAMAGE_TYPE_ORDER,
+  AI_ARMOR_ORDER,
+  AI_MAX_VALUES,
+  AI_EPISODE_LENGTH,
+  NUM_DPS_BINS,
+  NUM_TEMPLATE_RANGE_FEATURES,
+} from './ai-schema';
+import { MAX_TEMPLATE_SLOTS } from './templates';
 
 /**
- * Schema test for the 156-slot Float32 vector emitted by encodeGameState().
+ * Schema test for the Float32 vector emitted by encodeGameState().
  *
- * Why this matters: the ONNX model is trained against a specific feature
- * order. Silent re-ordering or padding here breaks inference at runtime —
- * the model will accept any 156-float input but the predictions will be
- * garbage. These tests pin the schema down to fixed slot indices.
+ * Why this matters: the ONNX model is trained against one specific feature
+ * order. A silent re-order or an off-by-one shifts every downstream feature —
+ * the model happily accepts any correctly-sized input and returns garbage.
+ *
+ * Offsets are DERIVED from `ai-schema.ts` rather than written as literals. The
+ * previous version of this file pinned absolute indices, which meant a schema
+ * bump broke 17 tests that were all describing the same single change. Deriving
+ * them keeps the test meaningful (it still pins order and normalisation) while
+ * letting the vocabulary grow.
  */
 describe('encodeGameState() schema', () => {
+  const T = AI_TOWER_ORDER.length;
+  const D = AI_DAMAGE_TYPE_ORDER.length;
+  const A = AI_ARMOR_ORDER.length;
+  const E = AI_ENEMY_ORDER.length;
+
+  /** Section offsets, in the exact order encodeGameState() writes them. */
+  const OFF = (() => {
+    let at = 0;
+    const take = (n: number) => {
+      const start = at;
+      at += n;
+      return start;
+    };
+    return {
+      player: take(4),
+      towerStats: take(2),
+      towerCounts: take(T),
+      damageHistory: take(5),
+      progressHistory: take(5),
+      waveSignals: take(5),
+      context: take(5),
+      dpsByDamageType: take(D),
+      armorDistribution: take(A),
+      research: take(5),
+      reserved: take(1),
+      typesHistory: take(E),
+      armorHistory: take(A),
+      damageHistoryRepeat: take(5),
+      towerAvgLevels: take(T),
+      capabilities: take(4),
+      towerUnlocked: take(T),
+      nearMissHistory: take(5),
+      effectiveDpsGround: take(A),
+      effectiveDpsAir: take(A),
+      aoeDpsShare: take(2),
+      // schema v3: what the continuous factors will be applied to
+      templateMask: take(MAX_TEMPLATE_SLOTS),
+      templateRanges: take(NUM_TEMPLATE_RANGE_FEATURES),
+      fairnessHeadroom: take(1),
+      groundProfile: take(NUM_DPS_BINS),
+      airProfile: take(NUM_DPS_BINS),
+      end: at,
+    };
+  })();
+
+  /** Index of a tower/enemy/armor within its canonical order. */
+  const tower = (id: string) => AI_TOWER_ORDER.indexOf(id as never);
+  const armor = (id: string) => AI_ARMOR_ORDER.indexOf(id as never);
+
   function snapshotFixture(): GameStateSnapshot {
     // Start from the canonical empty snapshot, then seed each scalar with a
     // distinct value so we can identify which slot maps to which input.
@@ -42,6 +105,7 @@ describe('encodeGameState() schema', () => {
       fire:          { count: 1, avgLevel: 5, totalDamage: 120, totalDPS: 60 },
       tentacle:      { count: 0, avgLevel: 0, totalDamage: 0,   totalDPS: 0 },
       poison:        { count: 0, avgLevel: 0, totalDamage: 0,   totalDPS: 0 },
+      lightning:     { count: 2, avgLevel: 1, totalDamage: 70,  totalDPS: 35 },
     };
     s.recentHistory.damagePerWave    = [0.1, 0.2, 0.0, 0.3, 0.05];
     s.recentHistory.progressPerWave  = [0.2, 0.3, 0.4, 0.5, 0.6];
@@ -65,9 +129,11 @@ describe('encodeGameState() schema', () => {
       towerUnlocked: {
         archer: true, cannon: true, magic: false, 'dual-gatling': false,
         rocket: true, ice: false, fire: false, tentacle: false, poison: false,
-        'research-center': true,
+        lightning: false, 'research-center': true,
       },
     };
+    s.defense.aoeDpsShare = { ground: 0.4, air: 0.25 };
+    s.defense.killThroughput = { ground: 6, air: 2 };
     s.defense.effectiveDPSPerArmor = {
       ground: { unarmored: 100, light: 80, heavy: 60, fortified: 40, ethereal: 20 },
       air:    { unarmored: 50,  light: 40, heavy: 30, fortified: 20, ethereal: 10 },
@@ -75,245 +141,280 @@ describe('encodeGameState() schema', () => {
     s.expectedArmorDistribution = {
       unarmored: 0.4, light: 0.2, heavy: 0.2, fortified: 0.1, ethereal: 0.1,
     };
-    s.dpsProfile.groundDPS = Array.from({ length: NUM_BINS }, (_, i) => i / NUM_BINS);
-    s.dpsProfile.airDPS    = Array.from({ length: NUM_BINS }, (_, i) => (NUM_BINS - i) / NUM_BINS);
+    s.dpsProfile.groundDPS = Array.from({ length: NUM_DPS_BINS }, (_, i) => i / NUM_DPS_BINS);
+    s.dpsProfile.airDPS =
+      Array.from({ length: NUM_DPS_BINS }, (_, i) => (NUM_DPS_BINS - i) / NUM_DPS_BINS);
     return s;
   }
 
-  it('returns a Float32Array of the documented length', () => {
+  it('returns a Float32Array of the schema-declared length', () => {
     const out = encodeGameState(createEmptySnapshot());
     expect(out).toBeInstanceOf(Float32Array);
     expect(out.length).toBe(ENCODED_STATE_SIZE);
-    expect(ENCODED_STATE_SIZE).toBe(156);
   });
 
-  it('exposes NUM_SCALAR_FEATURES = 116 (everything before the spatial block)', () => {
-    expect(NUM_SCALAR_FEATURES).toBe(116);
+  it('the section offsets account for every slot with none left over', () => {
+    // If this fails, the encoder writes a section this spec does not know
+    // about — every assertion below would be checking the wrong slot.
+    expect(OFF.end).toBe(ENCODED_STATE_SIZE);
+    expect(OFF.groundProfile).toBe(NUM_SCALAR_FEATURES);
   });
 
   describe('slot layout (sectional)', () => {
     const out = encodeGameState(snapshotFixture());
 
-    it('[0-3] player state — credits, livesPercent, wave, gameTime', () => {
-      // credits normalised to a 0-1 range
-      expect(out[0]).toBeGreaterThan(0);
-      expect(out[0]).toBeLessThanOrEqual(1);
-      // livesPercent passed-through
-      expect(out[1]).toBeCloseTo(0.5, 5);
-      // wave 10 normalised by some MAX_WAVE
-      expect(out[2]).toBeGreaterThan(0);
-      expect(out[2]).toBeLessThanOrEqual(1);
-      // gameTime normalised
-      expect(out[3]).toBeGreaterThan(0);
-      expect(out[3]).toBeLessThanOrEqual(1);
+    it('player state — credits, livesPercent, wave, gameTime', () => {
+      expect(out[OFF.player + 0]).toBeCloseTo(1500 / AI_MAX_VALUES.credits, 5);
+      expect(out[OFF.player + 1]).toBeCloseTo(0.5, 5);
+      expect(out[OFF.player + 2]).toBeCloseTo(10 / AI_MAX_VALUES.wave, 5);
+      expect(out[OFF.player + 3]).toBeCloseTo(120 / AI_MAX_VALUES.gameTime, 5);
     });
 
-    it('[4-5] tower stats — towerCount, avgTowerLevel', () => {
-      // towerCount 8 normalised by 30 → ~0.267
-      expect(out[4]).toBeCloseTo(8 / 30, 5);
-      // avgLevel 3 normalised by 5 → 0.6
-      expect(out[5]).toBeCloseTo(0.6, 5);
+    it('tower stats — towerCount, avgTowerLevel', () => {
+      expect(out[OFF.towerStats + 0]).toBeCloseTo(8 / AI_MAX_VALUES.towerCount, 5);
+      expect(out[OFF.towerStats + 1]).toBeCloseTo(3 / AI_MAX_VALUES.towerLevel, 5);
     });
 
-    it('[6-14] tower-type counts in canonical order (9 slots)', () => {
-      // Fixture: archer 4, cannon 1, magic 1, dual-gatling 0, rocket 1, ice 0, fire 1, tentacle 0, poison 0
-      // Normalisation is /10 inside the encoder.
-      expect(out[6]).toBeCloseTo(0.4, 5);   // archer
-      expect(out[7]).toBeCloseTo(0.1, 5);   // cannon
-      expect(out[8]).toBeCloseTo(0.1, 5);   // magic
-      expect(out[9]).toBe(0);               // dual-gatling
-      expect(out[10]).toBeCloseTo(0.1, 5);  // rocket
-      expect(out[11]).toBe(0);              // ice
-      expect(out[12]).toBeCloseTo(0.1, 5);  // fire
-      expect(out[13]).toBe(0);              // tentacle
-      expect(out[14]).toBe(0);              // poison
+    it('tower-type counts follow AI_TOWER_ORDER', () => {
+      const at = (id: string) => out[OFF.towerCounts + tower(id)];
+      expect(at('archer')).toBeCloseTo(0.4, 5);
+      expect(at('cannon')).toBeCloseTo(0.1, 5);
+      expect(at('magic')).toBeCloseTo(0.1, 5);
+      expect(at('dual-gatling')).toBe(0);
+      expect(at('rocket')).toBeCloseTo(0.1, 5);
+      expect(at('ice')).toBe(0);
+      expect(at('fire')).toBeCloseTo(0.1, 5);
+      expect(at('tentacle')).toBe(0);
+      expect(at('poison')).toBe(0);
+      // Lightning became visible to the AI in schema v2.
+      expect(at('lightning')).toBeCloseTo(0.2, 5);
     });
 
-    it('[15-19] history damage — last 5 raw values', () => {
-      expect(out[15]).toBeCloseTo(0.1, 5);
-      expect(out[16]).toBeCloseTo(0.2, 5);
-      expect(out[17]).toBe(0);
-      expect(out[18]).toBeCloseTo(0.3, 5);
-      expect(out[19]).toBeCloseTo(0.05, 5);
+    it('history damage — last 5 raw values, oldest first', () => {
+      expect(Array.from(out.slice(OFF.damageHistory, OFF.damageHistory + 5)))
+        .toEqual([0.1, 0.2, 0, 0.3, 0.05].map((v) => Math.fround(v)));
     });
 
-    it('[20-24] history progress — last 5 raw values', () => {
-      expect(out[20]).toBeCloseTo(0.2, 5);
-      expect(out[21]).toBeCloseTo(0.3, 5);
-      expect(out[22]).toBeCloseTo(0.4, 5);
-      expect(out[23]).toBeCloseTo(0.5, 5);
-      expect(out[24]).toBeCloseTo(0.6, 5);
+    it('history progress — last 5 raw values, oldest first', () => {
+      const got = Array.from(out.slice(OFF.progressHistory, OFF.progressHistory + 5));
+      [0.2, 0.3, 0.4, 0.5, 0.6].forEach((v, i) => expect(got[i]).toBeCloseTo(v, 5));
     });
 
-    it('[25-29] wave signals — momentum, avgRecent, duration, episodeProgress, variance', () => {
-      // [25] momentum = (0.05 - 0.3) * 10 = -2.5 → clamped to -1
-      expect(out[25]).toBeCloseTo(-1, 5);
-      // [26] avg of last 5 damages = 0.13
-      expect(out[26]).toBeCloseTo(0.13, 5);
-      // [27] avgWaveDuration normalised — finite 0-1
-      expect(out[27]).toBeGreaterThan(0);
-      expect(out[27]).toBeLessThanOrEqual(1);
-      // [28] episode progress: wave 10 / 20 = 0.5
-      expect(out[28]).toBeCloseTo(0.5, 5);
-      // [29] variance is non-negative and capped at 1
-      expect(out[29]).toBeGreaterThan(0);
-      expect(out[29]).toBeLessThanOrEqual(1);
+    it('short histories are left-padded so index 0 stays the oldest entry', () => {
+      const s = snapshotFixture();
+      s.recentHistory.damagePerWave = [0.42];
+      const short = encodeGameState(s);
+      expect(Array.from(short.slice(OFF.damageHistory, OFF.damageHistory + 5)))
+        .toEqual([0, 0, 0, 0, Math.fround(0.42)]);
     });
 
-    it('[30-34] context — wave, trend, skill, lastThreat, winStreak', () => {
-      // [30] wave normalised — finite 0-1
-      expect(out[30]).toBeGreaterThan(0);
-      expect(out[30]).toBeLessThanOrEqual(1);
-      // [31] difficulty trend, [32] skill — both finite (allow signed)
-      expect(Number.isFinite(out[31])).toBe(true);
-      expect(Number.isFinite(out[32])).toBe(true);
-      // [33] lastWaveThreat — clamped 0-1
-      expect(out[33]).toBeGreaterThanOrEqual(0);
-      expect(out[33]).toBeLessThanOrEqual(1);
-      // [34] winStreak — clamped 0-1
-      expect(out[34]).toBeGreaterThan(0);
-      expect(out[34]).toBeLessThanOrEqual(1);
+    it('wave signals — momentum, avgRecent, duration, episodeProgress, variance', () => {
+      // momentum = (0.05 - 0.3) * 10 = -2.5, clamped to -1
+      expect(out[OFF.waveSignals + 0]).toBeCloseTo(-1, 5);
+      expect(out[OFF.waveSignals + 1]).toBeCloseTo(0.13, 5);
+      expect(out[OFF.waveSignals + 2]).toBeCloseTo(25 / AI_MAX_VALUES.waveDuration, 5);
+      // Episode progress is measured against the training episode length, not
+      // the hardcoded 20 waves it used to divide by.
+      expect(out[OFF.waveSignals + 3]).toBeCloseTo(10 / AI_EPISODE_LENGTH, 5);
+      expect(out[OFF.waveSignals + 4]).toBeGreaterThan(0);
+      expect(out[OFF.waveSignals + 4]).toBeLessThanOrEqual(1);
     });
 
-    it('[35-41] DPS-by-damage-type — 7 slots, one per DamageType in the encoder order', () => {
-      // Encoder hardcodes 7 damage-type slots so the trained model stays compatible
-      // even when DAMAGE_TYPES grows (e.g. 'lightning' added later — invisible to the AI).
-      for (let i = 0; i < 7; i++) {
-        expect(Number.isFinite(out[35 + i])).toBe(true);
-      }
+    it('context — wave, trend, skill, lastThreat, winStreak', () => {
+      expect(out[OFF.context + 0]).toBeCloseTo(10 / AI_MAX_VALUES.wave, 5);
+      expect(Number.isFinite(out[OFF.context + 1])).toBe(true);
+      expect(Number.isFinite(out[OFF.context + 2])).toBe(true);
+      expect(out[OFF.context + 3]).toBeCloseTo(5 / AI_MAX_VALUES.waveThreat, 5);
+      expect(out[OFF.context + 4]).toBeCloseTo(2 / AI_MAX_VALUES.winStreak, 5);
     });
 
-    it('[42-46] expected armor distribution — 5 slots', () => {
-      expect(ARMOR_TYPES.length).toBe(5);
-      expect(out[42]).toBeCloseTo(0.4, 5);   // unarmored
-      expect(out[43]).toBeCloseTo(0.2, 5);   // light
-      expect(out[44]).toBeCloseTo(0.2, 5);   // heavy
-      expect(out[45]).toBeCloseTo(0.1, 5);   // fortified
-      expect(out[46]).toBeCloseTo(0.1, 5);   // ethereal
-    });
-
-    it('[47-51] research state — 5 slots', () => {
-      // completedRatio 2/10
-      expect(out[47]).toBeCloseTo(0.2, 5);
-      // centerLevel/3
-      expect(out[48]).toBeCloseTo(2 / 3, 5);
-      // slotsUsed/maxSlots
-      expect(out[49]).toBeCloseTo(1 / 3, 5);
-      // airTargetingUnlocked flag
-      expect(out[50]).toBe(1);
-      // maxUpgradeTier/3
-      expect(out[51]).toBeCloseTo(2 / 3, 5);
-    });
-
-    it('[52] reserved/padding is zero', () => {
-      expect(out[52]).toBe(0);
-    });
-
-    it('[53-68] types-history — 16 slots (one per enemy type)', () => {
-      // 16 entries; each is fraction of last 5 waves containing that type
-      for (let i = 0; i < 16; i++) {
-        const v = out[53 + i];
+    it('DPS-by-damage-type has one slot per AI_DAMAGE_TYPE_ORDER entry', () => {
+      for (let i = 0; i < D; i++) {
+        const v = out[OFF.dpsByDamageType + i];
+        expect(Number.isFinite(v)).toBe(true);
         expect(v).toBeGreaterThanOrEqual(0);
         expect(v).toBeLessThanOrEqual(1);
       }
     });
 
-    it('[69-73] armor-history — 5 slots', () => {
+    it('expected armor distribution follows AI_ARMOR_ORDER', () => {
+      const at = (id: string) => out[OFF.armorDistribution + armor(id)];
+      expect(at('unarmored')).toBeCloseTo(0.4, 5);
+      expect(at('light')).toBeCloseTo(0.2, 5);
+      expect(at('heavy')).toBeCloseTo(0.2, 5);
+      expect(at('fortified')).toBeCloseTo(0.1, 5);
+      expect(at('ethereal')).toBeCloseTo(0.1, 5);
+    });
+
+    it('research state — ratio, centerLevel, slot use, airTargeting, maxTier', () => {
+      expect(out[OFF.research + 0]).toBeCloseTo(0.2, 5);
+      expect(out[OFF.research + 1]).toBeCloseTo(2 / 3, 5);
+      expect(out[OFF.research + 2]).toBeCloseTo(1 / 3, 5);
+      expect(out[OFF.research + 3]).toBe(1);
+      // Tier is normalised against the highest tier the research tree unlocks
+      // (5). Dividing by 3 used to push this feature past 1.0 at tier 4.
+      expect(out[OFF.research + 4]).toBeCloseTo(2 / AI_MAX_VALUES.upgradeTier, 5);
+    });
+
+    it('maxUpgradeTier 5 encodes as exactly 1.0, never above', () => {
+      const s = snapshotFixture();
+      s.research.maxUpgradeTier = 5;
+      const maxed = encodeGameState(s);
+      expect(maxed[OFF.research + 4]).toBeCloseTo(1, 5);
+    });
+
+    it('reserved slot is zero', () => {
+      expect(out[OFF.reserved]).toBe(0);
+    });
+
+    it('types-history has one slot per AI_ENEMY_ORDER entry', () => {
+      expect(E).toBe(AI_ENEMY_ORDER.length);
+      for (let i = 0; i < E; i++) {
+        const v = out[OFF.typesHistory + i];
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+      // 'zombie' appeared in 2 of the last 5 waves in the fixture.
+      expect(out[OFF.typesHistory + AI_ENEMY_ORDER.indexOf('zombie')]).toBeCloseTo(2 / 5, 5);
+      // The two enemies added in schema v2 are present and simply unused here.
+      expect(out[OFF.typesHistory + AI_ENEMY_ORDER.indexOf('stone-golem')]).toBe(0);
+      expect(out[OFF.typesHistory + AI_ENEMY_ORDER.indexOf('zombie-v2')]).toBe(0);
+    });
+
+    it('armor-history has one slot per armor class', () => {
+      for (let i = 0; i < A; i++) {
+        const v = out[OFF.armorHistory + i];
+        expect(v).toBeGreaterThanOrEqual(0);
+        expect(v).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('damage-pct history repeats the earlier damage block verbatim', () => {
       for (let i = 0; i < 5; i++) {
-        const v = out[69 + i];
+        expect(out[OFF.damageHistoryRepeat + i]).toBe(out[OFF.damageHistory + i]);
+      }
+    });
+
+    it('tower-type avg-levels follow AI_TOWER_ORDER', () => {
+      const at = (id: string) => out[OFF.towerAvgLevels + tower(id)];
+      expect(at('archer')).toBeCloseTo(2 / 5, 5);
+      expect(at('cannon')).toBeCloseTo(3 / 5, 5);
+      expect(at('magic')).toBeCloseTo(1 / 5, 5);
+      expect(at('dual-gatling')).toBe(0);
+      expect(at('rocket')).toBeCloseTo(4 / 5, 5);
+      expect(at('fire')).toBeCloseTo(1, 5);
+      expect(at('lightning')).toBeCloseTo(1 / 5, 5);
+    });
+
+    it('defense capabilities — antiAir, splash, slow, dot', () => {
+      expect(out[OFF.capabilities + 0]).toBe(1);
+      expect(out[OFF.capabilities + 1]).toBe(1);
+      expect(out[OFF.capabilities + 2]).toBe(0);
+      expect(out[OFF.capabilities + 3]).toBe(1);
+    });
+
+    it('tower-unlock status follows AI_TOWER_ORDER', () => {
+      const at = (id: string) => out[OFF.towerUnlocked + tower(id)];
+      expect(at('archer')).toBe(1);
+      expect(at('cannon')).toBe(1);
+      expect(at('rocket')).toBe(1);
+      expect(at('magic')).toBe(0);
+      expect(at('dual-gatling')).toBe(0);
+      expect(at('ice')).toBe(0);
+      expect(at('fire')).toBe(0);
+      expect(at('tentacle')).toBe(0);
+      expect(at('poison')).toBe(0);
+      expect(at('lightning')).toBe(0);
+    });
+
+    it('near-miss history — last 5 values, oldest first', () => {
+      const got = Array.from(out.slice(OFF.nearMissHistory, OFF.nearMissHistory + 5));
+      [0, 0.1, 0.2, 0.05, 0].forEach((v, i) => expect(got[i]).toBeCloseTo(v, 5));
+    });
+
+    it('effective DPS vs armor (ground) normalises by the schema ceiling', () => {
+      const max = AI_MAX_VALUES.effectiveDpsPerArmor;
+      const at = (id: string) => out[OFF.effectiveDpsGround + armor(id)];
+      expect(at('unarmored')).toBeCloseTo(100 / max, 5);
+      expect(at('light')).toBeCloseTo(80 / max, 5);
+      expect(at('heavy')).toBeCloseTo(60 / max, 5);
+      expect(at('fortified')).toBeCloseTo(40 / max, 5);
+      expect(at('ethereal')).toBeCloseTo(20 / max, 5);
+    });
+
+    it('effective DPS vs armor (air) normalises by the schema ceiling', () => {
+      const max = AI_MAX_VALUES.effectiveDpsPerArmor;
+      const at = (id: string) => out[OFF.effectiveDpsAir + armor(id)];
+      expect(at('unarmored')).toBeCloseTo(50 / max, 5);
+      expect(at('light')).toBeCloseTo(40 / max, 5);
+      expect(at('heavy')).toBeCloseTo(30 / max, 5);
+      expect(at('fortified')).toBeCloseTo(20 / max, 5);
+      expect(at('ethereal')).toBeCloseTo(10 / max, 5);
+    });
+
+    it('AoE share is passed through as a plain fraction', () => {
+      expect(out[OFF.aoeDpsShare + 0]).toBeCloseTo(0.4, 5);
+      expect(out[OFF.aoeDpsShare + 1]).toBeCloseTo(0.25, 5);
+    });
+
+    it('ground DPS profile fills NUM_DPS_BINS slots', () => {
+      for (let i = 0; i < NUM_DPS_BINS; i++) {
+        expect(out[OFF.groundProfile + i]).toBeCloseTo(i / NUM_DPS_BINS, 5);
+      }
+    });
+
+    it('air DPS profile fills NUM_DPS_BINS slots', () => {
+      for (let i = 0; i < NUM_DPS_BINS; i++) {
+        expect(out[OFF.airProfile + i]).toBeCloseTo((NUM_DPS_BINS - i) / NUM_DPS_BINS, 5);
+      }
+    });
+
+    it('the template mask marks exactly one slot inside the curriculum', () => {
+      // The fixture sits at wave 10, so wave 11 is still curriculum-pinned and
+      // the mask is effectively a one-hot of the template that will ship.
+      const live = [];
+      for (let i = 0; i < MAX_TEMPLATE_SLOTS; i++) {
+        if (out[OFF.templateMask + i] === 1) live.push(i);
+      }
+      expect(live.length).toBe(1);
+    });
+
+    it('template range features are normalised into 0..1', () => {
+      for (let i = 0; i < NUM_TEMPLATE_RANGE_FEATURES; i++) {
+        const v = out[OFF.templateRanges + i];
         expect(v).toBeGreaterThanOrEqual(0);
         expect(v).toBeLessThanOrEqual(1);
       }
-    });
-
-    it('[74-78] damage-pct-history (parallel to [15-19])', () => {
-      expect(out[74]).toBeCloseTo(0.1, 5);
-      expect(out[75]).toBeCloseTo(0.2, 5);
-      expect(out[76]).toBe(0);
-      expect(out[77]).toBeCloseTo(0.3, 5);
-      expect(out[78]).toBeCloseTo(0.05, 5);
-    });
-
-    it('[79-87] tower-type avg-levels — 9 slots', () => {
-      // archer avg 2 / 5 = 0.4
-      expect(out[79]).toBeCloseTo(0.4, 5);
-      // cannon 3 / 5 = 0.6
-      expect(out[80]).toBeCloseTo(0.6, 5);
-      // magic 1 / 5 = 0.2
-      expect(out[81]).toBeCloseTo(0.2, 5);
-      // dual-gatling 0
-      expect(out[82]).toBe(0);
-      // rocket 4 / 5
-      expect(out[83]).toBeCloseTo(0.8, 5);
-      // fire 5 / 5
-      expect(out[85]).toBeCloseTo(1.0, 5);
-    });
-
-    it('[88-91] defense capabilities — 4 flag slots', () => {
-      expect(out[88]).toBe(1);  // hasAntiAir
-      expect(out[89]).toBe(1);  // hasSplash
-      expect(out[90]).toBe(0);  // hasSlow
-      expect(out[91]).toBe(1);  // hasDoT
-    });
-
-    it('[92-100] tower-unlock status — 9 flag slots in TOWER_TYPE order', () => {
-      // archer/cannon/rocket unlocked; magic/ice/fire/tentacle/poison/dual-gatling locked.
-      expect(out[92]).toBe(1);  // archer
-      expect(out[93]).toBe(1);  // cannon
-      expect(out[94]).toBe(0);  // magic
-      expect(out[95]).toBe(0);  // dual-gatling
-      expect(out[96]).toBe(1);  // rocket
-      expect(out[97]).toBe(0);  // ice
-      expect(out[98]).toBe(0);  // fire
-      expect(out[99]).toBe(0);  // tentacle
-      expect(out[100]).toBe(0); // poison
-    });
-
-    it('[101-105] near-miss history (5 slots)', () => {
-      expect(out[101]).toBeCloseTo(0, 5);
-      expect(out[102]).toBeCloseTo(0.1, 5);
-      expect(out[103]).toBeCloseTo(0.2, 5);
-      expect(out[104]).toBeCloseTo(0.05, 5);
-      expect(out[105]).toBeCloseTo(0, 5);
-    });
-
-    it('[106-110] effective DPS vs armor (ground) — 5 slots', () => {
-      // Normalisation: divide by 500 (MAX_EFFECTIVE_DPS_PER_ARMOR), clamp 0-1.
-      expect(out[106]).toBeCloseTo(100 / 500, 5); // unarmored
-      expect(out[107]).toBeCloseTo(80 / 500, 5);  // light
-      expect(out[108]).toBeCloseTo(60 / 500, 5);  // heavy
-      expect(out[109]).toBeCloseTo(40 / 500, 5);  // fortified
-      expect(out[110]).toBeCloseTo(20 / 500, 5);  // ethereal
-    });
-
-    it('[111-115] effective DPS vs armor (air) — 5 slots', () => {
-      expect(out[111]).toBeCloseTo(50 / 500, 5);
-      expect(out[112]).toBeCloseTo(40 / 500, 5);
-      expect(out[113]).toBeCloseTo(30 / 500, 5);
-      expect(out[114]).toBeCloseTo(20 / 500, 5);
-      expect(out[115]).toBeCloseTo(10 / 500, 5);
-    });
-
-    it('[116-135] ground DPS profile — 20 bins', () => {
-      for (let i = 0; i < NUM_BINS; i++) {
-        expect(out[116 + i]).toBeCloseTo(i / NUM_BINS, 5);
+      // Each pair is (min, max), so the low bound never exceeds the high one.
+      for (let i = 0; i < NUM_TEMPLATE_RANGE_FEATURES; i += 2) {
+        expect(out[OFF.templateRanges + i]).toBeLessThanOrEqual(out[OFF.templateRanges + i + 1]);
       }
     });
 
-    it('[136-155] air DPS profile — 20 bins', () => {
-      for (let i = 0; i < NUM_BINS; i++) {
-        expect(out[136 + i]).toBeCloseTo((NUM_BINS - i) / NUM_BINS, 5);
-      }
+    it('fairness headroom is a 0..1 position on the count-factor scale', () => {
+      const v = out[OFF.fairnessHeadroom];
+      expect(v).toBeGreaterThanOrEqual(0);
+      expect(v).toBeLessThanOrEqual(1);
     });
   });
 
   describe('all outputs are finite and bounded', () => {
-    it('every slot of an empty snapshot is a finite number in [0,1]', () => {
+    it('every slot of an empty snapshot is finite and in range', () => {
       const out = encodeGameState(createEmptySnapshot());
       for (let i = 0; i < ENCODED_STATE_SIZE; i++) {
         expect(Number.isFinite(out[i])).toBe(true);
-        // signed momentum slot can be -1 — handle that exception
-        const lowerBound = i === 25 ? -1 : 0;
+        // The damage-momentum slot is the one deliberately signed feature.
+        const lowerBound = i === OFF.waveSignals ? -1 : 0;
+        expect(out[i]).toBeGreaterThanOrEqual(lowerBound);
+        expect(out[i]).toBeLessThanOrEqual(1);
+      }
+    });
+
+    it('a fully-populated snapshot also stays in range', () => {
+      const out = encodeGameState(snapshotFixture());
+      for (let i = 0; i < ENCODED_STATE_SIZE; i++) {
+        expect(Number.isFinite(out[i])).toBe(true);
+        const lowerBound = i === OFF.waveSignals ? -1 : 0;
         expect(out[i]).toBeGreaterThanOrEqual(lowerBound);
         expect(out[i]).toBeLessThanOrEqual(1);
       }

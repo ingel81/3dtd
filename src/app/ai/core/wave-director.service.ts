@@ -1,12 +1,23 @@
 /**
- * Wave Director Service — Phase 5.10 Template-Based
+ * Wave Director Service — template-based wave generation.
  *
- * Loads the ONNX model (optional) and decodes its output into a Template-Based
- * WaveConfig. During training, the backend picks waves via WebSocket; the
- * local ONNX path is only used in standalone play.
+ * Decides the next wave and decodes that decision into a WaveConfig. The
+ * decision comes from the rule director by default; the ONNX policy is an
+ * opt-in loaded on demand from the debug window. During training the Python
+ * backend picks waves over the WebSocket instead, upstream of this service.
  *
- * If the model fails to load AND no backend is available, the service throws
- * an explicit error — there is no rule-based fallback in Phase 5.10.
+ * Nothing here throws for a missing model any more. Rules need no model, no
+ * network and no ONNX runtime, so there is no startup window in which the
+ * service cannot produce a wave — the earlier `'fallback'` state meant "error:
+ * no model" and is now `'rules'`, meaning normal operation. The AI-off path
+ * remains the static wave profiles in `wave-curriculum.config.ts`, selected
+ * upstream.
+ *
+ * Why rules and not the model: measured across a day of A/B runs sharing the
+ * same bots, curriculum and fairness gate, the trained policy was three times
+ * statistically indistinguishable from uniform random sampling. See
+ * `rule-director.ts` for the numbers and `docs/AI_WAVE_DIRECTOR_PLAN.md` for
+ * the reasoning.
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
@@ -17,7 +28,6 @@ import { WaveResult } from './models/wave-result';
 import { explainWaveDecision, DecisionExplanation, formatExplanationForUI } from './decision-explainer';
 import { encodeGameState, ENCODED_STATE_SIZE } from './game-state-encoder';
 import {
-  TEMPLATES,
   MAX_TEMPLATE_SLOTS,
   MAX_WAVE_DURATION_MS,
   MIN_SPAWN_DELAY_MS,
@@ -25,16 +35,20 @@ import {
   DPS_RAMP_COUNT,
   DPS_RAMP_HP_MULT,
   getTemplate,
-  getAvailableTemplateMask,
   lerpRange,
+  fairMaxCount,
 } from './templates';
-import { templateForWave, endgameHpMultiplier } from '../../configs/wave-curriculum.config';
+import { buildWaveContext, type WaveContext } from './wave-context';
+import { RuleDirector, type DirectorDecision } from './rule-director';
+import { GateController } from './gate-controller';
+import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
+import { endgameHpMultiplier, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 
 /** Model loading states */
-type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
+type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'rules';
 
 /** AI Mode */
-type AIMode = 'inference' | 'fallback' | 'training' | 'disabled';
+type AIMode = 'inference' | 'rules' | 'training' | 'disabled';
 
 /** ONNX Runtime types (lazy loaded) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -53,51 +67,67 @@ export class WaveDirectorService {
   private recentTemplateIndices: number[] = [];
 
   // === SIGNALS ===
-  readonly modelState = signal<ModelState>('not-loaded');
-  readonly aiMode = signal<AIMode>('fallback');
+  // Rules are the DEFAULT, not a degraded mode.
+  //
+  // Measured across a day of A/B runs sharing bots, curriculum and fairness
+  // gate: the ONNX policy was three times statistically indistinguishable from
+  // uniform random (mean run 45.6 [42,49] vs 44.7 [41,48]), while two trivial
+  // heuristics produced measurably more tension (near-miss 0.067 vs 0.045).
+  // A dependency that costs 404 kB of ONNX runtime and a load-failure path has
+  // to earn its place, and this one does not yet.
+  readonly modelState = signal<ModelState>('rules');
+  readonly aiMode = signal<AIMode>('rules');
   readonly lastDecision = signal<WaveConfig | null>(null);
   readonly lastExplanation = signal<DecisionExplanation | null>(null);
   readonly inferenceTimeMs = signal(0);
 
   readonly isReady = computed(() => {
     const state = this.modelState();
-    return state === 'ready' || state === 'fallback';
+    return state === 'ready' || state === 'rules';
   });
 
   readonly statusText = computed(() => {
     switch (this.modelState()) {
       case 'not-loaded':
-        return 'AI nicht geladen';
+        return 'Model not loaded';
       case 'loading':
-        return 'AI wird geladen...';
+        return 'Loading model...';
       case 'ready':
-        return 'AI bereit (ONNX)';
-      case 'fallback':
-        return 'Fehler: kein Model geladen';
+        return 'ONNX model active';
+      case 'rules':
+        return 'Rule director active';
       case 'error':
-        return 'AI Fehler';
+        return 'Model error';
     }
   });
 
   // === DEBUG MODE ===
   private debugMode = signal(false);
 
-  constructor() {
-    // Try to load model on startup (but don't block)
-    this.initializeAsync();
-  }
+  private readonly ruleDirector = new RuleDirector();
+  readonly gate = new GateController();
 
-  /**
-   * Initialize AI (async, non-blocking)
-   */
-  private async initializeAsync(): Promise<void> {
-    try {
-      await this.loadModel();
-    } catch (error) {
-      console.warn('[AI] Model loading failed, using fallback', error);
-      this.modelState.set('fallback');
-      this.aiMode.set('fallback');
-    }
+  constructor() {
+    // Subscribe the fairness gate to completed waves.
+    //
+    // This wiring is the whole point of the controller and it was missing on
+    // first write: `onWaveCompleted` had no caller anywhere in the project, so
+    // the multiplier stayed at 1.0 forever and the cap sat back on "exactly
+    // what the towers can kill" — the 70%-killed-everything state the loop
+    // exists to break. Every unit test passed regardless, because they all
+    // exercised the controller in isolation.
+    //
+    // The collector's hook is used rather than the `wave:completed` event: that
+    // event is not emitted when the base falls, so the death back-off would
+    // have been unreachable.
+    this.dataCollector.onWaveResult((result) => this.onWaveCompleted(result));
+
+    // No ONNX load on startup.
+    //
+    // The model used to be fetched eagerly and switched on the moment it
+    // arrived. That made a 404 kB runtime and a network round-trip part of
+    // every cold start for a director that measured no better than uniform
+    // random. Call loadModel() explicitly to opt in.
   }
 
   /**
@@ -134,21 +164,43 @@ export class WaveDirectorService {
           options
         );
 
+        // Refuse a model that was trained against a different state encoding.
+        //
+        // The checked-in model was exported at schema v2 and expects 156
+        // inputs; the encoder produces ENCODED_STATE_SIZE (203 at schema v3).
+        // Without this check the session loads happily and then throws a shape
+        // error on the first `run()` — mid-wave, in a path with no fallback,
+        // long after the button that started it. Failing here keeps the rules
+        // running and says why.
+        const declared = await this.declaredInputSize();
+        if (declared !== null && declared !== ENCODED_STATE_SIZE) {
+          console.warn(
+            `[AI] Model expects ${declared} inputs, the encoder produces `
+            + `${ENCODED_STATE_SIZE}. It was exported against an older schema; `
+            + 're-export it with `npm run export-ai`. Staying on the rule director.'
+          );
+          this.session = null;
+          this.modelState.set('rules');
+          this.aiMode.set('rules');
+          return false;
+        }
+
         this.modelState.set('ready');
         this.aiMode.set('inference');
         console.log('[AI] ONNX model loaded successfully');
         return true;
       } catch {
-        // Model file not found - use fallback
-        console.log('[AI] No model file found, using fallback rules');
-        this.modelState.set('fallback');
-        this.aiMode.set('fallback');
+        // No model file. Not an error: rules are the product, the model is the
+        // opt-in that has not yet shown it beats them.
+        console.log('[AI] No model file found, staying on the rule director');
+        this.modelState.set('rules');
+        this.aiMode.set('rules');
         return false;
       }
     } catch (error) {
       console.error('[AI] Failed to load ONNX Runtime', error);
       this.modelState.set('error');
-      this.aiMode.set('fallback');
+      this.aiMode.set('rules');
       return false;
     }
   }
@@ -162,17 +214,15 @@ export class WaveDirectorService {
   async getNextWave(): Promise<WaveConfig> {
     const startTime = performance.now();
 
-    // Phase 5.10: no rule-based fallback — ONNX model is required for inference.
-    if (this.aiMode() !== 'inference' || !this.session || !this.ort) {
-      throw new Error(
-        '[AI] Wave Director model is not available. Fallback-rules were removed '
-        + 'in Phase 5.10; the ONNX model must load successfully for inference. '
-        + 'Check network/onnx-wasm assets and reload the page.'
-      );
-    }
-
     const state = this.dataCollector.getStateSnapshot();
-    const config = await this.runInference(state);
+
+    // Rules unless the ONNX policy was explicitly loaded AND is live. This is
+    // no longer an error path: the model is the opt-in, the rules are the
+    // product.
+    const useModel = this.aiMode() === 'inference' && !!this.session && !!this.ort;
+    const config = useModel
+      ? await this.runInference(state)
+      : this.runRules(state);
 
     // Generate explanation
     const explanation = explainWaveDecision(state, config);
@@ -193,6 +243,44 @@ export class WaveDirectorService {
   }
 
   /**
+   * Input width the exported model was built for, or null if unknown.
+   *
+   * Read from the sidecar metadata rather than the session: onnxruntime-web
+   * exposes input names but not reliably a concrete dimension for a dynamic
+   * batch axis, and the export writes the figure it used.
+   */
+  private async declaredInputSize(): Promise<number | null> {
+    try {
+      const res = await fetch('/assets/ai/wave-director/metadata.json');
+      if (!res.ok) return null;
+      const meta = await res.json();
+      return typeof meta?.inputSize === 'number' ? meta.inputSize : null;
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Rule-based decision, through the same decoder the model output uses.
+   *
+   * The fairness cap is corrected by the gate controller, which is the piece
+   * that was previously server-only. Without it the cap sits on "exactly what
+   * the towers can kill" and therefore guarantees they kill it: measured over
+   * 1834 waves, 70% of waves killed everything and 80% dealt no damage at all.
+   */
+  private runRules(state: GameStateSnapshot): WaveConfig {
+    const waveContext = buildWaveContext(state, this.recentTemplateIndices);
+    const decision = this.ruleDirector.decide(
+      waveContext.mask,
+      state.waveNumber + 1,
+      this.recentTemplateIndices,
+    );
+    // A rule director simply decided; there is no distribution to read a
+    // confidence out of.
+    return this.buildWaveConfig(decision, state, 1);
+  }
+
+  /**
    * Run ONNX neural network inference
    */
   private async runInference(state: GameStateSnapshot): Promise<WaveConfig> {
@@ -200,11 +288,14 @@ export class WaveDirectorService {
       throw new Error('Model not loaded');
     }
 
-    // Encode state to Float32Array
-    const encoded = encodeGameState(state);
+    // One context for the whole decision: it feeds the model's wave-context
+    // features AND filters the model's template output, so the two cannot
+    // describe different sets of legal templates.
+    const waveContext = buildWaveContext(state, this.recentTemplateIndices);
+    const encoded = encodeGameState(state, waveContext);
 
 
-    // Create ONNX tensor (shape: [1, 74])
+    // Create ONNX tensor (shape: [1, ENCODED_STATE_SIZE])
     const inputTensor = new this.ort.Tensor('float32', encoded, [1, ENCODED_STATE_SIZE]);
 
     // Run inference
@@ -218,7 +309,7 @@ export class WaveDirectorService {
     // Debug: Log raw model output
 
     // Decode output to WaveConfig
-    return this.decodeModelOutput(output, state);
+    return this.decodeModelOutput(output, state, waveContext);
   }
 
   /**
@@ -236,32 +327,26 @@ export class WaveDirectorService {
    *   [MAX_TEMPLATE_SLOTS..+NUM_CONTINUOUS-1]  4 raw continuous params
    *                                            (count, spawn_delay, hp_mult, variation)
    */
-  private decodeModelOutput(output: Float32Array, state: GameStateSnapshot): WaveConfig {
+  private decodeModelOutput(
+    output: Float32Array,
+    state: GameStateSnapshot,
+    waveContext: WaveContext,
+  ): WaveConfig {
     const templateLogits = Array.from(output.slice(0, MAX_TEMPLATE_SLOTS));
     const rawParams = output.slice(MAX_TEMPLATE_SLOTS, MAX_TEMPLATE_SLOTS + 4);
 
-    // Apply template availability mask
-    const research = state.research;
-    const hasAntiAir = !!(
-      research?.towerUnlocked?.['ice']
-      || research?.towerUnlocked?.['rocket']
-      || research?.airTargetingUnlocked
-    );
-    const hasAntiEthereal = !!(
-      research?.towerUnlocked?.['magic']
-      || research?.towerUnlocked?.['ice']
-    );
-    const mask = getAvailableTemplateMask(
-      state.waveNumber + 1,
-      hasAntiAir,
-      hasAntiEthereal,
-      this.recentTemplateIndices,
-    );
+    // Availability mask, built by the shared wave-context helper so the mask
+    // the model was *fed* (see game-state-encoder) and the mask its output is
+    // *filtered by* here can never disagree. Inside the curriculum it collapses
+    // to a single slot, so the argmax below has one candidate and the wave that
+    // ships is the one the designer pinned. Past the curriculum it is a real
+    // choice.
+    const mask = waveContext.mask;
 
     const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);
     const probs = this.softmax(maskedLogits);
 
-    let bestIdx = 0;
+    let bestIdx = -1;
     let bestProb = -1;
     for (let i = 0; i < probs.length; i++) {
       if (mask[i] && probs[i] > bestProb) {
@@ -270,30 +355,54 @@ export class WaveDirectorService {
       }
     }
 
-    // Phase 5.16: Wave-Curriculum override. For waves 1..18 the designer
-    // picks the template; NN's continuous factors still tune difficulty.
-    // Bot/player has unlimited build-phase research time — capability
-    // alignment is their responsibility.
+    return this.buildWaveConfig(
+      {
+        templateIdx: bestIdx,
+        countFactor: this.sigmoid(rawParams[0]),
+        spawnFactor: this.sigmoid(rawParams[1]),
+        hpFactor: this.sigmoid(rawParams[2]),
+        variationFactor: this.sigmoid(rawParams[3]),
+      },
+      state,
+      bestProb,
+    );
+  }
+
+  /**
+   * Turn a director's five numbers into a shippable wave.
+   *
+   * Everything here is shared between the model and the rule director: the
+   * template lookup, range interpolation, the DPS ramp, the endgame
+   * multiplier, the fairness cap and the duration cap. Only the choice of
+   * template and factors differs between them, which is what makes an A/B
+   * between the two honest — and what made it possible to measure that the
+   * trained model was indistinguishable from uniform random sampling.
+   */
+  private buildWaveConfig(
+    decision: DirectorDecision,
+    state: GameStateSnapshot,
+    confidence: number,
+  ): WaveConfig {
     const upcomingWave = state.waveNumber + 1;
-    const forcedId = templateForWave(upcomingWave);
-    if (forcedId) {
-      const forcedIdx = TEMPLATES.findIndex((t) => t.id === forcedId);
-      if (forcedIdx >= 0) {
-        bestIdx = forcedIdx;
-        bestProb = 1.0;
+    let bestIdx = decision.templateIdx;
+    const bestProb = confidence;
+
+    // An invalid index means the mask and the template table disagree, which is
+    // a real bug worth shouting about — but not one worth ending the wave over.
+    // Throwing here propagates to the facade, which disables the director and
+    // drops to manual waves; the Python decoder logs and ships slot 0 instead,
+    // and a degraded AI wave beats no AI wave.
+    let template = bestIdx >= 0 ? getTemplate(bestIdx) : null;
+    if (!template) {
+      console.error(`[AI] Director selected invalid template index ${bestIdx} — using slot 0`);
+      template = getTemplate(0);
+      bestIdx = 0;
+      if (!template) {
+        throw new Error('[AI] Template table is empty');
       }
     }
 
-    const template = getTemplate(bestIdx);
-    if (!template) {
-      throw new Error(`[AI] Decoder selected invalid template index ${bestIdx}`);
-    }
-
-    // Interpolate each factor into template's range.
-    const countFactor = this.sigmoid(rawParams[0]);
-    const spawnFactor = this.sigmoid(rawParams[1]);
-    const hpFactor = this.sigmoid(rawParams[2]);
-    const variationFactor = this.sigmoid(rawParams[3]);
+    const { countFactor, spawnFactor, hpFactor, variationFactor } = decision;
 
     // DPS-scaled range caps for difficulty axes (count, hp_mult). Weak defense
     // → narrow effective range; strong defense → full range.
@@ -305,7 +414,6 @@ export class WaveDirectorService {
       return rng[0] + (effMax - rng[0]) * factor;
     };
 
-    const totalCount = Math.max(1, Math.round(lerpCapped(template.countRange, countFactor, dpsFracCount)));
     let spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.round(lerpRange(template.spawnDelayRange, spawnFactor)));
     // Phase 5.16: post-NN endgame multiplier compounds onto the NN's hp_mult so
     // late waves get steeper without retraining (W30 ≈ ×1.5, W50 ≈ ×2.5, cap 4×).
@@ -313,10 +421,67 @@ export class WaveDirectorService {
     const hpMult = Math.round(baseHpMult * endgameHpMultiplier(upcomingWave) * 1000) / 1000;
     const variation = Math.round(lerpRange(template.variationRange, variationFactor) * 1000) / 1000;
 
+    // Fairness gate: never ship a wave the defense cannot plausibly fight.
+    // Applied after the HP multipliers so it judges the enemies as they will
+    // actually spawn.
+    //
+    // The gate INTERPOLATES rather than clamps, mirroring `_decode_action` in
+    // the training backend. Clamping after the fact discarded the model's
+    // choice on most waves and mapped every count factor above the cap onto an
+    // identical wave — a flat region the policy cannot express a preference in,
+    // and during training a chosen action paired with a different executed one.
+    // Folding the cap into the range keeps chosen == executed; the factor means
+    // "how far into what is currently allowed", and the cap is already part of
+    // the model's observation.
+    //
+    // Recomputed against the template that was actually chosen and the factors
+    // that were actually emitted — the context's value is a coarse ceiling
+    // signal for the model, this is the binding decision.
+    const countLo = template.countRange[0];
+    const dpsScaledMax = lerpRange(template.countRange, dpsFracCount);
+    const countFor = (delay: number): { count: number; cap: number | null } => {
+      const cap = fairMaxCount(
+        template,
+        hpMult,
+        delay,
+        state.defense?.effectiveDPSPerArmor,
+        state.defense?.killThroughput,
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseHp ?? 80,
+        (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
+        state.player?.lives ?? 100,
+        enemyBaseDamageForWave(upcomingWave),
+        // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves
+        // 1-10 and understates the defense from wave 11 on; this is the only
+        // thing that notices.
+        this.gate.budgetMultiplier,
+      );
+      // The gate outranks the template minimum. A cap BELOW countRange[0] means
+      // the defense cannot handle even the smallest wave the designer wrote,
+      // and shipping the minimum anyway makes early runs far more lethal than
+      // intended. Collapse the range onto the cap instead.
+      let lo = countLo;
+      let hi = dpsScaledMax;
+      if (cap !== null) {
+        lo = Math.min(lo, cap);
+        hi = Math.max(lo, Math.min(hi, cap));
+      }
+      return { count: Math.max(1, Math.round(lo + (hi - lo) * countFactor)), cap };
+    };
+
+    let totalCount = countFor(spawnDelay).count;
+
     // Wave-duration cap: compress spawn_delay if total would exceed 3 min.
     const totalDuration = totalCount * spawnDelay;
     if (totalDuration > MAX_WAVE_DURATION_MS) {
       spawnDelay = Math.max(MIN_SPAWN_DELAY_MS, Math.floor(MAX_WAVE_DURATION_MS / totalCount));
+      // Re-derive against the compressed delay. A slow mega-wave can clear the
+      // gate precisely BECAUSE its long spawn window gives the defense time,
+      // and the compression then multiplies the spawn rate — so without this
+      // the gate is bypassed by exactly the waves it exists to stop. The
+      // backend has always done this second pass; the frontend did not.
+      totalCount = countFor(spawnDelay).count;
     }
 
     // Expand template → enemy groups
@@ -363,11 +528,32 @@ export class WaveDirectorService {
    * Called after wave completes - for potential online learning
    */
   onWaveCompleted(result: WaveResult): void {
-    // Currently just logs - training happens in backend
+    // Feed the fairness gate. This is the loop that sizes the next wave, so it
+    // has to see every completed wave — not just the ones a debug flag prints.
+    const progress = result.outcome.enemyProgressValues ?? [];
+    // null, not 0: a wave with no per-enemy data is no evidence either way.
+    const leakRatio = progress.length > 0
+      ? progress.filter(p => p >= 1).length / progress.length
+      : null;
+    const survived = result.outcome.playerSurvived !== false;
+    this.gate.recordWave(leakRatio, survived);
+
     if (this.debugMode()) {
       console.log('[AI] Wave result:', result);
-      console.log('[AI] Reward would be:', this.calculateReward(result));
+      console.log('[AI] Leak ratio:', leakRatio, 'gate x', this.gate.budgetMultiplier);
     }
+  }
+
+  /**
+   * Clear per-run state. Must be called when a new game starts: the gate
+   * multiplier is a per-RUN correction, and letting it survive into the next
+   * game made it a ratchet that opened fresh runs against waves sized for a
+   * defense that had already been dismantled. Median run length under that bug
+   * was 6 waves against a target of 80.
+   */
+  resetForNewGame(): void {
+    this.gate.reset();
+    this.recentTemplateIndices = [];
   }
 
   /**
@@ -410,7 +596,7 @@ export class WaveDirectorService {
       if (this.session) {
         this.aiMode.set('inference');
       } else {
-        this.aiMode.set('fallback');
+        this.aiMode.set('rules');
       }
     } else {
       this.aiMode.set('disabled');
@@ -447,9 +633,10 @@ export class WaveDirectorService {
   }
 
   /**
-   * Force fallback mode (for testing)
+   * Switch back to the rule director, dropping the ONNX policy if one is live.
    */
-  forceFallbackMode(): void {
-    this.aiMode.set('fallback');
+  forceRuleMode(): void {
+    this.aiMode.set('rules');
+    this.modelState.set('rules');
   }
 }

@@ -5,18 +5,23 @@ Proximal Policy Optimization trainer for the Wave Director.
 """
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 from collections import deque
 
 from config import (
     LEARNING_RATE,
     GAMMA,
+    GAE_LAMBDA,
     CLIP_EPSILON,
     ENTROPY_COEF,
     VALUE_COEF,
     BATCH_SIZE,
+    MINIBATCH_SIZE,
     UPDATE_EPOCHS,
+    TARGET_KL,
+    ADVANTAGE_CLIP,
+    TRAJECTORY_FLUSH_LENGTH,
+    REWARD_SCALE_WINDOW,
 )
 from auto_logger import logger
 
@@ -36,8 +41,15 @@ class PPOTrainer:
         self.dashboard = dashboard
         self.optimizer = optim.Adam(model.parameters(), lr=LEARNING_RATE)
 
-        # Paired transitions: (state, action, enemy_idx, old_log_prob, reward)
+        # Transitions ready for an update, already carrying their computed
+        # return and advantage.
         self.transitions = []
+
+        # Per-client trajectories still being collected. Waves within a run are
+        # NOT independent — the player never heals, so a wave that costs 3% HP
+        # helps kill them twenty waves later. Keeping the ordering lets the
+        # death cost flow back to the waves that set it up.
+        self.trajectories = {}
 
         # Pending states waiting for their reward (keyed by (client_id, wave_num))
         self.pending = {}
@@ -45,10 +57,14 @@ class PPOTrainer:
         # Running statistics
         self.reward_history = deque(maxlen=100)
 
-        # Reward normalization (running mean/std)
-        self.reward_running_mean = 0.0
-        self.reward_running_var = 1.0
+        # Running second moment of the reward, used to scale it at collection
+        # time (see _scale_reward).
+        self.reward_sq_sum = 0.0
         self.reward_count = 0
+
+        # Diagnostics: pairs dropped because a result arrived with no matching
+        # stored action. Silent loss here would destroy training invisibly.
+        self.dropped_pairs = 0
 
     def store_action(self, client_id, wave_num, state_tensor, action_tensor=None,
                      enemy_idx=None, log_prob=None, template_mask=None):
@@ -61,42 +77,169 @@ class PPOTrainer:
             template_mask.detach() if template_mask is not None else None,
         )
 
-    def store_result(self, client_id, wave_num, reward):
-        """Pair reward with the pending state for this client+wave."""
+    def store_result(self, client_id, wave_num, reward, done=False):
+        """Pair a reward with its stored action and append to the trajectory.
+
+        `done` marks the end of a run — the player died, or the episode hit its
+        wave limit. On done the trajectory is closed out and converted into
+        discounted returns and GAE advantages, which is what lets a death be
+        charged to the waves that led to it.
+        """
         self.reward_history.append(reward)
 
         pending = self.pending.pop((client_id, wave_num), None)
         if pending is None:
-            return  # No matching state (wave result without prior state request)
+            self.dropped_pairs += 1
+            # Still close the run. Returning early here left the trajectory open
+            # forever: the death was never charged back to the waves that caused
+            # it — the exact thing this machinery exists for — and the next
+            # game's transitions were appended onto the dead one, eventually
+            # chaining a wave-40 state to a wave-1 state inside one trajectory.
+            if done:
+                self._close_trajectory(client_id, bootstrap=False)
+            return
 
         state, action, enemy_idx, old_log_prob, template_mask = pending
-        self.transitions.append((state, action, enemy_idx, old_log_prob, reward, template_mask))
+        self.trajectories.setdefault(client_id, []).append(
+            (state, action, enemy_idx, old_log_prob, self._scale_reward(reward), template_mask)
+        )
 
-        # Update when we have enough paired samples
-        if len(self.transitions) >= BATCH_SIZE:
+        if done:
+            self._close_trajectory(client_id, bootstrap=False)
+        elif len(self.trajectories[client_id]) > TRAJECTORY_FLUSH_LENGTH:
+            # Long survivors would otherwise never contribute. Cut, but hold the
+            # newest transition back: its state is the "next state" the flushed
+            # tail needs to bootstrap against, and it seeds the next segment.
+            self._close_trajectory(client_id, bootstrap=True, hold_back_last=True)
+
+        while len(self.transitions) >= BATCH_SIZE:
             self._update()
+
+    def _scale_reward(self, reward):
+        """Put a raw reward into the unit everything downstream works in.
+
+        Scale only, never centre: the reward distribution is non-stationary in
+        three ways at once (the policy improves, the progression bonus grows
+        with wave number, and curriculum waves differ from free-choice waves),
+        so subtracting a lifetime mean flips a wave's sign based on an average
+        that no longer describes it. Centring is the value baseline's job.
+
+        Applied HERE rather than at update time because GAE mixes rewards and
+        value estimates in the same expression. Scaling the returns afterwards
+        while the critic had been trained on scaled targets left
+        `delta = r_raw + gamma*V_scaled - V_scaled`, which for a large scale is
+        almost exactly `r_raw` — the baseline subtracted nothing and the
+        advantages degenerated into raw Monte-Carlo returns.
+        """
+        self.reward_sq_sum += reward * reward
+        self.reward_count += 1
+        # EMA-ish: a lifetime count would stop adapting to a moving reward.
+        if self.reward_count > REWARD_SCALE_WINDOW:
+            self.reward_sq_sum *= REWARD_SCALE_WINDOW / self.reward_count
+            self.reward_count = REWARD_SCALE_WINDOW
+        scale = max((self.reward_sq_sum / max(1, self.reward_count)) ** 0.5, 1e-3)
+        return reward / scale
+
+    def drop_client(self, client_id):
+        """Flush whatever a disconnecting client had in flight."""
+        if self.trajectories.get(client_id):
+            self._close_trajectory(client_id, bootstrap=True)
+        self.trajectories.pop(client_id, None)
+
+    def _close_trajectory(self, client_id, bootstrap, hold_back_last=False):
+        """Turn a finished trajectory into returns + GAE advantages.
+
+        `bootstrap` distinguishes a cut from an ending: when the run really
+        ended (death) there is no future value, so the terminal value is 0 and
+        the death penalty propagates back undiluted. When we merely truncated a
+        long survivor, the value head estimates what came next.
+
+        `hold_back_last` keeps the newest transition out of the flush and leaves
+        it as the seed of the next segment. Its state IS the next state of the
+        flushed tail, which is what the bootstrap needs: using the value of the
+        last *flushed* state instead makes the final delta
+        `r + gamma*V(s_T) - V(s_T)`, a bias that the GAE recursion then spreads
+        backwards over the whole segment.
+        """
+        traj = self.trajectories.pop(client_id, None)
+        if not traj:
+            return
+
+        carry = None
+        if hold_back_last and len(traj) > 1:
+            carry = traj[-1]
+            traj = traj[:-1]
+
+        states = torch.stack([t[0] for t in traj])
+        if carry is not None:
+            states = torch.cat([states, carry[0].unsqueeze(0)])
+
+        with torch.no_grad():
+            self.model.eval()
+            _, _, values = self.model(states)
+            values = values.squeeze(-1)
+
+        if carry is not None:
+            next_value = values[-1].item()
+            values = values[:-1]
+        elif bootstrap:
+            # No held-back state to bootstrap against (a disconnect, say).
+            # V(s_T) is the best estimate available; note it is an approximation.
+            next_value = values[-1].item()
+        else:
+            next_value = 0.0
+
+        advantages = [0.0] * len(traj)
+        gae = 0.0
+        for i in reversed(range(len(traj))):
+            reward = traj[i][4]
+            # The last step of a bootstrapped cut continues; of a real ending
+            # it does not.
+            is_last = i == len(traj) - 1
+            v_next = next_value if is_last else values[i + 1].item()
+            non_terminal = 0.0 if (is_last and not bootstrap) else 1.0
+            delta = reward + GAMMA * v_next * non_terminal - values[i].item()
+            gae = delta + GAMMA * GAE_LAMBDA * non_terminal * gae
+            advantages[i] = gae
+
+        for i, step in enumerate(traj):
+            state, action, enemy_idx, old_log_prob, reward, mask = step
+            self.transitions.append(
+                (state, action, enemy_idx, old_log_prob, reward,
+                 mask, advantages[i] + values[i].item(), advantages[i])
+            )
+
+        if carry is not None:
+            self.trajectories[client_id] = [carry]
 
     def _update(self):
         """Perform PPO update with clipped surrogate objective."""
         if len(self.transitions) < BATCH_SIZE:
             return
 
-        batch = self.transitions[-BATCH_SIZE:]
+        # Consume the OLDEST BATCH_SIZE transitions and keep the rest for the
+        # next update. This used to take the newest slice and then clear the
+        # whole list, silently discarding every transition that arrived while a
+        # batch was filling up.
+        batch = self.transitions[:BATCH_SIZE]
+        self.transitions = self.transitions[BATCH_SIZE:]
 
-        # Unpack paired transitions
-        states_list = []
-        actions_list = []
-        enemy_idx_list = []
-        old_log_probs_list = []
-        rewards_list = []
-        template_mask_list = []
-        for state, action, enemy_idx, old_log_prob, reward, template_mask in batch:
+        # Unpack. Returns and advantages were computed when the trajectory was
+        # closed, so they already carry the discounted future — including the
+        # death penalty charged back to the waves that set it up.
+        states_list, actions_list, enemy_idx_list = [], [], []
+        old_log_probs_list, rewards_list, template_mask_list = [], [], []
+        returns_list, advantages_list = [], []
+        for (state, action, enemy_idx, old_log_prob, reward,
+             template_mask, ret, adv) in batch:
             states_list.append(state)
             actions_list.append(action)
             enemy_idx_list.append(enemy_idx)
             old_log_probs_list.append(old_log_prob)
             rewards_list.append(reward)
             template_mask_list.append(template_mask)
+            returns_list.append(ret)
+            advantages_list.append(adv)
 
         try:
             states_batch = torch.stack(states_list)
@@ -105,73 +248,128 @@ class PPOTrainer:
             old_log_probs_batch = torch.stack(old_log_probs_list) if old_log_probs_list[0] is not None else None
             template_mask_batch = torch.stack(template_mask_list) if template_mask_list[0] is not None else None
         except Exception as e:
-            print(f"[Trainer] Failed to stack: {e}")
-            self.transitions = []
+            logger.error(f"[Trainer] Failed to stack batch, dropping it: {e}")
             return
 
-        returns = torch.tensor(rewards_list, dtype=torch.float32)
+        # Already in scaled units — the reward was normalised at collection time
+        # so GAE, the returns and the value target all share one scale.
+        returns = torch.tensor(returns_list, dtype=torch.float32)
+        advantages = torch.tensor(advantages_list, dtype=torch.float32)
 
-        # Update running reward statistics
-        batch_mean = returns.mean().item()
-        batch_var = returns.var().item() if len(returns) > 1 else 0.0
-        batch_count = len(returns)
-        # Welford's online update
-        new_count = self.reward_count + batch_count
-        delta = batch_mean - self.reward_running_mean
-        self.reward_running_mean += delta * batch_count / max(1, new_count)
-        self.reward_running_var = (self.reward_running_var * self.reward_count + batch_var * batch_count + delta**2 * self.reward_count * batch_count / max(1, new_count)) / max(1, new_count)
-        self.reward_count = new_count
+        # Standardise advantages ONCE, over the whole batch, before the epoch
+        # loop. Recomputing them per epoch from freshly-updated values made the
+        # policy chase a target that moved underneath it mid-update.
+        advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
 
-        # Normalize returns (stabilizes gradients)
-        reward_std = max(self.reward_running_var ** 0.5, 0.1)
-        returns = (returns - self.reward_running_mean) / reward_std
+        # Clip the standardised advantages. The death penalty reaches -8 while a
+        # typical wave scores around -0.6, so every batch containing a run-ending
+        # wave carries a handful of samples at -3 sigma and beyond. Those samples
+        # dominate the gradient: measured grad-norm ran 3.6-51.7 against a clip
+        # of 0.5, meaning the update kept only the DIRECTION of a few outliers
+        # and threw the magnitude away, and the resulting step blew past
+        # TARGET_KL on the first or second minibatch of every update. With the
+        # early stop firing there, 16 updates bought roughly 20-30 real gradient
+        # steps across 1200 episodes — the policy was still statistically its
+        # own initialisation (log_std unmoved from -0.5, every factor mean on
+        # sigmoid(0) = 0.5).
+        #
+        # Clipping bounds each sample's influence without touching the sign of
+        # the learning signal, which is the variance reduction this needs; a
+        # smaller learning rate would only have made the surviving steps smaller
+        # still.
+        advantages = advantages.clamp(-ADVANTAGE_CLIP, ADVANTAGE_CLIP)
 
-        # Set model to train mode for update
+        # Per-dimension correlation between the sampled action noise and the
+        # advantage. This IS the expected policy gradient for each continuous
+        # dimension, measured directly.
+        #
+        # PPO differentiates through log pi, not through the environment, so a
+        # per-sample gradient is never zero — but if the environment ignores a
+        # dimension (a decoder cap collapsing the range to a point, say), the
+        # advantage is statistically independent of that dimension's noise, the
+        # EXPECTED gradient is zero, and the head just random-walks around its
+        # initialisation. That is indistinguishable from "still learning" in
+        # every other metric, which cost a long time to spot. Near-zero here
+        # means the dimension is dead; it has to move off zero before the mean
+        # can go anywhere.
+        action_corr = None
+        if actions_batch is not None and len(batch) > 8:
+            with torch.no_grad():
+                a = actions_batch.float()
+                noise = a - a.mean(dim=0, keepdim=True)
+                adv = (advantages - advantages.mean()).unsqueeze(-1)
+                denom = (noise.std(dim=0) * advantages.std() + 1e-8)
+                action_corr = ((noise * adv).mean(dim=0) / denom).tolist()
+
         self.model.train()
 
-        # Multiple PPO epochs over same batch
+        approx_kl = 0.0
+        policy_loss = value_loss = entropy = None
+        grad_norm = 0.0
+        stop = False
+
         for epoch in range(UPDATE_EPOCHS):
-            # Re-evaluate actions under current policy (apply same template mask)
-            log_probs, values, entropy = self.model.evaluate_action(
-                states_batch,
-                actions_batch,
-                stored_template_idx=enemy_idx_batch,
-                template_mask=template_mask_batch,
-            )
+            if stop:
+                break
+            # Reshuffle each epoch so minibatch composition varies.
+            indices = torch.randperm(len(batch))
+            epoch_kls = []
+            for start_i in range(0, len(batch), MINIBATCH_SIZE):
+                mb = indices[start_i:start_i + MINIBATCH_SIZE]
+                if len(mb) < 2:
+                    continue
 
-            # Advantage estimation with value baseline
-            advantages = returns - values.detach()
-            advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+                log_probs, values, entropy = self.model.evaluate_action(
+                    states_batch[mb],
+                    actions_batch[mb] if actions_batch is not None else None,
+                    stored_template_idx=enemy_idx_batch[mb] if enemy_idx_batch is not None else None,
+                    template_mask=template_mask_batch[mb] if template_mask_batch is not None else None,
+                )
 
-            # PPO clipped surrogate objective
-            if old_log_probs_batch is not None:
-                ratio = torch.exp(log_probs - old_log_probs_batch)
-                surr1 = ratio * advantages
-                surr2 = torch.clamp(ratio, 1.0 - CLIP_EPSILON, 1.0 + CLIP_EPSILON) * advantages
-                policy_loss = -torch.min(surr1, surr2).mean()
-            else:
-                # Fallback: vanilla policy gradient
-                policy_loss = -(log_probs * advantages).mean()
+                mb_adv = advantages[mb]
+                if old_log_probs_batch is not None:
+                    log_ratio = log_probs - old_log_probs_batch[mb]
+                    ratio = torch.exp(log_ratio)
+                    surr1 = ratio * mb_adv
+                    surr2 = torch.clamp(ratio, 1.0 - CLIP_EPSILON, 1.0 + CLIP_EPSILON) * mb_adv
+                    policy_loss = -torch.min(surr1, surr2).mean()
+                    # Schulman's low-variance KL estimator.
+                    with torch.no_grad():
+                        epoch_kls.append(float(((ratio - 1) - log_ratio).mean().item()))
+                else:
+                    policy_loss = -(log_probs * mb_adv).mean()
 
-            # Value loss (train the baseline)
-            value_loss = VALUE_COEF * ((values - returns) ** 2).mean()
-            # Entropy bonus for exploration
-            entropy_loss = -ENTROPY_COEF * entropy.mean()
+                value_loss = VALUE_COEF * ((values - returns[mb]) ** 2).mean()
+                entropy_loss = -ENTROPY_COEF * entropy.mean()
 
-            total_loss = policy_loss + value_loss + entropy_loss
+                self.optimizer.zero_grad()
+                (policy_loss + value_loss + entropy_loss).backward()
+                grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
+                self.optimizer.step()
 
-            self.optimizer.zero_grad()
-            total_loss.backward()
-            grad_norm = torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.5)
-            self.optimizer.step()
+                # Check drift after EVERY minibatch, not once per epoch.
+                #
+                # Checking only at the epoch boundary let four unclipped
+                # minibatch steps land before the stop could fire, and measured
+                # approx-KL then sat at 0.19-0.24 against a 0.02 target on every
+                # single update. The early stop was firing after epoch 1 every
+                # time, so UPDATE_EPOCHS=4 was really 1 — the policy took four
+                # oversized steps and then quit, instead of several small ones.
+                # Averaged over the epoch so far rather than per minibatch: a
+                # single 32-sample estimate is noisy enough to trigger
+                # spuriously, but waiting a whole epoch overshoots.
+                if epoch_kls:
+                    approx_kl = sum(epoch_kls) / len(epoch_kls)
+                    if approx_kl > TARGET_KL:
+                        stop = True
+                        break
 
-        # Switch back to eval mode for inference
         self.model.eval()
 
         avg_reward = sum(rewards_list) / len(rewards_list)
-        pl = policy_loss.item()
-        ent = entropy.mean().item()
-        gn = grad_norm.item() if hasattr(grad_norm, 'item') else float(grad_norm)
+        pl = float(policy_loss.item()) if policy_loss is not None else 0.0
+        ent = float(entropy.mean().item()) if entropy is not None else 0.0
+        gn = grad_norm.item() if hasattr(grad_norm, "item") else float(grad_norm)
 
         logger.training_update(
             policy_loss=pl, entropy=ent,
@@ -179,10 +377,13 @@ class PPOTrainer:
         )
 
         if self.dashboard:
-            self.dashboard.record_training_update(pl, ent, gn, avg_reward)
-
-        # Clear processed transitions
-        self.transitions = []
+            self.dashboard.record_training_update(
+                pl, ent, gn, avg_reward,
+                approx_kl=approx_kl,
+                action_corr=action_corr,
+                log_std=float(self.model.log_std.mean().item()),
+                dropped_pairs=self.dropped_pairs,
+            )
 
     def get_avg_reward(self):
         """Get average reward from recent episodes."""
@@ -190,30 +391,27 @@ class PPOTrainer:
             return 0
         return sum(self.reward_history) / len(self.reward_history)
 
+    def state_dict(self):
+        """Optimizer + reward-normaliser state, for the checkpoint.
 
-class ExperienceBuffer:
-    """Buffer for storing training experiences."""
+        Without this, every server restart reset the Adam moments and the
+        running reward statistics to zero while keeping trained weights — the
+        first updates after a resume were effectively un-normalised and had no
+        momentum, which shows up as a reward dip after every restart.
+        """
+        return {
+            "optimizer": self.optimizer.state_dict(),
+            "reward_sq_sum": self.reward_sq_sum,
+            "reward_count": self.reward_count,
+            "reward_history": list(self.reward_history),
+        }
 
-    def __init__(self, max_size=10000):
-        self.max_size = max_size
-        self.buffer = deque(maxlen=max_size)
-
-    def add(self, state, action, reward, next_state, done):
-        """Add experience to buffer."""
-        self.buffer.append((state, action, reward, next_state, done))
-
-    def sample(self, batch_size):
-        """Sample random batch from buffer."""
-        import random
-        batch = random.sample(self.buffer, min(batch_size, len(self.buffer)))
-        states, actions, rewards, next_states, dones = zip(*batch)
-        return (
-            torch.stack(states),
-            torch.stack(actions),
-            torch.tensor(rewards),
-            torch.stack(next_states),
-            torch.tensor(dones),
-        )
-
-    def __len__(self):
-        return len(self.buffer)
+    def load_state_dict(self, state):
+        """Restore optimizer + reward-normaliser state from a checkpoint."""
+        if not state:
+            return
+        if "optimizer" in state:
+            self.optimizer.load_state_dict(state["optimizer"])
+        self.reward_sq_sum = state.get("reward_sq_sum", 0.0)
+        self.reward_count = state.get("reward_count", 0)
+        self.reward_history = deque(state.get("reward_history", []), maxlen=100)

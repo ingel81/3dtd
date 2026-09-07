@@ -2,8 +2,8 @@
  * Anti-Air Placement Strategy
  *
  * Priority: HIGH (90)
- * Triggers when: Air defense gap exists and can afford anti-air tower
- * Action: Place anti-air tower (rocket) at strategic position
+ * Triggers when: an air-defense gap exists and an air-capable tower is affordable.
+ * Action: place the most cost-effective air-capable tower at a strategic spot.
  */
 
 import { BaseStrategy } from '../tower-strategy.interface';
@@ -40,10 +40,16 @@ export class AntiAirPlacementStrategy extends BaseStrategy {
 
     if (antiAirTowers.length === 0) return null;
 
-    // Pick best value anti-air tower
-    const bestTower = antiAirTowers.reduce((best, current) => {
-      return this.getTowerValue(current) > this.getTowerValue(best) ? current : best;
-    });
+    // Rank by effective DPS per credit against LIGHT armor — bat, hornet and
+    // dragon between them cover light and heavy, and light is what the first
+    // air waves send. Ranking on raw DPS-per-cost made this strategy pick the
+    // Archer every single time, which technically closes the gap but leaves
+    // the defense with no real answer to a dragon.
+    const bestTower = antiAirTowers.reduce((best, current) =>
+      this.getTowerValueVsArmor(current, 'light') > this.getTowerValueVsArmor(best, 'light')
+        ? current
+        : best
+    );
 
     // 2. Get strategic placement candidates
     const spawnPoints = this.gameState.getSpawnPoints();

@@ -64,6 +64,28 @@ export const UPGRADE_SPEED_MULTIPLIER = 1.06;  // +6%/level (L20 ≈ 3.21×, L25
 export const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
 export const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
 
+/**
+ * Research tier required to push an upgrade past its current level.
+ *
+ * The 25-level tracks are split into 5-level bands, each gated behind a
+ * research: L0-4 free, L5-9 Advanced Weaponry, L10-14 Master Engineering,
+ * L15-19 Advanced Engineering, L20+ Transcendent Tech.
+ *
+ * Single source of truth for the game's command handler, the sidebar UI and
+ * the training bot. They each used to carry their own copy, and the bot's was
+ * far stricter (tier 2 already at level 1), so it quietly declined upgrades
+ * the engine would have accepted.
+ *
+ * `research-slots` (Research Center) is exempt — callers skip this check for it.
+ */
+export function requiredUpgradeTier(currentLevel: number): number {
+  if (currentLevel >= 20) return 5;
+  if (currentLevel >= 15) return 4;
+  if (currentLevel >= 10) return 3;
+  if (currentLevel >= 5) return 2;
+  return 1;
+}
+
 /** Archer's range upgrade is a per-tower variant (see ARCHER_RANGE_UPGRADE
  *  below); offline tools that show it separately read it from this constant. */
 export const ARCHER_RANGE_MULTIPLIER = 1.02;
@@ -108,12 +130,14 @@ const STD_BEAM_WIDTH_UPGRADE: TowerUpgrade = {
   effect: { stat: 'beamWidth', multiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER },
 };
 
-// Archer-specific range upgrade: nerfed to +0.5%/level (per-tower tuning;
-// shared STD_RANGE_UPGRADE stays at +4%/level for the other towers).
+// Archer-specific range upgrade: nerfed relative to the shared
+// STD_RANGE_UPGRADE the other towers use. The percentage in the description is
+// computed from the multiplier, like every other upgrade here; it used to be
+// typed out as "+0.5%" and had drifted away from the actual 1.02.
 const ARCHER_RANGE_UPGRADE: TowerUpgrade = {
   id: 'range',
   name: 'Range',
-  description: 'Increases range (+0.5% per level, compounding).',
+  description: `Increases range (+${Math.round((ARCHER_RANGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
   maxLevel: UPGRADE_MAX_LEVEL,

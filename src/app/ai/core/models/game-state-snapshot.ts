@@ -114,6 +114,29 @@ export interface DefenseAnalysis {
    * setup, separated by ground vs air targeting".
    */
   effectiveDPSPerArmor: EffectiveDPSPerArmor;
+
+  /**
+   * Share of DPS that comes from area-of-effect sources, ground and air.
+   *
+   * Splash, chain and beam-width are folded into each tower's DPS as a fixed
+   * multiplier, which is independent of how many enemies are actually in the
+   * blast — and enemy density is precisely what the wave director controls via
+   * count and spawn delay. A cannon battery and an archer nest can show the
+   * same DPS while behaving completely differently against a packed swarm.
+   * This tells the net whether the defense scales with density at all.
+   */
+  aoeDpsShare: { ground: number; air: number };
+
+  /**
+   * Aggregate kill throughput ceiling, in targets per second.
+   *
+   * Raw DPS overstates what a defense can do against a swarm of individually
+   * weak enemies, because a tower engages one target at a time and the surplus
+   * damage of each shot is wasted. Two archers at 25 damage and 1 shot/s kill
+   * two 3 HP rats per second, not the fifteen their 50 DPS suggests. Splash and
+   * chain towers count for more than one target per shot.
+   */
+  killThroughput: { ground: number; air: number };
 }
 
 export interface EffectiveDPSPerArmor {
@@ -133,6 +156,14 @@ export interface DefenseCapabilities {
 
   /** Has towers with damage over time */
   hasDoT: boolean;
+
+  /**
+   * Has towers that hurt ethereal enemies (armor multiplier >= 1.0).
+   * Physical, pierce and fire all read 0.15 against ethereal, so a defense
+   * built purely from archers and gatlings is effectively unarmed against
+   * ghosts and wraiths no matter how much raw DPS it has.
+   */
+  hasAntiEthereal: boolean;
 }
 
 export type TowerDistribution = Record<string, TowerTypeStats>;
@@ -153,6 +184,9 @@ export interface VulnerabilityAnalysis {
 
   /** No slow towers - vulnerable to fast enemies */
   slowGap: boolean;
+
+  /** No tower deals meaningful damage to ethereal enemies */
+  etherealGap: boolean;
 
   /** Path segments not covered by any tower (indices) */
   uncoveredPathSegments: number[];
@@ -216,17 +250,21 @@ export function createEmptySnapshot(): GameStateSnapshot {
         hasSplash: false,
         hasSlow: false,
         hasDoT: false,
+        hasAntiEthereal: false,
       },
       towerDistribution: {},
       effectiveDPSPerArmor: {
         ground: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
         air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
       },
+      aoeDpsShare: { ground: 0, air: 0 },
+      killThroughput: { ground: 0, air: 0 },
     },
     vulnerabilities: {
       airDefenseGap: true,
       splashGap: true,
       slowGap: true,
+      etherealGap: true,
       uncoveredPathSegments: [],
       overallVulnerability: 1,
     },

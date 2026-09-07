@@ -13,12 +13,13 @@ import { OsmStreetService } from '../../../services/location/osm-street.service'
 
 // Strategy imports
 import { AntiAirPlacementStrategy } from '../strategies/placement/anti-air-placement.strategy';
+import { AntiEtherealPlacementStrategy } from '../strategies/placement/anti-ethereal-placement.strategy';
 import { SplashDefensePlacementStrategy } from '../strategies/placement/splash-defense-placement.strategy';
 import { CoverageFillStrategy } from '../strategies/placement/coverage-fill.strategy';
 import { DistributedPlacementStrategy } from '../strategies/placement/distributed-placement.strategy';
 import { ResearchCenterPlacementStrategy } from '../strategies/placement/research-center-placement.strategy';
 import { ResearchPickStrategy } from '../strategies/research/research-pick.strategy';
-import { NearSpawnUpgradeStrategy } from '../strategies/upgrade/near-spawn-upgrade.strategy';
+import { PathCoverageUpgradeStrategy } from '../strategies/upgrade/path-coverage-upgrade.strategy';
 import { SellUnderperformerStrategy } from '../strategies/upgrade/sell-underperformer.strategy';
 import { AutoStartWaveStrategy } from '../strategies/wave/auto-start-wave.strategy';
 
@@ -88,9 +89,10 @@ export class StrategyBotFactory {
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
+          new AntiEtherealPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
-          new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
+          new PathCoverageUpgradeStrategy(this.gameState, this.osmService),
           new CoverageFillStrategy(this.strategicPlacement, this.gameState, config)
         );
         break;
@@ -100,9 +102,10 @@ export class StrategyBotFactory {
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
+          new AntiEtherealPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
-          new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
+          new PathCoverageUpgradeStrategy(this.gameState, this.osmService),
           new SellUnderperformerStrategy(this.gameState, config),
           new DistributedPlacementStrategy(this.strategicPlacement, this.gameState, config)
         );
@@ -113,9 +116,10 @@ export class StrategyBotFactory {
         strategies.push(
           researchCenterPlacement,
           new AntiAirPlacementStrategy(this.strategicPlacement, this.gameState, config),
+          new AntiEtherealPlacementStrategy(this.strategicPlacement, this.gameState, config),
           new SplashDefensePlacementStrategy(this.strategicPlacement, this.gameState, config),
           researchPick,
-          new NearSpawnUpgradeStrategy(this.gameState, this.osmService),
+          new PathCoverageUpgradeStrategy(this.gameState, this.osmService),
           new CoverageFillStrategy(this.strategicPlacement, this.gameState, config)
         );
         break;

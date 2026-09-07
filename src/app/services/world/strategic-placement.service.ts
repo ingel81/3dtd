@@ -16,6 +16,31 @@ import { PLACEMENT_CONFIG } from '../../configs/placement.config';
 import { Tower } from '../../entities/tower.entity';
 import { findNearestRouteDistance } from '../../utils/geo-utils';
 
+/**
+ * Weight of the HQ end of the path relative to the spawn end, in the U-shaped
+ * placement score.
+ *
+ * Below 1.0 on purpose: the spawn end keeps the edge, so a two-tower opening
+ * places exactly where it did before and the early waves are unaffected. From
+ * roughly the fourth tower on, the HQ end outscores the middle and a second
+ * killzone forms — which is the whole point, since the last stretch of path had
+ * no defenses at all and enemies reaching it arrived at the base 95% of the time.
+ */
+const END_ZONE_HQ_WEIGHT = 0.8;
+
+/**
+ * U-shaped weight over the normalised path position (0 = spawn, 1 = HQ).
+ *
+ * Exported so the shape can be asserted directly: both ends must beat the
+ * middle, and the spawn end must keep the edge. The previous linear
+ * spawn-proximity weight is what produced a defense with one killzone and an
+ * undefended corridor behind it.
+ */
+export function endZoneProximity(t: number): number {
+  const clamped = Math.max(0, Math.min(1, t));
+  return Math.max(1 - clamped, END_ZONE_HQ_WEIGHT * clamped);
+}
+
 export interface PlacementCandidate {
   position: GeoPosition;
   score: number;              // 0-1: How good is this position?
@@ -345,10 +370,23 @@ export class StrategicPlacementService {
   /**
    * Calculates placement score (0-1)
    *
-   * Strategy: Build from spawn outward towards HQ.
-   * Positions closer to spawn score higher. As those fill up,
-   * MIN_DISTANCE_TO_OTHER_TOWER constraint blocks them and
-   * the next available position along the path is chosen.
+   * Strategy: build killzones at BOTH ends of the path — near spawn and near
+   * HQ — and treat the middle as the last thing to fill.
+   *
+   * This used to be "build from spawn outward towards HQ", weighting spawn
+   * proximity at 0.6. Combined with an upgrade strategy that also only funded
+   * the spawn-nearest towers, the defense came out as a single wall at the
+   * spawn with an undefended corridor behind it. Measured over 1834 waves: in
+   * waves that leaked nothing, the furthest enemy died at a median of 12% along
+   * the path; once any enemy passed 80%, one reached the base in 95% of cases.
+   * The defense killed everything (70% of waves) or let a lot through (28%),
+   * with 2% in between.
+   *
+   * A U-shaped weight keeps the early game intact — the spawn end still scores
+   * highest, which is what a two-tower opening needs — while making the HQ end
+   * the next-best choice rather than the last one. The far end is also the one
+   * that matters most when it is reached at all: an enemy stopped there was
+   * genuinely nearly through.
    */
   private calculatePlacementScore(
     position: GeoPosition,
@@ -359,15 +397,19 @@ export class StrategicPlacementService {
   ): number {
     let score = 0;
 
-    // 1. Proximity to spawn (closer = better) - 0.6 weight
-    //    This ensures towers are built from spawn outward along the path.
-    //    As near-spawn positions get blocked by existing towers (min distance),
-    //    the bot naturally expands towards HQ.
+    // 1. Proximity to EITHER end of the path - 0.6 weight
+    //    U-shaped in the normalised distance from spawn: 1.0 at the spawn,
+    //    dipping to SPAWN_END_BIAS at the middle, rising again towards the HQ.
+    //    The spawn end keeps a slight edge (the asymmetry below) so opening
+    //    placements are unchanged, while the far end stops being the position
+    //    of last resort.
     const pathLength = this.getPathLength(path);
     const distToSpawn = this.osmService.haversineDistance(
       position.lat, position.lon, spawnPoint.lat, spawnPoint.lon
     );
-    score += 0.6 * (1 - Math.min(distToSpawn / Math.max(pathLength, 200), 1));
+    const t = Math.min(distToSpawn / Math.max(pathLength, 200), 1);   // 0 spawn, 1 HQ
+    const endProximity = endZoneProximity(t);
+    score += 0.6 * endProximity;
 
     // 2. Path coverage from this position - 0.2 weight
     const coverage = this.estimatePathCoverage(position, path, towerRange);

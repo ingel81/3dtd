@@ -12,6 +12,7 @@ import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TOWER_TYPES } from '../../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
+import { isSplashTower } from '../../../core/defense-analyzer';
 
 export class SplashDefensePlacementStrategy extends BaseStrategy {
   constructor(
@@ -28,15 +29,16 @@ export class SplashDefensePlacementStrategy extends BaseStrategy {
     if (state.waveNumber < 3) return false;
 
     const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
-    const hasSplash = affordable.some(t => t === 'cannon' || t === 'rocket');
-
-    return hasSplash;
+    return affordable.some((t) => isSplashTower(t));
   }
 
   execute(state: GameStateSnapshot): TowerAction | null {
     // 1. Find best splash tower
+    // Read splash from the capability table rather than a hardcoded
+    // cannon/rocket pair — Fire and Lightning are area towers too and were
+    // silently excluded from this decision.
     const affordable = this.getAffordableTowers(state.player.credits, this.config.knownTowerTypes, state);
-    const splashTowers = affordable.filter(t => t === 'cannon' || t === 'rocket');
+    const splashTowers = affordable.filter((t) => isSplashTower(t));
 
     if (splashTowers.length === 0) return null;
 

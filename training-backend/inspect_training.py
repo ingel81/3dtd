@@ -85,7 +85,14 @@ def report_api(client_id=None):
     print(f"  Avg Reward:      {stats.get('avgReward', 0):.4f}")
     print(f"  Best Reward:     {stats.get('bestReward', 0):.4f}")
     print(f"  Clients:         {stats.get('clientCount', 0)}")
-    print(f"  Sweet Spot %:    {stats.get('sweetSpotPct', 0):.1f}")
+    # v4 headline numbers. `sweetSpotPct` is kept but demoted: it measures the
+    # MEAN path progress, while the reward is computed on the upper tail.
+    print(f"  Near-Miss Band%: {stats.get('nearMissBandPct', 0):.1f}   <- v4 headline")
+    print(f"  Avg Near-Miss:   {stats.get('avgNearMissRatio', 0):.3f}")
+    print(f"  HP Curve Error:  {stats.get('hpCurveError', 0):+.3f}   (+ = players too healthy)")
+    print(f"  Avg Damage/Wave: {stats.get('avgDamagePct', 0):.4f}")
+    print(f"  Damage Sweet %:  {stats.get('damageSweetPct', 0):.1f}")
+    print(f"  Progress Mean %: {stats.get('sweetSpotPct', 0):.1f}")
     print(f"  Game Over Rate:  {stats.get('gameOverRate', 0):.1f}%")
     print(f"  Near-Miss %:     {stats.get('nearMissPct', 0):.1f}%")
     print(f"  Model Updates:   {stats.get('modelUpdates', 0)}")
@@ -663,7 +670,7 @@ def _suggest_actions(flags, cfg, fire_sums, total_steps):
 
     # Progress saturation
     if any("Progress saturated" in f for f in red_flags):
-        actions.append("Progress saturated. Strengthen OVERFLOW_PROGRESS_THRESHOLD (0.95) or REWARD_OVERFLOW_SLOPE (0.8)")
+        actions.append("Progress saturated. Breaches are charged on REWARD_LEAK_SLOPE in DRAMA — steepen that, not the retired overflow guard")
 
     # Count dimension
     if any("Count dim unused" in f for f in yellow_flags):

@@ -48,12 +48,14 @@ const ARMOR_TYPE_COLORS = {
   unarmored: '#4CAF50', light: '#2196F3', heavy: '#FF9800',
   fortified: '#F44336', ethereal: '#9C27B0',
 };
-// Phase 5.10: only 4 reward terms remain.
+// Reward v4: death + drama + pacing + swarm. `progression` is gone — it was a
+// wave counter bonus gated on a damage band that no longer exists, and PACING
+// now carries run-length on its own.
 const BREAKDOWN_KEY_LABELS = {
   death: 'Death',
   drama: 'Drama',
+  pacing: 'Pacing',
   swarm_size: 'Swarm Size',
-  progression: 'Progression',
 };
 // Phase 5.10: 18 active templates (slot-order). Mirror of backend templates.py.
 const TEMPLATE_ID_ORDER = [
@@ -99,6 +101,8 @@ const state = {
     entropy: [],
     gradNorm: [],
     batchReward: [],
+    approxKl: [],
+    logStd: [],
   },
 
   // Per-client mirrors — charts & cards read from here
@@ -447,6 +451,17 @@ function initGlobalCharts() {
   charts.nnEntropy     = createSparkline('nn-entropy-chart', '#bc8cff');
   charts.nnGradNorm    = createSparkline('nn-grad-norm-chart', '#58a6ff');
   charts.nnBatchReward = createSparkline('nn-batch-reward-chart', '#3fb950');
+  charts.nnKl          = createSparkline('nn-kl-chart', '#d29922');
+  charts.nnLogStd      = createSparkline('nn-logstd-chart', '#79c0ff');
+
+  // What the net DECIDES, as opposed to what came out. The four factors are
+  // the action; wave size is merely its consequence.
+  charts.factors = createLineChart('factors-chart', [
+    { label: 'count',     data: [], borderColor: '#f85149', fill: false, borderWidth: 1.5 },
+    { label: 'spawn',     data: [], borderColor: '#58a6ff', fill: false, borderWidth: 1.5 },
+    { label: 'hp',        data: [], borderColor: '#3fb950', fill: false, borderWidth: 1.5 },
+    { label: 'variation', data: [], borderColor: '#bc8cff', fill: false, borderWidth: 1.5 },
+  ], { yScale: { min: 0, max: 1 } });
 }
 
 function updateGlobalLineCharts() {
@@ -551,6 +566,8 @@ function onTrainingUpdate(data) {
   pushTrim(state.nnHistory.entropy, data.entropy);
   pushTrim(state.nnHistory.gradNorm, data.gradNorm);
   pushTrim(state.nnHistory.batchReward, data.batchReward);
+  pushTrim(state.nnHistory.approxKl, data.approxKl);
+  pushTrim(state.nnHistory.logStd, data.logStd);
 
   // Header KPI chips
   const updatesEl = document.getElementById('model-updates');
@@ -563,12 +580,59 @@ function onTrainingUpdate(data) {
   if (state.activeTab === 'nn') updateNNCharts();
 }
 
+/**
+ * Decision telemetry: the four continuous factors over time, how often the
+ * fairness gate clipped the count, how evenly the net spreads its free
+ * template picks, and the per-template factor averages.
+ */
+function updateDecisionTelemetry(stats) {
+  const hist = stats.factorHistory || [];
+  if (charts.factors && hist.length) {
+    charts.factors.data.labels = hist.map(h => h.wave);
+    charts.factors.data.datasets[0].data = hist.map(h => h.count);
+    charts.factors.data.datasets[1].data = hist.map(h => h.spawn);
+    charts.factors.data.datasets[2].data = hist.map(h => h.hp);
+    charts.factors.data.datasets[3].data = hist.map(h => h.variation);
+    charts.factors.update('none');
+    const last = hist[hist.length - 1];
+    const badge = document.getElementById('factors-badge');
+    if (badge && last) {
+      badge.textContent = `c ${last.count?.toFixed(2)} · hp ${last.hp?.toFixed(2)}`;
+    }
+  }
+
+  const gate = document.getElementById('gate-value');
+  if (gate && stats.fairnessCappedPct !== undefined) {
+    gate.textContent = `${stats.fairnessCappedPct}%`;
+  }
+
+  const ent = document.getElementById('free-entropy-value');
+  if (ent && stats.freeTemplateEntropy !== undefined) {
+    const n = Object.keys(stats.freeTemplateCounts || {}).length;
+    ent.textContent = n === 0 ? '—' : stats.freeTemplateEntropy.toFixed(2);
+    const badge = document.getElementById('free-entropy-badge');
+    if (badge) badge.textContent = `${n} Templates`;
+  }
+
+  const tbody = document.querySelector('#template-factors-table tbody');
+  if (tbody && stats.templateFactors) {
+    const rows = Object.entries(stats.templateFactors)
+      .sort((a, b) => b[1].n - a[1].n)
+      .map(([id, f]) => `<tr><td>${id}</td><td>${f.n}</td><td>${f.count.toFixed(2)}</td>`
+        + `<td>${f.spawn.toFixed(2)}</td><td>${f.hp.toFixed(2)}</td>`
+        + `<td>${f.variation.toFixed(2)}</td></tr>`);
+    tbody.innerHTML = rows.join('');
+  }
+}
+
 function updateNNCharts() {
   const setup = [
     ['nnPolicyLoss', 'policyLoss', 'nn-policy-loss-badge', v => (v >= 0 ? '+' : '') + v.toFixed(3)],
     ['nnEntropy', 'entropy', 'nn-entropy-badge', v => v.toFixed(2)],
     ['nnGradNorm', 'gradNorm', 'nn-grad-norm-badge', v => v.toFixed(2)],
     ['nnBatchReward', 'batchReward', 'nn-batch-reward-badge', v => (v >= 0 ? '+' : '') + v.toFixed(3)],
+    ['nnKl', 'approxKl', 'nn-kl-badge', v => v.toFixed(4)],
+    ['nnLogStd', 'logStd', 'nn-logstd-badge', v => v.toFixed(2)],
   ];
   setup.forEach(([chartKey, histKey, badgeId, fmt]) => {
     const c = charts[chartKey];
@@ -1125,6 +1189,9 @@ function updateHeaderStats(stats) {
   if (stats.templateUsageCounts) state.templateUsageCounts = stats.templateUsageCounts;
   if (stats.waveSizeHistogram) state.waveSizeHistogram = stats.waveSizeHistogram;
   if (stats.mixedWaveRate) state.mixedWaveRate = stats.mixedWaveRate;
+
+  // Decision telemetry lives on the NN tab; only paint it when visible.
+  if (state.activeTab === 'nn') updateDecisionTelemetry(stats);
 
   // Phase 5.14: live per-client status for Wave/Alive display
   if (stats.clientStatuses) {

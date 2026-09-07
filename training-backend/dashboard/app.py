@@ -9,6 +9,7 @@ Runs in the same asyncio event loop as the WebSocket training server.
 
 import asyncio
 import json
+import math
 import time
 from pathlib import Path
 from collections import deque
@@ -25,6 +26,9 @@ from config import (
     PROGRESS_NEAR_MISS_LOW,
     PROGRESS_NEAR_MISS_HIGH,
     PROGRESS_OVERFLOW_THRESHOLD,
+    NEAR_MISS_TARGET,
+    NEAR_MISS_SIGMA,
+    TARGET_RUN_WAVES,
 )
 
 # Wave-size histogram buckets. Upper bound exclusive, last bucket is "+inf".
@@ -48,6 +52,13 @@ class Dashboard:
         self.reward_history = deque(maxlen=2000)
         self.progress_history = deque(maxlen=2000)
         self.near_miss_history = deque(maxlen=2000)
+        # Damage actually taken per wave. `sweetSpotPct` is named after the
+        # reward's sweet spot but measures PATH PROGRESS; the damage band that
+        # three of the four reward terms gate on was never measured at all.
+        self.damage_history = deque(maxlen=2000)
+        # (wave_number, hp_fraction) pairs, for the deviation from the pacing
+        # curve that the PACING reward term is computed against.
+        self.hp_curve_history = deque(maxlen=2000)
         self.wave_log = deque(maxlen=200)  # larger to keep per-client entries visible
 
         # Latest NN policy output — for shared "Type Probabilities" chart.
@@ -86,6 +97,12 @@ class Dashboard:
             "policyLoss": 0, "entropy": 0, "gradNorm": 0, "batchReward": 0,
         }
         self.model_updates = 0
+        # Decision telemetry (see record_wave).
+        self.factor_history = deque(maxlen=400)
+        self.template_factors: dict[str, dict] = {}
+        self.gate_total = 0
+        self.gate_capped = 0
+        self.free_template_counts: dict[str, int] = {}
 
         # Timing
         self.start_time = time.time()
@@ -126,6 +143,11 @@ class Dashboard:
                 return {"error": "Server not initialized"}
             stats = self.server_ref._get_stats()
             stats["sweetSpotPct"] = self._calc_sweet_spot_pct()
+            stats["damageSweetPct"] = self._calc_damage_sweet_pct()
+            stats["avgDamagePct"] = self._calc_avg_damage_pct()
+            stats["nearMissBandPct"] = self._calc_near_miss_band_pct()
+            stats["avgNearMissRatio"] = self._calc_avg_near_miss()
+            stats["hpCurveError"] = self._calc_hp_curve_error()
             stats["gameOverRate"] = self._calc_game_over_rate()
             stats["nearMissPct"] = self._calc_near_miss_pct()
             stats["modelUpdates"] = self.model_updates
@@ -133,6 +155,24 @@ class Dashboard:
             # Policy-output diagnostics
             stats["enemyTypeCounts"] = dict(self.enemy_type_counts)
             stats["templateUsageCounts"] = dict(self.template_usage_counts)
+
+            # ── Decision telemetry ──────────────────────────────────────────
+            stats["factorHistory"] = list(self.factor_history)
+            stats["templateFactors"] = {
+                tid: {
+                    "n": a["n"],
+                    "count": round(a["count"] / a["n"], 3),
+                    "spawn": round(a["spawn"] / a["n"], 3),
+                    "hp": round(a["hp"] / a["n"], 3),
+                    "variation": round(a["variation"] / a["n"], 3),
+                }
+                for tid, a in self.template_factors.items() if a["n"] > 0
+            }
+            stats["fairnessCappedPct"] = round(
+                100.0 * self.gate_capped / max(1, self.gate_total), 1
+            )
+            stats["freeTemplateCounts"] = dict(self.free_template_counts)
+            stats["freeTemplateEntropy"] = self._free_template_entropy()
             stats["waveSizeHistogram"] = self._calc_wave_size_histogram()
             stats["mixedWaveRate"] = self._calc_mixed_wave_rate()
             stats["modelMetrics"] = dict(self.model_metrics)
@@ -376,6 +416,11 @@ class Dashboard:
         if self.server_ref:
             stats = self.server_ref._get_stats()
             stats["sweetSpotPct"] = sweet_pct
+            stats["damageSweetPct"] = self._calc_damage_sweet_pct()
+            stats["avgDamagePct"] = self._calc_avg_damage_pct()
+            stats["nearMissBandPct"] = self._calc_near_miss_band_pct()
+            stats["avgNearMissRatio"] = self._calc_avg_near_miss()
+            stats["hpCurveError"] = self._calc_hp_curve_error()
             stats["gameOverRate"] = self._calc_game_over_rate()
             stats["nearMissPct"] = self._calc_near_miss_pct()
             stats["modelUpdates"] = self.model_updates
@@ -393,8 +438,10 @@ class Dashboard:
         kill_time = wave_info.get("kill_time", 0) if wave_info else 0
         enemy_hp = wave_info.get("enemy_hp", 0) if wave_info else 0
         effective_dps = wave_info.get("effective_dps", 0) if wave_info else 0
-        type_probs = wave_info.get("type_probs", {}) if wave_info else {}
-        cooldown_override = wave_info.get("cooldown_override", False) if wave_info else False
+        # Named `type_probs` downstream for backwards compatibility with the
+        # dashboard UI; the decoder emits them as `template_probs`.
+        type_probs = wave_info.get("template_probs", {}) if wave_info else {}
+        cooldown_override = wave_info.get("curriculum_forced", False) if wave_info else False
 
         # Phase 5.5 signals
         num_groups = wave_info.get("num_groups", 1) if wave_info else 1
@@ -450,6 +497,45 @@ class Dashboard:
         }
         self.wave_log.append(entry)
 
+        # ── Decision telemetry ──────────────────────────────────────────────
+        # The wave log shows OUTCOMES (200 enemies), these show DECISIONS (the
+        # net turned count_factor to 0.9). Without them there is no way to tell
+        # whether a big wave was chosen or merely fell out of a wide template.
+        if count_factor is not None:
+            self.factor_history.append({
+                "wave": wave_num,
+                "count": count_factor,
+                "spawn": spawn_factor,
+                "hp": hp_factor,
+                "variation": variation_factor,
+            })
+
+            if template_id:
+                acc = self.template_factors.setdefault(
+                    template_id,
+                    {"n": 0, "count": 0.0, "spawn": 0.0, "hp": 0.0, "variation": 0.0},
+                )
+                acc["n"] += 1
+                acc["count"] += count_factor or 0.0
+                acc["spawn"] += spawn_factor or 0.0
+                acc["hp"] += hp_factor or 0.0
+                acc["variation"] += variation_factor or 0.0
+
+        # How often the fairness gate actually binds. A high rate means the net
+        # keeps asking for waves the defense cannot fight and its count gradient
+        # is largely being clipped away.
+        if wave_info is not None:
+            self.gate_total += 1
+            if wave_info.get("fairness_capped"):
+                self.gate_capped += 1
+
+            # Template choices past the curriculum, where the net is actually
+            # free. Collapse here is the documented deployment risk.
+            if not wave_info.get("curriculum_forced") and template_id:
+                self.free_template_counts[template_id] = (
+                    self.free_template_counts.get(template_id, 0) + 1
+                )
+
         # Latest NN policy output (legitim global — Netz hat shared weights)
         if type_probs:
             self.type_probs_history.append(type_probs)
@@ -485,8 +571,10 @@ class Dashboard:
                 c["player_credits"].append(int(player_credits))
             if player_health is not None:
                 c["player_health"].append(int(player_health))
+                self.hp_curve_history.append((int(wave_num), player_health / 100.0))
             if damage_pct is not None:
                 c["damage_pct"].append(round(damage_pct, 4))
+                self.damage_history.append(round(damage_pct, 4))
                 # Bucket into damage zones for histogram
                 bucket = self._damage_bucket(damage_pct)
                 c["damage_zones"][bucket] = c["damage_zones"].get(bucket, 0) + 1
@@ -524,16 +612,47 @@ class Dashboard:
         self.game_over_count += 1
 
     def record_training_update(self, policy_loss: float, entropy: float,
-                               grad_norm: float, batch_avg_reward: float):
-        """Record model training update (PPO internals)."""
+                               grad_norm: float, batch_avg_reward: float,
+                               approx_kl: float = 0.0, log_std: float = 0.0,
+                               dropped_pairs: int = 0, action_corr=None):
+        """Record model training update (PPO internals).
+
+        `approx_kl` shows how far each update moved the policy off the data that
+        produced it — the early-stop trigger. `log_std` is the learned
+        exploration width: it used to be pushed upward by an entropy bonus
+        measured in the wrong space, which drove the wave factors to their range
+        endpoints. `dropped_pairs` counts results that arrived with no matching
+        stored action; it should stay flat.
+        """
+        if action_corr is not None:
+            self.last_action_corr = [round(float(x), 4) for x in action_corr]
         self.model_updates += 1
         self.model_metrics = {
             "policyLoss": round(policy_loss, 5),
             "entropy": round(entropy, 4),
             "gradNorm": round(grad_norm, 4),
             "batchReward": round(batch_avg_reward, 3),
+            "approxKl": round(approx_kl, 5),
+            "logStd": round(log_std, 4),
+            "droppedPairs": dropped_pairs,
+            "actionCorr": getattr(self, "last_action_corr", None),
         }
         self._broadcast_event("training_update", self.model_metrics)
+
+    def _free_template_entropy(self) -> float:
+        """Shannon entropy of free-choice template picks, normalised to 0..1.
+
+        1.0 means the net spreads evenly over everything it is allowed to pick;
+        values near 0 mean it has collapsed onto one or two templates. This is
+        the early warning for the monotony risk — waves 1-30 are pinned by the
+        curriculum, so only the free picks say anything about variety.
+        """
+        counts = [c for c in self.free_template_counts.values() if c > 0]
+        if len(counts) < 2:
+            return 0.0
+        total = sum(counts)
+        entropy = -sum((c / total) * math.log(c / total) for c in counts)
+        return round(entropy / math.log(len(counts)), 3)
 
     def _classify_progress(self, progress: float) -> str:
         if progress < 0.20: return "boring"
@@ -551,6 +670,68 @@ class Dashboard:
         in_spot = sum(1 for p in recent
                        if PROGRESS_NEAR_MISS_LOW <= p <= PROGRESS_NEAR_MISS_HIGH)
         return round(in_spot / len(recent) * 100, 1)
+
+    def _calc_damage_sweet_pct(self) -> float:
+        """Percentage of recent waves inside the reward's DAMAGE band.
+
+        This is the gate on the near-miss peak, the swarm bonus and the
+        progression bonus. When it reads 0 the agent is collecting the
+        boring-wave penalty and nothing else, no matter how good the path
+        progress looks.
+        """
+        if not self.damage_history:
+            return 0
+        recent = list(self.damage_history)[-100:]
+        inside = sum(1 for d in recent if DAMAGE_SWEET_MIN <= d <= DAMAGE_SWEET_MAX)
+        return round(inside / len(recent) * 100, 1)
+
+    def _calc_avg_damage_pct(self) -> float:
+        """Mean HP fraction lost per wave, recently.
+
+        The player never heals, so this times the waves survived is the whole
+        run. At 100 HP a value of 0.0125 means a ~80-wave run.
+        """
+        if not self.damage_history:
+            return 0
+        recent = list(self.damage_history)[-100:]
+        return round(sum(recent) / len(recent), 5)
+
+    def _calc_near_miss_band_pct(self) -> float:
+        """Share of recent waves whose near-miss ratio sits in the DRAMA band.
+
+        This is the v4 headline number. `sweetSpotPct` measures the *mean* path
+        progress, which the bulk of early-dying enemies drags down; the reward
+        is computed on the upper tail instead, and this measures that.
+        """
+        if not self.near_miss_history:
+            return 0
+        recent = list(self.near_miss_history)[-100:]
+        lo, hi = NEAR_MISS_TARGET - NEAR_MISS_SIGMA, NEAR_MISS_TARGET + NEAR_MISS_SIGMA
+        inside = sum(1 for n in recent if lo <= n <= hi)
+        return round(inside / len(recent) * 100, 1)
+
+    def _calc_avg_near_miss(self) -> float:
+        if not self.near_miss_history:
+            return 0
+        recent = list(self.near_miss_history)[-100:]
+        return round(sum(recent) / len(recent), 4)
+
+    def _calc_hp_curve_error(self) -> float:
+        """Mean signed deviation of player HP from the pacing curve.
+
+        Positive means the players are healthier than the curve wants — the
+        failure mode v3 converged on, where one client reached a 133-wave
+        streak without losing a single HP. Negative means runs are being ended
+        too fast.
+        """
+        if not self.hp_curve_history:
+            return 0
+        recent = list(self.hp_curve_history)[-100:]
+        errs = []
+        for wave_num, hp in recent:
+            target = max(0.0, 1.0 - wave_num / TARGET_RUN_WAVES) if TARGET_RUN_WAVES > 0 else 0.0
+            errs.append(hp - target)
+        return round(sum(errs) / len(errs), 4)
 
     def _calc_game_over_rate(self) -> float:
         """Percentage of waves that resulted in game over."""

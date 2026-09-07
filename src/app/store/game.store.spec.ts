@@ -49,8 +49,13 @@ describe('GameStore', () => {
 
     // NOTE: botEnabled, botSkillLevel, botAutoMode are owned by TrainingClientService
 
-    it('useAIDirector starts as false', () => {
-      expect(store.useAIDirector()).toBe(false);
+    it('useAIDirector starts as true', () => {
+      // On by default since the wave director became rule-based: it needs no
+      // model, no network and no ONNX runtime, so there is no startup window in
+      // which it cannot produce a wave. It previously defaulted to false and
+      // was switched on by an effect once the ONNX model had loaded — an effect
+      // that also re-fired on its own write and made the UI toggle inert.
+      expect(store.useAIDirector()).toBe(true);
     });
 
     it('aiExplanation starts as null', () => {
@@ -228,7 +233,7 @@ describe('GameStore', () => {
       store.credits.set(999);
       store.phase.set('gameover');
       store.trainingTimescale.set(50);
-      store.useAIDirector.set(true);
+      store.useAIDirector.set(false);   // non-default, so the assert below bites
       store.isDevWorldRegenerating.set(true);
 
       store.resetAll();
@@ -236,7 +241,9 @@ describe('GameStore', () => {
       expect(store.credits()).toBe(GAME_BALANCE.player.startCredits);
       expect(store.phase()).toBe('setup');
       expect(store.trainingTimescale()).toBe(1.0);
-      expect(store.useAIDirector()).toBe(false);
+      // Set to the NON-default before the reset in the arrange block, so this
+      // fails if resetAll stops touching the field at all.
+      expect(store.useAIDirector()).toBe(true);
       expect(store.isDevWorldRegenerating()).toBe(false);
     });
   });

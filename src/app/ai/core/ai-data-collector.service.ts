@@ -40,6 +40,8 @@ import {
   estimateKillZoneStrength,
 } from './defense-analyzer';
 import { calculateWaveThreat, computeDpsByDamageType } from './game-state-encoder';
+import { computeTowerDPS } from './tower-dps.util';
+import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { ComponentType } from '../../core/component';
 import { MovementComponent } from '../../game-components/movement.component';
@@ -73,6 +75,8 @@ export class AIDataCollectorService {
   // === CURRENT WAVE TRACKING ===
   private currentWaveNumber = 0;
   private currentWaveStartTime = 0;
+  /** Wall-clock start of the current run, for the encoder's gameTime feature. */
+  private gameStartTime = Date.now();
   private currentWaveConfig: WaveConfig | null = null;
   private currentWaveOutcome: Partial<WaveOutcome> = {};
   private lowestHealthThisWave = 100;
@@ -140,7 +144,10 @@ export class AIDataCollectorService {
     const snapshot: GameStateSnapshot = {
       timestamp: Date.now(),
       waveNumber: this.store.waveNumber(),
-      gameTimeSeconds: (Date.now() - this.currentWaveStartTime) / 1000,
+      // Time since the RUN started, not since the current wave started — the
+      // encoder normalises this against a one-hour horizon, so a per-wave value
+      // made the feature a near-constant.
+      gameTimeSeconds: (Date.now() - this.gameStartTime) / 1000,
       phase: this.store.phase() as GamePhase,
 
       player: this.getPlayerState(),
@@ -186,26 +193,44 @@ export class AIDataCollectorService {
     };
   }
 
-  /** Approximate the armor distribution expected in the current wave config. */
+  /**
+   * Armor distribution the player should prepare for.
+   *
+   * During a wave this is the wave actually running. Between waves
+   * `currentWaveConfig` is null (it is cleared once a wave resolves), and that
+   * is exactly when both the bot and the Wave Director look at this feature —
+   * so an empty value there meant the AI planned against a uniform-armor
+   * fallback for the entire build phase. Fall back to the curriculum's next
+   * template instead, which is what will actually spawn.
+   */
   private getExpectedArmorDistribution(): Record<ArmorType, number> | undefined {
-    const config = this.currentWaveConfig;
-    if (!config || !config.enemies || config.enemies.length === 0) return undefined;
+    const groups = this.currentWaveConfig?.enemies?.length
+      ? this.currentWaveConfig.enemies.map((g) => ({ type: g.type, weight: g.count }))
+      : this.upcomingTemplateGroups();
+    if (!groups || groups.length === 0) return undefined;
 
     const dist: Record<ArmorType, number> = {
       unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0,
     };
     let total = 0;
-    for (const group of config.enemies) {
+    for (const group of groups) {
       const enemyCfg = getEnemyType(group.type as EnemyTypeId);
       if (!enemyCfg?.armorType) continue;
-      dist[enemyCfg.armorType] += group.count;
-      total += group.count;
+      dist[enemyCfg.armorType] += group.weight;
+      total += group.weight;
     }
     if (total === 0) return undefined;
     for (const k of Object.keys(dist) as ArmorType[]) {
       dist[k] /= total;
     }
     return dist;
+  }
+
+  /** Enemy shares of the template the curriculum pins to the next wave. */
+  private upcomingTemplateGroups(): { type: string; weight: number }[] | undefined {
+    const template = templateObjectForWave(this.store.waveNumber() + 1);
+    if (!template) return undefined;
+    return template.enemies.map(([type, share]) => ({ type, weight: share }));
   }
 
   /**
@@ -336,6 +361,20 @@ export class AIDataCollectorService {
   }
 
   private onWaveCompleted(event: { wave: number; credits: number }): void {
+    // Drop the wave the game-over path already finalised.
+    //
+    // When the last leaker of a wave is also the one that destroys the base,
+    // both fire for the same wave: the wave-complete check runs before the
+    // game-over check, but `wave:completed` is emitted deferred while
+    // `game:over` is synchronous, so the finaliser goes first and this handler
+    // arrives afterwards for a wave that is already recorded. That produced a
+    // duplicate history entry, and now also a second recordWave — a doubled
+    // gate back-off on the most common way a run ends.
+    if (this.finalizedWaveNumber === event.wave) {
+      this.finalizedWaveNumber = null;
+      return;
+    }
+
     const duration = Date.now() - this.currentWaveStartTime;
 
     // Get training timescale for normalization
@@ -425,13 +464,12 @@ export class AIDataCollectorService {
   private onEnemyReachedBase(event: { enemy: { id: string; typeConfig: { id: string } }; damage: number }): void {
     this.currentWaveOutcome.enemiesReachedBase =
       (this.currentWaveOutcome.enemiesReachedBase || 0) + 1;
-    this.currentWaveOutcome.damageToPlayer =
-      (this.currentWaveOutcome.damageToPlayer || 0) + event.damage;
-
-    // Update damage percent
-    const maxHealth = GAME_BALANCE.player.startHealth;
-    this.currentWaveOutcome.damagePercent =
-      (this.currentWaveOutcome.damageToPlayer || 0) / maxHealth;
+    // NOTE: `event.damage` is the NOMINAL leak cost. What the player actually
+    // loses is capped per wave (GAME_BALANCE.combat.maxLeakDamagePerWave), so
+    // the real figure is accumulated in `onHealthChanged` from the health
+    // delta. Counting the nominal value here reported 74% HP lost on waves
+    // that cost at most 18%, and the wave director would have been trained on
+    // damage that never happened.
 
     // Track per-enemy-type performance
     const enemyType = event.enemy.typeConfig.id;
@@ -442,6 +480,15 @@ export class AIDataCollectorService {
   }
 
   private onHealthChanged(event: { health: number; delta: number }): void {
+    // Actual HP lost, after the per-wave leak cap. This is the figure the
+    // reward is computed from; the nominal per-enemy cost is not.
+    if (event.delta < 0) {
+      this.currentWaveOutcome.damageToPlayer =
+        (this.currentWaveOutcome.damageToPlayer || 0) - event.delta;
+      this.currentWaveOutcome.damagePercent =
+        (this.currentWaveOutcome.damageToPlayer || 0) / GAME_BALANCE.player.startHealth;
+    }
+
     if (event.health < this.lowestHealthThisWave) {
       this.lowestHealthThisWave = event.health;
     }
@@ -449,6 +496,7 @@ export class AIDataCollectorService {
 
   private onGameStarted(): void {
     this.clearHistory();
+    this.gameStartTime = Date.now();
     this.currentWaveStartTime = Date.now();
   }
 
@@ -478,13 +526,21 @@ export class AIDataCollectorService {
           this.currentWaveOutcome.avgEnemyLifetimeMs = (totalLifetime / count) / timescale;
         }
 
-        // Calculate average path progress
+        // Calculate path progress metrics. The per-enemy list matters as much
+        // as the average: the training backend derives its near-miss ratio and
+        // progress spread from it, and without it a fatal wave arrives with a
+        // synthesised single-value distribution.
         if (this.enemyPathProgress.size > 0) {
+          const progressValues = Array.from(this.enemyPathProgress.values());
           let totalProgress = 0;
-          for (const progress of this.enemyPathProgress.values()) {
+          for (const progress of progressValues) {
             totalProgress += progress;
           }
-          this.currentWaveOutcome.avgPathProgressPercent = totalProgress / this.enemyPathProgress.size;
+          this.currentWaveOutcome.avgPathProgressPercent = totalProgress / progressValues.length;
+          this.currentWaveOutcome.enemyProgressValues = progressValues;
+        } else {
+          this.currentWaveOutcome.avgPathProgressPercent = 0;
+          this.currentWaveOutcome.enemyProgressValues = [];
         }
 
         // Normalize per-enemy-type lifetimes
@@ -507,6 +563,7 @@ export class AIDataCollectorService {
         };
 
         // Store in history
+        this.finalizedWaveNumber = this.currentWaveNumber;
         this.addToHistory(result);
         this.waveResultCount.update((n) => n + 1);
 
@@ -546,8 +603,41 @@ export class AIDataCollectorService {
     }
   }
 
+  /**
+   * Notified for every completed wave, including the game-over one.
+   *
+   * `addToHistory` is the single point both paths pass through — the normal
+   * `wave:completed` handler and the game-over finaliser, which exists because
+   * `wave:completed` is never emitted when the base falls. Anything that needs
+   * to see every wave has to hang here; subscribing to the event instead would
+   * silently miss exactly the wave that ended the run.
+   */
+  onWaveResult(listener: (result: WaveResult) => void): () => void {
+    this.waveResultListeners.push(listener);
+    return () => {
+      const i = this.waveResultListeners.indexOf(listener);
+      if (i >= 0) this.waveResultListeners.splice(i, 1);
+    };
+  }
+
+  private waveResultListeners: ((result: WaveResult) => void)[] = [];
+
+  /**
+   * Wave already recorded by the game-over finaliser, so the deferred
+   * `wave:completed` for it must be ignored. See onWaveCompleted.
+   */
+  private finalizedWaveNumber: number | null = null;
+
   private addToHistory(result: WaveResult): void {
     this.waveHistory.push(result);
+    for (const listener of this.waveResultListeners) {
+      try {
+        listener(result);
+      } catch (error) {
+        // A misbehaving listener must not cost us the wave history entry.
+        console.error('[AI] wave-result listener threw', error);
+      }
+    }
     this.damageHistory.push(result.outcome.damagePercent);
     this.progressHistory.push(result.outcome.avgPathProgressPercent);
     // Derive near-miss ratio from enemyProgressValues: fraction reaching >0.8
@@ -635,12 +725,16 @@ export class AIDataCollectorService {
   }
 
   private computeTowerHash(towers: Tower[]): string {
-    // Simple hash: tower count + sum of IDs + total DPS
-    // Changes on place/sell/upgrade
+    // Cache key for the DPS profile: changes on place, sell and upgrade.
+    //
+    // Uses the real DPS function rather than `damage * fireRate`. That shortcut
+    // is 0 for beam towers (Fire keeps its damage in `damagePerSecond`) and
+    // ignores chain falloff, splash and DoT — so upgrading a Fire or Lightning
+    // tower left the hash unchanged and the profile stale.
     let hash = towers.length.toString();
     let dpsSum = 0;
     for (const t of towers) {
-      dpsSum += t.combat.damage * t.combat.fireRate;
+      dpsSum += computeTowerDPS(t);
     }
     hash += '_' + Math.round(dpsSum);
     return hash;

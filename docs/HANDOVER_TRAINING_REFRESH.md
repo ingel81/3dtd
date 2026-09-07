@@ -1,0 +1,766 @@
+# Handover: Training-Backend Refresh (From-Scratch-Retraining)
+
+**Branch:** `feat/training-backend-refresh`
+**Stand:** 2026-09-07 — abgeschlossen, Ergebnis: kein Modell im Produkt
+
+Ziel: Das Training-Backend auf den aktuellen Spielstand bringen, damit ein
+From-Scratch-Trainingslauf überhaupt sinnvolle Gradienten bekommt. Ausgangslage
+war eine Drift von ~3,5 Monaten zwischen `training-backend/` (letzter Stand
+2026-05-08), dem Frontend-AI-Code (2026-05-23) und der Engine (2026-08-22).
+
+> **Wie es ausgegangen ist.** Nach allen Korrekturen aus A–N lief das Training
+> sauber, und genau das machte die entscheidende Messung erst möglich: In einem
+> A/B über vier Wave-Designer (`model`, `rules`, `random`, `maxgate`) bei
+> gleichen Bots, gleichem Curriculum und gleichem Gate war das trainierte Netz
+> **dreimal statistisch nicht von uniformem Zufall zu unterscheiden**. Zwei
+> triviale Heuristiken erzeugten mehr Spannung. Konsequenz: Der Wave Director ist
+> heute **regelbasiert und clientseitig** (`src/app/ai/core/rule-director.ts` +
+> `gate-controller.ts`); das Spiel braucht im Betrieb weder Python-Server noch
+> Modell noch ONNX-Runtime. Details in [Abschnitt O](#o-das-netz-war-nicht-von-zufall-zu-unterscheiden-2026-09)
+> und [Abschnitt P](#p-die-verteidigung-war-binär-2026-09).
+
+Vollständiger Analysebefund mit Zeilenreferenzen: siehe Abschnitt
+[Befunde](#befunde) unten.
+
+---
+
+## Was sich beim Umsetzen als der eigentliche Kern herausstellte
+
+Die ursprüngliche Analyse (Drift, Schema, Bot, DevWorld) war richtig, aber
+nicht der Grund, warum das Training nichts taugte. Zwei Reviews und der
+Messbetrieb haben drei tiefere Ursachen freigelegt:
+
+1. **Die Reward-Funktion machte es optimal, den Spieler zu töten.** Der Spieler
+   heilt nie (`healBase()` hat keinen Produktivaufruf), das Wave-Optimum
+   verlangt aber 1-5 % HP-Verlust — nach ~33 Waves ist er konstruktionsbedingt
+   tot. Der Tod kostete einmalig −3,5, der Weg dorthin brachte ~+3 pro Wave.
+   „Ausbluten und erledigen" schlug jede nachhaltige Strategie.
+2. **Waves wurden isoliert bewertet.** Ein Tod in Wave 11 entsteht aus den
+   Entscheidungen in Wave 8-10; keine davon wurde dafür belangt. Der Value-Head
+   war kein Value-Head, sondern ein Reward-Prediktor.
+3. **Das Fairness-Gate rechnete zweimal falsch.** Erst in Schaden statt in
+   Tötungen (ein Turm trifft ein Ziel pro Schuss und verwirft den Überschuss),
+   dann mit einer festen Feuerzeit von 30 s statt der Zeit, die ein Gegner
+   tatsächlich in Reichweite ist. Beides ließ Schwärme durch, die rechnerisch
+   trivial aussahen.
+
+## Getroffene Grundsatzentscheidungen
+
+1. **Curriculum-Scope:** W1-30 werden forciert, indem die Template-Maske auf
+   genau das Curriculum-Template reduziert wird (Sample == gelieferte Wave).
+   Ab W31 wählt der Template-Head frei mit der normalen Maske. Damit ist die
+   Credit-Assignment wieder korrekt und der Head lernt auf ~70 % der Waves einer
+   100-Wave-Episode echte Entscheidungen.
+2. **State-Schema erweitern:** `INPUT_SIZE` 156 → 162. Das alte Checkpoint 7350
+   wird dadurch unbrauchbar — bei From-Scratch irrelevant, und es ist der einzige
+   saubere Zeitpunkt für die Schema-Änderung.
+3. **Single Source of Truth:** Ein Generator (`npm run ai-schema`) leitet
+   `training-backend/generated/ai-schema.json` aus den TypeScript-Configs ab;
+   Python liest ausschließlich diese Datei. Die Doppelpflege
+   `templates.ts`/`templates.py` und `wave-curriculum.config.ts`/`wave_curriculum.py`
+   entfällt strukturell.
+
+---
+
+## Phasen
+
+### P0 — Training-Korrektheit — **erledigt**
+
+- [x] `survived` aus `outcome.playerSurvived` statt aus dem nicht existierenden
+      `outcome.gameOver`. Der DEATH-Term hatte deshalb **nie** gefeuert.
+- [x] Frontend sendet `stateAfter` auch auf dem `game:over`-Pfad.
+- [x] `enemyProgressValues` im Game-Over-Finalize gesetzt.
+- [x] Curriculum-Forcing sitzt in der Maske: bis W30 genau ein Template, damit
+      die gesampelte Aktion die gelieferte Wave IST. Der Decoder-Override
+      trainierte den Template-Head zuvor auf nie gespielte Aktionen.
+- [x] Checkpoint trägt Optimizer-State, Episode und Reward-Statistik.
+- [x] `transitions` verbrauchen die ältesten statt die Liste zu leeren.
+- [x] `win_streak` aus dem Wave-Ergebnis abgeleitet.
+- [x] Discounting ist da (GAMMA 0.9 + GAE), nicht mehr nur ein toter Parameter.
+- [x] Längen-Assert statt stiller Trunkierung.
+
+### P1 — Content-Sync via SSOT — **erledigt**
+- [x] Generator `tools/ai-schema/generate.spec.ts` → `training-backend/generated/ai-schema.json`.
+- [x] `npm run ai-schema`; läuft mit `npm test` mit, eine stale JSON zeigt sich als dirty tree.
+- [x] `templates.py`, `wave_curriculum.py` und die Enemy-Tabellen in `config.py`
+      **gelöscht** — Python liest nur noch die generierte JSON.
+- [x] `golem_squad` mit `minWave: 14` statt 999.
+- [x] `zombie_horde` auf 90 % `zombie` / 10 % `zombie-v2` (Perf-Risiko bei Mega-Hordes).
+- [x] `endgameHpMultiplier` im Backend-Decoder angewandt.
+- [x] Rundungs-Parität bei `spawn_delay`.
+
+### P2 — Encoder-Erweiterung — **erledigt** (156 → 203, Schema v3)
+- [x] `zombie-v2` + `stone-golem` in Enemy-Order, Armor-Map und Threat-Rating.
+- [x] `lightning` als 10. Tower und 8. Damage-Type.
+- [x] `maxUpgradeTier / 5`; Episodenfortschritt gegen `EPISODE_LENGTH`.
+- [x] `gameTimeSeconds` ab Spielstart statt ab Wave-Start.
+- [x] `expectedArmorDistribution` aus dem Curriculum-Template statt Uniform-Fallback.
+- [x] `computeTowerHash` über die echte DPS-Funktion.
+- [x] Wave-Kontext (Maske + Ranges + Fairness-Headroom) und AoE-Anteil ergänzt.
+- Nicht gemacht: der „History-Padding-Bug" war ein Fehlalarm — beide Seiten
+  fangen den negativen Index ab und padden korrekt links.
+
+### P3 — Bot — **erledigt**
+- [x] `lightning` in `ALL_COMBAT_TOWERS`, `storm-mastery` in den Research-Listen.
+- [x] `etherealGap` + `AntiEtherealPlacementStrategy`.
+- [x] Tower-Bewertung über `computeTowerDPSFromLevels` (Beam/Chain zählten mit 0).
+- [x] Anti-Air und Splash nach Wirksamkeit statt hartkodierter Liste.
+- [x] Upgrade-Tier-Regel geteilt (`requiredUpgradeTier`) und bis Tier 5.
+- [x] Toter Auswahl-Code entfernt.
+- [x] `maxTowers` 300 → 80 und Upgrade-Strategie über 8 statt 1 Tower — der Bot
+      baute 298 Tower und drückte damit den Sub-Step-Loop auf 2 FPS.
+
+### P4 — DevWorld — **erledigt**
+- [x] Höhenabfragen auf die Mesh-Auflösung ausgerichtet (Grundwahrheit vs. LOS-Blocker).
+- [x] Straßen und Skirt über `userData.losTransparent` aus dem Cube-Render.
+- [x] `dispose()` beim Engine-Teardown (Worker-Leak).
+- [x] `onDevWorldRegenerated` re-seedet die Wave-Pipeline.
+- [x] `areTilesVisible()` korrekt.
+- Bewusst **nicht** gemacht: alle vier Spawns übernehmen. Der Realwelt-Pfad
+  erzeugt ebenfalls genau einen; die vier im Generator sind Vorarbeit für einen
+  späteren Multi-Lane-Modus. Vier Routen gegen dasselbe Tower-Budget wäre ein
+  anderes Spiel als das ausgelieferte.
+
+### P5 — Infrastruktur — **erledigt**
+- [x] `--fresh` in `server.py` und `manage_server.py` (archiviert, löscht nicht).
+- [x] `checkpoint_latest.pt` wird geschrieben — `export-ai` lief vorher immer auf Fehler.
+- [x] `pytest` in `requirements.txt`, Tests umgestellt und erweitert.
+- [x] Key-Drift in `tui_logger.py` und `dashboard/app.py`.
+- [x] Doppelte `PPOTrainer`-Instanziierung, tote Imports, `ExperienceBuffer`.
+
+### P6 — Dokumentation — **erledigt**
+Alle unter [Doku-Fehler](#f-doku-fehler) gelisteten Punkte korrigiert.
+
+### P7 — Trainingslauf
+`/training fresh` — Backend + Dashboard + Dev-Server + N sichtbare Chrome-Tabs
+auf `?devworld`, headless (Rendering aus), Timescale 75. Beobachtung über
+`http://localhost:3002`.
+
+### P8 — RL-Umbau (aus zwei Reviews) — **erledigt**
+
+- [x] Trajektorien pro Client, discounted Returns + GAE, `done`-Flag.
+- [x] Death-Penalty −3,5 → −30, dominiert den Run der ihn verursacht hat.
+- [x] Swarm und Progression nur noch im 1-5 %-Band; Swarm zusätzlich an
+      Mindest-Progress gekoppelt. Swarm-Cap 2,0 → 0,5.
+- [x] Batch 16 → 128 mit Minibatches, KL-Early-Stop, Advantages einmal
+      standardisiert, Reward-Normalisierung nur skalierend und einmalig beim
+      Einsammeln (vorher rechnete GAE roh gegen skalierte Values — der Critic
+      war damit wirkungslos).
+- [x] Entropie nur auf dem Template-Head, `log_std` geklemmt und unterhalb der
+      Grenze initialisiert.
+- [x] Deterministische Evaluation alle 25 Runs, getrennt ausgewiesen.
+- [x] Fairness-Gate in Kills/s statt Schaden/s, Feuerzeit aus Gegnergeschwindigkeit.
+
+### Offene Punkte (Stand 2026-09-07)
+
+- [x] ~~ONNX exportieren und im Browser gegen den Backend-freien Pfad prüfen.~~
+      Erledigt in anderer Form: Der Backend-freie Pfad ist jetzt der
+      **Regel-Director**, der Export ist kein Blocker mehr. `loadModel()` bleibt
+      als Opt-in bestehen, wird beim Start aber nicht mehr aufgerufen.
+- [x] ~~Zielwerte festzurren.~~ Ersetzt durch die A/B-Messung in Abschnitt O:
+      der Vergleich läuft gegen alternative Designer, nicht gegen absolute
+      Zielwerte.
+- [ ] Wave 1 bleibt die Schwachstelle — dort sterben noch die meisten Runs. Der
+      Gate-Controller steuert erst ab `GATE_ADAPT_WINDOW = 4` Wellen, davor
+      trägt allein `fairMaxCount`.
+- [ ] Die Design-Fragen aus [Abschnitt M](#m-warum-die-ai-kleine-waves-wählt-anteil-vs-absoluter-schaden-2026-08-28)
+      und [N](#n-ergebnis-nach-100-updates-drama-erreicht-rundenlänge-verfehlt-2026-08-28)
+      sind unbeantwortet und betreffen jetzt die **Regelkurve** statt eines
+      Rewards: maximale Wellengröße, erlaubter Schaden je Welle,
+      Ziel-Rundenlänge.
+
+---
+
+## Befunde
+
+### A. Training-Korrektheit
+
+| # | Befund | Ort |
+|---|---|---|
+| A1 | DEATH-Term feuert nie: `survived` liest `outcome.gameOver`, das Feld heißt `playerSurvived`. Game-Over-Pfad sendet ohne `stateAfter`. | `server.py:856`, `wave-result.ts:66`, `training-client.service.ts:433` |
+| A2 | Template-Head trainiert auf Rauschen: PPO speichert den gesampelten Index, der Decoder ersetzt ihn durchs Curriculum. | `server.py:490-497` vs. `:755-756` |
+| A3 | Curriculum umgeht die Maske → `boss_herbert` (min_wave 20, boss_only) auf W10; `confidence` dann exakt 0.0. | `server.py:755-756`, `:811` |
+| A4 | Checkpoint = nacktes `state_dict`; Adam-Momente und Reward-Normalizer resetten bei jedem Serverstart. | `model.py:203` |
+| A5 | PPO ohne Discounting/GAE; `GAMMA` importiert, nie benutzt. | `trainer.py:14,112` |
+| A6 | `transitions = []` verwirft ungenutzte Übergänge über `BATCH_SIZE` hinaus. | `trainer.py:84,185` |
+| A7 | `win_streak` bleibt 0 — `notifyGameOver` wird nie aufgerufen. | `training-client.service.ts:619` |
+| A8 | `enemyProgressValues` fehlt auf dem Game-Over-Pfad. | `ai-data-collector.service.ts:455-513` |
+
+### B. Frontend/Backend-Drift
+
+| # | Befund |
+|---|---|
+| B1 | Enemies: FE 18, BE 16 — `zombie-v2` und `stone-golem` fehlen. |
+| B2 | Templates: FE 19 (Slot 18 `golem_squad`, minWave 999), BE 18. Slot 18 bedeutet auf beiden Seiten Unterschiedliches. |
+| B3 | `zombie_horde`: FE `zombie 0.5 / zombie-v2 0.5`, BE `zombie 1.0`. |
+| B4 | Curriculum W15: FE `golem_squad`, BE `mech_army`. |
+| B5 | `endgameHpMultiplier` fehlt im Backend-Trainingspfad. |
+| B6 | `enemyBaseDamageForWave` (Leak-Schaden ab W11) fehlt im Backend. |
+| B7 | `spawn_delay`-Rundung: FE `Math.round`, BE `int()`. |
+| B8 | BE sendet `speedMultiplier`/`useGathering`, FE-Decoder nicht. |
+| B9 | `TrainingStats.currentBotType` erwartet FE, BE sendet es nie. |
+| B10 | BE sendet nie `{"type":"error"}`, FE modelliert es. |
+
+### C. Encoder-Blindstellen
+
+| # | Befund | Ort |
+|---|---|---|
+| C1 | Enemy-Order/Armor-Map/Threat-Rating: 16 Einträge, 2 fehlen. | `game-state-encoder.ts:55-120`, `server.py:648` |
+| C2 | Tower-Order 9 statt 11 — `lightning` und `research-center` unsichtbar. | `game-state-encoder.ts:76`, `server.py:550` |
+| C3 | Damage-Type-Order 7, `lightning` bewusst ausgeschlossen. | `game-state-encoder.ts:86` |
+| C4 | `maxUpgradeTier / 3` bei Tiers bis 5. | `research-tree.config.ts:186,198` |
+| C5 | `wave_num / 20.0` als Episodenfortschritt bei `EPISODE_LENGTH = 100`. | `server.py:588` |
+| C6 | History-Slicing erzeugt negative Indizes bei < 5 Einträgen. | `game-state-encoder.ts:194,200,285,312` |
+| C7 | `gameTimeSeconds` misst ab Wave-Start, kodiert wird `gameTime/3600`. | `ai-data-collector.service.ts:143` |
+| C8 | `expectedArmorDistribution` wird nach jeder Wave genullt → Uniform-Fallback in der Planungsphase. | `ai-data-collector.service.ts:578` |
+| C9 | Features [15-19] und [74-78] sind identisch. | `game-state-encoder.ts` |
+| C10 | `computeTowerHash` nutzt `damage * fireRate` → Beam/Chain/DoT-Upgrades invalidieren den DPS-Cache nicht. | `ai-data-collector.service.ts:637` |
+| C11 | Keine Längenvalidierung, nur stille Trunkierung. | `server.py:721` |
+
+### D. Bot
+
+| # | Befund | Ort |
+|---|---|---|
+| D1 | Keine Anti-Ethereal-Strategie; `etherealGap` existiert nicht. | `defense-analyzer.ts:82-85` |
+| D2 | `lightning` fehlt in `ALL_COMBAT_TOWERS`. | `tower-bot.interface.ts:105-107` |
+| D3 | `fire` bewertet sich zu 0 (Beam hat `damage: 0`). | `tower-strategy.interface.ts:90-94` |
+| D4 | Anti-Air wählt immer `archer` statt `rocket`/`ice`. | `anti-air-placement.strategy.ts:31-46` |
+| D5 | Splash hardcodet `cannon`/`rocket`, ignoriert `fire`/`lightning`. | `splash-defense-placement.strategy.ts:31,39` |
+| D6 | Upgrade-Tier-Mapping endet bei 3, Tiers 4/5 unerreichbar. | `near-spawn-upgrade.strategy.ts:77` |
+| D7 | `hasAntiAirCapability` prüft nur `rocket`. | `research-pick.strategy.ts:190` |
+| D8 | Damage-Matrix-Auswahl ist toter Code. | `base-tower-bot.ts:98-231` |
+
+> Pfadhinweis: `near-spawn-upgrade.strategy.ts` (D6) heißt seit 2026-09
+> `path-coverage-upgrade.strategy.ts`, Klasse `PathCoverageUpgradeStrategy` —
+> siehe [Abschnitt P](#p-die-verteidigung-war-binär-2026-09).
+
+### E. DevWorld
+
+| # | Befund | Ort |
+|---|---|---|
+| E1 | Nur `generatedSpawns[0]` wird übernommen → immer genau 1 Spawn. | `location-facade.service.ts:294-301` |
+| E2 | Grundwahrheit aus 1024²-Heightmap, LOS-Blocker-Mesh mit 64 Segmenten → Divergenz bis zig Meter auf hügeligem Terrain. | `dev-terrain.provider.ts:315,567,816` |
+| E3 | Straßen blocken in der GPU-Cubemap, im CPU-Raycast nicht. | `dev-terrain.provider.ts:26,799-805` |
+| E4 | `dispose()` wird nie aufgerufen → Generator-Worker leakt bei jedem Tab-Reload. | `three-tiles-engine.ts:2199-2258` |
+| E5 | `onDevWorldRegenerated` re-seedet die WaveManager-Spawns/Pfade nicht. | `location-facade.service.ts:722-762` |
+| E6 | `areTilesVisible()` liefert in DevWorld `true`. | `three-tiles-engine.ts:2014` |
+| E7 | `hydraulicErosion` nutzt fest `mulberry32(42)` statt `config.seed`. | `terrain-generator.ts:162` |
+
+### F. Doku-Fehler
+
+| # | Befund |
+|---|---|
+| F1 | `reward.py:16-17` + `AI_TRAINING_BACKEND.md:257`: "Hard Constraints (Monotony, Armor-Dominance, Fairness) live in the decoder" — in Phase 5.11 entfernt, existiert nicht mehr. |
+| F2 | `reward.py:9`: Sweet-Zone "1-10%" → real 1-5%. |
+| F3 | `reward.py:12`: Swarm-Cap "~2700 enemies" → real 1353. |
+| F4 | `wave_curriculum.py:14`: Mirror-Pfad `src/app/ai/core/wave-curriculum.ts` existiert nicht. |
+| F5 | `templates.py:10-11` + `templates.ts:11-12`: "Slots 0-17 aktiv" → FE hat 19. |
+| F6 | `game-state-encoder.ts:35-38`: "Backend encodes 181 features" — falsch, identisch 156. |
+| F7 | `game-state-encoder.ts:168` "(74 features)", `wave-director.service.ts:207` "shape: [1, 74]". |
+| F8 | `models/wave-config.ts:13`: Pfad `models/enemy-types.ts` existiert nicht. |
+| F9 | Curriculum-Override gilt laut Docs "W1-18" — real jede Wave im mod-30-Loop. |
+| F10 | Gold-Budget in `HANDOVER:25-26` / `PHASE_5.11_RANGES.md:167-173`: W1 30/15, W30 650/325, lineare Extrapolation → real 133/67 … 120000/60000, mod-30-Loop. |
+| F11 | Upgrade-Skalierung in `HANDOVER:31-33` / `TODO.md:226-232`: ×1.10/×1.07, costScaling 1.40 → real ×1.05/×1.06/×1.04, costScaling 1.25. |
+| F12 | `HANDOVER:49`: "60% Refund" → real `SELL_RATIO = 0.75`. |
+| F13 | `HANDOVER:104-105`: Per-Kill-Rounding-Bug "bekannt offen" → gefixt in `enemy.manager.ts:265-289`. |
+| F14 | `PHASE5.5_TRAINING_RUNBOOK.md`: Banner INPUT_SIZE=93/OUTPUT_SIZE=20; Dashboard-Start `cd dashboard && python app.py` ist nicht lauffähig. |
+| F15 | `docs/BOT_SYSTEM.md` breit veraltet: `mistakeRate`/`plansAhead`/`knownTowerTypes` existieren nicht, Prioritäten falsch, Archer-Limit dynamisch statt 4, NearSpawn 70/90 % statt 33 %, Game-Time- statt `Date.now()`-Cooldown, `research-start`/`research-cancel` fehlen. **(2026-09 vollständig neu geschrieben.)** |
+| F16 | `model.py:34,121`: "2 continuous params" → 4. |
+| F17 | `RESEARCH_CENTER_CONFIG.baseCost = 150` unreferenziert; realer Preis 75. |
+| F18 | `visualization-facade.service.ts:698`: "DevWorld path (no column sampler)" — seit `b8df8d0` falsch. |
+| F19 | `devworld.service.ts:9`: Presets `hills`/`valleys` existieren nicht. |
+| F20 | `README.md:105` / `AI_TRAINING_BACKEND.md:93`: `checkpoints/archive-v3.5/` existiert nicht. |
+
+### G. Reward-Struktur — Befund aus dem ersten vollständigen Lauf (2026-08-28)
+
+Der Lauf mit allen Fixes aus A–F lief bis Episode ~9.900 / 72 Model-Updates,
+vier parallele Clients. `avgReward` stieg von −1,99 auf −1,00 und
+`gameOverRate` fiel von 100 % auf 9,3 %. Die AI hat also gelernt — aber sie hat
+gelernt, *nichts zu tun*. Die folgenden Befunde erklären, warum das die korrekte
+Lösung des gestellten Optimierungsproblems ist.
+
+| # | Befund | Beleg |
+|---|---|---|
+| G1 | **Das Damage-Sweet-Band ist ab Wave 51 mathematisch unerreichbar.** Leak-Schaden ist `1 + floor((w-1)/10)` HP bei 100 max HP, das Band ist [1 %, 5 %]. Ab W51 kostet ein Leak 6 %: 0 Leaks = 0 % (unter MIN), 1 Leak = 6 % (über MAX). Es gibt keinen Wert dazwischen. | `wave-curriculum.config.ts:116`, `config.py:122-123` |
+| G2 | **Drei der vier Reward-Terme gaten auf dieses Band.** Near-Miss-Peak, Swarm-Bonus und Progression liefern ab W51 strukturell 0. Übrig bleibt `-0,10 + progress·0,30`. | `reward.py` `_drama_reward`, `_swarm_size_reward`, `_progression_bonus` |
+| G3 | **Gemessene Folge: die Reward-Landschaft ist flach.** `lastBreakdown` bei allen vier Clients gleichzeitig: `death 0, drama −0,07…−0,10, swarm 0, progression 0`. Garantierte −0,08/Wave schlagen jeden Versuch mit Risiko −20. | `/api/clients/summary` |
+| G4 | **Das Verhalten ist entsprechend kollabiert.** `avgProgress50` = 0,06 / 0,08 / 0,14 / 0,27 gegen ein Zielband von 0,65–0,90. `avgDamage50` = 0,000 / 0,000 / 0,003 / 0,018. Ein Client stand bei `winStreak 133` — 133 Waves ohne einen einzigen HP-Verlust. | `/api/clients/summary` |
+| G5 | **Es ist kein Physik-Problem.** Historisch lagen 28 % der Waves im Progress-Sweet-Band (`dist.sweet` 624–774 von ~2.500). Die AI *kann* Near-Miss-Waves bauen und hat damit aufgehört. | `dist` je Client |
+| G6 | **Auch die Fairness-Gate ist nicht die Ursache.** Sie bindet auf 40 % der Waves, aber die AI wählt `count_factor` ≈ 0,42 bei `countRange [30,600]` und `spawn_factor` ≈ 0,93 bei `spawnDelayRange [40,500]` — also 270 Gegner à 467 ms statt möglicher 600 à 40 ms. Sie nutzt ihren Spielraum freiwillig nicht aus. | `wave_generated`-Logeintrag W61 |
+| G7 | **Grundwiderspruch im Design.** Das Spiel hat keinen Sieg-Zustand (endlos) und keine Heilung — `healBase()` hat nur Test-Aufrufer, im Research-Tree gibt es keine Lebensregeneration. 100 HP sind das Budget des gesamten Runs. Ein Ziel von 1–5 % HP-Verlust *pro Wave* bedeutet den Tod nach spätestens 100 Waves, den der DEATH-Term mit −15…−30 bestraft. Das Reward-Optimum und die Reward-Strafe zeigen in entgegengesetzte Richtungen. | `game-state.manager.ts:651`, `game-balance.config.ts:12` |
+| G8 | **Der diskrete Kopf lernt, der kontinuierliche nicht.** `template_probs` sind klar differenziert (`wraith_storm` 0,108 … `boss_herbert` 0,0 — die AI bevorzugt Ethereal-Gegner, was gegen diese Verteidigung sinnvoll ist). Die *Faktor-Mittelwerte je Template* sind dagegen über alle 19 Templates uniform (`count` 0,38–0,47, `variation` 0,46–0,60 ≈ Initialisierung 0,5). Template-Wahl verändert die Ergebnisverteilung genug, um den flachen Reward zu überleben; Count/Delay/HP waschen sich alle zu −0,08 aus. | `templateFactors`, `template_probs` |
+| G9 | **`variation_factor` ist eine wirkungsarme Aktionsdimension.** Er jittert den Spawn-Delay um ±v bei gleichbleibendem Erwartungswert. Kein messbarer Reward-Effekt, kein Gradient — der Kopf bleibt zurecht auf der Initialisierung. Effektiv sind nur drei der vier Faktoren nutzbar. | `spawn-schedule-builder.ts:76-83` |
+| G10 | **Messlücke:** `sweetSpotPct` ist nach dem Reward-Sweet-Spot benannt, misst aber den **Pfad-Progress** (0,65–0,90). Der Damage-Anteil, an dem drei Terme hängen, wurde nie gemessen. Behoben durch `damageSweetPct` und `avgDamagePct`. | `dashboard/app.py:_calc_sweet_spot_pct` |
+
+### H. Der Befund, der alles davor relativiert: eingefrorene Tabs (2026-08-28)
+
+Beim Neustart des Laufs nach dem Reward-Umbau blieben alle vier Clients in der
+Setup-Phase stehen. Die Ursache stellte sich als gravierender heraus als der
+gesamte Reward-Befund aus Abschnitt G:
+
+**Chrome friert `requestAnimationFrame` in unsichtbaren Tabs vollständig ein.**
+Gemessen in einem Hintergrund-Tab: `document.hidden === true`, **0 rAF-Callbacks
+in 2 Sekunden**. Die Render-Loop hängt an rAF, der Bot tickt in der Loop
+(`game-loop-facade.service.ts:460`, innerhalb `gameState.update`). Ein
+Trainings-Tab, der die Sichtbarkeit verliert, wird also nicht langsamer — er
+steht.
+
+Von außen war davon nichts zu sehen. Der Status-Push läuft auf `setInterval`,
+das weiterläuft: vier eingefrorene Clients meldeten sich sekündlich als
+verbunden und gesund ans Dashboard.
+
+Konsequenzen:
+
+- **Nächtliches Training produzierte bisher nichts.** Der Lauf lief nur, solange
+  jemand die Tabs sichtbar hatte.
+- Jede bisherige Messung — auch die aus Abschnitt G — entstand unter
+  Beobachtung. Die Zahlen sind gültig, aber die Datenmenge pro Nacht war null.
+
+**Fix** (`three-tiles-engine.ts`, `workers/heartbeat.worker.ts`): Ein dedizierter
+Worker treibt die Loop, solange der Tab versteckt ist. Worker-Timer hängen nicht
+am Frame-Clock. Details:
+
+- Der Heartbeat-Pfad überspringt `render()` — nichts ist sichtbar, und die
+  GPU-Hälfte ist die teure.
+- Jeder Schritt ist auf 50 ms Wall-Clock gedeckelt. Ohne Deckel liefert ein
+  gedrosselter Tab Lücken von Sekunden; bei Timescale 75 sind 1 s Lücke
+  75 s Spielzeit in einem Schritt — genau der Substep-Stau, der früher als
+  225 Substeps/Frame und 2 FPS auffiel. Spielzeit läuft im Hintergrund also
+  langsamer als die Wall-Clock, was der richtige Tausch ist.
+- rAF und Heartbeat treiben die Welt nie gleichzeitig. Ein Tab kann einen
+  nachlaufenden Frame liefern, während er unsichtbar wird; zwei Treiber auf
+  derselben Fixed-Substep-Loop würden die Spielgeschwindigkeit verdoppeln.
+- Nur DevWorld schaltet das ein.
+
+Zusätzlich behoben: `enableBot` kehrte still zurück, wenn es vor `initialize()`
+aufgerufen wurde — genau die Reihenfolge, die ein `reload` erzeugt (gemessen:
+`[Training] Control command received: start` um 01:42:43, DevWorld-Init um
+01:42:45). Der Wunsch wird jetzt gepuffert, und ein DevWorld-Tab aktiviert
+seinen Bot selbst, statt auf einen `start`-Broadcast zu warten, den er
+möglicherweise verpasst hat.
+
+**Erste Messung nach beiden Fixes** (Episode 170, erst 1 Model-Update, also
+praktisch untrainiert) gegen den v3-Endstand (Episode 9800, 72 Updates):
+
+| Metrik | v3 | v4 |
+|---|---|---|
+| `avgProgress50` | 0,06–0,27 | **0,70–0,77** |
+| `avgDamagePct` | 0,000 | 0,124 |
+| `nearMissBandPct` | — | 35 % |
+| aktive Reward-Terme | nur `drama` | alle vier |
+| `drama`-Spanne | konstant −0,08 | −0,26 … +0,72 |
+
+Die letzte Zeile ist die entscheidende: Es existiert wieder ein Gradient. Die
+AI ist zum Startzeitpunkt deutlich zu aggressiv (`avgNearMissRatio` 0,52 gegen
+Ziel 0,25, `hpCurveError` −0,43, Game-Over-Rate 20 %) — erwartbar bei einem
+untrainierten Modell, und der Gradient zeigt in die Gegenrichtung.
+
+### I. Nachjustierung am v4-Lauf (2026-08-28, Nacht)
+
+Zwei Eingriffe nach der ersten belastbaren Messung. Beide entstanden aus Zahlen,
+nicht aus Vermutung — die Reihenfolge war bewusst: erst messen, dann eine Größe
+ändern, dann nachmessen.
+
+**I1 — Die Death-Strafe erdrückte den Reward, den sie schützen soll.**
+
+Gemessen über 1.304 Steps bei `REWARD_DEATH_MAX = -40`:
+
+| | Mittel | Std |
+|---|---|---|
+| überlebte Waves | −0,50 | 0,40 |
+| Tode (8,7 %) | −32,7 | — |
+| **gesamt** | −3,29 | **9,13** |
+| davon `death` | −2,79 | 9,12 |
+| `drama` | −0,004 | 0,367 |
+
+Rewards werden durch eine gefensterte Std normalisiert. Die Tode *setzen* diese
+Std, alles andere wird durch sie zu Rauschen dividiert: ein voller
+Drama-Ausschlag von 1,30 kam als 0,142 an, ein Tod als −3,58 — **25:1**. Bei dem
+Verhältnis lernt die AI nicht, gute Waves zu bauen, sondern Tode zu vermeiden.
+Das ist die Form des v3-Kollapses auf einem anderen Weg. Sichtbar auch im
+Optimierer: `approxKl` 0,24 gegen Ziel 0,02 und `gradNorm` 17 gegen Clip 0,5.
+
+Die −40 stammten aus einer zu strengen Lesart der Exploit-Bedingung. Ein Tod muss
+die guten Waves überwiegen, die zu ihm führten — aber der Run dorthin ist
+*endlich*. Maßstab ist die diskontierte Summe über die zehn Waves im Horizont
+(8,47 beim Peak von 1,30), nicht die unendliche Reihe 1/(1−GAMMA) = 10.
+
+`REWARD_DEATH_MAX = -15` erfüllt beide Schranken: −9,9 bei Wave 15 schlägt die
+8,47, und die Std fiel gemessen von 9,13 auf 4,50 — Verhältnis **10,2:1** statt
+25:1, der Drama-Ausschlag kommt als 0,289 statt 0,142 an. PACING trägt hier
+ohnehin mit: ein zu früh beendeter Run hinterlässt eine Spur von
+Kurvenabweichungs-Strafen, die Death-Strafe ist nicht mehr das einzige Argument
+für Rundenlänge.
+
+**I2 — `UPDATE_EPOCHS = 4` war faktisch 1.**
+
+Der KL-Early-Stop lief einmal pro Epoche. Bei `BATCH_SIZE 128` / `MINIBATCH 32`
+landeten damit vier ungeklippte Minibatch-Schritte, bevor er greifen konnte, und
+er feuerte danach *jedes Mal*. Die Policy machte also vier übergroße Schritte pro
+Update statt mehrerer kleiner — instabiler und ein Viertel des beabsichtigten
+Lernens je gesammelter Erfahrung. Die Prüfung läuft jetzt nach jedem Minibatch
+(gemittelt über die bisherigen der Epoche, weil eine 32-Sample-Schätzung allein
+zu verrauscht ist). `gradNorm` fiel daraufhin von 6,5 auf 3,8.
+
+`approxKl` bleibt bei ~0,24: ein *einzelner* Gradientenschritt bewegt die Policy
+schon so weit. Das ist eine Schrittweiten-Frage (schiefe Advantage-Verteilung
+durch die verbliebenen Tod-Ausreißer), keine Epochen-Frage. Der Early-Stop
+begrenzt den Schaden jetzt korrekt — bewusst *nicht* gleichzeitig an der
+Lernrate gedreht, um die Wirkung zuordenbar zu halten.
+
+**Nicht erledigt:** Zweimal ein Fable-Modell für ein Review des RL-Setups
+angesetzt (Design und Implementierung), beide Agenten haben über insgesamt vier
+Nachrichten nichts zugestellt. Die Analyse und beide Eingriffe oben stammen
+daher aus eigener Messung. Ein Review durch ein zweites Modell steht weiter aus.
+
+### J. Zweitmodell-Review von v4 — vier Löcher (2026-08-28)
+
+Zwei Fable-Agenten (Design und Implementierung) haben v4 gegengelesen. Vier
+Befunde hielten der Prüfung an den Logs stand, einer nicht.
+
+| # | Befund | Beleg | Status |
+|---|---|---|---|
+| J1 | **Leaks zählten als Near-Miss.** `near_miss_ratio` war `p > 0.80`, was `p == 1.0` einschließt. Ein Durchbruch und eine knappe Sache waren dasselbe Ereignis: eine Wave, bei der ein Viertel von 200 Gegnern die Basis erreicht — 50 Leaks, mehrfach tödlich — bekam denselben vollen Drama-Peak wie eine, bei der ein Viertel bei 85 % Pfad stirbt. | `server.py:331` | behoben: `0.80 < p < 1.0`, Leaks auf eigener Slope in DRAMA |
+| J2 | **PACING war ein toter Term.** Eine Gauss-Kurve ist jenseits ~2σ flach, liefert dort also einen konstanten Wert ohne Gradient. Gemessen: **58,4 % aller Waves exakt auf −0,60** — der Term, der die Rundenlänge steuern soll, war auf der Mehrheit der Waves stumm, und zwar genau auf denen, die am weitesten von der Kurve weg sind. | eigene Log-Auswertung, n=849 | behoben: quadratisch bis 1σ, linear darüber |
+| J3 | **Die Größen-Dämpfung verlagerte ihren Exploit.** `sqrt` zahlte für 5 Near-Misser aus 21 Gegnern immer noch +0,71 risikofrei; **48 % der gemessenen Waves hatten ≤ 20 Gegner**. Nichts in der Funktion drückte die Größe nach oben. | eigene Log-Auswertung, n=962 | behoben: kein positives Drama unter `DRAMA_MIN_COUNT`, danach linear |
+| J4 | **Späte Wipes waren gratis.** Der Shortfall-Term fällt auf −0,6 bei W70 und −0,006 bei W79. Einen Spieler bei gesunder HP in einer Wave auszulöschen kostete dort nichts — genau der unfaire Wipe, den das Design ausschließen soll, und verfügbar exakt dort, wo die AI die Feuerkraft dazu hat. | `reward.py::_death_penalty` | behoben: Overkill-Zuschlag, wellenunabhängig |
+| — | *Nicht bestätigt:* „Die Fairness-Gate deckelt nur `count`, `hp_mult` ist der ungedeckelte Letalitätskanal." | `templates.ts:419` — `weightedHp += share * enemyBaseHp(enemy) * hpMult` | Gate rechnet mit effektiver HP |
+
+Der Overflow-Guard (`avg_progress > 0.95`) wurde bei J1 mit ersetzt: er testete
+den **Mittelwert** — genau die Statistik, die v4 für Drama verworfen hat. Eine
+Wave, die 40 % ihrer Gegner durchlässt, hat einen Mittelwert um 0,6 und passierte
+ihn unbehelligt. Breaches werden jetzt am gemessenen Leak-Anteil bestraft.
+
+**Sofortige Messwirkung von J1:** `avgNearMissRatio` fiel von 0,52 auf **0,074**.
+Der weit überwiegende Teil dessen, was die AI als Near-Miss belohnt bekam, waren
+tatsächlich durchgekommene Gegner. Die Metrik zeigt jetzt den echten Wert, und
+die eigentliche Aufgabe — Gegner weit kommen lassen, *ohne* sie durchzulassen —
+ist erst ab hier überhaupt gestellt.
+
+**Offen aus dem Review, bewusst zurückgestellt:**
+- *Action-Aliasing an der Fairness-Gate.* Die Gate schreibt die Aktion nach dem
+  Sampling um (65 % der Waves), PPO paart also die gewählte mit der ausgeführten
+  Wirkung. Sauberer Fix: den Cap in den Decoder ziehen, sodass der
+  `count`-Faktor in `[min, min(max, cap)]` interpoliert und `chosen == executed`
+  gilt. Nicht „die ausgeführte Aktion speichern" — das verzerrt die PPO-Ratio.
+- *Reward-Normalisierung zentrieren* statt nur zu skalieren.
+- *GAMMA 0.9 → 0.97*, damit der Terminal-Wert über ~30 Waves zurückwirkt.
+- *`TARGET_RUN_WAVES = 80` ist eine Game-Design-Zahl*, keine RL-Konstante: Wie
+  weit soll ein kompetenter Spieler kommen? Das gehört bewusst entschieden.
+
+### K. Action-Aliasing an der Fairness-Gate — und der Fehler dabei (2026-08-28)
+
+Der letzte Punkt aus dem Review: die Gate schrieb die gesampelte Aktion auf 65 %
+der Waves nach dem Sampling um. PPO paarte damit eine *gewählte* Aktion mit der
+Wirkung einer *anderen*, kleineren — und jeder `count_factor` oberhalb des Caps
+bildete auf dieselbe Wave ab, also ein flacher Bereich ohne Gradient. Das ist
+vermutlich der Grund, warum `logStd` der count-Dimension über den gesamten Lauf
+unbewegt auf dem Initialwert stand.
+
+„Die ausgeführte Aktion speichern" ist keine Lösung: die PPO-Ratio braucht einen
+Wert, der tatsächlich aus der alten Policy gezogen wurde.
+
+**Fix:** Die Gate *interpoliert* jetzt, statt zu klemmen — der Cap geht in die
+Range ein, über die der Faktor abbildet, also gilt immer `chosen == executed`.
+Der Faktor bedeutet damit „wie weit in das, was gerade erlaubt ist", und der Cap
+ist ohnehin Teil der Beobachtung (`fairnessHeadroom`). Im Frontend gespiegelt,
+das dabei die Nachprüfung nach der Dauer-Kompression bekommt, die nur das
+Backend hatte.
+
+**Dabei einen Regressionsfehler eingebaut — und gemessen gefunden.** Die untere
+Range-Grenze wurde auf `max(countRange[0], cap)` geklemmt, wodurch ein Cap
+*unterhalb* des Template-Minimums wirkungslos war und trotzdem das Minimum
+verschickt wurde. Vorher gewann in dem Fall schlicht die Gate. Genau das ist die
+Lage in frühen Waves, wo ein oder zwei Türme nicht einmal die kleinste
+Designer-Wave halten:
+
+| Metrik | mit Fehler | korrigiert |
+|---|---|---|
+| `gameOverRate` | 40,2 % | **15,0 %** |
+| `hpCurveError` | −0,64 | **−0,28** |
+| `avgReward` | −4,44 | −2,16 |
+| `fairnessCappedPct` | 88 % | 66 % |
+
+Die Range kollabiert jetzt auf den Cap statt auf das Template-Minimum: weiterhin
+ein einziger legaler Wert, wenn die Gate so eng ist — aber der legale.
+
+**Ebenfalls korrigiert:** der erste Pacing-Tail-Fix verschob die Sättigung nur.
+Slope 0,5 mit Cap 2,0 bindet bei 3σ, und gemessen lagen 69 % der Waves exakt
+darauf. Mit Slope 0,3 und Cap 5,0 ist der Term über den real auftretenden
+Bereich streng monoton (−0,78 bei 2σ, −1,03 bei 3,4σ, −1,32 bei 5σ) und bleibt
+dabei unter dem Drama-Peak.
+
+### L. Der Optimierer war die ganze Zeit blockiert: Dropout im Torso (2026-08-28)
+
+Nach den Reward-Korrekturen blieb ein Rätsel: `approxKl` lag konstant bei
+0,14–0,24 gegen ein Ziel von 0,02, und reagierte weder auf eine dreifach
+kleinere Lernrate (3e-4 → 1e-4) noch auf einen verdoppelten Minibatch (32 → 64).
+
+Die Arithmetik ging nie auf: Bei auf 0,5 geclippten Gradienten und LR 1e-4
+beträgt die Parameteränderung ~5e-5. Das kann vier Gauß-Mittelwerte unmöglich um
+die ~0,16 verschieben, die eine KL von 0,14 impliziert.
+
+**Ursache:** `nn.Dropout(0.1)` im geteilten Torso von `WaveDirectorModel`.
+Aktionen werden unter `model.eval()` gesampelt (Dropout aus), das PPO-Update
+läuft unter `model.train()` (Dropout an). Die Ratio `π_new/π_old` verglich also
+ein ausgedünntes Netz mit einem vollständigen — die gemessene Divergenz war
+überwiegend Sampling-Rauschen, keine Policy-Änderung. Dropout bricht damit auch
+die On-Policy-Annahme von PPO generell: die Verhaltens-Policy, die die Daten
+gesammelt hat, ist nicht die Verteilung, gegen die die Ratio ausgewertet wird.
+
+**Wirkung des Entfernens, sofort messbar:**
+
+| | mit Dropout | ohne |
+|---|---|---|
+| `approxKl` | 0,14–0,24 | **0,021** |
+| `gradNorm` | 24,9 | **4,74** |
+
+**Was das erklärt:** Der Per-Minibatch-Early-Stop feuerte beim *ersten*
+Minibatch nahezu jedes Updates, also wurden drei Viertel jeder gesammelten
+Batch über ein Artefakt verworfen. Und der kontinuierliche Kopf stand
+21 Updates lang auf seiner Initialisierung (0,5 ± 0,14, `logStd` unbewegt),
+während der diskrete Template-Kopf normal lernte — die Asymmetrie, die vorher
+als „flache Reward-Landschaft im Faktor-Raum" gedeutet wurde, war zu großen
+Teilen einfach ein blockierter Optimierer.
+
+Die LayerNorms regularisieren das Netz ohnehin; Referenz-PPO-Implementierungen
+verwenden kein Dropout.
+
+**Lehre für die Fehlersuche:** Wenn eine Optimierer-Metrik feststeckt und auf
+Hyperparameter-Änderungen nicht reagiert, zuerst eine train/eval-Diskrepanz
+(Dropout, BatchNorm) verdächtigen, statt weiter zu tunen.
+
+### M. Warum die AI kleine Waves wählt: Anteil vs. absoluter Schaden (2026-08-28)
+
+Nach allen Korrekturen läuft die Optimierung sauber (`approxKl` 0,022,
+`gradNorm` 4,2) und die Ergebnisse sind die besten der Nacht — `avgReward`
+−1,61, `gameOverRate` 10,7 %, `hpCurveError` −0,28. `avgNearMissRatio` bleibt
+aber bei 0,04–0,10 statt der angestrebten 0,20, und `count_factor` *sinkt*
+(0,41 → 0,31).
+
+**Die Fairness-Gate ist nicht die Ursache.** Gemessen über 600 Waves:
+`count_factor` mean 0,315, max 0,762 — die AI hat in **keiner einzigen** Wave
+mehr als 0,8 verlangt. Sie drückt nicht gegen den Cap, sie will selbst weniger.
+(Die zwischenzeitliche Vermutung, die Gate sei der Deckel, ist damit widerlegt.)
+
+**Die Ursache ist eine Skalen-Inkonsistenz im Reward-Design:**
+`near_miss_ratio` und `leak_ratio` sind **Anteile**, der HP-Schaden eines Leaks
+ist **absolut**.
+
+| Wave | Leak-Anteil | Leaks | HP-Schaden (W51+) |
+|---|---|---|---|
+| 49 Gegner | 10 % | 5 | 30 — überlebbar |
+| 300 Gegner | 10 % | 30 | 180 — tödlich |
+
+Bei gleichem Anteil ist die große Wave um den Faktor der Gegnerzahl gefährlicher.
+Da DRAMA in Anteilen rechnet, PACING und DEATH aber in absoluter HP, ist „klein
+und gestreut" die korrekte Antwort auf den Reward, wie er geschrieben ist. Die
+AI spielt ihn richtig.
+
+Folge: Templates mit `countRange` bis 600 bleiben faktisch ungenutzt
+(Median-Count 49, p90 356).
+
+**Das ist eine Design-Entscheidung, kein Defekt** — und sie gehört dem Menschen:
+
+1. Wie groß sollen Waves sein dürfen? Wenn große Schwärme zum Spielgefühl
+   gehören, muss DRAMA sie tragen (z. B. Leak-Toleranz, die mit der Wave-Größe
+   wächst, oder ein deutlich stärkerer SWARM-Term als die aktuellen 0,3).
+2. Wie viel absoluten Schaden darf eine einzelne Wave kosten? Erst diese Zahl
+   macht „Anteil" und „HP" kommensurabel.
+3. `TARGET_RUN_WAVES` (aktuell 80): Wie weit soll ein kompetenter Spieler
+   kommen? Das Review schlägt 70 vor. Diese Zahl definiert Terminal-Shaping,
+   Pacing-Kurve und indirekt die Leak-Eskalation — sie sollte bewusst gesetzt
+   werden, nicht implizit über eine Konstante.
+
+### N. Ergebnis nach 100 Updates: Drama erreicht, Rundenlänge verfehlt (2026-08-28)
+
+Lauf mit `REWARD_DEATH_MAX = -8`, 13.464 Episoden, 101 Updates, vier Clients.
+
+**Was funktioniert:**
+
+| | v3-Endstand | v4 nach 100 Updates |
+|---|---|---|
+| `avgProgress` (je Client) | 0,06–0,27 | **0,74 / 0,74 / 0,74 / 0,24** |
+| Progress im Sweet-Band | ~25 % | **44–50 %** |
+| `avgDamage` je Wave | 0,000 | 0,115 |
+| `nearMissBandPct` | — | 60 % |
+| `approxKl` | 0,16 | 0,022 |
+| `gradNorm` | 17 | 3,76 |
+
+Die Hälfte aller Waves landet im Progress-Zielband, der mittlere Pfad-Progress
+liegt bei 0,74 — mitten im gewünschten 0,65–0,90. Die Optimierung ist sauber.
+Das ist das Gegenteil des v3-Endstands, wo ein Client 133 Waves ohne einen
+einzigen HP-Verlust überstand.
+
+**Was nicht funktioniert:** `avgDamage50` liegt bei 0,12–0,14, also 12–14 HP je
+Wave. Bei 100 HP ohne Heilung sind das ~7 Waves bis zum Tod gegen eine
+Ziel-Rundenlänge von 80. Die HP-Kurve verlangt 1,25 HP/Wave; geliefert wird das
+Zehnfache. `hpCurveError` −0,34 und `gameOverRate` 18,3 % bestätigen es.
+
+**Der Konflikt ist damit vermessen statt vermutet.** Bei dieser Spielphysik
+stehen Drama und Rundenlänge in direktem Widerspruch: Ein Gegner, der 74 % des
+Pfades schafft, ist genau deshalb spannend, weil er fast durchkommt — und bei
+einem gemessenen Verhältnis von etwa zwei Leaks je Near-Miss kommt ein
+erheblicher Teil eben durch. Bei 6 HP je Leak ab Wave 51 ist „viele Gegner sehr
+weit kommen lassen" und „der Spieler überlebt 80 Waves" nicht gleichzeitig
+erfüllbar, solange die Leak-Kosten so hoch sind.
+
+**Auflösbar nur über eine der folgenden Design-Entscheidungen** (alle betreffen
+das Spiel, nicht das RL-Setup):
+
+1. **Leak-Schaden senken oder abflachen.** Bei 2 HP statt 6 ab W51 wären
+   dieselben Waves bei dreifacher Rundenlänge möglich. Ändert das Spielgefühl
+   für Menschen direkt.
+2. **Heilung einführen.** Macht einen stationären Zustand aus stetigem Schaden
+   erst möglich; heute ist jeder HP-Verlust endgültig.
+3. **Kürzere Ziel-Rundenlänge akzeptieren.** Wenn ein Run 20–30 Waves dauern
+   soll statt 80, passt das aktuelle Verhalten bereits.
+4. **Near-Miss-Fenster verschieben.** Drama bei 0,60–0,75 Pfad statt 0,80+
+   erzeugt weniger Leaks je Near-Miss — weniger knapp, aber billiger.
+
+Ohne eine dieser Entscheidungen pendelt jede weitere Reward-Justierung nur
+zwischen „zu langweilig" und „zu tödlich" hin und her; beide Enden sind heute
+Nacht mehrfach durchlaufen worden.
+
+### O. Das Netz war nicht von Zufall zu unterscheiden (2026-09)
+
+Die Messung, die in all den Läufen davor nie gemacht wurde: **Ist die gelernte
+Policy besser als gar nicht zu lernen?** Es gab keine Baseline. Jede Verbesserung
+war gegen den vorherigen eigenen Stand gemessen, nie gegen etwas anderes.
+
+`training-backend/directors.py` macht vier Wave-Designer austauschbar an
+derselben Aufrufstelle im Server (`DIRECTOR_ROSTER` in `config.py`):
+
+| Director | Verhalten |
+|---|---|
+| `model` | die Policy (Status quo) |
+| `random` | uniform über die erlaubten Templates, uniforme Faktoren — der ehrliche Boden |
+| `rules` | am längsten nicht benutztes Template, Faktoren aus fester Heuristik |
+| `maxgate` | zufälliges Template, aber immer so groß wie das Fairness-Gate erlaubt — isoliert, ob allein die Größe die Schwierigkeit trägt |
+
+Gleiche Bots, gleiches Curriculum, gleiches Gate, gleiche Metriken, parallel über
+die Clients.
+
+**Ergebnis — dreimal wiederholt, dreimal dasselbe:**
+
+| | Runlänge (Mittel, 95 % CI) | Near-Miss |
+|---|---|---|
+| `model` | 45,6 [42, 49] | 0,045 |
+| `random` | 44,7 [41, 48] | — |
+| `rules` / `maxgate` | — | 0,067–0,069 |
+
+Das Netz war statistisch nicht von uniformem Zufall zu trennen, und zwei triviale
+Heuristiken erzeugten mehr Spannung als es.
+
+**Es hatte nie gelernt.** `log_std` stand nach tausenden Episoden unverändert auf
+dem Initialwert, alle Faktor-Mittelwerte auf sigmoid(0) = 0,5 — die Policy war
+statistisch immer noch ihre eigene Initialisierung. (Ein Lauf über 1400 Episoden
+endete mit `log_std` bei −0,5001 gegen einen Startwert von −0,5.)
+
+**Die Ursache liegt vor dem Lernen, nicht im Lernen.** Der Aktionsraum ist
+weitgehend determiniert:
+
+- Das Curriculum pinnt das Template auf **49 %** der Wellen.
+- Der Fairness-Cap band auf **63 %** der Wellen.
+- Was blieb: Der volle Regelbereich des count-Faktors bewegte eine Welle von
+  **19 auf 28 Gegner**.
+
+Damit gab es fast nichts zu entscheiden und deshalb nichts zu lernen. Das
+erklärt rückwirkend auch, warum die Reward-Reparaturen aus G–N zwar jedes Mal
+messbar etwas verbesserten, aber nie das Netz: die Verbesserungen kamen aus
+deterministischem Code (fehlender State-Reset, korrigiertes Steuersignal), nicht
+aus Gradienten.
+
+**Konsequenz im Produkt.** Zwei neue Client-Dateien ersetzen, was vorher Modell
+und Server taten:
+
+- `src/app/ai/core/rule-director.ts` — wählt Template plus die vier
+  Formfaktoren. Zwei bewusste Entscheidungen:
+  - **Abwechslung wird erzwungen, nicht belohnt.** Der Reward hatte einen
+    variation-Faktor und die Maske einen Template-Cooldown, und die Wellen kamen
+    trotzdem repetitiv heraus. Das älteste erlaubte Template zu nehmen macht
+    Wiederholung unmöglich statt nur teuer.
+  - **Schwierigkeit ist eine Kurve, keine Einzelfallentscheidung.** Der Spieler
+    heilt nie, seine HP sind also ein Run-Budget. Das schreibt man auf
+    (`countFactor 0.45 → 0.85`, `spawnFactor 0.55 → 0.30`, `hpFactor 0.4 → 0.75`
+    über `RAMP_FULL_WAVE = 60`, je ±0,12 Jitter), statt es aus einem skalaren
+    Reward Welle für Welle zu erschließen.
+- `src/app/ai/core/gate-controller.ts` — der Regelkreis auf den Fairness-Cap, den
+  es vorher nur serverseitig gab. Steuert auf die **Leak-Quote** mit Zielband
+  8–16 %, proportional (`GATE_GAIN = 0.35`), harter Rückzug bei Tod
+  (`×0.8`), Zustand **pro Run** (`reset()` bei neuem Spiel).
+
+  Zwei Fehlerformen, die die Python-Fassung durchgemacht hat und die diese Form
+  vermeidet: Steuern auf die **Kill-Quote** liest die eigene Vorsicht als
+  Spielraum (eine kleine Welle wird geräumt, *weil* sie klein ist) — einseitiger
+  Druck, der den Multiplikator an seine Decke nagelte (bei Cap 40: Wellen von
+  4761 Gegnern, Gate faktisch aus). Und eine **feste Schrittweite** kommt nicht
+  an: allein den veralteten `FAIRNESS_KILL_REALISM`-Abschlag aufzuheben braucht
+  ~1,6, bei 5 % pro Fenster also ~170 Wellen gegen Runs von ~60 (gemessener
+  Median: 1,28).
+
+Wichtig für die Einordnung: **Alles unterhalb der Entscheidung blieb gleich** —
+Templates, Verfügbarkeitsmaske, Range-Interpolation, DPS-Ramp,
+`endgameHpMultiplier`, Fairness-Cap, Duration-Cap. Genau das machte das A/B
+überhaupt aussagekräftig. `templates.ts::fairMaxCount` hat dafür einen neuen
+letzten Parameter `budgetMultiplier` (Default 1) bekommen, über den der
+Gate-Controller korrigiert.
+
+Der Modus `'rules'` ist im `WaveDirectorService` der **Default**, kein
+Degradationszustand. Der frühere Zustand „Fehler, kein Modell", der eine
+Exception warf, existiert nicht mehr: beim Start wird nichts geladen,
+`loadModel()` ist ein ausdrückliches Opt-in, und schlägt es fehl, laufen die
+Regeln weiter.
+
+### P. Die Verteidigung war binär (2026-09)
+
+Der zweite Befund derselben Messreihe, und der Grund, warum das Reward-Design von
+Anfang an etwas verlangte, das die Spielphysik gar nicht hergab.
+
+Gemessen über **1834 Wellen**:
+
+| | |
+|---|---:|
+| Wellen, in denen die Verteidigung **alles** tötete | 70 % |
+| Wellen, in denen > 5 % durchkamen | 28 % |
+| dazwischen | 2 % |
+
+In Wellen ohne Durchbruch starb der weiteste Gegner bei median **12 %** des
+Pfades. Sobald ein Gegner 80 % passierte, kam in **95 %** der Fälle einer an. Es
+gab kein „knapp abgefangen" — eine Killzone am Spawn, dahinter ein
+unverteidigter Korridor.
+
+Die Reward-Funktion verlangt aber genau das: Near-Misses, der Anteil, der 80 %
+passiert **ohne** anzukommen. Erreichbar war das in **2,2 %** der Wellen. Ein
+Ziel, das in 2 % der Fälle überhaupt vorkommt, erzeugt keinen brauchbaren
+Gradienten — unabhängig davon, wie gut der Optimierer läuft.
+
+Ursache war der Bot, also die Verteidigung, gegen die gemessen wird: lineares
+Platzierungsgewicht auf Spawn-Nähe **plus** eine Upgrade-Strategie, die nur den
+spawn-nächsten Turm fütterte und wegen ihrer Priorität fast jeden Zug bekam.
+Beides zusammen konzentrierte Bau *und* Gold auf denselben Punkt.
+
+**Änderung** (Details und Begründung: [BOT_SYSTEM.md](BOT_SYSTEM.md#warum-die-platzierung-so-aussieht)):
+
+- `strategic-placement.service.ts`: U-förmiges Gewicht `endZoneProximity(t)`
+  statt linearer Spawn-Nähe — beide Pfadenden schlagen die Mitte, der Spawn
+  behält knapp die Nase vorn (`END_ZONE_HQ_WEIGHT = 0.8`), damit die
+  Eröffnungswellen unverändert bleiben.
+- `NearSpawnUpgradeStrategy` → **`PathCoverageUpgradeStrategy`**: Kandidaten
+  abwechselnd von beiden Enden der spawn-sortierten Turmliste.
+
+**Wirkung:**
+
+| | vorher | nachher |
+|---|---:|---:|
+| Gegner, die 80 % passieren und ankommen | 95 % | 75 % |
+| Near-Miss-Quote | 0,031 | 0,058 |
+
+Die Kill-Quoten-Verteilung blieb bimodal — das ist eine **Kapazitäts**- und
+keine Platzierungseigenschaft.
+
+**Was ausdrücklich nicht die Lösung ist:** gleichmäßiges Verteilen. Fünf Türme
+decken bei Reichweiten von 30–100 m und 15–25 m Straßenabstand Pfad-Sehnen von
+~45 m (Archer) bis ~196 m (Rocket) ab, bei Spawn-HQ-Distanzen von 500–1000 m also
+grob 25–50 % des Pfades. Überall dünn heißt überall durchlässig. Die spielbare
+Antwort ist eine **zweite Killzone vor dem HQ**, nicht Gleichverteilung.

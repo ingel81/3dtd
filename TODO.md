@@ -223,22 +223,29 @@
 ## 2.1 Tower-Balance
 
 - [ ] **Tower-Upgrade-Skalierung feintunen**
-      Aktuell teilen sich alle Combat-Tower exakt dieselben Standard-Multiplikatoren in `tower-types.config.ts:45-47`:
-      - Damage: ×1.10/Level (L25 ×10.83)
-      - Fire Rate: ×1.07/Level (L25 ×5.42)
-      - Range: ×1.04/Level (L25 ×2.67)
-      → kombiniert L25 ≈ ×58 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      Aktuell teilen sich fast alle Combat-Tower dieselben Standard-Multiplikatoren
+      (`tower-types.config.ts:62-65`; Archer hat eine eigene Range-Kurve ×1.02):
+      - Damage: ×1.05/Level (L25 ≈ ×3.39)
+      - Fire Rate: ×1.06/Level (L25 ≈ ×4.29)
+      - Range: ×1.04/Level (L25 ≈ ×2.67)
+      → kombiniert L25 ≈ ×14.5 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
+      (costScaling ist 1.25, nicht 1.40 — die früher hier notierten Werte waren veraltet.)
       Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
       Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
 
 
 ## 2.2 Phase 5.16 Playtest + Followups
 
-> **Stand 2026-05-11:** Branch `feature/phase5.5-economy-ai-prep`, geparkt für andere Themen.
-> Checkpoint ep 7350 (ONNX in `public/assets/ai/wave-director/`) wurde gegen das **alte**
-> Reward-System trainiert. Curriculum + Difficulty-Knobs (`endgameHpMultiplier`,
-> `enemyBaseDamageForWave`) sitzen post-NN — daher trotz alter Sweet-Damage-Kalibrierung
-> spielbar. Vollständiger Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md).
+> **Stand 2026-09-07:** Der Wave Director ist **regelbasiert und clientseitig**
+> (`src/app/ai/core/rule-director.ts` + `gate-controller.ts`). Das ONNX-Modell
+> liegt noch unter `public/assets/ai/wave-director/`, wird aber nicht mehr geladen
+> — nur noch per explizitem `WaveDirectorService.loadModel()`. Die Difficulty-Knobs
+> (`endgameHpMultiplier`, `enemyBaseDamageForWave`) und das Curriculum sitzen
+> unverändert **hinter** dem Director und gelten für beide Pfade.
+>
+> **Ältere Notiz (2026-05-11):** Checkpoint ep 7350 wurde gegen das alte
+> Reward-System trainiert; Schema v2 (162 Features) macht ihn ohnehin unladbar.
+> Kontext: [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md).
 >
 > **Architektur-Status:** Phase 5.10 hat das Template-System geshipped (18 Templates,
 > 4 Reward-Terme, State 156, Hard-Constraints im Decoder). Bei Tuning gilt:
@@ -262,45 +269,32 @@
       Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.config.ts` anpassen.
       Nach jeder Änderung `npm run economy-chart` für Sanity-Check.
 
-- [ ] **Stone Golem ins Wave-Curriculum aufnehmen** (vor Re-Training)
-      Stone Golem ist als Config registriert (`enemy-types.config.ts`, Fortified, 480 HP, Speed 2.5),
-      aber AI-Wave-Director kennt ihn nicht. Vor Re-Training: Template in
-      `src/app/ai/core/templates.ts` ergänzen (z.B. `stone_golem_squad`) + ggf. Slot im
-      `wave-curriculum.config.ts` öffnen. Sonst lernt das Netz nichts über die neue Fortified-Variante
-      und Stone Golem taucht im AI-Mode nie auf.
-      **Stand 2026-05-20:** Template `golem_squad` ist in `templates.ts` ergänzt (`minWave: 999`
-      blockt AI bis Re-Training), und im statischen Fallback-Curriculum auf W15 verdrahtet.
-      Im AI-Pfad noch ungenutzt — beim Re-Training `minWave` runtersetzen + Python-Mirror
-      ergänzen.
-
-- [ ] **Frontend/Backend Wave-Template-Drift beheben** (vor Re-Training)
-      `zombie_horde` divergiert zwischen Runtime und Training: Frontend `templates.ts:39`
-      mischt 50 % `zombie-v2`, Backend `templates.py:35` nutzt 100 % klassische `zombie`.
-      Training, Inference und Runtime sehen damit unterschiedliche Enemy-Mischungen.
-      `zombie-v2` ist bei großen Mengen zudem teurer (siehe BACKLOG „zombie_v2-Modell
-      extern weiter optimieren") — eine 50-%-Beimischung in Mega-Hordes ist ein Perf-Risiko.
-      Lösung: Templates zwischen `src/app/ai/core/templates.ts` und
-      `training-backend/templates.py` synchronisieren; `zombie-v2`-Anteil in
-      High-Volume-Templates entfernen oder deutlich senken (ggf. nur als kleine
-      Showcase-/Early-Wave-Gruppe). Optional Template-Parity-Test.
-
-- [ ] **Lightning in AI/Bot integrieren** (vor Re-Training)
-      Lightning Tower ist gameplayseitig vorhanden, aber AI-/Bot-seitig ausgeklammert:
-      Der Encoder schließt Lightning explizit aus (`game-state-encoder.ts:83`, „AI doesn't
-      see Lightning Towers" — altes ONNX-Schema), und `ALL_COMBAT_TOWERS` im Bot
-      (`tower-bot.interface.ts:106`) enthält kein `lightning`. AI und Bot können Lightning
-      daher weder bauen noch in Defensiv-Einschätzungen bewerten.
-      Lösung: Encoder-Schema versionieren oder Lightning zunächst in Effective-DPS
-      aggregieren; Bot-Tower-Liste um `lightning` erweitern (Research-Unlock beachten).
-      Erst danach neu trainieren, damit Runtime und Training zusammenpassen.
-      Dateien: `src/app/ai/core/game-state-encoder.ts`,
-      `src/app/ai/training/bots/tower-bot.interface.ts`,
-      `src/app/configs/research/research-tree.config.ts`.
-
-- [ ] **Re-Training nach Balance-Verifikation** (Optional)
-      Checkpoint ep 7350 wurde gegen ALTES Reward-System trainiert. Re-Training optional,
-      ~30-45 min mit 8 headless Tabs. Nur sinnvoll **nachdem** Balance live verifiziert ist.
-      Bei Bedarf gleichzeitig 2.3-Safeguards einbauen (siehe unten).
+- [x] **Stone Golem ins Wave-Curriculum aufnehmen** — erledigt 2026-08-27.
+      `golem_squad` hat `minWave: 14`, steht auf W15 im Curriculum und ist über
+      das generierte Schema auch im Backend sichtbar.
+- [x] **Frontend/Backend Wave-Template-Drift beheben** — erledigt 2026-08-27.
+      Strukturell gelöst statt nur synchronisiert: `templates.py`,
+      `wave_curriculum.py` und die Enemy-Tabellen in `config.py` sind gelöscht.
+      Das Backend liest `training-backend/generated/ai-schema.json`, erzeugt von
+      `npm run ai-schema` aus den TS-Configs. `zombie_horde` mischt jetzt
+      90 % `zombie` / 10 % `zombie-v2`.
+- [x] **Lightning in AI/Bot integrieren** — erledigt 2026-08-27. Schema v2 nimmt
+      Lightning als 10. Tower und 8. Damage-Type auf (162 statt 156 Features);
+      der Bot hat es in `ALL_COMBAT_TOWERS` und `storm-mastery` in der
+      Research-Reihenfolge.
+- [ ] **Re-Training auswerten** — *Ergebnis liegt vor, Konsequenz gezogen (2026-09-07)*
+      Der From-Scratch-Lauf ist ausgewertet: das trainierte Netz war in A/B-Runs
+      dreimal statistisch ununterscheidbar von gleichverteiltem Zufall (mittlere
+      Run-Länge 45,6 [42,49] gegen 44,7 [41,48]), während zwei triviale Heuristiken
+      messbar mehr Spannung erzeugten (Near-Miss 0,067–0,069 gegen 0,045). Das Netz
+      hatte nie gelernt — `log_std` unverändert, alle Faktor-Mittel auf sigmoid(0).
+      Ursache lag **vor** dem Lernen: das Curriculum pinnt auf 49% der Wellen das
+      Template, der Fairness-Cap bindet auf 63% — die volle Spanne des
+      count-Faktors bewegte eine Welle von 19 auf 28 Gegner.
+      Konsequenz: Betrieb läuft auf dem Regel-Director. Offen bleibt nur noch die
+      **Entscheidung**, ob das Training weiterverfolgt wird (dann zuerst
+      Aktionsraum aufmachen, nicht Reward tunen) oder ob der ONNX-Pfad entfällt.
+      Vollständiger Befund: [docs/HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md).
 
 ## 2.3 Pre-Production Wave-Deployment Safeguards
 
@@ -313,13 +307,19 @@
 > Cooldowns strukturell gemildert. Beim **echten Spieler-Deployment** sind aber
 > zusätzliche Inference-seitige Schichten geplant, weil ein differenziertes Netz
 > trotzdem Single-Type-Waves erzeugen kann wenn Mixed-Wave-Threshold ungünstig liegt.
+>
+> **Hinfällig für den Regel-Director (2026-09-07):** Die beiden Decoder-Punkte
+> unten adressieren beide Monotonie im Softmax des Netzes. Der Regel-Director hat
+> gar keinen Softmax — er wählt das *älteste erlaubte* Template, Wiederholung ist
+> damit strukturell ausgeschlossen statt nur bestraft. Relevant bleiben die Punkte
+> ausschließlich, falls der ONNX-Pfad wieder produktiv wird.
 
-- [ ] **Temperature-Sampling im Decoder**
+- [ ] ~~**Temperature-Sampling im Decoder**~~ — nur bei ONNX relevant
       Bei Inference `softmax(probs / T)` mit T=1.5-2.0 statt `argmax`. Secondary Types
       bekommen mehr Raum ohne Neutraining. Null Training-Kosten, reiner Inference-Parameter.
-      Datei: `src/app/ai/wave-director/wave-director.service.ts` (Decoder-Pfad).
+      Datei: `src/app/ai/core/wave-director.service.ts` (`decodeModelOutput()`).
 
-- [ ] **Hard-Monotony-Cap im Decoder**
+- [ ] ~~**Hard-Monotony-Cap im Decoder**~~ — durch die Stalest-Template-Regel erledigt
       Notbremse: max. 3 Waves in Folge mit demselben dominanten Typ — über alle
       Mixed-Groups hinweg getrackt, nicht nur `groups[0]`. Wenn Cap triggert:
       nächst-stärkster Typ im Softmax wird promoted.
@@ -437,7 +437,7 @@
       Dateien: `models/status-effects.ts`, `game-components/movement.component.ts`,
       `entities/enemy.entity.ts`.
 
-## 3.4 AI Wave Director — Build & Deployment
+## 3.4 Wave Director — Build & Deployment
 
 > Training-Code nicht in Prod Bundle
 
@@ -445,8 +445,12 @@
       `angular.json`: fileReplacements für Training-Code
       Production: Training-Module wird zu leerem Stub
       Bundle Size Check: AI < 300KB
+      *Teilweise entschärft (2026-09-07):* `onnxruntime-web` wird nicht mehr beim
+      Start importiert, sondern nur in `loadModel()` — die 404 kB liegen damit
+      hinter einem Lazy-Chunk, den niemand mehr anfordert. Offen bleibt der
+      Training-Code (`ai/training/`).
 
-- [ ] **Model Validation**
+- [ ] **Model Validation** — nur relevant, falls der ONNX-Pfad produktiv wird
       `scripts/validate-model.js`
       Prüft: Format, Größe, Basis-Inference
       Läuft vor Commit (optional)
