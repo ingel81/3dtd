@@ -351,7 +351,7 @@ export class GameLoopFacadeService {
    * Get AI Director status text.
    */
   getAIStatusText(): string {
-    if (!this.store.useAIDirector()) return 'AI deaktiviert';
+    if (!this.store.useAIDirector()) return 'Director off';
     return this.waveDirector.statusText();
   }
 
