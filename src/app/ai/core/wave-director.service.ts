@@ -89,15 +89,15 @@ export class WaveDirectorService {
   readonly statusText = computed(() => {
     switch (this.modelState()) {
       case 'not-loaded':
-        return 'AI nicht geladen';
+        return 'Model not loaded';
       case 'loading':
-        return 'AI wird geladen...';
+        return 'Loading model...';
       case 'ready':
-        return 'AI bereit (ONNX)';
+        return 'ONNX model active';
       case 'rules':
-        return 'Regel-Director aktiv';
+        return 'Rule director active';
       case 'error':
-        return 'AI Fehler';
+        return 'Model error';
     }
   });
 

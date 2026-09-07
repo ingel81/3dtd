@@ -27,7 +27,7 @@ export class LocationManagementService {
   readonly needsRandomSpawn = signal<boolean>(false);
 
   // Display name - resolved async via geocoding
-  readonly displayName = signal<string>('Kein Ort');
+  readonly displayName = signal<string>('No location');
 
   // Structured address (road, postcode, city) — resolved async via geocoding,
   // needed by the loading screen's mission strip which renders each part on
