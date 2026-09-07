@@ -1,11 +1,15 @@
-// Copy this file to environment.ts and environment.prod.ts
-// and replace the placeholders with your actual API keys
+// Copy this file to environment.ts and environment.prod.ts.
+//
+// Filling in a key here is optional and only convenient for local development:
+// the app also asks for credentials at runtime and keeps them in localStorage,
+// and a self-hosted deployment can put them into public/runtime-config.json
+// instead of rebuilding. Production builds ship with these left empty.
 
 export const environment = {
   production: false, // Set to true for environment.prod.ts
   tileProvider: 'cesium' as 'cesium' | 'google', // 'cesium' = Cesium Ion, 'google' = Google Maps API direct
-  googleMapsApiKey: 'YOUR_GOOGLE_MAPS_API_KEY',
-  // Cesium Ion (alternative to Google 3D Tiles)
-  cesiumIonToken: 'YOUR_CESIUM_ION_ACCESS_TOKEN',
+  googleMapsApiKey: '',
+  // Cesium Ion (the default route to the same Google 3D Tiles)
+  cesiumIonToken: '',
   cesiumAssetId: '2275207', // Google Photorealistic 3D Tiles via Cesium
 };

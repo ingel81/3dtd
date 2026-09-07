@@ -77,6 +77,7 @@ import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
+import { TokenSetupComponent } from './components/token-setup/token-setup.component';
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
@@ -111,6 +112,7 @@ import { ResearchStore } from './store/research.store';
     TdIconComponent,
     LosLegendComponent,
     IntroSkipComponent,
+    TokenSetupComponent,
   ],
   providers: [
     GameStateManager,
@@ -142,6 +144,10 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private readonly uiStore = inject(UIStore);
   readonly configService = inject(ConfigService);
 
+  /** True while the token screen is up instead of the game. */
+  readonly awaitingCredentials = signal(false);
+  private gameStarted = false;
+
   readonly injector = inject(Injector);
 
   // Refactoring services
@@ -164,7 +170,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   );
   readonly missionInfo = this.locationMgmt.missionInfo;
   readonly devWorldSeed = computed(() => this.devWorld.isActive ? this.devWorld.config.seed : null);
-  // Flips true the moment ANY 3D-Tile is in the visible set — the loading
+  // Flips true the moment ANY 3D-Tile is in the visible set, the loading
   // screen uses this to fade out its dark backdrop layers and reveal the
   // live map underneath while the boot panel finishes. We deliberately
   // don't gate on engineInit.tilesLoading because that flag only flips
@@ -199,19 +205,19 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   private streetNetworkLocation: { lat: number; lon: number } | null = null; // Tracks loaded location to avoid double-loading
 
   // ═══════════════════════════════════════════════════════════
-  // Signal proxies — mostly from Store (single source of truth)
+  // Signal proxies, mostly from Store (single source of truth)
   // A few remain from services not yet consolidated into Store
   // ═══════════════════════════════════════════════════════════
 
-  // Loading / Engine — from Store
+  // Loading / Engine, from Store
   readonly loading = this.store.loading;
   readonly error = this.store.error;
   readonly loadingSteps = this.store.loadingSteps;
 
-  // UI State — from Store
+  // UI State, from Store
   readonly buildMode = this.store.buildMode;
 
-  // Location — from Store/Services (used in TS methods + template)
+  // Location, from Store/Services (used in TS methods + template)
   readonly editableHqLocation = this.locationMgmt.editableHqLocation;
   readonly editableSpawnLocations = this.locationMgmt.editableSpawnLocations;
   readonly favorites = this.locationMgmt.favorites;
@@ -219,22 +225,22 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly baseCoords = this.store.baseCoords;
   readonly streetCount = this.store.streetCount;
 
-  // Engine stats — from Store
+  // Engine stats, from Store
   readonly fps = this.store.fps;
   readonly tileStats = this.store.tileStats;
   readonly mapAttribution = this.store.mapAttribution;
   readonly activeSounds = this.store.activeSounds;
 
-  // Camera — from Store
+  // Camera, from Store
   readonly compassRotation = this.store.compassRotation;
   readonly cameraFramingDebug = this.store.cameraFramingDebug;
 
   readonly enemyTypes = getAllEnemyTypes();
 
-  /** DevWorld regeneration in progress — from Store */
+  /** DevWorld regeneration in progress, from Store */
   readonly isDevWorldRegenerating = this.store.isDevWorldRegenerating;
 
-  // Game state signals — sourced from Store (single source of truth via GSM→Store sync)
+  // Game state signals, sourced from Store (single source of truth via GSM→Store sync)
   readonly waveActive = this.store.waveActive;
   readonly isGameOver = this.store.isGameOver;
 
@@ -243,7 +249,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   // AA-Retrofit-Research im Air-Bit (mixed Tower wie dual-gatling
   // werden erst nach Research zu canTargetAir=true).
   private readonly researchStore = inject(ResearchStore);
-  /** Intro camera flight is playing — gates the Skip control. */
+  /** Intro camera flight is playing, gates the Skip control. */
   readonly introFlightActive = inject(IntroCameraFlightService).active;
 
   readonly losLegendVisible = computed(() => {
@@ -306,6 +312,40 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   async ngAfterViewInit(): Promise<void> {
+    // `?tokensetup` forces the screen even when credentials are already there.
+    // It is how you swap a key without clearing site data, and the only way to
+    // reach the first-run flow on a dev machine that has a token in environment.ts.
+    const forceTokenSetup = new URLSearchParams(window.location.search).has('tokensetup');
+
+    // No tile credentials yet: ask for them before the engine starts, otherwise
+    // the player lands on an error overlay telling them to edit a source file
+    // they do not have. DevWorld needs no tiles and skips the whole question.
+    if ((forceTokenSetup || this.configService.needsCredentials()) && !this.devWorld.isActive) {
+      this.awaitingCredentials.set(true);
+      return;
+    }
+
+    await this.startGameSequence();
+  }
+
+  /**
+   * Credentials arrived from the token screen. Before the engine ever started we
+   * can just start it; if it is already up (a token was rejected mid-flight) a
+   * reload is the honest way to rebuild the whole tile pipeline.
+   */
+  async onCredentialsSaved(): Promise<void> {
+    this.awaitingCredentials.set(false);
+
+    if (this.gameStarted) {
+      window.location.reload();
+      return;
+    }
+
+    await this.startGameSequence();
+  }
+
+  private async startGameSequence(): Promise<void> {
+    this.gameStarted = true;
     await this.facade.startGame(this.gameCanvas.nativeElement);
     this.applyPersistedAudioSettings();
     this.controlsHintTimer = setTimeout(() => this.controlsHintVisible.set(false), 15000);
@@ -363,7 +403,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
    */
   private onMouseMove(lat: number, lon: number, hitPoint: Vector3): void {
     // The cursor ray already hit the exact surface the player is pointing at
-    // — a rooftop, a bridge deck, the street. Use it.
+    //, a rooftop, a bridge deck, the street. Use it.
     //
     // This used to re-derive the height with `getTerrainHeightAtGeo`, which
     // throws that away and answers for the column instead. That was tolerable
@@ -377,7 +417,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Handle enemy placement from debug panel — delegated to EnemyDebugService
+   * Handle enemy placement from debug panel, delegated to EnemyDebugService
    */
   private handleEnemyPlacement(lat: number, lon: number, height: number): void {
     this.enemyDebug.handleEnemyPlacement(lat, lon, height);
@@ -401,7 +441,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Add a spawn point — delegates to facade
+   * Add a spawn point, delegates to facade
    */
   addSpawnPoint(id: string, name: string, lat: number, lon: number, color: number): void {
     this.facade.addSpawnPoint(id, name, lat, lon, color);
@@ -422,28 +462,28 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Sell the currently selected tower — delegates to facade
+   * Sell the currently selected tower, delegates to facade
    */
   sellSelectedTower(): void {
     this.facade.sellSelectedTower();
   }
 
   /**
-   * Upgrade a tower — delegates to facade
+   * Upgrade a tower, delegates to facade
    */
   upgradeTower(tower: Tower, upgradeId: UpgradeId): boolean {
     return this.facade.upgradeTower(tower, upgradeId);
   }
 
   /**
-   * Change tower targeting strategy — direct property set
+   * Change tower targeting strategy, direct property set
    */
   changeTargeting(tower: Tower, strategy: TargetingStrategy): void {
     tower.targetingStrategy = strategy;
   }
 
   /**
-   * Change air-priority sub-strategy — direct property set
+   * Change air-priority sub-strategy, direct property set
    */
   changeAirSubStrategy(tower: Tower, strategy: AirSubStrategy): void {
     tower.airSubStrategy = strategy;
@@ -458,14 +498,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Start a new wave — delegates to facade
+   * Start a new wave, delegates to facade
    */
   startWave(): void {
     this.facade.startWave();
   }
 
   /**
-   * Toggle AI Director mode — delegates to facade
+   * Toggle AI Director mode, delegates to facade
    */
   toggleAIDirector(): void {
     this.facade.toggleAIDirector();
@@ -479,21 +519,21 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Start custom wave — delegates to facade
+   * Start custom wave, delegates to facade
    */
   startCustomWave(): void {
     this.facade.startCustomWave();
   }
 
   /**
-   * Get AI Director status text — delegates to facade
+   * Get AI Director status text, delegates to facade
    */
   getAIStatusText(): string {
     return this.facade.getAIStatusText();
   }
 
   /**
-   * Enable StrategyBot for automated training — delegates to TrainingClientService
+   * Enable StrategyBot for automated training, delegates to TrainingClientService
    * Arrow function to provide stable reference for template binding (avoids .bind(this))
    */
   readonly enableBot = (skillLevel: BotSkillLevel): void => {
@@ -501,7 +541,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   };
 
   /**
-   * Disable StrategyBot — delegates to TrainingClientService
+   * Disable StrategyBot, delegates to TrainingClientService
    * Arrow function to provide stable reference for template binding (avoids .bind(this))
    */
   readonly disableBot = (): void => {
@@ -552,7 +592,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle the air-route tube — magenta dashed tube at air flight
+   * Toggle the air-route tube, magenta dashed tube at air flight
    * altitude along every enemy route. Persistent in UIStore.
    */
   onAirRouteToggled(): void {
@@ -560,7 +600,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle the global air-cell debug overlay — same cell set as the
+   * Toggle the global air-cell debug overlay, same cell set as the
    * spatial grid debug, but elevated to terrainY + airSampleYOffset
    * and rendered with a stripe pattern. Persistent in UIStore.
    */
@@ -570,7 +610,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Cycle the per-tower LOS filter (Both → Ground only → Air only).
-   * Pure UIStore mutation — TowerPlacementService and TowerManager
+   * Pure UIStore mutation, TowerPlacementService and TowerManager
    * react via their own effects.
    */
   onPerTowerLosFilterCycled(): void {
@@ -601,14 +641,14 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Toggle camera framing debug — delegates to facade
+   * Toggle camera framing debug, delegates to facade
    */
   toggleCameraFramingDebug(): void {
     this.facade.toggleCameraFramingDebug();
   }
 
   /**
-   * Toggle camera debug — delegates to facade
+   * Toggle camera debug, delegates to facade
    */
   toggleCameraDebug(): void {
     this.facade.toggleCameraDebug();
@@ -645,7 +685,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Restart game — delegates to facade
+   * Restart game, delegates to facade
    */
   restartGame(): void {
     this.facade.restartGame();
