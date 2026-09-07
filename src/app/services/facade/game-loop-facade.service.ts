@@ -300,8 +300,8 @@ export class GameLoopFacadeService {
       // the default and needs nothing to load. Anything that reaches here is a
       // real bug, so surface it rather than silently dropping to manual waves.
       this.store.aiError.set(
-        'Wave konnte nicht erzeugt werden — siehe Konsole. Es wird auf manuelle '
-        + 'Wave-Erzeugung zurückgefallen.'
+        'Could not generate a wave. Falling back to manual waves; see the console '
+        + 'for details.'
       );
       this.store.useAIDirector.set(false);
       this.pendingAIWaveRequest = false;
