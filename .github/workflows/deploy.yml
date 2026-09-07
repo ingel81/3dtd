@@ -66,14 +66,15 @@ jobs:
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/3DTD/browser/
           server-dir: ${{ steps.ftpdir.outputs.play }}
-          log-level: verbose
-          # EINMALIG true: der Server beantwortet RETR auf eine fehlende Datei
-          # nicht mit 550, sondern kappt den Data-Socket. Der Erstdeploy in ein
-          # leeres Verzeichnis stirbt deshalb beim Lesen der State-Datei.
-          # clean-slate ueberspringt diesen Download. Nach dem ersten gruenen
-          # Lauf liegt die State-Datei auf dem Server und das hier gehoert auf
-          # false, sonst werden bei jedem Deploy alle 167 MB neu hochgeladen.
-          dangerous-clean-slate: true
+          # Sync-Modus: nur geänderte Dateien hochladen, alte löschen
+          # State wird in .ftp-deploy-sync-state.json auf Server gespeichert
+          #
+          # Sollte dieses Verzeichnis je neu angelegt werden muessen, scheitert
+          # der erste Lauf: der Server beantwortet RETR auf die noch fehlende
+          # State-Datei nicht mit 550, sondern kappt den Data-Socket, was den
+          # Client toetet ("Client is closed because read ECONNRESET"). Dann
+          # einmalig dangerous-clean-slate auf true stellen und danach zurueck.
+          dangerous-clean-slate: false
           # Alte JS/CSS Dateien mit alten Hashes entfernen
           exclude: |
             **/.git*
