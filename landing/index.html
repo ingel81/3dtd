@@ -20,10 +20,12 @@
   files the page falls back to Georgia / system-ui and still holds together.
 
   <style>
-  @font-face{font-family:'Cinzel';src:url('media/fonts/cinzel-600.woff2') format('woff2');font-weight:600;font-display:swap}
-  @font-face{font-family:'Cinzel';src:url('media/fonts/cinzel-700.woff2') format('woff2');font-weight:700;font-display:swap}
-  @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-400.woff2') format('woff2');font-weight:400;font-display:swap}
-  @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-600.woff2') format('woff2');font-weight:600;font-display:swap}
+  /* Selbst gehostet, damit die Seite ohne einen einzigen Fremd-Request laedt.
+     Oswald und Inter Tight sind variabel: eine Datei deckt die Gewichte ab,
+     deshalb ein Bereich statt einer Regel je Schnitt. Nur die Latin-Untermenge,
+     die Seite ist englisch. */
+  @font-face{font-family:'Oswald';src:url('media/fonts/oswald-var.woff2') format('woff2');font-weight:200 700;font-display:swap}
+  @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-var.woff2') format('woff2');font-weight:100 900;font-display:swap}
   @font-face{font-family:'JetBrains Mono';src:url('media/fonts/jetbrains-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
   </style>
 
@@ -40,7 +42,7 @@
 --frame:#2F3631;--frame-mid:#4A544D;--frame-light:#7A8580;--edge:#A7B3A8;
 --gold:#C2A055;--gold-light:#D9BC68;--gold-dark:#8E7228;--rune:#A47A2C;--rune-muted:#6B5320;
 --teal:#6BB6A4;--text:#EEF1EB;--text-2:#B6C0B3;--muted:#8E988C;--warn:#C96A3A;
---display:'Cinzel',Georgia,'Times New Roman',serif;
+--display:'Oswald','Arial Narrow',system-ui,sans-serif;
 --body:'Inter Tight',system-ui,-apple-system,sans-serif;
 --mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
 --bevel:inset 0 1px 0 rgba(167,179,168,.16),inset 0 -1px 0 var(--panel-shadow),0 1px 0 var(--panel-shadow);
@@ -115,8 +117,11 @@ main{max-width:1120px;margin:0 auto;padding:26px 26px 60px}
   box-shadow:0 4px 8px rgba(0,0,0,.45),inset 0 -2px 4px rgba(0,0,0,.3)}
 .top .brand img{height:34px;width:auto;display:block}
 .top nav{display:flex;align-items:center;gap:18px;margin-left:auto}
-.top nav a{color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none}
-.top nav a:hover{color:var(--gold)}
+/* :not(.btn), sonst schlaegt die Navigationsfarbe die des Knopfes und die
+   Schrift wird gold auf goldenem Grund. */
+.top nav a:not(.btn){color:var(--text-2)}
+.top nav a{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none}
+.top nav a:not(.btn):hover{color:var(--gold)}
 .btn--soon{border-style:dashed;color:var(--muted);cursor:default}
 .btn--soon small{margin-left:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--rune,var(--gold-dark))}
 .btn--sm{padding:8px 18px;font-size:12px}
@@ -141,7 +146,12 @@ main{max-width:1120px;margin:0 auto;padding:26px 26px 60px}
 /* Pulsiert, bis der Ton einmal angeschaltet wurde. Ohne den Hinweis merkt
    niemand, dass es eine Tonspur gibt, weil Autoplay stumm starten muss. */
 .sound-btn[aria-pressed="false"]{animation:soundpulse 2.6s ease-in-out infinite}
-.sound-btn[aria-pressed="true"]{animation:none;color:var(--gold);background:rgba(13,17,14,.8)}
+/* Laeuft der Ton, hat der Knopf seine Arbeit getan und zieht sich auf ein
+   Symbol zurueck, damit er das Bild nicht laenger belegt. */
+.sound-btn[aria-pressed="true"]{animation:none;color:var(--gold);background:rgba(13,17,14,.8);padding:9px;gap:0;box-shadow:inset 0 1px 0 rgba(217,188,104,.18),0 1px 0 var(--panel-shadow)}
+.sound-btn[aria-pressed="true"]:hover{background:rgba(13,17,14,.92);box-shadow:inset 0 1px 0 rgba(217,188,104,.3),0 1px 0 var(--panel-shadow)}
+.sound-btn[aria-pressed="true"] .sound-label{display:none}
+.sound-btn[aria-pressed="true"] svg{width:17px;height:17px}
 @keyframes soundpulse{0%,100%{box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 18px rgba(194,160,85,.18)}50%{box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 34px rgba(194,160,85,.46)}}
 @media (prefers-reduced-motion:reduce){.sound-btn{animation:none}}
 @media (max-width:620px){.sound-btn{left:10px;bottom:10px;padding:10px 14px;font-size:12px}}
@@ -288,7 +298,7 @@ main{max-width:1120px;margin:0 auto;padding:22px 26px 60px}
   <section class="panel" id="key">
     <div class="panel-bar"><h2>Get a Cesium Ion token</h2></div>
     <div class="panel-body">
-      <p class="lead" style="margin-bottom:22px">The 3D tiles are billed per request. The tiles are billed per request, so there is no shared key. You play on your own Cesium Ion token; the free tier is enough.</p>
+      <p class="lead" style="margin-bottom:22px">The 3D tiles are billed per request, so there is no shared key. You play on your own Cesium Ion token; the free tier is enough.</p>
       <div class="key-grid">
         <ol class="steps">
           <li><span class="n">1</span><span>Sign up at <a href="https://ion.cesium.com/signup">ion.cesium.com</a>. Free, no card.</span></li>
@@ -340,6 +350,40 @@ main{max-width:1120px;margin:0 auto;padding:22px 26px 60px}
   </footer>
 </main>
 <script>
+  // Der Hero startet stumm, weil Autoplay mit Ton ueberall blockiert ist. Der
+  // Knopf ist die eine erlaubte Geste, die das aufhebt.
+  (function () {
+    var video = document.getElementById('heroVideo');
+    var btn = document.getElementById('heroSound');
+    if (!video || !btn) return;
+    var label = btn.querySelector('.sound-label');
+    var iconOff = btn.querySelector('path.off');
+    var iconOn = btn.querySelector('path.on');
+
+    function render() {
+      var on = !video.muted;
+      var text = on ? 'Turn sound off' : 'Turn sound on';
+      btn.setAttribute('aria-pressed', on ? 'true' : 'false');
+      btn.setAttribute('aria-label', text);
+      btn.setAttribute('title', text);
+      if (label) label.textContent = on ? 'Sound off' : 'Sound on';
+      if (iconOff) iconOff.style.display = on ? 'none' : '';
+      if (iconOn) iconOn.style.display = on ? '' : 'none';
+    }
+
+    btn.addEventListener('click', function () {
+      video.muted = !video.muted;
+      if (!video.muted) {
+        video.volume = 1;
+        // Manche Browser halten die Wiedergabe an, sobald muted faellt.
+        var started = video.play();
+        if (started && started.catch) started.catch(function () {});
+      }
+      render();
+    });
+
+    render();
+  })();
 </script>
 
 <div id="lightbox" class="lightbox" hidden>
