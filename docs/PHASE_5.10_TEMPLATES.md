@@ -2,6 +2,14 @@
 
 > **Status: SUPERSEDED — nur als historische Referenz erhalten.**
 >
+> - **Der wichtigste Unterschied zu heute:** Es gibt kein neuronales Netz mehr im
+>   Wave Director. Seit 2026-09 wählt `src/app/ai/core/rule-director.ts`
+>   Template und Formfaktoren regelbasiert im Client; Templates, Maske,
+>   Range-Interpolation und Fairness-Gate darunter sind geblieben. Warum: das
+>   Netz war in A/B-Läufen dreimal statistisch nicht von uniformem Zufall zu
+>   unterscheiden. Details und Messwerte in
+>   [PHASE_5.11_RANGES.md](PHASE_5.11_RANGES.md) (Kopf) und
+>   [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md).
 > - Der Training-Refresh (2026-08) hat `templates.py`, `wave_curriculum.py` und die
 >   Enemy-Tabellen in `config.py` gelöscht: Templates, Curriculum und Vokabulare
 >   kommen jetzt aus den TypeScript-Configs über
@@ -134,12 +142,21 @@ retraining the model.
 
 ## Error Handling
 
-If the ONNX model fails to load during standalone play:
-- `wave-director.service.ts::getNextWave()` throws an explicit error.
-- `game-loop-facade.service.ts` catches the error and sets `store.aiError`.
-- `tower-defense.component.html` renders a red banner at the top of the game
+> **Obsolete as of 2026-09.** A missing model is no longer a failure mode: the
+> service starts in `'rules'`, loads nothing at startup, and `loadModel()` is an
+> explicit opt-in that leaves the rule director running if it fails. The error
+> banner path still exists in `game-loop-facade.service.ts`, but anything that
+> reaches it now is a genuine bug rather than an absent asset. See
+> [STATIC_WAVE_FALLBACK.md](STATIC_WAVE_FALLBACK.md) for today's wave-source
+> priority.
+
+Phase-5.10 behaviour, for the record — if the ONNX model failed to load during
+standalone play:
+- `wave-director.service.ts::getNextWave()` threw an explicit error.
+- `game-loop-facade.service.ts` caught it and set `store.aiError`.
+- `tower-defense.component.html` rendered a red banner at the top of the game
   container with the message and a close button.
-- `useAIDirector` flips to `false`, so subsequent wave-starts use the manual
+- `useAIDirector` flipped to `false`, so subsequent wave-starts used the manual
   config path (non-AI).
 
 During training, waves come from the Python backend via WebSocket — the

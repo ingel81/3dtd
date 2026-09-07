@@ -1,6 +1,6 @@
 # Event System - Framework-Agnostic Event Bus
 
-**Stand:** 2026-05-12
+**Stand:** 2026-05-12 (`wave:completed`-Semantik: 2026-09-07)
 
 Das Event-System ermoeglicht lose Kopplung zwischen Game-Engine Komponenten. Alle Manager kommunizieren ueber Events statt direkter Methodenaufrufe oder Callbacks.
 
@@ -45,7 +45,6 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `tower:selected` | TowerManager | UI | Tower ausgewaehlt (`tower`) |
 | `tower:deselected` | TowerManager | UI | Tower-Auswahl aufgehoben |
 | `wave:started` | WaveManager | UI | Welle gestartet (`wave`, `enemyCount`) |
-| `wave:completed` | WaveManager | UI, GameLoopFacade | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`) |
 | `game:started` | GameStateManager | UI | Spiel gestartet |
 | `game:over` | GameStateManager | TowerDefenseComponent | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`) |
 | `game:reset` | GameStateManager | All Managers | Spiel zurueckgesetzt |
@@ -68,6 +67,23 @@ Werden in `processQueue()` am Frame-Ende verarbeitet.
 | `vfx:muzzle-flash` | TowerManager | VFXService | Muzzle-Flash VFX am Tower spawnen |
 | `vfx:chain-lightning` | TowerCombatService (Lightning Tower) | VFXService → LightningBoltRenderer | Chain-Polyline rendern (`points` = Tip → primary → jumpN, `sourceTowerId`). Triggert pro Segment einen Bolt + lokalen Aufhell-Halo. |
 | `audio:play` | ProjectileManager, HQDamageService | AudioService | 3D Sound abspielen |
+| `wave:completed` | WaveManager (`endWave()`) | UI, GameLoopFacade, AIDataCollector | Welle abgeschlossen (`wave`, `credits`, `perfect`, `closeCall`, `hpLost`). Siehe Warnung unten. |
+
+> **`wave:completed` ist kein verlaesslicher „jede Welle"-Hook.**
+>
+> 1. **Beim Game Over wird es nicht emittiert.** `endWave()` laeuft nur, wenn
+>    die Welle regulaer fertig wird. Faellt die Basis, setzt
+>    `GameStateManager.triggerGameOver()` die Phase direkt auf `gameover`. Wer
+>    *jede* Welle sehen muss — inklusive der, die den Run beendet hat —, muss
+>    an `AIDataCollectorService.onWaveResult()` haengen; das ist der einzige
+>    Punkt, den beide Pfade passieren. Der `GateController` ist daran fast
+>    gescheitert: sein Death-Backoff war ueber das Event schlicht unerreichbar.
+> 2. **Reihenfolge gegen `game:over`.** Zerstoert der letzte Leaker einer Welle
+>    die Basis, feuern beide fuer dieselbe Wave-Nummer. Der Wave-Complete-Check
+>    laeuft zwar zuerst, aber `wave:completed` ist **deferred** und `game:over`
+>    **immediate** — zugestellt wird der Game-Over-Pfad also zuerst, und das
+>    Event kommt fuer eine bereits finalisierte Welle nach. Der Collector
+>    verwirft es anhand der gemerkten Wave-Nummer.
 
 ### Debug Events
 

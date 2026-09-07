@@ -9,6 +9,8 @@
 ```bash
 npm start       # Development Server (http://localhost:4200)
 npm run build   # Production Build
+npm test        # vitest
+npm run lint
 ```
 
 ## Architektur
@@ -18,6 +20,9 @@ npm run build   # Production Build
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
 - **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
 - Kein Backend im Spiel-Client - komplett clientseitig (Python-Backend nur fuer AI-Training)
+- **Wave-Director ist regelbasiert** (`ai/core/rule-director.ts` + `gate-controller.ts`),
+  laeuft ohne Server, ohne Modell, ohne ONNX-Runtime. Das ONNX-Modell ist Opt-in
+  im Debug-Fenster - Begruendung in [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)
 - Google Maps API Key in environment.ts
 
 ## Projektstruktur
@@ -29,11 +34,10 @@ src/app/
 ├── app.routes.ts               # Routing
 ├── tower-defense.component.ts  # Haupt-Spielkomponente
 ├── ai/                         # AI System (Browser)
-│   ├── training/               # Bot System (Strategy Pattern)
-│   │   ├── bots/               # StrategyBot, Factory
-│   │   └── strategies/         # Placement, Upgrade, Wave, Research Strategies
-│   ├── wave-director/          # Onnx-basierter Wave-Director (Inference)
-│   └── core/                   # Game State Capture, Data Collection
+│   ├── core/                   # Regel-Director, Gate-Controller, Templates, State-Encoder
+│   └── training/               # Bot System (Strategy Pattern) + WebSocket-Client
+│       ├── bots/               # StrategyBot, Factory
+│       └── strategies/         # Placement, Upgrade, Wave, Research Strategies
 ├── game-engine/                # Event Bus, VFX/Audio/BackgroundMusic Services (Three.js-coupled, Angular-frei)
 ├── components/                 # UI Components (compass, game-header, game-sidebar, etc.)
 ├── configs/                    # Tower/Enemy/Projectile/Combat/Research/Audio + Wave-Curriculum-Configs
@@ -52,20 +56,22 @@ src/app/
 ├── utils/                      # Shared Utilities (geo-utils, damage-calculator, global-route-grid)
 └── workers/                    # Web Workers (Pathfinding)
 
-training-backend/               # Python Training Backend
-├── server.py                   # WebSocket Server (:3001)
-├── model.py                    # Neural Network (Conv1D + Dense, State 156 → 36 Outputs)
+training-backend/               # Python Training Backend (nur fuer Trainingslaeufe)
+├── server.py                   # WebSocket Server (:3001), Decoder, A/B-Verteilung
+├── model.py                    # Neural Network (Conv1D + Dense, State 203 → 36 Outputs)
 ├── trainer.py                  # PPO Training Algorithm
-├── reward.py                   # Reward Function (4 Terms: DPS-sweet, leak, swarm, idle)
-├── templates.py                # Wave Template Definitions + Constraints
-├── wave_curriculum.py          # Wave-Curriculum Mask (Phase 5.16)
-├── config.py                   # Hyperparameter
+├── reward.py                   # Reward Function (4 Terms: death, drama, pacing, swarm_size)
+├── directors.py                # Austauschbare Wave-Designer (model/rules/random/maxgate)
+├── schema.py                   # Laedt generated/ai-schema.json (Templates, Curriculum, Masken)
+├── config.py                   # Hyperparameter, DIRECTOR_ROSTER
 ├── dashboard/                  # Web Dashboard (:3002)
 │   ├── app.py                  # FastAPI Server
 │   └── static/                 # Chart.js UI
-├── scripts/                    # Export, Inspect, Manage
+├── generated/ai-schema.json    # Aus den TS-Configs generiert (`npm run ai-schema`)
+├── scripts/                    # ONNX-Export, Log-Analyse
+├── tests/                      # pytest (Schema, Encoder, Reward, Directors, Gate-Loop)
 ├── start.bat                   # Windows Start-Script
-├── checkpoints/                # Model Checkpoints (+ archive-v3.5/)
+├── checkpoints/                # Model Checkpoints (+ archive-<datum>/)
 └── docs/                       # Backend-Dokumentation
 ```
 
@@ -89,7 +95,7 @@ training-backend/               # Python Training Backend
 | [TOWER_CREATION.md](docs/TOWER_CREATION.md) | Neue Tower & rotierende Turrets |
 | [ENEMY_CREATION.md](docs/ENEMY_CREATION.md) | Neue Enemies, Animationen, Audio |
 | [WAVE_SYSTEM.md](docs/WAVE_SYSTEM.md) | Wave-Management, Spawning, Phases |
-| [STATUS_EFFECTS.md](docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Freeze, Burn) |
+| [STATUS_EFFECTS.md](docs/STATUS_EFFECTS.md) | Status-Effekte (Slow, Burn, Poison; Freeze reserviert) |
 | [LOCATION_SYSTEM.md](docs/LOCATION_SYSTEM.md) | Standort-System |
 | [SPATIAL_AUDIO.md](docs/SPATIAL_AUDIO.md) | 3D Audio System |
 | [PROJECTILES.md](docs/PROJECTILES.md) | Projektil-System |
@@ -101,15 +107,17 @@ training-backend/               # Python Training Backend
 | [INSTANCED_ENEMY_RENDERING.md](docs/INSTANCED_ENEMY_RENDERING.md) | GPU Instancing mit VAT (Draw Call Reduktion) |
 | **Architektur & Store** | |
 | [SIGNAL-STORE-ARCHITECTURE.md](docs/SIGNAL-STORE-ARCHITECTURE.md) | Signal Store Architektur (6 Sub-Stores: Game/UI/Engine/Location/Research/Debug) |
-| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | GPU-Cubemap-LOS-Pipeline (Ground + Air produktiv, Stand 2026-05-15) |
-| **AI System (Frontend)** | |
-| **[PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md)** | **Aktuelle AI-Architektur** (Range-Based Templates + 5.11b/5.14/5.16-Erweiterungen) |
-| **[HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md)** | **Aktueller Balance-Stand** (Wave-Curriculum, Endgame-Knobs, Gold-Budget) |
-| [AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md) | AI Wave Director - konsolidierte Gesamtuebersicht |
-| [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System - 8 Strategien inkl. Research |
-| [PHASE_5.10_TEMPLATES.md](docs/PHASE_5.10_TEMPLATES.md) | _Historical:_ Template-Based (superseded by 5.11) |
-| **Training Backend** (`training-backend/`) | |
-| [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | Python Training Backend - PPO, State 156, 4-Term Reward, Decoder-Constraints |
+| [HANDOVER_ROUTE_GRID_GPU_LOS.md](docs/HANDOVER_ROUTE_GRID_GPU_LOS.md) | GPU-Cubemap-LOS-Pipeline (Ground + Air produktiv) |
+| **Wave Director & AI** | |
+| **[AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md)** | **Einstieg:** Regel-Director + Gate-Controller, warum das ONNX-Modell ersetzt wurde |
+| [BOT_SYSTEM.md](docs/BOT_SYSTEM.md) | Strategy-Based Bot System (Gegenspieler im Training) |
+| [HANDOVER_PLAYTEST_PHASE5.16.md](docs/HANDOVER_PLAYTEST_PHASE5.16.md) | Balance-Stand (Wave-Curriculum, Endgame-Knobs, Gold-Budget) |
+| [PHASE_5.11_RANGES.md](docs/PHASE_5.11_RANGES.md) | Range-Templates + Decoder-Constraints (Mechanik gilt; Modell-als-Director ist ueberholt) |
+| [STATIC_WAVE_FALLBACK.md](docs/STATIC_WAVE_FALLBACK.md) | Debug-Pfad ohne Director (STATIC_WAVE_PROFILES) |
+| [PHASE_5.10_TEMPLATES.md](docs/PHASE_5.10_TEMPLATES.md) | _Historisch:_ superseded by 5.11 |
+| **Training Backend** (`training-backend/`, nur fuer Trainingslaeufe) | |
+| [AI_TRAINING_BACKEND.md](training-backend/docs/AI_TRAINING_BACKEND.md) | PPO, State-Encoder, Reward, Decoder-Constraints, A/B-Directors |
+| [HANDOVER_TRAINING_REFRESH.md](docs/HANDOVER_TRAINING_REFRESH.md) | Backend-Refresh: Befunde + Grundsatzentscheidungen |
 | [AI_TRAINING_SESSION_NOTES.md](training-backend/docs/AI_TRAINING_SESSION_NOTES.md) | Entwicklungsgeschichte v1→v3.5 + Phase-5.x-Index |
 | [AI_MODEL_EXPORT.md](training-backend/docs/AI_MODEL_EXPORT.md) | ONNX Model Export (`npm run export-ai`) |
 | **Project Management** | |

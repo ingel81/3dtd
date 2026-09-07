@@ -1,6 +1,6 @@
 # Tower Defense - Architektur
 
-**Stand:** 2026-05-12
+**Stand:** 2026-05-12 (Abschnitt „Laufzeit-Abhaengigkeiten" + `ai/`-Baum: 2026-09-07)
 
 ## Übersicht
 
@@ -29,6 +29,31 @@ Component-basierte Game Engine Architektur mit **Three.js + 3DTilesRendererJS** 
 - [x] LOS-Overlay Ground vs Air visuell getrennt (grün=ground, blau=air-only, rot=blocked)
 - [x] Post-Processing-Pipeline (Bloom + Color Grading) als eigene `three-engine/post-processing/` Klasse
 - [ ] Projektil-LoS (nur bei Sichtverbindung treffen)
+
+### Laufzeit-Abhaengigkeiten
+
+Das Spiel laeuft **vollstaendig im Browser**. Zur Laufzeit gibt es keinen
+Server-Anteil und kein Modell:
+
+| Abhaengigkeit | Status |
+|---|---|
+| Google Maps 3D Tiles / Cesium-Tiles | extern, Pflicht (Kartendaten) |
+| OSM Nominatim | extern, nur beim Location-Wechsel |
+| Python-Training-Backend (`:3001`) | **nur Training**. Ohne Verbindung laeuft das Spiel unveraendert. |
+| ONNX-Modell + `onnxruntime-web` | **opt-in**. Wird nicht mehr beim Start geladen. |
+
+Der **Wave-Director sitzt im Client**. Standard ist der regelbasierte Director
+(`ai/core/rule-director.ts`), der weder Netzwerk noch Modell braucht — deshalb
+gibt es kein Startfenster, in dem der Director nicht verfuegbar waere, und
+`useAIDirector` steht per Default auf `true`. Der ONNX-Pfad ist erhalten, wird
+aber nur durch einen expliziten `WaveDirectorService.loadModel()`-Aufruf aktiv
+(Button im Training-Debugger-Panel, `forceRuleMode()` schaltet zurueck);
+`onnxruntime-web` (404 kB WASM) landet damit nicht im Cold Start. Das
+Training-Backend uebernimmt die Wave-Wahl nur, solange der
+`TrainingClientService` verbunden ist.
+
+Details zum Weg vom Director zur fertigen Welle:
+[WAVE_SYSTEM.md](WAVE_SYSTEM.md#wave-erzeugung-director--waveconfig).
 
 ## Design Prinzipien
 
@@ -1118,9 +1143,17 @@ function onEngineUpdate(deltaTime: number) {
 src/app/
 ├── tower-defense.component.ts    # Haupt-Component (~655 Zeilen)
 │
-├── ai/                           # AI Wave Director, Bot System, Training Hooks
-│   ├── core/                     # Game-State-Capture, Data Collection
-│   └── training/                 # Bots (Strategy Pattern), Strategies
+├── ai/                           # Wave Director, Bot System, Training Hooks
+│   ├── core/
+│   │   ├── rule-director.ts      # Regel-Director (Default): Template + 4 Formfaktoren
+│   │   ├── gate-controller.ts    # Regelkreis fuer den Fairness-Cap (Leak-Quote)
+│   │   ├── wave-director.service.ts  # Decoder + buildWaveConfig, optionaler ONNX-Pfad
+│   │   ├── templates.ts          # Template-Tabelle, Mask, fairMaxCount
+│   │   ├── wave-context.ts       # Mask + Ranges + Fairness-Headroom (Encoder/Decoder-Sync)
+│   │   ├── wave-config-adapter.ts# AIWaveConfig → WaveConfig (SpawnSchedule)
+│   │   ├── ai-data-collector.service.ts # Snapshots, Wave-History, onWaveResult-Hook
+│   │   └── ...                   # Encoder, Defense-Analyzer, DPS-Profil, Explainer
+│   └── training/                 # Bots (Strategy Pattern), Strategies, TrainingClient
 │
 ├── services/                     # Angular Services — vollstaendige Liste oben unter "Verzeichnisstruktur"
 │   ├── (Root)                    # economy, tower-placement, camera-*, keyboard-pan, input-handler

@@ -46,10 +46,9 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | ghost | ethereal | 120 | 5 | – | Nur magic/chaos wirkt voll |
 | wraith | ethereal | 100 | 8 | – | Schneller Ethereal |
 
-> **Wichtig (AI-Wave-Director):** Stone Golem ist in der Config registriert, aber im
-> Wave-Curriculum (`configs/wave-curriculum.config.ts`) und in den Templates
-> (`src/app/ai/core/templates.ts`) **noch nicht** eingebaut — siehe TODO 2.2.
-> Im AI-Mode taucht er deshalb aktuell nicht auf.
+> **Wave-Director:** Stone Golem ist seit 2026-08-27 angebunden — Template
+> `golem_squad` (`src/app/ai/core/templates.ts`, `minWave: 14`) steht auf Wave 15
+> des Curriculums (`configs/wave-curriculum.config.ts`).
 
 ---
 

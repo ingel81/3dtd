@@ -4,6 +4,108 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-07
+
+### Wave Director: vom ONNX-Modell auf Regeln, komplett clientseitig
+
+- [x] **Regel-Director ersetzt das trainierte Netz als Default**
+      Neu: `src/app/ai/core/rule-director.ts`. Er liefert dieselben fünf Zahlen wie
+      das Modell — Template-Index plus vier Formfaktoren (`count`, `spawn`, `hp`,
+      `variation`) — und geht durch denselben Decoder. Alles danach (Maske,
+      Range-Interpolation, DPS-Ramp, Endgame-Multiplikator, Fairness-Cap) ist
+      unverändert und wird geteilt.
+      **Warum:** Über einen Tag A/B-Runs mit identischen Bots, Curriculum und
+      Fairness-Gate war die trainierte Policy dreimal statistisch
+      ununterscheidbar von gleichverteiltem Zufall (mittlere Run-Länge 45,6
+      [42,49] gegen 44,7 [41,48]), während zwei triviale Heuristiken messbar mehr
+      Spannung erzeugten (Near-Miss 0,067–0,069 gegen 0,045). Das Netz hatte nach
+      Tausenden Episoden nichts gelernt: `log_std` unverändert vom Initialwert,
+      jeder Faktor-Mittelwert auf sigmoid(0) = 0,5. Die Ursache lag **vor** dem
+      Lernen — das Curriculum pinnt auf 49% der Wellen das Template, der
+      Fairness-Cap bindet auf 63% der Größen; die volle Spanne des count-Faktors
+      bewegte eine Welle von 19 auf 28 Gegner. Es gab fast nichts zu entscheiden
+      und deshalb nichts zu lernen.
+      Zwei bewusste Entwurfsentscheidungen: **Abwechslung wird erzwungen** (immer
+      das älteste erlaubte Template, statt Wiederholung nur teuer zu machen), und
+      **Schwierigkeit ist eine geschriebene Kurve** über die Wave-Nummer statt
+      einer Pro-Wave-Entscheidung — der Spieler heilt nie, seine HP sind ein
+      Run-Budget.
+
+- [x] **Fairness-Gate als Regelkreis in den Client geholt**
+      Neu: `src/app/ai/core/gate-controller.ts`. `fairMaxCount()` bekommt einen
+      neuen letzten Parameter `budgetMultiplier` (Default 1), den der Controller
+      aus der tatsächlichen Leck-Quote nachführt: Fenster 4 Wellen, Zielband
+      8–16%, Proportional-Gain 0,35, harte Rücknahme ×0,8 wenn ein Run endet,
+      geklammert auf 0,5–8.
+      **Warum:** `FAIRNESS_KILL_REALISM = 0.65` wurde auf den Wellen 1–10
+      gemessen und ist ab W11 falsch — der Cap hatte einen stehenden Bias und
+      keine Möglichkeit, ihn zu bemerken. Ohne Korrektur landete er auf „genau
+      das, was die Türme töten können", was garantiert, dass sie es töten: über
+      1834 Wellen töteten 70% aller Wellen alles und 80% richteten keinen Schaden
+      an. Zwei Fehlerformen des Python-Originals sind dabei vermieden — Regeln
+      auf die **Kill**-Quote liest die eigene Vorsicht als Spielraum (einseitiger
+      Druck, der Multiplikator lief an die Obergrenze und schaltete das Gate ab),
+      und eine feste Schrittweite von 5% braucht ~170 Wellen für eine Strecke,
+      die bei Runs von ~60 zurückzulegen ist.
+      Der Zustand ist **pro Run**: `restartGame()` ruft
+      `waveDirector.resetForNewGame()`. Über Runs hinweg akkumuliert wurde er zur
+      Ratsche — Median-Run-Länge 6 statt 80.
+
+- [x] **`onWaveResult()`-Hook im AIDataCollector — die Verdrahtung, an der es fast scheiterte**
+      Der Controller hängt an `AIDataCollectorService.onWaveResult()`, nicht am
+      Event `wave:completed`. Grund: `wave:completed` wird beim Fall der Basis
+      **nicht** emittiert, die Todes-Rücknahme wäre über das Event unerreichbar
+      gewesen. `addToHistory()` ist der einzige Punkt, den beide Pfade passieren
+      (regulärer Handler + Game-Over-Finaliser).
+      Zusätzlich: Zerstört der letzte Leaker einer Welle die Basis, feuern beide
+      für dieselbe Wave-Nummer — `wave:completed` ist deferred, `game:over`
+      immediate, der Finaliser ist also zuerst dran. Der Collector merkt sich die
+      finalisierte Wave-Nummer und verwirft das nachlaufende Event; sonst gäbe es
+      einen doppelten History-Eintrag und eine doppelte Gate-Rücknahme auf dem
+      häufigsten Weg, wie ein Run endet.
+
+- [x] **Kein ONNX mehr im Cold Start; `useAIDirector` per Default `true`**
+      `onnxruntime-web` (404 kB WASM) wird nicht mehr beim Start geladen — nur
+      noch durch expliziten `WaveDirectorService.loadModel()`-Aufruf. „Kein
+      Modell gefunden" ist kein Fehlerzustand mehr, sondern der Normalfall; der
+      frühere Zustand `'fallback'` (= „Fehler: kein Modell", warf aus
+      `getNextWave()`) existiert nicht mehr.
+      `GameStore.useAIDirector` steht damit per Default auf `true`. Der
+      Auto-Enable-`effect()` in `GameLoopFacadeService` ist **ersatzlos
+      entfernt**: er las `useAIDirector()` neben dem Modell-Status und feuerte
+      dadurch auf seinen eigenen Schreibvorgang neu — der UI-Toggle war
+      wirkungslos, der Fehlerpfad konnte den Director nicht abschalten, und ein
+      Store-Reset wurde sofort überschrieben.
+      Damit gilt „kein Backend im Spiel-Client" uneingeschränkt: kein Server,
+      kein Modell, keine ONNX-Runtime zur Laufzeit.
+      Dateien: `src/app/ai/core/{rule-director,gate-controller,wave-director.service,
+      ai-data-collector.service,templates}.ts`, `src/app/store/game.store.ts`,
+      `src/app/services/facade/game-loop-facade.service.ts`.
+      Tests: `rule-director.spec.ts`, `gate-controller.spec.ts`, `gate-wiring.spec.ts`.
+
+### Bot: Upgrades über beide Enden des Pfads
+
+- [x] **`NearSpawnUpgradeStrategy` → `PathCoverageUpgradeStrategy`**
+      Umbenannt (`near-spawn-upgrade.strategy.ts` → `path-coverage-upgrade.strategy.ts`)
+      und inhaltlich gedreht: es werden Türme an **beiden** Pfadenden aufgewertet,
+      nicht nur am Spawn. Dazu gewichtet `StrategicPlacementService` die
+      Platzierung jetzt U-förmig statt linear spawn-nah — neue exportierte
+      Funktion `endZoneProximity(t)`, Spawn-Ende behält einen leichten Vorsprung
+      (`END_ZONE_HQ_WEIGHT = 0.8`), damit die Eröffnungszüge unverändert bleiben.
+      **Warum:** Die Strategie schlägt jede Platzierungs-Strategie und feuert auf
+      den meisten Ticks — praktisch alles Upgrade-Gold landete in einem Cluster am
+      Spawn. Messbare Folge: eine binäre statt abgestufte Verteidigung (70% der
+      Wellen komplett getötet, 28% mit >5% Durchkommen, 2% dazwischen); über 1834
+      Wellen starben Gegner einer verlustfreien Welle im Median bei 12% des Pfads,
+      während jeder Gegner jenseits von 80% zu 95% an der Basis ankam. Es gab kein
+      „fast gestoppt" — eine Killzone am Spawn, dahinter ein ungedeckter Korridor.
+      Genau daran scheiterte das Reward-Signal des Wave Directors: Near-Misses
+      (>80% Pfad ohne Ankunft) waren in nur 2,2% der Wellen überhaupt erreichbar.
+      Dateien: `src/app/ai/training/strategies/upgrade/path-coverage-upgrade.strategy.ts`,
+      `src/app/services/world/strategic-placement.service.ts` (+ `.spec.ts`).
+
+---
+
 ## 2026-06-06
 
 ### Render-Hebel G3 + R1 aus Deep-Dive 2026-05 umgesetzt (TODO 1.5)
