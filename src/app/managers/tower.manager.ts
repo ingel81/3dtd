@@ -74,21 +74,21 @@ export class TowerManager extends EntityManager<Tower> {
 
     // Register placement sound
     if (!this.placementSoundRegistered && tilesEngine.spatialAudio) {
-      tilesEngine.spatialAudio.registerSound('tower-placed', '/assets/sounds/effects/building_placed.mp3', {
+      tilesEngine.spatialAudio.registerSound('tower-placed', 'assets/sounds/effects/building_placed.mp3', {
         refDistance: 50,
         rolloffFactor: 1,
         volume: 0.6,
       });
 
       // Register sell sound
-      tilesEngine.spatialAudio.registerSound('tower-sold', '/assets/sounds/effects/building_selled.mp3', {
+      tilesEngine.spatialAudio.registerSound('tower-sold', 'assets/sounds/effects/building_selled.mp3', {
         refDistance: 50,
         rolloffFactor: 1,
         volume: 0.6,
       });
 
       // Register fire tower flame loop sound
-      tilesEngine.spatialAudio.registerSound('flame-loop', '/assets/sounds/towers/fire/flame_loop.mp3', {
+      tilesEngine.spatialAudio.registerSound('flame-loop', 'assets/sounds/towers/fire/flame_loop.mp3', {
         refDistance: 30,
         rolloffFactor: 1.2,
         volume: 0.5,
@@ -96,14 +96,14 @@ export class TowerManager extends EntityManager<Tower> {
       });
 
       // Register tentacle strike sound
-      tilesEngine.spatialAudio.registerSound('tentacle-grab', '/assets/sounds/towers/tentacle/tentacle-01.mp3', {
+      tilesEngine.spatialAudio.registerSound('tentacle-grab', 'assets/sounds/towers/tentacle/tentacle-01.mp3', {
         refDistance: 25,
         rolloffFactor: 1.5,
         volume: 0.7,
       });
 
       // Register lightning chain shot sound
-      tilesEngine.spatialAudio.registerSound('lightning-chain', '/assets/sounds/towers/lightning/lightning_chain.mp3', {
+      tilesEngine.spatialAudio.registerSound('lightning-chain', 'assets/sounds/towers/lightning/lightning_chain.mp3', {
         refDistance: 40,
         rolloffFactor: 1.2,
         volume: 0.6,

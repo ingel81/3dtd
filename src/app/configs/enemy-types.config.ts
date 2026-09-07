@@ -100,7 +100,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   zombie: {
     id: 'zombie',
     name: 'Zombie',
-    modelUrl: '/assets/models/enemies/zombie.glb',
+    modelUrl: 'assets/models/enemies/zombie.glb',
     scale: 0.984,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping when zooming
     armorType: 'unarmored',
@@ -112,7 +112,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Armature|Walk',
     deathAnimation: 'Armature|Die',
     animationSpeed: 4.11,
-    movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
+    movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25, // Zombies are quieter from distance
     heightOffset: 0.5,
@@ -128,7 +128,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'zombie-v2': {
     id: 'zombie-v2',
     name: 'Zombie v2',
-    modelUrl: '/assets/models/enemies/zombie_v2.glb',
+    modelUrl: 'assets/models/enemies/zombie_v2.glb',
     scale: 2.432,
     minimumPixelSize: 0,
     armorType: 'unarmored',
@@ -139,7 +139,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Unsteady_Walk',
     deathAnimations: ['Dead', 'dying_backwards', 'Electrocuted_Fall'],
     animationSpeed: 1,
-    movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
+    movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25,
     heightOffset: 0.0,
@@ -158,7 +158,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   tank: {
     id: 'tank',
     name: 'Tank',
-    modelUrl: '/assets/models/enemies/tank.glb',
+    modelUrl: 'assets/models/enemies/tank.glb',
     scale: 2.009,
     minimumPixelSize: 0, // 0 = real size, no pixel clamping
     armorType: 'heavy',
@@ -167,7 +167,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     reward: 5, // Only without AI
     hasAnimations: false,
     animationSpeed: 1,
-    movingSound: '/assets/sounds/enemies/tank/moving.mp3',
+    movingSound: 'assets/sounds/enemies/tank/moving.mp3',
     movingSoundVolume: 0.3,
     movingSoundRefDistance: 50, // Tanks are louder (larger refDistance range)
     heightOffset: 0,
@@ -186,7 +186,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wallsmasher: {
     id: 'wallsmasher',
     name: 'Wallsmasher',
-    modelUrl: '/assets/models/enemies/wallsmasher.fbx',
+    modelUrl: 'assets/models/enemies/wallsmasher.fbx',
     scale: 0.037,
     minimumPixelSize: 0,
     armorType: 'light',
@@ -202,7 +202,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     runSpeedMultiplier: 2.5, // 2.5x speed when running
     // No spawn sound (gameplay decision — wallsmasher rush should be visual surprise)
     // Random sound while moving
-    randomSound: '/assets/sounds/enemies/wallsmasher/attack.mp3',
+    randomSound: 'assets/sounds/enemies/wallsmasher/attack.mp3',
     randomSoundMinInterval: 8000,
     randomSoundMaxInterval: 25000,
     randomSoundVolumeMin: 0.2,
@@ -224,7 +224,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'stone-golem': {
     id: 'stone-golem',
     name: 'Stone Golem',
-    modelUrl: '/assets/models/enemies/stone_golem.glb',
+    modelUrl: 'assets/models/enemies/stone_golem.glb',
     scale: 7.312,
     minimumPixelSize: 0,
 
@@ -239,7 +239,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     animationSpeed: 0.75,
 
     // Audio (Spatial) — heavy stone footstep loop while moving
-    movingSound: '/assets/sounds/enemies/golem/golem_walk_loop.mp3',
+    movingSound: 'assets/sounds/enemies/golem/golem_walk_loop.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 45,
 
@@ -261,7 +261,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   bat: {
     id: 'bat',
     name: 'Bat',
-    modelUrl: '/assets/models/enemies/bat.glb',
+    modelUrl: 'assets/models/enemies/bat.glb',
     scale: 3.958,
     minimumPixelSize: 0,
     armorType: 'light',
@@ -288,7 +288,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   penguin: {
     id: 'penguin',
     name: 'Penguin',
-    modelUrl: '/assets/models/enemies/penguin.glb',
+    modelUrl: 'assets/models/enemies/penguin.glb',
     scale: 0.005,
     minimumPixelSize: 0,
     armorType: 'unarmored',
@@ -315,7 +315,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   herbert: {
     id: 'herbert',
     name: 'Herbert',
-    modelUrl: '/assets/models/enemies/herbert_optimized.glb',
+    modelUrl: 'assets/models/enemies/herbert_optimized.glb',
     scale: 2.625,
     minimumPixelSize: 0,
     armorType: 'fortified',
@@ -326,24 +326,24 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Armature|walking_man|baselayer',
     animationSpeed: 1.0,
     // Spawn Sound (once) - DISABLED: speech files temporarily disabled
-    // spawnSound: '/assets/sounds/enemies/herbert/spawn.mp3',
+    // spawnSound: 'assets/sounds/enemies/herbert/spawn.mp3',
     // spawnSoundVolume: 0.6,
     // spawnSoundRefDistance: 40,
     // Random Sounds Pool (shuffle without repetition) - DISABLED: speech files temporarily disabled
     // randomSounds: [
-    //   '/assets/sounds/enemies/herbert/random-01.mp3',
-    //   '/assets/sounds/enemies/herbert/random-02.mp3',
-    //   '/assets/sounds/enemies/herbert/random-03.mp3',
-    //   '/assets/sounds/enemies/herbert/random-04.mp3',
-    //   '/assets/sounds/enemies/herbert/random-05.mp3',
-    //   '/assets/sounds/enemies/herbert/random-06.mp3',
-    //   '/assets/sounds/enemies/herbert/random-07.mp3',
-    //   '/assets/sounds/enemies/herbert/random-08.mp3',
-    //   '/assets/sounds/enemies/herbert/random-09.mp3',
-    //   '/assets/sounds/enemies/herbert/random-10.mp3',
-    //   '/assets/sounds/enemies/herbert/random-11.mp3',
-    //   '/assets/sounds/enemies/herbert/random-12.mp3',
-    //   '/assets/sounds/enemies/herbert/random-13.mp3',
+    //   'assets/sounds/enemies/herbert/random-01.mp3',
+    //   'assets/sounds/enemies/herbert/random-02.mp3',
+    //   'assets/sounds/enemies/herbert/random-03.mp3',
+    //   'assets/sounds/enemies/herbert/random-04.mp3',
+    //   'assets/sounds/enemies/herbert/random-05.mp3',
+    //   'assets/sounds/enemies/herbert/random-06.mp3',
+    //   'assets/sounds/enemies/herbert/random-07.mp3',
+    //   'assets/sounds/enemies/herbert/random-08.mp3',
+    //   'assets/sounds/enemies/herbert/random-09.mp3',
+    //   'assets/sounds/enemies/herbert/random-10.mp3',
+    //   'assets/sounds/enemies/herbert/random-11.mp3',
+    //   'assets/sounds/enemies/herbert/random-12.mp3',
+    //   'assets/sounds/enemies/herbert/random-13.mp3',
     // ],
     // randomSoundsMinInterval: 10000,
     // randomSoundsMaxInterval: 25000,
@@ -365,7 +365,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   'zombie-soldier': {
     id: 'zombie-soldier',
     name: 'Zombie Soldier',
-    modelUrl: '/assets/models/enemies/zombie_soldier.glb',
+    modelUrl: 'assets/models/enemies/zombie_soldier.glb',
     scale: 2.492,
     minimumPixelSize: 0,
     armorType: 'heavy',
@@ -376,7 +376,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'zombie_02_Run',
     deathAnimation: 'zombie_02_Death',
     animationSpeed: 1.38,
-    movingSound: '/assets/sounds/enemies/zombie/ambient.mp3',
+    movingSound: 'assets/sounds/enemies/zombie/ambient.mp3',
     movingSoundVolume: 0.4,
     movingSoundRefDistance: 25,
     heightOffset: 0,
@@ -398,7 +398,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   rat: {
     id: 'rat',
     name: 'Rat',
-    modelUrl: '/assets/models/enemies/rat.glb',
+    modelUrl: 'assets/models/enemies/rat.glb',
     scale: 1.5,
     minimumPixelSize: 0,
     armorType: 'unarmored',
@@ -409,7 +409,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Run',
     animationSpeed: 2.0,
     // Audio (Spatial) — swarm chittering loop while moving
-    movingSound: '/assets/sounds/enemies/rat/rat_swarm.mp3',
+    movingSound: 'assets/sounds/enemies/rat/rat_swarm.mp3',
     movingSoundVolume: 0.3,
     movingSoundRefDistance: 25,
     heightOffset: 0.3,
@@ -430,7 +430,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   spider: {
     id: 'spider',
     name: 'Spider',
-    modelUrl: '/assets/models/enemies/spider.glb',
+    modelUrl: 'assets/models/enemies/spider.glb',
     scale: 1.5,
     minimumPixelSize: 0,
     armorType: 'light',
@@ -457,7 +457,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   mammoth: {
     id: 'mammoth',
     name: 'Mammoth',
-    modelUrl: '/assets/models/enemies/mammoth.glb',
+    modelUrl: 'assets/models/enemies/mammoth.glb',
     scale: 2.206,
     minimumPixelSize: 0,
     armorType: 'fortified',
@@ -469,7 +469,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     deathAnimation: 'Die',
     animationSpeed: 2.85,
     // Random mammoth call — rare, every 15-40s
-    randomSound: '/assets/sounds/enemies/mammouth/mammouth01.mp3',
+    randomSound: 'assets/sounds/enemies/mammouth/mammouth01.mp3',
     randomSoundMinInterval: 15000,
     randomSoundMaxInterval: 40000,
     randomSoundVolumeMin: 0.3,
@@ -492,7 +492,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   bear: {
     id: 'bear',
     name: 'Bear',
-    modelUrl: '/assets/models/enemies/bear.glb',
+    modelUrl: 'assets/models/enemies/bear.glb',
     scale: 0.1,
     minimumPixelSize: 0,
     armorType: 'heavy',
@@ -503,7 +503,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'GltfAnimation 0',
     animationSpeed: 2.0,
     // Random bear growl — every 10-30s
-    randomSound: '/assets/sounds/enemies/bear/bear01.mp3',
+    randomSound: 'assets/sounds/enemies/bear/bear01.mp3',
     randomSoundMinInterval: 10000,
     randomSoundMaxInterval: 30000,
     randomSoundVolumeMin: 0.3,
@@ -528,7 +528,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   dragon: {
     id: 'dragon',
     name: 'Dragon',
-    modelUrl: '/assets/models/enemies/dragon.glb',
+    modelUrl: 'assets/models/enemies/dragon.glb',
     scale: 2.5,
     minimumPixelSize: 0,
     armorType: 'heavy',
@@ -539,7 +539,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'flying',
     animationSpeed: 1.46,
     // Rare dragon roar — every 12-35s
-    randomSound: '/assets/sounds/enemies/dragon/dragon01.mp3',
+    randomSound: 'assets/sounds/enemies/dragon/dragon01.mp3',
     randomSoundMinInterval: 12000,
     randomSoundMaxInterval: 35000,
     randomSoundVolumeMin: 0.3,
@@ -566,7 +566,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   ghost: {
     id: 'ghost',
     name: 'Ghost',
-    modelUrl: '/assets/models/enemies/ghost.glb',
+    modelUrl: 'assets/models/enemies/ghost.glb',
     scale: 0.099,
     minimumPixelSize: 0,
     armorType: 'ethereal',
@@ -594,7 +594,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   hornet: {
     id: 'hornet',
     name: 'Hornet',
-    modelUrl: '/assets/models/enemies/hornet.glb',
+    modelUrl: 'assets/models/enemies/hornet.glb',
     scale: 0.063,
     minimumPixelSize: 0,
     armorType: 'light',
@@ -605,7 +605,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     walkAnimation: 'Take 001',
     animationSpeed: 4.07,
     // Audio (Spatial) — buzzing loop while flying
-    movingSound: '/assets/sounds/enemies/hornet/hornet.mp3',
+    movingSound: 'assets/sounds/enemies/hornet/hornet.mp3',
     movingSoundVolume: 0.45,
     movingSoundRefDistance: 30,
     heightOffset: 18,
@@ -627,7 +627,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   mech: {
     id: 'mech',
     name: 'Mech',
-    modelUrl: '/assets/models/enemies/mech.glb',
+    modelUrl: 'assets/models/enemies/mech.glb',
     scale: 0.885,
     minimumPixelSize: 0,
     armorType: 'heavy',
@@ -652,7 +652,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
   wraith: {
     id: 'wraith',
     name: 'Wraith',
-    modelUrl: '/assets/models/enemies/wraith.glb',
+    modelUrl: 'assets/models/enemies/wraith.glb',
     scale: 2.0,
     minimumPixelSize: 0,
     armorType: 'ethereal',

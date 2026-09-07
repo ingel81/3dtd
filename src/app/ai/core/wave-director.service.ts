@@ -144,7 +144,7 @@ export class WaveDirectorService {
         this.ort = await import('onnxruntime-web');
 
         // Configure WASM paths to use local assets
-        this.ort.env.wasm.wasmPaths = '/assets/onnx-wasm/';
+        this.ort.env.wasm.wasmPaths = 'assets/onnx-wasm/';
         // Suppress WASM internal logs ("Unknown CPU vendor" etc.)
         this.ort.env.logLevel = 'error';
 
@@ -160,7 +160,7 @@ export class WaveDirectorService {
         };
 
         this.session = await this.ort.InferenceSession.create(
-          '/assets/ai/wave-director/wave-director.onnx',
+          'assets/ai/wave-director/wave-director.onnx',
           options
         );
 
@@ -251,7 +251,7 @@ export class WaveDirectorService {
    */
   private async declaredInputSize(): Promise<number | null> {
     try {
-      const res = await fetch('/assets/ai/wave-director/metadata.json');
+      const res = await fetch('assets/ai/wave-director/metadata.json');
       if (!res.ok) return null;
       const meta = await res.json();
       return typeof meta?.inputSize === 'number' ? meta.inputSize : null;

@@ -82,7 +82,17 @@
                   "maximumError": "64kB"
                 }
               ],
-              "outputHashing": "all"
+              "outputHashing": "all",
+              "assets": [
+                {
+                  "glob": "**/*",
+                  "input": "public",
+                  "ignore": [
+                    "**/candidates/**",
+                    "**/onnx-wasm/**"
+                  ]
+                }
+              ]
             },
             "development": {
               "optimization": false,
