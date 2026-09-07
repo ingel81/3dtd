@@ -35,11 +35,14 @@ to be re-anchored. Sample tile depth is tracked for exactly this reason.
 
 | | |
 |---|---|
-| Frontend | Angular 21, standalone components, signal stores |
-| Rendering | Three.js 0.184 |
+| Frontend | [Angular](https://angular.dev) 21, standalone components, signal stores |
+| UI | [Angular Material](https://material.angular.dev) 21 |
+| Rendering | [Three.js](https://threejs.org) 0.184 |
 | Tiles | [3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) 0.4.24 |
-| Geometry | Google Photorealistic 3D Tiles, via Cesium Ion or the Google Maps API directly |
-| Map data | OpenStreetMap (Overpass for streets and buildings, Nominatim for geocoding) |
+| Geometry | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles), via [Cesium Ion](https://cesium.com/platform/cesium-ion/) or the Google Maps API directly |
+| Map data | [OpenStreetMap](https://www.openstreetmap.org/copyright) ([Overpass](https://overpass-api.de) for streets and buildings, [Nominatim](https://nominatim.org) for geocoding) |
+| Tests | [Vitest](https://vitest.dev) |
+| AI training | [PyTorch](https://pytorch.org) (offline, for the wave director experiments) |
 
 The game client is fully client side. There is no game server and no account for the game itself; the one sign-up is the Cesium Ion account for your own tile key.
 
