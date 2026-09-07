@@ -45,6 +45,7 @@ import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
+import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { TdRichTooltipDirective } from '../tooltip/td-rich-tooltip.directive';
@@ -72,6 +73,7 @@ import { TdTooltipData } from '../tooltip/tooltip-data.types';
 })
 export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly dialog = inject(MatDialog);
+  private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
   private readonly waveDebug = inject(WaveDebugService);
   private readonly towerDebug = inject(TowerDebugService);
@@ -104,7 +106,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     });
   }
 
-  // Store — single source of truth
+  // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
 
   // Inputs
@@ -113,7 +115,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly waveActive = input.required<boolean>();
   readonly isGameOver = input.required<boolean>();
 
-  // Wave group display — only consumed by the template while a wave is active,
+  // Wave group display, only consumed by the template while a wave is active,
   // so we don't need curriculum-derived or debug-panel fallbacks. The COMING UP
   // panel handles the setup-phase preview separately.
   readonly currentWaveGroups = computed(() => this.waveDebug.currentWaveGroups());
@@ -278,7 +280,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Structured tooltip payload for the tower-card rich tooltip.
-   * Matches the design refinement spec — header, stat triple, vs-armor table.
+   * Matches the design refinement spec, header, stat triple, vs-armor table.
    */
   getTowerCardTooltipData(tower: TowerTypeConfig): TdTooltipData | null {
     if (tower.id === 'research-center') {
@@ -331,7 +333,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       'cold': 'cold',
       'poison': 'poison',
     };
-    // Targeting capability — resolved via canTargetAirEffective so the banner
+    // Targeting capability, resolved via canTargetAirEffective so the banner
     // reflects AA-retrofit research (e.g. dual-gatling after aa-retrofit
     // completes flips from ground-only to air-ground with a "via Research"
     // note). Single source of truth shared with combat + AI bots.
@@ -355,7 +357,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   }
 
   /**
-   * Phase 5.16: Legacy string-based tooltip — kept as a fallback / for places
+   * Phase 5.16: Legacy string-based tooltip, kept as a fallback / for places
    * that haven't migrated to the rich tooltip directive yet.
    */
   getTowerCardTooltip(tower: TowerTypeConfig): string {
@@ -621,7 +623,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   /**
    * Structured tooltip payload for the enemy-group rich tooltip.
-   * Mirrors the tower-card tooltip layout — header (name + armor category),
+   * Mirrors the tower-card tooltip layout, header (name + armor category),
    * 3-column stats (HP / SPEED / COUNT), and a "vs Damage" table sorted by
    * effectiveness against this enemy's armor. Reuses the armor-row structure
    * for the damage rows so both tooltips share the same visual language.
@@ -711,6 +713,11 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
         groundModel: true,
       });
     });
+  }
+
+  /** Open the tile-credentials screen (swap or clear the stored key). */
+  openTokenSetup(): void {
+    this.config.setupRequested.set(true);
   }
 
   openAttributions(): void {

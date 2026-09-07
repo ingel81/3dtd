@@ -22,34 +22,38 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # No credentials are baked into the bundle any more: the deployed build
+      # asks each player for their own Cesium Ion token (or Google Maps key),
+      # which ConfigService keeps in their browser. See docs on the token screen.
       - name: Create environment files
         run: |
           echo "export const environment = {
             production: false,
             tileProvider: 'cesium' as 'cesium' | 'google',
-            googleMapsApiKey: '${{ secrets.GOOGLE_MAPS_API_KEY }}',
-            cesiumIonToken: '${{ secrets.CESIUM_ION_TOKEN }}',
+            googleMapsApiKey: '',
+            cesiumIonToken: '',
             cesiumAssetId: '2275207',
           };" > src/environments/environment.ts
           echo "export const environment = {
             production: true,
             tileProvider: 'cesium' as 'cesium' | 'google',
-            googleMapsApiKey: '${{ secrets.GOOGLE_MAPS_API_KEY }}',
-            cesiumIonToken: '${{ secrets.CESIUM_ION_TOKEN }}',
+            googleMapsApiKey: '',
+            cesiumIonToken: '',
             cesiumAssetId: '2275207',
           };" > src/environments/environment.prod.ts
 
+      # The game lives under /play/ so the domain root can serve the landing page.
       - name: Build
-        run: npm run build
+        run: npm run build -- --base-href=/play/
 
-      - name: Deploy to FTP
+      - name: Deploy game to /play/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
           server: ${{ secrets.FTP_SERVER }}
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/3DTD/browser/
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}play/
           # Sync-Modus: nur geänderte Dateien hochladen, alte löschen
           # State wird in .ftp-deploy-sync-state.json auf Server gespeichert
           dangerous-clean-slate: false
@@ -58,3 +62,19 @@ jobs:
             **/.git*
             **/.git*/**
             **/node_modules/**
+
+      - name: Deploy landing page to root
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          local-dir: ./landing/
+          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
+          dangerous-clean-slate: false
+          # play/ gehört dem Deploy-Schritt darüber, der Root-Sync darf da nicht aufräumen
+          exclude: |
+            **/.git*
+            **/.git*/**
+            **/node_modules/**
+            play/**

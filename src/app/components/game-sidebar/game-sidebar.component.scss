@@ -9,7 +9,7 @@
   overflow: hidden;
 }
 
-/* Sidebar background — refined: NO stone texture, NO inner panel frames.
+/* Sidebar background, refined: NO stone texture, NO inner panel frames.
  * Sidebar IS one panel; sections are split only by 1px border-bottom rules.
  * (Mockup ref: tmp/td-artboards.jsx HudSidebar.) */
 .td-sidebar-content {
@@ -45,7 +45,7 @@
   align-items: center;
   justify-content: center;
   gap: 10px;
-  padding: 6px 8px;
+  padding: 4px 8px;
   opacity: 0.6;
 }
 
@@ -64,22 +64,33 @@
   color: var(--td-text-primary);
 }
 
+/* Both footer actions share one row: two stacked full-width bars ate more
+   vertical space than the sidebar can spare. */
+.td-footer-links {
+  display: flex;
+  border-top: 1px solid var(--td-frame-dark);
+}
+
 .td-attributions-btn {
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 6px;
-  width: 100%;
-  padding: 6px 8px;
+  gap: 5px;
+  flex: 1;
+  min-width: 0;
+  padding: 5px 6px;
   background: none;
   border: none;
-  border-top: 1px solid var(--td-frame-dark);
   color: var(--td-text-muted);
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   cursor: pointer;
   opacity: 0.6;
   transition: all 0.15s ease;
+}
+
+.td-footer-links .td-attributions-btn + .td-attributions-btn {
+  border-left: 1px solid var(--td-frame-dark);
 }
 
 .td-attributions-btn:hover {
@@ -89,7 +100,7 @@
 }
 
 
-/* === Section (was .td-panel) — flat, no frames, just dividers ===
+/* === Section (was .td-panel), flat, no frames, just dividers ===
  * The sidebar is a single panel; each section is just a vertical strip
  * separated by a 1px frame-dark border-bottom. No bevel, no shadow. */
 .td-panel {
@@ -113,7 +124,7 @@
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  /* Firefox — see TD_SCROLLBAR_STYLES in styles/td-theme.ts */
+  /* Firefox, see TD_SCROLLBAR_STYLES in styles/td-theme.ts */
   scrollbar-width: thin;
   scrollbar-color: var(--td-frame-mid) var(--td-panel-shadow);
 }
@@ -134,7 +145,7 @@
   background: var(--td-frame-light);
 }
 
-/* Section heads — flat label with mono caps + rune-amber color. */
+/* Section heads, flat label with mono caps + rune-amber color. */
 .td-panel-header {
   position: relative;
   padding: 12px 14px 8px;
@@ -150,7 +161,7 @@
 }
 
 /* Build section gets a trailing gold gradient rule next to the label
- * (matches tmp/td-artboards.jsx HudSidebar — only the BUILD header). */
+ * (matches tmp/td-artboards.jsx HudSidebar, only the BUILD header). */
 .td-panel:not(.td-wave-panel):not(.td-tower-panel):not(.td-research-panel) .td-panel-header {
   display: flex;
   align-items: center;
@@ -311,7 +322,7 @@
     var(--td-teal-glow);
 }
 
-/* Curriculum coming-up preview — flat, embedded directly under the
+/* Curriculum coming-up preview, flat, embedded directly under the
  * Next-Wave button. No quote-block style (no bg, no border-left, no radius).
  * Matches tmp/td-artboards.jsx HudSidebar Coming-Up section. */
 .td-coming-up {
@@ -479,7 +490,7 @@
 }
 
 .td-tower-card {
-  /* Button user-agent reset — locked + unlocked share <button>, so heights
+  /* Button user-agent reset, locked + unlocked share <button>, so heights
    * stay identical in the grid. Without these, native button styles
    * (line-height, intrinsic min-content, appearance) leak into rows. */
   appearance: none;
@@ -521,7 +532,7 @@
   cursor: not-allowed;
 }
 
-/* Locked tower — silhouette effect.
+/* Locked tower, silhouette effect.
  * Specificity .td-tower-card.td-tower-locked (0,2,0) ≥ :disabled (0,2,0)
  * and order-after wins over the default :disabled rule above. */
 .td-tower-card.td-tower-locked {
@@ -567,7 +578,7 @@
   border-top: 1px solid var(--td-frame-dark);
 }
 
-/* Cost badge — refined: panel-shadow background, coin glyph + value */
+/* Cost badge, refined: panel-shadow background, coin glyph + value */
 .td-tower-card-cost {
   position: absolute;
   top: 5px;
@@ -595,7 +606,7 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Tier indicator — top-left rune-amber diamonds */
+/* Tier indicator, top-left rune-amber diamonds */
 .td-tower-card-tier {
   position: absolute;
   top: 5px;
@@ -613,7 +624,7 @@
   box-shadow: 0 0 2px rgba(0, 0, 0, 0.8);
 }
 
-/* Hover corner brackets — gold accents at the edges, fade in on hover */
+/* Hover corner brackets, gold accents at the edges, fade in on hover */
 .td-tower-card-bracket {
   position: absolute;
   width: 8px;
@@ -650,7 +661,7 @@
   color: var(--td-gold-light);
 }
 
-/* Anti-air badge — small wind-icon chip pinned to the bottom-left of the
+/* Anti-air badge, small wind-icon chip pinned to the bottom-left of the
  * preview canvas. Sits over canvas, not over the name-strip, so it
  * doesn't compete with the cost badge (top-right) or tier marks
  * (top-left). Canvas height is 80px (see .td-tower-preview-canvas);
@@ -673,7 +684,7 @@
   pointer-events: none;
   z-index: 2;
 }
-/* Air-only specialisation — stronger teal so the chip visually pops
+/* Air-only specialisation, stronger teal so the chip visually pops
  * against the regular AA-capable badge. */
 .td-tower-card-aa.td-tower-card-aa-only {
   background: linear-gradient(180deg, var(--td-teal-light) 0%, var(--td-teal) 55%, var(--td-teal-dark) 100%);
@@ -768,7 +779,7 @@
   min-height: 0;
 }
 
-/* Stats Grid — 3×2 (Phase 5.16) with damage-type tile at pos 0 */
+/* Stats Grid, 3×2 (Phase 5.16) with damage-type tile at pos 0 */
 .td-stats-grid {
   display: grid;
   grid-template-columns: repeat(2, 1fr);

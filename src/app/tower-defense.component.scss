@@ -142,30 +142,13 @@
   max-width: 400px;
 }
 
-.td-token-instructions {
-  background: var(--td-panel-secondary);
-  border: 1px solid var(--td-frame-mid);
-  padding: 16px;
-  text-align: left;
-  margin: 16px 0;
+.td-error-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 8px;
 }
 
-.td-token-instructions p { margin: 8px 0; font-size: 12px; }
-.td-token-instructions a { color: var(--td-teal); }
-.td-token-instructions code {
-  background: var(--td-panel-shadow);
-  padding: 2px 6px;
-  font-size: 11px;
-}
-.td-token-instructions pre {
-  background: var(--td-panel-shadow);
-  border: 1px solid var(--td-frame-dark);
-  padding: 10px;
-  font-size: 11px;
-  color: var(--td-green);
-}
-
-/* Generic Buttons — refined gradient + glow-hover (no translate) */
+/* Generic Buttons, refined gradient + glow-hover (no translate) */
 .td-btn {
   display: inline-flex;
   align-items: center;

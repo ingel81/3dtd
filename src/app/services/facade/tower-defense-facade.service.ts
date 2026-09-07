@@ -67,7 +67,7 @@ export interface FacadeComponentBridge {
 }
 
 /**
- * Main facade service — orchestrates initialization, dispose, and delegates
+ * Main facade service, orchestrates initialization, dispose, and delegates
  * domain-specific work to sub-facades:
  *
  * - GameLoopFacadeService: Wave management, game loop, lifecycle, upgrades
@@ -76,7 +76,7 @@ export interface FacadeComponentBridge {
  */
 @Injectable()
 export class TowerDefenseFacadeService {
-  // Store — single source of truth for UI state
+  // Store, single source of truth for UI state
   private readonly store = inject(TowerDefenseStore);
 
   // Sub-facades
@@ -102,16 +102,16 @@ export class TowerDefenseFacadeService {
   /** Component bridge - set via initialize(). Non-null after initEffects(). */
   private bridge!: FacadeComponentBridge;
 
-  /** Game state manager — component-provided, set via initialize(). */
+  /** Game state manager, component-provided, set via initialize(). */
   private gameState!: GameStateManager;
 
   /** Whether the facade has been initialized via initEffects() */
   private initialized = false;
 
-  /** EventBus subscription bag — cleaned up in dispose() */
+  /** EventBus subscription bag, cleaned up in dispose() */
   private readonly eventBusSubs = new SubscriptionBag();
 
-  /** Pending auto-restart timeout (bot mode) — cleared in dispose() */
+  /** Pending auto-restart timeout (bot mode), cleared in dispose() */
   private autoRestartTimeout: ReturnType<typeof setTimeout> | null = null;
 
   /**
@@ -187,8 +187,8 @@ export class TowerDefenseFacadeService {
       // all while still looking connected and healthy on the dashboard.
       this.trainingClient.botAutoMode.set(botMode !== 'manual');
       // ...and it plays on its own too. Waiting for the dashboard's `start`
-      // meant a tab that reloaded — whether by hand or via the `reload` control
-      // command — sat in setup forever: `start` had already been broadcast, and
+      // meant a tab that reloaded, whether by hand or via the `reload` control
+      // command, sat in setup forever: `start` had already been broadcast, and
       // nothing broadcasts it again. `enableBot` is safe to call before
       // `initialize()`; it queues the request until the factory exists.
       if (botMode !== 'manual') {
@@ -253,13 +253,16 @@ export class TowerDefenseFacadeService {
       const cesiumAssetId = this.configService.cesiumAssetId();
       const googleMapsApiKey = this.configService.googleMapsApiKey();
 
+      // Missing credentials are normally caught before startGame and answered
+      // with the token screen. Reaching this branch means something started the
+      // engine anyway, so fail loudly rather than into an endless loading state.
       if (tileProvider === 'google' && !googleMapsApiKey) {
-        this.engineInit.setError('Please configure your Google Maps API Key in environment.ts.');
+        this.engineInit.setError('No Google Maps API key configured.');
         this.engineInit.setLoading(false);
         return;
       }
       if (tileProvider === 'cesium' && !cesiumToken) {
-        this.engineInit.setError('Please configure your Cesium Ion Token in environment.ts.');
+        this.engineInit.setError('No Cesium Ion token configured.');
         this.engineInit.setLoading(false);
         return;
       }
@@ -286,11 +289,16 @@ export class TowerDefenseFacadeService {
 
       if (engine) {
         engine.setOnTilesLoadCallback(() => this.vizFacade.onTilesLoaded());
+        // A rejected token surfaces here rather than as a stuck loading screen.
+        engine.setOnAuthErrorCallback(() => {
+          this.configService.reportCredentialsRejected();
+          this.engineInit.setLoading(false);
+        });
         engine.setOnUpdateCallback((deltaTime) => this.gameLoopFacade.onEngineUpdate(deltaTime));
 
         // A training tab spends its life in the background. Chrome freezes
         // requestAnimationFrame in hidden tabs completely, so without this the
-        // whole run stops the moment the window loses visibility — while the
+        // whole run stops the moment the window loses visibility, while the
         // once-a-second status push keeps reporting the client as healthy.
         // The normal game keeps the browser's throttling; it should not run
         // when nobody is watching.
@@ -310,7 +318,7 @@ export class TowerDefenseFacadeService {
         this.debugFacade.setEngine(engine, this.gameState);
         this.debugFacade.applyDisplayOptions();
         this.profiler.setEngine(engine, this.gameState);
-        // Timing hooks stay unwired by default — PerformanceDebuggerComponent
+        // Timing hooks stay unwired by default, PerformanceDebuggerComponent
         // calls profiler.setProfilingActive(true) while the panel is open.
         // Wiring them unconditionally costs ~20% CPU at 10k enemies because
         // each enemy update emits ~5 performance.now() calls.
@@ -370,7 +378,7 @@ export class TowerDefenseFacadeService {
   }
 
   // ══════════════════════════════════════════════════════════════
-  // Public API — Delegates to sub-facades
+  // Public API, Delegates to sub-facades
   // ══════════════════════════════════════════════════════════════
 
   /** Start a new wave (manual or AI-directed). */

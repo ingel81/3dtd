@@ -1,8 +1,9 @@
-import { ApplicationConfig, provideZoneChangeDetection } from '@angular/core';
+import { ApplicationConfig, inject, provideAppInitializer, provideZoneChangeDetection } from '@angular/core';
 import { provideRouter } from '@angular/router';
 import { provideAnimationsAsync } from '@angular/platform-browser/animations/async';
 import { provideHttpClient } from '@angular/common/http';
 import { routes } from './app.routes';
+import { ConfigService } from './core/services/config.service';
 
 export const appConfig: ApplicationConfig = {
   providers: [
@@ -10,5 +11,8 @@ export const appConfig: ApplicationConfig = {
     provideRouter(routes),
     provideAnimationsAsync(),
     provideHttpClient(),
+    // Tile credentials are resolved before the first component renders, so the
+    // engine never starts against a half-loaded config.
+    provideAppInitializer(() => inject(ConfigService).load()),
   ],
 };

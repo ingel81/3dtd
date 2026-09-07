@@ -36,6 +36,11 @@
   <div class="td-main">
     <!-- Canvas Area -->
     <div class="td-canvas-area">
+      <!-- Tile credentials missing or rejected: everything else waits. -->
+      @if (awaitingCredentials() || configService.credentialsRejected() || configService.setupRequested()) {
+        <td-token-setup (tokenSaved)="onCredentialsSaved()" />
+      }
+
       @if (loading() && !error()) {
         <td-loading-screen
           [mission]="missionInfo()"
@@ -51,13 +56,12 @@
           <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
           <h3>Error</h3>
           <p>{{ error() }}</p>
-          <div class="td-token-instructions">
-            <p>1. Create a project in the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></p>
-            <p>2. Enable the <strong>Map Tiles API</strong></p>
-            <p>3. Create an API key and put it into <code>src/environments/environment.ts</code>:</p>
-            <pre>googleMapsApiKey: 'your-api-key'</pre>
+          <div class="td-error-actions">
+            <button class="td-btn td-btn-gold" (click)="awaitingCredentials.set(true)">
+              Change tile credentials
+            </button>
+            <button class="td-btn" (click)="close()">Close</button>
           </div>
-          <button class="td-btn td-btn-gold" (click)="close()">Close</button>
         </div>
       }
 
@@ -66,9 +70,9 @@
       <!-- Google Attribution (required) -->
       @if (!loading() && !error()) {
         <div class="td-logo-attribution">
-          <img src="/assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
+          <img src="assets/images/ui/google-maps-logo.svg" alt="Google Maps" class="td-google-logo">
           @if (configService.tileProvider() === 'cesium') {
-            <img src="/assets/images/ui/cesium-ion-logo.svg" alt="Cesium ion" class="td-cesium-logo">
+            <img src="assets/images/ui/cesium-ion-logo.svg" alt="Cesium ion" class="td-cesium-logo">
           }
         </div>
         <div class="td-map-attribution">{{ mapAttribution() }}</div>

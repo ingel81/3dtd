@@ -83,7 +83,7 @@ interface ActiveTile {
   engineData?: { scene?: Object3D | null } | null;
 }
 
-/** Straight down — the terrain probe is always vertical. */
+/** Straight down, the terrain probe is always vertical. */
 const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
 
 /** Column cache granularity: 2 buckets per metre (0.5 m grid). */
@@ -125,7 +125,7 @@ export class ThreeTilesEngine {
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
-  /** Phase 5.14: headless mode — skips all per-frame rendering work. */
+  /** Phase 5.14: headless mode, skips all per-frame rendering work. */
   private _renderingEnabled = true;
 
   // DevWorld support
@@ -153,7 +153,7 @@ export class ThreeTilesEngine {
   /**
    * Lazy cache of per-tile horizontal AABB (min/max x,z). Built on demand
    * by `peekBestTileLODAtLocal` and cached for the lifetime of each tile
-   * scene — tile geometry is immutable once loaded, so the AABB never
+   * scene, tile geometry is immutable once loaded, so the AABB never
    * changes until the scene unloads. WeakMap keys die with their scene,
    * so no manual eviction needed.
    */
@@ -172,7 +172,7 @@ export class ThreeTilesEngine {
   /**
    * Raycaster reserved for terrain columns. Separate from `this.raycaster`
    * because LOS checks set `far` to their segment length and screen picking
-   * sets its own origin — sharing one instance made the effective range
+   * sets its own origin, sharing one instance made the effective range
    * depend on whatever ran last.
    */
   private readonly terrainRaycaster = new Raycaster();
@@ -214,7 +214,7 @@ export class ThreeTilesEngine {
   private debugHelpers: Object3D[] = [];
 
   // GPU-LOS-Pipeline: lazy-initialised auf erste Anforderung. Shared
-  // zwischen Build-Preview und Tower-Selection-Viz (Lesson 9 — beide
+  // zwischen Build-Preview und Tower-Selection-Viz (Lesson 9, beide
   // dürfen nicht gleichzeitig aktiv sein).
   private towerShadowMapper: TowerShadowMapper | null = null;
 
@@ -244,6 +244,12 @@ export class ThreeTilesEngine {
 
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
+
+  // Callback when the tile server rejects our credentials (bad/expired token).
+  // The rejection lands during initEngine(), before the caller gets the engine
+  // back to register anything, so a missed error is remembered and replayed.
+  private onAuthErrorCallback: (() => void) | null = null;
+  private authErrorSeen = false;
   private tilesLoadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
   private firstTilesRetryTimer: ReturnType<typeof setTimeout> | null = null;
   private firstTilesRetryCount = 0;
@@ -279,8 +285,8 @@ export class ThreeTilesEngine {
   private animationFrameId: number | null = null;
   /**
    * Hidden-tab loop driver. Chrome freezes requestAnimationFrame outright
-   * while a tab is not visible, so the render loop — and with it the bot, the
-   * wave logic and every training episode — stops dead rather than slowing
+   * while a tab is not visible, so the render loop, and with it the bot, the
+   * wave logic and every training episode, stops dead rather than slowing
    * down. Opt in via `setBackgroundLoopEnabled(true)`; training does.
    */
   private heartbeatWorker: Worker | null = null;
@@ -460,7 +466,7 @@ export class ThreeTilesEngine {
 
   /**
    * Phase 5.14: Enable/disable per-frame rendering (headless training mode).
-   * When disabled, `update()` and `render()` become no-ops — only the
+   * When disabled, `update()` and `render()` become no-ops, only the
    * gameplay tick (`onUpdateCallback`) continues via the animate loop.
    */
   /** True while the render path runs; false in headless training. */
@@ -573,9 +579,18 @@ export class ThreeTilesEngine {
       this.tilesetLoadCount++;
     });
 
-    // Debug: Listen for errors
+    // A failed credential handshake and a failed single tile arrive on the same
+    // event. The auth plugins dispatch theirs with `tile: null` (see
+    // CesiumIonAuthPlugin.loadRootTileset), which is what separates "your token
+    // is wrong" from "one tile did not come back".
     this.tilesRenderer.addEventListener('load-error', (event: unknown) => {
       console.error('[TilesEngine] load-error event:', event);
+
+      const tile = (event as { tile?: unknown } | null)?.tile;
+      if (tile === null) {
+        this.authErrorSeen = true;
+        this.onAuthErrorCallback?.();
+      }
     });
 
     // Set up terrain height sampler for tower range indicators (legacy)
@@ -763,11 +778,11 @@ export class ThreeTilesEngine {
         }
       }
 
-      // The loaded-tile set has changed — that is true on EVERY settled
+      // The loaded-tile set has changed, that is true on EVERY settled
       // load-end, not only when the origin column happens to shift.
       //
       // This used to sit behind a 2 m height-delta gate measured at (0,0). LOD refinement anywhere else in the world
-      // — the whole enemy corridor, for instance — never moves the origin
+      //, the whole enemy corridor, for instance, never moves the origin
       // column, so the tile-info map went stale, `peekBestTileLODAtLocal`
       // reported outdated LODs, `sampleCellY`'s skip gate then refused to
       // re-sample, and the convergence loop spun without healing anything.
@@ -777,7 +792,7 @@ export class ThreeTilesEngine {
       const tPre0 = performance.now();
 
       // Bumps `lodVersion`, which is what invalidates individual column
-      // samples — no global cache clear needed.
+      // samples, no global cache clear needed.
       this.rebuildPersistentTileInfoMap();
       const tRebuildMap = performance.now();
 
@@ -875,6 +890,18 @@ export class ThreeTilesEngine {
   }
 
   /**
+   * Register a callback for a rejected tile-server credential.
+   * Used to send the player back to the token screen instead of leaving them
+   * on a loading indicator that never finishes.
+   */
+  setOnAuthErrorCallback(callback: () => void): void {
+    this.onAuthErrorCallback = callback;
+
+    // Registration usually happens after the tileset request already failed.
+    if (this.authErrorSeen) callback();
+  }
+
+  /**
    * Register a callback to be called when first tiles are loaded
    * Used by component to hide "loading tiles" indicator
    */
@@ -916,7 +943,7 @@ export class ThreeTilesEngine {
     const ambient = new AmbientLight(0xffe8d0, 0.8); // Warm tint
     this.scene.add(ambient);
 
-    // R1: lights never move after setup — compute their world matrix once and
+    // R1: lights never move after setup, compute their world matrix once and
     // opt out of the per-frame matrixWorld pass.
     for (const light of [hemi, sun, fill, ambient]) {
       light.updateMatrix();
@@ -933,7 +960,7 @@ export class ThreeTilesEngine {
     const loader = new TextureLoader();
 
     loader.load(
-      '/assets/images/skybox/day.webp',
+      'assets/images/skybox/day.webp',
       (texture) => {
         texture.mapping = EquirectangularReflectionMapping;
         texture.colorSpace = SRGBColorSpace;
@@ -1088,6 +1115,7 @@ export class ThreeTilesEngine {
     this.firstTilesLoaded = false;
     this.firstTilesRetryCount = 0;
     this.tilesetLoadCount = 0;
+    this.authErrorSeen = false;
     this.cameraNudgeCount = 0;
     if (this.firstTilesRetryTimer) {
       clearTimeout(this.firstTilesRetryTimer);
@@ -1158,8 +1186,7 @@ export class ThreeTilesEngine {
       return this.devTerrainProvider.getHeightAtGeo(lat, lon);
     }
 
-    // Caching happens per column in `sampleColumn`, keyed on local (x,z) —
-    // one keyspace for the whole engine instead of a second lat/lon one.
+    // Caching happens per column in `sampleColumn`, keyed on local (x,z), // one keyspace for the whole engine instead of a second lat/lon one.
     const localPos = this.sync.geoToLocalSimple(lat, lon, 0);
     return this.sampleColumn(localPos.x, localPos.z)?.groundY ?? null;
   }
@@ -1254,7 +1281,7 @@ export class ThreeTilesEngine {
    * the finest-LOD filter is the whole point.
    *
    * Results are cached per 0.5 m column and invalidated per entry via
-   * {@link lodVersion} — a stale entry is only re-raycast when the peek says
+   * {@link lodVersion}, a stale entry is only re-raycast when the peek says
    * better tile data actually exists, otherwise it is just re-stamped.
    *
    * @returns null if nothing usable was hit; the cache is left untouched so
@@ -1322,7 +1349,7 @@ export class ThreeTilesEngine {
     return selectColumnSample(this._columnHits);
   }
 
-  /** Quantised column key — 0.5 m grid, Szudzik pairing (negatives safe). */
+  /** Quantised column key, 0.5 m grid, Szudzik pairing (negatives safe). */
   private columnCacheKey(localX: number, localZ: number): number {
     const xi = Math.round(localX * COLUMN_CACHE_SCALE);
     const zi = Math.round(localZ * COLUMN_CACHE_SCALE);
@@ -1348,8 +1375,7 @@ export class ThreeTilesEngine {
    * yields LRU-cached tiles that are loaded but not part of the current
    * refinement, and those are invisible to the raycast
    * (`TilesRenderer.raycast` walks the active traversal only). Reporting
-   * their LOD made the peek promise a quality the ray could never deliver —
-   * cells were re-sampled for nothing and then accepted the coarse hit.
+   * their LOD made the peek promise a quality the ray could never deliver, * cells were re-sampled for nothing and then accepted the coarse hit.
    */
   rebuildPersistentTileInfoMap(): void {
     if (!this.tilesRenderer) {
@@ -1380,7 +1406,7 @@ export class ThreeTilesEngine {
    * Tile-LOD peek WITHOUT raycast. Walks the persistent tile-info map and
    * returns the best (deepest / lowest geometricError) tile whose horizontal
    * AABB contains the local (x,z). Used by the route-grid to skip stable
-   * cells whose Tile-LOD hasn't improved since the last sample — eliminates
+   * cells whose Tile-LOD hasn't improved since the last sample, eliminates
    * the per-cell raycast cost in the post-tile-load full-sweep.
    *
    * Returns `null` when:
@@ -1392,7 +1418,7 @@ export class ThreeTilesEngine {
    */
   peekBestTileLODAtLocal(localX: number, localZ: number): { depth: number; geometricError: number } | null {
     if (this.devTerrainProvider) {
-      // DevWorld has no streaming LOD — synthetic high quality so the
+      // DevWorld has no streaming LOD, synthetic high quality so the
       // route-grid never re-raycasts stable cells in dev mode.
       return { depth: 99, geometricError: 0 };
     }
@@ -1415,7 +1441,7 @@ export class ThreeTilesEngine {
       if (!bounds) {
         // `setFromObject` reads matrixWorld. Touching a scene before the
         // renderer has updated it bakes an AABB around an identity
-        // transform — permanently wrong, since the WeakMap has no eviction
+        // transform, permanently wrong, since the WeakMap has no eviction
         // short of the scene unloading.
         scene.updateWorldMatrix(true, true);
         const box = new Box3().setFromObject(scene);
@@ -1491,7 +1517,7 @@ export class ThreeTilesEngine {
     this.raycaster.set(this._losOrigin, this._losDirection);
     this.raycaster.far = distance - 0.5; // Stop slightly before target
 
-    // Reuse intersection array — intersectObject appends, so clear first
+    // Reuse intersection array, intersectObject appends, so clear first
     this._losResults.length = 0;
     this.raycaster.intersectObject(this.tilesRenderer.group, true, this._losResults);
 
@@ -1590,7 +1616,7 @@ export class ThreeTilesEngine {
    * Main render loop - call this each frame.
    * Headless-mode: when rendering is disabled, we skip all per-frame visual
    * work (tilesRenderer.update, camera updates, renderer.render, FPS tracking).
-   * Gameplay still runs — it's driven by `onUpdateCallback` in `update()`,
+   * Gameplay still runs, it's driven by `onUpdateCallback` in `update()`,
    * which is called from the animate loop regardless of rendering state.
    */
   render(): void {
@@ -1638,13 +1664,13 @@ export class ThreeTilesEngine {
 
     // Update tiles. Camera matrix must be current before tilesRenderer.update()
     // reads it for LOD/frustum (controls.update() above moved the camera).
-    // setResolutionFromRenderer / setCamera are NOT per-frame work — resolution
+    // setResolutionFromRenderer / setCamera are NOT per-frame work, resolution
     // only changes on resize() and the camera reference is registered once at
     // init (and on the no-tiles nudge); calling them every frame was wasted work.
     this.camera.updateMatrixWorld();
 
     // TODO: Tiles throttling was here (only update when camera moves >5m) but broke
-    // initial tile loading — tiles never loaded because update() was never called.
+    // initial tile loading, tiles never loaded because update() was never called.
     // Needs a smarter approach (e.g. always update until tiles are loaded, then throttle).
     this.tilesRenderer.update();
 
@@ -1664,7 +1690,7 @@ export class ThreeTilesEngine {
         .copy(this.tilesRenderer.group.position)
         .sub(this.initialTilesPos);
 
-      // Straight delta on all three axes — the overlay lives in absolute
+      // Straight delta on all three axes, the overlay lives in absolute
       // scene-Y now, there is no separate base-terrain offset any more.
       this.overlayGroup.position.copy(deltaPos);
     }
@@ -1689,7 +1715,7 @@ export class ThreeTilesEngine {
    *   GameStateManager via towers.advanceTurretAim().
    */
   update(deltaTime: number): void {
-    // Phase 5.14: Gameplay MUST run even in headless mode — it's driven by
+    // Phase 5.14: Gameplay MUST run even in headless mode, it's driven by
     // `onUpdateCallback` (game-loop-facade → GameStateManager sub-step loop).
     // All other work here is purely visual and gets skipped when rendering
     // is disabled.
@@ -1737,7 +1763,7 @@ export class ThreeTilesEngine {
       this.testCube.rotation.y += deltaTime * 0.001;
     }
 
-    // Screen shake (XZ plane only — no vertical shake to avoid nausea)
+    // Screen shake (XZ plane only, no vertical shake to avoid nausea)
     // Always remove previous frame's offset first, then apply new one
     if (this.shakeOffset.lengthSq() > 0) {
       this.camera.position.sub(this.shakeOffset);
@@ -1774,8 +1800,7 @@ export class ThreeTilesEngine {
    *
    * A throttled hidden tab can hand us gaps of seconds. At a training
    * timescale of 75 a one-second gap is 75 seconds of game time in one step,
-   * which the fixed sub-step loop would try to catch up in a single frame —
-   * the same sub-step pile-up that showed up as 225 sub-steps per frame and
+   * which the fixed sub-step loop would try to catch up in a single frame, * the same sub-step pile-up that showed up as 225 sub-steps per frame and
    * 2 FPS. Capping means game time runs slower than wall-clock while hidden,
    * which is the right trade: slower beats stopped.
    */
@@ -2077,7 +2102,7 @@ export class ThreeTilesEngine {
   /**
    * Lazy-getter für den shared TowerShadowMapper. Erste Anforderung
    * instanziiert (passiert in Tower-Placement-Service / TowerManager-
-   * Selection — nicht beim Engine-Boot, um die Initialisierung schlank
+   * Selection, nicht beim Engine-Boot, um die Initialisierung schlank
    * zu halten).
    */
   getTowerShadowMapper(): TowerShadowMapper {
@@ -2128,7 +2153,7 @@ export class ThreeTilesEngine {
    */
   areTilesVisible(): boolean {
     // `?.` yields undefined when there is no tiles renderer at all (DevWorld),
-    // and `undefined !== null` is true — so this used to claim tiles were
+    // and `undefined !== null` is true, so this used to claim tiles were
     // visible in a world that has none.
     const group = this.tilesRenderer?.group;
     return !!group && group.parent !== null;
@@ -2150,7 +2175,7 @@ export class ThreeTilesEngine {
 
   /**
    * Get the active camera controls (GlobeControls in the tiles path,
-   * EnvironmentControls in DevWorld — both share the same base class).
+   * EnvironmentControls in DevWorld, both share the same base class).
    *
    * Needed by scripted camera moves (intro flight) which take over the
    * camera for the duration of the move: setting `controls.enabled = false`

@@ -339,10 +339,16 @@
 
     <!-- Footer -->
     <div class="td-sidebar-footer">
-      <button class="td-attributions-btn" (click)="openAttributions()">
-        <td-icon name="copyright" [size]="12"></td-icon>
-        <span>Attributions & Licenses</span>
-      </button>
+      <div class="td-footer-links">
+        <button class="td-attributions-btn" (click)="openTokenSetup()">
+          <td-icon name="lock" [size]="10"></td-icon>
+          <span>Map Key</span>
+        </button>
+        <button class="td-attributions-btn" (click)="openAttributions()">
+          <td-icon name="copyright" [size]="10"></td-icon>
+          <span>Attributions</span>
+        </button>
+      </div>
       <div class="td-sidebar-footer-bottom">
         <span class="td-version">v0.1.0</span>
         <a href="https://github.com/ingel81/3dtd" target="_blank" class="td-repo-link" title="GitHub">
