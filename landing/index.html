@@ -1,0 +1,380 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>3DTD, tower defense on your actual street</title>
+<meta name="description" content="A tower defense that streams Google's Photorealistic 3D Tiles. Type a real address, and enemies walk up the real roads towards your base.">
+<link rel="icon" href="media/logo.png">
+<meta property="og:title" content="3DTD">
+<meta property="og:description" content="Tower defense on your actual street.">
+<meta property="og:image" content="media/hero-poster.jpg">
+<meta property="og:type" content="website">
+<!--
+  One static file plus /media. No build step, no framework, no third-party
+  request on load. The YouTube embed is click-to-load.
+
+  FONTS: the design wants Cinzel (display) and Inter Tight (body). Drop the
+  woff2 files under media/fonts/ and uncomment the block below. Do not hotlink
+  Google Fonts, the privacy line in the footer has to stay true. Without the
+  files the page falls back to Georgia / system-ui and still holds together.
+
+  <style>
+  @font-face{font-family:'Cinzel';src:url('media/fonts/cinzel-600.woff2') format('woff2');font-weight:600;font-display:swap}
+  @font-face{font-family:'Cinzel';src:url('media/fonts/cinzel-700.woff2') format('woff2');font-weight:700;font-display:swap}
+  @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-400.woff2') format('woff2');font-weight:400;font-display:swap}
+  @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-600.woff2') format('woff2');font-weight:600;font-display:swap}
+  @font-face{font-family:'JetBrains Mono';src:url('media/fonts/jetbrains-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
+  </style>
+
+  MEDIA: every image and video is a dashed placeholder that names the file it
+  expects. The real markup sits in an HTML comment directly above it, so
+  swapping a placeholder is a delete plus an uncomment.
+-->
+<style>
+/* ---------- shared base: tokens and primitives ---------- */
+/* 3DTD landing, shared base for the three layout variants.
+   Tokens and primitives only. Each variant file owns its own layout. */
+:root{
+--bg:#111613;--surface:#1A201C;--panel:#222A24;--panel-2:#1A1F1B;--panel-shadow:#0B0F0C;
+--frame:#2F3631;--frame-mid:#4A544D;--frame-light:#7A8580;--edge:#A7B3A8;
+--gold:#C2A055;--gold-light:#D9BC68;--gold-dark:#8E7228;--rune:#A47A2C;--rune-muted:#6B5320;
+--teal:#6BB6A4;--text:#EEF1EB;--text-2:#B6C0B3;--muted:#8E988C;--warn:#C96A3A;
+--display:'Cinzel',Georgia,'Times New Roman',serif;
+--body:'Inter Tight',system-ui,-apple-system,sans-serif;
+--mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+--bevel:inset 0 1px 0 rgba(167,179,168,.16),inset 0 -1px 0 var(--panel-shadow),0 1px 0 var(--panel-shadow);
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+body{margin:0;color:var(--text);font-family:var(--body);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased;background:linear-gradient(rgba(17,22,19,.9),rgba(17,22,19,.9)),url('media/stone-wall.jpg') repeat;background-size:auto,64px 64px;background-attachment:fixed}
+img,video{max-width:100%}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0}
+a{color:var(--gold);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--gold-light)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.mono{font-family:var(--mono)}
+.fine{color:var(--muted);font-size:13.5px}
+.lead{margin:0;color:var(--text-2)}
+
+/* buttons: gradient bevel, hard bottom edge, 0 radius */
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border:1px solid var(--frame-mid);background:linear-gradient(180deg,var(--panel),var(--panel-2));box-shadow:inset 0 1px 0 rgba(167,179,168,.2),0 2px 0 var(--panel-shadow);color:var(--text);font-family:var(--display);font-size:14.5px;font-weight:600;letter-spacing:.05em;text-decoration:none;transition:border-color 140ms,color 140ms,background 140ms,transform 90ms}
+.btn:hover{border-color:var(--frame-light);color:var(--gold)}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(167,179,168,.12),0 1px 0 var(--panel-shadow)}
+.btn--primary{background:linear-gradient(180deg,var(--gold-light) 0%,var(--gold) 52%,var(--gold-dark) 100%);border-color:var(--gold-dark);color:#14180F;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,244,214,.5),0 2px 0 #4A3A12}
+.btn--primary:hover{filter:brightness(1.08);color:#14180F;border-color:var(--gold-dark)}
+.btn[aria-disabled="true"]{opacity:.42;pointer-events:none}
+.btn small{font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.12em;opacity:.72;text-transform:uppercase}
+.actions{display:flex;flex-wrap:wrap;gap:12px}
+
+/* framed panel with corner ticks, from the in-game panels */
+
+/* media placeholders: name the file, keep the real markup in a comment above */
+
+/* hud chips */
+
+/* click-to-load youtube plate */
+
+/* token screen mock */
+.token-field{display:flex;gap:8px;margin:16px 0 14px}
+.token-field .fake-input{flex:1;min-width:0;padding:11px 13px;border:1px solid var(--frame);background:var(--panel-shadow);box-shadow:inset 0 1px 3px rgba(0,0,0,.55);color:var(--muted);font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.token-field .fake-btn{padding:11px 20px;border:1px solid var(--gold-dark);background:linear-gradient(180deg,rgba(194,160,85,.18),rgba(142,114,40,.1));color:var(--gold);font-family:var(--display);font-size:12.5px;font-weight:600;letter-spacing:.06em}
+
+/* tech table */
+
+/* footer */
+footer{padding:40px 0 72px;color:var(--muted);font-size:13px;border-top:1px solid var(--frame);background:linear-gradient(rgba(11,15,12,.78),rgba(11,15,12,.86)),url('media/stone-wall.jpg') repeat;background-size:auto,64px 64px;box-shadow:inset 0 1px 0 rgba(167,179,168,.08)}
+footer .row{display:flex;flex-wrap:wrap;gap:8px 22px;margin-bottom:18px;font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase}
+footer .row span{color:var(--muted)}
+footer p{margin:0 0 10px;max-width:78ch}
+</style>
+<style>
+/* ---------- layout: the game's own chrome. Fixed left panel column, content
+     as stacked panels with title bars. Collapses to a top bar under 1000px. */
+
+body{display:block}
+
+.yt{position:relative;margin-top:22px;aspect-ratio:16/9;border:1px solid var(--frame);background:var(--panel-shadow);overflow:hidden}
+.yt img,.yt iframe{width:100%;height:100%;display:block;border:0}
+.yt-play{position:absolute;inset:0;margin:auto;width:78px;height:78px;display:grid;place-items:center;border:1px solid var(--gold-dark);background:rgba(17,22,19,.72);color:var(--gold);cursor:pointer;transition:background 140ms,border-color 140ms,color 140ms}
+.yt-play:hover{background:rgba(17,22,19,.9);border-color:var(--gold);color:var(--gold-light)}
+.yt.playing .yt-play,.yt.playing img{display:none}
+
+/* sections: a hairline and a heading, nothing else */
+.panel{margin-bottom:26px}
+.panel-bar{padding:0 0 12px;border-bottom:1px solid var(--frame);margin-bottom:22px}
+.panel-bar h2{margin:0;font-size:clamp(20px,2.4vw,26px);color:var(--gold-light);letter-spacing:.01em}
+.panel-body{padding:0}
+main{max-width:1120px;margin:0 auto;padding:26px 26px 60px}
+
+/* slim top bar, no side rail */
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:20px;padding:10px 26px;
+  background:linear-gradient(rgba(15,19,15,.9),rgba(15,19,15,.9)),url('media/stone-wall.jpg') repeat;
+  background-size:auto,64px 64px;border-bottom:3px solid var(--panel-shadow);
+  box-shadow:0 4px 8px rgba(0,0,0,.45),inset 0 -2px 4px rgba(0,0,0,.3)}
+.top .brand img{height:34px;width:auto;display:block}
+.top nav{display:flex;align-items:center;gap:18px;margin-left:auto}
+.top nav a{color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none}
+.top nav a:hover{color:var(--gold)}
+.btn--soon{border-style:dashed;color:var(--muted);cursor:default}
+.btn--soon small{margin-left:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--rune,var(--gold-dark))}
+.btn--sm{padding:8px 18px;font-size:12px}
+@media (max-width:620px){
+  .top{padding:8px 14px;gap:12px}
+  .top .brand img{height:26px}
+  .top nav{gap:12px}
+  .top nav a:not(.btn){display:none}
+}
+.panel-body{padding:24px 26px 28px}
+.panel-body>.lead{max-width:70ch;font-size:16px}
+
+.lightbox[hidden]{display:none}
+.lightbox{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:32px;background:rgba(8,11,9,.94);cursor:zoom-out}
+.lightbox img{max-width:100%;max-height:100%;border:1px solid var(--frame-mid);box-shadow:0 0 60px rgba(0,0,0,.7)}
+.lightbox-close{position:absolute;top:18px;right:18px;padding:8px 16px;border:1px solid var(--frame-mid);background:rgba(13,17,14,.8);color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
+.lightbox-close:hover{border-color:var(--gold-dark);color:var(--gold)}
+
+/* hero panel */
+.sound-btn{position:absolute;left:18px;bottom:18px;display:inline-flex;align-items:center;gap:10px;padding:12px 20px;border:1px solid var(--gold);background:linear-gradient(180deg,rgba(217,188,104,.16),rgba(13,17,14,.86));color:var(--gold-light);font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.08em;cursor:pointer;box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 24px rgba(194,160,85,.22);transition:border-color 140ms,color 140ms,background 140ms,box-shadow 140ms}
+.sound-btn:hover{background:linear-gradient(180deg,rgba(217,188,104,.28),rgba(13,17,14,.86));box-shadow:inset 0 1px 0 rgba(217,188,104,.4),0 2px 0 var(--panel-shadow),0 0 32px rgba(194,160,85,.34)}
+/* Pulsiert, bis der Ton einmal angeschaltet wurde. Ohne den Hinweis merkt
+   niemand, dass es eine Tonspur gibt, weil Autoplay stumm starten muss. */
+.sound-btn[aria-pressed="false"]{animation:soundpulse 2.6s ease-in-out infinite}
+.sound-btn[aria-pressed="true"]{animation:none;color:var(--gold);background:rgba(13,17,14,.8)}
+@keyframes soundpulse{0%,100%{box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 18px rgba(194,160,85,.18)}50%{box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 34px rgba(194,160,85,.46)}}
+@media (prefers-reduced-motion:reduce){.sound-btn{animation:none}}
+@media (max-width:620px){.sound-btn{left:10px;bottom:10px;padding:10px 14px;font-size:12px}}
+.hero-panel{margin-bottom:22px}
+.hero-media{position:relative;border-bottom:1px solid var(--panel-shadow)}
+.hero-media .ph,.hero-media video,.hero-media img{width:100%;aspect-ratio:21/9;object-fit:cover;border:0;display:block}
+.hero-copy{padding:26px 26px 24px}
+.hero-copy h1{font-size:clamp(30px,3.4vw,44px);line-height:1.06;margin-bottom:14px}
+.hero-copy h1 em{font-style:normal;color:var(--gold-light)}
+.hero-copy .lead{max-width:60ch;font-size:16.5px}
+.hero-copy .actions{margin-top:22px}
+.hero-copy .hud{margin-top:22px}
+
+/* required bar, inside the content column so it sits with the panels */
+
+/* mechanics as slot rows, like the tower list in game */
+.slots{display:grid;gap:14px}
+.slot{display:grid;grid-template-columns:210px minmax(0,1fr);gap:20px;padding:14px;border:1px solid var(--frame);background:rgba(11,15,12,.4);box-shadow:inset 0 1px 0 rgba(167,179,168,.08)}
+.slot .ph{aspect-ratio:16/10;height:100%;border-style:solid;border-color:var(--frame)}
+.slot img{width:100%;height:auto;display:block;border:1px solid var(--frame);cursor:zoom-in}
+.slot h3{font-size:18px;margin-bottom:8px}
+.slot p{margin:0;color:var(--text-2);font-size:15px}
+@media (max-width:780px){.slot{grid-template-columns:1fr}}
+
+/* places */
+.shots{display:grid;gap:14px;grid-template-columns:repeat(4,1fr)}
+@media (max-width:900px){.shots{grid-template-columns:repeat(2,1fr)}}
+@media (max-width:560px){.shots{grid-template-columns:1fr}}
+.shots figure{margin:0}
+
+.shots .ph{aspect-ratio:16/9;height:100%}
+.shots .ph{aspect-ratio:16/9}
+.shots .ph,.shots img{border:1px solid var(--frame);box-shadow:inset 0 1px 0 rgba(167,179,168,.08);transition:border-color 140ms}
+.shots img{width:100%;height:auto;display:block;cursor:zoom-in}
+.shots figure:hover .ph,.shots figure:hover img{border-color:var(--frame-light)}
+.shots figcaption{display:flex;gap:8px;margin-top:6px;color:var(--muted);font-family:var(--mono);font-size:10.5px}
+.shots figcaption b{color:var(--text-2);font-weight:500;letter-spacing:.1em;text-transform:uppercase}
+
+/* key */
+.key-grid{display:grid;gap:22px;grid-template-columns:1fr .9fr;align-items:start}
+@media (max-width:900px){.key-grid{grid-template-columns:1fr}}
+.steps{margin:0;padding:0;list-style:none;display:grid;gap:9px}
+.steps li{display:flex;gap:14px;padding:14px 16px;border:1px solid var(--frame);background:rgba(11,15,12,.4);box-shadow:inset 0 1px 0 rgba(167,179,168,.08);color:var(--text-2);font-size:15px}
+.steps .n{flex:0 0 auto;width:24px;height:24px;display:grid;place-items:center;border:1px solid var(--gold-dark);background:rgba(11,15,12,.7);color:var(--gold);font-family:var(--mono);font-size:11.5px}
+.steps strong{color:var(--text);font-weight:600}
+footer{border:1px solid var(--frame);background:rgba(11,15,12,.55);padding:24px 26px 28px;box-shadow:inset 0 1px 0 rgba(167,179,168,.06)}
+footer p{font-size:12.5px}
+
+main{max-width:1120px;margin:0 auto;padding:22px 26px 60px}
+@media (max-width:620px){.panel-body{padding:20px 18px 22px}.hero-copy{padding:20px 18px}main{padding:14px 14px 40px}}
+@media (max-width:760px){
+.hero-copy .actions .btn--primary{background:linear-gradient(180deg,var(--panel),var(--panel-2));border-color:var(--frame-mid);color:var(--text);box-shadow:inset 0 1px 0 rgba(167,179,168,.2),0 2px 0 var(--panel-shadow);font-weight:600}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="#top" aria-label="3DTD, back to top"><img src="media/logo.png" alt="3DTD"></a>
+  <nav>
+    <a href="#key">Token</a>
+    <a href="https://github.com/ingel81/3dtd">GitHub</a>
+    <a class="btn btn--primary btn--sm" href="/play/">Play</a>
+  </nav>
+</header>
+
+<main id="top">
+  <div class="panel hero-panel">
+    <div class="hero-media">
+      <!-- Autoplay only works muted, every browser blocks sound without a click,
+           so the track ships muted and the button below turns it on. -->
+      <video id="heroVideo" src="media/hero.mp4" poster="media/hero-poster.jpg"
+             autoplay muted loop playsinline preload="metadata"></video>
+      <button id="heroSound" class="sound-btn" type="button" aria-pressed="false" aria-label="Turn sound on">
+        <svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true">
+          <path d="M4 9v6h4l5 4V5L8 9H4z" fill="currentColor"/>
+          <path class="off" d="M17 8l4 8M21 8l-4 8" stroke="currentColor" stroke-width="1.8" fill="none"/>
+          <path class="on" d="M16.5 8.5a5 5 0 010 7M19 6a8.5 8.5 0 010 12" stroke="currentColor" stroke-width="1.8" fill="none" style="display:none"/>
+        </svg>
+        <span class="sound-label">Sound on</span>
+      </button>
+    </div>
+    <div class="hero-copy">
+      <h1>Tower defense on your actual street</h1>
+      <p class="lead">You type in an address, the game loads the photorealistic 3D tiles for that place, and enemies walk up the real roads towards your base.</p>
+      <div class="actions">
+        <a class="btn btn--primary" href="/play/">Play in your browser</a>
+        <a class="btn" href="https://github.com/ingel81/3dtd">Source on GitHub</a>
+        <!-- Wird ein echter Link, sobald das erste Windows-Release getaggt ist. -->
+        <span class="btn btn--soon">Desktop app <small>soon</small></span>
+        <!-- Drop aria-disabled once the first Windows release is tagged. -->
+      </div>
+      <p class="fine" style="margin-top:16px">Needs a free Cesium Ion token. <a href="#key">How to get one</a>. Made for desktop: it needs a GPU and a mouse.</p>
+    </div>
+  </div>
+
+  <section class="panel" id="how">
+    <div class="panel-bar"><h2>How it works</h2></div>
+    <div class="panel-body">
+      <p class="lead">The map isn't authored, it's streamed from Google's Photorealistic 3D Tiles. Routing, line of sight and placement all read that geometry.</p>
+      <div class="slots" style="margin-top:22px">
+        <article class="slot">
+          <img src="media/mech-routes.jpg" alt="Debug view over Berlin: the OpenStreetMap street network in thin yellow, the ground route in red, the air route in magenta" loading="lazy">
+          <div>
+            <h3>Routes follow real streets</h3>
+            <p>The street graph comes from OpenStreetMap, the thin yellow lines above. Ground enemies get the red route along those streets, flyers the magenta one straight across. Every waypoint of the ground route is raycast down onto the tile surface for its height, so it follows the actual terrain.</p>
+          </div>
+        </article>
+        <article class="slot">
+          <img src="media/mech-los.jpg" alt="Visibility grid around a tower, green where it can see, red where a building blocks it, with the depth cubemap it was read from" loading="lazy">
+          <div>
+            <h3>Buildings block line of sight</h3>
+            <p>A tower only fires at what it can see. The surrounding tiles are rendered into a cubemap once, the depth is read back, and the result is kept as a visibility mask over the tower's range. Green cells are covered, red ones are blocked by a building.</p>
+          </div>
+        </article>
+        <article class="slot">
+          <img src="media/mech-placement.jpg" alt="Placing a tower on a rooftop" loading="lazy">
+          <div>
+            <h3>Placement probes the ground</h3>
+            <p>Towers are set by raycasting against the tiles, not against a flat plane. Rooftops, embankments and bridges sit at their real height, which is why the same layout plays differently two streets over.</p>
+          </div>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="places">
+    <div class="panel-bar"><h2>Places</h2></div>
+    <div class="panel-body">
+      <p class="lead" style="margin-bottom:22px">How well it plays depends on where you point it. Some places load beautifully. Others have tile geometry that makes the routing do slightly silly things.</p>
+      <div class="shots">
+        <!-- Replace each .ph with: <img src="media/place-XX.jpg" alt="..." loading="lazy">
+             One ordinary residential street stays in the set on purpose. -->
+        <figure><img src="media/place-01.jpg" alt="Manhattan, a wave on Madison Street" loading="lazy"><figcaption><b>Manhattan</b> <span>a wave on Madison Street</span></figcaption></figure>
+        <figure><img src="media/place-02.jpg" alt="Tokyo, evening light" loading="lazy"><figcaption><b>Tokyo</b> <span>evening light</span></figcaption></figure>
+        <figure><img src="media/place-03.jpg" alt="Tokyo, base on Tokyo Tower" loading="lazy"><figcaption><b>Tokyo</b> <span>base on Tokyo Tower</span></figcaption></figure>
+        <figure><img src="media/place-04.jpg" alt="Manhattan, flying enemies" loading="lazy"><figcaption><b>Manhattan</b> <span>flying enemies</span></figcaption></figure>
+        <figure><img src="media/place-05.jpg" alt="Manhattan, a large wave on the avenue" loading="lazy"><figcaption><b>Manhattan</b> <span>a large wave on the avenue</span></figcaption></figure>
+        <figure><img src="media/place-06.jpg" alt="Manhattan, top-down over the interchange" loading="lazy"><figcaption><b>Manhattan</b> <span>top-down over the interchange</span></figcaption></figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="key">
+    <div class="panel-bar"><h2>Get a Cesium Ion token</h2></div>
+    <div class="panel-body">
+      <p class="lead" style="margin-bottom:22px">The 3D tiles are billed per request. The tiles are billed per request, so there is no shared key. You play on your own Cesium Ion token; the free tier is enough.</p>
+      <div class="key-grid">
+        <ol class="steps">
+          <li><span class="n">1</span><span>Sign up at <a href="https://ion.cesium.com/signup">ion.cesium.com</a>. Free, no card.</span></li>
+          <li><span class="n">2</span><span>Copy your default token under <strong>Access Tokens</strong>.</span></li>
+          <li><span class="n">3</span><span>Paste it into the game when it asks. Once per browser.</span></li>
+        </ol>
+        <!-- A quiet nod to the token screen the player meets right after Play. -->
+        
+          <p class="fine">The token stays in your browser and is sent only to Cesium. It never reaches this site. A Google Maps API key works too.</p>
+        </div>
+      </div>
+        <p class="fine" style="margin:0">Then it's just a street and some enemies walking up it.</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel" id="tech">
+    <div class="panel-bar"><h2>How it's built</h2></div>
+    <div class="panel-body">
+      <p class="lead">Angular and Three.js in the browser, tiles through 3DTilesRendererJS, streets and buildings from OpenStreetMap. There is no game server and no account here; the only sign-up is the Cesium one for your own tile key.</p>
+      <p class="lead" style="margin-top:14px">A hobby project, built in evenings. It runs, it's playable, and it is nowhere near finished. <a href="https://github.com/ingel81/3dtd/tree/main/docs">The docs</a> explain how the pieces fit.</p>
+      <!-- ===== YouTube-Embed, wartet auf die Video-ID =====================
+           Zum Aktivieren: diesen Kommentar aufloesen und VIDEO_ID_HERE ersetzen.
+           Click-to-load mit Absicht: das iframe entsteht erst beim Klick, beim
+           Laden der Seite geht damit kein Request an Google raus und die
+           Datenschutzzeile im Footer bleibt wahr.
+
+      <div class="yt" data-id="VIDEO_ID_HERE">
+        <img src="media/video-thumb.jpg" alt="" loading="lazy">
+        <button class="yt-play" type="button" aria-label="Play the video">
+          <svg viewBox="0 0 24 24" width="34" height="34" aria-hidden="true"><path d="M8 5v14l11-7z" fill="currentColor"/></svg>
+        </button>
+      </div>
+      <p class="fine" style="margin-top:10px">Longer walkthrough on YouTube. Nothing is requested from them until you press play.</p>
+      ==================================================================== -->
+
+    </div>
+  </section>
+
+  <footer>
+    <div class="row">
+      <a href="https://github.com/ingel81/3dtd">GitHub</a>
+      <a href="/play/">Play</a>
+      <span>AGPL-3.0</span>
+      <span>Built by <a href="https://github.com/ingel81">@ingel81</a></span>
+    </div>
+    <p>Tiles © Google. Map data © OpenStreetMap contributors.</p>
+    <p>No cookies, no analytics, no tracking on this page. The game under <a href="/play/">/play/</a> talks to Cesium and Google to load the tiles, and your token goes there and nowhere else.</p>
+  </footer>
+</main>
+<script>
+</script>
+
+<div id="lightbox" class="lightbox" hidden>
+  <img id="lightboxImg" src="" alt="">
+  <button class="lightbox-close" type="button" aria-label="Close">Close</button>
+</div>
+
+<script>
+  // YouTube erst auf Klick laden, Host ist youtube-nocookie.
+  for (const box of document.querySelectorAll('.yt')) {
+    box.querySelector('.yt-play').addEventListener('click', function () {
+      const frame = document.createElement('iframe');
+      frame.src = 'https://www.youtube-nocookie.com/embed/' + box.dataset.id + '?autoplay=1&rel=0';
+      frame.allow = 'accelerometer; autoplay; encrypted-media; picture-in-picture';
+      frame.allowFullscreen = true;
+      frame.title = '3DTD walkthrough';
+      box.classList.add('playing');
+      box.appendChild(frame);
+    });
+  }
+
+  // Galerie: Klick oeffnet das Bild gross. Kein Plugin, kein Karussell.
+  (function () {
+    var box = document.getElementById('lightbox');
+    var img = document.getElementById('lightboxImg');
+    if (!box || !img) return;
+    function open(src, alt) { img.src = src; img.alt = alt || ''; box.hidden = false; document.body.style.overflow = 'hidden'; }
+    function close() { box.hidden = true; img.src = ''; document.body.style.overflow = ''; }
+    document.querySelectorAll('.shots img, .slot img').forEach(function (el) {
+      el.addEventListener('click', function () { open(el.getAttribute('src'), el.getAttribute('alt')); });
+    });
+    box.addEventListener('click', close);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) close(); });
+  })();
+</script>
+
+</body>
+</html>
