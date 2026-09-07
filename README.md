@@ -6,6 +6,10 @@ your base.
 
 <!-- TODO: drop a gameplay gif or screenshot here -->
 
+**[3dtd.sgeht.net](https://3dtd.sgeht.net)**, project page, screenshots, and a
+playable build under [/play/](https://3dtd.sgeht.net/play/). You bring your own
+Cesium Ion token; the game asks for it on first start and keeps it in your browser.
+
 A hobby project. It runs, it's playable, and it is nowhere near finished.
 
 ## What makes it different from a normal tower defense
@@ -37,27 +41,31 @@ to be re-anchored. Sample tile depth is tracked for exactly this reason.
 | Geometry | Google Photorealistic 3D Tiles, via Cesium Ion or the Google Maps API directly |
 | Map data | OpenStreetMap (Overpass for streets and buildings, Nominatim for geocoding) |
 
-The game client is fully client side. No game server, no accounts, nothing to sign up for.
+The game client is fully client side. There is no game server and no account for the game itself; the one sign-up is the Cesium Ion account for your own tile key.
 
 ## Running it locally
 
-You need your own API keys. The tiles are not free to serve, so there are no keys in
+You need your own API key. The tiles are not free to serve, so there are no keys in
 this repo and there won't be.
 
-1. Get a **Cesium Ion token** (free tier is enough) or a **Google Maps API key** with
-   the Map Tiles API enabled.
-2. Copy the environment template and fill it in. `npm start` reads the first file,
-   `npm run build` swaps in the second, so create both:
+1. Copy the environment template. `npm start` reads the first file, `npm run build`
+   swaps in the second, so create both (they are gitignored):
    ```bash
    cp src/environments/environment.template.ts src/environments/environment.ts
    cp src/environments/environment.template.ts src/environments/environment.prod.ts
    ```
-   Both are gitignored. Set `production: true` in the prod one.
-3. Install and run:
+   Set `production: true` in the prod one. Leave the keys empty.
+2. Install and run:
    ```bash
    npm install
    npm start          # http://localhost:4200
    ```
+3. The game asks for credentials on first start and keeps them in your browser.
+   Take either route to the same tiles: a **Cesium Ion token** (free tier is enough,
+   the default) or a **Google Maps API key** with the Map Tiles API enabled.
+
+If you would rather not type it every time, put the token into `environment.ts`, or
+into `public/runtime-config.json` for a deployment that should carry its own key.
 
 Other commands:
 
@@ -101,7 +109,7 @@ That director used to be a small neural net, trained with PPO in `training-backe
 and run in the browser through onnxruntime-web. It got replaced by a page of rules,
 because an A/B against a uniform random sampler said the net wasn't doing
 anything: three runs, statistically indistinguishable, and two trivial heuristics beat
-both. The interesting part is *why* — the curriculum and the fairness cap between them
+both. The interesting part is *why*, the curriculum and the fairness cap between them
 had left almost nothing to decide. Full write-up in
 [docs/AI_WAVE_DIRECTOR_PLAN.md](docs/AI_WAVE_DIRECTOR_PLAN.md).
 
@@ -121,5 +129,5 @@ forgetting how my own systems work. [docs/INDEX.md](docs/INDEX.md) is the entry 
 - Expect rough edges. Some places load beautifully, others have tile geometry that
   makes pathfinding do silly things.
 - Performance depends heavily on your GPU and on how dense the tiles are where you live.
-- No license file yet, so default copyright applies. Ask if you want to do something
-  with it.
+- Licensed under the GNU Affero General Public License v3.0, see [LICENSE](LICENSE).
+  Third party assets keep their own licenses, listed in the in-game attributions.
