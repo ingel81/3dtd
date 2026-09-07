@@ -142,7 +142,7 @@ class TUILogger:
                     client_id=None, max_progress=None, progress_std=None,
                     total_count=None, num_groups=None, reward=None, perfect=None,
                     close_call=None, enemy_types=None, player_credits=None,
-                    player_health=None):
+                    player_health=None, director=None):
         """Log a wave result with full context so post-hoc analysis can break
         it down by client, wave, and signal."""
         payload = {
@@ -153,6 +153,7 @@ class TUILogger:
             "near_miss_ratio": round(near_miss_ratio, 3),
         }
         if client_id is not None: payload["client_id"] = client_id
+        if director is not None: payload["director"] = director
         if max_progress is not None: payload["max_progress"] = round(max_progress, 3)
         if progress_std is not None: payload["progress_std"] = round(progress_std, 3)
         if total_count is not None: payload["total_count"] = int(total_count)
@@ -188,11 +189,15 @@ class TUILogger:
     def episode_start(self, client_id, bot_type):
         self._log("episode_start", {"client_id": client_id, "bot_type": bot_type})
 
-    def episode_end(self, client_id, waves_survived, avg_progress=0.0, reason="reset"):
-        self._log("episode_end", {
+    def episode_end(self, client_id, waves_survived, avg_progress=0.0, reason="reset",
+                    director=None):
+        payload = {
             "client_id": client_id, "waves": waves_survived,
             "avg_progress": round(avg_progress, 3), "reason": reason,
-        })
+        }
+        if director is not None:
+            payload["director"] = director
+        self._log("episode_end", payload)
         if reason == "game_over":
             self._print(f"[DEAD] #{client_id % 10000} after W{waves_survived}")
 

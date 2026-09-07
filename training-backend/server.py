@@ -22,8 +22,10 @@ import torch
 
 from config import (
     GATE_ADAPT_WINDOW,
-    GATE_SATURATED_SHARE,
-    GATE_MULT_UP,
+    DIRECTOR_ROSTER,
+    GATE_LEAK_TARGET_LO,
+    GATE_LEAK_TARGET_HI,
+    GATE_GAIN,
     GATE_MULT_DOWN,
     GATE_MULT_MIN,
     GATE_MULT_MAX,
@@ -64,6 +66,48 @@ from model import create_model, save_model, load_model
 from reward import calculate_reward
 from trainer import PPOTrainer
 from auto_logger import logger
+from directors import get_director
+
+
+def steer_gate(ctx, survived: bool) -> float:
+    """Move the fairness-gate multiplier toward the target leak band.
+
+    Split out of the message handler so the tests drive the real thing. The
+    previous test mirrored this logic by hand, which meant it agreed with
+    whatever it was copied from and could not have caught either of the two
+    bugs this loop has already shipped.
+
+    Proportional, not a fixed step. A fixed factor cannot cover the distance:
+    the kill estimate carries FAIRNESS_KILL_REALISM = 0.64, measured on waves
+    1-10, while defenses from wave 11 on kill essentially 100% of the
+    prediction — so the multiplier must reach ~1.6 just to undo a known bias,
+    and further before anything leaks at all. At 1.05 per 4-wave window that is
+    170 waves of climbing, against runs of ~60 that start from 1.0 after the
+    per-run reset. It never arrived: measured median 1.28, with the cap landing
+    at exactly what the defense could kill (cap/effMax = 1.00). 80% of waves
+    then dealt no damage, and no director — policy network or uniform random —
+    could change the outcome.
+
+    Steering on relative error converges in a handful of windows and still
+    settles, because the correction shrinks to nothing inside the band.
+    """
+    if len(ctx.leak_shares) < GATE_ADAPT_WINDOW:
+        return ctx.gate_multiplier
+
+    leaked = sum(ctx.leak_shares) / len(ctx.leak_shares)
+    if not survived:
+        # Overshot: the run ended. Back off hard — the one outcome the gate
+        # exists to prevent.
+        ctx.gate_multiplier = max(GATE_MULT_MIN, ctx.gate_multiplier * GATE_MULT_DOWN)
+    elif leaked < GATE_LEAK_TARGET_LO or leaked > GATE_LEAK_TARGET_HI:
+        target = (GATE_LEAK_TARGET_LO + GATE_LEAK_TARGET_HI) / 2.0
+        error = (target - leaked) / target          # +1 = nothing leaks at all
+        step = 1.0 + GATE_GAIN * max(-1.0, min(1.0, error))
+        ctx.gate_multiplier = max(
+            GATE_MULT_MIN, min(GATE_MULT_MAX, ctx.gate_multiplier * step))
+    # Inside the band — a little gets through and the player lives — is the
+    # target state. Hold.
+    return ctx.gate_multiplier
 
 
 def _estimate_player_skill(recent_damages: list, win_streak: int) -> float:
@@ -122,9 +166,11 @@ class ClientContext:
         # the action space, and an unreachable optimum trains nothing.
         #
         # Rather than guess a second constant, track what the defense really
-        # does and steer the cap: kill everything, get bigger waves; start
-        # leaking, hold; start dying, back off.
-        self.kill_shares = []           # realised killed/sent, recent waves
+        # lets through and steer the cap on that: nothing arriving means the
+        # waves are harmless and the budget can grow; too much arriving means
+        # back off before the run ends. Both directions, so it settles.
+        self.director = "model"         # A/B slot; see config.DIRECTOR_ROSTER
+        self.leak_shares = []           # realised leak ratio, recent waves
         self.gate_multiplier = 1.0      # closed-loop budget scale for the gate
         self.recent_progress = []       # last 20 avg_progress values
         self.enemy_types_used = []      # history of types per wave (for Phase 5.6 encoder features)
@@ -220,8 +266,14 @@ class TrainingServer:
         """Handle a connected client."""
         self.clients.add(websocket)
         client_id = id(websocket)
-        self.client_contexts[client_id] = ClientContext()
+        ctx = ClientContext()
+        # Round-robin the A/B roster across connecting clients so every director
+        # runs concurrently against the same bots and the same curriculum.
+        # DIRECTOR_ROSTER = ["model"] restores single-policy behaviour.
+        ctx.director = DIRECTOR_ROSTER[len(self.client_contexts) % len(DIRECTOR_ROSTER)]
+        self.client_contexts[client_id] = ctx
         logger.client_connected(client_id, len(self.clients))
+        print(f"[director] client #{client_id % 10000} -> {ctx.director}")
 
         try:
             async for message in websocket:
@@ -371,6 +423,7 @@ class TrainingServer:
             logger.wave_result(
                 wave_num, damage_pct, killed, avg_progress, near_miss_ratio,
                 client_id=display_id_for_log,
+                director=getattr(ctx, "director", None) if ctx is not None else None,
                 max_progress=max_progress,
                 progress_std=progress_std,
                 total_count=outcome.get("enemiesSpawned", 0),
@@ -487,7 +540,8 @@ class TrainingServer:
             # Episode reset: after N waves, reset the game
             if wave_num >= EPISODE_LENGTH:
                 avg_prg = sum(ctx.recent_progress) / max(1, len(ctx.recent_progress))
-                logger.episode_end(client_id, wave_num, avg_prg, reason="reset")
+                logger.episode_end(client_id, wave_num, avg_prg, reason="reset",
+                                   director=getattr(ctx, "director", None))
                 await ws.send(json.dumps({"type": "reset"}))
                 self._reset_context(ctx)
                 self._select_bot(ctx)
@@ -529,7 +583,8 @@ class TrainingServer:
             # Game ended
             won = msg.get("won", False)
             avg_prg = sum(ctx.recent_progress) / max(1, len(ctx.recent_progress))
-            logger.episode_end(client_id, ctx.wave_num, avg_prg, reason="won" if won else "game_over")
+            logger.episode_end(client_id, ctx.wave_num, avg_prg, reason="won" if won else "game_over",
+                               director=getattr(ctx, "director", None))
             if won:
                 ctx.win_streak += 1
             else:
@@ -612,6 +667,14 @@ class TrainingServer:
             hp_remaining=float(((state or {}).get("player") or {}).get("lives", 100) or 100),
         )
         mask_list = wave_context["mask"]
+
+        # A/B: a non-learning director may own this client. It sees the same
+        # mask, the same curriculum and the same fairness gate — only the choice
+        # of template and factors differs — so the comparison isolates exactly
+        # the thing in question and nothing else.
+        director = get_director(getattr(ctx, "director", "model") if ctx else "model")
+        if not director.is_learner:
+            return director.act(state, wave_context, mask_list, ctx)
 
         state_tensor = torch.tensor(
             self._encode_state(state, ctx, wave_context),
@@ -1163,24 +1226,27 @@ class TrainingServer:
             hp_after = 0.0
         hp_after = max(0.0, min(1.0, hp_after))
 
-        # Steer the fairness gate from what the defense actually achieved.
+        # Steer the fairness gate from what the defense actually LET THROUGH.
+        #
+        # The loop used to steer on kill-share: raise the budget whenever the
+        # defense killed >= 98% of what was sent. That reads its own caution as
+        # headroom. A small wave is cleared BECAUSE it is small, so every
+        # cautious wave looked like proof there was room for a bigger one, and
+        # the multiplier ratcheted up on exactly the evidence that should have
+        # left it alone. Measured with a ceiling of 40 it sat at mean 7.0 and
+        # produced caps of 4761 enemies; capped at 2.0 it spent 52% of waves
+        # pinned to the ceiling — same one-way pressure, just clipped.
+        #
+        # Leak ratio is the quantity the gate actually exists to control, and
+        # it is two-sided: too low means the waves are harmless, too high means
+        # the run is being ended. Steering on it makes the loop symmetric, so it
+        # settles instead of climbing.
         sent = int(result.get("enemiesSpawned", 0) or 0)
-        killed = int(result.get("enemiesKilled", result.get("killed", 0)) or 0)
         if sent > 0:
-            ctx.kill_shares.append(min(1.0, killed / sent))
-            if len(ctx.kill_shares) > GATE_ADAPT_WINDOW:
-                ctx.kill_shares.pop(0)
-        if len(ctx.kill_shares) >= GATE_ADAPT_WINDOW:
-            share = sum(ctx.kill_shares) / len(ctx.kill_shares)
-            if not survived:
-                # Overshot: the run ended. Back off hard, this is the one
-                # outcome the gate exists to prevent.
-                ctx.gate_multiplier = max(GATE_MULT_MIN, ctx.gate_multiplier * GATE_MULT_DOWN)
-            elif share >= GATE_SATURATED_SHARE:
-                # Nothing survives the defense; there is room for more.
-                ctx.gate_multiplier = min(GATE_MULT_MAX, ctx.gate_multiplier * GATE_MULT_UP)
-            # In between — enemies are getting through but the player lives —
-            # is exactly the target state. Hold.
+            ctx.leak_shares.append(max(0.0, min(1.0, leak_ratio)))
+            if len(ctx.leak_shares) > GATE_ADAPT_WINDOW:
+                ctx.leak_shares.pop(0)
+        steer_gate(ctx, survived)
 
         wave_result = {
             # Drama now reads the upper tail of the progress distribution.
@@ -1206,9 +1272,13 @@ class TrainingServer:
         # trajectory so the death cost can be discounted back onto the waves
         # that produced it — the player never heals, so a run is one long
         # sequence, not a series of independent bets.
-        if ctx is not None and ctx.deterministic:
+        if ctx is not None and (ctx.deterministic
+                                or not get_director(getattr(ctx, "director", "model")).is_learner):
             # Measurement run: no stored action to pair with, and its noise-free
-            # actions would bias the PPO ratio. Metrics only.
+            # actions would bias the PPO ratio. Metrics only. The same applies to
+            # a client driven by a non-learning director — its waves were never
+            # sampled from the policy, so pairing them with a PPO ratio would be
+            # off-policy data wearing an on-policy label.
             self.eval_rewards.append(reward)
             if len(self.eval_rewards) > 200:
                 self.eval_rewards.pop(0)
@@ -1233,13 +1303,25 @@ class TrainingServer:
                 break
 
     def _reset_context(self, ctx):
-        """Reset per-client context on new game."""
+        """Reset per-client context on new game.
+
+        The fairness gate's closed-loop state belongs here too. Leaving it out
+        made `gate_multiplier` a per-CLIENT ratchet instead of a per-RUN one:
+        it climbed on every saturated window and was divided down only once per
+        death, so across episodes it ran to GATE_MULT_MAX and stayed there.
+        Measured at mult 7.0 mean / 40.0 max with caps of 4761 enemies — the
+        gate was effectively off, and fresh runs opened against waves sized for
+        a defense that had been dismantled several episodes earlier. Median run
+        length was 6 waves against a target of 80.
+        """
         ctx.current_state = None
         ctx.state_before_wave = None
         ctx.recent_damages = []
         ctx.recent_progress = []
         ctx.enemy_types_used = []
         ctx.recent_template_indices = []
+        ctx.leak_shares = []
+        ctx.gate_multiplier = 1.0
 
     def _calculate_difficulty_trend(self, damages):
         """Calculate difficulty trend matching TypeScript's implementation.
