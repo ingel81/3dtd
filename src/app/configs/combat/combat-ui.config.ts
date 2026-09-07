@@ -100,7 +100,12 @@ export interface ArmorTypeUIMeta {
   weakTo: string;
 }
 
-/** UI metadata for each armor type. Compile-time complete. */
+/**
+ * UI metadata for each armor type. Compile-time complete.
+ *
+ * `weakTo` lists the strongest counters from DAMAGE_MATRIX (the column for
+ * this armor type). Keep both in sync when the matrix is rebalanced.
+ */
 export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
   unarmored: {
     id: 'unarmored',
@@ -116,7 +121,7 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     icon: '\uD83D\uDFE6',
     color: '#2196F3',
     description: 'Fast, vulnerable to pierce',
-    weakTo: 'Pierce, Ice',
+    weakTo: 'Pierce, Lightning',
   },
   heavy: {
     id: 'heavy',
@@ -139,8 +144,8 @@ export const ARMOR_TYPE_UI: Readonly<Record<ArmorType, ArmorTypeUIMeta>> = {
     label: 'Ethereal',
     icon: '\uD83D\uDFEA',
     color: '#9C27B0',
-    description: 'Resists most, weak to magic/ice',
-    weakTo: 'Magic, Ice',
+    description: 'Resists most, weak to magic/ice/lightning',
+    weakTo: 'Magic, Ice, Lightning',
   },
 };
 
