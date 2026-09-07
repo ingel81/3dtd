@@ -67,9 +67,13 @@ jobs:
           local-dir: ./dist/3DTD/browser/
           server-dir: ${{ steps.ftpdir.outputs.play }}
           log-level: verbose
-          # Sync-Modus: nur geänderte Dateien hochladen, alte löschen
-          # State wird in .ftp-deploy-sync-state.json auf Server gespeichert
-          dangerous-clean-slate: false
+          # EINMALIG true: der Server beantwortet RETR auf eine fehlende Datei
+          # nicht mit 550, sondern kappt den Data-Socket. Der Erstdeploy in ein
+          # leeres Verzeichnis stirbt deshalb beim Lesen der State-Datei.
+          # clean-slate ueberspringt diesen Download. Nach dem ersten gruenen
+          # Lauf liegt die State-Datei auf dem Server und das hier gehoert auf
+          # false, sonst werden bei jedem Deploy alle 167 MB neu hochgeladen.
+          dangerous-clean-slate: true
           # Alte JS/CSS Dateien mit alten Hashes entfernen
           exclude: |
             **/.git*
