@@ -91,9 +91,11 @@ export class RuleDirector {
     };
 
     if (allowed.length === 0) {
-      // Degenerate but reachable: a curriculum-forced template whose slot the
-      // capability mask also blocks. Slot 0 always exists; shipping the
-      // designer's first template beats shipping nothing.
+      // Defensive only. `getAvailableTemplateMask` cannot currently return an
+      // all-false mask: a curriculum-pinned wave returns early without
+      // consulting the capability gates, and the unpinned path guarantees
+      // slot 0. This branch exists so a future change to the mask cannot turn
+      // into a wave with no template at all.
       //
       // Fixed mid-range factors rather than the ramped ones, matching the
       // Python reference this was measured against. There is no meaningful
