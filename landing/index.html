@@ -8,7 +8,8 @@
 <link rel="icon" href="media/logo.png">
 <meta property="og:title" content="3DTD">
 <meta property="og:description" content="Tower defense on your actual street.">
-<meta property="og:image" content="media/hero-poster.jpg">
+<!-- Absolut, relative Pfade liefern bei Discord, Slack und Facebook keine Vorschau. -->
+<meta property="og:image" content="https://3dtd.sgeht.net/media/hero-poster.jpg">
 <meta property="og:type" content="website">
 <!--
   One static file plus /media. No build step, no framework, no third-party
@@ -28,7 +29,7 @@
    Oswald und Inter Tight sind variabel: eine Datei deckt die Gewichte ab,
    deshalb ein Bereich statt einer Regel je Schnitt. Nur die Latin-Untermenge,
    die Seite ist englisch. */
-@font-face{font-family:'Oswald';src:url('media/fonts/oswald-var.woff2') format('woff2');font-weight:200 700;font-display:swap}
+@font-face{font-family:'Oswald';src:url('media/fonts/oswald-var.woff2') format('woff2');font-weight:400 700;font-display:swap}
 @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-var.woff2') format('woff2');font-weight:100 900;font-display:swap}
 @font-face{font-family:'JetBrains Mono';src:url('media/fonts/jetbrains-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
 
@@ -304,12 +305,9 @@ main{max-width:1120px;margin:0 auto;padding:22px 26px 60px}
           <li><span class="n">3</span><span>Paste it into the game when it asks. Once per browser.</span></li>
         </ol>
         <!-- A quiet nod to the token screen the player meets right after Play. -->
-        
-          <p class="fine">The token stays in your browser and is sent only to Cesium. It never reaches this site. A Google Maps API key works too.</p>
-        </div>
+        <p class="fine">The token stays in your browser and is sent only to Cesium. It never reaches this site. A Google Maps API key works too.</p>
       </div>
-        <p class="fine" style="margin:0">Then it's just a street and some enemies walking up it.</p>
-      </div>
+      <p class="fine" style="margin:0">Then it's just a street and some enemies walking up it.</p>
     </div>
   </section>
 
