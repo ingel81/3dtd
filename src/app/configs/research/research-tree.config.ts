@@ -25,7 +25,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'gatling-tech': {
     id: 'gatling-tech',
     name: 'Gatling Technology',
-    description: 'Unlocks the Dual-Gatling Tower — rapid-fire pierce damage',
+    description: 'Unlocks the Dual-Gatling Tower: rapid-fire pierce damage',
     category: 'tower-unlock',
     icon: 'speed',
     cost: 400,
@@ -37,7 +37,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'ice-magic': {
     id: 'ice-magic',
     name: 'Ice Magic',
-    description: 'Unlocks the Ice Tower — slows enemies, targets air and ground',
+    description: 'Unlocks the Ice Tower: slows enemies, hits air and ground',
     category: 'tower-unlock',
     icon: 'splash',
     cost: 400,
@@ -49,7 +49,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'tentacle-biology': {
     id: 'tentacle-biology',
     name: 'Tentacle Biology',
-    description: 'Unlocks the Tentacle Tower — close-range melee strikes',
+    description: 'Unlocks the Tentacle Tower: close-range melee strikes',
     category: 'tower-unlock',
     icon: 'bug',
     cost: 450,
@@ -61,7 +61,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'toxic-compounds': {
     id: 'toxic-compounds',
     name: 'Toxic Compounds',
-    description: 'Unlocks the Poison Tower — DoT splash projectiles',
+    description: 'Unlocks the Poison Tower: splash projectiles with damage over time',
     category: 'tower-unlock',
     icon: 'flask',
     cost: 450,
@@ -75,7 +75,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'siege-engineering': {
     id: 'siege-engineering',
     name: 'Siege Engineering',
-    description: 'Unlocks the Cannon Tower — slow, heavy siege damage',
+    description: 'Unlocks the Cannon Tower: slow, heavy siege damage',
     category: 'tower-unlock',
     icon: 'build',
     cost: 500,
@@ -87,7 +87,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'fire-alchemy': {
     id: 'fire-alchemy',
     name: 'Fire Alchemy',
-    description: 'Unlocks the Fire Tower — continuous flame beam',
+    description: 'Unlocks the Fire Tower: continuous flame beam, ground only',
     category: 'tower-unlock',
     icon: 'flame',
     cost: 550,
@@ -99,7 +99,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'arcane-studies': {
     id: 'arcane-studies',
     name: 'Arcane Studies',
-    description: 'Unlocks the Magic Tower — strong vs ethereal enemies',
+    description: 'Unlocks the Magic Tower: strong vs ethereal enemies',
     category: 'tower-unlock',
     icon: 'bolt',
     cost: 650,
@@ -111,7 +111,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'storm-mastery': {
     id: 'storm-mastery',
     name: 'Storm Mastery',
-    description: 'Unlocks the Lightning Tower — chain hitscan, anti-swarm/air',
+    description: 'Unlocks the Lightning Tower: chain hitscan, anti-swarm/air',
     category: 'tower-unlock',
     icon: 'bolt',
     cost: 700,
@@ -125,7 +125,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'rocketry': {
     id: 'rocketry',
     name: 'Rocketry',
-    description: 'Unlocks the Rocket Tower — air-only homing missiles',
+    description: 'Unlocks the Rocket Tower: air-only homing missiles',
     category: 'tower-unlock',
     icon: 'arrowUp',
     cost: 600,
@@ -153,7 +153,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'advanced-weaponry': {
     id: 'advanced-weaponry',
     name: 'Advanced Weaponry',
-    description: 'Enables Tier 2 upgrades for all towers',
+    description: 'Enables Tier 2 upgrades for all towers (levels 6-10)',
     category: 'upgrade-tier',
     icon: 'shield',
     cost: 800,
@@ -165,7 +165,7 @@ export const RESEARCH_TREE: Record<ResearchId, ResearchConfig> = {
   'master-engineering': {
     id: 'master-engineering',
     name: 'Master Engineering',
-    description: 'Enables Tier 3 upgrades for all towers',
+    description: 'Enables Tier 3 upgrades for all towers (levels 11-15)',
     category: 'upgrade-tier',
     icon: 'shield',
     cost: 1500,

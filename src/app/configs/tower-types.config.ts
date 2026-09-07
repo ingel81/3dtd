@@ -130,12 +130,14 @@ const STD_BEAM_WIDTH_UPGRADE: TowerUpgrade = {
   effect: { stat: 'beamWidth', multiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER },
 };
 
-// Archer-specific range upgrade: nerfed to +0.5%/level (per-tower tuning;
-// shared STD_RANGE_UPGRADE stays at +4%/level for the other towers).
+// Archer-specific range upgrade: nerfed relative to the shared
+// STD_RANGE_UPGRADE the other towers use. The percentage in the description is
+// computed from the multiplier, like every other upgrade here; it used to be
+// typed out as "+0.5%" and had drifted away from the actual 1.02.
 const ARCHER_RANGE_UPGRADE: TowerUpgrade = {
   id: 'range',
   name: 'Range',
-  description: 'Increases range (+0.5% per level, compounding).',
+  description: `Increases range (+${Math.round((ARCHER_RANGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
   maxLevel: UPGRADE_MAX_LEVEL,
