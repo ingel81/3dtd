@@ -54,7 +54,7 @@ class _Ctx:
         self.win_streak = 0
         self.deterministic = deterministic
         # Closed-loop fairness-gate state, mirrored from ClientContext.
-        self.kill_shares = []
+        self.leak_shares = []
         self.gate_multiplier = 1.0
 
 

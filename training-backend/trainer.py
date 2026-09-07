@@ -19,6 +19,7 @@ from config import (
     MINIBATCH_SIZE,
     UPDATE_EPOCHS,
     TARGET_KL,
+    ADVANTAGE_CLIP,
     TRAJECTORY_FLUSH_LENGTH,
     REWARD_SCALE_WINDOW,
 )
@@ -259,6 +260,24 @@ class PPOTrainer:
         # loop. Recomputing them per epoch from freshly-updated values made the
         # policy chase a target that moved underneath it mid-update.
         advantages = (advantages - advantages.mean()) / (advantages.std() + 1e-8)
+
+        # Clip the standardised advantages. The death penalty reaches -8 while a
+        # typical wave scores around -0.6, so every batch containing a run-ending
+        # wave carries a handful of samples at -3 sigma and beyond. Those samples
+        # dominate the gradient: measured grad-norm ran 3.6-51.7 against a clip
+        # of 0.5, meaning the update kept only the DIRECTION of a few outliers
+        # and threw the magnitude away, and the resulting step blew past
+        # TARGET_KL on the first or second minibatch of every update. With the
+        # early stop firing there, 16 updates bought roughly 20-30 real gradient
+        # steps across 1200 episodes — the policy was still statistically its
+        # own initialisation (log_std unmoved from -0.5, every factor mean on
+        # sigmoid(0) = 0.5).
+        #
+        # Clipping bounds each sample's influence without touching the sign of
+        # the learning signal, which is the variance reduction this needs; a
+        # smaller learning rate would only have made the surviving steps smaller
+        # still.
+        advantages = advantages.clamp(-ADVANTAGE_CLIP, ADVANTAGE_CLIP)
 
         # Per-dimension correlation between the sampled action noise and the
         # advantage. This IS the expected policy gradient for each continuous

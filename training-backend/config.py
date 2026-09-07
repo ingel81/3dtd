@@ -82,7 +82,25 @@ UPDATE_EPOCHS = 4
 # Stop the epoch loop early once the policy has moved too far from the one that
 # collected the data. Four epochs over the same samples with no KL guard is how
 # PPO quietly turns into an unclipped policy-gradient step.
+# === A/B: which director drives which client ==================================
+#
+# Clients are assigned round-robin as they connect, so all four run at once
+# against the same bots, curriculum and fairness gate. The comparison this
+# exists to make: does the learned policy beat not learning at all? That
+# baseline was never measured, which is why several reward rewrites could not
+# be judged. See directors.py.
+#
+# Set to ["model"] to go back to a single-policy run.
+DIRECTOR_ROSTER = ["model", "rules", "random", "maxgate"]
+
 TARGET_KL = 0.02
+
+# Standardised advantages are clipped to +/- this before the update. See the
+# rationale in trainer.py: the -8 death penalty against ~-0.6 typical waves put
+# a few samples per batch beyond -3 sigma, and those alone drove the step over
+# TARGET_KL on the first minibatch, so the early stop discarded most of every
+# batch. 3.0 keeps the full body of the distribution untouched.
+ADVANTAGE_CLIP = 3.0
 
 # Entropy bonus on the template head only.
 #
@@ -139,12 +157,39 @@ GAE_LAMBDA = 0.95
 # Instead of a second hand-tuned constant, steer the cap from what the defense
 # actually achieves. It re-calibrates itself when the bot gets better or worse,
 # and it will hold for a human player too.
-GATE_ADAPT_WINDOW = 8          # waves of kill-share history before steering
-GATE_SATURATED_SHARE = 0.98    # "the defense killed everything" threshold
-GATE_MULT_UP = 1.15            # saturated -> allow bigger waves
+# The window has to fit INSIDE a run or the loop never steers. At 8 it was
+# longer than the median run length of 6, so most episodes ended before the
+# first correction could fire and the multiplier only ever moved on the deaths.
+GATE_ADAPT_WINDOW = 4          # waves of kill-share history before steering
+GATE_SATURATED_SHARE = 0.98    # legacy; the loop steers on leak ratio now
+# Target band for the share of a wave that reaches the base. Below the floor the
+# waves are not testing the defense at all (measured: 83% of waves dealt zero
+# damage once the gate stopped ratcheting); above the ceiling the run is being
+# ended. Two-sided, so the loop settles rather than climbing to its bound.
+# Raised from 0.03-0.08 after measuring what the tighter band cost. At the low
+# band the cap bound on 63% of waves, which made the gate — not the director —
+# the thing choosing the wave size: the full range of count_factor moved a wave
+# from 19 to 28 enemies, and four directors as different as a policy network and
+# uniform random produced statistically identical runs. A gate that binds on the
+# majority of waves is not a safety limit, it IS the policy.
+#
+# 79% of waves dealt no damage at all under the old band, so there is room to
+# let more through before the run length suffers.
+GATE_LEAK_TARGET_LO = 0.08
+GATE_LEAK_TARGET_HI = 0.16
+# Proportional gain on the relative leak error, per adapt window. At 0.35 a
+# fully-starved gate (nothing leaking at all) moves 1.35x per window, so it
+# crosses the ~1.6 needed to undo the stale kill-realism discount inside about
+# six windows — well within a run. The fixed 1.05 step it replaces needed 170
+# waves and therefore never got there.
+GATE_GAIN = 0.35
 GATE_MULT_DOWN = 0.80          # the run ended -> back off hard
 GATE_MULT_MIN = 0.5
-GATE_MULT_MAX = 40.0           # generous: the cap can be off by an order of magnitude
+# With the per-run reset in place and two-sided steering on leak ratio, the
+# multiplier can no longer accumulate across episodes or climb on its own
+# caution, so the ceiling can be generous again. At 2.0 it was pinned for 52%
+# of waves — a bound that binds is a bound doing the steering.
+GATE_MULT_MAX = 8.0
 
 # === REWARD v4 ================================================================
 #
