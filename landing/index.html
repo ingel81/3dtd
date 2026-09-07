@@ -14,26 +14,24 @@
   One static file plus /media. No build step, no framework, no third-party
   request on load. The YouTube embed is click-to-load.
 
-  FONTS: the design wants Cinzel (display) and Inter Tight (body). Drop the
-  woff2 files under media/fonts/ and uncomment the block below. Do not hotlink
-  Google Fonts, the privacy line in the footer has to stay true. Without the
-  files the page falls back to Georgia / system-ui and still holds together.
-
-  <style>
-  /* Selbst gehostet, damit die Seite ohne einen einzigen Fremd-Request laedt.
-     Oswald und Inter Tight sind variabel: eine Datei deckt die Gewichte ab,
-     deshalb ein Bereich statt einer Regel je Schnitt. Nur die Latin-Untermenge,
-     die Seite ist englisch. */
-  @font-face{font-family:'Oswald';src:url('media/fonts/oswald-var.woff2') format('woff2');font-weight:200 700;font-display:swap}
-  @font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-var.woff2') format('woff2');font-weight:100 900;font-display:swap}
-  @font-face{font-family:'JetBrains Mono';src:url('media/fonts/jetbrains-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
-  </style>
+  FONTS: self-hosted under media/fonts/, declared at the top of the stylesheet
+  below. Do not hotlink Google Fonts, the privacy line in the footer has to stay
+  true. Without the files the page falls back to Arial Narrow / system-ui and
+  still holds together.
 
   MEDIA: every image and video is a dashed placeholder that names the file it
   expects. The real markup sits in an HTML comment directly above it, so
   swapping a placeholder is a delete plus an uncomment.
 -->
 <style>
+/* Selbst gehostet, damit die Seite ohne einen einzigen Fremd-Request laedt.
+   Oswald und Inter Tight sind variabel: eine Datei deckt die Gewichte ab,
+   deshalb ein Bereich statt einer Regel je Schnitt. Nur die Latin-Untermenge,
+   die Seite ist englisch. */
+@font-face{font-family:'Oswald';src:url('media/fonts/oswald-var.woff2') format('woff2');font-weight:200 700;font-display:swap}
+@font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-var.woff2') format('woff2');font-weight:100 900;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url('media/fonts/jetbrains-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
+
 /* ---------- shared base: tokens and primitives ---------- */
 /* 3DTD landing, shared base for the three layout variants.
    Tokens and primitives only. Each variant file owns its own layout. */
