@@ -1,13 +1,23 @@
 /**
  * Wave Director Service — template-based wave generation.
  *
- * Loads the ONNX model and decodes its output into a WaveConfig. During
- * training the Python backend picks waves over the WebSocket instead; this
- * local ONNX path is only used in standalone play.
+ * Decides the next wave and decodes that decision into a WaveConfig. The
+ * decision comes from the rule director by default; the ONNX policy is an
+ * opt-in loaded on demand from the debug window. During training the Python
+ * backend picks waves over the WebSocket instead, upstream of this service.
  *
- * If the model fails to load and no backend is available the service throws.
- * There is no rule-based fallback — the AI-off path is the static wave
- * profiles in `wave-curriculum.config.ts`, selected upstream.
+ * Nothing here throws for a missing model any more. Rules need no model, no
+ * network and no ONNX runtime, so there is no startup window in which the
+ * service cannot produce a wave — the earlier `'fallback'` state meant "error:
+ * no model" and is now `'rules'`, meaning normal operation. The AI-off path
+ * remains the static wave profiles in `wave-curriculum.config.ts`, selected
+ * upstream.
+ *
+ * Why rules and not the model: measured across a day of A/B runs sharing the
+ * same bots, curriculum and fairness gate, the trained policy was three times
+ * statistically indistinguishable from uniform random sampling. See
+ * `rule-director.ts` for the numbers and `docs/AI_WAVE_DIRECTOR_PLAN.md` for
+ * the reasoning.
  */
 
 import { Injectable, inject, signal, computed } from '@angular/core';
@@ -154,6 +164,27 @@ export class WaveDirectorService {
           options
         );
 
+        // Refuse a model that was trained against a different state encoding.
+        //
+        // The checked-in model was exported at schema v2 and expects 156
+        // inputs; the encoder produces ENCODED_STATE_SIZE (203 at schema v3).
+        // Without this check the session loads happily and then throws a shape
+        // error on the first `run()` — mid-wave, in a path with no fallback,
+        // long after the button that started it. Failing here keeps the rules
+        // running and says why.
+        const declared = await this.declaredInputSize();
+        if (declared !== null && declared !== ENCODED_STATE_SIZE) {
+          console.warn(
+            `[AI] Model expects ${declared} inputs, the encoder produces `
+            + `${ENCODED_STATE_SIZE}. It was exported against an older schema; `
+            + 're-export it with `npm run export-ai`. Staying on the rule director.'
+          );
+          this.session = null;
+          this.modelState.set('rules');
+          this.aiMode.set('rules');
+          return false;
+        }
+
         this.modelState.set('ready');
         this.aiMode.set('inference');
         console.log('[AI] ONNX model loaded successfully');
@@ -209,6 +240,24 @@ export class WaveDirectorService {
     }
 
     return config;
+  }
+
+  /**
+   * Input width the exported model was built for, or null if unknown.
+   *
+   * Read from the sidecar metadata rather than the session: onnxruntime-web
+   * exposes input names but not reliably a concrete dimension for a dynamic
+   * batch axis, and the export writes the figure it used.
+   */
+  private async declaredInputSize(): Promise<number | null> {
+    try {
+      const res = await fetch('/assets/ai/wave-director/metadata.json');
+      if (!res.ok) return null;
+      const meta = await res.json();
+      return typeof meta?.inputSize === 'number' ? meta.inputSize : null;
+    } catch {
+      return null;
+    }
   }
 
   /**
