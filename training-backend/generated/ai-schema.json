@@ -238,7 +238,7 @@
         "slot": 0,
         "id": "zombie_horde",
         "name": "Zombie Horde",
-        "description": "Pure zombie horde — unarmored intro, from easy to mega-swarm",
+        "description": "Unarmored zombies. Starts gentle, ends as a mega-swarm.",
         "enemies": [
           {
             "type": "zombie",
@@ -274,7 +274,7 @@
         "slot": 1,
         "id": "rat_tide",
         "name": "Rat Tide",
-        "description": "Pure rat flood — 100 to 5000 rats",
+        "description": "A flood of rats, anywhere from 100 to 5000.",
         "enemies": [
           {
             "type": "rat",
@@ -306,7 +306,7 @@
         "slot": 2,
         "id": "penguin_rush",
         "name": "Penguin Rush",
-        "description": "Fast penguins with rat fillers",
+        "description": "Fast penguins, with rats filling the gaps.",
         "enemies": [
           {
             "type": "penguin",
@@ -342,7 +342,7 @@
         "slot": 3,
         "id": "light_mix",
         "name": "Light Mix",
-        "description": "Wallsmashers + spiders",
+        "description": "Wallsmashers and spiders.",
         "enemies": [
           {
             "type": "wallsmasher",
@@ -378,7 +378,7 @@
         "slot": 4,
         "id": "spider_swarm",
         "name": "Spider Swarm",
-        "description": "Pure spider flood",
+        "description": "A flood of spiders.",
         "enemies": [
           {
             "type": "spider",
@@ -410,7 +410,7 @@
         "slot": 5,
         "id": "wallsmasher_crew",
         "name": "Wallsmasher Crew",
-        "description": "Pure wallsmashers — HP focus",
+        "description": "Wallsmashers only. All health, no tricks.",
         "enemies": [
           {
             "type": "wallsmasher",
@@ -442,7 +442,7 @@
         "slot": 6,
         "id": "bat_swarm",
         "name": "Bat Swarm",
-        "description": "Pure bat swarm — needs Anti-Air",
+        "description": "Bat swarm. Needs anti-air.",
         "enemies": [
           {
             "type": "bat",
@@ -474,7 +474,7 @@
         "slot": 7,
         "id": "hornet_strike",
         "name": "Hornet Strike",
-        "description": "Hornets + bats — needs Anti-Air",
+        "description": "Hornets and bats. Needs anti-air.",
         "enemies": [
           {
             "type": "hornet",
@@ -510,7 +510,7 @@
         "slot": 8,
         "id": "tank_column",
         "name": "Tank Column",
-        "description": "Tanks + zombie soldiers",
+        "description": "Tanks and zombie soldiers.",
         "enemies": [
           {
             "type": "tank",
@@ -546,7 +546,7 @@
         "slot": 9,
         "id": "bear_pack",
         "name": "Bear Pack",
-        "description": "Pure bear pack",
+        "description": "A pack of bears.",
         "enemies": [
           {
             "type": "bear",
@@ -578,7 +578,7 @@
         "slot": 10,
         "id": "mech_army",
         "name": "Mech Army",
-        "description": "Pure mechs — late-game stress test",
+        "description": "Mechs only. A late-game stress test.",
         "enemies": [
           {
             "type": "mech",
@@ -610,7 +610,7 @@
         "slot": 11,
         "id": "dragon_elite",
         "name": "Dragon Elite",
-        "description": "Dragons + hornets — needs Anti-Air",
+        "description": "Dragons and hornets. Needs anti-air.",
         "enemies": [
           {
             "type": "dragon",
@@ -646,7 +646,7 @@
         "slot": 12,
         "id": "mammoth_siege",
         "name": "Mammoth Siege",
-        "description": "Mammoths + wallsmashers",
+        "description": "Mammoths and wallsmashers.",
         "enemies": [
           {
             "type": "mammoth",
@@ -682,7 +682,7 @@
         "slot": 13,
         "id": "ghost_surge",
         "name": "Ghost Surge",
-        "description": "Ghosts + wraiths — needs Magic/Ice",
+        "description": "Ghosts and wraiths. Needs magic or ice.",
         "enemies": [
           {
             "type": "ghost",
@@ -718,7 +718,7 @@
         "slot": 14,
         "id": "wraith_storm",
         "name": "Wraith Storm",
-        "description": "Pure wraiths — needs Magic/Ice",
+        "description": "Wraiths only. Needs magic or ice.",
         "enemies": [
           {
             "type": "wraith",
@@ -750,7 +750,7 @@
         "slot": 15,
         "id": "chaos_wave",
         "name": "Chaos Wave",
-        "description": "Chaotic 4-type mix — needs Anti-Air",
+        "description": "A chaotic four-type mix. Needs anti-air.",
         "enemies": [
           {
             "type": "zombie",
@@ -794,7 +794,7 @@
         "slot": 16,
         "id": "armor_gauntlet",
         "name": "Armor Gauntlet",
-        "description": "All 4 armor categories at once",
+        "description": "All four armor types at once.",
         "enemies": [
           {
             "type": "rat",
@@ -838,7 +838,7 @@
         "slot": 17,
         "id": "boss_herbert",
         "name": "Boss: Herbert",
-        "description": "Herbert boss with support waves",
+        "description": "Herbert, with support waves.",
         "enemies": [
           {
             "type": "herbert",
@@ -878,7 +878,7 @@
         "slot": 18,
         "id": "golem_squad",
         "name": "Golem Squad",
-        "description": "Stone Golems — fortified DPS check, slow but very tough",
+        "description": "Stone golems. Slow and fortified, a straight damage check.",
         "enemies": [
           {
             "type": "stone-golem",
