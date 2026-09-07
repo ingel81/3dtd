@@ -118,13 +118,24 @@ export function enemyBaseDamageForWave(waveNum: number): number {
   return 1 + Math.floor((waveNum - 1) / 10);
 }
 
+/** Last wave the curriculum pins a template to. Beyond this the AI chooses. */
+export const CURRICULUM_FORCED_THROUGH_WAVE = WAVE_CURRICULUM.length;
+
 /**
- * Curriculum-forced template id for `waveNum` (1-indexed). Loops indefinitely:
- * wave 31 reuses wave 1's template, wave 32 reuses wave 2's, etc.
+ * Curriculum-forced template id for `waveNum` (1-indexed), or null.
+ *
+ * Returns null past wave {@link CURRICULUM_FORCED_THROUGH_WAVE} — from there
+ * the Wave Director's template head chooses for itself under the normal
+ * availability mask. The designer owns content and pacing through the scripted
+ * run; the AI owns the open-ended tail.
+ *
+ * Note this does NOT loop, unlike {@link goldBudgetForWave} and
+ * {@link staticWaveProfileForWave}: those describe the economy and the AI-off
+ * fallback, which both still need a defined value at every wave number.
  */
 export function templateForWave(waveNum: number): string | null {
-  if (waveNum < 1) return null;
-  return WAVE_CURRICULUM[(waveNum - 1) % WAVE_CURRICULUM.length].template;
+  if (waveNum < 1 || waveNum > CURRICULUM_FORCED_THROUGH_WAVE) return null;
+  return WAVE_CURRICULUM[waveNum - 1].template;
 }
 
 /**
@@ -319,18 +330,57 @@ export function staticWaveResolvedFor(waveNum: number): AIWaveConfig | null {
 }
 
 /**
+ * How fast income decays once the authored build-up is over.
+ *
+ * Applied per wave past the curriculum, down to GOLD_SUSTAIN_FRACTION.
+ */
+const GOLD_TAPER_PER_WAVE = 0.5;
+
+/**
+ * Floor on post-curriculum income, as a fraction of the last authored wave.
+ *
+ * Sized against what the run is supposed to buy. The design roster — one tower
+ * of each type plus three archers, all upgrade tracks maxed, every research —
+ * costs about 1.39M gold. The authored curriculum pays 791k across its 30
+ * waves, so the tail has to supply roughly 600k more over a long run and then
+ * stop, rather than fund a second army.
+ */
+const GOLD_SUSTAIN_FRACTION = 0.05;
+
+/**
  * Deterministic gold budget for `waveNum` (1-indexed). Within the explicit
- * curriculum (wave 1-30) the values are read directly. Beyond wave 30 the
- * curriculum **loops** — wave 31 uses wave 1's budget, wave 32 uses wave 2's,
- * etc. This matches `templateForWave`, which also loops modulo 30, so income
- * stays in sync with the enemies actually spawning. (Endgame difficulty
- * compounds via `endgameHpMultiplier`, not via runaway gold inflation.)
+ * curriculum (waves 1-30) the values are read directly.
+ *
+ * Past wave 30 income TAPERS to a sustain level. It used to loop with
+ * `templateForWave`, which had two consequences, both bad. Wave 31 dropped from
+ * 180,000 gold to 200 and then climbed all over again — incoherent for a player
+ * mid-run. And across 100 waves the loop paid out 2.64M against a design roster
+ * costing 1.39M, so a defense could reach full build-out and keep going: the
+ * training bot ended up at ~6700 DPS covering the whole route, killing 100% of
+ * every wave from wave 11 on, which left the wave director nothing to aim at.
+ *
+ * Tapering instead keeps the curve monotone and lands the 100-wave total near
+ * 1.5M — the roster plus a working reserve. Economic pressure survives into the
+ * late game, which is where the genre's actual tension lives.
+ *
+ * (Endgame difficulty still compounds via `endgameHpMultiplier`, not via gold.)
  */
 export function goldBudgetForWave(
   waveNum: number,
 ): { kill: number; complete: number } {
   if (waveNum < 1) return { kill: 0, complete: 0 };
   const len = WAVE_CURRICULUM.length;
-  const e = WAVE_CURRICULUM[(waveNum - 1) % len];
-  return { kill: e.goldKill, complete: e.goldComplete };
+  if (waveNum <= len) {
+    const e = WAVE_CURRICULUM[waveNum - 1];
+    return { kill: e.goldKill, complete: e.goldComplete };
+  }
+  const last = WAVE_CURRICULUM[len - 1];
+  const scale = Math.max(
+    GOLD_SUSTAIN_FRACTION,
+    Math.pow(GOLD_TAPER_PER_WAVE, waveNum - len),
+  );
+  return {
+    kill: Math.round(last.goldKill * scale),
+    complete: Math.round(last.goldComplete * scale),
+  };
 }

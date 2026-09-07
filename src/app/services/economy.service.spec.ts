@@ -394,7 +394,7 @@ describe('EconomyService', () => {
       ).not.toThrow();
     });
 
-    it('handles looped budget for waves beyond curriculum (wave 31 = wave 1)', () => {
+    it('handles the tapered budget for waves beyond the curriculum', () => {
       const base31 = goldBudgetForWave(31).complete;
       const result = service.computeWaveCompletionBonus({
         wave: 31,
@@ -403,8 +403,10 @@ describe('EconomyService', () => {
         hpLost: 0,
       });
       expect(result).toBe(base31); // no extra bonuses
-      // Post-W30 loops mod 30 — wave 31 mirrors wave 1's completion budget.
-      expect(base31).toBe(waveBase(1));
+      // Past W30 income tapers toward a sustain floor rather than restarting
+      // the curriculum, so wave 31 sits below wave 30 and above wave 1.
+      expect(base31).toBeLessThan(waveBase(30));
+      expect(base31).toBeGreaterThan(waveBase(1));
     });
   });
 });

@@ -1,9 +1,9 @@
 <div class="td-container" [class.td-fullscreen]="!isDialog" (contextmenu)="$event.preventDefault()">
   @if (store.aiError(); as aiErr) {
     <div class="ai-error-banner" role="alert">
-      <strong>AI-Fehler:</strong>
+      <strong>AI error:</strong>
       <span>{{ aiErr }}</span>
-      <button type="button" (click)="store.aiError.set(null)" aria-label="Schließen">×</button>
+      <button type="button" (click)="store.aiError.set(null)" aria-label="Close">×</button>
     </div>
   }
 
@@ -49,15 +49,15 @@
       @if (error() && !loading()) {
         <div class="td-error-overlay">
           <td-icon class="td-error-icon" name="warn" [size]="64"></td-icon>
-          <h3>Fehler</h3>
+          <h3>Error</h3>
           <p>{{ error() }}</p>
           <div class="td-token-instructions">
-            <p>1. Erstelle ein Projekt in der <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></p>
-            <p>2. Aktiviere die <strong>Map Tiles API</strong></p>
-            <p>3. Erstelle einen API Key und trage ihn in <code>appsettings.json</code> ein:</p>
-            <pre>"GoogleMapsApiKey": "dein-api-key"</pre>
+            <p>1. Create a project in the <a href="https://console.cloud.google.com/" target="_blank">Google Cloud Console</a></p>
+            <p>2. Enable the <strong>Map Tiles API</strong></p>
+            <p>3. Create an API key and put it into <code>src/environments/environment.ts</code>:</p>
+            <pre>googleMapsApiKey: 'your-api-key'</pre>
           </div>
-          <button class="td-btn td-btn-gold" (click)="close()">Schliessen</button>
+          <button class="td-btn td-btn-gold" (click)="close()">Close</button>
         </div>
       }
 

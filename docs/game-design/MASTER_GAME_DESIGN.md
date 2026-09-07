@@ -1,6 +1,6 @@
 # 3DTD — Master Game Design Document
 
-**Stand:** 2026-05-12
+**Stand:** 2026-05-12 (§5 Economy, §6.5 + §8 Wave Director, §7.1 + §10: 2026-09-07)
 
 > **Implementierungsstatus:** Damage-Matrix (§2.3), Status-Effekte Slow/Burn/Mark
 > (§2.4), Tower-Katalog (§3) und Forschungszentrum (§6) sind implementiert
@@ -198,35 +198,75 @@ HP_Scale = WaveHP_Multiplier
 ```
 
 ### 5.2 Wave Completion Rewards
+
+> **Superseded seit Phase 5.16.** Die frueher hier stehende Formel
+> `WaveCompleteBase = 18 + round(2.6 * Wave)` ist **nicht mehr implementiert**.
+> Das Gold pro Wave ist jetzt **deterministisch pro Wave-Nummer** und steht als
+> `WAVE_CURRICULUM` in `src/app/configs/wave-curriculum.config.ts`, abgefragt
+> ueber `goldBudgetForWave()`.
+
+Warum: die Formel band das Einkommen an das, was die Wave-Faktoren gerade
+ausspuckten. Mit einem festen Budget pro Wave ist das kumulative Einkommen
+planbar — erst damit lassen sich Tower- und Forschungskosten ueberhaupt
+balancen.
+
 ```
-WaveCompleteBase = 18 + round(2.6 * Wave)
-PerfectBonus = round(0.35 * WaveCompleteBase)
-CloseCallBonus = round(0.12 * WaveCompleteBase)
+{ kill, complete } = goldBudgetForWave(Wave)     // W1-30 aus der Tabelle
+PerfectBonus   = 0.35 * complete                 // 0 HP verloren
+CloseCallBonus = 0.12 * complete                 // HP <= 25 am Wave-Ende
+ComboBonus     = min(0.30, 0.05 * PerfectStreak) * complete
 Milestones (Wave 10/20/30/40) = 45 / 80 / 120 / 170
 ```
 
-### 5.3 Beispiel-Kurve (Richtwerte)
-> Erwartungswerte (Kill+Completion) bei ~40–65 Kills/Wave.
+Nach W30 loopt das Template, das Gold-Budget nicht: es wird ab dort **getapert**
+(`GOLD_TAPER_PER_WAVE`, Untergrenze `GOLD_SUSTAIN_FRACTION`) statt neu bei W1 zu
+beginnen. Ein reiner Loop liess Wave 31 von 180.000 auf 200 Gold fallen und
+zahlte ueber 100 Wellen 2,64 Mio. gegen ein Design-Roster von 1,39 Mio. — die
+Verteidigung erreichte den Vollausbau und toetete ab W11 alles.
 
-| Wave | Ø KillReward | KillCredits | Completion | Total/Wave | Cumulative |
-|---:|---:|---:|---:|---:|---:|
-| 1 | 2.0 | 64 | 21 | 85 | 85 |
-| 3 | 2.4 | 90 | 26 | 116 | 295 |
-| 5 | 2.7 | 110 | 31 | 141 | 560 |
-| 7 | 3.0 | 128 | 36 | 164 | 880 |
-| 10 | 3.6 | 165 | 44 | 209 | 1,520 |
-| 12 | 3.9 | 190 | 49 | 239 | 1,990 |
-| 15 | 4.4 | 220 | 57 | 277 | 2,820 |
-| 20 | 5.2 | 285 | 70 | 355 | 4,650 |
-| 25 | 6.2 | 360 | 83 | 443 | 6,900 |
-| 30 | 7.2 | 440 | 96 | 536 | 9,400 |
+### 5.3 Beispiel-Kurve (Ist-Werte aus dem Curriculum)
 
-**Ziel:** 1 neuer Tower alle 2–3 Waves, Upgrades alle 3–4 Waves.
+> `goldKill` + `goldComplete` je Wave, ohne Skill-Boni. Vollstaendige Tabelle:
+> `WAVE_CURRICULUM` in `configs/wave-curriculum.config.ts`.
+> Visualisierung: `npm run economy-chart` → `docs/economy-chart.html`.
+
+| Wave | Kill | Completion | Total/Wave |
+|---:|---:|---:|---:|
+| 1 | 133 | 67 | 200 |
+| 3 | 333 | 167 | 500 |
+| 5 | 433 | 217 | 650 |
+| 7 | 533 | 267 | 800 |
+| 10 (Boss) | 933 | 467 | 1.400 |
+| 15 | 3.000 | 1.500 | 4.500 |
+| 20 (Boss) | 12.000 | 6.000 | 18.000 |
+| 30 (Boss) | 120.000 | 60.000 | 180.000 |
+
+**Ziel:** 1 neuer Tower alle 2–3 Waves, Upgrades alle 3–4 Waves. Das Budget ist
+gegen einen W30-Vollausbau gerechnet (jeder Tower 1×, Archer 3×, alle
+Upgrade-Tracks L20, alle Forschungen, RC Lv 3) plus ~26% Puffer.
 
 ### 5.4 Anti-Snowball / Catch-Up
 - **Perfect-Bonus gedeckelt (35%)**
-- **Combo-Bonus max +30%**
+- **Combo-Bonus max +30%** (+5% pro Perfect-Streak-Wave)
 - **Comeback-Bonus:** `min(15, HP_Lost * 0.3)` pro Wave
+
+### 5.5 Schwierigkeits-Knoepfe (post-Director)
+
+Drei Groessen skalieren die Schwierigkeit **nach** der Entscheidung des Wave
+Directors. Sie sind Design-Parameter, keine gelernten Werte:
+
+| Knopf | Wo | Kurve |
+|---|---|---|
+| `endgameHpMultiplier(wave)` | `wave-curriculum.config.ts` | 1.0× bis W20, danach +5%/Wave, Cap 4.0× (W30 ≈ 1.5×, W50 ≈ 2.5×) |
+| `enemyBaseDamageForWave(wave)` | `wave-curriculum.config.ts` | HP-Verlust pro Durchkommen: 1 (W1–10), 2 (W11–20), 3 (W21–30), … |
+| `maxLeakDamagePerWave` | `game-balance.config.ts` | **18** — Obergrenze dessen, was eine einzelne Welle kostet |
+
+Der Leck-Cap ist die wichtigste der drei. Der Spieler hat 100 Start-HP und
+**heilt nie**; ab W91 kostet ein einzelnes Durchkommen 10 HP. Ohne Cap kann eine
+schlecht gekonterte Welle (Ghost-Swarm gegen ein Roster ohne Magic) 30–50 HP
+nehmen und den Run beenden, ohne dass der Spieler noch etwas haette tun koennen.
+Der Cap macht aus der Todesspirale eine Todesschraege: eine katastrophale Welle
+ist ein schwerer, aber ueberlebbarer Treffer.
 
 ---
 
@@ -316,19 +356,40 @@ Wenn das Forschungszentrum selektiert ist, zeigt die Sidebar:
 - Dunkle Silhouette mit Lock-Icon
 - Tooltip: "Requires: [Forschungsname]"
 
-### 6.5 Fairness-Regel fuer AI Director
-> **AI darf neue Mechaniken erst einsetzen, wenn der Spieler Zugriff darauf hatte.**
+### 6.5 Fairness-Regeln fuer den Wave Director
+
+**Regel 1 — Mechanik-Gate: der Director darf neue Mechaniken erst einsetzen,
+wenn der Spieler Zugriff darauf hatte.**
 - Air-Waves nur wenn Anti-Air verfuegbar (Ice erforscht oder AA Retrofit)
 - Ethereal nur wenn Magic/Ice erforscht
 - Camo nur wenn Detection erforschbar
+
+*Implementiert* als `requiresCapability` in der Template-Maske
+(`getAvailableTemplateMask()`), zusammen mit `minWave` und der Boss-Kadenz.
+
+**Regel 2 — Groessen-Gate: eine Welle darf nie groesser sein, als die
+Verteidigung sie plausibel bekaempfen kann.** `fairMaxCount()` schaetzt aus
+Defense-DPS, Kill-Throughput und Gegner-Stats die toetbare Menge und addiert
+eine in HP bepreiste Leck-Toleranz (6% der Rest-HP). Ein Regelkreis
+(`GateController`) korrigiert diese Schaetzung laufend anhand der tatsaechlichen
+Leck-Quote — Zielband 8–16% der Welle.
+
+Der Grund fuer Regel 2 ist gemessen: **ohne** den Regelkreis landet der Cap
+genau auf „was die Tuerme toeten koennen", was garantiert, dass sie es toeten.
+Ueber 1834 Wellen toeteten 70% der Wellen alles und 80% richteten keinen Schaden
+an — und vier voellig verschiedene Wave-Designer (trainiertes Netz, Regeln,
+Zufall) produzierten statistisch ununterscheidbare Runs, weil nicht der Designer,
+sondern der Cap die Wellengroesse bestimmte. Mechanik siehe
+[WAVE_SYSTEM.md](../WAVE_SYSTEM.md#fairness-cap-fairmaxcount).
 
 ---
 
 ## 7. Wave Pacing & Air Design
 
 ### 7.1 Air-Design (finale Entscheidung)
-- **Teaser-Bats** in Mixed Waves ab **Wave 6**.
-- **Erste reine Air-Wave fix bei Wave 8**.
+- **Air-Debuet bei Wave 7** (`bat_swarm`), Nachschlag W8 (`hornet_strike`) —
+  so gepinnt in `WAVE_CURRICULUM`. Die frueher hier notierte Staffelung
+  (Teaser ab W6, erste reine Air-Wave W8) ist vom Curriculum ueberholt.
 - Danach AI-dynamisch, aber:
   - **MIN_AIR_GAP = 4** Waves
   - **AIR_WARNING_LEAD = 2** Waves
@@ -343,13 +404,42 @@ Wenn das Forschungszentrum selektiert ist, zeigt die Sidebar:
 
 ---
 
-## 8. AI Wave Director Regeln
+## 8. Wave Director Regeln
 
-### 8.1 Counter-Logik (soft/hard)
-- **Soft Counter:** +20–30% Spawn-Rate eines Konters
-- **Hard Counter:** nur für neue Mechaniken (Ethereal, Camo, Air)
+> **Stand 2026-09-07:** Der Director ist **regelbasiert und clientseitig**
+> (`ai/core/rule-director.ts`). Das ONNX-Modell ist nicht mehr im Betriebspfad.
+> Grund: gemessen ueber A/B-Runs mit identischen Bots, Curriculum und
+> Fairness-Gate war das trainierte Netz dreimal statistisch ununterscheidbar
+> von gleichverteiltem Zufall (mittlere Run-Laenge 45,6 gegen 44,7), waehrend
+> zwei triviale Heuristiken messbar mehr Spannung erzeugten (Near-Miss 0,067
+> gegen 0,045). Ursache lag vor dem Lernen: das Curriculum pinnt auf 49% der
+> Wellen das Template, der Fairness-Cap bindet auf 63% der Wellen — es gab
+> kaum etwas zu entscheiden.
 
-### 8.2 Heuristik
+### 8.1 Was der Director tatsaechlich entscheidet
+
+Zwei Dinge, beide bewusst ohne Lernen:
+
+- **Abwechslung wird erzwungen:** gewaehlt wird das *aelteste erlaubte*
+  Template. Ein Reward-Term und ein Cooldown haben Wiederholung nur teuer
+  gemacht — die Regel macht sie unmoeglich.
+- **Schwierigkeit ist eine geschriebene Kurve** ueber die Wave-Nummer
+  (count/hp hoch, Spawn-Delay runter, voll ab W60). Der Spieler heilt nie,
+  seine HP sind ein Run-Budget — das schreibt man auf, statt es aus einem
+  Skalar-Reward pro Welle zu erschliessen.
+
+### 8.2 Counter-Logik (soft/hard)
+
+| Ebene | Status |
+|---|---|
+| **Hard Counter** (Air, Ethereal) | **implementiert** — ueber `requiresCapability` in der Template-Maske, siehe 6.5 |
+| **Soft Counter** (+20–30% Spawn-Rate eines Konters) | **nicht implementiert** — Design-Absicht |
+
+### 8.3 Heuristik (Design-Absicht, nicht implementiert)
+
+Der Regel-Director liest **keine** Spieler-Schwaechen; die folgende Tabelle
+beschreibt eine geplante Erweiterung, kein aktuelles Verhalten:
+
 | Spieler-Schwäche | AI-Antwort |
 |---|---|
 | Kein Siege | mehr Heavy/Fortified (soft) |
@@ -372,10 +462,16 @@ Wenn das Forschungszentrum selektiert ist, zeigt die Sidebar:
 ## 10. Progression Timeline (Wave-fuer-Wave)
 
 > **Konsistenz-Check** — jede Einfuehrung entspricht Forschungs-Verfuegbarkeit, Economy und AI-Regeln.
-> Spieler startet mit **nur Archer** + 50 Credits. Forschungszentrum kostet 75 Credits.
+> Spieler startet mit **nur Archer** + 100 Credits (`GAME_BALANCE.player.startCredits`).
+> Forschungszentrum kostet 75 Credits.
+>
+> **Verbindlich ist `WAVE_CURRICULUM`** (`configs/wave-curriculum.config.ts`) —
+> es pinnt Template und Gold-Budget fuer W1–W30. Die Liste unten ist die
+> Design-Absicht dahinter und weicht an einzelnen Stellen ab (z.B. Air-Debuet
+> W7 statt W8). Bei Abweichung gilt die Config.
 
-**Wave 1**: Unarmored (Zombie/Rat). Nur Archer verfuegbar. Start-Credits 50.
-**Wave 2**: Swarm-Pressure. Nach Wave 1 genug Credits fuer Forschungszentrum (~85 kumulativ). Erste Forschung starten (z.B. Gatling Tech, 15s).
+**Wave 1**: Unarmored (Zombie/Rat). Nur Archer verfuegbar. Start-Credits 100.
+**Wave 2**: Swarm-Pressure. Nach Wave 1 reicht es fuer Forschungszentrum (200 Gold aus W1). Erste Forschung starten (z.B. Gatling Tech, 15s).
 **Wave 3**: Gatling/Ice sollte erforscht sein. Light Armor-Teaser (Wallsmasher). Zweite Forschung starten.
 **Wave 4**: Mehr Tower verfuegbar. Upgrade-Entscheidungen.
 **Wave 5**: Light-Wave, Ice-Slow relevant (falls erforscht).

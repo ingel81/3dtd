@@ -291,6 +291,15 @@ export class LocationFacadeService {
         const devTerrainProvider = engine?.getDevTerrainProvider();
 
         if (devTerrainProvider) {
+          // One spawn, matching the real-world default: the random-spawn path
+          // below also creates exactly one, and multiple spawns are an explicit
+          // opt-in via editable spawn locations.
+          //
+          // The street generator deliberately emits up to four — they are the
+          // groundwork for a future multi-lane / multiplayer mode. Until that
+          // exists, training on all four would mean learning a different and
+          // much harder game than the one that ships: four approach routes
+          // against the same tower budget.
           const generatedSpawns = devTerrainProvider.getSpawnPoints();
           if (generatedSpawns.length > 0) {
             const spawn = generatedSpawns[0];
@@ -726,7 +735,7 @@ export class LocationFacadeService {
     // Re-create base marker
     this.markerViz.addBaseMarker();
 
-    // Create new spawn from terrain provider
+    // One spawn, matching the initial-load path.
     const generatedSpawns = devTerrainProvider.getSpawnPoints();
     if (generatedSpawns.length > 0) {
       const spawn = generatedSpawns[0];
@@ -748,11 +757,26 @@ export class LocationFacadeService {
       color: sp.color,
     }));
     this.markerViz.updateMarkerHeights(spawnPointsForMarkers);
-    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
 
-    // Re-initialize game state
+    // Rebuild the route-cell grid BEFORE resolving route-line heights: the
+    // grid is what `getGroundLocalYAt` reads, and until it is regenerated it
+    // still holds the previous world's cells.
     this.gameState.initializeGlobalRouteGrid();
+    this.pathRoute.refreshRouteLines(this.store.spawnPoints());
     this.gameState.onTilesLoaded();
+
+    // Hand the new spawns and routes to the wave pipeline. Without this the
+    // WaveManager kept spawning at the old world's coordinates.
+    this.gameState.reseatWavePipeline(
+      this.store.spawnPoints().map((sp) => ({
+        id: sp.id,
+        name: sp.name,
+        lat: sp.lat,
+        lon: sp.lon,
+        color: sp.color,
+      })),
+      this.pathRoute.getCachedPaths(),
+    );
 
     // Start route animation
     const cachedPaths = this.pathRoute.getCachedPaths();

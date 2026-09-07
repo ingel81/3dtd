@@ -270,6 +270,73 @@
               <canvas id="nn-batch-reward-chart"></canvas>
             </div>
           </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Approx KL</span>
+              <span class="card-badge" id="nn-kl-badge">--</span>
+              <span class="help" data-tooltip="Wie weit das Update die Policy von den Daten wegbewegt hat, die sie erzeugt haben. Über dem Ziel (0.02) bricht die Epochen-Schleife ab. Dauerhaft am Limit = Lernrate oder Batch zu klein.">?</span>
+            </div>
+            <div class="chart-container chart-container--slim">
+              <canvas id="nn-kl-chart"></canvas>
+            </div>
+          </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">log_std</span>
+              <span class="card-badge" id="nn-logstd-badge">--</span>
+              <span class="help" data-tooltip="Gelernte Explorationsbreite der vier kontinuierlichen Faktoren. Geklemmt auf [-3, 0]. Läuft der Wert an die Obergrenze, drückt die Streuung die Faktoren an die Range-Enden — Waves werden min/max statt abwechslungsreich.">?</span>
+            </div>
+            <div class="chart-container chart-container--slim">
+              <canvas id="nn-logstd-chart"></canvas>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-title">
+          <span class="section-title-icon">◆</span>
+          Was das Netz entscheidet
+          <span class="help" data-tooltip="Die vier Faktoren SIND die Entscheidung — Wave-Größe ist nur ihr Ergebnis. Ohne diese Kurven lässt sich nicht unterscheiden, ob eine große Wave gewählt wurde oder bloß aus einer weiten Template-Range gefallen ist.">?</span>
+        </div>
+        <div class="card-grid">
+          <div class="card card--wide">
+            <div class="card-header">
+              <span class="card-title">Continuous Factors</span>
+              <span class="card-badge" id="factors-badge">--</span>
+            </div>
+            <div class="chart-container">
+              <canvas id="factors-chart"></canvas>
+            </div>
+          </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Fairness-Gate</span>
+              <span class="card-badge" id="gate-badge">--</span>
+              <span class="help" data-tooltip="Anteil der Waves, bei denen die Fairness-Kappe die Gegnerzahl beschnitten hat. Hoch heißt: das Netz verlangt dauernd Waves, die die Verteidigung nicht bekämpfen kann — sein count-Gradient wird also überwiegend weggeschnitten.">?</span>
+            </div>
+            <div class="stat-big" id="gate-value">--</div>
+          </div>
+          <div class="card card--sparkline">
+            <div class="card-header">
+              <span class="card-title">Template-Vielfalt (ab W31)</span>
+              <span class="card-badge" id="free-entropy-badge">--</span>
+              <span class="help" data-tooltip="Normalisierte Entropie der freien Template-Wahl. 1.0 = das Netz verteilt gleichmäßig, nahe 0 = es ist auf ein oder zwei Templates kollabiert. Nur die freien Waves zählen; W1-30 gibt das Curriculum vor.">?</span>
+            </div>
+            <div class="stat-big" id="free-entropy-value">--</div>
+          </div>
+          <div class="card card--wide">
+            <div class="card-header">
+              <span class="card-title">Faktoren je Template</span>
+              <span class="help" data-tooltip="Durchschnittliche Faktoren pro Template. Beantwortet 'was macht das Netz bei einer Boss-Wave im Vergleich zu einer Ratten-Flut'. Gleiche Werte über alle Templates = das Netz konditioniert nicht auf den Kontext.">?</span>
+            </div>
+            <div class="table-scroll">
+              <table class="data-table" id="template-factors-table">
+                <thead>
+                  <tr><th>Template</th><th>n</th><th>count</th><th>spawn</th><th>hp</th><th>var</th></tr>
+                </thead>
+                <tbody></tbody>
+              </table>
+            </div>
+          </div>
         </div>
       </div>
     </section>

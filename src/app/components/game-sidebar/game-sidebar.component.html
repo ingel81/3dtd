@@ -149,7 +149,7 @@
             <span class="td-tower-header-name">RESEARCH CENTER · Lv.{{ researchStore.centerLevel() }}</span>
             @if (tower.getSellValue() > 0) {
               <button class="td-header-sell-btn"
-                      [matTooltip]="'Sell — refunds 75% of total invested (base + upgrades)'"
+                      [matTooltip]="'Sell: refunds 75% of total invested (base + upgrades)'"
                       matTooltipPosition="left"
                       (click)="sellTower.emit()">
                 <td-icon name="coin" [size]="14"></td-icon>
@@ -237,7 +237,7 @@
             <span class="td-tower-header-name">{{ tower.typeConfig.name | uppercase }}</span>
             @if (tower.getSellValue() > 0) {
               <button class="td-header-sell-btn"
-                      [matTooltip]="'Sell tower — refunds 75% of total invested (base + upgrades)'"
+                      [matTooltip]="'Sell tower: refunds 75% of total invested (base + upgrades)'"
                       matTooltipPosition="left"
                       (click)="sellTower.emit()">
                 <td-icon name="coin" [size]="14"></td-icon>

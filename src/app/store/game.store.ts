@@ -47,7 +47,13 @@ export class GameStore {
   // (the writer). Component reads them directly from that service.
 
   /** AI Wave Director enabled */
-  readonly useAIDirector = signal<boolean>(false);
+  /**
+   * On by default: the rule-based wave director needs no model, no network and
+   * no ONNX runtime, so there is no startup window in which it is unavailable.
+   * It used to default to false and be switched on by an effect once the ONNX
+   * model finished loading.
+   */
+  readonly useAIDirector = signal<boolean>(true);
 
   /**
    * Static curriculum fallback enabled.
@@ -111,7 +117,7 @@ export class GameStore {
   resetAll(): void {
     this.resetGameState();
     this.trainingTimescale.set(1.0);
-    this.useAIDirector.set(false);
+    this.useAIDirector.set(true);
     this.isDevWorldRegenerating.set(false);
   }
 }

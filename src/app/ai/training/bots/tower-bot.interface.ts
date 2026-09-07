@@ -86,6 +86,17 @@ export interface ITowerBot {
   update(state: GameStateSnapshot, deltaTime: number): TowerAction | null;
 
   /**
+   * Advance internal timers by `deltaTime` (game-time ms) and report whether a
+   * decision is due this tick.
+   *
+   * Split out from {@link update} so callers can avoid building a state
+   * snapshot on ticks where the bot is still in reaction cooldown. At training
+   * timescales the sub-step loop runs hundreds of ticks per rendered frame and
+   * the snapshot is by far the most expensive thing in it.
+   */
+  tickCooldown(deltaTime: number): boolean;
+
+  /**
    * Reset bot state for new game
    */
   reset(): void;
@@ -97,13 +108,16 @@ export interface ITowerBot {
 }
 
 /**
- * All combat towers — Research Center is NOT a combat tower and excluded by
- * base-tower-bot.ts (attackType === 'passive'). Research is the actual gate.
- * Skill-level differences come from reactionTimeMs, mistakeRate, maxTowers,
- * adaptsToEnemies, plansAhead — not knownTowerTypes.
+ * All combat towers. The Research Center is not one and is filtered out by
+ * `attackType === 'passive'`; research unlocks are the actual gate on what the
+ * bot can build. Skill levels differ in reaction time and tower cap, not in
+ * which towers they know about.
  */
 const ALL_COMBAT_TOWERS: TowerTypeId[] = [
   'archer', 'dual-gatling', 'cannon', 'magic', 'rocket', 'ice', 'fire', 'tentacle', 'poison',
+  // Lightning was missing here, so the bot could never build it even after
+  // researching storm-mastery — and the AI therefore never saw it played.
+  'lightning',
 ];
 
 /**
@@ -131,7 +145,21 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     reactionTimeMs: 800,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    maxTowers: 300,  // Raised from 50 — bot was hitting cap and hoarding gold
+    // The design target roster is ~13 towers (one of each type, archer x3) at
+    // level 20 — see docs/wave-planner.html. This is set just above that, not
+    // far above it, because the bot IS the opponent the wave director trains
+    // against: at 80 it built a defense no human roster reaches, ~7800 DPS
+    // covering the whole path, which killed 100% of every wave from wave 11 on.
+    // The director then had nothing to aim at — near-miss ratio sat flat at
+    // 0.02 across 15k episodes while it optimised the only thing still
+    // reachable, run pacing. Training against a defense the game never
+    // produces teaches waves the game never needs.
+    //
+    // The cap also has to keep combat resolution affordable: at 300 the bot
+    // built 298 towers and combat alone cost 6ms per sub-step, which at
+    // timescale 75 (~225 sub-steps per frame) collapsed the loop to 2 FPS.
+    // 20 is far below that ceiling.
+    maxTowers: 20,
   },
 
   meta: {
@@ -139,7 +167,7 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     reactionTimeMs: 400,
     knownTowerTypes: ALL_COMBAT_TOWERS,
     adaptsToEnemies: true,
-    maxTowers: 300,  // Raised from 0 (unlimited) to match strategist with higher cap
+    maxTowers: 20,  // Matches strategist; see the note there.
   },
 };
 
@@ -148,10 +176,10 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
  */
 export function getBotDescription(level: BotSkillLevel): string {
   const descriptions: Record<BotSkillLevel, string> = {
-    beginner: 'Neuer Spieler - platziert zufaellig, macht viele Fehler',
-    casual: 'Gelegenheitsspieler - versteht Grundlagen, manchmal Fehler',
-    strategist: 'Erfahrener Spieler - plant voraus, wenige Fehler',
-    meta: 'Profi-Spieler - optimale Builds, fast keine Fehler',
+    beginner: 'Fills coverage and researches, but never counter-picks a tower',
+    casual: 'Adds anti-air, anti-ethereal and splash, and upgrades along the path',
+    strategist: 'Casual plus selling underperformers and spreading placement out',
+    meta: 'Same strategies as casual, with faster reactions and a higher tower cap',
   };
   return descriptions[level];
 }

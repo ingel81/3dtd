@@ -24,6 +24,16 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
  * Tower capabilities mapping
  * Maps tower types to their special capabilities
  */
+/**
+ * Enemies an area-of-effect shot is assumed to catch. A rough stand-in for
+ * blast radius against unknown enemy spacing — deliberately conservative,
+ * since overestimating it reopens the swarm hole this models.
+ */
+const SPLASH_TARGETS_PER_SHOT = 3;
+
+/** Ethereal armor multiplier at which a tower counts as anti-ethereal. */
+const ANTI_ETHEREAL_MIN_MULTIPLIER = 1.0;
+
 const TOWER_CAPABILITIES: Record<
   TowerTypeId,
   { antiAir?: boolean; splash?: boolean; slow?: boolean; dot?: boolean }
@@ -56,6 +66,8 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
   const avgLevel = calculateAvgLevel(towers);
   const towerVariety = calculateTowerVariety(towers);
   const effectiveDPSPerArmor = calculateEffectiveDPSPerArmor(towers, airTargetingUnlocked);
+  const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
+  const killThroughput = calculateKillThroughput(towers, airTargetingUnlocked);
 
   return {
     towerCount: towers.length,
@@ -69,6 +81,99 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
     capabilities,
     towerDistribution,
     effectiveDPSPerArmor,
+    aoeDpsShare,
+    killThroughput,
+  };
+}
+
+/**
+ * Targets a defense can destroy per second, ignoring their health.
+ *
+ * This is the ceiling raw DPS cannot express. A tower shoots one target at a
+ * time, so against enemies that die to a single shot the kill rate is set by
+ * fire rate, not damage — an archer doing 25 damage per shot at 1 shot/s kills
+ * one 3 HP rat per second and wastes 22 damage doing it. That is precisely how
+ * a wave of 848 rats walked through a defense whose DPS said it could handle
+ * twice their total health.
+ *
+ * Splash and chain towers hit more than one target per activation, so they
+ * count for a multiple. Beam towers have no discrete shots; they are damage-
+ * limited rather than rate-limited, so they are excluded here and the DPS side
+ * of the comparison covers them.
+ */
+function calculateKillThroughput(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+): { ground: number; air: number } {
+  let ground = 0;
+  let air = 0;
+
+  for (const tower of towers) {
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    const cfg = TOWER_TYPES[typeId];
+    if (!cfg || cfg.attackType === 'passive' || cfg.attackType === 'beam') continue;
+
+    const shotsPerSecond = tower.combat?.fireRate ?? cfg.fireRate ?? 0;
+    if (shotsPerSecond <= 0) continue;
+
+    // Targets hit per activation. Chain towers reach maxJumps extra enemies;
+    // splash is approximated by the same soft multiplier used for DPS.
+    let targetsPerShot = 1;
+    if (cfg.attackType === 'chain') {
+      targetsPerShot = 1 + (cfg.maxJumps ?? 0);
+    } else if (isSplashTower(typeId)) {
+      targetsPerShot = SPLASH_TARGETS_PER_SHOT;
+    }
+
+    const rate = shotsPerSecond * targetsPerShot;
+    if (cfg.canTargetGround !== false) ground += rate;
+    if (canTargetAirEffective(typeId, airTargetingUnlocked)) air += rate;
+  }
+
+  return { ground, air };
+}
+
+/**
+ * Fraction of the defense's DPS that comes from area-of-effect towers.
+ *
+ * Splash, chain and beam width are baked into `computeTowerDPS` as constant
+ * multipliers, so a cannon looks like "more DPS" rather than "DPS that hits
+ * many enemies at once". The distinction matters to the wave director more
+ * than to anyone else: it chooses enemy density directly through count and
+ * spawn delay, and against an AoE-heavy defense a dense swarm is worth far
+ * less than the raw DPS number suggests.
+ */
+function calculateAoeDpsShare(
+  towers: Tower[],
+  airTargetingUnlocked: boolean,
+): { ground: number; air: number } {
+  let groundTotal = 0;
+  let groundAoe = 0;
+  let airTotal = 0;
+  let airAoe = 0;
+
+  for (const tower of towers) {
+    const typeId = tower.typeConfig.id as TowerTypeId;
+    const cfg = TOWER_TYPES[typeId];
+    if (!cfg || cfg.attackType === 'passive') continue;
+
+    const dps = computeTowerDPS(tower);
+    if (dps <= 0) continue;
+    const isAoe = isSplashTower(typeId) || cfg.attackType === 'chain';
+
+    if (cfg.canTargetGround !== false) {
+      groundTotal += dps;
+      if (isAoe) groundAoe += dps;
+    }
+    if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
+      airTotal += dps;
+      if (isAoe) airAoe += dps;
+    }
+  }
+
+  return {
+    ground: groundTotal > 0 ? groundAoe / groundTotal : 0,
+    air: airTotal > 0 ? airAoe / airTotal : 0,
   };
 }
 
@@ -83,13 +188,17 @@ export function analyzeVulnerabilities(
     airDefenseGap: !capabilities.hasAntiAir,
     splashGap: !capabilities.hasSplash,
     slowGap: !capabilities.hasSlow,
+    etherealGap: !capabilities.hasAntiEthereal,
     uncoveredPathSegments: [], // Requires path data
     overallVulnerability: 0,
   };
 
-  // Calculate overall vulnerability score
+  // Calculate overall vulnerability score. The ethereal gap weighs as heavily
+  // as the air gap: both are hard walls rather than soft weaknesses — without
+  // the right damage type the wave simply cannot be killed.
   let vulnScore = 0;
   if (vulnerabilities.airDefenseGap) vulnScore += 0.3;
+  if (vulnerabilities.etherealGap) vulnScore += 0.3;
   if (vulnerabilities.splashGap) vulnScore += 0.25;
   if (vulnerabilities.slowGap) vulnScore += 0.2;
 
@@ -148,6 +257,7 @@ function detectCapabilities(
     hasSplash: false,
     hasSlow: false,
     hasDoT: false,
+    hasAntiEthereal: false,
   };
 
   for (const tower of towers) {
@@ -156,6 +266,9 @@ function detectCapabilities(
 
     if (canTargetAirEffective(typeId, airTargetingUnlocked)) {
       capabilities.hasAntiAir = true;
+    }
+    if (isAntiEtherealTower(typeId)) {
+      capabilities.hasAntiEthereal = true;
     }
 
     if (towerCaps) {
@@ -166,6 +279,24 @@ function detectCapabilities(
   }
 
   return capabilities;
+}
+
+/** Does this tower type deal area damage? Read from the capability table. */
+export function isSplashTower(typeId: TowerTypeId): boolean {
+  return TOWER_CAPABILITIES[typeId]?.splash === true;
+}
+
+/**
+ * Ethereal armor is the one category that cannot be brute-forced: physical,
+ * pierce and fire are all at 0.15, so only magic (1.75), ice (1.5) and
+ * lightning (1.5) actually threaten ghosts and wraiths. Read the multiplier
+ * from the damage matrix rather than listing tower ids, so a new tower with a
+ * suitable damage type counts automatically.
+ */
+export function isAntiEtherealTower(typeId: TowerTypeId): boolean {
+  const cfg = TOWER_TYPES[typeId];
+  if (!cfg || cfg.attackType === 'passive') return false;
+  return armorMultipliersFor(cfg.damageType).ethereal >= ANTI_ETHEREAL_MIN_MULTIPLIER;
 }
 
 /**
@@ -291,9 +422,12 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
       hasSplash: false,
       hasSlow: false,
       hasDoT: false,
+      hasAntiEthereal: false,
     },
     towerDistribution: {},
     effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },
+    aoeDpsShare: { ground: 0, air: 0 },
+    killThroughput: { ground: 0, air: 0 },
   };
 }
 

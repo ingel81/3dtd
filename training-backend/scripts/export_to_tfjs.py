@@ -38,7 +38,14 @@ from config import (
     MIN_SPAWN_DELAY_MS,
     ENEMY_BASE_HP,
 )
-from templates import TEMPLATES, NUM_ACTIVE_TEMPLATES
+import schema as schema_module
+from schema import (
+    TEMPLATES,
+    NUM_ACTIVE_TEMPLATES,
+    CURRICULUM_SEQUENCE,
+    CURRICULUM_FORCED_THROUGH_WAVE,
+)
+from model import load_model
 
 
 class InferenceModel(nn.Module):
@@ -83,9 +90,7 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
     output_path.mkdir(parents=True, exist_ok=True)
 
     print(f"Loading checkpoint: {checkpoint_path}")
-    model = WaveDirectorModel()
-    model.load_state_dict(torch.load(checkpoint_path, map_location='cpu'))
-    model.eval()
+    model, stored_episode, _ = load_model(checkpoint_path)
 
     inference_model = InferenceModel(model)
     inference_model.eval()
@@ -121,18 +126,22 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
     )
     print(f"  ONNX file size: {onnx_path.stat().st_size / 1024:.1f} KB")
 
-    # Extract episode number from checkpoint name
-    ckpt_name = Path(checkpoint_path).stem
-    episode = 0
-    if ckpt_name.startswith("checkpoint_"):
-        try:
-            episode = int(ckpt_name.replace("checkpoint_", ""))
-        except ValueError:
-            pass
+    # Episode number: prefer what the checkpoint recorded, fall back to the
+    # filename (legacy v1 checkpoints carried no metadata, and
+    # `checkpoint_latest.pt` has no number in its name at all).
+    episode = stored_episode if stored_episode is not None else 0
+    if stored_episode is None:
+        ckpt_name = Path(checkpoint_path).stem
+        if ckpt_name.startswith("checkpoint_"):
+            try:
+                episode = int(ckpt_name.replace("checkpoint_", ""))
+            except ValueError:
+                pass
 
-    # Write metadata (Phase 5.10 schema)
+    # Write metadata alongside the ONNX file
     metadata = {
-        "version": "5.10.0",
+        "version": f"schema-{schema_module.EXPECTED_SCHEMA_VERSION}",
+        "schemaVersion": schema_module.EXPECTED_SCHEMA_VERSION,
         "architecture": "template-based-wave-director",
         "checkpoint": Path(checkpoint_path).name,
         "trainingEpisodes": episode,
@@ -156,12 +165,12 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
                 "slot": i,
                 "id": t["id"],
                 "name": t["name"],
-                "minWave": t["min_wave"],
-                "requiresCapability": t.get("requires_capability"),
-                "countRange": list(t["count_range"]),
-                "spawnDelayRange": list(t["spawn_delay_range"]),
-                "hpMultRange": list(t["hp_mult_range"]),
-                "variationRange": list(t["variation_range"]),
+                "minWave": t["minWave"],
+                "requiresCapability": t.get("requiresCapability"),
+                "countRange": list(t["countRange"]),
+                "spawnDelayRange": list(t["spawnDelayRange"]),
+                "hpMultRange": list(t["hpMultRange"]),
+                "variationRange": list(t["variationRange"]),
             }
             for i, t in enumerate(TEMPLATES)
         ],
@@ -171,6 +180,16 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
             "minSpawnDelayMs": MIN_SPAWN_DELAY_MS,
         },
         "enemyBaseHP": ENEMY_BASE_HP,
+        "curriculum": {
+            "sequence": CURRICULUM_SEQUENCE,
+            "forcedThroughWave": CURRICULUM_FORCED_THROUGH_WAVE,
+        },
+        "orders": {
+            "enemies": schema_module.ENEMY_TYPES,
+            "towers": schema_module.TOWER_TYPES,
+            "damageTypes": schema_module.DAMAGE_TYPES,
+            "armorTypes": schema_module.ARMOR_TYPES,
+        },
     }
 
     metadata_path = output_path / "metadata.json"
@@ -191,7 +210,7 @@ def export_to_onnx(checkpoint_path: str, output_dir: str, validate: bool = True)
 
 def main():
     parser = argparse.ArgumentParser(
-        description="Export PyTorch Phase-5.10 model to ONNX"
+        description="Export the trained Wave-Director model to ONNX"
     )
     parser.add_argument(
         '--checkpoint',

@@ -1,12 +1,44 @@
-# Phase 5.11 — Range-Based Templates
+# Phase 5.11 — Range-Based Templates (HISTORISCH)
 
-> **Hinweis:** Phase 5.11 ist die aktuell aktive Modell-Architektur (`OUTPUT_SIZE=36`,
-> 4 Continuous-Faktoren, Templates mit Ranges). Spätere Phasen 5.14 (SWARM-Reward
-> dampening) und 5.16 (Wave-Curriculum + Endgame-Knobs + Gold-Budget) bauen auf
-> diesem Schema auf, ohne Inkompatibilitäten an den Output-Tensoren.
+> **Status: überholt — das neuronale Netz ist nicht mehr der Wave Director.**
+> Seit 2026-09 wählt ein **regelbasierter Director** (`src/app/ai/core/rule-director.ts`)
+> Template und Formfaktoren, vollständig clientseitig. Das Spiel braucht im
+> Betrieb weder Python-Server noch Modell noch ONNX-Runtime.
 >
-> - Phase 5.14 / 5.16 Deltas: siehe Abschnitt am Ende dieses Dokuments.
-> - Vollständige Phase 5.16 Snapshot-Doku: [HANDOVER_PLAYTEST_PHASE5.16.md](HANDOVER_PLAYTEST_PHASE5.16.md).
+> **Warum:** In A/B-Läufen mit vier Wave-Designern (model, rules, random, maxgate)
+> bei gleichen Bots, gleichem Curriculum und gleichem Fairness-Gate war das Netz
+> **dreimal** statistisch nicht von uniformem Zufall zu unterscheiden (Runlänge
+> 45.6 [42,49] gegen 44.7 [41,48]), während zwei triviale Heuristiken mehr
+> Spannung erzeugten (Near-Miss 0.067–0.069 gegen 0.045). Das Netz hatte nie
+> gelernt: `log_std` stand unverändert auf dem Initialwert, alle Faktor-Mittelwerte
+> auf sigmoid(0) = 0.5. Die Ursache lag **vor** dem Lernen — das Curriculum pinnt
+> das Template auf 49 % der Wellen, der Fairness-Cap band auf 63 %, und der volle
+> count-Regelbereich bewegte eine Welle von 19 auf 28 Gegner. Es gab kaum etwas zu
+> entscheiden und deshalb nichts zu lernen.
+>
+> **Was aus Phase 5.11 heute noch gilt** — der ganze Decoder unterhalb der
+> Entscheidung ist unverändert und wird von Regel-Director und (optionalem)
+> Modell gemeinsam benutzt:
+>
+> | Weiter aktiv | Datei |
+> |---|---|
+> | Templates mit Ranges (count / spawn_delay / hp_mult / variation) | `src/app/ai/core/templates.ts` |
+> | Verfügbarkeitsmaske (Slot, min_wave, Cooldown, Capability, Boss, Curriculum) | `src/app/ai/core/wave-context.ts` |
+> | Range-Interpolation + DPS-skalierte Caps (5.11b) | `wave-director.service.ts::buildWaveConfig` |
+> | Wave-Duration-Cap (180 s) inkl. zweitem Gate-Durchlauf | dito |
+> | Endgame-HP-Multiplier + Per-Leak-Damage (5.16) | `configs/wave-curriculum.config.ts` |
+>
+> **Was nicht mehr gilt:** alles, was die vier Faktoren aus einem Netz-Output
+> ableitet — `OUTPUT_SIZE=36`, die Reward-Terme, die Reward-Tuning-Tabellen
+> unten, die 5.14-SWARM-Dämpfung und der Decoder-Override des Curriculums (das
+> Curriculum sitzt heute in der **Maske**, nicht in einem nachgelagerten
+> Override). Der Fairness-Cap wird jetzt zusätzlich von einem clientseitigen
+> Regelkreis korrigiert (`src/app/ai/core/gate-controller.ts`), den es in 5.11
+> nur serverseitig gab.
+>
+> **Aktueller Stand:** [AI_WAVE_DIRECTOR_PLAN.md](AI_WAVE_DIRECTOR_PLAN.md) und
+> [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
+> Dieses Dokument bleibt als Protokoll der Architekturstufe stehen.
 
 ## Kontext
 
@@ -42,7 +74,7 @@ Obere Enden sind **aggressiv** hoch. NN muss lernen Context-passende Ranges zu w
 | mech_army | (5, 100) | (100, 900) | (0.5, **10.0**) | (0.10, 0.40) |
 | mammoth_siege | (8, 120) | (100, 1000) | (0.5, **10.0**) | (0.10, 0.40) |
 
-Full list: `training-backend/templates.py` und `src/app/ai/core/templates.ts`.
+Full list: `src/app/ai/core/templates.ts` (Single Source of Truth; das Backend liest den Generat-Mirror `training-backend/generated/ai-schema.json`).
 
 ## Decoder-Pipeline (Server + Frontend)
 
@@ -83,7 +115,7 @@ statt gelegentlich-mild.
 
 ## Kritische Dateien
 
-- `training-backend/templates.py` — 18 Templates mit Ranges
+- `src/app/ai/core/templates.ts` — 19 Templates mit Ranges (Backend liest sie über das generierte Schema)
 - `training-backend/config.py` — NUM_CONTINUOUS=4, MAX_WAVE_DURATION_MS, Damage-Thresholds
 - `training-backend/model.py` — params_head (4,), factors in [0,1] via sigmoid
 - `training-backend/server.py::_decode_action` — lerp + Duration-Cap
@@ -145,12 +177,22 @@ zählt.
 
 ## Phase 5.16 — Wave-Curriculum + Endgame-Knobs + Gold-Budget
 
-**Wave-Curriculum** (`wave_curriculum.py` / `wave-curriculum.ts`):
-- 30 Waves explizit gepinnt, danach mod-30-Loop
+**Wave-Curriculum** (`src/app/configs/wave-curriculum.config.ts`):
+- 30 Waves explizit gepinnt
 - Decoder forciert das Curriculum-Template für Wave 1..N (NN's Template-Argmax wird
   überschrieben)
 - NN's Continuous-Faktoren tunen weiterhin Difficulty
 - Bot/Player hat Foreknowledge → Capability-Gating bleibt Spieler-Verantwortung
+
+> **Korrektur (2026-09):** Das Curriculum wird nicht mehr *nachgelagert* über den
+> Decoder erzwungen, sondern sitzt in der Verfügbarkeitsmaske
+> (`wave-context.ts` → `getAvailableTemplateMask(..., templateForWave(wave))`):
+> innerhalb des Curriculums kollabiert die Maske auf einen Slot, die gewählte
+> Aktion *ist* also die gelieferte Welle. Der alte Override trainierte den
+> Template-Head auf nie gespielte Aktionen. Ebenfalls überholt: die
+> Template-Sequenz loopt ab W31 **nicht** mod 30 — dort wählt der Director frei.
+> Der mod-30-Loop gilt weiterhin für das Gold-Budget und den statischen
+> Wave-Fallback.
 
 **Endgame HP-Multiplier** (`wave-curriculum.ts::endgameHpMultiplier`):
 - W1-19: ×1.0
@@ -164,18 +206,36 @@ zählt.
 - W21-30: 3 HP
 - W31+: 4 HP+ (linear weiter)
 
-**Gold-Budget** (Frontend-only, `wave-curriculum.ts`):
+**Gold-Budget** (Frontend-only, `src/app/configs/wave-curriculum.config.ts`):
 - Pro Wave deterministisch: `goldKill` (Summe aller Kill-Credits) + `goldComplete`
-- W1: 30 Kill / 15 Complete
-- W30: 650 Kill / 325 Complete
-- Linear extrapoliert ab W31: `KILL_DELTA_PER_WAVE=50`, `COMPLETE_DELTA_PER_WAVE=30`
 - Pro-Kill-Reward = `goldKill / waveSize` (NICHT pro-enemy-type-gewichtet)
 - Skill-Bonuses (Perfect, CloseCall, Milestone, Combo, Comeback) stacken oben drauf
 
-**Backend-Mirror** (`wave_curriculum.py`):
+> **Korrektur (2026-09) — die Zahlen in diesem Abschnitt waren nie richtig.**
+> Real: **W1 = 133/67**, **W30 = 120000/60000**. Ab W31 wird weder linear
+> extrapoliert noch mod-30 geloopt, sondern das Budget **verfällt geometrisch**:
+> `×0.5` je Welle, mit Boden bei 5 % der W30-Werte (also 6000/3000 ab ~W35).
+> `KILL_DELTA_PER_WAVE` und `COMPLETE_DELTA_PER_WAVE` existieren nicht mehr.
+>
+> Begründung im Code (`goldBudgetForWave`): Der frühere mod-30-Loop ließ Welle 31
+> von 180 000 auf 200 Gold fallen und wieder hochklettern — mitten im Run
+> unverständlich. Über 100 Wellen zahlte er 2,64 M aus, gegen ein Design-Roster
+> von 1,39 M. Der Trainings-Bot erreichte damit ~6700 DPS über die ganze Route
+> und tötete ab Welle 11 100 % jeder Welle; der Wave Director hatte nichts mehr
+> zum Zielen. Der Tail soll den Run *tragen*, keine zweite Armee finanzieren.
+
+**Backend-Mirror** (`training-backend/generated/ai-schema.json`, generiert):
 - Nur die Template-Sequenz spiegelt sich ins Backend (für Decoder-Override)
 - Gold-Budget lebt nur im Frontend — der Reward des NN ist getrennt davon
 
-**Compatibility:** Das alte Phase-5.10/5.11 ONNX-Modell läuft mit den 5.14/5.16
-Decoder-Knobs ohne Retraining — die Architektur (156→36) ist identisch geblieben.
-Re-Training optional, sobald die neuen Difficulty/Economy-Werte live verifiziert sind.
+**Compatibility (historisch):** Das alte Phase-5.10/5.11 ONNX-Modell lief mit den
+5.14/5.16-Decoder-Knobs ohne Retraining — die Architektur (156→36) war damals
+identisch geblieben.
+
+> **Stand 2026-09:** Der Encoder ging über Schema v2 (162) auf **v3 (203
+> Features)**; alte Checkpoints sind nicht ladbar. Wichtiger: Es wird kein Modell
+> mehr geladen. `WaveDirectorService` startet im Modus `'rules'`, lädt beim
+> Start weder ONNX-Runtime noch Modelldatei, und `loadModel()` ist ein
+> ausdrückliches Opt-in — schlägt es fehl, bleibt der Regel-Director aktiv
+> (kein Fehlerzustand). Den früheren Zustand „Fehler, kein Modell", der eine
+> Exception warf, gibt es nicht mehr.

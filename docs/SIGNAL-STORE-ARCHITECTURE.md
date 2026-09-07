@@ -1,6 +1,6 @@
 # Signal Store Architektur — TowerDefenseStore
 
-**Stand:** 2026-05-12
+**Stand:** 2026-05-12 (`useAIDirector`-Ownership: 2026-09-07)
 
 ## Überblick
 
@@ -227,8 +227,31 @@ expect(store.canStartWave()).toBe(false);
 | Engine-Stats (fps, tiles) | Store (EngineStore) | Component (Template) | Facade (aus Game-Loop) |
 | Research-State | Store (ResearchStore) | Component, ResearchManager | GameStateSyncService (`research:state-changed`) |
 | Debug-Panel (wave/tower/enemy overrides) | Store (DebugStore) | WaveDebug/TowerDebug/EnemyDebug Services | Services intern (delegieren an Store) |
-| Bot/AI (useAIDirector, aiExplanation) | Store (GameStore) | Component (Template) | Facade (nach Bot-Events) |
+| Bot/AI (useAIDirector, aiExplanation) | Store (GameStore) | Component (Template) | Facade (Toggle + Fehlerpfad) |
 | Bot/AI (botEnabled, botSkillLevel, botAutoMode) | TrainingClientService | Component, Facade | TrainingClientService intern |
+
+#### `useAIDirector`: Default `true`, kein Auto-Enable-Effect
+
+`useAIDirector` steht seit 2026-09-07 per Default auf `true` (auch in
+`resetAll()`). Der Wave-Director ist regelbasiert und braucht weder Modell noch
+Netzwerk, es gibt also kein Startfenster, in dem er nicht verfuegbar waere.
+
+Vorher war der Default `false` und ein `effect()` im `GameLoopFacadeService`
+schaltete ihn ein, sobald das ONNX-Modell geladen war. Dieser Effect ist
+**ersatzlos entfernt** — und zwar nicht nur, weil er ueberfluessig wurde:
+
+> Ein `effect()`, der ein Signal liest **und** schreibt, das er selbst als
+> Bedingung auswertet, feuert auf den eigenen Schreibvorgang neu. Der Effect las
+> `useAIDirector()` neben dem Modell-Status; mit einem immer verfuegbaren
+> Director war die Bedingung permanent wahr und der Effect zwang das Flag
+> zurueck auf `true`. Konsequenz: der UI-Toggle war wirkungslos, der Fehlerpfad
+> konnte den Director nicht abschalten, und ein Store-Reset wurde sofort
+> ueberschrieben.
+
+Geschrieben wird das Flag jetzt nur noch an zwei Stellen, beide in der Facade:
+`toggleAIDirector()` (User) und der Fehlerpfad in `startWaveWithAI()`, der auf
+manuelle Wave-Erzeugung zurueckfaellt. Das entspricht der Regel oben — **State
+im Store, Entscheidung in der Facade**.
 
 ## Migrationsplan — ABGESCHLOSSEN ✅
 

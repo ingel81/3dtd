@@ -107,6 +107,8 @@ export class TrainingClientService {
   // === BOT STATE ===
   private currentBot: ITowerBot | null = null;
   private botFactory!: StrategyBotFactory;
+  /** enableBot() called before initialize(); applied as soon as it runs. */
+  private pendingBotSkill: BotSkillLevel | null = null;
 
   // === EXTERNAL DEPENDENCIES (set via initialize()) ===
   private readonly store = inject(TowerDefenseStore);
@@ -148,6 +150,12 @@ export class TrainingClientService {
       deps.gameState,
       deps.osmService
     );
+
+    if (this.pendingBotSkill) {
+      const skill = this.pendingBotSkill;
+      this.pendingBotSkill = null;
+      this.enableBot(skill);
+    }
   }
 
   /**
@@ -163,7 +171,14 @@ export class TrainingClientService {
    * Enable StrategyBot for automated training
    */
   enableBot(skillLevel: BotSkillLevel): void {
-    if (!this.botFactory) return;
+    if (!this.botFactory) {
+      // `initialize()` has not run yet — the tab is still building its engine.
+      // Remember the request rather than dropping it. Returning silently here
+      // is what left four reloaded clients connected, pushing healthy status to
+      // the dashboard, and idle in setup indefinitely.
+      this.pendingBotSkill = skillLevel;
+      return;
+    }
     this.currentBot = this.botFactory.createBot(
       skillLevel,
       this.botAutoMode() // autoStartWaves
@@ -201,13 +216,21 @@ export class TrainingClientService {
    * the bot's reactionTimeMs and strategy cooldowns are authored in
    * game-time, so this matches semantics directly with no scaling.
    */
-  updateBot(snapshot: GameStateSnapshot, deltaTime: number): boolean {
+  updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean {
     if (!this.botEnabled() || !this.currentBot || !this.gameState) return false;
 
     const phase = this.store.phase();
     if (phase !== 'setup' && phase !== 'wave') return false;
 
-    const action = this.currentBot.update(snapshot, deltaTime);
+    // Tick timers first and bail before touching the snapshot. At timescale 75
+    // the sub-step loop runs ~200 ticks per rendered frame, and a snapshot is
+    // an expensive thing to build (full defense analysis, per-armor effective
+    // DPS, a route-grid reach query) — building one per tick just to discover
+    // the bot is still in reaction cooldown was pure waste.
+    if (!this.currentBot.tickCooldown(deltaTime)) return false;
+
+    // Cooldown already advanced above, so pass 0 to avoid double-ticking.
+    const action = this.currentBot.update(getSnapshot(), 0);
     if (action) {
       this.executeBotAction(action);
       return true;
@@ -425,13 +448,35 @@ export class TrainingClientService {
         // Subscribe to game over events
         this.eventSubscriptions.push(this.gameState.getEventBus().on('game:over', async (_event) => {
           if (this.isConnected()) {
-            // Send game over notification
-
-            // Also send the final wave result if available
+            // Send the fatal wave's result. The data collector finalises the
+            // outcome on game-over (wave:completed never fires), so this is the
+            // wave that ended the run — the single most valuable training
+            // sample there is, since it is the only source of the DEATH term.
+            //
+            // `stateAfter` must be included: without it the backend has to
+            // infer survival from the outcome alone, and for a long time it
+            // read a field that did not exist and concluded "survived" on
+            // every fatal wave.
             const history = this.dataCollector.getWaveHistory();
             if (history.length > 0) {
               const latestResult = history[history.length - 1];
-              await this.sendWaveResult(latestResult);
+              await this.sendWaveResult({
+                ...latestResult,
+                stateAfter: this.dataCollector.getStateSnapshot(),
+              });
+            }
+            this.notifyGameOver(false, this.store.waveNumber());
+
+            // Start the next run. Nothing else does: `restartGame` was only
+            // wired to the backend's episode reset, which fires at wave 100 and
+            // therefore never, since runs end far earlier. Clients sat in the
+            // game-over phase indefinitely — three of four at one point — so
+            // most of the training capacity was idle, and `game_start` never
+            // fired again either, which left the deterministic-eval cadence
+            // stuck at the first game forever.
+            if (this.botEnabled()) {
+              this.callbacks.restartGame();
+              this.notifyGameStart('normal');
             }
           }
         }));

@@ -1,7 +1,7 @@
 /**
  * Sell-Underperformer Strategy
  *
- * Priority: 72 (between NearSpawnUpgrade at 75 and DistributedPlacement at 65)
+ * Priority: 72 (between PathCoverageUpgrade at 75 and DistributedPlacement at 65)
  *
  * Purpose: Dispose of early-game placeholder towers (un-upgraded Lvl 1 Archers)
  * when the bot has accumulated enough gold to replace them with something
@@ -71,7 +71,7 @@ export class SellUnderperformerStrategy extends BaseStrategy {
 
     // Sell the one closest to the path endpoint (least defensive value at
     // this point since early-game towers are near the spawn, where higher-tier
-    // replacements will get placed anyway by NearSpawnUpgrade / DistributedPlacement).
+    // replacements will get placed anyway by PathCoverageUpgrade / DistributedPlacement).
     // Simpler: just sell the first. Strategies aren't stateful long-term here.
     const target = archers[0];
     this.sellCooldownRemainingMs = this.sellCooldownMs;

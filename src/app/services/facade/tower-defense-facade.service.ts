@@ -175,16 +175,27 @@ export class TowerDefenseFacadeService {
     });
 
     const params = new URLSearchParams(window.location.search);
-    if (params.has('bot')) {
-      const botMode = params.get('bot');
-      if (botMode === 'auto') {
-        this.trainingClient.botAutoMode.set(true);
-      }
-    }
+    const botMode = params.get('bot');
 
     if (this.devWorld.isActive) {
       this.store.useAIDirector.set(true);
       this.trainingClient.connectToBackend();
+      // DevWorld exists to train against the backend, so the bot runs waves on
+      // its own unless explicitly told not to (`?bot=manual`). Requiring
+      // `?bot=auto` on top of `?devworld` was a silent trap: the bot built
+      // towers, never started a wave, and the run produced no training data at
+      // all while still looking connected and healthy on the dashboard.
+      this.trainingClient.botAutoMode.set(botMode !== 'manual');
+      // ...and it plays on its own too. Waiting for the dashboard's `start`
+      // meant a tab that reloaded — whether by hand or via the `reload` control
+      // command — sat in setup forever: `start` had already been broadcast, and
+      // nothing broadcasts it again. `enableBot` is safe to call before
+      // `initialize()`; it queues the request until the factory exists.
+      if (botMode !== 'manual') {
+        this.trainingClient.enableBot('strategist');
+      }
+    } else if (botMode === 'auto') {
+      this.trainingClient.botAutoMode.set(true);
     }
 
     // Start main theme music as early as possible (uses HTMLAudioElement, no engine needed)
@@ -276,6 +287,14 @@ export class TowerDefenseFacadeService {
       if (engine) {
         engine.setOnTilesLoadCallback(() => this.vizFacade.onTilesLoaded());
         engine.setOnUpdateCallback((deltaTime) => this.gameLoopFacade.onEngineUpdate(deltaTime));
+
+        // A training tab spends its life in the background. Chrome freezes
+        // requestAnimationFrame in hidden tabs completely, so without this the
+        // whole run stops the moment the window loses visibility — while the
+        // once-a-second status push keeps reporting the client as healthy.
+        // The normal game keeps the browser's throttling; it should not run
+        // when nobody is watching.
+        engine.setBackgroundLoopEnabled(this.devWorld.isActive);
 
         // Fix race condition: if tiles loaded during initEngine() before the
         // onTilesLoadCallback was set, the route refresh was skipped.
