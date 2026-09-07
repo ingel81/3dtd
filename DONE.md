@@ -6,6 +6,46 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ## 2026-09-07
 
+### Öffentliches Release: eigener Schlüssel, Landing Page, /play/
+
+- [x] **AGPL-3.0 statt gar keiner Lizenz**
+      `LICENSE` angelegt, README-Zeile ersetzt.
+      **Warum:** Ohne Lizenzdatei galt striktes Urheberrecht, das Projekt war
+      formal unbenutzbar. AGPL macht Weiterverwertung durch Dritte unattraktiv
+      und lässt eigene Kommerzialisierung als Alleinrechteinhaber offen.
+      **Bedingung:** keine fremden PRs ohne CLA mergen, sonst ist Umlizenzieren
+      dauerhaft blockiert.
+
+- [x] **Spieler bringen ihren eigenen Tile-Schlüssel mit**
+      `config.service.ts` löst Credentials zur Laufzeit auf: `localStorage` →
+      `fetch('runtime-config.json')` → `environment`. Dazu ein Token-Screen unter
+      `components/token-setup/` mit Cesium Ion und Google Maps, Test-Knopf gegen
+      die echten Auth-Endpunkte und Einstieg über `?tokensetup`.
+      Der Auth-Fehler wird in `three-tiles-engine.ts` gepuffert (`authErrorSeen`)
+      und beim Registrieren des Callbacks nachgefeuert, weil der 401 schon
+      während `initEngine()` kommt.
+      **Warum:** Vorher lag der Schlüssel im ausgelieferten Bundle im Klartext.
+      Tiles werden pro Anfrage abgerechnet, ein geteilter Schlüssel ist eine
+      offene Rechnung. Der fetch-Zweig ist derselbe, den ein späterer
+      Desktop-Build über den `app://`-Handler bedient, ohne `if (electron)`.
+
+- [x] **Production-Build von 393 MB auf 160 MB**
+      `angular.json` schließt für die `production`-Config `**/candidates/**` und
+      `**/onnx-wasm/**` aus. Dazu 83 absolute `/assets/...`-Pfade auf relativ
+      umgestellt, abgesichert durch `src/app/integration/asset-paths.spec.ts`.
+      **Warum:** Ohne relative Pfade bricht jeder Build, der nicht im Wurzel-
+      verzeichnis liegt — und genau dorthin zieht das Spiel jetzt um.
+
+- [x] **Spiel nach `/play/`, Landing Page ins Wurzelverzeichnis**
+      `deploy.yml` baut mit `--base-href=/play/` und deployt zweistufig.
+      `landing/index.html` ist eine einzelne Datei ohne Build, die Schriften
+      liegen selbst gehostet daneben, es lädt nichts von Dritten.
+      **Warum beim ersten Lauf dreimal gescheitert:** Der Hoster beantwortet
+      `RETR` auf eine nicht existierende Datei nicht mit 550, sondern kappt den
+      Data-Socket. Damit stirbt jeder erste Publish in ein leeres Verzeichnis
+      beim Lesen der Sync-State-Datei. Einmalig `dangerous-clean-slate: true`,
+      danach zurück auf inkrementell. Steht als Kommentar im Workflow.
+
 ### Wave Director: vom ONNX-Modell auf Regeln, komplett clientseitig
 
 - [x] **Regel-Director ersetzt das trainierte Netz als Default**
