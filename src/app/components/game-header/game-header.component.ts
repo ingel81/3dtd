@@ -85,13 +85,13 @@ import { TdIconComponent } from '../icon/icon.component';
           <span class="action-divider"></span>
 
           <button class="action-btn" [class.active]="placementMode() === 'hq'"
-                  (click)="placeHqClick.emit()" matTooltip="HQ versetzen"
+                  (click)="placeHqClick.emit()" matTooltip="Move HQ"
                   [disabled]="!canPlace()">
             <td-icon name="pin" [size]="22"></td-icon>
           </button>
 
           <button class="action-btn" [class.active]="placementMode() === 'spawn'"
-                  (click)="placeSpawnClick.emit()" matTooltip="Spawn setzen"
+                  (click)="placeSpawnClick.emit()" matTooltip="Set spawn"
                   [disabled]="!canPlace()">
             <td-icon name="flag" [size]="22"></td-icon>
           </button>
