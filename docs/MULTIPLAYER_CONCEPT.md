@@ -21,8 +21,10 @@ aus **7 Command-Events** besteht und pro Match unter 100 KB bleibt.
    sind sich nicht einig, was ein Turm sieht. → Host-autoritative LOS-Masken.
 2. **Terrain-Hoehen kommen aus Raycasts gegen dieselben Tiles bei variabler LOD.**
    → World-Snapshot mit eingefrorenem Hoehenfeld ("World Seal").
-3. **Ungeseedete `Math.random()` in ~6 Gameplay-Pfaden** plus ONNX-Wave-Director.
-   → Seeded RNG + Wave-Schedules als Netzwerk-Command statt lokaler Berechnung.
+3. **Ungeseedete `Math.random()` in ~6 Gameplay-Pfaden.** → Seeded RNG.
+   *(Der Wave-Director stand hier ursprünglich mit drin. Seit dem Wechsel auf
+   `rule-director.ts` ist er reines TypeScript und nimmt seine Zufallsquelle
+   bereits als Parameter — siehe 2.3.)*
 
 **Guenstigster erster Modus ist nicht Coop, sondern "Versus Race"** (beide
 verteidigen die *gleiche* Stadt gegen die *gleiche* Welle in getrennten Sims,
@@ -93,7 +95,14 @@ Tower-Radius-Zellen — realistisch 20–50k Zellen. Als Int16-Delta in cm:
 Netter Nebeneffekt: Das entschaerft die in `TODO.md` gelisteten
 Stale-LOS-Bugs, weil Hoehen nach dem Seal nicht mehr still wandern.
 
-### 2.3 RNG und ONNX
+### 2.3 RNG und Wave-Director
+
+> **Stand 2026-09-07: Dieser Blocker ist weitgehend entfallen.** Der
+> Wave-Director ist seit dem Wechsel auf `ai/core/rule-director.ts` kein
+> neuronales Netz mehr, sondern eine Regelfunktion — reines TypeScript, keine
+> WASM-Backends, keine Float-Divergenz zwischen Clients. Der ursprüngliche Text
+> steht darunter, weil die Begründung für den Command-Broadcast weiterhin
+> stichhaltig ist, nur nicht mehr zwingend.
 
 Gameplay-relevante `Math.random()`-Aufrufe (der Rest ist VFX und darf bleiben):
 
@@ -103,15 +112,25 @@ Gameplay-relevante `Math.random()`-Aufrufe (der Rest ist VFX und darf bleiben):
 | `managers/wave.manager.ts` | 306 | Spawn-Point-Auswahl |
 | `entities/enemy.entity.ts` | 197, 213, 246, 268 | Audio-Timing, Shuffle |
 | `ai/core/spawn-schedule-builder.ts` | 81, 157 | Count-Jitter, Shuffle |
+| `ai/core/rule-director.ts` | 75 | Template-Wahl und Faktor-Jitter |
+| `ai/core/gate-controller.ts` | — | keiner: rein arithmetisch, kein RNG |
 
 **Loesung:** Ein `DeterministicRng` (mulberry32/xorshift128, seed pro Match aus
 dem Room) wird injiziert; VFX/Audio behalten `Math.random()`.
 
-Der **ONNX-Wave-Director** ist prinzipiell nicht synchronisierbar (WASM- vs.
-WebGPU-Backend liefern unterschiedliche Floats). **Loesung: Der Host laeuft die
-Inferenz und broadcastet den fertigen Spawn-Schedule als Command.** Damit ist
-der Director im MP automatisch konsistent — und PvP-Modus 3 (unten) faellt fast
-als Nebenprodukt ab.
+Für den Director ist das bereits vorbereitet: `RuleDirector.decide()` nimmt die
+Zufallsquelle als vierten Parameter (`random: () => number = Math.random`), weil
+die Tests sie ohnehin ersetzen müssen. Für den Mehrspielerbetrieb genügt es,
+dort dieselbe geseedete Quelle zu übergeben wie überall sonst. Der
+`GateController` braucht gar nichts: er rechnet nur mit der Leak-Quote
+vergangener Wellen, ist also deterministisch, sobald diese Wellen es sind.
+
+**Der ONNX-Pfad** existiert noch als Opt-in hinter einem Knopf im Debug-Fenster
+und wäre tatsächlich nicht synchronisierbar (WASM- vs. WebGPU-Backend liefern
+unterschiedliche Floats). Das ist im Mehrspielerbetrieb kein Problem, sondern
+eine Regel: **Modell im MP gesperrt.** Falls er dort je gebraucht wird, gilt die
+alte Lösung weiter — der Host läuft die Inferenz und broadcastet den fertigen
+Spawn-Schedule als Command.
 
 ### 2.4 Restrisiko: Float-Determinismus ueber Browser hinweg
 
@@ -288,7 +307,7 @@ werden, wobei Singleplayer schlicht ein Spieler mit `localPlayerId` ist.
 Ein Spieler baut Tuerme. Der andere **ist der Wave-Director**: kauft von einem
 Angriffsbudget Gegnergruppen, waehlt Zusammensetzung, Spawn-Punkt und Timing.
 
-Der Clou: **Die Action-Space dafuer existiert bereits.** Der ONNX-Wave-Director
+Der Clou: **Die Action-Space dafuer existiert bereits.** Der Wave-Director
 arbeitet in `ai/wave-director/` genau mit diesen Groessen (Range-Based Templates,
 Spawn-Schedules, Constraints — siehe `docs/PHASE_5.11_RANGES.md`). Ein
 Angreifer-UI ist im Kern ein Human-Frontend fuer die gleiche Action-Space, mit
@@ -324,7 +343,7 @@ Grob nach Aufwand sortiert, mit Dateibezug:
 **Gameplay-Umbau**
 10. Per-Spieler-Oekonomie: `credits`-Signal → `Map<PlayerId, PlayerEconomy>`
 11. `Tower.ownerId` + Besitzregeln im `GameCommandsHandler`
-12. Wave-Schedule als Command statt lokaler ONNX-Inferenz
+12. Wave-Schedule als Command statt lokaler Berechnung *(entschärft: der Regel-Director ist deterministisch, sobald er die geseedete Quelle bekommt)*
 13. `trainingTimescale` im MP pinnen
 
 **UI**
@@ -377,7 +396,9 @@ lohnt, wenn Multiplayer nie kommt.
    Lockstep mit Resync. Empfehlung: soft starten, bei Bedarf haerten.
 4. **Spielerzahl-Obergrenze im Coop** — die Tick-Barriere macht jeden zusaetzlichen
    Spieler zu einem potenziellen Bremsklotz. 4 ist ein vernuenftiges Limit.
-5. **Wave-Director im MP:** Host-Inferenz oder statisches Curriculum
+5. **Wave-Director im MP:** *entschieden durch den Wechsel auf den Regel-Director* —
+   er läuft auf jedem Client identisch, sobald er die geseedete Zufallsquelle
+   bekommt. Der ONNX-Pfad bleibt im MP gesperrt.
    (`configs/wave-curriculum.config.ts`)? Statisch ist fairer und einfacher,
    Host-Inferenz ist interessanter.
 6. **Performance-Budget:** Der Client rendert heute schon am Limit. Ein zweiter
@@ -611,7 +632,7 @@ Serverprozess.
 | RNG-Seed, Match-ID | **besitzt** | — | — |
 | World-Snapshot (Strassen, Routen, World Seal) | speichert & verteilt | **erzeugt** | laedt |
 | LOS-Masken beim Turmbau | speichert & verteilt | **rechnet (GPU)** | uebernimmt |
-| Wave-Schedule (ONNX oder Curriculum) | speichert & verteilt | **rechnet** | uebernimmt |
+| Wave-Schedule (Regel-Director oder Curriculum) | speichert & verteilt | **rechnet** | uebernimmt |
 | Regelpruefung der Commands | **fuehrt aus** | — | — |
 | Checksum-Sammlung & Quorum | **fuehrt aus** | meldet | meldet |
 | Match-Ergebnis, Ladder | **besitzt** | meldet | meldet |
@@ -1171,10 +1192,20 @@ Der Teil, der ueber die zwei Modi hinaus Wert schafft:
    funktioniert Modus A auch zu zweit plus zwei Bots — **die wichtigste
    einzelne Massnahme fuer "leichtes Setup"**, weil sie das
    Vier-Spieler-Problem aufloest.
-2. **Menschliche Sends als Trainingsdaten.** Der Wave-Director trainiert heute
-   gegen Bots. Modus B produziert echte menschliche Angriffsentscheidungen im
-   selben Aktionsraum — deutlich besseres Trainingsmaterial, und es faellt im
-   Betrieb an.
+2. **Menschliche Sends als Trainingsdaten.** Der Wave-Director trainierte gegen
+   Bots. Modus B produziert echte menschliche Angriffsentscheidungen im selben
+   Aktionsraum, und es faellt im Betrieb an.
+
+   *Nachtrag 2026-09-07: Dieser Punkt ist inzwischen belegt, nicht mehr nur
+   plausibel.* Ein A/B-Lauf mit vier Wave-Designern gegen dieselben Bots ergab,
+   dass das trainierte Netz dreimal statistisch nicht von uniformem Zufall zu
+   unterscheiden war; es wurde deshalb durch den Regel-Director ersetzt. Ein
+   Grund liegt im Aktionsraum (Curriculum und Fairness-Cap gaben fast alles
+   vor), der andere ist genau dieser: Wer gegen einen einzigen scripted Bot
+   trainiert, lernt dessen Schwaechen, und die hat ein Mensch nicht. Menschliche
+   Sends sind damit nicht bloss besseres Material, sondern die Vorbedingung
+   dafuer, dass sich ein gelerntes Modell hier ueberhaupt lohnt. Siehe
+   `docs/HANDOVER_RULE_DIRECTOR.md`.
 3. **Der AI-Director als PvP-Gegner** (Teil I, Modus C) — dieselbe UI, dieselbe
    Aktionsraum-Anbindung wie der menschliche Angreifer in Modus B.
 4. **Replays** aus dem Command-Log — beide Modi, ohne Zusatzaufwand.
