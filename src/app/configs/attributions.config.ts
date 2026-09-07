@@ -120,9 +120,39 @@ export const ATTRIBUTIONS: AttributionCategory[] = [
     icon: 'audio',
     items: [
       {
-        name: 'Tentacle Slime',
-        author: 'The Odyssey Collection: Expanded',
-        license: 'Commercial',
+        name: 'Sound effects',
+        author: 'ingel81, generated with ElevenLabs',
+        license: 'Original work',
+        sourceUrl: 'https://elevenlabs.io/sound-effects',
+      },
+    ],
+  },
+  {
+    title: 'Textures & Art',
+    icon: 'terrain',
+    items: [
+      {
+        name: 'Skybox (day / night)',
+        author: 'ingel81, generated with Krea AI',
+        license: 'Original work',
+        sourceUrl: 'https://www.krea.ai',
+      },
+      {
+        name: 'Stone wall texture',
+        author: 'ingel81',
+        license: 'Original work',
+      },
+    ],
+  },
+  {
+    title: 'Music',
+    icon: 'audio',
+    items: [
+      {
+        name: 'Soundtrack',
+        author: 'ingel81, generated with Eleven Music (ElevenLabs) and ACE-Step 1.5',
+        license: 'Original work',
+        sourceUrl: 'https://elevenlabs.io/music',
       },
     ],
   },
