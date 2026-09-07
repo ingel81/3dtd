@@ -361,6 +361,20 @@ export class AIDataCollectorService {
   }
 
   private onWaveCompleted(event: { wave: number; credits: number }): void {
+    // Drop the wave the game-over path already finalised.
+    //
+    // When the last leaker of a wave is also the one that destroys the base,
+    // both fire for the same wave: the wave-complete check runs before the
+    // game-over check, but `wave:completed` is emitted deferred while
+    // `game:over` is synchronous, so the finaliser goes first and this handler
+    // arrives afterwards for a wave that is already recorded. That produced a
+    // duplicate history entry, and now also a second recordWave — a doubled
+    // gate back-off on the most common way a run ends.
+    if (this.finalizedWaveNumber === event.wave) {
+      this.finalizedWaveNumber = null;
+      return;
+    }
+
     const duration = Date.now() - this.currentWaveStartTime;
 
     // Get training timescale for normalization
@@ -549,6 +563,7 @@ export class AIDataCollectorService {
         };
 
         // Store in history
+        this.finalizedWaveNumber = this.currentWaveNumber;
         this.addToHistory(result);
         this.waveResultCount.update((n) => n + 1);
 
@@ -588,8 +603,41 @@ export class AIDataCollectorService {
     }
   }
 
+  /**
+   * Notified for every completed wave, including the game-over one.
+   *
+   * `addToHistory` is the single point both paths pass through — the normal
+   * `wave:completed` handler and the game-over finaliser, which exists because
+   * `wave:completed` is never emitted when the base falls. Anything that needs
+   * to see every wave has to hang here; subscribing to the event instead would
+   * silently miss exactly the wave that ended the run.
+   */
+  onWaveResult(listener: (result: WaveResult) => void): () => void {
+    this.waveResultListeners.push(listener);
+    return () => {
+      const i = this.waveResultListeners.indexOf(listener);
+      if (i >= 0) this.waveResultListeners.splice(i, 1);
+    };
+  }
+
+  private waveResultListeners: ((result: WaveResult) => void)[] = [];
+
+  /**
+   * Wave already recorded by the game-over finaliser, so the deferred
+   * `wave:completed` for it must be ignored. See onWaveCompleted.
+   */
+  private finalizedWaveNumber: number | null = null;
+
   private addToHistory(result: WaveResult): void {
     this.waveHistory.push(result);
+    for (const listener of this.waveResultListeners) {
+      try {
+        listener(result);
+      } catch (error) {
+        // A misbehaving listener must not cost us the wave history entry.
+        console.error('[AI] wave-result listener threw', error);
+      }
+    }
     this.damageHistory.push(result.outcome.damagePercent);
     this.progressHistory.push(result.outcome.avgPathProgressPercent);
     // Derive near-miss ratio from enemyProgressValues: fraction reaching >0.8

@@ -29,14 +29,16 @@ import {
   fairMaxCount,
 } from './templates';
 import { buildWaveContext, type WaveContext } from './wave-context';
+import { RuleDirector, type DirectorDecision } from './rule-director';
+import { GateController } from './gate-controller';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { endgameHpMultiplier, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 
 /** Model loading states */
-type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'fallback';
+type ModelState = 'not-loaded' | 'loading' | 'ready' | 'error' | 'rules';
 
 /** AI Mode */
-type AIMode = 'inference' | 'fallback' | 'training' | 'disabled';
+type AIMode = 'inference' | 'rules' | 'training' | 'disabled';
 
 /** ONNX Runtime types (lazy loaded) */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -55,15 +57,23 @@ export class WaveDirectorService {
   private recentTemplateIndices: number[] = [];
 
   // === SIGNALS ===
-  readonly modelState = signal<ModelState>('not-loaded');
-  readonly aiMode = signal<AIMode>('fallback');
+  // Rules are the DEFAULT, not a degraded mode.
+  //
+  // Measured across a day of A/B runs sharing bots, curriculum and fairness
+  // gate: the ONNX policy was three times statistically indistinguishable from
+  // uniform random (mean run 45.6 [42,49] vs 44.7 [41,48]), while two trivial
+  // heuristics produced measurably more tension (near-miss 0.067 vs 0.045).
+  // A dependency that costs 404 kB of ONNX runtime and a load-failure path has
+  // to earn its place, and this one does not yet.
+  readonly modelState = signal<ModelState>('rules');
+  readonly aiMode = signal<AIMode>('rules');
   readonly lastDecision = signal<WaveConfig | null>(null);
   readonly lastExplanation = signal<DecisionExplanation | null>(null);
   readonly inferenceTimeMs = signal(0);
 
   readonly isReady = computed(() => {
     const state = this.modelState();
-    return state === 'ready' || state === 'fallback';
+    return state === 'ready' || state === 'rules';
   });
 
   readonly statusText = computed(() => {
@@ -74,8 +84,8 @@ export class WaveDirectorService {
         return 'AI wird geladen...';
       case 'ready':
         return 'AI bereit (ONNX)';
-      case 'fallback':
-        return 'Fehler: kein Model geladen';
+      case 'rules':
+        return 'Regel-Director aktiv';
       case 'error':
         return 'AI Fehler';
     }
@@ -84,22 +94,30 @@ export class WaveDirectorService {
   // === DEBUG MODE ===
   private debugMode = signal(false);
 
-  constructor() {
-    // Try to load model on startup (but don't block)
-    this.initializeAsync();
-  }
+  private readonly ruleDirector = new RuleDirector();
+  readonly gate = new GateController();
 
-  /**
-   * Initialize AI (async, non-blocking)
-   */
-  private async initializeAsync(): Promise<void> {
-    try {
-      await this.loadModel();
-    } catch (error) {
-      console.warn('[AI] Model loading failed, using fallback', error);
-      this.modelState.set('fallback');
-      this.aiMode.set('fallback');
-    }
+  constructor() {
+    // Subscribe the fairness gate to completed waves.
+    //
+    // This wiring is the whole point of the controller and it was missing on
+    // first write: `onWaveCompleted` had no caller anywhere in the project, so
+    // the multiplier stayed at 1.0 forever and the cap sat back on "exactly
+    // what the towers can kill" — the 70%-killed-everything state the loop
+    // exists to break. Every unit test passed regardless, because they all
+    // exercised the controller in isolation.
+    //
+    // The collector's hook is used rather than the `wave:completed` event: that
+    // event is not emitted when the base falls, so the death back-off would
+    // have been unreachable.
+    this.dataCollector.onWaveResult((result) => this.onWaveCompleted(result));
+
+    // No ONNX load on startup.
+    //
+    // The model used to be fetched eagerly and switched on the moment it
+    // arrived. That made a 404 kB runtime and a network round-trip part of
+    // every cold start for a director that measured no better than uniform
+    // random. Call loadModel() explicitly to opt in.
   }
 
   /**
@@ -141,16 +159,17 @@ export class WaveDirectorService {
         console.log('[AI] ONNX model loaded successfully');
         return true;
       } catch {
-        // Model file not found - use fallback
-        console.log('[AI] No model file found, using fallback rules');
-        this.modelState.set('fallback');
-        this.aiMode.set('fallback');
+        // No model file. Not an error: rules are the product, the model is the
+        // opt-in that has not yet shown it beats them.
+        console.log('[AI] No model file found, staying on the rule director');
+        this.modelState.set('rules');
+        this.aiMode.set('rules');
         return false;
       }
     } catch (error) {
       console.error('[AI] Failed to load ONNX Runtime', error);
       this.modelState.set('error');
-      this.aiMode.set('fallback');
+      this.aiMode.set('rules');
       return false;
     }
   }
@@ -164,17 +183,15 @@ export class WaveDirectorService {
   async getNextWave(): Promise<WaveConfig> {
     const startTime = performance.now();
 
-    // Phase 5.10: no rule-based fallback — ONNX model is required for inference.
-    if (this.aiMode() !== 'inference' || !this.session || !this.ort) {
-      throw new Error(
-        '[AI] Wave Director model is not available. Fallback-rules were removed '
-        + 'in Phase 5.10; the ONNX model must load successfully for inference. '
-        + 'Check network/onnx-wasm assets and reload the page.'
-      );
-    }
-
     const state = this.dataCollector.getStateSnapshot();
-    const config = await this.runInference(state);
+
+    // Rules unless the ONNX policy was explicitly loaded AND is live. This is
+    // no longer an error path: the model is the opt-in, the rules are the
+    // product.
+    const useModel = this.aiMode() === 'inference' && !!this.session && !!this.ort;
+    const config = useModel
+      ? await this.runInference(state)
+      : this.runRules(state);
 
     // Generate explanation
     const explanation = explainWaveDecision(state, config);
@@ -192,6 +209,26 @@ export class WaveDirectorService {
     }
 
     return config;
+  }
+
+  /**
+   * Rule-based decision, through the same decoder the model output uses.
+   *
+   * The fairness cap is corrected by the gate controller, which is the piece
+   * that was previously server-only. Without it the cap sits on "exactly what
+   * the towers can kill" and therefore guarantees they kill it: measured over
+   * 1834 waves, 70% of waves killed everything and 80% dealt no damage at all.
+   */
+  private runRules(state: GameStateSnapshot): WaveConfig {
+    const waveContext = buildWaveContext(state, this.recentTemplateIndices);
+    const decision = this.ruleDirector.decide(
+      waveContext.mask,
+      state.waveNumber + 1,
+      this.recentTemplateIndices,
+    );
+    // A rule director simply decided; there is no distribution to read a
+    // confidence out of.
+    return this.buildWaveConfig(decision, state, 1);
   }
 
   /**
@@ -255,7 +292,6 @@ export class WaveDirectorService {
     // to a single slot, so the argmax below has one candidate and the wave that
     // ships is the one the designer pinned. Past the curriculum it is a real
     // choice.
-    const upcomingWave = state.waveNumber + 1;
     const mask = waveContext.mask;
 
     const maskedLogits = templateLogits.map((l, i) => mask[i] ? l : -Infinity);
@@ -270,16 +306,54 @@ export class WaveDirectorService {
       }
     }
 
-    const template = bestIdx >= 0 ? getTemplate(bestIdx) : null;
+    return this.buildWaveConfig(
+      {
+        templateIdx: bestIdx,
+        countFactor: this.sigmoid(rawParams[0]),
+        spawnFactor: this.sigmoid(rawParams[1]),
+        hpFactor: this.sigmoid(rawParams[2]),
+        variationFactor: this.sigmoid(rawParams[3]),
+      },
+      state,
+      bestProb,
+    );
+  }
+
+  /**
+   * Turn a director's five numbers into a shippable wave.
+   *
+   * Everything here is shared between the model and the rule director: the
+   * template lookup, range interpolation, the DPS ramp, the endgame
+   * multiplier, the fairness cap and the duration cap. Only the choice of
+   * template and factors differs between them, which is what makes an A/B
+   * between the two honest — and what made it possible to measure that the
+   * trained model was indistinguishable from uniform random sampling.
+   */
+  private buildWaveConfig(
+    decision: DirectorDecision,
+    state: GameStateSnapshot,
+    confidence: number,
+  ): WaveConfig {
+    const upcomingWave = state.waveNumber + 1;
+    let bestIdx = decision.templateIdx;
+    const bestProb = confidence;
+
+    // An invalid index means the mask and the template table disagree, which is
+    // a real bug worth shouting about — but not one worth ending the wave over.
+    // Throwing here propagates to the facade, which disables the director and
+    // drops to manual waves; the Python decoder logs and ships slot 0 instead,
+    // and a degraded AI wave beats no AI wave.
+    let template = bestIdx >= 0 ? getTemplate(bestIdx) : null;
     if (!template) {
-      throw new Error(`[AI] Decoder selected invalid template index ${bestIdx}`);
+      console.error(`[AI] Director selected invalid template index ${bestIdx} — using slot 0`);
+      template = getTemplate(0);
+      bestIdx = 0;
+      if (!template) {
+        throw new Error('[AI] Template table is empty');
+      }
     }
 
-    // Interpolate each factor into template's range.
-    const countFactor = this.sigmoid(rawParams[0]);
-    const spawnFactor = this.sigmoid(rawParams[1]);
-    const hpFactor = this.sigmoid(rawParams[2]);
-    const variationFactor = this.sigmoid(rawParams[3]);
+    const { countFactor, spawnFactor, hpFactor, variationFactor } = decision;
 
     // DPS-scaled range caps for difficulty axes (count, hp_mult). Weak defense
     // → narrow effective range; strong defense → full range.
@@ -329,6 +403,10 @@ export class WaveDirectorService {
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.baseSpeed ?? 5,
         state.player?.lives ?? 100,
         enemyBaseDamageForWave(upcomingWave),
+        // Closed-loop correction. FAIRNESS_KILL_REALISM was measured on waves
+        // 1-10 and understates the defense from wave 11 on; this is the only
+        // thing that notices.
+        this.gate.budgetMultiplier,
       );
       // The gate outranks the template minimum. A cap BELOW countRange[0] means
       // the defense cannot handle even the smallest wave the designer wrote,
@@ -401,11 +479,32 @@ export class WaveDirectorService {
    * Called after wave completes - for potential online learning
    */
   onWaveCompleted(result: WaveResult): void {
-    // Currently just logs - training happens in backend
+    // Feed the fairness gate. This is the loop that sizes the next wave, so it
+    // has to see every completed wave — not just the ones a debug flag prints.
+    const progress = result.outcome.enemyProgressValues ?? [];
+    // null, not 0: a wave with no per-enemy data is no evidence either way.
+    const leakRatio = progress.length > 0
+      ? progress.filter(p => p >= 1).length / progress.length
+      : null;
+    const survived = result.outcome.playerSurvived !== false;
+    this.gate.recordWave(leakRatio, survived);
+
     if (this.debugMode()) {
       console.log('[AI] Wave result:', result);
-      console.log('[AI] Reward would be:', this.calculateReward(result));
+      console.log('[AI] Leak ratio:', leakRatio, 'gate x', this.gate.budgetMultiplier);
     }
+  }
+
+  /**
+   * Clear per-run state. Must be called when a new game starts: the gate
+   * multiplier is a per-RUN correction, and letting it survive into the next
+   * game made it a ratchet that opened fresh runs against waves sized for a
+   * defense that had already been dismantled. Median run length under that bug
+   * was 6 waves against a target of 80.
+   */
+  resetForNewGame(): void {
+    this.gate.reset();
+    this.recentTemplateIndices = [];
   }
 
   /**
@@ -448,7 +547,7 @@ export class WaveDirectorService {
       if (this.session) {
         this.aiMode.set('inference');
       } else {
-        this.aiMode.set('fallback');
+        this.aiMode.set('rules');
       }
     } else {
       this.aiMode.set('disabled');
@@ -485,9 +584,10 @@ export class WaveDirectorService {
   }
 
   /**
-   * Force fallback mode (for testing)
+   * Switch back to the rule director, dropping the ONNX policy if one is live.
    */
-  forceFallbackMode(): void {
-    this.aiMode.set('fallback');
+  forceRuleMode(): void {
+    this.aiMode.set('rules');
+    this.modelState.set('rules');
   }
 }

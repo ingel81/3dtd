@@ -92,6 +92,29 @@ import { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
                 <span class="value">{{ waveDirector.inferenceTimeMs() }}ms</span>
               </div>
             }
+
+            <div class="info-row">
+              <span class="label">Gate ×</span>
+              <span class="value">{{ waveDirector.gate.budgetMultiplier.toFixed(2) }}</span>
+            </div>
+
+            <!--
+              The ONNX policy is opt-in. It measured no better than uniform
+              random across a day of A/B runs, so it does not get to be the
+              default — but the path stays reachable for a future run trained
+              on real player data rather than against a scripted bot.
+            -->
+            <div class="info-row">
+              @if (getAIMode() === 'inference') {
+                <button class="mini-btn" (click)="useRules()">Regeln nutzen</button>
+              } @else {
+                <button class="mini-btn"
+                        [disabled]="loadingModel()"
+                        (click)="loadOnnxModel()">
+                  {{ loadingModel() ? 'lädt…' : 'ONNX-Modell laden' }}
+                </button>
+              }
+            </div>
           </div>
 
           <!-- Training Stats -->
@@ -245,6 +268,28 @@ import { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
       font-weight: 600;
       text-align: right;
       -moz-appearance: textfield;
+    }
+
+    .mini-btn {
+      background: var(--td-surface-2, rgba(255, 255, 255, 0.06));
+      border: 1px solid var(--td-border, rgba(255, 255, 255, 0.15));
+      border-radius: 3px;
+      color: var(--td-teal);
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 10px;
+      font-weight: 600;
+      padding: 3px 8px;
+      width: 100%;
+    }
+
+    .mini-btn:hover:not(:disabled) {
+      border-color: var(--td-teal);
+    }
+
+    .mini-btn:disabled {
+      cursor: default;
+      opacity: 0.5;
     }
 
     .slider-row .number-input::-webkit-outer-spin-button,
@@ -423,6 +468,7 @@ export class TrainingDebuggerComponent {
   readonly gameState = inject(GameStateManager);
   readonly trainingClient = inject(TrainingClientService);
   readonly waveDirector = inject(WaveDirectorService);
+  readonly loadingModel = signal(false);
 
   // Bot control inputs (from parent component)
   readonly botEnabled = input<boolean>(false);
@@ -467,6 +513,26 @@ export class TrainingDebuggerComponent {
       return 'Backend Training Model';
     }
     return this.waveDirector.statusText();
+  }
+
+  /**
+   * Load the ONNX policy on demand. Nothing loads it on startup: it measured
+   * statistically indistinguishable from uniform random sampling, and a 404 kB
+   * runtime plus a network round-trip is not worth paying for that on every
+   * cold start.
+   */
+  async loadOnnxModel(): Promise<void> {
+    this.loadingModel.set(true);
+    try {
+      await this.waveDirector.loadModel();
+    } finally {
+      this.loadingModel.set(false);
+    }
+  }
+
+  /** Drop back to the rule director. */
+  useRules(): void {
+    this.waveDirector.forceRuleMode();
   }
 
   toggleDpsBins(): void {
