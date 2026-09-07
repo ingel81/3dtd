@@ -1,7 +1,7 @@
 /**
  * Research Pick Strategy
  *
- * Priority: 80 (between NearSpawnUpgrade=75 and SplashDefense=85).
+ * Priority: 80 (between PathCoverageUpgrade=75 and SplashDefense=85).
  *
  * Fires when:
  * - Research Center is placed (centerLevel > 0)
