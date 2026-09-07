@@ -68,6 +68,7 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 
 | Dokument | Status | Beschreibung |
 |----------|--------|--------------|
+| [MULTIPLAYER_CONCEPT.md](MULTIPLAYER_CONCEPT.md) | Plan | PvE-Coop und PvP: Machbarkeit, Determinismus-Blocker, Server-Entwurf, zwei durchentworfene Zielmodi. Kein Code |
 | [ELECTRON_DESKTOP_PLAN.md](ELECTRON_DESKTOP_PLAN.md) | Plan | Windows-Desktop-Build via Electron. PoC abgeschlossen und zurückgebaut |
 
 ## Historisch
