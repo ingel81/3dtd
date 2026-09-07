@@ -429,6 +429,20 @@ export function fairMaxCount(
   hpRemaining: number,
   /** HP the player loses per enemy that reaches the base, at this wave. */
   leakDamage: number,
+  /**
+   * Closed-loop correction on the kill estimate, from {@link GateController}.
+   *
+   * FAIRNESS_KILL_REALISM was measured on waves 1-10, where defenses achieve
+   * about 65% of what the DPS model predicts; from wave 11 they achieve
+   * essentially all of it. A single static discount therefore understates the
+   * defense for most of a run, and the cap lands on "exactly what the towers
+   * can kill" — which guarantees the towers kill it. Measured over 1834 waves
+   * with no correction: 70% of waves killed everything and 80% dealt no damage
+   * at all, and four wave designers as different as a policy network and a
+   * uniform random sampler produced statistically identical runs, because the
+   * cap and not the designer was choosing the wave size.
+   */
+  budgetMultiplier = 1,
 ): number | null {
   const ground = effectiveDps?.ground ?? {};
   const air = effectiveDps?.air ?? {};
@@ -483,7 +497,7 @@ export function fairMaxCount(
   // What the model says is killable, discounted by what defenses actually
   // manage. Without the discount the gate permits about twice the real capacity
   // through waves 1-10, which is where every run was ending.
-  const budget = killsPerSecond * FAIRNESS_KILL_REALISM;
+  const budget = killsPerSecond * FAIRNESS_KILL_REALISM * Math.max(0.01, budgetMultiplier);
   const denominator = 1 - budget * (Math.max(0, spawnDelayMs) / 1000);
   if (denominator <= 0) return null;
   const killable = (budget * engagementSeconds) / denominator;
