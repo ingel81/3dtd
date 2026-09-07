@@ -46,6 +46,18 @@ jobs:
       - name: Build
         run: npm run build -- --base-href=/play/
 
+      # FTP_SERVER_DIR may or may not carry a trailing slash. Appending "play/"
+      # to it blindly would target a sibling directory instead of a child.
+      - name: Resolve FTP directories
+        id: ftpdir
+        env:
+          BASE: ${{ secrets.FTP_SERVER_DIR }}
+        run: |
+          base="${BASE:-/}"
+          case "$base" in */) ;; *) base="$base/" ;; esac
+          echo "root=$base" >> "$GITHUB_OUTPUT"
+          echo "play=${base}play/" >> "$GITHUB_OUTPUT"
+
       - name: Deploy game to /play/
         uses: SamKirkland/FTP-Deploy-Action@v4.3.5
         with:
@@ -53,7 +65,8 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./dist/3DTD/browser/
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}play/
+          server-dir: ${{ steps.ftpdir.outputs.play }}
+          log-level: verbose
           # Sync-Modus: nur geänderte Dateien hochladen, alte löschen
           # State wird in .ftp-deploy-sync-state.json auf Server gespeichert
           dangerous-clean-slate: false
@@ -70,7 +83,7 @@ jobs:
           username: ${{ secrets.FTP_USERNAME }}
           password: ${{ secrets.FTP_PASSWORD }}
           local-dir: ./landing/
-          server-dir: ${{ secrets.FTP_SERVER_DIR || '/' }}
+          server-dir: ${{ steps.ftpdir.outputs.root }}
           dangerous-clean-slate: false
           # play/ gehört dem Deploy-Schritt darüber, der Root-Sync darf da nicht aufräumen
           exclude: |
