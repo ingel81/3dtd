@@ -19,10 +19,6 @@
   below. Do not hotlink Google Fonts, the privacy line in the footer has to stay
   true. Without the files the page falls back to Arial Narrow / system-ui and
   still holds together.
-
-  MEDIA: every image and video is a dashed placeholder that names the file it
-  expects. The real markup sits in an HTML comment directly above it, so
-  swapping a placeholder is a delete plus an uncomment.
 -->
 <style>
 /* Selbst gehostet, damit die Seite ohne einen einzigen Fremd-Request laedt.
@@ -68,21 +64,6 @@ a:hover{color:var(--gold-light)}
 .btn[aria-disabled="true"]{opacity:.42;pointer-events:none}
 .btn small{font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.12em;opacity:.72;text-transform:uppercase}
 .actions{display:flex;flex-wrap:wrap;gap:12px}
-
-/* framed panel with corner ticks, from the in-game panels */
-
-/* media placeholders: name the file, keep the real markup in a comment above */
-
-/* hud chips */
-
-/* click-to-load youtube plate */
-
-/* token screen mock */
-.token-field{display:flex;gap:8px;margin:16px 0 14px}
-.token-field .fake-input{flex:1;min-width:0;padding:11px 13px;border:1px solid var(--frame);background:var(--panel-shadow);box-shadow:inset 0 1px 3px rgba(0,0,0,.55);color:var(--muted);font-family:var(--mono);font-size:11.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.token-field .fake-btn{padding:11px 20px;border:1px solid var(--gold-dark);background:linear-gradient(180deg,rgba(194,160,85,.18),rgba(142,114,40,.1));color:var(--gold);font-family:var(--display);font-size:12.5px;font-weight:600;letter-spacing:.06em}
-
-/* tech table */
 
 /* footer */
 footer{padding:40px 0 72px;color:var(--muted);font-size:13px;border-top:1px solid var(--frame);background:linear-gradient(rgba(11,15,12,.78),rgba(11,15,12,.86)),url('media/stone-wall.jpg') repeat;background-size:auto,64px 64px;box-shadow:inset 0 1px 0 rgba(167,179,168,.08)}
@@ -152,24 +133,23 @@ main{max-width:1120px;margin:0 auto;padding:26px 26px 60px}
 .sound-btn[aria-pressed="true"] .sound-label{display:none}
 .sound-btn[aria-pressed="true"] svg{width:17px;height:17px}
 @keyframes soundpulse{0%,100%{box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 18px rgba(194,160,85,.18)}50%{box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 34px rgba(194,160,85,.46)}}
-@media (prefers-reduced-motion:reduce){.sound-btn{animation:none}}
+/* Muss denselben Attributselektor tragen wie die Regel, die das Pulsen setzt.
+   Eine Media Query erhoeht die Spezifitaet nicht, `.sound-btn` allein verliert. */
+@media (prefers-reduced-motion:reduce){.sound-btn[aria-pressed="false"]{animation:none}}
 @media (max-width:620px){.sound-btn{left:10px;bottom:10px;padding:10px 14px;font-size:12px}}
 .hero-panel{margin-bottom:22px}
 .hero-media{position:relative;border-bottom:1px solid var(--panel-shadow)}
-.hero-media .ph,.hero-media video,.hero-media img{width:100%;aspect-ratio:21/9;object-fit:cover;border:0;display:block}
+.hero-media video,.hero-media img{width:100%;aspect-ratio:21/9;object-fit:cover;border:0;display:block}
 .hero-copy{padding:26px 26px 24px}
 .hero-copy h1{font-size:clamp(30px,3.4vw,44px);line-height:1.06;margin-bottom:14px}
-.hero-copy h1 em{font-style:normal;color:var(--gold-light)}
 .hero-copy .lead{max-width:60ch;font-size:16.5px}
 .hero-copy .actions{margin-top:22px}
-.hero-copy .hud{margin-top:22px}
 
 /* required bar, inside the content column so it sits with the panels */
 
 /* mechanics as slot rows, like the tower list in game */
 .slots{display:grid;gap:14px}
 .slot{display:grid;grid-template-columns:210px minmax(0,1fr);gap:20px;padding:14px;border:1px solid var(--frame);background:rgba(11,15,12,.4);box-shadow:inset 0 1px 0 rgba(167,179,168,.08)}
-.slot .ph{aspect-ratio:16/10;height:100%;border-style:solid;border-color:var(--frame)}
 .slot img{width:100%;height:auto;display:block;border:1px solid var(--frame);cursor:zoom-in}
 .slot h3{font-size:18px;margin-bottom:8px}
 .slot p{margin:0;color:var(--text-2);font-size:15px}
@@ -181,11 +161,9 @@ main{max-width:1120px;margin:0 auto;padding:26px 26px 60px}
 @media (max-width:560px){.shots{grid-template-columns:1fr}}
 .shots figure{margin:0}
 
-.shots .ph{aspect-ratio:16/9;height:100%}
-.shots .ph{aspect-ratio:16/9}
-.shots .ph,.shots img{border:1px solid var(--frame);box-shadow:inset 0 1px 0 rgba(167,179,168,.08);transition:border-color 140ms}
+.shots img{border:1px solid var(--frame);box-shadow:inset 0 1px 0 rgba(167,179,168,.08);transition:border-color 140ms}
 .shots img{width:100%;height:auto;display:block;cursor:zoom-in}
-.shots figure:hover .ph,.shots figure:hover img{border-color:var(--frame-light)}
+.shots figure:hover img{border-color:var(--frame-light)}
 .shots figcaption{display:flex;gap:8px;margin-top:6px;color:var(--muted);font-family:var(--mono);font-size:10.5px}
 .shots figcaption b{color:var(--text-2);font-weight:500;letter-spacing:.1em;text-transform:uppercase}
 
@@ -241,7 +219,6 @@ main{max-width:1120px;margin:0 auto;padding:22px 26px 60px}
         <a class="btn" href="https://github.com/ingel81/3dtd">Source on GitHub</a>
         <!-- Wird ein echter Link, sobald das erste Windows-Release getaggt ist. -->
         <span class="btn btn--soon">Desktop app <small>soon</small></span>
-        <!-- Drop aria-disabled once the first Windows release is tagged. -->
       </div>
       <p class="fine" style="margin-top:16px">Needs a free Cesium Ion token. <a href="#key">How to get one</a>. Made for desktop: it needs a GPU and a mouse.</p>
     </div>
@@ -282,8 +259,7 @@ main{max-width:1120px;margin:0 auto;padding:22px 26px 60px}
     <div class="panel-body">
       <p class="lead" style="margin-bottom:22px">How well it plays depends on where you point it. Some places load beautifully. Others have tile geometry that makes the routing do slightly silly things.</p>
       <div class="shots">
-        <!-- Replace each .ph with: <img src="media/place-XX.jpg" alt="..." loading="lazy">
-             One ordinary residential street stays in the set on purpose. -->
+        <!-- One ordinary residential street stays in the set on purpose. -->
         <figure><img src="media/place-01.jpg" alt="Manhattan, a wave on Madison Street" loading="lazy"><figcaption><b>Manhattan</b> <span>a wave on Madison Street</span></figcaption></figure>
         <figure><img src="media/place-02.jpg" alt="Tokyo, evening light" loading="lazy"><figcaption><b>Tokyo</b> <span>evening light</span></figcaption></figure>
         <figure><img src="media/place-03.jpg" alt="Tokyo, base on Tokyo Tower" loading="lazy"><figcaption><b>Tokyo</b> <span>base on Tokyo Tower</span></figcaption></figure>
