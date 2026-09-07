@@ -40,7 +40,7 @@ import { TdIconComponent } from '../icon/icon.component';
 
           <!-- Sliders -->
           <div class="section">
-            <div class="section-title">Werte</div>
+            <div class="section-title">Values</div>
 
             <div class="slider-row">
               <span class="label">Scale</span>
@@ -96,24 +96,24 @@ import { TdIconComponent } from '../icon/icon.component';
 
           <!-- Visualization -->
           <div class="section">
-            <div class="section-title">Visualisierung</div>
+            <div class="section-title">Visualization</div>
             <label class="checkbox-row">
               <input type="checkbox"
                      [checked]="towerDebug.showShootHeight()"
                      (change)="towerDebug.showShootHeight.set($any($event.target).checked)" />
-              <span>Shoot Height anzeigen</span>
+              <span>Show shoot height</span>
             </label>
           </div>
 
           <!-- Actions -->
           <div class="section">
-            <div class="section-title">Aktionen</div>
+            <div class="section-title">Actions</div>
             <div class="btn-row">
-              <button class="action-btn" (click)="towerDebug.resetCurrentTower()" title="Aktuellen Tower zurücksetzen">
+              <button class="action-btn" (click)="towerDebug.resetCurrentTower()" title="Reset current tower">
                 <td-icon name="undo" [size]="14"></td-icon>
                 Reset
               </button>
-              <button class="action-btn primary" (click)="towerDebug.copyJsonToClipboard()" title="Alle Tower als JSON kopieren">
+              <button class="action-btn primary" (click)="towerDebug.copyJsonToClipboard()" title="Copy all towers as JSON">
                 <td-icon name="copy" [size]="14"></td-icon>
                 Copy JSON
               </button>
@@ -122,7 +122,7 @@ import { TdIconComponent } from '../icon/icon.component';
 
           <!-- JSON Preview -->
           <div class="section json-section">
-            <div class="section-title">JSON Export (alle Tower)</div>
+            <div class="section-title">JSON Export (all towers)</div>
             <pre class="json-preview">{{ towerDebug.exportAllAsJson() }}</pre>
           </div>
         </div>

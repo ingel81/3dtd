@@ -107,9 +107,9 @@ const ZOOM_CANVAS_PX = 144;
           <!-- Color-Legende: Mapping depth → color (single source of truth
                passt zum Shader in TowerShadowMapper.ensureDebugResources) -->
           <div class="legend">
-            <span class="legend-label">Blocker nah</span>
+            <span class="legend-label">Blocker near</span>
             <span class="legend-gradient"></span>
-            <span class="legend-label">frei (far/no hit)</span>
+            <span class="legend-label">clear (far/no hit)</span>
           </div>
 
           <!-- Hover-Readout + Zoom-Viewport -->

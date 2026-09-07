@@ -106,12 +106,12 @@ import { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
             -->
             <div class="info-row">
               @if (getAIMode() === 'inference') {
-                <button class="mini-btn" (click)="useRules()">Regeln nutzen</button>
+                <button class="mini-btn" (click)="useRules()">Use rules</button>
               } @else {
                 <button class="mini-btn"
                         [disabled]="loadingModel()"
                         (click)="loadOnnxModel()">
-                  {{ loadingModel() ? 'lädt…' : 'ONNX-Modell laden' }}
+                  {{ loadingModel() ? 'loading…' : 'Load ONNX model' }}
                 </button>
               }
             </div>

@@ -281,8 +281,8 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
 
   // Map placement hints for context hint box
   readonly placementModeHints: HintItem[] = [
-    { key: 'Click', description: 'Platzieren' },
-    { key: 'ESC', description: 'Abbrechen' },
+    { key: 'Click', description: 'Place' },
+    { key: 'ESC', description: 'Cancel' },
   ];
   readonly placementModeWarning = computed(() => this.mapPlacement.validationReason());
 
