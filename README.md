@@ -4,7 +4,10 @@ Tower defense on your actual street. You type in an address, the game loads the
 photorealistic 3D tiles for that place, and enemies walk up the real roads towards
 your base.
 
-<!-- TODO: drop a gameplay gif or screenshot here -->
+[![A walkthrough on YouTube](https://img.youtube.com/vi/XoRsYuTkUmA/maxresdefault.jpg)](https://youtu.be/XoRsYuTkUmA)
+
+**[A walkthrough, 6:42](https://youtu.be/XoRsYuTkUmA)**, mostly Frankfurt am Main,
+with the mechanics explained along the way.
 
 **[3dtd.sgeht.net](https://3dtd.sgeht.net)**, project page, screenshots, and a
 playable build under [/play/](https://3dtd.sgeht.net/play/). You bring your own
