@@ -14,7 +14,7 @@ import { TdIconComponent } from '../icon/icon.component';
   changeDetection: ChangeDetectionStrategy.OnPush,
   template: `
     <header class="header">
-      <img class="logo" src="/assets/images/logo/logo.png" alt="3DTD">
+      <img class="logo" src="assets/images/logo/logo.png" alt="3DTD">
       <div class="header-left">
         <button class="location-btn" (click)="locationClick.emit()" matTooltip="Change location">
           <span class="location-label">DEFEND</span>
@@ -72,7 +72,7 @@ import { TdIconComponent } from '../icon/icon.component';
             <td-icon name="home" [size]="22"></td-icon>
           </a>
 
-          <!-- Rendering Toggle (Phase 5.14) — headless mode for training, DevWorld only -->
+          <!-- Rendering Toggle (Phase 5.14), headless mode for training, DevWorld only -->
           @if (isDevWorld) {
             <button class="action-btn" (click)="toggleRendering()"
                     [class.active]="!renderingEnabled()"
@@ -137,7 +137,7 @@ import { TdIconComponent } from '../icon/icon.component';
       padding: 4px 12px;
       background:
         linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
-        url('/assets/images/backgrounds/stone-wall.jpg') repeat;
+        url('./src/styles/textures/stone-wall.jpg') repeat;
       background-size: auto, 64px 64px;
       border-bottom: 3px solid var(--td-panel-shadow);
       border-top: 1px solid var(--td-frame-light);

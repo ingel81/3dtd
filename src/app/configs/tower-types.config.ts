@@ -194,15 +194,15 @@ export interface TowerTypeConfig {
 }
 
 // Tower model URLs
-const ARCHER_MODEL_URL = '/assets/models/towers/archer.glb';
-const TURRET_MODEL_URL = '/assets/models/towers/gatling.glb';
-const ROCKET_MODEL_URL = '/assets/models/towers/rocket.glb';
-const CANNON_MODEL_URL = '/assets/models/towers/cannon.glb';
-const ICE_MODEL_URL = '/assets/models/towers/ice.glb';
-const MAGIC_MODEL_URL = '/assets/models/towers/magic.glb';
-const FIRE_MODEL_URL = '/assets/models/towers/fire.glb';
-const POISON_MODEL_URL = '/assets/models/towers/poison_tower.glb';
-const LIGHTNING_MODEL_URL = '/assets/models/towers/lightning.glb';
+const ARCHER_MODEL_URL = 'assets/models/towers/archer.glb';
+const TURRET_MODEL_URL = 'assets/models/towers/gatling.glb';
+const ROCKET_MODEL_URL = 'assets/models/towers/rocket.glb';
+const CANNON_MODEL_URL = 'assets/models/towers/cannon.glb';
+const ICE_MODEL_URL = 'assets/models/towers/ice.glb';
+const MAGIC_MODEL_URL = 'assets/models/towers/magic.glb';
+const FIRE_MODEL_URL = 'assets/models/towers/fire.glb';
+const POISON_MODEL_URL = 'assets/models/towers/poison_tower.glb';
+const LIGHTNING_MODEL_URL = 'assets/models/towers/lightning.glb';
 
 export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   archer: {
@@ -359,7 +359,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     id: 'tentacle',
     name: 'Tentacle Tower',
     defaultTargeting: 'closest',
-    modelUrl: '/assets/models/towers/tentacle.glb',
+    modelUrl: 'assets/models/towers/tentacle.glb',
     scale: 9.8,
     previewScale: 12,
     heightOffset: 2,
@@ -428,7 +428,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
   'research-center': {
     id: 'research-center',
     name: 'Research Center',
-    modelUrl: '/assets/models/buildings/research_building.glb',
+    modelUrl: 'assets/models/buildings/research_building.glb',
     scale: 17.9,
     previewScale: 10,
     heightOffset: 5.1,

@@ -45,16 +45,16 @@ export interface BackgroundMusicConfig {
 
 export const BACKGROUND_MUSIC: BackgroundMusicConfig = {
   main: [
-    { id: 'music-main-03', url: '/assets/music/main/main03.mp3', volume: 0.5, startOffset: 20, loop: false },
+    { id: 'music-main-03', url: 'assets/music/main/main03.mp3', volume: 0.5, startOffset: 20, loop: false },
   ],
   build: [
-    { id: 'music-build-04', url: '/assets/music/build/build04.mp3', volume: 0.5 },
+    { id: 'music-build-04', url: 'assets/music/build/build04.mp3', volume: 0.5 },
   ],
   wave: [
-    { id: 'music-wave-01', url: '/assets/music/wave/wave01.mp3' },
-    { id: 'music-wave-02', url: '/assets/music/wave/wave02.mp3' },
-    { id: 'music-wave-03', url: '/assets/music/wave/wave03.mp3' },
-    { id: 'music-wave-04', url: '/assets/music/wave/wave04.mp3' },
+    { id: 'music-wave-01', url: 'assets/music/wave/wave01.mp3' },
+    { id: 'music-wave-02', url: 'assets/music/wave/wave02.mp3' },
+    { id: 'music-wave-03', url: 'assets/music/wave/wave03.mp3' },
+    { id: 'music-wave-04', url: 'assets/music/wave/wave04.mp3' },
   ],
   loopCrossfadeDuration: 2000,
   phaseFadeDuration: 1500,
