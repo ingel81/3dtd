@@ -134,11 +134,13 @@ export class OsmStreetService {
   // IndexedDB cache service (replaces localStorage)
   private readonly streetCache = inject(StreetCacheService);
 
-  // Multiple Overpass API servers for fallback
+  // Multiple Overpass API servers for fallback. All three sit in the EU: the
+  // player's IP and the queried bounding box reach whichever one answers, and
+  // the mirror that used to be third was run by Mail.ru in Russia.
   private readonly OVERPASS_SERVERS = [
     'https://overpass.kumi.systems/api/interpreter',
     'https://overpass-api.de/api/interpreter',
-    'https://maps.mail.ru/osm/tools/overpass/api/interpreter',
+    'https://overpass.private.coffee/api/interpreter',
   ];
 
   // Cached graph for pathfinding (avoid rebuilding on every findPath call)

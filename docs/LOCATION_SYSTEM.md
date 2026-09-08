@@ -179,20 +179,24 @@ hasLocationParams(): boolean             // Prueft ob l= Parameter vorhanden
 
 ## GeolocationService
 
-Automatische Standort-Erkennung mit Fallback-Cascade:
+Automatische Standort-Erkennung:
 
 ```
 1. Browser Geolocation API (GPS/WiFi, 15s Timeout fuer Permission-Dialog)
    ↓ (bei Fehler/Ablehnung)
-2. ip-api.com (IP-basiert, 5s Timeout, City-Level Genauigkeit)
-   ↓ (bei Fehler)
-3. null → Location-Dialog wird angezeigt
+2. null → Location-Dialog wird angezeigt
 ```
 
 ```typescript
 async detectLocation(): Promise<GeolocationResult | null>
-// GeolocationResult = { lat, lon, source: 'browser' | 'ip' }
+// GeolocationResult = { lat, lon, source: 'browser' }
 ```
+
+Dazwischen lag frueher ein IP-Lookup ueber ip-api.com. Der ist raus: der
+kostenlose Tarif spricht nur http, auf der ausgelieferten https-Seite blockt
+der Browser den Request ohnehin als Mixed Content, und die IP jedes Spielers
+ging an einen Dritten fuer eine Schaetzung, die der Dialog mit einem Klick
+genauer hinbekommt.
 
 ## GeocodingService
 
