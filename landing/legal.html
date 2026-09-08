@@ -1,0 +1,162 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Legal and privacy, 3DTD</title>
+<meta name="description" content="Contact, liability, licences and the privacy policy for 3dtd.sgeht.net.">
+<meta name="robots" content="noindex">
+<link rel="icon" href="media/logo.png">
+<!--
+  Convenience translation. rechtliches.html is the German original and the
+  version that governs. Change both or neither.
+-->
+<link rel="stylesheet" href="base.css">
+<style>
+/* Plain text page: one column, running text, nothing else. */
+.doc{max-width:78ch}
+/* Ein durchgehendes Dokument: eine grosse Überschrift oben, die Abschnitte
+   darunter deutlich kleiner. Sechs gleich schwere Titel liessen die Seite wie
+   sechs Einzelseiten wirken. */
+.doc h2{margin:34px 0 10px;padding-bottom:8px;border-bottom:1px solid var(--frame);font-size:20px;color:var(--gold-light)}
+.doc h2:first-child{margin-top:0}
+.doc h3{margin:24px 0 8px;font-size:16px;color:var(--text)}
+.doc h3:first-child{margin-top:0}
+.doc p,.doc li{color:var(--text-2);font-size:15px}
+.doc p{margin:0 0 12px;max-width:78ch}
+.doc ul{margin:0 0 12px;padding-left:20px}
+.doc li{margin-bottom:5px}
+.doc .scroll{overflow-x:auto;margin:0 0 14px}
+.doc table{width:100%;border-collapse:collapse;font-size:14px}
+/* Lange Pfade sonst breiter als ein schmales Telefon. */
+.doc code{overflow-wrap:anywhere}
+.doc th,.doc td{padding:8px 10px;border:1px solid var(--frame);text-align:left;vertical-align:top;color:var(--text-2)}
+.doc th{font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--muted);font-weight:400}
+.doc .stand{color:var(--muted);font-size:13px}
+.doc code{font-family:var(--mono);font-size:13px;color:var(--text)}
+.toc{display:flex;flex-wrap:wrap;gap:8px 18px;margin:0 0 4px;padding:0;list-style:none;font-family:var(--mono);font-size:11px;letter-spacing:.1em;text-transform:uppercase}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="./" aria-label="3DTD, back to the start page"><img src="media/logo.png" alt="3DTD"></a>
+  <nav>
+    <a href="./">Home</a>
+    <a href="rechtliches.html" hreflang="de">Deutsch</a>
+    <a href="https://github.com/ingel81/3dtd">GitHub</a>
+    <a class="btn btn--primary btn--sm" href="/play/">Play</a>
+  </nav>
+</header>
+
+<main>
+  <section class="panel">
+    <div class="panel-bar"><h1>Legal and privacy</h1></div>
+    <div class="panel-body">
+      <div class="doc">
+        <p>3DTD is a private hobby project. Nothing is sold here and nothing is advertised, there is no revenue, no ads, no sign-up and no player account. German law (section 5 DDG) requires a formal provider identification only for commercial services, and this one is private. The way to reach the operator is right below anyway.</p>
+        <p>This page is a translation. The <a href="rechtliches.html" hreflang="de">German version</a> is the one that governs, because the obligations behind it come from German law.</p>
+        <ul class="toc" role="list">
+          <li><a href="#contact">Contact</a></li>
+          <li><a href="#liability">Liability</a></li>
+          <li><a href="#licenses">Licences</a></li>
+          <li><a href="#youth">Youth protection</a></li>
+          <li><a href="#privacy">Privacy</a></li>
+        </ul>
+
+        <h2 id="contact">Contact</h2>
+        <p>Run privately by <strong>ingel81</strong>.</p>
+        <ul>
+          <li>Email: <a href="mailto:legal@sgeht.net">legal@sgeht.net</a></li>
+          <li>Source and bug reports: <a href="https://github.com/ingel81/3dtd">github.com/ingel81/3dtd</a>, issues preferred</li>
+        </ul>
+        <p>The same address is the route for anything about data protection.</p>
+        <h2 id="liability">Liability</h2>
+        <h3>Content and links</h3>
+        <p>The content here is written to the best of my knowledge, without any warranty that it is correct, complete or current. For external content behind links, the respective provider is responsible. There is no general duty to monitor them under sections 7 to 10 of the German Digital Services Act. Any link will be removed once an infringement becomes known.</p>
+
+        <h3>The software</h3>
+        <p>The game is an unfinished hobby project under the AGPL-3.0. Sections 15 and 16 of that licence exclude all warranty and liability. Use it at your own risk. There is no promise that the site or the game is available, that it works, or that it keeps running.</p>
+
+        <h3>Your own keys and what they cost</h3>
+        <p>The game loads its 3D tiles with a Cesium ion token or a Google Maps key that each player creates and keeps in their own browser. Usage, quotas and any resulting cost are therefore the key holder's, under the terms and prices of Cesium or Google. No liability is accepted for charges, suspensions or blown quotas on someone else's key.</p>
+        <h2 id="licenses">Copyright and licences</h2>
+        <ul>
+          <li>Own source code: AGPL-3.0, readable on <a href="https://github.com/ingel81/3dtd">GitHub</a>.</li>
+          <li>3D tiles: &copy; Google. The required attributions are carried in the game and in the screenshots.</li>
+          <li>Street and building data: &copy; OpenStreetMap contributors, ODbL 1.0.</li>
+          <li>Third party models, sounds and music: under CC-BY or CC-BY-SA. The full credits sit in the game under <em>Attributions</em> and in the repository in <code>src/app/configs/attributions.config.ts</code>.</li>
+          <li>Fonts: Oswald, Inter Tight and JetBrains Mono under the SIL Open Font License 1.1. The licence texts sit next to the font files in <code>landing/media/fonts/</code>.</li>
+          <li>Draco decoder: Apache License 2.0, Google.</li>
+        </ul>
+        <p>If you think something here is used without permission, write to the address above. It will be checked and, in case of doubt, removed.</p>
+        <h2 id="youth">Youth protection</h2>
+        <p>The game shows cartoon violence against zombies and similar enemies. The site therefore carries an age label under the German <a href="age-de.xml">age-de.xml</a> standard, set to 12. Recognised youth protection programmes read that file and can hide the site from younger users.</p>
+        <h2 id="privacy">Privacy policy</h2>
+        <h3>Controller</h3>
+        <p>The controller under the GDPR is the operator of this site, reachable at <a href="mailto:legal@sgeht.net">legal@sgeht.net</a>. No data protection officer is appointed, the thresholds for that are not met.</p>
+
+        <h3>The short version</h3>
+        <p>This site sets no cookies, measures nothing, carries no ads and loads no fonts from other servers. There is no sign-up, no account and no game server. Everything the game does happens in your browser.</p>
+
+        <h3>Hosting and server logs</h3>
+        <p>The site is hosted by ALL-INKL.COM, Neue Medien Münnich, owner René Münnich, Hauptstraße 68, 02742 Friedersdorf, Germany. No server log files are written or kept in this site's hosting account. When a page is requested, the provider briefly processes connection data on its own systems, including the IP address of your device, as far as that is needed to run the service and to detect and fend off attacks. Full IP addresses are deleted there after seven days at the latest.</p>
+        <p>The legal basis is Art. 6(1)(f) GDPR. The legitimate interest is a technically secure, stable and abuse-free site. The data is not combined with other data and not evaluated for marketing. A data processing agreement under Art. 28 GDPR is in place with the provider.</p>
+        <p>The domain's DNS runs through Cloudflare. The proxy is switched off, so requests go straight to the host and Cloudflare does not see the traffic itself.</p>
+
+        <h3>Videos on this site</h3>
+        <p>The clip at the top of the start page and the debug capture are served from this site's own server, with no connection to any third party.</p>
+        <p>The longer walkthrough sits on YouTube and loads only when you click the still image. Before that click, not a single request reaches Google. After it, the player is loaded from <code>youtube-nocookie.com</code>, which gives Google Ireland Limited your IP address and device details and can involve a transfer to the United States. The legal basis is the consent expressed in that click, Art. 6(1)(a) GDPR. If you would rather not, do not click the still.</p>
+
+        <h3>The game at /play/</h3>
+        <p>The game has no backend of its own. It does load map and terrain data from third party services as soon as it starts, which transmits your IP address along with the requested coordinates or search terms. Without those requests the game does not work, so the legal basis is the legitimate interest in being able to run the function you asked for at all, Art. 6(1)(f) GDPR.</p>
+        <div class="scroll" role="region" tabindex="0" aria-label="Services">
+        <table>
+          <thead><tr><th>Service</th><th>What for</th><th>Provider</th></tr></thead>
+          <tbody>
+            <tr><td>Cesium ion</td><td>access to the 3D tiles with your own token</td><td>Cesium GS, Inc., USA</td></tr>
+            <tr><td>Google 3D Tiles</td><td>the photorealistic tiles themselves</td><td>Google Ireland Limited, Google LLC, USA</td></tr>
+            <tr><td>Nominatim</td><td>address search and reverse lookup</td><td>OpenStreetMap Foundation, United Kingdom</td></tr>
+            <tr><td>Overpass</td><td>streets and building footprints nearby</td><td>kumi.systems (Austria), overpass-api.de (Germany), Private.coffee (Austria)</td></tr>
+            <tr><td>Wikidata</td><td>candidates for the random location feature</td><td>Wikimedia Foundation, USA</td></tr>
+          </tbody>
+        </table>
+        </div>
+        <p>One thing worth knowing about the address search: whatever you type goes to Nominatim. Type your own home address and you hand it to that OpenStreetMap service. Picking a spot nearby instead of your house number avoids it.</p>
+        <p>For transfers to the United States, the processing relies on the adequacy decision where the provider is certified under the EU-US Data Privacy Framework, and on standard contractual clauses otherwise. A residual risk of access by authorities there remains.</p>
+
+        <h3>Location</h3>
+        <p>On startup the browser asks once for your location. Granting it is voluntary, and refusing brings up the location picker instead. The position is handled in the browser and leaves the device only as a coordinate sent to the map services listed above.</p>
+
+        <h3>Storage in your browser</h3>
+        <p>The game keeps what it needs in local storage and IndexedDB: the tile token you entered, your settings and a cache of street data. That data stays on your device, reaches neither this site nor the host, and can be cleared at any time in your browser settings. Since it is required for the service you explicitly asked for, no consent is needed, section 25(2) no. 2 TDDDG. That is why there is no cookie banner.</p>
+
+        <h3>Contact by email</h3>
+        <p>If you write, your address and message are processed to deal with the matter, Art. 6(1)(f) GDPR. Messages are deleted once they are settled and no retention duty stands in the way.</p>
+
+        <h3>Your rights</h3>
+        <p>You have the rights to access (Art. 15), rectification (Art. 16), erasure (Art. 17), restriction of processing (Art. 18), data portability (Art. 20) and objection to processing based on legitimate interests (Art. 21). Consent once given can be withdrawn at any time with effect for the future. You may also lodge a complaint with a data protection supervisory authority, Art. 77 GDPR.</p>
+
+        <p class="stand">Last updated: 8 September 2026. Changes to the site may make an update of this text necessary.</p>
+      </div>
+    </div>
+  </section>
+
+</main>
+
+<footer>
+  <div class="inner">
+    <div class="row">
+      <a href="/play/">Play</a>
+      <a href="https://github.com/ingel81/3dtd">GitHub</a>
+      <a href="./">Home</a>
+      <a href="rechtliches.html" hreflang="de">Deutsch</a>
+      <span>AGPL-3.0</span>
+      <span>Built by <a href="https://github.com/ingel81">@ingel81</a></span>
+    </div>
+    <p>Tiles &copy; Google. Map data &copy; OpenStreetMap contributors.</p>
+  </div>
+</footer>
+
+</body>
+</html>

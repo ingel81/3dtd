@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<!--
+  Alterskennzeichen nach dem Standard age-de.xml, ausgelesen von anerkannten
+  Jugendschutzprogrammen (JusProg). Muss unter der Wurzel der Domain liegen,
+  also https://3dtd.sgeht.net/age-de.xml.
+
+  Stufe 12 wegen der comichaften Gewalt im Spiel. Wer die Einstufung aendern
+  oder das Kennzeichen pruefen lassen will: https://www.altersklassifizierung.de
+  ("Alterskennzeichen ueberpruefen", URL eintragen).
+-->
+<age-declaration>
+  <ageblock-basic>
+    <age-issuer>3dtd.sgeht.net</age-issuer>
+    <last-change>2026-09-08</last-change>
+    <country>de</country>
+    <label-version>1.0</label-version>
+    <revisit-after>1days</revisit-after>
+  </ageblock-basic>
+  <ageblock-labeltype>
+    <httpheader>false</httpheader>
+    <htmlmeta>false</htmlmeta>
+    <label-z>false</label-z>
+    <xmlfile>true</xmlfile>
+    <default-age>12</default-age>
+  </ageblock-labeltype>
+  <ageblock-labeltype-definition>
+    <labeltype-xmlfile>
+      <label class="website">
+        <age>12</age>
+        <min-age>0</min-age>
+        <default-age>12</default-age>
+        <scope>3dtd.sgeht.net</scope>
+      </label>
+    </labeltype-xmlfile>
+  </ageblock-labeltype-definition>
+</age-declaration>
