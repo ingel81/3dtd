@@ -190,8 +190,7 @@ export class LocationFacadeService {
 
       if (detected) {
         this.locationMgmt.setLocation(detected, []);
-        const sourceLabel = detected.source === 'browser' ? 'Browser' : 'IP-based';
-        await this.engineInit.setStepDone('location', sourceLabel);
+        await this.engineInit.setStepDone('location', 'Browser');
       } else {
         this.engineInit.updateStepMeta('location', 'Select location...');
         try {

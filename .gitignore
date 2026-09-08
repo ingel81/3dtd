@@ -70,7 +70,13 @@ logs/
 
 # ONNX Runtime WASM files (too large to commit - copy from node_modules)
 public/assets/onnx-wasm/
+
+# Draco-Decoder: wird beim postinstall aus node_modules kopiert
+public/draco/
 .profiles/
 
 # Hero-Video der Landing Page: 15 MB, wird per FTP hochgeladen statt versioniert
 /landing/media/hero.mp4
+
+# Debug-Mitschnitt der Landing Page: 15 MB, ebenfalls per FTP
+/landing/media/raw-gameplay.mp4

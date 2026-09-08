@@ -519,9 +519,9 @@ export class ThreeTilesEngine {
     this.tilesRenderer.registerPlugin(new TilesFadePlugin());
     this.tilesRenderer.registerPlugin(
       new GLTFExtensionsPlugin({
-        dracoLoader: new DRACOLoader().setDecoderPath(
-          'https://unpkg.com/three@0.153.0/examples/jsm/libs/draco/gltf/'
-        ),
+        // Selbst ausgeliefert aus public/draco/gltf/. Ueber ein Fremd-CDN ginge
+        // die IP jedes Spielers dorthin, und das Spiel haenge an dessen Uptime.
+        dracoLoader: new DRACOLoader().setDecoderPath('draco/gltf/'),
       })
     );
 
