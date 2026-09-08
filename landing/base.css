@@ -1,0 +1,103 @@
+/* 3DTD, shared base for every page under this domain root: tokens, primitives,
+   top bar, panel chrome and footer. The page-specific layout stays in the page
+   itself. Paths are relative to this file, which sits next to /media. */
+
+/* Selbst gehostet, damit die Seite ohne einen einzigen Fremd-Request lädt.
+   Oswald und Inter Tight sind variabel: eine Datei deckt die Gewichte ab,
+   deshalb ein Bereich statt einer Regel je Schnitt. Nur die Latin-Untermenge,
+   die Seite ist englisch. Lizenzen liegen in media/fonts/. */
+@font-face{font-family:'Oswald';src:url('media/fonts/oswald-var.woff2') format('woff2');font-weight:400 700;font-display:swap}
+@font-face{font-family:'Inter Tight';src:url('media/fonts/inter-tight-var.woff2') format('woff2');font-weight:100 900;font-display:swap}
+@font-face{font-family:'JetBrains Mono';src:url('media/fonts/jetbrains-mono-400.woff2') format('woff2');font-weight:400;font-display:swap}
+
+/* ---------- tokens and primitives ---------- */
+:root{
+--bg:#111613;--panel:#222A24;--panel-2:#1A1F1B;--panel-shadow:#0B0F0C;
+--frame:#2F3631;--frame-mid:#4A544D;--frame-light:#7A8580;
+--gold:#C2A055;--gold-light:#D9BC68;--gold-dark:#8E7228;--rune:#A47A2C;
+--text:#EEF1EB;--text-2:#B6C0B3;--muted:#8E988C;--warn:#C96A3A;
+--display:'Oswald','Arial Narrow',system-ui,sans-serif;
+--body:'Inter Tight',system-ui,-apple-system,sans-serif;
+--mono:'JetBrains Mono',ui-monospace,'SF Mono',Menlo,monospace;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}}
+/* Die Kachel ist 128 Pixel gross und wird auf 64 gelegt, das reicht auf
+   Bildschirmen mit doppelter Dichte. Kein background-attachment: fixed, das
+   zeichnet bei jedem Scroll-Frame den ganzen Grund neu. */
+body{margin:0;color:var(--text);font-family:var(--body);font-size:16px;line-height:1.62;-webkit-font-smoothing:antialiased;background:linear-gradient(rgba(17,22,19,.9),rgba(17,22,19,.9)),url('media/stone-wall-128.jpg') repeat;background-size:auto,64px 64px}
+/* Die Bilder tragen width/height im Markup, damit der Platz vor dem Laden
+   steht. height:auto hält sie trotzdem proportional. */
+img,video{max-width:100%}
+img{height:auto}
+h1,h2,h3{font-family:var(--display);font-weight:600;margin:0}
+a{color:var(--gold);text-decoration-thickness:1px;text-underline-offset:3px}
+a:hover{color:var(--gold-light)}
+:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+.fine{color:var(--muted);font-size:13.5px}
+.lead{margin:0;color:var(--text-2)}
+
+/* ---------- buttons: gradient bevel, hard bottom edge, 0 radius ---------- */
+.btn{display:inline-flex;align-items:center;gap:10px;padding:14px 26px;border:1px solid var(--frame-mid);background:linear-gradient(180deg,var(--panel),var(--panel-2));box-shadow:inset 0 1px 0 rgba(167,179,168,.2),0 2px 0 var(--panel-shadow);color:var(--text);font-family:var(--display);font-size:14.5px;font-weight:600;letter-spacing:.05em;text-decoration:none;transition:border-color 140ms,color 140ms,background 140ms,transform 90ms}
+.btn:hover{border-color:var(--frame-light);color:var(--gold)}
+.btn:active{transform:translateY(1px);box-shadow:inset 0 1px 0 rgba(167,179,168,.12),0 1px 0 var(--panel-shadow)}
+.btn--primary{background:linear-gradient(180deg,var(--gold-light) 0%,var(--gold) 52%,var(--gold-dark) 100%);border-color:var(--gold-dark);color:#14180F;font-weight:700;box-shadow:inset 0 1px 0 rgba(255,244,214,.5),0 2px 0 #4A3A12}
+.btn--primary:hover{filter:brightness(1.08);color:#14180F;border-color:var(--gold-dark)}
+.btn small{font-family:var(--mono);font-size:10px;font-weight:400;letter-spacing:.12em;opacity:.72;text-transform:uppercase}
+.btn--soon{border-style:dashed;color:var(--muted);cursor:default}
+.btn--soon small{margin-left:8px;font-family:var(--mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--rune)}
+.btn--sm{padding:8px 18px;font-size:12px}
+.actions{display:flex;flex-wrap:wrap;gap:12px}
+
+/* ---------- slim top bar, no side rail ---------- */
+.top{position:sticky;top:0;z-index:30;display:flex;align-items:center;gap:20px;padding:10px 26px;
+  background:linear-gradient(rgba(15,19,15,.9),rgba(15,19,15,.9)),url('media/stone-wall-128.jpg') repeat;
+  background-size:auto,64px 64px;border-bottom:3px solid var(--panel-shadow);
+  box-shadow:0 4px 8px rgba(0,0,0,.45),inset 0 -2px 4px rgba(0,0,0,.3)}
+.top .brand img{height:34px;width:auto;display:block}
+.top nav{display:flex;align-items:center;gap:18px;margin-left:auto}
+/* :not(.btn), sonst schlägt die Navigationsfarbe die des Knopfes und die
+   Schrift wird gold auf goldenem Grund. */
+.top nav a:not(.btn){color:var(--text-2)}
+.top nav a{font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;text-decoration:none}
+.top nav a:not(.btn):hover{color:var(--gold)}
+@media (max-width:620px){
+  .top{padding:8px 14px;gap:12px}
+  .top .brand img{height:26px}
+  .top nav{gap:12px}
+  /* Der Sprachumschalter traegt hreflang und bleibt stehen, sonst kaeme man
+     auf dem Telefon nur ueber die Fusszeile in die andere Fassung. */
+  .top nav a:not(.btn):not([hreflang]){display:none}
+}
+
+/* ---------- sections: a hairline and a heading, nothing else ---------- */
+/* Die Kopfleiste klebt oben und ist knapp 60 Pixel hoch. Ohne diesen Abstand
+   landet die Überschrift eines angesprungenen Abschnitts dahinter. */
+[id]{scroll-margin-top:76px}
+.panel{margin-bottom:26px}
+.panel-bar{padding:0 0 12px;border-bottom:1px solid var(--frame);margin-bottom:22px}
+.panel-bar h1,.panel-bar h2{margin:0;font-size:clamp(20px,2.4vw,26px);color:var(--gold-light);letter-spacing:.01em}
+/* Kein seitlicher Innenabstand: sonst stuenden Überschrift und Haarlinie
+   26 Pixel links neben ihrem eigenen Fliesstext. */
+.panel-body{padding:24px 0 28px}
+.panel-body>.lead{max-width:70ch;font-size:16px}
+main{max-width:1120px;margin:0 auto;padding:22px 26px 0}
+
+/* ---------- footer ----------
+   Er liegt ausserhalb von main, damit er die contentinfo-Landmark der Seite
+   ist. Die äussere Hülle übernimmt dafür den Innenabstand von main, der
+   Rahmen sitzt auf .inner und die Kanten bleiben bündig mit den Panels. */
+footer{max-width:1120px;margin:0 auto;padding:0 26px 60px;color:var(--muted);font-size:13px}
+footer .inner{border:1px solid var(--frame);background:rgba(11,15,12,.55);padding:24px 26px 28px;box-shadow:inset 0 1px 0 rgba(167,179,168,.06)}
+footer .row{display:flex;flex-wrap:wrap;gap:8px 22px;margin-bottom:18px;font-family:var(--mono);font-size:11.5px;letter-spacing:.1em;text-transform:uppercase}
+footer .row span{color:var(--muted)}
+footer p{margin:0 0 10px;max-width:78ch;font-size:12.5px}
+
+@media (max-width:620px){
+  [id]{scroll-margin-top:60px}
+  .panel-body{padding:20px 0 22px}
+  main{padding:14px 14px 0}
+  footer{padding:0 14px 40px}
+  footer .inner{padding:20px 18px 22px}
+}
