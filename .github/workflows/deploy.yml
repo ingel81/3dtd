@@ -5,6 +5,12 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Zwei Deploys gleichzeitig schreiben dieselbe .ftp-deploy-sync-state.json
+# auf dem Server und hinterlassen einen inkonsistenten Stand.
+concurrency:
+  group: ftp-deploy
+  cancel-in-progress: false
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
@@ -97,3 +103,4 @@ jobs:
             **/node_modules/**
             play/**
             media/hero.mp4
+            media/raw-gameplay.mp4
