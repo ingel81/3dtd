@@ -137,7 +137,7 @@ export class TowerCombatService {
     const hasNearby = this.spatialGrid.hasEnemyInRadius(
       towerLocal.x,
       towerLocal.z,
-      tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+      tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
     );
     if (!hasNearby) return false;
     tower.isSleeping = false;
@@ -251,7 +251,7 @@ export class TowerCombatService {
       // pre-compute, with a runtime raycast fallback for both.
       const candidates = this.collectCandidates(
         tower,
-        tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
@@ -615,7 +615,7 @@ export class TowerCombatService {
 
       const candidates = this.collectCandidates(
         tower,
-        tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
@@ -696,7 +696,7 @@ export class TowerCombatService {
 
       const candidates = this.collectCandidates(
         tower,
-        tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        tower.combat.range * COMBAT_TUNING.rangeMargin.standard,
         enemyManager,
       );
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
