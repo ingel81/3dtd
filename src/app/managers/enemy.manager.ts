@@ -21,6 +21,16 @@ import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curri
 const ENEMY_GROUND_ADJUST_MPS = 8;
 
 /**
+ * With the perf panel open, the enemy loop times the phases of every Nth
+ * enemy only and scales the sums up. Timing every enemy took six
+ * performance.now() calls per enemy per sub-step: at 20k enemies over a
+ * million a frame, more than some of the phases cost. The starting offset
+ * rotates per sub-step, so every enemy is sampled once per N sub-steps and a
+ * spawn pattern with period N cannot bias the estimate.
+ */
+const PROFILE_STRIDE = 32;
+
+/**
  * Manages all enemy entities - spawning, updating, and lifecycle
  *
  * Framework-agnostic, event-based:
@@ -326,8 +336,12 @@ export class EnemyManager extends EntityManager<Enemy> {
     }
   }
 
-  // Performance profiling callback (set by PerformanceProfilerService)
+  // Performance profiling callback (set by PerformanceProfilerService).
+  // move/grid/height are sampled estimates (see PROFILE_STRIDE); total is measured.
   onProfileTiming: ((move: number, grid: number, height: number, render: number, total: number) => void) | null = null;
+
+  /** Rotating start offset of the profiled enemies, see PROFILE_STRIDE. */
+  private profileSampleOffset = 0;
 
   /**
    * Reports the cost of {@link presentFrame} (ms), once per render frame.
@@ -352,15 +366,22 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     const profiling = this.onProfileTiming !== null;
     let tMove = 0, tGrid = 0, tHeight = 0;
+    let processed = 0, sampled = 0;
+    const sampleOffset = profiling ? this.profileSampleOffset++ % PROFILE_STRIDE : 0;
     const tTotal = profiling ? performance.now() : 0;
 
     this.toRemove.length = 0;
     const origin = this.tilesEngine?.sync.getOrigin();
 
     for (const enemy of this.getAllActive()) {
+      // `alive` reads a mirror kept on the enemy (Enemy.deadFlag), so this
+      // check no longer loads the health component.
       if (!enemy.alive) continue;
 
-      let t0 = profiling ? performance.now() : 0;
+      const sample = profiling && (processed++ + sampleOffset) % PROFILE_STRIDE === 0;
+      if (sample) sampled++;
+
+      let t0 = sample ? performance.now() : 0;
       // Deliberately NOT the generic enemy.update(): of the five enemy
       // components only transform (rotation lerp) and audio (loop positions)
       // do per-tick work — health, render and movement have empty update()
@@ -370,11 +391,18 @@ export class EnemyManager extends EntityManager<Enemy> {
       // `enabled` is honoured because the generic path did — nothing sets it
       // false on an enemy today, but silently ignoring it would be a trap.
       if (enemy.transform.enabled) enemy.transform.update(deltaTime);
-      if (enemy.audio.enabled) enemy.audio.update(deltaTime);
+      // Audio's only per-tick work is moving loops, and few enemies hold a
+      // loop handle (playing or paused). `hasAudioLoops` mirrors
+      // `loopHandles.size > 0`, so skipping on it is exactly the early-out
+      // update() takes, without loading the component. The call stays here
+      // rather than in a separate pass over the looping enemies: the loops
+      // share the enemy-sound budget, so the order of updateLoopPosition()
+      // calls decides which paused loop gets to resume.
+      if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
       // Single-pass: remove expired effects + get slow/poison flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
       const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
-      if (profiling) tMove += performance.now() - t0;
+      if (sample) tMove += performance.now() - t0;
 
       if (moveResult === 'reached_end') {
         // Emit enemy:reached-base event — leak damage scales with wave-number
@@ -390,21 +418,31 @@ export class EnemyManager extends EntityManager<Enemy> {
 
       // Update global route grid position for O(1) tower targeting
       // Also update spatial grid for O(1) proximity queries (sleep wake-checks, fallback targeting)
-      t0 = profiling ? performance.now() : 0;
+      t0 = sample ? performance.now() : 0;
       if (this.tilesEngine) {
-        // Compute local position ONCE — reuse for grid update AND frost visual below
+        // Compute local position ONCE, reused for grid update AND ground read below
         this.tilesEngine.sync.geoToLocalSimpleInto(
           enemy.position.lat,
           enemy.position.lon,
           0, // Height not needed for X/Z cell lookup
           this._tempLocalPos
         );
+        // Both grids keep a memo on the enemy (route cell, spatial entry) and
+        // skip their string-keyed lookups while it holds (see
+        // GlobalRouteGrid.updateEnemyPosition and SpatialGrid.updateTracked).
+        // The spatial entry still gets the exact x/z every sub-step, since
+        // proximity queries filter on them.
         if (this.globalRouteGrid.isInitialized()) {
           this.globalRouteGrid.updateEnemyPosition(enemy, this._tempLocalPos.x, this._tempLocalPos.z);
         }
-        this.spatialGrid.updateEnemy(enemy.id, this._tempLocalPos.x, this._tempLocalPos.z);
+        enemy.spatialEntry = this.spatialGrid.updateEnemyTracked(
+          enemy.spatialEntry,
+          enemy.id,
+          this._tempLocalPos.x,
+          this._tempLocalPos.z,
+        );
       }
-      if (profiling) tGrid += performance.now() - t0;
+      if (sample) tGrid += performance.now() - t0;
 
       // Ground comes from the route grid, per frame.
       //
@@ -415,11 +453,14 @@ export class EnemyManager extends EntityManager<Enemy> {
       // The grid is the single ground truth for feet, route line and LOS, so
       // read it directly (a cell lookup, no raycast) and let the same healing
       // carry the enemies.
-      t0 = profiling ? performance.now() : 0;
+      t0 = sample ? performance.now() : 0;
 
       let geoHeight = enemy.transform.terrainHeight;
       if (origin && this.globalRouteGrid.isInitialized()) {
-        const cellY = this.globalRouteGrid.getGroundLocalYAt(
+        // Reuses the cell updateEnemyPosition() just resolved above: the
+        // value getGroundLocalYAt() would return, minus the Map probe.
+        const cellY = this.globalRouteGrid.getGroundLocalYForEnemy(
+          enemy,
           this._tempLocalPos.x,
           this._tempLocalPos.z,
         );
@@ -436,12 +477,20 @@ export class EnemyManager extends EntityManager<Enemy> {
           enemy.transform.terrainHeight = geoHeight;
         }
       }
-      if (profiling) tHeight += performance.now() - t0;
+      if (sample) tHeight += performance.now() - t0;
 
       // Animation state (walk vs run) feeds movement speed, so it is read
-      // during simulation rather than in the visual pass.
+      // during simulation rather than in the visual pass. Only an instance
+      // that is not walking can yield anything but 1.0, and running is a
+      // debug-only state. So while none is, the per-id lookup (three
+      // string-keyed Map reads per enemy per sub-step) is replaced by the
+      // value it would have returned. Still assigned here, at this point of
+      // the sub-step, so a walk/run switch takes effect exactly when it did.
+      const renderer = this.tilesEngine?.enemies;
       enemy.movement.speedMultiplier =
-        this.tilesEngine?.enemies.getSpeedMultiplier(enemy.id) ?? 1.0;
+        renderer === undefined ? 1.0
+          : renderer.nonWalkingCount === 0 ? 1.0
+            : renderer.getSpeedMultiplier(enemy.id);
 
       // Poison damage-over-time. This lives here and NOT in the visual pass:
       // it emits `dot:damage`, so it is gameplay, and it has to tick once per
@@ -483,8 +532,10 @@ export class EnemyManager extends EntityManager<Enemy> {
 
     // Send profiling data to PerformanceProfilerService
     if (profiling) {
-      // Render is reported by presentFrame — it no longer happens here.
-      this.onProfileTiming!(tMove, tGrid, tHeight, 0, performance.now() - tTotal);
+      // Phases were timed on every PROFILE_STRIDE-th enemy; scale the sums
+      // to the whole loop. Render is reported by presentFrame.
+      const scale = sampled > 0 ? processed / sampled : 0;
+      this.onProfileTiming!(tMove * scale, tGrid * scale, tHeight * scale, 0, performance.now() - tTotal);
     }
   }
 
@@ -527,8 +578,17 @@ export class EnemyManager extends EntityManager<Enemy> {
         this._tempLocalPos,
       );
 
+      // The render slot is resolved once and kept on the enemy. A slot the
+      // renderer freed (removal, engine-side clear) is flagged `released`
+      // and resolved again. Resolving by id cost ~10 string-keyed Map
+      // lookups per enemy per frame across the height offset and the push.
+      let slot = enemy.renderSlot;
+      if (slot === null || slot.released) {
+        slot = enemy.renderSlot = engine.enemies.resolveSlot(enemy.id);
+      }
+
       const geoHeight = enemy.transform.terrainHeight;
-      const heightOffset = engine.enemies.getHeightOffset(enemy.id);
+      const heightOffset = slot !== null ? slot.config.heightOffset : 0;
 
       // Air units fly at fixed altitude over local terrain — `terrainHeight
       // + heightOffset` (air-unit configs set heightOffset to ≈15-20m).
@@ -543,22 +603,25 @@ export class EnemyManager extends EntityManager<Enemy> {
         enemy.movement.speedMultiplier *
         enemy.movement.getSlowMultiplier(gameTimeMs);
 
-      engine.enemies.update(
-        enemy.id,
-        enemy.position.lat,
-        enemy.position.lon,
-        geoHeight,
-        enemy.transform.rotation,
-        enemy.health.healthPercent,
-        currentSpeed,
-        this._tempLocalPos,
-      );
+      if (slot !== null) {
+        engine.enemies.updateSlot(
+          slot,
+          this._tempLocalPos,
+          enemy.transform.rotation,
+          enemy.health.healthPercent,
+          currentSpeed,
+        );
+      }
 
       // Frost / poison visuals are edge-triggered against a Set, so running
       // them once per frame instead of once per sub-step changes nothing but
-      // the number of times the same state is re-checked.
-      const isSlowed = enemy.movement.isSlowed(gameTimeMs);
-      const hasFrost = this.frozenVisualEnemies.has(enemy.id);
+      // the number of times the same state is re-checked. Each check is
+      // skipped when it cannot be true: `.some` over an empty effect list and
+      // a lookup in an empty Set both answer false.
+      const isSlowed =
+        enemy.movement.statusEffects.length !== 0 && enemy.movement.isSlowed(gameTimeMs);
+      const hasFrost =
+        this.frozenVisualEnemies.size !== 0 && this.frozenVisualEnemies.has(enemy.id);
       if (isSlowed && !hasFrost) {
         engine.enemies.setFreezeVisual(enemy.id, true);
         engine.effects.spawnFrostAura(enemy.id, this._tempLocalPos);
@@ -571,8 +634,10 @@ export class EnemyManager extends EntityManager<Enemy> {
         this.frozenVisualEnemies.delete(enemy.id);
       }
 
-      const isPoisoned = enemy.movement.isPoisoned(gameTimeMs);
-      const hasPoison = this.poisonVisualEnemies.has(enemy.id);
+      const isPoisoned =
+        enemy.movement.statusEffects.length !== 0 && enemy.movement.isPoisoned(gameTimeMs);
+      const hasPoison =
+        this.poisonVisualEnemies.size !== 0 && this.poisonVisualEnemies.has(enemy.id);
       if (isPoisoned && !hasPoison) {
         engine.enemies.setPoisonVisual(enemy.id, true);
         engine.effects.spawnPoisonAura(enemy.id, this._tempLocalPos);

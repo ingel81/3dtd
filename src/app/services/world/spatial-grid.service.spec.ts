@@ -1,4 +1,4 @@
-import { SpatialGrid, SpatialGridService } from './spatial-grid.service';
+import { SpatialEntry, SpatialGrid, SpatialGridService } from './spatial-grid.service';
 
 describe('SpatialGrid', () => {
   let grid: SpatialGrid;
@@ -81,6 +81,62 @@ describe('SpatialGrid', () => {
     grid.update('new', 100, 200);
     expect(grid.size).toBe(1);
     expect(grid.getPosition('new')).toEqual({ x: 100, z: 200 });
+  });
+
+  // ==========================================
+  // UPDATE TRACKED (caller keeps the entry)
+  // ==========================================
+
+  it('updateTracked inserts on first use and keeps returning the live entry', () => {
+    const entry = grid.updateTracked(null, 'a', 10, 20);
+    expect(grid.getPosition('a')).toEqual({ x: 10, z: 20 });
+
+    expect(grid.updateTracked(entry, 'a', 70, 20)).toBe(entry);
+    expect(grid.getPosition('a')).toEqual({ x: 70, z: 20 });
+    expect(grid.occupiedCells).toBe(1); // left the old cell
+  });
+
+  it('updateTracked matches update() step for step', () => {
+    const reference = new SpatialGrid(50);
+    let entry: SpatialEntry | null = null;
+    const steps: [number, number][] = [[10, 10], [20, 10], [60, 10], [60, 60], [-30, 60], [-30, -80]];
+    for (const [x, z] of steps) {
+      entry = grid.updateTracked(entry, 'a', x, z);
+      reference.update('a', x, z);
+      expect(grid.getPosition('a')).toEqual(reference.getPosition('a'));
+      expect(grid.occupiedCells).toBe(reference.occupiedCells);
+      expect(grid.queryRadius(x, z, 1)).toEqual(reference.queryRadius(x, z, 1));
+    }
+  });
+
+  it('treats a kept entry as stale after remove, clear and re-insert', () => {
+    const first = grid.updateTracked(null, 'a', 10, 10);
+    grid.remove('a');
+    const second = grid.updateTracked(first, 'a', 20, 20);
+    expect(second).not.toBe(first);
+    expect(grid.size).toBe(1);
+    expect(grid.hasAny(20, 20, 1)).toBe(true);
+
+    grid.clear();
+    const third = grid.updateTracked(second, 'a', 30, 30);
+    expect(third).not.toBe(second);
+    expect(grid.size).toBe(1);
+    expect(grid.hasAny(30, 30, 1)).toBe(true);
+
+    grid.insert('a', 40, 40); // replaces the entry
+    const fourth = grid.updateTracked(third, 'a', 45, 45);
+    expect(fourth).not.toBe(third);
+    expect(grid.getPosition('a')).toEqual({ x: 45, z: 45 });
+  });
+
+  it('treats an entry of another grid as stale', () => {
+    const other = new SpatialGrid(50);
+    const foreign = other.updateTracked(null, 'a', 10, 10);
+    const own = grid.updateTracked(foreign, 'a', 90, 90);
+
+    expect(own).not.toBe(foreign);
+    expect(grid.getPosition('a')).toEqual({ x: 90, z: 90 });
+    expect(other.getPosition('a')).toEqual({ x: 10, z: 10 });
   });
 
   // ==========================================
@@ -319,6 +375,19 @@ describe('SpatialGridService', () => {
     service.removeEnemy('e1');
 
     expect(service.hasEnemyInRadius(10, 10, 50)).toBe(false);
+  });
+
+  it('should track enemies through a kept entry', () => {
+    let entry = service.updateEnemyTracked(null, 'e1', 10, 10);
+    entry = service.updateEnemyTracked(entry, 'e1', 120, 10);
+    expect(service.hasEnemyInRadius(120, 10, 1)).toBe(true);
+    expect(service.hasEnemyInRadius(10, 10, 1)).toBe(false);
+
+    // Removed behind the caller's back: the kept entry must not resurrect a ghost.
+    service.removeEnemy('e1');
+    service.updateEnemyTracked(entry, 'e1', 5, 5);
+    expect(service.hasEnemyInRadius(5, 5, 1)).toBe(true);
+    expect(service.getEnemyGrid().size).toBe(1);
   });
 
   it('should clear all enemies', () => {

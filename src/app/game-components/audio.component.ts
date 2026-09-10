@@ -21,6 +21,16 @@ export interface AudioConfig {
 }
 
 /**
+ * Receives whether an AudioComponent currently holds loop handles. `update()`
+ * has nothing to do without one, so an owner that keeps this flag can skip
+ * the call without loading the component. EnemyManager would otherwise do
+ * that for every enemy every sub-step while only a few carry a loop.
+ */
+export interface LoopFlagSink {
+  hasAudioLoops: boolean;
+}
+
+/**
  * AudioComponent - Manages 3D positioned sounds for a GameObject
  *
  * Thin wrapper around SpatialAudioManager that:
@@ -37,7 +47,10 @@ export class AudioComponent extends Component {
   private loopHandles = new Map<string, string>(); // localId → SpatialAudioManager handle
   private destroyed = false;
 
-  constructor(gameObject: GameObject) {
+  constructor(
+    gameObject: GameObject,
+    private readonly loopSink: LoopFlagSink | null = null,
+  ) {
     super(gameObject);
   }
 
@@ -110,6 +123,7 @@ export class AudioComponent extends Component {
 
       if (handle) {
         this.loopHandles.set(id, handle);
+        this.syncLoopFlag();
       }
     } else {
       // One-shot: fire and forget
@@ -125,6 +139,7 @@ export class AudioComponent extends Component {
     if (handle && this.spatialAudio) {
       this.spatialAudio.stopLoop(handle);
       this.loopHandles.delete(id);
+      this.syncLoopFlag();
     }
   }
 
@@ -138,6 +153,7 @@ export class AudioComponent extends Component {
       this.spatialAudio.stopLoop(handle);
     }
     this.loopHandles.clear();
+    this.syncLoopFlag();
   }
 
   /**
@@ -153,6 +169,7 @@ export class AudioComponent extends Component {
   /**
    * Update loop positions to follow the GameObject
    * Distance culling is handled by SpatialAudioManager.updateLoopPosition()
+   * A no-op without loop handles, see LoopFlagSink.
    */
   update(_deltaTime: number): void {
     if (this.loopHandles.size === 0 || !this.spatialAudio) return;
@@ -187,5 +204,10 @@ export class AudioComponent extends Component {
   override onDestroy(): void {
     this.destroyed = true; // Prevent any pending async play from adding new sounds
     this.stopAll();
+  }
+
+  /** Runs after every `loopHandles` write, so the sink tracks `size > 0` exactly. */
+  private syncLoopFlag(): void {
+    if (this.loopSink !== null) this.loopSink.hasAudioLoops = this.loopHandles.size > 0;
   }
 }

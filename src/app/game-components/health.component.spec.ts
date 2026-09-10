@@ -51,6 +51,25 @@ describe('HealthComponent', () => {
     expect(health.healthPercent).toBeCloseTo(0.75, 5);
   });
 
+  it('mirrors isDead into a DeathFlagSink on every HP write', () => {
+    const sink = { deadFlag: true };
+    const health = new HealthComponent(gameObject, 30, sink);
+    expect(sink.deadFlag).toBe(false);
+
+    health.takeDamage(30);
+    expect(sink.deadFlag).toBe(true);
+    expect(sink.deadFlag).toBe(health.isDead);
+
+    health.heal(5);
+    expect(sink.deadFlag).toBe(false);
+
+    health.setHp(0);
+    expect(sink.deadFlag).toBe(true);
+
+    health.resetMaxHp(40);
+    expect(sink.deadFlag).toBe(false);
+  });
+
   it('handles edge cases for 0 and negative damage', () => {
     const health = new HealthComponent(gameObject, 100);
     health.setHp(60);

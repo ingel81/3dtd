@@ -17,10 +17,16 @@ import { Injectable } from '@angular/core';
  */
 
 /** Position data stored per entity */
-interface EntityEntry {
+export interface SpatialEntry {
   x: number;
   z: number;
   cellKey: number;
+  /**
+   * Generation of the grid the entry is live in, or -1 once it has left the
+   * index. Lets a caller that kept the entry (see `updateTracked`) tell a
+   * live entry from a dropped one without looking the id up.
+   */
+  gen: number;
 }
 
 /**
@@ -32,10 +38,16 @@ export class SpatialGrid {
   private cells = new Map<number, Set<string>>();
 
   /** Map of entity ID -> position + current cell */
-  private entities = new Map<string, EntityEntry>();
+  private entities = new Map<string, SpatialEntry>();
 
   /** Inverse of cell size for fast multiplication instead of division */
   private readonly invCellSize: number;
+
+  /** Unique across instances, so an entry can never pass for one of another grid. */
+  private static nextGeneration = 0;
+
+  /** Entries are live only while their `gen` matches; clear() moves on to a new one. */
+  private generation = SpatialGrid.nextGeneration++;
 
   constructor(private readonly cellSize = 50) {
     this.invCellSize = 1 / cellSize;
@@ -64,7 +76,7 @@ export class SpatialGrid {
    * Insert an entity at position (x, z).
    * O(1) amortized.
    */
-  insert(id: string, x: number, z: number): void {
+  insert(id: string, x: number, z: number): SpatialEntry {
     const key = this.cellKey(x, z);
 
     // Add to cell
@@ -75,8 +87,14 @@ export class SpatialGrid {
     }
     cell.add(id);
 
+    // An entry this one replaces has left the index: stale for anyone keeping it.
+    const replaced = this.entities.get(id);
+    if (replaced) replaced.gen = -1;
+
     // Track entity
-    this.entities.set(id, { x, z, cellKey: key });
+    const entry: SpatialEntry = { x, z, cellKey: key, gen: this.generation };
+    this.entities.set(id, entry);
+    return entry;
   }
 
   /**
@@ -95,6 +113,7 @@ export class SpatialGrid {
       }
     }
 
+    entry.gen = -1;
     this.entities.delete(id);
   }
 
@@ -109,7 +128,27 @@ export class SpatialGrid {
       this.insert(id, x, z);
       return;
     }
+    this.moveEntry(entry, id, x, z);
+  }
 
+  /**
+   * update() for a caller that kept the entry an earlier call returned. Skips
+   * the id lookup, which for 20k enemies per sub-step is a random probe into a
+   * 20k-entry Map each. Falls back to update() when the kept entry is stale
+   * (removed, replaced, or dropped by clear()), so the outcome is update()'s
+   * in every case. Returns the live entry for the caller to keep.
+   */
+  updateTracked(entry: SpatialEntry | null, id: string, x: number, z: number): SpatialEntry {
+    if (entry === null || entry.gen !== this.generation) {
+      this.update(id, x, z);
+      return this.entities.get(id)!;
+    }
+    this.moveEntry(entry, id, x, z);
+    return entry;
+  }
+
+  /** The tracked half of update(); `entry` is the live entry of `id`. */
+  private moveEntry(entry: SpatialEntry, id: string, x: number, z: number): void {
     const newKey = this.cellKey(x, z);
     entry.x = x;
     entry.z = z;
@@ -256,6 +295,8 @@ export class SpatialGrid {
   clear(): void {
     this.cells.clear();
     this.entities.clear();
+    // Every entry anyone kept is stale from here on.
+    this.generation = SpatialGrid.nextGeneration++;
   }
 }
 
@@ -288,6 +329,19 @@ export class SpatialGridService {
    */
   updateEnemy(enemyId: string, localX: number, localZ: number): void {
     this.enemyGrid.update(enemyId, localX, localZ);
+  }
+
+  /**
+   * updateEnemy() for a caller that keeps the returned entry (EnemyManager
+   * stores it on the enemy). See SpatialGrid.updateTracked.
+   */
+  updateEnemyTracked(
+    entry: SpatialEntry | null,
+    enemyId: string,
+    localX: number,
+    localZ: number,
+  ): SpatialEntry {
+    return this.enemyGrid.updateTracked(entry, enemyId, localX, localZ);
   }
 
   /**

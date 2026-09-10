@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { GlobalRouteGrid } from './global-route-grid';
 import type { ColumnSample } from '../three-engine/column-sample';
+import type { Enemy } from '../entities/enemy.entity';
 
 /**
  * Covers the healing loop that the rooftop-route bug lived in: a cell sampled
@@ -113,5 +114,97 @@ describe('GlobalRouteGrid terrain sampling', () => {
     sweep();
 
     expect(groundAtOrigin()).toBe(85);
+  });
+});
+
+/**
+ * updateEnemyPosition() keeps a memo of the last evaluated cell on the enemy
+ * and skips its Map work while the enemy stays in that cell. These pin down
+ * that the memo never lets membership drift from what the full lookup gives.
+ */
+describe('GlobalRouteGrid enemy cell memo', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+  } as never;
+  /** Straight route along +x at z = 0; the corridor reaches ~7 m either side. */
+  const route = [[{ lat: 0, lon: 0 }, { lat: 0, lon: 20 }]];
+  const makeEnemy = (id: string) => ({ id }) as unknown as Enemy;
+
+  let grid: GlobalRouteGrid;
+
+  beforeEach(() => {
+    // Cells beyond x = 10 stay unsampled, so the estimate path is covered too.
+    const sampler = (x: number) =>
+      x > 10 ? null : { groundY: 5 + x * 0.1, topY: 40, tileDepth: 20, tileGeometricError: 2 };
+    grid = new GlobalRouteGrid();
+    grid.initialize(sampler as never, coordinateSync);
+    grid.generateFromRoutes(route as never);
+  });
+
+  const cellHas = (x: number, z: number, enemy: Enemy) => grid.getCellAt(x, z)?.enemies.has(enemy) ?? false;
+
+  it('keeps an enemy tracked while it stays in its cell', () => {
+    const enemy = makeEnemy('e1');
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    grid.updateEnemyPosition(enemy, 4.4, 0.5); // same 2 m cell
+    grid.updateEnemyPosition(enemy, 4.6, 0.7);
+
+    expect(cellHas(4.6, 0.7, enemy)).toBe(true);
+    expect(grid.getStats()).toMatchObject({ trackedEnemies: 1, occupiedCells: 1 });
+  });
+
+  it('moves the enemy when it crosses into another cell', () => {
+    const enemy = makeEnemy('e1');
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    grid.updateEnemyPosition(enemy, 6.2, 0.3);
+
+    expect(cellHas(4.2, 0.3, enemy)).toBe(false);
+    expect(cellHas(6.2, 0.3, enemy)).toBe(true);
+    expect(grid.getStats()).toMatchObject({ trackedEnemies: 1, occupiedCells: 1 });
+  });
+
+  it('drops an enemy that leaves the corridor and re-adds it on return', () => {
+    const enemy = makeEnemy('e1');
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    grid.updateEnemyPosition(enemy, 4.2, 50); // outside
+    grid.updateEnemyPosition(enemy, 4.3, 50.1); // still outside, same key
+    expect(grid.getStats()).toMatchObject({ trackedEnemies: 0, occupiedCells: 0 });
+
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    expect(cellHas(4.2, 0.3, enemy)).toBe(true);
+  });
+
+  it('re-adds an enemy after removeEnemy, even at the same position', () => {
+    const enemy = makeEnemy('e1');
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    grid.removeEnemy(enemy);
+    expect(cellHas(4.2, 0.3, enemy)).toBe(false);
+
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    expect(cellHas(4.2, 0.3, enemy)).toBe(true);
+  });
+
+  it('re-adds an enemy to the regenerated cells, even at the same position', () => {
+    const enemy = makeEnemy('e1');
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+    const before = grid.getCellAt(4.2, 0.3);
+
+    grid.generateFromRoutes(route as never);
+    grid.updateEnemyPosition(enemy, 4.2, 0.3);
+
+    expect(grid.getCellAt(4.2, 0.3)).not.toBe(before);
+    expect(cellHas(4.2, 0.3, enemy)).toBe(true);
+  });
+
+  it('reads the same ground through the memo as through the lookup', () => {
+    const enemy = makeEnemy('e1');
+    // Sampled cell, unsampled cell next to sampled ones, far unsampled cell, outside.
+    const positions: [number, number][] = [[4.2, 0.3], [11.5, 0.3], [18.5, 1.2], [4.2, 50]];
+    for (const [x, z] of positions) {
+      grid.updateEnemyPosition(enemy, x, z);
+      expect(grid.getGroundLocalYForEnemy(enemy, x, z)).toBe(grid.getGroundLocalYAt(x, z));
+    }
+    // A position the memo does not cover falls back to the lookup.
+    expect(grid.getGroundLocalYForEnemy(enemy, 2.1, 0.1)).toBe(grid.getGroundLocalYAt(2.1, 0.1));
   });
 });

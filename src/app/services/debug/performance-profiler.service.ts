@@ -79,11 +79,15 @@ export class PerformanceProfilerService {
   private readonly gameStore = inject(GameStore);
   private engine: ThreeTilesEngine | null = null;
   private gameState: GameStateManager | null = null;
-  // Profiling is opt-in. The enemy loop takes EIGHT performance.now()
-  // readings per enemy per sub-step, so at 9k enemies and a dozen sub-steps
-  // that is over a million calls a frame — measurably more than some of the
-  // things being measured. Hooks are only wired while the panel is open;
-  // treat any number read with it open as inflated.
+  // Profiling is opt-in: hooks are only wired while the panel is open. The
+  // enemy loop times its phases (move/grid/height) on every 32nd enemy, with
+  // a rotating offset, and scales the sums up (EnemyManager.PROFILE_STRIDE).
+  // It used to time every enemy (six performance.now() calls each per
+  // sub-step, over a million a frame at 20k enemies), which inflated the
+  // very numbers it reported. The phase figures are sampled estimates: the
+  // browser's timer is coarse (5-100 µs), so one sample is mostly 0 or one
+  // tick, and they only mean something as averages over the panel's window.
+  // The enemy total is measured directly.
   private profilingActive = false;
 
   /** Toggle for console profiling output */
@@ -136,8 +140,8 @@ export class PerformanceProfilerService {
    * split is exactly as interesting on real tiles.
    *
    * `__perf.stats()` returns the same numbers the panel shows; note they are
-   * only collected while the panel is open, and the per-enemy timers inflate
-   * them while it is.
+   * only collected while the panel is open, and that the sampled enemy timers
+   * add a little cost of their own while it is.
    */
   private exposeDebugApi(): void {
     (globalThis as Record<string, unknown>)['__perf'] = {
@@ -152,8 +156,8 @@ export class PerformanceProfilerService {
 
   /**
    * Wire / unwire the per-frame timing callbacks. Called by the perf panel
-   * on open/close so the hot-path (per-enemy performance.now()) is silent
-   * during normal gameplay.
+   * on open/close so the hot path carries no timing calls during normal
+   * gameplay.
    */
   setProfilingActive(active: boolean): void {
     if (this.profilingActive === active) return;
