@@ -45,45 +45,51 @@ describe('damage-matrix.config', () => {
       // physical
       ['physical',  'unarmored', 1.0],
       ['physical',  'light',     1.0],
-      ['physical',  'heavy',     0.7],
-      ['physical',  'fortified', 0.5],
-      ['physical',  'ethereal',  0.15],
+      ['physical',  'heavy',     0.5],
+      ['physical',  'fortified', 0.3],
+      ['physical',  'ethereal',  0.1],
       // pierce
-      ['pierce',    'unarmored', 1.2],
-      ['pierce',    'light',     1.3],
-      ['pierce',    'heavy',     0.5],
-      ['pierce',    'fortified', 0.6],
-      ['pierce',    'ethereal',  0.15],
+      ['pierce',    'unarmored', 1.25],
+      ['pierce',    'light',     1.6],
+      ['pierce',    'heavy',     0.35],
+      ['pierce',    'fortified', 0.25],
+      ['pierce',    'ethereal',  0.1],
       // siege
       ['siege',     'unarmored', 0.5],
       ['siege',     'light',     0.5],
-      ['siege',     'heavy',     1.5],
-      ['siege',     'fortified', 1.25],
-      ['siege',     'ethereal',  0.75],
+      ['siege',     'heavy',     1.75],
+      ['siege',     'fortified', 1.6],
+      ['siege',     'ethereal',  0.3],
       // magic
-      ['magic',     'unarmored', 1.0],
-      ['magic',     'light',     1.0],
-      ['magic',     'heavy',     0.85],
-      ['magic',     'fortified', 0.75],
-      ['magic',     'ethereal',  1.75],
+      ['magic',     'unarmored', 0.9],
+      ['magic',     'light',     0.5],
+      ['magic',     'heavy',     0.9],
+      ['magic',     'fortified', 1.3],
+      ['magic',     'ethereal',  2.0],
       // fire
-      ['fire',      'unarmored', 1.15],
-      ['fire',      'light',     1.0],
-      ['fire',      'heavy',     0.9],
-      ['fire',      'fortified', 0.6],
-      ['fire',      'ethereal',  0.15],
+      ['fire',      'unarmored', 1.5],
+      ['fire',      'light',     1.2],
+      ['fire',      'heavy',     0.6],
+      ['fire',      'fortified', 0.25],
+      ['fire',      'ethereal',  0.1],
       // ice
       ['ice',       'unarmored', 1.0],
-      ['ice',       'light',     1.2],
-      ['ice',       'heavy',     1.0],
-      ['ice',       'fortified', 0.75],
+      ['ice',       'light',     1.3],
+      ['ice',       'heavy',     0.8],
+      ['ice',       'fortified', 0.5],
       ['ice',       'ethereal',  1.5],
       // poison
-      ['poison',    'unarmored', 1.1],
-      ['poison',    'light',     1.1],
-      ['poison',    'heavy',     0.6],
-      ['poison',    'fortified', 0.6],
-      ['poison',    'ethereal',  0.5],
+      ['poison',    'unarmored', 1.4],
+      ['poison',    'light',     1.2],
+      ['poison',    'heavy',     0.4],
+      ['poison',    'fortified', 0.3],
+      ['poison',    'ethereal',  0.2],
+      // lightning
+      ['lightning', 'unarmored', 1.0],
+      ['lightning', 'light',     1.5],
+      ['lightning', 'heavy',     1.2],
+      ['lightning', 'fortified', 0.3],
+      ['lightning', 'ethereal',  1.5],
     ];
 
     for (const [dmg, armor, expected] of expectedMultipliers) {
@@ -91,6 +97,35 @@ describe('damage-matrix.config', () => {
         expect(DAMAGE_MATRIX[dmg][armor]).toBe(expected);
       });
     }
+  });
+
+  // Die Regeln hinter der Matrix (BALANCE_PROPOSAL_2026-09 §4.2), damit ein
+  // späteres Feintuning sie nicht still bricht.
+  describe('DAMAGE_MATRIX design rules', () => {
+    it('every damage type has a pairing ≤ 0.5, every type but physical one ≥ 1.3', () => {
+      for (const dmg of DAMAGE_TYPES) {
+        const values = ARMOR_TYPES.map((a) => DAMAGE_MATRIX[dmg][a]);
+        expect(Math.min(...values), dmg).toBeLessThanOrEqual(0.5);
+        if (dmg !== 'physical') expect(Math.max(...values), dmg).toBeGreaterThanOrEqual(1.3);
+      }
+    });
+
+    it('every armor type has at least two counters ≥ 1.2', () => {
+      for (const armor of ARMOR_TYPES) {
+        const counters = DAMAGE_TYPES.filter((d) => DAMAGE_MATRIX[d][armor] >= 1.2);
+        expect(counters.length, armor).toBeGreaterThanOrEqual(2);
+      }
+    });
+
+    it('every pairing ≤ 0.5 reads as weak', () => {
+      for (const dmg of DAMAGE_TYPES) {
+        for (const armor of ARMOR_TYPES) {
+          if (DAMAGE_MATRIX[dmg][armor] <= 0.5) {
+            expect(getEffectiveness(DAMAGE_MATRIX[dmg][armor]), `${dmg} vs ${armor}`).toBe('weak');
+          }
+        }
+      }
+    });
   });
 
   describe('getEffectiveness() classification', () => {
@@ -130,8 +165,8 @@ describe('damage-matrix.config', () => {
 describe('calculateDamage()', () => {
   it('applies the matrix multiplier to the base damage', () => {
     const r = calculateDamage(100, 'physical', 'heavy');
-    expect(r.finalDamage).toBeCloseTo(100 * 0.7, 6);
-    expect(r.multiplier).toBeCloseTo(0.7, 6);
+    expect(r.finalDamage).toBeCloseTo(100 * 0.5, 6);
+    expect(r.multiplier).toBeCloseTo(0.5, 6);
   });
 
   it('echoes baseDamage / damageType / armorType unchanged', () => {
@@ -143,9 +178,9 @@ describe('calculateDamage()', () => {
 
   it('applies the bonus multiplier on top of the matrix', () => {
     const r = calculateDamage(100, 'siege', 'heavy', 2.0);
-    // siege vs heavy = 1.5, bonus = 2 → 100 * 1.5 * 2 = 300
-    expect(r.finalDamage).toBeCloseTo(300, 6);
-    expect(r.multiplier).toBeCloseTo(3.0, 6);
+    // siege vs heavy = 1.75, bonus = 2 → 100 * 1.75 * 2 = 350
+    expect(r.finalDamage).toBeCloseTo(350, 6);
+    expect(r.multiplier).toBeCloseTo(3.5, 6);
   });
 
   it('defaults bonusMultiplier to 1.0 when omitted', () => {
@@ -155,19 +190,19 @@ describe('calculateDamage()', () => {
   });
 
   it('classifies effectiveness from the combined multiplier (matrix × bonus)', () => {
-    // physical vs ethereal = 0.15 → weak
+    // physical vs ethereal = 0.1 → weak
     expect(calculateDamage(100, 'physical', 'ethereal').effectiveness).toBe('weak');
     // physical vs unarmored = 1.0 → normal
     expect(calculateDamage(100, 'physical', 'unarmored').effectiveness).toBe('normal');
-    // pierce vs light = 1.3 → strong
-    expect(calculateDamage(100, 'pierce', 'light').effectiveness).toBe('strong');
-    // magic vs ethereal = 1.75 → devastating
+    // ice vs light = 1.3 → strong
+    expect(calculateDamage(100, 'ice', 'light').effectiveness).toBe('strong');
+    // magic vs ethereal = 2.0 → devastating
     expect(calculateDamage(100, 'magic', 'ethereal').effectiveness).toBe('devastating');
   });
 
   it('a high bonus can promote a weak matchup into a higher tier', () => {
-    // physical vs ethereal = 0.15; bonus 10 → 1.5 → devastating
-    const r = calculateDamage(100, 'physical', 'ethereal', 10);
+    // physical vs ethereal = 0.1; bonus 15 → 1.5 → devastating
+    const r = calculateDamage(100, 'physical', 'ethereal', 15);
     expect(r.multiplier).toBeCloseTo(1.5, 6);
     expect(r.effectiveness).toBe('devastating');
   });

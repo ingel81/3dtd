@@ -1,5 +1,5 @@
 import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
-import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
+import { DAMAGE_MATRIX, EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
 import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { TowerTypeConfig } from '../../configs/tower-types.config';
@@ -84,7 +84,7 @@ export function towerCardTooltip(
       label: meta.label,
       multiplier: `${mul.toFixed(2)}×`,
       color: ARMOR_DOT_COLOR[a] ?? 'var(--td-text-muted)',
-      dim: mul < 0.7,
+      dim: mul < EFFECTIVENESS_THRESHOLDS.weak,
     };
   });
   // Targeting capability, resolved via canTargetAirEffective so the banner
@@ -136,7 +136,7 @@ export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null
       label: row.ui.label,
       multiplier: `${row.mul.toFixed(2)}×`,
       color: row.ui.color,
-      dim: row.mul < 0.7,
+      dim: row.mul < EFFECTIVENESS_THRESHOLDS.weak,
     }));
 
   // Surface wave-scaling multipliers as flavor when they differ from 1,

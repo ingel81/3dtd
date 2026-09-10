@@ -63,6 +63,7 @@ function defenceSnapshot(): GameStateSnapshot {
     ground: { unarmored: 120, light: 120, heavy: 120, fortified: 120, ethereal: 120 },
     air: { unarmored: 120, light: 120, heavy: 120, fortified: 120, ethereal: 120 },
   } as GameStateSnapshot['defense']['effectiveDPSPerArmor'];
+  s.defense.gateDpsPerArmor = s.defense.effectiveDPSPerArmor;
   s.defense.killThroughput = { ground: 3, air: 3 };
   s.defense.capabilities = {
     hasAntiAir: true, hasSplash: true, hasSlow: true, hasDoT: true, hasAntiEthereal: true,

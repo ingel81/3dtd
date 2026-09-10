@@ -129,9 +129,10 @@ export class ResearchPickStrategy extends BaseStrategy {
    *
    * Phase 5.16: when the upcoming wave contains AIR units and the bot has
    * no anti-air capability yet, anti-air researches (rocketry, aa-retrofit)
-   * get a hard priority bump — without it, raw armor-matrix scoring picks
-   * Magic (1.0× vs light) over Rocket (0.7× vs light) and the bot enters a
-   * forced-air wave defenseless.
+   * get a hard priority bump — without it, raw armor-matrix scoring picks a
+   * tower that cannot shoot up (Gatling without AA Retrofit, 1.6× vs light)
+   * over Rocket (0.5× vs light) and the bot enters a forced-air wave
+   * defenseless.
    */
   private pickByArmorGap(state: GameStateSnapshot): ResearchId | null {
     const r = state.research;

@@ -24,14 +24,14 @@
 ## 2. Damage & Armor System (Matrix + Status + Flags)
 
 ### 2.1 Schadenstypen (8)
-- **Physical (⚔️)**: solider Allrounder, fällt vs. Armor ab.
-- **Pierce (🎯)**: hohe Feuerrate, Anti-Swarm.
-- **Siege (💥)**: langsame AoE, Anti-Heavy/Fortified.
-- **Magic (✨)**: Ethereal-Counter, Utility.
-- **Fire (🔥)**: DoT/Burn, Anti-Regen.
-- **Ice (❄️)**: Low-DPS, starker Slow/CC.
-- **Poison (☠️)**: DoT-Spezialist, Anti-Regen, eigenstaendiger Schadenstyp.
-- **Lightning (⚡)**: Hitscan-Chain (Primary + Jumps mit Falloff), starker Light-Bonus + Ethereal-Counter, schwach gegen Fortified.
+- **Physical (⚔️)**: solider Allrounder ohne Stärke, prallt an Panzerung ab.
+- **Pierce (🎯)**: hohe Feuerrate, Schwarm- und Flinkkiller, gegen Stein und Stahl nutzlos.
+- **Siege (💥)**: langsame AoE, reiner Panzerknacker, gegen weiche Ziele und Geister schwach.
+- **Magic (✨)**: bester Ethereal-Counter, zweiter Konter gegen Fortified, flinke Ziele weichen aus.
+- **Fire (🔥)**: DoT/Burn, verbrennt Fleisch, gegen Stein und Geister wirkungslos.
+- **Ice (❄️)**: Low-DPS, starker Slow/CC, Ethereal-Counter.
+- **Poison (☠️)**: DoT-Spezialist gegen Lebendes, eigenstaendiger Schadenstyp.
+- **Lightning (⚡)**: Hitscan-Chain (Primary + Jumps mit Falloff), stark gegen Light und Ethereal, gut gegen Heavy (Metall leitet), gegen Stein wirkungslos.
 
 ### 2.2 Rüstungstypen (5)
 - **Unarmored**
@@ -40,29 +40,48 @@
 - **Fortified**
 - **Ethereal**
 
-### 2.3 Schadensmatrix (final)
-> **Änderung ggü. v2:** Ethereal ist **nicht** immun gegen Physical/Pierce/Fire — stattdessen **stark reduziert (0.15×)**, um harte Pflicht-Türme zu vermeiden.
+### 2.3 Schadensmatrix (Stand 2026-09)
+> **Änderung 2026-09:** Spreizung pro Rüstung von 1,5× bis 11,7× auf 3× bis 20×
+> erweitert. Vorher hatten sechs von acht Schadensarten keine Paarung unter 0,5,
+> die Cannon keine unter 0,7. Ethereal bleibt **nicht** immun gegen
+> Physical/Pierce/Fire, sondern **stark reduziert (0.1×)**.
 
 ```
                   Unarmored   Light    Heavy    Fortified   Ethereal
                   ─────────  ──────   ──────   ─────────   ────────
-Physical  ⚔️       1.0×      1.0×     0.7×     0.5×        0.15×
-Pierce    🎯       1.2×      1.3×     0.5×     0.6×        0.15×
-Siege     💥       0.5×      0.5×     1.5×     1.25×       0.75×
-Magic     ✨       1.0×      1.0×     0.85×    0.75×       1.75×
-Fire      🔥       1.15×     1.0×     0.9×     0.6×        0.15×
-Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
-Poison    ☠️       1.1×      1.1×     0.6×     0.6×        0.5×
-Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
+Physical  ⚔️       1.0×      1.0×     0.5×     0.3×        0.1×
+Pierce    🎯       1.25×     1.6×     0.35×    0.25×       0.1×
+Siege     💥       0.5×      0.5×     1.75×    1.6×        0.3×
+Magic     ✨       0.9×      0.5×     0.9×     1.3×        2.0×
+Fire      🔥       1.5×      1.2×     0.6×     0.25×       0.1×
+Ice       ❄️       1.0×      1.3×     0.8×     0.5×        1.5×
+Poison    ☠️       1.4×      1.2×     0.4×     0.3×        0.2×
+Lightning ⚡       1.0×      1.5×     1.2×     0.3×        1.5×
 ```
+
+Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 20×.
 
 > **Quelle der Wahrheit:** `src/app/configs/combat/damage-matrix.config.ts`. Bei
 > Anpassungen dort gilt es, diese Tabelle synchron zu halten — die TypeScript-
 > Mapped-Types erzwingen Vollständigkeit auf Code-Seite, nicht in der Doku.
 
+**Regeln** (als Test in `damage-calculator.spec.ts`):
+1. Jede Schadensart hat mindestens eine Paarung ≤ 0,5: dort beißt sich der Tower die Zähne aus.
+2. Jede Schadensart außer Physical hat mindestens eine Paarung ≥ 1,3. Physical bleibt der Allrounder ohne Stärke, er ist der Starttower.
+3. Jede Rüstungsart hat mindestens zwei Konter ≥ 1,2, beide erforschbar, bevor das Curriculum die Rüstung zum ersten Mal schickt.
+
+| Rüstung | Konter ≥ 1,2 |
+|---|---|
+| Unarmored | Fire 1,5 · Poison 1,4 · Pierce 1,25 |
+| Light | Pierce 1,6 · Lightning 1,5 · Ice 1,3 · Fire 1,2 · Poison 1,2 |
+| Heavy | Siege 1,75 · Lightning 1,2 |
+| Fortified | Siege 1,6 · Magic 1,3 |
+| Ethereal | Magic 2,0 · Ice 1,5 · Lightning 1,5 |
+
 **Interpretation:**
 - **Ethereal** ist **hart, aber nicht unbesiegbar**. Magic/Ice/Lightning bleiben beste Konter, aber Notlösungen existieren.
-- **Lightning** ist neben Magic der zweite glaubwürdige Ethereal-Counter (1.5×) — gleichzeitig stark gegen Light-Swarms (1.25×) dank Chain-Jumps, aber schwach gegen Fortified-Bossen (0.6×). Dort bleibt Cannon/Siege Pflicht.
+- **Luft:** Light-Flieger (Fledermaus, Hornisse) kontern Gatling mit AA Retrofit (1,6), Lightning (1,5) und Ice (1,3). Heavy-Flieger (Drache) kontern Rocket (1,75) und Lightning (1,2). Die Rocket ist damit der Anti-Drachen-Tower und gegen Schwärme schwach (0,5).
+- **Fairness-Gate:** Der Wave-Director würde eine schlechte Paarung sonst mit einer kleineren Welle beantworten. Deshalb zählt er gegen Boden-Gegner (außer Ethereal) jeden Tower mit mindestens 0,6 (`FAIRNESS_MATCHUP_FLOOR`), siehe §6.5.
 
 ### 2.4 Status-Effekte (Schicht 2)
 | Effekt | Wirkung | Standarddauer | Gegenmittel (Enemy Flag) |
@@ -99,7 +118,7 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 | **Magic** | Magic | 40 dmg, 1.5/s, Range 70 | 140 | nein |
 | **Ice** | Ice | 5 dmg, 0.33/s, Range 60, Slow 50 % 3 s, Splash 8 m | 90 | **Air + Ground** |
 | **Fire** | Fire | 35 DPS Beam, Range 20 (= Flammenlänge) | 110 | nein |
-| **Tentacle** | Physical (+20% True) | 30 dmg, 1.5/s, Range 25 | 80 | nein |
+| **Tentacle** | Physical | 30 dmg, 1.5/s, Range 25 | 80 | nein |
 | **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
 | **Lightning** | Lightning | 35 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 
@@ -150,7 +169,8 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 - Basis: **Air-only**, späterer Pfad „Bodenfreigabe“ erlaubt Ground.
 
 ### 3.7 Magic — Magic
-- Stärkster Ethereal-Counter (1.75×).
+- Stärkster Ethereal-Counter (2.0×), zweiter Konter gegen Fortified (1.3×, Runen gegen Stein).
+- Schwach gegen Light (0.5×): flinke Ziele weichen den Geschossen aus.
 
 ### 3.8 Ice — Ice
 - **Air + Ground** ab Basis. Niedriger DPS, starker Slow.
@@ -158,8 +178,10 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 ### 3.9 Fire — Fire
 - **Air via Upgrade „Luftflamme“**.
 
-### 3.10 Tentacle — Physical + True Damage
-- **True Damage 20%** (Armor-unabhaengig).
+### 3.10 Tentacle — Physical
+- Reiner Physical-Schaden. Die früher geplanten 20 % True Damage (Armor-unabhängig)
+  sind gestrichen: sie würden die Matrix-Spreizung wieder aufweichen
+  (BALANCE_PROPOSAL_2026-09, Entscheidung 7).
 
 ### 3.11 Poison — Poison
 - DoT-Spezialist mit Splash-Projektil.
@@ -169,7 +191,7 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 ### 3.12 Lightning — Lightning
 - **Chain-Hitscan** (`attackType: 'chain'`): Primary-Treffer + 2 Jumps, je `chainFalloff 0.7` (100% → 70% → 49%), `jumpRange 15m` zwischen Chain-Links.
 - **Air + Ground** ab Basis — Anti-Air ohne Forschungspflicht.
-- **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×) und stark gegen Light-Swarms (1.25×, profitiert zusätzlich vom Chain-Pattern). **Schwach gegen Fortified** (0.6×) — Cannon/Siege bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
+- **Niche:** zweiter glaubwürdiger Ethereal-Counter (1.5×), stark gegen Light-Swarms (1.5×, profitiert zusätzlich vom Chain-Pattern) und neben der Rocket der zweite Anti-Drachen-Tower (1.2× gegen Heavy, Metall leitet). **Wirkungslos gegen Fortified** (0.3×) — Cannon/Siege oder Magic bleibt der Pflichtbau gegen Mammoth/Stone-Golem.
 - Visuell: dauerhaftes Idle-Crackle am Turm-Tip, additive Aufhell-Halos pro Hit (Workaround, weil Photorealistic 3D Tiles dynamische Lichter ignorieren).
 
 ---
@@ -397,7 +419,10 @@ wenn der Spieler Zugriff darauf hatte.**
 **Regel 2 — Groessen-Gate: eine Welle darf nie groesser sein, als die
 Verteidigung sie plausibel bekaempfen kann.** `fairMaxCount()` schaetzt aus
 Defense-DPS, Kill-Throughput und Gegner-Stats die toetbare Menge und addiert
-eine in HP bepreiste Leck-Toleranz (6% der Rest-HP). Ein Regelkreis
+eine in HP bepreiste Leck-Toleranz (6% der Rest-HP). Gegen Boden-Gegner (außer
+Ethereal) zählt jeder Tower dabei mit mindestens 0,6 seines Schadens
+(`FAIRNESS_MATCHUP_FLOOR`): ein falsch zusammengestelltes Roster soll als Leck
+spürbar werden, nicht als kleinere Welle. Ein Regelkreis
 (`GateController`) korrigiert diese Schaetzung laufend anhand der tatsaechlichen
 Leck-Quote — Zielband 8–16% der Welle.
 
@@ -477,7 +502,7 @@ beschreibt eine geplante Erweiterung, kein aktuelles Verhalten:
 ---
 
 ## 9. Visuelles Feedback
-- **Damage Numbers**: Groesse/Farbe nach Effektivitaet (weak=grau, normal=rot, strong=orange, devastating=gold).
+- **Damage Numbers**: Groesse/Farbe nach Effektivitaet (weak < 0,6 grau, normal rot, strong ≥ 1,2 orange, devastating ≥ 1,5 gold; `EFFECTIVENESS_THRESHOLDS`). Jede Paarung ≤ 0,5 erscheint grau und klein.
 - **Armor-Icons** am HP-Bar-Rahmen.
 - **DamageType Badge** im Tower-Stats-Panel (Icon + Label).
 - **ArmorType Badge** im Wave-Preview (Icon + "Weak to X").

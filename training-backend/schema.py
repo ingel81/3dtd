@@ -195,10 +195,12 @@ def fair_max_count(
     Against tanky enemies the damage term binds instead and throughput is
     irrelevant; whichever is scarcer wins.
 
-    Uses armor-weighted effective DPS: an archer contributes fully against
-    unarmored and almost nothing (0.15x) against ethereal. Air and ground are
-    read separately so a defense that cannot shoot upward is not credited for a
-    bat swarm.
+    Uses armor-weighted DPS: an archer contributes fully against unarmored and
+    almost nothing (0.1x) against ethereal. Pass the client's `gateDpsPerArmor`,
+    where a bad ground matchup still counts at FAIRNESS_MATCHUP_FLOOR (0.6,
+    templates.ts), so a wrong roster shows up as leaks rather than as a smaller
+    wave. Air and ground are read separately so a defense that cannot shoot
+    upward is not credited for a bat swarm.
     """
     ground = (effective_dps_per_armor or {}).get("ground") or {}
     air = (effective_dps_per_armor or {}).get("air") or {}

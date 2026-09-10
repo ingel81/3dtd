@@ -396,16 +396,35 @@ export const FAIRNESS_ENGAGEMENT_MAX_S = 40;
 export const FAIRNESS_MIN_COUNT = 5;
 
 /**
+ * Lowest matchup factor the gate credits a tower with against ground
+ * unarmored, light, heavy and fortified enemies.
+ *
+ * The gate sizes a wave from armor-weighted DPS, so a bad matchup does not make
+ * a wave hard, it makes it small: gatlings against tanks simply got fewer tanks,
+ * and a wider damage matrix would have been absorbed by the gate almost
+ * entirely. With the floor a wrong roster is felt as leaks, which
+ * `maxLeakDamagePerWave` (18 HP) still caps, and the gate controller answers
+ * with smaller waves afterwards. Ethereal and air keep the plain matrix: they
+ * are hard gates with their own capability check.
+ *
+ * Applied per tower in the defense analyzer (`gateDpsPerArmor`); fairMaxCount
+ * reads the result and knows nothing about the floor.
+ */
+export const FAIRNESS_MATCHUP_FLOOR = 0.6;
+
+/**
  * Largest enemy count the defense can plausibly fight, or null if unbounded.
  *
  * Mirrors `schema.fair_max_count` in the training backend — inference has to
  * apply the same gate the net was trained under, or the shipped game hands out
  * waves the training run never produced.
  *
- * Uses armor-weighted effective DPS rather than raw DPS: an archer counts fully
- * against unarmored and barely at all (0.15x) against ethereal, and a wave of
- * wraiths has to be judged by the latter. Ground and air are read separately so
- * a defense that cannot shoot upward gets no credit for a bat swarm.
+ * Uses armor-weighted DPS rather than raw DPS: an archer counts fully against
+ * unarmored and barely at all (0.1x) against ethereal, and a wave of wraiths has
+ * to be judged by the latter. Callers pass `gateDpsPerArmor`, where bad ground
+ * matchups are floored at FAIRNESS_MATCHUP_FLOOR. Ground and air are read
+ * separately so a defense that cannot shoot upward gets no credit for a bat
+ * swarm.
  *
  * Closed form, since the wave's duration depends on the count itself:
  *

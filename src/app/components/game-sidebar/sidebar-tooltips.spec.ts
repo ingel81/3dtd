@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'vitest';
 import { enemyGroupTooltip, towerCardTooltip, TowerCardTooltipContext } from './sidebar-tooltips';
 import { TOWER_TYPES } from '../../configs/tower-types.config';
+import { EFFECTIVENESS_THRESHOLDS } from '../../configs/combat/damage-matrix.config';
 import { EnemyTypeId } from '../../configs/enemy-types.config';
 import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
 
@@ -56,11 +57,11 @@ describe('towerCardTooltip', () => {
     ]);
   });
 
-  it('lists all armor types and dims the ones below 0.7x', () => {
-    // physical: 1.00 / 1.00 / 0.70 / 0.50 / 0.15
+  it('lists all armor types and dims the weak ones', () => {
+    // physical: 1.00 / 1.00 / 0.50 / 0.30 / 0.10, weak below 0.6
     const rows = towerCardTooltip(TOWER_TYPES.archer, noResearch).armor ?? [];
-    expect(rows.map((r) => r.multiplier)).toEqual(['1.00×', '1.00×', '0.70×', '0.50×', '0.15×']);
-    expect(rows.map((r) => r.dim)).toEqual([false, false, false, true, true]);
+    expect(rows.map((r) => r.multiplier)).toEqual(['1.00×', '1.00×', '0.50×', '0.30×', '0.10×']);
+    expect(rows.map((r) => r.dim)).toEqual([false, false, true, true, true]);
     expect(rows[0]).toMatchObject({ label: 'Unarmored', color: '#7DBE82' });
   });
 
@@ -94,19 +95,19 @@ describe('enemyGroupTooltip', () => {
   });
 
   it('sorts the damage types from most to least effective', () => {
-    // unarmored: pierce 1.2 vor fire 1.15 vor poison 1.1, siege 0.5 zuletzt
+    // unarmored: fire 1.5 vor poison 1.4 vor pierce 1.25, siege 0.5 zuletzt
     const rows = enemyGroupTooltip(group('zombie'))?.armor ?? [];
-    expect(rows.slice(0, 3).map((r) => r.label)).toEqual(['Pierce', 'Fire', 'Poison']);
+    expect(rows.slice(0, 3).map((r) => r.label)).toEqual(['Fire', 'Poison', 'Pierce']);
     expect(rows[rows.length - 1]).toMatchObject({ label: 'Siege', multiplier: '0.50×', dim: true });
     const muls = rows.map((r) => parseFloat(r.multiplier));
     expect(muls).toEqual([...muls].sort((a, b) => b - a));
   });
 
-  it('dims damage types below 0.7x', () => {
-    // ethereal: physical, pierce und fire bei 0.15
+  it('dims damage types below the weak threshold', () => {
+    // ethereal: physical, pierce und fire bei 0.1
     const rows = enemyGroupTooltip(group('ghost'))?.armor ?? [];
-    expect(rows.filter((r) => r.dim).map((r) => r.multiplier)).toContain('0.15×');
-    expect(rows.every((r) => r.dim === parseFloat(r.multiplier) < 0.7)).toBe(true);
+    expect(rows.filter((r) => r.dim).map((r) => r.multiplier)).toContain('0.10×');
+    expect(rows.every((r) => r.dim === parseFloat(r.multiplier) < EFFECTIVENESS_THRESHOLDS.weak)).toBe(true);
   });
 
   it('names the wave scaling only when it differs from 1', () => {

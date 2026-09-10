@@ -662,7 +662,11 @@ class TrainingServer:
             has_anti_air=has_anti_air,
             has_anti_ethereal=has_anti_ethereal,
             recent_template_indices=recent_tpls,
-            effective_dps_per_armor=defense.get("effectiveDPSPerArmor") or {},
+            # The gate reads the floored matchup DPS (defense-analyzer.ts);
+            # clients from before it only send the plain matrix values.
+            effective_dps_per_armor=(
+                defense.get("gateDpsPerArmor") or defense.get("effectiveDPSPerArmor") or {}
+            ),
             kill_throughput=defense.get("killThroughput") or {},
             hp_remaining=float(((state or {}).get("player") or {}).get("lives", 100) or 100),
         )
@@ -1057,7 +1061,7 @@ class TrainingServer:
                 template,
                 hp_mult,
                 delay,
-                defense.get("effectiveDPSPerArmor") or {},
+                defense.get("gateDpsPerArmor") or defense.get("effectiveDPSPerArmor") or {},
                 defense.get("killThroughput") or {},
                 float(((state or {}).get("player") or {}).get("lives", 100) or 100),
                 enemy_base_damage_for_wave(wave_num),

@@ -6,7 +6,7 @@
  * enemies, and one is affordable.
  *
  * Why this exists: ethereal is the one armor class that cannot be brute-forced.
- * Physical, pierce and fire all sit at 0.15x against it, so a defense of
+ * Physical, pierce and fire all sit at 0.1x against it, so a defense of
  * archers and gatlings is effectively unarmed against ghosts and wraiths no
  * matter how much raw DPS it stacks. Only magic (1.75x), ice (1.5x) and
  * lightning (1.5x) get through.
