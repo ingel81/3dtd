@@ -539,7 +539,9 @@ Ratio-Werte für Templates, die es nie hätte wählen können.
 
 ## Web-Dashboard (Port 3002)
 
-- **Header:** Episode, Avg-Reward, Best, Clients, Damage-Sweet %, Game-Over-Rate
+- **Header:** Episode, Clients, Avg-Reward, Best, Sweet % (Pfad-Progress),
+  Game-Over-Rate; rechts abgesetzt und leiser die Modell-Metriken (Updates,
+  Entropy, Grad-Norm, approx KL)
 - **Reward-Chart:** Raw + Rolling Average (50)
 - **Damage-Chart:** Damage-Distribution + Sweet-Zone-Band
 - **Near-Miss-Chart:** Path-Progress + Target-Linie

@@ -21,42 +21,51 @@
           <span id="ws-status">Connecting…</span>
         </div>
       </div>
-      <div class="kpi-chips">
-        <div class="kpi-chip">
-          <div class="kpi-label">Episode</div>
-          <div class="kpi-value blue" id="episode">0</div>
+      <div class="header-metrics">
+        <div class="metric-group">
+          <div class="metric">
+            <span class="metric-label">Episode</span>
+            <span class="metric-value" id="episode">0</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Clients</span>
+            <span class="metric-value" id="clients">0</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Avg Reward</span>
+            <span class="metric-value" id="avg-reward">0.000</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Best</span>
+            <span class="metric-value" id="best-reward">0.000</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Sweet %</span>
+            <span class="metric-value metric-value--good" id="sweet-spot">0%</span>
+          </div>
+          <div class="metric">
+            <span class="metric-label">Game Over</span>
+            <span class="metric-value metric-value--bad" id="game-over-rate">0%</span>
+          </div>
         </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">PPO Updates</div>
-          <div class="kpi-value cyan" id="model-updates">0</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Avg Reward</div>
-          <div class="kpi-value green" id="avg-reward">0.000</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Best</div>
-          <div class="kpi-value purple" id="best-reward">0.000</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Sweet %</div>
-          <div class="kpi-value orange" id="sweet-spot">0%</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Game Over</div>
-          <div class="kpi-value red" id="game-over-rate">0%</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Entropy</div>
-          <div class="kpi-value" id="header-entropy">--</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Grad</div>
-          <div class="kpi-value" id="header-grad-norm">--</div>
-        </div>
-        <div class="kpi-chip">
-          <div class="kpi-label">Clients</div>
-          <div class="kpi-value cyan" id="clients">0</div>
+        <div class="metric-group metric-group--model">
+          <span class="metric-group-label">Model</span>
+          <div class="metric metric--minor" title="PPO-Updates seit Serverstart">
+            <span class="metric-label">Updates</span>
+            <span class="metric-value" id="model-updates">0</span>
+          </div>
+          <div class="metric metric--minor" title="Entropie des Template-Heads im letzten Update">
+            <span class="metric-label">Entropy</span>
+            <span class="metric-value" id="header-entropy">--</span>
+          </div>
+          <div class="metric metric--minor" title="Gradienten-Norm vor dem Clipping">
+            <span class="metric-label">Grad</span>
+            <span class="metric-value" id="header-grad-norm">--</span>
+          </div>
+          <div class="metric metric--minor" title="approx KL des letzten Updates, Ziel 0.02">
+            <span class="metric-label">KL</span>
+            <span class="metric-value" id="header-kl">--</span>
+          </div>
         </div>
       </div>
       <div class="header-controls">

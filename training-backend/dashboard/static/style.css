@@ -101,45 +101,62 @@ body {
 .connection-badge.connected .connection-dot { background: var(--accent-green); }
 @keyframes pulse { 0%,100% { opacity:1 } 50% { opacity:0.5 } }
 
-/* KPI-Chips */
-.kpi-chips {
+/* Header metrics: run outcome on the left, optimiser state on the right and
+   quieter, since it only matters when something looks wrong. */
+.header-metrics {
   display: flex;
-  gap: 6px;
+  align-items: center;
+  gap: 20px;
   flex: 1;
   flex-wrap: wrap;
-  justify-content: center;
+  min-width: 0;
 }
-.kpi-chip {
+.metric-group {
+  display: flex;
+  align-items: center;
+  gap: 18px;
+  flex-wrap: wrap;
+}
+.metric {
   display: flex;
   flex-direction: column;
-  align-items: center;
-  min-width: 64px;
-  padding: 4px 10px;
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: 4px;
-  transition: border-color 0.15s;
+  line-height: 1.2;
 }
-.kpi-chip:hover { border-color: var(--border-accent); }
-.kpi-label {
+.metric-label {
   font-size: 10px;
   color: var(--text-secondary);
   text-transform: uppercase;
   letter-spacing: 0.5px;
-  line-height: 1.2;
 }
-.kpi-value {
-  font-size: 15px;
+.metric-value {
+  font-size: 16px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
-  line-height: 1.2;
+  color: var(--text-primary);
 }
-.kpi-value.blue { color: var(--accent-blue); }
-.kpi-value.green { color: var(--accent-green); }
-.kpi-value.purple { color: var(--accent-purple); }
-.kpi-value.cyan { color: var(--accent-cyan); }
-.kpi-value.orange { color: var(--accent-orange); }
-.kpi-value.red { color: var(--accent-red); }
+.metric-value--good { color: var(--accent-green); }
+.metric-value--bad { color: var(--accent-red); }
+
+.metric-group--model {
+  margin-left: auto;
+  padding-left: 14px;
+  border-left: 1px solid var(--border);
+  gap: 14px;
+}
+.metric-group-label {
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.8px;
+}
+.metric--minor { cursor: help; }
+.metric--minor .metric-label { font-size: 9px; }
+.metric--minor .metric-value {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
 
 /* Control buttons */
 .header-controls {
@@ -994,7 +1011,7 @@ body {
   .client-state-grid { grid-template-columns: 1fr; }
 }
 @media (max-width: 900px) {
-  .kpi-chips { justify-content: flex-start; }
+  .metric-group--model { margin-left: 0; }
   .sparkline-grid { grid-template-columns: repeat(2, 1fr); }
   .wave-entry { grid-template-columns: 180px 1fr 70px; font-size: 11px; }
 }
