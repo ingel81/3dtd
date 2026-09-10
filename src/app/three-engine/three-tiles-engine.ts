@@ -15,7 +15,7 @@ import {
   DirectionalLight,
   AmbientLight,
   TextureLoader,
-  EquirectangularReflectionMapping,
+  WebGLCubeRenderTarget,
   Color,
   BoxGeometry,
   Box3,
@@ -134,6 +134,11 @@ export class ThreeTilesEngine {
 
   // Post-processing pipeline (composer + bloom + color grading + output pass)
   private postProcessing: PostProcessingPipeline | null = null;
+
+  // Sky as a cube render target, converted once from the equirect image
+  private skyTarget: WebGLCubeRenderTarget | null = null;
+  // The sky image can arrive after dispose(), it must not touch the renderer then
+  private disposed = false;
 
   // Game speed multiplier for animations (turret rotation etc.)
   private gameTimescale = 1.0;
@@ -719,7 +724,13 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Setup sky background from equirectangular texture
+   * Setup sky background from equirectangular texture.
+   *
+   * three converts an equirect background into a cube render target on its
+   * own (WebGLEnvironments, face size = image height) and then keeps the
+   * source texture on the GPU next to it, never read again. Running the same
+   * conversion here lets the source go: same function, same size, same
+   * filters, so the same pixels.
    */
   private setupSky(): void {
     const loader = new TextureLoader();
@@ -727,9 +738,17 @@ export class ThreeTilesEngine {
     loader.load(
       'assets/images/skybox/day.webp',
       (texture) => {
-        texture.mapping = EquirectangularReflectionMapping;
+        if (this.disposed) {
+          texture.dispose();
+          return;
+        }
         texture.colorSpace = SRGBColorSpace;
-        this.scene.background = texture;
+        this.skyTarget = new WebGLCubeRenderTarget(texture.image.height).fromEquirectangularTexture(
+          this.renderer,
+          texture
+        );
+        this.scene.background = this.skyTarget.texture;
+        texture.dispose();
       },
       undefined,
       (error) => {
@@ -1933,6 +1952,7 @@ export class ThreeTilesEngine {
    * Dispose all resources
    */
   dispose(): void {
+    this.disposed = true;
     this.stopRenderLoop();
     this.clearDebugHelpers();
 
@@ -1993,6 +2013,10 @@ export class ThreeTilesEngine {
       this.postProcessing.dispose();
       this.postProcessing = null;
     }
+
+    // The sky cube is the scene background, the traverse above does not reach it
+    this.skyTarget?.dispose();
+    this.skyTarget = null;
 
     // Dispose renderer
     this.renderer.dispose();
