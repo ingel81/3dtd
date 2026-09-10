@@ -38,10 +38,10 @@ to be re-anchored. Sample tile depth is tracked for exactly this reason.
 
 | | |
 |---|---|
-| Frontend | [Angular](https://angular.dev) 21, standalone components, signal stores |
-| UI | [Angular Material](https://material.angular.dev) 21 |
-| Rendering | [Three.js](https://threejs.org) 0.184 |
-| Tiles | [3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) 0.4.24 |
+| Frontend | [Angular](https://angular.dev) 22, standalone components, signal stores |
+| UI | [Angular Material](https://material.angular.dev) 22 |
+| Rendering | [Three.js](https://threejs.org) 0.186 |
+| Tiles | [3DTilesRendererJS](https://github.com/NASA-AMMOS/3DTilesRendererJS) 0.5.2 |
 | Geometry | [Google Photorealistic 3D Tiles](https://developers.google.com/maps/documentation/tile/3d-tiles), via [Cesium Ion](https://cesium.com/platform/cesium-ion/) or the Google Maps API directly |
 | Map data | [OpenStreetMap](https://www.openstreetmap.org/copyright) ([Overpass](https://overpass-api.de) for streets and buildings, [Nominatim](https://nominatim.org) for geocoding) |
 | Tests | [Vitest](https://vitest.dev) |

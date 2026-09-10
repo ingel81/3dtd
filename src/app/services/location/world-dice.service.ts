@@ -122,7 +122,7 @@ export class WorldDiceService {
     } catch (err) {
       clearTimeout(timeoutId);
       if (err instanceof Error && err.name === 'AbortError') {
-        throw new Error('Timeout - Wikidata not responding');
+        throw new Error('Timeout - Wikidata not responding', { cause: err });
       }
       throw err;
     }

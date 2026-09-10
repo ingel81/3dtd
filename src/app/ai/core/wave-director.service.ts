@@ -562,7 +562,7 @@ export class WaveDirectorService {
   private calculateReward(result: WaveResult): number {
     const damagePct = result.outcome.damagePercent;
 
-    let reward = 0;
+    let reward: number;
 
     // Sweet spot: 10-30% damage
     if (damagePct >= 0.1 && damagePct <= 0.3) {
