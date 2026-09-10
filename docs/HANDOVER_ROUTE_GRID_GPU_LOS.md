@@ -242,7 +242,8 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 2. TowerManager.placeTower legt Entity an
 3. TowerPlacementService.registerTowerOnGrid(tower, position, typeId):
    a. globalRouteGrid.refineCellsInRadius(x, z, range)
-      — promote unsampled cells in Range zu heightSampled
+      promotet unsampled Cells und refresht stabile bei besserem LOD,
+      meldet beide per cells-changed (andere Tower landen in staleLos)
    b. buildLosResolveContext(tipWorld, range):
       mapper.invalidate()                            ← PFLICHT
       mapper.update(tipWorld, range, blockerGroup)   ← rendert Cube
@@ -257,6 +258,9 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
             isCubeVisible(tip, getAirTargetY(cell), …)
             cell.airVisibility.set(towerId, …)
       refreshAggregateVizPositions()    — Air-Plate-Y mit-syncen
+      emitCellsChanged(von sampleCellY bewegte Cells), erst nach der
+      Schleife: der Listener sammelt nur, die anderen Tower rechnen
+      später (staleLos), dieser Tower ist schon aktuell
    d. tower.losReady = true
    e. if (tower.selected) refreshSelectionViz(tower)
 ```
@@ -264,8 +268,11 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 ### Range-Upgrade (`recomputeTowerLOS`)
 
 Identisch zu Tower-Build, aber `registerTowerIncremental` nutzt die
-gecachten Visibility-Werte für Cells die schon registriert sind. Nur
-der Annulus wird via Cube neu gesampled.
+gecachten Visibility-Werte für Cells die schon registriert sind. Neu
+gesampled werden nur der Annulus, die wartenden Cells aus `staleLos` und
+Cells, deren Höhe `sampleCellY` im selben Durchlauf bewegt hat. Die
+meldet der Grid danach per cells-changed an die anderen Tower weiter;
+der gerade auflösende Tower selbst wird dabei übersprungen.
 
 ### Tile-Streaming (`onTilesLoaded`)
 

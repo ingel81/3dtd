@@ -219,4 +219,31 @@ describe('TowerPlacementService tower LOS refresh', () => {
     expect(recompute.mock.calls.map(([t]) => t)).toEqual([a, b]);
     expect(staleAnswers(b)).toEqual([]);
   });
+
+  it('passes a height change found while re-resolving one tower on to the others', () => {
+    const a = place(15, 10);
+    const b = place(40, 10);
+    // Finer tiles are in, but no sweep has run yet.
+    fine();
+    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+
+    // e.g. a range upgrade: samples a's cells on the way
+    service.recomputeTowerLOS(a);
+    expect(staleAnswers(a)).toEqual([]);
+    drainFrames();
+
+    // b for the cells it shares with a; a is not queued for its own cells.
+    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a, b]);
+    expect(staleAnswers(b)).toEqual([]);
+  });
+
+  it('updates the standing towers when a new tower refines their cells', () => {
+    const a = place(15, 10);
+    fine();
+    // Its refine moves the cells it shares with a.
+    place(40, 10);
+    drainFrames();
+
+    expect(staleAnswers(a)).toEqual([]);
+  });
 });
