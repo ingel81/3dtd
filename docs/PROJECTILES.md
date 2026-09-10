@@ -8,7 +8,7 @@
 Das Projektil-Entity verwaltet Position, Bewegung und Flugbahn.
 
 **Wichtige Properties:**
-- `direction` - Normalisierter Richtungsvektor (bei Spawn berechnet; bei Homing/Arc-Projektilen kontinuierlich aktualisiert)
+- `direction` - Normalisierter Richtungsvektor im lokalen Frame (-X = Ost, +Z = Nord, Meter; Längengrad mit cos(lat) skaliert). Bei Spawn berechnet, bei Homing/Arc-Projektilen kontinuierlich aktualisiert. Nur Optik (Mesh-Rotation, Schweif), die Bewegung läuft über lat/lon
 - `flightHeight` - Aktuelle Flughöhe (interpoliert mit Parabel-Bogen oder linear)
 - `flightProgress` - Fortschritt entlang der Flugbahn (0-1)
 - `isHoming` - Ob das Projektil zielverfolgend ist (Rockets)
@@ -54,7 +54,9 @@ const projectile = new Projectile(..., spawnHeight);
 - Position wird jeden Frame aktualisiert
 - Homing-Projektile (Rockets) und Arc-Projektile (Arrows, Cannonballs) aktualisieren Rotation kontinuierlich
 - Reguläre Projektile behalten fixe Rotation (einmal bei Spawn berechnet)
-- Trail-Partikel werden jeden Frame gespawnt falls konfiguriert
+- Trail-Partikel: ein Spawn-Gate pro 0,5 m Flugstrecke (`TRAIL_SPAWN_DISTANCE_M`). Die Gates
+  eines Frames werden im Abstand von 0,5 m entlang der Flugrichtung nach hinten gelegt, nicht
+  alle auf die aktuelle Position (eine Rakete fliegt bei 60 FPS 2 m pro Frame)
 
 ### Renderer: `three-projectile.renderer.ts`
 GPU-Instancing für effizientes Rendering vieler Projektile.

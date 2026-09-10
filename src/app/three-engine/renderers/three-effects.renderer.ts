@@ -428,18 +428,6 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Spawn configurable trail particles at geo coordinates
-   */
-  spawnConfigurableTrailAtGeo(
-    lat: number,
-    lon: number,
-    height: number,
-    config: TrailParticleConfig
-  ): void {
-    this.particleEffects.spawnConfigurableTrailAtGeo(lat, lon, height, config);
-  }
-
-  /**
    * Spawn explosion effect at local position
    * Used for rocket impacts and other explosions
    * Uses ADDITIVE blending (fire/glow effect)

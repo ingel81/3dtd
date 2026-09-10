@@ -176,7 +176,7 @@ export function createMockTilesEngine(): any {
       stopAllTowerFires: vi.fn(),
       spawnIceExplosionAtGeo: vi.fn(),
       spawnIceDecal: vi.fn(),
-      spawnConfigurableTrailAtGeo: vi.fn(),
+      spawnConfigurableTrail: vi.fn(),
       spawnFrostAura: vi.fn(),
       updateFrostAuraPosition: vi.fn(),
       stopFrostAura: vi.fn(),

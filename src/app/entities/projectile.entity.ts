@@ -13,7 +13,12 @@ import {
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
 import { Enemy } from './enemy.entity';
-import { geoDistanceFast, geoDistanceFastSq } from '../utils/geo-utils';
+import {
+  geoDistanceFast,
+  geoDistanceFastSq,
+  METERS_PER_DEGREE_LAT,
+  DEG_TO_RAD,
+} from '../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../utils/enemy-aim.util';
 
 /**
@@ -127,10 +132,11 @@ export class Projectile extends GameObject {
     const dLon = targetPos.lon - startPos.lon;
     const dLat = targetPos.lat - startPos.lat;
 
-    // Convert to local coordinate deltas
-    // Scale doesn't matter since we normalize
-    const dx = -dLon * 100000; // -X = East
-    const dz = dLat * 100000;  // +Z = North
+    // Local deltas in meters, the same units as dy. A degree of longitude is
+    // cos(lat) shorter than a degree of latitude: scaling both by the same
+    // factor skewed the heading east/west (about 13° off at London's latitude).
+    const dx = -dLon * METERS_PER_DEGREE_LAT * Math.cos(startPos.lat * DEG_TO_RAD); // -X = East
+    const dz = dLat * METERS_PER_DEGREE_LAT; // +Z = North
     const dy = targetHeight - startHeight; // Vertical difference
 
     // Normalize
@@ -294,11 +300,12 @@ export class Projectile extends GameObject {
       : this.targetEnemy.position;
     const progress = this.flightProgress;
 
-    // Horizontal direction (unchanged - always points towards target)
+    // Horizontal direction (unchanged - always points towards target), in
+    // meters like calculateDirectionVector()
     const dLon = targetPos.lon - this.position.lon;
     const dLat = targetPos.lat - this.position.lat;
-    const dx = -dLon * 100000;
-    const dz = dLat * 100000;
+    const dx = -dLon * METERS_PER_DEGREE_LAT * Math.cos(this.position.lat * DEG_TO_RAD);
+    const dz = dLat * METERS_PER_DEGREE_LAT;
 
     // Calculate horizontal magnitude for proper scaling
     const horizontalMag = Math.sqrt(dx * dx + dz * dz);
