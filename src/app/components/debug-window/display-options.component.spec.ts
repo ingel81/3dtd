@@ -1,7 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { DisplayOptions, persistDisplayOptions } from './display-options.component';
-
-const STORAGE_KEY = 'td_display_options';
+import { DisplayOptions, STORAGE_KEY, persistDisplayOptions } from './display-options.storage';
 
 const PANEL_OPTIONS: DisplayOptions = {
   enemies: true,
