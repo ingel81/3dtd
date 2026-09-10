@@ -8,7 +8,7 @@ import { GeoPosition } from '../../models/game.types';
 import { Street, StreetNetwork, StreetNode } from '../location/osm-street.service';
 import { SpawnPoint } from './marker-visualization.service';
 import { DevWorldService } from '../../devworld/devworld.service';
-import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import { UIStore } from '../../store/ui.store';
 import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
@@ -715,20 +715,26 @@ export class PathAndRouteService {
     b: { lat: number; lon: number },
     target: { lat: number; lon: number }
   ): { lat: number; lon: number } {
-    const dx = b.lon - a.lon;
-    const dy = b.lat - a.lat;
-    const lengthSquared = dx * dx + dy * dy;
+    // Project in metre-proportional units: a degree of longitude is only
+    // cos(lat) as long as a degree of latitude. Unscaled, the foot point
+    // slides along the street (~6 m on a diagonal street at 48° N) and the
+    // last leg to the HQ runs at a slant instead of straight across.
+    const lonScale = Math.cos(((a.lat + b.lat) * 0.5) * DEG_TO_RAD);
+    const dLon = b.lon - a.lon;
+    const dLat = b.lat - a.lat;
+    const dx = dLon * lonScale;
+    const lengthSquared = dx * dx + dLat * dLat;
 
     if (lengthSquared === 0) {
       return { lat: a.lat, lon: a.lon };
     }
 
     // Project target onto the line, clamped to segment
-    const t = Math.max(0, Math.min(1, ((target.lon - a.lon) * dx + (target.lat - a.lat) * dy) / lengthSquared));
+    const t = Math.max(0, Math.min(1, ((target.lon - a.lon) * lonScale * dx + (target.lat - a.lat) * dLat) / lengthSquared));
 
     return {
-      lat: a.lat + t * dy,
-      lon: a.lon + t * dx,
+      lat: a.lat + t * dLat,
+      lon: a.lon + t * dLon,
     };
   }
 

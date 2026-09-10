@@ -132,4 +132,29 @@ describe('PathAndRouteService route geometry', () => {
       expect(liesOnWayEdge(network, route[i], route[i + 1]), `segment ${i}`).toBe(true);
     }
   });
+
+  it('leaves a diagonal street at the point closest to the HQ', () => {
+    // Diagonale Straße A→B (149 m Ost, 111 m Nord). Die Länge muss in Metern
+    // projiziert werden, sonst wandert der Abzweig einige Meter die Straße entlang.
+    const s = { id: 1, lat: 47.999, lon: 9.0 };
+    const a = { id: 2, lat: 48.0, lon: 9.0 };
+    const b = { id: 3, lat: 48.001, lon: 9.002 };
+    const c = { id: 4, lat: 48.002, lon: 9.002 };
+    const diagonal = makeNetwork([
+      { id: 100, nodes: [s, a] },
+      { id: 200, nodes: [a, b] },
+      { id: 300, nodes: [b, c] },
+    ]);
+    // 20 m senkrecht neben der Mitte von A→B.
+    const hq = { lat: 48.000644, lon: 9.000841 };
+
+    const route = buildRoute(diagonal, { lat: 47.9995, lon: 9.0 }, hq);
+    const turnOff = route[route.length - 2];
+
+    const shortest = distToSegmentM(hq, a, b);
+    expect(shortest).toBeGreaterThan(19);
+    expect(distToSegmentM(turnOff, a, b)).toBeLessThan(0.05);
+    expect(Math.hypot(toMeters(turnOff).x - toMeters(hq).x, toMeters(turnOff).z - toMeters(hq).z))
+      .toBeCloseTo(shortest, 1);
+  });
 });
