@@ -217,7 +217,8 @@ export class HealthBarInstanceManager {
   }
 
   /**
-   * Add a health bar for an enemy
+   * Add a health bar for an enemy. Returns its slot index (the existing one
+   * if the enemy already has a bar).
    */
   add(
     enemyId: string,
@@ -227,8 +228,9 @@ export class HealthBarInstanceManager {
     fixedColor: { r: number; g: number; b: number } | null,
     barWidth: number,
     barHeight: number,
-  ): void {
-    if (this.instances.has(enemyId)) return;
+  ): number {
+    const existing = this.instances.get(enemyId);
+    if (existing !== undefined) return existing;
 
     let index: number;
     if (this.freeIndices.length > 0) {
@@ -269,21 +271,23 @@ export class HealthBarInstanceManager {
     this.healthAttribute.needsUpdate = true;
     this.barColorAttribute.needsUpdate = true;
     this.isBossAttribute.needsUpdate = true;
+    return index;
   }
 
   /**
-   * Update health bar position and health value
+   * Update health bar position and health value by slot index: the index
+   * add() returned, which the caller keeps (InstancedEnemyRenderer stores it
+   * on the instance state) so the per-frame push needs no id lookup. Only
+   * valid while that bar has not been removed.
    */
-  update(
-    enemyId: string,
+  updateAt(
+    index: number,
     position: Vector3,
     yOffset: number,
     healthPercent: number,
     barWidth: number,
     barHeight: number,
   ): void {
-    const index = this.instances.get(enemyId);
-    if (index === undefined) return;
     // A hidden slot is a corpse whose bar was retired — writing to it would
     // both resurrect the bar and pile up update ranges for nothing.
     if (this.hiddenFlags[index]) return;

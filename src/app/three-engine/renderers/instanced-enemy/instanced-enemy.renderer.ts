@@ -7,7 +7,7 @@ import {
 import { CoordinateSync } from '../index';
 import { EnemyTypeId, ENEMY_TYPES, EnemyTypeConfig } from '../../../configs/enemy-types.config';
 import { AssetManagerService } from '../../../services/infrastructure/asset-manager.service';
-import { EnemyInstanceManager } from './enemy-instance.manager';
+import { EnemyInstanceManager, EnemyInstanceState } from './enemy-instance.manager';
 import { HealthBarInstanceManager } from './health-bar-instance.manager';
 import { bakeVAT, bakeObjectAnimVAT, bakeStaticVAT } from './vat-baker';
 import { registerEnemyModelCenterY } from '../../../utils/enemy-aim.util';
@@ -65,9 +65,6 @@ export class InstancedEnemyRenderer {
 
   // Cached parsed health bar colors per type (avoid repeated hex parsing)
   private healthBarColorCache = new Map<string, { r: number; g: number; b: number } | null>();
-
-  // Reusable temp vector (avoids allocation in hot path)
-  private static readonly _tempLocalPos = new Vector3();
 
   // Display toggle state
   private _showEnemies = true;
@@ -219,7 +216,7 @@ export class InstancedEnemyRenderer {
       this.healthBarColorCache.set(typeId, fixedColor);
     }
 
-    this.healthBarManager.add(
+    state.healthBarIndex = this.healthBarManager.add(
       id,
       localPos,
       config.healthBarOffset,
@@ -258,40 +255,37 @@ export class InstancedEnemyRenderer {
   // UPDATE
   // =====================================================
 
-  update(
-    id: string,
-    lat: number,
-    lon: number,
-    height: number,
+  /**
+   * The instance slot of an enemy, or null when it has none (pool not baked
+   * yet, bake failed, or removed). Callers that push state every frame keep
+   * the slot and resolve again only once `slot.released` is set (see
+   * EnemyManager.presentFrame()).
+   */
+  resolveSlot(id: string): EnemyInstanceState | null {
+    return this.instanceManager.getState(id);
+  }
+
+  /**
+   * Push one enemy's frame state to its slot. `localPos` is the render
+   * position, height offset included. `slot` must not be released.
+   */
+  updateSlot(
+    slot: EnemyInstanceState,
+    localPos: Vector3,
     heading: number,
     healthPercent: number,
-    currentSpeed?: number,
-    precomputedLocalPos?: Vector3,
+    currentSpeed: number,
   ): void {
     if (!this._showEnemies) return;
 
-    const state = this.instanceManager.getState(id);
-    if (!state) return;
-
-    // Use pre-computed local position if available (avoids duplicate geoToLocalSimpleInto)
-    let localPos: Vector3;
-    if (precomputedLocalPos) {
-      localPos = precomputedLocalPos;
-    } else {
-      const heightOffset = state.config.heightOffset;
-      localPos = this.sync.geoToLocalSimpleInto(
-        lat, lon, height + heightOffset,
-        InstancedEnemyRenderer._tempLocalPos,
-      );
-    }
-
     // Update instance position/rotation
-    this.instanceManager.updateEnemy(id, localPos, heading, currentSpeed);
+    this.instanceManager.updateEnemyState(slot, localPos, heading, currentSpeed);
 
     // Update health bar (with debug healthBarOffset if set)
-    const barOffset = state.debugHealthBarOffset ?? state.config.healthBarOffset;
-    this.healthBarManager.update(
-      id,
+    if (slot.healthBarIndex < 0) return;
+    const barOffset = slot.debugHealthBarOffset ?? slot.config.healthBarOffset;
+    this.healthBarManager.updateAt(
+      slot.healthBarIndex,
       localPos,
       barOffset,
       healthPercent,
@@ -368,9 +362,12 @@ export class InstancedEnemyRenderer {
     return this.instanceManager.getSpeedMultiplier(id);
   }
 
-  getHeightOffset(id: string): number {
-    const state = this.instanceManager.getState(id);
-    return state?.config.heightOffset ?? 0;
+  /**
+   * Instances not in their walk animation. While 0, getSpeedMultiplier()
+   * returns 1.0 for every id, see EnemyInstanceManager._nonWalkingCount.
+   */
+  get nonWalkingCount(): number {
+    return this.instanceManager.nonWalkingCount;
   }
 
   getAllIds(): string[] {
