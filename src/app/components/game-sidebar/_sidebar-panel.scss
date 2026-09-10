@@ -1,0 +1,255 @@
+// Gemeinsame Regeln der Sidebar-Panels (WAVE, BUILD, Tower, Research).
+//
+// Jedes Panel ist eine eigene Component mit gekapselten Styles, Regeln des
+// Parents erreichen ihre Templates nicht. Was mehrere Panels brauchen, steht
+// deshalb einmal hier als Mixin; ein Panel bindet ein, was sein Template
+// nutzt. Die Reihenfolge der @include-Aufrufe zählt, wo Regeln gleicher
+// Spezifität dieselbe Eigenschaft setzen: tower-header nach header, sonst
+// verliert .td-tower-header sein padding-right.
+
+@mixin section {
+  /* === Section (was .td-panel), flat, no frames ===
+   * The sidebar is a single panel; each section is just a vertical strip.
+   * No bevel, no shadow. Die 1px-Trennlinie trägt nur das WAVE-Panel, die
+   * einzige Sektion, auf die noch eine sichtbare folgt. */
+  .td-panel {
+    background: transparent;
+    border: 0;
+    box-shadow: none;
+  }
+}
+
+@mixin fill {
+  /* Non-wave panels fill available space and allow internal scroll */
+  .td-panel {
+    flex: 1;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+  .td-panel > .td-panel-content {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    /* Firefox, see TD_SCROLLBAR_STYLES in styles/td-theme.ts */
+    scrollbar-width: thin;
+    scrollbar-color: var(--td-frame-mid) var(--td-panel-shadow);
+  }
+  .td-panel > .td-panel-content::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  .td-panel > .td-panel-content::-webkit-scrollbar-track {
+    background: var(--td-panel-shadow);
+    border-radius: 4px;
+  }
+  .td-panel > .td-panel-content::-webkit-scrollbar-thumb {
+    background: var(--td-frame-mid);
+    border-radius: 4px;
+    border: 1px solid var(--td-panel-shadow);
+  }
+  .td-panel > .td-panel-content::-webkit-scrollbar-thumb:hover {
+    background: var(--td-frame-light);
+  }
+}
+
+@mixin header {
+  /* Section heads, flat label with mono caps + rune-amber color. */
+  .td-panel-header {
+    position: relative;
+    padding: 12px var(--td-sidebar-gutter) 8px;
+    background: transparent;
+    border: 0;
+    flex-shrink: 0;
+    font-family: var(--td-font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.18em;
+    color: var(--td-rune-amber);
+    text-transform: uppercase;
+  }
+}
+
+@mixin content {
+  .td-panel-content {
+    padding: 4px var(--td-sidebar-gutter) 14px;
+  }
+}
+
+@mixin tower-header {
+  /* Phase 5.16: header layout with sell button on the right */
+  .td-tower-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    padding-right: 4px;
+  }
+  .td-tower-header-name {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .td-header-sell-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 6px;
+    background: var(--td-panel-shadow);
+    border: 1px solid var(--td-frame-dark);
+    border-radius: 3px;
+    color: var(--td-gold-light);
+    font-family: var(--td-font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    cursor: pointer;
+    transition: color 0.15s, box-shadow 0.18s;
+  }
+  .td-header-sell-btn:hover {
+    color: var(--td-health-red);
+    box-shadow: 0 0 0 1px var(--td-health-red);
+  }
+  .td-header-sell-value {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@mixin matrix-btn {
+  /* Opens the damage-vs-armor chart. `order: 1` puts it at the far right in
+   * both headers: after the BUILD rule (::after) and after the sell button. */
+  .td-matrix-btn {
+    order: 1;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    padding: 0;
+    background: var(--td-panel-shadow);
+    border: 1px solid var(--td-frame-dark);
+    border-radius: 3px;
+    color: var(--td-text-muted);
+    cursor: pointer;
+    transition: color 0.15s, border-color 0.15s;
+  }
+  .td-matrix-btn:hover,
+  .td-matrix-btn:focus-visible {
+    color: var(--td-text-primary);
+    border-color: var(--td-frame-mid);
+  }
+}
+
+@mixin tower-section {
+  .td-tower-section {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    overflow-y: auto;
+    flex: 1;
+    min-height: 0;
+  }
+}
+
+@mixin upgrades {
+  /* === Upgrade Section === */
+  .td-upgrades-section {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    min-height: 120px;
+  }
+
+  .td-upgrade-tile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px;
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.15) 0%, rgba(255, 193, 7, 0.05) 100%);
+    border: 2px solid var(--td-gold-dark);
+    border-radius: 4px;
+    cursor: pointer;
+    transition: all 0.15s;
+    font-family: inherit;
+  }
+
+  .td-upgrade-tile:hover:not(:disabled) {
+    background: linear-gradient(135deg, rgba(255, 193, 7, 0.25) 0%, rgba(255, 193, 7, 0.1) 100%);
+    border-color: var(--td-gold);
+    box-shadow: 0 0 12px rgba(255, 193, 7, 0.3);
+  }
+
+  .td-upgrade-tile:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    border-color: var(--td-frame-mid);
+    background: var(--td-panel-secondary);
+  }
+
+  /* Tier-locked upgrades (requires further research) */
+  .td-upgrade-tile.td-upgrade-tier-locked {
+    opacity: 0.45;
+    border-color: var(--td-frame-dark);
+    background: var(--td-panel-shadow);
+  }
+  .td-upgrade-tile.td-upgrade-tier-locked .td-upgrade-icon {
+    color: var(--td-text-muted);
+  }
+
+  .td-upgrade-tier-badge {
+    display: inline-block;
+    padding: 1px 5px;
+    margin-left: 4px;
+    font-size: 9px;
+    font-weight: 700;
+    color: var(--td-bg-dark);
+    background: var(--td-gold-dark);
+    border-radius: 2px;
+    vertical-align: middle;
+  }
+  .td-upgrade-tier-locked .td-upgrade-tier-badge {
+    background: var(--td-frame-mid);
+    color: var(--td-text-muted);
+  }
+
+  .td-upgrade-icon {
+    font-size: 28px;
+    width: 28px;
+    height: 28px;
+    color: var(--td-gold);
+  }
+
+  .td-upgrade-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+  }
+
+  .td-upgrade-name {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--td-text-primary);
+  }
+
+  .td-upgrade-desc {
+    font-size: 9px;
+    color: var(--td-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+  }
+
+  .td-upgrade-cost {
+    padding: 4px 10px;
+    background: var(--td-gold);
+    color: var(--td-bg-dark);
+    font-size: 12px;
+    font-weight: 700;
+    border-radius: 3px;
+  }
+}

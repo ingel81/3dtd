@@ -31,17 +31,13 @@ import {
   AIR_SUB_STRATEGIES,
   requiredUpgradeTier,
 } from '../../configs/tower-types.config';
-import { DAMAGE_TYPE_UI, ARMOR_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
 import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
-import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { TowerDebugService } from '../../services/debug/tower-debug.service';
-import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
-import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
-import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { openDamageMatrixDialog } from '../damage-matrix-dialog/damage-matrix-dialog.component';
 import { ConfigService } from '../../core/services/config.service';
@@ -49,7 +45,8 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { TdRichTooltipDirective } from '../tooltip/td-rich-tooltip.directive';
 import { TdTooltipData } from '../tooltip/tooltip-data.types';
-import { enemyGroupTooltip, towerCardTooltip } from './sidebar-tooltips';
+import { towerCardTooltip } from './sidebar-tooltips';
+import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
 
 @Component({
   selector: 'app-game-sidebar',
@@ -60,6 +57,7 @@ import { enemyGroupTooltip, towerCardTooltip } from './sidebar-tooltips';
     MatTooltipModule,
     TdIconComponent,
     TdRichTooltipDirective,
+    SidebarWavePanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
@@ -75,25 +73,10 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
-  private readonly waveDebug = inject(WaveDebugService);
   private readonly towerDebug = inject(TowerDebugService);
-  private readonly enemyDebug = inject(EnemyDebugService);
   private readonly destroyRef = inject(DestroyRef);
 
   constructor() {
-    // Update enemy group previews when wave groups change
-    effect(() => {
-      const groups = this.currentWaveGroups();
-      // Also track debug overrides for preview updates
-      const overrides = this.enemyDebug.allOverrides();
-      for (const g of groups) {
-        void overrides[g.enemyType];
-      }
-      if (this.mixedEnemyCanvases?.length) {
-        this.initMixedEnemyPreviews();
-      }
-    });
-
     // Update tower previews when debug overrides change
     effect(() => {
       // Track selected tower and its overrides
@@ -114,57 +97,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly buildMode = input.required<boolean>();
   readonly waveActive = input.required<boolean>();
   readonly isGameOver = input.required<boolean>();
-
-  // Wave group display, only consumed by the template while a wave is active,
-  // so we don't need curriculum-derived or debug-panel fallbacks. The COMING UP
-  // panel handles the setup-phase preview separately.
-  readonly currentWaveGroups = computed(() => this.waveDebug.currentWaveGroups());
-  readonly isMixedWave = this.waveDebug.isMixedWave;
-
-  /**
-   * Wave-number shown in the panel header. During an active wave it's the
-   * running wave; during build/setup it's the UPCOMING wave (waveNumber+1)
-   * so the panel content (enemy preview, next-wave button) matches the label.
-   * Avoids the meaningless "WAVE 0" header at game start.
-   */
-  readonly displayedWaveNumber = computed(() => {
-    const n = this.store.waveNumber();
-    return this.waveActive() ? n : n + 1;
-  });
-
-  /**
-   * Phase 5.16: Show next 2 curriculum-forced waves so the player can
-   * prepare their defense (e.g. build Anti-Air before W7 bat_swarm).
-   * Returns empty array once we're past the curriculum (NN-loop range).
-   */
-  readonly upcomingWaves = computed(() => {
-    const currentWave = this.store.waveNumber();
-    const peeks: { wave: number; name: string; description: string; armorIcons: string }[] = [];
-    for (const offset of [1, 2]) {
-      const w = currentWave + offset;
-      const t = templateObjectForWave(w);
-      if (!t) continue;
-      const armors = new Set<string>();
-      let hasAir = false;
-      for (const [enemyId] of t.enemies) {
-        const cfg = ENEMY_TYPES[enemyId as EnemyTypeId];
-        if (!cfg) continue;
-        armors.add(cfg.armorType);
-        if (cfg.isAirUnit) hasAir = true;
-      }
-      const armorIcons = Array.from(armors)
-        .map((a) => ARMOR_TYPE_UI[a as keyof typeof ARMOR_TYPE_UI]?.icon ?? '')
-        .filter(Boolean)
-        .join(' ') + (hasAir ? ' ✈️' : '');
-      peeks.push({
-        wave: w,
-        name: t.name,
-        description: t.description,
-        armorIcons,
-      });
-    }
-    return peeks;
-  });
 
   // Research store reference
   readonly researchStore = inject(ResearchStore);
@@ -354,8 +286,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   // Canvas refs for previews
   @ViewChildren('towerPreviewCanvas') towerPreviewCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
-  @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
-  private activeMixedPreviewIds: string[] = [];
 
   /**
    * The BUILD panel, and with it every tower preview, is `display: none`
@@ -374,13 +304,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       .subscribe(() => {
         setTimeout(() => this.initTowerPreviews(), 50);
       });
-
-    // Initialize mixed enemy previews when canvases appear
-    this.mixedEnemyCanvases.changes
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        setTimeout(() => this.initMixedEnemyPreviews(), 100);
-      });
   }
 
   ngOnDestroy(): void {
@@ -389,7 +312,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
 
   private initPreviews(): void {
     this.modelPreview.initialize();
-    this.initMixedEnemyPreviews();
     this.initTowerPreviews();
   }
 
@@ -506,66 +428,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
       return cfg.damagePerSecond ?? 0;
     }
     return tower.combat.damage * tower.combat.fireRate;
-  }
-
-  getMixedTotalCount(): number {
-    return this.currentWaveGroups().reduce((sum, g) => sum + g.count, 0);
-  }
-
-  getArmorIcon(enemyType: EnemyTypeId): string {
-    const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].icon : '';
-  }
-
-  getArmorLabel(enemyType: EnemyTypeId): string {
-    const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].label : '';
-  }
-
-  getArmorWeakTo(enemyType: EnemyTypeId): string {
-    const config = ENEMY_TYPES[enemyType];
-    return config?.armorType ? ARMOR_TYPE_UI[config.armorType].weakTo : '';
-  }
-
-  /** Rich tooltip of an enemy group row, built in sidebar-tooltips.ts. */
-  readonly getGroupTooltipData = enemyGroupTooltip;
-
-  private initMixedEnemyPreviews(): void {
-    if (!this.mixedEnemyCanvases) return;
-
-    // Destroy old mixed previews
-    for (const id of this.activeMixedPreviewIds) {
-      this.modelPreview.destroyPreview(id);
-    }
-    this.activeMixedPreviewIds = [];
-
-    const groups = this.currentWaveGroups();
-    this.mixedEnemyCanvases.forEach((canvasRef) => {
-      const canvas = canvasRef.nativeElement;
-      const idx = parseInt(canvas.getAttribute('data-group-index') ?? '0', 10);
-      const group = groups[idx];
-      if (!group) return;
-
-      const enemyConfig = ENEMY_TYPES[group.enemyType];
-      if (!enemyConfig) return;
-
-      const overrides = this.enemyDebug.getOverrides(group.enemyType);
-      const previewId = `mixed-enemy-${idx}`;
-      this.activeMixedPreviewIds.push(previewId);
-
-      this.modelPreview.createPreview(previewId, canvas, {
-        modelUrl: enemyConfig.modelUrl,
-        scale: overrides?.previewScale ?? enemyConfig.previewScale ?? enemyConfig.scale * 0.5,
-        rotationSpeed: 0.4,
-        cameraDistance: overrides?.previewCameraDistance ?? enemyConfig.previewCameraDistance ?? 7,
-        cameraAngle: overrides?.previewCameraAngle ?? enemyConfig.previewCameraAngle ?? Math.PI / 12,
-        offsetY: overrides?.previewOffsetY ?? enemyConfig.previewOffsetY ?? 0,
-        animationName: enemyConfig.walkAnimation || enemyConfig.idleAnimation || undefined,
-        animationTimeScale: 0.7,
-        lightIntensity: 1.3,
-        groundModel: true,
-      });
-    });
   }
 
   /** Open the tile-credentials screen (swap or clear the stored key). */

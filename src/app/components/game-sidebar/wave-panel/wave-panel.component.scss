@@ -1,0 +1,242 @@
+@use '../sidebar-panel' as panel;
+
+:host {
+  display: contents;
+}
+
+@include panel.section;
+
+/* Trennlinie zur folgenden Sektion. BUILD, Tower und Research sind immer
+ * die letzte sichtbare Sektion und haben keine (früher per
+ * .td-panel:last-of-type, das in eigenen Host-Elementen nicht mehr greift). */
+.td-panel {
+  border-bottom: 1px solid var(--td-frame-dark);
+}
+
+@include panel.header;
+
+.td-wave-panel .td-panel-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.td-mixed-badge {
+  font-size: 9px;
+  color: var(--td-warn-orange);
+  background: rgba(255, 152, 0, 0.15);
+  padding: 1px 5px;
+  border-radius: 2px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+@include panel.content;
+
+/* === Next-Wave Button ===
+ * Primärer Call-to-Action der Sidebar. Rezept wie .td-btn-green und
+ * TD_BUTTON_TEAL_STYLES (Verlauf, Kante, Key-Shadow, Mono-Caps 12px), Ecken
+ * wie Tower-Karten und Stat-Kacheln (3px), Höhe wie der Cancel-Button im
+ * Build-Mode (36px). Typografie und Höhe bleiben in jedem Zustand gleich,
+ * es wechseln nur Fläche und Farbe:
+ *   bereit          Teal-Verlauf, Hover-Glow, Pressed-Inset
+ *   gesperrt        Build-Mode / Game Over, grau wie .td-btn:disabled
+ *   Welle läuft     flach eingelassen, reine Statusanzeige */
+.td-wave-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  height: 36px;
+  margin-top: 4px;
+  padding: 0 14px;
+  background: linear-gradient(
+    180deg,
+    var(--td-teal-light) 0%,
+    var(--td-teal) 55%,
+    var(--td-teal-dark) 100%
+  );
+  color: #0E1612;
+  border: 1px solid #11140F;
+  border-radius: 3px;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-shadow-key);
+  font-family: var(--td-font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+  transition: box-shadow 0.18s ease;
+}
+
+.td-wave-btn:hover:not(:disabled) {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.28),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+    var(--td-teal-glow);
+}
+
+.td-wave-btn:active:not(:disabled) {
+  box-shadow:
+    inset 0 -1px 0 rgba(255, 255, 255, 0.15),
+    inset 0 1px 0 rgba(0, 0, 0, 0.4);
+}
+
+.td-wave-btn:focus-visible {
+  outline: 1px solid var(--td-teal-light);
+  outline-offset: 2px;
+}
+
+.td-wave-btn:disabled {
+  background: linear-gradient(180deg, #424842 0%, #2F3530 100%);
+  color: var(--td-text-disabled);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  cursor: not-allowed;
+}
+
+/* Laufende Welle: eingelassen wie Slots und Inputs (TD_BEVEL_INSET) */
+.td-wave-btn.td-wave-running {
+  background: var(--td-panel-shadow);
+  color: var(--td-teal);
+  border-color: var(--td-frame-dark);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.5),
+    inset 0 -1px 0 rgba(74, 84, 77, 0.13);
+  cursor: default;
+}
+
+/* Curriculum coming-up preview, flat, embedded directly under the
+ * Next-Wave button. No quote-block style (no bg, no border-left, no radius).
+ * Matches tmp/td-artboards.jsx HudSidebar Coming-Up section. */
+.td-coming-up {
+  margin-top: 10px;
+  padding: 0;
+}
+.td-coming-up-label {
+  font-family: var(--td-font-mono);
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  color: var(--td-text-muted);
+  margin-bottom: 6px;
+  text-transform: uppercase;
+}
+.td-coming-up-row {
+  display: grid;
+  grid-template-columns: 26px 1fr auto;
+  gap: 8px;
+  align-items: center;
+  font-family: var(--td-font-mono);
+  font-size: 11px;
+  padding: 4px 0;
+  cursor: help;
+}
+.td-coming-up-wave {
+  color: var(--td-rune-amber);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+.td-coming-up-name {
+  color: var(--td-text-secondary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-coming-up-icons {
+  font-size: 12px;
+}
+
+/* === Wave Section === */
+.td-wave-section {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+/* === Wave Enemy List === */
+.td-enemy-group-list {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.td-enemy-group-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  cursor: default;
+  padding: 2px;
+  border-radius: 4px;
+  transition: background 0.15s;
+  padding: 4px;
+  border-radius: 3px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+}
+
+.td-enemy-group-row:hover {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.td-group-preview-container {
+  width: 64px;
+  height: 64px;
+  flex-shrink: 0;
+  background: linear-gradient(135deg, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.2) 100%);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.td-group-preview-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.td-group-info {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.td-group-info-header {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.td-group-name {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--td-text-primary);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.td-group-count {
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--td-warn-orange);
+}
+.td-group-stats {
+  display: flex;
+  gap: 8px;
+}
+.td-group-stat {
+  font-size: 9px;
+  color: var(--td-text-muted);
+}
+.td-group-armor {
+  display: flex;
+  gap: 6px;
+  font-size: 9px;
+  color: var(--td-text-secondary);
+}
+.td-group-weak {
+  color: var(--td-gold-dark);
+  font-style: italic;
+}
