@@ -16,6 +16,7 @@ import {
   Mesh,
 } from 'three';
 import { AssetManagerService } from './asset-manager.service';
+import { FramePacer } from '../../utils/frame-pacer';
 
 export interface PreviewConfig {
   modelUrl: string;
@@ -62,6 +63,14 @@ export class ModelPreviewService {
   private previews = new Map<string, PreviewInstance>();
   private animationFrameId: number | null = null;
   private lastTime = 0;
+  /**
+   * Previews step at 30 fps whatever the display runs at. They are small and
+   * turn slowly, and every frame is a render plus a canvas copy on the GPU
+   * the map needs. Rotation and mixer advance by the time between the frames
+   * that run, so the turn rate stays the same.
+   */
+  private static readonly PREVIEW_FPS = 30;
+  private readonly pacer = new FramePacer(ModelPreviewService.PREVIEW_FPS);
   // Renderer buffer is sized to the largest preview we've ever seen.
   // Smaller previews render into a viewport rect; we never reallocate
   // (setSize is expensive because canvas.width = N reallocates the
@@ -311,7 +320,13 @@ export class ModelPreviewService {
    * Start the animation loop for all previews.
    */
   private startAnimationLoop(): void {
+    this.pacer.reset();
     const animate = (time: number) => {
+      if (!this.pacer.shouldRun(time)) {
+        this.animationFrameId = requestAnimationFrame(animate);
+        return;
+      }
+
       const deltaTime = this.lastTime ? (time - this.lastTime) / 1000 : 0;
       this.lastTime = time;
 
