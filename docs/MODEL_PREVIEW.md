@@ -1,6 +1,6 @@
 # 3D Model Preview System
 
-**Stand:** 2026-05-12
+**Stand:** 2026-09-11
 
 Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Sidebar.
 
@@ -47,8 +47,22 @@ interface PreviewConfig {
   lightIntensity?: number;    // Lichtstaerke (default: 1)
   groundModel?: boolean;      // true = Modell steht auf Boden (fuer Charaktere)
   offsetY?: number;           // Vertikaler Offset fuer das Kamera-Target (Bild rauf/runter shiften)
+  isHidden?: () => boolean;   // Host meldet verstecktes Canvas: animieren ja, rendern nein
 }
 ```
+
+## Frame-Takt
+
+- Der Animation-Loop laeuft ueber `requestAnimationFrame`, arbeitet aber nur
+  mit **30 fps** (`PREVIEW_FPS`), unabhaengig von der Display-Rate. Den Takt
+  gibt ein `FramePacer` (`utils/frame-pacer.ts`) vor, derselbe wie beim
+  Frame-Cap der Engine.
+- Rotation und AnimationMixer rechnen mit der Zeit zwischen den gelaufenen
+  Frames, die Drehgeschwindigkeit bleibt also gleich.
+- Ein Preview wird nicht gerendert, solange sein Canvas nicht im DOM haengt
+  oder `isHidden()` true liefert (z. B. Sidebar-Panel unter `display: none`).
+  Rotation und Mixer laufen weiter, damit ein wieder sichtbares Preview den
+  Frame zeigt, den es ohnehin gezeigt haette.
 
 ## Wichtige technische Details
 
@@ -195,5 +209,5 @@ Entfernt alle Previews und gibt alle Ressourcen frei.
 2. `initPreviews()` -> `modelPreview.initialize()` (Renderer erstellen)
 3. `initEnemyPreview()` / `initTowerPreviews()` -> Canvas-spezifische Previews
 4. Bei Canvas-Aenderungen: Re-Initialisierung nach 50ms Verzoegerung
-5. Animation-Loop rendert alle Previews kontinuierlich
+5. Animation-Loop rendert alle sichtbaren Previews mit 30 fps (siehe Frame-Takt)
 6. `ngOnDestroy` -> `modelPreview.dispose()` (Cleanup)
