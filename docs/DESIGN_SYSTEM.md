@@ -356,6 +356,15 @@ Verwendung:
 />
 ```
 
+### Damage-vs-Armor-Dialog
+
+Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Button (`.td-matrix-btn`) rechts im BUILD-Header und im Tower-Header der Sidebar. Aus dem Tower-Header wird die Zeile des gewählten Towers hervorgehoben.
+
+- Liest nur Configs (`DAMAGE_MATRIX`, `EFFECTIVENESS_THRESHOLDS`, `EFFECTIVENESS_COLORS`, Tower, Enemies). Ein Rebalancing braucht keine UI-Änderung.
+- Stufen wie bei den Schadenszahlen, Farben ebenso bis auf `normal`: in der Tabelle neutral (`--td-text-primary`), weil das Rot der Schadenszahlen in einer Matrix als "schlecht" gelesen wird.
+- Gesperrte Tower erscheinen wie im Baumenü als `???`, gedimmt, Werte sichtbar.
+- Esc schließt nur den Dialog: `isEscapeForDialog` (`utils/dialog-key-guard.ts`) hält Esc vom globalen Key-Handler fern, solange ein Dialog offen ist oder Esc schon verbraucht hat.
+
 ---
 
 ## WC3-Design-Regeln
@@ -397,6 +406,7 @@ Verwendung:
 | `components/debug-window/` | Debug-Panel Container + alle Debug-Ansichten (Wave, Camera, Event, Performance, …) |
 | `components/context-hint/` | Wiederverwendbare Kontext-Hinweis-Box |
 | `components/attributions-dialog/` | Attributions & Lizenzen Dialog |
+| `components/damage-matrix-dialog/` | Damage-vs-Armor-Tabelle (Hilfe-Dialog aus der Sidebar) |
 | `components/location-dialog/` | Location-Auswahl Dialog |
 | `components/address-autocomplete.component.ts` | Adress-Autocomplete (Nominatim) |
 | `components/engine-test/` | Standalone Engine-Test-View |
