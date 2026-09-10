@@ -72,6 +72,7 @@ export interface TypePool {
   // Dirty flags for batched GPU buffer updates (set per-instance, flushed once per frame)
   matrixDirty: boolean;
   tintDirty: boolean;
+  animFrameDirty: boolean;
 }
 
 // Freeze tint color (light blue)
@@ -183,6 +184,7 @@ export class EnemyInstanceManager {
       opacityAttr,
       matrixDirty: false,
       tintDirty: false,
+      animFrameDirty: false,
     });
   }
 
@@ -208,16 +210,15 @@ export class EnemyInstanceManager {
     // Set instance matrix
     this.setInstanceMatrix(pool, index, position, heading);
 
-    // Set initial attributes. Partial upload: only this slot changed —
-    // without a range Three.js re-uploads the full MAX-sized buffer.
+    // Set initial attributes. Frame and tint go out with the frame flush;
+    // opacity has none and queues just this slot (without a range Three.js
+    // re-uploads the full MAX-sized buffer).
     pool.animFrameAttr.setX(index, 0);
     pool.tintColorAttr.setXYZ(index, 0, 0, 0);
     pool.opacityAttr.setX(index, 1.0);
-    pool.animFrameAttr.addUpdateRange(index, 1);
-    pool.animFrameAttr.needsUpdate = true;
+    pool.animFrameDirty = true;
     pool.tintDirty = true;
-    pool.opacityAttr.addUpdateRange(index, 1);
-    pool.opacityAttr.needsUpdate = true;
+    pool.slots.uploadSlot(pool.opacityAttr, index);
 
     // Determine initial animation
     const config = pool.config;
@@ -428,8 +429,6 @@ export class EnemyInstanceManager {
     for (const pool of this.pools.values()) {
       if (pool.instances.size === 0) continue;
 
-      let framesDirty = false;
-
       for (const state of pool.instances.values()) {
         // Expire hit-flash tints: clear the flag and recompute the persistent
         // tint (freeze/poison/none) so per-frame state stays consistent.
@@ -474,17 +473,8 @@ export class EnemyInstanceManager {
         if (globalFrame !== state.lastFrame) {
           state.lastFrame = globalFrame;
           pool.animFrameAttr.setX(state.index, globalFrame);
-          framesDirty = true;
+          pool.animFrameDirty = true; // uploaded in flushDirtyFlags()
         }
-      }
-
-      if (framesDirty) {
-        // Full-active range instead of full-MAX upload. Clearing first keeps
-        // the ranges array from accumulating across frames and supersedes
-        // any per-slot range addEnemy left this frame (index < activeCount).
-        pool.animFrameAttr.clearUpdateRanges();
-        pool.animFrameAttr.addUpdateRange(0, pool.slots.activeCount);
-        pool.animFrameAttr.needsUpdate = true;
       }
     }
   }
@@ -501,11 +491,12 @@ export class EnemyInstanceManager {
     const state = pool.instances.get(id);
     if (!state) return;
 
-    // Hide instance (a slot below the top stays inside the draw count)
+    // Hide instance (a slot below the top stays inside the draw count).
+    // Goes out with the frame flush: a per-slot range here would pile up
+    // while nothing renders, and headless training keeps removing enemies.
     this.matrix.makeTranslation(0, -10000, 0);
     pool.instancedMesh.setMatrixAt(state.index, this.matrix);
-    pool.instancedMesh.instanceMatrix.addUpdateRange(state.index * 16, 16);
-    pool.instancedMesh.instanceMatrix.needsUpdate = true;
+    pool.matrixDirty = true;
 
     pool.instances.delete(id);
     pool.slots.release(state.index);
@@ -692,11 +683,10 @@ export class EnemyInstanceManager {
    */
   flushDirtyFlags(): void {
     for (const pool of this.pools.values()) {
-      // (0, activeCount) covers every drawn slot, so it supersedes any
-      // per-slot ranges added since the last flush; clearing first keeps
-      // the ranges array from accumulating when the renderer skips an
-      // upload (e.g. mesh toggled invisible). Without a range Three.js
-      // would upload the full MAX_INSTANCES_PER_TYPE-sized buffer.
+      // (0, activeCount) covers every drawn slot. Clearing first drops the
+      // range of a flush the renderer never uploaded (e.g. mesh toggled
+      // invisible), so the ranges array cannot grow. Without a range
+      // Three.js would upload the full MAX_INSTANCES_PER_TYPE-sized buffer.
       // activeCount 0 means every slot was released since the write and
       // nothing is drawn. No range then: bufferSubData reads a length of 0
       // as "up to the end", so (0, 0) would upload the whole buffer.
@@ -716,6 +706,14 @@ export class EnemyInstanceManager {
           pool.tintColorAttr.needsUpdate = true;
         }
         pool.tintDirty = false;
+      }
+      if (pool.animFrameDirty) {
+        if (activeCount > 0) {
+          pool.animFrameAttr.clearUpdateRanges();
+          pool.animFrameAttr.addUpdateRange(0, activeCount);
+          pool.animFrameAttr.needsUpdate = true;
+        }
+        pool.animFrameDirty = false;
       }
     }
   }

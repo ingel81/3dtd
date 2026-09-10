@@ -136,11 +136,31 @@ describe('EnemyInstanceManager', () => {
     manager.flushDirtyFlags();
     matrix.clearUpdateRanges(); // stands in for the upload
 
+    const version = matrix.version;
     manager.updateEnemyState(a, new Vector3(), 0);
     manager.removeEnemy('a');
     manager.flushDirtyFlags();
-    // Only the hide write is left; (0, 0) would make three upload the whole buffer.
-    expect(matrix.updateRanges).toEqual([{ start: 0, count: 16 }]);
+    // Nothing is drawn; (0, 0) would make three upload the whole buffer.
+    expect(matrix.updateRanges).toEqual([]);
+    expect(matrix.version).toBe(version);
+  });
+
+  it('keeps the update ranges bounded while nothing uploads', () => {
+    // Headless training: enemies come and go, no frame flush, no render.
+    for (let i = 0; i < 500; i++) {
+      manager.addEnemy(`e${i}`, 'wallsmasher', new Vector3(), 0);
+      if (i >= 10) manager.removeEnemy(`e${i - 10}`);
+    }
+    const pool = manager.getState('e499')!.pool;
+    const attributes = [
+      pool.instancedMesh.instanceMatrix,
+      pool.animFrameAttr,
+      pool.tintColorAttr,
+      pool.opacityAttr,
+    ];
+    for (const attribute of attributes) {
+      expect(attribute.updateRanges.length).toBeLessThanOrEqual(64);
+    }
   });
 
   it('writes the matrix Matrix4.compose + setMatrixAt would, bit for bit', () => {

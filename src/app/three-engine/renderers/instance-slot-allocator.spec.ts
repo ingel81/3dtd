@@ -1,4 +1,5 @@
 import { describe, it, expect } from 'vitest';
+import { InstancedBufferAttribute } from 'three';
 import { InstanceSlotAllocator } from './instance-slot-allocator';
 
 describe('InstanceSlotAllocator', () => {
@@ -62,6 +63,21 @@ describe('InstanceSlotAllocator', () => {
     expect(slots.activeCount).toBe(0);
     expect(slots.alloc()).toBe(0);
     expect(slots.alloc()).toBe(1);
+  });
+
+  it('queues slot uploads and collapses them into the drawn slice past the cap', () => {
+    const slots = new InstanceSlotAllocator(200);
+    const attribute = new InstancedBufferAttribute(new Float32Array(200 * 2), 2);
+    for (let i = 0; i < 100; i++) slots.alloc();
+
+    slots.uploadSlot(attribute, 7);
+    expect(attribute.updateRanges).toEqual([{ start: 14, count: 2 }]);
+    expect(attribute.version).toBe(1);
+
+    // Nothing uploads in between (rendering off): the list stays bounded.
+    for (let i = 0; i < 70; i++) slots.uploadSlot(attribute, i);
+    expect(attribute.updateRanges.length).toBeLessThanOrEqual(64);
+    expect(attribute.updateRanges[0]).toEqual({ start: 0, count: 200 });
   });
 
   it('keeps activeCount at the highest live slot through random churn', () => {

@@ -1,3 +1,13 @@
+import type { BufferAttribute } from 'three';
+
+/**
+ * Per-slot update ranges one attribute collects before uploadSlot()
+ * collapses them into one range over the drawn slots. three clears the
+ * ranges only when it uploads, so while nothing renders (headless
+ * training) they would otherwise pile up without bound.
+ */
+const MAX_SLOT_RANGES = 64;
+
 /**
  * Slot allocator for instanced pools (enemy types, health bars, projectiles).
  *
@@ -51,6 +61,23 @@ export class InstanceSlotAllocator {
       while (top > 0 && !this.used[top - 1]) top--;
       this._activeCount = top;
     }
+  }
+
+  /**
+   * Queue one slot of a per-instance attribute for upload, for attributes
+   * no frame flush covers. The slot must be in use (below activeCount).
+   */
+  uploadSlot(attribute: BufferAttribute, index: number): void {
+    const itemSize = attribute.itemSize;
+    if (attribute.updateRanges.length >= MAX_SLOT_RANGES) {
+      // Slots at or above activeCount are not drawn and get rewritten
+      // before the pool grows over them, so the drawn slice covers all.
+      attribute.clearUpdateRanges();
+      attribute.addUpdateRange(0, this._activeCount * itemSize);
+    } else {
+      attribute.addUpdateRange(index * itemSize, itemSize);
+    }
+    attribute.needsUpdate = true;
   }
 
   /** Free every slot. */

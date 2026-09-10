@@ -269,18 +269,14 @@ export class HealthBarInstanceManager {
       this.barColorAttribute.setXYZ(index, 0, 0, 0);
     }
 
-    // Partial upload: only this slot changed. Without a range Three.js
-    // re-uploads the full MAX_HEALTH_BARS-sized buffer on needsUpdate.
-    this.centerAttribute.addUpdateRange(index * 3, 3);
-    this.sizeAttribute.addUpdateRange(index * 2, 2);
-    this.healthAttribute.addUpdateRange(index, 1);
-    this.barColorAttribute.addUpdateRange(index * 3, 3);
-    this.isBossAttribute.addUpdateRange(index, 1);
-    this.centerAttribute.needsUpdate = true;
-    this.sizeAttribute.needsUpdate = true;
-    this.healthAttribute.needsUpdate = true;
-    this.barColorAttribute.needsUpdate = true;
-    this.isBossAttribute.needsUpdate = true;
+    // Center and health go out with the frame flush in updateBillboard().
+    // The rest has none and queues just this slot (without a range Three.js
+    // re-uploads the full MAX_HEALTH_BARS-sized buffer on needsUpdate).
+    this.centerDirty = true;
+    this.healthDirty = true;
+    this.slots.uploadSlot(this.sizeAttribute, index);
+    this.slots.uploadSlot(this.barColorAttribute, index);
+    this.slots.uploadSlot(this.isBossAttribute, index);
     return index;
   }
 
@@ -308,16 +304,14 @@ export class HealthBarInstanceManager {
     this.centerDirty = true;
 
     // Size only changes via debug scaling, so write it ONLY when it actually
-    // moved. An unconditional per-enemy-per-frame write would append an
-    // update range every frame, and `clearUpdateRanges()` only runs when the
-    // renderer really uploads — with the bars toggled invisible the array
-    // would grow without bound (~enemies × fps entries per second).
+    // moved. An unconditional per-enemy-per-frame write would queue a range
+    // per enemy per frame, and that many collapse into an upload of the
+    // whole drawn slice every frame (see uploadSlot).
     const si = index * 2;
     const sizes = this.sizeAttribute.array as Float32Array;
     if (sizes[si] !== barWidth || sizes[si + 1] !== barHeight) {
       this.sizeAttribute.setXY(index, barWidth, barHeight);
-      this.sizeAttribute.addUpdateRange(si, 2);
-      this.sizeAttribute.needsUpdate = true;
+      this.slots.uploadSlot(this.sizeAttribute, index);
     }
 
     this.healthAttribute.setX(index, healthPercent);
@@ -337,11 +331,10 @@ export class HealthBarInstanceManager {
     this.cameraRight.set(e[0], e[1], e[2]);
     this.cameraUp.set(e[4], e[5], e[6]);
 
-    // The (0, activeCount) ranges cover every live slot (all indices are <
-    // activeCount), so they supersede any per-slot ranges added by
-    // add/update this frame — clearing first keeps the ranges array from
-    // accumulating when the renderer skips an upload. Without a range
-    // Three.js would push the full MAX_HEALTH_BARS-sized buffer every frame.
+    // The (0, activeCount) ranges cover every drawn slot. Clearing first
+    // drops the range of a flush the renderer never uploaded (bars toggled
+    // invisible), so the ranges array cannot grow. Without a range Three.js
+    // would push the full MAX_HEALTH_BARS-sized buffer every frame.
     if (this.centerDirty) {
       this.centerAttribute.clearUpdateRanges();
       this.centerAttribute.addUpdateRange(0, this.slots.activeCount * 3);
@@ -366,8 +359,7 @@ export class HealthBarInstanceManager {
     // Zero size → shader collapses the slot offscreen.
     this.hiddenFlags[index] = 1;
     this.sizeAttribute.setXY(index, 0, 0);
-    this.sizeAttribute.addUpdateRange(index * 2, 2);
-    this.sizeAttribute.needsUpdate = true;
+    this.slots.uploadSlot(this.sizeAttribute, index);
   }
 
   /**
@@ -379,8 +371,7 @@ export class HealthBarInstanceManager {
 
     this.hiddenFlags[index] = 1;
     this.sizeAttribute.setXY(index, 0, 0);
-    this.sizeAttribute.addUpdateRange(index * 2, 2);
-    this.sizeAttribute.needsUpdate = true;
+    this.slots.uploadSlot(this.sizeAttribute, index);
 
     this.instances.delete(enemyId);
     this.slots.release(index);
