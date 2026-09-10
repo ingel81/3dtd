@@ -62,10 +62,10 @@ from schema import (
     MAX_TEMPLATE_SLOTS,
     MAX_VALUES as SCHEMA_MAX_VALUES,
 )
-from model import create_model, save_model, load_model
-from reward import calculate_reward
-from trainer import PPOTrainer
-from auto_logger import logger
+from core.model import create_model, save_model, load_model
+from core.reward import calculate_reward
+from core.trainer import PPOTrainer
+from utils.logger import logger
 from directors import get_director
 
 

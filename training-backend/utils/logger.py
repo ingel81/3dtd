@@ -1,9 +1,11 @@
 """
-Simple Console Logger
+Training Logger
 
 Lightweight logger that writes structured JSONL logs for analysis
 and prints minimal console output. The web dashboard (port 3002)
 handles all visualization.
+
+Import the shared instance: `from utils.logger import logger`.
 """
 
 import sys
@@ -12,7 +14,7 @@ from datetime import datetime
 from pathlib import Path
 
 
-class TUILogger:
+class TrainingLogger:
     """Simple console + file logger (dashboard handles visualization)."""
 
     def __init__(self):
@@ -237,4 +239,4 @@ class TUILogger:
 
 
 # Global logger instance
-tui_logger = TUILogger()
+logger = TrainingLogger()

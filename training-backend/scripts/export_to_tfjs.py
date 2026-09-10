@@ -25,7 +25,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import torch
 import torch.nn as nn
 
-from model import WaveDirectorModel
+from core.model import WaveDirectorModel, load_model
 from config import (
     INPUT_SIZE,
     NUM_SCALAR,
@@ -45,7 +45,6 @@ from schema import (
     CURRICULUM_SEQUENCE,
     CURRICULUM_FORCED_THROUGH_WAVE,
 )
-from model import load_model
 
 
 class InferenceModel(nn.Module):

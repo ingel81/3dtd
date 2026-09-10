@@ -121,7 +121,7 @@ gegen echte Spielerdaten statt gegen ein Skript-Bot trainiert.
 └───────────────────────────────────────────────────────────────────────────────────┘
 
 ┌────────────── TRAINING BACKEND (Python, optional, nur für Trainingsläufe) ────────┐
-│  server.py (WebSocket :3001) · model.py · trainer.py (PPO) · reward.py            │
+│  server.py (WebSocket :3001) · core/: model.py, trainer.py (PPO), reward.py       │
 │  directors.py (A/B-Roster) · schema.py ← generated/ai-schema.json                 │
 │  dashboard/ (FastAPI :3002)                                                       │
 └───────────────────────────────────────────────────────────────────────────────────┘
@@ -377,9 +377,9 @@ Tests: `gate-controller.spec.ts`, `gate-wiring.spec.ts`, `rule-director.spec.ts`
 |-------|----------|
 | `server.py` | WebSocket-Server (:3001), State-Encoder, `_decode_action`, A/B-Verteilung |
 | `directors.py` | `model` / `rules` / `random` / `maxgate` als austauschbare Strategien |
-| `model.py` | Conv1D + Dense, 203 → 36 |
-| `trainer.py` | PPO |
-| `reward.py` | 4 Terme (death, drama, pacing, swarm_size) |
+| `core/model.py` | Conv1D + Dense, 203 → 36 |
+| `core/trainer.py` | PPO |
+| `core/reward.py` | 4 Terme (death, drama, pacing, swarm_size) |
 | `config.py` | Hyperparameter, `DIRECTOR_ROSTER`, Reward-Schwellen |
 | `schema.py` | Lädt `generated/ai-schema.json` (aus den TS-Configs generiert) |
 | `dashboard/` | FastAPI (:3002) + Chart.js |

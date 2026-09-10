@@ -72,6 +72,9 @@ Live-Monitoring.
 └─────────────────────────┘  └────────────────────┘
 ```
 
+`model.py`, `trainer.py` und `reward.py` liegen unter `core/`, der Logger unter
+`utils/` (siehe Datei-Struktur).
+
 Im **Spielbetrieb** existiert dieser Kasten nicht: der Client entscheidet selbst
 (`rule-director.ts` + `gate-controller.ts`) und redet mit niemandem.
 
@@ -83,21 +86,21 @@ Im **Spielbetrieb** existiert dieser Kasten nicht: der Client entscheidet selbst
 training-backend/
 ├── server.py              # WebSocket-Server, State-Encoder, Action-Decoder,
 │                          #   Fairness-Gate-Regelkreis (steer_gate)
+├── manage_server.py       # Start/Stop/Status als Hintergrundprozess
 ├── directors.py           # A/B-Roster: model / rules / random / maxgate
-├── model.py               # Conv1D + Dense — Template-Head + 4 Continuous-Params
 ├── schema.py              # Lädt generated/ai-schema.json (Templates, Curriculum,
 │                          #   Enemy-Tabellen, Feature-Layout) — aus den TS-Configs
 ├── generated/             # ai-schema.json, erzeugt von `npm run ai-schema`
-├── trainer.py             # PPO mit Mask-Aware-Reevaluation, GAE, Advantage-Clip
-├── reward.py              # 4-Term-Reward v4 (DEATH, DRAMA, PACING, SWARM_SIZE)
 ├── config.py              # Trainings-Entscheidungen: Hyperparameter, Reward-
 │                          #   Shaping, Gate-Regelparameter, Director-Roster
 │
-├── tui_logger.py          # Console-Logger + JSONL-File-Logging
-├── auto_logger.py         # Logger-Shim
+├── core/
+│   ├── model.py           # Conv1D + Dense: Template-Head + 4 Continuous-Params
+│   ├── trainer.py         # PPO mit Mask-Aware-Reevaluation, GAE, Advantage-Clip
+│   └── reward.py          # 4-Term-Reward v4 (DEATH, DRAMA, PACING, SWARM_SIZE)
 │
-├── inspect_training.py    # Interaktives Checkpoint-Inspect-Tool
-├── manage_server.py       # Start/Stop-Helper
+├── utils/
+│   └── logger.py          # Console-Logger + JSONL-File-Logging
 │
 ├── dashboard/
 │   ├── app.py             # FastAPI-Dashboard-Server
@@ -105,7 +108,8 @@ training-backend/
 │
 ├── scripts/
 │   ├── export_to_tfjs.py  # ONNX-Export (Browser-Inferenz, Opt-in)
-│   └── analyze_log.py     # Post-hoc JSONL-Analyse
+│   ├── analyze_log.py     # Post-hoc JSONL-Analyse
+│   └── inspect_training.py  # Snapshot aus Dashboard-API, JSONL-Logs, Checkpoints
 │
 ├── tests/                 # pytest-Suite (96 Tests, Stand 2026-09-07)
 │   ├── test_gate_loop.py  #   Fairness-Gate-Regelkreis
@@ -340,7 +344,7 @@ Sample (`OUTPUT_SIZE = MAX_TEMPLATE_SLOTS + NUM_CONTINUOUS = 32 + 4`).
 
 ## Reward-Funktion (v4, 4 Terme)
 
-`reward.py::calculate_reward` summiert **DEATH + DRAMA + PACING + SWARM_SIZE**.
+`core/reward.py::calculate_reward` summiert **DEATH + DRAMA + PACING + SWARM_SIZE**.
 
 > Der Kopfkommentar von `config.py` listet die Terme noch als
 > „DEATH, DRAMA, SWARM_SIZE, PROGRESSION" — `PROGRESSION` existiert nicht mehr,

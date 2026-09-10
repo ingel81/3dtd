@@ -40,18 +40,18 @@ Dashboard wird automatisch mitgestartet (kann via `DASHBOARD=0` deaktiviert werd
 | Datei | Zweck |
 |------|---------|
 | `server.py` | WebSocket-Server, State-Encoding, Range-Based Action-Decoding, Fairness-Gate-Regelkreis (`steer_gate`) |
+| `manage_server.py` | Start/Stop/Status des Servers als Hintergrundprozess (PID- und Log-Datei) |
 | `directors.py` | A/B-Roster: `model` / `rules` / `random` / `maxgate` — gleichzeitig gegen dieselben Bots |
-| `model.py` | Conv1D + Dense-Netz, Template-Head + 4 Continuous-Params + Value-Head |
 | `schema.py` | Lädt `generated/ai-schema.json`: Enemy-Tabellen, Templates, Curriculum, Feature-Layout, Decoder-Konstanten. Erzeugt aus den TS-Configs via `npm run ai-schema` — nicht von Hand pflegen. |
-| `trainer.py` | PPO-Training-Algorithmus (GAE, Mask-Aware-Reevaluation, Advantage-Clipping) |
-| `reward.py` | 4-Term-Reward v4 (DEATH, DRAMA, PACING, SWARM_SIZE) |
 | `config.py` | Trainings-Entscheidungen: Hyperparameter, Reward-Shaping, Gate-Regelparameter, Director-Roster |
+| `core/model.py` | Conv1D + Dense-Netz, Template-Head + 4 Continuous-Params + Value-Head |
+| `core/trainer.py` | PPO-Training-Algorithmus (GAE, Mask-Aware-Reevaluation, Advantage-Clipping) |
+| `core/reward.py` | 4-Term-Reward v4 (DEATH, DRAMA, PACING, SWARM_SIZE) |
+| `utils/logger.py` | Console-Output + JSONL-Logging |
 | `dashboard/` | FastAPI-Dashboard mit Chart.js |
-| `tui_logger.py` / `auto_logger.py` | Console-Output + JSONL-Logging |
 | `scripts/export_to_tfjs.py` | ONNX-Export für Browser-Inferenz |
 | `scripts/analyze_log.py` | Post-hoc-Analyse von Trainings-Logs |
-| `inspect_training.py` | Interaktives Checkpoint-Inspect-Tool |
-| `manage_server.py` | Helper für Start/Stop |
+| `scripts/inspect_training.py` | Kompakter Snapshot aus Dashboard-API, JSONL-Logs und Checkpoints |
 
 ## Web-Dashboard
 

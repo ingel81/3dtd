@@ -23,7 +23,7 @@ from config import (
     TRAJECTORY_FLUSH_LENGTH,
     REWARD_SCALE_WINDOW,
 )
-from auto_logger import logger
+from utils.logger import logger
 
 
 class PPOTrainer:

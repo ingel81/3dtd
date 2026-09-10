@@ -7,14 +7,14 @@ Pulls from:
   - Checkpoint directory metadata
 
 Usage:
-  python inspect_training.py                   # full report, all sections
-  python inspect_training.py --api             # dashboard API only
-  python inspect_training.py --log             # JSONL log only
-  python inspect_training.py --client 7680     # filter everything to client
-  python inspect_training.py --breakdown       # reward-breakdown fire rates
-  python inspect_training.py --tail 20         # last 20 waves
-  python inspect_training.py --json            # machine-readable output
-  python inspect_training.py --summary         # one-liners per client
+  python scripts/inspect_training.py                   # full report, all sections
+  python scripts/inspect_training.py --api             # dashboard API only
+  python scripts/inspect_training.py --log             # JSONL log only
+  python scripts/inspect_training.py --client 7680     # filter everything to client
+  python scripts/inspect_training.py --breakdown       # reward-breakdown fire rates
+  python scripts/inspect_training.py --tail 20         # last 20 waves
+  python scripts/inspect_training.py --json            # machine-readable output
+  python scripts/inspect_training.py --summary         # one-liners per client
 """
 
 import argparse
@@ -37,8 +37,9 @@ if hasattr(sys.stdout, "reconfigure"):
         pass
 
 DASHBOARD_BASE = "http://localhost:3002"
-LOGS_DIR = Path(__file__).parent / "logs"
-CHECKPOINTS_DIR = Path(__file__).parent / "checkpoints"
+BACKEND_DIR = Path(__file__).parent.parent
+LOGS_DIR = BACKEND_DIR / "logs"
+CHECKPOINTS_DIR = BACKEND_DIR / "checkpoints"
 
 
 # ─── HTTP helpers ─────────────────────────────────────────────────────────────
