@@ -1,7 +1,7 @@
 import { describe, it, expect, afterEach } from 'vitest';
 import { InstancedBufferAttribute, ShaderMaterial, Vector3, WebGLCubeRenderTarget } from 'three';
 import { TowerLosLayer, TowerLosLayerBuilder, visibleLosLayers } from './tower-los-layer-builder';
-import { getAirTargetY, RouteCell } from './global-route-grid';
+import { getAirTargetY, RouteCell } from './route-cell';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 function cell(x: number, z: number, terrainHeight: number): RouteCell {

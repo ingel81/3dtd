@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
-import { GlobalRouteGrid, RouteCell } from '../../utils/global-route-grid';
+import { GlobalRouteGrid } from '../../utils/global-route-grid';
+import { RouteCell } from '../../utils/route-cell';
 import { buildRouteAltitudeTubes, disposeRouteAltitudeTubes } from '../../utils/route-altitude-tubes';
 import { Enemy } from '../../entities/enemy.entity';
 import { GeoPosition } from '../../models/game.types';

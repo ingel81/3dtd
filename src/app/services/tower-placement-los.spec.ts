@@ -28,7 +28,7 @@ import { Tower } from '../entities/tower.entity';
 import { TowerTypeId } from '../configs/tower-types.config';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import type { ColumnSample } from '../three-engine/column-sample';
-import type { RouteCell } from '../utils/global-route-grid';
+import type { RouteCell } from '../utils/route-cell';
 
 /**
  * Per-tower LOS has to follow the cell heights as tiles refine, without

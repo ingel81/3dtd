@@ -10,7 +10,7 @@ import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, ge
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { Enemy } from './enemy.entity';
-import { RouteCell } from '../utils/global-route-grid';
+import { RouteCell } from '../utils/route-cell';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { canTargetAirEffective } from './tower-targeting.util';
 
