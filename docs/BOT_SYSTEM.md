@@ -1,6 +1,6 @@
 # Bot System — Dokumentation
 
-**Stand:** 2026-09-07
+**Stand:** 2026-09-11
 **Code:** `src/app/ai/training/`
 
 ## Überblick
@@ -25,11 +25,12 @@ Entscheidung die erste aus, die kann und will.
 
 ```
 Sub-Step-Loop (game-loop-facade)
-  └─ TrainingClientService.updateBot(getSnapshot, deltaTime)
-       ├─ bot.tickCooldown(deltaTime)      → false ⇒ Abbruch, KEIN Snapshot
-       ├─ bot.update(getSnapshot(), 0)     → StrategyBot.decideAction(state)
-       │    └─ Strategien in Prioritätsreihenfolge: canExecute() → execute()
-       └─ TrainingClientService.executeBotAction(action)
+  └─ TrainingClientService.updateBot(getSnapshot, deltaTime)   → ohne Session: false
+       └─ TrainingSession.updateBot(getSnapshot, deltaTime)
+            ├─ bot.tickCooldown(deltaTime)      → false ⇒ Abbruch, KEIN Snapshot
+            ├─ bot.update(getSnapshot(), 0)     → StrategyBot.decideAction(state)
+            │    └─ Strategien in Prioritätsreihenfolge: canExecute() → execute()
+            └─ TrainingSession.executeBotAction(action)
 ```
 
 Drei Details, die man beim Lesen des Codes sonst falsch erwartet:
@@ -65,7 +66,8 @@ verhungern.
 
 ```
 src/app/ai/training/
-├── training-client.service.ts       # WebSocket-Client + Bot-Steuerung + Action-Ausführung
+├── training-client.service.ts       # Einstieg: Signale für UI/Game-Loop, lädt die Session bei Bedarf
+├── training-session.ts              # WebSocket-Client + Bot-Steuerung + Action-Ausführung (Lazy-Chunk)
 │
 ├── bots/
 │   ├── tower-bot.interface.ts       # ITowerBot, TowerAction, BotConfig, BOT_CONFIGS
@@ -228,7 +230,7 @@ Quelle: `strategy-bot.factory.ts::getStrategiesForSkillLevel`.
 **casual und meta haben dasselbe Strategie-Set**; sie unterscheiden sich nur in
 Reaktionszeit (1500 vs. 400 ms) und Turm-Cap (15 vs. 20).
 
-Das Training fährt `strategist` (`TrainingClientService` schaltet bei
+Das Training fährt `strategist` (`TrainingSession` schaltet bei
 `control: start` auf Timescale 75 und `enableBot('strategist')`). Der
 Strategist ist damit der Build, gegen den das Wave-Design gemessen wird — bei
 Änderungen an seinen Strategien ändern sich alle Trainingszahlen mit.
@@ -491,24 +493,64 @@ Gleichverteilung. Genau das macht das U-Gewicht: es verschiebt die Reihenfolge
 
 ## Integration
 
-Bot-Logik, Steuerung und Stats leben im `TrainingClientService`, nicht in der
-Component:
+Bot-Logik, Steuerung und Stats liegen nicht in der Component, sondern in zwei
+Teilen:
+
+- **`TrainingClientService`** (im Spiel-Chunk): die Signale, die Templates und
+  Game-Loop lesen (`botEnabled`, `botStats`, `isConnected`, `stats`, ...), plus
+  Weiterleitungen. Die Facades und das Training-Debug-Fenster kennen nur ihn.
+- **`TrainingSession`** (eigener Lazy-Chunk `training-session`): WebSocket-Client,
+  Bot, Strategien, Action-Ausführung. Der Service lädt sie per
+  `import('./training-session')` beim ersten `enableBot()`, `connect()` oder
+  `connectToBackend()` und legt sie über `runInInjectionContext` an. Sie schreibt
+  in die Signale des Service.
 
 ```typescript
+// TrainingClientService
 enableBot(skillLevel: BotSkillLevel): void
 disableBot(): void
-updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean
-executeBotAction(action: TowerAction): void
+updateBot(getSnapshot: () => GameStateSnapshot, deltaTime: number): boolean  // ohne Session: false
 ```
 
-`updateBot` läuft nur in Phase `setup` oder `wave`. `executeBotAction` validiert
-noch einmal gegen den echten Spielstand (Kosten, Existenz des Turms) und setzt
-die Aktion über EventBus-Commands ab.
+`updateBot` läuft nur in Phase `setup` oder `wave`. `TrainingSession.executeBotAction`
+validiert noch einmal gegen den echten Spielstand (Kosten, Existenz des Turms)
+und setzt die Aktion über EventBus-Commands ab.
 
-`enableBot` wird **gepuffert**, wenn es vor `initialize()` kommt (`pendingBotSkill`)
-— genau diese Reihenfolge erzeugt ein Tab-Reload. Vorher kehrte der Aufruf still
-zurück, und der Client meldete sich anschließend als verbunden und gesund, ohne
-je zu spielen.
+`enableBot` wird **gepuffert** (`pendingBotSkill`), solange die Session nicht
+steht: der Chunk lädt noch, oder `initialize()` lief noch nicht. Die zweite
+Reihenfolge erzeugt ein Tab-Reload. Vorher kehrte der Aufruf still zurück, und
+der Client meldete sich anschließend als verbunden und gesund, ohne je zu
+spielen. `disableBot()` verwirft eine gepufferte Anfrage. `initialize()` selbst
+lädt nichts, es läuft in jedem Spiel.
+
+### Warum die Session ein eigener Chunk ist
+
+Im normalen Spiel laufen weder Bot noch Backend-Verbindung, trotzdem lagen Bots,
+Strategien und WebSocket-Client im Spiel-Chunk. Production-Build vom 2026-09-11,
+Raw-Größen aus `ng build --stats-json`:
+
+| | vorher | nachher |
+|---|---:|---:|
+| Initial-Bundle | 358,5 kB | 358,5 kB |
+| Chunks, die der Spielstart statisch lädt | 2244,9 kB | 2217,1 kB |
+| davon Training-Code | 51,4 kB | 17,5 kB |
+| `training-session` (lazy, nur Training) | | 29,8 kB |
+
+Die verbleibenden 17,5 kB sind das Training-Debug-Fenster (15 kB) und der
+Service. Das Fenster bleibt eager: es per `@defer` zu laden, zieht 8 kB
+Defer-Runtime aus `@angular/core` ins Initial-Bundle. Lohnt erst, wenn alle
+Debug-Fenster (zusammen rund 160 kB) gemeinsam deferred werden.
+
+Die geschätzte gzip-Transfergröße ändert sich kaum (326,8 → 327,9 kB): Spiel und
+Session teilen Module (Configs, Store, Data-Collector), die esbuild in einen
+eigenen Shared-Chunk legt, und zwei gzip-Streams komprimieren etwas schlechter
+als einer. Gewonnen ist JS, das beim Spielstart nicht mehr geparst und
+ausgeführt wird.
+
+Die Trennung hält nur, solange außerhalb von `ai/training/` niemand einen Wert
+aus Session, `bots/` oder `strategies/` importiert (`import type` ist frei). Das
+prüft `training-client.service.spec.ts`; das Budget `training-session` in
+`angular.json` warnt ab 48 kB.
 
 ### Wie der Bot angeschaltet wird
 

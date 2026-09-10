@@ -361,7 +361,8 @@ Ehrlichkeitsabschnitt. Nichts davon ist belegt:
 | `spawn-schedule-builder.ts` | Pattern-basierter Spawn-Plan |
 | `tower-dps.util.ts` | DPS pro Tower-Typ |
 | `models/` | `game-state-snapshot.ts`, `wave-config.ts`, `wave-result.ts` |
-| `training/training-client.service.ts` | WebSocket-Client (nur Trainingsbetrieb) |
+| `training/training-client.service.ts` | Einstieg ins Training: Signale, lädt die Session erst bei Bedarf |
+| `training/training-session.ts` | WebSocket-Client + Bot-Ausführung, eigener Lazy-Chunk (nur Trainingsbetrieb) |
 | `training/bots/`, `training/strategies/` | Bot-System, siehe [BOT_SYSTEM.md](BOT_SYSTEM.md) |
 
 Das Curriculum liegt **nicht** unter `ai/core/`, sondern in
