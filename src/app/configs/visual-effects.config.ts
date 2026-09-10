@@ -5,6 +5,8 @@
  * Previously hardcoded in three-effects.renderer.ts
  */
 
+import type { TowerTypeId } from './tower-types.config';
+
 /** Particle pool limits */
 export const PARTICLE_LIMITS = {
   /** Trail additive pool serves: fire, explosions, rockets, bullets, flame beams - needs capacity for HQ explosion (~700) + inferno (300) */
@@ -78,6 +80,37 @@ export const BURST_PALETTES = {
     { r: 0.3, g: 0.8, b: 1.0 },   // Cyan
   ],
 } as const satisfies Record<string, BurstPalette>;
+
+/** Muzzle flash of one tower type: particle burst at the shoot point plus the pooled flash light. */
+export interface MuzzleFlashProfile {
+  countMin: number;
+  countMax: number;
+  sizeMin: number;
+  sizeMax: number;
+  /** Particle lifetime in seconds */
+  lifeMin: number;
+  lifeMax: number;
+  /** Intensity of the tower renderer's single muzzle PointLight (0 = no light) */
+  lightIntensity: number;
+}
+
+/**
+ * Muzzle flash per tower type. Only the towers listed here flash: the guns,
+ * the launcher and (faintly) the bow. Ice, Magic and Poison also fire
+ * projectiles but cast or spit them; Fire, Lightning and Tentacle never
+ * spawn one. Until 2026-09-11 every projectile tower but Ice and Magic got
+ * the same flash, Poison included.
+ */
+export const MUZZLE_FLASH_PROFILES: Partial<Record<TowerTypeId, MuzzleFlashProfile>> = {
+  // A bow has no muzzle: a faint glint, no light
+  archer: { countMin: 1, countMax: 2, sizeMin: 0.6, sizeMax: 1.2, lifeMin: 0.03, lifeMax: 0.05, lightIntensity: 0 },
+  // 5 shots/s from two barrels: small and short, or the stream turns into a strobe
+  'dual-gatling': { countMin: 2, countMax: 3, sizeMin: 1.0, sizeMax: 2.0, lifeMin: 0.03, lifeMax: 0.05, lightIntensity: 2 },
+  // Launch flash: the values every tower shared before
+  rocket: { countMin: 3, countMax: 5, sizeMin: 1.5, sizeMax: 3.0, lifeMin: 0.04, lifeMax: 0.06, lightIntensity: 3 },
+  // Heavy gun at 0.5 shots/s: the biggest and longest flash
+  cannon: { countMin: 6, countMax: 8, sizeMin: 2.5, sizeMax: 4.5, lifeMin: 0.06, lifeMax: 0.1, lightIntensity: 5 },
+};
 
 /** Effect color presets (RGB 0-1) */
 export const EFFECT_COLORS = {

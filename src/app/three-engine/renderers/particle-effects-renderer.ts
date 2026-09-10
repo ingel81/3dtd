@@ -6,6 +6,7 @@ import {
   BURST_PALETTES,
   type BurstPalette,
   ICE_DECAL_CONFIG,
+  type MuzzleFlashProfile,
 } from '../../configs/visual-effects.config';
 import { DecalInstanceManager } from './decal-instance.manager';
 import { createBloodDecalShader, createIceDecalShader } from './decal-shaders';
@@ -455,16 +456,17 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn a brief muzzle flash at a local position.
-   * 3-5 bright additive particles (yellow/white) lasting ~50ms.
-   * Used when projectile towers fire.
+   * Spawn a brief muzzle flash at a local position: a few bright additive
+   * particles (yellow/white), count, size and lifetime from the tower's
+   * MUZZLE_FLASH_PROFILES entry.
    *
    * @param localX - Local X coordinate (tower shoot position)
    * @param localY - Local Y coordinate (tower shoot position)
    * @param localZ - Local Z coordinate (tower shoot position)
+   * @param profile - The firing tower's muzzle flash profile
    */
-  spawnMuzzleFlash(localX: number, localY: number, localZ: number): void {
-    const count = 3 + Math.floor(Math.random() * 3); // 3-5 particles
+  spawnMuzzleFlash(localX: number, localY: number, localZ: number, profile: MuzzleFlashProfile): void {
+    const count = profile.countMin + Math.floor(Math.random() * (profile.countMax - profile.countMin + 1));
 
     for (let i = 0; i < count; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');
@@ -485,8 +487,8 @@ export class ParticleEffectsRenderer {
       );
 
       particle.life = 1.0;
-      particle.maxLife = 0.04 + Math.random() * 0.02; // 40-60ms (~50ms)
-      particle.size = 1.5 + Math.random() * 1.5; // 1.5-3.0 — bright and visible
+      particle.maxLife = profile.lifeMin + Math.random() * (profile.lifeMax - profile.lifeMin);
+      particle.size = profile.sizeMin + Math.random() * (profile.sizeMax - profile.sizeMin);
 
       // Bright yellow/white flash color
       const t = Math.random();

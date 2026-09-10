@@ -1,7 +1,8 @@
 import { Vector3 } from 'three';
 import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { ThreeTilesEngine } from '../three-engine';
-import { EXPLOSION_PRESETS } from '../configs/visual-effects.config';
+import { EXPLOSION_PRESETS, MUZZLE_FLASH_PROFILES } from '../configs/visual-effects.config';
+import type { TowerTypeId } from '../configs/tower-types.config';
 
 /**
  * VFX Service - Handles visual effects via events
@@ -150,17 +151,14 @@ export class VFXService {
   }
 
   /**
-   * Beam tower type IDs — no muzzle flash for these
-   */
-  private static readonly BEAM_TOWER_IDS = new Set(['ice', 'magic', 'fire']);
-
-  /**
    * Handle muzzle flash for projectile towers.
-   * Spawns additive particles + triggers pooled PointLight on tower renderer.
+   * Only towers with a MUZZLE_FLASH_PROFILES entry flash (Archer, Gatling,
+   * Cannon, Rocket); the profile sizes the additive particles and the pooled
+   * PointLight on the tower renderer.
    */
   private handleMuzzleFlash(towerId: string, towerTypeId: string): void {
-    // Skip beam towers (Ice, Magic, Fire)
-    if (VFXService.BEAM_TOWER_IDS.has(towerTypeId)) return;
+    const profile = MUZZLE_FLASH_PROFILES[towerTypeId as TowerTypeId];
+    if (!profile) return;
 
     const towerData = this.tilesEngine.towers.get(towerId);
     if (!towerData) return;
@@ -175,11 +173,13 @@ export class VFXService {
     const shootY = towerData.tipY;
     const shootZ = terrainPos.z;
 
-    // 1. Additive particles (3-5 bright yellow/white, ~50ms)
-    this.tilesEngine.effects.spawnMuzzleFlash(shootX, shootY, shootZ);
+    // 1. Additive particles (bright yellow/white, a few ten ms)
+    this.tilesEngine.effects.spawnMuzzleFlash(shootX, shootY, shootZ, profile);
 
-    // 2. Pooled PointLight (reused, removed after 50ms)
-    this.tilesEngine.towers.triggerMuzzleFlash(towerId);
+    // 2. Pooled PointLight (always in the scene, lit for 50 ms)
+    if (profile.lightIntensity > 0) {
+      this.tilesEngine.towers.triggerMuzzleFlash(towerId, profile.lightIntensity);
+    }
   }
 
   /**

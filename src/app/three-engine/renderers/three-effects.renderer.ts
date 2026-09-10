@@ -9,6 +9,7 @@ import {
 } from 'three';
 import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
+import type { MuzzleFlashProfile } from '../../configs/visual-effects.config';
 import { FloatingTextInstanceManager } from './floating-text/floating-text-instance.manager';
 import { ParticlePoolManager } from './particle-pool-manager';
 import { AuraRenderer } from './aura-renderer';
@@ -315,16 +316,16 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Spawn a brief muzzle flash at a local position.
-   * 3-5 bright additive particles (yellow/white) lasting ~50ms.
-   * Used when projectile towers fire.
+   * Spawn a brief muzzle flash at a local position, sized by the firing
+   * tower's MUZZLE_FLASH_PROFILES entry.
    *
    * @param localX - Local X coordinate (tower shoot position)
    * @param localY - Local Y coordinate (tower shoot position)
    * @param localZ - Local Z coordinate (tower shoot position)
+   * @param profile - The firing tower's muzzle flash profile
    */
-  spawnMuzzleFlash(localX: number, localY: number, localZ: number): void {
-    this.particleEffects.spawnMuzzleFlash(localX, localY, localZ);
+  spawnMuzzleFlash(localX: number, localY: number, localZ: number, profile: MuzzleFlashProfile): void {
+    this.particleEffects.spawnMuzzleFlash(localX, localY, localZ, profile);
   }
 
   /** Spawn a brief fire flash that fades away (HQ damage indicator, HP > 50%). */
