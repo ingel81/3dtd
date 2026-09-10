@@ -58,12 +58,14 @@ export class StreetCacheService {
   }
 
   /**
-   * Generate cache key from coordinates
+   * Generate cache key from coordinates.
+   * v2: Streets tragen width/lanes/bridge/tunnel/covered/layer. v1-Einträge
+   * haben sie nicht und fallen über das LRU-Limit von selbst heraus.
    */
   getCacheKey(lat: number, lon: number, radius: number): string {
     const roundedLat = Math.round(lat * 10000) / 10000;
     const roundedLon = Math.round(lon * 10000) / 10000;
-    return `v1_${roundedLat}_${roundedLon}_${radius}`;
+    return `v2_${roundedLat}_${roundedLon}_${radius}`;
   }
 
   /**

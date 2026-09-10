@@ -14,6 +14,18 @@ export interface Street {
   name: string;
   type: string; // residential, primary, secondary, etc.
   nodes: StreetNode[];
+  // OSM-Tags für Korridorbreite und Höhenmodell. Nur gesetzt, wenn der Way
+  // sie trägt; die meisten Ways haben keinen davon.
+  /** `width` in Metern, nur wenn der Tag eine reine Zahl ist */
+  width?: number;
+  lanes?: number;
+  /** yes, viaduct, ... (`no` wird nicht übernommen) */
+  bridge?: string;
+  /** yes, building_passage, culvert, ... */
+  tunnel?: string;
+  /** yes, arcade, ... */
+  covered?: string;
+  layer?: number;
 }
 
 export interface StreetNetwork {
@@ -78,6 +90,28 @@ const ROAD_TYPE_WEIGHTS: Record<string, number> = {
 
 /** Default weight for unknown street types */
 const DEFAULT_ROAD_WEIGHT = 1.5;
+
+type StreetTags = Pick<Street, 'width' | 'lanes' | 'bridge' | 'tunnel' | 'covered' | 'layer'>;
+
+/**
+ * Die Tags eines Ways, die später Korridorbreite und Höhenmodell brauchen.
+ * Kommen mit `out body` ohnehin in der Overpass-Antwort mit. Nicht lesbare
+ * Werte (`width=3'6"`, `lanes=2;3`) werden weggelassen statt geraten.
+ */
+function parseStreetTags(tags: Record<string, string> | undefined): StreetTags {
+  const result: StreetTags = {};
+  if (!tags) return result;
+
+  const width = /^\s*(\d+(?:[.,]\d+)?)\s*m?\s*$/.exec(tags['width'] ?? '');
+  if (width) result.width = parseFloat(width[1].replace(',', '.'));
+  if (/^\d+$/.test(tags['lanes'] ?? '')) result.lanes = parseInt(tags['lanes'], 10);
+  if (/^-?\d+$/.test(tags['layer'] ?? '')) result.layer = parseInt(tags['layer'], 10);
+  for (const key of ['bridge', 'tunnel', 'covered'] as const) {
+    const value = tags[key];
+    if (value && value !== 'no') result[key] = value;
+  }
+  return result;
+}
 
 /**
  * MinHeap for A* pathfinding - O(log n) insert/extract
@@ -250,7 +284,7 @@ export class OsmStreetService {
         lat?: number;
         lon?: number;
         nodes?: number[];
-        tags?: { name?: string; highway?: string };
+        tags?: Record<string, string>;
       }[];
     },
     bounds: StreetNetwork['bounds']
@@ -284,9 +318,10 @@ export class OsmStreetService {
         if (streetNodes.length >= 2) {
           streets.push({
             id: element.id,
-            name: element.tags?.name || 'Unnamed Street',
-            type: element.tags?.highway || 'unknown',
+            name: element.tags?.['name'] || 'Unnamed Street',
+            type: element.tags?.['highway'] || 'unknown',
             nodes: streetNodes,
+            ...parseStreetTags(element.tags),
           });
         }
       }
