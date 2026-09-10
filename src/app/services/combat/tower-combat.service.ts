@@ -636,7 +636,7 @@ export class TowerCombatService {
         const hasNearby = this.spatialGrid.hasEnemyInRadius(
           towerLocal.x,
           towerLocal.z,
-          tower.typeConfig.range * 1.1,
+          tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
         );
         if (!hasNearby) continue;
         tower.isSleeping = false;
