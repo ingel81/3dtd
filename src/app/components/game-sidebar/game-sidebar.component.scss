@@ -792,6 +792,30 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* Opens the damage-vs-armor chart. `order: 1` puts it at the far right in
+ * both headers: after the BUILD rule (::after) and after the sell button. */
+.td-matrix-btn {
+  order: 1;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  background: var(--td-panel-shadow);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  color: var(--td-text-muted);
+  cursor: pointer;
+  transition: color 0.15s, border-color 0.15s;
+}
+.td-matrix-btn:hover,
+.td-matrix-btn:focus-visible {
+  color: var(--td-text-primary);
+  border-color: var(--td-frame-mid);
+}
+
 .td-tower-section {
   position: relative;
   display: flex;
