@@ -1,4 +1,4 @@
-import { Scene, PerspectiveCamera, WebGLRenderer, Vector2 } from 'three';
+import { Scene, PerspectiveCamera, WebGLRenderer, Vector2, WebGLRenderTarget, HalfFloatType } from 'three';
 import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
 import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
 import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
@@ -25,7 +25,17 @@ export class PostProcessingPipeline {
   private colorGradingPreset: ColorGradingPreset = 'none';
 
   constructor(renderer: WebGLRenderer, scene: Scene, camera: PerspectiveCamera) {
-    this.composer = new EffectComposer(renderer);
+    // The composer's default target has no MSAA, so the canvas antialiasing
+    // was lost as soon as a pass was on. Four samples on the scene target.
+    const size = renderer.getSize(new Vector2());
+    const pixelRatio = renderer.getPixelRatio();
+    const target = new WebGLRenderTarget(size.width * pixelRatio, size.height * pixelRatio, {
+      type: HalfFloatType,
+      samples: 4,
+    });
+    this.composer = new EffectComposer(renderer, target);
+    // A supplied target sets the composer's logical size to its pixel size.
+    this.composer.setSize(size.width, size.height);
 
     this.composer.addPass(new RenderPass(scene, camera));
 

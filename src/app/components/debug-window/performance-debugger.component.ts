@@ -85,6 +85,10 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
                 <span class="key">Textures</span>
                 <span class="value">{{ s.textures }}</span>
               </div>
+              <div class="row">
+                <span class="key">Shader programs</span>
+                <span class="value">{{ s.programs }}</span>
+              </div>
             </div>
 
             <div class="section">

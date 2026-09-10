@@ -19,7 +19,7 @@ describe('EngineStore', () => {
     });
 
     it('tileStats starts with all zeros', () => {
-      expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0 });
+      expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
     });
 
     it('activeSounds starts at 0', () => {
@@ -52,7 +52,7 @@ describe('EngineStore', () => {
   });
 
   describe('updateEngineStats', () => {
-    const baseTileStats: TileStats = { parsing: 2, downloading: 3, total: 10, visible: 8 };
+    const baseTileStats: TileStats = { parsing: 2, downloading: 3, total: 10, visible: 8, cacheMB: 120 };
 
     it('updates fps', () => {
       store.updateEngineStats({
@@ -190,7 +190,7 @@ describe('EngineStore', () => {
   describe('resetAll', () => {
     it('resets all engine state to initial values', () => {
       store.fps.set(120);
-      store.tileStats.set({ parsing: 5, downloading: 10, total: 50, visible: 40 });
+      store.tileStats.set({ parsing: 5, downloading: 10, total: 50, visible: 40, cacheMB: 300 });
       store.activeSounds.set(10);
       store.mapAttribution.set('Custom');
       store.cameraHeading.set(270);
@@ -207,7 +207,7 @@ describe('EngineStore', () => {
       store.resetAll();
 
       expect(store.fps()).toBe(0);
-      expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0 });
+      expect(store.tileStats()).toEqual({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
       expect(store.activeSounds()).toBe(0);
       expect(store.mapAttribution()).toBe('Map data ©2024 Google');
       expect(store.cameraHeading()).toBe(0);
