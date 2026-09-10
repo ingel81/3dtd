@@ -172,6 +172,8 @@ export class TowerPlacementService {
    */
   private readonly staleLos = new Map<Tower, Set<RouteCell>>();
   private losRefreshRaf: number | null = null;
+  /** Tower whose registerTowerIncremental is running: its answers for the cells the grid reports are current. */
+  private resolvingTower: Tower | null = null;
 
   /**
    * LOS recomputes per frame. Each one is a forced cubemap render plus the
@@ -201,10 +203,12 @@ export class TowerPlacementService {
 
     // Precompute tower local positions to avoid N*M geo-to-local conversions.
     // A tower that is not registered yet has nothing stale: its registration
-    // resolves every cell against the current height anyway.
+    // resolves every cell against the current height anyway. Neither has the
+    // tower being resolved right now: the grid reports the cells it moved
+    // after re-resolving them for that tower.
     const towerPositions: { tower: Tower; x: number; z: number; rangeSq: number }[] = [];
     for (const tower of towers) {
-      if (!tower.losReady) continue;
+      if (!tower.losReady || tower === this.resolvingTower) continue;
       const lp = this.engine.sync.geoToLocalSimple(
         tower.position.lat, tower.position.lon, tower.position.height ?? 0,
       );
@@ -990,15 +994,20 @@ export class TowerPlacementService {
     }
 
     // Incremental: only sample cells that don't already have a cached entry
-    tower.visibleCells = this.globalRouteGrid.registerTowerIncremental(
-      tower.id,
-      terrainPos.x,
-      terrainPos.z,
-      tower.combat.range,
-      ctx,
-      canTargetGround,
-      canTargetAir
-    );
+    this.resolvingTower = tower;
+    try {
+      tower.visibleCells = this.globalRouteGrid.registerTowerIncremental(
+        tower.id,
+        terrainPos.x,
+        terrainPos.z,
+        tower.combat.range,
+        ctx,
+        canTargetGround,
+        canTargetAir
+      );
+    } finally {
+      this.resolvingTower = null;
+    }
 
     // Selection-Viz refreshen, falls dieser Tower selected ist.
     if (tower.selected) {

@@ -1094,15 +1094,16 @@ export class GlobalRouteGrid {
    * waiting for a global tile-load-driven refresh.
    *
    * Returns counts for logging / verification. Triggers viz refresh +
-   * the cells-changed listeners when at least one cell flipped from unsampled.
+   * the cells-changed listeners when at least one cell changed its sample
+   * (promoted or refreshed).
    */
   refineCellsInRadius(x: number, z: number, radius: number): { promoted: number; refreshed: number; inRange: number } {
     if (!this.columnSampler) {
       return { promoted: 0, refreshed: 0, inRange: 0 };
     }
     const rangeSq = radius * radius;
-    const promoted: RouteCell[] = [];
-    let refreshed = 0;
+    const changed: RouteCell[] = [];
+    let promoted = 0;
     let inRange = 0;
 
     for (const cell of this.cells.values()) {
@@ -1110,24 +1111,28 @@ export class GlobalRouteGrid {
       if (distSq > rangeSq) continue;
       inRange++;
       const wasUnsampled = !cell.heightSampled;
-      const accepted = this.sampleCellY(cell);
-      if (accepted) {
-        if (wasUnsampled) promoted.push(cell);
-        else refreshed++;
+      if (this.sampleCellY(cell)) {
+        changed.push(cell);
+        if (wasUnsampled) promoted++;
       }
     }
+    const refreshed = changed.length - promoted;
 
     logGrid(
       'REFINE',
-      `at=(${x.toFixed(1)},${z.toFixed(1)}) r=${radius.toFixed(1)} inRange=${inRange} promoted=${promoted.length} refreshed=${refreshed}`,
+      `at=(${x.toFixed(1)},${z.toFixed(1)}) r=${radius.toFixed(1)} inRange=${inRange} promoted=${promoted} refreshed=${refreshed}`,
     );
 
-    if (promoted.length > 0) {
+    // A refresh moves terrainHeight just like a promotion. Reporting only
+    // promotions left every other tower covering a refreshed cell with LOS
+    // against the old height for good: the peek-skip in sampleCellY keeps
+    // the next sweep from ever flagging that cell again.
+    if (changed.length > 0) {
       this.refreshAggregateVizPositions();
-      this.emitCellsChanged(promoted);
+      this.emitCellsChanged(changed);
     }
 
-    return { promoted: promoted.length, refreshed, inRange };
+    return { promoted, refreshed, inRange };
   }
 
   /**
@@ -1187,6 +1192,7 @@ export class GlobalRouteGrid {
     canTargetAir = false
   ): RouteCell[] {
     const visibleCells: RouteCell[] = [];
+    const changed: RouteCell[] = [];
     const rangeSq = range * range;
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
@@ -1202,7 +1208,7 @@ export class GlobalRouteGrid {
       // cell defensively so a later terrain promotion via
       // the cells-changed listeners can recompute LOS for it instead of
       // leaving holes in tower coverage.
-      this.sampleCellY(cell);
+      if (this.sampleCellY(cell)) changed.push(cell);
 
       const atTower = distSq < 0.01;
 
@@ -1241,6 +1247,12 @@ export class GlobalRouteGrid {
     // overlay for the same cells.
     this.refreshAggregateVizPositions();
 
+    // Other towers covering a moved cell still answer for its old height.
+    // Reported only now, after the loop: `ctx` is the shared cubemap, and a
+    // listener that re-rendered it would change what the rest of the loop
+    // samples. This tower's own answers are current already.
+    this.emitCellsChanged(changed);
+
     return visibleCells;
   }
 
@@ -1250,7 +1262,9 @@ export class GlobalRouteGrid {
    *
    * Behaves like `registerTower`, but for cells already having an entry for
    * this tower (in either visibility map), the cached value is reused — no
-   * raycast. Cells outside the new range with a stale entry get cleaned up.
+   * raycast. Except where the sampling in this very call moved the cell's
+   * height: that answer was for the old height and gets re-resolved. Cells
+   * outside the new range with a stale entry get cleaned up.
    *
    * This means a range-upgrade only raycasts the *new* cells (the annulus
    * between old and new range), not the entire disc.
@@ -1265,6 +1279,7 @@ export class GlobalRouteGrid {
     canTargetAir = false,
   ): RouteCell[] {
     const visibleCells: RouteCell[] = [];
+    const changed: RouteCell[] = [];
     const rangeSq = range * range;
     const tipX = ctx.referencePos.x;
     const tipY = ctx.referencePos.y;
@@ -1284,7 +1299,12 @@ export class GlobalRouteGrid {
       // Refresh heights via single-source-of-truth sampler. If raycast
       // fails, the cached value is kept and a later promotion via
       // the cells-changed listeners will recompute LOS for this cell.
-      this.sampleCellY(cell);
+      // If it moved the height, the cached answers are for the old one.
+      if (this.sampleCellY(cell)) {
+        changed.push(cell);
+        cell.towerVisibility.delete(towerId);
+        cell.airVisibility.delete(towerId);
+      }
 
       const atTower = distSq < 0.01;
 
@@ -1331,6 +1351,9 @@ export class GlobalRouteGrid {
     // Same rationale as in registerTower — incremental re-sampling may have
     // updated cell.terrainHeight, keep the global viz mesh in sync.
     this.refreshAggregateVizPositions();
+
+    // As in registerTower: report the moved cells once the loop is done.
+    this.emitCellsChanged(changed);
 
     return visibleCells;
   }

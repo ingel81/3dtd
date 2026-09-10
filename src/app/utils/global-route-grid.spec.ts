@@ -121,6 +121,53 @@ describe('GlobalRouteGrid terrain sampling', () => {
 
     expect(groundAtOrigin()).toBe(85);
   });
+
+  // A height change nobody hears about is permanent: the peek-skip keeps
+  // every later sweep from flagging the cell again.
+
+  it('reports cells a local refine refreshed, not only promoted ones', () => {
+    const listener = vi.fn();
+    grid.addCellsChangedListener(listener);
+
+    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
+    peek = { depth: 21, geometricError: 2 };
+    const result = grid.refineCellsInRadius(10, 0, 6);
+
+    expect(result.refreshed).toBeGreaterThan(0);
+    expect(listener).toHaveBeenCalledOnce();
+    expect(listener.mock.calls[0][0]).toHaveLength(result.refreshed);
+  });
+
+  it('reports the heights a tower registration moved, after its own answers are in', () => {
+    const answeredWhenReported: boolean[] = [];
+    grid.addCellsChangedListener((changed) => {
+      for (const cell of changed) answeredWhenReported.push(cell.towerVisibility.has('t1'));
+    });
+
+    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
+    peek = { depth: 21, geometricError: 2 };
+    grid.registerTower('t1', 10, 0, 6, { referencePos: { x: 10, y: 20, z: 0 } } as never);
+
+    expect(answeredWhenReported.length).toBeGreaterThan(0);
+    expect(answeredWhenReported.every(Boolean)).toBe(true);
+  });
+
+  it('re-resolves a cached answer whose cell height the re-registration moved', () => {
+    const ctx = { referencePos: { x: 10, y: 20, z: 0 } } as never;
+    const listener = vi.fn();
+    grid.registerTower('t1', 10, 0, 6, ctx);
+    // 85 m roof: behind the wall.
+    expect(grid.getCellsInRange(10, 0, 6).some((c) => c.towerVisibility.get('t1'))).toBe(false);
+
+    grid.addCellsChangedListener(listener);
+    column = { groundY: 3, topY: 40, tileDepth: 21, tileGeometricError: 2 };
+    peek = { depth: 21, geometricError: 2 };
+    grid.registerTowerIncremental('t1', 10, 0, 6, ctx);
+
+    // 3 m street: in front of it.
+    expect(grid.getCellsInRange(10, 0, 6).every((c) => c.towerVisibility.get('t1'))).toBe(true);
+    expect(listener).toHaveBeenCalledOnce();
+  });
 });
 
 /**
