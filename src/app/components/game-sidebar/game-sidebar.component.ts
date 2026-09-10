@@ -7,11 +7,8 @@ import {
   computed,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { MatDialog, MatDialogModule } from '@angular/material/dialog';
-import { MatTooltipModule } from '@angular/material/tooltip';
+import { MatDialog } from '@angular/material/dialog';
 import { TowerDefenseStore } from '../../store/tower-defense.store';
-import { ResearchStore } from '../../store/research.store';
 import {
   TowerTypeConfig,
   TowerTypeId,
@@ -19,8 +16,7 @@ import {
   TargetingStrategy,
   AirSubStrategy,
 } from '../../configs/tower-types.config';
-import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
-import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
+import { ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
@@ -30,18 +26,22 @@ import { TdIconComponent } from '../icon/icon.component';
 import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
 import { SidebarBuildPanelComponent } from './build-panel/build-panel.component';
 import { SidebarTowerPanelComponent } from './tower-panel/tower-panel.component';
+import { SidebarResearchPanelComponent } from './research-panel/research-panel.component';
 
+/**
+ * Rechte Sidebar: Rahmen, Footer und die Wahl des Panels. Die Sektionen sind
+ * eigene Components (WAVE, BUILD, Tower, Research Center), ihre Outputs
+ * reicht die Sidebar an die Spielkomponente weiter.
+ */
 @Component({
   selector: 'app-game-sidebar',
   standalone: true,
   imports: [
-    CommonModule,
-    MatDialogModule,
-    MatTooltipModule,
     TdIconComponent,
     SidebarWavePanelComponent,
     SidebarBuildPanelComponent,
     SidebarTowerPanelComponent,
+    SidebarResearchPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
@@ -67,10 +67,7 @@ export class GameSidebarComponent implements OnDestroy {
   readonly waveActive = input.required<boolean>();
   readonly isGameOver = input.required<boolean>();
 
-  // Research store reference
-  readonly researchStore = inject(ResearchStore);
-
-  // Outputs
+  // Outputs, aus den Panels durchgereicht
   readonly startWave = output<void>();
   readonly cancelBuild = output<void>();
   readonly selectTower = output<TowerTypeId>();
@@ -81,58 +78,10 @@ export class GameSidebarComponent implements OnDestroy {
   readonly startResearch = output<ResearchId>();
   readonly cancelResearch = output<ResearchId>();
 
-  // Research helpers
+  /** Das Research Center bekommt statt des Tower-Details sein eigenes Panel. */
   readonly isResearchCenter = computed(() =>
     this.store.selectedTower()?.typeConfig.id === 'research-center'
   );
-
-  readonly allResearches = Object.values(RESEARCH_TREE);
-
-  /**
-   * Resolve the td-icon name for a research node based on its current status.
-   * Status icons override the per-research config; available nodes use config.
-   */
-  researchNodeIconName(research: ResearchConfig): string {
-    const status = this.getResearchStatus(research.id);
-    if (status === 'completed') return 'check';
-    if (status === 'active') return 'refresh';
-    if (status === 'locked') return 'lock';
-    return research.icon; // td-icon name set in research-tree.config
-  }
-
-  getResearchStatus(id: ResearchId): 'completed' | 'active' | 'available' | 'locked' {
-    if (this.researchStore.completedResearches().has(id)) return 'completed';
-    if (this.researchStore.activeResearches().some(a => a.researchId === id)) return 'active';
-    const config = getResearch(id);
-    if (!config) return 'locked';
-    const allPrereqsMet = config.prerequisites.every(p => this.researchStore.completedResearches().has(p));
-    return allPrereqsMet ? 'available' : 'locked';
-  }
-
-  getActiveResearchProgress(id: ResearchId): number {
-    const active = this.researchStore.activeResearches().find(a => a.researchId === id);
-    if (!active) return 0;
-    return Math.min(1, active.elapsed / active.duration);
-  }
-
-  getActiveResearchRemaining(id: ResearchId): number {
-    const active = this.researchStore.activeResearches().find(a => a.researchId === id);
-    if (!active) return 0;
-    return Math.max(0, active.duration - active.elapsed);
-  }
-
-  getResearchName(id: ResearchId): string {
-    return getResearch(id)?.name ?? id;
-  }
-
-  getMissingPrereqs(id: ResearchId): string {
-    const config = getResearch(id);
-    if (!config) return '';
-    const missing = config.prerequisites
-      .filter(p => !this.researchStore.completedResearches().has(p))
-      .map(p => getResearch(p)?.name ?? p);
-    return missing.join(', ');
-  }
 
   /**
    * Die Panels melden ihre Previews selbst an und ab (WAVE: Gegnergruppen,
@@ -141,10 +90,6 @@ export class GameSidebarComponent implements OnDestroy {
    */
   ngOnDestroy(): void {
     this.modelPreview.dispose();
-  }
-
-  onUpgradeTower(tower: Tower, upgradeId: UpgradeId): void {
-    this.upgradeTower.emit({ tower, upgradeId });
   }
 
   /** Open the tile-credentials screen (swap or clear the stored key). */
