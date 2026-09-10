@@ -42,7 +42,9 @@ export interface DamageMatrixCell {
 
 export interface DamageMatrixRow {
   towerId: TowerTypeId;
+  /** Tower-Name, bei gesperrten Towern LOCKED_TOWER_NAME. */
   name: string;
+  locked: boolean;
   damageLabel: string;
   cells: DamageMatrixCell[];
 }
@@ -61,6 +63,9 @@ export const EFFECTIVENESS_LABELS: Readonly<Record<DamageEffectiveness, string>>
   strong: 'Strong',
   devastating: 'Devastating',
 };
+
+/** Platzhalter wie auf der gesperrten Karte im Baumenü. */
+export const LOCKED_TOWER_NAME = '???';
 
 /** Neutraler Text für die Stufe "normal", wie die Multiplikatoren im Tooltip. */
 export const MATRIX_NORMAL_COLOR = 'var(--td-text-primary)';
@@ -85,28 +90,37 @@ function isCombatTower(tower: TowerTypeConfig): boolean {
   return tower.attackType !== 'passive';
 }
 
-/** Zeilen: ein Eintrag pro baubarem Tower, in Baumenü-Reihenfolge. */
+/**
+ * Zeilen: ein Eintrag pro baubarem Tower, in Baumenü-Reihenfolge.
+ * `isUnlocked` ist dieselbe Prüfung wie im Baumenü (ResearchStore.isTowerUnlocked):
+ * gesperrte Tower verlieren nur den Namen, Schadensart und Werte bleiben.
+ */
 export function buildDamageMatrixRows(
+  isUnlocked: (id: TowerTypeId) => boolean = () => true,
   towers: readonly TowerTypeConfig[] = getAllTowerTypes(),
   matrix: DamageMatrix = DAMAGE_MATRIX,
 ): DamageMatrixRow[] {
-  return towers.filter(isCombatTower).map((tower) => ({
-    towerId: tower.id,
-    name: tower.name,
-    damageLabel: DAMAGE_TYPE_UI[tower.damageType].label,
-    cells: ARMOR_TYPES.map((armor) => {
-      const multiplier = matrix[tower.damageType][armor];
-      const effectiveness = getEffectiveness(multiplier);
-      return {
-        armor,
-        multiplier,
-        text: formatMultiplier(multiplier),
-        effectiveness,
-        color: matrixTierColor(effectiveness),
-        tierLabel: EFFECTIVENESS_LABELS[effectiveness],
-      };
-    }),
-  }));
+  return towers.filter(isCombatTower).map((tower) => {
+    const locked = !isUnlocked(tower.id);
+    return {
+      towerId: tower.id,
+      name: locked ? LOCKED_TOWER_NAME : tower.name,
+      locked,
+      damageLabel: DAMAGE_TYPE_UI[tower.damageType].label,
+      cells: ARMOR_TYPES.map((armor) => {
+        const multiplier = matrix[tower.damageType][armor];
+        const effectiveness = getEffectiveness(multiplier);
+        return {
+          armor,
+          multiplier,
+          text: formatMultiplier(multiplier),
+          effectiveness,
+          color: matrixTierColor(effectiveness),
+          tierLabel: EFFECTIVENESS_LABELS[effectiveness],
+        };
+      }),
+    };
+  });
 }
 
 /** Spalten: eine pro Rüstungstyp, mit den Enemies dieser Rüstung als Beispiele. */
