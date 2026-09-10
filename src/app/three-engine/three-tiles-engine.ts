@@ -6,7 +6,6 @@ import {
   type Intersection,
   Vector3,
   Vector2,
-  Matrix4,
   Mesh,
   Object3D,
   Group,
@@ -27,14 +26,7 @@ import {
   Material,
   MathUtils,
 } from 'three';
-import {
-  TilesRenderer,
-  GlobeControls,
-  EnvironmentControls,
-  WGS84_ELLIPSOID,
-} from '3d-tiles-renderer';
-// Frame constants for coordinate transformations
-import { CAMERA_FRAME } from '3d-tiles-renderer/src/three/renderer/math/Ellipsoid.js';
+import { TilesRenderer, type GlobeControls } from '3d-tiles-renderer';
 import {
   TilesFadePlugin,
   TileCompressionPlugin,
@@ -50,6 +42,7 @@ import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/co
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
+import { CameraRig, type InitialCameraPosition } from './camera-rig';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { FramePacer } from '../utils/frame-pacer';
@@ -114,17 +107,7 @@ const ROUTE_CORRIDOR_ERROR_TARGET = 5;
  */
 const TILE_LOD_DEBUG_MAX_ERROR = 20;
 
-/**
- * Initial camera position for pre-computed framing
- */
-export interface InitialCameraPosition {
-  x: number;
-  y: number;
-  z: number;
-  lookAtX: number;
-  lookAtY: number;
-  lookAtZ: number;
-}
+export type { InitialCameraPosition } from './camera-rig';
 
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
@@ -141,7 +124,8 @@ export class ThreeTilesEngine {
   private renderer: WebGLRenderer;
   private scene: Scene;
   private camera: PerspectiveCamera;
-  private controls: GlobeControls | null = null;
+  // GlobeControls/EnvironmentControls + Startposition der Kamera
+  private readonly cameraRig: CameraRig;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
   private routeRegions: LoadRegionPlugin | null = null;
@@ -202,9 +186,6 @@ export class ThreeTilesEngine {
    */
   private lodVersion = 0;
 
-  // Pre-computed initial camera position (set before initialize())
-  private initialCameraPosition: InitialCameraPosition | null = null;
-
   // Entity renderers
   readonly enemies: InstancedEnemyRenderer;
   readonly towers: ThreeTowerRenderer;
@@ -218,12 +199,6 @@ export class ThreeTilesEngine {
   // Spatial audio manager
   readonly spatialAudio: SpatialAudioManager;
 
-  // Callback for when camera controls drag ends (for distinguishing clicks from pans)
-  onControlsDragEnd: (() => void) | null = null;
-  private controlsStartTime = 0;
-  private controlsStartCameraPos = new Vector3();
-  private lastCameraMovement = 0;
-
   // Test entities (for debugging)
   private testCube: Mesh | null = null;
   private debugHelpers: Object3D[] = [];
@@ -235,16 +210,6 @@ export class ThreeTilesEngine {
 
   // Event handlers (stored for cleanup in dispose)
   private tilesLoadEndHandler = () => this.onTilesLoadEnd();
-  private controlsStartHandler = () => {
-    this.controlsStartTime = performance.now();
-    this.controlsStartCameraPos.copy(this.camera.position);
-  };
-  private controlsEndHandler = () => {
-    this.lastCameraMovement = this.camera.position.distanceTo(this.controlsStartCameraPos);
-    if (this.onControlsDragEnd && this.lastCameraMovement > 5) {
-      this.onControlsDragEnd();
-    }
-  };
 
 
   // Overlay group for markers, streets, routes
@@ -404,6 +369,9 @@ export class ThreeTilesEngine {
       VIEW_DISTANCE // GlobeControls may override, enforced in render()
     );
 
+    // Controls kommen erst in initialize() dazu, der Rig hält bis dahin nur Kamera und Canvas
+    this.cameraRig = new CameraRig(this.camera, this.renderer.domElement);
+
     // Setup lighting and sky
     this.setupLighting();
     this.setupSky();
@@ -450,7 +418,7 @@ export class ThreeTilesEngine {
    * @param position Pre-computed camera position from CameraFramingService
    */
   setInitialCameraPosition(position: InitialCameraPosition): void {
-    this.initialCameraPosition = position;
+    this.cameraRig.setInitialPosition(position);
   }
 
   /**
@@ -566,7 +534,7 @@ export class ThreeTilesEngine {
     this.sync.setTilesRenderer(this.tilesRenderer);
 
     // Setup camera and controls
-    this.setupControls();
+    this.cameraRig.setupGlobeControls(this.scene, this.tilesRenderer);
 
     // Configure tiles renderer
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
@@ -673,7 +641,7 @@ export class ThreeTilesEngine {
     console.log(`${LOG} Terrain added to devWorldGroup at local origin`);
 
     // Setup EnvironmentControls - works with flat local terrain
-    this.setupDevWorldControls();
+    this.cameraRig.setupEnvironmentControls(this.scene, this.devWorldGroup);
 
     // Set up terrain height sampler for tower range indicators
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
@@ -695,74 +663,6 @@ export class ThreeTilesEngine {
     }
 
     console.log(`${LOG} DevWorld initialized with EnvironmentControls`);
-  }
-
-  /**
-   * Setup EnvironmentControls for DevWorld
-   *
-   * Uses EnvironmentControls instead of GlobeControls because:
-   * - GlobeControls is designed for globe navigation at Earth-radius distances
-   * - DevWorld has flat terrain at local origin
-   * - EnvironmentControls raycasts against scene geometry for pivoting/panning
-   *
-   * Control scheme (same interaction model as GlobeControls):
-   * - Left mouse drag: Pan (slide camera along terrain)
-   * - Right mouse drag: Rotate (orbit around pivot point)
-   * - Scroll wheel: Zoom in/out
-   */
-  private setupDevWorldControls(): void {
-    if (!this.devWorldGroup) return;
-
-    const LOG = '[DevWorld]';
-    console.log(`${LOG} ========== CONTROLS SETUP ==========`);
-
-    // EnvironmentControls - works with flat local terrain
-    // Cast to any because controls type is GlobeControls | null but EnvironmentControls is compatible
-    const envControls = new EnvironmentControls(
-      this.scene,
-      this.camera,
-      this.renderer.domElement
-    );
-
-    // Configure controls
-    envControls.enableDamping = true;
-    envControls.enableDoubleTapZoom = false;
-    this.preventControlsFocus();
-    envControls.minDistance = 5;       // Minimum zoom distance
-    envControls.maxDistance = 2000;    // Maximum zoom distance
-    envControls.minAltitude = 0.1;     // Min camera altitude (radians from ground)
-    envControls.maxAltitude = Math.PI / 2 - 0.1; // Max altitude (near vertical)
-
-    // Set scene for raycasting (against devWorldGroup which contains terrain)
-    envControls.setScene(this.devWorldGroup);
-
-    // Store as GlobeControls type (EnvironmentControls is parent class)
-    this.controls = envControls as unknown as GlobeControls;
-
-    // Listen for drag start/end to distinguish clicks from pans
-    this.controls.addEventListener('start', this.controlsStartHandler);
-    this.controls.addEventListener('end', this.controlsEndHandler);
-
-    // Position camera - steep 70° view (same as real game)
-    if (this.initialCameraPosition) {
-      const pos = this.initialCameraPosition;
-      this.camera.position.set(pos.x, pos.y, pos.z);
-      this.camera.lookAt(pos.lookAtX, pos.lookAtY, pos.lookAtZ);
-      console.log(`${LOG} Camera from initialCameraPosition: (${pos.x.toFixed(1)}, ${pos.y.toFixed(1)}, ${pos.z.toFixed(1)})`);
-    } else {
-      // Default: view from above - position camera above origin looking down
-      // 70° angle: at 400m height, offset 145m horizontally
-      this.camera.position.set(0, 400, -145);
-      this.camera.lookAt(0, 0, 0);
-      console.log(`${LOG} Camera default: pos=(0, 400, -145), lookAt=(0, 0, 0)`);
-    }
-
-    // Update controls after camera positioning
-    this.controls.update();
-
-    console.log(`${LOG} EnvironmentControls configured`);
-    console.log(`${LOG} Camera position: (${this.camera.position.x.toFixed(1)}, ${this.camera.position.y.toFixed(1)}, ${this.camera.position.z.toFixed(1)})`);
-    console.log(`${LOG} Controls: pan=left-drag, rotate=right-drag, zoom=scroll`);
   }
 
   /**
@@ -1004,60 +904,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Since 0.5 the controls make the canvas focusable and focus it on every
-   * pointerdown, then reset a running drag whenever W/A/S/D, Q/E or an arrow
-   * key goes down on it. Those are our KeyboardPanService keys, so panning
-   * with the keyboard while dragging would cancel the drag. The listener only
-   * sees keys while the canvas has focus; without a tabindex it never does.
-   * Our own key handling listens on window and is unaffected.
-   */
-  private preventControlsFocus(): void {
-    this.renderer.domElement.removeAttribute('tabindex');
-  }
-
-  private setupControls(): void {
-    if (!this.tilesRenderer) return;
-
-    // GlobeControls for earth-like navigation
-    // Don't pass tilesRenderer to constructor (deprecated), use setScene/setEllipsoid instead
-    this.controls = new GlobeControls(
-      this.scene,
-      this.camera,
-      this.renderer.domElement
-    );
-    this.controls.enableDamping = true;
-    // Library default since 0.5. A double click would start a zoom animation
-    // that the drag handlers read as a pan.
-    this.controls.enableDoubleTapZoom = false;
-    this.preventControlsFocus();
-
-    // Set scene and ellipsoid for controls (new API)
-    this.controls.setScene(this.scene);
-    this.controls.setEllipsoid(this.tilesRenderer.ellipsoid, this.tilesRenderer.group);
-
-    // Listen for drag start/end to distinguish clicks from pans
-    this.controls.addEventListener('start', this.controlsStartHandler);
-    this.controls.addEventListener('end', this.controlsEndHandler);
-
-    // With ReorientationPlugin (recenter: true) and tiles.group.rotation.x = -PI/2:
-    // - Origin (HQ) is at (0,0,0) in local space
-    // - Y is up, -Z is South, +Z is North
-
-    if (this.initialCameraPosition) {
-      // Use pre-computed framing position (optimal for game area)
-      const pos = this.initialCameraPosition;
-      this.camera.position.set(pos.x, pos.y, pos.z);
-      this.camera.lookAt(pos.lookAtX, pos.lookAtY, pos.lookAtZ);
-    } else {
-      // Fallback: steep 70° view over origin (minimal horizon, fewer tiles)
-      // 70° angle: height = tan(70°) * distance ≈ 2.75 * distance
-      // For 150m horizontal offset: height ≈ 412m
-      this.camera.position.set(0, 400, -145); // ~70° angle, looking north
-      this.camera.lookAt(0, 0, 0);
-    }
-  }
-
-  /**
    * Set camera position using lat/lon/height and orientation
    */
   setCameraPosition(
@@ -1069,30 +915,7 @@ export class ThreeTilesEngine {
     roll = 0
   ): void {
     if (!this.tilesRenderer) return;
-
-    this.tilesRenderer.group.updateMatrixWorld();
-
-    // Use getObjectFrame for proper camera positioning in globe view
-    const tempMatrix = new Matrix4();
-    WGS84_ELLIPSOID.getObjectFrame(
-      lat * MathUtils.DEG2RAD,
-      lon * MathUtils.DEG2RAD,
-      height,
-      azimuth * MathUtils.DEG2RAD,
-      elevation * MathUtils.DEG2RAD,
-      roll * MathUtils.DEG2RAD,
-      tempMatrix,
-      CAMERA_FRAME
-    );
-
-    // Apply tiles group transformation
-    tempMatrix.premultiply(this.tilesRenderer.group.matrixWorld);
-    tempMatrix.decompose(
-      this.camera.position,
-      this.camera.quaternion,
-      this.camera.scale
-    );
-
+    this.cameraRig.setGeoPosition(this.tilesRenderer.group, lat, lon, height, azimuth, elevation, roll);
   }
 
   /**
@@ -1114,8 +937,7 @@ export class ThreeTilesEngine {
     targetY = 0,
     targetZ = 0
   ): void {
-    this.camera.position.set(x, y, z);
-    this.camera.lookAt(targetX, targetY, targetZ);
+    this.cameraRig.setLocalPosition(x, y, z, targetX, targetY, targetZ);
   }
 
   /**
@@ -1673,9 +1495,7 @@ export class ThreeTilesEngine {
     // DevWorld render path
     if (this.devTerrainProvider) {
       // Update controls (if any)
-      if (this.controls) {
-        this.controls.update();
-      }
+      this.cameraRig.update();
 
       // Update camera
       this.camera.updateMatrixWorld();
@@ -1699,9 +1519,7 @@ export class ThreeTilesEngine {
     if (!this.tilesRenderer) return;
 
     // Update controls
-    if (this.controls) {
-      this.controls.update();
-    }
+    this.cameraRig.update();
 
     // Force camera far plane to limit tile loading (GlobeControls may override it)
     const VIEW_DISTANCE = 8000;
@@ -2218,7 +2036,16 @@ export class ThreeTilesEngine {
    * the control state, which re-derives the pivot from the camera.
    */
   getControls(): GlobeControls | null {
-    return this.controls;
+    return this.cameraRig.getControls();
+  }
+
+  /** Callback when a camera drag moved the camera more than 5 m (click vs. pan). */
+  get onControlsDragEnd(): (() => void) | null {
+    return this.cameraRig.onDragEnd;
+  }
+
+  set onControlsDragEnd(callback: (() => void) | null) {
+    this.cameraRig.onDragEnd = callback;
   }
 
   // Cached tile stats (updated every 500ms to avoid performance overhead)
@@ -2282,7 +2109,7 @@ export class ThreeTilesEngine {
    * Get the last recorded camera movement distance (for debugging click vs pan)
    */
   getLastCameraMovement(): number {
-    return this.lastCameraMovement;
+    return this.cameraRig.getLastMovement();
   }
 
   // ---- Bloom post-processing controls (delegate to PostProcessingPipeline) ----
@@ -2377,10 +2204,7 @@ export class ThreeTilesEngine {
     if (this.tilesRenderer) {
       this.tilesRenderer.removeEventListener('tiles-load-end', this.tilesLoadEndHandler);
     }
-    if (this.controls) {
-      this.controls.removeEventListener('start', this.controlsStartHandler);
-      this.controls.removeEventListener('end', this.controlsEndHandler);
-    }
+    this.cameraRig.dispose();
 
     // Dispose GPU-LOS resources
     if (this.towerShadowMapper) {

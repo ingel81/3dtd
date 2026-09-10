@@ -334,6 +334,7 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | Datei | Beschreibung |
 |-------|--------------|
 | `three-tiles-engine.ts` | Haupt-Engine: Scene, Renderer, TilesRenderer, Overlays |
+| `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, Drag-Tracking, Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
 
@@ -1203,7 +1204,8 @@ src/app/
 │   └── game-manager.interface.ts # IGameManager
 │
 ├── three-engine/                 # Three.js Engine
-│   ├── three-tiles-engine.ts     # Haupt-Engine (Camera-Setup + Tile-Loading-State noch hier)
+│   ├── three-tiles-engine.ts     # Haupt-Engine (Tile-Loading-State noch hier)
+│   ├── camera-rig.ts             # Controls + Startposition der Kamera (seit 2026-09-11)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
