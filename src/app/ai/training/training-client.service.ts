@@ -25,6 +25,14 @@ import { Tower } from '../../entities/tower.entity';
 import type { BotSkillLevel } from './bots/tower-bot.interface';
 import type { TrainingSession } from './training-session';
 
+type SessionModule = typeof import('./training-session');
+
+/** Versuche, den Session-Chunk zu laden, bevor die Runde aufgibt. */
+const SESSION_LOAD_ATTEMPTS = 3;
+
+/** Pause vor dem zweiten Versuch, verdoppelt sich danach. */
+const SESSION_LOAD_RETRY_MS = 1000;
+
 /** Training statistics from backend */
 export interface TrainingStats {
   episode: number;
@@ -74,6 +82,9 @@ export class TrainingClientService implements TrainingSignals {
   readonly displayId = signal<number | null>(null);
   readonly stats = signal<TrainingStats | null>(null);
 
+  /** Der Session-Chunk lädt auch nach allen Versuchen nicht (Training-Debug-Fenster). */
+  readonly sessionError = signal<string | null>(null);
+
   // === BOT SIGNALS ===
   readonly botEnabled = signal(false);
   readonly botSkillLevel = signal<BotSkillLevel>('strategist');
@@ -84,9 +95,16 @@ export class TrainingClientService implements TrainingSignals {
   private deps: TrainingDeps | null = null;
   private engine: ThreeTilesEngine | null = null;
   private session: TrainingSession | null = null;
-  private sessionModule: Promise<typeof import('./training-session')> | null = null;
-  /** enableBot() kam, bevor die Session stand; wird beim Anlegen angewendet. */
+  private sessionModule: Promise<SessionModule | null> | null = null;
+  /** Bot-Wunsch, solange die Session nicht steht; der letzte Aufruf gewinnt. */
   private pendingBotSkill: BotSkillLevel | null = null;
+  /**
+   * Zählt connect/connectToBackend/disconnect. Ein Verbindungsaufbau, der auf
+   * den Chunk wartet, läuft danach nur weiter, wenn kein neuerer Wunsch kam.
+   */
+  private connectionRequest = 0;
+  /** Import-Einstieg; der Spec ersetzt ihn, um Ladefehler zu simulieren. */
+  private importSession = (): Promise<SessionModule> => import('./training-session');
 
   /**
    * Initialize with dependencies that aren't available via DI.
@@ -154,22 +172,30 @@ export class TrainingClientService implements TrainingSignals {
    * Connect to training backend and set up event subscriptions (non-blocking)
    */
   async connectToBackend(): Promise<void> {
+    const request = ++this.connectionRequest;
     const session = await this.loadSession();
-    await session?.connectToBackend();
+    // Ein disconnect() oder neuerer Aufruf während des Ladens gewinnt.
+    if (session && request === this.connectionRequest) {
+      await session.connectToBackend();
+    }
   }
 
   /**
    * Connect to training backend (WebSocket only)
    */
   async connect(url?: string): Promise<boolean> {
+    const request = ++this.connectionRequest;
     const session = await this.loadSession();
-    return session ? session.connect(url) : false;
+    if (!session || request !== this.connectionRequest) return false;
+    return session.connect(url);
   }
 
   /**
-   * Disconnect from backend
+   * Disconnect from backend. Wirkt auch auf einen Verbindungsaufbau, der noch
+   * auf den Chunk wartet.
    */
   disconnect(): void {
+    ++this.connectionRequest;
     this.session?.disconnect();
   }
 
@@ -188,17 +214,9 @@ export class TrainingClientService implements TrainingSignals {
    * `initialize()` gelaufen ist. Vorher, oder wenn der Chunk nicht lädt, null.
    */
   private async loadSession(): Promise<TrainingSession | null> {
-    this.sessionModule ??= import('./training-session');
-    let module: typeof import('./training-session');
-    try {
-      module = await this.sessionModule;
-    } catch (error) {
-      // Z. B. alter Tab nach einem Deploy mit neuen Chunk-Hashes. Beim
-      // nächsten Versuch neu anfordern statt die Ablehnung zu cachen.
-      this.sessionModule = null;
-      console.error('[Training] Failed to load the training session', error);
-      return null;
-    }
+    this.sessionModule ??= this.importWithRetry();
+    const module = await this.sessionModule;
+    if (!module) return null;
 
     if (!this.session && this.deps) {
       const deps = this.deps;
@@ -211,5 +229,34 @@ export class TrainingClientService implements TrainingSignals {
       }
     }
     return this.session;
+  }
+
+  /**
+   * Import mit begrenztem Retry. Ein unbeaufsichtigter Trainings-Tab soll einen
+   * kurzen Aussetzer überstehen, statt über Nacht untätig zu stehen. Ob ein
+   * erneutes `import()` wirklich neu lädt, hängt vom Browser ab (ein
+   * fehlgeschlagenes Modul kann gecacht bleiben); deshalb nach dem letzten
+   * Versuch die Meldung in `sessionError`. Der nächste Aufruf startet eine
+   * neue Runde, statt die Ablehnung zu cachen.
+   */
+  private async importWithRetry(): Promise<SessionModule | null> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        const module = await this.importSession();
+        this.sessionError.set(null);
+        return module;
+      } catch (error) {
+        console.error(
+          `[Training] Failed to load the training session (attempt ${attempt}/${SESSION_LOAD_ATTEMPTS})`,
+          error,
+        );
+        if (attempt >= SESSION_LOAD_ATTEMPTS) {
+          this.sessionModule = null;
+          this.sessionError.set('Training code failed to load, reload the tab');
+          return null;
+        }
+        await new Promise(resolve => setTimeout(resolve, SESSION_LOAD_RETRY_MS * 2 ** (attempt - 1)));
+      }
+    }
   }
 }

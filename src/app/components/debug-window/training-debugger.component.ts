@@ -60,6 +60,13 @@ import type { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
               </span>
             </div>
 
+            @if (trainingClient.sessionError(); as sessionError) {
+              <div class="info-row">
+                <span class="label">Code</span>
+                <span class="value error">{{ sessionError }}</span>
+              </div>
+            }
+
             @if (trainingClient.isConnected()) {
               <div class="info-row">
                 <span class="label">Client ID</span>
@@ -364,6 +371,10 @@ import type { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
     .info-row .value.disconnected,
     .info-row .value.inactive {
       color: var(--td-text-muted);
+    }
+
+    .info-row .value.error {
+      color: var(--td-health-red);
     }
 
     .info-row .value.small {
