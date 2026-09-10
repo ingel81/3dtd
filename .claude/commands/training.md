@@ -65,7 +65,7 @@ Datenquellen (keine Log-Datei tailen, die Transkripte sind riesig):
     Leitmetrik verwenden.
 - `GET http://localhost:3002/api/clients/summary` — pro Client avgReward50 /
   avgProgress50 / avgDamage50
-- `training-backend/venv/Scripts/python.exe inspect_training.py --summary`
+- `training-backend/venv/Scripts/python.exe scripts/inspect_training.py --summary`
 - `training-backend/venv/Scripts/python.exe scripts/analyze_log.py`
 
 Bericht an den User pro Check (kurz halten):

@@ -123,7 +123,7 @@ class Dashboard:
         @self.app.get("/api/config")
         async def get_config():
             """Return reward config for dynamic dashboard thresholds (Phase 5.10)."""
-            # Progress "sweet spot" = near-miss band from reward.py
+            # Progress "sweet spot" = near-miss band from core/reward.py
             center = (PROGRESS_NEAR_MISS_LOW + PROGRESS_NEAR_MISS_HIGH) / 2
             sigma = (PROGRESS_NEAR_MISS_HIGH - PROGRESS_NEAR_MISS_LOW) / 2
             return {
@@ -320,7 +320,7 @@ class Dashboard:
         self.app.mount("/static", StaticFiles(directory=str(STATIC_DIR)), name="static")
 
     def _damage_bucket(self, d: float) -> str:
-        """Classify damage_pct into a zone matching reward.py semantics."""
+        """Classify damage_pct into a zone matching core/reward.py semantics."""
         # Import here to avoid circular deps
         try:
             from config import (

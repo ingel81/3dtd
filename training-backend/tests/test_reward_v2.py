@@ -1,4 +1,4 @@
-"""reward.py — v4 reward sanity checks.
+"""core/reward.py: v4 reward sanity checks.
 
 Most of these pin the *shape* of the reward landscape rather than exact
 numbers, because the landscape is what kept getting exploited: the terms are
@@ -30,7 +30,7 @@ from config import (  # noqa: E402
     PACING_SIGMA,
     TARGET_RUN_WAVES,
 )
-from reward import calculate_reward, hp_target  # noqa: E402
+from core.reward import calculate_reward, hp_target  # noqa: E402
 
 
 def wave(near_miss=0.0, leak=0.0, count=100, survived=True, hp_after=None,

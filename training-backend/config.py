@@ -96,7 +96,7 @@ DIRECTOR_ROSTER = ["model", "rules", "random", "maxgate"]
 TARGET_KL = 0.02
 
 # Standardised advantages are clipped to +/- this before the update. See the
-# rationale in trainer.py: the -8 death penalty against ~-0.6 typical waves put
+# rationale in core/trainer.py: the -8 death penalty against ~-0.6 typical waves put
 # a few samples per batch beyond -3 sigma, and those alone drove the step over
 # TARGET_KL on the first minibatch, so the early stop discarded most of every
 # batch. 3.0 keeps the full body of the distribution untouched.
@@ -109,7 +109,7 @@ ADVANTAGE_CLIP = 3.0
 # through a sigmoid piles mass on the range ENDPOINTS. That is anti-exploration
 # in factor space: waves collapse to min/max count and min/max HP, which is the
 # opposite of the "varied waves" goal. `log_std` is clamped instead (see
-# model.py) and only the categorical head keeps a bonus.
+# core/model.py) and only the categorical head keeps a bonus.
 ENTROPY_COEF = 0.02
 
 # Effective window for the reward-scaling statistic. A lifetime count would

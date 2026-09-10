@@ -58,17 +58,20 @@ src/app/
 
 training-backend/               # Python Training Backend (nur fuer Trainingslaeufe)
 ├── server.py                   # WebSocket Server (:3001), Decoder, A/B-Verteilung
-├── model.py                    # Neural Network (Conv1D + Dense, State 203 → 36 Outputs)
-├── trainer.py                  # PPO Training Algorithm
-├── reward.py                   # Reward Function (4 Terms: death, drama, pacing, swarm_size)
+├── manage_server.py            # Start/Stop/Status als Hintergrundprozess
 ├── directors.py                # Austauschbare Wave-Designer (model/rules/random/maxgate)
 ├── schema.py                   # Laedt generated/ai-schema.json (Templates, Curriculum, Masken)
 ├── config.py                   # Hyperparameter, DIRECTOR_ROSTER
+├── core/
+│   ├── model.py                # Neural Network (Conv1D + Dense, State 203 → 36 Outputs)
+│   ├── trainer.py              # PPO Training Algorithm
+│   └── reward.py               # Reward Function (4 Terms: death, drama, pacing, swarm_size)
+├── utils/logger.py             # Console + JSONL-Logging
 ├── dashboard/                  # Web Dashboard (:3002)
 │   ├── app.py                  # FastAPI Server
 │   └── static/                 # Chart.js UI
 ├── generated/ai-schema.json    # Aus den TS-Configs generiert (`npm run ai-schema`)
-├── scripts/                    # ONNX-Export, Log-Analyse
+├── scripts/                    # ONNX-Export, Log-Analyse, Training-Inspector
 ├── tests/                      # pytest (Schema, Encoder, Reward, Directors, Gate-Loop)
 ├── start.bat                   # Windows Start-Script
 ├── checkpoints/                # Model Checkpoints (+ archive-<datum>/)
