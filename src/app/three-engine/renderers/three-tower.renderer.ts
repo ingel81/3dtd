@@ -36,9 +36,6 @@ import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-t
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
-/** Muzzle flash light intensity during the 50 ms flash. */
-const MUZZLE_FLASH_INTENSITY = 3;
-
 /**
  * Tower render data - stored per tower
  */
@@ -1410,10 +1407,12 @@ export class ThreeTowerRenderer {
   }
 
   /**
-   * Trigger muzzle flash at tower's shoot position
-   * Creates a brief bright point light + small sprite flash
+   * Light the tower's shoot position with the pooled muzzle flash light for
+   * 50 ms. The particles are spawned separately (ThreeEffectsRenderer).
+   *
+   * @param intensity - Light intensity, from the tower's MUZZLE_FLASH_PROFILES entry
    */
-  triggerMuzzleFlash(towerId: string): void {
+  triggerMuzzleFlash(towerId: string, intensity: number): void {
     const data = this.towers.get(towerId);
     if (!data) return;
 
@@ -1423,7 +1422,7 @@ export class ThreeTowerRenderer {
 
     // Position at tower tip
     this.muzzleFlashLight.position.set(terrainPos.x, data.tipY, terrainPos.z);
-    this.muzzleFlashLight.intensity = MUZZLE_FLASH_INTENSITY;
+    this.muzzleFlashLight.intensity = intensity;
 
     // Clear any existing timer
     if (this.muzzleFlashTimer) {

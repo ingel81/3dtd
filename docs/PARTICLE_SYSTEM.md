@@ -382,7 +382,7 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnExplosionAtGeo(lat, lon, h, count)` | Explosion an Geo-Position |
 | `spawnIceExplosionAtGeo(lat, lon, h, count)` | Runder Funken-Burst, Palette `BURST_PALETTES.ice` |
 | `spawnArcaneBurstAtGeo(lat, lon, h, count)` | Gleicher Burst in Violett/Cyan (`BURST_PALETTES.arcane`), Einschlag des Arcane Orb |
-| `spawnMuzzleFlash(localX, localY, localZ)` | Muendungsfeuer |
+| `spawnMuzzleFlash(localX, localY, localZ, profile)` | Muendungsfeuer, Anzahl/Größe/Dauer aus `MUZZLE_FLASH_PROFILES` |
 | `spawnTrailParticles(pos, config)` | Konfigurierbarer Projektil-Trail |
 | `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
 
@@ -401,8 +401,12 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
 - `vfx:projectile-impact` → wahlweise rocket/cannon/bullet/poison/small/none
   Preset (`EXPLOSION_PRESETS`); `arcane-orb` bekommt statt der Feuer-Atlas-Explosion
   den violett-cyanfarbenen Burst (`spawnArcaneBurstAtGeo`, Preset `arcane`)
-- `vfx:muzzle-flash` → Partikel + gepoolter `PointLight` (gefiltert: Beam-Tower
-  `ice`/`magic`/`fire` haben kein Muzzle-Flash)
+- `vfx:muzzle-flash` → Partikel + gepoolter `PointLight`, nur für Tower mit Eintrag in
+  `MUZZLE_FLASH_PROFILES` (`visual-effects.config.ts`): Archer (schwacher Glanz, kein Licht),
+  Dual-Gatling (klein, kurz), Rocket (mittel), Cannon (groß, am längsten). Ice, Magic und
+  Poison schießen zwar Projektile, blitzen aber nicht; Fire, Lightning und Tentacle spawnen
+  keine. Das eine PointLight bleibt dauerhaft in der Szene, nur die Intensität wechselt pro
+  Profil (sonst Programmwechsel für alle beleuchteten Materialien)
 
 ---
 
