@@ -49,6 +49,8 @@ export class Enemy extends GameObject {
   deadFlag = false;
   /** Whether the audio component holds loop handles. Written only by AudioComponent (LoopFlagSink). */
   hasAudioLoops = false;
+  /** Whether the transform still turns toward its heading. Written only by TransformComponent (TurningFlagSink). */
+  isTurning = false;
   /** GlobalRouteGrid's memo of this enemy's last cell evaluation, see updateEnemyPosition(). */
   routeCellGen = -1;
   routeCellKey = 0;
@@ -64,7 +66,7 @@ export class Enemy extends GameObject {
 
     // Add components
     this._transform = this.addComponent(
-      new TransformComponent(this),
+      new TransformComponent(this, this),
       ComponentType.TRANSFORM
     );
     this._health = this.addComponent(
