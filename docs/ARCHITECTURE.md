@@ -40,6 +40,7 @@ Server-Anteil und kein Modell:
 | Google Maps 3D Tiles / Cesium-Tiles | extern, Pflicht (Kartendaten) |
 | OSM Nominatim | extern, nur beim Location-Wechsel |
 | Python-Training-Backend (`:3001`) | **nur Training**. Ohne Verbindung laeuft das Spiel unveraendert. |
+| Bots + WebSocket-Client (`ai/training/training-session.ts`) | **nur Training**. Eigener Lazy-Chunk, laedt erst bei Bot-Start oder Backend-Verbindung ([BOT_SYSTEM.md](BOT_SYSTEM.md#integration)). |
 | ONNX-Modell + `onnxruntime-web` | **opt-in**. Wird nicht mehr beim Start geladen. |
 
 Der **Wave-Director sitzt im Client**. Standard ist der regelbasierte Director

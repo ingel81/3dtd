@@ -44,7 +44,7 @@ typischen Singleplayer-Codebase.
 | **Command-Bus mit exakt 7 Player-Commands** | `game-event-bus.ts` + `game-commands.handler.ts` | `place-tower`, `sell-tower`, `upgrade-tower`, `start-wave`, `start-research`, `cancel-research`, `restart-game`. Das ist die *komplette* Input-Oberflaeche — genau das, was ueber die Leitung muss. |
 | **Command-Handler ist bereits vom Game-Loop-Owner getrennt** | `game-commands.handler.ts` | Der Netzwerk-Layer haengt sich zwischen Bus und Handler, ohne Manager anzufassen. |
 | **Serialisierbares Strassennetz** | `pathfinding.worker.ts` — `SerializedStreetNetwork` | Das Format fuer den World-Snapshot existiert schon, inklusive Tests. |
-| **WebSocket-Client-Praezedenz** | `ai/training/training-client.service.ts` | Reconnect, Message-Typing, Lifecycle — als Vorlage fuer den Netzwerk-Client wiederverwendbar. |
+| **WebSocket-Client-Praezedenz** | `ai/training/training-session.ts` | Reconnect, Message-Typing, Lifecycle — als Vorlage fuer den Netzwerk-Client wiederverwendbar. |
 | **Deterministische Bewegung** | `movement.component.ts` | Gegner folgen vorberechneten Geo-Pfaden mit Prefix-Summen. Gleicher Pfad + gleicher Step = gleiche Position. |
 | **Timescale-Konzept** | `trainingTimescale` | Muss im MP auf 1.0 gepinnt (oder mitsynchronisiert) werden — der Hebel dafuer existiert. |
 
@@ -334,7 +334,7 @@ Grob nach Aufwand sortiert, mit Dateibezug:
 4. Checksum-Funktion + Divergenz-Log
 
 **Netzwerk-Layer (neu, `src/app/net/`)**
-5. `NetworkClient` (WS, Reconnect) — Vorlage: `ai/training/training-client.service.ts`
+5. `NetworkClient` (WS, Reconnect) — Vorlage: `ai/training/training-session.ts`
 6. `NetworkCommandInterceptor` + `NetworkCommandQueue` (Tick-Stempel, stabile Ordnung)
 7. Tick-Barriere in `game-state.manager.ts:404`
 8. `WorldSnapshot`-Serializer/Loader
