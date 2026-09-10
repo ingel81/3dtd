@@ -157,27 +157,6 @@ export class MovementComponent extends Component {
     this.paused = false;
   }
 
-  /**
-   * Effective speed INCLUDING any status effects whose duration is still
-   * unexpired. The check `gameTimeMs - startTime < duration` succeeds for
-   * any `gameTimeMs >= startTime` that hasn't yet elapsed the duration,
-   * so walking through the list directly picks up active slow effects.
-   */
-  get effectiveSpeed(): number {
-    let slowMult = 1.0;
-    for (const effect of this.statusEffects) {
-      if (effect.type === 'slow') {
-        // Effect is considered "active" while its startTime + duration hasn't
-        // been consumed — we don't know the current game-clock here, so we
-        // assume it's still within the effect window. Callers that need an
-        // explicit game-time check should use `getEffectiveSpeed(gameTimeMs)`.
-        slowMult = 1 - effect.value;
-        break;
-      }
-    }
-    return this.speedMps * this.speedMultiplier * slowMult;
-  }
-
   /** Get effective speed including any active slow effect at `gameTimeMs`. */
   getEffectiveSpeed(gameTimeMs: number): number {
     return this.speedMps * this.speedMultiplier * this.getSlowMultiplier(gameTimeMs);

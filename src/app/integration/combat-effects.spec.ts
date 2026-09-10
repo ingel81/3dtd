@@ -43,7 +43,7 @@ describe('Combat Effects Integration', () => {
 
   it('should reduce enemy speed when slow effect is applied', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     // Apply slow (50% speed reduction)
     const slow: StatusEffect = {
@@ -55,14 +55,14 @@ describe('Combat Effects Integration', () => {
     };
     enemy.movement.applyStatusEffect(slow);
 
-    const slowedSpeed = enemy.movement.effectiveSpeed;
+    const slowedSpeed = enemy.movement.getEffectiveSpeed(gameTime);
     expect(slowedSpeed).toBe(baseSpeed * 0.5);
     expect(slowedSpeed).toBeLessThan(baseSpeed);
   });
 
   it('should restore speed when slow effect expires', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     const slow: StatusEffect = {
       type: 'slow',
@@ -74,19 +74,37 @@ describe('Combat Effects Integration', () => {
     enemy.movement.applyStatusEffect(slow);
 
     // Speed is reduced
-    expect(enemy.movement.effectiveSpeed).toBe(baseSpeed * 0.5);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed * 0.5);
 
     // Advance time past duration
     advanceTime(1100);
     enemy.movement.removeExpiredEffects(gameTime);
 
     // Speed should be restored
-    expect(enemy.movement.effectiveSpeed).toBe(baseSpeed);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed);
+  });
+
+  it('should ignore an expired slow that has not been cleaned up yet', () => {
+    const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
+
+    enemy.movement.applyStatusEffect({
+      type: 'slow',
+      value: 0.5,
+      duration: 1000,
+      startTime: gameTime,
+      sourceId: 'tower-1',
+    });
+
+    // No removeExpiredEffects: the effect is still listed but over
+    advanceTime(1100);
+    expect(enemy.movement.statusEffects.some(e => e.type === 'slow')).toBe(true);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed);
   });
 
   it('should use ice tower slow values from GAME_BALANCE', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     const { slowAmount, duration } = GAME_BALANCE.effects.ice;
     const slow: StatusEffect = {
@@ -99,17 +117,17 @@ describe('Combat Effects Integration', () => {
     enemy.movement.applyStatusEffect(slow);
 
     const expectedSpeed = baseSpeed * (1 - slowAmount);
-    expect(enemy.movement.effectiveSpeed).toBe(expectedSpeed);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(expectedSpeed);
 
     // After duration, speed restores
     advanceTime(duration + 100);
     enemy.movement.removeExpiredEffects(gameTime);
-    expect(enemy.movement.effectiveSpeed).toBe(baseSpeed);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed);
   });
 
   it('should not stack slow effects — new slow replaces old', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     // Apply first slow
     enemy.movement.applyStatusEffect({
@@ -119,7 +137,7 @@ describe('Combat Effects Integration', () => {
       startTime: gameTime,
       sourceId: 'tower-1',
     });
-    expect(enemy.movement.effectiveSpeed).toBeCloseTo(baseSpeed * 0.7, 5);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBeCloseTo(baseSpeed * 0.7, 5);
 
     // Apply second slow (should replace, not stack)
     enemy.movement.applyStatusEffect({
@@ -131,7 +149,7 @@ describe('Combat Effects Integration', () => {
     });
 
     // Should use the new slow (0.5), not both (0.3 + 0.5)
-    expect(enemy.movement.effectiveSpeed).toBeCloseTo(baseSpeed * 0.5, 5);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBeCloseTo(baseSpeed * 0.5, 5);
 
     // Should only have 1 slow effect
     const slowEffects = enemy.movement.statusEffects.filter(e => e.type === 'slow');
@@ -166,7 +184,7 @@ describe('Combat Effects Integration', () => {
     // With sub-stepping, status-effects are compared against the engine
     // game-clock directly — no /timescale compensation needed.
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     enemy.movement.applyStatusEffect({
       type: 'slow',
@@ -179,12 +197,12 @@ describe('Combat Effects Integration', () => {
     advanceTime(2100); // game-time past the 2s duration
     enemy.movement.removeExpiredEffects(gameTime);
 
-    expect(enemy.movement.effectiveSpeed).toBe(baseSpeed);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed);
   });
 
   it('should keep effect active when not enough time passed', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     enemy.movement.applyStatusEffect({
       type: 'slow',
@@ -199,12 +217,12 @@ describe('Combat Effects Integration', () => {
     enemy.movement.removeExpiredEffects(gameTime);
 
     // Still slowed
-    expect(enemy.movement.effectiveSpeed).toBe(baseSpeed * 0.5);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed * 0.5);
   });
 
   it('should handle health damage + slow together correctly', () => {
     const enemy = m.enemyManager.spawn(TEST_PATH, 'zombie', 10, true);
-    const baseSpeed = enemy.movement.effectiveSpeed;
+    const baseSpeed = enemy.movement.getEffectiveSpeed(gameTime);
 
     // Apply slow
     enemy.movement.applyStatusEffect({
@@ -220,7 +238,7 @@ describe('Combat Effects Integration', () => {
 
     // Enemy should be alive and slowed
     expect(enemy.alive).toBe(true);
-    expect(enemy.movement.effectiveSpeed).toBe(baseSpeed * 0.5);
+    expect(enemy.movement.getEffectiveSpeed(gameTime)).toBe(baseSpeed * 0.5);
     expect(enemy.health.hp).toBe(enemy.health.maxHp - 20);
   });
 });
