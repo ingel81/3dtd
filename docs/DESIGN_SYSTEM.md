@@ -312,7 +312,7 @@ Wiederverwendbare Hinweis-Box fuer kontextabhaengige Aktionen (z.B. Build-Modus)
 Verwendung:
 ```html
 <app-context-hint
-  [hints]="[{key: 'R', description: 'Drehen'}]"
+  [hints]="[{key: 'R', description: 'Rotate'}]"
   [warning]="validationError"
 />
 ```

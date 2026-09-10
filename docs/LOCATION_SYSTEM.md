@@ -120,7 +120,7 @@ Verwaltet den aktuellen Location-State und Favorites. Speichert nur Koordinaten,
 readonly hq = signal<{ lat: number; lon: number } | null>(null);
 readonly spawns = signal<{ lat: number; lon: number }[]>([]);
 readonly needsRandomSpawn = signal<boolean>(false);
-readonly displayName = signal<string>('Kein Ort');
+readonly displayName = signal<string>(NO_LOCATION_NAME);   // 'No location', auch nach reset()
 readonly isApplyingLocation = signal(false);
 readonly favorites = signal<FavoriteLocation[]>([]);
 readonly hasLocation = computed(() => this.hq() !== null);

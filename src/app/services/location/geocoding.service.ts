@@ -40,6 +40,12 @@ export interface ReverseGeocodeResult {
 }
 
 /**
+ * Fallback name when Nominatim returns nothing usable. The location dialog
+ * compares against it to fall back to the HQ name or coordinates.
+ */
+export const UNKNOWN_LOCATION_NAME = 'Unknown location';
+
+/**
  * Geocoding Service using Nominatim (OpenStreetMap) API
  * Provides address search with autocomplete functionality
  */
@@ -188,7 +194,7 @@ export class GeocodingService {
         return;
       }
       console.error('Geocoding error:', err);
-      this.error.set('Adresssuche fehlgeschlagen');
+      this.error.set('Address search failed');
       this.results.set([]);
     } finally {
       this.isLoading.set(false);
@@ -264,7 +270,7 @@ export class GeocodingService {
       }
     }
 
-    return 'Unbekannter Ort';
+    return UNKNOWN_LOCATION_NAME;
   }
 
   /**
@@ -318,7 +324,7 @@ export class GeocodingService {
       parts.push(city);
     }
 
-    return parts.length > 0 ? parts.join(', ') : 'Unbekannter Ort';
+    return parts.length > 0 ? parts.join(', ') : UNKNOWN_LOCATION_NAME;
   }
 
   /**

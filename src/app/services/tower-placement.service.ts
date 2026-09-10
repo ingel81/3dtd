@@ -8,12 +8,11 @@ import { GeoPosition } from '../models/game.types';
 import { Tower } from '../entities/tower.entity';
 import type { GameStateManager } from '../managers/game-state.manager';
 import { TowerTypeId, TOWER_TYPES } from '../configs/tower-types.config';
-import { PLACEMENT_CONFIG } from '../configs/placement.config';
 import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { findNearestRouteDistance } from '../utils/geo-utils';
+import { checkTowerPlacement, TowerPlacementResult } from '../utils/tower-placement-rules';
 import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
@@ -730,71 +729,12 @@ export class TowerPlacementService {
     return Array.from(cachedPaths.values());
   }
 
-  validateTowerPosition(lat: number, lon: number): { valid: boolean; reason?: string } {
-    if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
-      return { valid: false, reason: 'Service not initialized' };
-    }
-
-    if (this.streetNetwork.streets.length === 0) {
-      return { valid: false, reason: 'No streets loaded' };
-    }
-
-    // Check bounds
-    const bounds = this.streetNetwork.bounds;
-    const inBounds = lat >= bounds.minLat && lat <= bounds.maxLat &&
-                     lon >= bounds.minLon && lon <= bounds.maxLon;
-    if (!inBounds) {
-      return { valid: false, reason: 'Ausserhalb Spielbereich' };
-    }
-
-    // Check distance to base
-    const distToBase = this.osmService.haversineDistance(lat, lon, this.baseCoords.lat, this.baseCoords.lon);
-    if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
-      return { valid: false, reason: `Zu nah an Basis` };
-    }
-
-    // Check distance to spawns (read from store signal - always current)
-    const currentSpawns = this.store.spawnPoints();
-    for (const spawn of currentSpawns) {
-      const distToSpawn = this.osmService.haversineDistance(lat, lon, spawn.lat, spawn.lon);
-      // TEMP DEBUG - remove after diagnosis
-      if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
-        console.warn(`[PlacementDebug] BLOCKED spawn="${spawn.name}" spawn=(${spawn.lat.toFixed(6)},${spawn.lon.toFixed(6)}) cursor=(${lat.toFixed(6)},${lon.toFixed(6)}) dist=${distToSpawn.toFixed(1)}m threshold=${PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN}m`);
-        return { valid: false, reason: `Zu nah am Spawn` };
-      }
-    }
-
-    // Check distance to other towers
-    if (this.gameState) {
-      for (const tower of this.gameState.towerManager.getAll()) {
-        const distToTower = this.osmService.haversineDistance(lat, lon, tower.position.lat, tower.position.lon);
-        if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
-          return { valid: false, reason: `Zu nah an Tower` };
-        }
-      }
-    }
-
-    // Check distance to active enemy routes (not all streets)
-    const activeRoutes = this.getActiveRoutes();
-    if (activeRoutes.length > 0) {
-      const routeDistance = findNearestRouteDistance(activeRoutes, lat, lon);
-      if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
-        return { valid: false, reason: 'Zu nah an Route' };
-      }
-    }
-    // If no routes exist yet (before game start), allow placement anywhere
-
-    // Note: Buildings are NOT a collision obstacle — placement service raises
-    // tower height to roof level via raycastDown against terrain+buildings,
-    // so towers sit naturally on rooftops when positioned over a building.
-
-    return { valid: true };
-  }
-
   /**
-   * Validate tower position with explicit height (for bot/API usage)
+   * Prüft eine Position gegen die Platzierungsregeln. Gemeinsamer Pfad für
+   * Maus-Vorschau, Klick und Bot (Training-Client); die Regeln selbst stehen
+   * in `checkTowerPlacement`.
    */
-  validateTowerPositionWithHeight(geoPos: GeoPosition): { valid: boolean; reason?: string } {
+  validateTowerPosition(lat: number, lon: number): TowerPlacementResult {
     if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
       return { valid: false, reason: 'Service not initialized' };
     }
@@ -803,53 +743,15 @@ export class TowerPlacementService {
       return { valid: false, reason: 'No streets loaded' };
     }
 
-    // Check bounds
-    const bounds = this.streetNetwork.bounds;
-    const inBounds = geoPos.lat >= bounds.minLat && geoPos.lat <= bounds.maxLat &&
-                     geoPos.lon >= bounds.minLon && geoPos.lon <= bounds.maxLon;
-    if (!inBounds) {
-      return { valid: false, reason: 'Outside play area' };
-    }
-
-    // Check distance to base
-    const distToBase = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, this.baseCoords.lat, this.baseCoords.lon);
-    if (distToBase < PLACEMENT_CONFIG.MIN_DISTANCE_TO_BASE) {
-      return { valid: false, reason: `Too close to base` };
-    }
-
-    // Check distance to spawns (read from store signal - always current)
-    const currentSpawns = this.store.spawnPoints();
-    for (const spawn of currentSpawns) {
-      const distToSpawn = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, spawn.lat, spawn.lon);
-      if (distToSpawn < PLACEMENT_CONFIG.MIN_DISTANCE_TO_SPAWN) {
-        return { valid: false, reason: `Too close to spawn` };
-      }
-    }
-
-    // Check distance to other towers
-    if (this.gameState) {
-      for (const tower of this.gameState.towerManager.getAll()) {
-        const distToTower = this.osmService.haversineDistance(geoPos.lat, geoPos.lon, tower.position.lat, tower.position.lon);
-        if (distToTower < PLACEMENT_CONFIG.MIN_DISTANCE_TO_OTHER_TOWER) {
-          return { valid: false, reason: `Too close to tower` };
-        }
-      }
-    }
-
-    // Check distance to active enemy routes (not all streets)
-    const activeRoutes = this.getActiveRoutes();
-    if (activeRoutes.length > 0) {
-      const routeDistance = findNearestRouteDistance(activeRoutes, geoPos.lat, geoPos.lon);
-      if (routeDistance < PLACEMENT_CONFIG.MIN_DISTANCE_TO_ROUTE) {
-        return { valid: false, reason: 'Too close to route' };
-      }
-    }
-    // If no routes exist yet (before game start), allow placement anywhere
-
-    // Note: see validateTowerPosition — buildings are not obstacles;
-    // towers are automatically raised to roof level.
-
-    return { valid: true };
+    return checkTowerPlacement(lat, lon, {
+      bounds: this.streetNetwork.bounds,
+      base: this.baseCoords,
+      // Aus dem Store-Signal, damit verschobene Spawns sofort gelten
+      spawns: this.store.spawnPoints(),
+      towers: this.gameState?.towerManager.getAll() ?? [],
+      routes: this.getActiveRoutes(),
+      geo: this.osmService,
+    });
   }
 
   // ========================================

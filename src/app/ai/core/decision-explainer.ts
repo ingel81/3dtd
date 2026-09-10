@@ -78,16 +78,16 @@ function analyzeDefense(
   // Tower count
   if (defense.towerCount < 3) {
     factors.push({
-      name: 'Tower-Anzahl',
-      value: `${defense.towerCount} (niedrig)`,
+      name: 'Tower count',
+      value: `${defense.towerCount} (low)`,
       impact: 'negative',
       weight: 0.8,
     });
-    reasons.push('Wenige Tower platziert - Defense noch schwach');
+    reasons.push('Few towers placed, defense still weak');
   } else if (defense.towerCount > 10) {
     factors.push({
-      name: 'Tower-Anzahl',
-      value: `${defense.towerCount} (stark)`,
+      name: 'Tower count',
+      value: `${defense.towerCount} (strong)`,
       impact: 'positive',
       weight: 0.6,
     });
@@ -96,16 +96,16 @@ function analyzeDefense(
   // DPS
   if (defense.totalDPS > 500) {
     factors.push({
-      name: 'Gesamt-DPS',
+      name: 'Total DPS',
       value: `${Math.round(defense.totalDPS)}`,
       impact: 'positive',
       weight: 0.7,
     });
-    reasons.push('Hoher DPS - Staerkere Gegner noetig');
+    reasons.push('High DPS, stronger enemies needed');
   } else if (defense.totalDPS < 100) {
     factors.push({
-      name: 'Gesamt-DPS',
-      value: `${Math.round(defense.totalDPS)} (niedrig)`,
+      name: 'Total DPS',
+      value: `${Math.round(defense.totalDPS)} (low)`,
       impact: 'negative',
       weight: 0.7,
     });
@@ -114,34 +114,34 @@ function analyzeDefense(
   // Path coverage
   if (defense.pathCoverage < 0.5) {
     factors.push({
-      name: 'Pfad-Abdeckung',
+      name: 'Path coverage',
       value: `${Math.round(defense.pathCoverage * 100)}%`,
       impact: 'negative',
       weight: 0.6,
     });
-    reasons.push('Teile des Pfads sind ungeschuetzt');
+    reasons.push('Parts of the path are unprotected');
   }
 
   // Kill zone
   if (defense.killZoneStrength > 0.5) {
     factors.push({
-      name: 'Kill-Zone',
-      value: 'Stark',
+      name: 'Kill zone',
+      value: 'Strong',
       impact: 'positive',
       weight: 0.5,
     });
-    reasons.push('Starke Kill-Zone erkannt - vermeide Konzentration dort');
+    reasons.push('Strong kill zone detected, avoid concentrating there');
   }
 
   // Tower variety
   if (defense.towerVariety < 0.3) {
     factors.push({
-      name: 'Tower-Vielfalt',
-      value: 'Einseitig',
+      name: 'Tower variety',
+      value: 'One-sided',
       impact: 'neutral',
       weight: 0.4,
     });
-    reasons.push('Wenig Tower-Vielfalt - kann ausgenutzt werden');
+    reasons.push('Little tower variety, can be exploited');
   }
 }
 
@@ -158,8 +158,8 @@ function analyzeVulnerabilities(
 
   if (vulnerabilities.airDefenseGap) {
     factors.push({
-      name: 'Luft-Abwehr',
-      value: 'Fehlt!',
+      name: 'Air defense',
+      value: 'Missing!',
       impact: 'negative',
       weight: 0.9,
     });
@@ -167,47 +167,47 @@ function analyzeVulnerabilities(
     // Check if we're exploiting this
     const hasAirEnemies = config.enemies.some((e) => e.type === 'bat');
     if (hasAirEnemies) {
-      reasons.push('Keine Anti-Air Tower -> Sende Fluegel-Gegner');
+      reasons.push('No anti-air towers -> sending flying enemies');
     } else {
-      reasons.push('Keine Anti-Air Tower (wird bald ausgenutzt)');
+      reasons.push('No anti-air towers (will be exploited soon)');
     }
   }
 
   if (vulnerabilities.splashGap) {
     factors.push({
-      name: 'Splash-Damage',
-      value: 'Fehlt',
+      name: 'Splash damage',
+      value: 'Missing',
       impact: 'negative',
       weight: 0.7,
     });
 
     if (config.templateName?.toLowerCase().includes('swarm') || config.templateName?.toLowerCase().includes('tide')) {
-      reasons.push('Kein Splash-Damage -> Sende Schwarm');
+      reasons.push('No splash damage -> sending a swarm');
     }
   }
 
   if (vulnerabilities.slowGap) {
     factors.push({
-      name: 'Slow-Effekt',
-      value: 'Fehlt',
+      name: 'Slow effect',
+      value: 'Missing',
       impact: 'negative',
       weight: 0.6,
     });
 
     if (config.templateName?.toLowerCase().includes('rush')) {
-      reasons.push('Keine Slow-Tower -> Sende schnelle Gegner');
+      reasons.push('No slow towers -> sending fast enemies');
     }
   }
 
   // Overall vulnerability
   if (vulnerabilities.overallVulnerability > 0.6) {
     factors.push({
-      name: 'Gesamt-Verwundbarkeit',
-      value: 'Hoch',
+      name: 'Overall vulnerability',
+      value: 'High',
       impact: 'negative',
       weight: 0.8,
     });
-    reasons.push('Defense hat mehrere Schwachstellen');
+    reasons.push('Defense has several weak spots');
   }
 }
 
@@ -224,23 +224,23 @@ function analyzeHistory(
   // Win streak
   if (recentHistory.winStreak >= 3) {
     factors.push({
-      name: 'Win-Streak',
-      value: `${recentHistory.winStreak} Wellen`,
+      name: 'Win streak',
+      value: `${recentHistory.winStreak} waves`,
       impact: 'positive',
       weight: 0.7,
     });
-    reasons.push(`${recentHistory.winStreak} Wellen ohne Schaden - erhoehe Schwierigkeit`);
+    reasons.push(`${recentHistory.winStreak} waves without damage, raising difficulty`);
   }
 
   // Close call streak (mercy system)
   if (recentHistory.closeCallStreak >= 2) {
     factors.push({
-      name: 'Close-Calls',
-      value: `${recentHistory.closeCallStreak}× knapp`,
+      name: 'Close calls',
+      value: `${recentHistory.closeCallStreak}× close`,
       impact: 'negative',
       weight: 0.8,
     });
-    reasons.push('Spieler kaempft - gebe leichtere Welle (Mercy)');
+    reasons.push('Player is struggling, sending an easier wave (mercy)');
   }
 
   // Recent damage trend
@@ -251,15 +251,15 @@ function analyzeHistory(
 
     if (avgRecent > 0.3) {
       factors.push({
-        name: 'Schadens-Trend',
+        name: 'Damage trend',
         value: `${Math.round(avgRecent * 100)}% avg`,
         impact: 'negative',
         weight: 0.6,
       });
     } else if (avgRecent === 0) {
       factors.push({
-        name: 'Schadens-Trend',
-        value: 'Kein Schaden',
+        name: 'Damage trend',
+        value: 'No damage',
         impact: 'positive',
         weight: 0.6,
       });
@@ -279,9 +279,9 @@ function generateSummary(
   const totalEnemies = config.totalCount;
   const templateName = config.templateName ?? 'Template';
   const strengthPart = config.templateStrength !== undefined
-    ? ` (Stärke ${config.templateStrength.toFixed(2)}×)`
+    ? ` (strength ${config.templateStrength.toFixed(2)}×)`
     : '';
-  return `Welle ${wave}: ${templateName}${strengthPart} — ${totalEnemies} Gegner`;
+  return `Wave ${wave}: ${templateName}${strengthPart} · ${totalEnemies} enemies`;
 }
 
 /**
@@ -300,11 +300,11 @@ export function formatExplanationForUI(explanation: DecisionExplanation): string
     lines.push(`Template: ${explanation.templateName}${strength}`);
   }
 
-  lines.push(`Konfidenz: ${Math.round(explanation.confidence * 100)}%`);
+  lines.push(`Confidence: ${Math.round(explanation.confidence * 100)}%`);
   lines.push('');
 
   if (explanation.reasons.length > 0) {
-    lines.push('Gruende:');
+    lines.push('Reasons:');
     for (const reason of explanation.reasons) {
       lines.push(`  • ${reason}`);
     }
@@ -312,7 +312,7 @@ export function formatExplanationForUI(explanation: DecisionExplanation): string
   }
 
   if (explanation.factors.length > 0) {
-    lines.push('Faktoren:');
+    lines.push('Factors:');
     for (const factor of explanation.factors) {
       const icon =
         factor.impact === 'positive' ? '+' : factor.impact === 'negative' ? '-' : '•';

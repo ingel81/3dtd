@@ -735,7 +735,7 @@ Die `ContextHintComponent` ist wiederverwendbar:
 
 ```typescript
 <app-context-hint
-  [hints]="[{key: 'R', description: 'Drehen'}]"
-  [warning]="'Zu nah an Straße'"
+  [hints]="[{key: 'R', description: 'Rotate'}]"
+  [warning]="'Too close to route'"
 />
 ```
