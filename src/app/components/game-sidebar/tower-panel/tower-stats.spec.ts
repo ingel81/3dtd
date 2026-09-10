@@ -1,6 +1,23 @@
 import { describe, it, expect } from 'vitest';
-import { damageTypeIcon, targetingStrategiesFor, towerDps, upgradeTierLockReason } from './tower-stats';
+import {
+  damageTypeIcon,
+  targetingStrategiesFor,
+  towerDps,
+  towerStats,
+  upgradeTierLockReason,
+} from './tower-stats';
 import { TOWER_TYPES, TowerTypeId } from '../../../configs/tower-types.config';
+
+describe('towerStats', () => {
+  it('takes combat values, DPS, kills and sell value from the tower', () => {
+    const tower = {
+      typeConfig: TOWER_TYPES.archer,
+      combat: { damage: 30, fireRate: 1.5, range: 32, kills: 7 },
+      getSellValue: () => 90,
+    };
+    expect(towerStats(tower)).toEqual({ damage: 30, fireRate: 1.5, range: 32, dps: 45, kills: 7, sellValue: 90 });
+  });
+});
 
 describe('towerDps', () => {
   it('multiplies damage and fire rate of a projectile tower', () => {

@@ -5,25 +5,30 @@ import { EnemyManager } from '../../managers/enemy.manager';
 import { CombatVfxService } from './combat-vfx.service';
 import { DamageType, DamageResult } from '../../configs/combat/combat.types';
 import { calculateDamage } from '../../utils/damage-calculator';
+import { GameEventBus } from '../../game-engine/game-event-bus';
 
 /**
  * DamageApplicationService - Applies damage to enemies and handles kills
  *
  * Extracted from CombatEffectService for Single Responsibility.
- * Pure damage logic — applies HP reduction, triggers death, tracks tower kills.
+ * Pure damage logic — applies HP reduction, triggers death, tracks tower kills
+ * and announces them as `tower:kill`.
  * Delegates visual effects to CombatVfxService.
  */
 @Injectable({ providedIn: 'root' })
 export class DamageApplicationService {
   private towerManager: TowerManager | null = null;
   private enemyManager: EnemyManager | null = null;
+  private eventBus: GameEventBus | null = null;
 
   initialize(
     towerManager: TowerManager,
     enemyManager: EnemyManager,
+    eventBus: GameEventBus,
   ): void {
     this.towerManager = towerManager;
     this.enemyManager = enemyManager;
+    this.eventBus = eventBus;
   }
 
   /**
@@ -121,6 +126,7 @@ export class DamageApplicationService {
     const sourceTower = this.towerManager.getById(sourceTowerId);
     if (sourceTower) {
       sourceTower.combat.kills++;
+      this.eventBus?.emit({ type: 'tower:kill', tower: sourceTower });
     }
   }
 }

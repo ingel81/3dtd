@@ -35,6 +35,31 @@ export function towerDps(tower: {
   return tower.combat.damage * tower.combat.fireRate;
 }
 
+/** Anzeige-Werte des Tower-Details, ein Schnappschuss des mutablen Entities. */
+export interface TowerStats {
+  damage: number;
+  fireRate: number;
+  range: number;
+  dps: number;
+  kills: number;
+  sellValue: number;
+}
+
+export function towerStats(tower: {
+  typeConfig: TowerTypeConfig;
+  combat: { damage: number; fireRate: number; range: number; kills: number };
+  getSellValue(): number;
+}): TowerStats {
+  return {
+    damage: tower.combat.damage,
+    fireRate: tower.combat.fireRate,
+    range: tower.combat.range,
+    dps: towerDps(tower),
+    kills: tower.combat.kills,
+    sellValue: tower.getSellValue(),
+  };
+}
+
 /**
  * Targeting-Buttons eines Towers. Air-Priorität gibt es nur für Tower, die
  * laut Basis-Config Boden und Luft treffen.

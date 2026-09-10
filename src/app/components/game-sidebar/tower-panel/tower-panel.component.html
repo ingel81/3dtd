@@ -1,20 +1,15 @@
 <!-- NORMAL TOWER Panel -->
-<!-- Der Tower ist ein mutables Entity: Kills, Stats und Verkaufswert ändern
-     sich ohne Signal. Credits ändern sich bei jedem Kill, Kauf und Verkauf;
-     hier oben gelesen zeichnen sie das OnPush-Panel neu, auch wenn keine
-     Upgrade-Kachel mehr da ist. -->
-@let credits = store.credits();
 <section class="td-panel td-tower-panel">
   <div class="td-panel-header td-tower-header">
     <span class="td-tower-header-name">{{ tower().typeConfig.name | uppercase }}</span>
-    @if (tower().getSellValue() > 0) {
+    @if (stats().sellValue > 0) {
       <button class="td-header-sell-btn"
               [matTooltip]="'Sell tower: refunds 75% of total invested (base + upgrades)'"
               matTooltipPosition="left"
-              [attr.aria-label]="'Sell for ' + tower().getSellValue() + ' credits'"
+              [attr.aria-label]="'Sell for ' + stats().sellValue + ' credits'"
               (click)="sellTower.emit()">
         <td-icon name="coin" [size]="14"></td-icon>
-        <span class="td-header-sell-value">+{{ tower().getSellValue() }}</span>
+        <span class="td-header-sell-value">+{{ stats().sellValue }}</span>
       </button>
     }
     <button class="td-matrix-btn" type="button" (click)="openDamageMatrix()"
@@ -35,27 +30,27 @@
       </div>
       <div class="td-stat-tile">
         <td-icon class="td-stat-icon td-icon-damage" name="flame" [size]="18"></td-icon>
-        <span class="td-stat-value td-val-damage">{{ tower().combat.damage | number:'1.0-0' }}</span>
+        <span class="td-stat-value td-val-damage">{{ stats().damage | number:'1.0-0' }}</span>
         <span class="td-stat-label">Damage</span>
       </div>
       <div class="td-stat-tile">
         <td-icon class="td-stat-icon td-icon-firerate" name="speed" [size]="18"></td-icon>
-        <span class="td-stat-value">{{ tower().combat.fireRate | number:'1.2-2' }}/s</span>
+        <span class="td-stat-value">{{ stats().fireRate | number:'1.2-2' }}/s</span>
         <span class="td-stat-label">Fire Rate</span>
       </div>
       <div class="td-stat-tile">
         <td-icon class="td-stat-icon td-icon-range" name="target" [size]="18"></td-icon>
-        <span class="td-stat-value">{{ tower().combat.range | number:'1.0-0' }}m</span>
+        <span class="td-stat-value">{{ stats().range | number:'1.0-0' }}m</span>
         <span class="td-stat-label">Range</span>
       </div>
       <div class="td-stat-tile">
         <td-icon class="td-stat-icon td-icon-firerate" name="bolt" [size]="18"></td-icon>
-        <span class="td-stat-value">{{ getDps() | number:'1.0-0' }}</span>
+        <span class="td-stat-value">{{ stats().dps | number:'1.0-0' }}</span>
         <span class="td-stat-label">DPS</span>
       </div>
       <div class="td-stat-tile">
         <td-icon class="td-stat-icon td-icon-kills" name="shield" [size]="18"></td-icon>
-        <span class="td-stat-value td-val-kills">{{ tower().combat.kills }}</span>
+        <span class="td-stat-value td-val-kills">{{ stats().kills }}</span>
         <span class="td-stat-label">Kills</span>
       </div>
     </div>
@@ -94,9 +89,9 @@
         @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
           <button
             class="td-upgrade-tile"
-            [class.td-upgrade-affordable]="credits >= tower().getNextUpgradeCost(upgrade.id) && isUpgradeTierUnlocked(upgrade.id)"
+            [class.td-upgrade-affordable]="store.credits() >= tower().getNextUpgradeCost(upgrade.id) && isUpgradeTierUnlocked(upgrade.id)"
             [class.td-upgrade-tier-locked]="!isUpgradeTierUnlocked(upgrade.id)"
-            [disabled]="credits < tower().getNextUpgradeCost(upgrade.id) || !isUpgradeTierUnlocked(upgrade.id)"
+            [disabled]="store.credits() < tower().getNextUpgradeCost(upgrade.id) || !isUpgradeTierUnlocked(upgrade.id)"
             (click)="onUpgradeTower(upgrade.id)"
             [matTooltip]="getUpgradeTierLockReason(upgrade.id) ?? upgrade.description"
             matTooltipPosition="left"

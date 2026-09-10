@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'vitest';
-import { missingPrereqNames, researchNodeIcon, researchStatus } from './research-status';
+import {
+  missingPrereqNames,
+  researchNodeIcon,
+  researchProgress,
+  researchRemaining,
+  researchStatus,
+} from './research-status';
 import { RESEARCH_TREE } from '../../../configs/research/research-tree.config';
 import { ActiveResearch, ResearchId } from '../../../configs/research/research.types';
 
@@ -35,6 +41,18 @@ describe('researchNodeIcon', () => {
     expect(researchNodeIcon(gatling, 'active')).toBe('refresh');
     expect(researchNodeIcon(gatling, 'locked')).toBe('lock');
     expect(researchNodeIcon(gatling, 'available')).toBe('speed');
+  });
+});
+
+describe('researchProgress / researchRemaining', () => {
+  it('derive bar and countdown from the elapsed game time', () => {
+    expect(researchProgress(20, 5)).toBe(0.25);
+    expect(researchRemaining(20, 5)).toBe(15);
+  });
+
+  it('clamp once the time is up', () => {
+    expect(researchProgress(20, 25)).toBe(1);
+    expect(researchRemaining(20, 25)).toBe(0);
   });
 });
 

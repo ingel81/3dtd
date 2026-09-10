@@ -1,14 +1,21 @@
-import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, computed, inject, input, output } from '@angular/core';
 import { DecimalPipe } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { TowerDefenseStore } from '../../../store/tower-defense.store';
 import { ResearchStore } from '../../../store/research.store';
 import { UpgradeId } from '../../../configs/tower-types.config';
 import { RESEARCH_TREE, getResearch } from '../../../configs/research/research-tree.config';
-import { ResearchConfig, ResearchId } from '../../../configs/research/research.types';
+import { ActiveResearch, ResearchConfig, ResearchId } from '../../../configs/research/research.types';
 import { Tower } from '../../../entities/tower.entity';
 import { TdIconComponent } from '../../icon/icon.component';
-import { missingPrereqNames, researchNodeIcon, researchStatus, ResearchStatus } from './research-status';
+import {
+  missingPrereqNames,
+  researchNodeIcon,
+  researchProgress,
+  researchRemaining,
+  researchStatus,
+  ResearchStatus,
+} from './research-status';
 
 /**
  * Panel des gewählten Research Centers: laufende Forschungen mit
@@ -35,6 +42,12 @@ export class SidebarResearchPanelComponent {
 
   readonly allResearches = Object.values(RESEARCH_TREE);
 
+  /** Verkaufswert; ändert sich mit Upgrades, siehe `selectedTowerRevision`. */
+  readonly sellValue = computed(() => {
+    this.store.selectedTowerRevision();
+    return this.tower().getSellValue();
+  });
+
   getResearchStatus(id: ResearchId): ResearchStatus {
     return researchStatus(
       id,
@@ -47,16 +60,12 @@ export class SidebarResearchPanelComponent {
     return researchNodeIcon(research, this.getResearchStatus(research.id));
   }
 
-  getActiveResearchProgress(id: ResearchId): number {
-    const active = this.researchStore.activeResearches().find(a => a.researchId === id);
-    if (!active) return 0;
-    return Math.min(1, active.elapsed / active.duration);
+  getActiveResearchProgress(active: ActiveResearch): number {
+    return researchProgress(active.duration, this.elapsedOf(active));
   }
 
-  getActiveResearchRemaining(id: ResearchId): number {
-    const active = this.researchStore.activeResearches().find(a => a.researchId === id);
-    if (!active) return 0;
-    return Math.max(0, active.duration - active.elapsed);
+  getActiveResearchRemaining(active: ActiveResearch): number {
+    return researchRemaining(active.duration, this.elapsedOf(active));
   }
 
   getResearchName(id: ResearchId): string {
@@ -69,5 +78,13 @@ export class SidebarResearchPanelComponent {
 
   onUpgradeTower(upgradeId: UpgradeId): void {
     this.upgradeTower.emit({ tower: this.tower(), upgradeId });
+  }
+
+  /**
+   * Vergangene Spielzeit aus `researchElapsed` (10 Hz per `research:progress`),
+   * nicht aus `active.elapsed`: das zählt der ResearchManager ohne Signal hoch.
+   */
+  private elapsedOf(active: ActiveResearch): number {
+    return this.researchStore.researchElapsed().get(active.researchId) ?? 0;
   }
 }

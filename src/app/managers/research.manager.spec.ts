@@ -213,6 +213,38 @@ describe('ResearchManager', () => {
       rm.onCenterPlaced();
       expect(() => rm.update(16)).not.toThrow();
     });
+
+    it('reports progress at most every 100 ms of wall time', () => {
+      const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+      try {
+        rm.onCenterPlaced();
+        rm.startResearch(NO_PREREQ_ID);
+        const handler = vi.fn();
+        bus.on('research:progress', handler);
+
+        rm.update(1000);
+        expect(handler).toHaveBeenCalledTimes(1);
+        expect(handler.mock.calls[0][0].elapsed.get(NO_PREREQ_ID)).toBe(1);
+
+        rm.update(1000); // gleiche Wanduhr: gedrosselt
+        expect(handler).toHaveBeenCalledTimes(1);
+
+        now.mockReturnValue(1100);
+        rm.update(1000);
+        expect(handler).toHaveBeenCalledTimes(2);
+        expect(handler.mock.calls[1][0].elapsed.get(NO_PREREQ_ID)).toBe(3);
+      } finally {
+        now.mockRestore();
+      }
+    });
+
+    it('reports no progress while nothing is researched', () => {
+      const handler = vi.fn();
+      bus.on('research:progress', handler);
+      rm.onCenterPlaced();
+      rm.update(1000);
+      expect(handler).not.toHaveBeenCalled();
+    });
   });
 
   // -------------------------------------------------------------------------

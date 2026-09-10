@@ -28,6 +28,16 @@ export function researchNodeIcon(research: ResearchConfig, status: ResearchStatu
   return research.icon; // td-icon name set in research-tree.config
 }
 
+/** Fortschritt 0..1 einer laufenden Forschung. */
+export function researchProgress(duration: number, elapsed: number): number {
+  return Math.min(1, elapsed / duration);
+}
+
+/** Verbleibende Spielzeit (s) einer laufenden Forschung. */
+export function researchRemaining(duration: number, elapsed: number): number {
+  return Math.max(0, duration - elapsed);
+}
+
 /** Namen der noch fehlenden Voraussetzungen, kommagetrennt. */
 export function missingPrereqNames(id: ResearchId, completed: ReadonlySet<ResearchId>): string {
   const config = getResearch(id);

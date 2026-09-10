@@ -225,7 +225,8 @@ expect(store.canStartWave()).toBe(false);
 | Game-State (credits, health) | Store (GameStore) | Component, Facade, AI | GameStateSyncService (via EventBus) |
 | Location (coords, spawns) | Store (LocationStore) | Component, Facade | Facade (nach Location-Change) |
 | Engine-Stats (fps, tiles) | Store (EngineStore) | Component (Template) | Facade (aus Game-Loop) |
-| Research-State | Store (ResearchStore) | Component, ResearchManager | GameStateSyncService (`research:state-changed`) |
+| Research-State | Store (ResearchStore) | Component, ResearchManager | GameStateSyncService (`research:state-changed`, `research:progress`) |
+| Kills/Stats des gewählten Towers | Store (GameStore `selectedTowerRevision`) | Sidebar (Tower-/Research-Panel) | GameStateSyncService (`tower:kill`, `tower:upgraded`) |
 | Debug-Panel (wave/tower/enemy overrides) | Store (DebugStore) | WaveDebug/TowerDebug/EnemyDebug Services | Services intern (delegieren an Store) |
 | Bot/AI (useAIDirector, aiExplanation) | Store (GameStore) | Component (Template) | Facade (Toggle + Fehlerpfad) |
 | Bot/AI (botEnabled, botSkillLevel, botAutoMode) | TrainingClientService | Component, Facade | TrainingClientService intern |

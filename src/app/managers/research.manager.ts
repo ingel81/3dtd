@@ -31,6 +31,10 @@ export class ResearchManager implements IGameManager {
   private _centerLevel = 0; // 0 = not placed, 1-3 = placed + level
   private _maxSlots = 1;
 
+  /** Mindestabstand zweier `research:progress`-Events (Wanduhr, 10 Hz). */
+  private static readonly PROGRESS_INTERVAL_MS = 100;
+  private lastProgressEmitAt = -Infinity;
+
   constructor(private readonly eventBus: GameEventBus) {}
 
   // ==================== Queries ====================
@@ -311,6 +315,25 @@ export class ResearchManager implements IGameManager {
     if (completed.length > 0) {
       this.emitStateSnapshot();
     }
+    this.emitProgress();
+  }
+
+  /**
+   * Fortschritt für die UI, höchstens alle 100 ms. Nach Wanduhr statt
+   * Spielzeit gedrosselt, damit es auch bei x4 und Training-Timescales bei
+   * 10 Updates pro Sekunde bleibt; die Spiellogik liest das Event nicht.
+   */
+  private emitProgress(): void {
+    if (this.activeResearches.size === 0) return;
+    const now = performance.now();
+    if (now - this.lastProgressEmitAt < ResearchManager.PROGRESS_INTERVAL_MS) return;
+    this.lastProgressEmitAt = now;
+
+    const elapsed = new Map<ResearchId, number>();
+    for (const [id, active] of this.activeResearches) {
+      elapsed.set(id, active.elapsed);
+    }
+    this.eventBus.emit({ type: 'research:progress', elapsed });
   }
 
   /**
@@ -345,6 +368,7 @@ export class ResearchManager implements IGameManager {
     this.activeResearches.clear();
     this._centerLevel = 0;
     this._maxSlots = 1;
+    this.lastProgressEmitAt = -Infinity;
   }
 
   /** IGameManager.destroy — alias for `reset()`. */

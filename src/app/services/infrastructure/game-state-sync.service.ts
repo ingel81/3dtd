@@ -89,6 +89,16 @@ export class GameStateSyncService {
       this.store.selectedTower.set(null);
     }));
 
+    // Tower sind mutable Entities: Kills und Upgrades des gewählten Towers
+    // zählen eine Revision hoch, aus der die Sidebar ihre Anzeige ableitet.
+    const bumpIfSelected = (towerId: string) => {
+      if (towerId === this.store.selectedTowerId()) {
+        this.store.selectedTowerRevision.update(n => n + 1);
+      }
+    };
+    this.subs.add(eventBus.on('tower:kill', (event) => bumpIfSelected(event.tower.id)));
+    this.subs.add(eventBus.on('tower:upgraded', (event) => bumpIfSelected(event.tower.id)));
+
     // ── Enemy lifecycle ───────────────────────────────────────────
     this.subs.add(eventBus.on('enemy:spawned', (_event) => {
       this.store.enemiesAlive.update(n => n + 1);
@@ -107,9 +117,17 @@ export class GameStateSyncService {
     // ResearchManager emittiert ihn nach jeder State-Mutation.
     this.subs.add(eventBus.on('research:state-changed', (event) => {
       this.researchStore.activeResearches.set(event.activeResearches);
+      this.researchStore.researchElapsed.set(
+        new Map(event.activeResearches.map(a => [a.researchId, a.elapsed])),
+      );
       this.researchStore.completedResearches.set(event.completedResearches);
       this.researchStore.centerLevel.set(event.centerLevel);
       this.researchStore.researchSlots.set(event.maxSlots);
+    }));
+
+    // Fortschritt zwischen den Snapshots, vom ResearchManager auf 10 Hz gedrosselt
+    this.subs.add(eventBus.on('research:progress', (event) => {
+      this.researchStore.researchElapsed.set(event.elapsed);
     }));
 
     // research:completed bleibt zusätzlich, um Effects auf den Store anzuwenden
