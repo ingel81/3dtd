@@ -280,8 +280,9 @@ Welle 9 als Start, damit Forschung und Bau bis W13 fertig werden. Auswahl über
 Aktiv bei `vulnerabilities.splashGap`, ab Welle 3. Liest Splash aus
 `isSplashTower`, das ihn aus der Tower-Config ableitet (Projektil mit
 `splashRadius`, Beam, Chain): Cannon, Ice, Poison, Fire und Lightning. Die
-Rocket hat keinen Splash und zählt nicht. Auswahl nach `getTowerValue` (roh, weil
-Splash typunabhängig wirkt).
+Rocket hat keinen Splash und zählt nicht. Auswahl nach `getTowerValueVsArmor`,
+gewichtet mit `expectedArmorDistribution` (ohne Verteilung roh nach `getTowerValue`):
+seit der Matrix-Spreizung 2026-09 ist die Cannon gegen weiche Schwärme schwach (0,5).
 
 ### ResearchPick — 80
 

@@ -19,6 +19,7 @@ import {
   VulnerabilityAnalysis,
 } from './models/game-state-snapshot';
 import { computeTowerDPS, canTargetAirEffective, armorMultipliersFor } from './tower-dps.util';
+import { FAIRNESS_MATCHUP_FLOOR } from './templates';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 
 /**
@@ -68,7 +69,8 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
   const antiAirDPS = calculateAntiAirDPS(towers, airTargetingUnlocked);
   const avgLevel = calculateAvgLevel(towers);
   const towerVariety = calculateTowerVariety(towers);
-  const effectiveDPSPerArmor = calculateEffectiveDPSPerArmor(towers, airTargetingUnlocked);
+  const { effective: effectiveDPSPerArmor, gate: gateDpsPerArmor } =
+    calculateDPSPerArmor(towers, airTargetingUnlocked);
   const aoeDpsShare = calculateAoeDpsShare(towers, airTargetingUnlocked);
   const killThroughput = calculateKillThroughput(towers, airTargetingUnlocked);
 
@@ -84,6 +86,7 @@ export function analyzeDefense(towers: Tower[], airTargetingUnlocked: boolean): 
     capabilities,
     towerDistribution,
     effectiveDPSPerArmor,
+    gateDpsPerArmor,
     aoeDpsShare,
     killThroughput,
   };
@@ -304,7 +307,7 @@ export function isSplashTower(typeId: TowerTypeId): boolean {
 
 /**
  * Ethereal armor is the one category that cannot be brute-forced: physical,
- * pierce and fire are all at 0.15, so only magic (1.75), ice (1.5) and
+ * pierce and fire are all at 0.1, so only magic (2.0), ice (1.5) and
  * lightning (1.5) actually threaten ghosts and wraiths. Read the multiplier
  * from the damage matrix rather than listing tower ids, so a new tower with a
  * suitable damage type counts automatically.
@@ -335,21 +338,26 @@ function calculateAntiAirDPS(towers: Tower[], airTargetingUnlocked: boolean): nu
 }
 
 /**
- * Per-armor-class effective DPS (damage-type × armor matrix applied).
- * Returns a split for ground (hits ground enemies) and air (hits air enemies).
+ * Per-armor-class DPS, split into ground (hits ground enemies) and air (hits
+ * air enemies), in two views:
+ *  - effective: tower DPS × damage matrix, what actually lands.
+ *  - gate: the same, except that against ground unarmored, light, heavy and
+ *    fortified every tower counts at least FAIRNESS_MATCHUP_FLOOR. The fairness
+ *    gate reads this one (see the constant in templates.ts). Ethereal and air
+ *    stay on the plain matrix, they are hard gates of their own.
  */
-function calculateEffectiveDPSPerArmor(
+function calculateDPSPerArmor(
   towers: Tower[],
   airTargetingUnlocked: boolean,
-): EffectiveDPSPerArmor {
+): { effective: EffectiveDPSPerArmor; gate: EffectiveDPSPerArmor } {
   const zero = () =>
     ARMOR_TYPES.reduce((acc, a) => {
       acc[a] = 0;
       return acc;
     }, {} as Record<ArmorType, number>);
 
-  const ground = zero();
-  const air = zero();
+  const effective: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
+  const gate: EffectiveDPSPerArmor = { ground: zero(), air: zero() };
 
   for (const tower of towers) {
     const typeId = tower.typeConfig.id as TowerTypeId;
@@ -361,13 +369,21 @@ function calculateEffectiveDPSPerArmor(
     const canAir = canTargetAirEffective(typeId, airTargetingUnlocked);
 
     for (const armor of ARMOR_TYPES) {
-      const effective = dps * mults[armor];
-      if (canGround) ground[armor] += effective;
-      if (canAir) air[armor] += effective;
+      const dpsVsArmor = dps * mults[armor];
+      if (canGround) {
+        effective.ground[armor] += dpsVsArmor;
+        gate.ground[armor] += armor === 'ethereal'
+          ? dpsVsArmor
+          : dps * Math.max(mults[armor], FAIRNESS_MATCHUP_FLOOR);
+      }
+      if (canAir) {
+        effective.air[armor] += dpsVsArmor;
+        gate.air[armor] += dpsVsArmor;
+      }
     }
   }
 
-  return { ground, air };
+  return { effective, gate };
 }
 
 /**
@@ -442,6 +458,7 @@ function createEmptyDefenseAnalysis(): DefenseAnalysis {
     },
     towerDistribution: {},
     effectiveDPSPerArmor: { ground: zeroArmor(), air: zeroArmor() },
+    gateDpsPerArmor: { ground: zeroArmor(), air: zeroArmor() },
     aoeDpsShare: { ground: 0, air: 0 },
     killThroughput: { ground: 0, air: 0 },
   };

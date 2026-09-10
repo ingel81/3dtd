@@ -182,24 +182,24 @@ describe('armorMultipliersFor()', () => {
     }
   });
 
-  it('fire vs ethereal = 0.15 (very low — fire nearly useless vs ethereal)', () => {
+  it('fire vs ethereal = 0.1 (fire nearly useless vs ethereal)', () => {
     const result = armorMultipliersFor('fire');
-    expect(result['ethereal']).toBeCloseTo(0.15, 5);
+    expect(result['ethereal']).toBeCloseTo(0.1, 5);
   });
 
-  it('magic vs ethereal = 1.75 (devastating effectiveness)', () => {
+  it('magic vs ethereal = 2.0 (devastating effectiveness)', () => {
     const result = armorMultipliersFor('magic');
-    expect(result['ethereal']).toBeCloseTo(1.75, 5);
+    expect(result['ethereal']).toBeCloseTo(2.0, 5);
   });
 
-  it('siege vs fortified = 1.25 (strong vs fortified)', () => {
+  it('siege vs fortified = 1.6 (strong vs fortified)', () => {
     const result = armorMultipliersFor('siege');
-    expect(result['fortified']).toBeCloseTo(1.25, 5);
+    expect(result['fortified']).toBeCloseTo(1.6, 5);
   });
 
-  it('physical vs heavy = 0.7 (reduced vs heavy)', () => {
+  it('physical vs heavy = 0.5 (reduced vs heavy)', () => {
     const result = armorMultipliersFor('physical');
-    expect(result['heavy']).toBeCloseTo(0.7, 5);
+    expect(result['heavy']).toBeCloseTo(0.5, 5);
   });
 
   it('all multiplier values are positive numbers', () => {

@@ -17,17 +17,24 @@ import { DamageMatrix, DamageEffectiveness } from './combat.types';
  *
  * Values from MASTER_GAME_DESIGN.md Section 2.3.
  * 1.0 = neutral, <1.0 = reduced, >1.0 = bonus damage.
+ *
+ * Balance 2026-09: Spreizung pro Rüstung von 1,5× bis 11,7× auf 3× bis 20×
+ * (unarmored 3,0, light 3,2, heavy 5,0, fortified 6,4, ethereal 20). Regeln:
+ * jede Schadensart hat eine Paarung ≤ 0,5, jede außer physical eine ≥ 1,3,
+ * jede Rüstung mindestens zwei Konter ≥ 1,2. Damit das Fairness-Gate die
+ * Spreizung nicht wegrechnet, zählt es schlechte Boden-Paarungen mit
+ * FAIRNESS_MATCHUP_FLOOR (templates.ts).
  */
 export const DAMAGE_MATRIX: DamageMatrix = {
   //                 unarmored  light   heavy   fortified  ethereal
-  physical:        { unarmored: 1.0,  light: 1.0,  heavy: 0.7,  fortified: 0.5,  ethereal: 0.15 },
-  pierce:          { unarmored: 1.2,  light: 1.3,  heavy: 0.5,  fortified: 0.6,  ethereal: 0.15 },
-  siege:           { unarmored: 0.5,  light: 0.5,  heavy: 1.5,  fortified: 1.25, ethereal: 0.75 },
-  magic:           { unarmored: 1.0,  light: 1.0,  heavy: 0.85, fortified: 0.75, ethereal: 1.75 },
-  fire:            { unarmored: 1.15, light: 1.0,  heavy: 0.9,  fortified: 0.6,  ethereal: 0.15 },
-  ice:             { unarmored: 1.0,  light: 1.2,  heavy: 1.0,  fortified: 0.75, ethereal: 1.5  },
-  poison:          { unarmored: 1.1,  light: 1.1,  heavy: 0.6,  fortified: 0.6,  ethereal: 0.5  },
-  lightning:       { unarmored: 1.0,  light: 1.25, heavy: 1.0,  fortified: 0.6,  ethereal: 1.5  },
+  physical:        { unarmored: 1.0,  light: 1.0,  heavy: 0.5,  fortified: 0.3,  ethereal: 0.1 },
+  pierce:          { unarmored: 1.25, light: 1.6,  heavy: 0.35, fortified: 0.25, ethereal: 0.1 },
+  siege:           { unarmored: 0.5,  light: 0.5,  heavy: 1.75, fortified: 1.6,  ethereal: 0.3 },
+  magic:           { unarmored: 0.9,  light: 0.5,  heavy: 0.9,  fortified: 1.3,  ethereal: 2.0 },
+  fire:            { unarmored: 1.5,  light: 1.2,  heavy: 0.6,  fortified: 0.25, ethereal: 0.1 },
+  ice:             { unarmored: 1.0,  light: 1.3,  heavy: 0.8,  fortified: 0.5,  ethereal: 1.5 },
+  poison:          { unarmored: 1.4,  light: 1.2,  heavy: 0.4,  fortified: 0.3,  ethereal: 0.2 },
+  lightning:       { unarmored: 1.0,  light: 1.5,  heavy: 1.2,  fortified: 0.3,  ethereal: 1.5 },
 };
 
 // ==================== Effectiveness Thresholds ====================
@@ -37,8 +44,8 @@ export const DAMAGE_MATRIX: DamageMatrix = {
  * Tuneable — adjust these to change when damage numbers change color/size.
  */
 export const EFFECTIVENESS_THRESHOLDS = {
-  /** multiplier < weak → 'weak' (grey, smaller text) */
-  weak: 0.7,
+  /** multiplier < weak → 'weak' (grey, smaller text). Every pairing ≤ 0.5 reads weak. */
+  weak: 0.6,
   /** multiplier >= strong → 'strong' (orange, larger text) */
   strong: 1.2,
   /** multiplier >= devastating → 'devastating' (gold, largest text) */

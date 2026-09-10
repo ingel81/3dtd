@@ -104,8 +104,8 @@ export abstract class BaseStrategy implements ITowerStrategy {
    * Value of a tower against a specific armor class: effective DPS per credit.
    *
    * Raw DPS is misleading whenever the armor matrix is lopsided — an Archer
-   * out-DPSes a Magic tower on paper but lands at 0.15x against ethereal while
-   * Magic lands at 1.75x.
+   * out-DPSes a Magic tower on paper but lands at 0.1x against ethereal while
+   * Magic lands at 2.0x.
    */
   protected getTowerValueVsArmor(towerType: TowerTypeId, armor: ArmorType): number {
     const config = TOWER_TYPES[towerType];

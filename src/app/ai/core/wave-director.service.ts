@@ -444,7 +444,7 @@ export class WaveDirectorService {
         template,
         hpMult,
         delay,
-        state.defense?.effectiveDPSPerArmor,
+        state.defense?.gateDpsPerArmor,
         state.defense?.killThroughput,
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.armorType ?? 'unarmored',
         (id) => ENEMY_TYPES[id as EnemyTypeId]?.isAirUnit === true,

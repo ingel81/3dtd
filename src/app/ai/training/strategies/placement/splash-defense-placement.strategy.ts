@@ -3,13 +3,14 @@
  *
  * Priority: HIGH (85)
  * Triggers when: Splash defense gap exists and can afford splash tower
- * Action: Place splash damage tower (cannon or rocket) at strategic position
+ * Action: Place the splash tower that suits the expected armor mix at a strategic position
  */
 
 import { BaseStrategy } from '../tower-strategy.interface';
 import { GameStateSnapshot } from '../../../core/models/game-state-snapshot';
 import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
-import { TOWER_TYPES } from '../../../../configs/tower-types.config';
+import { TOWER_TYPES, TowerTypeId } from '../../../../configs/tower-types.config';
+import { ARMOR_TYPES } from '../../../../configs/combat/combat.types';
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
 import { isSplashTower } from '../../../core/defense-analyzer';
@@ -42,9 +43,14 @@ export class SplashDefensePlacementStrategy extends BaseStrategy {
 
     if (splashTowers.length === 0) return null;
 
-    // Pick best value splash tower
+    // Pick the best splash tower against the armor that is coming. Raw DPS per
+    // gold would build a cannon against a rat swarm, where siege lands at 0.5.
+    const dist = state.expectedArmorDistribution;
+    const value = (t: TowerTypeId): number => dist
+      ? ARMOR_TYPES.reduce((sum, armor) => sum + this.getTowerValueVsArmor(t, armor) * (dist[armor] ?? 0), 0)
+      : this.getTowerValue(t);
     const bestTower = splashTowers.reduce((best, current) => {
-      return this.getTowerValue(current) > this.getTowerValue(best) ? current : best;
+      return value(current) > value(best) ? current : best;
     });
 
     // 2. Get strategic placement candidates

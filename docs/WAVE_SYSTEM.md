@@ -257,6 +257,15 @@ Zwei Eigenschaften sind wichtig:
   kann die Defense nicht einmal die kleinste vorgesehene Welle halten; dann
   kollabiert die Range auf den Cap, statt trotzdem das Minimum zu schicken.
 
+**Matchup-Floor (seit 2026-09).** Der Cap liest `gateDpsPerArmor` aus der
+Defense-Analyse, nicht die rohe Matrix: gegen Boden-Gegner mit unarmored, light,
+heavy und fortified zählt jeder Tower mindestens `FAIRNESS_MATCHUP_FLOOR = 0.6`
+seiner DPS. Ohne Floor machte eine schlechte Paarung die Welle nur kleiner
+(Gatlings gegen Panzer bekamen weniger Panzer), und die breitere Schadensmatrix
+wäre im Gate verschwunden. Mit Floor spürt der Spieler ein falsches Roster als
+Leck, begrenzt durch `maxLeakDamagePerWave`. Ethereal und Luft bleiben auf der
+reinen Matrix, dort greifen die Capability-Gates.
+
 ### Gate-Controller: Regelkreis auf der Leck-Quote
 
 `fairMaxCount` diskontiert die Kill-Schaetzung mit `FAIRNESS_KILL_REALISM = 0.65`.

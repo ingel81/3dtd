@@ -116,6 +116,14 @@ export interface DefenseAnalysis {
   effectiveDPSPerArmor: EffectiveDPSPerArmor;
 
   /**
+   * effectiveDPSPerArmor as the fairness gate reads it: against ground
+   * unarmored, light, heavy and fortified enemies every tower counts at least
+   * FAIRNESS_MATCHUP_FLOOR of its DPS (templates.ts). Ethereal and air are the
+   * plain matrix values.
+   */
+  gateDpsPerArmor: EffectiveDPSPerArmor;
+
+  /**
    * Share of DPS that comes from area-of-effect sources, ground and air.
    *
    * Splash, chain and beam-width are folded into each tower's DPS as a fixed
@@ -159,7 +167,7 @@ export interface DefenseCapabilities {
 
   /**
    * Has towers that hurt ethereal enemies (armor multiplier >= 1.0).
-   * Physical, pierce and fire all read 0.15 against ethereal, so a defense
+   * Physical, pierce and fire all read 0.1 against ethereal, so a defense
    * built purely from archers and gatlings is effectively unarmed against
    * ghosts and wraiths no matter how much raw DPS it has.
    */
@@ -254,6 +262,10 @@ export function createEmptySnapshot(): GameStateSnapshot {
       },
       towerDistribution: {},
       effectiveDPSPerArmor: {
+        ground: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
+        air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
+      },
+      gateDpsPerArmor: {
         ground: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
         air: { unarmored: 0, light: 0, heavy: 0, fortified: 0, ethereal: 0 },
       },
