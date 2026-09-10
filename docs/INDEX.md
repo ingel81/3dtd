@@ -63,6 +63,7 @@ nicht Gebautes · **Historisch** = überholt, nur noch als Herkunft interessant.
 | [ENGINE_DEEP_REVIEW_2026-05-16.md](ENGINE_DEEP_REVIEW_2026-05-16.md) | Bericht | Engine-Review über `src/app/`, Dependencies, Tests |
 | [PERF_BUG_ANALYSIS_2026-05-28.md](PERF_BUG_ANALYSIS_2026-05-28.md) | Bericht | Performance- und Bug-Deep-Dive: Render-Loop, Instancing, VFX, Game-Loop, Leaks |
 | [HANDOVER_MERGE_LOCAL_VS_ORIGIN.md](HANDOVER_MERGE_LOCAL_VS_ORIGIN.md) | Bericht | Merge-Divergenz lokal ↔ origin/main (2026-08-23) |
+| [ROUTE_GEOMETRY_ANALYSIS.md](ROUTE_GEOMETRY_ANALYSIS.md) | Bericht | Route vs. Straße (Playtest 2026-09-10): Kette Overpass bis Zelle, `__routes.describe()`, Entwurf straßenabhängiger Korridor |
 
 ## Pläne (nicht umgesetzt)
 
