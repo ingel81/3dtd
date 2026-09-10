@@ -293,10 +293,11 @@ export class GlobalRouteGridService {
    * @param center Center point (lat, lon)
    * @param radiusMeters Radius in meters
    * @param excludeId Optional enemy ID to exclude
+   * @param out Optional array to fill instead of allocating one
    * @returns Array of alive enemies within radius
    */
-  getEnemiesInRadiusGeo(center: GeoPosition, radiusMeters: number, excludeId?: string): Enemy[] {
-    return this.grid.getEnemiesInRadiusGeo(center, radiusMeters, excludeId);
+  getEnemiesInRadiusGeo(center: GeoPosition, radiusMeters: number, excludeId?: string, out?: Enemy[]): Enemy[] {
+    return this.grid.getEnemiesInRadiusGeo(center, radiusMeters, excludeId, out);
   }
 
   /**

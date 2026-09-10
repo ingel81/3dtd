@@ -57,11 +57,11 @@ describe('computeTowerDPS()', () => {
     expect(computeTowerDPS(tower)).toBeCloseTo(40 * 1.5, 5);
   });
 
-  it('cannon: damage(55) × fireRate(0.5) × splashMult(cannonball=10m)', () => {
+  it('cannon: damage(55) × fireRate(0.5) × splashMult(cannonball=6m)', () => {
     const tower = new Tower(POS, 'cannon');
     const baseDps = 55 * 0.5; // 27.5
-    const splash = PROJECTILE_TYPES['cannonball'].splashRadius!; // 10
-    const mult = splashMult(splash); // 1 + 10/10 = 2.0 (capped)
+    const splash = PROJECTILE_TYPES['cannonball'].splashRadius!; // 6
+    const mult = splashMult(splash); // 1 + 6/10 = 1.6
     expect(computeTowerDPS(tower)).toBeCloseTo(baseDps * mult, 5);
   });
 

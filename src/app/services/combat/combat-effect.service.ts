@@ -40,6 +40,11 @@ export class CombatEffectService {
   private eventBus: GameEventBus | null = null;
   private readonly eventBusSubs = new SubscriptionBag();
 
+  // Scratch für applySplashDamage: Kandidaten und ihre Abstände, pro Treffer
+  // neu befüllt. Schadensanwendung löst keinen weiteren Splash synchron aus.
+  private readonly _splashScratch: Enemy[] = [];
+  private readonly _splashDistScratch: number[] = [];
+
   /** Whether damage numbers are shown on hits (toggled via display options) */
   damageNumbersEnabled = true;
 
@@ -171,10 +176,11 @@ export class CombatEffectService {
     isIceShard: boolean,
     isPoisonGlob = false
   ): void {
-    const nearbyEnemies = this.globalRouteGrid.getEnemiesInRadiusGeo(
+    const candidates = this.globalRouteGrid.getEnemiesInRadiusGeo(
       originPos,
       splashRadius,
-      excludeId
+      excludeId,
+      this._splashScratch
     );
 
     const useFalloff = projectile.typeConfig.splashDamageFalloff !== false;
@@ -186,14 +192,44 @@ export class CombatEffectService {
     const hitsAir = canTargetAirEffective(sourceType, this.researchStore.airTargetingUnlocked());
     const hitsGround = TOWER_TYPES[sourceType].canTargetGround ?? true;
 
-    for (const nearbyEnemy of nearbyEnemies) {
-      if (nearbyEnemy.typeConfig.isAirUnit ? !hitsAir : !hitsGround) continue;
+    // Treffbare Ziele samt Abstand nach vorne kompaktieren.
+    const dists = this._splashDistScratch;
+    let count = 0;
+    // Schreibt nur auf Indizes, die die Schleife schon hinter sich hat.
+    for (const enemy of candidates) {
+      if (enemy.typeConfig.isAirUnit ? !hitsAir : !hitsGround) continue;
+      candidates[count] = enemy;
+      dists[count] = geoDistanceFast(originPos, enemy.position);
+      count++;
+    }
 
+    // Höchstens splashMaxTargets Opfer, die nächsten zuerst. Teilweiser
+    // Selection-Sort: k ist klein, n selten mehr als ein paar Dutzend, und
+    // Gleichstand bleibt in Grid-Reihenfolge (deterministisch).
+    const maxTargets = Math.min(count, projectile.typeConfig.splashMaxTargets ?? count);
+    if (maxTargets < count) {
+      for (let i = 0; i < maxTargets; i++) {
+        let nearest = i;
+        for (let j = i + 1; j < count; j++) {
+          if (dists[j] < dists[nearest]) nearest = j;
+        }
+        if (nearest !== i) {
+          const enemy = candidates[i];
+          candidates[i] = candidates[nearest];
+          candidates[nearest] = enemy;
+          const dist = dists[i];
+          dists[i] = dists[nearest];
+          dists[nearest] = dist;
+        }
+      }
+    }
+
+    for (let i = 0; i < maxTargets; i++) {
+      const nearbyEnemy = candidates[i];
       let splashDamage = projectile.damage;
 
       if (useFalloff) {
-        const dist = geoDistanceFast(originPos, nearbyEnemy.position);
-        const falloff = 1 - (dist / splashRadius);
+        const falloff = 1 - (dists[i] / splashRadius);
         splashDamage = Math.floor(projectile.damage * falloff);
       }
 

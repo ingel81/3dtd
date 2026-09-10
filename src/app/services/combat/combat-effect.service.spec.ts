@@ -93,6 +93,19 @@ describe('CombatEffectService splash', () => {
     expect(applyPoison.mock.calls.some((c) => c[0] === bat)).toBe(false);
   });
 
+  it('cannon splash stops at the 8 nearest victims', () => {
+    const cap = PROJECTILE_TYPES.cannonball.splashMaxTargets!;
+    // Absichtlich ungeordnet: gewählt wird nach Abstand, nicht nach Grid-Reihenfolge.
+    const meters = [5.5, 0.5, 4.5, 1, 5, 1.5, 2, 3, 2.5, 3.5];
+    const victims = meters.map((m) => enemyAt(`z${m}`, m, false));
+    const ids = hit('cannon', victims);
+
+    const nearest = [...meters].sort((a, b) => a - b).slice(0, cap).map((m) => `z${m}`);
+    expect(ids.filter((id) => id !== 'primary').sort()).toEqual(nearest.sort());
+    expect(ids).not.toContain('z5.5');
+    expect(ids).not.toContain('z5');
+  });
+
   it('ice splash still reaches flyers, ice targets air', () => {
     const bat = enemyAt('bat', 2, true);
     const ids = hit('ice', [enemyAt('zombie', 2, false), bat]);

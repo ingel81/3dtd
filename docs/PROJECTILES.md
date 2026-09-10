@@ -88,7 +88,7 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | Typ | Speed | Scale | Visual Type | Splash | Trail |
 |-----|-------|-------|-------------|--------|-------|
 | arrow | 80 m/s | 8 | arrow (GLB Model) | - | - |
-| cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 10m | Grauer Rauch (normal blending) |
+| cannonball | 50 m/s | 0.5 | cannonball (Sphere) | 6m, max. 8 Ziele | Grauer Rauch (normal blending) |
 | arcane-orb | 100 m/s | 0.4 | magic (Shader Orb) | - | Violett-Cyan-Funken als Spirale (additive, `trailType: 'spiral'`) |
 | ice-shard | 90 m/s | 0.4 | ice (Shader Orb) | 8m | Eis-Partikel (additive) |
 | bullet | 150 m/s | 0.15 | bullet (Cylinder) | - | Gelber Tracer (additive) |
@@ -111,6 +111,7 @@ und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (
 ```typescript
 splashRadius?: number;          // Radius in Metern (0 oder undefined = kein Splash)
 splashDamageFalloff?: boolean;  // Damage skaliert mit Distanz (Default: true)
+splashMaxTargets?: number;      // Höchstens so viele Splash-Opfer, die nächsten zuerst (Default: alle)
 ```
 
 Splash trifft nur Ziele, die der Quell-Tower auch anvisieren darf (`Projectile.sourceTowerType`,

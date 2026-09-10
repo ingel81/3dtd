@@ -55,8 +55,8 @@ describe('damage-matrix.config', () => {
       ['pierce',    'fortified', 0.6],
       ['pierce',    'ethereal',  0.15],
       // siege
-      ['siege',     'unarmored', 0.8],
-      ['siege',     'light',     0.7],
+      ['siege',     'unarmored', 0.5],
+      ['siege',     'light',     0.5],
       ['siege',     'heavy',     1.5],
       ['siege',     'fortified', 1.25],
       ['siege',     'ethereal',  0.75],

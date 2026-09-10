@@ -1070,20 +1070,23 @@ export class GlobalRouteGrid {
    * @param center Center point (lat, lon)
    * @param radiusMeters Radius in meters
    * @param excludeId Optional enemy ID to exclude
+   * @param out Optional array to fill instead of allocating one
    * @returns Array of alive enemies within radius
    */
   getEnemiesInRadiusGeo(
     center: GeoPosition,
     radiusMeters: number,
-    excludeId?: string
+    excludeId?: string,
+    out?: Enemy[]
   ): Enemy[] {
     if (!this.coordinateSync) {
       console.warn('[GlobalRouteGrid] getEnemiesInRadiusGeo called before initialization');
-      return [];
+      if (out) out.length = 0;
+      return out ?? [];
     }
 
     const local = this.coordinateSync.geoToLocalSimple(center.lat, center.lon, center.height ?? 0);
-    return this.getEnemiesInRadius(local.x, local.z, radiusMeters, excludeId);
+    return this.getEnemiesInRadius(local.x, local.z, radiusMeters, excludeId, out);
   }
 
   /**
