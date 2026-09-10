@@ -59,7 +59,7 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       veraltete Testobjekte und fehlende `override`. Produktionscode unberührt.
       **Warum:** vitest prüft keine Typen, die Fehler sammelten sich unbemerkt.
 
-### Enemy-Hot-Path: 21 → 30 FPS bei 20k Gegnern
+### Enemy-Hot-Path: 21 → 48 FPS bei 20k Gegnern
 
 - [x] **Gegner-Update lässt Arbeit weg, die nichts ändert**
       Audio-Update nur für Gegner mit Loops, Geschwindigkeitsfaktor ohne
@@ -74,6 +74,18 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       **Warum:** Die Zeit steckte nicht in Rechnungen, sondern im Anfassen
       verstreuter Objekte und in Map-Lookups mit String-Keys, pro Gegner und
       Sub-Step. SoA war im August genau daran gescheitert (`731f454`).
+
+- [x] **Blickrichtung pro Segment, Rotations-Glättung nur beim Drehen**
+      Das Heading wird im ersten Schritt, im Schritt über einen Wegpunkt und
+      im Schritt danach berechnet und dann bis zum nächsten Wegpunkt gehalten.
+      `transform.update` läuft nur noch für Gegner mit `isTurning`. Die
+      Simulation bleibt bit-identisch; nur die Rotation weicht um das
+      Rundungszittern ab (max. 8e-8 rad), sie ist rein visuell.
+      Chrome-Trace unter gleichen Bedingungen: 30,2 → 47,7 FPS, Frame 31,6 →
+      19,5 ms, Simulation ~10,1 → ~7,6 ms pro Sub-Step.
+      **Warum:** Jeder der 20k Gegner fasste pro Sub-Step sein Transform-Objekt
+      an, nur um festzustellen, dass nichts zu tun ist. Im Browser-Heap ist das
+      ein Cache-Miss pro Gegner; der Harness mit kompaktem Heap sah davon nur 5 %.
 
 - [x] **Performance-Panel höher und in der Größe veränderbar**
       Startet mit 700 px Höhe statt höchstens 600 px mit Scrollbalken, lässt

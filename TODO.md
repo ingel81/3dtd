@@ -225,21 +225,17 @@
       Dateien: `src/app/services/tower-placement.service.ts` (`onCellsChanged`),
       `src/app/utils/global-route-grid.ts` (`updateTerrainHeights`).
 
-- [ ] **Enemy-Hot-Path: Reste nach dem Umbau vom 2026-09-10**
-      Der Umbau ist erledigt (DONE.md 2026-09-10, 21 → 30 FPS bei 20k Gegnern).
-      Traces: `tmp/perf/Trace-20260910T194750.json.gz` (vorher),
-      `Trace-20260910T214516.json.gz` (nachher). Offen, alle ohne Änderung an
-      der Simulation:
-      - Heading (`lookAt`/`atan2`) nur beim Segmentwechsel. Übersprungen, weil
-        ein gecachtes Heading wegen der lat/lon-Rundung um ~1e-8 rad abweicht,
-        also nicht bit-identisch ist. Umsetzen, falls die Abweichung akzeptiert
-        wird. Geschätzt 1-2 ms pro Frame.
-      - Rotations-Glättung (`TransformComponent.update`, 2,7 ms pro Frame) nur
-        für Gegner aufrufen, die sich gerade drehen, per Flag wie beim Audio.
-      - Culling pro Pool: Pools außerhalb des Bildes schreiben keine Matrizen.
-        Hilft nur, wenn Gegner nicht im Bild sind.
-      Bewusst nicht dabei: kalte Gegner seltener rechnen (ändert die Simulation)
-      und SoA (siehe Backlog, verworfen).
+- **Bewusst nicht umgesetzt: weitere Enemy-Hot-Path-Hebel**
+      Stand nach dem Umbau vom 2026-09-10 (DONE.md, 21 → 48 FPS bei 20k
+      Gegnern; Traces unter `tmp/perf/`). Am 2026-09-10 entschieden, nicht zu
+      machen:
+      - Culling pro Pool (Pools außerhalb des Bildes weder beschreiben noch
+        zeichnen). Ein Pool ist ein Gegnertyp über die ganze Route, greift also
+        nur, wenn die Kamera ganz woanders hinschaut. Räumliche Pools wären M-L.
+      - Kalte Gegner (ohne Tower in Reichweite) nur einmal pro Frame rechnen.
+        Größter verbleibender Hebel, ändert aber die Simulation (Wegpunkte,
+        Reichweiten-Eintritt, Gift-Ticks, Event-Reihenfolge).
+      SoA siehe Backlog, verworfen.
 
 ## 1.5 Render-/GPU-Hebel aus Deep-Dive 2026-05 (verschoben, messgestützt)
 
