@@ -316,11 +316,16 @@ export class InstancedEnemyRenderer {
   }
 
   updateAnimations(deltaTime: number, camera: Camera): void {
-    // Skip instanced updates if hidden or animations disabled
-    if (!this._showEnemies || !this._showAnimations) return;
+    // Hidden enemies get no per-frame writes (updateSlot returns early), so
+    // there is nothing to flush either.
+    if (!this._showEnemies) return;
 
-    // Update instanced animation frames
-    this.instanceManager.updateAnimations(deltaTime);
+    // The animation toggle only holds the VAT frames. Positions and health
+    // keep arriving through updateSlot() and still have to be flushed,
+    // otherwise enemies and bars freeze on screen while the game goes on.
+    if (this._showAnimations) {
+      this.instanceManager.updateAnimations(deltaTime);
+    }
 
     // Flush batched GPU buffer dirty flags (matrices, tint colors)
     this.instanceManager.flushDirtyFlags();

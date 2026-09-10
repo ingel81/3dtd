@@ -4,7 +4,10 @@ import {
   DataTexture,
   Float32BufferAttribute,
   FloatType,
+  InstancedBufferAttribute,
   Matrix4,
+  Mesh,
+  PerspectiveCamera,
   Quaternion,
   RGBAFormat,
   Scene,
@@ -156,5 +159,34 @@ describe('InstancedEnemyRenderer slots', () => {
     const c = renderer.resolveSlot('c')!;
     expect(c).not.toBe(a);
     expect(c.healthBarIndex).toBe(0);
+  });
+
+  it('keeps flushing positions and health bars with animations off', async () => {
+    const scene = new Scene();
+    const sync = { geoToLocal: () => new Vector3() };
+    const renderer = new InstancedEnemyRenderer(scene, sync as never, {} as never);
+    (renderer as unknown as { instanceManager: EnemyInstanceManager }).instanceManager.createPool(
+      'wallsmasher',
+      fakeVat(CLIPS),
+      CONFIG,
+    );
+    await renderer.create('a', 'wallsmasher', 0, 0, 0);
+    const slot = renderer.resolveSlot('a')!;
+    const bars = scene.children.find((o) => (o as Mesh).geometry?.getAttribute('aCenter')) as Mesh;
+    const center = bars.geometry.getAttribute('aCenter') as InstancedBufferAttribute;
+    const matrix = slot.pool.instancedMesh.instanceMatrix;
+    const camera = new PerspectiveCamera();
+
+    renderer.updateAnimations(0.016, camera); // flush what create() left behind
+    renderer.setAnimationsEnabled(false);
+    const versions = [matrix.version, center.version, slot.pool.animFrameAttr.version];
+
+    renderer.updateSlot(slot, new Vector3(5, 0, 5), 0.5, 0.8, CONFIG.baseSpeed);
+    renderer.updateAnimations(0.5, camera);
+
+    expect(matrix.version).toBeGreaterThan(versions[0]);
+    expect(center.version).toBeGreaterThan(versions[1]);
+    // Only the VAT frame stands still.
+    expect(slot.pool.animFrameAttr.version).toBe(versions[2]);
   });
 });
