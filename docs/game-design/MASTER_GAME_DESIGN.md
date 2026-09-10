@@ -48,7 +48,7 @@
                   ─────────  ──────   ──────   ─────────   ────────
 Physical  ⚔️       1.0×      1.0×     0.7×     0.5×        0.15×
 Pierce    🎯       1.2×      1.3×     0.5×     0.6×        0.15×
-Siege     💥       0.8×      0.7×     1.5×     1.25×       0.75×
+Siege     💥       0.5×      0.5×     1.5×     1.25×       0.75×
 Magic     ✨       1.0×      1.0×     0.85×    0.75×       1.75×
 Fire      🔥       1.15×     1.0×     0.9×     0.6×        0.15×
 Ice       ❄️       1.0×      1.2×     1.0×     0.75×       1.5×
@@ -94,7 +94,7 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 |---|---|---|---:|---|
 | **Archer** | Physical | 25 dmg, 1.0/s, Range 30 | 45 | **Air + Ground** |
 | **Dual-Gatling** | Pierce | 10 dmg, 5.0/s, Range 50 | 90 | per Forschung (AA Retrofit) |
-| **Cannon** | Siege | 55 dmg, 0.5/s, Range 80, Splash 10 m | 150 | nein |
+| **Cannon** | Siege | 55 dmg, 0.5/s, Range 70, Splash 6 m (max. 8 Ziele) | 150 | nein |
 | **Rocket** | Siege | 40 dmg, 0.5/s, Range 100 | 120 | **Air-only** |
 | **Magic** | Magic | 40 dmg, 1.5/s, Range 70 | 140 | nein |
 | **Ice** | Ice | 5 dmg, 0.33/s, Range 60, Slow 50 % 3 s, Splash 8 m | 90 | **Air + Ground** |

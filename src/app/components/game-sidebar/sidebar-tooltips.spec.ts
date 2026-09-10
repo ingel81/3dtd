@@ -94,10 +94,10 @@ describe('enemyGroupTooltip', () => {
   });
 
   it('sorts the damage types from most to least effective', () => {
-    // unarmored: pierce 1.2 vor fire 1.15 vor poison 1.1, siege 0.8 zuletzt
+    // unarmored: pierce 1.2 vor fire 1.15 vor poison 1.1, siege 0.5 zuletzt
     const rows = enemyGroupTooltip(group('zombie'))?.armor ?? [];
     expect(rows.slice(0, 3).map((r) => r.label)).toEqual(['Pierce', 'Fire', 'Poison']);
-    expect(rows[rows.length - 1]).toMatchObject({ label: 'Siege', multiplier: '0.80×', dim: false });
+    expect(rows[rows.length - 1]).toMatchObject({ label: 'Siege', multiplier: '0.50×', dim: true });
     const muls = rows.map((r) => parseFloat(r.multiplier));
     expect(muls).toEqual([...muls].sort((a, b) => b - a));
   });

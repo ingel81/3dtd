@@ -32,7 +32,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 |-------|------------|------------|---------|------------|-----------|--------|----------------|
 | Archer | projectile | physical | 25 | 60m | 1.0/s | 45 | Animiert (PingPong), Air+Ground |
 | Dual-Gatling | projectile | pierce | 10 | 50m | 5.0/s | 90 | Rotierender Turret, 2 Fire-Points |
-| Cannon | projectile | siege | 55 | 80m | 0.5/s | 150 | Splash, default `highest-hp` |
+| Cannon | projectile | siege | 55 | 70m | 0.5/s | 150 | Splash 6m (max. 8 Ziele), default `first` |
 | Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
 | Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
 | Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |

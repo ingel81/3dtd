@@ -53,6 +53,7 @@ export interface ProjectileTypeConfig {
   // Splash damage (optional)
   splashRadius?: number; // Radius in meters (0 or undefined = no splash)
   splashDamageFalloff?: boolean; // Damage decreases with distance (default: true)
+  splashMaxTargets?: number; // Most splash victims per hit, nearest first (undefined = all)
 
   // Trail particles (optional)
   trailParticles?: TrailParticleConfig;
@@ -74,7 +75,11 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 50,
     visualType: 'cannonball',
     scale: 0.5,
-    splashRadius: 10,
+    // Balance 2026-09: war 10 m ohne Zielcap. Im Pulk (0,5 bis 3 m Abstand)
+    // traf ein Schuss so 3 bis 10 volle Treffer. 6 m und höchstens 8 Opfer
+    // lassen im selben Pulk 1,5 bis 5,7 übrig.
+    splashRadius: 6,
+    splashMaxTargets: 8,
     splashDamageFalloff: true,
     // Phase 5.16: cannon shoots slow + uses normal pool (4000) → can afford
     // generous smoke. Bigger, longer-lived puffs sell the heavy-shell feel.

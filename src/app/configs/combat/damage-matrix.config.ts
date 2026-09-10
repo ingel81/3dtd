@@ -22,7 +22,7 @@ export const DAMAGE_MATRIX: DamageMatrix = {
   //                 unarmored  light   heavy   fortified  ethereal
   physical:        { unarmored: 1.0,  light: 1.0,  heavy: 0.7,  fortified: 0.5,  ethereal: 0.15 },
   pierce:          { unarmored: 1.2,  light: 1.3,  heavy: 0.5,  fortified: 0.6,  ethereal: 0.15 },
-  siege:           { unarmored: 0.8,  light: 0.7,  heavy: 1.5,  fortified: 1.25, ethereal: 0.75 },
+  siege:           { unarmored: 0.5,  light: 0.5,  heavy: 1.5,  fortified: 1.25, ethereal: 0.75 },
   magic:           { unarmored: 1.0,  light: 1.0,  heavy: 0.85, fortified: 0.75, ethereal: 1.75 },
   fire:            { unarmored: 1.15, light: 1.0,  heavy: 0.9,  fortified: 0.6,  ethereal: 0.15 },
   ice:             { unarmored: 1.0,  light: 1.2,  heavy: 1.0,  fortified: 0.75, ethereal: 1.5  },

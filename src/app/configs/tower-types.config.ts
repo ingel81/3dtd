@@ -296,7 +296,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     rotationY: 3.1416, // 180°
     damageType: 'siege',
     damage: 55,
-    range: 80,
+    range: 70, // Balance 2026-09: war 80, zweithöchste Basisreichweite
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
     cost: 150, // Phase 5.16: heavy specialist (cannon vs fortified) — small premium
