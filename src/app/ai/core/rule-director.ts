@@ -110,7 +110,6 @@ export class RuleDirector {
     }
 
     // Stalest allowed template, ties broken at random.
-    let best = -1;
     let bestAge = -1;
     const tied: number[] = [];
     for (const idx of allowed) {
@@ -123,7 +122,7 @@ export class RuleDirector {
         tied.push(idx);
       }
     }
-    best = tied[Math.floor(random() * tied.length) % tied.length];
+    const best = tied[Math.floor(random() * tied.length) % tied.length];
 
     return { templateIdx: best, ...decision };
   }

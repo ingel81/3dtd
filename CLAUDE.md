@@ -15,7 +15,7 @@ npm run lint
 
 ## Architektur
 
-- Angular 21 Standalone Components (nur UI)
+- Angular 22 Standalone Components (nur UI)
 - Three.js + 3DTilesRendererJS fuer 3D-Rendering
 - **Event-driven Game Engine** - Manager kommunizieren via GameEventBus
 - **Signal Store** - 6 Sub-Stores als Single Source of Truth (Game, UI, Engine, Location, Research, Debug)
@@ -135,10 +135,10 @@ training-backend/               # Python Training Backend (nur fuer Trainingslae
 
 | Teil | Technologie |
 |------|-------------|
-| Framework | Angular 21 |
-| 3D Engine | Three.js 0.184 |
-| 3D Tiles | 3DTilesRendererJS 0.4.24 |
-| UI | Angular Material 21 |
+| Framework | Angular 22 (Node >= 22.22.3 bzw. 24.15, npm 11) |
+| 3D Engine | Three.js 0.186 |
+| 3D Tiles | 3DTilesRendererJS 0.5.2 |
+| UI | Angular Material 22 |
 | Maps | Google Maps 3D Tiles API |
 | Geocoding | OpenStreetMap Nominatim |
 | AI Training | Python 3.8+ + PyTorch 2.0 + WebSockets |

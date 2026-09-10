@@ -559,9 +559,11 @@ export class ThreeTilesEngine {
     // Lib default is 16, so we run slightly below default detail.
     this.tilesRenderer.errorTarget = 20;
 
-    // Lib defaults: 25 downloads, 5 parses. Parsing is async but finalization
-    // lands on the main thread, so one at a time keeps frame times flat.
-    this.tilesRenderer.downloadQueue.maxJobs = 4;
+    // Lib defaults: 6 downloads per server origin, 5 parses. Google serves all
+    // tiles from one origin, so the per-origin cap is the global cap. Parsing is
+    // async but finalization lands on the main thread, so one at a time keeps
+    // frame times flat.
+    this.tilesRenderer.downloadQueue.maxJobsPerOrigin = 4;
     this.tilesRenderer.parseQueue.maxJobs = 1;
 
     // Lib defaults: 6000/8000 items, plus a 0.3-0.4 GB byte cap that usually
@@ -698,6 +700,8 @@ export class ThreeTilesEngine {
 
     // Configure controls
     envControls.enableDamping = true;
+    envControls.enableDoubleTapZoom = false;
+    this.preventControlsFocus();
     envControls.minDistance = 5;       // Minimum zoom distance
     envControls.maxDistance = 2000;    // Maximum zoom distance
     envControls.minAltitude = 0.1;     // Min camera altitude (radians from ground)
@@ -978,6 +982,18 @@ export class ThreeTilesEngine {
     this.postProcessing = new PostProcessingPipeline(this.renderer, this.scene, this.camera);
   }
 
+  /**
+   * Since 0.5 the controls make the canvas focusable and focus it on every
+   * pointerdown, then reset a running drag whenever W/A/S/D, Q/E or an arrow
+   * key goes down on it. Those are our KeyboardPanService keys, so panning
+   * with the keyboard while dragging would cancel the drag. The listener only
+   * sees keys while the canvas has focus; without a tabindex it never does.
+   * Our own key handling listens on window and is unaffected.
+   */
+  private preventControlsFocus(): void {
+    this.renderer.domElement.removeAttribute('tabindex');
+  }
+
   private setupControls(): void {
     if (!this.tilesRenderer) return;
 
@@ -989,6 +1005,10 @@ export class ThreeTilesEngine {
       this.renderer.domElement
     );
     this.controls.enableDamping = true;
+    // Library default since 0.5. A double click would start a zoom animation
+    // that the drag handlers read as a pan.
+    this.controls.enableDoubleTapZoom = false;
+    this.preventControlsFocus();
 
     // Set scene and ellipsoid for controls (new API)
     this.controls.setScene(this.scene);
@@ -2206,31 +2226,17 @@ export class ThreeTilesEngine {
       return this.cachedTileStats;
     }
 
-    // Count visible meshes in the tiles group
-    let visibleMeshes = 0;
-    let totalMeshes = 0;
-
-    this.tilesRenderer.group.traverse((obj) => {
-      if (obj instanceof Mesh) {
-        totalMeshes++;
-        if (obj.visible) {
-          visibleMeshes++;
-        }
-      }
-    });
-
-    // Get queue lengths for downloading/parsing stats
-    // PriorityQueue has 'length' property for queued items
-    const downloadQueue = this.tilesRenderer.downloadQueue as { length?: number };
-    const parseQueue = this.tilesRenderer.parseQueue as { length?: number };
-    const downloading = downloadQueue?.length ?? 0;
-    const parsing = parseQueue?.length ?? 0;
+    // The renderer keeps these counters per frame, but its typings omit them.
+    const { queued, downloading, parsing } = (this.tilesRenderer as unknown as {
+      stats: { queued: number; downloading: number; parsing: number };
+    }).stats;
 
     this.cachedTileStats = {
       parsing,
-      downloading,
-      total: totalMeshes,
-      visible: visibleMeshes,
+      // Queued tiles are still waiting on a download slot, so they count as pending.
+      downloading: queued + downloading,
+      total: this.tilesRenderer.activeTiles.size,
+      visible: this.tilesRenderer.visibleTiles.size,
     };
     this.lastTileStatsUpdate = now;
 

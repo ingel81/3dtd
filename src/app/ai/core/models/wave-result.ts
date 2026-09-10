@@ -134,7 +134,7 @@ export function createEmptyWaveResult(waveNumber: number, config: WaveConfig): W
  */
 export function calculateBasicReward(result: WaveResult): number {
   const { outcome } = result;
-  let reward = 0;
+  let reward: number;
 
   const damagePct = outcome.damagePercent;
 
