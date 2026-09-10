@@ -32,9 +32,9 @@ interface EffectInstance {
  *
  * Split out of three-effects.renderer.ts. Owns the blood/ice decal managers
  * and borrows GPU particles from the ParticlePoolManager (trail additive /
- * normal pools). Handles blood splatter, fire, muzzle flashes, rocket/bullet
- * trails, cannon smoke, configurable trails, explosions, ice explosions, and
- * the persistent-fire respawn logic.
+ * normal pools). Handles blood splatter, fire, muzzle flashes, bullet
+ * tracers, cannon smoke, configurable trails, explosions, ice/arcane bursts,
+ * and the persistent-fire respawn logic.
  */
 export class ParticleEffectsRenderer {
   // Active effects
@@ -620,61 +620,8 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn rocket trail particles at a local position
-   * Call this each frame for each active rocket to create a continuous trail
-   * Uses ADDITIVE blending (fire/glow effect)
-   *
-   * @param localX - Local X coordinate
-   * @param localY - Local Y coordinate (height)
-   * @param localZ - Local Z coordinate
-   * @param count - Number of particles to spawn (default 3)
-   */
-  spawnRocketTrail(localX: number, localY: number, localZ: number, count = 3): void {
-    for (let i = 0; i < count; i++) {
-      const particle = this.pools.getInactiveParticle('trailAdditive');
-      if (!particle) break;
-
-      // Spawn at rocket position with small random offset
-      particle.position.set(
-        localX + (Math.random() - 0.5) * 0.5,
-        localY + (Math.random() - 0.5) * 0.5,
-        localZ + (Math.random() - 0.5) * 0.5
-      );
-
-      // Small random velocity (mostly stays in place, drifts slightly)
-      particle.velocity.set(
-        (Math.random() - 0.5) * 2,
-        (Math.random() - 0.5) * 2 - 1, // Slight downward drift
-        (Math.random() - 0.5) * 2
-      );
-
-      particle.life = 1.0;
-      particle.maxLife = 0.3 + Math.random() * 0.3; // 0.3-0.6 seconds
-      particle.size = 1.0 + Math.random() * 1.0; // 1-2 size
-
-      // Orange/yellow color with variation
-      const t = Math.random();
-      particle.color.setRGB(1, 0.4 + t * 0.4, t * 0.2);
-    }
-  }
-
-  /**
-   * Spawn rocket trail at geo coordinates
-   * Convenience method that converts geo to local coordinates
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param height - Height above ground
-   * @param count - Number of particles (default 3)
-   */
-  spawnRocketTrailAtGeo(lat: number, lon: number, height: number, count = 3): void {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnRocketTrail(localPos.x, localPos.y, localPos.z, count);
-  }
-
-  /**
    * Spawn bullet tracer effect at local position
-   * Much smaller and faster-fading than rocket trails
+   * Tiny and fast-fading
    * Uses ADDITIVE blending (bright tracer effect)
    */
   spawnBulletTracer(localX: number, localY: number, localZ: number, count = 1): void {

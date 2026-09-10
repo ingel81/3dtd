@@ -92,7 +92,7 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 | arcane-orb | 100 m/s | 0.4 | magic (Shader Orb) | - | Violett-Cyan-Funken als Spirale (additive, `trailType: 'spiral'`) |
 | ice-shard | 90 m/s | 0.4 | ice (Shader Orb) | 8m | Eis-Partikel (additive) |
 | bullet | 150 m/s | 0.15 | bullet (Cylinder) | - | Gelber Tracer (additive) |
-| rocket | 120 m/s | 1.0 | rocket (Cylinder) | - | Warmer Exhaust (additive) |
+| rocket | 120 m/s | 1.0 | rocket (Merged Mesh) | - | Dünne graue Rauchspur (normal blending), Düsenglühen als kurzer Streak |
 | poison-glob | 70 m/s | 0.5 | poison (Shader Orb) | 8m | Grüne Partikel (additive) |
 
 **Visuelle Typen** (`ProjectileVisualType`):
@@ -101,8 +101,11 @@ GPU-Instancing für effizientes Rendering vieler Projektile.
 - `magic` - SphereGeometry mit ShaderMaterial (Arcane Orb: violetter Körper, cyanfarbene Zellen und Rand, Custom GLSL Shader)
 - `ice` - SphereGeometry mit ShaderMaterial (blau/cyan/weiss Orb, gleicher Shader wie magic mit anderen Farben)
 - `bullet` - CylinderGeometry, gelb/golden leuchtend
-- `rocket` - CylinderGeometry, weiss/hellgrau
+- `rocket` - `createRocketGeometry()`: Düse, Körper, Nasenkegel und 4 Finnen zu einer Geometrie gemergt, Teilfarben als Vertex-Farben (weißer Körper, rote Nase und Finnen, dunkle Düse). 4,2 m lang, 1,6 m Finnenspannweite, zentriert auf die Projektilposition, weiterhin 1 Draw Call für alle Raketen
 - `poison` - SphereGeometry mit ShaderMaterial (grün)
+
+**Schweif-Ansatz** (`tailOffset`, optional): Meter hinter der Mesh-Mitte, an denen Trail-Partikel
+und Trail-Streak ansetzen. Rakete: 2,1 m, also die Düse. Nur Optik, Default 0 (Mitte).
 
 **Splash-Damage-Konfiguration:**
 ```typescript
@@ -207,5 +210,12 @@ public/assets/
 ```
 
 ## Bekannte Einschränkungen
+
+- [ ] Raketen-Sound: `rocket/launch.mp3` ist ein tiefer Knall (87 % der Energie unter 150 Hz,
+  spektraler Schwerpunkt ~200 Hz), fast wie `cannon/shoot.mp3`. Pitch oder Filter machen
+  daraus kein Zischen, weil der Datei die Höhen fehlen. Gesucht ist ein CC0-Asset:
+  Zischen/Fauchen mit Schwerpunkt 1-6 kHz, Attack unter 20 ms, 0,6-0,9 s, optional ein kurzer
+  tiefer Anteil nur in den ersten ~80 ms, ca. -16 bis -14 LUFS, Peak ≤ -1 dBFS, mono. Es ersetzt
+  die Datei am selben Pfad, danach `volume` (heute 0.7) gegen die anderen Tower abgleichen.
 
 - [ ] Line-of-Sight Check für Air-Targets fehlt — Tower schießen visuell durch Gebäude auf Air-Units. Ground-LOS existiert bereits via `tower.visibleCells`/`losReady`. Siehe TODO.md.

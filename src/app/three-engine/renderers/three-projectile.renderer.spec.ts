@@ -1,6 +1,28 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { BoxGeometry, Euler, MeshBasicMaterial, Vector3 } from 'three';
-import { ProjectileInstanceManager } from './three-projectile.renderer';
+import { createRocketGeometry, ProjectileInstanceManager } from './three-projectile.renderer';
+import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
+
+describe('createRocketGeometry', () => {
+  const geometry = createRocketGeometry();
+  geometry.computeBoundingBox();
+  const box = geometry.boundingBox!;
+
+  it('points the nose along +Y, centred on the projectile position', () => {
+    expect(box.max.y).toBeCloseTo(-box.min.y, 5);
+    expect(box.max.y - box.min.y).toBeGreaterThan(3.5); // readable length
+  });
+
+  it('starts the trail at the nozzle', () => {
+    const rocket = PROJECTILE_TYPES.rocket;
+    expect(rocket.tailOffset).toBeCloseTo(-box.min.y * rocket.scale, 5);
+  });
+
+  it('colours every vertex (one material, one draw call)', () => {
+    expect(geometry.getAttribute('color').count).toBe(geometry.getAttribute('position').count);
+    expect(geometry.groups).toHaveLength(0);
+  });
+});
 
 describe('ProjectileInstanceManager', () => {
   let manager: ProjectileInstanceManager;

@@ -354,35 +354,8 @@ export class ThreeEffectsRenderer {
   }
 
   /**
-   * Spawn rocket trail particles at a local position
-   * Call this each frame for each active rocket to create a continuous trail
-   * Uses ADDITIVE blending (fire/glow effect)
-   *
-   * @param localX - Local X coordinate
-   * @param localY - Local Y coordinate (height)
-   * @param localZ - Local Z coordinate
-   * @param count - Number of particles to spawn (default 3)
-   */
-  spawnRocketTrail(localX: number, localY: number, localZ: number, count = 3): void {
-    this.particleEffects.spawnRocketTrail(localX, localY, localZ, count);
-  }
-
-  /**
-   * Spawn rocket trail at geo coordinates
-   * Convenience method that converts geo to local coordinates
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param height - Height above ground
-   * @param count - Number of particles (default 3)
-   */
-  spawnRocketTrailAtGeo(lat: number, lon: number, height: number, count = 3): void {
-    this.particleEffects.spawnRocketTrailAtGeo(lat, lon, height, count);
-  }
-
-  /**
    * Spawn bullet tracer effect at local position
-   * Much smaller and faster-fading than rocket trails
+   * Tiny and fast-fading
    * Uses ADDITIVE blending (bright tracer effect)
    */
   spawnBulletTracer(localX: number, localY: number, localZ: number, count = 1): void {

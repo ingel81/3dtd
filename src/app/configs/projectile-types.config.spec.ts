@@ -98,6 +98,19 @@ describe('projectile types config', () => {
     });
   });
 
+  it('keeps the rocket trail a thin smoke line, not a fire cloud', () => {
+    // Playtest 2026-09-10: too much fire trail. Smoke in the normal pool and
+    // a particle count per rocket in flight far below the old ~520.
+    const rocket = PROJECTILE_TYPES.rocket;
+    const trail = rocket.trailParticles!;
+    expect(trail.blending).toBe('normal');
+    const gatesPerSecond = rocket.speed / 0.5; // TRAIL_SPAWN_DISTANCE_M in projectile.manager
+    const meanLifetime = (trail.lifetimeMin + trail.lifetimeMax) / 2;
+    const alivePerRocket = gatesPerSecond * trail.spawnChance * trail.countPerSpawn * meanLifetime;
+    expect(alivePerRocket).toBeLessThan(80);
+    expect(trail.sizeMax).toBeLessThanOrEqual(1.2);
+  });
+
   it('all projectile types have required fields and valid values', () => {
     const all = getAllProjectileTypes();
     all.forEach((projectile) => {

@@ -7,9 +7,9 @@ CPU-Partikel. `ThreeEffectsRenderer` ist seit 2026-05-21 eine Delegations-Facade
 ueber fokussierten Modulen (siehe Datei-Tabelle unten). Aktueller Stand:
 
 - **Trail Additive Pool** (3000 Partikel): Feuer, Tracer, Explosionen,
-  Glueheffekte, Rocket-/Bullet-Trails, Flame-Beam.
+  Glueheffekte, Bullet-Trails, Arcane-Orb-Spirale, Flame-Beam.
 - **Trail Normal Pool** (4000 Partikel): Rauch, Staub, opake Cannon-Trails,
-  Blood-Splatter.
+  Rocket-Rauchspur, Blood-Splatter.
 - **Tower Fire Pool** (800 Partikel, dediziert): Tower-Innenfeuer,
   unabhaengig von Combat-VFX, immer verfuegbar.
 - **Sprite-Sheet Atlanten** (`generateExplosionAtlas`, `generateSmokeAtlas`):

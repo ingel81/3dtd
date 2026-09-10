@@ -226,6 +226,14 @@ export class ProjectileManager extends EntityManager<Projectile> {
         projectile.flightHeight,
         this.trailPos
       );
+      const dir = projectile.direction;
+      const tailOffset = projectile.typeConfig.tailOffset ?? 0;
+      if (tailOffset > 0) {
+        // Trails start at the tail (rocket nozzle), not the mesh centre
+        this.trailPos.x -= dir.dx * tailOffset;
+        this.trailPos.y -= dir.dy * tailOffset;
+        this.trailPos.z -= dir.dz * tailOffset;
+      }
 
       // Distance-based trail spawn: drain the distance accumulated on the
       // sub-steps so trails stay visually uniform across framerates /
@@ -236,7 +244,6 @@ export class ProjectileManager extends EntityManager<Projectile> {
       // spawns read as blobs rather than a trail.
       const trailConfig = projectile.typeConfig.trailParticles;
       if (trailConfig?.enabled) {
-        const dir = projectile.direction;
         let back = 0;
         while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
           projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
