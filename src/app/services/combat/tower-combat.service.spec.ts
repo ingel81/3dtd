@@ -17,6 +17,7 @@ vi.mock('@angular/core', async () => {
 
 import { TowerCombatService } from './tower-combat.service';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { Tower } from '../../entities/tower.entity';
 import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 
@@ -302,20 +303,51 @@ describe('TowerCombatService', () => {
       const { run } = setup(10);
       const svc = service as unknown as {
         getEnemiesInCone: (...args: unknown[]) => unknown[];
-        combatEffectService: { applyBeamDamage: (e: { alive: boolean }) => void };
+        combatEffectService: {
+          applyBeamDamage: (e: { alive: boolean }) => void;
+          applyBurn: ReturnType<typeof vi.fn>;
+        };
         lastBeamBloodEffect: Map<string, number>;
       };
       // Every candidate is in the cone; the second tick is lethal.
       let lethal = false;
+      const applyBurn = vi.fn();
       svc.getEnemiesInCone = (...args) => args[4] as unknown[];
-      svc.combatEffectService = { applyBeamDamage: (e) => { if (lethal) e.alive = false; } };
+      svc.combatEffectService = {
+        applyBeamDamage: (e) => { if (lethal) e.alive = false; },
+        applyBurn,
+      };
 
       run();
       expect(svc.lastBeamBloodEffect.has('e-10')).toBe(true);
+      expect(applyBurn).toHaveBeenCalledTimes(1);
 
       lethal = true;
       run();
       expect(svc.lastBeamBloodEffect.has('e-10')).toBe(false);
+      expect(applyBurn).toHaveBeenCalledTimes(1); // no burn on the enemy the beam killed
+    });
+
+    it('deals the burn share of the DPS as burn instead of directly', () => {
+      const { tower, run } = setup(10);
+      const applyBeamDamage = vi.fn();
+      const applyBurn = vi.fn();
+      const svc = service as unknown as {
+        getEnemiesInCone: (...args: unknown[]) => unknown[];
+        combatEffectService: unknown;
+      };
+      svc.getEnemiesInCone = (...args) => args[4] as unknown[];
+      svc.combatEffectService = { applyBeamDamage, applyBurn };
+
+      run(); // one 16 ms sub-step
+      const dps = tower.typeConfig.damagePerSecond!;
+      const share = GAME_BALANCE.effects.burn.beamDpsShare;
+      expect(applyBeamDamage.mock.calls[0][1]).toBeCloseTo(dps * (1 - share) * 0.016, 9);
+      expect(applyBurn).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'e-10' }),
+        dps * share,
+        tower.id,
+      );
     });
   });
 

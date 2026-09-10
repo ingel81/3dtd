@@ -28,6 +28,7 @@ export interface EnemyInstanceState {
   isDead: boolean;
   frozen: boolean;
   poisoned: boolean;
+  burning: boolean;
   /** performance.now() timestamp when an active hit-flash expires (0 = no flash). */
   hitFlashEnd: number;
   /** Last global VAT frame written to the GPU attr — gate redundant writes/uploads. */
@@ -84,6 +85,11 @@ const FREEZE_TINT_B = 1.0;
 const POISON_TINT_R = 0.2;
 const POISON_TINT_G = 0.8;
 const POISON_TINT_B = 0.1;
+
+// Burn tint color (orange)
+const BURN_TINT_R = 1.0;
+const BURN_TINT_G = 0.45;
+const BURN_TINT_B = 0.05;
 
 // Hit-flash tint color (electric blue-white, used for lightning chain hits)
 const HIT_FLASH_R = 0.85;
@@ -240,6 +246,7 @@ export class EnemyInstanceManager {
       isDead: false,
       frozen: false,
       poisoned: false,
+      burning: false,
       hitFlashEnd: 0,
       lastFrame: -1,
       config,
@@ -376,6 +383,15 @@ export class EnemyInstanceManager {
     this.applyTint(state, pool);
   }
 
+  setBurnVisual(id: string, active: boolean): void {
+    const state = this.getState(id);
+    if (!state) return;
+    state.burning = active;
+    const pool = this.pools.get(state.typeId);
+    if (!pool) return;
+    this.applyTint(state, pool);
+  }
+
   /**
    * Trigger a transient hit-flash on a single enemy (e.g. lightning chain hit).
    * Overrides freeze/poison briefly, then auto-reverts in expireHitFlashes()
@@ -410,13 +426,15 @@ export class EnemyInstanceManager {
 
   /**
    * Compute the correct tint colour for an enemy given its state and write
-   * it into the instance attribute. Priority: hit-flash > freeze > poison > none.
+   * it into the instance attribute. Priority: hit-flash > freeze > burn > poison > none.
    */
   private applyTint(state: EnemyInstanceState, pool: TypePool): void {
     if (state.hitFlashEnd > performance.now()) {
       pool.tintColorAttr.setXYZ(state.index, HIT_FLASH_R, HIT_FLASH_G, HIT_FLASH_B);
     } else if (state.frozen) {
       pool.tintColorAttr.setXYZ(state.index, FREEZE_TINT_R, FREEZE_TINT_G, FREEZE_TINT_B);
+    } else if (state.burning) {
+      pool.tintColorAttr.setXYZ(state.index, BURN_TINT_R, BURN_TINT_G, BURN_TINT_B);
     } else if (state.poisoned) {
       pool.tintColorAttr.setXYZ(state.index, POISON_TINT_R, POISON_TINT_G, POISON_TINT_B);
     } else {

@@ -388,9 +388,13 @@ value: 5,         // Schaden pro Sekunde
 duration: 4000,   // Game-Time ms
 ```
 
-### Freeze / Burn (Reserviert)
+### Burn (DoT — aktiv)
 
-`freeze` und `burn` sind als `StatusEffectType` definiert, aktuell aber nicht aktiv im Spiel verwendet. Siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) für Details.
+Vom Fire Tower auf jeden Gegner im Flammenkegel angewendet: 20 % der Beam-DPS laufen als Burn, 3 s Nachbrennen. Pro Tower ein eigener Eintrag (zwei Fire Tower brennen nebeneinander). Details in [STATUS_EFFECTS.md](STATUS_EFFECTS.md#burn-effect-dot).
+
+### Freeze (Reserviert)
+
+`freeze` ist als `StatusEffectType` definiert, aktuell aber nicht aktiv im Spiel verwendet. Siehe [STATUS_EFFECTS.md](STATUS_EFFECTS.md) für Details.
 
 ---
 

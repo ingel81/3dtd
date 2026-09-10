@@ -26,4 +26,7 @@ export const COMBAT_TUNING = {
 
   /** Tick-Intervall für Poison-DOT pro betroffenem Enemy. [ms] */
   poisonTickIntervalMs: 500,
+
+  /** Tick-Intervall für Burn-DOT pro Quelle und betroffenem Enemy. [ms] */
+  burnTickIntervalMs: 500,
 } as const;

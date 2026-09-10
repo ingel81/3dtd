@@ -52,6 +52,17 @@ export const GAME_BALANCE = {
       /** Duration in milliseconds */
       duration: 4000,
     },
+    /**
+     * Fire Tower burn DOT. The beam keeps its total damagePerSecond: this
+     * share of it is dealt as burn instead of directly, so an enemy in the
+     * cone takes the same damage as before and keeps burning after it leaves.
+     */
+    burn: {
+      /** Share of the beam's effective DPS that becomes burn DPS */
+      beamDpsShare: 0.2,
+      /** Duration in milliseconds, refreshed while the enemy is in the cone */
+      duration: 3000,
+    },
   },
 
   /** Fire behavior thresholds */

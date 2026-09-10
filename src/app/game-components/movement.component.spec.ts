@@ -193,6 +193,40 @@ describe('MovementComponent', () => {
       expect(movement.statusEffects[0].type).toBe('poison');
     });
 
+    it('a replacing effect keeps the DoT tick phase of the entry it replaces', () => {
+      movement.applyStatusEffect({
+        type: 'poison', value: 5, duration: 4000, startTime: 0, sourceId: 'tower-A',
+      });
+      movement.statusEffects[0].tickAccumMs = 320;
+      movement.applyStatusEffect({
+        type: 'poison', value: 8, duration: 4000, startTime: 100, sourceId: 'tower-B',
+      });
+      expect(movement.statusEffects[0].value).toBe(8);
+      expect(movement.statusEffects[0].tickAccumMs).toBe(320);
+    });
+
+    it('refreshStatusEffect writes into the entry of the same source, without a new object', () => {
+      movement.refreshStatusEffect('burn', 7, 3000, 0, 'fire-1');
+      const entry = movement.statusEffects[0];
+      entry.tickAccumMs = 250;
+
+      movement.refreshStatusEffect('burn', 9, 3000, 16, 'fire-1');
+      expect(movement.statusEffects).toHaveLength(1);
+      expect(movement.statusEffects[0]).toBe(entry);
+      expect(entry).toMatchObject({ value: 9, startTime: 16, tickAccumMs: 250 });
+
+      movement.refreshStatusEffect('burn', 7, 3000, 16, 'fire-2');
+      expect(movement.statusEffects).toHaveLength(2);
+    });
+
+    it('updateStatusEffects reports burn until it expires', () => {
+      movement.refreshStatusEffect('burn', 7, 3000, 0, 'fire-1');
+      expect(movement.isBurning(2999)).toBe(true);
+      expect(movement.updateStatusEffects(2999).isBurning).toBe(true);
+      expect(movement.updateStatusEffects(3000).isBurning).toBe(false);
+      expect(movement.statusEffects).toHaveLength(0);
+    });
+
     it('freeze counts as slowed for movement purposes', () => {
       movement.applyStatusEffect({
         type: 'freeze', value: 1.0, duration: 1000, startTime: 0, sourceId: 'ice',

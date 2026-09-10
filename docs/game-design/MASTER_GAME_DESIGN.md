@@ -92,6 +92,11 @@ Spreizung: unarmored 3,0×, light 3,2×, heavy 5,0×, fortified 6,4×, ethereal 
 | **Mark** | +15% Schaden von allen Quellen | 4s | – |
 | **Stun** | Stop 0.4–0.5s | 0.5s | Boss immun |
 
+> **Burn (umgesetzt 2026-09-11):** Der Fire Tower gibt 20 % seiner Beam-DPS als
+> Burn aus (3 s, pro Turm ein Eintrag, Tick 500 ms), die Summe im Kegel bleibt
+> gleich. Regen gibt es im Spiel nicht; `immuneToBurn` ist noch nicht umgesetzt.
+> Details in [STATUS_EFFECTS.md](../STATUS_EFFECTS.md#burn-effect-dot).
+
 > **Armor Break (final definiert):** Für die Dauer werden alle Schadensmultiplikatoren **aus der Unarmored-Spalte** verwendet. Dadurch keine Matrix-Brüche (z. B. Siege bleibt konsistent).
 
 ### 2.5 Immunitäts-Flags (Schicht 3)

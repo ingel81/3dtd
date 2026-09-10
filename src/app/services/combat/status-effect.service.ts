@@ -3,7 +3,7 @@ import { Enemy } from '../../entities/enemy.entity';
 import { StatusEffectType } from '../../models/status-effects';
 
 /**
- * StatusEffectService — applies slow / poison / freeze / burn effects to enemies.
+ * StatusEffectService — applies slow / poison / burn (and the reserved freeze) effects to enemies.
  *
  * `effect.startTime` is stored in **game-time ms** via an injected clock
  * provider (set once by GameStateManager on initialization). Using a provider
@@ -38,6 +38,16 @@ export class StatusEffectService {
       startTime: this.gameClockProvider(),
       sourceId,
     });
+  }
+
+  /**
+   * Burn from a fire beam. The beam re-applies it every sub-step while the
+   * enemy is in the cone, so this refreshes in place instead of allocating.
+   * Kept per source (see MovementComponent.applyStatusEffect): two fire towers
+   * burn side by side, like their beams add up.
+   */
+  applyBurn(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void {
+    enemy.movement.refreshStatusEffect('burn', dotDps, duration, this.gameClockProvider(), sourceId);
   }
 
   applyEffect(

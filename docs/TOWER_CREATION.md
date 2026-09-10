@@ -36,7 +36,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
 | Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
 | Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |
-| Fire | **beam** | fire | 35 DPS | 20m (= Flammenlänge) | — | 110 | Flammenkegel, nur Boden, Upgrade `beam-width` statt `speed` |
+| Fire | **beam** | fire | 35 DPS | 20m (= Flammenlänge) | — | 110 | Flammenkegel, nur Boden, 20 % der DPS als Burn-DoT (3 s), Upgrade `beam-width` statt `speed` |
 | Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |

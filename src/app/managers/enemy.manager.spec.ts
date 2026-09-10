@@ -430,6 +430,80 @@ describe('EnemyManager', () => {
     });
   });
 
+  describe('damage over time', () => {
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+    // 25 ms sub-steps: 20 of them are exactly one 500 ms tick interval.
+    const STEP = 25;
+
+    interface DotEvent { effectType: string; damageType: string; damage: number; sourceId: string }
+    const collectDots = (): DotEvent[] => {
+      const dots: DotEvent[] = [];
+      eventBus.on('dot:damage', (e) => dots.push(e));
+      return dots;
+    };
+    let now = 0;
+    const steps = (n: number, perStep?: () => void) => {
+      for (let i = 0; i < n; i++) {
+        perStep?.();
+        now += STEP;
+        manager.update(STEP, now);
+      }
+    };
+
+    beforeEach(() => {
+      now = 0;
+    });
+
+    it('ticks each burn source on its own, as fire damage', () => {
+      const dots = collectDots();
+      const enemy = manager.spawn(path, 'zombie');
+      enemy.movement.refreshStatusEffect('burn', 10, 3000, 0, 'fire-1');
+      enemy.movement.refreshStatusEffect('burn', 4, 3000, 0, 'fire-2');
+
+      steps(19);
+      expect(dots).toHaveLength(0);
+      steps(1);
+      expect(dots).toEqual([
+        expect.objectContaining({ effectType: 'burn', damageType: 'fire', damage: 5, sourceId: 'fire-1' }),
+        expect.objectContaining({ effectType: 'burn', damageType: 'fire', damage: 2, sourceId: 'fire-2' }),
+      ]);
+    });
+
+    it('keeps the tick phase while a beam refreshes the burn every sub-step', () => {
+      const dots = collectDots();
+      const enemy = manager.spawn(path, 'zombie');
+      steps(40, () => enemy.movement.refreshStatusEffect('burn', 10, 3000, now, 'fire-1'));
+      expect(dots).toHaveLength(2);
+    });
+
+    it('starts a fresh tick phase for a burn applied after the last one expired', () => {
+      const dots = collectDots();
+      const enemy = manager.spawn(path, 'zombie');
+      enemy.movement.refreshStatusEffect('burn', 10, 300, 0, 'fire-1');
+      steps(16); // expired at 300 ms with 275 ms accumulated, no tick
+      enemy.movement.refreshStatusEffect('burn', 10, 3000, now, 'fire-1');
+      steps(19);
+      expect(dots).toHaveLength(0);
+      steps(1);
+      expect(dots).toHaveLength(1);
+    });
+
+    it('keeps ticking poison through a refresh by another tower', () => {
+      const dots = collectDots();
+      const enemy = manager.spawn(path, 'zombie');
+      enemy.movement.applyStatusEffect({ type: 'poison', value: 8, duration: 4000, startTime: 0, sourceId: 'p-1' });
+      steps(10);
+      enemy.movement.applyStatusEffect({ type: 'poison', value: 12, duration: 4000, startTime: now, sourceId: 'p-2' });
+      steps(10);
+      expect(dots).toEqual([
+        expect.objectContaining({ effectType: 'poison', damageType: 'poison', damage: 6, sourceId: 'p-2' }),
+      ]);
+    });
+  });
+
   it('ignores debug spawn with invalid path', () => {
     const warnSpy = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
 
