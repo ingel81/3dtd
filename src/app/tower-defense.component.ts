@@ -602,7 +602,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   /**
    * Toggle the global air-cell debug overlay, same cell set as the
    * spatial grid debug, but elevated to terrainY + airSampleYOffset
-   * and rendered with a stripe pattern. Persistent in UIStore.
+   * and drawn in the air-layer colour. Persistent in UIStore.
    */
   onAirSpatialGridDebugToggled(): void {
     this.gameState.getGlobalRouteGrid().toggleAirSpatialGridDebug();

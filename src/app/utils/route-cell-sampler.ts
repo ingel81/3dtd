@@ -4,9 +4,9 @@ import { RouteCell } from './route-cell';
 import { logGrid } from './route-grid-log';
 
 /**
- * Terrain-Sampling einer einzelnen Route-Cell: `sampleCellY` ist der
- * einzige Schreiber von `cell.terrainHeight` und `cell.sample`, nachdem
- * die Cell im Grid liegt.
+ * Terrain-Sampling einer einzelnen Route-Cell. Einzige Stelle, die
+ * `cell.terrainHeight` und `cell.sample` schreibt, nachdem die Cell im
+ * Grid liegt: `sampleCellY`, dazu der Debug-Reset `resetToUnsampled`.
  *
  * Hält die beiden Terrain-Proben, die `GlobalRouteGrid.initialize` setzt,
  * und die Zähler, die der Terrain-Sweep des Grids auswertet. Die
@@ -60,9 +60,9 @@ export class RouteCellSampler {
   /**
    * Attempt to write `cell.terrainHeight` from a fresh terrain raycast.
    *
-   * **This is the ONLY function in the codebase that writes
-   * `cell.terrainHeight` after a cell has been added to `this.cells`.** All
-   * other call sites read the cached value. The single-source-of-truth
+   * **Apart from the debug reset {@link resetToUnsampled}, this is the ONLY
+   * function in the codebase that writes `cell.terrainHeight` after a cell
+   * has been added to the grid.** All other call sites read the cached value. The single-source-of-truth
    * invariant lets us reason about cell state without tracking who-wrote-
    * what-when across the grid / tower-reg / viz pathways.
    *
@@ -204,5 +204,21 @@ export class RouteCellSampler {
       `${wasStable ? 'refresh' : 'promote'} key=${cell.key} y=${hit.y.toFixed(2)} depth=${hit.tileDepth} err=${hit.tileGeometricError.toFixed(2)}`,
     );
     return true;
+  }
+
+  /**
+   * Setzt eine Cell auf `unsampled` zurück, die Höhe fällt auf den
+   * Route-Anker. Nur für den Debug-Reset `__rg.resetHeightsAndRetry`; der
+   * nächste `sampleCellY` promotet die Cell wieder, sobald die Probe trifft.
+   */
+  resetToUnsampled(cell: RouteCell): void {
+    cell.sample = {
+      state: 'unsampled',
+      sampledAt: 0,
+      tileDepth: 0,
+      tileGeometricError: Infinity,
+    };
+    cell.heightSampled = false;
+    cell.terrainHeight = cell.routeAnchorY;
   }
 }

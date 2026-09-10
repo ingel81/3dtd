@@ -33,7 +33,7 @@ export class GlobalRouteGridService {
   private spatialGridVizMesh: InstancedMesh | null = null;
 
   // Air-cell debug visualization mesh — same cell set as spatialGridVizMesh
-  // but elevated to terrainY + airSampleYOffset with stripe pattern.
+  // but elevated to terrainY + airSampleYOffset, drawn in the air-layer colour.
   private airSpatialGridVizMesh: InstancedMesh | null = null;
 
   // Air-route tube debug overlay (owned by this service)
