@@ -14,10 +14,13 @@ import {
   DoubleSide,
   CylinderGeometry,
   ConeGeometry,
+  BoxGeometry,
+  Float32BufferAttribute,
   Euler,
   Scene,
 } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
+import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js';
 import { CoordinateSync } from './index';
 import {
   ProjectileTypeId,
@@ -185,6 +188,55 @@ export class ProjectileInstanceManager {
     this.instancedMesh.geometry.dispose();
     (this.instancedMesh.material as Material).dispose();
   }
+}
+
+/**
+ * Rocket mesh: nozzle, body, nose cone and four fins merged into one
+ * geometry, so the rocket pool stays a single draw call. Each part carries
+ * its colour as vertex colours (white body, red nose and fins, dark nozzle).
+ *
+ * Points +Y like the other projectile geometries (directionToEuler rotates
+ * +Y onto the flight direction), 4.2 m long and centred on the projectile
+ * position: the nozzle sits 2.1 m behind it, which is
+ * PROJECTILE_TYPES.rocket.tailOffset.
+ */
+export function createRocketGeometry(): BufferGeometry {
+  const parts: BufferGeometry[] = [];
+  const addPart = (geometry: BufferGeometry, rgb: readonly [number, number, number]): void => {
+    const count = geometry.getAttribute('position').count;
+    const colors = new Float32Array(count * 3);
+    for (let i = 0; i < count; i++) {
+      colors[i * 3] = rgb[0];
+      colors[i * 3 + 1] = rgb[1];
+      colors[i * 3 + 2] = rgb[2];
+    }
+    geometry.setAttribute('color', new Float32BufferAttribute(colors, 3));
+    parts.push(geometry);
+  };
+
+  const white = [0.85, 0.85, 0.82] as const;
+  const red = [0.75, 0.05, 0.03] as const;
+  const darkRed = [0.55, 0.04, 0.03] as const;
+  const nozzleGrey = [0.1, 0.1, 0.11] as const;
+
+  // Nozzle (y -2.1 .. -1.85), slightly flared
+  addPart(new CylinderGeometry(0.2, 0.26, 0.25, 12).translate(0, -1.975, 0), nozzleGrey);
+  // Body (y -1.85 .. 1.05)
+  addPart(new CylinderGeometry(0.3, 0.3, 2.9, 12).translate(0, -0.4, 0), white);
+  // Nose cone (y 1.05 .. 2.1)
+  addPart(new ConeGeometry(0.3, 1.05, 12).translate(0, 1.575, 0), red);
+  // Four fins at the tail end of the body (y -1.85 .. -1.05), 0.5 m deep
+  for (let i = 0; i < 4; i++) {
+    addPart(
+      new BoxGeometry(0.05, 0.8, 0.5).translate(0, -1.45, 0.55).rotateY((i * Math.PI) / 2),
+      darkRed
+    );
+  }
+
+  const merged = mergeGeometries(parts);
+  for (const part of parts) part.dispose();
+  if (!merged) throw new Error('[ThreeProjectileRenderer] Rocket geometry merge failed');
+  return merged;
 }
 
 /**
@@ -375,18 +427,16 @@ export class ThreeProjectileRenderer {
   }
 
   private createRocketManager(): ProjectileInstanceManager {
-    // Rocket: sleek missile shape - white/light grey
-    const bodyGeometry = new CylinderGeometry(0.3, 0.4, 3.0, 8);
-
     const material = new MeshStandardMaterial({
-      color: 0xeeeeee, // Light grey/white
-      emissive: 0xffffff, // White glow
-      emissiveIntensity: 0.3,
-      metalness: 0.5,
-      roughness: 0.4,
+      vertexColors: true, // Part colours, see createRocketGeometry()
+      metalness: 0.35,
+      roughness: 0.45,
+      // Keeps the body readable in shadow, low enough not to wash out the red
+      emissive: 0xffffff,
+      emissiveIntensity: 0.12,
     });
 
-    return new ProjectileInstanceManager(bodyGeometry, material, 100);
+    return new ProjectileInstanceManager(createRocketGeometry(), material, 100);
   }
 
   private createPoisonManager(): ProjectileInstanceManager {

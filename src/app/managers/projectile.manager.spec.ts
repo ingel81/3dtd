@@ -154,6 +154,27 @@ describe('ProjectileManager', () => {
     });
   });
 
+  it('starts the rocket trail and streak at the nozzle, behind the mesh centre', () => {
+    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'rocket');
+    const enemy = new Enemy('zombie', [
+      { lat: 0.001, lon: 0, height: 0 },
+      { lat: 0.002, lon: 0, height: 0 },
+    ]);
+    const projectile = manager.spawn(tower, enemy);
+
+    manager.update(16);
+    manager.presentFrame();
+
+    const tail = projectile.typeConfig.tailOffset!;
+    const { dx, dy, dz } = projectile.direction;
+    const [x, y, z] = tilesEngine.effects.spawnConfigurableTrail.mock.calls[0];
+    expect(x).toBeCloseTo(-dx * tail, 5);
+    expect(y).toBeCloseTo(-dy * tail, 5);
+    expect(z).toBeCloseTo(-dz * tail, 5);
+    const streakPos = tilesEngine.trailStreaks.pushPosition.mock.calls[0][1];
+    expect(streakPos.z).toBeCloseTo(-dz * tail, 5);
+  });
+
   it('does not emit hit event when a non-splash target died before impact', () => {
     const hitSpy = vi.fn();
     eventBus.on('projectile:hit', hitSpy);

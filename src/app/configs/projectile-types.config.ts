@@ -56,6 +56,10 @@ export interface ProjectileTypeConfig {
 
   // Trail particles (optional)
   trailParticles?: TrailParticleConfig;
+
+  // Meters behind the mesh centre where trail particles and the trail streak
+  // start (the rocket's nozzle). Visual only; default 0 = centre.
+  tailOffset?: number;
 }
 
 export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = {
@@ -177,27 +181,30 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
     speed: 120,
     visualType: 'rocket',
     scale: 1.0,
-    // Phase 5.16: bumped lifetime + count + size so the trail reads as a
-    // diffusing exhaust cloud, not a thin yellow line. Colour range pulled
-    // toward red-orange (away from yellow) and dimmed at the cool end so
-    // additive blending mixes to a warm volume instead of saturating to
-    // white. velocityY no longer drops aggressively — a real rocket exhaust
-    // hangs in the air briefly, doesn't fall like rain. Pool budget audited:
-    // ~65% utilisation at 30 simultaneous rockets, safe.
+    // The nozzle of the 4.2 m rocket mesh (createRocketGeometry) sits 2.1 m
+    // behind its centre; smoke and streak start there, not mid-body.
+    tailOffset: 2.1,
+    // Playtest 2026-09-10: too little rocket, too much fire trail. The
+    // flame is now only the short streak at the nozzle (TRAIL_STYLES.rocket);
+    // the particles are a thin grey smoke line in the normal pool. At
+    // 120 m/s the 0.5 m trail gate fires 240 times a second, so 0.5 x 1
+    // particle x ~0.45 s keeps ~55 alive per rocket, down from ~520
+    // additive ones (3 per gate, size up to 2.6, up to 1 s).
     trailParticles: {
       enabled: true,
-      spawnChance: 1.0,        // every spawn-tick (gated to ~30Hz upstream)
-      countPerSpawn: 3,        // was 2 — denser puff per spawn
-      colorMin: { r: 0.50, g: 0.20, b: 0.05 }, // dim red-brown — older smoke
-      colorMax: { r: 1.00, g: 0.55, b: 0.10 }, // warm orange — fresh exhaust
-      sizeMin: 1.0,
-      sizeMax: 2.6,            // was 2.0 — fatter puffs
-      lifetimeMin: 0.45,       // was 0.3
-      lifetimeMax: 1.0,        // was 0.6 — trail lingers
-      velocityX: { min: -1.2, max: 1.2 }, // less fan-out
-      velocityY: { min: -0.5, max: 0.8 }, // gentle drift, slight upward bias
-      velocityZ: { min: -1.2, max: 1.2 },
-      spawnOffset: 0.7,        // was 0.5 — wider seed area for diffusion
+      spawnChance: 0.5,
+      countPerSpawn: 1,
+      colorMin: { r: 0.5, g: 0.5, b: 0.5 },    // Grey smoke
+      colorMax: { r: 0.78, g: 0.76, b: 0.72 }, // Light, slightly warm grey
+      sizeMin: 0.45,
+      sizeMax: 1.0,
+      lifetimeMin: 0.3,
+      lifetimeMax: 0.6,
+      velocityX: { min: -0.4, max: 0.4 },
+      velocityY: { min: 0.0, max: 0.6 },       // Drifts up a little
+      velocityZ: { min: -0.4, max: 0.4 },
+      spawnOffset: 0.2,
+      blending: 'normal',
     },
   },
   'poison-glob': {

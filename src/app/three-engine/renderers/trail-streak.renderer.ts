@@ -36,23 +36,23 @@ export interface TrailStreakStyle {
 
 const TRAIL_STYLES: Record<string, TrailStreakStyle> = {
   rocket: {
-    // Phase 5.16: less wedge, less neon. The previous 1.8/0.2 widths +
-    // emissive 2.5 produced a sharp arrow shape that blew out to yellow
-    // through additive blending. This style is now a thin glow line —
-    // the particle layer (PROJECTILE_TYPES.rocket.trailParticles) does the
-    // smoke/volume, this just gives the projectile a hot core to pull.
-    maxPoints: 22,
-    widthHead: 0.5,
-    widthTail: 0.4,
-    alphaHead: 0.55,
+    // Playtest 2026-09-10: 22 points drew a ~40 m fire line behind the
+    // rocket (points land once per frame, 2 m apart at 60 FPS). Now it is
+    // only the nozzle glow: 4 points, about 6 m at 60 FPS, hot yellow-white
+    // at the nozzle (PROJECTILE_TYPES.rocket.tailOffset) fading through
+    // orange to nothing. The grey smoke particles carry the trail.
+    maxPoints: 4,
+    widthHead: 0.35,
+    widthTail: 0.08,
+    alphaHead: 0.8,
     alphaTail: 0.0,
-    colorHead: new Color(1.0, 0.55, 0.18),  // warm orange (less saturated than before)
-    colorTail: new Color(0.55, 0.12, 0.02), // dark red
-    emissiveIntensity: 0.85,                // was 2.5 — no more white-blowout
+    colorHead: new Color(1.0, 0.8, 0.45),   // hot yellow-white
+    colorTail: new Color(1.0, 0.35, 0.05),  // orange
+    emissiveIntensity: 0.9,
     minSegmentDistSq: 0.25,
   },
-  // Phase 5.16: arrow / magic / ice / cannonball share the rocket recipe —
-  // narrower head, thicker tail (no wedge), lower emissive (no white blowout),
+  // Phase 5.16: arrow / magic / ice / cannonball got the rocket recipe of
+  // that time: narrower head, thicker tail (no wedge), lower emissive (no white blowout),
   // more ring points (longer + smoother trail). Particle layer carries the
   // theme-specific volume (spiral arcs for magic, frost puffs for ice, smoke
   // for cannon). Pool budget audited: ~73% additive / ~15% normal at peak.
