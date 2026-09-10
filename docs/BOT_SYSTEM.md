@@ -523,6 +523,15 @@ der Client meldete sich anschließend als verbunden und gesund, ohne je zu
 spielen. `disableBot()` verwirft eine gepufferte Anfrage. `initialize()` selbst
 lädt nichts, es läuft in jedem Spiel.
 
+Für die Verbindung gilt dasselbe: der letzte Wunsch gewinnt. Ein `disconnect()`,
+während `connect()` oder `connectToBackend()` noch auf den Chunk warten, bricht
+den Aufbau ab (Zähler `connectionRequest`). Scheitert der Chunk-Import, versucht
+der Service es bis zu dreimal (1 s, 2 s Pause) und schreibt danach eine Meldung
+in `sessionError`, die das Training-Debug-Fenster anzeigt. Gepufferte Wünsche
+bleiben stehen; der nächste Aufruf startet eine neue Runde. Ob ein erneuter
+Import im Browser wirklich neu lädt, ist nicht garantiert (fehlgeschlagene
+Module können gecacht bleiben), dann hilft nur ein Reload des Tabs.
+
 ### Warum die Session ein eigener Chunk ist
 
 Im normalen Spiel laufen weder Bot noch Backend-Verbindung, trotzdem lagen Bots,
