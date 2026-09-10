@@ -104,6 +104,16 @@ export const TD_FONTS = {
 } as const;
 
 /**
+ * Layout-Tokens
+ * Sidebar-Breite und seitlicher Innenabstand der Sidebar-Sektionen. Der Header
+ * richtet seine Stat-Leiste an diesen Kanten aus (game-header), deshalb zentral.
+ */
+export const TD_LAYOUT = {
+  sidebarWidth: '300px',
+  sidebarGutter: '14px',
+} as const;
+
+/**
  * CSS Custom Properties String
  * For use in :host or root element
  */
@@ -157,6 +167,9 @@ export const TD_CSS_VARS = `
   --td-font-mono: ${TD_FONTS.mono};
   --td-font-body: ${TD_FONTS.body};
   --td-font-display: ${TD_FONTS.display};
+
+  --td-sidebar-width: ${TD_LAYOUT.sidebarWidth};
+  --td-sidebar-gutter: ${TD_LAYOUT.sidebarGutter};
 
   --td-event-vfx: ${TD_THEME.eventVfx};
   --td-event-audio: ${TD_THEME.eventAudio};

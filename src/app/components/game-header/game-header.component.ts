@@ -92,25 +92,29 @@ import { TdIconComponent } from '../icon/icon.component';
           </button>
         </div>
       </div>
-      <div class="header-stats">
-        <div class="stat hp">
-          <td-icon name="heart" [size]="16" ariaLabel="Health"></td-icon>
-          <span>{{ baseHealth() }}</span>
-        </div>
-        <div class="stat credits">
-          <td-icon name="coin" [size]="16" ariaLabel="Credits"></td-icon>
-          <span>{{ credits() }}</span>
-        </div>
-        <div class="stat wave">
-          <td-icon name="wave" [size]="16" ariaLabel="Wave"></td-icon>
-          <span>{{ waveNumber() }}</span>
-        </div>
+      <div class="header-right">
+        <!-- Only during a wave. Sits left of the stat bar so the bar keeps
+             its width and stays lined up with the sidebar. -->
         @if (waveActive()) {
-          <div class="stat enemies">
+          <div class="stat enemies enemies-chip">
             <td-icon name="bug" [size]="16" ariaLabel="Enemies"></td-icon>
             <span>{{ enemiesAlive() }}</span>
           </div>
         }
+        <div class="header-stats">
+          <div class="stat hp">
+            <td-icon name="heart" [size]="16" ariaLabel="Health"></td-icon>
+            <span>{{ baseHealth() }}</span>
+          </div>
+          <div class="stat credits">
+            <td-icon name="coin" [size]="16" ariaLabel="Credits"></td-icon>
+            <span>{{ credits() }}</span>
+          </div>
+          <div class="stat wave">
+            <td-icon name="wave" [size]="16" ariaLabel="Wave"></td-icon>
+            <span>{{ waveNumber() }}</span>
+          </div>
+        </div>
       </div>
       @if (isDialog()) {
         <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close">
@@ -129,7 +133,9 @@ import { TdIconComponent } from '../icon/icon.component';
       display: flex;
       align-items: center;
       gap: 12px;
-      padding: 4px 12px;
+      /* Right padding = sidebar gutter, so the stat bar ends flush with the
+         sidebar content below it */
+      padding: 4px var(--td-sidebar-gutter) 4px 12px;
       background:
         linear-gradient(rgba(15, 19, 15, 0.8), rgba(15, 19, 15, 0.8)),
         url('./src/styles/textures/stone-wall.jpg') repeat;
@@ -205,11 +211,28 @@ import { TdIconComponent } from '../icon/icon.component';
       opacity: 1;
     }
 
-    .header-stats {
+    .header-right {
       display: flex;
       align-items: center;
+      gap: 8px;
       margin-left: auto;
-      margin-right: 8px;
+    }
+
+    /* The stat bar sits right above the sidebar content: same width and outer
+       edges as the next-wave button and the tower grid. Sidebar width minus
+       both gutters minus the sidebar's 1px border-left; the header's right
+       padding supplies the right gutter. Three equal columns, so a growing
+       value never shifts its neighbours. */
+    .header-stats {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      flex-shrink: 0;
+      box-sizing: border-box;
+      width: calc(var(--td-sidebar-width) - 2 * var(--td-sidebar-gutter) - 1px);
+    }
+
+    .header-stats,
+    .enemies-chip {
       background: var(--td-panel-shadow);
       border: 1px solid var(--td-frame-dark);
       box-shadow:
@@ -222,10 +245,15 @@ import { TdIconComponent } from '../icon/icon.component';
       align-items: center;
       justify-content: center;
       gap: 6px;
+      min-width: 0;
       font-size: 15px;
       font-weight: 700;
-      padding: 6px 14px;
-      min-width: 60px;
+      font-variant-numeric: tabular-nums;
+      padding: 6px 8px;
+    }
+
+    .enemies-chip {
+      padding: 6px 12px;
     }
 
     .stat + .stat {
