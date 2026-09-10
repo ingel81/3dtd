@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { OsmStreetService, BuildingFootprint } from './osm-street.service';
+import { OsmStreetService, BuildingFootprint, StreetNetwork } from './osm-street.service';
 
 // Mock Angular DI — OsmStreetService uses inject(StreetCacheService)
 vi.mock('@angular/core', async () => {
@@ -160,6 +160,34 @@ describe('OsmStreetService', () => {
       const result = service.filterBuildingsNearRoutes(buildings, routes, 100);
       expect(result).toHaveLength(2);
       expect(result.map(b => b.id)).toEqual([1, 3]);
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════
+  // findPath
+  // ════════════════════════════════════════════════════════════
+
+  describe('findPath', () => {
+    // L-förmiger Way mit reinem Shape-Node an der Ecke (id 2), Kreuzungen
+    // nur an den Enden (Node 1 und Node 3).
+    const n10 = { id: 10, lat: 47.999, lon: 9.0 };
+    const n1 = { id: 1, lat: 48.0, lon: 9.0 };
+    const n2 = { id: 2, lat: 48.001, lon: 9.0 };
+    const n3 = { id: 3, lat: 48.001, lon: 9.0015 };
+    const n30 = { id: 30, lat: 48.001, lon: 9.003 };
+    const network: StreetNetwork = {
+      streets: [
+        { id: 100, name: 'Süd', type: 'residential', nodes: [n10, n1] },
+        { id: 200, name: 'Ecke', type: 'residential', nodes: [n1, n2, n3] },
+        { id: 300, name: 'Ost', type: 'residential', nodes: [n3, n30] },
+      ],
+      nodes: new Map([n10, n1, n2, n3, n30].map((n) => [n.id, n])),
+      bounds: { minLat: 47.999, maxLat: 48.001, minLon: 9.0, maxLon: 9.003 },
+    };
+
+    it('keeps the shape node at the corner of a way', () => {
+      const path = service.findPath(network, 47.9995, 9.0, 48.001, 9.0025);
+      expect(path.map((n) => n.id)).toEqual([10, 1, 2, 3]);
     });
   });
 

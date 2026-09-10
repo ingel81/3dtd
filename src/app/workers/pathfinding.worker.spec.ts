@@ -31,6 +31,28 @@ function makeStraightNetwork(count: number, type = 'residential'): SerializedStr
   };
 }
 
+/**
+ * L-förmiger Way mit einem reinen Shape-Node an der Ecke (id 2, gehört nur
+ * zu diesem Way). Kreuzungen gibt es nur an den Enden: Way "Süd" hängt an
+ * Node 1, Way "Ost" an Node 3.
+ */
+function makeCornerNetwork(): SerializedStreetNetwork {
+  const n10: TStreetNode = { id: 10, lat: 47.999, lon: 9.0 };
+  const n1: TStreetNode = { id: 1, lat: 48.0, lon: 9.0 };
+  const n2: TStreetNode = { id: 2, lat: 48.001, lon: 9.0 };
+  const n3: TStreetNode = { id: 3, lat: 48.001, lon: 9.0015 };
+  const n30: TStreetNode = { id: 30, lat: 48.001, lon: 9.003 };
+  return {
+    streets: [
+      { id: 100, name: 'Süd', type: 'residential', nodes: [n10, n1] } as never,
+      { id: 200, name: 'Ecke', type: 'residential', nodes: [n1, n2, n3] } as never,
+      { id: 300, name: 'Ost', type: 'residential', nodes: [n3, n30] } as never,
+    ],
+    nodes: [n10, n1, n2, n3, n30].map((n) => [n.id, n as never]),
+    bounds: { minLat: 47.999, maxLat: 48.001, minLon: 9.0, maxLon: 9.003 },
+  };
+}
+
 /** Two disjoint streets with no shared nodes — no path can connect them. */
 function makeDisjointNetwork(): SerializedStreetNetwork {
   const a: TStreetNode[] = [
@@ -121,6 +143,14 @@ describe('pathfinding.worker (message protocol)', () => {
       send({ type: 'findPath', id: 'p', startLat: 48.0005, startLon: 9.0, endLat: 48.0015, endLon: 9.0 });
       const result = last() as { path: TStreetNode[] };
       expect(result.path[0]).toMatchObject({ id: 1, lat: 48.0, lon: 9.0 });
+    });
+
+    it('keeps the shape node at the corner of a way (no junction there)', () => {
+      send({ type: 'init', network: makeCornerNetwork() });
+      // Start auf Way "Süd", Ziel auf Way "Ost": der Pfad muss um die Ecke.
+      send({ type: 'findPath', id: 'p', startLat: 47.9995, startLon: 9.0, endLat: 48.001, endLon: 9.0025 });
+      const result = last() as { path: TStreetNode[] };
+      expect(result.path.map((n) => n.id)).toEqual([10, 1, 2, 3]);
     });
 
     it('returns an empty path between two disconnected street components', () => {
