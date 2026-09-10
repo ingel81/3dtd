@@ -17,8 +17,11 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
         icon="speed"
         [position]="windowService.performanceWindow().position"
         [zIndex]="windowService.performanceWindow().zIndex"
+        [size]="windowService.performanceWindow().size ?? { width: 320, height: 700 }"
+        [resizable]="true"
         (closed)="windowService.close('performance')"
         (positionChange)="windowService.updatePosition('performance', $event)"
+        (sizeChange)="windowService.updateSize('performance', $event)"
         (focused)="windowService.bringToFront('performance')"
       >
         @if (stats(); as s) {
