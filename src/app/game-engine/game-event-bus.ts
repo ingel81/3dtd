@@ -117,7 +117,7 @@ export type GameEvent =
       enemy: Enemy;
       damage: number;
       sourceId: string;
-      effectType: 'poison';
+      effectType: 'poison' | 'burn';
       damageType: import('../configs/combat/combat.types').DamageType;
     }
 

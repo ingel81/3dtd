@@ -1,7 +1,7 @@
 import { Component, ComponentType } from '../core/component';
 import { GameObject } from '../core/game-object';
 import { GeoPosition } from '../models/game.types';
-import { StatusEffect } from '../models/status-effects';
+import { StatusEffect, StatusEffectType } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
 import { haversineDistance, METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
@@ -59,7 +59,12 @@ export class MovementComponent extends Component {
   private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
 
   // Reusable status result object (avoid per-enemy allocation in updateStatusEffects)
-  private static readonly _statusResult = { isSlowed: false, isPoisoned: false, slowMultiplier: 1.0 };
+  private static readonly _statusResult = {
+    isSlowed: false,
+    isPoisoned: false,
+    isBurning: false,
+    slowMultiplier: 1.0,
+  };
 
   // Cached transform — move() runs per enemy per sub-step, and the generic
   // getComponent() Map lookup was measurable at 10k+ enemies. Resolved lazily
@@ -188,50 +193,60 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Apply a status effect to this entity
-   * Slow effects don't stack - only one slow can be active (refreshes duration)
+   * Apply a status effect to this entity.
+   *
+   * Slow and poison don't stack: one of each can be active, and any new one
+   * replaces it regardless of source. Every other type (burn, freeze) is kept
+   * per source: the same source refreshes its entry, another source adds one.
+   * A replaced entry hands its DoT tick phase to the new one.
    */
   applyStatusEffect(effect: StatusEffect): void {
-    // For slow effects: only one can be active at a time (no stacking)
-    // Any new slow replaces existing slow (refreshes timer)
-    if (effect.type === 'slow') {
-      const existingSlowIndex = this.statusEffects.findIndex((e) => e.type === 'slow');
-      if (existingSlowIndex >= 0) {
-        // Replace existing slow (refresh duration)
-        this.statusEffects[existingSlowIndex] = effect;
-      } else {
-        this.statusEffects.push(effect);
-      }
-      return;
-    }
-
-    // For poison effects: only one can be active at a time (no stacking, refreshes timer)
-    if (effect.type === 'poison') {
-      const existingPoisonIndex = this.statusEffects.findIndex((e) => e.type === 'poison');
-      if (existingPoisonIndex >= 0) {
-        this.statusEffects[existingPoisonIndex] = effect;
-      } else {
-        this.statusEffects.push(effect);
-      }
-      return;
-    }
-
-    // For other effects: check same type + source
-    const existingIndex = this.statusEffects.findIndex(
-      (e) => e.type === effect.type && e.sourceId === effect.sourceId
-    );
-
-    if (existingIndex >= 0) {
-      // Refresh existing effect
-      this.statusEffects[existingIndex] = effect;
-    } else {
+    const idx = this.findEffectSlot(effect.type, effect.sourceId);
+    if (idx < 0) {
       this.statusEffects.push(effect);
+      return;
     }
+    effect.tickAccumMs = this.statusEffects[idx].tickAccumMs;
+    this.statusEffects[idx] = effect;
+  }
+
+  /**
+   * Same slot rule as applyStatusEffect, but writes into the existing entry
+   * instead of replacing it, so a source that re-applies every sub-step (the
+   * fire beam) allocates only when the effect starts.
+   */
+  refreshStatusEffect(
+    type: StatusEffectType,
+    value: number,
+    duration: number,
+    startTime: number,
+    sourceId: string,
+  ): void {
+    const idx = this.findEffectSlot(type, sourceId);
+    if (idx < 0) {
+      this.statusEffects.push({ type, value, duration, startTime, sourceId });
+      return;
+    }
+    const effect = this.statusEffects[idx];
+    effect.value = value;
+    effect.duration = duration;
+    effect.startTime = startTime;
+    effect.sourceId = sourceId;
+  }
+
+  /** Index of the entry a new effect of `type` from `sourceId` refreshes, or -1. */
+  private findEffectSlot(type: StatusEffectType, sourceId: string | undefined): number {
+    const bySource = type !== 'slow' && type !== 'poison';
+    for (let i = 0; i < this.statusEffects.length; i++) {
+      const e = this.statusEffects[i];
+      if (e.type === type && (!bySource || e.sourceId === sourceId)) return i;
+    }
+    return -1;
   }
 
   /**
    * Single-pass status effect update: removes expired effects in-place
-   * and returns active slow/poison flags + slow multiplier.
+   * and returns active slow/poison/burn flags + slow multiplier.
    *
    * `gameTimeMs` is the engine's monotonic game-clock (NOT performance.now()).
    * `effect.startTime` is also stored as game-time ms — effect duration is
@@ -241,12 +256,14 @@ export class MovementComponent extends Component {
   updateStatusEffects(gameTimeMs: number): {
     isSlowed: boolean;
     isPoisoned: boolean;
+    isBurning: boolean;
     slowMultiplier: number;
   } {
     let writeIdx = 0;
     const result = MovementComponent._statusResult;
     result.isSlowed = false;
     result.isPoisoned = false;
+    result.isBurning = false;
     result.slowMultiplier = 1.0;
 
     // eslint-disable-next-line @typescript-eslint/prefer-for-of -- in-place compact needs indexed write
@@ -267,6 +284,8 @@ export class MovementComponent extends Component {
           result.slowMultiplier = 0;
         } else if (effect.type === 'poison') {
           result.isPoisoned = true;
+        } else if (effect.type === 'burn') {
+          result.isBurning = true;
         }
       }
     }
@@ -317,6 +336,13 @@ export class MovementComponent extends Component {
   isPoisoned(gameTimeMs: number): boolean {
     return this.statusEffects.some(
       (effect) => effect.type === 'poison' && gameTimeMs - effect.startTime < effect.duration,
+    );
+  }
+
+  /** Whether enemy has an active burn effect. */
+  isBurning(gameTimeMs: number): boolean {
+    return this.statusEffects.some(
+      (effect) => effect.type === 'burn' && gameTimeMs - effect.startTime < effect.duration,
     );
   }
 

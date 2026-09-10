@@ -11,6 +11,7 @@ import { GameEventBus, SubscriptionBag } from '../game-engine';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { goldBudgetForWave, enemyBaseDamageForWave } from '../configs/wave-curriculum.config';
+import type { DamageType } from '../configs/combat/combat.types';
 
 /**
  * How fast an enemy's feet may follow a corrected ground height (m/s).
@@ -57,11 +58,8 @@ export class EnemyManager extends EntityManager<Enemy> {
   // Track enemies with active poison visual
   private poisonVisualEnemies = new Set<string>();
 
-  // Poison tick accumulator in GAME-TIME ms per enemy. Increments by the
-  // per-sub-step deltaTime; each time it crosses poisonTickIntervalMs we fire
-  // one tick and subtract the interval. Robust at any timescale because we
-  // never tie ticks to wall-clock time.
-  private poisonTickAccum = new Map<string, number>();
+  // Track enemies with active burn visual (tint only)
+  private burnVisualEnemies = new Set<string>();
 
   // Reusable Vector3 for position conversion in update loop (avoids per-enemy allocation)
   private _tempLocalPos = new Vector3();
@@ -408,7 +406,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       // share the enemy-sound budget, so the order of updateLoopPosition()
       // calls decides which paused loop gets to resume.
       if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
-      // Single-pass: remove expired effects + get slow/poison flags (game-time)
+      // Single-pass: remove expired effects + get slow/poison/burn flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
       const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
       if (sample) tMove += performance.now() - t0;
@@ -501,36 +499,11 @@ export class EnemyManager extends EntityManager<Enemy> {
           : renderer.nonWalkingCount === 0 ? 1.0
             : renderer.getSpeedMultiplier(enemy.id);
 
-      // Poison damage-over-time. This lives here and NOT in the visual pass:
-      // it emits `dot:damage`, so it is gameplay, and it has to tick once per
-      // sub-step or poison damage would change with the frame rate.
-      if (statusFlags.isPoisoned) {
-        const interval = COMBAT_TUNING.poisonTickIntervalMs;
-        let acc = (this.poisonTickAccum.get(enemy.id) ?? 0) + deltaTime;
-        if (acc >= interval) {
-          const poisonEffect = enemy.movement.statusEffects.find(
-            (e) => e.type === 'poison'
-          );
-          if (poisonEffect) {
-            // DPS scaled to the tick interval (e.g. 500ms tick = DPS * 0.5).
-            const tickDamage = poisonEffect.value * (COMBAT_TUNING.poisonTickIntervalMs / 1000);
-            while (acc >= interval) {
-              this.eventBus.emit({
-                type: 'dot:damage',
-                enemy,
-                damage: tickDamage,
-                sourceId: poisonEffect.sourceId ?? '',
-                effectType: 'poison',
-                damageType: 'poison',
-              });
-              acc -= interval;
-            }
-          } else {
-            // No active poison effect — drop the surplus rather than burning ticks.
-            acc = 0;
-          }
-        }
-        this.poisonTickAccum.set(enemy.id, acc);
+      // Damage over time (poison, burn). This lives here and NOT in the visual
+      // pass: it emits `dot:damage`, so it is gameplay, and it has to tick once
+      // per sub-step or DoT damage would change with the frame rate.
+      if (statusFlags.isPoisoned || statusFlags.isBurning) {
+        this.tickDamageOverTime(enemy, deltaTime);
       }
     }
 
@@ -549,6 +522,50 @@ export class EnemyManager extends EntityManager<Enemy> {
   }
 
   /**
+   * One sub-step of every damage-over-time effect on `enemy`.
+   *
+   * Each poison or burn entry keeps its own game-time accumulator
+   * (`tickAccumMs`) and fires one `dot:damage` each time it crosses the
+   * type's tick interval, DPS scaled to the interval (500 ms tick = DPS × 0.5).
+   * Robust at any timescale because ticks never depend on wall-clock time.
+   * The accumulator lives on the effect: it survives refreshes (see
+   * MovementComponent.applyStatusEffect) and ends exactly when the effect
+   * expires, so a partial interval never carries into the next application.
+   */
+  private tickDamageOverTime(enemy: Enemy, deltaTime: number): void {
+    for (const effect of enemy.movement.statusEffects) {
+      let interval: number;
+      let damageType: DamageType;
+      if (effect.type === 'poison') {
+        interval = COMBAT_TUNING.poisonTickIntervalMs;
+        damageType = 'poison';
+      } else if (effect.type === 'burn') {
+        interval = COMBAT_TUNING.burnTickIntervalMs;
+        damageType = 'fire';
+      } else {
+        continue;
+      }
+
+      let acc = (effect.tickAccumMs ?? 0) + deltaTime;
+      if (acc >= interval) {
+        const tickDamage = effect.value * (interval / 1000);
+        while (acc >= interval) {
+          this.eventBus.emit({
+            type: 'dot:damage',
+            enemy,
+            damage: tickDamage,
+            sourceId: effect.sourceId ?? '',
+            effectType: effect.type,
+            damageType,
+          });
+          acc -= interval;
+        }
+      }
+      effect.tickAccumMs = acc;
+    }
+  }
+
+  /**
    * Push simulation state to the renderer. Call once per render frame, after
    * the sub-step loop, and only when at least one sub-step actually ran.
    *
@@ -561,7 +578,7 @@ export class EnemyManager extends EntityManager<Enemy> {
    * second frame, and the visuals now follow that same cadence rather than
    * running ahead of it.
    *
-   * Deliberately NOT here: poison damage-over-time (emits `dot:damage`),
+   * Deliberately NOT here: damage-over-time (emits `dot:damage`),
    * ground-height easing (combat and targeting read `terrainHeight`) and the
    * animation-speed read (feeds movement). Those are gameplay and stay on the
    * sub-step, or their outcome would depend on the frame rate.
@@ -622,7 +639,7 @@ export class EnemyManager extends EntityManager<Enemy> {
         );
       }
 
-      // Frost / poison visuals are edge-triggered against a Set, so running
+      // Frost / poison / burn visuals are edge-triggered against a Set, so running
       // them once per frame instead of once per sub-step changes nothing but
       // the number of times the same state is re-checked. Each check is
       // skipped when it cannot be true: `.some` over an empty effect list and
@@ -657,7 +674,16 @@ export class EnemyManager extends EntityManager<Enemy> {
         engine.enemies.setPoisonVisual(enemy.id, false);
         engine.effects.stopPoisonAura(enemy.id);
         this.poisonVisualEnemies.delete(enemy.id);
-        this.poisonTickAccum.delete(enemy.id);
+      }
+
+      const isBurning =
+        enemy.movement.statusEffects.length !== 0 && enemy.movement.isBurning(gameTimeMs);
+      const hasBurn =
+        this.burnVisualEnemies.size !== 0 && this.burnVisualEnemies.has(enemy.id);
+      if (isBurning !== hasBurn) {
+        engine.enemies.setBurnVisual(enemy.id, isBurning);
+        if (isBurning) this.burnVisualEnemies.add(enemy.id);
+        else this.burnVisualEnemies.delete(enemy.id);
       }
     }
 
@@ -739,8 +765,9 @@ export class EnemyManager extends EntityManager<Enemy> {
     if (this.poisonVisualEnemies.has(entity.id)) {
       this.tilesEngine?.effects.stopPoisonAura(entity.id);
       this.poisonVisualEnemies.delete(entity.id);
-      this.poisonTickAccum.delete(entity.id);
     }
+    // The burn tint lives on the render slot, which goes with the enemy
+    this.burnVisualEnemies.delete(entity.id);
     // Remove from global route grid and spatial grid
     this.globalRouteGrid.removeEnemy(entity);
     this.spatialGrid.removeEnemy(entity.id);
@@ -785,7 +812,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.tilesEngine?.effects.stopPoisonAura(enemyId);
     }
     this.poisonVisualEnemies.clear();
-    this.poisonTickAccum.clear();
+    this.burnVisualEnemies.clear();
     super.clear();
     this.aliveCount.set(0);
     this.cachedAliveEnemies = null; // Invalidate cache

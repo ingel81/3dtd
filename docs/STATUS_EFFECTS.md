@@ -1,6 +1,6 @@
 # Status Effects System
 
-**Stand:** 2026-05-12
+**Stand:** 2026-09-11
 
 Dokumentation des Status-Effekt-Systems für Debuffs und Buffs auf Enemies.
 
@@ -13,10 +13,10 @@ Das Status-Effekt-System ermöglicht es Towern, temporäre Effekte auf Enemies a
 **Aktuell implementiert:**
 - **Slow** (Verlangsamung) — Ice Tower, Splash
 - **Poison** (DoT) — Poison Tower, Splash
+- **Burn** (DoT) — Fire Tower, jeder Gegner im Flammenkegel
 
 **Reserviert (im `StatusEffectType` definiert, aber aktuell nicht aktiv genutzt):**
 - Freeze
-- Burn
 
 > **Wichtig — Game-Time statt Wall-Clock:** Seit dem Sub-Step-Refactor laufen Status-Effekt-Timer **in Game-Time-Millisekunden** (deterministisch, unabhängig vom Speed-Multiplier). `effect.startTime` wird über einen `gameClockProvider` aus dem `GameStateManager` bezogen — kein `performance.now()` mehr.
 
@@ -38,6 +38,8 @@ export interface StatusEffect {
   /** GameStateManager.gameTimeMs zum Zeitpunkt des Anwendens. */
   startTime: number;
   sourceId?: string;    // Tower ID für Refresh-Logik
+  /** Nur DoT (poison, burn): Game-Time ms seit dem letzten Tick, überlebt Refreshes. */
+  tickAccumMs?: number;
 }
 ```
 
@@ -51,6 +53,7 @@ export class StatusEffectService {
   setGameClockProvider(provider: () => number): void;
   applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string): void;
   applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void;
+  applyBurn(enemy: Enemy, dotDps: number, duration: number, sourceId: string): void; // In-place-Refresh
   applyEffect(enemy: Enemy, type: StatusEffectType, value: number, duration: number, sourceId: string): void;
   removeExpired(enemy: Enemy): void;
   hasActiveEffect(enemy: Enemy, type: StatusEffectType): boolean;
@@ -70,13 +73,18 @@ export class MovementComponent extends Component {
   statusEffects: StatusEffect[] = [];
 
   applyStatusEffect(effect: StatusEffect): void;
+  /** Gleiche Slot-Regel, schreibt aber in den vorhandenen Eintrag (keine Allokation). */
+  refreshStatusEffect(type, value, duration, startTime, sourceId): void;
   /** Single-Pass Update: entfernt abgelaufene Effekte + gibt aktive Flags zurück. */
-  updateStatusEffects(gameTimeMs: number): { isSlowed: boolean; isPoisoned: boolean; slowMultiplier: number };
+  updateStatusEffects(gameTimeMs: number): {
+    isSlowed: boolean; isPoisoned: boolean; isBurning: boolean; slowMultiplier: number;
+  };
   removeExpiredEffects(gameTimeMs: number): void;
   getSlowMultiplier(gameTimeMs: number): number;
   getEffectiveSpeed(gameTimeMs: number): number;
   isSlowed(gameTimeMs: number): boolean;
   isPoisoned(gameTimeMs: number): boolean;
+  isBurning(gameTimeMs: number): boolean;
 }
 ```
 
@@ -150,34 +158,25 @@ applySlow(enemy: Enemy, slowAmount: number, duration: number, sourceId: string):
 ### Refresh-Logik
 
 `slow` und `poison` werden **immer ersetzt** — es gibt kein Stacking. Jeder neue Effekt dieses Typs ersetzt den vorherigen, unabhängig von der Source.
-Andere Effekttypen werden pro `(type, sourceId)` deduplikiert (gleiche Quelle = Refresh, andere Quelle = neuer Eintrag).
+Andere Effekttypen (`burn`, `freeze`) werden pro `(type, sourceId)` deduplikiert (gleiche Quelle = Refresh, andere Quelle = neuer Eintrag).
+Ein ersetzter Eintrag gibt seine DoT-Tick-Phase (`tickAccumMs`) an den neuen weiter.
 
 ```typescript
 applyStatusEffect(effect: StatusEffect): void {
-  // Slow: nur einer aktiv (kein Stacking)
-  if (effect.type === 'slow') {
-    const idx = this.statusEffects.findIndex((e) => e.type === 'slow');
-    if (idx >= 0) this.statusEffects[idx] = effect;
-    else this.statusEffects.push(effect);
+  const idx = this.findEffectSlot(effect.type, effect.sourceId);
+  if (idx < 0) {
+    this.statusEffects.push(effect);
     return;
   }
-
-  // Poison: nur einer aktiv (kein Stacking)
-  if (effect.type === 'poison') {
-    const idx = this.statusEffects.findIndex((e) => e.type === 'poison');
-    if (idx >= 0) this.statusEffects[idx] = effect;
-    else this.statusEffects.push(effect);
-    return;
-  }
-
-  // Andere Effekte: gleicher Typ + gleiche Source = Refresh
-  const idx = this.statusEffects.findIndex(
-    (e) => e.type === effect.type && e.sourceId === effect.sourceId,
-  );
-  if (idx >= 0) this.statusEffects[idx] = effect;
-  else this.statusEffects.push(effect);
+  effect.tickAccumMs = this.statusEffects[idx].tickAccumMs;
+  this.statusEffects[idx] = effect;
 }
+
+// slow/poison: Slot pro Typ; alle anderen: Slot pro Typ + Source
+private findEffectSlot(type, sourceId): number { /* ... */ }
 ```
+
+`refreshStatusEffect(type, value, duration, startTime, sourceId)` nutzt dieselbe Slot-Regel, schreibt aber in den vorhandenen Eintrag. Das ist für Quellen gedacht, die jeden Sub-Step neu anwenden (Fire-Beam): allokiert wird nur, wenn der Effekt beginnt.
 
 **Beispiel:**
 - Ice Tower A trifft Enemy → 50% slow, 3s
@@ -226,9 +225,10 @@ removeExpiredEffects(gameTimeMs: number): void {
 ```
 
 **Implementierung:**
-- DoT-Tick im Enemy-Sub-Step-Loop (Damage = `value × deltaSeconds`).
-- Kein Stacking — neuer Poison ersetzt den vorherigen (Timer-Refresh).
+- DoT-Tick im Enemy-Sub-Step-Loop (`EnemyManager.tickDamageOverTime`): Game-Time-Akkumulator `tickAccumMs` auf dem Effekt, alle `COMBAT_TUNING.poisonTickIntervalMs` (500 ms) ein `dot:damage` mit `value × 0,5`.
+- Kein Stacking — neuer Poison ersetzt den vorherigen (Timer-Refresh, Tick-Phase bleibt).
 - `updateStatusEffects()` setzt `isPoisoned: true` als aktiver Flag.
+- Tötet ein Tick, bekommt der Quell-Tower den Kill gutgeschrieben (`sourceId`).
 
 ### Anwendung (StatusEffectService)
 
@@ -246,9 +246,41 @@ applyPoison(enemy: Enemy, dotDps: number, duration: number, sourceId: string): v
 
 ---
 
-## Freeze / Burn (Reserviert)
+## Burn Effect (DoT)
 
-`freeze` und `burn` sind als `StatusEffectType` definiert; im Update-Pfad behandelt `updateStatusEffects()` `freeze` zwar als `isSlowed = true`, aber es gibt aktuell keinen Tower, der sie ausspielt. Designs werden in [TODO.md](../TODO.md) und [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) verfolgt.
+**Status:** Aktiv — vom Fire Tower auf jeden Gegner im Flammenkegel angewendet (seit 2026-09-11).
+
+Design-Vorgabe ([MASTER_GAME_DESIGN.md §2.4](game-design/MASTER_GAME_DESIGN.md)): „X DPS, verhindert Regen, 3 s, Gegenmittel `immuneToBurn`". Umgesetzt ist der DoT. Regen gibt es im Spiel nicht, `immuneToBurn` ist noch nicht umgesetzt.
+
+### Werte
+
+Der Beam behält seine gesamte DPS (`damagePerSecond`, inkl. Damage-Upgrades). Ein Anteil davon läuft als Burn statt direkt:
+
+```typescript
+// GAME_BALANCE.effects.burn
+beamDpsShare: 0.2,   // 20 % der effektiven Beam-DPS werden Burn-DPS
+duration: 3000,      // Game-Time ms, bei jedem Sub-Step im Kegel erneuert
+
+// TowerCombatService.updateBeamTowers
+const burnDps = dps * beamDpsShare;          // 35 DPS Basis → 7 Burn-DPS
+const damageThisFrame = (dps - burnDps) * dt; // 28 DPS direkt
+```
+
+Im Kegel nimmt ein Gegner damit dieselbe Summe wie vorher; verlässt er ihn, brennt er bis zu 3 s nach (Basis: bis zu 6 Ticks à 3,5 Schaden). Schadenstyp ist `fire`, die Damage-Matrix greift pro Tick wie beim Beam.
+
+### Stacking
+
+Burn wird **pro Source** geführt (allgemeine Regel, siehe Refresh-Logik): derselbe Fire Tower erneuert seinen Eintrag, ein zweiter Fire Tower legt einen eigenen daneben. So addieren sich zwei Burns wie ihre Beams, und der Split bleibt auch bei überlappenden Türmen neutral. Poison und Burn sind getrennte Effekte und wirken gleichzeitig.
+
+### Tick
+
+Wie Poison im Enemy-Sub-Step (`EnemyManager.tickDamageOverTime`), aber je Burn-Eintrag mit eigenem Akkumulator: alle `COMBAT_TUNING.burnTickIntervalMs` (500 ms) ein `dot:damage` mit `effectType: 'burn'`, `damageType: 'fire'` und der Tower-ID als `sourceId`. Da der Beam per `refreshStatusEffect` in den Eintrag schreibt, läuft die Tick-Phase durch, solange der Gegner im Kegel steht; nach dem Ablauf beginnt ein neuer Burn bei 0.
+
+---
+
+## Freeze (Reserviert)
+
+`freeze` ist als `StatusEffectType` definiert; im Update-Pfad behandelt `updateStatusEffects()` `freeze` zwar als `isSlowed = true`, aber es gibt aktuell keinen Tower, der ihn ausspielt. Designs werden in [TODO.md](../TODO.md) und [MASTER_GAME_DESIGN.md](game-design/MASTER_GAME_DESIGN.md) verfolgt.
 
 ---
 
@@ -331,9 +363,12 @@ effects: {
 
 ### Burn Effect
 
+**Aktuell implementiert:**
+- Oranger Tint auf der Instanz (`setBurnVisual`, Priorität: Hit-Flash > Freeze > Burn > Poison), flankengesteuert in `EnemyManager.presentFrame()`
+- Orange Schadenszahlen pro Tick
+
 **Geplant:**
-- Feuer-Partikel (ähnlich wie HQ Fire)
-- Orange/roter Glow
+- Feuer-Partikel am brennenden Gegner (ähnlich wie HQ Fire)
 - Rauch-Partikel
 
 ---
@@ -388,7 +423,7 @@ effects: {
 
 ```typescript
 // models/status-effects.ts
-export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'NEW_EFFECT';
+export type StatusEffectType = 'slow' | 'freeze' | 'burn' | 'poison' | 'NEW_EFFECT';
 ```
 
 ### 2. Anwendungs-Logik
@@ -417,18 +452,7 @@ getNewEffectMultiplier(): number {
 
 **Option B: In EnemyManager (für Damage-Effekte)**
 
-```typescript
-// enemy.manager.ts
-private updateBurnDamage(enemy: Enemy, deltaTime: number): void {
-  for (const effect of enemy.movement.statusEffects) {
-    if (effect.type === 'burn') {
-      const dps = effect.value;
-      const damage = dps * (deltaTime / 1000);
-      enemy.health.takeDamage(damage);
-    }
-  }
-}
-```
+Neuen DoT-Typ in `EnemyManager.tickDamageOverTime()` eintragen (Tick-Intervall und Schadenstyp), ein Flag in `updateStatusEffects()` ergänzen und den Tick darüber freischalten. Schaden läuft immer über `dot:damage`, nie direkt über `health.takeDamage()`, damit Damage-Matrix, Kill-Gutschrift und Schadenszahlen greifen.
 
 ### 4. Visuals (optional)
 

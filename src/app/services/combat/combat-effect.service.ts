@@ -79,9 +79,9 @@ export class CombatEffectService {
       this.handleProjectileHit(event.projectile, event.target, event.damageType);
     }));
 
-    // Subscribe to DOT damage events (poison ticks)
+    // Subscribe to DOT damage events (poison and burn ticks)
     this.eventBusSubs.add(this.eventBus.on('dot:damage', (event) => {
-      this.handleDotDamage(event.enemy, event.damage, event.damageType);
+      this.handleDotDamage(event.enemy, event.damage, event.damageType, event.effectType, event.sourceId);
     }));
   }
 
@@ -306,10 +306,17 @@ export class CombatEffectService {
   }
 
   /**
-   * Handle DOT damage tick (poison).
-   * Applies damage through the matrix and spawns green damage number.
+   * Handle DOT damage tick (poison, burn).
+   * Applies damage through the matrix, credits a kill to the source tower and
+   * spawns a damage number in the effect's colour.
    */
-  private handleDotDamage(enemy: Enemy, damage: number, damageType: DamageType): void {
+  private handleDotDamage(
+    enemy: Enemy,
+    damage: number,
+    damageType: DamageType,
+    effectType: 'poison' | 'burn',
+    sourceTowerId: string,
+  ): void {
     if (!enemy.alive || !this.tilesEngine) return;
 
     const result = this.damageService.applyDamage(
@@ -317,12 +324,12 @@ export class CombatEffectService {
       enemy,
       damage,
       damageType,
-      '',
+      sourceTowerId,
       false,
       true // suppress blood for DOT
     );
 
-    // Green damage number for poison (keep green regardless of effectiveness)
+    // Green for poison, orange for burn (regardless of effectiveness)
     if (this.damageNumbersEnabled && result) {
       const rounded = Math.round(result.finalDamage);
       this.tilesEngine.effects.spawnFloatingText(
@@ -331,7 +338,7 @@ export class CombatEffectService {
         enemy.position.lon,
         enemy.transform.terrainHeight + (enemy.typeConfig.heightOffset ?? 0) + 5,
         {
-          color: '#44CC22',
+          color: effectType === 'burn' ? '#FF8C1A' : '#44CC22',
           duration: TIMING.damagePopupDuration,
           floatSpeed: 1.2,
           scale: 0.2,
@@ -376,6 +383,14 @@ export class CombatEffectService {
     showBloodEffects = false
   ): void {
     this.damageService.applyBeamDamage(this.vfx, enemy, damage, damageType, sourceTowerId, showBloodEffects);
+  }
+
+  /**
+   * Set or refresh a fire beam's burn on an enemy in its cone.
+   * Called every sub-step while the enemy stays in the cone.
+   */
+  applyBurn(enemy: Enemy, dotDps: number, sourceTowerId: string): void {
+    this.statusEffectService.applyBurn(enemy, dotDps, GAME_BALANCE.effects.burn.duration, sourceTowerId);
   }
 
   /**

@@ -12,6 +12,7 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
 import { upgradeFactor } from '../../configs/tower-types.config';
+import { GAME_BALANCE } from '../../configs/game-balance.config';
 import { EnemyManager } from '../../managers/enemy.manager';
 import { ProjectileManager } from '../../managers/projectile.manager';
 
@@ -417,9 +418,12 @@ export class TowerCombatService {
           this.updateFlameSoundPosition(tower.id, towerLocalPos);
         }
 
-        // Apply DPS to all enemies in cone
+        // Apply DPS to all enemies in cone. A share of it is dealt as burn
+        // instead of directly: in the cone the total stays the tower's DPS,
+        // and an enemy that leaves it keeps burning for the burn duration.
         const dps = this.getEffectiveDPS(tower);
-        const damageThisFrame = dps * dt;
+        const burnDps = dps * GAME_BALANCE.effects.burn.beamDpsShare;
+        const damageThisFrame = (dps - burnDps) * dt;
 
         const enemiesInCone = this.getEnemiesInCone(
           towerLocalPos,
@@ -446,7 +450,11 @@ export class TowerCombatService {
           );
           // The throttle is keyed per enemy: drop the entry once the beam has
           // killed it instead of carrying it until wave end.
-          if (!enemy.alive) this.lastBeamBloodEffect.delete(enemy.id);
+          if (!enemy.alive) {
+            this.lastBeamBloodEffect.delete(enemy.id);
+            continue;
+          }
+          this.combatEffectService.applyBurn(enemy, burnDps, tower.id);
         }
       } else {
         // No target - stop beam, sound, and reset turret

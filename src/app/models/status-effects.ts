@@ -13,4 +13,10 @@ export interface StatusEffect {
   /** GameStateManager.gameTimeMs at the moment the effect was applied. */
   startTime: number;
   sourceId?: string; // Tower ID for stacking logic
+  /**
+   * Damage-over-time effects (poison, burn): game-time ms since the last tick.
+   * Carried over when the effect is refreshed, so a source that refreshes
+   * every sub-step (the fire beam) does not keep resetting the tick phase.
+   */
+  tickAccumMs?: number;
 }
