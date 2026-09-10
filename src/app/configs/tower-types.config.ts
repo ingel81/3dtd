@@ -172,10 +172,10 @@ export interface TowerTypeConfig {
   hasAnimations?: boolean; // Whether this tower has GLTF animations (default: false)
   animationPingPong?: boolean; // Play animation forward then backward (smooth loop, default: false)
 
-  // Beam attack settings (for flamethrower-type towers)
+  // Beam attack settings (for flamethrower-type towers). The cone is as long
+  // as the tower's range, so a beam tower only acquires what it can burn.
   attackType?: AttackType; // 'projectile' (default) or 'beam' for continuous damage
   damagePerSecond?: number; // DPS for beam towers (used instead of damage + fireRate)
-  beamRange?: number; // Length of the beam/cone in meters
   beamWidth?: number; // Width of the cone at the end in meters
 
   defaultTargeting?: TargetingStrategy; // Default targeting for this tower type (default: 'closest')
@@ -343,8 +343,9 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     damageType: 'fire',
     damage: 0, // Not used for beam towers
     damagePerSecond: 35, // 35 DPS to all enemies in cone
-    range: 25, // Detection range (short - flamethrower)
-    beamRange: 20, // Flame stream length
+    // Erfassung = Flammenlänge. Früher 25 m Erfassung bei 20 m Flamme: der
+    // Tower zielte (mit 'first' bevorzugt) auf Gegner, die er nicht traf.
+    range: 20,
     beamWidth: 5, // Stream width
     fireRate: 0, // Not used for beam towers
     projectileType: 'arrow', // Fallback, not used (beam)
@@ -352,7 +353,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 110,
     canTargetAir: false, // Ground only - flames don't reach flyers
     canTargetGround: true,
-    // Fire uses damage + range (detection) + beam-width — no fireRate (beam-based).
+    // Fire uses damage + range (flame length) + beam-width — no fireRate (beam-based).
     upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
   },
   tentacle: {

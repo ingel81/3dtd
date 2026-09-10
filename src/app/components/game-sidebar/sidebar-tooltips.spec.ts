@@ -52,7 +52,7 @@ describe('towerCardTooltip', () => {
     expect(tip.stats).toEqual([
       { label: 'DPS', value: '35' },
       { label: 'TYPE', value: 'BEAM' },
-      { label: 'RANGE', value: '25m' },
+      { label: 'RANGE', value: '20m' },
     ]);
   });
 

@@ -96,7 +96,7 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 | **Rocket** | Siege | 40 dmg, 0.5/s, Range 100 | 160 | **Air-only** (Basis) |
 | **Magic** | Magic | 40 dmg, 1.5/s, Range 70 | 130 | nein |
 | **Ice** | Ice | 2 dmg, 0.33/s, Range 60 | 100 | **Air + Ground** |
-| **Fire** | Fire | 35 DPS Beam, Range 25 | 170 | per Upgrade |
+| **Fire** | Fire | 35 DPS Beam, Range 20 (= Flammenlänge) | 170 | per Upgrade |
 | **Tentacle** | Physical (+20% True) | 30 dmg, 1.5/s, Range 25 | 185 | nein |
 | **Poison** | Poison | DoT-Projektil, Splash, Range 65 | 100 | nein |
 | **Lightning** | Lightning | 35 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |

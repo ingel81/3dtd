@@ -36,7 +36,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 | Magic | projectile | magic | 40 | 70m | 1.5/s | 140 | Stark gegen ethereal |
 | Rocket | projectile | siege | 40 | 100m | 0.5/s | 120 | **Nur Luft-Ziele** |
 | Ice | projectile | ice | 5 | 60m | 0.33/s | 90 | Slow-Effekt, Air+Ground, Splash |
-| Fire | **beam** | fire | 35 DPS | 25m (Detection) | — | 110 | Flammenkegel, nur Boden, `wide-burn` modifiziert `beamWidth` statt `range` |
+| Fire | **beam** | fire | 35 DPS | 20m (= Flammenlänge) | — | 110 | Flammenkegel, nur Boden, Upgrade `beam-width` statt `speed` |
 | Tentacle | **melee** | physical | 30 | 25m | 1.5/s | 80 | GPU Bezier-Rendering (`meleeStrikeDuration: 250`) |
 | Poison | projectile | poison | 5 | 55m | 1.0/s | 100 | DoT (poison-glob), Splash |
 | Lightning | **chain** | lightning | 35 | 65m | 0.8/s | 130 | Hitscan-Kette (`maxJumps: 2`, `chainFalloff: 0.7`, `jumpRange: 15m`). Idle-Crackle am Turm-Tip + lokale Aufhell-Halos pro Hit (additive Sprites). Air+Ground. |
@@ -93,8 +93,7 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 
   // Optional: Beam Attack (statt Projektile)
   // attackType: 'beam',
-  // damagePerSecond: 35,        // DPS für Beam-Tower
-  // beamRange: 20,              // Länge des Beams/Kegels in Metern
+  // damagePerSecond: 35,        // DPS für Beam-Tower (Kegellänge = range)
   // beamWidth: 5,               // Breite des Kegels am Ende in Metern
 
   upgrades: [],
@@ -115,7 +114,7 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `rotationY` | number | 0 | Y-Rotation in Radians (visuell) |
 | `turretBarrelOffset` | number | 0 | Barrel-Orientierung im Model Space |
 | `damage` | number | - | Schaden pro Schuss (0 bei beam) |
-| `range` | number | - | Erkennungsreichweite in Metern |
+| `range` | number | - | Erkennungsreichweite in Metern, bei Beam-Towern zugleich die Kegellänge |
 | `fireRate` | number | - | Schüsse pro Sekunde (0 bei beam) |
 | `projectileType` | ProjectileTypeId | - | Projektiltyp |
 | `cost` | number | - | Baukosten |
@@ -126,7 +125,6 @@ const NEW_MODEL_URL = '/assets/models/towers/new_tower.glb';
 | `animationPingPong` | boolean | false | Animation vorwärts/rückwärts abspielen |
 | `attackType` | AttackType | 'projectile' | 'projectile', 'beam', 'melee', 'chain' oder 'passive' |
 | `damagePerSecond` | number | - | DPS für Beam-Tower |
-| `beamRange` | number | - | Beam/Kegel-Länge in Metern |
 | `beamWidth` | number | - | Kegel-Breite am Ende in Metern |
 | `defaultTargeting` | TargetingStrategy | - | Standard-Targeting-Strategie |
 | `firePoints` | { x, z }[] | - | Mehrere Feuer-Positionen (z.B. Dual-Gatling) |
@@ -527,8 +525,7 @@ fire: {
   attackType: 'beam',           // Beam statt Projektil
   damage: 0,                    // Nicht verwendet bei beam
   damagePerSecond: 35,          // 35 DPS an alle Feinde im Kegel
-  range: 25,                    // Erkennungsreichweite (kurz - Flammenwerfer)
-  beamRange: 20,                // Flammenstrahl-Länge
+  range: 20,                    // Erfassung = Flammenlänge
   beamWidth: 5,                 // Kegel-Breite am Ende
   fireRate: 0,                  // Nicht verwendet bei beam
   projectileType: 'arrow',      // Fallback, fuer beam ungenutzt
@@ -538,7 +535,8 @@ fire: {
 **Unterschiede zu Projektil-Towern:**
 - `damage` und `fireRate` sind 0 (nicht verwendet)
 - Stattdessen `damagePerSecond` für kontinuierlichen Schaden
-- `beamRange` und `beamWidth` definieren den Schadenskegel
+- `range` (Länge, mit Range-Upgrades) und `beamWidth` definieren den Schadenskegel. Der Tower
+  erfasst nur Ziele innerhalb der Flamme, er zielt also nie auf etwas, das er nicht trifft
 - Alle Feinde im Kegel erhalten gleichzeitig Schaden
 
 ---
@@ -617,8 +615,7 @@ fire: {
   damageType: 'fire',
   damage: 0,
   damagePerSecond: 35,
-  range: 25,
-  beamRange: 20,
+  range: 20,
   beamWidth: 5,
   fireRate: 0,
   projectileType: 'arrow',
@@ -626,7 +623,7 @@ fire: {
   cost: 110,
   canTargetAir: false,
   canTargetGround: true,
-  // Fire nutzt damage + range (Detection) + beam-width — kein fireRate (Beam-basiert)
+  // Fire nutzt damage + range (Flammenlänge) + beam-width — kein fireRate (Beam-basiert)
   upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
 },
 ```

@@ -345,21 +345,21 @@ export class TowerCombatService {
       // Skip non-beam towers
       if (tower.typeConfig.attackType !== 'beam') continue;
 
-      // The fallback radius must cover what findTarget checks against
-      // (combat.range, upgrades included) as well as the cone reach.
-      // Querying with beamRange alone (20m) hid every enemy in the ring out
-      // to the 25m detection range, so the tower never acquired them.
+      // The flame is exactly as long as the tower's range, upgrades included,
+      // so findTarget only acquires what the cone reaches. Detection used to
+      // be 25 m against a 20 m flame: the tower aimed at enemies it could not
+      // burn, and range upgrades widened that ring instead of the flame.
+      // The beam margin covers the cone's hit tolerance past its length.
+      const beamLength = tower.combat.range;
       const candidates = this.collectCandidates(
         tower,
-        Math.max(tower.combat.range, tower.typeConfig.beamRange ?? 35) * COMBAT_TUNING.rangeMargin.beam,
+        beamLength * COMBAT_TUNING.rangeMargin.beam,
         enemyManager,
       );
 
       // Find primary target (closest/lowest HP in range). Same LOS predicate
       // as the projectile/melee/chain paths — beam towers must not acquire
-      // targets behind buildings either. beamRange (20m) is inside the
-      // detection range (25m) the LOS cells were registered with, so the
-      // grid fast path covers the whole beam reach.
+      // targets behind buildings either.
       const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
       let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
@@ -399,7 +399,6 @@ export class TowerCombatService {
         targetLocalPos.y += getEnemyAimOffsetY(target); // aim at the model's visual centre
 
         // Start/update flame beam visual
-        const beamLength = tower.typeConfig.beamRange ?? 35;
         const beamWidth = this.getEffectiveBeamWidth(tower);
         this.tilesEngine?.flameBeams.startBeam(
           tower.id,
