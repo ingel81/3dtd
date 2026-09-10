@@ -31,7 +31,7 @@ type SearchState = 'idle' | 'too-short' | 'searching' | 'results' | 'no-results'
           <mat-spinner diameter="14" class="loading-spinner"></mat-spinner>
         }
         @if (currentValue() && !geocoding.isLoading()) {
-          <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear">
+          <button class="clear-btn" (mousedown)="clearValue($event)" title="Clear" aria-label="Clear">
             <td-icon name="cross" [size]="14"></td-icon>
           </button>
         }

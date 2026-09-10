@@ -61,7 +61,7 @@ interface Tick {
       </div>
 
       @if (rotation() !== 0) {
-        <button class="td-compass__reset" (click)="onReset()" title="Reset bearing">
+        <button class="td-compass__reset" (click)="onReset()" title="Reset bearing" aria-label="Reset bearing">
           <td-icon name="refresh" [size]="12"></td-icon>
         </button>
       }

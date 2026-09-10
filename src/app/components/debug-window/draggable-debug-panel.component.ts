@@ -46,7 +46,7 @@ import { TdIconComponent } from '../icon/icon.component';
       >
         <td-icon class="debug-panel-icon" [name]="$any(icon())" [size]="14"></td-icon>
         <span class="debug-panel-title">{{ title() }}</span>
-        <button class="debug-panel-close" (click)="onClose($event)">
+        <button class="debug-panel-close" (click)="onClose($event)" [attr.aria-label]="'Close ' + title()">
           <td-icon name="cross" [size]="14"></td-icon>
         </button>
       </div>

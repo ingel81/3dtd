@@ -124,6 +124,7 @@ type EditMode = 'full' | 'spawn-only';
                     [disabled]="!canApplyCoords()"
                     (click)="applyCoordinates()"
                     matTooltip="Apply coordinates"
+                    aria-label="Apply coordinates"
                   >
                     @if (isLoadingCoords()) {
                       <mat-spinner diameter="14"></mat-spinner>
