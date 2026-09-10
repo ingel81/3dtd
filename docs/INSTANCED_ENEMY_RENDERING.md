@@ -180,8 +180,9 @@ Pro Enemy-Typ ein `TypePool`:
 
 ### Slot-Vergabe und Uploads
 
-Enemy-Pools, Health-Bars und die Projektil-Pools (`three-projectile.renderer.ts`)
-vergeben ihre Slots über `renderers/instance-slot-allocator.ts`:
+Enemy-Pools, Health-Bars, die Projektil-Pools (`three-projectile.renderer.ts`) und
+die Decal-Pools (`decal-instance.manager.ts`) vergeben ihre Slots über
+`renderers/instance-slot-allocator.ts`:
 
 - Freie Slots kommen auf eine Free-List und werden vor dem Wachsen wieder vergeben.
 - `activeCount` ist der höchste belegte Slot + 1. Er ist Draw-Count (`mesh.count`
@@ -198,8 +199,19 @@ vergeben ihre Slots über `renderers/instance-slot-allocator.ts`:
 Frame-Flushes laden `(0, activeCount × n)` hoch (`clearUpdateRanges()` +
 `addUpdateRange()`), nie den vollen MAX-Buffer. Bei `activeCount = 0` wird keine
 Range gesetzt: `bufferSubData` liest Länge 0 als "bis zum Ende", `(0, 0)` wäre ein
-Voll-Upload. Die Projektil-Pools setzen auf den Einzelpfaden nur ein Dirty-Flag,
-`ThreeProjectileRenderer.commitToGPU()` flusht einmal pro Frame.
+Voll-Upload.
+
+three leert die `updateRanges` eines Attributs nur beim Upload. Im Headless-Training
+wird nichts gerendert, während Gegner und Projektile kommen und gehen, also darf
+kein Einzelpfad unbegrenzt Ranges anhängen:
+
+- Attribute mit Frame-Flush setzen auf den Einzelpfaden nur ein Dirty-Flag: Enemy
+  `instanceMatrix` (auch beim Entfernen), `aAnimFrame`, `aTintColor`, Health-Bar
+  `aCenter`/`aHealth`, Projektil-Matrizen (`ThreeProjectileRenderer.commitToGPU()`
+  flusht einmal pro Frame).
+- Attribute ohne Frame-Flush (Enemy `aOpacity`, Health-Bar `aSize`, `aBarColor`,
+  `aIsBoss`) laufen über `InstanceSlotAllocator.uploadSlot()`: eine Range pro Slot,
+  ab 64 wartenden Ranges zusammengefasst zu einer über die gezeichneten Slots.
 
 ### Animation State
 
@@ -234,7 +246,8 @@ interface EnemyInstanceState {
 `flushDirtyFlags()` und `updateBillboard()`. Der Debug-Schalter "Animationen aus"
 hält nur die VAT-Frames an, die Flushes laufen weiter, sonst frieren Gegner und
 Health-Bars auf dem Bildschirm ein. Nur bei ausgeblendeten Gegnern entfällt der
-ganze Schritt.
+ganze Schritt. Hit-Flash-Tints (Lightning) laufen über `expireHitFlashes()` vor
+dem Schalter ab; die Methode geht nur die gerade blitzenden Instanzen durch.
 
 ---
 
