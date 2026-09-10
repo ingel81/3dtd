@@ -406,6 +406,13 @@ export class EnemyManager extends EntityManager<Enemy> {
       // share the enemy-sound budget, so the order of updateLoopPosition()
       // calls decides which paused loop gets to resume.
       if (enemy.hasAudioLoops && enemy.audio.enabled) enemy.audio.update(deltaTime);
+      // Walk/run alternation (wallsmasher). Ticked before move() so the
+      // multiplier takes effect in the sub-step that sets it. Only enemies
+      // that carry the state pay for it; everyone else keeps multiplier 1.
+      // Paused enemies (pending start, debug, dying) do not advance it.
+      if (enemy.rush !== null && !enemy.movement.paused) {
+        enemy.movement.speedMultiplier = enemy.rush.tick(deltaTime);
+      }
       // Single-pass: remove expired effects + get slow/poison/burn flags (game-time)
       const statusFlags = enemy.movement.updateStatusEffects(gameTimeMs);
       const moveResult = enemy.movement.move(deltaTime, gameTimeMs, statusFlags.slowMultiplier);
@@ -485,19 +492,6 @@ export class EnemyManager extends EntityManager<Enemy> {
         }
       }
       if (sample) tHeight += performance.now() - t0;
-
-      // Animation state (walk vs run) feeds movement speed, so it is read
-      // during simulation rather than in the visual pass. Only an instance
-      // that is not walking can yield anything but 1.0, and running is a
-      // debug-only state. So while none is, the per-id lookup (three
-      // string-keyed Map reads per enemy per sub-step) is replaced by the
-      // value it would have returned. Still assigned here, at this point of
-      // the sub-step, so a walk/run switch takes effect exactly when it did.
-      const renderer = this.tilesEngine?.enemies;
-      enemy.movement.speedMultiplier =
-        renderer === undefined ? 1.0
-          : renderer.nonWalkingCount === 0 ? 1.0
-            : renderer.getSpeedMultiplier(enemy.id);
 
       // Damage over time (poison, burn). This lives here and NOT in the visual
       // pass: it emits `dot:damage`, so it is gameplay, and it has to tick once
@@ -580,8 +574,9 @@ export class EnemyManager extends EntityManager<Enemy> {
    *
    * Deliberately NOT here: damage-over-time (emits `dot:damage`),
    * ground-height easing (combat and targeting read `terrainHeight`) and the
-   * animation-speed read (feeds movement). Those are gameplay and stay on the
-   * sub-step, or their outcome would depend on the frame rate.
+   * walk/run switch (feeds movement). Those are gameplay and stay on the
+   * sub-step, or their outcome would depend on the frame rate. Only the clip
+   * that shows the switch is chosen here.
    */
   presentFrame(gameTimeMs: number): void {
     const engine = this.tilesEngine;
@@ -630,6 +625,13 @@ export class EnemyManager extends EntityManager<Enemy> {
         enemy.movement.getSlowMultiplier(gameTimeMs);
 
       if (slot !== null) {
+        // Show the walk/run state the sub-step decided. Mismatch only right
+        // after a switch, so the id-based call runs once per switch.
+        const rush = enemy.rush;
+        if (rush !== null && slot.isWalking === rush.running) {
+          if (rush.running) engine.enemies.startRunAnimation(enemy.id);
+          else engine.enemies.startWalkAnimation(enemy.id);
+        }
         engine.enemies.updateSlot(
           slot,
           this._tempLocalPos,

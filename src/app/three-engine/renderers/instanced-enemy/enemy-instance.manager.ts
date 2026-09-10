@@ -127,14 +127,6 @@ export class EnemyInstanceManager {
   private enemyToType = new Map<string, string>(); // enemyId → typeId
   private cachedAllIds: string[] | null = null; // null-invalidation cache
 
-  /**
-   * Instances whose `isWalking` is false. getSpeedMultiplier() can return
-   * something other than 1.0 only for one of those, and running is a
-   * debug-only state. So while this is 0 a caller can use 1.0 for every id
-   * without the per-id lookup, and get the same result.
-   */
-  private _nonWalkingCount = 0;
-
   /** Instances with a hit-flash running, so expiry skips everyone else. */
   private readonly flashing: EnemyInstanceState[] = [];
 
@@ -303,13 +295,13 @@ export class EnemyInstanceManager {
     if (!pool || !pool.vatData.animations.has(walkAnim)) return;
 
     state.currentAnim = walkAnim;
-    if (!state.isWalking) this._nonWalkingCount--;
     state.isWalking = true;
     // Don't reset animTime to preserve continuity
   }
 
   /**
-   * Set animation to run
+   * Set animation to run. Visual only: the speed is simulation state
+   * (Enemy.rush / Enemy.setRunning), this just shows it.
    */
   startRunAnimation(id: string): void {
     const state = this.getState(id);
@@ -322,7 +314,6 @@ export class EnemyInstanceManager {
     if (!pool || !pool.vatData.animations.has(runAnim)) return;
 
     state.currentAnim = runAnim;
-    if (state.isWalking) this._nonWalkingCount++;
     state.isWalking = false;
   }
 
@@ -444,23 +435,6 @@ export class EnemyInstanceManager {
   }
 
   /**
-   * Get speed multiplier (walk vs run)
-   */
-  getSpeedMultiplier(id: string): number {
-    const state = this.getState(id);
-    if (!state) return 1.0;
-    if (!state.isWalking && state.config.runSpeedMultiplier) {
-      return state.config.runSpeedMultiplier;
-    }
-    return 1.0;
-  }
-
-  /** Instances not in their walk animation, see `_nonWalkingCount`. */
-  get nonWalkingCount(): number {
-    return this._nonWalkingCount;
-  }
-
-  /**
    * Update all animation frames. Called once per render frame.
    */
   updateAnimations(deltaTime: number): void {
@@ -534,7 +508,6 @@ export class EnemyInstanceManager {
     pool.instancedMesh.count = pool.slots.activeCount;
     this.enemyToType.delete(id);
     this.cachedAllIds = null;
-    if (!state.isWalking) this._nonWalkingCount--;
     state.released = true;
   }
 
@@ -602,7 +575,6 @@ export class EnemyInstanceManager {
     }
     this.enemyToType.clear();
     this.cachedAllIds = null;
-    this._nonWalkingCount = 0;
     this.flashing.length = 0;
   }
 

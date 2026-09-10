@@ -832,8 +832,8 @@ class ThreeEnemyRenderer {
   create(id, typeId, lat, lon, height): Promise<EnemyRenderData | null>;
   update(id, lat, lon, height, rotation, healthPercent, currentSpeed?): void;
   startWalkAnimation(id: string): void;
+  startRunAnimation(id: string): void;     // nur Clip, die Geschwindigkeit ist Simulation (Enemy.rush)
   playDeathAnimation(id: string): void;
-  getSpeedMultiplier(id: string): number;  // 1.0 for walk, runSpeedMultiplier for run
   remove(id: string): void;
 }
 ```
@@ -861,7 +861,7 @@ animationVariation: true,     // Walk/Run Variation aktiviert
 runSpeedMultiplier: 2.5,      // 2.5× Speed bei Run-Animation
 ```
 
-**Effekt:** Run-Animation → Enemy bewegt sich 2.5× schneller (Animation bleibt gleich schnell, da Run-Animation bereits schneller im Modell ist)
+**Effekt:** Alle 3-8 s Spielzeit Wechsel zwischen Gehen und Rennen; rennend bewegt sich der Enemy 2.5× schneller (Animation bleibt gleich schnell, da Run-Animation bereits schneller im Modell ist). Der Wechsel ist Simulationszustand (`Enemy.rush`, Sub-Step, deterministisch aus der Enemy-ID), der Renderer zeigt nur den Clip.
 
 **Details:** Siehe [ENEMY_CREATION.md → Run-Animation-System](ENEMY_CREATION.md#run-animation-system-animation-variation)
 

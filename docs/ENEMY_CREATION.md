@@ -174,12 +174,16 @@ runAnimation: 'Armature|Run',
 ```
 
 **Funktionsweise:**
-1. Renderer wählt zufällig Walk (70%) oder Run (30%)
-2. Bei Run: `speedMultiplier = runSpeedMultiplier` (z.B. 2.5)
-3. Bewegungsgeschwindigkeit: `baseSpeed × speedMultiplier` (z.B. 7 × 2.5 = 17.5 m/s)
-4. Animation bleibt gleich schnell (Run-Animation ist bereits schneller im Model)
+1. Der Gegner startet gehend und wechselt nach jeweils 3-8 s **Spielzeit** zwischen Gehen und Rennen, beide Phasen gleich verteilt (im Mittel je 50 % der Zeit).
+2. Der Zustand ist Simulation: `Enemy.rush` (`entities/enemy-rush.ts`), getickt im Enemy-Sub-Step **vor** `move()`. Der Multiplikator wirkt im selben Sub-Step, pausierte Gegner (Pending-Start, Debug, sterbend) ticken nicht.
+3. Bei Run: `speedMultiplier = runSpeedMultiplier` (z.B. 2.5), Bewegung `baseSpeed × speedMultiplier` (z.B. 7 × 2.5 = 17.5 m/s).
+4. Deterministisch: Phasenlängen aus einem Mulberry32-Strom, geseedet aus der Enemy-ID. Kein `Math.random`, kein `setTimeout`.
+5. Der Renderer zeigt nur den Clip: `EnemyManager.presentFrame()` ruft `startRunAnimation`/`startWalkAnimation`, sobald der Clip nicht zum Zustand passt.
+6. Animation bleibt gleich schnell (die Animations-Kopplung rechnet beim Run-Clip mit `baseSpeed × runSpeedMultiplier`).
 
-**WICHTIG:** `runSpeedMultiplier` beeinflusst NUR die Bewegung, NICHT die Animation-Speed.
+**WICHTIG:** `runSpeedMultiplier` beeinflusst NUR die Bewegung, NICHT die Animation-Speed. Der Renderer liefert keine Geschwindigkeit an die Simulation zurück; die Debug-Buttons Walk/Run setzen den Zustand über `Enemy.setRunning()`.
+
+Nur Typen mit `animationVariation: true` **und** `runAnimation` bekommen `Enemy.rush`; alle anderen haben `null` und kosten im Sub-Step nur diese Feldprüfung.
 
 ---
 

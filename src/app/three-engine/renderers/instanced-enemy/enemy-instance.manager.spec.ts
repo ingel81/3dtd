@@ -44,7 +44,7 @@ function fakeVat(clips: string[]): VATData {
   };
 }
 
-// Has walk + run clips and a runSpeedMultiplier.
+// Has walk + run clips.
 const CONFIG = ENEMY_TYPES['wallsmasher'];
 const CLIPS = [CONFIG.walkAnimation!, CONFIG.runAnimation!];
 
@@ -65,35 +65,32 @@ describe('EnemyInstanceManager', () => {
     manager.createPool('wallsmasher', fakeVat(CLIPS), CONFIG);
   });
 
-  it('counts the instances that are not walking', () => {
-    manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);
-    manager.addEnemy('b', 'wallsmasher', new Vector3(), 0);
-    expect(manager.nonWalkingCount).toBe(0);
-    expect(manager.getSpeedMultiplier('a')).toBe(1);
+  it('switches between the walk and run clips', () => {
+    const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    expect(state.isWalking).toBe(true);
+    expect(state.currentAnim).toBe(CONFIG.walkAnimation);
 
     manager.startRunAnimation('a');
-    manager.startRunAnimation('a'); // already running: counted once
-    expect(manager.nonWalkingCount).toBe(1);
-    expect(manager.getSpeedMultiplier('a')).toBe(CONFIG.runSpeedMultiplier);
+    expect(state.isWalking).toBe(false);
+    expect(state.currentAnim).toBe(CONFIG.runAnimation);
 
-    manager.startRunAnimation('b');
-    manager.startWalkAnimation('b');
-    manager.startWalkAnimation('b'); // already walking: no double decrement
-    expect(manager.nonWalkingCount).toBe(1);
-
-    manager.removeEnemy('a');
-    expect(manager.nonWalkingCount).toBe(0);
-
-    manager.startRunAnimation('b');
-    manager.clear();
-    expect(manager.nonWalkingCount).toBe(0);
+    manager.startWalkAnimation('a');
+    expect(state.isWalking).toBe(true);
+    expect(state.currentAnim).toBe(CONFIG.walkAnimation);
   });
 
-  it('does not count a run request on a dying instance', () => {
-    manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);
+  it('ignores a run request on a dying instance', () => {
+    const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     manager.playDeathAnimation('a');
     manager.startRunAnimation('a');
-    expect(manager.nonWalkingCount).toBe(0);
+    expect(state.isWalking).toBe(true);
+  });
+
+  it('plays the run clip at its natural rate while the enemy runs at run speed', () => {
+    const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    manager.startRunAnimation('a');
+    manager.updateEnemyState(state, new Vector3(), 0, CONFIG.baseSpeed * CONFIG.runSpeedMultiplier!);
+    expect(state.speedMultiplier).toBeCloseTo(1, 9);
   });
 
   it('flags states released on removal and on clear', () => {

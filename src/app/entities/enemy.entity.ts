@@ -13,6 +13,7 @@ import { ArmorType } from '../configs/combat/combat.types';
 import type { RouteCell } from '../utils/route-cell';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
+import { EnemyRush } from './enemy-rush';
 
 /**
  * Enemy entity - combines Transform, Health, Render, Movement, and Audio components
@@ -59,10 +60,19 @@ export class Enemy extends GameObject {
   spatialEntry: SpatialEntry | null = null;
   /** Renderer instance slot, resolved lazily by EnemyManager.presentFrame(). */
   renderSlot: EnemyInstanceState | null = null;
+  /**
+   * Walk/run alternation, only for types with `animationVariation` and a run
+   * clip; null for everyone else, so EnemyManager skips it on a field check.
+   */
+  readonly rush: EnemyRush | null;
 
   constructor(typeId: EnemyTypeId, path: GeoPosition[], speedOverride?: number) {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
+    this.rush =
+      this.typeConfig.animationVariation && this.typeConfig.runAnimation
+        ? new EnemyRush(this.id, this.typeConfig.runSpeedMultiplier ?? 1)
+        : null;
 
     // Add components
     this._transform = this.addComponent(
@@ -197,6 +207,16 @@ export class Enemy extends GameObject {
     if (this.typeConfig.randomSounds && this.typeConfig.randomSounds.length > 0) {
       this.startRandomSoundsPool();
     }
+  }
+
+  /**
+   * Debug: walk or run from now on. The speed is simulation state, so this
+   * sets it here; the caller switches the clip. A rushing enemy keeps
+   * alternating from this state on.
+   */
+  setRunning(running: boolean): void {
+    if (this.rush) this.rush.force(running);
+    this.movement.speedMultiplier = running ? (this.typeConfig.runSpeedMultiplier ?? 1) : 1;
   }
 
   /**
