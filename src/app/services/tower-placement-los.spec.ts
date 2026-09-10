@@ -51,6 +51,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
   let column: ColumnSample;
   let peek: { depth: number; geometricError: number };
   let frames: FrameRequestCallback[];
+  let blockerGroup: object | null;
 
   /** Block-level hull: what the city looks like before refinement. Ground answers: blocked. */
   const coarse = () => {
@@ -125,9 +126,10 @@ describe('TowerPlacementService tower LOS refresh', () => {
       getFarDistance: () => 100,
       readFacesToCpu: () => [],
     };
+    blockerGroup = {};
     const engine = {
       sync,
-      getLosBlockerGroup: () => ({}),
+      getLosBlockerGroup: () => blockerGroup,
       getTowerShadowMapper: () => mapper,
     };
     towers = [];
@@ -144,6 +146,7 @@ describe('TowerPlacementService tower LOS refresh', () => {
   afterEach(() => {
     service.dispose();
     vi.unstubAllGlobals();
+    vi.restoreAllMocks();
   });
 
   it('recomputes each covering tower once per sweep, not once per slice', () => {
@@ -218,6 +221,23 @@ describe('TowerPlacementService tower LOS refresh', () => {
 
     expect(recompute.mock.calls.map(([t]) => t)).toEqual([a, b]);
     expect(staleAnswers(b)).toEqual([]);
+  });
+
+  it('keeps a tower queued while its recompute cannot run', () => {
+    const a = place(15, 10);
+    fine();
+    grid.updateTerrainHeights();
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+
+    blockerGroup = null;
+    runFrame();
+    expect(warn).toHaveBeenCalledWith(expect.stringContaining('no LOS blocker group'));
+    blockerGroup = {};
+    drainFrames();
+
+    // Dropped from the queue on the failed attempt, its answers would have
+    // stayed on the old height for good.
+    expect(staleAnswers(a)).toEqual([]);
   });
 
   it('passes a height change found while re-resolving one tower on to the others', () => {

@@ -330,7 +330,11 @@ Frame (`LOS_RECOMPUTES_PER_FRAME`). Erst dann
 fliegen seine alten Einträge für genau diese Cells raus; bis dahin gilt
 die alte Antwort, denn ohne Eintrag nähme jeder Kandidat in diesen Cells
 den CPU-Raycast-Fallback. Ein direkter `recomputeTowerLOS` (Range-Upgrade)
-erledigt die wartenden Cells des Towers gleich mit. Wenn kein Cell sein
+erledigt die wartenden Cells des Towers gleich mit. Bricht ein Recompute
+vorher ab (kein Engine, Grid nicht initialisiert, keine Blocker-Group),
+bleibt der Tower in der Queue und der Drain versucht es im nächsten Frame
+erneut; herausgenommen hätte er seine alten Antworten für immer behalten,
+weil der Peek-Skip diese Cells nie wieder meldet. Wenn kein Cell sein
 LOD ändert (der häufige Pan/Zoom-Fall) feuert der Listener nie, der
 Tile-Load kostet dann ~30 ms.
 
