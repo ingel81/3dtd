@@ -235,7 +235,7 @@ export class CameraRig {
     this.camera.lookAt(targetX, targetY, targetZ);
   }
 
-  /** GlobeControls im Tiles-Pfad, EnvironmentControls in DevWorld, null vor dem Setup. */
+  /** GlobeControls im Tiles-Pfad, EnvironmentControls in DevWorld, null vor dem Setup und nach dispose(). */
   getControls(): GlobeControls | null {
     return this.controls;
   }
@@ -245,11 +245,17 @@ export class CameraRig {
     return this.lastMovement;
   }
 
-  /** Entfernt die Drag-Listener. Die Controls selbst gibt der Engine wie bisher nicht frei. */
+  /**
+   * Entfernt die Drag-Listener und gibt die Controls frei, damit ihre Pointer- und
+   * Wheel-Listener nicht am Canvas hängen bleiben. Nur aus dem Engine-dispose();
+   * ein Standortwechsel (setOrigin) behält Rig und Controls.
+   */
   dispose(): void {
     if (this.controls) {
       this.controls.removeEventListener('start', this.dragStartHandler);
       this.controls.removeEventListener('end', this.dragEndHandler);
+      this.controls.dispose();
+      this.controls = null;
     }
   }
 }

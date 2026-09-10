@@ -20,6 +20,7 @@ vi.mock('3d-tiles-renderer', async () => {
     setScene = vi.fn();
     setEllipsoid = vi.fn();
     update = vi.fn();
+    dispose = vi.fn();
 
     constructor(...args: unknown[]) {
       super();
@@ -46,6 +47,7 @@ interface FakeControls {
   setScene: Mock;
   setEllipsoid: Mock;
   update: Mock;
+  dispose: Mock;
   dispatchEvent(event: { type: 'start' | 'end' }): void;
 }
 
@@ -176,20 +178,36 @@ describe('CameraRig', () => {
       expect(rig.getLastMovement()).toBeCloseTo(10, 6);
     });
 
-    it('hört nach dispose() nicht mehr zu, die Controls bleiben erreichbar', () => {
+    it('hört nach dispose() nicht mehr zu', () => {
       const { camera, rig, controls } = setup();
       rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
       const onDragEnd = vi.fn();
       rig.onDragEnd = onDragEnd;
+      const disposed = controls();
 
       rig.dispose();
-      controls().dispatchEvent({ type: 'start' });
+      disposed.dispatchEvent({ type: 'start' });
       camera.position.x += 50;
-      controls().dispatchEvent({ type: 'end' });
+      disposed.dispatchEvent({ type: 'end' });
 
       expect(onDragEnd).not.toHaveBeenCalled();
       expect(rig.getLastMovement()).toBe(0);
-      expect(rig.getControls()).not.toBeNull();
+    });
+  });
+
+  describe('dispose()', () => {
+    it('gibt die Controls frei und macht update() danach zum No-op', () => {
+      const { rig, controls } = setup();
+      rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
+      const disposed = controls();
+
+      rig.dispose();
+      rig.update();
+      rig.dispose();
+
+      expect(disposed.dispose).toHaveBeenCalledTimes(1);
+      expect(disposed.update).not.toHaveBeenCalled();
+      expect(rig.getControls()).toBeNull();
     });
   });
 
