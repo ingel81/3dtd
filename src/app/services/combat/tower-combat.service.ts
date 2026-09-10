@@ -335,8 +335,12 @@ export class TowerCombatService {
         candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
       } else {
         // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
-        // Returns Enemy[] directly — no ID resolution needed
-        const rangeMeters = tower.typeConfig.beamRange ?? 35;
+        // Returns Enemy[] directly — no ID resolution needed.
+        // The radius must cover what findTarget checks against (combat.range,
+        // upgrades included) as well as the cone reach. Querying with
+        // beamRange alone (20m) hid every enemy in the ring out to the 25m
+        // detection range, so the tower never acquired them.
+        const rangeMeters = Math.max(tower.combat.range, tower.typeConfig.beamRange ?? 35);
         if (this.tilesEngine) {
           const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
             tower.position.lat,

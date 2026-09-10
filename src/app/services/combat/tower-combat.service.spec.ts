@@ -17,12 +17,15 @@ vi.mock('@angular/core', async () => {
 
 import { TowerCombatService } from './tower-combat.service';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
+import { Tower } from '../../entities/tower.entity';
+import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
 
 /**
  * Coverage:
  * - calculateHeading: pure geo→radian heading math
  * - getEffectiveDPS / getEffectiveBeamWidth: upgrade-aware private getters
  * - Beam-state cleanup (stopTowerBeam, stopAllBeams) — flame-sound + throttle map
+ * - updateBeamTowers radius fallback (no visibleCells): query covers detection range
  *
  * Targeting strategies (closest/strongest/nearest/lowest-hp) live on
  * Tower.findTarget and are covered by tower.entity.spec.ts. Beam cone
@@ -199,6 +202,91 @@ describe('TowerCombatService', () => {
 
       service.stopAllBeams();
       expect(p.lastBeamBloodEffect.size).toBe(0);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
+  // updateBeamTowers: radius fallback for towers without visibleCells
+  // ────────────────────────────────────────────────────────────────
+  describe('updateBeamTowers radius fallback', () => {
+    const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
+
+    /** Ground enemy `meters` due north of the tower. */
+    function enemyNorthOf(meters: number) {
+      return {
+        id: `e-${meters}`,
+        alive: true,
+        position: { lat: towerPos.lat + meters / METERS_PER_DEGREE_LAT, lon: towerPos.lon },
+        typeConfig: { id: 'zombie', isAirUnit: false, heightOffset: 0, scale: 1 },
+        transform: { terrainHeight: 0 },
+        movement: { getPathProgress: () => 0.5 },
+      };
+    }
+
+    /**
+     * The grid mock returns the enemy only if the queried radius reaches it,
+     * so a too-small fallback radius shows up as "no target".
+     */
+    function setup(enemyDistance: number) {
+      const enemy = enemyNorthOf(enemyDistance);
+      const getEnemiesInRadius = vi.fn(
+        (_x: number, _z: number, radius: number, _ex: unknown, out: unknown[]) => {
+          out.length = 0;
+          if (radius >= enemyDistance) out.push(enemy);
+          return out;
+        },
+      );
+      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius };
+      mockInjections['CombatEffectService'] = { applyBeamDamage: vi.fn() };
+      service = new TowerCombatService();
+
+      const engine = {
+        sync: {
+          geoToLocalSimple: () => ({ x: 0, y: 0, z: 0 }),
+          geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target,
+        },
+        towers: { updateRotation: vi.fn(), resetRotation: vi.fn(), hasLineOfSight: () => true },
+        flameBeams: { startBeam: vi.fn(), stopBeam: vi.fn() },
+      };
+      service.initialize(engine as never);
+      // Cone geometry needs real Vector3 math, which the three mock lacks.
+      (service as unknown as { getEnemiesInCone: () => unknown[] }).getEnemiesInCone = () => [];
+
+      const tower = new Tower(towerPos, 'fire');
+      tower.losReady = true;
+      const towerManager = { getAllActive: () => [tower] };
+      const run = () => service.updateBeamTowers(16, towerManager as never, {} as never, 1000);
+      return { engine, tower, getEnemiesInRadius, run };
+    }
+
+    it('acquires an enemy between beamRange and the detection range', () => {
+      const { tower, engine, run } = setup(24.5);
+      expect(tower.typeConfig.beamRange).toBeLessThan(24.5);
+      expect(tower.combat.range).toBeGreaterThan(24.5);
+
+      run();
+      expect(engine.flameBeams.startBeam).toHaveBeenCalledWith(
+        tower.id, expect.anything(), expect.anything(), expect.any(Number), expect.any(Number),
+      );
+      expect(engine.flameBeams.stopBeam).not.toHaveBeenCalled();
+    });
+
+    it('queries with the upgraded detection range', () => {
+      const { tower, engine, getEnemiesInRadius, run } = setup(30);
+      for (let i = 0; i < 10; i++) tower.applyUpgrade('range');
+      expect(tower.combat.range).toBeGreaterThan(30);
+
+      run();
+      expect(getEnemiesInRadius.mock.calls[0][2]).toBeGreaterThanOrEqual(tower.combat.range);
+      expect(engine.flameBeams.startBeam).toHaveBeenCalled();
+    });
+
+    it('leaves the exact range check to findTarget', () => {
+      // Inside the query margin, outside combat.range: candidate but no target.
+      const { engine, run } = setup(26);
+      run();
+      expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
+      expect(engine.flameBeams.stopBeam).toHaveBeenCalled();
     });
   });
 
