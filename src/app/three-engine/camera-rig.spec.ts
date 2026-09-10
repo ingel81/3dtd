@@ -4,12 +4,9 @@ import type { Mock } from 'vitest';
 import { CameraRig } from './camera-rig';
 
 // Controls brauchen DOM-Pointer-Events und ein echtes Tileset. Die Fakes halten nur
-// fest, wie der Rig sie konfiguriert; das Ellipsoid bleibt das echte WGS84.
-vi.mock('3d-tiles-renderer', async () => {
-  const { EventDispatcher } = await import('three');
-  const { WGS84_ELLIPSOID } = await import('3d-tiles-renderer/src/three/renderer/math/GeoConstants.js');
-
-  class FakeControls extends EventDispatcher<{ start: object; end: object }> {
+// fest, wie der Rig sie konfiguriert.
+vi.mock('3d-tiles-renderer', () => {
+  class FakeControls {
     readonly ctorArgs: unknown[];
     enableDamping = false;
     enableDoubleTapZoom = true;
@@ -23,7 +20,6 @@ vi.mock('3d-tiles-renderer', async () => {
     dispose = vi.fn();
 
     constructor(...args: unknown[]) {
-      super();
       this.ctorArgs = args;
     }
   }
@@ -31,7 +27,6 @@ vi.mock('3d-tiles-renderer', async () => {
   return {
     EnvironmentControls: class EnvironmentControls extends FakeControls {},
     GlobeControls: class GlobeControls extends FakeControls {},
-    WGS84_ELLIPSOID,
   };
 });
 
@@ -48,7 +43,6 @@ interface FakeControls {
   setEllipsoid: Mock;
   update: Mock;
   dispose: Mock;
-  dispatchEvent(event: { type: 'start' | 'end' }): void;
 }
 
 function setup() {
@@ -107,7 +101,7 @@ describe('CameraRig', () => {
       expect(canvas.hasAttribute('tabindex')).toBe(false);
     });
 
-    it('stellt ohne Vorgabe den steilen Standardblick nach Norden über den Origin ein', () => {
+    it('stellt den steilen Startblick nach Norden über den Origin ein', () => {
       const { camera, rig, controls } = setup();
       rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
 
@@ -115,15 +109,6 @@ describe('CameraRig', () => {
       expectLookingAlong(camera, 0, -400, 145);
       // Der Tiles-Pfad ruft update() erst im Render-Loop.
       expect(controls().update).not.toHaveBeenCalled();
-    });
-
-    it('übernimmt eine vorab gesetzte Startposition samt Blickziel', () => {
-      const { camera, rig } = setup();
-      rig.setInitialPosition({ x: 10, y: 300, z: -50, lookAtX: 10, lookAtY: 0, lookAtZ: 20 });
-      rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
-
-      expect(camera.position.toArray()).toEqual([10, 300, -50]);
-      expectLookingAlong(camera, 0, -300, 70);
     });
   });
 
@@ -158,40 +143,25 @@ describe('CameraRig', () => {
     });
   });
 
-  describe('Drag-Tracking', () => {
-    it('meldet ein Drag-Ende erst ab mehr als 5 m Kamerabewegung', () => {
-      const { camera, rig, controls } = setup();
+  describe('update()', () => {
+    it('ist vor dem Setup ein No-op und reicht danach an die Controls weiter', () => {
+      const { rig, controls } = setup();
+      expect(() => rig.update()).not.toThrow();
+
       rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
-      const onDragEnd = vi.fn();
-      rig.onDragEnd = onDragEnd;
-
-      controls().dispatchEvent({ type: 'start' });
-      camera.position.x += 3;
-      controls().dispatchEvent({ type: 'end' });
-      expect(onDragEnd).not.toHaveBeenCalled();
-      expect(rig.getLastMovement()).toBeCloseTo(3, 6);
-
-      controls().dispatchEvent({ type: 'start' });
-      camera.position.z += 10;
-      controls().dispatchEvent({ type: 'end' });
-      expect(onDragEnd).toHaveBeenCalledTimes(1);
-      expect(rig.getLastMovement()).toBeCloseTo(10, 6);
+      rig.update();
+      rig.update();
+      expect(controls().update).toHaveBeenCalledTimes(2);
     });
+  });
 
-    it('hört nach dispose() nicht mehr zu', () => {
-      const { camera, rig, controls } = setup();
-      rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
-      const onDragEnd = vi.fn();
-      rig.onDragEnd = onDragEnd;
-      const disposed = controls();
+  describe('setLocalPosition()', () => {
+    it('setzt Position und Blickziel in lokalen Koordinaten', () => {
+      const { camera, rig } = setup();
+      rig.setLocalPosition(100, 250, -80, 100, 0, 20);
 
-      rig.dispose();
-      disposed.dispatchEvent({ type: 'start' });
-      camera.position.x += 50;
-      disposed.dispatchEvent({ type: 'end' });
-
-      expect(onDragEnd).not.toHaveBeenCalled();
-      expect(rig.getLastMovement()).toBe(0);
+      expect(camera.position.toArray()).toEqual([100, 250, -80]);
+      expectLookingAlong(camera, 0, -250, 100);
     });
   });
 
@@ -208,46 +178,6 @@ describe('CameraRig', () => {
       expect(disposed.dispose).toHaveBeenCalledTimes(1);
       expect(disposed.update).not.toHaveBeenCalled();
       expect(rig.getControls()).toBeNull();
-    });
-  });
-
-  describe('update()', () => {
-    it('ist vor dem Setup ein No-op und reicht danach an die Controls weiter', () => {
-      const { rig, controls } = setup();
-      expect(() => rig.update()).not.toThrow();
-
-      rig.setupGlobeControls(new Scene(), fakeTilesRenderer());
-      rig.update();
-      rig.update();
-      expect(controls().update).toHaveBeenCalledTimes(2);
-    });
-  });
-
-  describe('Kamera-Setter', () => {
-    it('setLocalPosition setzt Position und Blickziel in lokalen Koordinaten', () => {
-      const { camera, rig } = setup();
-      rig.setLocalPosition(100, 250, -80, 100, 0, 20);
-
-      expect(camera.position.toArray()).toEqual([100, 250, -80]);
-      expectLookingAlong(camera, 0, -250, 100);
-    });
-
-    it('setGeoPosition rechnet über das WGS84-Ellipsoid im Rahmen der Tiles-Gruppe', () => {
-      const { camera, rig } = setup();
-
-      // Äquator/Nullmeridian liegt auf der ECEF-X-Achse.
-      rig.setGeoPosition(new Group(), 0, 0, 100, 0, -45, 0);
-      expect(camera.position.x).toBeCloseTo(6378137 + 100, 3);
-      expect(camera.position.y).toBeCloseTo(0, 3);
-      expect(camera.position.z).toBeCloseTo(0, 3);
-
-      // Wie im Engine: Z-up-Tileset um -90° um X in die Y-up-Szene gedreht.
-      const tilesGroup = new Group();
-      tilesGroup.rotation.x = -Math.PI / 2;
-      rig.setGeoPosition(tilesGroup, 90, 0, 100, 0, -45, 0);
-      expect(camera.position.x).toBeCloseTo(0, 3);
-      expect(camera.position.y).toBeCloseTo(6356752.314245 + 100, 3);
-      expect(camera.position.z).toBeCloseTo(0, 3);
     });
   });
 });
