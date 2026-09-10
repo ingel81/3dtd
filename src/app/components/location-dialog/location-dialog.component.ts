@@ -6,7 +6,7 @@ import { MatButtonModule } from '@angular/material/button';
 import { MatProgressSpinnerModule } from '@angular/material/progress-spinner';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { AddressAutocompleteComponent } from '../address-autocomplete.component';
-import { GeocodingService, NominatimAddress } from '../../services/location/geocoding.service';
+import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../services/location/geocoding.service';
 import { TdIconComponent } from '../icon/icon.component';
 import {
   LocationDialogData,
@@ -997,12 +997,12 @@ export class LocationDialogComponent {
 
       const extractedName = hq.address
         ? this.geocodingService.extractLocationName(hq.address)
-        : 'Unbekannter Ort';
+        : UNKNOWN_LOCATION_NAME;
 
       hqInfo = {
         lat: hq.lat,
         lon: hq.lon,
-        name: extractedName !== 'Unbekannter Ort' ? extractedName : (hq.name || `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`),
+        name: extractedName !== UNKNOWN_LOCATION_NAME ? extractedName : (hq.name || `${hq.lat.toFixed(4)}, ${hq.lon.toFixed(4)}`),
         displayName: hq.name || '',
         address: hq.address,
       };

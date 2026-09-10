@@ -274,8 +274,9 @@ export class TrainingClientService {
             height: surfaceHeight
           };
 
-          // Validate using TowerPlacementService with height (prevents building on rooftops!)
-          const validation = this.towerPlacement.validateTowerPositionWithHeight(geoPos);
+          // Same rules as the mouse preview and the click. Height plays no
+          // part in them: rooftops are valid spots.
+          const validation = this.towerPlacement.validateTowerPosition(geoPos.lat, geoPos.lon);
 
           if (!validation.valid) {
             console.warn(`[Bot] ⛔ Position invalid: ${validation.reason} - ${action.reason}`);

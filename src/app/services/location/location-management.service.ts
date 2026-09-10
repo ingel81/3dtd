@@ -5,6 +5,8 @@ import { MissionInfo } from '../../components/loading-screen/boot-step.model';
 
 const FAVORITES_KEY = 'td_favorites_v2';
 const MAX_FAVORITES = 10;
+/** Header text while no location is set */
+const NO_LOCATION_NAME = 'No location';
 
 /**
  * LocationManagementService - Simplified
@@ -27,7 +29,7 @@ export class LocationManagementService {
   readonly needsRandomSpawn = signal<boolean>(false);
 
   // Display name - resolved async via geocoding
-  readonly displayName = signal<string>('No location');
+  readonly displayName = signal<string>(NO_LOCATION_NAME);
 
   // Structured address (road, postcode, city) — resolved async via geocoding,
   // needed by the loading screen's mission strip which renders each part on
@@ -216,7 +218,7 @@ export class LocationManagementService {
     this.hq.set(null);
     this.spawns.set([]);
     this.needsRandomSpawn.set(false);
-    this.displayName.set('Kein Ort');
+    this.displayName.set(NO_LOCATION_NAME);
     this.isApplyingLocation.set(false);
   }
 }
