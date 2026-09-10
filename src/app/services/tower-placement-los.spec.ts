@@ -240,6 +240,42 @@ describe('TowerPlacementService tower LOS refresh', () => {
     expect(staleAnswers(a)).toEqual([]);
   });
 
+  it('does not hold an explicit request back for a running sweep', () => {
+    const gatling = place(15, 10, 'dual-gatling');
+    // A tile load started a sweep that is still going.
+    grid.beginTerrainHeightRefresh();
+
+    service.scheduleLosRecompute(gatling);
+    researchStore.airTargetingUnlocked.set(true);
+    runFrame();
+
+    expect(grid.isTerrainRefreshActive()).toBe(true);
+    expect(cellsOf(gatling).every((c) => c.airVisibility.has(gatling.id))).toBe(true);
+  });
+
+  it('stops waiting for a sweep that keeps restarting', () => {
+    let clock = 0;
+    vi.spyOn(performance, 'now').mockImplementation(() => clock);
+    const a = place(15, 10);
+    fine();
+    grid.beginTerrainHeightRefresh();
+    // First slice: moves cells in a's range and queues a.
+    grid.stepTerrainHeightRefresh(0);
+    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+
+    // Continuous panning: every tile load restarts the sweep before it ends.
+    for (; clock < 3000; clock += 500) {
+      grid.beginTerrainHeightRefresh();
+      runFrame();
+    }
+    expect(recompute).not.toHaveBeenCalled();
+
+    grid.beginTerrainHeightRefresh();
+    runFrame();
+    expect(recompute.mock.calls.map(([t]) => t)).toEqual([a]);
+    expect(staleAnswers(a)).toEqual([]);
+  });
+
   it('passes a height change found while re-resolving one tower on to the others', () => {
     const a = place(15, 10);
     const b = place(40, 10);

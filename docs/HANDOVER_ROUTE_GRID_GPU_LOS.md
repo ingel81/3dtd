@@ -281,8 +281,9 @@ der gerade auflösende Tower selbst wird dabei übersprungen.
 ### AA-Retrofit (`research:completed`)
 
 `GameStateManager` stellt die Tower, die erst durch das Research Air
-bekommen, per `scheduleLosRecompute` in dieselbe Queue (`staleLos`, ohne
-Cells). Nicht synchron: der ResearchStore setzt das Air-Flag erst im
+bekommen, per `scheduleLosRecompute` in dieselbe Queue (`staleLos`, als
+explizite Anfrage: wartet nicht auf einen laufenden Sweep, es gibt nichts
+zu bündeln). Nicht synchron: der ResearchStore setzt das Air-Flag erst im
 research:completed-Handler von `GameStateSyncService`, und der läuft nach
 dem des GSM. Ein sofortiger Recompute sah Air noch als gesperrt und löste
 keinen einzigen Air-Eintrag auf.
@@ -326,8 +327,10 @@ Cells sich geändert haben (`staleLos`), plus ein rAF-debounced
 `rebuildAirRouteLayer()`. `drainLosRefresh` wartet, solange der
 budgetierte Sweep läuft (der meldet pro Slice, also pro Frame), und löst
 danach jeden betroffenen Tower einmal inkrementell neu auf, einen pro
-Frame (`LOS_RECOMPUTES_PER_FRAME`). Erst dann
-fliegen seine alten Einträge für genau diese Cells raus; bis dahin gilt
+Frame (`LOS_RECOMPUTES_PER_FRAME`). Länger als `MAX_LOS_WAIT_MS` (3 s
+Wanduhr) wartet kein Tower: ein Sweep konvergiert in 1,5 bis 2 s, aber
+Dauer-Pannen startet ihn mit jedem Tile-Load neu und hielte die Queue
+sonst unbegrenzt auf. Erst beim Recompute fliegen seine alten Einträge für genau diese Cells raus; bis dahin gilt
 die alte Antwort, denn ohne Eintrag nähme jeder Kandidat in diesen Cells
 den CPU-Raycast-Fallback. Ein direkter `recomputeTowerLOS` (Range-Upgrade)
 erledigt die wartenden Cells des Towers gleich mit. Bricht ein Recompute
