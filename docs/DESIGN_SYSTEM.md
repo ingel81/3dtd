@@ -1,6 +1,6 @@
 # Tower Defense - Design System
 
-**Stand:** 2026-05-08
+**Stand:** 2026-09-11
 
 ## Uebersicht
 
@@ -262,6 +262,15 @@ Elemente auf der Stein-Textur benoetigen einen dunklen Hintergrund fuer Lesbarke
 ```
 
 Verwendung fuer: Header-Titel, Stats, Buttons auf texturiertem Hintergrund.
+
+### Debug-Panels
+
+Alle Debug-Fenster nutzen `app-draggable-debug-panel` (`components/debug-window/`) und verhalten sich gleich: verschiebbar, in der Größe änderbar über den Griff unten rechts, Position und Größe in `localStorage` gespeichert.
+
+- Die Größe liegt pro `windowId` im `DebugWindowService`; das Panel liest und schreibt sie selbst. Ein neuer Debugger braucht dafür keine eigene Verdrahtung, nur einen Eintrag in `DEFAULT_POSITIONS` und `DEFAULT_SIZES`.
+- Gemeinsame Mindestgröße `DEBUG_PANEL_MIN_SIZE` (300 x 200 px), gilt für CSS, Resize und geladene Werte. Größen sind Außenmaße (`box-sizing: border-box`).
+- Default-Größe so wählen, dass der Inhalt ohne horizontales Scrollen passt (Inhalts-`min-width` + 16 px Padding + 8 px Scrollbar + 2 px Rahmen). Höherer Inhalt scrollt im Panel.
+- Logs und Listen, die mitwachsen sollen, als Flex-Spalte mit `height: 100%` bauen und dem Log `flex: 1; min-height: 0` geben (Event-Bus, Sound).
 
 ### Context-Hint-Box
 

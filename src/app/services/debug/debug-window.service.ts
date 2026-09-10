@@ -14,14 +14,18 @@ export interface DebugWindowState {
   isOpen: boolean;
   position: WindowPosition;
   zIndex: number;
-  size?: WindowSize;
+  size: WindowSize;
 }
 
 export type DebugWindowId = 'camera' | 'wave' | 'sound' | 'events' | 'devworld' | 'training' | 'tower' | 'enemy' | 'display' | 'performance' | 'los';
 
+/** Shared lower bound for every debug panel, used by CSS, resize and storage. */
+export const DEBUG_PANEL_MIN_SIZE: Readonly<WindowSize> = { width: 300, height: 200 };
+
 const STORAGE_KEY = 'td_debug_windows_v6';
 const BASE_Z_INDEX = 100;
 
+// Key order doubles as the initial stacking order.
 const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   camera: { x: 20, y: 80 },
   wave: { x: 20, y: 400 },
@@ -36,13 +40,36 @@ const DEFAULT_POSITIONS: Record<DebugWindowId, WindowPosition> = {
   los: { x: 340, y: 80 },
 };
 
-const DEFAULT_SIZES: Partial<Record<DebugWindowId, WindowSize>> = {
+// Sized so the content fits without horizontal scrolling, including room
+// for the vertical scrollbar where the content is taller than the panel.
+const DEFAULT_SIZES: Record<DebugWindowId, WindowSize> = {
+  camera: { width: 300, height: 300 },
+  wave: { width: 380, height: 520 },
+  sound: { width: 320, height: 400 },
   events: { width: 450, height: 400 },
-  tower: { width: 300, height: 550 },
-  enemy: { width: 320, height: 600 },
-  los: { width: 440, height: 540 },
+  devworld: { width: 300, height: 400 },
+  training: { width: 320, height: 540 },
+  tower: { width: 320, height: 550 },
+  enemy: { width: 340, height: 600 },
+  display: { width: 300, height: 520 },
   performance: { width: 320, height: 700 },
+  los: { width: 460, height: 540 },
 };
+
+/**
+ * Clamp a panel size to the available space, but never below the shared
+ * minimum. When the space is smaller than the minimum, the minimum wins.
+ */
+export function clampPanelSize(
+  size: WindowSize,
+  maxWidth = Infinity,
+  maxHeight = Infinity
+): WindowSize {
+  return {
+    width: Math.max(DEBUG_PANEL_MIN_SIZE.width, Math.min(size.width, maxWidth)),
+    height: Math.max(DEBUG_PANEL_MIN_SIZE.height, Math.min(size.height, maxHeight)),
+  };
+}
 
 @Injectable({ providedIn: 'root' })
 export class DebugWindowService {
@@ -120,16 +147,16 @@ export class DebugWindowService {
   }
 
   /**
-   * Update window size (called during resize)
+   * Update window size (called during resize), never below the shared minimum
    */
   updateSize(windowId: DebugWindowId, size: WindowSize): void {
-    this.updateWindow(windowId, { size });
+    this.updateWindow(windowId, { size: clampPanelSize(size) });
   }
 
   /**
    * Get the current size for a window
    */
-  getSize(windowId: DebugWindowId): WindowSize | undefined {
+  getSize(windowId: DebugWindowId): WindowSize {
     return this.windowStates()[windowId].size;
   }
 
@@ -169,68 +196,16 @@ export class DebugWindowService {
   }
 
   private loadFromStorage(): Record<DebugWindowId, DebugWindowState> {
-    const defaults: Record<DebugWindowId, DebugWindowState> = {
-      camera: {
+    const ids = Object.keys(DEFAULT_POSITIONS) as DebugWindowId[];
+    const defaults = {} as Record<DebugWindowId, DebugWindowState>;
+    ids.forEach((id, index) => {
+      defaults[id] = {
         isOpen: false,
-        position: DEFAULT_POSITIONS.camera,
-        zIndex: BASE_Z_INDEX,
-      },
-      wave: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.wave,
-        zIndex: BASE_Z_INDEX + 1,
-      },
-      sound: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.sound,
-        zIndex: BASE_Z_INDEX + 2,
-      },
-      events: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.events,
-        zIndex: BASE_Z_INDEX + 3,
-        size: DEFAULT_SIZES.events,
-      },
-      devworld: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.devworld,
-        zIndex: BASE_Z_INDEX + 4,
-      },
-      training: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.training,
-        zIndex: BASE_Z_INDEX + 5,
-      },
-      tower: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.tower,
-        zIndex: BASE_Z_INDEX + 6,
-        size: DEFAULT_SIZES.tower,
-      },
-      enemy: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.enemy,
-        zIndex: BASE_Z_INDEX + 7,
-        size: DEFAULT_SIZES.enemy,
-      },
-      display: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.display,
-        zIndex: BASE_Z_INDEX + 8,
-      },
-      performance: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.performance,
-        zIndex: BASE_Z_INDEX + 9,
-        size: DEFAULT_SIZES.performance,
-      },
-      los: {
-        isOpen: false,
-        position: DEFAULT_POSITIONS.los,
-        zIndex: BASE_Z_INDEX + 10,
-        size: DEFAULT_SIZES.los,
-      },
-    };
+        position: DEFAULT_POSITIONS[id],
+        zIndex: BASE_Z_INDEX + index,
+        size: DEFAULT_SIZES[id],
+      };
+    });
 
     try {
       const stored = localStorage.getItem(STORAGE_KEY);
@@ -239,10 +214,16 @@ export class DebugWindowService {
           Record<DebugWindowId, Partial<DebugWindowState>>
         >;
 
-        // Merge stored values with defaults
-        for (const key of Object.keys(defaults) as DebugWindowId[]) {
-          if (parsed[key]) {
-            defaults[key] = { ...defaults[key], ...parsed[key] };
+        // Merge stored values with defaults. Panels that were not resizable
+        // before have no stored size and fall back to their default.
+        for (const key of ids) {
+          const entry = parsed[key];
+          if (entry) {
+            defaults[key] = {
+              ...defaults[key],
+              ...entry,
+              size: this.parseStoredSize(entry.size, DEFAULT_SIZES[key]),
+            };
           }
         }
       }
@@ -251,6 +232,14 @@ export class DebugWindowService {
     }
 
     return defaults;
+  }
+
+  private parseStoredSize(value: unknown, fallback: WindowSize): WindowSize {
+    const size = value as Partial<WindowSize> | null | undefined;
+    if (size && Number.isFinite(size.width) && Number.isFinite(size.height)) {
+      return clampPanelSize({ width: size.width!, height: size.height! });
+    }
+    return fallback;
   }
 
   private saveToStorage(): void {

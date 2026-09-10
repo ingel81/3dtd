@@ -45,13 +45,10 @@ const MAX_LOG_ENTRIES = 100;
         windowId="events"
         title="Event Bus"
         icon="share"
-        [resizable]="true"
-        [size]="windowService.eventsWindow().size ?? { width: 450, height: 400 }"
         [position]="windowService.eventsWindow().position"
         [zIndex]="windowService.eventsWindow().zIndex"
         (closed)="windowService.close('events')"
         (positionChange)="windowService.updatePosition('events', $event)"
-        (sizeChange)="windowService.updateSize('events', $event)"
         (focused)="windowService.bringToFront('events')"
       >
         <div class="event-debug-content">

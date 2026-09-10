@@ -77,8 +77,8 @@ import { TdIconComponent } from '../icon/icon.component';
             </div>
           }
 
-          <!-- Event Log -->
-          <div class="section">
+          <!-- Event Log (takes the remaining panel height) -->
+          <div class="section log-section">
             <div class="section-title">
               Events
               <div class="title-actions">
@@ -113,6 +113,17 @@ import { TdIconComponent } from '../icon/icon.component';
       font-family: 'JetBrains Mono', monospace;
       font-size: 10px;
       min-width: 260px;
+      display: flex;
+      flex-direction: column;
+      height: 100%;
+      min-height: 0;
+    }
+
+    .log-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      min-height: 0;
     }
 
     .section {
@@ -247,7 +258,8 @@ import { TdIconComponent } from '../icon/icon.component';
     }
 
     .event-log {
-      max-height: 120px;
+      flex: 1;
+      min-height: 60px;
       overflow-y: auto;
       overflow-x: hidden;
       font-family: 'JetBrains Mono', monospace;

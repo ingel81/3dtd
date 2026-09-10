@@ -21,11 +21,8 @@ import { TdIconComponent } from '../icon/icon.component';
         icon="bug"
         [position]="windowService.enemyWindow().position"
         [zIndex]="windowService.enemyWindow().zIndex"
-        [size]="windowService.enemyWindow().size ?? { width: 320, height: 650 }"
-        [resizable]="true"
         (closed)="windowService.close('enemy')"
         (positionChange)="windowService.updatePosition('enemy', $event)"
-        (sizeChange)="windowService.updateSize('enemy', $event)"
         (focused)="windowService.bringToFront('enemy')"
       >
         <div class="enemy-debug-content">
