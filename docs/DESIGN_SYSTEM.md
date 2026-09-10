@@ -139,6 +139,19 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 | **Controls Hint** | Steuerungshinweise unten links (LMB: Pan, RMB: Rotate, Scroll: Zoom) |
 | **Quick Actions** | Icon-Buttons unten rechts (Kamera-Reset, Debug) |
 
+### Quick Actions und Dev-Menü
+
+Die Quick Actions reichen vertikal von unterhalb des Kompasses (`top: 112px`) bis zur Unterkante; die Buttons sitzen unten, die leere Fläche darüber ist `pointer-events: none`. Untermenüs klappen nach oben auf.
+
+Das Dev-Menü öffnet als zweispaltiger Block über seinem Toggle, außerhalb des Flusses (wie das Audio-Panel), damit es die übrigen Buttons nicht verschiebt:
+
+| Spalte | Gruppen |
+|--------|---------|
+| Links: Welt, Rendering, Tools | Terrain & Map, Kamera, Display/Performance/LOS/Audio-Panels, State-Dump + DevWorld |
+| Rechts: Gameplay, Simulation | Cheats, Waves & AI (Wave-Spawner, Static Curriculum, Training), Inspektoren (Tower, Enemy, Event Bus) |
+
+Die Höhe ist auf den Platz zwischen Toggle und Kompass begrenzt; bei niedrigem Fenster scrollt das Menü, statt den Kompass zu überdecken. Neue Einträge in die passende Gruppe einsortieren und die Spalten ungefähr gleich hoch halten.
+
 ---
 
 ## Komponenten-Styles
