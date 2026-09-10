@@ -8,9 +8,8 @@
  * the foundation for tower/research-cost balancing: cumulative income is
  * predictable and progression can be planned wave-by-wave.
  *
- * After wave 30 the template loops back to wave 1; gold budgets keep climbing
- * via linear extrapolation (see goldBudgetForWave below) so DPS-Ramp scaling
- * has matching economic headroom.
+ * After wave 30 the director picks the template (every fifth wave a boss, see
+ * isBossWave) and the gold budget tapers to a sustain level (goldBudgetForWave).
  *
  * Mirror: training-backend/wave_curriculum.py — keep template sequence in sync.
  * Gold budget lives only here; backend training doesn't need it (the NN's
@@ -139,6 +138,31 @@ export const CURRICULUM_FORCED_THROUGH_WAVE = WAVE_CURRICULUM.length;
 export function templateForWave(waveNum: number): string | null {
   if (waveNum < 1 || waveNum > CURRICULUM_FORCED_THROUGH_WAVE) return null;
   return WAVE_CURRICULUM[waveNum - 1].template;
+}
+
+/** Boss-Takt im Curriculum (W10/W20/W30 sind dort gepinnt). */
+export const BOSS_WAVE_INTERVAL = 10;
+/** Boss-Takt danach, wenn der Director das Template wählt. */
+export const BOSS_WAVE_INTERVAL_AFTER_CURRICULUM = 5;
+
+/**
+ * Ist `waveNum` eine Boss-Welle? Bis W30 jede zehnte, danach jede fünfte.
+ *
+ * Past the curriculum the template mask collapses onto the boss templates on
+ * these waves (getAvailableTemplateMask). The mask used to merely ALLOW a boss
+ * on `wave % 10 === 0`, and the stalest-template rule then tied it with about
+ * fourteen other templates: simulated over 2,000 runs, W31-W130 produced 0.7
+ * boss waves where ten were intended.
+ *
+ * Mirrored by `schema.is_boss_wave` in the training backend, which reads both
+ * intervals from the generated schema.
+ */
+export function isBossWave(waveNum: number): boolean {
+  if (waveNum < 1) return false;
+  const interval = waveNum <= CURRICULUM_FORCED_THROUGH_WAVE
+    ? BOSS_WAVE_INTERVAL
+    : BOSS_WAVE_INTERVAL_AFTER_CURRICULUM;
+  return waveNum % interval === 0;
 }
 
 /**
@@ -351,6 +375,12 @@ const GOLD_TAPER_PER_WAVE = 0.5;
 const GOLD_SUSTAIN_FRACTION = 0.05;
 
 /**
+ * Boss waves past the curriculum pay this multiple of the tapered budget.
+ * Inside the curriculum the boss bonus is authored into WAVE_CURRICULUM.
+ */
+const BOSS_GOLD_MULTIPLIER = 2;
+
+/**
  * Deterministic gold budget for `waveNum` (1-indexed). Within the explicit
  * curriculum (waves 1-30) the values are read directly.
  *
@@ -367,6 +397,8 @@ const GOLD_SUSTAIN_FRACTION = 0.05;
  * late game, which is where the genre's actual tension lives.
  *
  * (Endgame difficulty still compounds via `endgameHpMultiplier`, not via gold.)
+ *
+ * Boss waves past the curriculum (every fifth, see isBossWave) pay double.
  */
 export function goldBudgetForWave(
   waveNum: number,
@@ -381,7 +413,7 @@ export function goldBudgetForWave(
   const scale = Math.max(
     GOLD_SUSTAIN_FRACTION,
     Math.pow(GOLD_TAPER_PER_WAVE, waveNum - len),
-  );
+  ) * (isBossWave(waveNum) ? BOSS_GOLD_MULTIPLIER : 1);
   return {
     kill: Math.round(last.goldKill * scale),
     complete: Math.round(last.goldComplete * scale),

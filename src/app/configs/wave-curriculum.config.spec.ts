@@ -7,6 +7,7 @@ import {
   enemyBaseDamageForWave,
   templateForWave,
   templateObjectForWave,
+  isBossWave,
   CURRICULUM_FORCED_THROUGH_WAVE,
   staticWaveProfileForWave,
   staticWaveResolvedFor,
@@ -86,17 +87,23 @@ describe('wave-curriculum.config', () => {
       expect(w31.kill).toBeGreaterThan(w1.goldKill);
     });
 
-    it('income decreases monotonically past the curriculum', () => {
-      const waves = [31, 32, 33, 34, 40, 60, 100].map((w) => goldBudgetForWave(w).kill);
+    it('income decreases monotonically past the curriculum, boss waves aside', () => {
+      const waves = [31, 32, 33, 34, 41, 61, 101].map((w) => goldBudgetForWave(w).kill);
       for (let i = 1; i < waves.length; i++) {
         expect(waves[i]).toBeLessThanOrEqual(waves[i - 1]);
       }
     });
 
+    it('boss waves past the curriculum pay double', () => {
+      expect(goldBudgetForWave(40).kill).toBe(goldBudgetForWave(41).kill * 2);
+      expect(goldBudgetForWave(40).complete).toBe(goldBudgetForWave(41).complete * 2);
+      expect(goldBudgetForWave(36)).toEqual(goldBudgetForWave(37));
+    });
+
     it('income settles on a sustain floor rather than reaching zero', () => {
-      const late = goldBudgetForWave(100);
+      const late = goldBudgetForWave(101);
       expect(late.kill).toBeGreaterThan(0);
-      expect(goldBudgetForWave(200).kill).toBe(late.kill);
+      expect(goldBudgetForWave(201).kill).toBe(late.kill);
     });
 
     it('a 100-wave run funds the design roster without doubling it', () => {
@@ -110,6 +117,24 @@ describe('wave-curriculum.config', () => {
       }
       expect(total).toBeGreaterThan(1_400_000);
       expect(total).toBeLessThan(1_800_000);
+    });
+  });
+
+  // ===================================================================
+  // isBossWave
+  // ===================================================================
+  describe('isBossWave()', () => {
+    it('every 10th wave inside the curriculum, every 5th after it', () => {
+      const bosses = Array.from({ length: 60 }, (_, i) => i + 1).filter(isBossWave);
+      expect(bosses).toEqual([10, 20, 30, 35, 40, 45, 50, 55, 60]);
+      expect(isBossWave(0)).toBe(false);
+    });
+
+    it('agrees with the curriculum pins', () => {
+      for (let w = 1; w <= CURRICULUM_FORCED_THROUGH_WAVE; w++) {
+        const bossOnly = TEMPLATES.find((t) => t.id === templateForWave(w))!.bossOnly;
+        expect(isBossWave(w), `wave ${w}`).toBe(bossOnly);
+      }
     });
   });
 

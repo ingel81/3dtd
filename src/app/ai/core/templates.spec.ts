@@ -8,14 +8,16 @@ import {
 } from './templates';
 
 describe('Phase 5.11 Range-Based Templates', () => {
-  it('has exactly 19 active templates (incl. golem_squad, gated via minWave:999)', () => {
-    expect(NUM_ACTIVE_TEMPLATES).toBe(19);
-    expect(TEMPLATES.length).toBe(19);
+  it('has exactly 21 active templates (incl. three boss templates)', () => {
+    expect(NUM_ACTIVE_TEMPLATES).toBe(21);
+    expect(TEMPLATES.length).toBe(21);
+    expect(TEMPLATES.filter((t) => t.bossOnly).map((t) => t.id))
+      .toEqual(['boss_herbert', 'boss_golem', 'boss_dragon']);
   });
 
-  it('has 32 max slots (13 reserved for future expansion)', () => {
+  it('has 32 max slots (11 reserved for future expansion)', () => {
     expect(MAX_TEMPLATE_SLOTS).toBe(32);
-    expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(13);
+    expect(MAX_TEMPLATE_SLOTS - NUM_ACTIVE_TEMPLATES).toBe(11);
   });
 
   it('every template has enemy shares summing to ~1.0', () => {
@@ -102,9 +104,34 @@ describe('Phase 5.11 Range-Based Templates', () => {
       expect(mask.some(m => m)).toBe(true);
     });
 
-    it('boss_herbert only at wave % 10 == 0', () => {
-      expect(getAvailableTemplateMask(15, true, true, [])[17]).toBe(false);
-      expect(getAvailableTemplateMask(20, true, true, [])[17]).toBe(true);
+    const bossSlots = TEMPLATES.flatMap((t, i) => (t.bossOnly ? [i] : []));
+    const live = (mask: boolean[]) => mask.flatMap((on, i) => (on ? [i] : []));
+
+    it('blocks boss templates on normal waves', () => {
+      const mask = getAvailableTemplateMask(36, true, true, [], null, false);
+      expect(live(mask).some((i) => bossSlots.includes(i))).toBe(false);
+    });
+
+    it('collapses a boss wave onto the boss templates', () => {
+      // Regression: the mask used to allow the boss, not force it, so W31-W130
+      // produced 0.7 boss waves instead of 10.
+      expect(live(getAvailableTemplateMask(35, true, true, [], null, true))).toEqual(bossSlots);
+    });
+
+    it('a boss wave respects capability gates and the cooldown', () => {
+      const dragon = TEMPLATES.findIndex((t) => t.id === 'boss_dragon');
+      const herbert = TEMPLATES.findIndex((t) => t.id === 'boss_herbert');
+      expect(getAvailableTemplateMask(35, false, true, [], null, true)[dragon]).toBe(false);
+      const mask = getAvailableTemplateMask(35, true, true, [herbert], null, true);
+      expect(mask[herbert]).toBe(false);
+      expect(live(mask).every((i) => bossSlots.includes(i))).toBe(true);
+    });
+
+    it('a boss wave no boss template can serve becomes a normal wave', () => {
+      // W15: herbert needs W20, the new bosses W31.
+      const mask = getAvailableTemplateMask(15, true, true, [], null, true);
+      expect(live(mask).length).toBeGreaterThan(0);
+      expect(live(mask).some((i) => bossSlots.includes(i))).toBe(false);
     });
   });
 });

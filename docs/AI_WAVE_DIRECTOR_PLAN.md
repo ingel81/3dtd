@@ -278,11 +278,13 @@ prüften. `gate-wiring.spec.ts` existiert genau dagegen.
   Vorgänger-Version maskierte frei und überschrieb die Wahl danach im Decoder,
   trainierte den Template-Head also auf Entscheidungen, die nie stattfanden.
 - **Ab W31**: `minWave`, Capability-Gates (`antiAir`, `antiEthereal`),
-  Reuse-Cooldown (2 Waves) und Boss-Kadenz (`wave % 10 === 0`).
+  Reuse-Cooldown (2 Waves) und Boss-Kadenz (`isBossWave`: jede fünfte Welle).
+  An Boss-Wellen kollabiert die Maske auf die Boss-Templates (Herbert, Golem,
+  Drache), an allen anderen sind sie gesperrt.
 - Fallbacks verhindern eine leere Maske (die den maskierten Softmax auf NaN
   laufen ließe).
 
-19 aktive Templates in 32 permanenten Output-Slots (`MAX_TEMPLATE_SLOTS = 32`).
+21 aktive Templates in 32 permanenten Output-Slots (`MAX_TEMPLATE_SLOTS = 32`).
 
 ---
 
