@@ -24,6 +24,8 @@ import {
   goldBudgetForWave,
   endgameHpMultiplier,
   enemyBaseDamageForWave,
+  templateForWave,
+  isBossWave,
 } from '../../src/app/configs/wave-curriculum.config';
 import {
   TOWER_TYPES,
@@ -41,12 +43,12 @@ import type { ResearchId } from '../../src/app/configs/research/research.types';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const OUT_PATH = resolve(__dirname, '../../docs/economy-chart.html');
-const CURRICULUM_LEN = WAVE_CURRICULUM.length; // 30 explicit entries
 const NUM_WAVES = 50; // extend visualisation past curriculum to show extrapolation + difficulty ramp
 
 interface WaveRow {
   wave: number;
   template: string;
+  boss: boolean;
   kill: number;
   complete: number;
   milestone: number;
@@ -94,10 +96,13 @@ function buildWaveRows(): WaveRow[] {
     const comboBonus = Math.round(complete * combo);
     cumulPerfect += kill + complete + milestone + perfectBonus + comboBonus;
 
+    const boss = isBossWave(w);
     rows.push({
       wave: w,
-      // Past curriculum length the template loops back (W31 = W1's template etc.)
-      template: WAVE_CURRICULUM[(w - 1) % CURRICULUM_LEN].template,
+      // Past the curriculum the director picks the template; boss waves come
+      // every fifth wave there (isBossWave).
+      template: templateForWave(w) ?? (boss ? 'boss (director)' : '(director)'),
+      boss,
       kill,
       complete,
       milestone,
@@ -404,9 +409,8 @@ function renderHtml(
       <tbody>
 ${waveRows
   .map((r) => {
-    const isBoss = r.template === 'boss_herbert';
     const isMilestone = r.milestone > 0;
-    const cls = [isBoss ? 'boss' : '', isMilestone ? 'milestone' : '']
+    const cls = [r.boss ? 'boss' : '', isMilestone ? 'milestone' : '']
       .filter(Boolean)
       .join(' ');
     return `        <tr${cls ? ` class="${cls}"` : ''}>

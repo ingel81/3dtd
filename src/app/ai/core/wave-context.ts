@@ -23,7 +23,7 @@ import {
   type NumberRange,
   type Template,
 } from './templates';
-import { templateForWave, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
+import { templateForWave, isBossWave, enemyBaseDamageForWave } from '../../configs/wave-curriculum.config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../configs/enemy-types.config';
 import { GameStateSnapshot } from './models/game-state-snapshot';
 
@@ -102,6 +102,7 @@ export function buildWaveContext(
     hasAntiEthereal,
     recentTemplateIndices,
     templateForWave(upcomingWave),
+    isBossWave(upcomingWave),
   );
 
   const allowed: Template[] = [];

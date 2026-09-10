@@ -163,10 +163,10 @@ fehlschlagen statt still zu kürzen.
 
 ### 2. Template-basierter Action-Space
 
-Das Netz pickt aus 19 aktiven Templates + 4 Continuous-Params:
+Das Netz pickt aus 21 aktiven Templates + 4 Continuous-Params:
 
 ```
-template_head:  Categorical(32)            # 32 Slots, 19 aktiv (Rest reserviert)
+template_head:  Categorical(32)            # 32 Slots, 21 aktiv (Rest reserviert)
 params_head:    sigmoid → [0,1] × 4        # count, spawn_delay, hp_mult, variation
 log_std:        learnable, geklemmt        # Exploration-Noise, [-3.0, 0.0]
 ```
@@ -186,7 +186,9 @@ final_count = lerp(template.count_range, count_factor)
 - **Capability-Gate** (`requiresCapability`): „antiAir" / „antiEthereal" muss der
   Spieler tatsächlich haben (Frontend-Capabilities inkl. Line-of-Sight, mit
   Fallback auf Research-Flags).
-- **Boss-only**: nur an `wave % 10 == 0`.
+- **Boss-Kadenz** (`schema.is_boss_wave`, Intervalle aus `curriculum.bossWaveInterval`):
+  bis W30 jede zehnte Welle, danach jede fünfte. Dort kollabiert die Maske auf die
+  `bossOnly`-Templates, sonst sind sie gesperrt.
 - **Cooldown**: `TEMPLATE_COOLDOWN_WAVES = 2`.
 - **DPS-Scaled Range Caps**: bei niedriger Spieler-DPS wird das obere Ende von
   `count` und `hp_mult` zusammengezogen (`dpsRamp`: floor 0.1, count 500,

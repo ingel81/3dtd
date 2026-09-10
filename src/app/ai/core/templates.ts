@@ -8,8 +8,9 @@
  * The NN produces template_idx + 4 factors in [0,1]; the decoder
  * interpolates each factor into the template's designer-set range.
  *
- * Slots 0-18 are active. Slots 19-31 are reserved for future expansion
- * without retraining (blocked by slot-availability mask).
+ * Slots 0-20 are active. Slots 21-31 are reserved for future expansion
+ * without retraining (blocked by slot-availability mask). New templates are
+ * appended, so existing slots keep their index.
  *
  * This file is the source of truth. `npm run ai-schema` mirrors it into
  * `training-backend/generated/ai-schema.json`, which the Python backend reads —
@@ -310,6 +311,38 @@ export const TEMPLATES: readonly Template[] = [
     requiresCapability: null,
     bossOnly: false,
   },
+  {
+    // Post-curriculum boss (W35, W40, ...): stone golems with a mammoth escort.
+    // Fortified, so the wave asks whether the player has siege or magic.
+    id: 'boss_golem',
+    name: 'Boss: Stone Golem',
+    description: 'Stone golems with a mammoth escort.',
+    enemies: [['stone-golem', 0.3], ['mammoth', 0.7]],
+    countRange: [8, 80],
+    spawnDelayRange: [150, 1200],
+    hpMultRange: [0.8, 6.0],
+    variationRange: [0.10, 0.30],
+    minWave: 31,
+    spawnPattern: 'clustered',
+    requiresCapability: null,
+    bossOnly: true,
+  },
+  {
+    // Post-curriculum air boss: dragons (heavy) inside a hornet swarm (light),
+    // one answer from rocket or lightning, the other from gatling or ice.
+    id: 'boss_dragon',
+    name: 'Boss: Dragon Flight',
+    description: 'Dragons with a hornet swarm. Needs anti-air.',
+    enemies: [['dragon', 0.5], ['hornet', 0.5]],
+    countRange: [8, 80],
+    spawnDelayRange: [100, 1000],
+    hpMultRange: [0.8, 6.0],
+    variationRange: [0.10, 0.30],
+    minWave: 31,
+    spawnPattern: 'clustered',
+    requiresCapability: 'antiAir',
+    bossOnly: true,
+  },
 ];
 
 /** Permanent output-slot count (must match MAX_TEMPLATE_SLOTS in backend). */
@@ -550,11 +583,16 @@ export function lerpRange(range: NumberRange, t: number): number {
  * which trained the template head on decisions that never happened.
  *
  * Past the curriculum the designer gates apply: `minWave`, capability
- * requirements, the reuse cooldown and the boss cadence.
+ * requirements, the reuse cooldown and the boss cadence. On a boss wave the
+ * mask collapses onto the boss templates that pass the gates; on every other
+ * wave they are blocked. Merely allowing a boss on boss waves left it tied
+ * with a dozen other templates, and the stalest-template rule picked it in
+ * 0.7 of ten intended boss waves between W31 and W130.
  *
- * `forcedTemplateId` comes from the wave curriculum. It is passed in rather
- * than imported so this module stays free of a dependency on
- * `wave-curriculum.config`, which already imports TEMPLATES from here.
+ * `forcedTemplateId` and `bossWave` come from the wave curriculum
+ * (templateForWave, isBossWave). They are passed in rather than imported so
+ * this module stays free of a dependency on `wave-curriculum.config`, which
+ * already imports TEMPLATES from here.
  *
  * Mirrors `schema.get_available_template_mask` in the training backend.
  */
@@ -564,6 +602,7 @@ export function getAvailableTemplateMask(
   hasAntiEthereal: boolean,
   recentTemplateIndices: readonly number[],
   forcedTemplateId: string | null = null,
+  bossWave = false,
 ): boolean[] {
   const mask = new Array<boolean>(MAX_TEMPLATE_SLOTS).fill(false);
 
@@ -579,31 +618,35 @@ export function getAvailableTemplateMask(
   }
 
   const recent = new Set(recentTemplateIndices.slice(-TEMPLATE_COOLDOWN_WAVES));
-  const passesGates = (t: Template, allowBoss: boolean): boolean => {
+  /** Designer gates, and the boss rule: boss templates on boss waves only. */
+  const eligible = (i: number, boss: boolean): boolean => {
+    const t = TEMPLATES[i];
+    if (t.bossOnly !== boss) return false;
     if (currentWave < t.minWave) return false;
     if (t.requiresCapability === 'antiAir' && !hasAntiAir) return false;
     if (t.requiresCapability === 'antiEthereal' && !hasAntiEthereal) return false;
-    if (t.bossOnly) return allowBoss && currentWave % 10 === 0;
     return true;
   };
-
-  for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
-    if (!passesGates(TEMPLATES[i], true)) continue;
-    if (recent.has(i)) continue;
-    mask[i] = true;
-  }
-
-  // Fallbacks: the cooldown must never be able to starve the mask, and an
-  // all-false mask would make the masked softmax produce NaN.
-  if (!mask.some((x) => x)) {
+  const fill = (boss: boolean, respectCooldown: boolean, firstOnly: boolean): void => {
     for (let i = 0; i < NUM_ACTIVE_TEMPLATES; i++) {
-      if (passesGates(TEMPLATES[i], false)) {
-        mask[i] = true;
-        break;
-      }
+      if (!eligible(i, boss) || (respectCooldown && recent.has(i))) continue;
+      mask[i] = true;
+      if (firstOnly) return;
     }
-  }
-  if (!mask.some((x) => x)) mask[0] = true;
+  };
+  const empty = (): boolean => !mask.some((x) => x);
+
+  fill(bossWave, true, false);
+
+  // Fallbacks, in order: a boss wave is still a boss wave when every boss
+  // template is on cooldown; a boss wave no boss template can serve (minWave,
+  // capabilities) becomes a normal wave; the cooldown must never be able to
+  // starve the mask; and an all-false mask would make the masked softmax
+  // produce NaN.
+  if (empty() && bossWave) fill(true, false, true);
+  if (empty() && bossWave) fill(false, true, false);
+  if (empty()) fill(false, false, true);
+  if (empty()) mask[0] = true;
 
   return mask;
 }

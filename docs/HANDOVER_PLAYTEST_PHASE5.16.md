@@ -159,6 +159,10 @@ Zwei Stufen haben das überholt:
 Details: [HANDOVER_TRAINING_REFRESH.md](HANDOVER_TRAINING_REFRESH.md).
 
 ### C) Boss-Frequenz ab W31
+> **Umgesetzt 2026-09** (Entwurf, BALANCE_PROPOSAL_2026-09 §5): `isBossWave()`,
+> die Maske kollabiert an jeder fünften Welle nach W30 auf drei Boss-Templates,
+> Boss-Wellen zahlen dort doppeltes Gold. Der Text unten ist der Stand davor.
+
 Im Plan war: ab W31 Bosse alle 5 Waves statt 10. **Nicht implementiert** — und die
 Ausgangslage hat sich geändert: Das Curriculum loopt nicht mehr, `templateForWave()`
 liefert ab W31 `null` und der Director wählt frei unter der Maske. `boss_herbert`

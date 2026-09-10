@@ -231,7 +231,7 @@
   ],
   "templates": {
     "maxSlots": 32,
-    "activeCount": 19,
+    "activeCount": 21,
     "cooldownWaves": 2,
     "list": [
       {
@@ -905,6 +905,78 @@
         "spawnPattern": null,
         "requiresCapability": null,
         "bossOnly": false
+      },
+      {
+        "slot": 19,
+        "id": "boss_golem",
+        "name": "Boss: Stone Golem",
+        "description": "Stone golems with a mammoth escort.",
+        "enemies": [
+          {
+            "type": "stone-golem",
+            "share": 0.3
+          },
+          {
+            "type": "mammoth",
+            "share": 0.7
+          }
+        ],
+        "countRange": [
+          8,
+          80
+        ],
+        "spawnDelayRange": [
+          150,
+          1200
+        ],
+        "hpMultRange": [
+          0.8,
+          6
+        ],
+        "variationRange": [
+          0.1,
+          0.3
+        ],
+        "minWave": 31,
+        "spawnPattern": "clustered",
+        "requiresCapability": null,
+        "bossOnly": true
+      },
+      {
+        "slot": 20,
+        "id": "boss_dragon",
+        "name": "Boss: Dragon Flight",
+        "description": "Dragons with a hornet swarm. Needs anti-air.",
+        "enemies": [
+          {
+            "type": "dragon",
+            "share": 0.5
+          },
+          {
+            "type": "hornet",
+            "share": 0.5
+          }
+        ],
+        "countRange": [
+          8,
+          80
+        ],
+        "spawnDelayRange": [
+          100,
+          1000
+        ],
+        "hpMultRange": [
+          0.8,
+          6
+        ],
+        "variationRange": [
+          0.1,
+          0.3
+        ],
+        "minWave": 31,
+        "spawnPattern": "clustered",
+        "requiresCapability": "antiAir",
+        "bossOnly": true
       }
     ]
   },
@@ -941,7 +1013,11 @@
       "chaos_wave",
       "boss_herbert"
     ],
-    "forcedThroughWave": 30
+    "forcedThroughWave": 30,
+    "bossWaveInterval": {
+      "curriculum": 10,
+      "afterCurriculum": 5
+    }
   },
   "decoder": {
     "maxWaveDurationMs": 180000,

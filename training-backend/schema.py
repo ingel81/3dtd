@@ -83,6 +83,7 @@ TEMPLATES: list[dict[str, Any]] = SCHEMA["templates"]["list"]
 # === CURRICULUM ===
 CURRICULUM_SEQUENCE: list[str] = list(SCHEMA["curriculum"]["sequence"])
 CURRICULUM_FORCED_THROUGH_WAVE: int = SCHEMA["curriculum"]["forcedThroughWave"]
+_BOSS_INTERVAL: dict[str, int] = dict(SCHEMA["curriculum"]["bossWaveInterval"])
 
 # === DECODER CONSTANTS ===
 MAX_WAVE_DURATION_MS: int = SCHEMA["decoder"]["maxWaveDurationMs"]
@@ -149,6 +150,21 @@ def template_for_wave(wave_num: int) -> Optional[str]:
     if wave_num < 1 or wave_num > CURRICULUM_FORCED_THROUGH_WAVE:
         return None
     return CURRICULUM_SEQUENCE[wave_num - 1]
+
+
+def is_boss_wave(wave_num: int) -> bool:
+    """Every 10th wave inside the curriculum, every 5th after it.
+
+    Mirrors `isBossWave` in wave-curriculum.config.ts; both intervals come from
+    the generated schema.
+    """
+    if wave_num < 1:
+        return False
+    if wave_num <= CURRICULUM_FORCED_THROUGH_WAVE:
+        interval = _BOSS_INTERVAL["curriculum"]
+    else:
+        interval = _BOSS_INTERVAL["afterCurriculum"]
+    return wave_num % interval == 0
 
 
 def get_template(idx: int) -> Optional[dict[str, Any]]:
@@ -356,7 +372,11 @@ def get_available_template_mask(
     Inside the curriculum the mask collapses to the single forced template, so
     `Categorical` has exactly one option: the sampled index always equals the
     wave that actually ships. Past the curriculum the designer gates apply —
-    `min_wave`, capability requirements, the reuse cooldown and the boss cadence.
+    `min_wave`, capability requirements, the reuse cooldown and the boss cadence:
+    on a boss wave (`is_boss_wave`) the mask collapses onto the boss templates
+    that pass the gates, on every other wave they are blocked.
+
+    Mirrors `getAvailableTemplateMask` in templates.ts, fallbacks included.
     """
     mask = [False] * MAX_TEMPLATE_SLOTS
 
@@ -370,32 +390,41 @@ def get_available_template_mask(
         # free-choice path rather than shipping an all-false mask.
 
     recent_set = set(recent_template_indices[-cooldown_waves:]) if recent_template_indices else set()
+    boss_wave = is_boss_wave(current_wave)
 
-    def passes_gates(t: dict[str, Any], allow_boss: bool) -> bool:
+    def eligible(i: int, boss: bool) -> bool:
+        """Designer gates, and the boss rule: boss templates on boss waves only."""
+        t = TEMPLATES[i]
+        if bool(t.get("bossOnly", False)) != boss:
+            return False
         if current_wave < t["minWave"]:
             return False
         if t["requiresCapability"] == "antiAir" and not has_anti_air:
             return False
         if t["requiresCapability"] == "antiEthereal" and not has_anti_ethereal:
             return False
-        if t.get("bossOnly", False):
-            return allow_boss and current_wave % 10 == 0
         return True
 
-    for i in range(NUM_ACTIVE_TEMPLATES):
-        if not passes_gates(TEMPLATES[i], allow_boss=True):
-            continue
-        if i in recent_set:
-            continue
-        mask[i] = True
-
-    # Fallbacks: the cooldown must never be able to starve the mask, and an
-    # all-false mask would make Categorical produce NaN.
-    if not any(mask):
+    def fill(boss: bool, respect_cooldown: bool, first_only: bool) -> None:
         for i in range(NUM_ACTIVE_TEMPLATES):
-            if passes_gates(TEMPLATES[i], allow_boss=False):
-                mask[i] = True
-                break
+            if not eligible(i, boss) or (respect_cooldown and i in recent_set):
+                continue
+            mask[i] = True
+            if first_only:
+                return
+
+    fill(boss_wave, respect_cooldown=True, first_only=False)
+
+    # Fallbacks, in order: a boss wave is still a boss wave when every boss
+    # template is on cooldown; a boss wave no boss template can serve becomes
+    # a normal wave; the cooldown must never be able to starve the mask; and
+    # an all-false mask would make Categorical produce NaN.
+    if not any(mask) and boss_wave:
+        fill(True, respect_cooldown=False, first_only=True)
+    if not any(mask) and boss_wave:
+        fill(False, respect_cooldown=True, first_only=False)
+    if not any(mask):
+        fill(False, respect_cooldown=False, first_only=True)
     if not any(mask):
         mask[0] = True
 

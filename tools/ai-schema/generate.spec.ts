@@ -68,8 +68,11 @@ import {
 } from '../../src/app/ai/core/templates';
 import {
   WAVE_CURRICULUM,
+  BOSS_WAVE_INTERVAL,
+  BOSS_WAVE_INTERVAL_AFTER_CURRICULUM,
   endgameHpMultiplier,
   enemyBaseDamageForWave,
+  isBossWave,
 } from '../../src/app/configs/wave-curriculum.config';
 import { ENEMY_TYPES, type EnemyTypeId } from '../../src/app/configs/enemy-types.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
@@ -177,6 +180,14 @@ function buildSchema() {
        * template head chooses freely under the normal availability mask.
        */
       forcedThroughWave: WAVE_CURRICULUM.length,
+      /**
+       * Boss cadence (isBossWave): every Nth wave up to forcedThroughWave,
+       * every Mth after it, where the mask collapses onto the boss templates.
+       */
+      bossWaveInterval: {
+        curriculum: BOSS_WAVE_INTERVAL,
+        afterCurriculum: BOSS_WAVE_INTERVAL_AFTER_CURRICULUM,
+      },
     },
 
     decoder: {
@@ -265,7 +276,7 @@ describe('ai schema generator', () => {
     schema.curriculum.sequence.forEach((id, i) => {
       const wave = i + 1;
       if (!byId.get(id)!.bossOnly) return;
-      expect(wave % 10, `boss template ${id} pinned to non-boss wave ${wave}`).toBe(0);
+      expect(isBossWave(wave), `boss template ${id} pinned to non-boss wave ${wave}`).toBe(true);
     });
   });
 

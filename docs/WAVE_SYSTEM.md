@@ -213,11 +213,17 @@ Die Maske selbst kommt aus `getAvailableTemplateMask()`: **innerhalb** des
 Curriculums (bis `CURRICULUM_FORCED_THROUGH_WAVE`) kollabiert sie auf das eine
 gepinnte Template — die Gates greifen dort gar nicht, weil der Designer die
 Welle bereits gewaehlt hat. Erst danach gelten `minWave`,
-Capability-Anforderungen (Anti-Air, Anti-Ethereal), die Boss-Kadenz
-(`bossOnly` nur auf Vielfachen von 10) und der Cooldown
-(`TEMPLATE_COOLDOWN_WAVES = 2`). Zwei Fallbacks garantieren, dass nie alle
-Slots gesperrt sind; der Leerfall im `RuleDirector` (Slot 0 mit festen
-Mittelwerten) ist deshalb rein defensiv.
+Capability-Anforderungen (Anti-Air, Anti-Ethereal), die Boss-Kadenz und der
+Cooldown (`TEMPLATE_COOLDOWN_WAVES = 2`). Boss-Kadenz: `isBossWave()` in
+`wave-curriculum.config.ts`, bis W30 jede zehnte Welle (gepinnt), danach jede
+fünfte. An Boss-Wellen kollabiert die Maske auf die `bossOnly`-Templates, die
+die Gates bestehen (`boss_herbert`, `boss_golem`, `boss_dragon`; die
+Älteste-zuerst-Regel rotiert sie), an allen anderen Wellen sind sie gesperrt.
+Vorher waren Bosse an Vielfachen von 10 nur erlaubt, nicht erzwungen: simuliert
+kamen zwischen W31 und W130 0,7 statt 10 Boss-Wellen. Boss-Wellen nach W30
+zahlen das doppelte Gold-Budget. Fallbacks garantieren, dass nie alle Slots
+gesperrt sind (Boss-Template trotz Cooldown, sonst normale Welle); der Leerfall
+im `RuleDirector` (Slot 0 mit festen Mittelwerten) ist deshalb rein defensiv.
 
 ### Decoder: von den Faktoren zur Welle
 

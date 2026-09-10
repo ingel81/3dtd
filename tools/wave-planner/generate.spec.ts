@@ -75,6 +75,8 @@ const TEMPLATE_GATES: Record<string, string[]> = {
   chaos_wave: ['air', 'mixed'],
   wraith_storm: ['ethereal', 'swarm'],
   armor_gauntlet: ['mixed'],
+  boss_golem: ['boss', 'fortified'], // nur nach dem Curriculum (jede 5. Welle)
+  boss_dragon: ['boss', 'air', 'heavy'], // nur nach dem Curriculum (jede 5. Welle)
 };
 
 // Fixed dark-theme palette per tower — same as tower-stats-chart.

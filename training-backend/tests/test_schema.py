@@ -167,9 +167,25 @@ def test_boss_templates_only_appear_on_boss_waves():
         pytest.skip("no boss-only templates defined")
 
     base = schema.CURRICULUM_FORCED_THROUGH_WAVE
-    non_boss_wave = next(w for w in range(base + 1, base + 12) if w % 10 != 0)
+    non_boss_wave = next(w for w in range(base + 1, base + 12) if not schema.is_boss_wave(w))
     mask = schema.get_available_template_mask(non_boss_wave, True, True, [])
     assert not (boss_slots & set(_live(mask)))
+
+
+def test_boss_cadence_matches_the_game():
+    bosses = [w for w in range(1, 61) if schema.is_boss_wave(w)]
+    assert bosses == [10, 20, 30, 35, 40, 45, 50, 55, 60]
+
+
+def test_boss_waves_after_the_curriculum_collapse_onto_boss_templates():
+    """The mask used to allow a boss there, not force it: 0.7 boss waves in W31-W130."""
+    boss_slots = {i for i, t in enumerate(schema.TEMPLATES) if t.get("bossOnly")}
+    base = schema.CURRICULUM_FORCED_THROUGH_WAVE
+    boss_wave = next(w for w in range(base + 1, base + 12) if schema.is_boss_wave(w))
+    assert set(_live(schema.get_available_template_mask(boss_wave, True, True, []))) == boss_slots
+
+    no_air = set(_live(schema.get_available_template_mask(boss_wave, False, True, [])))
+    assert no_air and no_air < boss_slots
 
 
 def test_mask_is_never_all_false():
