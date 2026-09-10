@@ -2,13 +2,16 @@ import { describe, it, expect } from 'vitest';
 import {
   getAllProjectileTypes,
   getProjectileType,
+  PROJECTILE_SOUNDS,
   PROJECTILE_TYPES,
   ProjectileTypeId,
   TrailParticleConfig,
 } from './projectile-types.config';
+import { PROJECTILE_SOUND_IDS } from './audio.config';
+import { TOWER_TYPES } from './tower-types.config';
 
 describe('projectile types config', () => {
-  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'fireball', 'ice-shard', 'bullet', 'rocket', 'poison-glob'];
+  const allIds: ProjectileTypeId[] = ['arrow', 'cannonball', 'arcane-orb', 'ice-shard', 'bullet', 'rocket', 'poison-glob'];
 
   const expectValidTrail = (trail: TrailParticleConfig) => {
     expect(typeof trail.enabled).toBe('boolean');
@@ -68,6 +71,31 @@ describe('projectile types config', () => {
   it('getAllProjectileTypes() returns array with 7 elements', () => {
     const all = getAllProjectileTypes();
     expect(all).toHaveLength(7);
+  });
+
+  it('has a sound for every projectile type and budgets only known sounds', () => {
+    allIds.forEach((id) => {
+      expect(PROJECTILE_SOUNDS[id].url).toMatch(/^assets\/sounds\/.+\.mp3$/);
+    });
+    PROJECTILE_SOUND_IDS.forEach((id) => {
+      expect(PROJECTILE_SOUNDS[id as ProjectileTypeId]).toBeDefined();
+    });
+  });
+
+  it('gives every projectile-firing tower an existing projectile type', () => {
+    Object.values(TOWER_TYPES).forEach((tower) => {
+      expect(PROJECTILE_TYPES[tower.projectileType]).toBeDefined();
+    });
+  });
+
+  it('keeps the arcane orb trail violet-to-cyan, not fire coloured', () => {
+    // Playtest 2026-09-10: the old red/orange spiral read as a fireball.
+    const trail = PROJECTILE_TYPES['arcane-orb'].trailParticles!;
+    expect(TOWER_TYPES.magic.projectileType).toBe('arcane-orb');
+    [trail.colorMin, trail.colorMax].forEach((c) => {
+      expect(c.b).toBeGreaterThan(c.r);
+      expect(c.b).toBeGreaterThanOrEqual(0.9);
+    });
   });
 
   it('all projectile types have required fields and valid values', () => {

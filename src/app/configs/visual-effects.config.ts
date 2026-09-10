@@ -52,7 +52,32 @@ export const EXPLOSION_PRESETS = {
   small:    { particles: 8,   radius: 3 },
   bullet:   { particles: 2,   radius: 1 },
   poison:   { particles: 6,   radius: 2 },
+  arcane:   { particles: 14,  radius: 3 },
 } as const;
+
+/** RGB colour, channels 0-1 (linear, as the particle pools store it). */
+export interface EffectRgb {
+  r: number;
+  g: number;
+  b: number;
+}
+
+/** Spark-burst palette: 40 % of the particles get the first colour, 30 % each the other two. */
+export type BurstPalette = readonly [EffectRgb, EffectRgb, EffectRgb];
+
+/** Palettes for the round-particle spark bursts (ice hit, arcane orb hit). */
+export const BURST_PALETTES = {
+  ice: [
+    { r: 1.0, g: 1.0, b: 1.0 },   // White core
+    { r: 0.9, g: 0.98, b: 1.0 },  // Very light cyan
+    { r: 0.8, g: 0.95, b: 1.0 },  // Light ice blue
+  ],
+  arcane: [
+    { r: 0.85, g: 0.9, b: 1.0 },  // White-lavender core
+    { r: 0.55, g: 0.25, b: 1.0 }, // Violet
+    { r: 0.3, g: 0.8, b: 1.0 },   // Cyan
+  ],
+} as const satisfies Record<string, BurstPalette>;
 
 /** Effect color presets (RGB 0-1) */
 export const EFFECT_COLORS = {

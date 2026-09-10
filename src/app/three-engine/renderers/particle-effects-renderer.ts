@@ -3,6 +3,8 @@ import { CoordinateSync } from './index';
 import { TrailParticleConfig } from '../../configs/projectile-types.config';
 import {
   BLOOD_DECAL_CONFIG,
+  BURST_PALETTES,
+  type BurstPalette,
   ICE_DECAL_CONFIG,
 } from '../../configs/visual-effects.config';
 import { DecalInstanceManager } from './decal-instance.manager';
@@ -943,6 +945,48 @@ export class ParticleEffectsRenderer {
    * @param count - Number of particles (default 20)
    */
   spawnIceExplosion(localX: number, localY: number, localZ: number, count = 20): void {
+    this.spawnColorBurst(localX, localY, localZ, count, BURST_PALETTES.ice);
+  }
+
+  /**
+   * Spawn ice explosion at geo coordinates
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Height above ground
+   * @param count - Number of particles (default 20)
+   */
+  spawnIceExplosionAtGeo(lat: number, lon: number, height: number, count = 20): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnIceExplosion(localPos.x, localPos.y, localPos.z, count);
+  }
+
+  /**
+   * Spawn the arcane orb impact at geo coordinates: the ice burst's motion
+   * in violet/cyan, so the Magic Tower's hit reads as a spell, not as the
+   * fire-atlas explosion the other impacts use.
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Height above ground
+   * @param count - Number of particles
+   */
+  spawnArcaneBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnColorBurst(localPos.x, localPos.y, localPos.z, count, BURST_PALETTES.arcane);
+  }
+
+  /**
+   * Round additive particles bursting outward from a point, coloured from a
+   * three-colour palette. Shared by the ice and arcane impacts.
+   */
+  private spawnColorBurst(
+    localX: number,
+    localY: number,
+    localZ: number,
+    count: number,
+    palette: BurstPalette
+  ): void {
     for (let i = 0; i < count; i++) {
       const particle = this.pools.getInactiveParticle('trailAdditive');
       if (!particle) break;
@@ -965,32 +1009,10 @@ export class ParticleEffectsRenderer {
       particle.maxLife = 0.4 + Math.random() * 0.5; // 0.4-0.9 seconds (longer visible)
       particle.size = 1.5 + Math.random() * 2.0; // Larger particles
 
-      // Very bright ice colors (more white/cyan)
       const t = Math.random();
-      if (t < 0.4) {
-        // Pure white core
-        particle.color.setRGB(1.0, 1.0, 1.0);
-      } else if (t < 0.7) {
-        // Very light cyan
-        particle.color.setRGB(0.9, 0.98, 1.0);
-      } else {
-        // Light ice blue
-        particle.color.setRGB(0.8, 0.95, 1.0);
-      }
+      const c = t < 0.4 ? palette[0] : t < 0.7 ? palette[1] : palette[2];
+      particle.color.setRGB(c.r, c.g, c.b);
     }
-  }
-
-  /**
-   * Spawn ice explosion at geo coordinates
-   *
-   * @param lat - Latitude
-   * @param lon - Longitude
-   * @param height - Height above ground
-   * @param count - Number of particles (default 20)
-   */
-  spawnIceExplosionAtGeo(lat: number, lon: number, height: number, count = 20): void {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnIceExplosion(localPos.x, localPos.y, localPos.z, count);
   }
 
   /**

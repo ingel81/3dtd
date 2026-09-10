@@ -55,7 +55,7 @@ export const PROJECTILE_SOUND_IDS = [
   'rocket',
   'cannonball',
   'ice-shard',
-  'fireball',
+  'arcane-orb',
 ] as const;
 
 /** Default spatial audio settings */

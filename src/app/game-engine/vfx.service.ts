@@ -133,6 +133,10 @@ export class VFXService {
     } else if (projectileType === 'poison-glob') {
       // Small green impact for poison
       preset = EXPLOSION_PRESETS.poison.particles;
+    } else if (projectileType === 'arcane-orb') {
+      // Violet/cyan spark burst instead of the fire-atlas explosion
+      this.tilesEngine.effects.spawnArcaneBurstAtGeo(lat, lon, height, EXPLOSION_PRESETS.arcane.particles);
+      return;
     } else if (projectileType !== 'arrow') {
       // Small impact effect for other projectiles (ice, etc.)
       preset = EXPLOSION_PRESETS.small.particles;

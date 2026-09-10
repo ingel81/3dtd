@@ -51,9 +51,9 @@ describe('computeTowerDPS()', () => {
     expect(computeTowerDPS(tower)).toBeCloseTo(10 * 5, 5);
   });
 
-  it('magic: damage(40) × fireRate(1.5) = 60, no splash (fireball no splashRadius)', () => {
+  it('magic: damage(40) × fireRate(1.5) = 60, no splash (arcane-orb no splashRadius)', () => {
     const tower = new Tower(POS, 'magic');
-    // fireball has no splashRadius
+    // arcane-orb has no splashRadius
     expect(computeTowerDPS(tower)).toBeCloseTo(40 * 1.5, 5);
   });
 
@@ -116,7 +116,7 @@ describe('computeTowerDPS()', () => {
     const tower = new Tower(POS, 'lightning');
     // attackType: chain, damage: 35, fireRate: 0.8, maxJumps: 2, chainFalloff: 0.7
     // chainMult = 1 + 0.7 + 0.7^2 = 2.19
-    // lightning projectile: fireball (no splashRadius)
+    // lightning fallback projectile: arrow (no splashRadius)
     const chainMult = 1 + 0.7 + 0.7 * 0.7;
     const expected = 35 * 0.8 * chainMult;
     expect(computeTowerDPS(tower)).toBeCloseTo(expected, 4);

@@ -1,7 +1,7 @@
 import { DamageType } from './combat/combat.types';
 
 export type TowerTypeId = 'archer' | 'cannon' | 'magic' | 'dual-gatling' | 'rocket' | 'ice' | 'fire' | 'tentacle' | 'poison' | 'lightning' | 'research-center';
-export type ProjectileTypeId = 'arrow' | 'cannonball' | 'fireball' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob';
+export type ProjectileTypeId = 'arrow' | 'cannonball' | 'arcane-orb' | 'ice-shard' | 'bullet' | 'rocket' | 'poison-glob';
 export type UpgradeId = 'speed' | 'damage' | 'range' | 'beam-width' | 'research-slots';
 export type AttackType = 'projectile' | 'beam' | 'melee' | 'passive' | 'chain';
 export type TargetingStrategy = 'closest' | 'lowest-hp' | 'highest-hp' | 'first' | 'air-priority';
@@ -281,7 +281,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     damage: 40,
     range: 70,
     fireRate: 1.5, // 1.5 shots/sec
-    projectileType: 'fireball',
+    projectileType: 'arcane-orb',
     cost: 140, // Phase 5.16: ethereal specialist — strong vs ghost/wraith, small premium
     upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
   },
@@ -347,7 +347,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     beamRange: 20, // Flame stream length
     beamWidth: 5, // Stream width
     fireRate: 0, // Not used for beam towers
-    projectileType: 'fireball', // Fallback visual type
+    projectileType: 'arrow', // Fallback, not used (beam)
 
     cost: 110,
     canTargetAir: false, // Ground only - flames don't reach flyers
@@ -414,7 +414,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     damage: 35,        // Primary-hit damage (jumps scaled by chainFalloff)
     range: 65,         // Primary target acquisition range
     fireRate: 0.8,     // 0.8 shots/sec
-    projectileType: 'fireball', // Fallback, unused for chain attackType
+    projectileType: 'arrow', // Fallback, unused for chain attackType
 
     maxJumps: 2,       // Primary + 2 = 3 total hits
     chainFalloff: 0.7, // 100% → 70% → 49%

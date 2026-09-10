@@ -91,25 +91,26 @@ export const PROJECTILE_TYPES: Record<ProjectileTypeId, ProjectileTypeConfig> = 
       blending: 'normal',
     },
   },
-  fireball: {
-    id: 'fireball',
+  'arcane-orb': {
+    id: 'arcane-orb',
     speed: 100,
     visualType: 'magic',
     scale: 0.4,
-    // Phase 5.16: streak shrunk → spiral particles compensate. Bigger,
-    // longer-lived spiral arcs carry the magical-trail look without the
-    // streak's wedge artifact. Pool impact: ~600 active at 10 simultaneous
-    // fireballs, comfortable.
+    // Playtest 2026-09-10: the red-to-orange spiral read as a fireball, not
+    // as magic. Same spiral, now violet-to-cyan sparks: smaller and shorter
+    // lived so they flicker past instead of glowing like embers. Count and
+    // spawn rate are unchanged and the lifetime drops, so the additive pool
+    // carries fewer particles than before (was ~600 at 10 orbs in flight).
     trailParticles: {
       enabled: true,
       spawnChance: 1.0,
       countPerSpawn: 2,
-      colorMin: { r: 0.8, g: 0.1, b: 0.0 },  // Deep red
-      colorMax: { r: 1.0, g: 0.4, b: 0.0 },  // Orange
-      sizeMin: 0.5,                          // was 0.4
-      sizeMax: 1.1,                          // was 0.8 — spiral arcs more visible
-      lifetimeMin: 0.3,                      // was 0.2
-      lifetimeMax: 0.7,                      // was 0.4 — arcs trail longer
+      colorMin: { r: 0.45, g: 0.15, b: 1.0 }, // Violet
+      colorMax: { r: 0.6, g: 0.9, b: 1.0 },   // Pale cyan
+      sizeMin: 0.35,
+      sizeMax: 0.9,
+      lifetimeMin: 0.25,
+      lifetimeMax: 0.6,
       velocityX: { min: 0, max: 0 },
       velocityY: { min: 0, max: 0 },
       velocityZ: { min: 0, max: 0 },
@@ -244,7 +245,7 @@ export interface ProjectileSoundConfig {
   volume: number;
 }
 
-export const PROJECTILE_SOUNDS: Record<string, ProjectileSoundConfig> = {
+export const PROJECTILE_SOUNDS: Record<ProjectileTypeId, ProjectileSoundConfig> = {
   arrow: {
     url: 'assets/sounds/towers/archer/shoot.mp3',
     refDistance: 50,
@@ -275,7 +276,7 @@ export const PROJECTILE_SOUNDS: Record<string, ProjectileSoundConfig> = {
     rolloffFactor: 1,
     volume: 0.4,
   },
-  fireball: {
+  'arcane-orb': {
     url: 'assets/sounds/towers/magic/cast.mp3',
     refDistance: 55,
     rolloffFactor: 1.1,

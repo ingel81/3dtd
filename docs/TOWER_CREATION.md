@@ -531,7 +531,7 @@ fire: {
   beamRange: 20,                // Flammenstrahl-Länge
   beamWidth: 5,                 // Kegel-Breite am Ende
   fireRate: 0,                  // Nicht verwendet bei beam
-  projectileType: 'fireball',   // Fallback Visual Type
+  projectileType: 'arrow',      // Fallback, fuer beam ungenutzt
 }
 ```
 
@@ -621,7 +621,7 @@ fire: {
   beamRange: 20,
   beamWidth: 5,
   fireRate: 0,
-  projectileType: 'fireball',
+  projectileType: 'arrow',
 
   cost: 110,
   canTargetAir: false,
@@ -657,7 +657,7 @@ lightning: {
   damage: 35,                   // Primary-Hit-Damage
   range: 65,                    // Primary-Target-Acquisition-Range
   fireRate: 0.8,                // 0.8 Schuss/s
-  projectileType: 'fireball',   // Fallback, fuer chain ungenutzt
+  projectileType: 'arrow',      // Fallback, fuer chain ungenutzt
 
   maxJumps: 2,                  // Primary + 2 = 3 Total-Hits
   chainFalloff: 0.7,            // 100% → 70% → 49%

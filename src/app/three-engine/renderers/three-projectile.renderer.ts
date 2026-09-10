@@ -313,7 +313,8 @@ export class ThreeProjectileRenderer {
   }
 
   private createMagicManager(): ProjectileInstanceManager {
-    // Magic projectile: glowing mystical red/crimson sphere with custom shader
+    // Magic projectile (arcane orb): violet body, cyan cells and rim. Kept
+    // violet-dominant so it does not read as the blue/white ice orb.
     const geometry = new SphereGeometry(1.2, 32, 32); // Higher segments for smooth shader
 
     const material = new ShaderMaterial({
@@ -321,9 +322,9 @@ export class ThreeProjectileRenderer {
       fragmentShader: MAGIC_ORB_FRAGMENT,
       uniforms: {
         uTime: { value: 0.0 },
-        uColor1: { value: new Color(0x8b0000) }, // Dark crimson
-        uColor2: { value: new Color(0xdd1100) }, // Vivid red
-        uColor3: { value: new Color(0xff4400) }, // Red-orange highlights
+        uColor1: { value: new Color(0x2a0a6e) }, // Deep indigo
+        uColor2: { value: new Color(0x7b2cff) }, // Vivid violet
+        uColor3: { value: new Color(0x8fe8ff) }, // Pale cyan highlights
         uIntensity: { value: 2.5 },
       },
       transparent: true,
