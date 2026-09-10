@@ -173,6 +173,14 @@ export class TowerPlacementService {
   private readonly staleLos = new Map<Tower, Set<RouteCell>>();
   private losRefreshRaf: number | null = null;
 
+  /**
+   * LOS recomputes per frame. Each one is a forced cubemap render plus the
+   * face readback; a big zoom-in refreshes hundreds of cells under every
+   * tower at once, and running all of those towers in one frame blocked the
+   * main thread for 1-2 s.
+   */
+  private static readonly LOS_RECOMPUTES_PER_FRAME = 1;
+
   private onCellsChanged(changed: RouteCell[]): void {
     if (!this.gameState || !this.engine || changed.length === 0) return;
 
@@ -239,13 +247,16 @@ export class TowerPlacementService {
    * sweep is in flight, the same way the route-line refresh does: the sweep
    * reports its changes slice by slice, so a tower covered by several slices
    * would otherwise pay for a forced cubemap render plus face readback once
-   * per slice. After the sweep each tower runs once, with all its cells.
+   * per slice. After the sweep each tower runs once, with all its cells,
+   * spread over the following frames (LOS_RECOMPUTES_PER_FRAME).
    */
   private drainLosRefresh(): void {
     if (!this.globalRouteGrid.isTerrainRefreshActive()) {
+      let budget = TowerPlacementService.LOS_RECOMPUTES_PER_FRAME;
       // recomputeTowerLOS takes the tower out of the queue.
       for (const tower of this.staleLos.keys()) {
         this.recomputeTowerLOS(tower);
+        if (--budget === 0) break;
       }
     }
     if (this.staleLos.size > 0) this.scheduleLosRefresh();
