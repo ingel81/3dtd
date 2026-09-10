@@ -1,10 +1,12 @@
 import { Injectable, WritableSignal, inject } from '@angular/core';
+import { MatDialog } from '@angular/material/dialog';
 import * as THREE from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { GameStateManager } from '../managers/game-state.manager';
 import { TowerDefenseStore } from '../store/tower-defense.store';
 import { KeyboardPanService } from './keyboard-pan.service';
 import { TowerPlacementService } from './tower-placement.service';
+import { isEscapeForDialog } from '../utils/dialog-key-guard';
 
 /**
  * Callbacks that the component provides for keyboard actions
@@ -51,6 +53,9 @@ export class InputHandlerService {
 
   /** Reference to game state manager */
   private readonly store = inject(TowerDefenseStore);
+
+  /** Open dialogs own Escape, see isEscapeForDialog */
+  private readonly dialog = inject(MatDialog);
   private gameState: GameStateManager | null = null;
 
   /** Build mode state signal (from TowerPlacementService) */
@@ -378,6 +383,11 @@ export class InputHandlerService {
    */
   handleKeyDown(event: KeyboardEvent): void {
     if (this.isTypingInInputField(event)) {
+      return;
+    }
+
+    // Escape closes the dialog only, not build or placement mode behind it
+    if (isEscapeForDialog(event.key, event.defaultPrevented, this.dialog.openDialogs.length)) {
       return;
     }
 
