@@ -7,91 +7,13 @@
       (startWave)="startWave.emit()"
     />
 
-    <!-- BUILD Section (hidden when tower selected) -->
-    <section class="td-panel" [class.td-hidden]="store.selectedTower()">
-      <div class="td-panel-header">
-        BUILD
-        <button class="td-matrix-btn" type="button" (click)="openDamageMatrix()"
-                aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
-          <td-icon name="info" [size]="12"></td-icon>
-        </button>
-      </div>
-      <div class="td-panel-content td-build-section">
-        @if (buildMode()) {
-          <div class="td-build-hint">Click near street</div>
-          <button class="td-action-btn td-cancel-btn" (click)="cancelBuild.emit()">
-            <td-icon name="cross" [size]="18"></td-icon>
-            <span>Cancel</span>
-          </button>
-        } @else {
-          <div class="td-tower-grid">
-            @for (tower of towerTypes(); track tower.id) {
-              @if (isTowerUnlocked(tower.id)) {
-                <!-- Unlocked tower — normal card -->
-                <button class="td-tower-card"
-                        [class.disabled]="store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
-                        [disabled]="isGameOver() || store.credits() < tower.cost || (tower.id === 'research-center' && isResearchCenterPlaced())"
-                        (click)="selectTower.emit(tower.id)"
-                        [tdRichTooltip]="getTowerCardTooltipData(tower)"
-                        tdRichTooltipPosition="left">
-                  <canvas #towerPreviewCanvas
-                          class="td-tower-preview-canvas"
-                          [attr.data-tower-id]="tower.id"></canvas>
-                  <!-- Tier indicator (top-left) -->
-                  @if (getTowerTier(tower.id) > 0) {
-                    <div class="td-tower-card-tier" [attr.aria-label]="'Tier ' + getTowerTier(tower.id)">
-                      @for (_ of tierMarks(tower.id); track $index) {
-                        <span class="td-tower-card-tier-mark"></span>
-                      }
-                    </div>
-                  }
-                  <!-- Anti-air capability badge (bottom-left over canvas). Shown
-                       for any tower that can target air units — including via
-                       AA-retrofit research (canTowerTargetAir resolves the
-                       effective capability). Air-only towers additionally get
-                       a teal border accent below. -->
-                  @if (canTowerTargetAir(tower)) {
-                    <span class="td-tower-card-aa"
-                          [class.td-tower-card-aa-only]="isAirOnlyTower(tower)"
-                          [attr.aria-label]="isAirOnlyTower(tower) ? 'Air-only target' : 'Anti-air capable'">
-                      <td-icon name="wind" [size]="11"></td-icon>
-                    </span>
-                  }
-                  <span class="td-tower-card-name">{{ tower.name }}</span>
-                  <!-- Cost badge with coin glyph -->
-                  <span class="td-tower-card-cost">
-                    <svg class="td-coin-glyph" viewBox="0 0 12 12" aria-hidden="true">
-                      <circle cx="6" cy="6" r="5" fill="var(--td-gold)" stroke="var(--td-gold-dark)" stroke-width="1"/>
-                      <circle cx="6" cy="6" r="2.5" fill="none" stroke="var(--td-gold-dark)" stroke-width="1"/>
-                    </svg>
-                    <span class="td-tower-card-cost-value">{{ tower.cost }}</span>
-                  </span>
-                  <!-- Selection-style hover corner brackets -->
-                  <span class="td-tower-card-bracket td-tower-card-bracket-tl"></span>
-                  <span class="td-tower-card-bracket td-tower-card-bracket-tr"></span>
-                  <span class="td-tower-card-bracket td-tower-card-bracket-bl"></span>
-                  <span class="td-tower-card-bracket td-tower-card-bracket-br"></span>
-                </button>
-              } @else {
-                <!-- Locked tower — silhouette. Same <button> element as unlocked
-                     so the grid row heights stay identical. -->
-                <button class="td-tower-card td-tower-locked"
-                        disabled
-                        [attr.aria-label]="'Locked tower. ' + getTowerLockTooltip(tower.id)"
-                        [matTooltip]="getTowerLockTooltip(tower.id)"
-                        matTooltipPosition="left">
-                  <canvas #towerPreviewCanvas
-                          class="td-tower-preview-canvas td-silhouette"
-                          [attr.data-tower-id]="tower.id"></canvas>
-                  <span class="td-tower-card-name">???</span>
-                  <td-icon class="td-lock-icon" name="lock" [size]="24"></td-icon>
-                </button>
-              }
-            }
-          </div>
-        }
-      </div>
-    </section>
+    <app-sidebar-build-panel
+      [towerTypes]="towerTypes()"
+      [buildMode]="buildMode()"
+      [isGameOver]="isGameOver()"
+      (selectTower)="selectTower.emit($event)"
+      (cancelBuild)="cancelBuild.emit()"
+    />
 
     <!-- TOWER Section (only when tower selected) -->
     @if (store.selectedTower(); as tower) {
