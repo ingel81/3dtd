@@ -15,7 +15,7 @@ import { DAMAGE_TYPE_UI } from '../../../configs/combat/combat-ui.config';
 import { Tower } from '../../../entities/tower.entity';
 import { openDamageMatrixDialog } from '../../damage-matrix-dialog/damage-matrix-dialog.component';
 import { TdIconComponent } from '../../icon/icon.component';
-import { damageTypeIcon, targetingStrategiesFor, towerDps, upgradeTierLockReason } from './tower-stats';
+import { damageTypeIcon, targetingStrategiesFor, towerStats, upgradeTierLockReason } from './tower-stats';
 
 /**
  * Tower-Detail der Sidebar für den gewählten Tower (das Research Center hat
@@ -47,10 +47,15 @@ export class SidebarTowerPanelComponent {
   /** Hängt nur an der Tower-Config, darf also memoisiert sein. */
   readonly targetingStrategies = computed(() => targetingStrategiesFor(this.tower().typeConfig));
 
-  /** Kein computed: Schaden und Feuerrate ändern sich am Entity ohne Signal. */
-  getDps(): number {
-    return towerDps(this.tower());
-  }
+  /**
+   * Stats als Schnappschuss des Towers. Der Tower ist ein mutables Entity;
+   * `selectedTowerRevision` zählt bei jedem Kill und Upgrade dieses Towers
+   * hoch und rechnet die Werte neu.
+   */
+  readonly stats = computed(() => {
+    this.store.selectedTowerRevision();
+    return towerStats(this.tower());
+  });
 
   /**
    * Get the required upgrade tier for the NEXT level of this upgrade.

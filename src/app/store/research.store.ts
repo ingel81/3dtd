@@ -17,6 +17,13 @@ export class ResearchStore {
   /** Currently active researches with progress */
   readonly activeResearches = signal<ActiveResearch[]>([]);
 
+  /**
+   * Vergangene Spielzeit (s) je laufender Forschung. `ActiveResearch.elapsed`
+   * zählt der ResearchManager am Objekt hoch, ohne Signal; dieses Signal kommt
+   * per `research:progress` mit 10 Hz nach und treibt den Fortschrittsbalken.
+   */
+  readonly researchElapsed = signal<ReadonlyMap<ResearchId, number>>(new Map());
+
   /** Research Center building level (0 = not placed, 1-3 = placed) */
   readonly centerLevel = signal<number>(0);
 
@@ -99,6 +106,7 @@ export class ResearchStore {
   resetResearchState(): void {
     this.completedResearches.set(new Set());
     this.activeResearches.set([]);
+    this.researchElapsed.set(new Map());
     this.centerLevel.set(0);
     this.researchSlots.set(1);
     this.maxUpgradeTier.set(1);

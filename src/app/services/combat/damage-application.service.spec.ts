@@ -13,6 +13,7 @@ vi.mock('@angular/core', async () => {
 
 import { DamageApplicationService } from './damage-application.service';
 import { ArmorType, DamageType } from '../../configs/combat/combat.types';
+import { GameEventBus } from '../../game-engine/game-event-bus';
 
 /** Minimal Enemy stub — only the fields/methods DamageApplicationService touches. */
 interface EnemyStub {
@@ -61,6 +62,7 @@ describe('DamageApplicationService', () => {
   let towerKillsById: Record<string, { combat: { kills: number } }>;
   let killedEnemyIds: string[];
   let dyingIds: Set<string>;
+  let bus: GameEventBus;
   let vfx: {
     emitHitBlood: ReturnType<typeof vi.fn>;
     emitDeathBlood: ReturnType<typeof vi.fn>;
@@ -90,7 +92,8 @@ describe('DamageApplicationService', () => {
       },
     };
 
-    service.initialize(towerManager as never, enemyManager as never);
+    bus = new GameEventBus();
+    service.initialize(towerManager as never, enemyManager as never, bus);
   });
 
   // ────────────────────────────────────────────────────────────────
@@ -175,6 +178,15 @@ describe('DamageApplicationService', () => {
       expect(towerKillsById['t-A'].combat.kills).toBe(1);
     });
 
+    it('announces the kill with the source tower', () => {
+      const enemy = makeEnemy({ hp: 1 });
+      towerKillsById['t-A'] = makeTower('t-A');
+      const handler = vi.fn();
+      bus.on('tower:kill', handler);
+      service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, 't-A', false, false);
+      expect(handler).toHaveBeenCalledWith({ type: 'tower:kill', tower: towerKillsById['t-A'] });
+    });
+
     it('does nothing on a missing source tower (no throw)', () => {
       const enemy = makeEnemy({ hp: 1 });
       expect(() =>
@@ -186,9 +198,12 @@ describe('DamageApplicationService', () => {
       const enemy = makeEnemy({ id: 'dying', hp: 1 });
       dyingIds.add('dying');
       towerKillsById['t-A'] = makeTower('t-A');
+      const handler = vi.fn();
+      bus.on('tower:kill', handler);
       service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, 't-A', false, false);
       expect(killedEnemyIds).not.toContain('dying');
       expect(towerKillsById['t-A'].combat.kills).toBe(0);
+      expect(handler).not.toHaveBeenCalled();
     });
   });
 

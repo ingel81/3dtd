@@ -26,6 +26,13 @@ export class GameStore {
   /** Selected tower ID shortcut */
   readonly selectedTowerId = computed(() => this.selectedTower()?.id ?? null);
 
+  /**
+   * Zählt hoch, wenn der gewählte Tower einen Kill bekommt oder aufgewertet
+   * wird. Tower sind mutable Entities ohne Signale; die Sidebar leitet Kills
+   * und Stats aus dieser Revision ab.
+   */
+  readonly selectedTowerRevision = signal<number>(0);
+
   /** Total placed tower count */
   readonly towerCount = signal<number>(0);
 

@@ -172,6 +172,25 @@ describe('GameStateSyncService (real service)', () => {
       eventBus.emit({ type: 'tower:deselected' });
       expect(store.selectedTower()).toBeNull();
     });
+
+    it('tower:kill of the selected tower → selectedTowerRevision++', () => {
+      store.selectedTower.set({ id: 'sel' } as never);
+      eventBus.emit({ type: 'tower:kill', tower: { id: 'sel' } as never });
+      eventBus.emit({ type: 'tower:kill', tower: { id: 'sel' } as never });
+      expect(store.selectedTowerRevision()).toBe(2);
+    });
+
+    it('tower:kill of another tower leaves selectedTowerRevision', () => {
+      store.selectedTower.set({ id: 'sel' } as never);
+      eventBus.emit({ type: 'tower:kill', tower: { id: 'other' } as never });
+      expect(store.selectedTowerRevision()).toBe(0);
+    });
+
+    it('tower:upgraded of the selected tower → selectedTowerRevision++', () => {
+      store.selectedTower.set({ id: 'sel' } as never);
+      eventBus.emit({ type: 'tower:upgraded', tower: { id: 'sel' } as never, level: 2, cost: 50 });
+      expect(store.selectedTowerRevision()).toBe(1);
+    });
   });
 
   // ── Enemy lifecycle ────────────────────────────────────────────
@@ -219,6 +238,12 @@ describe('GameStateSyncService (real service)', () => {
       expect(researchStore.activeResearches().length).toBe(1);
       expect(researchStore.centerLevel()).toBe(2);
       expect(researchStore.researchSlots()).toBe(3);
+      expect(researchStore.researchElapsed().get('ice-magic')).toBe(5);
+    });
+
+    it('research:progress → researchElapsed = event.elapsed', () => {
+      eventBus.emit({ type: 'research:progress', elapsed: new Map([['ice-magic', 7.5]]) });
+      expect(researchStore.researchElapsed().get('ice-magic')).toBe(7.5);
     });
 
     it('research:completed → applyResearchEffects raises maxUpgradeTier', () => {

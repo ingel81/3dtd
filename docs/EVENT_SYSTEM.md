@@ -40,10 +40,11 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `projectile:hit` | ProjectileManager | CombatEffectService | Projektil trifft (`projectile`, `target`, `damage`, `damageType`) |
 | `dot:damage` | StatusEffectService | DamageApplicationService | DOT-Tick (Poison) (`enemy`, `damage`, `sourceId`, `effectType`, `damageType`) |
 | `tower:placed` | TowerManager | GameStateManager | Tower gebaut (`tower`, `position`, `cost`) |
-| `tower:upgraded` | TowerManager | GameStateManager | Tower aufgewertet (`tower`, `level`, `cost`) |
+| `tower:upgraded` | TowerManager | GameStateManager, GameStateSyncService | Tower aufgewertet (`tower`, `level`, `cost`) |
 | `tower:sold` | TowerManager | GameStateManager | Tower verkauft (`tower`, `refund`) |
 | `tower:selected` | TowerManager | UI | Tower ausgewaehlt (`tower`) |
 | `tower:deselected` | TowerManager | UI | Tower-Auswahl aufgehoben |
+| `tower:kill` | DamageApplicationService | GameStateSyncService | Kill einem Tower gutgeschrieben, `combat.kills` ist schon erhöht (`tower`). Zählt beim gewählten Tower `selectedTowerRevision` hoch, daraus leitet die Sidebar Kills und Stats ab |
 | `wave:started` | WaveManager | UI | Welle gestartet (`wave`, `enemyCount`) |
 | `game:started` | GameStateManager | UI | Spiel gestartet |
 | `game:over` | GameStateManager | TowerDefenseComponent | Spiel beendet (`reason: 'base-destroyed' \| 'quit'`) |
@@ -54,6 +55,7 @@ Werden sofort verarbeitet. Game State muss konsistent sein.
 | `research:completed` | ResearchManager | TowerManager, UI | Forschung fertig (`researchId`, `effects`) |
 | `research:cancelled` | ResearchManager | UI | Forschung abgebrochen (`researchId`, `refund`) |
 | `research:state-changed` | ResearchManager | GameStateSyncService | **Snapshot-Event** nach jeder Research-Mutation (`activeResearches`, `completedResearches`, `centerLevel`, `maxSlots`). Single Source of Truth fuer Store-Sync — ersetzt 2026-05-10 das direkte `syncResearchStoreState()`-Polling aus dem GameStateManager. |
+| `research:progress` | ResearchManager | GameStateSyncService | Vergangene Spielzeit je laufender Forschung (`elapsed`), höchstens alle 100 ms Wanduhr. Füllt `ResearchStore.researchElapsed`, das den Fortschrittsbalken treibt |
 
 ### Deferred Events (nicht-kritisch, queued)
 

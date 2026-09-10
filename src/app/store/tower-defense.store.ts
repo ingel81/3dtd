@@ -77,6 +77,9 @@ export class TowerDefenseStore {
   /** Selected tower ID shortcut */
   readonly selectedTowerId = this.gameStore.selectedTowerId;
 
+  /** Revision of the selected tower's kills and stats (see GameStore) */
+  readonly selectedTowerRevision = this.gameStore.selectedTowerRevision;
+
   /** Total placed tower count */
   readonly towerCount = this.gameStore.towerCount;
 

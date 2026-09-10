@@ -63,7 +63,7 @@ export class CombatEffectService {
 
     // Initialize sub-services
     this.vfx.initialize(tilesEngine, eventBus);
-    this.damageService.initialize(towerManager, enemyManager);
+    this.damageService.initialize(towerManager, enemyManager, eventBus);
 
     // Subscribe to projectile:hit events
     this.eventBusSubs.add(this.eventBus.on('projectile:hit', (event) => {

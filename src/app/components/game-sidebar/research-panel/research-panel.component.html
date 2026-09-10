@@ -1,20 +1,15 @@
 <!-- RESEARCH CENTER Panel -->
-<!-- Laufende Forschungen zählen `elapsed` am Objekt hoch, ohne Signal, und
-     der Verkaufswert hängt am Entity. Credits hier oben gelesen zeichnen das
-     OnPush-Panel bei jedem Kill, Kauf und Verkauf neu, auch wenn gerade kein
-     Knoten und kein Upgrade die Credits abfragt. -->
-@let credits = store.credits();
 <section class="td-panel td-research-panel">
   <div class="td-panel-header td-tower-header">
     <span class="td-tower-header-name">RESEARCH CENTER · Lv.{{ researchStore.centerLevel() }}</span>
-    @if (tower().getSellValue() > 0) {
+    @if (sellValue() > 0) {
       <button class="td-header-sell-btn"
               [matTooltip]="'Sell: refunds 75% of total invested (base + upgrades)'"
               matTooltipPosition="left"
-              [attr.aria-label]="'Sell for ' + tower().getSellValue() + ' credits'"
+              [attr.aria-label]="'Sell for ' + sellValue() + ' credits'"
               (click)="sellTower.emit()">
         <td-icon name="coin" [size]="14"></td-icon>
-        <span class="td-header-sell-value">+{{ tower().getSellValue() }}</span>
+        <span class="td-header-sell-value">+{{ sellValue() }}</span>
       </button>
     }
   </div>
@@ -29,10 +24,10 @@
       <div class="td-research-active">
         <div class="td-research-active-info">
           <span class="td-research-active-name">{{ getResearchName(active.researchId) }}</span>
-          <span class="td-research-active-time">{{ getActiveResearchRemaining(active.researchId) | number:'1.0-0' }}s</span>
+          <span class="td-research-active-time">{{ getActiveResearchRemaining(active) | number:'1.0-0' }}s</span>
         </div>
         <div class="td-research-progress-bar">
-          <div class="td-research-progress-fill" [style.width.%]="getActiveResearchProgress(active.researchId) * 100"></div>
+          <div class="td-research-progress-fill" [style.width.%]="getActiveResearchProgress(active) * 100"></div>
         </div>
         <button class="td-research-cancel-btn" (click)="cancelResearch.emit(active.researchId)"
                 [attr.aria-label]="'Cancel research: ' + getResearchName(active.researchId)">
@@ -48,7 +43,7 @@
               [class.td-research-available]="getResearchStatus(research.id) === 'available'"
               [class.td-research-active]="getResearchStatus(research.id) === 'active'"
               [class.td-research-locked]="getResearchStatus(research.id) === 'locked'"
-              [disabled]="getResearchStatus(research.id) !== 'available' || credits < research.cost || store.availableResearchSlots() <= 0"
+              [disabled]="getResearchStatus(research.id) !== 'available' || store.credits() < research.cost || store.availableResearchSlots() <= 0"
               (click)="startResearch.emit(research.id)"
               [matTooltip]="getResearchStatus(research.id) === 'locked' ? 'Requires: ' + getMissingPrereqs(research.id) : research.description"
               matTooltipPosition="left">
@@ -73,8 +68,8 @@
         @for (upgrade of tower().getAvailableUpgrades(); track upgrade.id) {
           <button
             class="td-upgrade-tile"
-            [class.td-upgrade-affordable]="credits >= tower().getNextUpgradeCost(upgrade.id)"
-            [disabled]="credits < tower().getNextUpgradeCost(upgrade.id)"
+            [class.td-upgrade-affordable]="store.credits() >= tower().getNextUpgradeCost(upgrade.id)"
+            [disabled]="store.credits() < tower().getNextUpgradeCost(upgrade.id)"
             (click)="onUpgradeTower(upgrade.id)"
             [matTooltip]="upgrade.description"
             matTooltipPosition="left"

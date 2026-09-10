@@ -55,6 +55,13 @@ export type GameEvent =
   | {
       type: 'tower:deselected';
     }
+  | {
+      // Nach jedem Kill, der einem Tower gutgeschrieben wird (combat.kills ist
+      // schon erhöht). Tower sind mutable Entities; die Sidebar zeichnet ihre
+      // Kill-Anzeige über dieses Event neu.
+      type: 'tower:kill';
+      tower: Tower;
+    }
 
   // ==================== Combat Events ====================
   | {
@@ -140,6 +147,12 @@ export type GameEvent =
       completedResearches: Set<import('../configs/research/research.types').ResearchId>;
       centerLevel: number;
       maxSlots: number;
+    }
+  | {
+      // Laufender Fortschritt: vergangene Spielzeit (s) je aktiver Forschung.
+      // Der ResearchManager drosselt auf 10 Hz Wanduhr.
+      type: 'research:progress';
+      elapsed: ReadonlyMap<import('../configs/research/research.types').ResearchId, number>;
     }
 
   // ==================== Research Commands ====================
