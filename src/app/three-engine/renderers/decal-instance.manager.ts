@@ -10,7 +10,8 @@ export interface DecalInstance {
   spawnTime: number;
   fadeStartTime: number;
   fadeDuration: number;
-  active: boolean;
+  /** Opacity the decal was added with, the fade runs from here to 0 */
+  baseOpacity: number;
 }
 
 /**
@@ -27,6 +28,13 @@ export class DecalInstanceManager {
   private instances = new Map<string, DecalInstance>();
   private readonly slots: InstanceSlotAllocator;
   private readonly matrix = new THREE.Matrix4();
+
+  /**
+   * Earliest fade start of a decal that is not fading yet, updateFades() has
+   * nothing to do before it. Removing a decal leaves it where it is: a bound
+   * that is too early costs one loop that finds nothing, never a missed fade.
+   */
+  private nextFadeStart = Infinity;
 
   // Per-instance attributes
   private colorAttribute: THREE.InstancedBufferAttribute;
@@ -89,11 +97,12 @@ export class DecalInstanceManager {
       spawnTime,
       fadeStartTime: spawnTime + fadeDelay,
       fadeDuration,
-      active: true,
+      baseOpacity: opacity,
     };
 
     this.instances.set(id, instance);
     this.instancedMesh.count = this.slots.activeCount;
+    this.nextFadeStart = Math.min(this.nextFadeStart, instance.fadeStartTime);
 
     // Set matrix (position, rotation, scale)
     DecalInstanceManager._tempPos.copy(position);
@@ -122,14 +131,34 @@ export class DecalInstanceManager {
   }
 
   /**
-   * Update decal opacity (for fade animation)
+   * Fade decals out once their delay has run and remove them when they are
+   * gone. Call once per frame. Decals spend most of their life waiting for
+   * the fade, so nothing is walked before the earliest fade start.
    */
-  updateOpacity(id: string, opacity: number): void {
-    const instance = this.instances.get(id);
-    if (!instance) return;
+  updateFades(now: number): void {
+    if (now < this.nextFadeStart) return;
 
-    this.opacityAttribute.setX(instance.index, opacity);
-    this.opacityAttribute.needsUpdate = true;
+    let nextFadeStart = Infinity;
+    for (const instance of this.instances.values()) {
+      const elapsed = now - instance.fadeStartTime;
+      if (elapsed <= 0) {
+        nextFadeStart = Math.min(nextFadeStart, instance.fadeStartTime);
+        continue;
+      }
+
+      const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
+      if (fadeProgress >= 1) {
+        // Deleting the current entry while iterating a Map is safe.
+        this.remove(instance.id);
+        continue;
+      }
+
+      this.opacityAttribute.setX(instance.index, instance.baseOpacity * (1 - fadeProgress));
+      this.opacityAttribute.needsUpdate = true;
+      // Still fading, run again next frame. Waiting decals start at now or later.
+      nextFadeStart = now;
+    }
+    this.nextFadeStart = nextFadeStart;
   }
 
   /**
@@ -158,9 +187,6 @@ export class DecalInstanceManager {
     this.instancedMesh.setMatrixAt(instance.index, this.matrix);
     this.instancedMesh.instanceMatrix.needsUpdate = true;
 
-    // Mark as inactive
-    instance.active = false;
-
     this.instances.delete(id);
     this.slots.release(instance.index);
     this.instancedMesh.count = this.slots.activeCount;
@@ -183,6 +209,7 @@ export class DecalInstanceManager {
     this.instances.clear();
     this.slots.reset();
     this.instancedMesh.count = 0;
+    this.nextFadeStart = Infinity;
   }
 
   /**
