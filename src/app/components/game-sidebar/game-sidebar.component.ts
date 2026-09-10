@@ -45,6 +45,7 @@ import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
 import { templateObjectForWave } from '../../configs/wave-curriculum.config';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
+import { openDamageMatrixDialog } from '../damage-matrix-dialog/damage-matrix-dialog.component';
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
@@ -733,5 +734,10 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     this.dialog.open(AttributionsDialogComponent, {
       panelClass: 'td-dialog-panel',
     });
+  }
+
+  /** Damage-vs-armor chart; opened from the tower panel it highlights that tower's row. */
+  openDamageMatrix(towerId?: TowerTypeId): void {
+    openDamageMatrixDialog(this.dialog, towerId);
   }
 }

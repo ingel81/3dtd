@@ -63,7 +63,13 @@
 
     <!-- BUILD Section (hidden when tower selected) -->
     <section class="td-panel" [class.td-hidden]="store.selectedTower()">
-      <div class="td-panel-header">BUILD</div>
+      <div class="td-panel-header">
+        BUILD
+        <button class="td-matrix-btn" type="button" (click)="openDamageMatrix()"
+                aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
+          <td-icon name="info" [size]="12"></td-icon>
+        </button>
+      </div>
       <div class="td-panel-content td-build-section">
         @if (buildMode()) {
           <div class="td-build-hint">Click near street</div>
@@ -248,6 +254,10 @@
                 <span class="td-header-sell-value">+{{ tower.getSellValue() }}</span>
               </button>
             }
+            <button class="td-matrix-btn" type="button" (click)="openDamageMatrix(tower.typeConfig.id)"
+                    aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
+              <td-icon name="info" [size]="12"></td-icon>
+            </button>
           </div>
           <div class="td-panel-content td-tower-section">
             <!-- Stats grid: 3×2 — damage-type tile takes pos 0 -->
