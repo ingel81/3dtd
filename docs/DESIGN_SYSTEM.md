@@ -260,6 +260,33 @@ Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche und Farbe wech
 }
 ```
 
+### Header-Stat-Leiste (an der Sidebar ausgerichtet)
+
+Health, Gold und Wave stehen in einer Leiste fester Breite (`.header-stats` in `game-header`) direkt über dem Sidebar-Inhalt: gleiche Breite und Außenkanten wie Next-Wave-Button und Tower-Raster. Drei gleich breite Spalten, Zahlen mit `tabular-nums`, damit wachsende Werte die Nachbarn nicht verschieben. Der Gegnerzähler erscheint nur während einer Welle als eigener Chip (`.enemies-chip`) links neben der Leiste, die Leiste selbst springt dabei nicht.
+
+Grundlage sind zwei Layout-Tokens aus `TD_LAYOUT` (`td-theme.ts`), die Header und Sidebar gemeinsam nutzen:
+
+| Variable | Wert | Verwendung |
+|----------|------|------------|
+| `--td-sidebar-width` | `300px` | Breite der Sidebar (`.td-sidebar`) |
+| `--td-sidebar-gutter` | `14px` | Seitlicher Innenabstand der Sidebar-Sektionen, rechtes Padding des Headers |
+
+```css
+.header {
+  padding: 4px var(--td-sidebar-gutter) 4px 12px;
+}
+
+.header-stats {
+  box-sizing: border-box;
+  /* 1px = border-left der Sidebar */
+  width: calc(var(--td-sidebar-width) - 2 * var(--td-sidebar-gutter) - 1px);
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+}
+```
+
+Im Dialog-Modus (`isDialog`) sitzt rechts noch der Close-Button, dort gilt die Ausrichtung nicht.
+
 ### Text auf Stein-Textur (Lesbarkeit)
 
 Elemente auf der Stein-Textur benoetigen einen dunklen Hintergrund fuer Lesbarkeit:

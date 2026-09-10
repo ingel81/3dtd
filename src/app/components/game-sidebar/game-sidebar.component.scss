@@ -1,6 +1,6 @@
 /* === Sidebar === */
 .td-sidebar {
-  width: 300px;
+  width: var(--td-sidebar-width);
   position: relative;
   display: flex;
   flex-direction: column;
@@ -148,7 +148,7 @@
 /* Section heads, flat label with mono caps + rune-amber color. */
 .td-panel-header {
   position: relative;
-  padding: 12px 14px 8px;
+  padding: 12px var(--td-sidebar-gutter) 8px;
   background: transparent;
   border: 0;
   flex-shrink: 0;
@@ -195,7 +195,7 @@
 
 
 .td-panel-content {
-  padding: 4px 14px 14px;
+  padding: 4px var(--td-sidebar-gutter) 14px;
 }
 
 /* === Status Panel === */
