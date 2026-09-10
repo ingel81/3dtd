@@ -28,11 +28,9 @@ describe('buildLosLegendEntries', () => {
     expect(labels('air', true, true)).toEqual(['Air', 'Blocked']);
   });
 
-  it('explains an empty viz instead of showing a blocked swatch', () => {
-    const groundFilterOnAirTower = buildLosLegendEntries('ground', false, true);
-    expect(groundFilterOnAirTower).toEqual([{ label: 'No ground targeting', swatch: null }]);
-    const airFilterOnGroundTower = buildLosLegendEntries('air', true, false);
-    expect(airFilterOnGroundTower).toEqual([{ label: 'No air targeting', swatch: null }]);
+  it('keeps a pure tower on its only layer when the filter points at the other', () => {
+    expect(labels('air', true, false)).toEqual(['Ground', 'Blocked']);
+    expect(labels('ground', false, true)).toEqual(['Air', 'Blocked']);
   });
 });
 

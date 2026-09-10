@@ -29,14 +29,17 @@ function build(canTargetGround: boolean, canTargetAir: boolean, cells = [cell(0,
 const uniforms = (m: TowerLosLayer['groundMesh']) => (m.material as ShaderMaterial).uniforms;
 
 describe('visibleLosLayers', () => {
-  it('gates every layer by capability first, filter second', () => {
+  it('applies the filter to mixed towers', () => {
     expect(visibleLosLayers('both', true, true)).toEqual({ ground: true, air: true });
     expect(visibleLosLayers('ground', true, true)).toEqual({ ground: true, air: false });
     expect(visibleLosLayers('air', true, true)).toEqual({ ground: false, air: true });
-    expect(visibleLosLayers('both', true, false)).toEqual({ ground: true, air: false });
-    expect(visibleLosLayers('both', false, true)).toEqual({ ground: false, air: true });
-    expect(visibleLosLayers('air', true, false)).toEqual({ ground: false, air: false });
-    expect(visibleLosLayers('ground', false, true)).toEqual({ ground: false, air: false });
+  });
+
+  it('shows a pure tower its only layer whatever the filter says', () => {
+    for (const mode of ['both', 'ground', 'air'] as const) {
+      expect(visibleLosLayers(mode, true, false)).toEqual({ ground: true, air: false });
+      expect(visibleLosLayers(mode, false, true)).toEqual({ ground: false, air: true });
+    }
   });
 });
 
@@ -101,24 +104,20 @@ describe('TowerLosLayerBuilder', () => {
     expect([l.groundMesh.visible, l.airMesh.visible]).toEqual([false, true]);
   });
 
-  it('never shows the air layer for a pure ground tower', () => {
+  it('shows only the ground layer for a pure ground tower in every filter mode', () => {
     const l = build(true, false);
     for (const mode of ['both', 'ground', 'air'] as const) {
       l.setFilterMode(mode);
-      expect(l.airMesh.visible).toBe(false);
+      expect([l.groundMesh.visible, l.airMesh.visible]).toEqual([true, false]);
     }
-    l.setFilterMode('both');
-    expect(l.groundMesh.visible).toBe(true);
   });
 
-  it('never shows the ground layer for a pure air tower', () => {
+  it('shows only the air layer for a pure air tower in every filter mode', () => {
     const l = build(false, true);
     for (const mode of ['both', 'ground', 'air'] as const) {
       l.setFilterMode(mode);
-      expect(l.groundMesh.visible).toBe(false);
+      expect([l.groundMesh.visible, l.airMesh.visible]).toEqual([false, true]);
     }
-    l.setFilterMode('both');
-    expect(l.airMesh.visible).toBe(true);
   });
 
   it('keeps logdepthbuf and colour-space chunks in the cell shader', () => {

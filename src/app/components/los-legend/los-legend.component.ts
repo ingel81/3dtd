@@ -21,12 +21,8 @@ import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
       <div class="los-legend-row">
         @for (entry of entries(); track entry.label) {
           <div class="los-legend-item">
-            @if (entry.swatch) {
-              <span class="los-legend-swatch" [style.background]="entry.swatch"></span>
-              <span class="los-legend-label">{{ entry.label }}</span>
-            } @else {
-              <span class="los-legend-note">{{ entry.label }}</span>
-            }
+            <span class="los-legend-swatch" [style.background]="entry.swatch"></span>
+            <span class="los-legend-label">{{ entry.label }}</span>
           </div>
         }
       </div>
@@ -94,12 +90,6 @@ import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
       color: var(--td-text-primary);
       font-size: 11px;
       font-weight: 700;
-      letter-spacing: 0.04em;
-    }
-
-    .los-legend-note {
-      color: var(--td-text-muted);
-      font-size: 11px;
       letter-spacing: 0.04em;
     }
   `],
