@@ -40,8 +40,11 @@ export const WAVE_CURRICULUM: readonly CurriculumWave[] = [
   // every tower 1× (archer ×3), all upgrade tracks at L20, every research
   // done, RC Lv 3 — the cumulative cost of that endgame state is the income
   // budget this curriculum funds. Smoothed monotonic growth (~25-40%/wave)
-  // with deliberate boss bonuses at W10/W20/W30; ~26% endgame buffer over
-  // the bare-minimum plan cost so the player keeps some breathing room.
+  // with deliberate boss bonuses at W10/W20/W30.
+  // Buffer over that roster: 25% when it was set, 83% since the upgrade
+  // curves turned degressive and range stopped at L10 (roster 632,834 ->
+  // 431,542 gold, see economy-chart.html). Deliberately not retuned before a
+  // playtest, see BALANCE_PROPOSAL_2026-09 §2.5.
   { template: 'zombie_horde',     goldKill:   133, goldComplete:    67 }, //  1 — unarmored intro (200 baseline; ~250 with combo)
   { template: 'rat_tide',         goldKill:   267, goldComplete:   133 }, //  2 — swarm test (400; funds gatling-tech)
   { template: 'penguin_rush',     goldKill:   333, goldComplete:   167 }, //  3 — speed mix (500; covers W4 build phase)

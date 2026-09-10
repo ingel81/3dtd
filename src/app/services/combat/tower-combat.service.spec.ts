@@ -99,7 +99,7 @@ describe('TowerCombatService', () => {
       const tower = {
         typeConfig: {
           damagePerSecond: 30,
-          upgrades: [{ id: 'damage', effect: { stat: 'damage', multiplier: 1.5 } }],
+          upgrades: [{ id: 'damage', maxLevel: 25, effect: { stat: 'damage', multiplier: 1.5 } }],
         },
         getUpgradeLevel: (id: string) => (id === 'damage' ? 2 : 0),
       };
@@ -111,7 +111,7 @@ describe('TowerCombatService', () => {
       const tower = {
         typeConfig: {
           damagePerSecond: 30,
-          upgrades: [{ id: 'damage', effect: { stat: 'damage', multiplier: 1.5 } }],
+          upgrades: [{ id: 'damage', maxLevel: 25, effect: { stat: 'damage', multiplier: 1.5 } }],
         },
         getUpgradeLevel: () => 0,
       };
@@ -150,7 +150,7 @@ describe('TowerCombatService', () => {
       const tower = {
         typeConfig: {
           beamWidth: 6,
-          upgrades: [{ id: 'wide-burn', effect: { stat: 'beamWidth', multiplier: 1.25 } }],
+          upgrades: [{ id: 'wide-burn', maxLevel: 10, effect: { stat: 'beamWidth', multiplier: 1.25 } }],
         },
         getUpgradeLevel: (id: string) => (id === 'wide-burn' ? 3 : 0),
       };

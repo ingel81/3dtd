@@ -35,11 +35,6 @@ import {
   TOWER_TYPES,
   UPGRADE_BASE_COST,
   UPGRADE_COST_SCALING,
-  UPGRADE_DAMAGE_MULTIPLIER,
-  UPGRADE_SPEED_MULTIPLIER,
-  UPGRADE_RANGE_MULTIPLIER,
-  UPGRADE_BEAM_WIDTH_MULTIPLIER,
-  ARCHER_RANGE_MULTIPLIER,
   type TowerTypeId,
 } from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
@@ -49,7 +44,6 @@ import {
 } from '../../src/app/configs/research/research-center.config';
 import {
   WAVE_CURRICULUM,
-  goldBudgetForWave,
 } from '../../src/app/configs/wave-curriculum.config';
 import { GAME_BALANCE } from '../../src/app/configs/game-balance.config';
 
@@ -144,11 +138,7 @@ interface Payload {
   defaults: {
     upgradeBaseCost: number;
     upgradeCostScaling: number;
-    upgradeDamageMultiplier: number;
-    upgradeSpeedMultiplier: number;
-    upgradeRangeMultiplier: number;
-    upgradeBeamWidthMultiplier: number;
-    archerRangeMultiplier: number;
+    rcBaseCost: number;
   };
   towers: PayloadTower[];
   researches: PayloadResearch[];
@@ -223,11 +213,6 @@ function buildPayload(): Payload {
     defaults: {
       upgradeBaseCost: UPGRADE_BASE_COST,
       upgradeCostScaling: UPGRADE_COST_SCALING,
-      upgradeDamageMultiplier: UPGRADE_DAMAGE_MULTIPLIER,
-      upgradeSpeedMultiplier: UPGRADE_SPEED_MULTIPLIER,
-      upgradeRangeMultiplier: UPGRADE_RANGE_MULTIPLIER,
-      upgradeBeamWidthMultiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER,
-      archerRangeMultiplier: ARCHER_RANGE_MULTIPLIER,
       rcBaseCost: RESEARCH_CENTER_CONFIG.baseCost,
     },
     towers,
@@ -369,21 +354,6 @@ function renderHtml(payload: Payload): string {
     <label>Cost-Scaling pro Level
       <input type="number" id="knob-upgradeCostScaling" step="0.01" min="1" />
     </label>
-    <label>Damage-Mult (DPS-Curve)
-      <input type="number" id="knob-upgradeDamageMultiplier" step="0.001" min="1" />
-    </label>
-    <label>Fire-Rate-Mult
-      <input type="number" id="knob-upgradeSpeedMultiplier" step="0.001" min="1" />
-    </label>
-    <label>Range-Mult
-      <input type="number" id="knob-upgradeRangeMultiplier" step="0.001" min="1" />
-    </label>
-    <label>Beam-Width-Mult
-      <input type="number" id="knob-upgradeBeamWidthMultiplier" step="0.001" min="1" />
-    </label>
-    <label>Archer-Range-Mult (Sonderlocke)
-      <input type="number" id="knob-archerRangeMultiplier" step="0.001" min="1" />
-    </label>
     <label>Research-Center Basiskosten (Platzierung)
       <input type="number" id="knob-rcBaseCost" step="5" min="0" />
     </label>
@@ -496,22 +466,12 @@ const RESEARCH_INDEX = Object.fromEntries(PAYLOAD.researches.map(function (r) { 
 const NUM_WAVES = 30;
 const ENDGAME_INDEX = NUM_WAVES; // plan slot for the W31 endgame target
 
-// Per-stat upgrade multiplier knob keys.
-const STAT_KNOB_KEY = {
-  damage: 'upgradeDamageMultiplier',
-  fireRate: 'upgradeSpeedMultiplier',
-  range: 'upgradeRangeMultiplier',
-  beamWidth: 'upgradeBeamWidthMultiplier',
-};
-// Knob keys exposed as global overrides for upgrade economy.
+// Knob keys exposed as global overrides for upgrade economy. The planner only
+// prices a roster, so the stat multipliers of the tracks are not knobs here:
+// they live per tower in tower-types.config.ts (see tower-stats-chart.html).
 const ECONOMY_KNOBS = [
   'upgradeBaseCost',
   'upgradeCostScaling',
-  'upgradeDamageMultiplier',
-  'upgradeSpeedMultiplier',
-  'upgradeRangeMultiplier',
-  'upgradeBeamWidthMultiplier',
-  'archerRangeMultiplier',
   'rcBaseCost',
 ];
 
@@ -614,7 +574,9 @@ function towerCost(towerId, levels) {
   const cfg = TOWER_INDEX[towerId];
   let total = towerBaseCost(towerId);
   for (const u of cfg.upgrades) {
-    const lv = (levels && typeof levels[u.id] === 'number') ? levels[u.id] : 0;
+    // Capped at the track's own maximum: range and beam width stop at L10,
+    // so "all tracks L20" costs ten range levels, not twenty.
+    const lv = (levels && typeof levels[u.id] === 'number') ? Math.min(levels[u.id], u.maxLevel) : 0;
     if (lv > 0) total += cumulUpgradeCost(lv);
   }
   return total;
@@ -1200,7 +1162,8 @@ function wireToolbar() {
 // ===== Example progression =====
 function exampleProgression() {
   // Designer-curated example reaching the W30 target state:
-  // every tower 1× (archer 3×), all upgrade tracks at L20, every research
+  // every tower 1× (archer 3×), all upgrade tracks at L20 (range and beam
+  // width stop at their L10 maximum, towerCost caps them), every research
   // done, RC at Lv 3. Build phase finishes by W12 (all 10 tower types
   // deployed), then a uniform upgrade ramp through W13-W30 aligned with the
   // upgrade-tier research milestones. Air-debut at W7 is covered by archer

@@ -11,6 +11,7 @@ import { TowerManager } from '../../managers/tower.manager';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import { getEnemyAimOffsetY } from '../../utils/enemy-aim.util';
 import { COMBAT_TUNING } from '../../configs/combat-tuning.config';
+import { upgradeFactor } from '../../configs/tower-types.config';
 import { EnemyManager } from '../../managers/enemy.manager';
 import { ProjectileManager } from '../../managers/projectile.manager';
 
@@ -465,37 +466,23 @@ export class TowerCombatService {
    * Get effective DPS for a beam tower (with upgrades applied)
    */
   private getEffectiveDPS(tower: Tower): number {
-    let dps = tower.typeConfig.damagePerSecond ?? 30;
+    const dps = tower.typeConfig.damagePerSecond ?? 30;
 
-    // Apply damage upgrade multiplier
-    // Note: 'damage' upgrades multiply damagePerSecond for beam towers
+    // 'damage' upgrades multiply damagePerSecond for beam towers
     const damageUpgrade = tower.typeConfig.upgrades.find(u => u.id === 'damage');
-    if (damageUpgrade) {
-      const level = tower.getUpgradeLevel('damage');
-      if (level > 0) {
-        dps *= Math.pow(damageUpgrade.effect.multiplier, level);
-      }
-    }
-
-    return dps;
+    if (!damageUpgrade) return dps;
+    return dps * upgradeFactor(damageUpgrade, tower.getUpgradeLevel('damage'));
   }
 
   /**
    * Get effective beam width for a tower (with upgrades applied)
    */
   private getEffectiveBeamWidth(tower: Tower): number {
-    let width = tower.typeConfig.beamWidth ?? 8;
+    const width = tower.typeConfig.beamWidth ?? 8;
 
-    // Apply beamWidth upgrade (e.g. Fire Tower "Wide Burn")
     const beamWidthUpgrade = tower.typeConfig.upgrades.find(u => u.effect.stat === 'beamWidth');
-    if (beamWidthUpgrade) {
-      const level = tower.getUpgradeLevel(beamWidthUpgrade.id);
-      if (level > 0) {
-        width *= Math.pow(beamWidthUpgrade.effect.multiplier, level);
-      }
-    }
-
-    return width;
+    if (!beamWidthUpgrade) return width;
+    return width * upgradeFactor(beamWidthUpgrade, tower.getUpgradeLevel(beamWidthUpgrade.id));
   }
 
   /**

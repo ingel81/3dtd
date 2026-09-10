@@ -25,7 +25,12 @@ import {
   endgameHpMultiplier,
   enemyBaseDamageForWave,
 } from '../../src/app/configs/wave-curriculum.config';
-import { TOWER_TYPES, type TowerTypeId } from '../../src/app/configs/tower-types.config';
+import {
+  TOWER_TYPES,
+  getUpgradeCost,
+  type TowerTypeId,
+  type TowerUpgrade,
+} from '../../src/app/configs/tower-types.config';
 import { RESEARCH_TREE } from '../../src/app/configs/research/research-tree.config';
 import {
   RESEARCH_CENTER_LEVELS,
@@ -142,10 +147,57 @@ function buildResearchRows(): ResearchRow[] {
   return rows;
 }
 
+interface RosterBudget {
+  towers: number;
+  research: number;
+  researchCenter: number;
+  total: number;
+  /** goldKill + goldComplete über das Curriculum, ohne Skill-Boni. */
+  income: number;
+  buffer: number;
+}
+
+/** Stufe, auf der das Design-Roster jeden Upgrade-Track sieht. */
+const ROSTER_TRACK_LEVEL = 20;
+const ROSTER_TOWER_COUNT: Partial<Record<TowerTypeId, number>> = { archer: 3 };
+
+/**
+ * Das Roster, gegen das WAVE_CURRICULUM budgetiert ist: jeder Combat-Tower
+ * einmal (Archer dreimal), alle Upgrade-Tracks auf L20 (kürzere Tracks auf
+ * ihrem Maximum), alle Forschungen, Research Center Stufe 3. Preise aus
+ * TOWER_TYPES, auch für das Research Center (RESEARCH_CENTER_CONFIG zählt nur
+ * Slots).
+ */
+function buildRosterBudget(): RosterBudget {
+  const trackCost = (upgrade: TowerUpgrade, level: number): number => {
+    let sum = 0;
+    for (let i = 0; i < Math.min(level, upgrade.maxLevel); i++) sum += getUpgradeCost(upgrade, i);
+    return sum;
+  };
+
+  let towers = 0;
+  for (const cfg of Object.values(TOWER_TYPES)) {
+    if (cfg.attackType === 'passive') continue;
+    let cost = cfg.cost;
+    for (const u of cfg.upgrades) cost += trackCost(u, ROSTER_TRACK_LEVEL);
+    towers += cost * (ROSTER_TOWER_COUNT[cfg.id] ?? 1);
+  }
+
+  const research = Object.values(RESEARCH_TREE).reduce((sum, r) => sum + r.cost, 0);
+
+  const rcConfig = TOWER_TYPES['research-center'];
+  const researchCenter = rcConfig.cost + rcConfig.upgrades.reduce((sum, u) => sum + trackCost(u, u.maxLevel), 0);
+
+  const total = towers + research + researchCenter;
+  const income = WAVE_CURRICULUM.reduce((sum, w) => sum + w.goldKill + w.goldComplete, 0);
+  return { towers, research, researchCenter, total, income, buffer: income / total - 1 };
+}
+
 function renderHtml(
   waveRows: WaveRow[],
   towerRows: TowerRow[],
   researchRows: ResearchRow[],
+  roster: RosterBudget,
 ): string {
   const startCredits = GAME_BALANCE.player.startCredits;
   const balance = GAME_BALANCE.economy;
@@ -213,18 +265,21 @@ function renderHtml(
   // Uses a representative tower (cannon) — all combat towers use the same
   // standard upgrade base cost & scaling under Phase 5.16.
   const sampleUpgrade = TOWER_TYPES['cannon'].upgrades.find((u) => u.id === 'damage')!;
-  const upgradeMilestones: { level: number; cumulCost: number; tier: string }[] = [];
+  const sampleRange = TOWER_TYPES['cannon'].upgrades.find((u) => u.id === 'range')!;
+  const upgradeMilestones: { level: number; cumulCost: number; cumulRange: number; tier: string }[] = [];
   let upgradeCum = 0;
+  let rangeCum = 0;
   for (let lvl = 0; lvl < sampleUpgrade.maxLevel; lvl++) {
     const cost = Math.round(sampleUpgrade.cost * Math.pow(sampleUpgrade.costScaling ?? 1, lvl));
     upgradeCum += cost;
+    if (lvl < sampleRange.maxLevel) rangeCum += getUpgradeCost(sampleRange, lvl);
     const targetLevel = lvl + 1;
     const tier =
       targetLevel <= 5 ? 'T1' :
       targetLevel <= 10 ? 'T2' :
       targetLevel <= 15 ? 'T3' :
       targetLevel <= 20 ? 'T4' : 'T5';
-    upgradeMilestones.push({ level: targetLevel, cumulCost: upgradeCum, tier });
+    upgradeMilestones.push({ level: targetLevel, cumulCost: upgradeCum, cumulRange: rangeCum, tier });
   }
 
   // Format helper for tables
@@ -389,9 +444,10 @@ ${towerRows
     <h2>Upgrade-Track Cost Curve (per stat, per tower)</h2>
     <p class="note">
       Cumulative cost to bring ONE stat (e.g. damage) on ONE tower from L0 to
-      the listed level. All combat towers use the same standard track:
+      the listed level. All combat towers use the same prices:
       base ${sampleUpgrade.cost}g, scaling ×${(sampleUpgrade.costScaling ?? 1).toFixed(2)} per level,
-      maxLevel ${sampleUpgrade.maxLevel}. Tier-Gating: T1=L1-5 (free), T2=L6-10
+      damage and fire rate up to L${sampleUpgrade.maxLevel}, range (and beam width) only up to
+      L${sampleRange.maxLevel}. Tier-Gating: T1=L1-5 (free), T2=L6-10
       (Advanced Weaponry), T3=L11-15 (Master Engineering), T4=L16-20 (Advanced
       Engineering), T5=L21-25 (Transcendent Tech). Note that the late tiers
       cost more than a Wave-30 cumulative income, so players can never max
@@ -404,7 +460,7 @@ ${towerRows
           <th>Tier</th>
           <th>Step Cost</th>
           <th>Cumul (one stat)</th>
-          <th>Cumul × 3 stats</th>
+          <th>Cumul damage + rate + range</th>
         </tr>
       </thead>
       <tbody>
@@ -417,10 +473,31 @@ ${upgradeMilestones
           <td>${m.tier}</td>
           <td>${fmt(stepCost)}</td>
           <td>${fmt(m.cumulCost)}</td>
-          <td>${fmt(m.cumulCost * 3)}</td>
+          <td>${fmt(m.cumulCost * 2 + m.cumulRange)}</td>
         </tr>`;
   })
   .join('\n')}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Design-Roster vs. Curriculum-Budget (W1–W30)</h2>
+    <p class="note">
+      The roster the curriculum is budgeted against: every combat tower once
+      (archer ×3), all upgrade tracks at L${ROSTER_TRACK_LEVEL} (shorter tracks at
+      their maximum), every research, Research Center level 3. Income =
+      goldKill + goldComplete over W1–W30, no skill bonuses, no start credits.
+    </p>
+    <table>
+      <thead><tr><th class="l">Item</th><th>Gold</th></tr></thead>
+      <tbody>
+        <tr><td class="l">Towers incl. upgrades</td><td>${fmt(roster.towers)}</td></tr>
+        <tr><td class="l">Research (all nodes)</td><td>${fmt(roster.research)}</td></tr>
+        <tr><td class="l">Research Center L3</td><td>${fmt(roster.researchCenter)}</td></tr>
+        <tr class="milestone"><td class="l">Roster total</td><td>${fmt(roster.total)}</td></tr>
+        <tr><td class="l">Curriculum income W1–W30</td><td>${fmt(roster.income)}</td></tr>
+        <tr class="milestone"><td class="l">Buffer (income / roster − 1)</td><td>${Math.round(roster.buffer * 100)}%</td></tr>
       </tbody>
     </table>
   </div>
@@ -741,8 +818,9 @@ describe('economy chart generator', () => {
     const waveRows = buildWaveRows();
     const towerRows = buildTowerRows();
     const researchRows = buildResearchRows();
+    const roster = buildRosterBudget();
 
-    const html = renderHtml(waveRows, towerRows, researchRows);
+    const html = renderHtml(waveRows, towerRows, researchRows, roster);
 
     mkdirSync(dirname(OUT_PATH), { recursive: true });
     writeFileSync(OUT_PATH, html);
@@ -751,5 +829,7 @@ describe('economy chart generator', () => {
     expect(waveRows.length).toBe(NUM_WAVES);
     expect(towerRows.length).toBeGreaterThan(0);
     expect(researchRows.length).toBeGreaterThan(0);
+    expect(roster.total).toBeGreaterThan(0);
+    expect(html).toContain('Design-Roster vs. Curriculum-Budget');
   });
 });

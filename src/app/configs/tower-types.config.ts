@@ -18,6 +18,10 @@ export interface TowerUpgrade {
     stat: 'fireRate' | 'damage' | 'range' | 'beamWidth' | 'research-slots';
     multiplier: number; // e.g., 2.0 = double
   };
+  /** Last level that gets the full `effect.multiplier` (default: all levels). */
+  lateFromLevel?: number;
+  /** Multiplier for every level past `lateFromLevel` (default: `effect.multiplier`). */
+  lateMultiplier?: number;
 }
 
 /**
@@ -28,6 +32,22 @@ export interface TowerUpgrade {
 export function getUpgradeCost(upgrade: TowerUpgrade, currentLevel: number): number {
   const scaling = upgrade.costScaling ?? 1.0;
   return Math.round(upgrade.cost * Math.pow(scaling, currentLevel));
+}
+
+/**
+ * Gesamtfaktor eines Upgrade-Tracks auf Stufe `level`, begrenzt auf maxLevel.
+ *
+ * Stufen bis `lateFromLevel` multiplizieren mit `effect.multiplier`, jede
+ * weitere mit `lateMultiplier`. Die einzige Stelle, an der ein Upgrade-Effekt
+ * gerechnet wird: Tower-Entity, Beam-Werte, DPS-Modell und die Balance-Charts
+ * lesen sie.
+ */
+export function upgradeFactor(upgrade: TowerUpgrade, level: number): number {
+  const lvl = Math.max(0, Math.min(level, upgrade.maxLevel));
+  const early = Math.min(lvl, upgrade.lateFromLevel ?? lvl);
+  const late = lvl - early;
+  const lateMultiplier = upgrade.lateMultiplier ?? upgrade.effect.multiplier;
+  return Math.pow(upgrade.effect.multiplier, early) * Math.pow(lateMultiplier, late);
 }
 
 /**
@@ -45,13 +65,18 @@ export function calculateSellValue(baseCost: number, totalUpgradeCost: number): 
 }
 
 // =====================================================================
-// Phase 5.16: Standardized 25-level upgrade tracks for all combat towers.
-// Tier-Gating in the UI maps levels to research-tier locks:
-//   T1 = L1-5, T2 = L6-10, T3 = L11-15, T4 = L16-20, T5 = L21-25
-// Per-level multipliers compound — see UPGRADE_*_MULTIPLIER below.
-// Cost scaling 1.25^level (rebalanced baseline) — L20 ≈ 73× baseCost,
-// L25 ≈ 211× baseCost. Steep enough that maxing every tower stays a stretch
-// goal but reachable with the rebalanced wave-curriculum economy.
+// Upgrade-Tracks (Balance 2026-09, docs/game-design/BALANCE_PROPOSAL_2026-09.md §2)
+//
+// Damage und Fire Rate: 25 Stufen mit tower-eigenem Multiplikator m. Stufe
+// 1-15 wirkt m, Stufe 16-25 nur noch 1 + 0,4 × (m − 1). Bis L15 bleibt das
+// Tempo nah am alten (×1,05/×1,06 für alle), der Einschnitt liegt in Tier 4
+// und 5: L25 bringt das 5,3- bis 6,4-Fache der Basis-DPS statt des 14,5-Fachen.
+// Range und Beam Width: 10 Stufen × 1,03 (max. ×1,344), für alle Tower gleich.
+// Die Reichweite wuchs vorher mit ×1,04 über 25 Stufen auf das 2,67-Fache.
+//
+// Tier-Gating: T1 = L1-5, T2 = L6-10, T3 = L11-15, T4 = L16-20, T5 = L21-25
+// (requiredUpgradeTier). Der Range-Track endet in Tier 2.
+// Kosten 50 × 1,25^Stufe pro Track, für alle Tower gleich.
 // =====================================================================
 // Exported so offline balance tools (wave-planner, tower-stats-chart) can
 // read the live values instead of duplicating them.
@@ -59,10 +84,14 @@ export const UPGRADE_BASE_COST = 50;
 export const UPGRADE_COST_SCALING = 1.25;
 export const UPGRADE_MAX_LEVEL = 25;
 
-export const UPGRADE_DAMAGE_MULTIPLIER = 1.05; // +5%/level compounding (L20 ≈ 2.65×, L25 ≈ 3.39×)
-export const UPGRADE_SPEED_MULTIPLIER = 1.06;  // +6%/level (L20 ≈ 3.21×, L25 ≈ 4.29×)
-export const UPGRADE_RANGE_MULTIPLIER = 1.04;  // +4%/level (L25 ≈ 2.7×)
-export const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
+/** Letzte Stufe, auf der Damage und Fire Rate den vollen Multiplikator bekommen. */
+export const UPGRADE_LATE_FROM_LEVEL = 15;
+/** Anteil des Zuwachses, den jede Damage-/Rate-Stufe danach noch bringt. */
+export const UPGRADE_LATE_GAIN_SHARE = 0.4;
+
+export const UPGRADE_RANGE_MULTIPLIER = 1.03;
+export const UPGRADE_RANGE_MAX_LEVEL = 10;
+export const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.03; // Fire only
 
 /**
  * Research tier required to push an upgrade past its current level.
@@ -86,63 +115,66 @@ export function requiredUpgradeTier(currentLevel: number): number {
   return 1;
 }
 
-/** Archer's range upgrade is a per-tower variant (see ARCHER_RANGE_UPGRADE
- *  below); offline tools that show it separately read it from this constant. */
-export const ARCHER_RANGE_MULTIPLIER = 1.02;
+/** Prozent pro Stufe für die Upgrade-Beschreibung, z. B. 1.028 → 2.8. */
+const percentPerLevel = (multiplier: number): number => +((multiplier - 1) * 100).toFixed(1);
 
-const STD_DAMAGE_UPGRADE: TowerUpgrade = {
-  id: 'damage',
-  name: 'Damage',
-  description: `Increases damage (+${Math.round((UPGRADE_DAMAGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
-  cost: UPGRADE_BASE_COST,
-  costScaling: UPGRADE_COST_SCALING,
-  maxLevel: UPGRADE_MAX_LEVEL,
-  effect: { stat: 'damage', multiplier: UPGRADE_DAMAGE_MULTIPLIER },
-};
+/** Damage- oder Fire-Rate-Track: 25 Stufen, ab L16 degressiv. */
+function degressiveUpgrade(
+  id: 'damage' | 'speed',
+  name: string,
+  stat: 'damage' | 'fireRate',
+  multiplier: number,
+): TowerUpgrade {
+  const lateMultiplier = 1 + UPGRADE_LATE_GAIN_SHARE * (multiplier - 1);
+  return {
+    id,
+    name,
+    description:
+      `Increases ${name.toLowerCase()} (+${percentPerLevel(multiplier)}% per level up to ` +
+      `L${UPGRADE_LATE_FROM_LEVEL}, +${percentPerLevel(lateMultiplier)}% after, compounding).`,
+    cost: UPGRADE_BASE_COST,
+    costScaling: UPGRADE_COST_SCALING,
+    maxLevel: UPGRADE_MAX_LEVEL,
+    effect: { stat, multiplier },
+    lateFromLevel: UPGRADE_LATE_FROM_LEVEL,
+    lateMultiplier,
+  };
+}
 
-const STD_SPEED_UPGRADE: TowerUpgrade = {
-  id: 'speed',
-  name: 'Fire Rate',
-  description: `Increases fire rate (+${Math.round((UPGRADE_SPEED_MULTIPLIER - 1) * 100)}% per level, compounding).`,
-  cost: UPGRADE_BASE_COST,
-  costScaling: UPGRADE_COST_SCALING,
-  maxLevel: UPGRADE_MAX_LEVEL,
-  effect: { stat: 'fireRate', multiplier: UPGRADE_SPEED_MULTIPLIER },
-};
-
-const STD_RANGE_UPGRADE: TowerUpgrade = {
+const RANGE_UPGRADE: TowerUpgrade = {
   id: 'range',
   name: 'Range',
-  description: `Increases range (+${Math.round((UPGRADE_RANGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
+  description: `Increases range (+${percentPerLevel(UPGRADE_RANGE_MULTIPLIER)}% per level, compounding, ` +
+    `max L${UPGRADE_RANGE_MAX_LEVEL}).`,
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
-  maxLevel: UPGRADE_MAX_LEVEL,
+  maxLevel: UPGRADE_RANGE_MAX_LEVEL,
   effect: { stat: 'range', multiplier: UPGRADE_RANGE_MULTIPLIER },
 };
 
-const STD_BEAM_WIDTH_UPGRADE: TowerUpgrade = {
+const BEAM_WIDTH_UPGRADE: TowerUpgrade = {
   id: 'beam-width',
   name: 'Beam Width',
-  description: `Increases flame cone width (+${Math.round((UPGRADE_BEAM_WIDTH_MULTIPLIER - 1) * 100)}% per level, compounding).`,
+  description: `Increases flame cone width (+${percentPerLevel(UPGRADE_BEAM_WIDTH_MULTIPLIER)}% per level, ` +
+    `compounding, max L${UPGRADE_RANGE_MAX_LEVEL}).`,
   cost: UPGRADE_BASE_COST,
   costScaling: UPGRADE_COST_SCALING,
-  maxLevel: UPGRADE_MAX_LEVEL,
+  maxLevel: UPGRADE_RANGE_MAX_LEVEL,
   effect: { stat: 'beamWidth', multiplier: UPGRADE_BEAM_WIDTH_MULTIPLIER },
 };
 
-// Archer-specific range upgrade: nerfed relative to the shared
-// STD_RANGE_UPGRADE the other towers use. The percentage in the description is
-// computed from the multiplier, like every other upgrade here; it used to be
-// typed out as "+0.5%" and had drifted away from the actual 1.02.
-const ARCHER_RANGE_UPGRADE: TowerUpgrade = {
-  id: 'range',
-  name: 'Range',
-  description: `Increases range (+${Math.round((ARCHER_RANGE_MULTIPLIER - 1) * 100)}% per level, compounding).`,
-  cost: UPGRADE_BASE_COST,
-  costScaling: UPGRADE_COST_SCALING,
-  maxLevel: UPGRADE_MAX_LEVEL,
-  effect: { stat: 'range', multiplier: ARCHER_RANGE_MULTIPLIER },
-};
+/**
+ * Damage-, Fire-Rate- und Range-Track eines Combat-Towers. Das Verhältnis
+ * damage/rate ist die Identität des Towers: wächst er über Schaden oder über
+ * Tempo.
+ */
+function combatUpgrades(profile: { damage: number; rate: number }): TowerUpgrade[] {
+  return [
+    degressiveUpgrade('damage', 'Damage', 'damage', profile.damage),
+    degressiveUpgrade('speed', 'Fire Rate', 'fireRate', profile.rate),
+    RANGE_UPGRADE,
+  ];
+}
 
 export interface TowerTypeConfig {
   id: TowerTypeId;
@@ -224,7 +256,9 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 45, // Rebalanced: was 20 (Cost/DPS 0.80 -> 1.80)
     hasAnimations: true, // archer_tower.glb has base animation
     animationPingPong: true, // Smooth loop: forward then backward
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, ARCHER_RANGE_UPGRADE],
+    // Starttower, trifft Luft und Boden. Das Tempo machte ihn im Endausbau
+    // zum Dauerfeuer (4,29 Schuss/s), deshalb wächst er eher über Schaden.
+    upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
   },
   'dual-gatling': {
     id: 'dual-gatling',
@@ -247,7 +281,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 5.0, // 5 shots/sec - rapid fire
     projectileType: 'bullet',
     cost: 90,
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    // Identität ist die Feuerrate, sie bestimmt den Kill-Durchsatz gegen Schwärme.
+    upgrades: combatUpgrades({ damage: 1.04, rate: 1.06 }),
   },
   cannon: {
     id: 'cannon',
@@ -265,7 +300,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 0.5, // 0.5 shots/sec (slower)
     projectileType: 'cannonball',
     cost: 150, // Phase 5.16: heavy specialist (cannon vs fortified) — small premium
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    // Schwere Einzelschüsse. Die niedrige Rate hält den Splash-Durchsatz klein.
+    upgrades: combatUpgrades({ damage: 1.07, rate: 1.02 }),
   },
   magic: {
     id: 'magic',
@@ -283,7 +319,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     fireRate: 1.5, // 1.5 shots/sec
     projectileType: 'arcane-orb',
     cost: 140, // Phase 5.16: ethereal specialist — strong vs ghost/wraith, small premium
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    upgrades: combatUpgrades({ damage: 1.05, rate: 1.05 }), // ausgewogen
   },
   rocket: {
     id: 'rocket',
@@ -303,7 +339,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 120, // Phase 5.16: air specialist — large range premium
     canTargetAir: true, // Can only target air units
     canTargetGround: false, // Cannot target ground units
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    // Anti-Drachen-Rolle: wenige schwere Treffer.
+    upgrades: combatUpgrades({ damage: 1.07, rate: 1.03 }),
   },
   ice: {
     id: 'ice',
@@ -324,7 +361,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 90, // Rebalanced: was 120 (utility cheaper)
     canTargetAir: true,
     canTargetGround: true,
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    // Nutzen ist die Verlangsamung, die Rate bestimmt die Abdeckung.
+    upgrades: combatUpgrades({ damage: 1.04, rate: 1.05 }),
   },
   fire: {
     id: 'fire',
@@ -354,7 +392,13 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     canTargetAir: false, // Ground only - flames don't reach flyers
     canTargetGround: true,
     // Fire uses damage + range (flame length) + beam-width — no fireRate (beam-based).
-    upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
+    // Der Kegel trifft viele Ziele, die Breite war der versteckte Multiplikator
+    // (vorher ×1,05 über 25 Stufen: 5 m auf 16,9 m).
+    upgrades: [
+      degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+      RANGE_UPGRADE,
+      BEAM_WIDTH_UPGRADE,
+    ],
   },
   tentacle: {
     id: 'tentacle',
@@ -377,7 +421,7 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     meleeStrikeDuration: 250, // 250ms strike animation
 
     cost: 80,
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    upgrades: combatUpgrades({ damage: 1.07, rate: 1.03 }), // Nahkampf, wenige harte Schläge
   },
   poison: {
     id: 'poison',
@@ -396,7 +440,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     projectileType: 'poison-glob',
     cost: 100,
     canTargetAir: false,
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    // Der DoT skaliert mit dem Damage-Track und stapelt nicht.
+    upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
   },
   lightning: {
     id: 'lightning',
@@ -424,7 +469,8 @@ export const TOWER_TYPES: Record<TowerTypeId, TowerTypeConfig> = {
     cost: 130,
     canTargetAir: true,
     canTargetGround: true,
-    upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+    // Die Kette vervielfacht ohnehin (×2,19), daher kein Schwerpunkt.
+    upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
   },
   'research-center': {
     id: 'research-center',

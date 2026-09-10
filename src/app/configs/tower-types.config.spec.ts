@@ -2,6 +2,7 @@ import {
   getAllTowerTypes,
   getTowerType,
   getUpgradeCost,
+  upgradeFactor,
   TOWER_TYPES,
   TowerTypeId,
   TowerUpgrade,
@@ -84,6 +85,49 @@ describe('tower types config', () => {
     expect(getUpgradeCost(upgrade, 0)).toBe(100);
     expect(getUpgradeCost(upgrade, 1)).toBe(200);
     expect(getUpgradeCost(upgrade, 2)).toBe(400);
+  });
+
+  it('upgradeFactor: full multiplier up to lateFromLevel, then the late one, capped at maxLevel', () => {
+    const upgrade: TowerUpgrade = {
+      id: 'damage',
+      name: 'Test',
+      description: 'Test',
+      cost: 50,
+      maxLevel: 25,
+      effect: { stat: 'damage', multiplier: 1.1 },
+      lateFromLevel: 15,
+      lateMultiplier: 1.04,
+    };
+    expect(upgradeFactor(upgrade, 0)).toBe(1);
+    expect(upgradeFactor(upgrade, 15)).toBeCloseTo(1.1 ** 15, 10);
+    expect(upgradeFactor(upgrade, 20)).toBeCloseTo(1.1 ** 15 * 1.04 ** 5, 10);
+    expect(upgradeFactor(upgrade, 40)).toBeCloseTo(upgradeFactor(upgrade, 25), 10);
+  });
+
+  it('damage/rate tracks run 25 levels and turn degressive after L15, range tracks stop at L10', () => {
+    for (const id of combatIds) {
+      for (const u of getTowerType(id).upgrades) {
+        if (u.effect.stat === 'range' || u.effect.stat === 'beamWidth') {
+          expect(u.maxLevel, `${id} ${u.id}`).toBe(10);
+          expect(u.effect.multiplier, `${id} ${u.id}`).toBe(1.03);
+        } else {
+          expect(u.maxLevel, `${id} ${u.id}`).toBe(25);
+          expect(u.lateFromLevel, `${id} ${u.id}`).toBe(15);
+          expect(u.lateMultiplier, `${id} ${u.id}`).toBeCloseTo(1 + 0.4 * (u.effect.multiplier - 1), 10);
+        }
+      }
+    }
+  });
+
+  it('L25 damage × rate lands at 5 to 6.5 times the base (was 14.5)', () => {
+    for (const id of combatIds.filter((t) => t !== 'fire')) {
+      const upgrades = getTowerType(id).upgrades;
+      const damage = upgrades.find((u) => u.effect.stat === 'damage')!;
+      const rate = upgrades.find((u) => u.effect.stat === 'fireRate')!;
+      const factor = upgradeFactor(damage, 25) * upgradeFactor(rate, 25);
+      expect(factor, id).toBeGreaterThan(5);
+      expect(factor, id).toBeLessThan(6.5);
+    }
   });
 
   it('targeting rules for specific towers', () => {

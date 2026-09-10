@@ -7,7 +7,7 @@
  */
 
 import { Tower } from '../../entities/tower.entity';
-import { TowerTypeConfig, UpgradeId } from '../../configs/tower-types.config';
+import { TowerTypeConfig, UpgradeId, upgradeFactor } from '../../configs/tower-types.config';
 import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 import { DamageType, ArmorType, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
@@ -38,11 +38,11 @@ export interface TowerStatsAtLevel {
 }
 
 /**
- * Compounded multiplier for one upgradeable stat at the given per-track levels.
+ * Multiplier for one upgradeable stat at the given per-track levels.
  *
- * The upgrade is looked up by `effect.stat`, NOT by id — so tower-specific
- * upgrade variants (e.g. ARCHER_RANGE_UPGRADE) are honoured automatically
- * without hard-coding any multiplier here.
+ * The upgrade is looked up by `effect.stat`, NOT by id, and evaluated with
+ * `upgradeFactor` — the same function the tower entity uses, so per-tower
+ * profiles, the degressive tail and the level cap need no copy here.
  */
 function statMultiplier(
   cfg: TowerTypeConfig,
@@ -51,8 +51,7 @@ function statMultiplier(
 ): number {
   const upgrade = cfg.upgrades.find(u => u.effect.stat === stat);
   if (!upgrade) return 1;
-  const level = levels[upgrade.id] ?? 0;
-  return level > 0 ? Math.pow(upgrade.effect.multiplier, level) : 1;
+  return upgradeFactor(upgrade, levels[upgrade.id] ?? 0);
 }
 
 /**
