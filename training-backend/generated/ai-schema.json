@@ -111,7 +111,7 @@
     {
       "id": "wallsmasher",
       "baseHp": 200,
-      "baseSpeed": 7,
+      "baseSpeed": 4,
       "armor": "light",
       "isAir": false,
       "threat": 3.5
