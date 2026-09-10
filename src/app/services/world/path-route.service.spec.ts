@@ -1,6 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Group, Vector3 } from 'three';
 
+// Zellen-Stub, pro Test steuerbar: `ready` = Grid initialisiert, `cellY` = Zellhöhe.
+const grid = vi.hoisted(() => ({
+  ready: false,
+  cellY: (_x: number, _z: number): number | null => null,
+}));
+
 // inject() liefert pro Service-Klasse einen Stub. PathAndRouteService braucht
 // nur wenige Felder davon; OsmStreetService speichert seinen Cache-Service nur.
 vi.mock('@angular/core', async () => {
@@ -9,7 +15,10 @@ vi.mock('@angular/core', async () => {
     DevWorldService: { isActive: false },
     UIStore: { routesVisible: () => false },
     PathfindingWorkerService: { isWorkerAvailable: false, dispose: () => undefined },
-    GlobalRouteGridService: { isInitialized: () => false, getGroundLocalYAt: () => null },
+    GlobalRouteGridService: {
+      isInitialized: () => grid.ready,
+      getGroundLocalYAt: (x: number, z: number) => grid.cellY(x, z),
+    },
   };
   return {
     ...actual,
@@ -64,6 +73,8 @@ function makeEngine(): ThreeTilesEngine {
   return {
     getOverlayGroup: () => overlay,
     getTerrainHeightAtGeo: () => 0,
+    // Höhe des gelben Overlays: flaches Gelände.
+    getGroundHeightEstimate: () => 0,
     sync: {
       getOrigin: () => ({ ...ORIGIN, height: 0 }),
       geoToLocalSimple: (lat: number, lon: number, h: number) => {
@@ -85,6 +96,10 @@ function makeNetwork(streets: { id: number; type?: string; nodes: StreetNode[] }
 }
 
 function buildRoute(network: StreetNetwork, spawn: { lat: number; lon: number }, hq: { lat: number; lon: number }) {
+  return buildRouteService(network, spawn, hq).getCachedPath('s1')!;
+}
+
+function buildRouteService(network: StreetNetwork, spawn: { lat: number; lon: number }, hq: { lat: number; lon: number }) {
   const service = new PathAndRouteService();
   service.initialize(
     makeEngine(),
@@ -96,7 +111,7 @@ function buildRoute(network: StreetNetwork, spawn: { lat: number; lon: number },
   );
   const spawnPoint: SpawnPoint = { id: 's1', name: 'Spawn', color: 0xff0000, lat: spawn.lat, lon: spawn.lon };
   service.showPathFromSpawn(spawnPoint);
-  return service.getCachedPath('s1')!;
+  return service;
 }
 
 describe('PathAndRouteService route geometry', () => {
@@ -110,6 +125,8 @@ describe('PathAndRouteService route geometry', () => {
   let network: StreetNetwork;
 
   beforeEach(() => {
+    grid.ready = false;
+    grid.cellY = () => null;
     network = makeNetwork([
       { id: 100, nodes: [n10, n1] },
       { id: 200, nodes: [n1, n2, n3] },
@@ -131,6 +148,40 @@ describe('PathAndRouteService route geometry', () => {
     for (let i = 0; i < route.length - 2; i++) {
       expect(liesOnWayEdge(network, route[i], route[i + 1]), `segment ${i}`).toBe(true);
     }
+  });
+
+  describe('describeRoutes', () => {
+    const hq = { lat: 48.0011, lon: 9.0025 };
+
+    it('splits the route into the OSM ways it runs over', () => {
+      const service = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq);
+      const rows = service.describeRoutes();
+
+      // Way 300 bis zum Abzweig, danach das Stück neben dem Netz zum HQ.
+      expect(rows.map((r) => r.way)).toEqual([100, 200, 300, null]);
+      expect(rows[1]).toMatchObject({ route: 's1', fromIndex: 1, toIndex: 3, type: 'residential' });
+      expect(rows[1].lengthM).toBeGreaterThan(200);
+      expect(rows.every((r) => r.maxCellAboveStreetM === null)).toBe(true);
+    });
+
+    it('reports where the cells sit above the street overlay', () => {
+      const service = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq);
+      // Die Zelle an der Ecke (Node 2) liegt 8 m hoch, etwa auf einem Dach.
+      // Unter 1 m, damit nur der Abtastpunkt genau auf der Ecke sie trifft.
+      const corner = toMeters(n2);
+      grid.ready = true;
+      grid.cellY = (x, z) => (Math.hypot(x - corner.x, -z - corner.z) < 1 ? 8 : 0);
+
+      const rows = service.describeRoutes();
+      expect(rows[1]).toMatchObject({ way: 200, maxCellAboveStreetM: 8, at: '48.001000,9.000000' });
+      expect(rows[0].maxCellAboveStreetM).toBe(0);
+    });
+
+    it('lists the tags that explain a hidden shortcut', () => {
+      network.streets[1] = { ...network.streets[1], type: 'footway', tunnel: 'building_passage', width: 2 };
+      const rows = buildRouteService(network, { lat: 47.9995, lon: 9.0 }, hq).describeRoutes();
+      expect(rows[1]).toMatchObject({ type: 'footway', tags: 'width=2 tunnel=building_passage' });
+    });
   });
 
   it('leaves a diagonal street at the point closest to the HQ', () => {
