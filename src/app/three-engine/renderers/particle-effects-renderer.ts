@@ -856,19 +856,6 @@ export class ParticleEffectsRenderer {
   }
 
   /**
-   * Spawn configurable trail particles at geo coordinates
-   */
-  spawnConfigurableTrailAtGeo(
-    lat: number,
-    lon: number,
-    height: number,
-    config: TrailParticleConfig
-  ): void {
-    const localPos = this.sync.geoToLocal(lat, lon, height);
-    this.spawnConfigurableTrail(localPos.x, localPos.y, localPos.z, config);
-  }
-
-  /**
    * Spawn explosion effect at local position
    * Used for rocket impacts and other explosions
    * Uses ADDITIVE blending (fire/glow effect)

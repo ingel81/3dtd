@@ -24,7 +24,7 @@ const createMockTilesEngine = () => ({
     clear: vi.fn(),
   },
   effects: {
-    spawnConfigurableTrailAtGeo: vi.fn(),
+    spawnConfigurableTrail: vi.fn(),
   },
   trailStreaks: {
     create: vi.fn(),
@@ -127,6 +127,31 @@ describe('ProjectileManager', () => {
       projectile.flightHeight,
       projectile.direction
     );
+  });
+
+  it('lays a frame\'s trail particles back along the path instead of stacking them', () => {
+    const tower = new Tower({ lat: 0, lon: 0, height: 2 }, 'magic');
+    const enemy = new Enemy('zombie', [
+      { lat: 0.001, lon: 0, height: 0 },
+      { lat: 0.002, lon: 0, height: 0 },
+    ]);
+    const projectile = manager.spawn(tower, enemy);
+
+    // Three sub-steps at 100 m/s: 4.8 m flown, nine 0.5 m gates.
+    manager.update(16);
+    manager.update(16);
+    manager.update(16);
+    manager.presentFrame();
+
+    const calls = tilesEngine.effects.spawnConfigurableTrail.mock.calls;
+    expect(calls).toHaveLength(9);
+    const { dx, dy, dz } = projectile.direction;
+    calls.forEach(([x, y, z], i) => {
+      // geoToLocalSimpleInto is mocked to the origin
+      expect(x).toBeCloseTo(-dx * 0.5 * i, 5);
+      expect(y).toBeCloseTo(-dy * 0.5 * i, 5);
+      expect(z).toBeCloseTo(-dz * 0.5 * i, 5);
+    });
   });
 
   it('does not emit hit event when a non-splash target died before impact', () => {

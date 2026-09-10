@@ -17,6 +17,7 @@ import { ComponentType } from '../core/component';
 import { TransformComponent, CombatComponent, MovementComponent, RenderComponent } from '../game-components';
 import { getProjectileType } from '../configs/projectile-types.config';
 import { DEFAULT_AIM_OFFSET_Y } from '../utils/enemy-aim.util';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 
 const targetPath = [
   { lat: 0.001, lon: 0, height: 0 },
@@ -51,12 +52,27 @@ describe('Projectile entity', () => {
     // No VAT bake runs in unit tests → getEnemyAimOffsetY falls back to DEFAULT_AIM_OFFSET_Y.
     const targetHeight = (enemy.transform.terrainHeight ?? 0) + (enemy.typeConfig.heightOffset ?? 0) + DEFAULT_AIM_OFFSET_Y;
     const dy = targetHeight - 1;
-    const dz = 0.001 * 100000;
+    const dz = 0.001 * METERS_PER_DEGREE_LAT;
     const length = Math.sqrt(dz * dz + dy * dy);
 
     expect(direction.dx).toBeCloseTo(0, 5);
     expect(direction.dy).toBeCloseTo(dy / length, 5);
     expect(direction.dz).toBeCloseTo(dz / length, 5);
+  });
+
+  it('points along the real heading away from the equator', () => {
+    // 100 m north and 100 m east of a tower in London: the mesh must face
+    // north-east (dx = -dz), not the ~58° a degree-for-degree scaling gave.
+    const lat = 51.5;
+    const dLat = 100 / METERS_PER_DEGREE_LAT;
+    const dLon = 100 / (METERS_PER_DEGREE_LAT * Math.cos(lat * DEG_TO_RAD));
+    const target = { lat: lat + dLat, lon: dLon, height: 0 };
+    const enemy = new Enemy('zombie', [target, { ...target, lat: target.lat + dLat }]);
+    const projectile = new Projectile({ lat, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1');
+
+    const { dx, dz } = projectile.direction;
+    expect(dx).toBeLessThan(0); // -X = East
+    expect(-dx / dz).toBeCloseTo(1, 3);
   });
 
   it('reflects splash configuration for AoE projectiles', () => {

@@ -220,33 +220,38 @@ export class ProjectileManager extends EntityManager<Projectile> {
         );
       }
 
-      // Distance-based trail spawn: drain the distance accumulated on the
-      // sub-steps so trails stay visually uniform across framerates /
-      // projectile speeds. The per-config spawnChance still applies on each
-      // gate hit. Spawns collapse onto the current frame position — below
-      // 60 FPS the intermediate sub-step positions are no longer sampled,
-      // same trade-off the enemy present split made.
-      const trailConfig = projectile.typeConfig.trailParticles;
-      if (trailConfig?.enabled) {
-        while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
-          projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
-          engine.effects.spawnConfigurableTrailAtGeo(
-            projectile.position.lat,
-            projectile.position.lon,
-            projectile.flightHeight,
-            trailConfig
-          );
-        }
-      }
-
-      // Push position to trail streak (ribbon renderer). pushPosition copies
-      // the vector into its ring buffer, so the scratch buffer is safe to reuse.
       engine.sync.geoToLocalSimpleInto(
         projectile.position.lat,
         projectile.position.lon,
         projectile.flightHeight,
         this.trailPos
       );
+
+      // Distance-based trail spawn: drain the distance accumulated on the
+      // sub-steps so trails stay visually uniform across framerates /
+      // projectile speeds. The per-config spawnChance still applies on each
+      // gate hit. The frame's spawns are laid back along the flight
+      // direction, one gate apart, instead of all landing on the current
+      // position: a rocket covers 2 m per frame at 60 FPS, and the stacked
+      // spawns read as blobs rather than a trail.
+      const trailConfig = projectile.typeConfig.trailParticles;
+      if (trailConfig?.enabled) {
+        const dir = projectile.direction;
+        let back = 0;
+        while (projectile.trailDistanceAcc >= TRAIL_SPAWN_DISTANCE_M) {
+          projectile.trailDistanceAcc -= TRAIL_SPAWN_DISTANCE_M;
+          engine.effects.spawnConfigurableTrail(
+            this.trailPos.x - dir.dx * back,
+            this.trailPos.y - dir.dy * back,
+            this.trailPos.z - dir.dz * back,
+            trailConfig
+          );
+          back += TRAIL_SPAWN_DISTANCE_M;
+        }
+      }
+
+      // Push position to trail streak (ribbon renderer). pushPosition copies
+      // the vector into its ring buffer, so the scratch buffer is safe to reuse.
       engine.trailStreaks?.pushPosition(projectile.id, this.trailPos);
     }
   }
