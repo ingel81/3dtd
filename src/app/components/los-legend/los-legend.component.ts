@@ -1,41 +1,13 @@
 import { Component, computed, inject, input, ChangeDetectionStrategy } from '@angular/core';
-import { LOS_VIZ_CONFIG, StateAppearance } from '../../configs/los-viz.config';
 import { UIStore } from '../../store/ui.store';
 import { TD_CSS_VARS } from '../../styles/td-theme';
-
-interface LegendEntry {
-  label: string;
-  /** Pre-computed CSS rgba string sampled from `LOS_VIZ_CONFIG.states`. */
-  swatch: string;
-}
+import { buildLosLegendEntries, LosLegendEntry } from './los-legend-entries';
 
 /**
- * Linear-RGB 0..1 → CSS sRGB component. Three.js rendert die Cell-Shader-
- * Farben durch den sRGB-Output-Pfad des Renderers; derselbe Gamma-Schritt
- * hier sorgt dafür dass die Swatch farblich zum In-3D-Cell passt.
- */
-function linearToSrgb(c: number): number {
-  return Math.round(Math.pow(Math.max(0, Math.min(1, c)), 1 / 2.2) * 255);
-}
-
-function swatch(state: StateAppearance): string {
-  const c = state.color;
-  // Alpha im Swatch hochgesetzt damit die Farbe gut lesbar ist
-  const a = Math.max(0.6, state.alpha);
-  return `rgba(${linearToSrgb(c.r)}, ${linearToSrgb(c.g)}, ${linearToSrgb(c.b)}, ${a.toFixed(2)})`;
-}
-
-/**
- * Legende für die GPU-LOS-Coverage-Visualisierung. Best-to-worst
- * Reihenfolge:
- *  1. Ground + Air sichtbar (best)
- *  2. Nur Ground sichtbar
- *  3. Nur Air sichtbar
- *  4. Blockiert (worst)
- *
- * Plus Footer-Note: der schwarze Punkt im Cell-Zentrum markiert Cells
- * die durch reale Geometrie (Gebäude, Hügel) verdeckt sind — versus
- * Cells am Rand der Reichweite.
+ * Legende für die GPU-LOS-Coverage-Visualisierung: ein Swatch pro Layer,
+ * den der Tower zeigt (Ground grün, Air blau), plus Blocked (rot).
+ * Einträge kommen aus `buildLosLegendEntries`, das dieselbe Gating-
+ * Funktion wie der Layer-Builder nutzt.
  *
  * Eingebunden während Build-Preview UND Tower-Selection.
  */
@@ -49,8 +21,12 @@ function swatch(state: StateAppearance): string {
       <div class="los-legend-row">
         @for (entry of entries(); track entry.label) {
           <div class="los-legend-item">
-            <span class="los-legend-swatch" [style.background]="entry.swatch"></span>
-            <span class="los-legend-label">{{ entry.label }}</span>
+            @if (entry.swatch) {
+              <span class="los-legend-swatch" [style.background]="entry.swatch"></span>
+              <span class="los-legend-label">{{ entry.label }}</span>
+            } @else {
+              <span class="los-legend-note">{{ entry.label }}</span>
+            }
           </div>
         }
       </div>
@@ -120,6 +96,12 @@ function swatch(state: StateAppearance): string {
       font-weight: 700;
       letter-spacing: 0.04em;
     }
+
+    .los-legend-note {
+      color: var(--td-text-muted);
+      font-size: 11px;
+      letter-spacing: 0.04em;
+    }
   `],
 })
 export class LosLegendComponent {
@@ -130,41 +112,12 @@ export class LosLegendComponent {
   /** Tower kann Air-Einheiten treffen. */
   canTargetAir = input(false);
 
-  /**
-   * Berechnet die anzuzeigenden Einträge dynamisch je Filter-Mode.
-   * Universelle Palette: gold/grün/blau/rot/grau — gleiche Bedeutung
-   * unabhängig vom Modus, Legend zeigt nur die Swatches die in dem
-   * aktiven Modus überhaupt vorkommen.
-   *
-   * Filter=Both (4-State): Both / Ground / Air / Blocked
-   * Filter=Ground-only:    Ground / Blocked
-   * Filter=Air-only:       Air    / Blocked
-   * Capability-Gating: Pure-Ground-Tower → kein Air-Swatch usw.
-   */
-  readonly entries = computed<LegendEntry[]>(() => {
-    const states = LOS_VIZ_CONFIG.states;
-    const filter = this.uiStore.perTowerLosFilter();
-    const g = this.canTargetGround();
-    const a = this.canTargetAir();
-    const list: LegendEntry[] = [];
-
-    if (filter === 'both') {
-      if (g && a) list.push({ label: 'Ground + Air', swatch: swatch(states.both) });
-      if (g)      list.push({ label: 'Ground',       swatch: swatch(states.groundOnly) });
-      if (a)      list.push({ label: 'Air',          swatch: swatch(states.airOnly) });
-      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
-    } else if (filter === 'ground' && g) {
-      list.push({ label: 'Ground',  swatch: swatch(states.groundOnly) });
-      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
-    } else if (filter === 'air' && a) {
-      list.push({ label: 'Air',     swatch: swatch(states.airOnly) });
-      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
-    } else {
-      // Filter trifft Tower-Capabilities nicht (z.B. Air-only-Filter
-      // bei Pure-Ground-Tower) → nur Blocked, leerer Layer.
-      list.push({ label: 'Blocked', swatch: swatch(states.neither) });
-    }
-
-    return list;
-  });
+  /** Einträge je Filter-Mode und Tower-Capabilities, siehe `buildLosLegendEntries`. */
+  readonly entries = computed<LosLegendEntry[]>(() =>
+    buildLosLegendEntries(
+      this.uiStore.perTowerLosFilter(),
+      this.canTargetGround(),
+      this.canTargetAir(),
+    ),
+  );
 }

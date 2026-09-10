@@ -159,18 +159,19 @@ const CELL_VIZ_Y_OFFSET_M = 0.05;
 /**
  * Globaler Debug-Route-Grid-Shader.
  *
- * Teilt sich die 3-State-Coverage-Palette mit der per-Tower-Viz (green /
- * cyan / gold) — single source of truth. "Keine Coverage" hat im Aggregat
+ * Teilt sich die Layer-Farben mit der per-Tower-Viz (Ground grün, Air
+ * blau, `LOS_VIZ_CONFIG.states`), single source of truth.
+ * "Keine Coverage" hat im Aggregat
  * eine andere Semantik (kein Tower in Range) als im per-Tower-Viz (rot =
  * in Reichweite aber blockiert), daher hier ein neutrales Grau statt rot.
  *
- * State-Codes (von updateVisualization gesetzt):
- *   0 → uncovered   (grau, niedrige Alpha — kein Tower in Range)
- *   1 → groundOnly  (grün)
- *   2 → airOnly     (cyan)
- *   3 → both        (gold)
- *   4 → enemyInCell (purple — enemy hier, kein Tower sieht ihn)
- *   5 → enemyVisible(stronger gold — enemy + sichtbar = aktives Ziel)
+ * State-Codes (von updateVisualization gesetzt, Farben siehe unten):
+ *   0 → uncovered   (kein Tower in Range)
+ *   1 → groundOnly
+ *   2 → airOnly
+ *   3 → both
+ *   4 → enemyInCell (enemy hier, kein Tower sieht ihn)
+ *   5 → enemyVisible(enemy + sichtbar = aktives Ziel)
  */
 const LOS_CELL_VERTEX = /* glsl */ `
 attribute float aCellState;
@@ -200,8 +201,8 @@ void main() {
  * Build the per-cell fragment shader for the global aggregate viz.
  *
  * Strikt 2-State pro Layer: jede Aggregate-Mesh zeigt NUR ihre Layer-
- * Coverage (Layer-Primärfarbe) oder uncovered (grau). Gold gibt es im
- * Aggregat NICHT — Gold ist Per-Tower-Both-Filter-only.
+ * Coverage (Layer-Primärfarbe) oder uncovered (grau). Eine eigene Both-
+ * Farbe gibt es nicht, auch nicht in der per-Tower-Viz.
  *
  * Wenn beide Aggregate gleichzeitig sichtbar sind, sieht der Spieler
  * "both ground+air" implizit durch das visuelle Stapeln zweier
@@ -237,8 +238,8 @@ function buildLosCellFragment(opts: { airLayer: boolean }): string {
   const grey = `color = ${c(g.uncovered)}; alpha = ${g.uncovered.alpha.toFixed(3)};`;
   // Layer-Primärfarbe (green für Ground-Layer, blue für Air-Layer):
   const primary = opts.airLayer
-    ? `color = ${c(s.airOnly)}; alpha = ${s.airOnly.alpha.toFixed(3)};`
-    : `color = ${c(s.groundOnly)}; alpha = ${s.groundOnly.alpha.toFixed(3)};`;
+    ? `color = ${c(s.air)}; alpha = ${s.air.alpha.toFixed(3)};`
+    : `color = ${c(s.ground)}; alpha = ${s.ground.alpha.toFixed(3)};`;
 
   // Per-Layer-Coverage-Test: ground-grid zeigt primary für state 1 (groundOnly)
   // UND state 3 (both); air-grid zeigt primary für state 2 (airOnly) UND state
@@ -274,8 +275,7 @@ void main() {
   else if (vCellState < 2.5) {
     ${airLayerOnly}
   }
-  // 3 → both ground+air (Aggregate: collapsed auf Layer-Primärfarbe,
-  //                       Gold ausschliesslich Per-Tower-Both-Filter)
+  // 3 → both ground+air (Aggregate: collapsed auf Layer-Primärfarbe)
   else if (vCellState < 3.5) {
     ${both}
   }
@@ -292,6 +292,8 @@ void main() {
                 ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} +
                 (1.0 - ${LOS_VIZ_CONFIG.pulseDepth.toFixed(3)} * 0.5);
   gl_FragColor = vec4(color, alpha * pulse);
+  // Config-Farben sind sRGB-Hex: gleiche Wandlung wie im per-Tower-Shader
+  #include <colorspace_fragment>
 }
 `;
 }

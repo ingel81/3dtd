@@ -58,26 +58,34 @@ export const LOS_VIZ_CONFIG = {
   emptyDepthEpsilon: 0.001,
 
   /**
-   * Universelle Cell-Palette — single source of truth. Eine Farbe = eine
-   * Bedeutung über ALLE Modi (per-Tower-Viz, globaler Aggregate-Viz,
-   * Legend). Kein Re-Use einer Farbe mit anderer Semantik pro Modus.
-   *  - both       — Ground UND Air covered (gold)
-   *  - groundOnly — nur Ground covered (grün)
-   *  - airOnly    — nur Air covered (blau)
-   *  - neither    — (per-Tower only) in Range aber blockiert (rot)
+   * Cell-Palette, single source of truth für per-Tower-Viz, globalen
+   * Aggregate-Viz und Legende. Jeder Layer zeigt NUR seine eigene
+   * Coverage, die Layer-Identität steckt in der Farbe:
+   *  - ground:  Ground-Layer (Plate am Boden), Ground-Sample sichtbar (grün)
+   *  - air:     Air-Layer (Plate auf +airSampleYOffset), Air-Sample sichtbar (blau)
+   *  - blocked: (per-Tower only) in Range, aber verdeckt; auf beiden Layern (rot)
+   *
+   * "Ground + Air" hat keine eigene Farbe: ein Mixed-Tower zeigt dieselbe
+   * Zelle grün am Boden UND blau in der Luft. Eine aggregierte Both-Farbe
+   * auf beiden Plates hatte beide Layer identisch aussehen lassen.
+   *
+   * Farben sind sRGB-Hex, so wie sie auf dem Bildschirm erscheinen (die
+   * Cell-Shader wandeln per `colorspace_fragment` zurück). Grün/Blau/
+   * Vermillon ist nach dem Okabe-Ito-Schema gewählt: Ground und Blocked
+   * bleiben auch bei Deuteranopie/Protanopie über Helligkeit und Blau-
+   * Gelb-Achse trennbar. Blocked hat bewusst weniger Alpha.
    */
   states: {
-    both:       { color: new Color(0.85, 0.72, 0.25), alpha: 0.55 } as StateAppearance,
-    groundOnly: { color: new Color(0.35, 0.70, 0.52), alpha: 0.45 } as StateAppearance,
-    airOnly:    { color: new Color(0.30, 0.55, 0.95), alpha: 0.45 } as StateAppearance,
-    neither:    { color: new Color(0.70, 0.35, 0.35), alpha: 0.25 } as StateAppearance,
+    ground:  { color: new Color(0x5ce6a8), alpha: 0.45 } as StateAppearance,
+    air:     { color: new Color(0x3aa0ff), alpha: 0.45 } as StateAppearance,
+    blocked: { color: new Color(0xd55e00), alpha: 0.30 } as StateAppearance,
   },
 
   /**
    * Zusätzliche States für das globale Debug-Route-Grid. Werden NICHT
    * vom per-Tower-Viz genutzt:
    *  - `uncovered` für Cells die von KEINEM Tower erreicht werden
-   *    (≠ `neither` aus dem per-Tower-Viz, wo rot "in Reichweite aber
+   *    (≠ `blocked` aus dem per-Tower-Viz, wo rot "in Reichweite aber
    *    blockiert" bedeutet — im Aggregat heißt "kein Tower in Range",
    *    also neutral grau).
    *  - `enemyInCell` / `enemyVisible` für Aggregat-Information über
@@ -85,11 +93,11 @@ export const LOS_VIZ_CONFIG = {
    */
   globalStates: {
     /** Cell von keinem Tower in Range / aktiv abgedeckt. */
-    uncovered:     { color: new Color(0.60, 0.60, 0.63), alpha: 0.15 } as StateAppearance,
+    uncovered:     { color: new Color(0x9999a1), alpha: 0.15 } as StateAppearance,
     /** Enemy in Cell, aber kein Tower sieht ihn. */
-    enemyInCell:   { color: new Color(0.55, 0.35, 0.75), alpha: 0.55 } as StateAppearance,
+    enemyInCell:   { color: new Color(0x8c59bf), alpha: 0.55 } as StateAppearance,
     /** Enemy in Cell + mindestens ein Tower sieht die Cell. */
-    enemyVisible:  { color: new Color(0.85, 0.72, 0.25), alpha: 0.65 } as StateAppearance,
+    enemyVisible:  { color: new Color(0xd9b840), alpha: 0.65 } as StateAppearance,
   },
 
   /** Plattendicke der Cell-Mesh (m). 0.02 = kaum sichtbare Höhe. */
@@ -104,12 +112,12 @@ export const LOS_VIZ_CONFIG = {
 
   /**
    * Air-Cells overlay — zweite Plate pro Cell auf
-   * `terrainHeight + airSampleYOffset`. Identische Textur zur Ground-
-   * Plate; unterscheidbar nur durch die Y-Höhe + die Layer-spezifische
-   * Farb-Interpretation (blau = air, grün = ground).
+   * `terrainHeight + airSampleYOffset`. Zeigt nur die Air-Coverage
+   * (`states.air` / `states.blocked`), die Ground-Plate nur die Ground-
+   * Coverage.
    */
   airCells: {
-    /** Alpha-Multiplikator für die Air-Plate. 1.0 = identisch zu Ground. */
+    /** Alpha-Multiplikator für die Air-Plate (covered und blocked). 1.0 = wie Ground. */
     alphaScale: 1.0,
   },
 

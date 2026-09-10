@@ -10,7 +10,7 @@ import {
   Vector3,
   WebGLCubeRenderTarget,
 } from 'three';
-import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
+import { LOS_VIZ_CONFIG, StateAppearance } from '../configs/los-viz.config';
 import type { RouteCell } from './global-route-grid';
 import { getAirTargetY } from './global-route-grid';
 import { losPerf } from './los-perf';
@@ -43,20 +43,21 @@ export interface TowerLosLayerOptions {
  * Ergebnis von `TowerLosLayerBuilder.build()`. Caller besitzt die Meshes
  * und muss `dispose()` aufrufen wenn die Viz entfernt wird.
  *
- * Die Layer enthält ZWEI InstancedMeshes:
- *  - `groundMesh` auf `terrainHeight + cellYOffset` (flache Plates)
- *  - `airMesh` auf `terrainHeight + airSampleYOffset` (gestreifte Plates)
+ * Die Layer enthält ZWEI InstancedMeshes, jede zeigt NUR ihre eigene
+ * Coverage (siehe Farbsemantik in `LOS_VIZ_CONFIG.states`):
+ *  - `groundMesh` auf `terrainHeight + cellYOffset`: Ground-Sample,
+ *    `ground` (grün) oder `blocked` (rot)
+ *  - `airMesh` auf `getAirTargetY(cell)`: Air-Sample, `air` (blau) oder
+ *    `blocked` (rot)
  *
- * Beide nutzen dasselbe Shader-Material (mit `uIsAirLayer` Branch) und
- * dieselben Cell-State-Uniforms — d.h. dieselbe Cell ist auf beiden
- * Layern denselben State (z.B. `airOnly` → cyan auf BEIDEN), aber das
- * Air-Mesh ist elevated und mit Stripes overlaid um beide Layer im 3D
- * unterscheidbar zu machen.
+ * Ein Mixed-Tower (Archer) zeigt beide Layer übereinander: grün unten,
+ * blau schwebend. Ein Layer, den der Tower nicht bekämpfen kann, wird gar
+ * nicht erst sichtbar.
  */
 export interface TowerLosLayer {
   /** Ground-Layer InstancedMesh (auf Boden-Niveau). */
   groundMesh: InstancedMesh;
-  /** Air-Layer InstancedMesh (auf +airSampleYOffset, mit Stripe-Pattern). */
+  /** Air-Layer InstancedMesh (auf +airSampleYOffset). */
   airMesh: InstancedMesh;
   /**
    * Cells in der gleichen Reihenfolge wie die InstancedMesh-Instanzen.
@@ -73,9 +74,9 @@ export interface TowerLosLayer {
    */
   updateMapperReference(towerTip: Vector3, cubemapFarDistance: number): void;
   /**
-   * Filter-Mode setzen: 'both' / 'ground' / 'air' — steuert sowohl
-   * Mesh-Visibility (hidden mesh in single-layer modes) als auch die
-   * Shader-Paletten-Reduktion (4-state → 2-state).
+   * Filter-Mode setzen: 'both' / 'ground' / 'air'. Steuert nur die
+   * Mesh-Visibility; ein Layer ist sichtbar, wenn der Filter ihn zulässt
+   * UND der Tower ihn bekämpfen kann.
    */
   setFilterMode(mode: 'both' | 'ground' | 'air'): void;
   /** Frei die Mesh-Resourcen. */
@@ -84,13 +85,28 @@ export interface TowerLosLayer {
 
 const CELL_FOOTPRINT_FACTOR = 0.85; // Plattenbreite = cellSize × Faktor
 
+/**
+ * Welche Layer der per-Tower-Viz sichtbar sind. Capability-Gating: ein
+ * Pure-Ground-Tower zeigt nie den Air-Layer, ein Pure-Air-Tower nie den
+ * Ground-Layer; der Filter kann nur weiter einschränken. Einzige Quelle
+ * für Mesh-Visibility UND Legende.
+ */
+export function visibleLosLayers(
+  mode: 'both' | 'ground' | 'air',
+  canTargetGround: boolean,
+  canTargetAir: boolean,
+): { ground: boolean; air: boolean } {
+  return {
+    ground: canTargetGround && mode !== 'air',
+    air: canTargetAir && mode !== 'ground',
+  };
+}
+
 const VERTEX_SHADER = /* glsl */ `
-  attribute float aGroundSampleY;
-  attribute float aAirSampleY;
+  attribute float aSampleY;
 
   varying vec3 vCellCenterWorld;
-  varying float vGroundSampleY;
-  varying float vAirSampleY;
+  varying float vSampleY;
 
   #include <common>
   #include <logdepthbuf_pars_vertex>
@@ -103,8 +119,7 @@ const VERTEX_SHADER = /* glsl */ `
     vec4 center4 = modelMatrix * vec4(instanceMatrix[3].xyz, 1.0);
     vCellCenterWorld = center4.xyz;
 
-    vGroundSampleY = aGroundSampleY;
-    vAirSampleY = aAirSampleY;
+    vSampleY = aSampleY;
 
     gl_Position = projectionMatrix * viewMatrix * worldPos4;
     #include <logdepthbuf_vertex>
@@ -120,39 +135,21 @@ const FRAGMENT_SHADER = /* glsl */ `
   uniform samplerCube uCubeMap;
   uniform vec3  uTowerTip;
   uniform float uFarDistance;
-  uniform float uGroundRange;
-  uniform float uAirRange;
-  uniform float uHasGround;
-  uniform float uHasAir;
+  uniform float uRange;
   uniform float uVisibilityBias;
   uniform float uEmptyDepthEpsilon;
   uniform float uTime;
   uniform float uPulseSpeed;
   uniform float uPulseDepth;
 
-  // Layer mode: 0 = ground plate, 1 = air plate (no texture difference,
-  // just used for the air-alpha-scale).
-  uniform float uIsAirLayer;
-  uniform float uAirAlphaScale;
-  // Filter-Mode: 0 = both (4-state), 1 = ground-only, 2 = air-only.
-  // In single-layer modes the shader collapses to a 2-state palette
-  // (covered → green/blue, blocked → red) — single source of truth for
-  // the per-tower coloring.
-  uniform float uFilterMode;
-
-  uniform vec3  uColorBoth;       uniform float uAlphaBoth;
-  uniform vec3  uColorGroundOnly; uniform float uAlphaGroundOnly;
-  uniform vec3  uColorAirOnly;    uniform float uAlphaAirOnly;
-  uniform vec3  uColorNeither;    uniform float uAlphaNeither;
+  // Pro Layer ein Material: covered = Layer-Farbe (ground grün / air
+  // blau), blocked = rot. Die Alphas sind beim Air-Layer schon mit
+  // airCells.alphaScale verrechnet.
+  uniform vec3  uColorCovered; uniform float uAlphaCovered;
+  uniform vec3  uColorBlocked; uniform float uAlphaBlocked;
 
   varying vec3 vCellCenterWorld;
-  varying float vGroundSampleY;
-  varying float vAirSampleY;
-
-  // Vorwärts-Deklaration des isVisible/sampleBlockerDistance erfolgt
-  // weiter unten; logdepthbuf_fragment wird im main() VOR jeglicher
-  // Diskardierung eingebunden damit gl_FragDepth korrekt geschrieben
-  // wird.
+  varying float vSampleY;
 
   // Entpacken: gibt Distanz (Meter) zurück. Empty-texel-Safeguard hebt
   // depth < epsilon auf 1.0 (= farDistance) — gegen Clear-Color-Leaks.
@@ -173,51 +170,24 @@ const FRAGMENT_SHADER = /* glsl */ `
   }
 
   void main() {
+    // logdepthbuf_fragment VOR jeglicher Farblogik, damit gl_FragDepth
+    // korrekt geschrieben wird.
     #include <logdepthbuf_fragment>
-    vec3 groundSampleWorld = vec3(vCellCenterWorld.x, vGroundSampleY, vCellCenterWorld.z);
-    vec3 airSampleWorld    = vec3(vCellCenterWorld.x, vAirSampleY,    vCellCenterWorld.z);
-
-    bool groundVis = (uHasGround > 0.5) && isVisible(groundSampleWorld);
-    bool airVis    = (uHasAir > 0.5)    && isVisible(airSampleWorld);
+    vec3 sampleWorld = vec3(vCellCenterWorld.x, vSampleY, vCellCenterWorld.z);
 
     // Range-Falloff: horizontale Distanz zum Tower
     float horizDist = length(vCellCenterWorld.xz - uTowerTip.xz);
-    if (horizDist > uGroundRange) groundVis = false;
-    if (horizDist > uAirRange)    airVis = false;
+    bool covered = horizDist <= uRange && isVisible(sampleWorld);
 
-    vec3 color;
-    float alpha;
-    if (uFilterMode < 0.5) {
-      // Both — 4-State: gold (both) / green (ground) / blue (air) / red (blocked)
-      if (groundVis && airVis) {
-        color = uColorBoth;       alpha = uAlphaBoth;
-      } else if (groundVis) {
-        color = uColorGroundOnly; alpha = uAlphaGroundOnly;
-      } else if (airVis) {
-        color = uColorAirOnly;    alpha = uAlphaAirOnly;
-      } else {
-        color = uColorNeither;    alpha = uAlphaNeither;
-      }
-    } else if (uFilterMode < 1.5) {
-      // Ground-only — 2-State: green (covered) / red (blocked)
-      if (groundVis) {
-        color = uColorGroundOnly; alpha = uAlphaGroundOnly;
-      } else {
-        color = uColorNeither;    alpha = uAlphaNeither;
-      }
-    } else {
-      // Air-only — 2-State: blue (covered) / red (blocked)
-      if (airVis) {
-        color = uColorAirOnly;    alpha = uAlphaAirOnly;
-      } else {
-        color = uColorNeither;    alpha = uAlphaNeither;
-      }
-    }
+    vec3 color = covered ? uColorCovered : uColorBlocked;
+    float alpha = covered ? uAlphaCovered : uAlphaBlocked;
 
     float pulse = sin(uTime * uPulseSpeed) * uPulseDepth + (1.0 - uPulseDepth * 0.5);
-    float finalAlpha = alpha * pulse;
-    if (uIsAirLayer > 0.5) finalAlpha *= uAirAlphaScale;
-    gl_FragColor = vec4(color, finalAlpha);
+    gl_FragColor = vec4(color, alpha * pulse);
+    // Config-Farben sind sRGB-Hex (in three linear gespeichert). Ohne die
+    // Konvertierung landen sie im Default-Pfad (ohne Composer) roh im
+    // Framebuffer und sehen anders aus als die Legende.
+    #include <colorspace_fragment>
   }
 `;
 
@@ -239,38 +209,30 @@ export class TowerLosLayerBuilder {
     const states = LOS_VIZ_CONFIG.states;
     const airCfg = LOS_VIZ_CONFIG.airCells;
 
-    // Beide Layer teilen sich die LOS-State-Uniforms (Cubemap, Tower-
-    // Tip, 4-State-Farben). Pro Layer ein eigenes Material — sonst
-    // würde uIsAirLayer für beide Meshes simultan ein- oder ausgeschaltet.
-    const buildMaterial = (isAirLayer: boolean): ShaderMaterial => new ShaderMaterial({
+    // Beide Layer teilen sich Cubemap und Tower-Tip, unterscheiden sich
+    // aber in Range, Covered-Farbe und Alpha-Skalierung.
+    const buildMaterial = (
+      range: number,
+      coveredState: StateAppearance,
+      alphaScale: number,
+    ): ShaderMaterial => new ShaderMaterial({
       vertexShader: VERTEX_SHADER,
       fragmentShader: FRAGMENT_SHADER,
       uniforms: {
         uCubeMap:              { value: cubemap.texture },
         uTowerTip:             { value: towerTip.clone() },
         uFarDistance:          { value: cubemapFarDistance },
-        uGroundRange:          { value: groundRange },
-        uAirRange:             { value: airRange },
-        uHasGround:            { value: canTargetGround ? 1 : 0 },
-        uHasAir:               { value: canTargetAir ? 1 : 0 },
+        uRange:                { value: range },
         uVisibilityBias:       { value: LOS_VIZ_CONFIG.visibilityBiasMeters },
         uEmptyDepthEpsilon:    { value: LOS_VIZ_CONFIG.emptyDepthEpsilon },
         uTime:                 { value: 0 },
         uPulseSpeed:           { value: LOS_VIZ_CONFIG.pulseSpeed },
         uPulseDepth:           { value: LOS_VIZ_CONFIG.pulseDepth },
 
-        uIsAirLayer:           { value: isAirLayer ? 1 : 0 },
-        uAirAlphaScale:        { value: airCfg.alphaScale },
-        uFilterMode:           { value: 0 },  // 0=both, set by setFilterMode
-
-        uColorBoth:            { value: states.both.color },
-        uAlphaBoth:            { value: states.both.alpha },
-        uColorGroundOnly:      { value: states.groundOnly.color },
-        uAlphaGroundOnly:      { value: states.groundOnly.alpha },
-        uColorAirOnly:         { value: states.airOnly.color },
-        uAlphaAirOnly:         { value: states.airOnly.alpha },
-        uColorNeither:         { value: states.neither.color },
-        uAlphaNeither:         { value: states.neither.alpha },
+        uColorCovered:         { value: coveredState.color },
+        uAlphaCovered:         { value: coveredState.alpha * alphaScale },
+        uColorBlocked:         { value: states.blocked.color },
+        uAlphaBlocked:         { value: states.blocked.alpha * alphaScale },
       },
       transparent: true,
       depthTest: false,
@@ -278,8 +240,8 @@ export class TowerLosLayerBuilder {
       side: DoubleSide,
     });
 
-    const groundMaterial = buildMaterial(false);
-    const airMaterial = buildMaterial(true);
+    const groundMaterial = buildMaterial(groundRange, states.ground, 1);
+    const airMaterial = buildMaterial(airRange, states.air, airCfg.alphaScale);
 
     // Air-Plates sitzen auf exakt der gleichen Y-Höhe wie die Air-
     // Enemies (beide `terrainHeight + 15m`). Mit `depthTest:false` würde
@@ -295,11 +257,8 @@ export class TowerLosLayerBuilder {
     airMaterial.polygonOffsetFactor = 1.0;
     airMaterial.polygonOffsetUnits = 1.0;
 
-    // Ground- und Air-Mesh teilen sich KEINE Geometry (jedes Mesh hat
-    // sein eigenes Geometry-Objekt damit die instance-attributes
-    // unabhängig bleiben würden falls man später per-Layer-Attribute
-    // einführt). Beide tragen die selben aGroundSampleY/aAirSampleY-
-    // Attribute, denn der Shader sampelt BEIDE pro Cell.
+    // Jedes Mesh hat sein eigenes Geometry-Objekt, weil `aSampleY` pro
+    // Layer verschieden ist (Ground- vs. Air-Sample-Höhe).
     const groundGeometry = new BoxGeometry(
       cellFootprint,
       LOS_VIZ_CONFIG.cellHeightMeters,
@@ -318,7 +277,7 @@ export class TowerLosLayerBuilder {
 
     const airMesh = new InstancedMesh(airGeometry, airMaterial, cells.length);
     airMesh.frustumCulled = false;
-    airMesh.renderOrder = 4;  // Air zuletzt damit Stripes über Ground sichtbar bleiben
+    airMesh.renderOrder = 4;  // Air zuletzt: die schwebende Plate blendet über die Ground-Plate
     airMesh.instanceMatrix.setUsage(StaticDrawUsage);
 
     const groundSampleYArr = new Float32Array(cells.length);
@@ -343,28 +302,24 @@ export class TowerLosLayerBuilder {
       airSampleYArr[i]    = airMeshY;
     }
 
-    // beide Meshes brauchen aGroundSampleY/aAirSampleY damit der Shader
-    // die Cell-State per LOS-Cubemap-Sample berechnen kann — Air-Mesh
-    // soll dieselbe State-Farbe zeigen wie das darunter liegende Ground-
-    // Mesh (consistent legibility), nur elevated + striped.
-    const groundAttrA = new InstancedBufferAttribute(groundSampleYArr, 1);
-    groundAttrA.setUsage(DynamicDrawUsage);
-    groundGeometry.setAttribute('aGroundSampleY', groundAttrA);
+    const groundSampleAttr = new InstancedBufferAttribute(groundSampleYArr, 1);
+    groundSampleAttr.setUsage(DynamicDrawUsage);
+    groundGeometry.setAttribute('aSampleY', groundSampleAttr);
 
-    const airAttrA = new InstancedBufferAttribute(airSampleYArr, 1);
-    airAttrA.setUsage(DynamicDrawUsage);
-    groundGeometry.setAttribute('aAirSampleY', airAttrA);
-
-    const groundAttrB = new InstancedBufferAttribute(groundSampleYArr, 1);
-    groundAttrB.setUsage(DynamicDrawUsage);
-    airGeometry.setAttribute('aGroundSampleY', groundAttrB);
-
-    const airAttrB = new InstancedBufferAttribute(airSampleYArr, 1);
-    airAttrB.setUsage(DynamicDrawUsage);
-    airGeometry.setAttribute('aAirSampleY', airAttrB);
+    const airSampleAttr = new InstancedBufferAttribute(airSampleYArr, 1);
+    airSampleAttr.setUsage(DynamicDrawUsage);
+    airGeometry.setAttribute('aSampleY', airSampleAttr);
 
     groundMesh.instanceMatrix.needsUpdate = true;
     airMesh.instanceMatrix.needsUpdate = true;
+
+    // Ausgeblendete Layer sparen außerdem ihren Draw-Call.
+    const applyFilterMode = (mode: 'both' | 'ground' | 'air'): void => {
+      const visible = visibleLosLayers(mode, canTargetGround, canTargetAir);
+      groundMesh.visible = visible.ground;
+      airMesh.visible = visible.air;
+    };
+    applyFilterMode('both');
 
     losPerf.sample('mesh/build', performance.now() - tBuildStart, cells.length);
 
@@ -382,15 +337,7 @@ export class TowerLosLayerBuilder {
         airMaterial.uniforms['uTowerTip'].value.copy(tip);
         airMaterial.uniforms['uFarDistance'].value = far;
       },
-      setFilterMode: (mode: 'both' | 'ground' | 'air') => {
-        const modeNum = mode === 'both' ? 0 : mode === 'ground' ? 1 : 2;
-        groundMaterial.uniforms['uFilterMode'].value = modeNum;
-        airMaterial.uniforms['uFilterMode'].value = modeNum;
-        // Hide the irrelevant mesh in single-layer modes — saves draw
-        // calls and keeps the 3D-stack visually focused.
-        groundMesh.visible = mode !== 'air';
-        airMesh.visible = mode !== 'ground';
-      },
+      setFilterMode: applyFilterMode,
       dispose: () => {
         groundGeometry.dispose();
         airGeometry.dispose();
