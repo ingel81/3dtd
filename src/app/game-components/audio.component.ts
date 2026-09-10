@@ -45,6 +45,14 @@ export class AudioComponent extends Component {
   private spatialAudio: SpatialAudioManager | null = null;
   private sounds = new Map<string, { url: string; config: AudioConfig }>();
   private loopHandles = new Map<string, string>(); // localId → SpatialAudioManager handle
+  /**
+   * localId → token of the loop whose `createLoop` is still in flight.
+   * stop(), stopAll() and a newer play() of the same id drop or replace the
+   * token; a loop that arrives under a stale token has no owner and is stopped
+   * at once instead of looping forever.
+   */
+  private pendingLoops = new Map<string, number>();
+  private loopRequestCounter = 0;
   private destroyed = false;
 
   constructor(
@@ -115,16 +123,25 @@ export class AudioComponent extends Component {
       const localPos = this.spatialAudio.geoToLocalPosition(pos.lat, pos.lon, pos.height ?? 0);
       if (!localPos) return;
 
-      // Create loop via SpatialAudioManager
+      // Create loop via SpatialAudioManager. The await can span a context
+      // resume and a buffer load, long enough for the enemy to die meanwhile.
+      const token = ++this.loopRequestCounter;
+      this.pendingLoops.set(id, token);
       const handle = await this.spatialAudio.createLoop(globalId, localPos, {
         volumeMultiplier: volumeMultiplier ?? 1.0,
         randomStart: sound.config.randomStart,
       });
 
-      if (handle) {
-        this.loopHandles.set(id, handle);
-        this.syncLoopFlag();
+      const stillWanted = !this.destroyed && this.pendingLoops.get(id) === token;
+      if (stillWanted) this.pendingLoops.delete(id);
+      if (!handle) return;
+
+      if (!stillWanted) {
+        this.spatialAudio.stopLoop(handle);
+        return;
       }
+      this.loopHandles.set(id, handle);
+      this.syncLoopFlag();
     } else {
       // One-shot: fire and forget
       await this.spatialAudio.playAtGeo(globalId, pos.lat, pos.lon, pos.height ?? 0, volumeMultiplier ?? 1.0);
@@ -135,6 +152,7 @@ export class AudioComponent extends Component {
    * Stop a sound
    */
   stop(id: string): void {
+    this.pendingLoops.delete(id);
     const handle = this.loopHandles.get(id);
     if (handle && this.spatialAudio) {
       this.spatialAudio.stopLoop(handle);
@@ -147,6 +165,7 @@ export class AudioComponent extends Component {
    * Stop all sounds
    */
   stopAll(): void {
+    this.pendingLoops.clear();
     if (!this.spatialAudio) return;
 
     for (const handle of this.loopHandles.values()) {
@@ -202,7 +221,7 @@ export class AudioComponent extends Component {
   }
 
   override onDestroy(): void {
-    this.destroyed = true; // Prevent any pending async play from adding new sounds
+    this.destroyed = true; // A pending loop play() stops its loop once createLoop resolves
     this.stopAll();
   }
 

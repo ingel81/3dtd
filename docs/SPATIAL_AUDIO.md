@@ -318,6 +318,11 @@ spatialAudio.playAtGeo('hq_damage', hqLat, hqLon, hqHeight);
 ### Race Condition Fix
 - Enemy-Sound-Budget wird SOFORT in `createLoop()` reserviert (vor await-Calls)
 - Verhindert Budget-Überschreitung bei parallelen Sound-Anfragen
+- `AudioComponent.play()` hält pro Loop-ID ein Token, solange `createLoop()`
+  noch läuft. `stop()`, `stopAll()`, `onDestroy()` und ein neueres `play()`
+  derselben ID machen es ungültig; ein Loop, der danach ankommt, wird sofort
+  per `stopLoop()` beendet. Vorher blieb ein Loop, dessen Gegner während des
+  Ladens entfernt wurde, ohne Besitzer und spielte dauerhaft.
 
 ## Wichtige Hinweise
 
