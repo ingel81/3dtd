@@ -5,6 +5,10 @@ import { MarkerVisualizationService } from '../world/marker-visualization.servic
 import { CombatEffectService } from '../combat/combat-effect.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 
+/** Frame caps the player can pick, in fps. 0 = unlimited. */
+export const FPS_LIMITS = [0, 60, 30] as const;
+export type FpsLimit = (typeof FPS_LIMITS)[number];
+
 /**
  * DebugFacadeService
  *
@@ -28,6 +32,13 @@ export class DebugFacadeService {
   /** LocalStorage key for display options */
   private static readonly DISPLAY_OPTIONS_KEY = 'td_display_options';
 
+  /**
+   * LocalStorage key for the frame cap. Its own key, because
+   * DisplayOptionsComponent rewrites the display options object wholesale.
+   * The name predates this service; the engine used to persist it.
+   */
+  private static readonly FPS_LIMIT_KEY = '3dtd-fps-limit';
+
   // ========================================
   // Shared display option signals (single source of truth for UI sync)
   // Both QuickActions and DisplayOptions read from these.
@@ -35,6 +46,8 @@ export class DebugFacadeService {
   readonly healthBarsVisible = signal(true);
   readonly screenShakeEnabled = signal(true);
   readonly damageNumbersVisible = signal(true);
+  /** Render-loop frame cap, see ThreeTilesEngine.setFpsLimit. */
+  readonly fpsLimit = signal<FpsLimit>(DebugFacadeService.loadFpsLimit());
 
   // ========================================
   // Proxy signals from UIStore
@@ -243,6 +256,27 @@ export class DebugFacadeService {
     this.engine?.setTileLodDebugEnabled(enabled);
   }
 
+  /**
+   * Cap the render loop and persist the choice
+   */
+  onFpsLimitChanged(fps: FpsLimit): void {
+    this.fpsLimit.set(fps);
+    this.engine?.setFpsLimit(fps);
+    try {
+      localStorage.setItem(DebugFacadeService.FPS_LIMIT_KEY, String(fps));
+    } catch { /* ignore */ }
+  }
+
+  /** Stored frame cap; anything unknown or unreadable means unlimited. */
+  private static loadFpsLimit(): FpsLimit {
+    try {
+      const stored = Number(localStorage.getItem(DebugFacadeService.FPS_LIMIT_KEY));
+      return (FPS_LIMITS as readonly number[]).includes(stored) ? (stored as FpsLimit) : 0;
+    } catch {
+      return 0;
+    }
+  }
+
   // ========================================
   // Display Option Persistence
   // ========================================
@@ -252,6 +286,7 @@ export class DebugFacadeService {
    * Called after engine initialization to restore user preferences.
    */
   applyDisplayOptions(): void {
+    this.engine?.setFpsLimit(this.fpsLimit());
     try {
       const stored = localStorage.getItem(DebugFacadeService.DISPLAY_OPTIONS_KEY);
       if (stored) {

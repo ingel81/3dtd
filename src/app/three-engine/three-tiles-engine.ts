@@ -52,6 +52,7 @@ import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { FramePacer } from '../utils/frame-pacer';
 import { ColumnHit, ColumnSample, isBetterLod, selectColumnSample } from './column-sample';
 import {
   CoordinateSync,
@@ -310,10 +311,8 @@ export class ThreeTilesEngine {
   private lastLoopTime = 0;
   private isRunning = false;
 
-  /** Target FPS limit (0 = unlimited/vsync) */
-  private _fpsLimit = 0;
-  /** Minimum frame interval in ms (derived from _fpsLimit) */
-  private _minFrameInterval = 0;
+  /** Frame cap of the rAF loop, see setFpsLimit(). */
+  private readonly framePacer = new FramePacer();
 
   // Tile provider credentials
   private cesiumIonToken: string;
@@ -441,13 +440,6 @@ export class ThreeTilesEngine {
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
-
-    // Load saved FPS limit from localStorage
-    const savedFps = localStorage.getItem('3dtd-fps-limit');
-    if (savedFps !== null) {
-      this.setFpsLimit(Number(savedFps));
-    }
-
   }
 
   /**
@@ -1836,17 +1828,16 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Set the FPS limit. 0 = unlimited (vsync), 30 = 30fps, 60 = 60fps.
-   * Persisted to localStorage.
+   * Cap the render loop at `fps` frames per second, 0 = unlimited (vsync).
+   *
+   * Frames that come too early are skipped whole, update included. The
+   * simulation steps on the wall-clock delta between the frames that run, so
+   * a 30 fps cap hands GameStateManager ~33 ms per frame, inside its
+   * MAX_CATCHUP_MS of 50: game speed stays the same, training timescales
+   * included. Persisted by DebugFacadeService.
    */
   setFpsLimit(fps: number): void {
-    this._fpsLimit = fps;
-    this._minFrameInterval = fps > 0 ? 1000 / fps : 0;
-    localStorage.setItem('3dtd-fps-limit', String(fps));
-  }
-
-  getFpsLimit(): number {
-    return this._fpsLimit;
+    this.framePacer.setLimit(fps);
   }
 
   /**
@@ -1950,7 +1941,7 @@ export class ThreeTilesEngine {
     this.isRunning = true;
 
     this.lastLoopTime = performance.now();
-    let anchor = this.lastLoopTime; // frame-pacing phase anchor
+    this.framePacer.reset();
     const animate = (currentTime: number) => {
       if (!this.isRunning) return;
 
@@ -1962,21 +1953,10 @@ export class ThreeTilesEngine {
         return;
       }
 
-      // FPS limiting: skip frame if not enough time has elapsed
-      if (this._minFrameInterval > 0) {
-        if (currentTime - anchor < this._minFrameInterval) {
-          this.animationFrameId = requestAnimationFrame(animate);
-          return;
-        }
-        // Advance the anchor by whole intervals instead of snapping to
-        // currentTime, so the effective rate doesn't collapse to a vsync
-        // divisor (e.g. a 50fps limit degrading to 30fps on a 60Hz display).
-        const intervals = Math.floor((currentTime - anchor) / this._minFrameInterval);
-        anchor += intervals * this._minFrameInterval;
-        // Resync after a long stall (e.g. backgrounded tab) to avoid catch-up bursts.
-        if (currentTime - anchor > this._minFrameInterval * 4) {
-          anchor = currentTime;
-        }
+      // FPS cap: a frame that comes too early is skipped whole.
+      if (!this.framePacer.shouldRun(currentTime)) {
+        this.animationFrameId = requestAnimationFrame(animate);
+        return;
       }
 
       const deltaTime = currentTime - this.lastLoopTime;
