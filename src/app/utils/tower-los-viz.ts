@@ -1,5 +1,5 @@
 import { Group, Object3D, Scene, Vector3 } from 'three';
-import type { RouteCell } from './global-route-grid';
+import type { RouteCell } from './route-cell';
 import { TowerLosLayer, TowerLosLayerBuilder } from './tower-los-layer-builder';
 import { TowerShadowMapper } from '../three-engine/tower-shadow-mapper';
 

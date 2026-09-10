@@ -16,77 +16,7 @@ import { ColumnSampler, TerrainPeekLOD } from '../three-engine/renderers/three-t
 import { isBetterLod } from '../three-engine/column-sample';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 import { LosResolveContext, isCubeVisible } from './gpu-cube-resolve';
-
-/**
- * RouteCell - Single cell in the global route grid
- *
- * Contains:
- * - Position (cell center in local coordinates)
- * - Terrain height at cell center
- * - Set of enemies currently in this cell
- * - Map of tower visibility for ground LOS (LOS check results per tower)
- * - Map of tower visibility for air LOS (raycast against cell air-height)
- */
-/**
- * Per-cell sampling metadata. Maintained exclusively by `sampleCellY` —
- * never write from anywhere else, otherwise the single-source-of-truth
- * invariant breaks.
- *
- * `tileDepth` and `tileGeometricError` are the LOD metadata of the tile
- * that produced the last successful sample. They drive the quality-
- * versioned idempotency in `sampleCellY`: a new sample at strictly worse
- * LOD (lower depth, higher geometricError) does not overwrite a cached
- * good sample. Stable under tile streaming.
- */
-export interface CellSample {
-  /**
-   * `unsampled` — terrain raycast hasn't returned a hit yet, `terrainHeight`
-   *   is still a fallback (route-anchor Y). Viz call sites skip these cells.
-   * `stable` — terrain raycast returned a hit; `terrainHeight` is real.
-   */
-  state: 'unsampled' | 'stable';
-  /** Internal frame counter at last successful sample (debug only). */
-  sampledAt: number;
-  /** 3D Tiles tile depth at last sample. Higher = better LOD. 0 if unknown. */
-  tileDepth: number;
-  /** Tile geometricError at last sample. Lower = better LOD. Infinity if unknown. */
-  tileGeometricError: number;
-}
-
-export interface RouteCell {
-  /** Unique cell key (integer hash) */
-  key: number;
-  /** Cell center X in local coordinates */
-  x: number;
-  /** Cell center Z in local coordinates */
-  z: number;
-  /** Terrain height at cell center (local Y coordinate) */
-  terrainHeight: number;
-  /**
-   * Route-anchor Y derived at generation time from the nearest route sample
-   * point's smoothed terrain height. Used to validate terrain raycasts —
-   * hits more than `GROUND_ANCHOR_TOLERANCE_M` from this anchor are discarded
-   * as bridge decks / tree canopies / mesh artifacts.
-   */
-  routeAnchorY: number;
-  /**
-   * Sampling state of `terrainHeight`. See `CellSample`. Written only by
-   * `sampleCellY`. Convenience read: `cell.sample.state === 'stable'`.
-   */
-  sample: CellSample;
-  /**
-   * Mirror of `sample.state === 'stable'`. Kept as a property (rather than
-   * a getter) for hot-path read access. Set in lockstep by `sampleCellY`.
-   */
-  heightSampled: boolean;
-  /** Set of enemies currently in this cell */
-  enemies: Set<Enemy>;
-  /** Map of tower ID -> visibility for ground targets (true = can see this cell) */
-  towerVisibility: Map<string, boolean>;
-  /** Map of tower ID -> visibility for air targets (raycast against the air sample altitude) */
-  airVisibility: Map<string, boolean>;
-}
-
+import { RouteCell, getAirTargetY } from './route-cell';
 
 /**
  * ──────────────────────────────────────────────────────────────────────────
@@ -300,17 +230,6 @@ void main() {
 
 const LOS_CELL_FRAGMENT = buildLosCellFragment({ airLayer: false });
 const LOS_CELL_FRAGMENT_AIR = buildLosCellFragment({ airLayer: true });
-
-/**
- * Single-source-of-truth for the LOS air-sample altitude of a cell.
- * Used by the layer-builder (per-tower visibility shader), the
- * air-route-tube debug overlay, and any future air-targeting code that
- * needs the canonical sample-Y. Keep this in lock-step with
- * `tower-los-layer-builder.ts` which inlines the same formula.
- */
-export function getAirTargetY(cell: RouteCell): number {
-  return cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
-}
 
 /** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
 const ascending = (a: number, b: number): number => a - b;

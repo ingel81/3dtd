@@ -10,7 +10,7 @@ import {
 import { GeoPosition } from '../models/game.types';
 import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../configs/enemy-types.config';
 import { ArmorType } from '../configs/combat/combat.types';
-import type { RouteCell } from '../utils/global-route-grid';
+import type { RouteCell } from '../utils/route-cell';
 import type { SpatialEntry } from '../services/world/spatial-grid.service';
 import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 

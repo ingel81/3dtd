@@ -16,7 +16,7 @@ import { TowerManager } from '../../managers/tower.manager';
 import { GameEventBus, SubscriptionBag } from '../../game-engine';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { Tower } from '../../entities/tower.entity';
-import { RouteCell, getAirTargetY } from '../../utils/global-route-grid';
+import { RouteCell, getAirTargetY } from '../../utils/route-cell';
 import { TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { LOS_VIZ_CONFIG } from '../../configs/los-viz.config';
 import { directionToFacePixel, FacePixel } from '../../utils/los-debug-pixel-math';

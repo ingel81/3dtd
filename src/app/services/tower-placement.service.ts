@@ -18,7 +18,7 @@ import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
 import { losPerf } from '../utils/los-perf';
 import { LosResolveContext } from '../utils/gpu-cube-resolve';
-import { RouteCell } from '../utils/global-route-grid';
+import { RouteCell } from '../utils/route-cell';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 /**

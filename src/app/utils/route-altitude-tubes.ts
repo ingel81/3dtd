@@ -10,7 +10,8 @@ import {
   Vector3,
 } from 'three';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
-import { getAirTargetY, GlobalRouteGrid } from './global-route-grid';
+import { GlobalRouteGrid } from './global-route-grid';
+import { getAirTargetY } from './route-cell';
 
 /**
  * Debug overlay: a magenta tube along every enemy route at the air

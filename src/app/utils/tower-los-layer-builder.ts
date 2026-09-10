@@ -11,8 +11,8 @@ import {
   WebGLCubeRenderTarget,
 } from 'three';
 import { LOS_VIZ_CONFIG, StateAppearance } from '../configs/los-viz.config';
-import type { RouteCell } from './global-route-grid';
-import { getAirTargetY } from './global-route-grid';
+import type { RouteCell } from './route-cell';
+import { getAirTargetY } from './route-cell';
 import { losPerf } from './los-perf';
 
 /**
@@ -294,7 +294,7 @@ export class TowerLosLayerBuilder {
 
       // Air-Mesh sitzt direkt auf dem Air-Sample-Punkt — visualisiert
       // EXAKT wo die Cubemap-Sample-Position liegt. Single source of
-      // truth: getAirTargetY (siehe global-route-grid.ts).
+      // truth: getAirTargetY (siehe route-cell.ts).
       const airMeshY = getAirTargetY(cell);
       matrix.setPosition(cell.x, airMeshY, cell.z);
       airMesh.setMatrixAt(i, matrix);
