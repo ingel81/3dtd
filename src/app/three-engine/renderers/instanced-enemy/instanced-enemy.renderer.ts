@@ -370,18 +370,6 @@ export class InstancedEnemyRenderer {
     return undefined;
   }
 
-  getSpeedMultiplier(id: string): number {
-    return this.instanceManager.getSpeedMultiplier(id);
-  }
-
-  /**
-   * Instances not in their walk animation. While 0, getSpeedMultiplier()
-   * returns 1.0 for every id, see EnemyInstanceManager._nonWalkingCount.
-   */
-  get nonWalkingCount(): number {
-    return this.instanceManager.nonWalkingCount;
-  }
-
   getAllIds(): string[] {
     return this.instanceManager.getAllIds();
   }

@@ -19,11 +19,10 @@ const createMockTilesEngine = () => ({
   enemies: {
     create: vi.fn(() => Promise.resolve({})),
     startWalkAnimation: vi.fn(),
+    startRunAnimation: vi.fn(),
     playDeathAnimation: vi.fn(),
     remove: vi.fn(),
     clear: vi.fn(),
-    getSpeedMultiplier: vi.fn(() => 1),
-    nonWalkingCount: 0,
     resolveSlot: vi.fn((_id: string): unknown => null),
     updateSlot: vi.fn(),
   },
@@ -328,23 +327,53 @@ describe('EnemyManager', () => {
       expect(enemy.alive).toBe(true);
     });
 
-    it('uses 1.0 without the per-id lookup while every instance walks', () => {
-      const enemy = manager.spawn(path, 'wallsmasher');
-      enemy.movement.speedMultiplier = 7; // must be overwritten
-      manager.update(16, 16);
+    it('gives the rush state only to types with animationVariation', () => {
+      expect(manager.spawn(path, 'wallsmasher').rush).not.toBeNull();
+      const zombie = manager.spawn(path, 'zombie');
+      expect(zombie.rush).toBeNull();
 
-      expect(enemy.movement.speedMultiplier).toBe(1);
-      expect(tilesEngine.enemies.getSpeedMultiplier).not.toHaveBeenCalled();
+      manager.update(16, 16);
+      expect(zombie.movement.speedMultiplier).toBe(1);
     });
 
-    it('asks the renderer per enemy once an instance is not walking', () => {
-      tilesEngine.enemies.nonWalkingCount = 1;
-      tilesEngine.enemies.getSpeedMultiplier.mockReturnValue(2.5);
+    it('applies the run multiplier in the sub-step that switches to running', () => {
       const enemy = manager.spawn(path, 'wallsmasher');
-      manager.update(16, 16);
+      const seen: number[] = [];
+      const running: boolean[] = [];
+      vi.spyOn(enemy.movement, 'move').mockImplementation(() => {
+        seen.push(enemy.movement.speedMultiplier);
+        running.push(enemy.rush!.running);
+        return 'moving';
+      });
 
-      expect(tilesEngine.enemies.getSpeedMultiplier).toHaveBeenCalledWith(enemy.id);
-      expect(enemy.movement.speedMultiplier).toBe(2.5);
+      for (let s = 1; s <= 600; s++) manager.update(16, s * 16); // 9.6 s > any first phase
+      const first = running.indexOf(true);
+      expect(first).toBeGreaterThan(0);
+      expect(seen[first - 1]).toBe(1);
+      expect(seen[first]).toBe(enemy.typeConfig.runSpeedMultiplier);
+    });
+
+    it('does not advance the rush while the enemy is paused', () => {
+      const enemy = manager.spawn(path, 'wallsmasher', undefined, true);
+      for (let s = 1; s <= 600; s++) manager.update(16, s * 16);
+      expect(enemy.rush!.running).toBe(false);
+      expect(enemy.movement.speedMultiplier).toBe(1);
+    });
+
+    it('shows a switch in the present pass, once', () => {
+      const enemy = manager.spawn(path, 'wallsmasher');
+      const slot = { released: false, isWalking: true, config: { heightOffset: 0 } };
+      tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
+      tilesEngine.enemies.startRunAnimation.mockImplementation(() => { slot.isWalking = false; });
+
+      manager.presentFrame(0);
+      expect(tilesEngine.enemies.startRunAnimation).not.toHaveBeenCalled();
+
+      enemy.rush!.force(true);
+      manager.presentFrame(16);
+      manager.presentFrame(32);
+      expect(tilesEngine.enemies.startRunAnimation).toHaveBeenCalledTimes(1);
+      expect(tilesEngine.enemies.startRunAnimation).toHaveBeenCalledWith(enemy.id);
     });
 
     it('ticks audio only for enemies that hold a loop handle', () => {

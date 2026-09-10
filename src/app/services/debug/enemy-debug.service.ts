@@ -490,16 +490,18 @@ export class EnemyDebugService {
   }
 
   /**
-   * Play walk animation for debug enemy.
+   * Walk for debug enemy: speed in the simulation, clip in the renderer.
    */
   onPlayWalkAnimation(enemyId: string): void {
+    this.getDebugEnemy(enemyId)?.enemy.setRunning(false);
     this.engine?.enemies.startWalkAnimation(enemyId);
   }
 
   /**
-   * Play run animation for debug enemy.
+   * Run for debug enemy: speed in the simulation, clip in the renderer.
    */
   onPlayRunAnimation(enemyId: string): void {
+    this.getDebugEnemy(enemyId)?.enemy.setRunning(true);
     this.engine?.enemies.startRunAnimation(enemyId);
   }
 
