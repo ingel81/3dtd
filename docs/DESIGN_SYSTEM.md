@@ -195,9 +195,22 @@ Die Höhe ist auf den Platz zwischen Toggle und Kompass begrenzt; bei niedrigem 
 }
 ```
 
+### Sidebar-Panels
+
+Die Sidebar (`components/game-sidebar/`) liefert Rahmen, Footer und die Wahl des Panels. Jede Sektion ist eine eigene Component mit gekapselten Styles:
+
+| Component | Inhalt |
+|-----------|--------|
+| `wave-panel/` | WAVE: Gegnergruppen der laufenden Welle mit Preview, Next-Wave-Button, COMING UP |
+| `build-panel/` | BUILD: Tower-Karten mit Preview, Build-Mode-Hinweis und Cancel |
+| `tower-panel/` | Detail des gewählten Towers: Stats, Targeting, Upgrades, Verkauf |
+| `research-panel/` | Research Center: laufende Forschungen, Forschungsbaum, Upgrades, Verkauf |
+
+Die Host-Elemente haben `display: contents`, die `<section class="td-panel">` bleibt damit Flex-Item der Sidebar-Spalte. Regeln, die mehrere Panels brauchen (Section, Header, Content, Scroll-Fläche, Tower-Header mit Sell-Button, `i`-Button, Upgrade-Kacheln), stehen einmal als Mixins in `_sidebar-panel.scss`; ein Panel bindet per `@include panel.<name>` ein, was sein Template nutzt. Die 1px-Trennlinie trägt nur das WAVE-Panel, die übrigen sind immer die letzte sichtbare Sektion. Tooltip-Aufbereitung (Tower-Karten, Gegnergruppen) liegt als reine Funktionen in `sidebar-tooltips.ts`.
+
 ### Next-Wave-Button (Sidebar)
 
-Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar.component.scss`). Rezept wie `.td-btn-green` bzw. `TD_BUTTON_TEAL_STYLES`: Teal-Verlauf, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em`. Ecken 3px wie Tower-Karten und Stat-Kacheln, Höhe 36px wie der Cancel-Button im Build-Mode, Inhalt zentriert, Icon 16px.
+Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar/wave-panel/wave-panel.component.scss`). Rezept wie `.td-btn-green` bzw. `TD_BUTTON_TEAL_STYLES`: Teal-Verlauf, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em`. Ecken 3px wie Tower-Karten und Stat-Kacheln, Höhe 36px wie der Cancel-Button im Build-Mode, Inhalt zentriert, Icon 16px.
 
 Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche und Farbe wechseln:
 
@@ -398,7 +411,7 @@ Hilfe-Dialog in `components/damage-matrix-dialog/`, geöffnet über den `i`-Butt
 | `src/app/styles/td-theme.ts` | Zentrale Theme-Definition (Konstanten + CSS-Vars) |
 | `tower-defense.component.ts` | Haupt-UI mit Layout |
 | `components/game-header/` | Info-Header mit Spielstatus |
-| `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview |
+| `components/game-sidebar/` | Rechte Sidebar mit Aktionen, Tower-Slots, Wave-Preview (Panels siehe [Sidebar-Panels](#sidebar-panels)) |
 | `components/compass/` | Kompass-Anzeige |
 | `components/info-overlay/` | FPS / Tile-Stats Overlay (toggle ueber Caret) |
 | `components/quick-actions/` | Icon-Buttons (Kamera-Reset, Debug) |

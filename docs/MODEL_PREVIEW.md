@@ -30,7 +30,9 @@ Das Model Preview System rendert 3D-Vorschauen von Tuermen und Gegnern in der Si
 
 ### Dateien
 - `services/infrastructure/model-preview.service.ts` - Haupt-Service
-- `components/game-sidebar/game-sidebar.component.ts` - Integration (initPreviews, initEnemyPreview, initTowerPreviews)
+- `components/game-sidebar/wave-panel/wave-panel.component.ts` - Gegner-Previews der laufenden Welle (`mixed-enemy-<index>`)
+- `components/game-sidebar/build-panel/build-panel.component.ts` - Tower-Previews der Build-Karten (`tower-preview-<towerId>`), `isHidden`, solange ein Tower gewählt ist
+- `components/game-sidebar/game-sidebar.component.ts` - `dispose()` beim Abbau der Sidebar
 
 ## PreviewConfig Optionen
 
@@ -205,9 +207,11 @@ Entfernt alle Previews und gibt alle Ressourcen frei.
 
 ## Lifecycle
 
-1. `ngAfterViewInit` -> `initPreviews()` (nach 100ms Verzoegerung)
-2. `initPreviews()` -> `modelPreview.initialize()` (Renderer erstellen)
-3. `initEnemyPreview()` / `initTowerPreviews()` -> Canvas-spezifische Previews
-4. Bei Canvas-Aenderungen: Re-Initialisierung nach 50ms Verzoegerung
+Jedes Sidebar-Panel meldet seine Previews selbst an und ab.
+
+1. `ngAfterViewInit` des Panels -> erste Previews nach 100ms (WAVE: `initMixedEnemyPreviews()`, BUILD: `initTowerPreviews()`)
+2. Das erste `createPreview()` startet Renderer und Animation-Loop (`initialize()`)
+3. Bei Canvas-Änderungen (`QueryList.changes`): Re-Initialisierung nach 100ms (WAVE, zerstört vorher die alten Gegner-Previews) bzw. 50ms (BUILD)
+4. Debug-Overrides (Enemy-/Tower-Debugger) erzeugen das betroffene Preview per `effect` neu
 5. Animation-Loop rendert alle sichtbaren Previews mit 30 fps (siehe Frame-Takt)
-6. `ngOnDestroy` -> `modelPreview.dispose()` (Cleanup)
+6. Abbau eines Panels -> `destroyPreview()` für seine IDs; Abbau der Sidebar -> `modelPreview.dispose()`

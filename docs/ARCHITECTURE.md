@@ -1318,7 +1318,7 @@ src/app/
     ├── debug-window/
     ├── engine-test/
     ├── game-header/
-    ├── game-sidebar/
+    ├── game-sidebar/             # Rahmen + Footer; wave-, build-, tower-, research-panel/
     ├── game-speed/
     ├── info-overlay/
     └── quick-actions/
