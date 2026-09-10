@@ -33,7 +33,7 @@ Enemies werden über die Konfigurationsdatei `configs/enemy-types.config.ts` def
 | rat | unarmored | 5 | 10 | – | Schwächster Swarm-Gegner |
 | spider | light | 60 | 9 | – | Schneller, wenig HP |
 | penguin | unarmored | 30 | 9 | – | Unlit Cartoon-Style |
-| wallsmasher | light | 200 | 7 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5`, **silent-spawn** (kein `spawnSound`) |
+| wallsmasher | light | 200 | 4 | – | Walk/Run-Variation, `runSpeedMultiplier: 2.5` (rennt 10 m/s, im Mittel 7 m/s), **silent-spawn** (kein `spawnSound`) |
 | bat | light | 25 | 8 | ✓ | Air-Unit, `heightOffset: 15` |
 | hornet | light | 80 | 9 | ✓ | Air-Unit, `heightOffset: 18` |
 | dragon | heavy | 450 | 6 | ✓ | Air-Boss-Tier, `heightOffset: 20` |
@@ -176,7 +176,7 @@ runAnimation: 'Armature|Run',
 **Funktionsweise:**
 1. Der Gegner startet gehend und wechselt nach jeweils 3-8 s **Spielzeit** zwischen Gehen und Rennen, beide Phasen gleich verteilt (im Mittel je 50 % der Zeit).
 2. Der Zustand ist Simulation: `Enemy.rush` (`entities/enemy-rush.ts`), getickt im Enemy-Sub-Step **vor** `move()`. Der Multiplikator wirkt im selben Sub-Step, pausierte Gegner (Pending-Start, Debug, sterbend) ticken nicht.
-3. Bei Run: `speedMultiplier = runSpeedMultiplier` (z.B. 2.5), Bewegung `baseSpeed × speedMultiplier` (z.B. 7 × 2.5 = 17.5 m/s).
+3. Bei Run: `speedMultiplier = runSpeedMultiplier` (z.B. 2.5), Bewegung `baseSpeed × speedMultiplier` (Wallsmasher: 4 × 2.5 = 10 m/s, im Mittel über beide Phasen 7 m/s).
 4. Deterministisch: Phasenlängen aus einem Mulberry32-Strom, geseedet aus der Enemy-ID. Kein `Math.random`, kein `setTimeout`.
 5. Der Renderer zeigt nur den Clip: `EnemyManager.presentFrame()` ruft `startRunAnimation`/`startWalkAnimation`, sobald der Clip nicht zum Zustand passt.
 6. Animation bleibt gleich schnell (die Animations-Kopplung rechnet beim Run-Clip mit `baseSpeed × runSpeedMultiplier`).
@@ -539,13 +539,13 @@ wallsmasher: {
   minimumPixelSize: 0,
   armorType: 'light',
   baseHp: 200,
-  baseSpeed: 7,
+  baseSpeed: 4,                // geht 4, rennt 10 m/s, Mittel 7 m/s
   reward: 5,
   hasAnimations: true,
   walkAnimation: 'CharacterArmature|Walk',
   runAnimation: 'CharacterArmature|Run',
   deathAnimation: 'CharacterArmature|Death',
-  animationSpeed: 1.31,
+  animationSpeed: 0.75,        // Schrittlänge passend zu 4 m/s (vorher 1.31 bei 7 m/s)
   animationVariation: true,    // Wechselt zwischen Walk/Run
   runSpeedMultiplier: 2.5,     // 2.5x Speed bei Run
 

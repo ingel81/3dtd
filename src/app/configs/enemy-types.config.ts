@@ -191,13 +191,15 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     minimumPixelSize: 0,
     armorType: 'light',
     baseHp: 200,
-    baseSpeed: 7,
+    // Walks 4, runs 10 m/s half the time (rush): mean 7 m/s, the speed the
+    // wave curriculum was tuned with while the rush was lost.
+    baseSpeed: 4,
     reward: 5, // Only without AI
     hasAnimations: true,
     walkAnimation: 'CharacterArmature|Walk',
     runAnimation: 'CharacterArmature|Run',
     deathAnimation: 'CharacterArmature|Death',
-    animationSpeed: 1.31,
+    animationSpeed: 0.75, // 1.31 at 7 m/s, scaled by 4/7 so the stride still matches the ground speed
     animationVariation: true,
     runSpeedMultiplier: 2.5, // 2.5x speed when running
     // No spawn sound (gameplay decision — wallsmasher rush should be visual surprise)
