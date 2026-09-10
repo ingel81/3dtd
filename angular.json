@@ -80,6 +80,12 @@
                   "type": "anyComponentStyle",
                   "maximumWarning": "32kB",
                   "maximumError": "64kB"
+                },
+                {
+                  "type": "bundle",
+                  "name": "training-session",
+                  "maximumWarning": "48kB",
+                  "maximumError": "96kB"
                 }
               ],
               "outputHashing": "all",
