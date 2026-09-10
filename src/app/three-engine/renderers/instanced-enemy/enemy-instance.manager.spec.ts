@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import {
   BufferGeometry,
   DataTexture,
@@ -52,6 +52,10 @@ const CLIPS = [CONFIG.walkAnimation!, CONFIG.runAnimation!];
 function bits(array: Float32Array, offset: number): number[] {
   return Array.from(new Uint32Array(array.buffer, array.byteOffset + offset * 4, 16));
 }
+
+afterEach(() => {
+  vi.restoreAllMocks();
+});
 
 describe('EnemyInstanceManager', () => {
   let manager: EnemyInstanceManager;
@@ -163,6 +167,22 @@ describe('EnemyInstanceManager', () => {
     }
   });
 
+  it('drops the hit flash of a removed enemy without touching its old slot', () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    manager.addEnemy('a', 'wallsmasher', new Vector3(), 0);
+    manager.triggerHitFlash('a', 100);
+    manager.removeEnemy('a');
+    const b = manager.addEnemy('b', 'wallsmasher', new Vector3(), 0)!; // takes a's slot
+    manager.setFreezeVisual('b', true);
+
+    now.mockReturnValue(1200);
+    manager.expireHitFlashes();
+    const tint = b.pool.tintColorAttr;
+    expect([tint.getX(b.index), tint.getY(b.index), tint.getZ(b.index)]).toEqual(
+      [0.4, 0.8, 1.0].map(Math.fround),
+    );
+  });
+
   it('writes the matrix Matrix4.compose + setMatrixAt would, bit for bit', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     const array = state.pool.instancedMesh.instanceMatrix.array as Float32Array;
@@ -192,15 +212,21 @@ describe('EnemyInstanceManager', () => {
   });
 });
 
+/** Renderer with a wallsmasher pool from fakeVat(); nothing is loaded. */
+function rendererWithPool(scene = new Scene()): InstancedEnemyRenderer {
+  const sync = { geoToLocal: () => new Vector3() };
+  const renderer = new InstancedEnemyRenderer(scene, sync as never, {} as never);
+  (renderer as unknown as { instanceManager: EnemyInstanceManager }).instanceManager.createPool(
+    'wallsmasher',
+    fakeVat(CLIPS),
+    CONFIG,
+  );
+  return renderer;
+}
+
 describe('InstancedEnemyRenderer slots', () => {
   it('keeps the health-bar slot on the state and releases the state on remove', async () => {
-    const sync = { geoToLocal: () => new Vector3() };
-    const renderer = new InstancedEnemyRenderer(new Scene(), sync as never, {} as never);
-    (renderer as unknown as { instanceManager: EnemyInstanceManager }).instanceManager.createPool(
-      'wallsmasher',
-      fakeVat(CLIPS),
-      CONFIG,
-    );
+    const renderer = rendererWithPool();
 
     await renderer.create('a', 'wallsmasher', 0, 0, 0);
     await renderer.create('b', 'wallsmasher', 0, 0, 0);
@@ -221,13 +247,7 @@ describe('InstancedEnemyRenderer slots', () => {
 
   it('keeps flushing positions and health bars with animations off', async () => {
     const scene = new Scene();
-    const sync = { geoToLocal: () => new Vector3() };
-    const renderer = new InstancedEnemyRenderer(scene, sync as never, {} as never);
-    (renderer as unknown as { instanceManager: EnemyInstanceManager }).instanceManager.createPool(
-      'wallsmasher',
-      fakeVat(CLIPS),
-      CONFIG,
-    );
+    const renderer = rendererWithPool(scene);
     await renderer.create('a', 'wallsmasher', 0, 0, 0);
     const slot = renderer.resolveSlot('a')!;
     const bars = scene.children.find((o) => (o as Mesh).geometry?.getAttribute('aCenter')) as Mesh;
@@ -246,5 +266,21 @@ describe('InstancedEnemyRenderer slots', () => {
     expect(center.version).toBeGreaterThan(versions[1]);
     // Only the VAT frame stands still.
     expect(slot.pool.animFrameAttr.version).toBe(versions[2]);
+  });
+
+  it('lets a hit flash run out with animations off', async () => {
+    const now = vi.spyOn(performance, 'now').mockReturnValue(1000);
+    const renderer = rendererWithPool();
+    await renderer.create('a', 'wallsmasher', 0, 0, 0);
+    const slot = renderer.resolveSlot('a')!;
+    const tint = slot.pool.tintColorAttr;
+    renderer.setAnimationsEnabled(false);
+
+    renderer.triggerHitFlash('a', 100);
+    expect(tint.getX(slot.index)).toBe(Math.fround(0.85));
+
+    now.mockReturnValue(1200);
+    renderer.updateAnimations(0.016, new PerspectiveCamera());
+    expect([tint.getX(slot.index), tint.getY(slot.index), tint.getZ(slot.index)]).toEqual([0, 0, 0]);
   });
 });

@@ -320,6 +320,9 @@ export class InstancedEnemyRenderer {
     // there is nothing to flush either.
     if (!this._showEnemies) return;
 
+    // Hit-flash tints run out on the clock, not with the animation toggle.
+    this.instanceManager.expireHitFlashes();
+
     // The animation toggle only holds the VAT frames. Positions and health
     // keep arriving through updateSlot() and still have to be flushed,
     // otherwise enemies and bars freeze on screen while the game goes on.
