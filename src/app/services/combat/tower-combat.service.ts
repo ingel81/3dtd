@@ -53,6 +53,9 @@ export class TowerCombatService {
   private readonly _coneScratch: Enemy[] = [];
   private readonly _losScratch = new Vector3();
   private readonly _coneEnemyPos = new Vector3();
+  // Tower position for the wake check and the fallback radius query. Only
+  // read right after it is written, never across a call.
+  private readonly _towerLocalScratch = new Vector3();
 
   /**
    * Initialize with engine reference
@@ -114,6 +117,90 @@ export class TowerCombatService {
   }
 
   /**
+   * Wake check for a sleeping tower, at most once per
+   * towerSleepCheckIntervalMs game-time. Uses the SpatialGrid O(k) query
+   * instead of brute-force O(n) over all enemies. Returns true once an enemy
+   * is near and the tower is awake again; false means skip it this sub-step.
+   */
+  private tryWakeTower(tower: Tower, gameTimeMs: number): boolean {
+    if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) return false;
+    tower.lastSleepCheck = gameTimeMs;
+
+    const engine = this.tilesEngine;
+    if (!engine) return false;
+    const towerLocal = engine.sync.geoToLocalSimpleInto(
+      tower.position.lat,
+      tower.position.lon,
+      0,
+      this._towerLocalScratch,
+    );
+    const hasNearby = this.spatialGrid.hasEnemyInRadius(
+      towerLocal.x,
+      towerLocal.z,
+      tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+    );
+    if (!hasNearby) return false;
+    tower.isSleeping = false;
+    return true;
+  }
+
+  /**
+   * Candidate enemies for one tower, written into `_candidateScratch`.
+   * findTarget does the exact range check afterwards, so `radiusMeters`
+   * only has to cover it; it is ignored on the fast path.
+   *
+   * FAST PATH: towers with visibleCells read the enemies of those cells from
+   * the GlobalRouteGrid. Works for ground, air-only and dual-targeting towers:
+   * visibleCells is the union of ground + air visible cells, so a "blue-only"
+   * cell still produces candidates and buildLosCheck filters them per enemy.
+   *
+   * FALLBACK: GlobalRouteGrid radius query, O(cells_in_radius). Without an
+   * engine, a geo-distance filter over all alive enemies.
+   */
+  private collectCandidates(
+    tower: Tower,
+    radiusMeters: number,
+    enemyManager: EnemyManager,
+  ): Enemy[] {
+    if (tower.visibleCells.length > 0) {
+      return this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
+    }
+
+    const engine = this.tilesEngine;
+    if (engine) {
+      const towerLocal = engine.sync.geoToLocalSimpleInto(
+        tower.position.lat,
+        tower.position.lon,
+        0,
+        this._towerLocalScratch,
+      );
+      return this.globalRouteGrid.getEnemiesInRadius(
+        towerLocal.x,
+        towerLocal.z,
+        radiusMeters,
+        undefined,
+        this._candidateScratch,
+      );
+    }
+
+    // Ultimate fallback: geo-distance filter (no engine available).
+    // getAlive() is only touched here: it re-filters the whole enemy list
+    // whenever its cache was invalidated, which while a wave is spawning is
+    // every sub-step.
+    const mPerDegLat = METERS_PER_DEGREE_LAT;
+    const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
+    const radiusSq = radiusMeters ** 2;
+    const out = this._candidateScratch;
+    out.length = 0;
+    for (const enemy of enemyManager.getAlive()) {
+      const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
+      const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
+      if (dx * dx + dy * dy <= radiusSq) out.push(enemy);
+    }
+    return out;
+  }
+
+  /**
    * Update tower idle rotations - smooth return to base position
    * Call this when NOT in wave phase
    */
@@ -140,11 +227,6 @@ export class TowerCombatService {
     enemyManager: EnemyManager,
     projectileManager: ProjectileManager,
   ): void {
-    // Only touched by the engine-less fallback branch below. Built lazily
-    // because `getAlive()` re-filters the whole enemy list whenever the cache
-    // was invalidated — which, while a wave is spawning, is every sub-step.
-    // Fetching it up front cost several ms per frame with zero towers placed.
-    let allEnemies: Enemy[] | null = null;
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
@@ -161,80 +243,18 @@ export class TowerCombatService {
       // Skip towers with pending LOS computation (progressive registration not yet complete)
       if (!tower.losReady) continue;
 
-      // Quick wake check for sleeping towers (every 500ms game-time).
-      // Uses SpatialGrid O(k) query instead of brute-force O(n) over all enemies.
-      if (tower.isSleeping) {
-        if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) continue;
-        tower.lastSleepCheck = gameTimeMs;
+      if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
-        // Use spatial grid for fast proximity check (local coordinates, meters)
-        let hasNearby = false;
-        if (this.tilesEngine) {
-          const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-            tower.position.lat,
-            tower.position.lon,
-            0
-          );
-          hasNearby = this.spatialGrid.hasEnemyInRadius(
-            towerLocal.x,
-            towerLocal.z,
-            tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard
-          );
-        }
-        if (!hasNearby) continue;
-        tower.isSleeping = false;
-      }
-
-      // Determine if we can use GlobalRouteGrid optimization
-      const hasVisibleCells = tower.visibleCells.length > 0;
-
-      // Get candidate enemies based on tower type and available data.
       // losCheck dispatches per-enemy on isAirUnit so air targets resolve
       // against air-LoS (skyline + clearance) and ground targets against
-      // ground-LoS — picked up from cell.airVisibility / cell.towerVisibility
+      // ground-LoS, picked up from cell.airVisibility / cell.towerVisibility
       // pre-compute, with a runtime raycast fallback for both.
-      let candidates: Enemy[];
-      let losCheck: ((enemy: Enemy) => boolean) | undefined;
-
-      if (hasVisibleCells) {
-        // FAST PATH: Use GlobalRouteGrid for towers with visibleCells.
-        // Works for ground, air-only and dual-targeting towers — visibleCells
-        // is the union of ground + air visible cells, so a "blue-only" cell
-        // would still produce candidates; buildLosCheck filters those per-enemy.
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
-        losCheck = this.buildLosCheck(tower, true);
-      } else {
-        // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
-        // Returns Enemy[] directly — no ID resolution needed
-        const rangeMeters = tower.typeConfig.range;
-        if (this.tilesEngine) {
-          const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-            tower.position.lat,
-            tower.position.lon,
-            0
-          );
-          candidates = this.globalRouteGrid.getEnemiesInRadius(
-            towerLocal.x,
-            towerLocal.z,
-            rangeMeters * COMBAT_TUNING.rangeMargin.standard,
-            undefined,
-            this._candidateScratch
-          );
-        } else {
-          // Ultimate fallback: geo-distance filter (no engine available)
-          const mPerDegLat = METERS_PER_DEGREE_LAT;
-          const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
-          const rangeMarginSq = (rangeMeters * COMBAT_TUNING.rangeMargin.standard) ** 2;
-
-          allEnemies ??= enemyManager.getAlive();
-          candidates = allEnemies.filter(enemy => {
-            const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
-            const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
-            return dx * dx + dy * dy <= rangeMarginSq;
-          });
-        }
-        losCheck = this.buildLosCheck(tower, false);
-      }
+      const candidates = this.collectCandidates(
+        tower,
+        tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        enemyManager,
+      );
+      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
 
       // Fast path: get cached target or find new one
       let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
@@ -317,8 +337,6 @@ export class TowerCombatService {
     const now = performance.now();
     // deltaTime is sub-step game-time ms — convert to seconds for DPS math.
     const dt = deltaTime / 1000;
-    // Lazy for the same reason as in updateTowerShooting.
-    let allEnemies: Enemy[] | null = null;
     const airTargetingUnlocked = this.researchStore.airTargetingUnlocked();
 
     for (const tower of towerManager.getAllActive()) {
@@ -327,53 +345,22 @@ export class TowerCombatService {
       // Skip non-beam towers
       if (tower.typeConfig.attackType !== 'beam') continue;
 
-      // Get candidate enemies (same logic as projectile towers)
-      const hasVisibleCells = tower.visibleCells.length > 0;
-      let candidates: Enemy[];
-
-      if (hasVisibleCells) {
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
-      } else {
-        // FALLBACK: Use GlobalRouteGrid radius query for O(cells_in_radius) pre-filtering
-        // Returns Enemy[] directly — no ID resolution needed.
-        // The radius must cover what findTarget checks against (combat.range,
-        // upgrades included) as well as the cone reach. Querying with
-        // beamRange alone (20m) hid every enemy in the ring out to the 25m
-        // detection range, so the tower never acquired them.
-        const rangeMeters = Math.max(tower.combat.range, tower.typeConfig.beamRange ?? 35);
-        if (this.tilesEngine) {
-          const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-            tower.position.lat,
-            tower.position.lon,
-            0
-          );
-          candidates = this.globalRouteGrid.getEnemiesInRadius(
-            towerLocal.x,
-            towerLocal.z,
-            rangeMeters * COMBAT_TUNING.rangeMargin.beam,
-            undefined,
-            this._candidateScratch
-          );
-        } else {
-          const mPerDegLat = METERS_PER_DEGREE_LAT;
-          const mPerDegLon = METERS_PER_DEGREE_LAT * Math.cos(tower.position.lat * DEG_TO_RAD);
-          const rangeMarginSq = (rangeMeters * COMBAT_TUNING.rangeMargin.beam) ** 2;
-
-          allEnemies ??= enemyManager.getAlive();
-          candidates = allEnemies.filter(enemy => {
-            const dx = (enemy.position.lat - tower.position.lat) * mPerDegLat;
-            const dy = (enemy.position.lon - tower.position.lon) * mPerDegLon;
-            return dx * dx + dy * dy <= rangeMarginSq;
-          });
-        }
-      }
+      // The fallback radius must cover what findTarget checks against
+      // (combat.range, upgrades included) as well as the cone reach.
+      // Querying with beamRange alone (20m) hid every enemy in the ring out
+      // to the 25m detection range, so the tower never acquired them.
+      const candidates = this.collectCandidates(
+        tower,
+        Math.max(tower.combat.range, tower.typeConfig.beamRange ?? 35) * COMBAT_TUNING.rangeMargin.beam,
+        enemyManager,
+      );
 
       // Find primary target (closest/lowest HP in range). Same LOS predicate
       // as the projectile/melee/chain paths — beam towers must not acquire
       // targets behind buildings either. beamRange (20m) is inside the
       // detection range (25m) the LOS cells were registered with, so the
       // grid fast path covers the whole beam reach.
-      const losCheck = this.buildLosCheck(tower, hasVisibleCells);
+      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
       let target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
       // Periodic LOS recheck (throttled, same interval as the projectile
@@ -624,46 +611,14 @@ export class TowerCombatService {
       if (!tower.losReady) continue;
 
       // Wake check (game-time, no timescale compensation needed thanks to sub-stepping)
-      if (tower.isSleeping) {
-        if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) continue;
-        tower.lastSleepCheck = gameTimeMs;
+      if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
-        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-          tower.position.lat,
-          tower.position.lon,
-          0,
-        );
-        const hasNearby = this.spatialGrid.hasEnemyInRadius(
-          towerLocal.x,
-          towerLocal.z,
-          tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
-        );
-        if (!hasNearby) continue;
-        tower.isSleeping = false;
-      }
-
-      const hasVisibleCells = tower.visibleCells.length > 0;
-      let candidates: Enemy[];
-
-      if (hasVisibleCells) {
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
-      } else {
-        const rangeMeters = tower.typeConfig.range;
-        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-          tower.position.lat,
-          tower.position.lon,
-          0,
-        );
-        candidates = this.globalRouteGrid.getEnemiesInRadius(
-          towerLocal.x,
-          towerLocal.z,
-          rangeMeters * COMBAT_TUNING.rangeMargin.standard,
-          undefined,
-          this._candidateScratch,
-        );
-      }
-
-      const losCheck = this.buildLosCheck(tower, hasVisibleCells);
+      const candidates = this.collectCandidates(
+        tower,
+        tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        enemyManager,
+      );
+      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
       const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
       if (target) {
@@ -737,46 +692,14 @@ export class TowerCombatService {
       if (!tower.losReady) continue;
 
       // Wake check
-      if (tower.isSleeping) {
-        if (gameTimeMs - tower.lastSleepCheck < COMBAT_TUNING.towerSleepCheckIntervalMs) continue;
-        tower.lastSleepCheck = gameTimeMs;
+      if (tower.isSleeping && !this.tryWakeTower(tower, gameTimeMs)) continue;
 
-        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-          tower.position.lat,
-          tower.position.lon,
-          0,
-        );
-        const hasNearby = this.spatialGrid.hasEnemyInRadius(
-          towerLocal.x,
-          towerLocal.z,
-          tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
-        );
-        if (!hasNearby) continue;
-        tower.isSleeping = false;
-      }
-
-      const hasVisibleCells = tower.visibleCells.length > 0;
-      let candidates: Enemy[];
-
-      if (hasVisibleCells) {
-        candidates = this.globalRouteGrid.getEnemiesForTower(tower.visibleCells, this._candidateScratch);
-      } else {
-        const rangeMeters = tower.typeConfig.range;
-        const towerLocal = this.tilesEngine.sync.geoToLocalSimple(
-          tower.position.lat,
-          tower.position.lon,
-          0,
-        );
-        candidates = this.globalRouteGrid.getEnemiesInRadius(
-          towerLocal.x,
-          towerLocal.z,
-          rangeMeters * COMBAT_TUNING.rangeMargin.standard,
-          undefined,
-          this._candidateScratch,
-        );
-      }
-
-      const losCheck = this.buildLosCheck(tower, hasVisibleCells);
+      const candidates = this.collectCandidates(
+        tower,
+        tower.typeConfig.range * COMBAT_TUNING.rangeMargin.standard,
+        enemyManager,
+      );
+      const losCheck = this.buildLosCheck(tower, tower.visibleCells.length > 0);
       const target = tower.findTarget(candidates, airTargetingUnlocked, losCheck);
 
       if (!target) {
