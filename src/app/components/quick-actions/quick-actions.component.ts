@@ -2,12 +2,21 @@ import { Component, inject, input, output, computed, ChangeDetectionStrategy } f
 import { CommonModule } from '@angular/common';
 import { MatTooltipModule } from '@angular/material/tooltip';
 import { DebugWindowService } from '../../services/debug/debug-window.service';
-import { DebugFacadeService } from '../../services/debug/debug-facade.service';
+import { DebugFacadeService, FPS_LIMITS, FpsLimit } from '../../services/debug/debug-facade.service';
 import { DebugStateDumpService } from '../../services/debug/debug-state-dump.service';
 import { UIStore } from '../../store/ui.store';
 import { DevWorldService } from '../../devworld/devworld.service';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
+
+/** Unlimited → 60 → 30 → unlimited. */
+function nextFpsLimit(fps: FpsLimit): FpsLimit {
+  return FPS_LIMITS[(FPS_LIMITS.indexOf(fps) + 1) % FPS_LIMITS.length];
+}
+
+function describeFpsLimit(fps: FpsLimit): string {
+  return fps === 0 ? 'off' : `${fps} FPS`;
+}
 
 @Component({
   selector: 'app-quick-actions',
@@ -37,6 +46,10 @@ import { TdIconComponent } from '../icon/icon.component';
           <button class="td-display-btn" [class.active]="damageNumbersVisible()"
                   (click)="toggleDamageNumbers()" matTooltip="Damage Numbers" matTooltipPosition="left">
             <td-icon name="pin" [size]="18"></td-icon>
+          </button>
+          <button class="td-display-btn td-fps-btn" [class.active]="fpsLimit() !== 0"
+                  (click)="cycleFpsLimit()" [matTooltip]="fpsLimitTooltip()" matTooltipPosition="left">
+            {{ fpsLimit() === 0 ? '∞' : fpsLimit() }}
           </button>
         </div>
         <button class="td-quick-btn td-display-toggle-btn"
@@ -445,6 +458,13 @@ import { TdIconComponent } from '../icon/icon.component';
         var(--td-gold-glow);
     }
 
+    .td-fps-btn {
+      font-size: 11px;
+      font-weight: 600;
+      font-variant-numeric: tabular-nums;
+      line-height: 1;
+    }
+
     .td-audio-menu-wrapper {
       position: relative;
     }
@@ -680,6 +700,11 @@ export class QuickActionsComponent {
   readonly screenShakeEnabled = this.debugFacade.screenShakeEnabled;
   readonly healthBarsVisible = this.debugFacade.healthBarsVisible;
   readonly damageNumbersVisible = this.debugFacade.damageNumbersVisible;
+  readonly fpsLimit = this.debugFacade.fpsLimit;
+  readonly fpsLimitTooltip = computed(() => {
+    const fps = this.fpsLimit();
+    return `Frame limit: ${describeFpsLimit(fps)} (click → ${describeFpsLimit(nextFpsLimit(fps))})`;
+  });
 
   // Per-tower-LOS filter — icon + tooltip computed from the UIStore signal
   // so the button reflects the current mode (both / ground / air).
@@ -698,6 +723,7 @@ export class QuickActionsComponent {
   readonly screenShakeToggled = output<boolean>();
   readonly healthBarsToggled = output<boolean>();
   readonly damageNumbersToggled = output<boolean>();
+  readonly fpsLimitChanged = output<FpsLimit>();
 
   // Outputs for actions that need parent handling
   readonly resetCamera = output<void>();
@@ -737,6 +763,10 @@ export class QuickActionsComponent {
 
   toggleDamageNumbers(): void {
     this.damageNumbersToggled.emit(!this.damageNumbersVisible());
+  }
+
+  cycleFpsLimit(): void {
+    this.fpsLimitChanged.emit(nextFpsLimit(this.fpsLimit()));
   }
 
   // Audio controls

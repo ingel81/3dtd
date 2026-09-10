@@ -169,6 +169,10 @@ export class GameStateManager {
    * that the simulation runs slower than the wall clock instead of trying
    * to catch up — a consistent slow-motion rather than a spiral. Everything
    * in gameplay reasons in game-time, so nothing observes the difference.
+   *
+   * The player's 30 fps frame cap (ThreeTilesEngine.setFpsLimit) hands in
+   * ~33 ms per frame, inside the bound, so a capped game keeps full speed.
+   * Going below ~34 ms here would turn that cap into slow motion.
    */
   private static readonly MAX_CATCHUP_MS = 50;
 
