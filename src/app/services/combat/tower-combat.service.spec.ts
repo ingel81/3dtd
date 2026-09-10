@@ -25,7 +25,7 @@ import { METERS_PER_DEGREE_LAT } from '../../utils/geo-utils';
  * - calculateHeading: pure geo→radian heading math
  * - getEffectiveDPS / getEffectiveBeamWidth: upgrade-aware private getters
  * - Beam-state cleanup (stopTowerBeam, stopAllBeams) — flame-sound + throttle map
- * - updateBeamTowers radius fallback (no visibleCells): query covers detection range
+ * - updateBeamTowers: acquires only inside the flame, flame follows the range
  *
  * Targeting strategies (closest/strongest/nearest/lowest-hp) live on
  * Tower.findTarget and are covered by tower.entity.spec.ts. Beam cone
@@ -206,9 +206,9 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
-  // updateBeamTowers: radius fallback for towers without visibleCells
+  // updateBeamTowers: flame reach, radius fallback (no visibleCells)
   // ────────────────────────────────────────────────────────────────
-  describe('updateBeamTowers radius fallback', () => {
+  describe('updateBeamTowers flame reach', () => {
     const towerPos = { lat: 48.0, lon: 9.0, height: 0 };
 
     /** Ground enemy `meters` due north of the tower. */
@@ -259,31 +259,40 @@ describe('TowerCombatService', () => {
       return { engine, tower, getEnemiesInRadius, run };
     }
 
-    it('acquires an enemy between beamRange and the detection range', () => {
-      const { tower, engine, run } = setup(24.5);
-      expect(tower.typeConfig.beamRange).toBeLessThan(24.5);
-      expect(tower.combat.range).toBeGreaterThan(24.5);
+    it('does not acquire an enemy beyond the flame', () => {
+      // Regression: detection was 25 m against a 20 m flame, so the tower
+      // aimed at enemies in that ring and burnt nothing.
+      const { tower, engine, run } = setup(22);
+      expect(tower.combat.range).toBeLessThan(22);
+
+      run();
+      expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
+      expect(engine.flameBeams.stopBeam).toHaveBeenCalled();
+    });
+
+    it('burns an enemy inside the flame with a cone as long as the range', () => {
+      const { tower, engine, run } = setup(18);
 
       run();
       expect(engine.flameBeams.startBeam).toHaveBeenCalledWith(
-        tower.id, expect.anything(), expect.anything(), expect.any(Number), expect.any(Number),
+        tower.id, expect.anything(), expect.anything(), tower.combat.range, expect.any(Number),
       );
       expect(engine.flameBeams.stopBeam).not.toHaveBeenCalled();
     });
 
-    it('queries with the upgraded detection range', () => {
-      const { tower, engine, getEnemiesInRadius, run } = setup(30);
-      for (let i = 0; i < 10; i++) tower.applyUpgrade('range');
-      expect(tower.combat.range).toBeGreaterThan(30);
+    it('range upgrades lengthen the flame and the query', () => {
+      const { tower, engine, getEnemiesInRadius, run } = setup(21);
+      for (let i = 0; i < 3; i++) tower.applyUpgrade('range');
+      expect(tower.combat.range).toBeGreaterThan(21);
 
       run();
       expect(getEnemiesInRadius.mock.calls[0][2]).toBeGreaterThanOrEqual(tower.combat.range);
-      expect(engine.flameBeams.startBeam).toHaveBeenCalled();
+      expect(engine.flameBeams.startBeam.mock.calls[0][3]).toBeCloseTo(tower.combat.range, 6);
     });
 
     it('leaves the exact range check to findTarget', () => {
       // Inside the query margin, outside combat.range: candidate but no target.
-      const { engine, run } = setup(26);
+      const { engine, run } = setup(21);
       run();
       expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
       expect(engine.flameBeams.stopBeam).toHaveBeenCalled();

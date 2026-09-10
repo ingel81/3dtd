@@ -52,7 +52,6 @@ describe('tower types config', () => {
     const fire = getTowerType('fire');
     expect(fire.attackType).toBe('beam');
     expect(fire.damagePerSecond).toBeGreaterThan(0);
-    expect(fire.beamRange).toBeGreaterThan(0);
     expect(fire.beamWidth).toBeGreaterThan(0);
   });
 
