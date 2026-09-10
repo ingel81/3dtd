@@ -7,7 +7,7 @@ import { ColorGradingPreset, COLOR_GRADING_PRESETS } from '../../three-engine/po
 
 const STORAGE_KEY = 'td_display_options';
 
-interface DisplayOptions {
+export interface DisplayOptions {
   enemies: boolean;
   healthBars: boolean;
   animations: boolean;
@@ -17,6 +17,22 @@ interface DisplayOptions {
   alphaBlend: boolean;
   screenShake: boolean;
   colorGrading: ColorGradingPreset;
+}
+
+/**
+ * Write this panel's options into the stored object instead of replacing it.
+ * DebugFacadeService keeps options the panel does not show in the same
+ * object (damageNumbers); a plain overwrite dropped them on every page load.
+ */
+export function persistDisplayOptions(opts: DisplayOptions): void {
+  let stored: unknown = {};
+  try {
+    stored = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? '{}');
+  } catch { /* corrupt entry: start over */ }
+  const base = stored !== null && typeof stored === 'object' ? stored : {};
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...base, ...opts }));
+  } catch { /* ignore */ }
 }
 
 @Component({
@@ -206,9 +222,7 @@ export class DisplayOptionsComponent {
         screenShake: this.screenShake(),
         colorGrading: this.colorGrading(),
       };
-      try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(opts));
-      } catch { /* ignore */ }
+      persistDisplayOptions(opts);
     });
   }
 
