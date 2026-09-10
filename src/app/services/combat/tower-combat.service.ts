@@ -457,6 +457,9 @@ export class TowerCombatService {
             tower.id,
             showBlood
           );
+          // The throttle is keyed per enemy: drop the entry once the beam has
+          // killed it instead of carrying it until wave end.
+          if (!enemy.alive) this.lastBeamBloodEffect.delete(enemy.id);
         }
       } else {
         // No target - stop beam, sound, and reset turret
@@ -577,7 +580,6 @@ export class TowerCombatService {
   stopTowerBeam(towerId: string): void {
     this.tilesEngine?.flameBeams?.stopBeam(towerId);
     this.stopFlameSound(towerId);
-    this.lastBeamBloodEffect.delete(towerId);
   }
 
   /**

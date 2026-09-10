@@ -172,16 +172,16 @@ describe('TowerCombatService', () => {
       return svc as unknown as PrivateState;
     }
 
-    it('stopTowerBeam clears the per-tower blood-effect throttle entry', () => {
+    it('stopTowerBeam stops the beam and keeps the per-enemy throttle', () => {
+      // The throttle is keyed by enemy id and shared by all fire towers;
+      // selling one tower has nothing to remove from it.
       const p = priv(service);
       p.tilesEngine = { flameBeams: { stopBeam: vi.fn() } };
-      p.lastBeamBloodEffect.set('t-1', 999);
-      p.lastBeamBloodEffect.set('t-2', 888);
+      p.lastBeamBloodEffect.set('e-1', 999);
 
       service.stopTowerBeam('t-1');
-      expect(p.lastBeamBloodEffect.has('t-1')).toBe(false);
-      expect(p.lastBeamBloodEffect.has('t-2')).toBe(true);
       expect(p.tilesEngine!.flameBeams!.stopBeam).toHaveBeenCalledWith('t-1');
+      expect(p.lastBeamBloodEffect.get('e-1')).toBe(999);
     });
 
     it('stopTowerBeam tolerates a missing tilesEngine', () => {
@@ -287,6 +287,26 @@ describe('TowerCombatService', () => {
       run();
       expect(engine.flameBeams.startBeam).not.toHaveBeenCalled();
       expect(engine.flameBeams.stopBeam).toHaveBeenCalled();
+    });
+
+    it('drops the blood-throttle entry of an enemy the beam killed', () => {
+      const { run } = setup(10);
+      const svc = service as unknown as {
+        getEnemiesInCone: (...args: unknown[]) => unknown[];
+        combatEffectService: { applyBeamDamage: (e: { alive: boolean }) => void };
+        lastBeamBloodEffect: Map<string, number>;
+      };
+      // Every candidate is in the cone; the second tick is lethal.
+      let lethal = false;
+      svc.getEnemiesInCone = (...args) => args[4] as unknown[];
+      svc.combatEffectService = { applyBeamDamage: (e) => { if (lethal) e.alive = false; } };
+
+      run();
+      expect(svc.lastBeamBloodEffect.has('e-10')).toBe(true);
+
+      lethal = true;
+      run();
+      expect(svc.lastBeamBloodEffect.has('e-10')).toBe(false);
     });
   });
 
