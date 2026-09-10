@@ -1,7 +1,8 @@
-import { Component, ChangeDetectionStrategy, ElementRef, afterNextRender, inject } from '@angular/core';
+import { Component, ChangeDetectionStrategy, ElementRef, afterNextRender, computed, inject } from '@angular/core';
 import { MAT_DIALOG_DATA, MatDialog, MatDialogModule, MatDialogRef } from '@angular/material/dialog';
 import { TD_CSS_VARS, TD_SCROLLBAR_STYLES, TD_SCROLLBAR_WEBKIT } from '../../styles/td-theme';
 import { TowerTypeId } from '../../configs/tower-types.config';
+import { ResearchStore } from '../../store/research.store';
 import { TdIconComponent } from '../icon/icon.component';
 import {
   buildDamageMatrixColumns,
@@ -35,6 +36,7 @@ export function openDamageMatrixDialog(
 /**
  * Globale Übersicht aller baubaren Tower gegen alle Rüstungstypen.
  * Zellen nutzen dieselben Stufen wie die Schadenszahlen im Kampf (Farben: matrixTierColor).
+ * Gesperrte Tower zeigt die Tabelle wie das Baumenü als "???".
  */
 @Component({
   selector: 'app-damage-matrix-dialog',
@@ -66,11 +68,15 @@ export function openDamageMatrixDialog(
                 <td>{{ col.examples.join(', ') }}</td>
               }
             </tr>
-            @for (row of rows; track row.towerId) {
+            @for (row of rows(); track row.towerId) {
               <tr [class.current]="row.towerId === highlightId"
+                  [class.locked]="row.locked"
                   [attr.aria-current]="row.towerId === highlightId ? 'true' : null">
                 <th scope="row">
-                  <span class="tower-name">{{ row.name }}</span>
+                  <span class="tower-name" [attr.aria-hidden]="row.locked ? 'true' : null">{{ row.name }}</span>
+                  @if (row.locked) {
+                    <span class="sr-only">Locked tower</span>
+                  }
                   <span class="damage-type">{{ row.damageLabel }}</span>
                 </th>
                 @for (cell of row.cells; track cell.armor) {
@@ -251,6 +257,15 @@ export function openDamageMatrixDialog(
       color: var(--td-teal-light);
     }
 
+    /* Gesperrter Tower: gedimmt wie die Karte im Baumenü */
+    tr.locked > th,
+    tr.locked > td {
+      opacity: 0.55;
+    }
+    tr.locked .tower-name {
+      color: var(--td-text-muted);
+    }
+
     .cell {
       text-align: center;
       font-variant-numeric: tabular-nums;
@@ -346,10 +361,12 @@ export class DamageMatrixDialogComponent {
   private readonly dialogRef = inject(MatDialogRef<DamageMatrixDialogComponent>);
   private readonly data = inject<DamageMatrixDialogData | null>(MAT_DIALOG_DATA, { optional: true });
   private readonly host = inject<ElementRef<HTMLElement>>(ElementRef);
+  private readonly research = inject(ResearchStore);
 
   readonly titleId = TITLE_ID;
   readonly columns = buildDamageMatrixColumns();
-  readonly rows = buildDamageMatrixRows();
+  /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, deckt den Namen auf. */
+  readonly rows = computed(() => buildDamageMatrixRows((id) => this.research.isTowerUnlocked(id)));
   readonly legend = buildEffectivenessLegend();
   readonly highlightId = this.data?.towerId ?? null;
 

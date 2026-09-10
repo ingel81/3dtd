@@ -5,6 +5,7 @@ import {
   buildEffectivenessLegend,
   formatMultiplier,
   matrixTierColor,
+  LOCKED_TOWER_NAME,
   MATRIX_NORMAL_COLOR,
 } from './damage-matrix-table';
 import { ARMOR_TYPES, DAMAGE_TYPES, ArmorType, DamageMatrix, DamageType } from '../../configs/combat/combat.types';
@@ -51,6 +52,7 @@ describe('buildDamageMatrixRows', () => {
   it('labels each row with the tower name and its damage type', () => {
     for (const row of rows) {
       const tower = TOWER_TYPES[row.towerId];
+      expect(row.locked).toBe(false);
       expect(row.name).toBe(tower.name);
       expect(row.damageLabel).toBe(DAMAGE_TYPE_UI[tower.damageType].label);
     }
@@ -90,13 +92,27 @@ describe('buildDamageMatrixRows', () => {
     const matrix = flatMatrix({
       physical: { unarmored: t.devastating, light: t.strong, heavy: 1.0, fortified: t.weak - 0.01, ethereal: t.weak },
     });
-    const archer = buildDamageMatrixRows([TOWER_TYPES.archer], matrix)[0];
+    const archer = buildDamageMatrixRows(() => true, [TOWER_TYPES.archer], matrix)[0];
     expect(archer.cells.map((c) => c.effectiveness)).toEqual(['devastating', 'strong', 'normal', 'weak', 'normal']);
     expect(archer.cells[0].text).toBe(formatMultiplier(t.devastating));
     expect(archer.cells[0].tierLabel).toBe('Devastating');
     expect(archer.cells[0].color).toBe(EFFECTIVENESS_COLORS.devastating);
     expect(archer.cells[2].color).toBe(MATRIX_NORMAL_COLOR);
     expect(archer.cells[3].color).toBe(EFFECTIVENESS_COLORS.weak);
+  });
+
+  it('hides the name of locked towers like the build menu, but keeps type and values', () => {
+    const lockedRows = buildDamageMatrixRows((id) => id === 'archer');
+    for (const row of lockedRows) {
+      const tower = TOWER_TYPES[row.towerId];
+      const isArcher = row.towerId === 'archer';
+      expect(row.locked).toBe(!isArcher);
+      expect(row.name).toBe(isArcher ? tower.name : LOCKED_TOWER_NAME);
+      expect(row.damageLabel).toBe(DAMAGE_TYPE_UI[tower.damageType].label);
+      expect(row.cells.map((c) => c.multiplier)).toEqual(
+        ARMOR_TYPES.map((a) => DAMAGE_MATRIX[tower.damageType][a]),
+      );
+    }
   });
 
   it('formats multipliers like the tower tooltips', () => {
