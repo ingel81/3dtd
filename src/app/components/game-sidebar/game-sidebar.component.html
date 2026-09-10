@@ -1,65 +1,11 @@
 <aside class="td-sidebar">
   <div class="td-sidebar-content">
-    <!-- WAVE Section -->
-    <section class="td-panel td-wave-panel">
-      <div class="td-panel-header">
-        WAVE {{ displayedWaveNumber() }}
-        @if (isMixedWave()) {
-          <span class="td-mixed-badge">MIX · {{ getMixedTotalCount() }}</span>
-        }
-      </div>
-      <div class="td-panel-content td-wave-section">
-        @if (waveActive()) {
-          <div class="td-enemy-group-list">
-            @for (group of currentWaveGroups(); track group.enemyType; let i = $index) {
-              <div class="td-enemy-group-row"
-                   [tdRichTooltip]="getGroupTooltipData(group)"
-                   tdRichTooltipPosition="left">
-                <div class="td-group-preview-container">
-                  <canvas #mixedEnemyCanvas class="td-group-preview-canvas"
-                          [attr.data-group-index]="i" width="64" height="64"></canvas>
-                </div>
-                <div class="td-group-info">
-                  <div class="td-group-info-header">
-                    <span class="td-group-name">{{ group.name }}</span>
-                    <span class="td-group-count">×{{ group.count }}</span>
-                  </div>
-                  <div class="td-group-stats">
-                    <span class="td-group-stat">HP {{ group.actualHp }}</span>
-                    <span class="td-group-stat">{{ group.actualSpeed.toFixed(1) }}m/s</span>
-                  </div>
-                  <div class="td-group-armor">
-                    <span>{{ getArmorIcon(group.enemyType) }} {{ getArmorLabel(group.enemyType) }}</span>
-                    <span class="td-group-weak">{{ getArmorWeakTo(group.enemyType) }}</span>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-        }
-        <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
-                [disabled]="waveActive() || buildMode() || isGameOver()">
-          <td-icon [name]="waveActive() ? 'wave' : 'play'" [size]="16"></td-icon>
-          <span>{{ waveActive() ? 'Wave running' : 'Next Wave' }}</span>
-        </button>
-
-        <!-- Phase 5.16: Coming-Up curriculum preview -->
-        @if (upcomingWaves().length > 0) {
-          <div class="td-coming-up">
-            <div class="td-coming-up-label">COMING UP</div>
-            @for (peek of upcomingWaves(); track peek.wave) {
-              <div class="td-coming-up-row" [matTooltip]="peek.description" matTooltipPosition="left">
-                <span class="td-coming-up-wave">W{{ peek.wave }}</span>
-                <span class="td-coming-up-name">{{ peek.name }}</span>
-                @if (peek.armorIcons) {
-                  <span class="td-coming-up-icons">{{ peek.armorIcons }}</span>
-                }
-              </div>
-            }
-          </div>
-        }
-      </div>
-    </section>
+    <app-sidebar-wave-panel
+      [buildMode]="buildMode()"
+      [waveActive]="waveActive()"
+      [isGameOver]="isGameOver()"
+      (startWave)="startWave.emit()"
+    />
 
     <!-- BUILD Section (hidden when tower selected) -->
     <section class="td-panel" [class.td-hidden]="store.selectedTower()">
