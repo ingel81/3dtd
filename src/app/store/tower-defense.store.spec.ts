@@ -256,7 +256,7 @@ describe('TowerDefenseStore', () => {
     it('updateEngineStats delegates to EngineStore', () => {
       store.updateEngineStats({
         fps: 60,
-        tileStats: { parsing: 1, downloading: 2, total: 10, visible: 8 },
+        tileStats: { parsing: 1, downloading: 2, total: 10, visible: 8, cacheMB: 50 },
         activeSoundCount: 3,
         cameraHeading: 45,
       });

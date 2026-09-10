@@ -18,6 +18,8 @@ export interface PerformanceStats {
   // Memory
   geometries: number;
   textures: number;
+  /** Compiled shader programs. Climbing mid-game means programs are being rebuilt. */
+  programs: number;
   // Enemy Update Breakdown (avg ms per frame)
   enemyMove: number;
   enemyGrid: number;
@@ -47,7 +49,7 @@ export interface PerformanceStats {
 const EMPTY_STATS: PerformanceStats = {
   fps: 0, drawCalls: 0, triangles: 0,
   enemies: 0, towers: 0, projectiles: 0,
-  geometries: 0, textures: 0,
+  geometries: 0, textures: 0, programs: 0,
   enemyMove: 0, enemyGrid: 0, enemyHeight: 0, enemyRender: 0, enemyTotal: 0,
   towerUpdate: 0, projectileUpdate: 0, combatUpdate: 0, eventProcessing: 0,
   frameTime: 0, frameBudgetPct: 0, substepsPerFrame: 0,
@@ -274,6 +276,7 @@ export class PerformanceProfilerService {
       projectiles: engine.projectiles.count,
       geometries: info.memory.geometries,
       textures: info.memory.textures,
+      programs: info.programs?.length ?? 0,
       // Enemy breakdown
       enemyMove: ea.move / ef,
       enemyGrid: ea.grid / ef,
@@ -334,7 +337,7 @@ export class PerformanceProfilerService {
         `frame:${s.frameTime.toFixed(2)}ms (${s.frameBudgetPct.toFixed(0)}%) | ` +
         `bottleneck:${s.bottleneck}(${s.bottleneckMs.toFixed(2)}ms) | ` +
         `${s.towers} towers | ${s.projectiles} proj | ` +
-        `mem: ${s.geometries} geo, ${s.textures} tex`
+        `mem: ${s.geometries} geo, ${s.textures} tex, ${s.programs} programs`
       );
     }
   }

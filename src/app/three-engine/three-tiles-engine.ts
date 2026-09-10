@@ -42,6 +42,7 @@ import {
   UnloadTilesPlugin,
   GLTFExtensionsPlugin,
   ReorientationPlugin,
+  LoadRegionPlugin,
 } from '3d-tiles-renderer/plugins';
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -67,6 +68,8 @@ import { DevWorldService } from '../devworld/devworld.service';
 import { TerrainProvider } from '../interfaces/terrain-provider.interface';
 import { DevTerrainProvider } from '../devworld/dev-terrain.provider';
 import { TowerShadowMapper } from './tower-shadow-mapper';
+import { RouteCorridorRegion } from './route-corridor-region';
+import type { GeoPosition } from '../models/game.types';
 
 /**
  * Vertical tolerance (meters) around a route anchor when validating
@@ -88,6 +91,18 @@ const COLUMN_RAY_DIRECTION = new Vector3(0, -1, 0);
 
 /** Column cache granularity: 2 buckets per metre (0.5 m grid). */
 const COLUMN_CACHE_SCALE = 2;
+
+/**
+ * Route corridor load region, see {@link RouteCorridorRegion}. The half width
+ * reaches past the 7 m cell corridor; tile bounding spheres add their radius.
+ */
+const ROUTE_CORRIDOR_HALF_WIDTH = 20;
+/**
+ * Geometric error in metres the corridor refines to. The camera's 20 px budget
+ * reaches about 9 m at 400 m distance, so 5 m is one LOD step finer than what
+ * the player sees up close. Tune against the route grid's `err=` log.
+ */
+const ROUTE_CORRIDOR_ERROR_TARGET = 5;
 
 /**
  * Initial camera position for pre-computed framing
@@ -119,6 +134,7 @@ export class ThreeTilesEngine {
   private controls: GlobeControls | null = null;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
+  private routeRegions: LoadRegionPlugin | null = null;
 
   // Post-processing pipeline (composer + bloom + color grading + output pass)
   private postProcessing: PostProcessingPipeline | null = null;
@@ -138,18 +154,6 @@ export class ThreeTilesEngine {
   // Raycaster for terrain height queries
   private raycaster: Raycaster;
 
-  // Debug flag: reset when tiles are loaded so we get debug output
-  private tilesWereLoaded = false;
-  // Tile quality tracking for route protection (active only during route calculation)
-
-  /**
-   * Persistent tile-info map for per-raycast LOD lookup. Rebuilt on every
-   * tile-load-end event (debounced) so any caller of
-   * `getTerrainSampleAtLocal` gets accurate LOD info for the hit tile.
-   * Separate from the lazy `tileSceneMap` used by `startTileQualityTracking`
-   * (which is opt-in around route generation).
-   */
-  private persistentTileInfoMap: Map<Object3D, { geometricError: number, depth: number }> | null = null;
   /**
    * Lazy cache of per-tile horizontal AABB (min/max x,z). Built on demand
    * by `peekBestTileLODAtLocal` and cached for the lifetime of each tile
@@ -497,12 +501,18 @@ export class ThreeTilesEngine {
 
     // Create TilesRenderer
     this.tilesRenderer = new TilesRenderer();
+    // Let three frustum-cull tile meshes. The renderer's own culling only
+    // covers the main camera, but the route corridor keeps off-screen tiles
+    // visible and the tower LOS cubemap renders from cameras of its own.
+    this.tilesRenderer.autoDisableRendererCulling = false;
 
     // Register auth plugin based on tile provider
     if (this.tileProvider === 'google') {
       console.log('[ThreeTilesEngine] Using Google Cloud 3D Tiles (direct)');
       this.tilesRenderer.registerPlugin(
-        new GoogleCloudAuthPlugin({ apiToken: this.googleMapsApiKey })
+        // Sessions expire. Without the refresh, tiles start failing mid-game
+        // with per-tile errors, which the auth-error check below never sees.
+        new GoogleCloudAuthPlugin({ apiToken: this.googleMapsApiKey, autoRefreshToken: true })
       );
     } else {
       console.log('[ThreeTilesEngine] Using Cesium Ion 3D Tiles');
@@ -515,7 +525,9 @@ export class ThreeTilesEngine {
     }
     this.tilesRenderer.registerPlugin(new TileCompressionPlugin());
     this.tilesRenderer.registerPlugin(new UpdateOnChangePlugin());
-    this.tilesRenderer.registerPlugin(new UnloadTilesPlugin());
+    // Hidden tiles keep their GPU upload for 2 s, so turning the camera back
+    // does not re-upload what just left the view.
+    this.tilesRenderer.registerPlugin(new UnloadTilesPlugin({ delay: 2000 }));
     this.tilesRenderer.registerPlugin(new TilesFadePlugin());
     this.tilesRenderer.registerPlugin(
       new GLTFExtensionsPlugin({
@@ -534,6 +546,10 @@ export class ThreeTilesEngine {
       recenter: true,
     });
     this.tilesRenderer.registerPlugin(this.reorientationPlugin);
+
+    // Keeps the enemy route corridor at fine LOD, see setRouteCorridor().
+    this.routeRegions = new LoadRegionPlugin();
+    this.tilesRenderer.registerPlugin(this.routeRegions);
 
     // Important: rotate tiles group so Y is up (default is Z-up)
     this.tilesRenderer.group.rotation.x = -Math.PI / 2;
@@ -554,23 +570,32 @@ export class ThreeTilesEngine {
     this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
     this.tilesRenderer.setCamera(this.camera);
 
-    // === STREAMING BUDGET (all values below the library defaults) ===
+    // === STREAMING BUDGET ===
     // Max screen-space error in px before a tile is refined. Higher = coarser.
-    // Lib default is 16, so we run slightly below default detail.
+    // Lib default is 16. GoogleCloudAuthPlugin sets 20 on its own; this keeps
+    // the Cesium path on the same budget.
     this.tilesRenderer.errorTarget = 20;
+    // Distant tiles refine less, fog-style (Cesium's dynamic screen-space
+    // error). Takes up to 24 px off the error: about 5 px at 2 km, 15 px at
+    // 4 km, 21 px at 6 km. Only bites when the camera tilts towards the
+    // horizon; load regions are exempt. Experimental in the library.
+    this.tilesRenderer.errorFalloff = 24;
+    this.tilesRenderer.errorFalloffDensity = 2.5e-4;
 
-    // Lib defaults: 6 downloads per server origin, 5 parses. Google serves all
+    // Lib defaults: 25 downloads per server origin, 5 parses. Google serves all
     // tiles from one origin, so the per-origin cap is the global cap. Parsing is
     // async but finalization lands on the main thread, so one at a time keeps
     // frame times flat.
     this.tilesRenderer.downloadQueue.maxJobsPerOrigin = 4;
     this.tilesRenderer.parseQueue.maxJobs = 1;
 
-    // Lib defaults: 6000/8000 items, plus a 0.3-0.4 GB byte cap that usually
-    // hits first on photorealistic tiles. TODO: intent here was "cache more",
-    // but these values cache less - verify against VRAM before changing.
-    this.tilesRenderer.lruCache.minSize = 1000;
-    this.tilesRenderer.lruCache.maxSize = 2000;
+    // Item caps stay at the lib defaults (6000/8000); on photorealistic tiles
+    // the byte cap binds first. Raised from 0.3/0.4 GiB so the route corridor
+    // does not crowd out the view; the info overlay shows the cache size.
+    // Every TilesRenderer shares this cache module-wide, which is fine with
+    // the one engine per page we run.
+    this.tilesRenderer.lruCache.minBytesSize = 0.5 * 2 ** 30;
+    this.tilesRenderer.lruCache.maxBytesSize = 0.7 * 2 ** 30;
 
     // Listen for tile loading events to refresh terrain heights
     // 'tiles-load-end' fires when ALL currently visible tiles have finished loading
@@ -661,7 +686,6 @@ export class ThreeTilesEngine {
 
     // Mark as loaded immediately (no async tile loading in DevWorld)
     this.firstTilesLoaded = true;
-    this.tilesWereLoaded = true;
 
     // Trigger first tiles loaded callback
     if (this.onFirstTilesLoadedCallback) {
@@ -764,15 +788,11 @@ export class ThreeTilesEngine {
       if (!this.firstTilesLoaded) {
         if (freshOriginHeight !== null) {
           this.firstTilesLoaded = true;
-          // Build the persistent tile-info map for the first time so any
-          // detailed terrain raycast right after this can attach LOD info.
-          this.rebuildPersistentTileInfoMap();
           if (this.onFirstTilesLoadedCallback) {
             this.onFirstTilesLoadedCallback();
           }
         } else if (stats.visible >= MIN_VISIBLE_TILES) {
           this.firstTilesLoaded = true;
-          this.rebuildPersistentTileInfoMap();
           if (this.onFirstTilesLoadedCallback) {
             this.onFirstTilesLoadedCallback();
           }
@@ -797,8 +817,7 @@ export class ThreeTilesEngine {
 
       // Bumps `lodVersion`, which is what invalidates individual column
       // samples, no global cache clear needed.
-      this.rebuildPersistentTileInfoMap();
-      const tRebuildMap = performance.now();
+      this.markTileSetChanged();
 
       this.towerShadowMapper?.invalidate();
       const tShadowInvalidate = performance.now();
@@ -808,8 +827,7 @@ export class ThreeTilesEngine {
         const tEnd = performance.now();
         console.warn(
           `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
-          `rebuildTileMap=${(tRebuildMap - tPre0).toFixed(1)} ` +
-          `shadowInvalidate=${(tShadowInvalidate - tRebuildMap).toFixed(1)} ` +
+          `shadowInvalidate=${(tShadowInvalidate - tPre0).toFixed(1)} ` +
           `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
           `(lodVersion=${this.lodVersion})`
         );
@@ -818,8 +836,9 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Retry checking for first tiles when tiles-load-end fired but meshes weren't ready.
-   * This handles the race condition where 3DTilesRenderer fires event before meshes are in scene.
+   * Retry checking for first tiles when tiles-load-end fired but the origin
+   * column still has no ground: water or a mesh gap at (0,0), or tiles still
+   * refining in after the debounce.
    */
   private scheduleFirstTilesRetry(): void {
     // Clear any existing retry timer
@@ -1113,6 +1132,9 @@ export class ThreeTilesEngine {
   setOrigin(lat: number, lon: number, height = 0): void {
     this.sync.setOrigin(lat, lon, height);
 
+    // The corridor was built in the old group frame; the new routes rebuild it.
+    this.routeRegions?.clearRegions();
+
     // Update ReorientationPlugin
     if (this.reorientationPlugin && this.tilesRenderer) {
       this.reorientationPlugin.transformLatLonHeightToOrigin(
@@ -1141,7 +1163,6 @@ export class ThreeTilesEngine {
       clearTimeout(this.firstTilesRetryTimer);
       this.firstTilesRetryTimer = null;
     }
-    this.tilesWereLoaded = false;
     this.tilesLoadedForRaycast = false;
 
     // CRITICAL: Reset tiles position tracking - otherwise overlay delta calculation
@@ -1336,17 +1357,8 @@ export class ThreeTilesEngine {
 
   /** Uncached ray + LOD resolution behind {@link sampleColumn}. */
   private raycastColumn(localX: number, localZ: number): ColumnSample | null {
-    if (!this.tilesRenderer) return null;
-
-    // Check if tiles are loaded (only on first call)
-    if (!this.tilesWereLoaded) {
-      let meshCount = 0;
-      this.tilesRenderer.group.traverse((obj) => {
-        if ((obj as Mesh).isMesh) meshCount++;
-      });
-      if (meshCount === 0) return null;
-      this.tilesWereLoaded = true;
-    }
+    // The ray only ever hits active tiles.
+    if (!this.tilesRenderer || this.tilesRenderer.activeTiles.size === 0) return null;
 
     this._columnRayOrigin.set(localX, 10000, localZ);
     this.terrainRaycaster.set(this._columnRayOrigin, COLUMN_RAY_DIRECTION);
@@ -1358,11 +1370,13 @@ export class ThreeTilesEngine {
 
     this._columnHits.length = 0;
     for (const r of this._columnResults) {
-      const info = this.getTileInfoForObject(r.object);
+      // Every object in a tile's scene carries its tile. Hits always come from
+      // tilesRenderer.raycast, so this is always a tile mesh.
+      const tile = r.object.userData['tile'] as ActiveTile | undefined;
       this._columnHits.push({
         y: r.point.y,
-        depth: info?.depth ?? 0,
-        geometricError: info?.geometricError ?? Infinity,
+        depth: tile?.internal?.depth ?? 0,
+        geometricError: tile?.geometricError ?? Infinity,
       });
     }
 
@@ -1386,55 +1400,32 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Rebuild the persistent tile-info map. Called on every settled
-   * tile-load-end. Cheap (one iteration over the active tile set) and it is
-   * what bumps {@link lodVersion}, which in turn invalidates cached column
-   * samples one entry at a time instead of by a global cache wipe.
-   *
-   * Built from `activeTiles`, NOT `forEachLoadedModel`: the latter also
-   * yields LRU-cached tiles that are loaded but not part of the current
-   * refinement, and those are invisible to the raycast
-   * (`TilesRenderer.raycast` walks the active traversal only). Reporting
-   * their LOD made the peek promise a quality the ray could never deliver, * cells were re-sampled for nothing and then accepted the coarse hit.
+   * Called on every settled tile-load-end. Bumps {@link lodVersion}, which
+   * invalidates cached column samples one entry at a time instead of by a
+   * global cache wipe, and drops the lazily computed tile AABBs.
    */
-  rebuildPersistentTileInfoMap(): void {
-    if (!this.tilesRenderer) {
-      this.persistentTileInfoMap = null;
-      return;
-    }
-    const map = new Map<Object3D, { geometricError: number, depth: number }>();
-    // `tile.internal.depth` is the 3d-tiles-renderer tile depth. It was named
-    // `tile.__depth` until the 0.4.20+ internal tile-data refactor (which also
-    // renamed `tile.cached` → `tile.engineData`, `tile.__used` → `tile.traversal`).
-    for (const tile of this.tilesRenderer.activeTiles as Set<ActiveTile>) {
-      const scene = tile.engineData?.scene;
-      if (!scene) continue;
-      map.set(scene, {
-        geometricError: tile.geometricError ?? Infinity,
-        depth: tile.internal?.depth ?? 0,
-      });
-    }
-    this.persistentTileInfoMap = map;
-
-    // Tile churn invalidates the lazily-computed AABBs, and a new version
-    // marks every cached column sample as "verify against the new LOD".
+  private markTileSetChanged(): void {
     this.tileBoundsCache = new WeakMap();
     this.lodVersion++;
   }
 
   /**
-   * Tile-LOD peek WITHOUT raycast. Walks the persistent tile-info map and
-   * returns the best (deepest / lowest geometricError) tile whose horizontal
-   * AABB contains the local (x,z). Used by the route-grid to skip stable
-   * cells whose Tile-LOD hasn't improved since the last sample, eliminates
-   * the per-cell raycast cost in the post-tile-load full-sweep.
+   * Tile-LOD peek WITHOUT raycast. Walks the active tiles and returns the best
+   * (deepest / lowest geometricError) tile whose horizontal AABB contains the
+   * local (x,z). Used by the route-grid to skip stable cells whose Tile-LOD
+   * hasn't improved since the last sample, eliminates the per-cell raycast
+   * cost in the post-tile-load full-sweep.
    *
-   * Returns `null` when:
-   *  - tile info map not yet built (first frame)
-   *  - no loaded tile horizontally contains (x,z)
+   * Reads `activeTiles`, NOT `forEachLoadedModel`: the latter also yields
+   * LRU-cached tiles that are loaded but not part of the current refinement,
+   * and those are invisible to the raycast (`TilesRenderer.raycast` walks the
+   * active traversal only). Reporting their LOD made the peek promise a
+   * quality the ray could never deliver.
    *
-   * Cost: O(loaded tiles), typically ~50-200. AABB computed lazily on first
-   * touch per scene and cached in `tileBoundsCache` until the scene unloads.
+   * Returns `null` when no active tile horizontally contains (x,z).
+   *
+   * Cost: O(active tiles). AABB computed lazily on first touch per scene and
+   * cached in `tileBoundsCache` until the next tile-set change.
    */
   peekBestTileLODAtLocal(localX: number, localZ: number): { depth: number; geometricError: number } | null {
     if (this.devTerrainProvider) {
@@ -1442,13 +1433,13 @@ export class ThreeTilesEngine {
       // route-grid never re-raycasts stable cells in dev mode.
       return { depth: 99, geometricError: 0 };
     }
-    if (!this.persistentTileInfoMap) return null;
+    if (!this.tilesRenderer) return null;
 
     // Bounds are world-space, so they are only valid while the tiles group
-    // sits where it did when they were taken. The group re-centres as the
-    // camera travels; without this check the cache would quietly answer for
-    // the wrong patch of ground.
-    if (this.tilesRenderer && !this.tilesRenderer.group.position.equals(this.boundsCacheGroupPos)) {
+    // sits where it did when they were taken. The group moves when the root
+    // tileset loads and on every origin change; without this check the cache
+    // would quietly answer for the wrong patch of ground.
+    if (!this.tilesRenderer.group.position.equals(this.boundsCacheGroupPos)) {
       this.tileBoundsCache = new WeakMap();
       this.boundsCacheGroupPos.copy(this.tilesRenderer.group.position);
     }
@@ -1456,7 +1447,9 @@ export class ThreeTilesEngine {
     let bestDepth = -1;
     let bestErr = Infinity;
     let any = false;
-    for (const [scene, info] of this.persistentTileInfoMap.entries()) {
+    for (const tile of this.tilesRenderer.activeTiles as Set<ActiveTile>) {
+      const scene = tile.engineData?.scene;
+      if (!scene) continue;
       let bounds = this.tileBoundsCache.get(scene);
       if (!bounds) {
         // `setFromObject` reads matrixWorld. Touching a scene before the
@@ -1478,27 +1471,35 @@ export class ThreeTilesEngine {
       if (localZ < bounds.minZ || localZ > bounds.maxZ) continue;
       any = true;
       // "Better" = strictly deeper depth, or same depth + lower geom-error.
-      if (info.depth > bestDepth || (info.depth === bestDepth && info.geometricError < bestErr)) {
-        bestDepth = info.depth;
-        bestErr = info.geometricError;
+      const depth = tile.internal?.depth ?? 0;
+      const err = tile.geometricError ?? Infinity;
+      if (depth > bestDepth || (depth === bestDepth && err < bestErr)) {
+        bestDepth = depth;
+        bestErr = err;
       }
     }
     return any ? { depth: bestDepth, geometricError: bestErr } : null;
   }
 
   /**
-   * Resolve tile LOD info for a raycast hit. Walks up the hit object's
-   * parent chain until it finds a node in `persistentTileInfoMap`.
-   * Returns null if the map is not built or the hit doesn't belong to
-   * any tracked tile (e.g. non-tile geometry).
+   * Keep the enemy route corridor loaded at fine LOD, wherever the camera
+   * looks. Without it, route cells outside the view had no tiles to sample
+   * and cells seen from afar were baked from coarse ones. Call whenever the
+   * routes change; an origin change drops the corridor.
    */
-  private getTileInfoForObject(obj: Object3D | null): { geometricError: number; depth: number } | null {
-    if (!this.persistentTileInfoMap) return null;
-    let cursor: Object3D | null = obj;
-    while (cursor && !this.persistentTileInfoMap.has(cursor)) {
-      cursor = cursor.parent;
-    }
-    return cursor ? this.persistentTileInfoMap.get(cursor) ?? null : null;
+  setRouteCorridor(routes: GeoPosition[][]): void {
+    if (!this.tilesRenderer || !this.routeRegions) return;
+    const group = this.tilesRenderer.group;
+    group.updateMatrixWorld();
+    const localRoutes = routes.map((route) =>
+      route.map((p) => this.sync.geoToLocalSimple(p.lat, p.lon, p.height ?? 0)),
+    );
+    this.routeRegions.clearRegions();
+    this.routeRegions.addRegion(new RouteCorridorRegion(
+      localRoutes, group.matrixWorld, ROUTE_CORRIDOR_HALF_WIDTH, ROUTE_CORRIDOR_ERROR_TARGET,
+    ));
+    // UpdateOnChangePlugin does not notice region changes on its own.
+    this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
   }
 
 
@@ -1689,9 +1690,7 @@ export class ThreeTilesEngine {
     // init (and on the no-tiles nudge); calling them every frame was wasted work.
     this.camera.updateMatrixWorld();
 
-    // TODO: Tiles throttling was here (only update when camera moves >5m) but broke
-    // initial tile loading, tiles never loaded because update() was never called.
-    // Needs a smarter approach (e.g. always update until tiles are loaded, then throttle).
+    // UpdateOnChangePlugin skips the traversal while camera and tiles are unchanged.
     this.tilesRenderer.update();
 
     // Capture initial tiles position only when tiles have loaded (position is non-zero)
@@ -2208,7 +2207,7 @@ export class ThreeTilesEngine {
   }
 
   // Cached tile stats (updated every 500ms to avoid performance overhead)
-  private cachedTileStats = { parsing: 0, downloading: 0, total: 0, visible: 0 };
+  private cachedTileStats = { parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 };
   private lastTileStatsUpdate = 0;
 
   /**
@@ -2216,7 +2215,7 @@ export class ThreeTilesEngine {
    * and querying download/parse queue lengths.
    * Cached and updated every 500ms for performance.
    */
-  getTileStats(): { parsing: number; downloading: number; total: number; visible: number } {
+  getTileStats(): { parsing: number; downloading: number; total: number; visible: number; cacheMB: number } {
     const now = performance.now();
     if (now - this.lastTileStatsUpdate < 500) {
       return this.cachedTileStats;
@@ -2237,6 +2236,9 @@ export class ThreeTilesEngine {
       downloading: queued + downloading,
       total: this.tilesRenderer.activeTiles.size,
       visible: this.tilesRenderer.visibleTiles.size,
+      cacheMB: Math.round(
+        (this.tilesRenderer.lruCache as unknown as { cachedBytes: number }).cachedBytes / 2 ** 20,
+      ),
     };
     this.lastTileStatsUpdate = now;
 
@@ -2327,6 +2329,7 @@ export class ThreeTilesEngine {
       this.enemies.preloadAllModels(),
       this.towers.preloadAllModels(),
     ]);
+    await this.towers.precompile(this.renderer, this.camera);
   }
 
   /**
@@ -2388,6 +2391,7 @@ export class ThreeTilesEngine {
       this.scene.remove(this.tilesRenderer.group);
       this.tilesRenderer.dispose();
       this.tilesRenderer = null;
+      this.routeRegions = null;
     }
 
     // Dispose scene contents
