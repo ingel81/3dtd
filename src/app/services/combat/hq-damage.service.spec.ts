@@ -26,7 +26,9 @@ function makeEffects() {
     stopFire: vi.fn(),
     stopFireImmediate: vi.fn(),
     spawnFireFlash: vi.fn(),
-    spawnScaledFire: vi.fn(() => 'fire-id-1'),
+    spawnScaledFire: vi.fn<(lat: number, lon: number, localY: number, scale: number) => string>(
+      () => 'fire-id-1',
+    ),
     spawnHQExplosion: vi.fn(),
     stopAllFires: vi.fn(),
     spawnDebugSphere: vi.fn(),

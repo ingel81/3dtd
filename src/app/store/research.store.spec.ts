@@ -130,7 +130,9 @@ describe('ResearchStore', () => {
     });
 
     it('adds perk IDs to unlockedPerks on global-perk', () => {
-      const effects: ResearchEffect[] = [{ kind: 'global-perk', perkId: 'income-boost' }];
+      const effects: ResearchEffect[] = [
+        { kind: 'global-perk', perkId: 'income-boost', description: 'Income boost' },
+      ];
       store.applyResearchEffects(effects);
       expect(store.unlockedPerks().has('income-boost')).toBe(true);
     });
@@ -150,7 +152,7 @@ describe('ResearchStore', () => {
     it('processes multiple effects in one call', () => {
       store.applyResearchEffects([
         { kind: 'unlock-upgrade-tier', tier: 2 },
-        { kind: 'global-perk', perkId: 'commerce' },
+        { kind: 'global-perk', perkId: 'commerce', description: 'Commerce' },
         { kind: 'enable-targeting', capability: 'air' },
       ]);
       expect(store.maxUpgradeTier()).toBe(2);

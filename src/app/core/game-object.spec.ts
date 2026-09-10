@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, type Mock } from 'vitest';
 import { GameObject } from './game-object';
 import { Component, ComponentType } from './component';
 
@@ -13,9 +13,9 @@ class TestGameObject extends GameObject {
 }
 
 class TestComponent extends Component {
-  onDestroySpy: ReturnType<typeof vi.fn>;
+  onDestroySpy: Mock<() => void>;
 
-  constructor(gameObject: GameObject, onDestroySpy = vi.fn()) {
+  constructor(gameObject: GameObject, onDestroySpy: Mock<() => void> = vi.fn()) {
     super(gameObject);
     this.onDestroySpy = onDestroySpy;
   }
