@@ -76,7 +76,7 @@ keine echte Geometrie). Funktioniert auch im Build-Preview-Mode.
    │ (textureCube)   │  │ (textureCube)   │  │ Tower-Build)       │
    │ pro Frame.      │  │ pro Frame.      │  │                    │
    │                 │  │                 │  │ → cell.towerVis +  │
-   │ 4-State /       │  │ 4-State /       │  │   cell.airVis Maps │
+   │ 2-State je Layer│  │ 2-State je Layer│  │   cell.airVis Maps │
    │ Filter-gated    │  │ Filter-gated    │  └────────┬───────────┘
    └─────────────────┘  └─────────────────┘           │
                                                       ▼
@@ -106,6 +106,45 @@ keine echte Geometrie). Funktioniert auch im Build-Preview-Mode.
 **Drei Konsumenten der Cube, drei eigene Meshes/Shader, eine geteilte
 `TowerShadowMapper`-Instanz, ein gemeinsamer Cache.** Das ist die
 finale Form.
+
+---
+
+## Farbsemantik der Cell-Plates (seit 2026-09-11)
+
+Quelle: `LOS_VIZ_CONFIG.states` in `los-viz.config.ts`. Gilt für Build-
+Preview, Selection-Viz, Aggregat und Legende.
+
+| Layer | Plate-Höhe | covered | blocked |
+|---|---|---|---|
+| Ground | `terrainHeight + cellYOffset`, sampelt `terrainHeight + 1.5 m` | grün `#5CE6A8`, α 0.45 | vermillon `#D55E00`, α 0.30 |
+| Air | `getAirTargetY(cell)` (+15 m), sampelt dieselbe Höhe | blau `#3AA0FF`, α 0.45 | vermillon `#D55E00`, α 0.30 |
+
+- Jede Plate zeigt nur die eigene Coverage. "Ground + Air" hat keine
+  eigene Farbe: an derselben Zelle liegt grün unten und blau darüber.
+- Sichtbarkeit pro Layer kommt aus `visibleLosLayers(filter,
+  canTargetGround, canTargetAir)` in `tower-los-layer-builder.ts`.
+  Pure-Ground-Tower zeigen nie den Air-Layer, Pure-Air-Tower (Rocket)
+  nie den Ground-Layer, der Per-Tower-Filter schränkt nur weiter ein.
+  Die Legende (`los-legend-entries.ts`) nutzt dieselbe Funktion.
+  Schließt der Filter den einzigen Layer des Towers aus, wird nichts
+  gerendert und die Legende zeigt "No air targeting" bzw. "No ground
+  targeting" statt eines Swatches.
+- Aggregat (`grid`/`gridAir`): dieselben Layer-Farben, statt blocked
+  das neutrale Grau `globalStates.uncovered` (kein Tower in Range).
+- Farben sind sRGB-Hex (three speichert sie linear). Beide Cell-Shader
+  enden mit `#include <colorspace_fragment>`. Ohne das landeten die
+  Werte im Default-Render-Pfad (ohne Composer) roh im Framebuffer, und
+  die Legende passte nicht zur 3D-Farbe.
+- Farbfehlsichtigkeit: Palette nach Okabe-Ito. Simuliert (Machado 2009,
+  CIEDE2000, geblendet über Asphalt, dunklen und hellen Grund): Ground
+  gegen Blocked ΔE 12 bis 18 bei Deuteranopie (alte Palette 2 bis 10),
+  Air gegen Blocked in allen Fällen über 32. Ground gegen Air ist bei
+  Tritanopie knapp (ΔE 8 bis 10), dort trennt die Plate-Höhe.
+
+**Warum:** Bis 2026-09-11 rechneten beide Plates denselben 4-State (gold
+both / grün / blau / rot) aus beiden Samples. Jede Zelle erschien dadurch
+zweimal in identischer Farbe, die in Kommentaren erwähnten Air-Stripes
+gab es nie. Playtest 2026-09-10: Boden und Air sahen genau identisch aus.
 
 ---
 
@@ -177,7 +216,7 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/three-engine/tower-shadow-mapper.ts` | Cube-Render-Engine, Move-Gate, invalidate(), Render-Version, `getFaceImageData` (Debug-Panel), API: update/getRenderTarget/getReferencePos/getFarDistance/getRenderer/getRenderVersion |
 | `src/app/utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible` — CPU-readPixels-Pfad für Combat-Cache-Fill |
 | `src/app/utils/tower-los-viz.ts` | Composite-Wrapper für Build-Preview und Selection-Viz, `getLayer()` für Debug-Panel-Picking |
-| `src/app/utils/tower-los-layer-builder.ts` | InstancedMesh + Fragment-Shader für Live-Sample, 4-state + Filter-Mode, `cells`-Array für instanceId→Cell |
+| `src/app/utils/tower-los-layer-builder.ts` | InstancedMesh + Fragment-Shader für Live-Sample, ein Material pro Layer (covered / blocked), `visibleLosLayers` (Capability + Filter), `cells`-Array für instanceId→Cell |
 | `src/app/utils/global-route-grid.ts` | `RouteCell`-Daten + `registerTower`/`Incremental` mit GPU-Cube-Resolve + `getAirTargetY` Helper + Aggregate-Mesh + `setCellsChangedListener` (promoted/refreshed Cells) |
 | `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` (private — inkrementeller LOS-Refresh für geänderte Cells) |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
@@ -185,7 +224,7 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
 | `src/app/managers/enemy.manager.ts` | Air-Enemy-Flughöhe — Skyline-Block entfernt 2026-05-14 |
 | `src/app/configs/los-viz.config.ts` | Single-Source-of-Truth-Magic-Numbers |
-| `src/app/components/los-legend/los-legend.component.ts` | Filter-gated Legende |
+| `src/app/components/los-legend/los-legend.component.ts` | Legende; Einträge aus `los-legend-entries.ts` (gleiches Gating wie der Layer-Builder) |
 | `src/app/utils/route-altitude-tubes.ts` | Air-Route-Debug-Tube |
 | `src/app/utils/los-perf.ts` | Phase-Profiler (default off) |
 | **Debug-Panel (2026-05-15)** | |
@@ -475,8 +514,8 @@ v3 hatte ursprünglich einen schwarzen Punkt im Cell-Zentrum wenn ein
 realer Blocker (`depth < 0.99`) die Sichtbarkeit killte. Mit dem
 ungelösten Air-Bug feuerte der Dot überall (jeder Air-Sample sah
 sich selbst als Blocker). Entfernt 2026-05-13. **Falls Re-Aktivierung:
-Per-State-Gating Pflicht** — Dot nur für `groundOnly` / `neither`,
-nicht für Air-States bis Air bewiesen sauber ist.
+Per-Layer-Gating Pflicht**: Dot nur auf dem Ground-Layer, nicht auf
+dem Air-Layer, bis Air bewiesen sauber ist.
 
 ### ⚠️ SACKGASSE: `scene.background` als unsichtbarer Render-Pfad (Lesson 11, der eigentliche Air-Bug)
 
@@ -583,13 +622,13 @@ zeigen ab Fix identische Cell-Sets.
 
 ### Spätere Ideen (nicht jetzt — Debug-Layer ground/air bleiben getrennt)
 
-- **"Combined View" für den Spieler-Layer** (nicht die Debug-Toggles).
-  Per-Tower-Viz mit Filter='both' und Aggregate-Gold-State auf 3.
-  Shader-Variante (Gold im Aggregat). Aktuell strikt 2-state pro
-  Layer — User kann gold-Cells im Aggregate nicht erkennen, muss
-  visuell stapeln (`grid` + `gridAir`). Erst angehen, wenn die
-  zugrunde liegenden Engine-Themen abgeräumt sind; die Debug-Layer
-  für Ground und Air sollen sauber getrennt bleiben.
+- **Both-Markierung im Aggregat** (nicht in den Debug-Toggles selbst).
+  Aktuell strikt 2-State pro Layer, "Ground + Air" sieht man nur durch
+  Stapeln (`grid` + `gridAir`). Eine eigene Both-Farbe ist seit
+  2026-09-11 auch aus der per-Tower-Viz raus (siehe Farbsemantik), weil
+  sie auf beiden Plates identisch aussah. Falls wieder gewünscht: als
+  Zusatzmarkierung, die die Layer-Farben nicht ersetzt. Die Debug-Layer
+  für Ground und Air bleiben sauber getrennt.
 
 ---
 
