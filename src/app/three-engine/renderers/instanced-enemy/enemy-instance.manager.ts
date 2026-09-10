@@ -129,6 +129,9 @@ export class EnemyInstanceManager {
    */
   private _nonWalkingCount = 0;
 
+  /** Instances with a hit-flash running, so expiry skips everyone else. */
+  private readonly flashing: EnemyInstanceState[] = [];
+
   // Reusable temp objects
   private readonly matrix = new Matrix4();
   private static readonly _tempQuat = new Quaternion();
@@ -375,16 +378,34 @@ export class EnemyInstanceManager {
 
   /**
    * Trigger a transient hit-flash on a single enemy (e.g. lightning chain hit).
-   * Overrides freeze/poison briefly, then auto-reverts in updateAnimations()
+   * Overrides freeze/poison briefly, then auto-reverts in expireHitFlashes()
    * once `durationMs` has elapsed.
    */
   triggerHitFlash(id: string, durationMs = 130): void {
     const state = this.getState(id);
     if (!state) return;
+    if (state.hitFlashEnd === 0) this.flashing.push(state);
     state.hitFlashEnd = performance.now() + durationMs;
-    const pool = this.pools.get(state.typeId);
-    if (!pool) return;
-    this.applyTint(state, pool);
+    this.applyTint(state, state.pool);
+  }
+
+  /**
+   * Revert expired hit-flash tints to the persistent one (freeze/poison/none).
+   * Once per frame, independent of the animation toggle; walks only the
+   * flashing instances, not the pools.
+   */
+  expireHitFlashes(): void {
+    if (this.flashing.length === 0) return;
+    const now = performance.now();
+    for (let i = this.flashing.length - 1; i >= 0; i--) {
+      const state = this.flashing[i];
+      if (!state.released && now < state.hitFlashEnd) continue;
+      this.flashing[i] = this.flashing[this.flashing.length - 1];
+      this.flashing.pop();
+      state.hitFlashEnd = 0;
+      // A released state's slot may already belong to another enemy.
+      if (!state.released) this.applyTint(state, state.pool);
+    }
   }
 
   /**
@@ -425,18 +446,10 @@ export class EnemyInstanceManager {
    * Update all animation frames. Called once per render frame.
    */
   updateAnimations(deltaTime: number): void {
-    const now = performance.now();
     for (const pool of this.pools.values()) {
       if (pool.instances.size === 0) continue;
 
       for (const state of pool.instances.values()) {
-        // Expire hit-flash tints: clear the flag and recompute the persistent
-        // tint (freeze/poison/none) so per-frame state stays consistent.
-        if (state.hitFlashEnd > 0 && now >= state.hitFlashEnd) {
-          state.hitFlashEnd = 0;
-          this.applyTint(state, pool);
-        }
-
         const entry = pool.vatData.animations.get(state.currentAnim);
         if (!entry) continue;
 
@@ -572,6 +585,7 @@ export class EnemyInstanceManager {
     this.enemyToType.clear();
     this.cachedAllIds = null;
     this._nonWalkingCount = 0;
+    this.flashing.length = 0;
   }
 
   /**
