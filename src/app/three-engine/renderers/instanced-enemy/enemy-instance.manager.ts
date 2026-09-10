@@ -10,6 +10,7 @@ import {
 import { VATData } from './vat-baker';
 import { createVATMaterial } from './vat-material';
 import { EnemyTypeConfig } from '../../../configs/enemy-types.config';
+import { InstanceSlotAllocator } from '../instance-slot-allocator';
 
 const MAX_INSTANCES_PER_TYPE = 20000;
 const UP = new Vector3(0, 1, 0);
@@ -60,8 +61,8 @@ export interface TypePool {
 
   // Instance management
   instances: Map<string, EnemyInstanceState>;
-  freeIndices: number[];
-  activeCount: number;
+  /** Slot free list; its activeCount is the draw count and upload length. */
+  slots: InstanceSlotAllocator;
 
   // Per-instance attributes
   animFrameAttr: InstancedBufferAttribute;
@@ -176,8 +177,7 @@ export class EnemyInstanceManager {
       vatData,
       config,
       instances: new Map(),
-      freeIndices: [],
-      activeCount: 0,
+      slots: new InstanceSlotAllocator(MAX_INSTANCES_PER_TYPE),
       animFrameAttr,
       tintColorAttr,
       opacityAttr,
@@ -187,7 +187,8 @@ export class EnemyInstanceManager {
   }
 
   /**
-   * Add an enemy instance. Returns the instance state or null if pool doesn't exist.
+   * Add an enemy instance. Returns the instance state, or null if the pool
+   * doesn't exist or all MAX_INSTANCES_PER_TYPE slots are taken.
    */
   addEnemy(
     id: string,
@@ -200,15 +201,9 @@ export class EnemyInstanceManager {
     if (pool.instances.has(id)) return pool.instances.get(id)!;
 
     // Allocate instance slot
-    let index: number;
-    if (pool.freeIndices.length > 0) {
-      index = pool.freeIndices.pop()!;
-    } else {
-      index = pool.activeCount;
-    }
-
-    pool.activeCount = Math.max(pool.activeCount, index + 1);
-    pool.instancedMesh.count = pool.activeCount;
+    const index = pool.slots.alloc();
+    if (index < 0) return null;
+    pool.instancedMesh.count = pool.slots.activeCount;
 
     // Set instance matrix
     this.setInstanceMatrix(pool, index, position, heading);
@@ -488,7 +483,7 @@ export class EnemyInstanceManager {
         // the ranges array from accumulating across frames and supersedes
         // any per-slot range addEnemy left this frame (index < activeCount).
         pool.animFrameAttr.clearUpdateRanges();
-        pool.animFrameAttr.addUpdateRange(0, pool.activeCount);
+        pool.animFrameAttr.addUpdateRange(0, pool.slots.activeCount);
         pool.animFrameAttr.needsUpdate = true;
       }
     }
@@ -506,14 +501,15 @@ export class EnemyInstanceManager {
     const state = pool.instances.get(id);
     if (!state) return;
 
-    // Hide instance
+    // Hide instance (a slot below the top stays inside the draw count)
     this.matrix.makeTranslation(0, -10000, 0);
     pool.instancedMesh.setMatrixAt(state.index, this.matrix);
     pool.instancedMesh.instanceMatrix.addUpdateRange(state.index * 16, 16);
     pool.instancedMesh.instanceMatrix.needsUpdate = true;
 
     pool.instances.delete(id);
-    pool.freeIndices.push(state.index);
+    pool.slots.release(state.index);
+    pool.instancedMesh.count = pool.slots.activeCount;
     this.enemyToType.delete(id);
     this.cachedAllIds = null;
     if (!state.isWalking) this._nonWalkingCount--;
@@ -579,8 +575,7 @@ export class EnemyInstanceManager {
       pool.instancedMesh.instanceMatrix.clearUpdateRanges();
       pool.instancedMesh.instanceMatrix.needsUpdate = true;
       pool.instances.clear();
-      pool.freeIndices = [];
-      pool.activeCount = 0;
+      pool.slots.reset();
       pool.instancedMesh.count = 0;
     }
     this.enemyToType.clear();
@@ -697,21 +692,29 @@ export class EnemyInstanceManager {
    */
   flushDirtyFlags(): void {
     for (const pool of this.pools.values()) {
-      // (0, activeCount) covers every live slot, so it supersedes any
+      // (0, activeCount) covers every drawn slot, so it supersedes any
       // per-slot ranges added since the last flush; clearing first keeps
       // the ranges array from accumulating when the renderer skips an
       // upload (e.g. mesh toggled invisible). Without a range Three.js
       // would upload the full MAX_INSTANCES_PER_TYPE-sized buffer.
+      // activeCount 0 means every slot was released since the write and
+      // nothing is drawn. No range then: bufferSubData reads a length of 0
+      // as "up to the end", so (0, 0) would upload the whole buffer.
+      const activeCount = pool.slots.activeCount;
       if (pool.matrixDirty) {
-        pool.instancedMesh.instanceMatrix.clearUpdateRanges();
-        pool.instancedMesh.instanceMatrix.addUpdateRange(0, pool.activeCount * 16);
-        pool.instancedMesh.instanceMatrix.needsUpdate = true;
+        if (activeCount > 0) {
+          pool.instancedMesh.instanceMatrix.clearUpdateRanges();
+          pool.instancedMesh.instanceMatrix.addUpdateRange(0, activeCount * 16);
+          pool.instancedMesh.instanceMatrix.needsUpdate = true;
+        }
         pool.matrixDirty = false;
       }
       if (pool.tintDirty) {
-        pool.tintColorAttr.clearUpdateRanges();
-        pool.tintColorAttr.addUpdateRange(0, pool.activeCount * 3);
-        pool.tintColorAttr.needsUpdate = true;
+        if (activeCount > 0) {
+          pool.tintColorAttr.clearUpdateRanges();
+          pool.tintColorAttr.addUpdateRange(0, activeCount * 3);
+          pool.tintColorAttr.needsUpdate = true;
+        }
         pool.tintDirty = false;
       }
     }

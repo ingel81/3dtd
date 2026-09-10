@@ -8,6 +8,7 @@ import {
   Camera,
   DoubleSide,
 } from 'three';
+import { InstanceSlotAllocator } from '../instance-slot-allocator';
 
 const MAX_HEALTH_BARS = 20000;
 
@@ -139,8 +140,7 @@ export class HealthBarInstanceManager {
   private readonly foregroundMesh: InstancedMesh;
 
   private instances = new Map<string, number>(); // enemyId → instanceIndex
-  private freeIndices: number[] = [];
-  private activeCount = 0;
+  private readonly slots = new InstanceSlotAllocator(MAX_HEALTH_BARS);
 
   // Per-instance attributes (shared between both meshes via the same geometry)
   private centerAttribute: InstancedBufferAttribute; // world center (x, y, z)
@@ -218,7 +218,8 @@ export class HealthBarInstanceManager {
 
   /**
    * Add a health bar for an enemy. Returns its slot index (the existing one
-   * if the enemy already has a bar).
+   * if the enemy already has a bar), or -1 when all MAX_HEALTH_BARS slots
+   * are taken.
    */
   add(
     enemyId: string,
@@ -232,17 +233,12 @@ export class HealthBarInstanceManager {
     const existing = this.instances.get(enemyId);
     if (existing !== undefined) return existing;
 
-    let index: number;
-    if (this.freeIndices.length > 0) {
-      index = this.freeIndices.pop()!;
-    } else {
-      index = this.activeCount;
-    }
+    const index = this.slots.alloc();
+    if (index < 0) return -1;
 
     this.instances.set(enemyId, index);
-    this.activeCount = Math.max(this.activeCount, index + 1);
-    this.instancedMesh.count = this.activeCount;
-    this.foregroundMesh.count = this.activeCount;
+    this.instancedMesh.count = this.slots.activeCount;
+    this.foregroundMesh.count = this.slots.activeCount;
 
     // Position + size
     this.hiddenFlags[index] = 0;
@@ -334,13 +330,13 @@ export class HealthBarInstanceManager {
     // Three.js would push the full MAX_HEALTH_BARS-sized buffer every frame.
     if (this.centerDirty) {
       this.centerAttribute.clearUpdateRanges();
-      this.centerAttribute.addUpdateRange(0, this.activeCount * 3);
+      this.centerAttribute.addUpdateRange(0, this.slots.activeCount * 3);
       this.centerAttribute.needsUpdate = true;
       this.centerDirty = false;
     }
     if (this.healthDirty) {
       this.healthAttribute.clearUpdateRanges();
-      this.healthAttribute.addUpdateRange(0, this.activeCount);
+      this.healthAttribute.addUpdateRange(0, this.slots.activeCount);
       this.healthAttribute.needsUpdate = true;
       this.healthDirty = false;
     }
@@ -373,7 +369,9 @@ export class HealthBarInstanceManager {
     this.sizeAttribute.needsUpdate = true;
 
     this.instances.delete(enemyId);
-    this.freeIndices.push(index);
+    this.slots.release(index);
+    this.instancedMesh.count = this.slots.activeCount;
+    this.foregroundMesh.count = this.slots.activeCount;
   }
 
   /**
@@ -390,8 +388,7 @@ export class HealthBarInstanceManager {
 
   clear(): void {
     this.instances.clear();
-    this.freeIndices = [];
-    this.activeCount = 0;
+    this.slots.reset();
     this.instancedMesh.count = 0;
     this.foregroundMesh.count = 0;
     // Reset all sizes to hidden so stale slots never reappear after reuse.

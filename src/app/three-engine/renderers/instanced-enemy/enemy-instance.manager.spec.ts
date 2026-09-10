@@ -105,6 +105,44 @@ describe('EnemyInstanceManager', () => {
     expect(b.released).toBe(true);
   });
 
+  it('shrinks the draw count and the flush range when the top slots are released', () => {
+    const a = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    manager.addEnemy('b', 'wallsmasher', new Vector3(), 0);
+    manager.addEnemy('c', 'wallsmasher', new Vector3(), 0);
+    const mesh = a.pool.instancedMesh;
+    expect(mesh.count).toBe(3);
+
+    manager.removeEnemy('b'); // a hole, c still holds the top slot
+    expect(mesh.count).toBe(3);
+    manager.removeEnemy('c'); // the top slot and the hole below it
+    expect(mesh.count).toBe(1);
+
+    manager.updateEnemyState(a, new Vector3(1, 2, 3), 0);
+    manager.flushDirtyFlags();
+    expect(mesh.instanceMatrix.updateRanges).toEqual([{ start: 0, count: 16 }]);
+
+    // The pool grows again from the top, the cut-off slots are not reused out of order.
+    expect(manager.addEnemy('d', 'wallsmasher', new Vector3(), 0)!.index).toBe(1);
+    expect(mesh.count).toBe(2);
+
+    manager.removeEnemy('a');
+    manager.removeEnemy('d');
+    expect(mesh.count).toBe(0);
+  });
+
+  it('adds no zero-length range once every slot is released', () => {
+    const a = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
+    const matrix = a.pool.instancedMesh.instanceMatrix;
+    manager.flushDirtyFlags();
+    matrix.clearUpdateRanges(); // stands in for the upload
+
+    manager.updateEnemyState(a, new Vector3(), 0);
+    manager.removeEnemy('a');
+    manager.flushDirtyFlags();
+    // Only the hide write is left; (0, 0) would make three upload the whole buffer.
+    expect(matrix.updateRanges).toEqual([{ start: 0, count: 16 }]);
+  });
+
   it('writes the matrix Matrix4.compose + setMatrixAt would, bit for bit', () => {
     const state = manager.addEnemy('a', 'wallsmasher', new Vector3(), 0)!;
     const array = state.pool.instancedMesh.instanceMatrix.array as Float32Array;
