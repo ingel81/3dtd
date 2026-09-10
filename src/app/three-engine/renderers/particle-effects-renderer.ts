@@ -1093,51 +1093,9 @@ export class ParticleEffectsRenderer {
       }
     }
 
-    // Update blood decals (fading) - INSTANCED
-    if (this.bloodDecalManager) {
-      const instances = this.bloodDecalManager.getAllInstances();
-      for (const instance of instances) {
-        if (!instance.active) continue;
-
-        const elapsed = now - instance.fadeStartTime;
-
-        if (elapsed > 0) {
-          // Calculate fade progress (0-1)
-          const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
-          const opacity = BLOOD_DECAL_CONFIG.baseOpacity * (1 - fadeProgress);
-
-          this.bloodDecalManager.updateOpacity(instance.id, opacity);
-
-          // Remove when fully faded
-          if (fadeProgress >= 1) {
-            this.bloodDecalManager.remove(instance.id);
-          }
-        }
-      }
-    }
-
-    // Update ice decals (faster fading) - INSTANCED
-    if (this.iceDecalManager) {
-      const instances = this.iceDecalManager.getAllInstances();
-      for (const instance of instances) {
-        if (!instance.active) continue;
-
-        const elapsed = now - instance.fadeStartTime;
-
-        if (elapsed > 0) {
-          // Calculate fade progress (0-1)
-          const fadeProgress = Math.min(elapsed / instance.fadeDuration, 1);
-          const opacity = ICE_DECAL_CONFIG.baseOpacity * (1 - fadeProgress);
-
-          this.iceDecalManager.updateOpacity(instance.id, opacity);
-
-          // Remove when fully faded
-          if (fadeProgress >= 1) {
-            this.iceDecalManager.remove(instance.id);
-          }
-        }
-      }
-    }
+    // Fade out blood and ice decals (idle until the first fade is due)
+    this.bloodDecalManager?.updateFades(now);
+    this.iceDecalManager?.updateFades(now);
 
     // Update trail particles - ADDITIVE pool (skip when idle)
     if (this.pools.isPoolActive('trailAdditive')) {
