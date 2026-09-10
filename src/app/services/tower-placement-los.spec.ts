@@ -237,6 +237,18 @@ describe('TowerPlacementService tower LOS refresh', () => {
     expect(staleAnswers(b)).toEqual([]);
   });
 
+  it('resolves air for a retrofitted tower with the flag the store has by then', () => {
+    const gatling = place(15, 10, 'dual-gatling');
+    expect(cellsOf(gatling).some((c) => c.airVisibility.has(gatling.id))).toBe(false);
+
+    service.scheduleLosRecompute(gatling);
+    // The store applies the unlock in a later research:completed handler.
+    researchStore.airTargetingUnlocked.set(true);
+    drainFrames();
+
+    expect(cellsOf(gatling).every((c) => c.airVisibility.has(gatling.id))).toBe(true);
+  });
+
   it('updates the standing towers when a new tower refines their cells', () => {
     const a = place(15, 10);
     fine();

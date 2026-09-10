@@ -266,6 +266,16 @@ export class TowerPlacementService {
     if (this.staleLos.size > 0) this.scheduleLosRefresh();
   }
 
+  /**
+   * recomputeTowerLOS in one of the next frames instead of right away,
+   * through the same queue as the height changes. For callers inside an
+   * event handler whose follow-up state the recompute has to see.
+   */
+  scheduleLosRecompute(tower: Tower): void {
+    if (!this.staleLos.has(tower)) this.staleLos.set(tower, new Set());
+    this.scheduleLosRefresh();
+  }
+
   updateStreetNetwork(streetNetwork: StreetNetwork): void {
     this.streetNetwork = streetNetwork;
   }

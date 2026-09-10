@@ -94,6 +94,8 @@ function createStubService(name: string): Record<string, unknown> {
       clearAllTowerOverlays: vi.fn(),
       registerTowerOnGrid: vi.fn(),
       unregisterTowerFromGrid: vi.fn(),
+      recomputeTowerLOS: vi.fn(),
+      scheduleLosRecompute: vi.fn(),
     },
     SpatialGridService: {
       updateEnemy: vi.fn(),
@@ -366,6 +368,27 @@ describe('GameStateManager', () => {
         if (tower) {
           expect(gsm.credits()).toBeLessThan(initial);
         }
+      });
+    });
+
+    describe('research:completed', () => {
+      it('queues an LOS recompute for the towers the AA retrofit gives air targeting', () => {
+        gsm.addCredits(1000);
+        const gatling = gsm.placeTower(BASE_POSITION, 'dual-gatling');
+        gsm.placeTower({ ...BASE_POSITION, lat: BASE_POSITION.lat + 0.001 }, 'archer');
+        expect(gatling).not.toBeNull();
+        const placement = mockServices['TowerPlacementService'] as Record<string, ReturnType<typeof vi.fn>>;
+
+        bus.emit({
+          type: 'research:completed',
+          researchId: 'aa-retrofit',
+          effects: [{ kind: 'enable-targeting', capability: 'air' }],
+        });
+
+        // Queued, not run in the handler: the ResearchStore only learns about
+        // the unlock in a research:completed handler subscribed after this one.
+        expect(placement['scheduleLosRecompute'].mock.calls).toEqual([[gatling]]);
+        expect(placement['recomputeTowerLOS']).not.toHaveBeenCalled();
       });
     });
 

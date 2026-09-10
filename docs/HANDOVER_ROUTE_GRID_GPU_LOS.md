@@ -274,6 +274,27 @@ Cells, deren Höhe `sampleCellY` im selben Durchlauf bewegt hat. Die
 meldet der Grid danach per cells-changed an die anderen Tower weiter;
 der gerade auflösende Tower selbst wird dabei übersprungen.
 
+### AA-Retrofit (`research:completed`)
+
+`GameStateManager` stellt die Tower, die erst durch das Research Air
+bekommen, per `scheduleLosRecompute` in dieselbe Queue (`staleLos`, ohne
+Cells). Nicht synchron: der ResearchStore setzt das Air-Flag erst im
+research:completed-Handler von `GameStateSyncService`, und der läuft nach
+dem des GSM. Ein sofortiger Recompute sah Air noch als gesperrt und löste
+keinen einzigen Air-Eintrag auf.
+
+Sonst entwertet nichts die Registrierung eines platzierten Towers (Stand
+2026-09-11): Range ändert sich nur per Range-Upgrade (beide Pfade in
+`game-commands.handler.ts` rufen `recomputeTowerRangeAfterUpgrade`),
+Position und Höhe sind ab Platzierung fest, `canTargetGround` ist
+statisch, und die übrigen Research-Effekte (`unlock-tower`,
+`unlock-upgrade-tier`, `global-perk`) berühren platzierte Tower nicht.
+Die Tower-Debug-Slider (`heightOffset`/`shootHeight`) verschieben Modell
+und den Tip des CPU-Fallbacks `hasLineOfSight`, die gecachte Grid-LOS
+aber nicht: Registrierung und Recompute lesen `TOWER_TYPES`. Ein
+Recompute nach dem Slider würde daran nichts ändern; als reines
+Tuning-Werkzeug bewusst so gelassen.
+
 ### Tile-Streaming (`onTilesLoaded`)
 
 ```

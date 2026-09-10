@@ -310,6 +310,12 @@ export class GameStateManager {
     // enforced in `findTarget` — now that it is, re-register the affected
     // towers so the grid answers for them. registerTowerIncremental only
     // samples the entries that are actually missing.
+    //
+    // Queued rather than run in this handler: recomputeTowerLOS reads the air
+    // flag from the ResearchStore, and the store learns about the unlock in
+    // GameStateSyncService's research:completed handler, which subscribes
+    // after this one. Run right here, the recompute still saw air targeting
+    // as locked and resolved no air entry at all.
     this.eventBusSubs.add(this.eventBus.on('research:completed', (event) => {
       const unlocksAir = event.effects.some(
         e => e.kind === 'enable-targeting' && e.capability === 'air',
@@ -321,7 +327,7 @@ export class GameStateManager {
         // with its final air capability.
         if (canTargetAirEffective(typeId, false)) continue;
         if (!canTargetAirEffective(typeId, true)) continue;
-        this.towerPlacement.recomputeTowerLOS(tower);
+        this.towerPlacement.scheduleLosRecompute(tower);
       }
     }));
 
