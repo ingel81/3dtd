@@ -460,6 +460,13 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   @ViewChildren('mixedEnemyCanvas') mixedEnemyCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
   private activeMixedPreviewIds: string[] = [];
 
+  /**
+   * The BUILD panel, and with it every tower preview, is `display: none`
+   * while a tower is selected (`td-hidden` in the template). Tower previews
+   * skip rendering meanwhile (see PreviewConfig.isHidden).
+   */
+  private readonly isBuildPanelHidden = (): boolean => !!this.store.selectedTower();
+
   ngAfterViewInit(): void {
     // Initialize previews after DOM is ready
     setTimeout(() => this.initPreviews(), 100);
@@ -521,6 +528,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
           cameraDistance: 20,
           cameraAngle: Math.PI / 5,
           lightIntensity: 1.2,
+          isHidden: this.isBuildPanelHidden,
         }
       );
     });
@@ -558,6 +566,7 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
         cameraDistance: 20,
         cameraAngle: Math.PI / 5,
         lightIntensity: 1.2,
+        isHidden: this.isBuildPanelHidden,
       }
     );
   }

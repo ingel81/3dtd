@@ -39,6 +39,15 @@ Nach Browser-Reload (F5) bleibt der Loading-Screen manchmal bei "Warte auf 3D-Ka
 - `downloading=0, parsing=0` → Nichts in den Download/Parse Queues
 - `sceneMeshes=60` → Andere Meshes (Tower-Models etc.) sind da
 
+> **Nachtrag 2026-09-10:** `downloading=0, parsing=0` ist kein Beleg.
+> `getTileStats()` las damals `downloadQueue.length` und `parseQueue.length`,
+> und diese Queues hatten nie ein `length`, die Werte waren also immer 0.
+> Seit dem Update auf 3d-tiles-renderer 0.5.2 kommen sie aus
+> `tilesRenderer.stats` (queued, downloading, parsing). `visible` zählt seit
+> 0.5.0 nur noch Tiles im Kamera-Frustum. 0.5.0 behebt außerdem eine
+> unbedingte Traversierung und hängende sichtbare Tiles; ob das diesen Hänger
+> betrifft, ist ungeprüft. Bei erneutem Auftreten mit den neuen Zählern messen.
+
 ### Vermutete Ursachen
 
 1. **Race-Condition bei Cesium Ion Auth**: `tiles-load-end` feuert bevor Auth abgeschlossen ist
@@ -138,7 +147,7 @@ if (stats.visible === 0 && this.cameraNudgeCount < this.MAX_CAMERA_NUDGES) {
 - `src/app/three-engine/three-tiles-engine.ts`
   - `onTilesLoadEnd()` - Hauptlogik für Tile-Loading Detection
   - `scheduleFirstTilesRetry()` - Retry-Mechanismus
-  - `getTileStats()` - Zählt Meshes in tilesRenderer.group
+  - `getTileStats()` - liest `tilesRenderer.stats`, `visibleTiles`, `activeTiles` und die Cache-Größe
 
 ### Debug-Logs (aktiv)
 ```typescript

@@ -152,13 +152,14 @@ export function createMockTilesEngine(): any {
     },
     enemies: {
       create: vi.fn(() => Promise.resolve({})),
-      update: vi.fn(),
       remove: vi.fn(),
       clear: vi.fn(),
       startWalkAnimation: vi.fn(),
       playDeathAnimation: vi.fn(),
       getSpeedMultiplier: vi.fn(() => 1.0),
-      getHeightOffset: vi.fn(() => 0),
+      nonWalkingCount: 0,
+      resolveSlot: vi.fn(() => null),
+      updateSlot: vi.fn(),
       setFreezeVisual: vi.fn(),
     },
     projectiles: {

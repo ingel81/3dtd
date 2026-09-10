@@ -922,6 +922,9 @@ export class GameStateManager {
 
     // Generate cells from routes
     const routes = this.getCachedRoutes();
+    // Fine tiles along the whole corridor, so the cells sample real ground
+    // even where the camera does not look.
+    this.tilesEngine.setRouteCorridor(routes);
     if (routes.length > 0) {
       this.globalRouteGrid.generateFromRoutes(routes);
     }

@@ -249,6 +249,11 @@ export class GlobalRouteGridService {
     return this.grid.getGroundLocalYAt(localX, localZ);
   }
 
+  /** getGroundLocalYAt() reusing the cell updateEnemyPosition() just resolved for this enemy. */
+  getGroundLocalYForEnemy(enemy: Enemy, localX: number, localZ: number): number | null {
+    return this.grid.getGroundLocalYForEnemy(enemy, localX, localZ);
+  }
+
   /**
    * Check if position is visible from tower (ground LOS)
    */

@@ -82,7 +82,7 @@ describe('Game State Flow Integration', () => {
 
   it('should handle base damage through event chain (enemy reaches base)', () => {
     // Track health:changed through events
-    let baseHealth = GAME_BALANCE.player.startHealth;
+    let baseHealth: number = GAME_BALANCE.player.startHealth;
     m.eventBus.on('enemy:reached-base', (event) => {
       baseHealth = Math.max(0, baseHealth - event.damage);
     });

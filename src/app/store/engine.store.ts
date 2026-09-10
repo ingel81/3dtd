@@ -15,7 +15,7 @@ export class EngineStore {
   readonly fps = signal<number>(0);
 
   /** Tile loading statistics */
-  readonly tileStats = signal<TileStats>({ parsing: 0, downloading: 0, total: 0, visible: 0 });
+  readonly tileStats = signal<TileStats>({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
 
   /** Active spatial audio sound count */
   readonly activeSounds = signal<number>(0);
@@ -60,7 +60,8 @@ export class EngineStore {
     const prev = this.tileStats();
     const next = snapshot.tileStats;
     if (prev.parsing !== next.parsing || prev.downloading !== next.downloading ||
-        prev.total !== next.total || prev.visible !== next.visible) {
+        prev.total !== next.total || prev.visible !== next.visible ||
+        prev.cacheMB !== next.cacheMB) {
       this.tileStats.set(next);
     }
 
@@ -91,7 +92,7 @@ export class EngineStore {
 
   resetAll(): void {
     this.fps.set(0);
-    this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0 });
+    this.tileStats.set({ parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 });
     this.activeSounds.set(0);
     this.mapAttribution.set('Map data ©2024 Google');
     this.cameraHeading.set(0);

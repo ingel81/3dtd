@@ -2,16 +2,30 @@ import { Component } from '../core/component';
 import { GameObject } from '../core/game-object';
 
 /**
+ * Receives HealthComponent's dead/alive state on every HP write. Lets an
+ * owner answer "is it dead?" from its own fields instead of loading the
+ * component. EnemyManager asks that of every enemy several times a frame.
+ */
+export interface DeathFlagSink {
+  deadFlag: boolean;
+}
+
+/**
  * HealthComponent manages HP and damage for entities
  */
 export class HealthComponent extends Component {
   private _hp: number;
   private _maxHp: number;
 
-  constructor(gameObject: GameObject, maxHp: number) {
+  constructor(
+    gameObject: GameObject,
+    maxHp: number,
+    private readonly deathSink: DeathFlagSink | null = null,
+  ) {
     super(gameObject);
     this._maxHp = maxHp;
     this._hp = maxHp;
+    this.syncDeathFlag();
   }
 
   /**
@@ -20,6 +34,7 @@ export class HealthComponent extends Component {
    */
   takeDamage(amount: number): boolean {
     this._hp = Math.max(0, this._hp - amount);
+    this.syncDeathFlag();
     return this._hp === 0;
   }
 
@@ -28,6 +43,7 @@ export class HealthComponent extends Component {
    */
   heal(amount: number): void {
     this._hp = Math.min(this._maxHp, this._hp + amount);
+    this.syncDeathFlag();
   }
 
   /**
@@ -35,6 +51,7 @@ export class HealthComponent extends Component {
    */
   setHp(hp: number): void {
     this._hp = Math.max(0, Math.min(this._maxHp, hp));
+    this.syncDeathFlag();
   }
 
   /**
@@ -43,6 +60,7 @@ export class HealthComponent extends Component {
   resetMaxHp(newMaxHp: number): void {
     this._maxHp = newMaxHp;
     this._hp = newMaxHp;
+    this.syncDeathFlag();
   }
 
   get hp(): number {
@@ -63,5 +81,10 @@ export class HealthComponent extends Component {
 
   update(_deltaTime: number): void {
     // Health doesn't need per-frame updates
+  }
+
+  /** Runs after every `_hp` write, so the sink can never disagree with `isDead`. */
+  private syncDeathFlag(): void {
+    if (this.deathSink !== null) this.deathSink.deadFlag = this._hp === 0;
   }
 }

@@ -6,7 +6,7 @@ import { TowerAction } from './tower-bot.interface';
 class TestBot extends BaseTowerBot {
   decisionCount = 0;
   constructor() {
-    super('competent', { reactionTimeMs: 400 }, 'TestBot');
+    super('strategist', { reactionTimeMs: 400 }, 'TestBot');
   }
   protected decideAction(_state: GameStateSnapshot): TowerAction | null {
     this.decisionCount++;
