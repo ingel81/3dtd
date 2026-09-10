@@ -43,6 +43,7 @@ import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
 import { CameraRig, type InitialCameraPosition } from './camera-rig';
+import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
 import { FramePacer } from '../utils/frame-pacer';
@@ -126,6 +127,8 @@ export class ThreeTilesEngine {
   private camera: PerspectiveCamera;
   // GlobeControls/EnvironmentControls + Startposition der Kamera
   private readonly cameraRig: CameraRig;
+  // First-Load-Erkennung, Debounce, Retry, Auth-Fehler, Tile-Stats
+  private readonly tileLoading: TileLoadingTracker;
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
   private routeRegions: LoadRegionPlugin | null = null;
@@ -208,10 +211,6 @@ export class ThreeTilesEngine {
   // dürfen nicht gleichzeitig aktiv sein).
   private towerShadowMapper: TowerShadowMapper | null = null;
 
-  // Event handlers (stored for cleanup in dispose)
-  private tilesLoadEndHandler = () => this.onTilesLoadEnd();
-
-
   // Overlay group for markers, streets, routes
   // Added to scene root, but synced with tiles movement each frame
   private overlayGroup: Group;
@@ -224,25 +223,6 @@ export class ThreeTilesEngine {
 
   // Callback when tiles finish loading (for terrain height refresh)
   private onTilesLoadCallback: (() => void) | null = null;
-
-  // Callback when the tile server rejects our credentials (bad/expired token).
-  // The rejection lands during initEngine(), before the caller gets the engine
-  // back to register anything, so a missed error is remembered and replayed.
-  private onAuthErrorCallback: (() => void) | null = null;
-  private authErrorSeen = false;
-  private tilesLoadDebounceTimer: ReturnType<typeof setTimeout> | null = null;
-  private firstTilesRetryTimer: ReturnType<typeof setTimeout> | null = null;
-  private firstTilesRetryCount = 0;
-  private readonly TILES_LOAD_DEBOUNCE_MS = 500; // Wait 500ms after last tile load
-  private readonly FIRST_TILES_RETRY_MS = 200; // Retry interval when meshes not ready
-  private readonly FIRST_TILES_MAX_RETRIES = 50; // Max 10 seconds of retries
-
-  // Callback when first tiles are loaded (for loading indicator)
-  private onFirstTilesLoadedCallback: (() => void) | null = null;
-  private firstTilesLoaded = false;
-  private tilesetLoadCount = 0; // Track how many tilesets have been loaded
-  private cameraNudgeCount = 0; // Track camera nudges to prevent infinite loop
-  private readonly MAX_CAMERA_NUDGES = 3;
 
   // Tiles update throttling - only update when camera moves significantly
   private lastTilesUpdateCameraPos = new Vector3();
@@ -371,6 +351,12 @@ export class ThreeTilesEngine {
 
     // Controls kommen erst in initialize() dazu, der Rig hält bis dahin nur Kamera und Canvas
     this.cameraRig = new CameraRig(this.camera, this.renderer.domElement);
+
+    // Lade-Events hängen sich erst in initialize() an den TilesRenderer
+    this.tileLoading = new TileLoadingTracker(this.camera, this.renderer, {
+      probeOriginGround: () => this.raycastTerrainHeight(0, 0),
+      onTileSetSettled: () => this.onTileSetSettled(),
+    });
 
     // Setup lighting and sky
     this.setupLighting();
@@ -567,28 +553,8 @@ export class ThreeTilesEngine {
     this.tilesRenderer.lruCache.minBytesSize = 0.5 * 2 ** 30;
     this.tilesRenderer.lruCache.maxBytesSize = 0.7 * 2 ** 30;
 
-    // Listen for tile loading events to refresh terrain heights
-    // 'tiles-load-end' fires when ALL currently visible tiles have finished loading
-    this.tilesRenderer.addEventListener('tiles-load-end', this.tilesLoadEndHandler);
-
-    // Track tileset loading count (for debugging)
-    this.tilesRenderer.addEventListener('load-tileset', () => {
-      this.tilesetLoadCount++;
-    });
-
-    // A failed credential handshake and a failed single tile arrive on the same
-    // event. The auth plugins dispatch theirs with `tile: null` (see
-    // CesiumIonAuthPlugin.loadRootTileset), which is what separates "your token
-    // is wrong" from "one tile did not come back".
-    this.tilesRenderer.addEventListener('load-error', (event: unknown) => {
-      console.error('[TilesEngine] load-error event:', event);
-
-      const tile = (event as { tile?: unknown } | null)?.tile;
-      if (tile === null) {
-        this.authErrorSeen = true;
-        this.onAuthErrorCallback?.();
-      }
-    });
+    // tiles-load-end (first load, debounce), load-tileset, load-error (auth)
+    this.tileLoading.attach(this.tilesRenderer);
 
     // Set up terrain height sampler for tower range indicators (legacy)
     this.towers.setTerrainHeightSampler((lat, lon) => this.getTerrainHeightAtGeo(lat, lon));
@@ -655,155 +621,46 @@ export class ThreeTilesEngine {
     );
 
     // Mark as loaded immediately (no async tile loading in DevWorld)
-    this.firstTilesLoaded = true;
-
-    // Trigger first tiles loaded callback
-    if (this.onFirstTilesLoadedCallback) {
-      this.onFirstTilesLoadedCallback();
-    }
+    this.tileLoading.markFirstTilesLoaded();
 
     console.log(`${LOG} DevWorld initialized with EnvironmentControls`);
   }
 
   /**
-   * Called when all visible tiles finish loading
-   * Uses debounce to avoid multiple rapid refreshes during camera movement
-   * Only triggers refresh if terrain height actually changed significantly
+   * Called by the {@link TileLoadingTracker} on every settled tiles-load-end,
+   * after its first-tiles check.
    */
-  private onTilesLoadEnd(): void {
+  private onTileSetSettled(): void {
+    // The loaded-tile set has changed, that is true on EVERY settled
+    // load-end, not only when the origin column happens to shift.
+    //
+    // This used to sit behind a 2 m height-delta gate measured at (0,0). LOD refinement anywhere else in the world
+    //, the whole enemy corridor, for instance, never moves the origin
+    // column, so the tile-info map went stale, `peekBestTileLODAtLocal`
+    // reported outdated LODs, `sampleCellY`'s skip gate then refused to
+    // re-sample, and the convergence loop spun without healing anything.
+    // The same gate also withheld the cubemap invalidation and the route
+    // refresh, which is how a route baked during the coarse phase stayed
+    // baked (enemies walking at rooftop height in dense cities).
+    const tPre0 = performance.now();
 
-    // Clear existing debounce timer
-    if (this.tilesLoadDebounceTimer) {
-      clearTimeout(this.tilesLoadDebounceTimer);
+    // Bumps `lodVersion`, which is what invalidates individual column
+    // samples, no global cache clear needed.
+    this.markTileSetChanged();
+
+    this.towerShadowMapper?.invalidate();
+    const tShadowInvalidate = performance.now();
+
+    if (this.onTilesLoadCallback) {
+      this.onTilesLoadCallback();
+      const tEnd = performance.now();
+      console.warn(
+        `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
+        `shadowInvalidate=${(tShadowInvalidate - tPre0).toFixed(1)} ` +
+        `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
+        `(lodVersion=${this.lodVersion})`
+      );
     }
-
-    // Start new debounce timer - wait for camera to settle
-    this.tilesLoadDebounceTimer = setTimeout(() => {
-      // Check if origin height changed significantly (bypass cache for this check)
-      const freshOriginHeight = this.raycastTerrainHeight(0, 0);
-      const stats = this.getTileStats();
-
-      // FIRST TILES LOADED - primarily wait for raycast success
-      // Raycast hitting terrain means tiles are loaded AND stable (not mid-LOD-transition)
-      // Fallback: 50+ visible tiles without raycast (e.g., origin over water/gap)
-      const MIN_VISIBLE_TILES = 50;
-      if (!this.firstTilesLoaded) {
-        if (freshOriginHeight !== null) {
-          this.firstTilesLoaded = true;
-          if (this.onFirstTilesLoadedCallback) {
-            this.onFirstTilesLoadedCallback();
-          }
-        } else if (stats.visible >= MIN_VISIBLE_TILES) {
-          this.firstTilesLoaded = true;
-          if (this.onFirstTilesLoadedCallback) {
-            this.onFirstTilesLoadedCallback();
-          }
-        } else {
-          // Not ready yet - schedule retry
-          this.scheduleFirstTilesRetry();
-        }
-      }
-
-      // The loaded-tile set has changed, that is true on EVERY settled
-      // load-end, not only when the origin column happens to shift.
-      //
-      // This used to sit behind a 2 m height-delta gate measured at (0,0). LOD refinement anywhere else in the world
-      //, the whole enemy corridor, for instance, never moves the origin
-      // column, so the tile-info map went stale, `peekBestTileLODAtLocal`
-      // reported outdated LODs, `sampleCellY`'s skip gate then refused to
-      // re-sample, and the convergence loop spun without healing anything.
-      // The same gate also withheld the cubemap invalidation and the route
-      // refresh, which is how a route baked during the coarse phase stayed
-      // baked (enemies walking at rooftop height in dense cities).
-      const tPre0 = performance.now();
-
-      // Bumps `lodVersion`, which is what invalidates individual column
-      // samples, no global cache clear needed.
-      this.markTileSetChanged();
-
-      this.towerShadowMapper?.invalidate();
-      const tShadowInvalidate = performance.now();
-
-      if (this.onTilesLoadCallback) {
-        this.onTilesLoadCallback();
-        const tEnd = performance.now();
-        console.warn(
-          `[PerfTrace] onTilesLoadCallback: ${(tEnd - tPre0).toFixed(1)}ms total | ` +
-          `shadowInvalidate=${(tShadowInvalidate - tPre0).toFixed(1)} ` +
-          `facadeCallback=${(tEnd - tShadowInvalidate).toFixed(1)}ms ` +
-          `(lodVersion=${this.lodVersion})`
-        );
-      }
-    }, this.TILES_LOAD_DEBOUNCE_MS);
-  }
-
-  /**
-   * Retry checking for first tiles when tiles-load-end fired but the origin
-   * column still has no ground: water or a mesh gap at (0,0), or tiles still
-   * refining in after the debounce.
-   */
-  private scheduleFirstTilesRetry(): void {
-    // Clear any existing retry timer
-    if (this.firstTilesRetryTimer) {
-      clearTimeout(this.firstTilesRetryTimer);
-    }
-
-    // Don't retry forever - but try camera nudge first
-    if (this.firstTilesRetryCount >= this.FIRST_TILES_MAX_RETRIES) {
-      const stats = this.getTileStats();
-      if (stats.visible === 0 && this.cameraNudgeCount < this.MAX_CAMERA_NUDGES) {
-        // No tiles after max retries - try forcing tile update
-        this.cameraNudgeCount++;
-        console.warn(`[TilesEngine] Max retries reached with 0 tiles - forcing update #${this.cameraNudgeCount}`);
-
-        // Force camera matrix update and tile refresh
-        this.camera.updateMatrixWorld(true);
-        if (this.tilesRenderer) {
-          this.tilesRenderer.setResolutionFromRenderer(this.camera, this.renderer);
-          this.tilesRenderer.setCamera(this.camera);
-          this.tilesRenderer.update();
-        }
-
-        // Reset retry counter and try again
-        this.firstTilesRetryCount = 0;
-        this.scheduleFirstTilesRetry();
-        return;
-      }
-      // Either some tiles loaded, or we've exhausted nudges - accept current state
-      console.warn(`[TilesEngine] Max retries reached (visible=${stats.visible}, nudges=${this.cameraNudgeCount}), marking as loaded`);
-      this.firstTilesLoaded = true;
-      if (this.onFirstTilesLoadedCallback) {
-        this.onFirstTilesLoadedCallback();
-      }
-      return;
-    }
-
-    this.firstTilesRetryCount++;
-
-    this.firstTilesRetryTimer = setTimeout(() => {
-      if (this.firstTilesLoaded) return; // Already loaded via another path
-
-      const freshOriginHeight = this.raycastTerrainHeight(0, 0);
-      const stats = this.getTileStats();
-
-      // Primarily wait for raycast success - means tiles are stable
-      // Fallback: 50+ visible tiles (e.g., origin over water/gap)
-      const MIN_VISIBLE_TILES = 50;
-      if (freshOriginHeight !== null) {
-        this.firstTilesLoaded = true;
-        if (this.onFirstTilesLoadedCallback) {
-          this.onFirstTilesLoadedCallback();
-        }
-      } else if (stats.visible >= MIN_VISIBLE_TILES) {
-        this.firstTilesLoaded = true;
-        if (this.onFirstTilesLoadedCallback) {
-          this.onFirstTilesLoadedCallback();
-        }
-      } else {
-        // Not ready yet - continue retrying
-        this.scheduleFirstTilesRetry();
-      }
-    }, this.FIRST_TILES_RETRY_MS);
   }
 
   /**
@@ -820,10 +677,9 @@ export class ThreeTilesEngine {
    * on a loading indicator that never finishes.
    */
   setOnAuthErrorCallback(callback: () => void): void {
-    this.onAuthErrorCallback = callback;
-
-    // Registration usually happens after the tileset request already failed.
-    if (this.authErrorSeen) callback();
+    // Registration usually happens after the tileset request already failed,
+    // the tracker replays a remembered error.
+    this.tileLoading.setOnAuthError(callback);
   }
 
   /**
@@ -831,11 +687,8 @@ export class ThreeTilesEngine {
    * Used by component to hide "loading tiles" indicator
    */
   setOnFirstTilesLoadedCallback(callback: () => void): void {
-    this.onFirstTilesLoadedCallback = callback;
-    // If tiles already loaded, call immediately
-    if (this.firstTilesLoaded) {
-      callback();
-    }
+    // If tiles already loaded, the tracker calls it immediately
+    this.tileLoading.setOnFirstTilesLoaded(callback);
   }
 
   /**
@@ -971,23 +824,9 @@ export class ThreeTilesEngine {
     // Clear height cache
     this.clearHeightCache();
 
-    // Cancel any pending debounce timer from previous location
-    if (this.tilesLoadDebounceTimer) {
-      clearTimeout(this.tilesLoadDebounceTimer);
-      this.tilesLoadDebounceTimer = null;
-    }
-
-    // Reset ALL tiles-related flags so everything recalculates for new location
-    this.firstTilesLoaded = false;
-    this.firstTilesRetryCount = 0;
-    this.tilesetLoadCount = 0;
-    this.authErrorSeen = false;
-    this.cameraNudgeCount = 0;
-    if (this.firstTilesRetryTimer) {
-      clearTimeout(this.firstTilesRetryTimer);
-      this.firstTilesRetryTimer = null;
-    }
-    this.tilesLoadedForRaycast = false;
+    // Cancel pending debounce/retry timers from the previous location and
+    // reset first-load, nudge and auth state
+    this.tileLoading.reset();
 
     // CRITICAL: Reset tiles position tracking - otherwise overlay delta calculation
     // will use old location's initialTilesPos and position overlays incorrectly
@@ -1008,20 +847,6 @@ export class ThreeTilesEngine {
     // (moved out of the per-frame render() path).
     this.tilesRenderer?.setResolutionFromRenderer(this.camera, this.renderer);
   }
-
-  /**
-   * Get terrain height for overlay objects at a given local X,Z position
-   * Returns the Y value in overlayGroup local coordinates
-   *
-   * With ReorientationPlugin (recenter:true), the origin is at world (0,0,0).
-   * Tiles geometry is transformed so origin point is centered.
-   * We raycast directly in this coordinate space.
-   *
-   * @param localX - X position in local coords (from geoToLocalSimple)
-   * @param localZ - Z position in local coords (from geoToLocalSimple)
-   * @returns Y position for the overlay, or null if terrain not hit
-   */
-  private tilesLoadedForRaycast = false;
 
   /**
    * Get DevTerrainProvider for wiring up street provider.
@@ -2048,43 +1873,12 @@ export class ThreeTilesEngine {
     this.cameraRig.onDragEnd = callback;
   }
 
-  // Cached tile stats (updated every 500ms to avoid performance overhead)
-  private cachedTileStats = { parsing: 0, downloading: 0, total: 0, visible: 0, cacheMB: 0 };
-  private lastTileStatsUpdate = 0;
-
   /**
-   * Get tile loading statistics by counting meshes in the tiles group
-   * and querying download/parse queue lengths.
-   * Cached and updated every 500ms for performance.
+   * Tile loading statistics: renderer counters, active and visible tiles,
+   * cache size. Cached and updated every 500ms for performance.
    */
-  getTileStats(): { parsing: number; downloading: number; total: number; visible: number; cacheMB: number } {
-    const now = performance.now();
-    if (now - this.lastTileStatsUpdate < 500) {
-      return this.cachedTileStats;
-    }
-
-    if (!this.tilesRenderer) {
-      return this.cachedTileStats;
-    }
-
-    // The renderer keeps these counters per frame, but its typings omit them.
-    const { queued, downloading, parsing } = (this.tilesRenderer as unknown as {
-      stats: { queued: number; downloading: number; parsing: number };
-    }).stats;
-
-    this.cachedTileStats = {
-      parsing,
-      // Queued tiles are still waiting on a download slot, so they count as pending.
-      downloading: queued + downloading,
-      total: this.tilesRenderer.activeTiles.size,
-      visible: this.tilesRenderer.visibleTiles.size,
-      cacheMB: Math.round(
-        (this.tilesRenderer.lruCache as unknown as { cachedBytes: number }).cachedBytes / 2 ** 20,
-      ),
-    };
-    this.lastTileStatsUpdate = now;
-
-    return this.cachedTileStats;
+  getTileStats(): TileStats {
+    return this.tileLoading.getTileStats();
   }
 
   /**
@@ -2201,9 +1995,7 @@ export class ThreeTilesEngine {
     this.devTerrainProvider?.dispose();
 
     // Remove event listeners to prevent memory leaks
-    if (this.tilesRenderer) {
-      this.tilesRenderer.removeEventListener('tiles-load-end', this.tilesLoadEndHandler);
-    }
+    this.tileLoading.dispose();
     this.cameraRig.dispose();
 
     // Dispose GPU-LOS resources

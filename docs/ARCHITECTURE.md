@@ -335,8 +335,20 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 |-------|--------------|
 | `three-tiles-engine.ts` | Haupt-Engine: Scene, Renderer, TilesRenderer, Overlays |
 | `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, Drag-Tracking, Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
+| `tile-loading-tracker.ts` | Tile-Loading-State: erster Tile-Load (Debounce 500 ms, Retry 200 ms x 50, Force-Update x 3), Auth-Fehler, Tile-Stats. Hintergrund: [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
+
+`CameraRig`, `TileLoadingTracker` und `PostProcessingPipeline` gehören dem Engine, er legt
+sie im Konstruktor an und reicht Aufrufe durch; seine öffentliche API bleibt die Fassade.
+`initialize()` bindet sie in fester Reihenfolge an den TilesRenderer: Plugins registrieren,
+Gruppe in die Szene, `cameraRig.setupGlobeControls()`, Kamera und Streaming-Budget am
+Renderer setzen, dann `tileLoading.attach()` (Listener für `tiles-load-end`, `load-tileset`,
+`load-error`). Nach jedem beruhigten `tiles-load-end` meldet der Tracker
+`onTileSetSettled()` zurück, dort invalidiert der Engine LOD-Version und LOS-Cubemap und
+ruft `onTilesLoadCallback`. `setOrigin()` ruft `tileLoading.reset()`. `dispose()` löst
+zuerst die Listener (`tileLoading.dispose()`, `cameraRig.dispose()`) und gibt danach
+Entity-Renderer, TilesRenderer, Pipeline und WebGLRenderer frei.
 
 ### Koordinatensystem (WICHTIG!)
 
@@ -1204,8 +1216,9 @@ src/app/
 │   └── game-manager.interface.ts # IGameManager
 │
 ├── three-engine/                 # Three.js Engine
-│   ├── three-tiles-engine.ts     # Haupt-Engine (Tile-Loading-State noch hier)
+│   ├── three-tiles-engine.ts     # Haupt-Engine: Scene, Renderer, TilesRenderer, Terrain-Raycasts
 │   ├── camera-rig.ts             # Controls + Startposition der Kamera (seit 2026-09-11)
+│   ├── tile-loading-tracker.ts   # Erster Tile-Load, Retry, Auth-Fehler, Tile-Stats (seit 2026-09-11)
 │   ├── ellipsoid-sync.ts         # Koordinaten
 │   ├── index.ts                  # Exports
 │   ├── post-processing/          # Bloom + Color Grading (eigene Pipeline-Klasse seit 2026-05-10)
