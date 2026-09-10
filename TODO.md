@@ -636,6 +636,28 @@
       Die drei Infos oben (Health, Gold, Wave-Nummer) sind gemessen an der
       Sidebar nicht sauber ausgerichtet, das stört im Gesamtbild.
 
+- [ ] **Deutsche Texte in der UI auf Englisch umstellen**
+      Playtest 2026-09-10: Beim Tower-Platzieren erscheinen deutsche Hinweise
+      wie „Zu nah an Route" und „Zu nah am Spawn". Fundstellen:
+      - `tower-placement.service.ts:682-717` (`validateTowerPosition`, der
+        Pfad für die Maus-Vorschau): „Ausserhalb Spielbereich", „Zu nah an
+        Basis", „Zu nah am Spawn", „Zu nah an Tower", „Zu nah an Route".
+        Direkt darunter prüft `validateTowerPositionWithHeight` (Zeile
+        732-779, nur vom Training-Client benutzt) dieselben Regeln mit
+        englischen Texten. Beim Umstellen die beiden Methoden auf eine
+        gemeinsame Prüfung zusammenlegen statt nur die Texte zu tauschen. Dort
+        steht auch noch ein `// TEMP DEBUG`-`console.warn` (Zeile 695-697).
+      - Ortsnamen: „Unbekannter Ort" (`geocoding.service.ts:267` und `:321`,
+        `location-dialog.component.ts:1000/1005`, dort als Vergleichswert, also
+        mit ändern), „Kein Ort" in `location-management.service.ts:219`, obwohl
+        der Startwert in Zeile 30 schon „No location" ist.
+      - `ai/core/decision-explainer.ts`: Begründungen des Wave-Directors
+        („Keine Anti-Air Tower …", „Welle N: … Gegner", ohne Umlaute). Landet
+        in `aiExplanation` im Game-Store, wird aber derzeit in keinem Template
+        angezeigt. Mit umstellen oder prüfen, ob der Explainer noch gebraucht
+        wird.
+      Kommentare im Code bleiben deutsch, es geht nur um sichtbare Texte.
+
 ---
 
 # BACKLOG
