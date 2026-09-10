@@ -74,4 +74,45 @@ describe('FramePacer', () => {
     expect(after.length).toBeGreaterThanOrEqual(30);
     expect(after.length).toBeLessThanOrEqual(31);
   });
+
+  // Refresh rates one to four times the cap: 60 on 60 Hz, the 30 fps cap on
+  // 60 Hz and 60 on 120 Hz, model previews at 30 fps on 90 and 120 Hz.
+  const MULTIPLES: [fps: number, hz: number][] = [[60, 60], [30, 60], [60, 120], [30, 90], [30, 120]];
+
+  it('keeps even gaps at multiples of the cap, also after stalls', () => {
+    const bad: string[] = [];
+    for (const [fps, hz] of MULTIPLES) {
+      const interval = 1000 / fps;
+      const pacer = new FramePacer(fps);
+      let start = 1000;
+      // Two seconds of frames, then again after a tile-load or GC hitch, a
+      // longer one and a tab switch.
+      for (const stallMs of [0, 70, 100, 250, 5000]) {
+        start += stallMs;
+        for (const gap of gaps(simulate(pacer, hz, hz * 2, 0.5, start))) {
+          if (Math.abs(gap - interval) > 3) bad.push(`${fps}@${hz} after ${stallMs} ms: ${gap.toFixed(1)} ms`);
+        }
+        start += 2000;
+      }
+    }
+    expect(bad).toEqual([]);
+  });
+
+  it('catches up at most one frame after a short hitch, then keeps even gaps', () => {
+    const bad: string[] = [];
+    for (const [fps, hz] of MULTIPLES) {
+      const interval = 1000 / fps;
+      const pacer = new FramePacer(fps);
+      let start = 1000;
+      simulate(pacer, hz, hz, 0.5, start);
+      // One to six dropped vsyncs, too short to count as a stall.
+      for (let dropped = 1; dropped <= 6; dropped++) {
+        start += 1000 + dropped * (1000 / hz);
+        for (const gap of gaps(simulate(pacer, hz, hz, 0.5, start)).slice(1)) {
+          if (Math.abs(gap - interval) > 3) bad.push(`${fps}@${hz} after ${dropped} dropped: ${gap.toFixed(1)} ms`);
+        }
+      }
+    }
+    expect(bad).toEqual([]);
+  });
 });
