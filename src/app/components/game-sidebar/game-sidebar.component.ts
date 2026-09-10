@@ -2,18 +2,11 @@ import {
   Component,
   input,
   output,
-  ViewChildren,
-  QueryList,
-  ElementRef,
-  AfterViewInit,
   OnDestroy,
   inject,
-  effect,
   computed,
-  DestroyRef,
   ChangeDetectionStrategy,
 } from '@angular/core';
-import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { MatDialog, MatDialogModule } from '@angular/material/dialog';
 import { MatTooltipModule } from '@angular/material/tooltip';
@@ -24,7 +17,6 @@ import {
   TowerTypeConfig,
   TowerTypeId,
   UpgradeId,
-  TOWER_TYPES,
   TargetingStrategy,
   TARGETING_STRATEGIES,
   AirSubStrategy,
@@ -35,18 +27,14 @@ import { DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
 import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
-import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
-import { TowerDebugService } from '../../services/debug/tower-debug.service';
 import { AttributionsDialogComponent } from '../attributions-dialog/attributions-dialog.component';
 import { openDamageMatrixDialog } from '../damage-matrix-dialog/damage-matrix-dialog.component';
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
-import { TdRichTooltipDirective } from '../tooltip/td-rich-tooltip.directive';
-import { TdTooltipData } from '../tooltip/tooltip-data.types';
-import { towerCardTooltip } from './sidebar-tooltips';
 import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
+import { SidebarBuildPanelComponent } from './build-panel/build-panel.component';
 
 @Component({
   selector: 'app-game-sidebar',
@@ -56,8 +44,8 @@ import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
     MatDialogModule,
     MatTooltipModule,
     TdIconComponent,
-    TdRichTooltipDirective,
     SidebarWavePanelComponent,
+    SidebarBuildPanelComponent,
   ],
   changeDetection: ChangeDetectionStrategy.OnPush,
   templateUrl: './game-sidebar.component.html',
@@ -69,25 +57,10 @@ import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
     }
   `,
 })
-export class GameSidebarComponent implements AfterViewInit, OnDestroy {
+export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
-  private readonly towerDebug = inject(TowerDebugService);
-  private readonly destroyRef = inject(DestroyRef);
-
-  constructor() {
-    // Update tower previews when debug overrides change
-    effect(() => {
-      // Track selected tower and its overrides
-      const typeId = this.towerDebug.selectedTowerId();
-      const overrides = this.towerDebug.allOverrides()[typeId];
-      // Refresh only the selected tower's preview
-      if (this.towerPreviewCanvases) {
-        this.refreshTowerPreview(typeId, overrides.previewScale);
-      }
-    });
-  }
 
   // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
@@ -120,32 +93,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   readonly allResearches = Object.values(RESEARCH_TREE);
   readonly damageTypeUI = DAMAGE_TYPE_UI;
 
-  isTowerUnlocked(towerId: TowerTypeId): boolean {
-    return this.researchStore.isTowerUnlocked(towerId);
-  }
-
-  /**
-   * Tower targets ONLY air units (e.g. Rocket). Used to give the build-menu
-   * card a distinct teal accent so the player sees the specialisation
-   * before clicking. Uses `canTargetAirEffective` so research-driven
-   * AA-retrofits flip the indicator automatically.
-   */
-  isAirOnlyTower(tower: TowerTypeConfig): boolean {
-    const air = canTargetAirEffective(tower.id, this.researchStore.airTargetingUnlocked());
-    const ground = tower.canTargetGround !== false;
-    return air && !ground;
-  }
-
-  /**
-   * Effective air-targeting capability (base config OR unlocked via research).
-   * Template uses this for the AA badge on the build-menu card so towers
-   * that get AA via aa-retrofit (currently `dual-gatling`) light up the
-   * indicator after the research completes.
-   */
-  canTowerTargetAir(tower: TowerTypeConfig): boolean {
-    return canTargetAirEffective(tower.id, this.researchStore.airTargetingUnlocked());
-  }
-
   /**
    * Resolve the td-icon name for a research node based on its current status.
    * Status icons override the per-research config; available nodes use config.
@@ -170,56 +117,6 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
   };
   damageTypeTdIcon(type: string): string {
     return GameSidebarComponent.DAMAGE_TYPE_TD_ICON[type] ?? 'sword';
-  }
-
-  getTowerLockTooltip(towerId: TowerTypeId): string {
-    const name = this.researchStore.getRequiredResearchName(towerId);
-    return name ? `Requires: ${name}` : 'Locked';
-  }
-
-  /**
-   * Tier hint for the small rune-amber diamonds in the tower-card top-left.
-   * Mirrors the research-tree progression depth, capped at 3:
-   *   T1 = starter (archer, research-center)
-   *   T2 = first unlock layer (gatling, ice, tentacle, poison)
-   *   T3 = deeper unlocks (cannon, fire, magic, rocket)
-   */
-  private static readonly TOWER_TIER: Record<TowerTypeId, number> = {
-    'archer': 1,
-    'research-center': 1,
-    'dual-gatling': 2,
-    'ice': 2,
-    'tentacle': 2,
-    'poison': 2,
-    'cannon': 3,
-    'fire': 3,
-    'magic': 3,
-    'rocket': 3,
-    'lightning': 3,
-  };
-
-  getTowerTier(towerId: TowerTypeId): number {
-    return GameSidebarComponent.TOWER_TIER[towerId] ?? 0;
-  }
-
-  /**
-   * Returns an array sized to the tier, used purely for *ngFor / @for to
-   * render the right number of diamond marks. Content is irrelevant.
-   */
-  tierMarks(towerId: TowerTypeId): unknown[] {
-    return new Array(this.getTowerTier(towerId));
-  }
-
-  /** Rich tooltip of a tower card, built in sidebar-tooltips.ts. */
-  getTowerCardTooltipData(tower: TowerTypeConfig): TdTooltipData {
-    return towerCardTooltip(tower, {
-      researchCenterPlaced: this.isResearchCenterPlaced(),
-      airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
-    });
-  }
-
-  isResearchCenterPlaced(): boolean {
-    return this.researchStore.centerPlaced();
   }
 
   getResearchStatus(id: ResearchId): 'completed' | 'active' | 'available' | 'locked' {
@@ -284,110 +181,13 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     return missing.join(', ');
   }
 
-  // Canvas refs for previews
-  @ViewChildren('towerPreviewCanvas') towerPreviewCanvases!: QueryList<ElementRef<HTMLCanvasElement>>;
-
   /**
-   * The BUILD panel, and with it every tower preview, is `display: none`
-   * while a tower is selected (`td-hidden` in the template). Tower previews
-   * skip rendering meanwhile (see PreviewConfig.isHidden).
+   * Die Panels melden ihre Previews selbst an und ab (WAVE: Gegnergruppen,
+   * BUILD: Tower-Karten). Der Service lebt so lange wie die Sidebar, ihr
+   * Abbau gibt Renderer und Modelle frei.
    */
-  private readonly isBuildPanelHidden = (): boolean => !!this.store.selectedTower();
-
-  ngAfterViewInit(): void {
-    // Initialize previews after DOM is ready
-    setTimeout(() => this.initPreviews(), 100);
-
-    // Re-initialize tower previews when the list changes
-    this.towerPreviewCanvases.changes
-      .pipe(takeUntilDestroyed(this.destroyRef))
-      .subscribe(() => {
-        setTimeout(() => this.initTowerPreviews(), 50);
-      });
-  }
-
   ngOnDestroy(): void {
     this.modelPreview.dispose();
-  }
-
-  private initPreviews(): void {
-    this.modelPreview.initialize();
-    this.initTowerPreviews();
-  }
-
-  private initTowerPreviews(): void {
-    if (!this.towerPreviewCanvases) return;
-
-    this.towerPreviewCanvases.forEach((canvasRef) => {
-      const canvas = canvasRef.nativeElement;
-      const towerId = canvas.getAttribute('data-tower-id') as TowerTypeId;
-      if (!towerId) return;
-
-      const towerConfig = TOWER_TYPES[towerId];
-      if (!towerConfig) return;
-
-      // Sync canvas resolution to actual CSS display size to avoid stretching
-      const rect = canvas.getBoundingClientRect();
-      if (rect.width > 0 && rect.height > 0) {
-        canvas.width = Math.round(rect.width * devicePixelRatio);
-        canvas.height = Math.round(rect.height * devicePixelRatio);
-      }
-
-      // Use previewScale from debug overrides for live updates
-      const overrides = this.towerDebug.allOverrides()[towerId];
-      const previewScale = overrides.previewScale;
-
-      this.modelPreview.createPreview(
-        `tower-preview-${towerId}`,
-        canvas,
-        {
-          modelUrl: towerConfig.modelUrl,
-          scale: previewScale,
-          rotationSpeed: 0.4,
-          cameraDistance: 20,
-          cameraAngle: Math.PI / 5,
-          lightIntensity: 1.2,
-          isHidden: this.isBuildPanelHidden,
-        }
-      );
-    });
-  }
-
-  /**
-   * Refresh a specific tower's preview with new scale
-   */
-  private refreshTowerPreview(towerId: TowerTypeId, previewScale: number): void {
-    if (!this.towerPreviewCanvases) return;
-
-    const canvasRef = this.towerPreviewCanvases.find((ref) =>
-      ref.nativeElement.getAttribute('data-tower-id') === towerId
-    );
-    if (!canvasRef) return;
-
-    const towerConfig = TOWER_TYPES[towerId];
-    if (!towerConfig) return;
-
-    // Sync canvas resolution to actual CSS display size
-    const canvas = canvasRef.nativeElement;
-    const rect = canvas.getBoundingClientRect();
-    if (rect.width > 0 && rect.height > 0) {
-      canvas.width = Math.round(rect.width * devicePixelRatio);
-      canvas.height = Math.round(rect.height * devicePixelRatio);
-    }
-
-    this.modelPreview.createPreview(
-      `tower-preview-${towerId}`,
-      canvas,
-      {
-        modelUrl: towerConfig.modelUrl,
-        scale: previewScale,
-        rotationSpeed: 0.4,
-        cameraDistance: 20,
-        cameraAngle: Math.PI / 5,
-        lightIntensity: 1.2,
-        isHidden: this.isBuildPanelHidden,
-      }
-    );
   }
 
   // Targeting strategy config for template
