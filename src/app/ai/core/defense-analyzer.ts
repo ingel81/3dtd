@@ -9,6 +9,7 @@
 
 import { Tower } from '../../entities/tower.entity';
 import { TowerTypeId, TOWER_TYPES } from '../../configs/tower-types.config';
+import { PROJECTILE_TYPES } from '../../configs/projectile-types.config';
 import { ArmorType, ARMOR_TYPES } from '../../configs/combat/combat.types';
 import {
   DefenseAnalysis,
@@ -34,20 +35,22 @@ const SPLASH_TARGETS_PER_SHOT = 3;
 /** Ethereal armor multiplier at which a tower counts as anti-ethereal. */
 const ANTI_ETHEREAL_MIN_MULTIPLIER = 1.0;
 
+// Splash steht nicht in dieser Tabelle, isSplashTower() leitet es aus der
+// Tower-Config ab.
 const TOWER_CAPABILITIES: Record<
   TowerTypeId,
-  { antiAir?: boolean; splash?: boolean; slow?: boolean; dot?: boolean }
+  { antiAir?: boolean; slow?: boolean; dot?: boolean }
 > = {
   archer: {},
-  cannon: { splash: true },
+  cannon: {},
   magic: { dot: true },
   'dual-gatling': {},
-  rocket: { splash: true },
+  rocket: {},
   ice: { slow: true },
-  fire: { splash: true }, // Fire Tower has cone-based splash damage
+  fire: {},
   tentacle: {}, // Melee tower — no special capabilities yet
   poison: { dot: true }, // Poison Tower applies DOT
-  lightning: { antiAir: true, splash: true }, // Chain hitscan: hits multiple targets per shot
+  lightning: { antiAir: true },
   'research-center': {}, // Passive building — no combat capabilities
 };
 
@@ -270,9 +273,11 @@ function detectCapabilities(
     if (isAntiEtherealTower(typeId)) {
       capabilities.hasAntiEthereal = true;
     }
+    if (isSplashTower(typeId)) {
+      capabilities.hasSplash = true;
+    }
 
     if (towerCaps) {
-      if (towerCaps.splash) capabilities.hasSplash = true;
       if (towerCaps.slow) capabilities.hasSlow = true;
       if (towerCaps.dot) capabilities.hasDoT = true;
     }
@@ -281,9 +286,20 @@ function detectCapabilities(
   return capabilities;
 }
 
-/** Does this tower type deal area damage? Read from the capability table. */
+/**
+ * Does this tower type deal area damage? Derived from the tower config, so the
+ * model and the game cannot disagree: a projectile with a splash radius
+ * (cannon, ice, poison), the fire cone and the lightning chain count. A
+ * hand-kept list used to call the rocket a splash tower (it has none, x3 kill
+ * throughput in the gate) and missed ice and poison.
+ */
 export function isSplashTower(typeId: TowerTypeId): boolean {
-  return TOWER_CAPABILITIES[typeId]?.splash === true;
+  const cfg = TOWER_TYPES[typeId];
+  if (!cfg) return false;
+  const attack = cfg.attackType ?? 'projectile';
+  if (attack === 'beam' || attack === 'chain') return true;
+  if (attack !== 'projectile') return false;
+  return (PROJECTILE_TYPES[cfg.projectileType]?.splashRadius ?? 0) > 0;
 }
 
 /**

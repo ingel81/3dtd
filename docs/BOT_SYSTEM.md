@@ -277,10 +277,10 @@ Welle 9 als Start, damit Forschung und Bau bis W13 fertig werden. Auswahl über
 
 ### SplashDefensePlacement — 85
 
-Aktiv bei `vulnerabilities.splashGap`, ab Welle 3. Liest Splash aus der
-Capability-Tabelle (`isSplashTower`) statt aus einem hartkodierten
-Cannon/Rocket-Paar — Fire und Lightning sind ebenfalls Flächentürme und waren
-vorher stillschweigend ausgeschlossen. Auswahl nach `getTowerValue` (roh, weil
+Aktiv bei `vulnerabilities.splashGap`, ab Welle 3. Liest Splash aus
+`isSplashTower`, das ihn aus der Tower-Config ableitet (Projektil mit
+`splashRadius`, Beam, Chain): Cannon, Ice, Poison, Fire und Lightning. Die
+Rocket hat keinen Splash und zählt nicht. Auswahl nach `getTowerValue` (roh, weil
 Splash typunabhängig wirkt).
 
 ### ResearchPick — 80
