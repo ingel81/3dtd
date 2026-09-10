@@ -60,6 +60,7 @@ describe('DamageApplicationService', () => {
   let service: DamageApplicationService;
   let towerKillsById: Record<string, { combat: { kills: number } }>;
   let killedEnemyIds: string[];
+  let dyingIds: Set<string>;
   let vfx: {
     emitHitBlood: ReturnType<typeof vi.fn>;
     emitDeathBlood: ReturnType<typeof vi.fn>;
@@ -70,6 +71,7 @@ describe('DamageApplicationService', () => {
     service = new DamageApplicationService();
     towerKillsById = {};
     killedEnemyIds = [];
+    dyingIds = new Set();
     vfx = {
       emitHitBlood: vi.fn(),
       emitDeathBlood: vi.fn(),
@@ -80,7 +82,12 @@ describe('DamageApplicationService', () => {
       getById: (id: string) => towerKillsById[id],
     };
     const enemyManager = {
-      kill: (e: { id: string }) => { killedEnemyIds.push(e.id); },
+      // Mirrors EnemyManager.kill: false for an enemy that is already dying
+      kill: (e: { id: string }) => {
+        if (dyingIds.has(e.id)) return false;
+        killedEnemyIds.push(e.id);
+        return true;
+      },
     };
 
     service.initialize(towerManager as never, enemyManager as never);
@@ -173,6 +180,15 @@ describe('DamageApplicationService', () => {
       expect(() =>
         service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, 'missing', false, false),
       ).not.toThrow();
+    });
+
+    it('credits no kill when the manager rejects it (enemy already dying)', () => {
+      const enemy = makeEnemy({ id: 'dying', hp: 1 });
+      dyingIds.add('dying');
+      towerKillsById['t-A'] = makeTower('t-A');
+      service.applyDamage(vfx as never, enemy as never, 100, 'physical' as DamageType, 't-A', false, false);
+      expect(killedEnemyIds).not.toContain('dying');
+      expect(towerKillsById['t-A'].combat.kills).toBe(0);
     });
   });
 

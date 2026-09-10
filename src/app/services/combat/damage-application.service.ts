@@ -114,7 +114,8 @@ export class DamageApplicationService {
   private killEnemy(enemy: Enemy, sourceTowerId: string): void {
     if (!this.towerManager || !this.enemyManager) return;
 
-    this.enemyManager.kill(enemy);
+    // kill() ignores an enemy that is already dying; only credit real kills
+    if (!this.enemyManager.kill(enemy)) return;
 
     // Track kill on source tower
     const sourceTower = this.towerManager.getById(sourceTowerId);
