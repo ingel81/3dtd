@@ -569,13 +569,15 @@ function onTrainingUpdate(data) {
   pushTrim(state.nnHistory.approxKl, data.approxKl);
   pushTrim(state.nnHistory.logStd, data.logStd);
 
-  // Header KPI chips
+  // Header model metrics
   const updatesEl = document.getElementById('model-updates');
   if (updatesEl) updatesEl.textContent = state.modelUpdates;
   const hEntropy = document.getElementById('header-entropy');
   if (hEntropy && data.entropy !== undefined) hEntropy.textContent = data.entropy.toFixed(2);
   const hGrad = document.getElementById('header-grad-norm');
   if (hGrad && data.gradNorm !== undefined) hGrad.textContent = data.gradNorm.toFixed(1);
+  const hKl = document.getElementById('header-kl');
+  if (hKl && data.approxKl !== undefined) hKl.textContent = data.approxKl.toFixed(3);
 
   if (state.activeTab === 'nn') updateNNCharts();
 }
@@ -1174,6 +1176,7 @@ function updateHeaderStats(stats) {
     const mm = stats.modelMetrics;
     if (mm.entropy != null) set('header-entropy', mm.entropy.toFixed(2));
     if (mm.gradNorm != null) set('header-grad-norm', mm.gradNorm.toFixed(1));
+    if (mm.approxKl != null) set('header-kl', mm.approxKl.toFixed(3));
   }
 
   // Training state → button styling
