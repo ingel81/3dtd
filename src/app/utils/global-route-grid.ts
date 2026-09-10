@@ -393,6 +393,16 @@ export class GlobalRouteGrid {
   }
 
   /**
+   * Grid index of a local coordinate. The one keying rule: cells are created
+   * with it, so every lookup has to use it as well. `Math.floor`, not `| 0`:
+   * truncation rounds negative coordinates toward zero and lands them in the
+   * neighbour cell on the origin side.
+   */
+  private cellIndex(v: number): number {
+    return Math.floor(v * this.INV_CELL_SIZE);
+  }
+
+  /**
    * The one terrain probe. Returns ground plus tile-LOD metadata for a
    * vertical column; `sampleCellY` uses the LOD for quality-versioned
    * idempotency so a coarse streaming pass can never overwrite a finer
@@ -629,8 +639,8 @@ export class GlobalRouteGrid {
    * diverge wildly from the local terrain.
    */
   private medianOfStableNeighbourY(cell: RouteCell): number | null {
-    const gx = Math.floor(cell.x * this.INV_CELL_SIZE);
-    const gz = Math.floor(cell.z * this.INV_CELL_SIZE);
+    const gx = this.cellIndex(cell.x);
+    const gz = this.cellIndex(cell.z);
     const samples: number[] = [];
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
@@ -652,8 +662,8 @@ export class GlobalRouteGrid {
    * grid doesn't pull the viz down to `routeAnchorY` (which is often 0).
    */
   estimateTerrainY(x: number, z: number): number | null {
-    const gx = Math.floor(x * this.INV_CELL_SIZE);
-    const gz = Math.floor(z * this.INV_CELL_SIZE);
+    const gx = this.cellIndex(x);
+    const gz = this.cellIndex(z);
     const samples = this._estimateScratch;
     samples.length = 0;
     // 3×3 ring around the target cell (incl. centre).
@@ -778,8 +788,8 @@ export class GlobalRouteGrid {
         if (distSq > corridorWidthSq) continue;
 
         // Create cell key (quantized to grid)
-        const cellKeyX = Math.floor(cellX / this.CELL_SIZE);
-        const cellKeyZ = Math.floor(cellZ / this.CELL_SIZE);
+        const cellKeyX = this.cellIndex(cellX);
+        const cellKeyZ = this.cellIndex(cellZ);
         const key = this.intCellKey(cellKeyX, cellKeyZ);
 
         // Skip if already processed
@@ -1143,8 +1153,9 @@ export class GlobalRouteGrid {
    * Iterate only the grid cells whose centre can lie within `range` of
    * (centerX, centerZ), using the integer cell-key index. Replaces a full
    * Map scan (O(total cells), tens of thousands) with O(cells in the
-   * bounding box). Callers still do the exact squared-distance check, so a
-   * 1-cell margin (for the floor/|0 keying discrepancy) is harmless.
+   * bounding box). Callers still do the exact squared-distance check. No
+   * margin needed: a cell's centre sits half a cell inside its own index, so
+   * a centre within range always has an index inside the floored box.
    *
    * Safe for both registerTower and registerTowerIncremental: tower range is
    * monotonic non-decreasing (range upgrades only grow; terrain-promotion
@@ -1153,10 +1164,10 @@ export class GlobalRouteGrid {
    * outside the box to clean up.
    */
   private *cellsInRange(centerX: number, centerZ: number, range: number): IterableIterator<RouteCell> {
-    const gx0 = Math.floor((centerX - range) * this.INV_CELL_SIZE) - 1;
-    const gx1 = Math.floor((centerX + range) * this.INV_CELL_SIZE) + 1;
-    const gz0 = Math.floor((centerZ - range) * this.INV_CELL_SIZE) - 1;
-    const gz1 = Math.floor((centerZ + range) * this.INV_CELL_SIZE) + 1;
+    const gx0 = this.cellIndex(centerX - range);
+    const gx1 = this.cellIndex(centerX + range);
+    const gz0 = this.cellIndex(centerZ - range);
+    const gz1 = this.cellIndex(centerZ + range);
     for (let gx = gx0; gx <= gx1; gx++) {
       for (let gz = gz0; gz <= gz1; gz++) {
         const cell = this.cells.get(this.intCellKey(gx, gz));
@@ -1342,9 +1353,7 @@ export class GlobalRouteGrid {
    * @param localZ New Z position (local coordinates)
    */
   updateEnemyPosition(enemy: Enemy, localX: number, localZ: number): void {
-    const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
-    const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
-    const newCellKey = this.intCellKey(cellKeyX, cellKeyZ);
+    const newCellKey = this.intCellKey(this.cellIndex(localX), this.cellIndex(localZ));
 
     // Same cell as this enemy's last evaluation, same generation: provably a
     // no-op, and the common case (a 2 m cell takes dozens of sub-steps to
@@ -1427,9 +1436,7 @@ export class GlobalRouteGrid {
    * @returns RouteCell or undefined if not in grid
    */
   getCellAt(localX: number, localZ: number): RouteCell | undefined {
-    const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
-    const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
-    return this.cells.get(this.intCellKey(cellKeyX, cellKeyZ));
+    return this.cells.get(this.intCellKey(this.cellIndex(localX), this.cellIndex(localZ)));
   }
 
   /**
@@ -1443,13 +1450,11 @@ export class GlobalRouteGrid {
    *   2. `estimateTerrainY` (3×3 then 5×5 median of stable neighbours).
    *   3. `null` when no stable neighbour exists at all.
    *
-   * Lookup is a single `Map.get` + 2 int casts → ~50 ns. Safe to call
+   * Lookup is a single `Map.get` + 2 floors → ~50 ns. Safe to call
    * per-frame for every enemy.
    */
   getGroundLocalYAt(localX: number, localZ: number): number | null {
-    const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
-    const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
-    const cell = this.cells.get(this.intCellKey(cellKeyX, cellKeyZ));
+    const cell = this.cells.get(this.intCellKey(this.cellIndex(localX), this.cellIndex(localZ)));
     if (cell && cell.heightSampled) return cell.terrainHeight;
     return this.estimateTerrainY(localX, localZ);
   }
@@ -1464,9 +1469,7 @@ export class GlobalRouteGrid {
    */
   getGroundLocalYForEnemy(enemy: Enemy, localX: number, localZ: number): number | null {
     if (enemy.routeCellGen === this.generation) {
-      const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
-      const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
-      if (this.intCellKey(cellKeyX, cellKeyZ) === enemy.routeCellKey) {
+      if (this.intCellKey(this.cellIndex(localX), this.cellIndex(localZ)) === enemy.routeCellKey) {
         const cell = enemy.routeCell;
         if (cell && cell.heightSampled) return cell.terrainHeight;
         return this.estimateTerrainY(localX, localZ);
@@ -1500,8 +1503,8 @@ export class GlobalRouteGrid {
 
     // Calculate cell range to check
     const cellRadius = Math.ceil(radiusMeters * this.INV_CELL_SIZE);
-    const centerCellX = (localX * this.INV_CELL_SIZE) | 0;
-    const centerCellZ = (localZ * this.INV_CELL_SIZE) | 0;
+    const centerCellX = this.cellIndex(localX);
+    const centerCellZ = this.cellIndex(localZ);
 
     // Iterate only over cells within radius
     for (let dx = -cellRadius; dx <= cellRadius; dx++) {
