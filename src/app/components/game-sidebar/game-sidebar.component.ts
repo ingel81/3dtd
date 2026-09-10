@@ -32,14 +32,12 @@ import {
   requiredUpgradeTier,
 } from '../../configs/tower-types.config';
 import { DAMAGE_TYPE_UI, ARMOR_TYPE_UI } from '../../configs/combat/combat-ui.config';
-import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
-import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
 import { RESEARCH_TREE, getResearch } from '../../configs/research/research-tree.config';
 import { ResearchConfig, ResearchId } from '../../configs/research/research.types';
 import { Tower } from '../../entities/tower.entity';
 import { canTargetAirEffective } from '../../entities/tower-targeting.util';
 import { ModelPreviewService } from '../../services/infrastructure/model-preview.service';
-import { WaveDebugService, WaveGroupDisplay } from '../../services/debug/wave-debug.service';
+import { WaveDebugService } from '../../services/debug/wave-debug.service';
 import { TowerDebugService } from '../../services/debug/tower-debug.service';
 import { EnemyDebugService } from '../../services/debug/enemy-debug.service';
 import { EnemyTypeId, ENEMY_TYPES } from '../../configs/enemy-types.config';
@@ -51,6 +49,7 @@ import { TD_CSS_VARS } from '../../styles/td-theme';
 import { TdIconComponent } from '../icon/icon.component';
 import { TdRichTooltipDirective } from '../tooltip/td-rich-tooltip.directive';
 import { TdTooltipData } from '../tooltip/tooltip-data.types';
+import { enemyGroupTooltip, towerCardTooltip } from './sidebar-tooltips';
 
 @Component({
   selector: 'app-game-sidebar',
@@ -279,115 +278,12 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     return new Array(this.getTowerTier(towerId));
   }
 
-  /**
-   * Structured tooltip payload for the tower-card rich tooltip.
-   * Matches the design refinement spec, header, stat triple, vs-armor table.
-   */
-  getTowerCardTooltipData(tower: TowerTypeConfig): TdTooltipData | null {
-    if (tower.id === 'research-center') {
-      return {
-        title: 'Research Center',
-        category: 'STRUCTURE',
-        accent: 'gold',
-        flavor: this.isResearchCenterPlaced()
-          ? 'Already placed.'
-          : 'Unlocks new towers and upgrade tiers.',
-      };
-    }
-    const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
-    const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
-    const stats = tower.attackType === 'beam'
-      ? [
-          { label: 'DPS', value: String(tower.damagePerSecond ?? 0) },
-          { label: 'TYPE', value: 'BEAM' },
-          { label: 'RANGE', value: `${tower.range}m` },
-        ]
-      : [
-          { label: 'DMG', value: String(tower.damage) },
-          { label: 'RATE', value: `${tower.fireRate}/s` },
-          { label: 'RANGE', value: `${tower.range}m` },
-        ];
-    // Armor identity colors per mockup (tmp/td-components.jsx ArmorChip).
-    // The dot color reflects the ARMOR TYPE, not the effectiveness; the dim
-    // flag (faded row) communicates "weak matchup" instead.
-    const armorColor: Record<string, string> = {
-      'unarmored': '#7DBE82',
-      'light': '#5BA4D9',
-      'heavy': '#C46B3A',
-      'fortified': '#5A6258',
-      'ethereal': '#9A78C7',
-    };
-    const armor = ARMOR_TYPES.map(a => {
-      const mul = matrix[a as ArmorType];
-      const meta = ARMOR_TYPE_UI[a as ArmorType];
-      return {
-        label: meta.label,
-        multiplier: `${mul.toFixed(2)}×`,
-        color: armorColor[a] ?? 'var(--td-text-muted)',
-        dim: mul < 0.7,
-      };
+  /** Rich tooltip of a tower card, built in sidebar-tooltips.ts. */
+  getTowerCardTooltipData(tower: TowerTypeConfig): TdTooltipData {
+    return towerCardTooltip(tower, {
+      researchCenterPlaced: this.isResearchCenterPlaced(),
+      airTargetingUnlocked: this.researchStore.airTargetingUnlocked(),
     });
-    const accentMap: Record<string, TdTooltipData['accent']> = {
-      'physical': 'gold',
-      'magic': 'teal',
-      'fire': 'fire',
-      'cold': 'cold',
-      'poison': 'poison',
-    };
-    // Targeting capability, resolved via canTargetAirEffective so the banner
-    // reflects AA-retrofit research (e.g. dual-gatling after aa-retrofit
-    // completes flips from ground-only to air-ground with a "via Research"
-    // note). Single source of truth shared with combat + AI bots.
-    const aaUnlocked = this.researchStore.airTargetingUnlocked();
-    const effectiveAir = canTargetAirEffective(tower.id, aaUnlocked);
-    const baseAir = tower.canTargetAir === true;
-    const ground = tower.canTargetGround !== false;
-    const targeting: TdTooltipData['targeting'] =
-      effectiveAir && !ground ? { mode: 'air-only' } :
-      effectiveAir && ground  ? { mode: 'air-ground', viaResearch: !baseAir } :
-                                { mode: 'ground-only' };
-    return {
-      title: tower.name,
-      category: dmgUi.label.toUpperCase(),
-      accent: accentMap[tower.damageType] ?? 'gold',
-      stats,
-      targeting,
-      armorTitle: 'vs Armor',
-      armor,
-    };
-  }
-
-  /**
-   * Phase 5.16: Legacy string-based tooltip, kept as a fallback / for places
-   * that haven't migrated to the rich tooltip directive yet.
-   */
-  getTowerCardTooltip(tower: TowerTypeConfig): string {
-    if (tower.id === 'research-center') {
-      return this.isResearchCenterPlaced()
-        ? 'Already placed'
-        : 'RESEARCH CENTER\nUnlocks new towers and upgrade tiers';
-    }
-    const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
-    const dps = tower.attackType === 'beam'
-      ? `${tower.damagePerSecond ?? 0} DPS`
-      : `${tower.damage} DMG · ${tower.fireRate}/s`;
-    const sep = '────────────────────────';
-    const lines: string[] = [
-      `${tower.name.toUpperCase()}  ·  ${dmgUi.icon} ${dmgUi.label}`,
-      sep,
-      `${dps}    RANGE ${tower.range}m`,
-      sep,
-      'VS ARMOR',
-    ];
-    const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
-    for (const armor of ARMOR_TYPES) {
-      const mul = matrix[armor as ArmorType];
-      const armorMeta = ARMOR_TYPE_UI[armor as ArmorType];
-      const symbol = mul >= 1.5 ? '✓✓' : mul >= 1.2 ? '✓ ' : mul < 0.7 ? '✗ ' : '· ';
-      const label = armorMeta.label.padEnd(10, ' ');
-      lines.push(`  ${symbol} ${armorMeta.icon} ${label} ${mul.toFixed(2)}×`);
-    }
-    return lines.join('\n');
   }
 
   isResearchCenterPlaced(): boolean {
@@ -631,61 +527,8 @@ export class GameSidebarComponent implements AfterViewInit, OnDestroy {
     return config?.armorType ? ARMOR_TYPE_UI[config.armorType].weakTo : '';
   }
 
-  /**
-   * Structured tooltip payload for the enemy-group rich tooltip.
-   * Mirrors the tower-card tooltip layout, header (name + armor category),
-   * 3-column stats (HP / SPEED / COUNT), and a "vs Damage" table sorted by
-   * effectiveness against this enemy's armor. Reuses the armor-row structure
-   * for the damage rows so both tooltips share the same visual language.
-   */
-  getGroupTooltipData(group: WaveGroupDisplay): TdTooltipData | null {
-    const enemyConfig = ENEMY_TYPES[group.enemyType];
-    if (!enemyConfig) return null;
-
-    const armor = enemyConfig.armorType as ArmorType;
-    const armorMeta = ARMOR_TYPE_UI[armor];
-
-    const stats = [
-      { label: 'HP', value: String(group.actualHp) },
-      { label: 'SPEED', value: `${group.actualSpeed.toFixed(1)}m/s` },
-      { label: 'COUNT', value: `×${group.count}` },
-    ];
-
-    const damageRows = (Object.keys(DAMAGE_MATRIX) as DamageType[])
-      .map((dt) => ({ ui: DAMAGE_TYPE_UI[dt], mul: DAMAGE_MATRIX[dt][armor] }))
-      .sort((a, b) => b.mul - a.mul)
-      .map((row) => ({
-        label: row.ui.label,
-        multiplier: `${row.mul.toFixed(2)}×`,
-        color: row.ui.color,
-        dim: row.mul < 0.7,
-      }));
-
-    const armorAccentMap: Record<ArmorType, TdTooltipData['accent']> = {
-      unarmored: 'neutral',
-      light: 'teal',
-      heavy: 'gold',
-      fortified: 'health',
-      ethereal: 'poison',
-    };
-
-    // Surface wave-scaling multipliers as flavor when they differ from 1,
-    // so the player can see why HP/speed look inflated mid-run.
-    const flavorParts: string[] = [];
-    if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
-    if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
-    const flavor = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : undefined;
-
-    return {
-      title: group.name,
-      category: armorMeta.label.toUpperCase(),
-      accent: armorAccentMap[armor] ?? 'neutral',
-      stats,
-      armorTitle: 'vs Damage',
-      armor: damageRows,
-      flavor,
-    };
-  }
+  /** Rich tooltip of an enemy group row, built in sidebar-tooltips.ts. */
+  readonly getGroupTooltipData = enemyGroupTooltip;
 
   private initMixedEnemyPreviews(): void {
     if (!this.mixedEnemyCanvases) return;
