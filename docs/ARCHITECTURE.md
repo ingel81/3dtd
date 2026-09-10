@@ -1485,8 +1485,8 @@ class GlobalRouteGrid {
   generateFromRoutes(routes: GeoPosition[][]): void;
 
   // Enemy-Tracking in Zellen
-  getEnemiesInRadius(lat: number, lon: number, radiusMeters: number, excludeId?: string): Enemy[];
-  getEnemiesInRadiusGeo(position: GeoPosition, radiusMeters: number, excludeId?: string): Enemy[];
+  getEnemiesInRadius(localX: number, localZ: number, radiusMeters: number, excludeId?: string, out?: Enemy[]): Enemy[];
+  getEnemiesInRadiusGeo(center: GeoPosition, radiusMeters: number, excludeId?: string): Enemy[];
 }
 ```
 
@@ -1510,17 +1510,23 @@ class GlobalRouteGrid {
 const material = new THREE.ShaderMaterial({
   defines: { USE_INSTANCING: '' },
   transparent: true,
-  depthTest: false,  // WICHTIG: Über 3D Tiles rendern
+  depthTest: false,  // WICHTIG: Über 3D Tiles rendern (Ground-Plate; Air-Plate: depthTest + polygonOffset)
   depthWrite: false,
   side: THREE.DoubleSide,
   // ...
 });
 ```
 
-**Farben:**
-- Grün (`vec3(0.2, 0.8, 0.4)`): Tower hat Sichtlinie
-- Rot (`vec3(0.9, 0.2, 0.2)`): Blockiert durch Terrain/Gebäude
-- Pulsing Animation: Opacity 0.6-0.8
+**Farben** (Aggregat-Mesh, Quelle `LOS_VIZ_CONFIG`; gleiche Layer-Farben wie die
+per-Tower-Viz, siehe "Farbsemantik der Cell-Plates" in
+[HANDOVER_ROUTE_GRID_GPU_LOS.md](HANDOVER_ROUTE_GRID_GPU_LOS.md)):
+- Ground-Plate (`grid`): grün `#5CE6A8` (α 0.45), wenn ein Tower die Zelle am Boden sieht
+- Air-Plate (`gridAir`, `getAirTargetY` = `terrainHeight` + 15 m): blau `#3AA0FF` (α 0.45),
+  wenn ein Tower die Air-Höhe sieht
+- Sonst grau `#9999A1` (α 0.15): kein Tower deckt die Zelle ab. Vermillon `#D55E00`
+  (in Reichweite, aber blockiert) gibt es nur in der per-Tower-Viz
+- Jede Plate zeigt nur ihre eigene Coverage, "Ground + Air" ergibt sich aus dem Stapeln
+- Alpha pulsiert leicht (Faktor 0,925 bis 1,025; `pulseSpeed` 2.0, `pulseDepth` 0.05)
 
 ---
 
