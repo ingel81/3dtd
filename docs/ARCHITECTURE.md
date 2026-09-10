@@ -556,7 +556,7 @@ abstract class GameObject {
 |-----------|--------------|
 | `TransformComponent` | Position (GeoPosition), Rotation, Scale |
 | `HealthComponent` | HP, maxHp, takeDamage(), heal() |
-| `MovementComponent` | Path-Following, speedMps, speedMultiplier, effectiveSpeed |
+| `MovementComponent` | Path-Following, speedMps, speedMultiplier, getEffectiveSpeed(gameTimeMs) |
 | `CombatComponent` | damage, range, fireRate, canFire() |
 | `RenderComponent` | Placeholder (Rendering via ThreeTilesEngine) |
 | `AudioComponent` | Sound-Verwaltung |
