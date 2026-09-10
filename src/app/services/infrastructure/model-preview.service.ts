@@ -29,6 +29,12 @@ export interface PreviewConfig {
   lightIntensity?: number;
   groundModel?: boolean; // If true, model stands on ground (y=0) instead of centered
   offsetY?: number; // Vertical offset for camera target (shifts view up/down)
+  /**
+   * Whether the host currently hides the canvas (e.g. its panel is under
+   * `display: none`). Read every frame; while true the preview keeps
+   * animating but skips the render + copy, since nothing could show it.
+   */
+  isHidden?: () => boolean;
 }
 
 interface PreviewInstance {
@@ -322,7 +328,12 @@ export class ModelPreviewService {
           preview.mixer.update(deltaTime);
         }
 
-        // Render
+        // Render, unless nothing can show it: a canvas that has left the
+        // DOM (its card re-rendered, e.g. the whole tower grid during build
+        // mode, until the next re-init destroys the preview) or one its host
+        // reports hidden. Rotation and mixer above still advance, so a
+        // preview that reappears shows the frame it would have shown anyway.
+        if (!preview.canvas.isConnected || preview.config.isHidden?.()) continue;
         this.renderPreview(preview);
       }
 

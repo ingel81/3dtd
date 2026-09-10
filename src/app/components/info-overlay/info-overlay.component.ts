@@ -37,6 +37,7 @@ import { TdIconComponent } from '../icon/icon.component';
       </div>
       @if (uiStore.infoOverlayVisible()) {
         <div class="td-info__row"><span class="k">Tiles</span><span class="v">{{ tileStats().visible }}/{{ tileStats().total }}</span></div>
+        <div class="td-info__row"><span class="k">Cache</span><span class="v">{{ tileStats().cacheMB }} MB</span></div>
         <div class="td-info__row"><span class="k">Sounds</span><span class="v">{{ activeSounds() }}</span></div>
         <div class="td-info__row"><span class="k">Streets</span><span class="v">{{ streetCount() }}</span></div>
       }
@@ -146,7 +147,7 @@ export class InfoOverlayComponent {
   readonly uiStore = inject(UIStore);
 
   readonly fps = input.required<number>();
-  readonly tileStats = input.required<{ visible: number; total: number }>();
+  readonly tileStats = input.required<{ visible: number; total: number; cacheMB: number }>();
   readonly activeSounds = input.required<number>();
   readonly streetCount = input.required<number>();
 }

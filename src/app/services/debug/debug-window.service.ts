@@ -41,6 +41,7 @@ const DEFAULT_SIZES: Partial<Record<DebugWindowId, WindowSize>> = {
   tower: { width: 300, height: 550 },
   enemy: { width: 320, height: 600 },
   los: { width: 440, height: 540 },
+  performance: { width: 320, height: 700 },
 };
 
 @Injectable({ providedIn: 'root' })
@@ -221,6 +222,7 @@ export class DebugWindowService {
         isOpen: false,
         position: DEFAULT_POSITIONS.performance,
         zIndex: BASE_Z_INDEX + 9,
+        size: DEFAULT_SIZES.performance,
       },
       los: {
         isOpen: false,

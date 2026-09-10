@@ -27,12 +27,17 @@ import {
   Matrix4,
   Camera,
   Sphere,
+  Texture,
+  WebGLRenderer,
 } from 'three';
 import type { ColumnSample } from '../column-sample';
 import { CoordinateSync } from './index';
 import { TowerTypeConfig, TOWER_TYPES, TowerTypeId } from '../../configs/tower-types.config';
 import { AssetManagerService } from '../../services/infrastructure/asset-manager.service';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
+
+/** Muzzle flash light intensity during the 50 ms flash. */
+const MUZZLE_FLASH_INTENSITY = 3;
 
 /**
  * Tower render data - stored per tower
@@ -179,6 +184,12 @@ export class ThreeTowerRenderer {
     this.sync = sync;
     this.assetManager = assetManager;
 
+    // The muzzle flash light lives in the scene for good, dark between shots.
+    // Adding and removing it flipped the scene's point-light count, and every
+    // lit material then needed a new shader program on the next frame.
+    this.muzzleFlashLight = new PointLight(0xffaa44, 0, 30);
+    this.scene.add(this.muzzleFlashLight);
+
     // Range indicator material (invisible - hex cells show visibility now)
     this.rangeMaterial = new MeshBasicMaterial({
       color: 0x22c55e,
@@ -286,6 +297,39 @@ export class ThreeTowerRenderer {
   async preloadAllModels(): Promise<void> {
     const types = Object.keys(TOWER_TYPES) as TowerTypeId[];
     await Promise.all(types.map((t) => this.preloadModel(t)));
+  }
+
+  /**
+   * Compile every tower model's shader programs and upload its textures
+   * ahead of the first placement, which otherwise stalls the frame the tower
+   * appears in on a synchronous compile. With KHR_parallel_shader_compile the
+   * driver compiles off the main thread. Clones are built the way `create`
+   * builds them; their materials share program cache keys with real towers.
+   */
+  async precompile(renderer: WebGLRenderer, camera: Camera): Promise<void> {
+    const warm = new Group();
+    const urls = new Set(Object.values(TOWER_TYPES).map((config) => config.modelUrl));
+    for (const url of urls) {
+      const model = this.assetManager.cloneModel(url);
+      if (!model) continue;
+      if (this.assetManager.isFbxModel(url)) {
+        this.assetManager.applyFbxMaterials(model);
+      }
+      warm.add(model);
+    }
+
+    // Lights come from the real scene, so the program keys match what renders.
+    await renderer.compileAsync(warm, camera, this.scene);
+
+    warm.traverse((node) => {
+      const material = (node as Mesh).material;
+      if (!material) return;
+      for (const m of Array.isArray(material) ? material : [material]) {
+        for (const value of Object.values(m)) {
+          if (value instanceof Texture) renderer.initTexture(value);
+        }
+      }
+    });
   }
 
   /**
@@ -1375,24 +1419,21 @@ export class ThreeTowerRenderer {
 
     const terrainPos = this.sync.geoToLocal(data.lat, data.lon, data.height);
 
-    // Reuse or create the pooled PointLight
-    if (!this.muzzleFlashLight) {
-      this.muzzleFlashLight = new PointLight(0xffaa44, 3, 30);
-    }
+    if (!this.muzzleFlashLight) return;
 
     // Position at tower tip
     this.muzzleFlashLight.position.set(terrainPos.x, data.tipY, terrainPos.z);
-    this.scene.add(this.muzzleFlashLight);
+    this.muzzleFlashLight.intensity = MUZZLE_FLASH_INTENSITY;
 
     // Clear any existing timer
     if (this.muzzleFlashTimer) {
       clearTimeout(this.muzzleFlashTimer);
     }
 
-    // Remove after 50ms
+    // Dark again after 50ms. Intensity only, see the constructor.
     this.muzzleFlashTimer = setTimeout(() => {
       if (this.muzzleFlashLight) {
-        this.scene.remove(this.muzzleFlashLight);
+        this.muzzleFlashLight.intensity = 0;
       }
       this.muzzleFlashTimer = null;
     }, 50);

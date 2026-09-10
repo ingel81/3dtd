@@ -310,6 +310,9 @@ export function getAirTargetY(cell: RouteCell): number {
   return cell.terrainHeight + LOS_VIZ_CONFIG.airSampleYOffset;
 }
 
+/** Numeric ascending order for Array.prototype.sort, hoisted so hot paths allocate no comparator. */
+const ascending = (a: number, b: number): number => a - b;
+
 /**
  * GlobalRouteGrid - Unified Cell System for Enemy Tracking and LOS
  *
@@ -343,6 +346,17 @@ export class GlobalRouteGrid {
   /** Map of enemy ID to current cell key (for fast cell transitions) */
   private enemyCellKeys = new Map<string, number>();
 
+  /** Unique across instances, so an enemy's cell memo can never match another grid. */
+  private static nextGeneration = 0;
+
+  /**
+   * Bumped whenever `cells` and `enemyCellKeys` are rebuilt or dropped
+   * (generateFromRoutes, clear). Between bumps the cell set is fixed (cells
+   * are only ever created inside generateFromRoutes), which is what lets an
+   * enemy's cell memo (Enemy.routeCell*) stand in for the Map lookups.
+   */
+  private generation = GlobalRouteGrid.nextGeneration++;
+
   /**
    * Last set of routes that `generateFromRoutes` was called with. Used
    * by the air-route-tube debug overlay to re-render along the same
@@ -367,6 +381,9 @@ export class GlobalRouteGrid {
 
   /** Reused scratch for per-enemy geo→local conversion in getEnemiesInRadius. */
   private readonly _radiusScanScratch = new Vector3();
+
+  /** Reused sample buffer for estimateTerrainY, which runs per enemy per sub-step in unsampled cells. */
+  private readonly _estimateScratch: number[] = [];
 
   /** Integer hash for cell key (avoids string allocation in hot path) */
   private intCellKey(cx: number, cz: number): number {
@@ -635,7 +652,8 @@ export class GlobalRouteGrid {
   estimateTerrainY(x: number, z: number): number | null {
     const gx = Math.floor(x * this.INV_CELL_SIZE);
     const gz = Math.floor(z * this.INV_CELL_SIZE);
-    const samples: number[] = [];
+    const samples = this._estimateScratch;
+    samples.length = 0;
     // 3×3 ring around the target cell (incl. centre).
     for (let dx = -1; dx <= 1; dx++) {
       for (let dz = -1; dz <= 1; dz++) {
@@ -654,7 +672,7 @@ export class GlobalRouteGrid {
       }
     }
     if (samples.length === 0) return null;
-    samples.sort((a, b) => a - b);
+    samples.sort(ascending);
     return samples[Math.floor(samples.length / 2)];
   }
 
@@ -694,6 +712,7 @@ export class GlobalRouteGrid {
 
     this.cells.clear();
     this.enemyCellKeys.clear();
+    this.generation = GlobalRouteGrid.nextGeneration++;
     this.cachedRoutes = routes;
 
     const processedCells = new Set<number>();
@@ -1325,28 +1344,41 @@ export class GlobalRouteGrid {
     const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
     const newCellKey = this.intCellKey(cellKeyX, cellKeyZ);
 
+    // Same cell as this enemy's last evaluation, same generation: provably a
+    // no-op, and the common case (a 2 m cell takes dozens of sub-steps to
+    // cross). Inside the corridor enemyCellKeys already holds this key;
+    // outside it the cell still does not exist (cells only change with a
+    // generation bump) and there is no entry to drop. The memo lives on the
+    // enemy, so this costs no string-keyed lookup; for an enemy outside the
+    // corridor it replaces three Map probes per sub-step.
+    if (enemy.routeCellGen === this.generation && enemy.routeCellKey === newCellKey) return;
+
     const currentCellKey = this.enemyCellKeys.get(enemy.id);
+    const newCell = this.cells.get(newCellKey);
 
     // If enemy is in same cell, nothing to do
-    if (currentCellKey === newCellKey) return;
+    if (currentCellKey !== newCellKey) {
+      // Remove from old cell (key 0 is the valid cell (0,0) — test definedness, not truthiness)
+      if (currentCellKey !== undefined) {
+        const oldCell = this.cells.get(currentCellKey);
+        if (oldCell) {
+          oldCell.enemies.delete(enemy);
+        }
+      }
 
-    // Remove from old cell (key 0 is the valid cell (0,0) — test definedness, not truthiness)
-    if (currentCellKey !== undefined) {
-      const oldCell = this.cells.get(currentCellKey);
-      if (oldCell) {
-        oldCell.enemies.delete(enemy);
+      // Add to new cell (if cell exists in our grid)
+      if (newCell) {
+        newCell.enemies.add(enemy);
+        this.enemyCellKeys.set(enemy.id, newCellKey);
+      } else if (this.enemyCellKeys.has(enemy.id)) {
+        // Enemy moved outside tracked corridor cells — no longer targetable by route-grid towers
+        this.enemyCellKeys.delete(enemy.id);
       }
     }
 
-    // Add to new cell (if cell exists in our grid)
-    const newCell = this.cells.get(newCellKey);
-    if (newCell) {
-      newCell.enemies.add(enemy);
-      this.enemyCellKeys.set(enemy.id, newCellKey);
-    } else if (this.enemyCellKeys.has(enemy.id)) {
-      // Enemy moved outside tracked corridor cells — no longer targetable by route-grid towers
-      this.enemyCellKeys.delete(enemy.id);
-    }
+    enemy.routeCellGen = this.generation;
+    enemy.routeCellKey = newCellKey;
+    enemy.routeCell = newCell;
   }
 
   /**
@@ -1354,6 +1386,10 @@ export class GlobalRouteGrid {
    * @param enemy Enemy entity
    */
   removeEnemy(enemy: Enemy): void {
+    // Drop the memo as well: a later updateEnemyPosition() must re-add the
+    // enemy rather than take the same-cell shortcut.
+    enemy.routeCellGen = -1;
+    enemy.routeCell = undefined;
     const currentCellKey = this.enemyCellKeys.get(enemy.id);
     if (currentCellKey !== undefined) {
       const cell = this.cells.get(currentCellKey);
@@ -1414,6 +1450,27 @@ export class GlobalRouteGrid {
     const cell = this.cells.get(this.intCellKey(cellKeyX, cellKeyZ));
     if (cell && cell.heightSampled) return cell.terrainHeight;
     return this.estimateTerrainY(localX, localZ);
+  }
+
+  /**
+   * getGroundLocalYAt() for an enemy whose position was just passed to
+   * updateEnemyPosition(): reuses the cell that call looked up instead of
+   * probing `cells` again. The memo holds `cells.get(key)` from the current
+   * generation, and the cell set does not change within one, so the result
+   * is identical. Falls back to the lookup when the memo does not cover
+   * this position.
+   */
+  getGroundLocalYForEnemy(enemy: Enemy, localX: number, localZ: number): number | null {
+    if (enemy.routeCellGen === this.generation) {
+      const cellKeyX = (localX * this.INV_CELL_SIZE) | 0;
+      const cellKeyZ = (localZ * this.INV_CELL_SIZE) | 0;
+      if (this.intCellKey(cellKeyX, cellKeyZ) === enemy.routeCellKey) {
+        const cell = enemy.routeCell;
+        if (cell && cell.heightSampled) return cell.terrainHeight;
+        return this.estimateTerrainY(localX, localZ);
+      }
+    }
+    return this.getGroundLocalYAt(localX, localZ);
   }
 
   /**
@@ -2091,6 +2148,7 @@ export class GlobalRouteGrid {
   clear(): void {
     this.cells.clear();
     this.enemyCellKeys.clear();
+    this.generation = GlobalRouteGrid.nextGeneration++;
     // Abandon any sweep in flight. Its queue holds hard references to the
     // cells we just dropped, and a driver that keeps stepping would raycast
     // those orphans with the NEW location's sampler and emit cells-changed

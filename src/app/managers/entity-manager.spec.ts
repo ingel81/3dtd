@@ -22,11 +22,11 @@ class TestEntity extends GameObject {
     super('tower');
   }
 
-  update(deltaTime: number): void {
+  override update(deltaTime: number): void {
     this.updateSpy(deltaTime);
   }
 
-  destroy(): void {
+  override destroy(): void {
     this.destroySpy();
     super.destroy();
   }

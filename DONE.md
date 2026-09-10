@@ -4,6 +4,95 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-10
+
+### Dependency-Update und was die neuen Libs hergeben
+
+- [x] **Alle Dependencies auf aktuellem Stand**
+      Angular 21 → 22.1, TypeScript 5.9 → 6.0, three 0.184 → 0.186,
+      3d-tiles-renderer 0.4.24 → 0.5.2, vitest 4 → 5, ESLint 9 → 10 mit
+      angular-eslint 22, jsdom 30, onnxruntime-web 1.29. TypeScript 7 bleibt
+      draußen, Angular 22 akzeptiert nur 6.0. Braucht Node ≥ 22.22.3 bzw. 24
+      und npm 11, npm 10 stürzt beim Auflösen mit `edgesOut` ab.
+      Nötige Anpassungen: `maxJobs` → `maxJobsPerOrigin`, `enableDoubleTapZoom`
+      aus, Canvas ohne `tabindex` (sonst brechen W/A/S/D einen Drag ab), fünf
+      Funde der neuen ESLint-10-Regeln, `rootDir` für TS 6.
+      Aus dem BACKLOG übernommen ("TypeScript 6 + Angular 22 Migration").
+      **Warum:** Angular 22 stand im Backlog, und 3d-tiles-renderer 0.5 bringt
+      Load-Regions, `userData.tile` und `errorFalloff`.
+
+- [x] **Routenkorridor bleibt fein geladen**
+      `RouteCorridorRegion` im `LoadRegionPlugin` hält alle Tiles entlang der
+      Gegnerrouten auf 5 m geometricError, egal wohin die Kamera schaut.
+      **Warum:** Die Lib aktiviert nur Tiles im Frustum, und Raycasts treffen
+      nur aktive Tiles. Zellen außerhalb des Bildes hatten kein Gelände, aus
+      der Ferne gesehene nur grobes, daher Gegner auf Dachhöhe.
+
+- [x] **LOD pro Raycast-Treffer aus `userData.tile`**
+      Die eigene Tile-Info-Map ist weg.
+      **Warum:** Sie wurde nur bei `tiles-load-end` neu gebaut, ein seitdem
+      aktiviertes Tile galt als gröbstes LOD.
+
+- [x] **Streaming-Budget**
+      `errorFalloff` für ferne Tiles, LRU nach Bytes (0,5/0,7 GiB) statt nach
+      Anzahl, Cache-Größe im Info-Overlay, Token-Refresh für Google, 2 s
+      Verzögerung beim Entladen, Frustum-Culling der Tile-Meshes durch three.
+      **Warum:** Die alten Item-Caps cachten weniger als die Lib-Defaults, und
+      abgelaufene Sessions ließen Tiles still ausfallen.
+
+- [x] **Shader-Ruckler weg, MSAA im Post-Pfad**
+      Das Muzzle-Flash-Licht bleibt dunkel in der Szene statt add/remove,
+      Tower-Modelle werden per `compileAsync` vorkompiliert, der Composer
+      rendert mit 4× MSAA, der Profiler zeigt die Zahl der Shader-Programme.
+      **Warum:** Jeder Schuss erzwang neue Programme für alle beleuchteten
+      Materialien, der erste Tower eines Typs kompilierte synchron, und mit
+      Bloom oder Color-Grading fehlte jede Kantenglättung.
+
+- [x] **Debug: LOD-Farbansicht**
+      Display → Tiles → LOD Colors färbt Tiles nach geometricError (dunkel =
+      fein, weiß ab 20 m). Wird bewusst nicht gespeichert.
+      **Warum:** Macht sichtbar, ob der Routenkorridor wirklich fein geladen ist.
+
+- [x] **Specs typprüfen sauber**
+      `tsc -p tsconfig.spec.json` von 36 Fehlern auf 0: `@/`-Alias und
+      Node-Typen in der Spec-tsconfig, `@types/node` als devDependency, dazu
+      veraltete Testobjekte und fehlende `override`. Produktionscode unberührt.
+      **Warum:** vitest prüft keine Typen, die Fehler sammelten sich unbemerkt.
+
+### Enemy-Hot-Path: 21 → 48 FPS bei 20k Gegnern
+
+- [x] **Gegner-Update lässt Arbeit weg, die nichts ändert**
+      Audio-Update nur für Gegner mit Loops, Geschwindigkeitsfaktor ohne
+      Map-Lookups, solange niemand rennt, Route- und Spatial-Grid merken sich
+      die Zelle am Gegner, Lebend-Flag statt Getter-Kette, `presentFrame` mit
+      gemerktem Instance-Slot und direkt geschriebener Matrix, das Model-Preview
+      rendert nicht mehr unsichtbar, der Profiler misst nur jeden 32. Gegner.
+      Die Simulation bleibt bit-identisch (Harness mit 480 Gegnern über 90
+      Frames: Positionen, Zellen, Matrizen, Event-Folge, RNG-Aufrufe).
+      Chrome-Trace unter gleichen Bedingungen, 20k Gegner: 21,2 → 30,2 FPS,
+      Frame 45,5 → 31,6 ms, `runSubStep` 32,7 → 20,3 ms pro Frame.
+      **Warum:** Die Zeit steckte nicht in Rechnungen, sondern im Anfassen
+      verstreuter Objekte und in Map-Lookups mit String-Keys, pro Gegner und
+      Sub-Step. SoA war im August genau daran gescheitert (`731f454`).
+
+- [x] **Blickrichtung pro Segment, Rotations-Glättung nur beim Drehen**
+      Das Heading wird im ersten Schritt, im Schritt über einen Wegpunkt und
+      im Schritt danach berechnet und dann bis zum nächsten Wegpunkt gehalten.
+      `transform.update` läuft nur noch für Gegner mit `isTurning`. Die
+      Simulation bleibt bit-identisch; nur die Rotation weicht um das
+      Rundungszittern ab (max. 8e-8 rad), sie ist rein visuell.
+      Chrome-Trace unter gleichen Bedingungen: 30,2 → 47,7 FPS, Frame 31,6 →
+      19,5 ms, Simulation ~10,1 → ~7,6 ms pro Sub-Step.
+      **Warum:** Jeder der 20k Gegner fasste pro Sub-Step sein Transform-Objekt
+      an, nur um festzustellen, dass nichts zu tun ist. Im Browser-Heap ist das
+      ein Cache-Miss pro Gegner; der Harness mit kompaktem Heap sah davon nur 5 %.
+
+- [x] **Performance-Panel höher und in der Größe veränderbar**
+      Startet mit 700 px Höhe statt höchstens 600 px mit Scrollbalken, lässt
+      sich am Griff unten rechts ziehen und merkt sich die Größe.
+
+---
+
 ## 2026-09-07
 
 ### Öffentliches Release: eigener Schlüssel, Landing Page, /play/

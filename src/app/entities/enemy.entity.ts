@@ -10,6 +10,9 @@ import {
 import { GeoPosition } from '../models/game.types';
 import { EnemyTypeId, getEnemyType, EnemyTypeConfig } from '../configs/enemy-types.config';
 import { ArmorType } from '../configs/combat/combat.types';
+import type { RouteCell } from '../utils/global-route-grid';
+import type { SpatialEntry } from '../services/world/spatial-grid.service';
+import type { EnemyInstanceState } from '../three-engine/renderers/instanced-enemy/enemy-instance.manager';
 
 /**
  * Enemy entity - combines Transform, Health, Render, Movement, and Audio components
@@ -35,17 +38,39 @@ export class Enemy extends GameObject {
   private randomSoundsQueue: number[] = [];
   private randomSoundsPlaying = false;
 
+  // ── Hot-path mirrors and caches ─────────────────────────────────
+  // EnemyManager touches every enemy several times a frame. These plain
+  // fields let it answer "anything to do?" and find the enemy's grid and
+  // render slots without loading a component or hashing the string id into
+  // a 20k-entry Map. Each is written only by the owner named on it, and every
+  // cache is validated before use, so none of them can change an outcome.
+
+  /** Mirror of `health.isDead`. Written only by HealthComponent (DeathFlagSink). */
+  deadFlag = false;
+  /** Whether the audio component holds loop handles. Written only by AudioComponent (LoopFlagSink). */
+  hasAudioLoops = false;
+  /** Whether the transform still turns toward its heading. Written only by TransformComponent (TurningFlagSink). */
+  isTurning = false;
+  /** GlobalRouteGrid's memo of this enemy's last cell evaluation, see updateEnemyPosition(). */
+  routeCellGen = -1;
+  routeCellKey = 0;
+  routeCell: RouteCell | undefined = undefined;
+  /** SpatialGrid entry kept by EnemyManager, re-validated on every use (SpatialGrid.updateTracked). */
+  spatialEntry: SpatialEntry | null = null;
+  /** Renderer instance slot, resolved lazily by EnemyManager.presentFrame(). */
+  renderSlot: EnemyInstanceState | null = null;
+
   constructor(typeId: EnemyTypeId, path: GeoPosition[], speedOverride?: number) {
     super('enemy');
     this.typeConfig = getEnemyType(typeId);
 
     // Add components
     this._transform = this.addComponent(
-      new TransformComponent(this),
+      new TransformComponent(this, this),
       ComponentType.TRANSFORM
     );
     this._health = this.addComponent(
-      new HealthComponent(this, this.typeConfig.baseHp),
+      new HealthComponent(this, this.typeConfig.baseHp, this),
       ComponentType.HEALTH
     );
     this._render = this.addComponent(
@@ -57,7 +82,7 @@ export class Enemy extends GameObject {
       ComponentType.MOVEMENT
     );
     this._audio = this.addComponent(
-      new AudioComponent(this),
+      new AudioComponent(this, this),
       ComponentType.AUDIO
     );
 
@@ -143,8 +168,9 @@ export class Enemy extends GameObject {
     return this._audio;
   }
 
+  /** `!health.isDead`, read from the mirror so the check does not load the health component. */
   get alive(): boolean {
-    return !this.health.isDead;
+    return !this.deadFlag;
   }
   get position(): GeoPosition {
     return this.transform.position;

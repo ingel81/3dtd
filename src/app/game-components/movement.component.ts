@@ -41,6 +41,13 @@ export class MovementComponent extends Component {
   private previousLon = 0;
   private hasMovedOnce = false;
 
+  // Heading hold, see move(). `previousSegIdx` is the segment the previous
+  // position was interpolated on, -1 after a jump that did not come from a
+  // step (setPath, setLateralOffset). `headingLocked` means a step that began
+  // and ended on the current segment has already set the heading.
+  private previousSegIdx = -1;
+  private headingLocked = false;
+
   // Cached segment perpendicular vector (recalculated on segment change only)
   private cachedPerpLat = 0;
   private cachedPerpLon = 0;
@@ -74,6 +81,8 @@ export class MovementComponent extends Component {
    */
   setLateralOffset(offsetMeters: number): void {
     this.lateralOffsetMeters = offsetMeters;
+    // The next position is shifted sideways relative to the previous one.
+    this.breakHeadingContinuity();
   }
 
   /**
@@ -99,6 +108,7 @@ export class MovementComponent extends Component {
     this.progress = 0;
     this.cachedPerpSegIdx = -1;
     this.cachedPerpValid = false;
+    this.breakHeadingContinuity();
     this.precomputeSegmentLengths();
 
     // Set initial position
@@ -414,31 +424,59 @@ export class MovementComponent extends Component {
       // into `terrainHeight` on every step.
 
       // Update rotation based on actual movement direction (not next waypoint)
-      // This prevents sudden heading jumps at segment transitions
-      if (this.hasMovedOnce) {
-        const dLat = newLat - this.previousLat;
-        const dLon = newLon - this.previousLon;
-        // Use squared distance to avoid sqrt (only checking threshold)
-        const moveDistSq = dLat * dLat + dLon * dLon;
-        if (moveDistSq > 1e-14) {
-          // Reuse static object to avoid per-frame allocation
-          const target = MovementComponent._lookAtTarget;
-          target.lat = newLat + dLat;
-          target.lon = newLon + dLon;
-          transform.lookAt(target);
+      // This prevents sudden heading jumps at segment transitions: the step
+      // that crosses a waypoint faces along its chord.
+      //
+      // Within a segment that direction is constant: the interpolation runs
+      // along one line and the lateral offset (perpendicular and metres per
+      // degree) is fixed per segment. So once a step that began and ended on
+      // the current segment has set the heading, it is held until the next
+      // discontinuity: a waypoint crossing, setPath() or setLateralOffset().
+      // Recomputing it every step only produced lat/lon rounding noise
+      // (~1e-8 rad), and that noise kept TransformComponent's rotation lerp,
+      // which runs only while rotation !== target, busy for every enemy.
+      const continuous = this.previousSegIdx === this.currentIndex;
+      if (!this.headingLocked || !continuous) {
+        this.headingLocked = false;
+        if (this.hasMovedOnce) {
+          const dLat = newLat - this.previousLat;
+          const dLon = newLon - this.previousLon;
+          // Use squared distance to avoid sqrt (only checking threshold)
+          const moveDistSq = dLat * dLat + dLon * dLon;
+          if (moveDistSq > 1e-14) {
+            // Reuse static object to avoid per-frame allocation
+            const target = MovementComponent._lookAtTarget;
+            target.lat = newLat + dLat;
+            target.lon = newLon + dLon;
+            // lookAt() ignores steps under ~1 cm and keeps the old heading,
+            // so a crawling enemy does not lock and keeps trying, as before.
+            this.headingLocked = transform.lookAt(target) && continuous;
+          }
+        } else {
+          // First frame: look at next waypoint. Not a movement direction
+          // (the start point carries no lateral offset), so it is not held.
+          transform.lookAt(next);
+          this.hasMovedOnce = true;
         }
-      } else {
-        // First frame: look at next waypoint
-        transform.lookAt(next);
-        this.hasMovedOnce = true;
       }
 
       // Store current position for next frame's direction calculation
       this.previousLat = newLat;
       this.previousLon = newLon;
+      this.previousSegIdx = this.currentIndex;
     }
 
     return 'moving';
+  }
+
+  /**
+   * The position was moved by something other than a step along the current
+   * segment, so the next step's direction is not the segment's: derive the
+   * heading from it again, and hold it only from the step after.
+   */
+  private breakHeadingContinuity(): void {
+    this.previousSegIdx = -1;
+    this.headingLocked = false;
   }
 
   /**

@@ -12,11 +12,11 @@ class PerfEntity extends GameObject {
   constructor() {
     super('tower');
   }
-  update(_dt: number): void {
+  override update(_dt: number): void {
     // minimal work
     Math.sqrt(this.id.length);
   }
-  destroy(): void {
+  override destroy(): void {
     super.destroy();
   }
 }

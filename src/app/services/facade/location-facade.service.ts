@@ -404,7 +404,7 @@ export class LocationFacadeService {
     const existingSpawns = this.store.spawnPoints();
     let spawnLat: number;
     let spawnLon: number;
-    let spawnName = 'Spawn';
+    let spawnName: string;
 
     const oldSpawn = existingSpawns.length > 0 ? existingSpawns[0] : null;
     const spawnTooFar = oldSpawn

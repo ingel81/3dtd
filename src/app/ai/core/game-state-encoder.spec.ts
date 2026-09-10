@@ -94,6 +94,7 @@ describe('encodeGameState() schema', () => {
     s.defense.avgTowerLevel = 3;
     s.defense.capabilities = {
       hasAntiAir: true, hasSplash: true, hasSlow: false, hasDoT: true,
+      hasAntiEthereal: false,
     };
     s.defense.towerDistribution = {
       archer:        { count: 4, avgLevel: 2, totalDamage: 100, totalDPS: 80 },

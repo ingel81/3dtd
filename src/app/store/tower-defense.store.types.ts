@@ -34,6 +34,8 @@ export interface TileStats {
   downloading: number;
   total: number;
   visible: number;
+  /** Tile cache in MiB, everything downloaded, not only what is on the GPU. */
+  cacheMB: number;
 }
 
 /** Camera debug info */

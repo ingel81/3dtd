@@ -22,9 +22,10 @@ const createMockTilesEngine = () => ({
     playDeathAnimation: vi.fn(),
     remove: vi.fn(),
     clear: vi.fn(),
-    update: vi.fn(),
     getSpeedMultiplier: vi.fn(() => 1),
-    getHeightOffset: vi.fn(() => 0),
+    nonWalkingCount: 0,
+    resolveSlot: vi.fn((_id: string): unknown => null),
+    updateSlot: vi.fn(),
   },
   spatialAudio: null,
   sync: {
@@ -294,6 +295,122 @@ describe('EnemyManager', () => {
 
     manager.update(16, 1234); // gameTimeMs=1234
     expect(statusSpy).toHaveBeenCalledWith(1234);
+  });
+
+  describe('hot-path shortcuts', () => {
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+
+    it('alive follows health through the mirror', () => {
+      const enemy = manager.spawn(path, 'zombie');
+      enemy.health.takeDamage(enemy.health.hp);
+      expect(enemy.alive).toBe(false);
+      enemy.health.heal(1);
+      expect(enemy.alive).toBe(true);
+    });
+
+    it('uses 1.0 without the per-id lookup while every instance walks', () => {
+      const enemy = manager.spawn(path, 'wallsmasher');
+      enemy.movement.speedMultiplier = 7; // must be overwritten
+      manager.update(16, 16);
+
+      expect(enemy.movement.speedMultiplier).toBe(1);
+      expect(tilesEngine.enemies.getSpeedMultiplier).not.toHaveBeenCalled();
+    });
+
+    it('asks the renderer per enemy once an instance is not walking', () => {
+      tilesEngine.enemies.nonWalkingCount = 1;
+      tilesEngine.enemies.getSpeedMultiplier.mockReturnValue(2.5);
+      const enemy = manager.spawn(path, 'wallsmasher');
+      manager.update(16, 16);
+
+      expect(tilesEngine.enemies.getSpeedMultiplier).toHaveBeenCalledWith(enemy.id);
+      expect(enemy.movement.speedMultiplier).toBe(2.5);
+    });
+
+    it('ticks audio only for enemies that hold a loop handle', () => {
+      const enemy = manager.spawn(path, 'zombie');
+      const audioUpdate = vi.spyOn(enemy.audio, 'update');
+      manager.update(16, 16);
+      expect(audioUpdate).not.toHaveBeenCalled();
+
+      enemy.hasAudioLoops = true; // what AudioComponent sets once a loop handle arrives
+      manager.update(16, 32);
+      expect(audioUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('ticks the transform only while it turns', () => {
+      const enemy = manager.spawn(path, 'zombie');
+      const transformUpdate = vi.spyOn(enemy.transform, 'update');
+      manager.update(16, 16);
+      expect(enemy.isTurning).toBe(false); // the first lookAt initializes the rotation
+      expect(transformUpdate).not.toHaveBeenCalled();
+
+      enemy.isTurning = true; // what TransformComponent sets once lookAt moves the target
+      manager.update(16, 32);
+      expect(transformUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('turns after a corner and stops ticking the transform once it faces the new segment', () => {
+      const corner: GeoPosition[] = [
+        { lat: 0, lon: 0, height: 0 },
+        { lat: 0.0002, lon: 0, height: 0 }, // ~22 m north
+        { lat: 0.0002, lon: 0.002, height: 0 }, // ~220 m east
+      ];
+      const enemy = manager.spawn(corner, 'zombie', 40);
+      const transformUpdate = vi.spyOn(enemy.transform, 'update');
+
+      let turningSteps = 0;
+      for (let s = 1; s <= 150; s++) {
+        const wasTurning = enemy.isTurning;
+        const before = transformUpdate.mock.calls.length;
+        manager.update(16.667, s * 16.667);
+        // Called exactly when the flag was set as the loop reached the enemy.
+        expect(transformUpdate.mock.calls.length - before).toBe(wasTurning ? 1 : 0);
+        if (wasTurning) turningSteps++;
+      }
+
+      expect(enemy.movement.currentIndex).toBe(1);
+      expect(turningSteps).toBeGreaterThan(10); // the quarter turn eases over many steps
+      expect(enemy.isTurning).toBe(false); // settled on the held heading
+      expect(enemy.transform.rotation).toBeCloseTo(-Math.PI / 2, 6); // east
+    });
+
+    it('resolves the render slot once, and again after the renderer released it', () => {
+      const slot = { released: false, config: { heightOffset: 0.5 } };
+      tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
+      manager.spawn(path, 'zombie');
+
+      manager.presentFrame(0);
+      manager.presentFrame(16);
+      expect(tilesEngine.enemies.resolveSlot).toHaveBeenCalledTimes(1);
+      expect(tilesEngine.enemies.updateSlot).toHaveBeenCalledTimes(2);
+
+      slot.released = true;
+      manager.presentFrame(32);
+      expect(tilesEngine.enemies.resolveSlot).toHaveBeenCalledTimes(2);
+    });
+
+    it('reports sampled phase timings scaled to the whole loop', () => {
+      const reports: number[][] = [];
+      manager.onProfileTiming = (...args) => reports.push(args);
+      for (let i = 0; i < 40; i++) manager.spawn(path, 'zombie');
+
+      let t = 0;
+      const now = vi.spyOn(performance, 'now').mockImplementation(() => ++t);
+      manager.update(16, 16);
+      now.mockRestore();
+
+      // Stride 32 over 40 enemies samples two of them (offset 0 on the first
+      // sub-step): 6 timer reads each plus 2 for the total. Every timed phase
+      // reads 1 ms here, so each sums to 2 ms and is scaled by 40 / 2.
+      expect(t).toBe(2 * 6 + 2);
+      const [move, grid, height, render, total] = reports[0];
+      expect([move, grid, height, render]).toEqual([40, 40, 40, 0]);
+      expect(total).toBe(13);
+    });
   });
 
   it('ignores debug spawn with invalid path', () => {

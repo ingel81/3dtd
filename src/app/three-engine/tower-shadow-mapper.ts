@@ -32,7 +32,9 @@ import { losPerf } from '../utils/los-perf';
  * sind hier umgesetzt:
  *   1.  Custom ShaderMaterial mit `packDepthToRGBA`, KEIN MeshDistanceMaterial.
  *   2.  USE_INSTANCING + USE_BATCHING im Vertex-Shader.
- *   3.  `<batching_pars_vertex>` + `<batching_vertex>` für 3DTilesRendererJS-BatchedMesh.
+ *   3.  `<batching_pars_vertex>` + `<batching_vertex>`, greifen nur bei BatchedMesh.
+ *       Tiles sind ohne BatchedTilesPlugin reguläre Meshes; die Chunks bleiben
+ *       als Absicherung.
  *   4.  scene.overrideMaterial reicht für 3DTiles NICHT — Mesh-Material +
  *       onBeforeRender werden pro Render geswapped, hart-reset des Distance-
  *       Material-State.

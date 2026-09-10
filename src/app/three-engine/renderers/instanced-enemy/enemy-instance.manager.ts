@@ -35,6 +35,15 @@ export interface EnemyInstanceState {
   headingQuat?: Quaternion;
   lastTotalHeading?: number;
   config: EnemyTypeConfig;
+  /** Pool the slot lives in, so per-frame writers skip the typeId → pool lookup. */
+  pool: TypePool;
+  /**
+   * Set once the slot is freed (removeEnemy / clear); a released state is
+   * never reused. Holders of a cached state resolve it again by id.
+   */
+  released: boolean;
+  /** Health-bar slot, set by InstancedEnemyRenderer.create() (-1 = none). */
+  healthBarIndex: number;
   // Debug overrides (only set for debug-spawned enemies, undefined in normal gameplay)
   debugScale?: number;
   debugHeightOffset?: number;
@@ -43,7 +52,7 @@ export interface EnemyInstanceState {
 }
 
 /** Per-type InstancedMesh pool */
-interface TypePool {
+export interface TypePool {
   typeId: string;
   instancedMesh: InstancedMesh;
   vatData: VATData;
@@ -110,11 +119,17 @@ export class EnemyInstanceManager {
   private enemyToType = new Map<string, string>(); // enemyId → typeId
   private cachedAllIds: string[] | null = null; // null-invalidation cache
 
+  /**
+   * Instances whose `isWalking` is false. getSpeedMultiplier() can return
+   * something other than 1.0 only for one of those, and running is a
+   * debug-only state. So while this is 0 a caller can use 1.0 for every id
+   * without the per-id lookup, and get the same result.
+   */
+  private _nonWalkingCount = 0;
+
   // Reusable temp objects
   private readonly matrix = new Matrix4();
   private static readonly _tempQuat = new Quaternion();
-  private static readonly _tempScale = new Vector3();
-  private static readonly _tempPos = new Vector3();
 
   constructor(private readonly scene: Scene) {}
 
@@ -229,6 +244,9 @@ export class EnemyInstanceManager {
       hitFlashEnd: 0,
       lastFrame: -1,
       config,
+      pool,
+      released: false,
+      healthBarIndex: -1,
     };
 
     pool.instances.set(id, state);
@@ -239,23 +257,21 @@ export class EnemyInstanceManager {
   }
 
   /**
-   * Update enemy position, rotation, and health.
+   * Update an instance's matrix and animation speed. Takes the state (see
+   * InstancedEnemyRenderer.resolveSlot) rather than an id: resolving the id
+   * cost three string-keyed Map lookups per enemy per frame. The state must
+   * not be released.
    */
-  updateEnemy(
-    id: string,
+  updateEnemyState(
+    state: EnemyInstanceState,
     position: Vector3,
     heading: number,
     currentSpeed?: number,
   ): void {
-    const typeId = this.enemyToType.get(id);
-    if (!typeId) return;
-    const pool = this.pools.get(typeId);
-    if (!pool) return;
-    const state = pool.instances.get(id);
-    if (!state || state.isDead) return;
+    if (state.isDead) return;
 
     // Update matrix (state passed for debug overrides)
-    this.setInstanceMatrix(pool, state.index, position, heading, state);
+    this.setInstanceMatrix(state.pool, state.index, position, heading, state);
 
     // Update speed multiplier for animation
     if (currentSpeed !== undefined && state.config.baseSpeed > 0) {
@@ -281,6 +297,7 @@ export class EnemyInstanceManager {
     if (!pool || !pool.vatData.animations.has(walkAnim)) return;
 
     state.currentAnim = walkAnim;
+    if (!state.isWalking) this._nonWalkingCount--;
     state.isWalking = true;
     // Don't reset animTime to preserve continuity
   }
@@ -299,6 +316,7 @@ export class EnemyInstanceManager {
     if (!pool || !pool.vatData.animations.has(runAnim)) return;
 
     state.currentAnim = runAnim;
+    if (state.isWalking) this._nonWalkingCount++;
     state.isWalking = false;
   }
 
@@ -402,6 +420,11 @@ export class EnemyInstanceManager {
     return 1.0;
   }
 
+  /** Instances not in their walk animation, see `_nonWalkingCount`. */
+  get nonWalkingCount(): number {
+    return this._nonWalkingCount;
+  }
+
   /**
    * Update all animation frames. Called once per render frame.
    */
@@ -493,6 +516,8 @@ export class EnemyInstanceManager {
     pool.freeIndices.push(state.index);
     this.enemyToType.delete(id);
     this.cachedAllIds = null;
+    if (!state.isWalking) this._nonWalkingCount--;
+    state.released = true;
   }
 
   /**
@@ -547,6 +572,7 @@ export class EnemyInstanceManager {
       for (const state of pool.instances.values()) {
         this.matrix.makeTranslation(0, -10000, 0);
         pool.instancedMesh.setMatrixAt(state.index, this.matrix);
+        state.released = true;
       }
       // Whole buffer was rewritten — drop any pending per-slot ranges so this
       // really is a full upload and not a partial one covering a few slots.
@@ -559,6 +585,7 @@ export class EnemyInstanceManager {
     }
     this.enemyToType.clear();
     this.cachedAllIds = null;
+    this._nonWalkingCount = 0;
   }
 
   /**
@@ -626,26 +653,42 @@ export class EnemyInstanceManager {
     }
 
     const scale = state?.debugScale ?? pool.config.scale;
-    EnemyInstanceManager._tempScale.set(scale, scale, scale);
 
     // Apply debug height offset if present
+    let py = position.y;
     if (state?.debugHeightOffset !== undefined) {
       const heightDelta = state.debugHeightOffset - pool.config.heightOffset;
-      EnemyInstanceManager._tempPos.copy(position);
-      EnemyInstanceManager._tempPos.y += heightDelta;
-      this.matrix.compose(
-        EnemyInstanceManager._tempPos,
-        quat,
-        EnemyInstanceManager._tempScale,
-      );
-    } else {
-      this.matrix.compose(
-        position,
-        quat,
-        EnemyInstanceManager._tempScale,
-      );
+      py += heightDelta;
     }
-    pool.instancedMesh.setMatrixAt(index, this.matrix);
+
+    // Matrix4.compose() + setMatrixAt(), written straight into the instance
+    // buffer: the same arithmetic in the same order as three r186's compose
+    // (with the uniform scale on all three axes), so the stored floats are
+    // identical, minus the intermediate Matrix4 and its 16-element copy.
+    const qx = quat.x, qy = quat.y, qz = quat.z, qw = quat.w;
+    const x2 = qx + qx, y2 = qy + qy, z2 = qz + qz;
+    const xx = qx * x2, xy = qx * y2, xz = qx * z2;
+    const yy = qy * y2, yz = qy * z2, zz = qz * z2;
+    const wx = qw * x2, wy = qw * y2, wz = qw * z2;
+
+    const te = pool.instancedMesh.instanceMatrix.array as Float32Array;
+    const o = index * 16;
+    te[o] = (1 - (yy + zz)) * scale;
+    te[o + 1] = (xy + wz) * scale;
+    te[o + 2] = (xz - wy) * scale;
+    te[o + 3] = 0;
+    te[o + 4] = (xy - wz) * scale;
+    te[o + 5] = (1 - (xx + zz)) * scale;
+    te[o + 6] = (yz + wx) * scale;
+    te[o + 7] = 0;
+    te[o + 8] = (xz + wy) * scale;
+    te[o + 9] = (yz - wx) * scale;
+    te[o + 10] = (1 - (xx + yy)) * scale;
+    te[o + 11] = 0;
+    te[o + 12] = position.x;
+    te[o + 13] = py;
+    te[o + 14] = position.z;
+    te[o + 15] = 1;
     pool.matrixDirty = true;
   }
 
