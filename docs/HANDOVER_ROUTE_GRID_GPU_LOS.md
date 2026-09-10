@@ -216,8 +216,8 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible` — CPU-readPixels-Pfad für Combat-Cache-Fill |
 | `src/app/utils/tower-los-viz.ts` | Composite-Wrapper für Build-Preview und Selection-Viz, `getLayer()` für Debug-Panel-Picking |
 | `src/app/utils/tower-los-layer-builder.ts` | InstancedMesh + Fragment-Shader für Live-Sample, ein Material pro Layer (covered / blocked), `visibleLosLayers` (Capability + Filter), `cells`-Array für instanceId→Cell |
-| `src/app/utils/global-route-grid.ts` | `RouteCell`-Daten + `registerTower`/`Incremental` mit GPU-Cube-Resolve + `getAirTargetY` Helper + Aggregate-Mesh + `setCellsChangedListener` (promoted/refreshed Cells) |
-| `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` (private — inkrementeller LOS-Refresh für geänderte Cells) |
+| `src/app/utils/global-route-grid.ts` | `RouteCell`-Daten + `registerTower`/`Incremental` mit GPU-Cube-Resolve + `getAirTargetY` Helper + Aggregate-Mesh + `addCellsChangedListener` (promoted/refreshed Cells) |
+| `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` + `drainLosRefresh` (private: sammeln geänderte Cells pro Tower, Recompute nach dem Sweep) |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
 | `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `scheduleRouteGridConvergence`), initialisiert `LosDebugService` |
 | `src/app/managers/tower.manager.ts` | Selection-Viz-Owner, `refreshSelectionViz`, `applyLosFilter`, `getSelectionViz()` |
@@ -287,13 +287,19 @@ der Annulus wird via Cube neu gesampled.
    f. spatialGrid- + Air-Layer-Viz initialisieren
 ```
 
-Der cells-changed-Listener (`setCellsChangedListener`, behandelt in
-`tower-placement.service.ts onCellsChanged`) macht **keinen** Full-Sweep:
-er invalidiert nur die tatsächlich geänderten Cells auf nur den Towern
-die sie abdecken und löst deren LOS inkrementell neu auf — plus ein
-rAF-debounced `rebuildAirRouteLayer()`. Wenn kein Cell sein LOD ändert
-(der häufige Pan/Zoom-Fall) feuert der Listener nie, der Tile-Load
-kostet dann ~30 ms.
+Der cells-changed-Listener (`addCellsChangedListener`, behandelt in
+`tower-placement.service.ts onCellsChanged`) macht **keinen** Full-Sweep
+und rechnet auch nicht sofort: er merkt sich pro Tower, welche seiner
+Cells sich geändert haben (`staleLos`), plus ein rAF-debounced
+`rebuildAirRouteLayer()`. `drainLosRefresh` wartet, solange der
+budgetierte Sweep läuft (der meldet pro Slice, also pro Frame), und löst
+danach jeden betroffenen Tower einmal inkrementell neu auf. Erst dann
+fliegen seine alten Einträge für genau diese Cells raus; bis dahin gilt
+die alte Antwort, denn ohne Eintrag nähme jeder Kandidat in diesen Cells
+den CPU-Raycast-Fallback. Ein direkter `recomputeTowerLOS` (Range-Upgrade)
+erledigt die wartenden Cells des Towers gleich mit. Wenn kein Cell sein
+LOD ändert (der häufige Pan/Zoom-Fall) feuert der Listener nie, der
+Tile-Load kostet dann ~30 ms.
 
 Performance-Bemerkung: der frühere Full-Sweep
 (`recomputeAllTowersGroundLOS` — jeden Tower-Cache leeren + jede
