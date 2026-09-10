@@ -4,6 +4,63 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-10
+
+### Dependency-Update und was die neuen Libs hergeben
+
+- [x] **Alle Dependencies auf aktuellem Stand**
+      Angular 21 → 22.1, TypeScript 5.9 → 6.0, three 0.184 → 0.186,
+      3d-tiles-renderer 0.4.24 → 0.5.2, vitest 4 → 5, ESLint 9 → 10 mit
+      angular-eslint 22, jsdom 30, onnxruntime-web 1.29. TypeScript 7 bleibt
+      draußen, Angular 22 akzeptiert nur 6.0. Braucht Node ≥ 22.22.3 bzw. 24
+      und npm 11, npm 10 stürzt beim Auflösen mit `edgesOut` ab.
+      Nötige Anpassungen: `maxJobs` → `maxJobsPerOrigin`, `enableDoubleTapZoom`
+      aus, Canvas ohne `tabindex` (sonst brechen W/A/S/D einen Drag ab), fünf
+      Funde der neuen ESLint-10-Regeln, `rootDir` für TS 6.
+      Aus dem BACKLOG übernommen ("TypeScript 6 + Angular 22 Migration").
+      **Warum:** Angular 22 stand im Backlog, und 3d-tiles-renderer 0.5 bringt
+      Load-Regions, `userData.tile` und `errorFalloff`.
+
+- [x] **Routenkorridor bleibt fein geladen**
+      `RouteCorridorRegion` im `LoadRegionPlugin` hält alle Tiles entlang der
+      Gegnerrouten auf 5 m geometricError, egal wohin die Kamera schaut.
+      **Warum:** Die Lib aktiviert nur Tiles im Frustum, und Raycasts treffen
+      nur aktive Tiles. Zellen außerhalb des Bildes hatten kein Gelände, aus
+      der Ferne gesehene nur grobes, daher Gegner auf Dachhöhe.
+
+- [x] **LOD pro Raycast-Treffer aus `userData.tile`**
+      Die eigene Tile-Info-Map ist weg.
+      **Warum:** Sie wurde nur bei `tiles-load-end` neu gebaut, ein seitdem
+      aktiviertes Tile galt als gröbstes LOD.
+
+- [x] **Streaming-Budget**
+      `errorFalloff` für ferne Tiles, LRU nach Bytes (0,5/0,7 GiB) statt nach
+      Anzahl, Cache-Größe im Info-Overlay, Token-Refresh für Google, 2 s
+      Verzögerung beim Entladen, Frustum-Culling der Tile-Meshes durch three.
+      **Warum:** Die alten Item-Caps cachten weniger als die Lib-Defaults, und
+      abgelaufene Sessions ließen Tiles still ausfallen.
+
+- [x] **Shader-Ruckler weg, MSAA im Post-Pfad**
+      Das Muzzle-Flash-Licht bleibt dunkel in der Szene statt add/remove,
+      Tower-Modelle werden per `compileAsync` vorkompiliert, der Composer
+      rendert mit 4× MSAA, der Profiler zeigt die Zahl der Shader-Programme.
+      **Warum:** Jeder Schuss erzwang neue Programme für alle beleuchteten
+      Materialien, der erste Tower eines Typs kompilierte synchron, und mit
+      Bloom oder Color-Grading fehlte jede Kantenglättung.
+
+- [x] **Debug: LOD-Farbansicht**
+      Display → Tiles → LOD Colors färbt Tiles nach geometricError (dunkel =
+      fein, weiß ab 20 m). Wird bewusst nicht gespeichert.
+      **Warum:** Macht sichtbar, ob der Routenkorridor wirklich fein geladen ist.
+
+- [x] **Specs typprüfen sauber**
+      `tsc -p tsconfig.spec.json` von 36 Fehlern auf 0: `@/`-Alias und
+      Node-Typen in der Spec-tsconfig, `@types/node` als devDependency, dazu
+      veraltete Testobjekte und fehlende `override`. Produktionscode unberührt.
+      **Warum:** vitest prüft keine Typen, die Fehler sammelten sich unbemerkt.
+
+---
+
 ## 2026-09-07
 
 ### Öffentliches Release: eigener Schlüssel, Landing Page, /play/

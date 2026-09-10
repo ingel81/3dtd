@@ -121,8 +121,10 @@ nochmal zentralisiert als Checkliste:
    Material` wird auf BatchedMesh + InstancedMesh angewendet. Ohne
    `batchingMatrix` / `instanceMatrix` kollabieren alle Geometrien zum
    Model-Origin → Phantom-Blocker direkt am Tower-Tip.
-3. **`<batching_pars_vertex>` + `<batching_vertex>` Chunks** — 3D-Tiles
-   nutzen BatchedMesh, nicht reguläre Meshes.
+3. **`<batching_pars_vertex>` + `<batching_vertex>` Chunks**: greifen nur bei
+   BatchedMesh. Die 3D-Tiles rendern bei uns als reguläre Meshes, solange kein
+   BatchedTilesPlugin registriert ist (Stand 2026-09-10). Unter
+   `#ifdef USE_BATCHING` kosten die Chunks nichts und bleiben als Absicherung.
 4. **`scene.overrideMaterial` reicht nicht** — `TilesFadePlugin` hookt
    `mesh.onBeforeRender` und mutiert `material.opacity`. Pro Cube-Render
    für jedes Mesh in `includeOnly`: Material + onBeforeRender swappen,
@@ -262,6 +264,18 @@ in-Range-Cell per GPU-readPixels neu auflösen) ist seit 2026-05-16
 Sekunden bei JEDEM Tile-Load, auch ganz ohne LOD-Wechsel.
 Verbleibend: ein großer Zoom-In mit Massen-LOD-Promotion (~800 Cells)
 spiked noch ~1–2 s — als optionaler Follow-up in TODO.md 1.4 getrackt.
+
+**Routenkorridor (seit 2026-09-10):** 3d-tiles-renderer aktiviert nur Tiles
+im Kamera-Frustum, und `TilesRenderer.raycast` trifft nur aktive Tiles. Zellen
+außerhalb des Bildes hatten also gar keine Geometrie, aus der Ferne gesehene
+nur grobe. `engine.setRouteCorridor()`, aufgerufen aus
+`initializeGlobalRouteGrid`, registriert eine `RouteCorridorRegion` im
+`LoadRegionPlugin`: Alle Tiles im Umkreis von 20 m um die Routen werden bis
+5 m geometricError verfeinert und bleiben aktiv, egal wohin die Kamera schaut.
+Die Cube-LOS sieht diese Tiles damit ebenfalls. Kontrolle im Debug-Fenster
+unter Display → Tiles → LOD Colors (dunkel = fein). Stellschraube ist
+`ROUTE_CORRIDOR_ERROR_TARGET` in `three-tiles-engine.ts`. Das LOD eines
+Raycast-Treffers kommt seit 0.5.1 direkt aus `hit.object.userData.tile`.
 
 ### Combat-Frame (`updateTowerShooting`)
 

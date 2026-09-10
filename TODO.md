@@ -99,8 +99,8 @@
 
 ## 1.1 Engine-Bugs
 
-> Keine offenen Engine-Bugs. (Air-Enemy-Flughöhe-Drift am Hang wurde
-> 2026-05-21 als kosmetisch akzeptiert — Option γ, siehe DONE.md.)
+> Air-Enemy-Flughöhe-Drift am Hang wurde 2026-05-21 als kosmetisch
+> akzeptiert (Option γ, siehe DONE.md).
 
 - [ ] **Verhaltensprüfung nach Terrain- + Performance-Umbau (2026-08-22)**
       Beide Umbauten sind auf `main`, statisch abgesichert (903 Tests, Lint,
@@ -124,6 +124,22 @@
         Overlay-Space verschiebt Y von Straßen, Gebäuden, Markern, Route-Linie
         und Tower-Preview auf absolute Scene-Koordinaten. Flaches Gelände und
         eine Großstadt gegenprüfen.
+
+- [ ] **Route folgt der Straße nicht, Route-Cells auf Dach und Baum**
+      Playtest 2026-09-10 (Kleinstadt, Engstelle): Die rote Enemy-Route
+      schneidet eine Hausecke, während die gelbe OSM-Straße um das Haus biegt.
+      Die Route-Cells liegen dadurch auf Dach und Baumkronen, Gegner laufen
+      dort zu hoch. Ein Re-Raycast ändert nichts, die Zellen folgen der Linie.
+      Nicht durch das Dependency-Update eingeführt (Routengeometrie kommt
+      unverändert aus dem Pathfinding), bekannte Routen sind sonst sauber.
+      Vermutungen, ungeprüft:
+      - Der Pfad läuft nur über Kreuzungsknoten und verliert die Shape-Nodes
+        der OSM-Ways, oder die Route wird nachträglich geglättet/vereinfacht.
+      - An Engstellen erfasst der 7 m breite Zellkorridor (`CORRIDOR_WIDTH` in
+        `global-route-grid.ts`) Fassaden und Bäume auch bei korrekter Route;
+        der Korridor müsste sich der Straßenbreite anpassen.
+      Kontrolle: Debug → Display → LOD Colors, Route-Linie gegen das
+      Straßen-Overlay.
 
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
@@ -474,14 +490,6 @@
 # BACKLOG
 
 > Langfristig, bei Bedarf.
-
-## Dependency-Migrationen
-
-- [ ] **TypeScript 6 + Angular 22 Migration** (Engine-Deep-Review Empfehlung 6)
-      Eigener Migrations-Pass. `typescript` 6.0 ist nicht Angular-21-kompatibel,
-      `eslint` 10 wartet noch auf typescript-/angular-eslint. Erst zusammen mit
-      einem Angular-22-Upgrade angehen. (three.js 0.184 ist bereits erledigt,
-      Commit `332b29e`.)
 
 ## Training Backend Refactoring
 
