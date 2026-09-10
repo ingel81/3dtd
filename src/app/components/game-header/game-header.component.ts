@@ -67,11 +67,6 @@ import { TdIconComponent } from '../icon/icon.component';
             <td-icon name="random" [size]="22"></td-icon>
           </button>
 
-          <!-- Home Link -->
-          <a class="action-btn" href="/?l=49.17327,9.26859&s=49.17555,9.26387" matTooltip="Erlenbach">
-            <td-icon name="home" [size]="22"></td-icon>
-          </a>
-
           <!-- Rendering Toggle (Phase 5.14), headless mode for training, DevWorld only -->
           @if (isDevWorld) {
             <button class="action-btn" (click)="toggleRendering()"
