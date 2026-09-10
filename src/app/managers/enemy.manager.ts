@@ -390,7 +390,12 @@ export class EnemyManager extends EntityManager<Enemy> {
       // GameObject.update() remains for towers/projectiles.
       // `enabled` is honoured because the generic path did — nothing sets it
       // false on an enemy today, but silently ignoring it would be a trap.
-      if (enemy.transform.enabled) enemy.transform.update(deltaTime);
+      // The transform's only work is easing `rotation` toward the heading.
+      // `isTurning` mirrors "initialized and rotation !== target", the exact
+      // condition under which update() does anything, so skipping on it is
+      // the early-out update() would take. Movement holds the heading per
+      // segment, so this is true only for a few sub-steps after a corner.
+      if (enemy.isTurning && enemy.transform.enabled) enemy.transform.update(deltaTime);
       // Audio's only per-tick work is moving loops, and few enemies hold a
       // loop handle (playing or paused). `hasAudioLoops` mirrors
       // `loopHandles.size > 0`, so skipping on it is exactly the early-out

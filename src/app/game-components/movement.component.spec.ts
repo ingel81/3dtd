@@ -1,9 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { MovementComponent } from './movement.component';
 import { GameObject } from '../core/game-object';
 import { TransformComponent } from './transform.component';
 import { ComponentType } from '../core/component';
 import { StatusEffect } from '../models/status-effects';
+import type { GeoPosition } from '../models/game.types';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -215,5 +216,117 @@ describe('MovementComponent', () => {
     expect(movement.getPathProgress()).toBe(0);
     expect(movement.move(1000, 0)).toBe('moving');
     expect(transform.position).toEqual(singlePoint);
+  });
+
+  describe('heading hold', () => {
+    // 22 m north, then 29 m east, at a real latitude so lat/lon rounding is realistic.
+    const corner: GeoPosition[] = [
+      { lat: 48.776, lon: 9.183 },
+      { lat: 48.7762, lon: 9.183 },
+      { lat: 48.7762, lon: 9.1834 },
+    ];
+    const STEP_MS = 16.667;
+    let transform: TransformComponent;
+    const target = () => (transform as unknown as { targetRotation: number }).targetRotation;
+
+    beforeEach(() => {
+      transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+      movement.setPath(corner);
+      movement.speedMps = 50; // ~0.83 m per step, ~27 steps on the first segment
+    });
+
+    /** Steps `n` times; per step, whether lookAt ran and whether a waypoint was crossed. */
+    function walk(n: number): { looked: boolean; crossed: boolean }[] {
+      const spy = vi.spyOn(transform, 'lookAt');
+      const steps: { looked: boolean; crossed: boolean }[] = [];
+      for (let i = 0; i < n; i++) {
+        const calls = spy.mock.calls.length;
+        const idx = movement.currentIndex;
+        movement.move(STEP_MS, 0);
+        steps.push({ looked: spy.mock.calls.length > calls, crossed: movement.currentIndex !== idx });
+      }
+      spy.mockRestore();
+      return steps;
+    }
+
+    it('derives the heading on the first two steps and around a waypoint, and holds it in between', () => {
+      const steps = walk(50);
+      const cross = steps.findIndex((s) => s.crossed);
+      expect(cross).toBeGreaterThan(2);
+
+      // First step (faces the waypoint), second step (first movement
+      // direction), the crossing step (chord) and the first step that stays
+      // on the new segment.
+      const looked = steps.flatMap((s, i) => (s.looked ? [i] : []));
+      expect(looked).toEqual([0, 1, cross, cross + 1]);
+    });
+
+    it('holds what a per-step derivation gives, up to lat/lon rounding', () => {
+      movement.setLateralOffset(1.5);
+      let prevLat = transform.position.lat;
+      let prevLon = transform.position.lon;
+      let crossedAt = -1;
+      for (let i = 0; i < 50; i++) {
+        const idx = movement.currentIndex;
+        movement.move(STEP_MS, 0);
+        if (movement.currentIndex !== idx) crossedAt = i;
+        const { lat, lon } = transform.position;
+        if (i > 0) {
+          // The target move() used to set on every step.
+          const dLat = lat - prevLat;
+          const dLon = lon - prevLon;
+          const perStep = Math.atan2(-(lon + dLon - lon), lat + dLat - lat);
+          if (i === crossedAt || i === crossedAt + 1) {
+            expect(target()).toBe(perStep); // derived on this step, bit for bit
+          } else {
+            expect(Math.abs(target() - perStep)).toBeLessThan(1e-6);
+          }
+        }
+        prevLat = lat;
+        prevLon = lon;
+      }
+      expect(crossedAt).toBeGreaterThan(0);
+    });
+
+    it('derives the heading again after the position jumps (setLateralOffset, setPath)', () => {
+      walk(5); // held by now
+      movement.setLateralOffset(2);
+      expect(walk(4).map((s) => s.looked)).toEqual([true, true, false, false]);
+
+      movement.setPath(corner);
+      expect(walk(4).map((s) => s.looked)).toEqual([true, true, false, false]);
+    });
+
+    it('keeps deriving while lookAt rejects the step, and holds once it accepts one', () => {
+      walk(1); // first step faces the waypoint
+      const real = transform.lookAt.bind(transform);
+      let rejections = 3;
+      const spy = vi
+        .spyOn(transform, 'lookAt')
+        .mockImplementation((t) => (rejections-- > 0 ? false : real(t)));
+
+      for (let i = 0; i < 6; i++) movement.move(STEP_MS, 0);
+      expect(spy).toHaveBeenCalledTimes(4); // three rejected, one accepted, then held
+    });
+
+    it('does not hold while steps are too short for a heading (crawling, frozen)', () => {
+      walk(1);
+      movement.speedMps = 0.2; // ~3 mm per step, under lookAt's 1e-7 deg
+      expect(walk(5).some((s) => s.looked)).toBe(false);
+
+      movement.speedMps = 50;
+      expect(walk(3).map((s) => s.looked)).toEqual([true, false, false]);
+    });
+
+    it('keeps the held heading across a pause', () => {
+      walk(5);
+      const held = target();
+
+      movement.pause();
+      expect(walk(3).some((s) => s.looked)).toBe(false);
+      movement.resume();
+      expect(walk(3).some((s) => s.looked)).toBe(false);
+      expect(target()).toBe(held);
+    });
   });
 });

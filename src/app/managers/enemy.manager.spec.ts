@@ -341,6 +341,43 @@ describe('EnemyManager', () => {
       expect(audioUpdate).toHaveBeenCalledTimes(1);
     });
 
+    it('ticks the transform only while it turns', () => {
+      const enemy = manager.spawn(path, 'zombie');
+      const transformUpdate = vi.spyOn(enemy.transform, 'update');
+      manager.update(16, 16);
+      expect(enemy.isTurning).toBe(false); // the first lookAt initializes the rotation
+      expect(transformUpdate).not.toHaveBeenCalled();
+
+      enemy.isTurning = true; // what TransformComponent sets once lookAt moves the target
+      manager.update(16, 32);
+      expect(transformUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('turns after a corner and stops ticking the transform once it faces the new segment', () => {
+      const corner: GeoPosition[] = [
+        { lat: 0, lon: 0, height: 0 },
+        { lat: 0.0002, lon: 0, height: 0 }, // ~22 m north
+        { lat: 0.0002, lon: 0.002, height: 0 }, // ~220 m east
+      ];
+      const enemy = manager.spawn(corner, 'zombie', 40);
+      const transformUpdate = vi.spyOn(enemy.transform, 'update');
+
+      let turningSteps = 0;
+      for (let s = 1; s <= 150; s++) {
+        const wasTurning = enemy.isTurning;
+        const before = transformUpdate.mock.calls.length;
+        manager.update(16.667, s * 16.667);
+        // Called exactly when the flag was set as the loop reached the enemy.
+        expect(transformUpdate.mock.calls.length - before).toBe(wasTurning ? 1 : 0);
+        if (wasTurning) turningSteps++;
+      }
+
+      expect(enemy.movement.currentIndex).toBe(1);
+      expect(turningSteps).toBeGreaterThan(10); // the quarter turn eases over many steps
+      expect(enemy.isTurning).toBe(false); // settled on the held heading
+      expect(enemy.transform.rotation).toBeCloseTo(-Math.PI / 2, 6); // east
+    });
+
     it('resolves the render slot once, and again after the renderer released it', () => {
       const slot = { released: false, config: { heightOffset: 0.5 } };
       tilesEngine.enemies.resolveSlot.mockReturnValue(slot);
