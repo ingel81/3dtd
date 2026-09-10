@@ -5,7 +5,7 @@ import { DebugWindowService } from '../../services/debug/debug-window.service';
 import { GameStateManager } from '../../managers/game-state.manager';
 import { TrainingClientService } from '../../ai/training/training-client.service';
 import { WaveDirectorService } from '../../ai/core/wave-director.service';
-import { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
+import type { BotSkillLevel } from '../../ai/training/bots/tower-bot.interface';
 
 @Component({
   selector: 'app-training-debugger',
