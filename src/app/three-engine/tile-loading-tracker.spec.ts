@@ -312,5 +312,33 @@ describe('TileLoadingTracker', () => {
       expect(hooks.onTileSetSettled).not.toHaveBeenCalled();
       expect(tracker.getTileStats().visible).toBe(0);
     });
+
+    it('bricht einen laufenden Debounce ab, der Engine bekommt keinen Settled-Hook mehr', () => {
+      const { tiles, tracker, hooks, onFirstLoaded } = setup({ ground: 12 });
+
+      tiles.loadEnd();
+      vi.advanceTimersByTime(200);
+      tracker.dispose();
+      vi.advanceTimersByTime(60_000);
+
+      expect(hooks.probeOriginGround).not.toHaveBeenCalled();
+      expect(hooks.onTileSetSettled).not.toHaveBeenCalled();
+      expect(onFirstLoaded).not.toHaveBeenCalled();
+    });
+
+    it('bricht laufende Retries samt Nudges ab', () => {
+      const { tiles, tracker, hooks, onFirstLoaded } = setup();
+
+      tiles.loadEnd();
+      vi.advanceTimersByTime(500);
+      expect(hooks.probeOriginGround).toHaveBeenCalledTimes(1);
+
+      tracker.dispose();
+      vi.advanceTimersByTime(4 * 50 * 200);
+
+      expect(hooks.probeOriginGround).toHaveBeenCalledTimes(1);
+      expect(tiles.update).not.toHaveBeenCalled();
+      expect(onFirstLoaded).not.toHaveBeenCalled();
+    });
   });
 });
