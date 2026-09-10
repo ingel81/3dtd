@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { InstanceSlotAllocator } from './instance-slot-allocator';
 
 /**
  * Decal instance data
@@ -24,8 +25,7 @@ export interface DecalInstance {
 export class DecalInstanceManager {
   readonly instancedMesh: THREE.InstancedMesh;
   private instances = new Map<string, DecalInstance>();
-  private freeIndices: number[] = [];
-  private activeCount = 0;
+  private readonly slots: InstanceSlotAllocator;
   private readonly matrix = new THREE.Matrix4();
 
   // Per-instance attributes
@@ -47,6 +47,7 @@ export class DecalInstanceManager {
     this.instancedMesh.count = 0;
     this.instancedMesh.frustumCulled = false;
     this.instancedMesh.renderOrder = 999; // Render after 3D tiles
+    this.slots = new InstanceSlotAllocator(maxCount);
 
     // Create per-instance attributes
     const colors = new Float32Array(maxCount * 3); // RGB
@@ -78,12 +79,9 @@ export class DecalInstanceManager {
   ): void {
     if (this.instances.has(id)) return;
 
-    let index: number;
-    if (this.freeIndices.length > 0) {
-      index = this.freeIndices.pop()!;
-    } else {
-      index = this.activeCount;
-    }
+    // Callers evict the oldest decal before adding to a full pool.
+    const index = this.slots.alloc();
+    if (index < 0) return;
 
     const instance: DecalInstance = {
       id,
@@ -95,8 +93,7 @@ export class DecalInstanceManager {
     };
 
     this.instances.set(id, instance);
-    this.activeCount = Math.max(this.activeCount, index + 1);
-    this.instancedMesh.count = this.activeCount;
+    this.instancedMesh.count = this.slots.activeCount;
 
     // Set matrix (position, rotation, scale)
     DecalInstanceManager._tempPos.copy(position);
@@ -165,7 +162,8 @@ export class DecalInstanceManager {
     instance.active = false;
 
     this.instances.delete(id);
-    this.freeIndices.push(instance.index);
+    this.slots.release(instance.index);
+    this.instancedMesh.count = this.slots.activeCount;
   }
 
   /**
@@ -183,8 +181,7 @@ export class DecalInstanceManager {
       this.remove(id);
     }
     this.instances.clear();
-    this.freeIndices = [];
-    this.activeCount = 0;
+    this.slots.reset();
     this.instancedMesh.count = 0;
   }
 
