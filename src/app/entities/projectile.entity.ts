@@ -12,6 +12,7 @@ import {
   getProjectileType,
   ProjectileTypeConfig,
 } from '../configs/projectile-types.config';
+import { TowerTypeId } from '../configs/tower-types.config';
 import { Enemy } from './enemy.entity';
 import {
   geoDistanceFast,
@@ -72,6 +73,8 @@ export class Projectile extends GameObject {
     damage: number,
     startHeight: number,
     sourceTowerId: string,
+    /** Tower type that fired the shot. Splash reads its air/ground targeting from it. */
+    public readonly sourceTowerType: TowerTypeId,
     public readonly damageType: import('../configs/combat/combat.types').DamageType = 'physical'
   ) {
     super('projectile');

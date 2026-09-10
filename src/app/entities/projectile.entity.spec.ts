@@ -27,7 +27,7 @@ const targetPath = [
 describe('Projectile entity', () => {
   it('constructs with correct components', () => {
     const enemy = new Enemy('zombie', targetPath);
-    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1');
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1', 'archer');
 
     expect(projectile.getComponent(ComponentType.TRANSFORM)).toBeInstanceOf(TransformComponent);
     expect(projectile.getComponent(ComponentType.COMBAT)).toBeInstanceOf(CombatComponent);
@@ -37,7 +37,7 @@ describe('Projectile entity', () => {
 
   it('sets projectile type config from config', () => {
     const enemy = new Enemy('zombie', targetPath);
-    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1');
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1', 'archer');
 
     expect(projectile.typeConfig).toBe(getProjectileType('arrow'));
     expect(projectile.movement.speedMps).toBe(getProjectileType('arrow').speed);
@@ -45,7 +45,7 @@ describe('Projectile entity', () => {
 
   it('calculates initial movement direction towards target', () => {
     const enemy = new Enemy('zombie', targetPath);
-    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1');
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'arrow', 10, 1, 'tower-1', 'archer');
 
     const direction = projectile.direction;
 
@@ -68,7 +68,7 @@ describe('Projectile entity', () => {
     const dLon = 100 / (METERS_PER_DEGREE_LAT * Math.cos(lat * DEG_TO_RAD));
     const target = { lat: lat + dLat, lon: dLon, height: 0 };
     const enemy = new Enemy('zombie', [target, { ...target, lat: target.lat + dLat }]);
-    const projectile = new Projectile({ lat, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1');
+    const projectile = new Projectile({ lat, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1', 'archer');
 
     const { dx, dz } = projectile.direction;
     expect(dx).toBeLessThan(0); // -X = East
@@ -77,9 +77,9 @@ describe('Projectile entity', () => {
 
   it('reflects splash configuration for AoE projectiles', () => {
     const enemy = new Enemy('zombie', targetPath);
-    const cannonball = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'cannonball', 10, 1, 'tower-1');
-    const iceShard = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'ice-shard', 10, 1, 'tower-1');
-    const bullet = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1');
+    const cannonball = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'cannonball', 10, 1, 'tower-1', 'archer');
+    const iceShard = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'ice-shard', 10, 1, 'tower-1', 'archer');
+    const bullet = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1', 'archer');
 
     expect(cannonball.typeConfig.splashRadius).toBeGreaterThan(0);
     expect(iceShard.typeConfig.splashRadius).toBeGreaterThan(0);
@@ -96,8 +96,8 @@ describe('Projectile entity', () => {
       { lat: 0.002, lon: -0.001, height: 0 },
     ]);
 
-    const eastProjectile = new Projectile({ lat: 0, lon: 0, height: 0 }, eastEnemy, 'bullet', 10, 1, 'tower-1');
-    const westProjectile = new Projectile({ lat: 0, lon: 0, height: 0 }, westEnemy, 'bullet', 10, 1, 'tower-1');
+    const eastProjectile = new Projectile({ lat: 0, lon: 0, height: 0 }, eastEnemy, 'bullet', 10, 1, 'tower-1', 'archer');
+    const westProjectile = new Projectile({ lat: 0, lon: 0, height: 0 }, westEnemy, 'bullet', 10, 1, 'tower-1', 'archer');
 
     expect(eastProjectile.direction.dx).toBeLessThan(0);
     expect(westProjectile.direction.dx).toBeGreaterThan(0);
@@ -105,7 +105,7 @@ describe('Projectile entity', () => {
 
   it('reports hit and despawn condition when reaching target', () => {
     const enemy = new Enemy('zombie', targetPath);
-    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1');
+    const projectile = new Projectile({ lat: 0, lon: 0, height: 0 }, enemy, 'bullet', 10, 1, 'tower-1', 'archer');
 
     const hit = projectile.updateTowardsTarget(100000);
     expect(hit).toBe(true);
