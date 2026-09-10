@@ -34,7 +34,7 @@ export function openDamageMatrixDialog(
 
 /**
  * Globale Übersicht aller baubaren Tower gegen alle Rüstungstypen.
- * Zellen nutzen dieselben Stufen und Farben wie die Schadenszahlen im Kampf.
+ * Zellen nutzen dieselben Stufen wie die Schadenszahlen im Kampf (Farben: matrixTierColor).
  */
 @Component({
   selector: 'app-damage-matrix-dialog',

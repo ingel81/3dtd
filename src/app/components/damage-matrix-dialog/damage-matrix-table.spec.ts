@@ -4,6 +4,8 @@ import {
   buildDamageMatrixRows,
   buildEffectivenessLegend,
   formatMultiplier,
+  matrixTierColor,
+  MATRIX_NORMAL_COLOR,
 } from './damage-matrix-table';
 import { ARMOR_TYPES, DAMAGE_TYPES, ArmorType, DamageMatrix, DamageType } from '../../configs/combat/combat.types';
 import {
@@ -24,6 +26,19 @@ function flatMatrix(overrides: Partial<Record<DamageType, Partial<Record<ArmorTy
   }
   return matrix;
 }
+
+describe('matrixTierColor', () => {
+  it('keeps normal neutral instead of the red of the damage numbers', () => {
+    expect(matrixTierColor('normal')).toBe(MATRIX_NORMAL_COLOR);
+    expect(matrixTierColor('normal')).not.toBe(EFFECTIVENESS_COLORS.normal);
+  });
+
+  it('uses the damage-number colours for the other tiers', () => {
+    for (const tier of ['weak', 'strong', 'devastating'] as const) {
+      expect(matrixTierColor(tier)).toBe(EFFECTIVENESS_COLORS[tier]);
+    }
+  });
+});
 
 describe('buildDamageMatrixRows', () => {
   const rows = buildDamageMatrixRows();
@@ -57,7 +72,7 @@ describe('buildDamageMatrixRows', () => {
     }
   });
 
-  it('sorts every cell into the tier the damage numbers use, with their colour', () => {
+  it('sorts every cell into the tier the damage numbers use', () => {
     const t = EFFECTIVENESS_THRESHOLDS;
     for (const cell of rows.flatMap((r) => r.cells)) {
       const m = cell.multiplier;
@@ -66,7 +81,7 @@ describe('buildDamageMatrixRows', () => {
         m >= t.strong ? 'strong' :
         m < t.weak ? 'weak' : 'normal';
       expect(cell.effectiveness).toBe(expected);
-      expect(cell.color).toBe(EFFECTIVENESS_COLORS[expected]);
+      expect(cell.color).toBe(matrixTierColor(expected));
     }
   });
 
@@ -79,6 +94,8 @@ describe('buildDamageMatrixRows', () => {
     expect(archer.cells.map((c) => c.effectiveness)).toEqual(['devastating', 'strong', 'normal', 'weak', 'normal']);
     expect(archer.cells[0].text).toBe(formatMultiplier(t.devastating));
     expect(archer.cells[0].tierLabel).toBe('Devastating');
+    expect(archer.cells[0].color).toBe(EFFECTIVENESS_COLORS.devastating);
+    expect(archer.cells[2].color).toBe(MATRIX_NORMAL_COLOR);
     expect(archer.cells[3].color).toBe(EFFECTIVENESS_COLORS.weak);
   });
 
@@ -107,7 +124,7 @@ describe('buildDamageMatrixColumns', () => {
 });
 
 describe('buildEffectivenessLegend', () => {
-  it('lists the four tiers with the configured thresholds and colours', () => {
+  it('lists the four tiers with the configured thresholds and the table colours', () => {
     const legend = buildEffectivenessLegend();
     const t = EFFECTIVENESS_THRESHOLDS;
     expect(legend.map((e) => e.effectiveness)).toEqual(['weak', 'normal', 'strong', 'devastating']);
@@ -117,6 +134,6 @@ describe('buildEffectivenessLegend', () => {
       `≥ ${formatMultiplier(t.strong)}`,
       `≥ ${formatMultiplier(t.devastating)}`,
     ]);
-    for (const entry of legend) expect(entry.color).toBe(EFFECTIVENESS_COLORS[entry.effectiveness]);
+    for (const entry of legend) expect(entry.color).toBe(matrixTierColor(entry.effectiveness));
   });
 });

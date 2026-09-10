@@ -34,7 +34,7 @@ export interface DamageMatrixCell {
   /** Anzeige wie in den Tooltips, z. B. "1.50×". */
   text: string;
   effectiveness: DamageEffectiveness;
-  /** Farbe der Schadenszahlen für diese Stufe. */
+  /** Zellfarbe, siehe matrixTierColor. */
   color: string;
   /** Stufe als Wort, für Screenreader. */
   tierLabel: string;
@@ -61,6 +61,17 @@ export const EFFECTIVENESS_LABELS: Readonly<Record<DamageEffectiveness, string>>
   strong: 'Strong',
   devastating: 'Devastating',
 };
+
+/** Neutraler Text für die Stufe "normal", wie die Multiplikatoren im Tooltip. */
+export const MATRIX_NORMAL_COLOR = 'var(--td-text-primary)';
+
+/**
+ * Weak, Strong und Devastating in den Farben der Schadenszahlen. Normal bleibt
+ * neutral: das Rot der Schadenszahlen liest sich in einer Matrix als "schlecht".
+ */
+export function matrixTierColor(effectiveness: DamageEffectiveness): string {
+  return effectiveness === 'normal' ? MATRIX_NORMAL_COLOR : EFFECTIVENESS_COLORS[effectiveness];
+}
 
 export function formatMultiplier(multiplier: number): string {
   return `${multiplier.toFixed(2)}×`;
@@ -91,7 +102,7 @@ export function buildDamageMatrixRows(
         multiplier,
         text: formatMultiplier(multiplier),
         effectiveness,
-        color: EFFECTIVENESS_COLORS[effectiveness],
+        color: matrixTierColor(effectiveness),
         tierLabel: EFFECTIVENESS_LABELS[effectiveness],
       };
     }),
@@ -116,7 +127,7 @@ export function buildEffectivenessLegend(): EffectivenessLegendEntry[] {
     effectiveness,
     label: EFFECTIVENESS_LABELS[effectiveness],
     range,
-    color: EFFECTIVENESS_COLORS[effectiveness],
+    color: matrixTierColor(effectiveness),
   });
   return [
     entry('weak', `< ${formatMultiplier(t.weak)}`),
