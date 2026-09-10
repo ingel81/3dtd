@@ -4,8 +4,8 @@ import { visibleLosLayers } from '../../utils/tower-los-layer-builder';
 
 export interface LosLegendEntry {
   label: string;
-  /** CSS-rgba der Cell-Farbe aus `LOS_VIZ_CONFIG.states`; null = reiner Hinweis ohne Swatch. */
-  swatch: string | null;
+  /** CSS-rgba der Cell-Farbe aus `LOS_VIZ_CONFIG.states`. */
+  swatch: string;
 }
 
 const srgb = { r: 0, g: 0, b: 0 };
@@ -26,12 +26,11 @@ export function losSwatchCss(state: StateAppearance): string {
  * Legenden-Einträge für die per-Tower-LOS-Viz. Zeigt exakt die Layer, die
  * `TowerLosLayerBuilder` sichtbar schaltet (gleiche Gating-Funktion):
  *
- *  Mixed-Tower, Filter=Both:  Ground / Air / Blocked
- *  Pure-Ground oder Filter=Ground: Ground / Blocked
- *  Pure-Air oder Filter=Air:       Air / Blocked
- *
- * Schließt der Filter den einzigen Layer des Towers aus (z.B. Filter=Air
- * beim Fire-Tower), wird nichts gerendert; die Legende sagt dann warum.
+ *  Mixed-Tower, Filter=Both:   Ground / Air / Blocked
+ *  Mixed-Tower, Filter=Ground: Ground / Blocked
+ *  Mixed-Tower, Filter=Air:    Air / Blocked
+ *  Pure-Ground-Tower:          Ground / Blocked (Filter egal)
+ *  Pure-Air-Tower:             Air / Blocked (Filter egal)
  */
 export function buildLosLegendEntries(
   filter: 'both' | 'ground' | 'air',
@@ -44,13 +43,8 @@ export function buildLosLegendEntries(
 
   if (visible.ground) list.push({ label: 'Ground', swatch: losSwatchCss(states.ground) });
   if (visible.air)    list.push({ label: 'Air',    swatch: losSwatchCss(states.air) });
-
   if (visible.ground || visible.air) {
     list.push({ label: 'Blocked', swatch: losSwatchCss(states.blocked) });
-  } else if (filter === 'ground') {
-    list.push({ label: 'No ground targeting', swatch: null });
-  } else if (filter === 'air') {
-    list.push({ label: 'No air targeting', swatch: null });
   }
 
   return list;

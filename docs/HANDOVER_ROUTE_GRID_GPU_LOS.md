@@ -124,11 +124,10 @@ Preview, Selection-Viz, Aggregat und Legende.
 - Sichtbarkeit pro Layer kommt aus `visibleLosLayers(filter,
   canTargetGround, canTargetAir)` in `tower-los-layer-builder.ts`.
   Pure-Ground-Tower zeigen nie den Air-Layer, Pure-Air-Tower (Rocket)
-  nie den Ground-Layer, der Per-Tower-Filter schränkt nur weiter ein.
-  Die Legende (`los-legend-entries.ts`) nutzt dieselbe Funktion.
-  Schließt der Filter den einzigen Layer des Towers aus, wird nichts
-  gerendert und die Legende zeigt "No air targeting" bzw. "No ground
-  targeting" statt eines Swatches.
+  nie den Ground-Layer. Der Per-Tower-Filter wirkt nur bei Mixed-
+  Towern: ein Pure-Tower zeigt seinen Layer auch dann, wenn der
+  persistierte Filter auf dem anderen steht. Die Legende
+  (`los-legend-entries.ts`) nutzt dieselbe Funktion.
 - Aggregat (`grid`/`gridAir`): dieselben Layer-Farben, statt blocked
   das neutrale Grau `globalStates.uncovered` (kein Tower in Range).
 - Farben sind sRGB-Hex (three speichert sie linear). Beide Cell-Shader

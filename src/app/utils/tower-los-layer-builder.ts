@@ -75,8 +75,8 @@ export interface TowerLosLayer {
   updateMapperReference(towerTip: Vector3, cubemapFarDistance: number): void;
   /**
    * Filter-Mode setzen: 'both' / 'ground' / 'air'. Steuert nur die
-   * Mesh-Visibility; ein Layer ist sichtbar, wenn der Filter ihn zulässt
-   * UND der Tower ihn bekämpfen kann.
+   * Mesh-Visibility (siehe `visibleLosLayers`), wirkt nur bei Mixed-
+   * Towern.
    */
   setFilterMode(mode: 'both' | 'ground' | 'air'): void;
   /** Frei die Mesh-Resourcen. */
@@ -88,18 +88,19 @@ const CELL_FOOTPRINT_FACTOR = 0.85; // Plattenbreite = cellSize × Faktor
 /**
  * Welche Layer der per-Tower-Viz sichtbar sind. Capability-Gating: ein
  * Pure-Ground-Tower zeigt nie den Air-Layer, ein Pure-Air-Tower nie den
- * Ground-Layer; der Filter kann nur weiter einschränken. Einzige Quelle
- * für Mesh-Visibility UND Legende.
+ * Ground-Layer. Der Filter wirkt nur bei Mixed-Towern; ein Pure-Tower
+ * zeigt seinen Layer auch, wenn der persistierte Filter auf dem anderen
+ * steht. Einzige Quelle für Mesh-Visibility UND Legende.
  */
 export function visibleLosLayers(
   mode: 'both' | 'ground' | 'air',
   canTargetGround: boolean,
   canTargetAir: boolean,
 ): { ground: boolean; air: boolean } {
-  return {
-    ground: canTargetGround && mode !== 'air',
-    air: canTargetAir && mode !== 'ground',
-  };
+  if (!canTargetGround || !canTargetAir) {
+    return { ground: canTargetGround, air: canTargetAir };
+  }
+  return { ground: mode !== 'air', air: mode !== 'ground' };
 }
 
 const VERTEX_SHADER = /* glsl */ `
