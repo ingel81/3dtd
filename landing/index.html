@@ -54,6 +54,22 @@
 .lightbox img{max-width:100%;max-height:100%;border:1px solid var(--frame-mid);box-shadow:0 0 60px rgba(0,0,0,.7)}
 .lightbox-close{position:absolute;top:18px;right:18px;padding:8px 16px;border:1px solid var(--frame-mid);background:rgba(13,17,14,.8);color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase;cursor:pointer}
 .lightbox-close:hover{border-color:var(--gold-dark);color:var(--gold)}
+/* Weiter durch die Gruppe, in der das Bild angeklickt wurde: die Galerie und
+   die drei Mechanik-Bilder bleiben getrennte Folgen. */
+.lightbox-nav{position:absolute;top:50%;transform:translateY(-50%);width:46px;height:64px;display:grid;place-items:center;border:1px solid var(--frame-mid);background:rgba(13,17,14,.8);color:var(--text-2);cursor:pointer}
+.lightbox-nav:hover{border-color:var(--gold-dark);color:var(--gold)}
+.lightbox-prev{left:18px}
+.lightbox-next{right:18px}
+.lightbox-count{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);padding:6px 14px;border:1px solid var(--frame-mid);background:rgba(13,17,14,.8);color:var(--text-2);font-family:var(--mono);font-size:11px;letter-spacing:.14em}
+/* Ohne diese Zeile bleiben Pfeile und Zaehler bei einer einelementigen Gruppe
+   stehen: die Klassenregel oben schlaegt das display:none des Browsers. */
+.lightbox-nav[hidden],.lightbox-count[hidden]{display:none}
+@media (max-width:620px){
+  .lightbox{padding:14px}
+  .lightbox-nav{width:38px;height:52px}
+  .lightbox-prev{left:6px}
+  .lightbox-next{right:6px}
+}
 
 /* hero panel */
 .sound-btn{position:absolute;left:18px;bottom:18px;display:inline-flex;align-items:center;gap:10px;padding:12px 20px;border:1px solid var(--gold);background:linear-gradient(180deg,rgba(217,188,104,.16),rgba(13,17,14,.86));color:var(--gold-light);font-family:var(--display);font-size:13px;font-weight:600;letter-spacing:.08em;cursor:pointer;box-shadow:inset 0 1px 0 rgba(217,188,104,.28),0 2px 0 var(--panel-shadow),0 0 24px rgba(194,160,85,.22);transition:border-color 140ms,color 140ms,background 140ms,box-shadow 140ms}
@@ -99,21 +115,37 @@
 .slot p{margin:0;max-width:70ch;color:var(--text-2);font-size:15px}
 @media (max-width:780px){.slot{grid-template-columns:1fr}}
 
-/* places: sieben Bilder auf einem Zwölfer-Raster, vier oben, drei etwas
-   größer darunter. Ein reines Viererraster ließe die letzte Reihe offen. */
+/* places: neun Bilder auf einem Zwölfer-Raster in drei ungleichen Reihen,
+   vier schmale, zwei breite, drei mittlere. Innerhalb einer Reihe müssen alle
+   dieselbe Spannweite haben, sonst stehen unterschiedlich hohe Bilder
+   nebeneinander und die Bildunterschrift des kleineren hängt in der Luft. */
 .shots{display:grid;gap:14px;grid-template-columns:repeat(12,1fr)}
 .shots figure{margin:0;grid-column:span 3}
-.shots figure:nth-child(n+5){grid-column:span 4}
+.shots figure:nth-child(n+5):nth-child(-n+6){grid-column:span 6}
+.shots figure:nth-child(n+7){grid-column:span 4}
 @media (max-width:900px){
-  .shots figure,.shots figure:nth-child(n+5){grid-column:span 6}
+  .shots figure,.shots figure:nth-child(n+5):nth-child(-n+6),.shots figure:nth-child(n+7){grid-column:span 6}
+  /* Neun ist ungerade, das letzte Bild bekäme sonst eine halbe Reihe für sich. */
   .shots figure:last-child{grid-column:span 12}
 }
-@media (max-width:560px){.shots figure,.shots figure:nth-child(n+5){grid-column:span 12}}
+@media (max-width:560px){.shots figure,.shots figure:nth-child(n+5):nth-child(-n+6),.shots figure:nth-child(n+7){grid-column:span 12}}
 
 .shots img{width:100%;height:auto;display:block;cursor:zoom-in;border:1px solid var(--frame);box-shadow:inset 0 1px 0 rgba(167,179,168,.08);transition:border-color 140ms}
 .shots figure:hover img{border-color:var(--frame-light)}
-.shots figcaption{display:flex;gap:8px;margin-top:6px;color:var(--muted);font-family:var(--mono);font-size:12px}
+.shots figcaption{display:flex;flex-wrap:wrap;gap:2px 8px;margin-top:6px;color:var(--muted);font-family:var(--mono);font-size:12px;line-height:1.35}
 .shots figcaption b{color:var(--text-2);font-weight:500;letter-spacing:.1em;text-transform:uppercase}
+
+/* stack: eine Datenblattzeile je Baustein. Kein Kachelraster, nur eine
+   Beschriftungsspalte und eine Haarlinie je Zeile. */
+.spec{display:grid;grid-template-columns:170px minmax(0,1fr);margin:0;max-width:82ch}
+.spec dt{padding:9px 0;border-top:1px solid var(--frame);color:var(--gold);font-family:var(--mono);font-size:11px;letter-spacing:.14em;text-transform:uppercase}
+.spec dd{margin:0;padding:9px 0;border-top:1px solid var(--frame);color:var(--text-2);font-size:15px}
+.spec dt:first-of-type,.spec dt:first-of-type+dd{border-top:0}
+@media (max-width:620px){
+  .spec{grid-template-columns:1fr}
+  .spec dt{padding-bottom:0}
+  .spec dd{padding-top:2px;border-top:0}
+}
 
 /* key */
 .key-grid{display:grid;gap:22px;grid-template-columns:1fr minmax(0,.62fr);align-items:start}
@@ -124,8 +156,17 @@
 .steps strong{color:var(--text);font-weight:600}
 
 @media (max-width:620px){.hero-copy{padding:20px 0}}
+
+/* Auf dem Telefon laeuft das Spiel nicht: es streamt Tiles, will eine GPU und
+   eine Maus. Ein Play-Knopf waere dort ein Versprechen, das die Seite nicht
+   halten kann, also verschwindet er im Hero, in der Kopfleiste und im Fuss,
+   und an seine Stelle tritt der Kasten. Der GitHub-Knopf bleibt stehen. */
+.mobile-note{display:none}
 @media (max-width:760px){
-.hero-copy .actions .btn--primary{background:linear-gradient(180deg,var(--panel),var(--panel-2));border-color:var(--frame-mid);color:var(--text);box-shadow:inset 0 1px 0 rgba(167,179,168,.2),0 2px 0 var(--panel-shadow);font-weight:600}
+  .hero-copy .actions .btn--primary,.top nav .btn--primary,footer .row a[href="/play/"]{display:none}
+  .need-desktop{display:none}
+  .mobile-note{display:block;margin:22px 0 0;padding:14px 16px;border:1px solid var(--gold-dark);border-left-width:3px;background:rgba(194,160,85,.08);color:var(--text);font-size:15px;max-width:60ch}
+  .mobile-note b{display:block;margin-bottom:4px;color:var(--gold);font-family:var(--mono);font-size:11px;font-weight:400;letter-spacing:.14em;text-transform:uppercase}
 }
 </style>
 
@@ -168,16 +209,17 @@
         <!-- Wird ein echter Link, sobald das erste Windows-Release getaggt ist. -->
         <span class="btn btn--soon">Desktop app <small>soon</small></span>
       </div>
-      <p class="need">Before you can play you need your own Cesium ion token. It is free and takes two minutes, no card. <a href="#key">How to get one</a>. Made for desktop: it needs a GPU and a mouse.</p>
-      <p class="wip"><b>Work in progress</b>Unfinished and unbalanced. Late waves get out of hand, some streets confuse the routing, and there are bugs I know about and more that I don't. It's an evening project, not a release.</p>
+      <p class="mobile-note"><b>Desktop only</b>This does not run on a phone. It streams photorealistic 3D tiles and puts thousands of enemies on screen, so it wants a real GPU, a mouse and a keyboard. Open the page on a desktop and the play button is there.</p>
+      <p class="need">Before you can play you need your own Cesium ion token. It is free and takes two minutes, no card. <a href="#key">How to get one</a>. <span class="need-desktop">Made for desktop: it needs a GPU and a mouse.</span></p>
+      <p class="wip"><b>Work in progress</b>Unfinished and unbalanced. Late waves get out of hand, some streets confuse the routing, and there are bugs I know about and more that I don't. It also wants a beefy machine: thousands of enemies on top of a live tile stream, and a thin GPU turns the late waves into a slideshow. It's an evening project, not a release.</p>
     </div>
   </div>
 
   <section class="panel" id="how">
     <div class="panel-bar"><h2>How it works</h2></div>
     <div class="panel-body">
-      <p class="lead">You place towers, upgrade them between waves and hold the base. That part is an ordinary tower defense. The ground is the variable, and a layout that works on one street rarely transfers to the next.</p>
-      <p class="lead" style="margin-top:12px">The map isn't authored, it's streamed from Google's Photorealistic 3D Tiles. Routing, line of sight and placement all read that geometry.</p>
+      <p class="lead">Towers, upgrades between waves, a base to hold. Standard tower defense so far.</p>
+      <p class="lead" style="margin-top:12px">Nobody built the map. It is streamed from Google's Photorealistic 3D Tiles for whatever address you type in, and three things read that geometry straight off: where the enemies walk, what a tower can see, and where you are allowed to build.</p>
       <div class="slots" style="margin-top:22px">
         <article class="slot">
           <img src="media/mech-routes-sm.jpg" data-full="media/mech-routes.jpg" alt="Debug view over Berlin: the OpenStreetMap street network in thin yellow, the ground route in red, the air route in magenta" loading="lazy" width="560" height="315">
@@ -216,15 +258,17 @@
   <section class="panel" id="places">
     <div class="panel-bar"><h2>Places</h2></div>
     <div class="panel-body">
-      <p class="lead" style="margin-bottom:22px">How well it plays depends on where you point it. Some places load beautifully. Others have tile geometry that makes the routing do slightly silly things.</p>
+      <p class="lead" style="margin-bottom:22px">Anywhere Google has photorealistic 3D coverage works, most large cities and a good many smaller ones. How well it plays depends on where you point it. Some places load beautifully, others have tile geometry that makes the routing do slightly silly things.</p>
       <div class="shots">
-        <figure><img src="media/place-01-sm.jpg" data-full="media/place-01.jpg" alt="Manhattan, a column of enemies coming down Madison Street" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>a column down Madison Street</span></figcaption></figure>
-        <figure><img src="media/place-03-sm.jpg" data-full="media/place-03.jpg" alt="Tokyo, the base built on top of Tokyo Tower" loading="lazy" width="760" height="428"><figcaption><b>Tokyo</b> <span>base on Tokyo Tower</span></figcaption></figure>
-        <figure><img src="media/place-04-sm.jpg" data-full="media/place-04.jpg" alt="Manhattan, flying enemies crossing the rooftops" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>flyers over the rooftops</span></figcaption></figure>
-        <figure><img src="media/place-06-sm.jpg" data-full="media/place-06.jpg" alt="Manhattan, top-down view over the interchange" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>top-down over the interchange</span></figcaption></figure>
-        <figure><img src="media/place-07-sm.jpg" data-full="media/place-07.jpg" alt="Manhattan, wave 52 on Broadway, a swarm of several thousand crossing the street" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>wave 52, eighteen thousand of them</span></figcaption></figure>
-        <figure><img src="media/place-05-sm.jpg" data-full="media/place-05.jpg" alt="Manhattan, enemies filling an avenue between the blocks" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>the avenue as a funnel</span></figcaption></figure>
+        <figure><img src="media/place-01-sm.jpg" data-full="media/place-01.jpg" alt="Manhattan, a column of enemies coming down Madison Street" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>down Madison Street</span></figcaption></figure>
+        <figure><img src="media/place-09-sm.jpg" data-full="media/place-09.jpg" alt="Hong Kong, the base on Victoria Park Road between the tower blocks, with the harbour front on the right" loading="lazy" width="760" height="428"><figcaption><b>Hong Kong</b> <span>Victoria Park Road</span></figcaption></figure>
+        <figure><img src="media/place-04-sm.jpg" data-full="media/place-04.jpg" alt="Manhattan, flying enemies crossing the rooftops" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>flyers over the roofs</span></figcaption></figure>
         <figure><img src="media/place-02-sm.jpg" data-full="media/place-02.jpg" alt="Tokyo, the skyline at dusk with the wave marker over the district" loading="lazy" width="760" height="428"><figcaption><b>Tokyo</b> <span>dusk over Minato</span></figcaption></figure>
+        <figure><img src="media/place-08-sm.jpg" data-full="media/place-08.jpg" alt="A German wine village, a column of enemies winding up the field track through the vineyards towards the base" loading="lazy" width="760" height="428"><figcaption><b>German vineyards</b> <span>up the track between the vines</span></figcaption></figure>
+        <figure><img src="media/place-07-sm.jpg" data-full="media/place-07.jpg" alt="Manhattan, wave 52 on Broadway, a swarm of several thousand crossing the street" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>wave 52, eighteen thousand of them</span></figcaption></figure>
+        <figure><img src="media/place-10-sm.jpg" data-full="media/place-10.jpg" alt="Paris, a column crossing the Quai Branly below the Eiffel Tower into the towers' fire" loading="lazy" width="760" height="428"><figcaption><b>Paris</b> <span>under the Eiffel Tower</span></figcaption></figure>
+        <figure><img src="media/place-06-sm.jpg" data-full="media/place-06.jpg" alt="Manhattan, top-down view over the interchange" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>over the interchange</span></figcaption></figure>
+        <figure><img src="media/place-05-sm.jpg" data-full="media/place-05.jpg" alt="Manhattan, enemies filling an avenue between the blocks" loading="lazy" width="760" height="428"><figcaption><b>Manhattan</b> <span>the avenue as a funnel</span></figcaption></figure>
       </div>
       <p class="fine" style="margin-top:10px">Click any shot for the full frame.</p>
       <!-- Click-to-load mit Absicht: das iframe entsteht erst beim Klick, beim
@@ -259,8 +303,18 @@
   <section class="panel" id="tech">
     <div class="panel-bar"><h2>The stack</h2></div>
     <div class="panel-body">
-      <p class="lead">Angular and Three.js in the browser, tiles through 3DTilesRendererJS, streets and buildings from OpenStreetMap. No game server, no account, nothing to install. <a href="https://github.com/ingel81/3dtd/tree/main/docs">The docs</a> explain how the pieces fit.</p>
-
+      <dl class="spec">
+        <dt>Interface</dt><dd>Angular, standalone components, signal stores</dd>
+        <dt>Rendering</dt><dd>Three.js, custom shaders, post processing</dd>
+        <dt>Tiles</dt><dd>3DTilesRendererJS over Google Photorealistic 3D Tiles</dd>
+        <dt>Map data</dt><dd>OpenStreetMap streets and building footprints, Nominatim lookup</dd>
+        <dt>Pathfinding</dt><dd>route grid per location, solved in a web worker</dd>
+        <dt>Line of sight</dt><dd>depth cubemap per tower, read back as a visibility mask</dd>
+        <dt>Enemies</dt><dd>instanced meshes, skeletal animation baked into vertex textures</dd>
+        <dt>Waves</dt><dd>rule based director in the browser, PPO experiment trained offline in PyTorch</dd>
+        <dt>Server</dt><dd>none, the client is the whole game</dd>
+        <dt>Licence</dt><dd>AGPL-3.0, source on <a href="https://github.com/ingel81/3dtd">GitHub</a></dd>
+      </dl>
     </div>
   </section>
 
@@ -318,7 +372,14 @@
 </script>
 
 <div id="lightbox" class="lightbox" role="dialog" aria-modal="true" aria-label="Screenshot, full size" hidden>
+  <button class="lightbox-nav lightbox-prev" type="button" aria-label="Previous shot">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M15 5l-7 7 7 7" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
+  </button>
   <img id="lightboxImg" alt="">
+  <button class="lightbox-nav lightbox-next" type="button" aria-label="Next shot">
+    <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="M9 5l7 7-7 7" stroke="currentColor" stroke-width="1.8" fill="none"/></svg>
+  </button>
+  <span class="lightbox-count" aria-live="polite"></span>
   <button class="lightbox-close" type="button" aria-label="Close">Close</button>
 </div>
 
@@ -352,20 +413,36 @@
     });
   }
 
-  // Galerie: Klick öffnet das Bild groß. Kein Plugin, kein Karussell.
+  // Galerie: Klick öffnet das Bild groß, Pfeile blättern durch die Gruppe, in
+  // der geklickt wurde. Kein Plugin, kein Karussell.
   (function () {
     var box = document.getElementById('lightbox');
     var img = document.getElementById('lightboxImg');
     if (!box || !img) return;
     var closeBtn = box.querySelector('.lightbox-close');
-    var lastFocus = null;
+    var prevBtn = box.querySelector('.lightbox-prev');
+    var nextBtn = box.querySelector('.lightbox-next');
+    var count = box.querySelector('.lightbox-count');
     var behind = [document.querySelector('header.top'), document.querySelector('main'), document.querySelector('footer')];
+    var group = [];
+    var index = 0;
 
-    function open(el) {
-      lastFocus = el;
+    function show(i) {
+      index = (i + group.length) % group.length;
+      var el = group[index];
       // Die Seite zeigt die kleine Fassung, die Lupe die volle Auflösung.
       img.src = el.dataset.full || el.getAttribute('src');
       img.alt = el.getAttribute('alt') || '';
+      var alone = group.length < 2;
+      prevBtn.hidden = alone;
+      nextBtn.hidden = alone;
+      count.hidden = alone;
+      count.textContent = (index + 1) + ' / ' + group.length;
+    }
+
+    function open(el, list) {
+      group = list;
+      show(list.indexOf(el));
       box.hidden = false;
       document.body.style.overflow = 'hidden';
       behind.forEach(function (n) { if (n) n.inert = true; });
@@ -376,31 +453,49 @@
       img.removeAttribute('src');
       document.body.style.overflow = '';
       behind.forEach(function (n) { if (n) n.inert = false; });
-      if (lastFocus) lastFocus.focus();
+      // Zurück auf das Bild, das zuletzt zu sehen war, nicht auf das zuerst
+      // angeklickte: nach dem Blättern liegt der Fokus sonst falsch.
+      if (group[index]) group[index].focus();
     }
 
     // Die Bilder bleiben <img>: role und tabindex machen sie bedienbar, ohne
-    // dass ein Knopfrahmen die Galerie umbaut.
-    document.querySelectorAll('.shots img, .slot img').forEach(function (el) {
-      el.tabIndex = 0;
-      el.setAttribute('role', 'button');
-      el.setAttribute('aria-haspopup', 'dialog');
-      el.addEventListener('click', function () { open(el); });
-      el.addEventListener('keydown', function (e) {
-        if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(el); }
+    // dass ein Knopfrahmen die Galerie umbaut. Jede Auswahl ist eine Gruppe.
+    ['.shots img', '.slot img'].forEach(function (sel) {
+      var list = Array.prototype.slice.call(document.querySelectorAll(sel));
+      list.forEach(function (el) {
+        el.tabIndex = 0;
+        el.setAttribute('role', 'button');
+        el.setAttribute('aria-haspopup', 'dialog');
+        el.addEventListener('click', function () { open(el, list); });
+        el.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); open(el, list); }
+        });
       });
     });
+
+    prevBtn.addEventListener('click', function () { show(index - 1); });
+    nextBtn.addEventListener('click', function () { show(index + 1); });
 
     // Nur der Grund und der Knopf schließen, ein Klick aufs Bild nicht.
     box.addEventListener('click', function (e) {
       if (e.target === box || e.target === closeBtn) close();
     });
-    // Solange die Lupe offen ist, bleibt der Fokus auf dem Schließen-Knopf,
-    // sonst wandert Tab hinter die Überblendung.
+    // Solange die Lupe offen ist, kreist Tab über ihre eigenen Knöpfe, sonst
+    // wandert der Fokus hinter die Überblendung.
     box.addEventListener('keydown', function (e) {
-      if (e.key === 'Tab') { e.preventDefault(); closeBtn.focus(); }
+      if (e.key !== 'Tab') return;
+      e.preventDefault();
+      var stops = [prevBtn, nextBtn, closeBtn].filter(function (b) { return !b.hidden; });
+      var at = stops.indexOf(document.activeElement);
+      var step = e.shiftKey ? -1 : 1;
+      stops[(at + step + stops.length) % stops.length].focus();
     });
-    document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && !box.hidden) close(); });
+    document.addEventListener('keydown', function (e) {
+      if (box.hidden) return;
+      if (e.key === 'Escape') close();
+      else if (e.key === 'ArrowLeft') show(index - 1);
+      else if (e.key === 'ArrowRight') show(index + 1);
+    });
   })();
 </script>
 
