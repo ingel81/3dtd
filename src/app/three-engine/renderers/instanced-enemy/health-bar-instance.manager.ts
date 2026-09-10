@@ -1,6 +1,7 @@
 import {
-  InstancedMesh,
   InstancedBufferAttribute,
+  InstancedBufferGeometry,
+  Mesh,
   PlaneGeometry,
   ShaderMaterial,
   Vector3,
@@ -54,8 +55,8 @@ const HEALTH_BAR_VERTEX = /* glsl */ `
     vIsBoss = aIsBoss;
 
     // Billboard: offset the unit-quad vertex (position.xy ∈ [-0.5, 0.5] from
-    // PlaneGeometry(1,1)) along the camera-aligned axes. The InstancedMesh root
-    // sits at the origin (identity), so aCenter is already in world space.
+    // PlaneGeometry(1,1)) along the camera-aligned axes. The mesh root sits
+    // at the origin (identity), so aCenter is already in world space.
     vec3 worldPos = aCenter
                   + uCameraRight * (position.x * aSize.x)
                   + uCameraUp    * (position.y * aSize.y);
@@ -119,7 +120,7 @@ const HEALTH_BAR_BODY = /* glsl */ `
 /**
  * HealthBarInstanceManager
  *
- * Renders ALL enemy health bars using InstancedMesh.
+ * Renders ALL enemy health bars with GPU instancing.
  * Two render passes sharing the same geometry & attributes:
  *   1) Background (renderOrder 999): all bars, depthTest true
  *   2) Foreground (renderOrder 1000): damaged bars only, depthTest false
@@ -132,12 +133,19 @@ const HEALTH_BAR_BODY = /* glsl */ `
  * (aCenter) and size (aSize) as instanced attributes — updateBillboard() sets
  * 2 uniforms and flushes the moving aCenter buffer instead of composing a
  * Matrix4 + uploading instanceMatrix per instance.
+ *
+ * The passes are plain Meshes over one InstancedBufferGeometry, not
+ * InstancedMeshes: the shader never reads instanceMatrix, and an
+ * InstancedMesh allocates and uploads one anyway (20 000 × 16 floats,
+ * 1.28 MB per pass). geometry.instanceCount is the draw count of both.
  */
 export class HealthBarInstanceManager {
-  /** Background pass — all bars with depth test */
-  readonly instancedMesh: InstancedMesh;
-  /** Foreground pass — damaged bars only, always on top */
-  private readonly foregroundMesh: InstancedMesh;
+  /** Shared by both passes; instanceCount is their draw count. */
+  private readonly geometry: InstancedBufferGeometry;
+  /** Background pass, all bars with depth test */
+  private readonly backgroundMesh: Mesh;
+  /** Foreground pass, damaged bars only, always on top */
+  private readonly foregroundMesh: Mesh;
 
   private instances = new Map<string, number>(); // enemyId → instanceIndex
   private readonly slots = new InstanceSlotAllocator(MAX_HEALTH_BARS);
@@ -167,7 +175,14 @@ export class HealthBarInstanceManager {
   private readonly hiddenFlags = new Uint8Array(MAX_HEALTH_BARS);
 
   constructor(private readonly scene: Scene) {
-    const geometry = new PlaneGeometry(1, 1);
+    // Unit quad for the billboard; the shaders read only position and uv.
+    const plane = new PlaneGeometry(1, 1);
+    const geometry = new InstancedBufferGeometry();
+    geometry.setIndex(plane.getIndex());
+    geometry.setAttribute('position', plane.getAttribute('position'));
+    geometry.setAttribute('uv', plane.getAttribute('uv'));
+    geometry.instanceCount = 0;
+    this.geometry = geometry;
 
     // Per-instance attributes
     const centerData = new Float32Array(MAX_HEALTH_BARS * 3);
@@ -189,30 +204,30 @@ export class HealthBarInstanceManager {
     geometry.setAttribute('aIsBoss', this.isBossAttribute);
 
     // Pass 1: Background — all bars, depth tested (occluded by terrain normally)
+    // frustumCulled stays off on both passes: the geometry's bounding sphere
+    // is the unit quad at the origin, not where the bars are.
     const bgMaterial = this.createMaterial(false);
-    this.instancedMesh = new InstancedMesh(geometry, bgMaterial, MAX_HEALTH_BARS);
-    this.instancedMesh.count = 0;
-    this.instancedMesh.frustumCulled = false;
-    this.instancedMesh.renderOrder = 999;
+    this.backgroundMesh = new Mesh(geometry, bgMaterial);
+    this.backgroundMesh.frustumCulled = false;
+    this.backgroundMesh.renderOrder = 999;
 
     // Pass 2: Foreground — damaged bars only, always on top
     const fgMaterial = this.createMaterial(true);
-    this.foregroundMesh = new InstancedMesh(geometry, fgMaterial, MAX_HEALTH_BARS);
-    this.foregroundMesh.count = 0;
+    this.foregroundMesh = new Mesh(geometry, fgMaterial);
     this.foregroundMesh.frustumCulled = false;
     this.foregroundMesh.renderOrder = 1000;
 
     // Both roots stay at the identity origin (position comes from aCenter), so
     // their world matrix never changes → skip the per-frame matrixWorld pass
-    // (R1). instanceMatrix is unused by the shader.
-    this.instancedMesh.matrixAutoUpdate = false;
-    this.instancedMesh.matrixWorldAutoUpdate = false;
-    this.instancedMesh.updateMatrix();
+    // (R1).
+    this.backgroundMesh.matrixAutoUpdate = false;
+    this.backgroundMesh.matrixWorldAutoUpdate = false;
+    this.backgroundMesh.updateMatrix();
     this.foregroundMesh.matrixAutoUpdate = false;
     this.foregroundMesh.matrixWorldAutoUpdate = false;
     this.foregroundMesh.updateMatrix();
 
-    this.scene.add(this.instancedMesh);
+    this.scene.add(this.backgroundMesh);
     this.scene.add(this.foregroundMesh);
   }
 
@@ -237,8 +252,7 @@ export class HealthBarInstanceManager {
     if (index < 0) return -1;
 
     this.instances.set(enemyId, index);
-    this.instancedMesh.count = this.slots.activeCount;
-    this.foregroundMesh.count = this.slots.activeCount;
+    this.geometry.instanceCount = this.slots.activeCount;
 
     // Position + size
     this.hiddenFlags[index] = 0;
@@ -370,15 +384,14 @@ export class HealthBarInstanceManager {
 
     this.instances.delete(enemyId);
     this.slots.release(index);
-    this.instancedMesh.count = this.slots.activeCount;
-    this.foregroundMesh.count = this.slots.activeCount;
+    this.geometry.instanceCount = this.slots.activeCount;
   }
 
   /**
    * Set visibility of all health bars
    */
   setVisible(visible: boolean): void {
-    this.instancedMesh.visible = visible;
+    this.backgroundMesh.visible = visible;
     this.foregroundMesh.visible = visible;
   }
 
@@ -389,8 +402,7 @@ export class HealthBarInstanceManager {
   clear(): void {
     this.instances.clear();
     this.slots.reset();
-    this.instancedMesh.count = 0;
-    this.foregroundMesh.count = 0;
+    this.geometry.instanceCount = 0;
     // Reset all sizes to hidden so stale slots never reappear after reuse.
     // Drop the pending per-slot ranges first — this one is a full upload.
     (this.sizeAttribute.array as Float32Array).fill(0);
@@ -401,10 +413,10 @@ export class HealthBarInstanceManager {
 
   dispose(): void {
     this.clear();
-    this.scene.remove(this.instancedMesh);
+    this.scene.remove(this.backgroundMesh);
     this.scene.remove(this.foregroundMesh);
-    this.instancedMesh.geometry.dispose();
-    (this.instancedMesh.material as ShaderMaterial).dispose();
+    this.geometry.dispose();
+    (this.backgroundMesh.material as ShaderMaterial).dispose();
     (this.foregroundMesh.material as ShaderMaterial).dispose();
   }
 

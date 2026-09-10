@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import {
   InstancedBufferAttribute,
+  InstancedBufferGeometry,
   InstancedMesh,
   Mesh,
   PerspectiveCamera,
@@ -17,12 +18,24 @@ describe('HealthBarInstanceManager', () => {
   const attribute = (name: string) =>
     meshes[0].geometry.getAttribute(name) as InstancedBufferAttribute;
   /** Instances each of the two passes draws. */
-  const drawCounts = () => meshes.map((m) => (m as InstancedMesh).count);
+  const drawCounts = () => meshes.map((m) => (m.geometry as InstancedBufferGeometry).instanceCount);
 
   beforeEach(() => {
     const scene = new Scene();
     bars = new HealthBarInstanceManager(scene);
     meshes = scene.children as Mesh[];
+  });
+
+  it('draws both passes from one instanced geometry, without an instanceMatrix', () => {
+    expect(meshes).toHaveLength(2);
+    expect(meshes[1].geometry).toBe(meshes[0].geometry);
+    expect(meshes[0].geometry).toBeInstanceOf(InstancedBufferGeometry);
+    for (const mesh of meshes) {
+      expect(mesh).not.toBeInstanceOf(InstancedMesh);
+      expect('instanceMatrix' in mesh).toBe(false);
+      expect(mesh.frustumCulled).toBe(false);
+    }
+    expect(drawCounts()).toEqual([0, 0]);
   });
 
   it('shrinks the draw count when the top bars are removed', () => {
