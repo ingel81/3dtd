@@ -1,6 +1,6 @@
 # Instanced Enemy Rendering (VAT System)
 
-**Stand:** 2026-05-08
+**Stand:** 2026-09-11
 
 GPU-instanziertes Enemy-Rendering mit Vertex Animation Textures (VAT). Reduziert Draw Calls von ~2 pro Enemy auf ~1 pro Enemy-Typ.
 
@@ -14,7 +14,7 @@ Das klassische Rendering erzeugt pro Enemy 2 Draw Calls (Mesh + Health Bar Sprit
 |-----------|-----------|-------------|
 | 500 Enemies | ~1000 Draw Calls | ~14 Draw Calls |
 | Mesh-Rendering | 1 Object3D pro Enemy | 1 InstancedMesh pro Typ |
-| Health Bars | 1 Sprite pro Enemy | 1 InstancedMesh fuer alle |
+| Health Bars | 1 Sprite pro Enemy | 1 InstancedBufferGeometry für alle (2 Passes) |
 | Animation | AnimationMixer pro Enemy | Per-Instance VAT Lookup im Shader |
 | Max Enemies | ~500 (praktisch) | 20.000 pro Typ |
 
@@ -175,8 +175,31 @@ Beide Shader (VAT + Health Bar) enthalten die Three.js `logdepthbuf` Chunks fuer
 
 Pro Enemy-Typ ein `TypePool`:
 - 1 `InstancedMesh` (max 20.000 Instances)
-- Free-List Pool (O(1) Alloc/Free)
+- Slot-Vergabe über `InstanceSlotAllocator` (siehe unten)
 - Per-Instance Attribute Arrays (animFrame, tintColor, opacity)
+
+### Slot-Vergabe und Uploads
+
+Enemy-Pools, Health-Bars und die Projektil-Pools (`three-projectile.renderer.ts`)
+vergeben ihre Slots über `renderers/instance-slot-allocator.ts`:
+
+- Freie Slots kommen auf eine Free-List und werden vor dem Wachsen wieder vergeben.
+- `activeCount` ist der höchste belegte Slot + 1. Er ist Draw-Count (`mesh.count`
+  bzw. `geometry.instanceCount`) und Länge der Frame-Uploads.
+- Wird der oberste Slot frei, fällt `activeCount` über alle freien Slots darunter
+  zurück. Nach einer Peak-Wave zeichnet und lädt der Pool also nicht mehr die
+  Peak-Größe hoch.
+- Abgeschnittene Slots bleiben auf der Free-List und werden beim nächsten
+  `alloc()` verworfen. Der Pool wächst erst wieder, wenn die Liste leer ist, ein
+  Eintrag unter `activeCount` ist also immer frei.
+- Ist der Pool voll, gibt es keinen Slot (`addEnemy` → `null`, Health-Bar → `-1`,
+  Projektil wird nicht gezeichnet) statt über den Buffer hinaus zu schreiben.
+
+Frame-Flushes laden `(0, activeCount × n)` hoch (`clearUpdateRanges()` +
+`addUpdateRange()`), nie den vollen MAX-Buffer. Bei `activeCount = 0` wird keine
+Range gesetzt: `bufferSubData` liest Länge 0 als "bis zum Ende", `(0, 0)` wäre ein
+Voll-Upload. Die Projektil-Pools setzen auf den Einzelpfaden nur ein Dirty-Flag,
+`ThreeProjectileRenderer.commitToGPU()` flusht einmal pro Frame.
 
 ### Animation State
 
@@ -207,15 +230,28 @@ interface EnemyInstanceState {
 3. Looping fuer Walk/Run, Clamping fuer Death
 4. `aAnimFrame` Attribut setzen → Shader liest naechsten Frame
 
+`InstancedEnemyRenderer.updateAnimations(deltaTime, camera)` ruft danach
+`flushDirtyFlags()` und `updateBillboard()`. Der Debug-Schalter "Animationen aus"
+hält nur die VAT-Frames an, die Flushes laufen weiter, sonst frieren Gegner und
+Health-Bars auf dem Bildschirm ein. Nur bei ausgeblendeten Gegnern entfällt der
+ganze Schritt.
+
 ---
 
 ## Health Bar Instance Manager (health-bar-instance.manager.ts)
 
-Alle Health Bars in einem einzigen InstancedMesh:
+Alle Health Bars auf einer gemeinsamen `InstancedBufferGeometry`, gezeichnet von
+zwei `Mesh`-Passes:
 
-- `PlaneGeometry(1, 1)` mit prozeduralem Shader
-- Billboard-Orientierung per Camera Quaternion
-- Per-Instance: `aHealth` (0-1), `aBarColor` (RGB), `aIsBoss` (float)
+- Einheits-Quad aus `PlaneGeometry(1, 1)` mit prozeduralem Shader
+- Billboard im Vertex-Shader über die Uniforms `uCameraRight`/`uCameraUp`
+- Per-Instance: `aCenter` (Weltposition), `aSize` (0 = versteckt), `aHealth` (0-1),
+  `aBarColor` (RGB), `aIsBoss` (float)
+- `geometry.instanceCount` ist der Draw-Count beider Passes
+- Kein `InstancedMesh`: der Shader liest `instanceMatrix` nicht, ein
+  `InstancedMesh` legt es trotzdem an und lädt es hoch (2 × 20.000 × 16 Floats =
+  2,56 MB). `frustumCulled` bleibt aus, die Bounding-Sphere der Geometrie ist nur
+  das Quad am Ursprung.
 - Farbverlauf: Gruen (>60%) → Gelb (>30%) → Rot (<30%)
 - Max 20.000 Health Bars
 - **Two-Pass Rendering** für korrektes Depth-Testing: erst Pass mit
