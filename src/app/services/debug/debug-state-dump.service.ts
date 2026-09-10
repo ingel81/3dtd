@@ -2,6 +2,7 @@ import { Injectable, inject } from '@angular/core';
 import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { LocationStore } from '../../store/location.store';
 import { UIStore } from '../../store/ui.store';
+import type { RouteCellDump, RouteGridSampleStats } from '../../utils/route-grid-diagnostics';
 
 /**
  * Builds a structured JSON snapshot of currently-interesting engine state
@@ -100,7 +101,7 @@ export interface StateSnapshot {
   routeGrid: {
     initialized: boolean;
     gridStats: { totalCells: number; trackedEnemies: number; occupiedCells: number };
-    sampleStats: ReturnType<import('../../utils/global-route-grid').GlobalRouteGrid['dumpStats']>;
-    outliers20m: ReturnType<import('../../utils/global-route-grid').GlobalRouteGrid['dumpCellsInBox']>;
+    sampleStats: RouteGridSampleStats;
+    outliers20m: RouteCellDump[];
   };
 }
