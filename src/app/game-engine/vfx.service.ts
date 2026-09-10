@@ -56,15 +56,15 @@ export class VFXService {
 
   /**
    * Spawn lightning bolts for a chain fire. Each successive pair of points
-   * gets one bolt mesh. Bolts rely on additive blending + boosted intensity
-   * to stand out — auto-enabling bloom turned out to make every emissive
-   * material on the map glow permanently, so we explicitly do NOT touch
-   * the global bloom pass here.
+   * gets one bolt (one instance in the bolt renderer). Bolts rely on additive
+   * blending + boosted intensity to stand out: auto-enabling bloom turned
+   * out to make every emissive material on the map glow permanently, so we
+   * explicitly do NOT touch the global bloom pass here.
    *
-   * Each bolt also requests a pooled local PointLight at its end (= impact
-   * point on the hit enemy). The light fades with the bolt's lifetime and
-   * briefly brightens the surrounding geometry — a local-scope substitute
-   * for global bloom.
+   * Each bolt also requests a pooled additive halo sprite at its end (the
+   * impact point on the hit enemy). The halo fades with the bolt's lifetime
+   * and briefly brightens whatever is behind it, a local-scope substitute
+   * for global bloom (3D Tiles ignore dynamic lights).
    */
   private handleChainLightning(points: { x: number; y: number; z: number }[]): void {
     if (points.length < 2) return;

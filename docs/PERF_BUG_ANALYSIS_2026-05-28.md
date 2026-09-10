@@ -161,6 +161,13 @@ Implementiert und committet auf `claude/3d-engine-performance-analysis-NHoDA` (T
 - **G8, P6, P8** — LOW; P8 referenziert eine API, die im betroffenen Renderer nicht existiert (Pool-Flush liegt zentral) → erst Mechanismus verifizieren.
 - **L3** (3D-Range für Air) — balance-relevant; als horizontale Reichweite dokumentiert statt Air-Türme zu nerfen.
 
+**Nachtrag 2026-09-11, P2:** `LightningBoltRenderer` zeichnet alle Bolts als Instanzen
+eines Quad-Strips (ein `Mesh` über `InstancedBufferGeometry`, ein `ShaderMaterial`).
+Pro Bolt ein Slot aus dem `InstanceSlotAllocator`, Instanzdaten (`aStart`, `aEnd`,
+`aTiming`, `aShape`) in einem Interleaved-Buffer, `uTime` und die Farben bleiben
+Uniforms. Bis zu 192 Draw Calls und 192 Materialien werden zu einem. Frame-Time-Messung
+im echten Render steht noch aus.
+
 ---
 
 ## Nachtrag 2026-09-11: Render-Kleinkram (TODO 1.5)

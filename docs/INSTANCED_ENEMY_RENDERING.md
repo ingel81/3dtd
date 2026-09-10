@@ -180,8 +180,9 @@ Pro Enemy-Typ ein `TypePool`:
 
 ### Slot-Vergabe und Uploads
 
-Enemy-Pools, Health-Bars, die Projektil-Pools (`three-projectile.renderer.ts`) und
-die Decal-Pools (`decal-instance.manager.ts`) vergeben ihre Slots über
+Enemy-Pools, Health-Bars, die Projektil-Pools (`three-projectile.renderer.ts`), die
+Decal-Pools (`decal-instance.manager.ts`) und die Lightning-Bolts
+(`lightning-bolt.renderer.ts`) vergeben ihre Slots über
 `renderers/instance-slot-allocator.ts`:
 
 - Freie Slots kommen auf eine Free-List und werden vor dem Wachsen wieder vergeben.
@@ -208,7 +209,9 @@ kein Einzelpfad unbegrenzt Ranges anhängen:
 - Attribute mit Frame-Flush setzen auf den Einzelpfaden nur ein Dirty-Flag: Enemy
   `instanceMatrix` (auch beim Entfernen), `aAnimFrame`, `aTintColor`, Health-Bar
   `aCenter`/`aHealth`, Projektil-Matrizen (`ThreeProjectileRenderer.commitToGPU()`
-  flusht einmal pro Frame).
+  flusht einmal pro Frame), Lightning-Bolt-Instanzdaten (`aStart`/`aEnd`/`aTiming`/
+  `aShape` in einem Interleaved-Buffer, Flush am Ende von
+  `LightningBoltRenderer.update()`, nur in Frames mit Spawns).
 - Attribute ohne Frame-Flush (Enemy `aOpacity`, Health-Bar `aSize`, `aBarColor`,
   `aIsBoss`) laufen über `InstanceSlotAllocator.uploadSlot()`: eine Range pro Slot,
   ab 64 wartenden Ranges zusammengefasst zu einer über die gezeichneten Slots.

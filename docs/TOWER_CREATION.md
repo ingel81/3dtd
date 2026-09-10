@@ -636,8 +636,9 @@ fire: {
 ## Beispiel: Lightning Tower (Chain Attack)
 
 Vollständiges Beispiel eines `chain`-Towers — Hitscan-Kette zwischen mehreren Enemies,
-gerendert über den dedizierten `LightningBoltRenderer` (Pool von 192 Bolts mit
-Vertex-Shader-generierter Jagged-Polyline) plus additive Aufhell-Halos pro Hit
+gerendert über den dedizierten `LightningBoltRenderer` (bis zu 192 Bolts als Instanzen
+eines Quad-Strips, ein Mesh und ein Draw Call; der Vertex-Shader erzeugt die
+Jagged-Polyline aus Endpunkten und Seed pro Instanz) plus additive Aufhell-Halos pro Hit
 (Workaround weil Photorealistic 3D Tiles dynamische Lichter ignorieren — siehe
 [[feedback_tiles_dynamic_lights]] im Memory).
 
