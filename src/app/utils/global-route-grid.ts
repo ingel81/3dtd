@@ -889,8 +889,9 @@ export class GlobalRouteGrid {
    * `budgetMs` time budget is exhausted (checked every ~32 cells to keep
    * `performance.now()` overhead negligible), then yields. Fires
    * `refreshAggregateVizPositions` + `emitCellsChanged` for THIS slice's
-   * changed cells, so per-tower LOS re-resolution is also spread across
-   * frames instead of landing in one block.
+   * changed cells, so no change is lost when a new tile-load restarts the
+   * sweep. Listeners with expensive follow-up work (per-tower LOS, route
+   * line) collect the slices and run once the sweep is over.
    *
    * Returns `done=true` once the queue is exhausted (or there is no sweep
    * in flight) — at which point the aggregated `[PerfTrace]` line is logged.

@@ -19,6 +19,7 @@ import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
 import { losPerf } from '../utils/los-perf';
 import { LosResolveContext } from '../utils/gpu-cube-resolve';
+import { RouteCell } from '../utils/global-route-grid';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 /**
@@ -152,6 +153,8 @@ export class TowerPlacementService {
     this.cellsChangedOff = this.globalRouteGrid.addCellsChangedListener((changed) =>
       this.onCellsChanged(changed),
     );
+    // Towers queued for the previous location went with its grid.
+    this.staleLos.clear();
   }
 
   /** Unsubscribe for the cells-changed listener registered in initialize(). */
@@ -159,7 +162,18 @@ export class TowerPlacementService {
 
   private tubeRebuildScheduled = false;
 
-  private onCellsChanged(changed: import('../utils/global-route-grid').RouteCell[]): void {
+  /**
+   * Towers whose LOS was resolved against a height that has changed since,
+   * with the cells in question. Filled by onCellsChanged, worked off by
+   * drainLosRefresh. The old answers stay in the cells until the recompute
+   * replaces them: a stale answer for a second beats no answer, which would
+   * send every candidate in those cells down the CPU-raycast fallback of the
+   * combat loop.
+   */
+  private readonly staleLos = new Map<Tower, Set<RouteCell>>();
+  private losRefreshRaf: number | null = null;
+
+  private onCellsChanged(changed: RouteCell[]): void {
     if (!this.gameState || !this.engine || changed.length === 0) return;
 
     // The air-route tube caches cell terrainHeights at build time; without
@@ -178,8 +192,11 @@ export class TowerPlacementService {
     if (towers.length === 0) return;
 
     // Precompute tower local positions to avoid N*M geo-to-local conversions.
+    // A tower that is not registered yet has nothing stale: its registration
+    // resolves every cell against the current height anyway.
     const towerPositions: { tower: Tower; x: number; z: number; rangeSq: number }[] = [];
     for (const tower of towers) {
+      if (!tower.losReady) continue;
       const lp = this.engine.sync.geoToLocalSimple(
         tower.position.lat, tower.position.lon, tower.position.height ?? 0,
       );
@@ -189,26 +206,49 @@ export class TowerPlacementService {
       });
     }
 
-    // For each changed cell, find towers whose range covers it and
-    // invalidate their cached LOS entry so the upcoming recompute re-raycasts
-    // the cell with the now-correct terrainHeight.
-    const affectedTowers = new Set<Tower>();
+    // For each changed cell, note the towers whose range covers it. Nothing
+    // is recomputed here: during a budgeted sweep this runs once per slice,
+    // and recomputing per slice re-rendered the same tower's cubemap in every
+    // frame of the sweep.
     for (const cell of changed) {
       for (const t of towerPositions) {
         const distSq = (cell.x - t.x) ** 2 + (cell.z - t.z) ** 2;
         if (distSq > t.rangeSq) continue;
-        cell.towerVisibility.delete(t.tower.id);
-        cell.airVisibility.delete(t.tower.id);
-        affectedTowers.add(t.tower);
+        let stale = this.staleLos.get(t.tower);
+        if (!stale) {
+          stale = new Set();
+          this.staleLos.set(t.tower, stale);
+        }
+        stale.add(cell);
       }
     }
+    if (this.staleLos.size > 0) this.scheduleLosRefresh();
+  }
 
-    // recomputeTowerLOS runs registerTowerIncremental (which raycasts only
-    // the cells we just invalidated — cached entries on other cells are
-    // reused) and refreshes the per-tower viz mesh for the selected tower.
-    for (const tower of affectedTowers) {
-      this.recomputeTowerLOS(tower);
+  /** Schedule the next drainLosRefresh, at most one frame callback at a time. */
+  private scheduleLosRefresh(): void {
+    if (this.losRefreshRaf !== null) return;
+    this.losRefreshRaf = requestAnimationFrame(() => {
+      this.losRefreshRaf = null;
+      this.drainLosRefresh();
+    });
+  }
+
+  /**
+   * Recompute the towers queued in `staleLos`. Waits while a budgeted terrain
+   * sweep is in flight, the same way the route-line refresh does: the sweep
+   * reports its changes slice by slice, so a tower covered by several slices
+   * would otherwise pay for a forced cubemap render plus face readback once
+   * per slice. After the sweep each tower runs once, with all its cells.
+   */
+  private drainLosRefresh(): void {
+    if (!this.globalRouteGrid.isTerrainRefreshActive()) {
+      // recomputeTowerLOS takes the tower out of the queue.
+      for (const tower of this.staleLos.keys()) {
+        this.recomputeTowerLOS(tower);
+      }
     }
+    if (this.staleLos.size > 0) this.scheduleLosRefresh();
   }
 
   updateStreetNetwork(streetNetwork: StreetNetwork): void {
@@ -891,16 +931,24 @@ export class TowerPlacementService {
     // Selection-Viz wird vom TowerManager bereinigt (Owner-Pattern).
     this.gameState?.towerManager.onTowerUnregistered(tower);
     this.globalRouteGrid.unregisterTower(tower.id);
+    this.staleLos.delete(tower);
     tower.visibleCells = [];
   }
 
   /**
    * Recompute a tower's LOS after some cells in its range changed their
-   * terrain sample. Uses incremental registration — cells that still hold
-   * a cached entry for this tower keep it (no raycast); only cells whose
-   * entry the caller invalidated get re-resolved against a fresh cubemap.
+   * terrain sample, or after its range grew. Uses incremental registration:
+   * cells that still hold a cached entry for this tower keep it (no raycast);
+   * the cells queued for it in `staleLos` drop theirs first and get
+   * re-resolved against a fresh cubemap, like the cells new to its range.
    */
   recomputeTowerLOS(tower: Tower): void {
+    // Taken out up front, so a recompute that cannot run does not keep the
+    // tower queued forever. A direct call (range upgrade) settles the queue
+    // entry as well, the drain does not have to run it again.
+    const stale = this.staleLos.get(tower);
+    this.staleLos.delete(tower);
+
     if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
 
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
@@ -921,6 +969,13 @@ export class TowerPlacementService {
     if (!ctx) {
       console.warn('[TowerPlacementService] recomputeTowerLOS: no LOS blocker group');
       return;
+    }
+
+    if (stale) {
+      for (const cell of stale) {
+        cell.towerVisibility.delete(tower.id);
+        cell.airVisibility.delete(tower.id);
+      }
     }
 
     // Incremental: only sample cells that don't already have a cached entry
@@ -958,6 +1013,11 @@ export class TowerPlacementService {
     this.exitBuildMode();
     this.cellsChangedOff?.();
     this.cellsChangedOff = null;
+    if (this.losRefreshRaf !== null) {
+      cancelAnimationFrame(this.losRefreshRaf);
+      this.losRefreshRaf = null;
+    }
+    this.staleLos.clear();
 
     // Release model references from AssetManager
     for (const url of this.loadedModelUrls) {
