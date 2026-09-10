@@ -514,8 +514,8 @@ Typ `DamageEffectiveness` in `combat.types.ts`, `getEffectiveness`, Farben und
 Skalen in `damage-matrix.config.ts:49-77`.
 
 Die Sidebar rechnet mit eigenen, hart codierten Schwellen
-(`game-sidebar.component.ts:326` `mul < 0.7`, `:385` `1.5 / 1.2 / 0.7`). Beide
-Stellen sollen `EFFECTIVENESS_THRESHOLDS` lesen.
+(`components/game-sidebar/sidebar-tooltips.ts:87` und `:139`, jeweils
+`mul < 0.7`). Beide Stellen sollen `EFFECTIVENESS_THRESHOLDS` lesen.
 
 ### 4.5 Folgen für Wave-Director, Bots und Economy
 
@@ -658,7 +658,7 @@ wäre für die Feinabstimmung nützlich (optional).
 |---|---|---|
 | Fire zielt außerhalb der Flamme | `tower-combat.service.ts:339`, `:411` | Flammenlänge aus `beamRange × combat.range / typeConfig.range`, oder Zielsuche für Beam-Tower auf `beamRange + 2` begrenzen |
 | Splash trifft nicht anvisierbare Ziele | `combat-effect.service.ts:178` | Luftziel überspringen, wenn der Quell-Tower kein Air-Targeting hat (`canTargetAirEffective`) |
-| Sidebar-Schwellen doppelt | `game-sidebar.component.ts:326`, `:385` | aus `EFFECTIVENESS_THRESHOLDS` lesen |
+| Sidebar-Schwellen doppelt | `sidebar-tooltips.ts:87`, `:139` | aus `EFFECTIVENESS_THRESHOLDS` lesen |
 | Splash-Kennzeichnung im Modell | `defense-analyzer.ts:42-50` | Rocket ohne, Ice und Poison mit `splash` |
 | Chart-Texte | `tools/tower-stats-chart/generate.spec.ts:248`, `:272` | Kostenfaktor aus `UPGRADE_COST_SCALING` |
 

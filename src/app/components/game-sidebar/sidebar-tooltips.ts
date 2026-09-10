@@ -1,0 +1,158 @@
+import { ARMOR_TYPE_UI, DAMAGE_TYPE_UI } from '../../configs/combat/combat-ui.config';
+import { DAMAGE_MATRIX } from '../../configs/combat/damage-matrix.config';
+import { ARMOR_TYPES, ArmorType, DamageType } from '../../configs/combat/combat.types';
+import { ENEMY_TYPES } from '../../configs/enemy-types.config';
+import { TowerTypeConfig } from '../../configs/tower-types.config';
+import { canTargetAirEffective } from '../../entities/tower-targeting.util';
+import type { WaveGroupDisplay } from '../../services/debug/wave-debug.service';
+import { TdTooltipData } from '../tooltip/tooltip-data.types';
+
+/**
+ * Tooltip-Aufbereitung der Sidebar: Tower-Karten im BUILD-Panel, Gegnergruppen
+ * im WAVE-Panel. Reine Funktionen; Research-Zustand kommt als Argument, damit
+ * die Komponente ihn aus dem Store liest und OnPush die Abhängigkeit sieht.
+ */
+
+/** Research-Zustand, von dem der Tower-Karten-Tooltip abhängt. */
+export interface TowerCardTooltipContext {
+  researchCenterPlaced: boolean;
+  airTargetingUnlocked: boolean;
+}
+
+// Armor identity colors per mockup (tmp/td-components.jsx ArmorChip).
+// The dot color reflects the ARMOR TYPE, not the effectiveness; the dim
+// flag (faded row) communicates "weak matchup" instead.
+const ARMOR_DOT_COLOR: Record<string, string> = {
+  'unarmored': '#7DBE82',
+  'light': '#5BA4D9',
+  'heavy': '#C46B3A',
+  'fortified': '#5A6258',
+  'ethereal': '#9A78C7',
+};
+
+const DAMAGE_ACCENT: Record<string, TdTooltipData['accent']> = {
+  'physical': 'gold',
+  'magic': 'teal',
+  'fire': 'fire',
+  'cold': 'cold',
+  'poison': 'poison',
+};
+
+const ARMOR_ACCENT: Record<ArmorType, TdTooltipData['accent']> = {
+  unarmored: 'neutral',
+  light: 'teal',
+  heavy: 'gold',
+  fortified: 'health',
+  ethereal: 'poison',
+};
+
+/**
+ * Structured tooltip payload for the tower-card rich tooltip.
+ * Matches the design refinement spec, header, stat triple, vs-armor table.
+ */
+export function towerCardTooltip(
+  tower: TowerTypeConfig,
+  ctx: TowerCardTooltipContext,
+): TdTooltipData {
+  if (tower.id === 'research-center') {
+    return {
+      title: 'Research Center',
+      category: 'STRUCTURE',
+      accent: 'gold',
+      flavor: ctx.researchCenterPlaced
+        ? 'Already placed.'
+        : 'Unlocks new towers and upgrade tiers.',
+    };
+  }
+  const dmgUi = DAMAGE_TYPE_UI[tower.damageType];
+  const matrix = DAMAGE_MATRIX[tower.damageType as DamageType];
+  const stats = tower.attackType === 'beam'
+    ? [
+        { label: 'DPS', value: String(tower.damagePerSecond ?? 0) },
+        { label: 'TYPE', value: 'BEAM' },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ]
+    : [
+        { label: 'DMG', value: String(tower.damage) },
+        { label: 'RATE', value: `${tower.fireRate}/s` },
+        { label: 'RANGE', value: `${tower.range}m` },
+      ];
+  const armor = ARMOR_TYPES.map(a => {
+    const mul = matrix[a as ArmorType];
+    const meta = ARMOR_TYPE_UI[a as ArmorType];
+    return {
+      label: meta.label,
+      multiplier: `${mul.toFixed(2)}×`,
+      color: ARMOR_DOT_COLOR[a] ?? 'var(--td-text-muted)',
+      dim: mul < 0.7,
+    };
+  });
+  // Targeting capability, resolved via canTargetAirEffective so the banner
+  // reflects AA-retrofit research (e.g. dual-gatling after aa-retrofit
+  // completes flips from ground-only to air-ground with a "via Research"
+  // note). Single source of truth shared with combat + AI bots.
+  const effectiveAir = canTargetAirEffective(tower.id, ctx.airTargetingUnlocked);
+  const baseAir = tower.canTargetAir === true;
+  const ground = tower.canTargetGround !== false;
+  const targeting: TdTooltipData['targeting'] =
+    effectiveAir && !ground ? { mode: 'air-only' } :
+    effectiveAir && ground  ? { mode: 'air-ground', viaResearch: !baseAir } :
+                              { mode: 'ground-only' };
+  return {
+    title: tower.name,
+    category: dmgUi.label.toUpperCase(),
+    accent: DAMAGE_ACCENT[tower.damageType] ?? 'gold',
+    stats,
+    targeting,
+    armorTitle: 'vs Armor',
+    armor,
+  };
+}
+
+/**
+ * Structured tooltip payload for the enemy-group rich tooltip.
+ * Mirrors the tower-card tooltip layout, header (name + armor category),
+ * 3-column stats (HP / SPEED / COUNT), and a "vs Damage" table sorted by
+ * effectiveness against this enemy's armor. Reuses the armor-row structure
+ * for the damage rows so both tooltips share the same visual language.
+ */
+export function enemyGroupTooltip(group: WaveGroupDisplay): TdTooltipData | null {
+  const enemyConfig = ENEMY_TYPES[group.enemyType];
+  if (!enemyConfig) return null;
+
+  const armor = enemyConfig.armorType as ArmorType;
+  const armorMeta = ARMOR_TYPE_UI[armor];
+
+  const stats = [
+    { label: 'HP', value: String(group.actualHp) },
+    { label: 'SPEED', value: `${group.actualSpeed.toFixed(1)}m/s` },
+    { label: 'COUNT', value: `×${group.count}` },
+  ];
+
+  const damageRows = (Object.keys(DAMAGE_MATRIX) as DamageType[])
+    .map((dt) => ({ ui: DAMAGE_TYPE_UI[dt], mul: DAMAGE_MATRIX[dt][armor] }))
+    .sort((a, b) => b.mul - a.mul)
+    .map((row) => ({
+      label: row.ui.label,
+      multiplier: `${row.mul.toFixed(2)}×`,
+      color: row.ui.color,
+      dim: row.mul < 0.7,
+    }));
+
+  // Surface wave-scaling multipliers as flavor when they differ from 1,
+  // so the player can see why HP/speed look inflated mid-run.
+  const flavorParts: string[] = [];
+  if (group.healthMultiplier !== 1) flavorParts.push(`HP ×${group.healthMultiplier.toFixed(1)}`);
+  if (group.speedMultiplier !== 1) flavorParts.push(`Speed ×${group.speedMultiplier.toFixed(2)}`);
+  const flavor = flavorParts.length > 0 ? `Scaled: ${flavorParts.join(' · ')}` : undefined;
+
+  return {
+    title: group.name,
+    category: armorMeta.label.toUpperCase(),
+    accent: ARMOR_ACCENT[armor] ?? 'neutral',
+    stats,
+    armorTitle: 'vs Damage',
+    armor: damageRows,
+    flavor,
+  };
+}
