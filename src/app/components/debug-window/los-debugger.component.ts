@@ -52,11 +52,8 @@ const ZOOM_CANVAS_PX = 144;
         icon="eye"
         [position]="windowService.losWindow().position"
         [zIndex]="windowService.losWindow().zIndex"
-        [size]="windowService.losWindow().size ?? { width: 440, height: 540 }"
-        [resizable]="true"
         (closed)="windowService.close('los')"
         (positionChange)="windowService.updatePosition('los', $event)"
-        (sizeChange)="windowService.updateSize('los', $event)"
         (focused)="windowService.bringToFront('los')"
       >
         <div class="los-content">

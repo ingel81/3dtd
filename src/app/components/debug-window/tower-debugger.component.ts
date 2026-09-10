@@ -20,11 +20,8 @@ import { TdIconComponent } from '../icon/icon.component';
         icon="cog"
         [position]="windowService.towerWindow().position"
         [zIndex]="windowService.towerWindow().zIndex"
-        [size]="windowService.towerWindow().size ?? { width: 300, height: 550 }"
-        [resizable]="true"
         (closed)="windowService.close('tower')"
         (positionChange)="windowService.updatePosition('tower', $event)"
-        (sizeChange)="windowService.updateSize('tower', $event)"
         (focused)="windowService.bringToFront('tower')"
       >
         <div class="tower-debug-content">
