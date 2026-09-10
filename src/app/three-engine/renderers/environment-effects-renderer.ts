@@ -322,6 +322,12 @@ export class EnvironmentEffectsRenderer {
    * @param dt delta time in seconds
    */
   update(dt: number): void {
+    // Respawns bypass getInactiveParticle(), so they have to flag the pool
+    // themselves. A long frame (tab back from hidden, dt of seconds) kills
+    // every particle at once, updateBuffers() then counts 0 and without the
+    // flag skips the pool for good while the fires respawn invisibly.
+    let respawned = false;
+
     // Update tower inner fire particles (persistent, respawn when dead)
     for (const [, fire] of this.activeTowerFires) {
       const fireRadius = 1.5; // Fixed radius for inner fire
@@ -335,6 +341,7 @@ export class EnvironmentEffectsRenderer {
           particle.life -= dt / particle.maxLife;
         } else {
           // Respawn dead particle
+          respawned = true;
           const angle = Math.random() * Math.PI * 2;
           const radius = Math.random() * fireRadius;
 
@@ -365,6 +372,8 @@ export class EnvironmentEffectsRenderer {
         }
       }
     }
+
+    if (respawned) this.pools.markPoolDirty('towerFire');
   }
 
   /**
