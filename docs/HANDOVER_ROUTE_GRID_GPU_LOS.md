@@ -293,7 +293,8 @@ und rechnet auch nicht sofort: er merkt sich pro Tower, welche seiner
 Cells sich geändert haben (`staleLos`), plus ein rAF-debounced
 `rebuildAirRouteLayer()`. `drainLosRefresh` wartet, solange der
 budgetierte Sweep läuft (der meldet pro Slice, also pro Frame), und löst
-danach jeden betroffenen Tower einmal inkrementell neu auf. Erst dann
+danach jeden betroffenen Tower einmal inkrementell neu auf, einen pro
+Frame (`LOS_RECOMPUTES_PER_FRAME`). Erst dann
 fliegen seine alten Einträge für genau diese Cells raus; bis dahin gilt
 die alte Antwort, denn ohne Eintrag nähme jeder Kandidat in diesen Cells
 den CPU-Raycast-Fallback. Ein direkter `recomputeTowerLOS` (Range-Upgrade)
@@ -306,8 +307,10 @@ Performance-Bemerkung: der frühere Full-Sweep
 in-Range-Cell per GPU-readPixels neu auflösen) ist seit 2026-05-16
 (Commit `a7cb2c5`) entfernt; er stallte den Main-Thread mehrere
 Sekunden bei JEDEM Tile-Load, auch ganz ohne LOD-Wechsel.
-Verbleibend: ein großer Zoom-In mit Massen-LOD-Promotion (~800 Cells)
-spiked noch ~1–2 s — als optionaler Follow-up in TODO.md 1.4 getrackt.
+Der große Zoom-In mit Massen-LOD-Refresh (~800 Cells) blockierte danach
+noch ~1-2 s am Stück, weil jeder Slice alle betroffenen Tower synchron
+neu rechnete. Seit 2026-09-11 läuft das einmal pro Tower nach dem Sweep,
+verteilt auf einen Tower pro Frame.
 
 **Routenkorridor (seit 2026-09-10):** 3d-tiles-renderer aktiviert nur Tiles
 im Kamera-Frustum, und `TilesRenderer.raycast` trifft nur aktive Tiles. Zellen

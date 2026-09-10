@@ -173,6 +173,23 @@ describe('TowerPlacementService tower LOS refresh', () => {
     expect(staleAnswers(b)).toEqual([]);
   });
 
+  it('spreads the recomputes over frames, one tower each', () => {
+    const towersInRange = [place(15, 10), place(40, 10), place(25, -10)];
+    fine();
+    grid.updateTerrainHeights();
+    const recompute = vi.spyOn(service, 'recomputeTowerLOS');
+
+    runFrame();
+    expect(recompute).toHaveBeenCalledTimes(1);
+    runFrame();
+    expect(recompute).toHaveBeenCalledTimes(2);
+    runFrame();
+    expect(recompute).toHaveBeenCalledTimes(3);
+    expect(frames).toHaveLength(0);
+    // In the end every tower answers for the heights its cells have now.
+    for (const tower of towersInRange) expect(staleAnswers(tower)).toEqual([]);
+  });
+
   it('drops a sold tower from the queue', () => {
     const a = place(15, 10);
     const b = place(40, 10);
