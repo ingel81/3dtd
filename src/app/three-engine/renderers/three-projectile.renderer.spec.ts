@@ -30,6 +30,42 @@ describe('ProjectileInstanceManager', () => {
     expect(manager.count).toBe(0);
   });
 
+  it('uploads one range over the drawn slots per flush', () => {
+    add('a');
+    add('b');
+    add('c');
+    const matrix = manager.instancedMesh.instanceMatrix;
+    const version = matrix.version;
+    manager.updatePosition('a', new Vector3(1, 2, 3));
+    manager.update('b', new Vector3(4, 5, 6), new Euler(0.1, 0.2, 0.3));
+    expect(matrix.version).toBe(version); // nothing uploads before the flush
+
+    manager.flush();
+    expect(matrix.version).toBe(version + 1);
+    expect(matrix.updateRanges).toEqual([{ start: 0, count: 48 }]);
+
+    manager.remove('c');
+    manager.flush();
+    expect(matrix.updateRanges).toEqual([{ start: 0, count: 32 }]);
+
+    manager.flush(); // nothing written since
+    expect(matrix.version).toBe(version + 2);
+  });
+
+  it('adds no zero-length range once every projectile is gone', () => {
+    add('a');
+    manager.flush();
+    const matrix = manager.instancedMesh.instanceMatrix;
+    matrix.clearUpdateRanges(); // stands in for the upload
+    const version = matrix.version;
+
+    manager.remove('a');
+    manager.flush();
+    // (0, 0) would make three upload the whole buffer.
+    expect(matrix.updateRanges).toEqual([]);
+    expect(matrix.version).toBe(version);
+  });
+
   it('skips projectiles beyond the pool size instead of drawing past the buffer', () => {
     for (const id of ['a', 'b', 'c', 'd', 'e']) add(id);
     expect(manager.count).toBe(4);

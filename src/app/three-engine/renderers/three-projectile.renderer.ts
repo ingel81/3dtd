@@ -46,6 +46,8 @@ export class ProjectileInstanceManager {
   private entities = new Map<string, number>(); // id -> instanceIndex
   private readonly slots: InstanceSlotAllocator;
   private readonly matrix = new Matrix4();
+  /** Matrices written since the last flush(). */
+  private matrixDirty = false;
 
   // Reusable vectors to avoid allocations in update loop
   private static readonly _tempPos = new Vector3();
@@ -84,7 +86,7 @@ export class ProjectileInstanceManager {
       scale
     );
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.matrixDirty = true;
   }
 
   update(id: string, position: Vector3, rotation: Euler): void {
@@ -104,7 +106,7 @@ export class ProjectileInstanceManager {
       ProjectileInstanceManager._tempScale
     );
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.matrixDirty = true;
   }
 
   /**
@@ -127,7 +129,7 @@ export class ProjectileInstanceManager {
       ProjectileInstanceManager._tempScale
     );
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.matrixDirty = true;
   }
 
   remove(id: string): void {
@@ -137,7 +139,7 @@ export class ProjectileInstanceManager {
     // Move to infinity (hide)
     this.matrix.makeTranslation(0, -10000, 0);
     this.instancedMesh.setMatrixAt(index, this.matrix);
-    this.instancedMesh.instanceMatrix.needsUpdate = true;
+    this.matrixDirty = true;
 
     this.entities.delete(id);
     this.slots.release(index);
@@ -148,13 +150,34 @@ export class ProjectileInstanceManager {
     return this.entities.size;
   }
 
+  /**
+   * Upload the matrices written since the last flush, once per frame (see
+   * ThreeProjectileRenderer.commitToGPU). (0, activeCount) covers every
+   * drawn slot, so one range per frame replaces the full maxCount-sized
+   * upload a bare needsUpdate would do. add/update/remove only set the flag:
+   * a per-slot range on those paths would pile up while rendering is off
+   * (headless training keeps creating and removing projectiles).
+   */
+  flush(): void {
+    if (!this.matrixDirty) return;
+    this.matrixDirty = false;
+    // activeCount 0: nothing is drawn, and (0, 0) would upload the whole
+    // buffer (bufferSubData reads a length of 0 as "to the end").
+    const activeCount = this.slots.activeCount;
+    if (activeCount === 0) return;
+    const instanceMatrix = this.instancedMesh.instanceMatrix;
+    instanceMatrix.clearUpdateRanges();
+    instanceMatrix.addUpdateRange(0, activeCount * 16);
+    instanceMatrix.needsUpdate = true;
+  }
+
   clear(): void {
-    for (const id of this.entities.keys()) {
-      this.remove(id);
-    }
+    // No hide writes needed: count 0 draws nothing, and add() rewrites a
+    // slot before the pool grows over it again.
     this.entities.clear();
     this.slots.reset();
     this.instancedMesh.count = 0;
+    this.matrixDirty = false;
   }
 
   dispose(): void {
@@ -537,10 +560,17 @@ export class ThreeProjectileRenderer {
   }
 
   /**
-   * Commit all changes to GPU (no-op in simplified implementation)
+   * Upload this frame's instance changes. Call once per frame, after all
+   * create/update/remove calls.
    */
   commitToGPU(): void {
-    // Instance matrix updates are done automatically in add/update/remove
+    this.arrowManager?.flush();
+    this.cannonballManager.flush();
+    this.magicManager.flush();
+    this.iceManager.flush();
+    this.bulletManager.flush();
+    this.rocketManager.flush();
+    this.poisonManager.flush();
   }
 
   clear(): void {
