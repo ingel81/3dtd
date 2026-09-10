@@ -43,6 +43,8 @@ import {
   GLTFExtensionsPlugin,
   ReorientationPlugin,
   LoadRegionPlugin,
+  DebugTilesPlugin,
+  type ColorMode,
 } from '3d-tiles-renderer/plugins';
 import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/core/plugins';
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
@@ -105,6 +107,13 @@ const ROUTE_CORRIDOR_HALF_WIDTH = 20;
 const ROUTE_CORRIDOR_ERROR_TARGET = 5;
 
 /**
+ * Top of the LOD debug color scale, in metres of geometric error. The auto
+ * scale spans the whole hierarchy up to the root's kilometres and paints every
+ * loaded tile the same black. At 20 m, the 5 m corridor tiles read dark.
+ */
+const TILE_LOD_DEBUG_MAX_ERROR = 20;
+
+/**
  * Initial camera position for pre-computed framing
  */
 export interface InitialCameraPosition {
@@ -135,6 +144,7 @@ export class ThreeTilesEngine {
   private tilesRenderer: TilesRenderer | null = null;
   private reorientationPlugin: ReorientationPlugin | null = null;
   private routeRegions: LoadRegionPlugin | null = null;
+  private tileLodDebug: DebugTilesPlugin | null = null;
 
   // Post-processing pipeline (composer + bloom + color grading + output pass)
   private postProcessing: PostProcessingPipeline | null = null;
@@ -1502,6 +1512,31 @@ export class ThreeTilesEngine {
     this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
   }
 
+  /**
+   * Debug: paint tiles black to white by geometric error, white at
+   * {@link TILE_LOD_DEBUG_MAX_ERROR} or coarser. Shows whether the route
+   * corridor is really refined. The plugin registers on first use.
+   */
+  setTileLodDebugEnabled(enabled: boolean): void {
+    if (!this.tilesRenderer) return;
+    if (!this.tileLodDebug) {
+      if (!enabled) return;
+      this.tileLodDebug = new DebugTilesPlugin({ maxDebugError: TILE_LOD_DEBUG_MAX_ERROR });
+      this.tilesRenderer.registerPlugin(this.tileLodDebug);
+    } else {
+      this.tileLodDebug.enabled = enabled;
+    }
+    if (enabled) {
+      // Disabling resets the color mode to NONE, so it is set on every enable.
+      // The typings declare named color-mode exports the module does not have;
+      // the modes only exist on the static ColorModes.
+      const modes = DebugTilesPlugin.ColorModes as unknown as Record<'GEOMETRIC_ERROR', ColorMode>;
+      this.tileLodDebug.colorMode = modes.GEOMETRIC_ERROR;
+    }
+    // Repaint without waiting for the camera to move.
+    this.tilesRenderer.dispatchEvent({ type: 'needs-update' });
+  }
+
 
   /**
    * Raycast between two 3D points to check Line-of-Sight
@@ -2392,6 +2427,7 @@ export class ThreeTilesEngine {
       this.tilesRenderer.dispose();
       this.tilesRenderer = null;
       this.routeRegions = null;
+      this.tileLodDebug = null;
     }
 
     // Dispose scene contents

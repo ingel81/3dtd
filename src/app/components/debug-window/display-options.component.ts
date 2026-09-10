@@ -71,6 +71,11 @@ interface DisplayOptions {
             <input type="checkbox" [checked]="screenShake()" (change)="toggleScreenShake()" />
             <span>Screen Shake</span>
           </label>
+          <div class="separator">Tiles</div>
+          <label class="checkbox-row" title="Tiles by geometric error: dark = fine, white = 20 m or coarser">
+            <input type="checkbox" [checked]="tileLodDebug()" (change)="toggleTileLodDebug()" />
+            <span>LOD Colors</span>
+          </label>
           <div class="separator">Post-Processing</div>
           <label class="select-row">
             <span>Color Grading</span>
@@ -169,6 +174,8 @@ export class DisplayOptionsComponent {
   readonly alphaBlend = signal(true);
   readonly screenShake = this.debugFacade.screenShakeEnabled;
   readonly colorGrading = signal<ColorGradingPreset>('none');
+  /** Session only, see DebugFacadeService.onTileLodDebugToggled. */
+  readonly tileLodDebug = signal(false);
 
   readonly colorGradingPresets = COLOR_GRADING_PRESETS;
 
@@ -181,6 +188,7 @@ export class DisplayOptionsComponent {
   readonly alphaBlendToggled = output<boolean>();
   readonly screenShakeToggled = output<boolean>();
   readonly colorGradingChanged = output<ColorGradingPreset>();
+  readonly tileLodDebugToggled = output<boolean>();
 
   constructor() {
     this.loadFromStorage();
@@ -246,6 +254,12 @@ export class DisplayOptionsComponent {
 
   toggleScreenShake(): void {
     this.screenShakeToggled.emit(!this.screenShake());
+  }
+
+  toggleTileLodDebug(): void {
+    const next = !this.tileLodDebug();
+    this.tileLodDebug.set(next);
+    this.tileLodDebugToggled.emit(next);
   }
 
   onColorGradingChange(event: Event): void {
