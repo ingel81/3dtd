@@ -28,6 +28,7 @@ import {
   MAGIC_ORB_VERTEX,
   MAGIC_ORB_FRAGMENT,
 } from './magic-orb-shaders';
+import { InstanceSlotAllocator } from './instance-slot-allocator';
 
 /**
  * Projectile render data
@@ -40,11 +41,10 @@ export interface ProjectileRenderData {
 /**
  * Simple instanced entity manager for projectiles
  */
-class ProjectileInstanceManager {
+export class ProjectileInstanceManager {
   readonly instancedMesh: InstancedMesh;
   private entities = new Map<string, number>(); // id -> instanceIndex
-  private freeIndices: number[] = [];
-  private activeCount = 0;
+  private readonly slots: InstanceSlotAllocator;
   private readonly matrix = new Matrix4();
 
   // Reusable vectors to avoid allocations in update loop
@@ -60,8 +60,10 @@ class ProjectileInstanceManager {
     this.instancedMesh = new InstancedMesh(geometry, material, maxCount);
     this.instancedMesh.count = 0;
     this.instancedMesh.frustumCulled = false;
+    this.slots = new InstanceSlotAllocator(maxCount);
   }
 
+  /** Skipped (not drawn) when all `maxCount` slots are in flight. */
   add(
     id: string,
     position: Vector3,
@@ -70,16 +72,11 @@ class ProjectileInstanceManager {
   ): void {
     if (this.entities.has(id)) return;
 
-    let index: number;
-    if (this.freeIndices.length > 0) {
-      index = this.freeIndices.pop()!;
-    } else {
-      index = this.activeCount;
-    }
+    const index = this.slots.alloc();
+    if (index < 0) return;
 
     this.entities.set(id, index);
-    this.activeCount = Math.max(this.activeCount, index + 1);
-    this.instancedMesh.count = this.activeCount;
+    this.instancedMesh.count = this.slots.activeCount;
 
     this.matrix.compose(
       position,
@@ -143,7 +140,8 @@ class ProjectileInstanceManager {
     this.instancedMesh.instanceMatrix.needsUpdate = true;
 
     this.entities.delete(id);
-    this.freeIndices.push(index);
+    this.slots.release(index);
+    this.instancedMesh.count = this.slots.activeCount;
   }
 
   get count(): number {
@@ -155,8 +153,7 @@ class ProjectileInstanceManager {
       this.remove(id);
     }
     this.entities.clear();
-    this.freeIndices = [];
-    this.activeCount = 0;
+    this.slots.reset();
     this.instancedMesh.count = 0;
   }
 
