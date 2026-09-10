@@ -73,7 +73,7 @@ import { WaveDirectorService } from './ai/core/wave-director.service';
 import { AIDataCollectorService } from './ai/core/ai-data-collector.service';
 import { TrainingClientService } from './ai/training/training-client.service';
 // AI Bot Training
-import { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
+import type { BotSkillLevel } from './ai/training/bots/tower-bot.interface';
 import { TdIconComponent } from './components/icon/icon.component';
 import { LosLegendComponent } from './components/los-legend/los-legend.component';
 import { IntroSkipComponent } from './components/intro-skip/intro-skip.component';
