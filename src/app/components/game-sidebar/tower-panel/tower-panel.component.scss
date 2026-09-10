@@ -1,0 +1,145 @@
+@use '../sidebar-panel' as panel;
+
+:host {
+  display: contents;
+}
+
+@include panel.section;
+
+@include panel.fill;
+
+@include panel.header;
+
+@include panel.content;
+
+/* Label und Wert der Stat-Kacheln, verfeinert durch .td-stat-tile unten */
+.td-stat-label {
+  color: var(--td-text-secondary);
+  font-size: 10px;
+  text-transform: uppercase;
+}
+
+.td-stat-value {
+  color: var(--td-text-primary);
+  font-size: 12px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+/* === Tower Section ===
+ * Header inherits the typographic divider style from .td-panel-header,
+ * with a teal accent for the title color (was a heavy teal gradient bar). */
+.td-tower-panel .td-panel-header {
+  color: var(--td-teal-light);
+}
+.td-tower-panel .td-panel-header .td-tower-header-name {
+  color: var(--td-teal-light);
+}
+
+@include panel.tower-header;
+
+@include panel.matrix-btn;
+
+@include panel.tower-section;
+
+/* Stats Grid, 3×2 (Phase 5.16) with damage-type tile at pos 0 */
+.td-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 6px;
+}
+.td-stats-grid.td-stats-grid-3 {
+  grid-template-columns: repeat(3, 1fr);
+  gap: 4px;
+}
+
+.td-stat-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 4px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  min-width: 0;
+}
+.td-stat-tile-dmgtype {
+  border-width: 1px;
+  border-style: solid;
+}
+.td-stat-value-small {
+  font-size: 11px !important;
+  font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.td-stat-icon {
+  font-size: 18px;
+  width: 18px;
+  height: 18px;
+  opacity: 0.7;
+}
+
+.td-icon-damage { color: var(--td-health-red); }
+.td-icon-range { color: var(--td-teal); }
+.td-icon-firerate { color: var(--td-gold); }
+.td-icon-kills { color: var(--td-gold); }
+
+.td-stat-tile .td-stat-value {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--td-text-primary);
+}
+
+.td-stat-tile .td-val-damage { color: var(--td-health-red); }
+.td-stat-tile .td-val-kills { color: var(--td-gold); }
+
+.td-stat-tile .td-stat-label {
+  font-size: 8px;
+  color: var(--td-text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.3px;
+}
+
+/* === Targeting Strategy Row === */
+.td-targeting-row {
+  display: flex;
+  gap: 4px;
+}
+
+.td-targeting-btn {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px;
+  background: var(--td-panel-secondary);
+  border: 1px solid var(--td-frame-dark);
+  border-radius: 3px;
+  color: var(--td-text-muted);
+  cursor: pointer;
+  transition: all 0.15s;
+  font-family: inherit;
+}
+
+.td-targeting-btn:hover {
+  border-color: var(--td-teal);
+  color: var(--td-text-secondary);
+}
+
+.td-targeting-btn.active {
+  border-color: var(--td-teal);
+  background: rgba(0, 188, 212, 0.15);
+  color: var(--td-teal);
+  box-shadow: 0 0 6px rgba(0, 188, 212, 0.3);
+}
+
+.td-sub-targeting-row {
+  padding-top: 2px;
+  border-top: 1px dashed var(--td-frame-dark);
+}
+
+@include panel.upgrades;
