@@ -21,6 +21,41 @@ export interface PathfindingService {
   haversineDistance(lat1: number, lon1: number, lat2: number, lon2: number): number;
 }
 
+/** `width=5 tunnel=building_passage` etc., for the diagnostics table. */
+function describeStreetTags(street: Street): string {
+  const parts: string[] = [];
+  for (const key of ['width', 'lanes', 'bridge', 'tunnel', 'covered', 'layer'] as const) {
+    if (street[key] !== undefined) parts.push(`${key}=${street[key]}`);
+  }
+  return parts.join(' ');
+}
+
+/**
+ * One row of `describeRoutes()`: a stretch of a route that runs over a
+ * single OSM way (or off the network, `way === null`).
+ */
+export interface RouteWayRun {
+  route: string;
+  /** First and last waypoint index of the stretch */
+  fromIndex: number;
+  toIndex: number;
+  way: number | null;
+  type: string;
+  name: string;
+  /** width/lanes/bridge/tunnel/covered/layer, where the way has them */
+  tags: string;
+  lengthM: number;
+  /**
+   * Largest gap between the cell height (red line, enemy feet) and the
+   * street overlay height (yellow line) along the centre line. Several
+   * metres mean the cells sit on a roof or a canopy there. Null while the
+   * grid or the tiles cannot answer yet.
+   */
+  maxCellAboveStreetM: number | null;
+  /** lat,lon of that maximum */
+  at: string;
+}
+
 /**
  * PathAndRouteService
  *
@@ -90,6 +125,12 @@ export class PathAndRouteService {
     this.routesVisible = routesVisible;
     this.pathfindingService = pathfindingService;
     this.spawnMarkers = spawnMarkers;
+
+    // Diagnose-API für Playtests, analog zu `__rg`: in DevTools
+    // `__routes.describe()` aufrufen, siehe describeRoutes().
+    (globalThis as Record<string, unknown>)['__routes'] = {
+      describe: () => console.table(this.describeRoutes()),
+    };
   }
 
   /**
@@ -854,6 +895,117 @@ export class PathAndRouteService {
     // Keep same Y, only update X and Z to match path start
     marker.position.x = local.x;
     marker.position.z = local.z;
+  }
+
+  // ========================================
+  // DIAGNOSTICS
+  // ========================================
+
+  /**
+   * Zerlegt jede gecachte Route in die OSM-Ways, über die sie läuft, und
+   * vergleicht entlang der Mittellinie (alle 2 m) die Zellhöhe mit der Höhe,
+   * die das gelbe Straßen-Overlay an derselben Stelle nimmt
+   * (`getGroundHeightEstimate`, seitliches Minimum). Beantwortet am Ort eines
+   * Routen-Befunds zwei Fragen: Läuft die Route dort über einen anderen Way
+   * als die sichtbare Straße (Fußweg, Durchgang, Tunnel)? Und liegen die
+   * Zellen dort auf Dach oder Baumkrone, während die Straße darunter liegt?
+   *
+   * Nur für Diagnose: ein Aufruf kostet pro Punkt bis zu fünf Säulen-Samples.
+   */
+  describeRoutes(): RouteWayRun[] {
+    const engine = this.engine;
+    const service = this.pathfindingService;
+    if (!engine || !service || !this.streetNetwork) return [];
+
+    // Kante (beide Richtungen) → Way. Die Route kopiert lat/lon unverändert
+    // aus den StreetNodes, der exakte Vergleich trifft also.
+    const pointKey = (p: { lat: number; lon: number }) => `${p.lat},${p.lon}`;
+    const edgeKey = (a: { lat: number; lon: number }, b: { lat: number; lon: number }) =>
+      `${pointKey(a)}|${pointKey(b)}`;
+    const edges = new Map<string, Street>();
+    const neighbours = new Map<string, [StreetNode, Street][]>();
+    const link = (from: StreetNode, to: StreetNode, street: Street) => {
+      edges.set(edgeKey(from, to), street);
+      const list = neighbours.get(pointKey(from));
+      if (list) list.push([to, street]);
+      else neighbours.set(pointKey(from), [[to, street]]);
+    };
+    for (const street of this.streetNetwork.streets) {
+      for (let i = 0; i < street.nodes.length - 1; i++) {
+        link(street.nodes[i], street.nodes[i + 1], street);
+        link(street.nodes[i + 1], street.nodes[i], street);
+      }
+    }
+
+    const cellsReady = this.globalRouteGrid.isInitialized();
+    const rows: RouteWayRun[] = [];
+
+    for (const [routeId, path] of this.cachedPaths) {
+      let run: RouteWayRun | null = null;
+
+      for (let i = 0; i < path.length - 1; i++) {
+        const a = path[i];
+        const b = path[i + 1];
+        let street = edges.get(edgeKey(a, b)) ?? null;
+        if (!street) {
+          // Der Abzweig zum HQ endet mitten auf einer Kante, die am Waypoint
+          // davor beginnt. Erst das Stück danach liegt wirklich neben dem Netz.
+          for (const [next, candidate] of neighbours.get(pointKey(a)) ?? []) {
+            const foot = this.closestPointOnSegment(a, next, b);
+            if (service.haversineDistance(foot.lat, foot.lon, b.lat, b.lon) < 0.5) {
+              street = candidate;
+              break;
+            }
+          }
+        }
+        const wayId = street?.id ?? null;
+
+        if (!run || run.way !== wayId) {
+          run = {
+            route: routeId,
+            fromIndex: i,
+            toIndex: i + 1,
+            way: wayId,
+            type: street?.type ?? '(off network)',
+            name: street?.name ?? '',
+            tags: street ? describeStreetTags(street) : '',
+            lengthM: 0,
+            maxCellAboveStreetM: null,
+            at: '',
+          };
+          rows.push(run);
+        }
+        run.toIndex = i + 1;
+
+        const length = service.haversineDistance(a.lat, a.lon, b.lat, b.lon);
+        run.lengthM += length;
+        if (!cellsReady) continue;
+
+        const steps = Math.max(1, Math.ceil(length / 2));
+        for (let s = 0; s <= steps; s++) {
+          const t = s / steps;
+          const lat = a.lat + (b.lat - a.lat) * t;
+          const lon = a.lon + (b.lon - a.lon) * t;
+          const local = engine.sync.geoToLocalSimple(lat, lon, 0);
+          const cellY = this.globalRouteGrid.getGroundLocalYAt(local.x, local.z);
+          const streetY = engine.getGroundHeightEstimate(lat, lon, a.lat, a.lon, b.lat, b.lon);
+          if (cellY === null || streetY === null) continue;
+          const gap = cellY - streetY;
+          if (run.maxCellAboveStreetM === null || gap > run.maxCellAboveStreetM) {
+            run.maxCellAboveStreetM = gap;
+            run.at = `${lat.toFixed(6)},${lon.toFixed(6)}`;
+          }
+        }
+      }
+    }
+
+    for (const row of rows) {
+      row.lengthM = Math.round(row.lengthM * 10) / 10;
+      if (row.maxCellAboveStreetM !== null) {
+        row.maxCellAboveStreetM = Math.round(row.maxCellAboveStreetM * 10) / 10;
+      }
+    }
+    return rows;
   }
 
   // ========================================
