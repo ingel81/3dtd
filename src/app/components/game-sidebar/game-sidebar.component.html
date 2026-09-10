@@ -108,118 +108,13 @@
           </div>
         </section>
       } @else {
-        <!-- NORMAL TOWER Panel -->
-        <section class="td-panel td-tower-panel">
-          <div class="td-panel-header td-tower-header">
-            <span class="td-tower-header-name">{{ tower.typeConfig.name | uppercase }}</span>
-            @if (tower.getSellValue() > 0) {
-              <button class="td-header-sell-btn"
-                      [matTooltip]="'Sell tower: refunds 75% of total invested (base + upgrades)'"
-                      matTooltipPosition="left"
-                      [attr.aria-label]="'Sell for ' + tower.getSellValue() + ' credits'"
-                      (click)="sellTower.emit()">
-                <td-icon name="coin" [size]="14"></td-icon>
-                <span class="td-header-sell-value">+{{ tower.getSellValue() }}</span>
-              </button>
-            }
-            <button class="td-matrix-btn" type="button" (click)="openDamageMatrix(tower.typeConfig.id)"
-                    aria-label="Damage vs armor" matTooltip="Damage vs armor" matTooltipPosition="left">
-              <td-icon name="info" [size]="12"></td-icon>
-            </button>
-          </div>
-          <div class="td-panel-content td-tower-section">
-            <!-- Stats grid: 3×2 — damage-type tile takes pos 0 -->
-            <div class="td-stats-grid td-stats-grid-3">
-              <div class="td-stat-tile td-stat-tile-dmgtype"
-                   [style.border-color]="damageTypeUI[tower.typeConfig.damageType].color">
-                <td-icon class="td-stat-icon" [size]="18"
-                  [style.color]="damageTypeUI[tower.typeConfig.damageType].color"
-                  [name]="$any(damageTypeTdIcon(tower.typeConfig.damageType))"></td-icon>
-                <span class="td-stat-value td-stat-value-small">{{ damageTypeUI[tower.typeConfig.damageType].label }}</span>
-                <span class="td-stat-label">Type</span>
-              </div>
-              <div class="td-stat-tile">
-                <td-icon class="td-stat-icon td-icon-damage" name="flame" [size]="18"></td-icon>
-                <span class="td-stat-value td-val-damage">{{ tower.combat.damage | number:'1.0-0' }}</span>
-                <span class="td-stat-label">Damage</span>
-              </div>
-              <div class="td-stat-tile">
-                <td-icon class="td-stat-icon td-icon-firerate" name="speed" [size]="18"></td-icon>
-                <span class="td-stat-value">{{ tower.combat.fireRate | number:'1.2-2' }}/s</span>
-                <span class="td-stat-label">Fire Rate</span>
-              </div>
-              <div class="td-stat-tile">
-                <td-icon class="td-stat-icon td-icon-range" name="target" [size]="18"></td-icon>
-                <span class="td-stat-value">{{ tower.combat.range | number:'1.0-0' }}m</span>
-                <span class="td-stat-label">Range</span>
-              </div>
-              <div class="td-stat-tile">
-                <td-icon class="td-stat-icon td-icon-firerate" name="bolt" [size]="18"></td-icon>
-                <span class="td-stat-value">{{ getDps(tower) | number:'1.0-0' }}</span>
-                <span class="td-stat-label">DPS</span>
-              </div>
-              <div class="td-stat-tile">
-                <td-icon class="td-stat-icon td-icon-kills" name="shield" [size]="18"></td-icon>
-                <span class="td-stat-value td-val-kills">{{ tower.combat.kills }}</span>
-                <span class="td-stat-label">Kills</span>
-              </div>
-            </div>
-
-          <!-- Targeting Strategy -->
-          <div class="td-targeting-row">
-            @for (s of getTargetingStrategies(tower); track s.id) {
-              <button class="td-targeting-btn" [class.active]="tower.targetingStrategy === s.id"
-                      [matTooltip]="s.tooltip" matTooltipPosition="above"
-                      [attr.aria-label]="'Target: ' + s.label"
-                      [attr.aria-pressed]="tower.targetingStrategy === s.id"
-                      (click)="onChangeTargeting(tower, s.id)">
-                <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
-              </button>
-            }
-          </div>
-
-          <!-- Air Sub-Strategy (only when air-priority active) -->
-          @if (tower.targetingStrategy === 'air-priority') {
-            <div class="td-targeting-row td-sub-targeting-row">
-              @for (s of airSubStrategies; track s.id) {
-                <button class="td-targeting-btn" [class.active]="tower.airSubStrategy === s.id"
-                        [matTooltip]="s.tooltip" matTooltipPosition="above"
-                        [attr.aria-label]="'Air target: ' + s.label"
-                        [attr.aria-pressed]="tower.airSubStrategy === s.id"
-                        (click)="onChangeAirSubStrategy(tower, s.id)">
-                  <td-icon [name]="$any(s.icon)" [size]="18"></td-icon>
-                </button>
-              }
-            </div>
-          }
-
-          <!-- Upgrades Section -->
-          <div class="td-upgrades-section">
-            @if (tower.getAvailableUpgrades().length > 0) {
-              @for (upgrade of tower.getAvailableUpgrades(); track upgrade.id) {
-                <button
-                  class="td-upgrade-tile"
-                  [class.td-upgrade-affordable]="store.credits() >= tower.getNextUpgradeCost(upgrade.id) && isUpgradeTierUnlocked(tower, upgrade.id)"
-                  [class.td-upgrade-tier-locked]="!isUpgradeTierUnlocked(tower, upgrade.id)"
-                  [disabled]="store.credits() < tower.getNextUpgradeCost(upgrade.id) || !isUpgradeTierUnlocked(tower, upgrade.id)"
-                  (click)="onUpgradeTower(tower, upgrade.id)"
-                  [matTooltip]="getUpgradeTierLockReason(tower, upgrade.id) ?? upgrade.description"
-                  matTooltipPosition="left"
-                >
-                  <td-icon class="td-upgrade-icon" [size]="18"
-                    [name]="isUpgradeTierUnlocked(tower, upgrade.id) ? 'arrowUp' : 'lock'"></td-icon>
-                  <div class="td-upgrade-info">
-                    <span class="td-upgrade-name">{{ upgrade.name }} <span class="td-upgrade-tier-badge">T{{ getRequiredUpgradeTier(tower, upgrade.id) }}</span></span>
-                    <span class="td-upgrade-desc">Lv.{{ tower.getUpgradeLevel(upgrade.id) + 1 }}/{{ upgrade.maxLevel }}</span>
-                  </div>
-                  <span class="td-upgrade-cost">{{ tower.getNextUpgradeCost(upgrade.id) }}</span>
-                </button>
-              }
-            }
-          </div>
-
-        </div>
-      </section>
+        <app-sidebar-tower-panel
+          [tower]="tower"
+          (sellTower)="sellTower.emit()"
+          (upgradeTower)="upgradeTower.emit($event)"
+          (changeTargeting)="changeTargeting.emit($event)"
+          (changeAirSubStrategy)="changeAirSubStrategy.emit($event)"
+        />
       }
     }
 
