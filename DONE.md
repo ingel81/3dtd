@@ -59,6 +59,26 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
       veraltete Testobjekte und fehlende `override`. Produktionscode unberührt.
       **Warum:** vitest prüft keine Typen, die Fehler sammelten sich unbemerkt.
 
+### Enemy-Hot-Path: 21 → 30 FPS bei 20k Gegnern
+
+- [x] **Gegner-Update lässt Arbeit weg, die nichts ändert**
+      Audio-Update nur für Gegner mit Loops, Geschwindigkeitsfaktor ohne
+      Map-Lookups, solange niemand rennt, Route- und Spatial-Grid merken sich
+      die Zelle am Gegner, Lebend-Flag statt Getter-Kette, `presentFrame` mit
+      gemerktem Instance-Slot und direkt geschriebener Matrix, das Model-Preview
+      rendert nicht mehr unsichtbar, der Profiler misst nur jeden 32. Gegner.
+      Die Simulation bleibt bit-identisch (Harness mit 480 Gegnern über 90
+      Frames: Positionen, Zellen, Matrizen, Event-Folge, RNG-Aufrufe).
+      Chrome-Trace unter gleichen Bedingungen, 20k Gegner: 21,2 → 30,2 FPS,
+      Frame 45,5 → 31,6 ms, `runSubStep` 32,7 → 20,3 ms pro Frame.
+      **Warum:** Die Zeit steckte nicht in Rechnungen, sondern im Anfassen
+      verstreuter Objekte und in Map-Lookups mit String-Keys, pro Gegner und
+      Sub-Step. SoA war im August genau daran gescheitert (`731f454`).
+
+- [x] **Performance-Panel höher und in der Größe veränderbar**
+      Startet mit 700 px Höhe statt höchstens 600 px mit Scrollbalken, lässt
+      sich am Griff unten rechts ziehen und merkt sich die Größe.
+
 ---
 
 ## 2026-09-07
