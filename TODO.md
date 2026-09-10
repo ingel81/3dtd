@@ -282,6 +282,50 @@
       außerhalb der neuen (kleineren) Box wieder bereinigt werden (z.B. alte Range merken
       und die Differenz-Annulus aufräumen, oder `unregisterTower`+full re-register).
 
+## 1.6 Befunde aus dem Sprint 2026-09-11 (nicht behoben)
+
+> Beim Abarbeiten auf `sprint/todo-2026-09-11` aufgefallen, bewusst nicht im
+> Sprint erledigt. Übersicht des Sprints: `docs/REVIEW_SPRINT_2026-09-11.md`.
+
+- [ ] **Platzierungsregeln: zwei weitere Kopien mit anderer Distanzformel**
+      Maus-Vorschau, Klick und Training-Session prüfen seit dem Sprint über
+      `utils/tower-placement-rules.ts` (`checkTowerPlacement`). Daneben stehen
+      noch `TowerManager.validatePosition` (`tower.manager.ts:222`, ohne
+      Bounds-Check, schnelle Quadrat-Distanz) und die Prüfung in
+      `strategic-placement.service.ts:349`. Die sechs Placement-Strategien des
+      Bots filtern damit vor; ungültig platziert wird nichts, weil die Session
+      zuletzt `checkTowerPlacement` fragt, es fallen nur Kandidaten weg.
+      Zusammenlegen ändert die Kandidatenwahl der Bots.
+
+- [ ] **Decision-Explainer ist halb tot**
+      `ai/core/decision-explainer.ts` schreibt seine Zusammenfassung nach
+      `aiExplanation` im Game-Store, kein Template zeigt sie an;
+      `lastExplanation` liest niemand. Übrig bleibt die Konsolen-Ausgabe im
+      `debugMode`. Anzeigen (z. B. im Wave-Debug-Fenster) oder entfernen.
+
+- [ ] **Debug-Fenster gemeinsam per `@defer` laden**
+      Die elf Debug-Fenster liegen mit ~160 kB im Start-Bundle. Einzeln lohnt
+      `@defer` nicht (8 kB Defer-Runtime gegen 13,8 kB beim Training-Fenster),
+      gemeinsam schon. Befund aus dem Lazy-Training-Umbau (`85d8402`).
+
+- [ ] **Floating-Text-Pool nicht auf dem `InstanceSlotAllocator`**
+      Enemy-, Health-Bar-, Projektil-, Decal- und Lightning-Pools teilen sich
+      seit dem Sprint den Allocator. Der Floating-Text-Manager hat ein anderes
+      Modell (Draw-Count schrumpft beim Sweep, voller Pool verdrängt den
+      ältesten Text); eine Umstellung würde die Blend-Reihenfolge
+      überlappender Texte ändern und ist ohne Canvas-Mock nicht testbar.
+
+- [ ] **Kleinkram**
+      Rocket-Düsenglühen (Trail-Streak) ist in der Länge FPS-abhängig ·
+      `training-backend/scripts/analyze_log.py` hat kein argparse und liest
+      `--help` als Logdatei · die Tower-Debug-Slider verschieben den Tip des
+      CPU-Fallbacks, nicht die gecachte Grid-LOS (nur Debug) ·
+      `SpatialGridService` rechnet Zellschlüssel mit `| 0` (Zelle 0 doppelt
+      breit, beim Einfügen und Abfragen gleich, also kein Fehler) · elf Buttons
+      in einzelnen Debug-Fenstern haben noch kein `aria-label` (meist `title`)
+      · ein im Browser gecachter Fehlschlag beim Nachladen des Training-Chunks
+      lässt sich per Retry eventuell nicht beheben, dann hilft nur ein Reload.
+
 ---
 
 # PRIO 2 — Balance & Phase-5.16-Followups
