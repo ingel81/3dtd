@@ -216,7 +216,11 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
 | `src/app/utils/gpu-cube-resolve.ts` | `LosResolveContext`, `sampleCubeAtPoint`, `isCubeVisible` — CPU-readPixels-Pfad für Combat-Cache-Fill |
 | `src/app/utils/tower-los-viz.ts` | Composite-Wrapper für Build-Preview und Selection-Viz, `getLayer()` für Debug-Panel-Picking |
 | `src/app/utils/tower-los-layer-builder.ts` | InstancedMesh + Fragment-Shader für Live-Sample, ein Material pro Layer (covered / blocked), `visibleLosLayers` (Capability + Filter), `cells`-Array für instanceId→Cell |
-| `src/app/utils/global-route-grid.ts` | `RouteCell`-Daten + `registerTower`/`Incremental` mit GPU-Cube-Resolve + `getAirTargetY` Helper + Aggregate-Mesh + `addCellsChangedListener` (promoted/refreshed Cells) |
+| `src/app/utils/global-route-grid.ts` | `GlobalRouteGrid`, Einstiegspunkt: Cell-Generierung, Enemy-Tracking und Umkreis-Abfragen (Hot Path), `registerTower`/`Incremental` mit GPU-Cube-Resolve, Terrain-Sweep, `addCellsChangedListener` (promoted/refreshed Cells). Viz- und `__rg`-Methoden delegieren an die Module darunter |
+| `src/app/utils/route-cell.ts` | `RouteCell`/`CellSample`-Modell + `getAirTargetY` Helper |
+| `src/app/utils/route-cell-sampler.ts` | `sampleCellY` (einziger Schreiber von `cell.terrainHeight`), Column-Probe, LOD-Peek, Sweep-Zähler. `[CELL-GRID]`-Log in `route-grid-log.ts` |
+| `src/app/utils/route-grid-aggregate-viz.ts` | Aggregate-Mesh (`grid`/`gridAir`) + Cell-Shader |
+| `src/app/utils/route-grid-diagnostics.ts` | `__rg`-Dumps (Höhen-Histogramm, Outlier, Fallback-Reset) |
 | `src/app/services/tower-placement.service.ts` | `buildLosResolveContext` (private), `registerTowerOnGrid`, `recomputeTowerLOS`, `onCellsChanged` + `drainLosRefresh` (private: sammeln geänderte Cells pro Tower, Recompute nach dem Sweep) |
 | `src/app/services/world/global-route-grid.service.ts` | Angular-Wrapper-Service |
 | `src/app/services/facade/visualization-facade.service.ts` | `onTilesLoaded` (`updateTerrainHeights` + `scheduleRouteGridConvergence`), initialisiert `LosDebugService` |
@@ -257,7 +261,7 @@ Zusätzlich für **CPU-readPixels-Konsumenten**:
          if canTargetAir:
             isCubeVisible(tip, getAirTargetY(cell), …)
             cell.airVisibility.set(towerId, …)
-      refreshAggregateVizPositions()    — Air-Plate-Y mit-syncen
+      aggregateViz.refreshPositions()   — Air-Plate-Y mit-syncen
       emitCellsChanged(von sampleCellY bewegte Cells), erst nach der
       Schleife: der Listener sammelt nur, die anderen Tower rechnen
       später (staleLos), dieser Tower ist schon aktuell
@@ -735,7 +739,7 @@ nochmal nötig:
 - `setLineOfSightRaycaster` Setter in `three-tower.renderer.ts` bleibt
   für den `hasLineOfSight`-Combat-Fallback (Enemies zwischen Cells).
   `getLosRaycaster` Getter wurde entfernt (nie aufgerufen).
-- `MAX_VIZ_CELLS_HARDLIMIT = 50_000` in `global-route-grid.ts` ist nur
+- `MAX_VIZ_CELLS_HARDLIMIT = 50_000` in `route-grid-aggregate-viz.ts` ist nur
   noch eine Safety-Obergrenze; die InstancedMesh-Capacity wird dynamisch
   als `min(cells.size, hardlimit)` allokiert. Test-Szene mit 1763 Cells
   bekommt 1763 Slots, eine Manhattan-große Karte würde bis 50k mitwachsen.

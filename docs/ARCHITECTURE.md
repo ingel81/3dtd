@@ -449,7 +449,7 @@ Tower-LOS und Air-Routing bedienen.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│  Route Grid (global-route-grid.ts)                          │
+│  Route Grid (global-route-grid.ts, route-cell-sampler.ts)   │
 │  - sampleCellY: strict raycast + sanity-check + LOD-versioned│
 │  - cell.terrainHeight = single source of truth              │
 │  - getGroundLocalYAt(x,z): cell-first + neighbour fallback  │
@@ -482,7 +482,7 @@ Tower-LOS und Air-Routing bedienen.
 4. `scheduleRouteGridConvergence()` — rAF self-heal loop for cells
    still `unsampled` (async tile-mesh decode)
 
-**Sanity & sampling rules (in `sampleCellY`):**
+**Sanity & sampling rules (in `sampleCellY`, `route-cell-sampler.ts`):**
 - Rejects raycast hits with `tileDepth=0` / `tileGeomErr=Infinity` (mesh
   not yet decoded → keeps cell `unsampled` instead of caching garbage)
 - Rejects outliers >50 m from the median of stable 3×3 neighbours
@@ -1489,6 +1489,15 @@ class GlobalRouteGrid {
   getEnemiesInRadiusGeo(position: GeoPosition, radiusMeters: number, excludeId?: string): Enemy[];
 }
 ```
+
+**Module (`src/app/utils/`):**
+- `global-route-grid.ts`: `GlobalRouteGrid`, Einstiegspunkt. Cell-Generierung, Enemy-Tracking
+  und Umkreis-Abfragen (Hot Path, Daten bleiben in dieser Klasse), Tower-Registrierung,
+  Terrain-Sweep, cells-changed-Listener
+- `route-cell.ts`: `RouteCell`/`CellSample` + `getAirTargetY`
+- `route-cell-sampler.ts`: `sampleCellY`, einziger Schreiber von `cell.terrainHeight`
+- `route-grid-aggregate-viz.ts`: Aggregat-Debug-Mesh (`grid`/`gridAir`) mit Cell-Shader
+- `route-grid-diagnostics.ts`: `__rg.*`-Dumps; `route-grid-log.ts`: `[CELL-GRID]`-Log
 
 **Zellengenerierung:**
 - Radiale/flächen-basierte Generierung (nicht perpendikular zur Route)
