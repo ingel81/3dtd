@@ -235,6 +235,14 @@ export class DebugFacadeService {
     this.persistDisplayOption('screenShake', enabled);
   }
 
+  /**
+   * Paint tiles by LOD. Not persisted on purpose: a colored map after a
+   * reload would read as a rendering bug.
+   */
+  onTileLodDebugToggled(enabled: boolean): void {
+    this.engine?.setTileLodDebugEnabled(enabled);
+  }
+
   // ========================================
   // Display Option Persistence
   // ========================================
