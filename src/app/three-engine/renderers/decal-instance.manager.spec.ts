@@ -46,6 +46,23 @@ describe('DecalInstanceManager', () => {
     expect(decals.instancedMesh.count).toBe(2);
   });
 
+  it('evicts the decal with the earliest spawn time', () => {
+    const decals = create(2);
+    decals.removeOldest(); // leerer Pool, nichts zu tun
+    addTimed(decals, 'b', 10, 1000, 100);
+    addTimed(decals, 'a', 0, 1000, 100);
+
+    decals.removeOldest();
+    expect(decals.getInstance('a')).toBeUndefined();
+    expect(decals.getInstance('b')).toBeDefined();
+
+    addTimed(decals, 'c', 20, 1000, 100);
+    decals.removeOldest();
+    expect(decals.getInstance('b')).toBeUndefined();
+    expect(decals.getInstance('c')).toBeDefined();
+    expect(decals.count).toBe(1);
+  });
+
   it('fades from the opacity it was added with and removes the decal at the end', () => {
     const decals = create(8);
     const opacity = opacityOf(decals);

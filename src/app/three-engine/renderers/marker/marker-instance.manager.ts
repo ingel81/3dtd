@@ -74,6 +74,7 @@ export class MarkerInstanceManager {
   private diamondCount = 0;
   private ringCount = 0;
   private groundCount = 0;
+  private readonly changedIds: string[] = [];
 
   // Reusable temp objects
   private readonly tmpMatrix = new Matrix4();
@@ -315,12 +316,15 @@ export class MarkerInstanceManager {
   /**
    * Per-frame update: sync proxy positions, update shader uniforms.
    * Returns IDs of markers whose proxy position changed (for label sync).
+   * The array is reused by the next call, so read it before calling again.
    */
-  update(camera: Camera): string[] {
-    if (this.markers.size === 0) return [];
+  update(camera: Camera): readonly string[] {
+    // Almost always empty, a fresh array per frame would be pure garbage.
+    const changedIds = this.changedIds;
+    changedIds.length = 0;
+    if (this.markers.size === 0) return changedIds;
 
     const now = performance.now() / 1000;
-    const changedIds: string[] = [];
 
     // Sync proxy positions → instance matrices (PathRouteService may have changed them)
     for (const entry of this.markers.values()) {

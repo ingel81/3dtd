@@ -169,10 +169,15 @@ export class DecalInstanceManager {
   }
 
   /**
-   * Get all active instances
+   * Remove the decal with the earliest spawn time, so a full pool has room
+   * for add(). Walks the Map, no array copy.
    */
-  getAllInstances(): DecalInstance[] {
-    return Array.from(this.instances.values());
+  removeOldest(): void {
+    let oldest: DecalInstance | undefined;
+    for (const instance of this.instances.values()) {
+      if (!oldest || instance.spawnTime < oldest.spawnTime) oldest = instance;
+    }
+    if (oldest) this.remove(oldest.id);
   }
 
   /**

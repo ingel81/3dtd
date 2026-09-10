@@ -186,16 +186,7 @@ export class ParticleEffectsRenderer {
 
     // If pool is full, remove oldest decal
     if (this.bloodDecalManager.count >= this.MAX_BLOOD_DECALS) {
-      const instances = this.bloodDecalManager.getAllInstances();
-      if (instances.length > 0) {
-        let oldest = instances[0];
-        for (const inst of instances) {
-          if (inst.spawnTime < oldest.spawnTime) {
-            oldest = inst;
-          }
-        }
-        this.bloodDecalManager.remove(oldest.id);
-      }
+      this.bloodDecalManager.removeOldest();
     }
 
     // Add new decal instance
@@ -989,16 +980,7 @@ export class ParticleEffectsRenderer {
 
     // If pool is full, remove oldest decal
     if (this.iceDecalManager.count >= this.MAX_ICE_DECALS) {
-      const instances = this.iceDecalManager.getAllInstances();
-      if (instances.length > 0) {
-        let oldest = instances[0];
-        for (const inst of instances) {
-          if (inst.spawnTime < oldest.spawnTime) {
-            oldest = inst;
-          }
-        }
-        this.iceDecalManager.remove(oldest.id);
-      }
+      this.iceDecalManager.removeOldest();
     }
 
     // Add new decal instance
