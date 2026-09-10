@@ -380,6 +380,8 @@ typischerweise vom `VFXService` ueber EventBus-Subscriptions aufgerufen:
 | `spawnFireFlash(lat, lon, localY)` | Kurzer Feuerblitz (z.B. Flame-Beam-Hit) |
 | `spawnExplosion(localX, localY, localZ, count, radius)` | Explosion am lokalen Punkt |
 | `spawnExplosionAtGeo(lat, lon, h, count)` | Explosion an Geo-Position |
+| `spawnIceExplosionAtGeo(lat, lon, h, count)` | Runder Funken-Burst, Palette `BURST_PALETTES.ice` |
+| `spawnArcaneBurstAtGeo(lat, lon, h, count)` | Gleicher Burst in Violett/Cyan (`BURST_PALETTES.arcane`), Einschlag des Arcane Orb |
 | `spawnMuzzleFlash(localX, localY, localZ)` | Muendungsfeuer |
 | `spawnTrailParticles(pos, config)` | Konfigurierbarer Projektil-Trail |
 | `spawnFloatingText(...)` | GPU-instanced Floating Damage Number |
@@ -397,7 +399,8 @@ Der `VFXService` (`game-engine/vfx.service.ts`) lauscht auf Events:
   (Decal-Groesse haengt von `intensity` ab: ≥30 → 2.0, ≥10 → 0.8, sonst 0)
 - `vfx:explosion` → `spawnExplosionAtGeo`
 - `vfx:projectile-impact` → wahlweise rocket/cannon/bullet/poison/small/none
-  Preset (`EXPLOSION_PRESETS`)
+  Preset (`EXPLOSION_PRESETS`); `arcane-orb` bekommt statt der Feuer-Atlas-Explosion
+  den violett-cyanfarbenen Burst (`spawnArcaneBurstAtGeo`, Preset `arcane`)
 - `vfx:muzzle-flash` → Partikel + gepoolter `PointLight` (gefiltert: Beam-Tower
   `ice`/`magic`/`fire` haben kein Muzzle-Flash)
 

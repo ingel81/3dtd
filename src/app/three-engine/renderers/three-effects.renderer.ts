@@ -492,6 +492,11 @@ export class ThreeEffectsRenderer {
     this.particleEffects.spawnIceExplosionAtGeo(lat, lon, height, count);
   }
 
+  /** Spawn the violet/cyan arcane orb impact burst at geo coordinates. */
+  spawnArcaneBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
+    this.particleEffects.spawnArcaneBurstAtGeo(lat, lon, height, count);
+  }
+
   /**
    * Spawn ice decal on ground (frost patch)
    * NOW USES GPU INSTANCING - much better performance!
