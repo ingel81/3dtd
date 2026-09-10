@@ -13,15 +13,16 @@
  * turns a 60 fps cap on a 60 Hz display into random dropped frames whenever
  * the phase lines up with the frames.
  *
- * The anchor never lags the frame that just ran by more than half an
- * interval. On a display slower than the cap (a "60 Hz" panel at 59.94) it
- * follows the display, so every frame runs. Without that bound the anchor
- * would eventually slip a whole interval behind and land on the threshold.
+ * A frame more than half an interval late re-seeds the phase: the first one,
+ * one after a stall, and on a display slower than the cap (a "60 Hz" panel at
+ * 59.94) the one where the anchor has fallen that far behind. Every frame
+ * still runs there, and the anchor never slips a whole interval onto the
+ * threshold.
  */
 export class FramePacer {
   private intervalMs = 0;
-  /** Ideal time of the last frame that ran. NaN until the first frame after a reset. */
-  private anchorMs = Number.NaN;
+  /** Ideal time of the last frame that ran. -Infinity makes the next frame re-seed. */
+  private anchorMs = -Infinity;
 
   /** @param fps Cap in frames per second, 0 = every frame runs. */
   constructor(fps = 0) {
@@ -36,7 +37,7 @@ export class FramePacer {
 
   /** Forget the phase; the next frame runs and seeds a fresh one. */
   reset(): void {
-    this.anchorMs = Number.NaN;
+    this.anchorMs = -Infinity;
   }
 
   /** Whether the frame at `nowMs` should run. Call once per rAF callback. */
@@ -44,17 +45,20 @@ export class FramePacer {
     const interval = this.intervalMs;
     if (interval === 0) return true;
 
-    if (Number.isNaN(this.anchorMs)) {
-      // Seed the phase a quarter interval ahead of this frame. At refresh
-      // rates that are an exact multiple of the cap (60 Hz with 60 or 30,
-      // 120 Hz with 60) every later frame then sits a quarter interval away
-      // from the threshold, the most room rAF jitter can get.
-      this.anchorMs = nowMs + interval / 4;
-      return true;
-    }
+    const elapsed = nowMs - this.anchorMs;
+    if (elapsed < interval / 2) return false;
 
-    if (nowMs - this.anchorMs < interval / 2) return false;
-    this.anchorMs = Math.max(this.anchorMs + interval, nowMs - interval / 2);
+    if (elapsed <= interval * 1.5) {
+      this.anchorMs += interval;
+    } else {
+      // Seed the phase 3/8 of an interval ahead of this frame. rAF timestamps
+      // sit on the vsync grid, and at refresh rates one to four times the cap
+      // (60 Hz with 60 or 30, 120 Hz with 60 or 30, 90 Hz with 30) every later
+      // frame then lands at least an eighth of an interval clear of the
+      // threshold. Any other offset puts some of those grids right on it,
+      // where jitter alternates short and long gaps.
+      this.anchorMs = nowMs + (interval * 3) / 8;
+    }
     return true;
   }
 }

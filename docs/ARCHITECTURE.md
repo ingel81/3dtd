@@ -1148,7 +1148,11 @@ Quick-Actions, persistiert von `DebugFacadeService` unter `3dtd-fps-limit`.
 Update eingeschlossen. Der Anker rückt pro gelaufenem Frame um genau ein
 Intervall vor, so bleibt z. B. 50 auf 60 Hz bei 50 statt auf 30 zu fallen;
 ein halbes Intervall Toleranz fängt rAF-Jitter ab, und auf einem Display, das
-langsamer als der Cap ist (59,94 Hz bei Cap 60), läuft jeder Frame. Die
+langsamer als der Cap ist (59,94 Hz bei Cap 60), läuft jeder Frame. Ein Frame,
+der mehr als ein halbes Intervall zu spät kommt (erster Frame, Stall,
+Tab-Wechsel), setzt die Phase 3/8 Intervall vor sich neu; bei Refreshraten vom
+Ein- bis Vierfachen des Caps liegt dann kein Vsync auf der Schwelle, sonst
+würde Jitter kurze und lange Abstände abwechseln lassen. Die
 Simulation rechnet mit dem Wanduhr-Delta zwischen den gelaufenen Frames: bei
 30 fps sind das ~33 ms, unter `MAX_CATCHUP_MS` (50) im `GameStateManager`,
 also volle Spielgeschwindigkeit, auch bei Training-Timescales. Standard ist
