@@ -870,12 +870,6 @@ export class TowerPlacementService {
    * re-resolved against a fresh cubemap, like the cells new to its range.
    */
   recomputeTowerLOS(tower: Tower): void {
-    // Taken out up front, so a recompute that cannot run does not keep the
-    // tower queued forever. A direct call (range upgrade) settles the queue
-    // entry as well, the drain does not have to run it again.
-    const stale = this.staleLos.get(tower);
-    this.staleLos.delete(tower);
-
     if (!this.engine || !this.globalRouteGrid.isInitialized()) return;
 
     const config = TOWER_TYPES[tower.typeConfig.id as TowerTypeId];
@@ -898,6 +892,13 @@ export class TowerPlacementService {
       return;
     }
 
+    // The queue entry is settled only here, once the recompute can run. One
+    // that bails above stays queued and the drain retries it next frame:
+    // dropped, its old answers would stay in the cells for good, because the
+    // peek-skip keeps every later sweep from reporting those cells again. A
+    // direct call (range upgrade) settles the entry as well.
+    const stale = this.staleLos.get(tower);
+    this.staleLos.delete(tower);
     if (stale) {
       for (const cell of stale) {
         cell.towerVisibility.delete(tower.id);
