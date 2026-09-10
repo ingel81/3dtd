@@ -195,6 +195,18 @@ Die Höhe ist auf den Platz zwischen Toggle und Kompass begrenzt; bei niedrigem 
 }
 ```
 
+### Next-Wave-Button (Sidebar)
+
+Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar.component.scss`). Rezept wie `.td-btn-green` bzw. `TD_BUTTON_TEAL_STYLES`: Teal-Verlauf, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em`. Ecken 3px wie Tower-Karten und Stat-Kacheln, Höhe 36px wie der Cancel-Button im Build-Mode, Inhalt zentriert, Icon 16px.
+
+Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche und Farbe wechseln:
+
+| Zustand | Auslöser | Darstellung |
+|---------|----------|-------------|
+| Bereit | keine Welle, kein Build-Mode | Teal-Verlauf, Hover `--td-teal-glow`, Pressed-Inset, `:focus-visible`-Outline |
+| Gesperrt | Build-Mode, Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled` |
+| Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` + `TD_BEVEL_INSET`, Text `--td-teal`, Icon `wave` statt `play` |
+
 ### Slot (Item, Tower-Auswahl)
 
 ```css

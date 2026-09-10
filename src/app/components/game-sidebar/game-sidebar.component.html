@@ -37,10 +37,10 @@
             }
           </div>
         }
-        <button class="td-action-btn td-btn-green td-wave-btn" (click)="startWave.emit()"
+        <button class="td-wave-btn" [class.td-wave-running]="waveActive()" (click)="startWave.emit()"
                 [disabled]="waveActive() || buildMode() || isGameOver()">
-          <td-icon [name]="waveActive() ? 'pause' : 'play'" [size]="22"></td-icon>
-          <span>{{ waveActive() ? 'Wave running...' : 'Next Wave' }}</span>
+          <td-icon [name]="waveActive() ? 'wave' : 'play'" [size]="16"></td-icon>
+          <span>{{ waveActive() ? 'Wave running' : 'Next Wave' }}</span>
         </button>
 
         <!-- Phase 5.16: Coming-Up curriculum preview -->
