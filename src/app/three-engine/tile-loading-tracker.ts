@@ -152,11 +152,8 @@ export class TileLoadingTracker {
    * First-Load-Callback für den neuen Ort wieder feuert.
    */
   reset(): void {
-    // Cancel any pending debounce timer from previous location
-    if (this.debounceTimer) {
-      clearTimeout(this.debounceTimer);
-      this.debounceTimer = null;
-    }
+    // Cancel pending debounce and retry timers from the previous location
+    this.clearTimers();
 
     // Reset ALL tiles-related flags so everything recalculates for new location
     this.firstTilesLoaded = false;
@@ -164,6 +161,14 @@ export class TileLoadingTracker {
     this.tilesetLoadCount = 0;
     this.authErrorSeen = false;
     this.cameraNudgeCount = 0;
+  }
+
+  /** Debounce- und Retry-Timer abbrechen. Der Nudge läuft nur aus dem Retry heraus. */
+  private clearTimers(): void {
+    if (this.debounceTimer) {
+      clearTimeout(this.debounceTimer);
+      this.debounceTimer = null;
+    }
     if (this.retryTimer) {
       clearTimeout(this.retryTimer);
       this.retryTimer = null;
@@ -294,11 +299,12 @@ export class TileLoadingTracker {
   }
 
   /**
-   * Entfernt den tiles-load-end-Listener und lässt den TilesRenderer los.
-   * Laufende Debounce- und Retry-Timer bricht das nicht ab; so war es schon im
-   * Engine, ein Abbruch hier wäre ein eigener Fix.
+   * Entfernt den tiles-load-end-Listener, bricht Debounce und Retry ab und lässt
+   * den TilesRenderer los. Danach ruft der Tracker keinen Hook und keinen Callback
+   * mehr auf, auch kein `onTileSetSettled` auf einem entsorgten Engine.
    */
   dispose(): void {
+    this.clearTimers();
     if (this.tilesRenderer) {
       this.tilesRenderer.removeEventListener('tiles-load-end', this.tilesLoadEndHandler);
       this.tilesRenderer = null;
