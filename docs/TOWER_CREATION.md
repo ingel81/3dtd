@@ -14,7 +14,7 @@ Tower werden über die Konfigurationsdatei `configs/tower-types.config.ts` defin
 - Rotierende Turret-Teile (z.B. Geschütztürme)
 - Eigene Projektiltypen
 - **Damage/Armor-Matrix** (`damageType` Pflichtfeld, Phase 5.x — 8 Schadenstypen: physical, pierce, siege, magic, fire, ice, poison, lightning)
-- **25-Level-Upgrade-System** mit Tier-Gating (Phase 5.16, alle Combat-Tower nutzen `STD_DAMAGE/SPEED/RANGE_UPGRADE`)
+- **Upgrade-System** mit Tier-Gating: Damage/Fire Rate 25 Stufen (ab L16 degressiv), Range 10 Stufen, Profil pro Tower über `combatUpgrades({ damage, rate })`
 - Separate Preview-Skalierung für die UI
 - Air/Ground Targeting (5 Targeting-Strategien inkl. `air-priority` mit Air-Sub-Strategy)
 - Animierte Tower-Modelle (GLTF-Animationen, optional PingPong-Loop)
@@ -304,25 +304,32 @@ export const TOWER_TYPES = {
 
 ---
 
-## Tower Upgrade System (Phase 5.16)
+## Tower Upgrade System (Balance 2026-09)
 
-Alle Combat-Tower nutzen seit Phase 5.16 ein **standardisiertes 25-Level-Upgrade-Schema**.
-Tier-Gating in der UI: T1 = L1–5, T2 = L6–10, T3 = L11–15, T4 = L16–20, T5 = L21–25.
+Tier-Gating in der UI: T1 = L1–5, T2 = L6–10, T3 = L11–15, T4 = L16–20, T5 = L21–25
+(`requiredUpgradeTier`).
 
-### Standard-Upgrades (`tower-types.config.ts`)
+### Standard-Tracks (`tower-types.config.ts`)
 
 ```typescript
 const UPGRADE_BASE_COST = 50;
-const UPGRADE_COST_SCALING = 1.40;   // L24 ≈ 4000× baseCost — späte Levels bewusst exorbitant
-const UPGRADE_MAX_LEVEL = 25;
-
-const UPGRADE_DAMAGE_MULTIPLIER = 1.10;    // +10%/Level kompoundierend (L25 ≈ 10.8×)
-const UPGRADE_SPEED_MULTIPLIER = 1.07;     // +7%/Level (L25 ≈ 5.4×)
-const UPGRADE_RANGE_MULTIPLIER = 1.04;     // +4%/Level (L25 ≈ 2.7×)
-const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.05; // Fire only (L25 ≈ 3.4×)
+const UPGRADE_COST_SCALING = 1.25;     // pro Stufe und Track, für alle Tower gleich
+const UPGRADE_MAX_LEVEL = 25;          // Damage und Fire Rate
+const UPGRADE_LATE_FROM_LEVEL = 15;    // bis hier voller Multiplikator
+const UPGRADE_LATE_GAIN_SHARE = 0.4;   // danach 40 % des Zuwachses
+const UPGRADE_RANGE_MULTIPLIER = 1.03; // Range: 10 Stufen, max. ×1,344
+const UPGRADE_RANGE_MAX_LEVEL = 10;
+const UPGRADE_BEAM_WIDTH_MULTIPLIER = 1.03; // Fire only, ebenfalls 10 Stufen
 ```
 
-Vorgefertigte Konstanten: `STD_DAMAGE_UPGRADE`, `STD_SPEED_UPGRADE`, `STD_RANGE_UPGRADE`, `STD_BEAM_WIDTH_UPGRADE` — werden direkt in `upgrades: [...]` referenziert. Research Center ist die einzige Ausnahme (eigenes `research-slots`-Upgrade).
+Ein Combat-Tower bekommt seine Tracks über `combatUpgrades({ damage, rate })`: Damage- und
+Fire-Rate-Track mit tower-eigenem Multiplikator `m` (Stufe 16–25: `1 + 0,4 × (m − 1)`), dazu
+der gemeinsame Range-Track. Fire nutzt `degressiveUpgrade('damage', …)`, `RANGE_UPGRADE` und
+`BEAM_WIDTH_UPGRADE`. Research Center ist die einzige Ausnahme (eigenes `research-slots`-Upgrade).
+
+Werte werden nie kompoundiert, sondern aus Basiswert × `upgradeFactor(track, stufe)` berechnet.
+Die Funktion ist die einzige Stelle mit der Upgrade-Formel: Tower-Entity, Beam-Werte, DPS-Modell
+und Balance-Charts lesen sie.
 
 ### Upgrade-Konfiguration (Interface)
 
@@ -458,28 +465,34 @@ case 'range':
 
 **Siehe:** [TODO.md - Range-Upgrade System implementieren](TODO.md)
 
-### Beispiele aus dem Codebase (Phase 5.16)
+### Beispiele aus dem Codebase
 
-#### Standard-Combat-Tower (Archer / Dual-Gatling / Cannon / Magic / Rocket / Ice / Tentacle / Poison)
+#### Standard-Combat-Tower (alle außer Fire)
 
-Alle nutzen die identischen drei Standard-Upgrades:
+Jeder Combat-Tower bekommt sein eigenes Damage/Rate-Profil:
 
 ```typescript
-upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+upgrades: combatUpgrades({ damage: 1.07, rate: 1.02 }), // Cannon
 ```
 
-Damit hat jeder Combat-Tower drei Tracks à 25 Levels mit `cost: 50`, `costScaling: 1.40`, sowie Multiplikatoren `1.10` (Damage), `1.07` (Fire Rate), `1.04` (Range).
+Damit hat er einen Damage- und einen Fire-Rate-Track à 25 Stufen (ab L16 degressiv) und den
+gemeinsamen Range-Track à 10 Stufen, alle mit `cost: 50`, `costScaling: 1.25`. Die Profile
+aller Tower stehen in MASTER_GAME_DESIGN §3.2.
 
 #### Fire Tower (Beam-Spezialfall)
 
 Fire nutzt einen eigenen `beam-width`-Track statt `speed` (kein fireRate bei Beam-Towern):
 
 ```typescript
-upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
+upgrades: [
+  degressiveUpgrade('damage', 'Damage', 'damage', 1.06),
+  RANGE_UPGRADE,
+  BEAM_WIDTH_UPGRADE,
+],
 ```
 
 - `damage`-Stat wird auf `damagePerSecond` angewendet (Beam-DPS)
-- `range` skaliert die Detection-Range
+- `range` verlängert Erfassung und Flamme (beides ist dieselbe Zahl)
 - `beam-width` skaliert nur `beamWidth` (Kegelbreite)
 
 #### Research Center (Sonderfall)
@@ -585,7 +598,7 @@ Vollständiges Beispiel eines Towers mit rotierendem Turret:
   fireRate: 5.0,                 // Schnellfeuer
   projectileType: 'bullet',
   cost: 90,
-  upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+  upgrades: combatUpgrades({ damage: 1.04, rate: 1.06 }),
 },
 ```
 
@@ -624,7 +637,7 @@ fire: {
   canTargetAir: false,
   canTargetGround: true,
   // Fire nutzt damage + range (Flammenlänge) + beam-width — kein fireRate (Beam-basiert)
-  upgrades: [STD_DAMAGE_UPGRADE, STD_RANGE_UPGRADE, STD_BEAM_WIDTH_UPGRADE],
+  upgrades: [degressiveUpgrade('damage', 'Damage', 'damage', 1.06), RANGE_UPGRADE, BEAM_WIDTH_UPGRADE],
 },
 ```
 
@@ -664,7 +677,7 @@ lightning: {
   cost: 130,
   canTargetAir: true,
   canTargetGround: true,
-  upgrades: [STD_DAMAGE_UPGRADE, STD_SPEED_UPGRADE, STD_RANGE_UPGRADE],
+  upgrades: combatUpgrades({ damage: 1.05, rate: 1.04 }),
 },
 ```
 

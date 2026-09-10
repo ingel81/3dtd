@@ -28,7 +28,7 @@
 <body>
 <h1>3DTD Economy Chart — Phase 5.16 (Wave-Curriculum Budget)</h1>
 <div class="meta">
-  Generated <code>2026-08-28T08:55:03.221Z</code> from
+  Generated <code>2026-09-10T23:31:50.994Z</code> from
   <code>wave-curriculum.ts</code>, <code>tower-types.config.ts</code>,
   <code>research-tree.config.ts</code>, <code>research-center.config.ts</code>,
   <code>game-balance.config.ts</code>.
@@ -638,9 +638,10 @@
     <h2>Upgrade-Track Cost Curve (per stat, per tower)</h2>
     <p class="note">
       Cumulative cost to bring ONE stat (e.g. damage) on ONE tower from L0 to
-      the listed level. All combat towers use the same standard track:
+      the listed level. All combat towers use the same prices:
       base 50g, scaling ×1.25 per level,
-      maxLevel 25. Tier-Gating: T1=L1-5 (free), T2=L6-10
+      damage and fire rate up to L25, range (and beam width) only up to
+      L10. Tier-Gating: T1=L1-5 (free), T2=L6-10
       (Advanced Weaponry), T3=L11-15 (Master Engineering), T4=L16-20 (Advanced
       Engineering), T5=L21-25 (Transcendent Tech). Note that the late tiers
       cost more than a Wave-30 cumulative income, so players can never max
@@ -653,7 +654,7 @@
           <th>Tier</th>
           <th>Step Cost</th>
           <th>Cumul (one stat)</th>
-          <th>Cumul × 3 stats</th>
+          <th>Cumul damage + rate + range</th>
         </tr>
       </thead>
       <tbody>
@@ -683,22 +684,43 @@
           <td>T3</td>
           <td>1,137</td>
           <td>5,486</td>
-          <td>16,458</td>
+          <td>12,636</td>
         </tr>
         <tr>
           <td>L20</td>
           <td>T4</td>
           <td>3,469</td>
           <td>17,148</td>
-          <td>51,444</td>
+          <td>35,960</td>
         </tr>
         <tr>
           <td>L25</td>
           <td>T5</td>
           <td>10,588</td>
           <td>52,740</td>
-          <td>158,220</td>
+          <td>107,144</td>
         </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="chart-container">
+    <h2>Design-Roster vs. Curriculum-Budget (W1–W30)</h2>
+    <p class="note">
+      The roster the curriculum is budgeted against: every combat tower once
+      (archer ×3), all upgrade tracks at L20 (shorter tracks at
+      their maximum), every research, Research Center level 3. Income =
+      goldKill + goldComplete over W1–W30, no skill bonuses, no start credits.
+    </p>
+    <table>
+      <thead><tr><th class="l">Item</th><th>Gold</th></tr></thead>
+      <tbody>
+        <tr><td class="l">Towers incl. upgrades</td><td>417,181</td></tr>
+        <tr><td class="l">Research (all nodes)</td><td>13,950</td></tr>
+        <tr><td class="l">Research Center L3</td><td>411</td></tr>
+        <tr class="milestone"><td class="l">Roster total</td><td>431,542</td></tr>
+        <tr><td class="l">Curriculum income W1–W30</td><td>791,000</td></tr>
+        <tr class="milestone"><td class="l">Buffer (income / roster − 1)</td><td>83%</td></tr>
       </tbody>
     </table>
   </div>

@@ -28,6 +28,11 @@ import { fileURLToPath } from 'node:url';
 import {
   TOWER_TYPES,
   getUpgradeCost,
+  UPGRADE_COST_SCALING,
+  UPGRADE_LATE_FROM_LEVEL,
+  UPGRADE_LATE_GAIN_SHARE,
+  UPGRADE_RANGE_MAX_LEVEL,
+  UPGRADE_RANGE_MULTIPLIER,
   type TowerTypeId,
   type TowerTypeConfig,
 } from '../../src/app/configs/tower-types.config';
@@ -41,8 +46,9 @@ const COMBAT_TOWERS: TowerTypeConfig[] = Object.values(TOWER_TYPES).filter(
   (t) => t.attackType !== 'passive',
 );
 
-// All combat towers share the standard 25-level upgrade tracks.
-const MAX_LEVEL = COMBAT_TOWERS[0].upgrades[0].maxLevel;
+// Longest track of any combat tower. Shorter tracks (range, beam width) stop
+// at their own maxLevel and stay flat from there.
+const MAX_LEVEL = Math.max(...COMBAT_TOWERS.flatMap((t) => t.upgrades.map((u) => u.maxLevel)));
 
 // Snapshot levels used by the summary tables.
 const SNAPSHOT_LEVELS = [0, 5, 10, 15, 20, 25].filter((l) => l <= MAX_LEVEL);
@@ -104,11 +110,11 @@ function buildTowerSeries(): TowerSeries[] {
 
     for (let level = 0; level <= MAX_LEVEL; level++) {
       // stepCost: gold charged when buying THIS level (level-1 → level) on
-      // every upgrade track at once.
+      // every upgrade track that still has it.
       let stepCost = 0;
       if (level > 0) {
         for (const u of cfg.upgrades) {
-          stepCost += getUpgradeCost(u, level - 1);
+          if (level <= u.maxLevel) stepCost += getUpgradeCost(u, level - 1);
         }
         cumulativeUpgradeGold += stepCost;
       }
@@ -234,6 +240,13 @@ function renderHtml(series: TowerSeries[]): string {
   (damagePerSecond), keine Fire-Rate. Poison-DoT ist ein flacher Additiv
   (AI-Approximation, nicht damage-skaliert).
 </div>
+<div class="meta">
+  <strong>Upgrade-Regeln:</strong> Damage und Fire Rate haben ${MAX_LEVEL} Stufen mit
+  tower-eigenem Multiplikator bis L${UPGRADE_LATE_FROM_LEVEL}, danach bringt jede Stufe nur
+  noch ${Math.round(UPGRADE_LATE_GAIN_SHARE * 100)} % des Zuwachses. Range und Beam Width enden bei
+  L${UPGRADE_RANGE_MAX_LEVEL} (×${UPGRADE_RANGE_MULTIPLIER} pro Stufe) und bleiben danach flach.
+  Kosten ×${UPGRADE_COST_SCALING} pro Stufe und Track.
+</div>
 
 <div class="grid">
 
@@ -245,7 +258,7 @@ function renderHtml(series: TowerSeries[]): string {
 
   <div class="chart-container">
     <h2>DPS / Gold — Effizienz</h2>
-    <p class="note">DPS pro investiertem Gold (Basiskosten + kumulierte Upgrade-Kosten). Fällt typischerweise mit steigendem Level, weil die Upgrade-Kosten (×1.40/Level) schneller wachsen als der DPS.</p>
+    <p class="note">DPS pro investiertem Gold (Basiskosten + kumulierte Upgrade-Kosten). Fällt typischerweise mit steigendem Level, weil die Upgrade-Kosten (×${UPGRADE_COST_SCALING}/Level) schneller wachsen als der DPS.</p>
     <canvas id="dpsPerGoldChart" height="120"></canvas>
   </div>
 
@@ -257,7 +270,7 @@ function renderHtml(series: TowerSeries[]): string {
 
   <div class="chart-container">
     <h2>Range über Level</h2>
-    <p class="note">Reichweite in Metern. Achtung: Archer hat ein eigenes, abgeschwächtes Range-Upgrade.</p>
+    <p class="note">Reichweite in Metern. Der Range-Track endet bei L${UPGRADE_RANGE_MAX_LEVEL}, beim Fire Tower ist die Reichweite zugleich die Flammenlänge.</p>
     <canvas id="rangeChart" height="110"></canvas>
   </div>
 
@@ -269,7 +282,7 @@ function renderHtml(series: TowerSeries[]): string {
 
   <div class="chart-container">
     <h2>Step-Cost pro Level</h2>
-    <p class="note">Gold-Kosten für DIESES Level über alle Upgrade-Tracks zusammen. Logarithmische Y-Achse (Kosten-Scaling ×1.40/Level). Alle Combat-Tower teilen denselben Standard-Track — die Linien liegen übereinander.</p>
+    <p class="note">Gold-Kosten für DIESES Level über alle Upgrade-Tracks zusammen. Logarithmische Y-Achse (Kosten-Scaling ×${UPGRADE_COST_SCALING}/Level). Ab L${UPGRADE_RANGE_MAX_LEVEL + 1} fällt der Range-Track weg, beim Fire Tower auch Beam Width. Die Kosten sind für alle Tower gleich, die Linien liegen übereinander.</p>
     <canvas id="stepCostChart" height="100"></canvas>
   </div>
 

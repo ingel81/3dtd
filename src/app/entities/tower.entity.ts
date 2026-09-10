@@ -6,7 +6,7 @@ import {
   RenderComponent,
 } from '../game-components';
 import { GeoPosition } from '../models/game.types';
-import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, calculateSellValue, TargetingStrategy, AirSubStrategy } from '../configs/tower-types.config';
+import { TowerTypeId, getTowerType, TowerTypeConfig, UpgradeId, TowerUpgrade, getUpgradeCost, upgradeFactor, calculateSellValue, TargetingStrategy, AirSubStrategy } from '../configs/tower-types.config';
 import { TIMING } from '../configs/timing.config';
 import { COMBAT_TUNING } from '../configs/combat-tuning.config';
 import { Enemy } from './enemy.entity';
@@ -422,25 +422,27 @@ export class Tower extends GameObject {
 
     const currentLevel = this.upgradeLevels.get(upgradeId) ?? 0;
     if (currentLevel >= upgrade.maxLevel) return false;
+    const newLevel = currentLevel + 1;
 
-    // Apply the effect
+    // Aus Basiswert × Track-Faktor neu rechnen statt zu multiplizieren: die
+    // Stufen ab L16 sind degressiv, und so kann nichts driften.
+    const factor = upgradeFactor(upgrade, newLevel);
     switch (upgrade.effect.stat) {
       case 'fireRate':
-        this._combat.fireRate *= upgrade.effect.multiplier;
+        this._combat.fireRate = this.typeConfig.fireRate * factor;
         break;
       case 'damage':
-        this._combat.damage *= upgrade.effect.multiplier;
+        this._combat.damage = this.typeConfig.damage * factor;
         break;
       case 'range':
-        this._combat.range *= upgrade.effect.multiplier;
+        this._combat.range = this.typeConfig.range * factor;
         break;
       case 'beamWidth':
         // Beam width is computed dynamically via getEffectiveBeamWidth()
         break;
     }
 
-    // Increment the level
-    this.upgradeLevels.set(upgradeId, currentLevel + 1);
+    this.upgradeLevels.set(upgradeId, newLevel);
     return true;
   }
 

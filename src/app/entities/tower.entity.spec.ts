@@ -77,6 +77,21 @@ describe('Tower entity', () => {
     expect(tower.applyUpgrade('speed')).toBe(false);
   });
 
+  it('damage grows degressively past L15', () => {
+    const tower = new Tower(position, 'archer');
+    for (let i = 0; i < 25; i++) expect(tower.applyUpgrade('damage')).toBe(true);
+    // Archer ×1,05 bis L15, danach ×1,02: L25 = ×2,53 statt ×3,39.
+    expect(tower.combat.damage).toBeCloseTo(25 * Math.pow(1.05, 15) * Math.pow(1.02, 10), 6);
+  });
+
+  it('range track ends at L10 with ×1.03 per level', () => {
+    const tower = new Tower(position, 'cannon');
+    for (let i = 0; i < 10; i++) expect(tower.applyUpgrade('range')).toBe(true);
+    expect(tower.canUpgrade('range')).toBe(false);
+    expect(tower.applyUpgrade('range')).toBe(false);
+    expect(tower.combat.range).toBeCloseTo(tower.typeConfig.range * Math.pow(1.03, 10), 6);
+  });
+
   it('tracks upgrade costs for sell-refund calculations', () => {
     const tower = new Tower(position, 'cannon');
     const speedUpgrade = getTowerType('cannon').upgrades.find(u => u.id === 'speed')!;

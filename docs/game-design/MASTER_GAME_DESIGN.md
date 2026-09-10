@@ -87,23 +87,46 @@ Lightning ⚡       1.0×      1.25×    1.0×     0.6×        1.5×
 
 ## 3. Tower-Katalog (Stats + Upgrade-Bäume)
 
-### 3.1 Basis-Tower (finale Kosten)
+### 3.1 Basis-Tower
+> Werte aus `tower-types.config.ts` (Quelle der Wahrheit), Stand 2026-09.
+
 | Tower | Typ | Base Stats | Kosten | Air? |
 |---|---|---|---:|---|
-| **Archer** | Physical | 25 dmg, 1.0/s, Range 60 | 50 | nur per Upgrade |
-| **Dual-Gatling** | Pierce | 10 dmg, 5.0/s, Range 50 | 95 | nur per Upgrade |
-| **Cannon** | Siege | 55 dmg, 0.5/s, Range 80 | 155 | per Upgrade |
-| **Rocket** | Siege | 40 dmg, 0.5/s, Range 100 | 160 | **Air-only** (Basis) |
-| **Magic** | Magic | 40 dmg, 1.5/s, Range 70 | 130 | nein |
-| **Ice** | Ice | 2 dmg, 0.33/s, Range 60 | 100 | **Air + Ground** |
-| **Fire** | Fire | 35 DPS Beam, Range 20 (= Flammenlänge) | 170 | per Upgrade |
-| **Tentacle** | Physical (+20% True) | 30 dmg, 1.5/s, Range 25 | 185 | nein |
-| **Poison** | Poison | DoT-Projektil, Splash, Range 65 | 100 | nein |
+| **Archer** | Physical | 25 dmg, 1.0/s, Range 30 | 45 | **Air + Ground** |
+| **Dual-Gatling** | Pierce | 10 dmg, 5.0/s, Range 50 | 90 | per Forschung (AA Retrofit) |
+| **Cannon** | Siege | 55 dmg, 0.5/s, Range 80, Splash 10 m | 150 | nein |
+| **Rocket** | Siege | 40 dmg, 0.5/s, Range 100 | 120 | **Air-only** |
+| **Magic** | Magic | 40 dmg, 1.5/s, Range 70 | 140 | nein |
+| **Ice** | Ice | 5 dmg, 0.33/s, Range 60, Slow 50 % 3 s, Splash 8 m | 90 | **Air + Ground** |
+| **Fire** | Fire | 35 DPS Beam, Range 20 (= Flammenlänge) | 110 | nein |
+| **Tentacle** | Physical (+20% True) | 30 dmg, 1.5/s, Range 25 | 80 | nein |
+| **Poison** | Poison | 5 dmg + DoT 8/s für 4 s, 1.0/s, Range 55, Splash 8 m | 100 | nein |
 | **Lightning** | Lightning | 35 dmg primary, Chain ×0.7/Jump, 2 Jumps, 0.8/s, Range 65 | 130 | **Air + Ground** |
 
-### 3.2 Upgrade-Kosten-Regel (vereinheitlicht)
-- **Upgrade-Kosten-Skalierung:** **1.5× pro Tier** (alle Tower, alle Pfade). 
-- Level-Costs sind pro Tower bereits so gewählt, dass sie ~1.5× skalieren (Richtwert).
+### 3.2 Upgrade-Regeln (Stand 2026-09)
+- **Kosten:** `50 × 1,25^Stufe` pro Stufe und Track, für alle Tower gleich.
+- **Damage und Fire Rate:** 25 Stufen. Stufe 1–15 wirkt der tower-eigene
+  Multiplikator `m`, Stufe 16–25 nur noch `1 + 0,4 × (m − 1)`. L25 liefert das
+  5,3- bis 6,4-Fache der Basis-DPS (vorher 14,5 mit ×1,05/×1,06 für alle).
+- **Range:** 10 Stufen × 1,03 (max. ×1,34), für alle Tower gleich (vorher 25 Stufen
+  × 1,04, also ×2,67; Archer ×1,02). Beim Fire Tower verlängert Range die Flamme,
+  Beam Width ist ebenfalls ein 10-Stufen-Track × 1,03.
+- **Tier-Gating:** 5er-Bänder hinter Forschung (T2 Advanced Weaponry … T5
+  Transcendent Tech). Der Range-Track endet in Tier 2.
+- Der Tower wächst über Schaden oder über Tempo:
+
+| Tower | Damage `m` | Fire Rate `m` | Idee |
+|---|---:|---:|---|
+| Archer | 1,05 | 1,04 | Starttower, im Endausbau kein Dauerfeuer |
+| Dual-Gatling | 1,04 | 1,06 | Feuerrate ist der Kill-Durchsatz gegen Schwärme |
+| Cannon | 1,07 | 1,02 | schwere Einzelschüsse, Splash-Durchsatz bleibt klein |
+| Magic | 1,05 | 1,05 | ausgewogen |
+| Rocket | 1,07 | 1,03 | wenige schwere Treffer gegen Drachen |
+| Ice | 1,04 | 1,05 | Rate bestimmt die Slow-Abdeckung |
+| Fire | 1,06 | (Beam Width 1,03) | Kegel trifft viele Ziele |
+| Tentacle | 1,07 | 1,03 | Nahkampf, wenige harte Schläge |
+| Poison | 1,05 | 1,04 | DoT skaliert mit dem Damage-Track |
+| Lightning | 1,05 | 1,04 | Kette vervielfacht ohnehin |
 
 ### 3.3 Archer — Physical
 **Upgrade-Pfad 3 (Air):**
@@ -243,7 +266,11 @@ Verteidigung erreichte den Vollausbau und toetete ab W11 alles.
 
 **Ziel:** 1 neuer Tower alle 2–3 Waves, Upgrades alle 3–4 Waves. Das Budget ist
 gegen einen W30-Vollausbau gerechnet (jeder Tower 1×, Archer 3×, alle
-Upgrade-Tracks L20, alle Forschungen, RC Lv 3) plus ~26% Puffer.
+Upgrade-Tracks L20, alle Forschungen, RC Lv 3). Gesetzt wurde es mit ~25 %
+Puffer. Seit den degressiven Upgrade-Kurven (Range endet bei L10) kostet dieser
+Ausbau 431.542 statt 632.834 Gold, der Puffer liegt bei 83 %. Bewusst erst nach
+dem Playtest nachsteuern (BALANCE_PROPOSAL_2026-09 §2.5); den Stand zeigt
+`npm run economy-chart` im Abschnitt „Design-Roster vs. Curriculum-Budget".
 
 ### 5.4 Anti-Snowball / Catch-Up
 - **Perfect-Bonus gedeckelt (35%)**
