@@ -16,6 +16,13 @@ export interface Street {
   name: string;
   type: string; // residential, primary, secondary, etc.
   nodes: StreetNode[];
+  // OSM-Tags, nur gesetzt wenn der Way sie trägt (siehe OsmStreetService).
+  width?: number;
+  lanes?: number;
+  bridge?: string;
+  tunnel?: string;
+  covered?: string;
+  layer?: number;
 }
 
 export interface StreetNetwork {

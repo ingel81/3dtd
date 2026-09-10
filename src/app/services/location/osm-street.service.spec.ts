@@ -113,6 +113,47 @@ describe('OsmStreetService', () => {
   });
 
   // ════════════════════════════════════════════════════════════
+  // parseOverpassResponse (private — accessed via cast)
+  // ════════════════════════════════════════════════════════════
+
+  describe('parseOverpassResponse', () => {
+    const bounds = { minLat: 48.0, maxLat: 48.001, minLon: 9.0, maxLon: 9.0 };
+    const parse = (tags: Record<string, string>) =>
+      (service as unknown as {
+        parseOverpassResponse: (r: { elements: unknown[] }, b: typeof bounds) => StreetNetwork;
+      }).parseOverpassResponse({
+        elements: [
+          { type: 'node', id: 1, lat: 48.0, lon: 9.0 },
+          { type: 'node', id: 2, lat: 48.001, lon: 9.0 },
+          { type: 'way', id: 100, nodes: [1, 2], tags },
+        ],
+      }, bounds).streets[0];
+
+    it('keeps width, lanes, layer and the bridge/tunnel/covered tags', () => {
+      const street = parse({
+        highway: 'footway', name: 'Durchgang', width: '2.5 m', lanes: '1',
+        layer: '-1', tunnel: 'building_passage', covered: 'yes', bridge: 'no',
+      });
+      expect(street).toMatchObject({
+        type: 'footway', name: 'Durchgang', width: 2.5, lanes: 1,
+        layer: -1, tunnel: 'building_passage', covered: 'yes',
+      });
+      expect(street.bridge).toBeUndefined();
+    });
+
+    it('drops values it cannot read instead of guessing', () => {
+      const street = parse({ highway: 'residential', width: "12'6\"", lanes: '2;3', layer: 'x' });
+      expect(street.width).toBeUndefined();
+      expect(street.lanes).toBeUndefined();
+      expect(street.layer).toBeUndefined();
+    });
+
+    it('reads a decimal comma in width', () => {
+      expect(parse({ highway: 'service', width: '3,5' }).width).toBe(3.5);
+    });
+  });
+
+  // ════════════════════════════════════════════════════════════
   // filterBuildingsNearRoutes
   // ════════════════════════════════════════════════════════════
 
