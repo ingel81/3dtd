@@ -3,6 +3,12 @@ import { GlobalRouteGrid } from './global-route-grid';
 import type { ColumnSample } from '../three-engine/column-sample';
 import type { Enemy } from '../entities/enemy.entity';
 
+// Stand-in for the cubemap: a wall at 10 m, so a cell's visibility follows
+// its height. Targets below it are visible, targets above it are not.
+vi.mock('./gpu-cube-resolve', () => ({
+  isCubeVisible: (...args: number[]) => args[4] < 10,
+}));
+
 /**
  * Covers the healing loop that the rooftop-route bug lived in: a cell sampled
  * from a coarse tile has to be replaced once a finer tile streams in, and
@@ -206,5 +212,74 @@ describe('GlobalRouteGrid enemy cell memo', () => {
     }
     // A position the memo does not cover falls back to the lookup.
     expect(grid.getGroundLocalYForEnemy(enemy, 2.1, 0.1)).toBe(grid.getGroundLocalYAt(2.1, 0.1));
+  });
+});
+
+/**
+ * Cells are keyed with Math.floor when they are created, so every lookup has
+ * to use the same rule. Truncation (`| 0`) rounds toward zero and put
+ * positions left of / behind the origin into the neighbour cell on the origin
+ * side: wrong cell for targeting, wrong ground under the enemy.
+ */
+describe('GlobalRouteGrid cell keys around the origin', () => {
+  const coordinateSync = {
+    geoToLocalSimple: (lat: number, lon: number) => ({ x: lon, y: 0, z: lat }),
+    geoToLocalSimpleInto: (lat: number, lon: number, _h: number, out: { x: number; z: number }) => {
+      out.x = lon;
+      out.z = lat;
+      return out;
+    },
+  } as never;
+  /** Straight route along x through the origin: cells on both sides in x and z. */
+  const route = [[{ lat: 0, lon: -20 }, { lat: 0, lon: 20 }]];
+  const makeEnemy = (id: string) => ({ id }) as unknown as Enemy;
+
+  let grid: GlobalRouteGrid;
+
+  beforeEach(() => {
+    // The ground encodes the cell centre, so a lookup that lands in the
+    // wrong cell reads a different height.
+    const sampler = (x: number, z: number) =>
+      ({ groundY: x * 10 + z, topY: 40, tileDepth: 20, tileGeometricError: 2 });
+    grid = new GlobalRouteGrid();
+    grid.initialize(sampler as never, coordinateSync);
+    grid.generateFromRoutes(route as never);
+  });
+
+  it('resolves a negative position to the cell that contains it', () => {
+    expect(grid.getCellAt(-0.5, -0.5)).toMatchObject({ x: -1, z: -1 });
+    expect(grid.getCellAt(-3.9, 0.5)).toMatchObject({ x: -3, z: 1 });
+  });
+
+  it('reads the ground of that cell, not of its neighbour toward the origin', () => {
+    // Truncation read the (1, 1) and (-1, 1) cells here: 11 and -9.
+    expect(grid.getGroundLocalYAt(-0.5, -0.5)).toBe(-11);
+    expect(grid.getGroundLocalYAt(-3.9, 0.5)).toBe(-29);
+  });
+
+  it('files an enemy under the cell that contains it', () => {
+    const enemy = makeEnemy('e1');
+    grid.updateEnemyPosition(enemy, -0.5, -0.5);
+
+    const [containing] = grid.getCellsInRange(-1, -1, 0.1);
+    expect(containing.enemies.has(enemy)).toBe(true);
+    expect(grid.getGroundLocalYForEnemy(enemy, -0.5, -0.5)).toBe(-11);
+  });
+
+  it('finds an enemy across the origin in a radius query', () => {
+    const enemy = { id: 'e1', alive: true, position: { lat: 0.5, lon: -2.4 } } as unknown as Enemy;
+    grid.updateEnemyPosition(enemy, -2.4, 0.5);
+
+    expect(grid.getEnemiesInRadius(0.3, 0.5, 2.8)).toEqual([enemy]);
+    expect(grid.getEnemiesInRadius(0.3, 0.5, 2.6)).toEqual([]);
+  });
+
+  it('registers a tower on every cell in range, also left of the origin', () => {
+    const ctx = { referencePos: { x: -9, y: 20, z: 0 } } as never;
+    grid.registerTower('t1', -9, 0, 5, ctx);
+
+    const inRange = grid.getCellsInRange(-9, 0, 5);
+    expect(inRange.length).toBeGreaterThan(0);
+    expect(inRange.every((c) => c.towerVisibility.has('t1'))).toBe(true);
   });
 });
