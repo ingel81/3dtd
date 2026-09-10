@@ -55,6 +55,18 @@ describe('HealthBarInstanceManager', () => {
     expect(drawCounts()).toEqual([0, 0]);
   });
 
+  it('keeps the update ranges bounded while nothing uploads', () => {
+    // Headless training: bars come, die and go, no updateBillboard, no render.
+    for (let i = 0; i < 500; i++) {
+      add(`e${i}`);
+      bars.hide(`e${i}`);
+      if (i >= 10) bars.remove(`e${i - 10}`);
+    }
+    for (const name of ['aCenter', 'aSize', 'aHealth', 'aBarColor', 'aIsBoss']) {
+      expect(attribute(name).updateRanges.length).toBeLessThanOrEqual(64);
+    }
+  });
+
   it('uploads only the drawn slice of the per-frame buffers', () => {
     add('a');
     add('b');
