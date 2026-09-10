@@ -305,9 +305,12 @@ export class EnemyManager extends EntityManager<Enemy> {
   /**
    * Kill an enemy. If `awardCredits` is false, no gold is awarded — used by
    * debug kill-all so the player can't farm gold via the dev shortcut.
+   *
+   * Returns false if the enemy is already dying; nothing happens then, so
+   * callers that credit the kill must check the result.
    */
-  kill(enemy: Enemy, awardCredits = true): void {
-    if (this.killingEnemies.has(enemy.id)) return;
+  kill(enemy: Enemy, awardCredits = true): boolean {
+    if (this.killingEnemies.has(enemy.id)) return false;
     this.killingEnemies.add(enemy.id);
 
     this.aliveCount.update(c => Math.max(0, c - 1));
@@ -334,6 +337,7 @@ export class EnemyManager extends EntityManager<Enemy> {
       this.killingEnemies.delete(enemy.id);
       this.remove(enemy);
     }
+    return true;
   }
 
   // Performance profiling callback (set by PerformanceProfilerService).

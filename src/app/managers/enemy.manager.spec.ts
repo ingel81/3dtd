@@ -119,6 +119,23 @@ describe('EnemyManager', () => {
     expect(manager.getAliveCount()).toBe(0);
   });
 
+  it('kill() returns false for an enemy that is already dying', () => {
+    const diedSpy = vi.fn();
+    eventBus.on('enemy:died', diedSpy);
+
+    const path: GeoPosition[] = [
+      { lat: 0, lon: 0, height: 0 },
+      { lat: 0.001, lon: 0, height: 0 },
+    ];
+    // zombie has a death animation, so it stays in the dying set until the
+    // animation delay has run down
+    const enemy = manager.spawn(path, 'zombie');
+
+    expect(manager.kill(enemy)).toBe(true);
+    expect(manager.kill(enemy)).toBe(false);
+    expect(diedSpy).toHaveBeenCalledTimes(1);
+  });
+
   describe('kill-budget accumulator', () => {
     const straightPath: GeoPosition[] = [
       { lat: 0, lon: 0, height: 0 },
