@@ -98,6 +98,7 @@ export class ProjectileManager extends EntityManager<Projectile> {
       tower.combat.damage,
       spawnHeight,
       tower.id,
+      tower.typeConfig.id,
       tower.typeConfig.damageType
     );
 

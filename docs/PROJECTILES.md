@@ -113,6 +113,10 @@ splashRadius?: number;          // Radius in Metern (0 oder undefined = kein Spl
 splashDamageFalloff?: boolean;  // Damage skaliert mit Distanz (Default: true)
 ```
 
+Splash trifft nur Ziele, die der Quell-Tower auch anvisieren darf (`Projectile.sourceTowerType`,
+Air über `canTargetAirEffective` inkl. Forschung, Boden über `canTargetGround`). Cannon- und
+Poison-Splash lassen Flieger also aus, Ice-Splash trifft beide Ebenen.
+
 **Trail-Particle-Konfiguration** (`TrailParticleConfig`, in `projectile-types.config.ts`):
 
 | Feld | Beschreibung |

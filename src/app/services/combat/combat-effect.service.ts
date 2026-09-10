@@ -4,7 +4,10 @@ import { GlobalRouteGridService } from '../world/global-route-grid.service';
 import { StatusEffectService } from './status-effect.service';
 import { CombatVfxService } from './combat-vfx.service';
 import { DamageApplicationService } from './damage-application.service';
+import { ResearchStore } from '../../store/research.store';
 import { Enemy } from '../../entities/enemy.entity';
+import { canTargetAirEffective } from '../../entities/tower-targeting.util';
+import { TOWER_TYPES } from '../../configs/tower-types.config';
 import { Projectile } from '../../entities/projectile.entity';
 import { GeoPosition } from '../../models/game.types';
 import { GAME_BALANCE } from '../../configs/game-balance.config';
@@ -31,6 +34,7 @@ export class CombatEffectService {
   private readonly statusEffectService = inject(StatusEffectService);
   private readonly vfx = inject(CombatVfxService);
   private readonly damageService = inject(DamageApplicationService);
+  private readonly researchStore = inject(ResearchStore);
 
   private tilesEngine: ThreeTilesEngine | null = null;
   private eventBus: GameEventBus | null = null;
@@ -175,7 +179,16 @@ export class CombatEffectService {
 
     const useFalloff = projectile.typeConfig.splashDamageFalloff !== false;
 
+    // Splash trifft nur, was der Quell-Tower auch anvisieren darf. Die
+    // Umkreissuche kennt nur den 2D-Abstand, ohne diesen Filter traf die
+    // Cannon Fledermäuse 15 m über dem Boden, obwohl sie nicht auf Luft zielt.
+    const sourceType = projectile.sourceTowerType;
+    const hitsAir = canTargetAirEffective(sourceType, this.researchStore.airTargetingUnlocked());
+    const hitsGround = TOWER_TYPES[sourceType].canTargetGround ?? true;
+
     for (const nearbyEnemy of nearbyEnemies) {
+      if (nearbyEnemy.typeConfig.isAirUnit ? !hitsAir : !hitsGround) continue;
+
       let splashDamage = projectile.damage;
 
       if (useFalloff) {
