@@ -311,6 +311,43 @@ describe('TowerCombatService', () => {
   });
 
   // ────────────────────────────────────────────────────────────────
+  // Range upgrades reach the wake check and the radius fallback
+  // ────────────────────────────────────────────────────────────────
+  describe('upgraded range', () => {
+    it('wakes and queries a sleeping tower with its upgraded range', () => {
+      const hasEnemyInRadius = vi.fn((_x: number, _z: number, _r: number) => true);
+      const getEnemiesInRadius = vi.fn(
+        (_x: number, _z: number, _r: number, _ex: unknown, out: unknown[]) => {
+          out.length = 0;
+          return out;
+        },
+      );
+      mockInjections['SpatialGridService'] = { hasEnemyInRadius };
+      mockInjections['GlobalRouteGridService'] = { getEnemiesInRadius };
+      service = new TowerCombatService();
+      service.initialize({
+        sync: { geoToLocalSimpleInto: (_lat: number, _lon: number, _h: number, target: unknown) => target },
+        towers: { resetRotation: vi.fn() },
+      } as never);
+
+      const tower = new Tower({ lat: 48.0, lon: 9.0, height: 0 }, 'archer');
+      tower.losReady = true;
+      tower.isSleeping = true;
+      // Stands in for a few range upgrades; applyUpgrade scales the same field.
+      tower.combat.range = tower.typeConfig.range * 2;
+
+      service.updateTowerShooting(
+        1000, 16, { getAllActive: () => [tower] } as never, {} as never, {} as never,
+      );
+
+      const radius = tower.combat.range * COMBAT_TUNING.rangeMargin.standard;
+      expect(hasEnemyInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
+      expect(tower.isSleeping).toBe(false);
+      expect(getEnemiesInRadius.mock.calls[0][2]).toBeCloseTo(radius, 6);
+    });
+  });
+
+  // ────────────────────────────────────────────────────────────────
   // Sanity: combat-tuning constants are read into hot-path readonlies
   // ────────────────────────────────────────────────────────────────
   describe('config wiring', () => {
