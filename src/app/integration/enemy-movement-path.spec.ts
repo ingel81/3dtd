@@ -138,7 +138,7 @@ describe('Enemy Movement Path Integration', () => {
     m.eventBus.on('enemy:died', diedHandler);
 
     m.enemyManager.setWaveNumberProvider(() => 1);
-    m.enemyManager.kill(enemy, 1.0);
+    m.enemyManager.kill(enemy, true);
 
     expect(diedHandler).toHaveBeenCalledOnce();
     expect(diedHandler).toHaveBeenCalledWith(
@@ -160,10 +160,10 @@ describe('Enemy Movement Path Integration', () => {
     const e2 = m.enemyManager.spawn(TEST_PATH, 'zombie', 5, true);
     expect(m.enemyManager.getAliveCount()).toBe(2);
 
-    m.enemyManager.kill(e1, 1.0);
+    m.enemyManager.kill(e1);
     expect(m.enemyManager.getAliveCount()).toBe(1);
 
-    m.enemyManager.kill(e2, 1.0);
+    m.enemyManager.kill(e2);
     expect(m.enemyManager.getAliveCount()).toBe(0);
   });
 
