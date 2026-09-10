@@ -4,24 +4,19 @@
  * be filtered as one stream in DevTools / log output. Each sub-tag is a
  * single token after the prefix to keep the format greppable:
  *
- *   [CELL-GRID] BOOTUP  ...
  *   [CELL-GRID] SAMPLE  ...
  *   [CELL-GRID] REFINE  ...
+ *   [CELL-GRID] HEIGHT_UPDATE  ...
  *
- * Sub-tag toggles control verbosity per category. Keep BOOTUP / REFINE /
- * VIZ-MODE / DISPOSE on for production-light tracing; the rest fires
- * very often and stays off unless investigating.
+ * Sub-tag toggles control verbosity per category. REFINE stays on for
+ * production-light tracing; SAMPLE and HEIGHT_UPDATE fire very often and
+ * stay off unless investigating.
  * ──────────────────────────────────────────────────────────────────────────
  */
 const CELL_GRID_LOG = {
-  BOOTUP: true,
-  CELL_GEN: false,
   SAMPLE: false,
   REFINE: true,
-  VIZ_MODE: true,
-  TOWER_REG: false,
   HEIGHT_UPDATE: false,
-  DISPOSE: true,
 } as const;
 
 type CellGridLogTag = keyof typeof CELL_GRID_LOG;

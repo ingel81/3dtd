@@ -1,4 +1,5 @@
 import { CellSample, RouteCell } from './route-cell';
+import type { RouteCellSampler } from './route-cell-sampler';
 
 /**
  * DIAGNOSTICS — temporary debug API for the route-grid height-anomaly hunt
@@ -204,11 +205,14 @@ export function collectHeightOutliers(cells: ReadonlyMap<number, RouteCell>, thr
  * Returns before/after Y-deltas so the user can see the magnitude of
  * the correction in one call.
  *
+ * @param sampler Schreibt den Reset (`resetToUnsampled`), damit Höhe und
+ *   Sample-State nur im Sampler geändert werden.
  * @param retryUnsampledCells Der Retry-Pass des Grids, läuft zwischen
  *   Zurücksetzen und Auswertung.
  */
 export function resetFallbackHeights(
   cells: ReadonlyMap<number, RouteCell>,
+  sampler: RouteCellSampler,
   retryUnsampledCells: () => void,
 ): HeightResetResult {
   const before = new Map<number, number>();
@@ -218,14 +222,7 @@ export function resetFallbackHeights(
     const isFallback = cell.sample.tileDepth === 0 || cell.sample.tileGeometricError === Infinity;
     if (!isFallback) continue;
     before.set(cell.key, cell.terrainHeight);
-    cell.sample = {
-      state: 'unsampled',
-      sampledAt: 0,
-      tileDepth: 0,
-      tileGeometricError: Infinity,
-    };
-    cell.heightSampled = false;
-    cell.terrainHeight = cell.routeAnchorY;
+    sampler.resetToUnsampled(cell);
     reset++;
   }
   retryUnsampledCells();

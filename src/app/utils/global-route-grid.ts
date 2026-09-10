@@ -252,8 +252,8 @@ export class GlobalRouteGrid {
           const t = s / numSamples;
           const sampleX = startLocal.x + (endLocal.x - startLocal.x) * t;
           const sampleZ = startLocal.z + (endLocal.z - startLocal.z) * t;
-          // Anchor Y from the smoothed route — used to validate cell raycasts
-          // against bridge decks / tree canopies.
+          // Anchor Y from the smoothed route: fallback height of the new
+          // cells until their first real sample.
           const anchorY = startLocal.y + (endLocal.y - startLocal.y) * t;
 
           // Generate cells in corridor around this sample point
@@ -265,9 +265,9 @@ export class GlobalRouteGrid {
 
   /**
    * Generate cells in a circular corridor around a route sample point.
-   * @param anchorY Smoothed route Y at the corridor centre — stored on each
-   *   new cell as its `routeAnchorY` and used to validate the initial
-   *   terrain raycast against overhead clutter.
+   * @param anchorY Smoothed route Y at the corridor centre, stored on each
+   *   new cell as its `routeAnchorY` and as fallback `terrainHeight` until
+   *   the first sample succeeds.
    */
   private generateCorridorCells(
     centerX: number,
@@ -637,26 +637,6 @@ export class GlobalRouteGrid {
   }
 
   /**
-   * Register a tower and compute LOS for all cells within range.
-   * Pre-computes ground LOS and/or air LOS depending on the tower's
-   * targeting capabilities. Samples terrain at registration time
-   * (tiles are expected to be loaded) for accurate LOS.
-   *
-   * Visible cells are the UNION of ground- and air-visible cells: a cell
-   * counts as visible if the tower can see *something* in it (ground level
-   * OR the air sample altitude), so the tower-targeting fast path picks up
-   * enemies of either type.
-   *
-   * @param towerId Tower unique ID
-   * @param towerX Tower X position (local coordinates)
-   * @param towerZ Tower Z position (local coordinates)
-   * @param range Tower targeting range
-   * @param ctx GPU-cube resolve context (built by caller via TowerShadowMapper)
-   * @param canTargetGround Whether tower targets ground enemies (default true)
-   * @param canTargetAir Whether tower targets air enemies (default false)
-   * @returns Array of cells visible from this tower (ground or air)
-   */
-  /**
    * Iterate only the grid cells whose centre can lie within `range` of
    * (centerX, centerZ), using the integer cell-key index. Replaces a full
    * Map scan (O(total cells), tens of thousands) with O(cells in the
@@ -683,6 +663,26 @@ export class GlobalRouteGrid {
     }
   }
 
+  /**
+   * Register a tower and compute LOS for all cells within range.
+   * Pre-computes ground LOS and/or air LOS depending on the tower's
+   * targeting capabilities. Samples terrain at registration time
+   * (tiles are expected to be loaded) for accurate LOS.
+   *
+   * Visible cells are the UNION of ground- and air-visible cells: a cell
+   * counts as visible if the tower can see *something* in it (ground level
+   * OR the air sample altitude), so the tower-targeting fast path picks up
+   * enemies of either type.
+   *
+   * @param towerId Tower unique ID
+   * @param towerX Tower X position (local coordinates)
+   * @param towerZ Tower Z position (local coordinates)
+   * @param range Tower targeting range
+   * @param ctx GPU-cube resolve context (built by caller via TowerShadowMapper)
+   * @param canTargetGround Whether tower targets ground enemies (default true)
+   * @param canTargetAir Whether tower targets air enemies (default false)
+   * @returns Array of cells visible from this tower (ground or air)
+   */
   registerTower(
     towerId: string,
     towerX: number,
@@ -1149,7 +1149,7 @@ export class GlobalRouteGrid {
 
   /** Fallback-Samples zurücksetzen und neu sampeln, siehe `resetFallbackHeights`. */
   resetHeightsAndRetry(): HeightResetResult {
-    return resetFallbackHeights(this.cells, () => this.retryUnsampledCells());
+    return resetFallbackHeights(this.cells, this.sampler, () => this.retryUnsampledCells());
   }
 
   // ========================================
@@ -1187,11 +1187,6 @@ export class GlobalRouteGrid {
   /** Get visualization mesh */
   getVisualization(): InstancedMesh | null {
     return this.aggregateViz.getVisualization();
-  }
-
-  /** Get the optional air-layer aggregate viz (NULL until toggled on). */
-  getAirVisualization(): InstancedMesh | null {
-    return this.aggregateViz.getAirVisualization();
   }
 
   /** Dispose ground visualization resources. */

@@ -2,9 +2,9 @@ import type { Enemy } from '../entities/enemy.entity';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
 /**
- * Per-cell sampling metadata. Maintained exclusively by `sampleCellY` —
- * never write from anywhere else, otherwise the single-source-of-truth
- * invariant breaks.
+ * Per-cell sampling metadata. Maintained exclusively by `RouteCellSampler`
+ * (`sampleCellY`, plus the debug reset `resetToUnsampled`). Never write
+ * from anywhere else, otherwise the single-source-of-truth invariant breaks.
  *
  * `tileDepth` and `tileGeometricError` are the LOD metadata of the tile
  * that produced the last successful sample. They drive the quality-
@@ -47,20 +47,20 @@ export interface RouteCell {
   /** Terrain height at cell center (local Y coordinate) */
   terrainHeight: number;
   /**
-   * Route-anchor Y derived at generation time from the nearest route sample
-   * point's smoothed terrain height. Used to validate terrain raycasts —
-   * hits more than `GROUND_ANCHOR_TOLERANCE_M` from this anchor are discarded
-   * as bridge decks / tree canopies / mesh artifacts.
+   * Route-anchor Y, taken at generation time from the smoothed route height
+   * at the nearest route sample point. Stands in as `terrainHeight` until the
+   * first real sample and is the reference for the height diagnostics
+   * (`deltaFromAnchor`). Raycasts are no longer validated against it.
    */
   routeAnchorY: number;
   /**
    * Sampling state of `terrainHeight`. See `CellSample`. Written only by
-   * `sampleCellY`. Convenience read: `cell.sample.state === 'stable'`.
+   * `RouteCellSampler`. Convenience read: `cell.sample.state === 'stable'`.
    */
   sample: CellSample;
   /**
    * Mirror of `sample.state === 'stable'`. Kept as a property (rather than
-   * a getter) for hot-path read access. Set in lockstep by `sampleCellY`.
+   * a getter) for hot-path read access. Set in lockstep by `RouteCellSampler`.
    */
   heightSampled: boolean;
   /** Set of enemies currently in this cell */

@@ -188,7 +188,7 @@ export class RouteGridAggregateViz {
   /**
    * Optional air-altitude mirror of the global Aggregate-Viz — same cell
    * set, same `aCellState` buffer (shared!), positioned at
-   * `cell.terrainHeight + airSampleYOffset` with a stripe-pattern shader.
+   * `cell.terrainHeight + airSampleYOffset` with the air-layer fragment shader.
    * Built lazily by `createAirVisualization()` when the corresponding
    * toggle goes ON.
    */
@@ -210,9 +210,6 @@ export class RouteGridAggregateViz {
    * is the path forward (already invoked on toggle / location change).
    */
   private readonly MAX_VIZ_CELLS_HARDLIMIT = 50_000;
-
-  /** Map cell key to instance index for fast state updates */
-  private cellIndexMap = new Map<number, number>();
 
   constructor(cells: ReadonlyMap<number, RouteCell>, cellSize: number) {
     this.cells = cells;
@@ -261,7 +258,7 @@ export class RouteGridAggregateViz {
     this.initializePositions(this.visualization, /* airLayer */ false);
 
     // If an air visualization already exists (toggle ordering: air ON
-    // before ground), keep it consistent with the same cell index map.
+    // before ground), keep it consistent with the same instance order.
     if (this.airVisualization) {
       this.initializePositions(this.airVisualization, /* airLayer */ true);
       this.airVisualization.geometry.setAttribute('aCellState', this.cellStateAttribute);
@@ -276,7 +273,7 @@ export class RouteGridAggregateViz {
   /**
    * Create the air-layer mirror of the global aggregate viz. Same cell
    * set, same state buffer (shared with `visualization`), positioned at
-   * `terrainHeight + airSampleYOffset` with a stripe-pattern fragment.
+   * `terrainHeight + airSampleYOffset` with the air-layer fragment shader.
    *
    * Lazily created on first toggle; if `createVisualization()` has not
    * been called yet (no ground layer), the state attribute is created
@@ -354,19 +351,15 @@ export class RouteGridAggregateViz {
   /**
    * Initialize cell positions for one of the two layer-meshes. Ground
    * uses `terrainHeight + CELL_VIZ_Y_OFFSET_M`, Air uses
-   * `terrainHeight + airSampleYOffset`. Both layers share the same
-   * `cellIndexMap` ordering — instance N on both meshes refers to the
-   * same `RouteCell`, so the shared state attribute aligns correctly.
+   * `terrainHeight + airSampleYOffset`. Both layers walk `cells` in the
+   * same order and skip the same unsampled cells, so instance N on both
+   * meshes refers to the same `RouteCell` and the shared state attribute
+   * aligns correctly.
    */
   private initializePositions(mesh: InstancedMesh, airLayer: boolean): void {
     const maxCells = mesh.instanceMatrix.count;
     const matrix = new Matrix4();
     let index = 0;
-
-    // The ground-layer call is authoritative for the index map. The
-    // air-layer call (called second) just re-walks in the same order.
-    const writeIndexMap = !airLayer;
-    if (writeIndexMap) this.cellIndexMap.clear();
 
     for (const cell of this.cells.values()) {
       if (index >= maxCells) break;
@@ -382,8 +375,6 @@ export class RouteGridAggregateViz {
         : cell.terrainHeight + CELL_VIZ_Y_OFFSET_M;
       matrix.setPosition(cell.x, y, cell.z);
       mesh.setMatrixAt(index, matrix);
-
-      if (writeIndexMap) this.cellIndexMap.set(cell.key, index);
       index++;
     }
 
@@ -484,11 +475,6 @@ export class RouteGridAggregateViz {
     return this.visualization;
   }
 
-  /** Get the optional air-layer aggregate viz (NULL until toggled on). */
-  getAirVisualization(): InstancedMesh | null {
-    return this.airVisualization;
-  }
-
   /**
    * Dispose ground visualization resources. The shared state attribute
    * stays alive as long as the air layer references it — only cleared
@@ -506,7 +492,6 @@ export class RouteGridAggregateViz {
     if (!this.airVisualization) {
       // No more consumers of the shared state buffer → safe to drop.
       this.cellStateAttribute = null;
-      this.cellIndexMap.clear();
     }
   }
 
@@ -522,7 +507,6 @@ export class RouteGridAggregateViz {
     }
     if (!this.visualization) {
       this.cellStateAttribute = null;
-      this.cellIndexMap.clear();
     }
   }
 }
