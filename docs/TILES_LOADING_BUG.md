@@ -60,7 +60,7 @@ Nach Browser-Reload (F5) bleibt der Loading-Screen manchmal bei "Warte auf 3D-Ka
 
 **Idee:** Wenn `raycastTerrainHeight()` null zurückgibt, aber `stats.visible > 0`, trotzdem als geladen markieren.
 
-**Code:** `three-tiles-engine.ts:onTilesLoadEnd()`
+**Code:** `tile-loading-tracker.ts:onTilesLoadEnd()`
 ```typescript
 if (freshOriginHeight !== null || stats.visible > 0) {
   this.firstTilesLoaded = true;
@@ -74,7 +74,7 @@ if (freshOriginHeight !== null || stats.visible > 0) {
 
 **Idee:** Wenn `tiles-load-end` feuert aber keine Tiles, alle 200ms erneut prüfen (max 50 Retries = 10s).
 
-**Code:** `three-tiles-engine.ts:scheduleFirstTilesRetry()`
+**Code:** `tile-loading-tracker.ts:scheduleFirstTilesRetry()`
 
 **Ergebnis:** Hilft nicht wenn Tiles wirklich nie laden
 
@@ -144,10 +144,14 @@ if (stats.visible === 0 && this.cameraNudgeCount < this.MAX_CAMERA_NUDGES) {
 ## Aktuelle Implementierung
 
 ### Relevante Dateien
-- `src/app/three-engine/three-tiles-engine.ts`
-  - `onTilesLoadEnd()` - Hauptlogik für Tile-Loading Detection
-  - `scheduleFirstTilesRetry()` - Retry-Mechanismus
+- `src/app/three-engine/tile-loading-tracker.ts` (`TileLoadingTracker`, seit 2026-09-11 aus dem Engine ausgelagert, Verhalten unverändert)
+  - `onTilesLoadEnd()` - Debounce und Prüfung auf den ersten Tile-Load
+  - `scheduleFirstTilesRetry()` - Retry-Mechanismus und Force-Update
   - `getTileStats()` - liest `tilesRenderer.stats`, `visibleTiles`, `activeTiles` und die Cache-Größe
+  - `reset()` - Standortwechsel, aufgerufen aus `ThreeTilesEngine.setOrigin()`
+- `src/app/three-engine/three-tiles-engine.ts`
+  - liefert die Origin-Probe (`raycastTerrainHeight(0, 0)`) und reagiert in `onTileSetSettled()` auf jeden beruhigten `tiles-load-end`
+  - `getTileStats()`, `setOnFirstTilesLoadedCallback()` und `setOnAuthErrorCallback()` reichen an den Tracker durch
 
 ### Debug-Logs (aktiv)
 ```typescript
@@ -156,13 +160,13 @@ console.log(`[TilesEngine] Debounce fired: firstTilesLoaded=..., raycast=..., vi
 console.log(`[TilesEngine] Retry #N: cam(...), raycast=..., visible=..., groupMeshes=...`);
 ```
 
-### Konstanten
+### Konstanten (Modulkonstanten in `tile-loading-tracker.ts`)
 ```typescript
 TILES_LOAD_DEBOUNCE_MS = 500;  // Debounce nach tiles-load-end
 FIRST_TILES_RETRY_MS = 200;    // Retry-Intervall
 FIRST_TILES_MAX_RETRIES = 50;  // Max 10 Sekunden
 MAX_CAMERA_NUDGES = 3;         // Max Force-Update Versuche
-MIN_VISIBLE_TILES = 50;        // Fallback wenn Raycast fehlschlägt (lokale Konstante in onTilesLoadEnd/scheduleFirstTilesRetry)
+MIN_VISIBLE_TILES = 50;        // Fallback wenn Raycast fehlschlägt
 ```
 
 ## Offene Fragen
