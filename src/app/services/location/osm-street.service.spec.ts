@@ -113,7 +113,7 @@ describe('OsmStreetService', () => {
   });
 
   // ════════════════════════════════════════════════════════════
-  // parseOverpassResponse (private — accessed via cast)
+  // parseOverpassResponse (private, accessed via cast)
   // ════════════════════════════════════════════════════════════
 
   describe('parseOverpassResponse', () => {
