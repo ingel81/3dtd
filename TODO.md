@@ -301,6 +301,38 @@
       (costScaling ist 1.25, nicht 1.40 — die früher hier notierten Werte waren veraltet.)
       Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
       Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
+      **Playtest 2026-09-10:** Die Reichweite einiger Tower ist im Endausbau
+      deutlich zu hoch. Bei ×1.04/Level wird aus der Cannon (80 m) auf L25 eine
+      Kanone mit rund 213 m Reichweite.
+
+- [ ] **Cannon Tower zu stark**
+      Playtest 2026-09-10: Die Cannon ist zu mächtig. Basiswerte heute
+      (`tower-types.config.ts:252-269`): 55 Schaden `siege`, Reichweite 80,
+      0,5 Schuss/s, Kosten 150, Geschoss `cannonball`. Ursache beim Anpacken
+      eingrenzen: Flächenschaden des Einschlags (Radius, Abfall),
+      `siege`-Multiplikatoren in `combat/damage-matrix.config.ts`, Reichweite im
+      Endausbau (siehe Eintrag oben), Preis.
+
+- [ ] **Schadensarten gegen Rüstungsarten viel deutlicher spreizen**
+      Playtest 2026-09-10: Das Schadens- und Rüstungssystem hat zu wenig Einfluss.
+      An manchen Gegnern sollen sich bestimmte Tower wirklich die Zähne
+      ausbeißen, das Delta zwischen guter und schlechter Paarung muss deutlich
+      größer werden.
+      Stand in `combat/damage-matrix.config.ts` (Quelle MASTER_GAME_DESIGN.md
+      2.3): Außer bei `ethereal` (0,15 bis 1,75) liegen fast alle Werte zwischen
+      0,5 und 1,5. Gegen `unarmored` reicht die Spanne nur von 0,8 bis 1,2,
+      gegen `light` von 0,7 bis 1,3, der beste Tower macht dort also nur das
+      1,5- bis 1,9-Fache des schlechtesten.
+      Beim Anpacken:
+      - Ziel-Spreizung pro Rüstungsart festlegen, erst in MASTER_GAME_DESIGN.md,
+        dann in der Matrix.
+      - Folgen prüfen: Die Capability-Gates und der Fairness-Gate des
+        Wave-Directors setzen voraus, dass die passende Tower-Art verfügbar ist;
+        die Trainings-Bots und die Economy-Kurve (`npm run economy-chart`,
+        `npm run tower-stats-chart`) ebenfalls.
+      - Die Schwellen für die Schadenszahlen-Farben (`EFFECTIVENESS_THRESHOLDS`)
+        an die neue Spreizung anpassen.
+      Verwandt: 3.3 Damage & Armor System.
 
 
 ## 2.2 Phase 5.16 Playtest + Followups
@@ -471,6 +503,51 @@
       Datei-Anker: `src/app/services/combat/tower-combat.service.ts`
       (`updateTowerIdleRotations`, `resetRotation`).
 
+- [ ] **Grid-Cell-Farben beim Tower-Platzieren: unklar und redundant**
+      Playtest 2026-09-10 (Trafalgar Square, Archer Tower). Die Legende im
+      Build-Mode kennt vier Zustände in einem gemeinsamen Zellraster: Ground +
+      Air (gelb), Ground (grün), Air (blau), Blocked (rot). Laut Playtest werden
+      Boden und Air dabei identisch dargestellt, das ist so nicht brauchbar.
+      Ziel:
+      - Unterscheiden, ob ein Tower Boden, Air oder beides (mixed) trifft.
+      - Mixed-Tower wie der Archer sollen beim Platzieren beides zeigen, aber
+        in klar unterscheidbaren Farben statt identisch.
+      Beim Anpacken zuerst klären, wie Ground- und Air-Layer heute gerendert
+      werden (Zellposition, Höhe, Farbe) und ob sich die Layer gegenseitig
+      verdecken. Vermutlicher Einstieg: `tower-los-layer-builder.ts` und die
+      Build-Mode-Legende (ungeprüft).
+
+- [ ] **Untersuchen: Kampfzonen einfärben**
+      Idee: Bereiche, in denen häufig gekämpft oder explodiert wird, sichtbar
+      einfärben (Heatmap, Brand- oder Kampfspuren). Erst untersuchen, ob das
+      sinnvoll und machbar ist:
+      - Datenquelle: Kill-, Treffer- und Explosions-Events über den
+        GameEventBus, pro Route-Grid-Zelle akkumuliert.
+      - Darstellung: Die Photoreal-Tiles ignorieren dynamische Lichter, also
+        additive Overlays oder Decals statt Lichtern. Der `DecalInstanceManager`
+        (Free-List-Pool) existiert bereits.
+      - Offen: pro Wave oder pro Spiel, Abklingen, Kosten bei großen Waves,
+        Lesbarkeit neben den LOS-Zellen im Build-Mode.
+
+- [ ] **Magic-Tower-Geschoss sieht nach Feuer statt nach Magie aus**
+      Playtest 2026-09-10. Das ist so konfiguriert: Der Magic Tower schießt
+      `projectileType: 'fireball'` (`tower-types.config.ts:284`), dessen
+      Partikel-Schweif läuft von Tiefrot nach Orange
+      (`projectile-types.config.ts:94-110`). Eigene Magie-Optik entwerfen, zum
+      Beispiel violett, blau oder cyan, Funkeln oder Spiralen statt Glut, dazu
+      ein passender Einschlag. Den Namen `fireball` dabei durch einen passenden
+      ersetzen. Verwandt: Selective Bloom für Magic-Orb-Highlights im Backlog
+      (Visual Effects - Advanced).
+
+- [ ] **Rocket Tower: Geschoss, Schweif und Sound überarbeiten**
+      Playtest 2026-09-10: zu wenig Rakete, zu viel Feuerschweif. Das Geschoss
+      selbst muss als Rakete erkennbar werden, der Schweif deutlich
+      zurückhaltender. Konfiguriert in `projectile-types.config.ts:174`
+      (`rocket`, `visualType: 'rocket'`, Trail-Partikel). Außerdem den
+      Abschuss-Sound ersetzen: heute `assets/sounds/towers/rocket/launch.mp3`
+      (`projectile-types.config.ts:260-261`). Die Einschläge laufen separat
+      unter "Explosions-Partikel feintunen".
+
 ## 3.2 Visual Settings (Performance-Toggles)
 
 - [ ] **VFX Settings Menu** — Visuelle Effekte einzeln ein/ausschaltbar
@@ -537,6 +614,27 @@
 - [ ] Skybox (day.webp, night.webp) Quelle ermitteln und eintragen
 - [ ] stone-wall.jpg Quelle ermitteln und eintragen
 - [ ] Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
+
+## 3.7 UI-Feinschliff und Debug-Oberfläche
+
+- [ ] **Debug-Menü aufräumen**
+      Die Button-Leiste ist eine einzige vertikale Reihe und überlappt
+      inzwischen nach oben bis zum Kompass. Auf zwei vertikale Reihen umbauen
+      und die Einträge sinnvoll gruppieren.
+
+- [ ] **Debug-Panels: alle resizable, gleiches Verhalten**
+      Heute sind Tower, Enemy, Events, LOS und Performance resizable
+      (`[resizable]`, `DEFAULT_SIZES` in `debug-window.service.ts`). Camera,
+      Wave, Sound, DevWorld, Training und Display sind es nicht. Alle Panels
+      sollen sich gleich verhalten: resizable, Größe gespeichert, gleiche
+      Mindestgrößen.
+
+- [ ] **Next-Wave-Button optisch überarbeiten**
+      Passt vom Stil her nicht mehr zum Rest der Oberfläche.
+
+- [ ] **Header-Infos an der Sidebar ausrichten**
+      Die drei Infos oben (Health, Gold, Wave-Nummer) sind gemessen an der
+      Sidebar nicht sauber ausgerichtet, das stört im Gesamtbild.
 
 ---
 
@@ -663,6 +761,29 @@
 - [ ] **OSM bridge/tunnel Tags abfragen** - `bridge=yes`/`tunnel=yes`/`layer=*` in Overpass-Query mitabfragen, im Street-Interface speichern, bei Höhenkorrektur berücksichtigen (bridge → Korrektur überspringen)
 - [ ] **Laterales Sampling nur auf Routen** - Aktuell wird getGroundHeightEstimate für alle gefilterten Straßen aufgerufen (4 Extra-Raycasts pro Punkt). Optimierung: nur für Straßen die tatsächlich Routen sind das teure laterale Sampling nutzen, restliche Straßen im Korridor mit einfachem Raycast + Smoothing rendern
 - [ ] **Gewässer von OSM laden** - `natural=water`, `waterway=river/stream/canal` über Overpass abfragen. Gewässer als unpassierbare Zonen ins Routing einbeziehen → Brücken werden natürliche Chokepoints (Engstellen). Optional: Gewässerflächen visuell auf der Karte darstellen
+
+## Gameplay-Konzepte
+
+- [ ] **Konzept: Spieler aktiver ins Geschehen einbinden**
+      Idee 2026-09-10. Heute baut der Spieler nur und schaut zu; er braucht
+      eine Möglichkeit, während einer Wave aktiv mitzumischen. Kandidaten:
+      - **Held**, der aktiv mitkämpft und vom Spieler herumgeschickt wird
+        (Klick auf ein Ziel, Bewegung über das Straßennetz).
+      - **Weitere Gebäude mit Aufgaben** statt Schaden: Gold farmen, Drohnen
+        aussenden, Pickup-Items aufsammeln usw. Vorbild für ein Nicht-Kampf-
+        Gebäude ist das Research Center.
+      - **Nuklearschlag** mit Cooldown, über den Research-Tree freischaltbar.
+      Beim Ausarbeiten mitdenken:
+      - Economy: Gold-Farm und Pickups greifen ins Gold-Budget des
+        Wave-Curriculums (`npm run economy-chart`).
+      - Wave-Director und Fairness-Gate lesen die Verteidigungsstärke aus den
+        Towern; Held, Drohnen und Nuke müssen dort mitzählen, sonst passt der
+        Director die Waves nicht an.
+      - Die Trainings-Bots brauchen eine Strategie dafür oder ignorieren es
+        bewusst.
+      - Spieleraktionen im Sub-Step verarbeiten, damit die Simulation
+        deterministisch bleibt (siehe MULTIPLAYER_CONCEPT.md).
+      Ergebnis sollte ein Konzept in `docs/game-design/` sein, bevor gebaut wird.
 
 ## Tower-Ideen
 
