@@ -21,6 +21,16 @@ import { LosResolveContext } from '../utils/gpu-cube-resolve';
 import { RouteCell } from '../utils/route-cell';
 import { LOS_VIZ_CONFIG } from '../configs/los-viz.config';
 
+/** A tower's place in the stale-LOS queue, see TowerPlacementService.staleLos. */
+interface StaleLosEntry {
+  /** Cells whose height changed after the tower's answers for them were resolved. */
+  cells: Set<RouteCell>;
+  /** performance.now() when the tower was queued, measured against MAX_LOS_WAIT_MS. */
+  since: number;
+  /** Asked for by scheduleLosRecompute: nothing to coalesce, so it does not wait for a sweep. */
+  explicit: boolean;
+}
+
 /**
  * TowerPlacementService
  *
@@ -163,13 +173,14 @@ export class TowerPlacementService {
 
   /**
    * Towers whose LOS was resolved against a height that has changed since,
-   * with the cells in question. Filled by onCellsChanged, worked off by
+   * with the cells in question, plus towers a caller asked a recompute for
+   * (scheduleLosRecompute). Filled by onCellsChanged, worked off by
    * drainLosRefresh. The old answers stay in the cells until the recompute
    * replaces them: a stale answer for a second beats no answer, which would
    * send every candidate in those cells down the CPU-raycast fallback of the
    * combat loop.
    */
-  private readonly staleLos = new Map<Tower, Set<RouteCell>>();
+  private readonly staleLos = new Map<Tower, StaleLosEntry>();
   private losRefreshRaf: number | null = null;
   /** Tower whose registerTowerIncremental is running: its answers for the cells the grid reports are current. */
   private resolvingTower: Tower | null = null;
@@ -181,6 +192,17 @@ export class TowerPlacementService {
    * main thread for 1-2 s.
    */
   private static readonly LOS_RECOMPUTES_PER_FRAME = 1;
+
+  /**
+   * Longest a queued tower waits for a running terrain sweep, in wall-clock
+   * ms. A full sweep converges in about 1.5-2 s at its 5 ms frame budget, so
+   * a normal sweep still finishes first and the coalescing holds. Continuous
+   * panning restarts the sweep with every tile load, though, and would hold
+   * the queue back for as long as it goes on. Wall clock rather than game
+   * time: the sweep and its restarts run on frames and tile loads, and game
+   * time stands still in a pause.
+   */
+  private static readonly MAX_LOS_WAIT_MS = 3000;
 
   private onCellsChanged(changed: RouteCell[]): void {
     if (!this.gameState || !this.engine || changed.length === 0) return;
@@ -221,16 +243,17 @@ export class TowerPlacementService {
     // is recomputed here: during a budgeted sweep this runs once per slice,
     // and recomputing per slice re-rendered the same tower's cubemap in every
     // frame of the sweep.
+    const now = performance.now();
     for (const cell of changed) {
       for (const t of towerPositions) {
         const distSq = (cell.x - t.x) ** 2 + (cell.z - t.z) ** 2;
         if (distSq > t.rangeSq) continue;
-        let stale = this.staleLos.get(t.tower);
-        if (!stale) {
-          stale = new Set();
-          this.staleLos.set(t.tower, stale);
+        let entry = this.staleLos.get(t.tower);
+        if (!entry) {
+          entry = { cells: new Set(), since: now, explicit: false };
+          this.staleLos.set(t.tower, entry);
         }
-        stale.add(cell);
+        entry.cells.add(cell);
       }
     }
     if (this.staleLos.size > 0) this.scheduleLosRefresh();
@@ -246,21 +269,24 @@ export class TowerPlacementService {
   }
 
   /**
-   * Recompute the towers queued in `staleLos`. Waits while a budgeted terrain
-   * sweep is in flight, the same way the route-line refresh does: the sweep
-   * reports its changes slice by slice, so a tower covered by several slices
-   * would otherwise pay for a forced cubemap render plus face readback once
-   * per slice. After the sweep each tower runs once, with all its cells,
-   * spread over the following frames (LOS_RECOMPUTES_PER_FRAME).
+   * Recompute the towers queued in `staleLos`. While a budgeted terrain sweep
+   * is in flight, entries for changed cells wait, the same way the route-line
+   * refresh does: the sweep reports its changes slice by slice, so a tower
+   * covered by several slices would otherwise pay for a forced cubemap render
+   * plus face readback once per slice. After the sweep each tower runs once,
+   * with all its cells, spread over the following frames
+   * (LOS_RECOMPUTES_PER_FRAME). Explicit requests do not wait, and no entry
+   * waits longer than MAX_LOS_WAIT_MS.
    */
   private drainLosRefresh(): void {
-    if (!this.globalRouteGrid.isTerrainRefreshActive()) {
-      let budget = TowerPlacementService.LOS_RECOMPUTES_PER_FRAME;
+    const sweeping = this.globalRouteGrid.isTerrainRefreshActive();
+    const now = performance.now();
+    let budget = TowerPlacementService.LOS_RECOMPUTES_PER_FRAME;
+    for (const [tower, entry] of this.staleLos) {
+      if (sweeping && !entry.explicit && now - entry.since < TowerPlacementService.MAX_LOS_WAIT_MS) continue;
       // recomputeTowerLOS takes the tower out of the queue.
-      for (const tower of this.staleLos.keys()) {
-        this.recomputeTowerLOS(tower);
-        if (--budget === 0) break;
-      }
+      this.recomputeTowerLOS(tower);
+      if (--budget === 0) break;
     }
     if (this.staleLos.size > 0) this.scheduleLosRefresh();
   }
@@ -268,10 +294,13 @@ export class TowerPlacementService {
   /**
    * recomputeTowerLOS in one of the next frames instead of right away,
    * through the same queue as the height changes. For callers inside an
-   * event handler whose follow-up state the recompute has to see.
+   * event handler whose follow-up state the recompute has to see. Does not
+   * wait for a running terrain sweep: there is nothing to coalesce.
    */
   scheduleLosRecompute(tower: Tower): void {
-    if (!this.staleLos.has(tower)) this.staleLos.set(tower, new Set());
+    const entry = this.staleLos.get(tower);
+    if (entry) entry.explicit = true;
+    else this.staleLos.set(tower, { cells: new Set(), since: performance.now(), explicit: true });
     this.scheduleLosRefresh();
   }
 
@@ -900,7 +929,7 @@ export class TowerPlacementService {
     const stale = this.staleLos.get(tower);
     this.staleLos.delete(tower);
     if (stale) {
-      for (const cell of stale) {
+      for (const cell of stale.cells) {
         cell.towerVisibility.delete(tower.id);
         cell.airVisibility.delete(tower.id);
       }
