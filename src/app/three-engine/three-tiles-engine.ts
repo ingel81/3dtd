@@ -42,7 +42,7 @@ import { CesiumIonAuthPlugin, GoogleCloudAuthPlugin } from '3d-tiles-renderer/co
 import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js';
 import { ColorGradingPreset } from './post-processing/color-grading';
 import { PostProcessingPipeline } from './post-processing/post-processing-pipeline';
-import { CameraRig, type InitialCameraPosition } from './camera-rig';
+import { CameraRig } from './camera-rig';
 import { TileLoadingTracker, type TileStats } from './tile-loading-tracker';
 import { EllipsoidSync } from './ellipsoid-sync';
 import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
@@ -107,8 +107,6 @@ const ROUTE_CORRIDOR_ERROR_TARGET = 5;
  * loaded tile the same black. At 20 m, the 5 m corridor tiles read dark.
  */
 const TILE_LOD_DEBUG_MAX_ERROR = 20;
-
-export type { InitialCameraPosition } from './camera-rig';
 
 /**
  * ThreeTilesEngine - Main Three.js rendering engine for Tower Defense
@@ -394,17 +392,6 @@ export class ThreeTilesEngine {
 
     // Setup post-processing pipeline (bloom off by default)
     this.setupPostProcessing();
-  }
-
-  /**
-   * Set initial camera position before initialize().
-   * This allows pre-computed framing to be applied immediately,
-   * avoiding camera jumps and unnecessary tile loading.
-   *
-   * @param position Pre-computed camera position from CameraFramingService
-   */
-  setInitialCameraPosition(position: InitialCameraPosition): void {
-    this.cameraRig.setInitialPosition(position);
   }
 
   /**
@@ -757,21 +744,6 @@ export class ThreeTilesEngine {
   }
 
   /**
-   * Set camera position using lat/lon/height and orientation
-   */
-  setCameraPosition(
-    lat: number,
-    lon: number,
-    height: number,
-    azimuth = 0,
-    elevation = -45,
-    roll = 0
-  ): void {
-    if (!this.tilesRenderer) return;
-    this.cameraRig.setGeoPosition(this.tilesRenderer.group, lat, lon, height, azimuth, elevation, roll);
-  }
-
-  /**
    * Set camera position in local coordinates (meters relative to origin)
    * With ReorientationPlugin (recenter: true), origin is at (0,0,0)
    *
@@ -791,15 +763,6 @@ export class ThreeTilesEngine {
     targetZ = 0
   ): void {
     this.cameraRig.setLocalPosition(x, y, z, targetX, targetY, targetZ);
-  }
-
-  /**
-   * Fly camera to a position (animated)
-   */
-  flyTo(lat: number, lon: number, height: number, _duration = 1.5): void {
-    // For now, just set position directly
-    // TODO: Implement smooth animation
-    this.setCameraPosition(lat, lon, height, 0, -45);
   }
 
   /**
@@ -1864,15 +1827,6 @@ export class ThreeTilesEngine {
     return this.cameraRig.getControls();
   }
 
-  /** Callback when a camera drag moved the camera more than 5 m (click vs. pan). */
-  get onControlsDragEnd(): (() => void) | null {
-    return this.cameraRig.onDragEnd;
-  }
-
-  set onControlsDragEnd(callback: (() => void) | null) {
-    this.cameraRig.onDragEnd = callback;
-  }
-
   /**
    * Tile loading statistics: renderer counters, active and visible tiles,
    * cache size. Cached and updated every 500ms for performance.
@@ -1897,13 +1851,6 @@ export class ThreeTilesEngine {
       .map((a: { type: string; value: string }) => a.value);
 
     return strings.join('; ');
-  }
-
-  /**
-   * Get the last recorded camera movement distance (for debugging click vs pan)
-   */
-  getLastCameraMovement(): number {
-    return this.cameraRig.getLastMovement();
   }
 
   // ---- Bloom post-processing controls (delegate to PostProcessingPipeline) ----

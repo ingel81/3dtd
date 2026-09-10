@@ -334,7 +334,7 @@ Es wird nur für die Authentifizierung zum Cesium Ion Hosting-Service verwendet.
 | Datei | Beschreibung |
 |-------|--------------|
 | `three-tiles-engine.ts` | Haupt-Engine: Scene, Renderer, TilesRenderer, Overlays |
-| `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, Drag-Tracking, Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
+| `camera-rig.ts` | Kamera-Controls (GlobeControls, in DevWorld EnvironmentControls), Startposition, lokaler Kamera-Setter. Vom Engine besessen, die Kamera selbst bleibt beim Engine |
 | `tile-loading-tracker.ts` | Tile-Loading-State: erster Tile-Load (Debounce 500 ms, Retry 200 ms x 50, Force-Update x 3), Auth-Fehler, Tile-Stats. Hintergrund: [TILES_LOADING_BUG.md](TILES_LOADING_BUG.md) |
 | `ellipsoid-sync.ts` | WGS84 - Three.js Koordinatentransformation |
 | `renderers/index.ts` | CoordinateSync Interface + Renderer Exports |
