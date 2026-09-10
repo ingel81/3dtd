@@ -141,6 +141,47 @@
       Kontrolle: Debug → Display → LOD Colors, Route-Linie gegen das
       Straßen-Overlay.
 
+- [ ] **Route-Grid: Zellschlüssel beim Anlegen und Abfragen uneinheitlich**
+      Gefunden 2026-09-10 beim Hot-Path-Umbau. Zellen werden in
+      `generateCorridorCells` mit `Math.floor` angelegt
+      (`global-route-grid.ts:779-781`), `updateEnemyPosition`, `getCellAt` und
+      `getGroundLocalYAt` rechnen den Schlüssel dagegen mit `| 0`. Bei negativen
+      lokalen Koordinaten landen Gegner dadurch in der Nachbarzelle zum Ursprung
+      hin, bis zu 2 m daneben, für Targeting und Bodenhöhe. Der Kommentar bei
+      `global-route-grid.ts:1145` kennt die Diskrepanz schon und fängt sie in einer
+      Abfrage mit einer Zelle Rand ab. Beheben ändert das Gameplay (Zellzuordnung,
+      Tower-Ziele), deshalb nicht im Performance-Umbau erledigt.
+
+- [ ] **Audio: Loop spielt nach dem Entfernen des Gegners weiter**
+      Gefunden 2026-09-10 beim Hot-Path-Umbau. `AudioComponent.play()`
+      (`audio.component.ts:100`) wartet auf `createLoop` (Zeile 119) und legt das
+      Handle danach ab (Zeile 125), ohne `destroyed` erneut zu prüfen. Wird der
+      Gegner entfernt, während der Loop noch erzeugt wird, bleibt der fertige
+      Loop ohne Besitzer und spielt dauerhaft. Der Kommentar in `destroy()`
+      (Zeile 205) behauptet genau diesen Schutz. Fix: nach dem `await` auf
+      `destroyed` prüfen und den Loop dann sofort stoppen.
+
+- [ ] **Wallsmasher-Rush seit April verloren: wieder einbauen oder Flag entfernen**
+      Eingeführt in `714b3a6` (2026-01-10): Der Wallsmasher wechselte alle 3-8 s
+      zufällig zwischen Gehen und Rennen (`scheduleAnimationVariation` im
+      klassischen `ThreeEnemyRenderer`), rennend mit `runSpeedMultiplier: 2.5`,
+      also ~17,5 statt 7 m/s. Beim Entfernen des klassischen Renderers in
+      `2bbf91f` (2026-04-10) wurde nur `startRunAnimation` in den Instanced-
+      Renderer übernommen, und das ruft nur der Enemy-Debugger auf
+      (`enemy-debug.service.ts:503`). `animationVariation: true` in
+      `enemy-types.config.ts` liest seitdem niemand mehr. Im Spiel geht der
+      Wallsmasher seit April immer.
+      Entscheidung nötig:
+      - **Wieder einbauen:** nicht in der alten Form (Echtzeit-`setTimeout` +
+        `Math.random`, unabhängig vom Timescale, nicht deterministisch), sondern
+        im Sub-Step mit Spielzeit und dem Simulations-RNG. Dabei gleich das
+        Timing ziehen: `speedMultiplier` wird heute erst nach `move` zugewiesen
+        und wirkt einen Sub-Step später. Balance nachziehen, Wave-Curriculum
+        und Phase 5.16 wurden mit einem nie rennenden Wallsmasher getuned.
+      - **Entfernen:** `animationVariation` aus Config und Typ streichen, den
+        Wallsmasher bewusst als Geher belassen; `startRunAnimation` bleibt als
+        Debug-Werkzeug.
+
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
 - [ ] **`three-tiles-engine.ts` weiter abspecken — Camera-Setup + Tile-Loading-State**
@@ -183,6 +224,22 @@
       Pan/Zoom-Fall ohne LOD-Wechsel ist bereits gefixt (~8000ms → ~30ms).
       Dateien: `src/app/services/tower-placement.service.ts` (`onCellsChanged`),
       `src/app/utils/global-route-grid.ts` (`updateTerrainHeights`).
+
+- [ ] **Enemy-Hot-Path: Reste nach dem Umbau vom 2026-09-10**
+      Der Umbau ist erledigt (DONE.md 2026-09-10, 21 → 30 FPS bei 20k Gegnern).
+      Traces: `tmp/perf/Trace-20260910T194750.json.gz` (vorher),
+      `Trace-20260910T214516.json.gz` (nachher). Offen, alle ohne Änderung an
+      der Simulation:
+      - Heading (`lookAt`/`atan2`) nur beim Segmentwechsel. Übersprungen, weil
+        ein gecachtes Heading wegen der lat/lon-Rundung um ~1e-8 rad abweicht,
+        also nicht bit-identisch ist. Umsetzen, falls die Abweichung akzeptiert
+        wird. Geschätzt 1-2 ms pro Frame.
+      - Rotations-Glättung (`TransformComponent.update`, 2,7 ms pro Frame) nur
+        für Gegner aufrufen, die sich gerade drehen, per Flag wie beim Audio.
+      - Culling pro Pool: Pools außerhalb des Bildes schreiben keine Matrizen.
+        Hilft nur, wenn Gegner nicht im Bild sind.
+      Bewusst nicht dabei: kalte Gegner seltener rechnen (ändert die Simulation)
+      und SoA (siehe Backlog, verworfen).
 
 ## 1.5 Render-/GPU-Hebel aus Deep-Dive 2026-05 (verschoben, messgestützt)
 
@@ -510,19 +567,16 @@
       Code-Fix, sondern Asset-Pass. Backup liegt als
       `public/assets/models/enemies/zombie_v2.original.glb.bak` vor.
 
-- [ ] **Enemy Movement auf SoA (Structure of Arrays) umziehen**
-      Ziel: Cache-freundliche Batch-Verarbeitung für Movement + Koordinaten-Konvertierung.
-      Idee aus lokalem Experiment (vor Merge aufgegeben, da origin den klassischen Renderer entfernt hat):
-      - Neue Klasse `EnemySoA` mit Typed Arrays (`Float64Array` für lat/lon, `Float32Array` für speed/progress/heights, `Uint8Array` für Flags).
-      - Slot-Management: `allocSlot(id)`, `freeSlots[]`, `idToSlot` Map.
-      - Update-Loop in Phasen statt Per-Entity-Mix:
-        1. Status-Effekte + Slow/Speed/Pause → SoA syncen
-        2. `batchMove(dt, timescale)` — tight Loop über Typed Arrays (ersetzt `MovementComponent.move()`)
-        3. `batchGeoToLocal(originLat, originLon, originHeight)` — vektorisierte Koordinaten-Umrechnung
-        4. Per-Entity Sync (reached-end, currentIndex, progress) + Grid + Height + Render
-      - Grid-Throttle: Spatial/Route-Grid-Updates nur jedes 2. Frame (`_gridFrameCounter & 1`).
-      - Enemy-Entity behält `soaSlot` Property, bei Kill: `setAlive(slot, false)` → batchMove skippt.
-      - Neuaufsatz gegen aktuelles main (instanced-only Renderer, ohne classic Fallback).
+- **Verworfen: Enemy Movement auf SoA (Structure of Arrays)**
+      Nicht erneut als Teilumbau angehen. Gebaut in `bd1d3a5`, zurückgenommen in
+      `731f454` (2026-08-22): 13 % langsamer als die Objektvariante (0,071 gegen
+      0,063 ms pro 1000 Gegner und Substep). Die Gegner bleiben Objekte, weil
+      Combat, Targeting, Events und Route-Grid sie so ansprechen; `setPosition`
+      und `lookAt` schreiben dadurch weiter in verstreute Objekte, und der
+      Staging-Pass kostet mehr, als die Lokalität der Eingabe-Arrays bringt.
+      Sinnvoll nur als Komplettumbau, bei dem auch Position und Rotation in Arrays
+      liegen und `presentFrame` direkt daraus liest. Vorbehalt aus dem Revert:
+      gemessen unter jsdom, im Browser nie nachgemessen.
 
 - [ ] **Object-Pooling für Projektile** - Pool-Größe: 500 pro Typ
       ⚠️ GPU-Instancing existiert bereits — Entity-Pooling (JS-Objekte) nochmal prüfen ob GC-Druck messbar ist
