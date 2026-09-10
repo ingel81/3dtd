@@ -29,33 +29,39 @@ function describeFpsLimit(fps: FpsLimit): string {
       <button class="td-quick-btn route-anim-btn"
               (click)="playRouteAnimation.emit()"
               matTooltip="Play route animation"
-              matTooltipPosition="left">
+              matTooltipPosition="left"
+              aria-label="Play route animation">
         <td-icon name="route" [size]="18"></td-icon>
       </button>
       <!-- Display Settings Menu (collapsible, expands upward) -->
       <div class="td-display-menu-wrapper">
         <div class="td-display-toggles" [class.expanded]="uiStore.displayMenuExpanded()">
           <button class="td-display-btn" [class.active]="screenShakeEnabled()"
-                  (click)="toggleScreenShake()" matTooltip="Screen Shake" matTooltipPosition="left">
+                  (click)="toggleScreenShake()" matTooltip="Screen Shake" matTooltipPosition="left"
+                  aria-label="Screen Shake" [attr.aria-pressed]="screenShakeEnabled()">
             <td-icon name="vibration" [size]="18"></td-icon>
           </button>
           <button class="td-display-btn" [class.active]="healthBarsVisible()"
-                  (click)="toggleHealthBars()" matTooltip="Health Bars" matTooltipPosition="left">
+                  (click)="toggleHealthBars()" matTooltip="Health Bars" matTooltipPosition="left"
+                  aria-label="Health Bars" [attr.aria-pressed]="healthBarsVisible()">
             <td-icon name="heart" [size]="18"></td-icon>
           </button>
           <button class="td-display-btn" [class.active]="damageNumbersVisible()"
-                  (click)="toggleDamageNumbers()" matTooltip="Damage Numbers" matTooltipPosition="left">
+                  (click)="toggleDamageNumbers()" matTooltip="Damage Numbers" matTooltipPosition="left"
+                  aria-label="Damage Numbers" [attr.aria-pressed]="damageNumbersVisible()">
             <td-icon name="pin" [size]="18"></td-icon>
           </button>
           <button class="td-display-btn td-fps-btn" [class.active]="fpsLimit() !== 0"
-                  (click)="cycleFpsLimit()" [matTooltip]="fpsLimitTooltip()" matTooltipPosition="left">
+                  (click)="cycleFpsLimit()" [matTooltip]="fpsLimitTooltip()" matTooltipPosition="left"
+                  [attr.aria-label]="'Frame limit ' + (fpsLimit() === 0 ? 'off' : fpsLimit() + ' FPS')">
             {{ fpsLimit() === 0 ? '∞' : fpsLimit() }}
           </button>
         </div>
         <button class="td-quick-btn td-display-toggle-btn"
                 [class.active]="uiStore.displayMenuExpanded()"
                 (click)="uiStore.toggleDisplayMenu()"
-                matTooltip="Display" matTooltipPosition="left">
+                matTooltip="Display" matTooltipPosition="left"
+                aria-label="Display" [attr.aria-expanded]="uiStore.displayMenuExpanded()">
           <td-icon [name]="uiStore.displayMenuExpanded() ? 'eyeOff' : 'eye'" [size]="18"></td-icon>
         </button>
       </div>
@@ -66,12 +72,14 @@ function describeFpsLimit(fps: FpsLimit): string {
             <td-icon class="td-audio-label" name="audio" [size]="14"></td-icon>
             <input type="range" class="td-audio-slider"
                    min="0" max="100" step="1"
+                   aria-label="Music volume"
                    [value]="uiStore.musicVolume() * 100"
                    (input)="onMusicSlider($event)">
             <button class="td-audio-mute"
                     [class.muted]="uiStore.musicMuted()"
                     (click)="toggleMusicMute()"
-                    matTooltip="Mute music" matTooltipPosition="left">
+                    matTooltip="Mute music" matTooltipPosition="left"
+                    aria-label="Mute music" [attr.aria-pressed]="uiStore.musicMuted()">
               <td-icon [name]="uiStore.musicMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
             </button>
           </div>
@@ -79,12 +87,14 @@ function describeFpsLimit(fps: FpsLimit): string {
             <td-icon class="td-audio-label" name="sliders" [size]="14"></td-icon>
             <input type="range" class="td-audio-slider"
                    min="0" max="100" step="1"
+                   aria-label="Sound effects volume"
                    [value]="uiStore.sfxVolume() * 100"
                    (input)="onSfxSlider($event)">
             <button class="td-audio-mute"
                     [class.muted]="uiStore.sfxMuted()"
                     (click)="toggleSfxMute()"
-                    matTooltip="Mute SFX" matTooltipPosition="left">
+                    matTooltip="Mute SFX" matTooltipPosition="left"
+                    aria-label="Mute SFX" [attr.aria-pressed]="uiStore.sfxMuted()">
               <td-icon [name]="uiStore.sfxMuted() ? 'audioOff' : 'audio'" [size]="14"></td-icon>
             </button>
           </div>
@@ -92,7 +102,8 @@ function describeFpsLimit(fps: FpsLimit): string {
         <button class="td-quick-btn td-audio-toggle-btn"
                 [class.active]="uiStore.audioMenuExpanded()"
                 (click)="uiStore.toggleAudioMenu()"
-                matTooltip="Audio" matTooltipPosition="left">
+                matTooltip="Audio" matTooltipPosition="left"
+                aria-label="Audio" [attr.aria-expanded]="uiStore.audioMenuExpanded()">
           <td-icon [name]="anyMuted() ? 'audioOff' : 'audio'" [size]="18"></td-icon>
         </button>
       </div>
@@ -103,48 +114,55 @@ function describeFpsLimit(fps: FpsLimit): string {
                   [class.active]="uiStore.spatialGridDebugVisible()"
                   (click)="spatialGridDebugToggled.emit()"
                   matTooltip="Route Grid Overlay"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  aria-label="Route Grid Overlay" [attr.aria-pressed]="uiStore.spatialGridDebugVisible()">
             <td-icon name="grid" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.buildingsVisible()"
                   (click)="uiStore.toggleBuildings(); buildingsToggled.emit()"
                   matTooltip="Show buildings"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  aria-label="Show buildings" [attr.aria-pressed]="uiStore.buildingsVisible()">
             <td-icon name="tower" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.streetsVisible()"
                   (click)="uiStore.toggleStreets(); streetsToggled.emit()"
                   matTooltip="Show streets"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  aria-label="Show streets" [attr.aria-pressed]="uiStore.streetsVisible()">
             <td-icon name="route" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.routesVisible()"
                   (click)="uiStore.toggleRoutes(); routesToggled.emit()"
                   matTooltip="Show routes"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  aria-label="Show routes" [attr.aria-pressed]="uiStore.routesVisible()">
             <td-icon name="chart" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.airRouteVisible()"
                   (click)="airRouteToggled.emit()"
                   matTooltip="Air-route altitude"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  aria-label="Air-route altitude" [attr.aria-pressed]="uiStore.airRouteVisible()">
             <td-icon name="wind" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn"
                   [class.active]="uiStore.airSpatialGridDebugVisible()"
                   (click)="airSpatialGridDebugToggled.emit()"
                   matTooltip="Air Route Grid Overlay"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  aria-label="Air Route Grid Overlay" [attr.aria-pressed]="uiStore.airSpatialGridDebugVisible()">
             <td-icon name="gridAir" [size]="18"></td-icon>
           </button>
           <button class="td-layer-btn td-layer-btn-cycle"
                   (click)="perTowerLosFilterCycled.emit()"
                   [matTooltip]="perTowerLosFilterTooltip()"
-                  matTooltipPosition="left">
+                  matTooltipPosition="left"
+                  [attr.aria-label]="perTowerLosFilterTooltip()">
             <td-icon [name]="perTowerLosFilterIcon()" [size]="18"></td-icon>
           </button>
         </div>
@@ -152,11 +170,13 @@ function describeFpsLimit(fps: FpsLimit): string {
                 [class.active]="uiStore.layerMenuExpanded()"
                 (click)="uiStore.toggleLayerMenu()"
                 matTooltip="Layers"
-                matTooltipPosition="left">
+                matTooltipPosition="left"
+                aria-label="Layers" [attr.aria-expanded]="uiStore.layerMenuExpanded()">
           <td-icon name="layers" [size]="18"></td-icon>
         </button>
       </div>
-      <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left">
+      <button class="td-quick-btn" (click)="resetCamera.emit()" matTooltip="Reset camera" matTooltipPosition="left"
+              aria-label="Reset camera">
         <td-icon name="target" [size]="18"></td-icon>
       </button>
       <!-- Dev Menu (two columns, opens above its toggle) -->
@@ -169,20 +189,23 @@ function describeFpsLimit(fps: FpsLimit): string {
                     [class.active]="uiStore.heightDebugVisible()"
                     (click)="heightDebugToggled.emit()"
                     matTooltip="Height markers"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Height markers">
               <td-icon name="terrain" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="uiStore.specialPointsDebugVisible()"
                     (click)="specialPointsDebugToggled.emit()"
                     matTooltip="Special points"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Special points">
               <td-icon name="pin" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     (click)="refreshHeights.emit()"
                     matTooltip="Re-raycast heights"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Re-raycast heights">
               <td-icon name="refresh" [size]="18"></td-icon>
             </button>
             <div class="td-dev-separator"></div>
@@ -191,14 +214,16 @@ function describeFpsLimit(fps: FpsLimit): string {
                     [class.active]="debugWindows.cameraWindow().isOpen"
                     (click)="debugWindows.toggle('camera')"
                     matTooltip="Camera info"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Camera info">
               <td-icon name="eye" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="cameraFramingDebug()"
                     (click)="cameraFramingDebugToggled.emit()"
                     matTooltip="Framing guides"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Framing guides">
               <td-icon name="fullscreen" [size]="18"></td-icon>
             </button>
             <div class="td-dev-separator"></div>
@@ -207,28 +232,32 @@ function describeFpsLimit(fps: FpsLimit): string {
                     [class.active]="debugWindows.displayWindow().isOpen"
                     (click)="debugWindows.toggle('display')"
                     matTooltip="Display options"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Display options">
               <td-icon name="sliders" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="debugWindows.performanceWindow().isOpen"
                     (click)="debugWindows.toggle('performance')"
                     matTooltip="Performance"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Performance">
               <td-icon name="speed" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="debugWindows.losWindow().isOpen"
                     (click)="debugWindows.toggle('los')"
                     matTooltip="LOS Cubemap"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="LOS Cubemap">
               <td-icon name="layers" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="debugWindows.soundWindow().isOpen"
                     (click)="debugWindows.toggle('sound')"
                     matTooltip="Spatial audio"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Spatial audio">
               <td-icon name="audio" [size]="18"></td-icon>
             </button>
             <div class="td-dev-separator"></div>
@@ -236,7 +265,8 @@ function describeFpsLimit(fps: FpsLimit): string {
             <button class="td-dev-btn"
                     (click)="debugStateDump.dumpAndDownload()"
                     matTooltip="Download state dump (JSON)"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Download state dump">
               <td-icon name="copy" [size]="18"></td-icon>
             </button>
             @if (devWorld.isActive) {
@@ -244,7 +274,8 @@ function describeFpsLimit(fps: FpsLimit): string {
                       [class.active]="debugWindows.devworldWindow().isOpen"
                       (click)="debugWindows.toggle('devworld')"
                       matTooltip="DevWorld"
-                      matTooltipPosition="left">
+                      matTooltipPosition="left"
+                      aria-label="DevWorld">
                 <td-icon name="target" [size]="18"></td-icon>
               </button>
             }
@@ -255,31 +286,36 @@ function describeFpsLimit(fps: FpsLimit): string {
             <button class="td-dev-btn td-dev-btn-danger"
                     (click)="killAllEnemies.emit()"
                     matTooltip="Kill all enemies"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Kill all enemies">
               <td-icon name="skull" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn td-dev-btn-credits"
                     (click)="addCredits.emit($event)"
                     matTooltip="+1000 Credits (Shift+Click: +100k)"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Add 1000 credits">
               <td-icon name="coin" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn td-dev-btn-health"
                     (click)="addHealth.emit($event)"
                     matTooltip="+1000 HP (Shift+Click: +100k)"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Add 1000 HP">
               <td-icon name="heart" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn td-dev-btn-research"
                     (click)="completeAllResearch.emit()"
                     matTooltip="Complete all research"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Complete all research">
               <td-icon name="flask" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn td-dev-btn-research"
                     (click)="maxUpgradeAllTowers.emit()"
                     matTooltip="Max-upgrade all towers"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Max-upgrade all towers">
               <td-icon name="arrowUp" [size]="18"></td-icon>
             </button>
             <div class="td-dev-separator"></div>
@@ -288,21 +324,24 @@ function describeFpsLimit(fps: FpsLimit): string {
                     [class.active]="debugWindows.waveWindow().isOpen"
                     (click)="debugWindows.toggle('wave')"
                     matTooltip="Wave spawner"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Wave spawner">
               <td-icon name="wave" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="useStaticCurriculum()"
                     (click)="staticCurriculumToggled.emit()"
                     matTooltip="Static curriculum waves (AI-off fallback)"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Static curriculum waves">
               <td-icon name="filing" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="debugWindows.trainingWindow().isOpen"
                     (click)="debugWindows.toggle('training')"
                     matTooltip="AI Training"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="AI Training">
               <td-icon name="bulb" [size]="18"></td-icon>
             </button>
             <div class="td-dev-separator"></div>
@@ -311,21 +350,24 @@ function describeFpsLimit(fps: FpsLimit): string {
                     [class.active]="debugWindows.towerWindow().isOpen"
                     (click)="debugWindows.toggle('tower')"
                     matTooltip="Tower inspector"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Tower inspector">
               <td-icon name="tower" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="debugWindows.enemyWindow().isOpen"
                     (click)="debugWindows.toggle('enemy')"
                     matTooltip="Enemy inspector"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Enemy inspector">
               <td-icon name="bug" [size]="18"></td-icon>
             </button>
             <button class="td-dev-btn"
                     [class.active]="debugWindows.eventsWindow().isOpen"
                     (click)="debugWindows.toggle('events')"
                     matTooltip="Event bus"
-                    matTooltipPosition="left">
+                    matTooltipPosition="left"
+                    aria-label="Event bus">
               <td-icon name="share" [size]="18"></td-icon>
             </button>
           </div>
@@ -334,7 +376,8 @@ function describeFpsLimit(fps: FpsLimit): string {
                 [class.active]="uiStore.devMenuExpanded()"
                 (click)="uiStore.toggleDevMenu()"
                 matTooltip="Developer options"
-                matTooltipPosition="left">
+                matTooltipPosition="left"
+                aria-label="Developer options" [attr.aria-expanded]="uiStore.devMenuExpanded()">
           <td-icon name="text" [size]="18"></td-icon>
         </button>
       </div>

@@ -59,6 +59,7 @@ import { TdIconComponent } from '../icon/icon.component';
                         rel="noopener"
                         class="source-link"
                         title="View source"
+                        [attr.aria-label]="'View source: ' + item.name"
                       >
                         <td-icon name="externalLink" [size]="14"></td-icon>
                       </a>

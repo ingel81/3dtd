@@ -25,14 +25,16 @@ import { TdIconComponent } from '../icon/icon.component';
         <!-- Location Actions -->
         <div class="location-actions">
           <!-- Share Button -->
-          <button class="action-btn" (click)="onShare()" matTooltip="Copy link">
+          <button class="action-btn" (click)="onShare()" matTooltip="Copy link"
+                  [attr.aria-label]="shareConfirmed() ? 'Link copied' : 'Copy link'">
             <td-icon [name]="shareConfirmed() ? 'check' : 'share'" [size]="22"></td-icon>
           </button>
 
           <!-- Favorites Dropdown -->
           <div class="fav-wrapper">
             <button class="action-btn" [class.active]="favMenuExpanded()"
-                    (click)="toggleFavMenu()" matTooltip="Favorites">
+                    (click)="toggleFavMenu()" matTooltip="Favorites"
+                    aria-label="Favorites" [attr.aria-expanded]="favMenuExpanded()">
               <td-icon name="bookmark" [size]="22"></td-icon>
             </button>
             <div class="fav-dropdown" [class.expanded]="favMenuExpanded()">
@@ -48,7 +50,8 @@ import { TdIconComponent } from '../icon/icon.component';
                     <span class="fav-name">{{ favoriteNames()[fav.id] || 'Loading...' }}</span>
                     <span class="fav-coords">{{ fav.hq.lat.toFixed(4) }}, {{ fav.hq.lon.toFixed(4) }}</span>
                   </button>
-                  <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete">
+                  <button class="fav-delete" (click)="onDeleteFavorite(fav.id, $event)" matTooltip="Delete"
+                          [attr.aria-label]="'Delete ' + (favoriteNames()[fav.id] || 'favorite')">
                     <td-icon name="cross" [size]="14"></td-icon>
                   </button>
                 </div>
@@ -63,7 +66,8 @@ import { TdIconComponent } from '../icon/icon.component';
           </div>
 
           <!-- World Dice -->
-          <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location">
+          <button class="action-btn" (click)="diceClick.emit()" matTooltip="Random location"
+                  aria-label="Random location">
             <td-icon name="random" [size]="22"></td-icon>
           </button>
 
@@ -71,7 +75,8 @@ import { TdIconComponent } from '../icon/icon.component';
           @if (isDevWorld) {
             <button class="action-btn" (click)="toggleRendering()"
                     [class.active]="!renderingEnabled()"
-                    [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'">
+                    [matTooltip]="renderingEnabled() ? 'Disable 3D rendering (headless)' : 'Enable 3D rendering'"
+                    [attr.aria-label]="renderingEnabled() ? 'Disable 3D rendering' : 'Enable 3D rendering'">
               <td-icon [name]="renderingEnabled() ? 'eye' : 'eyeOff'" [size]="22"></td-icon>
             </button>
           }
@@ -81,12 +86,14 @@ import { TdIconComponent } from '../icon/icon.component';
 
           <button class="action-btn" [class.active]="placementMode() === 'hq'"
                   (click)="placeHqClick.emit()" matTooltip="Move HQ"
+                  aria-label="Move HQ" [attr.aria-pressed]="placementMode() === 'hq'"
                   [disabled]="!canPlace()">
             <td-icon name="pin" [size]="22"></td-icon>
           </button>
 
           <button class="action-btn" [class.active]="placementMode() === 'spawn'"
                   (click)="placeSpawnClick.emit()" matTooltip="Set spawn"
+                  aria-label="Set spawn" [attr.aria-pressed]="placementMode() === 'spawn'"
                   [disabled]="!canPlace()">
             <td-icon name="flag" [size]="22"></td-icon>
           </button>
@@ -117,7 +124,7 @@ import { TdIconComponent } from '../icon/icon.component';
         </div>
       </div>
       @if (isDialog()) {
-        <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close">
+        <button class="close-btn" (click)="closeClick.emit()" matTooltip="Close" aria-label="Close">
           <td-icon name="cross" [size]="16"></td-icon>
         </button>
       }

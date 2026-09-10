@@ -369,6 +369,19 @@ Verwendung:
 
 ---
 
+## Accessibility (Icon-Buttons)
+
+`matTooltip` setzt nur `aria-describedby`, keinen Namen. Reine Icon-Buttons (Header, Sidebar, Quick-Actions, Kompass, Dialoge) brauchen deshalb zusätzlich einen englischen Namen:
+
+- `aria-label`, in der Regel mit dem Tooltip-Text; dynamisch per `[attr.aria-label]` (z. B. Sell-Wert, LOS-Filter-Modus)
+- Umschalter mit sichtbarem Aktiv-Zustand: `[attr.aria-pressed]` (Display-/Layer-Toggles, Mute, Targeting, Move HQ / Set spawn)
+- Buttons, die ein Menü aufklappen: `[attr.aria-expanded]` (Favoriten, Display, Audio, Layers, Developer)
+- Deko-SVGs in gelabelten Links: `aria-hidden="true"`
+
+`td-icon` rendert ohne `ariaLabel` ein `role="presentation"`-SVG, das Icon selbst trägt also nichts zum Namen bei. Debug-Fenster sind nachrangig, die meisten ihrer Buttons haben ein `title` als Fallback.
+
+---
+
 ## Dateien
 
 | Datei | Beschreibung |

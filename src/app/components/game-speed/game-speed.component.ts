@@ -15,6 +15,7 @@ import { TdIconComponent } from '../icon/icon.component';
       [class.fast]="currentSpeed() > 1"
       (click)="cycleSpeed()"
       [matTooltip]="'Game Speed: ' + currentSpeed() + 'x'"
+      [attr.aria-label]="'Game speed ' + currentSpeed() + 'x'"
       matTooltipPosition="below">
       <td-icon [name]="currentSpeed() === 1 ? 'play' : 'fastForward'" [size]="18"></td-icon>
       {{ currentSpeed() }}x
