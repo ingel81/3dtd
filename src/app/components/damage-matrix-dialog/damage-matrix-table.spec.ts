@@ -54,6 +54,7 @@ describe('buildDamageMatrixRows', () => {
       const tower = TOWER_TYPES[row.towerId];
       expect(row.name).toBe(tower.name);
       expect(row.damageLabel).toBe(DAMAGE_TYPE_UI[tower.damageType].label);
+      expect(row.damageColor).toBe(DAMAGE_TYPE_UI[tower.damageType].color);
     }
   });
 
