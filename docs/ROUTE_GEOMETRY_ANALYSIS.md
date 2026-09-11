@@ -198,10 +198,10 @@ Probe nach Fall B genau die Information ist, die den Zellen fehlt.
 
 | Hash | Titel |
 |---|---|
-| `ae596e6` | test(routing): prove shape nodes survive pathfinding and route build |
-| `a3d500b` | fix(route): leave the street at the point really closest to the HQ |
-| `62165c6` | feat(osm): keep width, lanes, bridge, tunnel, covered and layer on streets |
-| `68be807` | feat(debug): __routes.describe() shows the ways and the height gap of a route |
+| `fcbe1d8` | test(routing): prove shape nodes survive pathfinding and route build |
+| `4ad010a` | fix(route): leave the street at the point really closest to the HQ |
+| `03ffd7b` | feat(osm): keep width, lanes, bridge, tunnel, covered and layer on streets |
+| `aa121aa` | feat(debug): __routes.describe() shows the ways and the height gap of a route |
 
 ## Offene Punkte
 
