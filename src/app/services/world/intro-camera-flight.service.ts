@@ -3,6 +3,16 @@ import { CatmullRomCurve3, MathUtils, Matrix4, Quaternion, Vector3 } from 'three
 import { ThreeTilesEngine } from '../../three-engine';
 import { GeoPosition } from '../../models/game.types';
 import { routePathToLocalPoints } from '../../utils/route-path.util';
+import {
+  type FlightProfile,
+  clearFlightProfile,
+  countReliable,
+  createFlightProfile,
+  pickSamples,
+  safeGround,
+  skylineMax,
+  stepAltitude,
+} from '../../utils/flight-altitude';
 import { CameraControlService } from '../camera-control.service';
 import { RouteAnimationService } from './route-animation.service';
 
@@ -97,6 +107,17 @@ interface FlightConfig {
    * cuts ~5 m, about half a street width.
    */
   posDamping: number;
+
+  /**
+   * Geometric error (m) up to which a profile sample counts as reliable.
+   * Coarser samples come from ancestor tiles that can sit far off the real
+   * surface (a cold-cache intro flew at -3154 m); they are re-sampled and never
+   * taken as ground on their own, see utils/flight-altitude.ts. The route
+   * corridor refines to 5 m, the camera's own budget reaches ~9 m at 400 m.
+   */
+  maxSampleError: number;
+  /** Hard floor above the known ground (m), applied every frame without rate limit. */
+  hardClearance: number;
 }
 
 const DEFAULT_CONFIG: FlightConfig = {
@@ -124,6 +145,9 @@ const DEFAULT_CONFIG: FlightConfig = {
   samplesPerFrame: 2,
   aimDamping: 2.2,
   posDamping: 10,
+
+  maxSampleError: 20,
+  hardClearance: 5,
 };
 
 /**
@@ -261,11 +285,12 @@ export class IntroCameraFlightService {
   /** Smoothed / rate-limited camera altitude. */
   private currentY = 0;
 
-  // ── Profiles (scene space, see the note on sampleIndex) ─────────────
-  /** Sampled skyline Y per index; NaN = not (yet) sampled. */
-  private profile: Float32Array = new Float32Array(0);
-  /** Sampled bare terrain Y per index; NaN = not (yet) sampled. */
-  private groundProfile: Float32Array = new Float32Array(0);
+  // ── Profile (scene space, see the note on sampleIndex) ──────────────
+  /** Skyline, ground and tile error per index; NaN = no hit yet. */
+  private profile: FlightProfile = createFlightProfile(0);
+  /** Round-robin position of the per-frame sampling, see pickSamples. */
+  private sampleCursor = 0;
+  private readonly pickedSamples: number[] = [];
 
   // ── Outro ───────────────────────────────────────────────────────────
   private endPos: Vector3 | null = null;
@@ -332,8 +357,9 @@ export class IntroCameraFlightService {
         totalLength: Math.round(this.totalLength),
         speed: +this.speed.toFixed(1),
         currentY: +this.currentY.toFixed(1),
-        sampled: this.profile.reduce((n, v) => (Number.isNaN(v) ? n : n + 1), 0),
-        samples: this.profile.length,
+        sampled: this.profile.ground.reduce((n, v) => (Number.isNaN(v) ? n : n + 1), 0),
+        reliable: countReliable(this.profile, this.cfg.maxSampleError),
+        samples: this.profile.ground.length,
       }),
     };
   }
@@ -404,8 +430,8 @@ export class IntroCameraFlightService {
 
     const span = totalLength - this.profileOrigin;
     const sampleCount = Math.ceil(span / this.cfg.sampleSpacing) + 2;
-    this.profile = new Float32Array(sampleCount).fill(NaN);
-    this.groundProfile = new Float32Array(sampleCount).fill(NaN);
+    this.profile = createFlightProfile(sampleCount);
+    this.sampleCursor = 0;
 
     // Capture the view the flight has to land in BEFORE moving the camera —
     // it is stored during engine init and would otherwise be at risk of
@@ -462,8 +488,8 @@ export class IntroCameraFlightService {
   private replay(): void {
     if (!this.curve) return;
     this.stop();
-    this.profile.fill(NaN);
-    this.groundProfile.fill(NaN);
+    clearFlightProfile(this.profile);
+    this.sampleCursor = 0;
     this.beginRun();
   }
 
@@ -577,13 +603,18 @@ export class IntroCameraFlightService {
     // on a stale guess.
     this.pointAtDistance(this.distance, this.pathPoint);
 
-    const desiredY = this.desiredAltitude(this.distance);
-    const delta = MathUtils.clamp(
-      desiredY - this.currentY,
-      -cfg.maxDescendRate * dt,
-      cfg.maxClimbRate * dt,
+    // Rate-limited toward the target altitude, but never below the known
+    // ground plus hardClearance, not even for a frame when a late sample
+    // lifts the ground.
+    const floorY = this.groundAt(this.distance) + cfg.hardClearance;
+    this.currentY = stepAltitude(
+      this.currentY,
+      this.desiredAltitude(this.distance),
+      floorY,
+      dt,
+      cfg.maxClimbRate,
+      cfg.maxDescendRate,
     );
-    this.currentY += delta;
 
     this.rawPos.set(this.pathPoint.x, this.currentY, this.pathPoint.z);
 
@@ -613,6 +644,9 @@ export class IntroCameraFlightService {
       camera.quaternion.slerp(this.targetQuat, smoothingAlpha(cfg.aimDamping, dt));
     }
 
+    // The positional smoothing lags a little; it must not drag the camera
+    // under the floor either.
+    if (this.camPos.y < floorY) this.camPos.y = floorY;
     camera.position.copy(this.camPos);
   }
 
@@ -632,8 +666,7 @@ export class IntroCameraFlightService {
 
   /**
    * Centre of the framed subject for marker `i` (0 = HQ, 1 = spawn), written
-   * to `out`. Returns false while the ground under the marker is still
-   * unsampled, in which case the caller falls back to the generic aim.
+   * to `out`. Returns false when there is no such marker.
    *
    * Aims at the midpoint between the diamond's lower tip and the label's top,
    * not at the diamond's centre — the label reaches further up than the core
@@ -643,7 +676,6 @@ export class IntroCameraFlightService {
     const m = this.markers[i];
     if (!m) return false;
     const ground = this.groundAt(i === 0 ? 0 : this.totalLength);
-    if (ground === null) return false;
 
     out.set(m.x, ground + MARKER_FLOAT_HEIGHT + m.subjectCentreOffset, m.z);
     return true;
@@ -652,12 +684,12 @@ export class IntroCameraFlightService {
   /**
    * Generic look-at target: `aimDistance` metres along the path, at ground
    * level plus `lookAtLift`. Written to `aimPoint`. Used while travelling;
-   * the holds aim at their marker instead.
+   * the holds aim at their marker instead. Follows groundAt, so a late,
+   * higher sample lifts the aim as well, eased by the orientation slerp.
    */
   private computeAim(aimDistance: number): void {
     if (!this.pointAtDistance(aimDistance, this.aimPoint)) return;
-    const groundRef = this.groundAt(aimDistance);
-    this.aimPoint.y = (groundRef ?? this.currentY - this.cfg.minAltitude) + this.cfg.lookAtLift;
+    this.aimPoint.y = this.groundAt(aimDistance) + this.cfg.lookAtLift;
   }
 
   /**
@@ -702,73 +734,61 @@ export class IntroCameraFlightService {
   // ========================================
 
   /**
-   * Max of all sampled skyline values within ±dilationWindow of `distance`,
-   * plus clearance — floored at `ground + minAltitude`.
+   * Highest skyline sample within ±dilationWindow of `distance`, plus
+   * clearance, floored at `ground + minAltitude`.
    *
    * The window reaching FORWARD is the whole point: without it the camera
-   * only starts climbing once it is already inside the facade. Unsampled
-   * indices are simply skipped, so a cold profile degrades to the floor
-   * rather than to a wrong (too low) altitude.
+   * only starts climbing once it is already inside the facade. The ground
+   * comes from groundAt and is never below a plausible value, so a cold
+   * profile flies at the floor over the route heights instead of following a
+   * coarse tile far below the surface.
    */
   private desiredAltitude(distance: number): number {
     const cfg = this.cfg;
-    const ground = this.groundAt(distance);
-    const floor = ground !== null ? ground + cfg.minAltitude : -Infinity;
-
-    const from = Math.max(0, this.distanceToIndex(distance - cfg.dilationWindow));
-    const to = Math.min(
-      this.profile.length - 1,
+    const floor = this.groundAt(distance) + cfg.minAltitude;
+    const skyline = skylineMax(
+      this.profile,
+      this.distanceToIndex(distance - cfg.dilationWindow),
       this.distanceToIndex(distance + cfg.dilationWindow),
     );
-
-    let maxSkyline = -Infinity;
-    for (let i = from; i <= to; i++) {
-      const v = this.profile[i];
-      if (!Number.isNaN(v) && v > maxSkyline) maxSkyline = v;
-    }
-
-    if (maxSkyline === -Infinity) return floor === -Infinity ? this.currentY : floor;
-    return Math.max(floor, maxSkyline + cfg.clearance);
+    return Math.max(floor, skyline + cfg.clearance);
   }
 
   /**
-   * Take up to `samplesPerFrame` new samples in the window around and ahead
-   * of the camera. Failed samples (tile not loaded yet) are left as NaN and
-   * retried on a later frame — same self-healing shape as the route grid's
-   * cell sampling. The attempt still costs budget so a persistently cold
-   * region cannot spin the loop.
+   * Take up to `samplesPerFrame` samples in the window around and ahead of
+   * the camera: indices without a hit and indices with only a coarse sample,
+   * round robin (see pickSamples). A coarse index is re-sampled until finer
+   * tiles arrive; the engine's column cache answers from memory until the
+   * tile set changes, so the retries are cheap. The attempt still costs
+   * budget so a persistently cold region cannot spin the loop.
    */
   private sampleProfileAhead(): void {
     if (!this.engine || !this.curve) return;
     const cfg = this.cfg;
 
-    const from = Math.max(0, this.distanceToIndex(this.distance - cfg.dilationWindow));
-    const to = Math.min(
-      this.profile.length - 1,
+    this.sampleCursor = pickSamples(
+      this.profile,
+      this.distanceToIndex(this.distance - cfg.dilationWindow),
       this.distanceToIndex(this.distance + cfg.dilationWindow + cfg.lookAhead),
+      cfg.samplesPerFrame,
+      this.sampleCursor,
+      cfg.maxSampleError,
+      this.pickedSamples,
     );
-
-    let budget = cfg.samplesPerFrame;
-    for (let i = from; i <= to && budget > 0; i++) {
-      if (!Number.isNaN(this.profile[i]) && !Number.isNaN(this.groundProfile[i])) continue;
-      this.sampleIndex(i);
-      budget--;
-    }
+    for (const i of this.pickedSamples) this.sampleIndex(i);
   }
 
   /** Synchronous burst so the opening frames already have a profile. */
   private prewarmProfile(): void {
-    const limit = Math.min(this.profile.length, PREWARM_SAMPLES);
-    for (let i = 0; i < limit; i++) {
-      if (Number.isNaN(this.profile[i]) || Number.isNaN(this.groundProfile[i])) {
-        this.sampleIndex(i);
-      }
-    }
+    const limit = Math.min(this.profile.ground.length, PREWARM_SAMPLES);
+    pickSamples(this.profile, 0, limit - 1, limit, 0, this.cfg.maxSampleError, this.pickedSamples);
+    for (const i of this.pickedSamples) this.sampleIndex(i);
   }
 
   /**
    * One profile sample: a single column probe yields both the top surface
-   * (for obstacle clearance) and the bare ground (for the aim and the floor).
+   * (for obstacle clearance) and the bare ground (for the aim and the floor),
+   * plus the tile error that decides whether the sample counts as reliable.
    *
    * Altitudes come from these samples rather than from the curve's own Y so
    * the flight stays independent of how the route line happens to be built.
@@ -776,15 +796,17 @@ export class IntroCameraFlightService {
   private sampleIndex(i: number): void {
     const engine = this.engine;
     if (!engine) return;
-    if (!this.pointAtDistance(this.indexToDistance(i), this.samplePoint)) return;
+    const distance = this.indexToDistance(i);
+    if (!this.pointAtDistance(distance, this.samplePoint)) return;
 
     const column = engine.sampleColumn(this.samplePoint.x, this.samplePoint.z);
     if (column !== null) {
-      this.profile[i] = column.topY;
-      this.groundProfile[i] = column.groundY;
+      this.profile.top[i] = column.topY;
+      this.profile.ground[i] = column.groundY;
+      this.profile.error[i] = column.tileGeometricError;
     }
 
-    this.applyMarkerObstacles(i);
+    this.applyMarkerObstacles(i, distance);
   }
 
   /**
@@ -797,51 +819,45 @@ export class IntroCameraFlightService {
    * arrives and the rate limiter brings it back down afterwards, no
    * special-casing in the flight logic.
    *
-   * Needs the ground sample: marker heights are relative to the ground below
-   * them. If the ground is still cold this is a no-op and gets retried with
-   * the rest of the sample.
+   * Marker heights are relative to the ground below them, taken from
+   * groundAt so a coarse sample cannot sink the marker with it.
    */
-  private applyMarkerObstacles(i: number): void {
-    const ground = this.groundProfile[i];
-    if (Number.isNaN(ground)) return;
-
+  private applyMarkerObstacles(i: number, distance: number): void {
+    let ground = NaN;
     for (const m of this.markers) {
       const dx = this.samplePoint.x - m.x;
       const dz = this.samplePoint.z - m.z;
       if (dx * dx + dz * dz > m.radiusSq) continue;
 
-      // Raw marker top — the normal `clearance` is added later by
+      if (Number.isNaN(ground)) ground = this.groundAt(distance);
+      // Raw marker top, the normal `clearance` is added later by
       // desiredAltitude, same as for any building.
       const top = ground + m.topAboveGround;
-      const current = this.profile[i];
-      if (Number.isNaN(current) || top > current) this.profile[i] = top;
+      const current = this.profile.top[i];
+      if (Number.isNaN(current) || top > current) this.profile.top[i] = top;
     }
   }
 
   /**
-   * Bare terrain Y at a distance along the path, in scene space. Walks
-   * outward from the nearest index so a single cold sample does not fall
-   * back all the way. Returns null when nothing nearby is sampled yet.
+   * Bare terrain Y at a distance along the path, in scene space. Never null
+   * and never taken from a coarse sample alone: a reliable sample within ±6
+   * indices, otherwise the highest of the nearest reliable sample anywhere,
+   * a nearby coarse one and the route's own height (see safeGround).
    */
-  private groundAt(distance: number): number | null {
-    const centre = this.distanceToIndex(distance);
-    const span = 6;
-    for (let d = 0; d <= span; d++) {
-      for (const i of d === 0 ? [centre] : [centre - d, centre + d]) {
-        if (i < 0 || i >= this.groundProfile.length) continue;
-        const v = this.groundProfile[i];
-        if (!Number.isNaN(v)) return v;
-      }
-    }
+  private groundAt(distance: number): number {
+    return safeGround(
+      this.profile,
+      this.distanceToIndex(distance),
+      6,
+      this.cfg.maxSampleError,
+      this.routeGroundAt(distance),
+    );
+  }
 
-    // Nothing sampled anywhere near: pay for one live raycast rather than
-    // report "unknown". Callers fall back to the camera's current Y, which is
-    // 0 on the very first tick — that would put the camera ~165 m below the
-    // terrain and then have the rate limiter crawl back up for seconds.
-    if (this.engine && this.pointAtDistance(distance, this.fallbackPoint)) {
-      return this.engine.getTerrainHeightAtLocal(this.fallbackPoint.x, this.fallbackPoint.z);
-    }
-    return null;
+  /** Ground the route line was built on (cell heights at build time), without its lift. */
+  private routeGroundAt(distance: number): number {
+    this.pointAtDistance(distance, this.fallbackPoint);
+    return this.fallbackPoint.y - PATH_HEIGHT_OFFSET;
   }
 
   // ========================================
