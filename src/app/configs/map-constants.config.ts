@@ -23,6 +23,13 @@ export const CAMERA_ANGLE = 70;
 /** Default marker radius for camera framing (world units) */
 export const CAMERA_MARKER_RADIUS = 8;
 
+/**
+ * Gap between the padded framing box and the image edge, per side, as a
+ * fraction of the image width or height. Applies in the binding direction;
+ * the other one keeps more room (see fitGroundBox).
+ */
+export const CAMERA_EDGE_MARGIN = 0.03;
+
 /** Ordered spawn-point colors (hex, up to 4 spawns) */
 export const SPAWN_COLORS: readonly number[] = [0xef4444, 0xf97316, 0x00bcd4, 0xff00ff] as const;
 

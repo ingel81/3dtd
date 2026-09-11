@@ -2,6 +2,8 @@ import { Injectable } from '@angular/core';
 import { Vector3, Box3, MathUtils, PerspectiveCamera } from 'three';
 import { ThreeTilesEngine } from '../three-engine';
 import { METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { fitGroundBox } from '../utils/camera-fit';
+import { CAMERA_EDGE_MARGIN } from '../configs/map-constants.config';
 
 /**
  * Represents a computed camera frame (position + lookAt target)
@@ -48,6 +50,8 @@ export interface FrameConfig {
   aspectRatio?: number;
   /** Vertical FOV in degrees (default: 75) */
   fov?: number;
+  /** Gap between padded box and image edge per side, fraction of the image (default: CAMERA_EDGE_MARGIN) */
+  edgeMargin?: number;
   /** Additional route points to include in bounding box (optional) */
   routePoints?: GeoPoint[];
 }
@@ -149,6 +153,7 @@ export class CameraFramingService {
       estimatedTerrainY = 0,
       aspectRatio = 16 / 9,
       fov = 75,
+      edgeMargin = CAMERA_EDGE_MARGIN,
       routePoints = [],
     } = config;
 
@@ -167,6 +172,7 @@ export class CameraFramingService {
         estimatedTerrainY,
         aspectRatio,
         fov,
+        edgeMargin,
       }
     );
   }
@@ -196,6 +202,7 @@ export class CameraFramingService {
       markerRadius = CameraFramingService.DEFAULT_MARKER_RADIUS,
       aspectRatio = 16 / 9,
       fov = 75,
+      edgeMargin = CAMERA_EDGE_MARGIN,
       routePoints = [],
     } = config;
 
@@ -230,6 +237,7 @@ export class CameraFramingService {
         estimatedTerrainY: terrainY,
         aspectRatio: actualAspect,
         fov: actualFov,
+        edgeMargin,
       }
     );
   }
@@ -249,6 +257,7 @@ export class CameraFramingService {
       estimatedTerrainY,
       aspectRatio,
       fov,
+      edgeMargin,
     } = config;
 
     // ========================================
@@ -286,46 +295,32 @@ export class CameraFramingService {
     // 2. CAMERA DISTANCE CALCULATION
     // ========================================
 
-    const angleRad = angle * MathUtils.DEG2RAD;
-    const fovRad = fov * MathUtils.DEG2RAD;
-    const halfFov = fovRad / 2;
-
-    // Calculate horizontal FOV from vertical FOV and aspect ratio
-    const hFovRad = 2 * Math.atan(aspectRatio * Math.tan(halfFov));
-    const tanHalfHFov = Math.tan(hFovRad / 2);
-
-    // Distance to fit X span horizontally
-    const distanceForX = (paddedSpanX / 2) / tanHalfHFov;
-
-    // Distance to fit Z span vertically
-    // The Z span on the ground projects to spanZ * sin(angle) when viewed from angle
-    const projectedZHeight = paddedSpanZ * Math.sin(angleRad);
-    const distanceForZFov = (projectedZHeight / 2) / Math.tan(halfFov);
-
-    // CRITICAL: Minimum distance so that the entire Z span is IN FRONT of the camera
-    // The camera is positioned south of center by horizontalOffset = distance * cos(angle)
-    // The southern edge of the box must not be behind the camera
-    // Condition: horizontalOffset >= paddedSpanZ / 2
-    // => distance * cos(angle) >= paddedSpanZ / 2
-    // => distance >= paddedSpanZ / (2 * cos(angle))
-    const minDistForZCoverage = paddedSpanZ / (2 * Math.cos(angleRad));
-
-    // Use the largest requirement with safety margin
-    const cameraDistance = Math.max(distanceForX, distanceForZFov, minDistForZCoverage) * 1.15;
+    // Exact fit of the padded box on the ground, both edges projected, for any
+    // aspect ratio. The look-at target moves toward the camera so the near and
+    // far edges keep the same margin (see fitGroundBox).
+    const { distance: cameraDistance, targetOffset } = fitGroundBox(
+      paddedSpanX / 2,
+      paddedSpanZ / 2,
+      fov,
+      aspectRatio,
+      angle,
+      edgeMargin,
+    );
 
     // ========================================
     // 3. CAMERA POSITION
     // ========================================
 
+    const angleRad = angle * MathUtils.DEG2RAD;
     const cameraHeight = cameraDistance * Math.sin(angleRad);
     const horizontalOffset = cameraDistance * Math.cos(angleRad);
 
-    // Simple: lookAt at bounding box center, camera south of it
-    const lookAtZ = center.z;
+    // Camera south of the target, looking north
+    const lookAtZ = center.z + targetOffset;
     const lookAtY = estimatedTerrainY;
 
     const camX = center.x;
-    const camZ = center.z - horizontalOffset; // Camera south of center
+    const camZ = lookAtZ - horizontalOffset;
     const camY = estimatedTerrainY + cameraHeight;
 
     const frame: CameraFrame = {

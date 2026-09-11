@@ -156,130 +156,6 @@ export class CameraControlService {
     }
   }
 
-  // ========================================
-  // FRAMING (HQ + SPAWNS)
-  // ========================================
-
-  /**
-   * Position camera to frame HQ and all spawn points with steep iso view
-   * Camera is positioned perpendicular to the HQ-Spawns axis for best visibility
-   *
-   * @param hq HQ/Base coordinates
-   * @param spawns Array of spawn point coordinates
-   * @param padding Padding factor (0.2 = 20% extra space around points)
-   */
-  frameHqAndSpawns(
-    hq: { lat: number; lon: number },
-    spawns: { lat: number; lon: number }[],
-    padding = 0.2
-  ): void {
-    if (!this.engine || spawns.length === 0) {
-      return;
-    }
-
-    const sync = this.engine.sync;
-
-    // Convert all points to local coordinates (HQ is at origin 0,0,0)
-    const hqLocal = sync.geoToLocalSimple(hq.lat, hq.lon, 0);
-    const spawnLocals = spawns.map(s => sync.geoToLocalSimple(s.lat, s.lon, 0));
-
-    // All points including HQ
-    const allPoints = [hqLocal, ...spawnLocals];
-
-    // Calculate bounding box
-    let minX = Infinity, maxX = -Infinity;
-    let minZ = Infinity, maxZ = -Infinity;
-    for (const p of allPoints) {
-      minX = Math.min(minX, p.x);
-      maxX = Math.max(maxX, p.x);
-      minZ = Math.min(minZ, p.z);
-      maxZ = Math.max(maxZ, p.z);
-    }
-
-    // Calculate center of all points
-    const centerX = (minX + maxX) / 2;
-    const centerZ = (minZ + maxZ) / 2;
-
-    // Calculate the span (size of area to show) - keep rectangular!
-    const spanX = Math.max(maxX - minX, 50); // Minimum 50m
-    const spanZ = Math.max(maxZ - minZ, 50); // Minimum 50m
-
-    // Add padding to each dimension separately (rectangular, not square)
-    const paddedSpanX = spanX * (1 + padding);
-    const paddedSpanZ = spanZ * (1 + padding);
-
-    // Camera angle: 70° from horizontal (steep top-down view, minimal horizon)
-    const cameraAngle = 70 * Math.PI / 180; // 70 degrees
-
-    // Get camera properties for optimal fitting
-    const camera = this.engine.getCamera();
-    const vFov = camera instanceof PerspectiveCamera ? camera.fov * Math.PI / 180 : 60 * Math.PI / 180;
-    const aspect = camera instanceof PerspectiveCamera ? camera.aspect : 16 / 9;
-
-    // Calculate horizontal FOV from vertical FOV and aspect ratio
-    const hFov = 2 * Math.atan(aspect * Math.tan(vFov / 2));
-
-    // Calculate minimum distance to fit X span horizontally
-    const distanceForX = (paddedSpanX / 2) / Math.tan(hFov / 2);
-
-    // Calculate minimum distance to fit Z span vertically
-    // The Z span appears foreshortened when viewed at an angle
-    // Projected height = paddedSpanZ * sin(cameraAngle) approximately
-    // But we also need to account for the perspective - far edge is smaller
-    // Use a simpler model: the Z span projects to about paddedSpanZ * sin(angle) in screen height
-    const projectedZHeight = paddedSpanZ * Math.sin(cameraAngle);
-    const distanceForZ = (projectedZHeight / 2) / Math.tan(vFov / 2);
-
-    // Use the larger distance to ensure everything fits
-    const cameraDistance = Math.max(distanceForX, distanceForZ);
-
-    // Split distance into height and horizontal offset based on angle
-    const cameraHeight = cameraDistance * Math.sin(cameraAngle);
-    const horizontalOffset = cameraDistance * Math.cos(cameraAngle);
-
-    // Calculate direction from HQ to spawn centroid (for dynamic camera positioning)
-    // Camera will be positioned perpendicular to this axis
-    const spawnCentroidX = spawnLocals.reduce((sum, p) => sum + p.x, 0) / spawnLocals.length;
-    const spawnCentroidZ = spawnLocals.reduce((sum, p) => sum + p.z, 0) / spawnLocals.length;
-
-    // Direction from HQ to spawn centroid
-    const dirX = spawnCentroidX - hqLocal.x;
-    const dirZ = spawnCentroidZ - hqLocal.z;
-    const dirLength = Math.sqrt(dirX * dirX + dirZ * dirZ);
-
-    // Perpendicular direction (rotate 90°) - camera looks from the side
-    // We choose the direction that puts camera "south-ish" when possible
-    let perpX: number, perpZ: number;
-    if (dirLength > 1) {
-      // Perpendicular: rotate direction by 90°
-      perpX = -dirZ / dirLength;
-      perpZ = dirX / dirLength;
-
-      // Prefer camera to be in southern hemisphere (negative Z in local coords)
-      // If perpendicular points north, flip it
-      if (perpZ > 0) {
-        perpX = -perpX;
-        perpZ = -perpZ;
-      }
-    } else {
-      // Fallback: camera from south (like current default)
-      perpX = 0;
-      perpZ = -1;
-    }
-
-    // Camera position: center + perpendicular offset + height
-    const camX = centerX + perpX * horizontalOffset;
-    const camZ = centerZ + perpZ * horizontalOffset;
-
-    // Get terrain height at center for proper Y positioning
-    const terrainY = this.engine.getTerrainHeightAtGeo(hq.lat, hq.lon) ?? 0;
-    const camY = terrainY + cameraHeight;
-    const lookAtY = terrainY;
-
-    // Set camera position looking at center of all points
-    this.engine.setLocalCameraPosition(camX, camY, camZ, centerX, lookAtY, centerZ);
-  }
-
   /**
    * Get current camera heading (azimuth) in degrees relative to GEOGRAPHIC north
    * 0° = North, 90° = East, 180° = South, 270° = West
@@ -394,7 +270,7 @@ export class CameraControlService {
 
   /**
    * Show debug visualization for camera framing
-   * Call this after frameHqAndSpawns to see the bounding boxes
+   * Call this after framing (CameraFramingService) to see the bounding boxes
    * @param hq HQ coordinates
    * @param spawns Spawn point coordinates
    * @param padding Padding factor (default 0.2)
