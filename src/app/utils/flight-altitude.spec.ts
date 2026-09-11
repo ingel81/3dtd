@@ -136,5 +136,6 @@ describe('countReliable', () => {
     put(p, 1, 500, 20);
     put(p, 2, -3000, 3000);
     expect(countReliable(p, MAX_ERROR)).toBe(2);
+    expect(countReliable(p, MAX_ERROR, 1)).toBe(1);
   });
 });
