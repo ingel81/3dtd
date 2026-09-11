@@ -14,7 +14,8 @@ welche Einträge erledigt sind, steht unten in der Tabelle "TODO-Stand".
 | `draft/balance-2026-09-11` | Umsetzung von `BALANCE_PROPOSAL_2026-09.md` | Entscheidung je Commit |
 
 Die drei Draft-Branches bauen auf dem finalen Stand des Sprint-Branches auf.
-Jeder Commit dort ist einzeln verwerfbar.
+Die Commits dort bauen aufeinander auf; sauber verwerfen lassen sie sich von
+hinten. Ausnahmen stehen bei den einzelnen Branches unten.
 
 Stand Sprint-Branch: 90 Commits vor `main` (plus diesem Dokument), 205 Dateien,
 +14 553 / -6 279 Zeilen. vitest 96 Testdateien mit 1264 Tests (vorher 66 mit
@@ -40,23 +41,32 @@ solltest.
 ### Simulation und Gameplay (Bugfixes, Verhalten ändert sich)
 
 - **Route-Grid-Zellschlüssel** (`333894e`): Anlegen und Abfragen rechnen jetzt
-  einheitlich mit `Math.floor`. Westlich und südlich des Ursprungs landeten
-  Gegner bisher in der Nachbarzelle (bis 2 m daneben) für Targeting und
-  Bodenhöhe.
-- **AA-Retrofit hat nie gewirkt** (`1b11e46`): Der Research-Handler lief vor
-  dem Store-Update, die Gatlings bekamen nie Air-LOS. Jetzt schon.
+  einheitlich mit `Math.floor`. Östlich und südlich des HQ (negative lokale
+  Koordinaten, -X ist Osten) landeten Gegner bisher in der Nachbarzelle (bis
+  2 m daneben) für Targeting und Bodenhöhe. Der Commit-Body sagt fälschlich
+  "west or south".
+- **AA-Retrofit ohne vorberechnete Luft-Sicht** (`1b11e46`): Der
+  Research-Handler lief vor dem Store-Update und hat deshalb keine Air-LOS in
+  den Zellen hinterlegt. Umgerüstete Gatlings schossen trotzdem auf Luftziele,
+  über den Raycast-Fallback pro Kandidat (teurer), verpassten aber Zellen, die
+  nur in Flughöhe sichtbar sind, etwa hinter niedrigen Hindernissen. Jetzt wird
+  die Air-LOS nach dem Research einmal aufgelöst und gecacht.
 - **Höhenänderungen erreichen andere Tower** (`ef1a1c7`): Zweite Tower behielten
   LOS gegen alte Höhen, wenn beim Platzieren eines anderen Towers Höhen
   nachgeschärft wurden.
 - **Wake-Check mit upgegradeter Reichweite** (`76a6197`, nicht beauftragt,
-  einzeln verwerfbar): Schlafende Tower wachten nur bei Gegnern innerhalb der
-  Basis-Reichweite auf. Range-Upgrades wirken dadurch in der Praxis stärker;
-  die Balance wurde bisher mit dem Fehler gespielt.
+  einzeln verwerfbar): Schlafende Tower wachten erst bei Gegnern innerhalb der
+  1,1-fachen Basis-Reichweite auf, und der Radius-Fallback ohne LOS-Zellen
+  suchte ebenfalls nur dort. Range-Upgrades wirken dadurch in der Praxis
+  stärker; die Balance wurde bisher mit dem Fehler gespielt.
 - **Beam-Fallback-Radius** (`1e887b4`): Der Fire-Tower sah ohne LOS-Zellen
-  Gegner zwischen 20 und 25 m nicht.
+  Gegner zwischen 24 und 25 m nicht, mit Range-Upgrades nichts jenseits von
+  24 m.
 - **HQ-Abzweig der Route** (`4ad010a`): wurde in Grad statt Metern bestimmt und
-  rutschte auf schrägen Straßen bis 6,5 m.
-- **Kill-Zählung** (`b4df1d2`): nur noch bei tatsächlichem Tod.
+  rutschte auf schrägen Straßen die Straße entlang, im Testfall (48° N, HQ
+  20 m neben der Straße) etwa 6,5 m, bei größerem Abstand mehr.
+- **Kill-Zählung** (`b4df1d2`): nur noch bei tatsächlichem Tod; heute ohne
+  Wirkung, weil der betroffene Pfad unerreichbar ist. Absicherung für später.
 
 ### Engine und Rendering
 
@@ -69,30 +79,36 @@ solltest.
   Upload-Ranges unbegrenzt an, auch behoben.
 - **Tower-LOS** (`fac16de`, `2a9d320`, `d3c01b2`, `e6ed8c2`): Recompute einmal
   pro Terrain-Sweep statt pro Slice, verteilt auf einen Tower pro Frame.
-  Der Freeze von 1 bis 2 s beim großen Reinzoomen sollte weg sein, dafür zieht
-  die LOS-Anzeige kurz nach. Wartezeit auf einen Sweep höchstens 3 s.
+  Der Freeze von 1 bis 2 s beim großen Reinzoomen sollte weg sein. Dafür folgt
+  die Tower-LOS (Targeting und Anzeige) neuen Höhen erst nach dem Sweep, ein
+  Tower pro Frame; die Wartezeit auf einen Sweep ist auf 3 s begrenzt.
 - **Engine zerlegt** (`04ca3d7` bis `9f1e701`): `CameraRig` und
-  `TileLoadingTracker` aus `three-tiles-engine.ts` (2437 auf 2053 Zeilen).
+  `TileLoadingTracker` aus `three-tiles-engine.ts` (2437 auf 2000 Zeilen, mit
+  der Skybox-Änderung 2024).
   Dabei gefunden und behoben: Timer liefen nach `dispose()` weiter, Controls
   wurden nie disposed. Ungenutzte Kamera-API entfernt (`flyTo` u. a.).
 - **Route-Grid zerlegt** (`d4c2475` bis `493998b`): `global-route-grid.ts` von
-  2199 auf 1258 Zeilen, fünf Module. Hot Path per Skript byte-gleich geprüft.
+  2199 auf 1253 Zeilen, fünf neue Module. Hot Path per Skript byte-gleich
+  geprüft. Der LOS-Resolve pro Tower bleibt in der Hauptdatei.
 - **Render-Kleinkram** (`610c22b` bis `e8d2710`): Das Tower-Feuer blieb nach
-  einem Tab-Wechsel unsichtbar (behoben). Decal-Fade läuft nur noch, wenn
+  mehr als etwa einer Sekunde verdecktem Tab unsichtbar, bis ein weiteres
+  Tower-Feuer entstand (behoben). Decal-Fade läuft nur noch, wenn
   einer fällig ist. Die Skybox wird einmal in eine Cubemap umgerechnet und die
   Quelle freigegeben, rund 34 MB VRAM (`e8d2710`, einzeln verwerfbar).
 - **FPS-Limit** (`f7a207b`, `797a56f`): 60, 30 oder unbegrenzt über einen
   Button im Display-Menü der Quick-Actions. Model-Previews laufen mit 30 fps.
-- **Audio** (`aec28d6`): Loops, die erst nach dem Tod ihres Gegners fertig
-  geladen waren, spielten endlos weiter.
+- **Audio** (`aec28d6`): Loops, die erst nach dem Entfernen ihres Gegners
+  fertig erzeugt waren, spielten bis zum Verlassen des Spiels weiter, ebenso
+  der erste von zwei überlappenden Starts desselben Sounds.
 
 ### Oberfläche
 
-- **Deutsche Texte** (`cb2162a`): Platzierungshinweise, Ortsnamen und
-  Director-Texte englisch. Maus-Vorschau, Klick und Bot prüfen jetzt über eine
-  gemeinsame Funktion (`utils/tower-placement-rules.ts`).
+- **Texte auf Englisch** (`cb2162a`): Platzierungshinweise, Ortsnamen und die
+  derzeit nirgends angezeigten Director-Begründungen waren deutsch, jetzt
+  englisch. Maus-Vorschau, Klick und Bot prüfen jetzt über eine gemeinsame
+  Funktion (`utils/tower-placement-rules.ts`).
 - **Zellfarben beim Platzieren** (`5472a8f`, `e151a70`): Boden grün, Luft blau,
-  verdeckt rot; jede Ebene zeigt nur ihre eigene Abdeckung. Vorher rechneten
+  verdeckt orange-rot; jede Ebene zeigt nur ihre eigene Abdeckung. Vorher rechneten
   beide Ebenen dieselbe Sammelfarbe, deshalb sahen sie identisch aus. Reine
   Boden- oder Luft-Tower zeigen nur ihre Ebene.
 - **Dev-Menü** (`6fa7913`) in zwei Spalten, überlappt den Kompass nicht mehr.
@@ -103,17 +119,20 @@ solltest.
   i-Button im BUILD- und Tower-Header, liest direkt aus der Matrix-Config.
 - **Projektile** (`c91a011` bis `574ce33`): Magic schießt einen violett-cyanen
   `arcane-orb` statt `fireball`; die Rakete sieht wie eine Rakete aus, mit
-  Rauch statt Feuerschweif; Muzzle Flash nur noch bei Archer, Gatling, Cannon
-  und Rocket (vorher auch Poison). Nebenbei: Projektile flogen in London um
-  etwa 13 Grad schief (`330b173`).
+  kurzer Düsenflamme (etwa 6 m) und dünner Rauchspur statt 40-m-Feuerschweif;
+  Muzzle Flash nur noch bei Archer, Gatling, Cannon und Rocket (vorher auch
+  Poison). Nebenbei: Geschosse und Schweife zeigten bei schrägen Schüssen bis
+  etwa 13 Grad neben die Flugrichtung (London); die Flugbahn selbst stimmte
+  (`330b173`).
 - **Damage Numbers aus** blieb nur einen Reload lang aus (`9762534`).
 - **Sidebar zerlegt** (`1162a4c` bis `5041be1`): Wave-, Build-, Tower- und
   Research-Panel als eigene Components, Parent von 743 auf 105 Zeilen. Die
   Styles sind per Skript verschoben und per sass-Vergleich je Selektor
   geprüft. Kills, Tower-Stats und der Research-Balken hängen jetzt an eigenen
-  Signalen (`tower:kill`, `research:progress` mit 10 Hz); vorher aktualisierten
-  sie sich nur, wenn sich zufällig die Credits änderten. Sichtbar anders: die
-  Trennlinie steht nur noch unter dem WAVE-Panel.
+  Events (`tower:kill`, `research:progress` höchstens 10 Hz), die Store-Signale
+  fortschreiben; vorher aktualisierten sie sich nur, wenn sich zufällig die
+  Credits änderten. Optisch unverändert: die Trennlinie hängt jetzt direkt am
+  WAVE-Panel, weil `:last-of-type` in eigenen Host-Elementen nicht mehr greift.
 
 ### Build, Training, Backend
 
@@ -140,7 +159,9 @@ solltest.
 1. **`76a6197`** behalten? Macht Range-Upgrades wirksamer.
 2. **Gameplay-Draft**: Burn (20 % der Fire-DPS als Nachbrennen, DoT-Kills an den
    Tower) ja/nein; Wallsmasher-Rush ja/nein; wenn ja, die Kompensation
-   (`baseSpeed` 4) dazu.
+   (`baseSpeed` 4) dazu. Burn lässt sich allein übernehmen; der Rush baut auf
+   dem Burn-Commit auf und braucht ohne ihn eine Konfliktauflösung in
+   `enemy.manager.ts`.
 3. **Balance-Draft**: welche Commits. Die Bugfix-Commits am Anfang lohnen sich
    auch einzeln. Offene Fragen aus dem Vorschlag stehen am Ende von
    `BALANCE_PROPOSAL_2026-09.md`.
@@ -163,6 +184,8 @@ solltest.
    selben Sub-Step. Rennt 50 % der Zeit, im Mittel +75 % Tempo.
 3. **slow the wallsmasher walk**: `baseSpeed` 7 auf 4 (Mittel wieder 7 m/s),
    Animationsgeschwindigkeit angepasst, `ai-schema.json` neu. Nur zusammen mit 2.
+   Der Commit-Body nennt noch den Hash vor dem Rebase (`9b5776f`); gemeint ist
+   der Rush-Commit `e82b88d`.
 
 ### `draft/lightning-instanced-2026-09-11` (2 Commits)
 
@@ -181,8 +204,10 @@ der Fehler in der Konsole.
 3. **defense model reads splash from the tower configs**: Rocket zählt nicht
    mehr als Splash, Ice und Poison schon (Bugfix im Wave-Director-Modell).
 4. **upgrade curves**: ab L16 nur noch 40 % des Zuwachses, Profile je Tower,
-   Range als eigener Track (10 Stufen ×1,03). L25 bringt das 5,3- bis 6,4-Fache
-   der Basis-DPS statt des 14,5-Fachen.
+   Range-Track auf 10 Stufen ×1,03 gekappt (vorher 25 Stufen ×1,04, Archer
+   ×1,02), Fire-Beam-Width ebenso. L25 bringt das 5,3- bis 6,4-Fache der
+   Basis-DPS statt des 14,5-Fachen (Fire mit nur einem Damage-Track: 3,0 statt
+   3,4).
 5. **cannon**: Splash 6 m, höchstens 8 Ziele, Reichweite 70 m, siege gegen
    unarmored/light 0,5.
 6. **wider damage matrix with a fairness floor**: Matrix nach dem Vorschlag,
@@ -195,16 +220,24 @@ Folge für die Economy: Das Design-Roster bis W30 kostet 431 542 statt 632 834
 Gold bei 791 000 Einnahmen, der Puffer steigt von 25 % auf 83 %. Gold ist
 bewusst nicht nachgesteuert; wenn du bei W30 über 150k Gold oder mehr als 20
 Tower hast, schlägt der Vorschlag vor, das Gold für W16 bis W30 um 20 % zu
-kürzen. Die Commits 1 bis 3 lohnen sich auch ohne den Rest, der Boss-Takt
-lässt sich einzeln übernehmen.
+kürzen.
+
+Einzeln übernehmen: Die Commits 1 bis 3 lohnen sich auch ohne den Rest. Der
+Matrix-Commit (6) lässt sich allein weglassen. Der Boss-Takt (7) lässt sich
+einzeln übernehmen; beim Cherry-Pick kollidieren nur das Economy-Chart und
+dessen Spec (Chart neu generieren, Spec nachziehen). Die übrigen Commits
+bauen aufeinander auf.
 
 ## Playtest-Liste
 
-- Build-Mode je Tower-Typ: Zellfarben (Archer/Ice/Lightning beide Ebenen,
-  Cannon/Magic/Fire nur Boden, Rocket nur Luft), Legende passt dazu.
-- Großer Zoom-In mit mehreren Towern: kein Freeze, LOS-Anzeige zieht kurz nach.
-- Research AA-Retrofit mit platzierten Gatlings: treffen jetzt Luftziele.
-- Karte mit Route westlich/südlich des Ursprungs: Gegner laufen bodennah.
+- Build-Mode je Tower-Typ: Zellfarben (Archer/Ice/Lightning beide Ebenen;
+  Cannon/Magic/Fire/Gatling/Poison/Tentacle nur Boden, Gatling nach
+  AA-Retrofit beide; Rocket nur Luft; verdeckt orange-rot), Legende passt dazu.
+- Großer Zoom-In mit mehreren Towern: kein Freeze, die Tower-LOS zieht nach dem
+  Sweep nach.
+- Research AA-Retrofit mit platzierten Gatlings: treffen Luftziele auch hinter
+  niedrigen Hindernissen.
+- Route östlich oder südlich des HQ: Gegner laufen bodennah.
 - Debug "Animationen aus": Gegner laufen weiter.
 - Nach einer großen Welle: keine hängenden Gegner oder Health-Bars.
 - Fire-Tower bauen, Tab 30 s verdecken: Feuer bleibt sichtbar.
@@ -212,7 +245,8 @@ lässt sich einzeln übernehmen.
 - FPS-Limit 30 und 60: Zähler hält die Werte, Spielgeschwindigkeit bleibt.
 - Dev-Menü, Panel-Größen nach Reload, Next-Wave-Button, Header-Kanten.
 - Damage-vs-Armor-Dialog, Esc im Build-Mode schließt nur den Dialog.
-- Magic-Orb, Rakete, Muzzle Flash, Pfeile fliegen gerade.
+- Magic-Orb, Rakete, Muzzle Flash; Pfeile und Raketen zeigen auch bei
+  diagonalen Schüssen in Flugrichtung.
 - Training: Backend starten, DevWorld-Tab, `training-session-*.js` lädt,
   Checkpoint lädt, Dashboard-Header.
 - An der Engstelle aus dem 2026-09-10-Playtest: `__routes.describe()`.
@@ -226,7 +260,7 @@ Erledigt auf dem Sprint-Branch, nach deinem OK nach DONE.md zu verschieben:
 | 1.0 Stille Höhenänderungen ohne Emit | erledigt | `ef1a1c7` |
 | 1.0 Tower-LOS-Recompute pro Slice statt pro Sweep | erledigt | `fac16de`, `e6ed8c2` |
 | 1.0 `updateAnimations()` gated den GPU-Flush | erledigt | `3f71c64` |
-| 1.0 Weitere LOS-invalidierende Research-Effekte | erledigt, AA-Retrofit-Bug gefunden | `1b11e46` |
+| 1.0 Weitere LOS-invalidierende Research-Effekte | erledigt, AA-Retrofit-Lücke gefunden | `1b11e46` |
 | 1.0 `activeCount` schrumpft nie | erledigt | `a2025b7` |
 | 1.0 `ProjectileInstanceManager` ohne Update-Ranges | erledigt | `c6ec30f` |
 | 1.0 Health-Bar `instanceMatrix` | erledigt | `27aab53` |
@@ -238,14 +272,14 @@ Erledigt auf dem Sprint-Branch, nach deinem OK nach DONE.md zu verschieben:
 | 1.1 Wallsmasher-Rush | Entwurf | `draft/gameplay-2026-09-11` |
 | 1.2 `three-tiles-engine.ts` abspecken | erledigt | `04ca3d7` bis `9f1e701` |
 | 1.2 `game-sidebar` aufteilen | erledigt | `1162a4c` bis `5041be1` |
-| 1.2 `global-route-grid.ts` aufsplitten | erledigt | `d4c2475` bis `493998b` |
+| 1.2 `global-route-grid.ts` aufsplitten | erledigt bis auf den LOS-Resolve, der in `global-route-grid.ts` bleibt | `d4c2475` bis `493998b` |
 | 1.4 Tower-LOS Zoom-In-Spike | erledigt | `2a9d320` |
 | 1.5 P2 Lightning-Bolts instanziert | Entwurf | `draft/lightning-instanced-2026-09-11` |
 | 1.5 G5 Rest Projektil-Pool | erledigt | `c6ec30f` |
-| 1.5 Render-Kleinkram | P6, P8, G8, R9 erledigt; R6, R10 als Befund in PERF_BUG_ANALYSIS | `610c22b` bis `e8d2710` |
+| 1.5 Render-Kleinkram | P6, P8, R9 erledigt, G8 ohne `getAllSpawnProxies` (bewusst); R6, R10 als Befund in PERF_BUG_ANALYSIS | `610c22b` bis `e8d2710` |
 | 2.1 Upgrade-Skalierung, Cannon, Matrix-Spreizung | Vorschlag + Entwurf | `04f3d4d`, `draft/balance-2026-09-11` |
 | 2.2 Boss-Frequenz ab W31 | Entwurf | `draft/balance-2026-09-11` |
-| 3.1 Muzzle Flash feintunen | teilweise: nur Schusswaffen, Größe je Tower | `574ce33` |
+| 3.1 Muzzle Flash feintunen | im Code erledigt (nur Schusswaffen, Größe, Dauer, Licht je Tower), Sichtprüfung offen | `574ce33` |
 | 3.1 Grid-Cell-Farben | erledigt | `5472a8f`, `e151a70` |
 | 3.1 Kampfzonen untersuchen | Studie erledigt | `45db221` |
 | 3.1 Magic-Geschoss | erledigt | `c91a011` |
