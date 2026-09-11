@@ -21,81 +21,30 @@
 > Engine zuerst stabil, performant und testbar machen. Hier sammeln sich die laufenden
 > Refactoring-, Test- und Bugfix-Themen.
 
-## 1.0 Aus dem Merge-Review — bewusst nicht im Merge behoben
+## 1.0 Nächste Runde: Top-Priorität
 
-> Alle vorbestehend (nicht durch den Merge verursacht), alle mit Datei-Fundstelle
-> belegt. Reihenfolge = Einschätzung des Reviews.
-
-- [ ] **Stille Höhenänderungen ohne Emit → dauerhaft stale Tower-LOS**
-      `refineCellsInRadius` emittiert nur `promoted`, obwohl es `refreshed`
-      mitzählt; `registerTower` / `registerTowerIncremental` rufen `sampleCellY`
-      pro Zelle und emittieren nie. Ein LOD-Refresh verschiebt damit
-      `terrainHeight`, ohne dass jemand es erfährt — und der Peek-Skip in
-      `sampleCellY` sorgt dafür, dass der nächste Sweep für diese Zelle `false`
-      liefert. Ein zweiter Turm, dessen Range die Zelle abdeckt, behält seine
-      LOS gegen die alte Höhe **permanent**.
-      Vorsicht beim Fix: Emit aus `registerTower*` heraus ist reentrant
-      (der Listener ruft `recomputeTowerLOS`).
-      Datei: `src/app/utils/global-route-grid.ts`.
-
-- [ ] **Tower-LOS-Recompute pro Sweep-Slice statt pro Sweep**
-      Das Frame-Budget des Sweeps begrenzt nur die Raycasts. `emitCellsChanged`
-      läuft synchron im Slice, und der Handler macht pro betroffenem Turm ein
-      `recomputeTowerLOS` → erzwungener Cubemap-Render plus Face-Readbacks.
-      Derselbe Turm wird einmal pro Slice neu gerendert. Analog zum
-      Route-Refresh über den Sweep akkumulieren und einmal am Ende laufen
-      lassen (oder pro Turm pro Sweep dedupen).
-      Dateien: `global-route-grid.ts`, `tower-placement.service.ts:onCellsChanged`.
-
-- [ ] **`updateAnimations()` gated auch den GPU-Flush**
-      `if (!this._showEnemies || !this._showAnimations) return;` überspringt
-      `flushDirtyFlags()` und `updateBillboard()`. Bei „Animationen aus" laufen
-      die Gameplay-Positionen weiter, aber `needsUpdate` wird nie gesetzt →
-      Gegner und Health-Bars frieren sichtbar ein, Türme schießen scheinbar ins
-      Leere. Nur `instanceManager.updateAnimations()` gehört hinter das Gate.
-      Datei: `src/app/three-engine/renderers/instanced-enemy/instanced-enemy.renderer.ts`.
-
-- [ ] **Weitere LOS-invalidierende Research-Effekte suchen**
-      `recomputeTowerLOS` läuft heute bei Range-Upgrade, Terrain-Änderung und
-      (neu im Merge) AA-Retrofit. Prüfen, ob es weitere Effekte gibt, die die
-      Registrierung eines platzierten Turms entwerten, ohne einen Recompute
-      auszulösen.
-
-- [ ] **`activeCount` schrumpft nie (Instancing)**
-      In Health-Bar-, Enemy- und Projectile-Manager ist `activeCount` eine reine
-      High-Water-Mark; `remove()` dekrementiert nicht. Nach einer Peak-Wave
-      laden die Frame-Flushes dauerhaft Peak-große Ranges hoch (bei 20k-Peak
-      ~1,25 MB `instanceMatrix` + ~240 KB `aCenter` pro Frame, bis `clear()`).
-      Fix: beim Freigeben des obersten Slots über die trailing freien Indizes
-      schrumpfen.
-
-- [ ] **`ProjectileInstanceManager` hat gar keine Update-Ranges**
-      Jedes `needsUpdate` lädt den vollen `maxCount`-Buffer (Bullet-Pool
-      1000×16×4 = 64 KB pro Frame bei aktiven Projektilen). Gleiche Behandlung
-      wie in Enemy-/Health-Bar-Manager.
-
-- [ ] **Health-Bar-Meshes tragen 2,56 MB ungenutztes `instanceMatrix`**
-      Seit dem GPU-Billboard nutzt der Shader `instanceMatrix` nicht mehr, der
-      Renderer lädt es für jedes `InstancedMesh` trotzdem hoch: 2 × 20 000 × 16
-      Floats. Kein Logikfehler, nur Ballast — Ausweg wäre `Mesh` +
-      `InstancedBufferGeometry` statt `InstancedMesh`.
-
-- [ ] **Beam-Fallback-Query nutzt den falschen Radius**
-      `updateBeamTowers` fragt das Grid mit `beamRange` (20 m) ab, `findTarget`
-      prüft aber gegen `combat.range` (25 m) — im Fallback ohne `visibleCells`
-      sind Gegner im Ring dazwischen unsichtbar.
-      Datei: `src/app/services/combat/tower-combat.service.ts`.
-
-- [ ] **Kleinkram aus dem Review**
-      `stopTowerBeam` löscht `lastBeamBloodEffect` per Tower-ID, die Map ist per
-      Enemy-ID gekeyt (No-op, Einträge bleiben bis Wave-Ende) ·
-      `damage-application.service` zählt `kills++` auch wenn `kill()` am
-      `killingEnemies`-Guard early-returnt (heute unerreichbar, künftig eine
-      Falle) · `movement.effectiveSpeed`-Getter ist ein Legacy-Duplikat von
-      `getEffectiveSpeed` mit falscher Semantik, nur noch von Specs benutzt ·
-      Melee-Wake-Check nutzt Literal `* 1.1` statt
-      `COMBAT_TUNING.rangeMargin.standard` · die vier `update*Towers`-Methoden
-      teilen einen fast identischen Kandidaten-Block (Helper-Extraktion).
+- [ ] **Routenkorridor dynamisch nach Straßenbreite** (Top-Priorität, dem Nutzer sehr wichtig)
+      Heute ist der Zellkorridor überall gleich breit (`CORRIDOR_WIDTH` 7 m in
+      `global-route-grid.ts`), die Gegner weichen fest bis 3 m seitlich aus.
+      An Engstellen liegen Zellen dadurch auf Fassaden, Dächern und Bäumen, auf
+      breiten Straßen bleibt Platz ungenutzt. Festgelegt 2026-09-12:
+      - **Breite pro Abschnitt, entlang der Route variabel:** nicht ein Wert
+        pro Route, sondern pro Kante bzw. Abschnitt, enger und breiter werdend
+        wie die Straße. Anzahl Zellen in der Breite folgt der Straße.
+      - **Quelle:** OSM `width`/`lanes` (seit `03ffd7b` am Street-Objekt
+        gespeichert), sonst Standardbreite je `highway`-Klasse; zusätzlich aus
+        den 3D-Tiles messen: seitlich raycasten, wo Fassaden oder Bäume
+        beginnen, und den Korridor dort begrenzen.
+      - **Gegner nutzen die Breite:** Der Seitenversatz folgt der
+        Korridorbreite (breit verteilt auf Hauptstraßen, eng in Gassen).
+      - **Minimum 2 Zellen (4 m):** Tower sehen nur Gegner in Zellen, der
+        Seitenversatz wird dort auf die Breite begrenzt.
+      - Zusammen mit den **Brücken- und Tunnel-Tags** angehen: Auf Brücken
+        die Oberkante statt des Bodens darunter nehmen (Tags liegen seit
+        `03ffd7b` vor; "Korrektur überspringen" reicht nicht, siehe
+        `docs/ROUTE_GEOMETRY_ANALYSIS.md`).
+      Folgen: Zellzuordnung, LOS-Registrierung, Targeting und Bodenhöhe der
+      Gegner ändern sich; Hot Path (20k Gegner) nicht verlangsamen.
 
 ## 1.1 Engine-Bugs
 
@@ -124,6 +73,8 @@
         Overlay-Space verschiebt Y von Straßen, Gebäuden, Markern, Route-Linie
         und Tower-Preview auf absolute Scene-Koordinaten. Flaches Gelände und
         eine Großstadt gegenprüfen.
+      **Entscheidung 2026-09-12:** Diese Punkte kommen in die nächste
+      nummerierte Playtest-Liste, danach schließen.
 
 - [ ] **Route folgt der Straße nicht, Route-Cells auf Dach und Baum**
       Playtest 2026-09-10 (Kleinstadt, Engstelle): Die rote Enemy-Route
@@ -140,47 +91,12 @@
         der Korridor müsste sich der Straßenbreite anpassen.
       Kontrolle: Debug → Display → LOD Colors, Route-Linie gegen das
       Straßen-Overlay.
-
-- [ ] **Route-Grid: Zellschlüssel beim Anlegen und Abfragen uneinheitlich**
-      Gefunden 2026-09-10 beim Hot-Path-Umbau. Zellen werden in
-      `generateCorridorCells` mit `Math.floor` angelegt
-      (`global-route-grid.ts:779-781`), `updateEnemyPosition`, `getCellAt` und
-      `getGroundLocalYAt` rechnen den Schlüssel dagegen mit `| 0`. Bei negativen
-      lokalen Koordinaten landen Gegner dadurch in der Nachbarzelle zum Ursprung
-      hin, bis zu 2 m daneben, für Targeting und Bodenhöhe. Der Kommentar bei
-      `global-route-grid.ts:1145` kennt die Diskrepanz schon und fängt sie in einer
-      Abfrage mit einer Zelle Rand ab. Beheben ändert das Gameplay (Zellzuordnung,
-      Tower-Ziele), deshalb nicht im Performance-Umbau erledigt.
-
-- [ ] **Audio: Loop spielt nach dem Entfernen des Gegners weiter**
-      Gefunden 2026-09-10 beim Hot-Path-Umbau. `AudioComponent.play()`
-      (`audio.component.ts:100`) wartet auf `createLoop` (Zeile 119) und legt das
-      Handle danach ab (Zeile 125), ohne `destroyed` erneut zu prüfen. Wird der
-      Gegner entfernt, während der Loop noch erzeugt wird, bleibt der fertige
-      Loop ohne Besitzer und spielt dauerhaft. Der Kommentar in `destroy()`
-      (Zeile 205) behauptet genau diesen Schutz. Fix: nach dem `await` auf
-      `destroyed` prüfen und den Loop dann sofort stoppen.
-
-- [ ] **Wallsmasher-Rush seit April verloren: wieder einbauen oder Flag entfernen**
-      Eingeführt in `714b3a6` (2026-01-10): Der Wallsmasher wechselte alle 3-8 s
-      zufällig zwischen Gehen und Rennen (`scheduleAnimationVariation` im
-      klassischen `ThreeEnemyRenderer`), rennend mit `runSpeedMultiplier: 2.5`,
-      also ~17,5 statt 7 m/s. Beim Entfernen des klassischen Renderers in
-      `2bbf91f` (2026-04-10) wurde nur `startRunAnimation` in den Instanced-
-      Renderer übernommen, und das ruft nur der Enemy-Debugger auf
-      (`enemy-debug.service.ts:503`). `animationVariation: true` in
-      `enemy-types.config.ts` liest seitdem niemand mehr. Im Spiel geht der
-      Wallsmasher seit April immer.
-      Entscheidung nötig:
-      - **Wieder einbauen:** nicht in der alten Form (Echtzeit-`setTimeout` +
-        `Math.random`, unabhängig vom Timescale, nicht deterministisch), sondern
-        im Sub-Step mit Spielzeit und dem Simulations-RNG. Dabei gleich das
-        Timing ziehen: `speedMultiplier` wird heute erst nach `move` zugewiesen
-        und wirkt einen Sub-Step später. Balance nachziehen, Wave-Curriculum
-        und Phase 5.16 wurden mit einem nie rennenden Wallsmasher getuned.
-      - **Entfernen:** `animationVariation` aus Config und Typ streichen, den
-        Wallsmasher bewusst als Geher belassen; `startRunAnimation` bleibt als
-        Debug-Werkzeug.
+      **Stand 2026-09-11:** Im Playtest an derselben Stelle nicht mehr
+      reproduziert. Die Route verliert nachweislich keine Shape-Nodes
+      (`fcbe1d8`), der HQ-Abzweig ist korrigiert (`4ad010a`); die Ursache des
+      ursprünglichen Befunds ist aber nicht belegt. Offen lassen, bei
+      Wiederauftreten `__routes.describe()` aufrufen (Fälle A bis D in
+      `docs/ROUTE_GEOMETRY_ANALYSIS.md`).
 
 ## 1.2 Refactoring (Housekeeping Tier 3)
 
@@ -190,17 +106,6 @@
       (firstTilesLoaded, retry, debounce). Beide deutlich enger mit `tilesRenderer.initialize()`
       verzahnt — eigene Session mit Plan vorab.
 
-- [ ] **`game-sidebar.component.ts` in Sub-Components aufteilen** (Engine-Deep-Review MOD-2)
-      Inline-CSS ist 2026-05-22 in `game-sidebar.component.scss` ausgelagert (→ DONE.md),
-      die Component ist dadurch von 1868 auf 725 LOC geschrumpft. Noch offen: die 4
-      vermischten Fachdomänen (Tower-Detail, Wave-Panel, Research, Damage-Tooltips)
-      in eigene Sub-Components trennen.
-
-- [ ] **`global-route-grid.ts` aufsplitten** (Engine-Deep-Review MOD-4)
-      Daten (`RouteCell`-Modell), Algorithmus (Sampling/LOS-Resolve), Debug-API (`__rg.*`)
-      und Viz (Aggregate-Mesh) in getrennte Module ziehen. Hot-Path-Klasse — Split muss
-      verhaltenserhaltend bleiben, eigene Session mit Plan vorab.
-
 ## 1.3 Test-Coverage (Housekeeping Tier 4)
 
 > Cleanup-Pass 2026-05-11 + Engine-Deep-Review 2026-05-16 (160 neue Tests) +
@@ -208,22 +113,6 @@
 > Keine offenen Test-Coverage-Lücken.
 
 ## 1.4 CPU Hot-Path Optimierungen
-
-- [ ] **Tower-LOS Zoom-In-Spike glätten** (optional, niedrige Priorität)
-      Beim großen Reinzoomen aus Distanz refreshen 800+ Route-Grid-Cells
-      gleichzeitig (echte Massen-LOD-Promotion durch nachstreamende Google-
-      Tiles). Der `onCellsChanged`-Listener recomputed die LOS für die
-      betroffenen Tower dann synchron in einem ~1-2s Frame-Block.
-      Gemessen 2026-05-16: `refreshed=861` → `onTilesLoaded` 2197ms,
-      `refreshed=812` → 1038ms. Tritt nur 1-2 Frames nach einem großen
-      Zoom-Sprung auf, nicht beim normalen Spielen während einer Wave.
-      **Lösung:** LOS-Recompute rAF-budgetiert über mehrere Frames verteilen
-      (~150 Cells/Frame) statt synchron — gleiche Gesamtarbeit, aber kein
-      einzelner Frame-Stall.
-      Nur angehen, falls es im Spielbetrieb auffällig stört — der häufige
-      Pan/Zoom-Fall ohne LOD-Wechsel ist bereits gefixt (~8000ms → ~30ms).
-      Dateien: `src/app/services/tower-placement.service.ts` (`onCellsChanged`),
-      `src/app/utils/global-route-grid.ts` (`updateTerrainHeights`).
 
 - **Bewusst nicht umgesetzt: weitere Enemy-Hot-Path-Hebel**
       Stand nach dem Umbau vom 2026-09-10 (DONE.md, 21 → 48 FPS bei 20k
@@ -247,40 +136,21 @@
 > (davor/danach), da hier kein Headless-/GPU-Test greift. Sichere Teilvarianten sind
 > jeweils bereits drin.
 
-- [ ] **P2 — Lightning-Bolts auf `InstancedMesh`** (größter offener VFX-Hebel)
-      192 Mesh+Material dauerhaft in der Szene; Geometrie wird komplett im Shader aus
-      `uStart/uEnd/uSeed` erzeugt → ideal für 1 InstancedMesh mit Per-Instance-Attributen.
-      Bis zu 192 Draw Calls → 1, 192 Materialien → 1. Voller Rewrite des Renderers.
-      Datei: `src/app/three-engine/renderers/lightning-bolt.renderer.ts`.
-
 - [ ] **R4-Experiment — `logarithmicDepthBuffer` evaluieren**
       logDepth schreibt `gl_FragDepth` → deaktiviert Early-Z auf vielen GPUs über die
       gesamte Tile-Geometrie. Experiment: entfernen + `camera.near` 1→5-10m anheben (Spiel-
       Skala ~150m, Fern-Z im Fog). Z-Fighting-Risiko → nur mit visuellem Vorher/Nachher.
       Sichere Teilmaßnahme (`powerPreference`/`stencil:false`) ist bereits drin.
 
-- [ ] **G5-`addUpdateRange` — Rest: `ProjectileInstanceManager`**
-      Enemy- und Health-Bar-Manager laden seit dem Merge nur noch die aktive
-      Scheibe hoch (`clearUpdateRanges()` + `addUpdateRange(0, activeCount*n)`
-      im Frame-Flush, per-Slot-Ranges auf den Einzelpfaden). Offen ist nur noch
-      der Projektil-Pool — siehe 1.0b.
-
-- [ ] **Render-Kleinkram (LOW)** — R6 Empty-Frame-Guards, R9 Skybox als CubeTexture/weglassen,
-      R10 Lichtquellen reduzieren, G8 gecachte Instanz-Arrays, P6 Decal-Fade-Idle-Skip,
-      P8 `markPoolDirty`-Edge-Case (erst zentralen Pool-Flush-Mechanismus verifizieren —
-      die im Report genannte API existiert im Renderer nicht direkt).
-
-- [ ] **L3 — 3D-Range für Luftziele** (balance-relevant)
-      Range-Check ist rein horizontal (2D). Für Air ggf. echte 3D-Distanz inkl. Flughöhe
-      (~15-20m) — würde Air-Türme nerfen. Aktuell bewusst als horizontale Reichweite
-      dokumentiert; bei Bedarf als bewusste Balance-Entscheidung umstellen.
-
-- [ ] **cellsInRange — Range-Monotonie absichern, falls Range-Debuffs kommen**
-      Die Bounding-Box-Tower-Registrierung (`global-route-grid.ts`) setzt voraus, dass
-      Tower-Range nie schrumpft (aktuell garantiert: `range *= 1.04/1.02`). Wird je ein
-      Range-Debuff / Downgrade eingeführt, müssen Stale-Visibility-Entries für Zellen
-      außerhalb der neuen (kleineren) Box wieder bereinigt werden (z.B. alte Range merken
-      und die Differenz-Annulus aufräumen, oder `unregisterTower`+full re-register).
+- [ ] **Render-Kleinkram: R6 und R10**
+      P6, P8, G8 und R9 sind im Sprint 2026-09-11 erledigt (Nachtrag in
+      PERF_BUG_ANALYSIS_2026-05-28.md). Für die nächste Runde festgelegt:
+      - **R6:** leere Instanz- und Partikel-Pools nicht zeichnen
+        (`visible = count > 0`), zusammen mit einem Shader-Warm-up beim Laden
+        (`compileAsync`), damit der Compile nicht in die erste Welle rutscht.
+      - **R10:** erst loggen, ob die Tile-Materialien überhaupt Licht rechnen
+        (Materialtyp im `load-model`-Event), dann entscheiden. Die Zahl der
+        PointLights bleibt bei 1.
 
 ## 1.6 Befunde aus dem Sprint 2026-09-11 (nicht behoben)
 
@@ -296,24 +166,21 @@
       Bots filtern damit vor; ungültig platziert wird nichts, weil die Session
       zuletzt `checkTowerPlacement` fragt, es fallen nur Kandidaten weg.
       Zusammenlegen ändert die Kandidatenwahl der Bots.
+      **Entscheidung 2026-09-12:** zusammenlegen, eine Regelquelle für Spiel
+      und Bots.
 
 - [ ] **Decision-Explainer ist halb tot**
       `ai/core/decision-explainer.ts` schreibt seine Zusammenfassung nach
       `aiExplanation` im Game-Store, kein Template zeigt sie an;
       `lastExplanation` liest niemand. Übrig bleibt die Konsolen-Ausgabe im
-      `debugMode`. Anzeigen (z. B. im Wave-Debug-Fenster) oder entfernen.
+      `debugMode`.
+      **Entscheidung 2026-09-12:** im Wave-Debug-Fenster anzeigen (Zeile "Why
+      this wave"), `aiExplanation` dafür nutzen, `lastExplanation` entfernen.
 
 - [ ] **Debug-Fenster gemeinsam per `@defer` laden**
       Die elf Debug-Fenster liegen mit ~160 kB im Start-Bundle. Einzeln lohnt
       `@defer` nicht (8 kB Defer-Runtime gegen 13,8 kB beim Training-Fenster),
       gemeinsam schon. Befund aus dem Lazy-Training-Umbau (`85d8402`).
-
-- [ ] **Floating-Text-Pool nicht auf dem `InstanceSlotAllocator`**
-      Enemy-, Health-Bar-, Projektil-, Decal- und Lightning-Pools teilen sich
-      seit dem Sprint den Allocator. Der Floating-Text-Manager hat ein anderes
-      Modell (Draw-Count schrumpft beim Sweep, voller Pool verdrängt den
-      ältesten Text); eine Umstellung würde die Blend-Reihenfolge
-      überlappender Texte ändern und ist ohne Canvas-Mock nicht testbar.
 
 - [ ] **Kleinkram**
       Rocket-Düsenglühen (Trail-Streak) ist in der Länge FPS-abhängig ·
@@ -335,28 +202,6 @@
 
 ## 2.1 Tower-Balance
 
-- [ ] **Tower-Upgrade-Skalierung feintunen**
-      Aktuell teilen sich fast alle Combat-Tower dieselben Standard-Multiplikatoren
-      (`tower-types.config.ts:62-65`; Archer hat eine eigene Range-Kurve ×1.02):
-      - Damage: ×1.05/Level (L25 ≈ ×3.39)
-      - Fire Rate: ×1.06/Level (L25 ≈ ×4.29)
-      - Range: ×1.04/Level (L25 ≈ ×2.67)
-      → kombiniert L25 ≈ ×14.5 Base-DPS bei voller damage+speed-Spec, plus ×2.67 Reichweite.
-      (costScaling ist 1.25, nicht 1.40 — die früher hier notierten Werte waren veraltet.)
-      Beispiel Archer: auf hohen Leveln viel zu stark in Reichweite + Speed + Damage gleichzeitig — quasi unkillbar/unbalanciert.
-      Pro-Tower-Skalierung statt globale Konstanten? Oder andere Curve (z.B. niedrigerer Multiplier ab L15+)? Konzept überlegen, Werte balancen.
-      **Playtest 2026-09-10:** Die Reichweite einiger Tower ist im Endausbau
-      deutlich zu hoch. Bei ×1.04/Level wird aus der Cannon (80 m) auf L25 eine
-      Kanone mit rund 213 m Reichweite.
-
-- [ ] **Cannon Tower zu stark**
-      Playtest 2026-09-10: Die Cannon ist zu mächtig. Basiswerte heute
-      (`tower-types.config.ts:252-269`): 55 Schaden `siege`, Reichweite 80,
-      0,5 Schuss/s, Kosten 150, Geschoss `cannonball`. Ursache beim Anpacken
-      eingrenzen: Flächenschaden des Einschlags (Radius, Abfall),
-      `siege`-Multiplikatoren in `combat/damage-matrix.config.ts`, Reichweite im
-      Endausbau (siehe Eintrag oben), Preis.
-
 - [ ] **Schadensarten gegen Rüstungsarten viel deutlicher spreizen**
       Playtest 2026-09-10: Das Schadens- und Rüstungssystem hat zu wenig Einfluss.
       An manchen Gegnern sollen sich bestimmte Tower wirklich die Zähne
@@ -377,6 +222,9 @@
       - Die Schwellen für die Schadenszahlen-Farben (`EFFECTIVENESS_THRESHOLDS`)
         an die neue Spreizung anpassen.
       Verwandt: 3.3 Damage & Armor System.
+      **Stand 2026-09-12:** umgesetzt auf dem Sprint-Branch (`5b3102e`, Matrix
+      nach `BALANCE_PROPOSAL_2026-09.md`, Fairness-Floor 0,6). Bestätigung im
+      Playtest steht noch aus.
 
 
 ## 2.2 Phase 5.16 Playtest + Followups
@@ -409,10 +257,16 @@
       loopt einfach mod-30. Override in `templateForWave()` für
       `wave > 30 && wave % 5 === 0`.
       Datei: `src/app/configs/wave-curriculum.config.ts`.
+      **Stand 2026-09-12:** umgesetzt auf dem Sprint-Branch (`9e46b11`: jede
+      fünfte Welle ab W31 Boss, zwei neue Boss-Templates, Boss-Gold ×2).
+      Bestätigung im Playtest steht noch aus.
 
 - [ ] **Wave-Curriculum Gold-Budget feinjustieren**
       Nach Live-Playtest: `goldKill`/`goldComplete` in `wave-curriculum.config.ts` anpassen.
       Nach jeder Änderung `npm run economy-chart` für Sanity-Check.
+      **Stand 2026-09-12:** Nach dem Balance-Umbau steigt der Puffer bis W30 von
+      25 % auf 83 %. Wer W30 mit mehr als 150k Gold oder über 20 Towern
+      erreicht: Gold für W16 bis W30 um 20 % kürzen (Vorschlag §2.5).
 
 - [x] **Stone Golem ins Wave-Curriculum aufnehmen** — erledigt 2026-08-27.
       `golem_squad` hat `minWave: 14`, steht auf W15 im Curriculum und ist über
@@ -512,85 +366,45 @@
 
 ## 3.1 Visual Feintuning
 
-- [ ] **Muzzle Flash feintunen**
-      Grundsätzlich sichtbar, aber Intensität/Größe/Dauer anpassen
-      Prüfen: nur bei Projectile-Towern (Archer, Cannon, Gatling, Rocket), NICHT bei Ice/Magic/Fire
-
-- [ ] **Explosions-Partikel feintunen**
+- [ ] **Explosions-Partikel feintunen** (nächste Runde, festgelegt 2026-09-12)
       Sprite-Sheet Partikel (Flash→Fireball→Rauch) — Timing, Größe, Farben polieren
-      Betrifft Cannon- und Rocket-Einschläge
+      Betrifft Cannon- und Rocket-Einschläge. Zusammen mit
+      "Advanced-Explosion-Staging" (zweistufig, Backlog) denken.
 
-- [ ] **Screen Shake Performance untersuchen**
+- [ ] **Screen Shake Performance untersuchen** (nächste Runde, festgelegt 2026-09-12)
       Aktuell deaktiviert wegen Performance-Bedenken
       Messen: tatsächlicher FPS-Impact, ggf. nur bei nahen Explosionen aktivieren
       Dateien: `screen-shake.service.ts`, Display Options Toggle
-
-- [ ] **Color Grading Anwendungsfall klären**
-      Feature funktioniert (Dark Fantasy, Noir, Warm Sunset)
-      Brainstorming: als Gameplay-Element? (z.B. Nacht-Modus, Wetter), oder rein kosmetisch?
-      Aktuell nur im Debug-Panel zugänglich — evtl. in Settings verschieben
 
 - [ ] **Loading Screen optimieren**
       Layout/Wirkung des Initial-Loading-Screens überarbeiten. Detaillierter Stats-Block
       und 3D-Tiles-Counter sind 2026 vorhandene Basis (siehe DONE.md), aber Polish steht
       aus. Konkretisieren beim Anpacken (Bullet-Liste was raus/rein soll).
 
-- [ ] **Diskussion: Türme nach Wegfall des Ziels nicht in Grundstellung zurückdrehen**
-      Aktuell drehen Türme ihren Turret zurück in die Grundausrichtung,
-      sobald kein Gegner mehr in Sichtweite ist (`updateTowerIdleRotations`
-      → `resetRotation` in `tower-combat.service.ts`).
-      Vorschlag/TBD: stattdessen in der zuletzt eingenommenen Ausrichtung
-      stehen bleiben — wirkt „wacher" und spart die Rück-Animation.
-      Erst als Diskussionspunkt aufnehmen: die Grundstellung kann auch
-      gewollt sein (aufgeräumtes Bild zwischen Waves). Pro/Contra klären,
-      bevor implementiert wird.
-      Datei-Anker: `src/app/services/combat/tower-combat.service.ts`
-      (`updateTowerIdleRotations`, `resetRotation`).
+- [ ] **Türme nach Zielverlust nicht in die Grundstellung drehen**
+      Heute drehen Türme zurück, sobald kein Gegner mehr in Sicht ist
+      (`updateTowerIdleRotations` → `resetRotation` in
+      `tower-combat.service.ts`); das kostet bis 1 s bis zum nächsten Schuss,
+      weil ein Tower erst schießt, wenn er ausgerichtet ist
+      (`docs/game-design/UX_DISCUSSION_NOTES.md`).
+      **Entscheidung 2026-09-12:** Während der Welle in der letzten Richtung
+      stehen bleiben; nach der Welle zur Stelle drehen, an der die Route in die
+      Reichweite eintritt (Wachrichtung).
 
-- [ ] **Grid-Cell-Farben beim Tower-Platzieren: unklar und redundant**
-      Playtest 2026-09-10 (Trafalgar Square, Archer Tower). Die Legende im
-      Build-Mode kennt vier Zustände in einem gemeinsamen Zellraster: Ground +
-      Air (gelb), Ground (grün), Air (blau), Blocked (rot). Laut Playtest werden
-      Boden und Air dabei identisch dargestellt, das ist so nicht brauchbar.
-      Ziel:
-      - Unterscheiden, ob ein Tower Boden, Air oder beides (mixed) trifft.
-      - Mixed-Tower wie der Archer sollen beim Platzieren beides zeigen, aber
-        in klar unterscheidbaren Farben statt identisch.
-      Beim Anpacken zuerst klären, wie Ground- und Air-Layer heute gerendert
-      werden (Zellposition, Höhe, Farbe) und ob sich die Layer gegenseitig
-      verdecken. Vermutlicher Einstieg: `tower-los-layer-builder.ts` und die
-      Build-Mode-Legende (ungeprüft).
+- [ ] **Kampfspuren (Heatmap Schicht 1)**
+      Studie: `docs/game-design/COMBAT_HEATMAP_STUDY.md` (machbar).
+      **Entscheidung 2026-09-12:** Schicht 1 umsetzen: Brand- und Kampfspuren
+      als Decals auf dem vorhandenen Decal-Pool, höchstens einer pro
+      Route-Grid-Zelle (dedupliziert), rein optisch, Aufwand S. Die
+      Kill-Heatmap (Schicht 2) bleibt vorerst weg.
 
-- [ ] **Untersuchen: Kampfzonen einfärben**
-      Idee: Bereiche, in denen häufig gekämpft oder explodiert wird, sichtbar
-      einfärben (Heatmap, Brand- oder Kampfspuren). Erst untersuchen, ob das
-      sinnvoll und machbar ist:
-      - Datenquelle: Kill-, Treffer- und Explosions-Events über den
-        GameEventBus, pro Route-Grid-Zelle akkumuliert.
-      - Darstellung: Die Photoreal-Tiles ignorieren dynamische Lichter, also
-        additive Overlays oder Decals statt Lichtern. Der `DecalInstanceManager`
-        (Free-List-Pool) existiert bereits.
-      - Offen: pro Wave oder pro Spiel, Abklingen, Kosten bei großen Waves,
-        Lesbarkeit neben den LOS-Zellen im Build-Mode.
-
-- [ ] **Magic-Tower-Geschoss sieht nach Feuer statt nach Magie aus**
-      Playtest 2026-09-10. Das ist so konfiguriert: Der Magic Tower schießt
-      `projectileType: 'fireball'` (`tower-types.config.ts:284`), dessen
-      Partikel-Schweif läuft von Tiefrot nach Orange
-      (`projectile-types.config.ts:94-110`). Eigene Magie-Optik entwerfen, zum
-      Beispiel violett, blau oder cyan, Funkeln oder Spiralen statt Glut, dazu
-      ein passender Einschlag. Den Namen `fireball` dabei durch einen passenden
-      ersetzen. Verwandt: Selective Bloom für Magic-Orb-Highlights im Backlog
-      (Visual Effects - Advanced).
-
-- [ ] **Rocket Tower: Geschoss, Schweif und Sound überarbeiten**
-      Playtest 2026-09-10: zu wenig Rakete, zu viel Feuerschweif. Das Geschoss
-      selbst muss als Rakete erkennbar werden, der Schweif deutlich
-      zurückhaltender. Konfiguriert in `projectile-types.config.ts:174`
-      (`rocket`, `visualType: 'rocket'`, Trail-Partikel). Außerdem den
-      Abschuss-Sound ersetzen: heute `assets/sounds/towers/rocket/launch.mp3`
-      (`projectile-types.config.ts:260-261`). Die Einschläge laufen separat
-      unter "Explosions-Partikel feintunen".
+- [ ] **Rocket Tower: Abschuss-Sound ersetzen**
+      Geschoss und Schweif sind seit dem Sprint 2026-09-11 erledigt (DONE.md
+      2026-09-12). Offen ist nur der Sound: `assets/sounds/towers/rocket/launch.mp3`
+      ist ein tiefer Knall (87 % der Energie unter 150 Hz), per Pitch oder
+      Filter wird daraus kein Zischen, und im Repo passt kein anderer Sound.
+      Anforderung an ein neues Asset in `docs/PROJECTILES.md` unter "Bekannte
+      Einschränkungen" (CC0, Zischen mit Schwerpunkt 1-6 kHz, 0,6-0,9 s, mono).
 
 ## 3.2 Visual Settings (Performance-Toggles)
 
@@ -609,23 +423,15 @@
 - [ ] **Chaos Tower (`chaos`)** — Teuer, voller Schaden gegen alle Armor-Typen
       (Hinweis: `chaos` ist aktuell **nicht** im `DamageType`-Enum
       → Type erst erweitern, Matrix-Eintrag ergänzen)
+      Nächste Runde (festgelegt 2026-09-12).
 
 - [ ] **Globale Damage-Matrix-Übersicht im UI** (Optional, niedrige Priorität)
       Tooltips zeigen aktuell nur Multiplier per Tower und per Enemy. Eine globale
       "vs"-Tabelle (alle Tower × alle Armor) gibt es nicht. Eigener Sidebar-Tab oder
       Hilfe-Dialog möglich.
-
-- [ ] **`burn` Status-Effekt: totlegen oder fertig bauen**
-      `burn` ist im `StatusEffectType`-Union (`status-effects.ts:4`), wird aber von
-      `MovementComponent.updateStatusEffects` nicht behandelt — nur slow/freeze/poison
-      haben Tick-/Gameplay-Logik. `burn` ist damit aktuell ein toter Typ ohne Wirkung.
-      Erst prüfen, ob überhaupt etwas `burn` appliziert (Flame Tower?). Dann entscheiden:
-      entweder vollwertigen DOT-Tick analog `poison` implementieren (Game-Time-skaliert,
-      kein Wall-Clock — High-Timescale muss identische Ergebnisse liefern) — oder den Typ
-      ersatzlos entfernen. Größerer Status-Effekt-/Enemy-Trait-Ausbau (Regen, Shielded,
-      Camo, Mark) ist ein separates Game-Design-Thema (MASTER_GAME_DESIGN.md).
-      Dateien: `models/status-effects.ts`, `game-components/movement.component.ts`,
-      `entities/enemy.entity.ts`.
+      **Stand 2026-09-12:** Dialog auf dem Sprint-Branch (`46c350d` bis
+      `324ca45`); nach dem Playtest überarbeitet (gesperrte Tower ausblenden,
+      Breite, Optik) auf `wt/fix-matrixui`, Retest steht aus.
 
 ## 3.4 Wave Director — Build & Deployment
 
@@ -639,6 +445,9 @@
       Start importiert, sondern nur in `loadModel()` — die 404 kB liegen damit
       hinter einem Lazy-Chunk, den niemand mehr anfordert. Offen bleibt der
       Training-Code (`ai/training/`).
+      **Stand 2026-09-12:** per Lazy-Loading statt fileReplacements umgesetzt
+      (`85d8402`, `ab6a7c1`, `88ddc55`); Test mit Backend und DevWorld-Tab
+      steht aus.
 
 - [ ] **Model Validation** — nur relevant, falls der ONNX-Pfad produktiv wird
       `scripts/validate-model.js`
@@ -652,55 +461,21 @@
       Model Metrics (Entropy, Grad Norm, etc.) als eigene Gruppe rechts
       Dezenter als Hauptmetriken, nach "Game Over" Bereich
       Dateien: `training-backend/dashboard/static/index.html`, `style.css`
-
-## 3.6 Attributions
-
-- [ ] Skybox (day.webp, night.webp) Quelle ermitteln und eintragen
-- [ ] stone-wall.jpg Quelle ermitteln und eintragen
-- [ ] Sound Effects Quellen ergänzen (alle außer Tentacle Slime)
+      **Stand 2026-09-12:** umgesetzt (`c2ee884`), Sichtprüfung beim nächsten
+      Trainingslauf steht aus.
 
 ## 3.7 UI-Feinschliff und Debug-Oberfläche
 
-- [ ] **Debug-Menü aufräumen**
-      Die Button-Leiste ist eine einzige vertikale Reihe und überlappt
-      inzwischen nach oben bis zum Kompass. Auf zwei vertikale Reihen umbauen
-      und die Einträge sinnvoll gruppieren.
-
-- [ ] **Debug-Panels: alle resizable, gleiches Verhalten**
-      Heute sind Tower, Enemy, Events, LOS und Performance resizable
-      (`[resizable]`, `DEFAULT_SIZES` in `debug-window.service.ts`). Camera,
-      Wave, Sound, DevWorld, Training und Display sind es nicht. Alle Panels
-      sollen sich gleich verhalten: resizable, Größe gespeichert, gleiche
-      Mindestgrößen.
-
-- [ ] **Next-Wave-Button optisch überarbeiten**
-      Passt vom Stil her nicht mehr zum Rest der Oberfläche.
-
-- [ ] **Header-Infos an der Sidebar ausrichten**
-      Die drei Infos oben (Health, Gold, Wave-Nummer) sind gemessen an der
-      Sidebar nicht sauber ausgerichtet, das stört im Gesamtbild.
-
-- [ ] **Deutsche Texte in der UI auf Englisch umstellen**
-      Playtest 2026-09-10: Beim Tower-Platzieren erscheinen deutsche Hinweise
-      wie „Zu nah an Route" und „Zu nah am Spawn". Fundstellen:
-      - `tower-placement.service.ts:682-717` (`validateTowerPosition`, der
-        Pfad für die Maus-Vorschau): „Ausserhalb Spielbereich", „Zu nah an
-        Basis", „Zu nah am Spawn", „Zu nah an Tower", „Zu nah an Route".
-        Direkt darunter prüft `validateTowerPositionWithHeight` (Zeile
-        732-779, nur vom Training-Client benutzt) dieselben Regeln mit
-        englischen Texten. Beim Umstellen die beiden Methoden auf eine
-        gemeinsame Prüfung zusammenlegen statt nur die Texte zu tauschen. Dort
-        steht auch noch ein `// TEMP DEBUG`-`console.warn` (Zeile 695-697).
-      - Ortsnamen: „Unbekannter Ort" (`geocoding.service.ts:267` und `:321`,
-        `location-dialog.component.ts:1000/1005`, dort als Vergleichswert, also
-        mit ändern), „Kein Ort" in `location-management.service.ts:219`, obwohl
-        der Startwert in Zeile 30 schon „No location" ist.
-      - `ai/core/decision-explainer.ts`: Begründungen des Wave-Directors
-        („Keine Anti-Air Tower …", „Welle N: … Gegner", ohne Umlaute). Landet
-        in `aiExplanation` im Game-Store, wird aber derzeit in keinem Template
-        angezeigt. Mit umstellen oder prüfen, ob der Explainer noch gebraucht
-        wird.
-      Kommentare im Code bleiben deutsch, es geht nur um sichtbare Texte.
+- [ ] **Design-Runde: Header, Next-Wave-Button, Dev-Menü**
+      Playtest 2026-09-11 nach dem Sprint: Dev-Menü (zwei Spalten) und Header
+      (bündig mit der Sidebar) sind funktional erledigt (DONE.md 2026-09-12),
+      sehen aber noch nicht gut aus. Der Next-Wave-Button wirkt weiterhin
+      billig, auch im Teal der Restart-Buttons (Idee: anderes Icon und Farbe,
+      z. B. Gold für die wichtigste Aktion), die Header-Optik ist
+      unspektakulär, das Dev-Menü mit seinen zwei Button-Spalten ist nicht
+      hübsch. Gemeinsam gestalten statt einzeln, mit visuellem Feedback.
+      **Entscheidung 2026-09-12:** über Design-Canvas-Mockups (Artifact), die
+      der Nutzer zurechtklickt; danach setzt ein Worker exakt das um.
 
 ---
 
@@ -716,6 +491,8 @@
       - `utils/` - logger (tui_logger + auto_logger mergen)
       - `scripts/` - export, analyze (bereits teilweise)
       Import-Pfade in server.py anpassen
+      **Stand 2026-09-12:** umgesetzt (`058df7a`), Test mit einem echten
+      Trainingslauf (Checkpoint laden) steht aus.
 
 ## Performance - Advanced
 
@@ -726,6 +503,9 @@
       Texturgrößen, VAT-Frame-Count, ggf. Splitting in LOD-Stufen) — kein
       Code-Fix, sondern Asset-Pass. Backup liegt als
       `public/assets/models/enemies/zombie_v2.original.glb.bak` vor.
+      **Festgelegt 2026-09-12:** auf alle Gegnermodelle ausweiten: erst alle
+      vermessen (Dreiecke, Knochen, Texturgrößen, VAT-Frames), die schwersten
+      zuerst optimieren; das Blender-Werkzeug (MCP) ist angebunden.
 
 - **Verworfen: Enemy Movement auf SoA (Structure of Arrays)**
       Nicht erneut als Teilumbau angehen. Gebaut in `bd1d3a5`, zurückgenommen in
@@ -742,14 +522,16 @@
       ⚠️ GPU-Instancing existiert bereits — Entity-Pooling (JS-Objekte) nochmal prüfen ob GC-Druck messbar ist
 - [ ] **Tower-Model-LOD-System** - Three.js LOD: High/Medium/Low
 - [ ] **BVH für Terrain Raycasts** - 50ms → 0.5ms (weniger kritisch, siehe Hinweis in PERFORMANCE_REPORT)
-- [ ] **Web Worker Offloading** - Pathfinding + weitere rechenintensive Logik
-      Pathfinding: 200-600ms → 0ms Main Thread
-      Auch prüfen: Collision-Checks, Wave-Director-Inference, Audio-Decoding
+      Stand 2026-09-12: three-mesh-bvh ist nicht im Projekt, Raycasts gegen die
+      Tiles laufen Dreieck für Dreieck. Nutzen bei Laden, Terrain-Sweeps,
+      Platzier-Vorschau und Intro-Sampling, nicht bei den FPS in Wellen;
+      Kosten: BVH-Aufbau pro Tile beim Laden, mehr Speicher. Erst messen, wie
+      viel Zeit Raycasts heute kosten.
+- [ ] **Web Worker Offloading** - weitere rechenintensive Logik
+      Pathfinding läuft bereits im Worker (`pathfinding-worker.service.ts`).
+      Übrige Kandidaten (Collision-Checks, Wave-Director-Inference,
+      Audio-Decoding) bringen wenig; für die FPS in Wellen kein Hebel.
 - [ ] **Tower GPU Instancing** - Schwierig wegen Rotationen
-- [ ] **Konfigurierbares FPS-Limit** (60/30/unlimited)
-      Reduziert GPU-Last bei guter Hardware, mehr Budget fuer 3D-Tiles-Streaming
-      Stelle: `three-tiles-engine.ts` → `startRenderLoop()`
-      ~20 Zeilen Core, optional UI-Setting in localStorage
 
 ## Game-Loop Performance (Speed-Multiplikator)
 
@@ -759,11 +541,14 @@
       `update()`-Kette aufteilen: `microStep(dt)` läuft N× pro Frame und enthält nur substep-kritisches (Movement, Hittest, Status-Restzeit-Decrement). `frameStep(totalDt)` läuft 1× pro Frame und enthält Targeting, Spatial-Grid-Rebuild, VFX/Audio-Trigger, Three.js-Sync, Signal-Emits.
       Aktuell **nicht dringend** — bei x4 mit ~1000 Enemies bleibt 10% Idle-Reserve. Erst bei extremen Setups (>2000 Enemies, x10+) wieder relevant. Determinismus für x75-Training muss erhalten bleiben.
       Startpunkte: `src/app/services/game-loop-facade.service.ts`, `src/app/managers/enemy.manager.ts:285`, `src/app/managers/projectile.manager.ts`, `src/app/managers/status-effect.manager.ts`.
-
-- [ ] **Preview-RAF-Drosselung** (optional)
-      `ModelPreviewService` läuft mit voller Display-Refresh-Rate (60 fps). Auf 15–30 fps drosseln oder via IntersectionObserver pausieren wenn Sidebar-Canvas nicht im Viewport. Spart weitere ~5% bei sichtbarer Build-Sidebar.
+      Einschätzung 2026-09-12: Nach dem Hot-Path-Umbau (21 → 48 FPS bei 20k)
+      lohnt das nur noch bei extremen Speed-Faktoren im Training und gefährdet
+      die Deterministik; weit hinten lassen.
 
 - [ ] **Training-Bot-Snapshots lazy berechnen** (LOW PRIO)
+      Stand 2026-09-11: war bereits umgesetzt (`updateBot(() => snapshot, dt)`
+      mit `tickCooldown`), im Sprint nur Tests ergänzt (`f3b0c79`). Kann nach
+      einem Trainingslauf geschlossen werden.
       Im Substep wird für den Bot ein kompletter State-Snapshot erzeugt, bevor klar ist,
       ob der Bot wegen Reaction-Cooldown überhaupt eine Entscheidung trifft. Bei x75 viele
       teure Snapshots pro gerendertem Frame.
@@ -824,7 +609,6 @@
 
 ## Terrain & Routing Experimente
 
-- [ ] **OSM bridge/tunnel Tags abfragen** - `bridge=yes`/`tunnel=yes`/`layer=*` in Overpass-Query mitabfragen, im Street-Interface speichern, bei Höhenkorrektur berücksichtigen (bridge → Korrektur überspringen)
 - [ ] **Laterales Sampling nur auf Routen** - Aktuell wird getGroundHeightEstimate für alle gefilterten Straßen aufgerufen (4 Extra-Raycasts pro Punkt). Optimierung: nur für Straßen die tatsächlich Routen sind das teure laterale Sampling nutzen, restliche Straßen im Korridor mit einfachem Raycast + Smoothing rendern
 - [ ] **Gewässer von OSM laden** - `natural=water`, `waterway=river/stream/canal` über Overpass abfragen. Gewässer als unpassierbare Zonen ins Routing einbeziehen → Brücken werden natürliche Chokepoints (Engstellen). Optional: Gewässerflächen visuell auf der Karte darstellen
 
@@ -850,6 +634,11 @@
       - Spieleraktionen im Sub-Step verarbeiten, damit die Simulation
         deterministisch bleibt (siehe MULTIPLAYER_CONCEPT.md).
       Ergebnis sollte ein Konzept in `docs/game-design/` sein, bevor gebaut wird.
+      **Stand 2026-09-12:** Konzept liegt vor
+      (`docs/game-design/PLAYER_AGENCY_CONCEPT.md`, Empfehlung Nuklearschlag
+      zuerst). Nächster Schritt laut Nutzer: Konzept gemeinsam schärfen (Name
+      der Fähigkeit, ob Fähigkeits-Kills für den Gate-Regler als Leck zählen,
+      Ladungen pro Welle), erst danach bauen.
 
 ## Tower-Ideen
 
@@ -862,7 +651,5 @@
 
 - [ ] **MechaCat** - Roboter-Katze als neuer Gegner-Typ
       Model bereits vorhanden: `public/assets/models/enemies/candidates/mechacat_01.glb`
-- [ ] **Ghost** - `ethereal` Rüstung, nur Magic/Chaos wirkt
-- [ ] **Skeleton** - `unarmored`, Swarm
-- [ ] **Golem** - `fortified`, Boss
-- [ ] **Dragon** - `heavy` + Air, fliegender Boss
+- [ ] **Ghost** - `ethereal` Rüstung, nur Magic/Chaos wirkt (nächste Runde, festgelegt 2026-09-12)
+- [ ] **Skeleton** - `unarmored`, Swarm (nächste Runde, festgelegt 2026-09-12)

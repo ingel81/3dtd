@@ -4,6 +4,127 @@ Chronologische Liste aller erledigten Features und Fixes (neueste zuerst).
 
 ---
 
+## 2026-09-12
+
+### Sprint 2026-09-11, im Playtest bestätigt
+
+Umgesetzt auf `sprint/todo-2026-09-11` (Übersicht in
+`docs/REVIEW_SPRINT_2026-09-11.md`), nach dem Playtest vom 2026-09-11 aus
+TODO.md übernommen. Einträge, die der Playtest nicht direkt geprüft hat,
+stehen weiter in TODO.md.
+
+- [x] **Tower-LOS pro Sweep statt pro Slice, verteilt über Frames**
+      Geänderte Zellen werden pro Tower gesammelt, nach dem Terrain-Sweep
+      einmal neu gerechnet, ein Tower pro Frame, Wartezeit höchstens 3 s
+      (`fac16de`, `2a9d320`, `d3c01b2`, `e6ed8c2`).
+      **Warum:** Derselbe Tower wurde pro Slice neu gerendert, beim großen
+      Reinzoomen fror das Bild 1 bis 2 s ein. Deckt auch den Zoom-In-Spike
+      aus 1.4 ab.
+
+- [x] **AA-Retrofit bekommt seine Luft-LOS**
+      Der Research-Handler reiht die Tower ein, statt vor dem Store-Update neu
+      zu rechnen (`1b11e46`). Weitere Research-Effekte, die eine Registrierung
+      entwerten, gibt es nicht (in HANDOVER_ROUTE_GRID_GPU_LOS.md).
+      **Warum:** Umgerüstete Gatlings bekamen keine vorberechnete Air-LOS,
+      schossen über den Raycast-Fallback und verpassten Zellen, die nur in
+      Flughöhe sichtbar sind.
+
+- [x] **Instancing: Flush trotz "Animationen aus", `activeCount` schrumpft**
+      Nur das Weiterzählen der Animation hängt am Schalter
+      (`3f71c64`); ein gemeinsamer `InstanceSlotAllocator` für Gegner,
+      Health-Bars, Projektile und Decals senkt `activeCount`, sobald die oberen
+      Slots frei werden (`a2025b7`, `55635e9`).
+      **Warum:** Mit Animationen aus froren Gegner ein; nach einer Peak-Welle
+      luden die Flushes dauerhaft Peak-große Buffer hoch.
+
+- [x] **Route-Grid-Zellschlüssel einheitlich mit `Math.floor`**
+      Alle Lookups laufen über `cellIndex()` (`333894e`).
+      **Warum:** Östlich und südlich des HQ landeten Gegner in der
+      Nachbarzelle, für Targeting und Bodenhöhe.
+
+- [x] **Wallsmasher-Rush wieder da, deterministisch**
+      Gehen und Rennen im Wechsel von 3 bis 8 s Spielzeit, geseedet aus der
+      Enemy-ID, Multiplikator wirkt im selben Sub-Step (`2d4806d`);
+      `baseSpeed` 7 auf 4 hält die mittlere Laufzeit (`a43fd26`).
+      **Warum:** Seit dem Entfernen des klassischen Renderers im April ging
+      der Wallsmasher nur noch.
+
+- [x] **`game-sidebar` in Panels zerlegt**
+      Wave-, Build-, Tower- und Research-Panel als eigene Components, Parent
+      von 743 auf 105 Zeilen; Kills und Research-Balken hängen an eigenen
+      Events (`1162a4c` bis `5041be1`).
+
+- [x] **Lightning-Bolts in einem Draw Call**
+      Ein Mesh mit `InstancedBufferGeometry` statt 192 Meshes (`e847bee`).
+
+- [x] **Upgrade-Kurven und Cannon**
+      Ab L16 nur noch 40 % des Zuwachses, Profile je Tower, Range-Track auf
+      10 Stufen ×1,03 gekappt (`90662f0`); Cannon mit 6 m Splash, höchstens
+      8 Zielen, 70 m Reichweite, siege gegen unarmored/light 0,5 (`401c6a1`).
+      Vorlage: `docs/game-design/BALANCE_PROPOSAL_2026-09.md`.
+      **Warum:** L25 brachte das 14,5-Fache der Basis-DPS, die Cannon kam auf
+      213 m Reichweite.
+
+- [x] **`burn` gebaut**
+      20 % der Fire-Beam-DPS laufen als 3-s-Nachbrennen, DoT-Kills zählen für
+      den Quell-Tower (`9c01a1d`).
+
+- [x] **Projektile: Magic-Orb, Rakete, Muzzle Flash**
+      Magic schießt einen violett-cyanen `arcane-orb` (`c91a011`), die Rakete
+      ist als Rakete erkennbar und zieht Rauch statt Feuer (`e59383e`),
+      Muzzle Flash nur bei Archer, Gatling, Cannon und Rocket mit Größe je
+      Tower (`574ce33`), Geschosse zeigen in die echte Flugrichtung
+      (`330b173`). Der Raketen-Sound bleibt in TODO.md.
+
+- [x] **Zellfarben beim Platzieren**
+      Boden grün, Luft blau, verdeckt orange-rot; jede Ebene zeigt nur ihre
+      eigene Abdeckung (`5472a8f`, `e151a70`).
+      **Warum:** Beide Ebenen rechneten dieselbe Sammelfarbe und sahen
+      identisch aus.
+
+- [x] **Dev-Menü, Debug-Panels, Header, englische Texte**
+      Dev-Menü in zwei gruppierten Spalten (`6fa7913`), alle Debug-Panels
+      resizable mit gespeicherter Größe (`25ff7d4`), Header-Stats bündig mit
+      der Sidebar (`9720314`), alle sichtbaren Texte englisch mit einer
+      gemeinsamen Platzierungsprüfung (`cb2162a`). Die Optik von Header,
+      Next-Wave-Button und Dev-Menü steht als Design-Runde in TODO.md.
+
+- [x] **FPS-Limit und Preview-Drosselung**
+      60, 30 oder unbegrenzt im Display-Menü (`f7a207b`, `797a56f`),
+      Model-Previews mit 30 fps (`01780f5`).
+
+### Sprint 2026-09-11, per Tests belegt (im Spiel nicht direkt prüfbar)
+
+Auf Zuruf übernommen: Regressionstests schlagen auf dem alten Code fehl, ein
+Review-Agent hat die Stellen gegengelesen.
+
+- [x] **Stille Höhenänderungen erreichen andere Tower** (`ef1a1c7`): Höhen,
+      die beim Registrieren bewegt werden, werden nach der Schleife gemeldet.
+- [x] **Projektile laden nur die belegte Scheibe hoch** (`c6ec30f`), deckt
+      auch den G5-Rest ab.
+- [x] **Health-Bars ohne ungenutztes `instanceMatrix`** (`27aab53`): Mesh auf
+      `InstancedBufferGeometry`, 2,56 MB weniger.
+- [x] **Beam-Fallback-Radius** (`1e887b4`), später durch "Fire erfasst nur,
+      was die Flamme erreicht" (`a1302d0`) ersetzt.
+- [x] **Kleinkram aus dem Merge-Review** (`fd26179`, `b4df1d2`, `65f6b32`,
+      `8e92e9b`, `08ded24`): Beam-Blut-Throttle pro Gegner, Kill-Zählung nur
+      bei echtem Tod, `effectiveSpeed`-Getter entfernt, Wake-Check mit
+      Konstante, gemeinsamer Kandidaten-Helper.
+- [x] **Audio-Loop nach dem Entfernen des Gegners** (`aec28d6`): Token pro
+      Loop, verspätete Loops werden sofort gestoppt.
+- [x] **`global-route-grid.ts` aufgesplittet** (`d4c2475` bis `493998b`):
+      2199 auf 1253 Zeilen, fünf Module, Hot Path byte-gleich.
+
+### Entscheidungen aus dem Review (Einträge geschlossen)
+
+- **Color Grading:** bleibt ein Debug-Feature.
+- **L3, 3D-Reichweite für Luftziele:** Die Reichweite bleibt horizontal (2D).
+- **Attributions** (Skybox, stone-wall.jpg, Sounds): laut Nutzer erledigt.
+- **Gestrichen:** Golem und Dragon unter Enemy-Ideen (gibt es als Stone Golem
+  und Dragon), Floating-Text auf den `InstanceSlotAllocator` (anderes
+  Pool-Modell, kein Gewinn), Range-Monotonie absichern (keine Range-Debuffs
+  geplant).
+
 ## 2026-09-10
 
 ### Dependency-Update und was die neuen Libs hergeben
