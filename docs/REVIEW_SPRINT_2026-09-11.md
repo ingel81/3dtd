@@ -8,18 +8,17 @@ welche Einträge erledigt sind, steht unten in der Tabelle "TODO-Stand".
 
 | Branch | Inhalt | Empfehlung |
 |---|---|---|
-| `sprint/todo-2026-09-11` | Bugfixes, Refactorings, UI, Performance, Doku, Konzepte | nach Playtest nach `main` |
-| `draft/gameplay-2026-09-11` | Burn-Effekt, Wallsmasher-Rush, Rush-Kompensation | Entscheidung je Commit |
-| `draft/lightning-instanced-2026-09-11` | Lightning-Bolts in einem Draw Call | nach Sichtprüfung |
-| `draft/balance-2026-09-11` | Umsetzung von `BALANCE_PROPOSAL_2026-09.md` | Entscheidung je Commit |
+| `sprint/todo-2026-09-11` | Bugfixes, Refactorings, UI, Performance, Balance, Doku, Konzepte | nach Playtest nach `main` |
 
-Die drei Draft-Branches bauen auf dem finalen Stand des Sprint-Branches auf.
-Die Commits dort bauen aufeinander auf; sauber verwerfen lassen sie sich von
-hinten. Ausnahmen stehen bei den einzelnen Branches unten.
+Die drei Draft-Branches (`draft/gameplay-2026-09-11`,
+`draft/lightning-instanced-2026-09-11`, `draft/balance-2026-09-11`) hast du am
+Morgen des 2026-09-11 komplett übernommen; sie sind in den Sprint-Branch
+gemergt und stehen nur noch als Marker da. Details im Abschnitt "Aus den
+Drafts übernommen".
 
-Stand Sprint-Branch: 90 Commits vor `main` (plus diesem Dokument), 205 Dateien,
-+14 553 / -6 279 Zeilen. vitest 96 Testdateien mit 1264 Tests (vorher 66 mit
-1003), beide tsc, ESLint und Production-Build grün.
+Stand Sprint-Branch: 104 Commits vor `main`, 254 Dateien, +17 594 / -7 395
+Zeilen. vitest 100 Testdateien mit 1320 Tests (vorher 66 mit 1003), beide
+tsc, ESLint, pytest und Production-Build grün.
 
 ## Vorgehen
 
@@ -157,22 +156,24 @@ solltest.
 ## Entscheidungen für dich
 
 1. **`76a6197`** behalten? Macht Range-Upgrades wirksamer.
-2. **Gameplay-Draft**: Burn (20 % der Fire-DPS als Nachbrennen, DoT-Kills an den
-   Tower) ja/nein; Wallsmasher-Rush ja/nein; wenn ja, die Kompensation
-   (`baseSpeed` 4) dazu. Burn lässt sich allein übernehmen; der Rush baut auf
-   dem Burn-Commit auf und braucht ohne ihn eine Konfliktauflösung in
-   `enemy.manager.ts`.
-3. **Balance-Draft**: welche Commits. Die Bugfix-Commits am Anfang lohnen sich
-   auch einzeln. Offene Fragen aus dem Vorschlag stehen am Ende von
-   `BALANCE_PROPOSAL_2026-09.md`.
+2. **Gameplay und Balance**: entschieden, alles übernommen. Nach dem Playtest
+   offen: Gold für W16 bis W30 nachsteuern, falls der Puffer zu groß ist, und
+   die übrigen offenen Fragen am Ende von `BALANCE_PROPOSAL_2026-09.md`.
+3. **Lightning**: übernommen, im Playtest ansehen (Shader nur per Review
+   geprüft).
 4. **Raketen-Sound**: braucht ein neues CC0-Asset, Anforderung in
    `docs/PROJECTILES.md`.
 5. **Route an der Engstelle**: nach `__routes.describe()` im Playtest
    entscheiden (Fälle A bis D in `ROUTE_GEOMETRY_ANALYSIS.md`).
 
-## Draft-Branches im Detail
+## Aus den Drafts übernommen
 
-### `draft/gameplay-2026-09-11` (3 Commits)
+Reihenfolge im Sprint-Branch: Lightning, dann Balance, dann Gameplay. Beim
+Übernehmen wurde der Burn-Commit auf den neuen Fire-Beam aus dem Balance-Teil
+gesetzt (20 % der Beam-DPS inklusive Upgrade-Faktor), `ai-schema.json` enthält
+Balance-Stand und `baseSpeed` 4.
+
+### Gameplay (`9c01a1d`, `2d4806d`, `a43fd26`)
 
 1. **fire beam applies burn**: Bisher applizierte nichts `burn`, das Design
    sieht ihn aber vor. 20 % der Fire-DPS laufen als Nachbrennen (3 s, Tick
@@ -184,10 +185,10 @@ solltest.
    selben Sub-Step. Rennt 50 % der Zeit, im Mittel +75 % Tempo.
 3. **slow the wallsmasher walk**: `baseSpeed` 7 auf 4 (Mittel wieder 7 m/s),
    Animationsgeschwindigkeit angepasst, `ai-schema.json` neu. Nur zusammen mit 2.
-   Der Commit-Body nennt noch den Hash vor dem Rebase (`9b5776f`); gemeint ist
-   der Rush-Commit `e82b88d`.
+   Der Commit-Body nennt noch einen Hash von vor dem Rebase (`9b5776f`);
+   gemeint ist der Rush-Commit `2d4806d`.
 
-### `draft/lightning-instanced-2026-09-11` (2 Commits)
+### Lightning (`e847bee`, `29b9799`)
 
 Alle Bolts über ein Mesh mit `InstancedBufferGeometry`, Instanzdaten in einem
 Buffer, Slots über den `InstanceSlotAllocator`. Vorher 192 Meshes und bis zu
@@ -195,7 +196,7 @@ Buffer, Slots über den `InstanceSlotAllocator`. Vorher 192 Meshes und bis zu
 vorher. Der Shader ist nicht im Browser kompiliert: Wenn Blitze fehlen, steht
 der Fehler in der Konsole.
 
-### `draft/balance-2026-09-11` (7 Commits)
+### Balance (`1b08dc1` bis `9e46b11`)
 
 1. **splash only hits what the tower can target**: Cannon- und Poison-Splash
    treffen keine Flieger mehr (Bugfix).
@@ -222,11 +223,12 @@ bewusst nicht nachgesteuert; wenn du bei W30 über 150k Gold oder mehr als 20
 Tower hast, schlägt der Vorschlag vor, das Gold für W16 bis W30 um 20 % zu
 kürzen.
 
-Einzeln übernehmen: Die Commits 1 bis 3 lohnen sich auch ohne den Rest. Der
-Matrix-Commit (6) lässt sich allein weglassen. Der Boss-Takt (7) lässt sich
-einzeln übernehmen; beim Cherry-Pick kollidieren nur das Economy-Chart und
-dessen Spec (Chart neu generieren, Spec nachziehen). Die übrigen Commits
-bauen aufeinander auf.
+Falls du nach dem Playtest Teile zurücknehmen willst: Die Commits bauen
+aufeinander auf und lassen sich sauber von hinten zurücknehmen. Der
+Matrix-Commit (`5b3102e`) lässt sich allein revertieren. Die Bugfixes
+(`1b08dc1`, `a1302d0`, `cc0aabc`) sollten bleiben, auch wenn der Rest geht.
+Der Rush (`2d4806d`) setzt Burn (`9c01a1d`) voraus, die Kompensation
+(`a43fd26`) ergibt nur mit dem Rush Sinn.
 
 ## Playtest-Liste
 
@@ -247,6 +249,14 @@ bauen aufeinander auf.
 - Damage-vs-Armor-Dialog, Esc im Build-Mode schließt nur den Dialog.
 - Magic-Orb, Rakete, Muzzle Flash; Pfeile und Raketen zeigen auch bei
   diagonalen Schüssen in Flugrichtung.
+- Lightning- und Chain-Tower: Blitze sichtbar, Halos am Treffer, Verdeckung
+  durch Gebäude, Draw Calls im Performance-Panel deutlich niedriger.
+- Balance: Mid-Game (T3/T4) noch belohnend? Cannon gegen Tanks nötig, gegen
+  Schwärme schwach? Leckt ein falsches Roster spürbar, aber verkraftbar? Gold
+  bei W30 über 150k oder mehr als 20 Tower? Ab W31 jede fünfte Welle ein Boss.
+- Fire-Tower: Reichweite 20 m, Gegner brennen nach dem Kegel noch 3 s nach
+  (orange Tint und Zahlen).
+- Wallsmasher wechselt zwischen Gehen und Rennen, Füße rutschen nicht.
 - Training: Backend starten, DevWorld-Tab, `training-session-*.js` lädt,
   Checkpoint lädt, Dashboard-Header.
 - An der Engstelle aus dem 2026-09-10-Playtest: `__routes.describe()`.
@@ -269,16 +279,16 @@ Erledigt auf dem Sprint-Branch, nach deinem OK nach DONE.md zu verschieben:
 | 1.1 Route folgt der Straße nicht | teilweise: Analyse, HQ-Fix, Diagnose; Ursache offen | `fcbe1d8` bis `565b0ca` |
 | 1.1 Zellschlüssel floor/`\|0` | erledigt | `333894e` |
 | 1.1 Audio-Loop nach Entfernen | erledigt | `aec28d6` |
-| 1.1 Wallsmasher-Rush | Entwurf | `draft/gameplay-2026-09-11` |
+| 1.1 Wallsmasher-Rush | erledigt (wieder eingebaut, mit Kompensation) | `2d4806d`, `a43fd26` |
 | 1.2 `three-tiles-engine.ts` abspecken | erledigt | `04ca3d7` bis `9f1e701` |
 | 1.2 `game-sidebar` aufteilen | erledigt | `1162a4c` bis `5041be1` |
 | 1.2 `global-route-grid.ts` aufsplitten | erledigt bis auf den LOS-Resolve, der in `global-route-grid.ts` bleibt | `d4c2475` bis `493998b` |
 | 1.4 Tower-LOS Zoom-In-Spike | erledigt | `2a9d320` |
-| 1.5 P2 Lightning-Bolts instanziert | Entwurf | `draft/lightning-instanced-2026-09-11` |
+| 1.5 P2 Lightning-Bolts instanziert | erledigt, Sichtprüfung offen | `e847bee`, `29b9799` |
 | 1.5 G5 Rest Projektil-Pool | erledigt | `c6ec30f` |
 | 1.5 Render-Kleinkram | P6, P8, R9 erledigt, G8 ohne `getAllSpawnProxies` (bewusst); R6, R10 als Befund in PERF_BUG_ANALYSIS | `610c22b` bis `e8d2710` |
-| 2.1 Upgrade-Skalierung, Cannon, Matrix-Spreizung | Vorschlag + Entwurf | `04f3d4d`, `draft/balance-2026-09-11` |
-| 2.2 Boss-Frequenz ab W31 | Entwurf | `draft/balance-2026-09-11` |
+| 2.1 Upgrade-Skalierung, Cannon, Matrix-Spreizung | umgesetzt, Balance-Playtest offen | `04f3d4d`, `90662f0`, `401c6a1`, `5b3102e` |
+| 2.2 Boss-Frequenz ab W31 | umgesetzt | `9e46b11` |
 | 3.1 Muzzle Flash feintunen | im Code erledigt (nur Schusswaffen, Größe, Dauer, Licht je Tower), Sichtprüfung offen | `574ce33` |
 | 3.1 Grid-Cell-Farben | erledigt | `5472a8f`, `e151a70` |
 | 3.1 Kampfzonen untersuchen | Studie erledigt | `45db221` |
@@ -286,7 +296,7 @@ Erledigt auf dem Sprint-Branch, nach deinem OK nach DONE.md zu verschieben:
 | 3.1 Rocket Geschoss, Schweif, Sound | Optik erledigt, Sound offen (Asset fehlt) | `e59383e` |
 | 3.1 Turmdrehung, Color Grading | Diskussionsnotizen, Entscheidung offen | `bb3b185` |
 | 3.3 Globale Damage-Matrix-Übersicht | erledigt | `46c350d` bis `324ca45` |
-| 3.3 `burn` totlegen oder bauen | Entwurf (gebaut) | `draft/gameplay-2026-09-11` |
+| 3.3 `burn` totlegen oder bauen | erledigt (gebaut) | `9c01a1d` |
 | 3.4 Build Configuration | erledigt per Lazy-Loading statt fileReplacements | `85d8402`, `ab6a7c1`, `88ddc55` |
 | 3.5 Dashboard-Header | erledigt | `c2ee884` |
 | 3.7 Debug-Menü, Panels resizable, Next-Wave-Button, Header, deutsche Texte | erledigt | `6fa7913`, `25ff7d4`, `2562bbf`, `9720314`, `cb2162a` |
