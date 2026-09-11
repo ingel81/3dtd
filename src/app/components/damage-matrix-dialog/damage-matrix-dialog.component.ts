@@ -19,6 +19,13 @@ export interface DamageMatrixDialogData {
 const TITLE_ID = 'td-damage-matrix-title';
 
 /**
+ * Breit genug für alle fünf Rüstungsspalten ohne horizontales Scrollen. Muss als
+ * Dialog-Config gesetzt werden: das Overlay-Pane von MatDialog ist per Klasse
+ * auf 560px begrenzt, nur der Inline-Style der Config hebt das auf.
+ */
+const DIALOG_WIDTH = 'min(880px, 92vw)';
+
+/**
  * Öffnet die Damage-vs-Armor-Tabelle. Esc schließt (MatDialog-Default),
  * der Fokus kehrt danach zum auslösenden Button zurück.
  */
@@ -28,6 +35,8 @@ export function openDamageMatrixDialog(
 ): MatDialogRef<DamageMatrixDialogComponent> {
   return dialog.open<DamageMatrixDialogComponent, DamageMatrixDialogData>(DamageMatrixDialogComponent, {
     panelClass: 'td-dialog-panel',
+    width: DIALOG_WIDTH,
+    maxWidth: '92vw',
     ariaLabelledBy: TITLE_ID,
     autoFocus: 'dialog',
     data: { towerId },
@@ -55,6 +64,12 @@ export function openDamageMatrixDialog(
       <div class="dialog-content" tabindex="0" role="region" aria-label="Damage multipliers">
         <table class="matrix">
           <caption>Multiplier on every hit. Damage numbers in combat use the same tiers.</caption>
+          <colgroup>
+            <col class="col-tower">
+            @for (col of columns; track col.armor) {
+              <col>
+            }
+          </colgroup>
           <thead>
             <tr>
               <th scope="col" class="corner">Tower</th>
@@ -109,12 +124,12 @@ export function openDamageMatrixDialog(
   `,
   styles: `
     :host {
+      display: block;
       ${TD_CSS_VARS}
     }
 
+    /* Breite kommt aus DIALOG_WIDTH (Dialog-Config) */
     .matrix-dialog {
-      width: 640px;
-      max-width: 80vw;
       max-height: 85vh;
       display: flex;
       flex-direction: column;
@@ -165,8 +180,12 @@ export function openDamageMatrixDialog(
     .dialog-content::-webkit-scrollbar-thumb:hover { ${TD_SCROLLBAR_WEBKIT.thumbHover} }
     .dialog-content::-webkit-scrollbar-corner { ${TD_SCROLLBAR_WEBKIT.corner} }
 
+    /* Feste Aufteilung: Rüstungsspalten gleich breit, lange Gegnerlisten brechen um.
+       Horizontal gescrollt wird erst unterhalb von min-width (sehr schmales Fenster). */
     .matrix {
       width: 100%;
+      min-width: 600px;
+      table-layout: fixed;
       border-collapse: separate;
       border-spacing: 0;
       font: 11px/1.3 var(--td-font-mono);
@@ -179,6 +198,10 @@ export function openDamageMatrixDialog(
       padding: 10px 0 8px;
       font: 11px/1.4 var(--td-font-body);
       color: var(--td-text-muted);
+    }
+
+    .col-tower {
+      width: 150px;
     }
 
     th, td {
@@ -226,6 +249,7 @@ export function openDamageMatrixDialog(
       text-align: center;
       font: 10px/1.35 var(--td-font-body);
       color: var(--td-text-muted);
+      text-wrap: balance;
     }
 
     .tower-name {
