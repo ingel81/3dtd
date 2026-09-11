@@ -42,9 +42,7 @@ export interface DamageMatrixCell {
 
 export interface DamageMatrixRow {
   towerId: TowerTypeId;
-  /** Tower-Name, bei gesperrten Towern LOCKED_TOWER_NAME. */
   name: string;
-  locked: boolean;
   damageLabel: string;
   cells: DamageMatrixCell[];
 }
@@ -63,9 +61,6 @@ export const EFFECTIVENESS_LABELS: Readonly<Record<DamageEffectiveness, string>>
   strong: 'Strong',
   devastating: 'Devastating',
 };
-
-/** Platzhalter wie auf der gesperrten Karte im Baumenü. */
-export const LOCKED_TOWER_NAME = '???';
 
 /** Neutraler Text für die Stufe "normal", wie die Multiplikatoren im Tooltip. */
 export const MATRIX_NORMAL_COLOR = 'var(--td-text-primary)';
@@ -91,21 +86,20 @@ function isCombatTower(tower: TowerTypeConfig): boolean {
 }
 
 /**
- * Zeilen: ein Eintrag pro baubarem Tower, in Baumenü-Reihenfolge.
+ * Zeilen: ein Eintrag pro freigeschaltetem Tower, in Baumenü-Reihenfolge.
  * `isUnlocked` ist dieselbe Prüfung wie im Baumenü (ResearchStore.isTowerUnlocked):
- * gesperrte Tower verlieren nur den Namen, Schadensart und Werte bleiben.
+ * gesperrte Tower fehlen, bis ihre Forschung fertig ist.
  */
 export function buildDamageMatrixRows(
   isUnlocked: (id: TowerTypeId) => boolean = () => true,
   towers: readonly TowerTypeConfig[] = getAllTowerTypes(),
   matrix: DamageMatrix = DAMAGE_MATRIX,
 ): DamageMatrixRow[] {
-  return towers.filter(isCombatTower).map((tower) => {
-    const locked = !isUnlocked(tower.id);
-    return {
+  return towers
+    .filter((tower) => isCombatTower(tower) && isUnlocked(tower.id))
+    .map((tower) => ({
       towerId: tower.id,
-      name: locked ? LOCKED_TOWER_NAME : tower.name,
-      locked,
+      name: tower.name,
       damageLabel: DAMAGE_TYPE_UI[tower.damageType].label,
       cells: ARMOR_TYPES.map((armor) => {
         const multiplier = matrix[tower.damageType][armor];
@@ -119,8 +113,15 @@ export function buildDamageMatrixRows(
           tierLabel: EFFECTIVENESS_LABELS[effectiveness],
         };
       }),
-    };
-  });
+    }));
+}
+
+/** Gesperrte Kampf-Tower, für den Forschungshinweis unter der Tabelle. */
+export function countLockedTowers(
+  isUnlocked: (id: TowerTypeId) => boolean,
+  towers: readonly TowerTypeConfig[] = getAllTowerTypes(),
+): number {
+  return towers.filter((tower) => isCombatTower(tower) && !isUnlocked(tower.id)).length;
 }
 
 /** Spalten: eine pro Rüstungstyp, mit den Enemies dieser Rüstung als Beispiele. */

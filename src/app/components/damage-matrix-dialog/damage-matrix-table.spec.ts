@@ -3,9 +3,9 @@ import {
   buildDamageMatrixColumns,
   buildDamageMatrixRows,
   buildEffectivenessLegend,
+  countLockedTowers,
   formatMultiplier,
   matrixTierColor,
-  LOCKED_TOWER_NAME,
   MATRIX_NORMAL_COLOR,
 } from './damage-matrix-table';
 import { ARMOR_TYPES, DAMAGE_TYPES, ArmorType, DamageMatrix, DamageType } from '../../configs/combat/combat.types';
@@ -52,7 +52,6 @@ describe('buildDamageMatrixRows', () => {
   it('labels each row with the tower name and its damage type', () => {
     for (const row of rows) {
       const tower = TOWER_TYPES[row.towerId];
-      expect(row.locked).toBe(false);
       expect(row.name).toBe(tower.name);
       expect(row.damageLabel).toBe(DAMAGE_TYPE_UI[tower.damageType].label);
     }
@@ -101,18 +100,23 @@ describe('buildDamageMatrixRows', () => {
     expect(archer.cells[3].color).toBe(EFFECTIVENESS_COLORS.weak);
   });
 
-  it('hides the name of locked towers like the build menu, but keeps type and values', () => {
-    const lockedRows = buildDamageMatrixRows((id) => id === 'archer');
-    for (const row of lockedRows) {
-      const tower = TOWER_TYPES[row.towerId];
-      const isArcher = row.towerId === 'archer';
-      expect(row.locked).toBe(!isArcher);
-      expect(row.name).toBe(isArcher ? tower.name : LOCKED_TOWER_NAME);
-      expect(row.damageLabel).toBe(DAMAGE_TYPE_UI[tower.damageType].label);
-      expect(row.cells.map((c) => c.multiplier)).toEqual(
-        ARMOR_TYPES.map((a) => DAMAGE_MATRIX[tower.damageType][a]),
-      );
-    }
+  it('leaves out locked towers and counts them for the research hint', () => {
+    const combatTowers = rows.length;
+    const onlyArcher = (id: string) => id === 'archer';
+    expect(buildDamageMatrixRows(onlyArcher).map((r) => r.towerId)).toEqual(['archer']);
+    expect(countLockedTowers(onlyArcher)).toBe(combatTowers - 1);
+    expect(countLockedTowers(() => true)).toBe(0);
+  });
+
+  it('adds a tower as soon as its research completes, in build-menu position', () => {
+    const unlocked = new Set<string>(['archer']);
+    const isUnlocked = (id: string) => unlocked.has(id);
+    expect(buildDamageMatrixRows(isUnlocked).map((r) => r.towerId)).toEqual(['archer']);
+
+    unlocked.add('cannon');
+    unlocked.add('dual-gatling');
+    expect(buildDamageMatrixRows(isUnlocked).map((r) => r.towerId)).toEqual(['archer', 'dual-gatling', 'cannon']);
+    expect(countLockedTowers(isUnlocked)).toBe(rows.length - 3);
   });
 
   it('formats multipliers like the tower tooltips', () => {
