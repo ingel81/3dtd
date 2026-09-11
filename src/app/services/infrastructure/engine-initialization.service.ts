@@ -63,7 +63,11 @@ export class EngineInitializationService {
     { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
     { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
     { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
+    { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
   ]);
+
+  /** performance.now() of the first tiles-loaded callback of this load, for the intro boot gate. */
+  private firstTilesLoadedAt: number | null = null;
 
   // ========================================
   // STATE
@@ -233,7 +237,13 @@ export class EngineInitializationService {
       { id: 'grid', title: 'Generating Route Grid', status: 'pending' },
       { id: 'view', title: 'Finalizing 3D View', status: 'pending' },
       { id: 'tiles', title: 'Waiting for 3D Tiles', status: 'pending' },
+      { id: 'flight', title: 'Preparing Intro Flight', status: 'pending' },
     ]);
+  }
+
+  /** performance.now() of the first tiles-loaded callback of this load, null before. */
+  getFirstTilesLoadedAt(): number | null {
+    return this.firstTilesLoadedAt;
   }
 
   /**
@@ -308,6 +318,7 @@ export class EngineInitializationService {
 
       // Register callback for first tiles loaded
       this.engine.setOnFirstTilesLoadedCallback(() => {
+        this.firstTilesLoadedAt = performance.now();
         this.tilesLoading.set(false);
         callbacks.onCheckAllLoaded();
       });

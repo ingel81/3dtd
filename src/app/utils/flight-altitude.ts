@@ -40,10 +40,10 @@ export function isReliable(p: FlightProfile, i: number, maxError: number): boole
   return !Number.isNaN(p.ground[i]) && p.error[i] <= maxError;
 }
 
-/** Anzahl verlässlicher Stützstellen (Fortschritt fürs Debug und den Boot-Gate). */
-export function countReliable(p: FlightProfile, maxError: number): number {
+/** Anzahl verlässlicher Stützstellen ab `from` (Fortschritt fürs Debug und den Boot-Gate). */
+export function countReliable(p: FlightProfile, maxError: number, from = 0): number {
   let n = 0;
-  for (let i = 0; i < p.ground.length; i++) {
+  for (let i = Math.max(0, from); i < p.ground.length; i++) {
     if (isReliable(p, i, maxError)) n++;
   }
   return n;

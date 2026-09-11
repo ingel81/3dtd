@@ -329,9 +329,13 @@ export class IntroCameraFlightService {
   /** Why the last start() bailed — surfaced via `__flight.state()`. */
   private skipReason: string | null = null;
 
+  /** Built by prepare() and not flown yet; start() flies it with the samples gathered so far. */
+  private prepared = false;
+
   /** Record why a start attempt did nothing. Silent; read from DevTools. */
-  private skip(reason: string): void {
+  private skip(reason: string): false {
     this.skipReason = reason;
+    return false;
   }
 
   // ========================================
@@ -374,6 +378,28 @@ export class IntroCameraFlightService {
    * @param cachedPaths Routes keyed by spawn id (`PathRouteService.getCachedPaths()`)
    */
   start(cachedPaths: Map<string, GeoPosition[]>): void {
+    if (!this.prepared && !this.prepare(cachedPaths)) return;
+    this.prepared = false;
+
+    // Capture the view the flight has to land in BEFORE moving the camera —
+    // it is stored during engine init and would otherwise be at risk of
+    // being re-captured mid-flight.
+    const initialView = this.cameraControl.getInitialView();
+    this.endPos = initialView ? new Vector3(initialView.position.x, initialView.position.y, initialView.position.z) : null;
+    this.endTarget = initialView ? new Vector3(initialView.target.x, initialView.target.y, initialView.target.z) : null;
+
+    this.beginRun();
+  }
+
+  /**
+   * Build the flight along the longest cached route without taking the
+   * camera: curve, markers, standoffs, speed and an empty profile. The boot
+   * gate calls this early and samples through prepareTick() while the
+   * loading screen is up; start() then flies what was prepared.
+   *
+   * @returns false if there is nothing to fly (reason in `__flight.state()`)
+   */
+  prepare(cachedPaths: Map<string, GeoPosition[]>): boolean {
     const engine = this.engine;
     if (!this.enabled) return this.skip('disabled');
     if (!engine) return this.skip('no-engine');
@@ -432,15 +458,44 @@ export class IntroCameraFlightService {
     const sampleCount = Math.ceil(span / this.cfg.sampleSpacing) + 2;
     this.profile = createFlightProfile(sampleCount);
     this.sampleCursor = 0;
+    this.prepared = true;
+    return true;
+  }
 
-    // Capture the view the flight has to land in BEFORE moving the camera —
-    // it is stored during engine init and would otherwise be at risk of
-    // being re-captured mid-flight.
-    const initialView = this.cameraControl.getInitialView();
-    this.endPos = initialView ? new Vector3(initialView.position.x, initialView.position.y, initialView.position.z) : null;
-    this.endTarget = initialView ? new Vector3(initialView.target.x, initialView.target.y, initialView.target.z) : null;
+  /** True between prepare() and start(). */
+  isPrepared(): boolean {
+    return this.prepared;
+  }
 
-    this.beginRun();
+  /**
+   * Budgeted sampling over the whole route while the loading screen waits
+   * (boot gate). Same round robin as in flight, so coarse samples are
+   * refined as the corridor tiles stream in.
+   */
+  prepareTick(budget: number): void {
+    if (!this.prepared) return;
+    this.sampleCursor = pickSamples(
+      this.profile,
+      0,
+      this.profile.ground.length - 1,
+      budget,
+      this.sampleCursor,
+      this.cfg.maxSampleError,
+      this.pickedSamples,
+    );
+    for (const i of this.pickedSamples) this.sampleIndex(i);
+  }
+
+  /**
+   * Share of reliable samples on the route itself, 0..1 (boot gate). The
+   * standoff before the HQ is left out: it lies off the route corridor, the
+   * part that streams fine tiles during loading. 1 without a route.
+   */
+  readiness(): number {
+    const from = Math.max(0, this.distanceToIndex(0));
+    const count = this.profile.ground.length - from;
+    if (!this.curve || count <= 0) return 1;
+    return countReliable(this.profile, this.cfg.maxSampleError, from) / count;
   }
 
   /**
