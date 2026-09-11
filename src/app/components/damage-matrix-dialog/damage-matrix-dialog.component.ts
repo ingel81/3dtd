@@ -8,6 +8,7 @@ import {
   buildDamageMatrixColumns,
   buildDamageMatrixRows,
   buildEffectivenessLegend,
+  countLockedTowers,
 } from './damage-matrix-table';
 
 export interface DamageMatrixDialogData {
@@ -34,9 +35,10 @@ export function openDamageMatrixDialog(
 }
 
 /**
- * Globale Übersicht aller baubaren Tower gegen alle Rüstungstypen.
+ * Globale Übersicht der freigeschalteten Tower gegen alle Rüstungstypen.
  * Zellen nutzen dieselben Stufen wie die Schadenszahlen im Kampf (Farben: matrixTierColor).
- * Gesperrte Tower zeigt die Tabelle wie das Baumenü als "???".
+ * Gesperrte Tower fehlen ganz (das Baumenü zeigt sie als gesperrte Karte), ein
+ * Hinweis unter der Tabelle verweist auf die Forschung.
  */
 @Component({
   selector: 'app-damage-matrix-dialog',
@@ -70,13 +72,9 @@ export function openDamageMatrixDialog(
             </tr>
             @for (row of rows(); track row.towerId) {
               <tr [class.current]="row.towerId === highlightId"
-                  [class.locked]="row.locked"
                   [attr.aria-current]="row.towerId === highlightId ? 'true' : null">
                 <th scope="row">
-                  <span class="tower-name" [attr.aria-hidden]="row.locked ? 'true' : null">{{ row.name }}</span>
-                  @if (row.locked) {
-                    <span class="sr-only">Locked tower</span>
-                  }
+                  <span class="tower-name">{{ row.name }}</span>
                   <span class="damage-type">{{ row.damageLabel }}</span>
                 </th>
                 @for (cell of row.cells; track cell.armor) {
@@ -88,6 +86,9 @@ export function openDamageMatrixDialog(
             }
           </tbody>
         </table>
+        @if (hasLockedTowers()) {
+          <p class="locked-hint">More towers unlock through research.</p>
+        }
       </div>
 
       <div class="dialog-actions">
@@ -257,12 +258,9 @@ export function openDamageMatrixDialog(
       color: var(--td-teal-light);
     }
 
-    /* Gesperrter Tower: gedimmt wie die Karte im Baumenü */
-    tr.locked > th,
-    tr.locked > td {
-      opacity: 0.55;
-    }
-    tr.locked .tower-name {
+    .locked-hint {
+      margin: 10px 0 0;
+      font: 11px/1.4 var(--td-font-body);
       color: var(--td-text-muted);
     }
 
@@ -365,8 +363,10 @@ export class DamageMatrixDialogComponent {
 
   readonly titleId = TITLE_ID;
   readonly columns = buildDamageMatrixColumns();
-  /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, deckt den Namen auf. */
-  readonly rows = computed(() => buildDamageMatrixRows((id) => this.research.isTowerUnlocked(id)));
+  private readonly isUnlocked = (id: TowerTypeId): boolean => this.research.isTowerUnlocked(id);
+  /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. */
+  readonly rows = computed(() => buildDamageMatrixRows(this.isUnlocked));
+  readonly hasLockedTowers = computed(() => countLockedTowers(this.isUnlocked) > 0);
   readonly legend = buildEffectivenessLegend();
   readonly highlightId = this.data?.towerId ?? null;
 
