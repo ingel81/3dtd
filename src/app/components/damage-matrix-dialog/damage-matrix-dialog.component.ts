@@ -17,6 +17,7 @@ export interface DamageMatrixDialogData {
 }
 
 const TITLE_ID = 'td-damage-matrix-title';
+const DESC_ID = 'td-damage-matrix-desc';
 
 /**
  * Breit genug für alle fünf Rüstungsspalten ohne horizontales Scrollen. Muss als
@@ -38,6 +39,7 @@ export function openDamageMatrixDialog(
     width: DIALOG_WIDTH,
     maxWidth: '92vw',
     ariaLabelledBy: TITLE_ID,
+    ariaDescribedBy: DESC_ID,
     autoFocus: 'dialog',
     data: { towerId },
   });
@@ -57,13 +59,15 @@ export function openDamageMatrixDialog(
   template: `
     <div class="matrix-dialog">
       <div class="dialog-header">
-        <td-icon class="header-icon" name="info" [size]="20"></td-icon>
-        <h2 [id]="titleId">Damage vs Armor</h2>
+        <td-icon class="header-icon" name="shield" [size]="18"></td-icon>
+        <div class="header-text">
+          <h2 [id]="titleId">Damage vs Armor</h2>
+          <p class="header-note" [id]="descId">Multiplier on every hit</p>
+        </div>
       </div>
 
       <div class="dialog-content" tabindex="0" role="region" aria-label="Damage multipliers">
-        <table class="matrix">
-          <caption>Multiplier on every hit. Damage numbers in combat use the same tiers.</caption>
+        <table class="matrix" [attr.aria-labelledby]="titleId">
           <colgroup>
             <col class="col-tower">
             @for (col of columns; track col.armor) {
@@ -86,15 +90,16 @@ export function openDamageMatrixDialog(
               }
             </tr>
             @for (row of rows(); track row.towerId) {
-              <tr [class.current]="row.towerId === highlightId"
+              <tr class="tower-row"
+                  [class.current]="row.towerId === highlightId"
                   [attr.aria-current]="row.towerId === highlightId ? 'true' : null">
-                <th scope="row">
+                <th scope="row" [style.--damage-color]="row.damageColor">
                   <span class="tower-name">{{ row.name }}</span>
                   <span class="damage-type">{{ row.damageLabel }}</span>
                 </th>
                 @for (cell of row.cells; track cell.armor) {
-                  <td class="cell" [attr.data-eff]="cell.effectiveness" [style.--cell-color]="cell.color">
-                    {{ cell.text }}<span class="sr-only"> {{ cell.tierLabel }}</span>
+                  <td class="cell" [attr.data-eff]="cell.effectiveness" [style.--tier-color]="cell.color">
+                    <span class="value">{{ cell.text }}</span><span class="sr-only"> {{ cell.tierLabel }}</span>
                   </td>
                 }
               </tr>
@@ -102,7 +107,10 @@ export function openDamageMatrixDialog(
           </tbody>
         </table>
         @if (hasLockedTowers()) {
-          <p class="locked-hint">More towers unlock through research.</p>
+          <p class="locked-hint">
+            <td-icon name="lock" [size]="12"></td-icon>
+            More towers unlock through research.
+          </p>
         }
       </div>
 
@@ -110,7 +118,7 @@ export function openDamageMatrixDialog(
         <ul class="legend" aria-label="Tiers">
           @for (entry of legend; track entry.effectiveness) {
             <li>
-              <span class="swatch" [style.--cell-color]="entry.color"></span>
+              <span class="swatch" [style.--tier-color]="entry.color"></span>
               <span>{{ entry.label }}</span>
               @if (entry.range) {
                 <span class="legend-range">{{ entry.range }}</span>
@@ -146,28 +154,39 @@ export function openDamageMatrixDialog(
     .dialog-header {
       display: flex;
       align-items: center;
-      gap: 10px;
-      padding: 12px 16px;
+      gap: 12px;
+      padding: 12px 18px;
       border-bottom: 1px solid var(--td-frame-dark);
       flex-shrink: 0;
     }
     .header-icon {
       color: var(--td-gold);
+      flex-shrink: 0;
+    }
+    .header-text {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+      min-width: 0;
     }
     h2 {
       margin: 0;
-      font-size: 14px;
-      font-weight: 600;
+      font: 600 14px/1.2 var(--td-font-body);
       color: var(--td-gold);
+    }
+    .header-note {
+      margin: 0;
+      font: 11px/1.3 var(--td-font-body);
+      color: var(--td-text-muted);
     }
 
     /* Kein padding-top: der Sticky-Kopf klebt sonst mit Lücke unter dem Rand */
     .dialog-content {
-      padding: 0 12px 12px;
+      padding: 0 18px 14px;
       overflow: auto;
       flex: 1;
       min-height: 0;
-      scroll-padding-top: 32px;
+      scroll-padding-top: 36px;
       ${TD_SCROLLBAR_STYLES}
     }
     .dialog-content:focus-visible {
@@ -192,21 +211,8 @@ export function openDamageMatrixDialog(
       color: var(--td-text-secondary);
     }
 
-    caption {
-      caption-side: top;
-      text-align: left;
-      padding: 10px 0 8px;
-      font: 11px/1.4 var(--td-font-body);
-      color: var(--td-text-muted);
-    }
-
     .col-tower {
       width: 150px;
-    }
-
-    th, td {
-      padding: 6px;
-      border-bottom: 1px solid var(--td-panel-shadow);
     }
 
     /* Rüstungsnamen bleiben beim Scrollen sichtbar */
@@ -215,16 +221,18 @@ export function openDamageMatrixDialog(
       top: 0;
       z-index: 1;
       background: var(--td-panel-main);
+      padding: 14px 6px 8px;
       font: 600 9px/1 var(--td-font-mono);
-      letter-spacing: 0.1em;
+      letter-spacing: 0.12em;
       text-transform: uppercase;
-      color: var(--td-text-muted);
+      color: var(--td-text-secondary);
       text-align: center;
-      padding: 8px 6px;
       border-bottom: 1px solid var(--td-rune-amber-muted);
     }
     thead th.corner {
       text-align: left;
+      padding-left: 10px;
+      color: var(--td-text-muted);
     }
 
     tbody th {
@@ -232,74 +240,102 @@ export function openDamageMatrixDialog(
       font-weight: 400;
     }
 
-    .examples th,
-    .examples td {
+    /* Gegner je Rüstung: Unterzeile des Kopfs, scrollt mit */
+    .examples > * {
       vertical-align: top;
-      padding: 6px 4px 8px;
-      border-bottom-color: var(--td-frame-dark);
+      padding: 7px 6px 10px;
+      border-bottom: 1px solid var(--td-frame-dark);
     }
     .examples th {
-      padding-left: 6px;
-      font: 9px/1.35 var(--td-font-mono);
-      letter-spacing: 0.1em;
+      padding-left: 10px;
+      font: 9px/1.4 var(--td-font-mono);
+      letter-spacing: 0.12em;
       text-transform: uppercase;
       color: var(--td-text-muted);
     }
     .examples td {
       text-align: center;
-      font: 10px/1.35 var(--td-font-body);
+      font: 10px/1.4 var(--td-font-body);
       color: var(--td-text-muted);
       text-wrap: balance;
     }
 
+    .tower-row > * {
+      padding: 7px 6px;
+      vertical-align: middle;
+      border-bottom: 1px solid var(--td-panel-shadow);
+    }
+    .tower-row > th {
+      padding: 8px 8px 8px 10px;
+    }
+    .tower-row:last-child > * {
+      border-bottom: none;
+    }
+    .tower-row:hover > * {
+      background: rgba(255, 255, 255, 0.025);
+    }
+
     .tower-name {
       display: block;
-      font: 600 11px/1.2 var(--td-font-body);
+      font: 600 12px/1.25 var(--td-font-body);
       color: var(--td-text-primary);
       white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
     }
+    /* Punkt in der Farbe der Schadensart (DAMAGE_TYPE_UI), gedämpft */
     .damage-type {
-      display: block;
-      margin-top: 2px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      margin-top: 3px;
       font: 9px/1 var(--td-font-mono);
-      letter-spacing: 0.06em;
+      letter-spacing: 0.08em;
       text-transform: uppercase;
       color: var(--td-text-muted);
     }
-
-    tbody tr:not(.examples):hover {
-      background: rgba(255, 255, 255, 0.03);
+    .damage-type::before {
+      content: '';
+      width: 6px;
+      height: 6px;
+      border-radius: 1px;
+      background: color-mix(in srgb, var(--damage-color) 75%, transparent);
+      flex-shrink: 0;
     }
 
-    /* Aufruf aus dem Tower-Panel: gewählter Tower */
-    tr.current {
+    /* Aufruf aus dem Tower-Panel: gewählter Tower (nach :hover, damit der Tint bleibt) */
+    .tower-row.current > * {
       background: color-mix(in srgb, var(--td-teal) 8%, transparent);
     }
-    tr.current th {
+    .tower-row.current > th {
       box-shadow: inset 2px 0 0 var(--td-teal-light);
     }
-    tr.current .tower-name {
+    .tower-row.current .tower-name {
       color: var(--td-teal-light);
     }
 
-    .locked-hint {
-      margin: 10px 0 0;
-      font: 11px/1.4 var(--td-font-body);
-      color: var(--td-text-muted);
-    }
-
+    /* Weak und Normal nur als Textfarbe, Strong und Devastating als Chip mit leichtem Tint */
     .cell {
       text-align: center;
+    }
+    .value {
+      display: inline-block;
+      min-width: 58px;
+      padding: 3px 6px;
+      border: 1px solid transparent;
+      border-radius: 2px;
+      font: 500 11px/1.2 var(--td-font-mono);
       font-variant-numeric: tabular-nums;
-      color: var(--cell-color);
+      color: var(--tier-color);
     }
-    .cell[data-eff='strong'],
-    .cell[data-eff='devastating'] {
+    .cell[data-eff='strong'] .value {
+      background: color-mix(in srgb, var(--tier-color) 10%, transparent);
+      border-color: color-mix(in srgb, var(--tier-color) 28%, transparent);
+    }
+    .cell[data-eff='devastating'] .value {
       font-weight: 700;
-      background: color-mix(in srgb, var(--cell-color) 12%, transparent);
-    }
-    .cell[data-eff='devastating'] {
-      background: color-mix(in srgb, var(--cell-color) 18%, transparent);
+      background: color-mix(in srgb, var(--tier-color) 15%, transparent);
+      border-color: color-mix(in srgb, var(--tier-color) 40%, transparent);
     }
 
     .sr-only {
@@ -311,13 +347,21 @@ export function openDamageMatrixDialog(
       white-space: nowrap;
     }
 
+    .locked-hint {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin: 12px 0 0 10px;
+      font: 11px/1.4 var(--td-font-body);
+      color: var(--td-text-muted);
+    }
+
     .dialog-actions {
       display: flex;
       align-items: center;
-      justify-content: space-between;
       flex-wrap: wrap;
       gap: 8px 16px;
-      padding: 10px 16px;
+      padding: 10px 18px;
       border-top: 1px solid var(--td-frame-mid);
       flex-shrink: 0;
     }
@@ -325,7 +369,7 @@ export function openDamageMatrixDialog(
     .legend {
       display: flex;
       flex-wrap: wrap;
-      gap: 4px 14px;
+      gap: 6px 16px;
       margin: 0;
       padding: 0;
       list-style: none;
@@ -335,13 +379,13 @@ export function openDamageMatrixDialog(
     .legend li {
       display: flex;
       align-items: center;
-      gap: 5px;
+      gap: 6px;
     }
     .swatch {
       width: 8px;
       height: 8px;
-      background: var(--cell-color);
-      border: 1px solid var(--td-panel-shadow);
+      border-radius: 1px;
+      background: var(--tier-color);
       flex-shrink: 0;
     }
     .legend-range {
@@ -386,6 +430,7 @@ export class DamageMatrixDialogComponent {
   private readonly research = inject(ResearchStore);
 
   readonly titleId = TITLE_ID;
+  readonly descId = DESC_ID;
   readonly columns = buildDamageMatrixColumns();
   private readonly isUnlocked = (id: TowerTypeId): boolean => this.research.isTowerUnlocked(id);
   /** Reaktiv: eine Forschung, die bei offenem Dialog fertig wird, fügt die Zeile sofort ein. */

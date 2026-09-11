@@ -44,6 +44,8 @@ export interface DamageMatrixRow {
   towerId: TowerTypeId;
   name: string;
   damageLabel: string;
+  /** Farbe der Schadensart (DAMAGE_TYPE_UI), dezenter Akzent in der Tower-Spalte. */
+  damageColor: string;
   cells: DamageMatrixCell[];
 }
 
@@ -62,8 +64,11 @@ export const EFFECTIVENESS_LABELS: Readonly<Record<DamageEffectiveness, string>>
   devastating: 'Devastating',
 };
 
-/** Neutraler Text für die Stufe "normal", wie die Multiplikatoren im Tooltip. */
-export const MATRIX_NORMAL_COLOR = 'var(--td-text-primary)';
+/**
+ * Neutraler Text für die Stufe "normal". Sekundärtext statt Haupttext: 1.00× ist die
+ * häufigste Zelle und soll hinter den Abweichungen zurücktreten.
+ */
+export const MATRIX_NORMAL_COLOR = 'var(--td-text-secondary)';
 
 /**
  * Weak, Strong und Devastating in den Farben der Schadenszahlen. Normal bleibt
@@ -101,6 +106,7 @@ export function buildDamageMatrixRows(
       towerId: tower.id,
       name: tower.name,
       damageLabel: DAMAGE_TYPE_UI[tower.damageType].label,
+      damageColor: DAMAGE_TYPE_UI[tower.damageType].color,
       cells: ARMOR_TYPES.map((armor) => {
         const multiplier = matrix[tower.damageType][armor];
         const effectiveness = getEffectiveness(multiplier);
