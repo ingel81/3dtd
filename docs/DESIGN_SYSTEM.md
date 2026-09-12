@@ -145,7 +145,7 @@ Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
 | `--td-gold-glow` | `0 0 14px rgba(194,160,85,0.28), …` | Hover/Aktiv der Gold-Buttons |
 | `--td-teal-glow` | `0 0 14px rgba(107,182,164,0.32), …` | Hover/Aktiv der Teal-Buttons |
 
-Dazu die Rezepte als Strings: `TD_BEVEL_PANEL` (erhöhtes Panel: 1px `--td-frame-dark` plus Inset-Kanten, ersetzt den alten Vier-Kanten-Rahmen), `TD_BEVEL_INSET` (vertiefte Fläche: Slots, Inputs, HP-Hintergrund). Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`.
+Das Glas-Overlay ist der Sass-Mixin `bevel-glass` in `styles/_td-mixins.scss`. Kanten für erhöhte Panels und vertiefte Flächen stehen unter [Rezepte](#rezepte-panel-buttons-slots).
 
 ### Schriften
 
@@ -250,18 +250,18 @@ Zeilen sind Checkbox-Labels wie im Display-Debugfenster (Akzent `--td-teal`), Ko
 
 ### Rezepte (Panel, Buttons, Slots)
 
-Panels, Buttons, Slots und Inputs kommen aus String-Rezepten in `td-theme.ts`, die Komponenten in ihre Styles einsetzen (`${TD_BUTTON_STYLES}`):
+Für Panels, Buttons, Slots und Inputs gelten feste Rezepte. Es gibt sie nicht als gemeinsame Konstante oder Mixin: die Komponenten schreiben die Werte in ihrem SCSS aus (z. B. `.td-wave-btn` in `wave-panel.component.scss`, `.td-btn` in `tower-defense.component.scss`). Die früheren String-Rezepte in `td-theme.ts` (`TD_PANEL_STYLES`, `TD_BUTTON_STYLES` usw.) hatte keine Komponente eingebunden; sie sind entfernt.
 
 | Rezept | Inhalt |
 |--------|--------|
-| `TD_PANEL_STYLES` | `--td-panel-main`, `TD_BEVEL_PANEL`, Text `--td-text-primary` |
-| `TD_BUTTON_STYLES` | Gold-Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Inset-Kanten plus `--td-shadow-key`, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em` |
-| `TD_BUTTON_TEAL_STYLES` | Dasselbe im Teal-Verlauf, Text `#0E1612` |
-| `TD_BUTTON_SECONDARY_STYLES` | Rahmen-Button (Abbrechen u. Ä.): `--td-panel-main`, `--td-text-secondary`, 1px `--td-frame-dark` |
-| `TD_SLOT_STYLES` | `--td-panel-secondary` plus `TD_BEVEL_PANEL` |
-| `TD_DIALOG_STYLES` | Panel mit `--td-font-body` |
-| `TD_INPUT_STYLES` | `--td-panel-shadow` plus `TD_BEVEL_INSET`, `--td-font-mono` |
-| `TD_OPTION_STYLES` | Radio-/Checkbox-Option, Slot-Optik |
+| Panel (erhöht) | `--td-panel-main`, 1px `--td-frame-dark`, Inset-Kanten `inset 0 1px 0 rgba(122,133,128,0.2)` und `inset 0 -1px 0 var(--td-panel-shadow)`, Text `--td-text-primary` |
+| Vertiefte Fläche (Slots, Inputs, HP-Hintergrund) | 1px `--td-frame-dark`, `inset 0 1px 2px rgba(0,0,0,0.5)` und `inset 0 -1px 0 rgba(74,84,77,0.13)` |
+| Gold-Button | Gold-Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Inset-Kanten plus `--td-shadow-key`, `--td-font-mono` 12px/700, Versalien, `letter-spacing: 0.06em` |
+| Teal-Button | Dasselbe im Teal-Verlauf, Text `#0E1612` |
+| Rahmen-Button (Abbrechen u. Ä.) | `--td-panel-main`, `--td-text-secondary`, 1px `--td-frame-dark` |
+| Slot, Radio-/Checkbox-Option | `--td-panel-secondary` mit den Kanten des erhöhten Panels |
+| Dialog | Panel mit `--td-font-body` |
+| Input | Vertiefte Fläche auf `--td-panel-shadow`, `--td-font-mono` |
 
 Die dunkle Scrollbar kommt aus Sass-Mixins in `styles/_td-mixins.scss`: `scrollbar` (Firefox) gehört in die scrollende Regel, `webkit-scrollbar`, `webkit-scrollbar-track`, `webkit-scrollbar-thumb`, `webkit-scrollbar-thumb-hover` und `webkit-scrollbar-corner` in die passenden `::-webkit-scrollbar*`-Regeln.
 
@@ -282,7 +282,7 @@ Die Host-Elemente haben `display: contents`, die `<section class="td-panel">` bl
 
 ### Next-Wave-Button (Sidebar)
 
-Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar/wave-panel/wave-panel.component.scss`) mit der Beschriftung "Start Wave N", N ist die kommende Welle (dieselbe Nummer wie im Panel-Kopf). Gold-Rezept wie `TD_BUTTON_STYLES`: Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 13px/700, Versalien, `letter-spacing: 0.08em`. Ecken 3px wie Tower-Karten, Höhe 44px, Inhalt zentriert mit 10px Abstand, Icon `play` 16px.
+Primärer Call-to-Action (`.td-wave-btn` in `game-sidebar/wave-panel/wave-panel.component.scss`) mit der Beschriftung "Start Wave N", N ist die kommende Welle (dieselbe Nummer wie im Panel-Kopf). Gold-Button-Rezept: Verlauf `--td-gold-light` → `--td-gold` → `--td-gold-dark`, Text `#1A140A`, 1px dunkle Kante, Key-Shadow, `--td-font-mono` 13px/700, Versalien, `letter-spacing: 0.08em`. Ecken 3px wie Tower-Karten, Höhe 44px, Inhalt zentriert mit 10px Abstand, Icon `play` 16px.
 
 Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche, Farbe und Inhalt wechseln:
 
@@ -290,7 +290,7 @@ Typografie und Höhe bleiben in jedem Zustand gleich, nur Fläche, Farbe und Inh
 |---------|----------|-------------|
 | Bereit | keine Welle, kein Build-Mode | Gold-Verlauf, Hover `--td-gold-glow`, Pressed-Inset, `:focus-visible`-Outline in `--td-gold-light` |
 | Gesperrt | Build-Mode, Game Over | grauer Verlauf wie `.td-btn:disabled`, `--td-text-disabled`, weiter "Start Wave N" |
-| Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` + `TD_BEVEL_INSET`; links Icon `wave` und "Wave N" in `--td-teal`, rechts "{n} left" (11px, `--td-text-muted`, keine Versalien), unten ein 2px-Balken in `--td-teal`, so breit wie der Anteil der Gegner, die weder getötet noch durchgekommen sind |
+| Welle läuft | `waveActive()` | `.td-wave-running`: `--td-panel-shadow` mit den Kanten der vertieften Fläche; links Icon `wave` und "Wave N" in `--td-teal`, rechts "{n} left" (11px, `--td-text-muted`, keine Versalien), unten ein 2px-Balken in `--td-teal`, so breit wie der Anteil der Gegner, die weder getötet noch durchgekommen sind |
 
 Beschriftung, Restzahl und Balkenbreite liefert `waveButtonView()` (`wave-panel/wave-button.ts`) aus zwei Store-Werten: `waveEnemyTotal` (von `wave:started` angekündigte Größe) und `waveEnemiesLeft` (lebende plus noch nicht gespawnte Gegner). Beide pflegt `GameStateSyncService` aus `wave:started`, `enemy:died`, `enemy:reached-base` und `debug:kill-all`. Manuelle Debug-Wellen kündigen keine Größe an, dann fehlen Zahl und Balken.
 
