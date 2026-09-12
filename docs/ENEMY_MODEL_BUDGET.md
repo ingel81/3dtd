@@ -290,7 +290,6 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 
 | Gegner | Klasse | max./Welle | VAT-Vertices | Dreiecke | Mio. Vertices | Bake-Pfad | VAT-Frames | VAT-Textur | Format | Half-Fehler mm | VAT-MB | Diffuse |
 | --- | --- | ---: | ---: | ---: | ---: | --- | ---: | ---: | --- | ---: | ---: | ---: |
-| Hornet (`hornet`) | Normal | 210 | 69.297 | 122.736 | 14,6 | Objekt-Anim. | 59 | 8192×531 | RGBA16F | 0,35 | 33,2 | 1024² |
 | Mech (`mech`) | Normal | 100 | 42.455 | 28.850 | 4,2 | Objekt-Anim. | 40 | 8192×240 | RGBA16F | 1,45 | 15,0 | 1024² |
 | Zombie v2 (`zombie-v2`) | Normal | 200 | 31.342 | 30.887 | 6,3 | Skinning | 211 | 8192×844 | RGBA16F | 0,85 | 52,8 | 1024² |
 | Herbert (`herbert`) | Elite/Boss | 3 | 30.831 | 31.949 | 0,1 | Skinning | 32 | 8192×128 | RGBA16F | 0,56 | 8,0 | 512² |
@@ -301,6 +300,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Mammoth (`mammoth`) | Normal | 150 | 5.541 | 8.685 | 0,8 | Skinning | 321 | 5541×321 | RGBA16F | 1,51 | 13,6 | 1024² |
 | Ghost (`ghost`) | Normal | 280 | 5.245 | 7.773 | 1,5 | Skinning | 200 | 5245×200 | RGBA16F | 0,46 | 8,0 | 1024² |
 | Tank (`tank`) | Normal | 150 | 5.094 | 2.796 | 0,8 | statisch | 1 | 5094×1 | RGBA16F | 1,12 | 0,0 | – |
+| Hornet (`hornet`) | Normal | 210 | 4.913 | 6.564 | 1,0 | Objekt-Anim. | 59 | 4913×59 | RGBA16F | 0,35 | 2,2 | 1024² |
 | Zombie (`zombie`) | Swarm | 1.800 | 4.525 | 2.157 | 8,1 | Skinning | 209 | 4525×209 | RGBA16F | 0,83 | 7,2 | 1024² |
 | Zombie Soldier (`zombie-soldier`) | Elite/Boss | 60 | 4.266 | 7.176 | 0,3 | Skinning | 107 | 4266×107 | RGBA16F | 0,56 | 3,5 | 1024² |
 | Bear (`bear`) | Normal | 120 | 4.083 | 6.135 | 0,5 | Skinning | 41 | 4083×41 | RGBA16F | 0,74 | 1,3 | 1024² |
@@ -311,7 +311,7 @@ Positionen). Bis 2 mm ist die VAT RGBA16F (8 Byte pro Texel), darüber RGBA32F (
 | Skeleton (`skeleton`) | Swarm | 940 | 1.156 | 658 | 1,1 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,51 | 0,2 | 512² |
 | Skeleton Minion (`skeleton-minion`) | Swarm | 1.880 | 1.156 | 658 | 2,2 | Objekt-Anim. | 26 | 1156×26 | RGBA16F | 0,31 | 0,2 | 512² |
 
-VAT-Speicher aller Typen zusammen: **247,5 MB** (30 fps), alles in RGBA32F wären **452,2 MB**.
+VAT-Speicher aller Typen zusammen: **216,5 MB** (30 fps), alles in RGBA32F wären **390,2 MB**.
 Todes-Clips sind auf den sichtbaren Teil gekürzt; ganz gebacken kämen **15,9 MB** dazu.
 
 ### Alpha
@@ -324,9 +324,9 @@ trifft; JPEG hat kein Alpha. Die Tabelle nennt die Typen, die nicht opak sind od
 
 | Gegner | Alpha | Texel unter 0,05 |
 | --- | --- | ---: |
-| Hornet | Blend | 0 |
 | Dragon | Maske 0,50 | 80.170 (7,6 %) |
 | Ghost | Blend | 0 |
+| Hornet | Blend | 0 |
 | Bear | Blend | 33.852 (3,2 %) |
 
 Opak ohne Texel unter 0,05 (16): Mech, Zombie v2, Herbert, Wraith, Stone Golem, Spider, Mammoth, Tank, Zombie, Zombie Soldier, Bat, Wallsmasher, Rat, Penguin, Skeleton, Skeleton Minion.
@@ -340,7 +340,6 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 
 | Gegner | Datei | MB | Meshes (skinned) | Knochen | Morph | Materialien | Bilder im Modell | Clips | Weld |
 | --- | --- | ---: | ---: | ---: | ---: | ---: | --- | ---: | ---: |
-| Hornet | `hornet.glb` | 4,4 | 16 (0) | 0 | 0 | 4 | 2× 1024², 512² | 1 | 69.297 / 69.191 / 61.776 |
 | Mech | `mech.glb` | 6,3 | 34 (0) | 62 | 0 | 2 | 8× 1024² | 6 | 42.455 / 28.395 / 15.041 |
 | Zombie v2 | `zombie_v2.glb` | 3,8 | 1 (1) | 24 | 0 | 1 | 1024² | 5 | 31.339 / 30.999 / 15.418 |
 | Herbert | `herbert_optimized.glb` | 2,1 | 1 (1) | 24 | 0 | 1 | 512² | 1 | 30.831 / 30.208 / 26.048 |
@@ -351,6 +350,7 @@ Loader das Modell nicht indiziert (FBX) oder das Modell enthält doppelte Vertic
 | Mammoth | `mammoth.glb` | 4,9 | 1 (1) | 43 | 0 | 1 | 2× 1024² | 12 | 5.541 / 5.541 / 5.121 |
 | Ghost | `ghost.glb` | 2,7 | 2 (2) | 26 | 0 | 2 | 3× 1024² | 1 | 5.245 / 3.894 / 3.467 |
 | Tank | `tank.glb` | 0,2 | 7 (0) | 0 | 0 | 7 | – | 0 | 5.094 / 2.269 / 1.676 |
+| Hornet | `hornet.glb` | 1,1 | 16 (0) | 0 | 0 | 4 | 512², 2× 1024² | 1 | 4.913 / 4.913 / 3.428 |
 | Zombie | `zombie.glb` | 2,0 | 1 (1) | 49 | 0 | 1 | 1024² | 13 | 4.525 / 1.453 / 1.086 |
 | Zombie Soldier | `zombie_soldier.glb` | 3,5 | 1 (1) | 56 | 0 | 1 | 3× 1024² | 6 | 4.249 / 4.249 / 3.603 |
 | Bear | `bear.glb` | 2,0 | 1 (1) | 36 | 0 | 1 | 1024², 512² | 1 | 4.083 / 3.838 / 3.243 |
@@ -369,7 +369,6 @@ die weggelassenen Frames.
 
 | Gegner | Clip | Rolle | Dauer s | Frames | gekürzt |
 | --- | --- | --- | ---: | ---: | ---: |
-| Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Mech | `Armature\|Walk` | walk | 1,33 | 40 | – |
 | Zombie v2 | `Unsteady_Walk` | walk | 2,96 | 89 | – |
 | Zombie v2 | `Dead` | death | 2,96 | 61 | 28 |
@@ -383,6 +382,7 @@ die weggelassenen Frames.
 | Mammoth | `Walk` | walk | 4,97 | 149 | – |
 | Mammoth | `Die` | death | 6,00 | 172 | 9 |
 | Ghost | `Take 001` | walk | 6,67 | 200 | – |
+| Hornet | `Take 001` | walk | 1,96 | 59 | – |
 | Zombie | `Armature\|Walk` | walk | 4,00 | 120 | – |
 | Zombie | `Armature\|Die` | death | 2,96 | 89 | – |
 | Zombie Soldier | `zombie_02_Run` | walk | 0,80 | 24 | – |
@@ -408,24 +408,24 @@ mit allem, was ein Kill abspaltet.
 
 | Template | Kurrikulum | max. Anzahl | Mischung | Mio. Vertices |
 | --- | --- | ---: | --- | ---: |
-| `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 14,9 |
 | `zombie_horde` | W1 | 2.000 | zombie 90 %, zombie-v2 10 % | 14,4 |
 | `rat_tide` | W2 | 5.000 | rat 100 % | 10,8 |
 | `spider_swarm` | W6 | 800 | spider 100 % | 10,5 |
 | `wraith_storm` | W17, W27 | 300 | wraith 100 % | 9,1 |
-| `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 8,8 |
 | `mech_army` | W28 | 100 | mech 100 % | 4,2 |
 | `ghost_surge` | W13, W23 | 350 | ghost 80 %, wraith 20 % | 3,6 |
-| `dragon_elite` | W12, W24 | 100 | dragon 60 %, hornet 40 % | 3,5 |
 | `light_mix` | W4 | 400 | wallsmasher 50 %, spider 50 % | 3,3 |
-| `boss_dragon` | – | 80 | dragon 50 %, hornet 50 % | 3,3 |
 | `skeleton_swarm` | W19 | 940 | skeleton 100 % (je Kill +2 skeleton-minion) | 3,3 |
 | `armor_gauntlet` | W18 | 600 | rat 25 %, tank 25 %, mammoth 25 %, ghost 25 % | 2,7 |
+| `chaos_wave` | W16, W29 | 500 | zombie 30 %, tank 30 %, hornet 20 %, bear 20 % | 2,3 |
 | `bat_swarm` | W7, W21 | 600 | bat 100 % | 2,1 |
+| `hornet_strike` | W8, W26 | 300 | hornet 70 %, bat 30 % | 1,4 |
 | `penguin_rush` | W3 | 500 | penguin 90 %, rat 10 % | 1,0 |
+| `dragon_elite` | W12, W24 | 100 | dragon 60 %, hornet 40 % | 0,9 |
 | `golem_squad` | W15 | 60 | stone-golem 100 % | 0,8 |
 | `tank_column` | W9, W22 | 150 | tank 60 %, zombie-soldier 40 % | 0,7 |
 | `wallsmasher_crew` | W5 | 200 | wallsmasher 100 % | 0,7 |
+| `boss_dragon` | – | 80 | dragon 50 %, hornet 50 % | 0,7 |
 | `boss_golem` | – | 80 | stone-golem 30 %, mammoth 70 % | 0,6 |
 | `mammoth_siege` | W14, W25 | 120 | mammoth 70 %, wallsmasher 30 % | 0,6 |
 | `boss_herbert` | W10, W20, W30 | 100 | herbert 3 %, tank 48 %, zombie 48 % | 0,6 |
