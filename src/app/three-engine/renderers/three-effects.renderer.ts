@@ -459,6 +459,11 @@ export class ThreeEffectsRenderer {
     this.particleEffects.spawnArcaneBurstAtGeo(lat, lon, height, count);
   }
 
+  /** Spawn the green poison glob impact burst at geo coordinates. */
+  spawnPoisonBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
+    this.particleEffects.spawnPoisonBurstAtGeo(lat, lon, height, count);
+  }
+
   /**
    * Spawn ice decal on ground (frost patch)
    * NOW USES GPU INSTANCING - much better performance!

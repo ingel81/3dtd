@@ -904,6 +904,20 @@ export class ParticleEffectsRenderer {
   }
 
   /**
+   * Spawn the poison glob impact at geo coordinates: the ice burst's motion
+   * in greens instead of the fire-atlas explosion.
+   *
+   * @param lat - Latitude
+   * @param lon - Longitude
+   * @param height - Height above ground
+   * @param count - Number of particles
+   */
+  spawnPoisonBurstAtGeo(lat: number, lon: number, height: number, count: number): void {
+    const localPos = this.sync.geoToLocal(lat, lon, height);
+    this.spawnColorBurst(localPos.x, localPos.y, localPos.z, count, BURST_PALETTES.poison);
+  }
+
+  /**
    * Round additive particles bursting outward from a point, coloured from a
    * three-colour palette. Shared by the ice and arcane impacts.
    */
