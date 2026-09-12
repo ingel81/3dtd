@@ -221,7 +221,8 @@ export class GlobalRouteGrid {
    * A cell belongs to the corridor if its centre lies within the half width
    * of a route segment on its side (`corridorLeft` / `corridorRight` of the
    * segment's start waypoint, see route-corridor.ts). Cell centres therefore
-   * stay on the free street, at least two cells lie across it, and every
+   * stay on the free street, the cells the centre line runs through belong
+   * to it at any width, and every
    * point within `lateralLimit(halfWidth)` of the centre line on that side
    * lies in a cell: the cell containing it has its centre at most half a
    * cell diagonal further out. That is how far MovementComponent lets
@@ -265,9 +266,12 @@ export class GlobalRouteGrid {
   /**
    * Claim the cells whose centre lies within the half width of the segment
    * `start`-`end`, `left` or `right` of its direction by the side the
-   * centre is on, creating the missing ones (local coordinates; y is the
-   * smoothed route height, stored on each new cell as its `routeAnchorY`
-   * and as fallback `terrainHeight` until the first sample succeeds).
+   * centre is on, and every cell the segment runs through, creating the
+   * missing ones. The second rule makes a bottleneck narrower than a cell a
+   * single file of cells, a staircase on a diagonal, in which enemies walk
+   * the centre line (lateral limit 0). Local coordinates; y is the smoothed
+   * route height, stored on each new cell as its `routeAnchorY` and as
+   * fallback `terrainHeight` until the first sample succeeds.
    */
   private generateSegmentCells(
     start: { x: number; y: number; z: number },
@@ -297,7 +301,7 @@ export class GlobalRouteGrid {
         const oz = start.z + dz * t - cz;
         // (-dz, dx) points right of the direction of travel (x east, z south).
         const rightOfLine = (cz - start.z) * dx - (cx - start.x) * dz >= 0;
-        if (ox * ox + oz * oz > (rightOfLine ? rightSq : leftSq)) continue;
+        if (ox * ox + oz * oz > (rightOfLine ? rightSq : leftSq) && !this.segmentTouchesCell(start, end, gx, gz)) continue;
 
         const key = this.intCellKey(gx, gz);
         const existing = this.cells.get(key);
@@ -312,6 +316,38 @@ export class GlobalRouteGrid {
         this.addCell(key, cx, cz, axisX, axisZ, start.y + (end.y - start.y) * t, onBridge ? 'deck' : 'ground');
       }
     }
+  }
+
+  /**
+   * Whether the segment `start`-`end` touches the square of grid spot
+   * (gx, gz), edges included (Liang-Barsky clipping). Only at generation.
+   */
+  private segmentTouchesCell(
+    start: { x: number; z: number },
+    end: { x: number; z: number },
+    gx: number,
+    gz: number,
+  ): boolean {
+    const dx = end.x - start.x;
+    const dz = end.z - start.z;
+    let t0 = 0;
+    let t1 = 1;
+    const clip = (p: number, q: number): boolean => {
+      if (p === 0) return q >= 0;
+      const r = q / p;
+      if (p < 0) {
+        if (r > t1) return false;
+        if (r > t0) t0 = r;
+      } else {
+        if (r < t0) return false;
+        if (r < t1) t1 = r;
+      }
+      return true;
+    };
+    const x0 = gx * this.CELL_SIZE;
+    const z0 = gz * this.CELL_SIZE;
+    return clip(-dx, start.x - x0) && clip(dx, x0 + this.CELL_SIZE - start.x)
+      && clip(-dz, start.z - z0) && clip(dz, z0 + this.CELL_SIZE - start.z);
   }
 
   /**

@@ -306,13 +306,22 @@ describe('GlobalRouteGrid corridor width', () => {
     expect(cellsAcross(20)).toBe(5);
   });
 
-  it('keeps two cells across the narrowest corridor', () => {
-    // Centre line on a cell border, then through cell centres.
+  it('narrows to the cells the centre line runs through at a bottleneck', () => {
+    // Half a cell either side. Centre line on a cell border: the cells on
+    // both sides of it. Through cell centres: a single file.
     grid.generateFromRoutes([[at(0, 0, corridorConfig.minHalfWidth), at(40, 0)]]);
     expect(cellsAcross(10)).toBe(2);
-
     grid.generateFromRoutes([[at(0, 1, corridorConfig.minHalfWidth), at(40, 1)]]);
-    expect(cellsAcross(10)).toBe(3);
+    expect(cellsAcross(10)).toBe(1);
+
+    // On a diagonal, a staircase that holds every point of the centre line,
+    // even with no width at all.
+    for (const halfWidth of [corridorConfig.minHalfWidth, 0]) {
+      grid.generateFromRoutes([[at(0.37, -0.61, halfWidth), at(40.37, 22.49)]]);
+      for (let s = 0; s <= 1; s += 0.005) {
+        expect(grid.getCellAt(0.37 + 40 * s, -0.61 + 23.1 * s), `hw ${halfWidth} s ${s}`).toBeDefined();
+      }
+    }
   });
 
   it('follows the width of each segment', () => {
@@ -342,7 +351,7 @@ describe('GlobalRouteGrid corridor width', () => {
     // A cell missing between cells on all four sides would show as a gap
     // in a tower's LOS display, on the free street.
     const holes: string[] = [];
-    for (const widths of [[2, 2, 2], [2.75, 2, 2.75], [7, 2, 4], [2, 7, 2], [4.5, 3.5, 6]]) {
+    for (const widths of [[1, 1, 1], [2, 2, 2], [2.75, 1, 2.75], [7, 2, 4], [1, 7, 1], [4.5, 3.5, 6]]) {
       for (let angle = 0; angle < Math.PI; angle += Math.PI / 17) {
         const ux = Math.cos(angle);
         const uz = Math.sin(angle);
