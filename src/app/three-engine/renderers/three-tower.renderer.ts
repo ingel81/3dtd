@@ -135,6 +135,9 @@ export class ThreeTowerRenderer {
   // Active tower renders
   private towers = new Map<string, TowerRenderData>();
 
+  /** Tower under the pointer, shows its range like a selected one, see setHovered */
+  private hoveredId: string | null = null;
+
   // Shared materials and geometry
   private rangeMaterial: MeshBasicMaterial;
 
@@ -702,6 +705,25 @@ export class ThreeTowerRenderer {
   }
 
   /**
+   * Show the range disc and selection ring of the tower under the pointer
+   * (InputHandlerService), or of none. The selected tower keeps its own, a
+   * hover only adds a second one; the LOS view stays with the selection.
+   */
+  setHovered(id: string | null): void {
+    if (id === this.hoveredId) return;
+    const previous = this.hoveredId !== null ? this.towers.get(this.hoveredId) : undefined;
+    this.hoveredId = id;
+    if (previous && !previous.isSelected) this.setRangeVisible(previous, false);
+    const next = id !== null ? this.towers.get(id) : undefined;
+    if (next) this.setRangeVisible(next, true);
+  }
+
+  private setRangeVisible(data: TowerRenderData, visible: boolean): void {
+    if (data.rangeIndicator) data.rangeIndicator.visible = visible;
+    if (data.selectionRing) data.selectionRing.visible = visible;
+  }
+
+  /**
    * Select tower (show range indicator and selection ring)
    * Note: LOS visualization is now handled by GlobalRouteGrid
    */
@@ -724,8 +746,8 @@ export class ThreeTowerRenderer {
     if (!data) return;
 
     data.isSelected = false;
-    if (data.rangeIndicator) data.rangeIndicator.visible = false;
-    if (data.selectionRing) data.selectionRing.visible = false;
+    // Still under the pointer: the hover keeps showing the range
+    this.setRangeVisible(data, this.hoveredId === id);
     // Keep debug markers visible when enabled
     if (data.tipMarker) data.tipMarker.visible = this.showShootHeight;
     if (data.losRing) data.losRing.visible = this.debugMode;
@@ -831,6 +853,7 @@ export class ThreeTowerRenderer {
     data.animations.clear();
     data.currentAction = null;
 
+    if (this.hoveredId === id) this.hoveredId = null;
     this.towers.delete(id);
   }
 
@@ -869,8 +892,8 @@ export class ThreeTowerRenderer {
         }
       }
 
-      // Selection ring (visual)
-      if (data.isSelected && data.selectionRing) {
+      // Selection ring (visual), also on the hovered tower
+      if ((data.isSelected || data.id === this.hoveredId) && data.selectionRing) {
         const scale = 1 + Math.sin(this.animationTime) * 0.1;
         data.selectionRing.scale.setScalar(scale);
         data.selectionRing.rotation.z += deltaTime * 0.001;

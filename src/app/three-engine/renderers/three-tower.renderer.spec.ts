@@ -175,3 +175,58 @@ describe('ThreeTowerRenderer turret node', () => {
     warn.mockRestore();
   });
 });
+
+describe('ThreeTowerRenderer hover range', () => {
+  const assetManager = {
+    loadModel: async () => ({ animations: [] }),
+    cloneModel: () => new Group(),
+    isFbxModel: () => false,
+  };
+  const sync = {
+    geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
+  };
+  let renderer: ThreeTowerRenderer;
+  let a: TowerRenderData;
+  let b: TowerRenderData;
+  const shows = (data: TowerRenderData) => [data.rangeIndicator!.visible, data.selectionRing!.visible];
+
+  beforeEach(async () => {
+    renderer = new ThreeTowerRenderer(new Scene(), sync as never, assetManager as never);
+    a = (await renderer.create('a', 'archer', 0, 0, 0, 0, null))!;
+    b = (await renderer.create('b', 'archer', 0.001, 0, 0, 0, null))!;
+  });
+
+  it('shows the range of the hovered tower and hides it when the pointer moves on', () => {
+    renderer.setHovered('a');
+    expect(shows(a)).toEqual([true, true]);
+    renderer.setHovered('b');
+    expect(shows(a)).toEqual([false, false]);
+    expect(shows(b)).toEqual([true, true]);
+    renderer.setHovered(null);
+    expect(shows(b)).toEqual([false, false]);
+  });
+
+  it('leaves the selected tower its range when the hover moves off it', () => {
+    renderer.select('a');
+    renderer.setHovered('a');
+    renderer.setHovered(null);
+    expect(shows(a)).toEqual([true, true]);
+  });
+
+  it('keeps the range of a deselected tower that is still under the pointer', () => {
+    renderer.select('a');
+    renderer.setHovered('a');
+    renderer.deselect('a');
+    expect(shows(a)).toEqual([true, true]);
+    renderer.setHovered(null);
+    expect(shows(a)).toEqual([false, false]);
+  });
+
+  it('forgets a hovered tower that is removed', () => {
+    renderer.setHovered('a');
+    renderer.remove('a');
+    // A new tower with the id of the removed one starts without the hover
+    expect(() => renderer.setHovered(null)).not.toThrow();
+    expect(shows(b)).toEqual([false, false]);
+  });
+});
