@@ -328,34 +328,6 @@ export class GeocodingService {
   }
 
   /**
-   * Fetch with exponential backoff retry on rate limit (HTTP 429)
-   * @param url URL to fetch
-   * @param retries Number of retry attempts
-   * @returns Response
-   */
-  private async fetchWithRetry(url: string, retries = 3): Promise<Response> {
-    const delays = [1000, 2000, 4000];
-
-    for (let attempt = 0; attempt <= retries; attempt++) {
-      const response = await fetch(url, {
-        headers: {
-          'User-Agent': 'Nervbox-TowerDefense/1.0',
-        },
-      });
-
-      if (response.status === 429 && attempt < retries) {
-        // Rate limited, wait and retry
-        await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
-        continue;
-      }
-
-      return response;
-    }
-
-    throw new Error('Max retries exceeded');
-  }
-
-  /**
    * Clear search results
    */
   clearResults(): void {
