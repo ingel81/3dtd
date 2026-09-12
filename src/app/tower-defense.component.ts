@@ -301,7 +301,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
     { key: 'R', description: 'Rotate' },
     { key: 'Click', description: 'Build' },
     { key: 'ESC', description: 'Cancel' },
-    { key: 'Wait', description: 'Line of Sight' },
+    { key: 'Hover', description: 'Line of Sight' },
   ];
   readonly buildModeWarning = computed(() => this.towerPlacement.validationReason());
 
