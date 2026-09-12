@@ -62,7 +62,7 @@ import {
   AI_EPISODE_LENGTH,
 } from './ai-schema';
 
-export { ENCODED_STATE_SIZE, NUM_SCALAR_FEATURES, ENEMY_THREAT_RATING };
+export { ENCODED_STATE_SIZE, NUM_SCALAR_FEATURES };
 
 /** Enemy -> armor class, derived from the live enemy configs. */
 const ENEMY_ARMOR_MAP: Record<string, ArmorType> = Object.fromEntries(
@@ -402,70 +402,6 @@ function uniformArmorDist(): Record<ArmorType, number> {
   const dist = {} as Record<ArmorType, number>;
   for (const a of ARMOR_TYPE_ORDER) dist[a] = share;
   return dist;
-}
-
-/**
- * Decode neural network output to feature names (for debugging).
- * MUST match encodeGameState() layout exactly.
- */
-export function decodeFeatureNames(): string[] {
-  const names: string[] = [];
-
-  // Player state
-  names.push('credits', 'lives', 'wave', 'gameTime');
-
-  // Tower stats [4-5]
-  names.push('towerCount', 'avgLevel');
-
-  // Tower type counts
-  for (const type of TOWER_TYPE_ORDER) {
-    names.push(`${type}_count`);
-  }
-
-  // History damage [15-19]
-  for (let i = 1; i <= 5; i++) names.push(`damage_${i}`);
-
-  // History progress [20-24]
-  for (let i = 1; i <= 5; i++) names.push(`progress_${i}`);
-
-  // Wave signals [25-29]
-  names.push('momentum', 'avgDamage', 'duration', 'episodeProgress', 'variance');
-
-  // Context [30-34]
-  names.push('waveNorm', 'diffTrend', 'skill', 'lastWaveThreat', 'winStreak');
-
-  // DPS by damage type
-  for (const dt of DAMAGE_TYPE_ORDER) names.push(`dps_${dt}`);
-
-  // Armor distribution [42-46]
-  for (const a of ARMOR_TYPE_ORDER) names.push(`armor_${a}`);
-
-  // Research state [47-51]
-  names.push('research_progress', 'center_level', 'slots_used', 'air_targeting', 'upgrade_tier');
-
-  // Reserved [52]
-  names.push('reserved_0');
-
-  // Phase 5.6 awareness block [53-105]
-  for (const t of ENEMY_TYPE_ORDER) names.push(`typehist_${t}`);
-  for (const a of ARMOR_TYPE_ORDER) names.push(`armorhist_${a}`);
-  for (let i = 1; i <= 5; i++) names.push(`dmgpct_${i}`);
-  for (const t of TOWER_TYPE_ORDER) names.push(`avglvl_${t}`);
-  names.push('has_antiair', 'has_splash', 'has_slow', 'has_dot');
-  for (const t of TOWER_TYPE_ORDER) names.push(`unlocked_${t}`);
-  for (let i = 1; i <= 5; i++) names.push(`nearmiss_${i}`);
-
-  // Gap-5 effective DPS per armor [106-115]
-  for (const a of ARMOR_TYPE_ORDER) names.push(`effdps_ground_${a}`);
-  for (const a of ARMOR_TYPE_ORDER) names.push(`effdps_air_${a}`);
-
-  // Ground DPS profile
-  for (let i = 0; i < NUM_BINS; i++) names.push(`ground_dps_${i}`);
-
-  // Air DPS profile [136-155]
-  for (let i = 0; i < NUM_BINS; i++) names.push(`air_dps_${i}`);
-
-  return names;
 }
 
 /**

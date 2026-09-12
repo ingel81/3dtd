@@ -171,16 +171,3 @@ export const BOT_CONFIGS: Record<BotSkillLevel, BotConfig> = {
     maxTowers: 20,  // Matches strategist; see the note there.
   },
 };
-
-/**
- * Get human-readable description of bot
- */
-export function getBotDescription(level: BotSkillLevel): string {
-  const descriptions: Record<BotSkillLevel, string> = {
-    beginner: 'Fills coverage and researches, but never counter-picks a tower',
-    casual: 'Adds anti-air, anti-ethereal and splash, and upgrades along the path',
-    strategist: 'Casual plus selling underperformers and spreading placement out',
-    meta: 'Same strategies as casual, with faster reactions and a higher tower cap',
-  };
-  return descriptions[level];
-}
