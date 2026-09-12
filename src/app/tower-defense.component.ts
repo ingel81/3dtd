@@ -91,6 +91,7 @@ import { OffscreenIndicatorsComponent } from './components/offscreen-indicators/
 import { IntroCameraFlightService } from './services/world/intro-camera-flight.service';
 import { canTargetAirEffective } from './entities/tower-targeting.util';
 import { ResearchStore } from './store/research.store';
+import { BUILD_VERSION } from './configs/build-info.config';
 
 @Component({
   selector: 'app-tower-defense',
@@ -181,7 +182,7 @@ export class TowerDefenseComponent implements AfterViewInit, OnDestroy {
   readonly store = inject(TowerDefenseStore);
 
   // Build / tiles version chips shown in the loading screen corners.
-  readonly buildVersion = 'v0.2.0';
+  readonly buildVersion = BUILD_VERSION;
   readonly tilesVersionLabel = computed(
     () => this.configService.tileProvider() === 'cesium' ? 'cesium · v3' : 'google · v3'
   );
