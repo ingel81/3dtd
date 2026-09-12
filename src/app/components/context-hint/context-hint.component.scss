@@ -29,6 +29,71 @@
     0 0 12px rgba(184, 62, 50, 0.35);
 }
 
+/* With action buttons (first-run tips) the box takes clicks. It stays up
+   longer than a build hint, so it sits above the band of the off-screen
+   arrows (26px from the edge, chips up to 26px): no arrow hides under it. */
+.context-hint-container.interactive {
+  bottom: 56px;
+  pointer-events: auto;
+  width: max-content;
+  max-width: min(460px, calc(100vw - 32px));
+}
+
+.title-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.hint-title {
+  color: var(--td-text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.hint-counter {
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  color: var(--td-text-muted);
+}
+
+.hint-message {
+  margin: 0;
+  color: var(--td-text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.actions-row {
+  display: flex;
+  justify-content: flex-end;
+  gap: 16px;
+  padding-top: 6px;
+  border-top: 1px solid var(--td-frame-dark);
+}
+
+.hint-action {
+  padding: 0;
+  background: none;
+  border: none;
+  color: var(--td-text-muted);
+  font-family: var(--td-font-mono);
+  font-size: 10px;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.hint-action:hover {
+  color: var(--td-text-primary);
+}
+
+.hint-action:focus-visible {
+  outline: 1px solid var(--td-gold-light);
+  outline-offset: 2px;
+}
+
 .hints-row {
   display: flex;
   gap: 16px;

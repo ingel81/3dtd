@@ -40,6 +40,10 @@
     <!-- Footer -->
     <div class="td-sidebar-footer">
       <div class="td-footer-links">
+        <button class="td-attributions-btn" (click)="showTips()" aria-label="Show the first-run tips again">
+          <td-icon name="bulb" [size]="10"></td-icon>
+          <span>Tips</span>
+        </button>
         <button class="td-attributions-btn" (click)="openTokenSetup()">
           <td-icon name="lock" [size]="10"></td-icon>
           <span>Map Key</span>

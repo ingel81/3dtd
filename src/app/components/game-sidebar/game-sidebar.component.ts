@@ -23,6 +23,7 @@ import { openAttributionsDialog } from '../attributions-dialog/open-attributions
 import { ConfigService } from '../../core/services/config.service';
 import { TD_CSS_VARS } from '../../styles/td-theme';
 import { BUILD_VERSION } from '../../configs/build-info.config';
+import { OnboardingService } from '../../services/onboarding/onboarding.service';
 import { TdIconComponent } from '../icon/icon.component';
 import { SidebarWavePanelComponent } from './wave-panel/wave-panel.component';
 import { SidebarBuildPanelComponent } from './build-panel/build-panel.component';
@@ -58,6 +59,7 @@ export class GameSidebarComponent implements OnDestroy {
   private readonly dialog = inject(MatDialog);
   private readonly config = inject(ConfigService);
   private readonly modelPreview = inject(ModelPreviewService);
+  private readonly onboarding = inject(OnboardingService);
 
   // Store, single source of truth
   readonly store = inject(TowerDefenseStore);
@@ -95,6 +97,11 @@ export class GameSidebarComponent implements OnDestroy {
    */
   ngOnDestroy(): void {
     this.modelPreview.dispose();
+  }
+
+  /** Show the first-run tips again from the first. */
+  showTips(): void {
+    this.onboarding.restart();
   }
 
   /** Open the tile-credentials screen (swap or clear the stored key). */
