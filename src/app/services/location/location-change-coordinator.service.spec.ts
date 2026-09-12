@@ -87,7 +87,6 @@ function makeLocationMgmt() {
 function makeEngine() {
   return {
     setOrigin: vi.fn(),
-    clearDebugHelpers: vi.fn(),
     getCamera: vi.fn(() => ({ aspect: 1.5, fov: 50 })),
     // Tiles are "loaded" the moment the coordinator waits for them.
     setOnFirstTilesLoadedCallback: vi.fn((cb: () => void) => cb()),
@@ -264,7 +263,6 @@ describe('LocationChangeCoordinatorService', () => {
       expect(pathRoute.clearCache).toHaveBeenCalled();
       expect(callbacks.setSpawnPoints).toHaveBeenCalledWith([]);
       expect(engine.setOrigin).toHaveBeenCalledWith(HQ.lat, HQ.lon);
-      expect(engine.clearDebugHelpers).toHaveBeenCalled();
       expect(callbacks.setBaseCoords).toHaveBeenCalledWith(HQ);
       expect(callbacks.setCenterCoords).toHaveBeenCalledWith({ ...HQ, height: 400 });
       expect(locationMgmt.setLocation).toHaveBeenCalledWith(HQ, [SPAWN]);

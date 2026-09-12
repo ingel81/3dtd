@@ -450,7 +450,6 @@ export class LocationChangeCoordinatorService {
 
     // Update engine origin
     ctx.engine.setOrigin(input.hq.lat, input.hq.lon);
-    ctx.engine.clearDebugHelpers();
 
     // Update coordinates
     callbacks.setBaseCoords({ lat: input.hq.lat, lon: input.hq.lon });
