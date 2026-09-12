@@ -39,11 +39,21 @@ export class GameStateSyncService {
       this.store.phase.set('wave');
       this.store.waveNumber.set(event.wave);
       this.store.enemiesAlive.set(0);
+      this.store.waveEnemyTotal.set(event.enemyCount);
+      this.store.waveEnemiesLeft.set(event.enemyCount);
     }));
 
     this.subs.add(eventBus.on('wave:completed', (_event) => {
       this.store.phase.set('setup');
       this.store.enemiesAlive.set(0);
+      this.store.waveEnemyTotal.set(0);
+      this.store.waveEnemiesLeft.set(0);
+    }));
+
+    // Kill-all also drops the enemies still to spawn (WaveManager.stopSpawning),
+    // so nothing of the wave is left. The deaths it causes clamp at 0.
+    this.subs.add(eventBus.on('debug:kill-all', () => {
+      this.store.waveEnemiesLeft.set(0);
     }));
 
     // ── Game state events ─────────────────────────────────────────
@@ -104,12 +114,15 @@ export class GameStateSyncService {
       this.store.enemiesAlive.update(n => n + 1);
     }));
 
+    // Killed or through: either way the enemy no longer counts as left
     this.subs.add(eventBus.on('enemy:died', (_event) => {
       this.store.enemiesAlive.update(n => Math.max(0, n - 1));
+      this.store.waveEnemiesLeft.update(n => Math.max(0, n - 1));
     }));
 
     this.subs.add(eventBus.on('enemy:reached-base', (_event) => {
       this.store.enemiesAlive.update(n => Math.max(0, n - 1));
+      this.store.waveEnemiesLeft.update(n => Math.max(0, n - 1));
     }));
 
     // ── Research lifecycle ────────────────────────────────────────
