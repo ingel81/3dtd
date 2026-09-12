@@ -110,6 +110,21 @@ def steer_gate(ctx, survived: bool) -> float:
     return ctx.gate_multiplier
 
 
+def gate_leak_share(progress_values, ability_kills=0):
+    """Share of a wave the gate counts as through: arrivals plus ability kills.
+
+    Mirrors gateLeakRatio in src/app/ai/core/gate-controller.ts. Kills by a
+    player ability (the nuclear strike) count as leaks for the gate, so a
+    strike saves the player HP and gold without growing the waves after it
+    (PLAYER_AGENCY_CONCEPT.md, 6.1 b). The reward keeps reading plain
+    arrivals. None without per-enemy data.
+    """
+    if not progress_values:
+        return None
+    leaked = max(0, int(ability_kills or 0)) + sum(1 for v in progress_values if v >= 1.0)
+    return min(1.0, leaked / len(progress_values))
+
+
 def _estimate_player_skill(recent_damages: list, win_streak: int) -> float:
     """Skill heuristic: inverse of damage taken + streak bonus. [0..1]."""
     if not recent_damages:
@@ -409,6 +424,10 @@ class TrainingServer:
             # the design goal.
             near_miss_ratio = sum(1 for v in raw_values if 0.80 < v < 1.0) / len(raw_values)
             leak_ratio = sum(1 for v in raw_values if v >= 1.0) / len(raw_values)
+            # The gate also books ability kills as leaks, the reward does not.
+            gate_leak_ratio = leak_ratio
+            if outcome.get('enemyProgressValues'):
+                gate_leak_ratio = gate_leak_share(raw_values, outcome.get('abilityKills', 0))
             # Upper tail of how far the wave got, as a DENSE signal. 88-91% of
             # waves have a near-miss ratio of exactly 0, and there the drama
             # term is constant — no gradient toward pushing harder. p90 moves
@@ -449,6 +468,7 @@ class TrainingServer:
                                                        near_miss_ratio=near_miss_ratio,
                                                        progress_std=progress_std,
                                                        leak_ratio=leak_ratio,
+                                                       gate_leak_ratio=gate_leak_ratio,
                                                        p90_progress=p90_progress,
                                                        episode_done=wave_num >= EPISODE_LENGTH)
 
@@ -1177,7 +1197,7 @@ class TrainingServer:
     def _process_result(self, ctx, client_id, wave_num, result, state_after=None,
                         effective_progress=None, max_progress=0, near_miss_ratio=0,
                         progress_std=0, episode_done=False, leak_ratio=0.0,
-                        p90_progress=0.0):
+                        p90_progress=0.0, gate_leak_ratio=None):
         """Phase 5.10: simplified reward pipeline (4 terms only)."""
         damage_pct = result.get("damagePercent", 0)
         avg_progress = effective_progress if effective_progress is not None else result.get("avgPathProgressPercent", 0)
@@ -1247,7 +1267,9 @@ class TrainingServer:
         # settles instead of climbing.
         sent = int(result.get("enemiesSpawned", 0) or 0)
         if sent > 0:
-            ctx.leak_shares.append(max(0.0, min(1.0, leak_ratio)))
+            # Ability kills count as leaks here (gate_leak_share), not in the reward
+            gate_share = leak_ratio if gate_leak_ratio is None else gate_leak_ratio
+            ctx.leak_shares.append(max(0.0, min(1.0, gate_share)))
             if len(ctx.leak_shares) > GATE_ADAPT_WINDOW:
                 ctx.leak_shares.pop(0)
         steer_gate(ctx, survived)

@@ -112,6 +112,17 @@ def test_starved_gate_reaches_useful_scale_within_a_run():
     assert _steer(ctx, 0.0, waves=40) > 1.6
 
 
+def test_ability_kills_count_as_leaks_for_the_gate():
+    """A strike must not read as defense strength (PLAYER_AGENCY_CONCEPT.md, 6.1 b).
+
+    Mirrors gateLeakRatio in the frontend's gate-controller.ts.
+    """
+    assert server.gate_leak_share([0.5] * 9 + [1.0]) == 0.1
+    assert server.gate_leak_share([0.5] * 10, ability_kills=2) == 0.2
+    assert server.gate_leak_share([], ability_kills=3) is None
+    assert server.gate_leak_share([1.0, 0.5], ability_kills=5) == 1.0
+
+
 def test_correction_shrinks_inside_the_band():
     """Proportional control has to settle, not oscillate."""
     ctx = _Ctx()
