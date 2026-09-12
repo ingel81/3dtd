@@ -224,17 +224,37 @@ describe('SpatialAudioManager', () => {
       expect(manager.getSoundConfig('nope')).toBeNull();
     });
 
-    it('rejects getBuffer once a file failed all load retries (current behaviour)', async () => {
+    it('answers null once a file failed all load retries', async () => {
       vi.spyOn(console, 'warn').mockImplementation(() => undefined);
       vi.spyOn(console, 'error').mockImplementation(() => undefined);
       reg.failing.add('broken.mp3');
       const { manager } = setup();
       manager.registerSound('broken', 'broken.mp3');
 
-      const assertion = expect(manager.getBuffer('broken')).rejects.toThrow('404 broken.mp3');
+      const buffer = manager.getBuffer('broken');
       await vi.advanceTimersByTimeAsync(3000);
-      await assertion;
+      await expect(buffer).resolves.toBeNull();
       expect(reg.loads.filter((u) => u === 'broken.mp3')).toHaveLength(4);
+    });
+
+    it('plays nothing for a file that failed, without rejecting', async () => {
+      vi.spyOn(console, 'warn').mockImplementation(() => undefined);
+      vi.spyOn(console, 'error').mockImplementation(() => undefined);
+      reg.failing.add('broken.mp3');
+      const { scene, manager } = setup();
+      manager.registerSound('broken', 'broken.mp3');
+      manager.registerSound('broken_loop', 'broken.mp3');
+
+      const oneShot = manager.playAt('broken', NEAR);
+      const global = manager.playGlobal('broken');
+      const loop = manager.createLoop('broken_loop', NEAR);
+      await vi.advanceTimersByTimeAsync(3000);
+
+      await expect(oneShot).resolves.toBeNull();
+      await expect(global).resolves.toBeNull();
+      await expect(loop).resolves.toBeNull();
+      expect(scene.children).toHaveLength(0);
+      expect(manager.getActiveSoundCount()).toBe(0);
     });
   });
 

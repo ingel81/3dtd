@@ -25,7 +25,8 @@ export interface ActiveSound {
 export interface RegisteredSound {
   buffer: AudioBuffer | null;
   config: Required<SpatialSoundConfig>;
-  loading: Promise<AudioBuffer> | null;
+  /** Pending load; resolves null when the file failed all retries. */
+  loading: Promise<AudioBuffer | null> | null;
 }
 
 /**
