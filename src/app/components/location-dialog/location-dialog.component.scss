@@ -369,7 +369,38 @@ h2 {
   font-weight: 500;
 }
 
-/* Quick picks (recent places): plain rows, one click loads */
+/* Quick picks (recent and showcase places): plain rows, one click loads */
+.quick-tabs {
+  display: flex;
+  gap: 14px;
+}
+
+.quick-tab {
+  padding: 0 0 2px;
+  background: none;
+  border: none;
+  border-bottom: 1px solid transparent;
+  color: var(--td-text-muted);
+  font-family: inherit;
+  font-size: 11px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.quick-tab:hover {
+  color: var(--td-text-secondary);
+}
+
+.quick-tab.active {
+  color: var(--td-text-primary);
+  border-bottom-color: var(--td-gold);
+}
+
+.quick-tab:focus-visible {
+  outline: 1px solid var(--td-gold-light);
+  outline-offset: 2px;
+}
+
 .quick-list {
   list-style: none;
   margin: 0;
@@ -419,6 +450,22 @@ h2 {
   font-family: var(--td-font-mono);
   font-size: 9px;
   color: var(--td-text-muted);
+}
+
+/* Showcase rows: the hint on its own line under the name */
+.quick-item-stacked {
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 1px;
+}
+
+.quick-item-stacked .quick-name {
+  width: 100%;
+}
+
+.quick-item-stacked .quick-hint {
+  font-family: var(--td-font-body);
+  font-size: 10px;
 }
 
 /* Current HQ Info (spawn-only mode) */

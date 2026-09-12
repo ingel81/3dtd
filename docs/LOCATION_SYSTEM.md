@@ -454,7 +454,9 @@ Angular Material Dialog mit zwei Modi:
 
 ### Features
 
-- **Recent** (nur `full`-Modus): zuletzt gespielte Orte ohne den aktuellen, ein Klick lädt den Ort mit seinem Spawn ohne Bestätigung (Ergebnis wie Confirm, `spawn.id: 'spawn_recent'`)
+- **Recent / Showcase** (nur `full`-Modus, eine Liste mit zwei Tabs unter dem Spawn-Abschnitt; ohne Recent-Einträge nur Showcase): ein Klick lädt ohne Bestätigung (Ergebnis wie Confirm)
+  - Recent: zuletzt gespielte Orte ohne den aktuellen, mit ihrem Spawn (`spawn.id: 'spawn_recent'`)
+  - Showcase: 13 Orte aus `configs/showcase-locations.config.ts` (Name, eine Zeile Hinweis), Spawn zufällig wie im Modus Random. Koordinaten gegen OSM (Nominatim) geprüft, auf Fußweg, Straße oder Platz; nicht einzeln im Spiel angespielt
 - **Autocomplete-Suche** via `AddressAutocompleteComponent` (Nominatim)
 - **Manuelle Koordinaten-Eingabe** (ausklappbar, nur für das HQ: "Enter coordinates")
   - Unterstuetzte Formate beim Einfuegen:

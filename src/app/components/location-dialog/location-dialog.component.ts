@@ -9,6 +9,7 @@ import { AddressAutocompleteComponent } from '../address-autocomplete.component'
 import { GeocodingService, NominatimAddress, UNKNOWN_LOCATION_NAME } from '../../services/location/geocoding.service';
 import { LocationManagementService } from '../../services/location/location-management.service';
 import { RecentLocation, formatVisitAge, isSamePlace } from '../../services/location/recent-locations';
+import { SHOWCASE_LOCATIONS, ShowcaseLocation } from '../../configs/showcase-locations.config';
 import { TdIconComponent } from '../icon/icon.component';
 import {
   LocationDialogData,
@@ -56,6 +57,13 @@ export class LocationDialogComponent {
     return this.locationMgmt.recents().filter((r) => !current || !isSamePlace(r.hq, current));
   });
   private readonly openedAt = Date.now();
+
+  readonly showcaseLocations = SHOWCASE_LOCATIONS;
+  /** Tab of the quick-pick list; without recent places only the showcase is there. */
+  readonly quickTab = signal<'recent' | 'showcase'>('recent');
+  readonly activeQuickTab = computed(() =>
+    this.recentLocations().length > 0 ? this.quickTab() : 'showcase',
+  );
 
   // State
   readonly editMode = signal<EditMode>('full');
@@ -305,6 +313,15 @@ export class LocationDialogComponent {
       spawn: spawn
         ? { id: 'spawn_recent', lat: spawn.lat, lon: spawn.lon, isRandom: false }
         : { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
+      confirmed: true,
+    } satisfies LocationDialogResult);
+  }
+
+  /** One click loads a showcase place; the spawn is placed at random like the Random mode. */
+  loadShowcase(place: ShowcaseLocation): void {
+    this.dialogRef.close({
+      hq: { lat: place.lat, lon: place.lon, name: place.name, displayName: place.name },
+      spawn: { id: 'spawn_random', lat: 0, lon: 0, isRandom: true },
       confirmed: true,
     } satisfies LocationDialogResult);
   }
