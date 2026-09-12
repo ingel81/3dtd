@@ -49,6 +49,12 @@
       (`1306460` bis `bfb550c`), inklusive Tile-Messung und Brücken-Deck;
       Tunnel nicht angefasst. Playtest steht aus
       (`docs/REVIEW_SPRINT_2026-09-12.md`).
+      **Nach dem Playtest 2026-09-12:** Breite aus dem gemessenen Freiraum je
+      Seite (bis 7 m Halbbreite, OSM nur Fallback), Engstelle 1 Zelle,
+      Dach-Check, zwei Strahlhöhen gegen parkende Autos, Tuning per
+      `__corridor.set` (`331c7a3` bis `8910463`). Konzept für
+      route-parallele Zellen: `docs/ROUTE_ALIGNED_CELLS_CONCEPT.md`,
+      Entscheidung nach dem nächsten Test.
 
 ## 1.1 Engine-Bugs
 
@@ -192,6 +198,9 @@
       Die elf Debug-Fenster liegen mit ~160 kB im Start-Bundle. Einzeln lohnt
       `@defer` nicht (8 kB Defer-Runtime gegen 13,8 kB beim Training-Fenster),
       gemeinsam schon. Befund aus dem Lazy-Training-Umbau (`85d8402`).
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`eddeb82`): ein Lazy-Chunk
+      für alle elf Fenster, Spielstart netto etwa 148 kB weniger (aus dem
+      Build berechnet). Browser-Test steht aus.
 
 - [ ] **Kleinkram**
       Rocket-Düsenglühen (Trail-Streak) ist in der Länge FPS-abhängig ·
@@ -246,16 +255,20 @@
 
 - [ ] **Kleinkram Runde 2**
       `GameStateManager.initialize` hat den unbenutzten Parameter
-      `_streetNetwork` · mit Debug-Gegnern außerhalb einer Welle kommt kein
-      `wave:completed`, die Tower drehen dann nicht zur Wachrichtung ·
-      `getCurrentDifficulty()` und `calculateReward()` im `WaveDirectorService`
-      haben keine Aufrufer · `poison-glob` fehlt in `PROJECTILE_SOUND_IDS` ·
+      `_streetNetwork` (erledigt, `71f41ec`) · mit Debug-Gegnern außerhalb
+      einer Welle kommt kein `wave:completed`, die Tower drehen dann nicht zur
+      Wachrichtung · `getCurrentDifficulty()` und `calculateReward()` im
+      `WaveDirectorService` haben keine Aufrufer (erledigt, `71f41ec`) ·
+      `poison-glob` fehlt in `PROJECTILE_SOUND_IDS` (erledigt, `3047750`) ·
       economy-chart, tower-stats-chart und wave-planner schreiben noch ohne
-      `writeGeneratedFile` · verzögerter Rauch wird mit Größe 0 gezeichnet,
+      `writeGeneratedFile` (erledigt, `9f4b0a5`; die committeten Charts sind
+      inhaltlich veraltet, einmal neu erzeugen) · `spawnBulletTracer`,
+      `spawnCannonSmoke`, `setBloomStrength`/`setBloomThreshold`/
+      `isBloomEnabled` haben keine Aufrufer · verzögerter Rauch wird mit Größe 0 gezeichnet,
       manche GPUs zeigen dann eventuell einen 1-px-Punkt (ungeprüft) · der Split des Skeletons aus
       MASTER_GAME_DESIGN §4 ist nicht umgesetzt · `EXPLOSION_PRESETS.hq`, der
       Typ `ExplosionPreset` und `ThreeTilesEngine.clearEntities()` haben keine
-      Nutzer.
+      Nutzer (erledigt, `71f41ec`).
 
 ---
 
@@ -486,6 +499,11 @@
       Freeze-Tint, Muzzle Flash, Trail-Streaks, Sprite-Sheet Partikel,
       Screen Shake, Bloom, Color-Grading
       Ziel: Low-End-Geräte können teure Effekte deaktivieren
+      **Stand 2026-09-12 (Runde 2):** umgesetzt (`8eb765f` bis `de1b57d`):
+      Effekt-Panel im Display-Menü mit Preset Low/Medium/High, Muzzle Flash,
+      Trails, Impact Effects, Ground Marks, Bloom, Color Grading, Freeze Tint;
+      alle Display-Optionen in `td_display_options`. FPS-Gewinn je Schalter
+      ungemessen.
 
 ## 3.3 Damage & Armor System
 
@@ -552,6 +570,12 @@
       hübsch. Gemeinsam gestalten statt einzeln, mit visuellem Feedback.
       **Entscheidung 2026-09-12:** über Design-Canvas-Mockups (Artifact), die
       der Nutzer zurechtklickt; danach setzt ein Worker exakt das um.
+      **Stand 2026-09-12:** Canvas "3DTD Header und Dev-Menü" mit dem
+      heutigen Stand und drei bzw. zwei Richtungen liegt als Artifact vor,
+      Auswahl des Nutzers steht aus. Befunde dabei: JetBrains Mono wird im
+      Spiel nicht geladen (Ersatzschrift), der aktive Dev-Toggle ist gold mit
+      Teal-Glow (vermutlich nicht beabsichtigt), die Farben in
+      `docs/DESIGN_SYSTEM.md` sind teils veraltet.
 
 ---
 
