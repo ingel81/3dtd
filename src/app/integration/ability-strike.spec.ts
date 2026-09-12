@@ -79,6 +79,8 @@ const COMMAND_STEP = 30;
 const WARNING_STEPS = 90;
 /** Outcome read at this sub-step, the same one in both runs */
 const READ_STEP = COMMAND_STEP + WARNING_STEPS + 10;
+/** Halfway through the warning */
+const PAUSE_STEP = COMMAND_STEP + WARNING_STEPS / 2;
 /** The fourth waypoint, about 33 m down the path */
 const TARGET: GeoPosition = TEST_PATH[3];
 
@@ -106,7 +108,8 @@ interface Outcome {
   credits: number;
 }
 
-function run(timescale: number): Outcome {
+/** @param pauseFrames frames the game stays paused at PAUSE_STEP, 0 for none */
+function run(timescale: number, pauseFrames = 0): Outcome {
   for (const key of Object.keys(mockServices)) delete mockServices[key];
   GameObject.resetIdCounter();
 
@@ -156,7 +159,17 @@ function run(timescale: number): Outcome {
   let impactStep = -1;
   let outcome: Outcome | null = null;
   let now = 1000;
+  let pausedOnce = false;
   while (!outcome) {
+    if (pauseFrames > 0 && !pausedOnce && steps >= PAUSE_STEP) {
+      pausedOnce = true;
+      gsm.paused.set(true);
+      for (let i = 0; i < pauseFrames; i++) {
+        now += 16;
+        gsm.update(now, () => steps++);
+      }
+      gsm.paused.set(false);
+    }
     now += 16;
     gsm.update(now, () => {
       steps++;
@@ -210,5 +223,14 @@ describe('Nuclear strike through the sub-step loop', () => {
     const tenfold = run(10);
     expect(tenfold).toEqual(single);
     expect(single.kills).toBeGreaterThan(0);
+  });
+
+  it('stands still while the game is paused', () => {
+    vi.spyOn(Math, 'random').mockReturnValue(0.5);
+    const straight = run(1);
+    // About ten seconds of wall clock, far longer than the warning
+    const paused = run(1, 600);
+    expect(paused.impactStep).toBe(COMMAND_STEP + WARNING_STEPS);
+    expect(paused).toEqual(straight);
   });
 });
