@@ -65,8 +65,10 @@ describe('computeGuardHeading', () => {
   it('matches the heading the turret aims at a target standing on the entry', () => {
     // Off-axis entries are where a different angle convention would show.
     const entry = at(10, 24);
-    expect(computeGuardHeading(TOWER, 26, [[at(10, 100), at(10, -100)]]))
-      .toBeCloseTo(geoHeading(TOWER, entry), 9);
+    const heading = computeGuardHeading(TOWER, 26, [[at(10, 100), at(10, -100)]]);
+    expect(heading).toBeCloseTo(geoHeading(TOWER, entry), 9);
+    // Metric: 10 m east, 24 m north of the tower.
+    expect(heading).toBeCloseTo(Math.atan2(10, 24), 9);
   });
 
   it('with several routes, watches the entry that lies earliest along its route', () => {

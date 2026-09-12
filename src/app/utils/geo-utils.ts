@@ -125,14 +125,17 @@ export function geoDistanceFastSq(
 
 /**
  * Heading from one geo position to another, in radians: 0 = north, π/2 = east.
- * Built from raw degree deltas, the convention the turret aim uses, so a
- * turret turned to this heading lines up with its aim at a target there.
+ * Metric: a degree of longitude is cos(lat) shorter than a degree of latitude,
+ * so the longitude delta is scaled like in EllipsoidSync.calculateHeading and
+ * the heading matches the direction in the scene. On raw degree deltas a
+ * turret at 48°N pointed up to 11° past a diagonal target.
  */
 export function geoHeading(
   from: { lat: number; lon: number },
   to: { lat: number; lon: number }
 ): number {
-  return Math.atan2(to.lon - from.lon, to.lat - from.lat);
+  const east = (to.lon - from.lon) * Math.cos(from.lat * DEG_TO_RAD);
+  return Math.atan2(east, to.lat - from.lat);
 }
 
 /**
