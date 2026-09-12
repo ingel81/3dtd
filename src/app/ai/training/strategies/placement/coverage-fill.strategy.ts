@@ -12,7 +12,6 @@ import { TowerAction, BotConfig } from '../../bots/tower-bot.interface';
 import { TowerTypeId, TOWER_TYPES } from '../../../../configs/tower-types.config';
 import { StrategicPlacementService } from '../../../../services/world/strategic-placement.service';
 import { GameStateManager } from '../../../../managers/game-state.manager';
-import { Tower } from '../../../../entities/tower.entity';
 
 export class CoverageFillStrategy extends BaseStrategy {
   private savingForType: TowerTypeId | null = null;
@@ -48,7 +47,7 @@ export class CoverageFillStrategy extends BaseStrategy {
     if (this.savingForType) {
       const target = TOWER_TYPES[this.savingForType];
       if (state.player.credits >= target.cost) {
-        return this.placeTower(this.savingForType, existingTowers, 'saved up');
+        return this.placeTower(this.savingForType, 'saved up');
       }
       return {
         type: 'wait',
@@ -145,40 +144,34 @@ export class CoverageFillStrategy extends BaseStrategy {
       }
     }
 
-    return this.placeTower(chosen, existingTowers, reason);
+    return this.placeTower(chosen, reason);
   }
 
   onReset(): void {
     this.savingForType = null;
   }
 
-  private placeTower(chosen: TowerTypeId, existingTowers: Tower[], reason: string): TowerAction | null {
+  private placeTower(chosen: TowerTypeId, reason: string): TowerAction | null {
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const candidates = this.strategicPlacement.findStrategicPositions(
+    // Candidates already obey the placement rules; take the best one.
+    const [best] = this.strategicPlacement.findStrategicPositions(
       spawnPoints,
       paths,
       TOWER_TYPES[chosen].range,
-      existingTowers
     );
+    if (!best) return null;
 
-    for (const candidate of candidates) {
-      const validation = this.gameState.towerManager.validatePosition(candidate.position);
-      if (validation.valid) {
-        // Clear saving goal on successful placement
-        if (this.savingForType === chosen) {
-          this.savingForType = null;
-        }
-        return {
-          type: 'place',
-          position: { x: candidate.position.lon, z: candidate.position.lat },
-          towerType: chosen,
-          confidence: 0.7,
-          reason: `Building ${TOWER_TYPES[chosen].name} (${reason}) - ${candidate.reason}`
-        };
-      }
+    // Clear saving goal on successful placement
+    if (this.savingForType === chosen) {
+      this.savingForType = null;
     }
-
-    return null;
+    return {
+      type: 'place',
+      position: { x: best.position.lon, z: best.position.lat },
+      towerType: chosen,
+      confidence: 0.7,
+      reason: `Building ${TOWER_TYPES[chosen].name} (${reason}) - ${best.reason}`
+    };
   }
 }

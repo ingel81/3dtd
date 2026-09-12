@@ -12,7 +12,7 @@ import { GlobalRouteGridService } from './world/global-route-grid.service';
 import { AssetManagerService } from './infrastructure/asset-manager.service';
 import { UIStore } from '../store/ui.store';
 import { TowerDefenseStore } from '../store/tower-defense.store';
-import { checkTowerPlacement, TowerPlacementResult } from '../utils/tower-placement-rules';
+import { checkTowerPlacement, TowerPlacementContext, TowerPlacementResult } from '../utils/tower-placement-rules';
 import { TowerLosViz } from '../utils/tower-los-viz';
 import { canTargetAirEffective } from '../entities/tower-targeting.util';
 import { ResearchStore } from '../store/research.store';
@@ -764,23 +764,35 @@ export class TowerPlacementService {
    * in `checkTowerPlacement`.
    */
   validateTowerPosition(lat: number, lon: number): TowerPlacementResult {
-    if (!this.streetNetwork || !this.osmService || !this.baseCoords) {
-      return { valid: false, reason: 'Service not initialized' };
+    return this.placementChecker()(lat, lon);
+  }
+
+  /**
+   * Dieselbe Prüfung für viele Positionen hintereinander, für die
+   * Kandidatensuche der Bots: Der Kontext (Tower, Spawns, Routen) wird einmal
+   * zusammengestellt statt pro Position. Gleiche Regeln, gleiche
+   * Distanzformel. Ein Schnappschuss, nach einer Platzierung neu holen.
+   */
+  placementChecker(): (lat: number, lon: number) => TowerPlacementResult {
+    const osmService = this.osmService;
+    if (!this.streetNetwork || !osmService || !this.baseCoords) {
+      return () => ({ valid: false, reason: 'Service not initialized' });
     }
 
     if (this.streetNetwork.streets.length === 0) {
-      return { valid: false, reason: 'No streets loaded' };
+      return () => ({ valid: false, reason: 'No streets loaded' });
     }
 
-    return checkTowerPlacement(lat, lon, {
+    const ctx: TowerPlacementContext = {
       bounds: this.streetNetwork.bounds,
       base: this.baseCoords,
       // Aus dem Store-Signal, damit verschobene Spawns sofort gelten
       spawns: this.store.spawnPoints(),
       towers: this.gameState?.towerManager.getAll() ?? [],
       routes: this.getActiveRoutes(),
-      geo: this.osmService,
-    });
+      geo: osmService,
+    };
+    return (lat, lon) => checkTowerPlacement(lat, lon, ctx);
   }
 
   // ========================================

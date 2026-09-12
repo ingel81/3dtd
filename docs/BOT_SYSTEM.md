@@ -593,7 +593,9 @@ Erzeugungszeitpunkt gelesen — eine spätere Änderung wirkt erst beim nächste
 
 1. Bot aktiv? → `botEnabled()`
 2. Genug Credits? → Konsole, „Cannot afford"
-3. Valide Positionen? → `towerManager.validatePosition` in der Kandidatenschleife
+3. Valide Positionen? → `StrategicPlacementService` gibt nur Kandidaten zurück,
+   die `TowerPlacementService.placementChecker()` besteht (dieselben Regeln wie
+   Vorschau und Klick). Keine Kandidaten, keine Platzierung
 4. `canExecute()` der Strategie — Turm-Cap (`maxTowers`, gejittert!) erreicht?
 5. Reaktions-Cooldown abgelaufen? → `reactionTimeMs`, ebenfalls gejittert
 
@@ -622,6 +624,15 @@ beim Strategist greifen beide, bei den anderen Skill-Levels nur die erste.
 ---
 
 ## Changelog
+
+### 2026-09-12: Platzierungsregeln aus einer Quelle
+- `TowerManager.validatePosition` und `StrategicPlacementService.meetsPlacementConstraints`
+  entfernt. Die Kandidatensuche prüft mit `TowerPlacementService.placementChecker()`
+  gegen `checkTowerPlacement`, dieselben Regeln wie Vorschau und Klick. Neu im
+  Bot-Filter: der Spielbereich (Bounds). Spawns kommen aus dem Store statt aus
+  dem Stand von `initializeWithContext`.
+- Die Strategien nehmen den besten Kandidaten direkt; die zweite Prüfschleife
+  pro Kandidat entfällt.
 
 ### 2026-09 — Platzierung an beiden Pfadenden
 - `NearSpawnUpgradeStrategy` → **`PathCoverageUpgradeStrategy`**, Datei

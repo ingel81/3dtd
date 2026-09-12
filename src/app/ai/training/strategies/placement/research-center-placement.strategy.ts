@@ -43,27 +43,19 @@ export class ResearchCenterPlacementStrategy extends BaseStrategy {
     // combat range, but the placement service already picks valid street-adjacent positions.
     const spawnPoints = this.gameState.getSpawnPoints();
     const paths = this.gameState.getCachedPaths();
-    const candidates = this.strategicPlacement.findStrategicPositions(
+    const [best] = this.strategicPlacement.findStrategicPositions(
       spawnPoints,
       paths,
       TOWER_TYPES['research-center'].range || 60,  // range 0 → default search radius
-      this.gameState.towerManager.getAll(),
     );
+    if (!best) return null;
 
-    // First valid candidate
-    for (const candidate of candidates) {
-      const validation = this.gameState.towerManager.validatePosition(candidate.position);
-      if (validation.valid) {
-        return {
-          type: 'place',
-          position: { x: candidate.position.lon, z: candidate.position.lat },
-          towerType: 'research-center',
-          confidence: 0.95,
-          reason: 'Bootstrapping research',
-        };
-      }
-    }
-
-    return null;
+    return {
+      type: 'place',
+      position: { x: best.position.lon, z: best.position.lat },
+      towerType: 'research-center',
+      confidence: 0.95,
+      reason: 'Bootstrapping research',
+    };
   }
 }
