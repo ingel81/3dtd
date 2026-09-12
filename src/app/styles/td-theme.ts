@@ -64,6 +64,9 @@ export const TD_THEME = {
   // === Damage-Type Cold (new) ===
   // Tooltip armor-rows for cold damage
   cold: '#5BA4D9',
+  // Tooltip accents for lightning and chaos towers, the DAMAGE_TYPE_UI colours
+  lightning: '#7DD3FC',
+  chaos: '#D946EF',
 
   // === Debug & Event Category Colors ===
   eventVfx: '#a855f7', // VFX events (purple)
@@ -157,6 +160,8 @@ export const TD_CSS_VARS = `
   --td-glass-tint: ${TD_THEME.glassTint};
   --td-scrim: ${TD_THEME.scrim};
   --td-cold: ${TD_THEME.cold};
+  --td-lightning: ${TD_THEME.lightning};
+  --td-chaos: ${TD_THEME.chaos};
 
   --td-shadow-soft: ${TD_SHADOWS.shadowSoft};
   --td-shadow-key: ${TD_SHADOWS.shadowKey};

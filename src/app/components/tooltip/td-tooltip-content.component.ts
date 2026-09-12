@@ -9,6 +9,8 @@ const ACCENT_COLOR_MAP: Record<TdTooltipAccent, string> = {
   teal: 'var(--td-teal-light)',
   fire: 'var(--td-warn-orange)',
   cold: 'var(--td-cold)',
+  lightning: 'var(--td-lightning)',
+  chaos: 'var(--td-chaos)',
   poison: 'var(--td-green)',
   health: 'var(--td-health-red)',
   neutral: 'var(--td-text-primary)',

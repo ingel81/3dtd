@@ -86,6 +86,18 @@ import { TD_CSS_VARS, TD_THEME } from '../styles/td-theme';
 | `--td-warn-orange` | `#C96A3A` | Warnungen |
 | `--td-disabled` | `#5B625C` | Deaktivierte Elemente |
 
+### Schadenstyp-Farben
+
+Titel-Akzent der Tower-Tooltips (`DAMAGE_ACCENT` in `sidebar-tooltips.ts`), dazu
+`--td-gold-light` (physical, pierce, siege), `--td-teal-light` (magic),
+`--td-warn-orange` (fire) und `--td-green` (poison).
+
+| Variable | Hex | Verwendung |
+|----------|-----|------------|
+| `--td-cold` | `#5BA4D9` | Ice |
+| `--td-lightning` | `#7DD3FC` | Lightning, wie `DAMAGE_TYPE_UI` |
+| `--td-chaos` | `#D946EF` | Chaos, wie `DAMAGE_TYPE_UI` |
+
 ### Textfarben
 
 **Regel:** Nie reines Weiss verwenden!

@@ -57,6 +57,12 @@ describe('towerCardTooltip', () => {
     ]);
   });
 
+  it('colours the header by damage type', () => {
+    expect(towerCardTooltip(TOWER_TYPES.ice, noResearch).accent).toBe('cold');
+    expect(towerCardTooltip(TOWER_TYPES.lightning, noResearch).accent).toBe('lightning');
+    expect(towerCardTooltip(TOWER_TYPES.chaos, noResearch).accent).toBe('chaos');
+  });
+
   it('lists all armor types and dims the weak ones', () => {
     // physical: 1.00 / 1.00 / 0.50 / 0.30 / 0.10, weak below 0.6
     const rows = towerCardTooltip(TOWER_TYPES.archer, noResearch).armor ?? [];

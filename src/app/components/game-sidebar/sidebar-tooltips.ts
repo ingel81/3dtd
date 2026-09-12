@@ -30,12 +30,17 @@ const ARMOR_DOT_COLOR: Record<string, string> = {
   'ethereal': '#9A78C7',
 };
 
-const DAMAGE_ACCENT: Record<string, TdTooltipData['accent']> = {
-  'physical': 'gold',
-  'magic': 'teal',
-  'fire': 'fire',
-  'cold': 'cold',
-  'poison': 'poison',
+// Complete per damage type, so a new type without an accent does not compile.
+const DAMAGE_ACCENT: Record<DamageType, NonNullable<TdTooltipData['accent']>> = {
+  physical: 'gold',
+  pierce: 'gold',
+  siege: 'gold',
+  magic: 'teal',
+  fire: 'fire',
+  ice: 'cold',
+  poison: 'poison',
+  lightning: 'lightning',
+  chaos: 'chaos',
 };
 
 const ARMOR_ACCENT: Record<ArmorType, TdTooltipData['accent']> = {
@@ -101,7 +106,7 @@ export function towerCardTooltip(
   return {
     title: tower.name,
     category: dmgUi.label.toUpperCase(),
-    accent: DAMAGE_ACCENT[tower.damageType] ?? 'gold',
+    accent: DAMAGE_ACCENT[tower.damageType],
     stats,
     targeting,
     armorTitle: 'vs Armor',
