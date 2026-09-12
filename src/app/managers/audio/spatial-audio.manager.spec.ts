@@ -506,16 +506,40 @@ describe('SpatialAudioManager', () => {
       expect(await manager.playGlobal('nope')).toBeNull();
     });
 
-    it('stopAll cancels the pending disconnect but leaves the sample playing (current behaviour)', async () => {
+    it('stopAll stops and disconnects a global one-shot that is still playing', async () => {
       const { manager, ready } = setup();
       await ready('ui', 'ui.mp3');
       const audio = (await manager.playGlobal('ui')) as unknown as FakeAudio;
 
       manager.stopAll();
-      await vi.advanceTimersByTimeAsync(1000);
 
-      expect(audio.disconnected).toBe(false);
+      expect(audio.isPlaying).toBe(false);
+      expect(audio.disconnected).toBe(true);
+    });
+
+    it('stopAll also stops a looping global sound', async () => {
+      const { manager, ready } = setup();
+      await ready('ambience', 'ambience.mp3', { loop: true });
+      const audio = (await manager.playGlobal('ambience')) as unknown as FakeAudio;
+      await vi.advanceTimersByTimeAsync(1000);
       expect(audio.isPlaying).toBe(true);
+
+      manager.stopAll();
+
+      expect(audio.isPlaying).toBe(false);
+      expect(audio.disconnected).toBe(true);
+    });
+
+    it('forgets a global one-shot once its sample is over', async () => {
+      const { manager, ready } = setup();
+      await ready('ui', 'ui.mp3');
+      const audio = (await manager.playGlobal('ui')) as unknown as FakeAudio;
+      await vi.advanceTimersByTimeAsync(400);
+      const stop = vi.spyOn(audio as unknown as { stop: () => void }, 'stop');
+
+      manager.stopAll();
+
+      expect(stop).not.toHaveBeenCalled();
     });
   });
 
