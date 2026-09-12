@@ -252,9 +252,6 @@ export class ThreeTowerRenderer {
     for (const url of urls) {
       const model = this.assetManager.cloneModel(url);
       if (!model) continue;
-      if (this.assetManager.isFbxModel(url)) {
-        this.assetManager.applyFbxMaterials(model);
-      }
       warm.add(model);
     }
 
@@ -315,10 +312,6 @@ export class ThreeTowerRenderer {
       return null;
     }
 
-    // Apply FBX materials if needed
-    if (this.assetManager.isFbxModel(config.modelUrl)) {
-      this.assetManager.applyFbxMaterials(mesh);
-    }
     mesh.scale.setScalar(config.scale);
 
     // Apply rotation: custom rotation + config rotation

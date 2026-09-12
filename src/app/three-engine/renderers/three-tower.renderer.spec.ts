@@ -21,7 +21,6 @@ describe('ThreeTowerRenderer turret heading', () => {
       model.add(turret);
       return model;
     },
-    isFbxModel: () => false,
   };
   const sync = {
     geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),
@@ -167,7 +166,6 @@ describe('ThreeTowerRenderer turret node', () => {
       }
       return model;
     },
-    isFbxModel: () => false,
   };
   const sync = {
     geoToLocal: (lat: number, lon: number, height: number) => new Vector3(lon, height, lat),

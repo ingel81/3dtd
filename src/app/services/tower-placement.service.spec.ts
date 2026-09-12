@@ -95,8 +95,6 @@ describe('TowerPlacementService', () => {
   let assets: {
     loadModel: ReturnType<typeof vi.fn>;
     cloneModel: ReturnType<typeof vi.fn>;
-    isFbxModel: ReturnType<typeof vi.fn>;
-    applyFbxMaterials: ReturnType<typeof vi.fn>;
     releaseModel: ReturnType<typeof vi.fn>;
   };
   let grid: {
@@ -197,8 +195,6 @@ describe('TowerPlacementService', () => {
     assets = {
       loadModel: vi.fn(async () => ({})),
       cloneModel: vi.fn(() => makeModel()),
-      isFbxModel: vi.fn(() => false),
-      applyFbxMaterials: vi.fn(),
       releaseModel: vi.fn(),
     };
     injectionRegistry['AssetManagerService'] = assets;
@@ -290,16 +286,6 @@ describe('TowerPlacementService', () => {
       expect(material.transparent).toBe(true);
       expect(material.opacity).toBeCloseTo(0.7);
       expect(material.depthWrite).toBe(false);
-    });
-
-    it('applies the FBX materials only to FBX models', async () => {
-      init();
-      await enterBuild('archer');
-      expect(assets.applyFbxMaterials).not.toHaveBeenCalled();
-
-      assets.isFbxModel.mockReturnValue(true);
-      await enterBuild('cannon');
-      expect(assets.applyFbxMaterials).toHaveBeenCalledWith(preview());
     });
 
     it('swaps the preview when another type is chosen', async () => {

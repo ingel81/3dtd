@@ -28,9 +28,8 @@ import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { HalfFloatType, Texture, type AnimationClip, type Object3D } from 'three';
+import { HalfFloatType, Texture } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 import { ENEMY_TYPES, type EnemyTypeConfig } from '../../src/app/configs/enemy-types.config';
@@ -182,45 +181,36 @@ async function bakeModel(config: EnemyTypeConfig): Promise<VATData | null> {
   // The loaders check `instanceof ArrayBuffer` against the test DOM's realm.
   const buffer = new ArrayBuffer(bytes.length);
   new Uint8Array(buffer).set(bytes);
-  let model: Object3D;
-  let animations: AnimationClip[];
-  if (config.modelUrl.toLowerCase().endsWith('.fbx')) {
-    model = new FBXLoader().parse(buffer, '');
-    animations = model.animations;
-  } else {
-    const loader = new GLTFLoader();
-    // Decoding images needs a browser, so this plugin decodes the base colour
-    // PNGs itself: vatAlpha reads their alpha (texturePixels takes the bytes
-    // as they are). JPEG has no alpha, which is the same to vatAlpha as no
-    // map; other formats (WebP, ...) come as a texture without an image,
-    // which vatAlpha counts as translucent. Without their extensions no
-    // built-in plugin takes a texture on before this one.
-    loader.register((parser) => ({
-      name: 'model-budget-base-colour',
-      beforeRoot: () => {
-        for (const texture of parser.json.textures ?? []) delete texture.extensions;
-        return null;
-      },
-      loadTexture: async (index: number) => {
-        const baseColour = (parser.json.materials ?? []).some(
-          (m: { pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }) =>
-            m.pbrMetallicRoughness?.baseColorTexture?.index === index,
-        );
-        const image = parser.json.images?.[parser.json.textures[index].source];
-        if (!baseColour || !image) return null;
-        const file: Buffer | null = image.bufferView !== undefined
-          ? Buffer.from(await parser.getDependency('bufferView', image.bufferView))
-          : image.uri ? readFileSync(resolve(dirname(path), decodeURIComponent(image.uri))) : null;
-        if (file && imageSize(file)?.mimeType === 'image/jpeg') return null;
-        const pixels = file ? decodePng(file) : null;
-        return new Texture(pixels ?? undefined);
-      },
-    }));
-    const gltf = await loader.parseAsync(buffer, '');
-    model = gltf.scene;
-    animations = gltf.animations;
-  }
-  return bakeEnemyVAT(config, SkeletonUtils.clone(model), animations);
+  const loader = new GLTFLoader();
+  // Decoding images needs a browser, so this plugin decodes the base colour
+  // PNGs itself: vatAlpha reads their alpha (texturePixels takes the bytes
+  // as they are). JPEG has no alpha, which is the same to vatAlpha as no
+  // map; other formats (WebP, ...) come as a texture without an image,
+  // which vatAlpha counts as translucent. Without their extensions no
+  // built-in plugin takes a texture on before this one.
+  loader.register((parser) => ({
+    name: 'model-budget-base-colour',
+    beforeRoot: () => {
+      for (const texture of parser.json.textures ?? []) delete texture.extensions;
+      return null;
+    },
+    loadTexture: async (index: number) => {
+      const baseColour = (parser.json.materials ?? []).some(
+        (m: { pbrMetallicRoughness?: { baseColorTexture?: { index: number } } }) =>
+          m.pbrMetallicRoughness?.baseColorTexture?.index === index,
+      );
+      const image = parser.json.images?.[parser.json.textures[index].source];
+      if (!baseColour || !image) return null;
+      const file: Buffer | null = image.bufferView !== undefined
+        ? Buffer.from(await parser.getDependency('bufferView', image.bufferView))
+        : image.uri ? readFileSync(resolve(dirname(path), decodeURIComponent(image.uri))) : null;
+      if (file && imageSize(file)?.mimeType === 'image/jpeg') return null;
+      const pixels = file ? decodePng(file) : null;
+      return new Texture(pixels ?? undefined);
+    },
+  }));
+  const gltf = await loader.parseAsync(buffer, '');
+  return bakeEnemyVAT(config, SkeletonUtils.clone(gltf.scene), gltf.animations);
 }
 
 async function buildRows(): Promise<Row[]> {

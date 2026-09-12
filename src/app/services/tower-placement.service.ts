@@ -234,11 +234,6 @@ export class TowerPlacementService {
         return;
       }
 
-      // Apply FBX materials if needed
-      if (this.assetManager.isFbxModel(config.modelUrl)) {
-        this.assetManager.applyFbxMaterials(model);
-      }
-
       model.scale.setScalar(config.scale);
       // Apply base rotation from config
       model.rotation.y = config.rotationY ?? 0;

@@ -1,7 +1,6 @@
 import { Injectable, signal, computed } from '@angular/core';
 import { Object3D, AnimationClip, Mesh, Material, MeshStandardMaterial } from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
-import { FBXLoader } from 'three/examples/jsm/loaders/FBXLoader.js';
 import * as SkeletonUtils from 'three/examples/jsm/utils/SkeletonUtils.js';
 
 /**
@@ -39,11 +38,10 @@ interface LoadingProgress {
  * AssetManagerService - Centralized 3D model loading and caching
  *
  * Features:
- * - Single GLTFLoader and FBXLoader instance
+ * - Single GLTFLoader instance (GLTF/GLB)
  * - Deduplicated model cache with reference counting
  * - Proper GPU resource disposal
  * - Loading progress tracking
- * - Support for both GLTF/GLB and FBX formats
  *
  * Usage:
  * 1. loadModel(url) - loads and caches model, returns CachedModel
@@ -52,9 +50,7 @@ interface LoadingProgress {
  */
 @Injectable({ providedIn: 'root' })
 export class AssetManagerService {
-  // Loaders (single instances)
   private readonly gltfLoader = new GLTFLoader();
-  private readonly fbxLoader = new FBXLoader();
 
   // Model cache: URL -> CachedModel
   private readonly modelCache = new Map<string, CachedModel>();
@@ -125,29 +121,13 @@ export class AssetManagerService {
     this.updateLoadingState();
 
     try {
-      const extension = url.split('.').pop()?.toLowerCase();
-      let scene: Object3D;
-      let animations: AnimationClip[];
-
-      if (extension === 'fbx') {
-        // FBX loading
-        const fbx = await this.fbxLoader.loadAsync(url, (event) => {
-          this.updateProgress(url, event.loaded, event.total);
-        });
-        scene = fbx;
-        animations = fbx.animations || [];
-      } else {
-        // GLTF/GLB loading (default)
-        const gltf = await this.gltfLoader.loadAsync(url, (event) => {
-          this.updateProgress(url, event.loaded, event.total);
-        });
-        scene = gltf.scene;
-        animations = gltf.animations || [];
-      }
+      const gltf = await this.gltfLoader.loadAsync(url, (event) => {
+        this.updateProgress(url, event.loaded, event.total);
+      });
 
       return {
-        scene,
-        animations,
+        scene: gltf.scene,
+        animations: gltf.animations || [],
         refCount: 1,
         url,
       };
@@ -246,56 +226,6 @@ export class AssetManagerService {
    */
   async preloadModels(urls: string[]): Promise<void> {
     await Promise.all(urls.map((url) => this.loadModel(url)));
-  }
-
-  /**
-   * Apply standard FBX material colors
-   * Call this after cloning an FBX model
-   */
-  applyFbxMaterials(model: Object3D): void {
-    const materialColors: Record<string, number> = {
-      lightwood: 0xc4a574,
-      wood: 0xa0784a,
-      darkwood: 0x6b4423,
-      celing: 0xcd5c5c, // Common typo in model files
-      ceiling: 0xcd5c5c,
-      roof: 0xcd5c5c,
-      stone: 0x808080,
-      metal: 0x707070,
-    };
-
-    model.traverse((child) => {
-      if ((child as Mesh).isMesh) {
-        const mesh = child as Mesh;
-        const materials = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-
-        materials.forEach((mat) => {
-          const matWithColor = mat as MeshStandardMaterial;
-          if (matWithColor.color) {
-            const matName = mat.name.toLowerCase();
-
-            let color: number | undefined;
-            for (const [key, value] of Object.entries(materialColors)) {
-              if (matName.includes(key)) {
-                color = value;
-                break;
-              }
-            }
-
-            matWithColor.color.setHex(color ?? 0xb8956e); // Default wood color
-            if ('transparent' in mat) mat.transparent = false;
-            if ('opacity' in mat) (mat as MeshStandardMaterial).opacity = 1.0;
-          }
-        });
-      }
-    });
-  }
-
-  /**
-   * Check if URL is an FBX file
-   */
-  isFbxModel(url: string): boolean {
-    return url.toLowerCase().endsWith('.fbx');
   }
 
   /**
