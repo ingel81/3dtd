@@ -77,7 +77,7 @@ export interface EnemyTypeConfig {
   // Randomness
   randomAnimationStart?: boolean; // Start animation at random frame
   randomSoundStart?: boolean; // Start sound at random position
-  lateralOffset?: number; // Max lateral offset in meters (0 = no deviation)
+  lateralSpread?: number; // Share of the lateral room the route corridor leaves (0 = centre line, 1 = up to the edge margin)
   heightVariation?: number; // Max random height deviation in meters (for waves)
 
   // Air Unit
@@ -121,7 +121,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: -0.349, // -20° rotation offset
     randomAnimationStart: true, // Start animation at random frame
     randomSoundStart: true, // Start sound at random position
-    lateralOffset: 3.0, // Max 3m lateral offset,
+    lateralSpread: 1.0, // Up to the edge of the corridor
     previewScale: 1
   },
 
@@ -148,7 +148,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: 0,
     randomAnimationStart: true,
     randomSoundStart: true,
-    lateralOffset: 3.0,
+    lateralSpread: 1.0,
     previewScale: 1,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
@@ -175,7 +175,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     canBleed: false, // Tanks don't bleed
     headingOffset: -0.122, // ~-7° rotation offset
     randomSoundStart: true, // Start sound at random position
-    lateralOffset: 2.5, // Max 2.5m lateral offset
+    lateralSpread: 0.85,
     spawnStartDelay: 800, // Larger gap between tanks (800ms instead of 300ms)
     previewScale: 1.073,
     previewCameraDistance: 7,
@@ -215,7 +215,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     canBleed: true,
     headingOffset: 0,
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     spawnStartDelay: 500,
     previewScale: 0.015,
     previewCameraDistance: 4,
@@ -251,7 +251,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: 0,
 
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     spawnStartDelay: 1200,
 
     previewScale: 2.149,
@@ -279,7 +279,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: 0,
     isAirUnit: true, // Only attackable by air towers
     heightVariation: 3, // ±3m variation between enemies
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     randomAnimationStart: true,
     previewScale: 2.908,
     previewCameraDistance: 7,
@@ -307,7 +307,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     unlit: true,
     headingOffset: 0,
     randomAnimationStart: true,
-    lateralOffset: 2.5,
+    lateralSpread: 0.85,
     previewScale: 0.008,
     previewCameraDistance: 7,
     previewCameraAngle: 0,
@@ -357,7 +357,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     canBleed: true,
     headingOffset: -0.192, // ~-11° rotation offset
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     previewScale: 1.05,
     previewCameraDistance: 3,
     previewCameraAngle: 0,
@@ -390,7 +390,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveColor: '#ccddff',
     randomAnimationStart: true,
     randomSoundStart: true,
-    lateralOffset: 2.5,
+    lateralSpread: 0.85,
     previewScale: 2.571,
     previewCameraDistance: 7,
     previewCameraAngle: 0.26,
@@ -421,7 +421,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveIntensity: 0.2,
     randomAnimationStart: true,
     randomSoundStart: true,
-    lateralOffset: 3.0,
+    lateralSpread: 1.0,
     spawnStartDelay: 150,
     previewScale: 3.473,
     previewCameraDistance: 6,
@@ -448,7 +448,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: 0,
     emissiveIntensity: 0.15,
     randomAnimationStart: true,
-    lateralOffset: 1.5,
+    lateralSpread: 0.5,
     spawnStartDelay: 200,
     previewScale: 1.901,
     previewCameraDistance: 7,
@@ -483,7 +483,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     headingOffset: -1.71,
     emissiveIntensity: 0.1,
     randomAnimationStart: true,
-    lateralOffset: 2.5,
+    lateralSpread: 0.85,
     spawnStartDelay: 1000,
     previewScale: 0.882,
     previewCameraDistance: 6,
@@ -519,7 +519,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveIntensity: 0.15,
     emissiveColor: '#ccddff',
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     spawnStartDelay: 600,
     previewScale: 0.075,
     previewCameraDistance: 6,
@@ -557,7 +557,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveIntensity: 0.15,
     emissiveColor: '#ccddff',
     randomAnimationStart: true,
-    lateralOffset: 3.0,
+    lateralSpread: 1.0,
     spawnStartDelay: 1200,
     previewScale: 1,
     previewCameraDistance: 7,
@@ -585,7 +585,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveIntensity: 0.2,
     emissiveColor: '#ffffff',
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     spawnStartDelay: 400,
     previewScale: 0.312,
     previewCameraDistance: 15,
@@ -618,7 +618,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     isAirUnit: true,
     colorMultiplier: 1.2,
     randomAnimationStart: true,
-    lateralOffset: 2.5,
+    lateralSpread: 0.85,
     spawnStartDelay: 300,
     previewScale: 0.122,
     previewCameraDistance: 7,
@@ -647,7 +647,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveIntensity: 0.1,
     emissiveColor: '#ffaa44',
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     spawnStartDelay: 1000,
   },
 
@@ -671,7 +671,7 @@ export const ENEMY_TYPES: Record<string, EnemyTypeConfig> = {
     emissiveIntensity: 0.15,
     emissiveColor: '#ffffff',
     randomAnimationStart: true,
-    lateralOffset: 2.0,
+    lateralSpread: 0.65,
     spawnStartDelay: 400,
     previewScale: 2.732,
     previewCameraDistance: 6.5,

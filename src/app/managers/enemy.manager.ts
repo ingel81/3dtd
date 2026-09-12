@@ -171,11 +171,11 @@ export class EnemyManager extends EntityManager<Enemy> {
       enemy.audio.initialize(this.tilesEngine.spatialAudio);
     }
 
-    // Apply random lateral offset for movement variety
-    if (enemy.typeConfig.lateralOffset && enemy.typeConfig.lateralOffset > 0) {
-      const maxOffset = enemy.typeConfig.lateralOffset;
-      const randomOffset = (Math.random() * 2 - 1) * maxOffset;
-      enemy.movement.setLateralOffset(randomOffset);
+    // Random place across the corridor for movement variety: a share of the
+    // room the street leaves, up to how far this type strays.
+    const spread = enemy.typeConfig.lateralSpread ?? 0;
+    if (spread > 0) {
+      enemy.movement.setLateralFactor((Math.random() * 2 - 1) * spread);
     }
 
     // Apply random height variation for air units

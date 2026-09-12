@@ -1,9 +1,10 @@
 import { Component, ComponentType } from '../core/component';
 import { GameObject } from '../core/game-object';
-import { GeoPosition } from '../models/game.types';
+import { GeoPosition, RouteWaypoint } from '../models/game.types';
 import { StatusEffect, StatusEffectType } from '../models/status-effects';
 import { TransformComponent } from './transform.component';
-import { haversineDistance, METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/geo-utils';
+import { LATERAL_TAPER, RouteProfile, getRouteProfile } from '../utils/route-corridor';
 
 /**
  * MovementComponent handles path-following movement
@@ -11,27 +12,26 @@ import { haversineDistance, METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../utils/g
 export class MovementComponent extends Component {
   speedMps = 0; // Base meters per second
   speedMultiplier = 1.0; // Multiplier for run animation etc.
-  path: GeoPosition[] = [];
+  path: RouteWaypoint[] = [];
   currentIndex = 0;
   progress = 0; // 0-1 within current segment
 
-  private segmentLengths: number[] = [];
   /**
-   * Prefix sums of segment lengths: cumulativeLength[i] = sum of segments
-   * [0..i-1] (so [0]=0, length = segmentLengths.length+1). Lets getPathProgress
-   * run O(1) instead of summing completed segments every call (it's hit per
-   * candidate in 'first'-strategy targeting).
+   * Segment lengths, their prefix sums and the lateral limits of `path`,
+   * computed once per path and shared by every enemy walking it
+   * (getRouteProfile). The prefix sums let getPathProgress run O(1) instead
+   * of summing completed segments every call (it's hit per candidate in
+   * 'first'-strategy targeting).
    */
-  private cumulativeLength: number[] = [0];
-  /** Sum of all segment lengths — cached in precomputeSegmentLengths(). */
-  private totalPathLength = 0;
+  private profile: RouteProfile = getRouteProfile(this.path);
   paused = false;
 
   // Status effects (slow, freeze, etc.)
   statusEffects: StatusEffect[] = [];
 
-  // Lateral offset for path variety (perpendicular to movement direction)
-  private lateralOffsetMeters = 0;
+  // Place across the corridor for path variety, as a share of the local
+  // lateral limit: -1 left, 0 centre line, 1 right of the movement direction
+  private lateralFactor = 0;
 
   // Height variation for air units (persistent offset per enemy)
   private heightVariationMeters = 0;
@@ -43,17 +43,19 @@ export class MovementComponent extends Component {
 
   // Heading hold, see move(). `previousSegIdx` is the segment the previous
   // position was interpolated on, -1 after a jump that did not come from a
-  // step (setPath, setLateralOffset). `headingLocked` means a step that began
-  // and ended on the current segment has already set the heading.
+  // step (setPath, setLateralFactor), and `previousPiece` the piece of the
+  // lateral limit it was on. `headingLocked` means a step that began and
+  // ended on the current segment and piece has already set the heading.
   private previousSegIdx = -1;
+  private previousPiece = 0;
   private headingLocked = false;
 
-  // Cached segment perpendicular vector (recalculated on segment change only)
-  private cachedPerpLat = 0;
-  private cachedPerpLon = 0;
+  // Degrees of lat and lon per metre of lateral offset on the current
+  // segment (recalculated on segment change only)
+  private cachedOffsetLatPerM = 0;
+  private cachedOffsetLonPerM = 0;
   private cachedPerpSegIdx = -1;
   private cachedPerpValid = false;
-  private cachedMetersPerDegree = METERS_PER_DEGREE_LAT; // Cached lat→meter conversion for lateral offset
 
   // Reusable lookAt target (avoid object literal allocation per frame)
   private static readonly _lookAtTarget: GeoPosition = { lat: 0, lon: 0 };
@@ -82,10 +84,14 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Set lateral offset in meters (positive = right, negative = left of path)
+   * Set where across the corridor this enemy walks: -1 at the left limit, 0
+   * on the centre line, 1 at the right limit (of the movement direction).
+   * The metres follow the local corridor width, see route-corridor.ts: wide
+   * on a main road, close to the centre line in an alley, never outside the
+   * route cells.
    */
-  setLateralOffset(offsetMeters: number): void {
-    this.lateralOffsetMeters = offsetMeters;
+  setLateralFactor(factor: number): void {
+    this.lateralFactor = Math.max(-1, Math.min(1, factor));
     // The next position is shifted sideways relative to the previous one.
     this.breakHeadingContinuity();
   }
@@ -105,16 +111,17 @@ export class MovementComponent extends Component {
   }
 
   /**
-   * Set the path and pre-compute segment lengths
+   * Set the path. Its lengths and lateral limits come from the route
+   * profile every enemy on this path shares.
    */
-  setPath(path: GeoPosition[]): void {
+  setPath(path: RouteWaypoint[]): void {
     this.path = path;
+    this.profile = getRouteProfile(path);
     this.currentIndex = 0;
     this.progress = 0;
     this.cachedPerpSegIdx = -1;
     this.cachedPerpValid = false;
     this.breakHeadingContinuity();
-    this.precomputeSegmentLengths();
 
     // Set initial position
     const transform = this.transformRef;
@@ -125,27 +132,6 @@ export class MovementComponent extends Component {
         transform.terrainHeight = path[0].height;
       }
     }
-  }
-
-  /**
-   * Pre-compute segment lengths for accurate speed-based movement
-   */
-  private precomputeSegmentLengths(): void {
-    this.segmentLengths = [];
-    this.cumulativeLength = [0];
-    let total = 0;
-    for (let i = 0; i < this.path.length - 1; i++) {
-      const dist = haversineDistance(
-        this.path[i].lat,
-        this.path[i].lon,
-        this.path[i + 1].lat,
-        this.path[i + 1].lon
-      );
-      this.segmentLengths.push(dist);
-      total += dist;
-      this.cumulativeLength.push(total); // cumulativeLength[i+1] = sum [0..i]
-    }
-    this.totalPathLength = total;
   }
 
   /**
@@ -171,22 +157,20 @@ export class MovementComponent extends Component {
    * Get overall path progress (0 = start, 1 = reached end)
    */
   getPathProgress(): number {
-    if (this.path.length === 0 || this.segmentLengths.length === 0) {
+    const { segmentLengths, cumulativeLength, totalLength } = this.profile;
+    if (this.path.length === 0 || segmentLengths.length === 0) {
       return 0;
     }
-
-    // Total path length is pre-summed in precomputeSegmentLengths().
-    const totalLength = this.totalPathLength;
     if (totalLength === 0) return 1;
 
     // Completed segments via prefix sum (O(1)); clamp index past the end.
-    const segCount = this.segmentLengths.length;
+    const segCount = segmentLengths.length;
     const idx = this.currentIndex < segCount ? this.currentIndex : segCount;
-    let coveredDistance = this.cumulativeLength[idx];
+    let coveredDistance = cumulativeLength[idx];
 
     // Add progress within current segment
     if (this.currentIndex < segCount) {
-      coveredDistance += this.segmentLengths[this.currentIndex] * this.progress;
+      coveredDistance += segmentLengths[this.currentIndex] * this.progress;
     }
 
     return Math.min(1, coveredDistance / totalLength);
@@ -368,7 +352,7 @@ export class MovementComponent extends Component {
     const metersThisFrame = this.speedMps * this.speedMultiplier * slowMult * deltaSeconds;
 
     // Current segment length
-    const segmentLength = this.segmentLengths[this.currentIndex] || 1;
+    const segmentLength = this.profile.segmentLengths[this.currentIndex] || 1;
 
     // Update progress based on actual segment length
     this.progress += metersThisFrame / segmentLength;
@@ -392,31 +376,52 @@ export class MovementComponent extends Component {
       let newLat = current.lat + (next.lat - current.lat) * this.progress;
       let newLon = current.lon + (next.lon - current.lon) * this.progress;
 
-      // Apply lateral offset perpendicular to movement direction
-      if (this.lateralOffsetMeters !== 0) {
-        // Cache perpendicular vector per segment (recalc only on segment change)
-        if (!this.cachedPerpValid || this.cachedPerpSegIdx !== this.currentIndex) {
-          const dLat = next.lat - current.lat;
-          const dLon = next.lon - current.lon;
-          const lenSq = dLat * dLat + dLon * dLon;
-          if (lenSq > 0) {
-            const len = Math.sqrt(lenSq);
-            this.cachedPerpLat = -dLon / len;
-            this.cachedPerpLon = dLat / len;
+      // Apply lateral offset perpendicular to movement direction. `piece`
+      // says which linear piece of the lateral limit the position is on,
+      // for the heading hold below.
+      let piece = 0;
+      if (this.lateralFactor !== 0) {
+        const i = this.currentIndex;
+        // Cache the perpendicular per segment (recalc only on segment change).
+        // Built in metres (east, north) and turned into degrees per metre,
+        // with only the longitude scaled by cos(lat): the offset is a right
+        // angle of the stated length on every heading, which the coverage of
+        // the route cells relies on.
+        if (!this.cachedPerpValid || this.cachedPerpSegIdx !== i) {
+          const cosLat = Math.cos(current.lat * DEG_TO_RAD);
+          const east = (next.lon - current.lon) * cosLat;
+          const north = next.lat - current.lat;
+          const len = Math.sqrt(east * east + north * north);
+          if (len > 0) {
+            this.cachedOffsetLatPerM = -east / len / METERS_PER_DEGREE_LAT;
+            this.cachedOffsetLonPerM = north / len / (METERS_PER_DEGREE_LAT * cosLat);
           } else {
-            this.cachedPerpLat = 0;
-            this.cachedPerpLon = 0;
+            this.cachedOffsetLatPerM = 0;
+            this.cachedOffsetLonPerM = 0;
           }
-          // Cache metersPerDegree at segment start (varies <0.01% within a segment)
-          this.cachedMetersPerDegree = METERS_PER_DEGREE_LAT * Math.cos(newLat * DEG_TO_RAD);
-          this.cachedPerpSegIdx = this.currentIndex;
+          this.cachedPerpSegIdx = i;
           this.cachedPerpValid = true;
         }
-        if (this.cachedPerpLat !== 0 || this.cachedPerpLon !== 0) {
-          const offsetDegrees = this.lateralOffsetMeters / this.cachedMetersPerDegree;
-          newLat += this.cachedPerpLat * offsetDegrees;
-          newLon += this.cachedPerpLon * offsetDegrees;
+
+        // Lateral limit here: the segment's own, or less on the taper
+        // towards a narrower stretch before or after it (route-corridor.ts).
+        const profile = this.profile;
+        const segLen = profile.segmentLengths[i];
+        const s = this.progress * segLen;
+        let limit = profile.segmentLimit[i];
+        const entry = profile.nodeLimit[i] + LATERAL_TAPER * s;
+        if (entry < limit) {
+          limit = entry;
+          piece = 1;
         }
+        const exit = profile.nodeLimit[i + 1] + LATERAL_TAPER * (segLen - s);
+        if (exit < limit) {
+          limit = exit;
+          piece = 2;
+        }
+        const offsetM = this.lateralFactor * limit;
+        newLat += this.cachedOffsetLatPerM * offsetM;
+        newLon += this.cachedOffsetLonPerM * offsetM;
       }
 
       transform.setPosition(newLat, newLon);
@@ -432,15 +437,17 @@ export class MovementComponent extends Component {
       // This prevents sudden heading jumps at segment transitions: the step
       // that crosses a waypoint faces along its chord.
       //
-      // Within a segment that direction is constant: the interpolation runs
-      // along one line and the lateral offset (perpendicular and metres per
-      // degree) is fixed per segment. So once a step that began and ended on
-      // the current segment has set the heading, it is held until the next
-      // discontinuity: a waypoint crossing, setPath() or setLateralOffset().
+      // Within one piece of a segment that direction is constant: the
+      // interpolation runs along one line, the perpendicular is fixed per
+      // segment and the lateral limit is linear on each piece (flat, or a
+      // taper towards a narrower stretch). So once a step that began and
+      // ended on the current piece has set the heading, it is held until the
+      // next discontinuity: a waypoint crossing, a taper starting or ending,
+      // setPath() or setLateralFactor().
       // Recomputing it every step only produced lat/lon rounding noise
       // (~1e-8 rad), and that noise kept TransformComponent's rotation lerp,
       // which runs only while rotation !== target, busy for every enemy.
-      const continuous = this.previousSegIdx === this.currentIndex;
+      const continuous = this.previousSegIdx === this.currentIndex && this.previousPiece === piece;
       if (!this.headingLocked || !continuous) {
         this.headingLocked = false;
         if (this.hasMovedOnce) {
@@ -469,6 +476,7 @@ export class MovementComponent extends Component {
       this.previousLat = newLat;
       this.previousLon = newLon;
       this.previousSegIdx = this.currentIndex;
+      this.previousPiece = piece;
     }
 
     return 'moving';

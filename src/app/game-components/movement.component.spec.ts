@@ -4,7 +4,9 @@ import { GameObject } from '../core/game-object';
 import { TransformComponent } from './transform.component';
 import { ComponentType } from '../core/component';
 import { StatusEffect } from '../models/status-effects';
-import type { GeoPosition } from '../models/game.types';
+import type { GeoPosition, RouteWaypoint } from '../models/game.types';
+import { DEG_TO_RAD, METERS_PER_DEGREE_LAT } from '../utils/geo-utils';
+import { CORRIDOR_DEFAULT_HALF_WIDTH_M, LATERAL_TAPER, lateralLimit } from '../utils/route-corridor';
 
 class TestGameObject extends GameObject {
   constructor() {
@@ -296,7 +298,7 @@ describe('MovementComponent', () => {
     });
 
     it('holds what a per-step derivation gives, up to lat/lon rounding', () => {
-      movement.setLateralOffset(1.5);
+      movement.setLateralFactor(0.5); // 1.5 m of the default 3 m
       let prevLat = transform.position.lat;
       let prevLon = transform.position.lon;
       let crossedAt = -1;
@@ -322,9 +324,9 @@ describe('MovementComponent', () => {
       expect(crossedAt).toBeGreaterThan(0);
     });
 
-    it('derives the heading again after the position jumps (setLateralOffset, setPath)', () => {
+    it('derives the heading again after the position jumps (setLateralFactor, setPath)', () => {
       walk(5); // held by now
-      movement.setLateralOffset(2);
+      movement.setLateralFactor(0.7);
       expect(walk(4).map((s) => s.looked)).toEqual([true, true, false, false]);
 
       movement.setPath(corner);
@@ -361,6 +363,96 @@ describe('MovementComponent', () => {
       movement.resume();
       expect(walk(3).some((s) => s.looked)).toBe(false);
       expect(target()).toBe(held);
+    });
+  });
+
+  describe('lateral spread', () => {
+    const LAT = 48.776;
+    const LON = 9.183;
+    const M_PER_DEG_LON = METERS_PER_DEGREE_LAT * Math.cos(LAT * DEG_TO_RAD);
+    const STEP_MS = 16.667;
+    let transform: TransformComponent;
+
+    beforeEach(() => {
+      transform = gameObject.getComponent<TransformComponent>(ComponentType.TRANSFORM)!;
+    });
+
+    /** Waypoints going north from (LAT, LON), `lengths` metres apart, half width per segment. */
+    function northbound(lengths: number[], halfWidths: (number | undefined)[]): RouteWaypoint[] {
+      const path: RouteWaypoint[] = [{ lat: LAT, lon: LON, corridorHalfWidth: halfWidths[0] }];
+      let lat = LAT;
+      for (let i = 0; i < lengths.length; i++) {
+        lat += lengths[i] / METERS_PER_DEGREE_LAT;
+        path.push({ lat, lon: LON, corridorHalfWidth: halfWidths[i + 1] });
+      }
+      return path;
+    }
+
+    /** Metres east of the centre line of a northbound path. */
+    const eastOfCentre = () => (transform.position.lon - LON) * M_PER_DEG_LON;
+
+    function walk(steps: number): void {
+      for (let i = 0; i < steps; i++) movement.move(STEP_MS, 0);
+    }
+
+    it('spreads by the width of the corridor, not by a fixed distance', () => {
+      movement.speedMps = 10;
+      movement.setLateralFactor(1);
+
+      movement.setPath(northbound([100], [6]));
+      walk(30);
+      expect(eastOfCentre()).toBeCloseTo(lateralLimit(6), 2);
+
+      movement.setPath(northbound([100], [2]));
+      walk(30);
+      expect(eastOfCentre()).toBeCloseTo(lateralLimit(2), 2);
+    });
+
+    it('offsets at a right angle and by the stated length on every heading', () => {
+      // East-bound, so the offset runs south. Scaling both axes by cos(lat)
+      // made it 1.5 times too long at this latitude.
+      movement.setPath([{ lat: LAT, lon: LON }, { lat: LAT, lon: LON + 100 / M_PER_DEG_LON }]);
+      movement.speedMps = 10;
+      movement.setLateralFactor(1);
+      walk(30);
+
+      expect((LAT - transform.position.lat) * METERS_PER_DEGREE_LAT)
+        .toBeCloseTo(lateralLimit(CORRIDOR_DEFAULT_HALF_WIDTH_M), 2);
+    });
+
+    it('moves in before the street narrows instead of jumping', () => {
+      movement.setPath(northbound([60, 60], [6, 2]));
+      movement.speedMps = 5;
+      movement.setLateralFactor(1);
+
+      const offsets: number[] = [];
+      for (let i = 0; i < 2000; i++) {
+        if (movement.move(STEP_MS, 0) === 'reached_end') break;
+        offsets.push(eastOfCentre());
+        // Tolerance: eastOfCentre() scales by cos(lat) at the start, 60 m south.
+        if (movement.currentIndex === 1) expect(offsets[offsets.length - 1]).toBeLessThanOrEqual(lateralLimit(2) + 1e-4);
+      }
+
+      expect(offsets[10]).toBeCloseTo(lateralLimit(6), 2);
+      let largestStep = 0;
+      for (let i = 1; i < offsets.length; i++) largestStep = Math.max(largestStep, Math.abs(offsets[i] - offsets[i - 1]));
+      // 5 m/s moves 8.3 cm per step, so the taper allows 4.2 cm sideways.
+      expect(largestStep).toBeLessThanOrEqual(LATERAL_TAPER * 5 * (STEP_MS / 1000) + 1e-4);
+      expect(largestStep).toBeGreaterThan(0);
+    });
+
+    it('holds the heading along the taper and derives it where the taper starts', () => {
+      movement.setPath(northbound([60, 60], [6, 2]));
+      movement.speedMps = 5;
+      movement.setLateralFactor(1);
+      const spy = vi.spyOn(transform, 'lookAt');
+      for (let i = 0; i < 2000; i++) {
+        if (movement.move(STEP_MS, 0) === 'reached_end') break;
+      }
+      // First step and the one after, taper start and the one after, the
+      // waypoint and the one after. Not one per step (about 1400).
+      expect(spy.mock.calls.length).toBeLessThanOrEqual(6);
+      spy.mockRestore();
     });
   });
 });
