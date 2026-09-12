@@ -5,7 +5,7 @@
  * giving us proper sections (header / stats / armor / flavor) with semantic markup.
  */
 
-export type TdTooltipAccent = 'gold' | 'teal' | 'fire' | 'cold' | 'poison' | 'health' | 'neutral';
+export type TdTooltipAccent = 'gold' | 'teal' | 'fire' | 'cold' | 'lightning' | 'chaos' | 'poison' | 'health' | 'neutral';
 
 export interface TdTooltipStat {
   /** Short uppercase label, e.g. "DMG", "RATE", "RANGE". */
