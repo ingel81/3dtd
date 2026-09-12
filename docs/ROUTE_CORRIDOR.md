@@ -15,14 +15,14 @@ Route (vom Spawn zum HQ).
 
 | Schritt | Code | Ergebnis |
 |---|---|---|
-| Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `path-route.service.ts:580-588` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
-| Messung | `PathAndRouteService.measureStreetClearance` (`path-route.service.ts:909`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts:324`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
-| Anpassung | `fitCorridorStations`, `fitCorridorPieces` (`route-corridor.ts:445`, `:496`), `applyClearance` (`path-route.service.ts:684`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück |
-| Waypoints | `path-route.service.ts:636-641` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
+| Straßenbreite je Segment | `utils/route-corridor.ts` (`estimateStreetWidth`, `routeHalfWidths`), Zuordnung Segment zu OSM-Way in `path-route.service.ts:587-595` | Halbbreite aus OSM, Rückfall für alles, was die Tiles nicht messen |
+| Messung | `PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:922`) und der Lauf `ClearanceRun` (`:1585`), Strahlen in `TerrainQueries.measureStreetClearance` (`three-engine/terrain-queries.ts:324`, als `engine.terrain` erreichbar) | Freiraum je Station und Seite |
+| Anpassung | `fitCorridorStations`, `fitCorridorPieces` (`route-corridor.ts:445`, `:496`), `applyClearance` (`path-route.service.ts:691`) | Segmente geteilt, wo sich eine Seite ändert; Halbbreite links und rechts je Stück |
+| Waypoints | `path-route.service.ts:643-648` | `corridorLeft`, `corridorRight`, `onBridge`, `inTunnel` am Waypoint, gültig für das Segment ab dort (`RouteWaypoint`, `models/game.types.ts`) |
 | Zellen | `GlobalRouteGrid.generateFromRoutes` (`global-route-grid.ts:312`) | 2-m-Zellen im Korridor |
 | Zellhöhe | `RouteCellSampler.sampleCellY` (`route-cell-sampler.ts`) | Boden, Brückendeck, Tunnelsohle, Dach-Check |
 | Gegner | `MovementComponent` (`movement.component.ts:379-428`), `getRouteProfile` (`route-corridor.ts:559`) | Seitenversatz innerhalb der Zellen |
-| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `visualization-facade.service.ts:210-222` | Wann gemessen und neu gebaut wird |
+| Auslöser | `CorridorRefit` (`services/world/corridor-refit.ts`), verdrahtet in `visualization-facade.service.ts:211-231` | Wann gemessen und neu gebaut wird |
 
 ## Einstellungen
 
@@ -57,8 +57,9 @@ eine neue Messung braucht: `stationSpacing`, `rayHeightLow`, `rayHeightHigh`,
 
 ### Messung
 
-`PathAndRouteService.measureStreetClearance` (`path-route.service.ts:909-984`)
-geht jedes Segment jeder Route durch. Ein Segment der Länge `L` bekommt
+`PathAndRouteService.beginClearanceMeasurement` (`path-route.service.ts:922-971`)
+geht jedes Segment jeder Route durch und legt einen Lauf an (`ClearanceRun`,
+`:1585`). Ein Segment der Länge `L` bekommt
 `n = max(1, round(L / stationSpacing))` Stationen, Station `k` steht bei
 `(k + 0,5) / n` des Segments. Segmente, die mehrere Routen teilen, werden
 einmal gemessen.
@@ -82,10 +83,12 @@ eine Hecke oder ein Zaun stoppt nur den unteren, eine Baumkrone, Traufe oder ein
 Balkon nur den oberen; beides engt den Korridor nicht ein.
 
 Gespeichert wird der Freiraum je Segment, Station und Seite in
-`clearanceBySegment` (`path-route.service.ts:218`), NaN für ungemessene
-Stationen, dazu die Rohwerte je Station für `__corridor.pick()`. Ein weiterer
-Lauf misst nur die NaN-Stationen nach (`:934-951`). Tunnel- und
-Durchgangssegmente werden übersprungen (`:928`).
+`clearanceBySegment` (`path-route.service.ts:220`), NaN für ungemessene
+Stationen, dazu die Rohwerte je Station für `__corridor.pick()`. Der Lauf hält
+seine Ergebnisse bei sich und übergibt sie erst an seinem Ende
+(`storeClearance`, `:974-984`); bis dahin baut jede Route mit dem Korridor von
+vorher. Ein weiterer Lauf misst nur die NaN-Stationen nach (`:943`). Tunnel-
+und Durchgangssegmente werden übersprungen (`:936`).
 
 ### Glättung und Halbbreite
 
@@ -115,7 +118,7 @@ Stationen ohne Messung bekommen die Halbbreite der Straße
 
 `fitCorridorPieces` (`:496-510`) fasst Stationen mit gleicher Halbbreite links
 und rechts zu einem Stück zusammen. `applyClearance`
-(`path-route.service.ts:684-709`) teilt jedes Segment an den Stückgrenzen; jedes
+(`path-route.service.ts:691-716`) teilt jedes Segment an den Stückgrenzen; jedes
 Stück wird ein eigener Waypoint mit `corridorLeft` und `corridorRight`. Solange
 noch gar nichts gemessen ist, laufen beide Seiten mit der Straßenbreite.
 
@@ -187,7 +190,7 @@ unterste Treffer der feinsten LOD (`column-sample.ts`). Ausnahmen:
   `generateSegmentCells` beim Anlegen fest (`axisX`, `axisZ`,
   `global-route-grid.ts:401-403`).
 - **Brückendeck:** Segmente über einen Way mit `bridge=*`
-  (`path-route.service.ts:584`) tragen `onBridge`, ihre Zellen die Fläche
+  (`path-route.service.ts:591`) tragen `onBridge`, ihre Zellen die Fläche
   `deck` und nehmen die Oberkante der Säule (`topY`) statt des Bodens
   (`route-cell-sampler.ts:136`). Erreicht auch ein Segment ohne Brücke dieselbe
   Zelle, bleibt sie am Boden (`global-route-grid.ts:396-398`).
@@ -246,9 +249,9 @@ Stelle, auf der Seite, auf der der Gegner läuft (`movement.component.ts:406-427
 
 | Auslöser | Wann | Bedingung |
 |---|---|---|
-| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:649-651`). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
-| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1085-1094`) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
-| `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst und baut immer neu |
+| `fitToTiles()` | einmal pro Ortsladung, sobald `scheduleOverlayHeightUpdate` fertig ist (`visualization-facade.service.ts:660-662`). Das Höhen-Update läuft alle 500 ms, mindestens 4 Runden (`height-update.service.ts:23-26`) | neu gebaut wird nur, wenn die Messung einen Korridor ändert |
+| `remeasure()` | am Ende jeder Konvergenzschleife nach einem Tile-Schub (`visualization-facade.service.ts:1102-1104`) | es gibt Stationen mit `no tile` oder `coarse tile` (`hasUnmeasuredStations`), kein Lauf ist offen, kein Intro-Flug, letzter Lauf mindestens 3 s her (`REMEASURE_INTERVAL_MS`) |
+| `change()` | `__corridor.set()` und `__corridor.reset()` | ein Ort ist geladen; bei geänderten `MEASUREMENT_KEYS` werden alle Messungen verworfen. Misst am Stück und baut immer neu |
 
 Für alle drei gilt die Sperre `rebuildBlocker()`: kein Neuaufbau, solange Tower
 stehen, eine Welle läuft oder Gegner auf der Karte sind. Tower halten ihre
@@ -258,9 +261,9 @@ ihre Route.
 Die erste Messung wartet nicht auf die feinen Tiles entlang der Route; die
 laden danach weiter. Stationen, die dann noch auf groben Tiles stehen, laufen
 mit der OSM-Breite, bis `remeasure()` sie nach einem späteren Tile-Schub
-nachholt. Ob sich etwas geändert hat, vergleicht `measureStreetClearance` an den
-fertigen Korridorstücken aller Routen vor und nach dem Lauf
-(`path-route.service.ts:731-734`, `:976`).
+nachholt. Ob sich etwas geändert hat, vergleicht `storeClearance` an den
+fertigen Korridorstücken aller Routen vor und nach dem Speichern
+(`path-route.service.ts:738-741`, `:974-984`).
 
 Ein Spawn, der ohne Neuladen des Orts dazukommt
 (`LocationFacadeService.addSpawnPoint`, `location-facade.service.ts:348-360`),
@@ -269,9 +272,53 @@ aus. Seine neuen Segmente laufen mit der OSM-Breite, bis ein späterer Lauf sie
 mitmisst (`remeasure()` bei ungemessenen Stationen anderswo, oder
 `__corridor.set()`/`reset()`).
 
+### In Scheiben
+
+`fitToTiles()` und `remeasure()` messen nicht am Stück, sondern je Frame so
+viele Stationen, wie in `MEASURE_BUDGET_MS` passen (4 ms,
+`corridor-refit.ts:82`, Ablauf `:105-121`). Die Frames kommen aus
+`requestAnimationFrame` wie beim Höhen-Sweep
+(`visualization-facade.service.ts:223-229`).
+
+- **Budget:** Eine Station (Säule und vier Strahlen) kostete im Playtest vom
+  2026-09-12 in der Innenstadt etwa 1,7 ms (533 ms für 316 Stationen); 4 ms
+  sind dort zwei Stationen je Frame. Der Höhen-Sweep nach einem Tile-Schub
+  nimmt 5 ms je Frame und läuft oft in denselben Frames, zusammen bleiben
+  beide unter 10 ms. Der Lauf hört vor der Station auf, die nach den
+  bisherigen Kosten je Station über das Budget ginge, nimmt aber mindestens
+  eine Station je Frame.
+- **Gleiches Ergebnis:** Der Lauf nimmt die Stationen in derselben
+  Reihenfolge und mit denselben Strahlen wie der frühere Lauf am Stück und
+  legt sie in dieselben Felder. `path-route.service.spec.ts` ("in slices")
+  vergleicht Strahlen, Korridor und Log beider Wege.
+- **Erste Scheibe sofort:** Die erste Scheibe läuft im Aufruf selbst. Passt
+  alles hinein (DevWorld, wo `TerrainQueries` keine Probe liefert, oder wenige
+  Stationen), ist der Lauf wie früher im Aufruf fertig.
+- **Korridor bis zum Ende unverändert:** Bis zum Ende des Laufs bauen Routen
+  und Zellen mit dem Korridor von vorher. Dann wird gespeichert und, wenn sich
+  ein Korridor ändert, im selben Frame neu gebaut.
+- **Sperren:** `rebuildBlocker()` wird vor jeder Scheibe geprüft. Steht ein
+  Tower, läuft eine Welle oder ist ein Gegner auf der Karte, bevor der Lauf
+  fertig ist, wird er verworfen, und der Korridor bleibt, wie er war. Tower
+  und Welle treffen so den Korridor, der beim Setzen oder beim Start galt,
+  keinen halb gemessenen. Nach einem verworfenen ersten Lauf bleibt der Ort bei
+  der OSM-Breite, als wäre `fitToTiles()` gleich gesperrt gewesen.
+- **Tiles laden weiter:** Laden während eines Laufs Tiles nach, läuft er
+  weiter. Jede Station hält, was sie zu ihrem Zeitpunkt sah; eine Station auf
+  einem noch groben Tile bleibt NaN und wird später nachgemessen. Ein Neustart
+  bei jedem Tile-Schub käme bei laufendem Streaming (Intro-Flug) nicht ans
+  Ende.
+- **Abbruch:** Ortswechsel und ersetzte Routen (`initialize`, `clearCache`,
+  auch beim Umsetzen von Spawn oder HQ), `clearCorridorMeasurements`,
+  `dispose` und ein neuer Lauf verwerfen den offenen. `fitToTiles()` lässt
+  einen offenen Lauf weiterlaufen, `remeasure()` wartet auf ihn.
+- **Konsole:** `__corridor.set()` und `reset()` verwerfen einen offenen Lauf
+  und messen am Stück (Budget unbegrenzt), die Konsole wartet auf die
+  Antwort.
+
 ### Neuaufbau
 
-`rebuildCorridors` (`visualization-facade.service.ts:662-691`) läuft synchron in
+`rebuildCorridors` (`visualization-facade.service.ts:673-702`) läuft synchron in
 einem Frame:
 
 1. `routes`: `refreshRouteLines`, also Wegsuche je Spawn, Korridoranpassung
@@ -284,22 +331,35 @@ einem Frame:
 ### Logs
 
 ```
-[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms
+[Corridor] clearance: segments= stations= unmeasured= (coarse tile N) rays= changed= in X ms slices= wall= ms
+[Corridor] clearance cancelled (Grund): stations=N of M in X ms slices= wall= ms, corridor unchanged
 [Corridor] rebuild: routes= grid= heights= lines= overlays= total= ms spawns= cells=
 ```
 
-- **`clearance`** (`path-route.service.ts:977-982`): erscheint, sobald ein
-  Lauf mindestens ein Segment angefasst hat.
+- **`clearance`** (`ClearanceRun.commit`, `path-route.service.ts:1644-1648`):
+  erscheint am Ende eines Laufs, der mindestens ein Segment angefasst hat.
   - `stations`: die in diesem Lauf versuchten Stationen.
   - `rays`: 2 Strahlhöhen × 2 Seiten × gemessene Stationen; die Säulenprobe
     ist nicht mitgezählt.
+  - `in`: Rechenzeit des Laufs im Hauptthread, alle Scheiben samt Vergleich
+    am Ende. So lange hätte der Lauf am Stück blockiert; vergleichbar mit den
+    Zahlen von vor dem Stückeln.
+  - `slices`: Scheiben, eine je Frame. `wall`: Zeit vom Start bis zum Ende
+    des Laufs.
   - `__raycastStats()` bucht die Strahlen und die Säulenprobe unter
     `routeCorridor` (`terrain-queries.ts:336`).
+- **`clearance cancelled`** (`:1657-1660`): Ein Lauf wurde verworfen, der
+  Korridor bleibt, wie er war. Der Grund ist einer der Sperrgründe
+  (`towers stand on the map, sell them first`, `a wave is running`,
+  `enemies are on the map`) oder `routes replaced`, `location changed`,
+  `measurements cleared`, `settings changed`, `superseded`, `disposed`.
+  `stations=N of M`: so weit kam er.
 - **`rebuild`**: erscheint nur bei einem Neuaufbau, also nach `changed=true`
   oder nach `__corridor.set()`/`reset()`.
 - **Gemessen** (Playtest 2026-09-12, Innenstadt, eine Route, Punkt 52 in
-  REVIEW_SPRINT_2026-09-12): Neuaufbau 39,5 bis 41,7 ms; die Messung davor mit
-  1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht gemessen.
+  REVIEW_SPRINT_2026-09-12, noch am Stück): Neuaufbau 39,5 bis 41,7 ms; die
+  Messung davor mit 1260 Strahlen 520 bis 533 ms. Weitere Orte sind nicht
+  gemessen.
 
 ## Feine Tiles im Korridor
 
@@ -332,10 +392,10 @@ __corridor.pick(6)
   ist, die Sperre greift oder ein Wert abgelehnt wird (unbekannter Name, Wert
   außerhalb des Bereichs, Minimum über Maximum). Sonst kommt
   `Corridor rebuilt[, measured again]: N cells. Widths per stretch: __routes.describe()`
-  zurück (`corridor-refit.ts:99-113`).
+  zurück (`corridor-refit.ts:149-167`).
   - Die Werte gelten bis zum Neuladen der Seite; dauerhaft heißt
     `CORRIDOR_DEFAULTS` im Code ändern.
-- **`towerCells`** gibt eine Tabelle zum Tower zurück (`:233-286`):
+- **`towerCells`** gibt eine Tabelle zum Tower zurück (`visualization-facade.service.ts:242-295`):
   - Zellen in Reichweite: `cells`, `unsampled`.
   - Antworten des Towers: `groundVisible`/`Blocked`/`Missing`, dasselbe für
     `air`.
@@ -361,7 +421,7 @@ __corridor.pick(6)
        `displayed`.
   2. `[Corridor] width at the nearest route station`: woher die Breite an der
      nächsten Station kommt (`explainCorridorAt`,
-     `path-route.service.ts:765-865`).
+     `path-route.service.ts:773-873`).
      - Die Station: Way, `streetWidthM`, `widthSource`, `onStreet`,
        `inTunnel`, `unmeasured`, `tileError`.
      - Je Seite eine Zeile: `lowHitM`, `highHitM`, `wall`, `freeM`,
@@ -378,7 +438,7 @@ __corridor.pick(6)
 ### `__routes.describe()`
 
 `console.table` mit einer Zeile je Stück einer Route über einen OSM-Way
-(`RouteWayRun`, `path-route.service.ts:84-117`):
+(`RouteWayRun`, `path-route.service.ts:85-118`):
 
 - Lage: `route`, `fromIndex`, `toIndex`, `lengthM`.
 - Der Way: `way`, `type`, `name`, `tags` (`width`, `lanes`, `bridge`,
@@ -438,4 +498,15 @@ REVIEW_SPRINT_2026-09-12.md, Punkte 9 bis 15 und 41 bis 53):
   Gerade zwischen den Portalen angenähert.
 - Zwei Routen auf verschiedenen Ebenen, die sich Zellen teilen: bei einer
   Brücke gilt der Boden, bei einem Tunnel die Tunnelsohle.
-- Messung und Neuaufbau laufen synchron im Hauptthread.
+- Der Neuaufbau läuft weiter synchron in einem Frame, im Playtest etwa 40 ms
+  (routes 14, lines 11, grid 10, heights 4 bis 6 ms). Routen und Zellen
+  müssen im selben Frame wechseln: Eine Welle, die dazwischen startet, liefe
+  sonst mit den neuen Breiten der Routen auf den alten Zellen. Übrig bliebe
+  der Höhen-Sweep (4 bis 6 ms), der auf den Sweep mit Frame-Budget könnte;
+  das spart wenig und ließe die neuen Zellen einige Frames auf ihrer ersten
+  Höhenprobe. Nicht gemacht.
+- Ein Tower, eine Welle oder ein Gegner, der kommt, solange der erste Lauf
+  noch misst, verwirft ihn (siehe "In Scheiben"). Der Ort bleibt dann bei der
+  OSM-Breite, bis alle Tower verkauft sind und `__corridor.set()` oder
+  `reset()` neu baut. Früher blockierte der Lauf den Hauptthread, eine Eingabe
+  kam erst danach an.

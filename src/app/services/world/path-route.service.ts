@@ -27,6 +27,7 @@ import { METERS_PER_DEGREE_LAT, DEG_TO_RAD } from '../../utils/geo-utils';
 import { UIStore } from '../../store/ui.store';
 import { PathfindingWorkerService } from '../location/pathfinding-worker.service';
 import { GlobalRouteGridService } from './global-route-grid.service';
+import type { CorridorMeasurement } from './corridor-refit';
 
 /**
  * Interface for pathfinding services (OsmStreetService or DevStreetProvider)
@@ -214,7 +215,7 @@ export class PathAndRouteService {
 
   /**
    * Each spawn's route as the street network gives it, before the measured
-   * widths split its segments. measureStreetClearance walks these.
+   * widths split its segments. beginClearanceMeasurement walks these.
    */
   private streetRoutes = new Map<string, StreetRoute>();
 
@@ -222,12 +223,15 @@ export class PathAndRouteService {
    * What the tiles showed per street segment (segmentKey): the free space
    * left and right of the direction of travel at each station, NaN where no
    * fine tile was loaded, and what each station's rays found (`probes`, for
-   * explainCorridorAt). Measured once per location, measureStreetClearance
-   * measures the NaN stations again. Every route build fits its corridor
-   * from these (fitRoute), so the corridor settings apply without new rays.
+   * explainCorridorAt). Measured once per location, a later
+   * beginClearanceMeasurement measures the NaN stations again. Every route
+   * build fits its corridor from these (fitRoute), so the corridor settings
+   * apply without new rays.
    */
   private clearanceBySegment = new Map<string, { left: number[]; right: number[]; probes: (StationProbe | null)[] }>();
 
+  /** The clearance measurement under way, see beginClearanceMeasurement. */
+  private clearanceRun: ClearanceRun | null = null;
 
   /** 3D route lines for visualization (using Line2 for proper line width) */
   private routeLines: Line2[] = [];
@@ -275,6 +279,7 @@ export class PathAndRouteService {
     this.streetNetwork = streetNetwork;
     this.edgeIndex = null;
     this.streetRoutes.clear();
+    this.cancelClearanceRun('location changed');
     this.clearanceBySegment.clear();
     this.baseCoords = baseCoords;
     this.routesVisible = routesVisible;
@@ -327,10 +332,12 @@ export class PathAndRouteService {
   }
 
   /**
-   * Clear all cached paths
+   * Clear all cached paths. The routes are about to be replaced, so a
+   * clearance measurement of the old ones is cancelled.
    */
   clearCache(): void {
     this.cachedPaths.clear();
+    this.cancelClearanceRun('routes replaced');
   }
 
   /**
@@ -570,7 +577,7 @@ export class PathAndRouteService {
     }
 
     // Corridor half width per segment and side, from the free space the
-    // tiles showed (measureStreetClearance), the street's width where they
+    // tiles showed (beginClearanceMeasurement), the street's width where they
     // could not tell. Cells and enemy spread read it off the cached
     // waypoints, the cells also whether the segment is on a bridge or in a
     // tunnel.
@@ -736,11 +743,12 @@ export class PathAndRouteService {
   }
 
   /**
-   * Forget what the tiles showed, so the next measureStreetClearance
+   * Forget what the tiles showed, so the next beginClearanceMeasurement
    * measures every station again: after a settings change that moves the
-   * stations or the rays (MEASUREMENT_KEYS).
+   * stations or the rays (MEASUREMENT_KEYS). A run under way is cancelled.
    */
   clearCorridorMeasurements(): void {
+    this.cancelClearanceRun('measurements cleared');
     this.clearanceBySegment.clear();
   }
 
@@ -890,40 +898,40 @@ export class PathAndRouteService {
   }
 
   /**
-   * Measure how much room the tiles leave left and right of every route
-   * segment, so the next route build fits the corridor to it: the free space
-   * on each side sets the half width there, up to
+   * Start measuring how much room the tiles leave left and right of every
+   * route segment, so the next route build fits the corridor to it: the
+   * free space on each side sets the half width there, up to
    * `corridorConfig.maxHalfWidth` (fitCorridorPieces). A station every
    * `stationSpacing` metres with a low and a high horizontal ray to each
-   * side (TerrainQueries.measureStreetClearance); a station without fine tiles
-   * keeps the street width. Stations measured before are kept and only the
-   * ones without fine tiles are measured again, so a segment whose tiles had
-   * only partly loaded gets the rest on a later run instead of keeping the
-   * street width there for the whole location.
+   * side (TerrainQueries.measureStreetClearance); a station without fine
+   * tiles keeps the street width. Stations measured before are kept and only
+   * the ones without fine tiles are measured again, so a segment whose tiles
+   * had only partly loaded gets the rest on a later run instead of keeping
+   * the street width there for the whole location.
    *
-   * Meant to run once per location, when the corridor tiles have loaded:
-   * the grid is rebuilt from the result, so it must not run under placed
-   * towers.
+   * The run takes the stations in the order the routes list them, as many
+   * per `step(budgetMs)` as fit in the budget, and hands them over in
+   * `commit()`, which reports whether a corridor changed (routes and grid
+   * then need a rebuild). Until then routes built in between keep the
+   * corridor as it was. A later station may see finer tiles than an earlier
+   * one if tiles load in between; each keeps what it saw, as in one go.
+   * Replacing the routes (clearCache, initialize, dispose) or forgetting
+   * the measurements cancels the run, and so does starting another.
    *
-   * @returns true when a corridor changed, i.e. routes and grid need a
-   *   rebuild
+   * The grid is rebuilt from the result, so it must not run under placed
+   * towers (CorridorRefit).
    */
-  measureStreetClearance(): boolean {
+  beginClearanceMeasurement(): CorridorMeasurement {
+    this.cancelClearanceRun('superseded');
     const engine = this.engine;
-    if (!engine) return false;
-
-    const t0 = performance.now();
-    const before = this.fittedCorridors();
-    let segments = 0;
-    let stations = 0;
-    let unmeasured = 0;
-    // Of those, stations whose tile is still coarser than maxTileError.
-    let coarse = 0;
+    const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
+    const maxHalfWidth = corridorConfig.maxHalfWidth;
+    const segments: ClearanceSegment[] = [];
     // Routes from several spawns share segments; one pass over each is enough.
     const seen = new Set<string>();
-    const rayHeights = [corridorConfig.rayHeightLow, corridorConfig.rayHeightHigh];
 
     for (const { points, onBridge, inTunnel } of this.streetRoutes.values()) {
+      if (!engine) break;
       for (let i = 0; i < points.length - 1; i++) {
         // In a tunnel the rays would hit its walls and the column the ground
         // above: the street width stays.
@@ -944,45 +952,43 @@ export class PathAndRouteService {
         if (length < 0.01) continue;
 
         const count = Math.max(1, Math.round(length / corridorConfig.stationSpacing));
-        const left = known ? [...known.left] : new Array<number>(count).fill(NaN);
-        const right = known ? [...known.right] : new Array<number>(count).fill(NaN);
-        const probes = known ? [...known.probes] : new Array<StationProbe | null>(count).fill(null);
-        let tried = 0;
-        let measured = 0;
-        for (let k = 0; k < count; k++) {
-          if (!Number.isNaN(left[k])) continue;
-          tried++;
-          const t = (k + 0.5) / count;
-          // (-dz, dx) points right of the direction of travel.
-          const probe = engine.terrain.measureStreetClearance(
-            start.x + dx * t, start.z + dz * t, -dz, dx, rayHeights, corridorConfig.maxHalfWidth, onBridge[i],
-          );
-          probes[k] = probe;
-          if (probe?.unmeasured === 'coarse tile') coarse++;
-          const free = probeFreeSpace(probe, 'left');
-          if (Number.isNaN(free)) continue;
-          left[k] = free;
-          right[k] = probeFreeSpace(probe, 'right');
-          measured++;
-        }
-        segments++;
-        stations += tried;
-        unmeasured += tried - measured;
-        // Stored with its unmeasured stations as well: they keep their
-        // place, so the smoothing along the route does not join what lies
-        // either side of them.
-        this.clearanceBySegment.set(key, { left, right, probes });
+        segments.push({
+          key, x: start.x, z: start.z, dx, dz, count, onBridge: onBridge[i],
+          left: known ? [...known.left] : new Array<number>(count).fill(NaN),
+          right: known ? [...known.right] : new Array<number>(count).fill(NaN),
+          probes: known ? [...known.probes] : new Array<StationProbe | null>(count).fill(null),
+        });
       }
     }
 
-    const changed = this.fittedCorridors() !== before;
-    if (segments > 0) {
-      console.warn(
-        `[Corridor] clearance: segments=${segments} stations=${stations} unmeasured=${unmeasured} (coarse tile ${coarse}) ` +
-        `rays=${2 * rayHeights.length * (stations - unmeasured)} changed=${changed} in ${(performance.now() - t0).toFixed(1)}ms`,
-      );
+    const run: ClearanceRun = new ClearanceRun(
+      segments,
+      2 * rayHeights.length,
+      (x, z, acrossX, acrossZ, onDeck) =>
+        engine?.terrain.measureStreetClearance(x, z, acrossX, acrossZ, rayHeights, maxHalfWidth, onDeck) ?? null,
+      (measured) => this.storeClearance(run, measured),
+    );
+    this.clearanceRun = run;
+    return run;
+  }
+
+  /** Hand what a finished run measured to the corridor; true when that changes one. */
+  private storeClearance(run: ClearanceRun, segments: readonly ClearanceSegment[]): boolean {
+    if (this.clearanceRun === run) this.clearanceRun = null;
+    const before = this.fittedCorridors();
+    // Stored with their unmeasured stations as well: they keep their
+    // place, so the smoothing along the route does not join what lies
+    // either side of them.
+    for (const { key, left, right, probes } of segments) {
+      this.clearanceBySegment.set(key, { left, right, probes });
     }
-    return changed;
+    return this.fittedCorridors() !== before;
+  }
+
+  /** Cancel the clearance measurement under way, if any; nothing of it is stored. */
+  private cancelClearanceRun(reason: string): void {
+    this.clearanceRun?.cancel(reason);
+    this.clearanceRun = null;
   }
 
   /**
@@ -1469,6 +1475,7 @@ export class PathAndRouteService {
    * Dispose all route lines and cleanup
    */
   dispose(): void {
+    this.cancelClearanceRun('disposed');
     this.clearRouteLines();
     this.clearCache();
     this.pathfindingWorker.dispose();
@@ -1532,5 +1539,139 @@ export class PathAndRouteService {
     result.push(path[path.length - 1]);
 
     return result;
+  }
+}
+
+/** A segment a clearance run measures: where its stations stand and what they found. */
+interface ClearanceSegment {
+  key: string;
+  /** Local start of the segment and the step to its end. */
+  x: number;
+  z: number;
+  dx: number;
+  dz: number;
+  /** Stations on the segment; station k stands at (k + 0.5) / count of it. */
+  count: number;
+  onBridge: boolean;
+  /** Free space per station and side, NaN until measured, and what each station's rays found. */
+  left: number[];
+  right: number[];
+  probes: (StationProbe | null)[];
+}
+
+/**
+ * One clearance measurement, see PathAndRouteService.beginClearanceMeasurement.
+ * Works through the stations without a measurement one after the other, so
+ * a run cut into slices casts the same rays in the same order as one that
+ * takes them all at once. Keeps what it found to itself until commit().
+ */
+class ClearanceRun implements CorridorMeasurement {
+  /** The next station to look at. */
+  private segment = 0;
+  private station = 0;
+  /** Stations the run set out to measure, for the log of a cancelled run. */
+  private readonly planned: number;
+  private probed = 0;
+  private unmeasured = 0;
+  /** Of those, stations whose tile is still coarser than maxTileError. */
+  private coarse = 0;
+  private slices = 0;
+  /** Main-thread time in step() and commit(). */
+  private busyMs = 0;
+  private readonly startedAt = performance.now();
+  private isOpen = true;
+
+  constructor(
+    private readonly segments: ClearanceSegment[],
+    /** Rays a measured station casts, for the log. */
+    private readonly raysPerStation: number,
+    private readonly probeAt: (x: number, z: number, acrossX: number, acrossZ: number, onDeck: boolean) => StationProbe | null,
+    /** Stores what the run measured; true when that changes a corridor. */
+    private readonly store: (segments: readonly ClearanceSegment[]) => boolean,
+  ) {
+    let planned = 0;
+    for (const segment of segments) {
+      for (let k = 0; k < segment.count; k++) if (Number.isNaN(segment.left[k])) planned++;
+    }
+    this.planned = planned;
+  }
+
+  get open(): boolean {
+    return this.isOpen;
+  }
+
+  step(budgetMs: number): boolean {
+    if (!this.isOpen) return true;
+    const start = performance.now();
+    this.slices++;
+    let here = 0;
+    for (let segment = this.next(); segment; segment = this.next()) {
+      // Stop before a station that would run past the budget, going by what
+      // the stations so far cost (a column and a ray per height and side).
+      const elapsed = performance.now() - start;
+      if (here > 0 && elapsed + (this.busyMs + elapsed) / this.probed > budgetMs) break;
+      this.probe(segment);
+      here++;
+    }
+    this.busyMs += performance.now() - start;
+    return this.next() === null;
+  }
+
+  commit(): boolean {
+    if (!this.isOpen) return false;
+    this.isOpen = false;
+    const start = performance.now();
+    const changed = this.store(this.segments);
+    this.busyMs += performance.now() - start;
+    if (this.segments.length > 0) {
+      console.warn(
+        `[Corridor] clearance: segments=${this.segments.length} stations=${this.probed} unmeasured=${this.unmeasured} ` +
+        `(coarse tile ${this.coarse}) rays=${this.raysPerStation * (this.probed - this.unmeasured)} changed=${changed} ` +
+        `in ${this.busyMs.toFixed(1)}ms slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms`,
+      );
+    }
+    return changed;
+  }
+
+  cancel(reason: string): void {
+    if (!this.isOpen) return;
+    this.isOpen = false;
+    if (this.segments.length === 0) return;
+    console.warn(
+      `[Corridor] clearance cancelled (${reason}): stations=${this.probed} of ${this.planned} in ${this.busyMs.toFixed(1)}ms ` +
+      `slices=${this.slices} wall=${(performance.now() - this.startedAt).toFixed(1)}ms, corridor unchanged`,
+    );
+  }
+
+  /** The segment of the next station without a measurement, `station` its index there; null when none is left. */
+  private next(): ClearanceSegment | null {
+    while (this.segment < this.segments.length) {
+      const segment = this.segments[this.segment];
+      while (this.station < segment.count) {
+        if (Number.isNaN(segment.left[this.station])) return segment;
+        this.station++;
+      }
+      this.segment++;
+      this.station = 0;
+    }
+    return null;
+  }
+
+  /** Measure the station next() found and move past it. */
+  private probe(segment: ClearanceSegment): void {
+    const k = this.station++;
+    const t = (k + 0.5) / segment.count;
+    // (-dz, dx) points right of the direction of travel.
+    const probe = this.probeAt(segment.x + segment.dx * t, segment.z + segment.dz * t, -segment.dz, segment.dx, segment.onBridge);
+    segment.probes[k] = probe;
+    this.probed++;
+    if (probe?.unmeasured === 'coarse tile') this.coarse++;
+    const free = probeFreeSpace(probe, 'left');
+    if (Number.isNaN(free)) {
+      this.unmeasured++;
+      return;
+    }
+    segment.left[k] = free;
+    segment.right[k] = probeFreeSpace(probe, 'right');
   }
 }

@@ -96,6 +96,27 @@ describe('VisualizationFacadeService', () => {
   let towerCount: number;
   let sweepFrames: number;
 
+  type Fn = ReturnType<typeof vi.fn>;
+  /** The corridor measurement fake: slices a run takes, whether it changes a corridor, the runs so far. */
+  let corridor: { slices: number; changed: boolean; runs: { open: boolean; step: Fn; commit: Fn; cancel: Fn }[] };
+  function corridorRun() {
+    let left = corridor.slices;
+    const run = {
+      open: true,
+      step: vi.fn(() => !run.open || --left <= 0),
+      commit: vi.fn(() => {
+        const changed = run.open && corridor.changed;
+        run.open = false;
+        return changed;
+      }),
+      cancel: vi.fn(() => {
+        run.open = false;
+      }),
+    };
+    corridor.runs.push(run);
+    return run;
+  }
+
   const scene = {
     add: vi.fn((m: { parent: unknown }) => { m.parent = scene; }),
     remove: vi.fn((m: { parent: unknown }) => { m.parent = null; }),
@@ -183,7 +204,7 @@ describe('VisualizationFacadeService', () => {
     getRouteDetail: vi.fn(() => '1.2 km'),
     refreshRouteLines: vi.fn(),
     toggleRouteLinesVisibility: vi.fn(),
-    measureStreetClearance: vi.fn(() => false),
+    beginClearanceMeasurement: vi.fn(() => corridorRun()),
     hasUnmeasuredStations: vi.fn(() => false),
     clearCorridorMeasurements: vi.fn(),
     explainCorridorAt: vi.fn(() => null),
@@ -344,7 +365,7 @@ describe('VisualizationFacadeService', () => {
     routeAnimation.isRunning.mockReturnValue(false);
     cameraFraming.getLastFrame.mockReturnValue(null);
     cameraFraming.computeFrameWithEngine.mockReturnValue(FRAME);
-    pathRoute.measureStreetClearance.mockReturnValue(false);
+    corridor = { slices: 1, changed: false, runs: [] };
     pathRoute.hasUnmeasuredStations.mockReturnValue(false);
     cameraControl.toggleDebugFraming.mockReturnValue(true);
 
@@ -652,7 +673,7 @@ describe('VisualizationFacadeService', () => {
     });
 
     it('rebuilds routes and cells when the first corridor fit changes a width', async () => {
-      pathRoute.measureStreetClearance.mockReturnValue(true);
+      corridor.changed = true;
 
       await facade.scheduleOverlayHeightUpdate();
 
@@ -667,14 +688,42 @@ describe('VisualizationFacadeService', () => {
 
     it('does not rebuild when the fit changes nothing or towers stand', async () => {
       await facade.scheduleOverlayHeightUpdate();
-      expect(pathRoute.measureStreetClearance).toHaveBeenCalledTimes(1);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
       expect(grid.clear).not.toHaveBeenCalled();
 
       towerCount = 1;
-      pathRoute.measureStreetClearance.mockReturnValue(true);
+      corridor.changed = true;
       await facade.scheduleOverlayHeightUpdate();
-      expect(pathRoute.measureStreetClearance).toHaveBeenCalledTimes(1);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
       expect(grid.clear).not.toHaveBeenCalled();
+    });
+
+    it('measures the corridor a slice per frame and rebuilds once it is done', async () => {
+      corridor.slices = 3;
+      corridor.changed = true;
+
+      await facade.scheduleOverlayHeightUpdate();
+      expect(corridor.runs[0].step).toHaveBeenCalledTimes(1);
+      runFrames();
+      expect(grid.clear).not.toHaveBeenCalled();
+      runFrames();
+
+      expect(corridor.runs[0].step).toHaveBeenCalledTimes(3);
+      expect(grid.clear).toHaveBeenCalledTimes(1);
+      expect(frames.size).toBe(0);
+    });
+
+    it('drops a measurement under way on dispose', async () => {
+      corridor.slices = 3;
+      corridor.changed = true;
+      await facade.scheduleOverlayHeightUpdate();
+
+      facade.dispose();
+      runFrames(3);
+
+      expect(corridor.runs[0].cancel).toHaveBeenCalledWith('disposed');
+      expect(grid.clear).not.toHaveBeenCalled();
+      expect(frames.size).toBe(0);
     });
   });
 
@@ -889,12 +938,12 @@ describe('VisualizationFacadeService', () => {
 
     it('re-measures the corridor once a batch has settled', () => {
       pathRoute.hasUnmeasuredStations.mockReturnValue(true);
-      pathRoute.measureStreetClearance.mockReturnValue(true);
+      corridor.changed = true;
 
       facade.onTilesLoaded();
       runFrames(2);
 
-      expect(pathRoute.measureStreetClearance).toHaveBeenCalledTimes(1);
+      expect(pathRoute.beginClearanceMeasurement).toHaveBeenCalledTimes(1);
       expect(grid.clear).toHaveBeenCalled();
     });
 

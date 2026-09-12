@@ -1,5 +1,24 @@
 import { MEASUREMENT_KEYS, corridorConfig } from '../../utils/route-corridor';
 
+/**
+ * A measurement of the corridor clearance under way
+ * (PathAndRouteService.beginClearanceMeasurement). The corridor in use stays
+ * as it was until commit().
+ */
+export interface CorridorMeasurement {
+  /** Neither committed nor cancelled yet. */
+  readonly open: boolean;
+  /**
+   * Measure stations for up to about `budgetMs`, at least one. True once
+   * none is left, or when the run is closed.
+   */
+  step(budgetMs: number): boolean;
+  /** Store what was measured; true when that changes a corridor. False for a closed run. */
+  commit(): boolean;
+  /** Drop the run and what it measured; `reason` goes to the log. */
+  cancel(reason: string): void;
+}
+
 /** What CorridorRefit needs from the game; VisualizationFacadeService wires it. */
 export interface CorridorRefitHost {
   /** A location is loaded: there are routes and cells to rebuild. */
@@ -9,12 +28,8 @@ export interface CorridorRefitHost {
   waveRunning(): boolean;
   /** The intro camera flight is running. */
   introRunning(): boolean;
-  /**
-   * Measure the stations without a measurement
-   * (PathAndRouteService.measureStreetClearance); true when a corridor
-   * changed.
-   */
-  measure(): boolean;
+  /** Start measuring the stations without a measurement (PathAndRouteService.beginClearanceMeasurement). */
+  beginMeasurement(): CorridorMeasurement;
   /** Stations waiting for finer tiles (PathAndRouteService.hasUnmeasuredStations). */
   hasUnmeasured(): boolean;
   /** Forget every measurement, so the next one takes all stations again. */
@@ -25,6 +40,8 @@ export interface CorridorRefitHost {
   cellCount(): number;
   /** Monotonic clock, ms. */
   now(): number;
+  /** Call `tick` once per frame for as long as it returns true; the function returned stops it. */
+  eachFrame(tick: () => boolean): () => void;
 }
 
 /**
@@ -41,13 +58,34 @@ export interface CorridorRefitHost {
  * None of them runs while towers stand, enemies walk or a wave runs:
  * towers keep their LOS answers in the cells a rebuild replaces, enemies
  * their cell and their route.
+ *
+ * `fitToTiles` and `remeasure` measure in slices of MEASURE_BUDGET_MS, one
+ * per frame, instead of blocking the main thread for the whole run. Routes
+ * and cells keep the corridor they have until the run is done; then it is
+ * stored and, where it changes a corridor, rebuilt in the same frame. A
+ * tower, an enemy or a wave that turns up before that cancels the run, so
+ * they always meet the corridor that was there when they arrived.
  */
 export class CorridorRefit {
   /** Shortest time between two re-measurements after tile loads. */
   static readonly REMEASURE_INTERVAL_MS = 3000;
 
+  /**
+   * Main-thread time per frame for the measurement. A station (a column and
+   * four rays) cost about 1.7 ms in the city-centre playtest of 2026-09-12
+   * (533 ms for 316 stations): two stations a frame there. Below the 5 ms of
+   * the terrain sweep (VisualizationFacadeService.TERRAIN_REFRESH_BUDGET_MS),
+   * which runs in the same frames after a tile load, so both together stay
+   * under 10 ms of a 16.7 ms frame. Nothing waits for the run, the corridor
+   * in use holds until it is done.
+   */
+  static readonly MEASURE_BUDGET_MS = 4;
+
   /** When `remeasure` last measured, `now()` ms. */
   private lastRemeasure = -Infinity;
+
+  /** The measurement under way and what stops its frames. */
+  private running: { measurement: CorridorMeasurement; stop: () => void } | null = null;
 
   constructor(private readonly host: CorridorRefitHost) {}
 
@@ -61,37 +99,49 @@ export class CorridorRefit {
 
   /**
    * Measure the free space along every route and rebuild where it gives
-   * other widths than before.
-   *
-   * @returns true when routes and cells were rebuilt
+   * other widths than before. The first slice runs right away, the rest in
+   * the following frames; a run already under way is left to finish.
    */
-  fitToTiles(): boolean {
-    if (this.rebuildBlocker()) return false;
-    if (!this.host.measure()) return false;
-    this.host.rebuild();
-    return true;
+  fitToTiles(): void {
+    if (this.running?.measurement.open) return;
+    // A run the routes replaced (PathAndRouteService cancelled it).
+    this.running?.stop();
+    this.running = null;
+    if (this.rebuildBlocker()) return;
+
+    const measurement = this.host.beginMeasurement();
+    const slice = (): boolean => {
+      const blocker = this.rebuildBlocker();
+      if (!blocker && !measurement.step(CorridorRefit.MEASURE_BUDGET_MS)) return true;
+      if (this.running?.measurement === measurement) this.running = null;
+      if (blocker) measurement.cancel(blocker);
+      else if (measurement.commit()) this.host.rebuild();
+      return false;
+    };
+    if (slice()) this.running = { measurement, stop: this.host.eachFrame(slice) };
   }
 
   /**
    * Measure again the stations that had no fine tile at the last run and
    * rebuild where that changes the corridor. The first measurement does not
    * wait for the corridor tiles, which keep streaming in after it.
-   *
-   * @returns true when routes and cells were rebuilt
    */
-  remeasure(): boolean {
-    if (!this.host.hasUnmeasured()) return false;
-    if (this.rebuildBlocker() || this.host.introRunning()) return false;
+  remeasure(): void {
+    if (!this.host.hasUnmeasured()) return;
+    // The run under way takes those stations.
+    if (this.running?.measurement.open) return;
+    if (this.rebuildBlocker() || this.host.introRunning()) return;
     const now = this.host.now();
-    if (now - this.lastRemeasure < CorridorRefit.REMEASURE_INTERVAL_MS) return false;
+    if (now - this.lastRemeasure < CorridorRefit.REMEASURE_INTERVAL_MS) return;
     this.lastRemeasure = now;
-    return this.fitToTiles();
+    this.fitToTiles();
   }
 
   /**
    * Apply a change of the corridor settings and rebuild with it. Measures
    * again first when the change moves the stations or what the rays see
    * (MEASUREMENT_KEYS); the other settings only reshape what was measured.
+   * Measures in one go: the console waits for the answer.
    *
    * @param apply Changes `corridorConfig`, returns the problems that kept it from doing so
    * @returns what happened, for the console
@@ -105,10 +155,28 @@ export class CorridorRefit {
     const problems = apply();
     if (problems.length > 0) return `Not changed: ${problems.join('; ')}.`;
 
+    // A run under way took its stations and rays from the old settings.
+    this.cancel('settings changed');
     const remeasure = MEASUREMENT_KEYS.some((key) => before[key] !== corridorConfig[key]);
     if (remeasure) this.host.clearMeasurements();
-    this.host.measure();
+    const measurement = this.host.beginMeasurement();
+    measurement.step(Infinity);
+    measurement.commit();
     this.host.rebuild();
     return `Corridor rebuilt${remeasure ? ', measured again' : ''}: ${this.host.cellCount()} cells. Widths per stretch: __routes.describe()`;
+  }
+
+  /** Stop for good, from the facade's dispose(). */
+  dispose(): void {
+    this.cancel('disposed');
+  }
+
+  /** Drop the measurement under way; the corridor stays as it was. */
+  private cancel(reason: string): void {
+    const running = this.running;
+    if (!running) return;
+    this.running = null;
+    running.stop();
+    running.measurement.cancel(reason);
   }
 }
