@@ -19,7 +19,7 @@
  */
 
 import { describe, it, expect } from 'vitest';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { readFileSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -33,6 +33,7 @@ import {
   vatFrameCount,
   vatLayout,
 } from '../../src/app/three-engine/renderers/instanced-enemy/vat-baker';
+import { writeGeneratedFile } from '../generated-file';
 import { inspectModel, type ImageInfo, type MeshInfo, type ModelInfo } from './model-inspect';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -367,7 +368,8 @@ describe('enemy model budget', () => {
     expect(begin, `${BEGIN} in ${DOC_PATH}`).toBeGreaterThanOrEqual(0);
     expect(end, `${END} after ${BEGIN}`).toBeGreaterThan(begin);
 
-    const next = `${doc.slice(0, begin + BEGIN.length)}\n\n${render(rows)}\n\n${doc.slice(end)}`;
-    if (next !== doc) writeFileSync(DOC_PATH, next);
+    // The doc is CRLF in an autocrlf checkout and the tables are LF, so write
+    // only real changes and keep the doc's own line endings.
+    writeGeneratedFile(DOC_PATH, `${doc.slice(0, begin + BEGIN.length)}\n\n${render(rows)}\n\n${doc.slice(end)}`);
   }, 60_000);
 });
